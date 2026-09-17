@@ -202,8 +202,8 @@ test("registerIdentity submits the registration request and persists the local b
     expect(request.rootContainerId).toBe(containerId);
     expect(request.signingPublicKey).toBe(signingKeyPair.signingPublicKey);
     expect(request.encapsulationPublicKey).toBe(encapsulationKeyPair.publicKey);
-    expect(request.initialAdminGroup.name).toBe("Admins");
-    expect(request.initialMemberGroup.name).toBe("Members");
+    expect(request.initialAdminGroup).not.toHaveProperty("name");
+    expect(request.initialMemberGroup).not.toHaveProperty("name");
     expect(request.initialOrganizationPolicy.state.principalType).toBe(
       "organization",
     );
@@ -333,7 +333,7 @@ test("registerIdentity submits the registration request and persists the local b
           response?.organizationMetadataContainer?.metadataDocument.id,
         name: "Organization Metadata",
         organizationId: request.organizationId,
-        parentId: containerId,
+        parentId: null,
         systemSlot: request.initialOrganizationMetadataContainer.systemSlot,
       }),
     );

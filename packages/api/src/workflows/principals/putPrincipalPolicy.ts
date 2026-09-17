@@ -257,7 +257,7 @@ export async function putPrincipalPolicyInTransaction(
         ),
     },
   );
-  await assertGroupPolicyNamePreserved(tx, input);
+  await assertGroupPolicyNamePreserved(tx, input, previousState);
   // Gate after authorization so an unauthorized signer still gets the
   // authorization error, not a billing error.
   await assertPrincipalOrganizationIsSyncEntitled(

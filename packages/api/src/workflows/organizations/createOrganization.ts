@@ -29,14 +29,8 @@ import { OrganizationProvisioningError } from "./provisionOrganizationError";
 import { toOrganizationProvisioningResponse } from "./provisionOrganizationResponse";
 import { validateOrganizationProvisioningInput } from "./provisionOrganizationValidation";
 
-/**
- * Server-side label for an organization created after registration. The real
- * display name lives in the encrypted organization profile document, so the
- * database label is only a coarse placeholder.
- */
 const ADDITIONAL_ORGANIZATION_OPTIONS: ProvisionOrganizationOptions = {
   initialBilling: "local",
-  organizationName: "Organization",
 };
 
 function nativeRestoreRequestSha256(input: CreateOrganizationRequest): string {

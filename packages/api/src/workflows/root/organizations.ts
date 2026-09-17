@@ -8,13 +8,11 @@ import { and, desc, eq, sql } from "drizzle-orm";
 
 const selection = {
   organizationId: organizations.id,
-  name: organizations.name,
   createdAt: organizations.createdAt,
   billingStatus: organizationBilling.status,
 };
 function summarize(row: {
   organizationId: string;
-  name: string;
   createdAt: Date;
   billingStatus: RootOrganizationSummaryResponse["billingStatus"];
 }): RootOrganizationSummaryResponse {
@@ -44,9 +42,7 @@ export async function listRootOrganizations(
   },
 ) {
   const afterCreatedAt = sql`(select ${organizations.createdAt} from ${organizations} where ${organizations.id} = ${input.afterId})`;
-  // Literal substring matching: '%' and '_' in organization names are not wildcards.
   const search = input.search?.trim().toLowerCase();
-  const pattern = `%${search?.replace(/[!%_]/gu, "!$&") ?? ""}%`;
   const rows = await executor
     .select(selection)
     .from(organizations)
@@ -60,7 +56,7 @@ export async function listRootOrganizations(
           ? undefined
           : sql`(${organizations.createdAt} < ${afterCreatedAt} or (${organizations.createdAt} = ${afterCreatedAt} and ${organizations.id} < ${input.afterId}))`,
         search
-          ? sql`(lower(${organizations.name}) like ${pattern} escape '!' or lower(cast(${organizations.id} as text)) = ${search})`
+          ? sql`lower(cast(${organizations.id} as text)) = ${search}`
           : undefined,
       ),
     )

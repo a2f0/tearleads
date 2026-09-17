@@ -21,6 +21,14 @@ export type { EncryptedEnvelope, RecipientEntry } from "./encapsulation/types";
 export { unwrapDek } from "./encapsulation/unwrapDek";
 export { wrapDekForRecipients } from "./encapsulation/wrapDek";
 export { toFingerprint } from "./fingerprint";
+export {
+  decryptGroupMetadata,
+  encodeBuiltinGroupMetadata,
+  encryptGroupMetadata,
+  type GroupMetadata,
+  type GroupMetadataKey,
+  readGroupMetadata,
+} from "./groupMetadata";
 export { bytesToHex, hexToBytes } from "./hex";
 export {
   createIdentitySeedPhrase,

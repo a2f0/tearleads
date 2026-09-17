@@ -13,7 +13,6 @@ import {
   documentContentKeyTargets,
   documents,
   organizationBilling,
-  organizations,
   users,
 } from "@tearleads/api-shared/schema";
 import { createTestUser, type TestUser } from "@tearleads/bob-and-alice";
@@ -65,7 +64,7 @@ import {
   isContainerMutationResponse,
   type PrincipalPolicyMutationResponse,
 } from "@tearleads/validators/response";
-import { and, eq, inArray, isNull } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 import invariant from "invariant";
 import { authenticate } from "../../../test/helpers/authenticate";
 import {
@@ -86,7 +85,6 @@ import {
   requestSingleContainerParentLane as listContainersForUser,
   readContainerParentLanePage as readLanePage,
 } from "../../../test/helpers/containerParentLaneQuery";
-import { buildRootContainerRekeyMutation } from "../../../test/helpers/containerRekey";
 import { expectDocumentAccessHistoryAbsent } from "../../../test/helpers/documentAccessHistory";
 import { groupPolicyPayload } from "../../../test/helpers/groupPolicyPayload";
 import {
@@ -99,6 +97,8 @@ import {
   getDefaultOrganizationId,
   joinOrg,
 } from "../../../test/helpers/organizationMembership";
+import { buildGroupMembershipContainerMutations } from "../../../test/helpers/organizationMembershipGrants";
+import { getRootContainerForUser } from "../../../test/helpers/personalRootContainer";
 import { createPrincipalMemberEnvelopes } from "../../../test/helpers/principalMemberEnvelopes";
 import {
   loadVerifiedPrincipalPolicy,
@@ -116,12 +116,6 @@ import {
   listContainerKeyWraps,
 } from "../../access/read/containerKekStore";
 import { routeApp } from "../../routeApp";
-
-interface RootContainerFixture {
-  readonly adminGroupId: string;
-  readonly id: string;
-  readonly organizationId: string;
-}
 
 interface StoredContainerFixture {
   readonly bundle: AccessManifestBundleWire;
@@ -149,44 +143,6 @@ function test(name: string, run: TestCallback): void {
 interface SeededDownstreamContentKeyRows {
   readonly blobId: string;
   readonly documentId: string;
-}
-
-async function getRootContainerForUser(
-  userId: string,
-): Promise<RootContainerFixture> {
-  const [user] = await db
-    .select({
-      defaultOrganizationId: users.defaultOrganizationId,
-    })
-    .from(users)
-    .where(eq(users.id, userId))
-    .limit(1);
-
-  invariant(user, "expected user row");
-
-  const [rootContainer] = await db
-    .select({
-      id: containers.id,
-      organizationId: containers.organizationId,
-    })
-    .from(containers)
-    .where(
-      and(
-        eq(containers.organizationId, user.defaultOrganizationId),
-        isNull(containers.parentId),
-      ),
-    )
-    .limit(1);
-
-  invariant(rootContainer, "expected root container row");
-  const [organization] = await db
-    .select({ adminGroupId: organizations.adminGroupId })
-    .from(organizations)
-    .where(eq(organizations.id, rootContainer.organizationId))
-    .limit(1);
-  invariant(organization, "expected registered organization");
-
-  return { ...rootContainer, adminGroupId: organization.adminGroupId };
 }
 
 async function registerAndAuthenticate(user: TestUser): Promise<void> {
@@ -365,7 +321,8 @@ async function putGroupPrincipalPolicy(input: {
     payloadCiphertext: await groupPolicyPayload(
       input.principalId,
       projection,
-      isInitialState ? "Test group" : undefined,
+      undefined,
+      await getDefaultOrganizationId(input.actor.userId),
     ),
     signedAt:
       input.signedAt ?? new Date("2026-04-30T00:00:00.000Z").toISOString(),
@@ -460,7 +417,6 @@ async function putGroupPrincipalPolicy(input: {
             organizationId: actor.organizationId,
             request: {
               groupId: input.principalId,
-              name: "Test group",
               initialGroupPolicy: policyRequest,
             },
           })),
@@ -2399,15 +2355,11 @@ test("Admins rotation rekeys its built-in grant without changing access", async 
     prevStateHash: adminPolicy.stateHash,
     principalId: adminPolicy.principalId,
     principalKem: generateKemSeedAndKeyPair(),
-    prepareContainerMutations: async ({ policy }) => [
-      (
-        await buildRootContainerRekeyMutation({
-          previous: root,
-          replacementPrincipalPolicy: policy,
-          signer: owner,
-        })
-      ).request,
-    ],
+    prepareContainerMutations: ({ policy }) =>
+      buildGroupMembershipContainerMutations({
+        actor: owner,
+        nextPolicy: policy,
+      }),
     signedAt: "2026-04-30T00:00:30.000Z",
     version: adminPolicy.version + 1,
   });

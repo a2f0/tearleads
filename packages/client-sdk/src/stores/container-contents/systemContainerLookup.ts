@@ -3,7 +3,10 @@ import type { ContainerState } from "./syncAgent";
 import type { ContainerContentsStoreState } from "./types";
 
 function isRootState(containerState: ContainerState): boolean {
-  return containerState.container.parentId === null;
+  return (
+    containerState.container.parentId === null &&
+    !containerState.container.systemSlot
+  );
 }
 
 function isPreAuthRootState(containerState: ContainerState): boolean {
@@ -76,6 +79,24 @@ export function findSystemContainerStateForRoot(
     )
       continue;
     return containerState;
+  }
+  return null;
+}
+
+/** Callers must derive the metadata slot before using this as a destination. */
+export function findOrganizationSystemRootState(
+  state: ContainerContentsStoreState,
+  organizationId: string,
+  systemSlot: ContainerSystemSlot,
+): ContainerState | null {
+  for (const entry of state.containersById.values()) {
+    const container = entry.container;
+    if (
+      container.parentId === null &&
+      container.organizationId === organizationId &&
+      container.systemSlot === systemSlot
+    )
+      return entry;
   }
   return null;
 }

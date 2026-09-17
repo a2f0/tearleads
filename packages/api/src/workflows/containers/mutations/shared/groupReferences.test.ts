@@ -47,7 +47,6 @@ test("verified container grants reject tombstoned groups even if a catalog row e
   const organizationId = crypto.randomUUID();
   await db.insert(groups).values({
     id: groupId,
-    name: "Deleted recipient",
     organizationId,
   });
   await db.insert(organizationGroupTombstones).values({
@@ -73,7 +72,6 @@ test("verified container grants reject a group from another organization", async
   const groupOrganizationId = crypto.randomUUID();
   await db.insert(groups).values({
     id: groupId,
-    name: "Cross-organization recipient",
     organizationId: groupOrganizationId,
   });
 
@@ -173,7 +171,6 @@ test("verified container grants reject non-canonical group IDs", async () => {
   const groupId = crypto.randomUUID();
   await db.insert(groups).values({
     id: groupId,
-    name: "Canonical group",
     organizationId: crypto.randomUUID(),
   });
 

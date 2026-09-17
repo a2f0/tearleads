@@ -10,7 +10,6 @@ import {
   rethrowKeyingVerificationError,
 } from "../../data/keyingProjectionVerification/error";
 import { dedupeReferencedPrincipalStates } from "../../data/keyingProjectionVerification/principalPolicyCache";
-import { persistVerifiedPrincipalPolicyBundlesAtomically } from "../../data/persistence/keyingCheckpointAdvancePersistence";
 import { loadPrincipalPolicyCheckpoint } from "../../data/persistence/keyingCheckpointPersistence";
 import { ensurePrincipalPolicyTables } from "../../data/persistence/principalPolicyPersistence";
 import { loadPrincipalPolicyBundleForReference } from "../../data/persistence/principalPolicyReferencePersistence";
@@ -23,6 +22,10 @@ import {
   loadOrganizationExternalAdminPolicy,
   type VerifiedExternalAdminPolicy,
 } from "./externalAdminPolicy";
+import {
+  persistPrincipalPolicyCacheEntries,
+  retryPrincipalPolicyCacheAdvance,
+} from "./principalPolicyCacheAdvance";
 import { scopeReferencedPolicyForCache } from "./principalPolicyCacheScope";
 import { validatePrincipalPolicyBundleForCache } from "./principalPolicyCacheValidation";
 import {
@@ -90,6 +93,7 @@ async function cacheReferencedPrincipalPolicy(
   organizationId: string,
   stillCurrent: (() => boolean) | undefined,
   loadDirectory: PolicyDirectoryLoader,
+  fresh: boolean,
 ): Promise<VerifiedPrincipalPolicy[]> {
   const localCheckpoint = await loadPrincipalPolicyCheckpoint(
     execSql,
@@ -98,11 +102,13 @@ async function cacheReferencedPrincipalPolicy(
   );
   // Only null is a recoverable local miss. Integrity failures remain typed and
   // must escape rather than being hidden by a canonical network retry.
-  const cachedBundle = await loadPrincipalPolicyBundleForReference(
-    execSql,
-    reference,
-    localCheckpoint,
-  );
+  const cachedBundle = fresh
+    ? null
+    : await loadPrincipalPolicyBundleForReference(
+        execSql,
+        reference,
+        localCheckpoint,
+      );
   let bundle =
     cachedBundle ??
     (await getCurrentPrincipalPolicy(
@@ -161,7 +167,7 @@ async function cacheReferencedPrincipalPolicy(
   const directoryEntries = directory
     ? [{ bundle: directory.bundle, policy: directory.policy }]
     : [];
-  await persistVerifiedPrincipalPolicyBundlesAtomically({
+  await persistPrincipalPolicyCacheEntries({
     entries: [
       ...externalEntries,
       ...directoryEntries,
@@ -230,7 +236,7 @@ async function cachePrincipalPolicyBundle(input: {
   const directoryEntries = directory
     ? [{ bundle: directory.bundle, policy: directory.policy }]
     : [];
-  await persistVerifiedPrincipalPolicyBundlesAtomically({
+  await persistPrincipalPolicyCacheEntries({
     entries: [
       ...externalEntries,
       ...directoryEntries,
@@ -249,6 +255,7 @@ async function runPrincipalPolicyCache<Item, Result>(input: {
     item: Item,
     loadExternalAdminPolicy: () => Promise<VerifiedExternalAdminPolicy | null>,
     loadDirectory: PolicyDirectoryLoader,
+    fresh: boolean,
   ) => Promise<readonly Result[]>;
   readonly dedupe: (items: ReadonlyArray<Item>) => Item[];
   readonly execSql: ExecSql;
@@ -286,11 +293,21 @@ async function runPrincipalPolicyCache<Item, Result>(input: {
     const results = await Promise.all(
       uniqueItems.map(async (item) => {
         try {
-          return await input.cacheItem(
-            item,
-            loadExternalAdminPolicy,
-            loadDirectory,
-          );
+          return await retryPrincipalPolicyCacheAdvance((fresh) => {
+            const reloadDirectory = createPolicyDirectoryLoader(input);
+            let reloadedAuthority: Promise<VerifiedExternalAdminPolicy | null> | null =
+              null;
+            return input.cacheItem(
+              item,
+              fresh
+                ? () =>
+                    (reloadedAuthority ??=
+                      loadOrganizationExternalAdminPolicy(input))
+                : loadExternalAdminPolicy,
+              fresh ? () => reloadDirectory(true) : loadDirectory,
+              fresh,
+            );
+          });
         } catch (error) {
           if (isProjectionVerificationCancelledError(error)) return [];
           await reportAndRethrowKeyingVerificationError(
@@ -338,7 +355,7 @@ async function loadReferencedPrincipalPolicies({
   VerifiedPrincipalPolicy[]
 > {
   return runPrincipalPolicyCache({
-    cacheItem: (reference, loadExternalAdminPolicy, loadDirectory) =>
+    cacheItem: (reference, loadExternalAdminPolicy, loadDirectory, fresh) =>
       cacheReferencedPrincipalPolicy(
         execSql,
         getCurrentPrincipalPolicy,
@@ -349,6 +366,7 @@ async function loadReferencedPrincipalPolicies({
         organizationId,
         stillCurrent,
         loadDirectory,
+        fresh,
       ),
     dedupe: dedupeReferencedPrincipalStates,
     execSql,

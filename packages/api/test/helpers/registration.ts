@@ -26,6 +26,7 @@ import {
   deriveContainerAccessManifest,
   deriveDocumentLinkSetManifest,
   derivePrincipalRecipientKeyEpochId,
+  encodeBuiltinGroupMetadata,
   encryptWithDek,
   generateKemSeedAndKeyPair,
   type PrincipalContainerGrant,
@@ -53,6 +54,7 @@ import {
   deriveOrganizationSystemSlot,
   deriveRosterProfileContainerSystemSlot,
 } from "./provisionedSystemContainer";
+import { createRegistrationMetadataRoot } from "./registrationMetadataRoot";
 import { rootContainerProjectionFromArtifacts } from "./registrationRootProjection";
 import { toWireJson, toWireRecord, toWireRecords } from "./registrationWire";
 
@@ -77,9 +79,7 @@ interface RegistrationBootstrapInput {
 interface RegistrationBootstrap {
   initialRosterProfileContainer?: ProvisionedSystemContainerRequest | undefined;
   initialRosterProfileDocument?: ProvisionedDocumentRequest | undefined;
-  initialOrganizationMetadataContainer?:
-    | ProvisionedSystemContainerRequest
-    | undefined;
+  initialOrganizationMetadataContainer: ProvisionedSystemContainerRequest;
   initialOrganizationProfileDocument?: ProvisionedDocumentRequest | undefined;
   initialRootContainer: ContainerMutationRequest;
   initialRootMetadataDocument: ProvisionedDocumentRequest;
@@ -164,11 +164,7 @@ export async function createInitialAdminGroupRequest(input: {
   const groupId = input.groupId ?? crypto.randomUUID();
   const groupKem = generateKemSeedAndKeyPair();
   const projection = groupProjectionMember(input.userId);
-  const payloadCiphertext = bytesToBase64(
-    new TextEncoder().encode(
-      JSON.stringify({ members: projection, name: input.name ?? "Admins" }),
-    ),
-  );
+  const payloadCiphertext = encodeBuiltinGroupMetadata("admins");
   const [memberEnvelope] = await wrapDekForRecipients(groupKem.secretKey, [
     input.encapsulationPublicKey,
   ]);
@@ -209,7 +205,6 @@ export async function createInitialAdminGroupRequest(input: {
 
   return {
     groupId,
-    name: input.name ?? "Admins",
     initialGroupPolicy: {
       state,
       encryptedPayload: {
@@ -242,11 +237,7 @@ export async function createInitialMemberGroupRequest(input: {
       role: "admin" as const,
     },
   ];
-  const payloadCiphertext = bytesToBase64(
-    new TextEncoder().encode(
-      JSON.stringify({ members: projection, name: "Members" }),
-    ),
-  );
+  const payloadCiphertext = encodeBuiltinGroupMetadata("members");
   const [userEnvelope] = await wrapDekForRecipients(groupKem.secretKey, [
     input.encapsulationPublicKey,
   ]);
@@ -286,7 +277,6 @@ export async function createInitialMemberGroupRequest(input: {
 
   return {
     groupId,
-    name: "Members",
     initialGroupPolicy: {
       state,
       encryptedPayload: {
@@ -1074,68 +1064,41 @@ export async function createRegistrationBootstrap(
       fixtureLabel: "roster-profile",
       initialName: "You",
     });
-  const organizationMetadataContainer = input.organizationProfileDocumentId
-    ? await createChildContainerArtifacts({
-        systemSlot: await deriveOrganizationMetadataContainerSystemSlot(
-          input.organizationId,
-        ),
-        metadataDocumentId:
-          input.organizationMetadataContainerId ?? crypto.randomUUID(),
-        ...(input.memberGroup
-          ? { managedGrant: { accessLevel: "read", group: input.memberGroup } }
-          : {}),
-        parent: rootContainer,
-        parentProjection: rootContainerProjection,
-        signerDeviceId,
-        signerKeyFingerprint,
-        signingPrivateKey: input.signingPrivateKey,
-        userId: input.userId,
-      })
-    : undefined;
-  const organizationMetadataContainerProjection = organizationMetadataContainer
-    ? childContainerProjectionFromArtifacts({
-        child: organizationMetadataContainer,
-        parentProjection: rootContainerProjection,
-      })
-    : undefined;
+  const organizationMetadataContainer = await createRegistrationMetadataRoot({
+    ...input,
+    signerDeviceId,
+    signerKeyFingerprint,
+  });
+  const organizationMetadataContainerProjection =
+    organizationMetadataContainer.projection;
   const organizationMetadataContainerDocument =
-    organizationMetadataContainer && organizationMetadataContainerProjection
-      ? await createRootMetadataDocumentRequest({
-          ...documentAuthor,
-          containerKey: organizationMetadataContainer.containerKey,
-          containerProjection: organizationMetadataContainerProjection,
-          rootMetadataDocumentId:
-            organizationMetadataContainer.metadataDocumentId,
-        })
-      : undefined;
+    await createRootMetadataDocumentRequest({
+      ...documentAuthor,
+      containerKey: organizationMetadataContainer.containerKey,
+      containerProjection: organizationMetadataContainerProjection,
+      rootMetadataDocumentId: organizationMetadataContainer.metadataDocumentId,
+    });
   const initialOrganizationMetadataContainer =
-    organizationMetadataContainer &&
-    organizationMetadataContainerProjection &&
-    organizationMetadataContainerDocument
-      ? await createProvisionedMetadataContainerFixture({
-          ...documentAuthor,
-          container: organizationMetadataContainer.request,
-          containerProjection: organizationMetadataContainerProjection,
-          metadataDocument: organizationMetadataContainerDocument,
-          documentId: organizationMetadataContainer.metadataDocumentId,
-          fixtureLabel: "organization-metadata-container",
-          initialName: "Organization Metadata",
-          systemSlot: await deriveOrganizationMetadataContainerSystemSlot(
-            input.organizationId,
-          ),
-        })
-      : undefined;
-  const organizationProfileDocument =
-    input.organizationProfileDocumentId &&
-    organizationMetadataContainer &&
-    organizationMetadataContainerProjection
-      ? await createRootMetadataDocumentRequest({
-          ...documentAuthor,
-          containerKey: organizationMetadataContainer.containerKey,
-          containerProjection: organizationMetadataContainerProjection,
-          rootMetadataDocumentId: input.organizationProfileDocumentId,
-        })
-      : undefined;
+    await createProvisionedMetadataContainerFixture({
+      ...documentAuthor,
+      container: organizationMetadataContainer.request,
+      containerProjection: organizationMetadataContainerProjection,
+      metadataDocument: organizationMetadataContainerDocument,
+      documentId: organizationMetadataContainer.metadataDocumentId,
+      fixtureLabel: "organization-metadata-container",
+      initialName: "Organization Metadata",
+      systemSlot: await deriveOrganizationMetadataContainerSystemSlot(
+        input.organizationId,
+      ),
+    });
+  const organizationProfileDocument = input.organizationProfileDocumentId
+    ? await createRootMetadataDocumentRequest({
+        ...documentAuthor,
+        containerKey: organizationMetadataContainer.containerKey,
+        containerProjection: organizationMetadataContainerProjection,
+        rootMetadataDocumentId: input.organizationProfileDocumentId,
+      })
+    : undefined;
   const initialOrganizationProfileDocument =
     await createOptionalProvisionedDocumentFixture({
       ...documentAuthor,
@@ -1149,9 +1112,7 @@ export async function createRegistrationBootstrap(
   return {
     ...(initialRosterProfileContainer ? { initialRosterProfileContainer } : {}),
     ...(initialRosterProfileDocument ? { initialRosterProfileDocument } : {}),
-    ...(initialOrganizationMetadataContainer
-      ? { initialOrganizationMetadataContainer }
-      : {}),
+    initialOrganizationMetadataContainer,
     ...(initialOrganizationProfileDocument
       ? { initialOrganizationProfileDocument }
       : {}),

@@ -351,7 +351,6 @@ test("clearRemoteSyncState keeps local content and requeues remote sync work", a
         userId: null,
         signingKeyFingerprint: null,
         groupId: "group-old",
-        groupName: "Old group",
       });
     });
 

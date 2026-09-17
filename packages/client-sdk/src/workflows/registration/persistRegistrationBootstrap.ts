@@ -122,7 +122,7 @@ async function persistProvisionedContainerBootstrap(
     icon: string | null;
     name: string;
     organizationId: string;
-    parentId: string;
+    parentId: string | null;
   },
 ): Promise<void> {
   const { container } = input;
@@ -207,12 +207,8 @@ async function persistRootContainerBootstrap(
   );
 }
 
-// The ONE persist shape for the fixed-name child containers provisioned
-// with every organization (roster profile and organization metadata): save
-// the container under root, then queue its initial metadata update. The
-// founder persisting at provisioning reaches these containers as an admin
-// via root inheritance; a Members-only member syncing them later derives
-// their own read-level access from the group grant.
+// Persist reserved profile containers using their fixed topology: roster profiles
+// inherit the personal root; shared organization metadata has an independent root.
 async function persistNamedChildContainerBootstrap(
   execSql: ExecSql,
   input: RegistrationBootstrapInput,
@@ -228,7 +224,10 @@ async function persistNamedChildContainerBootstrap(
     icon: null,
     name,
     organizationId: input.organizationId,
-    parentId: input.containerId,
+    parentId:
+      container === input.organizationMetadataContainer
+        ? null
+        : input.containerId,
   });
   await enqueueInitialContainerMetadataUpdate(
     execSql,

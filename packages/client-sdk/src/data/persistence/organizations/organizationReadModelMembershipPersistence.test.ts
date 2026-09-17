@@ -98,7 +98,7 @@ function groupsLane(
           {
             groupId: ADMINS_GROUP_ID,
             organizationId: ORGANIZATION_ID,
-            name: input.adminName ?? "Admins",
+
             createdAt: CREATED_AT,
             isBuiltin: true,
             currentState: {
@@ -113,7 +113,7 @@ function groupsLane(
     {
       groupId: EMPTY_GROUP_ID,
       organizationId: ORGANIZATION_ID,
-      name: "Empty",
+
       createdAt: CREATED_AT,
       isBuiltin: false,
       currentState: {
@@ -392,7 +392,7 @@ test("invalid memberships roll back every changed lane and the cursor", async ()
         directory: { profileDocumentId: "organization-profile-1" },
         requester: { isOrgAdmin: true },
       });
-      expect(projection?.groups.groups[0]?.name).toBe("Admins");
+      expect(projection?.groups.groups[0]?.name).toBe("");
       expect(await loadMembers(execSql, ADMINS_GROUP_ID)).toMatchObject({
         members: [expect.anything(), expect.anything()],
       });
@@ -417,7 +417,7 @@ test("large membership snapshots are persisted across insert batches", async () 
       {
         groupId,
         organizationId: ORGANIZATION_ID,
-        name: "Large group",
+
         createdAt: CREATED_AT,
         isBuiltin: false,
         currentState: {

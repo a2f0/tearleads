@@ -4,8 +4,10 @@ import type {
   ReferencedPrincipalStateResponse,
 } from "@tearleads/validators/response";
 import { loadContainerDisplayNamesByIds } from "../../data/persistence/containers/containerPersistence";
+import { loadOrganizationGroupDisplayNames } from "../../data/persistence/organizations/organizationGroupNamePersistence";
 import { loadOrganizationReadModelProjection } from "../../data/persistence/organizations/organizationReadModelPersistence";
 import { loadPrincipalPolicyBundle } from "../../data/persistence/principalPolicyPersistence";
+import { loadVerifiedOrganizationGroupRoles } from "../../data/principals/organizationGroupRoles";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import { runOrganizationPresentationRead } from "./organizationPresentationAccessState";
 import {
@@ -41,8 +43,17 @@ function uniqueContainerIds(
 async function enrichGrants(
   execSql: ExecSql,
   grants: readonly OrganizationContainerGrantResponse[],
+  organizationId: string,
 ): Promise<OrganizationContainerGrant[]> {
   const containerIds = uniqueContainerIds(grants);
+  const groupNames = await loadOrganizationGroupDisplayNames(
+    execSql,
+    organizationId,
+  );
+  const groupRoles = await loadVerifiedOrganizationGroupRoles(
+    execSql,
+    organizationId,
+  );
   const displayNames = new Map<string, string>();
   for (
     let index = 0;
@@ -60,6 +71,12 @@ async function enrichGrants(
   return grants.map((grant) => ({
     ...grant,
     containerDisplayName: displayNames.get(grant.containerId) ?? null,
+    groupName:
+      grant.subjectType === "group"
+        ? (groupRoles.get(grant.subjectId) ??
+          groupNames.get(grant.subjectId) ??
+          null)
+        : null,
   }));
 }
 
@@ -118,7 +135,11 @@ export async function loadLocalOrganizationContainerGrants(
       }
       return {
         organizationId: input.organizationId,
-        grants: await enrichGrants(input.execSql, projection.grants.grants),
+        grants: await enrichGrants(
+          input.execSql,
+          projection.grants.grants,
+          input.organizationId,
+        ),
       };
     },
   );
@@ -154,9 +175,9 @@ export async function loadLocalOrganizationGroupContainers(
       return {
         organizationId: input.organizationId,
         groupId: input.groupId,
-        containers: (await enrichGrants(input.execSql, grants)).map(
-          toGroupContainer,
-        ),
+        containers: (
+          await enrichGrants(input.execSql, grants, input.organizationId)
+        ).map(toGroupContainer),
       };
     },
   );
@@ -326,7 +347,11 @@ export async function loadLocalOrganizationUserDetail(
           (grant.subjectType === "user" && grant.subjectId === input.userId) ||
           (grant.subjectType === "group" && reachable.has(grant.subjectId)),
       );
-      const grants = await enrichGrants(input.execSql, relevantGrants);
+      const grants = await enrichGrants(
+        input.execSql,
+        relevantGrants,
+        input.organizationId,
+      );
       return {
         organizationId: input.organizationId,
         user,

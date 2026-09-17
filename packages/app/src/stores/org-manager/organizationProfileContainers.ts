@@ -23,7 +23,7 @@ interface OrganizationProfileContainersInput {
  *
  * They are deliberately distinct: the roster-profile container holds per-user
  * profiles and stays Admins-scoped, while the organization-metadata container
- * holds org-wide public metadata (the display name today) and is granted read
+ * is an independent root holding encrypted metadata and is granted read
  * to the reserved Members group. Provisioning creates the organization_profile
  * document in the metadata container and local name resolution looks for it
  * there, so binding that document anywhere else hides the organization name
@@ -46,6 +46,7 @@ export function useOrganizationProfileContainers(
         readonly organizationId: string;
       }) => Promise<ContainerSystemSlot>,
       name: string,
+      independentRoot: boolean,
     ) => {
       const operationScope = captureOperationScope();
       if (!operationScope || !isOperationScopeActive(operationScope)) {
@@ -60,12 +61,17 @@ export function useOrganizationProfileContainers(
       }
       const existingContainer = containerContentsStore
         .getSnapshot()
-        .nodes.find((node) => node.systemSlot === systemSlot);
+        .nodes.find(
+          (node) =>
+            node.systemSlot === systemSlot &&
+            node.organizationId === operationScope.organizationId &&
+            (independentRoot ? node.parentId === null : node.parentId !== null),
+        );
 
-      return (
+      const container =
         existingContainer ??
-        containerContentsStore.ensureSystemContainer(systemSlot, name)
-      );
+        (await containerContentsStore.ensureSystemContainer(systemSlot, name));
+      return isOperationScopeActive(operationScope) ? container : null;
     },
     [captureOperationScope, containerContentsStore, isOperationScopeActive],
   );
@@ -75,6 +81,7 @@ export function useOrganizationProfileContainers(
       ensureSystemContainer(
         deriveOrganizationRosterProfileContainerSystemSlot,
         ORGANIZATION_ROSTER_PROFILE_CONTAINER_NAME,
+        false,
       ),
     [ensureSystemContainer],
   );
@@ -83,6 +90,7 @@ export function useOrganizationProfileContainers(
       ensureSystemContainer(
         deriveOrganizationMetadataContainerSystemSlot,
         ORGANIZATION_METADATA_CONTAINER_NAME,
+        true,
       ),
     [ensureSystemContainer],
   );

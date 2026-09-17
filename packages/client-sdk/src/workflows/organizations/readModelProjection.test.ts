@@ -65,7 +65,7 @@ test("cold reconciliation stores a snapshot from the read-model feed", async () 
     expect(requests).toEqual([[organizationId, undefined]]);
     expect(projection?.directory.organizationId).toBe(organizationId);
     expect(projection?.directory.currentUser).toEqual({ isOrgAdmin: true });
-    expect(projection?.groups[0]?.name).toBe("Admins");
+    expect(projection?.groups[0]?.name).toBe("");
     await expect(
       loadLocalOrganizationDirectoryAndGroups({
         currentUserId,
@@ -103,7 +103,7 @@ test("warm reconciliation requests and applies a cursor delta", async () => {
     });
 
     expect(requestedCursors).toEqual(["cursor-1"]);
-    expect(projection?.groups[0]?.name).toBe("Operators");
+    expect(projection?.groups[0]?.name).toBe("");
     expect(projection?.directory.users).toHaveLength(2);
   } finally {
     close();
@@ -292,7 +292,7 @@ test("an invalid warm cursor resets once with a cursorless snapshot", async () =
 
     expect(cursors).toEqual(["cursor-1", undefined]);
     expect(reports).toBe(0);
-    expect(projection?.groups[0]?.name).toBe("Reset Group");
+    expect(projection?.groups[0]?.name).toBe("");
   } finally {
     close();
   }
@@ -400,7 +400,7 @@ test("a binding failure purges and retries from a snapshot", async () => {
     });
 
     expect(cursors).toEqual(["cursor-1", undefined]);
-    expect(projection?.groups[0]?.name).toBe("Recovered Group");
+    expect(projection?.groups[0]?.name).toBe("");
   } finally {
     close();
   }

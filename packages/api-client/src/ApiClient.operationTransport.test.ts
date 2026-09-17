@@ -126,6 +126,9 @@ testApiClient(
         registration.initialOrganizationPolicy,
         registration.initialRootContainer,
         registration.initialRootMetadataDocument,
+        registration.initialRosterProfileContainer,
+        registration.initialRosterProfileDocument,
+        registration.initialOrganizationMetadataContainer,
       ),
     ).resolves.toBeNull();
 

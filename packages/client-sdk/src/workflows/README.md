@@ -32,9 +32,9 @@ when their UI becomes uncancellable, with no capability-negotiation fallback.
 Historical signed manifests and sealed keyrings remain current security
 evidence, not compatibility formats.
 
-Membership add/remove calls require the selected `expectedGroupName`. The
-verified policy must commit that name before recipient key use; callers can
-identify a relabeled selection by `GroupMembershipNameMismatchError`.
+Membership writes bind `expectedGroupName` to decrypted group
+metadata before recipient key use. Custom names require `readEncryptedName`;
+creation requires `metadataAccess`. See the [SDK guide](../../../../docs/developer/client-sdk.md).
 
 ## Facade Taxonomy
 
@@ -46,7 +46,7 @@ identify a relabeled selection by `GroupMembershipNameMismatchError`.
 | `container-contents` | Platform query and runtime | Container tree projections, container metadata documents, document discovery, document links, identity-wide pending-write diagnostics, compact attribution diagnostics, lazy paginated attribution ranges, and sync-state helpers. Product UI routes, panels, menus, and selection state belong in `packages/app`. |
 | `organizations` | Platform organization administration | Transactional local directory, group-summary, group-membership, grant, policy-head, user-detail, and separately reconciled durable data-usage projections; opaque feed cursors; exact-head history from verified principal-policy storage; ID-only user membership mutations; verified principal-policy mutation helpers; organization-scoped system-container slot helpers; sync-billing reads; direct Stripe checkout; server-authoritative native-purchase eligibility; and verified, explicitly organization-scoped native-subscription claims chosen after receipt verification by the atomic `PurchasesCapability.moveNativeSubscription` flow. Its destination-preparation callback runs outside the bounded server-claim deadline and durably replays one fresh restore organization across reloads until completion. Org Manager screens and labels belong in `packages/app`. |
 | `principals` | Platform runtime | Principal-policy cache and verification support routed through the durable trusted-user-identity gateway. |
-| `registration` | Platform runtime | Local registration and atomic organization bootstrap helpers, including the initial encrypted roster and organization-profile bodies. |
+| `registration` | Platform runtime | Atomic bootstrap. `registerUser` requires metadata at argument 13; omitted roster arguments 11–12 are `undefined`. Profile bodies remain optional. |
 | `root` | Platform operator administration | Root-only identity lookups for internal staff: paged identity listing with fingerprint filter, identity detail with live sessions, per-identity organization membership, searchable organization pages, organization detail with persisted billing/provider state and the latest 50 billing events, paged organization rosters linking back to identities, and [synced data usage and organization usage reports](../../../../docs/developer/client-sdk.md#advanced-configuration). Locally gated on the session's server-reported root flag; the API enforces access. Root console screens belong in `packages/app`. |
 | `sync` | Platform runtime | Shared sync coordinator helpers and organization-scoped remote-state reset/recovery inputs. |
 
@@ -232,16 +232,16 @@ Organization data usage stays outside that feed because content and blob
 writes do not share its administrative cursor. The SDK stores the strict
 aggregate in a requester-scoped SQLite projection, paints it locally, and
 single-flights canonical revalidation. Transient failures retain the
-last-known-good projection; authoritative access loss purges it. No nullable
-HTTP fallback or older cache format is read. If SQLite rejects the purge
-transaction, the current executor still fails closed in memory; physical rows
-can remain until a later successful canonical reconcile replaces or removes
-them.
+last-known-good projection; authoritative access loss purges it. If SQLite
+rejects the purge transaction, the current executor still fails closed in
+memory; physical rows can remain until a later successful canonical reconcile
+replaces or removes them.
 
 Grant lists, group containers, and user details are derived from this local
 projection. User-detail group reachability is cycle-safe and traverses hidden
-groups before filtering the displayed group catalog. Container display names are
-joined from local encrypted metadata. `loadGroupPresentationDetails(...)`
+groups before filtering the displayed group catalog. Encrypted org/group labels
+use a separate root with Admins/admin and Members/read grants. Container names
+are joined from local encrypted metadata. `loadGroupPresentationDetails(...)`
 combines local members with policy history only after the separately verified
 policy bundle exactly matches the projected head. A missing bundle runs the
 canonical fetch, signature, trusted-identity, checkpoint, and persistence path
@@ -256,11 +256,10 @@ the API atomically rejects any transition that leaves a stale principal pin.
 Metadata profile upload remains a separate idempotent content sync and never
 changes grants.
 
-Name SDK facades after the platform state they expose. Product names can stay
-in app providers and components that adapt those platform facades into a UI.
+Name SDK facades after platform state; keep product names in the app.
 For example, the SDK exports `workflows/organizations`, while the app can keep
 `OrgManager` provider, route, and screen names in `packages/app`.
 
 `bun run lint:architecture` guards this taxonomy by rejecting product window
 vocabulary in SDK TypeScript source and by checking that this table lists every
-workflow facade aggregated by the root SDK entry point exactly once.
+workflow facade aggregated by the root SDK entry point once.

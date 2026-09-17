@@ -29,7 +29,6 @@ async function createBillableOrganization(): Promise<{
     id: organizationId,
     adminGroupId: crypto.randomUUID(),
     memberGroupId,
-    name: "Seat Accounting Org",
   });
   await db.insert(organizationBilling).values({
     organizationId,

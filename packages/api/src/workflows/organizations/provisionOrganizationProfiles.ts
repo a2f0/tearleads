@@ -23,8 +23,7 @@ interface ProfileProvisioningSigner {
 }
 
 type ProfileContainer =
-  | ContainerCreateWithMetadataDocumentResponse["container"]
-  | null;
+  ContainerCreateWithMetadataDocumentResponse["container"];
 
 export function readDocumentCreateRequestId(
   request: DocumentCreateRequest,
@@ -59,7 +58,6 @@ function readDocumentLinkedContainerIds(
 async function createInitialProfileDocument(input: {
   labels: {
     containerMismatch: string;
-    missingContainer: string;
     missingId: string;
     recordNotFound: string;
     responseMismatch: string;
@@ -72,10 +70,6 @@ async function createInitialProfileDocument(input: {
   userId: string;
 }): Promise<DocumentCreateResponse> {
   const { labels, profileContainer, request, signer, tx, userId } = input;
-  if (!profileContainer) {
-    throw new OrganizationProvisioningError(labels.missingContainer, 400);
-  }
-
   const requestDocumentId = readDocumentCreateRequestId(request);
   if (!requestDocumentId) {
     throw new OrganizationProvisioningError(labels.missingId, 400);
@@ -117,18 +111,22 @@ export async function createInitialRosterProfileDocument(
   tx: DatabaseTransaction,
   input: OrganizationProvisioningRequest,
   signer: ProfileProvisioningSigner,
-  profileContainer: ProfileContainer,
+  profileContainer: ProfileContainer | null,
 ): Promise<DocumentCreateResponse | null> {
   if (!input.initialRosterProfileDocument) {
     return null;
+  }
+  if (!profileContainer) {
+    throw new OrganizationProvisioningError(
+      "Initial roster profile document requires a profile container",
+      400,
+    );
   }
 
   return createInitialProfileDocument({
     labels: {
       containerMismatch:
         "Initial roster profile document does not match roster profile container",
-      missingContainer:
-        "Initial roster profile document requires a profile container",
       missingId: "Initial roster profile document id is unavailable",
       recordNotFound: "Initial roster entry not found",
       responseMismatch:
@@ -171,8 +169,6 @@ export async function createInitialOrganizationProfileDocument(
     labels: {
       containerMismatch:
         "Initial organization profile document does not match organization metadata container",
-      missingContainer:
-        "Initial organization profile document requires a profile container",
       missingId: "Initial organization profile document id is unavailable",
       recordNotFound: "Initial organization not found",
       responseMismatch:

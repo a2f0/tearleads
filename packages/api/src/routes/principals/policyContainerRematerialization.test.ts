@@ -16,6 +16,7 @@ import {
   asVerifiedContainerManifest,
   bootstrapRoot,
 } from "../../../test/helpers/keyingWriterProjectionKit";
+import { withGroupMembershipContainerMutations } from "../../../test/helpers/organizationMembershipGrants";
 import {
   createSignedPrincipalState,
   getDefaultOrganizationId,
@@ -113,12 +114,31 @@ async function prepareRotation(input: { rotateKey?: boolean } = {}) {
         }),
         kekState: root.kekState,
       };
-  return { currentPolicy, nextPolicy, owner, root, rootRekey, signed };
+  const dependentPolicy = await withGroupMembershipContainerMutations({
+    actor: owner,
+    containerIds: currentPolicy.grants
+      .filter((grant) => grant.containerId !== root.kekState.containerId)
+      .map((grant) => grant.containerId),
+    currentPolicy,
+    signedState: signed,
+  });
+  const metadataMutations = dependentPolicy.containerMutations ?? [];
+  expect(metadataMutations).toHaveLength(1);
+  return {
+    containerMutations: [rootRekey.request, ...metadataMutations],
+    currentPolicy,
+    metadataMutations,
+    nextPolicy,
+    owner,
+    root,
+    rootRekey,
+    signed,
+  };
 }
 
 async function putPolicy(
   input: Awaited<ReturnType<typeof prepareRotation>>,
-  containerMutations = [input.rootRekey.request],
+  containerMutations = input.containerMutations,
 ) {
   return submitOrganizationGroupPolicyCommit({
     actor: input.owner,
@@ -135,6 +155,29 @@ async function putPolicy(
   });
 }
 
+async function expectMetadataHeads(
+  prepared: Awaited<ReturnType<typeof prepareRotation>>,
+  committed: boolean,
+) {
+  for (const mutation of prepared.metadataMutations) {
+    const containerId = Reflect.get(mutation.event, "objectId");
+    invariant(
+      typeof containerId === "string",
+      "expected metadata container id",
+    );
+    const heads = await getCurrentAccessManifestHeads(
+      "container",
+      [containerId],
+      db,
+    );
+    expect(heads.get(containerId)?.manifestHash).toBe(
+      committed
+        ? mutation.expectedManifestHash
+        : mutation.previousManifest?.manifestHash,
+    );
+  }
+}
+
 test("policy rotation and dependent container rekey commit atomically", async () => {
   const prepared = await prepareRotation();
   const previousKek = await getCurrentContainerKeyEpoch(
@@ -145,6 +188,7 @@ test("policy rotation and dependent container rekey commit atomically", async ()
   const response = await putPolicy(prepared);
 
   expect(response.status, await response.clone().text()).toBe(200);
+  await expectMetadataHeads(prepared, true);
   expect(
     (
       await getCurrentPrincipalState(
@@ -176,6 +220,7 @@ test("policy rotation and dependent container rekey commit atomically", async ()
 test("an exact compound policy replay survives a later container mutation", async () => {
   const prepared = await prepareRotation();
   expect((await putPolicy(prepared)).status).toBe(200);
+  await expectMetadataHeads(prepared, true);
   if (!("container" in prepared.rootRekey)) {
     throw new Error("Expected a rotating principal policy mutation");
   }
@@ -203,7 +248,15 @@ test("an exact compound policy replay survives a later container mutation", asyn
     isCommitOrganizationGroupPolicyResponse(replay),
     "expected compound policy response",
   );
-  expect(replay.groupPolicy.containerMutations).toHaveLength(1);
+  expect(
+    replay.groupPolicy.containerMutations.map(
+      (mutation) => mutation.accessManifest.manifestHash,
+    ),
+  ).toEqual(
+    prepared.containerMutations.map(
+      (mutation) => mutation.expectedManifestHash,
+    ),
+  );
   expect(
     replay.groupPolicy.containerMutations[0]?.accessManifest.manifestHash,
   ).toBe(prepared.rootRekey.bundle.manifestHash);
@@ -226,25 +279,32 @@ test("same-key-epoch policy successors refresh grants without rekeying", async (
   expect(Reflect.get(prepared.rootRekey.request.event, "eventType")).toBe(
     "container.grant",
   );
+  expect(
+    prepared.metadataMutations.map((mutation) =>
+      Reflect.get(mutation.event, "eventType"),
+    ),
+  ).toEqual(["container.grant"]);
   expect((await putPolicy(prepared)).status).toBe(200);
+  await expectMetadataHeads(prepared, true);
   expect(
     (await getCurrentContainerKeyEpoch(prepared.root.kekState.containerId, db))
       ?.id,
   ).toBe(previousKek?.id);
 }, 15_000);
 
-test("a missing dependent mutation rolls back the principal rotation", async () => {
+test("omitting the metadata mutation rolls back the principal rotation", async () => {
   const prepared = await prepareRotation();
   const previousKek = await getCurrentContainerKeyEpoch(
     prepared.root.kekState.containerId,
     db,
   );
-  const response = await putPolicy(prepared, []);
+  const response = await putPolicy(prepared, [prepared.rootRekey.request]);
 
   expect(response.status).toBe(409);
   expect(await response.json()).toEqual({
     error: "Principal policy must rematerialize every stale container grant",
   });
+  await expectMetadataHeads(prepared, false);
   expect(
     (
       await getCurrentPrincipalState(
@@ -274,9 +334,13 @@ test("a failed dependent mutation rolls back every policy artifact", async () =>
     },
   };
 
-  const response = await putPolicy(prepared, [invalidMutation]);
+  const response = await putPolicy(prepared, [
+    ...prepared.metadataMutations,
+    invalidMutation,
+  ]);
 
   expect(response.status).toBe(409);
+  await expectMetadataHeads(prepared, false);
   expect(
     (
       await getCurrentPrincipalState(

@@ -95,3 +95,34 @@ test("contacts container lookup prefers the active root over an earlier organiza
     ),
   ).toBe("active-work-contacts");
 });
+
+test("contacts projection selects the ordinary root after a metadata root", () => {
+  const metadataRoot = {
+    id: "metadata-root",
+    organizationId: "personal-org",
+    parentId: null,
+    systemSlot: "sys_v1_org_metadata",
+  };
+  const personalRoot = {
+    ...metadataRoot,
+    id: "personal-root",
+    systemSlot: null,
+  };
+  const input = {
+    activeOrganizationId: "custom-org",
+    activeRootContainerId: "custom-root",
+    projectionOrganizationId: "personal-org",
+  };
+  expect(
+    resolveContactsProjectionRootContainerId({
+      ...input,
+      nodes: [metadataRoot, personalRoot],
+    }),
+  ).toBe("personal-root");
+  expect(
+    resolveContactsProjectionRootContainerId({
+      ...input,
+      nodes: [metadataRoot],
+    }),
+  ).toBeNull();
+});

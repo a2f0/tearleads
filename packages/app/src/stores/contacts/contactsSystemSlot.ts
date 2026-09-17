@@ -14,6 +14,7 @@ export function resolveContactsProjectionRootContainerId(input: {
   const projectedRoot = input.nodes.find(
     (node) =>
       node.parentId === null &&
+      !node.systemSlot &&
       node.organizationId === input.projectionOrganizationId,
   );
   if (projectedRoot) {

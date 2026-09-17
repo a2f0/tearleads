@@ -230,6 +230,16 @@ test(
     const peerMutationRequests = listProxiedApiRequests()
       .slice(mutationRequestStartIndex)
       .filter((request) => request.authorization === peerSession.authorization);
+    const committedGroupPath = listProxiedApiRequests()
+      .slice(mutationRequestStartIndex)
+      .find(
+        (request) =>
+          request.method === "PUT" &&
+          requestPath(request.url).endsWith("/policy-commit"),
+      );
+    const groupId =
+      committedGroupPath && requestPath(committedGroupPath.url).split("/")[4];
+    invariant(groupId, "Expected the committed custom group id.");
     const peerReadModelRequests = peerMutationRequests.filter(
       (request) =>
         request.method === "GET" &&
@@ -246,6 +256,9 @@ test(
       ),
     ).toEqual([
       `GET /organizations/${founderSession.organizationId}/read-model`,
+      // Encrypted labels require the new signed directory and group head.
+      `GET /principals/organization/${founderSession.organizationId}/policy`,
+      `GET /principals/group/${groupId}/policy`,
     ]);
     expect(peerReadModelRequests).toHaveLength(1);
     expect(

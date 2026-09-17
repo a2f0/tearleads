@@ -158,6 +158,18 @@ async function replaceGroupsLane(input: {
   readonly organizationId: string;
   readonly tx: ClientSQLiteTransactionScope;
 }): Promise<void> {
+  const previousGroups = await input.tx
+    .select({
+      groupId: organizationReadModelGroups.groupId,
+      name: organizationReadModelGroups.name,
+    })
+    .from(organizationReadModelGroups)
+    .where(
+      eq(organizationReadModelGroups.organizationId, input.organizationId),
+    );
+  const names = new Map(
+    previousGroups.map((group) => [group.groupId, group.name]),
+  );
   await input.tx
     .delete(organizationReadModelGroups)
     .where(eq(organizationReadModelGroups.organizationId, input.organizationId))
@@ -168,7 +180,7 @@ async function replaceGroupsLane(input: {
     organizationId: input.organizationId,
     groupId: group.groupId,
     sortOrder,
-    name: group.name,
+    name: names.get(group.groupId) ?? "",
     createdAt: group.createdAt,
     isBuiltin: group.isBuiltin,
     stateHash: group.currentState?.stateHash ?? null,

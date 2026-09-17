@@ -6,12 +6,13 @@ import { generateKemSeedAndKeyPair, toFingerprint } from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
 import { eq } from "drizzle-orm";
 import invariant from "invariant";
-import {
-  getCurrentPrincipalState,
-  listCurrentPrincipalProjectionMembers,
-} from "../../src/access/read/principalStateStore";
+import { getPrincipalStatePayloadForState } from "../../src/access/read/principalStateStore";
+import { withGroupMembershipContainerMutations } from "./organizationMembershipGrants";
 import { createPrincipalMemberEnvelopes } from "./principalMemberEnvelopes";
-import { submitOrganizationGroupPolicyCommit } from "./principalPolicy";
+import {
+  loadVerifiedPrincipalPolicy,
+  submitOrganizationGroupPolicyCommit,
+} from "./principalPolicy";
 import { signPrincipalStateBundle } from "./principalState";
 
 export async function getDefaultOrganizationId(
@@ -44,17 +45,20 @@ export async function addOrganizationMember(input: {
     .where(eq(organizations.id, input.organizationId))
     .limit(1);
   invariant(organization, "expected organization row");
-  const currentState = await getCurrentPrincipalState(
+  const currentPolicy = await loadVerifiedPrincipalPolicy(
+    db,
     "group",
     organization.memberGroupId,
-    db,
   );
-  invariant(currentState, "expected current Members state");
-  const currentProjection = await listCurrentPrincipalProjectionMembers(
+  const currentState = currentPolicy.state;
+  const currentPayload = await getPrincipalStatePayloadForState(
     "group",
     organization.memberGroupId,
+    currentState.stateHash,
     db,
   );
+  invariant(currentPayload, "expected current Members payload");
+  const currentProjection = currentPolicy.projection;
   if (
     currentProjection.some((member) => member.userId === input.member.userId)
   ) {
@@ -71,9 +75,6 @@ export async function addOrganizationMember(input: {
     },
   ];
   const principalKem = generateKemSeedAndKeyPair();
-  const members = nextProjection.map((projectionMember) => ({
-    userId: projectionMember.userId,
-  }));
   const projection = nextProjection;
   const { memberEnvelopes, stateMembers } =
     await createPrincipalMemberEnvelopes({
@@ -90,10 +91,9 @@ export async function addOrganizationMember(input: {
     keyFingerprint: await toFingerprint(principalKem.publicKey),
     members: stateMembers,
     projection,
+    grants: currentPolicy.grants,
     externalAuthority: null,
-    payloadCiphertext: bytesToBase64(
-      new TextEncoder().encode(JSON.stringify({ members, name: "Members" })),
-    ),
+    payloadCiphertext: currentPayload.ciphertext,
     signedAt: new Date("2026-04-08T16:00:00.000Z").toISOString(),
     signerUserId: input.actor.userId,
     signerUserKeyFingerprint: input.actor.fingerprint,
@@ -104,7 +104,11 @@ export async function addOrganizationMember(input: {
   const response = await submitOrganizationGroupPolicyCommit({
     actor: input.actor,
     groupId: organization.memberGroupId,
-    groupPolicy: signedState,
+    groupPolicy: await withGroupMembershipContainerMutations({
+      actor: input.actor,
+      currentPolicy,
+      signedState,
+    }),
     organizationId: input.organizationId,
   });
   expect(response.status, await response.clone().text()).toBe(200);

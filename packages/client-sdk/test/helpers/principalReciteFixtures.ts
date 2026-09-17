@@ -14,8 +14,8 @@ import {
   buildRootContainerCreatePlan,
   rootContainerWriterProjectionFromCreatePlan,
 } from "../../src/workflows/containers/root/create";
-import { buildInitialGroupPolicyRequest } from "../../src/workflows/organizations/principalPolicy";
 import { createAuthor, SIGNED_AT } from "./containerFixtures";
+import { buildInitialGroupPolicyRequest } from "./groupMetadata";
 import { createSuccessorGroupPolicyBundle } from "./groupPolicyFixtures";
 import { policyBundleFromInitialRequest } from "./principalPolicyFixtures";
 import { createTestTrustedUserIdentity } from "./trustedUserIdentity";

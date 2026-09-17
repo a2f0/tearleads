@@ -9,9 +9,6 @@ import { parseOrganizationAuthorityDescriptor } from "./organizationAuthorityDes
 import { groupHeadsEqual } from "./organizationGroupDirectoryValidation";
 import { OrganizationProvisioningError } from "./provisionOrganizationError";
 
-export const ADMIN_GROUP_NAME = "Admins";
-export const MEMBER_GROUP_NAME = "Members";
-
 interface ProvisioningValidationSigner {
   readonly fingerprint: string;
   readonly encapsulationFingerprint: string;
@@ -158,28 +155,23 @@ async function validateInitialOrganizationPolicyInput(
 }
 
 function validateInitialGroupInput(input: {
-  expectedName: string;
+  expectedRole: "admins" | "members";
   group: OrganizationProvisioningRequest["initialAdminGroup"];
   groupLabel: "initialAdminGroup" | "initialMemberGroup";
   signer: ProvisioningValidationSigner;
   targetDescription: string;
   userId: string;
 }): void {
-  const { expectedName, group, groupLabel, signer, targetDescription, userId } =
+  const { expectedRole, group, groupLabel, signer, targetDescription, userId } =
     input;
   const { state } = group.initialGroupPolicy;
-
-  if (group.name.trim() !== expectedName) {
-    throw new OrganizationProvisioningError(
-      `${groupLabel} name must be ${expectedName}`,
-      400,
-    );
-  }
 
   try {
     assertCreatedGroupPolicyName({
       ciphertext: group.initialGroupPolicy.encryptedPayload.ciphertext,
-      name: expectedName,
+      builtinRole: expectedRole,
+      groupId: group.groupId,
+      organizationId: "",
     });
   } catch (error) {
     if (error instanceof OrganizationManagerError) {
@@ -216,7 +208,7 @@ export async function validateOrganizationProvisioningInput(
 ): Promise<void> {
   await validateInitialOrganizationPolicyInput(input, signer);
   validateInitialGroupInput({
-    expectedName: ADMIN_GROUP_NAME,
+    expectedRole: "admins",
     group: input.initialAdminGroup,
     groupLabel: "initialAdminGroup",
     signer,
@@ -230,7 +222,7 @@ export async function validateOrganizationProvisioningInput(
     );
   }
   validateInitialGroupInput({
-    expectedName: MEMBER_GROUP_NAME,
+    expectedRole: "members",
     group: input.initialMemberGroup,
     groupLabel: "initialMemberGroup",
     signer,

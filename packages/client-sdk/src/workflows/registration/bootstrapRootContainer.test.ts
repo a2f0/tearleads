@@ -1,7 +1,11 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { execSqlClientFromExecSql } from "../../../test/helpers/execSqlClient";
-import { loadContainers } from "../../data/persistence/containers/containerPersistence";
+import {
+  ensureContainerTables,
+  loadContainers,
+  saveContainer,
+} from "../../data/persistence/containers/containerPersistence";
 import { bootstrapRootContainer } from "./bootstrapRootContainer";
 
 test("bootstrapRootContainer creates one local root container and reuses it", async () => {
@@ -60,6 +64,32 @@ test("bootstrapRootContainer serializes concurrent root creation attempts", asyn
     const containers = await loadContainers(execSql);
     expect(containers).toHaveLength(1);
     expect(containers[0]?.id).toBe(createdResults[0]?.containerId);
+  } finally {
+    close();
+  }
+});
+
+test("bootstrapRootContainer never adopts a metadata root", async () => {
+  const { close, execSql } = await createTestExecSql("bootstrap-metadata-root");
+  try {
+    await ensureContainerTables(execSql);
+    await saveContainer(execSql, {
+      id: "metadata-root",
+      organizationId: "org-1",
+      parentId: null,
+      systemSlot: `sys_v1_${"a".repeat(43)}`,
+      metadataDocumentId: "metadata-document",
+      name: "Organization metadata",
+      icon: null,
+    });
+    const result = await bootstrapRootContainer(execSql);
+    expect(result.created).toBe(true);
+    expect(result.containerId).not.toBe("metadata-root");
+    expect(await bootstrapRootContainer(execSql)).toEqual({
+      containerId: result.containerId,
+      created: false,
+    });
+    expect(await loadContainers(execSql)).toHaveLength(2);
   } finally {
     close();
   }

@@ -102,7 +102,8 @@ export function isProvisionedSystemContainerRequest(
 /**
  * The client-signed artifacts required to bootstrap a fresh organization: the
  * organization + admin/member group policies, the signed root container and its
- * metadata document, and the optional roster/organization profile documents.
+ * metadata document, the organization metadata root, and the optional
+ * roster/organization profile documents.
  *
  * This is the shared shape between user registration (which bootstraps the
  * user's personal organization) and creating an additional organization for an
@@ -113,8 +114,7 @@ export function isProvisionedSystemContainerRequest(
 export const organizationProvisioningRequestShape = {
   initialAdminGroup: CreateOrganizationGroupRequestSchema,
   initialMemberGroup: CreateOrganizationGroupRequestSchema,
-  initialOrganizationMetadataContainer:
-    ProvisionedSystemContainerRequestSchema.optional(),
+  initialOrganizationMetadataContainer: ProvisionedSystemContainerRequestSchema,
   initialOrganizationPolicy: OrganizationPrincipalPolicyRequestSchema,
   initialOrganizationProfileDocument:
     ProvisionedDocumentRequestSchema.optional(),

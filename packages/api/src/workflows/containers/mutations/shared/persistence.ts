@@ -7,7 +7,10 @@ import type {
   ContainerDirectGrant,
   VerifiedContainerAccessManifest,
 } from "@tearleads/crypto";
-import { isContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
+import {
+  deriveOrganizationMetadataContainerSystemSlot,
+  isContainerSystemSlot,
+} from "@tearleads/validators/containerSystemSlot";
 import type { ContainerMutationResponse } from "@tearleads/validators/response";
 import { eq, sql } from "drizzle-orm";
 import { storeVerifiedAccessManifestInTransaction } from "../../../../access/write/accessManifestStore";
@@ -86,16 +89,22 @@ async function persistCreatedContainerStructure(
   state: VerifiedContainerAccessState,
   updatedAt: Date,
 ): Promise<StoredContainerRow> {
-  if (!state.parentContainerId) {
+  const isMetadataRoot =
+    state.parentContainerId === null &&
+    state.systemSlot ===
+      (await deriveOrganizationMetadataContainerSystemSlot({
+        organizationId: state.organizationId,
+      }));
+  if (state.parentContainerId === null && !isMetadataRoot)
     throw new ContainerMutationError("container create requires a parent", 400);
-  }
-
-  const parent = await loadContainerRow(executor, state.parentContainerId);
-  if (!parent) {
+  const parent = state.parentContainerId
+    ? await loadContainerRow(executor, state.parentContainerId)
+    : null;
+  if (!parent && !isMetadataRoot) {
     throw new ContainerMutationError("Parent container not found", 404);
   }
 
-  if (parent.organizationId !== state.organizationId) {
+  if (parent && parent.organizationId !== state.organizationId) {
     throw new ContainerMutationError(
       "Parent container organization mismatch",
       409,
@@ -108,7 +117,7 @@ async function persistCreatedContainerStructure(
     executor
       .insert(containers)
       .values({
-        depth: parent.depth + 1,
+        depth: parent ? parent.depth + 1 : 0,
         systemSlot: state.systemSlot,
         id: state.containerId,
         organizationId: state.organizationId,

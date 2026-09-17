@@ -48,10 +48,6 @@ import {
   createInitialRosterProfileContainer,
   createProvisionedSystemContainers,
 } from "./provisionOrganizationSystemContainers";
-import {
-  ADMIN_GROUP_NAME,
-  MEMBER_GROUP_NAME,
-} from "./provisionOrganizationValidation";
 
 /**
  * Identity material for the founding admin whose signatures the provisioning
@@ -113,7 +109,6 @@ async function createOrganizationRow(
     adminGroupId: string;
     memberGroupId: string;
     organizationId: string;
-    name: string;
   },
 ) {
   const [org] = await tx
@@ -122,7 +117,6 @@ async function createOrganizationRow(
       adminGroupId: input.adminGroupId,
       id: input.organizationId,
       memberGroupId: input.memberGroupId,
-      name: input.name,
     })
     .returning({ id: organizations.id });
   if (!org) {
@@ -136,22 +130,18 @@ async function createOrganizationRow(
 
 async function createInitialGroup(
   tx: DatabaseTransaction,
-  input: { groupId: string; name: string; organizationId: string },
+  input: { groupId: string; organizationId: string },
 ): Promise<void> {
   const [group] = await tx
     .insert(groups)
     .values({
       id: input.groupId,
       organizationId: input.organizationId,
-      name: input.name,
     })
     .returning({ id: groups.id });
 
   if (!group) {
-    throw new OrganizationProvisioningError(
-      `Failed to create ${input.name} group`,
-      500,
-    );
+    throw new OrganizationProvisioningError("Failed to create group", 500);
   }
 }
 
@@ -278,7 +268,7 @@ function listCommittedCoreMetadataUpdateIds(
   return [
     input.initialRootMetadataDocument.initialSync,
     input.initialRosterProfileContainer?.initialMetadataSync,
-    input.initialOrganizationMetadataContainer?.initialMetadataSync,
+    input.initialOrganizationMetadataContainer.initialMetadataSync,
   ].flatMap((initialSync) =>
     initialSync ? initialSync.outgoingUpdates.map((update) => update.id) : [],
   );
@@ -286,11 +276,6 @@ function listCommittedCoreMetadataUpdateIds(
 
 export interface ProvisionOrganizationOptions {
   readonly initialBilling: InitialOrganizationBilling;
-  /**
-   * Server-side plaintext organization label. The real display name lives in
-   * the encrypted organization profile document; this is only a coarse label.
-   */
-  readonly organizationName: string;
   /**
    * Invoked in-transaction immediately after the organization row and its root
    * container are created, before groups/policies/roster are stored.
@@ -312,7 +297,7 @@ export interface ProvisionedOrganization {
   rootMetadataDocument: DocumentCreateResponse;
   rosterProfileContainer: ContainerCreateWithMetadataDocumentResponse | null;
   rosterProfileDocument: DocumentCreateResponse | null;
-  organizationMetadataContainer: ContainerCreateWithMetadataDocumentResponse | null;
+  organizationMetadataContainer: ContainerCreateWithMetadataDocumentResponse;
   organizationProfileDocument: DocumentCreateResponse | null;
   systemContainers: ContainerCreateWithMetadataDocumentResponse[];
   committedCoreMetadataUpdateIds: string[];
@@ -330,7 +315,6 @@ async function provisionOrganizationAuthorityAndBilling(
     adminGroupId: input.initialAdminGroup.groupId,
     memberGroupId: input.initialMemberGroup.groupId,
     organizationId: input.organizationId,
-    name: options.organizationName,
   });
   const initialBilling = await createInitialOrganizationBillingRow(
     tx,
@@ -345,12 +329,10 @@ async function provisionOrganizationAuthorityAndBilling(
   await options.onOrganizationRootCreated?.(org.id);
   await createInitialGroup(tx, {
     groupId: input.initialAdminGroup.groupId,
-    name: ADMIN_GROUP_NAME,
     organizationId: org.id,
   });
   await createInitialGroup(tx, {
     groupId: input.initialMemberGroup.groupId,
-    name: MEMBER_GROUP_NAME,
     organizationId: org.id,
   });
   await storeInitialPolicy(tx, input.initialAdminGroup.initialGroupPolicy);
@@ -413,7 +395,7 @@ export async function provisionOrganizationInTransaction(
       tx,
       input,
       signer,
-      organizationMetadataContainer?.container ?? null,
+      organizationMetadataContainer.container,
     );
   const systemContainers = await createProvisionedSystemContainers(
     tx,

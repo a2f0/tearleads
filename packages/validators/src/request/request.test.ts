@@ -248,7 +248,6 @@ test("isCreateOrganizationGroupRequest", () => {
   const groupId = "550e8400-e29b-41d4-a716-446655440002";
   const request = {
     groupId,
-    name: "Operators",
     initialGroupPolicy: {
       state: {
         principalType: "group",

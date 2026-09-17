@@ -24,9 +24,9 @@ export const securitySummary: readonly SecuritySummaryRow[] = [
     id: "content",
     title: "Content",
     protection:
-      "Document and file contents are encrypted on your device before they sync. The service stores ciphertext and wrapped keys, not plaintext content keys.",
+      "Document and file contents, organization names, and custom group names are encrypted on your device before they sync. The service stores ciphertext and wrapped keys, not plaintext content keys.",
     limit:
-      "The service can see organization and group names, membership, folder and file structure, identifiers, public keys, access relationships, who signed each change and when, sizes, IP addresses, and traffic patterns such as request timing. See the full list.",
+      "The service can see built-in group roles, membership, folder and file structure, identifiers, public keys, access relationships, who signed each change and when, sizes, IP addresses, and traffic patterns such as request timing. See the full list.",
     limitLink: {
       href: "/security#device-boundary",
       label: "See the full list",

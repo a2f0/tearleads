@@ -1,0 +1,51 @@
+# Issue: server-readable organization/group labels; fresh-database metadata flag day.
+# Remove when origin/main contains the encrypted group metadata contract.
+POST /organizations/{organizationId}/groups removed the required property `group/name` from the response with the `200` status
+
+# Issue: server-readable organization/group labels; fresh-database metadata flag day.
+# Remove when origin/main contains the encrypted group metadata contract.
+GET /organizations/{organizationId}/read-model added `subschema #1, subschema #2` to the response body `oneOf` list for the response status `200`
+
+# Issue: server-readable organization/group labels; fresh-database metadata flag day.
+# Remove when origin/main contains the encrypted group metadata contract.
+GET /root/identities/{userId}/organizations removed the required property `organizations/items/name` from the response with the `200` status
+
+# Issue: server-readable organization/group labels; fresh-database metadata flag day.
+# Remove when origin/main contains the encrypted group metadata contract.
+GET /root/organizations removed the required property `organizations/items/name` from the response with the `200` status
+
+# Issue: server-readable organization/group labels; fresh-database metadata flag day.
+# Remove when origin/main contains the encrypted group metadata contract.
+GET /root/organizations/{organizationId} removed the required property `organization/name` from the response with the `200` status
+
+# Issue: server-readable organization/group labels; fresh-database metadata flag day.
+# Remove when origin/main contains the encrypted group metadata contract.
+GET /root/reports/data-usage removed the required property `organizations/items/organization/name` from the response with the `200` status
+
+# Issue: server-readable organization/group labels; fresh-database metadata flag day.
+# Remove when origin/main contains the encrypted group metadata contract.
+POST /auth/register removed the request property `initialAdminGroup/name`
+
+# Issue: server-readable organization/group labels; fresh-database metadata flag day.
+# Remove when origin/main contains the encrypted group metadata contract.
+POST /auth/register removed the request property `initialMemberGroup/name`
+
+# Issue: server-readable organization/group labels; fresh-database metadata flag day.
+# Remove when origin/main contains the encrypted group metadata contract.
+POST /organizations removed the request property `initialAdminGroup/name`
+
+# Issue: server-readable organization/group labels; fresh-database metadata flag day.
+# Remove when origin/main contains the encrypted group metadata contract.
+POST /organizations removed the request property `initialMemberGroup/name`
+
+# Issue: server-readable organization/group labels; fresh-database metadata flag day.
+# Remove when origin/main contains the encrypted group metadata contract.
+POST /organizations/{organizationId}/groups removed the request property `name`
+
+# Issue: required organization metadata root for encrypted organization/group labels.
+# Remove when origin/main contains the required organization metadata contract.
+POST /auth/register the request property `initialOrganizationMetadataContainer` became required
+
+# Issue: required organization metadata root for encrypted organization/group labels.
+# Remove when origin/main contains the required organization metadata contract.
+POST /organizations the request property `initialOrganizationMetadataContainer` became required

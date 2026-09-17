@@ -2,10 +2,7 @@ import type {
   ContainerAccessLevel,
   ContainerGrantSubjectType,
 } from "@tearleads/crypto";
-import type {
-  ContainerWriterProjectionResponse,
-  OrganizationGroupSummaryResponse,
-} from "@tearleads/validators/response";
+import type { ContainerWriterProjectionResponse } from "@tearleads/validators/response";
 import { eq } from "drizzle-orm";
 import {
   getTargetContainerContext,
@@ -22,6 +19,7 @@ import {
 import { containers } from "../../data/sqlite/schema";
 import { getClientSQLitePersistenceRuntime } from "../../data/sqlite/sqlitePersistenceRuntime";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
+import type { OrganizationGroupSummary } from "../organizations/readModel";
 
 export type ContainerShareAccessLevel = ContainerAccessLevel;
 
@@ -76,7 +74,7 @@ export interface ContainerInfoSecurityDetails {
 export interface ContainerInfoRemoteDetails {
   grantRows: ContainerInfoGrantRow[];
   grants: ContainerInfoGrant[];
-  groups: OrganizationGroupSummaryResponse[];
+  groups: OrganizationGroupSummary[];
   security?: ContainerInfoSecurityDetails;
   syncCursors: ContainerInfoSyncCursor[];
 }
@@ -317,7 +315,7 @@ export async function loadContainerInfo(input: {
   containerProjection?: ContainerWriterProjectionResponse | null | undefined;
   execSql?: ExecSql | null;
   loadOrganizationGroups: () => Promise<
-    ReadonlyArray<OrganizationGroupSummaryResponse>
+    ReadonlyArray<OrganizationGroupSummary>
   >;
   parentId?: string | null;
   remoteInfoMode?: ContainerInfoRemoteMode | undefined;

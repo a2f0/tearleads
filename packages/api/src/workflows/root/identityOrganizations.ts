@@ -26,7 +26,6 @@ export interface RootIdentityOrganization {
   readonly billing: RootIdentityOrganizationBilling | null;
   readonly createdAt: string;
   readonly isDefaultOrganization: boolean;
-  readonly name: string;
   readonly organizationId: string;
   readonly roster: {
     readonly disabledAt: string | null;
@@ -70,7 +69,6 @@ export async function listRootIdentityOrganizations(
       billingTrialEndsAt: organizationBilling.trialEndsAt,
       organizationCreatedAt: organizations.createdAt,
       organizationId: organizations.id,
-      organizationName: organizations.name,
       rosterDisabledAt: organizationRosterEntries.disabledAt,
       rosterJoinedAt: organizationRosterEntries.joinedAt,
       rosterStatus: organizationRosterEntries.status,
@@ -103,7 +101,6 @@ export async function listRootIdentityOrganizations(
           },
     createdAt: row.organizationCreatedAt.toISOString(),
     isDefaultOrganization: row.organizationId === user.defaultOrganizationId,
-    name: row.organizationName,
     organizationId: row.organizationId,
     roster: {
       disabledAt: isoOrNull(row.rosterDisabledAt),

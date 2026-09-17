@@ -1,8 +1,5 @@
 import { expect, test } from "bun:test";
-import {
-  buildInitialGroupPolicyRequest,
-  buildInitialOrganizationPolicyRequest,
-} from "@tearleads/client-sdk";
+import { buildInitialOrganizationPolicyRequest } from "@tearleads/client-sdk";
 import {
   generateKemSeedAndKeyPair,
   generateSigningSeedAndKeyPair,
@@ -10,6 +7,7 @@ import {
 } from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
 import { createTestExecSql } from "@tearleads/test-utils";
+import { buildInitialGroupPolicyRequest } from "../../../test/helpers/groupMetadata";
 import {
   cacheReferencedPolicies,
   principalPolicyBundleFromInitialPolicy,

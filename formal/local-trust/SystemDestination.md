@@ -3,8 +3,9 @@
 [`SystemDestination.tla`](./SystemDestination.tla) covers finding #8 in #2266.
 An untrusted listing claims a root edge and a system slot. A client may merge
 pre-login content only into its session's own verified root. System writes must
-use the signed slot on a root child. Minting a system slot requires an admin of
-that root, so an ordinary writer cannot create a foreign-organization decoy.
+use the signed slot in its required topology: organization metadata has an
+independent root, while other slots are direct root children. Minting either
+requires administrator authority, so an ordinary writer cannot create a decoy.
 
 | Model action or predicate | Production seam |
 | --- | --- |
@@ -15,11 +16,18 @@ that root, so an ordinary writer cannot create a foreign-organization decoy.
 | `Login` / `RefuseRootSwap` | `acknowledgeSessionRoot` refuses a different root id for an already acknowledged organization; `commitSessionRootAcknowledgment` decides and commits it against the live snapshot and records the incident |
 | `MoveDestination` / `PreserveDestinationIdentity` | `deriveContainerMoveManifestState` forbids moves of roots and system containers |
 | `UseSystem` / `RequireSystemScope` | `findSystemContainerStateForRoot` selects the authenticated slot in the active organization and acknowledged root |
-| `CreateSystem` / `RequireSystemAdministrator` / `RequireSystemRootParent` | `deriveContainerCreateManifestState` requires root-admin authority and a complete root parent path for slots |
+| `CreateSystem` / `RequireSystemAdministrator` / `RequireSystemTopology` | `assertContainerSystemTopology` permits only the organization-derived metadata slot at a root; `deriveContainerCreateManifestState` requires administrator authority and complete root parent paths for all other slots |
 
-The model has four candidate identities, two creator roles, and shared/private
-variants. Signature checks and organization matching are abstracted by the verified
-manifest boundary. Classification does not advance write-authority checkpoints
+The model has four candidate identities, two creator roles, shared/private
+variants, two authenticated slot roles, and three positions (root, root child,
+or nested child). The metadata role means the signed slot exactly matches the
+digest derived from the signed organization ID; an unsigned slot claim cannot
+select this role. `MetadataRootCreationAllowed` also prevents a vacuous repair
+that rejects every independent metadata root. Signature checks and organization
+matching are abstracted by the verified manifest boundary. Hydration rejects
+invalid topology, and `SystemWritesUseValidTopology` covers its use boundary.
+A metadata root remains a system destination and never becomes the session root
+for pre-login content. Classification does not advance write-authority checkpoints
 or require KEK decryption; actual writes verify current authority separately.
 Root and system parent edges cannot move, and signed slots are immutable. It models
 one classification snapshot, not network availability, listing completeness, cache
@@ -71,6 +79,9 @@ becoming the session's personal merge destination. Root lookup uses the unique
 verified root in such an organization; pre-login reconciliation and stale-root
 recovery continue to require an explicit session acknowledgement.
 
-Slot creation covers both a real root child and an invalid parent shape. The
-crypto regressions reject a slot on a root, a grandchild, and a truncated proof
-that presents a non-root parent as the first path entry.
+Slot creation covers metadata roots, ordinary root children, and invalid
+combinations of role and position. The crypto regressions permit the exact
+organization metadata root and reject other root slots, metadata children,
+grandchildren, and truncated proofs that present non-root parents as roots.
+The metadata root has explicit Admins and Members grants and independent keys;
+those recipient and key-verification rules are outside this destination model.

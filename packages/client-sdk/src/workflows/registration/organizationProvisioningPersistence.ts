@@ -59,7 +59,7 @@ function coreMetadataInitialUpdateCommitted(
 
 function buildCoreContainerBootstrapInput(
   response: OrganizationProvisioningResponse,
-  container: OrganizationProvisioningResponse["rosterProfileContainer"],
+  container: OrganizationProvisioningResponse["organizationMetadataContainer"],
   bootstrap: Pick<
     OrganizationProvisioningArtifacts["rosterProfileBootstrap"],
     | "containerId"
@@ -68,11 +68,7 @@ function buildCoreContainerBootstrapInput(
     | "containerRequest"
     | "systemSlot"
   >,
-): PersistBootstrapInput["rosterProfileContainer"] {
-  if (!container) {
-    return;
-  }
-
+): NonNullable<PersistBootstrapInput["organizationMetadataContainer"]> {
   return {
     accessEpoch: container.container.manifestHead.epoch,
     accessStateHash: container.container.manifestHead.manifestHash,
@@ -188,11 +184,13 @@ async function buildProvisioningPersistenceArtifacts(
       response: input.response,
       snapshot: input.organizationMetadataBootstrap.organizationProfileSnapshot,
     }),
-    rosterProfileContainer: buildCoreContainerBootstrapInput(
-      input.response,
-      input.response.rosterProfileContainer,
-      input.rosterProfileBootstrap,
-    ),
+    rosterProfileContainer: input.response.rosterProfileContainer
+      ? buildCoreContainerBootstrapInput(
+          input.response,
+          input.response.rosterProfileContainer,
+          input.rosterProfileBootstrap,
+        )
+      : undefined,
     rosterProfileDocument: buildRosterProfileBootstrapInput({
       containerId: input.rosterProfileBootstrap.containerId,
       initialUpdate: input.rosterProfileBootstrap.profileDocumentInitialUpdate,
@@ -243,12 +241,7 @@ export async function persistOrganizationProvisioningState(
         ...(artifacts.rosterProfileContainer
           ? { rosterProfileContainer: artifacts.rosterProfileContainer }
           : {}),
-        ...(artifacts.organizationMetadataContainer
-          ? {
-              organizationMetadataContainer:
-                artifacts.organizationMetadataContainer,
-            }
-          : {}),
+        organizationMetadataContainer: artifacts.organizationMetadataContainer,
         ...(artifacts.organizationProfileDocument
           ? {
               organizationProfileDocument:

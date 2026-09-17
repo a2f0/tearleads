@@ -1,3 +1,4 @@
+import type { DomainScope } from "../../data/domainScope";
 import type {
   InternalRuntime,
   InternalWorkflowRuntimeInput,
@@ -59,4 +60,20 @@ export function activeOrganizationDataRuntime(
   }
 
   return { runtime, organizationId, userId };
+}
+
+export function isOrganizationDataRuntimeCurrent(
+  runtimeService: InternalRuntime,
+  active: ActiveOrganizationDataRuntime,
+  domainScope: DomainScope,
+): boolean {
+  const current = activeOrganizationDataRuntime(
+    runtimeService,
+    active.organizationId,
+  );
+  return (
+    current?.userId === active.userId &&
+    current.runtime.infra.execSql === active.runtime.infra.execSql &&
+    current.runtime.state.domainScope === domainScope
+  );
 }

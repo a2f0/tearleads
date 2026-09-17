@@ -3,7 +3,6 @@ import { documentSyncRequestRuntimeRefinements } from "../documentSyncRefinement
 import { organizationDataUsageResponseRuntimeRefinements } from "../organizationDataUsageRefinements";
 import {
   organizationProvisioningContainerKeyringRefinement,
-  organizationProvisioningGroupNameRefinement,
   organizationProvisioningRequestRuntimeRefinements,
   organizationProvisioningResponseRuntimeRefinements,
 } from "../organizationProvisioningRefinements";
@@ -158,10 +157,7 @@ export const createOrganizationGroupOperation = defineJsonOperation({
   responses: {
     200: CreateOrganizationGroupResponseSchema,
   },
-  runtimeRefinements: [
-    organizationProvisioningContainerKeyringRefinement,
-    organizationProvisioningGroupNameRefinement,
-  ],
+  runtimeRefinements: [organizationProvisioningContainerKeyringRefinement],
 });
 
 export const deleteOrganizationGroupOperation = defineJsonOperation({

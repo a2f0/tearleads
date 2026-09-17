@@ -2,9 +2,7 @@ import { db } from "@tearleads/api-shared/postgres";
 import { organizations } from "@tearleads/api-shared/schema";
 import type { createTestUser, TestUser } from "@tearleads/bob-and-alice";
 import {
-  computePrincipalStateHash,
   generateKemSeedAndKeyPair,
-  makeVerifiedPrincipalPolicy,
   toFingerprint,
   wrapDekForRecipients,
 } from "@tearleads/crypto";
@@ -15,10 +13,13 @@ import {
   getCurrentPrincipalState,
   listCurrentPrincipalProjectionMembers,
 } from "../../src/access/read/principalStateStore";
-import { buildRootContainerRekeyMutation } from "./containerRekey";
-import { bootstrapRoot } from "./keyingWriterProjectionKit";
+import { groupPolicyPayload } from "./groupPolicyPayload";
 import { addOrganizationMember } from "./organizationMembership";
-import { submitOrganizationGroupPolicyCommit } from "./principalPolicy";
+import { withGroupMembershipContainerMutations } from "./organizationMembershipGrants";
+import {
+  loadVerifiedPrincipalPolicy,
+  submitOrganizationGroupPolicyCommit,
+} from "./principalPolicy";
 import {
   signPrincipalStateBundle,
   toPrincipalStateExternalAuthority,
@@ -94,11 +95,11 @@ export async function prepareUserForAdminGroup(input: {
     db,
   );
   invariant(currentState, "expected current Admins state");
-  const root = await bootstrapRoot(input.actor);
-  const currentPolicy = root.principalPolicies.find(
-    (policy) => policy.principalId === organization.adminGroupId,
+  const currentPolicy = await loadVerifiedPrincipalPolicy(
+    db,
+    "group",
+    organization.adminGroupId,
   );
-  invariant(currentPolicy, "expected current Admins policy");
   const currentProjection = await listCurrentPrincipalProjectionMembers(
     "group",
     organization.adminGroupId,
@@ -144,10 +145,9 @@ export async function prepareUserForAdminGroup(input: {
     })),
     projection: nextProjection,
     grants: currentPolicy.grants,
-    payloadCiphertext: bytesToBase64(
-      new TextEncoder().encode(
-        JSON.stringify({ members: nextProjection, name: "Admins" }),
-      ),
+    payloadCiphertext: await groupPolicyPayload(
+      organization.adminGroupId,
+      nextProjection,
     ),
     signedAt: SIGNED_AT,
     signerUserId: input.actor.userId,
@@ -155,56 +155,13 @@ export async function prepareUserForAdminGroup(input: {
     signingPrivateKey: input.actor.signing.signingPrivateKey,
     memberEnvelopes,
   });
-  const stateHash = await computePrincipalStateHash(signedState.state);
-  const nextState = {
-    ...signedState.state,
-    stateHash,
-    createdAt: signedState.state.signedAt,
-  };
-  const nextPolicy = makeVerifiedPrincipalPolicy({
-    principalType: nextState.principalType,
-    principalId: nextState.principalId,
-    version: nextState.version,
-    keyEpoch: nextState.keyEpoch,
-    stateHash,
-    state: nextState,
-    projection: signedState.projection,
-    grants: signedState.grants,
-    history: [
-      {
-        state: currentPolicy.state,
-        projection: currentPolicy.projection,
-        grants: currentPolicy.grants,
-      },
-      {
-        state: nextState,
-        projection: signedState.projection,
-        grants: signedState.grants,
-      },
-    ],
-    checkpoint: {
-      principalType: nextState.principalType,
-      principalId: nextState.principalId,
-      version: nextState.version,
-      stateHash,
-    },
-  });
-  const rootRekey = await buildRootContainerRekeyMutation({
-    previous: root,
-    replacementPrincipalPolicy: nextPolicy,
-    signer: input.actor,
-  });
-
   return {
     adminGroupId: organization.adminGroupId,
-    request: {
-      state: signedState.state,
-      encryptedPayload: signedState.encryptedPayload,
-      projection: signedState.projection,
-      grants: signedState.grants,
-      memberEnvelopes: signedState.memberEnvelopes,
-      containerMutations: [rootRekey.request],
-    },
+    request: await withGroupMembershipContainerMutations({
+      actor: input.actor,
+      currentPolicy,
+      signedState,
+    }),
   };
 }
 

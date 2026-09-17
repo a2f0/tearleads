@@ -9,8 +9,9 @@ import {
 import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
 import { createTestExecSql } from "@tearleads/test-utils";
 import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
+import { buildInitialGroupPolicyRequest } from "../../../test/helpers/groupMetadata";
 import { policyBundleFromInitialRequest } from "../../../test/helpers/principalPolicyFixtures";
-import { buildInitialGroupPolicyRequest } from "../../workflows/organizations/principalPolicy";
+
 import { loadPrincipalPolicyCheckpoint } from "./keyingCheckpointPersistence";
 import {
   persistLocallyAcknowledgedPrincipalPolicyBundle,

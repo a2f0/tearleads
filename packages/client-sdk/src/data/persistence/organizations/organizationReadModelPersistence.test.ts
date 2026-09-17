@@ -5,6 +5,7 @@ import {
   organizationReadModelDirectory as directory,
   organizationReadModelDirectoryUser as directoryUser,
   organizationReadModelGroups as groups,
+  locallyUnnamedGroups,
   organizationReadModelOrganizationPolicy as organizationPolicy,
   organizationReadModelSnapshot as snapshot,
 } from "../../../../test/helpers/organizationReadModelPersistenceFixtures";
@@ -84,7 +85,7 @@ test("organization read-model deltas replace only supplied lanes and reject stal
         expect.objectContaining({ userId: "user-2" }),
       ],
     });
-    expect(afterGroups?.groups).toEqual(groups("org-1", "next"));
+    expect(afterGroups?.groups).toEqual(locallyUnnamedGroups("org-1", "next"));
     expect(afterGroups?.policyHeads).toEqual([
       {
         organizationId: "org-1",
@@ -138,7 +139,9 @@ test("organization read-model deltas replace only supplied lanes and reject stal
       "organization-profile-next",
     );
     expect(afterDirectory?.requester).toEqual({ isOrgAdmin: false });
-    expect(afterDirectory?.groups).toEqual(groups("org-1", "next"));
+    expect(afterDirectory?.groups).toEqual(
+      locallyUnnamedGroups("org-1", "next"),
+    );
     expect(
       afterDirectory?.policyHeads.find(
         (head) => head.principalType === "organization",
@@ -162,7 +165,7 @@ test("organization read-model reset snapshots replace both lanes and purge only 
     initialOrgOne.lanes.groups.groups.push({
       groupId: "stale-org-1",
       organizationId: "org-1",
-      name: "Stale",
+
       createdAt: "2026-07-16T12:00:00.000Z",
       isBuiltin: false,
       currentState: {
@@ -213,7 +216,9 @@ test("organization read-model reset snapshots replace both lanes and purge only 
     expect(resetProjection?.directory.users).toEqual([
       expect.objectContaining({ userId: "user-reset" }),
     ]);
-    expect(resetProjection?.groups).toEqual(groups("org-1", "reset"));
+    expect(resetProjection?.groups).toEqual(
+      locallyUnnamedGroups("org-1", "reset"),
+    );
     expect(
       resetProjection?.policyHeads.some(
         (head) => head.principalId === "stale-org-1",

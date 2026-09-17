@@ -13,6 +13,7 @@ import { persistContainerState } from "./containerStatePersistence";
 import { updateExistingSystemContainer } from "./existingSystemContainer";
 import { getContainerContentsStoreLogLabel } from "./logLabel";
 import { removeMissingContainerState } from "./missingContainerState";
+import { ensureOrganizationMetadataSystemContainer } from "./organizationMetadataSystemContainer";
 import {
   invalidateRemoteContainerWrites,
   invalidateRemoteSystemContainerWrite,
@@ -158,6 +159,34 @@ export async function ensureSystemContainer(
     return null;
   }
 
+  const metadata = await ensureOrganizationMetadataSystemContainer({
+    state,
+    syncAgent,
+    systemSlot,
+    options,
+    isCurrent,
+  });
+  if (!isCurrent()) return null;
+  if (metadata.handled) return metadata.container;
+
+  return ensureChildSystemContainer(
+    state,
+    syncAgent,
+    systemSlot,
+    trimmedName,
+    options,
+    isCurrent,
+  );
+}
+
+async function ensureChildSystemContainer(
+  state: ContainerContentsStoreState,
+  syncAgent: ContainerContentsStoreSyncAgent,
+  systemSlot: ContainerSystemSlot,
+  trimmedName: string,
+  options: EnsureSystemContainerOptions,
+  isCurrent: ContainerWriteGuard,
+) {
   const allowSynchronousRemoteBootstrap = !options.deferRemoteBootstrap;
   const existing = allowSynchronousRemoteBootstrap
     ? await findOrHydrateSystemContainer({

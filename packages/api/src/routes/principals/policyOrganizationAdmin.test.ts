@@ -51,7 +51,6 @@ test("a direct group admin cannot manage policy without built-in Admins authorit
   await db.insert(groups).values({
     id: groupId,
     organizationId,
-    name: "Operators",
   });
   const projection = [
     { userId: orgAdmin.userId, role: "admin" as const },

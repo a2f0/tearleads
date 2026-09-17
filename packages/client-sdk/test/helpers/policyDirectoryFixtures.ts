@@ -17,6 +17,7 @@ import {
 export interface PolicyDirectoryFixture {
   readonly bundle: PrincipalPolicyBundleResponse;
   readonly signer: UserIdentityResponse;
+  readonly signingKeyPair: ReturnType<typeof generateSigningSeedAndKeyPair>;
 }
 
 export async function createPolicyDirectoryFixture(input: {
@@ -41,6 +42,7 @@ export async function createPolicyDirectoryFixture(input: {
     userId,
   });
   return {
+    signingKeyPair,
     bundle: await organizationPolicyBundleFromInitialRequest(
       input.organizationId,
       policy,

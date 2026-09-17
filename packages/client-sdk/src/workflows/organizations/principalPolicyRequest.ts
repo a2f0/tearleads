@@ -1,17 +1,21 @@
 import {
   buildPrincipalStateSigningInput,
   type EncapsulationKeyPair,
+  encodeBuiltinGroupMetadata,
+  encryptGroupMetadata,
+  type GroupMetadataKey,
   generateKemSeedAndKeyPair,
   normalizePrincipalContainerGrants,
   normalizePrincipalProjectionMembers,
   type PrincipalContainerGrant,
   type PrincipalPolicyExternalAuthority,
+  readGroupMetadata,
   type SigningKeyPair,
   signPrincipalState,
   toFingerprint,
   wrapDekForRecipients,
 } from "@tearleads/crypto";
-import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
+import { bytesToBase64 } from "@tearleads/encoding";
 import type {
   CreateOrganizationGroupRequest,
   PrincipalMemberEnvelopeRequest,
@@ -29,6 +33,8 @@ interface BuildInitialGroupPolicyInput {
   readonly grants?: readonly PrincipalContainerGrant[] | undefined;
   readonly includeSignerAsAdmin?: boolean;
   readonly name: string;
+  readonly metadataKey?: GroupMetadataKey;
+  readonly builtinRole?: "admins" | "members";
   readonly signerUserId: string;
   readonly signingFingerprint: string;
   readonly signingKeyPair: SigningKeyPair;
@@ -45,21 +51,6 @@ function projectionToStateMembers(
   projection: ReadonlyArray<PrincipalProjectionMemberRequest>,
 ) {
   return projection.map((member) => ({ userId: member.userId }));
-}
-
-/**
- * The group's display name rides in the signed payload. The server keeps a
- * mutable `name` column for listings, but a share must land on the group the
- * user saw, so the name shown at share time is checked against this committed
- * copy rather than the read model.
- */
-function payloadCiphertextForProjection(
-  projection: ReadonlyArray<PrincipalProjectionMemberRequest>,
-  name: string,
-): string {
-  return bytesToBase64(
-    new TextEncoder().encode(JSON.stringify({ members: projection, name })),
-  );
 }
 
 /**
@@ -100,37 +91,36 @@ export function canonicalGroupNameKey(name: string): string {
   );
 }
 
-/** Read the required display name from the verified group policy payload. */
-export function readGroupPolicyPayloadName(
+export type GroupPolicyNameReader = (
   bundle: PrincipalPolicyBundleResponse,
-): string {
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(
-      new TextDecoder().decode(base64ToBytes(bundle.currentPayload.ciphertext)),
-    );
-  } catch {
-    throw new Error("Group policy payload is not canonical JSON");
-  }
-  const name =
-    parsed !== null && typeof parsed === "object"
-      ? Reflect.get(parsed, "name")
-      : undefined;
-  if (typeof name !== "string" || name.trim().length === 0) {
-    throw new Error("Group policy payload does not commit a display name");
-  }
-  return name;
+) => Promise<string>;
+
+/** Read only after the policy and its organization-directory binding verify. */
+export async function readGroupPolicyPayloadName(
+  bundle: PrincipalPolicyBundleResponse,
+  readEncryptedName?: GroupPolicyNameReader,
+): Promise<string> {
+  const metadata = readGroupMetadata(bundle.currentPayload.ciphertext);
+  if ("role" in metadata)
+    return metadata.role === "admins" ? "Admins" : "Members";
+  if (!readEncryptedName)
+    throw new Error("Group metadata decryption context is unavailable");
+  return readEncryptedName(bundle);
 }
 
 /** One binding predicate for every operation selected by a read-model label. */
-export function groupPolicyNameMismatch(
+export async function groupPolicyNameMismatch(
   bundle: PrincipalPolicyBundleResponse,
   expectedGroupName: string,
-): "forbidden_characters" | "name_mismatch" | null {
+  readEncryptedName?: GroupPolicyNameReader,
+): Promise<"forbidden_characters" | "name_mismatch" | null> {
   if (hasForbiddenGroupNameCharacter(expectedGroupName)) {
     return "forbidden_characters";
   }
-  const signedName = readGroupPolicyPayloadName(bundle);
+  const signedName = await readGroupPolicyPayloadName(
+    bundle,
+    readEncryptedName,
+  );
   if (hasForbiddenGroupNameCharacter(signedName)) return "forbidden_characters";
   return canonicalGroupNameKey(signedName) ===
     canonicalGroupNameKey(expectedGroupName)
@@ -148,7 +138,7 @@ export async function signedGroupPolicyRequest(input: {
   readonly keyFingerprint: string;
   readonly grants: ReadonlyArray<PrincipalContainerGrant>;
   readonly memberEnvelopes: ReadonlyArray<PrincipalMemberEnvelopeRequest>;
-  readonly name: string;
+  readonly payloadCiphertext: string;
   readonly principalId: string;
   readonly projection: ReadonlyArray<PrincipalProjectionMemberRequest>;
   readonly signedAt: string;
@@ -158,10 +148,7 @@ export async function signedGroupPolicyRequest(input: {
 }): Promise<PutPrincipalPolicyRequest> {
   const projection = normalizePrincipalProjectionMembers(input.projection);
   const grants = normalizePrincipalContainerGrants(input.grants);
-  const payloadCiphertext = payloadCiphertextForProjection(
-    projection,
-    input.name,
-  );
+  const payloadCiphertext = input.payloadCiphertext;
   const state = await signPrincipalState(
     await buildPrincipalStateSigningInput({
       principalType: "group",
@@ -237,6 +224,17 @@ export async function buildInitialGroupPolicyRequest(
       "Group names must be non-empty and contain no control, format, or surrogate characters",
     );
   }
+  const payloadCiphertext = input.builtinRole
+    ? encodeBuiltinGroupMetadata(input.builtinRole)
+    : input.metadataKey
+      ? await encryptGroupMetadata({
+          key: input.metadataKey,
+          groupId: input.groupId,
+          name,
+        })
+      : (() => {
+          throw new Error("Group metadata encryption context is unavailable");
+        })();
   const policyRequest = await signedGroupPolicyRequest({
     encapsulationPublicKey: bytesToBase64(groupKem.publicKey),
     externalAuthority: input.externalAuthority ?? null,
@@ -244,7 +242,7 @@ export async function buildInitialGroupPolicyRequest(
     keyFingerprint: await toFingerprint(groupKem.publicKey),
     grants: input.grants ?? [],
     memberEnvelopes,
-    name,
+    payloadCiphertext,
     principalId: input.groupId,
     projection,
     signedAt: new Date().toISOString(),
@@ -255,7 +253,6 @@ export async function buildInitialGroupPolicyRequest(
 
   return {
     groupId: input.groupId,
-    name,
     initialGroupPolicy: policyRequest,
   };
 }
@@ -276,5 +273,9 @@ export async function buildInitialMemberGroupPolicyRequest(input: {
   readonly signingFingerprint: string;
   readonly signingKeyPair: SigningKeyPair;
 }): Promise<CreateOrganizationGroupRequest> {
-  return buildInitialGroupPolicyRequest({ ...input, name: "Members" });
+  return buildInitialGroupPolicyRequest({
+    ...input,
+    name: "Members",
+    builtinRole: "members",
+  });
 }

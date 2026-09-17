@@ -36,6 +36,7 @@ export interface RefreshRootContainerLike {
     metadataDocumentId?: string | null | undefined;
     organizationId: string | null;
     parentId: string | null;
+    systemSlot?: string | null | undefined;
   };
 }
 
@@ -63,6 +64,7 @@ function resolveActiveRootChildLaneParentId(
     for (const { container } of state.containersById.values()) {
       if (
         container.parentId === null &&
+        !container.systemSlot &&
         container.organizationId === organizationId &&
         (container.metadataDocumentId ?? null) !== null
       ) {

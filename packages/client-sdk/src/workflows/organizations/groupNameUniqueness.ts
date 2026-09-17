@@ -18,12 +18,15 @@ import {
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import type { TrustedUserIdentityResolver } from "../../data/trustedUserIdentity";
 import { collectPrincipalPolicySignerPublicKeys } from "../principals/policyVerification";
+import { assertGroupMetadataBinding } from "./groupMetadataBinding";
 import {
   canonicalGroupNameKey,
+  type GroupPolicyNameReader,
   readGroupPolicyPayloadName,
 } from "./principalPolicyRequest";
 
-interface DirectoryGroupWalkInput {
+export interface DirectoryGroupWalkInput {
+  readonly readEncryptedName?: GroupPolicyNameReader | undefined;
   readonly apiClient: {
     getCurrentPrincipalPolicy: (
       principalType: "group" | "organization",
@@ -41,6 +44,7 @@ type DirectoryGroupHead = OrganizationAuthorityDescriptor["groupHeads"][number];
 
 interface VerifiedDirectoryGroup {
   readonly bundle: PrincipalPolicyBundleResponse;
+  readonly name: string;
   readonly nameKey: string;
   readonly policy: VerifiedPrincipalPolicy;
 }
@@ -96,7 +100,7 @@ async function loadDirectoryGroupBundle(
  * keeps the name a group vouches for independent of what any earlier caller
  * trusted at retention time.
  */
-async function verifyDirectoryGroup(
+export async function verifyDirectoryGroup(
   input: DirectoryGroupWalkInput,
   head: DirectoryGroupHead,
 ): Promise<VerifiedDirectoryGroup> {
@@ -127,9 +131,15 @@ async function verifyDirectoryGroup(
       "Organization directory group verification failed",
     );
   }
+  assertGroupMetadataBinding(bundle, input.descriptor);
+  const name = await readGroupPolicyPayloadName(
+    bundle,
+    input.readEncryptedName,
+  );
   return {
     bundle,
-    nameKey: canonicalGroupNameKey(readGroupPolicyPayloadName(bundle)),
+    name,
+    nameKey: canonicalGroupNameKey(name),
     policy: verified.value,
   };
 }

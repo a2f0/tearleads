@@ -15,6 +15,7 @@ import type {
   CurrentPrincipalMemberEnvelopesResponse,
   PrincipalStateResponse,
 } from "@tearleads/validators/response";
+import { buildInitialGroupPolicyRequest } from "../../../test/helpers/groupMetadata";
 import {
   policyBundleAfterMutation,
   policyBundleFromInitialRequest,
@@ -26,7 +27,6 @@ import {
   assertGroupPolicyEnvelopesMatchAcknowledgement,
 } from "./groupPolicyMutationAcknowledgement";
 import { buildAddGroupUserPolicyRequest } from "./groupPolicyRequests";
-import { buildInitialGroupPolicyRequest } from "./principalPolicy";
 
 async function acknowledgementFixture() {
   const signingKeyPair = generateSigningSeedAndKeyPair();

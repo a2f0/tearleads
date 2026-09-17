@@ -65,7 +65,7 @@ export function OrganizationDetailView({
   return (
     <MiniAppSection>
       <MiniAppSectionHeading>
-        <h2>{detail?.organization.name || "Organization"}</h2>
+        <h2>{detail?.organization.organizationId || "Organization"}</h2>
       </MiniAppSectionHeading>
       <MiniAppToolbar>
         <MiniAppButton onClick={onBack}>Back</MiniAppButton>
@@ -99,7 +99,6 @@ export function OrganizationDetailView({
                   <RootFacts
                     label="Organization"
                     facts={[
-                      { label: "Name", value: detail.organization.name },
                       {
                         label: "Organization ID",
                         value: detail.organization.organizationId,

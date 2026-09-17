@@ -171,7 +171,7 @@ function OrganizationsTable({
                   }
                   title={organization.organizationId}
                 >
-                  {organization.name}
+                  {organization.organizationId}
                   {organization.isDefaultOrganization ? " (default)" : ""}
                 </MiniAppTableActionButton>
               </MiniAppTableCell>

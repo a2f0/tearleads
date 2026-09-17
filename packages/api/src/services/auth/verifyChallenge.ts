@@ -103,6 +103,7 @@ export async function verifyChallenge(
       and(
         eq(containers.organizationId, user.defaultOrganizationId),
         isNull(containers.parentId),
+        isNull(containers.systemSlot),
       ),
     )
     .limit(1);

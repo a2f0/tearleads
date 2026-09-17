@@ -152,11 +152,7 @@ function hasValidGrantSubjectFields(
   grant: z.infer<typeof OrganizationReadModelGrantResponseSchema>,
 ): boolean {
   if (grant.subjectType === "user") {
-    return (
-      grant.userId === grant.subjectId &&
-      grant.groupId === null &&
-      grant.groupName === null
-    );
+    return grant.userId === grant.subjectId && grant.groupId === null;
   }
   if (grant.subjectType === "group") {
     return (

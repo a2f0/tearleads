@@ -118,7 +118,7 @@ test("stateless catalog groups require no membership head", async () => {
   response.lanes.groups.groups.push({
     groupId: "stateless-group",
     organizationId: response.organizationId,
-    name: "Catalog only",
+
     createdAt: "2026-07-17T12:00:00.000Z",
     isBuiltin: false,
     currentState: null,

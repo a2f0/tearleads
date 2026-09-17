@@ -1,6 +1,7 @@
 import {
   DEFAULT_DOCUMENT_KIND,
   type DocumentSummary,
+  type DomainScope,
   type StoredDocumentKind,
 } from "@tearleads/client-sdk";
 import {
@@ -9,12 +10,17 @@ import {
   useCallback,
   useEffect,
   useMemo,
-  useState,
 } from "react";
 import {
   useTearleads,
   useTearleadsRuntime,
 } from "../../providers/sdk/TearleadsProvider";
+import { useDeviceFirstContainerContents } from "../device-first/DeviceFirstProvider";
+import { subscribeToDocumentSummaryDirectory } from "./documentSummarySubscriptions";
+import {
+  type ScopedDocumentSummaries,
+  useScopedDocumentSummaries,
+} from "./useScopedDocumentSummaries";
 
 type DocumentSummarySort = (
   left: DocumentSummary,
@@ -48,13 +54,15 @@ function orderDocumentSummaries(
     : nextDocumentSummaries;
 }
 
-function mergeDocumentSummary(
+export function mergeDocumentSummary(
   currentDocumentSummaries: ReadonlyArray<DocumentSummary>,
   nextDocumentSummary: DocumentSummary,
   documentKind: StoredDocumentKind | undefined,
 ): ReadonlyArray<DocumentSummary> {
   if (!documentSummaryMatchesKind(nextDocumentSummary, documentKind)) {
-    return currentDocumentSummaries;
+    return currentDocumentSummaries.filter(
+      (summary) => summary.id !== nextDocumentSummary.id,
+    );
   }
 
   const existingDocumentIndex = currentDocumentSummaries.findIndex(
@@ -69,24 +77,94 @@ function mergeDocumentSummary(
 
 function useDocumentSummaryMutations(input: {
   documentKind: StoredDocumentKind | undefined;
-  setSummaries: Dispatch<SetStateAction<ReadonlyArray<DocumentSummary>>>;
+  domainScope: DomainScope;
+  setSummaryState: Dispatch<SetStateAction<ScopedDocumentSummaries>>;
 }) {
-  const { documentKind, setSummaries } = input;
+  const { documentKind, domainScope, setSummaryState } = input;
 
   const mergeSummary = useCallback(
     (nextDocumentSummary: DocumentSummary) => {
-      setSummaries((currentDocumentSummaries) =>
-        mergeDocumentSummary(
-          currentDocumentSummaries,
-          nextDocumentSummary,
-          documentKind,
-        ),
-      );
+      setSummaryState((current) => {
+        return {
+          domainScope,
+          ready: current.domainScope === domainScope && current.ready,
+          summaries: mergeDocumentSummary(
+            current.domainScope === domainScope ? current.summaries : [],
+            nextDocumentSummary,
+            documentKind,
+          ),
+        };
+      });
     },
-    [documentKind, setSummaries],
+    [documentKind, domainScope, setSummaryState],
   );
 
   return { mergeSummary };
+}
+
+function usePersistedDocumentSummaries({
+  documentKind,
+  domainScope,
+  loadErrorMessage,
+  mergeSummary,
+  setSummaryState,
+  subscriptionContainerId,
+}: {
+  documentKind: StoredDocumentKind | undefined;
+  domainScope: DomainScope;
+  loadErrorMessage: string;
+  mergeSummary: (summary: DocumentSummary) => void;
+  subscriptionContainerId: string | null;
+  setSummaryState: Dispatch<SetStateAction<ScopedDocumentSummaries>>;
+}) {
+  const appData = useTearleadsRuntime();
+  const tearleads = useTearleads();
+  const { view } = useDeviceFirstContainerContents();
+  useEffect(() => {
+    if (appData.infra.dbStatus !== "ready") {
+      setSummaryState({ domainScope, summaries: [], ready: false });
+      return;
+    }
+
+    return subscribeToDocumentSummaryDirectory({
+      isCurrent: () =>
+        tearleads.runtime.input().state.domainScope === domainScope,
+      load: async () =>
+        (
+          await tearleads.documents.list(
+            documentKind === undefined ? {} : { documentKind },
+          )
+        )?.rows ?? [],
+      onLoaded: (summaries) =>
+        setSummaryState({ domainScope, summaries, ready: true }),
+      onPersisted: mergeSummary,
+      onError: (error) => {
+        appData.util.logError(loadErrorMessage, error);
+        setSummaryState((current) => ({
+          domainScope,
+          summaries:
+            current.domainScope === domainScope ? current.summaries : [],
+          ready: true,
+        }));
+      },
+      subscribePersisted: (listener) =>
+        tearleads.documents.subscribe(listener, {
+          containerId: subscriptionContainerId,
+        }),
+      view,
+    });
+  }, [
+    appData.infra.dbStatus,
+    appData.util.logError,
+    documentKind,
+    domainScope,
+    loadErrorMessage,
+    mergeSummary,
+    setSummaryState,
+    subscriptionContainerId,
+    tearleads,
+    view,
+  ]);
 }
 
 export function useDocumentSummaries({
@@ -97,10 +175,15 @@ export function useDocumentSummaries({
 }: UseDocumentSummariesInput) {
   const appData = useTearleadsRuntime();
   const tearleads = useTearleads();
-  const [summaries, setSummaries] = useState<ReadonlyArray<DocumentSummary>>(
-    [],
+  const domainScope = appData.state.domainScope;
+  const getCurrentScope = useCallback(
+    () => tearleads.runtime.input().state.domainScope,
+    [tearleads],
   );
-  const [ready, setReady] = useState(false);
+  const { summaries, ready, setSummaryState } = useScopedDocumentSummaries(
+    domainScope,
+    getCurrentScope,
+  );
   const resolvedSubscriptionContainerId =
     subscriptionContainerId === undefined
       ? appData.state.containerId
@@ -108,59 +191,18 @@ export function useDocumentSummaries({
 
   const { mergeSummary } = useDocumentSummaryMutations({
     documentKind,
-    setSummaries,
+    domainScope,
+    setSummaryState,
   });
 
-  useEffect(() => {
-    if (appData.infra.dbStatus !== "ready") {
-      setSummaries([]);
-      setReady(false);
-      return;
-    }
-
-    let cancelled = false;
-    void (async () => {
-      try {
-        const persistedSummaries = await tearleads.documents.list(
-          documentKind === undefined ? {} : { documentKind },
-        );
-
-        if (cancelled) {
-          return;
-        }
-
-        setSummaries(persistedSummaries?.rows ?? []);
-        setReady(true);
-      } catch (error) {
-        if (!cancelled) {
-          appData.util.logError(loadErrorMessage, error);
-          setReady(true);
-        }
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [
-    appData.infra.dbStatus,
-    appData.state.domainScope,
-    appData.util.logError,
+  usePersistedDocumentSummaries({
     documentKind,
+    domainScope,
     loadErrorMessage,
-    tearleads,
-  ]);
-
-  useEffect(() => {
-    return tearleads.documents.subscribe(mergeSummary, {
-      containerId: resolvedSubscriptionContainerId,
-    });
-  }, [
-    appData.state.domainScope,
     mergeSummary,
-    resolvedSubscriptionContainerId,
-    tearleads,
-  ]);
+    setSummaryState,
+    subscriptionContainerId: resolvedSubscriptionContainerId,
+  });
 
   const sortedSummaries = useMemo(
     () => orderDocumentSummaries(summaries, sortSummaries),

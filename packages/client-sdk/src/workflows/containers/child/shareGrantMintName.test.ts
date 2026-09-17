@@ -5,6 +5,7 @@ import {
   createParentProjectionUserKeyResolver,
   SIGNED_AT,
 } from "../../../../test/helpers/containerFixtures";
+import { buildInitialGroupPolicyRequest } from "../../../../test/helpers/groupMetadata";
 import {
   organizationPolicyBundleFromInitialRequest,
   policyBundleFromInitialRequest,
@@ -12,7 +13,7 @@ import {
 } from "../../../../test/helpers/principalPolicyFixtures";
 import { createTestTrustedUserIdentity } from "../../../../test/helpers/trustedUserIdentity";
 import { withTestExecSql } from "../../../../test/helpers/withTestExecSql";
-import { buildInitialGroupPolicyRequest } from "../../organizations/principalPolicy";
+
 import { buildInitialOrganizationPolicyRequest } from "../../registration/registerIdentity";
 import { shareRemoteContainerWithGroup } from "./share";
 

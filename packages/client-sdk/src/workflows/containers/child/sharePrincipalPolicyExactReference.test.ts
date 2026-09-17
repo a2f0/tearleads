@@ -3,6 +3,10 @@ import { generateKemSeedAndKeyPair } from "@tearleads/crypto";
 import { createMockApiClient, createTestExecSql } from "@tearleads/test-utils";
 import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
 import { createAuthor } from "../../../../test/helpers/containerFixtures";
+import {
+  buildInitialGroupPolicyRequest,
+  readTestGroupName,
+} from "../../../../test/helpers/groupMetadata";
 import { createSuccessorGroupPolicyBundle } from "../../../../test/helpers/groupPolicyFixtures";
 import {
   organizationPolicyBundleFromInitialRequest,
@@ -13,7 +17,7 @@ import { createTestTrustedUserIdentity } from "../../../../test/helpers/trustedU
 import { loadPrincipalPolicyCheckpoint } from "../../../data/persistence/keyingCheckpointPersistence";
 import { savePrincipalPolicyBundle } from "../../../data/persistence/principalPolicyPersistence";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
-import { buildInitialGroupPolicyRequest } from "../../organizations/principalPolicy";
+
 import { buildInitialOrganizationPolicyRequest } from "../../registration/registerIdentity";
 import {
   GroupShareNameMismatchError,
@@ -129,6 +133,7 @@ test("expected group-head verification reuses an exact local bundle without a po
     let policyGetCount = 0;
 
     const verified = await loadVerifiedGroupSharePrincipalPolicy({
+      readEncryptedName: readTestGroupName,
       apiClient: createMockApiClient({
         getCurrentPrincipalPolicy: (principalType, principalId) =>
           fixture.load(principalType, principalId, () => {
@@ -160,6 +165,7 @@ test("a share fails closed when the chosen name is not the signed group name", a
     const fixture = await createDirectoryFixture();
     const load = (expectedGroupName: string) =>
       loadVerifiedGroupSharePrincipalPolicy({
+        readEncryptedName: readTestGroupName,
         apiClient: createMockApiClient({
           getCurrentPrincipalPolicy: (principalType, principalId) =>
             fixture.load(principalType, principalId, () => undefined),
@@ -221,6 +227,7 @@ test("expected group-head verification fetches once when the local head is wrong
     let policyGetCount = 0;
 
     const verified = await loadVerifiedGroupSharePrincipalPolicy({
+      readEncryptedName: readTestGroupName,
       apiClient: createMockApiClient({
         getCurrentPrincipalPolicy: (principalType, principalId) =>
           fixture.load(principalType, principalId, () => {
@@ -256,6 +263,7 @@ test("signed organization directory permits an exact cached group bundle", async
     let policyGetCount = 0;
 
     await loadVerifiedGroupSharePrincipalPolicy({
+      readEncryptedName: readTestGroupName,
       apiClient: createMockApiClient({
         getCurrentPrincipalPolicy: (principalType, principalId) =>
           fixture.load(principalType, principalId, () => {
@@ -283,6 +291,7 @@ test("a cold client rejects a stale group head served below the signed organizat
 
     await expect(
       loadVerifiedGroupSharePrincipalPolicy({
+        readEncryptedName: readTestGroupName,
         apiClient: createMockApiClient({
           getCurrentPrincipalPolicy: (principalType, principalId) => {
             if (
@@ -316,6 +325,7 @@ test("a cold client rejects a deleted group replayed outside the signed organiza
 
     await expect(
       loadVerifiedGroupSharePrincipalPolicy({
+        readEncryptedName: readTestGroupName,
         apiClient: createMockApiClient({
           getCurrentPrincipalPolicy: (principalType, principalId) =>
             fixture.load(principalType, principalId, () => undefined),
@@ -347,6 +357,7 @@ test("share policy verification rolls back retained policies after generation ex
   try {
     const fixture = await createDirectoryFixture();
     await loadVerifiedGroupSharePrincipalPolicy({
+      readEncryptedName: readTestGroupName,
       apiClient: createMockApiClient({
         getCurrentPrincipalPolicy: (principalType, principalId) =>
           fixture.load(principalType, principalId, () => undefined),
