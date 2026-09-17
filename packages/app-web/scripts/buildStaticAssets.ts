@@ -4,6 +4,7 @@ import {
   getDefaultDatabaseWorkerEntrypointUrl,
   getSqliteWasmAssetUrl,
 } from "@tearleads/sqlite-worker/assets";
+import { version as pdfjsVersion } from "pdfjs-dist/legacy/build/pdf.mjs";
 
 const distDir = new URL("../dist/", import.meta.url);
 const workerOutput = new URL("worker.js", distDir);
@@ -41,14 +42,15 @@ await copyFile(
   fileURLToPath(getSqliteWasmAssetUrl()),
   fileURLToPath(sqliteWasmOutput),
 );
+await mkdir(new URL(`pdfjs/${pdfjsVersion}/`, distDir), { recursive: true });
 await copyFile(
   fileURLToPath(pdfWorkerSource),
-  fileURLToPath(new URL("pdf.worker.js", distDir)),
+  fileURLToPath(new URL(`pdfjs/${pdfjsVersion}/pdf.worker.js`, distDir)),
 );
 for (const directory of pdfAssetDirectories) {
   await cp(
     fileURLToPath(new URL(`${directory}/`, pdfPackageSource)),
-    fileURLToPath(new URL(`pdfjs/${directory}/`, distDir)),
+    fileURLToPath(new URL(`pdfjs/${pdfjsVersion}/${directory}/`, distDir)),
     { recursive: true },
   );
 }

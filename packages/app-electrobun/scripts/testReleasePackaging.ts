@@ -11,6 +11,7 @@ import {
 } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
+import { version as pdfjsVersion } from "pdfjs-dist/legacy/build/pdf.mjs";
 import { findPackagedMainViewDir } from "./findPackagedMainViewDir";
 import { assertStagedSourceMaps } from "./sentrySourceMaps";
 import { verifyMacosDmg } from "./verifyMacosDmg";
@@ -42,10 +43,10 @@ const packagedAssets = [
   "index.html",
   "worker.js",
   "sqlite3.wasm",
-  "pdf.worker.js",
-  "pdfjs/cmaps/UniJIS-UCS2-H.bcmap",
-  "pdfjs/wasm/openjpeg.wasm",
-  "pdfjs/standard_fonts/FoxitSerif.pfb",
+  `pdfjs/${pdfjsVersion}/pdf.worker.js`,
+  `pdfjs/${pdfjsVersion}/cmaps/UniJIS-UCS2-H.bcmap`,
+  `pdfjs/${pdfjsVersion}/wasm/openjpeg.wasm`,
+  `pdfjs/${pdfjsVersion}/standard_fonts/FoxitSerif.pfb`,
 ];
 const {
   HOME: inheritedHome,

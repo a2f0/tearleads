@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { version as pdfjsVersion } from "pdfjs-dist/legacy/build/pdf.mjs";
 import {
   cjkPdf,
   fillablePdf,
@@ -26,7 +27,7 @@ test("predefined CJK maps and decoder assets are served to the viewer", async ({
 }) => {
   test.setTimeout(90_000);
   const cmapRequest = page.waitForRequest((request) =>
-    request.url().includes("/pdfjs/cmaps/UniJIS-UCS2-H.bcmap"),
+    request.url().includes(`/pdfjs/${pdfjsVersion}/cmaps/UniJIS-UCS2-H.bcmap`),
   );
   const { preview } = await uploadAndOpenPdf(page, "cjk-preview.pdf", cjkPdf());
   await cmapRequest;
@@ -38,7 +39,7 @@ test("predefined CJK maps and decoder assets are served to the viewer", async ({
     "wasm/jbig2.wasm",
     "standard_fonts/FoxitSerif.pfb",
   ]) {
-    const response = await page.request.get(`/pdfjs/${asset}`);
+    const response = await page.request.get(`/pdfjs/${pdfjsVersion}/${asset}`);
     expect(response.ok()).toBe(true);
     expect((await response.body()).byteLength).toBeGreaterThan(0);
   }

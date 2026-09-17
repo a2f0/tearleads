@@ -4,12 +4,14 @@ import { fileURLToPath } from "node:url";
 import { getSqliteWasmAssetUrl } from "@tearleads/sqlite-worker/assets";
 import { serve } from "bun";
 import { BrowserWindow, Utils } from "electrobun/bun";
+import pdfjsPackage from "pdfjs-dist/package.json" with { type: "json" };
 import { configureMainProcessDiagnostics } from "../diagnostics/mainProcess";
 import { createRendererBuildConfig } from "../rendererEnvironment";
 import { planSaveFileRequest } from "../saveFileHandler";
 import { resolvePdfAssetPath } from "./pdfAssetPaths";
 
 const packageDirEnvName = "TEARLEADS_ELECTROBUN_PACKAGE_DIR";
+const pdfAssetPrefix = `/pdfjs/${pdfjsPackage.version}/`;
 const isDev = process.env.NODE_ENV !== "production";
 // Keep the origin stable across launches: OPFS and localStorage are scoped
 // to its port. Stay off app-web's :3000 origin and its service workers.
@@ -232,16 +234,17 @@ async function createDevServerConfig() {
         });
       }
 
-      if (pathname === "/pdf.worker.js") {
+      if (pathname === `${pdfAssetPrefix}pdf.worker.js`) {
         return new Response(pdfWorker, {
           headers: { "Content-Type": "application/javascript" },
         });
       }
 
-      const pdfAsset =
-        /^\/pdfjs\/(cmaps|wasm|standard_fonts)\/([A-Za-z0-9._-]+)$/.exec(
-          pathname,
-        );
+      const pdfAsset = pathname.startsWith(pdfAssetPrefix)
+        ? /^(cmaps|wasm|standard_fonts)\/([A-Za-z0-9._-]+)$/.exec(
+            pathname.slice(pdfAssetPrefix.length),
+          )
+        : null;
       if (pdfAsset) {
         const [, directory, name] = pdfAsset;
         const assetPath = resolvePdfAssetPath(

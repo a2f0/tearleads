@@ -4,6 +4,7 @@ import {
   getDefaultDatabaseWorkerEntrypointUrl,
   getSqliteWasmAssetUrl,
 } from "@tearleads/sqlite-worker/assets";
+import { version as pdfjsVersion } from "pdfjs-dist/legacy/build/pdf.mjs";
 import index from "../index.html";
 
 const workerBuild = await Bun.build({
@@ -34,9 +35,10 @@ for (const directory of ["cmaps", "wasm", "standard_fonts"]) {
   const source = new URL(`${directory}/`, pdfPackageSource);
   for (const name of readdirSync(fileURLToPath(source))) {
     const file = Bun.file(new URL(name, source));
-    pdfAssetRoutes[`/pdfjs/${directory}/${name}`] = new Response(file, {
-      headers: { "Content-Type": file.type || "application/octet-stream" },
-    });
+    pdfAssetRoutes[`/pdfjs/${pdfjsVersion}/${directory}/${name}`] =
+      new Response(file, {
+        headers: { "Content-Type": file.type || "application/octet-stream" },
+      });
   }
 }
 
@@ -48,7 +50,7 @@ export const coreRoutes = {
   "/sqlite3.wasm": new Response(sqliteWasm, {
     headers: { "Content-Type": "application/wasm" },
   }),
-  "/pdf.worker.js": new Response(pdfWorker, {
+  [`/pdfjs/${pdfjsVersion}/pdf.worker.js`]: new Response(pdfWorker, {
     headers: { "Content-Type": "application/javascript" },
   }),
 };

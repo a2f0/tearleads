@@ -1,5 +1,6 @@
 import { readdir } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
+import { version as pdfjsVersion } from "pdfjs-dist/legacy/build/pdf.mjs";
 
 const DEFAULT_DIST_URL = new URL("../dist/", import.meta.url);
 
@@ -23,10 +24,10 @@ const PRECACHE_EXTENSIONS = new Set([
 const REQUIRED_PRECACHE_URLS = [
   "/worker.js",
   "/sqlite3.wasm",
-  "/pdf.worker.js",
-  "/pdfjs/cmaps/UniJIS-UCS2-H.bcmap",
-  "/pdfjs/wasm/openjpeg.wasm",
-  "/pdfjs/standard_fonts/FoxitSerif.pfb",
+  `/pdfjs/${pdfjsVersion}/pdf.worker.js`,
+  `/pdfjs/${pdfjsVersion}/cmaps/UniJIS-UCS2-H.bcmap`,
+  `/pdfjs/${pdfjsVersion}/wasm/openjpeg.wasm`,
+  `/pdfjs/${pdfjsVersion}/standard_fonts/FoxitSerif.pfb`,
 ] as const;
 const CACHE_PREFIX = "tearleads-app-web-";
 

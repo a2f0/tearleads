@@ -6,6 +6,7 @@ import {
   getDefaultDatabaseWorkerEntrypointUrl,
   getSqliteWasmAssetUrl,
 } from "@tearleads/sqlite-worker/assets";
+import { version as pdfjsVersion } from "pdfjs-dist/legacy/build/pdf.mjs";
 import {
   createRendererBuildConfig,
   sourceMapDirEnvName,
@@ -72,6 +73,8 @@ async function packageMainView(mainViewDir: string, sourceMapDir?: string) {
     fileURLToPath(getSqliteWasmAssetUrl()),
     join(mainViewDir, "sqlite3.wasm"),
   );
+  const pdfViewDir = join(mainViewDir, "pdfjs", pdfjsVersion);
+  await mkdir(pdfViewDir, { recursive: true });
   await copyFile(
     fileURLToPath(
       new URL(
@@ -79,12 +82,12 @@ async function packageMainView(mainViewDir: string, sourceMapDir?: string) {
         import.meta.url,
       ),
     ),
-    join(mainViewDir, "pdf.worker.js"),
+    join(pdfViewDir, "pdf.worker.js"),
   );
   for (const directory of pdfAssetDirectories) {
     await cp(
       join(packageRoot, "node_modules/pdfjs-dist", directory),
-      join(mainViewDir, "pdfjs", directory),
+      join(pdfViewDir, directory),
       { recursive: true },
     );
   }

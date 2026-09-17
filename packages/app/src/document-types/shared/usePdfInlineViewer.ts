@@ -3,6 +3,7 @@ import {
   GlobalWorkerOptions,
   getDocument,
   PasswordResponses,
+  version,
 } from "pdfjs-dist/legacy/build/pdf.mjs";
 import {
   EventBus,
@@ -110,10 +111,8 @@ function startPdfViewer(setup: ViewerSetup) {
     setPasswordPrompt,
   } = setup;
   let active = true;
-  GlobalWorkerOptions.workerSrc = new URL(
-    "/pdf.worker.js",
-    window.location.href,
-  ).href;
+  const assetBase = new URL(`/pdfjs/${version}/`, window.location.href);
+  GlobalWorkerOptions.workerSrc = new URL("pdf.worker.js", assetBase).href;
   const eventBus = new EventBus();
   const linkService = new PDFLinkService({ eventBus });
   const viewer = new PDFViewer({
@@ -140,7 +139,6 @@ function startPdfViewer(setup: ViewerSetup) {
     }
   });
   resizeObserver.observe(container);
-  const assetBase = new URL("/pdfjs/", window.location.href);
   // PDF.js transfers its input buffer; preserve the BlobStore copy.
   const task = getDocument({
     data: bytes.slice(),
