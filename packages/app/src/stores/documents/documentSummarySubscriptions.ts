@@ -11,7 +11,7 @@ interface SummaryDiscoveryView {
 }
 
 /** Discovery adds shells without a document-store persistence notification. */
-export function subscribeToDocumentSummaryDiscovery(input: {
+function subscribeToDocumentSummaryDiscovery(input: {
   isCurrent: () => boolean;
   onDiscovery: () => void;
   view: SummaryDiscoveryView;
