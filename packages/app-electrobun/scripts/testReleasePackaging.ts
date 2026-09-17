@@ -11,6 +11,7 @@ import {
 } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
+import { version as pdfjsVersion } from "pdfjs-dist/legacy/build/pdf.mjs";
 import { findPackagedMainViewDir } from "./findPackagedMainViewDir";
 import { assertStagedSourceMaps } from "./sentrySourceMaps";
 import { verifyMacosDmg } from "./verifyMacosDmg";
@@ -38,6 +39,15 @@ const originalConfig = JSON.stringify(
   join(packageRoot, "electrobun.config.ts"),
 );
 const originalHook = JSON.stringify(join(import.meta.dirname, "postBuild.ts"));
+const packagedAssets = [
+  "index.html",
+  "worker.js",
+  "sqlite3.wasm",
+  `pdfjs/${pdfjsVersion}/pdf.worker.js`,
+  `pdfjs/${pdfjsVersion}/cmaps/UniJIS-UCS2-H.bcmap`,
+  `pdfjs/${pdfjsVersion}/wasm/openjpeg.wasm`,
+  `pdfjs/${pdfjsVersion}/standard_fonts/FoxitSerif.pfb`,
+];
 const {
   HOME: inheritedHome,
   TMPDIR: inheritedTmp,
@@ -179,13 +189,15 @@ try {
     join(root, "capturePackagedAssets.ts"),
     `
 import { copyFileSync, mkdirSync } from "node:fs";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { findPackagedMainViewDir } from ${JSON.stringify(join(import.meta.dirname, "findPackagedMainViewDir.ts"))};
 const view = findPackagedMainViewDir(process.env.ELECTROBUN_BUILD_DIR);
 const snapshot = ${JSON.stringify(snapshot)};
 mkdirSync(snapshot);
-for (const file of ["index.html", "worker.js", "sqlite3.wasm"])
+for (const file of ${JSON.stringify(packagedAssets)}) {
+  mkdirSync(dirname(join(snapshot, file)), { recursive: true });
   copyFileSync(join(view, file), join(snapshot, file));
+}
 `,
   );
   await Bun.write(
@@ -214,7 +226,7 @@ execFileSync("bun", [${JSON.stringify(join(root, "capturePackagedAssets.ts"))}],
   await verifySourceMapStaging(archive, unpacked);
   const archivedView = findPackagedMainViewDir(unpacked);
   const builtView = snapshot;
-  for (const file of ["index.html", "worker.js", "sqlite3.wasm"]) {
+  for (const file of packagedAssets) {
     const archived = new Uint8Array(
       await Bun.file(join(archivedView, file)).arrayBuffer(),
     );
@@ -234,7 +246,7 @@ execFileSync("bun", [${JSON.stringify(join(root, "capturePackagedAssets.ts"))}],
   assert.deepEqual(Array.from(wasm.slice(0, 4)), [0, 97, 115, 109]);
   assert.match(await Bun.file(join(archivedView, "index.html")).text(), /\.js/);
   console.log(
-    "Native update archive contains the final renderer, SQLite worker, and WASM.",
+    "Native update archive contains the renderer, workers, WASM, and PDF assets.",
   );
 
   await verifyPublishedRelease(

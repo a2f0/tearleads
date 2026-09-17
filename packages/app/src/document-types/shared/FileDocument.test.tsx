@@ -425,62 +425,37 @@ test("renders shared playback controls for audio and video previews", () => {
   expect(video.getAttribute("src")).toBe("blob:video-preview");
 });
 
-test("offers an on-demand browser PDF preview", () => {
-  const opens: number[] = [];
+test("shows PDF loading state without an open button", () => {
   const view = renderFields({
     pdfPreview: {
       attachment: pdfAttachment,
+      bytes: null,
       error: null,
-      loading: false,
-      native: false,
-      onOpen: () => opens.push(1),
+      loading: true,
+      onOpenExternal: null,
       storageKey: "local-pdf",
-      url: null,
     },
   });
 
   expect(view.getByLabelText("PDF preview")).toBeTruthy();
-  expect(
-    view.getByText("Uses your browser's built-in PDF viewer."),
-  ).toBeTruthy();
-  fireEvent.click(view.getByRole("button", { name: "View PDF" }));
-  expect(opens).toEqual([1]);
+  expect(view.getByText("Loading PDF...")).toBeTruthy();
+  expect(view.queryByRole("button", { name: "View PDF" })).toBeNull();
 });
 
-test("renders a loaded PDF with the browser's native embed", () => {
+test("shows an inline PDF failure with a download option", () => {
   const view = renderFields({
     pdfPreview: {
       attachment: pdfAttachment,
-      error: null,
+      bytes: null,
+      error: "Couldn't load this PDF. You can still download it.",
       loading: false,
-      native: false,
-      onOpen: () => undefined,
+      onOpenExternal: null,
       storageKey: "local-pdf",
-      url: "blob:pdf-preview",
     },
   });
 
-  const viewer = view.getByLabelText("paper.pdf");
-  expect(viewer.tagName).toBe("OBJECT");
-  expect(viewer.getAttribute("data")).toBe("blob:pdf-preview");
-});
-
-test("describes native PDF viewing and surfaces open failures", () => {
-  const view = renderFields({
-    pdfPreview: {
-      attachment: pdfAttachment,
-      error: "Couldn't open this PDF. You can still download it.",
-      loading: false,
-      native: true,
-      onOpen: () => undefined,
-      storageKey: "local-pdf",
-      url: null,
-    },
-  });
-
-  expect(view.getByText("Opens in your device's PDF viewer.")).toBeTruthy();
   expect(
-    view.getByText("Couldn't open this PDF. You can still download it."),
+    view.getByText("Couldn't load this PDF. You can still download it."),
   ).toBeTruthy();
 });
 

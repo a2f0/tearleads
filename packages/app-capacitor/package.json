@@ -36,7 +36,7 @@
     "store:build-numbers": "NATIVE_RELEASE_TIER=production bundle exec fastlane store_build_numbers",
     "store:build-numbers:staging": "NATIVE_RELEASE_TIER=staging bundle exec fastlane store_build_numbers",
     "lint:rubocop": "bundle exec rubocop",
-    "test": "bun test src tests --pass-with-no-tests",
+    "test": "cd src && bun test . ../tests --isolate --pass-with-no-tests",
     "build:release": "bun scripts/buildNativeRelease.ts",
     "sentry:cli": "sentry-cli"
   },
@@ -59,6 +59,7 @@
     "@tearleads/encoding": "workspace:*",
     "@tearleads/validators": "workspace:*",
     "app": "workspace:*",
+    "pdfjs-dist": "6.3.289",
     "react": "catalog:react",
     "react-dom": "catalog:react"
   },

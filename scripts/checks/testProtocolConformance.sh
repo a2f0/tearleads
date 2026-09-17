@@ -16,18 +16,18 @@
 
 set -eu
 
-cd "$(git rev-parse --show-toplevel)"
+cd "$(git rev-parse --show-toplevel)/scripts"
 
 exec bun test \
-  packages/api/src/documents/documentBaselineDominance.test.ts \
-  scripts/protocol/lintFormalAbstractionMaps.test.ts \
-  scripts/protocol/restartProbeTraceModule.test.ts \
-  scripts/protocol/protocolNegativeControls.test.ts \
-  scripts/protocol/noBrickTraceModule.test.ts \
-  packages/api/src/documents/documentBaselineDominanceTraceReplay.test.ts \
-  packages/crypto/src/keying/transparencyProofs.test.ts \
-  packages/crypto/src/keying/transparencyProofMutations.test.ts \
-  packages/crypto/src/keying/keyingProperties.test.ts \
-  packages/crypto/src/keying/keyingPathProperties.test.ts \
-  packages/api-client/src/operationTransportSurface.test.ts \
-  packages/validators/src
+  ../packages/api/src/documents/documentBaselineDominance.test.ts \
+  protocol/lintFormalAbstractionMaps.test.ts \
+  protocol/restartProbeTraceModule.test.ts \
+  protocol/protocolNegativeControls.test.ts \
+  protocol/noBrickTraceModule.test.ts \
+  ../packages/api/src/documents/documentBaselineDominanceTraceReplay.test.ts \
+  ../packages/crypto/src/keying/transparencyProofs.test.ts \
+  ../packages/crypto/src/keying/transparencyProofMutations.test.ts \
+  ../packages/crypto/src/keying/keyingProperties.test.ts \
+  ../packages/crypto/src/keying/keyingPathProperties.test.ts \
+  ../packages/api-client/src/operationTransportSurface.test.ts \
+  ../packages/validators/src

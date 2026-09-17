@@ -26,6 +26,7 @@ import {
   profileProxiedApiRequests,
 } from "../../../../test/helpers/proxiedApiRequestBudget";
 import { documentSyncIntentCounts } from "../../../../test/helpers/proxiedApiRequestMetrics";
+import { waitForCondition } from "../../../../test/helpers/waitForCondition";
 
 // Separate navigation from mutation so UI reads cannot conceal sync churn.
 // The deferred author-echo release still reads the feed: a sibling client can
@@ -103,6 +104,20 @@ test(
     const rightPane = getPaneRoot(view, "right");
 
     await waitForDualPaneProvisioning(leftPane, rightPane);
+    // Contacts is promoted after authentication, separately from the eager
+    // Trash provisioning. Wait for both panes' promotion before measuring
+    // navigation so its container creation is not attributed to org manager.
+    await waitForCondition(
+      () =>
+        listProxiedApiRequests().filter(
+          (request) =>
+            request.method === "POST" &&
+            request.status === 200 &&
+            request.url.includes("/containers/with-metadata-document"),
+        ).length >= 2,
+      "Both panes did not promote Contacts to remote sync.",
+      POST_SHARE_SYNC_SETTLE_TIMEOUT_MS,
+    );
     // Settle both panes' provisioning/backfill so the admin-add slice measured
     // below is isolated from unrelated background convergence churn.
     await act(async () => {

@@ -35,13 +35,12 @@ import {
 } from "./restartProbeTraceModule";
 import { resolveTlcTools, runTlc, type TlcTools } from "./tlcTools";
 
-// Both scenario tests run from the repository root in one invocation: they
-// import only source modules (the app scenario's client-sdk import is
-// type-only), so the projection stays runnable in the always-on lint job
-// without built package dist output or package-local test preloads.
+// Run both source-only scenarios from scripts: root-level discovery can walk
+// generated native trees, while the app package's test preload requires built
+// SDK declarations. This check must work without either native or SDK builds.
 const SCENARIO_TESTS: readonly string[] = [
-  "packages/client-sdk/src/stores/documents/documentStore/restartProbeProjection.test.ts",
-  "packages/app/src/providers/sdk/restartProbeProjection.test.ts",
+  "../packages/client-sdk/src/stores/documents/documentStore/restartProbeProjection.test.ts",
+  "../packages/app/src/providers/sdk/restartProbeProjection.test.ts",
 ];
 const EXPECTED_TRACES = ["interest-barrier-seams", "probe-signal-kernels"];
 
@@ -68,7 +67,7 @@ function assertVocabularyMatchesModel(root: string): void {
 
 function recordScenarioTraces(root: string, traceDirectory: string): void {
   const result = spawnSync("bun", ["test", ...SCENARIO_TESTS], {
-    cwd: root,
+    cwd: join(root, "scripts"),
     encoding: "utf8",
     env: { ...process.env, RESTART_PROBE_TRACE_DIR: traceDirectory },
     maxBuffer: 64 * 1024 * 1024,

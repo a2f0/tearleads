@@ -56,8 +56,8 @@
     "lint:knip:exports": "knip --exports",
     "lint:knip:files": "knip --files",
     "lint:knip:production": "knip --production",
-    "lint:markdown": "bun --bun x markdownlint-cli2 '**/*.md'",
-    "lint:markdown:fix": "bun --bun x markdownlint-cli2 --fix '**/*.md'",
+    "lint:markdown": "git ls-files -z -- '*.md' | xargs -0 bun --bun x markdownlint-cli2",
+    "lint:markdown:fix": "git ls-files -z -- '*.md' | xargs -0 bun --bun x markdownlint-cli2 --fix",
     "lint:openapi": "bun run --cwd packages/validators lint:openapi",
     "lint:openapi:compatibility": "sh scripts/checks/checkOpenApiCompatibility.sh",
     "lint:package-assertions": "bun scripts/checks/lintPackageAssertions.ts",
@@ -79,7 +79,7 @@
     "test:protocol-models": "sh scripts/checks/testProtocolModels.sh",
     "test:static-analysis": "bun scripts/testing/testStaticAnalysis.ts",
     "test:architecture": "bun scripts/testing/testArchitecture.ts",
-    "test:step-timings": "bun test scripts/lib/stepTimings.test.ts",
+    "test:step-timings": "cd scripts/lib && bun test stepTimings.test.ts",
     "test:biome:promises": "bun scripts/testing/testBiomePromises.ts",
     "test:turbo": "bun run test:turbo:bun && bun run test:turbo:e2e",
     "test:turbo:affected": "bun run test:turbo:bun:affected && bun run test:turbo:e2e:affected",
@@ -145,6 +145,7 @@
     }
   },
   "patchedDependencies": {
+    "@capacitor/cli@8.5.1": "patches/@capacitor-cli-8.5.1-ios18.patch",
     "knip@6.34.0": "patches/knip-6.34.0.patch"
   }
 }

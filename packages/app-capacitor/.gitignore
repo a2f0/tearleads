@@ -1,6 +1,8 @@
 # Build output
 dist/
 public/worker.js
+public/pdf.worker.js
+public/pdfjs/
 public/sqlite3.wasm
 
 # Generated native image assets (run scripts/buildImages.sh to regenerate)

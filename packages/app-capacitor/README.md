@@ -1,5 +1,12 @@
 # App Capacitor
 
+## Supported OS versions
+
+Native releases require iOS 18 or later and Android 12 (API 31) or later.
+This is an intentional support-floor change for the embedded PDF viewer: older
+versions can no longer install updates of the app, rather than falling back to
+an external PDF app. Both staging and production builds use these minimums.
+
 ## Test a native subscription
 
 The Capacitor shell already presents the RevenueCat-managed store flow from

@@ -4,11 +4,14 @@ import { fileURLToPath } from "node:url";
 import { getSqliteWasmAssetUrl } from "@tearleads/sqlite-worker/assets";
 import { serve } from "bun";
 import { BrowserWindow, Utils } from "electrobun/bun";
+import pdfjsPackage from "pdfjs-dist/package.json" with { type: "json" };
 import { configureMainProcessDiagnostics } from "../diagnostics/mainProcess";
 import { createRendererBuildConfig } from "../rendererEnvironment";
 import { planSaveFileRequest } from "../saveFileHandler";
+import { resolvePdfAssetPath } from "./pdfAssetPaths";
 
 const packageDirEnvName = "TEARLEADS_ELECTROBUN_PACKAGE_DIR";
+const pdfAssetPrefix = `/pdfjs/${pdfjsPackage.version}/`;
 const isDev = process.env.NODE_ENV !== "production";
 // Keep the origin stable across launches: OPFS and localStorage are scoped
 // to its port. Stay off app-web's :3000 origin and its service workers.
@@ -195,6 +198,14 @@ async function createDevServerConfig() {
   // hanging every /sqlite3.wasm request (a streaming Bun.file of a nonexistent
   // path never completes).
   const sqliteWasm = await Bun.file(getSqliteWasmFilePath()).arrayBuffer();
+  const pdfPackageDir = process.env[packageDirEnvName];
+  const pdfWorker = await Bun.file(
+    resolvePdfAssetPath(
+      pdfPackageDir,
+      "legacy/build/pdf.worker.min.mjs",
+      import.meta.url,
+    ),
+  ).arrayBuffer();
 
   const webOutputs = new Map(
     webBuild.outputs.map((output) => [
@@ -220,6 +231,33 @@ async function createDevServerConfig() {
       if (pathname === "/worker.js") {
         return new Response(workerScript, {
           headers: { "Content-Type": "application/javascript" },
+        });
+      }
+
+      if (pathname === `${pdfAssetPrefix}pdf.worker.js`) {
+        return new Response(pdfWorker, {
+          headers: { "Content-Type": "application/javascript" },
+        });
+      }
+
+      const pdfAsset = pathname.startsWith(pdfAssetPrefix)
+        ? /^(cmaps|wasm|standard_fonts)\/([A-Za-z0-9._-]+)$/.exec(
+            pathname.slice(pdfAssetPrefix.length),
+          )
+        : null;
+      if (pdfAsset) {
+        const [, directory, name] = pdfAsset;
+        const assetPath = resolvePdfAssetPath(
+          pdfPackageDir,
+          `${directory}/${name}`,
+          import.meta.url,
+        );
+        if (!(await isRegularFile(assetPath))) {
+          return new Response("Not found", { status: 404 });
+        }
+        const file = Bun.file(assetPath);
+        return new Response(file, {
+          headers: { "Content-Type": file.type || "application/octet-stream" },
         });
       }
 

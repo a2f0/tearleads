@@ -4,12 +4,20 @@ import {
   type DocumentAttachment,
   isDatabaseUnavailableError,
 } from "@tearleads/client-sdk";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  MiniAppButton,
-  MiniAppStatus,
-} from "../../components/mini-app/MiniAppLayout";
+  lazy,
+  Suspense,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import { MiniAppStatus } from "../../components/mini-app/MiniAppLayout";
 import type { FileViewer } from "../../host/FileViewer";
+import { readAutomaticPreviewBlobBytes } from "./documentAttachmentUtils";
+
+const PdfInlineViewer = lazy(() => import("./PdfInlineViewer"));
 
 interface PdfPreviewCandidate {
   attachment: DocumentAttachment;
@@ -17,11 +25,10 @@ interface PdfPreviewCandidate {
 }
 
 export interface FileDocumentPdfPreview extends PdfPreviewCandidate {
+  bytes: Uint8Array<ArrayBuffer> | null;
   error: string | null;
   loading: boolean;
-  native: boolean;
-  onOpen: () => void;
-  url: string | null;
+  onOpenExternal: (() => void) | null;
 }
 
 function isPdfMimeType(value: string | null | undefined): boolean {
@@ -64,91 +71,82 @@ export function useFileDocumentPdfPreview(params: {
       resolveFileDocumentPdfPreview(attachments, attachmentStorageKeyBySlotId),
     [attachmentStorageKeyBySlotId, attachments],
   );
-  const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [url, setUrl] = useState<string | null>(null);
-  const generationRef = useRef(0);
-  const objectUrlRef = useRef<string | null>(null);
-  const openingRef = useRef(false);
+  const [loaded, setLoaded] = useState<{
+    storageKey: string;
+    bytes: Uint8Array<ArrayBuffer>;
+  } | null>(null);
+  const [failure, setFailure] = useState<{
+    storageKey: string;
+    message: string;
+  } | null>(null);
+  const logErrorRef = useRef(logError);
+  logErrorRef.current = logError;
+  const storageKey = candidate?.storageKey;
+  const bytes =
+    loaded && loaded.storageKey === storageKey ? loaded.bytes : null;
+  const error =
+    failure && failure.storageKey === storageKey ? failure.message : null;
+  const loading = Boolean(storageKey && !bytes && !error);
 
   useEffect(() => {
-    generationRef.current += 1;
-    setError(null);
-    setLoading(false);
-    setUrl(null);
-    openingRef.current = false;
-    if (objectUrlRef.current) {
-      URL.revokeObjectURL(objectUrlRef.current);
-      objectUrlRef.current = null;
-    }
-
-    return () => {
-      generationRef.current += 1;
-      if (objectUrlRef.current) {
-        URL.revokeObjectURL(objectUrlRef.current);
-        objectUrlRef.current = null;
-      }
-    };
-  }, [candidate?.storageKey]);
-
-  const onOpen = useCallback(() => {
-    if (!candidate || openingRef.current || objectUrlRef.current) {
-      return;
-    }
-
-    openingRef.current = true;
-    const generation = generationRef.current;
-    setError(null);
-    setLoading(true);
-    void blobStore
-      .readBytes(candidate.storageKey)
-      .then(async (bytes) => {
-        if (!bytes) {
-          throw new Error("PDF bytes are not available locally.");
-        }
-        if (generation !== generationRef.current) {
-          return;
-        }
-        if (fileViewer) {
-          await fileViewer.viewFile({
-            data: bytes,
-            fileName: candidate.attachment.name,
-            mimeType: candidate.attachment.mimeType,
+    let active = true;
+    setLoaded(null);
+    setFailure(null);
+    if (storageKey) {
+      void readAutomaticPreviewBlobBytes(blobStore, storageKey)
+        .then((value) => {
+          if (!value) {
+            if (active)
+              setFailure({
+                storageKey,
+                message:
+                  "PDF preview is unavailable or over 5 MiB. You can still download it.",
+              });
+            return;
+          }
+          if (active) setLoaded({ storageKey, bytes: value });
+        })
+        .catch((readError: unknown) => {
+          if (!active) return;
+          if (!isDatabaseUnavailableError(readError)) {
+            logErrorRef.current("Failed to load PDF preview", readError);
+          }
+          setFailure({
+            storageKey,
+            message: "Couldn't load this PDF. You can still download it.",
           });
-          return;
-        }
-        const nextUrl = URL.createObjectURL(
-          new Blob([bytes], { type: "application/pdf" }),
-        );
-        objectUrlRef.current = nextUrl;
-        setUrl(nextUrl);
+        });
+    }
+    return () => {
+      active = false;
+    };
+  }, [blobStore, storageKey]);
+
+  const onOpenExternal = useCallback(() => {
+    if (!bytes || !candidate || !fileViewer) return;
+    setFailure(null);
+    void fileViewer
+      .viewFile({
+        data: bytes,
+        fileName: candidate.attachment.name,
+        mimeType: candidate.attachment.mimeType,
       })
       .catch((openError: unknown) => {
-        if (generation === generationRef.current) {
-          // The database going away mid-read (identity switch, Explorer
-          // retry) is a benign outcome, not a defect worth a diagnostics event.
-          if (!isDatabaseUnavailableError(openError)) {
-            logError("Failed to open PDF preview", openError);
-          }
-          setError("Couldn't open this PDF. You can still download it.");
-        }
-      })
-      .finally(() => {
-        if (generation === generationRef.current) {
-          openingRef.current = false;
-          setLoading(false);
-        }
+        logError("Failed to open PDF externally", openError);
+        setFailure({
+          storageKey: candidate.storageKey,
+          message: "Couldn't open this PDF in another app.",
+        });
       });
-  }, [blobStore, candidate, fileViewer, logError]);
+  }, [bytes, candidate, fileViewer, logError]);
 
   return candidate
     ? {
         ...candidate,
+        bytes,
         error,
         loading,
-        native: fileViewer !== null,
-        onOpen,
-        url,
+        onOpenExternal: fileViewer ? onOpenExternal : null,
       }
     : null;
 }
@@ -156,42 +154,34 @@ export function useFileDocumentPdfPreview(params: {
 export function FileDocumentPdfPreviewPanel(params: {
   preview: FileDocumentPdfPreview;
 }) {
-  const { attachment, error, loading, native, onOpen, url } = params.preview;
+  const { attachment, bytes, error, loading, onOpenExternal } = params.preview;
 
   return (
     <section className="file-document-preview" aria-label="PDF preview">
       <div className="file-document-preview-frame">
-        {url ? (
-          <object
-            aria-label={attachment.name}
-            className="file-document-pdf-preview"
-            data={url}
-            type="application/pdf"
+        {bytes ? (
+          <Suspense
+            fallback={<MiniAppStatus>Loading PDF viewer...</MiniAppStatus>}
           >
-            <span>
-              This browser couldn't display the PDF. Use Download instead.
-            </span>
-          </object>
+            <PdfInlineViewer
+              bytes={bytes}
+              fileName={attachment.name}
+              onOpenExternal={onOpenExternal}
+            />
+          </Suspense>
         ) : (
           <div className="file-document-pdf-prompt">
             <FilePdfIcon aria-hidden size={48} />
             <strong>{attachment.name}</strong>
-            <span>
-              {native
-                ? "Opens in your device's PDF viewer."
-                : "Uses your browser's built-in PDF viewer."}
-            </span>
-            <MiniAppButton disabled={loading} onClick={onOpen}>
-              {loading ? "Opening..." : "View PDF"}
-            </MiniAppButton>
-            {error ? (
-              <MiniAppStatus as="span" tone="error">
-                {error}
-              </MiniAppStatus>
-            ) : null}
+            <MiniAppStatus as="span" tone={error ? "error" : "muted"}>
+              {error ?? (loading ? "Loading PDF..." : "PDF unavailable")}
+            </MiniAppStatus>
           </div>
         )}
       </div>
+      {bytes && error ? (
+        <MiniAppStatus tone="error">{error}</MiniAppStatus>
+      ) : null}
     </section>
   );
 }
