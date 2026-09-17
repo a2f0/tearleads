@@ -31,6 +31,10 @@ test("buildServiceWorker generates the offline precache contract", async () => {
     "index-abc123.js": "console.log('app');",
     "index-abc123.js.map": "{}",
     "index.html": '<div id="root"></div>',
+    "pdf.worker.js": "pdf worker",
+    "pdfjs/cmaps/UniJIS-UCS2-H.bcmap": "cmap",
+    "pdfjs/standard_fonts/FoxitSerif.pfb": "font",
+    "pdfjs/wasm/openjpeg.wasm": "decoder",
     "sqlite3.wasm": "sqlite wasm",
     "sw.js": "old worker",
     "worker.js": "worker script",
@@ -41,6 +45,10 @@ test("buildServiceWorker generates the offline precache contract", async () => {
       "/index-abc123.css",
       "/index-abc123.js",
       "/index.html",
+      "/pdf.worker.js",
+      "/pdfjs/cmaps/UniJIS-UCS2-H.bcmap",
+      "/pdfjs/standard_fonts/FoxitSerif.pfb",
+      "/pdfjs/wasm/openjpeg.wasm",
       "/sqlite3.wasm",
       "/worker.js",
     ]);
@@ -68,6 +76,7 @@ test("buildServiceWorker generates the offline precache contract", async () => {
     );
     expect(result.serviceWorkerSource).toContain('request.mode === "navigate"');
     expect(result.serviceWorkerSource).not.toContain("index-abc123.js.map");
+    expect(result.precacheUrls).toContain("/pdfjs/cmaps/UniJIS-UCS2-H.bcmap");
     expect(() => new Function(result.serviceWorkerSource)).not.toThrow();
   } finally {
     await cleanup();
@@ -81,7 +90,7 @@ test("buildServiceWorker fails when offline-critical assets are absent", async (
 
   try {
     await expect(buildServiceWorker(distUrl)).rejects.toThrow(
-      "Service worker precache is missing /worker.js and /sqlite3.wasm - run buildStaticAssets first.",
+      "Service worker precache is missing /worker.js and /sqlite3.wasm and /pdf.worker.js",
     );
   } finally {
     await cleanup();

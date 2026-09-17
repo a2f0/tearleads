@@ -6,18 +6,28 @@ const DEFAULT_DIST_URL = new URL("../dist/", import.meta.url);
 // Extensions worth precaching for an offline-capable shell. Source maps are
 // deliberately excluded (debug-only, large), as is sw.js itself.
 const PRECACHE_EXTENSIONS = new Set([
+  ".bcmap",
   ".css",
   ".html",
   ".ico",
   ".js",
   ".json",
   ".png",
+  ".pfb",
   ".svg",
+  ".ttf",
   ".wasm",
   ".woff",
   ".woff2",
 ]);
-const REQUIRED_PRECACHE_URLS = ["/worker.js", "/sqlite3.wasm"] as const;
+const REQUIRED_PRECACHE_URLS = [
+  "/worker.js",
+  "/sqlite3.wasm",
+  "/pdf.worker.js",
+  "/pdfjs/cmaps/UniJIS-UCS2-H.bcmap",
+  "/pdfjs/wasm/openjpeg.wasm",
+  "/pdfjs/standard_fonts/FoxitSerif.pfb",
+] as const;
 const CACHE_PREFIX = "tearleads-app-web-";
 
 export interface BuildServiceWorkerResult {
@@ -63,7 +73,7 @@ export async function computeCacheVersion(
 ): Promise<string> {
   const normalizedDistUrl = normalizeDistUrl(distUrl);
   // Hash the contents of every precached file so any change — including the
-  // fixed-name /worker.js and /sqlite3.wasm — produces a new cache name (and a
+  // fixed-name workers and PDF assets — produces a new cache name (and a
   // byte-different sw.js, which is how the browser detects an update).
   const fileHashes = await Promise.all(
     urlPaths.map(async (urlPath) => {
@@ -144,7 +154,7 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // Static assets (incl. /worker.js and /sqlite3.wasm): serve from cache, fall
+  // Static assets (incl. PDF maps and fonts): serve from cache, fall
   // back to the network for anything not precached.
   event.respondWith(
     caches.match(request).then((cached) => cached ?? fetch(request)),

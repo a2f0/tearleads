@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 import { expect, test } from "@playwright/test";
 import packageJson from "../package.json" with { type: "json" };
+import { cjkPdf, uploadAndOpenPdf } from "./pdfFixtures";
 import {
   observeProductionSentry,
   SENTRY_TEST_COMMIT,
@@ -26,7 +27,7 @@ for (const variant of ["app", "demo"]) {
     context,
     page,
   }) => {
-    test.setTimeout(60_000);
+    test.setTimeout(90_000);
     // Serve the exact deployment output without Bun's development bundler,
     // which selects a different Loro entrypoint and masks missing WASM assets.
     const server = createServer((request, response) => {
@@ -99,6 +100,16 @@ for (const variant of ["app", "demo"]) {
       await context.setOffline(true);
       await page.reload();
       await expect(menu).toBeVisible();
+      if (variant === "app") {
+        const { preview } = await uploadAndOpenPdf(
+          page,
+          "offline-cjk.pdf",
+          cjkPdf(),
+          false,
+        );
+        await expect(preview.locator(".pdfViewer canvas")).toBeVisible();
+        await expect(preview.locator(".textLayer")).toContainText("日");
+      }
       expect(pageErrors).toEqual([]);
       expect(loroRequests).toEqual([]);
     } finally {
