@@ -14,7 +14,7 @@ an unrelated document content-key bundle.
 | `PrepareLink` | `prepareDocumentLinkBlobRewraps` authenticates bytes and wraps their DEK to verified targets |
 | `cachedWraps` / `cacheValid` | `ApiClient.listDocumentAttachments` caches the envelopes used while preparing link |
 | `InvalidateAttachmentCache` | `ApiClient.evictDocumentWriterProjection` also evicts the document attachment list after link/unlink or stale-state retries |
-| `MovePreservesCommittedEnvelopes` | Unlink retains the destination envelope committed by link instead of generating conflicting randomized material |
+| `MovePreservesCommittedEnvelopes` | `prepareDocumentLinkBlobRewraps` retains the destination envelope committed by link instead of generating conflicting randomized material |
 | `CheckBindingFrontier` | `lockDocumentLinkBlobRewraps` checks all active bindings under the exclusive document head |
 | `CommitLink` / `UnlinkSource` | `applyDocumentLinkBlobRewraps` commits scoped wraps inside the link transaction |
 | `BindSecond` | `lockAttachmentAuthorizationForShare` holds the document head through attachment bind |

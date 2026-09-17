@@ -14,8 +14,8 @@ not clear the replacement.
 | `CheckCurrentGeneration` | `generationIsCurrent` is checked after the read, before changing the store |
 | `Discard` | `markDocumentStoreRemoved` retires the stale in-memory record and document |
 | `Start` | `ensureRemoteDocument` proceeds to `createRemoteDocument` |
-| `PurgedQueueDoesNotStart` | A missing row observed by the queued attempt prevents remote creation |
-| `ReplacementStoreSurvives` | An obsolete read cannot clear a newer store generation |
+| `PurgedQueueDoesNotStart` | `hasDurableDocumentForCreate` prevents creation when the queued attempt observes a missing row |
+| `ReplacementStoreSurvives` | `generationIsCurrent` prevents an obsolete read from clearing a newer store generation |
 
 The model bounds one document, one queued attempt, and two store generations.
 Two negative controls separately disable the durable-row guard and generation
