@@ -31,14 +31,14 @@
     "@tearleads/sqlite-worker": "workspace:*",
     "app": "workspace:*",
     "electrobun": "2.0.1",
-    "pdfjs-dist": "6.3.289",
     "react-dom": "catalog:react"
   },
   "devDependencies": {
     "@sentry/cli": "3.7.0",
     "@tearleads/loro": "workspace:*",
     "@types/bun": "catalog:",
-    "@types/react-dom": "catalog:react"
+    "@types/react-dom": "catalog:react",
+    "pdfjs-dist": "6.3.289"
   },
   "peerDependencies": {
     "typescript": "^6.0.3"
