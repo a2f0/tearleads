@@ -82,3 +82,21 @@ export function findSystemContainerStateForRoot(
   }
   return null;
 }
+
+/** Callers must derive the metadata slot before using this as a destination. */
+export function findOrganizationSystemRootState(
+  state: ContainerContentsStoreState,
+  organizationId: string,
+  systemSlot: ContainerSystemSlot,
+): ContainerState | null {
+  for (const entry of state.containersById.values()) {
+    const container = entry.container;
+    if (
+      container.parentId === null &&
+      container.organizationId === organizationId &&
+      container.systemSlot === systemSlot
+    )
+      return entry;
+  }
+  return null;
+}
