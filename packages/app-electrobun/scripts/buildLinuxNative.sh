@@ -30,5 +30,7 @@ bunx turbo run build --filter='app-electrobun^...'
 mkdir -p packages/app-electrobun/build/release-icons
 rsvg-convert -w 512 -h 512 packages/ui/assets/logo.svg \
   -o packages/app-electrobun/build/release-icons/icon.png
-sh packages/app-electrobun/scripts/buildElectrobun.sh --env="$CHANNEL"
+# GNU tar's default format emits LongLink records for long PDF font paths.
+# Electrobun's Linux installer accepts ustar paths but rejects LongLink records.
+TAR_OPTIONS=--format=ustar sh packages/app-electrobun/scripts/buildElectrobun.sh --env="$CHANNEL"
 bun packages/app-electrobun/scripts/verifyLinuxArtifacts.ts "$1"
