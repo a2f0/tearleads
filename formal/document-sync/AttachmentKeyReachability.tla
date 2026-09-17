@@ -2,18 +2,21 @@
 EXTENDS Naturals, FiniteSets
 
 CONSTANTS CheckBindingFrontier, RetainPriorWraps, UseHistoricalKeys,
-          IsolateHydration, ReuseRetiredWraps, RetainedTargetsNeedCiphertext
+          IsolateHydration, ReuseRetiredWraps, RetainedTargetsNeedCiphertext,
+          InvalidateAttachmentCache
 ASSUME {CheckBindingFrontier, RetainPriorWraps, UseHistoricalKeys,
         IsolateHydration, ReuseRetiredWraps,
-        RetainedTargetsNeedCiphertext} \subseteq BOOLEAN
+        RetainedTargetsNeedCiphertext, InvalidateAttachmentCache} \subseteq BOOLEAN
 Containers == {"source", "destination"}
 Blobs == {"one", "two"}
 Epochs == 1..2
 
 VARIABLES bindings, linked, epoch, wraps, issued, phase,
-          observedBindings, observedEpoch, planned, hydrated, relinkRejected
+          observedBindings, observedEpoch, planned, hydrated, relinkRejected,
+          cachedWraps, cacheValid, unlinkRejected
 vars == <<bindings, linked, epoch, wraps, issued, phase,
-          observedBindings, observedEpoch, planned, hydrated, relinkRejected>>
+          observedBindings, observedEpoch, planned, hydrated, relinkRejected,
+          cachedWraps, cacheValid, unlinkRejected>>
 
 Targets(bs, cs, es) == {<<b, c, es[c]>> : b \in bs, c \in cs}
 Init ==
@@ -22,6 +25,7 @@ Init ==
   /\ wraps = Targets(bindings, linked, epoch) /\ issued = wraps
   /\ phase = "idle" /\ observedBindings = {} /\ observedEpoch = epoch
   /\ planned = {} /\ hydrated = "pending" /\ relinkRejected = FALSE
+  /\ cachedWraps = {} /\ cacheValid = FALSE /\ unlinkRejected = FALSE
 
 BindSecond ==
   /\ "two" \notin bindings
@@ -29,14 +33,17 @@ BindSecond ==
   /\ wraps' = wraps \cup Targets({"two"}, linked, epoch)
   /\ issued' = issued \cup wraps'
   /\ UNCHANGED <<linked, epoch, phase, observedBindings, observedEpoch,
-                  planned, hydrated, relinkRejected>>
+                  planned, hydrated, relinkRejected, cachedWraps, cacheValid,
+                  unlinkRejected>>
 
 PrepareLink ==
   /\ phase \in {"idle", "prepared"}
   /\ observedBindings' = bindings /\ observedEpoch' = epoch
   /\ planned' = Targets(bindings, Containers, epoch)
   /\ phase' = "prepared"
-  /\ UNCHANGED <<bindings, linked, epoch, wraps, issued, hydrated, relinkRejected>>
+  /\ cachedWraps' = wraps /\ cacheValid' = TRUE
+  /\ UNCHANGED <<bindings, linked, epoch, wraps, issued, hydrated, relinkRejected,
+                  unlinkRejected>>
 
 CommitLink ==
   /\ phase = "prepared" /\ observedEpoch = epoch
@@ -45,22 +52,28 @@ CommitLink ==
   /\ wraps' = IF RetainPriorWraps THEN wraps \cup planned ELSE planned
   /\ issued' = issued \cup wraps'
   /\ phase' = "linked"
+  /\ cacheValid' = IF InvalidateAttachmentCache THEN FALSE ELSE cacheValid
   /\ UNCHANGED <<bindings, epoch, observedBindings, observedEpoch,
-                  planned, hydrated, relinkRejected>>
+                  planned, hydrated, relinkRejected, cachedWraps, unlinkRejected>>
 
 RemainingEnvelopesRetained ==
   Targets(bindings, {"destination"}, epoch) \subseteq wraps
 
 UnlinkSource ==
   /\ phase = "linked" /\ linked = Containers
-  (* One blob is unavailable. A rekey can require a new envelope even on unlink. *)
+  (* Retained envelopes need no ciphertext; a rekey can require new envelopes. *)
   /\ RemainingEnvelopesRetained /\ ~RetainedTargetsNeedCiphertext
-  /\ linked' = {"destination"}
-  /\ wraps' = IF RetainPriorWraps THEN wraps
+  (* A stale warm cache omits the destination wrap just committed by link.
+     Regenerating it with fresh randomness conflicts with the active envelope. *)
+  /\ unlinkRejected' = (cacheValid /\
+       ~(Targets(bindings, {"destination"}, epoch) \subseteq cachedWraps))
+  /\ linked' = IF unlinkRejected' THEN linked ELSE {"destination"}
+  /\ wraps' = IF unlinkRejected' \/ RetainPriorWraps THEN wraps
               ELSE Targets(bindings, {"destination"}, epoch)
   /\ issued' = issued \cup wraps'
+  /\ cacheValid' = IF InvalidateAttachmentCache THEN FALSE ELSE cacheValid
   /\ UNCHANGED <<bindings, epoch, phase, observedBindings, observedEpoch,
-                  planned, hydrated, relinkRejected>>
+                  planned, hydrated, relinkRejected, cachedWraps>>
 
 (* Returning to an old key identity reuses its retained randomized envelope. *)
 RelinkSource ==
@@ -72,22 +85,25 @@ RelinkSource ==
               ELSE wraps \cup Targets(bindings, {"source"}, epoch)
   /\ issued' = issued \cup wraps'
   /\ UNCHANGED <<bindings, epoch, phase, observedBindings, observedEpoch,
-                  planned, hydrated>>
+                  planned, hydrated, cachedWraps, cacheValid, unlinkRejected>>
 
 ReenteredTargetsRemainWritable == ~relinkRejected
+MovePreservesCommittedEnvelopes == ~unlinkRejected
 
 Rekey(c) ==
   /\ epoch[c] = 1
   /\ epoch' = [epoch EXCEPT ![c] = 2]
   /\ UNCHANGED <<bindings, linked, wraps, issued, phase,
-                  observedBindings, observedEpoch, planned, hydrated, relinkRejected>>
+                  observedBindings, observedEpoch, planned, hydrated, relinkRejected,
+                  cachedWraps, cacheValid, unlinkRejected>>
 
 (* One valid attachment and one unavailable/invalid attachment settle together. *)
 Hydrate ==
   /\ hydrated = "pending"
   /\ hydrated' = IF IsolateHydration THEN "validInstalled" ELSE "allLost"
   /\ UNCHANGED <<bindings, linked, epoch, wraps, issued, phase,
-                  observedBindings, observedEpoch, planned, relinkRejected>>
+                  observedBindings, observedEpoch, planned, relinkRejected,
+                  cachedWraps, cacheValid, unlinkRejected>>
 
 CanOpen(b, c) == \E e \in Epochs :
   /\ <<b, c, e>> \in wraps
@@ -105,6 +121,8 @@ TypeOK ==
   /\ planned \subseteq (Blobs \X Containers \X Epochs)
   /\ hydrated \in {"pending", "validInstalled", "allLost"}
   /\ relinkRejected \in BOOLEAN
+  /\ cachedWraps \subseteq (Blobs \X Containers \X Epochs)
+  /\ {cacheValid, unlinkRejected} \subseteq BOOLEAN
 
 Idle == UNCHANGED vars
 Next == Idle \/ BindSecond \/ PrepareLink \/ CommitLink \/ UnlinkSource \/ RelinkSource \/ Hydrate
