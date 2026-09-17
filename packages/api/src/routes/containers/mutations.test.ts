@@ -85,7 +85,6 @@ import {
   requestSingleContainerParentLane as listContainersForUser,
   readContainerParentLanePage as readLanePage,
 } from "../../../test/helpers/containerParentLaneQuery";
-import { buildRootContainerRekeyMutation } from "../../../test/helpers/containerRekey";
 import { expectDocumentAccessHistoryAbsent } from "../../../test/helpers/documentAccessHistory";
 import { groupPolicyPayload } from "../../../test/helpers/groupPolicyPayload";
 import {
@@ -98,6 +97,7 @@ import {
   getDefaultOrganizationId,
   joinOrg,
 } from "../../../test/helpers/organizationMembership";
+import { buildGroupMembershipContainerMutations } from "../../../test/helpers/organizationMembershipGrants";
 import { getRootContainerForUser } from "../../../test/helpers/personalRootContainer";
 import { createPrincipalMemberEnvelopes } from "../../../test/helpers/principalMemberEnvelopes";
 import {
@@ -2355,15 +2355,11 @@ test("Admins rotation rekeys its built-in grant without changing access", async 
     prevStateHash: adminPolicy.stateHash,
     principalId: adminPolicy.principalId,
     principalKem: generateKemSeedAndKeyPair(),
-    prepareContainerMutations: async ({ policy }) => [
-      (
-        await buildRootContainerRekeyMutation({
-          previous: root,
-          replacementPrincipalPolicy: policy,
-          signer: owner,
-        })
-      ).request,
-    ],
+    prepareContainerMutations: ({ policy }) =>
+      buildGroupMembershipContainerMutations({
+        actor: owner,
+        nextPolicy: policy,
+      }),
     signedAt: "2026-04-30T00:00:30.000Z",
     version: adminPolicy.version + 1,
   });

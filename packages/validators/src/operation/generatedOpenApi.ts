@@ -1693,7 +1693,7 @@ export interface operations {
                             [key: string]: unknown;
                         };
                     };
-                    initialOrganizationMetadataContainer?: {
+                    initialOrganizationMetadataContainer: {
                         container: {
                             body: unknown;
                             containerManifestHistory?: ({
@@ -4340,7 +4340,7 @@ export interface operations {
                         committedCoreMetadataUpdateIds: string[];
                         committedProfileUpdateIds: string[];
                         organizationId: string;
-                        organizationMetadataContainer?: {
+                        organizationMetadataContainer: {
                             container: {
                                 accessManifest: {
                                     event: {
@@ -4500,7 +4500,7 @@ export interface operations {
                         } & {
                             [key: string]: unknown;
                         };
-                        organizationMetadataContainerId?: string;
+                        organizationMetadataContainerId: string;
                         organizationProfileDocument?: {
                             accessManifest: {
                                 event: {
@@ -15071,7 +15071,7 @@ export interface operations {
                             [key: string]: unknown;
                         };
                     };
-                    initialOrganizationMetadataContainer?: {
+                    initialOrganizationMetadataContainer: {
                         container: {
                             body: unknown;
                             containerManifestHistory?: ({
@@ -17719,7 +17719,7 @@ export interface operations {
                         committedCoreMetadataUpdateIds: string[];
                         committedProfileUpdateIds: string[];
                         organizationId: string;
-                        organizationMetadataContainer?: {
+                        organizationMetadataContainer: {
                             container: {
                                 accessManifest: {
                                     event: {
@@ -17879,7 +17879,7 @@ export interface operations {
                         } & {
                             [key: string]: unknown;
                         };
-                        organizationMetadataContainerId?: string;
+                        organizationMetadataContainerId: string;
                         organizationProfileDocument?: {
                             accessManifest: {
                                 event: {

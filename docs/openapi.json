@@ -9271,6 +9271,7 @@
                 "required": [
                   "initialAdminGroup",
                   "initialMemberGroup",
+                  "initialOrganizationMetadataContainer",
                   "initialOrganizationPolicy",
                   "initialRootContainer",
                   "initialRootMetadataDocument",
@@ -11490,6 +11491,8 @@
                     "committedCoreMetadataUpdateIds",
                     "committedProfileUpdateIds",
                     "organizationId",
+                    "organizationMetadataContainer",
+                    "organizationMetadataContainerId",
                     "rootContainerId",
                     "rootMetadataAccessEpoch",
                     "rootMetadataAccessStateHash",
@@ -58424,6 +58427,7 @@
                 "required": [
                   "initialAdminGroup",
                   "initialMemberGroup",
+                  "initialOrganizationMetadataContainer",
                   "initialOrganizationPolicy",
                   "initialRootContainer",
                   "initialRootMetadataDocument",
@@ -60635,6 +60639,8 @@
                     "committedCoreMetadataUpdateIds",
                     "committedProfileUpdateIds",
                     "organizationId",
+                    "organizationMetadataContainer",
+                    "organizationMetadataContainerId",
                     "rootContainerId",
                     "rootMetadataAccessEpoch",
                     "rootMetadataAccessStateHash",

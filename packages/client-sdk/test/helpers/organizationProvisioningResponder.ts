@@ -35,26 +35,19 @@ export async function respondToOrganizationProvisioning(
       )
     : undefined;
 
-  // Echo the Members-granted organization metadata container the client sent, so
-  // local provisioning persists it (and its system slot) exactly as production
-  // does. Without it, the org-name reader's cross-org fallback — which locates
-  // this container by its deterministic system slot — has nothing to find.
+  // Echo the required independent metadata root and its reserved system slot so
+  // persistence and encrypted-name tests exercise the production topology.
   const organizationMetadataContainer =
     request.initialOrganizationMetadataContainer;
-  const organizationMetadataContainerResponse = organizationMetadataContainer
-    ? await createMutationResponseFromRequest(
-        organizationMetadataContainer.container,
-      )
-    : undefined;
-  const organizationMetadataMetadataDocument = organizationMetadataContainer
-    ? await createResponseFromRequest(
-        organizationMetadataContainer.metadataDocument,
-      )
-    : undefined;
-  if (organizationMetadataContainerResponse && organizationMetadataContainer) {
-    organizationMetadataContainerResponse.systemSlot =
-      organizationMetadataContainer.systemSlot ?? null;
-  }
+  const organizationMetadataContainerResponse =
+    await createMutationResponseFromRequest(
+      organizationMetadataContainer.container,
+    );
+  const organizationMetadataMetadataDocument = await createResponseFromRequest(
+    organizationMetadataContainer.metadataDocument,
+  );
+  organizationMetadataContainerResponse.systemSlot =
+    organizationMetadataContainer.systemSlot;
 
   // Echo the additional app-owned system containers (e.g. the Explorer Trash
   // bin) the client sent, so local provisioning persists each one and its
@@ -82,7 +75,7 @@ export async function respondToOrganizationProvisioning(
   const committedCoreMetadataUpdateIds = [
     request.initialRootMetadataDocument.initialSync,
     request.initialRosterProfileContainer?.initialMetadataSync,
-    request.initialOrganizationMetadataContainer?.initialMetadataSync,
+    request.initialOrganizationMetadataContainer.initialMetadataSync,
   ].flatMap((syncRequest) =>
     syncRequest ? syncRequest.outgoingUpdates.map((update) => update.id) : [],
   );
@@ -119,17 +112,12 @@ export async function respondToOrganizationProvisioning(
           organizationProfileDocumentId: organizationProfileDocument.id,
         }
       : {}),
-    ...(organizationMetadataContainerResponse &&
-    organizationMetadataMetadataDocument
-      ? {
-          organizationMetadataContainer: {
-            container: organizationMetadataContainerResponse,
-            metadataDocument: organizationMetadataMetadataDocument,
-          },
-          organizationMetadataContainerId:
-            organizationMetadataContainerResponse.containerId,
-        }
-      : {}),
+    organizationMetadataContainer: {
+      container: organizationMetadataContainerResponse,
+      metadataDocument: organizationMetadataMetadataDocument,
+    },
+    organizationMetadataContainerId:
+      organizationMetadataContainerResponse.containerId,
     systemContainers,
   };
 }

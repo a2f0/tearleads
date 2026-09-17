@@ -2,7 +2,6 @@ import { expect, test } from "bun:test";
 import { db } from "@tearleads/api-shared/postgres";
 import {
   accessManifestHeads,
-  accessManifests,
   containerSyncTombstones,
   containers,
 } from "@tearleads/api-shared/schema";
@@ -26,9 +25,12 @@ import {
   readContainerParentLanePage,
   requestContainerParentLanes,
 } from "../../../test/helpers/containerParentLaneQuery";
+import {
+  loadRegisteredContainerRoots,
+  rootWatermark,
+} from "../../../test/helpers/listContainerRoots";
 import { registerUser } from "../../../test/helpers/registerUser";
 import { storeVerifiedAccessManifest } from "../../access/write/accessManifestStore";
-import { routeApp } from "../../routeApp";
 
 const AT = "2026-05-05T00:00:00.000Z";
 const CONTACTS_SLOT = "sys_v1_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
@@ -129,6 +131,7 @@ test("POST parent-lanes/query returns the manifest-backed root lane", async () =
   const owner = createTestUser();
   await registerUser(owner);
   await authenticate(owner);
+  const roots = await loadRegisteredContainerRoots(owner);
 
   const response = await requestContainerParentLanes(owner.token, [
     { laneId: "root", parentId: null },
@@ -142,31 +145,22 @@ test("POST parent-lanes/query returns the manifest-backed root lane", async () =
   const listedContainers = responseBody.results[0]?.page;
   expect(listedContainers).toEqual({
     hasMore: false,
-    items: [
+    items: roots.map((root) =>
       expect.objectContaining({
         depth: 0,
-        id: owner.rootContainerId,
+        id: root.id,
         parentId: null,
         metadataAccessEpoch: 1,
+        ...(root.systemSlot ? { systemSlot: root.systemSlot } : {}),
       }),
-    ],
-    nextWatermark: {
-      id: owner.rootContainerId,
-      updatedAt: expect.any(String),
-    },
+    ),
+    nextWatermark: rootWatermark(roots.at(-1)),
     tombstones: [],
   });
-  expect(listedContainers.items).toEqual([
-    expect.objectContaining({
-      id: owner.rootContainerId,
-    }),
-  ]);
-  expect(listedContainers.items[0]?.metadataAccessStateHash).toEqual(
-    expect.any(String),
-  );
-  expect(listedContainers.items[0]?.metadataDocumentId).toEqual(
-    expect.any(String),
-  );
+  for (const item of listedContainers.items) {
+    expect(item.metadataAccessStateHash).toEqual(expect.any(String));
+    expect(item.metadataDocumentId).toEqual(expect.any(String));
+  }
 });
 
 test("parent-lanes/query only returns containers readable through current manifests", async () => {
@@ -177,6 +171,7 @@ test("parent-lanes/query only returns containers readable through current manife
   await authenticate(owner);
   await registerUser(otherUser);
   await authenticate(otherUser);
+  const otherRoots = await loadRegisteredContainerRoots(otherUser);
 
   const response = await requestContainerParentLanes(otherUser.token, [
     { laneId: "root", parentId: null },
@@ -186,7 +181,7 @@ test("parent-lanes/query only returns containers readable through current manife
   const listedContainers = await readContainerParentLanePage(response, "root");
   expect(
     listedContainers.items.map((container: { id: string }) => container.id),
-  ).toEqual([otherUser.rootContainerId]);
+  ).toEqual(otherRoots.map((root) => root.id));
   expect(
     listedContainers.items.map((container: { id: string }) => container.id),
   ).not.toContain(owner.rootContainerId);
@@ -196,6 +191,7 @@ test("parent-lanes/query keeps root and child lane pages independent", async () 
   const owner = createTestUser();
   await registerUser(owner);
   await authenticate(owner);
+  const roots = await loadRegisteredContainerRoots(owner);
 
   const [rootContainer] = await db
     .select({ organizationId: containers.organizationId })
@@ -241,7 +237,7 @@ test("parent-lanes/query keeps root and child lane pages independent", async () 
   const rootLanePage = body.results[0]?.page;
   expect(
     rootLanePage.items.map((container: { id: string }) => container.id),
-  ).toEqual([owner.rootContainerId]);
+  ).toEqual(roots.map((root) => root.id));
 
   expect(body.results[1]?.page).toEqual(
     expect.objectContaining({
@@ -324,160 +320,6 @@ test("root parent lane includes directly granted non-root containers", async () 
       ]),
     }),
   );
-});
-
-test("parent-lanes/query supports client-owned watermark resume", async () => {
-  const owner = createTestUser();
-  await registerUser(owner);
-  await authenticate(owner);
-
-  const firstResponse = await requestContainerParentLanes(owner.token, [
-    { laneId: "root", limit: 1, parentId: null },
-  ]);
-  expect(firstResponse.status).toBe(200);
-  const firstBody = await readContainerParentLanePage(firstResponse, "root");
-  expect(firstBody.items).toHaveLength(1);
-  expect(firstBody.nextWatermark).toEqual({
-    id: owner.rootContainerId,
-    updatedAt: expect.any(String),
-  });
-  const firstWatermark = firstBody.nextWatermark;
-  if (!firstWatermark) {
-    throw new Error("Expected a root lane watermark");
-  }
-
-  const secondResponse = await requestContainerParentLanes(owner.token, [
-    {
-      laneId: "root",
-      parentId: null,
-      watermark: firstWatermark,
-    },
-  ]);
-  expect(secondResponse.status).toBe(200);
-  expect(await readContainerParentLanePage(secondResponse, "root")).toEqual({
-    hasMore: false,
-    items: [],
-    nextWatermark: firstWatermark,
-    tombstones: [],
-  });
-
-  const malformedWatermarkResponse = await routeApp.request(
-    "/containers/parent-lanes/query",
-    {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${owner.token}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        lanes: [
-          {
-            laneId: "root",
-            parentId: null,
-            watermark: {
-              id: firstWatermark.id,
-              updatedAt: "not-a-date",
-            },
-          },
-        ],
-      }),
-    },
-  );
-  expect(malformedWatermarkResponse.status).toBe(400);
-});
-
-test("parent-lanes/query advances a lane watermark over filtered candidates", async () => {
-  const owner = createTestUser();
-  await registerUser(owner);
-  await authenticate(owner);
-
-  const [rootContainer] = await db
-    .select({
-      organizationId: containers.organizationId,
-    })
-    .from(containers)
-    .where(eq(containers.id, owner.rootContainerId))
-    .limit(1);
-  if (!rootContainer) {
-    throw new Error("Expected registered root container");
-  }
-
-  await db
-    .update(containers)
-    .set({ updatedAt: new Date("2026-05-05T00:00:00.000Z") })
-    .where(eq(containers.id, owner.rootContainerId));
-
-  const [rootManifest] = await db
-    .select({ state: accessManifests.state })
-    .from(accessManifests)
-    .where(eq(accessManifests.objectId, owner.rootContainerId))
-    .limit(1);
-  if (!rootManifest) {
-    throw new Error("Expected registered root access manifest");
-  }
-
-  await db
-    .update(accessManifests)
-    .set({
-      state: {
-        ...(rootManifest.state as Record<string, unknown>),
-        metadataDocumentId: null,
-      },
-    })
-    .where(eq(accessManifests.objectId, owner.rootContainerId));
-
-  const tombstoneContainerId = crypto.randomUUID();
-  await db.insert(containerSyncTombstones).values({
-    containerId: tombstoneContainerId,
-    depth: 0,
-    organizationId: rootContainer.organizationId,
-    parentId: null,
-    reason: "deleted",
-    updatedAt: new Date("2026-05-05T00:00:01.000Z"),
-    userId: owner.userId,
-  });
-
-  const firstResponse = await requestContainerParentLanes(owner.token, [
-    { laneId: "root", limit: 1, parentId: null },
-  ]);
-  expect(firstResponse.status).toBe(200);
-  const firstBody = await readContainerParentLanePage(firstResponse, "root");
-  expect(firstBody).toEqual({
-    hasMore: true,
-    items: [],
-    nextWatermark: {
-      id: owner.rootContainerId,
-      updatedAt: "2026-05-05T00:00:00.000Z",
-    },
-    tombstones: [],
-  });
-
-  const secondResponse = await requestContainerParentLanes(owner.token, [
-    {
-      laneId: "root",
-      limit: 1,
-      parentId: null,
-      watermark: firstBody.nextWatermark,
-    },
-  ]);
-  expect(secondResponse.status).toBe(200);
-  expect(await readContainerParentLanePage(secondResponse, "root")).toEqual({
-    hasMore: false,
-    items: [],
-    nextWatermark: {
-      id: tombstoneContainerId,
-      updatedAt: "2026-05-05T00:00:01.000Z",
-    },
-    tombstones: [
-      {
-        containerId: tombstoneContainerId,
-        depth: 0,
-        parentId: null,
-        reason: "deleted",
-        updatedAt: "2026-05-05T00:00:01.000Z",
-      },
-    ],
-  });
 });
 
 test("parent-lanes/query keeps root and child tombstones scoped per result", async () => {

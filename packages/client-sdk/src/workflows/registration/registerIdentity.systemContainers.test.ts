@@ -12,7 +12,9 @@ test("registration includes initial metadata in the personal-org transaction", a
   type RegisterUserParameters = Parameters<RegistrationApi["registerUser"]>;
   let initialRootMetadataDocument: RegisterUserParameters[9] | undefined;
   let initialRosterProfileContainer: RegisterUserParameters[10];
-  let initialOrganizationMetadataContainer: RegisterUserParameters[12];
+  let initialOrganizationMetadataContainer:
+    | RegisterUserParameters[12]
+    | undefined;
   let initialSystemContainers: RegisterUserParameters[14];
 
   const response = await registerIdentity({

@@ -103,7 +103,10 @@ export function createRegistrationRequestFixture(): RegistrationRequest {
       },
     ],
   };
-  return {
+  const request: Omit<
+    RegistrationRequest,
+    "initialOrganizationMetadataContainer"
+  > = {
     encapsulationPublicKey: Array.from(
       { length: ML_KEM1024_PUBLIC_KEY_BYTES },
       (_, index) => index % 256,
@@ -153,6 +156,15 @@ export function createRegistrationRequestFixture(): RegistrationRequest {
       (_, index) => index % 256,
     ),
     userId,
+  };
+  return {
+    ...request,
+    initialOrganizationMetadataContainer: {
+      container: request.initialRootContainer,
+      initialMetadataSync: initialDocumentSync(),
+      metadataDocument: request.initialRootMetadataDocument,
+      systemSlot: `sys_v1_${"A".repeat(43)}`,
+    },
   };
 }
 

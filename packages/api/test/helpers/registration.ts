@@ -79,9 +79,7 @@ interface RegistrationBootstrapInput {
 interface RegistrationBootstrap {
   initialRosterProfileContainer?: ProvisionedSystemContainerRequest | undefined;
   initialRosterProfileDocument?: ProvisionedDocumentRequest | undefined;
-  initialOrganizationMetadataContainer?:
-    | ProvisionedSystemContainerRequest
-    | undefined;
+  initialOrganizationMetadataContainer: ProvisionedSystemContainerRequest;
   initialOrganizationProfileDocument?: ProvisionedDocumentRequest | undefined;
   initialRootContainer: ContainerMutationRequest;
   initialRootMetadataDocument: ProvisionedDocumentRequest;
@@ -1066,53 +1064,41 @@ export async function createRegistrationBootstrap(
       fixtureLabel: "roster-profile",
       initialName: "You",
     });
-  const organizationMetadataContainer = input.organizationProfileDocumentId
-    ? await createRegistrationMetadataRoot({
-        ...input,
-        signerDeviceId,
-        signerKeyFingerprint,
+  const organizationMetadataContainer = await createRegistrationMetadataRoot({
+    ...input,
+    signerDeviceId,
+    signerKeyFingerprint,
+  });
+  const organizationMetadataContainerProjection =
+    organizationMetadataContainer.projection;
+  const organizationMetadataContainerDocument =
+    await createRootMetadataDocumentRequest({
+      ...documentAuthor,
+      containerKey: organizationMetadataContainer.containerKey,
+      containerProjection: organizationMetadataContainerProjection,
+      rootMetadataDocumentId: organizationMetadataContainer.metadataDocumentId,
+    });
+  const initialOrganizationMetadataContainer =
+    await createProvisionedMetadataContainerFixture({
+      ...documentAuthor,
+      container: organizationMetadataContainer.request,
+      containerProjection: organizationMetadataContainerProjection,
+      metadataDocument: organizationMetadataContainerDocument,
+      documentId: organizationMetadataContainer.metadataDocumentId,
+      fixtureLabel: "organization-metadata-container",
+      initialName: "Organization Metadata",
+      systemSlot: await deriveOrganizationMetadataContainerSystemSlot(
+        input.organizationId,
+      ),
+    });
+  const organizationProfileDocument = input.organizationProfileDocumentId
+    ? await createRootMetadataDocumentRequest({
+        ...documentAuthor,
+        containerKey: organizationMetadataContainer.containerKey,
+        containerProjection: organizationMetadataContainerProjection,
+        rootMetadataDocumentId: input.organizationProfileDocumentId,
       })
     : undefined;
-  const organizationMetadataContainerProjection =
-    organizationMetadataContainer?.projection;
-  const organizationMetadataContainerDocument =
-    organizationMetadataContainer && organizationMetadataContainerProjection
-      ? await createRootMetadataDocumentRequest({
-          ...documentAuthor,
-          containerKey: organizationMetadataContainer.containerKey,
-          containerProjection: organizationMetadataContainerProjection,
-          rootMetadataDocumentId:
-            organizationMetadataContainer.metadataDocumentId,
-        })
-      : undefined;
-  const initialOrganizationMetadataContainer =
-    organizationMetadataContainer &&
-    organizationMetadataContainerProjection &&
-    organizationMetadataContainerDocument
-      ? await createProvisionedMetadataContainerFixture({
-          ...documentAuthor,
-          container: organizationMetadataContainer.request,
-          containerProjection: organizationMetadataContainerProjection,
-          metadataDocument: organizationMetadataContainerDocument,
-          documentId: organizationMetadataContainer.metadataDocumentId,
-          fixtureLabel: "organization-metadata-container",
-          initialName: "Organization Metadata",
-          systemSlot: await deriveOrganizationMetadataContainerSystemSlot(
-            input.organizationId,
-          ),
-        })
-      : undefined;
-  const organizationProfileDocument =
-    input.organizationProfileDocumentId &&
-    organizationMetadataContainer &&
-    organizationMetadataContainerProjection
-      ? await createRootMetadataDocumentRequest({
-          ...documentAuthor,
-          containerKey: organizationMetadataContainer.containerKey,
-          containerProjection: organizationMetadataContainerProjection,
-          rootMetadataDocumentId: input.organizationProfileDocumentId,
-        })
-      : undefined;
   const initialOrganizationProfileDocument =
     await createOptionalProvisionedDocumentFixture({
       ...documentAuthor,
@@ -1126,9 +1112,7 @@ export async function createRegistrationBootstrap(
   return {
     ...(initialRosterProfileContainer ? { initialRosterProfileContainer } : {}),
     ...(initialRosterProfileDocument ? { initialRosterProfileDocument } : {}),
-    ...(initialOrganizationMetadataContainer
-      ? { initialOrganizationMetadataContainer }
-      : {}),
+    initialOrganizationMetadataContainer,
     ...(initialOrganizationProfileDocument
       ? { initialOrganizationProfileDocument }
       : {}),

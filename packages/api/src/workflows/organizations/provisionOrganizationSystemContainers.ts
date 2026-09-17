@@ -1,5 +1,6 @@
 import type { DatabaseTransaction } from "@tearleads/api-shared/postgres";
 import { containerBuiltinGrants } from "@tearleads/api-shared/schema";
+import { deriveOrganizationMetadataContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
 import type {
   OrganizationProvisioningRequest,
   ProvisionedSystemContainerRequest,
@@ -116,17 +117,16 @@ export async function createInitialOrganizationMetadataContainer(
   tx: DatabaseTransaction,
   input: OrganizationProvisioningRequest,
   signer: SystemContainerSigner,
-): Promise<ContainerCreateWithMetadataDocumentResponse | null> {
-  if (!input.initialOrganizationMetadataContainer) {
-    return null;
-  }
-  if (!input.initialOrganizationProfileDocument) {
+): Promise<ContainerCreateWithMetadataDocumentResponse> {
+  const metadataSlot = await deriveOrganizationMetadataContainerSystemSlot({
+    organizationId: input.organizationId,
+  });
+  if (input.initialOrganizationMetadataContainer.systemSlot !== metadataSlot) {
     throw new OrganizationProvisioningError(
-      "Initial organization metadata container requires an organization profile document",
+      "Initial organization metadata container has the wrong system slot",
       400,
     );
   }
-
   const metadataContainer = await createProvisionedSystemContainer(tx, {
     request: input.initialOrganizationMetadataContainer,
     signer,

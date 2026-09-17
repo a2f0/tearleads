@@ -12,7 +12,9 @@ import { isCommitOrganizationGroupPolicyResponse } from "@tearleads/validators/r
 import { eq } from "drizzle-orm";
 import invariant from "invariant";
 import { authenticate } from "../../../test/helpers/authenticate";
+import { withGroupMembershipContainerMutations } from "../../../test/helpers/organizationMembershipGrants";
 import { createPrincipalMemberEnvelopes } from "../../../test/helpers/principalMemberEnvelopes";
+import { loadVerifiedPrincipalPolicy } from "../../../test/helpers/principalPolicy";
 import { signPrincipalStateBundle } from "../../../test/helpers/principalState";
 import { registerUser } from "../../../test/helpers/registerUser";
 import { getCurrentPrincipalState } from "../../access/read/principalStateStore";
@@ -136,7 +138,15 @@ async function prepareCompoundPolicy(input: {
     memberEnvelopes,
   });
   return {
-    groupPolicy,
+    groupPolicy: await withGroupMembershipContainerMutations({
+      actor: input.actor,
+      currentPolicy: await loadVerifiedPrincipalPolicy(
+        db,
+        "group",
+        organization.memberGroupId,
+      ),
+      signedState: groupPolicy,
+    }),
     nextGroupHead,
     organization,
     organizationPolicy,

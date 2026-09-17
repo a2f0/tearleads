@@ -41,3 +41,11 @@ POST /organizations removed the request property `initialMemberGroup/name`
 # Issue: server-readable organization/group labels; fresh-database metadata flag day.
 # Remove when origin/main contains the encrypted group metadata contract.
 POST /organizations/{organizationId}/groups removed the request property `name`
+
+# Issue: required organization metadata root for encrypted organization/group labels.
+# Remove when origin/main contains the required organization metadata contract.
+POST /auth/register the request property `initialOrganizationMetadataContainer` became required
+
+# Issue: required organization metadata root for encrypted organization/group labels.
+# Remove when origin/main contains the required organization metadata contract.
+POST /organizations the request property `initialOrganizationMetadataContainer` became required

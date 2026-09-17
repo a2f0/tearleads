@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import {
+  isOrganizationProvisioningResponse,
   isRegistrationResponse,
   isVerifyResponse,
   RegistrationResponseSchema,
@@ -50,10 +51,43 @@ function createDocumentCreateResponse() {
   };
 }
 
+function createMetadataContainerResponse() {
+  const metadataDocument = createDocumentCreateResponse();
+  return {
+    container: {
+      accessManifest: metadataDocument.accessManifest,
+      containerId: "ctr-organization-metadata",
+      containerKek: {
+        accessManifestHash: "manifest-hash",
+        containerId: "ctr-organization-metadata",
+        containerKeyEpoch: 1,
+        containerKeyEpochId: "key-epoch-id",
+        containerManifestHistory: [],
+        keyEpoch: {},
+        keyEpochHash: "key-epoch-hash",
+        keyring: null,
+        keyTargetHash: "key-target-hash",
+        parentContainerKeyEpochId: null,
+        recipientTargets: [{}],
+        wraps: [{}],
+      },
+      createdAt: new Date().toISOString(),
+      manifestHead: { epoch: 1, manifestHash: "manifest-hash" },
+      organizationId: "org-456",
+      parentId: null,
+      referencedPrincipalHeads: [],
+      updatedAt: new Date().toISOString(),
+    },
+    metadataDocument,
+  };
+}
+
 test("isRegistrationResponse", () => {
   const response = {
     userId: "abc-123",
     organizationId: "org-456",
+    organizationMetadataContainer: createMetadataContainerResponse(),
+    organizationMetadataContainerId: "ctr-organization-metadata",
     rootContainerId: "ctr-789",
     rootMetadataDocumentId: "doc-root",
     rootMetadataAccessEpoch: 1,
@@ -68,14 +102,20 @@ test("isRegistrationResponse", () => {
   expect(responseResult.success).toBe(true);
   expect(responseResult.success && responseResult.data).toBe(response);
   expect(isRegistrationResponse(response)).toBe(true);
+  expect(isOrganizationProvisioningResponse(response)).toBe(true);
   for (const key of [
     "committedCoreMetadataUpdateIds",
     "committedProfileUpdateIds",
     "systemContainers",
+    "organizationMetadataContainer",
+    "organizationMetadataContainerId",
   ] as const) {
     const missingAcknowledgement = { ...response };
     Reflect.deleteProperty(missingAcknowledgement, key);
     expect(isRegistrationResponse(missingAcknowledgement)).toBe(false);
+    expect(isOrganizationProvisioningResponse(missingAcknowledgement)).toBe(
+      false,
+    );
   }
   expect(
     isRegistrationResponse({

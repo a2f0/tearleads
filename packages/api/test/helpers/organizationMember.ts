@@ -9,13 +9,13 @@ import {
 import { bytesToBase64 } from "@tearleads/encoding";
 import { eq } from "drizzle-orm";
 import invariant from "invariant";
-import {
-  getCurrentPrincipalState,
-  listCurrentPrincipalProjectionMembers,
-} from "../../src/access/read/principalStateStore";
 import { groupPolicyPayload } from "./groupPolicyPayload";
+import { withGroupMembershipContainerMutations } from "./organizationMembershipGrants";
 import { createPrincipalMemberEnvelopes } from "./principalMemberEnvelopes";
-import { submitOrganizationGroupPolicyCommit } from "./principalPolicy";
+import {
+  loadVerifiedPrincipalPolicy,
+  submitOrganizationGroupPolicyCommit,
+} from "./principalPolicy";
 import { signPrincipalStateBundle } from "./principalState";
 
 interface MemberGroupUsersMutationInput {
@@ -35,18 +35,13 @@ async function updateMemberGroupUsers(
     .limit(1);
   invariant(organization, "expected organization row");
 
-  const currentState = await getCurrentPrincipalState(
+  const currentPolicy = await loadVerifiedPrincipalPolicy(
+    db,
     "group",
     organization.memberGroupId,
-    db,
   );
-  invariant(currentState, "expected current member group state");
-
-  const currentProjection = await listCurrentPrincipalProjectionMembers(
-    "group",
-    organization.memberGroupId,
-    db,
-  );
+  const currentState = currentPolicy.state;
+  const currentProjection = currentPolicy.projection;
   const existingProjection = currentProjection.map((member) => ({
     userId: member.userId,
     role: member.role,
@@ -83,6 +78,7 @@ async function updateMemberGroupUsers(
     encapsulationPublicKey: bytesToBase64(principalKem.publicKey),
     keyFingerprint: await toFingerprint(principalKem.publicKey),
     members: stateMembers,
+    grants: currentPolicy.grants,
     projection,
     memberEnvelopes,
     payloadCiphertext,
@@ -95,7 +91,11 @@ async function updateMemberGroupUsers(
   const response = await submitOrganizationGroupPolicyCommit({
     actor: input.actor,
     groupId: organization.memberGroupId,
-    groupPolicy: state,
+    groupPolicy: await withGroupMembershipContainerMutations({
+      actor: input.actor,
+      currentPolicy,
+      signedState: state,
+    }),
     organizationId: input.organizationId,
   });
   if (!response.ok) {

@@ -227,7 +227,7 @@ test("POST /auth/register rolls back organization and container rows on duplicat
   const organizationsAfterFirst = await countOrganizations();
   const containersAfterFirst = await countContainers();
   expect(organizationsAfterFirst).toBe(organizationsBefore + 1);
-  expect(containersAfterFirst).toBe(containersBefore + 1);
+  expect(containersAfterFirst).toBe(containersBefore + 2);
 
   const second = await submitRegistration(
     signingPublicKey,
@@ -574,7 +574,7 @@ test("POST /auth/register rejects an initial organization profile document witho
     { includeOrganizationProfileDocument: true },
   );
   const requestBody = { ...body };
-  delete requestBody.initialOrganizationMetadataContainer;
+  Reflect.deleteProperty(requestBody, "initialOrganizationMetadataContainer");
 
   const response = await routeApp.request("/auth/register", {
     method: "POST",
@@ -584,6 +584,6 @@ test("POST /auth/register rejects an initial organization profile document witho
 
   expect(response.status).toBe(400);
   expect(await response.json()).toEqual({
-    error: "Initial organization profile document requires a profile container",
+    error: "Invalid request",
   });
 });

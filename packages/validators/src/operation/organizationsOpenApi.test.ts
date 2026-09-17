@@ -34,6 +34,19 @@ test("create organization OpenAPI documents its shared contract", () => {
   ]);
   expect(requestSchema.required).toContain("initialRootContainer");
   expect(requestSchema.required).toContain("initialRootMetadataDocument");
+  expect(requestSchema.required).toContain(
+    "initialOrganizationMetadataContainer",
+  );
+  expect(requestSchema.required).not.toContain(
+    "initialOrganizationProfileDocument",
+  );
+  const responseSchema =
+    createOrganizationPost.responses["200"]?.content?.["application/json"]
+      ?.schema;
+  expect(responseSchema?.required).toContain("organizationMetadataContainer");
+  expect(responseSchema?.required).toContain("organizationMetadataContainerId");
+  expect(responseSchema?.required).not.toContain("organizationProfileDocument");
+
   expect(createOrganizationPost["x-tearleads-runtime-refinements"]).toEqual(
     createOrganizationOperation.runtimeRefinements,
   );

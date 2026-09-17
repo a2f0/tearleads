@@ -120,7 +120,10 @@ test("batched usage scopes metadata and deduplicates shared blobs per organizati
     memberGroupId: randomUUID(),
     adminGroupId: randomUUID(),
   });
-  await seedOrganizationDataUsage({ actor, organizationId: usedId });
+  const usedBaseline = await seedOrganizationDataUsage({
+    actor,
+    organizationId: usedId,
+  });
   const [source] = await db
     .select()
     .from(blobContentWriteHeaders)
@@ -210,7 +213,7 @@ test("batched usage scopes metadata and deduplicates shared blobs per organizati
   const used = report.organizations.find(
     (row) => row.organization.organizationId === usedId,
   )?.dataUsage;
-  expect(used?.totalByteLength).toBe(176);
+  expect(used?.totalByteLength).toBe(usedBaseline.totalByteLength + 31 + 37);
   expect(
     used?.documents.breakdown.find((entry) => entry.category === "user"),
   ).toEqual({

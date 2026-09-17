@@ -34,14 +34,9 @@ export function toOrganizationProvisioningResponse(
           rosterProfileDocumentId: provisioned.rosterProfileDocument.id,
         }
       : {}),
-    ...(provisioned.organizationMetadataContainer
-      ? {
-          organizationMetadataContainer:
-            provisioned.organizationMetadataContainer,
-          organizationMetadataContainerId:
-            provisioned.organizationMetadataContainer.container.containerId,
-        }
-      : {}),
+    organizationMetadataContainer: provisioned.organizationMetadataContainer,
+    organizationMetadataContainerId:
+      provisioned.organizationMetadataContainer.container.containerId,
     ...(provisioned.organizationProfileDocument
       ? {
           organizationProfileDocument: provisioned.organizationProfileDocument,

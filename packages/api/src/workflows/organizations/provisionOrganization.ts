@@ -268,7 +268,7 @@ function listCommittedCoreMetadataUpdateIds(
   return [
     input.initialRootMetadataDocument.initialSync,
     input.initialRosterProfileContainer?.initialMetadataSync,
-    input.initialOrganizationMetadataContainer?.initialMetadataSync,
+    input.initialOrganizationMetadataContainer.initialMetadataSync,
   ].flatMap((initialSync) =>
     initialSync ? initialSync.outgoingUpdates.map((update) => update.id) : [],
   );
@@ -297,7 +297,7 @@ export interface ProvisionedOrganization {
   rootMetadataDocument: DocumentCreateResponse;
   rosterProfileContainer: ContainerCreateWithMetadataDocumentResponse | null;
   rosterProfileDocument: DocumentCreateResponse | null;
-  organizationMetadataContainer: ContainerCreateWithMetadataDocumentResponse | null;
+  organizationMetadataContainer: ContainerCreateWithMetadataDocumentResponse;
   organizationProfileDocument: DocumentCreateResponse | null;
   systemContainers: ContainerCreateWithMetadataDocumentResponse[];
   committedCoreMetadataUpdateIds: string[];
@@ -395,7 +395,7 @@ export async function provisionOrganizationInTransaction(
       tx,
       input,
       signer,
-      organizationMetadataContainer?.container ?? null,
+      organizationMetadataContainer.container,
     );
   const systemContainers = await createProvisionedSystemContainers(
     tx,

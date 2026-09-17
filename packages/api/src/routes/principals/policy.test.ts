@@ -5,7 +5,7 @@ import {
   organizationRosterEntries,
   organizations,
 } from "@tearleads/api-shared/schema";
-import { createTestUser, type TestUser } from "@tearleads/bob-and-alice";
+import { createTestUser } from "@tearleads/bob-and-alice";
 import {
   generateKemSeedAndKeyPair,
   wrapDekForRecipients,
@@ -27,6 +27,7 @@ import {
   addUserToAdminGroup,
   getCurrentOrganizationAdminAuthority,
 } from "../../../test/helpers/organizationAdmin";
+import { addOrganizationMember } from "../../../test/helpers/organizationMembership";
 import {
   createPolicyTestGroup,
   createSignedPrincipalState,
@@ -35,10 +36,7 @@ import {
 } from "../../../test/helpers/principalPolicy";
 import { createProjectionWithAdminSigner } from "../../../test/helpers/principalState";
 import { registerUser } from "../../../test/helpers/registerUser";
-import {
-  getCurrentPrincipalState,
-  listCurrentPrincipalProjectionMembers,
-} from "../../access/read/principalStateStore";
+import { getCurrentPrincipalState } from "../../access/read/principalStateStore";
 import { routeApp } from "../../routeApp";
 
 function toPolicyRequest(
@@ -74,62 +72,6 @@ async function readCommittedGroupPolicy(response: Response) {
     "expected compound principal policy response",
   );
   return body.groupPolicy;
-}
-
-async function addOrganizationMember(input: {
-  actor: ReturnType<typeof createTestUser>;
-  member: TestUser;
-  organizationId: string;
-}) {
-  const [organization] = await db
-    .select({ memberGroupId: organizations.memberGroupId })
-    .from(organizations)
-    .where(eq(organizations.id, input.organizationId))
-    .limit(1);
-  invariant(organization, "expected organization row");
-  const currentState = await getCurrentPrincipalState(
-    "group",
-    organization.memberGroupId,
-    db,
-  );
-  invariant(currentState, "expected current Members state");
-  const currentProjection = await listCurrentPrincipalProjectionMembers(
-    "group",
-    organization.memberGroupId,
-    db,
-  );
-  const nextProjection = [
-    ...currentProjection.map((projectionMember) => ({
-      userId: projectionMember.userId,
-      role: projectionMember.role,
-    })),
-    {
-      userId: input.member.userId,
-      role: "member" as const,
-    },
-  ];
-  const signedState = await createSignedPrincipalState({
-    principalType: "group",
-    principalId: organization.memberGroupId,
-    version: currentState.version + 1,
-    prevStateHash: currentState.stateHash,
-    keyEpoch: currentState.keyEpoch + 1,
-    members: nextProjection.map((projectionMember) => ({
-      userId: projectionMember.userId,
-    })),
-    projection: nextProjection,
-    signerUserId: input.actor.userId,
-    signerUserKeyFingerprint: input.actor.fingerprint,
-    signingPrivateKey: input.actor.signing.signingPrivateKey,
-  });
-
-  const response = await putGroupPolicy({
-    actor: input.actor,
-    organizationId: input.organizationId,
-    principalId: organization.memberGroupId,
-    signedState,
-  });
-  expect(response.status).toBe(200);
 }
 
 test("PUT /principals/:principalType/:principalId/policy atomically stores and returns the current bundle", async () => {
@@ -201,56 +143,7 @@ test("PUT /principals/:principalType/:principalId/policy syncs org roster from M
   await registerUser(member);
 
   const organizationId = await getDefaultOrganizationId(actor.userId);
-  const [organization] = await db
-    .select({ memberGroupId: organizations.memberGroupId })
-    .from(organizations)
-    .where(eq(organizations.id, organizationId))
-    .limit(1);
-  invariant(organization, "expected organization row");
-  const currentState = await getCurrentPrincipalState(
-    "group",
-    organization.memberGroupId,
-    db,
-  );
-  invariant(currentState, "expected current Members state");
-  const currentProjection = await listCurrentPrincipalProjectionMembers(
-    "group",
-    organization.memberGroupId,
-    db,
-  );
-  const nextProjection = [
-    ...currentProjection.map((projectionMember) => ({
-      userId: projectionMember.userId,
-      role: projectionMember.role,
-    })),
-    {
-      userId: member.userId,
-      role: "member" as const,
-    },
-  ];
-  const signedState = await createSignedPrincipalState({
-    principalType: "group",
-    principalId: organization.memberGroupId,
-    version: currentState.version + 1,
-    prevStateHash: currentState.stateHash,
-    keyEpoch: currentState.keyEpoch + 1,
-    members: nextProjection.map((projectionMember) => ({
-      userId: projectionMember.userId,
-    })),
-    projection: nextProjection,
-    signerUserId: actor.userId,
-    signerUserKeyFingerprint: actor.fingerprint,
-    signingPrivateKey: actor.signing.signingPrivateKey,
-  });
-
-  const response = await putGroupPolicy({
-    actor,
-    organizationId,
-    principalId: organization.memberGroupId,
-    signedState,
-  });
-
-  expect(response.status).toBe(200);
+  await addOrganizationMember({ actor, member, organizationId });
   const rosterEntries = await db
     .select({
       status: organizationRosterEntries.status,

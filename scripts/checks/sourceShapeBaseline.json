@@ -138,10 +138,6 @@
       "lines": 634,
       "bytes": 21084
     },
-    "packages/api/src/routes/containers/listContainers.test.ts": {
-      "lines": 562,
-      "bytes": 17421
-    },
     "packages/api/src/routes/containers/mutations.test.ts": {
       "lines": 3837,
       "bytes": 126688

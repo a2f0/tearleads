@@ -3,7 +3,12 @@ import {
   ML_DSA87_PUBLIC_KEY_BYTES,
   ML_KEM1024_PUBLIC_KEY_BYTES,
 } from "../util";
-import { isRegistrationRequest, RegistrationRequestSchema } from "./index";
+import {
+  isCreateOrganizationRequest,
+  isOrganizationProvisioningRequest,
+  isRegistrationRequest,
+  RegistrationRequestSchema,
+} from "./index";
 import { createDocumentContentKeyBundle } from "./requestTestFixtures";
 
 const VALID_SIGNING_PUBLIC_KEY = Array.from(
@@ -118,43 +123,58 @@ test("isRegistrationRequest", () => {
     outgoingUpdates: [initialUpdate],
     supportsPullPagination: true as const,
   });
-  const createValidRequest = (overrides: Record<string, unknown> = {}) => ({
-    userId,
-    organizationId,
-    rootContainerId: "550e8400-e29b-41d4-a716-446655440000",
-    signingPublicKey: VALID_SIGNING_PUBLIC_KEY,
-    encapsulationPublicKey: VALID_ENCAPSULATION_PUBLIC_KEY,
-    initialAdminGroup: validInitialAdminGroup,
-    initialMemberGroup: validInitialMemberGroup,
-    initialOrganizationPolicy: validInitialOrganizationPolicy,
-    initialRootContainer: {
-      event: { eventType: "container.create" },
-      body: { eventType: "container.create" },
-      expectedManifestHash: "container-manifest-hash",
-      manifest: { objectKind: "container" },
-      previousManifest: null,
-      parentContainerPath: [],
-      keyEpoch: { id: "container-key-epoch-id" },
-      predecessorBridge: null,
-      keyring: null,
-      principalPolicies: [],
-      wraps: [{ containerKeyEpochId: "container-key-epoch-id" }],
-      userRecipientKeys: [{ userId }],
-    },
-    initialRootMetadataDocument: {
-      event: { eventType: "document.link" },
-      body: { eventType: "document.link" },
-      expectedManifestHash: "document-manifest-hash",
-      manifest: { objectKind: "document" },
-      previousManifest: null,
-      targetContainerPathRefs: [
-        { containerId: "container-1", manifestHash: "container-manifest-hash" },
-      ],
-      contentKeyBundle: createDocumentContentKeyBundle(),
-      initialSync: createInitialSync(),
-    },
-    ...overrides,
-  });
+  const createValidRequest = (overrides: Record<string, unknown> = {}) => {
+    const request = {
+      userId,
+      organizationId,
+      rootContainerId: "550e8400-e29b-41d4-a716-446655440000",
+      signingPublicKey: VALID_SIGNING_PUBLIC_KEY,
+      encapsulationPublicKey: VALID_ENCAPSULATION_PUBLIC_KEY,
+      initialAdminGroup: validInitialAdminGroup,
+      initialMemberGroup: validInitialMemberGroup,
+      initialOrganizationPolicy: validInitialOrganizationPolicy,
+      initialRootContainer: {
+        event: { eventType: "container.create" },
+        body: { eventType: "container.create" },
+        expectedManifestHash: "container-manifest-hash",
+        manifest: { objectKind: "container" },
+        previousManifest: null,
+        parentContainerPath: [],
+        keyEpoch: { id: "container-key-epoch-id" },
+        predecessorBridge: null,
+        keyring: null,
+        principalPolicies: [],
+        wraps: [{ containerKeyEpochId: "container-key-epoch-id" }],
+        userRecipientKeys: [{ userId }],
+      },
+      initialRootMetadataDocument: {
+        event: { eventType: "document.link" },
+        body: { eventType: "document.link" },
+        expectedManifestHash: "document-manifest-hash",
+        manifest: { objectKind: "document" },
+        previousManifest: null,
+        targetContainerPathRefs: [
+          {
+            containerId: "container-1",
+            manifestHash: "container-manifest-hash",
+          },
+        ],
+        contentKeyBundle: createDocumentContentKeyBundle(),
+        initialSync: createInitialSync(),
+      },
+    };
+    const { initialSync: _initialSync, ...metadataDocument } =
+      request.initialRootMetadataDocument;
+    return {
+      ...request,
+      initialOrganizationMetadataContainer: {
+        container: request.initialRootContainer,
+        initialMetadataSync: createInitialSync(),
+        metadataDocument,
+      },
+      ...overrides,
+    };
+  };
   const initialProfileDocument = {
     ...createValidRequest().initialRootMetadataDocument,
     initialSync: createInitialSync(),
@@ -172,6 +192,18 @@ test("isRegistrationRequest", () => {
   expect(validResult.success).toBe(true);
   expect(validResult.success && validResult.data).toBe(validRequest);
   expect(isRegistrationRequest(validRequest)).toBe(true);
+  for (const validateRequest of [
+    isRegistrationRequest,
+    isOrganizationProvisioningRequest,
+    isCreateOrganizationRequest,
+  ]) {
+    expect(validateRequest(validRequest)).toBe(true);
+    expect(
+      validateRequest(
+        createValidRequest({ initialOrganizationMetadataContainer: undefined }),
+      ),
+    ).toBe(false);
+  }
   expect(
     isRegistrationRequest(
       createValidRequest({

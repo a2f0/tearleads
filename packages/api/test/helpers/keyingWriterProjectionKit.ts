@@ -79,6 +79,7 @@ async function getRootContainerForUser(
       and(
         eq(containers.organizationId, user.defaultOrganizationId),
         isNull(containers.parentId),
+        isNull(containers.systemSlot),
       ),
     )
     .limit(1);

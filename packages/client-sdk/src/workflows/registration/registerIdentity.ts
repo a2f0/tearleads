@@ -54,9 +54,9 @@ export interface RegistrationApi {
     initialOrganizationPolicy: RegistrationRequest["initialOrganizationPolicy"],
     initialRootContainer: RegistrationRequest["initialRootContainer"],
     initialRootMetadataDocument: ProvisionedDocumentRequest,
-    initialRosterProfileContainer?: ProvisionedSystemContainerRequest,
-    initialRosterProfileDocument?: ProvisionedDocumentRequest | undefined,
-    initialOrganizationMetadataContainer?: ProvisionedSystemContainerRequest,
+    initialRosterProfileContainer: RegistrationRequest["initialRosterProfileContainer"],
+    initialRosterProfileDocument: ProvisionedDocumentRequest | undefined,
+    initialOrganizationMetadataContainer: ProvisionedSystemContainerRequest,
     initialOrganizationProfileDocument?: ProvisionedDocumentRequest | undefined,
     initialSystemContainers?: ProvisionedSystemContainerRequest[] | undefined,
   ): Promise<RegistrationResponse | null>;
