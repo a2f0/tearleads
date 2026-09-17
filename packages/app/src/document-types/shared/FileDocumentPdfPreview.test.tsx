@@ -2,6 +2,7 @@ import { afterEach, expect, test } from "bun:test";
 import type { BlobStore, DocumentAttachment } from "@tearleads/client-sdk";
 import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
 import type { FileViewer, ViewFileRequest } from "../../host/FileViewer";
+import { AUTOMATIC_BLOB_PREVIEW_MAX_BYTES } from "./documentAttachmentUtils";
 import { useFileDocumentPdfPreview } from "./FileDocumentPdfPreview";
 
 const attachment: DocumentAttachment = {
@@ -16,7 +17,14 @@ const bytes = new Uint8Array([37, 80, 68, 70]) as Uint8Array<ArrayBuffer>;
 function createBlobStore(value: Uint8Array<ArrayBuffer> | null): BlobStore {
   return {
     deleteBytes: async () => undefined,
-    openByteSource: async () => null,
+    openByteSource: async () =>
+      value
+        ? {
+            byteLength: value.byteLength,
+            read: async (offset: number, length: number) =>
+              value.slice(offset, offset + length),
+          }
+        : null,
     readBytes: async () => value,
     writeByteSource: async () => undefined,
     writeBytes: async () => undefined,
@@ -57,11 +65,13 @@ test("loads local PDF bytes without a click and keeps external opening optional"
 });
 
 test("ignores a PDF read that resolves after unmount", async () => {
-  let resolveBytes: ((value: Uint8Array<ArrayBuffer>) => void) | undefined;
+  let resolveSource:
+    | ((value: Awaited<ReturnType<BlobStore["openByteSource"]>>) => void)
+    | undefined;
   const blobStore = createBlobStore(bytes);
-  blobStore.readBytes = () =>
+  blobStore.openByteSource = () =>
     new Promise((resolve) => {
-      resolveBytes = resolve;
+      resolveSource = resolve;
     });
   const hook = renderHook(() =>
     useFileDocumentPdfPreview({
@@ -75,14 +85,24 @@ test("ignores a PDF read that resolves after unmount", async () => {
 
   expect(hook.result.current?.loading).toBe(true);
   hook.unmount();
-  resolveBytes?.(bytes);
+  resolveSource?.({
+    byteLength: bytes.byteLength,
+    read: async () => bytes,
+  });
   await Promise.resolve();
 });
 
 test("does not show one PDF's bytes while switching to another", async () => {
   const secondBytes = new Uint8Array([1, 2, 3, 4]) as Uint8Array<ArrayBuffer>;
   const blobStore = createBlobStore(bytes);
-  blobStore.readBytes = async (key) => (key === "first" ? bytes : secondBytes);
+  blobStore.openByteSource = async (key) => {
+    const value = key === "first" ? bytes : secondBytes;
+    return {
+      byteLength: value.byteLength,
+      read: async (offset: number, length: number) =>
+        value.slice(offset, offset + length),
+    };
+  };
   const hook = renderHook(
     ({ storageKey }) =>
       useFileDocumentPdfPreview({
@@ -118,17 +138,47 @@ test("reports PDFs whose local bytes are unavailable", async () => {
 
   await waitFor(() =>
     expect(hook.result.current?.error).toBe(
-      "Couldn't load this PDF. You can still download it.",
+      "PDF preview is unavailable or over 5 MiB. You can still download it.",
     ),
   );
-  expect(logged[0]?.[0]).toBe("Failed to load PDF preview");
-  expect(logged[0]?.[1]).toBeInstanceOf(Error);
+  expect(logged).toEqual([]);
+});
+
+test("oversized held PDFs never read into automatic preview memory", async () => {
+  let readCount = 0;
+  const blobStore = createBlobStore(bytes);
+  blobStore.openByteSource = async () => ({
+    byteLength: AUTOMATIC_BLOB_PREVIEW_MAX_BYTES + 1,
+    read: async () => {
+      readCount += 1;
+      return bytes;
+    },
+  });
+  blobStore.readBytes = async () => {
+    throw new Error("unbounded readBytes must not be used for PDF preview");
+  };
+  const hook = renderHook(() =>
+    useFileDocumentPdfPreview({
+      attachments: [attachment], // Intent size is small; held bytes are not.
+      attachmentStorageKeyBySlotId: { "pdf-slot": "oversized" },
+      blobStore,
+      fileViewer: null,
+      logError: noopLogError,
+    }),
+  );
+  await waitFor(() =>
+    expect(hook.result.current?.error).toBe(
+      "PDF preview is unavailable or over 5 MiB. You can still download it.",
+    ),
+  );
+  expect(hook.result.current?.bytes).toBeNull();
+  expect(readCount).toBe(0);
 });
 
 test("a PDF read that lost its database shows the error without reporting", async () => {
   const logged: [string | Error, unknown][] = [];
   const blobStore = createBlobStore(bytes);
-  blobStore.readBytes = () =>
+  blobStore.openByteSource = () =>
     Promise.reject(new Error("Database client is unavailable."));
   const hook = renderHook(() =>
     useFileDocumentPdfPreview({

@@ -15,6 +15,7 @@ import {
 } from "react";
 import { MiniAppStatus } from "../../components/mini-app/MiniAppLayout";
 import type { FileViewer } from "../../host/FileViewer";
+import { readAutomaticPreviewBlobBytes } from "./documentAttachmentUtils";
 
 const PdfInlineViewer = lazy(() => import("./PdfInlineViewer"));
 
@@ -92,10 +93,17 @@ export function useFileDocumentPdfPreview(params: {
     setLoaded(null);
     setFailure(null);
     if (storageKey) {
-      void blobStore
-        .readBytes(storageKey)
+      void readAutomaticPreviewBlobBytes(blobStore, storageKey)
         .then((value) => {
-          if (!value) throw new Error("PDF bytes are not available locally.");
+          if (!value) {
+            if (active)
+              setFailure({
+                storageKey,
+                message:
+                  "PDF preview is unavailable or over 5 MiB. You can still download it.",
+              });
+            return;
+          }
           if (active) setLoaded({ storageKey, bytes: value });
         })
         .catch((readError: unknown) => {
