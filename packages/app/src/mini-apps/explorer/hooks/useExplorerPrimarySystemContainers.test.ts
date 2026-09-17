@@ -82,3 +82,41 @@ test("does not select another org's system containers without a primary org", ()
     }),
   ).toEqual({ contactsContainerId: null });
 });
+
+test("primary Contacts selection skips metadata roots and still prefers the current ordinary root", () => {
+  const metadata = {
+    ...node({
+      id: "metadata-root",
+      organizationId: "personal-org",
+      parentId: null,
+    }),
+    systemSlot: "sys_v1_org_metadata",
+  };
+  const nodes = [
+    metadata,
+    node({
+      id: "stale-contacts",
+      organizationId: "personal-org",
+      parentId: "stale-root",
+      systemSlot: CONTACTS_SLOT,
+    }),
+    node({
+      id: "personal-root",
+      organizationId: "personal-org",
+      parentId: null,
+    }),
+    node({
+      id: "personal-contacts",
+      organizationId: "personal-org",
+      parentId: "personal-root",
+      systemSlot: CONTACTS_SLOT,
+    }),
+  ];
+  expect(
+    resolveExplorerPrimarySystemContainerIds({
+      contactsSystemSlot: CONTACTS_SLOT,
+      nodes,
+      primaryOrganizationId: "personal-org",
+    }),
+  ).toEqual({ contactsContainerId: "personal-contacts" });
+});

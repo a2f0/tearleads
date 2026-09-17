@@ -25,6 +25,7 @@ export function resolveExplorerPrimarySystemContainerIds(
     input.nodes.find(
       (node) =>
         node.parentId === null &&
+        !node.systemSlot &&
         node.organizationId === input.primaryOrganizationId,
     )?.id ?? null;
 

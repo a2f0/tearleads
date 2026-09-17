@@ -187,8 +187,16 @@ test("provisioned-container pull skips the remote poll when the local surface yi
   expect(refreshRootLane.mock.calls.length).toBe(0);
 });
 
-test("provisioned-container pull accepts an opaque shared-org system slot", async () => {
+test("provisioned-container pull accepts an opaque shared-org slot after a metadata root", async () => {
   const nodes: ContainerNode[] = [
+    {
+      ...trashNode(),
+      id: "foreign-metadata",
+      name: "Organization Metadata",
+      organizationId: "foreign-org",
+      parentId: null,
+      systemSlot: "opaque-org-metadata-slot",
+    },
     {
       ...trashNode(),
       id: "foreign-root",

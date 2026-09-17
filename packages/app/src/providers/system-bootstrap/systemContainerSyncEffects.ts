@@ -291,7 +291,8 @@ export function useProvisionedSystemContainerPull(input: {
       const organizationRoot = nodes.find(
         (node) =>
           node.organizationId === currentOrganizationId &&
-          node.parentId === null,
+          node.parentId === null &&
+          !node.systemSlot,
       );
       return provisionedContainers.flatMap((container) => {
         const exactSlot = findExplorerSystemNode(

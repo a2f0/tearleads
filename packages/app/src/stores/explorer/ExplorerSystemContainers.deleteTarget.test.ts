@@ -143,3 +143,39 @@ test("delete never falls back to the viewer's Trash when a foreign Trash is abse
     }),
   ).toEqual({ canFallBackToOwnTrash: false, trashContainerId: null });
 });
+
+test("delete skips an earlier metadata root when resolving another owned org's Trash", () => {
+  const metadataRoot = {
+    id: "owner-metadata",
+    kind: "container" as const,
+    name: "Organization Metadata",
+    organizationId: OWNER_ORG,
+    parentId: null,
+    syncState: syncedContainerDocumentObjectSyncState,
+    systemSlot: "sys_v1_owner_metadata",
+  };
+  const nodes = [
+    metadataRoot,
+    ...viewerTreeNodes.map((node) =>
+      node.id === "owner-trash"
+        ? { ...node, systemSlot: VIEWER_TRASH_SLOT }
+        : node,
+    ),
+  ];
+  expect(
+    resolveExplorerDeleteTrashTarget({
+      containerId: "owner-folder",
+      currentOrganizationId: VIEWER_ORG,
+      nodes,
+      trashSystemSlot: VIEWER_TRASH_SLOT,
+    }),
+  ).toEqual({ canFallBackToOwnTrash: false, trashContainerId: "owner-trash" });
+  expect(
+    resolveExplorerDeleteTrashTarget({
+      containerId: "owner-folder",
+      currentOrganizationId: VIEWER_ORG,
+      nodes: nodes.filter((node) => node.id !== "owner-root"),
+      trashSystemSlot: VIEWER_TRASH_SLOT,
+    }),
+  ).toEqual({ canFallBackToOwnTrash: false, trashContainerId: null });
+});
