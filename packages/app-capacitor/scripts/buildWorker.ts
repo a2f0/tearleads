@@ -1,4 +1,4 @@
-import { copyFile, mkdir } from "node:fs/promises";
+import { copyFile, cp, mkdir } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import {
   getDefaultDatabaseWorkerEntrypointUrl,
@@ -10,6 +10,11 @@ const pdfWorkerSource = new URL(
   "../node_modules/pdfjs-dist/legacy/build/pdf.worker.min.mjs",
   import.meta.url,
 );
+const pdfPackageSource = new URL(
+  "../node_modules/pdfjs-dist/",
+  import.meta.url,
+);
+const pdfAssetDirectories = ["cmaps", "wasm", "standard_fonts"] as const;
 
 await mkdir(publicDir, { recursive: true });
 
@@ -34,5 +39,12 @@ await copyFile(
   fileURLToPath(pdfWorkerSource),
   fileURLToPath(new URL("pdf.worker.js", publicDir)),
 );
+for (const directory of pdfAssetDirectories) {
+  await cp(
+    fileURLToPath(new URL(`${directory}/`, pdfPackageSource)),
+    fileURLToPath(new URL(`pdfjs/${directory}/`, publicDir)),
+    { recursive: true },
+  );
+}
 
 console.log("Database and PDF worker assets built successfully.");

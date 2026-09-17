@@ -1,4 +1,4 @@
-import { copyFile, mkdir, rm } from "node:fs/promises";
+import { copyFile, cp, mkdir, rm } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { loroWasmPlugin } from "@tearleads/loro/bun-plugin";
@@ -21,6 +21,7 @@ import {
 
 const packageRoot = resolve(import.meta.dirname, "..");
 const repoRoot = resolve(packageRoot, "../..");
+const pdfAssetDirectories = ["cmaps", "wasm", "standard_fonts"] as const;
 
 async function buildRenderer(mainViewDir: string, sourceMapDir?: string) {
   // Emit HTML and its referenced chunks together, including Loro's embedded
@@ -80,6 +81,13 @@ async function packageMainView(mainViewDir: string, sourceMapDir?: string) {
     ),
     join(mainViewDir, "pdf.worker.js"),
   );
+  for (const directory of pdfAssetDirectories) {
+    await cp(
+      join(packageRoot, "node_modules/pdfjs-dist", directory),
+      join(mainViewDir, "pdfjs", directory),
+      { recursive: true },
+    );
+  }
 
   console.log(`Packaged Electrobun renderer assets: ${mainViewDir}`);
 }

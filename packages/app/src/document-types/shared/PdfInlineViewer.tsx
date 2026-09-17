@@ -65,7 +65,14 @@ export default function PdfInlineViewer({
 
     // PDF.js transfers the input buffer to its worker. Keep the BlobStore's
     // original bytes intact for a possible external-open action.
-    const task = getDocument({ data: bytes.slice() });
+    const assetBase = new URL("/pdfjs/", window.location.href);
+    const task = getDocument({
+      data: bytes.slice(),
+      cMapUrl: new URL("cmaps/", assetBase).href,
+      cMapPacked: true,
+      standardFontDataUrl: new URL("standard_fonts/", assetBase).href,
+      wasmUrl: new URL("wasm/", assetBase).href,
+    });
     void task.promise
       .then((document) => {
         if (!active) return;

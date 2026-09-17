@@ -7,6 +7,7 @@ import { BrowserWindow, Utils } from "electrobun/bun";
 import { configureMainProcessDiagnostics } from "../diagnostics/mainProcess";
 import { createRendererBuildConfig } from "../rendererEnvironment";
 import { planSaveFileRequest } from "../saveFileHandler";
+import { resolvePdfAssetPath } from "./pdfAssetPaths";
 
 const packageDirEnvName = "TEARLEADS_ELECTROBUN_PACKAGE_DIR";
 const isDev = process.env.NODE_ENV !== "production";
@@ -195,12 +196,14 @@ async function createDevServerConfig() {
   // hanging every /sqlite3.wasm request (a streaming Bun.file of a nonexistent
   // path never completes).
   const sqliteWasm = await Bun.file(getSqliteWasmFilePath()).arrayBuffer();
-  const pdfWorker = Bun.file(
-    new URL(
-      "../../node_modules/pdfjs-dist/legacy/build/pdf.worker.min.mjs",
+  const pdfPackageDir = process.env[packageDirEnvName];
+  const pdfWorker = await Bun.file(
+    resolvePdfAssetPath(
+      pdfPackageDir,
+      "legacy/build/pdf.worker.min.mjs",
       import.meta.url,
     ),
-  );
+  ).arrayBuffer();
 
   const webOutputs = new Map(
     webBuild.outputs.map((output) => [
@@ -232,6 +235,26 @@ async function createDevServerConfig() {
       if (pathname === "/pdf.worker.js") {
         return new Response(pdfWorker, {
           headers: { "Content-Type": "application/javascript" },
+        });
+      }
+
+      const pdfAsset =
+        /^\/pdfjs\/(cmaps|wasm|standard_fonts)\/([A-Za-z0-9._-]+)$/.exec(
+          pathname,
+        );
+      if (pdfAsset) {
+        const [, directory, name] = pdfAsset;
+        const assetPath = resolvePdfAssetPath(
+          pdfPackageDir,
+          `${directory}/${name}`,
+          import.meta.url,
+        );
+        if (!(await isRegularFile(assetPath))) {
+          return new Response("Not found", { status: 404 });
+        }
+        const file = Bun.file(assetPath);
+        return new Response(file, {
+          headers: { "Content-Type": file.type || "application/octet-stream" },
         });
       }
 

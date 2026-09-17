@@ -1,3 +1,4 @@
+import { readdirSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import {
   getDefaultDatabaseWorkerEntrypointUrl,
@@ -24,8 +25,23 @@ const pdfWorker = Bun.file(
     import.meta.url,
   ),
 );
+const pdfPackageSource = new URL(
+  "../../node_modules/pdfjs-dist/",
+  import.meta.url,
+);
+const pdfAssetRoutes: Record<string, Response> = {};
+for (const directory of ["cmaps", "wasm", "standard_fonts"]) {
+  const source = new URL(`${directory}/`, pdfPackageSource);
+  for (const name of readdirSync(fileURLToPath(source))) {
+    const file = Bun.file(new URL(name, source));
+    pdfAssetRoutes[`/pdfjs/${directory}/${name}`] = new Response(file, {
+      headers: { "Content-Type": file.type || "application/octet-stream" },
+    });
+  }
+}
 
 export const coreRoutes = {
+  ...pdfAssetRoutes,
   "/worker.js": new Response(workerScript, {
     headers: { "Content-Type": "application/javascript" },
   }),
