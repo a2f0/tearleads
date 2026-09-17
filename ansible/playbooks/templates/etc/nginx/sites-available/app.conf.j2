@@ -20,6 +20,18 @@ server {
     add_header Cache-Control "no-cache";
   }
 
+  # PDF.js workers and support data use fixed URLs. Revalidate them when the
+  # bundled renderer is upgraded so a stale worker cannot mismatch its API.
+  location = /pdf.worker.js {
+    try_files $uri =404;
+    add_header Cache-Control "no-cache";
+  }
+
+  location ^~ /pdfjs/ {
+    try_files $uri =404;
+    add_header Cache-Control "no-cache";
+  }
+
   location = /sqlite3.wasm {
     try_files $uri =404;
     add_header Cache-Control "no-cache";

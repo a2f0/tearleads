@@ -1,4 +1,5 @@
 import {
+  AnnotationMode,
   GlobalWorkerOptions,
   getDocument,
   PasswordResponses,
@@ -120,6 +121,8 @@ function startPdfViewer(setup: ViewerSetup) {
     viewer: pages,
     eventBus,
     linkService,
+    // Downloads export original BlobStore bytes, so forms are read-only here.
+    annotationMode: AnnotationMode.ENABLE,
   });
   viewerRef.current = viewer;
   linkService.setViewer(viewer);

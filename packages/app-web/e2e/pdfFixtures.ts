@@ -44,6 +44,17 @@ export function cjkPdf(): Buffer {
   ]);
 }
 
+export function fillablePdf(): Buffer {
+  return encodePdf([
+    "<< /Type /Catalog /Pages 2 0 R /AcroForm 5 0 R >>",
+    "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+    "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 300 400] /Annots [4 0 R] >>",
+    "<< /Type /Annot /Subtype /Widget /FT /Tx /T (Name) /Rect [20 20 180 50] /P 3 0 R /V (Original) /DA (/Helv 12 Tf 0 g) /F 4 >>",
+    "<< /Fields [4 0 R] /DR << /Font << /Helv 6 0 R >> >> /DA (/Helv 12 Tf 0 g) >>",
+    "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
+  ]);
+}
+
 // One blank page, encrypted with the user password "secret" (PDF Standard V2).
 export function passwordProtectedPdf(): Buffer {
   return Buffer.from(

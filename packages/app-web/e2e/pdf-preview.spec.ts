@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test";
 import {
   cjkPdf,
+  fillablePdf,
   passwordProtectedPdf,
   twoPagePdf,
   uploadAndOpenPdf,
@@ -41,6 +42,16 @@ test("predefined CJK maps and decoder assets are served to the viewer", async ({
     expect(response.ok()).toBe(true);
     expect((await response.body()).byteLength).toBeGreaterThan(0);
   }
+});
+
+test("fillable PDF fields are previewed without editable controls", async ({
+  page,
+}) => {
+  const pdf = fillablePdf();
+  expect(pdf.toString()).toContain("/AcroForm");
+  const { preview } = await uploadAndOpenPdf(page, "form.pdf", pdf);
+  await expect(preview.locator(".pdfViewer canvas")).toBeVisible();
+  await expect(preview.locator(".annotationLayer input")).toHaveCount(0);
 });
 
 test("password-protected PDFs support retry and unlock", async ({ page }) => {
