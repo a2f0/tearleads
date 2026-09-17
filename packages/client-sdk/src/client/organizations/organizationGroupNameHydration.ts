@@ -6,7 +6,7 @@ import type { OrganizationDirectoryAndGroups } from "../../workflows/organizatio
 import type { InternalRuntime } from "../workflowRuntime";
 import {
   type ActiveOrganizationDataRuntime,
-  activeOrganizationDataRuntime,
+  isOrganizationDataRuntimeCurrent,
 } from "./organizationWorkflowRuntime";
 
 export async function hydrateOrganizationGroupNamesForRuntime(
@@ -16,16 +16,8 @@ export async function hydrateOrganizationGroupNamesForRuntime(
   directoryAndGroups: OrganizationDirectoryAndGroups | null | undefined,
 ) {
   if (directoryAndGroups && active.runtime.crypto.encapsulationKeyPair) {
-    const stillCurrent = () => {
-      const current = activeOrganizationDataRuntime(
-        runtimeService,
-        active.organizationId,
-      );
-      return (
-        current?.userId === active.userId &&
-        current.runtime.state.domainScope === domainScope
-      );
-    };
+    const stillCurrent = () =>
+      isOrganizationDataRuntimeCurrent(runtimeService, active, domainScope);
     return hydrateOrganizationGroupNames({
       apiClient: active.runtime.apiClient,
       directory: directoryAndGroups,

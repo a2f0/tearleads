@@ -1,12 +1,4 @@
 import type { DomainScope } from "../../data/domainScope";
-import { sqlDocumentMoveIntentPersistence } from "../../data/persistence/container-contents/documentMoveIntentPersistence";
-import { requestDormantMetadataRestorationSweeps } from "../../data/persistence/container-contents/dormantMetadataSweep";
-import { hasRecordedTerminalSyncFailures } from "../../data/sqlite/documentPersistence";
-import {
-  requestAllDomainSyncLanes,
-  requestDomainSyncLane,
-} from "../../data/sync/syncCoordinator";
-import { CONTAINER_CONTENTS_SYNC_LANE_KEY } from "../../workflows/container-contents/syncLane";
 import {
   loadLocalOrganizationContainerGrants,
   loadLocalOrganizationDirectoryAndGroups,
@@ -31,10 +23,12 @@ import {
 } from "../../workflows/organizations/organizationPresentationAccessState";
 import { createRuntimePrincipalPolicyWarmer } from "../../workflows/principals/runtimePolicyWarmer";
 import type { InternalRuntime } from "../workflowRuntime";
+import { recoverOrganizationAccess } from "./organizationAccessRestoration";
 import { hydrateOrganizationGroupNamesForRuntime } from "./organizationGroupNameHydration";
 import {
   type ActiveOrganizationDataRuntime,
   activeOrganizationDataRuntime,
+  isOrganizationDataRuntimeCurrent,
 } from "./organizationWorkflowRuntime";
 
 const coordinatorsByRuntime = new WeakMap<
@@ -359,6 +353,12 @@ class OrganizationReadModelCoordinatorImpl
       "readModel",
     );
     const domainScope = active.runtime.state.domainScope;
+    const stillCurrent = () =>
+      isOrganizationDataRuntimeCurrent(
+        this.runtimeService,
+        active,
+        domainScope,
+      );
 
     const reconciliation = reconcileOrganizationDirectoryAndGroups({
       apiClient: active.runtime.apiClient,
@@ -368,60 +368,25 @@ class OrganizationReadModelCoordinatorImpl
       organizationId: active.organizationId,
     })
       .then(async (directoryAndGroups) => {
-        directoryAndGroups = await hydrateOrganizationGroupNamesForRuntime(
+        if (!stillCurrent()) return null;
+        // Feed success restores retry eligibility even if name decryption fails.
+        const accessWasRestored =
+          accessWasDenied &&
+          directoryAndGroups !== null &&
+          directoryAndGroups !== undefined;
+        if (accessWasRestored)
+          await recoverOrganizationAccess({
+            active,
+            domainScope,
+            stillCurrent,
+          });
+        if (!stillCurrent()) return null;
+        return hydrateOrganizationGroupNamesForRuntime(
           this.runtimeService,
           active,
           domainScope,
           directoryAndGroups,
         );
-
-        const accessWasRestored =
-          accessWasDenied &&
-          directoryAndGroups !== null &&
-          directoryAndGroups !== undefined;
-        // The evidence gate: re-arm only when some queued write actually
-        // recorded a terminal failure. A transient denial during bootstrap
-        // (e.g. a read-model 403 before grants propagate) also flips the
-        // denied flag, and re-arming then would race the startup sync passes.
-        // A failed pass (`undefined`) proves nothing about restored access,
-        // so it must not re-arm either.
-        if (
-          accessWasRestored &&
-          ((await hasRecordedTerminalSyncFailures(
-            active.runtime.infra.execSql,
-          )) ||
-            (await sqlDocumentMoveIntentPersistence.hasDeniedMoveIntents(
-              active.runtime.infra.execSql,
-              { organizationId: active.organizationId },
-            )))
-        ) {
-          // Parked permission-denied moves (row 7) only replay once flipped
-          // back to pending; restore them before re-arming the lanes.
-          await sqlDocumentMoveIntentPersistence.resetDeniedMoveIntents(
-            active.runtime.infra.execSql,
-            { organizationId: active.organizationId },
-          );
-          requestAllDomainSyncLanes(domainScope);
-        }
-        // Keep dormant cleanup independent from the write-lane evidence gate,
-        // but run it afterward so a SQLite failure cannot suppress the
-        // pre-existing denied-write and move-intent recovery signal.
-        if (accessWasRestored) {
-          const requestedDormantSweepCount =
-            await requestDormantMetadataRestorationSweeps(
-              active.runtime.infra.execSql,
-              {
-                requesterUserId: active.userId,
-              },
-            );
-          if (requestedDormantSweepCount > 0) {
-            requestDomainSyncLane(
-              domainScope,
-              CONTAINER_CONTENTS_SYNC_LANE_KEY,
-            );
-          }
-        }
-        return directoryAndGroups;
       })
       .finally(() => {
         if (byKey.get(key) === reconciliation) {
