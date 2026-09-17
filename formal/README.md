@@ -206,6 +206,14 @@ See the [production mapping and bounds](./realtime/ContainerInterest.md).
 
 Attachment key availability across links, unlinks, and container rotations is
 modeled in [AttachmentKeyReachability](./document-sync/AttachmentKeyReachability.md).
+This includes attachment cache invalidation between the link and unlink steps
+of a single-device move.
+
+## Queued Document Creation
+
+[QueuedDocumentCreate](./local-trust/QueuedDocumentCreate.md) checks that a queued
+store observes local purge before starting remote creation and that an obsolete
+read cannot retire a replacement store generation.
 
 ## Attachment Content Identity
 

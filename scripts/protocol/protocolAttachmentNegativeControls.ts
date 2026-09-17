@@ -2,6 +2,14 @@ import type { NegativeControl } from "./protocolNegativeControls";
 
 export const ATTACHMENT_NEGATIVE_CONTROLS: readonly NegativeControl[] = [
   {
+    id: "move-reuses-stale-attachment-cache",
+    module: "formal/document-sync/AttachmentKeyReachability.tla",
+    config: "formal/document-sync/AttachmentKeyReachability.cfg",
+    constants: { InvalidateAttachmentCache: "FALSE" },
+    expect: { kind: "invariant", name: "MovePreservesCommittedEnvelopes" },
+    why: "A cached pre-link attachment list regenerates a destination envelope already committed by link, so unlink conflicts on a fresh single-device move.",
+  },
+  {
     id: "hydration-overwrites-newer-document-intent",
     module: "formal/document-sync/AttachmentContentIdentity.tla",
     config: "formal/document-sync/AttachmentContentIdentity.cfg",

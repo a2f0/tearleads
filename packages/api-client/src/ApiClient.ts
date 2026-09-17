@@ -283,6 +283,7 @@ export class ApiClient {
   }
 
   clearWriterProjectionCaches(): void {
+    this.documentAttachmentListRequestsByDocumentId.clear();
     this.containerWriterProjectionRequestsByContainerId.clear();
     this.documentWriterProjectionRequestsByDocumentId.clear();
     this.containerWriterProjectionResultsInFlightByContainerId.clear();
@@ -294,12 +295,12 @@ export class ApiClient {
   }
 
   /**
-   * Evict a single document's cached writer projection. A stale-projection
-   * sync/upload retry only implicates the document it is syncing, so it evicts
-   * just that entry instead of wiping every cached projection (which would force
-   * a cold refetch of unrelated documents that were never stale).
+   * Evict a document's projection and attachment envelopes together: link/unlink
+   * changes both. A stale attachment list would regenerate an already committed
+   * destination wrap during a move. Unrelated documents keep their caches.
    */
   evictDocumentWriterProjection(documentId: string): void {
+    this.documentAttachmentListRequestsByDocumentId.delete(documentId);
     this.documentWriterProjectionRequestsByDocumentId.delete(documentId);
     this.documentWriterProjectionResultsInFlightByDocumentId.delete(documentId);
   }
@@ -1627,7 +1628,6 @@ export class ApiClient {
     ).finally(() => {
       this.invalidateDocumentAttribution(documentId);
       this.evictDocumentWriterProjection(documentId);
-      this.documentAttachmentListRequestsByDocumentId.delete(documentId);
     });
   }
 

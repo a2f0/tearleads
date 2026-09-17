@@ -12,6 +12,9 @@ an unrelated document content-key bundle.
 | `RetainedTargetsNeedCiphertext` / `LinkedDocumentCanUnlink` | `prepareDocumentLinkBlobRewraps` verifies retained binding scope without downloading ciphertext when no new envelope is needed |
 | `RemainingEnvelopesRetained` | `retainedTarget` requires an existing envelope at each remaining destination's current KEK epoch |
 | `PrepareLink` | `prepareDocumentLinkBlobRewraps` authenticates bytes and wraps their DEK to verified targets |
+| `cachedWraps` / `cacheValid` | `ApiClient.listDocumentAttachments` caches the envelopes used while preparing link |
+| `InvalidateAttachmentCache` | `ApiClient.evictDocumentWriterProjection` also evicts the document attachment list after link/unlink or stale-state retries |
+| `MovePreservesCommittedEnvelopes` | `prepareDocumentLinkBlobRewraps` retains the destination envelope committed by link instead of generating conflicting randomized material |
 | `CheckBindingFrontier` | `lockDocumentLinkBlobRewraps` checks all active bindings under the exclusive document head |
 | `CommitLink` / `UnlinkSource` | `applyDocumentLinkBlobRewraps` commits scoped wraps inside the link transaction |
 | `BindSecond` | `lockAttachmentAuthorizationForShare` holds the document head through attachment bind |
@@ -24,13 +27,23 @@ The finite model uses two bindings, two containers, and two KEK epochs.
 It abstracts signature verification, ciphertext authentication, and keyring
 cryptography. Implementation tests exercise signed link tampering, transaction
 rollback, retained SQL rows, a cold destination-only read, and an actual signed
-container rekey with a sealed predecessor keyring. The six negative controls
+container rekey with a sealed predecessor keyring. The seven negative controls
 independently remove frontier validation, wrap retention, historical-key reads,
-per-attachment result isolation, ciphertext-independent removal, and reuse when
+per-attachment result isolation, ciphertext-independent removal, cache
+invalidation between move steps, and reuse when
 a document returns to an earlier
 destination. The route regression covers link, unlink, and relink at an
 unchanged
 KEK epoch, including a conflicting active wrap that must still return 409.
+`moveAttachmentCache.test.ts` additionally exercises a warm `ApiClient` against
+the real API: link commits a destination envelope and unlink must retain that
+exact envelope on the first attempt. Disabling cache invalidation gives the
+model the same pre-link cache on unlink and violates
+`MovePreservesCommittedEnvelopes`. Envelope bytes and random generation are
+abstracted as a conflict when a retained destination is missing from that cache.
+Mutation response failures and late attachment read completions are covered by
+`ApiClient.attachmentInvalidation.test.ts`; the model abstracts cache eviction
+and the next fresh read as one transition.
 
 In addition to safety, a fair unlink action must remain enabled when one blob is
 unavailable and no new key envelope is needed. The model does not claim eventual

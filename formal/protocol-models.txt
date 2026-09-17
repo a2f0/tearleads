@@ -19,6 +19,7 @@ formal/local-trust/ContainerAuthoring.tla|formal/local-trust/ContainerAuthoring.
 formal/local-trust/RootDocumentPriming.tla|formal/local-trust/RootDocumentPriming.cfg
 formal/local-trust/SystemDestination.tla|formal/local-trust/SystemDestination.cfg
 formal/local-trust/UnacknowledgedInput.tla|formal/local-trust/UnacknowledgedInput.cfg
+formal/local-trust/QueuedDocumentCreate.tla|formal/local-trust/QueuedDocumentCreate.cfg
 formal/realtime/ContainerInterest.tla|formal/realtime/ContainerInterest.cfg
 formal/document-sync/AttachmentContentIdentity.tla|formal/document-sync/AttachmentContentIdentity.cfg
 formal/blob-attachments/BlobSourceAuthority.tla|formal/blob-attachments/BlobSourceAuthority.cfg

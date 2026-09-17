@@ -38,6 +38,22 @@ export const NEGATIVE_CONTROLS: readonly NegativeControl[] = [
   ...ATTACHMENT_NEGATIVE_CONTROLS,
   ...RECOVERY_NEGATIVE_CONTROLS,
   {
+    id: "purged-queue-starts-remote-create",
+    module: "formal/local-trust/QueuedDocumentCreate.tla",
+    config: "formal/local-trust/QueuedDocumentCreate.cfg",
+    constants: { CheckDurableRow: "FALSE" },
+    expect: { kind: "invariant", name: "PurgedQueueDoesNotStart" },
+    why: "A queued in-memory store must not begin remote creation after its durable document row was purged.",
+  },
+  {
+    id: "purged-queue-clears-replacement",
+    module: "formal/local-trust/QueuedDocumentCreate.tla",
+    config: "formal/local-trust/QueuedDocumentCreate.cfg",
+    constants: { CheckCurrentGeneration: "FALSE" },
+    expect: { kind: "invariant", name: "ReplacementStoreSurvives" },
+    why: "A missing-row read from an obsolete generation must not clear a replacement store.",
+  },
+  {
     id: "content-write-unrefreshed-citations",
     module: "formal/document-sync/ContentWriteAuthority.tla",
     config: "formal/document-sync/ContentWriteAuthority.cfg",
