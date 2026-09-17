@@ -3,7 +3,7 @@ import {
   type DocumentSummary,
   getUntitledDocumentTitle,
 } from "@tearleads/client-sdk";
-import type { MouseEvent } from "react";
+import { type MouseEvent, useEffect } from "react";
 import {
   MiniAppSidebar,
   MiniAppStatus,
@@ -43,6 +43,7 @@ interface NotesSidebarProps {
     noteId: string,
   ) => void;
   notes: ReadonlyArray<DocumentSummary>;
+  primeVisibleNotes: (notes: ReadonlyArray<DocumentSummary>) => void;
   ready: boolean;
   selectNote: (noteId: string) => void;
   selectedNoteId: string | null;
@@ -71,6 +72,7 @@ function NotesList({
   handleAreaContextMenu,
   handleNoteContextMenu,
   notes,
+  primeVisibleNotes,
   ready,
   rowHeight = MINI_APP_VIRTUAL_SIDEBAR_ROW_HEIGHT,
   selectNote,
@@ -83,6 +85,9 @@ function NotesList({
     rowHeight,
     rows: notes,
   });
+  useEffect(() => {
+    if (ready) primeVisibleNotes(virtualNotes.rows);
+  }, [primeVisibleNotes, ready, virtualNotes.rows]);
 
   return (
     <>
