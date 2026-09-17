@@ -180,6 +180,7 @@ test("a replaced store generation cannot submit a planned remote create", async 
       snapshotEndVersion: encodeVersionVector(currentDoc),
       text: "",
     };
+    await defaultDocumentsPersistence.saveDocument(execSql, record);
     state = createDocumentStoreState(
       record.id,
       createRuntime(apiClient, execSql, fixture),

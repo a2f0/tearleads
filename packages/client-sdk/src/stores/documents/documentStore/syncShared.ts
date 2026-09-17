@@ -15,10 +15,11 @@ import { reportDocumentSyncQuarantine } from "../../../workflows/documents/repor
 import { createRuntimePrincipalPolicyWarmer } from "../../../workflows/principals/runtimePolicyWarmer";
 import { chainIdentityWrite } from "./identityWriteChain";
 import { persistDocument } from "./persistence";
-import type {
-  DocumentState,
-  DocumentStoreState,
-  EncapsulationKeyPair,
+import {
+  type DocumentState,
+  type DocumentStoreState,
+  type EncapsulationKeyPair,
+  markDocumentStoreRemoved,
 } from "./state";
 import {
   type DocumentStoreSyncGeneration,
@@ -184,6 +185,23 @@ export async function isContainerAwaitingRemoteCreate(
   }
 }
 
+async function hasDurableDocumentForCreate(
+  state: DocumentStoreState,
+  isCurrent: () => boolean,
+): Promise<boolean> {
+  // A bulk import can leave this store queued long after trash purged its
+  // durable row. The persistence guard runs too late to prevent an orphaned
+  // remote create, so check existence before beginning the network work.
+  const record = await state.persistence.loadDocument(
+    state.runtime.infra.execSql,
+    state.localId,
+  );
+  if (!isCurrent()) return false;
+  if (record) return true;
+  markDocumentStoreRemoved(state);
+  return false;
+}
+
 export async function ensureRemoteDocument(
   state: DocumentStoreState,
   currentDoc: DocumentState,
@@ -230,6 +248,9 @@ export async function ensureRemoteDocument(
     nextRecord?.recoveryDocumentId ??
     (await deriveStableDocumentId(state.localId));
   if (!generationIsCurrent()) return state.record ?? nextRecord;
+
+  if (!(await hasDurableDocumentForCreate(state, generationIsCurrent)))
+    return state.record;
 
   const writerProjectionGeneration = state.writerProjectionGeneration;
   const created = await createRemoteDocument({
