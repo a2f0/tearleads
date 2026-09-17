@@ -2,6 +2,7 @@ import {
   KeyingVerificationError,
   type VerifiedContainerAccessManifest,
 } from "@tearleads/crypto";
+import { deriveOrganizationMetadataContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
 import {
   verifiedContainerCreateManifest,
   verifyContainerDestinationProjection,
@@ -10,6 +11,7 @@ import {
   reportKeyingVerificationErrorInCauseChain,
   runWithSecurityIncidentReporting,
 } from "../../../data/keyingProjectionVerification/error";
+import { createGroupMetadataContainerVerifier } from "../../organizations/groupMetadataContainerAuthority";
 import { createRuntimePrincipalPolicyWarmer } from "../../principals/runtimePolicyWarmer";
 import {
   cachedDestinationRole,
@@ -39,11 +41,11 @@ export function needsVerifiedContainerDestination(input: {
   );
 }
 
-function destinationRoleFromPath(input: {
+async function destinationRoleFromPath(input: {
   listed: DestinationIdentity;
   path: readonly VerifiedContainerAccessManifest[];
   verifiedByHash: ReadonlyMap<string, VerifiedContainerAccessManifest>;
-}): DestinationRole {
+}): Promise<DestinationRole> {
   const { listed, path } = input;
   const head = path.at(-1);
   if (
@@ -56,10 +58,16 @@ function destinationRoleFromPath(input: {
       "container destination manifest has the wrong identity",
     );
   }
-  if (head.state.systemSlot !== null && path.length !== 2) {
+  const metadataSlot = await deriveOrganizationMetadataContainerSystemSlot({
+    organizationId: listed.organizationId,
+  });
+  if (
+    head.state.systemSlot !== null &&
+    path.length !== (head.state.systemSlot === metadataSlot ? 1 : 2)
+  ) {
     throw new KeyingVerificationError(
       "invalid_shape",
-      "system destination must be a root child",
+      "system destination has the wrong signed topology",
     );
   }
   // The head may be a later grant signed by any admin; only the epoch-1
@@ -89,6 +97,12 @@ function assertRootCreatedBySessionUser(
   role: DestinationRole,
   runtime: RemoteContainerHydrationState["runtime"],
 ): void {
+  if (role.systemSlot !== null) {
+    throw new KeyingVerificationError(
+      "object_mismatch",
+      "acknowledged session root cannot be a system container",
+    );
+  }
   if (role.createSignerUserId !== runtime.auth.userId) {
     throw new KeyingVerificationError(
       "signer_mismatch",
@@ -136,7 +150,19 @@ async function verifyDestinationRole(input: {
       createRuntimePrincipalPolicyWarmer(runtime),
   });
   if (isCurrent?.() === false) return null;
-  const role = destinationRoleFromPath({ listed, path, verifiedByHash });
+  const role = await destinationRoleFromPath({ listed, path, verifiedByHash });
+  if (role.parentId === null && role.systemSlot !== null) {
+    const head = path.at(-1);
+    if (!head) throw new Error("Metadata root manifest is unavailable");
+    await createGroupMetadataContainerVerifier({
+      apiClient: runtime.apiClient,
+      execSql: runtime.infra.execSql,
+      organizationId: listed.organizationId,
+      resolveTrustedUserIdentity: runtime.resolveTrustedUserIdentity,
+      stillCurrent: isCurrent ?? (() => true),
+    })(head.state);
+  }
+  if (isCurrent?.() === false) return null;
   rememberDestinationRole(runtime.infra.execSql, listed, role);
   return role;
 }
@@ -182,6 +208,7 @@ export function isSessionRootState(
   const { auth } = state.runtime;
   return (
     container.parentId === null &&
+    !container.systemSlot &&
     container.id === auth.rootContainerId &&
     container.organizationId === auth.organizationId
   );

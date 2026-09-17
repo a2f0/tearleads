@@ -7,6 +7,7 @@ import { loadContainerDisplayNamesByIds } from "../../data/persistence/container
 import { loadOrganizationGroupDisplayNames } from "../../data/persistence/organizations/organizationGroupNamePersistence";
 import { loadOrganizationReadModelProjection } from "../../data/persistence/organizations/organizationReadModelPersistence";
 import { loadPrincipalPolicyBundle } from "../../data/persistence/principalPolicyPersistence";
+import { loadVerifiedOrganizationGroupRoles } from "../../data/principals/organizationGroupRoles";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import { runOrganizationPresentationRead } from "./organizationPresentationAccessState";
 import {
@@ -49,6 +50,10 @@ async function enrichGrants(
     execSql,
     organizationId,
   );
+  const groupRoles = await loadVerifiedOrganizationGroupRoles(
+    execSql,
+    organizationId,
+  );
   const displayNames = new Map<string, string>();
   for (
     let index = 0;
@@ -68,7 +73,9 @@ async function enrichGrants(
     containerDisplayName: displayNames.get(grant.containerId) ?? null,
     groupName:
       grant.subjectType === "group"
-        ? (groupNames.get(grant.subjectId) ?? null)
+        ? (groupRoles.get(grant.subjectId) ??
+          groupNames.get(grant.subjectId) ??
+          null)
         : null,
   }));
 }

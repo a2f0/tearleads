@@ -797,7 +797,7 @@ CREATE INDEX "container_key_wraps_manifest_idx" ON "container_key_wraps" USING b
 CREATE UNIQUE INDEX "container_sync_tombstones_user_container_idx" ON "container_sync_tombstones" USING btree ("user_id","container_id");--> statement-breakpoint
 CREATE INDEX "container_sync_tombstones_user_parent_updated_idx" ON "container_sync_tombstones" USING btree ("user_id","parent_id","updated_at","container_id");--> statement-breakpoint
 CREATE INDEX "container_sync_tombstones_user_root_updated_idx" ON "container_sync_tombstones" USING btree ("user_id","root_discovery_visible","updated_at","container_id");--> statement-breakpoint
-CREATE UNIQUE INDEX "containers_org_root_idx" ON "containers" USING btree ("organization_id") WHERE "containers"."parent_id" is null;--> statement-breakpoint
+CREATE UNIQUE INDEX "containers_org_root_idx" ON "containers" USING btree ("organization_id") WHERE "containers"."parent_id" is null and "containers"."system_slot" is null;--> statement-breakpoint
 CREATE UNIQUE INDEX "containers_org_system_slot_idx" ON "containers" USING btree ("organization_id","system_slot") WHERE "containers"."system_slot" is not null;--> statement-breakpoint
 CREATE INDEX "containers_parent_id_idx" ON "containers" USING btree ("parent_id");--> statement-breakpoint
 CREATE INDEX "containers_parent_updated_idx" ON "containers" USING btree ("parent_id","updated_at","id");--> statement-breakpoint

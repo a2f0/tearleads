@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "a04df129-7575-4a39-9099-607d577ed5eb",
+  "id": "f4dea530-a1dc-44bd-aa8d-75dddeadea28",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
     "access_event_dependency_projection": {
@@ -1989,7 +1989,7 @@
           "name": "containers_org_root_idx",
           "columns": ["organization_id"],
           "isUnique": true,
-          "where": "\"containers\".\"parent_id\" is null"
+          "where": "\"containers\".\"parent_id\" is null and \"containers\".\"system_slot\" is null"
         },
         "containers_org_system_slot_idx": {
           "name": "containers_org_system_slot_idx",

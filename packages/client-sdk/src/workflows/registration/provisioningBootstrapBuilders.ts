@@ -1,4 +1,4 @@
-import type { ContainerGrantPrincipalHead } from "@tearleads/crypto";
+import { base64ToBytes } from "@tearleads/encoding";
 import type { ContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
 import type { CreateOrganizationGroupRequest } from "@tearleads/validators/request";
 import { createInitializedContainerMetadataDocument } from "../../data/containers/containerMetadataDocument";
@@ -18,7 +18,6 @@ import {
 import type { resolveDocumentCreateAuthor } from "../documents/author";
 import { buildMaterializedDocumentCreatePlan } from "../documents/create";
 import { buildInitialDocumentSyncRequest } from "../documents/initialSync";
-import { groupPolicyMutationHead } from "../organizations/groupPolicyMutationHead";
 import { getOrganizationProfileDocumentLocalId } from "../organizations/organizationProfile";
 import {
   deriveOrganizationMetadataContainerSystemSlot,
@@ -129,6 +128,10 @@ async function buildProvisionedChildContainerCore(input: {
   rootContainerProjection: InitialRootContainerProjection;
   systemSlot: ContainerSystemSlot;
   targetSecretKey: Uint8Array;
+  independentMetadataGroups?: {
+    adminGroup: CreateOrganizationGroupRequest;
+    memberGroup: CreateOrganizationGroupRequest;
+  };
 }): Promise<ProvisionedChildContainerCore> {
   const containerId = input.containerId ?? crypto.randomUUID();
   const { initialUpdate } = await createInitializedContainerMetadataDocument(
@@ -141,24 +144,41 @@ async function buildProvisionedChildContainerCore(input: {
   const containerKey = crypto.getRandomValues(new Uint8Array(32));
   const containerPlan: InitialSystemContainerCreatePlan = {
     containerKey,
-    plan: await buildContainerCreatePlan({
-      author: input.author,
-      containerId,
-      containerKey,
-      ...(input.managedPrincipalGrant
-        ? { managedPrincipalGrant: input.managedPrincipalGrant }
-        : {}),
-      metadataDocumentId: containerId,
-      systemSlot: input.systemSlot,
-      parentKekMaterial: input.rootContainer.containerKey,
-      parentProjection: input.rootContainerProjection,
-      principalPolicies: input.principalPolicies,
-    }),
+    plan: input.independentMetadataGroups
+      ? (
+          await buildRootContainerCreatePlan({
+            ...input.independentMetadataGroups,
+            author: input.author,
+            containerId,
+            containerKey,
+            metadataDocumentId: containerId,
+            systemSlot: input.systemSlot,
+            recipientEncapsulationPublicKey: base64ToBytes(
+              input.independentMetadataGroups.adminGroup.initialGroupPolicy
+                .state.encapsulationPublicKey,
+            ),
+          })
+        ).plan
+      : await buildContainerCreatePlan({
+          author: input.author,
+          containerId,
+          containerKey,
+          ...(input.managedPrincipalGrant
+            ? { managedPrincipalGrant: input.managedPrincipalGrant }
+            : {}),
+          metadataDocumentId: containerId,
+          systemSlot: input.systemSlot,
+          parentKekMaterial: input.rootContainer.containerKey,
+          parentProjection: input.rootContainerProjection,
+          principalPolicies: input.principalPolicies,
+        }),
   };
-  const containerProjection = childContainerWriterProjectionFromCreatePlan({
-    materializedPlan: containerPlan,
-    parentProjection: input.rootContainerProjection,
-  });
+  const containerProjection = input.independentMetadataGroups
+    ? rootContainerWriterProjectionFromCreatePlan(containerPlan.plan)
+    : childContainerWriterProjectionFromCreatePlan({
+        materializedPlan: containerPlan,
+        parentProjection: input.rootContainerProjection,
+      });
   const knownContainerKeks = new Map([
     [containerPlan.plan.containerKeyEpochId, containerPlan.containerKey],
   ]);
@@ -301,16 +321,6 @@ export async function buildInitialSystemContainerBootstrap(input: {
   };
 }
 
-async function referencedPrincipalHeadFromInitialGroupRequest(
-  input: CreateOrganizationGroupRequest,
-): Promise<ContainerGrantPrincipalHead> {
-  const head = await groupPolicyMutationHead(input.initialGroupPolicy);
-  if (head.principalType !== "group") {
-    throw new Error("Initial container grant policy must target a group");
-  }
-  return { ...head, principalType: "group" };
-}
-
 function stableOrganizationProfileId(organizationId: string): Promise<string> {
   return deriveStableDocumentId(
     getOrganizationProfileDocumentLocalId({ organizationId }),
@@ -348,12 +358,9 @@ async function buildInitialOrganizationProfile(input: {
 }
 
 /**
- * Builds the org public metadata container and links the encrypted organization
- * profile document (the display name) into it. The container is a child of root
- * born with a read grant to the reserved Members group, so every active roster
- * member can decrypt the org name via the group KEK — without gaining access to
- * the Admins-scoped roster profile container's private PII. The founder can also
- * read it by inheriting root through the Admins group.
+ * Organization labels use an independent system root with Admins/admin and
+ * Members/read grants. Personal root shares and rotations cannot expose or
+ * strand organization metadata; Members changes still rotate its own KEK.
  */
 export async function buildInitialOrganizationMetadataBootstrap(
   input: InitialOrganizationMetadataBootstrapInput,
@@ -362,17 +369,12 @@ export async function buildInitialOrganizationMetadataBootstrap(
     author: input.author,
     containerId: input.containerId,
     icon: null,
-    managedPrincipalGrant: {
-      accessLevel: "read",
-      principalEncapsulationPublicKey:
-        input.initialMemberGroup.initialGroupPolicy.state
-          .encapsulationPublicKey,
-      principalHead: await referencedPrincipalHeadFromInitialGroupRequest(
-        input.initialMemberGroup,
-      ),
+    independentMetadataGroups: {
+      adminGroup: input.initialAdminGroup,
+      memberGroup: input.initialMemberGroup,
     },
     name: ORGANIZATION_METADATA_CONTAINER_NAME,
-    // Admins justify the parent write; Members justify the read grant.
+    // Both reserved groups receive explicit grants on the independent root.
     principalPolicies: await Promise.all([
       verifiedPrincipalPolicyFromInitialGroupRequest(input.initialAdminGroup),
       verifiedPrincipalPolicyFromInitialGroupRequest(input.initialMemberGroup),

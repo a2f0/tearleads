@@ -9,8 +9,6 @@ import {
   documentAuditEntries,
   documentContainerLinks,
   documents,
-  organizations,
-  users,
 } from "@tearleads/api-shared/schema";
 import { createTestUser, type TestUser } from "@tearleads/bob-and-alice";
 import type {
@@ -44,13 +42,14 @@ import {
   verifySignedAccessEvent,
 } from "@tearleads/crypto";
 import type { BlobAttachmentBindRequest } from "@tearleads/validators/request";
-import { and, eq, inArray, isNull } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 import { blobObjectBytes } from "../../../test/helpers/blobObjectStore";
 import {
   appendUnexpectedUserWrapToRekey,
   buildRootContainerRekeyMutation,
 } from "../../../test/helpers/containerRekey";
 import { getDefaultOrganizationId } from "../../../test/helpers/organizationMembership";
+import { getRootContainerForUser } from "../../../test/helpers/personalRootContainer";
 import { loadVerifiedPrincipalPolicy } from "../../../test/helpers/principalPolicy";
 import { registerUser } from "../../../test/helpers/registerUser";
 import {
@@ -75,12 +74,6 @@ import {
   initiateMultipartBlobStage,
   uploadMultipartBlobPartBytes,
 } from "./multipartStage";
-
-interface RootContainerFixture {
-  readonly adminGroupId: string;
-  readonly id: string;
-  readonly organizationId: string;
-}
 
 interface StoredContainerFixture {
   readonly bundle: VerifiedContainerAccessManifest;
@@ -118,49 +111,6 @@ async function sha256Hex(value: string): Promise<string> {
 
 async function registerOnly(user: TestUser): Promise<void> {
   await registerUser(user);
-}
-
-async function getRootContainerForUser(
-  userId: string,
-): Promise<RootContainerFixture> {
-  const [user] = await db
-    .select({
-      defaultOrganizationId: users.defaultOrganizationId,
-    })
-    .from(users)
-    .where(eq(users.id, userId))
-    .limit(1);
-  if (!user) {
-    throw new Error("Expected registered user");
-  }
-
-  const [rootContainer] = await db
-    .select({
-      id: containers.id,
-      organizationId: containers.organizationId,
-    })
-    .from(containers)
-    .where(
-      and(
-        eq(containers.organizationId, user.defaultOrganizationId),
-        isNull(containers.parentId),
-      ),
-    )
-    .limit(1);
-  if (!rootContainer) {
-    throw new Error("Expected root container");
-  }
-
-  const [organization] = await db
-    .select({ adminGroupId: organizations.adminGroupId })
-    .from(organizations)
-    .where(eq(organizations.id, rootContainer.organizationId))
-    .limit(1);
-  if (!organization) {
-    throw new Error("Expected registered organization");
-  }
-
-  return { ...rootContainer, adminGroupId: organization.adminGroupId };
 }
 
 async function verifyAccessEvent(input: {

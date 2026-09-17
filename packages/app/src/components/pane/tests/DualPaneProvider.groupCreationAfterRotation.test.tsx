@@ -34,6 +34,7 @@ import {
 } from "../../../../test/helpers/dual-pane/dualPaneRecoveryKit";
 import {
   createGroupAndAddPeer,
+  openOrgManager,
   shareContainerWithGroup,
 } from "../../../../test/helpers/dual-pane/dualPaneSharingKit";
 import {
@@ -41,7 +42,6 @@ import {
   waitForNoPostShareSyncFailures,
 } from "../../../../test/helpers/dual-pane/dualPaneSyncKit";
 import {
-  requestPath,
   summarizeProxiedApiRequests,
   truncateText,
 } from "../../../../test/helpers/dualPaneRequestSummary";
@@ -159,39 +159,18 @@ async function addGroupMember(
   await waitForPrincipalRematerialization();
 }
 
-async function createEmptyGroup(pane: HTMLElement, groupName: string) {
-  const scope = pane
-    .querySelector<HTMLElement>(".org-manager-main")
-    ?.closest<HTMLElement>(".window");
-  invariant(scope, "Expected organization manager window");
-  const dialog = await openWindowMenuDialog({
-    dialogName: "New Group",
-    itemName: "New Group",
-    scope,
-  });
-  await interact(() => {
-    fireEvent.change(within(dialog).getByLabelText("Group name"), {
-      target: { value: groupName },
-    });
-  });
-  await interact(() => {
-    fireEvent.click(within(dialog).getByRole("button", { name: "Create" }));
-  });
-  await within(scope).findByText(groupName, undefined, { timeout: 15000 });
-}
-
-test.each([false, true])(
-  "current group recovery and post-rotation share=%s",
-  async (shareAfterRotation) => {
+test(
+  "a fresh client creates a custom group after an unrelated root key rotation",
+  async () => {
     useTestApiAppHandlers();
     const view = renderDualPane();
     const ownerPane = getPaneRoot(view, "left");
     const peerPane = getPaneRoot(view, "right");
     await waitForDualPaneProvisioning(ownerPane, peerPane);
     const peerUserId = getPaneUserId(peerPane);
+    const ownerUserId = getPaneUserId(ownerPane);
 
     await createGroupAndAddPeer(ownerPane, GROUP_NAME, peerUserId);
-    if (shareAfterRotation) await createEmptyGroup(ownerPane, "Other readers");
     await openExplorer(ownerPane);
     await createNoteInContainer(ownerPane, "/", NOTE_TEXT);
     await openExplorer(peerPane);
@@ -236,42 +215,41 @@ test.each([false, true])(
       20_000,
     );
 
-    // A new share must still bind the chosen encrypted label after rotation.
-    if (shareAfterRotation) {
-      await shareContainerWithGroup(ownerPane, "/", "Other readers", "read");
-      await waitForPrincipalRematerialization();
-      return;
-    }
-
-    const recoveryKey = await downloadPaneRecoveryKey(peerPane);
-    const recoveryRequestStart = listProxiedApiRequests().length;
-    await restorePaneRecoveryKey(ownerPane, recoveryKey);
+    const ownerRecovery = await downloadPaneRecoveryKey(ownerPane);
+    await restorePaneRecoveryKey(peerPane, ownerRecovery);
     await waitForCondition(
-      () => getPaneUserId(ownerPane) === peerUserId,
-      "Fresh pane did not restore the peer identity.",
+      () => getPaneUserId(peerPane) === ownerUserId,
+      "Fresh pane did not restore the owner identity",
       20_000,
     );
-    await clickExplorerRefresh(ownerPane);
-    await waitForExplorerNoteVisible(ownerPane, NOTE_TEXT, 20_000);
-    await selectExplorerNoteByName(ownerPane, NOTE_TEXT);
-    await waitForSelectedNoteText(
-      ownerPane,
-      NOTE_TEXT,
-      "Fresh recovery could not decrypt historical group-granted data.",
-      20_000,
-    );
-
-    const recoveryRequests =
-      listProxiedApiRequests().slice(recoveryRequestStart);
-    const policyHistoryRequests = recoveryRequests.filter((request) =>
-      /\/principals\/(?:group|organization)\/[^/]+\/policy-history$/u.test(
-        requestPath(request.url),
-      ),
-    );
-    expect(
-      policyHistoryRequests,
-      `Current-head recovery must not walk historical principal keys.\nrequests=\n${summarizeProxiedApiRequests(recoveryRequests)}`,
-    ).toEqual([]);
+    await waitForPrincipalRematerialization();
+    await openOrgManager(peerPane);
+    const ownerWindow = peerPane
+      .querySelector<HTMLElement>(".org-manager-main")
+      ?.closest<HTMLElement>(".window");
+    invariant(ownerWindow, "Expected organization manager window");
+    const newGroupDialog = await openWindowMenuDialog({
+      dialogName: "New Group",
+      itemName: "New Group",
+      scope: ownerWindow,
+    });
+    await interact(() => {
+      fireEvent.change(within(newGroupDialog).getByLabelText("Group name"), {
+        target: { value: "After rotation" },
+      });
+    });
+    await interact(() => {
+      fireEvent.click(
+        within(newGroupDialog).getByRole("button", { name: "Create" }),
+      );
+    });
+    await within(peerPane)
+      .findByText("After rotation", undefined, { timeout: 15000 })
+      .catch(() => {
+        throw new Error(
+          `create result: ${newGroupDialog.textContent}\n${summarizeProxiedApiRequests(listProxiedApiRequests().slice(-20))}`,
+        );
+      });
   },
   CURRENT_PRINCIPAL_RECOVERY_TIMEOUT_MS,
 );

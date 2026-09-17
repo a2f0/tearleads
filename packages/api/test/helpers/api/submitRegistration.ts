@@ -144,7 +144,17 @@ export async function createRegistrationRequestBody(
       : undefined;
   const initialAdminGroup = await createInitialAdminGroupRequest({
     encapsulationPublicKey,
-    grants: [{ containerId: rootContainerId, accessLevel: "admin" }],
+    grants: [
+      { containerId: rootContainerId, accessLevel: "admin" },
+      ...(organizationMetadataContainerId
+        ? [
+            {
+              containerId: organizationMetadataContainerId,
+              accessLevel: "admin" as const,
+            },
+          ]
+        : []),
+    ],
     signingPrivateKey,
     signingPublicKey,
     userId,

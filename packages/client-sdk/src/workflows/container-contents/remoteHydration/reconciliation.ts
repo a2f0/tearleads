@@ -32,6 +32,7 @@ function isLocalOnlyRootContainerState(
 ): boolean {
   return (
     containerState.container.parentId === null &&
+    !containerState.container.systemSlot &&
     !hasRemoteContainerMetadataState(containerState)
   );
 }

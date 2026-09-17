@@ -38,10 +38,7 @@ async function fixture() {
           signingKeyFingerprint: parent.author.signerKeyFingerprint,
         })
       : ownerResolver(userId);
-  const metadata = await createTestGroupMetadataProjection(
-    parent,
-    resolveProjectionUserKey,
-  );
+  const metadata = await createTestGroupMetadataProjection(parent);
   const request = await buildInitialGroupPolicyRequest({
     creatorEncapsulationKeyPair: generateKemSeedAndKeyPair(),
     groupId: "private-custom-group",
@@ -75,6 +72,7 @@ test("organization metadata readers decrypt a group with no group membership or 
     expect(bundle.currentMemberEnvelopes.envelopes).toEqual([]);
     const access = (targetSecretKey: Uint8Array) =>
       createGroupMetadataAccess({
+        verifyMetadataContainer: async () => {},
         apiClient: {
           getContainerWriterProjection: async () => metadata.projection,
         },
@@ -114,6 +112,7 @@ test("a fresh reader recovers existing group names after metadata key rotation",
       metadata.key.containerKeyEpochId,
     );
     const access = createGroupMetadataAccess({
+      verifyMetadataContainer: async () => {},
       apiClient: { getContainerWriterProjection: async () => rotated },
       execSql,
       organizationId: parent.author.organizationId,
@@ -144,6 +143,7 @@ test("an unsigned projection change or a different signed system container canno
     };
     for (const projection of [forged, parent.projection]) {
       const access = createGroupMetadataAccess({
+        verifyMetadataContainer: async () => {},
         apiClient: { getContainerWriterProjection: async () => projection },
         execSql,
         organizationId: parent.author.organizationId,
@@ -166,6 +166,7 @@ test("group creation discovers and verifies the organization metadata key", asyn
     const organizationId = parent.author.organizationId;
     await ensureContainerTables(execSql);
     const access = createGroupMetadataAccess({
+      verifyMetadataContainer: async () => {},
       apiClient: {
         getContainerWriterProjection: async () => metadata.projection,
       },
@@ -180,7 +181,7 @@ test("group creation discovers and verifies the organization metadata key", asyn
     await saveContainer(execSql, {
       id: metadata.key.containerId,
       organizationId,
-      parentId: parent.projection.containerId,
+      parentId: null,
       metadataDocumentId: null,
       systemSlot: await deriveOrganizationMetadataContainerSystemSlot({
         organizationId,

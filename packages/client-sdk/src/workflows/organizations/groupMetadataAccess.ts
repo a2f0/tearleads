@@ -1,4 +1,5 @@
 import {
+  type ContainerAccessManifestState,
   decryptGroupMetadata,
   type GroupMetadataKey,
   readGroupMetadata,
@@ -25,14 +26,14 @@ export interface GroupMetadataAccessInput {
       containerId: string,
     ): Promise<ContainerWriterProjectionResponse | null>;
   };
+  readonly verifyMetadataContainer: (
+    state: ContainerAccessManifestState,
+  ) => Promise<void>;
   readonly execSql: ExecSql;
   readonly organizationId: string;
   readonly resolveProjectionUserKey: ProjectionUserKeyResolver;
   readonly targetSecretKey: Uint8Array;
   readonly stillCurrent?: (() => boolean) | undefined;
-  readonly recoverReadKey?:
-    | ((metadata: Omit<GroupMetadataKey, "keyMaterial">) => Promise<Uint8Array>)
-    | undefined;
   readonly warmReferencedPrincipalPolicies?:
     | ReferencedPrincipalPolicyWarmer
     | undefined;
@@ -57,11 +58,14 @@ async function loadMetadataKeyring(
   });
   if (
     state.organizationId !== input.organizationId ||
-    state.systemSlot !== slot
+    state.systemSlot !== slot ||
+    state.parentContainerId !== null
   )
     throw new Error(
       "Group metadata requires the signed organization metadata container",
     );
+  await input.verifyMetadataContainer(state);
+  assertProjectionVerificationCurrent(input.stillCurrent);
   const keys = await unwrapContainerKekPath({
     ...input,
     projection,
@@ -111,9 +115,7 @@ export function createGroupMetadataAccess(input: GroupMetadataAccessInput) {
     )
       throw new Error("Group metadata scope does not match its signed group");
     const keyring = await loaded(metadata.containerId);
-    const keyMaterial = keyring
-      ? keyring.keys.get(metadata.containerKeyEpochId)
-      : await input.recoverReadKey?.(metadata);
+    const keyMaterial = keyring?.keys.get(metadata.containerKeyEpochId);
     if (!keyMaterial)
       throw new Error("Group metadata historical key is unavailable");
     return decryptGroupMetadata({

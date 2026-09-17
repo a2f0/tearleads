@@ -176,7 +176,7 @@ test("createOrganization provisions a new org for the existing user and persists
       }),
     );
 
-    // The Members-granted metadata container is persisted as a child of root and
+    // The Members-granted metadata container is persisted as an independent root and
     // is discoverable by the deterministic system slot the org-name reader keys
     // its cross-org fallback on.
     const metadataSystemSlot =
@@ -189,7 +189,7 @@ test("createOrganization provisions a new org for the existing user and persists
     expect(metadataContainerState?.container).toEqual(
       expect.objectContaining({
         organizationId: request.organizationId,
-        parentId: request.rootContainerId,
+        parentId: null,
       }),
     );
     for (const { container } of containers) {

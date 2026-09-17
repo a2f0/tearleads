@@ -162,7 +162,7 @@ export async function listLocalOrganizations(input: {
     );
 
   // Group every persisted container by org so name resolution can locate an
-  // org's metadata container (a non-root child) without a second DB scan.
+  // org's independent metadata root without a second DB scan.
   const containersByOrganizationId = new Map<
     string,
     LocalContainerForNameLookup[]
@@ -182,7 +182,11 @@ export async function listLocalOrganizations(input: {
 
   const seen = new Set<string>();
   const rootContainers = containers.filter(({ container }) => {
-    if (container.parentId !== null || seen.has(container.organizationId)) {
+    if (
+      container.parentId !== null ||
+      container.systemSlot ||
+      seen.has(container.organizationId)
+    ) {
       return false;
     }
     seen.add(container.organizationId);

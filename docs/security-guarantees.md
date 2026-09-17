@@ -197,11 +197,11 @@ epoch. All organization members can read every group's name; the verified
 historical keyring preserves readability after rotation. The API has no group
 or organization name columns. Organization names live in encrypted profiles.
 
-Creation verifies the metadata container's signed system slot. When an ancestor
-update makes its live projection unavailable, name reads can use the bounded
-KEK recovery log. The group's signed payload pins the required material ID;
-recovery verifies that commitment before decryption and advances no container
-checkpoint. A recovery-log response cannot select a new encryption key.
+The organization metadata root has only Admins/admin and Members/read grants.
+Both signed group indexes bind its ID; creation also verifies its current
+projection and checkpoint. It never inherits personal-root shares or depends
+on personal-root rotations. Members rotations update its own KEK; historical
+names remain readable through its authenticated keyring.
 
 Reserved Admins and Members labels are client constants. Their random group
 IDs and roles are authenticated by the signed organization descriptor; their

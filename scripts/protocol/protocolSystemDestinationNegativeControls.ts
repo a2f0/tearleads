@@ -27,12 +27,12 @@ export const SYSTEM_DESTINATION_NEGATIVE_CONTROLS: readonly NegativeControl[] =
       why: "A document pass deferred before root acknowledgment must be scheduled again even if no further edit occurs.",
     },
     {
-      id: "system-slot-created-outside-root",
+      id: "system-slot-created-in-wrong-topology",
       module: "formal/local-trust/SystemDestination.tla",
       config: "formal/local-trust/SystemDestination.cfg",
-      constants: { RequireSystemRootParent: "FALSE" },
-      expect: { kind: "invariant", name: "OnlyRootChildrenHaveSlots" },
-      why: "A system slot must be a direct root child, even with a truncated parent proof (#2266).",
+      constants: { RequireSystemTopology: "FALSE" },
+      expect: { kind: "invariant", name: "OnlyValidSystemTopology" },
+      why: "Only the organization metadata slot may be a root; all other slots require a direct root parent, even with a truncated proof (#2266).",
     },
     {
       id: "root-manifest-crosses-organization",

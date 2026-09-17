@@ -232,16 +232,16 @@ Organization data usage stays outside that feed because content and blob
 writes do not share its administrative cursor. The SDK stores the strict
 aggregate in a requester-scoped SQLite projection, paints it locally, and
 single-flights canonical revalidation. Transient failures retain the
-last-known-good projection; authoritative access loss purges it. No nullable
-HTTP fallback or older cache format is read. If SQLite rejects the purge
-transaction, the current executor still fails closed in memory; physical rows
-can remain until a later successful canonical reconcile replaces or removes
-them.
+last-known-good projection; authoritative access loss purges it. If SQLite
+rejects the purge transaction, the current executor still fails closed in
+memory; physical rows can remain until a later successful canonical reconcile
+replaces or removes them.
 
 Grant lists, group containers, and user details are derived from this local
 projection. User-detail group reachability is cycle-safe and traverses hidden
-groups before filtering the displayed group catalog. Container display names are
-joined from local encrypted metadata. `loadGroupPresentationDetails(...)`
+groups before filtering the displayed group catalog. Encrypted org/group labels
+use a separate root with Admins/admin and Members/read grants. Container names
+are joined from local encrypted metadata. `loadGroupPresentationDetails(...)`
 combines local members with policy history only after the separately verified
 policy bundle exactly matches the projected head. A missing bundle runs the
 canonical fetch, signature, trusted-identity, checkpoint, and persistence path
@@ -256,11 +256,10 @@ the API atomically rejects any transition that leaves a stale principal pin.
 Metadata profile upload remains a separate idempotent content sync and never
 changes grants.
 
-Name SDK facades after the platform state they expose. Product names can stay
-in app providers and components that adapt those platform facades into a UI.
+Name SDK facades after platform state; keep product names in the app.
 For example, the SDK exports `workflows/organizations`, while the app can keep
 `OrgManager` provider, route, and screen names in `packages/app`.
 
 `bun run lint:architecture` guards this taxonomy by rejecting product window
 vocabulary in SDK TypeScript source and by checking that this table lists every
-workflow facade aggregated by the root SDK entry point exactly once.
+workflow facade aggregated by the root SDK entry point once.

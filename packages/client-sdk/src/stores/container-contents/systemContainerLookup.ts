@@ -3,7 +3,10 @@ import type { ContainerState } from "./syncAgent";
 import type { ContainerContentsStoreState } from "./types";
 
 function isRootState(containerState: ContainerState): boolean {
-  return containerState.container.parentId === null;
+  return (
+    containerState.container.parentId === null &&
+    !containerState.container.systemSlot
+  );
 }
 
 function isPreAuthRootState(containerState: ContainerState): boolean {

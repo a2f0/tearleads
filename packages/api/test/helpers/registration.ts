@@ -54,6 +54,7 @@ import {
   deriveOrganizationSystemSlot,
   deriveRosterProfileContainerSystemSlot,
 } from "./provisionedSystemContainer";
+import { createRegistrationMetadataRoot } from "./registrationMetadataRoot";
 import { rootContainerProjectionFromArtifacts } from "./registrationRootProjection";
 import { toWireJson, toWireRecord, toWireRecords } from "./registrationWire";
 
@@ -1066,29 +1067,14 @@ export async function createRegistrationBootstrap(
       initialName: "You",
     });
   const organizationMetadataContainer = input.organizationProfileDocumentId
-    ? await createChildContainerArtifacts({
-        systemSlot: await deriveOrganizationMetadataContainerSystemSlot(
-          input.organizationId,
-        ),
-        metadataDocumentId:
-          input.organizationMetadataContainerId ?? crypto.randomUUID(),
-        ...(input.memberGroup
-          ? { managedGrant: { accessLevel: "read", group: input.memberGroup } }
-          : {}),
-        parent: rootContainer,
-        parentProjection: rootContainerProjection,
+    ? await createRegistrationMetadataRoot({
+        ...input,
         signerDeviceId,
         signerKeyFingerprint,
-        signingPrivateKey: input.signingPrivateKey,
-        userId: input.userId,
       })
     : undefined;
-  const organizationMetadataContainerProjection = organizationMetadataContainer
-    ? childContainerProjectionFromArtifacts({
-        child: organizationMetadataContainer,
-        parentProjection: rootContainerProjection,
-      })
-    : undefined;
+  const organizationMetadataContainerProjection =
+    organizationMetadataContainer?.projection;
   const organizationMetadataContainerDocument =
     organizationMetadataContainer && organizationMetadataContainerProjection
       ? await createRootMetadataDocumentRequest({

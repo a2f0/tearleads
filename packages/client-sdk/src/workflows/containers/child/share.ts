@@ -30,8 +30,10 @@ import {
   type TrustedUserIdentityResolver,
 } from "../../../data/trustedUserIdentity";
 import { createGroupMetadataAccess } from "../../organizations/groupMetadataAccess";
+import { createGroupMetadataContainerVerifier } from "../../organizations/groupMetadataContainerAuthority";
 import { preparePrincipalContainerRematerializationBatch } from "../../organizations/principalContainerRematerialization";
 import { setOrganizationGroupContainerGrant } from "../../organizations/principalPolicy";
+import type { GroupPolicyNameReader } from "../../organizations/principalPolicyRequest";
 import { submitAcknowledgedContainerMutation } from "./mutationSubmit";
 import { buildMaterializedContainerSharePlan } from "./shareMaterialization";
 import {
@@ -145,6 +147,7 @@ interface RemoteContainerGroupShareInput {
    * name is refused.
    */
   expectedGroupName: string | null;
+  readEncryptedName?: GroupPolicyNameReader | undefined;
   knownContainerKeks?: ReadonlyMap<string, Uint8Array> | undefined;
   previousProjection?: ContainerWriterProjectionResponse | undefined;
   recipientGroupId: string;
@@ -317,10 +320,17 @@ function loadShareGroupPolicy(input: RemoteContainerGroupShareInput) {
     apiClient: input.apiClient,
     execSql: input.execSql,
     expectedGroupName: input.expectedGroupName ?? undefined,
-    readEncryptedName: createGroupMetadataAccess({
-      ...input,
-      organizationId: input.author.organizationId,
-    }).readName,
+    readEncryptedName:
+      input.readEncryptedName ??
+      createGroupMetadataAccess({
+        ...input,
+        organizationId: input.author.organizationId,
+        verifyMetadataContainer: createGroupMetadataContainerVerifier({
+          ...input,
+          organizationId: input.author.organizationId,
+          stillCurrent: input.stillCurrent ?? (() => true),
+        }),
+      }).readName,
     groupId: input.recipientGroupId,
     organizationId: input.author.organizationId,
     resolveTrustedUserIdentity: input.resolveTrustedUserIdentity,

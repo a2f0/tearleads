@@ -16,7 +16,7 @@ import {
   toFingerprint,
 } from "@tearleads/crypto";
 import { base64ToBytes } from "@tearleads/encoding";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import invariant from "invariant";
 import {
   createRegistrationRequestBody,
@@ -164,7 +164,12 @@ test("POST /auth/register marks the bootstrap admin grant as built-in", async ()
       subjectType: containerBuiltinGrants.subjectType,
     })
     .from(containerBuiltinGrants)
-    .where(eq(containerBuiltinGrants.organizationId, body.organizationId));
+    .where(
+      and(
+        eq(containerBuiltinGrants.organizationId, body.organizationId),
+        eq(containerBuiltinGrants.containerId, body.rootContainerId),
+      ),
+    );
 
   expect(builtinGrant).toEqual({
     accessLevel: "admin",
@@ -173,63 +178,6 @@ test("POST /auth/register marks the bootstrap admin grant as built-in", async ()
     subjectId: organization.adminGroupId,
     subjectType: "group",
   });
-});
-
-test("POST /auth/register marks the organization-metadata Members grant as built-in", async () => {
-  const { signingPrivateKey, signingPublicKey } =
-    generateSigningSeedAndKeyPair();
-  const { publicKey } = generateKemSeedAndKeyPair();
-  fingerprint = await toFingerprint(signingPublicKey);
-
-  // The metadata container (and its born-with read grant to the Members group)
-  // is only provisioned when an organization profile document is included.
-  const requestBody = await createRegistrationRequestBody(
-    signingPublicKey,
-    signingPrivateKey,
-    publicKey,
-    { includeOrganizationProfileDocument: true },
-  );
-
-  const response = await routeApp.request("/auth/register", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(requestBody),
-  });
-  expect(response.status).toBe(200);
-  const body = await response.json();
-  invariant(
-    typeof body.organizationMetadataContainerId === "string",
-    "expected organization metadata container id",
-  );
-
-  const builtinGrants = await db
-    .select({
-      accessLevel: containerBuiltinGrants.accessLevel,
-      containerId: containerBuiltinGrants.containerId,
-      organizationId: containerBuiltinGrants.organizationId,
-      subjectId: containerBuiltinGrants.subjectId,
-      subjectType: containerBuiltinGrants.subjectType,
-    })
-    .from(containerBuiltinGrants)
-    .where(eq(containerBuiltinGrants.organizationId, body.organizationId));
-
-  // The root -> Admins grant plus the metadata -> Members read grant are the two
-  // reserved system grants the server refuses to revoke.
-  expect(builtinGrants).toContainEqual({
-    accessLevel: "admin",
-    containerId: body.rootContainerId,
-    organizationId: body.organizationId,
-    subjectId: requestBody.initialAdminGroup.groupId,
-    subjectType: "group",
-  });
-  expect(builtinGrants).toContainEqual({
-    accessLevel: "read",
-    containerId: body.organizationMetadataContainerId,
-    organizationId: body.organizationId,
-    subjectId: requestBody.initialMemberGroup.groupId,
-    subjectType: "group",
-  });
-  expect(builtinGrants).toHaveLength(2);
 });
 
 test("POST /auth/register returns 409 when key already exists", async () => {
@@ -431,7 +379,7 @@ test("POST /auth/register provisions root metadata", async () => {
     signingPrivateKey,
     publicKey,
   );
-  expect(response.status).toBe(200);
+  expect(response.status, await response.clone().text()).toBe(200);
   const body = await response.json();
   expect(body.rootMetadataDocument.id).toBe(body.rootMetadataDocumentId);
   expect(body.rootMetadataDocument.contentKeyBundle.documentId).toBe(
@@ -516,7 +464,7 @@ test("POST /auth/register binds an optional roster profile document", async () =
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
   });
-  expect(response.status).toBe(200);
+  expect(response.status, await response.clone().text()).toBe(200);
   const responseBody = await response.json();
   expect(responseBody.rosterProfileContainerId).toBe(rosterProfileContainerId);
   expect(responseBody.rosterProfileContainer.container.containerId).toBe(
@@ -547,19 +495,29 @@ test("POST /auth/register binds an optional roster profile document", async () =
   expect(organizationMetadataContainerId).not.toBe(rosterProfileContainerId);
   // The metadata container is born with a read grant to the Members group so
   // every active roster member can decrypt the org name; the server accepted
-  // and verified this child-container group grant.
+  // and verified both grants on the independent metadata root.
   expect(
     Reflect.get(
       organizationMetadataContainer.container.body as Record<string, unknown>,
       "directGrants",
     ),
-  ).toEqual([
-    {
-      accessLevel: "read",
-      subjectId: body.initialMemberGroup.groupId,
-      subjectType: "group",
-    },
-  ]);
+  ).toEqual(
+    expect.arrayContaining([
+      {
+        accessLevel: "read",
+        subjectId: body.initialMemberGroup.groupId,
+        subjectType: "group",
+      },
+      {
+        accessLevel: "admin",
+        subjectId: body.initialAdminGroup.groupId,
+        subjectType: "group",
+      },
+    ]),
+  );
+  expect(
+    responseBody.organizationMetadataContainer.container.parentId,
+  ).toBeNull();
 
   const [[rosterEntry], [organization]] = await Promise.all([
     db

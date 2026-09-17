@@ -233,7 +233,13 @@ async function createOrganizationPrincipalPolicies(input: {
   const initialAdminGroup = await buildInitialGroupPolicyRequest({
     creatorEncapsulationKeyPair: input.encapsulationKeyPair,
     groupId: crypto.randomUUID(),
-    grants: [{ containerId: input.rootContainerId, accessLevel: "admin" }],
+    grants: [
+      { containerId: input.rootContainerId, accessLevel: "admin" },
+      {
+        containerId: input.organizationMetadataContainerId,
+        accessLevel: "admin",
+      },
+    ],
     name: "Admins",
     builtinRole: "admins",
     signerUserId: input.userId,

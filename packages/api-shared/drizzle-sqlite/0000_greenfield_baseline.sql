@@ -327,7 +327,7 @@ CREATE TABLE `containers` (
 	`updated_at` integer DEFAULT (cast((julianday('now') - 2440587.5)*86400000 as integer)) NOT NULL
 );
 --> statement-breakpoint
-CREATE UNIQUE INDEX `containers_org_root_idx` ON `containers` (`organization_id`) WHERE "containers"."parent_id" is null;--> statement-breakpoint
+CREATE UNIQUE INDEX `containers_org_root_idx` ON `containers` (`organization_id`) WHERE "containers"."parent_id" is null and "containers"."system_slot" is null;--> statement-breakpoint
 CREATE UNIQUE INDEX `containers_org_system_slot_idx` ON `containers` (`organization_id`,`system_slot`) WHERE "containers"."system_slot" is not null;--> statement-breakpoint
 CREATE INDEX `containers_parent_id_idx` ON `containers` (`parent_id`);--> statement-breakpoint
 CREATE INDEX `containers_parent_updated_idx` ON `containers` (`parent_id`,`updated_at`,`id`);--> statement-breakpoint

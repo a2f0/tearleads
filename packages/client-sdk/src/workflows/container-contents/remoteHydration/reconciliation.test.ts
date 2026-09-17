@@ -379,3 +379,23 @@ test("a listed same-org root cannot replace the session's own root", async () =>
     fixture.localRoot.container.id,
   );
 });
+
+test("personal-root reconciliation preserves a metadata root awaiting content hydration", async () => {
+  const fixture = await reconciliationFixture();
+  const metadata = await containerState({
+    id: "metadata-root",
+    organizationId: ORGANIZATION_ID,
+    parentId: null,
+    remote: false,
+    systemSlot: `sys_v1_${"a".repeat(43)}`,
+  });
+  fixture.state.containersById.set(metadata.container.id, metadata);
+  await reconcileLocalOnlyRootContainers({
+    remoteRootState: fixture.remoteRoot,
+    state: fixture.state,
+  });
+  expect(fixture.rootReconciliations).toHaveLength(1);
+  expect(fixture.state.containersById.get(metadata.container.id)).toBe(
+    metadata,
+  );
+});

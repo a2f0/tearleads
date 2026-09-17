@@ -20,33 +20,33 @@ interface SystemContainerSigner {
 }
 
 /**
- * Records the organization-metadata container's read grant to the reserved
- * Members group as a built-in grant.
- *
- * Like the root -> Admins grant, this is a reserved system grant: Members must
- * never lose it (revoking it permanently strips their ability to decrypt the org
- * display name, with no self-heal — the client metadata re-wrap only refreshes a
- * verified existing grant and refuses to mint, a metadata->Members analog of the
- * root/Admins lockout). Unlike root -> Admins it is not admin-frozen: it must
- * still be re-wrapped on every Members-group key rotation. Recording it here lets
- * the built-in-grant guard reject a revoke / access-level change while still
- * permitting the same-level "read" re-wrap (assertContainerBuiltinGrantPolicyPreserved),
- * and flips the org-manager UI's computed isBuiltin flag so the grant renders as
- * built-in rather than revocable.
+ * Reserve both metadata-root grants: Admins manage the root and every Members
+ * recipient can decrypt organization and group labels. Grant guards reject
+ * removal or access-level changes, while permitting re-wraps on key rotation.
+ * The local grant projection also uses these rows to mark the grants built-in.
  */
-async function createOrganizationMetadataBuiltinGrant(
+async function createOrganizationMetadataBuiltinGrants(
   tx: DatabaseTransaction,
   input: OrganizationProvisioningRequest,
   organizationId: string,
   metadataContainerId: string,
 ): Promise<void> {
-  await tx.insert(containerBuiltinGrants).values({
-    accessLevel: "read",
-    containerId: metadataContainerId,
-    organizationId,
-    subjectId: input.initialMemberGroup.groupId,
-    subjectType: "group",
-  });
+  await tx.insert(containerBuiltinGrants).values([
+    {
+      accessLevel: "admin",
+      containerId: metadataContainerId,
+      organizationId,
+      subjectId: input.initialAdminGroup.groupId,
+      subjectType: "group",
+    },
+    {
+      accessLevel: "read",
+      containerId: metadataContainerId,
+      organizationId,
+      subjectId: input.initialMemberGroup.groupId,
+      subjectType: "group",
+    },
+  ]);
 }
 
 async function createProvisionedSystemContainer(
@@ -132,7 +132,7 @@ export async function createInitialOrganizationMetadataContainer(
     signer,
     userId: input.userId,
   });
-  await createOrganizationMetadataBuiltinGrant(
+  await createOrganizationMetadataBuiltinGrants(
     tx,
     input,
     input.organizationId,

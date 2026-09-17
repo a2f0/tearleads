@@ -333,7 +333,7 @@ test("registerIdentity submits the registration request and persists the local b
           response?.organizationMetadataContainer?.metadataDocument.id,
         name: "Organization Metadata",
         organizationId: request.organizationId,
-        parentId: containerId,
+        parentId: null,
         systemSlot: request.initialOrganizationMetadataContainer.systemSlot,
       }),
     );

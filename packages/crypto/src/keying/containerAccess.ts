@@ -1,7 +1,8 @@
 import {
   requireContainerPathCurrentParent,
-  requireContainerPathLast,
+  requirePathLastMatchesManifest,
 } from "./containerParentAuthority";
+import { assertContainerSystemTopology } from "./containerSystemTopology";
 
 export { requireContainerPathLast } from "./containerParentAuthority";
 
@@ -608,21 +609,6 @@ function removeContainerDirectGrant(
   );
 }
 
-function requirePathLastMatchesManifest(input: {
-  readonly path: readonly VerifiedContainerAccessManifest[] | undefined;
-  readonly manifest: VerifiedContainerAccessManifest;
-  readonly label: string;
-}): void {
-  const lastManifest = requireContainerPathLast(input.path, input.label);
-
-  if (lastManifest.manifestHash !== input.manifest.manifestHash) {
-    throwVerification(
-      "missing_dependency",
-      `${input.label} path does not end at the expected manifest`,
-    );
-  }
-}
-
 function requireRootCreateSignerAdmin(input: {
   readonly body: ContainerCreateAccessEventBody;
   readonly event: VerifiedAccessEvent;
@@ -731,11 +717,6 @@ function deriveContainerCreateManifestState(
   }
 
   if (body.parentContainerId === null && body.parentManifestHash === null) {
-    if (body.systemSlot !== null)
-      throwVerification(
-        "invalid_shape",
-        "root containers cannot have a system slot",
-      );
     requireRootCreateSignerAdmin({
       body,
       event,
@@ -1056,6 +1037,8 @@ export async function verifyContainerAccessManifest({
 > {
   return runVerifier(async () => {
     const body = normalizeContainerAccessEventBody(event.body);
+    if (body.eventType === "container.create")
+      await assertContainerSystemTopology(body, event.event.organizationId);
     const state = deriveContainerAccessManifestStateFromEvent({
       authorizationMembership,
       body,

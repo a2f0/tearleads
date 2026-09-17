@@ -8,6 +8,7 @@ import type {
 } from "@tearleads/crypto";
 import { and, eq } from "drizzle-orm";
 import { ContainerMutationError } from "../errors";
+import { assertOrganizationMetadataRoot } from "./organizationMetadataRoot";
 
 type ContainerMutationSubject = Pick<
   ContainerDirectGrant,
@@ -102,6 +103,7 @@ export async function assertContainerBuiltinGrantPolicyPreserved(input: {
   readonly manifest: VerifiedContainerAccessManifest;
   readonly previousManifest: VerifiedContainerAccessManifest | null;
 }): Promise<void> {
+  await assertOrganizationMetadataRoot(input.executor, input.manifest.state);
   const mutation = readBuiltinGrantMutation(input.manifest);
   if (!mutation) {
     return;

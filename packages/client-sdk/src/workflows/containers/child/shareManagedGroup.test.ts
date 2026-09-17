@@ -3,6 +3,7 @@ import {
   type ContainerGrantAccessEventBody,
   type ContainerKeyWrap,
   type ContainerUserRecipientKey,
+  decryptGroupMetadata,
   generateKemSeedAndKeyPair,
   generateSigningSeedAndKeyPair,
   toFingerprint,
@@ -280,6 +281,12 @@ test("shareRemoteContainerWithGroup accepts empty groups signed by an org admin"
         containerId: parent.projection.containerId,
         execSql,
         expectedGroupName: "Operators",
+        readEncryptedName: (bundle) =>
+          decryptGroupMetadata({
+            key: metadata.key,
+            groupId,
+            payload: bundle.currentPayload.ciphertext,
+          }),
         recipientGroupId: groupId,
         resolveProjectionUserKey: createParentProjectionUserKeyResolver(parent),
         resolveTrustedUserIdentity: async (userId) => {
