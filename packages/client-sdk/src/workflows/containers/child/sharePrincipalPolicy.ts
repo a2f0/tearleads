@@ -27,7 +27,11 @@ import {
 } from "../../../data/principals/principalPolicyAdminSigners";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import type { TrustedUserIdentityResolver } from "../../../data/trustedUserIdentity";
-import { groupPolicyNameMismatch } from "../../organizations/principalPolicyRequest";
+import { assertGroupMetadataBinding } from "../../organizations/groupMetadataBinding";
+import {
+  type GroupPolicyNameReader,
+  groupPolicyNameMismatch,
+} from "../../organizations/principalPolicyRequest";
 import {
   externalAdminPolicyPersistenceEntries,
   loadOrganizationExternalAdminPolicy,
@@ -220,16 +224,18 @@ export class GroupShareNameMismatchError extends KeyingVerificationError {
  * creation verifies every group in the signed directory — so a single
  * verified match identifies the group.
  */
-function assertShareGroupName(input: {
+async function assertShareGroupName(input: {
+  readEncryptedName?: GroupPolicyNameReader | undefined;
   bundle: PrincipalPolicyBundleResponse;
   expectedGroupName: string;
-}): void {
+}): Promise<void> {
   // The label comes from the untrusted read model. Signed names never carry
   // an invisible code point, so a label that does is a look-alike that would
   // only match after canonicalization strips it; refuse it outright.
-  const mismatch = groupPolicyNameMismatch(
+  const mismatch = await groupPolicyNameMismatch(
     input.bundle,
     input.expectedGroupName,
+    input.readEncryptedName,
   );
   if (mismatch === "forbidden_characters") {
     throw new GroupShareNameMismatchError(
@@ -244,6 +250,7 @@ function assertShareGroupName(input: {
 }
 
 export async function loadVerifiedGroupSharePrincipalPolicy(input: {
+  readEncryptedName?: GroupPolicyNameReader | undefined;
   apiClient: ContainerManagedPrincipalShareApi;
   execSql: ExecSql;
   expectedGroupHead?: ReferencedPrincipalHead | undefined;
@@ -314,8 +321,10 @@ export async function loadVerifiedGroupSharePrincipalPolicy(input: {
       "Container share principal policy verification failed",
     );
   }
+  assertGroupMetadataBinding(bundle, organizationAdminPolicy.descriptor);
   if (input.expectedGroupName !== undefined) {
-    assertShareGroupName({
+    await assertShareGroupName({
+      readEncryptedName: input.readEncryptedName,
       bundle,
       expectedGroupName: input.expectedGroupName,
     });

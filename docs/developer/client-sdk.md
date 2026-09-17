@@ -128,6 +128,18 @@ Client capabilities:
 | `tearleads.userIdentities` | pinned user identity bundles for cryptographic workflows |
 | `tearleads.securityIncidents` | durable local records of terminal trust-boundary verification failures |
 
+Organization and custom group display names are encrypted metadata. The SDK
+verifies group policies against the signed organization directory, decrypts group
+names using the organization metadata container keyring, and caches labels in
+the local database. Every organization member can read them, regardless of group
+membership. Built-in labels follow the signed Admins/Members roles. Operator
+organization listings expose IDs only. This contract requires a fresh database.
+
+Low-level group creation requires `metadataAccess`. The initial policy builder
+requires `metadataKey` for a custom group or `builtinRole` for a reserved group.
+Membership and share helpers use `readEncryptedName` to bind the selected label
+to verified metadata. The normal client facade supplies these dependencies.
+
 Root exposes `loadOrganizationDataUsage(organizationId)` for the synced document
 and blob breakdown, and `listDataUsageReport({ search, cursor, limit })` for
 paginated usage by organization. Both enforce the same session lifecycle gate

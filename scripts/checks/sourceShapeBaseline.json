@@ -47,8 +47,8 @@
       "bytes": 18865
     },
     "docs/developer/client-sdk.md": {
-      "lines": 641,
-      "bytes": 31869
+      "lines": 653,
+      "bytes": 32625
     },
     "docs/developer/revenuecat-native-stores.md": {
       "lines": 364,
@@ -79,8 +79,8 @@
       "bytes": 33375
     },
     "docs/security-guarantees.md": {
-      "lines": 807,
-      "bytes": 46589
+      "lines": 813,
+      "bytes": 46848
     },
     "formal/document-sync/BaselineDominanceTraces.json": {
       "lines": 2059,
@@ -289,10 +289,6 @@
     "packages/client-sdk/src/workflows/documents/sync.test.ts": {
       "lines": 1748,
       "bytes": 61934
-    },
-    "packages/client-sdk/src/workflows/organizations/principalPolicy.test.ts": {
-      "lines": 543,
-      "bytes": 19460
     },
     "packages/crypto/src/keying/containerAccess.test.ts": {
       "lines": 755,

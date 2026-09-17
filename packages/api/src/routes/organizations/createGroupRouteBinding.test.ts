@@ -10,7 +10,7 @@ import { registerUser } from "../../../test/helpers/registerUser";
 import { getCurrentPrincipalState } from "../../access/read/principalStateStore";
 import { routeApp } from "../../routeApp";
 
-test("group creation binds its listing name to the signed policy name", async () => {
+test("group creation rejects plaintext listing names", async () => {
   const actor = createTestUser();
   await registerUser(actor);
   await authenticate(actor);
@@ -34,7 +34,7 @@ test("group creation binds its listing name to the signed policy name", async ()
   );
   expect(response.status).toBe(400);
   expect(await response.json()).toEqual({
-    error: "Group name must match the signed policy display name",
+    error: "Invalid request",
   });
   expect(await getCurrentPrincipalState("group", groupId, db)).toBeNull();
   expect(await db.select().from(groups).where(eq(groups.id, groupId))).toEqual(
@@ -46,7 +46,7 @@ test.each([
   [
     "organization id",
     400,
-    "Principal state principalId does not match route principal",
+    "Encrypted group metadata scope does not match",
   ] as const,
   [
     "group and organization signers",

@@ -198,7 +198,7 @@ test("group policy commits atomically advance the signed organization directory"
 });
 
 test.each([{}, { name: "Other" }, { name: "Mem\u200bbers" }])(
-  "group successors cannot discard or change their signed creation name: %j",
+  "group successors cannot discard or change their encrypted creation metadata: %j",
   async (groupPayload) => {
     const actor = createTestUser();
     await registerUser(actor);
@@ -211,7 +211,7 @@ test.each([{}, { name: "Other" }, { name: "Mem\u200bbers" }])(
     const response = await commitPrepared(actor, prepared);
     expect(response.status).toBe(400);
     expect(await response.json()).toEqual({
-      error: "Group name must match the signed policy display name",
+      error: "Group metadata cannot change during a policy update",
     });
     expect(
       await getCurrentPrincipalState(
@@ -240,7 +240,6 @@ test("a stateless group row blocks organization policy commits", async () => {
   });
   await db.insert(groups).values({
     id: crypto.randomUUID(),
-    name: "Injected without policy",
     organizationId: prepared.organization.organizationId,
   });
 

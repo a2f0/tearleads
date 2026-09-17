@@ -36,7 +36,6 @@ function groupGrant(
     userId: null,
     signingKeyFingerprint: null,
     groupId,
-    groupName: `Group ${groupId}`,
   };
 }
 

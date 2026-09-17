@@ -13,12 +13,12 @@ import type {
   ReferencedPrincipalStateResponse,
   UserIdentityResponse,
 } from "@tearleads/validators/response";
-import type { buildInitialGroupPolicyRequest } from "../../src/workflows/organizations/principalPolicy";
 import {
   type CacheReferencedPrincipalPoliciesOptions,
   cacheReferencedPrincipalPolicies,
 } from "../../src/workflows/principals/policyCache";
 import type { buildInitialOrganizationPolicyRequest } from "../../src/workflows/registration/registerIdentity";
+import type { buildInitialGroupPolicyRequest } from "./groupMetadata";
 import type { PolicyDirectoryFixture } from "./policyDirectoryFixtures";
 import {
   principalPolicyBundleFromState,

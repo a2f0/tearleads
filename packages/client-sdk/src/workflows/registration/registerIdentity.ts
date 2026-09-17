@@ -235,6 +235,7 @@ async function createOrganizationPrincipalPolicies(input: {
     groupId: crypto.randomUUID(),
     grants: [{ containerId: input.rootContainerId, accessLevel: "admin" }],
     name: "Admins",
+    builtinRole: "admins",
     signerUserId: input.userId,
     signingFingerprint,
     signingKeyPair: input.signingKeyPair,

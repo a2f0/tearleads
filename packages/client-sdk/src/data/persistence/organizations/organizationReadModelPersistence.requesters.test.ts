@@ -6,6 +6,7 @@ import {
   organizationReadModelDirectory as directory,
   organizationReadModelDirectoryUser as directoryUser,
   organizationReadModelGroups as groups,
+  locallyUnnamedGroups,
   organizationReadModelSnapshot as snapshot,
 } from "../../../../test/helpers/organizationReadModelPersistenceFixtures";
 import {
@@ -51,7 +52,7 @@ test("organization read-model snapshots persist normalized requester-safe projec
         ],
       },
       grants: { organizationId: "org-1", grants: [] },
-      groups: groups("org-1"),
+      groups: locallyUnnamedGroups("org-1"),
       membershipEdges: [
         {
           groupId: "admins-org-1",
@@ -213,8 +214,12 @@ test("concurrent requester responses preserve both requester projections", async
     ]);
     expect(userOne?.requester).toEqual({ isOrgAdmin: true });
     expect(userTwo?.requester).toEqual({ isOrgAdmin: false });
-    expect(userOne?.groups).toEqual(groups("org-1", "concurrent"));
-    expect(userTwo?.groups).toEqual(groups("org-1", "concurrent"));
+    expect(userOne?.groups).toEqual(
+      locallyUnnamedGroups("org-1", "concurrent"),
+    );
+    expect(userTwo?.groups).toEqual(
+      locallyUnnamedGroups("org-1", "concurrent"),
+    );
   } finally {
     close();
   }

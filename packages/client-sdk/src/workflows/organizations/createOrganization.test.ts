@@ -74,8 +74,8 @@ test("createOrganization provisions a new org for the existing user and persists
     // A fresh organization + root container are minted.
     expect(request.organizationId).not.toBe(userId);
     expect(request.rootContainerId).not.toBe(request.organizationId);
-    expect(request.initialAdminGroup.name).toBe("Admins");
-    expect(request.initialMemberGroup.name).toBe("Members");
+    expect(request.initialAdminGroup).not.toHaveProperty("name");
+    expect(request.initialMemberGroup).not.toHaveProperty("name");
     expect(request.initialOrganizationPolicy.projection).toEqual([
       { userId: userId, role: "admin" },
     ]);

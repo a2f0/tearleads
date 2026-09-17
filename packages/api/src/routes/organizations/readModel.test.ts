@@ -67,9 +67,7 @@ test("organization read-model route snapshots and coalesces group changes", asyn
   ]);
   expect(snapshot.currentUser.isOrgAdmin).toBe(true);
   expect(Reflect.has(snapshot.lanes.directory, "currentUser")).toBe(false);
-  expect(snapshot.lanes.groups.groups.map((group) => group.name)).toEqual([
-    "Admins",
-  ]);
+  expect(snapshot.lanes.groups.groups).toHaveLength(1);
   expect(snapshot.version).toBe(6);
   expect(snapshot.lanes.organizationPolicy).toEqual({
     organizationId,
@@ -141,10 +139,7 @@ test("organization read-model route snapshots and coalesces group changes", asyn
   );
   expect(changed.lanes.directory).toBeUndefined();
   expect(changed.lanes.grants).toBeUndefined();
-  expect(changed.lanes.groups?.groups.map((group) => group.name)).toEqual([
-    "Admins",
-    "Operators",
-  ]);
+  expect(changed.lanes.groups?.groups).toHaveLength(2);
   expect(changed.lanes.groupMemberships?.deletedGroupIds).toEqual([]);
   expect(changed.lanes.groupMemberships?.groups).toHaveLength(1);
   expect(changed.lanes.groupMemberships?.groups[0]?.groupId).toBe(groupId);
@@ -221,9 +216,7 @@ test("organization read-model route snapshots and coalesces group changes", asyn
       deletedDelta.mode === "delta",
     "expected group deletion delta",
   );
-  expect(deletedDelta.lanes.groups?.groups.map((group) => group.name)).toEqual([
-    "Admins",
-  ]);
+  expect(deletedDelta.lanes.groups?.groups).toHaveLength(1);
   expect(deletedDelta.lanes.groupMemberships).toEqual({
     organizationId,
     deletedGroupIds: [groupId],
@@ -392,7 +385,9 @@ test("membership deltas coalesce transitions to final entity state", async () =>
     ),
   ).toBe(false);
   expect(
-    delta.lanes.groups?.groups.some((group) => group.name === "Ephemeral"),
+    delta.lanes.groups?.groups.some(
+      (group) => group.groupId === deletedGroupId,
+    ),
   ).toBe(false);
 });
 

@@ -372,7 +372,6 @@ export async function acknowledgeInitialGroupPolicy(input: {
   if (
     input.response.groupId !== input.request.groupId ||
     input.response.organizationId !== input.organizationId ||
-    input.response.name !== input.request.name.trim() ||
     input.response.isBuiltin ||
     input.response.currentState?.stateHash !== input.stateHash ||
     input.response.currentState.version !== state.version ||

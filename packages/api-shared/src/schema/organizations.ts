@@ -21,7 +21,7 @@ import type {
  *
  * Organizations define the top-level ownership boundary for containers,
  * documents, manifests, and keying state. Registration creates a personal
- * organization named `Personal`; the signed principal-state tables carry the
+ * organization; the signed principal-state tables carry the
  * organization's access policy and recipient key history.
  *
  * Columns:
@@ -31,7 +31,6 @@ import type {
  *   have organization-admin authority.
  * - `memberGroupId`: Reserved organization-scoped group whose reachable
  *   members belong to the organization.
- * - `name`: Human-readable organization name.
  * - `profileDocumentId`: Optional encrypted document containing org-scoped
  *   profile fields such as customizable display name.
  * - `createdAt`: Server-side insertion timestamp.
@@ -42,7 +41,6 @@ export const organizations = pgTable(
     id: uuid("id").defaultRandom().primaryKey(),
     adminGroupId: uuid("admin_group_id").notNull(),
     memberGroupId: uuid("member_group_id").notNull(),
-    name: text("name").notNull(),
     profileDocumentId: uuid("profile_document_id"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },

@@ -128,14 +128,11 @@ async function appendCreatedGroupReadModelChanges(input: {
 
 function validateOrganizationGroupCreation(
   input: CreateOrganizationGroupWithPolicyRequest,
-): string {
-  const name = input.name.trim();
-  if (name.length === 0) {
-    throw new OrganizationManagerError("Group name cannot be empty", 400);
-  }
+): void {
   assertCreatedGroupPolicyName({
-    name,
     ciphertext: input.initialGroupPolicy.encryptedPayload.ciphertext,
+    groupId: input.groupId,
+    organizationId: input.organizationPolicy.state.principalId,
   });
   if (input.initialGroupPolicy.state.principalType !== "group") {
     throw new OrganizationManagerError(
@@ -171,7 +168,6 @@ function validateOrganizationGroupCreation(
       400,
     );
   }
-  return name;
 }
 
 export async function runCreateOrganizationGroupWorkflow(
@@ -180,7 +176,7 @@ export async function runCreateOrganizationGroupWorkflow(
   sessionUserId: string,
   input: CreateOrganizationGroupWithPolicyRequest,
 ): Promise<CreateOrganizationGroupResponse> {
-  const name = validateOrganizationGroupCreation(input);
+  validateOrganizationGroupCreation(input);
 
   return db.transaction(async (tx) => {
     await prepareOrganizationGroupCreation({
@@ -200,13 +196,11 @@ export async function runCreateOrganizationGroupWorkflow(
       .values({
         id: input.groupId,
         organizationId,
-        name,
       })
       .onConflictDoNothing({ target: groupsTable.id })
       .returning({
         groupId: groupsTable.id,
         organizationId: groupsTable.organizationId,
-        name: groupsTable.name,
         createdAt: groupsTable.createdAt,
       });
 
@@ -259,7 +253,6 @@ export async function runCreateOrganizationGroupWorkflow(
         createdAt: insertedGroup.createdAt,
         groupId: insertedGroup.groupId,
         isBuiltin: false,
-        name: insertedGroup.name,
         organizationId,
         state: storedState,
       });

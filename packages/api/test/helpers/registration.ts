@@ -26,6 +26,7 @@ import {
   deriveContainerAccessManifest,
   deriveDocumentLinkSetManifest,
   derivePrincipalRecipientKeyEpochId,
+  encodeBuiltinGroupMetadata,
   encryptWithDek,
   generateKemSeedAndKeyPair,
   type PrincipalContainerGrant,
@@ -164,11 +165,7 @@ export async function createInitialAdminGroupRequest(input: {
   const groupId = input.groupId ?? crypto.randomUUID();
   const groupKem = generateKemSeedAndKeyPair();
   const projection = groupProjectionMember(input.userId);
-  const payloadCiphertext = bytesToBase64(
-    new TextEncoder().encode(
-      JSON.stringify({ members: projection, name: input.name ?? "Admins" }),
-    ),
-  );
+  const payloadCiphertext = encodeBuiltinGroupMetadata("admins");
   const [memberEnvelope] = await wrapDekForRecipients(groupKem.secretKey, [
     input.encapsulationPublicKey,
   ]);
@@ -209,7 +206,6 @@ export async function createInitialAdminGroupRequest(input: {
 
   return {
     groupId,
-    name: input.name ?? "Admins",
     initialGroupPolicy: {
       state,
       encryptedPayload: {
@@ -242,11 +238,7 @@ export async function createInitialMemberGroupRequest(input: {
       role: "admin" as const,
     },
   ];
-  const payloadCiphertext = bytesToBase64(
-    new TextEncoder().encode(
-      JSON.stringify({ members: projection, name: "Members" }),
-    ),
-  );
+  const payloadCiphertext = encodeBuiltinGroupMetadata("members");
   const [userEnvelope] = await wrapDekForRecipients(groupKem.secretKey, [
     input.encapsulationPublicKey,
   ]);
@@ -286,7 +278,6 @@ export async function createInitialMemberGroupRequest(input: {
 
   return {
     groupId,
-    name: "Members",
     initialGroupPolicy: {
       state,
       encryptedPayload: {

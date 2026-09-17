@@ -1,6 +1,9 @@
 import { KeyingVerificationError } from "@tearleads/crypto";
 import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
-import { groupPolicyNameMismatch } from "./principalPolicyRequest";
+import {
+  type GroupPolicyNameReader,
+  groupPolicyNameMismatch,
+} from "./principalPolicyRequest";
 
 export class GroupMembershipNameMismatchError extends KeyingVerificationError {
   constructor(reason: "forbidden_characters" | "name_mismatch") {
@@ -15,11 +18,16 @@ export class GroupMembershipNameMismatchError extends KeyingVerificationError {
 }
 
 /** Check the selected label only after verifying the signed policy bundle. */
-export function assertGroupMembershipName(
+export async function assertGroupMembershipName(
   verifiedBundle: PrincipalPolicyBundleResponse,
   expectedGroupName: string,
-): void {
-  const mismatch = groupPolicyNameMismatch(verifiedBundle, expectedGroupName);
+  readEncryptedName?: GroupPolicyNameReader,
+): Promise<void> {
+  const mismatch = await groupPolicyNameMismatch(
+    verifiedBundle,
+    expectedGroupName,
+    readEncryptedName,
+  );
   if (mismatch) {
     throw new GroupMembershipNameMismatchError(mismatch);
   }

@@ -516,11 +516,10 @@ CREATE INDEX `documents_updated_at_id_idx` ON `documents` (`updated_at`,`id`);--
 CREATE TABLE `groups` (
 	`id` text PRIMARY KEY NOT NULL,
 	`organization_id` text,
-	`name` text NOT NULL,
 	`created_at` integer DEFAULT (cast((julianday('now') - 2440587.5)*86400000 as integer)) NOT NULL
 );
 --> statement-breakpoint
-CREATE INDEX `groups_organization_name_idx` ON `groups` (`organization_id`,`name`,`id`);--> statement-breakpoint
+CREATE INDEX `groups_organization_id_idx` ON `groups` (`organization_id`,`id`);--> statement-breakpoint
 CREATE TABLE `organization_billing` (
 	`id` text PRIMARY KEY NOT NULL,
 	`organization_id` text NOT NULL,
@@ -719,7 +718,6 @@ CREATE TABLE `organizations` (
 	`id` text PRIMARY KEY NOT NULL,
 	`admin_group_id` text NOT NULL,
 	`member_group_id` text NOT NULL,
-	`name` text NOT NULL,
 	`profile_document_id` text,
 	`created_at` integer DEFAULT (cast((julianday('now') - 2440587.5)*86400000 as integer)) NOT NULL
 );

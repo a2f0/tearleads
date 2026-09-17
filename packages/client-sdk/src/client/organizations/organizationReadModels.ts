@@ -31,6 +31,7 @@ import {
 } from "../../workflows/organizations/organizationPresentationAccessState";
 import { createRuntimePrincipalPolicyWarmer } from "../../workflows/principals/runtimePolicyWarmer";
 import type { InternalRuntime } from "../workflowRuntime";
+import { hydrateOrganizationGroupNamesForRuntime } from "./organizationGroupNameHydration";
 import {
   type ActiveOrganizationDataRuntime,
   activeOrganizationDataRuntime,
@@ -367,6 +368,13 @@ class OrganizationReadModelCoordinatorImpl
       organizationId: active.organizationId,
     })
       .then(async (directoryAndGroups) => {
+        directoryAndGroups = await hydrateOrganizationGroupNamesForRuntime(
+          this.runtimeService,
+          active,
+          domainScope,
+          directoryAndGroups,
+        );
+
         const accessWasRestored =
           accessWasDenied &&
           directoryAndGroups !== null &&

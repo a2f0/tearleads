@@ -1,8 +1,3 @@
-export const organizationProvisioningGroupNameRefinement = {
-  description: "organization provisioning group names must not be blank",
-  id: "request.organization-provisioning-non-blank-group-name",
-} as const;
-
 export const organizationProvisioningDocumentSeedRefinement = {
   description:
     "each provisioned document seed must contain exactly one outgoing update and no container rekeys",
@@ -18,7 +13,6 @@ export const organizationProvisioningContainerSeedRefinement = {
 export const organizationProvisioningRequestRuntimeRefinements = [
   organizationProvisioningContainerSeedRefinement,
   organizationProvisioningDocumentSeedRefinement,
-  organizationProvisioningGroupNameRefinement,
 ] as const;
 
 export const organizationProvisioningContainerKeyringRefinement = {

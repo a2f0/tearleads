@@ -255,8 +255,6 @@ export function useOrgManagerMutations(params: OrgManagerMutationsParams) {
           return;
         }
 
-        setImportUserIdDraft("");
-        setIsImportUserDialogOpen(false);
         await refreshDirectoryAndGroups({
           afterMutation: true,
           skipNextGroupDetailsEffect: true,
@@ -264,6 +262,8 @@ export function useOrgManagerMutations(params: OrgManagerMutationsParams) {
         if (!isOperationActive(operationOrganizationId)) {
           return;
         }
+        setImportUserIdDraft("");
+        setIsImportUserDialogOpen(false);
         setOrgManagerView("directory");
         selectUser(targetUser.userId);
         await refreshSelectedUserDetail(targetUser.userId);

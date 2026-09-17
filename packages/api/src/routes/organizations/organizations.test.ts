@@ -311,7 +311,7 @@ test("organization read model includes the bootstrap Admins group", async () => 
   expect(listBody.groups.map((group) => group.groupId)).not.toContain(
     organization.memberGroupId,
   );
-  expect(listBody.groups.map((group) => group.name)).toEqual(["Admins"]);
+  expect(listBody.groups.every((group) => !("name" in group))).toBe(true);
   expect(listBody.groups[0]?.isBuiltin).toBe(true);
   expect(listBody.groups[0]?.currentState?.memberCount).toBe(1);
 });
@@ -482,7 +482,7 @@ test("org manager routes let admins create empty externally-administered groups"
     "expected organization group summary response",
   );
   expect(createBody.group.groupId).toBe(groupId);
-  expect(createBody.group.name).toBe("Operators");
+  expect(createBody.group).not.toHaveProperty("name");
   expect(createBody.group.isBuiltin).toBe(false);
   expect(createBody.group.currentState?.memberCount).toBe(0);
 
@@ -581,7 +581,7 @@ test("org manager routes create and list groups with members", async () => {
     "expected organization group summary response",
   );
   expect(createBody.group.groupId).toBe(groupId);
-  expect(createBody.group.name).toBe("Operators");
+  expect(createBody.group).not.toHaveProperty("name");
   expect(createBody.group.isBuiltin).toBe(false);
   expect(createBody.group.currentState?.memberCount).toBe(1);
 
@@ -589,10 +589,7 @@ test("org manager routes create and list groups with members", async () => {
     await loadOrganizationReadModelSnapshot(actor, organizationId)
   ).lanes.groups;
   expect(listBody.groups.map((group) => group.groupId)).toContain(groupId);
-  expect(listBody.groups.map((group) => group.name)).toEqual([
-    "Admins",
-    "Operators",
-  ]);
+  expect(listBody.groups.every((group) => !("name" in group))).toBe(true);
 
   const membersResponse = await routeApp.request(
     `/organizations/${organizationId}/groups/${groupId}/members`,

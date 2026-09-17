@@ -15,6 +15,8 @@ import {
   createParentProjectionUserKeyResolver,
   SIGNED_AT,
 } from "../../../../test/helpers/containerFixtures";
+import { buildInitialGroupPolicyRequest } from "../../../../test/helpers/groupMetadata";
+import { createTestGroupMetadataProjection } from "../../../../test/helpers/groupMetadataProjection";
 import {
   organizationPolicyBundleFromInitialRequest,
   policyBundleAfterMutation,
@@ -23,7 +25,7 @@ import {
 } from "../../../../test/helpers/principalPolicyFixtures";
 import { createTestTrustedUserIdentity } from "../../../../test/helpers/trustedUserIdentity";
 import { withTestExecSql } from "../../../../test/helpers/withTestExecSql";
-import { buildInitialGroupPolicyRequest } from "../../organizations/principalPolicy";
+
 import { buildInitialOrganizationPolicyRequest } from "../../registration/registerIdentity";
 import { shareRemoteContainerWithGroup } from "./share";
 
@@ -175,6 +177,7 @@ test("shareRemoteContainerWithGroup grants a managed principal with the selected
 
 test("shareRemoteContainerWithGroup accepts empty groups signed by an org admin", async () => {
   const parent = await createParentProjection();
+  const metadata = await createTestGroupMetadataProjection(parent);
   const { author } = await createAuthor({
     organizationId: parent.projection.organizationId,
     userId: parent.userId,
@@ -215,6 +218,7 @@ test("shareRemoteContainerWithGroup accepts empty groups signed by an org admin"
       },
     ],
     includeSignerAsAdmin: false,
+    metadataKey: metadata.key,
     name: "Operators",
     signerUserId: groupSignerUserId,
     signingFingerprint: groupSigningFingerprint,
@@ -251,7 +255,10 @@ test("shareRemoteContainerWithGroup accepts empty groups signed by an org admin"
         apiClient: {
           reciteContainer: async () => null,
           commitOrganizationGroupPolicy: async () => null,
-          getContainerWriterProjection: async () => parent.projection,
+          getContainerWriterProjection: async (id) =>
+            id === metadata.projection.containerId
+              ? metadata.projection
+              : parent.projection,
           getCurrentPrincipalPolicy: async (principalType, principalId) => {
             if (principalType === "organization") {
               expect(principalId).toBe(parent.projection.organizationId);

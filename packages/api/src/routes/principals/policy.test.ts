@@ -476,7 +476,6 @@ test("PUT /principals/:principalType/:principalId/policy rejects disabled roster
   await db.insert(groupsTable).values({
     id: groupId,
     organizationId,
-    name: "Operators",
   });
   const projection = [
     {
@@ -804,7 +803,6 @@ test("PUT /principals/:principalType/:principalId/policy allows org admins to up
   await db.insert(groupsTable).values({
     id: groupId,
     organizationId,
-    name: "Operators",
   });
   const externalAuthority =
     await getCurrentOrganizationAdminAuthority(organizationId);

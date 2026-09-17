@@ -148,7 +148,7 @@ test("organization management OpenAPI documents shared contracts", () => {
   ]);
   expect(
     createGroup.requestBody.content["application/json"]?.schema.required,
-  ).toEqual(["groupId", "initialGroupPolicy", "name", "organizationPolicy"]);
+  ).toEqual(["groupId", "initialGroupPolicy", "organizationPolicy"]);
   expect(createGroup["x-tearleads-runtime-refinements"]).toEqual(
     createOrganizationGroupOperation.runtimeRefinements,
   );

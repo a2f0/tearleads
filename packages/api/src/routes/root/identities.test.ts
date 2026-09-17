@@ -201,7 +201,7 @@ test("lists an identity's organizations with roster and billing standing", async
   );
   expect(defaultOrganization).toBeDefined();
   expect(typeof defaultOrganization.organizationId).toBe("string");
-  expect(typeof defaultOrganization.name).toBe("string");
+  expect(defaultOrganization).not.toHaveProperty("name");
   expect(typeof defaultOrganization.createdAt).toBe("string");
   expect(defaultOrganization.roster.status).toBe("active");
   expect(typeof defaultOrganization.roster.joinedAt).toBe("string");

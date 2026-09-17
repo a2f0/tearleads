@@ -5,6 +5,7 @@ import {
 } from "@tearleads/crypto";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { createAuthor } from "../../../test/helpers/containerFixtures";
+import { buildInitialGroupPolicyRequest } from "../../../test/helpers/groupMetadata";
 import {
   policyBundleFromInitialRequest,
   principalPolicyHead,
@@ -12,7 +13,7 @@ import {
 import { createTestTrustedUserIdentity } from "../../../test/helpers/trustedUserIdentity";
 import { loadPrincipalPolicyCheckpoint } from "../../data/persistence/keyingCheckpointPersistence";
 import { loadPrincipalPolicyBundleForReference } from "../../data/persistence/principalPolicyReferencePersistence";
-import { buildInitialGroupPolicyRequest } from "../organizations/principalPolicy";
+
 import { createRuntimePrincipalPolicyWarmer } from "./runtimePolicyWarmer";
 
 const REFERENCE: ReferencedPrincipalHead = {

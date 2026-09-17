@@ -1,3 +1,4 @@
+import { ROOT_TEST_ORGANIZATION } from "../../../test/helpers/rootConsoleFixtures";
 import "../../../test/helpers/mswServer";
 import { afterEach, expect, spyOn, test } from "bun:test";
 import type { Tearleads } from "@tearleads/client-sdk";
@@ -127,7 +128,11 @@ test("the root console lists identities and opens their detail", async () => {
       expect(view.getByRole("table", { name: "Live sessions" })).toBeTruthy();
       expect(view.getByRole("table", { name: "Organizations" })).toBeTruthy();
     });
-    expect(view.getByText("Root Test Org (default)")).toBeTruthy();
+    expect(
+      view.getByText(
+        `${ROOT_TEST_ORGANIZATION.organization.organizationId} (default)`,
+      ),
+    ).toBeTruthy();
     expect(view.getByText("trialing")).toBeTruthy();
     expect(view.getAllByText("203.0.113.7").length).toBeGreaterThanOrEqual(2);
 
@@ -145,7 +150,9 @@ test("operators browse organizations, inspect invoices, and traverse both direct
   try {
     fireEvent.click(view.getByRole("button", { name: "Organizations" }));
     const list = await view.findByRole("table", { name: "Organizations" });
-    const organization = await within(list).findByText("Root Test Org");
+    const organization = await within(list).findByText(
+      ROOT_TEST_ORGANIZATION.organization.organizationId,
+    );
     fireEvent.click(organization);
     await view.findByRole("table", { name: "Organization" });
     fireEvent.click(view.getByRole("tab", { name: "Billing" }));
@@ -184,7 +191,11 @@ test("operators browse organizations, inspect invoices, and traverse both direct
     });
     fireEvent.click(await within(refreshedRoster).findByTitle(fingerprint));
     await view.findByRole("table", { name: "Identity" });
-    fireEvent.click(await view.findByText("Root Test Org (default)"));
+    fireEvent.click(
+      await view.findByText(
+        `${ROOT_TEST_ORGANIZATION.organization.organizationId} (default)`,
+      ),
+    );
     await view.findByRole("table", { name: "Organization" });
   } finally {
     restore();
@@ -195,16 +206,18 @@ test("organization search handles empty results and restores the directory", asy
   const { restore, view } = await renderRootWithSession(true);
   try {
     fireEvent.click(view.getByRole("button", { name: "Organizations" }));
-    await view.findByText("Root Test Org");
+    await view.findByText(ROOT_TEST_ORGANIZATION.organization.organizationId);
     const input = view.getByRole("textbox", { name: "Search organizations" });
     fireEvent.change(input, { target: { value: "missing" } });
     const form = input.closest("form");
     if (!form) throw new Error("Expected search form");
     fireEvent.submit(form);
     await view.findByText("No organizations found.");
-    fireEvent.change(input, { target: { value: "Root Test" } });
+    fireEvent.change(input, {
+      target: { value: ROOT_TEST_ORGANIZATION.organization.organizationId },
+    });
     fireEvent.submit(form);
-    await view.findByText("Root Test Org");
+    await view.findByText(ROOT_TEST_ORGANIZATION.organization.organizationId);
   } finally {
     restore();
   }
@@ -220,7 +233,7 @@ test("reports show usage by org, paginate, search, and open the shared usage tab
     await within(table).findByText("2.5 KB");
     expect(within(table).getByTitle("2,560 bytes")).toBeTruthy();
     fireEvent.click(await view.findByRole("button", { name: "Load more" }));
-    await within(table).findByText("Empty Org");
+    await within(table).findByText("55555555-5555-4555-8555-555555555555");
     expect(within(table).getAllByText("0 B")).toHaveLength(3);
     expect(view.queryByRole("button", { name: "Load more" })).toBeNull();
     const search = view.getByRole("textbox", { name: "Search organizations" });
@@ -229,9 +242,15 @@ test("reports show usage by org, paginate, search, and open the shared usage tab
     if (!form) throw new Error("Expected search form");
     fireEvent.submit(form);
     await within(table).findByText("No organizations found.");
-    fireEvent.change(search, { target: { value: "Root Test" } });
+    fireEvent.change(search, {
+      target: { value: ROOT_TEST_ORGANIZATION.organization.organizationId },
+    });
     fireEvent.submit(form);
-    fireEvent.click(await within(table).findByText("Root Test Org"));
+    fireEvent.click(
+      await within(table).findByText(
+        ROOT_TEST_ORGANIZATION.organization.organizationId,
+      ),
+    );
     const tab = view.getByRole("tab", { name: "Data Usage" });
     expect(tab.getAttribute("aria-selected")).toBe("true");
     const panel = view.getByRole("tabpanel", { name: "Data Usage" });
@@ -261,7 +280,9 @@ test("usage failures show an error and refresh can recover", async () => {
   });
   try {
     fireEvent.click(view.getByRole("button", { name: "Organizations" }));
-    fireEvent.click(await view.findByText("Root Test Org"));
+    fireEvent.click(
+      await view.findByText(ROOT_TEST_ORGANIZATION.organization.organizationId),
+    );
     fireEvent.click(view.getByRole("tab", { name: "Data Usage" }));
     await view.findByText("Usage temporarily unavailable");
     expect(view.queryByText("0 B")).toBeNull();
@@ -281,7 +302,11 @@ for (const origin of ["Reports", "Organizations"] as const) {
     try {
       fireEvent.click(view.getByRole("button", { name: origin }));
       const table = await view.findByRole("table", { name: directory });
-      fireEvent.click(await within(table).findByText("Root Test Org"));
+      fireEvent.click(
+        await within(table).findByText(
+          ROOT_TEST_ORGANIZATION.organization.organizationId,
+        ),
+      );
       fireEvent.click(view.getByRole("tab", { name: "Identities" }));
       const roster = await view.findByRole("table", {
         name: "Organization identities",

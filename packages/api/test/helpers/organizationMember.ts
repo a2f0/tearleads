@@ -13,6 +13,7 @@ import {
   getCurrentPrincipalState,
   listCurrentPrincipalProjectionMembers,
 } from "../../src/access/read/principalStateStore";
+import { groupPolicyPayload } from "./groupPolicyPayload";
 import { createPrincipalMemberEnvelopes } from "./principalMemberEnvelopes";
 import { submitOrganizationGroupPolicyCommit } from "./principalPolicy";
 import { signPrincipalStateBundle } from "./principalState";
@@ -63,10 +64,9 @@ async function updateMemberGroupUsers(
           (member) => !input.memberUserIds.includes(member.userId),
         ),
   );
-  const payloadCiphertext = bytesToBase64(
-    new TextEncoder().encode(
-      JSON.stringify({ members: projection, name: "Members" }),
-    ),
+  const payloadCiphertext = await groupPolicyPayload(
+    organization.memberGroupId,
+    projection,
   );
   const principalKem = generateKemSeedAndKeyPair();
   const { memberEnvelopes, stateMembers } =

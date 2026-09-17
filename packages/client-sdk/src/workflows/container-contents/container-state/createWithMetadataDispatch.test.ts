@@ -6,6 +6,7 @@ import {
   createParentProjectionUserKeyResolver,
 } from "../../../../test/helpers/containerFixtures";
 import { createResponseFromRequest } from "../../../../test/helpers/documentFixtures";
+import { buildInitialGroupPolicyRequest } from "../../../../test/helpers/groupMetadata";
 import {
   policyBundleFromInitialRequest,
   principalPolicyHead,
@@ -14,7 +15,7 @@ import { createMemoryBlobStore } from "../../../data/blobs/memoryBlobStore";
 import { defaultDocumentProjectorRegistry } from "../../../data/documents/documentKinds";
 import { createDomainScope } from "../../../data/domainScope";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
-import { buildInitialGroupPolicyRequest } from "../../organizations/principalPolicy";
+
 import { createContainerContentsWorkflowRuntime } from "../runtime";
 import {
   CONTAINER_ALREADY_COMMITTED,

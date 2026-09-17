@@ -18,9 +18,9 @@ import {
   type ContainerContentsWorkflowRuntimeInput,
   createContainerContentsWorkflowRuntime,
 } from "../../src/workflows/container-contents/runtime";
-import { buildInitialGroupPolicyRequest } from "../../src/workflows/organizations/principalPolicy";
 import { buildInitialOrganizationPolicyRequest } from "../../src/workflows/registration/registerIdentity";
 import { createAuthor } from "./containerFixtures";
+import { buildInitialGroupPolicyRequest } from "./groupMetadata";
 import { createSuccessorGroupPolicyBundle } from "./groupPolicyFixtures";
 import {
   organizationPolicyBundleFromInitialRequest,

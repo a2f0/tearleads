@@ -111,12 +111,10 @@ export function createRegistrationRequestFixture(): RegistrationRequest {
     initialAdminGroup: {
       groupId: adminGroupId,
       initialGroupPolicy: initialPolicy("group", adminGroupId),
-      name: "Admins",
     },
     initialMemberGroup: {
       groupId: memberGroupId,
       initialGroupPolicy: initialPolicy("group", memberGroupId),
-      name: "Members",
     },
     initialOrganizationPolicy: initialPolicy("organization", organizationId),
     initialRootContainer: {

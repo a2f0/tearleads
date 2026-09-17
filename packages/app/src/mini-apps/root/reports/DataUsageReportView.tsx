@@ -19,11 +19,9 @@ import {
 import { useTearleads } from "../../../providers/sdk/TearleadsProvider";
 import { formatByteLength } from "../../../utils/formatByteLength";
 import { DATA_USAGE_LABELS } from "../../shared/dataUsageLabels";
-import { compactRootIdentifier } from "../identities/rootDisplay";
 import { useRootPage } from "../organizations/useRootPage";
 
 const COLUMNS = [
-  { id: "name", header: "Organization" },
   { id: "id", header: "Organization ID" },
   { id: "documents", header: "Documents" },
   { id: "blobs", header: "Blobs" },
@@ -76,7 +74,7 @@ export function DataUsageReportView({
         <MiniAppToolbar wrap>
           <MiniAppInput
             aria-label="Search organizations"
-            placeholder="Organization name or ID"
+            placeholder="Organization ID"
             value={draft}
             maxLength={200}
             onChange={(event) => setDraft(event.target.value)}
@@ -108,13 +106,8 @@ export function DataUsageReportView({
                   <MiniAppTableActionButton
                     onClick={() => onSelectOrganization(org.organizationId)}
                   >
-                    {org.name || "Untitled organization"}
+                    {org.organizationId}
                   </MiniAppTableActionButton>
-                </MiniAppTableCell>
-                <MiniAppTableCell>
-                  <MiniAppTableText title={org.organizationId}>
-                    {compactRootIdentifier(org.organizationId)}
-                  </MiniAppTableText>
                 </MiniAppTableCell>
                 {(
                   [

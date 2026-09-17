@@ -9,8 +9,8 @@ import type {
   PrincipalPolicyBundleResponse,
   PrincipalPolicyMutationResponse,
 } from "@tearleads/validators/response";
-import type { buildInitialGroupPolicyRequest } from "../../src/workflows/organizations/principalPolicy";
 import type { buildInitialOrganizationPolicyRequest } from "../../src/workflows/registration/registerIdentity";
+import type { buildInitialGroupPolicyRequest } from "./groupMetadata";
 
 type BundleState = Omit<
   PrincipalPolicyBundleResponse["currentState"],

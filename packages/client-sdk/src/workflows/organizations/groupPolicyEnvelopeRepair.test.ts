@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import {
+  encryptGroupMetadata,
   generateKemSeedAndKeyPair,
   generateSigningSeedAndKeyPair,
   toFingerprint,
@@ -7,6 +8,7 @@ import {
   wrapDekForRecipients,
 } from "@tearleads/crypto";
 import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
+import { testGroupMetadataKey } from "../../../test/helpers/groupMetadata";
 import { policyBundleFromInitialRequest } from "../../../test/helpers/principalPolicyFixtures";
 import { createTestTrustedUserIdentity } from "../../../test/helpers/trustedUserIdentity";
 import { buildAddGroupUserPolicyRequest } from "./groupPolicyRequests";
@@ -40,7 +42,6 @@ for (const forgedPublicPart of [false, true]) {
     const member = await identity("member", memberKem.publicKey);
     const currentPolicy = await policyBundleFromInitialRequest({
       groupId: "group",
-      name: "Operators",
       initialGroupPolicy: await signedGroupPolicyRequest({
         encapsulationPublicKey: bytesToBase64(groupKem.publicKey),
         externalAuthority: null,
@@ -55,7 +56,11 @@ for (const forgedPublicPart of [false, true]) {
             wrappedKey: bytesToBase64(badEnvelope.wrappedKey),
           },
         ],
-        name: "Operators",
+        payloadCiphertext: await encryptGroupMetadata({
+          key: testGroupMetadataKey(),
+          groupId: "group",
+          name: "Operators",
+        }),
         principalId: "group",
         projection: [{ userId: admin.userId, role: "admin" }],
         signedAt: new Date().toISOString(),

@@ -32,9 +32,9 @@ when their UI becomes uncancellable, with no capability-negotiation fallback.
 Historical signed manifests and sealed keyrings remain current security
 evidence, not compatibility formats.
 
-Membership add/remove calls require the selected `expectedGroupName`. The
-verified policy must commit that name before recipient key use; callers can
-identify a relabeled selection by `GroupMembershipNameMismatchError`.
+Membership writes bind `expectedGroupName` to decrypted group
+metadata before recipient key use. Custom names require `readEncryptedName`;
+creation requires `metadataAccess`. See the [SDK guide](../../../../docs/developer/client-sdk.md).
 
 ## Facade Taxonomy
 

@@ -2,6 +2,7 @@ import { db } from "@tearleads/api-shared/postgres";
 import { organizations, users } from "@tearleads/api-shared/schema";
 import type { TestUser } from "@tearleads/bob-and-alice";
 import {
+  encryptGroupMetadata,
   generateKemSeedAndKeyPair,
   normalizePrincipalProjectionMembers,
   toFingerprint,
@@ -55,11 +56,16 @@ export async function createGroupRequest(input: {
       role: "member" as const,
     })),
   ]);
-  const payloadCiphertext = bytesToBase64(
-    new TextEncoder().encode(
-      JSON.stringify({ members: projection, name: input.name.trim() }),
-    ),
-  );
+  const payloadCiphertext = await encryptGroupMetadata({
+    key: {
+      organizationId: organization.organizationId,
+      containerId: "test-metadata-container",
+      containerKeyEpochId: "test-metadata-epoch",
+      keyMaterial: new Uint8Array(32).fill(7),
+    },
+    groupId: input.groupId,
+    name: input.name.trim(),
+  });
   const { memberEnvelopes, stateMembers } =
     await createPrincipalMemberEnvelopes({
       principalSecretKey: principalKem.secretKey,
@@ -100,7 +106,6 @@ export async function createGroupRequest(input: {
     organizationId: organization.organizationId,
     request: {
       groupId: input.groupId,
-      name: input.name,
       initialGroupPolicy: {
         state: state.state,
         encryptedPayload: state.encryptedPayload,

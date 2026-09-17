@@ -48,7 +48,7 @@ test("POST /auth/register preserves principal policy authorization errors", asyn
 });
 
 test.each(["initialAdminGroup", "initialMemberGroup"] as const)(
-  "POST /auth/register binds the reserved %s name to its signed payload",
+  "POST /auth/register rejects legacy plaintext metadata for %s",
   async (groupField) => {
     const { signingPrivateKey, signingPublicKey } =
       generateSigningSeedAndKeyPair();
@@ -81,7 +81,7 @@ test.each(["initialAdminGroup", "initialMemberGroup"] as const)(
     });
     expect(response.status).toBe(400);
     expect(await response.json()).toEqual({
-      error: "Group name must match the signed policy display name",
+      error: "Group metadata format is invalid",
     });
   },
 );

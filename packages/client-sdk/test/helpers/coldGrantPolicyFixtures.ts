@@ -7,7 +7,8 @@ import {
 import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
 import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
 import type { DocumentCreateAuthor } from "../../src/data/documents/shared/types";
-import { buildInitialGroupPolicyRequest } from "../../src/workflows/organizations/principalPolicy";
+import { buildInitialGroupPolicyRequest } from "./groupMetadata";
+
 import { createSuccessorGroupPolicyBundle } from "./groupPolicyFixtures";
 import {
   policyBundleFromInitialRequest,

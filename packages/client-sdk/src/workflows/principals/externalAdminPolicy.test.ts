@@ -6,6 +6,7 @@ import {
   toFingerprint,
 } from "@tearleads/crypto";
 import { createTestExecSql } from "@tearleads/test-utils";
+import { buildInitialGroupPolicyRequest } from "../../../test/helpers/groupMetadata";
 import {
   organizationPolicyBundleFromInitialRequest,
   policyBundleFromInitialRequest,
@@ -13,7 +14,7 @@ import {
 } from "../../../test/helpers/principalPolicyFixtures";
 import { createTestTrustedUserIdentity } from "../../../test/helpers/trustedUserIdentity";
 import type { TrustedUserIdentity } from "../../data/trustedUserIdentity";
-import { buildInitialGroupPolicyRequest } from "../organizations/principalPolicy";
+
 import { buildInitialOrganizationPolicyRequest } from "../registration/registerIdentity";
 import { loadOrganizationExternalAdminPolicy } from "./externalAdminPolicy";
 

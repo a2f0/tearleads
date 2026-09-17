@@ -8,6 +8,7 @@ import { eq } from "drizzle-orm";
 import invariant from "invariant";
 import {
   getCurrentPrincipalState,
+  getPrincipalStatePayloadForState,
   listCurrentPrincipalProjectionMembers,
 } from "../../src/access/read/principalStateStore";
 import { createPrincipalMemberEnvelopes } from "./principalMemberEnvelopes";
@@ -50,6 +51,13 @@ export async function addOrganizationMember(input: {
     db,
   );
   invariant(currentState, "expected current Members state");
+  const currentPayload = await getPrincipalStatePayloadForState(
+    "group",
+    organization.memberGroupId,
+    currentState.stateHash,
+    db,
+  );
+  invariant(currentPayload, "expected current Members payload");
   const currentProjection = await listCurrentPrincipalProjectionMembers(
     "group",
     organization.memberGroupId,
@@ -71,9 +79,6 @@ export async function addOrganizationMember(input: {
     },
   ];
   const principalKem = generateKemSeedAndKeyPair();
-  const members = nextProjection.map((projectionMember) => ({
-    userId: projectionMember.userId,
-  }));
   const projection = nextProjection;
   const { memberEnvelopes, stateMembers } =
     await createPrincipalMemberEnvelopes({
@@ -91,9 +96,7 @@ export async function addOrganizationMember(input: {
     members: stateMembers,
     projection,
     externalAuthority: null,
-    payloadCiphertext: bytesToBase64(
-      new TextEncoder().encode(JSON.stringify({ members, name: "Members" })),
-    ),
+    payloadCiphertext: currentPayload.ciphertext,
     signedAt: new Date("2026-04-08T16:00:00.000Z").toISOString(),
     signerUserId: input.actor.userId,
     signerUserKeyFingerprint: input.actor.fingerprint,

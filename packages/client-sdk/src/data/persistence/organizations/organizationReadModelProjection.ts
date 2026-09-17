@@ -31,7 +31,11 @@ export interface OrganizationReadModelProjection {
   readonly cursor: string;
   readonly directory: OrganizationDirectoryProjection;
   readonly grants: OrganizationContainerGrantsResponse;
-  readonly groups: ListOrganizationGroupsResponse;
+  readonly groups: Omit<ListOrganizationGroupsResponse, "groups"> & {
+    groups: Array<
+      ListOrganizationGroupsResponse["groups"][number] & { name: string }
+    >;
+  };
   readonly membershipEdges: OrganizationReadModelMembershipEdge[];
   readonly organizationId: string;
   readonly policyHeads: readonly OrganizationReadModelPolicyHead[];

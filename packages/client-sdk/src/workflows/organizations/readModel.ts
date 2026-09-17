@@ -38,6 +38,7 @@ export type OrganizationGroupContainer = OrganizationGroupContainerResponse & {
   readonly containerDisplayName: string | null;
 };
 export type OrganizationContainerGrant = OrganizationContainerGrantResponse & {
+  readonly groupName: string | null;
   readonly containerDisplayName: string | null;
 };
 export interface OrganizationGroupContainers
@@ -49,7 +50,8 @@ export interface OrganizationContainerGrants
   readonly grants: OrganizationContainerGrant[];
 }
 export interface OrganizationUserDetail
-  extends Omit<OrganizationUserDetailResponse, "grants"> {
+  extends Omit<OrganizationUserDetailResponse, "grants" | "groups"> {
+  readonly groups: OrganizationGroupSummary[];
   readonly grants: {
     readonly directGrants: OrganizationContainerGrant[];
     readonly groupGrants: OrganizationContainerGrant[];
@@ -57,7 +59,9 @@ export interface OrganizationUserDetail
 }
 export type OrganizationGroupMember = OrganizationGroupMemberResponse;
 export type OrganizationGroupMembers = OrganizationGroupMembersResponse;
-export type OrganizationGroupSummary = OrganizationGroupSummaryResponse;
+export type OrganizationGroupSummary = OrganizationGroupSummaryResponse & {
+  readonly name: string;
+};
 export interface OrganizationDirectoryAndGroups {
   readonly directory: OrganizationDirectory;
   readonly groups: ReadonlyArray<OrganizationGroupSummary>;

@@ -1,34 +1,20 @@
 import { z } from "zod";
-import {
-  registerJsonSchemaRuntimeRefinements,
-  registerJsonSchemaView,
-} from "../jsonSchema";
-import { organizationProvisioningGroupNameRefinement } from "../organizationProvisioningRefinements";
 import { loosePlainObject, uuidV4StringSchema } from "../schema";
 import {
   OrganizationPrincipalPolicyRequestSchema,
   PutPrincipalPolicyRequestSchema,
 } from "./principal";
 
-const NonBlankGroupNameSchema = registerJsonSchemaRuntimeRefinements(
-  registerJsonSchemaView(
-    z.string().refine((value) => value.trim().length > 0),
-    z.string().min(1),
-  ),
-  [organizationProvisioningGroupNameRefinement],
-);
-
 const CreateOrganizationGroupRequestShape = {
   groupId: uuidV4StringSchema,
   initialGroupPolicy: PutPrincipalPolicyRequestSchema,
-  name: NonBlankGroupNameSchema,
 };
 
-export const CreateOrganizationGroupRequestSchema = loosePlainObject(
+export const CreateOrganizationGroupRequestSchema = z.strictObject(
   CreateOrganizationGroupRequestShape,
 );
 
-export const CreateOrganizationGroupWithPolicyRequestSchema = loosePlainObject({
+export const CreateOrganizationGroupWithPolicyRequestSchema = z.strictObject({
   ...CreateOrganizationGroupRequestShape,
   organizationPolicy: OrganizationPrincipalPolicyRequestSchema,
 });

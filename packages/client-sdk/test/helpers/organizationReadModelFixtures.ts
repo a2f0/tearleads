@@ -17,7 +17,7 @@ const groups: ListOrganizationGroupsResponse = {
     {
       groupId,
       organizationId,
-      name: "Operators",
+
       createdAt: "2026-05-16T12:00:00.000Z",
       isBuiltin: false,
       currentState: null,
@@ -212,7 +212,6 @@ const grants: OrganizationContainerGrantsResponse = {
       userId: null,
       signingKeyFingerprint: null,
       groupId,
-      groupName: "Operators",
     },
   ],
 };

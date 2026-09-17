@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import {
+  encryptGroupMetadata,
   generateKemSeedAndKeyPair,
   generateSigningSeedAndKeyPair,
   toFingerprint,
@@ -8,9 +9,12 @@ import {
   SIGNED_GROUP_INVALID_PAYLOADS,
   SIGNED_GROUP_NAME_CASES,
 } from "@tearleads/test-utils";
+import {
+  buildInitialGroupPolicyRequest,
+  groupPolicyNameMismatch,
+  testGroupMetadataKey,
+} from "../../../test/helpers/groupMetadata";
 import { policyBundleFromInitialRequest } from "../../../test/helpers/principalPolicyFixtures";
-import { buildInitialGroupPolicyRequest } from "./principalPolicy";
-import { groupPolicyNameMismatch } from "./principalPolicyRequest";
 
 async function createBaseBundle() {
   const signingKeyPair = generateSigningSeedAndKeyPair();
@@ -36,9 +40,9 @@ test.each([...SIGNED_GROUP_INVALID_PAYLOADS])(
       ...base,
       currentPayload: { ...base.currentPayload, ciphertext },
     };
-    expect(() => groupPolicyNameMismatch(bundle, "Operators")).toThrow(
-      "not canonical JSON",
-    );
+    await expect(
+      groupPolicyNameMismatch(bundle, "Operators"),
+    ).rejects.toThrow();
   },
 );
 
@@ -52,16 +56,15 @@ test.each([...SIGNED_GROUP_NAME_CASES])(
       ...base,
       currentPayload: {
         ...base.currentPayload,
-        ciphertext: Buffer.from(
-          JSON.stringify(name === null ? {} : { name }),
-        ).toString("base64"),
+        ciphertext: await encryptGroupMetadata({
+          key: testGroupMetadataKey(),
+          groupId: base.currentState.principalId,
+          name: name ?? "",
+        }),
       },
     };
-    const check = () => groupPolicyNameMismatch(bundle, displayName);
-    if (name === null || name.trim().length === 0) {
-      expect(check).toThrow("does not commit a display name");
-    } else {
-      expect(check()).toBe(allowed ? null : "forbidden_characters");
-    }
+    const check = groupPolicyNameMismatch(bundle, displayName);
+    if (allowed) await expect(check).resolves.toBeNull();
+    else await expect(check).rejects.toThrow("Group metadata name is invalid");
   },
 );

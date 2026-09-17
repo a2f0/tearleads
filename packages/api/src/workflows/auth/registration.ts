@@ -16,13 +16,6 @@ import { validateOrganizationProvisioningInput } from "../organizations/provisio
 
 export { OrganizationProvisioningError as RegistrationError };
 
-/**
- * A user registers by bootstrapping their personal organization; the roster
- * derives its display name from the encrypted organization profile document, so
- * the server-side label is a fixed placeholder.
- */
-const PERSONAL_ORGANIZATION_NAME = "Personal";
-
 const DUPLICATE_FINGERPRINT_ERROR = "REGISTRATION_DUPLICATE_FINGERPRINT";
 
 async function createRegisteredUser(
@@ -87,7 +80,6 @@ export async function runRegistrationWorkflow(
       }
       return provisionOrganizationInTransaction(tx, input, signer, {
         initialBilling: "trial",
-        organizationName: PERSONAL_ORGANIZATION_NAME,
         onOrganizationRootCreated: async (organizationId) => {
           await createRegisteredUser(tx, {
             encapsulationFingerprint: keyMaterial.encapsulationFingerprint,

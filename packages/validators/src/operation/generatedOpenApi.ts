@@ -1508,9 +1508,6 @@ export interface operations {
                         } & {
                             [key: string]: unknown;
                         };
-                        name: string;
-                    } & {
-                        [key: string]: unknown;
                     };
                     initialMemberGroup: {
                         groupId: string;
@@ -1695,9 +1692,6 @@ export interface operations {
                         } & {
                             [key: string]: unknown;
                         };
-                        name: string;
-                    } & {
-                        [key: string]: unknown;
                     };
                     initialOrganizationMetadataContainer?: {
                         container: {
@@ -14892,9 +14886,6 @@ export interface operations {
                         } & {
                             [key: string]: unknown;
                         };
-                        name: string;
-                    } & {
-                        [key: string]: unknown;
                     };
                     initialMemberGroup: {
                         groupId: string;
@@ -15079,9 +15070,6 @@ export interface operations {
                         } & {
                             [key: string]: unknown;
                         };
-                        name: string;
-                    } & {
-                        [key: string]: unknown;
                     };
                     initialOrganizationMetadataContainer?: {
                         container: {
@@ -20249,7 +20237,6 @@ export interface operations {
                     } & {
                         [key: string]: unknown;
                     };
-                    name: string;
                     organizationPolicy: {
                         containerMutations?: ({
                             body: unknown;
@@ -20431,8 +20418,6 @@ export interface operations {
                     } & {
                         [key: string]: unknown;
                     };
-                } & {
-                    [key: string]: unknown;
                 };
             };
         };
@@ -20457,7 +20442,6 @@ export interface operations {
                             }) | null;
                             groupId: string;
                             isBuiltin: boolean;
-                            name: string;
                             organizationId: string;
                         } & {
                             [key: string]: unknown;
@@ -22683,7 +22667,6 @@ export interface operations {
                                     createdAt: string;
                                     depth: number;
                                     groupId: string | null;
-                                    groupName: string | null;
                                     isBuiltin: boolean;
                                     metadataAccessEpoch: number;
                                     metadataAccessStateHash: string;
@@ -22727,7 +22710,6 @@ export interface operations {
                                     } | null;
                                     groupId: string;
                                     isBuiltin: boolean;
-                                    name: string;
                                     organizationId: string;
                                 }[];
                                 memberGroupId: string;
@@ -22786,7 +22768,6 @@ export interface operations {
                                     createdAt: string;
                                     depth: number;
                                     groupId: string | null;
-                                    groupName: string | null;
                                     isBuiltin: boolean;
                                     metadataAccessEpoch: number;
                                     metadataAccessStateHash: string;
@@ -22830,7 +22811,6 @@ export interface operations {
                                     } | null;
                                     groupId: string;
                                     isBuiltin: boolean;
-                                    name: string;
                                     organizationId: string;
                                 }[];
                                 memberGroupId: string;
@@ -24155,7 +24135,6 @@ export interface operations {
                             }) | null;
                             createdAt: string;
                             isDefaultOrganization: boolean;
-                            name: string;
                             organizationId: string;
                             roster: {
                                 disabledAt: string | null;
@@ -24279,7 +24258,6 @@ export interface operations {
                         organizations: ({
                             billingStatus: ("local" | "trialing" | "active" | "disabled" | "deleting" | "purged") | null;
                             createdAt: string;
-                            name: string;
                             organizationId: string;
                         } & {
                             [key: string]: unknown;
@@ -24444,7 +24422,6 @@ export interface operations {
                         organization: {
                             billingStatus: ("local" | "trialing" | "active" | "disabled" | "deleting" | "purged") | null;
                             createdAt: string;
-                            name: string;
                             organizationId: string;
                         } & {
                             [key: string]: unknown;
@@ -24851,7 +24828,6 @@ export interface operations {
                             organization: {
                                 billingStatus: ("local" | "trialing" | "active" | "disabled" | "deleting" | "purged") | null;
                                 createdAt: string;
-                                name: string;
                                 organizationId: string;
                             } & {
                                 [key: string]: unknown;

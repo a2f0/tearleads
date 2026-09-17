@@ -8,6 +8,11 @@ import {
 import { createTestExecSql } from "@tearleads/test-utils";
 import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
 import {
+  buildInitialGroupPolicyRequest,
+  readTestGroupName,
+  testGroupMetadataKey,
+} from "../../../test/helpers/groupMetadata";
+import {
   organizationPolicyBundleFromInitialRequest,
   policyBundleAfterMutation,
   policyBundleFromInitialRequest,
@@ -20,7 +25,6 @@ import { assertGroupMembershipName } from "./groupMembershipName";
 import { buildAddGroupUserPolicyRequest } from "./groupPolicyRequests";
 import {
   addOrganizationGroupUser,
-  buildInitialGroupPolicyRequest,
   removeOrganizationGroupUser,
 } from "./principalPolicy";
 
@@ -51,9 +55,9 @@ test("membership name binding rejects an unnamed payload", async () => {
     },
   };
   const check = () => assertGroupMembershipName(unnamed, "Operators");
-  expect(check).toThrow("does not commit a display name");
+  await expect(check()).rejects.toThrow("Group metadata format is invalid");
   try {
-    check();
+    await check();
   } catch (error) {
     expect(error).not.toBeInstanceOf(KeyingVerificationError);
   }
@@ -71,6 +75,7 @@ async function createGroupPolicyFixture(): Promise<GroupPolicyFixture> {
     signingKeyPair.signingPublicKey,
   );
   const initialRequest = await buildInitialGroupPolicyRequest({
+    metadataKey: testGroupMetadataKey(organizationId),
     creatorEncapsulationKeyPair: creatorKem,
     groupId,
     name: "Operators",
@@ -80,6 +85,7 @@ async function createGroupPolicyFixture(): Promise<GroupPolicyFixture> {
   });
   const adminPolicy = await policyBundleFromInitialRequest(
     await buildInitialGroupPolicyRequest({
+      metadataKey: testGroupMetadataKey(organizationId),
       creatorEncapsulationKeyPair: creatorKem,
       groupId: adminGroupId,
       name: "Admins",
@@ -222,6 +228,7 @@ test.each(["Operators", " ｏｐｅｒａｔｏｒｓ "])(
     try {
       await expect(
         addOrganizationGroupUser({
+          readEncryptedName: readTestGroupName,
           afterPolicyCommitBeforeCache: async () => {
             throw new Error("Unexpected policy commit bridge");
           },
@@ -276,6 +283,7 @@ test.each(["Executives", "Operators\u200b", "Operators\u202e", ""])(
     try {
       await expect(
         addOrganizationGroupUser({
+          readEncryptedName: readTestGroupName,
           apiClient,
           beforePolicyCommit: () => {
             prepared = true;
@@ -321,6 +329,7 @@ test("group removal refuses a relabeled selection before committing", async () =
   try {
     await expect(
       removeOrganizationGroupUser({
+        readEncryptedName: readTestGroupName,
         apiClient,
         beforePolicyCommit: () => {
           throw new Error("Unexpected policy preparation");
@@ -392,6 +401,7 @@ test("group removal propagates remaining identity equivocation before rekey or m
   try {
     await expect(
       removeOrganizationGroupUser({
+        readEncryptedName: readTestGroupName,
         expectedGroupName: "Operators",
         afterPolicyCommitBeforeCache: async () => {
           throw new Error("Unexpected policy commit bridge");

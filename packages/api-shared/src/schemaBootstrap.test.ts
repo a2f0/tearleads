@@ -20,6 +20,10 @@ test("Postgres baseline initializes all tables without application data", async 
       "SELECT tablename FROM pg_tables WHERE schemaname = 'public'",
     );
     expect(rows).toHaveLength(55);
+    const nameColumns = await client.query(
+      "SELECT table_name FROM information_schema.columns WHERE table_schema = 'public' AND table_name IN ('groups', 'organizations') AND column_name = 'name'",
+    );
+    expect(nameColumns.rows).toEqual([]);
     for (const { tablename } of rows) {
       const result = await client.query<{ count: number }>(
         `SELECT count(*)::int AS count FROM "${tablename.replaceAll('"', '""')}"`,
@@ -53,6 +57,12 @@ test("SQLite baseline initializes all tables without application data", () => {
       )
       .all();
     expect(rows).toHaveLength(55);
+    for (const table of ["groups", "organizations"]) {
+      const columns = client
+        .query<{ name: string }, []>(`PRAGMA table_info('${table}')`)
+        .all();
+      expect(columns.some((column) => column.name === "name")).toBe(false);
+    }
     for (const { name } of rows) {
       const result = client
         .query<{ count: number }, []>(

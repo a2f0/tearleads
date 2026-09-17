@@ -229,7 +229,6 @@ async function listOrganizationGroupSummariesInTransaction(input: {
     .select({
       groupId: groupsTable.id,
       organizationId: groupsTable.organizationId,
-      name: groupsTable.name,
       createdAt: groupsTable.createdAt,
     })
     .from(groupsTable)
@@ -239,7 +238,7 @@ async function listOrganizationGroupSummariesInTransaction(input: {
         notInArray(groupsTable.id, [organization.memberGroupId]),
       ),
     )
-    .orderBy(asc(groupsTable.name), asc(groupsTable.id));
+    .orderBy(asc(groupsTable.id));
   const currentStates = await getCurrentPrincipalStates(
     "group",
     groupRows.map((group) => group.groupId),
@@ -258,7 +257,6 @@ async function listOrganizationGroupSummariesInTransaction(input: {
           createdAt: group.createdAt,
           groupId: group.groupId,
           isBuiltin: group.groupId === organization.adminGroupId,
-          name: group.name,
           organizationId: group.organizationId,
           state: currentStates.get(group.groupId),
         }),

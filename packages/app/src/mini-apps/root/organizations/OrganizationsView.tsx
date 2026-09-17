@@ -17,14 +17,10 @@ import {
   MiniAppTableText,
 } from "../../../components/mini-app/MiniAppTable";
 import { useTearleads } from "../../../providers/sdk/TearleadsProvider";
-import {
-  compactRootIdentifier,
-  formatRootTimestamp,
-} from "../identities/rootDisplay";
+import { formatRootTimestamp } from "../identities/rootDisplay";
 import { useRootPage } from "./useRootPage";
 
 const COLUMNS = [
-  { id: "name", header: "Organization" },
   { id: "id", header: "Organization ID" },
   { id: "billing", header: "Billing", width: "7rem" },
   { id: "created", header: "Created", width: "10rem" },
@@ -72,7 +68,7 @@ export function OrganizationsView({
         <MiniAppToolbar wrap>
           <MiniAppInput
             aria-label="Search organizations"
-            placeholder="Organization name or ID"
+            placeholder="Organization ID"
             value={draft}
             maxLength={200}
             onChange={(event) => setDraft(event.target.value)}
@@ -104,13 +100,8 @@ export function OrganizationsView({
                   <MiniAppTableActionButton
                     onClick={() => onSelectOrganization(org.organizationId)}
                   >
-                    {org.name}
+                    {org.organizationId}
                   </MiniAppTableActionButton>
-                </MiniAppTableCell>
-                <MiniAppTableCell>
-                  <MiniAppTableText title={org.organizationId}>
-                    {compactRootIdentifier(org.organizationId)}
-                  </MiniAppTableText>
                 </MiniAppTableCell>
                 <MiniAppTableCell>
                   <MiniAppTableText>

@@ -117,7 +117,6 @@ test("POST /auth/register creates reserved admin and member groups in postgres",
     .select({
       groupId: groups.id,
       organizationId: groups.organizationId,
-      name: groups.name,
     })
     .from(groups)
     .where(eq(groups.organizationId, body.organizationId));
@@ -127,12 +126,10 @@ test("POST /auth/register creates reserved admin and member groups in postgres",
       {
         groupId: organization.adminGroupId,
         organizationId: body.organizationId,
-        name: "Admins",
       },
       {
         groupId: organization.memberGroupId,
         organizationId: body.organizationId,
-        name: "Members",
       },
     ]),
   );

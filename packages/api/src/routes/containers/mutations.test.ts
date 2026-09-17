@@ -365,7 +365,8 @@ async function putGroupPrincipalPolicy(input: {
     payloadCiphertext: await groupPolicyPayload(
       input.principalId,
       projection,
-      isInitialState ? "Test group" : undefined,
+      undefined,
+      await getDefaultOrganizationId(input.actor.userId),
     ),
     signedAt:
       input.signedAt ?? new Date("2026-04-30T00:00:00.000Z").toISOString(),
@@ -460,7 +461,6 @@ async function putGroupPrincipalPolicy(input: {
             organizationId: actor.organizationId,
             request: {
               groupId: input.principalId,
-              name: "Test group",
               initialGroupPolicy: policyRequest,
             },
           })),

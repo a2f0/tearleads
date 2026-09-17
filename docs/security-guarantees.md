@@ -190,25 +190,31 @@ deduplicated. Verification rebuilds paths by parent id from those citations,
 never from creation-time pins. Missing ancestors or two heads of one container
 are rejected. Runtime readers verify every signature, hash, and cited path.
 
-The group display name is committed in the signed group payload. The
-`groups.name` column and the organization read model are listing aids; when a
-member shares a container with a group they chose by name, the client checks
-that name against the verified payload and fails closed on a mismatch, so a
-relabeled read-model row cannot redirect a share onto another group. Signed
-names are unique within an organization because conforming clients enforce
-it: group creation verifies every group in the signed directory before
-committing a new name. The server does not index group names uniquely, and a
-compromised server cannot mint a signed group, so the client-side check is the
-only one. Two admins creating the same name at once cannot both succeed: each
-creation commits a successor of the signed organization directory, and the
-API rejects a successor that does not cite the current directory head, so the
-loser reloads the directory and re-runs the check. Policy mutations and sharing
-require a nonempty display name in the verified group payload.
+Custom group names are encrypted inside their signed policy payloads with
+AES-256-GCM and a domain-separated key derived from the organization metadata
+container KEK. Authentication binds the group, organization, container and key
+epoch. All organization members can read every group's name; the verified
+historical keyring preserves readability after rotation. The API has no group
+or organization name columns. Organization names live in encrypted profiles.
 
-Membership writes bind the label to the verified signed policy before
-recipient resolution, wrapping, or signing. Add and remove refuse mismatches.
-Group creation binds its listing name to the signed name; every successor
-must preserve it. Known gap: grant-revoke labels remain unbound.
+Creation verifies the metadata container's signed system slot. When an ancestor
+update makes its live projection unavailable, name reads can use the bounded
+KEK recovery log. The group's signed payload pins the required material ID;
+recovery verifies that commitment before decryption and advances no container
+checkpoint. A recovery-log response cannot select a new encryption key.
+
+Reserved Admins and Members labels are client constants. Their random group
+IDs and roles are authenticated by the signed organization descriptor; their
+roles and memberships remain visible to the service. They are not identified
+by server-provided display names.
+
+Before displaying or acting on a name, clients verify the group's signed
+directory binding and decrypt its metadata. Creation checks name uniqueness
+against that directory. Membership and grant successors retain the ciphertext;
+local decrypted display caches never enter API requests.
+This format requires a fresh database; legacy plaintext group payloads and
+server name fields have no compatibility path; existing signed history must not
+be silently rewritten or relabeled as encrypted.
 
 The app repeats these checks on fetched policy bundles. A bundle with a
 tampered projection, payload, state hash, chain link, signer, or checkpoint

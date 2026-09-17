@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "d5fc8cf7-f5ef-4eaa-addf-3338fe2a52bf",
+  "id": "a04df129-7575-4a39-9099-607d577ed5eb",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
     "access_event_dependency_projection": {
@@ -3129,13 +3129,6 @@
           "notNull": false,
           "autoincrement": false
         },
-        "name": {
-          "name": "name",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
         "created_at": {
           "name": "created_at",
           "type": "integer",
@@ -3146,9 +3139,9 @@
         }
       },
       "indexes": {
-        "groups_organization_name_idx": {
-          "name": "groups_organization_name_idx",
-          "columns": ["organization_id", "name", "id"],
+        "groups_organization_id_idx": {
+          "name": "groups_organization_id_idx",
+          "columns": ["organization_id", "id"],
           "isUnique": false
         }
       },
@@ -4431,13 +4424,6 @@
         },
         "member_group_id": {
           "name": "member_group_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "name": {
-          "name": "name",
           "type": "text",
           "primaryKey": false,
           "notNull": true,

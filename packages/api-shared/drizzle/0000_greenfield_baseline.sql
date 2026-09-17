@@ -414,7 +414,6 @@ CREATE TABLE "documents" (
 CREATE TABLE "groups" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"organization_id" uuid,
-	"name" text NOT NULL,
 	"created_at" timestamp DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
@@ -593,7 +592,6 @@ CREATE TABLE "organizations" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"admin_group_id" uuid NOT NULL,
 	"member_group_id" uuid NOT NULL,
-	"name" text NOT NULL,
 	"profile_document_id" uuid,
 	"created_at" timestamp DEFAULT now() NOT NULL
 );
@@ -831,7 +829,7 @@ CREATE INDEX "document_update_spans_peer_counter_idx" ON "document_update_spans"
 CREATE UNIQUE INDEX "document_update_spans_update_peer_idx" ON "document_update_spans" USING btree ("update_id","peer_id");--> statement-breakpoint
 CREATE INDEX "document_updates_document_sequence_idx" ON "document_updates" USING btree ("document_id","sequence");--> statement-breakpoint
 CREATE INDEX "documents_updated_at_id_idx" ON "documents" USING btree ("updated_at","id");--> statement-breakpoint
-CREATE INDEX "groups_organization_name_idx" ON "groups" USING btree ("organization_id","name","id");--> statement-breakpoint
+CREATE INDEX "groups_organization_id_idx" ON "groups" USING btree ("organization_id","id");--> statement-breakpoint
 CREATE UNIQUE INDEX "organization_billing_org_idx" ON "organization_billing" USING btree ("organization_id");--> statement-breakpoint
 CREATE INDEX "organization_billing_trial_expiry_idx" ON "organization_billing" USING btree ("status","trial_ends_at","trial_expiry_next_attempt_at","organization_id");--> statement-breakpoint
 CREATE INDEX "organization_billing_purge_candidates_idx" ON "organization_billing" USING btree ("status","purge_after","purge_started_at","organization_id");--> statement-breakpoint

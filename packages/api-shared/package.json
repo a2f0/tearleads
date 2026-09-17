@@ -17,13 +17,11 @@
     "@electric-sql/pglite": "0.5.8",
     "@libsql/client": "0.18.0",
     "@tearleads/crypto": "workspace:*",
-    "@tearleads/encoding": "workspace:*",
     "@tearleads/loro": "workspace:*",
     "drizzle-orm": "0.45.2",
     "pg": "8.23.0"
   },
   "devDependencies": {
-    "@tearleads/test-utils": "workspace:*",
     "@types/bun": "catalog:",
     "@types/pg": "8.23.1",
     "drizzle-kit": "0.31.10"

@@ -61,7 +61,6 @@ test("organization purge removes one organization's remote state and retains its
   invariant(organization, "expected organization groups");
   await db.insert(groups).values({
     id: untouchedOrganizationId,
-    name: "Colliding group",
     organizationId,
   });
   const untouchedPrincipalStates = await db

@@ -16,6 +16,7 @@ import {
   listCurrentPrincipalProjectionMembers,
 } from "../../src/access/read/principalStateStore";
 import { buildRootContainerRekeyMutation } from "./containerRekey";
+import { groupPolicyPayload } from "./groupPolicyPayload";
 import { bootstrapRoot } from "./keyingWriterProjectionKit";
 import { addOrganizationMember } from "./organizationMembership";
 import { submitOrganizationGroupPolicyCommit } from "./principalPolicy";
@@ -144,10 +145,9 @@ export async function prepareUserForAdminGroup(input: {
     })),
     projection: nextProjection,
     grants: currentPolicy.grants,
-    payloadCiphertext: bytesToBase64(
-      new TextEncoder().encode(
-        JSON.stringify({ members: nextProjection, name: "Admins" }),
-      ),
+    payloadCiphertext: await groupPolicyPayload(
+      organization.adminGroupId,
+      nextProjection,
     ),
     signedAt: SIGNED_AT,
     signerUserId: input.actor.userId,

@@ -12,6 +12,7 @@ import {
   createMutationResponseFromRequest,
   SIGNED_AT,
 } from "../../../../test/helpers/containerFixtures";
+import { buildInitialGroupPolicyRequest } from "../../../../test/helpers/groupMetadata";
 import { createSuccessorGroupPolicyBundle } from "../../../../test/helpers/groupPolicyFixtures";
 import {
   organizationPolicyBundleFromInitialRequest,
@@ -29,7 +30,7 @@ import {
 import { containerStateHasCurrentGroupGrant } from "../../container-contents/container-state/groupGrantVerification";
 import type { ContainerWorkflowRuntime } from "../../container-contents/container-state/types";
 import type { ContainerState } from "../../container-contents/remoteHydration";
-import { buildInitialGroupPolicyRequest } from "../../organizations/principalPolicy";
+
 import { buildInitialOrganizationPolicyRequest } from "../../registration/registerIdentity";
 import {
   buildRootContainerCreatePlan,

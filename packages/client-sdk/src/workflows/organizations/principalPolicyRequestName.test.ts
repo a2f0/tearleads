@@ -5,12 +5,12 @@ import {
 } from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
 import { createAuthor } from "../../../test/helpers/containerFixtures";
-import { policyBundleFromInitialRequest } from "../../../test/helpers/principalPolicyFixtures";
 import {
   buildInitialGroupPolicyRequest,
-  canonicalGroupNameKey,
   readGroupPolicyPayloadName,
-} from "./principalPolicyRequest";
+} from "../../../test/helpers/groupMetadata";
+import { policyBundleFromInitialRequest } from "../../../test/helpers/principalPolicyFixtures";
+import { canonicalGroupNameKey } from "./principalPolicyRequest";
 
 test("look-alike group names share one canonical key", () => {
   const key = canonicalGroupNameKey("Operators");
@@ -32,9 +32,8 @@ test("look-alike group names share one canonical key", () => {
   expect(canonicalGroupNameKey("Operator")).not.toBe(key);
 });
 
-// The group display name is committed in the signed payload, not only in the
-// server's mutable `groups.name` column, so a share can check the name the
-// user chose against signed state.
+// The encrypted group name is committed in the signed payload, so a share
+// checks the chosen label against authenticated client-decrypted metadata.
 
 async function createGroupBundle(name: string) {
   const { author, signingPublicKey } = await createAuthor({
@@ -57,8 +56,8 @@ async function createGroupBundle(name: string) {
 
 test("the group name is committed in the signed payload", async () => {
   const { bundle, request } = await createGroupBundle("  Operators ");
-  expect(request.name).toBe("Operators");
-  expect(readGroupPolicyPayloadName(bundle)).toBe("Operators");
+  expect(request).not.toHaveProperty("name");
+  expect(await readGroupPolicyPayloadName(bundle)).toBe("Operators");
   expect(bundle.currentState.payloadCiphertextHash).toBe(
     request.initialGroupPolicy.encryptedPayload.ciphertextHash,
   );
@@ -76,18 +75,16 @@ test("a payload without a committed name fails closed", async () => {
       ),
     },
   };
-  expect(() => readGroupPolicyPayloadName(withoutName)).toThrow(
-    "does not commit a display name",
-  );
-  expect(() => readGroupPolicyPayloadName(withoutName)).not.toThrow(
-    KeyingVerificationError,
-  );
-  expect(() =>
+  await expect(readGroupPolicyPayloadName(withoutName)).rejects.toThrow();
+  await expect(
+    readGroupPolicyPayloadName(withoutName),
+  ).rejects.not.toBeInstanceOf(KeyingVerificationError);
+  await expect(
     readGroupPolicyPayloadName({
       ...bundle,
       currentPayload: { ...bundle.currentPayload, ciphertext: "not-json" },
     }),
-  ).toThrow("not canonical JSON");
+  ).rejects.toThrow();
 });
 
 test("a group name with control or format characters is refused when signed", async () => {

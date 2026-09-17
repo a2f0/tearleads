@@ -14,7 +14,7 @@ const groups = {
     {
       groupId: "group-1",
       organizationId,
-      name: "Admins",
+
       createdAt: "2026-07-16T00:00:00.000Z",
       isBuiltin: true,
       currentState: {
@@ -53,7 +53,6 @@ const grant = {
   userId: null,
   signingKeyFingerprint: null,
   groupId: "group-1",
-  groupName: "Admins",
 };
 const grants = { organizationId, grants: [grant] };
 const groupMemberships = {
@@ -139,7 +138,7 @@ test("rejects legacy protocols and incomplete snapshots", () => {
             {
               ...grant,
               groupId: null,
-              groupName: null,
+
               organizationName: "Organization B",
               subjectId: "organization-2",
               subjectType: "organization",
@@ -314,7 +313,7 @@ test("rejects cross-organization or malformed read-model lanes", () => {
             {
               groupId: "group-1",
               organizationId: "organization-2",
-              name: "Foreign",
+
               createdAt: "2026-07-16T00:00:00.000Z",
               isBuiltin: false,
               currentState: null,

@@ -7,6 +7,10 @@ import {
 import type { PutPrincipalPolicyRequest } from "@tearleads/validators/request";
 import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
 import {
+  buildInitialGroupPolicyRequest,
+  readGroupPolicyPayloadName,
+} from "../../../test/helpers/groupMetadata";
+import {
   policyBundleAfterMutation,
   policyBundleFromInitialRequest,
 } from "../../../test/helpers/principalPolicyFixtures";
@@ -17,10 +21,6 @@ import {
   buildRemoveGroupUserPolicyRequest,
   buildSetGroupContainerGrantPolicyRequest,
 } from "./groupPolicyRequests";
-import {
-  buildInitialGroupPolicyRequest,
-  readGroupPolicyPayloadName,
-} from "./principalPolicyRequest";
 
 // Every successor state a group signs must carry the predecessor's display
 // name forward: a mutation that dropped it would orphan the group, since no
@@ -79,8 +79,11 @@ test("successor group policies carry the signed name forward", async () => {
     previous: PrincipalPolicyBundleResponse,
     mutation: PutPrincipalPolicyRequest,
   ): Promise<PrincipalPolicyBundleResponse> => {
+    expect(mutation.encryptedPayload.ciphertext).toBe(
+      previous.currentPayload.ciphertext,
+    );
     const bundle = await policyBundleAfterMutation({ mutation, previous });
-    expect(readGroupPolicyPayloadName(bundle)).toBe("Operators");
+    expect(await readGroupPolicyPayloadName(bundle)).toBe("Operators");
     return bundle;
   };
 

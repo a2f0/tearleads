@@ -408,7 +408,6 @@ export function createOrganizationGroupRequest(): CreateOrganizationGroupRequest
 
   return {
     groupId: policyRequest.state.principalId,
-    name: "Operators",
     initialGroupPolicy: policyRequest,
   };
 }

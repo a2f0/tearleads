@@ -1,12 +1,14 @@
 import type { ContainerMutationAuthor } from "@tearleads/client-sdk";
 import {
+  encryptGroupMetadata,
   type generateKemSeedAndKeyPair,
   toFingerprint,
   wrapDekForRecipients,
 } from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
 import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
-import { readGroupPolicyPayloadName } from "../../src/workflows/organizations/principalPolicyRequest";
+import { testGroupMetadataKey } from "./groupMetadata";
+
 import { signedPrincipalPolicyBundle } from "./principalPolicyFixtures";
 
 export async function createSuccessorGroupPolicyBundle(input: {
@@ -40,16 +42,14 @@ export async function createSuccessorGroupPolicyBundle(input: {
         wrappedKey: bytesToBase64(wrappedMember.wrappedKey),
       },
     ],
-    payloadCiphertext: bytesToBase64(
-      new TextEncoder().encode(
-        JSON.stringify({
-          members: [{ userId: input.userId, role: "admin" }],
-          // Read from the signed predecessor, as the production successor
-          // builders do; a fixture without a committed name fails loudly here.
-          name: input.name ?? readGroupPolicyPayloadName(input.previousBundle),
-        }),
-      ),
-    ),
+    payloadCiphertext:
+      input.name === undefined
+        ? input.previousBundle.currentPayload.ciphertext
+        : await encryptGroupMetadata({
+            key: testGroupMetadataKey(input.author.organizationId),
+            groupId: input.groupId,
+            name: input.name,
+          }),
     previousStates: [
       ...input.previousBundle.previousStates,
       {

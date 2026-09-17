@@ -29,6 +29,7 @@ import {
   requireTrustedUserIdentityResolver,
   type TrustedUserIdentityResolver,
 } from "../../../data/trustedUserIdentity";
+import { createGroupMetadataAccess } from "../../organizations/groupMetadataAccess";
 import { preparePrincipalContainerRematerializationBatch } from "../../organizations/principalContainerRematerialization";
 import { setOrganizationGroupContainerGrant } from "../../organizations/principalPolicy";
 import { submitAcknowledgedContainerMutation } from "./mutationSubmit";
@@ -311,6 +312,22 @@ function assertGrantMintNamed(expectedGroupName: string | null): void {
   }
 }
 
+function loadShareGroupPolicy(input: RemoteContainerGroupShareInput) {
+  return loadVerifiedGroupSharePrincipalPolicy({
+    apiClient: input.apiClient,
+    execSql: input.execSql,
+    expectedGroupName: input.expectedGroupName ?? undefined,
+    readEncryptedName: createGroupMetadataAccess({
+      ...input,
+      organizationId: input.author.organizationId,
+    }).readName,
+    groupId: input.recipientGroupId,
+    organizationId: input.author.organizationId,
+    resolveTrustedUserIdentity: input.resolveTrustedUserIdentity,
+    stillCurrent: input.stillCurrent,
+  });
+}
+
 export async function shareRemoteContainerWithGroup(
   input: RemoteContainerGroupShareInput,
 ): Promise<RemoteContainerGroupShareResult | null> {
@@ -325,15 +342,7 @@ export async function shareRemoteContainerWithGroup(
   if (!previousProjection || input.stillCurrent?.() === false) {
     return null;
   }
-  const verifiedPrincipalPolicy = await loadVerifiedGroupSharePrincipalPolicy({
-    apiClient: input.apiClient,
-    execSql: input.execSql,
-    expectedGroupName: input.expectedGroupName ?? undefined,
-    groupId: input.recipientGroupId,
-    organizationId: input.author.organizationId,
-    resolveTrustedUserIdentity: input.resolveTrustedUserIdentity,
-    stillCurrent: input.stillCurrent,
-  });
+  const verifiedPrincipalPolicy = await loadShareGroupPolicy(input);
   if (input.stillCurrent?.() === false) return null;
   await advanceVerifiedSharePolicies(
     input.execSql,

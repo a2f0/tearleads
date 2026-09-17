@@ -7,6 +7,7 @@ import {
   SIGNED_AT,
 } from "../../../test/helpers/containerFixtures";
 import { createResponseFromRequest } from "../../../test/helpers/documentFixtures";
+import { buildInitialGroupPolicyRequest } from "../../../test/helpers/groupMetadata";
 import { policyBundleFromInitialRequest } from "../../../test/helpers/principalPolicyFixtures";
 import { createTestTrustedUserIdentityResolver } from "../../../test/helpers/trustedUserIdentity";
 import { loadPrincipalPolicyCheckpoint } from "../../data/persistence/keyingCheckpointPersistence";
@@ -15,7 +16,7 @@ import {
   buildRootContainerCreatePlan,
   rootContainerWriterProjectionFromCreatePlan,
 } from "../containers/root/create";
-import { buildInitialGroupPolicyRequest } from "../organizations/principalPolicy";
+
 import { createRuntimePrincipalPolicyWarmer } from "../principals/runtimePolicyWarmer";
 import { createRemoteDocument } from "./create";
 

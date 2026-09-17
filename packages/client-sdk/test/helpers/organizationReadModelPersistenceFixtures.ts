@@ -60,7 +60,7 @@ export function organizationReadModelGroups(
       {
         groupId: `admins-${organizationId}`,
         organizationId,
-        name: `Admins ${suffix}`,
+
         createdAt: CREATED_AT,
         isBuiltin: true,
         currentState: {
@@ -74,7 +74,7 @@ export function organizationReadModelGroups(
       {
         groupId: `empty-${organizationId}`,
         organizationId,
-        name: `Empty ${suffix}`,
+
         createdAt: CREATED_AT,
         isBuiltin: false,
         currentState: null,
@@ -205,5 +205,15 @@ export function organizationReadModelDelta(input: {
         ? { organizationPolicy: input.organizationPolicy }
         : {}),
     },
+  };
+}
+
+export function locallyUnnamedGroups(
+  ...input: Parameters<typeof organizationReadModelGroups>
+) {
+  const listing = organizationReadModelGroups(...input);
+  return {
+    ...listing,
+    groups: listing.groups.map((group) => ({ ...group, name: "" })),
   };
 }

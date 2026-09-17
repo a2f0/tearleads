@@ -66,7 +66,7 @@ test("isRegistrationRequest", () => {
   };
   const validInitialAdminGroup = {
     groupId: adminGroupId,
-    name: "Admins",
+
     initialGroupPolicy: {
       state: {
         ...validInitialOrganizationPolicy.state,
@@ -81,7 +81,7 @@ test("isRegistrationRequest", () => {
   };
   const validInitialMemberGroup = {
     groupId: memberGroupId,
-    name: "Members",
+
     initialGroupPolicy: {
       state: {
         ...validInitialOrganizationPolicy.state,

@@ -6,6 +6,11 @@ import {
 } from "@tearleads/crypto";
 import { createTestExecSql } from "@tearleads/test-utils";
 import {
+  buildInitialGroupPolicyRequest,
+  readTestGroupName,
+  testGroupMetadataKey,
+} from "../../../test/helpers/groupMetadata";
+import {
   organizationPolicyBundleFromInitialRequest,
   policyBundleAfterMutation,
   policyBundleFromInitialRequest,
@@ -21,7 +26,6 @@ import { loadPrincipalPolicyBundle } from "../../data/persistence/principalPolic
 import { buildInitialOrganizationPolicyRequest } from "../registration/registerIdentity";
 import {
   addOrganizationGroupUser,
-  buildInitialGroupPolicyRequest,
   removeOrganizationGroupUser,
 } from "./principalPolicy";
 
@@ -60,6 +64,7 @@ test("local admin projections cannot authorize a group membership mutation", asy
   );
   const groupPolicy = await policyBundleFromInitialRequest(
     await buildInitialGroupPolicyRequest({
+      metadataKey: testGroupMetadataKey(organizationId),
       creatorEncapsulationKeyPair: groupAdminKem,
       groupId,
       name: "Operators",
@@ -70,6 +75,7 @@ test("local admin projections cannot authorize a group membership mutation", asy
   );
   const adminPolicy = await policyBundleFromInitialRequest(
     await buildInitialGroupPolicyRequest({
+      metadataKey: testGroupMetadataKey(organizationId),
       creatorEncapsulationKeyPair: organizationAdminKem,
       groupId: adminGroupId,
       name: "Admins",
@@ -139,6 +145,7 @@ test("local admin projections cannot authorize a group membership mutation", asy
   try {
     await expect(
       addOrganizationGroupUser({
+        readEncryptedName: readTestGroupName,
         apiClient: {
           commitOrganizationGroupPolicy: async () => {
             throw new Error("Unexpected group policy commit");
@@ -231,6 +238,7 @@ test("a verified Admins member can mutate another group after the signed directo
   });
   const initialAdminPolicy = await policyBundleFromInitialRequest(
     await buildInitialGroupPolicyRequest({
+      metadataKey: testGroupMetadataKey(organizationId),
       creatorEncapsulationKeyPair: founderKem,
       groupId: adminGroupId,
       name: "Admins",
@@ -249,6 +257,7 @@ test("a verified Admins member can mutate another group after the signed directo
   };
   const initialGroupPolicy = await policyBundleFromInitialRequest(
     await buildInitialGroupPolicyRequest({
+      metadataKey: testGroupMetadataKey(organizationId),
       creatorEncapsulationKeyPair: founderKem,
       externalAuthority: initialAdminHead,
       groupId,
@@ -361,6 +370,7 @@ test("a verified Admins member can mutate another group after the signed directo
       },
     };
     await addOrganizationGroupUser({
+      readEncryptedName: readTestGroupName,
       apiClient,
       beforePolicyCommit: () => {},
       currentUserSecretKey: founderKem.secretKey,
@@ -377,6 +387,7 @@ test("a verified Admins member can mutate another group after the signed directo
     });
 
     const result = await addOrganizationGroupUser({
+      readEncryptedName: readTestGroupName,
       apiClient,
       beforePolicyCommit: () => {},
       currentUserSecretKey: signerKem.secretKey,
@@ -420,6 +431,7 @@ test("a verified Admins member can mutate another group after the signed directo
     expect(organizationPolicyReads).toBeGreaterThan(0);
 
     const emptiedGroup = await removeOrganizationGroupUser({
+      readEncryptedName: readTestGroupName,
       apiClient,
       beforePolicyCommit: () => {},
       execSql,
@@ -436,6 +448,7 @@ test("a verified Admins member can mutate another group after the signed directo
     expect(emptiedGroup.currentProjection).toEqual([]);
 
     await removeOrganizationGroupUser({
+      readEncryptedName: readTestGroupName,
       apiClient,
       beforePolicyCommit: () => {},
       execSql,
@@ -453,6 +466,7 @@ test("a verified Admins member can mutate another group after the signed directo
 
     await expect(
       addOrganizationGroupUser({
+        readEncryptedName: readTestGroupName,
         apiClient,
         beforePolicyCommit: () => {},
         currentUserSecretKey: signerKem.secretKey,

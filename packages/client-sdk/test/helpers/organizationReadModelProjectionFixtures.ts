@@ -72,7 +72,7 @@ function organizationReadModelGroups(
       {
         groupId: `group-${organizationId}`,
         organizationId,
-        name: groupName,
+
         createdAt: CREATED_AT,
         isBuiltin: groupName === "Admins",
         currentState: {
@@ -167,7 +167,6 @@ function organizationReadModelGrants(
             userId: null,
             signingKeyFingerprint: null,
             groupId: group.groupId,
-            groupName: group.name,
           },
         ]
       : [],
