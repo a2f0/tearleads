@@ -102,7 +102,14 @@ grant/revoke and roster transition over those categories.
 models cold recovery from persisted user/group recipient wraps, immutable
 predecessor bridges, and sealed historical keyrings. Its `Members` abstraction
 is the set of users authorized by active direct-user or same-organization group
-grants; organization principals are not recovery recipients.
+grants; organization principals are not recovery recipients. `Descendants`
+extend it with child containers whose key epochs pin the parent epoch current
+when they were minted: the fixed rule verifies a descendant against any pinned
+epoch the parent's retained history still covers, and the negative control
+`strict-parent-epoch-pin-strands-descendant` reproduces the production rule
+(`assertContainerKeyEpochParentBinding`) that an ancestor rotation strands the
+subtree. The bounded run explores 2,835,032 generated states, 914,952 distinct
+states, at depth 5.
 
 ## No Bricked Device
 

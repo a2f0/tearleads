@@ -3,10 +3,10 @@ EXTENDS Naturals, FiniteSets
 
 CONSTANTS ProtectPending, CheckEpoch, CheckRevision, CheckReadPlacement,
           CheckReadMembership, CaptureSettledEpoch, KeepNewestPageLinks,
-          ProtectPendingTombstones
+          ProtectPendingTombstones, TombstonesRequireSignedEvidence
 ASSUME {ProtectPending, CheckEpoch, CheckRevision, CheckReadPlacement,
         CheckReadMembership, CaptureSettledEpoch, KeepNewestPageLinks,
-          ProtectPendingTombstones}
+        ProtectPendingTombstones, TombstonesRequireSignedEvidence}
        \subseteq BOOLEAN
 
 VARIABLES revision, pending, desired, localLinks, localEpoch, visible,
@@ -100,6 +100,24 @@ ApplyTombstone ==
                   remoteLinks, remoteEpoch, attempt, attemptTarget, phase, recovering,
                   pageLinks, pageEpoch, pageReady, readLinks, readReady, readSummary>>
 
+(* An unverified listing tombstone names a container to remove from the      *)
+(* local link rows and repoints the primary container to the remaining       *)
+(* server-listed rows. The signed-evidence gate admits the removal only when *)
+(* the committed (signed) link set no longer contains that container;        *)
+(* without it a dishonest listing deletes a link the signed head still has   *)
+(* and hides or re-places the document locally.                              *)
+ApplyListingTombstone ==
+  /\ ~pending
+  /\ \E removed \in localLinks :
+       /\ IF TombstonesRequireSignedEvidence
+            THEN removed \notin remoteLinks
+            ELSE TRUE
+       /\ localLinks' = localLinks \ {removed}
+       /\ visible' = localLinks'
+       /\ UNCHANGED <<revision, pending, desired, localEpoch, remoteLinks,
+                       remoteEpoch, attempt, attemptTarget, phase, recovering,
+                       pageLinks, pageEpoch, pageReady, readLinks, readReady, readSummary>>
+
 ApplyPage ==
   /\ pageReady /\ pageReady' = FALSE
   /\ LET allowed == (~ProtectPending \/ ~pending)
@@ -142,8 +160,23 @@ TypeOK ==
 StablePlacement == localLinks = {desired}
 StableView == visible = {desired}
 
+(* No step that only changes local placement may remove a container the      *)
+(* signed (committed) link set still contains. A listing tombstone is the    *)
+(* one such step; its evidence gate is what keeps this true.                 *)
+TombstonesNeedSignedEvidence ==
+  [][~ (/\ ~pending
+        /\ \E removed \in {"root", "trash", "other"} :
+             /\ removed \in localLinks
+             /\ removed \in remoteLinks
+             /\ removed \notin localLinks'
+             /\ UNCHANGED remoteLinks
+        /\ UNCHANGED <<revision, desired, localEpoch, attempt, attemptTarget, phase,
+                       pageLinks, pageEpoch, pageReady, readLinks, readReady, readSummary,
+                       recovering>>)]_vars
+
 Next == QueueMove \/ StartReplay \/ Link \/ Unlink \/ Settle \/ LoseResponse
-        \/ CapturePage \/ MergeCurrentPage \/ ApplyPage \/ ApplyTombstone \/ StartRead \/ RefreshReadSummary \/ FinishRead
+        \/ CapturePage \/ MergeCurrentPage \/ ApplyPage \/ ApplyTombstone \/ ApplyListingTombstone
+        \/ StartRead \/ RefreshReadSummary \/ FinishRead
         \/ UNCHANGED vars
 Spec == Init /\ [][Next]_vars
 =============================================================================

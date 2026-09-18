@@ -50,4 +50,12 @@ export const RECOVERY_NEGATIVE_CONTROLS: readonly NegativeControl[] = [
     },
     why: "A resumed writer must not overwrite the recovered checkpoint with its stale pre-recovery history.",
   },
+  {
+    id: "strict-parent-epoch-pin-strands-descendant",
+    module: "formal/container-keying/KeyringReachability.tla",
+    config: "formal/container-keying/KeyringReachability.cfg",
+    constants: { StrictParentEpochPin: "TRUE" },
+    expect: { kind: "invariant", name: "HonestServesNeverStranded" },
+    why: "Verification requiring the child pin to equal the parent's CURRENT epoch strands every descendant after an ancestor rotation, even though the parent's retained history still covers the pinned epoch.",
+  },
 ];

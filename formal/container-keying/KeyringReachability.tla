@@ -14,12 +14,24 @@ EXTENDS FiniteSets, Naturals
 (* but can seal an HONEST keyring only when the full history is            *)
 (* recoverable to that rotator personally -- the exact-count structural    *)
 (* check rejects anything less. Repair is an ordinary honest rotation.     *)
+(*                                                                         *)
+(* Descendants (children created under this container) pin the PARENT      *)
+(* epoch current when their key epoch was minted; rotations do not rewrite *)
+(* that pin. Verification of a descendant must admit a pin covered by the  *)
+(* parent's retained history (the sealed keyring ladder), so an ancestor   *)
+(* rotation never strands the subtree and a lazy rekey stays performable.  *)
+(* StrictParentEpochPin models the vulnerable rule that accepts only the   *)
+(* parent's CURRENT epoch: one rotation strands every descendant pinned    *)
+(* earlier, which is production's `assertContainerKeyEpochParentBinding`.  *)
 
-CONSTANTS MaxEpoch, Members
+CONSTANTS MaxEpoch, Members, Descendants, StrictParentEpochPin
 
 ASSUME /\ MaxEpoch \in Nat \ {0, 1}
        /\ Members # {}
+       /\ Descendants # {}
        /\ IsFiniteSet(Members)
+       /\ IsFiniteSet(Descendants)
+       /\ StrictParentEpochPin \in BOOLEAN
 
 Epochs == 1..MaxEpoch
 RotatedEpochs == 2..MaxEpoch
@@ -29,10 +41,11 @@ VARIABLES epoch,          \* current key epoch
           keyringHonest,  \* e -> the keyring sealed at e passes verification
           wrapHolders,    \* e -> members whose retained wrap for e is usable
           membersAtEpoch, \* e -> membership when e was minted (history var)
-          currentMembers  \* members with current access
+          currentMembers, \* members with current access
+          childPin        \* child -> the parent epoch its key epoch pins
 
 vars == << epoch, bridgeIntact, keyringHonest, wrapHolders, membersAtEpoch,
-           currentMembers >>
+           currentMembers, childPin >>
 
 TypeOK ==
   /\ epoch \in Epochs
@@ -41,6 +54,7 @@ TypeOK ==
   /\ wrapHolders \in [Epochs -> SUBSET Members]
   /\ membersAtEpoch \in [Epochs -> SUBSET Members]
   /\ currentMembers \in (SUBSET Members) \ {{}}
+  /\ childPin \in [Descendants -> Epochs]
 
 (* Wraps address only the members present when their epoch was minted --   *)
 (* the write path derives recipient targets from the manifest.             *)
@@ -78,8 +92,18 @@ Init ==
   /\ keyringHonest = [e \in RotatedEpochs |-> TRUE]
   /\ currentMembers \in (SUBSET Members) \ {{}}
   /\ membersAtEpoch = [e \in Epochs |-> IF e = 1 THEN currentMembers ELSE {}]
+  /\ childPin = [child \in Descendants |-> 1]
   /\ \E holders \in SUBSET currentMembers :
        wrapHolders = [e \in Epochs |-> IF e = 1 THEN holders ELSE {}]
+
+(* A child is created (or later re-pinned by its own create/rekey/move)    *)
+(* against the parent epoch current at that moment. Rotation never rewrites *)
+(* the pin: production stores parentContainerKeyEpochId with the child's   *)
+(* signed key epoch and no descendant update accompanies a rotation.       *)
+PinChild(child) ==
+  /\ childPin' = [childPin EXCEPT ![child] = epoch]
+  /\ UNCHANGED <<epoch, bridgeIntact, keyringHonest, wrapHolders,
+                 membersAtEpoch, currentMembers>>
 
 (* A rotation appends immutable artifacts and may change membership        *)
 (* (revocations are rotations; additive grants fold in conservatively).    *)
@@ -100,9 +124,11 @@ Rotate(honestBridge, honestKeyring) ==
   /\ epoch' = epoch + 1
   /\ bridgeIntact' = [bridgeIntact EXCEPT ![epoch + 1] = honestBridge]
   /\ keyringHonest' = [keyringHonest EXCEPT ![epoch + 1] = honestKeyring]
+  /\ childPin' = childPin
 
 Next ==
   \/ \E hb \in BOOLEAN, hk \in BOOLEAN : Rotate(hb, hk)
+  \/ \E child \in Descendants : PinChild(child)
   \/ UNCHANGED vars
 
 Spec == Init /\ [][Next]_vars
@@ -141,5 +167,26 @@ WrapBackstop ==
         ((m \in wrapHolders[a] \/ a = epoch)
           /\ (\A b \in (e + 1)..a : bridgeIntact[b]))
             => e \in PersonalRecoverable(m)
+
+(* The descendant pin rule. The fixed rule accepts a pin covered by the     *)
+(* parent's retained history -- exactly the epochs Closure({epoch}) reaches *)
+(* through intact bridges and honest keyrings, which is what an honest      *)
+(* server can still unwrap for a descendant (the keyring ladder keeps every *)
+(* predecessor epoch). The vulnerable rule accepts only the parent's        *)
+(* CURRENT epoch, so an ordinary rotation strands every earlier-pinned      *)
+(* descendant even though the parent's retained history still covers it.    *)
+PinnedEpochVerifiable(child) ==
+  IF StrictParentEpochPin
+    THEN childPin[child] = epoch
+    ELSE childPin[child] \in Closure({epoch})
+
+(* Honest serving is the append-only log ground truth: while every bridge   *)
+(* is intact, the current key reaches every retained epoch, so no           *)
+(* descendant may be refused. A child is refused only when a poisoned       *)
+(* artifact genuinely severs its pinned epoch -- an honest failure the      *)
+(* server's own state cannot serve, never a stranding of honest data.       *)
+HonestServesNeverStranded ==
+  (\A e \in 2..epoch : bridgeIntact[e]) =>
+    \A child \in Descendants : PinnedEpochVerifiable(child)
 
 =============================================================================

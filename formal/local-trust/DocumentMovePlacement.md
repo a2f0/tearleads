@@ -13,17 +13,20 @@ trashed item reappear in its source folder.
 | `Settle`, `CheckRevision` | `settleDocumentMoveIntent` checks the exact intent revision and replaces links in the relink transaction; partial replay also checks ownership |
 | `LoseResponse`, `CaptureSettledEpoch` | `containerDocumentAlreadyMovedResult` verifies the writer projection and persists its epoch and key state before clearing the intent |
 | `ApplyTombstone`, `ProtectPendingTombstones` | `applyContainerDocumentTombstonesWithExec` uses `filterWritableDocumentPlacements` inside the deletion transaction |
+| `ApplyListingTombstone`, `TombstonesRequireSignedEvidence` | `applyContainerDocumentTombstonesWithExec` deletes `documentContainerProjection` rows and repoints the primary container from unverified listing tombstones; the gate would require the verified document link set to omit the container |
 | `MergeCurrentPage`, `KeepNewestPageLinks` | `mergeDiscoveredDocumentInputs` selects links from the newest access epoch across discovery lanes |
 | `CapturePage`, `ApplyPage`, `CheckEpoch` | `discoverContainerDocuments` and `discoverAllContainerDocuments` carry the access epoch into `filterWritableDocumentPlacements`; `resolveDiscoveredDocumentPlacement` preserves newer placement and access state |
 | `StartRead`, `FinishRead`, `CheckReadPlacement` | `saveDocumentRecord` publishes `placementChanged`; `refreshPersistedDocument` discards pending reads for structural writes before publication |
 | `RefreshReadSummary`, `CheckReadMembership` | `listContainerContentsDocumentsForContainers` filters stale link IDs against the returned summaries and final link map |
 | `StablePlacement`, `StableView` | `listContainerContentsDocumentsForContainers` and `loadContainerSummaries` expose the chosen local placement throughout replay |
 
-The bounded model checks safety, with eight negative controls disabling
-ownership, epoch, revision, read, discovery-merge, and response-recovery guards
-independently. Regression tests cover a refresh between real signed link/unlink
-operations, sequential trash moves during single and all-container discovery,
-superseded replay rollback, and first-hydration reads.
+The bounded model checks safety, with nine negative controls disabling
+ownership, epoch, revision, read, discovery-merge, response-recovery, and
+tombstone-evidence guards independently. Regression tests cover a refresh
+between real signed link/unlink operations, sequential trash moves during
+single and all-container discovery, superseded replay rollback, and
+first-hydration reads. Production currently behaves like negative control
+`listing-tombstone-removes-linked-container` until the issue is fixed.
 
 The model abstracts cryptography, content, network failures, and SQL internals.
 The local relink transaction includes intent enqueue or settlement and link

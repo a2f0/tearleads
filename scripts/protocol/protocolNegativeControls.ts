@@ -290,6 +290,14 @@ export const NEGATIVE_CONTROLS: readonly NegativeControl[] = [
     why: "A dishonest auth response rebinds a previously acknowledged signing identity to another user ID (#2266).",
   },
   {
+    id: "reboot-rebinds-pinned-identity",
+    module: "formal/local-trust/UnacknowledgedInput.tla",
+    config: "formal/local-trust/UnacknowledgedInput.cfg",
+    constants: { DurablePinRebindCheck: "FALSE" },
+    expect: { kind: "action", name: "PinsNeverChange" },
+    why: "After a reboot clears the in-memory acknowledgment, a login naming a different user for the durably pinned fingerprint is accepted and rewrites the pin; durable pins are keyed by user and never cross-checked by fingerprint.",
+  },
+  {
     id: "container-grant-selects-old-group-key",
     module: "formal/container-keying/PrincipalReferenceProgress.tla",
     config: "formal/container-keying/PrincipalReferenceProgress.cfg",
