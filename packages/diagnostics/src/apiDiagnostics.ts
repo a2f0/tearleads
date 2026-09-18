@@ -19,8 +19,9 @@ type DiagnosticTags = Partial<
 >;
 
 // Do not execute arbitrary error-property getters while reporting a failure.
-function dataProperty(error: Error, key: string): unknown {
-  return Object.getOwnPropertyDescriptor(error, key)?.value;
+function dataProperty(value: unknown, key: string): unknown {
+  if (typeof value !== "object" || value === null) return undefined;
+  return Object.getOwnPropertyDescriptor(value, key)?.value;
 }
 
 function isErrorStatus(value: unknown): value is number {
@@ -40,11 +41,16 @@ export function apiErrorTags(
   // Keep the deepest recognized code without exporting any cause text.
   let candidate: unknown = error;
   for (let depth = 0; depth < 5 && candidate instanceof Error; depth++) {
-    const code = dataProperty(candidate, "code");
+    // AWS service exceptions use Code/name and $metadata.httpStatusCode.
+    const code = ["code", "Code", "name"]
+      .map((key) => dataProperty(candidate, key))
+      .find((value) => isVocabularyKey(API_ERROR_CODES, value));
     if (isVocabularyKey(API_ERROR_CODES, code)) tags.api_error_code = code;
-    const status =
-      dataProperty(candidate, "status") ??
-      dataProperty(candidate, "statusCode");
+    const status = [
+      dataProperty(candidate, "status"),
+      dataProperty(candidate, "statusCode"),
+      dataProperty(dataProperty(candidate, "$metadata"), "httpStatusCode"),
+    ].find(isErrorStatus);
     if (isErrorStatus(status)) tags.api_error_status = String(status);
     const name = dataProperty(candidate, "name");
     if (depth > 0 && typeof name === "string" && API_ERROR_TYPES.has(name))

@@ -214,6 +214,33 @@ test("classification bounds cyclic causes and ignores error getters", () => {
   expect(apiErrorTags(error)).toEqual({ api_error_code: "ECONNRESET" });
 });
 
+test("AWS metadata remains allowlisted and its getters are never executed", () => {
+  const error = Object.assign(new Error(secret), {
+    Code: "SlowDown",
+    name: secret,
+    $metadata: { httpStatusCode: 503, requestId: secret },
+  });
+  expect(apiErrorTags(error)).toEqual({
+    api_error_code: "SlowDown",
+    api_error_status: "503",
+  });
+  error.Code = secret;
+  error.$metadata.httpStatusCode = 200;
+  expect(apiErrorTags(error)).toEqual({});
+  Object.defineProperty(error.$metadata, "httpStatusCode", {
+    get() {
+      throw new Error("must not execute nested getter");
+    },
+  });
+  expect(apiErrorTags(error)).toEqual({});
+  Object.defineProperty(error, "$metadata", {
+    get() {
+      throw new Error("must not execute metadata getter");
+    },
+  });
+  expect(apiErrorTags(error)).toEqual({});
+});
+
 test("unrelated frameless operations survive deduplication while repeats stay bounded", async () => {
   recordRequests();
   const client = createServerDiagnostics(config);
