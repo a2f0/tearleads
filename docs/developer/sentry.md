@@ -264,7 +264,8 @@ URLs provide symbolication without transmitting debug metadata.
 Electrobun events use `tearleads-electrobun@<git-sha>` and a dist per build
 target, `<tier>-app-<os>-<arch>`, as a commit's builds share URLs.
 The target is Hutch's `ELECTROBUN_OS`/`ELECTROBUN_ARCH` (`macos-arm64`,
-`linux-x64`, `linux-arm64`; others stop). `ELECTROBUN_RELEASE_TIER` selects
+`linux-x64`, `linux-arm64`, `win-x64`; others stop).
+`ELECTROBUN_RELEASE_TIER` selects
 `staging` or `production`; unset is a local build that reads no secrets and
 reports nothing. Release from the repository root with
 `scripts/{build,upload}{Macos,Linux}{,Staging}Release.sh`.

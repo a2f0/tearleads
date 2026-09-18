@@ -155,7 +155,7 @@ test("a release build for a target without its own dist stops, and any other bui
   for (const hutch of [
     {},
     { ELECTROBUN_OS: "macos", ELECTROBUN_ARCH: "x64" },
-    { ELECTROBUN_OS: "win", ELECTROBUN_ARCH: "x64" },
+    { ELECTROBUN_OS: "win", ELECTROBUN_ARCH: "arm64" },
   ]) {
     expect(() =>
       createMainProcessSentryDefine({ ...release, ...hutch }),
@@ -175,4 +175,23 @@ test("a release build for a target without its own dist stops, and any other bui
       ],
     ).toBe("undefined");
   }
+});
+
+test("Windows x64 releases define their own renderer and main-process target", () => {
+  const release = {
+    ...sentryEnvironment,
+    NODE_ENV: "production",
+    ELECTROBUN_OS: "win",
+    ELECTROBUN_ARCH: "x64",
+  };
+  expect(
+    createRendererEnvironmentDefines(release)[
+      "process.env.BUN_PUBLIC_SENTRY_ELECTROBUN_TARGET"
+    ],
+  ).toBe(JSON.stringify("win-x64"));
+  expect(
+    JSON.parse(
+      createMainProcessSentryDefine(release).TEARLEADS_ELECTROBUN_MAIN_SENTRY,
+    ),
+  ).toMatchObject({ target: "win-x64", environment: "staging" });
 });
