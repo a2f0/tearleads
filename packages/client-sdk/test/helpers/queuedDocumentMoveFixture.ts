@@ -53,6 +53,7 @@ export async function runQueuedDocumentMoveFixture(input: {
       ) => Promise<void>)
     | undefined;
   beforeLink?: ((execSql: ExecSql) => Promise<void>) | undefined;
+  beforeReplay?: ((execSql: ExecSql) => Promise<void>) | undefined;
   extraLocalLink?: boolean | undefined;
   containerProjectionFailure?: QueuedDocumentMoveFailure | undefined;
   /**
@@ -401,6 +402,7 @@ export async function runQueuedDocumentMoveFixture(input: {
       remoteRequests.length = 0;
     }
 
+    await input.beforeReplay?.(execSql);
     const host = createQueuedDocumentPlacementHost({
       execSql,
       rotationSnapshot,

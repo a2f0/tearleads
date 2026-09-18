@@ -76,7 +76,11 @@ function resolvePlacement(
         previous?.intentType === "document.move"
           ? previous.sourceContainerId
           : input.targetContainerId,
-      targetContainerId: input.targetContainerId,
+      targetContainerId:
+        previous?.intentType === "document.move" &&
+        previous.targetContainerId !== input.removedContainerId
+          ? previous.targetContainerId
+          : input.targetContainerId,
       replaceLinkedContainers: previous?.replaceLinkedContainers ?? false,
     };
   }

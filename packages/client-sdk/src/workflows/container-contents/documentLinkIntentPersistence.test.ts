@@ -290,6 +290,40 @@ test("revoked container access does not acknowledge a pending document unlink", 
   }
 });
 
+test.each([
+  ["unrelated", "destination"],
+  ["destination", "active-link"],
+])(
+  "unlink of %s preserves only the surviving move destination",
+  async (removedContainerId, expectedDestination) => {
+    const { execSql, close } = await createTestExecSql(
+      `move-unlink-${removedContainerId}`,
+    );
+    try {
+      await intents.enqueueMoveIntent(execSql, {
+        documentId: "remote",
+        localId: "local",
+        sourceContainerId: "source",
+        targetContainerId: "destination",
+      });
+      await intents.enqueueUnlinkIntent(execSql, {
+        documentId: "remote",
+        localId: "local",
+        targetContainerId: "active-link",
+        removedContainerId,
+      });
+      expect(await intents.listPendingMoveIntents(execSql)).toMatchObject([
+        {
+          targetContainerId: expectedDestination,
+          removedLinkContainerIds: [removedContainerId, "source"].sort(),
+        },
+      ]);
+    } finally {
+      close();
+    }
+  },
+);
+
 test("replay waits for an enqueue transaction's parent and targets to commit together", async () => {
   const { execSql: underlying, close } =
     await createTestExecSql("link-atomic-read");
@@ -297,7 +331,11 @@ test("replay waits for an enqueue transaction's parent and targets to commit tog
   const releaseWriter = Promise.withResolvers<void>();
   const execSql = createExecSql({
     exec: async ({ sql, bind, rowMode }) => {
-      const rows = await underlying(sql, bind, { rowMode });
+      const rows = await underlying(
+        sql,
+        bind,
+        rowMode ? { rowMode } : undefined,
+      );
       if (sql.startsWith('insert into "document_move_intents"')) {
         parentWritten.resolve();
         await releaseWriter.promise;

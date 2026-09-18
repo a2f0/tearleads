@@ -58,6 +58,34 @@ test("a link added after a queued replace move survives its unlink phase", async
   expect(fixture.pendingIntents).toEqual([]);
 });
 
+test("unlinking another container after activating a link preserves the queued move destination", async () => {
+  const fixture = await runQueuedDocumentMoveFixture({
+    testDbName: "queued-move-activate-unlink",
+    extraLocalLink: true,
+    unlinkAvailable: true,
+    replaceLinkedContainers: false,
+    beforeReplay: async (execSql) => {
+      await execSql(
+        "UPDATE document_projection SET container_id = ? WHERE local_id = ?",
+        ["queued-move-extra-container", "queued-move-local"],
+      );
+      await intents.enqueueUnlinkIntent(execSql, {
+        documentId: "queued-move-document",
+        localId: "queued-move-local",
+        targetContainerId: "queued-move-extra-container",
+        removedContainerId: "unrelated-container",
+      });
+    },
+  });
+  expect(fixture.syncedCount).toBe(1);
+  expect(fixture.remoteLinkedContainerIds).toEqual([
+    fixture.extraContainerId ?? "missing-extra",
+    fixture.trashContainerId,
+  ]);
+  expect(fixture.linkedContainerIds).toEqual(fixture.remoteLinkedContainerIds);
+  expect(fixture.pendingIntents).toEqual([]);
+});
+
 test("an older link response cannot settle a newer local move", async () => {
   let superseded = false;
   const fixture = await runQueuedDocumentMoveFixture({
