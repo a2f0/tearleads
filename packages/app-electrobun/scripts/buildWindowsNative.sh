@@ -23,6 +23,11 @@ esac
 REPO_ROOT="$(cd "$(dirname "$0")/../../.." && pwd)"
 cd "$REPO_ROOT"
 bunx turbo run build --filter='app-electrobun^...'
-sh packages/app-electrobun/scripts/buildElectrobun.sh --env="$CHANNEL"
+# Hutch invokes tar with native Windows paths. Git Bash's GNU tar treats the
+# drive letter as a remote host, so prefer Windows' bundled bsdtar for packaging.
+WINDOWS_SYSTEM32="$(cygpath -u "${SYSTEMROOT:?}/System32")"
+test -x "$WINDOWS_SYSTEM32/tar.exe"
+PATH="$WINDOWS_SYSTEM32:$PATH" \
+  sh packages/app-electrobun/scripts/buildElectrobun.sh --env="$CHANNEL"
 bun packages/app-electrobun/scripts/verifyWindowsArtifacts.ts "$1"
 bun packages/app-electrobun/scripts/testWindowsPersistence.ts "$1"
