@@ -94,8 +94,10 @@ function serverFrameFilename(
   runtime: "api" | "electrobun-main",
   serverRoot: string,
 ): string {
-  if (filename.startsWith(`${serverRoot}/`))
-    return filename.slice(serverRoot.length);
+  const windowsRoot = /^(?:[A-Za-z]:[\\/]|\\\\)/u.test(serverRoot);
+  const root = windowsRoot ? serverRoot.replaceAll("\\", "/") : serverRoot;
+  const path = windowsRoot ? filename.replaceAll("\\", "/") : filename;
+  if (path.startsWith(`${root}/`)) return path.slice(root.length);
   if (runtime !== "api") return "";
   return filename.startsWith("app:///")
     ? filename.slice("app://".length)

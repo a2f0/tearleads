@@ -17,7 +17,7 @@ export function desktopSentryCommit(root: string): string {
   const [toplevel, commit] = git("rev-parse", "--show-toplevel", "HEAD")
     .trim()
     .split("\n");
-  if (toplevel !== realpathSync(root))
+  if (!toplevel || realpathSync(toplevel) !== realpathSync(root))
     throw new Error(
       "Desktop Sentry source-map publishing must run from the top level of its own Git checkout",
     );

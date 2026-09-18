@@ -13,7 +13,8 @@ fi
 for name in "${!GIT_@}"; do unset "$name"; done
 REPO_ROOT="$(CDPATH='' cd -P -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd -P)"
 cd "$REPO_ROOT"
-[[ "$(git rev-parse --show-toplevel)" == "$REPO_ROOT" ]] || exit 1
+TOPLEVEL="$(git rev-parse --show-toplevel)"
+[[ "$(CDPATH='' cd -P -- "$TOPLEVEL" && pwd -P)" == "$REPO_ROOT" ]] || exit 1
 if [[ -n "$(git -c core.excludesFile=/dev/null -c core.fsmonitor=false status --porcelain=v1 --untracked-files=normal)" ]]; then
   echo "Windows releases require a clean Git checkout; commit changes first." >&2; exit 1
 fi
