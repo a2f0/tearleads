@@ -4,6 +4,11 @@ import { signWriteHeader, type WriteHeader } from "@tearleads/crypto";
 import type { DocumentSyncRequest } from "@tearleads/validators/request";
 import { isDocumentSyncResponse } from "@tearleads/validators/response";
 import { authenticate } from "../../../test/helpers/authenticate";
+import {
+  bindForTest,
+  buildBind,
+  stageBlob,
+} from "../../../test/helpers/blobAttachmentKit";
 import { buildRootContainerRekeyMutation } from "../../../test/helpers/containerRekey";
 import { createSignedDocumentSyncRequest } from "../../../test/helpers/documentUpdateRequests";
 import { createChildContainer } from "../../../test/helpers/keyingWriterProjectionChild";
@@ -32,6 +37,16 @@ test("ancestor rotation keeps recovery projections and document reads available 
     root: childFixture,
     containerPath: [root.bundle, childFixture.bundle],
   });
+  const blobId = crypto.randomUUID();
+  const attachment = await buildBind({
+    blobId,
+    document: created,
+    owner,
+    root: childFixture,
+    containerPath: [root.bundle, childFixture.bundle],
+    stagedBlob: await stageBlob(owner),
+  });
+  await bindForTest({ blobId, owner, request: attachment.request });
   const headers = {
     Authorization: `Bearer ${owner.token}`,
     "Content-Type": "application/json",
@@ -90,10 +105,29 @@ test("ancestor rotation keeps recovery projections and document reads available 
   for (const path of [
     `/containers/${child.containerId}/writer-projection`,
     `/documents/${created.id}/writer-projection`,
-    `/documents/${created.id}/attachments`,
   ]) {
     expect((await routeApp.request(path, { headers })).status).toBe(200);
   }
+  const attachments = await routeApp.request(
+    `/documents/${created.id}/attachments`,
+    { headers },
+  );
+  expect(attachments.status).toBe(200);
+  expect(await attachments.json()).toMatchObject([
+    {
+      bindingId: attachment.binding.bindingId,
+      blobId,
+      contentKeyBundle: attachment.request.contentKeyBundle,
+      blobKekTargets: {
+        targets: [
+          {
+            containerId: child.containerId,
+            containerKeyEpochId: child.containerKek.containerKeyEpochId,
+          },
+        ],
+      },
+    },
+  ]);
   const read = await postSync({
     contentKeyEpoch: created.contentKeyBundle.contentKeyEpoch,
     expectedLinkSetManifestHash: created.contentKeyBundle.linkSetManifestHash,
