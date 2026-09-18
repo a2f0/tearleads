@@ -2,7 +2,7 @@ import { execFileSync } from "node:child_process";
 import { cp, mkdir, mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { publishDesktopRelease } from "./publishDesktopRelease";
+import { publishWindowsRelease } from "./publishWindowsRelease";
 import { hostedSentryEndpoint } from "./sentryCliUpload";
 import { desktopSentryCommit } from "./sentryReleaseSource";
 import { runDeferredSourceMapUpload } from "./uploadDeferredSourceMaps";
@@ -95,33 +95,33 @@ if (action === "build") {
       `Verified ${tier} Windows package: ${join(output, names.installer)}`,
     );
     if (action === "upload") {
-      const stagingDir = join(temp, "sentry-sourcemaps");
-      gh(
-        "run",
-        "download",
-        runId ?? "",
-        "--repo",
-        repo,
-        "--name",
-        `tearleads-windows-maps-${tier}-${commit}`,
-        "--dir",
-        stagingDir,
-      );
-      await runDeferredSourceMapUpload({
-        repoRoot: root,
+      await publishWindowsRelease({
+        artifacts,
         tier,
-        target: "win-x64",
         commit,
-        stagingDir,
-        env: process.env,
-        endpoint: hostedSentryEndpoint,
-      });
-      await publishDesktopRelease({
-        ...names,
-        target: "win-x64",
-        installer: join(artifacts, names.installer),
-        update: join(artifacts, names.update),
-        archive: join(artifacts, names.archive),
+        uploadSourceMaps: async () => {
+          const stagingDir = join(temp, "sentry-sourcemaps");
+          gh(
+            "run",
+            "download",
+            runId ?? "",
+            "--repo",
+            repo,
+            "--name",
+            `tearleads-windows-maps-${tier}-${commit}`,
+            "--dir",
+            stagingDir,
+          );
+          await runDeferredSourceMapUpload({
+            repoRoot: root,
+            tier,
+            target: "win-x64",
+            commit,
+            stagingDir,
+            env: process.env,
+            endpoint: hostedSentryEndpoint,
+          });
+        },
       });
     }
   } finally {

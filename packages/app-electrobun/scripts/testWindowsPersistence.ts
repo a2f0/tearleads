@@ -162,6 +162,12 @@ try {
         environment,
       })
     : await buildApp();
+  if (releaseTier) {
+    // Setup auto-launches with the install profile. Keep the probe's first
+    // identity creation isolated, then reuse that fresh profile for reopen.
+    environment.LOCALAPPDATA = join(smokeRoot, "probe-local");
+    await mkdir(environment.LOCALAPPDATA);
+  }
   await runRound("first", launcherPath);
   await runRound("reopen", launcherPath);
   console.log("Electrobun Windows CEF persistence smoke test passed.");

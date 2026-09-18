@@ -2,9 +2,22 @@ import { expect, test } from "bun:test";
 import { chmod, mkdir, mkdtemp, readdir, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import {
+  windowsArtifactDigest,
+  windowsReleaseNames,
+} from "./windowsReleaseArtifacts";
 
-for (const tier of ["staging", "production"]) {
-  test(`${tier} Windows publication uploads immutable files before discovery`, async () => {
+for (const [tier, failure] of [
+  ["staging", ""],
+  ["production", ""],
+  ["staging", "commit"],
+  ["staging", "checksum"],
+  ["staging", "sentry"],
+]) {
+  test(`${tier} Windows publication gate: ${failure || "success"}`, async () => {
+    if (!tier) throw new Error("Missing test tier");
+    const names = windowsReleaseNames(tier);
+    const commit = "a".repeat(40);
     const { PATH: inheritedPath } = process.env;
     const root = await mkdtemp(join(tmpdir(), "publish-windows-"));
     const bin = join(root, "bin");
@@ -16,26 +29,54 @@ for (const tier of ["staging", "production"]) {
       await mkdir(published);
       await Bun.write(
         join(bin, "aws"),
-        '#!/bin/sh\nkey="$(basename "$4")"\nprintf "%s\\n" "$key" >> "$PUBLISH_TEST_LOG"\ncp "$3" "$PUBLISH_TEST_OUTPUT/$key"\n',
+        '#!/bin/sh\n[ -f "$PUBLISH_TEST_MAPS" ] || exit 9\nkey="$(basename "$4")"\nprintf "%s\\n" "$key" >> "$PUBLISH_TEST_LOG"\ncp "$3" "$PUBLISH_TEST_OUTPUT/$key"\n',
       );
       await chmod(join(bin, "aws"), 0o755);
-      await Bun.write(join(root, "installer.zip"), "windows installer");
-      await Bun.write(join(root, "archive.zst"), "windows update");
+      await Bun.write(join(root, names.installer), "windows installer");
+      await Bun.write(join(root, names.archive), "windows update");
       await Bun.write(
-        join(root, "update.json"),
-        JSON.stringify({ channel, platform: "win", arch: "x64" }),
+        join(root, names.update),
+        JSON.stringify({
+          channel,
+          platform: "win",
+          arch: "x64",
+          identifier: "com.tearleads.app",
+        }),
       );
-      const entry = join(import.meta.dirname, "publishDesktopRelease.ts");
+      const sha256 = Object.fromEntries(
+        await Promise.all(
+          [names.installer, names.archive, names.update].map(async (name) => [
+            name,
+            await windowsArtifactDigest(join(root, name)),
+          ]),
+        ),
+      );
+      await Bun.write(
+        join(root, "release.json"),
+        JSON.stringify({
+          tier,
+          commit: failure === "commit" ? "b".repeat(40) : commit,
+          target: "win-x64",
+          sha256,
+        }),
+      );
+      if (failure === "checksum")
+        await Bun.write(join(root, names.archive), "tampered");
+      const entry = join(import.meta.dirname, "publishWindowsRelease.ts");
       await Bun.write(
         join(root, "publish.ts"),
-        `import { publishDesktopRelease } from ${JSON.stringify(entry)};
-await publishDesktopRelease({ bucket: "fixture", channel: ${JSON.stringify(channel)}, appName: ${JSON.stringify(appName)}, target: "win-x64", installer: "installer.zip", archive: "archive.zst", update: "update.json" });`,
+        `import { publishWindowsRelease } from ${JSON.stringify(entry)};
+await publishWindowsRelease({ artifacts: ${JSON.stringify(root)}, tier: ${JSON.stringify(tier)}, commit: ${JSON.stringify(commit)}, uploadSourceMaps: async () => {
+  if (${JSON.stringify(failure)} === "sentry") throw new Error("Sentry upload failed");
+  await Bun.write("sentry-complete", "uploaded");
+} });`,
       );
       const child = Bun.spawn([process.execPath, join(root, "publish.ts")], {
         cwd: root,
         env: {
           ...process.env,
           PATH: `${bin}:${inheritedPath}`,
+          PUBLISH_TEST_MAPS: join(root, "sentry-complete"),
           PUBLISH_TEST_LOG: join(root, "uploads.log"),
           PUBLISH_TEST_OUTPUT: published,
         },
@@ -46,6 +87,22 @@ await publishDesktopRelease({ bucket: "fixture", channel: ${JSON.stringify(chann
         child.exited,
         new Response(child.stderr).text(),
       ]);
+      if (failure) {
+        expect(code, output).not.toBe(0);
+        expect(await readdir(published)).toEqual([]);
+        expect(await Bun.file(join(root, "uploads.log")).exists()).toBe(false);
+        expect(await Bun.file(join(root, "sentry-complete")).exists()).toBe(
+          false,
+        );
+        expect(output).toContain(
+          failure === "sentry"
+            ? "Sentry upload failed"
+            : failure === "commit"
+              ? "provenance"
+              : "checksum",
+        );
+        return;
+      }
       expect(code, output).toBe(0);
       const prefix = `${channel}-win-x64`;
       const discovery = await Bun.file(
