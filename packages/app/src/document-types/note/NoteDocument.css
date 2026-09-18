@@ -321,6 +321,10 @@
   border-bottom: var(--border);
 }
 
+.note-attachment-preview-panel--pdf {
+  height: min(90dvh, 48rem);
+}
+
 .note-attachment-preview-heading {
   display: flex;
   align-items: center;
@@ -356,6 +360,17 @@
   padding: var(--space-md);
   overflow: auto;
   background: color-mix(in srgb, currentColor 5%, transparent);
+}
+
+.note-attachment-preview-stage--pdf {
+  align-items: stretch;
+  min-height: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
+.note-attachment-preview-stage--pdf .file-document-preview {
+  min-height: 0;
 }
 
 .note-attachment-preview-image {

@@ -19,9 +19,10 @@ import { WindowCloseButton } from "../../components/window/WindowCloseButton";
 import "../../components/window/WindowTitleBar.css";
 import "../../components/window/WindowToolBar.css";
 import { useWindowedLayoutActive } from "../../navigation/useRoutedLayoutActive";
-import { formatByteLength } from "../../utils/formatByteLength";
 import { getAttachmentFileType } from "../shared/attachmentFileType";
+import { isPdfMimeType } from "../shared/FileDocumentPdfPreview";
 import { useModalEscapeAndFocusRestore } from "../shared/useModalEscapeAndFocusRestore";
+import { NoteAttachmentPreviewStage } from "./NoteAttachmentPreviewStage";
 import { NOTE_DOCUMENT_LABELS } from "./noteDocumentLabels";
 
 type AttachmentFileType = ReturnType<typeof getAttachmentFileType>;
@@ -30,6 +31,7 @@ interface NoteAttachmentPreviewProps {
   attachment: DocumentAttachment;
   canRemove: boolean;
   imageUrl: string | undefined;
+  storageKey: string | undefined;
   onClose: () => void;
   onDownload: (slotId: string) => void;
   onRemove: (slotId: string) => void;
@@ -206,44 +208,6 @@ function NoteAttachmentPreviewChrome({
   );
 }
 
-// The presentation area: images fill the stage; everything else falls back to
-// its type icon, kind and size.
-function NoteAttachmentPreviewStage({
-  attachment,
-  fileType,
-  imageUrl,
-}: {
-  attachment: DocumentAttachment;
-  fileType: AttachmentFileType;
-  imageUrl: string | undefined;
-}) {
-  const { Icon } = fileType;
-  return (
-    <div className="note-attachment-preview-stage">
-      {fileType.isImage && imageUrl ? (
-        <img
-          className="note-attachment-preview-image"
-          src={imageUrl}
-          alt={attachment.name}
-        />
-      ) : (
-        <div className="note-attachment-preview-placeholder">
-          <Icon aria-hidden size={64} weight="thin" />
-          <span className="note-attachment-preview-placeholder-kind">
-            {fileType.kind}
-          </span>
-          <span className="note-attachment-preview-placeholder-size">
-            {formatByteLength(attachment.byteLength)}
-          </span>
-          <span className="note-attachment-preview-placeholder-hint">
-            {NOTE_DOCUMENT_LABELS.previewNoPreview}
-          </span>
-        </div>
-      )}
-    </div>
-  );
-}
-
 // An enlarged look at a single attachment, opened from a tile. The chrome
 // carries the download / remove / close actions so the note body stays
 // uncluttered. Rendered through a portal into <body> so it overlays the whole
@@ -253,6 +217,7 @@ function NoteAttachmentPreview({
   attachment,
   canRemove,
   imageUrl,
+  storageKey,
   onClose,
   onDownload,
   onRemove,
@@ -281,6 +246,8 @@ function NoteAttachmentPreview({
         className={classNames(
           "note-attachment-preview-panel",
           windowed && "note-attachment-preview-panel--windowed",
+          isPdfMimeType(attachment.mimeType) &&
+            "note-attachment-preview-panel--pdf",
         )}
         role="dialog"
         aria-modal="true"
@@ -301,6 +268,7 @@ function NoteAttachmentPreview({
           attachment={attachment}
           fileType={fileType}
           imageUrl={imageUrl}
+          storageKey={storageKey}
         />
       </MiniAppModalPanel>
     </MiniAppModalBackdrop>,
@@ -313,9 +281,9 @@ function NoteAttachmentPreview({
  *
  * An image goes to the shared full-screen viewer — the same one the blob browser
  * opens — because an image is the attachment worth looking at closely, and only
- * that viewer lets a phone pinch, pan, and zoom it. Everything else keeps the
- * panel preview, which is the surface that can draw a type icon, a size, and
- * "no preview available" for a file nothing here can render. An image whose
+ * that viewer lets a phone pinch, pan, and zoom it. PDFs render in the panel
+ * preview using the shared PDF viewer. Other files keep the type icon, size,
+ * and "no preview available" placeholder. An image whose
  * bytes have not arrived yet has no URL to hand the viewer, so it lands there
  * too and the panel says as much.
  *

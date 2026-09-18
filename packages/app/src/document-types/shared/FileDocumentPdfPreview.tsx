@@ -16,6 +16,7 @@ import {
 import { MiniAppStatus } from "../../components/mini-app/MiniAppLayout";
 import type { FileViewer } from "../../host/FileViewer";
 import { readAutomaticPreviewBlobBytes } from "./documentAttachmentUtils";
+import "./FileDocument.css";
 
 const PdfInlineViewer = lazy(() => import("./PdfInlineViewer"));
 
@@ -31,7 +32,7 @@ export interface FileDocumentPdfPreview extends PdfPreviewCandidate {
   onOpenExternal: (() => void) | null;
 }
 
-function isPdfMimeType(value: string | null | undefined): boolean {
+export function isPdfMimeType(value: string | null | undefined): boolean {
   return value?.split(";")[0]?.trim().toLowerCase() === "application/pdf";
 }
 

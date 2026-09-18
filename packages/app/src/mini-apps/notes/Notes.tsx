@@ -42,6 +42,7 @@ export function Notes({
       <NoteEditorFields
         attachments={model.attachments}
         attachmentStatusBySlotId={model.attachmentStatusBySlotId}
+        attachmentStorageKeyBySlotId={model.attachmentStorageKeyBySlotId}
         canAttach={model.canAttach}
         dragActive={model.dragActive}
         fileInputId={model.fileInputId}

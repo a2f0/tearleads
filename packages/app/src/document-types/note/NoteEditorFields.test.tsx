@@ -19,6 +19,7 @@ function buildNoteEditorFields(overrides: Partial<NoteEditorFieldsProps> = {}) {
   const props: NoteEditorFieldsProps = {
     attachments: [],
     attachmentStatusBySlotId: {},
+    attachmentStorageKeyBySlotId: {},
     canAttach: true,
     dragActive: false,
     fileInputId: "note-file-input",
@@ -115,6 +116,7 @@ test("auto-sizes the editor to its content height", () => {
 
   view.rerender(
     <NoteEditorFields
+      attachmentStorageKeyBySlotId={{}}
       attachments={[]}
       attachmentStatusBySlotId={{}}
       canAttach={true}
