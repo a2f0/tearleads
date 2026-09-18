@@ -1007,6 +1007,8 @@ export interface VerifyContainerKekStateInput
   readonly keyEpoch: ContainerKeyEpoch;
   readonly wraps: readonly ContainerKeyWrap[];
   readonly containerManifestHistory?: readonly VerifiedContainerAccessManifest[];
+  /** Read/recovery only: verified lineage for a retained parent epoch. */
+  readonly parentManifestHistory?: readonly VerifiedContainerAccessManifest[];
 }
 
 export interface DeriveDocumentKekTargetsInput {

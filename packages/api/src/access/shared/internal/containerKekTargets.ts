@@ -53,9 +53,14 @@ export async function resolveCurrentContainerKekTargetsMapped<E extends Error>(
   containerIds: readonly string[],
   executor: DatabaseSession,
   mapError: (message: string, status: ContainerKekTargetStatus) => E,
+  allowHistoricalParentEpochs = false,
 ): Promise<Map<string, ContainerKekTarget>> {
   try {
-    return await resolveCurrentContainerKekTargets(containerIds, executor);
+    return await resolveCurrentContainerKekTargets(
+      containerIds,
+      executor,
+      allowHistoricalParentEpochs,
+    );
   } catch (error) {
     if (error instanceof ContainerKekTargetError) {
       throw mapError(error.message, error.status);
@@ -491,6 +496,7 @@ function getContainerKeyEpoch(
 function assertContainerKekParentEdgesCurrent(input: {
   readonly keyEpochById: ContainerKeyEpochById;
   readonly targetByContainerId: ReadonlyMap<string, ContainerManifestTarget>;
+  readonly allowHistoricalParentEpochs: boolean;
 }): void {
   for (const target of input.targetByContainerId.values()) {
     const keyEpoch = getContainerKeyEpoch(target, input.keyEpochById);
@@ -517,6 +523,7 @@ function assertContainerKekParentEdgesCurrent(input: {
     // intentionally remains available so an authorized client can materialize a
     // signed container.rekey repair before retrying the content write.
     if (
+      !input.allowHistoricalParentEpochs &&
       keyEpoch.parentContainerKeyEpochId !== parentTarget.containerKeyEpochId
     ) {
       throw staleContainerKekParentEdgeError(target.containerId);
@@ -550,6 +557,7 @@ function assertContainerKekManifestBindingsCurrent(input: {
 export async function resolveCurrentContainerKekTargets(
   containerIds: readonly string[],
   executor: DatabaseSession,
+  allowHistoricalParentEpochs = false,
 ): Promise<Map<string, ContainerKekTarget>> {
   const uniqueContainerIds = unique(containerIds);
 
@@ -567,7 +575,11 @@ export async function resolveCurrentContainerKekTargets(
     ),
     executor,
   );
-  assertContainerKekParentEdgesCurrent({ keyEpochById, targetByContainerId });
+  assertContainerKekParentEdgesCurrent({
+    keyEpochById,
+    targetByContainerId,
+    allowHistoricalParentEpochs,
+  });
   const historyByContainerId =
     await loadSameEpochContainerManifestBindingHistories({
       executor,

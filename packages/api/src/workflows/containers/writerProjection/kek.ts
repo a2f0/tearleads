@@ -295,6 +295,7 @@ async function loadUncachedContainerKekState(
   const verified = await verifyContainerKekState({
     containerManifest: manifest,
     containerManifestHistory: containerManifestHistory.verified,
+    parentManifestHistory: [...context.verifiedManifestByHash.values()],
     keyEpoch,
     parentKekState: input.parentKekState,
     principalPolicies: input.principalPolicies,

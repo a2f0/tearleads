@@ -467,11 +467,14 @@ epoch ids, access-manifest hashes, and parent epoch references. The design
 accepts that metadata disclosure as part of history-inclusive access; only the
 old plaintext KEKs and content remain sealed.
 
-Descendants are always verified against their parent's **current** KEK epoch:
-lazy rekey requires a post-change descendant epoch to be materialized before
-writes are accepted, so a served path never pins a historical parent epoch and
-the projection ships no historical epoch records. Historical KEKs serve
-content-key unwrapping by epoch id alone.
+Reads and recovery projections may contain descendants pinned to historical
+parent KEK epochs. The verifier reconstructs that epoch's binding from the
+parent's complete verified signed manifest lineage, including its creation
+event's parent citation. Missing history, unrelated epochs, and forged bindings
+fail verification. The projection needs no additional historical epoch records.
+The current parent's sealed keyring supplies the historical key needed to open
+the child. Future writes still require current parent epochs throughout the
+path: lazy descendant rekey must complete before accepting new content.
 
 History delivery is **one round trip and one decrypt** regardless of rotation
 count — that is the property the chain lacked, where reaching epoch 1 meant a

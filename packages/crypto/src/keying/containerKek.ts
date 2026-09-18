@@ -3,6 +3,10 @@ import { computeKeyingDomainHash } from "./canonical";
 import { principalPolicyMatchesReference } from "./containerAccess";
 import { isContainerKekMaterialId } from "./containerKekMaterial";
 import {
+  type ContainerKekParentBinding,
+  resolveContainerKekParentBinding,
+} from "./containerKekParent";
+import {
   assertExactKeys,
   normalizeKekRecipientKind,
   normalizeSortedUniqueArray,
@@ -261,7 +265,9 @@ function deriveContainerKekRecipientTargetsOrThrow({
   parentKekState = null,
   principalPolicies = [],
   userRecipientKeys = [],
-}: DeriveContainerKekRecipientTargetsInput): ContainerKekRecipientTarget[] {
+}: Omit<DeriveContainerKekRecipientTargetsInput, "parentKekState"> & {
+  readonly parentKekState?: ContainerKekParentBinding | null;
+}): ContainerKekRecipientTarget[] {
   const targets: ContainerKekRecipientTarget[] = [];
   const userKeyByUserId = buildContainerUserRecipientKeyMap(userRecipientKeys);
 
@@ -396,7 +402,7 @@ function assertContainerKeyEpochManifestBinding(input: {
 function assertContainerKeyEpochParentBinding(input: {
   readonly containerManifest: VerifiedContainerAccessManifest;
   readonly keyEpoch: ContainerKeyEpoch;
-  readonly parentKekState: VerifiedContainerKekState | null | undefined;
+  readonly parentKekState: ContainerKekParentBinding | null | undefined;
 }): void {
   if (!input.containerManifest.state.parentContainerId) {
     if (input.keyEpoch.parentContainerKeyEpochId !== null) {
@@ -439,7 +445,7 @@ function assertContainerKeyEpochParentBinding(input: {
 
 function deriveTargetsForWrapManifest(input: {
   readonly manifest: VerifiedContainerAccessManifest;
-  readonly parentKekState: VerifiedContainerKekState | null;
+  readonly parentKekState: ContainerKekParentBinding | null;
   readonly principalPolicies: readonly VerifiedPrincipalPolicy[];
   readonly targetsByManifestHash: Map<string, ContainerKekRecipientTarget[]>;
   readonly userRecipientKeys: readonly ContainerUserRecipientKey[];
@@ -532,7 +538,7 @@ function assertContainerKeyEpochMatchesManifest(input: {
 function verifyContainerKeyWraps(input: {
   readonly keyEpoch: ContainerKeyEpoch;
   readonly manifestByHash: ReadonlyMap<string, VerifiedContainerAccessManifest>;
-  readonly parentKekState: VerifiedContainerKekState | null;
+  readonly parentKekState: ContainerKekParentBinding | null;
   readonly principalPolicies: readonly VerifiedPrincipalPolicy[];
   readonly targetsByManifestHash: Map<string, ContainerKekRecipientTarget[]>;
   readonly userRecipientKeys: readonly ContainerUserRecipientKey[];
@@ -643,7 +649,8 @@ export async function verifyContainerKekState({
   containerManifest,
   containerManifestHistory = [],
   keyEpoch,
-  parentKekState = null,
+  parentKekState: currentParentKekState = null,
+  parentManifestHistory,
   principalPolicies = [],
   userRecipientKeys = [],
   wraps,
@@ -657,6 +664,11 @@ export async function verifyContainerKekState({
       keyEpoch: normalizedKeyEpoch,
     });
 
+    const parentKekState = await resolveContainerKekParentBinding({
+      parent: currentParentKekState,
+      pinnedEpochId: normalizedKeyEpoch.parentContainerKeyEpochId,
+      verifiedHistory: parentManifestHistory,
+    });
     assertContainerKeyEpochParentBinding({
       containerManifest,
       keyEpoch: normalizedKeyEpoch,

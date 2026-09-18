@@ -24,6 +24,7 @@ export async function prepareSyncDocumentTransaction(input: {
   const preRekeyTargets = await resolveCurrentDocumentKekTargets(
     input.documentId,
     input.tx,
+    true,
   );
   await ensureSyncDocumentAccess({
     currentTargets: preRekeyTargets,

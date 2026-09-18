@@ -104,6 +104,7 @@ async function verifyContainerKekProjection(input: {
   readonly resolveUserKey: ProjectionUserKeyResolver;
   readonly verifiedManifest: VerifiedContainerAccessManifest;
   readonly verifiedManifestHistory: readonly VerifiedContainerAccessManifest[];
+  readonly parentManifestHistory: readonly VerifiedContainerAccessManifest[];
   readonly warmReferencedPrincipalPolicies?:
     | ReferencedPrincipalPolicyWarmer
     | undefined;
@@ -143,6 +144,7 @@ async function verifyContainerKekProjection(input: {
   const verified = await verifyContainerKekState({
     containerManifest: input.verifiedManifest,
     containerManifestHistory: verifiedKekManifestHistory,
+    parentManifestHistory: input.parentManifestHistory,
     keyEpoch,
     parentKekState: input.parentKekState,
     principalPolicies,
@@ -287,6 +289,7 @@ export async function verifyContainerWriterProjectionWithContext(
       resolveUserKey: input.resolveUserKey,
       verifiedManifest,
       verifiedManifestHistory,
+      parentManifestHistory: [...verifiedByHash.values()],
       warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
     });
     verifiedKekStates.push(verifiedKekState);

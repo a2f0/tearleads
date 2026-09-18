@@ -40,6 +40,7 @@ interface AssertDocumentKekTargetsCurrentInput {
   readonly documentId: string;
   readonly expectedTargets?: readonly DocumentContentKeyTarget[];
   readonly expectedTargetHash?: string;
+  readonly allowHistoricalParentEpochs?: boolean;
 }
 
 async function loadDocumentLinkSetHead(
@@ -65,6 +66,7 @@ async function loadDocumentLinkSetHead(
 export async function resolveCurrentDocumentKekTargets(
   documentId: string,
   executor: DatabaseSession,
+  allowHistoricalParentEpochs = false,
 ): Promise<ResolvedDocumentKekTargets> {
   const linkSetHead = await loadDocumentLinkSetHead(documentId, executor);
   const linkRows = await listAccessManifestDocumentLinkProjection(
@@ -84,6 +86,7 @@ export async function resolveCurrentDocumentKekTargets(
     linkedContainerIds,
     executor,
     (message, status) => new DocumentKekTargetError(message, status),
+    allowHistoricalParentEpochs,
   );
   const targets: DocumentContentKeyTarget[] = [];
 
@@ -126,6 +129,7 @@ export async function assertDocumentKekTargetsCurrent(
   const currentTargets = await resolveCurrentDocumentKekTargets(
     input.documentId,
     executor,
+    input.allowHistoricalParentEpochs,
   );
   await assertExpectedTargetHashCurrent({
     currentTargetHash: currentTargets.documentKeyTargetHash,

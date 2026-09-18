@@ -106,6 +106,22 @@ grants; organization principals are not recovery recipients.
 
 ## No Bricked Device
 
+[`container-keying/AncestorRecovery.tla`](./container-keying/AncestorRecovery.tla)
+checks the distinct read and write currency rules for a three-level container
+path. Rotating a parent preserves descendant reads; repairing a child can make
+its grandchild stale without making it unreadable. Setting
+`StrictReadParentPin = TRUE` is the negative control for #2329: the first root
+rotation violates `HonestReadsAvailable`.
+
+The production seams are `resolveContainerKekParentBinding` (signed historical
+epoch membership) and `assertContainerKekParentEdgesCurrent` (current epochs
+required for writes). The API and SDK `ancestorRotationRecovery.test.ts` tests
+exercise those seams with signed manifests; the SDK test also uses actual
+encrypted keys. The model assumes honest retained history and abstracts
+cryptography and authorization; the signed-history tampering tests cover that
+boundary in the implementation. Independent repair by a child-only writer is
+not established by this model.
+
 [`container-keying/NoBrickedDevice.tla`](./container-keying/NoBrickedDevice.tla)
 models the invariant that no device may ever be unable to read or write
 because another device holds a cache or must issue a write first. A dependent
