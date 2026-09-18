@@ -41,10 +41,23 @@ upload_sentry_source_maps() {
   echo "Uploading $BUN_PUBLIC_SENTRY_ENVIRONMENT app source maps to Sentry..."
   (
     cd "$app_web_dir" || exit 1
+    # Browser diagnostics admit only the application's generated entry frame.
+    # Workers and PDF.js assets are runtime files, not mapped Sentry entries.
+    shopt -s nullglob
+    local scripts=(dist/chunk-*.js)
+    if [[ ${#scripts[@]} -ne 1 ]]; then
+      echo "ERROR: Expected exactly one application entry for source map upload." >&2
+      exit 1
+    fi
+    local script="${scripts[0]}"
+    if [[ ! -s "$script.map" ]]; then
+      echo "ERROR: Missing application source map: $script.map" >&2
+      exit 1
+    fi
     bun run sentry:cli sourcemaps upload \
       --org "$SENTRY_ORG" --project "$SENTRY_PROJECT" \
       --release "tearleads-web@$BUN_PUBLIC_SENTRY_COMMIT" \
       --dist "$BUN_PUBLIC_SENTRY_ENVIRONMENT-app" \
-      --url-prefix 'app:///' --validate --strict dist
+      --url-prefix 'app:///' --validate --strict "$script" "$script.map"
   )
 }
