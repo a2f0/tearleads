@@ -17,12 +17,12 @@ import {
   computeContainerKekKeyringHash,
   computeContainerKekPredecessorBridgeHash,
   deriveContainerAccessManifest,
+  deriveContainerKekWrappingPublicKey,
   derivePrincipalRecipientKeyEpochId,
   signAccessEvent,
   verifyContainerKekState,
   verifySignedAccessEvent,
 } from "@tearleads/crypto";
-import { containerWrappingPublicKeyForTest } from "@tearleads/crypto/test-fixtures";
 import type {
   AccessManifestBundleWire,
   ContainerMutationRequest,
@@ -217,8 +217,10 @@ export async function buildRootContainerRekeyMutation(input: {
       )
     : previous.state.referencedPrincipalHeads;
   const body: ContainerAccessEventBody = {
-    containerKeyPublicKey:
-      containerWrappingPublicKeyForTest(containerKeyEpochId),
+    containerKeyPublicKey: await deriveContainerKekWrappingPublicKey({
+      containerId: previous.state.containerId,
+      keyMaterial: plaintextKek,
+    }),
     eventType: "container.rekey",
     containerKeyEpochId,
     keyringHash: await computeContainerKekKeyringHash(keyring),
