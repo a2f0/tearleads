@@ -608,6 +608,7 @@ async function resolveDocumentWriterProjection(input: {
     documentKekTargets = await resolveCurrentDocumentKekTargets(
       input.documentId,
       input.executor,
+      true,
     );
     authorizingContainerPaths = await resolveAuthorizingContainerPaths({
       containerIds: documentState.linkedContainerIds,

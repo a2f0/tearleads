@@ -152,6 +152,7 @@ async function lockSyncDocumentFrontier(input: {
   const lockedTargets = await resolveCurrentDocumentKekTargets(
     input.documentId,
     input.tx,
+    input.request.outgoingUpdates.length === 0,
   );
   if (
     lockedTargets.linkSetManifestHash !==
@@ -194,6 +195,7 @@ async function syncDocumentTransaction(input: {
   let currentTargets = await resolveCurrentDocumentKekTargets(
     input.documentId,
     input.tx,
+    input.request.outgoingUpdates.length === 0,
   );
   // Serialize writes against rekeys and serialize paginated watermark capture
   // against update-sequence allocation.

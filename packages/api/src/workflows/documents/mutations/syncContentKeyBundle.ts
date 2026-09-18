@@ -59,6 +59,7 @@ export async function resolveSyncContentKeyBundle(input: {
         expectedLinkSetManifestHash: input.request.expectedLinkSetManifestHash,
         expectedTargetHash: input.request.expectedTargetHash,
         executor: input.executor,
+        allowHistoricalParentEpochs: input.request.outgoingUpdates.length === 0,
       }),
       servedStaleBundle: false,
     };
