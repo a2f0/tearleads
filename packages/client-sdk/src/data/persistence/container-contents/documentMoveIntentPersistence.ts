@@ -15,6 +15,7 @@ import {
 import {
   enqueueDocumentLinkIntent,
   enqueueDocumentMoveIntent,
+  enqueueDocumentUnlinkIntent,
   loadDocumentIntentLinkTargets,
 } from "./documentPlacementIntentEnqueue";
 
@@ -62,6 +63,7 @@ export type DocumentMoveIntentSyncStatus =
 
 export interface DocumentMoveIntentRecord {
   additionalLinkContainerIds?: readonly string[] | undefined;
+  removedLinkContainerIds?: readonly string[] | undefined;
   id: string;
   documentId: string;
   intentType: typeof DOCUMENT_MOVE_INTENT_TYPE;
@@ -136,6 +138,7 @@ export const sqlDocumentMoveIntentPersistence = {
 
   enqueueMoveIntent: enqueueDocumentMoveIntent,
   enqueueLinkIntent: enqueueDocumentLinkIntent,
+  enqueueUnlinkIntent: enqueueDocumentUnlinkIntent,
 
   async listPendingMoveIntents(
     execSql: ExecSql,
@@ -180,9 +183,18 @@ export const sqlDocumentMoveIntentPersistence = {
           execSql,
           row.id ?? "",
         );
+        const added = targets
+          .filter((target) => target.operation === "link")
+          .map((target) => target.containerId)
+          .sort();
+        const removed = targets
+          .filter((target) => target.operation === "unlink")
+          .map((target) => target.containerId)
+          .sort();
         return {
           ...mapDocumentMoveIntentRecord(row),
-          ...(targets.length ? { additionalLinkContainerIds: targets } : {}),
+          ...(added.length ? { additionalLinkContainerIds: added } : {}),
+          ...(removed.length ? { removedLinkContainerIds: removed } : {}),
         };
       }),
     );

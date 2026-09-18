@@ -111,7 +111,7 @@ export async function replaceDocumentLinks(
   );
 }
 
-export function resolveActiveDocumentContainerId(
+function resolveActiveDocumentContainerId(
   linkedContainerIds: ReadonlyArray<string>,
   preferredContainerId: string,
 ): string | null {
@@ -287,7 +287,7 @@ export async function relinkRemoteContainerDocument(input: {
   }
 }
 
-export async function linkRemoteContainerDocument(input: {
+async function linkRemoteContainerDocument(input: {
   documentId: string;
   isCurrent?: (() => boolean) | undefined;
   noteId: string;
@@ -319,7 +319,9 @@ export async function unlinkRemoteContainerDocument(input: {
 }
 
 export async function moveRemoteContainerDocument(input: {
+  linkOnly?: boolean | undefined;
   additionalLinkContainerIds?: readonly string[] | undefined;
+  removedLinkContainerIds?: readonly string[] | undefined;
   currentContainerId: string;
   documentId: string;
   isCurrent?: (() => boolean) | undefined;
@@ -332,10 +334,8 @@ export async function moveRemoteContainerDocument(input: {
   targetContainerId: string;
 }): Promise<MoveRemoteContainerDocumentResult | null> {
   const {
-    currentContainerId,
     documentId,
     noteId,
-    replaceLinkedContainers,
     resolveProjectionUserKey,
     runtime,
     targetContainerId,
@@ -357,7 +357,7 @@ export async function moveRemoteContainerDocument(input: {
   let latestLinkedContainerIds: readonly string[] = initialLinkedContainerIds;
   let latestDocument: RelinkRemoteDocumentResult | null = null;
   for (const linkTarget of new Set([
-    targetContainerId,
+    ...(input.linkOnly ? [] : [targetContainerId]),
     ...(input.additionalLinkContainerIds ?? []),
   ])) {
     if (latestLinkedContainerIds.includes(linkTarget)) continue;
@@ -379,11 +379,9 @@ export async function moveRemoteContainerDocument(input: {
   }
 
   const unlinkContainerIds = resolveContainerDocumentMoveUnlinkIds({
-    currentContainerId,
+    ...input,
     linkedContainerIds: latestLinkedContainerIds,
-    replaceLinkedContainers,
-    targetContainerId,
-  }).filter((id) => !input.additionalLinkContainerIds?.includes(id));
+  });
 
   const unlinked = await unlinkMovedDocumentSources({
     ...input,

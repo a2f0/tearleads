@@ -190,12 +190,15 @@ async function movePendingDocumentIntent<TRuntime>(input: {
   const linkOnly =
     !input.intent.replaceLinkedContainers &&
     input.intent.sourceContainerId === input.intent.targetContainerId;
-  const rotationSnapshot = linkOnly
-    ? new Uint8Array()
-    : await assertMoveIntentRotationPreflight(input);
+  const rotationSnapshot =
+    linkOnly && !input.intent.removedLinkContainerIds?.length
+      ? new Uint8Array()
+      : await assertMoveIntentRotationPreflight(input);
   if (!rotationSnapshot || !input.isCurrent()) return "abandoned" as const;
   return moveRemoteContainerDocument({
+    linkOnly,
     additionalLinkContainerIds: input.intent.additionalLinkContainerIds,
+    removedLinkContainerIds: input.intent.removedLinkContainerIds,
     currentContainerId:
       input.intent.sourceContainerId ??
       input.existingContainerId ??

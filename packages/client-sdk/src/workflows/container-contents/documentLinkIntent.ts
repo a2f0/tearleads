@@ -66,3 +66,63 @@ export async function addDocumentLinkLocally<TRuntime>(input: {
   );
   return linkedNote;
 }
+
+export async function removeDocumentLinkLocally<TRuntime>(
+  input: Omit<
+    Parameters<typeof addDocumentLinkLocally<TRuntime>>[0],
+    "targetContainerId"
+  > & { removedContainerId: string },
+): Promise<DocumentSummary | null> {
+  const { note, runtime, removedContainerId } = input;
+  const execSql = runtime.infra.execSql;
+  const persisted = await defaultDocumentsPersistence.loadDocument(
+    execSql,
+    note.id,
+  );
+  if (!persisted) return null;
+  const currentLinks = await links.listLinkedContainerIds(
+    execSql,
+    note.documentId,
+  );
+  const remaining = currentLinks.filter((id) => id !== removedContainerId);
+  const nextContainerId = remaining.includes(note.containerId)
+    ? note.containerId
+    : remaining[0];
+  if (!nextContainerId || !currentLinks.includes(removedContainerId))
+    return null;
+  const intentId = crypto.randomUUID();
+  let linkedContainerIds: readonly string[] = [];
+  const unlinkedNote = await relinkContainerDocumentLocally({
+    ...input,
+    accessEpoch: persisted.accessEpoch,
+    requestSync: false,
+    targetContainerId: nextContainerId,
+    commitSideEffect: async (transactionExecSql) => {
+      linkedContainerIds = (
+        await links.listLinkedContainerIds(transactionExecSql, note.documentId)
+      ).filter((id) => id !== removedContainerId);
+      if (!linkedContainerIds.includes(nextContainerId))
+        throw new Error("Document placement changed before unlink");
+      await sqlDocumentMoveIntentPersistence.enqueueUnlinkIntent(
+        transactionExecSql,
+        {
+          id: intentId,
+          documentId: note.documentId,
+          localId: note.id,
+          removedContainerId,
+          targetContainerId: nextContainerId,
+        },
+      );
+      await links.replaceDocumentLinks(
+        transactionExecSql,
+        note.documentId,
+        linkedContainerIds,
+        { moveIntentId: intentId },
+      );
+    },
+  });
+  if (!unlinkedNote) return null;
+  input.setLinkedContainerIdsForDocument(note.documentId, linkedContainerIds);
+  input.scheduleSync?.();
+  return unlinkedNote;
+}

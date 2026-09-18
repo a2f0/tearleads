@@ -90,3 +90,79 @@ test("an older link response cannot settle a newer local move", async () => {
   expect(fixture.pendingIntents).toEqual([]);
   expect(fixture.remainingLinkTargets).toEqual([]);
 });
+
+test("an additive replay does not restore the preferred link removed by a peer", async () => {
+  const fixture = await runQueuedDocumentMoveFixture({
+    testDbName: "queued-link-peer-unlink",
+    linkOnly: true,
+    remoteOnlySourceContainer: true,
+    remoteUnlinkSource: true,
+    unlinkAvailable: true,
+  });
+  expect(fixture.syncedCount).toBe(1);
+  expect(fixture.submittedOperations).toEqual(["link"]);
+  expect(fixture.remoteLinkedContainerIds).toEqual([
+    fixture.extraContainerId ?? "missing-extra",
+    fixture.trashContainerId,
+  ]);
+  expect(fixture.linkedContainerIds).toEqual(fixture.remoteLinkedContainerIds);
+  expect(fixture.persistedDocument?.containerId).not.toBe(
+    fixture.rootContainerId,
+  );
+});
+
+test("unlinking a partially replayed addition prevents retry from restoring it", async () => {
+  const fixture = await runQueuedDocumentMoveFixture({
+    testDbName: "queued-link-then-unlink",
+    linkOnly: true,
+    extraLocalLink: true,
+    unlinkAvailable: true,
+    linkFailure: { status: null, message: "offline" },
+    linkFailureTimes: 1,
+    linkSuccessesBeforeFailure: 1,
+    passes: 2,
+    afterPass: async (pass, unlink) => {
+      if (pass === 0)
+        expect(await unlink("queued-move-extra-container")).not.toBeNull();
+    },
+  });
+  expect(fixture.passes.map((pass) => pass.syncedCount)).toEqual([0, 1]);
+  expect(fixture.remoteLinkedContainerIds).toEqual([
+    fixture.rootContainerId,
+    fixture.trashContainerId,
+  ]);
+  expect(fixture.linkedContainerIds).toEqual(fixture.remoteLinkedContainerIds);
+  expect(fixture.pendingIntents).toEqual([]);
+  expect(fixture.remainingLinkTargets).toEqual([]);
+});
+
+test("an in-flight addition cannot acknowledge a newer unlink", async () => {
+  let removed = false;
+  const fixture = await runQueuedDocumentMoveFixture({
+    testDbName: "queued-link-in-flight-unlink",
+    linkOnly: true,
+    unlinkAvailable: true,
+    passes: 2,
+    beforeLink: async (execSql) => {
+      if (removed) return;
+      removed = true;
+      await intents.enqueueUnlinkIntent(execSql, {
+        id: "new-unlink",
+        documentId: "queued-move-document",
+        localId: "queued-move-local",
+        removedContainerId: "queued-move-trash-container",
+        targetContainerId: "queued-move-root-container",
+      });
+      await links.replaceDocumentLinks(
+        execSql,
+        "queued-move-document",
+        ["queued-move-root-container"],
+        { moveIntentId: "new-unlink" },
+      );
+    },
+  });
+  expect(fixture.passes.map((pass) => pass.syncedCount)).toEqual([0, 1]);
+  expect(fixture.remoteLinkedContainerIds).toEqual([fixture.rootContainerId]);
+  expect(fixture.linkedContainerIds).toEqual([fixture.rootContainerId]);
+  expect(fixture.pendingIntents).toEqual([]);
+});

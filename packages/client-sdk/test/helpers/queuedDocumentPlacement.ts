@@ -1,6 +1,13 @@
 import { sqlDocumentMoveIntentPersistence } from "../../src/data/persistence/container-contents/documentMoveIntentPersistence";
 import { sqlDocumentContainerProjectionPersistence } from "../../src/data/persistence/containers/documentContainerProjectionPersistence";
+import { getClientSQLitePersistenceRuntime } from "../../src/data/sqlite/sqlitePersistenceRuntime";
 import type { ExecSql } from "../../src/data/sqlite/sqlSchema";
+import { runSerializedSqlMutation } from "../../src/data/sqlite/sqlSchema";
+import {
+  type DocumentStructuralMutationRelinkInput,
+  type DocumentStructuralMutationRuntime,
+  removeDocumentLink,
+} from "../../src/workflows/container-contents/documentStructure";
 import { defaultDocumentsPersistence } from "../../src/workflows/documents";
 
 export async function persistQueuedDocumentPlacement(input: {
@@ -68,4 +75,71 @@ export async function persistQueuedDocumentPlacement(input: {
       targetContainerId: input.extraContainerId,
     });
   }
+}
+
+export function createQueuedDocumentPlacementHost(input: {
+  execSql: ExecSql;
+  rotationSnapshot: Uint8Array;
+  submittedOperations: string[];
+  relinkInputs: DocumentStructuralMutationRelinkInput[];
+}) {
+  const { execSql, rotationSnapshot, submittedOperations, relinkInputs } =
+    input;
+  return {
+    documentWorkflowRuntime: (containerId: string | null) =>
+      `runtime:${containerId}`,
+    mergeDocumentSummary: () => {},
+    openDocumentStore: () => ({
+      assertCanRotateContentKey: async () => {
+        submittedOperations.push("preflight");
+        return rotationSnapshot;
+      },
+      ensureInitialized: async () => true,
+      relink: async (relinkInput: DocumentStructuralMutationRelinkInput) => {
+        relinkInputs.push(relinkInput);
+        return runSerializedSqlMutation(execSql, (lockedExecSql) =>
+          getClientSQLitePersistenceRuntime(lockedExecSql).transaction(
+            async () => {
+              const summary =
+                await defaultDocumentsPersistence.relinkPersistedDocument(
+                  lockedExecSql,
+                  relinkInput,
+                );
+              await relinkInput.commitSideEffect?.(lockedExecSql);
+              return summary;
+            },
+          ),
+        );
+      },
+      requestSync: () => undefined,
+      updateRuntime: () => undefined,
+    }),
+  };
+}
+
+export async function unlinkQueuedDocumentPlacement(input: {
+  host: ReturnType<typeof createQueuedDocumentPlacementHost>;
+  execSql: ExecSql;
+  documentId: string;
+  removedContainerId: string;
+  runtime: DocumentStructuralMutationRuntime;
+}) {
+  const doc = await defaultDocumentsPersistence.loadDocument(
+    input.execSql,
+    "queued-move-local",
+  );
+  if (!doc) throw new Error("Missing fixture document");
+  return removeDocumentLink({
+    host: input.host,
+    runtime: input.runtime,
+    removedContainerId: input.removedContainerId,
+    note: {
+      id: doc.id,
+      documentId: input.documentId,
+      containerId: doc.containerId,
+      title: "Queued link",
+      updatedAt: new Date().toISOString(),
+    },
+    setLinkedContainerIdsForDocument: () => {},
+  });
 }

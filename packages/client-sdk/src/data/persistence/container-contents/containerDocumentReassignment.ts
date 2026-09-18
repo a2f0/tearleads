@@ -84,7 +84,10 @@ async function reassignDocumentMoveIntentsForContainer(
               .select({ id: documentIntentLinkTargets.intentId })
               .from(documentIntentLinkTargets)
               .where(
-                eq(documentIntentLinkTargets.containerId, fromContainerId),
+                and(
+                  eq(documentIntentLinkTargets.containerId, fromContainerId),
+                  eq(documentIntentLinkTargets.operation, "link"),
+                ),
               ),
           ),
         ),
@@ -100,18 +103,22 @@ async function reassignDocumentMoveIntentsForContainer(
       .delete(documentIntentLinkTargets)
       .where(eq(documentIntentLinkTargets.intentId, intent.id ?? ""))
       .run();
-    const containerIds = uniqueSortedStrings(
-      targets.map((target) =>
-        target.containerId === fromContainerId
-          ? toContainerId
-          : target.containerId,
-      ),
+    const retained = new Map(
+      targets.map((target) => [target.containerId, target.operation]),
     );
-    if (containerIds.length)
+    if (retained.get(fromContainerId) === "link") {
+      retained.delete(fromContainerId);
+      retained.set(toContainerId, "link");
+    }
+    if (retained.size)
       await tx
         .insert(documentIntentLinkTargets)
         .values(
-          containerIds.map((containerId) => ({ intentId: id, containerId })),
+          uniqueSortedStrings([...retained.keys()]).map((containerId) => ({
+            intentId: id,
+            containerId,
+            operation: retained.get(containerId) ?? "link",
+          })),
         )
         .run();
     await tx

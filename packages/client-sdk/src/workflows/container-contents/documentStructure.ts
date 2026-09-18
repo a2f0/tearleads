@@ -1,10 +1,9 @@
 import { DEFAULT_DOCUMENT_ACCESS_EPOCH } from "../../data/documents/documentConstants";
 import type { DocumentSummary } from "../../data/documents/documentSummary";
-import { addDocumentLinkLocally } from "./documentLinkIntent";
 import {
-  resolveActiveDocumentContainerId,
-  unlinkRemoteContainerDocument,
-} from "./documentLinks";
+  addDocumentLinkLocally,
+  removeDocumentLinkLocally,
+} from "./documentLinkIntent";
 import { relinkContainerDocumentLocally } from "./documentLocalRelink";
 import { moveRemoteDocumentLinkLocally } from "./documentMoveIntent";
 import type {
@@ -72,18 +71,6 @@ async function openDocumentStoreForStructuralMutation<TRuntime>({
   }
 
   return documentStore;
-}
-
-function relinkDocumentAfterStructuralMutation<TRuntime>(
-  params: Omit<
-    Parameters<typeof relinkContainerDocumentLocally<TRuntime>>[0],
-    "requestSync"
-  >,
-) {
-  return relinkContainerDocumentLocally({
-    ...params,
-    requestSync: true,
-  });
 }
 
 export async function moveLocalDocumentLink<TRuntime>(params: {
@@ -231,15 +218,10 @@ export async function removeDocumentLink<TRuntime>(params: {
   note: DocumentSummary;
   removedContainerId: string;
   runtime: DocumentStructuralMutationRuntime;
+  scheduleSync?: (() => void) | undefined;
   setLinkedContainerIdsForDocument: SetLinkedContainerIdsForDocument;
 }): Promise<DocumentSummary | null> {
-  const {
-    host,
-    note,
-    removedContainerId,
-    runtime,
-    setLinkedContainerIdsForDocument,
-  } = params;
+  const { host, note, runtime } = params;
   if (!note.documentId || !note.containerId) {
     return null;
   }
@@ -254,57 +236,18 @@ export async function removeDocumentLink<TRuntime>(params: {
     return null;
   }
 
-  // Unlink rotates the document content key. Prove locally that a mergeable
-  // full-history checkpoint can be emitted before publishing the new epoch,
-  // so a failed preflight leaves the remote state untouched.
-  const rotationSnapshot =
-    await currentDocumentStore.assertCanRotateContentKey();
-
-  const unlinkedDocument = await unlinkRemoteContainerDocument({
-    documentId: note.documentId,
-    noteId: note.id,
-    resolveProjectionUserKey: runtime.resolveProjectionUserKey,
-    rotationSnapshot,
-    runtime,
-    targetContainerId: removedContainerId,
-  });
-  if (!unlinkedDocument) {
-    return null;
-  }
-  setLinkedContainerIdsForDocument(
-    note.documentId,
-    unlinkedDocument.linkedContainerIds,
-  );
-
-  const nextContainerId = resolveActiveDocumentContainerId(
-    unlinkedDocument.linkedContainerIds,
-    note.containerId,
-  );
-  if (!nextContainerId) {
-    runtime.util.log(
-      `Container contents: note ${note.id} has no remaining linked containers after unlink`,
-    );
-    return null;
-  }
-
-  const unlinkedNote = await relinkDocumentAfterStructuralMutation({
-    accessEpoch: unlinkedDocument.plan.state.epoch,
-    accessStateHash: unlinkedDocument.response.accessManifest.manifestHash,
+  // Keep the rotation preflight before accepting an unlink. Replay proves it
+  // again before publishing the signed key rotation from the durable intent.
+  await currentDocumentStore.assertCanRotateContentKey();
+  return removeDocumentLinkLocally({
+    ...params,
     currentDocumentStore,
-    host,
-    note,
-    runtime,
-    targetContainerId: nextContainerId,
-    remoteState: unlinkedDocument.persistedState,
+    note: {
+      ...note,
+      documentId: note.documentId,
+      containerId: note.containerId,
+    },
   });
-  if (!unlinkedNote) {
-    return null;
-  }
-
-  runtime.util.log(
-    `Container contents: unlinked note ${unlinkedNote.id} from ${removedContainerId}`,
-  );
-  return unlinkedNote;
 }
 
 export async function activateDocumentLink<TRuntime>(params: {

@@ -17,6 +17,7 @@ interface PlacementIntentInput {
   documentId: string;
   localId: string;
   replaceLinkedContainers?: boolean | undefined;
+  removedContainerId?: string | undefined;
   sourceContainerId?: string | null | undefined;
   targetContainerId: string;
 }
@@ -24,19 +25,62 @@ interface PlacementIntentInput {
 export async function loadDocumentIntentLinkTargets(
   execSql: ExecSql,
   intentId: string,
-): Promise<string[]> {
-  const rows = await getClientSQLitePersistenceRuntime(execSql)
-    .db.select({ containerId: documentIntentLinkTargets.containerId })
+) {
+  return getClientSQLitePersistenceRuntime(execSql)
+    .db.select({
+      containerId: documentIntentLinkTargets.containerId,
+      operation: documentIntentLinkTargets.operation,
+    })
     .from(documentIntentLinkTargets)
     .where(eq(documentIntentLinkTargets.intentId, intentId));
-  return uniqueSortedStrings(rows.map((row) => row.containerId));
+}
+
+type LinkTarget = { containerId: string; operation: "link" | "unlink" };
+
+function resolveTargets(
+  input: PlacementIntentInput,
+  previous: LinkTarget[],
+  operation: "move" | "link" | "unlink",
+): LinkTarget[] {
+  const targets = new Map(
+    previous.map((target) => [target.containerId, target.operation]),
+  );
+  if (operation === "link") targets.set(input.targetContainerId, "link");
+  else if (operation === "unlink") {
+    if (!input.removedContainerId)
+      throw new Error("Unlink intent requires a removed container");
+    targets.set(input.removedContainerId, "unlink");
+  } else if (input.replaceLinkedContainers) targets.clear();
+  else {
+    targets.delete(input.targetContainerId);
+    if (
+      input.sourceContainerId &&
+      input.sourceContainerId !== input.targetContainerId
+    )
+      targets.set(input.sourceContainerId, "unlink");
+  }
+  return uniqueSortedStrings([...targets.keys()]).map((containerId) => ({
+    containerId,
+    operation: targets.get(containerId) ?? "link",
+  }));
 }
 
 function resolvePlacement(
   input: PlacementIntentInput,
   previous: typeof documentMoveIntents.$inferSelect | undefined,
-  linkOnly: boolean,
+  operation: "move" | "link" | "unlink",
 ) {
+  if (operation === "unlink") {
+    return {
+      sourceContainerId:
+        previous && previous.sourceContainerId !== previous.targetContainerId
+          ? previous.sourceContainerId
+          : input.targetContainerId,
+      targetContainerId: input.targetContainerId,
+      replaceLinkedContainers: previous?.replaceLinkedContainers ?? false,
+    };
+  }
+  const linkOnly = operation === "link";
   const sourceContainerId =
     previous && previous.sourceContainerId !== previous.targetContainerId
       ? (previous.sourceContainerId ?? input.sourceContainerId ?? null)
@@ -59,7 +103,7 @@ function resolvePlacement(
 async function enqueuePlacementIntent(
   execSql: ExecSql,
   input: PlacementIntentInput,
-  linkOnly: boolean,
+  operation: "move" | "link" | "unlink",
 ): Promise<void> {
   await runSerializedSqlMutation(execSql, async (lockedExecSql) => {
     await ensureSqlTables(lockedExecSql, documentMoveIntentTables);
@@ -73,11 +117,7 @@ async function enqueuePlacementIntent(
       const previousTargets = previous?.id
         ? await loadDocumentIntentLinkTargets(lockedExecSql, previous.id)
         : [];
-      const targets = linkOnly
-        ? uniqueSortedStrings([...previousTargets, input.targetContainerId])
-        : input.replaceLinkedContainers
-          ? []
-          : previousTargets.filter((id) => id !== input.sourceContainerId);
+      const targets = resolveTargets(input, previousTargets, operation);
       const id = input.id ?? crypto.randomUUID();
       const updatedAt = new Date().toISOString();
       // An additive intent retains the active placement and any pending move.
@@ -92,7 +132,7 @@ async function enqueuePlacementIntent(
         lastError: null,
         syncStatus: "pending",
         updatedAt,
-        ...resolvePlacement(input, previous, linkOnly),
+        ...resolvePlacement(input, previous, operation),
       };
       await tx
         .insert(documentMoveIntents)
@@ -110,7 +150,7 @@ async function enqueuePlacementIntent(
       if (targets.length)
         await tx
           .insert(documentIntentLinkTargets)
-          .values(targets.map((containerId) => ({ intentId: id, containerId })))
+          .values(targets.map((target) => ({ intentId: id, ...target })))
           .run();
     });
   });
@@ -120,12 +160,19 @@ export function enqueueDocumentMoveIntent(
   execSql: ExecSql,
   input: PlacementIntentInput,
 ): Promise<void> {
-  return enqueuePlacementIntent(execSql, input, false);
+  return enqueuePlacementIntent(execSql, input, "move");
 }
 
 export function enqueueDocumentLinkIntent(
   execSql: ExecSql,
   input: PlacementIntentInput & { sourceContainerId: string },
 ): Promise<void> {
-  return enqueuePlacementIntent(execSql, input, true);
+  return enqueuePlacementIntent(execSql, input, "link");
+}
+
+export function enqueueDocumentUnlinkIntent(
+  execSql: ExecSql,
+  input: PlacementIntentInput & { removedContainerId: string },
+): Promise<void> {
+  return enqueuePlacementIntent(execSql, input, "unlink");
 }

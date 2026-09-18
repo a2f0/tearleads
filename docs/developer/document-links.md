@@ -14,10 +14,14 @@ existing document move intent's revision. Sharing that revision gives additions
 the same protections as moves: stale discovery cannot replace pending placement,
 and an older response cannot settle a newer action. Multiple additions coalesce.
 Ordinary moves retain them; a replace move supersedes prior additions.
+Unlink records a removal under a new revision and cancels any queued addition for
+that target. A partially successful replay cannot resurrect the removed link.
 
 Replay uses current, verified writer projections to submit signed link mutations.
 It adds only explicitly queued targets, preserves unrelated remote links, and
-does not rotate the content key for an additive operation. Network failures leave
+does not restore a preferred link removed by a peer. Additions do not rotate the
+content key; queued removals require a full-history rotation proof. Network
+failures leave
 the durable intent available for retry. Permission denials and vanished containers
 use the existing structural queue's recovery policy. Successful settlement clears
 the parent intent and its targets atomically with the verified document state.
