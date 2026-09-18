@@ -3,6 +3,7 @@ import {
   DOCUMENT_MUTATION_ERROR_CODES,
   DOCUMENT_SYNC_ERROR_CODES,
 } from "@tearleads/validators/response";
+import { ContainerKekRepairRequiredError } from "../../data/documents/shared/containerKekCurrency";
 import {
   isRetryableDocumentSyncConflict,
   isUpstreamDeletedDocumentSyncFailure,
@@ -103,6 +104,9 @@ export function shouldRetryWithFreshProjection(
   error: unknown,
   messageMatches: (message: string) => boolean,
 ): boolean {
+  // A peer may already have repaired the chain. Refetch once; the same guard
+  // rejects a still-stale response before any new ciphertext is produced.
+  if (error instanceof ContainerKekRepairRequiredError) return true;
   const integrityErrorCode = projectionIntegrityErrorCode(error);
   if (integrityErrorCode) {
     return integrityErrorCode === "rollback";

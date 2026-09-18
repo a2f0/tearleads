@@ -3,6 +3,13 @@ import type {
   DocumentWriterProjectionResponse,
 } from "@tearleads/validators/response";
 
+export class ContainerKekRepairRequiredError extends Error {
+  constructor(containerId: string) {
+    super(`Container write requires ancestor KEK repair for ${containerId}`);
+    this.name = "ContainerKekRepairRequiredError";
+  }
+}
+
 /** Recovery can open retired keys; new ciphertext must not use their stale descendants. */
 export function assertContainerKekPathCurrent(
   keks: readonly Pick<
@@ -14,9 +21,7 @@ export function assertContainerKekPathCurrent(
     const expectedParentEpoch =
       index === 0 ? null : keks[index - 1]?.containerKeyEpochId;
     if (kek.parentContainerKeyEpochId !== expectedParentEpoch) {
-      throw new Error(
-        `Container write requires ancestor KEK repair for ${kek.containerId}`,
-      );
+      throw new ContainerKekRepairRequiredError(kek.containerId);
     }
   }
 }
