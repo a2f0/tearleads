@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import { runQueuedDocumentMoveFixture } from "../../../test/helpers/queuedDocumentMoveFixture";
+import { sqlContainerContentsPersistence as containers } from "../../data/persistence/container-contents/containerContentsPersistence";
 import { sqlDocumentMoveIntentPersistence as intents } from "../../data/persistence/container-contents/documentMoveIntentPersistence";
 import { sqlDocumentContainerProjectionPersistence as links } from "../../data/persistence/containers/documentContainerProjectionPersistence";
 
@@ -137,6 +138,42 @@ test("an additive replay does not restore the preferred link removed by a peer",
   expect(fixture.persistedDocument?.containerId).not.toBe(
     fixture.rootContainerId,
   );
+});
+
+test("recovered additions preserve another activated link without an implicit unlink", async () => {
+  const fixture = await runQueuedDocumentMoveFixture({
+    testDbName: "queued-link-recovered-active",
+    linkOnly: true,
+    remoteOnlySourceContainer: true,
+    remoteUnlinkSource: true,
+    unlinkAvailable: true,
+    beforeReplay: async (execSql) => {
+      await containers.ensureSchema(execSql);
+      await containers.deleteContainer(execSql, "queued-move-root-container", {
+        updatedAt: new Date().toISOString(),
+      });
+      const [intent] = await intents.listPendingMoveIntents(execSql);
+      if (!intent) throw new Error("Missing recovered intent");
+      await links.replaceDocumentLinks(
+        execSql,
+        "queued-move-document",
+        ["queued-move-extra-container", "queued-move-trash-container"],
+        { moveIntentId: intent.id },
+      );
+      await execSql(
+        "UPDATE document_projection SET container_id = ? WHERE local_id = ?",
+        ["queued-move-extra-container", "queued-move-local"],
+      );
+    },
+  });
+  expect(fixture.syncedCount).toBe(1);
+  expect(fixture.submittedOperations).toEqual(["link"]);
+  expect(fixture.remoteLinkedContainerIds).toEqual([
+    fixture.extraContainerId ?? "missing-extra",
+    fixture.trashContainerId,
+  ]);
+  expect(fixture.linkedContainerIds).toEqual(fixture.remoteLinkedContainerIds);
+  expect(fixture.pendingIntents).toEqual([]);
 });
 
 test("unlinking a partially replayed addition prevents retry from restoring it", async () => {
