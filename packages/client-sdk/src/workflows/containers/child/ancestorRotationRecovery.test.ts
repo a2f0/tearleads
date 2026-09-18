@@ -1,8 +1,8 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
+import { createRotatedAncestorFixture } from "../../../../test/helpers/ancestorRotationRecovery";
 import { unwrapContainerKekPath } from "../../../data/documents/shared/projection";
 import { buildMaterializedDocumentCreatePlan } from "../../documents/create";
-import { createRotatedAncestorFixture } from "./ancestorRotationRecovery.testFixtures";
 import { buildMaterializedContainerRekeyPlan } from "./rekey";
 
 test("cold verified reads recover descendants after ancestor rotation and permit repair", async () => {

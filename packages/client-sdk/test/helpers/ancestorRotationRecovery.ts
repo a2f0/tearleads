@@ -1,14 +1,14 @@
 import { createTestExecSql } from "@tearleads/test-utils";
 import type { ContainerWriterProjectionResponse } from "@tearleads/validators/response";
 import {
-  createParentProjection,
-  createParentProjectionUserKeyResolver,
-} from "../../../../test/helpers/containerFixtures";
-import {
   buildMaterializedContainerCreatePlan,
   childContainerWriterProjectionFromCreatePlan,
-} from "./create";
-import { buildMaterializedContainerRekeyPlan } from "./rekey";
+} from "../../src/workflows/containers/child/create";
+import { buildMaterializedContainerRekeyPlan } from "../../src/workflows/containers/child/rekey";
+import {
+  createParentProjection,
+  createParentProjectionUserKeyResolver,
+} from "./containerFixtures";
 
 export async function createRotatedAncestorFixture() {
   const root = await createParentProjection();

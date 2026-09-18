@@ -34,8 +34,7 @@ export async function buildReciteRequest(input: {
   if (!previousBundle) throw new Error("Expected a previous container");
   const previous = asVerifiedContainerManifest(previousBundle);
   const body = {
-    containerKeyPublicKey:
-      input.keyEpochId ?? previous.state.containerKeyPublicKey,
+    containerKeyPublicKey: previous.state.containerKeyPublicKey,
     eventType: "container.recite" as const,
     containerKeyEpochId: input.keyEpochId ?? previous.state.containerKeyEpochId,
   };

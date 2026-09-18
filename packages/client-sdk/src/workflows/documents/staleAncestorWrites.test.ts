@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
+import { createRotatedAncestorFixture } from "../../../test/helpers/ancestorRotationRecovery";
 import {
   createPendingUpdateRecord,
   createResponseFromRequest,
@@ -8,7 +9,6 @@ import {
   verifiedBlobWrapTargetsFromDocumentProjection,
   wrapBlobContentKey,
 } from "../../data/documents/blob/shared/projection";
-import { createRotatedAncestorFixture } from "../containers/child/ancestorRotationRecovery.testFixtures";
 import { buildMaterializedContainerRekeyPlan } from "../containers/child/rekey";
 import {
   buildMaterializedDocumentCreatePlan,
