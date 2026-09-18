@@ -47,16 +47,16 @@ for (const tier of ["staging", "production"]) {
   });
 }
 
-test("the host uploads the container's staged maps under HEAD before publishing, outside the artifacts", async () => {
+test("the host uploads maps under HEAD before smoke testing and publishing, outside the artifacts", async () => {
   const result = await runLinuxRelease(["upload", "staging"]);
   expect(result.exitCode, result.stderr).toBe(0);
   const upload = result.calls.indexOf(
     `sourcemaps staging linux-x64 head outside ${stagedPairs}`,
   );
-  expect(upload).toBeGreaterThan(
-    result.calls.findIndex((call) => call.startsWith("docker run")),
-  );
-  expect(upload).toBeLessThan(
+  const smoke = result.calls.findIndex((call) => call.startsWith("docker run"));
+  expect(upload).toBeGreaterThanOrEqual(0);
+  expect(smoke).toBeGreaterThan(upload);
+  expect(smoke).toBeLessThan(
     result.calls.findIndex((call) => call.startsWith("upload")),
   );
   const bun = result.calls.filter((call) => call.startsWith("bun "));
@@ -85,6 +85,9 @@ for (const failure of ["sourcemap-upload", "partial"]) {
       true,
     );
     expect(result.calls.some((call) => call.startsWith("upload"))).toBe(false);
+    expect(result.calls.some((call) => call.startsWith("docker run"))).toBe(
+      false,
+    );
     expect(result.published[result.discovery]).toBe("previous discovery\n");
   });
 }
@@ -135,7 +138,7 @@ for (const failure of [
         false,
       );
       expect(result.calls.some((call) => call.startsWith("sourcemaps"))).toBe(
-        false,
+        failure === "smoke",
       );
     }
   });

@@ -107,16 +107,17 @@ cp "$TEMP_DIR/artifacts/$INSTALLER" "$TEMP_DIR/artifacts/$UPDATE" \
 (cd "$ARTIFACT_DIR" && shasum -a 256 "$INSTALLER" > "$INSTALLER.sha256")
 echo "Built $TIER Linux x64 release: $ARTIFACT_DIR/$INSTALLER"
 if [[ "$ACTION" == build ]]; then exit 0; fi
-docker run --rm --platform linux/amd64 --shm-size=1g --user 1000:1000 \
-  "$(cat "$TEMP_DIR/image-id")" \
-  bash packages/app-electrobun/scripts/testLinuxRelease.sh "$TIER"
 # The container staged its source maps outside the app without uploading them.
 # Copy them to this private temporary directory, never next to the artifacts,
 # and upload them under BUILD_GIT_SHA and TARGET; a failed or partial upload
-# stops here.
+# stops here. Upload before launching the smoke test so its first errors can
+# resolve their source maps when Sentry ingests them.
 docker cp "$CONTAINER:/workspace/packages/app-electrobun/build/sentry-sourcemaps/." \
   "$TEMP_DIR/sentry-sourcemaps"
 bun --no-env-file --config=/dev/null "$PACKAGE_DIR/scripts/uploadLinuxSourceMaps.ts" \
   "$TIER" "$TARGET" "$BUILD_GIT_SHA" "$TEMP_DIR/sentry-sourcemaps"
+docker run --rm --platform linux/amd64 --shm-size=1g --user 1000:1000 \
+  "$(cat "$TEMP_DIR/image-id")" \
+  bash packages/app-electrobun/scripts/testLinuxRelease.sh "$TIER"
 bun "$PACKAGE_DIR/scripts/publishLinuxRelease.ts" "$BUCKET" "$CHANNEL" \
   "$APP_NAME" "$ARTIFACT_DIR/$INSTALLER" "$ARTIFACT_DIR/$UPDATE" "$ARTIFACT_DIR/$ARCHIVE"
