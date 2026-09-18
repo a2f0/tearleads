@@ -222,12 +222,11 @@ safe error metadata, fallback stacks, and maintenance reporting in both tiers.
 
 ## Source maps and verification
 
-Events use `tearleads-web@<git-sha>` releases and `staging-app` /
-`production-app` distributions. The deploy script uploads the exact JS and
-linked maps with `app:///` artifact URLs, matching the sanitized stack
-filenames. Maps are excluded from rsync and removed from the public destination
-if previously deployed. Source maps contain application source code; upload
-tokens stay in the deploy process and are not inlined by Bun.
+Web releases use `tearleads-web@<git-sha>` and `staging-app` / `production-app`.
+Both tiers require and upload only the app entry and its linked map under
+`app:///`, matching sanitized frames. Workers stay out of uploads. Static sync
+compares bytes, removes stale assets (including older PDFs), and excludes/deletes
+public maps. Maps contain source code; upload tokens never enter Bun builds.
 
 Mobile events use `tearleads-android@<git-sha>` or `tearleads-ios@<git-sha>` and
 `staging-app` / `production-app`. Vite emits hidden maps; uploads use
