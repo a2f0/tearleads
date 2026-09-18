@@ -36,6 +36,21 @@ const repo = gh(
   ".nameWithOwner",
 );
 if (action === "build") {
+  const branch = execFileSync("git", ["branch", "--show-current"], {
+    cwd: root,
+    encoding: "utf8",
+  }).trim();
+  if (!branch)
+    throw new Error(
+      "Switch to a pushed branch before dispatching a Windows release",
+    );
+  const remote = JSON.parse(
+    gh("api", `repos/${repo}/git/ref/heads/${encodeURIComponent(branch)}`),
+  );
+  if (remote.object?.sha !== commit)
+    throw new Error(
+      "Push this branch's HEAD before dispatching a Windows release",
+    );
   gh(
     "workflow",
     "run",
@@ -43,7 +58,7 @@ if (action === "build") {
     "--repo",
     repo,
     "--ref",
-    commit,
+    branch,
     "-f",
     `tier=${tier}`,
   );
