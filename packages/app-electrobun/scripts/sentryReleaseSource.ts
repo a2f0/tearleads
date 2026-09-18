@@ -1,5 +1,6 @@
 import { execFileSync } from "node:child_process";
 import { realpathSync } from "node:fs";
+import { relative } from "node:path";
 import { isSentryCommit } from "@tearleads/diagnostics/config";
 
 // Copied from app-capacitor rather than imported: deployment targets must not
@@ -16,8 +17,8 @@ export function desktopSentryCommit(root: string): string {
   // must describe the root itself.
   const [toplevel, commit] = git("rev-parse", "--show-toplevel", "HEAD")
     .trim()
-    .split("\n");
-  if (!toplevel || realpathSync(toplevel) !== realpathSync(root))
+    .split(/\r?\n/);
+  if (!toplevel || relative(realpathSync(toplevel), realpathSync(root)) !== "")
     throw new Error(
       "Desktop Sentry source-map publishing must run from the top level of its own Git checkout",
     );
