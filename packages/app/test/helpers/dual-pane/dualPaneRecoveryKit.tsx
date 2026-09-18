@@ -289,8 +289,12 @@ export async function readPaneExplorerDocumentIdentity(
     await new Promise((resolve) => setTimeout(resolve, 250));
     // Navigate back to the container view so the info route unmounts and the
     // next Get Info performs a fresh load instead of reusing the stale panel.
+    const containerItem = await waitFor(
+      () => getExplorerSidebarItem(pane, containerName),
+      { timeout: Math.max(1, deadline - Date.now()) },
+    );
     await interact(() => {
-      fireEvent.click(getExplorerSidebarItem(pane, containerName));
+      fireEvent.click(containerItem);
     });
     await waitFor(() => {
       expect(queryExplorerItemTable(pane)).toBeTruthy();
