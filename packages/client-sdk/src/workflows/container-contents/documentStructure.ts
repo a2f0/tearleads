@@ -1,7 +1,7 @@
 import { DEFAULT_DOCUMENT_ACCESS_EPOCH } from "../../data/documents/documentConstants";
 import type { DocumentSummary } from "../../data/documents/documentSummary";
+import { addDocumentLinkLocally } from "./documentLinkIntent";
 import {
-  linkRemoteContainerDocument,
   resolveActiveDocumentContainerId,
   unlinkRemoteContainerDocument,
 } from "./documentLinks";
@@ -196,16 +196,11 @@ export async function addDocumentLink<TRuntime>(params: {
   host: DocumentStructuralMutationHost<TRuntime>;
   note: DocumentSummary;
   runtime: DocumentStructuralMutationRuntime;
+  scheduleSync?: (() => void) | undefined;
   setLinkedContainerIdsForDocument: SetLinkedContainerIdsForDocument;
   targetContainerId: string;
 }): Promise<DocumentSummary | null> {
-  const {
-    host,
-    note,
-    runtime,
-    setLinkedContainerIdsForDocument,
-    targetContainerId,
-  } = params;
+  const { host, note, runtime } = params;
   if (!note.documentId || !note.containerId) {
     return null;
   }
@@ -220,39 +215,15 @@ export async function addDocumentLink<TRuntime>(params: {
     return null;
   }
 
-  const linkedDocument = await linkRemoteContainerDocument({
-    documentId: note.documentId,
-    noteId: note.id,
-    resolveProjectionUserKey: runtime.resolveProjectionUserKey,
-    runtime,
-    targetContainerId,
-  });
-  if (!linkedDocument) {
-    return null;
-  }
-  setLinkedContainerIdsForDocument(
-    note.documentId,
-    linkedDocument.linkedContainerIds,
-  );
-
-  const linkedNote = await relinkDocumentAfterStructuralMutation({
-    accessEpoch: linkedDocument.plan.state.epoch,
-    accessStateHash: linkedDocument.response.accessManifest.manifestHash,
+  return addDocumentLinkLocally({
+    ...params,
     currentDocumentStore,
-    host,
-    note,
-    runtime,
-    targetContainerId: note.containerId,
-    remoteState: linkedDocument.persistedState,
+    note: {
+      ...note,
+      documentId: note.documentId,
+      containerId: note.containerId,
+    },
   });
-  if (!linkedNote) {
-    return null;
-  }
-
-  runtime.util.log(
-    `Container contents: linked note ${linkedNote.id} to ${targetContainerId}`,
-  );
-  return linkedNote;
 }
 
 export async function removeDocumentLink<TRuntime>(params: {

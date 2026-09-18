@@ -319,6 +319,7 @@ export async function unlinkRemoteContainerDocument(input: {
 }
 
 export async function moveRemoteContainerDocument(input: {
+  additionalLinkContainerIds?: readonly string[] | undefined;
   currentContainerId: string;
   documentId: string;
   isCurrent?: (() => boolean) | undefined;
@@ -355,7 +356,11 @@ export async function moveRemoteContainerDocument(input: {
 
   let latestLinkedContainerIds: readonly string[] = initialLinkedContainerIds;
   let latestDocument: RelinkRemoteDocumentResult | null = null;
-  if (!initialLinkedContainerIds.includes(targetContainerId)) {
+  for (const linkTarget of new Set([
+    targetContainerId,
+    ...(input.additionalLinkContainerIds ?? []),
+  ])) {
+    if (latestLinkedContainerIds.includes(linkTarget)) continue;
     const linkedDocument = await linkRemoteContainerDocument({
       documentId,
       isCurrent: input.isCurrent,
@@ -363,7 +368,7 @@ export async function moveRemoteContainerDocument(input: {
       onFailure: input.onFailure,
       resolveProjectionUserKey,
       runtime,
-      targetContainerId,
+      targetContainerId: linkTarget,
     });
     if (!linkedDocument || input.isCurrent?.() === false) {
       return null;
@@ -378,7 +383,7 @@ export async function moveRemoteContainerDocument(input: {
     linkedContainerIds: latestLinkedContainerIds,
     replaceLinkedContainers,
     targetContainerId,
-  });
+  }).filter((id) => !input.additionalLinkContainerIds?.includes(id));
 
   const unlinked = await unlinkMovedDocumentSources({
     ...input,

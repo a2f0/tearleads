@@ -1,4 +1,6 @@
-import { and, eq, or, sql } from "drizzle-orm";
+import { and, eq, inArray, or, sql } from "drizzle-orm";
+import { uniqueSortedStrings } from "../../documents/shared/readers";
+import { documentIntentLinkTargets } from "../../sqlite/documentPlacementIntentSchema";
 import {
   documentContainerProjection,
   documentMoveIntents,
@@ -65,7 +67,10 @@ async function reassignDocumentMoveIntentsForContainer(
 ): Promise<void> {
   const { fromContainerId, toContainerId, tx, updatedAt } = input;
   const affectedIntents = await tx
-    .select({ documentId: documentMoveIntents.documentId })
+    .select({
+      documentId: documentMoveIntents.documentId,
+      id: documentMoveIntents.id,
+    })
     .from(documentMoveIntents)
     .where(
       and(
@@ -73,14 +78,46 @@ async function reassignDocumentMoveIntentsForContainer(
         or(
           eq(documentMoveIntents.sourceContainerId, fromContainerId),
           eq(documentMoveIntents.targetContainerId, fromContainerId),
+          inArray(
+            documentMoveIntents.id,
+            tx
+              .select({ id: documentIntentLinkTargets.intentId })
+              .from(documentIntentLinkTargets)
+              .where(
+                eq(documentIntentLinkTargets.containerId, fromContainerId),
+              ),
+          ),
         ),
       ),
     );
   for (const intent of affectedIntents) {
+    const id = crypto.randomUUID();
+    const targets = await tx
+      .select()
+      .from(documentIntentLinkTargets)
+      .where(eq(documentIntentLinkTargets.intentId, intent.id ?? ""));
+    await tx
+      .delete(documentIntentLinkTargets)
+      .where(eq(documentIntentLinkTargets.intentId, intent.id ?? ""))
+      .run();
+    const containerIds = uniqueSortedStrings(
+      targets.map((target) =>
+        target.containerId === fromContainerId
+          ? toContainerId
+          : target.containerId,
+      ),
+    );
+    if (containerIds.length)
+      await tx
+        .insert(documentIntentLinkTargets)
+        .values(
+          containerIds.map((containerId) => ({ intentId: id, containerId })),
+        )
+        .run();
     await tx
       .update(documentMoveIntents)
       .set({
-        id: crypto.randomUUID(),
+        id,
         lastAttemptedAt: null,
         lastError: null,
         sourceContainerId: sql`CASE

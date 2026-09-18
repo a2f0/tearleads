@@ -1,4 +1,5 @@
-import { and, asc, eq, inArray, sql } from "drizzle-orm";
+import { and, asc, eq, inArray } from "drizzle-orm";
+import { documentIntentLinkTargets } from "../../sqlite/documentPlacementIntentSchema";
 import {
   containerTables,
   documentMoveIntents,
@@ -11,6 +12,11 @@ import {
   ensureSqlTables,
   runSerializedSqlMutation,
 } from "../../sqlite/sqlSchema";
+import {
+  enqueueDocumentLinkIntent,
+  enqueueDocumentMoveIntent,
+  loadDocumentIntentLinkTargets,
+} from "./documentPlacementIntentEnqueue";
 
 export const DOCUMENT_MOVE_INTENT_TYPE = "document.move";
 
@@ -55,6 +61,7 @@ export type DocumentMoveIntentSyncStatus =
   | "unavailable";
 
 export interface DocumentMoveIntentRecord {
+  additionalLinkContainerIds?: readonly string[] | undefined;
   id: string;
   documentId: string;
   intentType: typeof DOCUMENT_MOVE_INTENT_TYPE;
@@ -67,15 +74,6 @@ export interface DocumentMoveIntentRecord {
   targetContainerId: string;
   createdAt: string;
   updatedAt: string;
-}
-
-interface DocumentMoveIntentInput {
-  id?: string | undefined;
-  documentId: string;
-  localId: string;
-  replaceLinkedContainers?: boolean | undefined;
-  sourceContainerId?: string | null | undefined;
-  targetContainerId: string;
 }
 
 interface SelectedDocumentMoveIntentRecord {
@@ -136,57 +134,8 @@ export const sqlDocumentMoveIntentPersistence = {
     await ensureSqlTables(execSql, documentMoveIntentTables);
   },
 
-  async enqueueMoveIntent(
-    execSql: ExecSql,
-    input: DocumentMoveIntentInput,
-  ): Promise<void> {
-    await runSerializedSqlMutation(execSql, async (lockedExecSql) => {
-      await ensureSqlTables(lockedExecSql, documentMoveIntentTables);
-      const id = input.id ?? crypto.randomUUID();
-      const updatedAt = new Date().toISOString();
-      const replaceLinkedContainers = input.replaceLinkedContainers ?? false;
-      const sourceContainerId = input.sourceContainerId ?? null;
-      const { db } = getClientSQLitePersistenceRuntime(lockedExecSql);
-
-      await db
-        .insert(documentMoveIntents)
-        .values({
-          id,
-          documentId: input.documentId,
-          intentType: DOCUMENT_MOVE_INTENT_TYPE,
-          lastAttemptedAt: null,
-          lastError: null,
-          localId: input.localId,
-          replaceLinkedContainers,
-          sourceContainerId,
-          syncStatus: "pending",
-          targetContainerId: input.targetContainerId,
-          createdAt: updatedAt,
-          updatedAt,
-        })
-        .onConflictDoUpdate({
-          target: documentMoveIntents.documentId,
-          set: {
-            // Every enqueue is a new optimistic-concurrency revision. The
-            // timestamp remains useful diagnostics, but cannot be the sole
-            // revision token because two local moves can land in one clock
-            // tick while an older remote request is settling.
-            id,
-            intentType: DOCUMENT_MOVE_INTENT_TYPE,
-            lastError: null,
-            localId: input.localId,
-            replaceLinkedContainers: replaceLinkedContainers
-              ? true
-              : sql`${documentMoveIntents.replaceLinkedContainers}`,
-            sourceContainerId: sql`coalesce(${documentMoveIntents.sourceContainerId}, ${sourceContainerId})`,
-            syncStatus: "pending",
-            targetContainerId: input.targetContainerId,
-            updatedAt,
-          },
-        })
-        .run();
-    });
-  },
+  enqueueMoveIntent: enqueueDocumentMoveIntent,
+  enqueueLinkIntent: enqueueDocumentLinkIntent,
 
   async listPendingMoveIntents(
     execSql: ExecSql,
@@ -225,7 +174,18 @@ export const sqlDocumentMoveIntentPersistence = {
       )
       .orderBy(asc(documentMoveIntents.createdAt));
 
-    return rows.map((row) => mapDocumentMoveIntentRecord(row));
+    return Promise.all(
+      rows.map(async (row) => {
+        const targets = await loadDocumentIntentLinkTargets(
+          execSql,
+          row.id ?? "",
+        );
+        return {
+          ...mapDocumentMoveIntentRecord(row),
+          ...(targets.length ? { additionalLinkContainerIds: targets } : {}),
+        };
+      }),
+    );
   },
 
   async markMoveIntentSynced(
@@ -243,7 +203,7 @@ export const sqlDocumentMoveIntentPersistence = {
            AND intent_type = ?
            AND updated_at = ?
            ${input.expectedIntentId ? "AND id = ?" : ""}
-         RETURNING document_id AS documentId`,
+         RETURNING id`,
         [
           input.documentId,
           DOCUMENT_MOVE_INTENT_TYPE,
@@ -251,6 +211,12 @@ export const sqlDocumentMoveIntentPersistence = {
           ...(input.expectedIntentId ? [input.expectedIntentId] : []),
         ],
       );
+      for (const { id } of deleted) {
+        await getClientSQLitePersistenceRuntime(lockedExecSql)
+          .db.delete(documentIntentLinkTargets)
+          .where(eq(documentIntentLinkTargets.intentId, String(id)))
+          .run();
+      }
       return deleted.length > 0;
     });
   },

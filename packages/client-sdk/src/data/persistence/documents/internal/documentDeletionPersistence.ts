@@ -1,4 +1,4 @@
-import { and, eq, ne } from "drizzle-orm";
+import { and, eq, inArray, ne } from "drizzle-orm";
 import { deleteDocumentHistory } from "../../../sqlite/documentHistoryPersistence";
 import {
   clearDocumentSyncFailure,
@@ -6,6 +6,7 @@ import {
   deleteDocumentRecord,
   loadDocumentRecord,
 } from "../../../sqlite/documentPersistence";
+import { documentIntentLinkTargets } from "../../../sqlite/documentPlacementIntentSchema";
 import {
   documentAttachmentBlobProjection,
   documentContainerProjection,
@@ -63,6 +64,18 @@ async function deleteStoredDocumentRows(input: {
     await tx
       .delete(documentContainerProjection)
       .where(eq(documentContainerProjection.documentId, existingDocumentId))
+      .run();
+    await tx
+      .delete(documentIntentLinkTargets)
+      .where(
+        inArray(
+          documentIntentLinkTargets.intentId,
+          tx
+            .select({ id: documentMoveIntents.id })
+            .from(documentMoveIntents)
+            .where(eq(documentMoveIntents.documentId, existingDocumentId)),
+        ),
+      )
       .run();
     await tx
       .delete(documentMoveIntents)
