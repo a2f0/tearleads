@@ -166,3 +166,38 @@ test("an in-flight addition cannot acknowledge a newer unlink", async () => {
   expect(fixture.linkedContainerIds).toEqual([fixture.rootContainerId]);
   expect(fixture.pendingIntents).toEqual([]);
 });
+
+test("a coalesced round-trip move restores its target after the first replay unlinks it", async () => {
+  let returned = false;
+  const fixture = await runQueuedDocumentMoveFixture({
+    testDbName: "queued-move-round-trip",
+    unlinkAvailable: true,
+    remoteOnlySourceContainer: true,
+    replaceLinkedContainers: false,
+    passes: 2,
+    beforeUnlink: async (execSql) => {
+      if (returned) return;
+      returned = true;
+      await intents.enqueueMoveIntent(execSql, {
+        id: "return-move",
+        documentId: "queued-move-document",
+        localId: "queued-move-local",
+        sourceContainerId: "queued-move-trash-container",
+        targetContainerId: "queued-move-root-container",
+      });
+      await links.replaceDocumentLinks(
+        execSql,
+        "queued-move-document",
+        ["queued-move-root-container"],
+        { moveIntentId: "return-move" },
+      );
+    },
+  });
+  expect(fixture.passes.map((pass) => pass.syncedCount)).toEqual([0, 1]);
+  expect(fixture.persistedDocument?.containerId).toBe(fixture.rootContainerId);
+  expect(fixture.remoteLinkedContainerIds).toEqual([
+    fixture.extraContainerId ?? "missing-extra",
+    fixture.rootContainerId,
+  ]);
+  expect(fixture.pendingIntents).toEqual([]);
+});

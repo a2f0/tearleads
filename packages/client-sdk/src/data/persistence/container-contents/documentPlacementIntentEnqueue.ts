@@ -73,7 +73,7 @@ function resolvePlacement(
   if (operation === "unlink") {
     return {
       sourceContainerId:
-        previous && previous.sourceContainerId !== previous.targetContainerId
+        previous?.intentType === "document.move"
           ? previous.sourceContainerId
           : input.targetContainerId,
       targetContainerId: input.targetContainerId,
@@ -82,7 +82,7 @@ function resolvePlacement(
   }
   const linkOnly = operation === "link";
   const sourceContainerId =
-    previous && previous.sourceContainerId !== previous.targetContainerId
+    previous?.intentType === "document.move"
       ? (previous.sourceContainerId ?? input.sourceContainerId ?? null)
       : (input.sourceContainerId ?? null);
   return {
@@ -127,7 +127,10 @@ async function enqueuePlacementIntent(
         id,
         documentId: input.documentId,
         localId: input.localId,
-        intentType: "document.move",
+        intentType:
+          operation === "move" || previous?.intentType === "document.move"
+            ? "document.move"
+            : "document.link",
         lastAttemptedAt: null,
         lastError: null,
         syncStatus: "pending",

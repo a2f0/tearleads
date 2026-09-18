@@ -1,6 +1,7 @@
 import { errorMessage } from "../../data/errorMessage";
 import { reportAndRethrowKeyingVerificationError } from "../../data/keyingProjectionVerification/error";
 import {
+  DOCUMENT_LINK_INTENT_TYPE,
   type DocumentMoveIntentRecord,
   sqlDocumentMoveIntentPersistence,
 } from "../../data/persistence/container-contents/documentMoveIntentPersistence";
@@ -187,9 +188,7 @@ async function movePendingDocumentIntent<TRuntime>(input: {
   state: DocumentMoveIntentSyncState;
 }) {
   // Adding links keeps the content key and needs no full-history rotation proof.
-  const linkOnly =
-    !input.intent.replaceLinkedContainers &&
-    input.intent.sourceContainerId === input.intent.targetContainerId;
+  const linkOnly = input.intent.intentType === DOCUMENT_LINK_INTENT_TYPE;
   const rotationSnapshot =
     linkOnly && !input.intent.removedLinkContainerIds?.length
       ? new Uint8Array()

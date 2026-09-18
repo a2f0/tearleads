@@ -4,6 +4,11 @@ import { reassignContainerDocumentsInTransaction } from "../../data/persistence/
 import { sqlDocumentMoveIntentPersistence as intents } from "../../data/persistence/container-contents/documentMoveIntentPersistence";
 import { sqlDocumentsPersistence as documents } from "../../data/persistence/documents/documentsPersistence";
 import { getClientSQLitePersistenceRuntime } from "../../data/sqlite/sqlitePersistenceRuntime";
+import { hasStartupDocumentSyncWork } from "./documentPriming";
+import {
+  listPendingWrites,
+  resetPendingWriteRetryState,
+} from "./pendingWrites";
 
 test("multiple queued links coalesce without replacing each other and follow a subsequent move", async () => {
   const { execSql, close } = await createTestExecSql("queued-link-coalesce");
@@ -92,6 +97,45 @@ test("container deletion retargets pending additions and invalidates their repla
         "SELECT container_id AS target FROM document_intent_link_targets",
       ),
     ).toEqual([{ target: "lost-found" }]);
+  } finally {
+    close();
+  }
+});
+
+test("explicit link intents remain visible and retryable after a permission denial", async () => {
+  const { execSql, close } = await createTestExecSql("queued-link-denied");
+  try {
+    await intents.enqueueLinkIntent(execSql, {
+      documentId: "remote",
+      localId: "local",
+      sourceContainerId: "source",
+      targetContainerId: "destination",
+    });
+    expect(await hasStartupDocumentSyncWork(execSql)).toBe(true);
+    expect(
+      (await listPendingWrites(execSql)).some(
+        (item) => item.localId === "local",
+      ),
+    ).toBe(true);
+    await intents.recordMoveIntentError(execSql, {
+      documentId: "remote",
+      denied: true,
+      message: "permission denied",
+    });
+    expect(await intents.hasDeniedMoveIntents(execSql)).toBe(true);
+    expect(await intents.listPendingMoveIntents(execSql)).toEqual([]);
+    await resetPendingWriteRetryState(execSql, {
+      localId: "local",
+      objectKind: "document",
+      namespace: null,
+    });
+    expect(await intents.listPendingMoveIntents(execSql)).toMatchObject([
+      {
+        intentType: "document.link",
+        syncStatus: "pending",
+        additionalLinkContainerIds: ["destination"],
+      },
+    ]);
   } finally {
     close();
   }

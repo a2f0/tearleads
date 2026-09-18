@@ -20,6 +20,11 @@ import {
 } from "./documentPlacementIntentEnqueue";
 
 export const DOCUMENT_MOVE_INTENT_TYPE = "document.move";
+export const DOCUMENT_LINK_INTENT_TYPE = "document.link";
+const DOCUMENT_PLACEMENT_INTENT_TYPES = [
+  DOCUMENT_MOVE_INTENT_TYPE,
+  DOCUMENT_LINK_INTENT_TYPE,
+];
 
 // Resolves the organization a parked move belongs to, in confidence order:
 // the move's target container, the document's preserved projection
@@ -66,7 +71,9 @@ export interface DocumentMoveIntentRecord {
   removedLinkContainerIds?: readonly string[] | undefined;
   id: string;
   documentId: string;
-  intentType: typeof DOCUMENT_MOVE_INTENT_TYPE;
+  intentType:
+    | typeof DOCUMENT_MOVE_INTENT_TYPE
+    | typeof DOCUMENT_LINK_INTENT_TYPE;
   lastAttemptedAt: string | null;
   lastError: string | null;
   localId: string;
@@ -118,7 +125,10 @@ function mapDocumentMoveIntentRecord(
   return {
     id: String(row.id ?? ""),
     documentId: row.documentId,
-    intentType: DOCUMENT_MOVE_INTENT_TYPE,
+    intentType:
+      row.intentType === DOCUMENT_LINK_INTENT_TYPE
+        ? DOCUMENT_LINK_INTENT_TYPE
+        : DOCUMENT_MOVE_INTENT_TYPE,
     lastAttemptedAt: row.lastAttemptedAt,
     lastError: row.lastError,
     localId: row.localId,
@@ -172,7 +182,10 @@ export const sqlDocumentMoveIntentPersistence = {
       .where(
         and(
           inArray(documentMoveIntents.syncStatus, ["pending", "blocked"]),
-          eq(documentMoveIntents.intentType, DOCUMENT_MOVE_INTENT_TYPE),
+          inArray(
+            documentMoveIntents.intentType,
+            DOCUMENT_PLACEMENT_INTENT_TYPES,
+          ),
         ),
       )
       .orderBy(asc(documentMoveIntents.createdAt));
@@ -212,13 +225,13 @@ export const sqlDocumentMoveIntentPersistence = {
       const deleted = await lockedExecSql(
         `DELETE FROM document_move_intents
          WHERE document_id = ?
-           AND intent_type = ?
+           AND intent_type IN (?, ?)
            AND updated_at = ?
            ${input.expectedIntentId ? "AND id = ?" : ""}
          RETURNING id`,
         [
           input.documentId,
-          DOCUMENT_MOVE_INTENT_TYPE,
+          ...DOCUMENT_PLACEMENT_INTENT_TYPES,
           input.expectedUpdatedAt,
           ...(input.expectedIntentId ? [input.expectedIntentId] : []),
         ],
@@ -286,7 +299,10 @@ export const sqlDocumentMoveIntentPersistence = {
                 "blocked",
                 "denied",
               ]),
-              eq(documentMoveIntents.intentType, DOCUMENT_MOVE_INTENT_TYPE),
+              inArray(
+                documentMoveIntents.intentType,
+                DOCUMENT_PLACEMENT_INTENT_TYPES,
+              ),
               ...(input.expectedIntentId
                 ? [eq(documentMoveIntents.id, input.expectedIntentId)]
                 : []),
@@ -319,12 +335,12 @@ export const sqlDocumentMoveIntentPersistence = {
        FROM document_move_intents intent
        ${input?.organizationId ? DENIED_INTENT_ORGANIZATION_JOINS_SQL : ""}
        WHERE intent.sync_status = 'denied'
-         AND intent.intent_type = ?
+         AND intent.intent_type IN (?, ?)
          ${input?.organizationId ? `AND (${DENIED_INTENT_ORGANIZATION_SQL} = ? OR ${DENIED_INTENT_ORGANIZATION_SQL} IS NULL)` : ""}
        LIMIT 1`,
       input?.organizationId
-        ? [DOCUMENT_MOVE_INTENT_TYPE, input.organizationId]
-        : [DOCUMENT_MOVE_INTENT_TYPE],
+        ? [...DOCUMENT_PLACEMENT_INTENT_TYPES, input.organizationId]
+        : DOCUMENT_PLACEMENT_INTENT_TYPES,
     );
     return rows.length > 0;
   },
@@ -351,7 +367,7 @@ export const sqlDocumentMoveIntentPersistence = {
         `UPDATE document_move_intents
          SET sync_status = 'pending', updated_at = ?
          WHERE sync_status = 'denied'
-           AND intent_type = ?
+           AND intent_type IN (?, ?)
            ${input?.localId ? "AND local_id = ?" : ""}
            ${
              input?.organizationId
@@ -365,7 +381,7 @@ export const sqlDocumentMoveIntentPersistence = {
 }`,
         [
           new Date().toISOString(),
-          DOCUMENT_MOVE_INTENT_TYPE,
+          ...DOCUMENT_PLACEMENT_INTENT_TYPES,
           ...(input?.localId ? [input.localId] : []),
           ...(input?.organizationId ? [input.organizationId] : []),
         ],

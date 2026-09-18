@@ -7,7 +7,10 @@ import {
   documentProjection,
 } from "../../sqlite/schema";
 import type { ClientSQLiteTransactionScope } from "../../sqlite/sqlitePersistenceRuntime";
-import { DOCUMENT_MOVE_INTENT_TYPE } from "./documentMoveIntentPersistence";
+import {
+  DOCUMENT_LINK_INTENT_TYPE,
+  DOCUMENT_MOVE_INTENT_TYPE,
+} from "./documentMoveIntentPersistence";
 
 interface ContainerDocumentReassignmentInput {
   readonly fromContainerId: string;
@@ -74,7 +77,10 @@ async function reassignDocumentMoveIntentsForContainer(
     .from(documentMoveIntents)
     .where(
       and(
-        eq(documentMoveIntents.intentType, DOCUMENT_MOVE_INTENT_TYPE),
+        inArray(documentMoveIntents.intentType, [
+          DOCUMENT_MOVE_INTENT_TYPE,
+          DOCUMENT_LINK_INTENT_TYPE,
+        ]),
         or(
           eq(documentMoveIntents.sourceContainerId, fromContainerId),
           eq(documentMoveIntents.targetContainerId, fromContainerId),

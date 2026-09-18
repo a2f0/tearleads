@@ -12,7 +12,9 @@ key epoch remain unchanged.
 Additional link targets live in `document_intent_link_targets`, keyed by the
 existing document move intent's revision. Sharing that revision gives additions
 the same protections as moves: stale discovery cannot replace pending placement,
-and an older response cannot settle a newer action. Multiple additions coalesce.
+and an older response cannot settle a newer action. An explicit `document.link`
+discriminator distinguishes additive edits from coalesced round-trip moves.
+Multiple additions coalesce.
 Ordinary moves retain them; a replace move supersedes prior additions.
 Unlink records a removal under a new revision and cancels any queued addition for
 that target. A partially successful replay cannot resurrect the removed link.

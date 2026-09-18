@@ -22,7 +22,8 @@ import {
  *   intents. Replace-style intents unlink every remote container except target.
  * - `replaceLinkedContainers`: Whether the final remote link set should be
  *   only the target container.
- * - `intentType`: Intent discriminator, currently `document.move`.
+ * - `intentType`: `document.move` requests placement; `document.link` requests
+ *   only explicit additions/removals, even if preferred containers match.
  * - `syncStatus`: Current sync state, currently `pending` or `blocked`.
  * - `lastError`: Last sync error message for retry/debug display.
  * - `lastAttemptedAt`: Timestamp of the last replay attempt.
