@@ -29,8 +29,10 @@ export function createQueuedDocumentMoveRemote(input: {
   remoteRequests: string[];
   submittedOperations: string[];
   unlinkAvailable: boolean;
+  loseUnlinkResponseOnce?: boolean | undefined;
   writerProjection: DocumentWriterProjectionResponse;
 }): QueuedDocumentMoveRemote {
+  let loseUnlinkResponse = input.loseUnlinkResponseOnce ?? false;
   const projectionById = new Map(
     input.containerProjections.map((projection) => [
       projection.containerId,
@@ -123,6 +125,10 @@ export function createQueuedDocumentMoveRemote(input: {
           ...previous.documentManifestHistory,
         ],
       };
+      if (loseUnlinkResponse) {
+        loseUnlinkResponse = false;
+        return null;
+      }
       return response;
     },
   };

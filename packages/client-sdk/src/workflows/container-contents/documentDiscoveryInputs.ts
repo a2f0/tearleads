@@ -15,6 +15,11 @@ function mergeDiscoveredDocumentInputs(
   current: DiscoveredDocumentInput,
   next: DiscoveredDocumentInput,
 ): DiscoveredDocumentInput {
+  // A lane page carries a complete link set for its epoch. Combining an old
+  // root page with a newer trash page must not manufacture a newer root link.
+  if (next.accessEpoch !== current.accessEpoch) {
+    return next.accessEpoch > current.accessEpoch ? next : current;
+  }
   const accessStateHash =
     next.accessEpoch >= current.accessEpoch
       ? next.accessStateHash

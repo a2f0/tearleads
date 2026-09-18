@@ -2,6 +2,22 @@ import type { NegativeControl } from "./protocolNegativeControls";
 
 export const DOCUMENT_MOVE_NEGATIVE_CONTROLS: readonly NegativeControl[] = [
   {
+    id: "move-settles-without-recovered-epoch",
+    module: "formal/local-trust/DocumentMovePlacement.tla",
+    config: "formal/local-trust/DocumentMovePlacement.cfg",
+    constants: { CaptureSettledEpoch: "FALSE" },
+    expect: { kind: "invariant", name: "StablePlacement" },
+    why: "A retry after a lost unlink response must settle the verified remote epoch before dropping the intent.",
+  },
+  {
+    id: "move-unions-different-discovery-epochs",
+    module: "formal/local-trust/DocumentMovePlacement.tla",
+    config: "formal/local-trust/DocumentMovePlacement.cfg",
+    constants: { KeepNewestPageLinks: "FALSE" },
+    expect: { kind: "invariant", name: "StablePlacement" },
+    why: "Old source links must not acquire a newer epoch when discovery merges container lanes.",
+  },
+  {
     id: "move-publishes-mixed-local-read",
     module: "formal/local-trust/DocumentMovePlacement.tla",
     config: "formal/local-trust/DocumentMovePlacement.cfg",

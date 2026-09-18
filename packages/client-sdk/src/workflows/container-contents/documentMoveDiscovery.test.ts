@@ -17,6 +17,58 @@ import type { DiscoverContainerDocumentsOptions } from "./documentDiscoveryTypes
 import { settleDocumentMoveIntent } from "./documentMoveIntentSettlement";
 import { listContainerContentsDocumentsForContainers } from "./documentSubtreeQueries";
 
+test.each([
+  ["root", "trash"],
+  ["trash", "root"],
+])(
+  "discovery keeps the newest link set when %s is listed before %s",
+  async (first, second) => {
+    const { execSql, close } = await createTestExecSql("mixed-move-discovery");
+    try {
+      await documents.ensureSchema(execSql);
+      await documents.saveDocument(execSql, {
+        id: "local",
+        documentId: "remote",
+        containerId: "trash",
+        accessEpoch: 3,
+        accessStateHash: "trash-hash",
+        snapshotEndVersion: "",
+        text: "",
+      });
+      await links.replaceDocumentLinks(execSql, "remote", ["trash"]);
+      await discoverAllContainerDocuments({
+        ...nullContainerDocumentWatermarks,
+        containerIds: [first, second],
+        listContainerDocuments: async (containerId) => ({
+          hasMore: false,
+          nextWatermark: null,
+          tombstones: [],
+          items: [
+            {
+              id: "remote",
+              createdAt: "2026-09-17T00:00:00.000Z",
+              updatedAt: "2026-09-17T00:00:00.000Z",
+              currentAccessEpoch: containerId === "root" ? 1 : 3,
+              currentAccessStateHash: `${containerId}-hash`,
+              linkedContainerIds: [containerId],
+              referencedPrincipals: [],
+            },
+          ],
+        }),
+        replaceDocumentLinksBatch: (inputs) =>
+          links.replaceDocumentLinksBatch(execSql, inputs),
+        upsertDiscoveredDocuments: (inputs) =>
+          upsertDiscoveredDocuments(execSql, inputs),
+      });
+      expect(await links.listLinkedContainerIds(execSql, "remote")).toEqual([
+        "trash",
+      ]);
+    } finally {
+      close();
+    }
+  },
+);
+
 for (const mode of ["single", "all"]) {
   test(`${mode} discovery cannot return sequentially trashed documents to root`, async () => {
     const { execSql, close } = await createTestExecSql(

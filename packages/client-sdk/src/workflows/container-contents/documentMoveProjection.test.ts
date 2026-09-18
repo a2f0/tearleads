@@ -31,3 +31,23 @@ test.each([true, false])(
     expect(fixture.pendingIntents).toHaveLength(unlinkAvailable ? 0 : 1);
   },
 );
+
+test("retry after a lost unlink response settles the verified remote epoch", async () => {
+  const fixture = await runQueuedDocumentMoveFixture({
+    testDbName: "move-lost-unlink-response",
+    unlinkAvailable: true,
+    loseUnlinkResponseOnce: true,
+    passes: 2,
+  });
+  expect(fixture.passes.map((pass) => pass.syncedCount)).toEqual([0, 1]);
+  expect(fixture.submittedOperations).toEqual([
+    "preflight",
+    "link",
+    "unlink",
+    "preflight",
+  ]);
+  expect(fixture.pendingIntents).toEqual([]);
+  expect(fixture.persistedDocument?.accessEpoch).toBe(3);
+  expect(fixture.relinkInputs[1]?.accessStateHash).toBeTruthy();
+  expect(fixture.linkedContainerIds).toEqual([fixture.trashContainerId]);
+});
