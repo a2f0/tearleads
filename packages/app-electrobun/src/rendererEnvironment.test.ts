@@ -189,9 +189,10 @@ test("Windows x64 releases define their own renderer and main-process target", (
       "process.env.BUN_PUBLIC_SENTRY_ELECTROBUN_TARGET"
     ],
   ).toBe(JSON.stringify("win-x64"));
-  expect(
-    JSON.parse(
-      createMainProcessSentryDefine(release).TEARLEADS_ELECTROBUN_MAIN_SENTRY,
-    ),
-  ).toMatchObject({ target: "win-x64", environment: "staging" });
+  const { TEARLEADS_ELECTROBUN_MAIN_SENTRY: mainDefine } =
+    createMainProcessSentryDefine(release);
+  expect(JSON.parse(mainDefine ?? "null")).toMatchObject({
+    target: "win-x64",
+    environment: "staging",
+  });
 });
