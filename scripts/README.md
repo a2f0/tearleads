@@ -37,3 +37,9 @@ or `bun run test:static-analysis`, to run checks and tooling tests.
 - Wire automated commands through the root `package.json`. When moving a file,
   update its imports, shell source paths, test fixtures, documentation, and Turbo
   inputs together.
+
+Windows desktop releases use `./scripts/windowsRelease.sh build staging` or
+`build production` to dispatch GitHub Actions. After the run completes, use
+`download <tier> <run-id>` to retrieve its package or `upload <tier> <run-id>`
+to publish it to S3 with local credentials. See the
+[Windows release guide](../packages/app-electrobun/README.md#windows-releases-from-github-actions).

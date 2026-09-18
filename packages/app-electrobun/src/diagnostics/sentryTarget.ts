@@ -1,11 +1,12 @@
 // The desktop builds a Sentry release reports from: the targets the pinned
-// Hutch release ships, except Windows, which has no release path. Each target
+// Hutch release ships. Each target
 // reports under its own dist, because one commit's builds for different
 // targets serve different bundles at the same app:/// URLs.
 export const electrobunSentryTargets = [
   "linux-arm64",
   "linux-x64",
   "macos-arm64",
+  "win-x64",
 ] as const;
 
 export type ElectrobunSentryTarget = (typeof electrobunSentryTargets)[number];

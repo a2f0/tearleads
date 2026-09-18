@@ -18,8 +18,8 @@ import {
 } from "./sentryReleaseUpload";
 import { assertStagedSourceMaps } from "./sentrySourceMaps";
 
-// releaseLinux.sh builds in Docker, which has neither the upload token nor a Git
-// checkout. The container stages the maps (withSentryReleaseEnv.ts, deferred),
+// Linux Docker builds and Windows Actions builds have neither upload tokens
+// nor a Git checkout. The container stages the maps (withSentryReleaseEnv.ts, deferred),
 // and releaseLinux.sh copies them to a host temporary directory and runs this
 // before publishing. The commit is the BUILD_GIT_SHA the container built; it
 // must be this clean checkout's HEAD, or the maps would name another release.
@@ -27,7 +27,7 @@ import { assertStagedSourceMaps } from "./sentrySourceMaps";
 // The staged copy came from the container, so it must be exactly the expected
 // pairs, as real files, under that target's dist, with the main-process bundle
 // built from that commit for that target.
-export async function runLinuxSourceMapUpload(options: {
+export async function runDeferredSourceMapUpload(options: {
   repoRoot: string;
   tier: string | undefined;
   target: string | undefined;
@@ -41,18 +41,18 @@ export async function runLinuxSourceMapUpload(options: {
   if (
     !isSentryEnvironment(tier) ||
     !isElectrobunSentryTarget(target) ||
-    !target.startsWith("linux-") ||
+    !(target.startsWith("linux-") || target === "win-x64") ||
     !isSentryCommit(commit) ||
     !stagingDir ||
     !isAbsolute(stagingDir) ||
     basename(stagingDir) !== "sentry-sourcemaps"
   )
     throw new Error(
-      "Usage: uploadLinuxSourceMaps.ts <staging|production> <linux-x64|linux-arm64> <full commit> <absolute sentry-sourcemaps directory>",
+      "Usage: uploadDeferredSourceMaps.ts <staging|production> <linux-x64|linux-arm64|win-x64> <full commit> <absolute sentry-sourcemaps directory>",
     );
   if (desktopSentryCommit(repoRoot) !== commit)
     throw new Error(
-      "The Linux release commit is not this clean checkout's HEAD; release must not be published",
+      "The desktop release commit is not this clean checkout's HEAD; release must not be published",
     );
   const secrets = await readReleaseSecrets(repoRoot, tier, env);
   const uploader = prepareSourceMapUpload(secrets, tier, endpoint);
@@ -79,8 +79,8 @@ export async function runLinuxSourceMapUpload(options: {
 if (import.meta.main) {
   const [tier, target, commit, stagingDir, ...extra] = process.argv.slice(2);
   if (extra.length > 0)
-    throw new Error("uploadLinuxSourceMaps.ts takes exactly four arguments");
-  await runLinuxSourceMapUpload({
+    throw new Error("uploadDeferredSourceMaps.ts takes exactly four arguments");
+  await runDeferredSourceMapUpload({
     repoRoot: resolve(import.meta.dirname, "../../.."),
     tier,
     target,

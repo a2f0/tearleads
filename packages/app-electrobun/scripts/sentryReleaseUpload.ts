@@ -20,7 +20,7 @@ import {
 } from "./sentrySourceMaps";
 
 // The token-holding half of a desktop release, shared by the build wrapper
-// (withSentryReleaseEnv.ts) and the Linux host upload (uploadLinuxSourceMaps.ts).
+// (withSentryReleaseEnv.ts) and the Linux host upload (uploadDeferredSourceMaps.ts).
 
 export type Environment = Readonly<Record<string, string | undefined>>;
 

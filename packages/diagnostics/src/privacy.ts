@@ -14,7 +14,7 @@ export interface SentryPrivacyConfig {
     | "production-app"
     | "staging"
     | "production"
-    | `${"staging" | "production"}-app-${"linux-arm64" | "linux-x64" | "macos-arm64"}`;
+    | `${"staging" | "production"}-app-${"linux-arm64" | "linux-x64" | "macos-arm64" | "win-x64"}`;
   scriptPaths?: ReadonlySet<string>;
   serverSourceRoot?: string;
   runtime?: "api" | "electrobun-main";

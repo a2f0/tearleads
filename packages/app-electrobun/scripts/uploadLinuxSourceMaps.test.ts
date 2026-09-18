@@ -86,8 +86,8 @@ test.each([
   ["foreignBundle", "not built from the release commit"],
   ["otherTarget", "expected staging-app-linux-x64"],
   ["foreignTargetBundle", "not built from the release commit for linux-x64"],
-  ["macosTarget", "Usage: uploadLinuxSourceMaps.ts"],
-  ["relativeDir", "Usage: uploadLinuxSourceMaps.ts"],
+  ["macosTarget", "Usage: uploadDeferredSourceMaps.ts"],
+  ["relativeDir", "Usage: uploadDeferredSourceMaps.ts"],
   ["launch", "must not run with BUN_INSPECT_PRELOAD"],
 ] satisfies [LinuxUploadCase, string][])(
   "%s staging or checkout refuses the upload before sending anything",
@@ -129,3 +129,19 @@ test.each([...hostileMapVectors])(
   },
   60000,
 );
+
+test("Windows source maps upload under the Windows dist from the local host", async () => {
+  await withServers(false, async ({ intended, attacker }) => {
+    const run = await runHostileLinuxUpload({
+      intended: intended.url,
+      attacker: attacker.url,
+      token: orgAuthToken(intended.url),
+      kind: "windows",
+    });
+    expect(run.code, run.output).toBe(0);
+    expect([...intended.releases]).toEqual([
+      `tearleads-electrobun@${run.head} staging-app-win-x64`,
+    ]);
+    expect(attacker.connections()).toBe(0);
+  });
+}, 60000);

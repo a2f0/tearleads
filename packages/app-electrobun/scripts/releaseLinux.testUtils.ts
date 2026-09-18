@@ -153,7 +153,7 @@ export async function runLinuxRelease(
     ])
       await cp(join(import.meta.dirname, name), join(scripts, name));
     await write(
-      "packages/app-electrobun/scripts/uploadLinuxSourceMaps.ts",
+      "packages/app-electrobun/scripts/uploadDeferredSourceMaps.ts",
       sourceMapUploadStub,
     );
     await write(

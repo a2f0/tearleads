@@ -307,7 +307,7 @@ The Linux container (no `.git` or token) sets
 `TEARLEADS_ELECTROBUN_SOURCEMAP_UPLOAD=deferred`: it stages and sweeps maps
 without uploading; a checkout refuses the flag. `releaseLinux.sh upload` applies
 the same checkout, `BUN_*` and token rules, copies staging to a private host
-directory and, before publishing, uploads it via `uploadLinuxSourceMaps.ts`
+directory and, before publishing, uploads it via `uploadDeferredSourceMaps.ts`
 (`BUILD_GIT_SHA` must be the clean `HEAD`; exactly two regular-file pairs under
 the `linux-x64` dist).
 

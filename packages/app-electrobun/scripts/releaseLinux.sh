@@ -43,7 +43,7 @@ TF_TIER="$TIER"
 [[ "$TIER" != production ]] || TF_TIER=prod
 load_secrets_env "$TF_TIER"
 # load_secrets_env exports every root.env name. The upload token stays out of
-# Docker and every child; uploadLinuxSourceMaps.ts reads it from .secrets itself.
+# Docker and every child; uploadDeferredSourceMaps.ts reads it from .secrets itself.
 unset SENTRY_AUTH_TOKEN
 # These add env files, preload modules or a debugger to every Bun process.
 unset BUN_OPTIONS BUN_INSPECT BUN_INSPECT_CONNECT_TO BUN_INSPECT_NOTIFY \
@@ -114,7 +114,7 @@ if [[ "$ACTION" == build ]]; then exit 0; fi
 # resolve their source maps when Sentry ingests them.
 docker cp "$CONTAINER:/workspace/packages/app-electrobun/build/sentry-sourcemaps/." \
   "$TEMP_DIR/sentry-sourcemaps"
-bun --no-env-file --config=/dev/null "$PACKAGE_DIR/scripts/uploadLinuxSourceMaps.ts" \
+bun --no-env-file --config=/dev/null "$PACKAGE_DIR/scripts/uploadDeferredSourceMaps.ts" \
   "$TIER" "$TARGET" "$BUILD_GIT_SHA" "$TEMP_DIR/sentry-sourcemaps"
 docker run --rm --platform linux/amd64 --shm-size=1g --user 1000:1000 \
   "$(cat "$TEMP_DIR/image-id")" \

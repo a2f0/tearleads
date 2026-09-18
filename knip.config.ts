@@ -112,9 +112,11 @@ const baseConfig = {
         "scripts/publishMacosRelease.ts",
         "scripts/publishLinuxRelease.ts",
         // Uploads the Linux container's staged source maps before publishing.
-        "scripts/uploadLinuxSourceMaps.ts",
+        "scripts/uploadDeferredSourceMaps.ts",
         // Verifies the native Linux build before exporting its artifacts.
         "scripts/verifyLinuxArtifacts.ts",
+        "scripts/verifyWindowsArtifacts.ts",
+        "scripts/releaseWindows.ts",
         // Invoked by the native CEF persistence smoke-test harnesses.
         "scripts/probeCefPersistence.ts",
         // Selects diagnostics inherited by the build and its packaging hook.

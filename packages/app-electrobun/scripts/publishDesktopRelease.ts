@@ -11,7 +11,7 @@ type ReleasePublication = {
   installer: string;
   update: string;
   archive: string;
-  target: "macos-arm64" | "linux-x64";
+  target: "macos-arm64" | "linux-x64" | "win-x64";
 };
 
 async function digest(path: string) {
@@ -85,9 +85,13 @@ export async function publishDesktopRelease({
     !/^[A-Za-z0-9-]+$/.test(appName)
   )
     throw new Error("Invalid desktop release channel or app name");
-  const platform = target === "macos-arm64" ? "macos" : "linux";
-  const arch = target === "macos-arm64" ? "arm64" : "x64";
-  const installerExtension = platform === "macos" ? ".dmg" : "-Setup.tar.gz";
+  const [platform, arch] = target.split("-");
+  const installerExtension =
+    platform === "macos"
+      ? ".dmg"
+      : platform === "win"
+        ? "-Setup.zip"
+        : "-Setup.tar.gz";
   const archiveExtension = platform === "macos" ? ".app.tar.zst" : ".tar.zst";
   const [installerHash, archiveHash] = await Promise.all([
     digest(installer),
@@ -96,7 +100,12 @@ export async function publishDesktopRelease({
   const prefix = `${channel}-${target}`;
   const installerKey = `${prefix}-${installerHash}-${appName}${installerExtension}`;
   const archiveKey = `${prefix}-${archiveHash}-${appName}${archiveExtension}`;
-  const metadata = await readReleaseManifest(update, channel, platform, arch);
+  const metadata = await readReleaseManifest(
+    update,
+    channel,
+    platform ?? "",
+    arch ?? "",
+  );
   const temp = await mkdtemp(join(tmpdir(), "tearleads-publication-"));
   try {
     const checksum = join(temp, `${installerKey}.sha256`);
