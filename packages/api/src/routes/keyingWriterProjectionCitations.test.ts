@@ -314,7 +314,9 @@ test("GET /containers/:containerId/writer-projection serves the ancestor heads a
   expect(childHistory).toContain(parent2.bundle.manifestHash);
   expect(childHistory).toContain(parent1.bundle.manifestHash);
   expect(childHistory).toContain(child1.bundle.manifestHash);
-});
+  // The signed multi-generation lineage has the same bounded integration-test
+  // allowance as keyring projections, including on a busy SQLite test runner.
+}, 15_000);
 
 test("a child can be moved after its parent's head advanced and its projection serves the cited source ancestors", async () => {
   const owner = createTestUser();

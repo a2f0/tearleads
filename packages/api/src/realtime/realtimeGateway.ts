@@ -100,7 +100,7 @@ function createOrderedInterestPersister(interestStore: InterestStore) {
       .then(() => interestStore.apply(userId, sessionId, applied))
       .catch((error: unknown) => {
         console.error("Failed to persist websocket interest:", error);
-        reportBackgroundFailure(error);
+        reportBackgroundFailure(error, "websocket.persist");
       });
     interestWriteChains.set(sessionKey, chain);
     void chain.finally(() => {
@@ -229,7 +229,7 @@ class OrganizationInterestAuthorizer {
         "Failed to authorize websocket organization interest:",
         error,
       );
-      reportBackgroundFailure(error);
+      reportBackgroundFailure(error, "websocket.authorize");
       return false;
     });
     return new Promise((resolve) => {
@@ -431,7 +431,7 @@ export function createRealtimeGateway(deps: RealtimeGatewayDeps = {}) {
             "Failed to prepare websocket organization event:",
             error,
           );
-          reportBackgroundFailure(error);
+          reportBackgroundFailure(error, "websocket.event");
           routeMessage(message);
         });
     });
@@ -442,7 +442,7 @@ export function createRealtimeGateway(deps: RealtimeGatewayDeps = {}) {
       void containerInterest
         .revalidateAll({ resyncAll: true })
         .catch((error: unknown) => {
-          reportBackgroundFailure(error);
+          reportBackgroundFailure(error, "websocket.revalidate");
         });
     });
   }

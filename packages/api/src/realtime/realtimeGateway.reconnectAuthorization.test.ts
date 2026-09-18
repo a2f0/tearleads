@@ -55,7 +55,11 @@ test("a reconnect authorization failure reports an empty baseline and permits re
     await f.gateway.websocket.open(f.socket);
     expect(f.closed).toEqual([]);
     expect(f.sent).toEqual([{ type: "interest_state", containerIds: [] }]);
-    expect(capture).toHaveBeenCalledWith(failure, "background-error");
+    expect(capture).toHaveBeenCalledWith(
+      failure,
+      "background-error",
+      "websocket.hydrate",
+    );
     await f.declare("known_containers");
     expect(f.router.interestedSocketCount(CONTAINER)).toBe(1);
   } finally {

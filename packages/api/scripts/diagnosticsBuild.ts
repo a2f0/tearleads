@@ -41,9 +41,13 @@ function readGitBuild(sourceRoot: string) {
   const sourcePaths = files
     .filter(
       (path) =>
-        /^packages\/(?:api|api-shared|crypto|diagnostics|encoding|loro|sqlite-instance|validators)\/src\/.+\.ts$/u.test(
+        (/^packages\/(?:api|api-shared|crypto|diagnostics|encoding|loro|sqlite-instance|validators)\/src\/.+\.ts$/u.test(
           path,
-        ) && !/\.(?:test|spec)\./u.test(path),
+        ) ||
+          /^packages\/api\/scripts\/(?:blobGc|stripeSeatSync)\.ts$/u.test(
+            path,
+          )) &&
+        !/\.(?:test|spec)\./u.test(path),
     )
     .map((path) => `/${path}`);
   return { commit, sourceRoot, sourcePaths };

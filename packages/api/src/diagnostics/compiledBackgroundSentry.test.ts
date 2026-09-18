@@ -29,8 +29,7 @@ test("a compiled binary reports a swallowed background failure as a handled, san
     await Bun.write(
       join(directory, "fixture.ts"),
       `
-import { reportBackgroundFailure } from ${JSON.stringify(join(import.meta.dirname, "reportBackgroundFailure.ts"))};
-import { bytesToBase64 } from ${JSON.stringify(join(root, "packages/encoding/src/base64.ts"))};
+import { publishBestEffort } from ${JSON.stringify(join(root, "packages/api/src/utils/publishBestEffort.ts"))};
 let sent;
 const received = new Promise(resolve => { sent = resolve; });
 globalThis.fetch = async (_url, init) => {
@@ -38,11 +37,10 @@ globalThis.fetch = async (_url, init) => {
   return new Response(null, { status: 200 });
 };
 const deadline = setTimeout(() => { process.exit(2); }, 10000);
-try { bytesToBase64(null); }
-catch (error) {
-  error.message = "SYNTHETIC_PRIVATE_DATABASE_VALUE";
-  reportBackgroundFailure(error);
-}
+const error = Object.assign(new Error("SYNTHETIC_PRIVATE_DATABASE_VALUE"), { code: "ECONNREFUSED" });
+error.stack = "Error: SYNTHETIC_PRIVATE_DATABASE_VALUE\\n    at connect (node:net:1182:12)";
+console.error = () => {};
+await publishBestEffort(async () => { throw error; }, { type: "session_revoked", sessionId: "SYNTHETIC_PRIVATE_SESSION" }, "synthetic");
 await received;
 clearTimeout(deadline);
 `,
@@ -87,6 +85,13 @@ if (!result.success) process.exit(1);
     const event = JSON.parse(output.trim().split("\n")[2] ?? "{}");
     expect(event.release).toBe(`tearleads-api@${metadata.commit}`);
     expect(event.tags.diagnostic_source).toBe("background-error");
+    expect(event.tags.api_operation).toBe("realtime.publish");
+    expect(event.tags.api_error_code).toBe("ECONNREFUSED");
+    expect(event.tags.api_stack).toBe("capture-site");
+    expect(output).not.toContain("SYNTHETIC_PRIVATE_SESSION");
+    expect(event.exception.values[0].value).toBe(
+      "API realtime event publication failed: connection refused (ECONNREFUSED)",
+    );
     // A dropped source would send nothing; an unknown one would ship as a crash.
     expect(event.exception.values[0].mechanism).toEqual({
       type: "generic",
@@ -94,7 +99,7 @@ if (!result.success) process.exit(1);
     });
     expect(event.exception.values[0].stacktrace.frames).toContainEqual(
       expect.objectContaining({
-        filename: "app:///packages/encoding/src/base64.ts",
+        filename: "app:///packages/api/src/utils/publishBestEffort.ts",
         in_app: true,
       }),
     );

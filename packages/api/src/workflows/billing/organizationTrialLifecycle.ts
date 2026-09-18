@@ -463,7 +463,7 @@ export async function runExpireOrganizationTrialsWorkflow(
           `Free-trial expiry backoff failed for organization ${candidate.organizationId}:`,
           deferError,
         );
-        reportBackgroundFailure(deferError);
+        reportBackgroundFailure(deferError, "billing.trial-backoff");
       }
       if (
         attemptCount !== null &&
@@ -476,7 +476,7 @@ export async function runExpireOrganizationTrialsWorkflow(
         // Report only at the escalation the backoff already defines. Earlier
         // attempts are expected to retry, so reporting each one would bury the
         // exhausted candidate this branch exists to surface.
-        reportBackgroundFailure(error);
+        reportBackgroundFailure(error, "billing.trial-expiry");
       }
       console.error(
         `Free-trial expiry failed for organization ${candidate.organizationId}:`,

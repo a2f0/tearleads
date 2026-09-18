@@ -161,7 +161,7 @@ async function destroySessionToken(input: {
       // The session rows are already gone; a failed fan-out must not resurrect
       // them or fail the logout, so the report rides alongside the log.
       console.error("Failed to notify session revocation:", error);
-      reportBackgroundFailure(error);
+      reportBackgroundFailure(error, "session.revoke");
     }
   }
 }

@@ -319,7 +319,7 @@ export async function runStripeSeatSynchronization(
       // Every remaining failure is counted and then dropped, so the exit status
       // is the only trace a per-minute timer leaves behind. A rebound period is
       // ordinary contention and already returned above.
-      reportBackgroundFailure(error);
+      reportBackgroundFailure(error, "billing.seat-sync");
       failed += 1;
       await failOrganizationStripeSeatSync({
         claim,

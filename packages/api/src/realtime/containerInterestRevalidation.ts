@@ -103,7 +103,7 @@ export class ContainerInterestRevalidationSchedule {
       this.timers.delete(ws);
       this.schedule(ws);
       void this.revalidate(ws).catch((error: unknown) => {
-        reportBackgroundFailure(error);
+        reportBackgroundFailure(error, "websocket.revalidate");
       });
     }, delay);
     this.timers.set(ws, cancel);
