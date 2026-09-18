@@ -29,8 +29,11 @@ use the existing structural queue's recovery policy. Successful settlement clear
 the parent intent and its targets atomically with the verified document state.
 
 Document deletion and scoped remote reset remove the associated targets. Container
-deletion retargets them alongside the parent placement and changes its revision
-so an in-flight response cannot overwrite that recovery.
+reassignment retargets pending additions. Container deletion or revoked access
+prunes obsolete targets and rehomes the preferred container to a surviving link.
+Both paths change the revision so an in-flight response cannot
+overwrite recovery. Intents without surviving work are removed; those without a
+surviving destination remain unavailable until a new local action retargets them.
 
 Regression coverage includes local publication with an unresolved network request,
 transaction rollback, stale discovery, signed replay, retries, overlapping moves,

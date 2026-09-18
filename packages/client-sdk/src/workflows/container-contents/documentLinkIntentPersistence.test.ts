@@ -1,7 +1,9 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
+import { sqlContainerContentsPersistence as containers } from "../../data/persistence/container-contents/containerContentsPersistence";
 import { reassignContainerDocumentsInTransaction } from "../../data/persistence/container-contents/containerDocumentReassignment";
 import { sqlDocumentMoveIntentPersistence as intents } from "../../data/persistence/container-contents/documentMoveIntentPersistence";
+import { sqlDocumentContainerProjectionPersistence as links } from "../../data/persistence/containers/documentContainerProjectionPersistence";
 import { sqlDocumentsPersistence as documents } from "../../data/persistence/documents/documentsPersistence";
 import { getClientSQLitePersistenceRuntime } from "../../data/sqlite/sqlitePersistenceRuntime";
 import { hasStartupDocumentSyncWork } from "./documentPriming";
@@ -65,7 +67,7 @@ test("multiple queued links coalesce without replacing each other and follow a s
   }
 });
 
-test("container deletion retargets pending additions and invalidates their replay revision", async () => {
+test("container reassignment retargets pending additions and invalidates their replay revision", async () => {
   const { execSql, close } = await createTestExecSql("queued-link-retarget");
   try {
     await documents.ensureSchema(execSql);
@@ -97,6 +99,117 @@ test("container deletion retargets pending additions and invalidates their repla
         "SELECT container_id AS target FROM document_intent_link_targets",
       ),
     ).toEqual([{ target: "lost-found" }]);
+  } finally {
+    close();
+  }
+});
+
+test.each(["deleted", "access_revoked"] as const)(
+  "%s containers cannot block surviving link additions and removals",
+  async (reason) => {
+    const { execSql, close } = await createTestExecSql(
+      `link-removal-${reason}`,
+    );
+    try {
+      await documents.ensureSchema(execSql);
+      await containers.ensureSchema(execSql);
+      const base = {
+        documentId: "remote",
+        localId: "local",
+        sourceContainerId: "source",
+      };
+      for (const targetContainerId of ["gone", "surviving"])
+        await intents.enqueueLinkIntent(execSql, {
+          ...base,
+          targetContainerId,
+        });
+      await intents.enqueueUnlinkIntent(execSql, {
+        ...base,
+        targetContainerId: "source",
+        removedContainerId: "revoked-link",
+      });
+      const [original] = await intents.listPendingMoveIntents(execSql);
+      if (!original) throw new Error("Missing intent");
+      await links.replaceDocumentLinks(
+        execSql,
+        "remote",
+        ["source", "gone", "surviving"],
+        { moveIntentId: original.id },
+      );
+      await intents.recordMoveIntentError(execSql, {
+        documentId: "remote",
+        unavailable: true,
+        message: "deleted target",
+      });
+      await containers.deleteContainers(
+        execSql,
+        ["source", "gone"].map((containerId) => ({
+          containerId,
+          reason,
+          updatedAt: new Date().toISOString(),
+        })),
+      );
+      const [repaired] = await intents.listPendingMoveIntents(execSql);
+      expect(repaired).toMatchObject({
+        intentType: "document.link",
+        targetContainerId: "surviving",
+        additionalLinkContainerIds: ["surviving"],
+        removedLinkContainerIds: ["revoked-link"],
+        syncStatus: "pending",
+        lastError: null,
+      });
+      expect(repaired?.id).not.toBe(original.id);
+      expect(
+        await intents.markMoveIntentSynced(execSql, {
+          documentId: "remote",
+          expectedIntentId: original.id,
+          expectedUpdatedAt: original.updatedAt,
+        }),
+      ).toBe(false);
+      expect(await links.listLinkedContainerIds(execSql, "remote")).toEqual([
+        "surviving",
+      ]);
+      expect(
+        await execSql(
+          "SELECT container_id AS target FROM document_intent_link_targets ORDER BY container_id",
+        ),
+      ).toEqual([{ target: "revoked-link" }, { target: "surviving" }]);
+      await containers.deleteContainer(execSql, "surviving", {
+        updatedAt: new Date().toISOString(),
+      });
+      expect(await intents.listPendingMoveIntents(execSql)).toEqual([]);
+    } finally {
+      close();
+    }
+  },
+);
+
+test("deleting the only queued addition clears its intent without losing surviving placement", async () => {
+  const { execSql, close } = await createTestExecSql("link-removal-empty");
+  try {
+    await documents.ensureSchema(execSql);
+    await containers.ensureSchema(execSql);
+    await intents.enqueueLinkIntent(execSql, {
+      documentId: "remote",
+      localId: "local",
+      sourceContainerId: "source",
+      targetContainerId: "gone",
+    });
+    const [intent] = await intents.listPendingMoveIntents(execSql);
+    if (!intent) throw new Error("Missing intent");
+    await links.replaceDocumentLinks(execSql, "remote", ["source", "gone"], {
+      moveIntentId: intent.id,
+    });
+    await containers.deleteContainer(execSql, "gone", {
+      updatedAt: new Date().toISOString(),
+    });
+    expect(await intents.listPendingMoveIntents(execSql)).toEqual([]);
+    expect(await execSql("SELECT * FROM document_intent_link_targets")).toEqual(
+      [],
+    );
+    expect(await links.listLinkedContainerIds(execSql, "remote")).toEqual([
+      "source",
+    ]);
   } finally {
     close();
   }
