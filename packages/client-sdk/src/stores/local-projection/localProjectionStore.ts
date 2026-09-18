@@ -16,6 +16,7 @@ import {
   snapshotLinkedContainerIdsByDocumentId,
   snapshotSummariesByContainerId,
 } from "./summaryCache";
+import { hasObsoletePlacement, type PendingSummaryRead } from "./summaryRead";
 import type {
   LocalProjectionReconciledDelta,
   LocalProjectionSnapshot,
@@ -44,6 +45,9 @@ export interface LocalProjectionStore {
   setActiveContainer: (containerId: string | null) => void;
   getActiveContainerId: () => string | null;
   applyReconciled: (delta: LocalProjectionReconciledDelta) => void;
+  loadContainerDelta: (
+    containerId: string,
+  ) => Promise<LocalProjectionReconciledDelta>;
   removePersistedDocument: (localId: string) => void;
   refreshPersistedDocument: (document: DocumentSummary) => void;
   updateRuntime: (runtime: ContainerContentsStoreRuntime) => void;
@@ -54,6 +58,8 @@ export interface LocalProjectionStore {
 
 interface LocalProjectionStoreState {
   activeContainerId: string | null;
+  documentRevision: number;
+  deltaRevisions: WeakMap<LocalProjectionReconciledDelta, number>;
   cache: SummaryCache;
   containerStore: ContainerContentsStore;
   hydratedContainerSummaries: boolean;
@@ -69,11 +75,6 @@ interface LocalProjectionStoreState {
   runtime: ContainerContentsStoreRuntime;
   snapshot: LocalProjectionSnapshot;
   pendingSummaryReads: Map<string, PendingSummaryRead>;
-}
-
-interface PendingSummaryRead {
-  discardResult: boolean;
-  reloadAfter: boolean;
 }
 
 const EMPTY_SNAPSHOT: LocalProjectionSnapshot = {
@@ -136,6 +137,7 @@ function loadContainerSummaries(
   const pendingRead: PendingSummaryRead = {
     discardResult: false,
     reloadAfter: false,
+    persistedDocuments: new Map(),
   };
   void loadLocalContainerProjectionDocumentsFromRuntime({
     containerIds: [containerId],
@@ -146,7 +148,12 @@ function loadContainerSummaries(
       // mid-flight; do not apply a stale read to a freshly reset cache.
       if (
         state.pendingSummaryReads.get(containerId) !== pendingRead ||
-        pendingRead.discardResult
+        pendingRead.discardResult ||
+        hasObsoletePlacement(
+          pendingRead,
+          containerId,
+          documents.documentSummaries,
+        )
       ) {
         return;
       }
@@ -198,6 +205,10 @@ function refreshPersistedDocument(
   state: LocalProjectionStoreState,
   document: DocumentSummary,
 ): void {
+  state.documentRevision += 1;
+  for (const read of state.pendingSummaryReads.values()) {
+    read.persistedDocuments.set(document.id, document);
+  }
   const containerIds = new Set(state.pendingSummaryReads.keys());
   if (
     state.activeContainerId &&
@@ -266,6 +277,7 @@ function publishHydration(state: LocalProjectionStoreState): boolean {
 }
 
 function resetProjection(state: LocalProjectionStoreState): void {
+  state.documentRevision += 1;
   resetSummaryCache(state.cache);
   state.pendingSummaryReads.clear();
   state.hydratedContainerSummaries = false;
@@ -315,6 +327,7 @@ function removePersistedDocumentFromCache(
   state: LocalProjectionStoreState,
   localId: string,
 ): void {
+  state.documentRevision += 1;
   // The deleted row may exist only in an in-flight first read, so invalidating
   // just containers that already cached it would allow it to reappear offline.
   for (const containerId of state.pendingSummaryReads.keys()) {
@@ -363,6 +376,8 @@ export function createLocalProjectionStore(input: {
 }): LocalProjectionStore {
   const state: LocalProjectionStoreState = {
     activeContainerId: null,
+    documentRevision: 0,
+    deltaRevisions: new WeakMap(),
     cache: createSummaryCache(),
     containerStore: input.containerStore,
     hydratedContainerSummaries: false,
@@ -423,7 +438,22 @@ export function createLocalProjectionStore(input: {
       });
     },
     getActiveContainerId: () => state.activeContainerId,
+    loadContainerDelta: async (containerId) => {
+      const revision = state.documentRevision;
+      const documents = await loadLocalContainerProjectionDocumentsFromRuntime({
+        containerIds: [containerId],
+        runtime: state.runtime,
+      });
+      const delta = { containerId, ...documents };
+      state.deltaRevisions.set(delta, revision);
+      return delta;
+    },
     applyReconciled: (delta) => {
+      const revision = state.deltaRevisions.get(delta);
+      if (revision !== undefined && revision !== state.documentRevision) {
+        refreshContainerSummaries(state, delta.containerId, true);
+        return;
+      }
       if (state.pendingSummaryReads.has(delta.containerId)) {
         refreshContainerSummaries(state, delta.containerId, true);
       }

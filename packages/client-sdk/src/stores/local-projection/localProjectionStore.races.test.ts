@@ -63,6 +63,63 @@ function createView(execSql: ExecSql) {
   return { runtime, view };
 }
 
+test.each(["local", "reconciled"])(
+  "a move during %s hydration cannot publish its old container placement",
+  async (mode) => {
+    const db = await createTestExecSql("projection-move-during-read");
+    let release = () => {};
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    let held = false;
+    const delayed = new Proxy(db.execSql, {
+      apply: async (target, _receiver, args: Parameters<ExecSql>) => {
+        const rows = await target(...args);
+        if (
+          !held &&
+          args[0].startsWith("select") &&
+          args[0].includes('from "document_projection"')
+        ) {
+          held = true;
+          await gate;
+        }
+        return rows;
+      },
+    });
+    try {
+      await seed(db.execSql, "Moving");
+      const { view } = createView(delayed);
+      await waitFor(() => view.getSnapshot().ready, "Tree did not hydrate");
+      const read =
+        mode === "reconciled" ? view.loadContainerDelta("root") : null;
+      if (!read) view.setActiveContainer("root");
+      await waitFor(() => held, "Root read was not held");
+      await seed(db.execSql, "Moving", "trash");
+      const rootCounts: number[] = [];
+      view.subscribe(() => {
+        const rows = view
+          .getSnapshot()
+          .documentSummariesByContainerId.get("root");
+        if (rows) rootCounts.push(rows.length);
+      });
+      view.refreshPersistedDocument({
+        id: "note",
+        containerId: "trash",
+        documentId: null,
+        title: "Moving",
+        updatedAt: "2026-09-17T00:00:00.000Z",
+      });
+      release();
+      if (read) view.applyReconciled(await read);
+      await waitFor(() => rootCounts.at(-1) === 0, "Root did not converge");
+      expect(rootCounts).not.toContain(1);
+    } finally {
+      release();
+      db.close();
+    }
+  },
+);
+
 test.each(["root", "other"])(
   "autosaves in %s publish local reads before a pending trailing refresh",
   async (containerId) => {

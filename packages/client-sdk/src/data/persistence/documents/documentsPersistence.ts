@@ -1,9 +1,6 @@
 import { KeyingVerificationError } from "@tearleads/crypto";
 import { and, desc, eq, inArray, notInArray, or, type SQL } from "drizzle-orm";
-import {
-  DEFAULT_DOCUMENT_ACCESS_EPOCH,
-  DEFAULT_DOCUMENT_KIND,
-} from "../../documents/documentConstants";
+import { DEFAULT_DOCUMENT_KIND } from "../../documents/documentConstants";
 import {
   type DiscoveredDocumentInput,
   type DocumentSummary,
@@ -25,6 +22,7 @@ import { DOCUMENTS_APP_KIND } from "./internal/constants";
 import { applyContainerDocumentTombstonesWithExec } from "./internal/containerDocumentTombstones";
 import { createStoredDocumentWithHistoryCheckpoint } from "./internal/createDocumentWithHistoryCheckpoint";
 import { discardStoredDocumentToShell } from "./internal/discardDocument";
+import { resolveDiscoveredDocumentPlacement } from "./internal/discoveredDocumentPlacement";
 import {
   deleteStoredDocument,
   deleteStoredDocumentIfMatches,
@@ -120,41 +118,27 @@ async function upsertDiscoveredDocumentWithExec(
     execSql,
     localId,
   );
-  const nextAccessEpoch = Math.max(
-    existingDocument?.accessEpoch ?? DEFAULT_DOCUMENT_ACCESS_EPOCH,
-    input.accessEpoch,
+  const placement = await resolveDiscoveredDocumentPlacement(
+    tx,
+    existingDocument,
+    input,
   );
-  const nextContainerId =
-    existingDocument?.containerId &&
-    input.linkedContainerIds.includes(existingDocument.containerId)
-      ? existingDocument.containerId
-      : (input.linkedContainerIds.find(
-          (linkedContainerId) => linkedContainerId === input.containerId,
-        ) ??
-        input.linkedContainerIds[0] ??
-        input.containerId);
 
   const nextDocument: StoredDocumentRecord = {
     id: localId,
-    containerId: nextContainerId,
     documentId: input.documentId,
     documentKind: existingDocument?.documentKind ?? DEFAULT_DOCUMENT_KIND,
     text: existingDocument?.text ?? "",
     title: existingDocument?.title ?? DISCOVERED_DOCUMENT_PLACEHOLDER_TITLE,
     snapshotEndVersion: existingDocument?.snapshotEndVersion ?? "",
     recoveryGeneration: existingDocument?.recoveryGeneration ?? 0,
-    accessEpoch: nextAccessEpoch,
-    accessStateHash: resolvePersistedAccessStateHash(existingDocument, {
-      accessEpoch: nextAccessEpoch,
-      accessStateHash: input.accessStateHash,
-      documentId: input.documentId,
-    }),
+    ...placement,
     effectiveAccessLevel:
       input.effectiveAccessLevel ??
       existingDocument?.effectiveAccessLevel ??
       null,
     ...resolvePersistedDocumentRuntimeState(existingDocument, {
-      accessEpoch: nextAccessEpoch,
+      accessEpoch: placement.accessEpoch,
       documentId: input.documentId,
     }),
   };

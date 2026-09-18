@@ -280,6 +280,7 @@ export async function discoverContainerDocuments({
     await withoutDeferredDocumentLinks(
       listedDocuments.items.map((document) => ({
         documentId: document.id,
+        accessEpoch: document.currentAccessEpoch,
         containerIds: document.linkedContainerIds,
       })),
       discoveredDocuments,
@@ -363,6 +364,7 @@ export async function discoverAllContainerDocuments({
       await withoutDeferredDocumentLinks(
         discoveredDocumentInputs.map((input) => ({
           documentId: input.documentId,
+          accessEpoch: input.accessEpoch,
           containerIds: input.linkedContainerIds,
         })),
         discoveredDocuments,

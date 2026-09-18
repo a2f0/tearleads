@@ -3,11 +3,13 @@ import type { RemoteDocumentPersistedState } from "./documentLinks";
 import type {
   DocumentStructuralMutationHost,
   DocumentStructuralMutationLocalStore,
+  DocumentStructuralMutationRelinkInput,
   DocumentStructuralMutationRuntime,
 } from "./documentStructureTypes";
 
 export async function relinkContainerDocumentLocally<TRuntime>(params: {
   accessEpoch: number;
+  commitSideEffect?: DocumentStructuralMutationRelinkInput["commitSideEffect"];
   accessStateHash?: string | null | undefined;
   currentDocumentStore: DocumentStructuralMutationLocalStore<TRuntime>;
   host: DocumentStructuralMutationHost<TRuntime>;
@@ -33,6 +35,7 @@ export async function relinkContainerDocumentLocally<TRuntime>(params: {
     accessEpoch,
     ...(accessStateHash === undefined ? {} : { accessStateHash }),
     containerId: targetContainerId,
+    commitSideEffect: params.commitSideEffect,
     ...remoteState,
     documentId: note.documentId,
     localId: note.id,

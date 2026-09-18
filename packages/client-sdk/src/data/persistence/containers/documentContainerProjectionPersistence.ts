@@ -2,12 +2,20 @@ import { asc, eq, inArray } from "drizzle-orm";
 import {
   documentContainerProjection,
   documentContainerProjectionTables,
+  documentMoveIntentTables,
+  documentTables,
 } from "../../sqlite/schema";
 import {
   type ClientSQLiteTransactionScope,
   getClientSQLitePersistenceRuntime,
 } from "../../sqlite/sqlitePersistenceRuntime";
 import { type ExecSql, ensureSqlTables } from "../../sqlite/sqlSchema";
+
+import {
+  type DocumentPlacementInput,
+  type DocumentPlacementWriteOptions,
+  filterWritableDocumentPlacements,
+} from "./documentPlacement";
 
 interface DocumentContainerProjectionPersistence {
   ensureSchema: (execSql: ExecSql) => Promise<void>;
@@ -27,15 +35,12 @@ interface DocumentContainerProjectionPersistence {
     execSql: ExecSql,
     documentId: string,
     containerIds: ReadonlyArray<string>,
-    options?: { stillCurrent?: (() => boolean) | undefined },
+    options?: DocumentPlacementWriteOptions,
   ) => Promise<void>;
   replaceDocumentLinksBatch: (
     execSql: ExecSql,
-    inputs: ReadonlyArray<{
-      documentId: string;
-      containerIds: ReadonlyArray<string>;
-    }>,
-    options?: { stillCurrent?: (() => boolean) | undefined },
+    inputs: ReadonlyArray<DocumentPlacementInput>,
+    options?: DocumentPlacementWriteOptions,
   ) => Promise<void>;
 }
 
@@ -117,48 +122,42 @@ export const sqlDocumentContainerProjectionPersistence: DocumentContainerProject
       );
     },
     async replaceDocumentLinksBatch(execSql, inputs, options) {
-      await ensureSqlTables(execSql, documentContainerProjectionTables);
-      const latestContainerIdsByDocumentId = new Map<
-        string,
-        ReadonlyArray<string>
-      >();
-      for (const input of inputs) {
-        latestContainerIdsByDocumentId.set(
-          input.documentId,
-          input.containerIds,
-        );
-      }
-      const documentIds = Array.from(latestContainerIdsByDocumentId.keys());
-      if (documentIds.length === 0) {
-        return;
-      }
-
-      const updatedAt = new Date().toISOString();
-      const projectionRows = Array.from(
-        latestContainerIdsByDocumentId.entries(),
-      ).flatMap(([documentId, containerIds]) =>
-        Array.from(new Set(containerIds))
-          .sort()
-          .map((containerId) => ({
-            documentId,
-            containerId,
-            updatedAt,
-          })),
-      );
-
+      await ensureSqlTables(execSql, [
+        ...documentContainerProjectionTables,
+        ...documentMoveIntentTables,
+        ...documentTables,
+      ]);
+      const latest = new Map(inputs.map((input) => [input.documentId, input]));
+      if (latest.size === 0) return;
       const runtime = getClientSQLitePersistenceRuntime(execSql);
       const replace = async (tx: ClientSQLiteTransactionScope) => {
+        const writable = await filterWritableDocumentPlacements(
+          tx,
+          [...latest.values()],
+          options,
+        );
+        if (writable.length === 0) return;
         await tx
           .delete(documentContainerProjection)
-          .where(inArray(documentContainerProjection.documentId, documentIds))
+          .where(
+            inArray(
+              documentContainerProjection.documentId,
+              writable.map((input) => input.documentId),
+            ),
+          )
           .run();
-
-        if (projectionRows.length > 0) {
-          await tx
-            .insert(documentContainerProjection)
-            .values(projectionRows)
-            .run();
-        }
+        const updatedAt = new Date().toISOString();
+        const rows = writable.flatMap((input) =>
+          Array.from(new Set(input.containerIds))
+            .sort()
+            .map((containerId) => ({
+              documentId: input.documentId,
+              containerId,
+              updatedAt,
+            })),
+        );
+        if (rows.length > 0)
+          await tx.insert(documentContainerProjection).values(rows).run();
       };
       if (options?.stillCurrent) {
         await runtime.guardedTransaction(replace, options.stillCurrent);

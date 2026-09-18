@@ -215,7 +215,8 @@ test("a server-asserted source 404 never skips the unlink or completes the move"
     ).length,
   ).toBeGreaterThanOrEqual(3);
   // The link to the "gone" source is still live: not silently dropped.
-  expect(fixture.linkedContainerIds).toContain(fixture.rootContainerId);
+  expect(fixture.remoteLinkedContainerIds).toContain(fixture.rootContainerId);
+  expect(fixture.linkedContainerIds).toEqual([fixture.trashContainerId]);
   expect(fixture.intentRows).toEqual([
     {
       lastError: "Remote document move partially applied; retry required",

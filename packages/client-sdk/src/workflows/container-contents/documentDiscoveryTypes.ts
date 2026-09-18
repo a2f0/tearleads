@@ -75,6 +75,7 @@ export interface ContainerDocumentDiscoveryApi {
 }
 
 export interface DocumentLinkInput {
+  accessEpoch?: number | undefined;
   containerIds: ReadonlyArray<string>;
   documentId: string;
 }
