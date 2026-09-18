@@ -1,6 +1,9 @@
 import type { Event, StackParser } from "@sentry/core";
 import { type SentryPrivacyConfig, sanitizeSentryEvent } from "./privacy";
 
+const REPORTER_FRAME =
+  /(?:^|\/)packages\/(?:diagnostics\/src\/server|api\/src\/diagnostics\/(?:sentry|reportBackgroundFailure))\.ts$/u;
+
 export function sanitizeServerEvent(
   event: Event,
   config: SentryPrivacyConfig,
@@ -22,7 +25,7 @@ export function sanitizeServerEvent(
   // Preserve where our application caught them, explicitly marked as a capture
   // site rather than pretending it is the throw site. Apply the same path rules.
   const frames = parseStack(captureSite?.stack ?? "").filter(
-    (frame) => !frame.filename?.includes("/diagnostics/"),
+    (frame) => !REPORTER_FRAME.test(frame.filename ?? ""),
   );
   const fallback = sanitizeSentryEvent(
     {

@@ -180,6 +180,32 @@ test("transport rejects forged API metadata and does not admit arbitrary message
   });
 });
 
+test("HTTP capture sites retain the error handler and omit only reporter wrappers", () => {
+  const paths = [
+    "/packages/diagnostics/src/server.ts",
+    "/packages/api/src/diagnostics/sentry.ts",
+    "/packages/api/src/diagnostics/reportBackgroundFailure.ts",
+    "/packages/api/src/diagnostics/errorHandler.ts",
+  ];
+  const captureSite = new Error(secret);
+  captureSite.stack = `Error: ${secret}\n${paths.map((path) => `    at capture (/build/tearleads${path}:30:4)`).join("\n")}`;
+  const safe = sanitizeServerEvent(
+    { tags: { diagnostic_source: "request-error" } },
+    { ...config, scriptPaths: new Set(paths) },
+    createStackParser(nodeStackLineParser()),
+    captureSite,
+  );
+  expect(safe?.tags).toMatchObject({ api_stack: "capture-site" });
+  expect(safe?.exception?.values?.[0]?.stacktrace?.frames).toEqual([
+    {
+      filename: "app:///packages/api/src/diagnostics/errorHandler.ts",
+      lineno: 30,
+      colno: 4,
+      in_app: true,
+    },
+  ]);
+});
+
 test("browser and desktop privacy stay on their original policy", () => {
   const { runtime: _runtime, ...browserConfig } = config;
   for (const runtime of [undefined, "electrobun-main"] as const) {
