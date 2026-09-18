@@ -34,7 +34,7 @@ import { assertStagedSourceMaps } from "./sentrySourceMaps";
 // its local-only System Monitor logging. BUN_PUBLIC_GIT_SHA stays the short
 // display SHA; Sentry needs the full one to match an uploaded release.
 
-// Set only by buildLinuxNative.sh, inside the Linux release container. It is
+// Set by Linux container and Windows Actions source-archive builds. It is
 // honoured only in a source archive, so a checkout release cannot skip its
 // upload; any other value stops the build.
 const deferredUploadName = "TEARLEADS_ELECTROBUN_SOURCEMAP_UPLOAD";
@@ -58,7 +58,7 @@ async function checkoutRelease(
 ): Promise<ReleaseInputs> {
   if (!existsSync(join(repoRoot, ".git")))
     throw new Error(
-      "A desktop release uploads its source maps from a clean Git checkout; only the Linux release container defers that upload",
+      "A desktop release uploads its source maps from a clean Git checkout; only source-archive builds defer that upload",
     );
   const secrets = await readReleaseSecrets(repoRoot, tier, env);
   const commit = desktopSentryCommit(repoRoot);
@@ -69,7 +69,7 @@ async function checkoutRelease(
 // The Linux release container builds a source archive with no Git directory and
 // no upload credentials: releaseLinux.sh passes only the commit and the public
 // DSNs. Its maps are staged and checked here, then copied out and uploaded on
-// the host (uploadLinuxSourceMaps.ts), which verifies the commit against its
+// the host (uploadDeferredSourceMaps.ts), which verifies the commit against its
 // own clean checkout before anything is published.
 function archiveRelease(
   repoRoot: string,

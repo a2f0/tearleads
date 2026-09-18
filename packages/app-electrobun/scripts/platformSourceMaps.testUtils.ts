@@ -170,7 +170,7 @@ export async function runPlatformReleases(
       "renderer.ts": rendererProbe,
       "release.ts": releaseHarness,
       "linux.ts": linuxUploadHarness(
-        join(import.meta.dirname, "uploadLinuxSourceMaps.ts"),
+        join(import.meta.dirname, "uploadDeferredSourceMaps.ts"),
       ),
     }))
       await Bun.write(at(name), source);

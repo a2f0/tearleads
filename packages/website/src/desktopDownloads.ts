@@ -4,12 +4,26 @@ export type FetchDownload = (
   init?: RequestInit,
 ) => Promise<Response>;
 
+type DesktopTarget = "macos-arm64" | "linux-x64" | "win-x64";
+
+export function resolveDesktopDownload(
+  staging: boolean,
+  target: DesktopTarget,
+  initialHash: string,
+  request?: FetchDownload,
+): Promise<DownloadLinks>;
+export function resolveDesktopDownload(
+  staging: boolean,
+  target: DesktopTarget,
+  initialHash: undefined,
+  request?: FetchDownload,
+): Promise<DownloadLinks | null>;
 export async function resolveDesktopDownload(
   staging: boolean,
-  target: "macos-arm64" | "linux-x64",
-  initialHash: string,
+  target: DesktopTarget,
+  initialHash: string | undefined,
   request: FetchDownload = fetch,
-): Promise<DownloadLinks> {
+): Promise<DownloadLinks | null> {
   const bucket = staging
     ? "downloads-staging.tearleads.com"
     : "downloads.tearleads.com";
@@ -20,9 +34,16 @@ export async function resolveDesktopDownload(
       ? "TLStaging-canary"
       : "Tearleads-canary"
     : "Tearleads";
-  const extension = target === "macos-arm64" ? ".dmg" : "-Setup.tar.gz";
+  const extension =
+    target === "macos-arm64"
+      ? ".dmg"
+      : target === "win-x64"
+        ? "-Setup.zip"
+        : "-Setup.tar.gz";
   const extensionPattern = extension.replaceAll(".", "\\.");
-  let installer = `${prefix}-${initialHash}-${appName}${extension}`;
+  let installer = initialHash
+    ? `${prefix}-${initialHash}-${appName}${extension}`
+    : undefined;
   try {
     const response = await request(`${base}/${prefix}-download.json`, {
       cache: "no-store",
@@ -46,6 +67,7 @@ export async function resolveDesktopDownload(
   } catch {
     // Keep the matched fallback pair if discovery cannot be verified at build time.
   }
+  if (!installer) return null;
   return {
     installerUrl: `${base}/${installer}`,
     checksumUrl: `${base}/${installer}.sha256`,

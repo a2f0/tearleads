@@ -18,6 +18,7 @@ import {
 } from "./sentryStagedMaps.testUtils";
 
 export type LinuxUploadCase =
+  | "windows"
   | "clean"
   | "dirty"
   | "otherCommit"
@@ -31,11 +32,11 @@ export type LinuxUploadCase =
 
 export const linuxUploadHarness = (
   entry: string,
-) => `import { runLinuxSourceMapUpload } from ${JSON.stringify(entry)};
+) => `import { runDeferredSourceMapUpload } from ${JSON.stringify(entry)};
 const [intended, repoRoot, tier, target, commit, stagingDir] = process.argv.slice(2);
 const root = new URL(intended).origin + "/";
 try {
-  await runLinuxSourceMapUpload({
+  await runDeferredSourceMapUpload({
     repoRoot, tier, target, commit, stagingDir, env: process.env,
     endpoint: { url: root, isAllowed: (url) => url.href === root },
   });
@@ -52,8 +53,9 @@ async function stage(root: string, commit: string, kind: LinuxUploadCase) {
   const stagingDir = join(root, "copied/sentry-sourcemaps");
   const release = kind === "foreignBundle" ? "f".repeat(40) : commit;
   const arm = kind === "otherTarget" || kind === "foreignTargetBundle";
-  const target = arm ? "linux-arm64" : "linux-x64";
-  const dist = `staging-app-${kind === "otherTarget" ? target : "linux-x64"}`;
+  const baseTarget = kind === "windows" ? "win-x64" : "linux-x64";
+  const target = arm ? "linux-arm64" : baseTarget;
+  const dist = `staging-app-${kind === "otherTarget" ? target : baseTarget}`;
   await Bun.write(
     join(root, "sources/main.ts"),
     `export const release = ${JSON.stringify(release)};\nexport const target = ${JSON.stringify(target)};\nconsole.log(release, target);\n`,
@@ -89,7 +91,7 @@ async function stage(root: string, commit: string, kind: LinuxUploadCase) {
   return { stagingDir, dist: join(stagingDir, dist) };
 }
 
-// Runs uploadLinuxSourceMaps.ts's flow in a Bun subprocess whose cwd, HOME,
+// Runs uploadDeferredSourceMaps.ts's flow in a Bun subprocess whose cwd, HOME,
 // environment, PATH and ancestors carry hostile Sentry settings, over a clean
 // checkout of a committed fixture and a staged copy of the container's maps.
 // `hostileMap` points the staged renderer pair at a canary host file outside
@@ -129,7 +131,7 @@ export async function runHostileLinuxUpload(
       git(repoRoot, "add", ".");
       git(repoRoot, "commit", "--quiet", "-m", "Next");
     }
-    const entry = join(import.meta.dirname, "uploadLinuxSourceMaps.ts");
+    const entry = join(import.meta.dirname, "uploadDeferredSourceMaps.ts");
     await Bun.write(join(root, "harness.ts"), linuxUploadHarness(entry));
     await Bun.write(join(root, "preload.ts"), "export {};\n");
     const child = Bun.spawn(
@@ -139,7 +141,11 @@ export async function runHostileLinuxUpload(
         options.intended,
         repoRoot,
         "staging",
-        kind === "macosTarget" ? "macos-arm64" : "linux-x64",
+        kind === "macosTarget"
+          ? "macos-arm64"
+          : kind === "windows"
+            ? "win-x64"
+            : "linux-x64",
         head,
         kind === "relativeDir" ? "copied/sentry-sourcemaps" : stagingDir,
       ],

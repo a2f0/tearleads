@@ -195,7 +195,7 @@ The container build stages source maps outside the app and removes every map
 from the build directory, but uploads nothing
 (`TEARLEADS_ELECTROBUN_SOURCEMAP_UPLOAD=deferred`, honoured only without `.git`).
 After the installation check, upload copies the staged maps to a private host
-temporary directory and runs `scripts/uploadLinuxSourceMaps.ts`, which requires
+temporary directory and runs `scripts/uploadDeferredSourceMaps.ts`, which requires
 the source commit to be the clean checkout's `HEAD`, accepts exactly the
 renderer and main-process pairs as regular files under the `linux-x64` dist
 that `releaseLinux.sh` names (never the host's own platform), and uploads them
@@ -266,3 +266,60 @@ probe enables it only for the launched test process through
 See [dependency upgrade notes](../../docs/dependency-upgrades.md) and the
 [Electrobun migration guide](https://github.com/blackboardsh/electrobun/blob/main/docs/src/content/docs/electrobun/guides/migrating-to-v2.mdx)
 when changing the toolchain.
+
+## Windows releases from GitHub Actions
+
+The **Electrobun Windows** workflow has a manual `tier` selector: `staging`,
+`production`, or `both`. It first checks Windows CEF persistence, then builds
+and verifies the selected x64 installers on `windows-2025`. Each release test
+runs the packaged setup executable, checks the installed build hash, then
+reopens the installed app twice and checks encrypted database persistence.
+The GitHub repository
+variables `SENTRY_ELECTROBUN_STAGING_DSN` and
+`SENTRY_ELECTROBUN_PRODUCTION_DSN` contain the public desktop DSNs. No AWS or
+Sentry upload token is needed on the runner. Release jobs build a committed
+source archive and stage source maps separately, like the Linux container.
+
+Push the commit first, then dispatch from the Actions UI, or use:
+
+```sh
+./scripts/windowsRelease.sh build staging
+./scripts/windowsRelease.sh build production
+# Or build both tiers at one pushed ref:
+gh workflow run electrobun-windows.yml --ref YOUR_BRANCH -f tier=both
+gh run list --workflow electrobun-windows.yml --event workflow_dispatch
+```
+
+Download the `tearleads-windows-<tier>-<commit>` artifact from the completed
+run's Actions page, or use the local helper with its numeric run ID:
+
+```sh
+./scripts/windowsRelease.sh download staging RUN_ID
+./scripts/windowsRelease.sh upload staging RUN_ID
+./scripts/windowsRelease.sh upload production RUN_ID
+```
+
+Both helpers require a clean checkout at exactly the run's commit. They check
+that the run was a successful manual invocation of the Windows workflow, then
+verify the artifact's tier, target, commit, and all payload checksums. Packages
+are saved under `build/win-x64/<tier>/<commit>/` in this package. Upload mode
+loads the tier's local `.secrets`, downloads and uploads the matching source maps
+to Sentry, and only then publishes immutable ZIP/checksum/update payloads to the
+same downloads buckets as macOS and Linux. Discovery uses
+`<channel>-win-x64-download.json` and `<channel>-win-x64-update.json`.
+
+Actions artifacts expire after 14 days; publish or download them before then.
+The Windows ZIP contains the setup executable and its adjacent hidden payload;
+extract everything before running setup. These installers are currently unsigned.
+
+After publishing, refresh the website's build-time links:
+
+```sh
+./scripts/deployStagingWebsite.sh --skip-terraform
+./scripts/deployProductionWebsite.sh --skip-terraform
+```
+
+The homepage resolves the tier's Windows manifest alongside macOS and Linux.
+An unavailable or invalid Windows manifest hides that download rather than
+inventing an installer URL. `/downloads/windows` explains extraction and checksum
+verification.

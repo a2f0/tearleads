@@ -1,9 +1,11 @@
 ---
 import { AppleLogoIcon } from "@phosphor-icons/react/dist/ssr/AppleLogo";
 import { LinuxLogoIcon } from "@phosphor-icons/react/dist/ssr/LinuxLogo";
+import { WindowsLogoIcon } from "@phosphor-icons/react/dist/ssr/WindowsLogo";
 import { appUrl, isStaging } from "../config";
 import { resolveLinuxDownloads } from "../linuxDownloads";
 import { resolveMacosDownloads } from "../macosDownloads";
+import { resolveWindowsDownloads } from "../windowsDownloads";
 import SectionHeader from "./SectionHeader.astro";
 
 /**
@@ -16,9 +18,10 @@ import SectionHeader from "./SectionHeader.astro";
  * codesign and notarize for every release tier, and releaseMacos.sh builds
  * both staging and production with a tier.
  */
-const [macos, linux] = await Promise.all([
+const [macos, linux, windows] = await Promise.all([
   resolveMacosDownloads(isStaging),
   resolveLinuxDownloads(isStaging),
+  resolveWindowsDownloads(isStaging),
 ]);
 
 interface DownloadLink {
@@ -77,6 +80,30 @@ const rows: readonly DownloadRow[] = [
       icon: LinuxLogoIcon,
     },
   },
+  ...(windows
+    ? [
+        {
+          platform: "Windows",
+          details: ["x64 (Intel, AMD)", ".zip", "Unsigned installer"],
+          links: [
+            {
+              href: windows.checksumUrl,
+              label: "SHA-256 checksum",
+              ariaLabel: "SHA-256 checksum for Windows",
+            },
+            { href: "/downloads/windows", label: "Install guide" },
+          ],
+          action: {
+            href: windows.installerUrl,
+            label: isStaging
+              ? "Download Windows preview"
+              : "Download for Windows",
+            variant: "primary" as const,
+            icon: WindowsLogoIcon,
+          },
+        },
+      ]
+    : []),
   {
     platform: "Web",
     details: [new URL(appUrl).host],
@@ -91,7 +118,7 @@ const rows: readonly DownloadRow[] = [
   <SectionHeader
     titleId="download-title"
     title="Download"
-    lede="Install Tearleads on macOS or Linux, or use it in your browser."
+    lede="Install Tearleads on macOS, Linux, or Windows, or use it in your browser."
   />
   <ul class="site-downloads" role="list" aria-label="Downloads">
     {rows.map((row) => {
