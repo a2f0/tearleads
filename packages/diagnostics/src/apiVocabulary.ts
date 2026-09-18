@@ -91,6 +91,7 @@ export const API_ERROR_TYPES = new Set([
   "ConnectionTimeoutError",
   "S3Error",
   "StripeError",
+  "StripeApiError",
   "StripeAPIError",
   "StripeConnectionError",
   "StripeRateLimitError",
