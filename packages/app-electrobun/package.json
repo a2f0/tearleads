@@ -23,7 +23,13 @@
     "test:linux-persistence": "sh scripts/testLinuxPersistence.sh",
     "test:linux-release": "bash scripts/testLinuxRelease.sh",
     "test:windows-persistence": "bun scripts/testWindowsPersistence.ts",
-    "prepare:devkit": "bun --bun run electrobun sync"
+    "prepare:devkit": "bun --bun run electrobun sync",
+    "build:windows": "bash ../../scripts/windowsRelease.sh build production",
+    "build:windows:staging": "bash ../../scripts/windowsRelease.sh build staging",
+    "download:windows": "bash ../../scripts/windowsRelease.sh download production",
+    "download:windows:staging": "bash ../../scripts/windowsRelease.sh download staging",
+    "upload:windows": "bash ../../scripts/windowsRelease.sh upload production",
+    "upload:windows:staging": "bash ../../scripts/windowsRelease.sh upload staging"
   },
   "dependencies": {
     "@tearleads/client-sdk": "workspace:*",

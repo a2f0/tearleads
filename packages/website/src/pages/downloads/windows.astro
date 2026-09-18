@@ -1,0 +1,35 @@
+---
+import PageHeader from "../../components/PageHeader.astro";
+import { isStaging } from "../../config";
+import Layout from "../../layouts/Layout.astro";
+import { resolveWindowsDownloads } from "../../windowsDownloads";
+import "../../styles/install.css";
+
+const downloads = await resolveWindowsDownloads(isStaging);
+---
+
+<Layout title="Install on Windows | Tearleads" description="Download, verify, and install Tearleads on Windows x64.">
+  <div class="site-page site-page--narrow install-page">
+    <PageHeader title="Install Tearleads on Windows" lede="For x64 computers with Intel or AMD processors." />
+    {downloads ? <div class="site-actions">
+      <a class="site-button site-button--primary" href={downloads.installerUrl}>Download for Windows</a>
+      <a class="site-button site-button--secondary" href={downloads.checksumUrl}>SHA-256 checksum</a>
+    </div> : <p>The Windows download is temporarily unavailable. Please try again later.</p>}
+    <ol class="site-steps install-steps" role="list">
+      <li>
+        <h2 class="site-step-title">Verify the ZIP</h2>
+        <p>Save the ZIP and its SHA-256 checksum. In PowerShell, run this command with the downloaded ZIP's filename and compare the result with the checksum file:</p>
+        <pre class="site-code"><code>Get-FileHash .\YOUR-DOWNLOAD.zip -Algorithm SHA256</code></pre>
+      </li>
+      <li>
+        <h2 class="site-step-title">Extract all files</h2>
+        <p>Right-click the ZIP and choose Extract All. Keep all extracted files together, including the hidden installer payload. Run the Tearleads Setup executable from the extracted folder.</p>
+      </li>
+      <li>
+        <h2 class="site-step-title">Check the publisher warning</h2>
+        <p>This installer is unsigned. Windows may display an unknown-publisher or SmartScreen warning. Verify the download's source and checksum before deciding whether to continue.</p>
+      </li>
+    </ol>
+    <p><a href="/#download">All downloads</a></p>
+  </div>
+</Layout>

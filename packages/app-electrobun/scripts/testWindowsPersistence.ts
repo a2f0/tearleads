@@ -3,6 +3,17 @@ import { mkdir, mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 
+import { installWindowsRelease } from "./installWindowsRelease";
+
+const [releaseTier, ...extra] = process.argv.slice(2);
+if (
+  extra.length ||
+  (releaseTier !== undefined &&
+    releaseTier !== "staging" &&
+    releaseTier !== "production")
+)
+  throw new Error("Usage: testWindowsPersistence.ts [staging|production]");
+
 if (process.platform !== "win32") {
   throw new Error("The Electrobun persistence smoke test requires Windows.");
 }
@@ -65,7 +76,13 @@ async function runRound(
   // packageElectrobunAssets.ts, which supplies the packaged SQLite assets.
   const app = Bun.spawn([launcherPath], {
     cwd: dirname(launcherPath),
-    env: { ...environment, NODE_ENV: "production" },
+    env: {
+      ...environment,
+      NODE_ENV: "production",
+      // Release launchers hide child output unless console mode is requested.
+      // Keep native CEF diagnostics available to this probe's log assertion.
+      ELECTROBUN_CONSOLE: "1",
+    },
     stdin: "ignore",
     stdout: logFd,
     stderr: logFd,
@@ -143,7 +160,20 @@ async function runRound(
 
 try {
   await mkdir(localAppData);
-  const launcherPath = await buildApp();
+  const launcherPath = releaseTier
+    ? await installWindowsRelease({
+        tier: releaseTier,
+        packageDir,
+        smokeRoot,
+        environment,
+      })
+    : await buildApp();
+  if (releaseTier) {
+    // Setup auto-launches with the install profile. Keep the probe's first
+    // identity creation isolated, then reuse that fresh profile for reopen.
+    environment.LOCALAPPDATA = join(smokeRoot, "probe-local");
+    await mkdir(environment.LOCALAPPDATA);
+  }
   await runRound("first", launcherPath);
   await runRound("reopen", launcherPath);
   console.log("Electrobun Windows CEF persistence smoke test passed.");

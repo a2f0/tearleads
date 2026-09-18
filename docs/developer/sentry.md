@@ -239,7 +239,8 @@ URLs provide symbolication without transmitting debug metadata.
 Electrobun events use `tearleads-electrobun@<git-sha>` and a dist per build
 target, `<tier>-app-<os>-<arch>`, as a commit's builds share URLs.
 The target is Hutch's `ELECTROBUN_OS`/`ELECTROBUN_ARCH` (`macos-arm64`,
-`linux-x64`, `linux-arm64`; others stop). `ELECTROBUN_RELEASE_TIER` selects
+`linux-x64`, `linux-arm64`, `win-x64`; others stop).
+`ELECTROBUN_RELEASE_TIER` selects
 `staging` or `production`; unset is a local build that reads no secrets and
 reports nothing. Release from the repository root with
 `scripts/{build,upload}{Macos,Linux}{,Staging}Release.sh`.
@@ -281,7 +282,7 @@ The Linux container (no `.git` or token) sets
 `TEARLEADS_ELECTROBUN_SOURCEMAP_UPLOAD=deferred`: it stages and sweeps maps
 without uploading; a checkout refuses the flag. `releaseLinux.sh upload` applies
 the same checkout, `BUN_*` and token rules, copies staging to a private host
-directory and, before publishing, uploads it via `uploadLinuxSourceMaps.ts`
+directory and, before publishing, uploads it via `uploadDeferredSourceMaps.ts`
 (`BUILD_GIT_SHA` must be the clean `HEAD`; exactly two regular-file pairs under
 the `linux-x64` dist).
 

@@ -13,13 +13,23 @@ on:
       - "packages/sqlite-instance/**"
       - "packages/sqlite-worker/**"
   workflow_dispatch:
+    inputs:
+      tier:
+        description: Release to build (S3 publishing runs locally)
+        type: choice
+        required: true
+        default: both
+        options:
+          - staging
+          - production
+          - both
 
 permissions:
   contents: read
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}-${{ inputs.tier }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   persistence:
@@ -42,6 +52,75 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
+      - name: Prepare Electrobun SDK
+        run: bun run --cwd packages/app-electrobun prepare:devkit
+
+      - name: Verify Windows archives and source-map staging
+        run: bun test ./packages/app-electrobun/scripts/verifyWindowsArtifacts.test.ts ./packages/app-electrobun/scripts/windowsSourceMapStaging.test.ts ./packages/app-electrobun/scripts/sentryReleaseSource.test.ts
+
       - name: Build and reopen the Windows CEF app
         shell: bash
         run: bun run --cwd packages/app-electrobun test:windows-persistence
+
+  release:
+    name: Windows ${{ matrix.tier }} installer
+    if: github.event_name == 'workflow_dispatch'
+    needs: persistence
+    runs-on: windows-2025
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        tier: ${{ fromJSON(inputs.tier == 'both' && '["staging","production"]' || format('["{0}"]', inputs.tier)) }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Preserve shell script line endings
+        run: git config --global core.autocrlf false
+
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version: 1.4.2
+
+      # Like the Linux container, build a source archive without .git or upload
+      # credentials. Source maps are staged separately for the local publisher.
+      - name: Export committed source
+        run: |
+          release_root="$(cygpath -u "$RUNNER_TEMP")/windows-release"
+          mkdir -p "$release_root"
+          git archive HEAD | tar -x -C "$release_root"
+
+      - name: Build and verify installer
+        env:
+          RELEASE_TIER: ${{ matrix.tier }}
+          BUILD_GIT_SHA: ${{ github.sha }}
+          SENTRY_ELECTROBUN_STAGING_DSN: ${{ vars.SENTRY_ELECTROBUN_STAGING_DSN }}
+          SENTRY_ELECTROBUN_PRODUCTION_DSN: ${{ vars.SENTRY_ELECTROBUN_PRODUCTION_DSN }}
+        run: |
+          cd "$(cygpath -u "$RUNNER_TEMP")/windows-release"
+          bun install --frozen-lockfile
+          bash packages/app-electrobun/scripts/buildWindowsNative.sh "$RELEASE_TIER"
+
+      - name: Save installer and update artifacts
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: tearleads-windows-${{ matrix.tier }}-${{ github.sha }}
+          path: ${{ runner.temp }}/windows-release/packages/app-electrobun/build/artifacts/
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 14
+
+      - name: Save source maps for local Sentry upload
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: tearleads-windows-maps-${{ matrix.tier }}-${{ github.sha }}
+          path: ${{ runner.temp }}/windows-release/packages/app-electrobun/build/sentry-sourcemaps/
+          if-no-files-found: error
+          retention-days: 14

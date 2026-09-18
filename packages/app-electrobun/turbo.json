@@ -13,7 +13,8 @@
         "$TURBO_ROOT$/scripts/uploadLinuxRelease.sh",
         "$TURBO_ROOT$/scripts/uploadLinuxStagingRelease.sh",
         "$TURBO_ROOT$/scripts/uploadMacosRelease.sh",
-        "$TURBO_ROOT$/scripts/uploadMacosStagingRelease.sh"
+        "$TURBO_ROOT$/scripts/uploadMacosStagingRelease.sh",
+        "$TURBO_ROOT$/scripts/windowsRelease.sh"
       ]
     }
   }

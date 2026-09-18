@@ -16,7 +16,7 @@ export interface SentryPrivacyConfig {
     | "production-app"
     | "staging"
     | "production"
-    | `${"staging" | "production"}-app-${"linux-arm64" | "linux-x64" | "macos-arm64"}`;
+    | `${"staging" | "production"}-app-${"linux-arm64" | "linux-x64" | "macos-arm64" | "win-x64"}`;
   scriptPaths?: ReadonlySet<string>;
   serverSourceRoot?: string;
   runtime?: "api" | "electrobun-main";
@@ -121,8 +121,10 @@ function serverFrameFilename(
   runtime: "api" | "electrobun-main",
   serverRoot: string,
 ): string {
-  if (filename.startsWith(`${serverRoot}/`))
-    return filename.slice(serverRoot.length);
+  const windowsRoot = /^(?:[A-Za-z]:[\\/]|\\\\)/u.test(serverRoot);
+  const root = windowsRoot ? serverRoot.replaceAll("\\", "/") : serverRoot;
+  const path = windowsRoot ? filename.replaceAll("\\", "/") : filename;
+  if (path.startsWith(`${root}/`)) return path.slice(root.length);
   if (runtime !== "api") return "";
   return filename.startsWith("app:///")
     ? filename.slice("app://".length)

@@ -93,7 +93,9 @@ async function rewriteMapSources(
     if (paths.every((path) => isInside(repoRoot, path) && existsSync(path)))
       return JSON.stringify({
         ...map,
-        sources: paths.map((path) => relative(repoRoot, path)),
+        sources: paths.map((path) =>
+          relative(repoRoot, path).split(sep).join("/"),
+        ),
       });
   }
   throw new Error(`Source map ${name} has sources outside the repository`);
@@ -224,7 +226,9 @@ export function assertStagedSourceMaps(
           dot: true,
           onlyFiles: false,
         }),
-      ].sort()
+      ]
+        .map((path) => path.split(sep).join("/"))
+        .sort()
     : [];
   const [dist = ""] = entries;
   const directories = [dist, `${dist}/bun`];

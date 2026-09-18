@@ -62,7 +62,7 @@ test("the host uploads maps under HEAD before smoke testing and publishing, outs
   const bun = result.calls.filter((call) => call.startsWith("bun "));
   expect(bun).toHaveLength(2);
   expect(bun[0]).toStartWith("bun --no-env-file --config=/dev/null /");
-  expect(bun[0]).toContain("/uploadLinuxSourceMaps.ts staging linux-x64 ");
+  expect(bun[0]).toContain("/uploadDeferredSourceMaps.ts staging linux-x64 ");
   expect(bun[1]).toContain("/publishLinuxRelease.ts ");
   expect(result.built.filter((path) => path.endsWith(".map"))).toEqual([]);
 });
