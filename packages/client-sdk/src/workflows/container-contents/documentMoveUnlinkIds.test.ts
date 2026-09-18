@@ -1,6 +1,18 @@
 import { expect, test } from "bun:test";
 import { resolveContainerDocumentMoveUnlinkIds } from "./documentMoveUnlinkIds";
 
+test("additive intents unlink only explicit removals regardless of active placement", () => {
+  expect(
+    resolveContainerDocumentMoveUnlinkIds({
+      linkOnly: true,
+      currentContainerId: "active",
+      targetContainerId: "preferred",
+      linkedContainerIds: ["active", "preferred", "removed"],
+      removedLinkContainerIds: ["removed"],
+    }),
+  ).toEqual(["removed"]);
+});
+
 // #2278 #4: the unlink set is governed by the verified manifest's link set
 // alone. A source the manifest no longer lists (an honest server removed the
 // link when the container went away) drops out; a source it still lists is

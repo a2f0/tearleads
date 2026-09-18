@@ -1,6 +1,7 @@
 import { errorMessage } from "../../data/errorMessage";
 import { reportAndRethrowKeyingVerificationError } from "../../data/keyingProjectionVerification/error";
 import {
+  DOCUMENT_LINK_INTENT_TYPE,
   type DocumentMoveIntentRecord,
   sqlDocumentMoveIntentPersistence,
 } from "../../data/persistence/container-contents/documentMoveIntentPersistence";
@@ -127,12 +128,19 @@ async function persistMovedDocumentReplay<TRuntime>(input: {
     return false;
   }
 
+  const targetContainerId =
+    intent.intentType === DOCUMENT_LINK_INTENT_TYPE &&
+    existingDocument.containerId &&
+    moved.linkedContainerIds.includes(existingDocument.containerId)
+      ? existingDocument.containerId
+      : moved.nextContainerId;
+
   const relinkInput: DocumentStructuralMutationRelinkInput = {
     accessEpoch: moved.accessEpoch ?? existingDocument.accessEpoch,
     ...(moved.accessStateHash === null
       ? {}
       : { accessStateHash: moved.accessStateHash }),
-    containerId: moved.nextContainerId,
+    containerId: targetContainerId,
     documentId: intent.documentId,
     localId: intent.localId,
     ...(moved.remoteState ?? {}),
@@ -151,7 +159,7 @@ async function persistMovedDocumentReplay<TRuntime>(input: {
     isCurrent: input.isCurrent,
     intent,
     relinkInput,
-    targetContainerId: moved.nextContainerId,
+    targetContainerId,
   });
 }
 
@@ -186,9 +194,17 @@ async function movePendingDocumentIntent<TRuntime>(input: {
   onFailure: DocumentLinkSetFailureHandler;
   state: DocumentMoveIntentSyncState;
 }) {
-  const rotationSnapshot = await assertMoveIntentRotationPreflight(input);
+  // Adding links keeps the content key and needs no full-history rotation proof.
+  const linkOnly = input.intent.intentType === DOCUMENT_LINK_INTENT_TYPE;
+  const rotationSnapshot =
+    linkOnly && !input.intent.removedLinkContainerIds?.length
+      ? new Uint8Array()
+      : await assertMoveIntentRotationPreflight(input);
   if (!rotationSnapshot || !input.isCurrent()) return "abandoned" as const;
   return moveRemoteContainerDocument({
+    linkOnly,
+    additionalLinkContainerIds: input.intent.additionalLinkContainerIds,
+    removedLinkContainerIds: input.intent.removedLinkContainerIds,
     currentContainerId:
       input.intent.sourceContainerId ??
       input.existingContainerId ??
@@ -234,33 +250,38 @@ async function resolveMoveIntentPreflight(input: {
     return { result: "blocked" };
   }
 
-  const targetState = state.containersById.get(intent.targetContainerId);
-  if (!targetState) {
-    await recordPendingDocumentMoveIntentError({
-      blocked: true,
-      documentId: intent.documentId,
-      expectedIntentId: intent.id,
-      expectedUpdatedAt: intent.updatedAt,
-      isCurrent: input.isCurrent,
-      message:
-        "Document move intent references a missing destination container",
-      state,
-    });
-    return { result: "blocked" };
-  }
-  if (input.isRemoteSyncBlocked(targetState.container.organizationId)) {
-    return { result: "blocked" };
-  }
-  if (!hasRemoteContainerMetadataState(targetState)) {
-    await recordPendingDocumentMoveIntentError({
-      documentId: intent.documentId,
-      expectedIntentId: intent.id,
-      expectedUpdatedAt: intent.updatedAt,
-      isCurrent: input.isCurrent,
-      message: "Document move destination container is not synced yet",
-      state,
-    });
-    return { result: "failed" };
+  for (const targetId of new Set([
+    intent.targetContainerId,
+    ...(intent.additionalLinkContainerIds ?? []),
+  ])) {
+    const targetState = state.containersById.get(targetId);
+    if (!targetState) {
+      await recordPendingDocumentMoveIntentError({
+        blocked: true,
+        documentId: intent.documentId,
+        expectedIntentId: intent.id,
+        expectedUpdatedAt: intent.updatedAt,
+        isCurrent: input.isCurrent,
+        message:
+          "Document move intent references a missing destination container",
+        state,
+      });
+      return { result: "blocked" };
+    }
+    if (input.isRemoteSyncBlocked(targetState.container.organizationId)) {
+      return { result: "blocked" };
+    }
+    if (!hasRemoteContainerMetadataState(targetState)) {
+      await recordPendingDocumentMoveIntentError({
+        documentId: intent.documentId,
+        expectedIntentId: intent.id,
+        expectedUpdatedAt: intent.updatedAt,
+        isCurrent: input.isCurrent,
+        message: "Document move destination container is not synced yet",
+        state,
+      });
+      return { result: "failed" };
+    }
   }
   return { existingDocument };
 }

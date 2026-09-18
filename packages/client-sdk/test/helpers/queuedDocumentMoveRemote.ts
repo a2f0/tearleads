@@ -6,6 +6,21 @@ import type {
 } from "@tearleads/validators/response";
 import { createLinkSetResponseFromRequest } from "./documentFixtures";
 
+export interface QueuedDocumentMoveFailure {
+  readonly code?: string | undefined;
+  readonly message: string;
+  readonly status: number | null;
+}
+
+export interface QueuedDocumentMovePass {
+  /** Writer-projection cache evictions the pass requested, in order. */
+  readonly cacheEvictions: readonly string[];
+  /** Every API call the pass issued, in order (projection fetches included). */
+  readonly remoteRequests: readonly string[];
+  readonly submittedOperations: readonly string[];
+  readonly syncedCount: number;
+}
+
 /**
  * The mock server's view of one document across a queued move: the writer
  * projection the client fetches, and the accepted link/unlink submissions

@@ -5,6 +5,7 @@ import {
   containerMoveIntents,
   containers,
   documentContainerProjectionTables,
+  documentMoveIntentTables,
 } from "../../sqlite/schema";
 import {
   type ClientSQLiteTransactionScope,
@@ -29,6 +30,7 @@ import type {
 } from "./containerContentsPersistenceTypes";
 import { recordContainerHydrationTombstones } from "./containerHydrationPersistence";
 import { repairDocumentsForRemovedContainersInTransaction } from "./containerStructuralRepair";
+import { repairLinkIntentsForRemovedContainers } from "./documentLinkRemovalRepair";
 import {
   deleteContainerMetadataDocumentRowsInTransaction,
   retainDormantContainerMetadataInTransaction,
@@ -172,6 +174,7 @@ async function applyContainerRemovals(input: {
     removals: input.removals,
     tx: input.tx,
   });
+  await repairLinkIntentsForRemovedContainers({ containerIds, tx: input.tx });
   await input.tx
     .delete(containerCreateIntents)
     .where(inArray(containerCreateIntents.containerId, containerIds))
@@ -198,6 +201,7 @@ export async function deleteStoredContainers(
   if (uniqueRemovals.length === 0) return [];
   return runSerializedSqlMutation(execSql, async (lockedExecSql) => {
     await ensureSqlTables(lockedExecSql, documentContainerProjectionTables);
+    await ensureSqlTables(lockedExecSql, documentMoveIntentTables);
     await ensureContainerTables(lockedExecSql);
     await ensureDocumentProjectionTables(lockedExecSql);
     await sqlContainerSyncWatermarkPersistence.ensureSchema(lockedExecSql);

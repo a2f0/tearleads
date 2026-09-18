@@ -16,11 +16,7 @@ import { readLinkedContainerIdsFromDocumentManifest } from "../../src/data/docum
 import { createDomainScope } from "../../src/data/domainScope";
 import { sqlDocumentMoveIntentPersistence } from "../../src/data/persistence/container-contents/documentMoveIntentPersistence";
 import { sqlDocumentContainerProjectionPersistence } from "../../src/data/persistence/containers/documentContainerProjectionPersistence";
-import { getClientSQLitePersistenceRuntime } from "../../src/data/sqlite/sqlitePersistenceRuntime";
-import {
-  type ExecSql,
-  runSerializedSqlMutation,
-} from "../../src/data/sqlite/sqlSchema";
+import type { ExecSql } from "../../src/data/sqlite/sqlSchema";
 import { createTestContainerState } from "../../src/workflows/container-contents/container-state/containerState.testFixtures";
 import { syncPendingDocumentMoveIntents } from "../../src/workflows/container-contents/documentMoveIntentSync";
 import type { DocumentStructuralMutationRelinkInput } from "../../src/workflows/container-contents/documentStructure";
@@ -32,25 +28,33 @@ import {
 import { buildMaterializedDocumentCreatePlan } from "../../src/workflows/documents/create";
 import { createRuntimePrincipalPolicyWarmer } from "../../src/workflows/principals/runtimePolicyWarmer";
 import { createAuthor, createResponse } from "./documentFixtures";
-import { createQueuedDocumentMoveRemote } from "./queuedDocumentMoveRemote";
+import {
+  createQueuedDocumentMoveRemote,
+  type QueuedDocumentMoveFailure,
+  type QueuedDocumentMovePass,
+} from "./queuedDocumentMoveRemote";
+import {
+  createQueuedDocumentPlacementHost,
+  persistQueuedDocumentPlacement,
+  unlinkQueuedDocumentPlacement,
+} from "./queuedDocumentPlacement";
 import { createTestTrustedUserIdentity } from "./trustedUserIdentity";
 
-export interface QueuedDocumentMoveFailure {
-  readonly code?: string | undefined;
-  readonly message: string;
-  readonly status: number | null;
-}
-
-export interface QueuedDocumentMovePass {
-  /** Writer-projection cache evictions the pass requested, in order. */
-  readonly cacheEvictions: readonly string[];
-  /** Every API call the pass issued, in order (projection fetches included). */
-  readonly remoteRequests: readonly string[];
-  readonly submittedOperations: readonly string[];
-  readonly syncedCount: number;
-}
+export type { QueuedDocumentMoveFailure } from "./queuedDocumentMoveRemote";
 
 export async function runQueuedDocumentMoveFixture(input: {
+  linkOnly?: boolean | undefined;
+  remoteUnlinkSource?: boolean | undefined;
+  linkSuccessesBeforeFailure?: number | undefined;
+  afterPass?:
+    | ((
+        pass: number,
+        unlink: (containerId: string) => Promise<unknown>,
+      ) => Promise<void>)
+    | undefined;
+  beforeLink?: ((execSql: ExecSql) => Promise<void>) | undefined;
+  beforeReplay?: ((execSql: ExecSql) => Promise<void>) | undefined;
+  extraLocalLink?: boolean | undefined;
   containerProjectionFailure?: QueuedDocumentMoveFailure | undefined;
   /**
    * Which container's writer-projection fetches fail with
@@ -106,9 +110,10 @@ export async function runQueuedDocumentMoveFixture(input: {
       "queued-move-trash-container",
       rootProjection,
     );
-    const extraProjection = input.remoteOnlySourceContainer
-      ? await containerFixture("queued-move-extra-container", rootProjection)
-      : null;
+    const extraProjection =
+      input.remoteOnlySourceContainer || input.extraLocalLink
+        ? await containerFixture("queued-move-extra-container", rootProjection)
+        : null;
     const containerProjections = [
       rootProjection,
       trashProjection,
@@ -161,32 +166,17 @@ export async function runQueuedDocumentMoveFixture(input: {
     };
     const documentId = initialWriterProjection.documentId;
 
-    await defaultDocumentsPersistence.ensureSchema(execSql);
-    await defaultDocumentsPersistence.saveDocument(execSql, {
-      accessEpoch: 1,
-      accessStateHash: createdResponse.accessManifest.manifestHash,
-      containerId: trashProjection.containerId,
-      contentKeyBundle: null,
-      documentId,
-      documentKekTargets: null,
-      documentKind: "note",
-      documentManifestBundle: null,
-      id: "queued-move-local",
-      lastCommitLsn: null,
-      snapshotEndVersion: "",
-      text: "",
-      title: "Queued move",
-    });
-    await sqlDocumentContainerProjectionPersistence.replaceDocumentLinks(
+    await persistQueuedDocumentPlacement({
       execSql,
       documentId,
-      [trashProjection.containerId],
-    );
-    await sqlDocumentMoveIntentPersistence.enqueueMoveIntent(execSql, {
-      documentId,
-      localId: "queued-move-local",
-      replaceLinkedContainers: input.replaceLinkedContainers ?? true,
+      accessStateHash: createdResponse.accessManifest.manifestHash,
+      linkOnly: input.linkOnly,
+      extraContainerId: input.extraLocalLink
+        ? extraProjection?.containerId
+        : undefined,
+      replaceLinkedContainers: input.replaceLinkedContainers,
       sourceContainerId,
+      rootContainerId: rootProjection.containerId,
       targetContainerId: trashProjection.containerId,
     });
 
@@ -194,6 +184,7 @@ export async function runQueuedDocumentMoveFixture(input: {
     const submittedOperations: string[] = [];
     const remoteRequests: string[] = [];
     const cacheEvictions: string[] = [];
+    let linkSuccessesRemaining = input.linkSuccessesBeforeFailure ?? 0;
     let linkFailuresRemaining = input.linkFailure
       ? (input.linkFailureTimes ?? Number.POSITIVE_INFINITY)
       : 0;
@@ -265,7 +256,11 @@ export async function runQueuedDocumentMoveFixture(input: {
                 requestedDocumentId: string,
                 request: DocumentLinkSetMutationRequest,
               ) => {
-                if (linkFailuresRemaining <= 0) {
+                if (
+                  linkFailuresRemaining <= 0 ||
+                  linkSuccessesRemaining-- > 0
+                ) {
+                  await input.beforeLink?.(execSql);
                   return {
                     data: await remote.submitLink(requestedDocumentId, request),
                     ok: true as const,
@@ -320,7 +315,10 @@ export async function runQueuedDocumentMoveFixture(input: {
               },
             }
           : {}),
-        linkDocument: remote.submitLink,
+        linkDocument: async (documentId, request) => {
+          await input.beforeLink?.(execSql);
+          return remote.submitLink(documentId, request);
+        },
         unlinkDocument: async (documentId, request) => {
           await input.beforeUnlink?.(execSql);
           return remote.submitUnlink(documentId, request);
@@ -358,7 +356,7 @@ export async function runQueuedDocumentMoveFixture(input: {
       },
     };
 
-    if (extraProjection) {
+    if (extraProjection && input.remoteOnlySourceContainer) {
       // Link into "extra" through the real signed link-set path so the
       // verified manifest lists it, then wind the LOCAL link projection back:
       // the divergence models a peer's link this device has not hydrated.
@@ -370,25 +368,33 @@ export async function runQueuedDocumentMoveFixture(input: {
       linkFailuresRemaining = 0;
       unlinkFailuresRemaining = 0;
       const preLinkFailures: string[] = [];
-      const linked = await relinkRemoteDocument({
-        apiClient: runtime.apiClient,
-        author,
-        documentId,
-        execSql,
-        onFailure: (failure) => {
-          preLinkFailures.push(`${failure.message} (${failure.status})`);
-        },
-        operation: "link",
-        resolveProjectionUserKey,
-        targetContainerId: extraProjection.containerId,
-        targetSecretKey: keyPair.secretKey,
-        warmReferencedPrincipalPolicies:
-          createRuntimePrincipalPolicyWarmer(runtime),
-      });
-      if (!linked) {
-        throw new Error(
-          `Fixture pre-link into the remote-only source failed: ${preLinkFailures.join("; ")}`,
-        );
+      for (const operation of (input.remoteUnlinkSource
+        ? ["link", "unlink"]
+        : ["link"]) as ("link" | "unlink")[]) {
+        const linked = await relinkRemoteDocument({
+          apiClient: runtime.apiClient,
+          author,
+          documentId,
+          execSql,
+          onFailure: (failure) => {
+            preLinkFailures.push(`${failure.message} (${failure.status})`);
+          },
+          operation,
+          rotationSnapshot,
+          resolveProjectionUserKey,
+          targetContainerId:
+            operation === "link"
+              ? extraProjection.containerId
+              : rootProjection.containerId,
+          targetSecretKey: keyPair.secretKey,
+          warmReferencedPrincipalPolicies:
+            createRuntimePrincipalPolicyWarmer(runtime),
+        });
+        if (!linked) {
+          throw new Error(
+            `Fixture pre-link into the remote-only source failed: ${preLinkFailures.join("; ")}`,
+          );
+        }
       }
       linkFailuresRemaining = scenarioBudgets.link;
       unlinkFailuresRemaining = scenarioBudgets.unlink;
@@ -396,46 +402,36 @@ export async function runQueuedDocumentMoveFixture(input: {
       remoteRequests.length = 0;
     }
 
-    const host: Parameters<typeof syncPendingDocumentMoveIntents>[0]["host"] = {
-      documentWorkflowRuntime: (containerId) => `runtime:${containerId}`,
-      openDocumentStore: () => ({
-        assertCanRotateContentKey: async () => {
-          submittedOperations.push("preflight");
-          return rotationSnapshot;
-        },
-        ensureInitialized: async () => true,
-        relink: async (relinkInput) => {
-          relinkInputs.push(relinkInput);
-          return runSerializedSqlMutation(execSql, (lockedExecSql) =>
-            getClientSQLitePersistenceRuntime(lockedExecSql).transaction(
-              async () => {
-                const summary =
-                  await defaultDocumentsPersistence.relinkPersistedDocument(
-                    lockedExecSql,
-                    relinkInput,
-                  );
-                await relinkInput.commitSideEffect?.(lockedExecSql);
-                return summary;
-              },
-            ),
-          );
-        },
-        requestSync: () => undefined,
-        updateRuntime: () => undefined,
-      }),
-    };
+    await input.beforeReplay?.(execSql);
+    const host = createQueuedDocumentPlacementHost({
+      execSql,
+      rotationSnapshot,
+      submittedOperations,
+      relinkInputs,
+    });
+    const unlink = (removedContainerId: string) =>
+      unlinkQueuedDocumentPlacement({
+        host,
+        execSql,
+        documentId,
+        removedContainerId,
+        runtime: { ...runtime, resolveProjectionUserKey },
+      });
     // One state object across passes = one launch (the denied replay runs
     // once), matching a structural lane re-arming against the same store.
     const state = {
-      containersById: new Map([
-        [
-          trashProjection.containerId,
+      containersById: new Map(
+        containerProjections.map((projection) => [
+          projection.containerId,
           createTestContainerState({
-            id: trashProjection.containerId,
-            parentId: rootProjection.containerId,
+            id: projection.containerId,
+            parentId:
+              projection.containerId === rootProjection.containerId
+                ? null
+                : rootProjection.containerId,
           }),
-        ],
-      ]),
+        ]),
+      ),
       resolveProjectionUserKey,
       runtime,
     };
@@ -457,6 +453,7 @@ export async function runQueuedDocumentMoveFixture(input: {
         submittedOperations: submittedOperations.slice(submittedBefore),
         syncedCount,
       });
+      await input.afterPass?.(pass, unlink);
     }
     const syncedCount = passes.reduce(
       (total, pass) => total + pass.syncedCount,
@@ -487,6 +484,9 @@ export async function runQueuedDocumentMoveFixture(input: {
       ),
       passes,
       pendingIntents,
+      remainingLinkTargets: await execSql(
+        "SELECT * FROM document_intent_link_targets",
+      ),
       relinkInputs,
       rootContainerId: rootProjection.containerId,
       submittedOperations,

@@ -192,11 +192,13 @@ test("folder creation, document linking, unlinking and trash have separate reque
       await expectNote(pane, "/", true);
     },
     budget: {
-      total: 4,
+      // Validate history before accepting the local unlink, then obtain fresh
+      // proof when its durable intent replays (potentially after a restart).
+      total: 5,
       byRequest: {
         "GET /documents/:documentId/attachments": 1,
         "GET /documents/:documentId/writer-projection": 1,
-        "POST /documents/:documentId/sync": 1,
+        "POST /documents/:documentId/sync": 2,
         "POST /documents/:documentId/unlink": 1,
       },
     },
