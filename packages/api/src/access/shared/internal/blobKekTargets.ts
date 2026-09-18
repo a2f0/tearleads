@@ -176,6 +176,7 @@ function documentManifestHashesForBindings(input: {
 async function loadBatchedBlobKekTargetState(input: {
   readonly activeBindings: readonly ActiveAttachmentBinding[];
   readonly executor: DatabaseSession;
+  readonly allowHistoricalParentEpochs: boolean;
 }): Promise<{
   readonly containerTargetById: ContainerKekTargetMap;
   readonly documentManifestHashes: readonly string[];
@@ -209,6 +210,7 @@ async function loadBatchedBlobKekTargetState(input: {
     linkedContainerIds,
     input.executor,
     (message, status) => new BlobKekTargetError(message, status),
+    input.allowHistoricalParentEpochs,
   );
 
   return {
@@ -279,6 +281,7 @@ function deriveTargetsForBindings(input: {
 export async function resolveCurrentBlobKekTargets(
   blobId: string,
   executor: DatabaseSession,
+  allowHistoricalParentEpochs = false,
 ): Promise<ResolvedBlobKekTargets> {
   const activeBindings = await listActiveAttachmentBindings(blobId, executor);
   if (activeBindings.length === 0) {
@@ -288,6 +291,7 @@ export async function resolveCurrentBlobKekTargets(
   const targetState = await loadBatchedBlobKekTargetState({
     activeBindings,
     executor,
+    allowHistoricalParentEpochs,
   });
   const targets = deriveTargetsForBindings({
     activeBindings,

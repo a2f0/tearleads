@@ -65,7 +65,11 @@ async function loadAvailableBlobContentKeyBundleEntry(
   executor: DatabaseSession,
 ): Promise<BlobContentKeyBundleEntry> {
   try {
-    const currentTargets = await resolveCurrentBlobKekTargets(blobId, executor);
+    const currentTargets = await resolveCurrentBlobKekTargets(
+      blobId,
+      executor,
+      true,
+    );
     const contentKeyBundle = await getLatestBlobContentKeyBundle(
       blobId,
       executor,

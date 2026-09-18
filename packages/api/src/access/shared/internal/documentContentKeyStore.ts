@@ -589,6 +589,7 @@ export async function requireAndRefreshCurrentDocumentContentKeyBundle(input: {
   readonly contentKeyEpoch: number;
   readonly expectedLinkSetManifestHash: string;
   readonly expectedTargetHash: string;
+  readonly allowHistoricalParentEpochs?: boolean;
   readonly executor: DatabaseSession;
 }): Promise<StoredDocumentContentKeyBundleWithTargets> {
   const { executor } = input;
@@ -597,6 +598,9 @@ export async function requireAndRefreshCurrentDocumentContentKeyBundle(input: {
     {
       documentId: input.documentId,
       expectedTargetHash: input.expectedTargetHash,
+      ...(input.allowHistoricalParentEpochs
+        ? { allowHistoricalParentEpochs: true }
+        : {}),
     },
     executor,
   );
