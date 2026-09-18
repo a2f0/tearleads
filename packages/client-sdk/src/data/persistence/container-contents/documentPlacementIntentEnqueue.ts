@@ -1,7 +1,9 @@
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { uniqueSortedStrings } from "../../documents/shared/readers";
 import { documentIntentLinkTargets } from "../../sqlite/documentPlacementIntentSchema";
 import {
+  documentContainerProjection,
+  documentContainerProjectionTables,
   documentMoveIntents,
   documentMoveIntentTables,
 } from "../../sqlite/schema";
@@ -37,11 +39,29 @@ export async function loadDocumentIntentLinkTargets(
 
 type LinkTarget = { containerId: string; operation: "link" | "unlink" };
 
+async function loadSurvivingMoveTarget(
+  execSql: ExecSql,
+  previous: typeof documentMoveIntents.$inferSelect | undefined,
+): Promise<string | null> {
+  if (previous?.intentType !== "document.move") return null;
+  const [link] = await getClientSQLitePersistenceRuntime(execSql)
+    .db.select({ containerId: documentContainerProjection.containerId })
+    .from(documentContainerProjection)
+    .where(
+      and(
+        eq(documentContainerProjection.documentId, previous.documentId),
+        eq(documentContainerProjection.containerId, previous.targetContainerId),
+      ),
+    )
+    .limit(1);
+  return link?.containerId ?? null;
+}
+
 function resolveTargets(
   input: PlacementIntentInput,
   previous: LinkTarget[],
   operation: "move" | "link" | "unlink",
-  previousIntent: typeof documentMoveIntents.$inferSelect | undefined,
+  previousMoveTarget: string | null,
 ): LinkTarget[] {
   const targets = new Map(
     previous.map((target) => [target.containerId, target.operation]),
@@ -54,12 +74,12 @@ function resolveTargets(
   } else if (input.replaceLinkedContainers) targets.clear();
   else {
     if (
-      previousIntent?.intentType === "document.move" &&
-      previousIntent.targetContainerId !== input.sourceContainerId &&
-      previousIntent.targetContainerId !== input.targetContainerId &&
-      targets.get(previousIntent.targetContainerId) !== "unlink"
+      previousMoveTarget &&
+      previousMoveTarget !== input.sourceContainerId &&
+      previousMoveTarget !== input.targetContainerId &&
+      targets.get(previousMoveTarget) !== "unlink"
     ) {
-      targets.set(previousIntent.targetContainerId, "link");
+      targets.set(previousMoveTarget, "link");
     }
     targets.delete(input.targetContainerId);
     if (
@@ -120,6 +140,7 @@ async function enqueuePlacementIntent(
 ): Promise<void> {
   await runSerializedSqlMutation(execSql, async (lockedExecSql) => {
     await ensureSqlTables(lockedExecSql, documentMoveIntentTables);
+    await ensureSqlTables(lockedExecSql, documentContainerProjectionTables);
     const runtime = getClientSQLitePersistenceRuntime(lockedExecSql);
     await runtime.transaction(async (tx) => {
       const [previous] = await tx
@@ -134,7 +155,9 @@ async function enqueuePlacementIntent(
         input,
         previousTargets,
         operation,
-        previous,
+        operation === "move"
+          ? await loadSurvivingMoveTarget(lockedExecSql, previous)
+          : null,
       );
       const id = input.id ?? crypto.randomUUID();
       const updatedAt = new Date().toISOString();
