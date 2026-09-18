@@ -2,6 +2,14 @@ import type { NegativeControl } from "./protocolNegativeControls";
 
 export const DOCUMENT_MOVE_NEGATIVE_CONTROLS: readonly NegativeControl[] = [
   {
+    id: "move-publishes-mixed-local-read",
+    module: "formal/local-trust/DocumentMovePlacement.tla",
+    config: "formal/local-trust/DocumentMovePlacement.cfg",
+    constants: { CheckReadMembership: "FALSE" },
+    expect: { kind: "invariant", name: "StableView" },
+    why: "Old link IDs combined with a current summary must be filtered by current membership.",
+  },
+  {
     id: "move-publishes-intermediate-links",
     module: "formal/local-trust/DocumentMovePlacement.tla",
     config: "formal/local-trust/DocumentMovePlacement.cfg",

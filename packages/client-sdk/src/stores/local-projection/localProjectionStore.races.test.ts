@@ -3,6 +3,7 @@ import { createTestExecSql } from "@tearleads/test-utils";
 import { waitFor } from "../../../test/helpers/waitFor";
 import { defaultDocumentProjectorRegistry } from "../../data/documents/documentKinds";
 import { createDomainScope } from "../../data/domainScope";
+import { sqlDocumentContainerProjectionPersistence as links } from "../../data/persistence/containers/documentContainerProjectionPersistence";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import { defaultContainerContentsPersistence } from "../../workflows/container-contents/containerPersistence";
 import {
@@ -18,6 +19,7 @@ async function seed(
   title: string,
   containerId = "root",
   id = "note",
+  documentId: string | null = null,
 ) {
   await defaultContainerContentsPersistence.ensureSchema(execSql);
   await defaultContainerContentsPersistence.saveContainer(
@@ -39,7 +41,7 @@ async function seed(
     accessStateHash: null,
     containerId,
     contentKeyBundle: null,
-    documentId: null,
+    documentId,
     documentKekTargets: null,
     documentKind: "note",
     documentManifestBundle: null,
@@ -63,9 +65,14 @@ function createView(execSql: ExecSql) {
   return { runtime, view };
 }
 
-test.each(["local", "reconciled"])(
-  "a move during %s hydration cannot publish its old container placement",
-  async (mode) => {
+test.each([
+  ["local", "document_projection"],
+  ["reconciled", "document_projection"],
+  ["local", "document_container_projection"],
+  ["reconciled", "document_container_projection"],
+])(
+  "a move during %s hydration at %s cannot publish its old container placement",
+  async (mode, table) => {
     const db = await createTestExecSql("projection-move-during-read");
     let release = () => {};
     const gate = new Promise<void>((resolve) => {
@@ -78,7 +85,7 @@ test.each(["local", "reconciled"])(
         if (
           !held &&
           args[0].startsWith("select") &&
-          args[0].includes('from "document_projection"')
+          args[0].includes(`from "${table}"`)
         ) {
           held = true;
           await gate;
@@ -87,14 +94,16 @@ test.each(["local", "reconciled"])(
       },
     });
     try {
-      await seed(db.execSql, "Moving");
+      await seed(db.execSql, "Moving", "root", "note", "remote");
+      await links.replaceDocumentLinks(db.execSql, "remote", ["root"]);
       const { view } = createView(delayed);
       await waitFor(() => view.getSnapshot().ready, "Tree did not hydrate");
       const read =
         mode === "reconciled" ? view.loadContainerDelta("root") : null;
       if (!read) view.setActiveContainer("root");
       await waitFor(() => held, "Root read was not held");
-      await seed(db.execSql, "Moving", "trash");
+      await seed(db.execSql, "Moving", "trash", "note", "remote");
+      await links.replaceDocumentLinks(db.execSql, "remote", ["trash"]);
       const rootCounts: number[] = [];
       view.subscribe(() => {
         const rows = view
@@ -105,7 +114,7 @@ test.each(["local", "reconciled"])(
       view.refreshPersistedDocument({
         id: "note",
         containerId: "trash",
-        documentId: null,
+        documentId: "remote",
         title: "Moving",
         updatedAt: "2026-09-17T00:00:00.000Z",
       });

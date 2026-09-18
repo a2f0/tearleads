@@ -8,15 +8,16 @@ reappear in its source folder.
 
 | Model action or predicate | Production seam |
 | --- | --- |
-| `QueueMove` | `moveRemoteDocumentLinkLocally` uses `commitSideEffect` to commit the intent and link projection with the document relink |
+| `QueueMove` | `createDocumentLinkHost` forwards `commitSideEffect` through `relinkDocumentStoreWithCommitSideEffect`; `moveRemoteDocumentLinkLocally` uses it to commit the intent and link projection with the document relink |
 | `Link`, `Unlink`, `ProtectPending` | `filterWritableDocumentPlacements` prevents `relinkRemoteContainerDocument` from publishing intermediate links while an intent exists |
 | `Settle`, `CheckRevision` | `settleDocumentMoveIntent` checks the exact intent revision and replaces links in the relink transaction; partial replay also checks ownership |
 | `CapturePage`, `ApplyPage`, `CheckEpoch` | `discoverContainerDocuments` and `discoverAllContainerDocuments` carry the access epoch into `filterWritableDocumentPlacements`; `resolveDiscoveredDocumentPlacement` preserves newer placement and access state |
 | `StartRead`, `FinishRead`, `CheckReadPlacement` | `refreshPersistedDocument` records writes observed during a pending read; `hasObsoletePlacement` rejects obsolete placement before publication |
+| `RefreshReadSummary`, `CheckReadMembership` | `listContainerContentsDocumentsForContainers` filters stale link IDs against the returned summaries and final link map |
 | `StablePlacement`, `StableView` | `listContainerContentsDocumentsForContainers` and `loadContainerSummaries` expose the chosen local placement throughout replay |
 
-The bounded model checks safety, with four negative controls disabling ownership,
-epoch, revision, and read guards independently. Regression tests cover a refresh
+The bounded model checks safety, with five negative controls disabling ownership,
+epoch, revision, and both read guards independently. Regression tests cover a refresh
 between real signed link/unlink operations, sequential trash moves during single
 and all-container discovery, superseded replay rollback, and first-hydration reads.
 
@@ -24,8 +25,9 @@ The model abstracts cryptography, content, network failures, and SQL internals.
 The local relink transaction includes intent enqueue or settlement and link writes.
 The server still performs link and unlink separately; waiting in the unlink phase
 models a failed request awaiting retry. The two destinations are distinct, and
-each replay completes before another begins. Read sets abstract preferred placement
-and links together; production compares preferred container and document identity
+each replay completes before another begins. Read sets abstract membership while
+`readSummary` models a separately loaded
+preferred placement. Production compares preferred container and document identity
 after persisted-document notifications. Reconciliation reads capture a local write
 revision in `loadContainerDelta`; `applyReconciled` refuses a delta if a write or
 runtime reset intervened and schedules a fresh local read.

@@ -1,16 +1,16 @@
 ----------------------- MODULE DocumentMovePlacement -----------------------
 EXTENDS Naturals, FiniteSets
 
-CONSTANTS ProtectPending, CheckEpoch, CheckRevision, CheckReadPlacement
-ASSUME {ProtectPending, CheckEpoch, CheckRevision, CheckReadPlacement}
+CONSTANTS ProtectPending, CheckEpoch, CheckRevision, CheckReadPlacement, CheckReadMembership
+ASSUME {ProtectPending, CheckEpoch, CheckRevision, CheckReadPlacement, CheckReadMembership}
        \subseteq BOOLEAN
 
 VARIABLES revision, pending, desired, localLinks, localEpoch, visible,
           remoteLinks, remoteEpoch, attempt, attemptTarget, phase,
-          pageLinks, pageEpoch, pageReady, readLinks, readReady
+          pageLinks, pageEpoch, pageReady, readLinks, readReady, readSummary
 vars == <<revision, pending, desired, localLinks, localEpoch, visible,
           remoteLinks, remoteEpoch, attempt, attemptTarget, phase,
-          pageLinks, pageEpoch, pageReady, readLinks, readReady>>
+          pageLinks, pageEpoch, pageReady, readLinks, readReady, readSummary>>
 
 Init ==
   /\ revision = 0 /\ pending = FALSE /\ desired = "root"
@@ -18,7 +18,7 @@ Init ==
   /\ remoteLinks = {"root"} /\ remoteEpoch = 0
   /\ attempt = 0 /\ attemptTarget = "root" /\ phase = "idle"
   /\ pageLinks = {"root"} /\ pageEpoch = 0 /\ pageReady = FALSE
-  /\ readLinks = {"root"} /\ readReady = FALSE
+  /\ readLinks = {"root"} /\ readReady = FALSE /\ readSummary = "root"
 
 (* Local placement, links and intent commit atomically. Two distinct intents
    model trash followed by a move elsewhere while the first replay is active. *)
@@ -27,14 +27,14 @@ QueueMove ==
   /\ desired' = IF revision = 0 THEN "trash" ELSE "other"
   /\ localLinks' = {desired'} /\ visible' = {desired'}
   /\ UNCHANGED <<localEpoch, remoteLinks, remoteEpoch, attempt, attemptTarget,
-                  phase, pageLinks, pageEpoch, pageReady, readLinks, readReady>>
+                  phase, pageLinks, pageEpoch, pageReady, readLinks, readReady, readSummary>>
 
 StartReplay ==
   /\ pending /\ phase = "idle"
   /\ attempt' = revision /\ attemptTarget' = desired /\ phase' = "link"
   /\ UNCHANGED <<revision, pending, desired, localLinks, localEpoch, visible,
                   remoteLinks, remoteEpoch, pageLinks, pageEpoch, pageReady,
-                  readLinks, readReady>>
+                  readLinks, readReady, readSummary>>
 
 Link ==
   /\ phase = "link" /\ phase' = "unlink"
@@ -42,14 +42,14 @@ Link ==
   /\ remoteEpoch' = remoteEpoch + 1
   /\ localLinks' = IF ProtectPending /\ pending THEN localLinks ELSE remoteLinks'
   /\ UNCHANGED <<revision, pending, desired, localEpoch, visible, attempt,
-                  attemptTarget, pageLinks, pageEpoch, pageReady, readLinks, readReady>>
+                  attemptTarget, pageLinks, pageEpoch, pageReady, readLinks, readReady, readSummary>>
 
 Unlink ==
   /\ phase = "unlink" /\ phase' = "settle"
   /\ remoteLinks' = {attemptTarget} /\ remoteEpoch' = remoteEpoch + 1
   /\ UNCHANGED <<revision, pending, desired, localLinks, localEpoch, visible,
                   attempt, attemptTarget, pageLinks, pageEpoch, pageReady,
-                  readLinks, readReady>>
+                  readLinks, readReady, readSummary>>
 
 Settle ==
   /\ phase = "settle" /\ phase' = "idle"
@@ -58,14 +58,14 @@ Settle ==
        /\ localLinks' = IF current THEN remoteLinks ELSE localLinks
        /\ localEpoch' = IF current THEN remoteEpoch ELSE localEpoch
   /\ UNCHANGED <<revision, desired, visible, remoteLinks, remoteEpoch, attempt,
-                  attemptTarget, pageLinks, pageEpoch, pageReady, readLinks, readReady>>
+                  attemptTarget, pageLinks, pageEpoch, pageReady, readLinks, readReady, readSummary>>
 
 CapturePage ==
   /\ ~pageReady /\ pageReady' = TRUE
   /\ pageLinks' = remoteLinks /\ pageEpoch' = remoteEpoch
   /\ UNCHANGED <<revision, pending, desired, localLinks, localEpoch, visible,
                   remoteLinks, remoteEpoch, attempt, attemptTarget, phase,
-                  readLinks, readReady>>
+                  readLinks, readReady, readSummary>>
 
 ApplyPage ==
   /\ pageReady /\ pageReady' = FALSE
@@ -74,25 +74,33 @@ ApplyPage ==
        localLinks' = IF allowed THEN pageLinks ELSE localLinks
   /\ UNCHANGED <<revision, pending, desired, localEpoch, visible, remoteLinks,
                   remoteEpoch, attempt, attemptTarget, phase, pageLinks, pageEpoch,
-                  readLinks, readReady>>
+                  readLinks, readReady, readSummary>>
 
 StartRead ==
-  /\ ~readReady /\ readReady' = TRUE /\ readLinks' = localLinks
+  /\ ~readReady /\ readReady' = TRUE /\ readLinks' = localLinks /\ readSummary' = desired
   /\ UNCHANGED <<revision, pending, desired, localLinks, localEpoch, visible,
                   remoteLinks, remoteEpoch, attempt, attemptTarget, phase,
                   pageLinks, pageEpoch, pageReady>>
 
+(* A later summary query may see the new placement after link ids were read. *)
+RefreshReadSummary ==
+  /\ readReady /\ readSummary' = desired
+  /\ UNCHANGED <<revision, pending, desired, localLinks, localEpoch, visible,
+                  remoteLinks, remoteEpoch, attempt, attemptTarget, phase,
+                  pageLinks, pageEpoch, pageReady, readLinks, readReady>>
+
 FinishRead ==
   /\ readReady /\ readReady' = FALSE
-  /\ visible' = IF ~CheckReadPlacement \/ readLinks = localLinks
+  /\ visible' = IF (~CheckReadPlacement \/ readSummary = desired)
+                    /\ (~CheckReadMembership \/ readLinks = {readSummary})
                  THEN readLinks ELSE visible
   /\ UNCHANGED <<revision, pending, desired, localLinks, localEpoch,
                   remoteLinks, remoteEpoch, attempt, attemptTarget, phase,
-                  pageLinks, pageEpoch, pageReady, readLinks>>
+                  pageLinks, pageEpoch, pageReady, readLinks, readSummary>>
 
 TypeOK ==
   /\ revision \in 0..2 /\ attempt \in 0..2
-  /\ {desired, attemptTarget} \subseteq {"root", "trash", "other"}
+  /\ {desired, attemptTarget, readSummary} \subseteq {"root", "trash", "other"}
   /\ {localLinks, remoteLinks, visible, pageLinks, readLinks}
        \subseteq SUBSET {"root", "trash", "other"}
   /\ {localEpoch, remoteEpoch, pageEpoch} \subseteq 0..4
@@ -102,7 +110,7 @@ StablePlacement == localLinks = {desired}
 StableView == visible = {desired}
 
 Next == QueueMove \/ StartReplay \/ Link \/ Unlink \/ Settle
-        \/ CapturePage \/ ApplyPage \/ StartRead \/ FinishRead
+        \/ CapturePage \/ ApplyPage \/ StartRead \/ RefreshReadSummary \/ FinishRead
         \/ UNCHANGED vars
 Spec == Init /\ [][Next]_vars
 =============================================================================

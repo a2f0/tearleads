@@ -1,27 +1,17 @@
 import { expect, test } from "bun:test";
-import { createTestExecSql } from "@tearleads/test-utils";
+import { createMockApiClient, createTestExecSql } from "@tearleads/test-utils";
+import {
+  createInternalRuntimeFixture,
+  createWorkflowInputFixture,
+} from "../../../test/helpers/internalRuntimeFixtures";
+import { createContainerContents } from "../../client/containerContents";
 import { sqlDocumentMoveIntentPersistence as intents } from "../../data/persistence/container-contents/documentMoveIntentPersistence";
 import { sqlDocumentContainerProjectionPersistence as links } from "../../data/persistence/containers/documentContainerProjectionPersistence";
 import { sqlDocumentsPersistence as documents } from "../../data/persistence/documents/documentsPersistence";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
-import {
-  createRemoteHistoryFixture,
-  noopDocumentStorePersistenceEffects,
-} from "../../stores/documents/documentStore/documentStore.testFixtures";
-import {
-  ensureDocumentStoreReady,
-  relinkDocumentStore,
-} from "../../stores/documents/documentStore/initialization";
-import {
-  createRotationRecoveryRuntime,
-  persistFullHistoryDocument,
-} from "../../stores/documents/documentStore/rotationRecoveryHelpers.test";
-import { createDocumentStoreState } from "../../stores/documents/documentStore/state";
-import { moveRemoteDocumentLinkLocally } from "./documentMoveIntent";
-import type {
-  DocumentStructuralMutationLocalStore,
-  DocumentStructuralMutationRuntime,
-} from "./documentStructureTypes";
+import { createRemoteHistoryFixture } from "../../stores/documents/documentStore/documentStore.testFixtures";
+import { persistFullHistoryDocument } from "../../stores/documents/documentStore/rotationRecoveryHelpers.test";
+import { subscribeToPersistedDocuments } from "../../stores/documents/registry";
 
 test.each([false, true])(
   "local move commits document, links and intent together (projection fails: %s)",
@@ -40,6 +30,7 @@ test.each([false, true])(
         return target(...args);
       },
     });
+    let unsubscribe = () => {};
     try {
       await documents.ensureSchema(execSql);
       const fixture = await createRemoteHistoryFixture();
@@ -53,43 +44,34 @@ test.each([false, true])(
       await links.replaceDocumentLinks(execSql, documentId, [
         "source-container",
       ]);
-      const runtime = createRotationRecoveryRuntime({
+      const workflow = createWorkflowInputFixture({
         execSql,
-        fixture,
+        apiClient: createMockApiClient(),
         online: false,
+        containerId: "source-container",
       });
-      const published: string[] = [];
-      const state = createDocumentStoreState(
-        "local",
-        runtime,
-        documents,
-        {
-          ...noopDocumentStorePersistenceEffects,
-          emitPersistedDocument: (_scope, summary) => {
-            published.push(summary.containerId ?? "");
-          },
-        },
-        documentId,
+      const contents = createContainerContents(
+        createInternalRuntimeFixture(() => workflow),
       );
-      await ensureDocumentStoreReady(state, () => {});
-      published.length = 0;
-      const store: DocumentStructuralMutationLocalStore<null> = {
-        assertCanRotateContentKey: async () => new Uint8Array(),
-        ensureInitialized: async () => true,
-        relink: (input) =>
-          relinkDocumentStore(state, input, () => {}, input.commitSideEffect),
-        requestSync: () => {},
-        updateRuntime: () => {},
-      };
-      armed = true;
-      const move = moveRemoteDocumentLinkLocally({
-        currentDocumentStore: store,
-        expandNode: () => {},
-        host: {
-          documentWorkflowRuntime: () => null,
-          mergeDocumentSummary: () => {},
-          openDocumentStore: () => store,
+      const documentLinks = contents.documentLinks();
+      await documentLinks
+        .openDocument({
+          localId: "local",
+          documentId,
+          containerId: "source-container",
+        })
+        .ensureInitialized();
+      const published: string[] = [];
+      unsubscribe = subscribeToPersistedDocuments(
+        workflow.state.domainScope,
+        (summary) => {
+          published.push(summary.containerId ?? "");
         },
+      );
+      armed = true;
+      const move = documentLinks.moveDocumentToContainer({
+        expandNode: () => {},
+        mergeDocumentSummary: () => {},
         note: {
           id: "local",
           documentId,
@@ -98,7 +80,6 @@ test.each([false, true])(
           updatedAt: "2026-09-17T00:00:00.000Z",
         },
         replaceLinkedContainers: true,
-        runtime: runtime as unknown as DocumentStructuralMutationRuntime,
         setLinkedContainerIdsForDocument: () => {},
         targetContainerId: "trash",
       });
@@ -117,6 +98,7 @@ test.each([false, true])(
       );
       expect(published).toEqual(failProjection ? [] : ["trash"]);
     } finally {
+      unsubscribe();
       db.close();
     }
   },
