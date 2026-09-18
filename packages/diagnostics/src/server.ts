@@ -4,9 +4,13 @@ import {
   Scope,
   ServerRuntimeClient,
 } from "@sentry/core";
+import { apiErrorTags } from "./apiDiagnostics";
+import type { ApiDiagnosticOperation } from "./apiVocabulary";
 import type { SentryConfig } from "./config";
-import { sanitizeSentryEvent } from "./privacy";
+import { sanitizeServerEvent } from "./serverEvent";
 import { createPrivateSentryTransport } from "./transport";
+
+export type { ApiDiagnosticOperation } from "./apiVocabulary";
 
 // `background-error` covers post-commit and post-handshake failures the API
 // logged and swallowed: they produce no HTTP error response, so tagging them as
@@ -25,12 +29,13 @@ export type MainProcessErrorSource =
   | "unhandled-rejection";
 
 export function createServerDiagnostics(config: SentryConfig) {
+  const stackParser = createStackParser(nodeStackLineParser());
   const client = new ServerRuntimeClient({
     dsn: config.dsn,
     environment: config.environment,
     release: config.release,
     dist: config.dist,
-    stackParser: createStackParser(nodeStackLineParser()),
+    stackParser,
     // The transport sanitizes again, after beforeSend has rebuilt every frame
     // under app:///. Only that second pass takes app:// as its root, so a raw
     // app:/// frame never passes a runtime that requires its absolute root.
@@ -43,20 +48,30 @@ export function createServerDiagnostics(config: SentryConfig) {
     sendClientReports: false,
     enableLogs: false,
     maxBreadcrumbs: 0,
-    beforeSend: (event) => sanitizeSentryEvent(event, config),
+    beforeSend: (event, hint) =>
+      sanitizeServerEvent(event, config, stackParser, hint.syntheticException),
   });
   client.init();
   return {
     captureError(
       error: unknown,
       source: ServerErrorSource | MainProcessErrorSource,
+      operation?: ApiDiagnosticOperation,
     ) {
       if (!(error instanceof Error)) return;
       // Each error has an isolated scope. No request or user context is shared.
       const scope = new Scope();
       scope.setClient(client);
       scope.captureException(error, {
-        captureContext: { tags: { diagnostic_source: source } },
+        ...(config.runtime === "api"
+          ? { syntheticException: new Error() }
+          : {}),
+        captureContext: {
+          tags: {
+            diagnostic_source: source,
+            ...(config.runtime === "api" ? apiErrorTags(error, operation) : {}),
+          },
+        },
       });
     },
     flush: () => client.flush(2000),

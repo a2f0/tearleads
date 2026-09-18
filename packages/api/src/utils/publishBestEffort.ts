@@ -18,6 +18,6 @@ export async function publishBestEffort(
     await publish(event);
   } catch (error) {
     console.error(`Failed to publish ${label}:`, error);
-    reportBackgroundFailure(error);
+    reportBackgroundFailure(error, "realtime.publish");
   }
 }

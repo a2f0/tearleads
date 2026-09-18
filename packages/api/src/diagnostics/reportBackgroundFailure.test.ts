@@ -25,7 +25,11 @@ test.each(Object.entries(outcomes))(
       // afterwards has already reported.
       expect(reportBackgroundFailure(failure)).toBeUndefined();
       expect(capture).toHaveBeenCalledTimes(1);
-      expect(capture).toHaveBeenCalledWith(failure, "background-error");
+      expect(capture).toHaveBeenCalledWith(
+        failure,
+        "background-error",
+        "background",
+      );
       // Give a rejected report a turn to become an unhandled rejection.
       await new Promise((resolve) => setTimeout(resolve, 0));
     } finally {
@@ -91,7 +95,11 @@ test("an aggregate reports its constituents, bounded, not its own stack", () => 
     capture.mockClear();
     const empty = new AggregateError([], "sweep failed");
     reportBackgroundFailure(empty);
-    expect(capture).toHaveBeenCalledWith(empty, "background-error");
+    expect(capture).toHaveBeenCalledWith(
+      empty,
+      "background-error",
+      "background",
+    );
   } finally {
     capture.mockRestore();
   }

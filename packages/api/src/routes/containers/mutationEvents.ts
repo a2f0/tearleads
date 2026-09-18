@@ -95,7 +95,7 @@ async function grantRecipientUserIds(
     return await input.resolveGroupMemberUserIds(subject.subjectId);
   } catch (error) {
     console.error("Failed to resolve group grant recipients:", error);
-    reportBackgroundFailure(error);
+    reportBackgroundFailure(error, "container.recipients");
     return [];
   }
 }

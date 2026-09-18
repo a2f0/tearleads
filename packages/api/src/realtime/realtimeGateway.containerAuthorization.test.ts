@@ -220,7 +220,11 @@ test("authorization errors report and close without indexing or persistence", as
   try {
     await f.gateway.websocket.open(f.socket);
     await f.declare();
-    expect(capture).toHaveBeenCalledWith(failure, "background-error");
+    expect(capture).toHaveBeenCalledWith(
+      failure,
+      "background-error",
+      "websocket.operation",
+    );
     expect(f.closed).toEqual([1011]);
     expect(f.router.interestedSocketCount(CONTAINER)).toBe(0);
     expect(f.persisted).toEqual([]);

@@ -77,7 +77,7 @@ test("a broker outage on a committed write is reported without failing the write
       ),
     ).toBeUndefined();
     expect(watch.log).toHaveBeenCalledTimes(1);
-    expect(watch.report).toHaveBeenCalledWith(failure);
+    expect(watch.report).toHaveBeenCalledWith(failure, "realtime.publish");
   } finally {
     watch.restore();
   }
@@ -96,7 +96,10 @@ test("a failed interest cleanup is reported while the revocation still publishes
     })(session);
     expect(publishEvent).toHaveBeenCalledTimes(1);
     expect(watch.log).toHaveBeenCalledTimes(1);
-    expect(watch.report).toHaveBeenCalledWith(failure);
+    expect(watch.report).toHaveBeenCalledWith(
+      failure,
+      "session.clear-interest",
+    );
   } finally {
     watch.restore();
   }
@@ -127,7 +130,7 @@ test("a failed revocation fan-out is reported and still completes the logout", a
     });
     expect(response.status).toBe(204);
     expect(watch.log).toHaveBeenCalledTimes(1);
-    expect(watch.report).toHaveBeenCalledWith(failure);
+    expect(watch.report).toHaveBeenCalledWith(failure, "session.revoke");
   } finally {
     watch.restore();
   }
@@ -202,7 +205,7 @@ test("an organization authorization failure is reported and denies the declarati
       authorized: false,
     });
     expect(watch.log).toHaveBeenCalledTimes(1);
-    expect(watch.report).toHaveBeenCalledWith(failure);
+    expect(watch.report).toHaveBeenCalledWith(failure, "websocket.authorize");
   } finally {
     watch.restore();
   }

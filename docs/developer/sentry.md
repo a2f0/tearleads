@@ -83,9 +83,12 @@ are dropped locally to bound retry-loop traffic and protect the project quota.
 
 Allowed:
 
-- Generic exception type and placeholder message; generated bundle filename,
+- Generic exception type and placeholder message on clients; generated bundle filename,
   line, and column. Runtime function names and source context are excluded from
   transmitted events; Sentry can reconstruct code context from uploaded maps.
+- API operation names, reviewed driver exception types and error codes, and
+  error HTTP statuses (400–599). API titles are constructed from this finite
+  vocabulary; raw exception text is never sent. See API coverage below.
 - Git release, deployment environment, and target/build variant.
 - Up to 30 breadcrumbs containing an approved mini-app name and action, plus
   timestamps. These describe attempts/navigation, not successful server commits.
@@ -94,7 +97,7 @@ Allowed:
 
 Excluded:
 
-- Raw exception messages, causes, arbitrary error properties, and System Monitor
+- Raw exception and cause messages, arbitrary error properties, and System Monitor
   log text or support reports.
 - Document/file/contact names, text, field values, document kinds, entity IDs,
   key fingerprints, passwords, keys, account IDs, and stable user identifiers.
@@ -214,36 +217,8 @@ events. An uncaught exception is logged, reported, and flushed for up to two
 seconds before Electrobun's own crash shutdown runs, so the app briefly keeps
 running; a second crash in that window shuts down at once.
 
-The API captures unexpected HTTP errors (500+, including temporary database
-failures) and failures during WebSocket handshakes. A domain error carrying a
-500+ status answers with its own status and body, which the shared handler
-never sees, so it is captured where it is answered instead. Its status is kept
-deliberately: propagating it would turn a retryable 503 into a permanent 500
-unless its cause chain happened to look like driver contention. Expected client
-errors and organization entitlement failures keep their existing responses and
-stay local. Each captured API error has an independent scope and no
-breadcrumbs, preventing activity from different requests from mixing.
-
-Failures the API logged and deliberately swallowed — a realtime publish after
-the write already committed, read-model notification verification, session
-revocation notices, and post-handshake WebSocket interest handling — report
-under `diagnostic_source=background-error`, which keeps them out of the
-request 5xx signal. They are fire-and-forget: reporting cannot change the
-response, and the committed write stays committed. Process and native crashes
-remain outside this integration.
-
-The blob-GC and Stripe-seat-sync executables build with the same diagnostics
-configuration and report their own swallowed maintenance failures: blob
-reclamation reports the aggregate carrying every per-object failure, and each
-billing phase reports independently so one failure does not hide the others.
-Per-item failures, which the sweeps count and drop rather than raise, report
-too; free-trial expiry reports at the attention threshold its backoff already
-defines rather than on every retryable attempt. An aggregate reports a bounded
-number of its constituents rather than itself, because only the first exception
-survives sanitizing and the aggregate's own stack is its construction site.
-Both binaries drain pending reports before exiting, since a short-lived process
-can otherwise finish and exit while a report is still in flight. Reporting never
-changes their exit status.
+See [API error diagnostics](api-sentry.md) for request and background capture,
+safe error metadata, fallback stacks, and maintenance reporting in both tiers.
 
 ## Source maps and verification
 

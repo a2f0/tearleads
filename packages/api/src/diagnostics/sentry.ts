@@ -1,4 +1,5 @@
 import {
+  type ApiDiagnosticOperation,
   createServerDiagnostics,
   type ServerErrorSource,
 } from "@tearleads/diagnostics/server";
@@ -32,9 +33,10 @@ const diagnostics = configureDiagnostics();
 export function captureApiError(
   error: unknown,
   source: ServerErrorSource,
+  operation?: ApiDiagnosticOperation,
 ): void {
   try {
-    diagnostics?.captureError(error, source);
+    diagnostics?.captureError(error, source, operation);
   } catch {
     // Observability must not alter the application's error response.
   }

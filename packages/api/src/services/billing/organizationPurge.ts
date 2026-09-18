@@ -93,7 +93,7 @@ async function publishPurgedContainerAccessChanges(
       `Organization purge container invalidations abandoned after ${timeoutMs}ms`,
     );
     console.error(error.message);
-    reportBackgroundFailure(error);
+    reportBackgroundFailure(error, "billing.purge-invalidate");
     return;
   }
 }
@@ -164,7 +164,7 @@ export async function runOrganizationPurgeMaintenance(
         `Organization purge failed for ${claim.organizationId}:`,
         error,
       );
-      reportBackgroundFailure(error);
+      reportBackgroundFailure(error, "billing.purge");
     }
   }
 
@@ -187,7 +187,7 @@ export async function runOrganizationPurgeMaintenance(
         `Organization purge finalization failed for ${claim.organizationId}:`,
         error,
       );
-      reportBackgroundFailure(error);
+      reportBackgroundFailure(error, "billing.purge-finalize");
     }
   }
   return { claimed: claims.length, failed, purged };

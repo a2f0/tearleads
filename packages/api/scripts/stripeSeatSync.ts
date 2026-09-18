@@ -3,6 +3,7 @@
 // reconciliation. Row locks, leases, DB predicates, and Stripe idempotency make
 // overlaps safe.
 import { closeApiDatabase } from "@tearleads/api-shared/postgres";
+import type { ApiDiagnosticOperation } from "@tearleads/diagnostics/server";
 import { reportBackgroundFailure } from "../src/diagnostics/reportBackgroundFailure";
 import { flushApiDiagnostics } from "../src/diagnostics/sentry";
 import { runOrganizationPurgeMaintenance } from "../src/services/billing/organizationPurge";
@@ -22,6 +23,7 @@ function readLimit(args: readonly string[]): number | undefined {
 async function runMaintenancePhase<T>(
   name: string,
   run: () => Promise<T>,
+  operation: ApiDiagnosticOperation,
 ): Promise<T | null> {
   try {
     return await run();
@@ -30,7 +32,7 @@ async function runMaintenancePhase<T>(
     // remaining phases run. Only the exit status survives otherwise, and a
     // timer that runs every minute makes a persistent fault easy to miss.
     console.error(`${name} failed:`, error);
-    reportBackgroundFailure(error);
+    reportBackgroundFailure(error, operation);
     process.exitCode = 1;
     return null;
   }
@@ -40,16 +42,20 @@ try {
   const limit = readLimit(process.argv.slice(2));
   const runtime = getDefaultApiServiceRuntime();
   const options = limit === undefined ? {} : { limit };
-  const trialExpiry = await runMaintenancePhase("Free-trial expiry", () =>
-    expireOrganizationTrials(runtime, options),
+  const trialExpiry = await runMaintenancePhase(
+    "Free-trial expiry",
+    () => expireOrganizationTrials(runtime, options),
+    "billing.trial-expiry",
   );
   const organizationPurge = await runMaintenancePhase(
     "Organization purge",
     () => runOrganizationPurgeMaintenance(runtime, options),
+    "billing.purge",
   );
   const stripeSeatSync = await runMaintenancePhase(
     "Stripe seat synchronization",
     () => runStripeSeatSynchronization(runtime, options),
+    "billing.seat-sync",
   );
   console.log(
     JSON.stringify({ organizationPurge, stripeSeatSync, trialExpiry }),
@@ -63,7 +69,7 @@ try {
   }
 } catch (error) {
   console.error("Billing maintenance failed:", error);
-  reportBackgroundFailure(error);
+  reportBackgroundFailure(error, "billing.maintenance");
   process.exitCode = 1;
 } finally {
   await flushApiDiagnostics();

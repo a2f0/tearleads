@@ -102,7 +102,7 @@ function createReadModelHintMiddleware(
         "Failed to verify organization read-model notifications:",
         error,
       );
-      reportBackgroundFailure(error);
+      reportBackgroundFailure(error, "realtime.verify");
       return;
     }
     await Promise.all(
