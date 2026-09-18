@@ -10,7 +10,10 @@ import {
 import { openExplorer } from "../../../../test/helpers/dual-pane/dualPaneExplorerKit";
 import { openOrgManager } from "../../../../test/helpers/dual-pane/dualPaneSharingKit";
 import { createAdditionalOrganization } from "../../../../test/helpers/dual-pane/organizationCreation";
-import { useTestApiAppHandlers } from "../../../../test/helpers/mswServer";
+import {
+  listProxiedApiRequests,
+  useTestApiAppHandlers,
+} from "../../../../test/helpers/mswServer";
 import {
   cleanupPaneTestEnvironment,
   waitForPaneRuntimeToSettle,
@@ -75,6 +78,24 @@ test(
     useTestApiAppHandlers();
     const pane = getPaneRoot(renderSinglePane(), "left");
     await waitForSinglePaneProvisioning(pane);
+    // Contacts promotion starts after authentication. Its remote commits must
+    // finish before measuring creation of a different organization.
+    await waitFor(
+      () => {
+        const committedPosts = listProxiedApiRequests().filter(
+          (request) => request.method === "POST" && request.status === 200,
+        );
+        for (const path of [
+          "/containers/with-metadata-document",
+          "/documents",
+        ]) {
+          expect(
+            committedPosts.some((request) => request.url.endsWith(path)),
+          ).toBe(true);
+        }
+      },
+      { timeout: 20_000 },
+    );
     await openOrgManager(pane);
     await waitForPaneRuntimeToSettle(20_000);
     await measureWorkflowRequests({
