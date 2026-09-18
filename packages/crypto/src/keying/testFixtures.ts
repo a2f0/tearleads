@@ -425,6 +425,9 @@ export async function createContainerManifestFixture(input: {
     input.event ??
     (await createVerifiedContainerAccessEvent({
       body,
+      dependencyManifestHashes: input.parentManifestHash
+        ? [input.parentManifestHash]
+        : [],
       objectId: input.containerId,
       organizationId,
       previousManifestHash: input.previousManifestHash ?? null,
@@ -432,9 +435,7 @@ export async function createContainerManifestFixture(input: {
       signerUserId: input.signerUserId ?? "fixture-signer",
     }));
   const state: ContainerAccessManifestState = {
-    containerKeyPublicKey:
-      input.containerKeyPublicKey ??
-      containerWrappingPublicKeyForTest(input.containerKeyEpochId ?? null),
+    containerKeyPublicKey: body.containerKeyPublicKey,
     systemSlot: null,
     version: 1,
     containerId: input.containerId,

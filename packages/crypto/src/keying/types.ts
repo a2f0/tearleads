@@ -1010,7 +1010,9 @@ export interface VerifyContainerKekStateInput
   readonly keyEpoch: ContainerKeyEpoch;
   readonly wraps: readonly ContainerKeyWrap[];
   readonly containerManifestHistory?: readonly VerifiedContainerAccessManifest[];
-  /** Read/recovery only: verified lineage for a retained parent epoch. */
+  /** Read/recovery only; writes require the current parent epoch. */
+  readonly allowHistoricalParentEpoch?: boolean;
+  /** Verified signed parent citations, required for every non-root KEK. */
   readonly parentManifestHistory?: readonly VerifiedContainerAccessManifest[];
 }
 

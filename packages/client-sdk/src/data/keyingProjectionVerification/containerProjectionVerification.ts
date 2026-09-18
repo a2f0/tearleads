@@ -142,6 +142,7 @@ async function verifyContainerKekProjection(input: {
     warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
   });
   const verified = await verifyContainerKekState({
+    allowHistoricalParentEpoch: true,
     containerManifest: input.verifiedManifest,
     containerManifestHistory: verifiedKekManifestHistory,
     parentManifestHistory: input.parentManifestHistory,

@@ -37,6 +37,7 @@ import {
 import { assertParentKekStateCurrent } from "./parentKekState";
 
 interface VerifyContainerKekFromRequestArtifacts {
+  readonly parentManifestHistory: readonly VerifiedContainerAccessManifest[];
   readonly containerManifestHistory?:
     | readonly VerifiedContainerAccessManifest[]
     | undefined;
@@ -299,6 +300,7 @@ export async function verifyContainerKekFromRequest(
     request,
   });
   const result = await verifyContainerKekState({
+    parentManifestHistory: artifacts.parentManifestHistory,
     containerManifest: manifest,
     keyEpoch,
     parentKekState,

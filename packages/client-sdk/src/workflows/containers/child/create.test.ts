@@ -118,6 +118,9 @@ test("buildMaterializedContainerCreatePlan signs a child create and wraps the ch
     containerManifest: verifiedManifest.value,
     keyEpoch: plan.keyEpoch,
     parentKekState: parent.parentKekState,
+    parentManifestHistory: [
+      parent.projection.path[0] as unknown as VerifiedContainerAccessManifest,
+    ],
     wraps: plan.wraps,
   });
   expect(verifiedKek.ok).toBe(true);

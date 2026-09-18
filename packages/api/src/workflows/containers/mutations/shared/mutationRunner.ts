@@ -443,6 +443,10 @@ export async function mutateContainerWithExecutor(
     artifacts.manifest,
     {
       containerManifestHistory: artifacts.containerManifestHistory,
+      parentManifestHistory: [
+        ...context.writerProjectionContext.verifiedManifestByHash.values(),
+        ...context.verifiedManifestByHash.values(),
+      ],
       principalPolicies: artifacts.principalPolicies,
     },
   );

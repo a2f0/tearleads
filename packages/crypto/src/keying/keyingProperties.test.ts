@@ -117,7 +117,7 @@ test("property: a document key target set missing a linked container is refused"
         const [creator] = await signerPool();
         if (!creator) throw new Error("signer pool is never empty");
         const states = await Promise.all(
-          heads.map((head) => buildKekState(head)),
+          chains.map((chain) => buildKekState(chain.manifests)),
         );
         const documentManifest = await buildLinkedDocument({
           creator,
@@ -155,13 +155,14 @@ test("property: a key wrap addressed to a swapped recipient key is refused", asy
       const head = chain.manifests.at(-1);
       if (!head) throw new Error("chain is never empty");
       fc.pre(head.state.directGrants.length >= 2);
-      const built = await buildKekState(head);
+      const built = await buildKekState(chain.manifests);
       const [first, second] = built.wraps;
       if (!first || !second) throw new Error("two wraps");
       // Every recipient keeps a wrap, so only the exchanged fingerprints can
       // be the reason for a refusal.
       const swapped = await verifyContainerKekState({
         containerManifest: head,
+        containerManifestHistory: chain.manifests.slice(0, -1),
         keyEpoch: built.keyEpoch,
         userRecipientKeys: built.recipients,
         wraps: built.wraps.map((wrap, index) =>

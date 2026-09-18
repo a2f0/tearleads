@@ -292,6 +292,7 @@ async function kekResponse(input: {
     containerManifestHistory: input.history,
     keyEpoch,
     parentKekState: input.parent,
+    parentManifestHistory: [input.scenario.root1, input.scenario.root2],
     principalPolicies: [input.scenario.policy],
     userRecipientKeys: recipientKeys,
     wraps,
@@ -323,12 +324,20 @@ export async function childWriterProjection(
     parent: null,
     scenario,
   });
+  const creationParent = await kekResponse({
+    createdBy: scenario.root1,
+    head: scenario.root1,
+    history: [],
+    keyEpoch: 1,
+    parent: null,
+    scenario,
+  });
   const child = await kekResponse({
     createdBy: scenario.child1,
     head: served.head,
     history: served.history,
     keyEpoch: 1,
-    parent: root.state,
+    parent: creationParent.state,
     scenario,
   });
   return {

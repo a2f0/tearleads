@@ -722,7 +722,15 @@ as info. Those bytes seed ML-KEM-1024 key generation. Readers check the derived
 public key against the signed current state; retained historical KEKs derive
 the corresponding historical decapsulation keys. A child-only writer can wrap
 a new child KEK to the verified parent public key without learning its secret.
-The parent recipient fingerprint remains the signed epoch-record hash.
+The parent recipient fingerprint remains the signed epoch-record hash. The
+child epoch's parent pin must equal the parent epoch named by its signed
+creation event's
+verified dependency citation, even when the pin names the current parent.
+A self-consistent epoch record and wrap target cannot substitute another
+parent epoch. A later grant or recitation cannot stand in for the first
+signed manifest of that key epoch. Historical parent resolution is enabled
+only for read/recovery;
+write verification still requires the current parent epoch.
 
 This is a flag-day contract: all authors and readers use public parent wraps,
 with no symmetric parent-wrap fallback. Each parent KEM ciphertext is 1568
