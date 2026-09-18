@@ -8,6 +8,20 @@ import {
   windowsReleaseNames,
 } from "./windowsReleaseArtifacts";
 
+// Windows' bsdtar understands both the installer ZIP and the update tar.
+const tar =
+  process.platform === "win32" ? "C:/Windows/System32/tar.exe" : "tar";
+function listArchive(path: string) {
+  const unzip = process.platform === "linux" && path.endsWith(".zip");
+  return execFileSync(
+    unzip ? "unzip" : tar,
+    unzip ? ["-Z1", path] : ["-tf", path],
+    {
+      encoding: "utf8",
+    },
+  ).split(/\r?\n/);
+}
+
 async function verifyRendererAssets(resources: string, tier: string) {
   const view = join(resources, "app/views/mainview");
   assert.ok(await Bun.file(join(view, "index.html")).exists());
@@ -99,12 +113,7 @@ export async function verifyWindowsArtifacts(
   const artifacts = join(packageRoot, "build/artifacts");
   const temp = await mkdtemp(join(tmpdir(), "windows-artifacts-"));
   try {
-    // Windows' bsdtar understands both the installer ZIP and the update tar.
-    const tar =
-      process.platform === "win32" ? "C:/Windows/System32/tar.exe" : "tar";
-    const list = (path: string) =>
-      execFileSync(tar, ["-tf", path], { encoding: "utf8" }).split(/\r?\n/);
-    const installerContents = list(join(artifacts, names.installer));
+    const installerContents = listArchive(join(artifacts, names.installer));
     assert.ok(
       installerContents.some((name) => name.endsWith(".exe")),
       "Missing setup executable",
@@ -115,12 +124,20 @@ export async function verifyWindowsArtifacts(
     );
     const installerRoot = join(temp, "installer");
     await mkdir(installerRoot);
-    execFileSync(tar, [
-      "-xf",
-      join(artifacts, names.installer),
-      "-C",
-      installerRoot,
-    ]);
+    if (process.platform === "linux") {
+      execFileSync("unzip", [
+        "-q",
+        join(artifacts, names.installer),
+        "-d",
+        installerRoot,
+      ]);
+    } else
+      execFileSync(tar, [
+        "-xf",
+        join(artifacts, names.installer),
+        "-C",
+        installerRoot,
+      ]);
     const setupStem =
       tier === "staging" ? "Tearleads-Setup-canary" : "Tearleads-Setup";
     assert.ok(await Bun.file(join(installerRoot, `${setupStem}.exe`)).exists());
@@ -141,7 +158,7 @@ export async function verifyWindowsArtifacts(
         await Bun.file(join(artifacts, names.archive)).arrayBuffer(),
       ),
     );
-    const paths = list(updateTar);
+    const paths = listArchive(updateTar);
     assert.ok(
       ![...paths, ...installerContents, ...(await readdir(artifacts))].some(
         (name) => name.endsWith(".map"),
