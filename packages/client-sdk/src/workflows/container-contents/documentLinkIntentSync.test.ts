@@ -131,6 +131,50 @@ test("recovering an orphan does not restore its deleted queued destination", asy
   expect(fixture.pendingIntents).toEqual([]);
 });
 
+test.each([false, true])(
+  "deleting a move source preserves another active link (remote source removed: %s)",
+  async (remoteUnlinkSource) => {
+    const fixture = await runQueuedDocumentMoveFixture({
+      testDbName: `queued-move-deleted-source-${remoteUnlinkSource}`,
+      remoteOnlySourceContainer: true,
+      remoteUnlinkSource,
+      unlinkAvailable: true,
+      replaceLinkedContainers: false,
+      beforeReplay: async (execSql) => {
+        const [intent] = await intents.listPendingMoveIntents(execSql);
+        if (!intent) throw new Error("Missing move intent");
+        await links.replaceDocumentLinks(
+          execSql,
+          "queued-move-document",
+          ["queued-move-extra-container", "queued-move-trash-container"],
+          { moveIntentId: intent.id },
+        );
+        await execSql(
+          "UPDATE document_projection SET container_id = ? WHERE local_id = ?",
+          ["queued-move-extra-container", "queued-move-local"],
+        );
+        await containers.ensureSchema(execSql);
+        await containers.deleteContainer(
+          execSql,
+          "queued-move-root-container",
+          {
+            updatedAt: new Date().toISOString(),
+          },
+        );
+      },
+    });
+    expect(fixture.syncedCount).toBe(1);
+    expect(fixture.remoteLinkedContainerIds).toEqual([
+      fixture.extraContainerId ?? "missing-extra",
+      fixture.trashContainerId,
+    ]);
+    expect(fixture.linkedContainerIds).toEqual(
+      fixture.remoteLinkedContainerIds,
+    );
+    expect(fixture.pendingIntents).toEqual([]);
+  },
+);
+
 test("additive settlement preserves a link activated during its remote request", async () => {
   const fixture = await runQueuedDocumentMoveFixture({
     testDbName: "queued-link-active-settlement",

@@ -102,10 +102,9 @@ export async function repairLinkIntentsForRemovedContainers(input: {
       .set({
         id,
         targetContainerId,
-        sourceContainerId:
-          intent.sourceContainerId && removed.has(intent.sourceContainerId)
-            ? null
-            : intent.sourceContainerId,
+        // The source records what the user moved. Clearing it would make
+        // replay fall back to the active link and remove that link instead.
+        sourceContainerId: intent.sourceContainerId,
         lastAttemptedAt: null,
         lastError: unavailable
           ? "Document placement has no surviving destination container"
