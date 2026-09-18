@@ -74,7 +74,10 @@ export function getSelectedDocumentMutationState(params: {
       selectedDocument.containerId !== trashContainerId &&
       !isPinnedSelfContact(rulesContext, selectedDocument),
     canLinkSelectedDocument:
-      canMutateSelectedDocument && selectedDocumentLinkTargetOptions.length > 0,
+      canActivateSelectedDocument &&
+      selectedDocumentWritable &&
+      selectedDocumentContainerWritable &&
+      selectedDocumentLinkTargetOptions.length > 0,
     canMoveSelectedDocument:
       canMoveSelectedDocument && selectedDocumentMoveTargetOptions.length > 0,
     canPurgeSelectedDocument:

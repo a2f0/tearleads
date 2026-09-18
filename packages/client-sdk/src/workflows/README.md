@@ -266,8 +266,7 @@ workflow facade aggregated by the root SDK entry point once.
 
 ## Document persistence notifications
 
-`PersistedDocumentListener` receives the saved summary and a change descriptor
-with `placementChanged`. Creates, identity changes, and structural relinks set
-this flag, including link changes that keep the same preferred container.
-Device-first views discard in-flight reads on placement changes; ordinary content
-saves can still publish an initial read before the trailing refresh.
+`PersistedDocumentListener` supplies a summary and `placementChanged` flag.
+Creates, identity changes, and structural relinks set it and invalidate in-flight
+reads. Ordinary content saves allow an initial read before the trailing refresh.
+See [document links](../../../../docs/developer/document-links.md).

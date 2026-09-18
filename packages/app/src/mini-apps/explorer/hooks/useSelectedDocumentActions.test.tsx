@@ -9,6 +9,7 @@ import type {
 import { syncedContainerDocumentObjectSyncState } from "@tearleads/client-sdk";
 import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
 import { createExplorerContainerRulesContext } from "../model/containerRules";
+import { getSelectedDocumentMutationState } from "./selectedDocumentMutationState";
 import { useExplorerDocumentDownload } from "./useExplorerDocumentDownload";
 import { useSelectedDocumentActions } from "./useSelectedDocumentActions";
 
@@ -263,4 +264,88 @@ test("a document download lost to database teardown stays local", async () => {
     await Promise.resolve();
   });
   expect(logged).toEqual([]);
+});
+
+test("Explorer offers and creates a link while offline, then invalidates the destination", async () => {
+  const note: DocumentSummary = {
+    id: "local",
+    documentId: "remote",
+    containerId: "source",
+    title: "Note",
+    updatedAt: "2026-09-18T00:00:00.000Z",
+  };
+  const nodes: ContainerNode[] = ["source", "destination"].map((id) => ({
+    id,
+    name: id,
+    kind: "container",
+    parentId: null,
+    organizationId: "org",
+    syncState: syncedContainerDocumentObjectSyncState,
+  }));
+  const rulesContext = createExplorerContainerRulesContext({
+    contactsContainerId: null,
+    contactsSystemSlot: null,
+    currentOrganizationId: "org",
+    currentSigningFingerprint: null,
+    trashSystemSlot: null,
+  });
+  const linkedTargets: string[] = [];
+  const refreshedTargets: string[] = [];
+  const appData = {
+    auth: { isAuthenticated: false },
+    state: { online: false },
+    infra: { dbStatus: "ready" },
+    canMutateDocumentLinks: false,
+    canMutateUnsyncedDocumentLinks: true,
+    linkDocumentToContainer: async (input) => {
+      linkedTargets.push(input.targetContainerId);
+      return input.note;
+    },
+  } satisfies Parameters<
+    typeof getSelectedDocumentMutationState
+  >[0]["appData"] &
+    Pick<
+      ContainerDocumentLinks,
+      | "canMutateDocumentLinks"
+      | "canMutateUnsyncedDocumentLinks"
+      | "linkDocumentToContainer"
+    >;
+  const gates = getSelectedDocumentMutationState({
+    appData,
+    canResolveTrashContainer: false,
+    nodes,
+    rulesContext,
+    selectedDocument: note,
+    selectedDocumentLinkTargetOptions: [
+      { id: "destination", icon: null, label: "destination" },
+    ],
+    selectedDocumentLinkedContainerIds: ["source"],
+    selectedDocumentMoveTargetOptions: [],
+    trashContainerId: null,
+    trashSystemSlot: null,
+  });
+  expect(gates.canLinkSelectedDocument).toBe(true);
+  expect(gates.canUnlinkSelectedDocument).toBe(false);
+  const { result } = renderHook(() =>
+    useSelectedDocumentActions({
+      appData: appData as unknown as ContainerDocumentLinks,
+      documentSummaries: [note],
+      expandNode: () => {},
+      linkedContainerIdsByDocumentId: new Map([["remote", ["source"]]]),
+      loadDocumentSummary: async () => note,
+      loadOrphanedDocumentSummary: async () => null,
+      mergeDocumentSummary: () => {},
+      nodes,
+      onDocumentLinksChanged: (ids) => refreshedTargets.push(...ids),
+      rulesContext,
+      setLinkedContainerIdsForDocument: () => {},
+    }),
+  );
+  await act(async () => {
+    expect(await result.current.linkDocument("local", "destination")).toEqual(
+      note,
+    );
+  });
+  expect(linkedTargets).toEqual(["destination"]);
+  expect(refreshedTargets).toEqual(["destination"]);
 });

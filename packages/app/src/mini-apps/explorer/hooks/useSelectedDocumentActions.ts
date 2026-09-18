@@ -246,7 +246,7 @@ function useLinkDocumentAction(params: {
 
   return useCallback(
     async (documentId: string, targetContainerId: string) => {
-      if (!canMutateSelectedDocument(appData)) {
+      if (!canMutateUnsyncedSelectedDocument(appData)) {
         return null;
       }
 

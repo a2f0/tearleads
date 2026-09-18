@@ -1,11 +1,16 @@
-import { and, eq, or, sql } from "drizzle-orm";
+import { and, eq, inArray, or, sql } from "drizzle-orm";
+import { uniqueSortedStrings } from "../../documents/shared/readers";
+import { documentIntentLinkTargets } from "../../sqlite/documentPlacementIntentSchema";
 import {
   documentContainerProjection,
   documentMoveIntents,
   documentProjection,
 } from "../../sqlite/schema";
 import type { ClientSQLiteTransactionScope } from "../../sqlite/sqlitePersistenceRuntime";
-import { DOCUMENT_MOVE_INTENT_TYPE } from "./documentMoveIntentPersistence";
+import {
+  DOCUMENT_LINK_INTENT_TYPE,
+  DOCUMENT_MOVE_INTENT_TYPE,
+} from "./documentMoveIntentPersistence";
 
 interface ContainerDocumentReassignmentInput {
   readonly fromContainerId: string;
@@ -65,22 +70,67 @@ async function reassignDocumentMoveIntentsForContainer(
 ): Promise<void> {
   const { fromContainerId, toContainerId, tx, updatedAt } = input;
   const affectedIntents = await tx
-    .select({ documentId: documentMoveIntents.documentId })
+    .select({
+      documentId: documentMoveIntents.documentId,
+      id: documentMoveIntents.id,
+    })
     .from(documentMoveIntents)
     .where(
       and(
-        eq(documentMoveIntents.intentType, DOCUMENT_MOVE_INTENT_TYPE),
+        inArray(documentMoveIntents.intentType, [
+          DOCUMENT_MOVE_INTENT_TYPE,
+          DOCUMENT_LINK_INTENT_TYPE,
+        ]),
         or(
           eq(documentMoveIntents.sourceContainerId, fromContainerId),
           eq(documentMoveIntents.targetContainerId, fromContainerId),
+          inArray(
+            documentMoveIntents.id,
+            tx
+              .select({ id: documentIntentLinkTargets.intentId })
+              .from(documentIntentLinkTargets)
+              .where(
+                and(
+                  eq(documentIntentLinkTargets.containerId, fromContainerId),
+                  eq(documentIntentLinkTargets.operation, "link"),
+                ),
+              ),
+          ),
         ),
       ),
     );
   for (const intent of affectedIntents) {
+    const id = crypto.randomUUID();
+    const targets = await tx
+      .select()
+      .from(documentIntentLinkTargets)
+      .where(eq(documentIntentLinkTargets.intentId, intent.id ?? ""));
+    await tx
+      .delete(documentIntentLinkTargets)
+      .where(eq(documentIntentLinkTargets.intentId, intent.id ?? ""))
+      .run();
+    const retained = new Map(
+      targets.map((target) => [target.containerId, target.operation]),
+    );
+    if (retained.get(fromContainerId) === "link") {
+      retained.delete(fromContainerId);
+      retained.set(toContainerId, "link");
+    }
+    if (retained.size)
+      await tx
+        .insert(documentIntentLinkTargets)
+        .values(
+          uniqueSortedStrings([...retained.keys()]).map((containerId) => ({
+            intentId: id,
+            containerId,
+            operation: retained.get(containerId) ?? "link",
+          })),
+        )
+        .run();
     await tx
       .update(documentMoveIntents)
       .set({
-        id: crypto.randomUUID(),
+        id,
         lastAttemptedAt: null,
         lastError: null,
         sourceContainerId: sql`CASE

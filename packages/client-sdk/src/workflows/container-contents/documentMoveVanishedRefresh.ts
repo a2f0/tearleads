@@ -103,21 +103,26 @@ export async function moveWithVanishedContainerRefresh<TMoved>(input: {
     return { failure: firstFailure, moved: first, unavailable: false };
   }
 
-  apiClient.evictContainerWriterProjection(intent.targetContainerId);
-  const destination = await apiClient.getContainerWriterProjectionResult(
+  for (const targetContainerId of new Set([
     intent.targetContainerId,
-    { reportErrors: false },
-  );
-  apiClient.evictDocumentWriterProjection(intent.documentId);
-  if (!input.isCurrent()) return "abandoned";
-  if (!destination.ok) {
-    destination.report();
-    recordDocumentMoveFailure(firstFailure, destination);
-    return {
-      failure: firstFailure,
-      moved: first,
-      unavailable: isContainerNotFoundFailure(destination),
-    };
+    ...(intent.additionalLinkContainerIds ?? []),
+  ])) {
+    apiClient.evictContainerWriterProjection(targetContainerId);
+    const destination = await apiClient.getContainerWriterProjectionResult(
+      targetContainerId,
+      { reportErrors: false },
+    );
+    apiClient.evictDocumentWriterProjection(intent.documentId);
+    if (!input.isCurrent()) return "abandoned";
+    if (!destination.ok) {
+      destination.report();
+      recordDocumentMoveFailure(firstFailure, destination);
+      return {
+        failure: firstFailure,
+        moved: first,
+        unavailable: isContainerNotFoundFailure(destination),
+      };
+    }
   }
 
   for (const sourceContainerId of await listMoveSourceContainerIds(input)) {

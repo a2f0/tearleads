@@ -1,4 +1,5 @@
 import { and, eq, inArray, or } from "drizzle-orm";
+import { documentIntentLinkTargets } from "../../data/sqlite/documentPlacementIntentSchema";
 import {
   organizationDataUsageCategories,
   organizationDataUsageSnapshots,
@@ -180,6 +181,18 @@ async function clearScopedDocumentRows(
     tx,
   });
   for (const localIdBatch of remoteResetBatches(snapshot.documentLocalIds)) {
+    await tx
+      .delete(documentIntentLinkTargets)
+      .where(
+        inArray(
+          documentIntentLinkTargets.intentId,
+          tx
+            .select({ id: documentMoveIntents.id })
+            .from(documentMoveIntents)
+            .where(inArray(documentMoveIntents.localId, localIdBatch)),
+        ),
+      )
+      .run();
     await tx
       .delete(documentMoveIntents)
       .where(inArray(documentMoveIntents.localId, localIdBatch))
