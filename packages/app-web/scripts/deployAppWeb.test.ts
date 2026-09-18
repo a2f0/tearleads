@@ -77,6 +77,7 @@ set -eu
 case "$1 $2" in
   'run build')
     test -z "\${SENTRY_AUTH_TOKEN:-}"
+    umask 077
     printf 'build|%s\\n' "$BUN_PUBLIC_APP_VARIANT" >> "$WEB_DEPLOY_LOG"
     rm -rf dist
     mkdir -p dist/pdfjs/current
@@ -136,6 +137,7 @@ exec "$WEB_DEPLOY_RSYNC" "\${args[@]}"
       join(destination, "pdfjs/current/pdf.worker.js"),
       "unchanged vendor",
     );
+    await chmod(join(destination, "pdfjs/current/pdf.worker.js"), 0o644);
     await utimes(join(destination, "pdfjs/current/pdf.worker.js"), 1, 1);
     await write(
       join(destination, "pdfjs/old/pdf.worker.js"),
@@ -193,6 +195,7 @@ test.each(["staging", "production"] as const)(
         (await readFile(fixture.uploads, "utf8")).trim().split("\n").sort(),
       ).toEqual(["dist/chunk-app.js", "dist/chunk-app.js.map"]);
       expect((await stat(vendor)).ino).toBe(before.ino);
+      expect((await stat(vendor)).mode & 0o777).toBe(before.mode & 0o777);
       for (const [directory, variant] of [
         ["app-web", "app"],
         ["app-demo", "demo"],
