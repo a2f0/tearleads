@@ -16,6 +16,7 @@ import {
   computeContainerKekRecipientTargetHash,
   computeContainerKeyEpochHash,
   deriveContainerAccessManifest,
+  deriveContainerKekWrappingPublicKey,
   generateKemSeedAndKeyPair,
   type KeyingCanonicalJson,
   signAccessEvent,
@@ -26,7 +27,10 @@ import {
   verifyContainerAccessManifest,
   verifySignedAccessEvent,
 } from "@tearleads/crypto";
-import { createContainerManifestFixture as createCryptoContainerManifestFixture } from "@tearleads/crypto/test-fixtures";
+import {
+  containerWrappingPublicKeyForTest,
+  createContainerManifestFixture as createCryptoContainerManifestFixture,
+} from "@tearleads/crypto/test-fixtures";
 import type { ContainerWriterProjectionResponse } from "@tearleads/validators/response";
 import {
   createAuthor,
@@ -93,6 +97,7 @@ export async function createContainerManifestFixture(input: {
   author: ContainerMutationAuthor;
   containerId: string;
   containerKeyEpochId: string;
+  containerKeyPublicKey?: string;
   directGrants: readonly ContainerDirectGrant[];
   eventId: string;
   metadataDocumentId: string;
@@ -101,6 +106,9 @@ export async function createContainerManifestFixture(input: {
   signingPublicKey: Uint8Array;
 }): Promise<VerifiedContainerAccessManifest> {
   const body: ContainerCreateAccessEventBody = {
+    containerKeyPublicKey:
+      input.containerKeyPublicKey ??
+      containerWrappingPublicKeyForTest(input.containerKeyEpochId),
     systemSlot: null,
     eventType: "container.create",
     parentContainerId: null,
@@ -121,6 +129,9 @@ export async function createContainerManifestFixture(input: {
     signingPublicKey: input.signingPublicKey,
   });
   const fixture = await createCryptoContainerManifestFixture({
+    containerKeyPublicKey:
+      input.containerKeyPublicKey ??
+      containerWrappingPublicKeyForTest(input.containerKeyEpochId),
     containerId: input.containerId,
     containerKeyEpochId: input.containerKeyEpochId,
     directGrants: input.directGrants,
@@ -149,6 +160,7 @@ export async function createContainerRevokeManifestFixture(input: {
   author: ContainerMutationAuthor;
   containerId: string;
   containerKeyEpochId: string;
+  containerKeyPublicKey?: string;
   eventId: string;
   keyringHash: string;
   organizationId: string;
@@ -159,6 +171,9 @@ export async function createContainerRevokeManifestFixture(input: {
   signingPublicKey: Uint8Array;
 }): Promise<VerifiedContainerAccessManifest> {
   const body: ContainerRevokeAccessEventBody = {
+    containerKeyPublicKey:
+      input.containerKeyPublicKey ??
+      containerWrappingPublicKeyForTest(input.containerKeyEpochId),
     eventType: "container.revoke",
     containerKeyEpochId: input.containerKeyEpochId,
     keyringHash: input.keyringHash,
@@ -178,6 +193,7 @@ export async function createContainerRevokeManifestFixture(input: {
   });
   const state: ContainerAccessManifestState = {
     ...input.previousManifest.state,
+    containerKeyPublicKey: body.containerKeyPublicKey,
     epoch: input.previousManifest.state.epoch + 1,
     previousManifestHash: input.previousManifest.manifestHash,
     eventHash: verifiedEvent.eventHash,
@@ -246,6 +262,10 @@ export async function createParentProjection(input?: {
     userId,
   });
   const parentManifest = await createContainerManifestFixture({
+    containerKeyPublicKey: await deriveContainerKekWrappingPublicKey({
+      containerId,
+      keyMaterial: parentContainerKek,
+    }),
     author,
     containerId,
     containerKeyEpochId,

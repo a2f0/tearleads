@@ -1,6 +1,7 @@
 import {
   computeContainerKekRecipientTargetHash,
   computeContainerKeyEpochHash,
+  deriveContainerKekWrappingPublicKey,
   normalizeContainerAccessEventBody,
 } from "@tearleads/crypto";
 import { deriveOrganizationMetadataContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
@@ -32,8 +33,13 @@ export async function createTestGroupMetadataProjection(
   });
   const source = parent.projection.path[0];
   if (!source) throw new Error("Expected source root");
+  const containerKeyPublicKey = await deriveContainerKekWrappingPublicKey({
+    containerId,
+    keyMaterial,
+  });
   const body = {
     ...buildContainerCreateBody({
+      containerKeyPublicKey,
       containerKeyEpochId,
       metadataDocumentId: containerId,
       parentContainerId: null,
@@ -68,7 +74,14 @@ export async function createTestGroupMetadataProjection(
   });
   const { eventType: _eventType, ...fields } = signedBody;
   const { manifest, manifestHash, state } = await deriveContainerCreateManifest(
-    { ...fields, containerKeyEpochId, containerId, eventHash, organizationId },
+    {
+      ...fields,
+      containerKeyPublicKey,
+      containerKeyEpochId,
+      containerId,
+      eventHash,
+      organizationId,
+    },
   );
   const keyEpoch = buildContainerCreateKeyEpoch({
     containerId,

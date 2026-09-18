@@ -106,7 +106,6 @@ async function unwrapMoveContainerKeys(input: {
   warmReferencedPrincipalPolicies?: ReferencedPrincipalPolicyWarmer | undefined;
 }): Promise<{
   containerKey: Uint8Array;
-  destinationParentKey: Uint8Array;
   destinationParent: ReturnType<typeof getTargetContainerContext>;
   source: ReturnType<typeof getTargetContainerContext>;
 }> {
@@ -132,13 +131,13 @@ async function unwrapMoveContainerKeys(input: {
   const destinationParent = getTargetContainerContext(
     input.destinationParentProjection,
   );
-  const destinationParentKey = requireUnwrappedKek(
+  requireUnwrappedKek(
     destinationKeksByEpochId,
     destinationParent.kek,
     "Container move destination parent",
   );
 
-  return { containerKey, destinationParentKey, destinationParent, source };
+  return { containerKey, destinationParent, source };
 }
 
 function assertContainerMoveOrganizations(input: {
@@ -270,7 +269,6 @@ async function buildMaterializedContainerMovePlan(
   const {
     containerKey: predecessorContainerKey,
     destinationParent,
-    destinationParentKey,
     source,
   } = await unwrapMoveContainerKeys({
     destinationParentProjection: input.destinationParentProjection,
@@ -320,7 +318,6 @@ async function buildMaterializedContainerMovePlan(
     containerKey,
     containerKeyEpochId,
     destinationParentKek: destinationParent.kek,
-    destinationParentKey,
     destinationParentProjection: input.destinationParentProjection,
     execSql: input.execSql,
     manifestHash,

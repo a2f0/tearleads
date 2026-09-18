@@ -69,6 +69,7 @@ export async function buildContainerGrantRequest(input: {
     subjectType: "user" as const,
   };
   const body: ContainerAccessEventBody = {
+    containerKeyPublicKey: previous.state.containerKeyPublicKey,
     containerKeyEpochId: previous.state.containerKeyEpochId,
     eventType: "container.grant",
     grant,

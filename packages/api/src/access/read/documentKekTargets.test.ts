@@ -22,6 +22,7 @@ import {
   verifyAccessManifest,
   verifySignedAccessEvent,
 } from "@tearleads/crypto";
+import { containerWrappingPublicKeyForTest } from "@tearleads/crypto/test-fixtures";
 import { DOCUMENT_SYNC_ERROR_CODES } from "@tearleads/validators/response";
 import { eq } from "drizzle-orm";
 import { storeVerifiedAccessManifest } from "../write/accessManifestStore";
@@ -94,6 +95,8 @@ async function createVerifiedContainerManifest(input: {
     input.containerKeyEpochId ?? `${input.containerId}:key-epoch-1`;
   const event = await createVerifiedEvent({
     body: {
+      containerKeyPublicKey:
+        containerWrappingPublicKeyForTest(containerKeyEpochId),
       containerKeyEpochId,
       eventType: "container.grant",
       grant: {
@@ -138,6 +141,8 @@ async function createVerifiedContainerManifest(input: {
   return {
     ...verifiedManifest.value,
     state: {
+      containerKeyPublicKey:
+        containerWrappingPublicKeyForTest(containerKeyEpochId),
       systemSlot: null,
       version: 1,
       containerId: input.containerId,

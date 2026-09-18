@@ -18,6 +18,10 @@ import {
   MAX_DOCUMENT_SYNC_AUTHORIZATION_PATH_REFS,
   MAX_DOCUMENT_SYNC_CONTENT_KEY_TARGETS,
 } from "@tearleads/validators/util";
+import {
+  assertContainerKekPathCurrent,
+  assertDocumentKekPathsCurrent,
+} from "../../data/documents/shared/containerKekCurrency";
 import { buildDocumentLinkSetEventPlan } from "../../data/documents/shared/events";
 import {
   assertDocumentWriterProjectionConsistent,
@@ -370,6 +374,7 @@ export async function buildMaterializedDocumentLinkSetMutationPlan(
     targetContainerProjection: input.targetContainerProjection,
     writerProjection: input.writerProjection,
   });
+  assertLinkSetWriteKeksCurrent(input, targetState.linkedContainerIds);
   const currentContentKey = await unwrapDocumentContentKeyFromWriterProjection({
     execSql: input.execSql,
     secretKey: input.targetSecretKey,
@@ -437,4 +442,23 @@ export async function buildMaterializedDocumentLinkSetMutationPlan(
     contentKeyRotated,
     plan,
   };
+}
+
+function assertLinkSetWriteKeksCurrent(
+  input: Pick<
+    Parameters<typeof buildMaterializedDocumentLinkSetMutationPlan>[0],
+    "writerProjection" | "targetContainerProjection" | "operation"
+  >,
+  linkedContainerIds: readonly string[],
+): void {
+  // Unlink can escape a stale branch; only recipients of the successor key must be current.
+  assertDocumentKekPathsCurrent(
+    input.writerProjection,
+    new Set(linkedContainerIds),
+  );
+  if (input.operation === "link") {
+    assertContainerKekPathCurrent(
+      input.targetContainerProjection.containerKeks,
+    );
+  }
 }

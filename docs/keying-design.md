@@ -474,7 +474,10 @@ event's parent citation. Missing history, unrelated epochs, and forged bindings
 fail verification. The projection needs no additional historical epoch records.
 The current parent's sealed keyring supplies the historical key needed to open
 the child. Future writes still require current parent epochs throughout the
-path: lazy descendant rekey must complete before accepting new content.
+path: lazy descendant rekey must complete before accepting new content. SDK
+write planners enforce this before encrypting or wrapping new material, even
+if the API supplies a valid recovery projection. The API checks the full parent
+path before accepting new container epochs; parent-first repairs remain valid.
 
 History delivery is **one round trip and one decrypt** regardless of rotation
 count — that is the property the chain lacked, where reaching epoch 1 meant a
@@ -696,14 +699,39 @@ suite identifiers are:
 - container KEK to user or managed-principal key:
   `tearleads.container-kek-wrap.ml-kem-1024-aes-256-gcm`
 - container KEK to parent-container KEK:
-  `tearleads.container-kek-wrap.aes-256-gcm-parent-kek`
+  `tearleads.container-kek-wrap.ml-kem-1024-aes-256-gcm-parent-kek`
 - successor container KEK to predecessor container KEK:
   `tearleads.container-kek-wrap.aes-256-gcm-predecessor-kek`
 
 Document and blob content-key target envelopes carry `wrappingMetadata.suite`
 and an AES-GCM IV. Container KEK wraps are an existing wire format without a
 separate suite field: `recipientKind` selects the user/managed-principal
-ML-KEM wrap path or the parent-container AES-GCM wrap path.
+ML-KEM wrap path or the parent-container ML-KEM wrap path.
+
+Every keyed container signs `containerKeyPublicKey` in its access event and
+manifest key-target commitment. Grant and recitation events preserve it with
+the KEK epoch. Creation, rekey, revoke, and move events bind the replacement
+public key. The encoding is canonical base64, with the ML-KEM-1024 length and
+coefficient checks from FIPS 203 section 7.2. Unkeyed states carry null for both
+the KEK epoch and public key.
+
+The parent wrapping key pair is derived from its 32-byte KEK using HKDF-SHA-256:
+64 output bytes, UTF-8 salt
+`tearleads.container-kek.parent-wrapping.ml-kem-1024.v1`, and UTF-8 container ID
+as info. Those bytes seed ML-KEM-1024 key generation. Readers check the derived
+public key against the signed current state; retained historical KEKs derive
+the corresponding historical decapsulation keys. A child-only writer can wrap
+a new child KEK to the verified parent public key without learning its secret.
+The parent recipient fingerprint remains the signed epoch-record hash.
+
+This is a flag-day contract: all authors and readers use public parent wraps,
+with no symmetric parent-wrap fallback. Each parent KEM ciphertext is 1568
+bytes instead of a 12-byte IV, and each signed public key is 1568 bytes before
+base64 encoding. Public keys add public metadata, not access to ancestor keys.
+Whole-path write-currency checks remain necessary: a stale intermediate key
+can be known to a revoked ancestor holder, so descendants must not wrap future
+keys to it. Public wrapping enables independent repair immediately below a
+current parent; it does not itself schedule repairs of inaccessible ancestors.
 
 ## Blob Content Keys
 

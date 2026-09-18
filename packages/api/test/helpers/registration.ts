@@ -24,6 +24,7 @@ import {
   type DocumentLinkAccessEventBody,
   type DocumentLinkSetManifestState,
   deriveContainerAccessManifest,
+  deriveContainerKekWrappingPublicKey,
   deriveDocumentLinkSetManifest,
   derivePrincipalRecipientKeyEpochId,
   encodeBuiltinGroupMetadata,
@@ -481,6 +482,10 @@ async function createRootContainerArtifacts(input: {
       ]
     : [];
   const body: ContainerCreateAccessEventBody = {
+    containerKeyPublicKey: await deriveContainerKekWrappingPublicKey({
+      containerId: input.rootContainerId,
+      keyMaterial: containerKey,
+    }),
     systemSlot: null,
     eventType: "container.create",
     parentContainerId: null,
@@ -509,6 +514,10 @@ async function createRootContainerArtifacts(input: {
     signerUserId: input.userId,
   });
   const state: ContainerAccessManifestState = {
+    containerKeyPublicKey: await deriveContainerKekWrappingPublicKey({
+      containerId: input.rootContainerId,
+      keyMaterial: containerKey,
+    }),
     systemSlot: null,
     version: 1,
     containerId: input.rootContainerId,
@@ -630,6 +639,10 @@ async function createChildContainerArtifacts(input: {
       })
     : null;
   const body: ContainerCreateAccessEventBody = {
+    containerKeyPublicKey: await deriveContainerKekWrappingPublicKey({
+      containerId,
+      keyMaterial: containerKey,
+    }),
     systemSlot: input.systemSlot,
     eventType: "container.create",
     parentContainerId: input.parent.state.containerId,
@@ -664,6 +677,10 @@ async function createChildContainerArtifacts(input: {
     signerUserId: input.userId,
   });
   const state: ContainerAccessManifestState = {
+    containerKeyPublicKey: await deriveContainerKekWrappingPublicKey({
+      containerId,
+      keyMaterial: containerKey,
+    }),
     systemSlot: input.systemSlot,
     version: 1,
     containerId,
@@ -695,18 +712,22 @@ async function createChildContainerArtifacts(input: {
     recipientKeyEpochId: parentKek.containerKeyEpochId,
     recipientKeyFingerprint: parentKek.keyEpochHash,
   };
-  const wrappedContainerKey = await encryptWithDek(
-    containerKey,
-    input.parent.containerKey,
-  );
+  const parentPublicKey = await deriveContainerKekWrappingPublicKey({
+    containerId: parentKek.containerId,
+    keyMaterial: input.parent.containerKey,
+  });
+  const [wrappedContainerKey] = await wrapDekForRecipients(containerKey, [
+    base64ToBytes(parentPublicKey),
+  ]);
+  if (!wrappedContainerKey) throw new Error("Missing parent wrapping fixture");
   const parentWrap: ContainerKeyWrap = {
     containerKeyEpochId,
     recipientKind: "container",
     recipientId: parentKek.containerId,
     recipientKeyEpochId: parentKek.containerKeyEpochId,
     recipientKeyFingerprint: parentKek.keyEpochHash,
-    kemCipherText: bytesToBase64(wrappedContainerKey.iv),
-    wrappedKey: bytesToBase64(wrappedContainerKey.ciphertext),
+    kemCipherText: bytesToBase64(wrappedContainerKey.kemCipherText),
+    wrappedKey: bytesToBase64(wrappedContainerKey.wrappedKey),
     wrapManifestHash: manifestHash,
   };
   const managedRecipient =

@@ -4,10 +4,12 @@ import type {
 } from "@tearleads/validators/response";
 import {
   getParentKekForTarget,
+  getParentWrappingPublicKey,
   getTargetContainerContext,
   readContainerState,
 } from "../../../data/containers/shared/projection";
 import type { ContainerMutationAuthor } from "../../../data/containers/shared/types";
+import { assertContainerKekPathCurrent } from "../../../data/documents/shared/containerKekCurrency";
 import { unwrapContainerKekPath } from "../../../data/documents/shared/projection";
 import { projectionVerificationOptions } from "../../../data/documents/shared/types";
 import type {
@@ -31,7 +33,7 @@ export function requireUnwrappedKek(
 /**
  * The shared rotation prologue for rekey and revoke: unwrap the projection's
  * KEK path, require the predecessor key, check the author's organization, and
- * surface the parent KEK material when one exists.
+ * surface the authenticated parent public key when one exists.
  */
 export async function resolveRotationContext(
   input: {
@@ -49,11 +51,15 @@ export async function resolveRotationContext(
   operationLabel: string,
 ): Promise<{
   parentKek: ReturnType<typeof getParentKekForTarget>;
-  parentKekMaterial: Uint8Array | null;
+  parentPublicKey: string | null;
   predecessorContainerKey: Uint8Array;
   previousState: ReturnType<typeof readContainerState>;
   target: ReturnType<typeof getTargetContainerContext>;
 }> {
+  // The target may need repair, but wrapping its successor requires a current parent prefix.
+  assertContainerKekPathCurrent(
+    input.previousProjection.containerKeks.slice(0, -1),
+  );
   const keksByEpochId = await unwrapContainerKekPath({
     execSql: input.execSql,
     persistVerificationCheckpoints: input.persistVerificationCheckpoints,
@@ -73,12 +79,10 @@ export async function resolveRotationContext(
   }
 
   const parentKek = getParentKekForTarget(input.previousProjection);
-  const parentKekMaterial = parentKek
-    ? (keksByEpochId.get(parentKek.containerKeyEpochId) ?? null)
-    : null;
+  const parentPublicKey = getParentWrappingPublicKey(input.previousProjection);
   return {
     parentKek,
-    parentKekMaterial,
+    parentPublicKey,
     predecessorContainerKey,
     previousState,
     target,

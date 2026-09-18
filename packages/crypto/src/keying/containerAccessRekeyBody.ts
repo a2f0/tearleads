@@ -1,5 +1,6 @@
 import { isPlainObject } from "@tearleads/validators/isPlainObject";
 import { normalizeContainerGrantPrincipalHeads } from "./containerGrantPrincipalHead";
+import { normalizeContainerKekWrappingPublicKey } from "./containerKekWrapping";
 import {
   assertExactKeys,
   readHashString,
@@ -24,6 +25,7 @@ export function normalizeContainerRekeyAccessEventBody(
     value,
     [
       "containerKeyEpochId",
+      "containerKeyPublicKey",
       "eventType",
       "keyringHash",
       "predecessorBridgeHash",
@@ -39,7 +41,13 @@ export function normalizeContainerRekeyAccessEventBody(
     );
   }
 
+  const containerKeyPublicKey = normalizeContainerKekWrappingPublicKey(
+    record.containerKeyPublicKey,
+  );
+  if (containerKeyPublicKey === null)
+    throwVerification("invalid_shape", "Container rekey requires a public key");
   return {
+    containerKeyPublicKey,
     eventType: "container.rekey",
     containerKeyEpochId: readString(
       record,

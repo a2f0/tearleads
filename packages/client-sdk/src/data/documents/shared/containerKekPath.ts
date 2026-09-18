@@ -1,5 +1,4 @@
-import { type ContainerKeyWrap, decryptWithDek } from "@tearleads/crypto";
-import { base64ToBytes } from "@tearleads/encoding";
+import type { ContainerKeyWrap } from "@tearleads/crypto";
 import { isPlainObject as isPlainRecord } from "@tearleads/validators/isPlainObject";
 import type { ContainerWriterProjectionResponse } from "@tearleads/validators/response";
 import { unwrapKeyEnvelopesWithPrincipalPolicies } from "../../principals/principalPolicyCrypto";
@@ -14,6 +13,10 @@ import {
   type UnwrapContainerKekPathInput,
   verifyContainerKekPathProjection,
 } from "./containerKekPathVerification";
+import {
+  assertSignedWrappingPublicKey,
+  unwrapContainerKekFromParentWrap,
+} from "./containerKekWrapping";
 import {
   normalizeContainerKeyWrap,
   readManifestContainerId,
@@ -88,61 +91,6 @@ async function unwrapContainerKekFromPrincipalWraps(input: {
   }
 }
 
-async function unwrapContainerKekFromParentWrap(input: {
-  label: string;
-  parentContainerKeyEpochId: string | null;
-  parentKeksByEpochId: ReadonlyMap<string, UnwrappedContainerKek>;
-  wraps: readonly ContainerKeyWrap[];
-}): Promise<Uint8Array | null> {
-  if (!input.parentContainerKeyEpochId) {
-    return null;
-  }
-
-  const parentKek = input.parentKeksByEpochId.get(
-    input.parentContainerKeyEpochId,
-  );
-  if (!parentKek) {
-    return null;
-  }
-
-  // The epoch-record fingerprint is a SELECTOR for picking the right envelope
-  // among several, not the security boundary — the AEAD tag below is what
-  // authenticates the parent key. Keyring-recovered historical KEKs carry no
-  // epoch record (only the material and the epoch id that commits to it), so
-  // for those the epoch id alone selects and decryption authenticates.
-  //
-  // Without this, an ancestor rotation would strand every descendant still
-  // pinned to the predecessor epoch: opening the descendant requires the
-  // parent's historical KEK, and that is exactly the key a lazy rekey needs in
-  // order to materialize a post-rotation epoch. A cold client would have no
-  // way back in.
-  const parentWrap = input.wraps.find(
-    (wrap) =>
-      wrap.recipientKind === "container" &&
-      wrap.recipientId === parentKek.containerId &&
-      wrap.recipientKeyEpochId === input.parentContainerKeyEpochId &&
-      (parentKek.keyEpochHash === null ||
-        wrap.recipientKeyFingerprint === parentKek.keyEpochHash),
-  );
-  if (!parentWrap) {
-    return null;
-  }
-
-  try {
-    return await decryptWithDek(
-      {
-        iv: base64ToBytes(parentWrap.kemCipherText),
-        ciphertext: base64ToBytes(parentWrap.wrappedKey),
-      },
-      parentKek.keyMaterial,
-    );
-  } catch (error) {
-    throw new Error(`${input.label} parent wrap could not be unwrapped`, {
-      cause: error,
-    });
-  }
-}
-
 /**
  * Admits caller-supplied keys that the projection also names.
  *
@@ -173,6 +121,11 @@ async function seedKnownContainerKeks(input: {
       kek: projected.kek,
       keyMaterial,
     });
+    await assertSignedWrappingPublicKey(
+      input.projection,
+      projected.index,
+      keyMaterial,
+    );
     keksByEpochId.set(containerKeyEpochId, {
       containerId: projected.kek.containerId,
       keyEpochHash: projected.kek.keyEpochHash,
@@ -189,7 +142,7 @@ function findProjectedContainerKek(
 ) {
   for (const [index, current] of projection.containerKeks.entries()) {
     if (current.containerKeyEpochId === containerKeyEpochId) {
-      return { kek: current, label: projectionKekLabel(index) };
+      return { index, kek: current, label: projectionKekLabel(index) };
     }
   }
   return null;
@@ -255,6 +208,11 @@ async function unwrapContainerKekAtIndex(input: {
       kek,
       keyMaterial: unwrapped,
     });
+    await assertSignedWrappingPublicKey(
+      input.projection,
+      input.index,
+      unwrapped,
+    );
     input.keksByEpochId.set(kek.containerKeyEpochId, {
       containerId: kek.containerId,
       keyEpochHash: kek.keyEpochHash,

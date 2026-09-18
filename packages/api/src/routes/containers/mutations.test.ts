@@ -51,6 +51,7 @@ import {
   verifyContainerKekState,
   verifySignedAccessEvent,
 } from "@tearleads/crypto";
+import { containerWrappingPublicKeyForTest } from "@tearleads/crypto/test-fixtures";
 import { bytesToBase64 } from "@tearleads/encoding";
 import type {
   AccessManifestBundleWire,
@@ -645,6 +646,8 @@ async function buildCreateRequest(input: {
     input.parentManifestHashOverride ?? input.parent.manifestHash;
   const metadataDocumentId = crypto.randomUUID();
   const body: ContainerAccessEventBody = {
+    containerKeyPublicKey:
+      containerWrappingPublicKeyForTest(containerKeyEpochId),
     systemSlot: input.systemSlot ?? null,
     eventType: "container.create",
     parentContainerId: parent.state.containerId,
@@ -666,6 +669,8 @@ async function buildCreateRequest(input: {
   });
   const bundle = await createManifestBundle(
     {
+      containerKeyPublicKey:
+        containerWrappingPublicKeyForTest(containerKeyEpochId),
       systemSlot: input.systemSlot ?? null,
       version: 1,
       containerId: input.containerId,
@@ -730,6 +735,7 @@ async function buildMetadataDocumentCreateRequest(input: {
   const parentState = asVerifiedContainerManifest(input.parent).state;
   const containerBody = input.containerRequest.body as {
     readonly containerKeyEpochId: string;
+    readonly containerKeyPublicKey: string;
     readonly metadataDocumentId: string;
     readonly parentContainerId: string;
     readonly parentManifestHash: string;
@@ -746,6 +752,7 @@ async function buildMetadataDocumentCreateRequest(input: {
     manifest: input.containerRequest.manifest,
     manifestHash: input.containerRequest.expectedManifestHash,
     state: {
+      containerKeyPublicKey: containerBody.containerKeyPublicKey,
       systemSlot: null,
       version: 1,
       containerId: input.containerId,
@@ -861,6 +868,7 @@ async function buildGrantRequest(input: {
     accessLevel: "read" as const,
   };
   const body: ContainerAccessEventBody = {
+    containerKeyPublicKey: previous.state.containerKeyPublicKey,
     eventType: "container.grant",
     containerKeyEpochId: previous.state.containerKeyEpochId,
     grant,
@@ -948,6 +956,7 @@ async function buildGroupGrantRequest(input: {
     accessLevel: input.accessLevel ?? ("read" as const),
   };
   const body: ContainerAccessEventBody = {
+    containerKeyPublicKey: previous.state.containerKeyPublicKey,
     eventType: "container.grant",
     containerKeyEpochId: previous.state.containerKeyEpochId,
     grant,

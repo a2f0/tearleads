@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import { generateSigningSeedAndKeyPair } from "../signing/generateKeyPair";
+import { containerWrappingPublicKeyForTest } from "./containerWrapping.testFixtures";
 import {
   computeAccessManifestHash,
   deriveContainerAccessManifest,
@@ -49,6 +50,8 @@ for (const eventType of ["container.create", "container.move"] as const) {
       const body: ContainerAccessEventBody =
         eventType === "container.create"
           ? {
+              containerKeyPublicKey:
+                containerWrappingPublicKeyForTest("new-key"),
               eventType,
               parentContainerId: parent.state.containerId,
               parentManifestHash: parent.manifestHash,
@@ -59,6 +62,8 @@ for (const eventType of ["container.create", "container.move"] as const) {
               referencedPrincipalHeads: [],
             }
           : {
+              containerKeyPublicKey:
+                containerWrappingPublicKeyForTest("new-key"),
               eventType,
               parentContainerId: parent.state.containerId,
               parentManifestHash: parent.manifestHash,
@@ -77,6 +82,7 @@ for (const eventType of ["container.create", "container.move"] as const) {
       });
       const manifest = await deriveContainerAccessManifest({
         ...previous.state,
+        containerKeyPublicKey: body.containerKeyPublicKey,
         eventHash: event.eventHash,
         epoch: creating ? 1 : 2,
         previousManifestHash: creating ? null : previous.manifestHash,

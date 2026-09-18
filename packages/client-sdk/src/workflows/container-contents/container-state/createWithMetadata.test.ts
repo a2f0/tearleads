@@ -1,6 +1,5 @@
 import { expect, test } from "bun:test";
-import { decryptWithDek } from "@tearleads/crypto";
-import { base64ToBytes } from "@tearleads/encoding";
+import { unwrapContainerKekParentWrap } from "@tearleads/crypto";
 import { createMockApiClient, createTestExecSql } from "@tearleads/test-utils";
 import type { ContainerCreateWithMetadataDocumentRequest } from "@tearleads/validators/request";
 import {
@@ -45,13 +44,12 @@ async function unwrapCreatedKeys(
   if (!parentWrap || !metadataEnvelope) {
     throw new Error("Expected container and metadata key wraps");
   }
-  const containerKey = await decryptWithDek(
-    {
-      ciphertext: base64ToBytes(requiredString(parentWrap, "wrappedKey")),
-      iv: base64ToBytes(requiredString(parentWrap, "kemCipherText")),
-    },
-    parentContainerKek,
-  );
+  const containerKey = await unwrapContainerKekParentWrap({
+    parentContainerId: requiredString(parentWrap, "recipientId"),
+    parentKeyMaterial: parentContainerKek,
+    wrappedKey: requiredString(parentWrap, "wrappedKey"),
+    kemCipherText: requiredString(parentWrap, "kemCipherText"),
+  });
   const metadataContentKey = await unwrapDocumentContentKeyTarget({
     containerKek: containerKey,
     envelope: metadataEnvelope,

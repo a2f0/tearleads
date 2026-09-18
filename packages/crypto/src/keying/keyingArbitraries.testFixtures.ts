@@ -1,6 +1,7 @@
 import fc from "fast-check";
 import { generateSigningSeedAndKeyPair } from "../signing/generateKeyPair";
 import { fixtureContainerKekMaterialId } from "./containerKekMaterial.testFixtures";
+import { containerWrappingPublicKeyForTest } from "./containerWrapping.testFixtures";
 import {
   type ContainerAccessEventBody,
   type ContainerAccessManifestState,
@@ -163,12 +164,15 @@ export async function containerSuccessor(input: {
 
 async function rotationBody(containerId: string): Promise<{
   readonly containerKeyEpochId: string;
+  readonly containerKeyPublicKey: string;
   readonly keyringHash: string;
   readonly predecessorBridgeHash: string;
 }> {
   const containerKeyEpochId = await freshKeyEpochId(containerId);
   return {
     containerKeyEpochId,
+    containerKeyPublicKey:
+      containerWrappingPublicKeyForTest(containerKeyEpochId),
     keyringHash: await fixtureHash(
       `${containerId}:keyring:${containerKeyEpochId}`,
     ),
@@ -197,6 +201,7 @@ async function applyContainerStep(
     };
     return containerSuccessor({
       body: {
+        containerKeyPublicKey: previous.state.containerKeyPublicKey,
         eventType: "container.grant",
         containerKeyEpochId: previous.state.containerKeyEpochId,
         grant,

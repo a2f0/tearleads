@@ -25,6 +25,7 @@ import {
   verifySignedAccessEvent,
   type WriteHeader,
 } from "@tearleads/crypto";
+import { containerWrappingPublicKeyForTest } from "@tearleads/crypto/test-fixtures";
 import { DOCUMENT_SYNC_ERROR_CODES } from "@tearleads/validators/response";
 import { eq } from "drizzle-orm";
 import {
@@ -167,6 +168,8 @@ async function createVerifiedContainerManifest(input: {
   return {
     ...verifiedManifest.value,
     state: {
+      containerKeyPublicKey:
+        containerWrappingPublicKeyForTest(containerKeyEpochId),
       systemSlot: null,
       version: 1,
       containerId: input.containerId,

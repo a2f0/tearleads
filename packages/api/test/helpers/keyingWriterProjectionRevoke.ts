@@ -9,6 +9,7 @@ import {
   computeContainerKekKeyringHash,
   computeContainerKekPredecessorBridgeHash,
 } from "@tearleads/crypto";
+import { containerWrappingPublicKeyForTest } from "@tearleads/crypto/test-fixtures";
 import type {
   AccessManifestBundleWire,
   ContainerMutationRequest,
@@ -79,6 +80,8 @@ export async function buildRootRevokeRequest(input: {
     throw new Error("buildRootRevokeRequest requires a revoked grant");
   }
   const body: ContainerAccessEventBody = {
+    containerKeyPublicKey:
+      containerWrappingPublicKeyForTest(containerKeyEpochId),
     eventType: "container.revoke",
     containerKeyEpochId,
     keyringHash: await computeContainerKekKeyringHash(keyring),
@@ -99,6 +102,7 @@ export async function buildRootRevokeRequest(input: {
   const bundle = await createContainerManifestBundle(
     {
       ...previous.state,
+      containerKeyPublicKey: body.containerKeyPublicKey,
       epoch: previous.state.epoch + 1,
       previousManifestHash: input.previous.manifestHash,
       eventHash: event.eventHash,

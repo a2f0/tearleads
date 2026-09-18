@@ -65,6 +65,7 @@ export async function buildContainerRecitePlan(input: {
   const body = {
     eventType: "container.recite" as const,
     containerKeyEpochId: previous.state.containerKeyEpochId,
+    containerKeyPublicKey: previous.state.containerKeyPublicKey,
   };
   const { event, eventHash } = await signContainerMutationEvent({
     author: input.author,

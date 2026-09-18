@@ -22,6 +22,7 @@ import {
   createResponse,
 } from "../../../test/helpers/documentFixtures";
 import type { BlobBytes } from "../../data/blobContracts";
+import { readContainerState } from "../../data/containers/shared/projection";
 import { parseBlobEncryptedBytes } from "../../data/documents/blob/shared/readers";
 import { ensurePrincipalPolicyTables } from "../../data/persistence/principalPolicyPersistence";
 import { buildMaterializedDocumentCreatePlan } from "../documents/create";
@@ -198,7 +199,13 @@ test("uploadDocumentAttachment warms managed policies for the projection owner b
     ),
     version: 1,
   };
+  const manifest = projection.path.at(-1);
+  if (!manifest) throw new Error("Expected projection manifest");
+  const containerKeyPublicKey =
+    readContainerState(manifest).containerKeyPublicKey;
+  if (!containerKeyPublicKey) throw new Error("Expected container public key");
   const managedManifest = await createContainerManifestFixture({
+    containerKeyPublicKey,
     author,
     containerId: projection.containerId,
     containerKeyEpochId: projectionKek.containerKeyEpochId,

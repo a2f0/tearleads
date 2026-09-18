@@ -62,8 +62,9 @@ const ADMIN_GROUP_MUTATION_REQUEST_BUDGET: ProxiedApiRequestBudget = {
   // mutation has 63 requests, including four extra organization-policy reads
   // that authenticate refreshed group heads before they enter the cache.
   total: 63,
-  // Signed destination roles and fresh container-info proofs measure 1.827 MB.
-  bodyBytes: { request: 350_000, response: 1_850_000 },
+  // Public parent keys measure 389.5 KB sent with one descendant recitation;
+  // retain room for the second 60 KB recitation already allowed below.
+  bodyBytes: { request: 450_000, response: 1_850_000 },
   byRequest: {
     "GET /containers": 0,
     "POST /containers/parent-lanes/query": 8,

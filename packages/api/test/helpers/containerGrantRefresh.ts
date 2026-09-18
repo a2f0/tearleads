@@ -49,6 +49,7 @@ export async function buildPrincipalGrantRefreshRequest(input: {
     throw new Error("Expected container grant for replacement principal");
   }
   const body: ContainerAccessEventBody = {
+    containerKeyPublicKey: previous.state.containerKeyPublicKey,
     eventType: "container.grant",
     containerKeyEpochId: previous.state.containerKeyEpochId,
     grant: replacementGrant,

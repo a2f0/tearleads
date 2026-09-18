@@ -4,6 +4,7 @@ import {
   computeContainerKekMaterialId,
   computeContainerKeyEpochHash,
   createContainerKekPredecessorBridge,
+  deriveContainerKekWrappingPublicKey,
   sealContainerKekKeyring,
 } from "@tearleads/crypto";
 import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
@@ -207,7 +208,16 @@ export async function rotateRootKekKeyringFixture(
     },
     currentEpochId,
     currentKey,
-    currentManifest: rootManifest,
+    currentManifest: {
+      ...rootManifest,
+      state: {
+        ...rootManifest.state,
+        containerKeyPublicKey: await deriveContainerKekWrappingPublicKey({
+          containerId: rootKek.containerId,
+          keyMaterial: currentKey,
+        }),
+      },
+    },
     epochIds,
     epochKeys,
     fixture,

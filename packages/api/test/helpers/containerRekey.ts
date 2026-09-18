@@ -22,6 +22,7 @@ import {
   verifyContainerKekState,
   verifySignedAccessEvent,
 } from "@tearleads/crypto";
+import { containerWrappingPublicKeyForTest } from "@tearleads/crypto/test-fixtures";
 import type {
   AccessManifestBundleWire,
   ContainerMutationRequest,
@@ -216,6 +217,8 @@ export async function buildRootContainerRekeyMutation(input: {
       )
     : previous.state.referencedPrincipalHeads;
   const body: ContainerAccessEventBody = {
+    containerKeyPublicKey:
+      containerWrappingPublicKeyForTest(containerKeyEpochId),
     eventType: "container.rekey",
     containerKeyEpochId,
     keyringHash: await computeContainerKekKeyringHash(keyring),
@@ -230,6 +233,7 @@ export async function buildRootContainerRekeyMutation(input: {
   });
   const state = {
     ...previous.state,
+    containerKeyPublicKey: body.containerKeyPublicKey,
     epoch: previous.state.epoch + 1,
     previousManifestHash: previous.manifestHash,
     eventHash: event.eventHash,

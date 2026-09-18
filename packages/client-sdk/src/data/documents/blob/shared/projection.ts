@@ -10,6 +10,7 @@ import type {
   DocumentWriterProjectionResponse,
 } from "@tearleads/validators/response";
 import type { ExecSql } from "../../../sqlite/sqlSchema";
+import { assertDocumentKekPathsCurrent } from "../../shared/containerKekCurrency";
 import {
   readLinkedContainerIdsFromDocumentManifest,
   unwrapContainerKekPath,
@@ -110,6 +111,7 @@ export async function wrapBlobContentKey(
     writerProjection: DocumentWriterProjectionResponse;
   } & ProjectionVerificationOptions,
 ): Promise<BlobContentKeyTargetEnvelopeRequest[]> {
+  assertDocumentKekPathsCurrent(input.writerProjection);
   const keksByEpochId = await collectContainerKeks({
     execSql: input.execSql,
     secretKey: input.secretKey,

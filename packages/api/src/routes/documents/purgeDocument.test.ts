@@ -46,6 +46,7 @@ import {
   verifyContainerKekState,
   verifySignedAccessEvent,
 } from "@tearleads/crypto";
+import { containerWrappingPublicKeyForTest } from "@tearleads/crypto/test-fixtures";
 import type {
   AccessManifestBundleWire,
   ContainerMutationRequest,
@@ -351,6 +352,8 @@ async function createChildContainer(input: {
   const containerKeyEpochId = await createTestContainerKekId(containerId, 1);
   const parentManifest = asVerifiedContainerManifest(input.parent.bundle);
   const body: ContainerAccessEventBody = {
+    containerKeyPublicKey:
+      containerWrappingPublicKeyForTest(containerKeyEpochId),
     systemSlot: null,
     eventType: "container.create",
     parentContainerId: parentManifest.state.containerId,
@@ -371,6 +374,8 @@ async function createChildContainer(input: {
   });
   const bundle = await createContainerManifestBundle(
     {
+      containerKeyPublicKey:
+        containerWrappingPublicKeyForTest(containerKeyEpochId),
       systemSlot: null,
       version: 1,
       containerId,

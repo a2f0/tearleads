@@ -117,12 +117,11 @@ export const containerKeyEpochs = pgTable(
  *   wrap. User recipient records supply this value and are checked by
  *   fingerprint; managed principal recipient ids are derived from their
  *   referenced principal head.
- * - `recipientKeyFingerprint`: Fingerprint of the recipient public key used for
- *   verification.
- * - `kemCipherText`: KEM ciphertext/capsule for principal recipients, or the
- *   AES-GCM IV for parent-container recipients. Principal wraps use
+ * - `recipientKeyFingerprint`: Principal public-key fingerprint, or the
+ *   signed parent epoch-record hash for a container recipient.
+ * - `kemCipherText`: ML-KEM-1024 ciphertext for every recipient. Principal wraps use
  *   `tearleads.container-kek-wrap.ml-kem-1024-aes-256-gcm`; parent-container
- *   wraps use `tearleads.container-kek-wrap.aes-256-gcm-parent-kek`.
+ *   wraps use `tearleads.container-kek-wrap.ml-kem-1024-aes-256-gcm-parent-kek`.
  * - `wrappedKey`: Encrypted container KEK material for this recipient.
  * - `wrapManifestHash`: Access manifest hash whose current target set
  *   authorized this wrap.

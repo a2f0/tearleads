@@ -14,6 +14,7 @@ import {
   computeBlobContentKeyTargetHash,
   computeKeyingDomainHash,
 } from "@tearleads/crypto";
+import { containerWrappingPublicKeyForTest } from "@tearleads/crypto/test-fixtures";
 import { eq } from "drizzle-orm";
 import {
   type BlobContentKeyTargetEnvelope,
@@ -83,6 +84,8 @@ async function ensureContainerHead(input: {
       keyTargetHash: await hashOf(`${label}:key-target`),
       manifestHash,
       state: {
+        containerKeyPublicKey:
+          containerWrappingPublicKeyForTest(containerKeyEpochId),
         systemSlot: null,
         version: 1,
         containerId: input.containerId,

@@ -63,8 +63,8 @@
       "bytes": 19355
     },
     "docs/keying-design.md": {
-      "lines": 1042,
-      "bytes": 47913
+      "lines": 1070,
+      "bytes": 49781
     },
     "docs/loro-e2ee-sync-protocol.md": {
       "lines": 548,
@@ -95,8 +95,8 @@
       "bytes": 61410
     },
     "packages/api/src/access/read/documentKekTargets.test.ts": {
-      "lines": 569,
-      "bytes": 18062
+      "lines": 574,
+      "bytes": 18333
     },
     "packages/api/src/access/shared/internal/accessManifestStore.ts": {
       "lines": 892,
@@ -119,8 +119,8 @@
       "bytes": 18081
     },
     "packages/api/src/access/write/documentContentKeyStore.test.ts": {
-      "lines": 1074,
-      "bytes": 33024
+      "lines": 1077,
+      "bytes": 33202
     },
     "packages/api/src/access/write/principalStateStore.test.ts": {
       "lines": 922,
@@ -159,8 +159,8 @@
       "bytes": 30275
     },
     "packages/api/src/schema.test.ts": {
-      "lines": 539,
-      "bytes": 16853
+      "lines": 544,
+      "bytes": 17116
     },
     "packages/api/src/services/billing/stripeCheckout.test.ts": {
       "lines": 572,
@@ -235,8 +235,8 @@
       "bytes": 31624
     },
     "packages/client-sdk/src/data/containers/shared/projection.test.ts": {
-      "lines": 1032,
-      "bytes": 36782
+      "lines": 1043,
+      "bytes": 37199
     },
     "packages/client-sdk/src/data/documents/editAttribution.test.ts": {
       "lines": 580,
@@ -287,12 +287,12 @@
       "bytes": 61934
     },
     "packages/crypto/src/keying/containerAccess.test.ts": {
-      "lines": 755,
-      "bytes": 23592
+      "lines": 786,
+      "bytes": 24976
     },
     "packages/crypto/src/keying/containerAccess.ts": {
-      "lines": 1109,
-      "bytes": 32653
+      "lines": 1127,
+      "bytes": 33639
     },
     "packages/crypto/src/keying/containerKek.test.ts": {
       "lines": 553,
@@ -315,16 +315,16 @@
       "bytes": 20630
     },
     "packages/crypto/src/keying/testFixtures.ts": {
-      "lines": 670,
-      "bytes": 22240
+      "lines": 680,
+      "bytes": 22743
     },
     "packages/crypto/src/keying/transparency.ts": {
       "lines": 511,
       "bytes": 13564
     },
     "packages/crypto/src/keying/types.ts": {
-      "lines": 1180,
-      "bytes": 37364
+      "lines": 1183,
+      "bytes": 37529
     },
     "packages/validators/src/operation/generatedOpenApi.ts": {
       "lines": 24936,

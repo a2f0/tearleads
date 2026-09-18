@@ -9,6 +9,7 @@ import {
   computeContainerKekKeyringHash,
   computeContainerKekPredecessorBridgeHash,
   deriveContainerAccessManifest,
+  deriveContainerKekWrappingPublicKey,
 } from "@tearleads/crypto";
 import type { ContainerWriterProjectionResponse } from "@tearleads/validators/response";
 import {
@@ -27,6 +28,7 @@ import { buildContainerRotationArtifacts } from "./moveRotation";
 
 async function deriveContainerMoveManifest(input: {
   containerKeyEpochId: string;
+  containerKeyPublicKey: string | null;
   destinationParent: ContainerWriterProjectionResponse["path"][number];
   eventHash: string;
   previousManifest: ContainerWriterProjectionResponse["path"][number];
@@ -41,6 +43,7 @@ async function deriveContainerMoveManifest(input: {
     parentContainerId: destinationState.containerId,
     parentManifestHash: input.destinationParent.manifestHash,
     containerKeyEpochId: input.containerKeyEpochId,
+    containerKeyPublicKey: input.containerKeyPublicKey,
   };
   const manifest = await deriveContainerAccessManifest(state);
 
@@ -53,6 +56,7 @@ async function deriveContainerMoveManifest(input: {
 
 async function buildContainerMoveEventBody(input: {
   containerKeyEpochId: string;
+  containerKeyPublicKey: string | null;
   keyring: ContainerKekKeyring;
   parentContainerId: string;
   parentManifestHash: string;
@@ -63,6 +67,7 @@ async function buildContainerMoveEventBody(input: {
     parentContainerId: input.parentContainerId,
     parentManifestHash: input.parentManifestHash,
     containerKeyEpochId: input.containerKeyEpochId,
+    containerKeyPublicKey: input.containerKeyPublicKey,
     keyringHash: await computeContainerKekKeyringHash(input.keyring),
     predecessorBridgeHash: await computeContainerKekPredecessorBridgeHash(
       input.predecessorBridge,
@@ -127,6 +132,10 @@ export async function buildMoveRotationWithBody(input: {
     override: input.override,
   });
   const body = await buildContainerMoveEventBody({
+    containerKeyPublicKey: await deriveContainerKekWrappingPublicKey({
+      containerId: input.previousState.containerId,
+      keyMaterial: rotation.containerKey,
+    }),
     containerKeyEpochId: rotation.containerKeyEpochId,
     keyring: rotation.keyring,
     parentContainerId: input.destinationState.containerId,
@@ -151,6 +160,7 @@ export async function deriveMoveManifestArtifacts(input: {
     source: input.source,
   });
   const { manifest, manifestHash, state } = await deriveContainerMoveManifest({
+    containerKeyPublicKey: input.body.containerKeyPublicKey,
     containerKeyEpochId: input.containerKeyEpochId,
     destinationParent: input.destinationParent.manifest,
     eventHash,

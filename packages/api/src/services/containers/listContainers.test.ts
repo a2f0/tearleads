@@ -23,6 +23,7 @@ import {
   type UnsignedAccessEvent,
   type VerifiedContainerAccessManifest,
 } from "@tearleads/crypto";
+import { containerWrappingPublicKeyForTest } from "@tearleads/crypto/test-fixtures";
 import { bytesToBase64 } from "@tearleads/encoding";
 import { createPrincipalMemberEnvelopes } from "../../../test/helpers/principalMemberEnvelopes";
 import {
@@ -184,6 +185,8 @@ async function storeContainerManifest(input: {
         ]
       : input.directGrants;
   const body: ContainerCreateAccessEventBody = {
+    containerKeyPublicKey:
+      containerWrappingPublicKeyForTest(containerKeyEpochId),
     systemSlot: null,
     eventType: "container.create",
     parentContainerId: input.parentContainerId ?? null,
@@ -202,6 +205,8 @@ async function storeContainerManifest(input: {
     signerUserId: input.signerUserId,
   });
   const state: ContainerAccessManifestState = {
+    containerKeyPublicKey:
+      containerWrappingPublicKeyForTest(containerKeyEpochId),
     systemSlot: null,
     version: 1,
     containerId: input.containerId,

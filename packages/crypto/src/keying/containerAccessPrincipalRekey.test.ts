@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import { generateSigningSeedAndKeyPair } from "../signing/generateKeyPair";
 import { normalizeContainerRekeyAccessEventBody } from "./containerAccessRekeyBody";
+import { containerWrappingPublicKeyForTest } from "./containerWrapping.testFixtures";
 import type { ContainerAccessEventBody } from "./index";
 import {
   computeAccessManifestHash,
@@ -52,6 +53,9 @@ test("a rekey advances a managed-principal pin without changing grants", async (
     signerUserId: writerUserId,
   });
   const body: ContainerAccessEventBody = {
+    containerKeyPublicKey: containerWrappingPublicKeyForTest(
+      "container-key-epoch-2",
+    ),
     eventType: "container.rekey",
     containerKeyEpochId: "container-key-epoch-2",
     keyringHash: "1".repeat(64),
@@ -97,6 +101,8 @@ test("a rekey advances a managed-principal pin without changing grants", async (
 
 test("rekeys require explicit principal heads, including an empty list", () => {
   const body = {
+    containerKeyPublicKey:
+      containerWrappingPublicKeyForTest("current-rekey-key"),
     eventType: "container.rekey",
     containerKeyEpochId: "current-rekey-key",
     keyringHash: "1".repeat(64),

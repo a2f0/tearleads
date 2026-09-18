@@ -6,6 +6,7 @@ import type {
   VerifiedContainerAccessManifest,
 } from "@tearleads/crypto";
 import { computeKeyingDomainHash } from "@tearleads/crypto";
+import { containerWrappingPublicKeyForTest } from "@tearleads/crypto/test-fixtures";
 
 export async function containerKekStoreFixtureHash(
   label: string,
@@ -60,6 +61,9 @@ export async function createContainerKekStoreManifestFixture(input: {
       event: { eventHash },
     } as unknown as VerifiedAccessEvent,
     state: {
+      containerKeyPublicKey: containerWrappingPublicKeyForTest(
+        input.containerKeyEpochId,
+      ),
       systemSlot: null,
       version: 1,
       containerId: input.containerId,

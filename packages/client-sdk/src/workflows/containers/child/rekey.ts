@@ -11,6 +11,7 @@ import {
   computeContainerKekPredecessorBridgeHash,
   createContainerKekPredecessorBridge,
   deriveContainerAccessManifest,
+  deriveContainerKekWrappingPublicKey,
   sealContainerKekKeyring,
 } from "@tearleads/crypto";
 import type {
@@ -128,6 +129,7 @@ async function buildRekeyRotationArtifacts(input: {
 }
 
 async function deriveRekeyManifestArtifacts(input: {
+  containerKey: Uint8Array;
   author: ContainerMutationAuthor;
   containerKeyEpochId: string;
   eventId: string | undefined;
@@ -144,6 +146,10 @@ async function deriveRekeyManifestArtifacts(input: {
 }) {
   const body: ContainerRekeyAccessEventBody = {
     eventType: "container.rekey",
+    containerKeyPublicKey: await deriveContainerKekWrappingPublicKey({
+      containerId: input.previousState.containerId,
+      keyMaterial: input.containerKey,
+    }),
     containerKeyEpochId: input.containerKeyEpochId,
     keyringHash: await computeContainerKekKeyringHash(input.keyring),
     predecessorBridgeHash: await computeContainerKekPredecessorBridgeHash(
@@ -164,6 +170,7 @@ async function deriveRekeyManifestArtifacts(input: {
   });
   const state = {
     ...input.previousState,
+    containerKeyPublicKey: body.containerKeyPublicKey,
     epoch: input.previousState.epoch + 1,
     previousManifestHash: input.target.manifest.manifestHash,
     eventHash,
@@ -246,17 +253,16 @@ export async function buildMaterializedContainerRekeyPlan(
   const containerKey = crypto.getRandomValues(new Uint8Array(32));
   const {
     parentKek,
-    parentKekMaterial,
+    parentPublicKey,
     predecessorContainerKey,
     previousState,
     target,
   } = await resolveRotationContext(planningInput, "rekey");
-  const nextContainerKeyEpoch = target.kek.containerKeyEpoch + 1;
   const { containerKeyEpochId, keyring, predecessorBridge } =
     await buildRekeyRotationArtifacts({
       containerKey,
       keyringEntriesOverride: input.keyringEntriesOverride,
-      nextContainerKeyEpoch,
+      nextContainerKeyEpoch: target.kek.containerKeyEpoch + 1,
       predecessorContainerKey,
       previousContainerId: previousState.containerId,
       targetKek: target.kek,
@@ -272,6 +278,7 @@ export async function buildMaterializedContainerRekeyPlan(
   });
   const { body, event, eventHash, keyEpoch, manifest, manifestHash, state } =
     await deriveRekeyManifestArtifacts({
+      containerKey,
       author: input.author,
       containerKeyEpochId,
       eventId: input.eventId,
@@ -290,7 +297,7 @@ export async function buildMaterializedContainerRekeyPlan(
     manifestHash,
     operationLabel: "Container rekey",
     parentKek,
-    parentKekMaterial,
+    parentPublicKey,
     principalPolicies,
     resolveUserKey: resolveProjectionUserKey,
     state,

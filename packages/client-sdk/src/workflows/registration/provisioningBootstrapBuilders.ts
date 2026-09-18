@@ -168,7 +168,6 @@ async function buildProvisionedChildContainerCore(input: {
             : {}),
           metadataDocumentId: containerId,
           systemSlot: input.systemSlot,
-          parentKekMaterial: input.rootContainer.containerKey,
           parentProjection: input.rootContainerProjection,
           principalPolicies: input.principalPolicies,
         }),

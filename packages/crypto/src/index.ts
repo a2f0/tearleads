@@ -279,6 +279,10 @@ export {
   verifyWriteHeader,
 } from "./keying";
 export {
+  deriveContainerKekWrappingPublicKey,
+  unwrapContainerKekParentWrap,
+} from "./keying/containerKekWrapping";
+export {
   computePrincipalContainerGrantRoot,
   normalizePrincipalContainerGrants,
 } from "./principalContainerGrants";

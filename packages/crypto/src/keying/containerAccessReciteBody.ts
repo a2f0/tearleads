@@ -1,3 +1,4 @@
+import { normalizeContainerKekWrappingPublicKey } from "./containerKekWrapping";
 import { assertExactKeys, readNullableString } from "./shared";
 import type {
   ContainerReciteAccessEventBody,
@@ -14,11 +15,14 @@ export function normalizeContainerReciteAccessEventBody(
 ): ContainerReciteAccessEventBody {
   const record = assertExactKeys(
     value,
-    ["containerKeyEpochId", "eventType"],
+    ["containerKeyEpochId", "containerKeyPublicKey", "eventType"],
     "container.recite event body",
   );
   return {
     eventType: "container.recite",
+    containerKeyPublicKey: normalizeContainerKekWrappingPublicKey(
+      record.containerKeyPublicKey,
+    ),
     containerKeyEpochId: readNullableString(
       record,
       "containerKeyEpochId",

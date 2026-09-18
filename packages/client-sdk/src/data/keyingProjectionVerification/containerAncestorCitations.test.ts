@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import {
+  containerWrappingPublicKeyForTest,
   createContainerManifestFixture,
   createVerifiedContainerAccessEvent,
 } from "@tearleads/crypto/test-fixtures";
@@ -186,6 +187,8 @@ test("a create must cite the parent manifest it pins", async () => {
     directGrants: [],
     event: await createVerifiedContainerAccessEvent({
       body: {
+        containerKeyPublicKey:
+          containerWrappingPublicKeyForTest("uncited-key-1"),
         systemSlot: null,
         eventType: "container.create",
         parentContainerId: ROOT_ID,

@@ -12,12 +12,12 @@ import {
   computeContainerKekRecipientTargetHash,
   computeContainerKeyEpochHash,
   deriveContainerAccessManifest,
-  encryptWithDek,
+  deriveContainerKekWrappingPublicKey,
   type KeyingCanonicalJson,
   signAccessEvent,
   wrapDekForRecipients,
 } from "@tearleads/crypto";
-import { bytesToBase64 } from "@tearleads/encoding";
+import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
 import type { ContainerWriterProjectionResponse } from "@tearleads/validators/response";
 
 const projectionKekMaterials = new WeakMap<
@@ -140,10 +140,14 @@ async function wrapContainerKekToParent(input: {
   readonly recipientTarget: ContainerKekRecipientTarget;
   readonly wrap: ContainerKeyWrap;
 }> {
-  const wrapped = await encryptWithDek(
-    input.containerKek,
-    input.parentKekMaterial,
-  );
+  const publicKey = await deriveContainerKekWrappingPublicKey({
+    containerId: input.parentKek.containerId,
+    keyMaterial: input.parentKekMaterial,
+  });
+  const [wrapped] = await wrapDekForRecipients(input.containerKek, [
+    base64ToBytes(publicKey),
+  ]);
+  if (!wrapped) throw new Error("Parent wrapping fixture is missing");
   const recipientTarget = {
     recipientKind: "container" as const,
     recipientId: input.parentKek.containerId,
@@ -159,8 +163,8 @@ async function wrapContainerKekToParent(input: {
       recipientId: input.parentKek.containerId,
       recipientKeyEpochId: input.parentKek.containerKeyEpochId,
       recipientKeyFingerprint: input.parentKek.keyEpochHash,
-      kemCipherText: bytesToBase64(wrapped.iv),
-      wrappedKey: bytesToBase64(wrapped.ciphertext),
+      kemCipherText: bytesToBase64(wrapped.kemCipherText),
+      wrappedKey: bytesToBase64(wrapped.wrappedKey),
       wrapManifestHash: input.manifestHash,
     },
   };
@@ -190,7 +194,12 @@ export async function createContainerWriterProjectionFixture(
     ? readParentContainerId(parentProjection)
     : null;
   const parentManifestHash = parentManifest?.manifestHash ?? null;
+  const containerKeyPublicKey = await deriveContainerKekWrappingPublicKey({
+    containerId: input.containerId,
+    keyMaterial: containerKek,
+  });
   const body: ContainerCreateAccessEventBody = {
+    containerKeyPublicKey,
     systemSlot: input.systemSlot ?? null,
     eventType: "container.create",
     parentContainerId,
@@ -221,6 +230,7 @@ export async function createContainerWriterProjectionFixture(
     userId: input.userId,
   });
   const state: ContainerAccessManifestState = {
+    containerKeyPublicKey,
     systemSlot: input.systemSlot ?? null,
     version: 1,
     containerId: input.containerId,

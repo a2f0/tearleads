@@ -1,4 +1,5 @@
 import { expect } from "bun:test";
+import { containerWrappingPublicKeyForTest } from "@tearleads/crypto/test-fixtures";
 import type { ContainerReciteRequest } from "@tearleads/validators/request";
 import { HttpResponse, http } from "msw";
 import {
@@ -19,7 +20,11 @@ testApiClient(
     const response = createContainerMutationResponse();
     Reflect.deleteProperty(response, "containerKek");
     const request: ContainerReciteRequest = {
-      body: { eventType: "container.recite", containerKeyEpochId: "epoch-1" },
+      body: {
+        containerKeyPublicKey: containerWrappingPublicKeyForTest("epoch-1"),
+        eventType: "container.recite",
+        containerKeyEpochId: "epoch-1",
+      },
       event: {},
       manifest: response.accessManifest.manifest,
       expectedManifestHash: response.accessManifest.manifestHash,

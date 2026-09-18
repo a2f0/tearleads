@@ -72,6 +72,7 @@ function requireRevokedGrantExists(input: {
 
 export async function deriveContainerRevokeManifest(input: {
   containerKeyEpochId: string;
+  containerKeyPublicKey: string | null;
   eventHash: string;
   previousManifest: ContainerWriterProjectionResponse["path"][number];
   revokedSubject: ContainerRevokeSubject;
@@ -84,6 +85,7 @@ export async function deriveContainerRevokeManifest(input: {
 
   const state: ContainerAccessManifestState = {
     ...previousState,
+    containerKeyPublicKey: input.containerKeyPublicKey,
     epoch: previousState.epoch + 1,
     previousManifestHash: input.previousManifest.manifestHash,
     eventHash: input.eventHash,

@@ -6,6 +6,7 @@ import type {
   VerifiedPrincipalPolicy,
 } from "@tearleads/crypto";
 import { computeContainerKekPredecessorBridgeHash } from "@tearleads/crypto";
+import { containerWrappingPublicKeyForTest } from "@tearleads/crypto/test-fixtures";
 import type {
   AccessManifestBundleWire,
   ContainerMutationRequest,
@@ -74,6 +75,8 @@ async function buildContainerMoveRequest(input: {
     successorContainerKeyEpochId: containerKeyEpochId,
   });
   const body: ContainerAccessEventBody = {
+    containerKeyPublicKey:
+      containerWrappingPublicKeyForTest(containerKeyEpochId),
     eventType: "container.move",
     parentContainerId: destinationParent.state.containerId,
     parentManifestHash: input.destinationParent.manifestHash,
@@ -100,6 +103,7 @@ async function buildContainerMoveRequest(input: {
   const bundle = await createContainerManifestBundle(
     {
       ...previous.state,
+      containerKeyPublicKey: body.containerKeyPublicKey,
       epoch: previous.state.epoch + 1,
       previousManifestHash: input.previous.manifestHash,
       eventHash: event.eventHash,

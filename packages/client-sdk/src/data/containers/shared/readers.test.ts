@@ -1,10 +1,14 @@
 import { expect, test } from "bun:test";
+import { containerWrappingPublicKeyForTest } from "@tearleads/crypto/test-fixtures";
 import { readContainerAccessManifestState } from "./readers";
 
 test("container state rejects organization principal heads", () => {
   expect(() =>
     readContainerAccessManifestState(
       {
+        containerKeyPublicKey: containerWrappingPublicKeyForTest(
+          "container-key-epoch-1",
+        ),
         systemSlot: null,
         version: 1,
         containerId: "container-1",

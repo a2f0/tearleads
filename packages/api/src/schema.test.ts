@@ -22,6 +22,7 @@ import type {
   ReferencedPrincipalHead,
   WriteHeader,
 } from "@tearleads/crypto";
+import { containerWrappingPublicKeyForTest } from "@tearleads/crypto/test-fixtures";
 import { eq } from "drizzle-orm";
 
 const contentRecordEncryptionSuite = "aes-256-gcm-hkdf-sha256-record-key";
@@ -133,6 +134,8 @@ test("access manifest schema stores critical rows through Drizzle", async () => 
     keyFingerprint: fixtureHash("principal-key"),
   } satisfies ReferencedPrincipalHead;
   const eventBody = {
+    containerKeyPublicKey:
+      containerWrappingPublicKeyForTest(containerKeyEpochId),
     systemSlot: null,
     eventType: "container.create",
     containerKeyEpochId,
@@ -143,6 +146,8 @@ test("access manifest schema stores critical rows through Drizzle", async () => 
     referencedPrincipalHeads: [principalHead],
   } satisfies KeyingCanonicalJson;
   const manifestState = {
+    containerKeyPublicKey:
+      containerWrappingPublicKeyForTest(containerKeyEpochId),
     systemSlot: null,
     version: 1,
     containerId,

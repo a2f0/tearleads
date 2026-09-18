@@ -1,10 +1,11 @@
 import { expect, test } from "bun:test";
 import {
   computeContainerKekMaterialId,
-  encryptWithDek,
+  deriveContainerKekWrappingPublicKey,
   sealContainerKekKeyring,
+  wrapDekForRecipients,
 } from "@tearleads/crypto";
-import { bytesToBase64 } from "@tearleads/encoding";
+import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
 import { createTestExecSql } from "@tearleads/test-utils";
 import {
   createMutationResponseFromRequest,
@@ -275,7 +276,14 @@ test("an inherited-only child recovers through its parent-container wrap", async
     keyMaterial: childKey,
   });
   const parentKey = crypto.getRandomValues(new Uint8Array(32));
-  const wrapped = await encryptWithDek(childKey, parentKey);
+  const publicKey = await deriveContainerKekWrappingPublicKey({
+    containerId: parent.projection.containerId,
+    keyMaterial: parentKey,
+  });
+  const [wrapped] = await wrapDekForRecipients(childKey, [
+    base64ToBytes(publicKey),
+  ]);
+  if (!wrapped) throw new Error("Expected parent wrap");
   const inheritedEpoch = {
     containerKeyEpoch: 1,
     containerKeyEpochId: childEpochId,
@@ -286,8 +294,8 @@ test("an inherited-only child recovers through its parent-container wrap", async
         recipientId: parent.projection.containerId,
         recipientKeyEpochId: epoch1Kek.containerKeyEpochId,
         recipientKeyFingerprint: epoch1Kek.keyEpochHash,
-        kemCipherText: bytesToBase64(wrapped.iv),
-        wrappedKey: bytesToBase64(wrapped.ciphertext),
+        kemCipherText: bytesToBase64(wrapped.kemCipherText),
+        wrappedKey: bytesToBase64(wrapped.wrappedKey),
         wrapManifestHash: epoch1Kek.accessManifestHash,
       },
     ],
@@ -332,7 +340,14 @@ test("an unreachable principal wrap does not mask a usable parent wrap", async (
     keyMaterial: childKey,
   });
   const parentKey = crypto.getRandomValues(new Uint8Array(32));
-  const wrapped = await encryptWithDek(childKey, parentKey);
+  const publicKey = await deriveContainerKekWrappingPublicKey({
+    containerId: parent.projection.containerId,
+    keyMaterial: parentKey,
+  });
+  const [wrapped] = await wrapDekForRecipients(childKey, [
+    base64ToBytes(publicKey),
+  ]);
+  if (!wrapped) throw new Error("Expected parent wrap");
 
   // Both a group envelope this pristine client cannot resolve AND a usable
   // parent envelope. The unresolvable one must not short-circuit recovery.
@@ -356,8 +371,8 @@ test("an unreachable principal wrap does not mask a usable parent wrap", async (
         recipientId: parent.projection.containerId,
         recipientKeyEpochId: epoch1Kek.containerKeyEpochId,
         recipientKeyFingerprint: epoch1Kek.keyEpochHash,
-        kemCipherText: bytesToBase64(wrapped.iv),
-        wrappedKey: bytesToBase64(wrapped.ciphertext),
+        kemCipherText: bytesToBase64(wrapped.kemCipherText),
+        wrappedKey: bytesToBase64(wrapped.wrappedKey),
         wrapManifestHash: epoch1Kek.accessManifestHash,
       },
     ],

@@ -1,5 +1,6 @@
 import type { TestUser } from "@tearleads/bob-and-alice";
 import type { ContainerAccessEventBody } from "@tearleads/crypto";
+import { containerWrappingPublicKeyForTest } from "@tearleads/crypto/test-fixtures";
 import type {
   AccessManifestBundleWire,
   ContainerMutationRequest,
@@ -32,6 +33,8 @@ export async function buildChildCreateRequest(input: {
     keyEpoch: 1,
   });
   const body: ContainerAccessEventBody = {
+    containerKeyPublicKey:
+      containerWrappingPublicKeyForTest(containerKeyEpochId),
     systemSlot: input.systemSlot ?? null,
     eventType: "container.create",
     parentContainerId: parentManifest.state.containerId,
@@ -54,6 +57,8 @@ export async function buildChildCreateRequest(input: {
   });
   const bundle = await createContainerManifestBundle(
     {
+      containerKeyPublicKey:
+        containerWrappingPublicKeyForTest(containerKeyEpochId),
       systemSlot: input.systemSlot ?? null,
       version: 1,
       containerId,

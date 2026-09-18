@@ -3,6 +3,7 @@ import {
   computeContainerKekMaterialId,
   computeContainerKeyEpochHash,
   computeDocumentContentKeyTargetHash,
+  deriveContainerKekWrappingPublicKey,
   sealContainerKekKeyring,
 } from "@tearleads/crypto";
 import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
@@ -112,6 +113,19 @@ async function expectDamagedPredecessorReadToFail(damagedKeyring: boolean) {
           wrapManifestHash: currentManifest.manifestHash,
         }),
       ],
+    },
+  ];
+
+  projection.path = [
+    {
+      ...currentManifest,
+      state: {
+        ...currentManifest.state,
+        containerKeyPublicKey: await deriveContainerKekWrappingPublicKey({
+          containerId: currentKek.containerId,
+          keyMaterial: successorKey,
+        }),
+      },
     },
   ];
 

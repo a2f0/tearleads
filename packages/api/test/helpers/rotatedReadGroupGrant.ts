@@ -188,6 +188,7 @@ async function buildGroupGrantMutation(input: {
     subjectType: "group" as const,
   };
   const body: ContainerAccessEventBody = {
+    containerKeyPublicKey: previous.state.containerKeyPublicKey,
     eventType: "container.grant",
     containerKeyEpochId: previous.state.containerKeyEpochId,
     grant,

@@ -4,7 +4,6 @@ import {
   type ContainerKeyWrap,
   type ContainerUserRecipientKey,
   derivePrincipalRecipientKeyEpochId,
-  encryptWithDek,
   wrapDekForRecipients,
 } from "@tearleads/crypto";
 import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
@@ -123,12 +122,12 @@ export async function wrapContainerKeyToParent(input: {
   containerKeyEpochId: string;
   manifestHash: string;
   parentKek: ContainerKekResponse;
-  parentKekMaterial: Uint8Array;
+  parentPublicKey: string;
 }): Promise<ContainerKeyWrap> {
-  const wrapped = await encryptWithDek(
-    input.containerKey,
-    input.parentKekMaterial,
-  );
+  const [wrapped] = await wrapDekForRecipients(input.containerKey, [
+    base64ToBytes(input.parentPublicKey),
+  ]);
+  if (!wrapped) throw new Error("Container parent wrap is unavailable");
 
   return {
     containerKeyEpochId: input.containerKeyEpochId,
@@ -136,8 +135,8 @@ export async function wrapContainerKeyToParent(input: {
     recipientId: input.parentKek.containerId,
     recipientKeyEpochId: input.parentKek.containerKeyEpochId,
     recipientKeyFingerprint: input.parentKek.keyEpochHash,
-    kemCipherText: bytesToBase64(wrapped.iv),
-    wrappedKey: bytesToBase64(wrapped.ciphertext),
+    kemCipherText: bytesToBase64(wrapped.kemCipherText),
+    wrappedKey: bytesToBase64(wrapped.wrappedKey),
     wrapManifestHash: input.manifestHash,
   };
 }
@@ -229,4 +228,15 @@ export async function wrapContainerKeyToManagedPrincipal(input: {
       wrapManifestHash: input.manifestHash,
     },
   };
+}
+
+export function getParentWrappingPublicKey(
+  projection: ContainerWriterProjectionResponse,
+): string | null {
+  const parent = projection.path.at(-2);
+  if (!parent) return null;
+  const publicKey = readContainerState(parent).containerKeyPublicKey;
+  if (!publicKey)
+    throw new Error("Container parent wrapping public key is missing");
+  return publicKey;
 }

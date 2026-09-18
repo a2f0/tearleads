@@ -250,6 +250,7 @@ test("property: a same-epoch fork of a checkpointed container head is an equivoc
       };
       const fork = await containerSuccessor({
         body: {
+          containerKeyPublicKey: previous.state.containerKeyPublicKey,
           eventType: "container.grant",
           containerKeyEpochId: previous.state.containerKeyEpochId,
           grant,

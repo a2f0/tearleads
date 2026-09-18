@@ -12,6 +12,7 @@ import {
   verifyContainerKekState,
 } from "@tearleads/crypto";
 import {
+  containerWrappingPublicKeyForTest,
   createContainerKeyEpochFixture,
   createContainerKeyWrap,
   createContainerManifestFixture,
@@ -139,6 +140,8 @@ export async function createGroupHistoricalSignerScenario() {
     directGrants: [],
     event: await createVerifiedContainerAccessEvent({
       body: {
+        containerKeyPublicKey:
+          containerWrappingPublicKeyForTest(childKeyEpochId),
         systemSlot: null,
         eventType: "container.create",
         parentContainerId: root1.state.containerId,
@@ -170,6 +173,9 @@ export async function createGroupHistoricalSignerScenario() {
   // The root adopts the group successor that removed Mallory.
   const root2 = await successor({
     body: {
+      containerKeyPublicKey: containerWrappingPublicKeyForTest(
+        rootKeyEpochIds[1],
+      ),
       eventType: "container.rekey",
       containerKeyEpochId: rootKeyEpochIds[1],
       keyringHash: await fixtureHash("group-root-keyring"),

@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import { deriveOrganizationMetadataContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
 import { generateSigningSeedAndKeyPair } from "../signing/generateKeyPair";
+import { containerWrappingPublicKeyForTest } from "./containerWrapping.testFixtures";
 import {
   computeAccessManifestHash,
   deriveContainerAccessManifest,
@@ -24,6 +25,7 @@ test.each(["independent", "child", "foreign-slot"] as const)(
       ],
     });
     const body = {
+      containerKeyPublicKey: containerWrappingPublicKeyForTest("metadata-key"),
       eventType: "container.create" as const,
       systemSlot: await deriveOrganizationMetadataContainerSystemSlot({
         organizationId:

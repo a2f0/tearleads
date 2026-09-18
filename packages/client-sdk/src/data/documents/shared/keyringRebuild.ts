@@ -4,9 +4,8 @@ import type {
 } from "@tearleads/crypto";
 import {
   computeContainerKekMaterialId,
-  decryptWithDek,
+  unwrapContainerKekParentWrap,
 } from "@tearleads/crypto";
-import { base64ToBytes } from "@tearleads/encoding";
 import type { ContainerKekLogEpochResponse } from "@tearleads/validators/response";
 import { unwrapKeyEnvelopesWithPrincipalPolicies } from "../../principals/principalPolicyCrypto";
 import type { ExecSql } from "../../sqlite/sqlSchema";
@@ -72,13 +71,12 @@ async function openParentAnchor(
     try {
       return {
         failure: undefined,
-        key: await decryptWithDek(
-          {
-            iv: base64ToBytes(wrap.kemCipherText),
-            ciphertext: base64ToBytes(wrap.wrappedKey),
-          },
-          parentKey,
-        ),
+        key: await unwrapContainerKekParentWrap({
+          parentContainerId: wrap.recipientId,
+          parentKeyMaterial: parentKey,
+          kemCipherText: wrap.kemCipherText,
+          wrappedKey: wrap.wrappedKey,
+        }),
         keyWasAvailable,
       };
     } catch (error) {
