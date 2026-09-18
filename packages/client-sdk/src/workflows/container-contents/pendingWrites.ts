@@ -126,7 +126,7 @@ async function hasQueuedScopeWork(
        )
        OR EXISTS (
          SELECT 1 FROM document_move_intents intent
-         WHERE intent.local_id = ? AND intent.intent_type = 'document.move'
+         WHERE intent.local_id = ? AND intent.intent_type IN ('document.move', 'document.link')
        )
        OR EXISTS (
          SELECT 1 FROM documents stored

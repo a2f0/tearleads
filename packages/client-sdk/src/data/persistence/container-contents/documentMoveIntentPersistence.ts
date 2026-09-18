@@ -1,4 +1,5 @@
-import { and, asc, eq, inArray, sql } from "drizzle-orm";
+import { and, asc, eq, inArray } from "drizzle-orm";
+import { documentIntentLinkTargets } from "../../sqlite/documentPlacementIntentSchema";
 import {
   containerTables,
   documentMoveIntents,
@@ -11,8 +12,19 @@ import {
   ensureSqlTables,
   runSerializedSqlMutation,
 } from "../../sqlite/sqlSchema";
+import {
+  enqueueDocumentLinkIntent,
+  enqueueDocumentMoveIntent,
+  enqueueDocumentUnlinkIntent,
+  loadDocumentIntentLinkTargets,
+} from "./documentPlacementIntentEnqueue";
 
 export const DOCUMENT_MOVE_INTENT_TYPE = "document.move";
+export const DOCUMENT_LINK_INTENT_TYPE = "document.link";
+const DOCUMENT_PLACEMENT_INTENT_TYPES = [
+  DOCUMENT_MOVE_INTENT_TYPE,
+  DOCUMENT_LINK_INTENT_TYPE,
+];
 
 // Resolves the organization a parked move belongs to, in confidence order:
 // the move's target container, the document's preserved projection
@@ -55,9 +67,13 @@ export type DocumentMoveIntentSyncStatus =
   | "unavailable";
 
 export interface DocumentMoveIntentRecord {
+  additionalLinkContainerIds?: readonly string[] | undefined;
+  removedLinkContainerIds?: readonly string[] | undefined;
   id: string;
   documentId: string;
-  intentType: typeof DOCUMENT_MOVE_INTENT_TYPE;
+  intentType:
+    | typeof DOCUMENT_MOVE_INTENT_TYPE
+    | typeof DOCUMENT_LINK_INTENT_TYPE;
   lastAttemptedAt: string | null;
   lastError: string | null;
   localId: string;
@@ -67,15 +83,6 @@ export interface DocumentMoveIntentRecord {
   targetContainerId: string;
   createdAt: string;
   updatedAt: string;
-}
-
-interface DocumentMoveIntentInput {
-  id?: string | undefined;
-  documentId: string;
-  localId: string;
-  replaceLinkedContainers?: boolean | undefined;
-  sourceContainerId?: string | null | undefined;
-  targetContainerId: string;
 }
 
 interface SelectedDocumentMoveIntentRecord {
@@ -118,7 +125,10 @@ function mapDocumentMoveIntentRecord(
   return {
     id: String(row.id ?? ""),
     documentId: row.documentId,
-    intentType: DOCUMENT_MOVE_INTENT_TYPE,
+    intentType:
+      row.intentType === DOCUMENT_LINK_INTENT_TYPE
+        ? DOCUMENT_LINK_INTENT_TYPE
+        : DOCUMENT_MOVE_INTENT_TYPE,
     lastAttemptedAt: row.lastAttemptedAt,
     lastError: row.lastError,
     localId: row.localId,
@@ -136,96 +146,63 @@ export const sqlDocumentMoveIntentPersistence = {
     await ensureSqlTables(execSql, documentMoveIntentTables);
   },
 
-  async enqueueMoveIntent(
-    execSql: ExecSql,
-    input: DocumentMoveIntentInput,
-  ): Promise<void> {
-    await runSerializedSqlMutation(execSql, async (lockedExecSql) => {
-      await ensureSqlTables(lockedExecSql, documentMoveIntentTables);
-      const id = input.id ?? crypto.randomUUID();
-      const updatedAt = new Date().toISOString();
-      const replaceLinkedContainers = input.replaceLinkedContainers ?? false;
-      const sourceContainerId = input.sourceContainerId ?? null;
-      const { db } = getClientSQLitePersistenceRuntime(lockedExecSql);
-
-      await db
-        .insert(documentMoveIntents)
-        .values({
-          id,
-          documentId: input.documentId,
-          intentType: DOCUMENT_MOVE_INTENT_TYPE,
-          lastAttemptedAt: null,
-          lastError: null,
-          localId: input.localId,
-          replaceLinkedContainers,
-          sourceContainerId,
-          syncStatus: "pending",
-          targetContainerId: input.targetContainerId,
-          createdAt: updatedAt,
-          updatedAt,
-        })
-        .onConflictDoUpdate({
-          target: documentMoveIntents.documentId,
-          set: {
-            // Every enqueue is a new optimistic-concurrency revision. The
-            // timestamp remains useful diagnostics, but cannot be the sole
-            // revision token because two local moves can land in one clock
-            // tick while an older remote request is settling.
-            id,
-            intentType: DOCUMENT_MOVE_INTENT_TYPE,
-            lastError: null,
-            localId: input.localId,
-            replaceLinkedContainers: replaceLinkedContainers
-              ? true
-              : sql`${documentMoveIntents.replaceLinkedContainers}`,
-            sourceContainerId: sql`coalesce(${documentMoveIntents.sourceContainerId}, ${sourceContainerId})`,
-            syncStatus: "pending",
-            targetContainerId: input.targetContainerId,
-            updatedAt,
-          },
-        })
-        .run();
-    });
-  },
+  enqueueMoveIntent: enqueueDocumentMoveIntent,
+  enqueueLinkIntent: enqueueDocumentLinkIntent,
+  enqueueUnlinkIntent: enqueueDocumentUnlinkIntent,
 
   async listPendingMoveIntents(
     execSql: ExecSql,
   ): Promise<DocumentMoveIntentRecord[]> {
-    await ensureSqlTables(execSql, documentMoveIntentTables);
-    const { db } = getClientSQLitePersistenceRuntime(execSql);
-    const rows = await db
-      .select({
-        id: documentMoveIntents.id,
-        documentId: documentMoveIntents.documentId,
-        intentType: documentMoveIntents.intentType,
-        lastAttemptedAt: documentMoveIntents.lastAttemptedAt,
-        lastError: documentMoveIntents.lastError,
-        localId: documentMoveIntents.localId,
-        replaceLinkedContainers: documentMoveIntents.replaceLinkedContainers,
-        sourceContainerId: documentMoveIntents.sourceContainerId,
-        syncStatus: documentMoveIntents.syncStatus,
-        targetContainerId: documentMoveIntents.targetContainerId,
-        createdAt: documentMoveIntents.createdAt,
-        updatedAt: documentMoveIntents.updatedAt,
-      })
-      .from(documentMoveIntents)
-      // Blocked intents replay too: "blocked" names the reason the last
-      // attempt could not proceed (missing local doc / destination), not a
-      // terminal verdict. The blocking condition can heal after hydration or
-      // recovery, and re-checking is cheap — a still-blocked intent simply
-      // re-records its reason without counting as lane progress.
-      // Unavailable intents never replay: the server proved a cited container
-      // is gone, so every replay would re-issue the same doomed requests
-      // (#2278 #4). Only the tombstone cascade or a re-enqueue revives them.
-      .where(
-        and(
-          inArray(documentMoveIntents.syncStatus, ["pending", "blocked"]),
-          eq(documentMoveIntents.intentType, DOCUMENT_MOVE_INTENT_TYPE),
-        ),
-      )
-      .orderBy(asc(documentMoveIntents.createdAt));
+    return runSerializedSqlMutation(execSql, async (lockedExecSql) => {
+      await ensureSqlTables(lockedExecSql, documentMoveIntentTables);
+      return getClientSQLitePersistenceRuntime(lockedExecSql).transaction(
+        async (tx) => {
+          const rows = await tx
+            .select()
+            .from(documentMoveIntents)
+            // Blocked intents replay too: "blocked" names the reason the last
+            // attempt could not proceed (missing local doc / destination), not a
+            // terminal verdict. The blocking condition can heal after hydration or
+            // recovery, and re-checking is cheap — a still-blocked intent simply
+            // re-records its reason without counting as lane progress.
+            // Unavailable intents never replay: the server proved a cited container
+            // is gone, so every replay would re-issue the same doomed requests
+            // (#2278 #4). Only the tombstone cascade or a re-enqueue revives them.
+            .where(
+              and(
+                inArray(documentMoveIntents.syncStatus, ["pending", "blocked"]),
+                inArray(
+                  documentMoveIntents.intentType,
+                  DOCUMENT_PLACEMENT_INTENT_TYPES,
+                ),
+              ),
+            )
+            .orderBy(asc(documentMoveIntents.createdAt));
 
-    return rows.map((row) => mapDocumentMoveIntentRecord(row));
+          return Promise.all(
+            rows.map(async (row) => {
+              const targets = await loadDocumentIntentLinkTargets(
+                lockedExecSql,
+                row.id ?? "",
+              );
+              const added = targets
+                .filter((target) => target.operation === "link")
+                .map((target) => target.containerId)
+                .sort();
+              const removed = targets
+                .filter((target) => target.operation === "unlink")
+                .map((target) => target.containerId)
+                .sort();
+              return {
+                ...mapDocumentMoveIntentRecord(row),
+                ...(added.length ? { additionalLinkContainerIds: added } : {}),
+                ...(removed.length ? { removedLinkContainerIds: removed } : {}),
+              };
+            }),
+          );
+        },
+      );
+    });
   },
 
   async markMoveIntentSynced(
@@ -240,17 +217,23 @@ export const sqlDocumentMoveIntentPersistence = {
       const deleted = await lockedExecSql(
         `DELETE FROM document_move_intents
          WHERE document_id = ?
-           AND intent_type = ?
+           AND intent_type IN (?, ?)
            AND updated_at = ?
            ${input.expectedIntentId ? "AND id = ?" : ""}
-         RETURNING document_id AS documentId`,
+         RETURNING id`,
         [
           input.documentId,
-          DOCUMENT_MOVE_INTENT_TYPE,
+          ...DOCUMENT_PLACEMENT_INTENT_TYPES,
           input.expectedUpdatedAt,
           ...(input.expectedIntentId ? [input.expectedIntentId] : []),
         ],
       );
+      for (const { id } of deleted) {
+        await getClientSQLitePersistenceRuntime(lockedExecSql)
+          .db.delete(documentIntentLinkTargets)
+          .where(eq(documentIntentLinkTargets.intentId, String(id)))
+          .run();
+      }
       return deleted.length > 0;
     });
   },
@@ -308,7 +291,10 @@ export const sqlDocumentMoveIntentPersistence = {
                 "blocked",
                 "denied",
               ]),
-              eq(documentMoveIntents.intentType, DOCUMENT_MOVE_INTENT_TYPE),
+              inArray(
+                documentMoveIntents.intentType,
+                DOCUMENT_PLACEMENT_INTENT_TYPES,
+              ),
               ...(input.expectedIntentId
                 ? [eq(documentMoveIntents.id, input.expectedIntentId)]
                 : []),
@@ -341,12 +327,12 @@ export const sqlDocumentMoveIntentPersistence = {
        FROM document_move_intents intent
        ${input?.organizationId ? DENIED_INTENT_ORGANIZATION_JOINS_SQL : ""}
        WHERE intent.sync_status = 'denied'
-         AND intent.intent_type = ?
+         AND intent.intent_type IN (?, ?)
          ${input?.organizationId ? `AND (${DENIED_INTENT_ORGANIZATION_SQL} = ? OR ${DENIED_INTENT_ORGANIZATION_SQL} IS NULL)` : ""}
        LIMIT 1`,
       input?.organizationId
-        ? [DOCUMENT_MOVE_INTENT_TYPE, input.organizationId]
-        : [DOCUMENT_MOVE_INTENT_TYPE],
+        ? [...DOCUMENT_PLACEMENT_INTENT_TYPES, input.organizationId]
+        : DOCUMENT_PLACEMENT_INTENT_TYPES,
     );
     return rows.length > 0;
   },
@@ -373,7 +359,7 @@ export const sqlDocumentMoveIntentPersistence = {
         `UPDATE document_move_intents
          SET sync_status = 'pending', updated_at = ?
          WHERE sync_status = 'denied'
-           AND intent_type = ?
+           AND intent_type IN (?, ?)
            ${input?.localId ? "AND local_id = ?" : ""}
            ${
              input?.organizationId
@@ -387,7 +373,7 @@ export const sqlDocumentMoveIntentPersistence = {
 }`,
         [
           new Date().toISOString(),
-          DOCUMENT_MOVE_INTENT_TYPE,
+          ...DOCUMENT_PLACEMENT_INTENT_TYPES,
           ...(input?.localId ? [input.localId] : []),
           ...(input?.organizationId ? [input.organizationId] : []),
         ],

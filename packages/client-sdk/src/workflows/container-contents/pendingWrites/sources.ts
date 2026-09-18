@@ -301,7 +301,7 @@ const PENDING_WRITE_SOURCE_SQL = `
   LEFT JOIN document_sync_failures failure
     ON failure.app_kind = 'documents'
     AND failure.local_id = intent.local_id
-  WHERE intent.intent_type = 'document.move'
+  WHERE intent.intent_type IN ('document.move', 'document.link')
 
   UNION ALL
 

@@ -20,6 +20,7 @@ export async function loadDocumentMovePlacement(
   const [intent] = await tx
     .select({
       id: documentMoveIntents.id,
+      intentType: documentMoveIntents.intentType,
       targetContainerId: documentMoveIntents.targetContainerId,
     })
     .from(documentMoveIntents)

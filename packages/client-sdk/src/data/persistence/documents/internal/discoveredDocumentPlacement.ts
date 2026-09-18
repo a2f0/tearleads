@@ -16,8 +16,12 @@ export async function resolveDiscoveredDocumentPlacement(
     existing?.accessEpoch ?? DEFAULT_DOCUMENT_ACCESS_EPOCH,
     input.accessEpoch,
   );
+  const pendingContainerId =
+    intent?.intentType === "document.link"
+      ? (existing?.containerId ?? intent.targetContainerId)
+      : intent?.targetContainerId;
   const containerId =
-    intent?.targetContainerId ??
+    pendingContainerId ??
     (stale
       ? existing.containerId
       : existing?.containerId &&

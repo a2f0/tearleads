@@ -7,20 +7,30 @@
  * rather than completing with a live link nobody revoked.
  */
 export function resolveContainerDocumentMoveUnlinkIds(input: {
+  linkOnly?: boolean | undefined;
+  additionalLinkContainerIds?: readonly string[] | undefined;
+  removedLinkContainerIds?: readonly string[] | undefined;
   currentContainerId: string;
   linkedContainerIds: readonly string[];
   replaceLinkedContainers?: boolean | undefined;
   targetContainerId: string;
 }): string[] {
-  const unlinkContainerIds = input.replaceLinkedContainers
-    ? input.linkedContainerIds.filter(
-        (containerId) => containerId !== input.targetContainerId,
-      )
-    : [input.currentContainerId];
+  let unlinkContainerIds: readonly string[] = [];
+  if (!input.linkOnly) {
+    unlinkContainerIds = input.replaceLinkedContainers
+      ? input.linkedContainerIds.filter(
+          (containerId) => containerId !== input.targetContainerId,
+        )
+      : [input.currentContainerId];
+  }
 
-  return Array.from(new Set(unlinkContainerIds)).filter(
+  return Array.from(
+    new Set([...unlinkContainerIds, ...(input.removedLinkContainerIds ?? [])]),
+  ).filter(
     (containerId) =>
-      containerId !== input.targetContainerId &&
+      (containerId !== input.targetContainerId ||
+        input.removedLinkContainerIds?.includes(containerId)) &&
+      !input.additionalLinkContainerIds?.includes(containerId) &&
       input.linkedContainerIds.includes(containerId),
   );
 }

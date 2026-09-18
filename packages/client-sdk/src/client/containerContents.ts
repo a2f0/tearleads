@@ -289,6 +289,7 @@ class ContainerContentsService implements ContainerContents {
           ),
           note: input.note,
           runtime: documentLinks,
+          scheduleSync: () => this.openTree().requestSync(),
           setLinkedContainerIdsForDocument:
             input.setLinkedContainerIdsForDocument,
           targetContainerId: input.targetContainerId,
@@ -324,6 +325,7 @@ class ContainerContentsService implements ContainerContents {
           note: input.note,
           removedContainerId: input.removedContainerId,
           runtime: documentLinks,
+          scheduleSync: () => this.openTree().requestSync(),
           setLinkedContainerIdsForDocument:
             input.setLinkedContainerIdsForDocument,
         }),
