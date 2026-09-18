@@ -76,7 +76,13 @@ async function runRound(
   // packageElectrobunAssets.ts, which supplies the packaged SQLite assets.
   const app = Bun.spawn([launcherPath], {
     cwd: dirname(launcherPath),
-    env: { ...environment, NODE_ENV: "production" },
+    env: {
+      ...environment,
+      NODE_ENV: "production",
+      // Release launchers hide child output unless console mode is requested.
+      // Keep native CEF diagnostics available to this probe's log assertion.
+      ELECTROBUN_CONSOLE: "1",
+    },
     stdin: "ignore",
     stdout: logFd,
     stderr: logFd,
