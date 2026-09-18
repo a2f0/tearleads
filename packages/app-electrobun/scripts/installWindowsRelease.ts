@@ -23,7 +23,9 @@ export async function installWindowsRelease(options: {
     tier === "staging" ? "Tearleads-Setup-canary.exe" : "Tearleads-Setup.exe";
   const installer = Bun.spawn([join(setup, executable)], {
     cwd: setup,
-    env: environment,
+    // Electrobun waits for Close on its completion dialog before launching the
+    // installed app. Its automation flag dismisses that terminal dialog only.
+    env: { ...environment, ELECTROBUN_INSTALLER_UI_AUTOCLOSE: "1" },
     stdin: "ignore",
     stdout: "inherit",
     stderr: "inherit",
