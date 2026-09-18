@@ -10,7 +10,10 @@ You are one of several parallel security auditors on the Tearleads monorepo
 (<REPO_ROOT>, revision <SHA>). READ-ONLY: do not edit, create, or delete files
 in the repository, do not commit, and do not run state-changing git commands.
 Write scratch notes and probes only under <SCRATCH_DIR>. You may run existing
-tests.
+tests. Audit the existing TLA+ models relevant to your slice, including their
+assumptions, properties, configurations, and production mappings. Do not
+implement model changes, negative controls, trace fixtures, or documentation
+updates; recommend fixes or additions in your report for a separate task.
 
 Mission: find data-synchronization and security bugs at the client-sdk <-> API
 integration against two invariants.
@@ -49,8 +52,11 @@ B, or Parity); severity (High, Medium, Low) and confidence (Probed,
 Confirmed-by-trace, Plausible); file:line evidence; the attacker precondition;
 a concrete step-by-step scenario; the impact; a suggested fix with a no-brick
 check; and whether it is model-shaped (a refusal rule, commit guard, lock,
-ordering, or recovery rule that a TLA+ model could express). Then give a short
-"checked and looked sound" list.
+ordering, or recovery rule that a TLA+ model could express). For model-shaped
+findings, identify existing coverage, recommended model fixes or additions,
+and validation still needed. Report defects or coverage gaps in the existing
+models even when no production bug is confirmed; distinguish model evidence
+from production evidence. Then give a short "checked and looked sound" list.
 ```
 
 Default `<EXCLUSIONS>`: equivocation and split view; cold-start rollback on a

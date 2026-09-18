@@ -1,33 +1,53 @@
-# Formal Model Updates
+# Formal Model Audit and Recommendations
 
-Every audit updates `formal/` for its protocol-shaped findings. The models do
-not prove the code correct. They show that a rule is load-bearing, reproduce
-the vulnerability as a counterexample, and check that a proposed fix does not
-break the no-brick invariant.
+Audit the existing TLA+ models and recommend fixes or additions in the report.
+Do not implement those recommendations during the audit, including in scratch
+copies. Models, configurations, negative controls, trace fixtures, registries,
+and model documentation remain unchanged. Implementation belongs to a separate
+follow-up task; do not create or commit a model-change branch.
 
-## Tooling
+The models do not prove the code correct. They explore rules within configured
+bounds, and their assumptions and mappings to production must also be audited.
+
+## Audit existing coverage
+
+Read `formal/README.md` and the documentation of every relevant module. Review
+the actual `.tla` and `.cfg` files, registered configurations in
+`formal/protocol-models.txt`, negative controls in
+`scripts/protocol/protocolNegativeControls.ts`, and trace projections.
+
+- Compare model actions, guards, and assumptions with the production call
+  paths. Identify where a model describes a proposed fixed rule while
+  production still behaves like a vulnerable negative control.
+- Check that invariants and temporal properties express the claimed harm,
+  including the no-brick rule. Look for missing behaviors, vacuous properties,
+  and bounds or fairness assumptions that exclude a reachable failure.
+- Check that negative controls exercise the intended rule and name the
+  expected violation. Review abstraction maps and trace coverage for drift.
+- Report model defects and coverage gaps even when no production bug is
+  confirmed. Distinguish a model counterexample from a verified production
+  finding, and do not treat a passing bounded check as proof of correctness.
+
+## Run existing checks
+
+Use the mise-pinned Java and TLA+ tools for checks relevant to the audited
+scope, without changing model inputs or registering new cases:
 
 ```sh
-mise install java github:tlaplus/tlaplus
-bun run check:protocol-models            # every registered model|config pair
-bun run check:protocol-negative-controls # each control hits its violation
-bun run lint:formal-maps                 # model tokens and production seams
-bun run check:no-brick-projection        # verifier runs vs NoBrickedDevice
-bun run test:protocol-models             # checker script self-tests
+bun run check:protocol-models             # registered model/config pairs
+bun run check:protocol-negative-controls  # existing expected violations
+bun run lint:formal-maps                  # model tokens and production seams
+bun run check:no-brick-projection         # verifier runs vs NoBrickedDevice
+bun run check:protocol-traces             # trace fixture drift, no generation
+bun run check:protocol-projection         # implementation trace projection
 ```
 
-Read `formal/README.md` and the documentation of every module you change.
-
-To print a counterexample trace, run TLC the way `runTlc` in
-`scripts/protocol/tlcTools.ts` does, on a copy of the registered configuration
-with the vulnerable constant substituted. Write the copy outside the checkout:
-
-```sh
-"$(mise which java)" -XX:+UseParallelGC \
-  -jar "$(mise where github:tlaplus/tlaplus)/tla2tools.jar" \
-  -workers 1 -metadir "$(mktemp -d)" \
-  -config <derived.cfg> formal/<area>/<Module>.tla
-```
+Keep logs, TLC metadata, and captured counterexamples outside the checkout. To
+inspect an existing configuration directly, follow `runTlc` in
+`scripts/protocol/tlcTools.ts` and use a scratch `-metadir`. Do not regenerate
+fixtures or patch a model to make a finding reproducible. If existing coverage
+cannot express the finding, report the gap and the validation a follow-up must
+perform. Record checks not run and why.
 
 ## Classify each finding
 
@@ -46,7 +66,10 @@ primitive use, schema validation, and authorization leaks with no state
 machine. Record the reason and name the unit, property, or parity test that
 should cover the finding instead.
 
-## Choose the module
+## Recommend follow-up model work
+
+For each model-shaped finding, name the existing module that should cover it,
+or propose a new module if none fits:
 
 | Finding shape | Module |
 | --- | --- |
@@ -54,65 +77,43 @@ should cover the finding instead.
 | Grant subject or roster scope | `formal/container-keying/ContainerGrantScope.tla` |
 | KEK, keyring, or wrap recovery | `formal/container-keying/KeyringReachability.tla` |
 | Document sync, baseline, unlink, or tail settlement | the matching module in `formal/document-sync/` |
-| Nothing fits | a new module beside the closest existing one |
+| Nothing fits | propose a new module beside the closest existing one |
 
-Extend an existing module when its abstraction already contains the objects
-the finding needs. Add a new module rather than stretching one past the
-boundary its documentation states.
+Describe the recommendation in the report, without implementing it:
 
-## Encode the vulnerability
+1. The missing or incorrect behavior, the production seam it maps to, and the
+   rule or parameter and invariant or temporal property needed to express it.
+2. The proposed fixed and vulnerable configurations, negative control, and
+   expected violated property. Mark an expected counterexample as proposed
+   unless it was actually observed with existing checks.
+3. Any needed abstraction-map, model-documentation, registration, or trace
+   projection updates and regression scenarios.
+4. The follow-up validation commands, bounds, and expected outcomes, including
+   the no-brick check. Do not invent state counts or claim unrun checks passed.
 
-Keep `check:fast` green before production is fixed: register the fixed rule,
-and make the vulnerable rule a negative control.
+Recommend extending an existing module when its abstraction already contains
+the needed objects. Recommend a new module when extending one would exceed
+its documented boundary.
 
-1. Add a boolean `CONSTANT` named for the rule and gate the relevant action or
-   predicate on it. If no invariant or temporal property states the harm
-   directly, add one (for example `HonestServerNeverRefused` or `NoDataLoss`).
-2. Set the fixed value in every registered `.cfg` and run
-   `bun run check:protocol-models`. If the fixed rule also violates a property,
-   the proposed fix is wrong; revise it before reporting. This is how the
-   #2173 and #2174 currency rules were shown to brick devices.
-3. Add an entry to `NEGATIVE_CONTROLS` in `scripts/protocol/protocolNegativeControls.ts`
-   with the vulnerable value, the exact expected violation kind and name, and a
-   `why` that cites the issue and the production seam that currently behaves
-   that way. Run `bun run check:protocol-negative-controls`.
-4. Capture the shortest counterexample with the TLC command above and
-   summarize it step by step for the report.
-5. For a new module, commit its `.tla`, a bounded `.cfg`, and a `.md`, then add
-   the `model|config` pair to `formal/protocol-models.txt`, listing each
-   configuration exactly once. Keep bounds small enough for `check:fast`, and
-   record generated states, distinct states, and depth in the documentation,
-   as the existing model documents do.
+## Assess proposed client refusals
 
-## Document the mapping
+Evaluate every proposed client refusal against the no-brick rule using the
+existing models and production paths. If validation needs a new parameter in
+`NoBrickedDevice`, recommend that follow-up and require its honest
+configuration to satisfy `DeviceEventuallyCurrent` and
+`HonestServerNeverRefused`. Record that validation as pending; do not add the
+parameter during the audit or describe the proposal as model-checked. A
+refusal known to fail either property bricks devices and is not a valid fix.
 
-- In the module's `.md`, describe the new parameter and add
-  `Model action or predicate | Production seam` rows. Backticked model tokens
-  must be declared in the module, and backticked seams must exist in
-  production source, or `bun run lint:formal-maps` fails.
-- State that production currently behaves like negative control `<id>` until
-  the issue is fixed. The production fix PR removes that sentence.
-- A new document with map tables needs its exact table count in
-  `EXPECTED_TABLES` in `scripts/protocol/lintFormalAbstractionMaps.ts`.
-- When the finding sits on a seam with a trace projection
-  (`check:no-brick-projection` or `check:protocol-projection`), add a recorded
-  scenario for the vulnerable shape if the real verifier can drive it.
-- Keep prose wrapped at 80 columns; `bun run lint:markdown` checks it.
+## Report the model audit
 
-## Vet proposed client refusals
+For each finding, state one of:
 
-Before recommending a new client refusal, add it as a parameter to
-`NoBrickedDevice` and confirm the honest configuration still satisfies
-`DeviceEventuallyCurrent` and `HonestServerNeverRefused`. A refusal that fails
-either property bricks devices and is not a valid fix.
-
-## Report the model work
-
-For each finding, the report states one of:
-
-- `TLA+: <module> parameter <name>; negative control <id> violates <property>;`
-  followed by a short step summary of the counterexample.
+- `TLA+: <module>; existing coverage: <coverage or gap>; observed checks:
+  <results or not run>; recommended changes: <proposal>; pending validation:
+  <checks needed>.`
 - `Not model-shaped: <reason>; regression test: <test to add>.`
 
-Also list the branch, the commands run, and their results. Bounded model
-checking explores only the configured bounds; do not describe it as a proof.
+Summarize any observed counterexample step by step, with its configuration,
+bounds, and actual state counts. Separate existing check results from proposed
+work, and state that no formal-model changes were made during the audit.
