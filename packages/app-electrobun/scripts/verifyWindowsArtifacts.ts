@@ -8,77 +8,7 @@ import {
   windowsReleaseNames,
 } from "./windowsReleaseArtifacts";
 
-const tier = process.argv[2] ?? "";
-const names = windowsReleaseNames(tier);
-const { BUILD_GIT_SHA: commit } = process.env;
-assert.match(commit ?? "", /^[a-f0-9]{40}$/);
-const packageRoot = resolve(import.meta.dirname, "..");
-const artifacts = join(packageRoot, "build/artifacts");
-const temp = await mkdtemp(join(tmpdir(), "windows-artifacts-"));
-try {
-  // Windows' bsdtar understands both the installer ZIP and the update tar.
-  const tar =
-    process.platform === "win32" ? "C:/Windows/System32/tar.exe" : "tar";
-  const list = (path: string) =>
-    execFileSync(tar, ["-tf", path], { encoding: "utf8" }).split(/\r?\n/);
-  const installerContents = list(join(artifacts, names.installer));
-  assert.ok(
-    installerContents.some((name) => name.endsWith(".exe")),
-    "Missing setup executable",
-  );
-  assert.ok(
-    installerContents.some((name) => name.endsWith(".tar.zst")),
-    "Missing installer payload",
-  );
-  const installerRoot = join(temp, "installer");
-  await mkdir(installerRoot);
-  execFileSync(tar, [
-    "-xf",
-    join(artifacts, names.installer),
-    "-C",
-    installerRoot,
-  ]);
-  const setupStem =
-    tier === "staging" ? "Tearleads-Setup-canary" : "Tearleads-Setup";
-  assert.ok(await Bun.file(join(installerRoot, `${setupStem}.exe`)).exists());
-  assert.equal(
-    await windowsArtifactDigest(
-      join(installerRoot, ".installer", `${setupStem}.tar.zst`),
-    ),
-    await windowsArtifactDigest(join(artifacts, names.archive)),
-    "Installer payload must match the updater archive",
-  );
-  const installerMetadata = await Bun.file(
-    join(installerRoot, ".installer", `${setupStem}.metadata.json`),
-  ).json();
-  const updateTar = join(temp, "update.tar");
-  await Bun.write(
-    updateTar,
-    Bun.zstdDecompressSync(
-      await Bun.file(join(artifacts, names.archive)).arrayBuffer(),
-    ),
-  );
-  const paths = list(updateTar);
-  assert.ok(
-    ![...paths, ...installerContents].some((name) => name.endsWith(".map")),
-    "Source maps must not ship",
-  );
-  const updater = await import(
-    join(packageRoot, ".hutch/devkit/api/sdks/main/core/Updater.ts")
-  );
-  const manifest = updater.validateUpdateManifest(
-    await Bun.file(join(artifacts, names.update)).json(),
-    {
-      identifier: "com.tearleads.app",
-      channel: names.channel,
-      platform: "win",
-      arch: "x64",
-    },
-  );
-  assert.equal(await updater.readUpdateHashFromTar(updateTar), manifest.hash);
-  assert.equal(installerMetadata.hash, manifest.hash);
-  execFileSync(tar, ["-xf", updateTar, "-C", temp]);
-  const resources = join(temp, names.appName, "Resources");
+async function verifyRendererAssets(resources: string, tier: string) {
   const view = join(resources, "app/views/mainview");
   assert.ok(await Bun.file(join(view, "index.html")).exists());
   assert.ok(await Bun.file(join(view, "worker.js")).exists());
@@ -97,6 +27,14 @@ try {
         : "https://api.tearleads.com",
     ),
   );
+}
+
+async function writeReleaseManifest(
+  artifacts: string,
+  tier: string,
+  commit: string,
+) {
+  const names = windowsReleaseNames(tier);
   const files = [names.installer, names.update, names.archive];
   const sha256 = Object.fromEntries(
     await Promise.all(
@@ -114,9 +52,125 @@ try {
     join(artifacts, "release.json"),
     JSON.stringify({ tier, commit, target: "win-x64", sha256 }, null, 2),
   );
-  console.log(
-    `Verified Windows ${tier} installer, updater hash, CEF, renderer, and SQLite assets.`,
+}
+
+async function verifyUpdateHash(
+  packageRoot: string,
+  artifacts: string,
+  tier: string,
+  updateTar: string,
+  installerHash: unknown,
+) {
+  const names = windowsReleaseNames(tier);
+  const updaterPath = join(
+    packageRoot,
+    ".hutch/devkit/api/sdks/main/core/Updater.ts",
   );
-} finally {
-  await rm(temp, { recursive: true, force: true });
+  const updater = await import(updaterPath);
+  const manifest = updater.validateUpdateManifest(
+    await Bun.file(join(artifacts, names.update)).json(),
+    {
+      identifier: "com.tearleads.app",
+      channel: names.channel,
+      platform: "win",
+      arch: "x64",
+    },
+  );
+  const updateHash = execFileSync(
+    process.execPath,
+    [
+      join(import.meta.dirname, "readWindowsUpdateHash.ts"),
+      updaterPath,
+      updateTar,
+    ],
+    { encoding: "utf8" },
+  ).trim();
+  assert.equal(updateHash, manifest.hash);
+  assert.equal(installerHash, manifest.hash);
+}
+
+export async function verifyWindowsArtifacts(
+  tier: string,
+  packageRoot: string,
+  commit: string,
+): Promise<void> {
+  const names = windowsReleaseNames(tier);
+  assert.match(commit ?? "", /^[a-f0-9]{40}$/);
+  const artifacts = join(packageRoot, "build/artifacts");
+  const temp = await mkdtemp(join(tmpdir(), "windows-artifacts-"));
+  try {
+    // Windows' bsdtar understands both the installer ZIP and the update tar.
+    const tar =
+      process.platform === "win32" ? "C:/Windows/System32/tar.exe" : "tar";
+    const list = (path: string) =>
+      execFileSync(tar, ["-tf", path], { encoding: "utf8" }).split(/\r?\n/);
+    const installerContents = list(join(artifacts, names.installer));
+    assert.ok(
+      installerContents.some((name) => name.endsWith(".exe")),
+      "Missing setup executable",
+    );
+    assert.ok(
+      installerContents.some((name) => name.endsWith(".tar.zst")),
+      "Missing installer payload",
+    );
+    const installerRoot = join(temp, "installer");
+    await mkdir(installerRoot);
+    execFileSync(tar, [
+      "-xf",
+      join(artifacts, names.installer),
+      "-C",
+      installerRoot,
+    ]);
+    const setupStem =
+      tier === "staging" ? "Tearleads-Setup-canary" : "Tearleads-Setup";
+    assert.ok(await Bun.file(join(installerRoot, `${setupStem}.exe`)).exists());
+    assert.equal(
+      await windowsArtifactDigest(
+        join(installerRoot, ".installer", `${setupStem}.tar.zst`),
+      ),
+      await windowsArtifactDigest(join(artifacts, names.archive)),
+      "Installer payload must match the updater archive",
+    );
+    const installerMetadata = await Bun.file(
+      join(installerRoot, ".installer", `${setupStem}.metadata.json`),
+    ).json();
+    const updateTar = join(temp, "update.tar");
+    await Bun.write(
+      updateTar,
+      Bun.zstdDecompressSync(
+        await Bun.file(join(artifacts, names.archive)).arrayBuffer(),
+      ),
+    );
+    const paths = list(updateTar);
+    assert.ok(
+      ![...paths, ...installerContents, ...(await readdir(artifacts))].some(
+        (name) => name.endsWith(".map"),
+      ),
+      "Source maps must not ship",
+    );
+    await verifyUpdateHash(
+      packageRoot,
+      artifacts,
+      tier,
+      updateTar,
+      installerMetadata.hash,
+    );
+    execFileSync(tar, ["-xf", updateTar, "-C", temp]);
+    await verifyRendererAssets(join(temp, names.appName, "Resources"), tier);
+    await writeReleaseManifest(artifacts, tier, commit);
+    console.log(
+      `Verified Windows ${tier} installer, updater hash, CEF, renderer, and SQLite assets.`,
+    );
+  } finally {
+    await rm(temp, { recursive: true, force: true });
+  }
+}
+
+if (import.meta.main) {
+  const { BUILD_GIT_SHA: commit } = process.env;
+  await verifyWindowsArtifacts(
+    process.argv[2] ?? "",
+    resolve(import.meta.dirname, ".."),
+    commit ?? "",
+  );
 }

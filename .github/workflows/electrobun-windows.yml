@@ -52,8 +52,11 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
-      - name: Verify Windows source-map staging
-        run: bun test ./packages/app-electrobun/scripts/windowsSourceMapStaging.test.ts ./packages/app-electrobun/scripts/sentryReleaseSource.test.ts
+      - name: Prepare Electrobun SDK
+        run: bun run --cwd packages/app-electrobun prepare:devkit
+
+      - name: Verify Windows archives and source-map staging
+        run: bun test ./packages/app-electrobun/scripts/verifyWindowsArtifacts.test.ts ./packages/app-electrobun/scripts/windowsSourceMapStaging.test.ts ./packages/app-electrobun/scripts/sentryReleaseSource.test.ts
 
       - name: Build and reopen the Windows CEF app
         shell: bash

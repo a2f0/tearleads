@@ -116,6 +116,7 @@ const baseConfig = {
         // Verifies the native Linux build before exporting its artifacts.
         "scripts/verifyLinuxArtifacts.ts",
         "scripts/verifyWindowsArtifacts.ts",
+        "scripts/readWindowsUpdateHash.ts",
         "scripts/releaseWindows.ts",
         // Invoked by the native CEF persistence smoke-test harnesses.
         "scripts/probeCefPersistence.ts",
