@@ -93,8 +93,9 @@ jobs:
       # credentials. Source maps are staged separately for the local publisher.
       - name: Export committed source
         run: |
-          mkdir -p "$RUNNER_TEMP/windows-release"
-          git archive HEAD | tar -x -C "$RUNNER_TEMP/windows-release"
+          release_root="$(cygpath -u "$RUNNER_TEMP")/windows-release"
+          mkdir -p "$release_root"
+          git archive HEAD | tar -x -C "$release_root"
 
       - name: Build and verify installer
         env:
@@ -103,7 +104,7 @@ jobs:
           SENTRY_ELECTROBUN_STAGING_DSN: ${{ vars.SENTRY_ELECTROBUN_STAGING_DSN }}
           SENTRY_ELECTROBUN_PRODUCTION_DSN: ${{ vars.SENTRY_ELECTROBUN_PRODUCTION_DSN }}
         run: |
-          cd "$RUNNER_TEMP/windows-release"
+          cd "$(cygpath -u "$RUNNER_TEMP")/windows-release"
           bun install --frozen-lockfile
           bash packages/app-electrobun/scripts/buildWindowsNative.sh "$RELEASE_TIER"
 
