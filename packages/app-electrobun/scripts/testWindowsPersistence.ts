@@ -3,6 +3,17 @@ import { mkdir, mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 
+import { installWindowsRelease } from "./installWindowsRelease";
+
+const [releaseTier, ...extra] = process.argv.slice(2);
+if (
+  extra.length ||
+  (releaseTier !== undefined &&
+    releaseTier !== "staging" &&
+    releaseTier !== "production")
+)
+  throw new Error("Usage: testWindowsPersistence.ts [staging|production]");
+
 if (process.platform !== "win32") {
   throw new Error("The Electrobun persistence smoke test requires Windows.");
 }
@@ -143,7 +154,14 @@ async function runRound(
 
 try {
   await mkdir(localAppData);
-  const launcherPath = await buildApp();
+  const launcherPath = releaseTier
+    ? await installWindowsRelease({
+        tier: releaseTier,
+        packageDir,
+        smokeRoot,
+        environment,
+      })
+    : await buildApp();
   await runRound("first", launcherPath);
   await runRound("reopen", launcherPath);
   console.log("Electrobun Windows CEF persistence smoke test passed.");

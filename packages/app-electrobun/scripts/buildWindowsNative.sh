@@ -25,3 +25,4 @@ cd "$REPO_ROOT"
 bunx turbo run build --filter='app-electrobun^...'
 sh packages/app-electrobun/scripts/buildElectrobun.sh --env="$CHANNEL"
 bun packages/app-electrobun/scripts/verifyWindowsArtifacts.ts "$1"
+bun packages/app-electrobun/scripts/testWindowsPersistence.ts "$1"

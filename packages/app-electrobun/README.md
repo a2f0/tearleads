@@ -271,7 +271,10 @@ when changing the toolchain.
 
 The **Electrobun Windows** workflow has a manual `tier` selector: `staging`,
 `production`, or `both`. It first checks Windows CEF persistence, then builds
-and verifies the selected x64 installers on `windows-2025`. The GitHub repository
+and verifies the selected x64 installers on `windows-2025`. Each release test
+runs the packaged setup executable, checks the installed build hash, then
+reopens the installed app twice and checks encrypted database persistence.
+The GitHub repository
 variables `SENTRY_ELECTROBUN_STAGING_DSN` and
 `SENTRY_ELECTROBUN_PRODUCTION_DSN` contain the public desktop DSNs. No AWS or
 Sentry upload token is needed on the runner. Release jobs build a committed
