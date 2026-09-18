@@ -1,5 +1,7 @@
 import type { Breadcrumb, ErrorEvent, Event, StackFrame } from "@sentry/core";
 import { isDiagnosticAction, isDiagnosticArea } from "./activity";
+import { apiErrorMessage, sanitizeApiTags } from "./apiDiagnostics";
+import { API_ERROR_TYPES } from "./apiVocabulary";
 
 export interface SentryPrivacyConfig {
   origin: string;
@@ -48,6 +50,31 @@ const SOURCES = new Set([
   "unhandled-error",
   "unhandled-rejection",
 ]);
+
+function safeErrorType(
+  type: string,
+  runtime: SentryPrivacyConfig["runtime"],
+): string {
+  if (ERROR_TYPES.has(type)) return type;
+  return runtime === "api" && API_ERROR_TYPES.has(type) ? type : "Error";
+}
+
+function diagnosticPolicy(
+  tags: Event["tags"],
+  runtime: SentryPrivacyConfig["runtime"],
+) {
+  if (runtime === "api") {
+    const apiTags = sanitizeApiTags(tags);
+    return {
+      tags: { ...apiTags, privacy: "api-allowlist-v2" },
+      message: apiErrorMessage(apiTags),
+    };
+  }
+  return {
+    tags: { privacy: "allowlist-v1" },
+    message: "Application error (message omitted)",
+  };
+}
 
 function safeFrame(
   frame: StackFrame,
@@ -141,7 +168,8 @@ export function sanitizeBreadcrumb(breadcrumb: Breadcrumb): Breadcrumb | null {
 }
 
 // Reconstruct from an allowlist, rather than trying to redact known secrets.
-// Error messages are untrusted: they can contain decrypted user content.
+// Error messages are untrusted: clients can contain decrypted content and API
+// drivers can include credentials, SQL values, and request data.
 export function sanitizeSentryEvent(
   event: Event,
   config: SentryPrivacyConfig,
@@ -158,6 +186,7 @@ export function sanitizeSentryEvent(
   // boundary still reports a generic failure if no usable stack is available.
   if (!frames.length && source !== "boundary" && !config.runtime) return null;
   const type = event.exception?.values?.[0]?.type ?? "Error";
+  const policy = diagnosticPolicy(event.tags, config.runtime);
   return {
     type: undefined,
     ...(typeof event.event_id === "string" &&
@@ -178,13 +207,13 @@ export function sanitizeSentryEvent(
     tags: {
       area: config.runtime ?? (isDiagnosticArea(area) ? area : "app"),
       diagnostic_source: source,
-      privacy: "allowlist-v1",
+      ...policy.tags,
     },
     exception: {
       values: [
         {
-          type: ERROR_TYPES.has(type) ? type : "Error",
-          value: "Application error (message omitted)",
+          type: safeErrorType(type, config.runtime),
+          value: policy.message,
           ...(frames.length ? { stacktrace: { frames } } : {}),
           mechanism: {
             type: "generic",

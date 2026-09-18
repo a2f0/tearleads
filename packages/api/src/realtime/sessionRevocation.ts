@@ -29,7 +29,7 @@ export function createSessionRevocationNotifier({
   clearInterest,
   onClearInterestError = (error) => {
     console.error("Failed to clear websocket interest store:", error);
-    reportBackgroundFailure(error);
+    reportBackgroundFailure(error, "session.clear-interest");
   },
   publishEvent,
 }: SessionRevocationNotifierDependencies) {

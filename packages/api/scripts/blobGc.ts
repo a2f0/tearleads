@@ -42,7 +42,7 @@ try {
   // the aggregate — which carries every per-object failure — is the only signal
   // that reclamation is wedged.
   console.error("Blob GC maintenance failed:", error);
-  reportBackgroundFailure(error);
+  reportBackgroundFailure(error, "blob.maintenance");
   process.exitCode = 1;
 } finally {
   await flushApiDiagnostics();

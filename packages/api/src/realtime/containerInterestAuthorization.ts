@@ -86,7 +86,7 @@ export class ContainerInterestAuthorizer {
         );
       } catch (error) {
         console.error("Failed to hydrate websocket interest:", error);
-        reportBackgroundFailure(error);
+        reportBackgroundFailure(error, "websocket.hydrate");
         if (!this.isOpen(ws)) return;
         // Reconnect cache is only an optimization. An empty baseline lets the
         // client's authoritative declaration recover without trusting the cache.
@@ -275,7 +275,7 @@ export class ContainerInterestAuthorizer {
       );
     } catch (error) {
       console.error("Failed to revalidate websocket interest:", error);
-      reportBackgroundFailure(error);
+      reportBackgroundFailure(error, "websocket.revalidate");
       this.evictUnconfirmed(ws, state, ids);
     }
   }
@@ -442,7 +442,7 @@ export class ContainerInterestAuthorizer {
         await operation();
       })
       .catch((error: unknown) => {
-        reportBackgroundFailure(error);
+        reportBackgroundFailure(error, "websocket.operation");
         if (this.states.get(ws) !== state) return;
         this.close(ws);
         this.router.close(ws);
