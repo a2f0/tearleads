@@ -215,6 +215,7 @@ test("moveDocumentLink queues synced document moves and applies the local projec
         ensureInitialized: async () => true,
         relink: async (input) => {
           relinkInputs.push(input);
+          await input.commitSideEffect?.(execSql);
           return {
             id: input.localId,
             containerId: input.containerId,
@@ -275,6 +276,7 @@ test("moveDocumentLink queues synced document moves and applies the local projec
     expect(relinkInputs).toEqual([
       {
         accessEpoch: 7,
+        commitSideEffect: expect.any(Function),
         containerId: "trash-container",
         documentId: "document-1",
         localId: "note-1",

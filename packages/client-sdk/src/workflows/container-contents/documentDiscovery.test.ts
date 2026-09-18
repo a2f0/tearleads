@@ -19,6 +19,7 @@ import {
   createDiscoveryParentLaneBatchMock,
   nullContainerDocumentWatermarks,
 } from "./documentDiscovery.testUtils";
+import type { DocumentLinkInput } from "./documentDiscoveryTypes";
 
 type CapturedInput = Omit<DiscoveredDocumentInput, "accessStateHash"> & {
   accessStateHash: string;
@@ -82,10 +83,7 @@ test("document discovery loads shared container notes", async () => {
     ReadonlyArray<ReferencedPrincipalStateResponse>
   > = [];
   const replaceDocumentLinksBatchCalls: Array<
-    ReadonlyArray<{
-      containerIds: ReadonlyArray<string>;
-      documentId: string;
-    }>
+    ReadonlyArray<DocumentLinkInput>
   > = [];
   const upsertDiscoveredDocumentsCalls: Array<ReadonlyArray<CapturedInput>> =
     [];
@@ -136,6 +134,7 @@ test("document discovery loads shared container notes", async () => {
   expect(replaceDocumentLinksBatchCalls).toEqual([
     [
       {
+        accessEpoch: 1,
         containerIds: ["shared-container"],
         documentId: "peer-note-document",
       },
@@ -460,10 +459,7 @@ test("manual refresh can discover documents across all visible containers", asyn
   const listContainerDocumentsCalls: string[] = [];
   const applyOrder: string[] = [];
   const replaceDocumentLinksBatchCalls: Array<
-    ReadonlyArray<{
-      containerIds: ReadonlyArray<string>;
-      documentId: string;
-    }>
+    ReadonlyArray<DocumentLinkInput>
   > = [];
   const upsertDiscoveredDocumentsCalls: Array<ReadonlyArray<CapturedInput>> =
     [];
@@ -541,10 +537,12 @@ test("manual refresh can discover documents across all visible containers", asyn
   expect(replaceDocumentLinksBatchCalls).toEqual([
     [
       {
+        accessEpoch: 1,
         containerIds: ["container-a"],
         documentId: "document-a",
       },
       {
+        accessEpoch: 2,
         containerIds: ["container-b"],
         documentId: "document-b",
       },
@@ -623,10 +621,7 @@ test("manual refresh deduplicates principal references and document inputs", asy
     ReadonlyArray<ReferencedPrincipalStateResponse>
   > = [];
   const replaceDocumentLinksBatchCalls: Array<
-    ReadonlyArray<{
-      containerIds: ReadonlyArray<string>;
-      documentId: string;
-    }>
+    ReadonlyArray<DocumentLinkInput>
   > = [];
   const upsertDiscoveredDocumentsCalls: Array<ReadonlyArray<CapturedInput>> =
     [];
@@ -662,6 +657,7 @@ test("manual refresh deduplicates principal references and document inputs", asy
   expect(replaceDocumentLinksBatchCalls).toEqual([
     [
       {
+        accessEpoch: 1,
         containerIds: ["container-a", "container-b"],
         documentId: "shared-document",
       },
@@ -685,10 +681,7 @@ test("manual refresh deduplicates principal references and document inputs", asy
 test("manual refresh ignores empty container ids", async () => {
   const listContainerDocumentsCalls: string[] = [];
   const replaceDocumentLinksBatchCalls: Array<
-    ReadonlyArray<{
-      containerIds: ReadonlyArray<string>;
-      documentId: string;
-    }>
+    ReadonlyArray<DocumentLinkInput>
   > = [];
 
   await discoverAllContainerDocuments({
@@ -816,10 +809,7 @@ test("manual refresh API facade discovers documents for every remote container",
   }> = [];
   const listContainerDocumentsCalls: string[] = [];
   const replaceDocumentLinksBatchCalls: Array<
-    ReadonlyArray<{
-      containerIds: ReadonlyArray<string>;
-      documentId: string;
-    }>
+    ReadonlyArray<DocumentLinkInput>
   > = [];
 
   const discovered = await refreshAllContainerDocumentsFromApi({
@@ -881,6 +871,7 @@ test("manual refresh API facade discovers documents for every remote container",
   expect(replaceDocumentLinksBatchCalls).toEqual([
     [
       {
+        accessEpoch: 1,
         containerIds: ["container-a"],
         documentId: "document-container-a",
       },

@@ -1,4 +1,10 @@
-import { readLinkedContainerIdsFromDocumentManifest } from "../../data/documents/shared/projection";
+import type { VerifiedDocumentLinkSetManifest } from "@tearleads/crypto";
+import type { DocumentWriterProjectionResponse } from "@tearleads/validators/response";
+import {
+  assertDocumentWriterProjectionConsistent,
+  readLinkedContainerIdsFromDocumentManifest,
+} from "../../data/documents/shared/projection";
+import { persistedDocumentCreateStateFromWriterProjection } from "../../data/documents/shared/responses";
 import { errorMessage } from "../../data/errorMessage";
 import type { ProjectionUserKeyResolver } from "../../data/keyingProjectionVerification";
 import { reportAndRethrowKeyingVerificationError } from "../../data/keyingProjectionVerification/error";
@@ -131,17 +137,39 @@ function containerDocumentMoveResult(input: {
   };
 }
 
-function containerDocumentAlreadyMovedResult(input: {
+async function containerDocumentAlreadyMovedResult(input: {
+  writerProjection: DocumentWriterProjectionResponse;
+  resolveProjectionUserKey: ProjectionUserKeyResolver;
+  runtime: ContainerDocumentLinkRuntime;
+  isCurrent?: (() => boolean) | undefined;
   linkedContainerIds: readonly string[];
   nextContainerId: string;
   status: MoveRemoteContainerDocumentStatus;
-}): MoveRemoteContainerDocumentResult {
+}): Promise<MoveRemoteContainerDocumentResult> {
+  const verified: { head?: VerifiedDocumentLinkSetManifest | undefined } = {};
+  await assertDocumentWriterProjectionConsistent(input.writerProjection, {
+    execSql: input.runtime.infra.execSql,
+    resolveProjectionUserKey: input.resolveProjectionUserKey,
+    stillCurrent: input.isCurrent,
+    warmReferencedPrincipalPolicies: createRuntimePrincipalPolicyWarmer(
+      input.runtime,
+    ),
+    onVerifiedAuthorization: (authorization) => {
+      verified.head = authorization.documentManifestByHash.get(
+        input.writerProjection.documentManifest.manifestHash,
+      );
+    },
+  });
+  if (!verified.head)
+    throw new Error("Move replay lacks a verified document head");
   return {
-    accessEpoch: null,
-    accessStateHash: null,
+    accessEpoch: verified.head.state.epoch,
+    accessStateHash: verified.head.manifestHash,
     linkedContainerIds: input.linkedContainerIds,
     nextContainerId: input.nextContainerId,
-    remoteState: null,
+    remoteState: persistedDocumentCreateStateFromWriterProjection(
+      input.writerProjection,
+    ),
     status: input.status,
   };
 }
@@ -320,6 +348,8 @@ export async function moveRemoteContainerDocument(input: {
   if (!writerProjection || input.isCurrent?.() === false) {
     return null;
   }
+  if (writerProjection.documentId !== documentId)
+    throw new Error("Move replay document id mismatch");
   const initialLinkedContainerIds =
     readLinkedContainerIdsFromDocumentManifest(writerProjection);
 
@@ -377,6 +407,10 @@ export async function moveRemoteContainerDocument(input: {
         status,
       })
     : containerDocumentAlreadyMovedResult({
+        writerProjection,
+        resolveProjectionUserKey,
+        runtime,
+        isCurrent: input.isCurrent,
         linkedContainerIds: latestLinkedContainerIds,
         nextContainerId,
         status,

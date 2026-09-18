@@ -127,7 +127,10 @@ export interface DocumentStoreFacade extends DocumentStore {
   rebindTo: (store: DocumentStore) => void;
 }
 
-export type PersistedDocumentListener = (document: DocumentSummary) => void;
+export type PersistedDocumentListener = (
+  document: DocumentSummary,
+  change: { readonly placementChanged: boolean },
+) => void;
 
 export interface DocumentStoreRelinkInput extends RelinkPersistedDocumentInput {
   contentKeyBundle?: string | null | undefined;

@@ -101,6 +101,7 @@ export interface DocumentStorePersistenceEffects {
   emitPersistedDocument: (
     domainScope: DomainScope,
     persistedDocument: DocumentSummary,
+    placementChanged?: boolean | undefined,
   ) => void;
   registerDocumentIdentity: (
     domainScope: DomainScope,

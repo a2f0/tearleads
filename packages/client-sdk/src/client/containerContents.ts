@@ -6,6 +6,7 @@ import {
   getOrCreateContainerContentsStore,
 } from "../stores/container-contents";
 import { openDocumentStore } from "../stores/documents";
+import { relinkDocumentStoreWithCommitSideEffect } from "../stores/documents/documentStore/internalRelink";
 import {
   type BlobInfoInput,
   type BlobInfoList,
@@ -145,12 +146,24 @@ function createDocumentLinkHost(
   return {
     documentWorkflowRuntime: runtime.documentRuntime,
     mergeDocumentSummary,
-    openDocumentStore: (input) =>
-      runtime.openDocument({
+    openDocumentStore: (input) => {
+      const store = runtime.openDocument({
         containerId: input.containerId,
         documentId: input.documentId,
         localId: input.localId,
-      }),
+      });
+      return {
+        ...store,
+        relink: ({ commitSideEffect, ...relinkInput }) =>
+          commitSideEffect
+            ? relinkDocumentStoreWithCommitSideEffect(
+                store,
+                relinkInput,
+                commitSideEffect,
+              )
+            : store.relink(relinkInput),
+      };
+    },
   };
 }
 

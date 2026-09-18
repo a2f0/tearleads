@@ -44,8 +44,14 @@ export interface LocalProjectionStore {
   setActiveContainer: (containerId: string | null) => void;
   getActiveContainerId: () => string | null;
   applyReconciled: (delta: LocalProjectionReconciledDelta) => void;
+  loadContainerDelta: (
+    containerId: string,
+  ) => Promise<LocalProjectionReconciledDelta>;
   removePersistedDocument: (localId: string) => void;
-  refreshPersistedDocument: (document: DocumentSummary) => void;
+  refreshPersistedDocument: (
+    document: DocumentSummary,
+    placementChanged?: boolean,
+  ) => void;
   updateRuntime: (runtime: ContainerContentsStoreRuntime) => void;
   /** Registered by the reconciler; returns an unsubscribe handle. */
   onReconcileSignal: (listener: LocalProjectionReconcileListener) => () => void;
@@ -54,6 +60,8 @@ export interface LocalProjectionStore {
 
 interface LocalProjectionStoreState {
   activeContainerId: string | null;
+  documentRevision: number;
+  deltaRevisions: WeakMap<LocalProjectionReconciledDelta, number>;
   cache: SummaryCache;
   containerStore: ContainerContentsStore;
   hydratedContainerSummaries: boolean;
@@ -197,7 +205,9 @@ function refreshContainerSummaries(
 function refreshPersistedDocument(
   state: LocalProjectionStoreState,
   document: DocumentSummary,
+  placementChanged = false,
 ): void {
+  state.documentRevision += 1;
   const containerIds = new Set(state.pendingSummaryReads.keys());
   if (
     state.activeContainerId &&
@@ -214,7 +224,7 @@ function refreshPersistedDocument(
     }
   }
   for (const containerId of containerIds) {
-    refreshContainerSummaries(state, containerId);
+    refreshContainerSummaries(state, containerId, placementChanged);
   }
 }
 
@@ -266,6 +276,7 @@ function publishHydration(state: LocalProjectionStoreState): boolean {
 }
 
 function resetProjection(state: LocalProjectionStoreState): void {
+  state.documentRevision += 1;
   resetSummaryCache(state.cache);
   state.pendingSummaryReads.clear();
   state.hydratedContainerSummaries = false;
@@ -315,6 +326,7 @@ function removePersistedDocumentFromCache(
   state: LocalProjectionStoreState,
   localId: string,
 ): void {
+  state.documentRevision += 1;
   // The deleted row may exist only in an in-flight first read, so invalidating
   // just containers that already cached it would allow it to reappear offline.
   for (const containerId of state.pendingSummaryReads.keys()) {
@@ -363,6 +375,8 @@ export function createLocalProjectionStore(input: {
 }): LocalProjectionStore {
   const state: LocalProjectionStoreState = {
     activeContainerId: null,
+    documentRevision: 0,
+    deltaRevisions: new WeakMap(),
     cache: createSummaryCache(),
     containerStore: input.containerStore,
     hydratedContainerSummaries: false,
@@ -423,7 +437,22 @@ export function createLocalProjectionStore(input: {
       });
     },
     getActiveContainerId: () => state.activeContainerId,
+    loadContainerDelta: async (containerId) => {
+      const revision = state.documentRevision;
+      const documents = await loadLocalContainerProjectionDocumentsFromRuntime({
+        containerIds: [containerId],
+        runtime: state.runtime,
+      });
+      const delta = { containerId, ...documents };
+      state.deltaRevisions.set(delta, revision);
+      return delta;
+    },
     applyReconciled: (delta) => {
+      const revision = state.deltaRevisions.get(delta);
+      if (revision !== undefined && revision !== state.documentRevision) {
+        refreshContainerSummaries(state, delta.containerId, true);
+        return;
+      }
       if (state.pendingSummaryReads.has(delta.containerId)) {
         refreshContainerSummaries(state, delta.containerId, true);
       }
@@ -433,8 +462,8 @@ export function createLocalProjectionStore(input: {
     },
     removePersistedDocument: (localId) =>
       removePersistedDocumentFromCache(state, localId),
-    refreshPersistedDocument: (document) =>
-      refreshPersistedDocument(state, document),
+    refreshPersistedDocument: (document, placementChanged) =>
+      refreshPersistedDocument(state, document, placementChanged),
     updateRuntime: (runtime) => updateLocalProjectionRuntime(state, runtime),
     onReconcileSignal: (listener) => {
       state.reconcileListeners.add(listener);

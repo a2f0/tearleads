@@ -651,3 +651,11 @@ bun run --filter='@tearleads/client-sdk' build
   workflow, or store package facades directly.
 - Product window vocabulary such as `OrgManager` and `mini-app` stays in
   `packages/app`; SDK source uses platform workflow names.
+
+## Document persistence notifications
+
+`PersistedDocumentListener` receives the saved summary and a change descriptor
+with `placementChanged`. Creates, identity changes, and structural relinks set
+this flag, including link changes that keep the same preferred container.
+Device-first views discard in-flight reads on placement changes; ordinary content
+saves can still publish an initial read before the trailing refresh.

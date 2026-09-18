@@ -2,11 +2,9 @@ import { DEFAULT_DOCUMENT_ACCESS_EPOCH } from "../../data/documents/documentCons
 import type { DocumentSummary } from "../../data/documents/documentSummary";
 import { uniqueSortedStrings } from "../../data/documents/shared/readers";
 import { sqlDocumentMoveIntentPersistence } from "../../data/persistence/container-contents/documentMoveIntentPersistence";
+import { sqlDocumentContainerProjectionPersistence } from "../../data/persistence/containers/documentContainerProjectionPersistence";
 import { defaultDocumentsPersistence } from "../documents";
-import {
-  listDocumentLinkedContainerIds,
-  replaceDocumentLinks,
-} from "./documentLinks";
+import { listDocumentLinkedContainerIds } from "./documentLinks";
 import { relinkContainerDocumentLocally } from "./documentLocalRelink";
 import type {
   DocumentStructuralMutationHost,
@@ -94,16 +92,7 @@ export async function moveRemoteDocumentLinkLocally<TRuntime>(params: {
   // back. This mirrors container move intents: UI state should not wait on the
   // server, but the remote contract still converges through the normal writer
   // projection path.
-  await sqlDocumentMoveIntentPersistence.enqueueMoveIntent(
-    runtime.infra.execSql,
-    {
-      documentId: note.documentId,
-      localId: note.id,
-      replaceLinkedContainers,
-      sourceContainerId: note.containerId,
-      targetContainerId,
-    },
-  );
+  const intentId = crypto.randomUUID();
 
   const movedNote = await relinkContainerDocumentLocally({
     accessEpoch: await resolveLocalMoveAccessEpoch({
@@ -113,6 +102,22 @@ export async function moveRemoteDocumentLinkLocally<TRuntime>(params: {
     currentDocumentStore,
     host,
     note,
+    commitSideEffect: async (execSql) => {
+      await sqlDocumentMoveIntentPersistence.enqueueMoveIntent(execSql, {
+        id: intentId,
+        documentId: note.documentId,
+        localId: note.id,
+        replaceLinkedContainers,
+        sourceContainerId: note.containerId,
+        targetContainerId,
+      });
+      await sqlDocumentContainerProjectionPersistence.replaceDocumentLinks(
+        execSql,
+        note.documentId,
+        linkedContainerIds,
+        { moveIntentId: intentId },
+      );
+    },
     requestSync: false,
     runtime,
     targetContainerId,
@@ -121,11 +126,6 @@ export async function moveRemoteDocumentLinkLocally<TRuntime>(params: {
     return { linksChanged: false, note: null };
   }
 
-  await replaceDocumentLinks(
-    runtime.infra.execSql,
-    note.documentId,
-    linkedContainerIds,
-  );
   setLinkedContainerIdsForDocument(note.documentId, linkedContainerIds);
   expandNode(targetContainerId);
   scheduleSync?.();

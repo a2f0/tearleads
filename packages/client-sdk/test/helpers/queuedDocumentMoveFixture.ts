@@ -12,9 +12,15 @@ import type {
   DocumentWriterProjectionResponse,
 } from "@tearleads/validators/response";
 import { defaultDocumentProjectorRegistry } from "../../src/data/documents/documentKinds";
+import { readLinkedContainerIdsFromDocumentManifest } from "../../src/data/documents/shared/projectionTargets";
 import { createDomainScope } from "../../src/data/domainScope";
 import { sqlDocumentMoveIntentPersistence } from "../../src/data/persistence/container-contents/documentMoveIntentPersistence";
 import { sqlDocumentContainerProjectionPersistence } from "../../src/data/persistence/containers/documentContainerProjectionPersistence";
+import { getClientSQLitePersistenceRuntime } from "../../src/data/sqlite/sqlitePersistenceRuntime";
+import {
+  type ExecSql,
+  runSerializedSqlMutation,
+} from "../../src/data/sqlite/sqlSchema";
 import { createTestContainerState } from "../../src/workflows/container-contents/container-state/containerState.testFixtures";
 import { syncPendingDocumentMoveIntents } from "../../src/workflows/container-contents/documentMoveIntentSync";
 import type { DocumentStructuralMutationRelinkInput } from "../../src/workflows/container-contents/documentStructure";
@@ -61,6 +67,7 @@ export async function runQueuedDocumentMoveFixture(input: {
   linkFailureTimes?: number | undefined;
   /** Structural passes to run against the same queue (default 1). */
   passes?: number | undefined;
+  beforeUnlink?: ((execSql: ExecSql) => Promise<void>) | undefined;
   /**
    * Link the document remotely into a third container ("extra") that the
    * LOCAL link projection does not know about: the verified manifest lists
@@ -71,6 +78,7 @@ export async function runQueuedDocumentMoveFixture(input: {
   sourceContainerId?: string | null | undefined;
   testDbName: string;
   unlinkAvailable: boolean;
+  loseUnlinkResponseOnce?: boolean | undefined;
   unlinkFailure?: QueuedDocumentMoveFailure | undefined;
   /** Leading unlink submissions that fail with `unlinkFailure` (default: all). */
   unlinkFailureTimes?: number | undefined;
@@ -114,8 +122,6 @@ export async function runQueuedDocumentMoveFixture(input: {
       input.sourceContainerId === undefined
         ? rootProjection.containerId
         : input.sourceContainerId;
-    const localLinkedContainerIds =
-      sourceContainerId === null ? [] : [rootProjection.containerId];
     const resolveProjectionUserKey = async (userId: string) =>
       userId === author.signerUserId
         ? createTestTrustedUserIdentity({
@@ -159,10 +165,7 @@ export async function runQueuedDocumentMoveFixture(input: {
     await defaultDocumentsPersistence.saveDocument(execSql, {
       accessEpoch: 1,
       accessStateHash: createdResponse.accessManifest.manifestHash,
-      containerId:
-        sourceContainerId === null
-          ? trashProjection.containerId
-          : rootProjection.containerId,
+      containerId: trashProjection.containerId,
       contentKeyBundle: null,
       documentId,
       documentKekTargets: null,
@@ -177,7 +180,7 @@ export async function runQueuedDocumentMoveFixture(input: {
     await sqlDocumentContainerProjectionPersistence.replaceDocumentLinks(
       execSql,
       documentId,
-      localLinkedContainerIds,
+      [trashProjection.containerId],
     );
     await sqlDocumentMoveIntentPersistence.enqueueMoveIntent(execSql, {
       documentId,
@@ -206,6 +209,7 @@ export async function runQueuedDocumentMoveFixture(input: {
       remoteRequests,
       submittedOperations,
       unlinkAvailable: input.unlinkAvailable,
+      loseUnlinkResponseOnce: input.loseUnlinkResponseOnce,
       writerProjection: initialWriterProjection,
     });
     const runtime: ContainerContentsWorkflowRuntime = {
@@ -317,7 +321,10 @@ export async function runQueuedDocumentMoveFixture(input: {
             }
           : {}),
         linkDocument: remote.submitLink,
-        unlinkDocument: remote.submitUnlink,
+        unlinkDocument: async (documentId, request) => {
+          await input.beforeUnlink?.(execSql);
+          return remote.submitUnlink(documentId, request);
+        },
       }) as unknown as ContainerContentsWorkflowRuntime["apiClient"],
       auth: {
         isAuthenticated: true,
@@ -383,11 +390,6 @@ export async function runQueuedDocumentMoveFixture(input: {
           `Fixture pre-link into the remote-only source failed: ${preLinkFailures.join("; ")}`,
         );
       }
-      await sqlDocumentContainerProjectionPersistence.replaceDocumentLinks(
-        execSql,
-        documentId,
-        localLinkedContainerIds,
-      );
       linkFailuresRemaining = scenarioBudgets.link;
       unlinkFailuresRemaining = scenarioBudgets.unlink;
       submittedOperations.length = 0;
@@ -404,14 +406,19 @@ export async function runQueuedDocumentMoveFixture(input: {
         ensureInitialized: async () => true,
         relink: async (relinkInput) => {
           relinkInputs.push(relinkInput);
-          await relinkInput.commitSideEffect?.(execSql);
-          return {
-            containerId: relinkInput.containerId,
-            documentId: relinkInput.documentId,
-            id: relinkInput.localId,
-            title: "Queued move",
-            updatedAt: "2026-06-23T00:00:00.000Z",
-          };
+          return runSerializedSqlMutation(execSql, (lockedExecSql) =>
+            getClientSQLitePersistenceRuntime(lockedExecSql).transaction(
+              async () => {
+                const summary =
+                  await defaultDocumentsPersistence.relinkPersistedDocument(
+                    lockedExecSql,
+                    relinkInput,
+                  );
+                await relinkInput.commitSideEffect?.(lockedExecSql);
+                return summary;
+              },
+            ),
+          );
         },
         requestSync: () => undefined,
         updateRuntime: () => undefined,
@@ -468,9 +475,16 @@ export async function runQueuedDocumentMoveFixture(input: {
       );
     return {
       documentId,
+      persistedDocument: await defaultDocumentsPersistence.loadDocument(
+        execSql,
+        "queued-move-local",
+      ),
       extraContainerId: extraProjection?.containerId ?? null,
       intentRows,
       linkedContainerIds,
+      remoteLinkedContainerIds: readLinkedContainerIdsFromDocumentManifest(
+        remote.writerProjection,
+      ),
       passes,
       pendingIntents,
       relinkInputs,

@@ -136,16 +136,14 @@ async function persistMovedDocumentReplay<TRuntime>(input: {
     documentId: intent.documentId,
     localId: intent.localId,
     ...(moved.remoteState ?? {}),
-    ...(moved.status === "partial"
-      ? {}
-      : {
-          commitSideEffect: (transactionExecSql) =>
-            settleDocumentMoveIntent({
-              execSql: transactionExecSql,
-              intent,
-              isCurrent: input.isCurrent,
-            }),
-        }),
+    commitSideEffect: (transactionExecSql) =>
+      settleDocumentMoveIntent({
+        execSql: transactionExecSql,
+        intent,
+        isCurrent: input.isCurrent,
+        linkedContainerIds: moved.linkedContainerIds,
+        partial: moved.status === "partial",
+      }),
   };
 
   return relinkMovedDocumentStore({

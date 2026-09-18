@@ -46,6 +46,7 @@ test("a remote orphan moves from null scope into a writable container", async ()
           ensureInitialized: async () => true,
           relink: async (relinkInput) => {
             relinkInputs.push(relinkInput);
+            await relinkInput.commitSideEffect?.(execSql);
             return {
               containerId: relinkInput.containerId,
               documentId: relinkInput.documentId,
@@ -115,6 +116,7 @@ test("a remote orphan moves from null scope into a writable container", async ()
     expect(relinkInputs).toEqual([
       {
         accessEpoch: 7,
+        commitSideEffect: expect.any(Function),
         containerId: "documents-container",
         documentId: "document-1",
         localId: "note-1",

@@ -286,8 +286,11 @@ export function createDocumentStoreFacade(
 export function emitPersistedDocument(
   domainScope: DomainScope,
   persistedDocument: Parameters<PersistedDocumentListener>[0],
+  placementChanged = false,
 ): void {
-  persistedDocumentListeners.emit(domainScope, persistedDocument);
+  persistedDocumentListeners.emit(domainScope, persistedDocument, {
+    placementChanged,
+  });
 }
 
 export function subscribeToPersistedDocuments(

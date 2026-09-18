@@ -18,7 +18,6 @@ import {
 } from "../stores/documents/registry";
 import {
   getOrCreateLocalProjectionStore,
-  type LocalProjectionReconciledDelta,
   type LocalProjectionStore,
   type LocalProjectionView,
 } from "../stores/local-projection";
@@ -31,7 +30,6 @@ import {
 import { createReconciledDocumentContentPuller } from "../sync/reconciliation/documentContentPull";
 import { listAllContainerDocumentIdsFromApi } from "../workflows/container-contents/containerDocumentListing";
 import { probeUndiscoveredRemoteDocumentBatch } from "../workflows/container-contents/documentHydrationProbe";
-import { loadLocalContainerProjectionDocumentsFromRuntime } from "../workflows/container-contents/projectionView";
 import {
   type ContainerContentsStoreWorkflowRuntime,
   createContainerContentsDocumentsRuntime,
@@ -203,7 +201,8 @@ class DeviceFirstService implements DeviceFirst {
       });
     const unsubscribePersistedDocuments = subscribeToPersistedDocuments(
       domainScope,
-      (document) => store.refreshPersistedDocument(document),
+      (document, change) =>
+        store.refreshPersistedDocument(document, change.placementChanged),
     );
     service.start();
 
@@ -300,21 +299,8 @@ class DeviceFirstService implements DeviceFirst {
           onFullListing,
           runtimeService,
         }),
-      loadContainerDelta: async (
-        containerId,
-      ): Promise<LocalProjectionReconciledDelta> => {
-        const documents =
-          await loadLocalContainerProjectionDocumentsFromRuntime({
-            containerIds: [containerId],
-            runtime: this.workflowRuntime(),
-          });
-        return {
-          containerId,
-          documentSummaries: documents.documentSummaries,
-          linkedContainerIdsByDocumentId:
-            documents.linkedContainerIdsByDocumentId,
-        };
-      },
+      loadContainerDelta: (containerId) =>
+        store.loadContainerDelta(containerId),
       applyReconciled: (delta) => store.applyReconciled(delta),
       requestDocumentContentPull,
       ...createInitialDocumentProbeHost(runtimeService, domainScope),

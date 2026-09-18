@@ -47,8 +47,8 @@
       "bytes": 18865
     },
     "docs/developer/client-sdk.md": {
-      "lines": 653,
-      "bytes": 32625
+      "lines": 661,
+      "bytes": 33014
     },
     "docs/developer/revenuecat-native-stores.md": {
       "lines": 364,
@@ -339,8 +339,8 @@
       "bytes": 15214
     },
     "packages/client-sdk/src/index.ts": {
-      "lines": 530,
-      "bytes": 15421
+      "lines": 531,
+      "bytes": 15502
     },
     "scripts/architecture/subsystems.ts": {
       "lines": 765,
@@ -349,6 +349,10 @@
     "packages/client-sdk/src/workflows/documents/syncPersistedProjectionIntegrity.test.ts": {
       "lines": 508,
       "bytes": 16825
+    },
+    "packages/client-sdk/src/workflows/README.md": {
+      "lines": 273,
+      "bytes": 20370
     }
   },
   "suppressions": {

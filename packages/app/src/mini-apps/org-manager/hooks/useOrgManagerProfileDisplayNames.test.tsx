@@ -122,7 +122,7 @@ function createTearleadsHarness(
     emit(document: DocumentSummary) {
       rows = [...rows.filter((row) => row.id !== document.id), document];
       for (const listener of listeners) {
-        listener(document);
+        listener(document, { placementChanged: false });
       }
     },
     list,

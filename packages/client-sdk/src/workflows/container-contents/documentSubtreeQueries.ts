@@ -123,7 +123,22 @@ export async function listContainerContentsDocumentsForContainers(
       documentIds,
     );
 
-  return { documentSummaries, linkedContainerIdsByDocumentId };
+  // An earlier link-id read can race a move. Recheck membership against the
+  // summaries and final link read so a fresh trash summary cannot ride stale
+  // root ids into the root view. Notification fences reject older summaries.
+  const requestedIds = new Set(containerIds);
+  return {
+    documentSummaries: documentSummaries.filter(
+      (summary) =>
+        (summary.containerId !== null &&
+          requestedIds.has(summary.containerId)) ||
+        (summary.documentId !== null &&
+          linkedContainerIdsByDocumentId
+            .get(summary.documentId)
+            ?.some((id) => requestedIds.has(id))),
+    ),
+    linkedContainerIdsByDocumentId,
+  };
 }
 
 function listContainerContentsContainerSubtreeIds(

@@ -1,4 +1,5 @@
 import { ATTACHMENT_NEGATIVE_CONTROLS } from "./protocolAttachmentNegativeControls";
+import { DOCUMENT_MOVE_NEGATIVE_CONTROLS } from "./protocolDocumentMoveNegativeControls";
 import { RECOVERY_NEGATIVE_CONTROLS } from "./protocolRecoveryNegativeControls";
 import { SYSTEM_DESTINATION_NEGATIVE_CONTROLS } from "./protocolSystemDestinationNegativeControls";
 
@@ -36,6 +37,7 @@ const NO_BRICK_ADVERSARY =
 
 export const NEGATIVE_CONTROLS: readonly NegativeControl[] = [
   ...ATTACHMENT_NEGATIVE_CONTROLS,
+  ...DOCUMENT_MOVE_NEGATIVE_CONTROLS,
   ...RECOVERY_NEGATIVE_CONTROLS,
   {
     id: "purged-queue-starts-remote-create",
