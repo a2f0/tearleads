@@ -59,6 +59,54 @@ test("a link added after a queued replace move survives its unlink phase", async
   expect(fixture.pendingIntents).toEqual([]);
 });
 
+test("moving a different link preserves an earlier queued move destination", async () => {
+  const fixture = await runQueuedDocumentMoveFixture({
+    testDbName: "queued-move-another-link",
+    extraLocalLink: true,
+    unlinkAvailable: true,
+    replaceLinkedContainers: false,
+    beforeReplay: async (execSql) => {
+      await intents.enqueueMoveIntent(execSql, {
+        id: "other-link-move",
+        documentId: "queued-move-document",
+        localId: "queued-move-local",
+        sourceContainerId: "queued-move-extra-container",
+        targetContainerId: "queued-move-root-container",
+      });
+      await links.replaceDocumentLinks(
+        execSql,
+        "queued-move-document",
+        ["queued-move-root-container", "queued-move-trash-container"],
+        { moveIntentId: "other-link-move" },
+      );
+    },
+  });
+  expect(fixture.syncedCount).toBe(1);
+  expect(fixture.remoteLinkedContainerIds).toEqual([
+    fixture.rootContainerId,
+    fixture.trashContainerId,
+  ]);
+  expect(fixture.linkedContainerIds).toEqual(fixture.remoteLinkedContainerIds);
+  expect(fixture.pendingIntents).toEqual([]);
+});
+
+test("additive settlement preserves a link activated during its remote request", async () => {
+  const fixture = await runQueuedDocumentMoveFixture({
+    testDbName: "queued-link-active-settlement",
+    linkOnly: true,
+    unlinkAvailable: false,
+    beforeLink: async (execSql) => {
+      await execSql(
+        "UPDATE document_projection SET container_id = ? WHERE local_id = ?",
+        ["queued-move-trash-container", "queued-move-local"],
+      );
+    },
+  });
+  expect(fixture.syncedCount).toBe(1);
+  expect(fixture.persistedDocument?.containerId).toBe(fixture.trashContainerId);
+  expect(fixture.pendingIntents).toEqual([]);
+});
+
 test("unlinking another container after activating a link preserves the queued move destination", async () => {
   const fixture = await runQueuedDocumentMoveFixture({
     testDbName: "queued-move-activate-unlink",

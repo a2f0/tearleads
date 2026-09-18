@@ -128,12 +128,19 @@ async function persistMovedDocumentReplay<TRuntime>(input: {
     return false;
   }
 
+  const targetContainerId =
+    intent.intentType === DOCUMENT_LINK_INTENT_TYPE &&
+    existingDocument.containerId &&
+    moved.linkedContainerIds.includes(existingDocument.containerId)
+      ? existingDocument.containerId
+      : moved.nextContainerId;
+
   const relinkInput: DocumentStructuralMutationRelinkInput = {
     accessEpoch: moved.accessEpoch ?? existingDocument.accessEpoch,
     ...(moved.accessStateHash === null
       ? {}
       : { accessStateHash: moved.accessStateHash }),
-    containerId: moved.nextContainerId,
+    containerId: targetContainerId,
     documentId: intent.documentId,
     localId: intent.localId,
     ...(moved.remoteState ?? {}),
@@ -152,7 +159,7 @@ async function persistMovedDocumentReplay<TRuntime>(input: {
     isCurrent: input.isCurrent,
     intent,
     relinkInput,
-    targetContainerId: moved.nextContainerId,
+    targetContainerId,
   });
 }
 

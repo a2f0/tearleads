@@ -41,6 +41,7 @@ function resolveTargets(
   input: PlacementIntentInput,
   previous: LinkTarget[],
   operation: "move" | "link" | "unlink",
+  previousIntent: typeof documentMoveIntents.$inferSelect | undefined,
 ): LinkTarget[] {
   const targets = new Map(
     previous.map((target) => [target.containerId, target.operation]),
@@ -52,6 +53,14 @@ function resolveTargets(
     targets.set(input.removedContainerId, "unlink");
   } else if (input.replaceLinkedContainers) targets.clear();
   else {
+    if (
+      previousIntent?.intentType === "document.move" &&
+      previousIntent.targetContainerId !== input.sourceContainerId &&
+      previousIntent.targetContainerId !== input.targetContainerId &&
+      targets.get(previousIntent.targetContainerId) !== "unlink"
+    ) {
+      targets.set(previousIntent.targetContainerId, "link");
+    }
     targets.delete(input.targetContainerId);
     if (
       input.sourceContainerId &&
@@ -121,7 +130,12 @@ async function enqueuePlacementIntent(
       const previousTargets = previous?.id
         ? await loadDocumentIntentLinkTargets(lockedExecSql, previous.id)
         : [];
-      const targets = resolveTargets(input, previousTargets, operation);
+      const targets = resolveTargets(
+        input,
+        previousTargets,
+        operation,
+        previous,
+      );
       const id = input.id ?? crypto.randomUUID();
       const updatedAt = new Date().toISOString();
       // An additive intent retains the active placement and any pending move.
