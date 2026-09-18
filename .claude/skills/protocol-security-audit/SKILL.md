@@ -1,6 +1,6 @@
 ---
 name: protocol-security-audit
-description: Audit the client-sdk ↔ API trust boundary in both directions (an honest client detects a dishonest API; an honest API detects a dishonest or misconfigured client) with parallel slice auditors, independent probe verification, TLA+ model updates for protocol-shaped findings, and a GitHub issue report. Use for a requested protocol security or sync-integrity audit, not a single-diff review.
+description: Audit the client-sdk ↔ API trust boundary in both directions (an honest client detects a dishonest API; an honest API detects a dishonest or misconfigured client) with parallel slice auditors, independent probe verification, read-only TLA+ model auditing and recommendations, and a GitHub issue report. Use for a requested protocol security or sync-integrity audit, not a single-diff review.
 ---
 
 # Protocol Security Audit
@@ -21,12 +21,16 @@ A **parity** gap, where the API accepts what honest client verifiers refuse,
 breaks both invariants at once and violates the no-brick invariant. Parity gaps
 have produced the most severe past findings, so hunt for them first.
 
-The deliverable is a verified findings report, TLA+ model updates for every
-protocol-shaped finding, and a GitHub issue. An audit request authorizes
-read-only analysis, scratch probes outside the checkout, and TLA+ model changes
-on a local branch. It does not authorize production fixes, pushes, or PRs
-unless the user asks. The repository is public: confirm before creating the
-issue unless the user already asked for one, and say that it discloses
+The deliverable is a verified findings report, including an audit of the
+existing TLA+ models and recommendations to fix or augment them, and a GitHub
+issue. An audit request authorizes read-only analysis, existing checks, and
+scratch probes outside the checkout. **Do not implement TLA+ updates as part
+of the audit.** This includes models, configurations, negative controls, trace
+fixtures, registries, and model documentation. Put proposed changes in the
+report; implementation requires a separate follow-up task. Do not create or
+commit an audit implementation branch, apply production fixes, push, or open
+PRs as part of the audit. The repository is public: confirm before creating
+the issue unless the user already asked for one, and say that it discloses
 exploitable paths.
 
 ## Arguments
@@ -124,22 +128,26 @@ Severity:
 - **Low:** metadata leaks, incident-ledger integrity, or attacks that need a
   malicious server plus a colluding member.
 
-## 4. Patch the TLA+ models
+## 4. Audit the TLA+ models and recommend changes
 
-Protocol-shaped findings update the formal models as part of the report.
-Follow [`references/formal-models.md`](references/formal-models.md):
+Audit the existing formal models without modifying them. Follow
+[`references/formal-models.md`](references/formal-models.md):
 
-1. Classify every verified finding as model-shaped or not, with a reason.
-2. For each model-shaped finding, encode the rule as a model parameter, keep
-   every registered configuration at the fixed value, and register a negative
-   control at the current vulnerable value that names the violated property.
-3. Run the formal checks and capture each TLC counterexample for the report.
-4. Commit the model changes on a local branch named
-   `audit/protocol-security-<yyyy-mm-dd>`, following the repository commit
-   conventions. Do not push unless the user asks.
+1. Review the relevant models, configurations, negative controls, and
+   production mappings for incorrect assumptions, missing behaviors, and gaps
+   in the properties they check, even if no production finding requires a
+   model change.
+2. Classify every verified finding as model-shaped or not, with a reason.
+3. For each model-shaped finding, report the existing coverage and recommend
+   the module, rule or parameter, property, configurations, negative controls,
+   and trace coverage that should be fixed or added in a follow-up task.
+4. Run relevant existing formal checks without changing their inputs. Capture
+   results and available counterexamples; if a finding needs new model work
+   to reproduce, record that limitation and the proposed validation instead.
 
 A finding that is not model-shaped still names the regression test (unit,
-property, or parity test) that would have caught it.
+property, or parity test) that would have caught it. Recommendations are not
+implemented or model-checked fixes; label their validation status explicitly.
 
 ## 5. Report
 
@@ -150,8 +158,9 @@ property, or parity test) that would have caught it.
    [`references/issue-template.md`](references/issue-template.md) in the
    scratchpad. After confirmation, or if the user asked for an issue, create
    it with `gh issue create --label bug --body-file <path>`.
-3. Offer to ship the TLA+ branch with the `ship-pr` or `open-pr` skill. Its
-   negative controls keep `check:fast` green before production fixes land.
+3. Include actionable TLA+ follow-up recommendations and their validation
+   gaps. State that no production or formal-model fixes were implemented as
+   part of the audit.
 4. Save a project memory with the audited revision, the issue number, the
    verification labels, and the fix status, so the next audit's known-issues
    list starts there.
