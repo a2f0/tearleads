@@ -153,64 +153,56 @@ export const sqlDocumentMoveIntentPersistence = {
   async listPendingMoveIntents(
     execSql: ExecSql,
   ): Promise<DocumentMoveIntentRecord[]> {
-    await ensureSqlTables(execSql, documentMoveIntentTables);
-    const { db } = getClientSQLitePersistenceRuntime(execSql);
-    const rows = await db
-      .select({
-        id: documentMoveIntents.id,
-        documentId: documentMoveIntents.documentId,
-        intentType: documentMoveIntents.intentType,
-        lastAttemptedAt: documentMoveIntents.lastAttemptedAt,
-        lastError: documentMoveIntents.lastError,
-        localId: documentMoveIntents.localId,
-        replaceLinkedContainers: documentMoveIntents.replaceLinkedContainers,
-        sourceContainerId: documentMoveIntents.sourceContainerId,
-        syncStatus: documentMoveIntents.syncStatus,
-        targetContainerId: documentMoveIntents.targetContainerId,
-        createdAt: documentMoveIntents.createdAt,
-        updatedAt: documentMoveIntents.updatedAt,
-      })
-      .from(documentMoveIntents)
-      // Blocked intents replay too: "blocked" names the reason the last
-      // attempt could not proceed (missing local doc / destination), not a
-      // terminal verdict. The blocking condition can heal after hydration or
-      // recovery, and re-checking is cheap — a still-blocked intent simply
-      // re-records its reason without counting as lane progress.
-      // Unavailable intents never replay: the server proved a cited container
-      // is gone, so every replay would re-issue the same doomed requests
-      // (#2278 #4). Only the tombstone cascade or a re-enqueue revives them.
-      .where(
-        and(
-          inArray(documentMoveIntents.syncStatus, ["pending", "blocked"]),
-          inArray(
-            documentMoveIntents.intentType,
-            DOCUMENT_PLACEMENT_INTENT_TYPES,
-          ),
-        ),
-      )
-      .orderBy(asc(documentMoveIntents.createdAt));
+    return runSerializedSqlMutation(execSql, async (lockedExecSql) => {
+      await ensureSqlTables(lockedExecSql, documentMoveIntentTables);
+      return getClientSQLitePersistenceRuntime(lockedExecSql).transaction(
+        async (tx) => {
+          const rows = await tx
+            .select()
+            .from(documentMoveIntents)
+            // Blocked intents replay too: "blocked" names the reason the last
+            // attempt could not proceed (missing local doc / destination), not a
+            // terminal verdict. The blocking condition can heal after hydration or
+            // recovery, and re-checking is cheap — a still-blocked intent simply
+            // re-records its reason without counting as lane progress.
+            // Unavailable intents never replay: the server proved a cited container
+            // is gone, so every replay would re-issue the same doomed requests
+            // (#2278 #4). Only the tombstone cascade or a re-enqueue revives them.
+            .where(
+              and(
+                inArray(documentMoveIntents.syncStatus, ["pending", "blocked"]),
+                inArray(
+                  documentMoveIntents.intentType,
+                  DOCUMENT_PLACEMENT_INTENT_TYPES,
+                ),
+              ),
+            )
+            .orderBy(asc(documentMoveIntents.createdAt));
 
-    return Promise.all(
-      rows.map(async (row) => {
-        const targets = await loadDocumentIntentLinkTargets(
-          execSql,
-          row.id ?? "",
-        );
-        const added = targets
-          .filter((target) => target.operation === "link")
-          .map((target) => target.containerId)
-          .sort();
-        const removed = targets
-          .filter((target) => target.operation === "unlink")
-          .map((target) => target.containerId)
-          .sort();
-        return {
-          ...mapDocumentMoveIntentRecord(row),
-          ...(added.length ? { additionalLinkContainerIds: added } : {}),
-          ...(removed.length ? { removedLinkContainerIds: removed } : {}),
-        };
-      }),
-    );
+          return Promise.all(
+            rows.map(async (row) => {
+              const targets = await loadDocumentIntentLinkTargets(
+                lockedExecSql,
+                row.id ?? "",
+              );
+              const added = targets
+                .filter((target) => target.operation === "link")
+                .map((target) => target.containerId)
+                .sort();
+              const removed = targets
+                .filter((target) => target.operation === "unlink")
+                .map((target) => target.containerId)
+                .sort();
+              return {
+                ...mapDocumentMoveIntentRecord(row),
+                ...(added.length ? { additionalLinkContainerIds: added } : {}),
+                ...(removed.length ? { removedLinkContainerIds: removed } : {}),
+              };
+            }),
+          );
+        },
+      );
+    });
   },
 
   async markMoveIntentSynced(

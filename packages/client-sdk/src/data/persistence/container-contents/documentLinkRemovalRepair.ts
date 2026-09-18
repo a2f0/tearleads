@@ -56,7 +56,10 @@ export async function repairLinkIntentsForRemovedContainers(input: {
         .select()
         .from(documentIntentLinkTargets)
         .where(eq(documentIntentLinkTargets.intentId, intent.id ?? ""))
-    ).filter((target) => !removed.has(target.containerId));
+    ).filter(
+      (target) =>
+        target.operation === "unlink" || !removed.has(target.containerId),
+    );
     await tx
       .delete(documentIntentLinkTargets)
       .where(eq(documentIntentLinkTargets.intentId, intent.id ?? ""))

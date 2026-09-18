@@ -6,6 +6,7 @@ import { sqlDocumentMoveIntentPersistence as intents } from "../../data/persiste
 import { sqlDocumentContainerProjectionPersistence as links } from "../../data/persistence/containers/documentContainerProjectionPersistence";
 import { sqlDocumentsPersistence as documents } from "../../data/persistence/documents/documentsPersistence";
 import { getClientSQLitePersistenceRuntime } from "../../data/sqlite/sqlitePersistenceRuntime";
+import { createExecSql } from "../../data/sqlite/sqlSchema";
 import { hasStartupDocumentSyncWork } from "./documentPriming";
 import {
   listPendingWrites,
@@ -250,6 +251,89 @@ test("explicit link intents remain visible and retryable after a permission deni
       },
     ]);
   } finally {
+    close();
+  }
+});
+
+test("revoked container access does not acknowledge a pending document unlink", async () => {
+  const { execSql, close } = await createTestExecSql("link-revoked-unlink");
+  try {
+    await documents.ensureSchema(execSql);
+    await containers.ensureSchema(execSql);
+    await intents.enqueueUnlinkIntent(execSql, {
+      documentId: "remote",
+      localId: "local",
+      targetContainerId: "source",
+      removedContainerId: "revoked",
+    });
+    const [original] = await intents.listPendingMoveIntents(execSql);
+    if (!original) throw new Error("Missing intent");
+    await links.replaceDocumentLinks(execSql, "remote", ["source"], {
+      moveIntentId: original.id,
+    });
+    await containers.deleteContainers(execSql, [
+      {
+        containerId: "revoked",
+        reason: "access_revoked",
+        updatedAt: new Date().toISOString(),
+      },
+    ]);
+    expect(await intents.listPendingMoveIntents(execSql)).toMatchObject([
+      {
+        intentType: "document.link",
+        targetContainerId: "source",
+        removedLinkContainerIds: ["revoked"],
+      },
+    ]);
+  } finally {
+    close();
+  }
+});
+
+test("replay waits for an enqueue transaction's parent and targets to commit together", async () => {
+  const { execSql: underlying, close } =
+    await createTestExecSql("link-atomic-read");
+  const parentWritten = Promise.withResolvers<void>();
+  const releaseWriter = Promise.withResolvers<void>();
+  const execSql = createExecSql({
+    exec: async ({ sql, bind, rowMode }) => {
+      const rows = await underlying(sql, bind, { rowMode });
+      if (sql.startsWith('insert into "document_move_intents"')) {
+        parentWritten.resolve();
+        await releaseWriter.promise;
+      }
+      return { rows };
+    },
+  });
+  try {
+    await intents.ensureSchema(execSql);
+    const enqueue = intents.enqueueLinkIntent(execSql, {
+      id: "atomic-link",
+      documentId: "remote",
+      localId: "local",
+      sourceContainerId: "source",
+      targetContainerId: "destination",
+    });
+    await parentWritten.promise;
+    let observedBeforeCommit = false;
+    const replay = intents.listPendingMoveIntents(execSql).then((rows) => {
+      observedBeforeCommit = true;
+      return rows;
+    });
+    await Bun.sleep(20);
+    const readIncompleteTransaction = observedBeforeCommit;
+    releaseWriter.resolve();
+    await enqueue;
+    const read = await replay;
+    expect(readIncompleteTransaction).toBe(false);
+    expect(read).toMatchObject([
+      {
+        id: "atomic-link",
+        additionalLinkContainerIds: ["destination"],
+      },
+    ]);
+  } finally {
+    releaseWriter.resolve();
     close();
   }
 });

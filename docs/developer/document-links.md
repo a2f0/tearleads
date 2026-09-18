@@ -18,6 +18,7 @@ Multiple additions coalesce.
 Ordinary moves retain them; a replace move supersedes prior additions.
 Unlink records a removal under a new revision and cancels any queued addition for
 that target. A partially successful replay cannot resurrect the removed link.
+Replay reads the parent and its targets in one serialized transaction.
 
 Replay uses current, verified writer projections to submit signed link mutations.
 It adds only explicitly queued targets, preserves unrelated remote links, and
@@ -30,7 +31,8 @@ the parent intent and its targets atomically with the verified document state.
 
 Document deletion and scoped remote reset remove the associated targets. Container
 reassignment retargets pending additions. Container deletion or revoked access
-prunes obsolete targets and rehomes the preferred container to a surviving link.
+prunes obsolete additions and rehomes the preferred container to a surviving link.
+Queued removals remain until the signed document manifest proves them absent.
 Both paths change the revision so an in-flight response cannot
 overwrite recovery. Intents without surviving work are removed; those without a
 surviving destination remain unavailable until a new local action retargets them.
