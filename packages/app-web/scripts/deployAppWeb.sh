@@ -121,9 +121,10 @@ deploy_app_web_dist() {
 
   echo "Deploying $label static files to $SSH_TARGET:$remote_path ..."
   ssh "$SSH_TARGET" sudo mkdir -p "$remote_path"
-  # Keep versioned PDF.js assets for tabs still running the previous bundle.
-  rsync -avz --no-owner --no-group --delete \
-    --filter='P /pdfjs/***' --filter='-s *.map' --rsync-path="sudo rsync" \
+  # Builds recreate asset timestamps; compare bytes to avoid copying identical
+  # workers, fonts, and PDF assets. Publish only this build, without source maps.
+  rsync -avzc --no-times --no-owner --no-group --delete --delete-excluded \
+    --exclude='*.map' --itemize-changes --stats --rsync-path="sudo rsync" \
     "$APP_WEB_DIR/dist/" "$SSH_TARGET:$remote_path/"
   ssh "$SSH_TARGET" sudo chown -R www-data:www-data "$remote_path"
   ssh "$SSH_TARGET" sudo chmod -R u=rwX,go=rX "$remote_path"
