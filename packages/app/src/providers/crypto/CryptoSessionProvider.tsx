@@ -1,3 +1,4 @@
+import { isDatabaseUnavailableError } from "@tearleads/client-sdk";
 import {
   createContext,
   type MutableRefObject,
@@ -105,7 +106,11 @@ function useBootstrapCryptoSessionContainer(
         await tearleads.session.bootstrapLocalRootContainer();
       } catch (error: unknown) {
         containerBootstrapped.current = null;
-        logError("Failed to bootstrap root container", error);
+        // Reloads and identity transitions retire the worker beneath pending
+        // queries. The next ready client retries; real SQL failures still log.
+        if (!isDatabaseUnavailableError(error)) {
+          logError("Failed to bootstrap root container", error);
+        }
       }
     })();
   }, [
