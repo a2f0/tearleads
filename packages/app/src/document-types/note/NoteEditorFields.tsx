@@ -358,6 +358,7 @@ function NoteAttachmentFileInput({
 export function NoteEditorFields({
   attachments,
   attachmentStatusBySlotId,
+  attachmentStorageKeyBySlotId,
   canAttach,
   dragActive,
   fileInputId,
@@ -380,6 +381,7 @@ export function NoteEditorFields({
 }: {
   attachments: ReadonlyArray<DocumentAttachment>;
   attachmentStatusBySlotId: NoteAttachmentStatusBySlotId;
+  attachmentStorageKeyBySlotId: Readonly<Record<string, string>>;
   canAttach: boolean;
   dragActive: boolean;
   fileInputId: string;
@@ -479,6 +481,7 @@ export function NoteEditorFields({
           attachment={previewAttachment}
           canRemove={interactive}
           imageUrl={imageUrlBySlotId[previewAttachment.slotId]}
+          storageKey={attachmentStorageKeyBySlotId[previewAttachment.slotId]}
           onClose={() => setPreviewSlotId(null)}
           onDownload={handleDownloadAttachment}
           onRemove={requestRemoveAttachment}
