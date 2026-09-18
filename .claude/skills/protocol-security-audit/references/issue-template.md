@@ -19,11 +19,16 @@ Write the body in this order:
    - a numbered step-by-step scenario;
    - the impact;
    - the suggested fix, with its no-brick check;
-   - the TLA+ result, or the reason the finding is not model-shaped and the
-     regression test that should cover it.
-5. **Formal model changes.** List the branch, the modules and configurations
-   touched, the negative controls added, the commands run with their results,
-   and the state counts and bounds.
+   - existing TLA+ coverage and check results, recommended model fixes or
+     additions, and validation still needed; or the reason the finding is not
+     model-shaped and the regression test that should cover it.
+5. **Formal model audit and recommendations.** List the models,
+   configurations, negative controls, and production mappings reviewed;
+   defects or coverage gaps; and the proposed follow-up changes. List commands
+   actually run with their results, state counts, and bounds, or state why
+   checks were not run. Separate observed results from proposed validation.
+   State that no production or formal-model fixes were implemented during the
+   audit; there is no model-change branch to ship.
 6. **Checked and looked sound.** List the areas that held up, so the next
    audit knows the coverage.
 
