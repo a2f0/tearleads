@@ -13,7 +13,7 @@ export async function installWindowsRelease(options: {
   const names = windowsReleaseNames(tier);
   const setup = join(smokeRoot, "setup");
   await mkdir(setup);
-  execFileSync("C:/Windows/System32/tar.exe", [
+  execFileSync(join("C:/Windows/System32", "tar.exe"), [
     "-xf",
     join(packageDir, "build/artifacts", names.installer),
     "-C",
