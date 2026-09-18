@@ -62,10 +62,12 @@ test.each([false, true])(
         })
         .ensureInitialized();
       const published: string[] = [];
+      const placementChanges: boolean[] = [];
       unsubscribe = subscribeToPersistedDocuments(
         workflow.state.domainScope,
-        (summary) => {
+        (summary, change) => {
           published.push(summary.containerId ?? "");
+          placementChanges.push(change.placementChanged);
         },
       );
       armed = true;
@@ -97,6 +99,7 @@ test.each([false, true])(
         failProjection ? 0 : 1,
       );
       expect(published).toEqual(failProjection ? [] : ["trash"]);
+      expect(placementChanges).toEqual(failProjection ? [] : [true]);
     } finally {
       unsubscribe();
       db.close();

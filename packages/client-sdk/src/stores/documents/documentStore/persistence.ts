@@ -102,6 +102,7 @@ export async function saveDocumentRecord(
     (!expectedGeneration ||
       isSyncGenerationCurrent(state, expectedGeneration)) &&
     options.stillCurrent?.() !== false;
+  const createsPlacement = state.record === null;
   const previousDocumentId = state.record?.documentId ?? null;
   const pendingBaseVersion =
     options.pendingBaseVersionOverride === undefined
@@ -183,6 +184,9 @@ export async function saveDocumentRecord(
         updatedAt,
         state.runtime.infra.documentProjectors,
       ),
+      createsPlacement ||
+        Object.hasOwn(patch, "containerId") ||
+        previousDocumentId !== nextRecord.documentId,
     );
   }
   return toPersistedDocumentRecord(persistedDocumentState);

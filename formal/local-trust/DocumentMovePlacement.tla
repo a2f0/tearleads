@@ -2,9 +2,11 @@
 EXTENDS Naturals, FiniteSets
 
 CONSTANTS ProtectPending, CheckEpoch, CheckRevision, CheckReadPlacement,
-          CheckReadMembership, CaptureSettledEpoch, KeepNewestPageLinks
+          CheckReadMembership, CaptureSettledEpoch, KeepNewestPageLinks,
+          ProtectPendingTombstones
 ASSUME {ProtectPending, CheckEpoch, CheckRevision, CheckReadPlacement,
-        CheckReadMembership, CaptureSettledEpoch, KeepNewestPageLinks}
+        CheckReadMembership, CaptureSettledEpoch, KeepNewestPageLinks,
+          ProtectPendingTombstones}
        \subseteq BOOLEAN
 
 VARIABLES revision, pending, desired, localLinks, localEpoch, visible,
@@ -90,6 +92,14 @@ MergeCurrentPage ==
                   remoteLinks, remoteEpoch, attempt, attemptTarget, phase, recovering,
                   pageReady, readLinks, readReady, readSummary>>
 
+(* A buffered unlink from an earlier restore must not erase a new trash move. *)
+ApplyTombstone ==
+  /\ pending
+  /\ localLinks' = IF ProtectPendingTombstones THEN localLinks ELSE {}
+  /\ UNCHANGED <<revision, pending, desired, localEpoch, visible,
+                  remoteLinks, remoteEpoch, attempt, attemptTarget, phase, recovering,
+                  pageLinks, pageEpoch, pageReady, readLinks, readReady, readSummary>>
+
 ApplyPage ==
   /\ pageReady /\ pageReady' = FALSE
   /\ LET allowed == (~ProtectPending \/ ~pending)
@@ -133,7 +143,7 @@ StablePlacement == localLinks = {desired}
 StableView == visible = {desired}
 
 Next == QueueMove \/ StartReplay \/ Link \/ Unlink \/ Settle \/ LoseResponse
-        \/ CapturePage \/ MergeCurrentPage \/ ApplyPage \/ StartRead \/ RefreshReadSummary \/ FinishRead
+        \/ CapturePage \/ MergeCurrentPage \/ ApplyPage \/ ApplyTombstone \/ StartRead \/ RefreshReadSummary \/ FinishRead
         \/ UNCHANGED vars
 Spec == Init /\ [][Next]_vars
 =============================================================================

@@ -66,13 +66,14 @@ function createView(execSql: ExecSql) {
 }
 
 test.each([
-  ["local", "document_projection"],
-  ["reconciled", "document_projection"],
-  ["local", "document_container_projection"],
-  ["reconciled", "document_container_projection"],
+  ["local", "document_projection", "root"],
+  ["reconciled", "document_projection", "root"],
+  ["local", "document_container_projection", "root"],
+  ["local", "final_links", "trash"],
+  ["reconciled", "document_container_projection", "root"],
 ])(
-  "a move during %s hydration at %s cannot publish its old container placement",
-  async (mode, table) => {
+  "a move during %s hydration at %s (primary %s) cannot publish its old container placement",
+  async (mode, table, primary) => {
     const db = await createTestExecSql("projection-move-during-read");
     let release = () => {};
     const gate = new Promise<void>((resolve) => {
@@ -85,7 +86,11 @@ test.each([
         if (
           !held &&
           args[0].startsWith("select") &&
-          args[0].includes(`from "${table}"`)
+          (table === "final_links"
+            ? args[0].startsWith(
+                'select "document_id", "container_id" from "document_container_projection"',
+              )
+            : args[0].includes(`from "${table}"`))
         ) {
           held = true;
           await gate;
@@ -94,8 +99,12 @@ test.each([
       },
     });
     try {
-      await seed(db.execSql, "Moving", "root", "note", "remote");
-      await links.replaceDocumentLinks(db.execSql, "remote", ["root"]);
+      await seed(db.execSql, "Moving", primary, "note", "remote");
+      await links.replaceDocumentLinks(
+        db.execSql,
+        "remote",
+        primary === "trash" ? ["root", "trash"] : ["root"],
+      );
       const { view } = createView(delayed);
       await waitFor(() => view.getSnapshot().ready, "Tree did not hydrate");
       const read =
@@ -111,13 +120,16 @@ test.each([
           .documentSummariesByContainerId.get("root");
         if (rows) rootCounts.push(rows.length);
       });
-      view.refreshPersistedDocument({
-        id: "note",
-        containerId: "trash",
-        documentId: "remote",
-        title: "Moving",
-        updatedAt: "2026-09-17T00:00:00.000Z",
-      });
+      view.refreshPersistedDocument(
+        {
+          id: "note",
+          containerId: "trash",
+          documentId: "remote",
+          title: "Moving",
+          updatedAt: "2026-09-17T00:00:00.000Z",
+        },
+        true,
+      );
       release();
       if (read) view.applyReconciled(await read);
       await waitFor(() => rootCounts.at(-1) === 0, "Root did not converge");

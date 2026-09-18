@@ -2,6 +2,14 @@ import type { NegativeControl } from "./protocolNegativeControls";
 
 export const DOCUMENT_MOVE_NEGATIVE_CONTROLS: readonly NegativeControl[] = [
   {
+    id: "move-tombstone-erases-new-intent",
+    module: "formal/local-trust/DocumentMovePlacement.tla",
+    config: "formal/local-trust/DocumentMovePlacement.cfg",
+    constants: { ProtectPendingTombstones: "FALSE" },
+    expect: { kind: "invariant", name: "StablePlacement" },
+    why: "A buffered unlink tombstone must not delete the placement owned by a pending move.",
+  },
+  {
     id: "move-settles-without-recovered-epoch",
     module: "formal/local-trust/DocumentMovePlacement.tla",
     config: "formal/local-trust/DocumentMovePlacement.cfg",

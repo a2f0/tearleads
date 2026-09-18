@@ -13,13 +13,14 @@ reappear in its source folder.
 | `Link`, `Unlink`, `ProtectPending` | `filterWritableDocumentPlacements` prevents `relinkRemoteContainerDocument` from publishing intermediate links while an intent exists |
 | `Settle`, `CheckRevision` | `settleDocumentMoveIntent` checks the exact intent revision and replaces links in the relink transaction; partial replay also checks ownership |
 | `LoseResponse`, `CaptureSettledEpoch` | `containerDocumentAlreadyMovedResult` verifies the writer projection and persists its epoch and key state before clearing the intent |
+| `ApplyTombstone`, `ProtectPendingTombstones` | `applyContainerDocumentTombstonesWithExec` uses `filterWritableDocumentPlacements` inside the deletion transaction |
 | `MergeCurrentPage`, `KeepNewestPageLinks` | `mergeDiscoveredDocumentInputs` selects links from the newest access epoch across discovery lanes |
 | `CapturePage`, `ApplyPage`, `CheckEpoch` | `discoverContainerDocuments` and `discoverAllContainerDocuments` carry the access epoch into `filterWritableDocumentPlacements`; `resolveDiscoveredDocumentPlacement` preserves newer placement and access state |
-| `StartRead`, `FinishRead`, `CheckReadPlacement` | `refreshPersistedDocument` records writes observed during a pending read; `hasObsoletePlacement` rejects obsolete placement before publication |
+| `StartRead`, `FinishRead`, `CheckReadPlacement` | `saveDocumentRecord` publishes `placementChanged`; `refreshPersistedDocument` discards pending reads for structural writes before publication |
 | `RefreshReadSummary`, `CheckReadMembership` | `listContainerContentsDocumentsForContainers` filters stale link IDs against the returned summaries and final link map |
 | `StablePlacement`, `StableView` | `listContainerContentsDocumentsForContainers` and `loadContainerSummaries` expose the chosen local placement throughout replay |
 
-The bounded model checks safety, with seven negative controls disabling
+The bounded model checks safety, with eight negative controls disabling
 ownership,
 epoch, revision, read, discovery-merge, and response-recovery guards
 independently. Regression tests cover a refresh

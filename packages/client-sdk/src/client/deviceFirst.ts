@@ -201,7 +201,8 @@ class DeviceFirstService implements DeviceFirst {
       });
     const unsubscribePersistedDocuments = subscribeToPersistedDocuments(
       domainScope,
-      (document) => store.refreshPersistedDocument(document),
+      (document, change) =>
+        store.refreshPersistedDocument(document, change.placementChanged),
     );
     service.start();
 

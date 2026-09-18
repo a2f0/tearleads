@@ -16,7 +16,6 @@ import {
   snapshotLinkedContainerIdsByDocumentId,
   snapshotSummariesByContainerId,
 } from "./summaryCache";
-import { hasObsoletePlacement, type PendingSummaryRead } from "./summaryRead";
 import type {
   LocalProjectionReconciledDelta,
   LocalProjectionSnapshot,
@@ -49,7 +48,10 @@ export interface LocalProjectionStore {
     containerId: string,
   ) => Promise<LocalProjectionReconciledDelta>;
   removePersistedDocument: (localId: string) => void;
-  refreshPersistedDocument: (document: DocumentSummary) => void;
+  refreshPersistedDocument: (
+    document: DocumentSummary,
+    placementChanged?: boolean,
+  ) => void;
   updateRuntime: (runtime: ContainerContentsStoreRuntime) => void;
   /** Registered by the reconciler; returns an unsubscribe handle. */
   onReconcileSignal: (listener: LocalProjectionReconcileListener) => () => void;
@@ -75,6 +77,11 @@ interface LocalProjectionStoreState {
   runtime: ContainerContentsStoreRuntime;
   snapshot: LocalProjectionSnapshot;
   pendingSummaryReads: Map<string, PendingSummaryRead>;
+}
+
+interface PendingSummaryRead {
+  discardResult: boolean;
+  reloadAfter: boolean;
 }
 
 const EMPTY_SNAPSHOT: LocalProjectionSnapshot = {
@@ -137,7 +144,6 @@ function loadContainerSummaries(
   const pendingRead: PendingSummaryRead = {
     discardResult: false,
     reloadAfter: false,
-    persistedDocuments: new Map(),
   };
   void loadLocalContainerProjectionDocumentsFromRuntime({
     containerIds: [containerId],
@@ -148,12 +154,7 @@ function loadContainerSummaries(
       // mid-flight; do not apply a stale read to a freshly reset cache.
       if (
         state.pendingSummaryReads.get(containerId) !== pendingRead ||
-        pendingRead.discardResult ||
-        hasObsoletePlacement(
-          pendingRead,
-          containerId,
-          documents.documentSummaries,
-        )
+        pendingRead.discardResult
       ) {
         return;
       }
@@ -204,11 +205,9 @@ function refreshContainerSummaries(
 function refreshPersistedDocument(
   state: LocalProjectionStoreState,
   document: DocumentSummary,
+  placementChanged = false,
 ): void {
   state.documentRevision += 1;
-  for (const read of state.pendingSummaryReads.values()) {
-    read.persistedDocuments.set(document.id, document);
-  }
   const containerIds = new Set(state.pendingSummaryReads.keys());
   if (
     state.activeContainerId &&
@@ -225,7 +224,7 @@ function refreshPersistedDocument(
     }
   }
   for (const containerId of containerIds) {
-    refreshContainerSummaries(state, containerId);
+    refreshContainerSummaries(state, containerId, placementChanged);
   }
 }
 
@@ -463,8 +462,8 @@ export function createLocalProjectionStore(input: {
     },
     removePersistedDocument: (localId) =>
       removePersistedDocumentFromCache(state, localId),
-    refreshPersistedDocument: (document) =>
-      refreshPersistedDocument(state, document),
+    refreshPersistedDocument: (document, placementChanged) =>
+      refreshPersistedDocument(state, document, placementChanged),
     updateRuntime: (runtime) => updateLocalProjectionRuntime(state, runtime),
     onReconcileSignal: (listener) => {
       state.reconcileListeners.add(listener);

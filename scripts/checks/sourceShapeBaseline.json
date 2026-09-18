@@ -47,8 +47,8 @@
       "bytes": 18865
     },
     "docs/developer/client-sdk.md": {
-      "lines": 653,
-      "bytes": 32625
+      "lines": 661,
+      "bytes": 33014
     },
     "docs/developer/revenuecat-native-stores.md": {
       "lines": 364,
@@ -134,6 +134,10 @@
       "lines": 582,
       "bytes": 21286
     },
+    "packages/api/src/realtime/wsRouting.test.ts": {
+      "lines": 530,
+      "bytes": 16424
+    },
     "packages/api/src/routes/auth/register.test.ts": {
       "lines": 634,
       "bytes": 21084
@@ -182,10 +186,6 @@
       "lines": 539,
       "bytes": 16419
     },
-    "packages/api/src/realtime/wsRouting.test.ts": {
-      "lines": 530,
-      "bytes": 16424
-    },
     "packages/api/test/helpers/registration.ts": {
       "lines": 1165,
       "bytes": 40148
@@ -193,10 +193,6 @@
     "packages/app-capacitor/ios/App/App.xcodeproj/project.pbxproj": {
       "lines": 494,
       "bytes": 20521
-    },
-    "packages/app/src/mini-apps/explorer/sidebar/ExplorerTree.test.tsx": {
-      "lines": 624,
-      "bytes": 18271
     },
     "packages/app/src/mini-apps/explorer/detail/container/ExplorerContainerDetail.test.ts": {
       "lines": 533,
@@ -222,9 +218,17 @@
       "lines": 464,
       "bytes": 21157
     },
+    "packages/app/src/mini-apps/explorer/sidebar/ExplorerTree.test.tsx": {
+      "lines": 624,
+      "bytes": 18271
+    },
     "packages/app/src/mini-apps/org-manager/hooks/useOrgManagerModel.ts": {
       "lines": 523,
       "bytes": 16822
+    },
+    "packages/app/src/navigation/AppNavigationProvider.test.tsx": {
+      "lines": 501,
+      "bytes": 15214
     },
     "packages/app/test/helpers/mswServer.ts": {
       "lines": 894,
@@ -254,6 +258,10 @@
       "lines": 579,
       "bytes": 16859
     },
+    "packages/client-sdk/src/index.ts": {
+      "lines": 531,
+      "bytes": 15502
+    },
     "packages/client-sdk/src/stores/container-contents/containerContentsStore.rootRefresh.test.ts": {
       "lines": 592,
       "bytes": 19608
@@ -262,6 +270,14 @@
       "lines": 549,
       "bytes": 18896
     },
+    "packages/client-sdk/src/workflows/README.md": {
+      "lines": 273,
+      "bytes": 20370
+    },
+    "packages/client-sdk/src/workflows/blobs/hydrate.test.ts": {
+      "lines": 572,
+      "bytes": 21036
+    },
     "packages/client-sdk/src/workflows/container-contents/documentDiscovery.test.ts": {
       "lines": 1017,
       "bytes": 30465
@@ -269,10 +285,6 @@
     "packages/client-sdk/src/workflows/container-contents/documentInfo.test.ts": {
       "lines": 644,
       "bytes": 19720
-    },
-    "packages/client-sdk/src/workflows/blobs/hydrate.test.ts": {
-      "lines": 572,
-      "bytes": 21036
     },
     "packages/client-sdk/src/workflows/container-contents/documentQueries.test.ts": {
       "lines": 590,
@@ -285,6 +297,10 @@
     "packages/client-sdk/src/workflows/documents/sync.test.ts": {
       "lines": 1748,
       "bytes": 61934
+    },
+    "packages/client-sdk/src/workflows/documents/syncPersistedProjectionIntegrity.test.ts": {
+      "lines": 508,
+      "bytes": 16825
     },
     "packages/crypto/src/keying/containerAccess.test.ts": {
       "lines": 755,
@@ -334,21 +350,9 @@
       "lines": 940,
       "bytes": 28424
     },
-    "packages/app/src/navigation/AppNavigationProvider.test.tsx": {
-      "lines": 501,
-      "bytes": 15214
-    },
-    "packages/client-sdk/src/index.ts": {
-      "lines": 530,
-      "bytes": 15421
-    },
     "scripts/architecture/subsystems.ts": {
       "lines": 765,
       "bytes": 28628
-    },
-    "packages/client-sdk/src/workflows/documents/syncPersistedProjectionIntegrity.test.ts": {
-      "lines": 508,
-      "bytes": 16825
     }
   },
   "suppressions": {

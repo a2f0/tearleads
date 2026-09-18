@@ -9,6 +9,7 @@ import {
   getClientSQLitePersistenceRuntime,
 } from "../../../sqlite/sqlitePersistenceRuntime";
 import type { ExecSql } from "../../../sqlite/sqlSchema";
+import { filterWritableDocumentPlacements } from "../../containers/documentPlacement";
 import { getLatestTimestamp } from "../../latestTimestamp";
 import type { ContainerDocumentTombstoneInput } from "../types";
 import { DOCUMENTS_APP_KIND } from "./constants";
@@ -158,12 +159,23 @@ export async function applyContainerDocumentTombstonesWithExec(
     return [];
   }
 
-  const { removedContainerIdsByDocumentId, tombstoneUpdatedAtByDocumentId } =
-    buildContainerDocumentTombstoneState(uniqueTombstones);
   const { db } = getClientSQLitePersistenceRuntime(execSql);
 
   return db.transaction(async (tx) => {
-    await deleteContainerDocumentTombstoneRows(tx, uniqueTombstones);
+    const writable = await filterWritableDocumentPlacements(
+      tx,
+      uniqueTombstones.map((tombstone) => ({
+        documentId: tombstone.documentId,
+        containerIds: [],
+      })),
+    );
+    const writableIds = new Set(writable.map((input) => input.documentId));
+    const applicable = uniqueTombstones.filter((tombstone) =>
+      writableIds.has(tombstone.documentId),
+    );
+    const { removedContainerIdsByDocumentId, tombstoneUpdatedAtByDocumentId } =
+      buildContainerDocumentTombstoneState(applicable);
+    await deleteContainerDocumentTombstoneRows(tx, applicable);
 
     const changedLocalIds: string[] = [];
     for (const [

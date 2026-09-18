@@ -121,6 +121,7 @@ export type {
   PendingWriteQueueOperation,
   PendingWriteQueueOperationKind,
   PendingWriteQueueOperationStatus,
+  // Persistence notifications distinguish placement changes from content saves.
   PersistedDocumentListener,
   PinCodeBrowserLocalKeyringOptions,
   PinCodeWrappingKeyKeystoreOptions,

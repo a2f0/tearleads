@@ -3,6 +3,7 @@ import { createTestExecSql } from "@tearleads/test-utils";
 import { sqlDocumentMoveIntentPersistence as intents } from "../../data/persistence/container-contents/documentMoveIntentPersistence";
 import { sqlDocumentContainerProjectionPersistence as links } from "../../data/persistence/containers/documentContainerProjectionPersistence";
 import {
+  applyContainerDocumentTombstones,
   sqlDocumentsPersistence as documents,
   upsertDiscoveredDocuments,
 } from "../../data/persistence/documents/documentsPersistence";
@@ -16,6 +17,73 @@ import { nullContainerDocumentWatermarks } from "./documentDiscovery.testUtils";
 import type { DiscoverContainerDocumentsOptions } from "./documentDiscoveryTypes";
 import { settleDocumentMoveIntent } from "./documentMoveIntentSettlement";
 import { listContainerContentsDocumentsForContainers } from "./documentSubtreeQueries";
+
+test("a delayed trash tombstone preserves the latest trash intent after restore", async () => {
+  const { execSql, close } = await createTestExecSql("move-tombstone-intent");
+  try {
+    await documents.ensureSchema(execSql);
+    for (const id of ["moving", "unrelated"]) {
+      await documents.saveDocument(execSql, {
+        id,
+        documentId: id,
+        containerId: "trash",
+        accessEpoch: 1,
+        snapshotEndVersion: "",
+        text: "",
+      });
+      await links.replaceDocumentLinks(execSql, id, ["trash"]);
+    }
+    for (const [revision, targetContainerId] of [
+      "trash",
+      "root",
+      "trash",
+    ].entries()) {
+      const id = `intent-${revision}`;
+      await intents.enqueueMoveIntent(execSql, {
+        id,
+        documentId: "moving",
+        localId: "moving",
+        sourceContainerId: "root",
+        targetContainerId,
+        replaceLinkedContainers: true,
+      });
+      await documents.relinkPersistedDocument(execSql, {
+        localId: "moving",
+        documentId: "moving",
+        containerId: targetContainerId,
+        accessEpoch: 1,
+      });
+      await links.replaceDocumentLinks(execSql, "moving", [targetContainerId], {
+        moveIntentId: id,
+      });
+    }
+    await applyContainerDocumentTombstones(
+      execSql,
+      ["moving", "unrelated"].map((documentId) => ({
+        documentId,
+        containerId: "trash",
+        updatedAt: "2026-09-17T00:00:00.000Z",
+      })),
+    );
+    expect(await documents.loadDocument(execSql, "moving")).toMatchObject({
+      containerId: "trash",
+    });
+    expect(await links.listLinkedContainerIds(execSql, "moving")).toEqual([
+      "trash",
+    ]);
+    expect(await intents.listPendingMoveIntents(execSql)).toMatchObject([
+      { id: "intent-2", targetContainerId: "trash" },
+    ]);
+    expect(await documents.loadDocument(execSql, "unrelated")).toMatchObject({
+      containerId: null,
+    });
+    expect(await links.listLinkedContainerIds(execSql, "unrelated")).toEqual(
+      [],
+    );
+  } finally {
+    close();
+  }
+});
 
 test.each([
   ["root", "trash"],
