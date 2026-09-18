@@ -149,6 +149,29 @@ test.each([
         expect(
           destination.documentSummaries.map((document) => document.id),
         ).toEqual(["local"]);
+        expect(
+          await documentLinks.setActiveDocumentContainer({
+            mergeDocumentSummary: () => {},
+            note: {
+              id: "local",
+              documentId,
+              containerId: "source-container",
+              title: "Link",
+              updatedAt: "2026-09-18T00:00:00.000Z",
+            },
+            targetContainerId: "destination",
+          }),
+        ).toMatchObject({ containerId: "destination" });
+        await documents.upsertDiscoveredDocument(execSql, {
+          accessEpoch: 1,
+          containerId: "source-container",
+          documentId,
+          linkedContainerIds: ["source-container"],
+          createdAt: "2026-09-18T00:00:00.000Z",
+        });
+        expect(await documents.loadDocument(execSql, "local")).toMatchObject({
+          containerId: "destination",
+        });
       }
     } finally {
       unsubscribe();
