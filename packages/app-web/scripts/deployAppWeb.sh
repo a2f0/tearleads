@@ -123,7 +123,8 @@ deploy_app_web_dist() {
   ssh "$SSH_TARGET" sudo mkdir -p "$remote_path"
   # Builds recreate asset timestamps; compare bytes to avoid copying identical
   # workers, fonts, and PDF assets. Publish only this build, without source maps.
-  rsync -avzc --no-times --no-owner --no-group --delete --delete-excluded \
+  # The commands below set public permissions independently of the build umask.
+  rsync -avzc --no-times --no-perms --no-owner --no-group --delete --delete-excluded \
     --exclude='*.map' --itemize-changes --stats --rsync-path="sudo rsync" \
     "$APP_WEB_DIR/dist/" "$SSH_TARGET:$remote_path/"
   ssh "$SSH_TARGET" sudo chown -R www-data:www-data "$remote_path"
