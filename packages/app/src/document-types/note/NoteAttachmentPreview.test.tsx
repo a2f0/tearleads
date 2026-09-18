@@ -25,6 +25,7 @@ function buildNoteEditorFields(overrides: Partial<NoteEditorFieldsProps> = {}) {
   const props: NoteEditorFieldsProps = {
     attachments: [],
     attachmentStatusBySlotId: {},
+    attachmentStorageKeyBySlotId: {},
     canAttach: true,
     dragActive: false,
     fileInputId: "note-file-input",
@@ -129,6 +130,20 @@ test("closing the preview overlay dismisses it", () => {
 
   fireEvent.click(view.getByRole("button", { name: "Close preview" }));
   expect(view.queryByRole("dialog")).toBeNull();
+});
+
+test("a PDF awaiting local content reports its state in the preview", () => {
+  const view = renderNoteEditorFields({ attachments: [documentAttachment] });
+
+  fireEvent.click(view.getByRole("button", { name: "Open spec.pdf" }));
+
+  const dialog = view.getByRole("dialog");
+  expect(
+    within(dialog).getByText("PDF preview is waiting for local content."),
+  ).toBeTruthy();
+  expect(
+    within(dialog).queryByText("No preview available for this file type."),
+  ).toBeNull();
 });
 
 test("dresses the preview as a floating window in windowed mode", () => {
