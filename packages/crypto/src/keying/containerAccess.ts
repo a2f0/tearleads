@@ -1020,14 +1020,19 @@ function deriveContainerMoveManifestState(
   }
 
   // Descendants wrap to the published key without holding this container's
-  // material, so a new epoch must never reuse its predecessor's wrapping key.
+  // material, so the epoch and its wrapping key must rotate together: reusing
+  // the predecessor's key under a new epoch would leave the retired holder able
+  // to open new child keys, and republishing a different key under an unchanged
+  // epoch would send descendants to a key the real KEK cannot open.
   if (
-    body.containerKeyEpochId !== previous.previousState.containerKeyEpochId &&
-    body.containerKeyPublicKey === previous.previousState.containerKeyPublicKey
+    (body.containerKeyEpochId !==
+      previous.previousState.containerKeyEpochId) !==
+    (body.containerKeyPublicKey !==
+      previous.previousState.containerKeyPublicKey)
   ) {
     throwVerification(
       "key_epoch_reuse",
-      "container.move must create a new container KEK wrapping key",
+      "container.move must rotate its KEK epoch and wrapping key together",
     );
   }
 
