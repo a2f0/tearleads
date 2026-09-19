@@ -5,6 +5,7 @@ import type { DocumentAttachment } from "@tearleads/client-sdk";
 import {
   type ReactNode,
   type RefObject,
+  useEffect,
   useId,
   useLayoutEffect,
   useRef,
@@ -269,6 +270,15 @@ function NoteAttachmentPreview({
   });
 
   useModalEscapeAndFocusRestore(onClose, closeButtonRef);
+
+  // The shared modal hook focuses the close button on mount. In routed mode
+  // that first button is the pre-retarget one; the portal move above replaces
+  // it, which drops focus to the document. Re-focus the replacement.
+  useEffect(() => {
+    if (fillsRoutedPane) {
+      closeButtonRef.current?.focus();
+    }
+  }, [fillsRoutedPane, closeButtonRef]);
 
   return (
     <>

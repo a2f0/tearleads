@@ -199,8 +199,10 @@ test("fills the routed main pane instead of floating over it", () => {
       {buildNoteEditorFields({ attachments: [documentAttachment] })}
     </div>,
   );
+  const openButton = view.getByRole("button", { name: "Open spec.pdf" });
 
-  fireEvent.click(view.getByRole("button", { name: "Open spec.pdf" }));
+  openButton.focus();
+  fireEvent.click(openButton);
 
   const dialog = view.getByRole("dialog");
   // Portaled into the pane and dressed to fill it, not a centered card.
@@ -217,6 +219,13 @@ test("fills the routed main pane instead of floating over it", () => {
   // The routed pane keeps the compact bar over the windowed window chrome.
   expect(dialog.querySelector(".note-attachment-preview-bar")).toBeTruthy();
   expect(dialog.querySelector(".window-titlebar")).toBeNull();
+  // Focus lands inside the reparented overlay rather than being lost by the
+  // portal retarget, and returns to the tile when the preview closes.
+  expect(document.activeElement).toBe(
+    dialog.querySelector(".note-attachment-preview-bar button:last-child"),
+  );
+  fireEvent.click(view.getByRole("button", { name: "Close preview" }));
+  expect(document.activeElement).toBe(openButton);
 });
 
 test("windowed preview close moves focus into the title bar and dismisses", () => {
