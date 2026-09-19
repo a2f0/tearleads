@@ -11,6 +11,7 @@ import {
   useRef,
 } from "react";
 import { createPortal } from "react-dom";
+import { useRoutedPaneOverlayHost } from "../../layout/routed/RoutedPaneOverlayHost";
 import {
   useCurrentWindow,
   useSuppressWindowToolbar,
@@ -161,16 +162,28 @@ function useImageViewerDismissal(params: {
 }
 
 /**
- * A full-screen look at one image: the picture, a toolbar, and nothing else.
+ * An uninterrupted look at one image: the picture, a toolbar, and nothing else.
  *
  * It exists because an inline preview cannot be inspected on a phone — there is
- * no room, and no way in. Here the image fills the screen and pinch, wheel,
- * drag, and double-tap zoom and pan it (see {@link useImageViewerState}).
+ * no room, and no way in. Here the image takes the whole surface and pinch,
+ * wheel, drag, and double-tap zoom and pan it (see {@link useImageViewerState}).
  *
- * Routed layouts portal into <body> and fill the viewport. A desktop window's
- * content pane instead becomes the portal host so the viewer leaves the window
- * frame and sidebar available; that window's toolbar row stands down while the
- * viewer is open, since the toolbar below carries the same surface's controls.
+ * Where it opens follows how much else is on screen worth keeping:
+ *
+ * - A desktop window's content pane becomes the portal host, so the viewer
+ *   leaves the window frame and sidebar available; that window's toolbar row
+ *   stands down while the viewer is open, since the toolbar below carries the
+ *   same surface's controls.
+ * - The routed tablet/iPad shell is a multi-pane surface too — a nav rail and
+ *   often a tree sidebar sit beside the content — so there the main content pane
+ *   hosts it, the same pane the note attachment preview fills.
+ * - A phone has nothing beside the content to preserve and the least room to
+ *   spare, so it keeps <body> and the whole viewport. That is the case this
+ *   viewer exists for: an inline preview cannot be inspected at that size.
+ *
+ * Only the viewport-filling case is `aria-modal`; the other two leave the chrome
+ * around them operable, so claiming to trap the app would be a lie.
+ *
  * The stage takes `touch-action: none` so the browser hands the pinch to the
  * viewer instead of page-zooming behind it.
  */
@@ -184,8 +197,12 @@ export function MiniAppImageViewer(params: {
   const closeButtonRef = useRef<HTMLButtonElement>(null);
   const viewerRef = useRef<HTMLDivElement>(null);
   const currentWindow = useCurrentWindow();
-  const portalHost = currentWindow?.overlayHost ?? document.body;
-  const isWindowed = portalHost !== document.body;
+  const routedPane = useRoutedPaneOverlayHost();
+  const windowHost = currentWindow?.overlayHost ?? null;
+  const routedPaneHost = routedPane.tier === "tablet" ? routedPane.host : null;
+  const portalHost = windowHost ?? routedPaneHost ?? document.body;
+  const isWindowed = windowHost !== null;
+  const fillsRoutedPane = !isWindowed && routedPaneHost !== null;
 
   useImageViewerDismissal({
     closeButtonRef,
@@ -200,8 +217,8 @@ export function MiniAppImageViewer(params: {
   return createPortal(
     <div
       aria-label={params.label}
-      aria-modal={isWindowed ? undefined : "true"}
-      className={`mini-app-image-viewer${isWindowed ? " mini-app-image-viewer--windowed" : ""}`}
+      aria-modal={portalHost === document.body ? "true" : undefined}
+      className={`mini-app-image-viewer${isWindowed ? " mini-app-image-viewer--windowed" : ""}${fillsRoutedPane ? " mini-app-image-viewer--pane" : ""}`}
       onPointerDownCapture={() =>
         viewerRef.current?.focus({ preventScroll: true })
       }

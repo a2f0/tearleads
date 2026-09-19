@@ -30,6 +30,7 @@ import { TestSystemBanner } from "../TestSystemBanner";
 import "./RoutedPane.css";
 import { RoutedPaneAppBar } from "./RoutedPaneAppBar";
 import { ROUTED_PANE_NAV_PANEL_ID, RoutedPaneNav } from "./RoutedPaneNav";
+import { RoutedPaneOverlayHostProvider } from "./RoutedPaneOverlayHost";
 import { RoutedPaneSidebar } from "./RoutedPaneSidebar";
 import { useMobileKeyboardVisible } from "./useMobileKeyboardVisible";
 
@@ -175,6 +176,15 @@ function RoutedPaneSurface({
     initialRoutedSidebarExpanded(tier, activeAppId),
   );
   const [drawerOpen, setDrawerOpen] = useState(false);
+  // Held in state rather than a ref so the overlays that portal into the pane
+  // re-render once it is on screen. The ref callback runs in the commit phase
+  // and this update flushes before paint, so the pane is already the host by the
+  // first frame any overlay inside it can be opened on.
+  const [overlayHost, setOverlayHost] = useState<HTMLElement | null>(null);
+  const overlayHostValue = useMemo(
+    () => ({ host: overlayHost, tier }),
+    [overlayHost, tier],
+  );
 
   const toggleSidebar = useCallback(
     () => setSidebarExpanded(invertBoolean),
@@ -215,14 +225,22 @@ function RoutedPaneSurface({
           {sidebar}
         </RoutedPaneSidebar>
       )}
-      <main className="routed-pane-main">
-        {/* When the developer pins the System Monitor it rides above the active
-            app in both routed tiers, replacing the pinned-monitor slot the old
-            home launcher used to host. Renders nothing unless pinned. */}
-        <SystemMonitorPinned />
-        <MiniAppBoundary appId={activeAppId}>
-          <ActiveMiniApp />
-        </MiniAppBoundary>
+      <main
+        className="routed-pane-main"
+        ref={(element) => setOverlayHost(element)}
+      >
+        {/* Offered to overlays that fill the content pane instead of the screen
+            — the note attachment preview, and the image viewer on tablet — so
+            they leave the rail, app bar, and taskbar on screen beside them. */}
+        <RoutedPaneOverlayHostProvider value={overlayHostValue}>
+          {/* When the developer pins the System Monitor it rides above the active
+              app in both routed tiers, replacing the pinned-monitor slot the old
+              home launcher used to host. Renders nothing unless pinned. */}
+          <SystemMonitorPinned />
+          <MiniAppBoundary appId={activeAppId}>
+            <ActiveMiniApp />
+          </MiniAppBoundary>
+        </RoutedPaneOverlayHostProvider>
       </main>
       <TestSystemBanner hidden={mobileKeyboardVisible} />
       <RoutedPaneTaskBar

@@ -1,5 +1,6 @@
 import { afterEach, expect, test } from "bun:test";
 import { cleanup, fireEvent, render } from "@testing-library/react";
+import { RoutedPaneOverlayHostProvider } from "../../layout/routed/RoutedPaneOverlayHost";
 import { CurrentWindowProvider } from "../../window/CurrentWindowContext";
 import { MiniAppImageViewer } from "./MiniAppImageViewer";
 
@@ -98,6 +99,61 @@ test("a window hosts the viewer inside its own bounds", () => {
     );
   } finally {
     overlayHost.remove();
+  }
+});
+
+function renderRoutedViewer(tier: "mobile" | "tablet") {
+  const pane = document.createElement("div");
+  pane.className = "routed-pane-main";
+  document.body.append(pane);
+
+  const view = render(
+    <RoutedPaneOverlayHostProvider value={{ host: pane, tier }}>
+      <MiniAppImageViewer
+        label="photo.png"
+        onClose={() => undefined}
+        url="blob:photo"
+      />
+    </RoutedPaneOverlayHostProvider>,
+  );
+
+  return { pane, view };
+}
+
+// The tablet/iPad shell keeps its rail, app bar, and tree sidebar on screen, so
+// the viewer belongs in the content pane beside them — the same pane the note
+// attachment preview fills — instead of over the whole app.
+test("the routed tablet shell hosts the viewer inside its content pane", () => {
+  const { pane, view } = renderRoutedViewer("tablet");
+
+  try {
+    const viewer = view.getByRole("dialog");
+    expect(viewer.parentElement).toBe(pane);
+    expect(viewer.classList.contains("mini-app-image-viewer--pane")).toBe(true);
+    // Confined to a pane, so it neither claims the app nor dresses as a window.
+    expect(viewer.getAttribute("aria-modal")).toBeNull();
+    expect(viewer.classList.contains("mini-app-image-viewer--windowed")).toBe(
+      false,
+    );
+  } finally {
+    pane.remove();
+  }
+});
+
+// A phone has nothing beside the content to preserve and the least room to
+// spare: there the viewer still takes the viewport.
+test("a phone keeps the viewer on the whole viewport", () => {
+  const { pane, view } = renderRoutedViewer("mobile");
+
+  try {
+    const viewer = view.getByRole("dialog");
+    expect(viewer.parentElement).toBe(document.body);
+    expect(viewer.classList.contains("mini-app-image-viewer--pane")).toBe(
+      false,
+    );
+    expect(viewer.getAttribute("aria-modal")).toBe("true");
+  } finally {
+    pane.remove();
   }
 });
 
