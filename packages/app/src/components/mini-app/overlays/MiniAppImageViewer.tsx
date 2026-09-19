@@ -11,6 +11,8 @@ import {
   useRef,
 } from "react";
 import { createPortal } from "react-dom";
+import { useRoutedPaneOverlayHost } from "../../layout/routed/RoutedPaneOverlayHost";
+import { classNames } from "../../shared/classNames";
 import {
   useCurrentWindow,
   useSuppressWindowToolbar,
@@ -161,31 +163,66 @@ function useImageViewerDismissal(params: {
 }
 
 /**
- * A full-screen look at one image: the picture, a toolbar, and nothing else.
- *
- * It exists because an inline preview cannot be inspected on a phone — there is
- * no room, and no way in. Here the image fills the screen and pinch, wheel,
- * drag, and double-tap zoom and pan it (see {@link useImageViewerState}).
- *
- * Routed layouts portal into <body> and fill the viewport. A desktop window's
- * content pane instead becomes the portal host so the viewer leaves the window
- * frame and sidebar available; that window's toolbar row stands down while the
- * viewer is open, since the toolbar below carries the same surface's controls.
- * The stage takes `touch-action: none` so the browser hands the pinch to the
- * viewer instead of page-zooming behind it.
+ * Which surface a viewer opened on. `screen` is the whole viewport (<body>);
+ * the other two confine it to a pane that keeps its chrome beside it.
  */
-export function MiniAppImageViewer(params: {
+type ImageViewerHostKind = "window" | "pane" | "screen";
+
+interface ImageViewerHost {
+  element: HTMLElement;
+  kind: ImageViewerHostKind;
+}
+
+// One stable key per host element, so the surface below is keyed on the host's
+// identity rather than on its kind — two different elements of the same kind
+// must still rebuild it. A WeakMap keeps the lookup idempotent across re-renders
+// and lets a detached host be collected with its key.
+const imageViewerHostKeys = new WeakMap<HTMLElement, string>();
+let nextImageViewerHostKey = 0;
+
+function imageViewerHostKey(element: HTMLElement): string {
+  const existing = imageViewerHostKeys.get(element);
+  if (existing !== undefined) {
+    return existing;
+  }
+  nextImageViewerHostKey += 1;
+  const key = `image-viewer-host-${nextImageViewerHostKey}`;
+  imageViewerHostKeys.set(element, key);
+  return key;
+}
+
+// Ordered by how much else is on screen worth keeping: a desktop window's own
+// content pane first, then the routed tablet shell's, then the viewport.
+function resolveImageViewerHost(params: {
+  routedPaneHost: HTMLElement | null;
+  windowHost: HTMLElement | null;
+}): ImageViewerHost {
+  if (params.windowHost) {
+    return { element: params.windowHost, kind: "window" };
+  }
+  if (params.routedPaneHost) {
+    return { element: params.routedPaneHost, kind: "pane" };
+  }
+  return { element: document.body, kind: "screen" };
+}
+
+interface MiniAppImageViewerProps {
   label: string;
   onClose: () => void;
   onDownload?: (() => void) | undefined;
   url: string;
-}) {
+}
+
+function ImageViewerSurface(
+  params: MiniAppImageViewerProps & { host: ImageViewerHost },
+) {
   const viewer = useImageViewerState();
   const closeButtonRef = useRef<HTMLButtonElement>(null);
   const viewerRef = useRef<HTMLDivElement>(null);
-  const currentWindow = useCurrentWindow();
-  const portalHost = currentWindow?.overlayHost ?? document.body;
-  const isWindowed = portalHost !== document.body;
+  const { host } = params;
+  const portalHost = host.element;
+  const isWindowed = host.kind === "window";
+  const fillsRoutedPane = host.kind === "pane";
 
   useImageViewerDismissal({
     closeButtonRef,
@@ -201,7 +238,11 @@ export function MiniAppImageViewer(params: {
     <div
       aria-label={params.label}
       aria-modal={isWindowed ? undefined : "true"}
-      className={`mini-app-image-viewer${isWindowed ? " mini-app-image-viewer--windowed" : ""}`}
+      className={classNames(
+        "mini-app-image-viewer",
+        isWindowed && "mini-app-image-viewer--windowed",
+        fillsRoutedPane && "mini-app-image-viewer--pane",
+      )}
       onPointerDownCapture={() =>
         viewerRef.current?.focus({ preventScroll: true })
       }
@@ -247,5 +288,65 @@ export function MiniAppImageViewer(params: {
       </div>
     </div>,
     portalHost,
+  );
+}
+
+/**
+ * An uninterrupted look at one image: the picture, a toolbar, and nothing else.
+ *
+ * It exists because an inline preview cannot be inspected on a phone — there is
+ * no room, and no way in. Here the image takes the whole surface and pinch,
+ * wheel, drag, and double-tap zoom and pan it (see {@link useImageViewerState}).
+ *
+ * Where it opens follows how much else is on screen worth keeping:
+ *
+ * - A desktop window's content pane becomes the portal host, so the viewer
+ *   leaves the window frame and sidebar available; that window's toolbar row
+ *   stands down while the viewer is open, since the toolbar below carries the
+ *   same surface's controls.
+ * - The routed tablet/iPad shell is a multi-pane surface too — a nav rail and
+ *   often a tree sidebar sit beside the content — so there the main content pane
+ *   hosts it, the same pane the note attachment preview fills.
+ * - A phone has nothing beside the content to preserve and the least room to
+ *   spare, so it keeps <body> and the whole viewport. That is the case this
+ *   viewer exists for: an inline preview cannot be inspected at that size.
+ *
+ * Both routed cases are `aria-modal`: each paints over the content beneath it —
+ * the pane's own note editor or blob list — and nothing marks that content
+ * inert, so a screen reader would otherwise still reach what the viewer hides.
+ * The chrome outside the pane staying operable is not the test; what the dialog
+ * covers is. The windowed case keeps its long-standing omission, where the
+ * window's own semantics carry it.
+ *
+ * The stage takes `touch-action: none` so the browser hands the pinch to the
+ * viewer instead of page-zooming behind it.
+ */
+export function MiniAppImageViewer(params: MiniAppImageViewerProps) {
+  const currentWindow = useCurrentWindow();
+  const routedPane = useRoutedPaneOverlayHost();
+  const host = resolveImageViewerHost({
+    routedPaneHost: routedPane.tier === "tablet" ? routedPane.host : null,
+    windowHost: currentWindow?.overlayHost ?? null,
+  });
+
+  // Keyed on the host element so a move rebuilds the surface rather than
+  // relocating it. The stage's ResizeObserver and wheel listener bind once to
+  // the node behind `stageRef` (see useImageViewerState); moving a portal
+  // remounts that node, and without this remount they would stay on the
+  // detached one — the measured viewport would latch at 0x0 and the zoom clamp
+  // would run against an empty box. Two moves are reachable: crossing the 760px
+  // tier line with the viewer open (a phone turned to landscape), and the first
+  // frame of a routed shell whose pane element has not reached context yet.
+  //
+  // The rebuild refits the picture, dropping any zoom and pan. That is the
+  // deliberate trade for not rewiring the shared gesture hook onto a
+  // state-backed stage node: the moves above are rare, and both already change
+  // the box the view is clamped to.
+  return (
+    <ImageViewerSurface
+      key={imageViewerHostKey(host.element)}
+      {...params}
+      host={host}
+    />
   );
 }

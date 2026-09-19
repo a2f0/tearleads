@@ -378,6 +378,27 @@ test("tablet rail carries app links only", () => {
   }
 });
 
+// The pane is the focus of last resort for an overlay that covered it — the
+// image viewer and the note attachment preview both portal into it and hand
+// focus back here when their opener is gone. A plain <main> is not focusable, so
+// that handoff silently drops to <body> without this.
+test("the routed content pane is programmatically focusable", () => {
+  const restoreMatchMedia = forceTabletRoutedTier();
+  let view: ReturnType<typeof renderRoutedPane> | undefined;
+
+  try {
+    view = renderRoutedPane();
+    const main = getRoutedMain(view.container);
+
+    expect(main.tabIndex).toBe(-1);
+    act(() => main.focus());
+    expect(document.activeElement).toBe(main);
+  } finally {
+    view?.unmount();
+    restoreMatchMedia();
+  }
+});
+
 test("tablet routed shell starts with the navigation rail collapsed", () => {
   const restoreMatchMedia = forceTabletRoutedTier();
   let view: ReturnType<typeof renderRoutedPane> | undefined;
