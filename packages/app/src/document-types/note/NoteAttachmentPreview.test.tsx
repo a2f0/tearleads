@@ -185,6 +185,47 @@ test("keeps the compact single bar in the routed shell", () => {
   expect(
     dialog.classList.contains("note-attachment-preview-panel--windowed"),
   ).toBe(false);
+  // With no routed pane in the tree the overlay keeps its centered-card
+  // styling rather than claiming to fill a pane that is not there.
+  expect(dialog.parentElement?.className).not.toContain(
+    "note-attachment-preview-backdrop--routed",
+  );
+});
+
+test("fills the routed main pane instead of floating over it", () => {
+  document.documentElement.setAttribute("data-navigation-mode", "routed");
+  const view = render(
+    <div className="routed-pane-main">
+      {buildNoteEditorFields({ attachments: [documentAttachment] })}
+    </div>,
+  );
+  const openButton = view.getByRole("button", { name: "Open spec.pdf" });
+
+  openButton.focus();
+  fireEvent.click(openButton);
+
+  const dialog = view.getByRole("dialog");
+  // Portaled into the pane and dressed to fill it, not a centered card.
+  expect(dialog.parentElement?.className).toContain(
+    "note-attachment-preview-backdrop--routed",
+  );
+  expect(dialog.closest(".routed-pane-main")).toBeTruthy();
+  expect(
+    dialog.classList.contains("note-attachment-preview-panel--routed"),
+  ).toBe(true);
+  expect(
+    dialog.classList.contains("note-attachment-preview-panel--windowed"),
+  ).toBe(false);
+  // The routed pane keeps the compact bar over the windowed window chrome.
+  expect(dialog.querySelector(".note-attachment-preview-bar")).toBeTruthy();
+  expect(dialog.querySelector(".window-titlebar")).toBeNull();
+  // Focus lands inside the reparented overlay rather than being lost by the
+  // portal retarget, and returns to the tile when the preview closes.
+  expect(document.activeElement).toBe(
+    dialog.querySelector(".note-attachment-preview-bar button:last-child"),
+  );
+  fireEvent.click(view.getByRole("button", { name: "Close preview" }));
+  expect(document.activeElement).toBe(openButton);
 });
 
 test("windowed preview close moves focus into the title bar and dismisses", () => {

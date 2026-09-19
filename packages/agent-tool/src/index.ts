@@ -12,6 +12,11 @@
  *                               `codex` CLI — against the PR base, or the default
  *                               branch when no PR is open yet (effort defaults to
  *                               high)
+ *   solicitOpencodeReview [effort]
+ *                               Review the current branch's diff with the local
+ *                               `opencode` CLI pinned to deepseek/deepseek-v4-pro
+ *                               — against the PR base, or the default branch when
+ *                               no PR is open yet (effort defaults to high)
  *
  *   effort levels: low | medium | high | xhigh | max
  *   openPr [title]              Open a PR for the current branch with a

@@ -34,8 +34,8 @@ actually contains the merge commit; the final checkout reset belongs to `reset`.
   PR, default to the branch's latest commit subject. **To supply a later
   positional argument while defaulting the title, pass an empty string `''`.**
 - Second argument (optional): the review agent to pass to `cross-agent-review`
-  (`claude` or `codex`). When omitted, that skill picks its own default — the
-  *other* agent from whichever one is running this flow.
+  (`claude`, `codex`, or `opencode`). When omitted, that skill picks its own
+  default — the *other* agent from whichever one is running this flow.
 - `--passes <n>` (optional flag, position-independent): forwarded verbatim to
   `cross-agent-review`. **Defaults to `1`** there. Passes inspect one unchanged
   head; they are distinct from repair rounds.

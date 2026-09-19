@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import {
   DEFAULT_CLAUDE_EFFORT,
   DEFAULT_CODEX_EFFORT,
+  DEFAULT_OPENCODE_EFFORT,
   REVIEW_EFFORT_LEVELS,
   resolveReviewEffort,
 } from "./reviewEffort";
@@ -9,9 +10,10 @@ import { buildClaudeReviewArgs } from "./solicitClaudeCodeReview";
 import { buildCodexReviewArgs } from "./solicitCodexReview";
 
 describe("review effort defaults", () => {
-  test("claude defaults to xhigh, codex to high", () => {
+  test("claude defaults to xhigh, codex and opencode to high", () => {
     expect(DEFAULT_CLAUDE_EFFORT).toBe("xhigh");
     expect(DEFAULT_CODEX_EFFORT).toBe("high");
+    expect(DEFAULT_OPENCODE_EFFORT).toBe("high");
   });
 });
 
