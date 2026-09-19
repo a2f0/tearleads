@@ -163,6 +163,7 @@ for (const accessLevel of ["write", "admin"] as const) {
           ...state,
           epoch: 2,
           containerKeyEpochId: "key-2",
+          containerKeyPublicKey: containerWrappingPublicKeyForTest("key-2"),
           previousManifestHash: result.value.manifestHash,
           eventHash: moveEvent.eventHash,
         });

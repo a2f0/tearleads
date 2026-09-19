@@ -118,6 +118,7 @@ test("required purge evidence reaches every recursive container predecessor", as
   const revokedState: ContainerAccessManifestState = {
     ...initial.state,
     containerKeyEpochId: revokeBody.containerKeyEpochId,
+    containerKeyPublicKey: revokeBody.containerKeyPublicKey,
     directGrants: initial.state.directGrants.filter(
       (grant) => grant.subjectType !== "group",
     ),

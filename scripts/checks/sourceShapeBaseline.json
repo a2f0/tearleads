@@ -287,12 +287,12 @@
       "bytes": 61934
     },
     "packages/crypto/src/keying/containerAccess.test.ts": {
-      "lines": 786,
-      "bytes": 24976
+      "lines": 844,
+      "bytes": 27163
     },
     "packages/crypto/src/keying/containerAccess.ts": {
-      "lines": 1127,
-      "bytes": 33639
+      "lines": 1143,
+      "bytes": 34269
     },
     "packages/crypto/src/keying/containerKek.test.ts": {
       "lines": 556,

@@ -76,6 +76,7 @@ test("a rekey advances a managed-principal pin without changing grants", async (
     previousManifestHash: previous.manifestHash,
     eventHash: event.eventHash,
     containerKeyEpochId: body.containerKeyEpochId,
+    containerKeyPublicKey: body.containerKeyPublicKey,
     referencedPrincipalHeads: [nextHead],
   });
 

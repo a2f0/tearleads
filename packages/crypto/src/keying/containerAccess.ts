@@ -911,7 +911,8 @@ function deriveContainerRevokeManifestState(
 
   if (
     body.containerKeyEpochId === null ||
-    body.containerKeyEpochId === previous.previousState.containerKeyEpochId
+    body.containerKeyEpochId === previous.previousState.containerKeyEpochId ||
+    body.containerKeyPublicKey === previous.previousState.containerKeyPublicKey
   ) {
     throwVerification(
       "key_epoch_reuse",
@@ -948,7 +949,10 @@ function deriveContainerRekeyManifestState(
     userId: input.event.event.signerUserId,
   });
 
-  if (body.containerKeyEpochId === previous.previousState.containerKeyEpochId) {
+  if (
+    body.containerKeyEpochId === previous.previousState.containerKeyEpochId ||
+    body.containerKeyPublicKey === previous.previousState.containerKeyPublicKey
+  ) {
     throwVerification(
       "key_epoch_reuse",
       "container.rekey must create a new container KEK epoch",
@@ -1012,6 +1016,18 @@ function deriveContainerMoveManifestState(
     throwVerification(
       "object_mismatch",
       "container.move destination parent cannot be the moved container or its descendant",
+    );
+  }
+
+  // Descendants wrap to the published key without holding this container's
+  // material, so a new epoch must never reuse its predecessor's wrapping key.
+  if (
+    body.containerKeyEpochId !== previous.previousState.containerKeyEpochId &&
+    body.containerKeyPublicKey === previous.previousState.containerKeyPublicKey
+  ) {
+    throwVerification(
+      "key_epoch_reuse",
+      "container.move must create a new container KEK wrapping key",
     );
   }
 

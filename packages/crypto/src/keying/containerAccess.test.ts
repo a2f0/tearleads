@@ -265,6 +265,7 @@ test("verifyContainerAccessManifest accepts writer rekeys without grant changes"
     previousManifestHash: previous.manifestHash,
     eventHash: event.eventHash,
     containerKeyEpochId: body.containerKeyEpochId,
+    containerKeyPublicKey: body.containerKeyPublicKey,
   });
 
   const result = await verifyContainerAccessManifest({
@@ -327,6 +328,7 @@ test("verifyContainerAccessManifest rejects rekeys that change grants", async ()
     previousManifestHash: previous.manifestHash,
     eventHash: event.eventHash,
     containerKeyEpochId: body.containerKeyEpochId,
+    containerKeyPublicKey: body.containerKeyPublicKey,
     directGrants: [
       ...previous.state.directGrants,
       {
@@ -387,6 +389,62 @@ test("verifyContainerAccessManifest rejects rekeys that reuse the current KEK ep
     epoch: previous.state.epoch + 1,
     previousManifestHash: previous.manifestHash,
     eventHash: event.eventHash,
+  });
+
+  const result = await verifyContainerAccessManifest({
+    manifest,
+    expectedManifestHash: await computeAccessManifestHash(manifest),
+    event,
+    previousManifest: previous,
+    previousContainerPath: [previous],
+  });
+
+  expectVerificationError(result, "key_epoch_reuse");
+});
+
+test("verifyContainerAccessManifest rejects rekeys that reuse the wrapping key", async () => {
+  const writerUserId = "writer-user";
+  const writerSigning = generateSigningSeedAndKeyPair();
+  const previous = await createContainerManifestFixture({
+    containerId: "container-reused-wrapping-key",
+    containerKeyEpochId: "container-key-epoch-1",
+    directGrants: [
+      {
+        subjectType: "user",
+        subjectId: writerUserId,
+        accessLevel: "write",
+      },
+    ],
+    signer: writerSigning,
+    signerUserId: writerUserId,
+  });
+  // A fresh epoch id, but the wrapping key of the epoch being retired.
+  // Descendants wrap to the published key without holding this container's
+  // material, so accepting this would let the retired KEK's holder open every
+  // child key minted afterwards — the rotation would not actually revoke.
+  const body: ContainerAccessEventBody = {
+    containerKeyPublicKey: previous.state.containerKeyPublicKey,
+    eventType: "container.rekey",
+    containerKeyEpochId: "container-key-epoch-2",
+    keyringHash: KEYRING_HASH,
+    predecessorBridgeHash: PREDECESSOR_BRIDGE_HASH,
+    referencedPrincipalHeads: previous.state.referencedPrincipalHeads,
+  };
+  const event = await createVerifiedContainerAccessEvent({
+    body,
+    objectId: previous.state.containerId,
+    organizationId: previous.state.organizationId,
+    previousManifestHash: previous.manifestHash,
+    signer: writerSigning,
+    signerUserId: writerUserId,
+  });
+  const manifest = await deriveContainerAccessManifest({
+    ...previous.state,
+    epoch: previous.state.epoch + 1,
+    previousManifestHash: previous.manifestHash,
+    eventHash: event.eventHash,
+    containerKeyEpochId: body.containerKeyEpochId,
+    containerKeyPublicKey: body.containerKeyPublicKey,
   });
 
   const result = await verifyContainerAccessManifest({

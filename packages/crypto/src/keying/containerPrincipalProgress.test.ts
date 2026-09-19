@@ -101,6 +101,8 @@ for (const eventType of ["container.grant", "container.rekey"] as const) {
       const manifest = await deriveContainerAccessManifest({
         ...previous.state,
         containerKeyEpochId,
+        containerKeyPublicKey:
+          containerWrappingPublicKeyForTest(containerKeyEpochId),
         epoch: previous.state.epoch + 1,
         eventHash: event.eventHash,
         previousManifestHash: previous.manifestHash,

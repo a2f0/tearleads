@@ -2994,6 +2994,7 @@ test("POST /containers/:containerId/rekey rejects recipient-set changes", async 
     previousManifestHash: childBundle.manifestHash,
     eventHash: await computeAccessEventHash(event),
     containerKeyEpochId: body.containerKeyEpochId,
+    containerKeyPublicKey: body.containerKeyPublicKey,
     directGrants: [
       ...previous.state.directGrants,
       {

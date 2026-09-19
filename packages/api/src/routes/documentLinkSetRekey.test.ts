@@ -37,6 +37,7 @@ function rekeyedChildFixture(
   const state: ContainerAccessManifestState = {
     ...previousState,
     containerKeyEpochId: body.containerKeyEpochId,
+    containerKeyPublicKey: body.containerKeyPublicKey,
     epoch: previousState.epoch + 1,
     eventHash: manifest.eventHash,
     previousManifestHash: previousBundle.manifestHash,
@@ -60,6 +61,7 @@ function rekeyedChildFixture(
       accessManifestHash: request.expectedManifestHash,
       containerKeyEpoch: previousKek.containerKeyEpoch + 1,
       containerKeyEpochId: body.containerKeyEpochId,
+      containerKeyPublicKey: body.containerKeyPublicKey,
     } as unknown as ContainerMutationResponse["containerKek"],
   };
 }

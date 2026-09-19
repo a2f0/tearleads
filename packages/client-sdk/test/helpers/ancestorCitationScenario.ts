@@ -80,6 +80,10 @@ export async function successor(input: {
   });
   const state: ContainerAccessManifestState = {
     ...input.previous.state,
+    // Every body publishes the wrapping key for the epoch it establishes, and
+    // a rotation must publish a new one, so the derived state tracks the body
+    // rather than inheriting the predecessor's key.
+    containerKeyPublicKey: input.body.containerKeyPublicKey,
     ...input.state(input.previous.state),
     epoch: input.previous.state.epoch + 1,
     eventHash: event.eventHash,

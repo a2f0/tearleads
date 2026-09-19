@@ -228,6 +228,7 @@ async function applyContainerStep(
       signer: creator,
       state: {
         containerKeyEpochId: rotation.containerKeyEpochId,
+        containerKeyPublicKey: rotation.containerKeyPublicKey,
         directGrants: previous.state.directGrants.filter(
           (grant) => grant.subjectId !== subjectId,
         ),
@@ -243,7 +244,10 @@ async function applyContainerStep(
     },
     previous,
     signer: creator,
-    state: { containerKeyEpochId: rotation.containerKeyEpochId },
+    state: {
+      containerKeyEpochId: rotation.containerKeyEpochId,
+      containerKeyPublicKey: rotation.containerKeyPublicKey,
+    },
   });
 }
 
