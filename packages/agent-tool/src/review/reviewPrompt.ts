@@ -26,6 +26,8 @@ export const CLAUDE_ACCESS_NOTE =
   "Read the surrounding files in the immutable repository snapshot when a finding depends on code the diff does not show; you have Read, Grep, and Glob for that. You cannot run commands, so do not plan to build, typecheck, or execute tests";
 export const CODEX_ACCESS_NOTE =
   "Read the surrounding files in the immutable repository snapshot when a finding depends on code the diff does not show; your filesystem permissions are read-only, so use read-only commands and do not attempt to build, typecheck, or execute tests";
+export const OPENCODE_ACCESS_NOTE =
+  "Read the surrounding files in the immutable repository snapshot when a finding depends on code the diff does not show; your read, glob, and grep tools are confined to that snapshot, and you have no shell, edit, or network access";
 
 export function buildUntrustedDiffEnvelope(
   diff: string,

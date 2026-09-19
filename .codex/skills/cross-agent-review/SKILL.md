@@ -1,6 +1,6 @@
 ---
 name: cross-agent-review
-description: Review the current branch — before or after its PR is opened — with another AI agent (Claude Code by default, or a fresh Codex self-review) and repair blocking findings until the review passes
+description: Review the current branch — before or after its PR is opened — with another AI agent (Claude Code by default, or a fresh Codex self-review, or Opencode on deepseek-v4-pro as a credit-free fallback) and repair blocking findings until the review passes
 ---
 
 # Cross-Agent Review
@@ -10,8 +10,9 @@ findings it raises. The branch need not have a PR yet: with **no open PR** the
 diff is taken against the default branch and repairs are committed locally; with
 an **open PR** the pushed head is reviewed and repairs are pushed to it. Invoked
 from Codex, this solicits a review from Claude Code by default, or a fresh Codex
-self-review. Falls back to an in-session review when no external agent is
-available.
+self-review. Falls back through Codex, then Opencode (deepseek-v4-pro), then an
+in-session review when the earlier reviewers are unavailable — the Opencode hop
+keeps the loop alive when both Anthropic and OpenAI credits are exhausted.
 
 This skill owns the full **review → repair → re-review** loop and the severity
 gate that drives it. Each review round first brings the branch up to date with
@@ -24,16 +25,19 @@ for a review that changes nothing — the base sync included.
 
 ## Arguments
 
-- First argument (optional): `claude` or `codex`. Defaults to `claude` (the
-  other agent when invoked from Codex).
+- First argument (optional): `claude`, `codex`, or `opencode`. Defaults to
+  `claude` (the other agent when invoked from Codex).
 - Second argument (optional): the reviewer's reasoning **effort level** — one of
   `low`, `medium`, `high`, `xhigh`, `max`. When omitted it defaults **per agent**:
-  **`xhigh` for Claude**, **`high` for Codex**. An unknown level fails fast
-  before the reviewer CLI is launched.
+  **`xhigh` for Claude**, **`high` for Codex and Opencode**. An unknown level
+  fails fast before the reviewer CLI is launched.
 
-  The level is passed as `claude --effort <level>` and, for Codex, as
-  `-c model_reasoning_effort="<level>"` — an explicit override, so a Codex review
-  never silently inherits whatever `~/.codex/config.toml` sets.
+  The level is passed as `claude --effort <level>`, for Codex as
+  `-c model_reasoning_effort="<level>"`, and for Opencode as
+  `--variant <level>` — an explicit override, so a Codex review never silently
+  inherits whatever `~/.codex/config.toml` sets and an Opencode review never
+  inherits the ambient config's model or variant. deepseek-v4-pro has no
+  `xhigh` variant, so the Opencode action maps `xhigh` onto `max`.
 - `--passes <n>` (optional flag, position-independent): how many review passes to
   run over **one unchanged head**. **Defaults to `1`**. Passes buy discovery
   depth on a single diff; they never fix anything. A flag rather than a third
@@ -51,6 +55,8 @@ commits to review and have no round limit.
 - The `@tearleads/agent-tool` package: `packages/agent-tool/src/index.ts`.
 - For Claude Code reviews: `claude` CLI authenticated.
 - For Codex reviews: `codex` CLI configured (`OPENAI_API_KEY`).
+- For Opencode reviews: `opencode` CLI with the `deepseek` provider
+  authenticated.
 - A feature branch (not the default branch) with commits to review. A PR **may
   or may not** exist: with an open PR, local `HEAD` must equal the pushed PR
   head, and repairs are pushed to it; with no PR, the branch is reviewed against
@@ -106,6 +112,7 @@ checks. `--jq '… // ""'` yields an empty string only on a successful empty res
 
 1. **Determine agent and initialize the loop**: Parse the argument:
    - `codex` → Codex (self-review)
+   - `opencode` → Opencode (deepseek-v4-pro)
    - otherwise → Claude Code (default for Codex invoking this skill)
 
    Set `REPAIR_ROUND=0` once for reporting. Steps 2–5 re-enter at step 2;
@@ -212,7 +219,7 @@ checks. `--jq '… // ""'` yields an empty string only on a successful empty res
 
 3. **Run the review**: Execute the matching action over the snapshot head. Omit
    the effort argument to take the per-agent default (`xhigh` for Claude, `high`
-   for Codex); pass a level to override it.
+   for Codex and Opencode); pass a level to override it.
 
    With `--passes <n>` and `n > 1`, repeat the review over the *same, unchanged*
    head, reporting only findings the earlier passes did not surface, and stop
@@ -232,6 +239,13 @@ checks. `--jq '… // ""'` yields an empty string only on a successful empty res
    AGENT_TOOL_REVIEW_BASE_REF="$BASE_REF" AGENT_TOOL_REVIEW_BASE_OID="$BASE_OID" bun "$AGENT_TOOL" solicitCodexReview xhigh      # explicit override
    ```
 
+   **For Opencode review:**
+
+   ```bash
+   AGENT_TOOL_REVIEW_BASE_REF="$BASE_REF" AGENT_TOOL_REVIEW_BASE_OID="$BASE_OID" bun "$AGENT_TOOL" solicitOpencodeReview         # effort: high (default)
+   AGENT_TOOL_REVIEW_BASE_REF="$BASE_REF" AGENT_TOOL_REVIEW_BASE_OID="$BASE_OID" bun "$AGENT_TOOL" solicitOpencodeReview max     # explicit override
+   ```
+
    **Fallback behavior (required):**
 
    - If the Claude Code review fails for **any** reason (credit/quota errors,
@@ -243,8 +257,16 @@ checks. `--jq '… // ""'` yields an empty string only on a successful empty res
      ```
 
    - If the Codex review also fails (or was selected first and fails due to
-     credits/quota/auth or prompt-size limits), perform an **in-session
-     file-by-file review** (step 4).
+     credits/quota/auth or prompt-size limits), fall back to an **Opencode
+     review**:
+
+     ```bash
+     AGENT_TOOL_REVIEW_BASE_REF="$BASE_REF" AGENT_TOOL_REVIEW_BASE_OID="$BASE_OID" bun "$AGENT_TOOL" solicitOpencodeReview
+     ```
+
+   - If the Opencode review also fails (or was selected first and fails due to
+     missing auth or a missing CLI), perform an **in-session file-by-file
+     review** (step 4).
 
    - Only stop immediately for non-recoverable operational errors (missing PR,
      missing tool script, malformed args) where fallback would also fail.
@@ -256,16 +278,20 @@ checks. `--jq '… // ""'` yields an empty string only on a successful empty res
    produced only an intent sentence — "I'll review this PR diff..." — which is not
    a review. Never relay one as if it were, and never repair from one.
 
-   **Both directions use the same gate:** every review must end with a
+   **Every direction uses the same gate:** every review must end with a
    `VERDICT:` line (`BLOCKER`, `MAJOR`, `MINOR`, `SUGGESTION`, or `CLEAN`). The
    actions retry once after an exit-0 missing a verdict, then fail into fallback.
-   Prompts use base-commit policy and label the diff untrusted. Both reviewers
+   Prompts use base-commit policy and label the diff untrusted. All reviewers
    inspect a temporary read-only export of tracked `HEAD`, never the live
    checkout. Claude uses safe mode and snapshot-scoped read tools. Codex uses a
    neutral cwd, disabled integrations, an ephemeral session, and a
-   deny-by-default filesystem profile; it relays only its final message. The
-   verdict is a completion sentinel, not proof of quality — still read the
-   findings.
+   deny-by-default filesystem profile; it relays only its final message. Opencode
+   runs `opencode run` pinned to `deepseek/deepseek-v4-pro` under an inline
+   reviewer-agent config that denies edit, bash, task, skill, question,
+   webfetch, and websearch and confines reads to the snapshot alone, from a
+   neutral cwd with plugins disabled; it relays only stdout, which is the final
+   message. The verdict is a completion sentinel, not proof of quality — still
+   read the findings.
 
    After review, confirm the head is still the snapshot:
 
@@ -383,9 +409,10 @@ checks. `--jq '… // ""'` yields an empty string only on a successful empty res
 - **A failed review is not a clean review.** If every agent and fallback fails,
   the verdict is *could-not-run* and no repair happens — repairing against absent
   findings would be inventing work.
-- Effort defaults are per agent — `xhigh` for Claude, `high` for Codex — and are
-  always passed explicitly, so neither reviewer inherits an ambient config value.
-  Fallback reviews use the fallback agent's own default unless a level is given.
+- Effort defaults are per agent — `xhigh` for Claude, `high` for Codex and
+  Opencode — and are always passed explicitly, so no reviewer inherits an
+  ambient config value. Fallback reviews use the fallback agent's own default
+  unless a level is given.
 - The fallback chain is not a second pass: falling back to another agent (or the
   in-session review) is still the *same* single pass, because the first reviewer
   produced no usable result.
@@ -401,7 +428,7 @@ checks. `--jq '… // ""'` yields an empty string only on a successful empty res
   is fetched by OID from the repository that owns the PR, rather than assuming
   `origin` is that repository; a conflict aborts and stops for the user.
   `--report-only` skips it, keeping report-only inert.
-- Both reviewers get the prompt/diff via stdin (not argv) to avoid
+- All reviewers get the prompt/diff via stdin (not argv) to avoid
   "Argument list too long" failures on large PRs.
 - The Claude reviewer runs with read-only tools (`--tools "Read,Grep,Glob"`) and
   no `Bash`. It needs to read: the best findings come from the code *around* the
@@ -409,8 +436,14 @@ checks. `--jq '… // ""'` yields an empty string only on a successful empty res
   callers a signature change breaks. `Bash` is withheld because a review needs no
   shell, and the session's context is a PR diff — attacker-influenceable text.
   Codex uses deny-by-default filesystem permissions limited to the raw snapshot
-  and CLI/runtime paths; network and integrations are disabled. Repair rounds
-  run in *this* session; the reviewer stays read-only.
+  and CLI/runtime paths; network and integrations are disabled. Opencode runs
+  pinned to `deepseek/deepseek-v4-pro` from a neutral cwd under an inline
+  agent config (`OPENCODE_CONFIG_CONTENT`) that denies every mutating or
+  exfiltrating tool and confines reads to the snapshot via
+  `external_directory`; `--pure` disables plugins and `OPENCODE_CONFIG_DIR`
+  points at the neutral cwd so no user- or branch-defined agents, commands, or
+  plugins load. Repair rounds run in *this* session; the reviewer stays
+  read-only.
 - **Why a review can come back empty is not known.** The one observed failure —
   Claude exiting 0 after ~5s having emitted only "I'll review this PR diff..." —
   was never reproduced and looks stochastic. The verdict check plus the tool's

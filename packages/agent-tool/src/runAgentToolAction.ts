@@ -2,9 +2,10 @@ import { openPr } from "./pr/openPr";
 import { squashMerge } from "./pr/squashMerge";
 import { solicitClaudeCodeReview } from "./review/solicitClaudeCodeReview";
 import { solicitCodexReview } from "./review/solicitCodexReview";
+import { solicitOpencodeReview } from "./review/solicitOpencodeReview";
 
 const AGENT_TOOL_USAGE =
-  "Usage: agent-tool <solicitClaudeCodeReview|solicitCodexReview|openPr|squashMerge> [args]\n";
+  "Usage: agent-tool <solicitClaudeCodeReview|solicitCodexReview|solicitOpencodeReview|openPr|squashMerge> [args]\n";
 
 export interface AgentToolActions {
   readonly openPr: (rootDir: string, title?: string) => number;
@@ -13,6 +14,7 @@ export interface AgentToolActions {
     effort?: string,
   ) => number;
   readonly solicitCodexReview: (rootDir: string, effort?: string) => number;
+  readonly solicitOpencodeReview: (rootDir: string, effort?: string) => number;
   readonly squashMerge: (
     rootDir: string,
     subject?: string,
@@ -25,6 +27,7 @@ const defaultActions: AgentToolActions = {
   openPr,
   solicitClaudeCodeReview,
   solicitCodexReview,
+  solicitOpencodeReview,
   squashMerge,
 };
 
@@ -56,6 +59,10 @@ export function runAgentToolAction(
     case "solicitCodexReview": {
       assertMaximumPositionals(action, positionals, 1);
       return actions.solicitCodexReview(rootDir, first);
+    }
+    case "solicitOpencodeReview": {
+      assertMaximumPositionals(action, positionals, 1);
+      return actions.solicitOpencodeReview(rootDir, first);
     }
     case "openPr": {
       assertMaximumPositionals(action, positionals, 1);

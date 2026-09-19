@@ -16,10 +16,12 @@ export type ReviewEffort = (typeof REVIEW_EFFORT_LEVELS)[number];
 /**
  * Per-agent defaults. Claude reviews at `xhigh`; Codex reviews at `high`, which
  * also pins the level rather than inheriting whatever `~/.codex/config.toml`
- * happens to set.
+ * happens to set. Opencode reviews at `high` too: it is the cheap fallback
+ * reviewer, and its deepseek-v4-pro model pays per thinking token.
  */
 export const DEFAULT_CLAUDE_EFFORT: ReviewEffort = "xhigh";
 export const DEFAULT_CODEX_EFFORT: ReviewEffort = "high";
+export const DEFAULT_OPENCODE_EFFORT: ReviewEffort = "high";
 
 /**
  * Narrow an arbitrary string to a known effort level. Written as a type guard
