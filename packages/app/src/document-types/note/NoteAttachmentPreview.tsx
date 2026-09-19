@@ -248,14 +248,18 @@ function NoteAttachmentPreview({
   // Locate the routed main pane from this component's position in the tree and
   // retarget the portal at it. A layout effect keeps the pre-paint frame from
   // flashing the body-portaled card before the host resolves; the hidden anchor
-  // is what makes the lookup local to this pane rather than a global query.
+  // is what makes the lookup local to this pane rather than a global query. The
+  // `document.contains` guard drops a stale host if the pane remounted while
+  // the preview survived it.
   useLayoutEffect(() => {
     if (!routed) {
       setRoutedPaneHost(null);
       return;
     }
     const pane = paneAnchorRef.current?.closest(".routed-pane-main");
-    setRoutedPaneHost(pane instanceof HTMLElement ? pane : null);
+    setRoutedPaneHost(
+      pane instanceof HTMLElement && document.contains(pane) ? pane : null,
+    );
   }, [routed]);
 
   const fillsRoutedPane = routed && routedPaneHost !== null;
@@ -268,7 +272,7 @@ function NoteAttachmentPreview({
 
   return (
     <>
-      <span ref={paneAnchorRef} hidden />
+      {routed ? <span ref={paneAnchorRef} hidden /> : null}
       {createPortal(
         <MiniAppModalBackdrop
           className={classNames(
