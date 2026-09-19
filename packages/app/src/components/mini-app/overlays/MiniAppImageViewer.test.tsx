@@ -102,22 +102,24 @@ test("a window hosts the viewer inside its own bounds", () => {
   }
 });
 
-function renderRoutedViewer(tier: "mobile" | "tablet") {
-  const pane = document.createElement("div");
-  pane.className = "routed-pane-main";
-  document.body.append(pane);
-
-  const view = render(
+function routedViewer(pane: HTMLElement, tier: "mobile" | "tablet") {
+  return (
     <RoutedPaneOverlayHostProvider value={{ host: pane, tier }}>
       <MiniAppImageViewer
         label="photo.png"
         onClose={() => undefined}
         url="blob:photo"
       />
-    </RoutedPaneOverlayHostProvider>,
+    </RoutedPaneOverlayHostProvider>
   );
+}
 
-  return { pane, view };
+function renderRoutedViewer(tier: "mobile" | "tablet") {
+  const pane = document.createElement("div");
+  pane.className = "routed-pane-main";
+  document.body.append(pane);
+
+  return { pane, view: render(routedViewer(pane, tier)) };
 }
 
 // The tablet/iPad shell keeps its rail, app bar, and tree sidebar on screen, so
@@ -152,6 +154,38 @@ test("a phone keeps the viewer on the whole viewport", () => {
       false,
     );
     expect(viewer.getAttribute("aria-modal")).toBe("true");
+  } finally {
+    pane.remove();
+  }
+});
+
+// Turning a phone to landscape crosses the 760px tier line, which moves the
+// portal from <body> into the pane. Moving a portal remounts its subtree, so the
+// stage node the viewer measures and listens on is replaced — the surface has to
+// be rebuilt around the new one, or its ResizeObserver and wheel listener stay
+// bound to the detached node and the measured viewport sticks at zero.
+test("crossing the tier line rebuilds the viewer on its new host", () => {
+  const pane = document.createElement("div");
+  pane.className = "routed-pane-main";
+  document.body.append(pane);
+
+  try {
+    const view = render(routedViewer(pane, "mobile"));
+    const screenStage = view.getByRole("application");
+    expect(screenStage.closest(".mini-app-image-viewer")?.parentElement).toBe(
+      document.body,
+    );
+
+    view.rerender(routedViewer(pane, "tablet"));
+
+    const paneStage = view.getByRole("application");
+    expect(paneStage.closest(".mini-app-image-viewer")?.parentElement).toBe(
+      pane,
+    );
+    // A relocated portal would have carried the original stage node across and
+    // left every listener bound to it; a rebuilt surface has a fresh one.
+    expect(paneStage).not.toBe(screenStage);
+    expect(screenStage.isConnected).toBe(false);
   } finally {
     pane.remove();
   }

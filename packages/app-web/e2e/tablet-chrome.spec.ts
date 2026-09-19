@@ -140,10 +140,12 @@ const PICTURE_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="300" height=
 // The fill is pure CSS (`sticky` keyed to the pane) over a portal target, so a
 // dropped override would still carry every class and only the browser's layout
 // would show it. Assert the drawn boxes.
+const TABLET_VIEWPORT = { height: 1000, width: 900 } as const;
+
 test("tablet image viewer fills the content pane, not the screen", async ({
   page,
 }) => {
-  await page.setViewportSize({ width: 900, height: 1000 });
+  await page.setViewportSize(TABLET_VIEWPORT);
   await page.goto("/app/notes");
   await page
     .getByRole("button", { name: "New Note", exact: true })
@@ -173,7 +175,7 @@ test("tablet image viewer fills the content pane, not the screen", async ({
   // Stated from the other side too: the nav rail is beside the viewer, not under
   // it, and the viewer stops short of the viewport it used to cover.
   expect(viewerBox.x).toBeGreaterThanOrEqual(railBox.x + railBox.width);
-  expect(viewerBox.width).toBeLessThan(900);
+  expect(viewerBox.width).toBeLessThan(TABLET_VIEWPORT.width);
 
   // It is still the viewer, and it still closes from inside the pane.
   await expect(viewer.getByRole("button", { name: "Zoom in" })).toBeVisible();
