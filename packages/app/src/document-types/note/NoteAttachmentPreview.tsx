@@ -330,7 +330,7 @@ function NoteAttachmentPreview({
             />
           </MiniAppModalPanel>
         </MiniAppModalBackdrop>,
-        fillsRoutedPane ? routedPaneHost : document.body,
+        routedPaneHost ?? document.body,
       )}
     </>
   );

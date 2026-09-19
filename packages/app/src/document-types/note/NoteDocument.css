@@ -439,7 +439,16 @@
    overflow clips it to exactly the pane — never over the rail, app bar, or
    taskbar. `width`/`height: 100%` resolve against the pane (the scrollport it
    fills), and the backdrop's background matches the pane's `--color-light` so
-   the safe-area padding a 100%-width sticky box cannot cover is invisible. */
+   the safe-area padding a 100%-width sticky box cannot cover is invisible.
+
+   `inset: 0` keeps its `bottom: 0`: the portal lands as the pane's last
+   child, so a `top`-only pin would leave the overlay below the fold until the
+   pane scrolled. The sticky box stays in flow and doubles the pane's
+   scrollable overflow while open; that scroll is inert — the opaque overlay
+   covers it and stays pinned — and it clamps away when the preview closes.
+   `position: absolute` was rejected because it scrolls with the pane instead
+   of staying pinned, and would need `.routed-pane-main` to become positioned,
+   re-anchoring every absolutely positioned descendant inside it. */
 /* The chained selector outranks the shared `.mini-app-modal-backdrop` base
    rules regardless of stylesheet order, so the routed backdrop's `sticky`,
    `padding`, and `background` never depend on which file bundled last. */
