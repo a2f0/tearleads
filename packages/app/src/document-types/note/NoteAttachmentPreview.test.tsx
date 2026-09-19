@@ -2,6 +2,7 @@ import { afterEach, expect, test } from "bun:test";
 import type { DocumentAttachment } from "@tearleads/client-sdk";
 import { cleanup, fireEvent, render, within } from "@testing-library/react";
 import { createRef } from "react";
+import { RoutedPaneOverlayHostProvider } from "../../components/layout/routed/RoutedPaneOverlayHost";
 import { NoteEditorFields } from "./NoteEditorFields";
 
 // The preview is opened from a tile inside NoteEditorFields, so it is exercised
@@ -9,6 +10,13 @@ import { NoteEditorFields } from "./NoteEditorFields";
 // focus-restore path end to end.
 
 afterEach(cleanup);
+afterEach(() => {
+  // The routed cases stand a pane up by hand; drop it even when an assertion
+  // threw first, so a stray host never outlives the test that made it.
+  for (const pane of document.querySelectorAll(".routed-pane-main")) {
+    pane.remove();
+  }
+});
 afterEach(() => {
   // The preview keys its chrome off this attribute; clear it so a windowed test
   // never bleeds into the routed/default cases that follow.
@@ -185,19 +193,24 @@ test("keeps the compact single bar in the routed shell", () => {
   expect(
     dialog.classList.contains("note-attachment-preview-panel--windowed"),
   ).toBe(false);
-  // With no routed pane in the tree the overlay keeps its centered-card
+  // With no routed pane offered in context the overlay keeps its centered-card
   // styling rather than claiming to fill a pane that is not there.
   expect(dialog.parentElement?.className).not.toContain(
     "note-attachment-preview-backdrop--routed",
   );
+  // Covering the viewport is what makes it modal, so this one still says so.
+  expect(dialog.getAttribute("aria-modal")).toBe("true");
 });
 
 test("fills the routed main pane instead of floating over it", () => {
   document.documentElement.setAttribute("data-navigation-mode", "routed");
+  const pane = document.createElement("div");
+  pane.className = "routed-pane-main";
+  document.body.append(pane);
   const view = render(
-    <div className="routed-pane-main">
+    <RoutedPaneOverlayHostProvider value={{ host: pane, tier: "tablet" }}>
       {buildNoteEditorFields({ attachments: [documentAttachment] })}
-    </div>,
+    </RoutedPaneOverlayHostProvider>,
   );
   const openButton = view.getByRole("button", { name: "Open spec.pdf" });
 
@@ -219,8 +232,12 @@ test("fills the routed main pane instead of floating over it", () => {
   // The routed pane keeps the compact bar over the windowed window chrome.
   expect(dialog.querySelector(".note-attachment-preview-bar")).toBeTruthy();
   expect(dialog.querySelector(".window-titlebar")).toBeNull();
-  // Focus lands inside the reparented overlay rather than being lost by the
-  // portal retarget, and returns to the tile when the preview closes.
+  // Still modal: it paints over the pane's own content and nothing marks that
+  // content inert, so a screen reader must not be able to reach the editor
+  // behind it just because the rail and app bar stay operable.
+  expect(dialog.getAttribute("aria-modal")).toBe("true");
+  // Focus lands on the pane-resident close button — the portal opens in the pane
+  // rather than being moved into it — and returns to the tile on close.
   expect(document.activeElement).toBe(
     dialog.querySelector(".note-attachment-preview-bar button:last-child"),
   );

@@ -1,5 +1,7 @@
 import { afterEach, expect, test } from "bun:test";
 import { cleanup, fireEvent, render } from "@testing-library/react";
+import type { RoutedLayoutTier } from "../../../navigation/useRoutedLayoutTier";
+import { RoutedPaneOverlayHostProvider } from "../../layout/routed/RoutedPaneOverlayHost";
 import { CurrentWindowProvider } from "../../window/CurrentWindowContext";
 import { MiniAppImageViewer } from "./MiniAppImageViewer";
 
@@ -98,6 +100,120 @@ test("a window hosts the viewer inside its own bounds", () => {
     );
   } finally {
     overlayHost.remove();
+  }
+});
+
+function routedViewer(pane: HTMLElement, tier: RoutedLayoutTier) {
+  return (
+    <RoutedPaneOverlayHostProvider value={{ host: pane, tier }}>
+      <MiniAppImageViewer
+        label="photo.png"
+        onClose={() => undefined}
+        url="blob:photo"
+      />
+    </RoutedPaneOverlayHostProvider>
+  );
+}
+
+function renderRoutedViewer(tier: RoutedLayoutTier) {
+  const pane = document.createElement("div");
+  pane.className = "routed-pane-main";
+  document.body.append(pane);
+
+  return { pane, view: render(routedViewer(pane, tier)) };
+}
+
+// The tablet/iPad shell keeps its rail, app bar, and tree sidebar on screen, so
+// the viewer belongs in the content pane beside them — the same pane the note
+// attachment preview fills — instead of over the whole app.
+test("the routed tablet shell hosts the viewer inside its content pane", () => {
+  const { pane, view } = renderRoutedViewer("tablet");
+
+  try {
+    const viewer = view.getByRole("dialog");
+    expect(viewer.parentElement).toBe(pane);
+    expect(viewer.classList.contains("mini-app-image-viewer--pane")).toBe(true);
+    // Still modal: it covers the pane's own content, which nothing marks inert.
+    expect(viewer.getAttribute("aria-modal")).toBe("true");
+    expect(viewer.classList.contains("mini-app-image-viewer--windowed")).toBe(
+      false,
+    );
+  } finally {
+    pane.remove();
+  }
+});
+
+// A phone has nothing beside the content to preserve and the least room to
+// spare: there the viewer still takes the viewport.
+test("a phone keeps the viewer on the whole viewport", () => {
+  const { pane, view } = renderRoutedViewer("mobile");
+
+  try {
+    const viewer = view.getByRole("dialog");
+    expect(viewer.parentElement).toBe(document.body);
+    expect(viewer.classList.contains("mini-app-image-viewer--pane")).toBe(
+      false,
+    );
+    expect(viewer.getAttribute("aria-modal")).toBe("true");
+  } finally {
+    pane.remove();
+  }
+});
+
+// Turning a phone to landscape crosses the 760px tier line, which moves the
+// portal from <body> into the pane. Moving a portal remounts its subtree, so the
+// stage node the viewer measures and listens on is replaced — the surface has to
+// be rebuilt around the new one, or its ResizeObserver and wheel listener stay
+// bound to the detached node and the measured viewport sticks at zero.
+test("crossing the tier line rebuilds the viewer on its new host", () => {
+  const pane = document.createElement("div");
+  pane.className = "routed-pane-main";
+  document.body.append(pane);
+
+  try {
+    const view = render(routedViewer(pane, "mobile"));
+    const screenStage = view.getByRole("application");
+    expect(screenStage.closest(".mini-app-image-viewer")?.parentElement).toBe(
+      document.body,
+    );
+
+    view.rerender(routedViewer(pane, "tablet"));
+
+    const paneStage = view.getByRole("application");
+    expect(paneStage.closest(".mini-app-image-viewer")?.parentElement).toBe(
+      pane,
+    );
+    // A relocated portal would have carried the original stage node across and
+    // left every listener bound to it; a rebuilt surface has a fresh one.
+    expect(paneStage).not.toBe(screenStage);
+    expect(screenStage.isConnected).toBe(false);
+  } finally {
+    pane.remove();
+  }
+});
+
+// Why the routed pane is programmatically focusable (RoutedPane.tsx). The
+// control that opened a viewer is often gone by the time it closes — a row the
+// host re-rendered away, a suppressed toolbar action — and focus has to land
+// somewhere inside the surface the overlay covered rather than on <body>, where
+// Tab would resume from the top of the page.
+test("closing over a vanished opener lands focus on the host pane", () => {
+  const pane = document.createElement("div");
+  pane.className = "routed-pane-main";
+  pane.tabIndex = -1;
+  document.body.append(pane);
+  const opener = document.createElement("button");
+  pane.append(opener);
+  opener.focus();
+
+  try {
+    const view = render(routedViewer(pane, "tablet"));
+    opener.remove();
+    view.unmount();
+
+    expect(document.activeElement).toBe(pane);
+  } finally {
+    pane.remove();
   }
 });
 

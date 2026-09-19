@@ -122,3 +122,78 @@ test("tablet container header kebab lines up with the row kebabs", async ({
   expect(headerBox.width).toBeCloseTo(rowBox.width, 0);
   expect(headerBox.x + headerBox.width).toBeCloseTo(rowBox.x + rowBox.width, 0);
 });
+
+// A picture that is plainly taller than it is wide: letterboxed against the
+// wrong box it would overflow the pane on one axis, which the drawn boxes below
+// measure directly.
+const PICTURE_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="300" height="400" viewBox="0 0 300 400">
+  <rect width="300" height="400" fill="#f5c518"/>
+  <rect x="10" y="10" width="280" height="380" fill="none" stroke="#0d6b32" stroke-width="20"/>
+</svg>`;
+
+// An image attachment opens in the shared image viewer. On a phone that is the
+// whole viewport — the viewer exists so a picture can be pinched and panned
+// where nothing else fits — but this tier keeps a rail, an app bar, a tree, and
+// a taskbar on screen beside the content, and covering them read as a different
+// app having taken over rather than a preview inside this one. It fills the
+// content pane here instead, like the note attachment preview beside it.
+//
+// The fill is pure CSS (`sticky` keyed to the pane) over a portal target, so a
+// dropped override would still carry every class and only the browser's layout
+// would show it. Assert the drawn boxes.
+const TABLET_VIEWPORT = { height: 1000, width: 900 } as const;
+
+test("tablet image viewer fills the content pane, not the screen", async ({
+  page,
+}) => {
+  await page.setViewportSize(TABLET_VIEWPORT);
+  await page.goto("/app/notes");
+  await page
+    .getByRole("button", { name: "New Note", exact: true })
+    .click({ timeout: 30_000 });
+  await page.getByRole("textbox", { name: "Notes editor" }).waitFor();
+  await page.locator(".note-document-file-input").setInputFiles({
+    buffer: Buffer.from(PICTURE_SVG),
+    mimeType: "image/svg+xml",
+    name: "picture.svg",
+  });
+  // The attachment round-trips through storage before its tile appears, so wait
+  // it out on the suite's budget rather than the click's default.
+  const openPicture = page.getByRole("button", { name: "Open picture.svg" });
+  await expect(openPicture).toBeVisible({ timeout: 30_000 });
+  await openPicture.click();
+
+  const viewer = page.locator(".mini-app-image-viewer");
+  await expect(viewer).toBeVisible({ timeout: 30_000 });
+
+  const paneBox = await page.locator(".routed-pane-main").boundingBox();
+  const railBox = await page.locator(".routed-pane-rail").boundingBox();
+  const viewerBox = await viewer.boundingBox();
+  if (!paneBox || !railBox || !viewerBox) {
+    throw new Error("Expected the shell and the image viewer to be laid out.");
+  }
+
+  expect(viewerBox.x).toBeCloseTo(paneBox.x, 0);
+  expect(viewerBox.y).toBeCloseTo(paneBox.y, 0);
+  expect(viewerBox.width).toBeCloseTo(paneBox.width, 0);
+  expect(viewerBox.height).toBeCloseTo(paneBox.height, 0);
+  // Stated from the other side too: the nav rail is beside the viewer, not under
+  // it, and the viewer stops short of the viewport it used to cover.
+  expect(viewerBox.x).toBeGreaterThanOrEqual(railBox.x + railBox.width);
+  expect(viewerBox.width).toBeLessThan(TABLET_VIEWPORT.width);
+
+  // The picture itself is drawn inside that box, not letterboxed against the
+  // viewport it no longer covers.
+  const imageBox = await viewer.locator("img").boundingBox();
+  if (!imageBox) {
+    throw new Error("Expected the viewer image to be laid out.");
+  }
+  expect(imageBox.height).toBeLessThanOrEqual(viewerBox.height + 1);
+  expect(imageBox.width).toBeLessThanOrEqual(viewerBox.width + 1);
+  expect(imageBox.height).toBeGreaterThan(100);
+
+  // It is still the viewer, and it still closes from inside the pane.
+  await expect(viewer.getByRole("button", { name: "Zoom in" })).toBeVisible();
+  await viewer.getByRole("button", { name: "Close", exact: true }).click();
+  await expect(viewer).toHaveCount(0);
+});
