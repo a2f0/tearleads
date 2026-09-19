@@ -440,7 +440,10 @@
    taskbar. `width`/`height: 100%` resolve against the pane (the scrollport it
    fills), and the backdrop's background matches the pane's `--color-light` so
    the safe-area padding a 100%-width sticky box cannot cover is invisible. */
-.note-attachment-preview-backdrop--routed {
+/* The chained selector outranks the shared `.mini-app-modal-backdrop` base
+   rules regardless of stylesheet order, so the routed backdrop's `sticky`,
+   `padding`, and `background` never depend on which file bundled last. */
+.note-attachment-preview-backdrop.note-attachment-preview-backdrop--routed {
   position: sticky;
   inset: 0;
   width: 100%;
