@@ -2987,7 +2987,10 @@ test("POST /containers/:containerId/rekey rejects recipient-set changes", async 
   });
   const previous = asVerifiedContainerManifest(childBundle);
   const event = request.event as unknown as AccessEvent;
-  const body = request.body as { readonly containerKeyEpochId: string };
+  const body = request.body as {
+    readonly containerKeyEpochId: string;
+    readonly containerKeyPublicKey: string;
+  };
   const tamperedManifestState: ContainerAccessManifestState = {
     ...previous.state,
     epoch: previous.state.epoch + 1,

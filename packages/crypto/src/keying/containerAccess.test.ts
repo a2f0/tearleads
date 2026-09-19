@@ -422,8 +422,10 @@ test("verifyContainerAccessManifest rejects rekeys that reuse the wrapping key",
   // Descendants wrap to the published key without holding this container's
   // material, so accepting this would let the retired KEK's holder open every
   // child key minted afterwards — the rotation would not actually revoke.
+  const retiredPublicKey = previous.state.containerKeyPublicKey;
+  if (!retiredPublicKey) throw new Error("fixture needs a wrapping key");
   const body: ContainerAccessEventBody = {
-    containerKeyPublicKey: previous.state.containerKeyPublicKey,
+    containerKeyPublicKey: retiredPublicKey,
     eventType: "container.rekey",
     containerKeyEpochId: "container-key-epoch-2",
     keyringHash: KEYRING_HASH,

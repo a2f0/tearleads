@@ -152,10 +152,8 @@ test("the signed wrapping public key is bound to the real KEK material", async (
     // wrapping key does not derive from the KEK material actually presented.
     await expect(
       unwrapContainerKekPath({
-        author: root.author,
         execSql: database.execSql,
         resolveProjectionUserKey: createParentProjectionUserKeyResolver(root),
-        targetSecretKey: root.secretKey,
         projection: {
           ...root.projection,
           path: [
