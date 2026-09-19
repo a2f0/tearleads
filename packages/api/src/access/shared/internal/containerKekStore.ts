@@ -49,6 +49,10 @@ interface StoreVerifiedContainerKekStateInput {
 interface ResolveStoredContainerKekStateInput {
   readonly containerManifest: VerifiedContainerAccessManifest;
   readonly containerManifestHistory?: readonly VerifiedContainerAccessManifest[];
+  // A non-root container's key epoch is bound to the parent epoch its signed
+  // creation event cites, so resolving one requires that parent's verified
+  // manifests. Omitting them on a child is a missing dependency, not a pass.
+  readonly parentManifestHistory?: readonly VerifiedContainerAccessManifest[];
   readonly parentKekState?: VerifiedContainerKekState | null;
   readonly principalPolicies?: readonly VerifiedPrincipalPolicy[];
   readonly userRecipientKeys?: readonly ContainerUserRecipientKey[];
@@ -343,6 +347,7 @@ export async function resolveStoredContainerKekState(
     containerManifest: input.containerManifest,
     containerManifestHistory: input.containerManifestHistory ?? [],
     keyEpoch: toContainerKeyEpoch(keyEpoch),
+    parentManifestHistory: input.parentManifestHistory ?? [],
     parentKekState: input.parentKekState ?? null,
     principalPolicies: input.principalPolicies ?? [],
     userRecipientKeys: input.userRecipientKeys ?? [],

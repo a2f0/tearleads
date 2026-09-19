@@ -1,5 +1,9 @@
 import { normalizeContainerKekWrappingPublicKey } from "./containerKekWrapping";
-import { assertExactKeys, readNullableString } from "./shared";
+import {
+  assertExactKeys,
+  readNullableString,
+  throwVerification,
+} from "./shared";
 import type {
   ContainerReciteAccessEventBody,
   KeyingCanonicalJson,
@@ -18,15 +22,23 @@ export function normalizeContainerReciteAccessEventBody(
     ["containerKeyEpochId", "containerKeyPublicKey", "eventType"],
     "container.recite event body",
   );
+  const containerKeyPublicKey = normalizeContainerKekWrappingPublicKey(
+    record.containerKeyPublicKey,
+  );
+  const containerKeyEpochId = readNullableString(
+    record,
+    "containerKeyEpochId",
+    "container.recite event body",
+  );
+  if ((containerKeyEpochId === null) !== (containerKeyPublicKey === null)) {
+    throwVerification(
+      "invalid_shape",
+      "Container KEK epoch and public key must both be present or both be null",
+    );
+  }
   return {
     eventType: "container.recite",
-    containerKeyPublicKey: normalizeContainerKekWrappingPublicKey(
-      record.containerKeyPublicKey,
-    ),
-    containerKeyEpochId: readNullableString(
-      record,
-      "containerKeyEpochId",
-      "container.recite event body",
-    ),
+    containerKeyPublicKey,
+    containerKeyEpochId,
   };
 }

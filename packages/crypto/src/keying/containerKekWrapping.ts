@@ -24,13 +24,15 @@ async function deriveContainerKekWrappingKeyPair(input: {
       "Container wrapping derivation requires an ID and 32-byte KEK",
     );
   }
-  const key = await crypto.subtle.importKey(
-    "raw",
-    input.keyMaterial.slice(),
-    "HKDF",
-    false,
-    ["deriveBits"],
-  );
+  const keyMaterialCopy = input.keyMaterial.slice();
+  let key: CryptoKey;
+  try {
+    key = await crypto.subtle.importKey("raw", keyMaterialCopy, "HKDF", false, [
+      "deriveBits",
+    ]);
+  } finally {
+    keyMaterialCopy.fill(0);
+  }
   const seed = new Uint8Array(
     await crypto.subtle.deriveBits(
       {

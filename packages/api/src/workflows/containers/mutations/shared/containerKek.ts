@@ -33,7 +33,6 @@ import {
   readVerifiedContainerKekState,
   userRecipientKeysFromRequest,
 } from "./containerKekRecords";
-
 import { assertParentKekStateCurrent } from "./parentKekState";
 
 interface VerifyContainerKekFromRequestArtifacts {

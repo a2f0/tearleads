@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import {
+  deriveContainerKekWrappingPublicKey,
   generateKemSeedAndKeyPair,
   unwrapContainerKekParentWrap,
 } from "@tearleads/crypto";
@@ -11,6 +12,7 @@ import {
   createParentProjectionUserKeyResolver,
 } from "../../../../test/helpers/containerFixtures";
 import { createTestTrustedUserIdentity } from "../../../../test/helpers/trustedUserIdentity";
+import { assertSignedWrappingPublicKey } from "../../../data/documents/shared/containerKekWrapping";
 import { unwrapContainerKekPath } from "../../../data/documents/shared/projection";
 import {
   buildMaterializedContainerCreatePlan,
@@ -138,5 +140,58 @@ test("a child-only writer repairs its parent wrap without receiving either paren
   } finally {
     database.close();
     coldPeer.close();
+  }
+});
+
+test("the signed wrapping public key is bound to the real KEK material", async () => {
+  const root = await createParentProjection();
+  const database = await createTestExecSql("public-parent-wrap-binding");
+  try {
+    // A projection edit is already caught by the manifest state hash, so this
+    // binding is what remains: a genuinely signed manifest whose published
+    // wrapping key does not derive from the KEK material actually presented.
+    await expect(
+      unwrapContainerKekPath({
+        author: root.author,
+        execSql: database.execSql,
+        resolveProjectionUserKey: createParentProjectionUserKeyResolver(root),
+        targetSecretKey: root.secretKey,
+        projection: {
+          ...root.projection,
+          path: [
+            {
+              ...root.projection.path[0],
+              state: {
+                ...root.projection.path[0]?.state,
+                containerKeyPublicKey:
+                  await deriveContainerKekWrappingPublicKey({
+                    containerId: root.projection.containerId,
+                    keyMaterial: crypto.getRandomValues(new Uint8Array(32)),
+                  }),
+              },
+            },
+            ...root.projection.path.slice(1),
+          ],
+        } as typeof root.projection,
+        secretKey: root.secretKey,
+      }),
+    ).rejects.toThrow();
+
+    await expect(
+      assertSignedWrappingPublicKey(
+        root.projection,
+        0,
+        crypto.getRandomValues(new Uint8Array(32)),
+      ),
+    ).rejects.toThrow(/wrapping public key does not match KEK material/);
+
+    // The real material satisfies it.
+    await assertSignedWrappingPublicKey(
+      root.projection,
+      0,
+      root.parentContainerKek,
+    );
+  } finally {
+    database.close();
   }
 });
