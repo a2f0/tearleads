@@ -232,9 +232,10 @@ test("fills the routed main pane instead of floating over it", () => {
   // The routed pane keeps the compact bar over the windowed window chrome.
   expect(dialog.querySelector(".note-attachment-preview-bar")).toBeTruthy();
   expect(dialog.querySelector(".window-titlebar")).toBeNull();
-  // Confined to the pane, the rail and app bar stay operable beside it, so it
-  // no longer claims to trap the app — matching the pane-hosted image viewer.
-  expect(dialog.getAttribute("aria-modal")).toBeNull();
+  // Still modal: it paints over the pane's own content and nothing marks that
+  // content inert, so a screen reader must not be able to reach the editor
+  // behind it just because the rail and app bar stay operable.
+  expect(dialog.getAttribute("aria-modal")).toBe("true");
   // Focus lands on the pane-resident close button — the portal opens in the pane
   // rather than being moved into it — and returns to the tile on close.
   expect(document.activeElement).toBe(

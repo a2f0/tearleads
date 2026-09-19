@@ -271,10 +271,12 @@ function NoteAttachmentPreview({
             "note-attachment-preview-panel--pdf",
         )}
         role="dialog"
-        // Modal only while it covers everything. Filling the routed pane leaves
-        // the rail, app bar, and taskbar operable beside it — the same reason
-        // the pane-hosted image viewer drops the attribute.
-        aria-modal={fillsRoutedPane ? undefined : "true"}
+        // Modal in every shell, including while it fills the routed pane: the
+        // overlay paints over that pane's own content and nothing marks it
+        // inert, so dropping this would leave a screen reader able to read the
+        // note editor hidden behind it. The chrome outside the pane staying
+        // operable is not the test — what the dialog covers is.
+        aria-modal="true"
         aria-labelledby={titleId}
       >
         <NoteAttachmentPreviewChrome

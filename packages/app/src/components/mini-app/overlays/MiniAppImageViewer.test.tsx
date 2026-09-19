@@ -1,5 +1,6 @@
 import { afterEach, expect, test } from "bun:test";
 import { cleanup, fireEvent, render } from "@testing-library/react";
+import type { RoutedLayoutTier } from "../../../navigation/useRoutedLayoutTier";
 import { RoutedPaneOverlayHostProvider } from "../../layout/routed/RoutedPaneOverlayHost";
 import { CurrentWindowProvider } from "../../window/CurrentWindowContext";
 import { MiniAppImageViewer } from "./MiniAppImageViewer";
@@ -102,7 +103,7 @@ test("a window hosts the viewer inside its own bounds", () => {
   }
 });
 
-function routedViewer(pane: HTMLElement, tier: "mobile" | "tablet") {
+function routedViewer(pane: HTMLElement, tier: RoutedLayoutTier) {
   return (
     <RoutedPaneOverlayHostProvider value={{ host: pane, tier }}>
       <MiniAppImageViewer
@@ -114,7 +115,7 @@ function routedViewer(pane: HTMLElement, tier: "mobile" | "tablet") {
   );
 }
 
-function renderRoutedViewer(tier: "mobile" | "tablet") {
+function renderRoutedViewer(tier: RoutedLayoutTier) {
   const pane = document.createElement("div");
   pane.className = "routed-pane-main";
   document.body.append(pane);
@@ -132,8 +133,8 @@ test("the routed tablet shell hosts the viewer inside its content pane", () => {
     const viewer = view.getByRole("dialog");
     expect(viewer.parentElement).toBe(pane);
     expect(viewer.classList.contains("mini-app-image-viewer--pane")).toBe(true);
-    // Confined to a pane, so it neither claims the app nor dresses as a window.
-    expect(viewer.getAttribute("aria-modal")).toBeNull();
+    // Still modal: it covers the pane's own content, which nothing marks inert.
+    expect(viewer.getAttribute("aria-modal")).toBe("true");
     expect(viewer.classList.contains("mini-app-image-viewer--windowed")).toBe(
       false,
     );
@@ -186,6 +187,31 @@ test("crossing the tier line rebuilds the viewer on its new host", () => {
     // left every listener bound to it; a rebuilt surface has a fresh one.
     expect(paneStage).not.toBe(screenStage);
     expect(screenStage.isConnected).toBe(false);
+  } finally {
+    pane.remove();
+  }
+});
+
+// Why the routed pane is programmatically focusable (RoutedPane.tsx). The
+// control that opened a viewer is often gone by the time it closes — a row the
+// host re-rendered away, a suppressed toolbar action — and focus has to land
+// somewhere inside the surface the overlay covered rather than on <body>, where
+// Tab would resume from the top of the page.
+test("closing over a vanished opener lands focus on the host pane", () => {
+  const pane = document.createElement("div");
+  pane.className = "routed-pane-main";
+  pane.tabIndex = -1;
+  document.body.append(pane);
+  const opener = document.createElement("button");
+  pane.append(opener);
+  opener.focus();
+
+  try {
+    const view = render(routedViewer(pane, "tablet"));
+    opener.remove();
+    view.unmount();
+
+    expect(document.activeElement).toBe(pane);
   } finally {
     pane.remove();
   }

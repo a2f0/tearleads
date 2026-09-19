@@ -42,6 +42,12 @@
    descendant inside it. The note attachment preview's routed backdrop is pinned
    the same way and for the same reason (see NoteDocument.css).
 
+   The sticky box stays in flow, so it doubles the pane's scrollable overflow
+   while it is open (the same caveat NoteDocument.css records for the preview
+   backdrop). That scroll is inert behind the opaque overlay, which stays pinned
+   either way, and it clamps away on close — worth knowing here because the
+   stage swallows wheel events but the chrome row above it does not.
+
    The phone tier deliberately keeps the viewport rule above: it has nothing
    beside the content to preserve, and the picture wants every pixel. */
 .mini-app-image-viewer--pane {

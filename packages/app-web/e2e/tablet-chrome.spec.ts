@@ -123,8 +123,9 @@ test("tablet container header kebab lines up with the row kebabs", async ({
   expect(headerBox.x + headerBox.width).toBeCloseTo(rowBox.x + rowBox.width, 0);
 });
 
-// A picture that is plainly taller than it is wide, so a viewer that letterboxed
-// it against the wrong box would be visible in the numbers below as well.
+// A picture that is plainly taller than it is wide: letterboxed against the
+// wrong box it would overflow the pane on one axis, which the drawn boxes below
+// measure directly.
 const PICTURE_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="300" height="400" viewBox="0 0 300 400">
   <rect width="300" height="400" fill="#f5c518"/>
   <rect x="10" y="10" width="280" height="380" fill="none" stroke="#0d6b32" stroke-width="20"/>
@@ -156,7 +157,11 @@ test("tablet image viewer fills the content pane, not the screen", async ({
     mimeType: "image/svg+xml",
     name: "picture.svg",
   });
-  await page.getByRole("button", { name: "Open picture.svg" }).click();
+  // The attachment round-trips through storage before its tile appears, so wait
+  // it out on the suite's budget rather than the click's default.
+  const openPicture = page.getByRole("button", { name: "Open picture.svg" });
+  await expect(openPicture).toBeVisible({ timeout: 30_000 });
+  await openPicture.click();
 
   const viewer = page.locator(".mini-app-image-viewer");
   await expect(viewer).toBeVisible({ timeout: 30_000 });
@@ -176,6 +181,16 @@ test("tablet image viewer fills the content pane, not the screen", async ({
   // it, and the viewer stops short of the viewport it used to cover.
   expect(viewerBox.x).toBeGreaterThanOrEqual(railBox.x + railBox.width);
   expect(viewerBox.width).toBeLessThan(TABLET_VIEWPORT.width);
+
+  // The picture itself is drawn inside that box, not letterboxed against the
+  // viewport it no longer covers.
+  const imageBox = await viewer.locator("img").boundingBox();
+  if (!imageBox) {
+    throw new Error("Expected the viewer image to be laid out.");
+  }
+  expect(imageBox.height).toBeLessThanOrEqual(viewerBox.height + 1);
+  expect(imageBox.width).toBeLessThanOrEqual(viewerBox.width + 1);
+  expect(imageBox.height).toBeGreaterThan(100);
 
   // It is still the viewer, and it still closes from inside the pane.
   await expect(viewer.getByRole("button", { name: "Zoom in" })).toBeVisible();

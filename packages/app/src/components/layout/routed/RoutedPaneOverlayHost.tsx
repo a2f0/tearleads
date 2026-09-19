@@ -1,7 +1,7 @@
 import { createContext, type PropsWithChildren, useContext } from "react";
 import type { RoutedLayoutTier } from "../../../navigation/useRoutedLayoutTier";
 
-interface RoutedPaneOverlayHostValue {
+export interface RoutedPaneOverlayHostValue {
   /**
    * The routed shell's `<main className="routed-pane-main">` element, offered to
    * overlays that should fill the content pane rather than the viewport — the
@@ -47,6 +47,12 @@ export function RoutedPaneOverlayHostProvider({
  * so the overlays that use it pin themselves with `sticky` against its scrollport
  * (see `.mini-app-image-viewer--pane` and
  * `.note-attachment-preview-backdrop--routed`).
+ *
+ * `host` is offered on **both** tiers and `tier` is the opt-in gate, because the
+ * two current consumers disagree on purpose: the note attachment preview fills
+ * the pane on a phone as well, while the image viewer keeps the viewport there —
+ * a picture to pinch and pan wants every pixel. A new consumer chooses by
+ * reading `tier`, not by assuming the host means the pane is wanted.
  */
 export function useRoutedPaneOverlayHost(): RoutedPaneOverlayHostValue {
   return useContext(RoutedPaneOverlayHostContext);

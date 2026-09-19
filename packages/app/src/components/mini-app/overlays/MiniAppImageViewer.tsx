@@ -173,6 +173,24 @@ interface ImageViewerHost {
   kind: ImageViewerHostKind;
 }
 
+// One stable key per host element, so the surface below is keyed on the host's
+// identity rather than on its kind — two different elements of the same kind
+// must still rebuild it. A WeakMap keeps the lookup idempotent across re-renders
+// and lets a detached host be collected with its key.
+const imageViewerHostKeys = new WeakMap<HTMLElement, string>();
+let nextImageViewerHostKey = 0;
+
+function imageViewerHostKey(element: HTMLElement): string {
+  const existing = imageViewerHostKeys.get(element);
+  if (existing !== undefined) {
+    return existing;
+  }
+  nextImageViewerHostKey += 1;
+  const key = `image-viewer-host-${nextImageViewerHostKey}`;
+  imageViewerHostKeys.set(element, key);
+  return key;
+}
+
 // Ordered by how much else is on screen worth keeping: a desktop window's own
 // content pane first, then the routed tablet shell's, then the viewport.
 function resolveImageViewerHost(params: {
@@ -219,7 +237,7 @@ function ImageViewerSurface(
   return createPortal(
     <div
       aria-label={params.label}
-      aria-modal={host.kind === "screen" ? "true" : undefined}
+      aria-modal={isWindowed ? undefined : "true"}
       className={classNames(
         "mini-app-image-viewer",
         isWindowed && "mini-app-image-viewer--windowed",
@@ -293,8 +311,12 @@ function ImageViewerSurface(
  *   spare, so it keeps <body> and the whole viewport. That is the case this
  *   viewer exists for: an inline preview cannot be inspected at that size.
  *
- * Only the viewport-filling case is `aria-modal`; the other two leave the chrome
- * around them operable, so claiming to trap the app would be a lie.
+ * Both routed cases are `aria-modal`: each paints over the content beneath it —
+ * the pane's own note editor or blob list — and nothing marks that content
+ * inert, so a screen reader would otherwise still reach what the viewer hides.
+ * The chrome outside the pane staying operable is not the test; what the dialog
+ * covers is. The windowed case keeps its long-standing omission, where the
+ * window's own semantics carry it.
  *
  * The stage takes `touch-action: none` so the browser hands the pinch to the
  * viewer instead of page-zooming behind it.
@@ -307,13 +329,24 @@ export function MiniAppImageViewer(params: MiniAppImageViewerProps) {
     windowHost: currentWindow?.overlayHost ?? null,
   });
 
-  // Keyed on the host so a move rebuilds the surface rather than relocating it.
-  // The stage's ResizeObserver and wheel listener bind once to the node behind
-  // `stageRef` (see useImageViewerState); moving a portal remounts that node,
-  // and without this remount they would stay on the detached one — the measured
-  // viewport would latch at 0x0 and the zoom clamp would run against an empty
-  // box. Two moves are reachable: crossing the 760px tier line with the viewer
-  // open (a phone turned to landscape), and the first frame of a routed shell
-  // whose pane element has not reached context yet.
-  return <ImageViewerSurface key={host.kind} {...params} host={host} />;
+  // Keyed on the host element so a move rebuilds the surface rather than
+  // relocating it. The stage's ResizeObserver and wheel listener bind once to
+  // the node behind `stageRef` (see useImageViewerState); moving a portal
+  // remounts that node, and without this remount they would stay on the
+  // detached one — the measured viewport would latch at 0x0 and the zoom clamp
+  // would run against an empty box. Two moves are reachable: crossing the 760px
+  // tier line with the viewer open (a phone turned to landscape), and the first
+  // frame of a routed shell whose pane element has not reached context yet.
+  //
+  // The rebuild refits the picture, dropping any zoom and pan. That is the
+  // deliberate trade for not rewiring the shared gesture hook onto a
+  // state-backed stage node: the moves above are rare, and both already change
+  // the box the view is clamped to.
+  return (
+    <ImageViewerSurface
+      key={imageViewerHostKey(host.element)}
+      {...params}
+      host={host}
+    />
+  );
 }
