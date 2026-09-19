@@ -105,3 +105,62 @@ test("note PDF previews retain download when rendering is unavailable", async ({
     await dialog.getByRole("button", { name: "Close preview" }).click();
   }
 });
+
+// The routed (tablet / mobile) shell must render the preview edge-to-edge over
+// the main content pane — not as a floating centered card. Assert the drawn
+// boxes rather than the classes: the fill lives in CSS (`sticky` plus 100%
+// sizing keyed to the pane), so a dropped override would still carry every
+// modifier class and only the browser's layout would show it.
+for (const viewport of [
+  { name: "tablet", width: 900, height: 1000 },
+  { name: "mobile", width: 390, height: 844 },
+] as const) {
+  test(`note preview fills the routed pane (${viewport.name})`, async ({
+    page,
+  }) => {
+    await page.setViewportSize({
+      width: viewport.width,
+      height: viewport.height,
+    });
+    await page.goto("/app/notes");
+    await page.getByRole("button", { name: "New Note", exact: true }).click();
+    await page.getByRole("textbox", { name: "Notes editor" }).waitFor();
+    await attachPdf(page, "reference.pdf", twoPagePdf());
+
+    await page.getByRole("button", { name: "Open reference.pdf" }).click();
+    const dialog = page.getByRole("dialog", {
+      name: "reference.pdf",
+      exact: true,
+    });
+    // The routed chrome keeps its compact bar and never draws window chrome.
+    await expect(dialog.locator(".note-attachment-preview-bar")).toBeVisible();
+    await expect(dialog.locator(".window-titlebar")).toHaveCount(0);
+
+    const pane = page.locator(".routed-pane-main");
+    const paneBox = await pane.boundingBox();
+    const dialogBox = await dialog.boundingBox();
+    if (!paneBox || !dialogBox) {
+      throw new Error(
+        "Expected the routed pane and preview boxes to be laid out.",
+      );
+    }
+    expect(dialogBox.x).toBeCloseTo(paneBox.x, 0);
+    expect(dialogBox.y).toBeCloseTo(paneBox.y, 0);
+    expect(dialogBox.width).toBeCloseTo(paneBox.width, 0);
+    expect(dialogBox.height).toBeCloseTo(paneBox.height, 0);
+
+    // The preview's controls sit inside the pane, not clipped past it.
+    const closeBox = await dialog
+      .getByRole("button", { name: "Close preview" })
+      .boundingBox();
+    if (!closeBox) {
+      throw new Error("Expected the preview close control to be laid out.");
+    }
+    expect(closeBox.x + closeBox.width).toBeLessThanOrEqual(
+      paneBox.x + paneBox.width,
+    );
+
+    await dialog.getByRole("button", { name: "Close preview" }).click();
+    await expect(dialog).toHaveCount(0);
+  });
+}

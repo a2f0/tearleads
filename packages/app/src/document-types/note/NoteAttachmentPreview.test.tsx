@@ -185,6 +185,11 @@ test("keeps the compact single bar in the routed shell", () => {
   expect(
     dialog.classList.contains("note-attachment-preview-panel--windowed"),
   ).toBe(false);
+  // With no routed pane in the tree the overlay keeps its centered-card
+  // styling rather than claiming to fill a pane that is not there.
+  expect(dialog.parentElement?.className).not.toContain(
+    "note-attachment-preview-backdrop--routed",
+  );
 });
 
 test("fills the routed main pane instead of floating over it", () => {
