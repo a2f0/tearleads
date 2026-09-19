@@ -38,6 +38,7 @@ const bareEnv: ReviewerEnv = { PATH: SYSTEM_PATH };
 const cwdPath = path.join(stubDir, "cwd");
 const configPath = path.join(stubDir, "config-content");
 const configDirPath = path.join(stubDir, "config-dir");
+const argvPath = path.join(stubDir, "argv");
 
 /**
  * Install a stub `opencode` that prints `stdout` and exits with `exitCode`. The
@@ -53,6 +54,7 @@ function stubOpencode(stdout: string, exitCode = 0): void {
     `pwd > ${JSON.stringify(cwdPath)}`,
     `printf '%s' "$OPENCODE_CONFIG_CONTENT" > ${JSON.stringify(configPath)}`,
     `printf '%s' "$OPENCODE_CONFIG_DIR" > ${JSON.stringify(configDirPath)}`,
+    `printf '%s' "$*" > ${JSON.stringify(argvPath)}`,
     "echo 'stderr noise' >&2",
     `cat ${JSON.stringify(payloadPath)}`,
     `exit ${exitCode}`,
@@ -96,6 +98,16 @@ describe("spawnOpencodeReview", () => {
     stubOpencode("## Review\n\n- Minor: `a.ts:1` naming.\n\nVERDICT: MINOR\n");
 
     expect(spawnOpencodeReview("prompt", "high", stubDir, stubEnv)).toBe(0);
+  });
+
+  test("wires the effort level into --variant, xhigh collapsing onto max", () => {
+    stubOpencode("## Review\n\nAll good.\n\nVERDICT: CLEAN\n");
+
+    expect(spawnOpencodeReview("prompt", "xhigh", stubDir, stubEnv)).toBe(0);
+    expect(readFileSync(argvPath, "utf8").trim()).toContain("--variant max");
+
+    expect(spawnOpencodeReview("prompt", "low", stubDir, stubEnv)).toBe(0);
+    expect(readFileSync(argvPath, "utf8").trim()).toContain("--variant low");
   });
 
   test("runs from a neutral cwd, not the snapshot", () => {

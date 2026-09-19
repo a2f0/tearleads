@@ -38,7 +38,9 @@ const OPENCODE_REVIEW_AGENT = "tearleads-review";
  * The skill's levels are `low | medium | high | xhigh | max`; this model's
  * variants are `low | medium | high | max`, so `xhigh` collapses onto `max`.
  */
-export function resolveOpencodeVariant(effort: ReviewEffort): string {
+export function resolveOpencodeVariant(
+  effort: ReviewEffort,
+): Exclude<ReviewEffort, "xhigh"> | "max" {
   return effort === "xhigh" ? "max" : effort;
 }
 
@@ -87,7 +89,7 @@ export function buildOpencodeInlineConfig(snapshotRoot: string): string {
 
 /**
  * Build the `opencode run` argv for a non-interactive review. The prompt goes
- * over stdin (openode reads stdin when no message positional is given), so a
+ * over stdin (opencode reads stdin when no message positional is given), so a
  * large diff never hits argv limits. `--pure` drops external plugins, and the
  * confinement itself lives in the inline config passed through the
  * environment: opencode has no per-run flag for permissions, and
@@ -108,20 +110,33 @@ export function buildOpencodeReviewArgs(variant: string): string[] {
 }
 
 /**
+ * How much stderr tail to relay when an opencode attempt fails outright.
+ */
+const TRANSCRIPT_TAIL_CHARS = 2000;
+
+/**
  * Run `opencode run` over an already-built review prompt and relay whatever it
  * prints to stdout — the final message alone, since run mode keeps its TUI
  * noise on stderr. Exit codes and the verdict gate behave exactly like the
  * Claude and Codex paths: a nonzero CLI exit is returned as-is, and an exit-0
  * run without a verdict-signed review is retried once before failing.
  *
+ * Both streams are captured: opencode prints its session transcript — tool
+ * call echo, progress lines, and the like — to stderr, and inheriting it
+ * would bury the review under noise on every run. On a failed launch the
+ * stderr tail is relayed so the error is still diagnosable (the Codex path
+ * makes the same trade-off).
+ *
  * The reviewer runs from a fresh, empty, non-repository cwd so nothing
  * branch-controlled loads: not the snapshot's `AGENTS.md` or `opencode.json`,
  * and not its `.opencode/` directory. `OPENCODE_CONFIG_DIR` points at that
  * same empty directory so no user-defined agents, commands, or plugins from
  * `~/.config/opencode` ride along either; `--pure` additionally disables
- * external plugins. Global config still loads (it carries the deepseek
- * credentials the review needs), but the inline config's agent-scoped deny
- * rules take precedence over whatever it sets.
+ * external plugins. That directory is *config* only: opencode's credentials
+ * live in its data directory (`~/.local/share/opencode/auth.json` on macOS),
+ * which `OPENCODE_CONFIG_DIR` does not touch, so the deepseek auth the review
+ * needs still resolves. Global config still loads, but the inline config's
+ * agent-scoped deny rules take precedence over whatever it sets.
  */
 export function spawnOpencodeReview(
   prompt: string,
@@ -136,7 +151,7 @@ export function spawnOpencodeReview(
         "opencode",
         buildOpencodeReviewArgs(resolveOpencodeVariant(effort)),
         {
-          stdio: ["pipe", "pipe", "inherit"],
+          stdio: ["pipe", "pipe", "pipe"],
           input: prompt,
           encoding: "utf8",
           maxBuffer: MAX_BUFFER_BYTES,
@@ -150,8 +165,15 @@ export function spawnOpencodeReview(
           },
         },
       );
+      const exitCode = spawnExitCode("opencode", result);
+      const transcript = result.stderr ?? "";
+      if (exitCode !== 0 && transcript.length > 0) {
+        process.stderr.write(
+          `opencode transcript (tail):\n${transcript.slice(-TRANSCRIPT_TAIL_CHARS)}\n`,
+        );
+      }
       return {
-        exitCode: spawnExitCode("opencode", result),
+        exitCode,
         review: result.stdout ?? "",
       };
     });
