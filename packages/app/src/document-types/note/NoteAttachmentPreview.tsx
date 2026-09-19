@@ -250,8 +250,8 @@ function NoteAttachmentPreview({
   // retarget the portal at it. A layout effect keeps the pre-paint frame from
   // flashing the body-portaled card before the host resolves; the hidden anchor
   // is what makes the lookup local to this pane rather than a global query. The
-  // `document.contains` guard drops a stale host if the pane remounted while
-  // the preview survived it.
+  // `document.contains` guard drops a host that is already detached at lookup
+  // time, e.g. during a mode switch mid-teardown.
   useLayoutEffect(() => {
     if (!routed) {
       setRoutedPaneHost(null);
@@ -271,9 +271,10 @@ function NoteAttachmentPreview({
 
   useModalEscapeAndFocusRestore(onClose, closeButtonRef);
 
-  // The shared modal hook focuses the close button on mount. In routed mode
-  // that first button is the pre-retarget one; the portal move above replaces
-  // it, which drops focus to the document. Re-focus the replacement.
+  // The shared modal hook focuses the close button when its mount effects
+  // flush. In routed mode the portal retargets into the pane after mount, so
+  // that focus can land on the pre-retarget button and be dropped when it is
+  // replaced; re-focus the retargeted button.
   useEffect(() => {
     if (fillsRoutedPane) {
       closeButtonRef.current?.focus();
