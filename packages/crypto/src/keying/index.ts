@@ -23,6 +23,10 @@ export {
   normalizeContainerKekPredecessorBridge,
   unwrapContainerKekPredecessorBridge,
 } from "./containerKekPredecessor";
+export {
+  deriveContainerKekWrappingPublicKey,
+  unwrapContainerKekParentWrap,
+} from "./containerKekWrapping";
 export { resolveContainerStatePathUserAccessLevel } from "./containerPathAccess";
 export * from "./documentAccess";
 export {

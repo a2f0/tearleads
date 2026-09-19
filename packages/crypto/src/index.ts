@@ -215,6 +215,7 @@ export {
   deriveBlobKekTargets,
   deriveContainerAccessManifest,
   deriveContainerKekRecipientTargets,
+  deriveContainerKekWrappingPublicKey,
   deriveDocumentKekTargets,
   deriveDocumentLinkSetManifest,
   derivePrincipalRecipientKeyEpochId,
@@ -254,6 +255,7 @@ export {
   signAccessEvent,
   signTransparencyTreeHead,
   signWriteHeader,
+  unwrapContainerKekParentWrap,
   unwrapContainerKekPredecessorBridge,
   verifyAccessManifest,
   verifyAccessManifestLocalCheckpoint,
@@ -278,10 +280,6 @@ export {
   verifyTransparencyProof,
   verifyWriteHeader,
 } from "./keying";
-export {
-  deriveContainerKekWrappingPublicKey,
-  unwrapContainerKekParentWrap,
-} from "./keying/containerKekWrapping";
 export {
   computePrincipalContainerGrantRoot,
   normalizePrincipalContainerGrants,

@@ -233,9 +233,22 @@ export async function wrapContainerKeyToManagedPrincipal(input: {
 export function getParentWrappingPublicKey(
   projection: ContainerWriterProjectionResponse,
 ): string | null {
+  const targetState = readContainerState(
+    getTargetContainerContext(projection).manifest,
+  );
+  if (!targetState.parentContainerId) {
+    return null;
+  }
+
   const parent = projection.path.at(-2);
-  if (!parent) return null;
-  const publicKey = readContainerState(parent).containerKeyPublicKey;
+  if (!parent) {
+    throw new Error("Container parent wrapping public key is unavailable");
+  }
+  const parentState = readContainerState(parent);
+  if (parentState.containerId !== targetState.parentContainerId) {
+    throw new Error("Container parent wrapping public key is unavailable");
+  }
+  const publicKey = parentState.containerKeyPublicKey;
   if (!publicKey)
     throw new Error("Container parent wrapping public key is missing");
   return publicKey;

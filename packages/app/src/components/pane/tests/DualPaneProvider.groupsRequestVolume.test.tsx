@@ -64,6 +64,8 @@ const ADMIN_GROUP_MUTATION_REQUEST_BUDGET: ProxiedApiRequestBudget = {
   total: 63,
   // Public parent keys measure 389.5 KB sent with one descendant recitation;
   // retain room for the second 60 KB recitation already allowed below.
+  // Signed destination roles and fresh container-info proofs measure 1.827 MB
+  // in response.
   bodyBytes: { request: 450_000, response: 1_850_000 },
   byRequest: {
     "GET /containers": 0,
