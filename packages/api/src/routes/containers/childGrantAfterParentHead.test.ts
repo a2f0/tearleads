@@ -149,3 +149,79 @@ test("a warm-cache child share succeeds after its parent head advanced", async (
   const childShared = await childShare.text();
   expect(childShare.status, childShared.slice(0, 500)).toBe(200);
 });
+
+// The cited parent manifest now sits two heads below the current one, so the
+// intermediate is already process-cached when the child is verified. The
+// creation citation must still resolve rather than depending on cache warmth.
+test("a child share succeeds after its parent head advanced twice", async () => {
+  const owner = createTestUser();
+  await registerUser(owner);
+  await authenticate(owner);
+  const r1 = createTestUser();
+  await registerUser(r1);
+  await authenticate(r1);
+  const r2 = createTestUser();
+  await registerUser(r2);
+  await authenticate(r2);
+  const r3 = createTestUser();
+  await registerUser(r3);
+  await authenticate(r3);
+
+  const root = await bootstrapRoot(owner);
+  const child = await createChildContainer({ parent: root, signer: owner });
+  const childBundle = accessManifestFromContainerResponse(child);
+
+  // root_v1 -> root_v2
+  const s1 = await share(
+    owner.token,
+    root.kekState.containerId,
+    await buildRootGrantRequest({
+      previous: root.bundle,
+      previousKekState: root.kekState,
+      recipient: r1,
+      signer: owner,
+    }),
+  );
+  const t1 = await s1.text();
+  expect(s1.status, t1.slice(0, 300)).toBe(200);
+  const v2 = JSON.parse(t1);
+  if (!isContainerMutationResponse(v2)) throw new Error("bad v2");
+
+  // root_v2 -> root_v3  (v2 is now process-cached)
+  const s2 = await share(
+    owner.token,
+    root.kekState.containerId,
+    await buildContainerGrantRequest({
+      containerManifestHistory: [root.bundle],
+      parentKekState: null,
+      previous: accessManifestFromContainerResponse(v2),
+      previousContainerPath: [accessManifestFromContainerResponse(v2)],
+      previousKekState: kekStateFromContainerResponse(v2),
+      recipient: r2,
+      signer: owner,
+    }),
+  );
+  const t2 = await s2.text();
+  expect(s2.status, t2.slice(0, 300)).toBe(200);
+  const v3 = JSON.parse(t2);
+  if (!isContainerMutationResponse(v3)) throw new Error("bad v3");
+
+  // child still cites root_v1, which is now TWO levels below the head
+  const cs = await share(
+    owner.token,
+    child.containerId,
+    await buildContainerGrantRequest({
+      parentKekState: kekStateFromContainerResponse(v3),
+      previous: childBundle,
+      previousContainerPath: [
+        accessManifestFromContainerResponse(v3),
+        childBundle,
+      ],
+      previousKekState: kekStateFromContainerResponse(child),
+      recipient: r3,
+      signer: owner,
+    }),
+  );
+  const ct = await cs.text();
+  expect(cs.status, ct.slice(0, 400)).toBe(200);
+});
