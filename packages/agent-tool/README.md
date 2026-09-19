@@ -5,13 +5,14 @@ Minimal CLI for cross-agent code review and PR squash-merges.
 ## Cross-agent review
 
 Solicits a review of the current branch's diff from a local coding-agent CLI
-(`claude` or `codex`), so one agent can request a second opinion from another. The
-branch need not have a PR yet — with none open, the diff is taken against the
-default branch.
+(`claude`, `codex`, or `opencode`), so one agent can request a second opinion
+from another. The branch need not have a PR yet — with none open, the diff is
+taken against the default branch.
 
 ```bash
 bun packages/agent-tool/src/index.ts solicitClaudeCodeReview        # effort: xhigh
 bun packages/agent-tool/src/index.ts solicitCodexReview             # effort: high
+bun packages/agent-tool/src/index.ts solicitOpencodeReview          # effort: high
 # Override the reasoning effort (low | medium | high | xhigh | max):
 bun packages/agent-tool/src/index.ts solicitCodexReview xhigh
 ```
@@ -60,14 +61,25 @@ directory, and minimal runtime paths, and strips the environment from
 model-generated commands. Codex runs from a neutral temporary directory so the
 branch's `AGENTS.md` is not injected as reviewer policy. Only its final message
 — captured with `--output-last-message` — is relayed, so the output is the
-review itself rather than the session's investigative transcript.
+review itself rather than the session's investigative transcript. Opencode
+reviews run `opencode run` pinned to `deepseek/deepseek-v4-pro`, the fallback
+provider when the other agents are out of credits. A read-only reviewer agent
+is defined inline through `OPENCODE_CONFIG_CONTENT`: it denies `edit`, `bash`,
+`task`, `skill`, `question`, `webfetch`, and `websearch`, and confines reads
+outside its own cwd to the snapshot alone via `external_directory`. The cwd is
+a neutral temporary directory and `OPENCODE_CONFIG_DIR` points at that same
+empty directory, so neither the branch's `opencode.json`/`AGENTS.md`/`.opencode/`
+nor user-defined agents, commands, or plugins load; `--pure` disables external
+plugins on top. Only stdout — the final message — is relayed.
 
 The optional effort argument sets the reviewer's reasoning effort, defaulting to
-**`xhigh` for Claude** and **`high` for Codex**. It is passed as
-`claude --effort <level>` and `codex exec -c model_reasoning_effort="<level>"`,
-always explicitly — so a Codex review never silently inherits
-`~/.codex/config.toml`. An unknown level throws before the reviewer CLI is
-launched.
+**`xhigh` for Claude** and **`high` for Codex and Opencode**. It is passed as
+`claude --effort <level>`, `codex exec -c model_reasoning_effort="<level>"`, and
+`opencode run --variant <level>` — always explicitly, so a Codex review never
+silently inherits `~/.codex/config.toml` and an Opencode review never inherits
+the ambient config's model or variant. deepseek-v4-pro has no `xhigh` variant,
+so Opencode maps `xhigh` onto `max`. An unknown level throws before the
+reviewer CLI is launched.
 
 The exit code is the reviewing CLI's exit code (or `1` for a review that failed
 the verdict gate), so callers can fall back to another reviewer on failure.
@@ -153,6 +165,8 @@ changes nothing, invoke `cross-agent-review` with `--report-only`.
 - `git` and `gh` (authenticated) on `PATH`.
 - `claude` CLI authenticated for `solicitClaudeCodeReview`.
 - `codex` CLI configured (`OPENAI_API_KEY`) for `solicitCodexReview`.
+- `opencode` CLI with the `deepseek` provider authenticated for
+  `solicitOpencodeReview`.
 - A PR on the current branch: `squashMerge` requires an open one; `openPr`
   requires that none exists; the review actions work with or without one (with
   none, they review against the default branch).

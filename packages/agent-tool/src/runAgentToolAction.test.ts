@@ -10,6 +10,7 @@ function actionsWith(overrides: Partial<AgentToolActions>): AgentToolActions {
     openPr: () => 0,
     solicitClaudeCodeReview: () => 0,
     solicitCodexReview: () => 0,
+    solicitOpencodeReview: () => 0,
     squashMerge: () => 0,
     ...overrides,
   };
@@ -60,16 +61,22 @@ describe("runAgentToolAction", () => {
         calls.push("solicitCodexReview");
         return 0;
       },
+      solicitOpencodeReview: () => {
+        calls.push("solicitOpencodeReview");
+        return 0;
+      },
     });
 
     runAgentToolAction("/repo", ["openPr"], actions);
     runAgentToolAction("/repo", ["solicitClaudeCodeReview"], actions);
     runAgentToolAction("/repo", ["solicitCodexReview"], actions);
+    runAgentToolAction("/repo", ["solicitOpencodeReview"], actions);
 
     expect(calls).toEqual([
       "openPr",
       "solicitClaudeCodeReview",
       "solicitCodexReview",
+      "solicitOpencodeReview",
     ]);
   });
 });
