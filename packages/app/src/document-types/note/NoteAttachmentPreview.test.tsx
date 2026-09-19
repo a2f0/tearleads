@@ -187,6 +187,33 @@ test("keeps the compact single bar in the routed shell", () => {
   ).toBe(false);
 });
 
+test("fills the routed main pane instead of floating over it", () => {
+  document.documentElement.setAttribute("data-navigation-mode", "routed");
+  const view = render(
+    <div className="routed-pane-main">
+      {buildNoteEditorFields({ attachments: [documentAttachment] })}
+    </div>,
+  );
+
+  fireEvent.click(view.getByRole("button", { name: "Open spec.pdf" }));
+
+  const dialog = view.getByRole("dialog");
+  // Portaled into the pane and dressed to fill it, not a centered card.
+  expect(dialog.parentElement?.className).toContain(
+    "note-attachment-preview-backdrop--routed",
+  );
+  expect(dialog.closest(".routed-pane-main")).toBeTruthy();
+  expect(
+    dialog.classList.contains("note-attachment-preview-panel--routed"),
+  ).toBe(true);
+  expect(
+    dialog.classList.contains("note-attachment-preview-panel--windowed"),
+  ).toBe(false);
+  // The routed pane keeps the compact bar over the windowed window chrome.
+  expect(dialog.querySelector(".note-attachment-preview-bar")).toBeTruthy();
+  expect(dialog.querySelector(".window-titlebar")).toBeNull();
+});
+
 test("windowed preview close moves focus into the title bar and dismisses", () => {
   document.documentElement.setAttribute("data-navigation-mode", "windowed");
   const view = renderNoteEditorFields({ attachments: [documentAttachment] });

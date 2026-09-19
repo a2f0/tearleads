@@ -429,3 +429,35 @@
 .note-attachment-preview-panel--windowed .window-toolbar {
   border-bottom: var(--border);
 }
+
+/* === Routed preview: fill the main content pane ===
+   On the routed (tablet / mobile) shell the preview replaces the main content
+   pane instead of floating over it as a centered card. It is portaled into
+   `.routed-pane-main` itself (see NoteAttachmentPreview.tsx), so sticky
+   positioning holds it against that pane's scrollport: the overlay stays
+   pinned over the visible pane while the pane scrolls, and the pane's own
+   overflow clips it to exactly the pane — never over the rail, app bar, or
+   taskbar. `width`/`height: 100%` resolve against the pane (the scrollport it
+   fills), and the backdrop's background matches the pane's `--color-light` so
+   the safe-area padding a 100%-width sticky box cannot cover is invisible. */
+.note-attachment-preview-backdrop--routed {
+  position: sticky;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  background: var(--color-light);
+}
+
+/* Fill the pane edge to edge: drop the card's cap, ring, radius, and shadow.
+   Kept after the `--pdf` rule so its `height` wins the cascade over the PDF
+   variant's capped height. */
+.note-attachment-preview-panel--routed {
+  width: 100%;
+  max-width: none;
+  height: 100%;
+  max-height: none;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+}

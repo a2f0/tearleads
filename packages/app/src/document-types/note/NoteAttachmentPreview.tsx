@@ -2,7 +2,14 @@ import { DownloadSimpleIcon } from "@phosphor-icons/react/dist/csr/DownloadSimpl
 import { TrashIcon } from "@phosphor-icons/react/dist/csr/Trash";
 import { XIcon } from "@phosphor-icons/react/dist/csr/X";
 import type { DocumentAttachment } from "@tearleads/client-sdk";
-import { type ReactNode, type RefObject, useId, useRef } from "react";
+import {
+  type ReactNode,
+  type RefObject,
+  useId,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
 import { createPortal } from "react-dom";
 import {
   MiniAppButton,
@@ -18,7 +25,10 @@ import { classNames } from "../../components/shared/classNames";
 import { WindowCloseButton } from "../../components/window/WindowCloseButton";
 import "../../components/window/WindowTitleBar.css";
 import "../../components/window/WindowToolBar.css";
-import { useWindowedLayoutActive } from "../../navigation/useRoutedLayoutActive";
+import {
+  useRoutedLayoutActive,
+  useWindowedLayoutActive,
+} from "../../navigation/useRoutedLayoutActive";
 import { getAttachmentFileType } from "../shared/attachmentFileType";
 import { isPdfMimeType } from "../shared/FileDocumentPdfPreview";
 import { useModalEscapeAndFocusRestore } from "../shared/useModalEscapeAndFocusRestore";
@@ -210,9 +220,13 @@ function NoteAttachmentPreviewChrome({
 
 // An enlarged look at a single attachment, opened from a tile. The chrome
 // carries the download / remove / close actions so the note body stays
-// uncluttered. Rendered through a portal into <body> so it overlays the whole
-// window rather than being clipped by the note's scroll container, and closes on
-// Escape or a backdrop click like the app's other modals.
+// uncluttered. On the desktop shell it is rendered through a portal into <body>
+// so it overlays the whole window rather than being clipped by the note's scroll
+// container, and closes on Escape or a backdrop click like the app's other
+// modals. On the routed (tablet / mobile) shell the same portal goes into the
+// main content pane instead, where sticky positioning pins it to that pane's
+// scrollport so it fills the pane rather than floating over it — see
+// `.note-attachment-preview-backdrop--routed` in NoteDocument.css.
 function NoteAttachmentPreview({
   attachment,
   canRemove,
@@ -225,6 +239,26 @@ function NoteAttachmentPreview({
   const titleId = useId();
   const closeButtonRef = useRef<HTMLButtonElement>(null);
   const windowed = useWindowedLayoutActive();
+  const routed = useRoutedLayoutActive();
+  const paneAnchorRef = useRef<HTMLSpanElement>(null);
+  const [routedPaneHost, setRoutedPaneHost] = useState<HTMLElement | null>(
+    null,
+  );
+
+  // Locate the routed main pane from this component's position in the tree and
+  // retarget the portal at it. A layout effect keeps the pre-paint frame from
+  // flashing the body-portaled card before the host resolves; the hidden anchor
+  // is what makes the lookup local to this pane rather than a global query.
+  useLayoutEffect(() => {
+    if (!routed) {
+      setRoutedPaneHost(null);
+      return;
+    }
+    const pane = paneAnchorRef.current?.closest(".routed-pane-main");
+    setRoutedPaneHost(pane instanceof HTMLElement ? pane : null);
+  }, [routed]);
+
+  const fillsRoutedPane = routed && routedPaneHost !== null;
   const fileType = getAttachmentFileType({
     mimeType: attachment.mimeType,
     name: attachment.name,
@@ -232,47 +266,58 @@ function NoteAttachmentPreview({
 
   useModalEscapeAndFocusRestore(onClose, closeButtonRef);
 
-  return createPortal(
-    <MiniAppModalBackdrop
-      className="note-attachment-preview-backdrop"
-      role="presentation"
-      onClick={(event) => {
-        if (event.target === event.currentTarget) {
-          onClose();
-        }
-      }}
-    >
-      <MiniAppModalPanel
-        className={classNames(
-          "note-attachment-preview-panel",
-          windowed && "note-attachment-preview-panel--windowed",
-          isPdfMimeType(attachment.mimeType) &&
-            "note-attachment-preview-panel--pdf",
-        )}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby={titleId}
-      >
-        <NoteAttachmentPreviewChrome
-          attachment={attachment}
-          canRemove={canRemove}
-          closeButtonRef={closeButtonRef}
-          fileType={fileType}
-          onClose={onClose}
-          onDownload={onDownload}
-          onRemove={onRemove}
-          titleId={titleId}
-          windowed={windowed}
-        />
-        <NoteAttachmentPreviewStage
-          attachment={attachment}
-          fileType={fileType}
-          imageUrl={imageUrl}
-          storageKey={storageKey}
-        />
-      </MiniAppModalPanel>
-    </MiniAppModalBackdrop>,
-    document.body,
+  return (
+    <>
+      <span ref={paneAnchorRef} hidden />
+      {createPortal(
+        <MiniAppModalBackdrop
+          className={classNames(
+            "note-attachment-preview-backdrop",
+            fillsRoutedPane && "note-attachment-preview-backdrop--routed",
+          )}
+          role="presentation"
+          onClick={(event) => {
+            if (event.target === event.currentTarget) {
+              onClose();
+            }
+          }}
+        >
+          <MiniAppModalPanel
+            className={classNames(
+              "note-attachment-preview-panel",
+              windowed &&
+                !fillsRoutedPane &&
+                "note-attachment-preview-panel--windowed",
+              fillsRoutedPane && "note-attachment-preview-panel--routed",
+              isPdfMimeType(attachment.mimeType) &&
+                "note-attachment-preview-panel--pdf",
+            )}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby={titleId}
+          >
+            <NoteAttachmentPreviewChrome
+              attachment={attachment}
+              canRemove={canRemove}
+              closeButtonRef={closeButtonRef}
+              fileType={fileType}
+              onClose={onClose}
+              onDownload={onDownload}
+              onRemove={onRemove}
+              titleId={titleId}
+              windowed={windowed && !fillsRoutedPane}
+            />
+            <NoteAttachmentPreviewStage
+              attachment={attachment}
+              fileType={fileType}
+              imageUrl={imageUrl}
+              storageKey={storageKey}
+            />
+          </MiniAppModalPanel>
+        </MiniAppModalBackdrop>,
+        fillsRoutedPane ? routedPaneHost : document.body,
+      )}
+    </>
   );
 }
 
