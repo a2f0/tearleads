@@ -271,7 +271,10 @@ function NoteAttachmentPreview({
             "note-attachment-preview-panel--pdf",
         )}
         role="dialog"
-        aria-modal="true"
+        // Modal only while it covers everything. Filling the routed pane leaves
+        // the rail, app bar, and taskbar operable beside it — the same reason
+        // the pane-hosted image viewer drops the attribute.
+        aria-modal={fillsRoutedPane ? undefined : "true"}
         aria-labelledby={titleId}
       >
         <NoteAttachmentPreviewChrome

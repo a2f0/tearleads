@@ -225,10 +225,13 @@ function RoutedPaneSurface({
           {sidebar}
         </RoutedPaneSidebar>
       )}
-      <main
-        className="routed-pane-main"
-        ref={(element) => setOverlayHost(element)}
-      >
+      {/* Programmatically focusable (`tabIndex={-1}`, so never in the tab
+          order), like a window's content pane: an overlay that covered it lands
+          focus here when whatever opened the overlay is gone by the time it
+          closes. Passing the setter itself as the ref keeps its identity stable
+          across renders — an inline callback would detach and reattach the host
+          on every one. */}
+      <main className="routed-pane-main" ref={setOverlayHost} tabIndex={-1}>
         {/* Offered to overlays that fill the content pane instead of the screen
             — the note attachment preview, and the image viewer on tablet — so
             they leave the rail, app bar, and taskbar on screen beside them. */}

@@ -12,6 +12,7 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 import { useRoutedPaneOverlayHost } from "../../layout/routed/RoutedPaneOverlayHost";
+import { classNames } from "../../shared/classNames";
 import {
   useCurrentWindow,
   useSuppressWindowToolbar,
@@ -218,7 +219,11 @@ export function MiniAppImageViewer(params: {
     <div
       aria-label={params.label}
       aria-modal={portalHost === document.body ? "true" : undefined}
-      className={`mini-app-image-viewer${isWindowed ? " mini-app-image-viewer--windowed" : ""}${fillsRoutedPane ? " mini-app-image-viewer--pane" : ""}`}
+      className={classNames(
+        "mini-app-image-viewer",
+        isWindowed && "mini-app-image-viewer--windowed",
+        fillsRoutedPane && "mini-app-image-viewer--pane",
+      )}
       onPointerDownCapture={() =>
         viewerRef.current?.focus({ preventScroll: true })
       }
