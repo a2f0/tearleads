@@ -103,8 +103,8 @@
       "bytes": 26727
     },
     "packages/api/src/access/shared/internal/containerKekTargets.ts": {
-      "lines": 616,
-      "bytes": 19280
+      "lines": 626,
+      "bytes": 19595
     },
     "packages/api/src/access/shared/internal/documentContentKeyStore.ts": {
       "lines": 823,

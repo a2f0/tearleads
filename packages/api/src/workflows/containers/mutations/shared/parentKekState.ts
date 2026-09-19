@@ -38,8 +38,10 @@ export async function assertParentKekStateCurrent(
     await resolveCurrentContainerKekTargetsMapped(
       [parentKekState.containerId],
       executor,
-      (message, status) =>
-        status === 409
+      // Only genuine staleness may become a refresh-and-retry instruction; an
+      // integrity failure shares the 409 status but would retry forever.
+      (message, status, stale) =>
+        status === 409 && stale
           ? mutationStateStale(message)
           : new ContainerMutationError(message, status),
     );
