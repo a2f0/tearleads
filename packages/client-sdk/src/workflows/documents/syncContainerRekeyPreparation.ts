@@ -65,13 +65,6 @@ export async function prepareAutomaticContainerRekeys(
   for (;;) {
     const batch = await buildAutomaticContainerRekeys(sync, projection);
     if (!batch.hasMore) return { plans: batch.plans, projection };
-    // Only the standalone path needs its own gate: an inline batch rides the
-    // document write and already reaches the existing blocked stop. Returning
-    // no repairs keeps that single graceful outcome rather than throwing once a
-    // stale chain happens to exceed the inline limit.
-    if (sync.isRemoteSyncBlocked?.(sync.author.organizationId)) {
-      return { plans: [], projection: initialProjection };
-    }
     // Standalone mutations require authentic document scope before any request.
     await assertDocumentWriterProjectionConsistent(projection, {
       ...projectionVerificationOptions(sync),
@@ -89,6 +82,15 @@ export async function prepareAutomaticContainerRekeys(
     });
     if (!fresh) {
       throw new ContainerKekRepairRequiredError(sync.documentId);
+    }
+    // The scope check above guards the first round only; a refetched projection
+    // is server-supplied too, and nothing in the refresh path proves it names
+    // the document this repair is for.
+    if (fresh.documentId !== sync.documentId) {
+      throw new KeyingVerificationError(
+        "object_mismatch",
+        "Document ancestor repair projection targets another document",
+      );
     }
     projection = fresh;
   }
