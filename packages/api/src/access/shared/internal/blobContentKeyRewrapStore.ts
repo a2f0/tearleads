@@ -54,6 +54,11 @@ export async function rewrapDocumentBlobContentKeyInTransaction(
   // freshly wrapped material. Judging the stored half by the submission shape
   // would make a row carrying an unrecognized metadata key permanently
   // un-linkable, with no client-side heal; only new material is gated.
+  //
+  // "Stored" is the current bundle, not every row at the epoch. A retired
+  // target is absent from the bundle the client reads, so it re-wraps rather
+  // than resubmitting, and material for a target that is not currently stored
+  // is new by definition.
   assertTargetsMatchCurrent({
     currentTargets: { ...currentTargets, targets: documentTargets },
     origin: "stored",
