@@ -2,9 +2,9 @@ import { KeyingVerificationError } from "@tearleads/crypto";
 import type { DocumentWriterProjectionResponse } from "@tearleads/validators/response";
 import { acknowledgeContainerMutation } from "../../data/containers/shared/mutationAcknowledgement";
 import type { MaterializedContainerRekeyPlan } from "../../data/containers/shared/types";
-import { ContainerKekRepairRequiredError } from "../../data/documents/shared/containerKekCurrency";
 import { assertDocumentWriterProjectionConsistent } from "../../data/documents/shared/projection";
 import { projectionVerificationOptions } from "../../data/documents/shared/types";
+import { assertProjectionVerificationCurrent } from "../../data/keyingProjectionVerification/types";
 import type { SyncRemoteDocumentInput } from "./readOnlySync";
 import { buildAutomaticContainerRekeys } from "./syncAutomaticContainerRekeys";
 import { refreshSyncAttemptWriterProjection } from "./syncFailures";
@@ -15,9 +15,7 @@ async function commitRepairPrefix(input: {
   sync: SyncRemoteDocumentInput;
 }): Promise<void> {
   for (const { plan } of input.plans) {
-    if (input.sync.stillCurrent?.() === false) {
-      throw new Error("Document ancestor repair was superseded");
-    }
+    assertProjectionVerificationCurrent(input.sync.stillCurrent);
     if (input.sync.isRemoteSyncBlocked?.(plan.state.organizationId)) {
       throw new Error(
         "Document ancestor repair is blocked for this organization",
@@ -31,9 +29,11 @@ async function commitRepairPrefix(input: {
       plan.request,
       { expectedPaymentRequiredOrganizationId: plan.state.organizationId },
     );
-    if (!response) {
-      throw new ContainerKekRepairRequiredError(plan.containerId);
-    }
+    // Deliberately not ContainerKekRepairRequiredError: that is classified as
+    // retryable, so a handled refusal (402/409) would re-sign the whole prefix
+    // before failing again, and the retry never reaches onTerminalSubmitFailure
+    // regardless, because this throws before submission.
+    if (!response) throw new Error("Document ancestor repair was refused");
     const acknowledged = await acknowledgeContainerMutation({
       execSql: input.sync.execSql,
       plan,
@@ -80,9 +80,8 @@ export async function prepareAutomaticContainerRekeys(
       onSyncTrace: sync.onSyncTrace,
       stillCurrent: sync.stillCurrent,
     });
-    if (!fresh) {
-      throw new ContainerKekRepairRequiredError(sync.documentId);
-    }
+    if (!fresh)
+      throw new Error("Document ancestor repair projection is unavailable");
     // The scope check above guards the first round only; a refetched projection
     // is server-supplied too, and nothing in the refresh path proves it names
     // the document this repair is for.

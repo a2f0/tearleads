@@ -4,6 +4,7 @@ import type {
 } from "@tearleads/validators/response";
 import { MAX_INLINE_CONTAINER_REKEYS } from "@tearleads/validators/util";
 import type { MaterializedContainerRekeyPlan } from "../../data/containers/shared/types";
+import { assertProjectionVerificationCurrent } from "../../data/keyingProjectionVerification/types";
 import { buildMaterializedContainerRekeyPlan } from "../containers/child/rekey";
 import type { SyncRemoteDocumentInput } from "./readOnlySync";
 import { applyContainerRekeyPlan } from "./syncContainerRekeyProjection";
@@ -45,9 +46,10 @@ export async function buildAutomaticContainerRekeys(
     if (plans.length >= MAX_INLINE_CONTAINER_REKEYS) {
       return { plans, hasMore: true };
     }
-    if (sync.stillCurrent?.() === false) {
-      throw new Error("Document ancestor repair was superseded");
-    }
+    // Use the shared cancellation sentinel: syncRemoteDocument converts only
+    // that to a graceful null, so a plain Error would report a routine
+    // generation flip mid-repair as a real sync failure.
+    assertProjectionVerificationCurrent(sync.stillCurrent);
     if (plannedIds.has(previousProjection.containerId)) {
       throw new Error("Document ancestor repair has conflicting paths");
     }
