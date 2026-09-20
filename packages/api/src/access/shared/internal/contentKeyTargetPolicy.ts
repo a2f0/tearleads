@@ -1,4 +1,6 @@
 import {
+  ContentKeyEnvelopeError,
+  decodeContentKeyEnvelope,
   type KeyingCanonicalJson,
   KeyingVerificationError,
 } from "@tearleads/crypto";
@@ -46,16 +48,6 @@ function assertNoDuplicateContentKeyTargets<T>(
   }
 }
 
-function assertContentKeyWrappedMaterialPresent<
-  T extends WrappedContentKeyTargetEnvelope,
->(targets: readonly T[], createError: () => Error): void {
-  for (const target of targets) {
-    if (target.wrappedKey.length === 0) {
-      throw createError();
-    }
-  }
-}
-
 function expectedContentKeyTargetMap<T>(
   targets: readonly T[],
   targetKey: (target: T) => string,
@@ -81,7 +73,9 @@ function assertContentKeyTargetsMatchCurrent<
   readonly targetKey: (target: TCurrent) => string;
   readonly targetFieldsEqual: (left: TCurrent, right: TCurrent) => boolean;
   readonly createDuplicateError: () => Error;
-  readonly createMissingWrappedMaterialError: () => Error;
+  readonly validateEnvelope: (
+    envelope: WrappedContentKeyTargetEnvelope,
+  ) => void;
   readonly createMismatchError: () => Error;
 }): void {
   assertNoDuplicateContentKeyTargets(
@@ -89,10 +83,7 @@ function assertContentKeyTargetsMatchCurrent<
     input.targetKey,
     input.createDuplicateError,
   );
-  assertContentKeyWrappedMaterialPresent(
-    input.targets,
-    input.createMissingWrappedMaterialError,
-  );
+  for (const target of input.targets) input.validateEnvelope(target);
 
   const currentTargetByKey = expectedContentKeyTargetMap(
     input.currentTargets,
@@ -143,7 +134,6 @@ interface ContentKeyTargetPolicyMessages {
   readonly duplicateTargets: string;
   readonly hashMismatch: string;
   readonly invalidEpoch: string;
-  readonly missingWrappedMaterial: string;
   readonly targetsMismatch: string;
 }
 
@@ -151,6 +141,10 @@ interface ContentKeyTargetPolicyOptions<
   TTarget extends ContentKeyTarget,
   TEnvelope extends TTarget & WrappedContentKeyTargetEnvelope,
 > {
+  readonly envelopeLabel: "Blob" | "Document";
+  readonly wrappingSuite: Parameters<
+    typeof decodeContentKeyEnvelope
+  >[0]["suite"];
   readonly computeTargetHash: (targets: readonly TTarget[]) => Promise<string>;
   readonly createError: (message: string, status: 400 | 409) => Error;
   readonly messages: ContentKeyTargetPolicyMessages;
@@ -207,8 +201,19 @@ export function createContentKeyTargetPolicy<
         targetFieldsEqual,
         createDuplicateError: () =>
           options.createError(options.messages.duplicateTargets, 409),
-        createMissingWrappedMaterialError: () =>
-          options.createError(options.messages.missingWrappedMaterial, 400),
+        validateEnvelope: (envelope) => {
+          try {
+            decodeContentKeyEnvelope({
+              envelope,
+              label: options.envelopeLabel,
+              suite: options.wrappingSuite,
+            });
+          } catch (error) {
+            if (error instanceof ContentKeyEnvelopeError)
+              throw options.createError(error.message, 400);
+            throw error;
+          }
+        },
         createMismatchError: () =>
           options.createError(options.messages.targetsMismatch, 409),
       });

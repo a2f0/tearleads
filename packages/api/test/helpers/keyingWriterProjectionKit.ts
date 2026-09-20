@@ -45,6 +45,7 @@ import {
   listContainerKeyWraps,
 } from "../../src/access/read/containerKekStore";
 import { routeApp } from "../../src/routeApp";
+import { contentKeyEnvelopeFixture } from "./contentKeyEnvelope";
 import { loadVerifiedPrincipalPolicy } from "./principalPolicy";
 
 export { buildRootGrantRequest } from "./containerGrantMutation";
@@ -434,8 +435,7 @@ export async function createDocumentRequest(input: {
       targetHash,
       targets: targets.map((target) => ({
         ...target,
-        wrappedKey: `document-key:${documentId}`,
-        wrappingMetadata: { alg: "test-wrap" },
+        ...contentKeyEnvelopeFixture("Document", `document-key:${documentId}`),
       })),
     },
   };

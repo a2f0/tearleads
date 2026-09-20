@@ -1,4 +1,5 @@
 import {
+  BLOB_CONTENT_KEY_WRAP_SUITE,
   type BlobContentKeyTarget,
   computeBlobContentKeyTargetHash,
   type KeyingCanonicalJson,
@@ -59,6 +60,8 @@ const contentKeyTargetPolicy = createContentKeyTargetPolicy<
   BlobContentKeyTargetEnvelope,
   CurrentBlobKekTargets
 >({
+  envelopeLabel: "Blob",
+  wrappingSuite: BLOB_CONTENT_KEY_WRAP_SUITE,
   computeTargetHash: computeBlobContentKeyTargetHash,
   createError: (message, status) =>
     new BlobContentKeyBundleError(message, status),
@@ -66,8 +69,6 @@ const contentKeyTargetPolicy = createContentKeyTargetPolicy<
     duplicateTargets: "Blob content-key targets contain duplicates",
     hashMismatch: "Blob content-key target hash mismatch",
     invalidEpoch: "Blob content key epoch must be a positive integer",
-    missingWrappedMaterial:
-      "Blob content-key target is missing wrapped key material",
     targetsMismatch:
       "Blob content-key targets do not match current KEK targets",
   },

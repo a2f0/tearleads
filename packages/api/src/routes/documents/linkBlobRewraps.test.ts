@@ -11,6 +11,7 @@ import {
   buildBind,
   stageBlob,
 } from "../../../test/helpers/blobAttachmentKit";
+import { contentKeyEnvelopeFixture } from "../../../test/helpers/contentKeyEnvelope";
 import {
   buildDocumentLinkRequest,
   buildDocumentUnlinkRequest,
@@ -85,7 +86,8 @@ test("link and unlink atomically cover active blob bindings and retain prior wra
           containerManifestHash: childKek.accessManifestHash,
           containerKeyEpochId: childKek.containerKeyEpochId,
           containerKeyEpoch: childKek.containerKeyEpoch,
-          wrappedKey: "new-child-wrap",
+          wrappedKey: contentKeyEnvelopeFixture("Blob", "new-child-wrap")
+            .wrappedKey,
         },
       ],
     },
@@ -117,7 +119,11 @@ test("link and unlink atomically cover active blob bindings and retain prior wra
     .from(blobContentKeyTargets)
     .where(eq(blobContentKeyTargets.bindingId, target.bindingId));
   expect(
-    wrapsAfterLink.some((row) => row.wrappedKey === "new-child-wrap"),
+    wrapsAfterLink.some(
+      (row) =>
+        row.wrappedKey ===
+        contentKeyEnvelopeFixture("Blob", "new-child-wrap").wrappedKey,
+    ),
   ).toBe(true);
   expect(
     wrapsAfterLink.filter((row) => row.wrappedKey === target.wrappedKey),
@@ -141,7 +147,11 @@ test("link and unlink atomically cover active blob bindings and retain prior wra
     .from(blobContentKeyTargets)
     .where(eq(blobContentKeyTargets.bindingId, target.bindingId));
   expect(
-    wrapsAfterUnlink.some((row) => row.wrappedKey === "new-child-wrap"),
+    wrapsAfterUnlink.some(
+      (row) =>
+        row.wrappedKey ===
+        contentKeyEnvelopeFixture("Blob", "new-child-wrap").wrappedKey,
+    ),
   ).toBe(true);
   expect(
     wrapsAfterUnlink.some((row) => row.wrappedKey === target.wrappedKey),
@@ -155,7 +165,13 @@ test("link and unlink atomically cover active blob bindings and retain prior wra
       ...rewrap,
       targets: rewrap.targets.map((envelope) =>
         envelope.containerId === target.containerId
-          ? { ...envelope, wrappedKey: "conflicting-active-root-wrap" }
+          ? {
+              ...envelope,
+              wrappedKey: contentKeyEnvelopeFixture(
+                "Blob",
+                "conflicting-active-root-wrap",
+              ).wrappedKey,
+            }
           : envelope,
       ),
     })),
@@ -178,7 +194,11 @@ test("link and unlink atomically cover active blob bindings and retain prior wra
       ...rewrap,
       targets: rewrap.targets.map((envelope) =>
         envelope.containerId === child.containerId
-          ? { ...envelope, wrappedKey: "fresh-child-wrap" }
+          ? {
+              ...envelope,
+              wrappedKey: contentKeyEnvelopeFixture("Blob", "fresh-child-wrap")
+                .wrappedKey,
+            }
           : envelope,
       ),
     })),
@@ -195,9 +215,17 @@ test("link and unlink atomically cover active blob bindings and retain prior wra
     .from(blobContentKeyTargets)
     .where(eq(blobContentKeyTargets.bindingId, target.bindingId));
   expect(
-    wrapsAfterRelink.some((row) => row.wrappedKey === "fresh-child-wrap"),
+    wrapsAfterRelink.some(
+      (row) =>
+        row.wrappedKey ===
+        contentKeyEnvelopeFixture("Blob", "fresh-child-wrap").wrappedKey,
+    ),
   ).toBe(false);
   expect(
-    wrapsAfterRelink.some((row) => row.wrappedKey === "new-child-wrap"),
+    wrapsAfterRelink.some(
+      (row) =>
+        row.wrappedKey ===
+        contentKeyEnvelopeFixture("Blob", "new-child-wrap").wrappedKey,
+    ),
   ).toBe(true);
 });

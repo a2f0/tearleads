@@ -48,6 +48,7 @@ import {
   appendUnexpectedUserWrapToRekey,
   buildRootContainerRekeyMutation,
 } from "../../../test/helpers/containerRekey";
+import { contentKeyEnvelopeFixture } from "../../../test/helpers/contentKeyEnvelope";
 import { getDefaultOrganizationId } from "../../../test/helpers/organizationMembership";
 import { getRootContainerForUser } from "../../../test/helpers/personalRootContainer";
 import { loadVerifiedPrincipalPolicy } from "../../../test/helpers/principalPolicy";
@@ -327,8 +328,10 @@ function contentKeyTargets(
 ): BlobAttachmentBindRequest["contentKeyBundle"]["targets"] {
   return targets.targets.map((target) => ({
     ...target,
-    wrappedKey: `${target.bindingId}:${target.containerId}:${target.bindingId}`,
-    wrappingMetadata: { suite: "test-wrap" },
+    ...contentKeyEnvelopeFixture(
+      "Blob",
+      `${target.bindingId}:${target.containerId}:${target.bindingId}`,
+    ),
   }));
 }
 

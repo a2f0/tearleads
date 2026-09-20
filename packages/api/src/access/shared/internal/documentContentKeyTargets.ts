@@ -1,5 +1,6 @@
 import {
   computeDocumentContentKeyTargetHash,
+  DOCUMENT_CONTENT_KEY_WRAP_SUITE,
   type DocumentContentKeyTarget,
   type KeyingCanonicalJson,
 } from "@tearleads/crypto";
@@ -57,6 +58,8 @@ const contentKeyTargetPolicy = createContentKeyTargetPolicy<
   DocumentContentKeyTargetEnvelope,
   CurrentDocumentKekTargets
 >({
+  envelopeLabel: "Document",
+  wrappingSuite: DOCUMENT_CONTENT_KEY_WRAP_SUITE,
   computeTargetHash: computeDocumentContentKeyTargetHash,
   createError: (message, status) =>
     new DocumentContentKeyBundleError(message, status),
@@ -65,8 +68,6 @@ const contentKeyTargetPolicy = createContentKeyTargetPolicy<
       "Document content-key targets contain duplicate containers",
     hashMismatch: "Document content-key target hash mismatch",
     invalidEpoch: "Document content key epoch must be a positive integer",
-    missingWrappedMaterial:
-      "Document content-key target is missing wrapped key material",
     targetsMismatch:
       "Document content-key targets do not match current KEK targets",
   },

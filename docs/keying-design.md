@@ -752,6 +752,16 @@ For each active binding:
 3. derive the document's linked container KEK targets.
 
 The blob content key is wrapped to the union of those container KEK targets.
+
+Document and blob content-key envelopes share the same public format checks
+in the API and SDK: the object-kind-specific AES-GCM suite, metadata containing
+exactly `suite` and `iv`, a canonical base64 12-byte IV, and a canonical base64
+48-byte wrapped 32-byte key plus authentication tag. New submissions that fail
+these checks are rejected before persistence. There are no legacy-suite or
+alternate-encoding paths. These checks validate structure; only a recipient
+with the KEK can authenticate the ciphertext and establish the recovered key.
+An authorized writer can still submit well-shaped, undecryptable material.
+
 Clients and the API reject blob writes or attachment commits that omit targets
 for other active bindings.
 

@@ -16,6 +16,7 @@ import {
 } from "@tearleads/crypto";
 import { containerWrappingPublicKeyForTest } from "@tearleads/crypto/test-fixtures";
 import { eq } from "drizzle-orm";
+import { contentKeyEnvelopeFixture } from "../../../test/helpers/contentKeyEnvelope";
 import {
   type BlobContentKeyTargetEnvelope,
   getLatestBlobContentKeyBundle,
@@ -205,8 +206,10 @@ function targetEnvelopes(
 ): BlobContentKeyTargetEnvelope[] {
   return targets.targets.map((target) => ({
     ...target,
-    wrappedKey: `${target.bindingId}:${target.containerId}:${suffix}`,
-    wrappingMetadata: { suite: "test-wrap" },
+    ...contentKeyEnvelopeFixture(
+      "Blob",
+      `${target.bindingId}:${target.containerId}:${suffix}`,
+    ),
   }));
 }
 
@@ -386,8 +389,10 @@ test("storeBlobContentKeyBundle rewrites key packages without replacing blob byt
     return (
       existing ?? {
         ...target,
-        wrappedKey: `${target.bindingId}:${target.containerId}:expanded`,
-        wrappingMetadata: { suite: "test-wrap" },
+        ...contentKeyEnvelopeFixture(
+          "Blob",
+          `${target.bindingId}:${target.containerId}:expanded`,
+        ),
       }
     );
   });

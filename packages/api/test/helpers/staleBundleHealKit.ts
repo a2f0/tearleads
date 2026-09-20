@@ -5,6 +5,7 @@ import type { DocumentCreateResponse } from "@tearleads/validators/response";
 import { isContainerMutationResponse } from "@tearleads/validators/response";
 import { routeApp } from "../../src/routeApp";
 import { authenticate } from "./authenticate";
+import { contentKeyEnvelopeFixture } from "./contentKeyEnvelope";
 import {
   accessManifestFromContainerResponse,
   buildRootGrantRequest,
@@ -135,8 +136,10 @@ export async function buildHealedContentKeyBundle(input: {
     targetHash: await computeDocumentContentKeyTargetHash(targets),
     targets: targets.map((target) => ({
       ...target,
-      wrappedKey: `document-key:${input.created.id}:rewrapped`,
-      wrappingMetadata: { alg: "test-wrap" },
+      ...contentKeyEnvelopeFixture(
+        "Document",
+        `document-key:${input.created.id}:rewrapped`,
+      ),
     })),
   };
 }

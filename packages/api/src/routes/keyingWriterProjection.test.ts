@@ -54,6 +54,7 @@ import {
   appendUnexpectedUserWrapToRekey,
   buildRootContainerRekeyMutation,
 } from "../../test/helpers/containerRekey";
+import { contentKeyEnvelopeFixture } from "../../test/helpers/contentKeyEnvelope";
 import {
   createSignedAtomicRotationBaseline,
   createSignedDocumentSyncRequest,
@@ -288,8 +289,10 @@ async function buildDocumentLinkRequest(input: {
           containerManifestHash: childBundle.manifestHash,
           containerKeyEpochId: childKek.containerKeyEpochId,
           containerKeyEpoch: childKek.containerKeyEpoch,
-          wrappedKey: `document-key:${documentId}:child`,
-          wrappingMetadata: { alg: "test-wrap" },
+          ...contentKeyEnvelopeFixture(
+            "Document",
+            `document-key:${documentId}:child`,
+          ),
         },
       ],
     },
@@ -396,8 +399,10 @@ async function buildDocumentUnlinkRequest(input: {
       targets: [
         {
           ...remainingTarget,
-          wrappedKey: `document-key:${documentId}:rotated-root`,
-          wrappingMetadata: { alg: "test-wrap" },
+          ...contentKeyEnvelopeFixture(
+            "Document",
+            `document-key:${documentId}:rotated-root`,
+          ),
         },
       ],
     },

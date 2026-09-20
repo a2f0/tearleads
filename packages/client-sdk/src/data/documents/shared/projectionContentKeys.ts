@@ -1,12 +1,12 @@
 import {
   computeDocumentContentKeyTargetHash,
   DOCUMENT_CONTENT_KEY_WRAP_SUITE,
+  decodeContentKeyEnvelope,
   decryptWithDek,
   encryptWithDek,
   type VerifiedContainerAccessManifest,
 } from "@tearleads/crypto";
-import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
-import { isPlainObject as isPlainRecord } from "@tearleads/validators/isPlainObject";
+import { bytesToBase64 } from "@tearleads/encoding";
 import type { DocumentContentKeyTargetEnvelope } from "@tearleads/validators/request";
 import type {
   ContainerWriterProjectionResponse,
@@ -96,28 +96,12 @@ export async function unwrapContentKeyTargetForSuite(input: {
   decryptErrorMessage?: string | undefined;
   envelope: { wrappedKey: string; wrappingMetadata?: unknown };
   label: "Blob" | "Document";
-  suite: string;
+  suite: Parameters<typeof decodeContentKeyEnvelope>[0]["suite"];
 }): Promise<Uint8Array> {
-  const metadata = input.envelope.wrappingMetadata;
-  const suite = isPlainRecord(metadata)
-    ? Reflect.get(metadata, "suite")
-    : undefined;
-  const iv = isPlainRecord(metadata) ? Reflect.get(metadata, "iv") : undefined;
-  if (suite !== input.suite) {
-    throw new Error(`${input.label} content-key target uses an unknown suite`);
-  }
-  if (typeof iv !== "string" || iv.length === 0) {
-    throw new Error(`${input.label} content-key target is missing an IV`);
-  }
+  const encrypted = decodeContentKeyEnvelope(input);
 
   try {
-    return await decryptWithDek(
-      {
-        iv: base64ToBytes(iv),
-        ciphertext: base64ToBytes(input.envelope.wrappedKey),
-      },
-      input.containerKek,
-    );
+    return await decryptWithDek(encrypted, input.containerKek);
   } catch (error) {
     if (input.decryptErrorMessage) {
       throw new Error(input.decryptErrorMessage, { cause: error });
