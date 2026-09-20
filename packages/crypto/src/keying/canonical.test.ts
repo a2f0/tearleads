@@ -29,7 +29,7 @@ test("suite identifiers distinguish content records from key wrapping", () => {
     "tearleads.container-kek-wrap.ml-kem-1024-aes-256-gcm",
   );
   expect(CONTAINER_KEK_PARENT_WRAP_SUITE).toBe(
-    "tearleads.container-kek-wrap.aes-256-gcm-parent-kek",
+    "tearleads.container-kek-wrap.ml-kem-1024-aes-256-gcm-parent-kek",
   );
 });
 

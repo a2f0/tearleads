@@ -16,6 +16,7 @@ import {
   computeWriteHeaderHash,
   createContainerKekPredecessorBridge,
   decryptWithDek,
+  deriveContainerKekWrappingPublicKey,
   derivePrincipalRecipientKeyEpochId,
   generateKemSeedAndKeyPair,
   generateSigningSeedAndKeyPair,
@@ -449,6 +450,10 @@ test("unwrapContainerKekPath rejects revoked users after KEK epoch rotation", as
       successorContainerKeyEpochId: rotatedContainerKeyEpochId,
     });
     const revokedManifest = await createContainerRevokeManifestFixture({
+      containerKeyPublicKey: await deriveContainerKekWrappingPublicKey({
+        containerId: parent.parentKekState.containerId,
+        keyMaterial: rotatedContainerKek,
+      }),
       author: parent.author,
       containerId: parent.parentKekState.containerId,
       containerKeyEpochId: rotatedContainerKeyEpochId,
@@ -843,6 +848,10 @@ test("unwrapContainerKekPath verifies cached group policies before managed-princ
     keyMaterial: containerKek,
   });
   const manifest = await createContainerManifestFixture({
+    containerKeyPublicKey: await deriveContainerKekWrappingPublicKey({
+      containerId,
+      keyMaterial: containerKek,
+    }),
     author: parent.author,
     containerId,
     containerKeyEpochId,
@@ -986,6 +995,10 @@ test("unwrapContainerKekPath fails closed for managed-principal KEK projections"
     ),
   };
   const managedManifest = await createContainerManifestFixture({
+    containerKeyPublicKey: await deriveContainerKekWrappingPublicKey({
+      containerId: parent.parentKekState.containerId,
+      keyMaterial: parent.parentContainerKek,
+    }),
     author: parent.author,
     containerId: parent.parentKekState.containerId,
     containerKeyEpochId: parent.parentKekState.containerKeyEpochId,

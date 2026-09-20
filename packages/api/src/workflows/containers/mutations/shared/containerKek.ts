@@ -14,7 +14,6 @@ import {
   assertSealedContainerKekKeyringLength,
   computeContainerKekKeyringHash,
   computeContainerKekPredecessorBridgeHash,
-  computeContainerKeyEpochHash,
   MAX_CONTAINER_KEY_EPOCH,
   normalizeContainerAccessEventBody,
   verifyContainerKekState,
@@ -24,9 +23,7 @@ import { inArray } from "drizzle-orm";
 import {
   getContainerKeyEpochKeyring,
   getCurrentContainerKeyEpoch,
-  toContainerKeyEpoch,
 } from "../../../../access/read/containerKekStore";
-import { canonicalJsonEquals } from "../../../../utils/canonicalJson";
 import { ContainerMutationError, mutationStateStale } from "../errors";
 import {
   readContainerKekKeyring,
@@ -36,8 +33,10 @@ import {
   readVerifiedContainerKekState,
   userRecipientKeysFromRequest,
 } from "./containerKekRecords";
+import { assertParentKekStateCurrent } from "./parentKekState";
 
 interface VerifyContainerKekFromRequestArtifacts {
+  readonly parentManifestHistory: readonly VerifiedContainerAccessManifest[];
   readonly containerManifestHistory?:
     | readonly VerifiedContainerAccessManifest[]
     | undefined;
@@ -270,48 +269,6 @@ async function assertUserRecipientKeysCurrent(
   }
 }
 
-async function assertParentKekStateCurrent(
-  executor: DatabaseTransaction,
-  manifest: VerifiedContainerAccessManifest,
-  parentKekState: VerifiedContainerKekState | null,
-): Promise<void> {
-  if (!manifest.state.parentContainerId) {
-    return;
-  }
-
-  if (!parentKekState) {
-    throw new ContainerMutationError("Parent KEK state is required", 409);
-  }
-
-  if (parentKekState.containerId !== manifest.state.parentContainerId) {
-    throw new ContainerMutationError(
-      "Parent KEK state container mismatch",
-      409,
-    );
-  }
-
-  const currentParentEpoch = await getCurrentContainerKeyEpoch(
-    parentKekState.containerId,
-    executor,
-  );
-  if (!currentParentEpoch) {
-    throw new ContainerMutationError("Parent KEK state missing", 404);
-  }
-
-  const currentParentKeyEpoch = toContainerKeyEpoch(currentParentEpoch);
-  const currentParentKeyEpochHash = await computeContainerKeyEpochHash(
-    currentParentKeyEpoch,
-  );
-
-  if (
-    parentKekState.containerKeyEpochId !== currentParentKeyEpoch.id ||
-    parentKekState.keyEpochHash !== currentParentKeyEpochHash ||
-    !canonicalJsonEquals(parentKekState.keyEpoch, currentParentKeyEpoch)
-  ) {
-    throw mutationStateStale("Parent KEK state is stale");
-  }
-}
-
 export async function verifyContainerKekFromRequest(
   executor: DatabaseTransaction,
   request: ContainerMutationRequest,
@@ -342,6 +299,7 @@ export async function verifyContainerKekFromRequest(
     request,
   });
   const result = await verifyContainerKekState({
+    parentManifestHistory: artifacts.parentManifestHistory,
     containerManifest: manifest,
     keyEpoch,
     parentKekState,

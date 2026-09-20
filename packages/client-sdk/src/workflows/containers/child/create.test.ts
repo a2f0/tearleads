@@ -2,14 +2,14 @@ import { expect, test } from "bun:test";
 import {
   CONTAINER_KEK_MATERIAL_ID_PREFIX,
   computeContainerKekMaterialId,
-  decryptWithDek,
+  deriveContainerKekWrappingPublicKey,
   type KeyingCanonicalJson,
+  unwrapContainerKekParentWrap,
   type VerifiedContainerAccessManifest,
   verifyContainerAccessManifest,
   verifyContainerKekState,
   verifySignedAccessEvent,
 } from "@tearleads/crypto";
-import { base64ToBytes } from "@tearleads/encoding";
 import { createMockApiClient, createTestExecSql } from "@tearleads/test-utils";
 import {
   type ContainerMutationRequest,
@@ -64,6 +64,10 @@ test("buildMaterializedContainerCreatePlan signs a child create and wraps the ch
 
   expect(isContainerMutationRequest(plan.request)).toBe(true);
   expect(plan.body).toEqual({
+    containerKeyPublicKey: await deriveContainerKekWrappingPublicKey({
+      containerId: "child-container",
+      keyMaterial: containerKey,
+    }),
     systemSlot: null,
     eventType: "container.create",
     parentContainerId: parent.projection.containerId,
@@ -114,6 +118,9 @@ test("buildMaterializedContainerCreatePlan signs a child create and wraps the ch
     containerManifest: verifiedManifest.value,
     keyEpoch: plan.keyEpoch,
     parentKekState: parent.parentKekState,
+    parentManifestHistory: [
+      parent.projection.path[0] as unknown as VerifiedContainerAccessManifest,
+    ],
     wraps: plan.wraps,
   });
   expect(verifiedKek.ok).toBe(true);
@@ -125,13 +132,12 @@ test("buildMaterializedContainerCreatePlan signs a child create and wraps the ch
   if (!wrap) {
     throw new Error("Expected child container KEK wrap");
   }
-  const unwrappedChildKek = await decryptWithDek(
-    {
-      iv: base64ToBytes(wrap.kemCipherText),
-      ciphertext: base64ToBytes(wrap.wrappedKey),
-    },
-    parent.parentContainerKek,
-  );
+  const unwrappedChildKek = await unwrapContainerKekParentWrap({
+    parentContainerId: parent.parentKekState.containerId,
+    parentKeyMaterial: parent.parentContainerKek,
+    kemCipherText: wrap.kemCipherText,
+    wrappedKey: wrap.wrappedKey,
+  });
   expect(Array.from(unwrappedChildKek)).toEqual(Array.from(containerKey));
   expect(verifiedKek.value.keyTargetHash).toBe(plan.keyTargetHash);
   expect(verifiedKek.value.keyEpochHash).toBe(plan.keyEpochHash);
@@ -202,7 +208,7 @@ test("buildContainerCreatePlan stamps the child with the parent's organization r
   const plan = await buildContainerCreatePlan({
     author,
     containerKey: crypto.getRandomValues(new Uint8Array(32)),
-    parentKekMaterial: parent.parentContainerKek,
+
     parentProjection: parent.projection,
   });
   expect(plan.state.organizationId).toBe(parent.projection.organizationId);
@@ -219,7 +225,7 @@ test("buildContainerCreatePlan rejects stale parent projections and invalid key 
     buildContainerCreatePlan({
       author: validAuthor,
       containerKey: crypto.getRandomValues(new Uint8Array(32)),
-      parentKekMaterial: parent.parentContainerKek,
+
       parentProjection: {
         ...parent.projection,
         containerKeks: [
@@ -236,7 +242,7 @@ test("buildContainerCreatePlan rejects stale parent projections and invalid key 
     buildContainerCreatePlan({
       author: validAuthor,
       containerKey: crypto.getRandomValues(new Uint8Array(16)),
-      parentKekMaterial: parent.parentContainerKek,
+
       parentProjection: parent.projection,
     }),
   ).rejects.toThrow("KEK material");

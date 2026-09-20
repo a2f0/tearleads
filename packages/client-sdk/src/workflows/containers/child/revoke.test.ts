@@ -95,6 +95,7 @@ test("revokeRemoteContainer removes a direct user grant and rotates the KEK", as
   const body =
     submittedRequest.body as unknown as ContainerRevokeAccessEventBody;
   expect(body).toEqual({
+    containerKeyPublicKey: revoked.plan.state.containerKeyPublicKey,
     eventType: "container.revoke",
     containerKeyEpochId: revoked.plan.containerKeyEpochId,
     keyringHash: body.keyringHash,

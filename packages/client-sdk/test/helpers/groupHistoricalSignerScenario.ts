@@ -12,6 +12,7 @@ import {
   verifyContainerKekState,
 } from "@tearleads/crypto";
 import {
+  containerWrappingPublicKeyForTest,
   createContainerKeyEpochFixture,
   createContainerKeyWrap,
   createContainerManifestFixture,
@@ -139,6 +140,8 @@ export async function createGroupHistoricalSignerScenario() {
     directGrants: [],
     event: await createVerifiedContainerAccessEvent({
       body: {
+        containerKeyPublicKey:
+          containerWrappingPublicKeyForTest(childKeyEpochId),
         systemSlot: null,
         eventType: "container.create",
         parentContainerId: root1.state.containerId,
@@ -170,6 +173,9 @@ export async function createGroupHistoricalSignerScenario() {
   // The root adopts the group successor that removed Mallory.
   const root2 = await successor({
     body: {
+      containerKeyPublicKey: containerWrappingPublicKeyForTest(
+        rootKeyEpochIds[1],
+      ),
       eventType: "container.rekey",
       containerKeyEpochId: rootKeyEpochIds[1],
       keyringHash: await fixtureHash("group-root-keyring"),
@@ -286,6 +292,7 @@ async function kekResponse(input: {
     containerManifestHistory: input.history,
     keyEpoch,
     parentKekState: input.parent,
+    parentManifestHistory: [input.scenario.root1, input.scenario.root2],
     principalPolicies: [input.scenario.policy],
     userRecipientKeys: recipientKeys,
     wraps,
@@ -317,12 +324,20 @@ export async function childWriterProjection(
     parent: null,
     scenario,
   });
+  const creationParent = await kekResponse({
+    createdBy: scenario.root1,
+    head: scenario.root1,
+    history: [],
+    keyEpoch: 1,
+    parent: null,
+    scenario,
+  });
   const child = await kekResponse({
     createdBy: scenario.child1,
     head: served.head,
     history: served.history,
     keyEpoch: 1,
-    parent: root.state,
+    parent: creationParent.state,
     scenario,
   });
   return {

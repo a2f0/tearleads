@@ -14,6 +14,7 @@ import {
   type UnsignedAccessEvent,
   type VerifiedContainerAccessManifest,
 } from "@tearleads/crypto";
+import { containerWrappingPublicKeyForTest } from "@tearleads/crypto/test-fixtures";
 import { eq } from "drizzle-orm";
 import { storeVerifiedAccessManifest } from "../../src/access/write/accessManifestStore";
 
@@ -66,6 +67,8 @@ export async function storeChildContainerAccessManifest(input: {
 }) {
   const containerKeyEpochId = crypto.randomUUID();
   const body: ContainerCreateAccessEventBody = {
+    containerKeyPublicKey:
+      containerWrappingPublicKeyForTest(containerKeyEpochId),
     systemSlot: null,
     eventType: "container.create",
     parentContainerId: input.parentContainerId,
@@ -85,6 +88,8 @@ export async function storeChildContainerAccessManifest(input: {
     signerUserId: input.owner.userId,
   });
   const state: ContainerAccessManifestState = {
+    containerKeyPublicKey:
+      containerWrappingPublicKeyForTest(containerKeyEpochId),
     systemSlot: null,
     version: 1,
     containerId: input.childContainerId,

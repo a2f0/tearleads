@@ -33,6 +33,7 @@ conventional SSH host keys (Ed25519, and RSA/ECDSA in the Terraform stacks).
 | Use | Location |
 | --- | --- |
 | KEM envelope primitive: encapsulate, then AES-GCM-wrap a DEK to a recipient key | `packages/crypto/src/encapsulation/{wrapDek,unwrapDek,decryptAsRecipient}.ts` |
+| Wrap container KEK to a parent derived public key | `tearleads.container-kek-wrap.ml-kem-1024-aes-256-gcm-parent-kek` — `packages/crypto/src/keying/containerKekWrapping.ts`, `.../containers/shared/projection.ts` |
 | Wrap container KEK to a user or managed principal | `packages/client-sdk/src/data/containers/shared/projection.ts` |
 | Wrap principal (group/org) secret keys to members | `packages/client-sdk/src/workflows/organizations/{principalPolicy*,groupPolicy*}.ts` |
 | Identity key-package probe envelope | `packages/client-sdk/src/client/identityKeyPackage.ts` |
@@ -41,7 +42,9 @@ conventional SSH host keys (Ed25519, and RSA/ECDSA in the Terraform stacks).
 Container-KEK-to-principal wrap suite: `tearleads.container-kek-wrap.ml-kem-1024-aes-256-gcm`.
 Document and blob content keys are not ML-KEM-wrapped directly to recipients —
 they wrap to container KEKs with AES-GCM (see below), and only the KEK is
-ML-KEM-wrapped out to users and principals.
+ML-KEM-wrapped to users, principals, and parent containers. Parent key pairs
+are derived from their KEKs using a domain-separated HKDF-SHA-256 seed; their
+public keys are committed by signed container events and manifests.
 
 ### ML-DSA-87 (signatures)
 
@@ -60,7 +63,6 @@ ML-KEM-wrapped out to users and principals.
 | --- | --- |
 | Document & blob content records (per-record HKDF key) | `aes-256-gcm-hkdf-sha256-record-key` — `packages/client-sdk/src/data/documents/shared/crypto.ts`, `.../blob/shared/chunkedBlobCrypto.ts` |
 | Wrap content key to container KEK | `tearleads.{document,blob}.content-key-wrap.aes-256-gcm-container-kek` — `.../shared/projectionContentKeys.ts`, `.../blob/shared/projection.ts` |
-| Wrap container KEK to parent KEK | `tearleads.container-kek-wrap.aes-256-gcm-parent-kek` — `.../containers/shared/projection.ts` |
 | Wrap predecessor container KEK to successor KEK | `tearleads.container-kek-wrap.aes-256-gcm-predecessor-kek` — `packages/crypto/src/keying/containerKekPredecessor.ts`; suite and version are persisted per bridge row so a future suite rotation is representable |
 | Seal container KEK history keyring under current KEK | `tearleads.container-kek-keyring.aes-256-gcm-current-kek` — `packages/crypto/src/keying/containerKekKeyring.ts`; fixed-width plaintext (8-byte header + 64 bytes per predecessor epoch) makes the sealed length an equality in the epoch number |
 | DEK wrapping under a KEM shared secret | `packages/crypto/src/encapsulation/wrapDek.ts` |

@@ -37,7 +37,7 @@ function parentLineage(
   return lineage.reverse();
 }
 
-function creationParentEpochId(
+export function creationParentEpochId(
   manifest: VerifiedContainerAccessManifest,
   manifests: ReadonlyMap<string, VerifiedContainerAccessManifest>,
 ): string | null {
@@ -50,7 +50,7 @@ function creationParentEpochId(
   if (parents.length !== 1 || !parent?.state.containerKeyEpochId) {
     throwVerification(
       "missing_dependency",
-      "historical parent KEK creation requires its signed parent citation",
+      "container KEK creation requires its signed parent citation",
     );
   }
   return parent.state.containerKeyEpochId;

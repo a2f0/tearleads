@@ -6,6 +6,7 @@ import type {
   DocumentLinkSetManifestState,
   ReferencedPrincipalHead,
 } from "@tearleads/crypto";
+import { containerWrappingPublicKeyForTest } from "@tearleads/crypto/test-fixtures";
 import {
   accessManifestCheckpoint,
   containerAccessManifestStateRecord,
@@ -29,6 +30,9 @@ test("projects the canonical container manifest state field set", () => {
     ignored: "head-extension",
   } satisfies ReferencedPrincipalHead & { readonly ignored: string };
   const state = {
+    containerKeyPublicKey: containerWrappingPublicKeyForTest(
+      "container-key-epoch-id",
+    ),
     systemSlot: null,
     version: 1,
     containerId: "container-id",
@@ -46,6 +50,9 @@ test("projects the canonical container manifest state field set", () => {
   } satisfies ContainerAccessManifestState & { readonly ignored: string };
 
   expect(containerAccessManifestStateRecord(state)).toEqual({
+    containerKeyPublicKey: containerWrappingPublicKeyForTest(
+      "container-key-epoch-id",
+    ),
     systemSlot: null,
     version: 1,
     containerId: "container-id",

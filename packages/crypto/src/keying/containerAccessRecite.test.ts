@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import { generateSigningSeedAndKeyPair } from "../signing/generateKeyPair";
 import { MAX_CONTAINER_RECITATION_EPOCH } from "./containerAccessReciteBody";
+import { containerWrappingPublicKeyForTest } from "./containerWrapping.testFixtures";
 import {
   computeAccessManifestHash,
   deriveContainerAccessManifest,
@@ -62,6 +63,9 @@ async function recite(
   });
   const event = await createVerifiedContainerAccessEvent({
     body: {
+      containerKeyPublicKey: containerWrappingPublicKeyForTest(
+        input.keyEpochId ?? "child-key",
+      ),
       eventType: "container.recite",
       containerKeyEpochId: input.keyEpochId ?? "child-key",
     },
@@ -154,6 +158,7 @@ test("recitation bodies cannot carry grants or rotation artifacts", () => {
   for (const key of ["grant", "referencedPrincipalHead", "keyringHash"]) {
     expect(() =>
       normalizeContainerAccessEventBody({
+        containerKeyPublicKey: containerWrappingPublicKeyForTest("child-key"),
         eventType: "container.recite",
         containerKeyEpochId: "child-key",
         [key]: "unexpected",
@@ -165,8 +170,13 @@ test("recitation bodies cannot carry grants or rotation artifacts", () => {
 test("recitation normalizes the same nullable key state as an unrotated grant", () => {
   expect(
     normalizeContainerAccessEventBody({
+      containerKeyPublicKey: null,
       eventType: "container.recite",
       containerKeyEpochId: null,
     }),
-  ).toEqual({ eventType: "container.recite", containerKeyEpochId: null });
+  ).toEqual({
+    containerKeyPublicKey: null,
+    eventType: "container.recite",
+    containerKeyEpochId: null,
+  });
 });

@@ -11,6 +11,7 @@ import {
   toFingerprint,
 } from "@tearleads/crypto";
 import {
+  containerWrappingPublicKeyForTest,
   createContainerManifestFixture,
   createVerifiedContainerAccessEvent,
   fixtureHash,
@@ -79,6 +80,10 @@ export async function successor(input: {
   });
   const state: ContainerAccessManifestState = {
     ...input.previous.state,
+    // Every body publishes the wrapping key for the epoch it establishes, and
+    // a rotation must publish a new one, so the derived state tracks the body
+    // rather than inheriting the predecessor's key.
+    containerKeyPublicKey: input.body.containerKeyPublicKey,
     ...input.state(input.previous.state),
     epoch: input.previous.state.epoch + 1,
     eventHash: event.eventHash,
@@ -106,6 +111,7 @@ export async function grantBy(input: {
   };
   return successor({
     body: {
+      containerKeyPublicKey: input.previous.state.containerKeyPublicKey,
       eventType: "container.grant",
       containerKeyEpochId: input.previous.state.containerKeyEpochId,
       grant,
@@ -148,6 +154,7 @@ export async function createScenario() {
   // Alice revokes Mallory at the root; Mallory keeps root1's contents.
   const root2 = await successor({
     body: {
+      containerKeyPublicKey: containerWrappingPublicKeyForTest("root-key-2"),
       eventType: "container.revoke",
       containerKeyEpochId: "root-key-2",
       keyringHash: await fixtureHash("ancestor-root-keyring"),
@@ -166,6 +173,7 @@ export async function createScenario() {
     }),
   });
   const childBody: ContainerAccessEventBody = {
+    containerKeyPublicKey: containerWrappingPublicKeyForTest("child-key-1"),
     systemSlot: null,
     eventType: "container.create",
     parentContainerId: ROOT_ID,
@@ -264,6 +272,7 @@ export async function createGrandchildScenario() {
   const scenario = await createScenario();
   // The child is created under root2, so its pin already proves root2.
   const middleBody: ContainerAccessEventBody = {
+    containerKeyPublicKey: containerWrappingPublicKeyForTest("middle-key-1"),
     systemSlot: null,
     eventType: "container.create",
     parentContainerId: ROOT_ID,
@@ -293,6 +302,7 @@ export async function createGrandchildScenario() {
     signerUserId: scenario.alice.userId,
   });
   const leafBody: ContainerAccessEventBody = {
+    containerKeyPublicKey: containerWrappingPublicKeyForTest("leaf-key-1"),
     systemSlot: null,
     eventType: "container.create",
     parentContainerId: middle.state.containerId,

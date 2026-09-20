@@ -14,6 +14,7 @@ import {
   verifyContainerAccessManifest,
 } from "@tearleads/crypto";
 import {
+  containerWrappingPublicKeyForTest,
   createContainerManifestFixture,
   createPrincipalPolicyFixture,
   createVerifiedContainerAccessEvent,
@@ -94,6 +95,9 @@ test("required purge evidence reaches every recursive container predecessor", as
     signerUserId,
   });
   const revokeBody: ContainerAccessEventBody = {
+    containerKeyPublicKey: containerWrappingPublicKeyForTest(
+      "recursive-evidence-key-2",
+    ),
     eventType: "container.revoke",
     containerKeyEpochId: "recursive-evidence-key-2",
     keyringHash: await fixtureHash("recursive-evidence-keyring"),
@@ -114,6 +118,7 @@ test("required purge evidence reaches every recursive container predecessor", as
   const revokedState: ContainerAccessManifestState = {
     ...initial.state,
     containerKeyEpochId: revokeBody.containerKeyEpochId,
+    containerKeyPublicKey: revokeBody.containerKeyPublicKey,
     directGrants: initial.state.directGrants.filter(
       (grant) => grant.subjectType !== "group",
     ),
@@ -142,6 +147,7 @@ test("required purge evidence reaches every recursive container predecessor", as
   if (!revokedVerification.ok) throw revokedVerification.error;
   expect(revoked.state).toEqual(revokedVerification.value.state);
   const grantBody: ContainerAccessEventBody = {
+    containerKeyPublicKey: revoked.state.containerKeyPublicKey,
     eventType: "container.grant",
     containerKeyEpochId: revoked.state.containerKeyEpochId,
     grant: {

@@ -18,6 +18,7 @@ import {
   signAccessEvent,
   verifySignedAccessEvent,
 } from "@tearleads/crypto";
+import { containerWrappingPublicKeyForTest } from "@tearleads/crypto/test-fixtures";
 import type {
   AccessManifestBundleWire,
   ContainerMutationRequest,
@@ -169,6 +170,8 @@ export async function buildRevokeRequest(input: {
     throw new Error("buildRevokeRequest requires a revoked grant");
   }
   const body: ContainerAccessEventBody = {
+    containerKeyPublicKey:
+      containerWrappingPublicKeyForTest(containerKeyEpochId),
     eventType: "container.revoke",
     containerKeyEpochId,
     keyringHash,
@@ -192,6 +195,7 @@ export async function buildRevokeRequest(input: {
   const bundle = await createManifestBundle(
     {
       ...previous.state,
+      containerKeyPublicKey: body.containerKeyPublicKey,
       epoch: previous.state.epoch + 1,
       previousManifestHash: input.previous.manifestHash,
       eventHash: event.eventHash,
@@ -287,6 +291,8 @@ export async function buildRekeyRequest(input: {
     successorContainerKeyEpochId: containerKeyEpochId,
   });
   const body: ContainerAccessEventBody = {
+    containerKeyPublicKey:
+      containerWrappingPublicKeyForTest(containerKeyEpochId),
     eventType: "container.rekey",
     containerKeyEpochId,
     keyringHash,
@@ -309,6 +315,7 @@ export async function buildRekeyRequest(input: {
   const bundle = await createManifestBundle(
     {
       ...previous.state,
+      containerKeyPublicKey: body.containerKeyPublicKey,
       epoch: previous.state.epoch + 1,
       previousManifestHash: input.previous.manifestHash,
       eventHash: event.eventHash,
@@ -328,8 +335,14 @@ export async function buildRekeyRequest(input: {
       containerKeyEpochId,
       recipientKind: target.recipientKind,
       recipientId: target.recipientId,
-      recipientKeyEpochId: target.recipientKeyEpochId,
-      recipientKeyFingerprint: target.recipientKeyFingerprint,
+      recipientKeyEpochId:
+        target.recipientKind === "container"
+          ? input.parentKekState.containerKeyEpochId
+          : target.recipientKeyEpochId,
+      recipientKeyFingerprint:
+        target.recipientKind === "container"
+          ? input.parentKekState.keyEpochHash
+          : target.recipientKeyFingerprint,
       wrapManifestHash: bundle.manifestHash,
     }),
   );
@@ -389,6 +402,8 @@ export async function buildMoveRequest(input: {
     successorContainerKeyEpochId: containerKeyEpochId,
   });
   const body: ContainerAccessEventBody = {
+    containerKeyPublicKey:
+      containerWrappingPublicKeyForTest(containerKeyEpochId),
     eventType: "container.move",
     parentContainerId: destinationParent.state.containerId,
     parentManifestHash: input.destinationParent.manifestHash,
@@ -414,6 +429,7 @@ export async function buildMoveRequest(input: {
   const bundle = await createManifestBundle(
     {
       ...previous.state,
+      containerKeyPublicKey: body.containerKeyPublicKey,
       epoch: previous.state.epoch + 1,
       previousManifestHash: input.previous.manifestHash,
       eventHash: event.eventHash,

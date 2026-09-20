@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import { generateSigningSeedAndKeyPair } from "../signing/generateKeyPair";
+import { containerWrappingPublicKeyForTest } from "./containerWrapping.testFixtures";
 import type {
   ContainerAccessEventBody,
   ContainerAccessManifestState,
@@ -39,6 +40,8 @@ test("verifyContainerAccessManifest accepts a signed child create under a writab
     signerUserId: adminUserId,
   });
   const createBody: ContainerCreateAccessEventBody = {
+    containerKeyPublicKey:
+      containerWrappingPublicKeyForTest("child-key-epoch-1"),
     systemSlot: null,
     eventType: "container.create",
     parentContainerId: parent.state.containerId,
@@ -63,6 +66,8 @@ test("verifyContainerAccessManifest accepts a signed child create under a writab
     signerUserId: adminUserId,
   });
   const state: ContainerAccessManifestState = {
+    containerKeyPublicKey:
+      containerWrappingPublicKeyForTest("child-key-epoch-1"),
     systemSlot: null,
     version: 1,
     containerId: "child-container",
@@ -112,6 +117,7 @@ test("verifyContainerAccessManifest rejects a forged API-only grant row", async 
     signerUserId: adminUserId,
   });
   const body: ContainerAccessEventBody = {
+    containerKeyPublicKey: previous.state.containerKeyPublicKey,
     eventType: "container.grant",
     containerKeyEpochId: previous.state.containerKeyEpochId,
     grant: {
@@ -182,6 +188,7 @@ test("verifyContainerAccessManifest rejects container grants signed by non-admin
     signerUserId: adminUserId,
   });
   const body: ContainerAccessEventBody = {
+    containerKeyPublicKey: previous.state.containerKeyPublicKey,
     eventType: "container.grant",
     containerKeyEpochId: previous.state.containerKeyEpochId,
     grant: {
@@ -235,6 +242,9 @@ test("verifyContainerAccessManifest accepts writer rekeys without grant changes"
     signerUserId: writerUserId,
   });
   const body: ContainerAccessEventBody = {
+    containerKeyPublicKey: containerWrappingPublicKeyForTest(
+      "container-key-epoch-2",
+    ),
     eventType: "container.rekey",
     containerKeyEpochId: "container-key-epoch-2",
     keyringHash: KEYRING_HASH,
@@ -255,6 +265,7 @@ test("verifyContainerAccessManifest accepts writer rekeys without grant changes"
     previousManifestHash: previous.manifestHash,
     eventHash: event.eventHash,
     containerKeyEpochId: body.containerKeyEpochId,
+    containerKeyPublicKey: body.containerKeyPublicKey,
   });
 
   const result = await verifyContainerAccessManifest({
@@ -294,6 +305,9 @@ test("verifyContainerAccessManifest rejects rekeys that change grants", async ()
     signerUserId: writerUserId,
   });
   const body: ContainerAccessEventBody = {
+    containerKeyPublicKey: containerWrappingPublicKeyForTest(
+      "container-key-epoch-2",
+    ),
     eventType: "container.rekey",
     containerKeyEpochId: "container-key-epoch-2",
     keyringHash: KEYRING_HASH,
@@ -314,6 +328,7 @@ test("verifyContainerAccessManifest rejects rekeys that change grants", async ()
     previousManifestHash: previous.manifestHash,
     eventHash: event.eventHash,
     containerKeyEpochId: body.containerKeyEpochId,
+    containerKeyPublicKey: body.containerKeyPublicKey,
     directGrants: [
       ...previous.state.directGrants,
       {
@@ -352,6 +367,9 @@ test("verifyContainerAccessManifest rejects rekeys that reuse the current KEK ep
     signerUserId: writerUserId,
   });
   const body: ContainerAccessEventBody = {
+    containerKeyPublicKey: containerWrappingPublicKeyForTest(
+      previous.state.containerKeyEpochId ?? "",
+    ),
     eventType: "container.rekey",
     containerKeyEpochId: previous.state.containerKeyEpochId ?? "",
     keyringHash: KEYRING_HASH,
@@ -384,6 +402,64 @@ test("verifyContainerAccessManifest rejects rekeys that reuse the current KEK ep
   expectVerificationError(result, "key_epoch_reuse");
 });
 
+test("verifyContainerAccessManifest rejects rekeys that reuse the wrapping key", async () => {
+  const writerUserId = "writer-user";
+  const writerSigning = generateSigningSeedAndKeyPair();
+  const previous = await createContainerManifestFixture({
+    containerId: "container-reused-wrapping-key",
+    containerKeyEpochId: "container-key-epoch-1",
+    directGrants: [
+      {
+        subjectType: "user",
+        subjectId: writerUserId,
+        accessLevel: "write",
+      },
+    ],
+    signer: writerSigning,
+    signerUserId: writerUserId,
+  });
+  // A fresh epoch id, but the wrapping key of the epoch being retired.
+  // Descendants wrap to the published key without holding this container's
+  // material, so accepting this would let the retired KEK's holder open every
+  // child key minted afterwards — the rotation would not actually revoke.
+  const retiredPublicKey = previous.state.containerKeyPublicKey;
+  if (!retiredPublicKey) throw new Error("fixture needs a wrapping key");
+  const body: ContainerAccessEventBody = {
+    containerKeyPublicKey: retiredPublicKey,
+    eventType: "container.rekey",
+    containerKeyEpochId: "container-key-epoch-2",
+    keyringHash: KEYRING_HASH,
+    predecessorBridgeHash: PREDECESSOR_BRIDGE_HASH,
+    referencedPrincipalHeads: previous.state.referencedPrincipalHeads,
+  };
+  const event = await createVerifiedContainerAccessEvent({
+    body,
+    objectId: previous.state.containerId,
+    organizationId: previous.state.organizationId,
+    previousManifestHash: previous.manifestHash,
+    signer: writerSigning,
+    signerUserId: writerUserId,
+  });
+  const manifest = await deriveContainerAccessManifest({
+    ...previous.state,
+    epoch: previous.state.epoch + 1,
+    previousManifestHash: previous.manifestHash,
+    eventHash: event.eventHash,
+    containerKeyEpochId: body.containerKeyEpochId,
+    containerKeyPublicKey: body.containerKeyPublicKey,
+  });
+
+  const result = await verifyContainerAccessManifest({
+    manifest,
+    expectedManifestHash: await computeAccessManifestHash(manifest),
+    event,
+    previousManifest: previous,
+    previousContainerPath: [previous],
+  });
+
+  expectVerificationError(result, "key_epoch_reuse");
+});
+
 test("verifyContainerAccessManifest rejects child create signed without parent write access", async () => {
   const readerUserId = "reader-user";
   const readerSigning = generateSigningSeedAndKeyPair();
@@ -401,6 +477,8 @@ test("verifyContainerAccessManifest rejects child create signed without parent w
     signerUserId: readerUserId,
   });
   const body: ContainerCreateAccessEventBody = {
+    containerKeyPublicKey:
+      containerWrappingPublicKeyForTest("child-key-epoch-1"),
     systemSlot: null,
     eventType: "container.create",
     parentContainerId: parent.state.containerId,
@@ -425,6 +503,8 @@ test("verifyContainerAccessManifest rejects child create signed without parent w
     signerUserId: readerUserId,
   });
   const manifest = await deriveContainerAccessManifest({
+    containerKeyPublicKey:
+      containerWrappingPublicKeyForTest("child-key-epoch-1"),
     systemSlot: null,
     version: 1,
     containerId: "child-container",
@@ -485,6 +565,8 @@ test("verifyContainerAccessManifest rejects moving a container under its descend
     signerUserId: adminUserId,
   });
   const body: ContainerAccessEventBody = {
+    containerKeyPublicKey:
+      containerWrappingPublicKeyForTest("child-key-epoch-2"),
     eventType: "container.move",
     parentContainerId: grandchild.state.containerId,
     parentManifestHash: grandchild.manifestHash,
@@ -540,6 +622,8 @@ test("verifyContainerAccessManifest rejects parent manifest hash mismatches", as
   });
   const wrongParentManifestHash = await fixtureHash("wrong-parent-manifest");
   const body: ContainerCreateAccessEventBody = {
+    containerKeyPublicKey:
+      containerWrappingPublicKeyForTest("child-key-epoch-1"),
     systemSlot: null,
     eventType: "container.create",
     parentContainerId: parent.state.containerId,
@@ -558,6 +642,8 @@ test("verifyContainerAccessManifest rejects parent manifest hash mismatches", as
     signerUserId: adminUserId,
   });
   const manifest = await deriveContainerAccessManifest({
+    containerKeyPublicKey:
+      containerWrappingPublicKeyForTest("child-key-epoch-1"),
     systemSlot: null,
     version: 1,
     containerId: "child-container",
@@ -611,6 +697,7 @@ test("parent sharing does not require descendant container manifest rewrites", a
   });
   const childManifestHashBeforeParentShare = child.manifestHash;
   const body: ContainerAccessEventBody = {
+    containerKeyPublicKey: parent.state.containerKeyPublicKey,
     eventType: "container.grant",
     containerKeyEpochId: parent.state.containerKeyEpochId,
     grant: {
@@ -666,6 +753,9 @@ test("container managed-principal grants commit matching principal heads", async
     accessLevel: "write",
   };
   const state: ContainerAccessManifestState = {
+    containerKeyPublicKey: containerWrappingPublicKeyForTest(
+      "container-key-epoch-1",
+    ),
     systemSlot: null,
     version: 1,
     containerId: "container-1",
@@ -726,6 +816,7 @@ test("verifyContainerAccessManifest requires revokes to advance the KEK epoch", 
     signerUserId: "admin-user",
   });
   const body: ContainerAccessEventBody = {
+    containerKeyPublicKey: previous.state.containerKeyPublicKey,
     eventType: "container.revoke",
     containerKeyEpochId: previous.state.containerKeyEpochId,
     keyringHash: KEYRING_HASH,
@@ -752,4 +843,79 @@ test("verifyContainerAccessManifest requires revokes to advance the KEK epoch", 
     }),
     "key_epoch_reuse",
   );
+});
+
+test("verifyContainerAccessManifest rejects moves that desync epoch and key", async () => {
+  const adminUserId = "admin-user";
+  const adminSigning = generateSigningSeedAndKeyPair();
+  const parent = await createContainerManifestFixture({
+    containerId: "move-destination-parent",
+    containerKeyEpochId: "destination-key-epoch-1",
+    directGrants: [
+      { subjectType: "user", subjectId: adminUserId, accessLevel: "admin" },
+    ],
+    signer: adminSigning,
+    signerUserId: adminUserId,
+  });
+  const originParent = await createContainerManifestFixture({
+    containerId: "move-origin-parent",
+    containerKeyEpochId: "origin-key-epoch-1",
+    directGrants: [
+      { subjectType: "user", subjectId: adminUserId, accessLevel: "admin" },
+    ],
+    signer: adminSigning,
+    signerUserId: adminUserId,
+  });
+  const previous = await createContainerManifestFixture({
+    containerId: "moved-container",
+    containerKeyEpochId: "moved-key-epoch-1",
+    directGrants: [
+      { subjectType: "user", subjectId: adminUserId, accessLevel: "admin" },
+    ],
+    parentContainerId: originParent.state.containerId,
+    parentManifestHash: originParent.manifestHash,
+    signer: adminSigning,
+    signerUserId: adminUserId,
+  });
+  // An unchanged epoch that republishes a different wrapping key would send
+  // descendants to a key the container's real KEK cannot open.
+  const movedEpochId = previous.state.containerKeyEpochId ?? "";
+  const body: ContainerAccessEventBody = {
+    containerKeyPublicKey: containerWrappingPublicKeyForTest("unrelated-epoch"),
+    eventType: "container.move",
+    parentContainerId: parent.state.containerId,
+    parentManifestHash: parent.manifestHash,
+    containerKeyEpochId: movedEpochId,
+    keyringHash: KEYRING_HASH,
+    predecessorBridgeHash: PREDECESSOR_BRIDGE_HASH,
+  };
+  const event = await createVerifiedContainerAccessEvent({
+    body,
+    objectId: previous.state.containerId,
+    organizationId: previous.state.organizationId,
+    previousManifestHash: previous.manifestHash,
+    signer: adminSigning,
+    signerUserId: adminUserId,
+  });
+  const manifest = await deriveContainerAccessManifest({
+    ...previous.state,
+    epoch: previous.state.epoch + 1,
+    previousManifestHash: previous.manifestHash,
+    eventHash: event.eventHash,
+    parentContainerId: body.parentContainerId,
+    parentManifestHash: body.parentManifestHash,
+    containerKeyEpochId: body.containerKeyEpochId,
+    containerKeyPublicKey: body.containerKeyPublicKey,
+  });
+
+  const result = await verifyContainerAccessManifest({
+    manifest,
+    expectedManifestHash: await computeAccessManifestHash(manifest),
+    event,
+    previousManifest: previous,
+    previousContainerPath: [originParent, previous],
+    destinationParentContainerPath: [parent],
+  });
+
+  expectVerificationError(result, "key_epoch_reuse");
 });

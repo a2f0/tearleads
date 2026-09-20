@@ -68,7 +68,7 @@ export async function buildContainerRotationWraps(input: {
   manifestHash: string;
   operationLabel: string;
   parentKek: ContainerKekResponse | null;
-  parentKekMaterial: Uint8Array | null;
+  parentPublicKey: string | null;
   principalPolicies: readonly VerifiedPrincipalPolicy[];
   resolveUserKey: ProjectionUserKeyResolver;
   state: ContainerAccessManifestState;
@@ -79,9 +79,9 @@ export async function buildContainerRotationWraps(input: {
   const userRecipientKeys: ContainerUserRecipientKey[] = [];
   const wraps: ContainerKeyWrap[] = [];
   if (input.parentKek) {
-    if (!input.parentKekMaterial) {
+    if (!input.parentPublicKey) {
       throw new Error(
-        `${input.operationLabel} parent KEK could not be unwrapped`,
+        `${input.operationLabel} parent wrapping public key is missing`,
       );
     }
     wraps.push(
@@ -90,7 +90,7 @@ export async function buildContainerRotationWraps(input: {
         containerKeyEpochId: input.containerKeyEpochId,
         manifestHash: input.manifestHash,
         parentKek: input.parentKek,
-        parentKekMaterial: input.parentKekMaterial,
+        parentPublicKey: input.parentPublicKey,
       }),
     );
   }

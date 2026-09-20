@@ -1,10 +1,14 @@
 import { expect, test } from "bun:test";
+import { containerWrappingPublicKeyForTest } from "./containerWrapping.testFixtures";
 import type { ContainerAccessManifestState } from "./index";
 import { deriveContainerAccessManifest } from "./index";
 
 test("container manifests reject organization grant subjects", async () => {
   await expect(
     deriveContainerAccessManifest({
+      containerKeyPublicKey: containerWrappingPublicKeyForTest(
+        "container-key-epoch-1",
+      ),
       systemSlot: null,
       version: 1,
       containerId: "container-1",

@@ -13,6 +13,7 @@ import type {
 import {
   computeContainerKekKeyringHash,
   computeContainerKekPredecessorBridgeHash,
+  deriveContainerKekWrappingPublicKey,
 } from "@tearleads/crypto";
 import type {
   AccessManifestBundleWire,
@@ -188,7 +189,7 @@ export async function buildMaterializedContainerRevokePlan(input: {
   );
   const {
     parentKek,
-    parentKekMaterial,
+    parentPublicKey,
     predecessorContainerKey,
     previousState,
     target,
@@ -216,6 +217,10 @@ export async function buildMaterializedContainerRevokePlan(input: {
     });
   const body: ContainerRevokeAccessEventBody = {
     eventType: "container.revoke",
+    containerKeyPublicKey: await deriveContainerKekWrappingPublicKey({
+      containerId: previousState.containerId,
+      keyMaterial: containerKey,
+    }),
     containerKeyEpochId,
     keyringHash: await computeContainerKekKeyringHash(keyring),
     predecessorBridgeHash:
@@ -236,6 +241,7 @@ export async function buildMaterializedContainerRevokePlan(input: {
   });
   const { manifest, manifestHash, state } = await deriveContainerRevokeManifest(
     {
+      containerKeyPublicKey: body.containerKeyPublicKey,
       containerKeyEpochId,
       eventHash,
       previousManifest: target.manifest,
@@ -273,7 +279,7 @@ export async function buildMaterializedContainerRevokePlan(input: {
     manifestHash,
     operationLabel: "Container revoke",
     parentKek,
-    parentKekMaterial,
+    parentPublicKey,
     principalPolicies: currentPrincipalPolicies,
     resolveUserKey: resolveProjectionUserKey,
     state,

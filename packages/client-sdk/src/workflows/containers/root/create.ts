@@ -10,6 +10,7 @@ import type {
 import {
   computeContainerKekRecipientTargetHash,
   computeContainerKeyEpochHash,
+  deriveContainerKekWrappingPublicKey,
   normalizeContainerAccessEventBody,
 } from "@tearleads/crypto";
 import type { ContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
@@ -49,6 +50,7 @@ function buildRootContainerCreateBody(input: {
   author: ContainerMutationAuthor;
   managedPrincipalHead: ContainerGrantPrincipalHead | null;
   containerKeyEpochId: string;
+  containerKeyPublicKey: string;
   metadataDocumentId: string;
   memberHead: ContainerGrantPrincipalHead | null;
   systemSlot: ContainerSystemSlot | null;
@@ -56,6 +58,7 @@ function buildRootContainerCreateBody(input: {
   const baseBody = buildContainerCreateBody({
     systemSlot: input.systemSlot,
     containerKeyEpochId: input.containerKeyEpochId,
+    containerKeyPublicKey: input.containerKeyPublicKey,
     metadataDocumentId: input.metadataDocumentId,
     parentContainerId: null,
     parentManifestHash: null,
@@ -173,6 +176,8 @@ async function deriveRootCreateArtifacts(input: {
   metadataDocumentId: string;
   signedAt: string | undefined;
 }) {
+  if (!input.body.containerKeyPublicKey)
+    throw new Error("Root container public key is missing");
   const { event, eventHash } = await signContainerCreateEvent({
     author: input.author,
     body: input.body,
@@ -188,6 +193,7 @@ async function deriveRootCreateArtifacts(input: {
       systemSlot: input.body.systemSlot,
       containerId: input.containerId,
       containerKeyEpochId: input.containerKeyEpochId,
+      containerKeyPublicKey: input.body.containerKeyPublicKey,
       directGrants: input.body.directGrants,
       eventHash,
       metadataDocumentId: input.metadataDocumentId,
@@ -312,6 +318,10 @@ export async function buildRootContainerCreatePlan(input: {
     keyMaterial: containerKey,
   });
   const body = normalizedRootCreateBody({
+    containerKeyPublicKey: await deriveContainerKekWrappingPublicKey({
+      containerId: input.containerId,
+      keyMaterial: containerKey,
+    }),
     memberHead: member.managedPrincipalHead,
     systemSlot: input.systemSlot ?? null,
     author: input.author,

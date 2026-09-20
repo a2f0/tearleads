@@ -15,6 +15,7 @@ import type {
 } from "@tearleads/validators/response";
 import { documentKekTargetsFromContentKeyBundle } from "@tearleads/validators/response";
 import { createPendingUpdateFields } from "../../data/documents/documentSync";
+import { assertDocumentKekPathsCurrent } from "../../data/documents/shared/containerKekCurrency";
 import {
   assertDocumentWriterProjectionConsistent,
   authorizingContainerPathRefs,
@@ -276,6 +277,9 @@ async function resolveSyncPlanContentMaterial(
   >,
 ): Promise<ResolvedSyncPlanContentMaterial> {
   const allPendingUpdates = input.pendingUpdates ?? [];
+  if (allPendingUpdates.length > 0 || input.regenerateQueuedCheckpoints) {
+    assertDocumentKekPathsCurrent(input.writerProjection);
+  }
   const staleContentKeyBundle =
     input.writerProjection.contentKeyBundleStale === true;
 

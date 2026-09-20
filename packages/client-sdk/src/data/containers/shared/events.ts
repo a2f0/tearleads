@@ -32,6 +32,7 @@ import type {
 
 export function buildContainerCreateBody(input: {
   containerKeyEpochId: string;
+  containerKeyPublicKey: string;
   metadataDocumentId: string;
   systemSlot?: string | null | undefined;
   parentContainerId: string | null;
@@ -44,6 +45,7 @@ export function buildContainerCreateBody(input: {
     parentManifestHash: input.parentManifestHash,
     metadataDocumentId: input.metadataDocumentId,
     containerKeyEpochId: input.containerKeyEpochId,
+    containerKeyPublicKey: input.containerKeyPublicKey,
     directGrants: [],
     referencedPrincipalHeads: [],
   };
@@ -145,6 +147,7 @@ export async function signContainerMutationEvent(input: {
 export async function deriveContainerCreateManifest(input: {
   containerId: string;
   containerKeyEpochId: string;
+  containerKeyPublicKey: string;
   // Grants baked into the create manifest. Defaults to none. A child container
   // born with a managed-principal (group/organization) grant — e.g. the org
   // public metadata container granted to the Members group — supplies both the
@@ -175,6 +178,7 @@ export async function deriveContainerCreateManifest(input: {
     parentManifestHash: input.parentManifestHash,
     metadataDocumentId: input.metadataDocumentId,
     containerKeyEpochId: input.containerKeyEpochId,
+    containerKeyPublicKey: input.containerKeyPublicKey,
     directGrants: input.directGrants ? [...input.directGrants] : [],
     referencedPrincipalHeads: input.referencedPrincipalHeads
       ? [...input.referencedPrincipalHeads]

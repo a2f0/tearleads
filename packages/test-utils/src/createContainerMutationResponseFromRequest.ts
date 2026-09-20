@@ -70,6 +70,7 @@ function deriveMutationState(input: {
       systemSlot: body.systemSlot,
       containerId: event.objectId,
       containerKeyEpochId: body.containerKeyEpochId,
+      containerKeyPublicKey: body.containerKeyPublicKey,
       directGrants: [...body.directGrants],
       epoch: 1,
       eventHash,
@@ -94,6 +95,7 @@ function deriveMutationState(input: {
     return {
       ...base,
       containerKeyEpochId: body.containerKeyEpochId,
+      containerKeyPublicKey: body.containerKeyPublicKey,
       directGrants: sortedUpsert<ContainerDirectGrant>(
         previous.directGrants,
         body.grant,
@@ -111,6 +113,7 @@ function deriveMutationState(input: {
     return {
       ...base,
       containerKeyEpochId: body.containerKeyEpochId,
+      containerKeyPublicKey: body.containerKeyPublicKey,
       directGrants: previous.directGrants.filter(
         (grant) => principalKey(grant) !== revokedKey,
       ),
@@ -126,6 +129,7 @@ function deriveMutationState(input: {
     return {
       ...base,
       containerKeyEpochId: body.containerKeyEpochId,
+      containerKeyPublicKey: body.containerKeyPublicKey,
       parentContainerId: body.parentContainerId,
       parentManifestHash: body.parentManifestHash,
     };
@@ -136,6 +140,7 @@ function deriveMutationState(input: {
   return {
     ...base,
     containerKeyEpochId: body.containerKeyEpochId,
+    containerKeyPublicKey: body.containerKeyPublicKey,
     referencedPrincipalHeads: [...body.referencedPrincipalHeads],
   };
 }

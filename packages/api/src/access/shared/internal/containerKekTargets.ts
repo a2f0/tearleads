@@ -27,6 +27,10 @@ export class ContainerKekTargetError extends Error {
   constructor(
     message: string,
     readonly status: ContainerKekTargetStatus,
+    // True only for conditions a client can clear by refreshing its state.
+    // Integrity failures share the 409 status but are not retryable, so
+    // callers must not turn them into a refresh-and-retry instruction.
+    readonly stale = false,
   ) {
     super(message);
     this.name = "ContainerKekTargetError";
@@ -41,18 +45,24 @@ const staleContainerKekEpochError = (containerId: string) =>
   new ContainerKekTargetError(
     `Container KEK epoch is stale for container ${containerId}`,
     409,
+    true,
   );
 
 const staleContainerKekParentEdgeError = (containerId: string) =>
   new ContainerKekTargetError(
     `Container KEK parent edge is stale for container ${containerId}`,
     409,
+    true,
   );
 
 export async function resolveCurrentContainerKekTargetsMapped<E extends Error>(
   containerIds: readonly string[],
   executor: DatabaseSession,
-  mapError: (message: string, status: ContainerKekTargetStatus) => E,
+  mapError: (
+    message: string,
+    status: ContainerKekTargetStatus,
+    stale: boolean,
+  ) => E,
   allowHistoricalParentEpochs = false,
 ): Promise<Map<string, ContainerKekTarget>> {
   try {
@@ -63,7 +73,7 @@ export async function resolveCurrentContainerKekTargetsMapped<E extends Error>(
     );
   } catch (error) {
     if (error instanceof ContainerKekTargetError) {
-      throw mapError(error.message, error.status);
+      throw mapError(error.message, error.status, error.stale);
     }
     throw error;
   }

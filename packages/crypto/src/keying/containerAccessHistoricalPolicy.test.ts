@@ -182,6 +182,7 @@ test("historical manifest verification uses membership at the referenced policy 
 
   async function verifyGrant(signerUserId: string) {
     const body: ContainerAccessEventBody = {
+      containerKeyPublicKey: previous.state.containerKeyPublicKey,
       containerKeyEpochId: previous.state.containerKeyEpochId,
       eventType: "container.grant",
       grant: {

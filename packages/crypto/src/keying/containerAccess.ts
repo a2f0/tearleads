@@ -1,3 +1,4 @@
+import { normalizeContainerKekWrappingPublicKey } from "./containerKekWrapping";
 import {
   requireContainerPathCurrentParent,
   requirePathLastMatchesManifest,
@@ -127,17 +128,24 @@ function normalizeContainerAccessKeyState(
 ): ContainerAccessKeyState {
   const record = assertExactKeys(
     value,
-    ["containerKeyEpochId"],
+    ["containerKeyEpochId", "containerKeyPublicKey"],
     "container access key state",
   );
-
-  return {
-    containerKeyEpochId: readNullableString(
-      record,
-      "containerKeyEpochId",
-      "container access key state",
-    ),
-  };
+  const containerKeyEpochId = readNullableString(
+    record,
+    "containerKeyEpochId",
+    "container access key state",
+  );
+  const containerKeyPublicKey = normalizeContainerKekWrappingPublicKey(
+    record.containerKeyPublicKey,
+  );
+  if ((containerKeyEpochId === null) !== (containerKeyPublicKey === null)) {
+    throwVerification(
+      "invalid_shape",
+      "Container KEK epoch and public key must both be present or both be null",
+    );
+  }
+  return { containerKeyEpochId, containerKeyPublicKey };
 }
 
 function managedGrantReferenceKey(grant: ContainerDirectGrant): string | null {
@@ -227,6 +235,7 @@ function normalizeContainerAccessManifestState(
     [
       "containerId",
       "containerKeyEpochId",
+      "containerKeyPublicKey",
       "directGrants",
       "epoch",
       "eventHash",
@@ -247,6 +256,7 @@ function normalizeContainerAccessManifestState(
   });
   const keyState = normalizeContainerAccessKeyState({
     containerKeyEpochId: record.containerKeyEpochId,
+    containerKeyPublicKey: record.containerKeyPublicKey,
   });
   const metadata = normalizeContainerAccessMetadata({
     metadataDocumentId: record.metadataDocumentId,
@@ -354,6 +364,7 @@ export async function deriveContainerAccessManifest(
     referencedPrincipalHeads: normalizedState.referencedPrincipalHeads,
     keyTargetHash: await computeContainerAccessKeyTargetHash({
       containerKeyEpochId: normalizedState.containerKeyEpochId,
+      containerKeyPublicKey: normalizedState.containerKeyPublicKey,
     }),
   };
 }
@@ -365,6 +376,7 @@ function normalizeContainerCreateAccessEventBody(
     value,
     [
       "containerKeyEpochId",
+      "containerKeyPublicKey",
       "directGrants",
       "eventType",
       "metadataDocumentId",
@@ -398,6 +410,7 @@ function normalizeContainerCreateAccessEventBody(
   });
   const keyState = normalizeContainerAccessKeyState({
     containerKeyEpochId: record.containerKeyEpochId,
+    containerKeyPublicKey: record.containerKeyPublicKey,
   });
   const metadata = normalizeContainerAccessMetadata({
     metadataDocumentId: record.metadataDocumentId,
@@ -427,7 +440,13 @@ function normalizeContainerGrantAccessEventBody(
 ): ContainerGrantAccessEventBody {
   const record = assertExactKeys(
     value,
-    ["containerKeyEpochId", "eventType", "grant", "referencedPrincipalHead"],
+    [
+      "containerKeyEpochId",
+      "containerKeyPublicKey",
+      "eventType",
+      "grant",
+      "referencedPrincipalHead",
+    ],
     "container.grant event body",
   );
   const grant = normalizeContainerDirectGrant(record.grant);
@@ -459,6 +478,7 @@ function normalizeContainerGrantAccessEventBody(
     eventType: "container.grant",
     ...normalizeContainerAccessKeyState({
       containerKeyEpochId: record.containerKeyEpochId,
+      containerKeyPublicKey: record.containerKeyPublicKey,
     }),
     grant,
     referencedPrincipalHead,
@@ -472,6 +492,7 @@ function normalizeContainerRevokeAccessEventBody(
     value,
     [
       "containerKeyEpochId",
+      "containerKeyPublicKey",
       "eventType",
       "keyringHash",
       "predecessorBridgeHash",
@@ -485,6 +506,7 @@ function normalizeContainerRevokeAccessEventBody(
     eventType: "container.revoke",
     ...normalizeContainerAccessKeyState({
       containerKeyEpochId: record.containerKeyEpochId,
+      containerKeyPublicKey: record.containerKeyPublicKey,
     }),
     keyringHash: readHashString(
       record,
@@ -511,6 +533,7 @@ function normalizeContainerMoveAccessEventBody(
     value,
     [
       "containerKeyEpochId",
+      "containerKeyPublicKey",
       "eventType",
       "keyringHash",
       "parentContainerId",
@@ -528,6 +551,7 @@ function normalizeContainerMoveAccessEventBody(
     }),
     ...normalizeContainerAccessKeyState({
       containerKeyEpochId: record.containerKeyEpochId,
+      containerKeyPublicKey: record.containerKeyPublicKey,
     }),
     keyringHash: readHashString(
       record,
@@ -675,7 +699,10 @@ type ContainerAccessManifestDerivationInput = {
 
 type ContainerAccessManifestTransitionBase = Omit<
   ContainerAccessManifestState,
-  "containerKeyEpochId" | "directGrants" | "referencedPrincipalHeads"
+  | "containerKeyEpochId"
+  | "containerKeyPublicKey"
+  | "directGrants"
+  | "referencedPrincipalHeads"
 >;
 
 interface PreviousContainerAccessTransition {
@@ -764,6 +791,7 @@ function deriveContainerCreateManifestState(
     metadataDocumentId: body.metadataDocumentId,
     systemSlot: body.systemSlot,
     containerKeyEpochId: body.containerKeyEpochId,
+    containerKeyPublicKey: body.containerKeyPublicKey,
     directGrants: body.directGrants,
     referencedPrincipalHeads: body.referencedPrincipalHeads,
   });
@@ -836,7 +864,10 @@ function deriveUnrotatedContainerManifestState(
     userId: input.event.event.signerUserId,
   });
 
-  if (body.containerKeyEpochId !== previous.previousState.containerKeyEpochId) {
+  if (
+    body.containerKeyEpochId !== previous.previousState.containerKeyEpochId ||
+    body.containerKeyPublicKey !== previous.previousState.containerKeyPublicKey
+  ) {
     throwVerification(
       "key_epoch_reuse",
       `${body.eventType} must keep the current container KEK epoch`,
@@ -846,6 +877,7 @@ function deriveUnrotatedContainerManifestState(
   return normalizeContainerAccessManifestState({
     ...previous.nextBase,
     containerKeyEpochId: body.containerKeyEpochId,
+    containerKeyPublicKey: body.containerKeyPublicKey,
     directGrants:
       body.eventType === "container.recite"
         ? previous.previousState.directGrants
@@ -879,7 +911,8 @@ function deriveContainerRevokeManifestState(
 
   if (
     body.containerKeyEpochId === null ||
-    body.containerKeyEpochId === previous.previousState.containerKeyEpochId
+    body.containerKeyEpochId === previous.previousState.containerKeyEpochId ||
+    body.containerKeyPublicKey === previous.previousState.containerKeyPublicKey
   ) {
     throwVerification(
       "key_epoch_reuse",
@@ -890,6 +923,7 @@ function deriveContainerRevokeManifestState(
   return normalizeContainerAccessManifestState({
     ...previous.nextBase,
     containerKeyEpochId: body.containerKeyEpochId,
+    containerKeyPublicKey: body.containerKeyPublicKey,
     directGrants: removeContainerDirectGrant(
       previous.previousState.directGrants,
       body,
@@ -915,7 +949,10 @@ function deriveContainerRekeyManifestState(
     userId: input.event.event.signerUserId,
   });
 
-  if (body.containerKeyEpochId === previous.previousState.containerKeyEpochId) {
+  if (
+    body.containerKeyEpochId === previous.previousState.containerKeyEpochId ||
+    body.containerKeyPublicKey === previous.previousState.containerKeyPublicKey
+  ) {
     throwVerification(
       "key_epoch_reuse",
       "container.rekey must create a new container KEK epoch",
@@ -925,6 +962,7 @@ function deriveContainerRekeyManifestState(
   return normalizeContainerAccessManifestState({
     ...previous.nextBase,
     containerKeyEpochId: body.containerKeyEpochId,
+    containerKeyPublicKey: body.containerKeyPublicKey,
     directGrants: previous.previousState.directGrants,
     referencedPrincipalHeads: body.referencedPrincipalHeads,
   });
@@ -981,11 +1019,29 @@ function deriveContainerMoveManifestState(
     );
   }
 
+  // Descendants wrap to the published key without holding this container's
+  // material, so the epoch and its wrapping key must rotate together: reusing
+  // the predecessor's key under a new epoch would leave the retired holder able
+  // to open new child keys, and republishing a different key under an unchanged
+  // epoch would send descendants to a key the real KEK cannot open.
+  if (
+    (body.containerKeyEpochId !==
+      previous.previousState.containerKeyEpochId) !==
+    (body.containerKeyPublicKey !==
+      previous.previousState.containerKeyPublicKey)
+  ) {
+    throwVerification(
+      "key_epoch_reuse",
+      "container.move must rotate its KEK epoch and wrapping key together",
+    );
+  }
+
   return normalizeContainerAccessManifestState({
     ...previous.nextBase,
     parentContainerId: body.parentContainerId,
     parentManifestHash: body.parentManifestHash,
     containerKeyEpochId: body.containerKeyEpochId,
+    containerKeyPublicKey: body.containerKeyPublicKey,
     directGrants: previous.previousState.directGrants,
     referencedPrincipalHeads: previous.previousState.referencedPrincipalHeads,
   });

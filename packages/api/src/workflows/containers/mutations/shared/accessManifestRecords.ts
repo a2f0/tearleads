@@ -134,12 +134,7 @@ function readContainerAccessState(
       label,
       mutationShapeError,
     ),
-    containerKeyEpochId: readProjectionNullableString(
-      record,
-      "containerKeyEpochId",
-      label,
-      mutationShapeError,
-    ),
+    ...readContainerKeyState(record, label),
     directGrants: readContainerDirectGrants(
       readProjectionValue(record, "directGrants"),
       `${label}.directGrants`,
@@ -176,4 +171,21 @@ export function readVerifiedContainerManifest(
       manifestHash: bundle.manifestHash,
     }),
   });
+}
+
+function readContainerKeyState(record: Record<string, unknown>, label: string) {
+  return {
+    containerKeyEpochId: readProjectionNullableString(
+      record,
+      "containerKeyEpochId",
+      label,
+      mutationShapeError,
+    ),
+    containerKeyPublicKey: readProjectionNullableString(
+      record,
+      "containerKeyPublicKey",
+      label,
+      mutationShapeError,
+    ),
+  };
 }

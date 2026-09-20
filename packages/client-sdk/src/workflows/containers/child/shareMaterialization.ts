@@ -139,6 +139,7 @@ async function buildShareTransition(input: {
   const body: ContainerGrantAccessEventBody = {
     eventType: "container.grant",
     containerKeyEpochId: previousState.containerKeyEpochId,
+    containerKeyPublicKey: previousState.containerKeyPublicKey,
     grant,
     referencedPrincipalHead,
   };

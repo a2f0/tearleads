@@ -194,7 +194,11 @@ test("unwrapContainerKekPath rejects missing or inconsistent keyrings", async ()
   const { childKek, fixture, keyring, successor } = rotated;
   const unwrap = (root: ProjectionKek) =>
     unwrapContainerKekPath({
-      projection: { ...fixture.projection, containerKeks: [root, childKek] },
+      projection: {
+        ...fixture.projection,
+        path: [rotated.currentManifest, ...fixture.projection.path.slice(1)],
+        containerKeks: [root, childKek],
+      },
       secretKey: fixture.secretKey,
       trustedLocalProjection: true,
     });
@@ -328,6 +332,10 @@ test("an ancestor rotation still lets a pinned descendant be opened", async () =
   const projection: ContainerWriterProjectionResponse = {
     ...rotated.fixture.projection,
     containerId: rotated.successor.containerId,
+    path: [
+      rotated.currentManifest,
+      ...rotated.fixture.projection.path.slice(1),
+    ],
     containerKeks: [rotated.successor, rotated.childKek],
   };
 

@@ -17,6 +17,10 @@ import type { PrincipalPolicyCache } from "../../keyingProjectionVerification";
 import { throwKeyingVerificationErrorWithContext } from "../../keyingProjectionVerification/error";
 import type { ExecSql } from "../../sqlite/sqlSchema";
 import {
+  assertContainerKekPathCurrent,
+  assertDocumentKekPathsCurrent,
+} from "./containerKekCurrency";
+import {
   unwrapContainerKekPath,
   unwrapContainerKekPathWithHistoryFailures,
 } from "./containerKekPath";
@@ -57,6 +61,7 @@ export async function wrapDocumentContentKeyForCreate(
     secretKey: Uint8Array;
   } & ProjectionVerificationOptions,
 ): Promise<DocumentContentKeyTargetEnvelope[]> {
+  assertContainerKekPathCurrent(input.projection.containerKeks);
   const keksByEpochId = await unwrapContainerKekPath({
     execSql: input.execSql,
     knownContainerKeks: input.knownContainerKeks,
@@ -360,6 +365,7 @@ export async function buildRotatedDocumentContentKeyBundle(input: {
   contentKey: Uint8Array;
   writerProjection: DocumentWriterProjectionResponse;
 }): Promise<DocumentContentKeyBundleResponse> {
+  assertDocumentKekPathsCurrent(input.writerProjection);
   const { contentKeyBundle, documentKekTargets } = input.writerProjection;
   // The server list names the linked containers; each envelope's epoch comes
   // from the verified authorizing-path leaf for that container.

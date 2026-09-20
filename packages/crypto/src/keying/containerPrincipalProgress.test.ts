@@ -5,6 +5,7 @@ import {
   deriveContainerAccessManifest,
   verifyContainerAccessManifest,
 } from "./containerAccess";
+import { containerWrappingPublicKeyForTest } from "./containerWrapping.testFixtures";
 import {
   createContainerManifestFixture,
   createPrincipalPolicyFixture,
@@ -75,12 +76,15 @@ for (const eventType of ["container.grant", "container.rekey"] as const) {
         eventType === "container.grant"
           ? {
               eventType,
+              containerKeyPublicKey:
+                containerWrappingPublicKeyForTest(containerKeyEpochId),
               containerKeyEpochId,
               grant,
               referencedPrincipalHead: next,
             }
           : {
               eventType,
+              containerKeyPublicKey: containerWrappingPublicKeyForTest("key-3"),
               containerKeyEpochId: "key-3",
               referencedPrincipalHeads: [next],
               keyringHash: await fixtureHash("keyring"),
@@ -97,6 +101,8 @@ for (const eventType of ["container.grant", "container.rekey"] as const) {
       const manifest = await deriveContainerAccessManifest({
         ...previous.state,
         containerKeyEpochId,
+        containerKeyPublicKey:
+          containerWrappingPublicKeyForTest(containerKeyEpochId),
         epoch: previous.state.epoch + 1,
         eventHash: event.eventHash,
         previousManifestHash: previous.manifestHash,

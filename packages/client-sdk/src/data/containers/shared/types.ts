@@ -64,7 +64,6 @@ export interface BuildContainerCreatePlanInput {
     | undefined;
   metadataDocumentId?: string | undefined;
   systemSlot?: string | null | undefined;
-  parentKekMaterial: Uint8Array;
   parentProjection: ContainerWriterProjectionResponse;
   principalPolicies?: readonly VerifiedPrincipalPolicy[] | undefined;
   signedAt?: string | undefined;
@@ -97,6 +96,7 @@ export interface MaterializedContainerCreatePlan {
 
 export interface ContainerCreatePlanContext
   extends BuildContainerCreatePlanInput {
+  containerKeyPublicKey: string;
   containerId: string;
   containerKeyEpochId: string;
   eventId: string;

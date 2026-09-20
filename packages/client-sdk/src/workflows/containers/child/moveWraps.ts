@@ -7,6 +7,8 @@ import type {
   ContainerWriterProjectionResponse,
 } from "@tearleads/validators/response";
 import { uniquePrincipalPolicies } from "../../../data/containers/shared/principalPolicies";
+import { readContainerState } from "../../../data/containers/shared/projection";
+import { assertContainerKekPathCurrent } from "../../../data/documents/shared/containerKekCurrency";
 import {
   collectContainerWriterProjectionPrincipalPolicies,
   type ProjectionUserKeyResolver,
@@ -50,7 +52,6 @@ export async function buildContainerMoveWraps(input: {
   containerKey: Uint8Array;
   containerKeyEpochId: string;
   destinationParentKek: ContainerKekResponse;
-  destinationParentKey: Uint8Array;
   destinationParentProjection: ContainerWriterProjectionResponse;
   execSql: ExecSql;
   manifestHash: string;
@@ -60,7 +61,13 @@ export async function buildContainerMoveWraps(input: {
   stillCurrent?: (() => boolean) | undefined;
   warmReferencedPrincipalPolicies?: ReferencedPrincipalPolicyWarmer | undefined;
 }) {
+  assertContainerKekPathCurrent(
+    input.destinationParentProjection.containerKeks,
+  );
   const principalPolicies = input.principalPolicies;
+  const parentManifest = input.destinationParentProjection.path.at(-1);
+  if (!parentManifest)
+    throw new Error("Container move destination parent is missing");
   return {
     principalPolicies,
     ...(await buildContainerRotationWraps({
@@ -69,7 +76,7 @@ export async function buildContainerMoveWraps(input: {
       manifestHash: input.manifestHash,
       operationLabel: "Container move",
       parentKek: input.destinationParentKek,
-      parentKekMaterial: input.destinationParentKey,
+      parentPublicKey: readContainerState(parentManifest).containerKeyPublicKey,
       principalPolicies,
       resolveUserKey: input.resolveProjectionUserKey,
       state: input.state,

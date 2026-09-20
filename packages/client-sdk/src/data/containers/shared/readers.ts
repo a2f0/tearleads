@@ -168,6 +168,11 @@ export function readContainerAccessManifestState(
       "containerKeyEpochId",
       label,
     ),
+    containerKeyPublicKey: readRecordNullableString(
+      record,
+      "containerKeyPublicKey",
+      label,
+    ),
     directGrants: readContainerDirectGrants(
       readRecordValue(record, "directGrants"),
       `${label}.directGrants`,

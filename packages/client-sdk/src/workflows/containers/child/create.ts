@@ -7,6 +7,7 @@ import {
   type ContainerKeyWrap,
   computeContainerKekRecipientTargetHash,
   computeContainerKeyEpochHash,
+  deriveContainerKekWrappingPublicKey,
   type VerifiedPrincipalPolicy,
 } from "@tearleads/crypto";
 import type { ContainerMutationRequest } from "@tearleads/validators/request";
@@ -27,6 +28,7 @@ import { acknowledgeContainerMutation } from "../../../data/containers/shared/mu
 import {
   asContainerManifestBundle,
   getParentCreateContext,
+  readContainerState,
   wrapContainerKeyToManagedPrincipal,
   wrapContainerKeyToParent,
 } from "../../../data/containers/shared/projection";
@@ -38,6 +40,7 @@ import type {
   CreateRemoteContainerResult,
   MaterializedContainerCreatePlan,
 } from "../../../data/containers/shared/types";
+import { assertContainerKekPathCurrent } from "../../../data/documents/shared/containerKekCurrency";
 import { unwrapContainerKekPath } from "../../../data/documents/shared/projection";
 import {
   type ProjectionVerificationOptions,
@@ -65,13 +68,9 @@ import { requireUnwrappedKek } from "./rotationContext";
 
 function assertContainerCreatePlanInput(input: {
   containerKey: Uint8Array;
-  parentKekMaterial: Uint8Array;
 }): void {
   if (input.containerKey.byteLength !== 32) {
     throw new Error("Container KEK material must be 32 bytes");
-  }
-  if (input.parentKekMaterial.byteLength !== 32) {
-    throw new Error("Container parent KEK material must be 32 bytes");
   }
   // The child container's organization is derived from the parent projection
   // (see buildContainerCreatePlan), so it always matches the parent by
@@ -112,11 +111,16 @@ async function resolveContainerCreatePlanContext(
   input: BuildContainerCreatePlanInput,
 ): Promise<ContainerCreatePlanContext> {
   assertContainerCreatePlanInput(input);
+  assertContainerKekPathCurrent(input.parentProjection.containerKeks);
   const containerId = input.containerId ?? crypto.randomUUID();
 
   return {
     ...input,
     containerId,
+    containerKeyPublicKey: await deriveContainerKekWrappingPublicKey({
+      containerId,
+      keyMaterial: input.containerKey,
+    }),
     containerKeyEpochId: await resolveContainerKekEpochId({
       containerId,
       keyEpoch: 1,
@@ -137,6 +141,7 @@ function buildChildContainerCreateBody(
   const baseBody = buildContainerCreateBody({
     systemSlot: context.systemSlot ?? null,
     containerKeyEpochId: context.containerKeyEpochId,
+    containerKeyPublicKey: context.containerKeyPublicKey,
     metadataDocumentId: context.metadataDocumentId,
     parentContainerId: context.parentProjection.containerId,
     parentManifestHash: context.parent.manifest.manifestHash,
@@ -170,12 +175,17 @@ async function buildChildContainerWrapsAndTargets(input: {
   wraps: ContainerKeyWrap[];
 }> {
   const { context, managedGrant, manifestHash } = input;
+  const parentPublicKey = readContainerState(
+    context.parent.manifest,
+  ).containerKeyPublicKey;
+  if (!parentPublicKey)
+    throw new Error("Container parent wrapping public key is missing");
   const parentWrap = await wrapContainerKeyToParent({
     containerKey: context.containerKey,
     containerKeyEpochId: context.containerKeyEpochId,
     manifestHash,
     parentKek: context.parent.kek,
-    parentKekMaterial: context.parentKekMaterial,
+    parentPublicKey,
   });
   const parentTargets = buildParentRecipientTargets(context.parent.kek);
   if (!managedGrant) {
@@ -221,6 +231,7 @@ export async function buildContainerCreatePlan(
       systemSlot: context.systemSlot ?? null,
       containerId: context.containerId,
       containerKeyEpochId: context.containerKeyEpochId,
+      containerKeyPublicKey: context.containerKeyPublicKey,
       directGrants: body.directGrants,
       eventHash,
       metadataDocumentId: context.metadataDocumentId,
@@ -307,11 +318,7 @@ export async function buildMaterializedContainerCreatePlan(
     ...projectionVerificationOptions(input),
   });
   const parent = getParentCreateContext(input.parentProjection);
-  const parentKekMaterial = requireUnwrappedKek(
-    parentKeksByEpochId,
-    parent.kek,
-    "Container parent",
-  );
+  requireUnwrappedKek(parentKeksByEpochId, parent.kek, "Container parent");
   const principalPolicies = input.resolveProjectionUserKey
     ? await collectContainerWriterProjectionPrincipalPolicies({
         execSql: input.execSql,
@@ -340,7 +347,6 @@ export async function buildMaterializedContainerCreatePlan(
     eventId: input.eventId,
     metadataDocumentId: input.metadataDocumentId,
     systemSlot: input.systemSlot,
-    parentKekMaterial,
     parentProjection: input.parentProjection,
     principalPolicies,
     signedAt: input.signedAt,

@@ -1,9 +1,10 @@
 import {
   computeContainerKekMaterialId,
-  encryptWithDek,
+  deriveContainerKekWrappingPublicKey,
   generateKemSeedAndKeyPair,
+  wrapDekForRecipients,
 } from "@tearleads/crypto";
-import { bytesToBase64 } from "@tearleads/encoding";
+import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
 import type { ContainerWriterProjectionResponse } from "@tearleads/validators/response";
 import {
   createUserContainerWrap,
@@ -42,7 +43,14 @@ async function createContainerWrap(input: {
   parentKek: Uint8Array;
   wrapManifestHash: string;
 }) {
-  const encrypted = await encryptWithDek(input.childKek, input.parentKek);
+  const publicKey = await deriveContainerKekWrappingPublicKey({
+    containerId: input.parentContainerId,
+    keyMaterial: input.parentKek,
+  });
+  const [encrypted] = await wrapDekForRecipients(input.childKek, [
+    base64ToBytes(publicKey),
+  ]);
+  if (!encrypted) throw new Error("Expected parent wrap");
 
   return {
     containerKeyEpochId: input.childContainerKeyEpochId,
@@ -50,8 +58,8 @@ async function createContainerWrap(input: {
     recipientId: input.parentContainerId,
     recipientKeyEpochId: input.parentContainerKeyEpochId,
     recipientKeyFingerprint: input.parentKeyEpochHash,
-    kemCipherText: bytesToBase64(encrypted.iv),
-    wrappedKey: bytesToBase64(encrypted.ciphertext),
+    kemCipherText: bytesToBase64(encrypted.kemCipherText),
+    wrappedKey: bytesToBase64(encrypted.wrappedKey),
     wrapManifestHash: input.wrapManifestHash,
   };
 }
@@ -67,6 +75,8 @@ interface WrappedProjectionFixture {
 }
 
 function buildWrappedProjection(input: {
+  rootPublicKey: string;
+  childPublicKey: string;
   childContainerId: string;
   childContainerKeyEpochId: string;
   childEventHash: string;
@@ -113,13 +123,21 @@ function buildWrappedProjection(input: {
         event: { event: {}, body: {}, eventHash: rootEventHash },
         manifest: {},
         manifestHash: rootManifestHash,
-        state: { containerId: rootContainerId, organizationId },
+        state: {
+          containerId: rootContainerId,
+          organizationId,
+          containerKeyPublicKey: input.rootPublicKey,
+        },
       },
       {
         event: { event: {}, body: {}, eventHash: childEventHash },
         manifest: {},
         manifestHash: childManifestHash,
-        state: { containerId: childContainerId, organizationId },
+        state: {
+          containerId: childContainerId,
+          organizationId,
+          containerKeyPublicKey: input.childPublicKey,
+        },
       },
     ],
     containerKeks: [
@@ -217,6 +235,14 @@ export async function createWrappedProjection(): Promise<WrappedProjectionFixtur
     childContainerKek,
     childContainerKeyEpochId,
     projection: buildWrappedProjection({
+      rootPublicKey: await deriveContainerKekWrappingPublicKey({
+        containerId: rootContainerId,
+        keyMaterial: rootContainerKek,
+      }),
+      childPublicKey: await deriveContainerKekWrappingPublicKey({
+        containerId: childContainerId,
+        keyMaterial: childContainerKek,
+      }),
       childContainerId,
       childContainerKeyEpochId,
       childEventHash,
@@ -292,6 +318,10 @@ export async function createSiblingProjection(input: {
           manifest: {},
           manifestHash: siblingManifestHash,
           state: {
+            containerKeyPublicKey: await deriveContainerKekWrappingPublicKey({
+              containerId: siblingContainerId,
+              keyMaterial: siblingContainerKek,
+            }),
             containerId: siblingContainerId,
             organizationId: input.baseProjection.organizationId,
           },

@@ -6,6 +6,7 @@ import type {
 } from "@tearleads/crypto";
 import { deriveContainerAccessManifest } from "@tearleads/crypto";
 import {
+  containerWrappingPublicKeyForTest,
   createContainerManifestFixture,
   createVerifiedContainerAccessEvent,
 } from "@tearleads/crypto/test-fixtures";
@@ -125,6 +126,7 @@ test("a move's source path is authorized at the source ancestors it cites", asyn
   const moveBy = (signer: Signer) =>
     successor({
       body: {
+        containerKeyPublicKey: containerWrappingPublicKeyForTest("child-key-2"),
         eventType: "container.move",
         parentContainerId: malloryRoot.state.containerId,
         parentManifestHash: malloryRoot.manifestHash,
@@ -174,6 +176,7 @@ test("a move's source path is authorized at the source ancestors it cites", asyn
     });
     const legitimate = await successor({
       body: {
+        containerKeyPublicKey: containerWrappingPublicKeyForTest("child-key-2"),
         eventType: "container.move",
         parentContainerId: sharedRoot.state.containerId,
         parentManifestHash: sharedRoot.manifestHash,
@@ -231,6 +234,7 @@ test("a move must not cite an older source ancestor head than its predecessor ci
   // still an admin, to move the child into her own root.
   const stolen = await successor({
     body: {
+      containerKeyPublicKey: containerWrappingPublicKeyForTest("child-key-3"),
       eventType: "container.move",
       parentContainerId: malloryRoot.state.containerId,
       parentManifestHash: malloryRoot.manifestHash,
@@ -360,6 +364,7 @@ test("served bundles that refer to each other under claimed hashes fail instead 
       subjectType: "user" as const,
     };
     const body: ContainerAccessEventBody = {
+      containerKeyPublicKey: scenario.root1.state.containerKeyPublicKey,
       eventType: "container.grant",
       containerKeyEpochId: scenario.root1.state.containerKeyEpochId,
       grant,

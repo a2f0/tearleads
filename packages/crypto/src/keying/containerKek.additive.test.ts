@@ -6,6 +6,7 @@ import {
   createContainerKeyEpochFixture,
   createContainerKeyWrap,
   createContainerManifestFixture,
+  expectVerificationError,
   fixtureHash,
 } from "./testFixtures";
 
@@ -75,6 +76,19 @@ test("verifyContainerKekState accepts additive wraps on the existing KEK epoch",
       }),
     ],
   });
+
+  expectVerificationError(
+    await verifyContainerKekState({
+      containerManifest: currentManifest,
+      containerManifestHistory: [originalManifest],
+      keyEpoch: await createContainerKeyEpochFixture({
+        manifest: currentManifest,
+      }),
+      userRecipientKeys: [aliceKey, bobKey],
+      wraps: [],
+    }),
+    "key_epoch_reuse",
+  );
 
   expect(state.ok).toBe(true);
   if (state.ok) {

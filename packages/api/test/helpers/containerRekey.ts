@@ -17,6 +17,7 @@ import {
   computeContainerKekKeyringHash,
   computeContainerKekPredecessorBridgeHash,
   deriveContainerAccessManifest,
+  deriveContainerKekWrappingPublicKey,
   derivePrincipalRecipientKeyEpochId,
   signAccessEvent,
   verifyContainerKekState,
@@ -216,6 +217,10 @@ export async function buildRootContainerRekeyMutation(input: {
       )
     : previous.state.referencedPrincipalHeads;
   const body: ContainerAccessEventBody = {
+    containerKeyPublicKey: await deriveContainerKekWrappingPublicKey({
+      containerId: previous.state.containerId,
+      keyMaterial: plaintextKek,
+    }),
     eventType: "container.rekey",
     containerKeyEpochId,
     keyringHash: await computeContainerKekKeyringHash(keyring),
@@ -230,6 +235,7 @@ export async function buildRootContainerRekeyMutation(input: {
   });
   const state = {
     ...previous.state,
+    containerKeyPublicKey: body.containerKeyPublicKey,
     epoch: previous.state.epoch + 1,
     previousManifestHash: previous.manifestHash,
     eventHash: event.eventHash,

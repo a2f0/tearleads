@@ -94,6 +94,7 @@ interface ContainerAccessStateFields {
   readonly systemSlot: string | null;
   readonly containerId: string;
   readonly containerKeyEpochId: string;
+  readonly containerKeyPublicKey: string;
   readonly directGrants: ContainerDirectGrant[];
   readonly epoch: number;
   readonly eventHash: string;
@@ -165,6 +166,11 @@ function readContainerAccessStateFields(
     containerKeyEpochId: readString(
       record,
       "containerKeyEpochId",
+      "Container manifest state",
+    ),
+    containerKeyPublicKey: readString(
+      record,
+      "containerKeyPublicKey",
       "Container manifest state",
     ),
     directGrants: readContainerDirectGrants(
@@ -256,6 +262,7 @@ function readContainerAccessState(
     parentManifestHash: state.parentManifestHash,
     metadataDocumentId: state.metadataDocumentId,
     containerKeyEpochId: state.containerKeyEpochId,
+    containerKeyPublicKey: state.containerKeyPublicKey,
     directGrants: state.directGrants,
     referencedPrincipalHeads: state.referencedPrincipalHeads,
   });

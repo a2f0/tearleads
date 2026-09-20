@@ -1,6 +1,7 @@
 import fc from "fast-check";
 import { generateSigningSeedAndKeyPair } from "../signing/generateKeyPair";
 import { fixtureContainerKekMaterialId } from "./containerKekMaterial.testFixtures";
+import { containerWrappingPublicKeyForTest } from "./containerWrapping.testFixtures";
 import {
   type ContainerAccessEventBody,
   type ContainerAccessManifestState,
@@ -163,12 +164,15 @@ export async function containerSuccessor(input: {
 
 async function rotationBody(containerId: string): Promise<{
   readonly containerKeyEpochId: string;
+  readonly containerKeyPublicKey: string;
   readonly keyringHash: string;
   readonly predecessorBridgeHash: string;
 }> {
   const containerKeyEpochId = await freshKeyEpochId(containerId);
   return {
     containerKeyEpochId,
+    containerKeyPublicKey:
+      containerWrappingPublicKeyForTest(containerKeyEpochId),
     keyringHash: await fixtureHash(
       `${containerId}:keyring:${containerKeyEpochId}`,
     ),
@@ -197,6 +201,7 @@ async function applyContainerStep(
     };
     return containerSuccessor({
       body: {
+        containerKeyPublicKey: previous.state.containerKeyPublicKey,
         eventType: "container.grant",
         containerKeyEpochId: previous.state.containerKeyEpochId,
         grant,
@@ -223,6 +228,7 @@ async function applyContainerStep(
       signer: creator,
       state: {
         containerKeyEpochId: rotation.containerKeyEpochId,
+        containerKeyPublicKey: rotation.containerKeyPublicKey,
         directGrants: previous.state.directGrants.filter(
           (grant) => grant.subjectId !== subjectId,
         ),
@@ -238,7 +244,10 @@ async function applyContainerStep(
     },
     previous,
     signer: creator,
-    state: { containerKeyEpochId: rotation.containerKeyEpochId },
+    state: {
+      containerKeyEpochId: rotation.containerKeyEpochId,
+      containerKeyPublicKey: rotation.containerKeyPublicKey,
+    },
   });
 }
 
@@ -362,14 +371,27 @@ export function checkpointOf(manifest: VerifiedContainerAccessManifest) {
  * granted users, which is the recipient set the verifier derives.
  */
 export async function buildKekState(
-  manifest: VerifiedContainerAccessManifest,
+  manifests: readonly VerifiedContainerAccessManifest[],
 ): Promise<{
   readonly keyEpoch: Awaited<ReturnType<typeof createContainerKeyEpochFixture>>;
   readonly recipients: readonly ContainerUserRecipientKey[];
   readonly wraps: Awaited<ReturnType<typeof createContainerKeyWrap>>[];
   readonly state: VerifiedContainerKekState;
 }> {
-  const keyEpoch = await createContainerKeyEpochFixture({ manifest });
+  const manifest = manifests.at(-1);
+  if (!manifest) throw new Error("a KEK state needs a container manifest");
+  const createdByManifest = manifests.find(
+    (entry) =>
+      entry.state.containerKeyEpochId === manifest.state.containerKeyEpochId,
+  );
+  if (!createdByManifest)
+    throw new Error("a KEK state needs its creation manifest");
+  const keyEpoch = await createContainerKeyEpochFixture({
+    manifest,
+    createdByManifest,
+    keyEpoch: new Set(manifests.map((entry) => entry.state.containerKeyEpochId))
+      .size,
+  });
   const recipientUserIds = manifest.state.directGrants
     .filter((grant) => grant.subjectType === "user")
     .map((grant) => grant.subjectId);
@@ -401,6 +423,7 @@ export async function buildKekState(
   );
   const result = await verifyContainerKekState({
     containerManifest: manifest,
+    containerManifestHistory: manifests.slice(0, -1),
     keyEpoch,
     userRecipientKeys: recipients,
     wraps,

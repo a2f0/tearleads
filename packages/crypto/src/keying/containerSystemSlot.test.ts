@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import { generateSigningSeedAndKeyPair } from "../signing/generateKeyPair";
+import { containerWrappingPublicKeyForTest } from "./containerWrapping.testFixtures";
 import {
   computeAccessManifestHash,
   deriveContainerAccessManifest,
@@ -35,6 +36,7 @@ test.each(["root", "grandchild", "truncated-grandchild"] as const)(
       signerUserId: "owner",
     });
     const body: ContainerCreateAccessEventBody = {
+      containerKeyPublicKey: containerWrappingPublicKeyForTest("key-1"),
       eventType: "container.create",
       systemSlot: SLOT,
       containerKeyEpochId: "key-1",
@@ -99,6 +101,7 @@ for (const accessLevel of ["write", "admin"] as const) {
         ],
       });
       const body: ContainerCreateAccessEventBody = {
+        containerKeyPublicKey: containerWrappingPublicKeyForTest("key-1"),
         eventType: "container.create",
         systemSlot,
         containerKeyEpochId: "key-1",
@@ -140,6 +143,7 @@ for (const accessLevel of ["write", "admin"] as const) {
       if (!result.ok) expect(result.error.code).toBe("unauthorized");
       if (result.ok && accessLevel === "admin") {
         const moveBody = {
+          containerKeyPublicKey: containerWrappingPublicKeyForTest("key-2"),
           eventType: "container.move" as const,
           parentContainerId: "root",
           parentManifestHash: parent.manifestHash,
@@ -159,6 +163,7 @@ for (const accessLevel of ["write", "admin"] as const) {
           ...state,
           epoch: 2,
           containerKeyEpochId: "key-2",
+          containerKeyPublicKey: containerWrappingPublicKeyForTest("key-2"),
           previousManifestHash: result.value.manifestHash,
           eventHash: moveEvent.eventHash,
         });

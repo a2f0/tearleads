@@ -82,7 +82,7 @@ export const BLOB_CONTENT_KEY_WRAP_SUITE =
 export const CONTAINER_KEK_USER_WRAP_SUITE =
   "tearleads.container-kek-wrap.ml-kem-1024-aes-256-gcm" as const;
 export const CONTAINER_KEK_PARENT_WRAP_SUITE =
-  "tearleads.container-kek-wrap.aes-256-gcm-parent-kek" as const;
+  "tearleads.container-kek-wrap.ml-kem-1024-aes-256-gcm-parent-kek" as const;
 export const CONTAINER_KEK_PREDECESSOR_WRAP_SUITE =
   "tearleads.container-kek-wrap.aes-256-gcm-predecessor-kek" as const;
 export const CONTAINER_KEK_MATERIAL_ID_PREFIX =
@@ -166,6 +166,8 @@ export interface ContainerAccessMetadata {
 
 export interface ContainerAccessKeyState {
   containerKeyEpochId: string | null;
+  /** ML-KEM-1024 public key derived from this epoch's KEK and container ID. */
+  containerKeyPublicKey: string | null;
 }
 
 export interface ContainerAccessManifestState
@@ -209,6 +211,7 @@ export interface ContainerRevokeAccessEventBody
 export interface ContainerRekeyAccessEventBody {
   eventType: "container.rekey";
   containerKeyEpochId: string;
+  containerKeyPublicKey: string;
   keyringHash: string;
   predecessorBridgeHash: string;
   referencedPrincipalHeads: ContainerGrantPrincipalHead[];
@@ -1007,7 +1010,9 @@ export interface VerifyContainerKekStateInput
   readonly keyEpoch: ContainerKeyEpoch;
   readonly wraps: readonly ContainerKeyWrap[];
   readonly containerManifestHistory?: readonly VerifiedContainerAccessManifest[];
-  /** Read/recovery only: verified lineage for a retained parent epoch. */
+  /** Read/recovery only; writes require the current parent epoch. */
+  readonly allowHistoricalParentEpoch?: boolean;
+  /** Verified signed parent citations, required for every non-root KEK. */
   readonly parentManifestHistory?: readonly VerifiedContainerAccessManifest[];
 }
 

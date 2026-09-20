@@ -38,6 +38,7 @@ export function containerAccessManifestStateRecord(
     parentManifestHash: state.parentManifestHash,
     metadataDocumentId: state.metadataDocumentId,
     containerKeyEpochId: state.containerKeyEpochId,
+    containerKeyPublicKey: state.containerKeyPublicKey,
     directGrants: state.directGrants.map((grant) => ({
       accessLevel: grant.accessLevel,
       subjectId: grant.subjectId,

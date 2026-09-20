@@ -1,69 +1,9 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
-import type { ContainerWriterProjectionResponse } from "@tearleads/validators/response";
-import {
-  createParentProjection,
-  createParentProjectionUserKeyResolver,
-} from "../../../../test/helpers/containerFixtures";
+import { createRotatedAncestorFixture } from "../../../../test/helpers/ancestorRotationRecovery";
 import { unwrapContainerKekPath } from "../../../data/documents/shared/projection";
-import {
-  buildMaterializedContainerCreatePlan,
-  childContainerWriterProjectionFromCreatePlan,
-} from "./create";
+import { buildMaterializedDocumentCreatePlan } from "../../documents/create";
 import { buildMaterializedContainerRekeyPlan } from "./rekey";
-
-async function createRotatedAncestorFixture() {
-  const root = await createParentProjection();
-  const database = await createTestExecSql("ancestor-rotation-author");
-  const input = {
-    author: root.author,
-    execSql: database.execSql,
-    persistVerificationCheckpoints: false,
-    resolveProjectionUserKey: createParentProjectionUserKeyResolver(root),
-    targetSecretKey: root.secretKey,
-  };
-  const createChild = async (
-    parentProjection: ContainerWriterProjectionResponse,
-    containerId: string,
-  ) => {
-    const materializedPlan = await buildMaterializedContainerCreatePlan({
-      ...input,
-      containerId,
-      parentProjection,
-      parentSecretKey: root.secretKey,
-    });
-    return {
-      key: materializedPlan.containerKey,
-      epochId: materializedPlan.plan.containerKeyEpochId,
-      projection: childContainerWriterProjectionFromCreatePlan({
-        materializedPlan,
-        parentProjection,
-      }),
-    };
-  };
-  try {
-    const child = await createChild(root.projection, "child");
-    const grandchild = await createChild(child.projection, "grandchild");
-    const rotatedRoot = await buildMaterializedContainerRekeyPlan({
-      ...input,
-      previousProjection: root.projection,
-    });
-    const projection = {
-      ...grandchild.projection,
-      path: [
-        ...rotatedRoot.writerProjection.path,
-        ...grandchild.projection.path.slice(1),
-      ],
-      containerKeks: [
-        ...rotatedRoot.writerProjection.containerKeks,
-        ...grandchild.projection.containerKeks.slice(1),
-      ],
-    };
-    return { child, grandchild, input, projection, root };
-  } finally {
-    database.close();
-  }
-}
 
 test("cold verified reads recover descendants after ancestor rotation and permit repair", async () => {
   const fixture = await createRotatedAncestorFixture();
@@ -159,3 +99,19 @@ test.each(["missing-history", "wrong-parent-pin", "forged-history"] as const)(
     }
   },
 );
+
+test("a recovery projection cannot wrap a new document key through stale ancestor epochs", async () => {
+  const fixture = await createRotatedAncestorFixture();
+  const database = await createTestExecSql("ancestor-stale-document-write");
+  try {
+    await expect(
+      buildMaterializedDocumentCreatePlan({
+        ...fixture.input,
+        execSql: database.execSql,
+        containerProjection: fixture.projection,
+      }),
+    ).rejects.toThrow("ancestor KEK repair");
+  } finally {
+    database.close();
+  }
+});
