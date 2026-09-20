@@ -202,7 +202,7 @@ test("a cold device can acknowledge repairs it commits through the prefix", asyn
     // `stale_predecessor` after the server already committed it.
     await expect(
       prepareAutomaticContainerRekeys(sync, projection),
-    ).rejects.toThrow(/projection is unavailable/);
+    ).rejects.toThrow(/could not be refreshed/);
     expect(committed).toHaveLength(MAX_INLINE_CONTAINER_REKEYS);
   } finally {
     staging.close();
@@ -257,11 +257,12 @@ test("a repair path outside the author's organization is refused", async () => {
   }
 });
 
-// A refused standalone repair (403 once ancestor write access is revoked, or a
-// 402) is terminal for this writer: the pass abandons rather than erroring, but
-// it must leave a durable record, or the queue retries forever and the
-// pending-write diagnostics never show the writes as blocked.
-test("a refused standalone repair abandons and records a terminal failure", async () => {
+// A refused standalone repair abandons the pass rather than erroring out of the
+// sync lane. It is deliberately NOT recorded as a terminal submit failure:
+// rekeyContainer answers null for every failure, so a 5xx or offline blip cannot
+// be told apart from a 403 after revoked ancestor access, and marking those
+// terminal would show queued writes as blocked on a transient error.
+test("a refused standalone repair abandons the pass", async () => {
   const fixture = await createDeepRotatedAncestorFixture(17);
   const staging = await createTestExecSql("refused-prefix-document");
   const cold = await createTestExecSql("refused-prefix-repair");
@@ -302,7 +303,7 @@ test("a refused standalone repair abandons and records a terminal failure", asyn
     });
     expect(result).toBeNull();
     expect(abandoned).toEqual(["the server refused an ancestor repair"]);
-    expect(terminal).toHaveLength(1);
+    expect(terminal).toEqual([]);
   } finally {
     staging.close();
     cold.close();

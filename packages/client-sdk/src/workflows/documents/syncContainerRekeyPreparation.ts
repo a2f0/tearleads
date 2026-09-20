@@ -16,17 +16,7 @@ import { refreshSyncAttemptWriterProjection } from "./syncFailures";
  * reporting a failed run; the next trigger re-plans from a fresh projection.
  */
 export class DocumentAncestorRepairAbandonedError extends Error {
-  constructor(
-    readonly reason: string,
-    /**
-     * True when the writer cannot make progress by retrying — a refused repair
-     * is a 403 after ancestor write access was revoked, or a 402. Those need a
-     * durable record, or the queue retries forever and the pending-write
-     * diagnostics never show the writes as blocked. A gated organization or a
-     * peer's concurrent rotation clears on its own and stays non-terminal.
-     */
-    readonly terminal = false,
-  ) {
+  constructor(readonly reason: string) {
     super(`Document ancestor repair abandoned: ${reason}`);
     this.name = "DocumentAncestorRepairAbandonedError";
   }
@@ -59,9 +49,14 @@ async function commitRepairPrefix(input: {
     // before failing again, and the retry never reaches onTerminalSubmitFailure
     // regardless, because this throws before submission.
     if (!response) {
+      // Deliberately not recorded as a terminal submit failure: rekeyContainer
+      // answers null for every failure, so a 5xx or an offline blip is
+      // indistinguishable from the 403 that follows revoked ancestor access.
+      // Marking those terminal would show a document's queued writes as blocked
+      // on a transient error. Recording a genuine refusal needs a
+      // status-bearing rekey in @tearleads/api-client; see #2329.
       throw new DocumentAncestorRepairAbandonedError(
         "the server refused an ancestor repair",
-        true,
       );
     }
     const acknowledged = await acknowledgeContainerMutation({
@@ -129,7 +124,12 @@ export async function prepareAutomaticContainerRekeys(
     if (!fresh) {
       // refreshSyncAttemptWriterProjection returns null on a generation flip.
       assertProjectionVerificationCurrent(sync.stillCurrent);
-      throw new Error("Document ancestor repair projection is unavailable");
+      // It has already called onSyncAbandoned by this point, and on a coded 404
+      // ran the verified local teardown, so a bare Error would double-signal as
+      // an abandon plus a sync-lane crash.
+      throw new DocumentAncestorRepairAbandonedError(
+        "the repair projection could not be refreshed",
+      );
     }
     // The scope check above guards the first round only; a refetched projection
     // is server-supplied too, and nothing in the refresh path proves it names

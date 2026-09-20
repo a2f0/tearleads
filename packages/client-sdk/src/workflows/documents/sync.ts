@@ -163,19 +163,10 @@ function resolveAttemptProjection(
     stillCurrent: input.stillCurrent,
   });
 }
-async function abandonAncestorRepair(
+function abandonAncestorRepair(
   input: SyncRemoteDocumentInput,
   error: DocumentAncestorRepairAbandonedError,
-): Promise<null> {
-  if (error.terminal) {
-    await input.onTerminalSubmitFailure?.({
-      code: "document_ancestor_repair_refused",
-      message: error.message,
-      ok: false,
-      report: () => undefined,
-      status: null,
-    });
-  }
+): null {
   input.onSyncAbandoned?.(error.reason);
   return null;
 }
