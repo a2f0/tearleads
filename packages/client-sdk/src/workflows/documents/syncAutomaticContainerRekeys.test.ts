@@ -3,6 +3,7 @@ import { createMockApiClient, createTestExecSql } from "@tearleads/test-utils";
 import { MAX_INLINE_CONTAINER_REKEYS } from "@tearleads/validators/util";
 import {
   createDeepRotatedAncestorFixture,
+  createForkedRotatedAncestorFixture,
   createRotatedAncestorFixture,
 } from "../../../test/helpers/ancestorRotationRecovery";
 import { createMutationResponseFromRequest } from "../../../test/helpers/containerFixtures";
@@ -13,12 +14,14 @@ import {
 } from "../../../test/helpers/documentResponseFixtures";
 import { createFullHistoryRotationSnapshot } from "../../../test/helpers/staleBundleSyncFixture";
 import { unwrapContainerKekPath } from "../../data/documents/shared/containerKekPath";
+import { buildMaterializedContainerRekeyPlan } from "../containers/child/rekey";
 import {
   buildMaterializedDocumentCreatePlan,
   documentWriterProjectionFromCreateResponse,
 } from "./create";
 import { syncRemoteDocument } from "./sync";
 import { prepareAutomaticContainerRekeys } from "./syncContainerRekeyPreparation";
+import { applyContainerRekeyPlan } from "./syncContainerRekeyProjection";
 import { buildRemoteDocumentSyncPlan } from "./syncContainerRekeys";
 
 test("ordinary document sync repairs a stale ancestor chain before encrypting its write", async () => {
@@ -305,3 +308,50 @@ test("a refused standalone repair abandons and records a terminal failure", asyn
     cold.close();
   }
 }, 180_000);
+
+// A document linked into two containers authorizes through both paths, which
+// share one stale intermediate. Repairing that intermediate must replace it in
+// every path: `replaceRekeyedPathNode` throws a hard predecessor mismatch if a
+// path carries a different node, and the projection is the only place the two
+// paths are reconciled. Exercised directly, since building a genuinely
+// two-linked document needs a full link round-trip.
+test("a repaired ancestor is replaced in every linked path", async () => {
+  const fixture = await createForkedRotatedAncestorFixture();
+  const database = await createTestExecSql("forked-ancestor-projection");
+  try {
+    const input = { ...fixture.input, execSql: database.execSql };
+    const created = await buildMaterializedDocumentCreatePlan({
+      ...input,
+      containerProjection: fixture.leafA,
+    });
+    const original = documentWriterProjectionFromCreateResponse({
+      containerProjection: fixture.leafA,
+      response: await createResponseFromRequest(created.plan.request),
+    });
+    const sharedStale = {
+      ...fixture.shared,
+      path: [...fixture.pathA.path.slice(0, 2)],
+      containerKeks: [...fixture.pathA.containerKeks.slice(0, 2)],
+    };
+    const repair = await buildMaterializedContainerRekeyPlan({
+      ...input,
+      previousProjection: sharedStale,
+    });
+    const applied = await applyContainerRekeyPlan(
+      {
+        ...original,
+        authorizingContainerPaths: [fixture.pathA, fixture.pathB],
+      },
+      repair,
+    );
+    const repairedEpochId = repair.plan.containerKeyEpochId;
+    for (const path of applied.authorizingContainerPaths) {
+      const shared = path.containerKeks.find(
+        (kek) => kek.containerId === "shared-intermediate",
+      );
+      expect(shared?.containerKeyEpochId).toBe(repairedEpochId);
+    }
+  } finally {
+    database.close();
+  }
+}, 120_000);

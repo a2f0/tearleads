@@ -113,3 +113,64 @@ export async function createDeepRotatedAncestorFixture(depth: number) {
     database.close();
   }
 }
+
+/**
+ * Two authorizing paths that share one stale intermediate: root -> shared ->
+ * {leafA, leafB}, with the root rotated. Repairing `shared` once must update it
+ * in both paths, which is where `replaceRekeyedPathNode` has to match the
+ * predecessor manifest in every path rather than just the first.
+ */
+export async function createForkedRotatedAncestorFixture() {
+  const root = await createParentProjection();
+  const database = await createTestExecSql("forked-ancestor-rotation-author");
+  const input = {
+    author: root.author,
+    execSql: database.execSql,
+    persistVerificationCheckpoints: false,
+    resolveProjectionUserKey: createParentProjectionUserKeyResolver(root),
+    targetSecretKey: root.secretKey,
+  };
+  const createChild = async (
+    parentProjection: ContainerWriterProjectionResponse,
+    containerId: string,
+  ) => {
+    const materializedPlan = await buildMaterializedContainerCreatePlan({
+      ...input,
+      containerId,
+      parentProjection,
+      parentSecretKey: root.secretKey,
+    });
+    return childContainerWriterProjectionFromCreatePlan({
+      materializedPlan,
+      parentProjection,
+    });
+  };
+  try {
+    const shared = await createChild(root.projection, "shared-intermediate");
+    const leafA = await createChild(shared, "leaf-a");
+    const leafB = await createChild(shared, "leaf-b");
+    const rotatedRoot = await buildMaterializedContainerRekeyPlan({
+      ...input,
+      previousProjection: root.projection,
+    });
+    const withRotatedRoot = (leaf: ContainerWriterProjectionResponse) => ({
+      ...leaf,
+      path: [...rotatedRoot.writerProjection.path, ...leaf.path.slice(1)],
+      containerKeks: [
+        ...rotatedRoot.writerProjection.containerKeks,
+        ...leaf.containerKeks.slice(1),
+      ],
+    });
+    return {
+      input,
+      leafA,
+      leafB,
+      pathA: withRotatedRoot(leafA),
+      pathB: withRotatedRoot(leafB),
+      root,
+      shared,
+    };
+  } finally {
+    database.close();
+  }
+}
