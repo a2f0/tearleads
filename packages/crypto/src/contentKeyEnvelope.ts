@@ -1,10 +1,15 @@
 import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
+import { isPlainObject } from "@tearleads/validators/isPlainObject";
 import { assertExactKeys } from "./keying/shared";
 import type {
   BLOB_CONTENT_KEY_WRAP_SUITE,
   DOCUMENT_CONTENT_KEY_WRAP_SUITE,
 } from "./keying/types";
-import { AES_GCM_IV_BYTES, AES_GCM_TAG_BYTES } from "./symmetric";
+import {
+  AES_256_KEY_BYTES,
+  AES_GCM_IV_BYTES,
+  AES_GCM_TAG_BYTES,
+} from "./symmetric";
 
 export class ContentKeyEnvelopeError extends Error {
   constructor(message: string) {
@@ -18,7 +23,7 @@ function decodeFixedBase64(
   size: number,
   label: string,
 ): Uint8Array {
-  if (typeof value !== "string" || value.length !== 4 * Math.ceil(size / 3)) {
+  if (value.length !== 4 * Math.ceil(size / 3)) {
     throw new ContentKeyEnvelopeError(`${label} has an invalid encoded length`);
   }
   let bytes: Uint8Array;
@@ -38,6 +43,11 @@ function decodeFixedBase64(
 /** Where an envelope came from; a submission is held to the published shape. */
 export type ContentKeyEnvelopeOrigin = "stored" | "submission";
 
+/** The AES-GCM wrap suite naming the object kind an envelope belongs to. */
+export type ContentKeyEnvelopeSuite =
+  | typeof BLOB_CONTENT_KEY_WRAP_SUITE
+  | typeof DOCUMENT_CONTENT_KEY_WRAP_SUITE;
+
 /** Checks public envelope structure only; authentication still requires the KEK. */
 export function decodeContentKeyEnvelope(input: {
   readonly envelope: {
@@ -46,49 +56,41 @@ export function decodeContentKeyEnvelope(input: {
   };
   readonly label: "Blob" | "Document";
   /**
-   * `submission` enforces the published shape before anything is persisted.
-   * `stored` tolerates an unexpected metadata key, which would otherwise make
-   * an already decryptable envelope permanently unreadable.
+   * The two modes differ in exactly one respect: `submission` requires the
+   * metadata to carry `suite` and `iv` and nothing else, while `stored`
+   * ignores an unrecognized extra key. Every other check — the suite, and the
+   * canonical base64 encoding and byte length of the IV and wrapped key — is
+   * applied identically, so a submission that passes is always readable later.
    *
-   * The suite is checked in both modes. Blob and document wraps are sealed to
-   * the same container KEK with no additional authenticated data, and the
-   * target hash covers neither the wrapped key nor its metadata, so the suite
-   * label is the only thing binding an envelope to its object kind on read —
-   * without it a server could serve a document envelope inside a blob bundle.
-   * No stored row can carry the wrong suite, because it was always rejected.
+   * The suite is checked in both modes because blob and document wraps are
+   * sealed to the same container KEK with no additional authenticated data,
+   * and the target hash covers neither the wrapped key nor its metadata. The
+   * suite label is therefore the only thing binding an envelope to its object
+   * kind on read: without it a server could serve a document envelope inside a
+   * blob bundle.
    */
   readonly origin: ContentKeyEnvelopeOrigin;
-  readonly suite:
-    | typeof DOCUMENT_CONTENT_KEY_WRAP_SUITE
-    | typeof BLOB_CONTENT_KEY_WRAP_SUITE;
+  readonly suite: ContentKeyEnvelopeSuite;
 }): { readonly iv: Uint8Array; readonly ciphertext: Uint8Array } {
   const label = `${input.label} content-key target`;
-  const submitted = input.origin === "submission";
+  const raw = input.envelope.wrappingMetadata;
   let metadata: Record<string, unknown>;
-  if (submitted) {
+  if (input.origin === "submission") {
     try {
-      metadata = assertExactKeys(
-        input.envelope.wrappingMetadata,
-        ["iv", "suite"],
-        label,
-      );
+      metadata = assertExactKeys(raw, ["iv", "suite"], label);
     } catch {
       throw new ContentKeyEnvelopeError(
         `${label} metadata must contain exactly suite and iv`,
       );
     }
-    if (Reflect.get(metadata, "suite") !== input.suite) {
-      throw new ContentKeyEnvelopeError(`${label} uses an unknown suite`);
-    }
   } else {
-    const stored = input.envelope.wrappingMetadata;
-    if (typeof stored !== "object" || stored === null) {
-      throw new ContentKeyEnvelopeError(`${label} is missing an IV`);
+    if (!isPlainObject(raw)) {
+      throw new ContentKeyEnvelopeError(`${label} is missing wrap metadata`);
     }
-    metadata = stored as Record<string, unknown>;
-    if (Reflect.get(metadata, "suite") !== input.suite) {
-      throw new ContentKeyEnvelopeError(`${label} uses an unknown suite`);
-    }
+    metadata = raw;
+  }
+  if (Reflect.get(metadata, "suite") !== input.suite) {
+    throw new ContentKeyEnvelopeError(`${label} uses an unknown suite`);
   }
   const iv = Reflect.get(metadata, "iv");
   if (typeof iv !== "string" || iv.length === 0) {
@@ -98,7 +100,7 @@ export function decodeContentKeyEnvelope(input: {
     iv: decodeFixedBase64(iv, AES_GCM_IV_BYTES, `${label} IV`),
     ciphertext: decodeFixedBase64(
       input.envelope.wrappedKey,
-      32 + AES_GCM_TAG_BYTES,
+      AES_256_KEY_BYTES + AES_GCM_TAG_BYTES,
       `${label} wrapped key`,
     ),
   };

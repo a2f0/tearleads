@@ -1,4 +1,5 @@
 import {
+  type ContentKeyEnvelopeSuite,
   computeDocumentContentKeyTargetHash,
   DOCUMENT_CONTENT_KEY_WRAP_SUITE,
   decodeContentKeyEnvelope,
@@ -96,10 +97,12 @@ export async function unwrapContentKeyTargetForSuite(input: {
   decryptErrorMessage?: string | undefined;
   envelope: { wrappedKey: string; wrappingMetadata?: unknown };
   label: "Blob" | "Document";
-  suite: Parameters<typeof decodeContentKeyEnvelope>[0]["suite"];
+  suite: ContentKeyEnvelopeSuite;
 }): Promise<Uint8Array> {
-  // Reading, not submitting: the AEAD tag authenticates the result, and a
-  // stricter shape check here would make a decryptable envelope unreadable.
+  // Reading, not submitting: the suite still binds the envelope to its object
+  // kind, but an unrecognized extra metadata key is ignored rather than making
+  // an otherwise decryptable envelope permanently unreadable. The AEAD tag is
+  // what authenticates the recovered key.
   const encrypted = decodeContentKeyEnvelope({ ...input, origin: "stored" });
 
   try {

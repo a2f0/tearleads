@@ -159,3 +159,27 @@ test("a stored envelope for the other object kind is refused", () => {
     ).toHaveLength(AES_GCM_IV_BYTES);
   }
 });
+
+test("a stored envelope without plain-object wrap metadata is refused", () => {
+  const iv = bytesToBase64(new Uint8Array(AES_GCM_IV_BYTES));
+  const wrappedKey = bytesToBase64(new Uint8Array(32 + AES_GCM_TAG_BYTES));
+  const suite = DOCUMENT_CONTENT_KEY_WRAP_SUITE;
+  // An array is `typeof "object"`, so the diagnostic has to come from a plain
+  // object check rather than from the later suite or IV lookups reading
+  // undefined and reporting something unrelated.
+  for (const wrappingMetadata of [
+    undefined,
+    null,
+    "suite=document",
+    [{ iv, suite }],
+  ]) {
+    expect(() =>
+      decodeContentKeyEnvelope({
+        envelope: { wrappedKey, wrappingMetadata },
+        label: "Document",
+        origin: "stored",
+        suite,
+      }),
+    ).toThrow("Document content-key target is missing wrap metadata");
+  }
+});

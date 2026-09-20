@@ -1,5 +1,13 @@
 import { expect, test } from "bun:test";
+import { db } from "@tearleads/api-shared/postgres";
+import {
+  documentContentKeyEpochs,
+  documentContentKeyTargets,
+} from "@tearleads/api-shared/schema";
 import { createTestUser } from "@tearleads/bob-and-alice";
+import { DOCUMENT_CONTENT_KEY_WRAP_SUITE } from "@tearleads/crypto";
+import { isPlainObject } from "@tearleads/validators/isPlainObject";
+import { eq } from "drizzle-orm";
 import { authenticate } from "../../../test/helpers/authenticate";
 import {
   blobAttachmentTestRuntime,
@@ -26,13 +34,39 @@ test("document creation rejects malformed key envelopes without consuming the si
   const request = await createDocumentRequest({ owner, root });
   const target = request.contentKeyBundle.targets[0];
   if (!target) throw new Error("Expected document target");
+  // Each case names the envelope diagnostic it must produce: a bare 400 would
+  // also be returned by the coverage and signature guards that run first.
   const malformed = [
-    { ...target, wrappingMetadata: { suite: "test-wrap" } },
-    { ...target, wrappingMetadata: { ...target.wrappingMetadata, iv: "AA==" } },
-    { ...target, wrappedKey: "AA==" },
-    { ...target, wrappedKey: `${target.wrappedKey}\n` },
+    {
+      envelope: { ...target, wrappingMetadata: { suite: "test-wrap" } },
+      expected: "Document content-key target metadata must contain exactly",
+    },
+    {
+      envelope: {
+        ...target,
+        wrappingMetadata: { ...target.wrappingMetadata, suite: "test-wrap" },
+      },
+      expected: "Document content-key target uses an unknown suite",
+    },
+    {
+      envelope: {
+        ...target,
+        wrappingMetadata: { ...target.wrappingMetadata, iv: "AA==" },
+      },
+      expected: "Document content-key target IV has an invalid encoded length",
+    },
+    {
+      envelope: { ...target, wrappedKey: "AA==" },
+      expected:
+        "Document content-key target wrapped key has an invalid encoded length",
+    },
+    {
+      envelope: { ...target, wrappedKey: `${target.wrappedKey}\n` },
+      expected:
+        "Document content-key target wrapped key has an invalid encoded length",
+    },
   ];
-  for (const envelope of malformed) {
+  for (const { envelope, expected } of malformed) {
     const response = await routeApp.request("/documents", {
       method: "POST",
       headers: {
@@ -44,7 +78,9 @@ test("document creation rejects malformed key envelopes without consuming the si
         contentKeyBundle: { ...request.contentKeyBundle, targets: [envelope] },
       }),
     });
-    expect(response.status, await response.clone().text()).toBe(400);
+    const body = await response.text();
+    expect({ status: response.status, body }).toMatchObject({ status: 400 });
+    expect(body).toContain(expected);
   }
   const accepted = await routeApp.request("/documents", {
     method: "POST",
@@ -74,12 +110,36 @@ test("blob binding rejects malformed key envelopes without promoting or consumin
   const target = request.contentKeyBundle.targets[0];
   if (!target) throw new Error("Expected blob target");
   const malformed = [
-    { ...target, wrappingMetadata: { suite: "test-wrap" } },
-    { ...target, wrappingMetadata: { ...target.wrappingMetadata, iv: "AA==" } },
-    { ...target, wrappedKey: "AA==" },
-    { ...target, wrappedKey: `${target.wrappedKey}\n` },
+    {
+      envelope: { ...target, wrappingMetadata: { suite: "test-wrap" } },
+      expected: "Blob content-key target metadata must contain exactly",
+    },
+    {
+      envelope: {
+        ...target,
+        wrappingMetadata: { ...target.wrappingMetadata, suite: "test-wrap" },
+      },
+      expected: "Blob content-key target uses an unknown suite",
+    },
+    {
+      envelope: {
+        ...target,
+        wrappingMetadata: { ...target.wrappingMetadata, iv: "AA==" },
+      },
+      expected: "Blob content-key target IV has an invalid encoded length",
+    },
+    {
+      envelope: { ...target, wrappedKey: "AA==" },
+      expected:
+        "Blob content-key target wrapped key has an invalid encoded length",
+    },
+    {
+      envelope: { ...target, wrappedKey: `${target.wrappedKey}\n` },
+      expected:
+        "Blob content-key target wrapped key has an invalid encoded length",
+    },
   ];
-  for (const envelope of malformed) {
+  for (const { envelope, expected } of malformed) {
     const rejected = bindBlobAttachment(blobAttachmentTestRuntime, {
       blobId,
       userId: owner.userId,
@@ -92,6 +152,7 @@ test("blob binding rejects malformed key envelopes without promoting or consumin
     });
     await expect(rejected).rejects.toBeInstanceOf(BlobMutationError);
     await expect(rejected).rejects.toMatchObject({ status: 400 });
+    await expect(rejected).rejects.toThrow(expected);
   }
   const accepted = await bindBlobAttachment(blobAttachmentTestRuntime, {
     blobId,
@@ -101,4 +162,50 @@ test("blob binding rejects malformed key envelopes without promoting or consumin
     request,
   });
   expect(accepted.blobId).toBe(blobId);
+});
+
+// The submission gate's counterpart: rows already persisted are read under
+// `origin: "stored"`, which ignores an unrecognized metadata key rather than
+// making an otherwise decryptable envelope permanently unprojectable. Without
+// that skip this projection fails, and no client-side heal can reach it.
+test("a stored envelope with an unrecognized metadata key still projects", async () => {
+  const owner = createTestUser();
+  await registerUser(owner);
+  await authenticate(owner);
+  const root = await bootstrapRoot(owner);
+  const document = await createDocument({ owner, root });
+
+  const [epoch] = await db
+    .select({ id: documentContentKeyEpochs.id })
+    .from(documentContentKeyEpochs)
+    .where(eq(documentContentKeyEpochs.documentId, document.id));
+  if (!epoch) throw new Error("Expected a stored content-key epoch");
+  const [stored] = await db
+    .select()
+    .from(documentContentKeyTargets)
+    .where(eq(documentContentKeyTargets.documentContentKeyEpochId, epoch.id));
+  if (!stored) throw new Error("Expected a stored content-key target");
+  const iv = isPlainObject(stored.wrappingMetadata)
+    ? Reflect.get(stored.wrappingMetadata, "iv")
+    : undefined;
+  if (typeof iv !== "string") throw new Error("Expected a stored wrap IV");
+  // The envelope stays decryptable; only an unrecognized key is added.
+  await db
+    .update(documentContentKeyTargets)
+    .set({
+      wrappingMetadata: {
+        iv,
+        suite: DOCUMENT_CONTENT_KEY_WRAP_SUITE,
+        unrecognized: "carried",
+      },
+    })
+    .where(eq(documentContentKeyTargets.id, stored.id));
+
+  const projection = await routeApp.request(
+    `/documents/${document.id}/writer-projection`,
+    { headers: { Authorization: `Bearer ${owner.token}` } },
+  );
+  const body = await projection.text();
+  expect({ status: projection.status, body }).toMatchObject({ status: 200 });
+  expect(body).toContain("unrecognized");
 });

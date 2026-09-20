@@ -1,5 +1,7 @@
 import {
   ContentKeyEnvelopeError,
+  type ContentKeyEnvelopeOrigin,
+  type ContentKeyEnvelopeSuite,
   decodeContentKeyEnvelope,
   type KeyingCanonicalJson,
   KeyingVerificationError,
@@ -60,7 +62,7 @@ function assertContentKeyWrappedMaterialPresent<
 }
 
 /** Where a target set came from; a submission is held to the strict shape. */
-export type ContentKeyTargetOrigin = "stored" | "submission";
+export type ContentKeyTargetOrigin = ContentKeyEnvelopeOrigin;
 
 function expectedContentKeyTargetMap<T>(
   targets: readonly T[],
@@ -92,12 +94,18 @@ function assertContentKeyTargetsMatchCurrent<
     envelope: WrappedContentKeyTargetEnvelope,
   ) => void;
   /**
-   * Strict envelope shape is a submission gate, not a read gate. Applying it to
-   * rows already persisted would turn a malformed stored envelope into a
-   * permanent, unhealable projection failure for that document; the design
-   * contract is that submissions are rejected before persistence. Required
-   * rather than defaulted, so a new call site has to state which it is instead
-   * of silently skipping the gate.
+   * Strict envelope shape is a submission gate, not a read gate. Applying it
+   * while projecting rows already persisted would turn a malformed stored
+   * envelope into a permanent, unhealable projection failure for that
+   * document; the contract is that submissions are rejected before
+   * persistence. Required rather than defaulted, so a new call site has to
+   * state which it is instead of silently skipping the gate.
+   *
+   * A link mutation resubmits a retained wrap verbatim, so a stored envelope
+   * does reach the submission gate there. That is sound rather than an
+   * exemption to carve out: every envelope this deployment stores was written
+   * through this gate by a producer that emits exactly `suite` and `iv`, so a
+   * retained wrap is a conforming submission.
    */
   readonly origin: ContentKeyTargetOrigin;
   readonly createMismatchError: () => Error;
@@ -173,9 +181,7 @@ interface ContentKeyTargetPolicyOptions<
   TEnvelope extends TTarget & WrappedContentKeyTargetEnvelope,
 > {
   readonly envelopeLabel: "Blob" | "Document";
-  readonly wrappingSuite: Parameters<
-    typeof decodeContentKeyEnvelope
-  >[0]["suite"];
+  readonly wrappingSuite: ContentKeyEnvelopeSuite;
   readonly computeTargetHash: (targets: readonly TTarget[]) => Promise<string>;
   readonly createError: (message: string, status: 400 | 409) => Error;
   readonly messages: ContentKeyTargetPolicyMessages;
