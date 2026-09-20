@@ -50,6 +50,7 @@ export async function rewrapDocumentBlobContentKeyInTransaction(
   }
   assertTargetsMatchCurrent({
     currentTargets: { ...currentTargets, targets: documentTargets },
+    submitted: true,
     targets: rewrap.targets,
   });
   // Another document's retained wraps are independent. Its own link mutation

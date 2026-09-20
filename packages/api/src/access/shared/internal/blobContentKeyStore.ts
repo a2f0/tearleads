@@ -232,7 +232,11 @@ async function validateCurrentTargetsForBundle(
     }
     throw error;
   }
-  assertTargetsMatchCurrent({ currentTargets, targets: input.targets });
+  assertTargetsMatchCurrent({
+    currentTargets,
+    submitted: true,
+    targets: input.targets,
+  });
   return currentTargets;
 }
 

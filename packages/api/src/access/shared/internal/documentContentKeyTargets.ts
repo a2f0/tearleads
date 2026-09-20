@@ -68,6 +68,8 @@ const contentKeyTargetPolicy = createContentKeyTargetPolicy<
       "Document content-key targets contain duplicate containers",
     hashMismatch: "Document content-key target hash mismatch",
     invalidEpoch: "Document content key epoch must be a positive integer",
+    missingWrappedMaterial:
+      "Document content-key target is missing wrapped key material",
     targetsMismatch:
       "Document content-key targets do not match current KEK targets",
   },
@@ -88,6 +90,8 @@ export const {
 export function assertTargetsMatchCurrent(input: {
   readonly currentTargets: CurrentDocumentKekTargets;
   readonly targets: readonly DocumentContentKeyTargetEnvelope[];
+  /** Set on a submission; stored rows are not held to the strict shape. */
+  readonly submitted?: boolean;
 }): void {
   contentKeyTargetPolicy.assertTargetsMatchCurrent(input);
 }

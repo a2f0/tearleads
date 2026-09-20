@@ -411,7 +411,11 @@ async function validateCurrentTargetsForBundle(
   if (currentTargets.linkSetManifestHash !== input.linkSetManifestHash) {
     throw staleBundle("Document link-set manifest hash is stale");
   }
-  assertTargetsMatchCurrent({ currentTargets, targets: input.targets });
+  assertTargetsMatchCurrent({
+    currentTargets,
+    submitted: true,
+    targets: input.targets,
+  });
   return currentTargets;
 }
 

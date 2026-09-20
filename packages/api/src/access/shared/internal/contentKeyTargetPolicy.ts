@@ -48,6 +48,17 @@ function assertNoDuplicateContentKeyTargets<T>(
   }
 }
 
+/** Stored rows keep only this invariant; strict shape is a submission gate. */
+function assertContentKeyWrappedMaterialPresent<
+  T extends WrappedContentKeyTargetEnvelope,
+>(targets: readonly T[], createError: () => Error): void {
+  for (const target of targets) {
+    if (target.wrappedKey.length === 0) {
+      throw createError();
+    }
+  }
+}
+
 function expectedContentKeyTargetMap<T>(
   targets: readonly T[],
   targetKey: (target: T) => string,
@@ -73,9 +84,17 @@ function assertContentKeyTargetsMatchCurrent<
   readonly targetKey: (target: TCurrent) => string;
   readonly targetFieldsEqual: (left: TCurrent, right: TCurrent) => boolean;
   readonly createDuplicateError: () => Error;
+  readonly createMissingWrappedMaterialError: () => Error;
   readonly validateEnvelope: (
     envelope: WrappedContentKeyTargetEnvelope,
   ) => void;
+  /**
+   * Strict envelope shape is a submission gate, not a read gate. Applying it to
+   * rows already persisted would turn a malformed stored envelope into a
+   * permanent, unhealable projection failure for that document; the design
+   * contract is that submissions are rejected before persistence.
+   */
+  readonly validateEnvelopeShape: boolean;
   readonly createMismatchError: () => Error;
 }): void {
   assertNoDuplicateContentKeyTargets(
@@ -83,7 +102,13 @@ function assertContentKeyTargetsMatchCurrent<
     input.targetKey,
     input.createDuplicateError,
   );
-  for (const target of input.targets) input.validateEnvelope(target);
+  assertContentKeyWrappedMaterialPresent(
+    input.targets,
+    input.createMissingWrappedMaterialError,
+  );
+  if (input.validateEnvelopeShape) {
+    for (const target of input.targets) input.validateEnvelope(target);
+  }
 
   const currentTargetByKey = expectedContentKeyTargetMap(
     input.currentTargets,
@@ -134,6 +159,7 @@ interface ContentKeyTargetPolicyMessages {
   readonly duplicateTargets: string;
   readonly hashMismatch: string;
   readonly invalidEpoch: string;
+  readonly missingWrappedMaterial: string;
   readonly targetsMismatch: string;
 }
 
@@ -193,14 +219,19 @@ export function createContentKeyTargetPolicy<
     assertTargetsMatchCurrent: (input: {
       readonly currentTargets: TCurrentTargets;
       readonly targets: readonly TEnvelope[];
+      /** Set on a submission; omitted when re-checking rows already stored. */
+      readonly submitted?: boolean;
     }): void => {
       assertContentKeyTargetsMatchCurrent({
         currentTargets: input.currentTargets.targets,
         targets: input.targets,
         targetKey: options.targetKey,
         targetFieldsEqual,
+        validateEnvelopeShape: input.submitted === true,
         createDuplicateError: () =>
           options.createError(options.messages.duplicateTargets, 409),
+        createMissingWrappedMaterialError: () =>
+          options.createError(options.messages.missingWrappedMaterial, 409),
         validateEnvelope: (envelope) => {
           try {
             decodeContentKeyEnvelope({
