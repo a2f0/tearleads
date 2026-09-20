@@ -39,6 +39,7 @@ import {
 } from "./syncFailures";
 import { recoverablePendingUpdates } from "./syncPlanRequestBounds";
 import { resolveSubmittedDocumentSyncResult } from "./syncSubmittedResult";
+import { traceAncestorRepairAbandoned } from "./syncTrace";
 
 export function hasDocumentUpdateEvent(
   events: ReadonlyArray<unknown>,
@@ -167,6 +168,13 @@ function abandonAncestorRepair(
   input: SyncRemoteDocumentInput,
   error: DocumentAncestorRepairAbandonedError,
 ): null {
+  // Trace as well as abandon: production wires onSyncTrace but not
+  // onSyncAbandoned, and this path has already issued server-side rekeys, so
+  // abandoning silently would leave a retrying loop with no way to see it.
+  traceAncestorRepairAbandoned(input.onSyncTrace, {
+    documentId: input.documentId,
+    reason: error.reason,
+  });
   input.onSyncAbandoned?.(error.reason);
   return null;
 }

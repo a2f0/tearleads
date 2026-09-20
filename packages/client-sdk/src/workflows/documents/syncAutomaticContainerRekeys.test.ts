@@ -285,6 +285,7 @@ test("a refused standalone repair abandons the pass", async () => {
     };
     const abandoned: string[] = [];
     const terminal: string[] = [];
+    const traced: string[] = [];
     const sync = {
       ...fixture.input,
       apiClient: createMockApiClient({ rekeyContainer: async () => null }),
@@ -293,6 +294,7 @@ test("a refused standalone repair abandons the pass", async () => {
       execSql: cold.execSql,
       localVersionVector: null,
       onSyncAbandoned: (reason: string) => abandoned.push(reason),
+      onSyncTrace: (line: string) => traced.push(line),
       onTerminalSubmitFailure: (failure: { message: string }) => {
         terminal.push(failure.message);
       },
@@ -307,6 +309,11 @@ test("a refused standalone repair abandons the pass", async () => {
     expect(result).toBeNull();
     expect(abandoned).toEqual(["the server refused an ancestor repair"]);
     expect(terminal).toEqual([]);
+    // Production wires onSyncTrace, not onSyncAbandoned, so the trace is the
+    // only way an abandoned repair is visible at all.
+    expect(
+      traced.filter((line) => line.includes("ancestor repair abandoned")),
+    ).toHaveLength(1);
   } finally {
     staging.close();
     cold.close();

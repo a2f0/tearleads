@@ -196,6 +196,15 @@ export function traceSubmitFailed(
   );
 }
 
+export function traceAncestorRepairAbandoned(
+  emit: DocumentSyncTraceEmitter | undefined,
+  input: { documentId: string; reason: string },
+): void {
+  emit?.(
+    `document ancestor repair abandoned document=${input.documentId} reason=${input.reason}`,
+  );
+}
+
 export function traceProjectionFailed(
   emit: DocumentSyncTraceEmitter | undefined,
   input: {
