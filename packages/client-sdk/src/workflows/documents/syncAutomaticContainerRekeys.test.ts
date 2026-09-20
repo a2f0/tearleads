@@ -1,6 +1,9 @@
 import { expect, test } from "bun:test";
 import { createMockApiClient, createTestExecSql } from "@tearleads/test-utils";
-import { MAX_INLINE_CONTAINER_REKEYS } from "@tearleads/validators/util";
+import {
+  MAX_DOCUMENT_SYNC_AUTHORIZATION_PATH_DEPTH,
+  MAX_INLINE_CONTAINER_REKEYS,
+} from "@tearleads/validators/util";
 import {
   createDeepRotatedAncestorFixture,
   createForkedRotatedAncestorFixture,
@@ -356,3 +359,115 @@ test("a repaired ancestor is replaced in every linked path", async () => {
     database.close();
   }
 }, 120_000);
+
+// The prefix path refetches between rounds, and a refetched projection is as
+// server-supplied as the first. Nothing else proves the replacement names the
+// document this repair is for, so a swap mid-repair must be refused.
+test("a refetched projection for another document is refused", async () => {
+  const fixture = await createDeepRotatedAncestorFixture(17);
+  const staging = await createTestExecSql("swap-prefix-document");
+  const cold = await createTestExecSql("swap-prefix-repair");
+  try {
+    const created = await buildMaterializedDocumentCreatePlan({
+      ...fixture.input,
+      execSql: staging.execSql,
+      containerProjection: fixture.leaf,
+    });
+    const original = documentWriterProjectionFromCreateResponse({
+      containerProjection: fixture.leaf,
+      response: await createResponseFromRequest(created.plan.request),
+    });
+    const projection = {
+      ...original,
+      authorizingContainerPaths: [fixture.projection],
+    };
+    const previousKeks = new Map(
+      fixture.projection.containerKeks.map((kek) => [kek.containerId, kek]),
+    );
+    const sync = {
+      ...fixture.input,
+      apiClient: createMockApiClient({
+        getDocumentWriterProjectionResult: async () => ({
+          data: { ...projection, documentId: "a-different-document" },
+          ok: true as const,
+        }),
+        rekeyContainer: async (containerId, request) => {
+          const previousKek = previousKeks.get(containerId);
+          if (!previousKek) throw new Error(`No KEK for ${containerId}`);
+          return await createMutationResponseFromRequest(request, previousKek);
+        },
+      }),
+      documentId: projection.documentId,
+      execSql: cold.execSql,
+      localVersionVector: null,
+      resolveWriterPublicKey: writerKeyResolver(fixture.root),
+      validateIncomingUpdates: () => undefined,
+    };
+    await expect(
+      prepareAutomaticContainerRekeys(sync, projection),
+    ).rejects.toMatchObject({ code: "object_mismatch" });
+  } finally {
+    staging.close();
+    cold.close();
+  }
+}, 180_000);
+
+// A server that keeps answering with the same stale chain cannot drive endless
+// signed rekeys. Pinning the verified heads before each prefix commit means the
+// replay is refused as a rollback — an older manifest than the local checkpoint
+// — which stops it well before the depth budget backstop is reached.
+test("a server replaying a stale chain cannot drive endless rekeys", async () => {
+  const fixture = await createDeepRotatedAncestorFixture(17);
+  const staging = await createTestExecSql("replayed-prefix-document");
+  const cold = await createTestExecSql("replayed-prefix-repair");
+  try {
+    const created = await buildMaterializedDocumentCreatePlan({
+      ...fixture.input,
+      execSql: staging.execSql,
+      containerProjection: fixture.leaf,
+    });
+    const original = documentWriterProjectionFromCreateResponse({
+      containerProjection: fixture.leaf,
+      response: await createResponseFromRequest(created.plan.request),
+    });
+    const projection = {
+      ...original,
+      authorizingContainerPaths: [fixture.projection],
+    };
+    const previousKeks = new Map(
+      fixture.projection.containerKeks.map((kek) => [kek.containerId, kek]),
+    );
+    let rekeys = 0;
+    const sync = {
+      ...fixture.input,
+      apiClient: createMockApiClient({
+        // Always answers with the original stale chain, never the repairs.
+        getDocumentWriterProjectionResult: async () => ({
+          data: projection,
+          ok: true as const,
+        }),
+        rekeyContainer: async (containerId, request) => {
+          rekeys += 1;
+          const previousKek = previousKeks.get(containerId);
+          if (!previousKek) throw new Error(`No KEK for ${containerId}`);
+          return await createMutationResponseFromRequest(request, previousKek);
+        },
+      }),
+      documentId: projection.documentId,
+      execSql: cold.execSql,
+      localVersionVector: null,
+      resolveWriterPublicKey: writerKeyResolver(fixture.root),
+      validateIncomingUpdates: () => undefined,
+    };
+    await expect(
+      prepareAutomaticContainerRekeys(sync, projection),
+    ).rejects.toThrow(/older than the local checkpoint/);
+    // Bounded well under the depth backstop: one prefix, then the replay is
+    // refused rather than repaired again.
+    expect(rekeys).toBeLessThanOrEqual(MAX_INLINE_CONTAINER_REKEYS);
+    expect(rekeys).toBeLessThan(MAX_DOCUMENT_SYNC_AUTHORIZATION_PATH_DEPTH);
+  } finally {
+    staging.close();
+    cold.close();
+  }
+}, 300_000);
