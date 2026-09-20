@@ -209,6 +209,11 @@ function createTargetSetMatchers<
      * beside newly wrapped ones — a document link resubmits the whole bundle,
      * a blob bind covers every active binding — so the gate applies to the
      * targets that do not byte-match stored material.
+     *
+     * "Byte-match" deliberately ignores `containerManifestHash`: a projection
+     * refresh rewrites it while keeping the wrap, and such a target is still
+     * retained. The field is not unchecked, just checked elsewhere — against
+     * the current targets, by `targetFieldsEqual`.
      */
     assertSubmittedTargetsMatchCurrent: (input: {
       readonly currentTargets: TCurrentTargets;

@@ -226,20 +226,38 @@ test("a shared bind carrying another document's stored wrap is accepted", async 
     owner,
     root,
   });
+  const retainingBind = (
+    mapTarget: (
+      target: (typeof shared.request.contentKeyBundle.targets)[number],
+    ) => (typeof shared.request.contentKeyBundle.targets)[number],
+  ) => ({
+    ...shared.request,
+    contentKeyBundle: {
+      ...shared.request.contentKeyBundle,
+      targets: shared.request.contentKeyBundle.targets.map((target) =>
+        target.documentId === first.id
+          ? { ...target, wrappingMetadata }
+          : mapTarget(target),
+      ),
+    },
+  });
+
+  // The second document's target is the newly wrapped half, and it is still
+  // gated: the exemption covers stored bytes, not everything in the set.
+  await expect(
+    bindForTest({
+      blobId,
+      owner,
+      request: retainingBind((target) => ({ ...target, wrappedKey: "AA==" })),
+    }),
+  ).rejects.toThrow(
+    "Blob content-key target wrapped key has an invalid encoded length",
+  );
+
   await bindForTest({
     blobId,
     owner,
-    request: {
-      ...shared.request,
-      contentKeyBundle: {
-        ...shared.request.contentKeyBundle,
-        targets: shared.request.contentKeyBundle.targets.map((target) =>
-          target.documentId === first.id
-            ? { ...target, wrappingMetadata }
-            : target,
-        ),
-      },
-    },
+    request: retainingBind((target) => target),
   });
 
   const rows = await db

@@ -1,13 +1,14 @@
 import {
   AES_GCM_IV_BYTES,
   BLOB_CONTENT_KEY_WRAP_SUITE,
+  type ContentKeyEnvelopeKind,
   DOCUMENT_CONTENT_KEY_WRAP_SUITE,
 } from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
 
 /** Structurally valid opaque material for tests that do not decrypt it. */
 export function contentKeyEnvelopeFixture(
-  kind: "Blob" | "Document",
+  kind: ContentKeyEnvelopeKind,
   seed: string,
 ) {
   // Derived from the seed, not shared: an equality check over envelopes must

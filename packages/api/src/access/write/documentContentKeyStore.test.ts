@@ -392,8 +392,9 @@ test("storeDocumentContentKeyBundle rejects missing extra duplicate and stale ta
     {
       ...firstEnvelope,
       containerId: crypto.randomUUID(),
-      // A well-shaped envelope, so the extra target is refused by the target
-      // count check rather than by the submission envelope gate ahead of it.
+      // A well-shaped envelope: the target hash check refuses this set before
+      // either the count check or the envelope gate is reached, and the
+      // fixture keeps that true if the order ever changes.
       wrappedKey: contentKeyEnvelopeFixture("Document", "extra").wrappedKey,
     },
   ];
