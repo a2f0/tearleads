@@ -85,13 +85,15 @@ interface CreateContentKeyStoreOptions<
     executor: DatabaseSession,
   ) => Promise<TBundle>;
   /**
-   * Receives the stored bundle so a caller can tell resubmitted material from
-   * newly wrapped material without a second query.
+   * Receives a loader for the stored bundle so a caller can tell resubmitted
+   * material from newly wrapped material. It is lazy and memoized: the same
+   * read serves the store below, and a request rejected by a cheaper check
+   * never pays for it.
    */
   readonly validateCurrentTargets: (
     input: TInput,
     executor: DatabaseSession,
-    latestBundle: TBundle | null,
+    loadLatestBundle: () => Promise<TBundle | null>,
   ) => Promise<TCurrentTargets>;
 }
 
@@ -180,12 +182,19 @@ class ContentKeyStore<
     executor: DatabaseTransaction,
   ): Promise<TBundle & { readonly currentTargets: TCurrentTargets }> {
     const identifier = this.options.getIdentifier(input);
-    const latestBundle = await this.getLatestBundle(identifier, executor);
+    let pendingLatestBundle: Promise<TBundle | null> | null = null;
+    const loadLatestBundle = (): Promise<TBundle | null> => {
+      if (!pendingLatestBundle) {
+        pendingLatestBundle = this.getLatestBundle(identifier, executor);
+      }
+      return pendingLatestBundle;
+    };
     const currentTargets = await this.options.validateCurrentTargets(
       input,
       executor,
-      latestBundle,
+      loadLatestBundle,
     );
+    const latestBundle = await loadLatestBundle();
     const preparation = this.options.prepareStore({
       currentTargets,
       input,

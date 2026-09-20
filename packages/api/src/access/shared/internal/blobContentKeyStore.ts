@@ -214,7 +214,7 @@ export async function replaceBlobContentKeyTargetsForExistingBundle(input: {
 async function validateCurrentTargetsForBundle(
   input: StoreBlobContentKeyBundleInput,
   executor: DatabaseSession,
-  latestBundle: StoredBlobContentKeyBundle | null,
+  loadLatestBundle: () => Promise<StoredBlobContentKeyBundle | null>,
 ): Promise<CurrentBlobKekTargets> {
   ensurePositiveContentKeyEpoch(input.contentKeyEpoch);
   await assertTargetHashMatches(input);
@@ -240,7 +240,7 @@ async function validateCurrentTargetsForBundle(
   // envelope is held to the submission shape.
   assertSubmittedTargetsMatchCurrent({
     currentTargets,
-    storedTargets: latestBundle?.targets ?? null,
+    storedTargets: (await loadLatestBundle())?.targets ?? null,
     targets: input.targets,
   });
   return currentTargets;

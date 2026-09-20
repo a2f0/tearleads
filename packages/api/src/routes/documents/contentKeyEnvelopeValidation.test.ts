@@ -164,10 +164,12 @@ test("blob binding rejects malformed key envelopes without promoting or consumin
   expect(accepted.blobId).toBe(blobId);
 });
 
-// The submission gate's counterpart: rows already persisted are read under
-// `origin: "stored"`, which ignores an unrecognized metadata key rather than
-// making an otherwise decryptable envelope permanently unprojectable. Without
-// that skip this projection fails, and no client-side heal can reach it.
+// The submission gate's counterpart. Reads go through
+// `assertStoredTargetsMatchCurrent`, which validates no envelope, so an
+// unrecognized metadata key never makes a row unprojectable. This pins that:
+// routing the projection through `assertSubmittedTargetsMatchCurrent` instead
+// fails it with `document_projection_state_invalid`, and no client-side heal
+// could reach that row.
 test("a stored envelope with an unrecognized metadata key still projects", async () => {
   const owner = createTestUser();
   await registerUser(owner);

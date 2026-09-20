@@ -6,10 +6,7 @@ export {
   CHALLENGE_TTL_SECONDS,
   generateChallenge,
 } from "./challenge";
-export type {
-  ContentKeyEnvelopeKind,
-  ContentKeyEnvelopeOrigin,
-} from "./contentKeyEnvelope";
+export type { ContentKeyEnvelopeKind } from "./contentKeyEnvelope";
 export {
   ContentKeyEnvelopeError,
   decodeContentKeyEnvelope,

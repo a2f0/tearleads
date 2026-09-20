@@ -760,11 +760,13 @@ applies it to newly wrapped material, additionally requiring the wrapping
 metadata to carry exactly `suite` and `iv`, and rejects a failing submission
 before persistence. Clients apply the same check when reading a stored
 envelope, minus that exact-key requirement, so an unrecognized metadata key can
-never make a decryptable envelope unreadable. A document link and a blob
-relink both resubmit retained wraps verbatim alongside newly wrapped ones; the
-API judges the retained half as stored for the same reason, since a retained
-target must be resubmitted byte-identical and cannot be re-wrapped while it is
-active.
+never make a decryptable envelope unreadable. A document link, a blob relink,
+and a bind of a blob another document already holds all resubmit retained wraps
+verbatim alongside newly wrapped ones; the API judges the retained half as
+stored for the same reason, since a retained target must be resubmitted
+byte-identical and cannot be re-wrapped while it is active. A submission that
+is both malformed and stale is reported as malformed: the envelope shape is
+checked before the target set is compared.
 
 There are no legacy-suite or alternate-encoding paths. These checks validate
 structure; only a recipient with the KEK can authenticate the ciphertext and

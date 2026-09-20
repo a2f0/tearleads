@@ -1,4 +1,5 @@
 import {
+  ContentKeyEnvelopeError,
   type ContentKeyEnvelopeKind,
   computeDocumentContentKeyTargetHash,
   DOCUMENT_CONTENT_KEY_WRAP_SUITE,
@@ -112,10 +113,12 @@ export async function unwrapContentKeyTargetForKind(input: {
       input.containerKek,
     );
   } catch (error) {
-    if (input.decryptErrorMessage) {
-      throw new Error(input.decryptErrorMessage, { cause: error });
-    }
-    throw error;
+    if (!input.decryptErrorMessage) throw error;
+    // Keep the structural diagnostic; the wrapper only adds which target it
+    // was, which the decoder cannot know.
+    const detail =
+      error instanceof ContentKeyEnvelopeError ? `: ${error.message}` : "";
+    throw new Error(`${input.decryptErrorMessage}${detail}`, { cause: error });
   }
 }
 
