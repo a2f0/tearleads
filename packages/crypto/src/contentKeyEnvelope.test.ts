@@ -175,3 +175,36 @@ test("a stored envelope without plain-object wrap metadata is refused", () => {
     ).toThrow("Document content-key target is missing wrap metadata");
   }
 });
+
+test("a stored envelope with malformed bytes is refused", () => {
+  const suite = DOCUMENT_CONTENT_KEY_WRAP_SUITE;
+  const iv = bytesToBase64(new Uint8Array(AES_GCM_IV_BYTES));
+  const wrappedKey = bytesToBase64(new Uint8Array(32 + AES_GCM_TAG_BYTES));
+  // `stored` is lenient about an unrecognized metadata key, not about the
+  // bytes: the sizes are fixed by the suite, and a retained wrap is recognized
+  // by comparing its wrapped key as a string, so the encoding must be
+  // canonical for that comparison to mean comparing the bytes.
+  const malformed = [
+    {
+      wrappedKey,
+      wrappingMetadata: { iv: bytesToBase64(new Uint8Array(11)), suite },
+    },
+    {
+      wrappedKey: bytesToBase64(new Uint8Array(49)),
+      wrappingMetadata: { iv, suite },
+    },
+    {
+      wrappedKey: `${wrappedKey.slice(0, 63)}-`,
+      wrappingMetadata: { iv, suite },
+    },
+  ];
+  for (const envelope of malformed) {
+    expect(() =>
+      decodeContentKeyEnvelope({
+        envelope,
+        kind: "Document",
+        origin: "stored",
+      }),
+    ).toThrow(ContentKeyEnvelopeError);
+  }
+});

@@ -149,14 +149,35 @@ test("a retained document wrap with an unrecognized metadata key can still be re
     owner,
     root,
   });
-  const response = await routeApp.request(`/documents/${document.id}/link`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${owner.token}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(link),
+  const post = (request: unknown) =>
+    routeApp.request(`/documents/${document.id}/link`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${owner.token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(request),
+    });
+
+  // The newly appended target is the half the filter must still gate. The
+  // target hash covers neither the wrapped key nor its metadata, so this
+  // reaches envelope validation rather than a hash mismatch.
+  const malformed = structuredClone(link);
+  const appended = malformed.contentKeyBundle.targets.find(
+    (target) => target.containerId === child.containerId,
+  );
+  if (!appended) throw new Error("Expected the appended child target");
+  Reflect.set(appended, "wrappedKey", "AA==");
+  const refused = await post(malformed);
+  const refusedBody = await refused.text();
+  expect({ status: refused.status, body: refusedBody }).toMatchObject({
+    status: 400,
   });
+  expect(refusedBody).toContain(
+    "Document content-key target wrapped key has an invalid encoded length",
+  );
+
+  const response = await post(link);
   const body = await response.text();
   expect({ status: response.status, body }).toMatchObject({ status: 200 });
 });

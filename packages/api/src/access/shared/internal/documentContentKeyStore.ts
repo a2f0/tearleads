@@ -391,6 +391,7 @@ async function addDocumentContentKeyTargetsToExistingBundle(input: {
 async function validateCurrentTargetsForBundle(
   input: StoreDocumentContentKeyBundleInput,
   executor: DatabaseSession,
+  latestBundle: StoredDocumentContentKeyBundle | null,
 ): Promise<CurrentDocumentKekTargets> {
   ensurePositiveContentKeyEpoch(input.contentKeyEpoch);
   await assertTargetHashMatches(input);
@@ -424,14 +425,10 @@ async function validateCurrentTargetsForBundle(
     origin: "stored",
     targets: input.targets,
   });
-  const storedBundle = await getLatestDocumentContentKeyBundle(
-    input.documentId,
-    executor,
-  );
   assertSubmittedEnvelopes(
     input.targets.filter(
       (target) =>
-        !storedBundle?.targets.some((stored) =>
+        !latestBundle?.targets.some((stored) =>
           targetEnvelopeMaterialEqual(stored, target),
         ),
     ),

@@ -764,10 +764,12 @@ never make a decryptable envelope unreadable. A document link and a blob
 relink both resubmit retained wraps verbatim alongside newly wrapped ones; the
 API judges the retained half as stored for the same reason, since a retained
 target must be resubmitted byte-identical and cannot be re-wrapped while it is
-active. There are no legacy-suite or
-alternate-encoding paths. These checks validate structure; only a recipient
-with the KEK can authenticate the ciphertext and establish the recovered key.
-An authorized writer can still submit well-shaped, undecryptable material.
+active.
+
+There are no legacy-suite or alternate-encoding paths. These checks validate
+structure; only a recipient with the KEK can authenticate the ciphertext and
+establish the recovered key. An authorized writer can still submit
+well-shaped, undecryptable material.
 
 Clients and the API reject blob writes or attachment commits that omit targets
 for other active bindings.

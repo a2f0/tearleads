@@ -84,9 +84,14 @@ interface CreateContentKeyStoreOptions<
     row: TEpochRow,
     executor: DatabaseSession,
   ) => Promise<TBundle>;
+  /**
+   * Receives the stored bundle so a caller can tell resubmitted material from
+   * newly wrapped material without a second query.
+   */
   readonly validateCurrentTargets: (
     input: TInput,
     executor: DatabaseSession,
+    latestBundle: TBundle | null,
   ) => Promise<TCurrentTargets>;
 }
 
@@ -174,12 +179,13 @@ class ContentKeyStore<
     input: TInput,
     executor: DatabaseTransaction,
   ): Promise<TBundle & { readonly currentTargets: TCurrentTargets }> {
+    const identifier = this.options.getIdentifier(input);
+    const latestBundle = await this.getLatestBundle(identifier, executor);
     const currentTargets = await this.options.validateCurrentTargets(
       input,
       executor,
+      latestBundle,
     );
-    const identifier = this.options.getIdentifier(input);
-    const latestBundle = await this.getLatestBundle(identifier, executor);
     const preparation = this.options.prepareStore({
       currentTargets,
       input,

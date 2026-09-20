@@ -105,6 +105,10 @@ function assertContentKeyTargetsMatchCurrent<
    * fresh material in one set. Such a caller passes `stored` here and gates
    * only the material it newly wrapped through `assertSubmittedEnvelopes`,
    * so a stored envelope is never judged by the submission shape.
+   *
+   * Note the word is narrower here than in the crypto decoder: `stored` at
+   * this layer skips envelope validation entirely, while the decoder's
+   * `stored` still checks the suite, the encodings, and the byte lengths.
    */
   readonly origin: ContentKeyTargetOrigin;
   readonly createMismatchError: () => Error;
