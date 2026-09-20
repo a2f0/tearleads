@@ -435,7 +435,7 @@ export interface SyncRemoteDocumentInput {
    * fresh content key anchored by a rotation baseline.
    */
   buildRotationSnapshot?: (() => Promise<Uint8Array | null>) | undefined;
-  /** Rebuilds inline rekey plans against each submission's current projection. */
+  /** Overrides automatic ancestor repair for each submission's current projection. */
   buildContainerRekeys?: DocumentSyncContainerRekeyBuilder;
   documentId: string;
   execSql: ExecSql;

@@ -225,3 +225,63 @@ test("a child share succeeds after its parent head advanced twice", async () => 
   const ct = await cs.text();
   expect(cs.status, ct.slice(0, 400)).toBe(200);
 });
+
+// Read-first ordering: a writer-projection GET warms both the child's creation
+// manifest and the current parent head into the process-wide verification cache
+// before either share runs, so `verifyBundle` short-circuits on both.
+test("a child share succeeds after a projection read warmed the cache", async () => {
+  const owner = createTestUser();
+  await registerUser(owner);
+  await authenticate(owner);
+  const first = createTestUser();
+  await registerUser(first);
+  await authenticate(first);
+  const second = createTestUser();
+  await registerUser(second);
+  await authenticate(second);
+
+  const root = await bootstrapRoot(owner);
+  const child = await createChildContainer({ parent: root, signer: owner });
+  const childBundle = accessManifestFromContainerResponse(child);
+
+  const warmed = await routeApp.request(
+    `/containers/${child.containerId}/writer-projection`,
+    { headers: { Authorization: `Bearer ${owner.token}` } },
+  );
+  expect(warmed.status, await warmed.text()).toBe(200);
+
+  const rootShare = await share(
+    owner.token,
+    root.kekState.containerId,
+    await buildRootGrantRequest({
+      previous: root.bundle,
+      previousKekState: root.kekState,
+      recipient: first,
+      signer: owner,
+    }),
+  );
+  const rootShared = await rootShare.text();
+  expect(rootShare.status, rootShared.slice(0, 500)).toBe(200);
+  const rootResponse = JSON.parse(rootShared);
+  if (!isContainerMutationResponse(rootResponse)) {
+    throw new Error("Expected a root mutation response");
+  }
+
+  const childShare = await share(
+    owner.token,
+    child.containerId,
+    await buildContainerGrantRequest({
+      parentKekState: kekStateFromContainerResponse(rootResponse),
+      previous: childBundle,
+      previousContainerPath: [
+        accessManifestFromContainerResponse(rootResponse),
+        childBundle,
+      ],
+      previousKekState: kekStateFromContainerResponse(child),
+      recipient: second,
+      signer: owner,
+    }),
+  );
+  const childShared = await childShare.text();
+  expect(childShare.status, childShared.slice(0, 500)).toBe(200);
+});

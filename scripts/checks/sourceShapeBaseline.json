@@ -47,8 +47,8 @@
       "bytes": 18865
     },
     "docs/developer/client-sdk.md": {
-      "lines": 661,
-      "bytes": 33014
+      "lines": 674,
+      "bytes": 33859
     },
     "docs/developer/revenuecat-native-stores.md": {
       "lines": 364,
@@ -244,7 +244,7 @@
     },
     "packages/client-sdk/src/data/documents/shared/types.ts": {
       "lines": 552,
-      "bytes": 18322
+      "bytes": 18356
     },
     "packages/client-sdk/src/data/sqlite/schema.ts": {
       "lines": 899,

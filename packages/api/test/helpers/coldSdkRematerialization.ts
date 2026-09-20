@@ -50,7 +50,7 @@ async function requireJson(
   return response.json();
 }
 
-function createRouteSdkClient(token: string) {
+export function createRouteSdkClient(token: string) {
   const primedDocumentProjections = new Map<string, unknown>();
 
   return createMockApiClient({
@@ -135,7 +135,7 @@ function createRouteSdkClient(token: string) {
   });
 }
 
-function documentAuthor(user: TestUser, organizationId: string) {
+export function documentAuthor(user: TestUser, organizationId: string) {
   return {
     organizationId,
     signerDeviceId: `signing-key:${user.fingerprint}`,
@@ -145,7 +145,9 @@ function documentAuthor(user: TestUser, organizationId: string) {
   };
 }
 
-function trustedResolver(...users: TestUser[]) {
+export function trustedResolver(
+  ...users: TestUser[]
+): ReturnType<typeof createTestTrustedUserIdentityResolver> {
   const resolvers = users.map((user) =>
     createTestTrustedUserIdentityResolver({
       encapsulationPublicKey: user.kem.publicKey,
@@ -165,7 +167,7 @@ function trustedResolver(...users: TestUser[]) {
   };
 }
 
-function writerResolver(user: TestUser) {
+export function writerResolver(user: TestUser) {
   return async (input: {
     writerSigningKeyFingerprint: string;
     writerUserId: string;

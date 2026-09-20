@@ -24,7 +24,10 @@ import type {
   DocumentWriterProjectionResponse,
   ListDocumentAttachmentsResponse,
 } from "@tearleads/validators/response";
-import type { ContainerMutationAuthor } from "../../containers/shared/types";
+import type {
+  ContainerMutationAuthor,
+  ContainerRekeyApi,
+} from "../../containers/shared/types";
 import type {
   ProjectionUserKeyResolver,
   ReferencedPrincipalPolicyWarmer,
@@ -481,6 +484,7 @@ export interface DocumentSyncRequestResultOptions {
 }
 
 export interface DocumentSyncApi {
+  rekeyContainer: ContainerRekeyApi["rekeyContainer"];
   clearWriterProjectionCaches?(): void;
   evictDocumentWriterProjection?(documentId: string): void;
   getDocumentPurgeProof?(
