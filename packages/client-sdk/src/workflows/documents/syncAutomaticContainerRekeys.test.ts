@@ -175,23 +175,21 @@ test("a cold device can acknowledge repairs it commits through the prefix", asyn
     const sync = {
       ...fixture.input,
       apiClient: createMockApiClient({
-        rekeyContainer: async (
-          containerId: string,
-          request: Parameters<typeof createMutationResponseFromRequest>[0],
-        ) => {
+        rekeyContainer: async (containerId, request) => {
           committed.push(containerId);
-          return await createMutationResponseFromRequest(
-            request,
-            previousKeks.get(containerId) as never,
-          );
+          const previousKek = previousKeks.get(containerId);
+          if (!previousKek) {
+            throw new Error(`No pre-repair KEK for ${containerId}`);
+          }
+          return await createMutationResponseFromRequest(request, previousKek);
         },
-      } as never),
+      }),
       documentId: projection.documentId,
       execSql: cold.execSql,
       localVersionVector: null,
       resolveWriterPublicKey: writerKeyResolver(fixture.root),
       validateIncomingUpdates: () => undefined,
-    } as never;
+    };
     // The mock serves no refreshed projection, so preparation stops after the
     // first prefix. What matters is how far it got: a full inline batch was
     // committed and every acknowledgement was accepted on a database holding no

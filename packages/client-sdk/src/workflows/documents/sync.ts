@@ -28,6 +28,7 @@ import type {
   RemoteDocumentSyncAttemptOutcome,
   RemoteDocumentSyncAttemptState,
 } from "./syncAttemptState";
+import { DocumentAncestorRepairAbandonedError } from "./syncContainerRekeyPreparation";
 import { buildRemoteDocumentSyncPlan } from "./syncContainerRekeys";
 import type { TerminalSubmitFailureHandler } from "./syncFailureClassification";
 import {
@@ -162,6 +163,14 @@ function resolveAttemptProjection(
     stillCurrent: input.stillCurrent,
   });
 }
+function abandonAncestorRepair(
+  input: SyncRemoteDocumentInput,
+  error: DocumentAncestorRepairAbandonedError,
+): null {
+  input.onSyncAbandoned?.(error.reason);
+  return null;
+}
+
 function abandonAfterRetryableConflicts(input: SyncRemoteDocumentInput): null {
   input.onSyncAbandoned?.("every sync attempt hit a retryable conflict");
   return null;
@@ -221,6 +230,9 @@ async function planDocumentSyncAttempt(input: {
       writerProjection: input.writerProjection,
     });
   } catch (error) {
+    if (error instanceof DocumentAncestorRepairAbandonedError) {
+      return abandonAncestorRepair(input.sync, error);
+    }
     if (!isDocumentSyncRequestLimitError(error)) {
       throw error;
     }

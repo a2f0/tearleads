@@ -1,3 +1,4 @@
+import { KeyingVerificationError } from "@tearleads/crypto";
 import type {
   ContainerWriterProjectionResponse,
   DocumentWriterProjectionResponse,
@@ -53,11 +54,18 @@ export async function buildAutomaticContainerRekeys(
     if (plannedIds.has(previousProjection.containerId)) {
       throw new Error("Document ancestor repair has conflicting paths");
     }
+    // Assert rather than adopt: resolveRotationContext compares the verified
+    // manifest's organization against the author's, so substituting the path's
+    // own organization here would make that the only cross-org check and leave
+    // it comparing a server-supplied value with itself.
+    if (previousProjection.organizationId !== sync.author.organizationId) {
+      throw new KeyingVerificationError(
+        "object_mismatch",
+        "Document ancestor repair crosses the author's organization",
+      );
+    }
     const planned = await buildMaterializedContainerRekeyPlan({
-      author: {
-        ...sync.author,
-        organizationId: previousProjection.organizationId,
-      },
+      author: sync.author,
       persistVerificationCheckpoints: false,
       previousProjection,
       signedAt: sync.signedAt,

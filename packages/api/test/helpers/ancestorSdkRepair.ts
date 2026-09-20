@@ -196,19 +196,13 @@ export async function editColdDocumentAfterAncestorRotation(input: {
       });
     if (input.blockBeforeRepair) {
       blocked = true;
-      await write().then(
-        () => {
-          throw new Error("Expected a blocked repair failure");
-        },
-        (error: unknown) => {
-          if (
-            !(error instanceof Error) ||
-            error.message !==
-              "Document ancestor repair is blocked for this organization"
-          )
-            throw error;
-        },
-      );
+      // A gated organization abandons the pass rather than failing it: the sync
+      // lane records the reason and resolves null, matching every other blocked
+      // write path. Nothing may be repaired remotely while blocked.
+      const blockedAttempt = await write();
+      if (blockedAttempt !== null) {
+        throw new Error("Expected a blocked repair to abandon the pass");
+      }
       repairsWhileBlocked = standaloneRepairs.length;
       blocked = false;
     }

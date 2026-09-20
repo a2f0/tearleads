@@ -9,6 +9,19 @@ import type { SyncRemoteDocumentInput } from "./readOnlySync";
 import { buildAutomaticContainerRekeys } from "./syncAutomaticContainerRekeys";
 import { refreshSyncAttemptWriterProjection } from "./syncFailures";
 
+/**
+ * A repair that cannot proceed for a routine reason: the organization's writes
+ * are gated, the server refused the rekey, or a peer rotated an ancestor
+ * mid-pass. None is a defect, so the sync lane abandons the attempt rather than
+ * reporting a failed run; the next trigger re-plans from a fresh projection.
+ */
+export class DocumentAncestorRepairAbandonedError extends Error {
+  constructor(readonly reason: string) {
+    super(`Document ancestor repair abandoned: ${reason}`);
+    this.name = "DocumentAncestorRepairAbandonedError";
+  }
+}
+
 async function commitRepairPrefix(input: {
   plans: readonly MaterializedContainerRekeyPlan[];
   repairedIds: Set<string>;
@@ -17,12 +30,14 @@ async function commitRepairPrefix(input: {
   for (const { plan } of input.plans) {
     assertProjectionVerificationCurrent(input.sync.stillCurrent);
     if (input.sync.isRemoteSyncBlocked?.(plan.state.organizationId)) {
-      throw new Error(
-        "Document ancestor repair is blocked for this organization",
+      throw new DocumentAncestorRepairAbandonedError(
+        "remote sync is blocked for this organization",
       );
     }
     if (input.repairedIds.has(plan.containerId)) {
-      throw new Error("An ancestor changed during repair; retry document sync");
+      throw new DocumentAncestorRepairAbandonedError(
+        "a peer rotated an ancestor during repair",
+      );
     }
     const response = await input.sync.apiClient.rekeyContainer(
       plan.containerId,
@@ -33,7 +48,11 @@ async function commitRepairPrefix(input: {
     // retryable, so a handled refusal (402/409) would re-sign the whole prefix
     // before failing again, and the retry never reaches onTerminalSubmitFailure
     // regardless, because this throws before submission.
-    if (!response) throw new Error("Document ancestor repair was refused");
+    if (!response) {
+      throw new DocumentAncestorRepairAbandonedError(
+        "the server refused an ancestor repair",
+      );
+    }
     const acknowledged = await acknowledgeContainerMutation({
       execSql: input.sync.execSql,
       plan,
@@ -89,6 +108,11 @@ export async function prepareAutomaticContainerRekeys(
       onRemoteDocumentDeleted: sync.onRemoteDocumentDeleted,
       onSyncAbandoned: sync.onSyncAbandoned,
       onSyncTrace: sync.onSyncTrace,
+      // Always a write-bearing pass, so a terminal projection failure (a 403
+      // after revocation mid-repair) must leave the durable record that the
+      // queued writes are blocked. onReadOnlyProjectionFailure is documented
+      // for passes without queued writes and would not apply here.
+      onTerminalFailure: sync.onTerminalSubmitFailure,
       stillCurrent: sync.stillCurrent,
     });
     if (!fresh) {
