@@ -16,7 +16,17 @@ import { refreshSyncAttemptWriterProjection } from "./syncFailures";
  * reporting a failed run; the next trigger re-plans from a fresh projection.
  */
 export class DocumentAncestorRepairAbandonedError extends Error {
-  constructor(readonly reason: string) {
+  constructor(
+    readonly reason: string,
+    /**
+     * True when the writer cannot make progress by retrying — a refused repair
+     * is a 403 after ancestor write access was revoked, or a 402. Those need a
+     * durable record, or the queue retries forever and the pending-write
+     * diagnostics never show the writes as blocked. A gated organization or a
+     * peer's concurrent rotation clears on its own and stays non-terminal.
+     */
+    readonly terminal = false,
+  ) {
     super(`Document ancestor repair abandoned: ${reason}`);
     this.name = "DocumentAncestorRepairAbandonedError";
   }
@@ -51,6 +61,7 @@ async function commitRepairPrefix(input: {
     if (!response) {
       throw new DocumentAncestorRepairAbandonedError(
         "the server refused an ancestor repair",
+        true,
       );
     }
     const acknowledged = await acknowledgeContainerMutation({

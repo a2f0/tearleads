@@ -17,6 +17,7 @@ import {
   buildMaterializedDocumentCreatePlan,
   documentWriterProjectionFromCreateResponse,
 } from "./create";
+import { syncRemoteDocument } from "./sync";
 import { prepareAutomaticContainerRekeys } from "./syncContainerRekeyPreparation";
 import { buildRemoteDocumentSyncPlan } from "./syncContainerRekeys";
 
@@ -200,6 +201,105 @@ test("a cold device can acknowledge repairs it commits through the prefix", asyn
       prepareAutomaticContainerRekeys(sync, projection),
     ).rejects.toThrow(/projection is unavailable/);
     expect(committed).toHaveLength(MAX_INLINE_CONTAINER_REKEYS);
+  } finally {
+    staging.close();
+    cold.close();
+  }
+}, 180_000);
+
+// The planner signs repairs as the syncing identity. Adopting the path's own
+// organization would leave resolveRotationContext comparing a server-supplied
+// value against itself, so a path outside the author's organization is refused
+// rather than absorbed.
+test("a repair path outside the author's organization is refused", async () => {
+  const fixture = await createRotatedAncestorFixture();
+  const database = await createTestExecSql("cross-org-ancestor-repair");
+  try {
+    const input = { ...fixture.input, execSql: database.execSql };
+    const created = await buildMaterializedDocumentCreatePlan({
+      ...input,
+      containerProjection: fixture.grandchild.projection,
+    });
+    const original = documentWriterProjectionFromCreateResponse({
+      containerProjection: fixture.grandchild.projection,
+      response: await createResponseFromRequest(created.plan.request),
+    });
+    const foreign = {
+      ...fixture.projection,
+      organizationId: "another-organization",
+    };
+    const projection = {
+      ...original,
+      authorizingContainerPaths: [foreign],
+    };
+    const sync = {
+      ...input,
+      apiClient: createMockApiClient(),
+      buildRotationSnapshot: createFullHistoryRotationSnapshot,
+      documentId: projection.documentId,
+      localVersionVector: null,
+      resolveWriterPublicKey: writerKeyResolver(fixture.root),
+      validateIncomingUpdates: () => undefined,
+    };
+    await expect(
+      buildRemoteDocumentSyncPlan({
+        pendingUpdates: [createPendingUpdateRecord()],
+        projection,
+        regenerateQueuedCheckpoints: false,
+        sync,
+      }),
+    ).rejects.toMatchObject({ code: "object_mismatch" });
+  } finally {
+    database.close();
+  }
+});
+
+// A refused standalone repair (403 once ancestor write access is revoked, or a
+// 402) is terminal for this writer: the pass abandons rather than erroring, but
+// it must leave a durable record, or the queue retries forever and the
+// pending-write diagnostics never show the writes as blocked.
+test("a refused standalone repair abandons and records a terminal failure", async () => {
+  const fixture = await createDeepRotatedAncestorFixture(17);
+  const staging = await createTestExecSql("refused-prefix-document");
+  const cold = await createTestExecSql("refused-prefix-repair");
+  try {
+    const created = await buildMaterializedDocumentCreatePlan({
+      ...fixture.input,
+      execSql: staging.execSql,
+      containerProjection: fixture.leaf,
+    });
+    const original = documentWriterProjectionFromCreateResponse({
+      containerProjection: fixture.leaf,
+      response: await createResponseFromRequest(created.plan.request),
+    });
+    const projection = {
+      ...original,
+      authorizingContainerPaths: [fixture.projection],
+    };
+    const abandoned: string[] = [];
+    const terminal: string[] = [];
+    const sync = {
+      ...fixture.input,
+      apiClient: createMockApiClient({ rekeyContainer: async () => null }),
+      buildRotationSnapshot: createFullHistoryRotationSnapshot,
+      documentId: projection.documentId,
+      execSql: cold.execSql,
+      localVersionVector: null,
+      onSyncAbandoned: (reason: string) => abandoned.push(reason),
+      onTerminalSubmitFailure: (failure: { message: string }) => {
+        terminal.push(failure.message);
+      },
+      resolveWriterPublicKey: writerKeyResolver(fixture.root),
+      validateIncomingUpdates: () => undefined,
+    };
+    const result = await syncRemoteDocument({
+      ...sync,
+      pendingUpdates: [createPendingUpdateRecord()],
+      writerProjection: projection,
+    });
+    expect(result).toBeNull();
+    expect(abandoned).toEqual(["the server refused an ancestor repair"]);
+    expect(terminal).toHaveLength(1);
   } finally {
     staging.close();
     cold.close();
