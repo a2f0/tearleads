@@ -40,8 +40,13 @@ async function commitRepairPrefix(input: {
       response,
       stillCurrent: input.sync.stillCurrent,
     });
-    if (!acknowledged)
+    if (!acknowledged) {
+      // A refused guarded transaction is usually a generation flip; surface it
+      // as the shared cancellation so syncRemoteDocument returns null instead
+      // of reporting a routine flip as a sync failure.
+      assertProjectionVerificationCurrent(input.sync.stillCurrent);
       throw new Error("Document ancestor repair was superseded");
+    }
     input.repairedIds.add(plan.containerId);
   }
 }
@@ -66,9 +71,15 @@ export async function prepareAutomaticContainerRekeys(
     const batch = await buildAutomaticContainerRekeys(sync, projection);
     if (!batch.hasMore) return { plans: batch.plans, projection };
     // Standalone mutations require authentic document scope before any request.
+    // Persist the verified heads here, unlike the inline path: a committed
+    // repair is acknowledged against the latest durable pin, and a repaired
+    // ancestor is always past epoch 1, so a device that has never pinned it
+    // would reject its own acknowledgement after the server already committed
+    // the rekey. The inline path needs no pin because the sync response
+    // re-verifies and pins before anything is acknowledged.
     await assertDocumentWriterProjectionConsistent(projection, {
       ...projectionVerificationOptions(sync),
-      persistVerificationCheckpoints: false,
+      persistVerificationCheckpoints: true,
       allowStaleContentKeyBundle: true,
     });
     await commitRepairPrefix({ plans: batch.plans, repairedIds, sync });
@@ -80,8 +91,11 @@ export async function prepareAutomaticContainerRekeys(
       onSyncTrace: sync.onSyncTrace,
       stillCurrent: sync.stillCurrent,
     });
-    if (!fresh)
+    if (!fresh) {
+      // refreshSyncAttemptWriterProjection returns null on a generation flip.
+      assertProjectionVerificationCurrent(sync.stillCurrent);
       throw new Error("Document ancestor repair projection is unavailable");
+    }
     // The scope check above guards the first round only; a refetched projection
     // is server-supplied too, and nothing in the refresh path proves it names
     // the document this repair is for.

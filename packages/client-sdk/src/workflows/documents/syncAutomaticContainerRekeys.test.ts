@@ -1,6 +1,11 @@
 import { expect, test } from "bun:test";
 import { createMockApiClient, createTestExecSql } from "@tearleads/test-utils";
-import { createRotatedAncestorFixture } from "../../../test/helpers/ancestorRotationRecovery";
+import { MAX_INLINE_CONTAINER_REKEYS } from "@tearleads/validators/util";
+import {
+  createDeepRotatedAncestorFixture,
+  createRotatedAncestorFixture,
+} from "../../../test/helpers/ancestorRotationRecovery";
+import { createMutationResponseFromRequest } from "../../../test/helpers/containerFixtures";
 import { writerKeyResolver } from "../../../test/helpers/documentFixtures";
 import {
   createPendingUpdateRecord,
@@ -136,3 +141,69 @@ test("a pass that cannot heal a stale bundle declines to repair its ancestors", 
     database.close();
   }
 });
+
+// A repair committed through the standalone prefix is acknowledged against the
+// latest durable pin, and a repaired ancestor is always past epoch 1. On a
+// device that has never pinned that ancestor the acknowledgement would reject
+// its own repair *after* the server committed it, so the prefix path must pin
+// the verified heads before it commits anything. The API regression cannot see
+// this: it performs a read-only sync first, which pins the whole path.
+test("a cold device can acknowledge repairs it commits through the prefix", async () => {
+  const fixture = await createDeepRotatedAncestorFixture(17);
+  const staging = await createTestExecSql("deep-prefix-document");
+  const cold = await createTestExecSql("cold-prefix-acknowledgement");
+  try {
+    const created = await buildMaterializedDocumentCreatePlan({
+      ...fixture.input,
+      execSql: staging.execSql,
+      containerProjection: fixture.leaf,
+    });
+    const original = documentWriterProjectionFromCreateResponse({
+      containerProjection: fixture.leaf,
+      response: await createResponseFromRequest(created.plan.request),
+    });
+    const projection = {
+      ...original,
+      authorizingContainerPaths: [fixture.projection],
+    };
+    const committed: string[] = [];
+    // Each container on the chain is repaired exactly once, so its pre-repair
+    // KEK is the one the stale projection already carries.
+    const previousKeks = new Map(
+      fixture.projection.containerKeks.map((kek) => [kek.containerId, kek]),
+    );
+    const sync = {
+      ...fixture.input,
+      apiClient: createMockApiClient({
+        rekeyContainer: async (
+          containerId: string,
+          request: Parameters<typeof createMutationResponseFromRequest>[0],
+        ) => {
+          committed.push(containerId);
+          return await createMutationResponseFromRequest(
+            request,
+            previousKeks.get(containerId) as never,
+          );
+        },
+      } as never),
+      documentId: projection.documentId,
+      execSql: cold.execSql,
+      localVersionVector: null,
+      resolveWriterPublicKey: writerKeyResolver(fixture.root),
+      validateIncomingUpdates: () => undefined,
+    } as never;
+    // The mock serves no refreshed projection, so preparation stops after the
+    // first prefix. What matters is how far it got: a full inline batch was
+    // committed and every acknowledgement was accepted on a database holding no
+    // prior pin for any of these ancestors. Without pinning the verified heads
+    // first, the first acknowledgement rejects its own repair with
+    // `stale_predecessor` after the server already committed it.
+    await expect(
+      prepareAutomaticContainerRekeys(sync, projection),
+    ).rejects.toThrow(/projection is unavailable/);
+    expect(committed).toHaveLength(MAX_INLINE_CONTAINER_REKEYS);
+  } finally {
+    staging.close();
+    cold.close();
+  }
+}, 180_000);

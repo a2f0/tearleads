@@ -62,3 +62,54 @@ export async function createRotatedAncestorFixture() {
     database.close();
   }
 }
+
+/**
+ * A chain deep enough that repairing it exceeds `MAX_INLINE_CONTAINER_REKEYS`,
+ * so the standalone prefix path runs. Rotating the root staled the first edge;
+ * each repair mints a new epoch and stales the next, so the whole chain needs
+ * repairing one level at a time.
+ */
+export async function createDeepRotatedAncestorFixture(depth: number) {
+  const root = await createParentProjection();
+  const database = await createTestExecSql("deep-ancestor-rotation-author");
+  const input = {
+    author: root.author,
+    execSql: database.execSql,
+    persistVerificationCheckpoints: false,
+    resolveProjectionUserKey: createParentProjectionUserKeyResolver(root),
+    targetSecretKey: root.secretKey,
+  };
+  try {
+    let parent = root.projection;
+    const descendants: ContainerWriterProjectionResponse[] = [];
+    for (let level = 0; level < depth; level += 1) {
+      const materializedPlan = await buildMaterializedContainerCreatePlan({
+        ...input,
+        containerId: `descendant-${level}`,
+        parentProjection: parent,
+        parentSecretKey: root.secretKey,
+      });
+      parent = childContainerWriterProjectionFromCreatePlan({
+        materializedPlan,
+        parentProjection: parent,
+      });
+      descendants.push(parent);
+    }
+    const leaf = parent;
+    const rotatedRoot = await buildMaterializedContainerRekeyPlan({
+      ...input,
+      previousProjection: root.projection,
+    });
+    const projection = {
+      ...leaf,
+      path: [...rotatedRoot.writerProjection.path, ...leaf.path.slice(1)],
+      containerKeks: [
+        ...rotatedRoot.writerProjection.containerKeks,
+        ...leaf.containerKeks.slice(1),
+      ],
+    };
+    return { descendants, input, leaf, projection, root };
+  } finally {
+    database.close();
+  }
+}
