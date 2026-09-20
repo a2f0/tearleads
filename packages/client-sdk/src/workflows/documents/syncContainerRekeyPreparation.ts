@@ -1,5 +1,6 @@
 import { KeyingVerificationError } from "@tearleads/crypto";
 import type { DocumentWriterProjectionResponse } from "@tearleads/validators/response";
+import { MAX_DOCUMENT_SYNC_AUTHORIZATION_PATH_DEPTH } from "@tearleads/validators/util";
 import { acknowledgeContainerMutation } from "../../data/containers/shared/mutationAcknowledgement";
 import type { MaterializedContainerRekeyPlan } from "../../data/containers/shared/types";
 import { assertDocumentWriterProjectionConsistent } from "../../data/documents/shared/projection";
@@ -92,6 +93,12 @@ export async function prepareAutomaticContainerRekeys(
   }
   let projection = initialProjection;
   const repairedIds = new Set<string>();
+  // `repairedIds` only breaks a loop within one call, and retrySyncPlan can
+  // re-enter plan building several times per pass with a fresh set. Bound the
+  // work by the deepest authorizing path the protocol allows: no honest chain
+  // needs more repairs than that in a single preparation, so a server that
+  // keeps serving a stale chain cannot drive unbounded signed rekeys.
+  let totalRepairs = 0;
   for (;;) {
     const batch = await buildAutomaticContainerRekeys(sync, projection);
     if (!batch.hasMore) return { plans: batch.plans, projection };
@@ -107,6 +114,12 @@ export async function prepareAutomaticContainerRekeys(
       persistVerificationCheckpoints: true,
       allowStaleContentKeyBundle: true,
     });
+    totalRepairs += batch.plans.length;
+    if (totalRepairs > MAX_DOCUMENT_SYNC_AUTHORIZATION_PATH_DEPTH) {
+      throw new DocumentAncestorRepairAbandonedError(
+        "the ancestor repair chain exceeded its depth budget",
+      );
+    }
     await commitRepairPrefix({ plans: batch.plans, repairedIds, sync });
     const fresh = await refreshSyncAttemptWriterProjection({
       apiClient: sync.apiClient,
