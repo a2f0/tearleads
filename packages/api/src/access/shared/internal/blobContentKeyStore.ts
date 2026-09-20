@@ -234,7 +234,7 @@ async function validateCurrentTargetsForBundle(
   }
   assertTargetsMatchCurrent({
     currentTargets,
-    submitted: true,
+    origin: "submission",
     targets: input.targets,
   });
   return currentTargets;

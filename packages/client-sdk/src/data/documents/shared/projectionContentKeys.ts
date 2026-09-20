@@ -98,7 +98,9 @@ export async function unwrapContentKeyTargetForSuite(input: {
   label: "Blob" | "Document";
   suite: Parameters<typeof decodeContentKeyEnvelope>[0]["suite"];
 }): Promise<Uint8Array> {
-  const encrypted = decodeContentKeyEnvelope(input);
+  // Reading, not submitting: the AEAD tag authenticates the result, and a
+  // stricter shape check here would make a decryptable envelope unreadable.
+  const encrypted = decodeContentKeyEnvelope({ ...input, origin: "stored" });
 
   try {
     return await decryptWithDek(encrypted, input.containerKek);

@@ -8,7 +8,12 @@ import {
   BLOB_CONTENT_KEY_WRAP_SUITE,
   DOCUMENT_CONTENT_KEY_WRAP_SUITE,
 } from "./keying/types";
-import { decryptWithDek, encryptWithDek } from "./symmetric";
+import {
+  AES_GCM_IV_BYTES,
+  AES_GCM_TAG_BYTES,
+  decryptWithDek,
+  encryptWithDek,
+} from "./symmetric";
 
 for (const label of ["Blob", "Document"] as const) {
   const suite =
@@ -25,12 +30,18 @@ for (const label of ["Blob", "Document"] as const) {
     };
     expect(
       await decryptWithDek(
-        decodeContentKeyEnvelope({ envelope, label, suite }),
+        decodeContentKeyEnvelope({
+          envelope,
+          label,
+          origin: "submission",
+          suite,
+        }),
         kek,
       ),
     ).toEqual(key);
     encrypted.ciphertext[0] = (encrypted.ciphertext[0] ?? 0) ^ 1;
     const tampered = decodeContentKeyEnvelope({
+      origin: "submission",
       envelope: {
         ...envelope,
         wrappedKey: bytesToBase64(encrypted.ciphertext),
@@ -75,8 +86,42 @@ for (const label of ["Blob", "Document"] as const) {
     ];
     for (const invalid of malformed) {
       expect(() =>
-        decodeContentKeyEnvelope({ envelope: invalid, label, suite }),
+        decodeContentKeyEnvelope({
+          envelope: invalid,
+          label,
+          origin: "submission",
+          suite,
+        }),
       ).toThrow(ContentKeyEnvelopeError);
     }
   });
 }
+
+test("a stored envelope with extra metadata still decodes", () => {
+  const suite = DOCUMENT_CONTENT_KEY_WRAP_SUITE;
+  const iv = bytesToBase64(new Uint8Array(AES_GCM_IV_BYTES));
+  const wrappedKey = bytesToBase64(new Uint8Array(32 + AES_GCM_TAG_BYTES));
+  const envelope = {
+    wrappedKey,
+    wrappingMetadata: { iv, suite, unexpected: "written by another build" },
+  };
+  // Submitting it is refused: the published shape is exactly suite and iv.
+  expect(() =>
+    decodeContentKeyEnvelope({
+      envelope,
+      label: "Document",
+      origin: "submission",
+      suite,
+    }),
+  ).toThrow(ContentKeyEnvelopeError);
+  // Reading it is not, or the row would be permanently undecryptable even
+  // though the AEAD tag can still authenticate it.
+  const decoded = decodeContentKeyEnvelope({
+    envelope,
+    label: "Document",
+    origin: "stored",
+    suite,
+  });
+  expect(decoded.iv).toHaveLength(AES_GCM_IV_BYTES);
+  expect(decoded.ciphertext).toHaveLength(32 + AES_GCM_TAG_BYTES);
+});

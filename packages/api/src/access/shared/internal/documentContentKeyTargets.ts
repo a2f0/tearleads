@@ -5,6 +5,7 @@ import {
   type KeyingCanonicalJson,
 } from "@tearleads/crypto";
 import type { DocumentSyncErrorCode } from "@tearleads/validators/response";
+import type { ContentKeyTargetOrigin } from "./contentKeyTargetPolicy";
 import { createContentKeyTargetPolicy } from "./contentKeyTargetPolicy";
 import type { resolveCurrentDocumentKekTargets } from "./documentKekTargets";
 
@@ -89,9 +90,8 @@ export const {
 
 export function assertTargetsMatchCurrent(input: {
   readonly currentTargets: CurrentDocumentKekTargets;
+  readonly origin: ContentKeyTargetOrigin;
   readonly targets: readonly DocumentContentKeyTargetEnvelope[];
-  /** Set on a submission; stored rows are not held to the strict shape. */
-  readonly submitted?: boolean;
 }): void {
   contentKeyTargetPolicy.assertTargetsMatchCurrent(input);
 }

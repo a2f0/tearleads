@@ -219,6 +219,7 @@ export async function getLatestDocumentContentKeyBundleProjection(
     assertTargetsCurrent: (bundle) =>
       assertTargetsMatchCurrent({
         currentTargets: input.currentTargets,
+        origin: "stored",
         targets: bundle.targets,
       }),
     getLatestBundle: () =>
@@ -413,7 +414,7 @@ async function validateCurrentTargetsForBundle(
   }
   assertTargetsMatchCurrent({
     currentTargets,
-    submitted: true,
+    origin: "submission",
     targets: input.targets,
   });
   return currentTargets;
@@ -644,6 +645,7 @@ export async function requireAndRefreshCurrentDocumentContentKeyBundle(input: {
     });
     assertTargetsMatchCurrent({
       currentTargets,
+      origin: "stored",
       targets: storedBundle.targets,
     });
 
@@ -652,7 +654,11 @@ export async function requireAndRefreshCurrentDocumentContentKeyBundle(input: {
       currentTargets,
     };
   }
-  assertTargetsMatchCurrent({ currentTargets, targets: bundle.targets });
+  assertTargetsMatchCurrent({
+    currentTargets,
+    origin: "stored",
+    targets: bundle.targets,
+  });
 
   return {
     ...bundle,

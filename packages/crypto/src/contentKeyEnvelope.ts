@@ -35,6 +35,9 @@ function decodeFixedBase64(
   return bytes;
 }
 
+/** Where an envelope came from; a submission is held to the published shape. */
+export type ContentKeyEnvelopeOrigin = "stored" | "submission";
+
 /** Checks public envelope structure only; authentication still requires the KEK. */
 export function decodeContentKeyEnvelope(input: {
   readonly envelope: {
@@ -42,25 +45,42 @@ export function decodeContentKeyEnvelope(input: {
     readonly wrappingMetadata?: unknown;
   };
   readonly label: "Blob" | "Document";
+  /**
+   * `submission` enforces the published shape before anything is persisted.
+   * `stored` decodes what is already there: rejecting an otherwise decryptable
+   * envelope for carrying an extra metadata key, or a suite label this build
+   * does not recognise, would make it permanently unreadable. The AEAD tag is
+   * what actually authenticates the result either way.
+   */
+  readonly origin: ContentKeyEnvelopeOrigin;
   readonly suite:
     | typeof DOCUMENT_CONTENT_KEY_WRAP_SUITE
     | typeof BLOB_CONTENT_KEY_WRAP_SUITE;
 }): { readonly iv: Uint8Array; readonly ciphertext: Uint8Array } {
   const label = `${input.label} content-key target`;
+  const submitted = input.origin === "submission";
   let metadata: Record<string, unknown>;
-  try {
-    metadata = assertExactKeys(
-      input.envelope.wrappingMetadata,
-      ["iv", "suite"],
-      label,
-    );
-  } catch {
-    throw new ContentKeyEnvelopeError(
-      `${label} metadata must contain exactly suite and iv`,
-    );
-  }
-  if (Reflect.get(metadata, "suite") !== input.suite) {
-    throw new ContentKeyEnvelopeError(`${label} uses an unknown suite`);
+  if (submitted) {
+    try {
+      metadata = assertExactKeys(
+        input.envelope.wrappingMetadata,
+        ["iv", "suite"],
+        label,
+      );
+    } catch {
+      throw new ContentKeyEnvelopeError(
+        `${label} metadata must contain exactly suite and iv`,
+      );
+    }
+    if (Reflect.get(metadata, "suite") !== input.suite) {
+      throw new ContentKeyEnvelopeError(`${label} uses an unknown suite`);
+    }
+  } else {
+    const stored = input.envelope.wrappingMetadata;
+    if (typeof stored !== "object" || stored === null) {
+      throw new ContentKeyEnvelopeError(`${label} is missing an IV`);
+    }
+    metadata = stored as Record<string, unknown>;
   }
   const iv = Reflect.get(metadata, "iv");
   if (typeof iv !== "string" || iv.length === 0) {

@@ -59,6 +59,9 @@ function assertContentKeyWrappedMaterialPresent<
   }
 }
 
+/** Where a target set came from; a submission is held to the strict shape. */
+export type ContentKeyTargetOrigin = "stored" | "submission";
+
 function expectedContentKeyTargetMap<T>(
   targets: readonly T[],
   targetKey: (target: T) => string,
@@ -92,9 +95,11 @@ function assertContentKeyTargetsMatchCurrent<
    * Strict envelope shape is a submission gate, not a read gate. Applying it to
    * rows already persisted would turn a malformed stored envelope into a
    * permanent, unhealable projection failure for that document; the design
-   * contract is that submissions are rejected before persistence.
+   * contract is that submissions are rejected before persistence. Required
+   * rather than defaulted, so a new call site has to state which it is instead
+   * of silently skipping the gate.
    */
-  readonly validateEnvelopeShape: boolean;
+  readonly origin: ContentKeyTargetOrigin;
   readonly createMismatchError: () => Error;
 }): void {
   assertNoDuplicateContentKeyTargets(
@@ -106,7 +111,7 @@ function assertContentKeyTargetsMatchCurrent<
     input.targets,
     input.createMissingWrappedMaterialError,
   );
-  if (input.validateEnvelopeShape) {
+  if (input.origin === "submission") {
     for (const target of input.targets) input.validateEnvelope(target);
   }
 
@@ -218,25 +223,25 @@ export function createContentKeyTargetPolicy<
     },
     assertTargetsMatchCurrent: (input: {
       readonly currentTargets: TCurrentTargets;
+      readonly origin: ContentKeyTargetOrigin;
       readonly targets: readonly TEnvelope[];
-      /** Set on a submission; omitted when re-checking rows already stored. */
-      readonly submitted?: boolean;
     }): void => {
       assertContentKeyTargetsMatchCurrent({
         currentTargets: input.currentTargets.targets,
         targets: input.targets,
         targetKey: options.targetKey,
         targetFieldsEqual,
-        validateEnvelopeShape: input.submitted === true,
+        origin: input.origin,
         createDuplicateError: () =>
           options.createError(options.messages.duplicateTargets, 409),
         createMissingWrappedMaterialError: () =>
-          options.createError(options.messages.missingWrappedMaterial, 409),
+          options.createError(options.messages.missingWrappedMaterial, 400),
         validateEnvelope: (envelope) => {
           try {
             decodeContentKeyEnvelope({
               envelope,
               label: options.envelopeLabel,
+              origin: "submission",
               suite: options.wrappingSuite,
             });
           } catch (error) {

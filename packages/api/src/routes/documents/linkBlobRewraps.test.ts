@@ -107,6 +107,33 @@ test("link and unlink atomically cover active blob bindings and retain prior wra
     blobRewraps: [],
   });
   expect((await post("link", tampered)).status).not.toBe(200);
+  // The rewrap path is the third site gated by the submission envelope check.
+  // Built from the valid rewrap set so it clears the coverage checks and is
+  // signed over the malformed material, reaching envelope validation itself.
+  const malformedRewrap = await buildDocumentLinkRequest({
+    child,
+    createdDocument: document,
+    owner,
+    root,
+    blobRewraps: blobRewraps.map((rewrap) => ({
+      ...rewrap,
+      targets: rewrap.targets.map((rewrapTarget, index) =>
+        index === 0 ? { ...rewrapTarget, wrappedKey: "AA==" } : rewrapTarget,
+      ),
+    })),
+  });
+  const malformedResponse = await post("link", malformedRewrap);
+  const malformedBody = await malformedResponse.text();
+  expect({
+    status: malformedResponse.status,
+    body: malformedBody,
+  }).toMatchObject({ status: 400 });
+  expect(malformedBody).toContain("wrapped key");
+  expect(
+    (await getCurrentAccessManifestHead("document", document.id, db))
+      ?.manifestHash,
+  ).toBe(document.accessManifest.manifestHash);
+
   const response = await post("link", link);
   const linked = await response.json();
   expect({ status: response.status, body: linked }).toMatchObject({
