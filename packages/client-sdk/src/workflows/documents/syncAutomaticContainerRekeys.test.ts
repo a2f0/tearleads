@@ -92,3 +92,47 @@ test("ordinary document sync repairs a stale ancestor chain before encrypting it
     database.close();
   }
 });
+
+// Rotation settlement submits only the ordinary local stream and therefore
+// supplies no rotation snapshot. Repairing this document's own container there
+// would mark the content-key bundle stale with nothing able to heal it — and on
+// a chain past the inline limit, only after a standalone prefix had already been
+// committed. Such a pass must decline to repair and fail as it did before.
+test("a pass that cannot heal a stale bundle declines to repair its ancestors", async () => {
+  const fixture = await createRotatedAncestorFixture();
+  const database = await createTestExecSql("settlement-declines-repair");
+  try {
+    const input = { ...fixture.input, execSql: database.execSql };
+    const created = await buildMaterializedDocumentCreatePlan({
+      ...input,
+      containerProjection: fixture.grandchild.projection,
+    });
+    const original = documentWriterProjectionFromCreateResponse({
+      containerProjection: fixture.grandchild.projection,
+      response: await createResponseFromRequest(created.plan.request),
+    });
+    const projection = {
+      ...original,
+      authorizingContainerPaths: [fixture.projection],
+    };
+    const settlement = {
+      ...input,
+      apiClient: createMockApiClient(),
+      // omitted exactly as syncRequest.ts does for allowRecoveryBaseline: false
+      documentId: projection.documentId,
+      localVersionVector: null,
+      resolveWriterPublicKey: writerKeyResolver(fixture.root),
+      validateIncomingUpdates: () => undefined,
+    };
+    await expect(
+      buildRemoteDocumentSyncPlan({
+        pendingUpdates: [createPendingUpdateRecord()],
+        projection,
+        regenerateQueuedCheckpoints: false,
+        sync: settlement,
+      }),
+    ).rejects.toThrow(/ancestor KEK repair/);
+  } finally {
+    database.close();
+  }
+});

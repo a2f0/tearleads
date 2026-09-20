@@ -15,8 +15,18 @@ export async function buildRemoteDocumentSyncPlan(input: {
   regenerateQueuedCheckpoints: boolean;
   sync: SyncRemoteDocumentInput;
 }) {
+  // Repairing this document's own container moves its key target hash, which
+  // marks the content-key bundle stale. Only a pass that can build a rotation
+  // snapshot is able to heal that; rotation settlement deliberately cannot
+  // (`syncRequest.ts` omits the builder for `allowRecoveryBaseline: false`), so
+  // repairing there would trade a classified "ancestor repair required" failure
+  // for an unhealable bundle — after a standalone prefix may already have been
+  // committed. Such a pass is left to fail as it did before automatic repair.
+  const canHealStaleBundle = input.sync.buildRotationSnapshot !== undefined;
   const prepared =
-    input.pendingUpdates.length && !input.sync.buildContainerRekeys
+    input.pendingUpdates.length &&
+    !input.sync.buildContainerRekeys &&
+    canHealStaleBundle
       ? await prepareAutomaticContainerRekeys(input.sync, input.projection)
       : { projection: input.projection, plans: undefined };
   const rekeyPlans =
