@@ -125,3 +125,37 @@ test("a stored envelope with extra metadata still decodes", () => {
   expect(decoded.iv).toHaveLength(AES_GCM_IV_BYTES);
   expect(decoded.ciphertext).toHaveLength(32 + AES_GCM_TAG_BYTES);
 });
+
+test("a stored envelope for the other object kind is refused", () => {
+  const iv = bytesToBase64(new Uint8Array(AES_GCM_IV_BYTES));
+  const wrappedKey = bytesToBase64(new Uint8Array(32 + AES_GCM_TAG_BYTES));
+  // Blob and document wraps are sealed to the same container KEK with no AAD,
+  // and the target hash covers neither the wrapped key nor its metadata, so the
+  // suite label is all that ties an envelope to its object kind. Reading must
+  // enforce it, or a server can serve a document wrap inside a blob bundle.
+  const documentEnvelope = {
+    wrappedKey,
+    wrappingMetadata: { iv, suite: DOCUMENT_CONTENT_KEY_WRAP_SUITE },
+  };
+  for (const origin of ["stored", "submission"] as const) {
+    expect(() =>
+      decodeContentKeyEnvelope({
+        envelope: documentEnvelope,
+        label: "Blob",
+        origin,
+        suite: BLOB_CONTENT_KEY_WRAP_SUITE,
+      }),
+    ).toThrow(ContentKeyEnvelopeError);
+  }
+  // The matching kind still decodes under both.
+  for (const origin of ["stored", "submission"] as const) {
+    expect(
+      decodeContentKeyEnvelope({
+        envelope: documentEnvelope,
+        label: "Document",
+        origin,
+        suite: DOCUMENT_CONTENT_KEY_WRAP_SUITE,
+      }).iv,
+    ).toHaveLength(AES_GCM_IV_BYTES);
+  }
+});

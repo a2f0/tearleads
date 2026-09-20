@@ -47,10 +47,15 @@ export function decodeContentKeyEnvelope(input: {
   readonly label: "Blob" | "Document";
   /**
    * `submission` enforces the published shape before anything is persisted.
-   * `stored` decodes what is already there: rejecting an otherwise decryptable
-   * envelope for carrying an extra metadata key, or a suite label this build
-   * does not recognise, would make it permanently unreadable. The AEAD tag is
-   * what actually authenticates the result either way.
+   * `stored` tolerates an unexpected metadata key, which would otherwise make
+   * an already decryptable envelope permanently unreadable.
+   *
+   * The suite is checked in both modes. Blob and document wraps are sealed to
+   * the same container KEK with no additional authenticated data, and the
+   * target hash covers neither the wrapped key nor its metadata, so the suite
+   * label is the only thing binding an envelope to its object kind on read —
+   * without it a server could serve a document envelope inside a blob bundle.
+   * No stored row can carry the wrong suite, because it was always rejected.
    */
   readonly origin: ContentKeyEnvelopeOrigin;
   readonly suite:
@@ -81,6 +86,9 @@ export function decodeContentKeyEnvelope(input: {
       throw new ContentKeyEnvelopeError(`${label} is missing an IV`);
     }
     metadata = stored as Record<string, unknown>;
+    if (Reflect.get(metadata, "suite") !== input.suite) {
+      throw new ContentKeyEnvelopeError(`${label} uses an unknown suite`);
+    }
   }
   const iv = Reflect.get(metadata, "iv");
   if (typeof iv !== "string" || iv.length === 0) {
