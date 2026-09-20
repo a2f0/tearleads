@@ -205,7 +205,7 @@ test("a cold device can acknowledge repairs it commits through the prefix", asyn
     // `stale_predecessor` after the server already committed it.
     await expect(
       prepareAutomaticContainerRekeys(sync, projection),
-    ).rejects.toThrow(/could not be refreshed/);
+    ).rejects.toThrow(/abandoned: unrefreshable/);
     expect(committed).toHaveLength(MAX_INLINE_CONTAINER_REKEYS);
   } finally {
     staging.close();
@@ -307,7 +307,7 @@ test("a refused standalone repair abandons the pass", async () => {
       writerProjection: projection,
     });
     expect(result).toBeNull();
-    expect(abandoned).toEqual(["the server refused an ancestor repair"]);
+    expect(abandoned).toEqual(["refused"]);
     expect(terminal).toEqual([]);
     // Production wires onSyncTrace, not onSyncAbandoned, so the trace is the
     // only way an abandoned repair is visible at all.

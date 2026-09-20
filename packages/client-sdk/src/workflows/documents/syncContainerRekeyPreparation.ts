@@ -9,6 +9,7 @@ import { assertProjectionVerificationCurrent } from "../../data/keyingProjection
 import type { SyncRemoteDocumentInput } from "./readOnlySync";
 import { buildAutomaticContainerRekeys } from "./syncAutomaticContainerRekeys";
 import { refreshSyncAttemptWriterProjection } from "./syncFailures";
+import type { AncestorRepairAbandonReason } from "./syncTrace";
 
 /**
  * A repair that cannot proceed for a routine reason: the organization's writes
@@ -17,7 +18,7 @@ import { refreshSyncAttemptWriterProjection } from "./syncFailures";
  * reporting a failed run; the next trigger re-plans from a fresh projection.
  */
 export class DocumentAncestorRepairAbandonedError extends Error {
-  constructor(readonly reason: string) {
+  constructor(readonly reason: AncestorRepairAbandonReason) {
     super(`Document ancestor repair abandoned: ${reason}`);
     this.name = "DocumentAncestorRepairAbandonedError";
   }
@@ -39,14 +40,10 @@ async function commitRepairPrefix(input: {
   for (const { plan } of input.plans) {
     assertProjectionVerificationCurrent(input.sync.stillCurrent);
     if (input.sync.isRemoteSyncBlocked?.(plan.state.organizationId)) {
-      throw new DocumentAncestorRepairAbandonedError(
-        "remote sync is blocked for this organization",
-      );
+      throw new DocumentAncestorRepairAbandonedError("blocked");
     }
     if (input.repairedIds.has(plan.containerId)) {
-      throw new DocumentAncestorRepairAbandonedError(
-        "a peer rotated an ancestor during repair",
-      );
+      throw new DocumentAncestorRepairAbandonedError("peer-rotation");
     }
     const response = await input.sync.apiClient.rekeyContainer(
       plan.containerId,
@@ -64,9 +61,7 @@ async function commitRepairPrefix(input: {
       // Marking those terminal would show a document's queued writes as blocked
       // on a transient error. Recording a genuine refusal needs a
       // status-bearing rekey in @tearleads/api-client; see #2329.
-      throw new DocumentAncestorRepairAbandonedError(
-        "the server refused an ancestor repair",
-      );
+      throw new DocumentAncestorRepairAbandonedError("refused");
     }
     const acknowledged = await acknowledgeContainerMutation({
       execSql: input.sync.execSql,
@@ -124,9 +119,7 @@ export async function prepareAutomaticContainerRekeys(
     const totalRepairs = (passRepairTotals.get(sync) ?? 0) + batch.plans.length;
     passRepairTotals.set(sync, totalRepairs);
     if (totalRepairs > MAX_DOCUMENT_SYNC_AUTHORIZATION_PATH_DEPTH) {
-      throw new DocumentAncestorRepairAbandonedError(
-        "the ancestor repair chain exceeded its depth budget",
-      );
+      throw new DocumentAncestorRepairAbandonedError("depth-budget");
     }
     await commitRepairPrefix({ plans: batch.plans, repairedIds, sync });
     const fresh = await refreshSyncAttemptWriterProjection({
@@ -148,9 +141,7 @@ export async function prepareAutomaticContainerRekeys(
       // It has already called onSyncAbandoned by this point, and on a coded 404
       // ran the verified local teardown, so a bare Error would double-signal as
       // an abandon plus a sync-lane crash.
-      throw new DocumentAncestorRepairAbandonedError(
-        "the repair projection could not be refreshed",
-      );
+      throw new DocumentAncestorRepairAbandonedError("unrefreshable");
     }
     // The scope check above guards the first round only; a refetched projection
     // is server-supplied too, and nothing in the refresh path proves it names

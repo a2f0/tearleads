@@ -1,6 +1,8 @@
 import { expect, test } from "bun:test";
 import {
+  ANCESTOR_REPAIR_ABANDON_REASONS,
   DOCUMENT_SYNC_TRACE_PATTERN,
+  traceAncestorRepairAbandoned,
   traceCheckpointRegeneration,
   traceHealBlocked,
   traceHealed,
@@ -65,9 +67,12 @@ test("every emitted trace line matches the clipboard-safe pattern", () => {
       status: 409,
     });
     traceHealed(emit, { accepted: 4, documentId: DOCUMENT_ID, epoch: 2 });
+    for (const reason of ANCESTOR_REPAIR_ABANDON_REASONS) {
+      traceAncestorRepairAbandoned(emit, { documentId: DOCUMENT_ID, reason });
+    }
   });
 
-  expect(lines).toHaveLength(11);
+  expect(lines).toHaveLength(11 + ANCESTOR_REPAIR_ABANDON_REASONS.length);
   for (const line of lines) {
     expect(line).toMatch(DOCUMENT_SYNC_TRACE_PATTERN);
   }

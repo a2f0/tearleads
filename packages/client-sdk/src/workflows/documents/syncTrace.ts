@@ -19,6 +19,22 @@ import {
 
 export type DocumentSyncTraceEmitter = (line: string) => void;
 
+/**
+ * Enumerated, clipboard-safe reasons an ancestor repair abandons a pass. The
+ * emitter maps to these rather than passing the error's prose through, so the
+ * line stays inside the closed vocabulary the System Monitor validates.
+ */
+export const ANCESTOR_REPAIR_ABANDON_REASONS = [
+  "blocked",
+  "depth-budget",
+  "peer-rotation",
+  "refused",
+  "unrefreshable",
+] as const;
+
+export type AncestorRepairAbandonReason =
+  (typeof ANCESTOR_REPAIR_ABANDON_REASONS)[number];
+
 /** Fixed thrown messages mapped to enumerated, clipboard-safe reasons. */
 const HEAL_BLOCKED_REASONS: ReadonlyArray<readonly [string, string]> = [
   [
@@ -73,6 +89,7 @@ const UUID_FRAGMENT =
 const REASON_FRAGMENT = HEAL_BLOCKED_REASONS.map(([, reason]) => reason).join(
   "|",
 );
+const ABANDON_REASON_FRAGMENT = ANCESTOR_REPAIR_ABANDON_REASONS.join("|");
 const ACTION_FRAGMENT = TRACE_ACTIONS.join("|");
 const CODE_FRAGMENT = [...SAFE_FAILURE_CODES, "none", "other"].join("|");
 
@@ -89,6 +106,7 @@ export const DOCUMENT_SYNC_TRACE_FRAGMENT = [
   `document sync heal blocked document=${UUID_FRAGMENT} reason=(?:${REASON_FRAGMENT})`,
   `document sync submit failed document=${UUID_FRAGMENT} status=(?:\\d+|none) code=(?:${CODE_FRAGMENT}) action=(?:${ACTION_FRAGMENT})`,
   `document sync projection failed document=${UUID_FRAGMENT} status=(?:\\d+|none) code=(?:${CODE_FRAGMENT})`,
+  `document sync ancestor repair abandoned document=${UUID_FRAGMENT} reason=(?:${ABANDON_REASON_FRAGMENT})`,
   `document sync healed document=${UUID_FRAGMENT} epoch=\\d+ accepted=\\d+`,
 ]
   .map((alternative) => `(?:${alternative})`)
@@ -198,10 +216,10 @@ export function traceSubmitFailed(
 
 export function traceAncestorRepairAbandoned(
   emit: DocumentSyncTraceEmitter | undefined,
-  input: { documentId: string; reason: string },
+  input: { documentId: string; reason: AncestorRepairAbandonReason },
 ): void {
   emit?.(
-    `document ancestor repair abandoned document=${input.documentId} reason=${input.reason}`,
+    `document sync ancestor repair abandoned document=${input.documentId} reason=${input.reason}`,
   );
 }
 
