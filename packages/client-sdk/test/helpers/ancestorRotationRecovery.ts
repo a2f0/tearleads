@@ -62,3 +62,115 @@ export async function createRotatedAncestorFixture() {
     database.close();
   }
 }
+
+/**
+ * A chain deep enough that repairing it exceeds `MAX_INLINE_CONTAINER_REKEYS`,
+ * so the standalone prefix path runs. Rotating the root staled the first edge;
+ * each repair mints a new epoch and stales the next, so the whole chain needs
+ * repairing one level at a time.
+ */
+export async function createDeepRotatedAncestorFixture(depth: number) {
+  const root = await createParentProjection();
+  const database = await createTestExecSql("deep-ancestor-rotation-author");
+  const input = {
+    author: root.author,
+    execSql: database.execSql,
+    persistVerificationCheckpoints: false,
+    resolveProjectionUserKey: createParentProjectionUserKeyResolver(root),
+    targetSecretKey: root.secretKey,
+  };
+  try {
+    let parent = root.projection;
+    const descendants: ContainerWriterProjectionResponse[] = [];
+    for (let level = 0; level < depth; level += 1) {
+      const materializedPlan = await buildMaterializedContainerCreatePlan({
+        ...input,
+        containerId: `descendant-${level}`,
+        parentProjection: parent,
+        parentSecretKey: root.secretKey,
+      });
+      parent = childContainerWriterProjectionFromCreatePlan({
+        materializedPlan,
+        parentProjection: parent,
+      });
+      descendants.push(parent);
+    }
+    const leaf = parent;
+    const rotatedRoot = await buildMaterializedContainerRekeyPlan({
+      ...input,
+      previousProjection: root.projection,
+    });
+    const projection = {
+      ...leaf,
+      path: [...rotatedRoot.writerProjection.path, ...leaf.path.slice(1)],
+      containerKeks: [
+        ...rotatedRoot.writerProjection.containerKeks,
+        ...leaf.containerKeks.slice(1),
+      ],
+    };
+    return { descendants, input, leaf, projection, root };
+  } finally {
+    database.close();
+  }
+}
+
+/**
+ * Two authorizing paths that share one stale intermediate: root -> shared ->
+ * {leafA, leafB}, with the root rotated. Repairing `shared` once must update it
+ * in both paths, which is where `replaceRekeyedPathNode` has to match the
+ * predecessor manifest in every path rather than just the first.
+ */
+export async function createForkedRotatedAncestorFixture() {
+  const root = await createParentProjection();
+  const database = await createTestExecSql("forked-ancestor-rotation-author");
+  const input = {
+    author: root.author,
+    execSql: database.execSql,
+    persistVerificationCheckpoints: false,
+    resolveProjectionUserKey: createParentProjectionUserKeyResolver(root),
+    targetSecretKey: root.secretKey,
+  };
+  const createChild = async (
+    parentProjection: ContainerWriterProjectionResponse,
+    containerId: string,
+  ) => {
+    const materializedPlan = await buildMaterializedContainerCreatePlan({
+      ...input,
+      containerId,
+      parentProjection,
+      parentSecretKey: root.secretKey,
+    });
+    return childContainerWriterProjectionFromCreatePlan({
+      materializedPlan,
+      parentProjection,
+    });
+  };
+  try {
+    const shared = await createChild(root.projection, "shared-intermediate");
+    const leafA = await createChild(shared, "leaf-a");
+    const leafB = await createChild(shared, "leaf-b");
+    const rotatedRoot = await buildMaterializedContainerRekeyPlan({
+      ...input,
+      previousProjection: root.projection,
+    });
+    const withRotatedRoot = (leaf: ContainerWriterProjectionResponse) => ({
+      ...leaf,
+      path: [...rotatedRoot.writerProjection.path, ...leaf.path.slice(1)],
+      containerKeks: [
+        ...rotatedRoot.writerProjection.containerKeks,
+        ...leaf.containerKeks.slice(1),
+      ],
+    });
+    return {
+      input,
+      leafA,
+      leafB,
+      pathA: withRotatedRoot(leafA),
+      pathB: withRotatedRoot(leafB),
+      root,
+      shared,
+    };
+  } finally {
+    database.close();
+  }
+}

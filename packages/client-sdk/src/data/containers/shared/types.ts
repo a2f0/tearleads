@@ -262,6 +262,15 @@ export interface ContainerRekeyApi extends ContainerReciteApi {
     input: ContainerMutationRequest,
     options?: ContainerMutationRequestOptions,
   ): Promise<ContainerMutationResponse | null>;
+  /** Optional status-bearing variant; see DocumentSyncApi. */
+  rekeyContainerResult?(
+    containerId: string,
+    input: ContainerMutationRequest,
+    options?: ContainerMutationRequestOptions,
+  ): Promise<
+    | { readonly ok: true; readonly data: ContainerMutationResponse }
+    | { readonly ok: false; readonly status: number | null }
+  >;
 }
 
 export interface ContainerMovePlan {

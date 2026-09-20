@@ -24,7 +24,10 @@ import type {
   DocumentWriterProjectionResponse,
   ListDocumentAttachmentsResponse,
 } from "@tearleads/validators/response";
-import type { ContainerMutationAuthor } from "../../containers/shared/types";
+import type {
+  ContainerMutationAuthor,
+  ContainerRekeyApi,
+} from "../../containers/shared/types";
 import type {
   ProjectionUserKeyResolver,
   ReferencedPrincipalPolicyWarmer,
@@ -481,6 +484,13 @@ export interface DocumentSyncRequestResultOptions {
 }
 
 export interface DocumentSyncApi {
+  rekeyContainer: ContainerRekeyApi["rekeyContainer"];
+  /**
+   * Optional status-bearing rekey. Present on the real client; an adapter that
+   * omits it still repairs, but a permanent refusal cannot then be told from a
+   * transient one and is reported as a plain abandon.
+   */
+  rekeyContainerResult?: ContainerRekeyApi["rekeyContainerResult"];
   clearWriterProjectionCaches?(): void;
   evictDocumentWriterProjection?(documentId: string): void;
   getDocumentPurgeProof?(

@@ -37,7 +37,9 @@ import {
   submitDocumentSyncAttemptIfAllowed,
 } from "./syncFailures";
 import { recoverablePendingUpdates } from "./syncPlanRequestBounds";
+import { DocumentAncestorRepairAbandonedError } from "./syncRepairAbandon";
 import { resolveSubmittedDocumentSyncResult } from "./syncSubmittedResult";
+import { traceAncestorRepairAbandoned } from "./syncTrace";
 
 export function hasDocumentUpdateEvent(
   events: ReadonlyArray<unknown>,
@@ -162,6 +164,21 @@ function resolveAttemptProjection(
     stillCurrent: input.stillCurrent,
   });
 }
+function abandonAncestorRepair(
+  input: SyncRemoteDocumentInput,
+  error: DocumentAncestorRepairAbandonedError,
+): null {
+  // Trace as well as abandon: production wires onSyncTrace but not
+  // onSyncAbandoned, and this path has already issued server-side rekeys, so
+  // abandoning silently would leave a retrying loop with no way to see it.
+  traceAncestorRepairAbandoned(input.onSyncTrace, {
+    documentId: input.documentId,
+    reason: error.reason,
+  });
+  input.onSyncAbandoned?.(error.reason);
+  return null;
+}
+
 function abandonAfterRetryableConflicts(input: SyncRemoteDocumentInput): null {
   input.onSyncAbandoned?.("every sync attempt hit a retryable conflict");
   return null;
@@ -221,6 +238,9 @@ async function planDocumentSyncAttempt(input: {
       writerProjection: input.writerProjection,
     });
   } catch (error) {
+    if (error instanceof DocumentAncestorRepairAbandonedError) {
+      return abandonAncestorRepair(input.sync, error);
+    }
     if (!isDocumentSyncRequestLimitError(error)) {
       throw error;
     }

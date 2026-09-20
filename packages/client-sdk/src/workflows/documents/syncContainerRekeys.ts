@@ -1,116 +1,20 @@
-import { computeDocumentContentKeyTargetHash } from "@tearleads/crypto";
 import type { DocumentWriterProjectionResponse } from "@tearleads/validators/response";
-import type { MaterializedContainerRekeyPlan } from "../../data/containers/shared/types";
-import {
-  normalizeDocumentKekTargetResponse,
-  readManifestContainerId,
-} from "../../data/documents/shared/readers";
 import { projectionVerificationOptions } from "../../data/documents/shared/types";
 import type { PendingUpdateRecord } from "../../data/sqlite/documentPersistence";
 import type { SyncRemoteDocumentInput } from "./readOnlySync";
+import { prepareAutomaticContainerRekeys } from "./syncContainerRekeyPreparation";
+import { applyDocumentSyncContainerRekeys } from "./syncContainerRekeyProjection";
 import { buildMaterializedDocumentSyncPlan } from "./syncPlanMaterial";
 import { computeInlineRekeyCommitId } from "./syncRekeyCommit";
 
-function replaceRekeyedPathNode(input: {
-  plan: MaterializedContainerRekeyPlan;
-  projection: DocumentWriterProjectionResponse["authorizingContainerPaths"][number];
-}) {
-  const index = input.projection.path.findIndex(
-    (bundle) => readManifestContainerId(bundle) === input.plan.plan.containerId,
-  );
-  if (index < 0) return { projection: input.projection, replaced: false };
-  const previousManifest = input.projection.path[index];
-  const previousKek = input.projection.containerKeks[index];
-  const nextManifest = input.plan.writerProjection.path.at(-1);
-  const nextKek = input.plan.writerProjection.containerKeks.at(-1);
-  if (
-    !previousManifest ||
-    !previousKek ||
-    !nextManifest ||
-    !nextKek ||
-    previousManifest.manifestHash !==
-      input.plan.plan.previousManifest.manifestHash ||
-    previousKek.accessManifestHash !== previousManifest.manifestHash
-  ) {
-    throw new Error("Document inline rekey projection predecessor mismatch");
-  }
-  const path = [...input.projection.path];
-  const containerKeks = [...input.projection.containerKeks];
-  path[index] = nextManifest;
-  containerKeks[index] = nextKek;
-  return {
-    projection: { ...input.projection, containerKeks, path },
-    replaced: true,
-  };
-}
-
-async function applyContainerRekeyPlan(
-  writerProjection: DocumentWriterProjectionResponse,
-  plan: MaterializedContainerRekeyPlan,
-): Promise<DocumentWriterProjectionResponse> {
-  let replacedPath = false;
-  const authorizingContainerPaths =
-    writerProjection.authorizingContainerPaths.map((projection) => {
-      const replaced = replaceRekeyedPathNode({ plan, projection });
-      replacedPath ||= replaced.replaced;
-      return replaced.projection;
-    });
-  const nextKek = plan.writerProjection.containerKeks.at(-1);
-  const nextManifest = plan.writerProjection.path.at(-1);
-  if (!nextKek || !nextManifest) {
-    throw new Error("Document inline rekey projection is empty");
-  }
-  let replacedTarget = false;
-  const targets = normalizeDocumentKekTargetResponse(
-    writerProjection.documentKekTargets,
-  ).map((target) => {
-    if (target.containerId !== plan.plan.containerId) return target;
-    replacedTarget = true;
-    return {
-      ...target,
-      containerKeyEpoch: nextKek.containerKeyEpoch,
-      containerKeyEpochId: nextKek.containerKeyEpochId,
-      containerManifestHash: nextManifest.manifestHash,
-    };
-  });
-  if (!replacedPath && !replacedTarget) {
-    throw new Error(
-      "Document inline rekey does not belong to its writer projection",
-    );
-  }
-  const documentKeyTargetHash =
-    await computeDocumentContentKeyTargetHash(targets);
-  return {
-    ...writerProjection,
-    authorizingContainerPaths,
-    ...(documentKeyTargetHash === writerProjection.contentKeyBundle.targetHash
-      ? {}
-      : { contentKeyBundleStale: true as const }),
-    documentKekTargets: {
-      ...writerProjection.documentKekTargets,
-      documentKeyTargetHash,
-      linkedContainerKeyEpochIds: targets.map(
-        (target) => target.containerKeyEpochId,
-      ),
-      linkedContainerManifestHashes: targets.map(
-        (target) => target.containerManifestHash,
-      ),
-      targets: targets.map((target) => ({ ...target })),
-    },
-  };
-}
-
-async function applyDocumentSyncContainerRekeys(input: {
-  plans: readonly MaterializedContainerRekeyPlan[];
-  writerProjection: DocumentWriterProjectionResponse;
-}): Promise<DocumentWriterProjectionResponse> {
-  let projection = input.writerProjection;
-  for (const plan of input.plans) {
-    projection = await applyContainerRekeyPlan(projection, plan);
-  }
-  return projection;
-}
-
+/**
+ * Not purely a planning step: past the inline limit this issues durable
+ * `POST /containers/:id/rekey` calls before the document write. `retrySyncPlan`
+ * re-invokes plan building on a retryable error, so those commits can happen
+ * more than once per pass — the repair budget is counted across the pass rather
+ * than per call for that reason, and repaired ancestors are no longer stale on a
+ * later attempt so they are not re-planned.
+ */
 export async function buildRemoteDocumentSyncPlan(input: {
   minLsn?: string | undefined;
   pendingUpdates: readonly PendingUpdateRecord[];
@@ -119,17 +23,32 @@ export async function buildRemoteDocumentSyncPlan(input: {
   regenerateQueuedCheckpoints: boolean;
   sync: SyncRemoteDocumentInput;
 }) {
-  const rekeyPlans = input.pendingUpdates.length
-    ? await input.sync.buildContainerRekeys?.(input.projection, {
-        persistVerificationCheckpoints: false,
-      })
-    : undefined;
+  // Repairing this document's own container moves its key target hash, which
+  // marks the content-key bundle stale. Only a pass that can build a rotation
+  // snapshot is able to heal that; rotation settlement deliberately cannot
+  // (`syncRequest.ts` omits the builder for `allowRecoveryBaseline: false`), so
+  // repairing there would trade a classified "ancestor repair required" failure
+  // for an unhealable bundle — after a standalone prefix may already have been
+  // committed. Such a pass is left to fail as it did before automatic repair.
+  const canHealStaleBundle = input.sync.buildRotationSnapshot !== undefined;
+  const prepared =
+    input.pendingUpdates.length &&
+    !input.sync.buildContainerRekeys &&
+    canHealStaleBundle
+      ? await prepareAutomaticContainerRekeys(input.sync, input.projection)
+      : { projection: input.projection, plans: undefined };
+  const rekeyPlans =
+    input.pendingUpdates.length && input.sync.buildContainerRekeys
+      ? await input.sync.buildContainerRekeys(input.projection, {
+          persistVerificationCheckpoints: false,
+        })
+      : prepared.plans;
   const writerProjection = rekeyPlans?.length
     ? await applyDocumentSyncContainerRekeys({
         plans: rekeyPlans,
-        writerProjection: input.projection,
+        writerProjection: prepared.projection,
       })
-    : input.projection;
+    : prepared.projection;
   let inlineRekeyCommitId: string | undefined;
   if (rekeyPlans?.length) {
     const headPendingUpdate = input.pendingUpdates[0];
@@ -138,7 +57,7 @@ export async function buildRemoteDocumentSyncPlan(input: {
     }
     inlineRekeyCommitId = await computeInlineRekeyCommitId({
       headPendingUpdateId: headPendingUpdate.id,
-      projection: input.projection,
+      projection: prepared.projection,
     });
   }
   return buildMaterializedDocumentSyncPlan({

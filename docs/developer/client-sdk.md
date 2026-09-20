@@ -590,6 +590,19 @@ reconstructs history from the `GET /containers/:id/kek-log` bridge log, and
 `recoverKeyringEntryFromWraps` recovers a bridge-severed epoch from the caller's
 retained recipient envelope.
 
+Document sync automatically plans ancestor KEK repairs before a queued write.
+It repairs parent-first, shares repaired ancestors across linked paths, and
+commits the signed rekeys with the content update. Planning does not advance
+checkpoints before acknowledgement; read-only sync does not rotate keys.
+Child-only writers use authenticated parent public keys. Up to 16 repairs fit
+inline; larger sets first commit bounded prefixes through `rekeyContainer`,
+validate each acknowledgement, and refetch before planning the next batch.
+Interrupted prefixes remain recoverable from the server's retained keys.
+Custom sync adapters must supply `rekeyContainer` as well as document methods.
+Inaccessible stale intermediate ancestors still require separate orchestration.
+Stale ancestors remain forbidden for new ciphertext, including when a valid
+recovery projection is available.
+
 Principal rotations and membership changes rematerialize every retained group
 grant against the new current principal head in the same transaction. As a
 result, `recoverKeyringEntryFromWraps` resolves group-addressed anchors through
