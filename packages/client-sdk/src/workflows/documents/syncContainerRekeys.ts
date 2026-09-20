@@ -7,6 +7,14 @@ import { applyDocumentSyncContainerRekeys } from "./syncContainerRekeyProjection
 import { buildMaterializedDocumentSyncPlan } from "./syncPlanMaterial";
 import { computeInlineRekeyCommitId } from "./syncRekeyCommit";
 
+/**
+ * Not purely a planning step: past the inline limit this issues durable
+ * `POST /containers/:id/rekey` calls before the document write. `retrySyncPlan`
+ * re-invokes plan building on a retryable error, so those commits can happen
+ * more than once per pass — the repair budget is counted across the pass rather
+ * than per call for that reason, and repaired ancestors are no longer stale on a
+ * later attempt so they are not re-planned.
+ */
 export async function buildRemoteDocumentSyncPlan(input: {
   minLsn?: string | undefined;
   pendingUpdates: readonly PendingUpdateRecord[];

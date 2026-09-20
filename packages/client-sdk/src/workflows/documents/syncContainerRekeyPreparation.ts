@@ -23,6 +23,14 @@ export class DocumentAncestorRepairAbandonedError extends Error {
   }
 }
 
+/**
+ * Repairs committed during one sync pass, keyed by the pass's own input object
+ * (stable across all three attempts). `retrySyncPlan` re-invokes plan building,
+ * so a counter local to one preparation call bounds only that call and a pass
+ * could commit several times the budget.
+ */
+const passRepairTotals = new WeakMap<SyncRemoteDocumentInput, number>();
+
 async function commitRepairPrefix(input: {
   plans: readonly MaterializedContainerRekeyPlan[];
   repairedIds: Set<string>;
@@ -95,10 +103,9 @@ export async function prepareAutomaticContainerRekeys(
   const repairedIds = new Set<string>();
   // `repairedIds` only breaks a loop within one call, and retrySyncPlan can
   // re-enter plan building several times per pass with a fresh set. Bound the
-  // work by the deepest authorizing path the protocol allows: no honest chain
-  // needs more repairs than that in a single preparation, so a server that
-  // keeps serving a stale chain cannot drive unbounded signed rekeys.
-  let totalRepairs = 0;
+  // work by the deepest authorizing path the protocol allows, counted across
+  // the whole pass rather than per call: no honest chain needs more repairs
+  // than that, so re-entry cannot multiply the budget.
   for (;;) {
     const batch = await buildAutomaticContainerRekeys(sync, projection);
     if (!batch.hasMore) return { plans: batch.plans, projection };
@@ -114,7 +121,8 @@ export async function prepareAutomaticContainerRekeys(
       persistVerificationCheckpoints: true,
       allowStaleContentKeyBundle: true,
     });
-    totalRepairs += batch.plans.length;
+    const totalRepairs = (passRepairTotals.get(sync) ?? 0) + batch.plans.length;
+    passRepairTotals.set(sync, totalRepairs);
     if (totalRepairs > MAX_DOCUMENT_SYNC_AUTHORIZATION_PATH_DEPTH) {
       throw new DocumentAncestorRepairAbandonedError(
         "the ancestor repair chain exceeded its depth budget",
