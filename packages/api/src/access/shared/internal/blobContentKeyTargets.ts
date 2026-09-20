@@ -1,5 +1,4 @@
 import {
-  BLOB_CONTENT_KEY_WRAP_SUITE,
   type BlobContentKeyTarget,
   computeBlobContentKeyTargetHash,
   type KeyingCanonicalJson,
@@ -61,8 +60,7 @@ const contentKeyTargetPolicy = createContentKeyTargetPolicy<
   BlobContentKeyTargetEnvelope,
   CurrentBlobKekTargets
 >({
-  envelopeLabel: "Blob",
-  wrappingSuite: BLOB_CONTENT_KEY_WRAP_SUITE,
+  envelopeKind: "Blob",
   computeTargetHash: computeBlobContentKeyTargetHash,
   createError: (message, status) =>
     new BlobContentKeyBundleError(message, status),
@@ -84,6 +82,7 @@ const contentKeyTargetPolicy = createContentKeyTargetPolicy<
 });
 
 export const {
+  assertSubmittedEnvelopes,
   assertTargetHashMatches,
   ensurePositiveContentKeyEpoch,
   sortTargetEnvelopes,

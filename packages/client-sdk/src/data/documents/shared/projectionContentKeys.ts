@@ -1,5 +1,5 @@
 import {
-  type ContentKeyEnvelopeSuite,
+  type ContentKeyEnvelopeKind,
   computeDocumentContentKeyTargetHash,
   DOCUMENT_CONTENT_KEY_WRAP_SUITE,
   decodeContentKeyEnvelope,
@@ -91,19 +91,22 @@ export async function wrapDocumentContentKeyForCreate(
   ];
 }
 
-export async function unwrapContentKeyTargetForSuite(input: {
+export async function unwrapContentKeyTargetForKind(input: {
   containerKek: Uint8Array;
   /** Wraps a decrypt failure with this message; validation errors pass through. */
   decryptErrorMessage?: string | undefined;
   envelope: { wrappedKey: string; wrappingMetadata?: unknown };
-  label: "Blob" | "Document";
-  suite: ContentKeyEnvelopeSuite;
+  kind: ContentKeyEnvelopeKind;
 }): Promise<Uint8Array> {
   // Reading, not submitting: the suite still binds the envelope to its object
   // kind, but an unrecognized extra metadata key is ignored rather than making
   // an otherwise decryptable envelope permanently unreadable. The AEAD tag is
-  // what authenticates the recovered key.
-  const encrypted = decodeContentKeyEnvelope({ ...input, origin: "stored" });
+  // what authenticates the recovered key. The KEK stays out of the decoder.
+  const encrypted = decodeContentKeyEnvelope({
+    envelope: input.envelope,
+    kind: input.kind,
+    origin: "stored",
+  });
 
   try {
     return await decryptWithDek(encrypted, input.containerKek);
@@ -119,12 +122,11 @@ export async function unwrapDocumentContentKeyTarget(input: {
   containerKek: Uint8Array;
   envelope: DocumentContentKeyTargetEnvelope;
 }): Promise<Uint8Array> {
-  return unwrapContentKeyTargetForSuite({
+  return unwrapContentKeyTargetForKind({
     containerKek: input.containerKek,
     decryptErrorMessage: `Document content-key target for container ${input.envelope.containerId} at epoch ${input.envelope.containerKeyEpochId} could not be unwrapped`,
     envelope: input.envelope,
-    label: "Document",
-    suite: DOCUMENT_CONTENT_KEY_WRAP_SUITE,
+    kind: "Document",
   });
 }
 

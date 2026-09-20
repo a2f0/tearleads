@@ -8,8 +8,10 @@ import {
   replaceBlobContentKeyTargetsForExistingBundle,
 } from "./blobContentKeyStore";
 import {
+  assertSubmittedEnvelopes,
   assertTargetsMatchCurrent,
   BlobContentKeyBundleError,
+  targetEnvelopeMaterialEqual,
 } from "./blobContentKeyTargets";
 import { resolveCurrentBlobKekTargets } from "./blobKekTargets";
 
@@ -48,11 +50,23 @@ export async function rewrapDocumentBlobContentKeyInTransaction(
       409,
     );
   }
+  // A relink resubmits a retained wrap verbatim, so this set mixes stored and
+  // freshly wrapped material. Judging the stored half by the submission shape
+  // would make a row carrying an unrecognized metadata key permanently
+  // un-linkable, with no client-side heal; only new material is gated.
   assertTargetsMatchCurrent({
     currentTargets: { ...currentTargets, targets: documentTargets },
-    origin: "submission",
+    origin: "stored",
     targets: rewrap.targets,
   });
+  assertSubmittedEnvelopes(
+    rewrap.targets.filter(
+      (target) =>
+        !existingBundle.targets.some((stored) =>
+          targetEnvelopeMaterialEqual(stored, target),
+        ),
+    ),
+  );
   // Another document's retained wraps are independent. Its own link mutation
   // replaces only its scope under the same blob lock, so concurrent writers
   // cannot overwrite each other's keys or require access to each other's KEKs.

@@ -63,8 +63,8 @@
       "bytes": 19355
     },
     "docs/keying-design.md": {
-      "lines": 1091,
-      "bytes": 51081
+      "lines": 1093,
+      "bytes": 51240
     },
     "docs/loro-e2ee-sync-protocol.md": {
       "lines": 548,
@@ -119,8 +119,8 @@
       "bytes": 18081
     },
     "packages/api/src/access/write/documentContentKeyStore.test.ts": {
-      "lines": 1079,
-      "bytes": 33283
+      "lines": 1081,
+      "bytes": 33489
     },
     "packages/api/src/access/write/principalStateStore.test.ts": {
       "lines": 922,

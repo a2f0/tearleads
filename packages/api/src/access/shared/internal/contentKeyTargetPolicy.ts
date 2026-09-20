@@ -1,7 +1,7 @@
 import {
   ContentKeyEnvelopeError,
+  type ContentKeyEnvelopeKind,
   type ContentKeyEnvelopeOrigin,
-  type ContentKeyEnvelopeSuite,
   decodeContentKeyEnvelope,
   type KeyingCanonicalJson,
   KeyingVerificationError,
@@ -101,11 +101,10 @@ function assertContentKeyTargetsMatchCurrent<
    * persistence. Required rather than defaulted, so a new call site has to
    * state which it is instead of silently skipping the gate.
    *
-   * A link mutation resubmits a retained wrap verbatim, so a stored envelope
-   * does reach the submission gate there. That is sound rather than an
-   * exemption to carve out: every envelope this deployment stores was written
-   * through this gate by a producer that emits exactly `suite` and `iv`, so a
-   * retained wrap is a conforming submission.
+   * A link mutation resubmits a retained wrap verbatim, mixing stored and
+   * fresh material in one set. Such a caller passes `stored` here and gates
+   * only the material it newly wrapped through `assertSubmittedEnvelopes`,
+   * so a stored envelope is never judged by the submission shape.
    */
   readonly origin: ContentKeyTargetOrigin;
   readonly createMismatchError: () => Error;
@@ -180,8 +179,7 @@ interface ContentKeyTargetPolicyOptions<
   TTarget extends ContentKeyTarget,
   TEnvelope extends TTarget & WrappedContentKeyTargetEnvelope,
 > {
-  readonly envelopeLabel: "Blob" | "Document";
-  readonly wrappingSuite: ContentKeyEnvelopeSuite;
+  readonly envelopeKind: ContentKeyEnvelopeKind;
   readonly computeTargetHash: (targets: readonly TTarget[]) => Promise<string>;
   readonly createError: (message: string, status: 400 | 409) => Error;
   readonly messages: ContentKeyTargetPolicyMessages;
@@ -213,7 +211,31 @@ export function createContentKeyTargetPolicy<
   ): boolean =>
     contentKeyTargetEnvelopeEqualBy(left, right, targetKeyMaterialEqual);
 
+  const validateSubmittedEnvelope = (
+    envelope: WrappedContentKeyTargetEnvelope,
+  ): void => {
+    try {
+      decodeContentKeyEnvelope({
+        envelope,
+        kind: options.envelopeKind,
+        origin: "submission",
+      });
+    } catch (error) {
+      if (error instanceof ContentKeyEnvelopeError)
+        throw options.createError(error.message, 400);
+      throw error;
+    }
+  };
+
   return {
+    /**
+     * Gates envelopes a caller knows to be newly wrapped, for a path that
+     * submits stored and fresh material in one set and must not judge the
+     * stored half by the submission shape.
+     */
+    assertSubmittedEnvelopes: (targets: readonly TEnvelope[]): void => {
+      for (const target of targets) validateSubmittedEnvelope(target);
+    },
     assertTargetHashMatches: async (input: {
       readonly targetHash: string;
       readonly targets: readonly TEnvelope[];
@@ -242,20 +264,7 @@ export function createContentKeyTargetPolicy<
           options.createError(options.messages.duplicateTargets, 409),
         createMissingWrappedMaterialError: () =>
           options.createError(options.messages.missingWrappedMaterial, 400),
-        validateEnvelope: (envelope) => {
-          try {
-            decodeContentKeyEnvelope({
-              envelope,
-              label: options.envelopeLabel,
-              origin: "submission",
-              suite: options.wrappingSuite,
-            });
-          } catch (error) {
-            if (error instanceof ContentKeyEnvelopeError)
-              throw options.createError(error.message, 400);
-            throw error;
-          }
-        },
+        validateEnvelope: validateSubmittedEnvelope,
         createMismatchError: () =>
           options.createError(options.messages.targetsMismatch, 409),
       });

@@ -7,8 +7,8 @@ export {
   generateChallenge,
 } from "./challenge";
 export type {
+  ContentKeyEnvelopeKind,
   ContentKeyEnvelopeOrigin,
-  ContentKeyEnvelopeSuite,
 } from "./contentKeyEnvelope";
 export {
   ContentKeyEnvelopeError,

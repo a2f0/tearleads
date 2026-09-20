@@ -16,7 +16,7 @@ import {
   unwrapContainerKekPath,
   verifiedDocumentWrapTargets,
 } from "../../shared/projection";
-import { unwrapContentKeyTargetForSuite } from "../../shared/projectionContentKeys";
+import { unwrapContentKeyTargetForKind } from "../../shared/projectionContentKeys";
 import {
   assertEqualBytes,
   normalizeDocumentKekTargetResponse,
@@ -145,11 +145,10 @@ async function unwrapBlobContentKeyTarget(input: {
   containerKek: Uint8Array;
   envelope: BlobContentKeyTargetEnvelopeRequest;
 }): Promise<Uint8Array> {
-  return unwrapContentKeyTargetForSuite({
+  return unwrapContentKeyTargetForKind({
     containerKek: input.containerKek,
     envelope: input.envelope,
-    label: "Blob",
-    suite: BLOB_CONTENT_KEY_WRAP_SUITE,
+    kind: "Blob",
   });
 }
 

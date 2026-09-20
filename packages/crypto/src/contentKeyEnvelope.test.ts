@@ -15,12 +15,12 @@ import {
   encryptWithDek,
 } from "./symmetric";
 
-for (const label of ["Blob", "Document"] as const) {
+for (const kind of ["Blob", "Document"] as const) {
   const suite =
-    label === "Blob"
+    kind === "Blob"
       ? BLOB_CONTENT_KEY_WRAP_SUITE
       : DOCUMENT_CONTENT_KEY_WRAP_SUITE;
-  test(`${label} envelopes accept genuine wraps and still require authenticated decryption`, async () => {
+  test(`${kind} envelopes accept genuine wraps and still require authenticated decryption`, async () => {
     const kek = crypto.getRandomValues(new Uint8Array(32));
     const key = crypto.getRandomValues(new Uint8Array(32));
     const encrypted = await encryptWithDek(key, kek);
@@ -32,9 +32,8 @@ for (const label of ["Blob", "Document"] as const) {
       await decryptWithDek(
         decodeContentKeyEnvelope({
           envelope,
-          label,
+          kind,
           origin: "submission",
-          suite,
         }),
         kek,
       ),
@@ -46,13 +45,12 @@ for (const label of ["Blob", "Document"] as const) {
         ...envelope,
         wrappedKey: bytesToBase64(encrypted.ciphertext),
       },
-      label,
-      suite,
+      kind,
     });
     await expect(decryptWithDek(tampered, kek)).rejects.toThrow();
   });
 
-  test(`${label} envelopes reject unsupported metadata and noncanonical or incorrectly sized bytes`, () => {
+  test(`${kind} envelopes reject unsupported metadata and noncanonical or incorrectly sized bytes`, () => {
     const envelope = {
       wrappedKey: "A".repeat(64),
       wrappingMetadata: { suite, iv: "A".repeat(16) },
@@ -88,9 +86,8 @@ for (const label of ["Blob", "Document"] as const) {
       expect(() =>
         decodeContentKeyEnvelope({
           envelope: invalid,
-          label,
+          kind,
           origin: "submission",
-          suite,
         }),
       ).toThrow(ContentKeyEnvelopeError);
     }
@@ -109,18 +106,16 @@ test("a stored envelope with extra metadata still decodes", () => {
   expect(() =>
     decodeContentKeyEnvelope({
       envelope,
-      label: "Document",
+      kind: "Document",
       origin: "submission",
-      suite,
     }),
   ).toThrow(ContentKeyEnvelopeError);
   // Reading it is not, or the row would be permanently undecryptable even
   // though the AEAD tag can still authenticate it.
   const decoded = decodeContentKeyEnvelope({
     envelope,
-    label: "Document",
+    kind: "Document",
     origin: "stored",
-    suite,
   });
   expect(decoded.iv).toHaveLength(AES_GCM_IV_BYTES);
   expect(decoded.ciphertext).toHaveLength(32 + AES_GCM_TAG_BYTES);
@@ -141,9 +136,8 @@ test("a stored envelope for the other object kind is refused", () => {
     expect(() =>
       decodeContentKeyEnvelope({
         envelope: documentEnvelope,
-        label: "Blob",
+        kind: "Blob",
         origin,
-        suite: BLOB_CONTENT_KEY_WRAP_SUITE,
       }),
     ).toThrow(ContentKeyEnvelopeError);
   }
@@ -152,9 +146,8 @@ test("a stored envelope for the other object kind is refused", () => {
     expect(
       decodeContentKeyEnvelope({
         envelope: documentEnvelope,
-        label: "Document",
+        kind: "Document",
         origin,
-        suite: DOCUMENT_CONTENT_KEY_WRAP_SUITE,
       }).iv,
     ).toHaveLength(AES_GCM_IV_BYTES);
   }
@@ -176,9 +169,8 @@ test("a stored envelope without plain-object wrap metadata is refused", () => {
     expect(() =>
       decodeContentKeyEnvelope({
         envelope: { wrappedKey, wrappingMetadata },
-        label: "Document",
+        kind: "Document",
         origin: "stored",
-        suite,
       }),
     ).toThrow("Document content-key target is missing wrap metadata");
   }

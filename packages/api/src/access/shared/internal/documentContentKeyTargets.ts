@@ -1,6 +1,5 @@
 import {
   computeDocumentContentKeyTargetHash,
-  DOCUMENT_CONTENT_KEY_WRAP_SUITE,
   type DocumentContentKeyTarget,
   type KeyingCanonicalJson,
 } from "@tearleads/crypto";
@@ -59,8 +58,7 @@ const contentKeyTargetPolicy = createContentKeyTargetPolicy<
   DocumentContentKeyTargetEnvelope,
   CurrentDocumentKekTargets
 >({
-  envelopeLabel: "Document",
-  wrappingSuite: DOCUMENT_CONTENT_KEY_WRAP_SUITE,
+  envelopeKind: "Document",
   computeTargetHash: computeDocumentContentKeyTargetHash,
   createError: (message, status) =>
     new DocumentContentKeyBundleError(message, status),

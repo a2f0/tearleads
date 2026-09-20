@@ -756,11 +756,13 @@ The blob content key is wrapped to the union of those container KEK targets.
 Document and blob content-key envelopes share one public format check: the
 object-kind-specific AES-GCM suite, a canonical base64 12-byte IV, and a
 canonical base64 48-byte wrapped 32-byte key plus authentication tag. The API
-applies it to every submission, additionally requiring the wrapping metadata to
-carry exactly `suite` and `iv`, and rejects a failing submission before
-persistence. Clients apply the same check when reading a stored envelope, minus
-that exact-key requirement, so an unrecognized metadata key can never make a
-decryptable envelope unreadable. There are no legacy-suite or
+applies it to newly wrapped material, additionally requiring the wrapping
+metadata to carry exactly `suite` and `iv`, and rejects a failing submission
+before persistence. Clients apply the same check when reading a stored
+envelope, minus that exact-key requirement, so an unrecognized metadata key can
+never make a decryptable envelope unreadable. A relink resubmits a retained
+wrap verbatim; the API judges it as stored for the same reason, since the row
+is immutable once an active target holds it. There are no legacy-suite or
 alternate-encoding paths. These checks validate structure; only a recipient
 with the KEK can authenticate the ciphertext and establish the recovered key.
 An authorized writer can still submit well-shaped, undecryptable material.
