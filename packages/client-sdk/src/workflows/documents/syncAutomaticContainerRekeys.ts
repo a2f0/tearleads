@@ -8,8 +8,8 @@ import type { MaterializedContainerRekeyPlan } from "../../data/containers/share
 import { assertProjectionVerificationCurrent } from "../../data/keyingProjectionVerification/types";
 import { buildMaterializedContainerRekeyPlan } from "../containers/child/rekey";
 import type { SyncRemoteDocumentInput } from "./readOnlySync";
-import { DocumentAncestorRepairAbandonedError } from "./syncContainerRekeyPreparation";
 import { applyContainerRekeyPlan } from "./syncContainerRekeyProjection";
+import { DocumentAncestorRepairAbandonedError } from "./syncRepairAbandon";
 
 function firstStaleContainer(
   projection: DocumentWriterProjectionResponse,

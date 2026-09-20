@@ -28,7 +28,6 @@ import type {
   RemoteDocumentSyncAttemptOutcome,
   RemoteDocumentSyncAttemptState,
 } from "./syncAttemptState";
-import { DocumentAncestorRepairAbandonedError } from "./syncContainerRekeyPreparation";
 import { buildRemoteDocumentSyncPlan } from "./syncContainerRekeys";
 import type { TerminalSubmitFailureHandler } from "./syncFailureClassification";
 import {
@@ -38,6 +37,7 @@ import {
   submitDocumentSyncAttemptIfAllowed,
 } from "./syncFailures";
 import { recoverablePendingUpdates } from "./syncPlanRequestBounds";
+import { DocumentAncestorRepairAbandonedError } from "./syncRepairAbandon";
 import { resolveSubmittedDocumentSyncResult } from "./syncSubmittedResult";
 import { traceAncestorRepairAbandoned } from "./syncTrace";
 

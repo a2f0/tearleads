@@ -9,20 +9,7 @@ import { assertProjectionVerificationCurrent } from "../../data/keyingProjection
 import type { SyncRemoteDocumentInput } from "./readOnlySync";
 import { buildAutomaticContainerRekeys } from "./syncAutomaticContainerRekeys";
 import { refreshSyncAttemptWriterProjection } from "./syncFailures";
-import type { AncestorRepairAbandonReason } from "./syncTrace";
-
-/**
- * A repair that cannot proceed for a routine reason: the organization's writes
- * are gated, the server refused the rekey, or a peer rotated an ancestor
- * mid-pass. None is a defect, so the sync lane abandons the attempt rather than
- * reporting a failed run; the next trigger re-plans from a fresh projection.
- */
-export class DocumentAncestorRepairAbandonedError extends Error {
-  constructor(readonly reason: AncestorRepairAbandonReason) {
-    super(`Document ancestor repair abandoned: ${reason}`);
-    this.name = "DocumentAncestorRepairAbandonedError";
-  }
-}
+import { DocumentAncestorRepairAbandonedError } from "./syncRepairAbandon";
 
 /**
  * Repairs committed during one sync pass, keyed by the pass's own input object
