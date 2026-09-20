@@ -93,7 +93,7 @@ export async function wrapDocumentContentKeyForCreate(
 
 export async function unwrapContentKeyTargetForKind(input: {
   containerKek: Uint8Array;
-  /** Wraps a decrypt failure with this message; validation errors pass through. */
+  /** Wraps a decode or decrypt failure with this message. */
   decryptErrorMessage?: string | undefined;
   envelope: { wrappedKey: string; wrappingMetadata?: unknown };
   kind: ContentKeyEnvelopeKind;
@@ -102,14 +102,15 @@ export async function unwrapContentKeyTargetForKind(input: {
   // kind, but an unrecognized extra metadata key is ignored rather than making
   // an otherwise decryptable envelope permanently unreadable. The AEAD tag is
   // what authenticates the recovered key. The KEK stays out of the decoder.
-  const encrypted = decodeContentKeyEnvelope({
-    envelope: input.envelope,
-    kind: input.kind,
-    origin: "stored",
-  });
-
   try {
-    return await decryptWithDek(encrypted, input.containerKek);
+    return await decryptWithDek(
+      decodeContentKeyEnvelope({
+        envelope: input.envelope,
+        kind: input.kind,
+        origin: "stored",
+      }),
+      input.containerKek,
+    );
   } catch (error) {
     if (input.decryptErrorMessage) {
       throw new Error(input.decryptErrorMessage, { cause: error });

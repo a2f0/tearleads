@@ -8,10 +8,8 @@ import {
   replaceBlobContentKeyTargetsForExistingBundle,
 } from "./blobContentKeyStore";
 import {
-  assertSubmittedEnvelopes,
-  assertTargetsMatchCurrent,
+  assertSubmittedTargetsMatchCurrent,
   BlobContentKeyBundleError,
-  targetEnvelopeMaterialEqual,
 } from "./blobContentKeyTargets";
 import { resolveCurrentBlobKekTargets } from "./blobKekTargets";
 
@@ -59,19 +57,11 @@ export async function rewrapDocumentBlobContentKeyInTransaction(
   // target is absent from the bundle the client reads, so it re-wraps rather
   // than resubmitting, and material for a target that is not currently stored
   // is new by definition.
-  assertTargetsMatchCurrent({
+  assertSubmittedTargetsMatchCurrent({
     currentTargets: { ...currentTargets, targets: documentTargets },
-    origin: "stored",
+    storedTargets: existingBundle.targets,
     targets: rewrap.targets,
   });
-  assertSubmittedEnvelopes(
-    rewrap.targets.filter(
-      (target) =>
-        !existingBundle.targets.some((stored) =>
-          targetEnvelopeMaterialEqual(stored, target),
-        ),
-    ),
-  );
   // Another document's retained wraps are independent. Its own link mutation
   // replaces only its scope under the same blob lock, so concurrent writers
   // cannot overwrite each other's keys or require access to each other's KEKs.

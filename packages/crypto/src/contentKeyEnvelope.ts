@@ -102,7 +102,7 @@ export function decodeContentKeyEnvelope(input: {
     throw new ContentKeyEnvelopeError(`${label} uses an unknown suite`);
   }
   const iv = Reflect.get(raw, "iv");
-  if (typeof iv !== "string" || iv.length === 0) {
+  if (typeof iv !== "string") {
     throw new ContentKeyEnvelopeError(`${label} is missing an IV`);
   }
   return {

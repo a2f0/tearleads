@@ -9,9 +9,8 @@ import {
 } from "@tearleads/api-shared/schema";
 import { and, desc, eq } from "drizzle-orm";
 import {
-  assertSubmittedEnvelopes,
+  assertSubmittedTargetsMatchCurrent,
   assertTargetHashMatches,
-  assertTargetsMatchCurrent,
   BlobContentKeyBundleError,
   type BlobContentKeyTargetEnvelope,
   type CurrentBlobKekTargets,
@@ -20,7 +19,6 @@ import {
   type StoredBlobContentKeyBundleWithTargets,
   sortTargetEnvelopes,
   targetEnvelopeEqual,
-  targetEnvelopeMaterialEqual,
 } from "./blobContentKeyTargets";
 import {
   assertBlobKekTargetsCurrent,
@@ -240,19 +238,11 @@ async function validateCurrentTargetsForBundle(
   // stored wraps, which cannot be replaced while they are active. Like the
   // link and rewrap paths, only material that does not byte-match a stored
   // envelope is held to the submission shape.
-  assertTargetsMatchCurrent({
+  assertSubmittedTargetsMatchCurrent({
     currentTargets,
-    origin: "stored",
+    storedTargets: latestBundle?.targets ?? null,
     targets: input.targets,
   });
-  assertSubmittedEnvelopes(
-    input.targets.filter(
-      (target) =>
-        !latestBundle?.targets.some((stored) =>
-          targetEnvelopeMaterialEqual(stored, target),
-        ),
-    ),
-  );
   return currentTargets;
 }
 

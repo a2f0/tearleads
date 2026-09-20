@@ -6,6 +6,7 @@ import {
   documentContentKeyTargets,
 } from "@tearleads/api-shared/schema";
 import { createTestUser } from "@tearleads/bob-and-alice";
+import { isPlainObject } from "@tearleads/validators/isPlainObject";
 import { eq } from "drizzle-orm";
 import { authenticate } from "../../../test/helpers/authenticate";
 import {
@@ -98,8 +99,11 @@ test("a retained wrap with an unrecognized metadata key can still be relinked", 
     .from(blobContentKeyTargets)
     .where(eq(blobContentKeyTargets.bindingId, rawTarget.bindingId));
   expect(
-    rows.filter((row) =>
-      JSON.stringify(row.wrappingMetadata).includes("unrecognized"),
+    rows.filter(
+      (row) =>
+        isPlainObject(row.wrappingMetadata) &&
+        Reflect.get(row.wrappingMetadata, "unrecognized") ===
+          "written by a newer build",
     ),
   ).not.toHaveLength(0);
 });
@@ -180,4 +184,74 @@ test("a retained document wrap with an unrecognized metadata key can still be re
   const response = await post(link);
   const body = await response.text();
   expect({ status: response.status, body }).toMatchObject({ status: 200 });
+});
+
+// A blob bind covers every active binding of that blob, so binding a blob a
+// second document already holds resubmits the first document's stored wraps.
+// That is the third write path where stored and fresh material arrive
+// together, and the one a first bind does not exercise.
+test("a shared bind carrying another document's stored wrap is accepted", async () => {
+  const owner = createTestUser();
+  await registerUser(owner);
+  await authenticate(owner);
+  const root = await bootstrapRoot(owner);
+  const first = await createDocument({ owner, root });
+  const second = await createDocument({ owner, root });
+  const blobId = crypto.randomUUID();
+  const initial = await buildBind({
+    blobId,
+    document: first,
+    owner,
+    root,
+    stagedBlob: await stageBlob(owner),
+  });
+  await bindForTest({ blobId, owner, request: initial.request });
+
+  const firstTarget = initial.request.contentKeyBundle.targets[0];
+  if (!firstTarget) throw new Error("Expected the first document's target");
+  const wrappingMetadata = {
+    ...firstTarget.wrappingMetadata,
+    unrecognized: "written by a newer build",
+  };
+  await db
+    .update(blobContentKeyTargets)
+    .set({ wrappingMetadata })
+    .where(eq(blobContentKeyTargets.documentId, first.id));
+
+  const shared = await buildBind({
+    activeBindings: [initial.binding],
+    blobId,
+    document: second,
+    documents: [first, second],
+    owner,
+    root,
+  });
+  await bindForTest({
+    blobId,
+    owner,
+    request: {
+      ...shared.request,
+      contentKeyBundle: {
+        ...shared.request.contentKeyBundle,
+        targets: shared.request.contentKeyBundle.targets.map((target) =>
+          target.documentId === first.id
+            ? { ...target, wrappingMetadata }
+            : target,
+        ),
+      },
+    },
+  });
+
+  const rows = await db
+    .select()
+    .from(blobContentKeyTargets)
+    .where(eq(blobContentKeyTargets.documentId, first.id));
+  expect(
+    rows.filter(
+      (row) =>
+        isPlainObject(row.wrappingMetadata) &&
+        Reflect.get(row.wrappingMetadata, "unrecognized") ===
+          "written by a newer build",
+    ),
+  ).not.toHaveLength(0);
 });

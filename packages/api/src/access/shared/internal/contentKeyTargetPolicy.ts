@@ -1,7 +1,6 @@
 import {
   ContentKeyEnvelopeError,
   type ContentKeyEnvelopeKind,
-  type ContentKeyEnvelopeOrigin,
   decodeContentKeyEnvelope,
   type KeyingCanonicalJson,
   KeyingVerificationError,
@@ -61,9 +60,6 @@ function assertContentKeyWrappedMaterialPresent<
   }
 }
 
-/** Where a target set came from; a submission is held to the strict shape. */
-export type ContentKeyTargetOrigin = ContentKeyEnvelopeOrigin;
-
 function expectedContentKeyTargetMap<T>(
   targets: readonly T[],
   targetKey: (target: T) => string,
@@ -90,27 +86,11 @@ function assertContentKeyTargetsMatchCurrent<
   readonly targetFieldsEqual: (left: TCurrent, right: TCurrent) => boolean;
   readonly createDuplicateError: () => Error;
   readonly createMissingWrappedMaterialError: () => Error;
+  /** Envelopes this call is responsible for gating; empty on a read. */
+  readonly submittedTargets: readonly TEnvelope[];
   readonly validateEnvelope: (
     envelope: WrappedContentKeyTargetEnvelope,
   ) => void;
-  /**
-   * Strict envelope shape is a submission gate, not a read gate. Applying it
-   * while projecting rows already persisted would turn a malformed stored
-   * envelope into a permanent, unhealable projection failure for that
-   * document; the contract is that submissions are rejected before
-   * persistence. Required rather than defaulted, so a new call site has to
-   * state which it is instead of silently skipping the gate.
-   *
-   * A link mutation resubmits a retained wrap verbatim, mixing stored and
-   * fresh material in one set. Such a caller passes `stored` here and gates
-   * only the material it newly wrapped through `assertSubmittedEnvelopes`,
-   * so a stored envelope is never judged by the submission shape.
-   *
-   * Note the word is narrower here than in the crypto decoder: `stored` at
-   * this layer skips envelope validation entirely, while the decoder's
-   * `stored` still checks the suite, the encodings, and the byte lengths.
-   */
-  readonly origin: ContentKeyTargetOrigin;
   readonly createMismatchError: () => Error;
 }): void {
   assertNoDuplicateContentKeyTargets(
@@ -122,9 +102,7 @@ function assertContentKeyTargetsMatchCurrent<
     input.targets,
     input.createMissingWrappedMaterialError,
   );
-  if (input.origin === "submission") {
-    for (const target of input.targets) input.validateEnvelope(target);
-  }
+  for (const target of input.submittedTargets) input.validateEnvelope(target);
 
   const currentTargetByKey = expectedContentKeyTargetMap(
     input.currentTargets,
@@ -192,6 +170,65 @@ interface ContentKeyTargetPolicyOptions<
   readonly toTargetFields: (envelope: TEnvelope) => TTarget;
 }
 
+/**
+ * The two ways a target set is checked against the object's current KEK
+ * targets. They are separate entry points rather than one flag so a new store
+ * cannot take the read path by accident: the write path is the only one that
+ * names a submission, and it gates inside the same call.
+ */
+function createTargetSetMatchers<
+  TEnvelope extends WrappedContentKeyTargetEnvelope,
+  TCurrentTargets,
+>(policy: {
+  readonly matchCurrent: (input: {
+    readonly currentTargets: TCurrentTargets;
+    readonly submittedTargets: readonly TEnvelope[];
+    readonly targets: readonly TEnvelope[];
+  }) => void;
+  readonly targetEnvelopeMaterialEqual: (
+    left: TEnvelope,
+    right: TEnvelope,
+  ) => boolean;
+}) {
+  return {
+    /**
+     * Read path. Rows already persisted are never judged by the submission
+     * shape: doing so would turn a malformed stored envelope into a
+     * permanent, unhealable projection failure, and the contract is that
+     * submissions are rejected before persistence.
+     */
+    assertStoredTargetsMatchCurrent: (input: {
+      readonly currentTargets: TCurrentTargets;
+      readonly targets: readonly TEnvelope[];
+    }): void => {
+      policy.matchCurrent({ ...input, submittedTargets: [] });
+    },
+    /**
+     * Write path. `storedTargets` is what this object already holds, or null
+     * on a first write. A submission may carry retained envelopes verbatim
+     * beside newly wrapped ones — a document link resubmits the whole bundle,
+     * a blob bind covers every active binding — so the gate applies to the
+     * targets that do not byte-match stored material.
+     */
+    assertSubmittedTargetsMatchCurrent: (input: {
+      readonly currentTargets: TCurrentTargets;
+      readonly storedTargets: readonly TEnvelope[] | null;
+      readonly targets: readonly TEnvelope[];
+    }): void => {
+      policy.matchCurrent({
+        currentTargets: input.currentTargets,
+        targets: input.targets,
+        submittedTargets: input.targets.filter(
+          (target) =>
+            !input.storedTargets?.some((stored) =>
+              policy.targetEnvelopeMaterialEqual(stored, target),
+            ),
+        ),
+      });
+    },
+  };
+}
+
 export function createContentKeyTargetPolicy<
   TTarget extends ContentKeyTarget,
   TEnvelope extends TTarget & WrappedContentKeyTargetEnvelope,
@@ -231,15 +268,29 @@ export function createContentKeyTargetPolicy<
     }
   };
 
+  const matchCurrent = (input: {
+    readonly currentTargets: TCurrentTargets;
+    readonly submittedTargets: readonly TEnvelope[];
+    readonly targets: readonly TEnvelope[];
+  }): void => {
+    assertContentKeyTargetsMatchCurrent({
+      currentTargets: input.currentTargets.targets,
+      targets: input.targets,
+      submittedTargets: input.submittedTargets,
+      targetKey: options.targetKey,
+      targetFieldsEqual,
+      createDuplicateError: () =>
+        options.createError(options.messages.duplicateTargets, 409),
+      createMissingWrappedMaterialError: () =>
+        options.createError(options.messages.missingWrappedMaterial, 400),
+      validateEnvelope: validateSubmittedEnvelope,
+      createMismatchError: () =>
+        options.createError(options.messages.targetsMismatch, 409),
+    });
+  };
+
   return {
-    /**
-     * Gates envelopes a caller knows to be newly wrapped, for a path that
-     * submits stored and fresh material in one set and must not judge the
-     * stored half by the submission shape.
-     */
-    assertSubmittedEnvelopes: (targets: readonly TEnvelope[]): void => {
-      for (const target of targets) validateSubmittedEnvelope(target);
-    },
+    ...createTargetSetMatchers({ matchCurrent, targetEnvelopeMaterialEqual }),
     assertTargetHashMatches: async (input: {
       readonly targetHash: string;
       readonly targets: readonly TEnvelope[];
@@ -251,26 +302,6 @@ export function createContentKeyTargetPolicy<
         createHashMismatchError: () =>
           options.createError(options.messages.hashMismatch, 409),
         createVerificationError: (message) => options.createError(message, 409),
-      });
-    },
-    assertTargetsMatchCurrent: (input: {
-      readonly currentTargets: TCurrentTargets;
-      readonly origin: ContentKeyTargetOrigin;
-      readonly targets: readonly TEnvelope[];
-    }): void => {
-      assertContentKeyTargetsMatchCurrent({
-        currentTargets: input.currentTargets.targets,
-        targets: input.targets,
-        targetKey: options.targetKey,
-        targetFieldsEqual,
-        origin: input.origin,
-        createDuplicateError: () =>
-          options.createError(options.messages.duplicateTargets, 409),
-        createMissingWrappedMaterialError: () =>
-          options.createError(options.messages.missingWrappedMaterial, 400),
-        validateEnvelope: validateSubmittedEnvelope,
-        createMismatchError: () =>
-          options.createError(options.messages.targetsMismatch, 409),
       });
     },
     ensurePositiveContentKeyEpoch: (contentKeyEpoch: number): void => {

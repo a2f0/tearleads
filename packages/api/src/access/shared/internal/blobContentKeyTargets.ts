@@ -4,7 +4,6 @@ import {
   type KeyingCanonicalJson,
 } from "@tearleads/crypto";
 import type { resolveCurrentBlobKekTargets } from "./blobKekTargets";
-import type { ContentKeyTargetOrigin } from "./contentKeyTargetPolicy";
 import { createContentKeyTargetPolicy } from "./contentKeyTargetPolicy";
 
 export type CurrentBlobKekTargets = Awaited<
@@ -82,7 +81,6 @@ const contentKeyTargetPolicy = createContentKeyTargetPolicy<
 });
 
 export const {
-  assertSubmittedEnvelopes,
   assertTargetHashMatches,
   ensurePositiveContentKeyEpoch,
   sortTargetEnvelopes,
@@ -91,10 +89,10 @@ export const {
   targetKeyMaterialEqual,
 } = contentKeyTargetPolicy;
 
-export function assertTargetsMatchCurrent(input: {
+export function assertSubmittedTargetsMatchCurrent(input: {
   readonly currentTargets: CurrentBlobKekTargets;
-  readonly origin: ContentKeyTargetOrigin;
+  readonly storedTargets: readonly BlobContentKeyTargetEnvelope[] | null;
   readonly targets: readonly BlobContentKeyTargetEnvelope[];
 }): void {
-  contentKeyTargetPolicy.assertTargetsMatchCurrent(input);
+  contentKeyTargetPolicy.assertSubmittedTargetsMatchCurrent(input);
 }

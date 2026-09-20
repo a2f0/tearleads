@@ -19,9 +19,9 @@ import {
   currentTargetsCanCarryPreviousBundle as sharedCurrentTargetsCanCarryPreviousBundle,
 } from "./contentKeyStore";
 import {
-  assertSubmittedEnvelopes,
+  assertStoredTargetsMatchCurrent,
+  assertSubmittedTargetsMatchCurrent,
   assertTargetHashMatches,
-  assertTargetsMatchCurrent,
   type CurrentDocumentKekTargets,
   DocumentContentKeyBundleError,
   type DocumentContentKeyTargetEnvelope,
@@ -218,9 +218,8 @@ export async function getLatestDocumentContentKeyBundleProjection(
 ): Promise<LatestDocumentContentKeyBundleProjection | null> {
   return projectLatestContentKeyBundle({
     assertTargetsCurrent: (bundle) =>
-      assertTargetsMatchCurrent({
+      assertStoredTargetsMatchCurrent({
         currentTargets: input.currentTargets,
-        origin: "stored",
         targets: bundle.targets,
       }),
     getLatestBundle: () =>
@@ -420,19 +419,11 @@ async function validateCurrentTargetsForBundle(
   // unrecognized metadata key permanently un-linkable: a retained target must
   // be resubmitted byte-identical or the bundle is stale, so no client can
   // re-wrap its way out. Only new material is gated.
-  assertTargetsMatchCurrent({
+  assertSubmittedTargetsMatchCurrent({
     currentTargets,
-    origin: "stored",
+    storedTargets: latestBundle?.targets ?? null,
     targets: input.targets,
   });
-  assertSubmittedEnvelopes(
-    input.targets.filter(
-      (target) =>
-        !latestBundle?.targets.some((stored) =>
-          targetEnvelopeMaterialEqual(stored, target),
-        ),
-    ),
-  );
   return currentTargets;
 }
 
@@ -659,9 +650,8 @@ export async function requireAndRefreshCurrentDocumentContentKeyBundle(input: {
       nextBundle: refreshedBundle,
       executor,
     });
-    assertTargetsMatchCurrent({
+    assertStoredTargetsMatchCurrent({
       currentTargets,
-      origin: "stored",
       targets: storedBundle.targets,
     });
 
@@ -670,9 +660,8 @@ export async function requireAndRefreshCurrentDocumentContentKeyBundle(input: {
       currentTargets,
     };
   }
-  assertTargetsMatchCurrent({
+  assertStoredTargetsMatchCurrent({
     currentTargets,
-    origin: "stored",
     targets: bundle.targets,
   });
 

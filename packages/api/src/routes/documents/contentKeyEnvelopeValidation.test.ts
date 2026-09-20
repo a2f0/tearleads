@@ -207,5 +207,5 @@ test("a stored envelope with an unrecognized metadata key still projects", async
   );
   const body = await projection.text();
   expect({ status: projection.status, body }).toMatchObject({ status: 200 });
-  expect(body).toContain("unrecognized");
+  expect(body).toContain('"unrecognized":"carried"');
 });
