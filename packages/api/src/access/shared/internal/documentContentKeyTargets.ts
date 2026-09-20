@@ -78,6 +78,7 @@ const contentKeyTargetPolicy = createContentKeyTargetPolicy<
 });
 
 export const {
+  assertSubmittedEnvelopes,
   assertTargetHashMatches,
   ensurePositiveContentKeyEpoch,
   sortTargetEnvelopes,

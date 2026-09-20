@@ -1,6 +1,10 @@
 import { expect, test } from "bun:test";
 import { db } from "@tearleads/api-shared/postgres";
-import { blobContentKeyTargets } from "@tearleads/api-shared/schema";
+import {
+  blobContentKeyTargets,
+  documentContentKeyEpochs,
+  documentContentKeyTargets,
+} from "@tearleads/api-shared/schema";
 import { createTestUser } from "@tearleads/bob-and-alice";
 import { eq } from "drizzle-orm";
 import { authenticate } from "../../../test/helpers/authenticate";
@@ -98,4 +102,61 @@ test("a retained wrap with an unrecognized metadata key can still be relinked", 
       JSON.stringify(row.wrappingMetadata).includes("unrecognized"),
     ),
   ).not.toHaveLength(0);
+});
+
+// The document link path has the same shape: `linkSet.ts` carries the stored
+// bundle's targets verbatim and appends one freshly wrapped target, so the
+// submitted set mixes stored and new material. There is no heal here either —
+// a retained target must be resubmitted byte-identical or the bundle is stale.
+test("a retained document wrap with an unrecognized metadata key can still be relinked", async () => {
+  const owner = createTestUser();
+  await registerUser(owner);
+  await authenticate(owner);
+  const root = await bootstrapRoot(owner);
+  const child = await createChildContainer({ parent: root, signer: owner });
+  const document = await createDocument({ owner, root });
+
+  const retainedTarget = document.contentKeyBundle.targets[0];
+  if (!retainedTarget) throw new Error("Expected a stored document target");
+  const wrappingMetadata = {
+    ...retainedTarget.wrappingMetadata,
+    unrecognized: "written by a newer build",
+  };
+  const [epoch] = await db
+    .select({ id: documentContentKeyEpochs.id })
+    .from(documentContentKeyEpochs)
+    .where(eq(documentContentKeyEpochs.documentId, document.id));
+  if (!epoch) throw new Error("Expected a stored content-key epoch");
+  await db
+    .update(documentContentKeyTargets)
+    .set({ wrappingMetadata })
+    .where(eq(documentContentKeyTargets.documentContentKeyEpochId, epoch.id));
+
+  const link = await buildDocumentLinkRequest({
+    child,
+    // Exactly what the writer projection hands the client back.
+    createdDocument: {
+      ...document,
+      contentKeyBundle: {
+        ...document.contentKeyBundle,
+        targets: document.contentKeyBundle.targets.map((target) =>
+          target.containerId === retainedTarget.containerId
+            ? { ...target, wrappingMetadata }
+            : target,
+        ),
+      },
+    },
+    owner,
+    root,
+  });
+  const response = await routeApp.request(`/documents/${document.id}/link`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${owner.token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(link),
+  });
+  const body = await response.text();
+  expect({ status: response.status, body }).toMatchObject({ status: 200 });
 });

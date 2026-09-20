@@ -128,7 +128,9 @@ test("link and unlink atomically cover active blob bindings and retain prior wra
     status: malformedResponse.status,
     body: malformedBody,
   }).toMatchObject({ status: 400 });
-  expect(malformedBody).toContain("wrapped key");
+  expect(malformedBody).toContain(
+    "Blob content-key target wrapped key has an invalid encoded length",
+  );
   expect(
     (await getCurrentAccessManifestHead("document", document.id, db))
       ?.manifestHash,

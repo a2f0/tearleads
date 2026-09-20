@@ -19,6 +19,7 @@ import {
   currentTargetsCanCarryPreviousBundle as sharedCurrentTargetsCanCarryPreviousBundle,
 } from "./contentKeyStore";
 import {
+  assertSubmittedEnvelopes,
   assertTargetHashMatches,
   assertTargetsMatchCurrent,
   type CurrentDocumentKekTargets,
@@ -412,11 +413,29 @@ async function validateCurrentTargetsForBundle(
   if (currentTargets.linkSetManifestHash !== input.linkSetManifestHash) {
     throw staleBundle("Document link-set manifest hash is stale");
   }
+  // A link carries the stored bundle's targets verbatim and appends one
+  // freshly wrapped target, so this set mixes stored and new material. Judging
+  // the stored half by the submission shape would make a row carrying an
+  // unrecognized metadata key permanently un-linkable: a retained target must
+  // be resubmitted byte-identical or the bundle is stale, so no client can
+  // re-wrap its way out. Only new material is gated.
   assertTargetsMatchCurrent({
     currentTargets,
-    origin: "submission",
+    origin: "stored",
     targets: input.targets,
   });
+  const storedBundle = await getLatestDocumentContentKeyBundle(
+    input.documentId,
+    executor,
+  );
+  assertSubmittedEnvelopes(
+    input.targets.filter(
+      (target) =>
+        !storedBundle?.targets.some((stored) =>
+          targetEnvelopeMaterialEqual(stored, target),
+        ),
+    ),
+  );
   return currentTargets;
 }
 

@@ -12,8 +12,8 @@ import {
 } from "./symmetric";
 
 export class ContentKeyEnvelopeError extends Error {
-  constructor(message: string) {
-    super(message);
+  constructor(message: string, options?: ErrorOptions) {
+    super(message, options);
     this.name = "ContentKeyEnvelopeError";
   }
 }
@@ -73,6 +73,13 @@ export function decodeContentKeyEnvelope(input: {
    * becomes unreadable. Every other check — the suite, and the canonical
    * base64 encoding and byte length of the IV and wrapped key — is applied
    * identically, so a submission that passes is always readable later.
+   *
+   * `stored` is nonetheless stricter than simply decoding the base64, which
+   * is what the client did before. That is deliberate and does not reopen the
+   * lockout: the IV and key sizes are fixed by the suite, so a row that fails
+   * them is malformed rather than newer, and a canonical encoding is what
+   * makes comparing wrapped keys as strings — how a retained wrap is
+   * recognized — mean comparing the bytes.
    */
   readonly origin: ContentKeyEnvelopeOrigin;
 }): { readonly iv: Uint8Array; readonly ciphertext: Uint8Array } {
@@ -84,9 +91,10 @@ export function decodeContentKeyEnvelope(input: {
   if (input.origin === "submission") {
     try {
       assertExactKeys(raw, ["iv", "suite"], label);
-    } catch {
+    } catch (error) {
       throw new ContentKeyEnvelopeError(
         `${label} metadata must contain exactly suite and iv`,
+        { cause: error },
       );
     }
   }
