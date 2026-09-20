@@ -1,6 +1,8 @@
+import { KeyingVerificationError } from "@tearleads/crypto";
 import type { DocumentWriterProjectionResponse } from "@tearleads/validators/response";
 import { acknowledgeContainerMutation } from "../../data/containers/shared/mutationAcknowledgement";
 import type { MaterializedContainerRekeyPlan } from "../../data/containers/shared/types";
+import { ContainerKekRepairRequiredError } from "../../data/documents/shared/containerKekCurrency";
 import { assertDocumentWriterProjectionConsistent } from "../../data/documents/shared/projection";
 import { projectionVerificationOptions } from "../../data/documents/shared/types";
 import type { SyncRemoteDocumentInput } from "./readOnlySync";
@@ -29,7 +31,9 @@ async function commitRepairPrefix(input: {
       plan.request,
       { expectedPaymentRequiredOrganizationId: plan.state.organizationId },
     );
-    if (!response) throw new Error("Document ancestor repair was refused");
+    if (!response) {
+      throw new ContainerKekRepairRequiredError(plan.containerId);
+    }
     const acknowledged = await acknowledgeContainerMutation({
       execSql: input.sync.execSql,
       plan,
@@ -61,6 +65,13 @@ export async function prepareAutomaticContainerRekeys(
   for (;;) {
     const batch = await buildAutomaticContainerRekeys(sync, projection);
     if (!batch.hasMore) return { plans: batch.plans, projection };
+    // Only the standalone path needs its own gate: an inline batch rides the
+    // document write and already reaches the existing blocked stop. Returning
+    // no repairs keeps that single graceful outcome rather than throwing once a
+    // stale chain happens to exceed the inline limit.
+    if (sync.isRemoteSyncBlocked?.(sync.author.organizationId)) {
+      return { plans: [], projection: initialProjection };
+    }
     // Standalone mutations require authentic document scope before any request.
     await assertDocumentWriterProjectionConsistent(projection, {
       ...projectionVerificationOptions(sync),
@@ -76,10 +87,9 @@ export async function prepareAutomaticContainerRekeys(
       onSyncTrace: sync.onSyncTrace,
       stillCurrent: sync.stillCurrent,
     });
-    if (!fresh)
-      throw new Error("Document ancestor repair projection is unavailable");
+    if (!fresh) {
+      throw new ContainerKekRepairRequiredError(sync.documentId);
+    }
     projection = fresh;
   }
 }
-
-import { KeyingVerificationError } from "@tearleads/crypto";
