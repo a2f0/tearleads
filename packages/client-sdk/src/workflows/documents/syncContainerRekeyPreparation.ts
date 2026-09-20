@@ -32,6 +32,11 @@ export class DocumentAncestorRepairAbandonedError extends Error {
  */
 const passRepairTotals = new WeakMap<SyncRemoteDocumentInput, number>();
 
+/** A refusal the writer cannot clear by retrying, as opposed to 5xx/offline. */
+function isTerminalRepairStatus(status: number | null): boolean {
+  return status === 401 || status === 402 || status === 403;
+}
+
 async function commitRepairPrefix(input: {
   plans: readonly MaterializedContainerRekeyPlan[];
   repairedIds: Set<string>;
@@ -45,22 +50,44 @@ async function commitRepairPrefix(input: {
     if (input.repairedIds.has(plan.containerId)) {
       throw new DocumentAncestorRepairAbandonedError("peer-rotation");
     }
-    const response = await input.sync.apiClient.rekeyContainer(
-      plan.containerId,
-      plan.request,
-      { expectedPaymentRequiredOrganizationId: plan.state.organizationId },
-    );
+    const options = {
+      expectedPaymentRequiredOrganizationId: plan.state.organizationId,
+    };
+    // Prefer the status-bearing variant: a permanent refusal (403 once ancestor
+    // write access is revoked, 402) must leave a durable record, while a 5xx or
+    // an offline blip must not, and plain `rekeyContainer` collapses both to
+    // null. An adapter without it still repairs; its refusals are just reported
+    // as an ordinary abandon.
+    const result = input.sync.apiClient.rekeyContainerResult
+      ? await input.sync.apiClient.rekeyContainerResult(
+          plan.containerId,
+          plan.request,
+          options,
+        )
+      : null;
+    const response = result
+      ? result.ok
+        ? result.data
+        : null
+      : await input.sync.apiClient.rekeyContainer(
+          plan.containerId,
+          plan.request,
+          options,
+        );
     // Deliberately not ContainerKekRepairRequiredError: that is classified as
-    // retryable, so a handled refusal (402/409) would re-sign the whole prefix
-    // before failing again, and the retry never reaches onTerminalSubmitFailure
+    // retryable, so a handled refusal would re-sign the whole prefix before
+    // failing again, and the retry never reaches onTerminalSubmitFailure
     // regardless, because this throws before submission.
     if (!response) {
-      // Deliberately not recorded as a terminal submit failure: rekeyContainer
-      // answers null for every failure, so a 5xx or an offline blip is
-      // indistinguishable from the 403 that follows revoked ancestor access.
-      // Marking those terminal would show a document's queued writes as blocked
-      // on a transient error. Recording a genuine refusal needs a
-      // status-bearing rekey in @tearleads/api-client; see #2329.
+      if (result && !result.ok && isTerminalRepairStatus(result.status)) {
+        await input.sync.onTerminalSubmitFailure?.({
+          code: "document_ancestor_repair_refused",
+          message: `Ancestor repair refused for ${plan.containerId}`,
+          ok: false,
+          report: () => undefined,
+          status: result.status,
+        });
+      }
       throw new DocumentAncestorRepairAbandonedError("refused");
     }
     const acknowledged = await acknowledgeContainerMutation({

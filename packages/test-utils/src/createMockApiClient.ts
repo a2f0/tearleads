@@ -178,6 +178,18 @@ export function createMockApiClient(
     };
   }
 
+  if (!overrides.rekeyContainerResult) {
+    apiClient.rekeyContainerResult = async (containerId, input, options) => {
+      const data = await apiClient.rekeyContainer(containerId, input, options);
+      return data
+        ? { data, ok: true }
+        : mockRequestFailure({
+            message: "Mock container rekey unavailable",
+            method: "POST",
+            path: `/containers/${containerId}/rekey`,
+          });
+    };
+  }
   if (!overrides.linkDocumentResult) {
     apiClient.linkDocumentResult = async (documentId, input, options) => {
       const data = await apiClient.linkDocument(documentId, input, options);

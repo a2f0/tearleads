@@ -1328,6 +1328,30 @@ export class ApiClient {
     });
   }
 
+  /**
+   * Status-bearing rekey: a caller that must tell a permanent refusal (403 once
+   * ancestor write access is revoked, 402) from a transient 5xx or an offline
+   * blip cannot do so through `rekeyContainer`, which collapses both to null.
+   */
+  async rekeyContainerResult(
+    containerId: string,
+    input: ContainerMutationRequest,
+    options: RequestResultOptions = {},
+  ): Promise<RequestResult<ContainerMutationResponse>> {
+    try {
+      return await this.requestResult(
+        containerRekey.path(containerId),
+        containerRekey.isResponse,
+        containerRekey.method,
+        JSON.stringify(input),
+        options,
+        rekeyContainerOperation,
+      );
+    } finally {
+      this.clearWriterProjectionCaches();
+    }
+  }
+
   reciteContainer(
     containerId: string,
     input: ContainerReciteRequest,
