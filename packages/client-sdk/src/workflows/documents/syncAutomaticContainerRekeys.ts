@@ -8,6 +8,7 @@ import type { MaterializedContainerRekeyPlan } from "../../data/containers/share
 import { assertProjectionVerificationCurrent } from "../../data/keyingProjectionVerification/types";
 import { buildMaterializedContainerRekeyPlan } from "../containers/child/rekey";
 import type { SyncRemoteDocumentInput } from "./readOnlySync";
+import { DocumentAncestorRepairAbandonedError } from "./syncContainerRekeyPreparation";
 import { applyContainerRekeyPlan } from "./syncContainerRekeyProjection";
 
 function firstStaleContainer(
@@ -52,7 +53,10 @@ export async function buildAutomaticContainerRekeys(
     // generation flip mid-repair as a real sync failure.
     assertProjectionVerificationCurrent(sync.stillCurrent);
     if (plannedIds.has(previousProjection.containerId)) {
-      throw new Error("Document ancestor repair has conflicting paths");
+      // Abandon like every other routine repair failure: two linked paths
+      // disagreeing about a container is a concurrent-rotation race, not a
+      // defect, and a raw Error would crash the sync lane instead.
+      throw new DocumentAncestorRepairAbandonedError("peer-rotation");
     }
     // Assert rather than adopt: resolveRotationContext compares the verified
     // manifest's organization against the author's, so substituting the path's
