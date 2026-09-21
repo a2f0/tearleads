@@ -29,8 +29,10 @@ function decodeFixedBase64(
   let bytes: Uint8Array;
   try {
     bytes = base64ToBytes(value);
-  } catch {
-    throw new ContentKeyEnvelopeError(`${label} must use canonical base64`);
+  } catch (error) {
+    throw new ContentKeyEnvelopeError(`${label} must use canonical base64`, {
+      cause: error,
+    });
   }
   if (bytes.length !== size || bytesToBase64(bytes) !== value) {
     throw new ContentKeyEnvelopeError(
