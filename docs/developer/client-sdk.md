@@ -619,12 +619,20 @@ remainder repairs lazily rather than refuse a revocation. Custom adapters opt in
 by supplying the status-bearing `rekeyContainerResult`, `revokeContainerResult`,
 or `moveContainerResult`, and `getContainerWriterProjection`.
 
-A grant has the matching precondition: the chain above the container must be
-current, since its new grantee could not repair it. `shareRemoteContainer` and
-`shareRemoteContainerWithGroup` re-key a lazily stale chain before granting.
-An inline repair refused for the same reason fails the write with
-`document_sync_descendant_rekeys_required`; the pass retries with its repairs
-committed standalone, where each can carry its own descendants.
+A container's first direct grant has the matching precondition: the chain above
+it must be current, since its new grantee could not repair it. A container that
+already carries a grant has had its chain kept current by every rotation above
+it, so further grants and group rematerialization refreshes owe nothing more.
+`shareRemoteContainer` and `shareRemoteContainerWithGroup` re-key a lazily stale
+path first, the container included, because a grant cites the parent's current
+epoch and the container's key epoch must pin it; an adapter without
+`rekeyContainer` gets `ContainerKekRepairInaccessibleError` instead. Under this
+rule a stale container is never above a granted one, so an honest inline repair
+never strands anything. The API still checks: a document write refused that way
+fails with `document_sync_descendant_rekeys_required`, and the sync pass retries
+with its repairs committed standalone, where each carries its own descendants.
+A blob bind or detach refused that way is an uncoded 409; the document's next
+sync pass makes the path current.
 
 If a writer still meets a stale ancestor it cannot re-key (a dishonest server, a
 tree past the cap, or a race), its pass refetches once, then abandons with the

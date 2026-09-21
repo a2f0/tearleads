@@ -16,6 +16,7 @@ export async function assertParentKekStateCurrent(
   executor: DatabaseTransaction,
   manifest: VerifiedContainerAccessManifest,
   parentKekState: VerifiedContainerKekState | null,
+  previousManifest: VerifiedContainerAccessManifest | null = null,
 ): Promise<void> {
   if (!manifest.state.parentContainerId) {
     return;
@@ -33,11 +34,18 @@ export async function assertParentKekStateCurrent(
   }
 
   const eventType = manifest.event.event.eventType;
-  if (eventType !== "container.recite") {
-    // A new child secret must not be wrapped through a stale intermediate. A
-    // grant mints no secret, but it may be the first below a lazily stale
-    // chain, and its grantee could never re-key the levels above its own
-    // container: the sharer, who can, repairs that chain before sharing.
+  // A new child secret must not be wrapped through a stale intermediate. A
+  // recitation mints nothing. Neither does a grant, but the FIRST direct grant
+  // on a container may sit below a lazily stale chain, and its grantee could
+  // never re-key the levels above its own container: the sharer, who can,
+  // repairs that chain before sharing. A container that already carries a
+  // grant has had its chain kept current by every rotation above it, so a
+  // further grant, or a group rematerialization refreshing one, owes nothing.
+  const mintsOrFirstGrants =
+    eventType === "container.grant"
+      ? (previousManifest?.state.directGrants.length ?? 0) === 0
+      : eventType !== "container.recite";
+  if (mintsOrFirstGrants) {
     await resolveCurrentContainerKekTargetsMapped(
       [parentKekState.containerId],
       executor,

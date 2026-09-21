@@ -92,7 +92,7 @@ export async function rekeyRemoteContainer(input: {
                 input.apiClient,
                 input.containerId,
                 request,
-                options,
+                { ...options, reportErrors: false },
               )
           : undefined,
       });

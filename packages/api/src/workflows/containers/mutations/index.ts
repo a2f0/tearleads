@@ -93,11 +93,18 @@ export async function applyContainerRekeys(input: {
   }
   // An inline repair is a rotation like any other. The write that carries it
   // holds a flat list, so the descendants it strands ride as further entries.
-  await assertGrantedPathsCurrentBelow({
-    capReached: applied.length >= MAX_INLINE_CONTAINER_REKEYS,
-    executor: input.executor,
-    rotatedContainerIds: applied.map(({ response }) => response.containerId),
-  });
+  for (const organizationId of new Set(
+    applied.map(({ response }) => response.organizationId),
+  )) {
+    await assertGrantedPathsCurrentBelow({
+      carriedLimit: MAX_INLINE_CONTAINER_REKEYS,
+      executor: input.executor,
+      organizationId,
+      rotatedContainerIds: applied
+        .filter(({ response }) => response.organizationId === organizationId)
+        .map(({ response }) => response.containerId),
+    });
+  }
   return applied;
 }
 
@@ -131,8 +138,9 @@ async function mutateContainerRotationInTransaction(
     });
     if (rotates) {
       await assertGrantedPathsCurrentBelow({
-        capReached: false,
+        carriedLimit: MAX_ROTATION_CONTAINER_REKEYS,
         executor: tx,
+        organizationId: response.organizationId,
         rotatedContainerIds: [response.containerId],
       });
     }
@@ -174,8 +182,9 @@ async function mutateContainerRotationInTransaction(
     );
   }
   await assertGrantedPathsCurrentBelow({
-    capReached: carried.length >= MAX_ROTATION_CONTAINER_REKEYS,
+    carriedLimit: MAX_ROTATION_CONTAINER_REKEYS,
     executor: tx,
+    organizationId: response.organizationId,
     rotatedContainerIds: [
       response.containerId,
       ...carriedResponses.map((carriedResponse) => carriedResponse.containerId),

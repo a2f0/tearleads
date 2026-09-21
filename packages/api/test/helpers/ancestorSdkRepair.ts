@@ -88,33 +88,45 @@ export async function createAncestorSdkContext(
     postMutation(`/containers/${id}/rekey`, request);
   // Status-bearing, as the real client is: a refusal naming the descendant
   // rekeys a rotation must carry is an answer, not an exception.
-  apiClient.rekeyContainerResult = async (id, request) => {
-    const response = await routeApp.request(`/containers/${id}/rekey`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${actor.token}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(request),
-    });
-    const value: unknown = await response.json();
-    if (response.ok && isContainerMutationResponse(value)) {
-      return { data: value, ok: true };
-    }
-    const code = Reflect.get(Object(value), "code");
-    const requiredContainerIds = Reflect.get(
-      Object(value),
-      "requiredContainerIds",
-    );
-    return createMockRequestFailure({
-      ...(typeof code === "string" ? { code } : {}),
-      message: `Container rekey failed: ${JSON.stringify(value)}`,
-      method: "POST",
-      path: `/containers/${id}/rekey`,
-      ...(Array.isArray(requiredContainerIds) ? { requiredContainerIds } : {}),
-      status: response.status,
-    });
-  };
+  const rotationResult =
+    (operation: "move" | "rekey" | "revoke") =>
+    async (id: string, request: ContainerMutationRequest) => {
+      const path = `/containers/${id}/${operation}`;
+      const response = await routeApp.request(path, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${actor.token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(request),
+      });
+      const value: unknown = await response.json();
+      if (response.ok && isContainerMutationResponse(value)) {
+        return { data: value, ok: true as const };
+      }
+      const code = Reflect.get(Object(value), "code");
+      const requiredContainerIds = Reflect.get(
+        Object(value),
+        "requiredContainerIds",
+      );
+      return createMockRequestFailure({
+        ...(typeof code === "string" ? { code } : {}),
+        message: `Container ${operation} failed: ${JSON.stringify(value)}`,
+        method: "POST",
+        path,
+        ...(Array.isArray(requiredContainerIds)
+          ? { requiredContainerIds }
+          : {}),
+        status: response.status,
+      });
+    };
+  apiClient.rekeyContainerResult = rotationResult("rekey");
+  apiClient.revokeContainerResult = rotationResult("revoke");
+  apiClient.moveContainerResult = rotationResult("move");
+  apiClient.revokeContainer = (id, request) =>
+    postMutation(`/containers/${id}/revoke`, request);
+  apiClient.moveContainer = (id, request) =>
+    postMutation(`/containers/${id}/move`, request);
   apiClient.shareContainer = (id, request) =>
     postMutation(`/containers/${id}/share`, request);
   const common: AncestorSdkCommon = {

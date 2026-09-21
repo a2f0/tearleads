@@ -76,8 +76,10 @@ export async function submitRotationCarryingDescendants(input: {
     !result.requiredContainerIds?.length ||
     !input.carriedRekeys
   ) {
-    return { carriedPlans: [], result };
+    return { carriedPlans: [], result: reportTerminalRefusal(result) };
   }
+  // Answerable, so not an error: callers submit with `reportErrors: false` and
+  // only the refusal that ends the attempt is surfaced.
   const carriedPlans = await planCarriedDescendantRekeys({
     ...input.carriedRekeys.planning,
     requiredContainerIds: result.requiredContainerIds,
@@ -86,8 +88,17 @@ export async function submitRotationCarryingDescendants(input: {
   if (input.stillCurrent?.() === false) return { carriedPlans: [], result };
   return {
     carriedPlans,
-    result: await input.submit(carriedPlans.map(({ plan }) => plan.request)),
+    result: reportTerminalRefusal(
+      await input.submit(carriedPlans.map(({ plan }) => plan.request)),
+    ),
   };
+}
+
+function reportTerminalRefusal(
+  result: ContainerRotationResult,
+): ContainerRotationResult {
+  if (!result.ok) result.report?.();
+  return result;
 }
 
 /**
@@ -151,8 +162,9 @@ export async function submitAcknowledgedContainerMutation<
       apiClient: input.apiClient,
       author: input.author,
       execSql: input.execSql,
-      // A carried rekey already cites the current path, so re-citing it would
-      // only spend its recitation budget.
+      // `plans` are the containers whose descendants get re-cited; they are
+      // never re-cited themselves. A carried rekey already cites the current
+      // path, so listing it here spares its recitation budget.
       plans: [input.plan, ...carriedPlans.map(({ plan }) => plan)],
       reportSecurityIncident: input.reportSecurityIncident,
       stillCurrent: input.stillCurrent,

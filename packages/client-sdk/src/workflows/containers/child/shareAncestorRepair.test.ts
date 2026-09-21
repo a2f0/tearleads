@@ -62,18 +62,19 @@ test("sharing below a lazily stale chain repairs it first", async () => {
         }),
     });
     expect(shared).not.toBeNull();
-    // The chain above the grant was re-keyed, then the grant submitted.
+    // The path was re-keyed parent-first, the container included, and only
+    // then was the grant submitted: a grant cites the parent's current epoch,
+    // which the container's own key epoch has to pin.
     expect(server.submissions).toEqual([
       [rootId],
       ["child"],
+      ["grandchild"],
       ["share:grandchild"],
     ]);
     const granted = server.project("grandchild");
     if (!granted) throw new Error("Expected the grandchild projection");
-    // Every level above the granted container is current; its own edge is the
-    // grantee's to repair on first write.
     expect(() =>
-      assertContainerKekPathCurrent(granted.containerKeks.slice(0, -1)),
+      assertContainerKekPathCurrent(granted.containerKeks),
     ).not.toThrow();
   } finally {
     database.close();

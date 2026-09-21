@@ -24,6 +24,14 @@ function namedError(error: unknown, name: string): error is Error {
   return error instanceof Error && error.name === name;
 }
 
+/** A same-named error from elsewhere may lack the field; never say "undefined". */
+function repairContainerId(error: unknown): string | null {
+  const containerId = Reflect.get(Object(error), "containerId");
+  return typeof containerId === "string" && containerId.length > 0
+    ? containerId
+    : null;
+}
+
 /** Null for anything else, including keying-verification failures. */
 export function classifyContainerWriteRefusal(
   error: unknown,
@@ -33,19 +41,15 @@ export function classifyContainerWriteRefusal(
     error instanceof ContainerKekRepairInaccessibleError ||
     namedError(error, "ContainerKekRepairInaccessibleError")
   ) {
-    return {
-      kind: "repair-inaccessible",
-      containerId: String(Reflect.get(error, "containerId")),
-    };
+    const containerId = repairContainerId(error);
+    return containerId ? { kind: "repair-inaccessible", containerId } : null;
   }
   if (
     error instanceof ContainerKekRepairRequiredError ||
     namedError(error, "ContainerKekRepairRequiredError")
   ) {
-    return {
-      kind: "repair-required",
-      containerId: String(Reflect.get(error, "containerId")),
-    };
+    const containerId = repairContainerId(error);
+    return containerId ? { kind: "repair-required", containerId } : null;
   }
   if (
     error instanceof ContainerAuthorAccessError ||

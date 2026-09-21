@@ -106,7 +106,7 @@ async function commitRepairPrefix(input: {
                   input.sync.apiClient,
                   plan.containerId,
                   request,
-                  options,
+                  { ...options, reportErrors: false },
                 )
             : undefined,
         });

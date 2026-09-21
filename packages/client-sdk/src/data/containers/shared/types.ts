@@ -167,6 +167,8 @@ export type ContainerRotationResult =
   | {
       readonly ok: false;
       readonly code?: string | undefined;
+      /** Surface a failure that was submitted with `reportErrors: false`. */
+      readonly report?: (() => void) | undefined;
       readonly requiredContainerIds?: readonly string[] | undefined;
       readonly status: number | null;
     };

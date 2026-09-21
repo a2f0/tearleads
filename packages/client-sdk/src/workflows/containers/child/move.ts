@@ -446,7 +446,7 @@ export async function moveRemoteContainer(input: {
                 input.apiClient,
                 input.containerId,
                 request,
-                options,
+                { ...options, reportErrors: false },
               )
           : undefined,
       });

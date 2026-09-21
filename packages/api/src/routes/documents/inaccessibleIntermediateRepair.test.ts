@@ -3,7 +3,9 @@ import { createTestUser } from "@tearleads/bob-and-alice";
 import {
   buildMaterializedContainerRekeyPlan,
   createRemoteContainer,
+  moveRemoteContainer,
   rekeyRemoteContainer,
+  revokeRemoteContainer,
   shareRemoteContainer,
 } from "@tearleads/client-sdk";
 import { createAncestorSdkContext } from "../../../test/helpers/ancestorSdkRepair";
@@ -271,5 +273,177 @@ test("nested grants: every level above any granted container rides the rotation"
     }
   } finally {
     context.close();
+  }
+}, 180_000);
+
+/** An owner, extra organization members, and an SDK context for the owner. */
+async function createOwnedTree(memberCount: number) {
+  const owner = createTestUser();
+  await registerUser(owner);
+  await authenticate(owner);
+  const members = [];
+  for (let index = 0; index < memberCount; index += 1) {
+    const member = createTestUser();
+    await registerUser(member);
+    await authenticate(member);
+    members.push(member);
+  }
+  const root = await bootstrapRoot(owner);
+  const rootId = root.kekState.containerId;
+  const organizationId = Reflect.get(root.bundle.state, "organizationId");
+  if (typeof organizationId !== "string")
+    throw new Error("Expected root organization");
+  for (const member of members) {
+    await addOrganizationMember({ actor: owner, member, organizationId });
+  }
+  const context = await createAncestorSdkContext(
+    owner,
+    organizationId,
+    ...members,
+  );
+  const sdk = {
+    ...context.common,
+    reportSecurityIncident: async () => undefined,
+    resolveTrustedUserIdentity: context.resolveTrustedUserIdentity,
+  };
+  const createChild = async (parentContainerId: string) => {
+    const child = await createRemoteContainer({
+      ...sdk,
+      parentContainerId,
+      parentSecretKey: owner.kem.secretKey,
+    });
+    if (!child) throw new Error("Expected child");
+    return child.containerId;
+  };
+  const share = async (containerId: string, recipientUserId: string) => {
+    const shared = await shareRemoteContainer({
+      ...sdk,
+      accessLevel: "write",
+      containerId,
+      recipientUserId,
+    });
+    if (!shared) throw new Error("Expected share");
+  };
+  const keksOf = async (containerId: string) =>
+    (await context.common.apiClient.getContainerWriterProjection(containerId))
+      ?.containerKeks ?? [];
+  return {
+    context,
+    createChild,
+    keksOf,
+    members,
+    organizationId,
+    owner,
+    rootId,
+    sdk,
+    share,
+  };
+}
+
+// With nothing granted beneath it a chain may sit lazily stale, and the API
+// refuses a first grant below one (`grantBelowStaleChain.test.ts`). The sharer
+// can re-key every such level, so the SDK does that before it grants.
+
+test("sharing below a lazily stale chain repairs the path first", async () => {
+  const tree = await createOwnedTree(1);
+  const [writer] = tree.members;
+  if (!writer) throw new Error("Expected a writer");
+  try {
+    const upper = await tree.createChild(tree.rootId);
+    const lower = await tree.createChild(upper);
+    const created = await createEncryptedColdDocument({
+      containerId: lower,
+      organizationId: tree.organizationId,
+      owner: tree.owner,
+    });
+    // Nothing is granted below the root, so it rotates alone and carries
+    // nothing; `upper` and `lower` are left lazily stale.
+    const rotated = await rekeyRemoteContainer({
+      ...tree.sdk,
+      containerId: tree.rootId,
+    });
+    expect(rotated?.response.containerRekeys).toBeUndefined();
+    expect(isPathCurrent(await tree.keksOf(lower))).toBe(false);
+
+    await tree.share(lower, writer.userId);
+    expect(isPathCurrent(await tree.keksOf(lower))).toBe(true);
+
+    const edit = await createLeafWriterAncestorEdit({
+      documentId: created.documentId,
+      organizationId: tree.organizationId,
+      owner: tree.owner,
+      writer,
+    });
+    try {
+      const written = await edit.attemptWrite();
+      expect(written?.settledPendingUpdateIds).toContain(edit.updateId);
+      expect(edit.abandoned).toEqual([]);
+      expect(edit.standaloneRepairs).toEqual([]);
+    } finally {
+      edit.close();
+    }
+  } finally {
+    tree.context.close();
+  }
+}, 180_000);
+
+test("a revoke carries the levels above a granted container", async () => {
+  const tree = await createOwnedTree(2);
+  const [writer, revoked] = tree.members;
+  if (!writer || !revoked) throw new Error("Expected two members");
+  try {
+    const upper = await tree.createChild(tree.rootId);
+    const lower = await tree.createChild(upper);
+    await tree.share(lower, writer.userId);
+    await tree.share(tree.rootId, revoked.userId);
+
+    const result = await revokeRemoteContainer({
+      ...tree.sdk,
+      containerId: tree.rootId,
+      revokedSubject: { subjectId: revoked.userId, subjectType: "user" },
+    });
+    expect(
+      result?.response.containerRekeys?.map((rekey) => rekey.containerId),
+    ).toEqual([upper]);
+    expect(isPathCurrent((await tree.keksOf(lower)).slice(0, -1))).toBe(true);
+  } finally {
+    tree.context.close();
+  }
+}, 180_000);
+
+// A move re-parents as well as rotates, so the carried rekeys are signed
+// against the destination path, not the one the descendants are served under.
+
+test("a move carries the levels above a granted container onto the new path", async () => {
+  const tree = await createOwnedTree(1);
+  const [writer] = tree.members;
+  if (!writer) throw new Error("Expected a writer");
+  try {
+    const source = await tree.createChild(tree.rootId);
+    const destination = await tree.createChild(tree.rootId);
+    const moved = await tree.createChild(source);
+    const upper = await tree.createChild(moved);
+    const lower = await tree.createChild(upper);
+    await tree.share(lower, writer.userId);
+
+    const result = await moveRemoteContainer({
+      ...tree.sdk,
+      containerId: moved,
+      destinationParentContainerId: destination,
+    });
+    expect(
+      result?.response.containerRekeys?.map((rekey) => rekey.containerId),
+    ).toEqual([upper]);
+    const keks = await tree.keksOf(lower);
+    expect(keks.map((kek) => kek.containerId)).toEqual([
+      tree.rootId,
+      destination,
+      moved,
+      upper,
+      lower,
+    ]);
+    expect(isPathCurrent(keks.slice(0, -1))).toBe(true);
+  } finally {
+    tree.context.close();
   }
 }, 180_000);

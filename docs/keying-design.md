@@ -753,11 +753,14 @@ a current parent edge. A rekey, revoke, or move must carry, in its own
 transaction, the rekeys of every descendant that sits above a directly granted
 container; the API refuses it otherwise and names them. The rotator can always
 comply, because access and keys inherit downward from the container it rotates.
-A grant requires the chain above its container to be current, and the sharer
-repairs a lazily stale chain first; those repairs need not be atomic, since a
-repair never strands anyone. Inline repairs inside document and blob writes are
-held to the same rule. With those levels current, a grantee re-keys from its own
-container downward and its writes depend on nobody else.
+A container's first direct grant requires the chain above it to be current, and
+the sharer repairs a lazily stale path first; those repairs need not be atomic,
+since a repair never strands anyone. A container that already carries a grant
+owes nothing more for a further one. Inline repairs inside document and blob
+writes are checked against the same rule, though under it a stale container is
+never above a granted one, so an honest inline repair cannot trip it. With
+those levels current, a grantee re-keys from its own container downward and
+its writes depend on nobody else.
 
 Containers with no grant beneath them still repair lazily, first writer wins,
 which keeps a rotation's cost proportional to what is shared below it rather

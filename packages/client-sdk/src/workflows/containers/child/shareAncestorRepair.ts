@@ -15,12 +15,12 @@ import type { SecurityIncidentReporter } from "../../../data/securityIncidents";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import { rekeyRemoteContainer } from "./rekeyRemote";
 
-/** The first ancestor pinned to a retired parent epoch; the target is exempt. */
-function firstStaleAncestorId(
+/** The first level on the path, the container included, pinning a retired epoch. */
+function firstStaleLevelId(
   projection: ContainerWriterProjectionResponse,
 ): string | null {
   const keks = projection.containerKeks;
-  for (let index = 1; index < keks.length - 1; index += 1) {
+  for (let index = 1; index < keks.length; index += 1) {
     const kek = keks[index];
     if (
       kek &&
@@ -33,15 +33,19 @@ function firstStaleAncestorId(
 }
 
 /**
- * Repair a stale chain above a container before granting on it (#2340).
+ * Repair a stale path down to and including a container before granting on it
+ * (#2340).
  *
  * A chain with no grant beneath it may sit lazily stale after an ancestor
  * rotation, since nobody's writes depend on it. The first grant changes that:
- * its grantee could never re-key those levels, so the server refuses a grant
- * below a stale chain. The sharer administers the container through a grant at
- * or above it, and the levels above that grant are already current, so every
- * stale level here is one the sharer can re-key. These repairs are standalone
- * and need not be atomic with the grant: a repair never strands anyone.
+ * its grantee could never re-key the levels above its container, so the server
+ * refuses a first grant below a stale chain. The container's own edge must be
+ * current too, because a grant cites the parent's current epoch and the
+ * container's key epoch has to pin it. The sharer administers the container
+ * through a grant at or above it, and the levels above that grant are already
+ * current, so every stale level here is one the sharer can re-key. These
+ * repairs are standalone and need not be atomic with the grant: a repair never
+ * strands anyone.
  */
 export async function projectionWithCurrentAncestors(input: {
   apiClient: ContainerShareApi &
@@ -60,9 +64,12 @@ export async function projectionWithCurrentAncestors(input: {
   let projection = input.previousProjection;
   // Each round repairs one level, and a path has a bounded number of them.
   for (let round = 0; round < projection.containerKeks.length; round += 1) {
-    const staleAncestorId = firstStaleAncestorId(projection);
-    // Without a rekey method the grant goes ahead and the server decides.
-    if (staleAncestorId === null || !rekeyContainer) return projection;
+    const staleLevelId = firstStaleLevelId(projection);
+    if (staleLevelId === null) return projection;
+    // The server would refuse this grant as stale, and no refetch clears that.
+    if (!rekeyContainer) {
+      throw new ContainerKekRepairInaccessibleError(staleLevelId);
+    }
     const repaired = await rekeyRemoteContainer({
       apiClient: {
         getContainerWriterProjection: (containerId) =>
@@ -74,7 +81,7 @@ export async function projectionWithCurrentAncestors(input: {
           : {}),
       },
       author: input.author,
-      containerId: staleAncestorId,
+      containerId: staleLevelId,
       execSql: input.execSql,
       reportSecurityIncident: input.reportSecurityIncident,
       resolveProjectionUserKey: input.resolveProjectionUserKey,
@@ -84,7 +91,7 @@ export async function projectionWithCurrentAncestors(input: {
     }).catch((error: unknown) => {
       throw error instanceof ContainerAuthorAccessError ||
         error instanceof ContainerKekTargetUnreachableError
-        ? new ContainerKekRepairInaccessibleError(staleAncestorId)
+        ? new ContainerKekRepairInaccessibleError(staleLevelId)
         : error;
     });
     if (!repaired || input.stillCurrent?.() === false) return null;
@@ -94,5 +101,5 @@ export async function projectionWithCurrentAncestors(input: {
     if (!refreshed) return null;
     projection = refreshed;
   }
-  return firstStaleAncestorId(projection) === null ? projection : null;
+  return firstStaleLevelId(projection) === null ? projection : null;
 }

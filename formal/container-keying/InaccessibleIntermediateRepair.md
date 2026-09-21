@@ -43,9 +43,10 @@ intermediate's other children.
 The model abstracts signatures, ciphertext, and policy evaluation. It has one
 granted container; production computes the carried set over the whole subtree
 and caps it at `MAX_ROTATION_CONTAINER_REKEYS`, past which the remainder repairs
-lazily rather than refuse a revocation. A grant's matching precondition, a
-current chain above its container, is enforced by `assertParentKekStateCurrent`
-and is not modeled: the grant exists from `Init`. Group rematerialization does
-not yet carry descendants. The API test `inaccessibleIntermediateRepair.test.ts`
+lazily rather than refuse a revocation. The matching precondition on a
+container's first direct grant, a current chain above it, is enforced by
+`assertParentKekStateCurrent` and is not modeled: the grant exists from `Init`.
+Group rematerialization does not yet carry descendants. The API test
+`inaccessibleIntermediateRepair.test.ts`
 and the SDK tests `carriedDescendantRekeys.test.ts` and
 `syncInaccessibleAncestorRepair.test.ts` exercise both sides with real keys.
