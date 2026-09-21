@@ -28,6 +28,7 @@ import {
 import { containerWrappingPublicKeyForTest } from "@tearleads/crypto/test-fixtures";
 import { DOCUMENT_SYNC_ERROR_CODES } from "@tearleads/validators/response";
 import { eq } from "drizzle-orm";
+import { contentKeyEnvelopeFixture } from "../../../test/helpers/contentKeyEnvelope";
 import {
   type DocumentContentKeyTargetEnvelope,
   getLatestCurrentDocumentContentKeyBundle,
@@ -271,8 +272,7 @@ function targetEnvelopes(
 ): DocumentContentKeyTargetEnvelope[] {
   return targets.targets.map((target) => ({
     ...target,
-    wrappedKey: `${target.containerId}:${suffix}`,
-    wrappingMetadata: { suite: "test-wrap" },
+    ...contentKeyEnvelopeFixture("Document", `${target.containerId}:${suffix}`),
   }));
 }
 
@@ -392,7 +392,10 @@ test("storeDocumentContentKeyBundle rejects missing extra duplicate and stale ta
     {
       ...firstEnvelope,
       containerId: crypto.randomUUID(),
-      wrappedKey: "extra",
+      // A well-shaped envelope: the target hash check refuses this set before
+      // either the count check or the envelope gate is reached, and the
+      // fixture keeps that true if the order ever changes.
+      wrappedKey: contentKeyEnvelopeFixture("Document", "extra").wrappedKey,
     },
   ];
   const duplicateTarget = [...envelopes, { ...firstEnvelope }];
@@ -475,8 +478,10 @@ test("storeDocumentContentKeyBundle allows additive target growth on the same co
     return (
       existing ?? {
         ...target,
-        wrappedKey: `${target.containerId}:expanded`,
-        wrappingMetadata: { suite: "test-wrap" },
+        ...contentKeyEnvelopeFixture(
+          "Document",
+          `${target.containerId}:expanded`,
+        ),
       }
     );
   });

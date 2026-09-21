@@ -60,6 +60,7 @@ const contentKeyTargetPolicy = createContentKeyTargetPolicy<
   computeTargetHash: computeDocumentContentKeyTargetHash,
   createError: (message, status) =>
     new DocumentContentKeyBundleError(message, status),
+  envelopeKind: "Document",
   messages: {
     duplicateTargets:
       "Document content-key targets contain duplicate containers",
@@ -84,9 +85,17 @@ export const {
   targetKeyMaterialEqual,
 } = contentKeyTargetPolicy;
 
-export function assertTargetsMatchCurrent(input: {
+export function assertStoredTargetsMatchCurrent(input: {
   readonly currentTargets: CurrentDocumentKekTargets;
   readonly targets: readonly DocumentContentKeyTargetEnvelope[];
 }): void {
-  contentKeyTargetPolicy.assertTargetsMatchCurrent(input);
+  contentKeyTargetPolicy.assertStoredTargetsMatchCurrent(input);
+}
+
+export function assertSubmittedTargetsMatchCurrent(input: {
+  readonly currentTargets: CurrentDocumentKekTargets;
+  readonly storedTargets: readonly DocumentContentKeyTargetEnvelope[] | null;
+  readonly targets: readonly DocumentContentKeyTargetEnvelope[];
+}): void {
+  contentKeyTargetPolicy.assertSubmittedTargetsMatchCurrent(input);
 }

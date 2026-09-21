@@ -7,6 +7,7 @@ import {
   buildBind,
   stageBlob,
 } from "../../../test/helpers/blobAttachmentKit";
+import { contentKeyEnvelopeFixture } from "../../../test/helpers/contentKeyEnvelope";
 import {
   buildDocumentLinkRequest,
   buildDocumentUnlinkRequest,
@@ -63,7 +64,8 @@ test("a warm client moves an uploaded attachment on its first attempt", async ()
       containerManifestHash: childKek.accessManifestHash,
       containerKeyEpochId: childKek.containerKeyEpochId,
       containerKeyEpoch: childKek.containerKeyEpoch,
-      wrappedKey: "first-destination-wrap",
+      wrappedKey: contentKeyEnvelopeFixture("Blob", "first-destination-wrap")
+        .wrappedKey,
     };
     const linked = await client.linkDocumentResult(
       document.id,
@@ -93,7 +95,13 @@ test("a warm client moves an uploaded attachment on its first attempt", async ()
             "retained wrap",
           ),
         }
-      : { ...destinationTarget, wrappedKey: "regenerated-destination-wrap" };
+      : {
+          ...destinationTarget,
+          wrappedKey: contentKeyEnvelopeFixture(
+            "Blob",
+            "regenerated-destination-wrap",
+          ).wrappedKey,
+        };
     const moved = await client.unlinkDocumentResult(
       document.id,
       await buildDocumentUnlinkRequest({

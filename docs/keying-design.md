@@ -752,6 +752,35 @@ For each active binding:
 3. derive the document's linked container KEK targets.
 
 The blob content key is wrapped to the union of those container KEK targets.
+
+Document and blob content-key envelopes share one public format check: the
+object-kind-specific AES-GCM suite, a canonical base64 12-byte IV, and a
+canonical base64 48-byte wrapped 32-byte key plus authentication tag. The API
+applies it to newly wrapped material, additionally requiring the wrapping
+metadata to carry exactly `suite` and `iv`, and rejects a failing submission
+before persistence. Clients apply the same check when reading a stored
+envelope, minus that exact-key requirement, so an unrecognized metadata key can
+never make a decryptable envelope unreadable. A document link, a blob relink,
+and a bind of a blob another document already holds all resubmit retained wraps
+verbatim alongside newly wrapped ones; the API judges the retained half as
+stored for the same reason, since a retained target must be resubmitted
+byte-identical and cannot be re-wrapped while it is active. The exemption is
+scoped to the content-key epoch being written, so a rotation exempts nothing.
+When a bundle submission is both malformed and stale, staleness usually wins:
+the target hash and current-target checks run first, and only the target-set
+comparison is ordered after the envelope shape check. A blob rewrap has no
+preceding target-hash check — it recomputes the hash afterward — but its epoch
+and coverage checks still run first.
+
+A retired blob target that re-enters a bundle is the one case where what lands
+is not what was submitted: the server discards the resubmitted wrap and writes
+back the authentic stored one, because active key material cannot be replaced.
+
+There are no legacy-suite or alternate-encoding paths. These checks validate
+structure; only a recipient with the KEK can authenticate the ciphertext and
+establish the recovered key. An authorized writer can still submit
+well-shaped, undecryptable material.
+
 Clients and the API reject blob writes or attachment commits that omit targets
 for other active bindings.
 

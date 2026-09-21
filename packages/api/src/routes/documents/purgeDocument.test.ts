@@ -69,6 +69,7 @@ import {
   uploadBlobObject,
 } from "../../../test/helpers/blobObjectStore";
 import { createTestContainerKekId } from "../../../test/helpers/containerKekMaterial";
+import { contentKeyEnvelopeFixture } from "../../../test/helpers/contentKeyEnvelope";
 import { buildDocumentLinkRequest } from "../../../test/helpers/documentLinkMutation";
 import { buildDocumentPurgeRequest } from "../../../test/helpers/documentPurge";
 import { loadVerifiedPrincipalPolicy } from "../../../test/helpers/principalPolicy";
@@ -498,8 +499,7 @@ async function createDocumentRequest(input: {
       targetHash,
       targets: targets.map((target) => ({
         ...target,
-        wrappedKey: `document-key:${documentId}`,
-        wrappingMetadata: { alg: "test-wrap" },
+        ...contentKeyEnvelopeFixture("Document", `document-key:${documentId}`),
       })),
     },
   };

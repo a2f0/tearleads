@@ -32,6 +32,7 @@ import {
   uploadMultipartBlobPartBytes,
 } from "../../src/services/blobs/multipartStage";
 import { blobObjectBytes } from "./blobObjectStore";
+import { contentKeyEnvelopeFixture } from "./contentKeyEnvelope";
 import {
   asVerifiedContainerManifest,
   createSignedAccessEvent,
@@ -96,8 +97,10 @@ function contentKeyTargets(
 ): BlobAttachmentBindRequest["contentKeyBundle"]["targets"] {
   return targets.targets.map((target) => ({
     ...target,
-    wrappedKey: `wrapped:${target.bindingId}:${target.containerId}`,
-    wrappingMetadata: { suite: "test-wrap" },
+    ...contentKeyEnvelopeFixture(
+      "Blob",
+      `wrapped:${target.bindingId}:${target.containerId}`,
+    ),
   }));
 }
 
