@@ -1,3 +1,4 @@
+import type { BlobEnvelopeRecord } from "@tearleads/crypto";
 import {
   BLOB_ENVELOPE_PREFIX_BYTES,
   MAX_BLOB_ENVELOPE_HEADER_BYTES,
@@ -16,6 +17,9 @@ export async function summarizeBlobEnvelopeStage(
   );
   let retainedBytes = 0;
   let headerByteLength: number | null = null;
+  const parsed: { header: BlobEnvelopeRecord | null } = { header: null };
+  // Parsing as soon as the header is buffered lets a malformed one cancel the
+  // upload stream, rather than hashing the whole object first to reject it.
   const observed = stream.pipeThrough(
     new TransformStream<Uint8Array, Uint8Array>({
       transform(chunk, controller) {
@@ -35,18 +39,31 @@ export async function summarizeBlobEnvelopeStage(
             throw invalidEnvelope(error);
           }
         }
+        if (
+          parsed.header === null &&
+          headerByteLength !== null &&
+          retainedBytes >= headerByteLength
+        ) {
+          try {
+            // `headerByteLength` already spans the prefix and the payload.
+            parsed.header = parseBlobEnvelopeV2Header(
+              prefix.subarray(0, headerByteLength),
+            );
+          } catch (error) {
+            throw invalidEnvelope(error);
+          }
+        }
         controller.enqueue(chunk);
       },
     }),
   );
   const summary = await summarizeSha256Stream(observed);
-  let envelopeHeader: ReturnType<typeof parseBlobEnvelopeV2Header>;
-  try {
-    envelopeHeader = parseBlobEnvelopeV2Header(
-      prefix.subarray(0, retainedBytes),
+  const envelopeHeader = parsed.header;
+  if (envelopeHeader === null) {
+    throw new BlobMutationError(
+      "Blob encrypted envelope is truncated before its header",
+      400,
     );
-  } catch (error) {
-    throw invalidEnvelope(error);
   }
   if (summary.byteLength !== envelopeHeader.encryptedByteLength) {
     throw new BlobMutationError(

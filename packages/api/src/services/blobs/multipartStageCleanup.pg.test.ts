@@ -3,7 +3,10 @@ import { db, getDefaultApiDatabaseKind } from "@tearleads/api-shared/postgres";
 import { blobStages, blobs } from "@tearleads/api-shared/schema";
 import { eq, sql } from "drizzle-orm";
 import { createBlobEnvelopeFixture } from "../../../test/helpers/blobEnvelope";
-import { readBlobObjectText } from "../../../test/helpers/blobObjectStore";
+import {
+  readBlobObjectBytes,
+  readBlobObjectText,
+} from "../../../test/helpers/blobObjectStore";
 import { createBlobStageOwner } from "../../../test/helpers/blobStageOwner";
 import { gateTransactionSelectAfterExecution } from "../../../test/helpers/gateDatabaseSelect";
 import {
@@ -110,9 +113,9 @@ test.skipIf(getDefaultApiDatabaseKind() !== "postgres")(
       failedStages: 0,
     });
     expect(deletes).toBe(0);
-    expect(await readBlobObjectText(runtime.blobObjectStore, storageKey)).toBe(
-      new TextDecoder().decode(bytes),
-    );
+    expect(
+      await readBlobObjectBytes(runtime.blobObjectStore, storageKey),
+    ).toEqual(bytes);
     expect(
       await db.select({ id: blobs.id }).from(blobs).where(eq(blobs.id, blobId)),
     ).toEqual([{ id: blobId }]);

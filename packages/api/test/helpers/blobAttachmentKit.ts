@@ -3,6 +3,7 @@ import type { TestUser } from "@tearleads/bob-and-alice";
 import type {
   AttachmentBindAccessEventBody,
   AttachmentDetachAccessEventBody,
+  BlobEnvelopeV2Header,
   KeyingCanonicalJson,
   VerifiedAttachmentBinding,
   VerifiedBlobKekTargets,
@@ -26,20 +27,14 @@ import {
   bindBlobAttachment,
   detachBlobAttachment,
 } from "../../src/services/blobs/blobMutations";
-import {
-  completeMultipartBlobStage,
-  initiateMultipartBlobStage,
-  uploadMultipartBlobPartBytes,
-} from "../../src/services/blobs/multipartStage";
-import { createBlobEnvelopeFixture } from "./blobEnvelope";
 import { contentKeyEnvelopeFixture } from "./contentKeyEnvelope";
 import {
   asVerifiedContainerManifest,
   createSignedAccessEvent,
   type StoredRootFixture,
 } from "./keyingWriterProjectionKit";
-import { getDefaultOrganizationId } from "./organizationMembership";
 import { createServiceTestRuntime } from "./serviceRuntime";
+import { stageBlobEnvelopeFixture } from "./stagedBlobEnvelope";
 
 /**
  * The runtime every kit helper stages and binds against. Route-level tests
@@ -58,37 +53,15 @@ export async function stageBlob(
   owner: TestUser,
   blobId: string,
   organizationId?: string,
+  overrides?: Partial<BlobEnvelopeV2Header>,
 ) {
-  const ownerOrganizationId =
-    organizationId ?? (await getDefaultOrganizationId(owner.userId));
-  const { bytes } = await createBlobEnvelopeFixture({
+  const staged = await stageBlobEnvelopeFixture(blobAttachmentTestRuntime, {
     blobId,
-    organizationId: ownerOrganizationId,
+    owner,
+    ...(organizationId ? { organizationId } : {}),
+    ...(overrides ? { overrides } : {}),
   });
-  const byteLength = bytes.byteLength;
-  const sha256 = new Bun.CryptoHasher("sha256").update(bytes).digest("hex");
-  const staged = await initiateMultipartBlobStage(blobAttachmentTestRuntime, {
-    organizationId: ownerOrganizationId,
-    byteLength,
-    sha256,
-    userId: owner.userId,
-  });
-  const part = await uploadMultipartBlobPartBytes(blobAttachmentTestRuntime, {
-    byteLength,
-    bytes,
-    partNumber: 1,
-    sha256,
-    stageId: staged.stageId,
-    uploadId: staged.uploadId,
-    userId: owner.userId,
-  });
-  await completeMultipartBlobStage(blobAttachmentTestRuntime, {
-    parts: [{ etag: part.part.etag, partNumber: 1 }],
-    stageId: staged.stageId,
-    uploadId: staged.uploadId,
-    userId: owner.userId,
-  });
-  return { sha256, stageId: staged.stageId };
+  return { sha256: staged.sha256, stageId: staged.stageId };
 }
 
 function contentKeyTargets(

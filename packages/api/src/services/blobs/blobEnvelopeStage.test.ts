@@ -35,6 +35,25 @@ test("blob stage framing survives every-byte stream boundaries", async () => {
   }
 });
 
+test("a body shorter than the framing prefix still summarizes", async () => {
+  // The header length already spans the prefix. A body smaller than that
+  // prefix is the case where treating it as a payload-only length leaves the
+  // header looking incomplete and rejects a perfectly valid object.
+  const fixture = await createBlobEnvelopeFixture({
+    blobId: crypto.randomUUID(),
+    byteLength: 4,
+    organizationId: crypto.randomUUID(),
+  });
+  expect(fixture.bytes.byteLength).toBeLessThan(
+    fixture.envelopeHeader.headerByteLength + BLOB_ENVELOPE_PREFIX_BYTES,
+  );
+  expect(await summarizeBlobEnvelopeStage(chunks(fixture.bytes, 64))).toEqual({
+    byteLength: fixture.bytes.byteLength,
+    envelopeHeader: fixture.envelopeHeader,
+    sha256: sha256Hex(fixture.bytes),
+  });
+});
+
 test("blob stage framing rejects truncation, trailing data and noncanonical headers", async () => {
   const { bytes } = await createBlobEnvelopeFixture({
     blobId: crypto.randomUUID(),
@@ -84,4 +103,45 @@ test("an oversized blob header cancels its stream after reading the prefix", asy
     status: 400,
   });
   expect(cancelled).toBe(true);
+});
+
+test("a malformed header is refused without reading the whole object", async () => {
+  const { bytes } = await createBlobEnvelopeFixture({
+    blobId: crypto.randomUUID(),
+    organizationId: crypto.randomUUID(),
+  });
+  // Valid magic and length, invalid JSON body: rejectable from the header
+  // alone. The body is large so that stopping early is unambiguous — reading
+  // to the end would be needed only if the parse waited for the hash.
+  const corrupt = new Uint8Array(bytes.byteLength + 1024 * 1024);
+  corrupt.set(bytes);
+  corrupt[BLOB_ENVELOPE_PREFIX_BYTES] = "[".charCodeAt(0);
+  let delivered = 0;
+  const stream = new ReadableStream<Uint8Array>({
+    pull(controller) {
+      if (delivered >= corrupt.byteLength) return controller.close();
+      const next = corrupt.subarray(delivered, delivered + 4096);
+      delivered += next.byteLength;
+      controller.enqueue(next);
+    },
+  });
+  await expect(summarizeBlobEnvelopeStage(stream)).rejects.toMatchObject({
+    status: 400,
+  });
+  expect(delivered).toBeLessThan(corrupt.byteLength);
+});
+
+test("a stream ending inside its header is refused", async () => {
+  const { bytes } = await createBlobEnvelopeFixture({
+    blobId: crypto.randomUUID(),
+    organizationId: crypto.randomUUID(),
+  });
+  await expect(
+    summarizeBlobEnvelopeStage(
+      chunks(bytes.subarray(0, BLOB_ENVELOPE_PREFIX_BYTES + 2), 3),
+    ),
+  ).rejects.toMatchObject({
+    status: 400,
+    message: "Blob encrypted envelope is truncated before its header",
+  });
 });

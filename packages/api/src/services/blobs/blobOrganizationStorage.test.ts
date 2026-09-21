@@ -11,7 +11,10 @@ import {
   buildDetach,
 } from "../../../test/helpers/blobAttachmentKit";
 import { createBlobEnvelopeFixture } from "../../../test/helpers/blobEnvelope";
-import { readBlobObjectText } from "../../../test/helpers/blobObjectStore";
+import {
+  readBlobObjectBytes,
+  readBlobObjectText,
+} from "../../../test/helpers/blobObjectStore";
 import { createBlobStageOwner } from "../../../test/helpers/blobStageOwner";
 import { createFakeS3BlobObjectStore } from "../../../test/helpers/fakeS3BlobObjectStore";
 import {
@@ -141,9 +144,9 @@ test("a user in both organizations cannot promote a stage into the other organiz
   expect(
     await runtime.db.select().from(blobs).where(eq(blobs.id, blobId)),
   ).toEqual([]);
-  expect(await readBlobObjectText(runtime.blobObjectStore, staged.key)).toBe(
-    new TextDecoder().decode(bytes),
-  );
+  expect(
+    await readBlobObjectBytes(runtime.blobObjectStore, staged.key),
+  ).toEqual(bytes);
   expect(
     await runtime.db
       .select()
@@ -188,9 +191,9 @@ test("promotion, reads, and GC retries retain the organization key and preserve 
     .where(eq(blobs.id, blobId));
   expect(blob?.storageKey).toBe(staged.key);
   const read = await getBlobBytes(runtime, { blobId, userId: first.userId });
-  expect(await new Response(read.encryptedBytes).text()).toBe(
-    new TextDecoder().decode(bytes),
-  );
+  expect(
+    new Uint8Array(await new Response(read.encryptedBytes).arrayBuffer()),
+  ).toEqual(bytes);
   await detachBlobAttachment(runtime, {
     bindingId: bind.binding.bindingId,
     blobId,
@@ -239,9 +242,7 @@ test("promotion, reads, and GC retries retain the organization key and preserve 
   );
   expect(deletedKeys).toEqual([staged.key, staged.key]);
   expect(await readBlobObjectText(store, staged.key)).toBeNull();
-  expect(await readBlobObjectText(store, other.key)).toBe(
-    new TextDecoder().decode(bytes),
-  );
+  expect(await readBlobObjectBytes(store, other.key)).toEqual(bytes);
 });
 
 test("expiry cleanup aborts and deletes namespaced stages while retaining unexpired stages", async () => {
@@ -280,9 +281,7 @@ test("expiry cleanup aborts and deletes namespaced stages while retaining unexpi
   });
   expect(aborted).toEqual([pending.key]);
   expect(deleted).toEqual([completed.key]);
-  expect(await readBlobObjectText(store, retained.key)).toBe(
-    new TextDecoder().decode(bytes),
-  );
+  expect(await readBlobObjectBytes(store, retained.key)).toEqual(bytes);
 });
 
 test("initiateMultipartBlobStage aborts the upload when stage persistence fails", async () => {

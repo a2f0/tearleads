@@ -1,4 +1,6 @@
+import type { BlobEnvelopeV2Header } from "@tearleads/crypto";
 import {
+  AES_GCM_TAG_BYTES,
   BLOB_CHUNK_SIZE_BYTES,
   BLOB_ENCRYPTED_BYTES_FORMAT,
   BLOB_ENCRYPTED_BYTES_VERSION,
@@ -15,11 +17,16 @@ export async function createBlobEnvelopeFixture(input: {
   readonly blobId: string;
   readonly organizationId: string;
   readonly contentKeyEpoch?: number;
+  /** Plaintext size; the body is this plus one AES-GCM tag. */
+  readonly byteLength?: number;
+  /** Overwrites single header fields so a test can vary exactly one. */
+  readonly overrides?: Partial<BlobEnvelopeV2Header>;
 }) {
   const contentKeyEpoch = input.contentKeyEpoch ?? 1;
+  const byteLength = input.byteLength ?? 32;
   const headerBytes = encodeBlobEnvelopeV2Header({
     blobId: input.blobId,
-    byteLength: 32,
+    byteLength,
     chunkCount: 1,
     chunkSize: BLOB_CHUNK_SIZE_BYTES,
     contentKeyEpoch,
@@ -41,9 +48,13 @@ export async function createBlobEnvelopeFixture(input: {
       contentRecordId: input.blobId,
     }),
     version: BLOB_ENCRYPTED_BYTES_VERSION,
+    ...input.overrides,
   });
   return {
-    bytes: joinBlobPartBytes(headerBytes, new Uint8Array(48)),
+    bytes: joinBlobPartBytes(
+      headerBytes,
+      new Uint8Array(byteLength + AES_GCM_TAG_BYTES),
+    ),
     envelopeHeader: parseBlobEnvelopeV2Header(headerBytes),
   };
 }
