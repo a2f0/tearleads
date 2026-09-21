@@ -79,6 +79,7 @@ import type {
   ContainerCreateWithMetadataDocumentRequest,
   ContainerMutationRequest,
   ContainerReciteRequest,
+  ContainerRotationRequest,
   CreateOrganizationGroupWithPolicyRequest,
   CreateOrganizationRequest,
   DeleteOrganizationGroupRequest,
@@ -99,6 +100,7 @@ import type {
   ContainerCreateWithMetadataDocumentResponse,
   ContainerDeleteResponse,
   ContainerMutationResponse,
+  ContainerRotationResponse,
   ContainerWriterProjectionResponse,
   DocumentCreateResponse,
   DocumentSyncResponse,
@@ -1296,7 +1298,7 @@ export class ApiClient {
 
   revokeContainer(
     containerId: string,
-    input: ContainerMutationRequest,
+    input: ContainerRotationRequest,
     options: RequestResultOptions = {},
   ) {
     return this.request(
@@ -1313,7 +1315,7 @@ export class ApiClient {
 
   rekeyContainer(
     containerId: string,
-    input: ContainerMutationRequest,
+    input: ContainerRotationRequest,
     options: RequestResultOptions = {},
   ) {
     return this.request(
@@ -1335,9 +1337,9 @@ export class ApiClient {
    */
   async rekeyContainerResult(
     containerId: string,
-    input: ContainerMutationRequest,
+    input: ContainerRotationRequest,
     options: RequestResultOptions = {},
-  ): Promise<RequestResult<ContainerMutationResponse>> {
+  ): Promise<RequestResult<ContainerRotationResponse>> {
     try {
       return await this.requestResult(
         containerRekey.path(containerId),
@@ -1346,6 +1348,46 @@ export class ApiClient {
         JSON.stringify(input),
         options,
         rekeyContainerOperation,
+      );
+    } finally {
+      this.clearWriterProjectionCaches();
+    }
+  }
+
+  /** Status-bearing revoke; see `rekeyContainerResult`. */
+  async revokeContainerResult(
+    containerId: string,
+    input: ContainerRotationRequest,
+    options: RequestResultOptions = {},
+  ): Promise<RequestResult<ContainerRotationResponse>> {
+    try {
+      return await this.requestResult(
+        containerRevoke.path(containerId),
+        containerRevoke.isResponse,
+        containerRevoke.method,
+        JSON.stringify(input),
+        options,
+        revokeContainerOperation,
+      );
+    } finally {
+      this.clearWriterProjectionCaches();
+    }
+  }
+
+  /** Status-bearing move; see `rekeyContainerResult`. */
+  async moveContainerResult(
+    containerId: string,
+    input: ContainerRotationRequest,
+    options: RequestResultOptions = {},
+  ): Promise<RequestResult<ContainerRotationResponse>> {
+    try {
+      return await this.requestResult(
+        containerMove.path(containerId),
+        containerMove.isResponse,
+        containerMove.method,
+        JSON.stringify(input),
+        options,
+        moveContainerOperation,
       );
     } finally {
       this.clearWriterProjectionCaches();
@@ -1369,7 +1411,7 @@ export class ApiClient {
 
   moveContainer(
     containerId: string,
-    input: ContainerMutationRequest,
+    input: ContainerRotationRequest,
     options: RequestResultOptions = {},
   ) {
     return this.request(

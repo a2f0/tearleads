@@ -68,6 +68,22 @@ export function containerUnavailable(label: string): ContainerMutationError {
   });
 }
 
+/**
+ * A rotation would leave `requiredContainerIds` (parent-first) pinned to a
+ * retired epoch above a directly granted container. Not `state_stale`:
+ * refetching cannot help, the client must sign and carry those re-keys.
+ */
+export function descendantRekeysRequired(
+  requiredContainerIds: readonly string[],
+): ContainerMutationError {
+  const message = "Container rotation must carry its descendant rekeys";
+  return new ContainerMutationError(message, 409, {
+    code: CONTAINER_MUTATION_ERROR_CODES.descendantRekeysRequired,
+    error: message,
+    requiredContainerIds: [...requiredContainerIds],
+  });
+}
+
 export function mutationShapeError(message: string): ContainerMutationError {
   return new ContainerMutationError(message, 400);
 }

@@ -1,11 +1,16 @@
 import { KeyingVerificationError } from "@tearleads/crypto";
 import type { DocumentWriterProjectionResponse } from "@tearleads/validators/response";
 import { MAX_DOCUMENT_SYNC_AUTHORIZATION_PATH_DEPTH } from "@tearleads/validators/util";
-import { acknowledgeContainerMutation } from "../../data/containers/shared/mutationAcknowledgement";
+import { acknowledgeContainerMutationBatch } from "../../data/containers/shared/mutationAcknowledgement";
 import type { MaterializedContainerRekeyPlan } from "../../data/containers/shared/types";
 import { assertDocumentWriterProjectionConsistent } from "../../data/documents/shared/projection";
 import { projectionVerificationOptions } from "../../data/documents/shared/types";
+import { requireProjectionUserKeyResolver } from "../../data/keyingProjectionVerification";
 import { assertProjectionVerificationCurrent } from "../../data/keyingProjectionVerification/types";
+import {
+  submitContainerRotation,
+  submitRotationCarryingDescendants,
+} from "../containers/child/mutationSubmit";
 import type { SyncRemoteDocumentInput } from "./readOnlySync";
 import { buildAutomaticContainerRekeys } from "./syncAutomaticContainerRekeys";
 import { refreshSyncAttemptWriterProjection } from "./syncFailures";
@@ -19,6 +24,20 @@ import { DocumentAncestorRepairAbandonedError } from "./syncRepairAbandon";
  */
 const passRepairTotals = new WeakMap<SyncRemoteDocumentInput, number>();
 
+/**
+ * Passes whose inline repairs the server refused for stranding a level above a
+ * directly granted container. The write's flat rekey list cannot say which
+ * descendants each repair must carry; a standalone rekey can, so the rest of
+ * the pass commits every repair standalone before writing.
+ */
+const standaloneRepairPasses = new WeakSet<SyncRemoteDocumentInput>();
+
+export function requireStandaloneAncestorRepairs(
+  sync: SyncRemoteDocumentInput,
+): void {
+  standaloneRepairPasses.add(sync);
+}
+
 /** A refusal the writer cannot clear by retrying, as opposed to 5xx/offline. */
 function isTerminalRepairStatus(status: number | null): boolean {
   return status === 401 || status === 402 || status === 403;
@@ -29,7 +48,7 @@ async function commitRepairPrefix(input: {
   repairedIds: Set<string>;
   sync: SyncRemoteDocumentInput;
 }): Promise<void> {
-  for (const { plan } of input.plans) {
+  for (const { plan, writerProjection } of input.plans) {
     assertProjectionVerificationCurrent(input.sync.stillCurrent);
     if (input.sync.isRemoteSyncBlocked?.(plan.state.organizationId)) {
       throw new DocumentAncestorRepairAbandonedError("blocked");
@@ -43,30 +62,63 @@ async function commitRepairPrefix(input: {
     // Prefer the status-bearing variant: a permanent refusal (403 once ancestor
     // write access is revoked, 402) must leave a durable record, while a 5xx or
     // an offline blip must not, and plain `rekeyContainer` collapses both to
-    // null. An adapter without it still repairs; its refusals are just reported
-    // as an ordinary abandon.
-    const result = input.sync.apiClient.rekeyContainerResult
-      ? await input.sync.apiClient.rekeyContainerResult(
-          plan.containerId,
-          plan.request,
-          options,
-        )
-      : null;
-    const response = result
-      ? result.ok
-        ? result.data
-        : null
-      : await input.sync.apiClient.rekeyContainer(
-          plan.containerId,
-          plan.request,
-          options,
-        );
+    // null. It is also the only way to learn which descendant rekeys this
+    // repair must carry. An adapter without it still repairs; its refusals are
+    // just reported as an ordinary abandon.
+    const { getContainerWriterProjection, rekeyContainerResult } =
+      input.sync.apiClient;
+    const { carriedPlans, result } = await submitRotationCarryingDescendants({
+      carriedRekeys: getContainerWriterProjection && {
+        planning: {
+          apiClient: {
+            getContainerWriterProjection: getContainerWriterProjection.bind(
+              input.sync.apiClient,
+            ),
+          },
+          author: input.sync.author,
+          execSql: input.sync.execSql,
+          resolveProjectionUserKey: requireProjectionUserKeyResolver(
+            input.sync.resolveProjectionUserKey,
+            "Document ancestor repair",
+          ),
+          stillCurrent: input.sync.stillCurrent,
+          targetSecretKey: input.sync.targetSecretKey,
+          warmReferencedPrincipalPolicies:
+            input.sync.warmReferencedPrincipalPolicies,
+        },
+        rotated: async () => writerProjection,
+      },
+      stillCurrent: input.sync.stillCurrent,
+      submit: (carried) => {
+        const request = carried.length
+          ? { ...plan.request, containerRekeys: [...carried] }
+          : plan.request;
+        return submitContainerRotation({
+          plain: () =>
+            input.sync.apiClient.rekeyContainer(
+              plan.containerId,
+              request,
+              options,
+            ),
+          result: rekeyContainerResult
+            ? () =>
+                rekeyContainerResult.call(
+                  input.sync.apiClient,
+                  plan.containerId,
+                  request,
+                  options,
+                )
+            : undefined,
+        });
+      },
+    });
+    const response = result.ok ? result.data : null;
     // Deliberately not ContainerKekRepairRequiredError: that is classified as
     // retryable, so a handled refusal would re-sign the whole prefix before
     // failing again, and the retry never reaches onTerminalSubmitFailure
     // regardless, because this throws before submission.
     if (!response) {
-      if (result && !result.ok && isTerminalRepairStatus(result.status)) {
+      if (!result.ok && isTerminalRepairStatus(result.status)) {
         await input.sync.onTerminalSubmitFailure?.({
           code: "document_ancestor_repair_refused",
           message: `Ancestor repair refused for ${plan.containerId}`,
@@ -77,10 +129,11 @@ async function commitRepairPrefix(input: {
       }
       throw new DocumentAncestorRepairAbandonedError("refused");
     }
-    const acknowledged = await acknowledgeContainerMutation({
+    // What a repair carried committed with it, so the pins advance together.
+    const acknowledged = await acknowledgeContainerMutationBatch({
       execSql: input.sync.execSql,
-      plan,
-      response,
+      plans: [plan, ...carriedPlans.map((carried) => carried.plan)],
+      responses: [response, ...(response.containerRekeys ?? [])],
       stillCurrent: input.sync.stillCurrent,
     });
     if (!acknowledged) {
@@ -117,7 +170,10 @@ export async function prepareAutomaticContainerRekeys(
   // than that, so re-entry cannot multiply the budget.
   for (;;) {
     const batch = await buildAutomaticContainerRekeys(sync, projection);
-    if (!batch.hasMore) return { plans: batch.plans, projection };
+    const commitsStandalone =
+      batch.hasMore ||
+      (batch.plans.length > 0 && standaloneRepairPasses.has(sync));
+    if (!commitsStandalone) return { plans: batch.plans, projection };
     // Standalone mutations require authentic document scope before any request.
     // Persist the verified heads here, unlike the inline path: a committed
     // repair is acknowledged against the latest durable pin, and a repaired

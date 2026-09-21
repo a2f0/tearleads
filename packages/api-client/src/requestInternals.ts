@@ -7,6 +7,7 @@ import type {
   SyncWatermark,
 } from "@tearleads/validators/response";
 import {
+  CONTAINER_MUTATION_ERROR_CODES,
   ContainerMutationFailureResponseSchema,
   DocumentSyncErrorResponseSchema,
   isDocumentSyncStateStaleErrorResponse,
@@ -81,6 +82,8 @@ export interface ErrorResponseDescription {
   readonly detail: string;
   readonly error: string | null;
   readonly stalePrincipalPolicies?: PrincipalPolicyBundleResponse[] | undefined;
+  /** Descendant rekeys a refused rotation must carry, parent-first. */
+  readonly requiredContainerIds?: readonly string[] | undefined;
   /** Set on a 402 body — the organization whose billing blocked the sync write. */
   readonly paymentRequiredOrganizationId?: string | undefined;
 }
@@ -151,6 +154,15 @@ function parsedErrorResponseDescription(
           value.principalPolicies !== undefined
         ? { stalePrincipalPolicies: value.principalPolicies }
         : {}),
+    ...(code === CONTAINER_MUTATION_ERROR_CODES.descendantRekeysRequired &&
+    "requiredContainerIds" in value &&
+    Array.isArray(value.requiredContainerIds) &&
+    value.requiredContainerIds.every(
+      (containerId: unknown): containerId is string =>
+        typeof containerId === "string" && containerId.length > 0,
+    )
+      ? { requiredContainerIds: value.requiredContainerIds }
+      : {}),
     // Sync-write 402s carry the target org for the billing prompt.
     ...(schema === PaymentRequiredErrorResponseSchema &&
     isPaymentRequiredErrorResponse(value)

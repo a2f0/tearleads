@@ -16,7 +16,7 @@ import type {
 } from "@tearleads/validators/request";
 import type {
   ContainerKekResponse,
-  ContainerMutationResponse,
+  ContainerRotationResponse,
   ContainerWriterProjectionResponse,
 } from "@tearleads/validators/response";
 import { assertContainerAuthorAccess } from "../../../data/containers/shared/authorAccess";
@@ -56,7 +56,11 @@ import {
   containerMutationRequestCore,
   previousPathRequestFields,
 } from "./mutationRequestCore";
-import { submitAcknowledgedContainerMutation } from "./mutationSubmit";
+import {
+  submitAcknowledgedContainerMutation,
+  submitContainerRotation,
+} from "./mutationSubmit";
+import { containerWriterProjectionFromRotationPlan } from "./rekeyProjection";
 import { requireUnwrappedKek } from "./rotationContext";
 
 function buildContainerMoveRequest(input: {
@@ -206,6 +210,7 @@ function buildContainerMovePlanResult(input: {
     event: input.event,
     eventHash: input.eventHash,
     keyEpoch: input.keyEpoch,
+    keyring: input.keyring,
     manifest: input.manifest,
     manifestHash: input.manifestHash,
     previousManifest: input.previousManifest,
@@ -367,7 +372,7 @@ export async function moveRemoteContainer(input: {
 }): Promise<{
   containerKey: Uint8Array;
   plan: ContainerMovePlan;
-  response: ContainerMutationResponse;
+  response: ContainerRotationResponse;
 } | null> {
   const resolveProjectionUserKey = requireProjectionUserKeyResolver(
     input.resolveProjectionUserKey,
@@ -403,17 +408,48 @@ export async function moveRemoteContainer(input: {
     recitationPolicies: [],
     apiClient: input.apiClient,
     author: input.author,
+    carriedRekeys: {
+      planning: {
+        apiClient: input.apiClient,
+        author: input.author,
+        execSql: input.execSql,
+        resolveProjectionUserKey: resolveProjectionUserKey,
+        stillCurrent: input.stillCurrent,
+        targetSecretKey: input.targetSecretKey,
+        warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
+      },
+      rotated: () =>
+        containerWriterProjectionFromRotationPlan({
+          ancestors: destinationParentProjection,
+          plan: materializedPlan.plan,
+          previousProjection,
+        }),
+    },
     containerKey: materializedPlan.containerKey,
     execSql: input.execSql,
     plan: materializedPlan.plan,
     stillCurrent: input.stillCurrent,
-    submit: () =>
-      input.apiClient.moveContainer(
-        input.containerId,
-        materializedPlan.plan.request,
-        {
-          expectedPaymentRequiredOrganizationId: input.author.organizationId,
-        },
-      ),
+    submit: (carried) => {
+      const request = carried.length
+        ? { ...materializedPlan.plan.request, containerRekeys: [...carried] }
+        : materializedPlan.plan.request;
+      const options = {
+        expectedPaymentRequiredOrganizationId: input.author.organizationId,
+      };
+      const { moveContainerResult } = input.apiClient;
+      return submitContainerRotation({
+        plain: () =>
+          input.apiClient.moveContainer(input.containerId, request, options),
+        result: moveContainerResult
+          ? () =>
+              moveContainerResult.call(
+                input.apiClient,
+                input.containerId,
+                request,
+                options,
+              )
+          : undefined,
+      });
+    },
   });
 }

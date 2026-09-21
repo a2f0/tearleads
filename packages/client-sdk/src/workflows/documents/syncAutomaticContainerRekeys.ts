@@ -4,7 +4,10 @@ import type {
   DocumentWriterProjectionResponse,
 } from "@tearleads/validators/response";
 import { MAX_INLINE_CONTAINER_REKEYS } from "@tearleads/validators/util";
+import { ContainerAuthorAccessError } from "../../data/containers/shared/authorAccess";
 import type { MaterializedContainerRekeyPlan } from "../../data/containers/shared/types";
+import { ContainerKekRepairInaccessibleError } from "../../data/documents/shared/containerKekCurrency";
+import { ContainerKekTargetUnreachableError } from "../../data/documents/shared/containerKekPath";
 import { assertProjectionVerificationCurrent } from "../../data/keyingProjectionVerification/types";
 import { buildMaterializedContainerRekeyPlan } from "../containers/child/rekey";
 import type { SyncRemoteDocumentInput } from "./readOnlySync";
@@ -32,6 +35,21 @@ function firstStaleContainer(
     }
   }
   return null;
+}
+
+/**
+ * The stale container is not this writer's to re-key: no wrap on the verified
+ * path opens it, or the signed path grants the signer no write access there.
+ * Both are judged against the path sliced at the stale container, so a grant
+ * held only further down never counts — exactly the API's `container.rekey`
+ * rule. Anything else (keyring damage, a forged path) stays an error.
+ */
+function isRepairInaccessible(error: unknown, containerId: string): boolean {
+  return (
+    error instanceof ContainerAuthorAccessError ||
+    (error instanceof ContainerKekTargetUnreachableError &&
+      error.containerId === containerId)
+  );
 }
 
 /** Prepare parent-first repairs; the sync transaction commits them with the write. */
@@ -78,6 +96,15 @@ export async function buildAutomaticContainerRekeys(
       stillCurrent: sync.stillCurrent,
       warmReferencedPrincipalPolicies: sync.warmReferencedPrincipalPolicies,
       execSql: sync.execSql,
+    }).catch((error: unknown) => {
+      // Repairs run parent-first and access inherits downward, so only the
+      // first stale container can be out of reach. Retry-classified like any
+      // stale path: one refetch sees a repair a capable member already made.
+      throw isRepairInaccessible(error, previousProjection.containerId)
+        ? new ContainerKekRepairInaccessibleError(
+            previousProjection.containerId,
+          )
+        : error;
     });
     plannedIds.add(previousProjection.containerId);
     plans.push(planned);

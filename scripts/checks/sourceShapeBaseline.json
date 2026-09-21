@@ -47,8 +47,8 @@
       "bytes": 18865
     },
     "docs/developer/client-sdk.md": {
-      "lines": 674,
-      "bytes": 33859
+      "lines": 709,
+      "bytes": 36257
     },
     "docs/developer/revenuecat-native-stores.md": {
       "lines": 364,
@@ -63,16 +63,16 @@
       "bytes": 19355
     },
     "docs/keying-design.md": {
-      "lines": 1117,
-      "bytes": 52799
+      "lines": 1148,
+      "bytes": 54826
     },
     "docs/loro-e2ee-sync-protocol.md": {
       "lines": 548,
       "bytes": 23535
     },
     "docs/openapi.json": {
-      "lines": 66064,
-      "bytes": 2747923
+      "lines": 67954,
+      "bytes": 2831563
     },
     "docs/protocol-specification.md": {
       "lines": 654,
@@ -91,8 +91,8 @@
       "bytes": 23719
     },
     "packages/api-client/src/ApiClient.ts": {
-      "lines": 1933,
-      "bytes": 62156
+      "lines": 1975,
+      "bytes": 63341
     },
     "packages/api/src/access/read/documentKekTargets.test.ts": {
       "lines": 574,
@@ -243,8 +243,8 @@
       "bytes": 14747
     },
     "packages/client-sdk/src/data/documents/shared/types.ts": {
-      "lines": 558,
-      "bytes": 18651
+      "lines": 563,
+      "bytes": 18900
     },
     "packages/client-sdk/src/data/sqlite/schema.ts": {
       "lines": 899,
@@ -327,8 +327,8 @@
       "bytes": 37649
     },
     "packages/validators/src/operation/generatedOpenApi.ts": {
-      "lines": 24936,
-      "bytes": 1034162
+      "lines": 25547,
+      "bytes": 1063063
     },
     "packages/validators/src/response/response.test.ts": {
       "lines": 940,
@@ -339,8 +339,8 @@
       "bytes": 15214
     },
     "packages/client-sdk/src/index.ts": {
-      "lines": 531,
-      "bytes": 15502
+      "lines": 536,
+      "bytes": 15664
     },
     "scripts/architecture/subsystems.ts": {
       "lines": 765,
@@ -352,7 +352,7 @@
     },
     "packages/client-sdk/src/workflows/README.md": {
       "lines": 273,
-      "bytes": 20370
+      "bytes": 20999
     }
   },
   "suppressions": {

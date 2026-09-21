@@ -142,3 +142,32 @@ export async function publishContainerMutationCreated(
     }
   }
 }
+
+/**
+ * The descendant rekeys a rotation carried each moved a head of their own. A
+ * rekey evicts nobody and names no recipients, so the acknowledgement alone
+ * says everything the hint needs.
+ */
+export async function publishCarriedContainerRekeys(input: {
+  readonly carried: readonly Pick<
+    PublishContainerMutationCreatedInput["response"],
+    "containerId" | "parentId" | "updatedAt"
+  >[];
+  readonly origin: PublishContainerMutationCreatedInput["origin"];
+  readonly publish: PublishContainerMutationCreatedInput["publish"];
+}) {
+  for (const response of input.carried) {
+    await publishBestEffort(
+      input.publish,
+      {
+        type: "container_mutation_created",
+        containerId: response.containerId,
+        eventType: "container.rekey",
+        origin: input.origin,
+        parentId: response.parentId,
+        updatedAt: response.updatedAt,
+      },
+      "container mutation notification",
+    );
+  }
+}

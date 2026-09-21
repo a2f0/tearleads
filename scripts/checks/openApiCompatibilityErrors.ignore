@@ -1,0 +1,27 @@
+# #2340 finding 1: a rotation must carry the rekeys of every descendant above a
+# directly granted container, or a writer granted only further down would wait
+# on another device's write. The API refuses one that does not with the new
+# `container_descendant_rekeys_required` code, and an inline repair refused for
+# the same reason fails its write with `document_sync_descendant_rekeys_required`.
+# Greenfield flag day: servers and every client are wiped and redeployed
+# together, so no client written against the previous contract survives.
+# Remove after merge to main.
+POST /containers added `subschema #1, subschema #2` to the `anyOf[subschema #1]/code` response property `anyOf` list for the response status `409`
+POST /containers/with-metadata-document added `subschema #1, subschema #2` to the `anyOf[subschema #1]/code` response property `anyOf` list for the response status `409`
+DELETE /containers/{containerId} added `subschema #1, subschema #2` to the `anyOf[subschema #1]/code` response property `anyOf` list for the response status `409`
+POST /containers/{containerId}/move added `subschema #1, subschema #2` to the `anyOf[subschema #1]/code` response property `anyOf` list for the response status `409`
+POST /containers/{containerId}/recite added `subschema #1, subschema #2` to the `anyOf[subschema #1]/code` response property `anyOf` list for the response status `409`
+POST /containers/{containerId}/rekey added `subschema #1, subschema #2` to the `anyOf[subschema #1]/code` response property `anyOf` list for the response status `409`
+POST /containers/{containerId}/revoke added `subschema #1, subschema #2` to the `anyOf[subschema #1]/code` response property `anyOf` list for the response status `409`
+POST /containers/{containerId}/share added `subschema #1, subschema #2` to the `anyOf[subschema #1]/code` response property `anyOf` list for the response status `409`
+POST /documents added the new `document_sync_descendant_rekeys_required` enum value to the `code/anyOf[subschema #2]/` response property for the response status `404`
+POST /documents added the new `document_sync_descendant_rekeys_required` enum value to the `code/anyOf[subschema #2]/` response property for the response status `409`
+POST /documents/{documentId}/link added the new `document_sync_descendant_rekeys_required` enum value to the `code/anyOf[subschema #2]/` response property for the response status `404`
+POST /documents/{documentId}/link added the new `document_sync_descendant_rekeys_required` enum value to the `code/anyOf[subschema #2]/` response property for the response status `409`
+GET /documents/{documentId}/purge added the new `document_sync_descendant_rekeys_required` enum value to the `code/anyOf[subschema #2]/` response property for the response status `404`
+GET /documents/{documentId}/purge added the new `document_sync_descendant_rekeys_required` enum value to the `code/anyOf[subschema #2]/` response property for the response status `409`
+POST /documents/{documentId}/purge added the new `document_sync_descendant_rekeys_required` enum value to the `code/anyOf[subschema #2]/` response property for the response status `404`
+POST /documents/{documentId}/purge added the new `document_sync_descendant_rekeys_required` enum value to the `code/anyOf[subschema #2]/` response property for the response status `409`
+POST /documents/{documentId}/sync added the new `document_sync_descendant_rekeys_required` enum value to the `code` response property for the response status `409`
+POST /documents/{documentId}/unlink added the new `document_sync_descendant_rekeys_required` enum value to the `code/anyOf[subschema #2]/` response property for the response status `404`
+POST /documents/{documentId}/unlink added the new `document_sync_descendant_rekeys_required` enum value to the `code/anyOf[subschema #2]/` response property for the response status `409`

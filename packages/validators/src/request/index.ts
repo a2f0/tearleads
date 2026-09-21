@@ -34,8 +34,11 @@ export {
   ContainerMutationRequestSchema,
   type ContainerReciteRequest,
   ContainerReciteRequestSchema,
+  type ContainerRotationRequest,
+  ContainerRotationRequestSchema,
   isContainerMutationRequest,
   isContainerReciteRequest,
+  isContainerRotationRequest,
 } from "./container";
 export {
   type ContainerCreateWithMetadataDocumentRequest,

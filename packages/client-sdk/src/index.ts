@@ -356,12 +356,17 @@ export type {
   AggregatedContainerKekLog,
   ContainerMutationAuthor,
   ContainerReciteApi,
+  ContainerWriteRefusal,
   KeyringRebuildResult,
   MaterializedContainerRekeyPlan,
 } from "./workflows/containers";
 export {
   buildMaterializedContainerRekeyPlan,
   buildRootContainerCreatePlan,
+  ContainerAuthorAccessError,
+  ContainerKekRepairInaccessibleError,
+  ContainerKekRepairRequiredError,
+  classifyContainerWriteRefusal,
   containerWriterProjectionFromRekeyPlan,
   createRemoteContainer,
   fetchContainerKekLog,

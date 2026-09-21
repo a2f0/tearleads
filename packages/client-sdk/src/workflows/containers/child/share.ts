@@ -34,7 +34,11 @@ import { createGroupMetadataContainerVerifier } from "../../organizations/groupM
 import { preparePrincipalContainerRematerializationBatch } from "../../organizations/principalContainerRematerialization";
 import { setOrganizationGroupContainerGrant } from "../../organizations/principalPolicy";
 import type { GroupPolicyNameReader } from "../../organizations/principalPolicyRequest";
-import { submitAcknowledgedContainerMutation } from "./mutationSubmit";
+import {
+  submitAcknowledgedContainerMutation,
+  submitContainerRotation,
+} from "./mutationSubmit";
+import { projectionWithCurrentAncestors } from "./shareAncestorRepair";
 import { buildMaterializedContainerSharePlan } from "./shareMaterialization";
 import {
   advanceVerifiedSharePolicies,
@@ -50,6 +54,26 @@ async function buildCurrentContainerSharePlan(
   return nullOnProjectionVerificationCancellation(() =>
     buildMaterializedContainerSharePlan(input),
   );
+}
+
+/** The container's projection, with any lazily stale chain above it repaired. */
+async function resolveShareProjection(
+  input: Omit<
+    Parameters<typeof projectionWithCurrentAncestors>[0],
+    "previousProjection" | "resolveProjectionUserKey"
+  > & { previousProjection?: ContainerWriterProjectionResponse | undefined },
+  resolveProjectionUserKey: ProjectionUserKeyResolver,
+): Promise<ContainerWriterProjectionResponse | null> {
+  const servedProjection =
+    input.previousProjection ??
+    (await input.apiClient.getContainerWriterProjection(input.containerId));
+  if (!servedProjection || input.stillCurrent?.() === false) return null;
+  const previousProjection = await projectionWithCurrentAncestors({
+    ...input,
+    previousProjection: servedProjection,
+    resolveProjectionUserKey,
+  });
+  return input.stillCurrent?.() === false ? null : previousProjection;
 }
 
 export async function shareRemoteContainer(input: {
@@ -86,12 +110,11 @@ export async function shareRemoteContainer(input: {
   if (!recipientIdentity || input.stillCurrent?.() === false) {
     return null;
   }
-  const previousProjection =
-    input.previousProjection ??
-    (await input.apiClient.getContainerWriterProjection(input.containerId));
-  if (!previousProjection || input.stillCurrent?.() === false) {
-    return null;
-  }
+  const previousProjection = await resolveShareProjection(
+    input,
+    resolveProjectionUserKey,
+  );
+  if (!previousProjection) return null;
 
   const materializedPlan = await buildCurrentContainerSharePlan({
     accessLevel: input.accessLevel,
@@ -121,13 +144,18 @@ export async function shareRemoteContainer(input: {
     plan: materializedPlan.plan,
     stillCurrent: input.stillCurrent,
     submit: () =>
-      input.apiClient.shareContainer(
-        input.containerId,
-        materializedPlan.plan.request,
-        {
-          expectedPaymentRequiredOrganizationId: input.author.organizationId,
-        },
-      ),
+      submitContainerRotation({
+        plain: () =>
+          input.apiClient.shareContainer(
+            input.containerId,
+            materializedPlan.plan.request,
+            {
+              expectedPaymentRequiredOrganizationId:
+                input.author.organizationId,
+            },
+          ),
+        result: undefined,
+      }),
   });
 }
 
@@ -346,12 +374,11 @@ export async function shareRemoteContainerWithGroup(
     input.resolveProjectionUserKey,
     "Remote container share",
   );
-  const previousProjection =
-    input.previousProjection ??
-    (await input.apiClient.getContainerWriterProjection(input.containerId));
-  if (!previousProjection || input.stillCurrent?.() === false) {
-    return null;
-  }
+  const previousProjection = await resolveShareProjection(
+    input,
+    resolveProjectionUserKey,
+  );
+  if (!previousProjection) return null;
   const verifiedPrincipalPolicy = await loadShareGroupPolicy(input);
   if (input.stillCurrent?.() === false) return null;
   await advanceVerifiedSharePolicies(
@@ -401,11 +428,18 @@ export async function shareRemoteContainerWithGroup(
     plan: materializedPlan.plan,
     stillCurrent: input.stillCurrent,
     submit: () =>
-      input.apiClient.shareContainer(
-        input.containerId,
-        materializedPlan.plan.request,
-        { expectedPaymentRequiredOrganizationId: input.author.organizationId },
-      ),
+      submitContainerRotation({
+        plain: () =>
+          input.apiClient.shareContainer(
+            input.containerId,
+            materializedPlan.plan.request,
+            {
+              expectedPaymentRequiredOrganizationId:
+                input.author.organizationId,
+            },
+          ),
+        result: undefined,
+      }),
   });
   if (!result) return null;
 

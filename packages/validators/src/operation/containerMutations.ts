@@ -4,8 +4,10 @@ import {
   ContainerCreateWithMetadataDocumentRequestSchema,
   ContainerMutationRequestSchema,
   ContainerReciteRequestSchema,
+  ContainerRotationRequestSchema,
   isContainerCreateWithMetadataDocumentRequest,
   isContainerMutationRequest,
+  isContainerRotationRequest,
 } from "../request";
 import {
   ContainerCreateWithMetadataDocumentResponseSchema,
@@ -14,10 +16,12 @@ import {
   ContainerMutationResponseSchema,
   ContainerNotFoundErrorResponseSchema,
   ContainerReciteResponseSchema,
+  ContainerRotationResponseSchema,
   ErrorResponseSchema,
   isContainerCreateWithMetadataDocumentResponse,
   isContainerDeleteResponse,
   isContainerMutationResponse,
+  isContainerRotationResponse,
   PaymentRequiredErrorResponseSchema,
   SessionFailureResponseSchema,
 } from "../response";
@@ -100,6 +104,28 @@ function defineContainerMutationOperation<
   });
 }
 
+/**
+ * Rekey, revoke, and move mint a new key epoch, so they alone may carry the
+ * descendant rekeys that must commit with them.
+ */
+function defineContainerRotationOperation<
+  const Id extends string,
+  const Path extends `/${string}`,
+>(input: { readonly id: Id; readonly path: Path }) {
+  return defineJsonOperation({
+    auth: "session",
+    body: ContainerRotationRequestSchema,
+    failureResponses: containerMutationFailureResponses,
+    failureStatuses: containerMutationFailureStatuses,
+    id: input.id,
+    method: "POST",
+    params: ContainerMutationPathParamsSchema,
+    path: input.path,
+    responses: { 200: ContainerRotationResponseSchema },
+    runtimeRefinements: containerMutationRuntimeRefinements,
+  });
+}
+
 export const shareContainerOperation = defineContainerMutationOperation({
   id: "containers.share",
   path: "/containers/{containerId}/share",
@@ -117,17 +143,17 @@ export const reciteContainerOperation = defineJsonOperation({
   responses: { 200: ContainerReciteResponseSchema },
 });
 
-export const revokeContainerOperation = defineContainerMutationOperation({
+export const revokeContainerOperation = defineContainerRotationOperation({
   id: "containers.revoke",
   path: "/containers/{containerId}/revoke",
 });
 
-export const rekeyContainerOperation = defineContainerMutationOperation({
+export const rekeyContainerOperation = defineContainerRotationOperation({
   id: "containers.rekey",
   path: "/containers/{containerId}/rekey",
 });
 
-export const moveContainerOperation = defineContainerMutationOperation({
+export const moveContainerOperation = defineContainerRotationOperation({
   id: "containers.move",
   path: "/containers/{containerId}/move",
 });
@@ -148,6 +174,8 @@ export const deleteContainerOperation = defineJsonOperation({
 
 export const isContainerMutationOperationRequest = isContainerMutationRequest;
 export const isContainerMutationOperationResponse = isContainerMutationResponse;
+export const isContainerRotationOperationRequest = isContainerRotationRequest;
+export const isContainerRotationOperationResponse = isContainerRotationResponse;
 export const isCreateContainerWithMetadataDocumentOperationRequest =
   isContainerCreateWithMetadataDocumentRequest;
 export const isCreateContainerWithMetadataDocumentOperationResponse =

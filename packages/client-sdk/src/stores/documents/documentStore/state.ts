@@ -171,6 +171,8 @@ export interface DocumentStoreState {
   runtime: DocumentsRuntime;
   snapshot: DocumentSnapshot;
   syncLane: DocumentSyncLane | null;
+  /** Parked behind another member's ancestor repair; a path hint re-runs. */
+  awaitingAncestorRepair: boolean;
   writeChain: Promise<void>;
   writerProjection: DocumentWriterProjectionResponse | null;
   /**
@@ -279,6 +281,7 @@ export function createDocumentStoreState(
     remoteUpdateCompletedSignalSeq: 0,
     remoteSyncBlocked: !scheduleStartupRemoteSync,
     scheduleStartupRemoteSync,
+    awaitingAncestorRepair: false,
     remoteUpdatePending: false,
     remoteUpdateSignalSeq: 0,
     runtime: initialRuntime,
@@ -355,6 +358,7 @@ function clearDocumentStoreState(
   state.rejectedServedAttachmentBindings = new Set();
   state.remoteUpdateCompletedSignalSeq = 0;
   state.remoteSyncBlocked = !state.scheduleStartupRemoteSync;
+  state.awaitingAncestorRepair = false;
   state.remoteUpdatePending = false;
   state.remoteUpdateSignalSeq = 0;
   state.writerProjection = null;

@@ -739,7 +739,37 @@ base64 encoding. Public keys add public metadata, not access to ancestor keys.
 Whole-path write-currency checks remain necessary: a stale intermediate key
 can be known to a revoked ancestor holder, so descendants must not wrap future
 keys to it. Public wrapping enables independent repair immediately below a
-current parent; it does not itself schedule repairs of inaccessible ancestors.
+current parent; it does not reach further up.
+
+A writer whose only grant sits below a stale intermediate therefore cannot
+restore currency itself. A rekey is authorized over the root-to-target path, so
+a grant further down never counts, and the writer is never given the
+intermediate's key: besides being reachable by the revoked holder, it opens the
+intermediate's other children, which that grant does not cover.
+
+No device may wait on another device's write, so that state is never committed.
+The invariant is that every proper ancestor of a directly granted container has
+a current parent edge. A rekey, revoke, or move must carry, in its own
+transaction, the rekeys of every descendant that sits above a directly granted
+container; the API refuses it otherwise and names them. The rotator can always
+comply, because access and keys inherit downward from the container it rotates.
+A grant requires the chain above its container to be current, and the sharer
+repairs a lazily stale chain first; those repairs need not be atomic, since a
+repair never strands anyone. Inline repairs inside document and blob writes are
+held to the same rule. With those levels current, a grantee re-keys from its own
+container downward and its writes depend on nobody else.
+
+Containers with no grant beneath them still repair lazily, first writer wins,
+which keeps a rotation's cost proportional to what is shared below it rather
+than to the subtree. A child container carries no direct grant unless shared, so
+the carried set is usually empty. It is capped at 64 per rotation; past the cap
+the remainder repairs lazily rather than refuse a revocation, and a writer who
+meets such a level parks under an explicit
+`document_ancestor_repair_inaccessible` state until the dependent-path hint that
+follows its repair. Group rematerialization does not yet carry descendants and
+is the one rotation source outside the rule.
+[`InaccessibleIntermediateRepair.tla`](../formal/container-keying/InaccessibleIntermediateRepair.md)
+models the rule and the alternatives it rejects.
 
 ## Blob Content Keys
 
@@ -1058,8 +1088,9 @@ be the default hot path.
 
 The main residual cost is lazy rekey after revocation. A subtractive change on
 a high-level container can force future writes in a large subtree to first
-materialize post-revocation descendant KEK epochs. That work can be spread out
-by background jobs or first-writer-wins lazy materialization. The security rule
+materialize post-revocation descendant KEK epochs. The levels above a directly
+granted container are re-keyed with the rotation itself; everything else is
+first-writer-wins lazy materialization. The security rule
 is that future writes must not continue under a KEK chain reachable by the
 revoked principal.
 

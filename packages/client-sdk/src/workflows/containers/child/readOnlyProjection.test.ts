@@ -14,7 +14,7 @@ import {
   createRemoteContainer,
 } from "./create";
 import { moveRemoteContainer } from "./move";
-import { rekeyRemoteContainer } from "./rekey";
+import { rekeyRemoteContainer } from "./rekeyRemote";
 import { revokeRemoteContainer } from "./revoke";
 import { shareRemoteContainer } from "./share";
 

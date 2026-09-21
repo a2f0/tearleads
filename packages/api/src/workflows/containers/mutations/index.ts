@@ -1,9 +1,21 @@
 import type { ContainerMutationRequest } from "@tearleads/validators/request";
-import type { ContainerMutationResponse } from "@tearleads/validators/response";
+import type {
+  ContainerMutationResponse,
+  ContainerRotationResponse,
+} from "@tearleads/validators/response";
+import {
+  MAX_INLINE_CONTAINER_REKEYS,
+  MAX_ROTATION_CONTAINER_REKEYS,
+} from "@tearleads/validators/util";
 import { assertOrganizationCanSync } from "../../billing/organizationSyncEligibility";
 import { createContainerWriterProjectionContext } from "../writerProjection";
-import { ContainerMutationError, toMutationError } from "./errors";
+import {
+  ContainerMutationError,
+  mutationShapeError,
+  toMutationError,
+} from "./errors";
 import { rekeyContainer } from "./rekeyContainer";
+import { assertGrantedPathsCurrentBelow } from "./shared/grantedPathCurrency";
 import {
   mutateContainerWithExecutor,
   prelockContainerMutationBatch,
@@ -12,11 +24,12 @@ import type {
   ApiDatabase,
   ContainerMutationContext,
   MutateContainerInput,
+  MutateContainerRotationInput,
   MutateContainerWithExecutorInput,
 } from "./types";
 
 export { assertContainerPathEdges } from "./shared/manifests";
-export type { MutateContainerInput };
+export type { MutateContainerRotationInput };
 export { ContainerMutationError };
 
 export interface AppliedContainerRekey {
@@ -78,19 +91,106 @@ export async function applyContainerRekeys(input: {
     );
     applied.push({ request, response });
   }
+  // An inline repair is a rotation like any other. The write that carries it
+  // holds a flat list, so the descendants it strands ride as further entries.
+  await assertGrantedPathsCurrentBelow({
+    capReached: applied.length >= MAX_INLINE_CONTAINER_REKEYS,
+    executor: input.executor,
+    rotatedContainerIds: applied.map(({ response }) => response.containerId),
+  });
   return applied;
+}
+
+/** Event types that mint a new key epoch and so re-stale every descendant. */
+const ROTATING_EVENT_TYPES: ReadonlySet<string> = new Set([
+  "container.move",
+  "container.rekey",
+  "container.revoke",
+]);
+
+/**
+ * One rotation and the descendant rekeys it carries, in one transaction. The
+ * carried rekeys apply after the rotation, parent-first, so each pins the epoch
+ * its parent was just given; then nothing above a directly granted container
+ * may be left stale, or the whole rotation rolls back.
+ */
+async function mutateContainerRotationInTransaction(
+  tx: MutateContainerWithExecutorInput["executor"],
+  input: MutateContainerRotationInput,
+): Promise<ContainerRotationResponse> {
+  const { containerRekeys = [], ...request } = input.request;
+  const rotates = ROTATING_EVENT_TYPES.has(input.expectedEventType);
+  if (containerRekeys.length > 0 && !rotates) {
+    throw mutationShapeError("Only a rotation may carry container rekeys");
+  }
+  const target: MutateContainerInput = { ...input, request };
+  if (containerRekeys.length === 0) {
+    const response = await mutateContainerWithExecutor({
+      ...target,
+      executor: tx,
+    });
+    if (rotates) {
+      await assertGrantedPathsCurrentBelow({
+        capReached: false,
+        executor: tx,
+        rotatedContainerIds: [response.containerId],
+      });
+    }
+    return response;
+  }
+
+  const carried = containerRekeys.map(
+    (carriedRequest): MutateContainerInput => ({
+      expectedEventType: "container.rekey",
+      fingerprint: input.fingerprint,
+      request: carriedRequest,
+      userId: input.userId,
+    }),
+  );
+  // One prelock over the whole batch keeps the group -> organization lock
+  // order deterministic, exactly as inline document rekeys do.
+  const context: ContainerMutationContext = {
+    executor: tx,
+    manifestHeadByContainerId: new Map(),
+    verifiedManifestByHash: new Map(),
+    writerProjectionContext: createContainerWriterProjectionContext(tx),
+  };
+  await prelockContainerMutationBatch(context, [target, ...carried]);
+  const response = await mutateContainerWithExecutor({
+    ...target,
+    context,
+    executor: tx,
+  });
+  const carriedResponses: ContainerMutationResponse[] = [];
+  for (const carriedInput of carried) {
+    carriedResponses.push(
+      await rekeyContainer({
+        context,
+        executor: tx,
+        fingerprint: carriedInput.fingerprint,
+        request: carriedInput.request,
+        userId: carriedInput.userId,
+      }),
+    );
+  }
+  await assertGrantedPathsCurrentBelow({
+    capReached: carried.length >= MAX_ROTATION_CONTAINER_REKEYS,
+    executor: tx,
+    rotatedContainerIds: [
+      response.containerId,
+      ...carriedResponses.map((carriedResponse) => carriedResponse.containerId),
+    ],
+  });
+  return { ...response, containerRekeys: carriedResponses };
 }
 
 export async function runContainerMutationWorkflow(
   db: ApiDatabase,
-  input: MutateContainerInput,
-): Promise<ContainerMutationResponse> {
+  input: MutateContainerRotationInput,
+): Promise<ContainerRotationResponse> {
   try {
     return await db.transaction(async (tx) => {
-      const response = await mutateContainerWithExecutor({
-        ...input,
-        executor: tx,
-      });
+      const response = await mutateContainerRotationInTransaction(tx, input);
       // Public mutation boundary (registration bootstraps its own org via the
       // lower-level handlers directly, so it is not gated here).
       await assertOrganizationCanSync(

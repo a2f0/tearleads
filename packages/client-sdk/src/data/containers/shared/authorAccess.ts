@@ -10,6 +10,11 @@ import type { ContainerMutationAuthor } from "./types";
 export class ContainerAuthorAccessError extends Error {
   readonly code = "unauthorized";
   readonly status = 403;
+
+  constructor(message: string) {
+    super(message);
+    this.name = "ContainerAuthorAccessError";
+  }
 }
 
 /** Call after verifying the path; readable keys alone do not authorize signing. */

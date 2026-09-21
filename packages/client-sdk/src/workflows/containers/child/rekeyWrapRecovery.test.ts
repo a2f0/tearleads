@@ -17,7 +17,7 @@ import {
   recoverKeyringEntryFromWraps,
 } from "../../../data/documents/shared/keyringRebuild";
 import { sealRotationKeyring } from "./moveRotation";
-import { rekeyRemoteContainer } from "./rekey";
+import { rekeyRemoteContainer } from "./rekeyRemote";
 
 /** Variable-key read: the index-signature rule and the literal-key lint
  * disagree about `record.field`, and a variable key satisfies both. */

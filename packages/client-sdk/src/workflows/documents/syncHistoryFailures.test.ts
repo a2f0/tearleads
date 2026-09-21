@@ -22,7 +22,7 @@ import {
   DocumentHistoryUnavailableError,
 } from "../../data/documents/shared/projection";
 import { readContainerKeyEpoch } from "../../data/keyingProjectionVerification/readers";
-import { rekeyRemoteContainer } from "../containers/child/rekey";
+import { rekeyRemoteContainer } from "../containers/child/rekeyRemote";
 import { DocumentRawHistoryUnavailableError } from "./syncContentKeys";
 import { buildMaterializedDocumentSyncPlan } from "./syncPlanMaterial";
 import { syncRemoteDocumentResultFromResponse } from "./syncResponseResult";

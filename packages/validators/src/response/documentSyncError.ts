@@ -5,6 +5,10 @@ import { PrincipalPolicyBundleResponseSchema } from "./principal";
 export const DOCUMENT_SYNC_ERROR_CODES = {
   checkpointCoverageConflict: "document_sync_checkpoint_coverage_conflict",
   conflict: "document_sync_conflict",
+  // An inline container rekey would strand a level above a directly granted
+  // container. The write rolled back; the client repairs those containers
+  // standalone, where each rekey carries its own descendants, then retries.
+  descendantRekeysRequired: "document_sync_descendant_rekeys_required",
   stateStale: "document_sync_state_stale",
   updateIdConflict: "document_sync_update_id_conflict",
 } as const;
@@ -12,6 +16,7 @@ export const DOCUMENT_SYNC_ERROR_CODES = {
 export const DocumentSyncErrorCodeSchema = z.literal([
   DOCUMENT_SYNC_ERROR_CODES.checkpointCoverageConflict,
   DOCUMENT_SYNC_ERROR_CODES.conflict,
+  DOCUMENT_SYNC_ERROR_CODES.descendantRekeysRequired,
   DOCUMENT_SYNC_ERROR_CODES.stateStale,
   DOCUMENT_SYNC_ERROR_CODES.updateIdConflict,
 ]);

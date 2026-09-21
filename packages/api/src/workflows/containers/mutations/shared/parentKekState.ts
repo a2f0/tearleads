@@ -33,8 +33,11 @@ export async function assertParentKekStateCurrent(
   }
 
   const eventType = manifest.event.event.eventType;
-  if (eventType !== "container.grant" && eventType !== "container.recite") {
-    // A new child secret must not be wrapped through a stale intermediate.
+  if (eventType !== "container.recite") {
+    // A new child secret must not be wrapped through a stale intermediate. A
+    // grant mints no secret, but it may be the first below a lazily stale
+    // chain, and its grantee could never re-key the levels above its own
+    // container: the sharer, who can, repairs that chain before sharing.
     await resolveCurrentContainerKekTargetsMapped(
       [parentKekState.containerId],
       executor,

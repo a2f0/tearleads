@@ -21,7 +21,7 @@ import type {
 } from "@tearleads/validators/request";
 import type {
   ContainerKekResponse,
-  ContainerMutationResponse,
+  ContainerRotationResponse,
   ContainerWriterProjectionResponse,
 } from "@tearleads/validators/response";
 import { assertContainerAuthorAccess } from "../../../data/containers/shared/authorAccess";
@@ -29,7 +29,6 @@ import {
   buildContainerCreateKeyEpoch,
   signContainerMutationEvent,
 } from "../../../data/containers/shared/events";
-import { uniquePrincipalPolicies } from "../../../data/containers/shared/principalPolicies";
 import {
   asContainerManifestBundle,
   uniqueSortedManifestHashes,
@@ -42,7 +41,6 @@ import type {
 } from "../../../data/containers/shared/types";
 import { readCanonicalRecord } from "../../../data/keyingCanonicalJson";
 import {
-  collectContainerWriterProjectionPrincipalPolicies,
   type ProjectionUserKeyResolver,
   type ReferencedPrincipalPolicyWarmer,
   requireProjectionUserKeyResolver,
@@ -55,12 +53,17 @@ import {
   previousPathRequestFields,
   readCanonicalRecordOrNull,
 } from "./mutationRequestCore";
-import { submitAcknowledgedContainerMutation } from "./mutationSubmit";
+import {
+  submitAcknowledgedContainerMutation,
+  submitContainerRotation,
+} from "./mutationSubmit";
+import { containerWriterProjectionFromRotationPlan } from "./rekeyProjection";
 import {
   type ContainerRevokeSubject,
   deriveContainerRevokeManifest,
 } from "./revokeManifest";
 import { resolveRotationContext } from "./rotationContext";
+import { collectContainerRevokePrincipalPolicies } from "./rotationPrincipalPolicies";
 import { buildContainerRotationWraps } from "./rotationWraps";
 
 function buildContainerRevokeRequest(input: {
@@ -96,26 +99,6 @@ function buildContainerRevokeRequest(input: {
   };
 }
 
-export async function collectContainerRevokePrincipalPolicies(input: {
-  execSql: ExecSql;
-  persistVerificationCheckpoints?: boolean | undefined;
-  previousProjection: ContainerWriterProjectionResponse;
-  resolveUserKey: ProjectionUserKeyResolver;
-  stillCurrent?: (() => boolean) | undefined;
-  warmReferencedPrincipalPolicies?: ReferencedPrincipalPolicyWarmer | undefined;
-}): Promise<VerifiedPrincipalPolicy[]> {
-  return uniquePrincipalPolicies(
-    await collectContainerWriterProjectionPrincipalPolicies({
-      execSql: input.execSql,
-      persistVerificationCheckpoints: input.persistVerificationCheckpoints,
-      projection: input.previousProjection,
-      resolveUserKey: input.resolveUserKey,
-      stillCurrent: input.stillCurrent,
-      warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
-    }),
-  );
-}
-
 function buildContainerRevokePlanResult(input: {
   body: ContainerRevokeAccessEventBody;
   containerId: string;
@@ -143,6 +126,7 @@ function buildContainerRevokePlanResult(input: {
     event: input.event,
     eventHash: input.eventHash,
     keyEpoch: input.keyEpoch,
+    keyring: input.keyring,
     manifest: input.manifest,
     manifestHash: input.manifestHash,
     previousManifest: input.previousManifest,
@@ -323,7 +307,7 @@ export async function revokeRemoteContainer(input: {
 }): Promise<{
   containerKey: Uint8Array;
   plan: ContainerRevokePlan;
-  response: ContainerMutationResponse;
+  response: ContainerRotationResponse;
 } | null> {
   const previousProjection = await input.apiClient.getContainerWriterProjection(
     input.containerId,
@@ -349,17 +333,47 @@ export async function revokeRemoteContainer(input: {
     recitationPolicies: [],
     apiClient: input.apiClient,
     author: input.author,
+    carriedRekeys: {
+      planning: {
+        apiClient: input.apiClient,
+        author: input.author,
+        execSql: input.execSql,
+        resolveProjectionUserKey: input.resolveProjectionUserKey,
+        stillCurrent: input.stillCurrent,
+        targetSecretKey: input.targetSecretKey,
+        warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
+      },
+      rotated: () =>
+        containerWriterProjectionFromRotationPlan({
+          plan: materializedPlan.plan,
+          previousProjection,
+        }),
+    },
     containerKey: materializedPlan.containerKey,
     execSql: input.execSql,
     plan: materializedPlan.plan,
     stillCurrent: input.stillCurrent,
-    submit: () =>
-      input.apiClient.revokeContainer(
-        input.containerId,
-        materializedPlan.plan.request,
-        {
-          expectedPaymentRequiredOrganizationId: input.author.organizationId,
-        },
-      ),
+    submit: (carried) => {
+      const request = carried.length
+        ? { ...materializedPlan.plan.request, containerRekeys: [...carried] }
+        : materializedPlan.plan.request;
+      const options = {
+        expectedPaymentRequiredOrganizationId: input.author.organizationId,
+      };
+      const { revokeContainerResult } = input.apiClient;
+      return submitContainerRotation({
+        plain: () =>
+          input.apiClient.revokeContainer(input.containerId, request, options),
+        result: revokeContainerResult
+          ? () =>
+              revokeContainerResult.call(
+                input.apiClient,
+                input.containerId,
+                request,
+                options,
+              )
+          : undefined,
+      });
+    },
   });
 }

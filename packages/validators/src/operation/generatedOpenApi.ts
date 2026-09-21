@@ -7333,8 +7333,9 @@ export interface operations {
                 };
                 content: {
                     "application/json": ({
-                        code?: ("container_manifest_already_exists" | "container_mutation_state_stale") | ("document_manifest_already_exists" | ("document_sync_checkpoint_coverage_conflict" | "document_sync_conflict" | "document_sync_state_stale" | "document_sync_update_id_conflict") | "document_not_found" | "container_unavailable");
+                        code?: ("container_descendant_rekeys_required" | "container_manifest_already_exists" | "container_mutation_state_stale") | ("document_manifest_already_exists" | ("document_sync_checkpoint_coverage_conflict" | "document_sync_conflict" | "document_sync_descendant_rekeys_required" | "document_sync_state_stale" | "document_sync_update_id_conflict") | "document_not_found" | "container_unavailable");
                         error: string;
+                        requiredContainerIds?: string[];
                     } & {
                         [key: string]: unknown;
                     }) | ({
@@ -7620,8 +7621,9 @@ export interface operations {
                 };
                 content: {
                     "application/json": ({
-                        code?: ("container_manifest_already_exists" | "container_mutation_state_stale") | ("document_manifest_already_exists" | ("document_sync_checkpoint_coverage_conflict" | "document_sync_conflict" | "document_sync_state_stale" | "document_sync_update_id_conflict") | "document_not_found" | "container_unavailable");
+                        code?: ("container_descendant_rekeys_required" | "container_manifest_already_exists" | "container_mutation_state_stale") | ("document_manifest_already_exists" | ("document_sync_checkpoint_coverage_conflict" | "document_sync_conflict" | "document_sync_descendant_rekeys_required" | "document_sync_state_stale" | "document_sync_update_id_conflict") | "document_not_found" | "container_unavailable");
                         error: string;
+                        requiredContainerIds?: string[];
                     } & {
                         [key: string]: unknown;
                     }) | ({
@@ -8139,6 +8141,117 @@ export interface operations {
                     } & {
                         [key: string]: unknown;
                     })[];
+                    containerRekeys?: ({
+                        body: unknown;
+                        containerManifestHistory?: ({
+                            event: {
+                                [key: string]: unknown;
+                            };
+                            manifest: {
+                                [key: string]: unknown;
+                            };
+                            manifestHash: string;
+                            state: {
+                                [key: string]: unknown;
+                            };
+                        } & {
+                            [key: string]: unknown;
+                        })[];
+                        destinationParentContainerPath?: ({
+                            event: {
+                                [key: string]: unknown;
+                            };
+                            manifest: {
+                                [key: string]: unknown;
+                            };
+                            manifestHash: string;
+                            state: {
+                                [key: string]: unknown;
+                            };
+                        } & {
+                            [key: string]: unknown;
+                        })[];
+                        event: {
+                            [key: string]: unknown;
+                        };
+                        expectedManifestHash: string;
+                        keyEpoch: {
+                            [key: string]: unknown;
+                        };
+                        keyring: ({
+                            containerId: string;
+                            containerKeyEpochId: string;
+                            iv: string;
+                            sealed: string;
+                            sealingSuite: string;
+                            /** @constant */
+                            version: 1;
+                        } & {
+                            [key: string]: unknown;
+                        }) | null;
+                        manifest: {
+                            [key: string]: unknown;
+                        };
+                        parentContainerPath?: ({
+                            event: {
+                                [key: string]: unknown;
+                            };
+                            manifest: {
+                                [key: string]: unknown;
+                            };
+                            manifestHash: string;
+                            state: {
+                                [key: string]: unknown;
+                            };
+                        } & {
+                            [key: string]: unknown;
+                        })[];
+                        parentKekState?: {
+                            [key: string]: unknown;
+                        } | null;
+                        predecessorBridge: {
+                            [key: string]: unknown;
+                        } | null;
+                        previousContainerPath?: ({
+                            event: {
+                                [key: string]: unknown;
+                            };
+                            manifest: {
+                                [key: string]: unknown;
+                            };
+                            manifestHash: string;
+                            state: {
+                                [key: string]: unknown;
+                            };
+                        } & {
+                            [key: string]: unknown;
+                        })[];
+                        previousManifest?: ({
+                            event: {
+                                [key: string]: unknown;
+                            };
+                            manifest: {
+                                [key: string]: unknown;
+                            };
+                            manifestHash: string;
+                            state: {
+                                [key: string]: unknown;
+                            };
+                        } & {
+                            [key: string]: unknown;
+                        }) | null;
+                        principalPolicies: {
+                            [key: string]: unknown;
+                        }[];
+                        userRecipientKeys?: {
+                            [key: string]: unknown;
+                        }[];
+                        wraps: {
+                            [key: string]: unknown;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    })[];
                     destinationParentContainerPath?: ({
                         event: {
                             [key: string]: unknown;
@@ -8316,6 +8429,104 @@ export interface operations {
                         } & {
                             [key: string]: unknown;
                         };
+                        containerRekeys?: ({
+                            accessManifest: {
+                                event: {
+                                    body: unknown;
+                                    event: {
+                                        [key: string]: unknown;
+                                    };
+                                    eventHash: string;
+                                } & {
+                                    [key: string]: unknown;
+                                };
+                                manifest: {
+                                    [key: string]: unknown;
+                                };
+                                manifestHash: string;
+                                state: {
+                                    [key: string]: unknown;
+                                };
+                            } & {
+                                [key: string]: unknown;
+                            };
+                            containerId: string;
+                            containerKek: {
+                                accessManifestHash: string;
+                                containerId: string;
+                                containerKeyEpoch: number;
+                                containerKeyEpochId: string;
+                                containerManifestHistory: ({
+                                    event: {
+                                        body: unknown;
+                                        event: {
+                                            [key: string]: unknown;
+                                        };
+                                        eventHash: string;
+                                    } & {
+                                        [key: string]: unknown;
+                                    };
+                                    manifest: {
+                                        [key: string]: unknown;
+                                    };
+                                    manifestHash: string;
+                                    state: {
+                                        [key: string]: unknown;
+                                    };
+                                } & {
+                                    [key: string]: unknown;
+                                })[];
+                                keyEpoch: {
+                                    [key: string]: unknown;
+                                };
+                                keyEpochHash: string;
+                                keyring: ({
+                                    containerId: string;
+                                    containerKeyEpochId: string;
+                                    iv: string;
+                                    sealed: string;
+                                    sealingSuite: string;
+                                    /** @constant */
+                                    version: 1;
+                                } & {
+                                    [key: string]: unknown;
+                                }) | null;
+                                keyTargetHash: string;
+                                parentContainerKeyEpochId: string | null;
+                                recipientTargets: {
+                                    [key: string]: unknown;
+                                }[];
+                                wraps: {
+                                    [key: string]: unknown;
+                                }[];
+                            } & {
+                                [key: string]: unknown;
+                            };
+                            createdAt: string;
+                            manifestHead: {
+                                epoch: number;
+                                manifestHash: string;
+                            } & {
+                                [key: string]: unknown;
+                            };
+                            organizationId: string;
+                            parentId: string | null;
+                            referencedPrincipalHeads: ({
+                                keyEpoch: number;
+                                keyFingerprint: string;
+                                principalId: string;
+                                /** @constant */
+                                principalType: "group";
+                                stateHash: string;
+                                version: number;
+                            } & {
+                                [key: string]: unknown;
+                            })[];
+                            systemSlot?: string | null;
+                            updatedAt: string;
+                        } & {
+                            [key: string]: unknown;
+                        })[];
                         createdAt: string;
                         manifestHead: {
                             epoch: number;
@@ -8420,8 +8631,9 @@ export interface operations {
                 };
                 content: {
                     "application/json": ({
-                        code?: ("container_manifest_already_exists" | "container_mutation_state_stale") | ("document_manifest_already_exists" | ("document_sync_checkpoint_coverage_conflict" | "document_sync_conflict" | "document_sync_state_stale" | "document_sync_update_id_conflict") | "document_not_found" | "container_unavailable");
+                        code?: ("container_descendant_rekeys_required" | "container_manifest_already_exists" | "container_mutation_state_stale") | ("document_manifest_already_exists" | ("document_sync_checkpoint_coverage_conflict" | "document_sync_conflict" | "document_sync_descendant_rekeys_required" | "document_sync_state_stale" | "document_sync_update_id_conflict") | "document_not_found" | "container_unavailable");
                         error: string;
+                        requiredContainerIds?: string[];
                     } & {
                         [key: string]: unknown;
                     }) | ({
@@ -8792,8 +9004,9 @@ export interface operations {
                 };
                 content: {
                     "application/json": ({
-                        code?: ("container_manifest_already_exists" | "container_mutation_state_stale") | ("document_manifest_already_exists" | ("document_sync_checkpoint_coverage_conflict" | "document_sync_conflict" | "document_sync_state_stale" | "document_sync_update_id_conflict") | "document_not_found" | "container_unavailable");
+                        code?: ("container_descendant_rekeys_required" | "container_manifest_already_exists" | "container_mutation_state_stale") | ("document_manifest_already_exists" | ("document_sync_checkpoint_coverage_conflict" | "document_sync_conflict" | "document_sync_descendant_rekeys_required" | "document_sync_state_stale" | "document_sync_update_id_conflict") | "document_not_found" | "container_unavailable");
                         error: string;
+                        requiredContainerIds?: string[];
                     } & {
                         [key: string]: unknown;
                     }) | ({
@@ -9002,6 +9215,117 @@ export interface operations {
                     } & {
                         [key: string]: unknown;
                     })[];
+                    containerRekeys?: ({
+                        body: unknown;
+                        containerManifestHistory?: ({
+                            event: {
+                                [key: string]: unknown;
+                            };
+                            manifest: {
+                                [key: string]: unknown;
+                            };
+                            manifestHash: string;
+                            state: {
+                                [key: string]: unknown;
+                            };
+                        } & {
+                            [key: string]: unknown;
+                        })[];
+                        destinationParentContainerPath?: ({
+                            event: {
+                                [key: string]: unknown;
+                            };
+                            manifest: {
+                                [key: string]: unknown;
+                            };
+                            manifestHash: string;
+                            state: {
+                                [key: string]: unknown;
+                            };
+                        } & {
+                            [key: string]: unknown;
+                        })[];
+                        event: {
+                            [key: string]: unknown;
+                        };
+                        expectedManifestHash: string;
+                        keyEpoch: {
+                            [key: string]: unknown;
+                        };
+                        keyring: ({
+                            containerId: string;
+                            containerKeyEpochId: string;
+                            iv: string;
+                            sealed: string;
+                            sealingSuite: string;
+                            /** @constant */
+                            version: 1;
+                        } & {
+                            [key: string]: unknown;
+                        }) | null;
+                        manifest: {
+                            [key: string]: unknown;
+                        };
+                        parentContainerPath?: ({
+                            event: {
+                                [key: string]: unknown;
+                            };
+                            manifest: {
+                                [key: string]: unknown;
+                            };
+                            manifestHash: string;
+                            state: {
+                                [key: string]: unknown;
+                            };
+                        } & {
+                            [key: string]: unknown;
+                        })[];
+                        parentKekState?: {
+                            [key: string]: unknown;
+                        } | null;
+                        predecessorBridge: {
+                            [key: string]: unknown;
+                        } | null;
+                        previousContainerPath?: ({
+                            event: {
+                                [key: string]: unknown;
+                            };
+                            manifest: {
+                                [key: string]: unknown;
+                            };
+                            manifestHash: string;
+                            state: {
+                                [key: string]: unknown;
+                            };
+                        } & {
+                            [key: string]: unknown;
+                        })[];
+                        previousManifest?: ({
+                            event: {
+                                [key: string]: unknown;
+                            };
+                            manifest: {
+                                [key: string]: unknown;
+                            };
+                            manifestHash: string;
+                            state: {
+                                [key: string]: unknown;
+                            };
+                        } & {
+                            [key: string]: unknown;
+                        }) | null;
+                        principalPolicies: {
+                            [key: string]: unknown;
+                        }[];
+                        userRecipientKeys?: {
+                            [key: string]: unknown;
+                        }[];
+                        wraps: {
+                            [key: string]: unknown;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    })[];
                     destinationParentContainerPath?: ({
                         event: {
                             [key: string]: unknown;
@@ -9179,6 +9503,104 @@ export interface operations {
                         } & {
                             [key: string]: unknown;
                         };
+                        containerRekeys?: ({
+                            accessManifest: {
+                                event: {
+                                    body: unknown;
+                                    event: {
+                                        [key: string]: unknown;
+                                    };
+                                    eventHash: string;
+                                } & {
+                                    [key: string]: unknown;
+                                };
+                                manifest: {
+                                    [key: string]: unknown;
+                                };
+                                manifestHash: string;
+                                state: {
+                                    [key: string]: unknown;
+                                };
+                            } & {
+                                [key: string]: unknown;
+                            };
+                            containerId: string;
+                            containerKek: {
+                                accessManifestHash: string;
+                                containerId: string;
+                                containerKeyEpoch: number;
+                                containerKeyEpochId: string;
+                                containerManifestHistory: ({
+                                    event: {
+                                        body: unknown;
+                                        event: {
+                                            [key: string]: unknown;
+                                        };
+                                        eventHash: string;
+                                    } & {
+                                        [key: string]: unknown;
+                                    };
+                                    manifest: {
+                                        [key: string]: unknown;
+                                    };
+                                    manifestHash: string;
+                                    state: {
+                                        [key: string]: unknown;
+                                    };
+                                } & {
+                                    [key: string]: unknown;
+                                })[];
+                                keyEpoch: {
+                                    [key: string]: unknown;
+                                };
+                                keyEpochHash: string;
+                                keyring: ({
+                                    containerId: string;
+                                    containerKeyEpochId: string;
+                                    iv: string;
+                                    sealed: string;
+                                    sealingSuite: string;
+                                    /** @constant */
+                                    version: 1;
+                                } & {
+                                    [key: string]: unknown;
+                                }) | null;
+                                keyTargetHash: string;
+                                parentContainerKeyEpochId: string | null;
+                                recipientTargets: {
+                                    [key: string]: unknown;
+                                }[];
+                                wraps: {
+                                    [key: string]: unknown;
+                                }[];
+                            } & {
+                                [key: string]: unknown;
+                            };
+                            createdAt: string;
+                            manifestHead: {
+                                epoch: number;
+                                manifestHash: string;
+                            } & {
+                                [key: string]: unknown;
+                            };
+                            organizationId: string;
+                            parentId: string | null;
+                            referencedPrincipalHeads: ({
+                                keyEpoch: number;
+                                keyFingerprint: string;
+                                principalId: string;
+                                /** @constant */
+                                principalType: "group";
+                                stateHash: string;
+                                version: number;
+                            } & {
+                                [key: string]: unknown;
+                            })[];
+                            systemSlot?: string | null;
+                            updatedAt: string;
+                        } & {
+                            [key: string]: unknown;
+                        })[];
                         createdAt: string;
                         manifestHead: {
                             epoch: number;
@@ -9283,8 +9705,9 @@ export interface operations {
                 };
                 content: {
                     "application/json": ({
-                        code?: ("container_manifest_already_exists" | "container_mutation_state_stale") | ("document_manifest_already_exists" | ("document_sync_checkpoint_coverage_conflict" | "document_sync_conflict" | "document_sync_state_stale" | "document_sync_update_id_conflict") | "document_not_found" | "container_unavailable");
+                        code?: ("container_descendant_rekeys_required" | "container_manifest_already_exists" | "container_mutation_state_stale") | ("document_manifest_already_exists" | ("document_sync_checkpoint_coverage_conflict" | "document_sync_conflict" | "document_sync_descendant_rekeys_required" | "document_sync_state_stale" | "document_sync_update_id_conflict") | "document_not_found" | "container_unavailable");
                         error: string;
+                        requiredContainerIds?: string[];
                     } & {
                         [key: string]: unknown;
                     }) | ({
@@ -9493,6 +9916,117 @@ export interface operations {
                     } & {
                         [key: string]: unknown;
                     })[];
+                    containerRekeys?: ({
+                        body: unknown;
+                        containerManifestHistory?: ({
+                            event: {
+                                [key: string]: unknown;
+                            };
+                            manifest: {
+                                [key: string]: unknown;
+                            };
+                            manifestHash: string;
+                            state: {
+                                [key: string]: unknown;
+                            };
+                        } & {
+                            [key: string]: unknown;
+                        })[];
+                        destinationParentContainerPath?: ({
+                            event: {
+                                [key: string]: unknown;
+                            };
+                            manifest: {
+                                [key: string]: unknown;
+                            };
+                            manifestHash: string;
+                            state: {
+                                [key: string]: unknown;
+                            };
+                        } & {
+                            [key: string]: unknown;
+                        })[];
+                        event: {
+                            [key: string]: unknown;
+                        };
+                        expectedManifestHash: string;
+                        keyEpoch: {
+                            [key: string]: unknown;
+                        };
+                        keyring: ({
+                            containerId: string;
+                            containerKeyEpochId: string;
+                            iv: string;
+                            sealed: string;
+                            sealingSuite: string;
+                            /** @constant */
+                            version: 1;
+                        } & {
+                            [key: string]: unknown;
+                        }) | null;
+                        manifest: {
+                            [key: string]: unknown;
+                        };
+                        parentContainerPath?: ({
+                            event: {
+                                [key: string]: unknown;
+                            };
+                            manifest: {
+                                [key: string]: unknown;
+                            };
+                            manifestHash: string;
+                            state: {
+                                [key: string]: unknown;
+                            };
+                        } & {
+                            [key: string]: unknown;
+                        })[];
+                        parentKekState?: {
+                            [key: string]: unknown;
+                        } | null;
+                        predecessorBridge: {
+                            [key: string]: unknown;
+                        } | null;
+                        previousContainerPath?: ({
+                            event: {
+                                [key: string]: unknown;
+                            };
+                            manifest: {
+                                [key: string]: unknown;
+                            };
+                            manifestHash: string;
+                            state: {
+                                [key: string]: unknown;
+                            };
+                        } & {
+                            [key: string]: unknown;
+                        })[];
+                        previousManifest?: ({
+                            event: {
+                                [key: string]: unknown;
+                            };
+                            manifest: {
+                                [key: string]: unknown;
+                            };
+                            manifestHash: string;
+                            state: {
+                                [key: string]: unknown;
+                            };
+                        } & {
+                            [key: string]: unknown;
+                        }) | null;
+                        principalPolicies: {
+                            [key: string]: unknown;
+                        }[];
+                        userRecipientKeys?: {
+                            [key: string]: unknown;
+                        }[];
+                        wraps: {
+                            [key: string]: unknown;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    })[];
                     destinationParentContainerPath?: ({
                         event: {
                             [key: string]: unknown;
@@ -9670,6 +10204,104 @@ export interface operations {
                         } & {
                             [key: string]: unknown;
                         };
+                        containerRekeys?: ({
+                            accessManifest: {
+                                event: {
+                                    body: unknown;
+                                    event: {
+                                        [key: string]: unknown;
+                                    };
+                                    eventHash: string;
+                                } & {
+                                    [key: string]: unknown;
+                                };
+                                manifest: {
+                                    [key: string]: unknown;
+                                };
+                                manifestHash: string;
+                                state: {
+                                    [key: string]: unknown;
+                                };
+                            } & {
+                                [key: string]: unknown;
+                            };
+                            containerId: string;
+                            containerKek: {
+                                accessManifestHash: string;
+                                containerId: string;
+                                containerKeyEpoch: number;
+                                containerKeyEpochId: string;
+                                containerManifestHistory: ({
+                                    event: {
+                                        body: unknown;
+                                        event: {
+                                            [key: string]: unknown;
+                                        };
+                                        eventHash: string;
+                                    } & {
+                                        [key: string]: unknown;
+                                    };
+                                    manifest: {
+                                        [key: string]: unknown;
+                                    };
+                                    manifestHash: string;
+                                    state: {
+                                        [key: string]: unknown;
+                                    };
+                                } & {
+                                    [key: string]: unknown;
+                                })[];
+                                keyEpoch: {
+                                    [key: string]: unknown;
+                                };
+                                keyEpochHash: string;
+                                keyring: ({
+                                    containerId: string;
+                                    containerKeyEpochId: string;
+                                    iv: string;
+                                    sealed: string;
+                                    sealingSuite: string;
+                                    /** @constant */
+                                    version: 1;
+                                } & {
+                                    [key: string]: unknown;
+                                }) | null;
+                                keyTargetHash: string;
+                                parentContainerKeyEpochId: string | null;
+                                recipientTargets: {
+                                    [key: string]: unknown;
+                                }[];
+                                wraps: {
+                                    [key: string]: unknown;
+                                }[];
+                            } & {
+                                [key: string]: unknown;
+                            };
+                            createdAt: string;
+                            manifestHead: {
+                                epoch: number;
+                                manifestHash: string;
+                            } & {
+                                [key: string]: unknown;
+                            };
+                            organizationId: string;
+                            parentId: string | null;
+                            referencedPrincipalHeads: ({
+                                keyEpoch: number;
+                                keyFingerprint: string;
+                                principalId: string;
+                                /** @constant */
+                                principalType: "group";
+                                stateHash: string;
+                                version: number;
+                            } & {
+                                [key: string]: unknown;
+                            })[];
+                            systemSlot?: string | null;
+                            updatedAt: string;
+                        } & {
+                            [key: string]: unknown;
+                        })[];
                         createdAt: string;
                         manifestHead: {
                             epoch: number;
@@ -9774,8 +10406,9 @@ export interface operations {
                 };
                 content: {
                     "application/json": ({
-                        code?: ("container_manifest_already_exists" | "container_mutation_state_stale") | ("document_manifest_already_exists" | ("document_sync_checkpoint_coverage_conflict" | "document_sync_conflict" | "document_sync_state_stale" | "document_sync_update_id_conflict") | "document_not_found" | "container_unavailable");
+                        code?: ("container_descendant_rekeys_required" | "container_manifest_already_exists" | "container_mutation_state_stale") | ("document_manifest_already_exists" | ("document_sync_checkpoint_coverage_conflict" | "document_sync_conflict" | "document_sync_descendant_rekeys_required" | "document_sync_state_stale" | "document_sync_update_id_conflict") | "document_not_found" | "container_unavailable");
                         error: string;
+                        requiredContainerIds?: string[];
                     } & {
                         [key: string]: unknown;
                     }) | ({
@@ -10265,8 +10898,9 @@ export interface operations {
                 };
                 content: {
                     "application/json": ({
-                        code?: ("container_manifest_already_exists" | "container_mutation_state_stale") | ("document_manifest_already_exists" | ("document_sync_checkpoint_coverage_conflict" | "document_sync_conflict" | "document_sync_state_stale" | "document_sync_update_id_conflict") | "document_not_found" | "container_unavailable");
+                        code?: ("container_descendant_rekeys_required" | "container_manifest_already_exists" | "container_mutation_state_stale") | ("document_manifest_already_exists" | ("document_sync_checkpoint_coverage_conflict" | "document_sync_conflict" | "document_sync_descendant_rekeys_required" | "document_sync_state_stale" | "document_sync_update_id_conflict") | "document_not_found" | "container_unavailable");
                         error: string;
+                        requiredContainerIds?: string[];
                     } & {
                         [key: string]: unknown;
                     }) | ({
@@ -11322,8 +11956,9 @@ export interface operations {
                 };
                 content: {
                     "application/json": ({
-                        code?: ("container_manifest_already_exists" | "container_mutation_state_stale") | ("document_manifest_already_exists" | ("document_sync_checkpoint_coverage_conflict" | "document_sync_conflict" | "document_sync_state_stale" | "document_sync_update_id_conflict") | "document_not_found" | "container_unavailable");
+                        code?: ("container_descendant_rekeys_required" | "container_manifest_already_exists" | "container_mutation_state_stale") | ("document_manifest_already_exists" | ("document_sync_checkpoint_coverage_conflict" | "document_sync_conflict" | "document_sync_descendant_rekeys_required" | "document_sync_state_stale" | "document_sync_update_id_conflict") | "document_not_found" | "container_unavailable");
                         error: string;
+                        requiredContainerIds?: string[];
                     } & {
                         [key: string]: unknown;
                     }) | ({
@@ -11815,7 +12450,7 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
-                        code?: "document_manifest_already_exists" | ("document_sync_checkpoint_coverage_conflict" | "document_sync_conflict" | "document_sync_state_stale" | "document_sync_update_id_conflict") | "document_not_found" | "container_unavailable";
+                        code?: "document_manifest_already_exists" | ("document_sync_checkpoint_coverage_conflict" | "document_sync_conflict" | "document_sync_descendant_rekeys_required" | "document_sync_state_stale" | "document_sync_update_id_conflict") | "document_not_found" | "container_unavailable";
                         error: string;
                     } & {
                         [key: string]: unknown;
@@ -11829,7 +12464,7 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
-                        code?: "document_manifest_already_exists" | ("document_sync_checkpoint_coverage_conflict" | "document_sync_conflict" | "document_sync_state_stale" | "document_sync_update_id_conflict") | "document_not_found" | "container_unavailable";
+                        code?: "document_manifest_already_exists" | ("document_sync_checkpoint_coverage_conflict" | "document_sync_conflict" | "document_sync_descendant_rekeys_required" | "document_sync_state_stale" | "document_sync_update_id_conflict") | "document_not_found" | "container_unavailable";
                         error: string;
                     } & {
                         [key: string]: unknown;
@@ -12679,7 +13314,7 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
-                        code?: "document_manifest_already_exists" | ("document_sync_checkpoint_coverage_conflict" | "document_sync_conflict" | "document_sync_state_stale" | "document_sync_update_id_conflict") | "document_not_found" | "container_unavailable";
+                        code?: "document_manifest_already_exists" | ("document_sync_checkpoint_coverage_conflict" | "document_sync_conflict" | "document_sync_descendant_rekeys_required" | "document_sync_state_stale" | "document_sync_update_id_conflict") | "document_not_found" | "container_unavailable";
                         error: string;
                     } & {
                         [key: string]: unknown;
@@ -12693,7 +13328,7 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
-                        code?: "document_manifest_already_exists" | ("document_sync_checkpoint_coverage_conflict" | "document_sync_conflict" | "document_sync_state_stale" | "document_sync_update_id_conflict") | "document_not_found" | "container_unavailable";
+                        code?: "document_manifest_already_exists" | ("document_sync_checkpoint_coverage_conflict" | "document_sync_conflict" | "document_sync_descendant_rekeys_required" | "document_sync_state_stale" | "document_sync_update_id_conflict") | "document_not_found" | "container_unavailable";
                         error: string;
                     } & {
                         [key: string]: unknown;
@@ -13040,7 +13675,7 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
-                        code?: "document_manifest_already_exists" | ("document_sync_checkpoint_coverage_conflict" | "document_sync_conflict" | "document_sync_state_stale" | "document_sync_update_id_conflict") | "document_not_found" | "container_unavailable";
+                        code?: "document_manifest_already_exists" | ("document_sync_checkpoint_coverage_conflict" | "document_sync_conflict" | "document_sync_descendant_rekeys_required" | "document_sync_state_stale" | "document_sync_update_id_conflict") | "document_not_found" | "container_unavailable";
                         error: string;
                     } & {
                         [key: string]: unknown;
@@ -13054,7 +13689,7 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
-                        code?: "document_manifest_already_exists" | ("document_sync_checkpoint_coverage_conflict" | "document_sync_conflict" | "document_sync_state_stale" | "document_sync_update_id_conflict") | "document_not_found" | "container_unavailable";
+                        code?: "document_manifest_already_exists" | ("document_sync_checkpoint_coverage_conflict" | "document_sync_conflict" | "document_sync_descendant_rekeys_required" | "document_sync_state_stale" | "document_sync_update_id_conflict") | "document_not_found" | "container_unavailable";
                         error: string;
                     } & {
                         [key: string]: unknown;
@@ -13417,7 +14052,7 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
-                        code?: "document_manifest_already_exists" | ("document_sync_checkpoint_coverage_conflict" | "document_sync_conflict" | "document_sync_state_stale" | "document_sync_update_id_conflict") | "document_not_found" | "container_unavailable";
+                        code?: "document_manifest_already_exists" | ("document_sync_checkpoint_coverage_conflict" | "document_sync_conflict" | "document_sync_descendant_rekeys_required" | "document_sync_state_stale" | "document_sync_update_id_conflict") | "document_not_found" | "container_unavailable";
                         error: string;
                     } & {
                         [key: string]: unknown;
@@ -13431,7 +14066,7 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
-                        code?: "document_manifest_already_exists" | ("document_sync_checkpoint_coverage_conflict" | "document_sync_conflict" | "document_sync_state_stale" | "document_sync_update_id_conflict") | "document_not_found" | "container_unavailable";
+                        code?: "document_manifest_already_exists" | ("document_sync_checkpoint_coverage_conflict" | "document_sync_conflict" | "document_sync_descendant_rekeys_required" | "document_sync_state_stale" | "document_sync_update_id_conflict") | "document_not_found" | "container_unavailable";
                         error: string;
                     } & {
                         [key: string]: unknown;
@@ -13826,7 +14461,7 @@ export interface operations {
                 content: {
                     "application/json": {
                         /** @enum {string} */
-                        code: "document_sync_checkpoint_coverage_conflict" | "document_sync_conflict" | "document_sync_state_stale" | "document_sync_update_id_conflict";
+                        code: "document_sync_checkpoint_coverage_conflict" | "document_sync_conflict" | "document_sync_descendant_rekeys_required" | "document_sync_state_stale" | "document_sync_update_id_conflict";
                         error: string;
                         principalPolicies?: ({
                             currentGrants: ({
@@ -14330,7 +14965,7 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
-                        code?: "document_manifest_already_exists" | ("document_sync_checkpoint_coverage_conflict" | "document_sync_conflict" | "document_sync_state_stale" | "document_sync_update_id_conflict") | "document_not_found" | "container_unavailable";
+                        code?: "document_manifest_already_exists" | ("document_sync_checkpoint_coverage_conflict" | "document_sync_conflict" | "document_sync_descendant_rekeys_required" | "document_sync_state_stale" | "document_sync_update_id_conflict") | "document_not_found" | "container_unavailable";
                         error: string;
                     } & {
                         [key: string]: unknown;
@@ -14344,7 +14979,7 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
-                        code?: "document_manifest_already_exists" | ("document_sync_checkpoint_coverage_conflict" | "document_sync_conflict" | "document_sync_state_stale" | "document_sync_update_id_conflict") | "document_not_found" | "container_unavailable";
+                        code?: "document_manifest_already_exists" | ("document_sync_checkpoint_coverage_conflict" | "document_sync_conflict" | "document_sync_descendant_rekeys_required" | "document_sync_state_stale" | "document_sync_update_id_conflict") | "document_not_found" | "container_unavailable";
                         error: string;
                     } & {
                         [key: string]: unknown;
