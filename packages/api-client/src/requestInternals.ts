@@ -16,6 +16,7 @@ import {
   PaymentRequiredErrorResponseSchema,
   SESSION_ERROR_CODES,
 } from "@tearleads/validators/response";
+import { MAX_ROTATION_CONTAINER_REKEYS } from "@tearleads/validators/util";
 import type { ListContainerDocumentsOptions, RequestBody } from "./types";
 
 /**
@@ -157,6 +158,7 @@ function parsedErrorResponseDescription(
     ...(code === CONTAINER_MUTATION_ERROR_CODES.descendantRekeysRequired &&
     "requiredContainerIds" in value &&
     Array.isArray(value.requiredContainerIds) &&
+    value.requiredContainerIds.length <= MAX_ROTATION_CONTAINER_REKEYS &&
     value.requiredContainerIds.every(
       (containerId: unknown): containerId is string =>
         typeof containerId === "string" && containerId.length > 0,

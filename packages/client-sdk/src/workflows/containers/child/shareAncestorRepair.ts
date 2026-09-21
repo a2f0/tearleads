@@ -81,10 +81,18 @@ export async function projectionWithCurrentAncestors(input: {
   for (let round = 0; round < projection.containerKeks.length; round += 1) {
     const staleLevelId = firstStaleLevelId(projection);
     if (staleLevelId === null) return projection;
-    // The server would refuse this grant as stale, and no refetch clears that.
     if (!rekeyContainer) {
-      throw new ContainerKekRepairInaccessibleError(staleLevelId);
+      // Not a repair someone else owes: the adapter simply cannot make one.
+      throw new Error(
+        "Container share must re-key a stale path, which needs rekeyContainer",
+      );
     }
+    // This sharer may be unable to re-key a level above a container that
+    // already carries a grant: stale past the carried-rekey cap, or after a
+    // group rematerialization. The server asks a current chain only of a first
+    // grant, so it decides rather than this blocking a grant it would accept.
+    const serverDecides =
+      staleLevelId !== input.containerId && carriesDirectGrant(projection);
     const repaired = await rekeyRemoteContainer({
       apiClient: {
         getContainerWriterProjection: (containerId) =>
@@ -104,22 +112,16 @@ export async function projectionWithCurrentAncestors(input: {
       targetSecretKey: input.targetSecretKey,
       warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
     }).catch((error: unknown) => {
-      throw error instanceof ContainerAuthorAccessError ||
-        error instanceof ContainerKekTargetUnreachableError
+      const outOfReach =
+        error instanceof ContainerAuthorAccessError ||
+        error instanceof ContainerKekTargetUnreachableError;
+      if (outOfReach && serverDecides) return null;
+      throw outOfReach
         ? new ContainerKekRepairInaccessibleError(staleLevelId)
         : error;
     });
     if (input.stillCurrent?.() === false) return null;
-    if (!repaired) {
-      // This sharer could not re-key a level above a container that already
-      // carries a grant: stale past the carried-rekey cap, or after a group
-      // rematerialization. The server asks this only of a first grant, so let
-      // it decide rather than block a grant it would accept.
-      return staleLevelId !== input.containerId &&
-        carriesDirectGrant(projection)
-        ? projection
-        : null;
-    }
+    if (!repaired) return serverDecides ? projection : null;
     const refreshed = await input.apiClient.getContainerWriterProjection(
       input.containerId,
     );

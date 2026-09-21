@@ -208,7 +208,7 @@ async function listGrantedPathDescendants(
  * now: each rekey the client carries stales the level beneath it, so anything
  * less costs a refusal per level, and the refused attempt rolled back anyway.
  */
-export async function assertGrantedPathsCurrentBelow(input: {
+async function assertGrantedPathsCurrentBelow(input: {
   readonly carriedLimit: number;
   readonly executor: DatabaseTransaction;
   readonly organizationId: string;
@@ -250,4 +250,35 @@ export async function assertGrantedPathsCurrentBelow(input: {
     strandedIds,
   });
   if (required) throw descendantRekeysRequired(required);
+}
+
+/**
+ * Hold every organization a batch rotated in to the rule, each on its own. A
+ * batch locks whatever organizations it names, and a carried rekey need not
+ * share the rotation's, so checking only one would let a member of two strand
+ * a grantee in the other.
+ */
+export async function assertGrantedPathsCurrentBelowRotations(input: {
+  readonly carriedLimit: number;
+  readonly executor: DatabaseTransaction;
+  readonly rotated: readonly {
+    readonly containerId: string;
+    readonly organizationId: string;
+  }[];
+}): Promise<void> {
+  const idsByOrganization = new Map<string, string[]>();
+  for (const { containerId, organizationId } of input.rotated) {
+    const ids = idsByOrganization.get(organizationId) ?? [];
+    ids.push(containerId);
+    idsByOrganization.set(organizationId, ids);
+  }
+  // Sorted, so concurrent batches walk organizations in one order.
+  for (const organizationId of [...idsByOrganization.keys()].sort()) {
+    await assertGrantedPathsCurrentBelow({
+      carriedLimit: input.carriedLimit,
+      executor: input.executor,
+      organizationId,
+      rotatedContainerIds: idsByOrganization.get(organizationId) ?? [],
+    });
+  }
 }

@@ -37,6 +37,11 @@ interface OwnedContainerTree {
   readonly bareRekeyRequest: (
     containerId: string,
   ) => Promise<ContainerMutationRequest>;
+  /** The same, signed by a member rather than the owner. */
+  readonly bareRekeyRequestAs: (
+    member: TestUser,
+    containerId: string,
+  ) => Promise<ContainerMutationRequest>;
   /** A signed root rekey that carries nothing, for posting raw. */
   readonly bareRootRekeyRequest: () => Promise<ContainerMutationRequest>;
   readonly close: () => void;
@@ -59,11 +64,12 @@ interface OwnedContainerTree {
 
 export async function createOwnedTree(
   memberCount: number,
+  existingMembers: readonly TestUser[] = [],
 ): Promise<OwnedContainerTree> {
   const owner = createTestUser();
   await registerUser(owner);
   await authenticate(owner);
-  const members: TestUser[] = [];
+  const members: TestUser[] = [...existingMembers];
   for (let index = 0; index < memberCount; index += 1) {
     const member = createTestUser();
     await registerUser(member);
@@ -106,8 +112,32 @@ export async function createOwnedTree(
     });
     return bare.plan.request;
   };
+  const bareRekeyRequestAs = async (member: TestUser, containerId: string) => {
+    const memberContext = await createAncestorSdkContext(
+      member,
+      organizationId,
+      owner,
+      ...members.filter((other) => other !== member),
+    );
+    try {
+      const previousProjection =
+        await memberContext.common.apiClient.getContainerWriterProjection(
+          containerId,
+        );
+      if (!previousProjection) throw new Error("Expected a projection");
+      const bare = await buildMaterializedContainerRekeyPlan({
+        ...memberContext.common,
+        persistVerificationCheckpoints: false,
+        previousProjection,
+      });
+      return bare.plan.request;
+    } finally {
+      memberContext.close();
+    }
+  };
   return {
     bareRekeyRequest,
+    bareRekeyRequestAs,
     bareRootRekeyRequest: () => bareRekeyRequest(rootId),
     close: context.close,
     createChild: async (parentContainerId) => {

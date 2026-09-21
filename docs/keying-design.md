@@ -770,7 +770,7 @@ the remainder repairs lazily rather than refuse a revocation, and a writer who
 meets such a level parks under an explicit
 `document_ancestor_repair_inaccessible` state until the dependent-path hint that
 follows its repair. Group rematerialization does not yet carry descendants and
-is the one rotation source outside the rule.
+is the one rotation source outside the rule; #2340 tracks closing it.
 [`InaccessibleIntermediateRepair.tla`](../formal/container-keying/InaccessibleIntermediateRepair.md)
 models the rule and the alternatives it rejects.
 

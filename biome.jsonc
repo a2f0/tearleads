@@ -119,8 +119,7 @@
     {
       "includes": [
         "docs/openapi.json",
-        "formal/document-sync/BaselineDominanceTraces.json",
-        "packages/validators/src/operation/generatedOpenApi.ts"
+        "formal/document-sync/BaselineDominanceTraces.json"
       ],
       "formatter": { "enabled": false },
       "linter": { "enabled": false }

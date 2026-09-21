@@ -15,7 +15,7 @@ import {
   toMutationError,
 } from "./errors";
 import { rekeyContainer } from "./rekeyContainer";
-import { assertGrantedPathsCurrentBelow } from "./shared/grantedPathCurrency";
+import { assertGrantedPathsCurrentBelowRotations } from "./shared/grantedPathCurrency";
 import {
   mutateContainerWithExecutor,
   prelockContainerMutationBatch,
@@ -93,18 +93,11 @@ export async function applyContainerRekeys(input: {
   }
   // An inline repair is a rotation like any other. The write that carries it
   // holds a flat list, so the descendants it strands ride as further entries.
-  for (const organizationId of new Set(
-    applied.map(({ response }) => response.organizationId),
-  )) {
-    await assertGrantedPathsCurrentBelow({
-      carriedLimit: MAX_INLINE_CONTAINER_REKEYS,
-      executor: input.executor,
-      organizationId,
-      rotatedContainerIds: applied
-        .filter(({ response }) => response.organizationId === organizationId)
-        .map(({ response }) => response.containerId),
-    });
-  }
+  await assertGrantedPathsCurrentBelowRotations({
+    carriedLimit: MAX_INLINE_CONTAINER_REKEYS,
+    executor: input.executor,
+    rotated: applied.map(({ response }) => response),
+  });
   return applied;
 }
 
@@ -142,11 +135,10 @@ async function mutateContainerRotationInTransaction(
       executor: tx,
     });
     if (rotates) {
-      await assertGrantedPathsCurrentBelow({
+      await assertGrantedPathsCurrentBelowRotations({
         carriedLimit: MAX_ROTATION_CONTAINER_REKEYS,
         executor: tx,
-        organizationId: response.organizationId,
-        rotatedContainerIds: [response.containerId],
+        rotated: [response],
       });
     }
     return response;
@@ -186,14 +178,10 @@ async function mutateContainerRotationInTransaction(
       }),
     );
   }
-  await assertGrantedPathsCurrentBelow({
+  await assertGrantedPathsCurrentBelowRotations({
     carriedLimit: MAX_ROTATION_CONTAINER_REKEYS,
     executor: tx,
-    organizationId: response.organizationId,
-    rotatedContainerIds: [
-      response.containerId,
-      ...carriedResponses.map((carriedResponse) => carriedResponse.containerId),
-    ],
+    rotated: [response, ...carriedResponses],
   });
   return { ...response, containerRekeys: carriedResponses };
 }

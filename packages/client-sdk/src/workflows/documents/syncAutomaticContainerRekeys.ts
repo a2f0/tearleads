@@ -14,9 +14,15 @@ import type { SyncRemoteDocumentInput } from "./readOnlySync";
 import { applyContainerRekeyPlan } from "./syncContainerRekeyProjection";
 import { DocumentAncestorRepairAbandonedError } from "./syncRepairAbandon";
 
+interface StaleContainer {
+  /** The stale container is the one the document itself is linked into. */
+  readonly isPathTarget: boolean;
+  readonly projection: ContainerWriterProjectionResponse;
+}
+
 function firstStaleContainer(
   projection: DocumentWriterProjectionResponse,
-): ContainerWriterProjectionResponse | null {
+): StaleContainer | null {
   for (const path of projection.authorizingContainerPaths) {
     for (let index = 1; index < path.containerKeks.length; index += 1) {
       const parent = path.containerKeks[index - 1];
@@ -27,10 +33,13 @@ function firstStaleContainer(
         continue;
       }
       return {
-        ...path,
-        containerId: child.containerId,
-        containerKeks: path.containerKeks.slice(0, index + 1),
-        path: path.path.slice(0, index + 1),
+        isPathTarget: index === path.containerKeks.length - 1,
+        projection: {
+          ...path,
+          containerId: child.containerId,
+          containerKeks: path.containerKeks.slice(0, index + 1),
+          path: path.path.slice(0, index + 1),
+        },
       };
     }
   }
@@ -43,12 +52,16 @@ function firstStaleContainer(
  * Both are judged against the path sliced at the stale container, so a grant
  * held only further down never counts — exactly the API's `container.rekey`
  * rule. Anything else (keyring damage, a forged path) stays an error.
+ *
+ * Lacking write access on the document's OWN container is a different thing:
+ * no other member's repair would let this signer write there, so that is a
+ * refusal to record, not a repair to wait for.
  */
-function isRepairInaccessible(error: unknown, containerId: string): boolean {
+function isRepairInaccessible(error: unknown, stale: StaleContainer): boolean {
   return (
-    error instanceof ContainerAuthorAccessError ||
+    (error instanceof ContainerAuthorAccessError && !stale.isPathTarget) ||
     (error instanceof ContainerKekTargetUnreachableError &&
-      error.containerId === containerId)
+      error.containerId === stale.projection.containerId)
   );
 }
 
@@ -61,8 +74,9 @@ export async function buildAutomaticContainerRekeys(
   const plannedIds = new Set<string>();
   let projection = initialProjection;
   for (;;) {
-    const previousProjection = firstStaleContainer(projection);
-    if (!previousProjection) return { plans, hasMore: false };
+    const stale = firstStaleContainer(projection);
+    if (!stale) return { plans, hasMore: false };
+    const previousProjection = stale.projection;
     if (plans.length >= MAX_INLINE_CONTAINER_REKEYS) {
       return { plans, hasMore: true };
     }
@@ -96,11 +110,21 @@ export async function buildAutomaticContainerRekeys(
       stillCurrent: sync.stillCurrent,
       warmReferencedPrincipalPolicies: sync.warmReferencedPrincipalPolicies,
       execSql: sync.execSql,
-    }).catch((error: unknown) => {
+    }).catch(async (error: unknown) => {
+      if (error instanceof ContainerAuthorAccessError && stale.isPathTarget) {
+        await sync.onTerminalSubmitFailure?.({
+          code: error.code,
+          message: error.message,
+          ok: false,
+          report: () => undefined,
+          status: error.status,
+        });
+        throw new DocumentAncestorRepairAbandonedError("refused");
+      }
       // Repairs run parent-first and access inherits downward, so only the
       // first stale container can be out of reach. Retry-classified like any
       // stale path: one refetch sees a repair a capable member already made.
-      throw isRepairInaccessible(error, previousProjection.containerId)
+      throw isRepairInaccessible(error, stale)
         ? new ContainerKekRepairInaccessibleError(
             previousProjection.containerId,
           )

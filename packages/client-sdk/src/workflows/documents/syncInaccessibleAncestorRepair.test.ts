@@ -233,3 +233,53 @@ test("the writer repairs its own leaf once the intermediate is repaired", async 
     database.close();
   }
 }, 120_000);
+
+// Parking is for a repair another member owes. A signer who can read its own
+// stale container but no longer write there is owed nothing: no repair would
+// let it write, so the pass records the refusal instead of waiting on one.
+
+test("losing write access on the document's own container is a refusal, not a park", async () => {
+  const fixture = await createInaccessibleStaleIntermediateFixture("read");
+  const projection = await createLeafDocumentProjection(fixture);
+  const owner = await createTestExecSql("inaccessible-own-leaf-repairer");
+  const database = await createTestExecSql("inaccessible-own-leaf-reader");
+  try {
+    // With the intermediate repaired, the leaf itself is the stale container.
+    const ownerRepair = await buildMaterializedContainerRekeyPlan({
+      ...fixture.ownerInput,
+      execSql: owner.execSql,
+      previousProjection: {
+        ...fixture.intermediate.projection,
+        path: fixture.staleLeaf.path.slice(0, 2),
+        containerKeks: fixture.staleLeaf.containerKeks.slice(0, 2),
+      },
+    });
+    const repaired = await applyContainerRekeyPlan(projection, ownerRepair);
+    const abandoned: string[] = [];
+    const terminal: Array<{
+      code?: string | undefined;
+      status: number | null;
+    }> = [];
+    const result = await syncRemoteDocument({
+      ...leafWriterInput(fixture, database.execSql),
+      apiClient: createMockApiClient(),
+      buildRotationSnapshot: createFullHistoryRotationSnapshot,
+      documentId: projection.documentId,
+      localVersionVector: null,
+      onSyncAbandoned: (reason: string) => abandoned.push(reason),
+      onTerminalSubmitFailure: (failure) => {
+        terminal.push({ code: failure.code, status: failure.status });
+      },
+      pendingUpdates: [createPendingUpdateRecord()],
+      resolveWriterPublicKey: writerKeyResolver(fixture.root),
+      validateIncomingUpdates: () => undefined,
+      writerProjection: repaired,
+    });
+    expect(result).toBeNull();
+    expect(abandoned).toEqual(["refused"]);
+    expect(terminal).toEqual([{ code: "unauthorized", status: 403 }]);
+  } finally {
+    owner.close();
+    database.close();
+  }
+}, 120_000);

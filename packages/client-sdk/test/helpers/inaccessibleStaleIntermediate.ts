@@ -22,7 +22,9 @@ import { createTestTrustedUserIdentity } from "./trustedUserIdentity";
  * KEK but neither ancestor's, so it can neither rekey `intermediate` nor be
  * handed its secret.
  */
-export async function createInaccessibleStaleIntermediateFixture() {
+export async function createInaccessibleStaleIntermediateFixture(
+  accessLevel: "read" | "write" = "write",
+) {
   const root = await createParentProjection();
   const peer = await createAuthor({
     organizationId: root.author.organizationId,
@@ -70,7 +72,7 @@ export async function createInaccessibleStaleIntermediateFixture() {
     const leaf = await createChild(intermediate.projection, "leaf");
     const shared = await buildMaterializedContainerSharePlan({
       ...ownerInput,
-      accessLevel: "write",
+      accessLevel,
       previousProjection: leaf.projection,
       recipient: {
         subjectType: "user",

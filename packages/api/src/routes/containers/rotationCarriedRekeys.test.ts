@@ -228,3 +228,47 @@ test("only a rotation may carry rekeys, and only as a list", async () => {
     tree.close();
   }
 }, 120_000);
+
+// A carried rekey need not even share the rotation's organization: the batch
+// locks whatever organizations it names. Each one is held to the rule on its
+// own, or a member of two could strand a grantee in the second by carrying
+// that rekey on a rotation in the first.
+
+test("a carried rekey in another organization is held to the rule there", async () => {
+  const home = await createOwnedTree(0);
+  const away = await createOwnedTree(1, [home.owner]);
+  const outsider = away.members.find((member) => member !== home.owner);
+  if (!outsider) throw new Error("Expected an outsider");
+  try {
+    const upper = await away.createChild(away.rootId);
+    const middle = await away.createChild(upper);
+    const lower = await away.createChild(middle);
+    // The home owner may write, and so rekey, from `upper` down.
+    await away.share(upper, home.owner.userId);
+    await away.share(lower, outsider.userId);
+    const before = await away.keksOf(lower);
+
+    const refused = await routeApp.request(`/containers/${home.rootId}/rekey`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${home.owner.token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        ...(await home.bareRootRekeyRequest()),
+        containerRekeys: [await away.bareRekeyRequestAs(home.owner, upper)],
+      }),
+    });
+    expect(refused.status, (await refused.clone().text()).slice(0, 300)).toBe(
+      409,
+    );
+    expect(await refused.json()).toMatchObject({
+      code: "container_descendant_rekeys_required",
+      requiredContainerIds: [middle],
+    });
+    expect(await away.keksOf(lower)).toEqual(before);
+  } finally {
+    home.close();
+    away.close();
+  }
+}, 240_000);
