@@ -331,7 +331,11 @@ export const documentPurgeCheckpoints = sqliteTable(
  * - `(identityTrustDomain, userId)` is the primary key and scopes a user pin to
  *   the host-configured API authority that supplied it.
  * - `(identityTrustDomain, signingKeyFingerprint)` binds the reverse identity
- *   mapping durably, including across session recreation.
+ *   mapping durably, including across session recreation. There is no
+ *   migration for a table that already violates it: deployments are
+ *   greenfield, and a device that used an environment before a reset must
+ *   clear its local data (see docs/developer/greenfield-reset.md), which
+ *   recreates this table empty.
  */
 export const trustedUserIdentityPins = sqliteTable(
   "trusted_user_identity_pins",

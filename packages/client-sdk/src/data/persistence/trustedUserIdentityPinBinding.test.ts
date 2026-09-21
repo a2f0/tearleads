@@ -5,6 +5,7 @@ import { createExecSql } from "../sqlite/sqlSchema";
 import {
   compareOrInsertTrustedUserIdentityPin,
   loadTrustedUserIdentityPin,
+  loadTrustedUserIdForSigningKey,
 } from "./trustedUserIdentityPinPersistence";
 
 test("a retained signing fingerprint cannot bind another user in the same trust domain", async () => {
@@ -79,6 +80,41 @@ test("different adapters racing fingerprint aliases leave exactly one durable id
       candidates.map((pin) => loadTrustedUserIdentityPin({ execSql, ...pin })),
     );
     expect(stored.filter(Boolean)).toHaveLength(1);
+  } finally {
+    close();
+  }
+});
+
+test("the bound user for a signing key is scoped to its trust domain", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "identity-bound-user-lookup",
+  );
+  const pin = createPin();
+  try {
+    expect(
+      await loadTrustedUserIdForSigningKey({
+        execSql,
+        identityTrustDomain: pin.identityTrustDomain,
+        signingKeyFingerprint: pin.signingKeyFingerprint,
+      }),
+    ).toBeNull();
+    await compareOrInsertTrustedUserIdentityPin({ execSql, pin });
+    expect(
+      await loadTrustedUserIdForSigningKey({
+        execSql,
+        identityTrustDomain: pin.identityTrustDomain,
+        signingKeyFingerprint: pin.signingKeyFingerprint,
+      }),
+    ).toBe(pin.userId);
+    // Registration consults this before contacting the server, so a binding
+    // in another trust domain must not make it decline.
+    expect(
+      await loadTrustedUserIdForSigningKey({
+        execSql,
+        identityTrustDomain: "https://another.example.test",
+        signingKeyFingerprint: pin.signingKeyFingerprint,
+      }),
+    ).toBeNull();
   } finally {
     close();
   }
