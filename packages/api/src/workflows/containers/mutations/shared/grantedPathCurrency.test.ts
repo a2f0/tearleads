@@ -1,5 +1,8 @@
 import { expect, test } from "bun:test";
-import { requiredCarriedRekeys } from "./grantedPathCurrency";
+import {
+  owedLevelsOnChain,
+  requiredCarriedRekeys,
+} from "./grantedPathCurrency";
 
 const closureIds = ["a", "b", "c", "d"];
 
@@ -56,4 +59,41 @@ test("the waiver cannot be bought by carrying more", () => {
       strandedIds: new Set(["d"]),
     }),
   ).toEqual(closureIds);
+});
+
+const level = (id: string) => ({ id });
+// Nearest the grant first: the grant sits under `c`, below `b`, below `a`.
+const chain = [level("c"), level("b"), level("a")];
+
+test("a chain owes everything below its topmost rotated container", () => {
+  expect(owedLevelsOnChain(chain, new Set(["a"]))).toEqual([
+    level("c"),
+    level("b"),
+  ]);
+});
+
+// Rotating `b` and then its parent `a` in one batch leaves `b` pinned to a
+// retired epoch, so being rotated excuses nothing.
+
+test("a container rotated below another is still owed", () => {
+  expect(owedLevelsOnChain(chain, new Set(["a", "b"]))).toEqual([
+    level("c"),
+    level("b"),
+  ]);
+});
+
+test("a grant directly below the rotation, or on another branch, owes nothing", () => {
+  expect(owedLevelsOnChain([level("a")], new Set(["a"]))).toEqual([]);
+  expect(owedLevelsOnChain(chain, new Set(["elsewhere"]))).toEqual([]);
+});
+
+// Nothing caps a tree's depth, and the walk is bounded, so a chain it could not
+// follow to the rotation never reaches a rotated id. It must owe nothing rather
+// than refuse: a revocation is never blockable by a tree's shape.
+
+test("a chain the bounded walk could not finish is never a refusal", () => {
+  const truncated = Array.from({ length: 100 }, (_, index) =>
+    level(`deep-${index}`),
+  );
+  expect(owedLevelsOnChain(truncated, new Set(["root"]))).toEqual([]);
 });

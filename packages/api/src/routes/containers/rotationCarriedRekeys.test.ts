@@ -272,3 +272,39 @@ test("a carried rekey in another organization is held to the rule there", async 
     away.close();
   }
 }, 240_000);
+
+// The walk starts from every grant in the organization, so one on an unrelated
+// branch is looked at and must then owe nothing: only chains that reach the
+// rotated container count.
+
+test("a grant on an unrelated branch owes a rotation nothing", async () => {
+  const tree = await createOwnedTree(1);
+  const [writer] = tree.members;
+  if (!writer) throw new Error("Expected a writer");
+  try {
+    const left = await tree.createChild(tree.rootId);
+    const leftUpper = await tree.createChild(left);
+    const leftLower = await tree.createChild(leftUpper);
+    const right = await tree.createChild(tree.rootId);
+    const rightUpper = await tree.createChild(right);
+    const rightLower = await tree.createChild(rightUpper);
+    await tree.share(leftLower, writer.userId);
+    await tree.share(rightLower, writer.userId);
+
+    const refused = await routeApp.request(`/containers/${left}/rekey`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${tree.owner.token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(await tree.bareRekeyRequest(left)),
+    });
+    expect(refused.status).toBe(409);
+    // Only the left chain; nothing under `right` is owed or named.
+    expect(await refused.json()).toMatchObject({
+      requiredContainerIds: [leftUpper],
+    });
+  } finally {
+    tree.close();
+  }
+}, 180_000);

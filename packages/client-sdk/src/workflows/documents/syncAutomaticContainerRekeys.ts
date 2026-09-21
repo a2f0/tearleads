@@ -53,13 +53,15 @@ function firstStaleContainer(
  * held only further down never counts — exactly the API's `container.rekey`
  * rule. Anything else (keyring damage, a forged path) stays an error.
  *
- * Lacking write access on the document's OWN container is a different thing:
- * no other member's repair would let this signer write there, so that is a
- * refusal to record, not a repair to wait for.
+ * On the document's OWN container neither is a repair to wait for. No other
+ * member's repair would give this signer write access there, so that is a
+ * refusal to record; and a signer who cannot open that container's key could
+ * not have read the document either, so that stays an error.
  */
 function isRepairInaccessible(error: unknown, stale: StaleContainer): boolean {
+  if (stale.isPathTarget) return false;
   return (
-    (error instanceof ContainerAuthorAccessError && !stale.isPathTarget) ||
+    error instanceof ContainerAuthorAccessError ||
     (error instanceof ContainerKekTargetUnreachableError &&
       error.containerId === stale.projection.containerId)
   );

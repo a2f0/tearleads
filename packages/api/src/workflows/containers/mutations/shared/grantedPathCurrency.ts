@@ -7,6 +7,7 @@ import {
 import { MAX_DOCUMENT_SYNC_AUTHORIZATION_PATH_DEPTH } from "@tearleads/validators/util";
 import { and, eq, gte, inArray, sql } from "drizzle-orm";
 import { getCurrentContainerKeyEpochPins } from "../../../../access/read/containerKekStore";
+import { uuidValue } from "../../../../utils/sqlDialect";
 import { ContainerMutationError, descendantRekeysRequired } from "../errors";
 
 const ANCESTRY_CHUNK_SIZE = 500;
@@ -35,6 +36,28 @@ export function requiredCarriedRekeys(input: {
   return owed.some((containerId) => input.strandedIds.has(containerId))
     ? owed
     : null;
+}
+
+/**
+ * The levels one granted chain owes: everything below the topmost rotated
+ * container on it, rotated containers included. One rotated before its own
+ * parent, in the same batch, is left pinned to a retired epoch like any other
+ * level, so being rotated excuses nothing.
+ *
+ * `chain` runs from the grant's parent upward. A chain the bounded walk could
+ * not follow to a rotated container owes nothing, exactly like overflow past
+ * the carried-rekey cap: those levels repair lazily. Nothing caps a tree's
+ * depth at create or move, and a revocation must never be blockable by a
+ * tree's shape, so an over-deep chain is never a refusal.
+ */
+export function owedLevelsOnChain<T extends { readonly id: string }>(
+  chain: readonly T[],
+  rotatedIds: ReadonlySet<string>,
+): readonly T[] {
+  const topmostRotated = chain.findLastIndex((level) =>
+    rotatedIds.has(level.id),
+  );
+  return chain.slice(0, Math.max(topmostRotated, 0));
 }
 
 async function loadRotatedNodes(
@@ -106,7 +129,7 @@ async function loadAncestry(
                ${containers.depth} as depth, 0 as distance
         from ${containers}
         where ${containers.id} in (${sql.join(
-          chunk.map((containerId) => sql`${containerId}`),
+          chunk.map((containerId) => uuidValue(containerId)),
           sql`, `,
         )})
         union all
@@ -146,7 +169,10 @@ async function loadAncestry(
  * the root-to-target path, which a grant below the target is not on.
  *
  * Walks up from the organization's granted containers rather than down the
- * rotated subtree, so the cost follows what is shared, not what is stored.
+ * rotated subtree. The cost follows how much the organization shares, at any
+ * depth below the rotation, and not how much it stores: a grant on an
+ * unrelated branch is still walked, then owes nothing. Children carry no
+ * direct grant unless shared, so that set is small where subtrees are not.
  */
 async function listGrantedPathDescendants(
   executor: DatabaseTransaction,
@@ -172,22 +198,7 @@ async function listGrantedPathDescendants(
       chain.push(node);
       node = node.parentId === null ? undefined : nodes.get(node.parentId);
     }
-    // A chain that ran out above the rotated depth is a tree deeper than the
-    // protocol allows: refuse rather than reason about a truncated path.
-    const top = chain.at(-1);
-    if (top && top.depth > shallowest && top.parentId !== null) {
-      throw new ContainerMutationError(
-        "Container ancestry exceeds the path depth limit",
-        409,
-      );
-    }
-    // Everything below the topmost rotated container on this chain is owed,
-    // rotated containers included: one rotated before its own parent, in the
-    // same batch, is left pinned to a retired epoch like any other level.
-    const topmostRotated = chain.findLastIndex((level) =>
-      rotatedIds.has(level.id),
-    );
-    for (const level of chain.slice(0, Math.max(topmostRotated, 0))) {
+    for (const level of owedLevelsOnChain(chain, rotatedIds)) {
       closure.set(level.id, level);
     }
   }

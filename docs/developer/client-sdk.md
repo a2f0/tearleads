@@ -626,8 +626,10 @@ already carries a grant has had its chain kept current by every rotation above
 it, so further grants and group rematerialization refreshes owe nothing more.
 `shareRemoteContainer` and `shareRemoteContainerWithGroup` re-key a lazily stale
 path first, the container included, because a grant cites the parent's current
-epoch and the container's key epoch must pin it; an adapter without
-`rekeyContainer` gets `ContainerKekRepairInaccessibleError` instead. Under this
+epoch and the container's key epoch must pin it. An adapter without
+`rekeyContainer` cannot make that repair and gets a plain error, not one that
+names another member; a sharer who cannot reach a stale level gets
+`ContainerKekRepairInaccessibleError`. Under this
 rule a stale container is never above a granted one, so an honest inline repair
 never strands anything. The API still checks: a document write refused that way
 fails with `document_sync_descendant_rekeys_required`, and the sync pass retries

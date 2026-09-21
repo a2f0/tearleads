@@ -42,13 +42,21 @@ export interface CarriedRekeys {
  * only the plain method still rotates; it just cannot learn what to carry, so a
  * rotation that needs descendants fails as any other refusal does.
  */
+/** A mutation with no status-bearing variant: a share mints nothing to carry. */
+export async function submitPlainContainerMutation(
+  plain: () => Promise<ContainerRotationResponse | null>,
+): Promise<ContainerRotationResult> {
+  const data = await plain();
+  return data ? { data, ok: true } : { ok: false, status: null };
+}
+
 export async function submitContainerRotation(input: {
   plain: () => Promise<ContainerRotationResponse | null>;
   result: (() => Promise<ContainerRotationResult>) | undefined;
 }): Promise<ContainerRotationResult> {
-  if (input.result) return input.result();
-  const data = await input.plain();
-  return data ? { data, ok: true } : { ok: false, status: null };
+  return input.result
+    ? input.result()
+    : submitPlainContainerMutation(input.plain);
 }
 
 /**
@@ -85,6 +93,8 @@ export async function submitRotationCarryingDescendants(input: {
     requiredContainerIds: result.requiredContainerIds,
     rotated: await input.carriedRekeys.rotated(),
   });
+  // Superseded mid-flight: hand back the refusal unreported, since the caller
+  // discards it and the generation that owned this attempt is gone.
   if (input.stillCurrent?.() === false) return { carriedPlans: [], result };
   return {
     carriedPlans,

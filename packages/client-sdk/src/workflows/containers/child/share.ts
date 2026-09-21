@@ -36,7 +36,7 @@ import { setOrganizationGroupContainerGrant } from "../../organizations/principa
 import type { GroupPolicyNameReader } from "../../organizations/principalPolicyRequest";
 import {
   submitAcknowledgedContainerMutation,
-  submitContainerRotation,
+  submitPlainContainerMutation,
 } from "./mutationSubmit";
 import { projectionWithCurrentAncestors } from "./shareAncestorRepair";
 import { buildMaterializedContainerSharePlan } from "./shareMaterialization";
@@ -144,18 +144,15 @@ export async function shareRemoteContainer(input: {
     plan: materializedPlan.plan,
     stillCurrent: input.stillCurrent,
     submit: () =>
-      submitContainerRotation({
-        plain: () =>
-          input.apiClient.shareContainer(
-            input.containerId,
-            materializedPlan.plan.request,
-            {
-              expectedPaymentRequiredOrganizationId:
-                input.author.organizationId,
-            },
-          ),
-        result: undefined,
-      }),
+      submitPlainContainerMutation(() =>
+        input.apiClient.shareContainer(
+          input.containerId,
+          materializedPlan.plan.request,
+          {
+            expectedPaymentRequiredOrganizationId: input.author.organizationId,
+          },
+        ),
+      ),
   });
 }
 
@@ -428,18 +425,15 @@ export async function shareRemoteContainerWithGroup(
     plan: materializedPlan.plan,
     stillCurrent: input.stillCurrent,
     submit: () =>
-      submitContainerRotation({
-        plain: () =>
-          input.apiClient.shareContainer(
-            input.containerId,
-            materializedPlan.plan.request,
-            {
-              expectedPaymentRequiredOrganizationId:
-                input.author.organizationId,
-            },
-          ),
-        result: undefined,
-      }),
+      submitPlainContainerMutation(() =>
+        input.apiClient.shareContainer(
+          input.containerId,
+          materializedPlan.plan.request,
+          {
+            expectedPaymentRequiredOrganizationId: input.author.organizationId,
+          },
+        ),
+      ),
   });
   if (!result) return null;
 
