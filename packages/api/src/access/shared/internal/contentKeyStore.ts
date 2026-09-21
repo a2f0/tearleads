@@ -91,9 +91,10 @@ interface CreateContentKeyStoreOptions<
    * epoch, exempts nothing. It is lazy and memoized: the same read serves the
    * store below, and a request rejected by a cheaper check never pays for it.
    * A validator that calls it does move that read earlier in the transaction.
-   * That is safe: callers hold the object's lock around this store, and the
-   * latest bundle is now read after the epoch's, so a concurrent epoch bump
-   * is caught by the epoch check rather than missed.
+   * That is safe: the production entry points are the `*InTransaction` ones,
+   * whose callers hold the object's lock, and the latest bundle is now read
+   * after the epoch's, so a concurrent epoch bump is caught by the epoch
+   * check rather than missed.
    */
   readonly validateCurrentTargets: (
     input: TInput,

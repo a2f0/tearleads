@@ -207,4 +207,17 @@ test("a stored envelope with malformed bytes is refused", () => {
       }),
     ).toThrow(ContentKeyEnvelopeError);
   }
+  // Reachable only under `stored`: a submission's exact-keys check accepts
+  // this key set, so the IV's type is what has to reject it. The diagnostic
+  // is pinned because a wrong-typed IV also trips the length check below it.
+  expect(() =>
+    decodeContentKeyEnvelope({
+      envelope: {
+        wrappedKey,
+        wrappingMetadata: { iv: AES_GCM_IV_BYTES, suite },
+      },
+      kind: "Document",
+      origin: "stored",
+    }),
+  ).toThrow("Document content-key target is missing an IV");
 });
