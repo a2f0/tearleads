@@ -46,6 +46,11 @@ function firstStaleLevelId(
  * current, so every stale level here is one the sharer can re-key. These
  * repairs are standalone and need not be atomic with the grant: a repair never
  * strands anyone.
+ *
+ * Every share does this, not only a first grant, which is all the server
+ * insists on. A container that already carries a grant is stale only past the
+ * carried-rekey cap or after a group rematerialization, and its grantees are
+ * then parked behind exactly these levels; the sharer is already here and able.
  */
 export async function projectionWithCurrentAncestors(input: {
   apiClient: ContainerShareApi &

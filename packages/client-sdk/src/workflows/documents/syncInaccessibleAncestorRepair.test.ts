@@ -10,6 +10,7 @@ import { createInaccessibleStaleIntermediateFixture } from "../../../test/helper
 import { createFullHistoryRotationSnapshot } from "../../../test/helpers/staleBundleSyncFixture";
 import { ContainerKekRepairInaccessibleError } from "../../data/documents/shared/containerKekCurrency";
 import { unwrapContainerKekPath } from "../../data/documents/shared/containerKekPath";
+import { normalizeContainerKeyWrap } from "../../data/documents/shared/readers";
 import { buildMaterializedContainerRekeyPlan } from "../containers/child/rekey";
 import {
   buildMaterializedDocumentCreatePlan,
@@ -216,13 +217,13 @@ test("the writer repairs its own leaf once the intermediate is repaired", async 
     );
     // ...and the retired intermediate key, which a revoked root member could
     // still reach, does not open the repaired leaf.
-    const parentWrap = (leafRepair.wraps ?? []).find(
-      (wrap) => Reflect.get(wrap, "recipientKind") === "container",
-    );
+    const parentWrap = (leafRepair.wraps ?? [])
+      .map(normalizeContainerKeyWrap)
+      .find((wrap) => wrap.recipientKind === "container");
     if (!parentWrap) throw new Error("Expected a parent recipient wrap");
     await expect(
       unwrapContainerKekParentWrap({
-        ...(parentWrap as Parameters<typeof unwrapContainerKekParentWrap>[0]),
+        ...parentWrap,
         parentContainerId: "intermediate",
         parentKeyMaterial: fixture.intermediate.key,
       }),

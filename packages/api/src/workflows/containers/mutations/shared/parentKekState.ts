@@ -10,7 +10,17 @@ import {
 } from "../../../../access/read/containerKekStore";
 import { resolveCurrentContainerKekTargetsMapped } from "../../../../access/read/containerKekTargets";
 import { canonicalJsonEquals } from "../../../../utils/canonicalJson";
-import { ContainerMutationError, mutationStateStale } from "../errors";
+import {
+  ancestorRekeysRequired,
+  ContainerMutationError,
+  mutationStateStale,
+} from "../errors";
+
+/** Events that wrap no new secret to the parent. */
+const NON_MINTING_EVENT_TYPES: ReadonlySet<string> = new Set([
+  "container.grant",
+  "container.recite",
+]);
 
 export async function assertParentKekStateCurrent(
   executor: DatabaseTransaction,
@@ -39,21 +49,26 @@ export async function assertParentKekStateCurrent(
   // on a container may sit below a lazily stale chain, and its grantee could
   // never re-key the levels above its own container: the sharer, who can,
   // repairs that chain before sharing. A container that already carries a
-  // grant has had its chain kept current by every rotation above it, so a
-  // further grant, or a group rematerialization refreshing one, owes nothing.
-  const mintsOrFirstGrants =
-    eventType === "container.grant"
-      ? (previousManifest?.state.directGrants.length ?? 0) === 0
-      : eventType !== "container.recite";
-  if (mintsOrFirstGrants) {
+  // grant is exempt: rotations above it must keep its chain current, so a
+  // further grant, or a group rematerialization refreshing one, adds no new
+  // obligation. That chain can still be stale past the carried-rekey cap, or
+  // after a group rematerialization, which does not carry descendants yet;
+  // refusing a second grant there would repair nothing the first did not owe.
+  const isFirstGrant =
+    eventType === "container.grant" &&
+    (previousManifest?.state.directGrants.length ?? 0) === 0;
+  if (isFirstGrant || !NON_MINTING_EVENT_TYPES.has(eventType)) {
     await resolveCurrentContainerKekTargetsMapped(
       [parentKekState.containerId],
       executor,
       // Only genuine staleness may become a refresh-and-retry instruction; an
-      // integrity failure shares the 409 status but would retry forever.
+      // integrity failure shares the 409 status but would retry forever. A
+      // stale chain above a first grant is not cleared by refetching either.
       (message, status, stale) =>
         status === 409 && stale
-          ? mutationStateStale(message)
+          ? isFirstGrant
+            ? ancestorRekeysRequired(message)
+            : mutationStateStale(message)
           : new ContainerMutationError(message, status),
     );
   }

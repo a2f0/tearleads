@@ -3,6 +3,8 @@
 # on another device's write. The API refuses one that does not with the new
 # `container_descendant_rekeys_required` code, and an inline repair refused for
 # the same reason fails its write with `document_sync_descendant_rekeys_required`.
+# A first direct grant below a stale chain is refused with
+# `container_ancestor_rekeys_required`.
 # Greenfield flag day: servers and every client are wiped and redeployed
 # together, so no client written against the previous contract survives.
 # Remove after merge to main.

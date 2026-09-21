@@ -7333,7 +7333,7 @@ export interface operations {
                 };
                 content: {
                     "application/json": ({
-                        code?: ("container_descendant_rekeys_required" | "container_manifest_already_exists" | "container_mutation_state_stale") | ("document_manifest_already_exists" | ("document_sync_checkpoint_coverage_conflict" | "document_sync_conflict" | "document_sync_descendant_rekeys_required" | "document_sync_state_stale" | "document_sync_update_id_conflict") | "document_not_found" | "container_unavailable");
+                        code?: ("container_ancestor_rekeys_required" | "container_descendant_rekeys_required" | "container_manifest_already_exists" | "container_mutation_state_stale") | ("document_manifest_already_exists" | ("document_sync_checkpoint_coverage_conflict" | "document_sync_conflict" | "document_sync_descendant_rekeys_required" | "document_sync_state_stale" | "document_sync_update_id_conflict") | "document_not_found" | "container_unavailable");
                         error: string;
                         requiredContainerIds?: string[];
                     } & {
@@ -7621,7 +7621,7 @@ export interface operations {
                 };
                 content: {
                     "application/json": ({
-                        code?: ("container_descendant_rekeys_required" | "container_manifest_already_exists" | "container_mutation_state_stale") | ("document_manifest_already_exists" | ("document_sync_checkpoint_coverage_conflict" | "document_sync_conflict" | "document_sync_descendant_rekeys_required" | "document_sync_state_stale" | "document_sync_update_id_conflict") | "document_not_found" | "container_unavailable");
+                        code?: ("container_ancestor_rekeys_required" | "container_descendant_rekeys_required" | "container_manifest_already_exists" | "container_mutation_state_stale") | ("document_manifest_already_exists" | ("document_sync_checkpoint_coverage_conflict" | "document_sync_conflict" | "document_sync_descendant_rekeys_required" | "document_sync_state_stale" | "document_sync_update_id_conflict") | "document_not_found" | "container_unavailable");
                         error: string;
                         requiredContainerIds?: string[];
                     } & {
@@ -8631,7 +8631,7 @@ export interface operations {
                 };
                 content: {
                     "application/json": ({
-                        code?: ("container_descendant_rekeys_required" | "container_manifest_already_exists" | "container_mutation_state_stale") | ("document_manifest_already_exists" | ("document_sync_checkpoint_coverage_conflict" | "document_sync_conflict" | "document_sync_descendant_rekeys_required" | "document_sync_state_stale" | "document_sync_update_id_conflict") | "document_not_found" | "container_unavailable");
+                        code?: ("container_ancestor_rekeys_required" | "container_descendant_rekeys_required" | "container_manifest_already_exists" | "container_mutation_state_stale") | ("document_manifest_already_exists" | ("document_sync_checkpoint_coverage_conflict" | "document_sync_conflict" | "document_sync_descendant_rekeys_required" | "document_sync_state_stale" | "document_sync_update_id_conflict") | "document_not_found" | "container_unavailable");
                         error: string;
                         requiredContainerIds?: string[];
                     } & {
@@ -9004,7 +9004,7 @@ export interface operations {
                 };
                 content: {
                     "application/json": ({
-                        code?: ("container_descendant_rekeys_required" | "container_manifest_already_exists" | "container_mutation_state_stale") | ("document_manifest_already_exists" | ("document_sync_checkpoint_coverage_conflict" | "document_sync_conflict" | "document_sync_descendant_rekeys_required" | "document_sync_state_stale" | "document_sync_update_id_conflict") | "document_not_found" | "container_unavailable");
+                        code?: ("container_ancestor_rekeys_required" | "container_descendant_rekeys_required" | "container_manifest_already_exists" | "container_mutation_state_stale") | ("document_manifest_already_exists" | ("document_sync_checkpoint_coverage_conflict" | "document_sync_conflict" | "document_sync_descendant_rekeys_required" | "document_sync_state_stale" | "document_sync_update_id_conflict") | "document_not_found" | "container_unavailable");
                         error: string;
                         requiredContainerIds?: string[];
                     } & {
@@ -9705,7 +9705,7 @@ export interface operations {
                 };
                 content: {
                     "application/json": ({
-                        code?: ("container_descendant_rekeys_required" | "container_manifest_already_exists" | "container_mutation_state_stale") | ("document_manifest_already_exists" | ("document_sync_checkpoint_coverage_conflict" | "document_sync_conflict" | "document_sync_descendant_rekeys_required" | "document_sync_state_stale" | "document_sync_update_id_conflict") | "document_not_found" | "container_unavailable");
+                        code?: ("container_ancestor_rekeys_required" | "container_descendant_rekeys_required" | "container_manifest_already_exists" | "container_mutation_state_stale") | ("document_manifest_already_exists" | ("document_sync_checkpoint_coverage_conflict" | "document_sync_conflict" | "document_sync_descendant_rekeys_required" | "document_sync_state_stale" | "document_sync_update_id_conflict") | "document_not_found" | "container_unavailable");
                         error: string;
                         requiredContainerIds?: string[];
                     } & {
@@ -10406,7 +10406,7 @@ export interface operations {
                 };
                 content: {
                     "application/json": ({
-                        code?: ("container_descendant_rekeys_required" | "container_manifest_already_exists" | "container_mutation_state_stale") | ("document_manifest_already_exists" | ("document_sync_checkpoint_coverage_conflict" | "document_sync_conflict" | "document_sync_descendant_rekeys_required" | "document_sync_state_stale" | "document_sync_update_id_conflict") | "document_not_found" | "container_unavailable");
+                        code?: ("container_ancestor_rekeys_required" | "container_descendant_rekeys_required" | "container_manifest_already_exists" | "container_mutation_state_stale") | ("document_manifest_already_exists" | ("document_sync_checkpoint_coverage_conflict" | "document_sync_conflict" | "document_sync_descendant_rekeys_required" | "document_sync_state_stale" | "document_sync_update_id_conflict") | "document_not_found" | "container_unavailable");
                         error: string;
                         requiredContainerIds?: string[];
                     } & {
@@ -10898,7 +10898,7 @@ export interface operations {
                 };
                 content: {
                     "application/json": ({
-                        code?: ("container_descendant_rekeys_required" | "container_manifest_already_exists" | "container_mutation_state_stale") | ("document_manifest_already_exists" | ("document_sync_checkpoint_coverage_conflict" | "document_sync_conflict" | "document_sync_descendant_rekeys_required" | "document_sync_state_stale" | "document_sync_update_id_conflict") | "document_not_found" | "container_unavailable");
+                        code?: ("container_ancestor_rekeys_required" | "container_descendant_rekeys_required" | "container_manifest_already_exists" | "container_mutation_state_stale") | ("document_manifest_already_exists" | ("document_sync_checkpoint_coverage_conflict" | "document_sync_conflict" | "document_sync_descendant_rekeys_required" | "document_sync_state_stale" | "document_sync_update_id_conflict") | "document_not_found" | "container_unavailable");
                         error: string;
                         requiredContainerIds?: string[];
                     } & {
@@ -11956,7 +11956,7 @@ export interface operations {
                 };
                 content: {
                     "application/json": ({
-                        code?: ("container_descendant_rekeys_required" | "container_manifest_already_exists" | "container_mutation_state_stale") | ("document_manifest_already_exists" | ("document_sync_checkpoint_coverage_conflict" | "document_sync_conflict" | "document_sync_descendant_rekeys_required" | "document_sync_state_stale" | "document_sync_update_id_conflict") | "document_not_found" | "container_unavailable");
+                        code?: ("container_ancestor_rekeys_required" | "container_descendant_rekeys_required" | "container_manifest_already_exists" | "container_mutation_state_stale") | ("document_manifest_already_exists" | ("document_sync_checkpoint_coverage_conflict" | "document_sync_conflict" | "document_sync_descendant_rekeys_required" | "document_sync_state_stale" | "document_sync_update_id_conflict") | "document_not_found" | "container_unavailable");
                         error: string;
                         requiredContainerIds?: string[];
                     } & {

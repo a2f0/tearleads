@@ -7,7 +7,7 @@ import {
 import { MAX_DOCUMENT_SYNC_AUTHORIZATION_PATH_DEPTH } from "@tearleads/validators/util";
 import { and, eq, gte, inArray, sql } from "drizzle-orm";
 import { getCurrentContainerKeyEpochPins } from "../../../../access/read/containerKekStore";
-import { descendantRekeysRequired } from "../errors";
+import { ContainerMutationError, descendantRekeysRequired } from "../errors";
 
 const ANCESTRY_CHUNK_SIZE = 500;
 
@@ -127,7 +127,10 @@ async function loadAncestry(
         (parentId !== null && typeof parentId !== "string") ||
         !Number.isInteger(depth)
       ) {
-        throw new Error("Container ancestry row is malformed");
+        throw new ContainerMutationError(
+          "Container ancestry row is malformed",
+          409,
+        );
       }
       nodes.set(id, { depth, id, parentId });
     }
@@ -170,7 +173,10 @@ async function listGrantedPathDescendants(
     // A chain that ran out above the rotated depth is a tree deeper than the
     // protocol allows: refuse rather than reason about a truncated path.
     if (!node && above.at(-1)?.parentId != null) {
-      throw new Error("Container ancestry exceeds the path depth limit");
+      throw new ContainerMutationError(
+        "Container ancestry exceeds the path depth limit",
+        409,
+      );
     }
     if (node && rotatedIds.has(node.id)) {
       for (const level of above) closure.set(level.id, level);

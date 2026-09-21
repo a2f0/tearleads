@@ -43,12 +43,76 @@ function isTerminalRepairStatus(status: number | null): boolean {
   return status === 401 || status === 402 || status === 403;
 }
 
+/**
+ * One standalone repair. Prefers the status-bearing rekey: a permanent refusal
+ * (403 once ancestor write access is revoked, 402) must leave a durable record,
+ * while a 5xx or an offline blip must not, and plain `rekeyContainer` collapses
+ * both to null. It is also the only way to learn which descendant rekeys this
+ * repair must carry. An adapter without it still repairs; its refusals are just
+ * reported as an ordinary abandon.
+ */
+function submitStandaloneRepair(
+  sync: SyncRemoteDocumentInput,
+  plan: MaterializedContainerRekeyPlan["plan"],
+  writerProjection: MaterializedContainerRekeyPlan["writerProjection"],
+) {
+  const options = {
+    expectedPaymentRequiredOrganizationId: plan.state.organizationId,
+  };
+  const { getContainerWriterProjection, rekeyContainerResult } = sync.apiClient;
+  return submitRotationCarryingDescendants({
+    carriedRekeys: getContainerWriterProjection && {
+      planning: {
+        apiClient: {
+          getContainerWriterProjection: getContainerWriterProjection.bind(
+            sync.apiClient,
+          ),
+        },
+        author: sync.author,
+        execSql: sync.execSql,
+        resolveProjectionUserKey: requireProjectionUserKeyResolver(
+          sync.resolveProjectionUserKey,
+          "Document ancestor repair",
+        ),
+        stillCurrent: sync.stillCurrent,
+        targetSecretKey: sync.targetSecretKey,
+        warmReferencedPrincipalPolicies: sync.warmReferencedPrincipalPolicies,
+      },
+      rotated: async () => writerProjection,
+    },
+    stillCurrent: sync.stillCurrent,
+    submit: (carried) => {
+      const request = carried.length
+        ? { ...plan.request, containerRekeys: [...carried] }
+        : plan.request;
+      return submitContainerRotation({
+        plain: () =>
+          sync.apiClient.rekeyContainer(plan.containerId, request, options),
+        result: rekeyContainerResult
+          ? () =>
+              rekeyContainerResult.call(
+                sync.apiClient,
+                plan.containerId,
+                request,
+                { ...options, reportErrors: false },
+              )
+          : undefined,
+      });
+    },
+  });
+}
+
 async function commitRepairPrefix(input: {
   plans: readonly MaterializedContainerRekeyPlan[];
   repairedIds: Set<string>;
   sync: SyncRemoteDocumentInput;
 }): Promise<void> {
+  // Containers an earlier repair in this prefix already re-keyed as something
+  // it had to carry. Their own plans were signed before that and now extend a
+  // superseded head, so they are dropped rather than resubmitted stale.
+  const carriedIds = new Set<string>();
   for (const { plan, writerProjection } of input.plans) {
+    if (carriedIds.has(plan.containerId)) continue;
     assertProjectionVerificationCurrent(input.sync.stillCurrent);
     if (input.sync.isRemoteSyncBlocked?.(plan.state.organizationId)) {
       throw new DocumentAncestorRepairAbandonedError("blocked");
@@ -56,62 +120,11 @@ async function commitRepairPrefix(input: {
     if (input.repairedIds.has(plan.containerId)) {
       throw new DocumentAncestorRepairAbandonedError("peer-rotation");
     }
-    const options = {
-      expectedPaymentRequiredOrganizationId: plan.state.organizationId,
-    };
-    // Prefer the status-bearing variant: a permanent refusal (403 once ancestor
-    // write access is revoked, 402) must leave a durable record, while a 5xx or
-    // an offline blip must not, and plain `rekeyContainer` collapses both to
-    // null. It is also the only way to learn which descendant rekeys this
-    // repair must carry. An adapter without it still repairs; its refusals are
-    // just reported as an ordinary abandon.
-    const { getContainerWriterProjection, rekeyContainerResult } =
-      input.sync.apiClient;
-    const { carriedPlans, result } = await submitRotationCarryingDescendants({
-      carriedRekeys: getContainerWriterProjection && {
-        planning: {
-          apiClient: {
-            getContainerWriterProjection: getContainerWriterProjection.bind(
-              input.sync.apiClient,
-            ),
-          },
-          author: input.sync.author,
-          execSql: input.sync.execSql,
-          resolveProjectionUserKey: requireProjectionUserKeyResolver(
-            input.sync.resolveProjectionUserKey,
-            "Document ancestor repair",
-          ),
-          stillCurrent: input.sync.stillCurrent,
-          targetSecretKey: input.sync.targetSecretKey,
-          warmReferencedPrincipalPolicies:
-            input.sync.warmReferencedPrincipalPolicies,
-        },
-        rotated: async () => writerProjection,
-      },
-      stillCurrent: input.sync.stillCurrent,
-      submit: (carried) => {
-        const request = carried.length
-          ? { ...plan.request, containerRekeys: [...carried] }
-          : plan.request;
-        return submitContainerRotation({
-          plain: () =>
-            input.sync.apiClient.rekeyContainer(
-              plan.containerId,
-              request,
-              options,
-            ),
-          result: rekeyContainerResult
-            ? () =>
-                rekeyContainerResult.call(
-                  input.sync.apiClient,
-                  plan.containerId,
-                  request,
-                  { ...options, reportErrors: false },
-                )
-            : undefined,
-        });
-      },
-    });
+    const { carriedPlans, result } = await submitStandaloneRepair(
+      input.sync,
+      plan,
+      writerProjection,
+    );
     const response = result.ok ? result.data : null;
     // Deliberately not ContainerKekRepairRequiredError: that is classified as
     // retryable, so a handled refusal would re-sign the whole prefix before
@@ -144,6 +157,10 @@ async function commitRepairPrefix(input: {
       throw new Error("Document ancestor repair was superseded");
     }
     input.repairedIds.add(plan.containerId);
+    for (const carried of carriedPlans) {
+      carriedIds.add(carried.plan.containerId);
+      input.repairedIds.add(carried.plan.containerId);
+    }
   }
 }
 

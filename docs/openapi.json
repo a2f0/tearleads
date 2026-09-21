@@ -17642,6 +17642,7 @@
                             {
                               "type": "string",
                               "enum": [
+                                "container_ancestor_rekeys_required",
                                 "container_descendant_rekeys_required",
                                 "container_manifest_already_exists",
                                 "container_mutation_state_stale"
@@ -17680,10 +17681,12 @@
                           "minLength": 1
                         },
                         "requiredContainerIds": {
-                          "type": "array",
                           "items": {
-                            "type": "string"
-                          }
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "maxItems": 64,
+                          "type": "array"
                         }
                       },
                       "required": [
@@ -20408,6 +20411,7 @@
                             {
                               "type": "string",
                               "enum": [
+                                "container_ancestor_rekeys_required",
                                 "container_descendant_rekeys_required",
                                 "container_manifest_already_exists",
                                 "container_mutation_state_stale"
@@ -20446,10 +20450,12 @@
                           "minLength": 1
                         },
                         "requiredContainerIds": {
-                          "type": "array",
                           "items": {
-                            "type": "string"
-                          }
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "maxItems": 64,
+                          "type": "array"
                         }
                       },
                       "required": [
@@ -21487,6 +21493,7 @@
                             {
                               "type": "string",
                               "enum": [
+                                "container_ancestor_rekeys_required",
                                 "container_descendant_rekeys_required",
                                 "container_manifest_already_exists",
                                 "container_mutation_state_stale"
@@ -21525,10 +21532,12 @@
                           "minLength": 1
                         },
                         "requiredContainerIds": {
-                          "type": "array",
                           "items": {
-                            "type": "string"
-                          }
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "maxItems": 64,
+                          "type": "array"
                         }
                       },
                       "required": [
@@ -23558,6 +23567,7 @@
                             {
                               "type": "string",
                               "enum": [
+                                "container_ancestor_rekeys_required",
                                 "container_descendant_rekeys_required",
                                 "container_manifest_already_exists",
                                 "container_mutation_state_stale"
@@ -23596,10 +23606,12 @@
                           "minLength": 1
                         },
                         "requiredContainerIds": {
-                          "type": "array",
                           "items": {
-                            "type": "string"
-                          }
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "maxItems": 64,
+                          "type": "array"
                         }
                       },
                       "required": [
@@ -25635,6 +25647,7 @@
                             {
                               "type": "string",
                               "enum": [
+                                "container_ancestor_rekeys_required",
                                 "container_descendant_rekeys_required",
                                 "container_manifest_already_exists",
                                 "container_mutation_state_stale"
@@ -25673,10 +25686,12 @@
                           "minLength": 1
                         },
                         "requiredContainerIds": {
-                          "type": "array",
                           "items": {
-                            "type": "string"
-                          }
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "maxItems": 64,
+                          "type": "array"
                         }
                       },
                       "required": [
@@ -27080,6 +27095,7 @@
                             {
                               "type": "string",
                               "enum": [
+                                "container_ancestor_rekeys_required",
                                 "container_descendant_rekeys_required",
                                 "container_manifest_already_exists",
                                 "container_mutation_state_stale"
@@ -27118,10 +27134,12 @@
                           "minLength": 1
                         },
                         "requiredContainerIds": {
-                          "type": "array",
                           "items": {
-                            "type": "string"
-                          }
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "maxItems": 64,
+                          "type": "array"
                         }
                       },
                       "required": [
@@ -28341,6 +28359,7 @@
                             {
                               "type": "string",
                               "enum": [
+                                "container_ancestor_rekeys_required",
                                 "container_descendant_rekeys_required",
                                 "container_manifest_already_exists",
                                 "container_mutation_state_stale"
@@ -28379,10 +28398,12 @@
                           "minLength": 1
                         },
                         "requiredContainerIds": {
-                          "type": "array",
                           "items": {
-                            "type": "string"
-                          }
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "maxItems": 64,
+                          "type": "array"
                         }
                       },
                       "required": [
@@ -29769,6 +29790,7 @@
                             {
                               "type": "string",
                               "enum": [
+                                "container_ancestor_rekeys_required",
                                 "container_descendant_rekeys_required",
                                 "container_manifest_already_exists",
                                 "container_mutation_state_stale"
@@ -29807,10 +29829,12 @@
                           "minLength": 1
                         },
                         "requiredContainerIds": {
-                          "type": "array",
                           "items": {
-                            "type": "string"
-                          }
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "maxItems": 64,
+                          "type": "array"
                         }
                       },
                       "required": [

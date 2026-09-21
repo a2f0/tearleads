@@ -7,6 +7,7 @@ import {
 import { DOCUMENT_SYNC_ERROR_CODES } from "@tearleads/validators/response";
 import { createRotatedAncestorFixture } from "../../../test/helpers/ancestorRotationRecovery";
 import { createMutationResponseFromRequest } from "../../../test/helpers/containerFixtures";
+import { createContainerServer } from "../../../test/helpers/containerMutationServer";
 import { writerKeyResolver } from "../../../test/helpers/documentFixtures";
 import {
   createPendingUpdateRecord,
@@ -142,6 +143,59 @@ test("a refused inline batch retries the pass with standalone repairs", async ()
     expect(submittedInlineRekeys).toEqual([2]);
     expect(terminal).toEqual([]);
     expect(committed).toEqual(["child", "grandchild"]);
+  } finally {
+    database.close();
+  }
+}, 120_000);
+
+// The standalone fallback signs every repair up front. When the server tells
+// the first one to carry the next level, that level's own pre-signed plan
+// extends a superseded head and must be dropped, not resubmitted.
+
+test("a repair that carried the next level does not resubmit that level", async () => {
+  const fixture = await createRotatedAncestorFixture();
+  const projection = await createStaleDocumentProjection(fixture);
+  const database = await createTestExecSql("inline-refused-carried");
+  try {
+    const [rotatedRoot] = fixture.projection.path;
+    const [rotatedRootKek] = fixture.projection.containerKeks;
+    if (!rotatedRoot || !rotatedRootKek) throw new Error("Expected the root");
+    // Something below the grandchild is granted, so repairing `child` strands
+    // `grandchild` unless it rides along.
+    const server = createContainerServer(
+      [
+        {
+          ...fixture.root.projection,
+          containerKeks: [rotatedRootKek],
+          path: [rotatedRoot],
+        },
+        fixture.child.projection,
+        fixture.grandchild.projection,
+      ],
+      { child: ["grandchild"] },
+    );
+    const sync = {
+      ...fixture.input,
+      apiClient: createMockApiClient({
+        getContainerWriterProjection:
+          server.apiClient.getContainerWriterProjection,
+        rekeyContainer: server.apiClient.rekeyContainer,
+        rekeyContainerResult: server.apiClient.rekeyContainerResult,
+      }),
+      buildRotationSnapshot: createFullHistoryRotationSnapshot,
+      documentId: projection.documentId,
+      execSql: database.execSql,
+      localVersionVector: null,
+      resolveWriterPublicKey: writerKeyResolver(fixture.root),
+      validateIncomingUpdates: () => undefined,
+    };
+    requireStandaloneAncestorRepairs(sync);
+    await expect(
+      prepareAutomaticContainerRekeys(sync, projection),
+    ).rejects.toThrow(/abandoned: unrefreshable/);
+    // Refused once, resubmitted carrying the grandchild, and nothing after:
+    // no stale `["grandchild"]` submission, and no `refused` abandon.
+    expect(server.submissions).toEqual([["child"], ["child", "grandchild"]]);
   } finally {
     database.close();
   }

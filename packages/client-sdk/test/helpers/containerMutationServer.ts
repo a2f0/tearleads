@@ -1,9 +1,9 @@
+import { createMockRequestFailure } from "@tearleads/test-utils";
 import type {
   ContainerMutationRequest,
   ContainerRotationRequest,
 } from "@tearleads/validators/request";
 import type { ContainerWriterProjectionResponse } from "@tearleads/validators/response";
-import type { ContainerRotationResult } from "../../src/data/containers/shared/types";
 import { createMutationResponseFromRequest } from "./containerFixtures";
 
 type Manifest = ContainerWriterProjectionResponse["path"][number];
@@ -77,7 +77,7 @@ export function createContainerServer(
   const rekeyContainerResult = async (
     containerId: string,
     request: ContainerRotationRequest,
-  ): Promise<ContainerRotationResult> => {
+  ) => {
     const { containerRekeys = [], ...rotation } = request;
     const carriedIds = containerRekeys.map((carried) =>
       String(Reflect.get(carried.event, "objectId")),
@@ -85,12 +85,12 @@ export function createContainerServer(
     submissions.push([containerId, ...carriedIds]);
     const required = requiredBelow[containerId] ?? [];
     if (required.some((requiredId) => !carriedIds.includes(requiredId))) {
-      return {
+      return createMockRequestFailure({
         code: "container_descendant_rekeys_required",
-        ok: false,
+        message: "Container rotation must carry its descendant rekeys",
         requiredContainerIds: required,
         status: 409,
-      };
+      });
     }
     const response = await apply(containerId, rotation);
     const carriedResponses = [];
@@ -99,7 +99,7 @@ export function createContainerServer(
     }
     return {
       data: { ...response, containerRekeys: carriedResponses },
-      ok: true,
+      ok: true as const,
     };
   };
   return {

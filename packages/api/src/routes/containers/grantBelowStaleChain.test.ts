@@ -78,7 +78,8 @@ test("a first grant is refused below a stale chain", async () => {
   );
   expect(stranded.status).toBe(409);
   expect(await stranded.json()).toMatchObject({
-    code: "container_mutation_state_stale",
+    // Not `state_stale`: no refetch clears it, the chain has to be re-keyed.
+    code: "container_ancestor_rekeys_required",
     error: expect.stringContaining("parent edge is stale"),
   });
 }, 120_000);
