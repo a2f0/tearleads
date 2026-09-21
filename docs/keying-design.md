@@ -764,9 +764,11 @@ never make a decryptable envelope unreadable. A document link, a blob relink,
 and a bind of a blob another document already holds all resubmit retained wraps
 verbatim alongside newly wrapped ones; the API judges the retained half as
 stored for the same reason, since a retained target must be resubmitted
-byte-identical and cannot be re-wrapped while it is active. A submission that
-is both malformed and stale is reported as malformed: the envelope shape is
-checked before the target set is compared.
+byte-identical and cannot be re-wrapped while it is active. The exemption is
+scoped to the content-key epoch being written, so a rotation exempts nothing.
+When a submission is both malformed and stale, staleness usually wins: the
+target hash and current-target checks run first. Only the target-set
+comparison is ordered after the envelope shape check.
 
 There are no legacy-suite or alternate-encoding paths. These checks validate
 structure; only a recipient with the KEK can authenticate the ciphertext and

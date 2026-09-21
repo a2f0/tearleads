@@ -188,14 +188,15 @@ test("a retained document wrap with an unrecognized metadata key can still be re
   const response = await post(link);
   const body = await response.text();
   expect({ status: response.status, body }).toMatchObject({ status: 200 });
-  const linked = await JSON.parse(body);
+  const linked = JSON.parse(body);
   if (!isDocumentLinkSetMutationResponse(linked))
     throw new Error("Expected a linked document");
 
-  // An unlink rotates the content key, so every target is freshly wrapped and
-  // none is retained. This pins that the rotation path is gated at all; it
-  // does not discriminate the exemption's epoch scoping, because rotated
-  // bytes never match a stored envelope under either scoping.
+  // An unlink rotates the content key, writing a new epoch. Replaying the
+  // stored epoch-1 envelope into it must not be exempt: the exemption is
+  // scoped to the epoch being written, so this is the case that distinguishes
+  // it from measuring against whatever bundle is merely latest — which would
+  // let the malformed row be laundered forward into a fresh epoch.
   const unlink = await buildDocumentUnlinkRequest({
     child,
     linkedDocument: linked,
@@ -205,7 +206,8 @@ test("a retained document wrap with an unrecognized metadata key can still be re
   const rotated = structuredClone(unlink);
   const rotatedTarget = rotated.contentKeyBundle.targets[0];
   if (!rotatedTarget) throw new Error("Expected a rotated target");
-  Reflect.set(rotatedTarget, "wrappedKey", "AA==");
+  Reflect.set(rotatedTarget, "wrappedKey", retainedTarget.wrappedKey);
+  Reflect.set(rotatedTarget, "wrappingMetadata", wrappingMetadata);
   const refusedRotation = await routeApp.request(
     `/documents/${document.id}/unlink`,
     {
@@ -222,7 +224,7 @@ test("a retained document wrap with an unrecognized metadata key can still be re
     status: 400,
   });
   expect(rotationBody).toContain(
-    "Document content-key target wrapped key has an invalid encoded length",
+    "Document content-key target metadata must contain exactly suite and iv",
   );
 });
 
