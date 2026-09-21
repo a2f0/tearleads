@@ -385,10 +385,18 @@ export async function compareOrInsertTrustedUserIdentityPin(input: {
             ["userId"],
           );
         }
+        // Targets the primary key only: re-pinning the same user is a no-op,
+        // but a write that would bind this key to a second user must fail at
+        // the unique index rather than be silently skipped.
         await tx
           .insert(trustedUserIdentityPins)
           .values(input.pin)
-          .onConflictDoNothing()
+          .onConflictDoNothing({
+            target: [
+              trustedUserIdentityPins.identityTrustDomain,
+              trustedUserIdentityPins.userId,
+            ],
+          })
           .run();
 
         const stored = await selectStoredPin(tx, input.pin);

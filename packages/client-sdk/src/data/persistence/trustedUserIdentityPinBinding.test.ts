@@ -119,3 +119,40 @@ test("the bound user for a signing key is scoped to its trust domain", async () 
     close();
   }
 });
+
+test("the unique index refuses a second user on one signing key by itself", async () => {
+  // Defense in depth below the transaction's lookup: a write that skipped it
+  // must fail, not be silently dropped.
+  const { close, execSql } = await createTestExecSql(
+    "identity-inverse-binding-index",
+  );
+  const first = createPin();
+  const alias = createPin({ userId: "server-alias" });
+  try {
+    await compareOrInsertTrustedUserIdentityPin({ execSql, pin: first });
+    await expect(
+      execSql(
+        `INSERT INTO trusted_user_identity_pins (
+           identity_trust_domain, user_id, format_version, signing_suite,
+           signing_public_key, signing_key_fingerprint, encapsulation_suite,
+           encapsulation_public_key, encapsulation_key_fingerprint, first_seen_at
+         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          alias.identityTrustDomain,
+          alias.userId,
+          alias.formatVersion,
+          alias.signingSuite,
+          alias.signingPublicKey,
+          alias.signingKeyFingerprint,
+          alias.encapsulationSuite,
+          alias.encapsulationPublicKey,
+          alias.encapsulationKeyFingerprint,
+          alias.firstSeenAt,
+        ],
+      ),
+    ).rejects.toThrow(/UNIQUE/);
+    expect(await loadTrustedUserIdentityPin({ execSql, ...alias })).toBeNull();
+  } finally {
+    close();
+  }
+});
