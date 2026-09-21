@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import { bytesToBase64 } from "@tearleads/encoding";
+import { BlobEnvelopeError } from "./blobEnvelopeError";
 import { parseBlobEnvelopeV2Header } from "./blobEnvelopeReader";
 import {
   BLOB_CHUNK_SIZE_BYTES,
@@ -118,4 +119,30 @@ test("an unknown encryption suite is refused", () => {
   expect(() => parseBlobEnvelopeV2Header(encoded)).toThrow(
     "Blob encrypted bytes suite is invalid",
   );
+});
+
+test("an unexpected-key rejection names a bounded number of keys", () => {
+  const body = new TextDecoder().decode(
+    encodeBlobEnvelopeV2Header(header()).subarray(BLOB_ENVELOPE_PREFIX_BYTES),
+  );
+  // Five caller-chosen keys, each far longer than the reported prefix. The
+  // header limit is the only other bound, so without truncation all of this
+  // text would land in the error and whatever logs it.
+  const extras = Array.from(
+    { length: 5 },
+    (_, index) => `"${String(index).padEnd(200, "x")}":1`,
+  ).join(",");
+  const error = (() => {
+    try {
+      parseBlobEnvelopeV2Header(frame(`${body.slice(0, -1)},${extras}}`));
+    } catch (caught) {
+      return caught;
+    }
+    throw new Error("Expected the header to be refused");
+  })();
+  expect(error).toBeInstanceOf(BlobEnvelopeError);
+  const message = error instanceof Error ? error.message : "";
+  expect(message).toContain("and 2 more");
+  expect(message).not.toContain("x".repeat(40));
+  expect(message.length).toBeLessThan(300);
 });

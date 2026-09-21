@@ -1,3 +1,4 @@
+import { BlobEnvelopeError } from "./blobEnvelopeError";
 export function readRecordString(
   record: Record<string, unknown>,
   key: string,
@@ -5,7 +6,7 @@ export function readRecordString(
 ): string {
   const value = record[key];
   if (typeof value !== "string" || value.length === 0) {
-    throw new Error(`${label}.${key} must be a non-empty string`);
+    throw new BlobEnvelopeError(`${label}.${key} must be a non-empty string`);
   }
   return value;
 }
@@ -17,7 +18,7 @@ export function readRecordPositiveInteger(
 ): number {
   const value = record[key];
   if (typeof value !== "number" || !Number.isSafeInteger(value) || value <= 0) {
-    throw new Error(`${label}.${key} must be a positive integer`);
+    throw new BlobEnvelopeError(`${label}.${key} must be a positive integer`);
   }
   return value;
 }
@@ -44,7 +45,7 @@ export function assertOnlyRecordKeys(
     .map((key) => JSON.stringify(key.slice(0, REPORTED_KEY_LENGTH)))
     .join(",");
   const remaining = unexpectedKeys.length - REPORTED_UNEXPECTED_KEYS;
-  throw new Error(
+  throw new BlobEnvelopeError(
     `${label} has unexpected keys: ${named}${
       remaining > 0 ? ` and ${remaining} more` : ""
     }`,

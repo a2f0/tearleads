@@ -26,7 +26,7 @@ import {
   projectionVerificationOptions,
 } from "../../shared/types";
 import { sortBlobTargets } from "./readers";
-import type { BlobContentKeyTarget, BlobEncryptedBytesRecord } from "./types";
+import type { BlobContentKeyTarget, BlobEncryptedBytesHeader } from "./types";
 
 function blobTargetsFor(
   input: { bindingId: string; documentId: string },
@@ -156,7 +156,7 @@ export async function unwrapBlobContentKey(
   input: {
     contentKeyBundle: BlobContentKeyBundleResponse;
     documentId: string;
-    encrypted: BlobEncryptedBytesRecord;
+    encrypted: BlobEncryptedBytesHeader;
     execSql?: ExecSql | undefined;
     expectedBindingId: string;
     secretKey: Uint8Array;

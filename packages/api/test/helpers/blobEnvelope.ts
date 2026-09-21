@@ -12,6 +12,18 @@ import {
   parseBlobEnvelopeV2Header,
 } from "@tearleads/crypto";
 
+/**
+ * The metadata hash both the fixture envelope and the signed write header
+ * carry. They must agree or every bind fails with an envelope mismatch, so
+ * every caller derives it here rather than restating the recipe.
+ */
+export function fixtureBlobMetadataHash(blobId: string): Promise<string> {
+  return computeKeyingDomainHash("tearleads.keying.access-event-body", {
+    blobId,
+    purpose: "ownership-regression",
+  });
+}
+
 /** Valid public framing with opaque ciphertext for API tests that do not decrypt. */
 export async function createBlobEnvelopeFixture(input: {
   readonly blobId: string;
@@ -34,10 +46,7 @@ export async function createBlobEnvelopeFixture(input: {
     encryptionSuite: CONTENT_RECORD_ENCRYPTION_SUITE,
     format: BLOB_ENCRYPTED_BYTES_FORMAT,
     iv: "AAAAAAAAAAAAAAAA",
-    metadataHash: await computeKeyingDomainHash(
-      "tearleads.keying.access-event-body",
-      { blobId: input.blobId, purpose: "ownership-regression" },
-    ),
+    metadataHash: await fixtureBlobMetadataHash(input.blobId),
     nonceDomainHash: await computeContentRecordNonceDomainHash({
       version: 1,
       organizationId: input.organizationId,

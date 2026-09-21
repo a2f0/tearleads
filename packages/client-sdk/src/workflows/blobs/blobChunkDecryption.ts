@@ -2,13 +2,14 @@ import { deriveBlobChunkIv } from "@tearleads/crypto";
 import type { BlobBytes } from "../../data/blobContracts";
 import { contentRecordAdditionalDataBytes } from "../../data/documents/blob/shared/crypto";
 import type {
+  BlobEncryptedBytesHeader,
   BlobEncryptedBytesRecord,
   BlobEncryptedChunk,
 } from "../../data/documents/blob/shared/types";
 import { asWebCryptoBytes } from "../../data/documents/shared/readers";
 
 interface BlobChunkDecryption {
-  encrypted: BlobEncryptedBytesRecord;
+  encrypted: BlobEncryptedBytesHeader;
   expectedBlobId: string;
   organizationId: string;
   recordKey: CryptoKey;
@@ -49,7 +50,9 @@ export async function decryptBlobChunk(
 }
 
 export async function decryptBlobChunks(
-  input: BlobChunkDecryption,
+  input: Omit<BlobChunkDecryption, "encrypted"> & {
+    encrypted: BlobEncryptedBytesRecord;
+  },
 ): Promise<BlobBytes> {
   const decrypted = new Uint8Array(input.encrypted.byteLength);
   for (const chunk of input.encrypted.chunks) {

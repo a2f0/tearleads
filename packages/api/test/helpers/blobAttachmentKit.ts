@@ -12,7 +12,6 @@ import type {
 import {
   CONTENT_RECORD_ENCRYPTION_SUITE,
   computeContentRecordNonceDomainHash,
-  computeKeyingDomainHash,
   deriveBlobKekTargets,
   signWriteHeader,
   verifyAttachmentBindingEvent,
@@ -27,6 +26,7 @@ import {
   bindBlobAttachment,
   detachBlobAttachment,
 } from "../../src/services/blobs/blobMutations";
+import { fixtureBlobMetadataHash } from "./blobEnvelope";
 import { contentKeyEnvelopeFixture } from "./contentKeyEnvelope";
 import {
   asVerifiedContainerManifest,
@@ -52,14 +52,16 @@ function documentManifest(
 export async function stageBlob(
   owner: TestUser,
   blobId: string,
-  organizationId?: string,
-  overrides?: Partial<BlobEnvelopeV2Header>,
+  options: {
+    readonly bytes?: Uint8Array<ArrayBuffer>;
+    readonly organizationId?: string;
+    readonly overrides?: Partial<BlobEnvelopeV2Header>;
+  } = {},
 ) {
   const staged = await stageBlobEnvelopeFixture(blobAttachmentTestRuntime, {
     blobId,
     owner,
-    ...(organizationId ? { organizationId } : {}),
-    ...(overrides ? { overrides } : {}),
+    ...options,
   });
   return { sha256: staged.sha256, stageId: staged.stageId };
 }
@@ -107,10 +109,7 @@ async function createWriteHeader(input: {
         encryptionSuite: CONTENT_RECORD_ENCRYPTION_SUITE,
         contentRecordId: input.blobId,
       }),
-      metadataHash: await computeKeyingDomainHash(
-        "tearleads.keying.access-event-body",
-        { blobId: input.blobId, purpose: "ownership-regression" },
-      ),
+      metadataHash: await fixtureBlobMetadataHash(input.blobId),
       ciphertextHash: input.sha256,
       writerUserId: input.owner.userId,
       writerDeviceId: "ownership-regression",

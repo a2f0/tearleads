@@ -145,3 +145,29 @@ test("a stream ending inside its header is refused", async () => {
     message: "Blob encrypted envelope is truncated before its header",
   });
 });
+
+test("an IV that is not base64 at all is a malformed envelope, not a fault", async () => {
+  // `base64ToBytes` throws its own error type here. Only structural failures
+  // become a 400, so the parser has to translate this one; left alone it would
+  // escape as an internal error and blame the server for the client's input.
+  const { bytes } = await createBlobEnvelopeFixture({
+    blobId: crypto.randomUUID(),
+    organizationId: crypto.randomUUID(),
+  });
+  // Same length as the fixture's IV, so the framing length stays correct and
+  // only the IV's content is wrong. The fixture cannot build this itself: it
+  // parses what it produces.
+  const validIv = new TextEncoder().encode(`"iv":"${"A".repeat(16)}"`);
+  const start = bytes.findIndex((_, index) =>
+    validIv.every((byte, offset) => bytes[index + offset] === byte),
+  );
+  expect(start).toBeGreaterThan(0);
+  const corrupt = new Uint8Array(bytes);
+  corrupt.set(new TextEncoder().encode(`"iv":"${"!".repeat(16)}"`), start);
+  await expect(
+    summarizeBlobEnvelopeStage(chunks(corrupt, 64)),
+  ).rejects.toMatchObject({
+    status: 400,
+    message: "Blob encrypted bytes IV is invalid",
+  });
+});

@@ -1,4 +1,8 @@
-export type { BlobEnvelopeRecord } from "./blobEnvelopeReader";
+export { BlobEnvelopeError } from "./blobEnvelopeError";
+export type {
+  BlobEnvelopeHeaderRecord,
+  BlobEnvelopeRecord,
+} from "./blobEnvelopeReader";
 export {
   MAX_BLOB_ENVELOPE_HEADER_BYTES,
   parseBlobEnvelopeV2,

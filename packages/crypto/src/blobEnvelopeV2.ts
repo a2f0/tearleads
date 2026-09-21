@@ -1,3 +1,4 @@
+import { BlobEnvelopeError } from "./blobEnvelopeError";
 import { serializeKeyingCanonicalJson } from "./keying/canonical";
 import type { KeyingCanonicalJson } from "./keying/types";
 import { AES_GCM_IV_BYTES, AES_GCM_TAG_BYTES } from "./symmetric";
@@ -35,13 +36,13 @@ export const BLOB_ENVELOPE_PREFIX_BYTES =
 
 function assertSafeLength(value: number, label: string): void {
   if (!Number.isSafeInteger(value) || value < 0) {
-    throw new Error(`${label} must be a non-negative safe integer`);
+    throw new BlobEnvelopeError(`${label} must be a non-negative safe integer`);
   }
 }
 
 export function normalizeBlobChunkSize(chunkSize: number): number {
   if (chunkSize !== BLOB_CHUNK_SIZE_BYTES) {
-    throw new Error("Blob chunk size must be exactly 5 MiB");
+    throw new BlobEnvelopeError("Blob chunk size must be exactly 5 MiB");
   }
   return chunkSize;
 }
@@ -54,7 +55,9 @@ export function computeBlobChunkCount(
   normalizeBlobChunkSize(chunkSize);
   const chunkCount = Math.max(1, Math.ceil(plaintextByteLength / chunkSize));
   if (chunkCount > MAX_BLOB_CHUNK_COUNT) {
-    throw new Error("Blob chunk count exceeds the multipart upload limit");
+    throw new BlobEnvelopeError(
+      "Blob chunk count exceeds the multipart upload limit",
+    );
   }
   return chunkCount;
 }
@@ -70,7 +73,7 @@ export function blobChunkPlaintextByteLength(input: {
     input.chunkIndex < 0 ||
     input.chunkIndex >= input.chunkCount
   ) {
-    throw new Error("Blob chunk index is out of range");
+    throw new BlobEnvelopeError("Blob chunk index is out of range");
   }
   if (input.chunkIndex < input.chunkCount - 1) {
     return input.chunkSize;
@@ -98,7 +101,7 @@ export function encodeBlobEnvelopeV2Header(
     } satisfies Record<string, KeyingCanonicalJson>),
   );
   if (headerBytes.byteLength > 0xffff_ffff) {
-    throw new Error("Blob envelope header is too large");
+    throw new BlobEnvelopeError("Blob envelope header is too large");
   }
 
   const encoded = new Uint8Array(
@@ -131,14 +134,16 @@ export function deriveBlobChunkIv(
   chunkIndex: number,
 ): BlobBytes {
   if (baseIv.byteLength !== AES_GCM_IV_BYTES) {
-    throw new Error("Blob base IV must be 12 bytes");
+    throw new BlobEnvelopeError("Blob base IV must be 12 bytes");
   }
   if (
     !Number.isInteger(chunkIndex) ||
     chunkIndex < 0 ||
     chunkIndex > 0xffff_ffff
   ) {
-    throw new Error("Blob chunk index exceeds the AES-GCM nonce space");
+    throw new BlobEnvelopeError(
+      "Blob chunk index exceeds the AES-GCM nonce space",
+    );
   }
 
   const iv = new Uint8Array(baseIv);

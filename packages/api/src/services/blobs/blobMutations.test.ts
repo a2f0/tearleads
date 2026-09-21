@@ -30,7 +30,6 @@ import {
   computeAccessEventBodyHash,
   computeAccessManifestHash,
   computeContentRecordNonceDomainHash,
-  computeKeyingDomainHash,
   deriveBlobKekTargets,
   deriveDocumentLinkSetManifest,
   signAccessEvent,
@@ -43,10 +42,12 @@ import {
 } from "@tearleads/crypto";
 import type { BlobAttachmentBindRequest } from "@tearleads/validators/request";
 import { eq, inArray } from "drizzle-orm";
+import { fixtureBlobMetadataHash } from "../../../test/helpers/blobEnvelope";
 import {
   appendUnexpectedUserWrapToRekey,
   buildRootContainerRekeyMutation,
 } from "../../../test/helpers/containerRekey";
+
 import { contentKeyEnvelopeFixture } from "../../../test/helpers/contentKeyEnvelope";
 import { getDefaultOrganizationId } from "../../../test/helpers/organizationMembership";
 import { getRootContainerForUser } from "../../../test/helpers/personalRootContainer";
@@ -320,13 +321,7 @@ async function createBlobWriteHeader(input: {
         encryptionSuite: CONTENT_RECORD_ENCRYPTION_SUITE,
         contentRecordId: input.blobId,
       }),
-      metadataHash: await computeKeyingDomainHash(
-        "tearleads.keying.access-event-body",
-        {
-          blobId: input.blobId,
-          purpose: "ownership-regression",
-        },
-      ),
+      metadataHash: await fixtureBlobMetadataHash(input.blobId),
       ciphertextHash: input.sha256,
       writerUserId: input.owner.userId,
       writerDeviceId: "test-device",

@@ -6,6 +6,7 @@ import {
   uploadMultipartBlobPartBytes,
 } from "../../src/services/blobs/multipartStage";
 import type { ApiServiceRuntime } from "../../src/services/runtime";
+import { sha256Hex } from "../../src/utils/sha256";
 import { createBlobEnvelopeFixture } from "./blobEnvelope";
 import { getDefaultOrganizationId } from "./organizationMembership";
 
@@ -16,18 +17,24 @@ export async function stageBlobEnvelopeFixture(
     readonly organizationId?: string;
     readonly overrides?: Partial<BlobEnvelopeV2Header>;
     readonly owner: TestUser;
+    /** Staged verbatim in place of a generated envelope, to test rejection. */
+    readonly bytes?: Uint8Array<ArrayBuffer>;
   },
 ) {
   const organizationId =
     input.organizationId ??
     (await getDefaultOrganizationId(input.owner.userId));
-  const { bytes } = await createBlobEnvelopeFixture({
-    blobId: input.blobId,
-    organizationId,
-    ...(input.overrides ? { overrides: input.overrides } : {}),
-  });
+  const bytes =
+    input.bytes ??
+    (
+      await createBlobEnvelopeFixture({
+        blobId: input.blobId,
+        organizationId,
+        ...(input.overrides ? { overrides: input.overrides } : {}),
+      })
+    ).bytes;
   const byteLength = bytes.byteLength;
-  const sha256 = new Bun.CryptoHasher("sha256").update(bytes).digest("hex");
+  const sha256 = sha256Hex(bytes);
   const staged = await initiateMultipartBlobStage(runtime, {
     organizationId,
     byteLength,

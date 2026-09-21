@@ -1,9 +1,12 @@
 import { expect, test } from "bun:test";
+import { blobs } from "@tearleads/api-shared/schema";
 import { createTestUser } from "@tearleads/bob-and-alice";
 import { signWriteHeader } from "@tearleads/crypto";
+import { eq } from "drizzle-orm";
 import { authenticate } from "../../../test/helpers/authenticate";
 import {
   bindForTest,
+  blobAttachmentTestRuntime,
   buildBind,
   stageBlob,
 } from "../../../test/helpers/blobAttachmentKit";
@@ -104,7 +107,7 @@ for (const [field, override] of [
       document,
       owner,
       root,
-      stagedBlob: await stageBlob(owner, blobId, undefined, override),
+      stagedBlob: await stageBlob(owner, blobId, { overrides: override }),
     });
     await expect(bindForTest({ blobId, owner, request })).rejects.toMatchObject(
       {
@@ -115,3 +118,47 @@ for (const [field, override] of [
     );
   });
 }
+
+// The unit tests drive `summarizeBlobEnvelopeStage` directly. This drives the
+// service, so it also proves prevalidation is wired in before promotion.
+test("staged bytes that are not an envelope are refused before promotion", async () => {
+  const owner = createTestUser();
+  await registerUser(owner);
+  await authenticate(owner);
+  const root = await bootstrapRoot(owner);
+  const document = await createDocument({ owner, root });
+  const blobId = crypto.randomUUID();
+  // Signed correctly over its own hash, so the envelope is the only thing wrong.
+  const { request: rejected } = await buildBind({
+    blobId,
+    document,
+    owner,
+    root,
+    stagedBlob: await stageBlob(owner, blobId, {
+      bytes: new Uint8Array(64).fill(1),
+    }),
+  });
+  await expect(
+    bindForTest({ blobId, owner, request: rejected }),
+  ).rejects.toMatchObject({
+    status: 400,
+    message: "Blob encrypted bytes magic is invalid",
+  });
+  expect(
+    await blobAttachmentTestRuntime.db
+      .select()
+      .from(blobs)
+      .where(eq(blobs.id, blobId)),
+  ).toEqual([]);
+
+  const { request } = await buildBind({
+    blobId,
+    document,
+    owner,
+    root,
+    stagedBlob: await stageBlob(owner, blobId),
+  });
+  await expect(
+    bindForTest({ blobId, owner, request }),
+  ).resolves.toBeUndefined();
+});

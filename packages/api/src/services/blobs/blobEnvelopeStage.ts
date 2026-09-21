@@ -1,6 +1,7 @@
-import type { BlobEnvelopeRecord } from "@tearleads/crypto";
+import type { BlobEnvelopeHeaderRecord } from "@tearleads/crypto";
 import {
   BLOB_ENVELOPE_PREFIX_BYTES,
+  BlobEnvelopeError,
   MAX_BLOB_ENVELOPE_HEADER_BYTES,
   parseBlobEnvelopeV2Header,
   readBlobEnvelopeHeaderByteLength,
@@ -17,7 +18,7 @@ export async function summarizeBlobEnvelopeStage(
   );
   let retainedBytes = 0;
   let headerByteLength: number | null = null;
-  const parsed: { header: BlobEnvelopeRecord | null } = { header: null };
+  const parsed: { header: BlobEnvelopeHeaderRecord | null } = { header: null };
   // Parsing as soon as the header is buffered lets a malformed one cancel the
   // upload stream, rather than hashing the whole object first to reject it.
   const observed = stream.pipeThrough(
@@ -74,11 +75,13 @@ export async function summarizeBlobEnvelopeStage(
   return { ...summary, envelopeHeader };
 }
 
-function invalidEnvelope(error: unknown): BlobMutationError {
-  return new BlobMutationError(
-    error instanceof Error
-      ? error.message
-      : "Blob encrypted envelope is invalid",
-    400,
-  );
+/**
+ * Only a structural rejection is the submitter's fault. Anything else — a
+ * stream failure, or a bug here — propagates as itself rather than being
+ * reported to the client as a malformed upload.
+ */
+function invalidEnvelope(error: unknown): unknown {
+  return error instanceof BlobEnvelopeError
+    ? new BlobMutationError(error.message, 400)
+    : error;
 }

@@ -107,6 +107,13 @@ export interface BlobEncryptedBytesRecord {
   nonceDomainHash: string;
 }
 
+/**
+ * The envelope as the header establishes it. Streaming readers hold this
+ * before any ciphertext is read, so it has no `chunks`: an empty array there
+ * would read as an empty object rather than an unread one.
+ */
+export type BlobEncryptedBytesHeader = Omit<BlobEncryptedBytesRecord, "chunks">;
+
 export interface BlobEncryptedChunk {
   ciphertext: BlobBytes;
   index: number;
