@@ -2,6 +2,7 @@ import { KeyingVerificationError } from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
 import {
   compareOrInsertTrustedUserIdentityPin,
+  loadTrustedUserIdForSigningKey,
   TrustedUserIdentityPinCorruptError,
   TrustedUserIdentityPinMismatchError,
 } from "../persistence/trustedUserIdentityPinPersistence";
@@ -150,6 +151,14 @@ export function createTrustedUserIdentityService(
   dependencies: TrustedUserIdentityServiceDependencies,
 ): TrustedUserIdentityService {
   return {
+    async boundUserId(signingKeyFingerprint) {
+      const { execSql, identityTrustDomain } = requireTrustStore(dependencies);
+      return loadTrustedUserIdForSigningKey({
+        execSql,
+        identityTrustDomain,
+        signingKeyFingerprint,
+      });
+    },
     async pinLocal(userId, candidate) {
       assertTrustedUserIdentityUserId(userId);
       const { execSql, identityTrustDomain } = requireTrustStore(dependencies);

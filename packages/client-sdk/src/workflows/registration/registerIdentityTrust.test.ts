@@ -68,3 +68,30 @@ test("a registration the server does not confirm leaves no pin behind", async ()
   expect(response).toBeNull();
   expect(pinned).toEqual([]);
 });
+
+test("a registration whose identity was replaced in flight pins nothing", async () => {
+  // The pin is a durable write like the bootstrap persist, so it is skipped
+  // once the registering identity is no longer current; the caller discards
+  // the result.
+  const pinned: string[] = [];
+  let identityCurrent = true;
+  const response = await registerIdentity({
+    apiClient: {
+      registerUser: async (...args: RegisterUserParameters) => {
+        const confirmed = await respondToRegistration(args);
+        identityCurrent = false;
+        return confirmed;
+      },
+    },
+    containerId: crypto.randomUUID(),
+    dbClient: { exec: async () => ({ rows: [] }) },
+    encapsulationKeyPair: generateKemSeedAndKeyPair(),
+    isIdentityCurrent: () => identityCurrent,
+    pinLocalUserIdentity: async (userId) => {
+      pinned.push(userId);
+    },
+    signingKeyPair: generateSigningSeedAndKeyPair(),
+  });
+  expect(response).not.toBeNull();
+  expect(pinned).toEqual([]);
+});

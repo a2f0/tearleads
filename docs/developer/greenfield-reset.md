@@ -247,6 +247,13 @@ tier is healthy, rebuild the next selected tier before long store uploads.
   separately requested. Inventory retained application secrets such as
   `DOCUMENT_SYNC_CURSOR_HMAC_KEY` and report any requested rotation separately;
   recreating infrastructure does not change persistent env-file values.
+- **Existing client devices:** a reset wipes the server but not the devices
+  that used it, and each keeps its identity-trust store. That store binds each
+  signing key to one user, so a device that re-registers its retained key after
+  the wipe declines to, and cannot log in either, because the server no longer
+  knows the key. Clearing the device's local app data recreates the trust store;
+  the SDK never clears it on the server's say-so. Tell anyone who used the
+  environment to do this, and use fresh profiles for post-reset checks.
 - **Billing and provider callbacks:** inventory Stripe/native-store customer,
   subscription, purchase, and webhook state that outlives the application
   database. Report orphaned associations, ongoing subscriptions, and possible

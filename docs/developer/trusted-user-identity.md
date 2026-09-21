@@ -27,7 +27,14 @@ Registration therefore pins only once the server has confirmed the new user,
 and before anything is persisted under it. Pinning the requested id first would
 leave a pin for an id the server may never accept — after a lost response, or
 when a restored key is already registered — and that pin would then refuse the
-key's real user at login.
+key's real user at login. Registration also declines, before contacting the
+server, when this device already binds the key to a user: the new user's pin
+would be refused only after the server had created the account. The caller
+falls back to login, as it does when a registration's response is lost.
+
+After an environment reset, a device keeps its trust store while the server
+forgets every key, so such a device can neither register nor log in until its
+local app data is cleared. The greenfield-reset runbook covers this.
 
 Pins default to the canonical absolute `apiBaseUrl`, including its base path.
 When a non-browser host uses a relative API URL, it must provide an absolute

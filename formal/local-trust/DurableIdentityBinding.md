@@ -4,6 +4,14 @@
 in #2329: a new session must not let the API bind a previously pinned signing
 fingerprint to another user in the same trust domain.
 
+| Model action or predicate | Production seam |
+| --- | --- |
+| `Login` | `compareOrInsertTrustedUserIdentityPin` compares or inserts the pin in one immediate transaction |
+| `CheckReverseBinding` | `compareOrInsertTrustedUserIdentityPin` refuses a signing key already bound to another user; `trustedUserIdentityPins` backs it with a unique index |
+| `Reboot` | `SessionIdentityAcknowledgments` holds only in-memory acknowledgments, while `trustedUserIdentityPins` persist |
+| `PublishedSessionsMatchPins` | `refuseSessionLogin` clears the session when `pinLocalUserIdentity` is refused |
+| `SigningFingerprintsHaveOneUser` | `loadTrustedUserIdForSigningKey` finds at most one user per signing key |
+
 `Login` models the immediate transaction in
 `compareOrInsertTrustedUserIdentityPin` and publication after `pinLocal`
 succeeds. The existing user pin must match, and the reverse fingerprint lookup

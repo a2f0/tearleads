@@ -353,7 +353,7 @@ export const trustedUserIdentityPins = sqliteTable(
     primaryKey({
       columns: [table.identityTrustDomain, table.userId],
     }),
-    uniqueIndex("trusted_user_identity_pins_domain_signing_fingerprint").on(
+    uniqueIndex("trusted_user_identity_pins_domain_signing_fingerprint_idx").on(
       table.identityTrustDomain,
       table.signingKeyFingerprint,
     ),

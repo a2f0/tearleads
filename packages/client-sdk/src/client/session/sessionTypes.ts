@@ -5,7 +5,10 @@ import type { ProvisionedSystemContainerSpec } from "../../workflows/registratio
 import type { ClearRemoteSyncStateResult } from "../../workflows/sync";
 import type { Database } from "../database";
 import type { Identity } from "../identity";
-import type { UserIdentityAvailable } from "./sessionIdentityTrust";
+import type {
+  BoundUserIdLookup,
+  UserIdentityAvailable,
+} from "./sessionIdentityTrust";
 
 export interface SessionDependencies {
   api: ApiClient;
@@ -14,6 +17,8 @@ export interface SessionDependencies {
   identity: Identity;
   log: (message: string) => void;
   logError: (message: string | Error, cause?: unknown) => void;
+  /** The user this device's trust store already binds a signing key to. */
+  boundUserIdForSigningKey?: BoundUserIdLookup | undefined;
   onUserIdentityAvailable?: UserIdentityAvailable | undefined;
   /** App-owned system containers provisioned with each new organization. */
   provisionedSystemContainers?:
