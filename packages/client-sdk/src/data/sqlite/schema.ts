@@ -332,10 +332,12 @@ export const documentPurgeCheckpoints = sqliteTable(
  *   the host-configured API authority that supplied it.
  * - `(identityTrustDomain, signingKeyFingerprint)` binds the reverse identity
  *   mapping durably, including across session recreation. There is no
- *   migration for a table that already violates it: deployments are
- *   greenfield, and a device that used an environment before a reset must
- *   clear its local data (see docs/developer/greenfield-reset.md), which
- *   recreates this table empty.
+ *   migration for a table that already violates it. Earlier builds pinned a
+ *   registration's user id before the server confirmed it, so a device that
+ *   ran one may hold two users on one key; deployments are greenfield, and
+ *   such a device clears its local data, which recreates this table empty. A
+ *   device that used an environment before a reset does the same (see
+ *   docs/developer/greenfield-reset.md).
  */
 export const trustedUserIdentityPins = sqliteTable(
   "trusted_user_identity_pins",

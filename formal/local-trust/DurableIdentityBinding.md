@@ -9,7 +9,6 @@ fingerprint to another user in the same trust domain.
 | `Login` | `compareOrInsertTrustedUserIdentityPin` compares or inserts the pin in one immediate transaction |
 | `CheckReverseBinding` | `compareOrInsertTrustedUserIdentityPin` refuses a signing key already bound to another user; `trustedUserIdentityPins` backs it with a unique index |
 | `Reboot` | `SessionIdentityAcknowledgments` holds only in-memory acknowledgments, while `trustedUserIdentityPins` persist |
-| `PublishedSessionsMatchPins` | `refuseSessionLogin` clears the session when `pinLocalUserIdentity` is refused |
 | `SigningFingerprintsHaveOneUser` | `loadTrustedUserIdForSigningKey` finds at most one user per signing key |
 
 `Login` models the immediate transaction in
