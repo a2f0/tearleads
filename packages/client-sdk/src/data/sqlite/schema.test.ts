@@ -89,6 +89,7 @@ test("client sqlite schema creates tables and indexes", async () => {
       "dormant_container_metadata_organization_idx",
       "principal_policy_organizations_organization_idx",
       "security_incidents_trust_last_detected_idx",
+      "trusted_user_identity_pins_domain_signing_fingerprint",
     ]);
 
     const documents = await readTableColumns(execSql, "documents");

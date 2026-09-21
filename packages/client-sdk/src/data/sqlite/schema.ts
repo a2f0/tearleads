@@ -5,6 +5,7 @@ import {
   primaryKey,
   sqliteTable,
   text,
+  uniqueIndex,
 } from "drizzle-orm/sqlite-core";
 import {
   containerSQLiteSchema,
@@ -329,6 +330,8 @@ export const documentPurgeCheckpoints = sqliteTable(
  * Indexes:
  * - `(identityTrustDomain, userId)` is the primary key and scopes a user pin to
  *   the host-configured API authority that supplied it.
+ * - `(identityTrustDomain, signingKeyFingerprint)` binds the reverse identity
+ *   mapping durably, including across session recreation.
  */
 export const trustedUserIdentityPins = sqliteTable(
   "trusted_user_identity_pins",
@@ -350,6 +353,10 @@ export const trustedUserIdentityPins = sqliteTable(
     primaryKey({
       columns: [table.identityTrustDomain, table.userId],
     }),
+    uniqueIndex("trusted_user_identity_pins_domain_signing_fingerprint").on(
+      table.identityTrustDomain,
+      table.signingKeyFingerprint,
+    ),
   ],
 );
 

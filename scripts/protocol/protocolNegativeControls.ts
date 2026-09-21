@@ -290,6 +290,14 @@ export const NEGATIVE_CONTROLS: readonly NegativeControl[] = [
     why: "A dishonest auth response rebinds a previously acknowledged signing identity to another user ID (#2266).",
   },
   {
+    id: "reboot-rebinds-durable-signing-identity",
+    module: "formal/local-trust/DurableIdentityBinding.tla",
+    config: "formal/local-trust/DurableIdentityBinding.cfg",
+    constants: { CheckReverseBinding: "FALSE" },
+    expect: { kind: "invariant", name: "SigningFingerprintsHaveOneUser" },
+    why: "A fresh session accepts a second user for an already pinned signing fingerprint after losing volatile acknowledgments (#2329).",
+  },
+  {
     id: "container-grant-selects-old-group-key",
     module: "formal/container-keying/PrincipalReferenceProgress.tla",
     config: "formal/container-keying/PrincipalReferenceProgress.cfg",

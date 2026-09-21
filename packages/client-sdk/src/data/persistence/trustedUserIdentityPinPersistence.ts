@@ -30,6 +30,7 @@ export interface TrustedUserIdentityPin {
 }
 
 type ComparedPinField =
+  | "userId"
   | "formatVersion"
   | "signingSuite"
   | "signingPublicKey"
@@ -39,6 +40,7 @@ type ComparedPinField =
   | "encapsulationKeyFingerprint";
 
 interface PinDiagnostic {
+  readonly userId: string;
   readonly formatVersion: number;
   readonly signingSuite: string;
   readonly signingKeyFingerprint: string;
@@ -53,6 +55,7 @@ interface PinScope {
 }
 
 const comparedPinFields: readonly ComparedPinField[] = [
+  "userId",
   "formatVersion",
   "signingSuite",
   "signingPublicKey",
@@ -75,6 +78,7 @@ const requiredStringFields = [
 
 function pinDiagnostic(pin: TrustedUserIdentityPin): PinDiagnostic {
   return {
+    userId: pin.userId,
     formatVersion: pin.formatVersion,
     signingSuite: pin.signingSuite,
     signingKeyFingerprint: pin.signingKeyFingerprint,
@@ -325,6 +329,33 @@ export async function compareOrInsertTrustedUserIdentityPin(input: {
     await ensureSqlTables(input.execSql, trustedUserIdentityPinTables);
     return runtime.transaction(
       async (tx) => {
+        const aliases = await tx
+          .select()
+          .from(trustedUserIdentityPins)
+          .where(
+            and(
+              eq(
+                trustedUserIdentityPins.identityTrustDomain,
+                input.pin.identityTrustDomain,
+              ),
+              eq(
+                trustedUserIdentityPins.signingKeyFingerprint,
+                input.pin.signingKeyFingerprint,
+              ),
+            ),
+          )
+          .limit(1);
+        const alias = aliases[0];
+        if (alias && alias.userId !== input.pin.userId) {
+          throw new TrustedUserIdentityPinMismatchError(
+            parseStoredPin(alias, {
+              identityTrustDomain: input.pin.identityTrustDomain,
+              userId: alias.userId,
+            }),
+            input.pin,
+            ["userId"],
+          );
+        }
         await tx
           .insert(trustedUserIdentityPins)
           .values(input.pin)
