@@ -59,6 +59,8 @@ export interface LocalUserIdentityCandidate {
 }
 
 export interface TrustedUserIdentityService {
+  /** The user this device's trust store already binds a signing key to. */
+  boundUserId(signingKeyFingerprint: string): Promise<string | null>;
   pinLocal(
     userId: string,
     candidate: LocalUserIdentityCandidate,

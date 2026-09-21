@@ -17,6 +17,7 @@ formal/document-sync/RawHistoryRecovery.tla|formal/document-sync/RawHistoryRecov
 formal/document-sync/RestartProbeConvergence.tla|formal/document-sync/RestartProbeConvergence.cfg
 formal/local-trust/OrganizationScope.tla|formal/local-trust/OrganizationScope.cfg
 formal/local-trust/ContainerAuthoring.tla|formal/local-trust/ContainerAuthoring.cfg
+formal/local-trust/DurableIdentityBinding.tla|formal/local-trust/DurableIdentityBinding.cfg
 formal/local-trust/RootDocumentPriming.tla|formal/local-trust/RootDocumentPriming.cfg
 formal/local-trust/SystemDestination.tla|formal/local-trust/SystemDestination.cfg
 formal/local-trust/UnacknowledgedInput.tla|formal/local-trust/UnacknowledgedInput.cfg

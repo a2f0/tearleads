@@ -145,6 +145,47 @@ test("same signing key with a substituted KEM key is typed equivocation", async 
   }
 });
 
+test("a remote bundle reusing another user's pinned signing key is typed equivocation", async () => {
+  // A server presenting user B with user A's keys: the reverse binding refuses
+  // it, and the bad bundle is dropped from the remote cache.
+  const { close, execSql } = await createTestExecSql(
+    "identity-service-reverse-binding",
+  );
+  const pinned = await createCandidate(4);
+  const OTHER_USER_ID = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
+  try {
+    await createTrustedUserIdentityService(
+      dependencies({ execSql: () => execSql, remote: pinned.remote }),
+    ).resolve(USER_ID);
+    const invalidations: string[] = [];
+    const aliasService = createTrustedUserIdentityService(
+      dependencies({
+        execSql: () => execSql,
+        invalidations,
+        remote: { ...pinned.remote, userId: OTHER_USER_ID },
+      }),
+    );
+    let thrown: unknown;
+    try {
+      await aliasService.resolve(OTHER_USER_ID);
+    } catch (error) {
+      thrown = error;
+    }
+    expect(thrown).toBeInstanceOf(KeyingVerificationError);
+    expect(thrown).toMatchObject({ code: "equivocation" });
+    expect(invalidations).toEqual([OTHER_USER_ID]);
+    await expect(
+      loadTrustedUserIdentityPin({
+        execSql,
+        identityTrustDomain: TRUST_DOMAIN,
+        userId: OTHER_USER_ID,
+      }),
+    ).resolves.toBeNull();
+  } finally {
+    close();
+  }
+});
+
 test("authoritative self resolution never consults the remote source", async () => {
   const { close, execSql } = await createTestExecSql("identity-service-self");
   const local = await createCandidate(4);

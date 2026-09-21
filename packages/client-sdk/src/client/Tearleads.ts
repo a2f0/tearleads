@@ -137,6 +137,9 @@ export class Tearleads {
     async () => {
       throw new Error("Trusted user identity runtime is not initialized");
     };
+  private boundUserId: InternalRuntime["boundUserId"] = async () => {
+    throw new Error("Trusted user identity runtime is not initialized");
+  };
 
   constructor(options: ClientOptions = {}) {
     const apiBaseUrl = options.apiBaseUrl ?? "";
@@ -192,6 +195,8 @@ export class Tearleads {
       identity: this.identity,
       log: this.log,
       logError: this.logError,
+      boundUserIdForSigningKey: (signingKeyFingerprint) =>
+        this.boundUserId(signingKeyFingerprint),
       onUserIdentityAvailable: (userId, candidate) =>
         this.pinLocalUserIdentity(userId, candidate),
       provisionedSystemContainers: options.provisionedSystemContainers,
@@ -203,8 +208,7 @@ export class Tearleads {
       options,
       security.service.report,
     );
-    this.pinLocalUserIdentity = (userId, candidate) =>
-      runtime.pinLocalUserIdentity(userId, candidate);
+    this.bindTrustedIdentityRuntime(runtime);
     this.runtime = runtime.publicRuntime;
     this.documents = createDocuments({
       getDefaultContainerId: () => this.session.containerId,
@@ -225,6 +229,14 @@ export class Tearleads {
     if (options.identityProvisioning === "auto") {
       this.startAutomaticIdentityProvisioning();
     }
+  }
+
+  /** Rebinds the session's trust callbacks once the runtime exists. */
+  private bindTrustedIdentityRuntime(runtime: InternalRuntime): void {
+    this.pinLocalUserIdentity = (userId, candidate) =>
+      runtime.pinLocalUserIdentity(userId, candidate);
+    this.boundUserId = (signingKeyFingerprint) =>
+      runtime.boundUserId(signingKeyFingerprint);
   }
 
   private configureApiClientCallbacks(): void {

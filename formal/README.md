@@ -74,6 +74,11 @@ metadata document IDs. See the [mapping and boundaries](./container-keying/Conta
 models pending-create adoption and fingerprint-bound login acknowledgments.
 See the [mapping and boundaries](./local-trust/UnacknowledgedInput.md).
 
+[`local-trust/DurableIdentityBinding.tla`](./local-trust/DurableIdentityBinding.tla)
+checks that persistent fingerprint-to-user bindings survive session recreation
+and stay unique within each trust domain. See the
+[mapping and boundaries](./local-trust/DurableIdentityBinding.md).
+
 ## Principal Reference Progress
 
 [`container-keying/PrincipalReferenceProgress.tla`](./container-keying/PrincipalReferenceProgress.tla)
