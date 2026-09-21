@@ -10,7 +10,10 @@ import { bytesToBase64 } from "@tearleads/encoding";
 export function contentKeyEnvelopeFixture(
   kind: ContentKeyEnvelopeKind,
   seed: string,
-) {
+): {
+  readonly wrappedKey: string;
+  readonly wrappingMetadata: { readonly suite: string; readonly iv: string };
+} {
   // Derived from the seed, not shared: an equality check over envelopes must
   // be able to fail on the metadata alone, not only on the wrapped key.
   const iv = new Bun.CryptoHasher("sha256")

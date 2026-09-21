@@ -766,9 +766,14 @@ verbatim alongside newly wrapped ones; the API judges the retained half as
 stored for the same reason, since a retained target must be resubmitted
 byte-identical and cannot be re-wrapped while it is active. The exemption is
 scoped to the content-key epoch being written, so a rotation exempts nothing.
-When a submission is both malformed and stale, staleness usually wins: the
-target hash and current-target checks run first. Only the target-set
-comparison is ordered after the envelope shape check.
+When a bundle submission is both malformed and stale, staleness usually wins:
+the target hash and current-target checks run first, and only the target-set
+comparison is ordered after the envelope shape check. A blob rewrap has no
+preceding hash check, so there the shape error always comes first.
+
+A retired blob target that re-enters a bundle is the one case where what lands
+is not what was submitted: the server discards the resubmitted wrap and writes
+back the authentic stored one, because active key material cannot be replaced.
 
 There are no legacy-suite or alternate-encoding paths. These checks validate
 structure; only a recipient with the KEK can authenticate the ciphertext and

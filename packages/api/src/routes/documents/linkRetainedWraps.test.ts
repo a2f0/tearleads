@@ -296,6 +296,24 @@ test("a shared bind carrying another document's stored wrap is accepted", async 
     "Blob content-key target wrapped key has an invalid encoded length",
   );
 
+  // Nor can the first document's stored bytes be replayed under the second
+  // document's target: the exemption matches on target identity and key epoch
+  // as well as the bytes, so this is a new envelope for that target and is
+  // held to the published shape like any other.
+  await expect(
+    bindForTest({
+      blobId,
+      owner,
+      request: retainingBind((target) => ({
+        ...target,
+        wrappedKey: firstTarget.wrappedKey,
+        wrappingMetadata,
+      })),
+    }),
+  ).rejects.toThrow(
+    "Blob content-key target metadata must contain exactly suite and iv",
+  );
+
   await bindForTest({
     blobId,
     owner,
