@@ -639,9 +639,11 @@ sync pass makes the path current.
 
 If a writer still meets a stale ancestor it cannot re-key (a dishonest server, a
 tree past the cap, or a race), its pass refetches once, then abandons with the
-`inaccessible` trace reason and records `document_ancestor_repair_inaccessible`
-on the write queue instead of failing the sync lane. Its writes stay queued, and
-built-in stores re-run the pass on the next `container_path_changed` hint. Hosts
+`inaccessible` trace reason and reports `document_ancestor_repair_inaccessible`
+to `onTerminalSubmitFailure` instead of failing the sync lane; built-in stores
+keep its message, not the code, on the write-queue row. Its writes stay
+queued, and built-in stores re-run the pass on the next
+`container_path_changed` hint. Hosts
 that author container-scoped writes directly can call
 `classifyContainerWriteRefusal` on a thrown error: `repair-required` is
 retryable, `repair-inaccessible` waits on another member and names the

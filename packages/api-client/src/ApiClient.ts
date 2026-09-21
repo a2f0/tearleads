@@ -219,6 +219,13 @@ interface InFlightWriterProjectionResult<T> {
   readonly slot: Promise<T | null> | undefined;
 }
 
+/** The rotations that may carry descendant rekeys, each with its operation. */
+const CONTAINER_ROTATIONS = {
+  move: { operation: moveContainerOperation, route: containerMove },
+  rekey: { operation: rekeyContainerOperation, route: containerRekey },
+  revoke: { operation: revokeContainerOperation, route: containerRevoke },
+} as const;
+
 export class ApiClient {
   private readonly requestRuntime: ApiRequestRuntime;
   private readonly containerDocumentListRequestsByKey = new Map<
@@ -1331,63 +1338,51 @@ export class ApiClient {
   }
 
   /**
-   * Status-bearing rekey: a caller that must tell a permanent refusal (403 once
-   * ancestor write access is revoked, 402) from a transient 5xx or an offline
-   * blip cannot do so through `rekeyContainer`, which collapses both to null.
+   * Status-bearing rotations: a caller that must tell a permanent refusal (403
+   * once ancestor write access is revoked, 402) from a transient 5xx or an
+   * offline blip cannot do so through the plain methods, which collapse both to
+   * null. They are also how a rotation learns which descendant rekeys it must
+   * carry.
    */
-  async rekeyContainerResult(
+  rekeyContainerResult(
     containerId: string,
     input: ContainerRotationRequest,
     options: RequestResultOptions = {},
   ): Promise<RequestResult<ContainerRotationResponse>> {
-    try {
-      return await this.requestResult(
-        containerRekey.path(containerId),
-        containerRekey.isResponse,
-        containerRekey.method,
-        JSON.stringify(input),
-        options,
-        rekeyContainerOperation,
-      );
-    } finally {
-      this.clearWriterProjectionCaches();
-    }
+    return this.rotationResult("rekey", containerId, input, options);
   }
 
-  /** Status-bearing revoke; see `rekeyContainerResult`. */
-  async revokeContainerResult(
+  revokeContainerResult(
     containerId: string,
     input: ContainerRotationRequest,
     options: RequestResultOptions = {},
   ): Promise<RequestResult<ContainerRotationResponse>> {
-    try {
-      return await this.requestResult(
-        containerRevoke.path(containerId),
-        containerRevoke.isResponse,
-        containerRevoke.method,
-        JSON.stringify(input),
-        options,
-        revokeContainerOperation,
-      );
-    } finally {
-      this.clearWriterProjectionCaches();
-    }
+    return this.rotationResult("revoke", containerId, input, options);
   }
 
-  /** Status-bearing move; see `rekeyContainerResult`. */
-  async moveContainerResult(
+  moveContainerResult(
     containerId: string,
     input: ContainerRotationRequest,
     options: RequestResultOptions = {},
   ): Promise<RequestResult<ContainerRotationResponse>> {
+    return this.rotationResult("move", containerId, input, options);
+  }
+
+  private async rotationResult(
+    rotation: keyof typeof CONTAINER_ROTATIONS,
+    containerId: string,
+    input: ContainerRotationRequest,
+    options: RequestResultOptions,
+  ): Promise<RequestResult<ContainerRotationResponse>> {
+    const { operation, route } = CONTAINER_ROTATIONS[rotation];
     try {
       return await this.requestResult(
-        containerMove.path(containerId),
-        containerMove.isResponse,
-        containerMove.method,
+        route.path(containerId),
+        route.isResponse,
+        route.method,
         JSON.stringify(input),
         options,
-        moveContainerOperation,
+        operation,
       );
     } finally {
       this.clearWriterProjectionCaches();

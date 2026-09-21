@@ -3,7 +3,8 @@ import type { PublishedRealtimeEvent } from "../../realtime/publishedRealtimeEve
 import { publishCarriedContainerRekeys } from "./mutationEvents";
 
 // Each carried descendant rekey moved a head of its own, so dependents must be
-// told to drop projections that cite it, exactly as for a standalone rekey.
+// told to drop projections that cite it. A rekey never re-parents, so unlike a
+// move's hint there is no previous parent to name.
 
 test("every carried rekey publishes its own container hint", async () => {
   const published: PublishedRealtimeEvent[] = [];

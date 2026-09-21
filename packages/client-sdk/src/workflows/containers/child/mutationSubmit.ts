@@ -37,11 +37,6 @@ export interface CarriedRekeys {
   >;
 }
 
-/**
- * Adapt a rotation endpoint pair to one status-bearing call. An adapter with
- * only the plain method still rotates; it just cannot learn what to carry, so a
- * rotation that needs descendants fails as any other refusal does.
- */
 /** A mutation with no status-bearing variant: a share mints nothing to carry. */
 export async function submitPlainContainerMutation(
   plain: () => Promise<ContainerRotationResponse | null>,
@@ -50,6 +45,11 @@ export async function submitPlainContainerMutation(
   return data ? { data, ok: true } : { ok: false, status: null };
 }
 
+/**
+ * Adapt a rotation endpoint pair to one status-bearing call. An adapter with
+ * only the plain method still rotates; it just cannot learn what to carry, so a
+ * rotation that needs descendants fails as any other refusal does.
+ */
 export async function submitContainerRotation(input: {
   plain: () => Promise<ContainerRotationResponse | null>;
   result: (() => Promise<ContainerRotationResult>) | undefined;

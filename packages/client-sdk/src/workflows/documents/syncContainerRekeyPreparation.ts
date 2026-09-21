@@ -106,7 +106,8 @@ async function commitRepairPrefix(input: {
   plans: readonly MaterializedContainerRekeyPlan[];
   repairedIds: Set<string>;
   sync: SyncRemoteDocumentInput;
-}): Promise<void> {
+}): Promise<number> {
+  let committed = 0;
   for (const { plan, writerProjection } of input.plans) {
     assertProjectionVerificationCurrent(input.sync.stillCurrent);
     if (input.sync.isRemoteSyncBlocked?.(plan.state.organizationId)) {
@@ -155,11 +156,13 @@ async function commitRepairPrefix(input: {
     for (const carried of carriedPlans) {
       input.repairedIds.add(carried.plan.containerId);
     }
+    committed += 1 + carriedPlans.length;
     // The rest of this prefix was signed before the carry. A plan for a carried
     // container extends a superseded head, and one below it pins an epoch that
     // was never minted. Stop here; the caller refetches and re-plans.
-    if (carriedPlans.length > 0) return;
+    if (carriedPlans.length > 0) return committed;
   }
+  return committed;
 }
 
 /** Large repairs commit a bounded prefix; the last batch remains atomic with content. */
@@ -201,12 +204,21 @@ export async function prepareAutomaticContainerRekeys(
       persistVerificationCheckpoints: true,
       allowStaleContentKeyBundle: true,
     });
-    const totalRepairs = (passRepairTotals.get(sync) ?? 0) + batch.plans.length;
-    passRepairTotals.set(sync, totalRepairs);
-    if (totalRepairs > MAX_DOCUMENT_SYNC_AUTHORIZATION_PATH_DEPTH) {
+    // Charge what this prefix can still commit, then settle to what it did: it
+    // stops early after a repair that carried something, and charging the plans
+    // it never submitted would spend the budget on work that did not happen.
+    const committedBefore = passRepairTotals.get(sync) ?? 0;
+    if (
+      committedBefore + batch.plans.length >
+      MAX_DOCUMENT_SYNC_AUTHORIZATION_PATH_DEPTH
+    ) {
       throw new DocumentAncestorRepairAbandonedError("depth-budget");
     }
-    await commitRepairPrefix({ plans: batch.plans, repairedIds, sync });
+    passRepairTotals.set(
+      sync,
+      committedBefore +
+        (await commitRepairPrefix({ plans: batch.plans, repairedIds, sync })),
+    );
     const fresh = await refreshSyncAttemptWriterProjection({
       apiClient: sync.apiClient,
       documentId: sync.documentId,

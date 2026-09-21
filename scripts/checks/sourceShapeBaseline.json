@@ -47,8 +47,8 @@
       "bytes": 18865
     },
     "docs/developer/client-sdk.md": {
-      "lines": 720,
-      "bytes": 37071
+      "lines": 722,
+      "bytes": 37153
     },
     "docs/developer/revenuecat-native-stores.md": {
       "lines": 364,
@@ -91,8 +91,8 @@
       "bytes": 23719
     },
     "packages/api-client/src/ApiClient.ts": {
-      "lines": 1975,
-      "bytes": 63341
+      "lines": 1970,
+      "bytes": 63483
     },
     "packages/api/src/access/read/documentKekTargets.test.ts": {
       "lines": 574,

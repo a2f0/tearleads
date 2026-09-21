@@ -1,3 +1,4 @@
+import type { AccessEventType } from "@tearleads/crypto";
 import type { ContainerMutationRequest } from "@tearleads/validators/request";
 import type {
   ContainerMutationResponse,
@@ -102,11 +103,12 @@ export async function applyContainerRekeys(input: {
 }
 
 /** Event types that mint a new key epoch and so re-stale every descendant. */
-const ROTATING_EVENT_TYPES: ReadonlySet<string> = new Set([
-  "container.move",
-  "container.rekey",
-  "container.revoke",
-]);
+const ROTATING_EVENT_TYPES: ReadonlySet<AccessEventType> =
+  new Set<AccessEventType>([
+    "container.move",
+    "container.rekey",
+    "container.revoke",
+  ]);
 
 /**
  * One rotation and the descendant rekeys it carries, in one transaction. The

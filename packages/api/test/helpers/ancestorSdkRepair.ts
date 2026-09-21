@@ -115,7 +115,12 @@ export async function createAncestorSdkContext(
         method: "POST",
         path,
         ...(Array.isArray(requiredContainerIds)
-          ? { requiredContainerIds }
+          ? {
+              requiredContainerIds: requiredContainerIds.filter(
+                (containerId): containerId is string =>
+                  typeof containerId === "string",
+              ),
+            }
           : {}),
         status: response.status,
       });

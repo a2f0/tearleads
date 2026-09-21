@@ -1,4 +1,5 @@
 import type { DatabaseTransaction } from "@tearleads/api-shared/postgres";
+import type { AccessEventType } from "@tearleads/crypto";
 import {
   computeContainerKeyEpochHash,
   type VerifiedContainerAccessManifest,
@@ -17,10 +18,8 @@ import {
 } from "../errors";
 
 /** Events that wrap no new secret to the parent. */
-const NON_MINTING_EVENT_TYPES: ReadonlySet<string> = new Set([
-  "container.grant",
-  "container.recite",
-]);
+const NON_MINTING_EVENT_TYPES: ReadonlySet<AccessEventType> =
+  new Set<AccessEventType>(["container.grant", "container.recite"]);
 
 export async function assertParentKekStateCurrent(
   executor: DatabaseTransaction,
