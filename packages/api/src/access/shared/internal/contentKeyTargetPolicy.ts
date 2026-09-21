@@ -161,9 +161,9 @@ interface ContentKeyTargetPolicyOptions<
   TTarget extends ContentKeyTarget,
   TEnvelope extends TTarget & WrappedContentKeyTargetEnvelope,
 > {
-  readonly envelopeKind: ContentKeyEnvelopeKind;
   readonly computeTargetHash: (targets: readonly TTarget[]) => Promise<string>;
   readonly createError: (message: string, status: 400 | 409) => Error;
+  readonly envelopeKind: ContentKeyEnvelopeKind;
   readonly messages: ContentKeyTargetPolicyMessages;
   readonly targetIdentityEqual: (left: TTarget, right: TTarget) => boolean;
   readonly targetKey: (target: TTarget) => string;

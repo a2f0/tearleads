@@ -59,10 +59,10 @@ const contentKeyTargetPolicy = createContentKeyTargetPolicy<
   BlobContentKeyTargetEnvelope,
   CurrentBlobKekTargets
 >({
-  envelopeKind: "Blob",
   computeTargetHash: computeBlobContentKeyTargetHash,
   createError: (message, status) =>
     new BlobContentKeyBundleError(message, status),
+  envelopeKind: "Blob",
   messages: {
     duplicateTargets: "Blob content-key targets contain duplicates",
     hashMismatch: "Blob content-key target hash mismatch",

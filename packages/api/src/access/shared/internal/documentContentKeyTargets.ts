@@ -57,10 +57,10 @@ const contentKeyTargetPolicy = createContentKeyTargetPolicy<
   DocumentContentKeyTargetEnvelope,
   CurrentDocumentKekTargets
 >({
-  envelopeKind: "Document",
   computeTargetHash: computeDocumentContentKeyTargetHash,
   createError: (message, status) =>
     new DocumentContentKeyBundleError(message, status),
+  envelopeKind: "Document",
   messages: {
     duplicateTargets:
       "Document content-key targets contain duplicate containers",
