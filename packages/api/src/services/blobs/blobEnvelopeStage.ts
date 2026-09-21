@@ -22,56 +22,11 @@ import { BlobMutationError } from "../../workflows/blobs/mutations";
 export async function summarizeBlobEnvelopeStage(
   stream: ReadableStream<Uint8Array>,
 ) {
-  const headerBuffer = new Uint8Array(
-    BLOB_ENVELOPE_PREFIX_BYTES + MAX_BLOB_ENVELOPE_HEADER_BYTES,
-  );
-  let retainedBytes = 0;
-  let headerByteLength: number | null = null;
-  const parsed: { header: BlobEnvelopeHeaderRecord | null } = { header: null };
+  const header = createEnvelopeHeaderObserver();
   // Parsing as soon as the header is buffered lets a malformed one cancel the
   // upload stream, rather than hashing the whole object first to reject it.
-  const observed = stream.pipeThrough(
-    new TransformStream<Uint8Array, Uint8Array>({
-      transform(chunk, controller) {
-        // Once the header is parsed, the rest is ciphertext: hash it, don't keep it.
-        if (parsed.header === null) {
-          const copied = Math.min(
-            chunk.byteLength,
-            headerBuffer.byteLength - retainedBytes,
-          );
-          headerBuffer.set(chunk.subarray(0, copied), retainedBytes);
-          retainedBytes += copied;
-        }
-        if (
-          headerByteLength === null &&
-          retainedBytes >= BLOB_ENVELOPE_PREFIX_BYTES
-        ) {
-          try {
-            headerByteLength = readBlobEnvelopeHeaderByteLength(headerBuffer);
-          } catch (error) {
-            throw invalidEnvelope(error);
-          }
-        }
-        if (
-          parsed.header === null &&
-          headerByteLength !== null &&
-          retainedBytes >= headerByteLength
-        ) {
-          try {
-            // `headerByteLength` already spans the framing prefix and the payload.
-            parsed.header = parseBlobEnvelopeV2Header(
-              headerBuffer.subarray(0, headerByteLength),
-            );
-          } catch (error) {
-            throw invalidEnvelope(error);
-          }
-        }
-        controller.enqueue(chunk);
-      },
-    }),
-  );
-  const summary = await summarizeSha256Stream(observed);
-  const envelopeHeader = parsed.header;
+  const summary = await summarizeSha256Stream(stream, header.observe);
+  const envelopeHeader = header.parsed();
   if (envelopeHeader === null) {
     throw new BlobMutationError(
       "Blob encrypted envelope is truncated before its header",
@@ -85,6 +40,45 @@ export async function summarizeBlobEnvelopeStage(
     );
   }
   return { ...summary, envelopeHeader };
+}
+
+/** Buffers at most the bounded header and parses it as soon as it is whole. */
+function createEnvelopeHeaderObserver() {
+  const headerBuffer = new Uint8Array(
+    BLOB_ENVELOPE_PREFIX_BYTES + MAX_BLOB_ENVELOPE_HEADER_BYTES,
+  );
+  let retainedBytes = 0;
+  let headerByteLength: number | null = null;
+  let parsed: BlobEnvelopeHeaderRecord | null = null;
+  return {
+    observe(chunk: Uint8Array): void {
+      // Once the header is parsed, the rest is ciphertext: hash it, don't keep it.
+      if (parsed !== null) return;
+      const copied = Math.min(
+        chunk.byteLength,
+        headerBuffer.byteLength - retainedBytes,
+      );
+      headerBuffer.set(chunk.subarray(0, copied), retainedBytes);
+      retainedBytes += copied;
+      try {
+        if (
+          headerByteLength === null &&
+          retainedBytes >= BLOB_ENVELOPE_PREFIX_BYTES
+        ) {
+          headerByteLength = readBlobEnvelopeHeaderByteLength(headerBuffer);
+        }
+        if (headerByteLength !== null && retainedBytes >= headerByteLength) {
+          // `headerByteLength` already spans the framing prefix and the payload.
+          parsed = parseBlobEnvelopeV2Header(
+            headerBuffer.subarray(0, headerByteLength),
+          );
+        }
+      } catch (error) {
+        throw invalidEnvelope(error);
+      }
+    },
+    parsed: (): BlobEnvelopeHeaderRecord | null => parsed,
+  };
 }
 
 /**
