@@ -78,12 +78,15 @@ test("registration persists nothing when the identity goes stale in-flight", asy
     // queue, so past this await the persist is deterministically waiting
     // behind the held mutation — the window the in-mutex guard exists for.
     await persistEntersQueue;
+    // Registration also checks currency before pinning the confirmed user;
+    // only the probes from here on belong to the queued persist.
+    const probesBeforeQueueHead = identityProbes;
     // The identity is replaced while the persist waits, then the queue frees.
     identityCurrent = false;
     releaseHold();
     await holding;
     await registration;
-    expect(identityProbes).toBe(1);
+    expect(identityProbes - probesBeforeQueueHead).toBe(1);
 
     // The remote organization exists, but no stale bootstrap row may reach
     // the local database the replacement identity now owns.

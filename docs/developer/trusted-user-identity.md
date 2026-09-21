@@ -16,6 +16,19 @@ to either key, either fingerprint, suite, or format produces a typed hard
 failure before key use or a mutation request. The current user's local keypairs
 are authoritative and seed the same pin during registration or login.
 
+The binding also holds in reverse: within a trust domain, a signing key is
+pinned to at most one user. The same immediate transaction refuses a pin that
+would bind a known signing key to a different user, and a unique index on
+`(identityTrustDomain, signingKeyFingerprint)` backs it. This is what stops a
+server from answering a login on a device with no restored session by
+rebinding the device's own key to another account.
+
+Registration therefore pins only once the server has confirmed the new user,
+and before anything is persisted under it. Pinning the requested id first would
+leave a pin for an id the server may never accept — after a lost response, or
+when a restored key is already registered — and that pin would then refuse the
+key's real user at login.
+
 Pins default to the canonical absolute `apiBaseUrl`, including its base path.
 When a non-browser host uses a relative API URL, it must provide an absolute
 `identityTrustDomain`; remote identity resolution fails closed if no stable,
@@ -30,7 +43,8 @@ on a new device.
 Pins survive SDK recreation, ordinary logout, remote-state reset, and
 current-format local backup restore. Restore monotonically merges identity pins,
 principal policy checkpoints, and access manifest checkpoints, and aborts on
-overlapping conflicts. Older backup formats are rejected. Deliberately purging
+overlapping conflicts, including a backup that binds a pinned signing key to a
+different user. Older backup formats are rejected. Deliberately purging
 or recreating the local database resets this security history and should be
 presented to users as a security reset.
 
