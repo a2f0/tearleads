@@ -22,7 +22,7 @@ import {
 } from "../../data/documents/blob/shared/readers";
 import { assertBlobContentKeyBundleTargetHash } from "../../data/documents/blob/shared/responses";
 import type {
-  BlobEncryptedBytesRecord,
+  BlobEncryptedBytesHeader,
   DecryptDocumentAttachmentBlobInput,
 } from "../../data/documents/blob/shared/types";
 import { importContentKeyMaterial } from "../../data/documents/shared/contentRecordKeys";
@@ -47,7 +47,7 @@ import { assertBlobWrapScopeVerified } from "./verifiedWrapScope";
 
 async function assertBlobEncryptionMetadata(input: {
   readonly contentKeyBundle: DecryptDocumentAttachmentBlobInput["binding"]["contentKeyBundle"];
-  readonly encrypted: BlobEncryptedBytesRecord;
+  readonly encrypted: BlobEncryptedBytesHeader;
   readonly expectedBlobId: string;
   readonly organizationId: string;
 }): Promise<void> {
@@ -94,7 +94,7 @@ export type AttachmentBlobDecryptionInput = Omit<
   DecryptDocumentAttachmentBlobInput,
   "encryptedBytes"
 > & {
-  encrypted: BlobEncryptedBytesRecord;
+  encrypted: BlobEncryptedBytesHeader;
 };
 
 /** Verifies metadata and authority; the caller must still authenticate ciphertext. */
@@ -309,7 +309,7 @@ function attachmentBindingDocumentId(
 async function assertBlobWriteHeaderVerified(input: {
   readonly authorization: DocumentWriterProjectionAuthorization | undefined;
   readonly binding: DecryptDocumentAttachmentBlobInput["binding"];
-  readonly encrypted: BlobEncryptedBytesRecord;
+  readonly encrypted: BlobEncryptedBytesHeader;
   readonly organizationId: string;
   readonly resolveProjectionUserKey: ReturnType<
     typeof requireProjectionUserKeyResolver

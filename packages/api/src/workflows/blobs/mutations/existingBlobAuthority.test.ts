@@ -79,7 +79,7 @@ test("writing a destination does not authorize rebinding a private existing blob
     document: victim,
     owner,
     root,
-    stagedBlob: await stageBlob(owner),
+    stagedBlob: await stageBlob(owner, blobId),
   });
   await bindForTest({ blobId, owner, request: original.request });
   const destination = {

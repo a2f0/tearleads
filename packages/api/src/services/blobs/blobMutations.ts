@@ -5,7 +5,6 @@ import type {
 import type { PublishedRealtimeEvent } from "../../realtime/publishedRealtimeEvents";
 import { uniqueSortedStrings } from "../../utils/array";
 import { publishBestEffort } from "../../utils/publishBestEffort";
-import { summarizeSha256Stream } from "../../utils/sha256";
 import {
   type BindBlobAttachmentInput,
   BlobMutationError,
@@ -16,6 +15,7 @@ import {
 } from "../../workflows/blobs/mutations";
 import { loadOwnedActiveBlobStage } from "../../workflows/blobs/stageAccess";
 import type { ApiServiceRuntime } from "../runtime";
+import { summarizeBlobEnvelopeStage } from "./blobEnvelopeStage";
 
 export { BlobMutationError } from "../../workflows/blobs/mutations";
 
@@ -107,7 +107,7 @@ async function prevalidateMultipartBlobStage(
   if (objectStream === null) {
     throw new BlobMutationError("Blob staged bytes are missing", 409);
   }
-  const objectSummary = await summarizeSha256Stream(objectStream);
+  const objectSummary = await summarizeBlobEnvelopeStage(objectStream);
   if (objectSummary.byteLength !== stage.byteLength) {
     throw new BlobMutationError(
       "Blob byteLength does not match staged bytes",
@@ -120,6 +120,7 @@ async function prevalidateMultipartBlobStage(
 
   return {
     byteLength: stage.byteLength,
+    envelopeHeader: objectSummary.envelopeHeader,
     sha256: stage.sha256,
     stageId: stage.id,
     storageKey: stage.storageKey,

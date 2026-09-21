@@ -38,3 +38,18 @@ export async function readBlobObjectText(
   const stream = await store.getObjectStream(key);
   return stream ? new Response(stream).text() : null;
 }
+
+/**
+ * Reads the stored object as bytes. Envelopes carry a binary length prefix,
+ * so decoding them as UTF-8 first maps invalid sequences onto U+FFFD and two
+ * different objects can compare equal.
+ */
+export async function readBlobObjectBytes(
+  store: BlobObjectStore,
+  key: string,
+): Promise<Uint8Array | null> {
+  const stream = await store.getObjectStream(key);
+  return stream
+    ? new Uint8Array(await new Response(stream).arrayBuffer())
+    : null;
+}

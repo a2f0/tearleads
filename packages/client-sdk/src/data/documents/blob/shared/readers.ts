@@ -1,3 +1,4 @@
+import { parseBlobEnvelopeV2 } from "@tearleads/crypto";
 import { isPlainObject as isPlainRecord } from "@tearleads/validators/isPlainObject";
 import type { BlobContentKeyTargetEnvelopeRequest } from "@tearleads/validators/request";
 import type { DocumentWriterProjectionResponse } from "@tearleads/validators/response";
@@ -6,7 +7,6 @@ import {
   readRecordString,
   sortTargets,
 } from "../../shared/readers";
-import { parseBlobEnvelopeV2 } from "./blobEnvelopeReader";
 import type {
   BlobContentKeyTarget,
   BlobEncryptedBytesRecord,

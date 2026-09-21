@@ -73,7 +73,7 @@ test.skipIf(getDefaultApiDatabaseKind() !== "postgres")(
       document: racingDocument,
       owner: racingOwner,
       root: racingRoot,
-      stagedBlob: await stageBlob(racingOwner),
+      stagedBlob: await stageBlob(racingOwner, blobId),
     });
 
     const thirdBlobReadReached = deferred();

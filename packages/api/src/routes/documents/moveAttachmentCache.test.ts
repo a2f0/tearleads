@@ -35,7 +35,7 @@ test("a warm client moves an uploaded attachment on its first attempt", async ()
     document,
     owner,
     root,
-    stagedBlob: await stageBlob(owner),
+    stagedBlob: await stageBlob(owner, blobId),
   });
   await bindForTest({ blobId, owner, request });
   const server = Bun.serve({

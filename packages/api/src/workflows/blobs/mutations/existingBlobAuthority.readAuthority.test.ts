@@ -123,7 +123,7 @@ test("current read on an actively bound document authorizes rebinding the blob",
     document: bound,
     owner,
     root: source,
-    stagedBlob: await stageBlob(owner),
+    stagedBlob: await stageBlob(owner, blobId),
   });
   await bindForTest({ blobId, owner, request: original.request });
 

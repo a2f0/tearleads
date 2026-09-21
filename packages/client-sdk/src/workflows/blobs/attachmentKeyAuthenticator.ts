@@ -1,8 +1,11 @@
-import { AES_GCM_TAG_BYTES, bytesToHex } from "@tearleads/crypto";
+import {
+  AES_GCM_TAG_BYTES,
+  blobChunkPlaintextByteLength,
+  bytesToHex,
+} from "@tearleads/crypto";
 import { createBlobEnvelopeStream } from "../../data/documents/blob/shared/blobEnvelopeStream";
-import { blobChunkPlaintextByteLength } from "../../data/documents/blob/shared/blobEnvelopeV2";
 import type {
-  BlobEncryptedBytesRecord,
+  BlobEncryptedBytesHeader,
   DecryptDocumentAttachmentBlobInput,
 } from "../../data/documents/blob/shared/types";
 import {
@@ -20,7 +23,7 @@ type AttachmentKeyInput = Omit<
 >;
 type VerifiedKey = {
   ciphertextHash: string;
-  encrypted: BlobEncryptedBytesRecord;
+  encrypted: BlobEncryptedBytesHeader;
   contentKey: Uint8Array;
 };
 type ProofReader = ReturnType<typeof createProofReader>;

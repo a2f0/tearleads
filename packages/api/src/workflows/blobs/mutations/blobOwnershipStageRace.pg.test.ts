@@ -6,9 +6,11 @@ import {
   blobs,
 } from "@tearleads/api-shared/schema";
 import { createTestUser } from "@tearleads/bob-and-alice";
+import { parseBlobEnvelopeV2Header } from "@tearleads/crypto";
 import { eq, inArray } from "drizzle-orm";
 import { authenticate } from "../../../../test/helpers/authenticate";
 import {
+  blobAttachmentTestRuntime,
   buildBind,
   stageBlob,
 } from "../../../../test/helpers/blobAttachmentKit";
@@ -47,7 +49,15 @@ async function loadPrevalidatedStage(
   if (!stage) {
     throw new Error("Expected staged blob fixture");
   }
-  return stage;
+  const stream =
+    await blobAttachmentTestRuntime.blobObjectStore.getObjectStream(
+      stage.storageKey,
+    );
+  if (!stream) throw new Error("Expected staged blob bytes");
+  const envelopeHeader = parseBlobEnvelopeV2Header(
+    new Uint8Array(await new Response(stream).arrayBuffer()),
+  );
+  return { ...stage, envelopeHeader };
 }
 
 test.skipIf(getDefaultApiDatabaseKind() !== "postgres")(
@@ -63,7 +73,7 @@ test.skipIf(getDefaultApiDatabaseKind() !== "postgres")(
       actors.map(async (owner) => {
         const root = await bootstrapRoot(owner);
         const document = await createDocument({ owner, root });
-        const stagedBlob = await stageBlob(owner);
+        const stagedBlob = await stageBlob(owner, blobId);
         return {
           bind: await buildBind({
             blobId,

@@ -1,5 +1,10 @@
 import type { UploadMultipartBlobPartBytesRequest } from "@tearleads/api-client";
-import type { BlobContentKeyTarget, WriteHeader } from "@tearleads/crypto";
+import type {
+  BlobContentKeyTarget,
+  BlobEnvelopeHeaderRecord,
+  BlobEnvelopeRecord,
+  WriteHeader,
+} from "@tearleads/crypto";
 import type {
   BlobAttachmentBindRequest,
   BlobAttachmentDetachRequest,
@@ -25,9 +30,6 @@ import type {
 import type { ExecSql } from "../../../sqlite/sqlSchema";
 import type { DocumentCreateAuthor } from "../../shared/types";
 
-export const BLOB_ENCRYPTED_BYTES_FORMAT = "tearleads.blob.bytes";
-export const BLOB_ENCRYPTED_BYTES_VERSION = 2;
-export const BLOB_ENCRYPTED_BYTES_MAGIC = "tearleads.blob.bytes.v2";
 export const BLOB_CONTENT_RECORD_KEY_INFO_DOMAIN =
   "tearleads.blob.content-record-key-info";
 export const BLOB_CONTENT_RECORD_AAD_DOMAIN =
@@ -38,20 +40,6 @@ export const BLOB_CONTENT_RECORD_NONCE_DOMAIN =
   "tearleads.blob.content-record-nonce";
 export const BLOB_CONTENT_RECORD_HKDF_SALT: Uint8Array<ArrayBuffer> =
   new TextEncoder().encode("tearleads.blob.content-record-hkdf-salt");
-export const BLOB_ENCRYPTED_BYTES_KEYS = new Set([
-  "blobId",
-  "byteLength",
-  "chunkCount",
-  "chunkSize",
-  "contentKeyEpoch",
-  "contentRecordId",
-  "encryptionSuite",
-  "format",
-  "iv",
-  "metadataHash",
-  "nonceDomainHash",
-  "version",
-]);
 export const TEXT_ENCODER = new TextEncoder();
 
 export interface BlobAttachmentRequestOptions {
@@ -109,26 +97,20 @@ export interface BlobAttachmentDetachApi {
 
 export type { BlobContentKeyTarget };
 
-export interface BlobEncryptedBytesRecord {
-  blobId: string;
-  byteLength: number;
-  chunkCount: number;
-  chunks: BlobEncryptedChunk[];
-  chunkSize: number;
-  contentKeyEpoch: number;
-  contentRecordId: string;
-  encryptedByteLength: number;
-  headerByteLength: number;
-  iv: Uint8Array;
-  metadataHash: string;
-  nonceDomainHash: string;
-}
+/**
+ * Aliases of the crypto parser's own types. The parser is shared with the API,
+ * so restating these shapes here would let the two drift apart silently.
+ */
+export type BlobEncryptedBytesRecord = BlobEnvelopeRecord;
 
-export interface BlobEncryptedChunk {
-  ciphertext: BlobBytes;
-  index: number;
-  plaintextByteLength: number;
-}
+/**
+ * The envelope as the header establishes it. Streaming readers hold this
+ * before any ciphertext is read, so it has no `chunks`: an empty array there
+ * would read as an empty object rather than an unread one.
+ */
+export type BlobEncryptedBytesHeader = BlobEnvelopeHeaderRecord;
+
+export type BlobEncryptedChunk = BlobEnvelopeRecord["chunks"][number];
 
 export interface BlobSourceSnapshot {
   readonly byteLength: number;

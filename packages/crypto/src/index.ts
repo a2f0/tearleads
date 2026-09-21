@@ -1,3 +1,30 @@
+export { BlobEnvelopeError } from "./blobEnvelopeError";
+export type {
+  BlobEnvelopeHeaderRecord,
+  BlobEnvelopeRecord,
+} from "./blobEnvelopeReader";
+export {
+  MAX_BLOB_ENVELOPE_HEADER_BYTES,
+  parseBlobEnvelopeV2,
+  parseBlobEnvelopeV2Header,
+  readBlobEnvelopeHeaderByteLength,
+} from "./blobEnvelopeReader";
+export type { BlobEnvelopeV2Header } from "./blobEnvelopeV2";
+export {
+  BLOB_CHUNK_SIZE_BYTES,
+  BLOB_ENCRYPTED_BYTES_FORMAT,
+  BLOB_ENCRYPTED_BYTES_VERSION,
+  BLOB_ENVELOPE_MAGIC_BYTES,
+  BLOB_ENVELOPE_PREFIX_BYTES,
+  blobChunkPlaintextByteLength,
+  computeBlobChunkCount,
+  computeBlobEncryptedByteLength,
+  deriveBlobChunkIv,
+  encodeBlobEnvelopeV2Header,
+  joinBlobPartBytes,
+  MAX_BLOB_CHUNK_COUNT,
+  normalizeBlobChunkSize,
+} from "./blobEnvelopeV2";
 export { compareCanonicalStrings } from "./canonicalOrdering";
 export {
   AUTH_CHALLENGE_BYTES,

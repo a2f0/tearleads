@@ -792,6 +792,16 @@ IV, suite, and ciphertext. The blob content-key bundle lives in
 `blob_content_key_targets`, and attachment listing/bind responses return that
 bundle alongside server-visible binding metadata.
 
+Before promotion, the API hashes the staged object stream and validates it
+with the same binary-envelope parser SDK readers use: magic, bounded canonical
+JSON header, exact fields, suite/version, chunk layout, canonical 12-byte IV,
+and total encrypted length. The header buffer is bounded by 64 KiB plus the fixed
+prefix, and validation shares the existing hashing pass. The transaction also
+binds the parsed blob id, content-key epoch, record id, metadata hash, and nonce
+domain to the signed write header. Rejection rolls back promotion and binding.
+These checks reject malformed framing; an authorized writer can still submit
+well-shaped ciphertext that fails authentication or contains unwanted content.
+
 That separation lets key packages change without restaging immutable blob
 bytes. If active bindings grow, the same blob content key can be wrapped to the
 expanded target set. If a container KEK rotates for an otherwise unchanged

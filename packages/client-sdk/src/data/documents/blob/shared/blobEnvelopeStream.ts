@@ -1,10 +1,10 @@
-import { createIncrementalSha256 } from "@tearleads/crypto";
-import type { BlobBytes } from "../../../blobContracts";
 import {
+  BLOB_ENVELOPE_PREFIX_BYTES,
+  createIncrementalSha256,
   parseBlobEnvelopeV2Header,
   readBlobEnvelopeHeaderByteLength,
-} from "./blobEnvelopeReader";
-import { BLOB_ENVELOPE_PREFIX_BYTES } from "./blobEnvelopeV2";
+} from "@tearleads/crypto";
+import type { BlobBytes } from "../../../blobContracts";
 
 /** Reads exactly one bounded envelope part without retaining previous parts. */
 export function createBlobEnvelopeStream(stream: ReadableStream<Uint8Array>) {
