@@ -131,7 +131,13 @@ test("real backup restore preserves current first-seen time and imports backup-o
     await insertIdentityPin(
       source.execSql,
       identityPin({
+        encapsulationKeyFingerprint: "d".repeat(64),
+        encapsulationPublicKey: "encapsulation-public-key-c",
         firstSeenAt: "2026-07-10T12:00:00.000Z",
+        // A different user holds a different key: one signing key binds to
+        // one user within a trust domain.
+        signingKeyFingerprint: "c".repeat(64),
+        signingPublicKey: "signing-public-key-c",
         userId: BACKUP_ONLY_USER_ID,
       }),
     );
