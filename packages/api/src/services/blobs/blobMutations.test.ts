@@ -43,7 +43,6 @@ import {
 } from "@tearleads/crypto";
 import type { BlobAttachmentBindRequest } from "@tearleads/validators/request";
 import { eq, inArray } from "drizzle-orm";
-import { blobObjectBytes } from "../../../test/helpers/blobObjectStore";
 import {
   appendUnexpectedUserWrapToRekey,
   buildRootContainerRekeyMutation,
@@ -57,6 +56,7 @@ import {
   createFailingRuntime,
   createServiceTestRuntime,
 } from "../../../test/helpers/serviceRuntime";
+import { stageBlobEnvelopeFixture } from "../../../test/helpers/stagedBlobEnvelope";
 import { getAccessManifestBundle } from "../../access/read/accessManifestStore";
 import {
   getCurrentContainerKeyEpoch,
@@ -70,11 +70,6 @@ import {
   detachBlobAttachment,
 } from "./blobMutations";
 import { getBlobBytes } from "./getBlob";
-import {
-  completeMultipartBlobStage,
-  initiateMultipartBlobStage,
-  uploadMultipartBlobPartBytes,
-} from "./multipartStage";
 
 interface StoredContainerFixture {
   readonly bundle: VerifiedContainerAccessManifest;
@@ -93,22 +88,6 @@ interface BuiltBindRequest {
 }
 
 const runtime = createServiceTestRuntime();
-
-async function hashOf(label: string): Promise<string> {
-  return computeKeyingDomainHash("tearleads.keying.access-event-body", {
-    label,
-  });
-}
-
-async function sha256Hex(value: string): Promise<string> {
-  const digest = new Uint8Array(
-    await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value)),
-  );
-
-  return Array.from(digest, (byte) => byte.toString(16).padStart(2, "0")).join(
-    "",
-  );
-}
 
 async function registerOnly(user: TestUser): Promise<void> {
   await registerUser(user);
@@ -289,38 +268,11 @@ async function createDocumentFixture(input: {
   return { bundle: verified.value };
 }
 
-async function stageEncryptedBlob(
-  input: {
-    readonly encryptedBytes: string;
-    readonly owner: TestUser;
-  },
+function stageEncryptedBlob(
+  input: Parameters<typeof stageBlobEnvelopeFixture>[1],
   serviceRuntime: typeof runtime = runtime,
 ) {
-  const byteLength = new TextEncoder().encode(input.encryptedBytes).byteLength;
-  const sha256 = await sha256Hex(input.encryptedBytes);
-  const staged = await initiateMultipartBlobStage(serviceRuntime, {
-    organizationId: await getDefaultOrganizationId(input.owner.userId),
-    byteLength,
-    sha256,
-    userId: input.owner.userId,
-  });
-  const part = await uploadMultipartBlobPartBytes(serviceRuntime, {
-    byteLength,
-    bytes: blobObjectBytes(input.encryptedBytes),
-    partNumber: 1,
-    sha256,
-    stageId: staged.stageId,
-    uploadId: staged.uploadId,
-    userId: input.owner.userId,
-  });
-  await completeMultipartBlobStage(serviceRuntime, {
-    parts: [{ etag: part.part.etag, partNumber: 1 }],
-    stageId: staged.stageId,
-    uploadId: staged.uploadId,
-    userId: input.owner.userId,
-  });
-
-  return { ...staged, sha256 };
+  return stageBlobEnvelopeFixture(serviceRuntime, input);
 }
 
 function contentKeyTargets(
@@ -368,7 +320,13 @@ async function createBlobWriteHeader(input: {
         encryptionSuite: CONTENT_RECORD_ENCRYPTION_SUITE,
         contentRecordId: input.blobId,
       }),
-      metadataHash: await hashOf(`${input.blobId}:metadata`),
+      metadataHash: await computeKeyingDomainHash(
+        "tearleads.keying.access-event-body",
+        {
+          blobId: input.blobId,
+          purpose: "ownership-regression",
+        },
+      ),
       ciphertextHash: input.sha256,
       writerUserId: input.owner.userId,
       writerDeviceId: "test-device",
@@ -617,7 +575,7 @@ test("attachment writes tolerate publish failures", async () => {
   const firstBlobId = crypto.randomUUID();
   const firstStage = await stageEncryptedBlob(
     {
-      encryptedBytes: "first-encrypted-bytes",
+      blobId: firstBlobId,
       owner,
     },
     failureRuntime,
@@ -661,7 +619,7 @@ test("attachment writes tolerate publish failures", async () => {
   );
   const replacementBlobId = crypto.randomUUID();
   const replacementStage = await stageEncryptedBlob({
-    encryptedBytes: "replacement-encrypted-bytes",
+    blobId: replacementBlobId,
     owner,
   });
   const replacementBind = await buildBindRequest({
@@ -814,7 +772,7 @@ test("bindBlobAttachment applies optional container rekeys before target validat
     owner,
     slotId: "preview",
     stagedBlob: await stageEncryptedBlob({
-      encryptedBytes: "opportunistic-rekey-bytes",
+      blobId,
       owner,
     }),
   });
@@ -841,7 +799,6 @@ test("bindBlobAttachment applies optional container rekeys before target validat
 });
 
 async function expectStagePromotesToObjectStore(input: {
-  readonly encryptedBytes: string;
   readonly owner: TestUser;
   readonly serviceRuntime: typeof runtime;
   readonly sha256: string;
@@ -850,7 +807,7 @@ async function expectStagePromotesToObjectStore(input: {
   const { owner } = input;
   const container = await bootstrapRoot(owner);
   const document = await createDocumentFixture({ container, owner });
-  const blobId = crypto.randomUUID();
+  const blobId = input.stagedBlob.blobId;
   const bind = await buildBindRequest({
     blobId,
     container,
@@ -885,21 +842,22 @@ async function expectStagePromotesToObjectStore(input: {
     userId: owner.userId,
   });
   expect(blob.sha256).toBe(input.sha256);
-  const text = await new Response(blob.encryptedBytes).text();
-  expect(text).toBe(input.encryptedBytes);
+  const bytes = new Uint8Array(
+    await new Response(blob.encryptedBytes).arrayBuffer(),
+  );
+  expect(bytes).toEqual(input.stagedBlob.bytes);
 }
 
 test("bind promotes multipart stages without inline bytes", async () => {
   const owner = createTestUser();
   await registerOnly(owner);
-  const encryptedBytes = "multipart-bind-encrypted-bytes";
+  const blobId = crypto.randomUUID();
   const multipartStage = await stageEncryptedBlob({
-    encryptedBytes,
+    blobId,
     owner,
   });
 
   await expectStagePromotesToObjectStore({
-    encryptedBytes,
     owner,
     serviceRuntime: runtime,
     sha256: multipartStage.sha256,
@@ -948,7 +906,7 @@ test("bindBlobAttachment prevalidates multipart object bytes before opening the 
   const blobId = crypto.randomUUID();
   const multipartStage = await stageEncryptedBlob(
     {
-      encryptedBytes: "multipart-prevalidation-bytes",
+      blobId,
       owner,
     },
     trackingRuntime,
@@ -995,7 +953,7 @@ test("bindBlobAttachment rolls back optional rekeys when blob write validation f
     owner,
     slotId: "preview",
     stagedBlob: await stageEncryptedBlob({
-      encryptedBytes: "rollback-rekey-bytes",
+      blobId,
       owner,
     }),
   });
@@ -1048,7 +1006,7 @@ test("bindBlobAttachment rejects invalid optional container rekeys", async () =>
     owner,
     slotId: "preview",
     stagedBlob: await stageEncryptedBlob({
-      encryptedBytes: "invalid-rekey-bytes",
+      blobId,
       owner,
     }),
   });
@@ -1079,8 +1037,9 @@ test("bindBlobAttachment rejects malformed signed event records", async () => {
   const container = await bootstrapRoot(owner);
   const document = await createDocumentFixture({ container, owner });
 
+  const blobId = crypto.randomUUID();
   const malformedBind = await buildBindRequest({
-    blobId: crypto.randomUUID(),
+    blobId,
     container,
     document,
     expectedBindingId: null,
@@ -1111,15 +1070,16 @@ test("bindBlobAttachment rejects malformed staged blob write headers", async () 
   const container = await bootstrapRoot(owner);
   const document = await createDocumentFixture({ container, owner });
 
+  const blobId = crypto.randomUUID();
   const malformedBind = await buildBindRequest({
-    blobId: crypto.randomUUID(),
+    blobId,
     container,
     document,
     expectedBindingId: null,
     owner,
     slotId: "slot-a",
     stagedBlob: await stageEncryptedBlob({
-      encryptedBytes: "malformed-write-header-bytes",
+      blobId,
       owner,
     }),
   });
@@ -1152,7 +1112,7 @@ test("bind rejects stale slots and incomplete shared targets", async () => {
   const secondDocument = await createDocumentFixture({ container, owner });
   const blobId = crypto.randomUUID();
   const firstStage = await stageEncryptedBlob({
-    encryptedBytes: "shared-encrypted-bytes",
+    blobId,
     owner,
   });
   const firstBind = await buildBindRequest({
@@ -1172,15 +1132,16 @@ test("bind rejects stale slots and incomplete shared targets", async () => {
     userId: owner.userId,
   });
 
+  const replacementBlobId = crypto.randomUUID();
   const staleReplacement = await buildBindRequest({
-    blobId: crypto.randomUUID(),
+    blobId: replacementBlobId,
     container,
     document: firstDocument,
     expectedBindingId: null,
     owner,
     slotId: "slot-a",
     stagedBlob: await stageEncryptedBlob({
-      encryptedBytes: "stale-replacement-bytes",
+      blobId: replacementBlobId,
       owner,
     }),
   });

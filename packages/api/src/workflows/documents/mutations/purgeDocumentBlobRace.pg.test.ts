@@ -41,7 +41,7 @@ async function createPurgeBindRaceFixture() {
     owner,
     root,
     slotId: "purge-race-source",
-    stagedBlob: await stageBlob(owner),
+    stagedBlob: await stageBlob(owner, blobId),
   });
   await bindForTest({
     blobId,

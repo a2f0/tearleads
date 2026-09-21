@@ -39,7 +39,7 @@ test("attachment bind rejects an authorizing path through a deleted container", 
     document,
     owner,
     root,
-    stagedBlob: await stageBlob(owner),
+    stagedBlob: await stageBlob(owner, blobId),
   });
   const request = {
     ...built.request,

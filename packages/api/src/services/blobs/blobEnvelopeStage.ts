@@ -1,0 +1,67 @@
+import {
+  BLOB_ENVELOPE_PREFIX_BYTES,
+  MAX_BLOB_ENVELOPE_HEADER_BYTES,
+  parseBlobEnvelopeV2Header,
+  readBlobEnvelopeHeaderByteLength,
+} from "@tearleads/crypto";
+import { summarizeSha256Stream } from "../../utils/sha256";
+import { BlobMutationError } from "../../workflows/blobs/mutations";
+
+/** Hash the complete object while retaining at most its bounded public header. */
+export async function summarizeBlobEnvelopeStage(
+  stream: ReadableStream<Uint8Array>,
+) {
+  const prefix = new Uint8Array(
+    BLOB_ENVELOPE_PREFIX_BYTES + MAX_BLOB_ENVELOPE_HEADER_BYTES,
+  );
+  let retainedBytes = 0;
+  let headerByteLength: number | null = null;
+  const observed = stream.pipeThrough(
+    new TransformStream<Uint8Array, Uint8Array>({
+      transform(chunk, controller) {
+        const copied = Math.min(
+          chunk.byteLength,
+          prefix.byteLength - retainedBytes,
+        );
+        prefix.set(chunk.subarray(0, copied), retainedBytes);
+        retainedBytes += copied;
+        if (
+          headerByteLength === null &&
+          retainedBytes >= BLOB_ENVELOPE_PREFIX_BYTES
+        ) {
+          try {
+            headerByteLength = readBlobEnvelopeHeaderByteLength(prefix);
+          } catch (error) {
+            throw invalidEnvelope(error);
+          }
+        }
+        controller.enqueue(chunk);
+      },
+    }),
+  );
+  const summary = await summarizeSha256Stream(observed);
+  let envelopeHeader: ReturnType<typeof parseBlobEnvelopeV2Header>;
+  try {
+    envelopeHeader = parseBlobEnvelopeV2Header(
+      prefix.subarray(0, retainedBytes),
+    );
+  } catch (error) {
+    throw invalidEnvelope(error);
+  }
+  if (summary.byteLength !== envelopeHeader.encryptedByteLength) {
+    throw new BlobMutationError(
+      "Blob encrypted envelope length is invalid",
+      400,
+    );
+  }
+  return { ...summary, envelopeHeader };
+}
+
+function invalidEnvelope(error: unknown): BlobMutationError {
+  return new BlobMutationError(
+    error instanceof Error
+      ? error.message
+      : "Blob encrypted envelope is invalid",
+    400,
+  );
+}

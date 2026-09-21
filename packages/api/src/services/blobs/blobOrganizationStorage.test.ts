@@ -10,6 +10,7 @@ import {
   buildBind,
   buildDetach,
 } from "../../../test/helpers/blobAttachmentKit";
+import { createBlobEnvelopeFixture } from "../../../test/helpers/blobEnvelope";
 import { readBlobObjectText } from "../../../test/helpers/blobObjectStore";
 import { createBlobStageOwner } from "../../../test/helpers/blobStageOwner";
 import { createFakeS3BlobObjectStore } from "../../../test/helpers/fakeS3BlobObjectStore";
@@ -41,10 +42,15 @@ async function stageBytes(
   input: {
     readonly organizationId: string;
     readonly userId: string;
+    readonly encryptedBytes?: Uint8Array;
     readonly complete?: boolean;
   },
 ) {
-  const metadata = { byteLength: bytes.byteLength, sha256: sha256Hex(bytes) };
+  const encryptedBytes = input.encryptedBytes ?? bytes;
+  const metadata = {
+    byteLength: encryptedBytes.byteLength,
+    sha256: sha256Hex(encryptedBytes),
+  };
   const stage = await initiateMultipartBlobStage(runtime, {
     ...metadata,
     ...input,
@@ -54,7 +60,7 @@ async function stageBytes(
   if (input.complete !== false) {
     const part = await uploadMultipartBlobPartBytes(runtime, {
       ...metadata,
-      bytes,
+      bytes: encryptedBytes,
       partNumber: 1,
       stageId: stage.stageId,
       uploadId: stage.uploadId,
@@ -106,11 +112,16 @@ test("a user in both organizations cannot promote a stage into the other organiz
   const root = await bootstrapRoot(first.owner);
   const document = await createDocument({ owner: first.owner, root });
   const runtime = createServiceTestRuntime();
+  const blobId = crypto.randomUUID();
+  const { bytes } = await createBlobEnvelopeFixture({
+    blobId,
+    organizationId: first.organizationId,
+  });
   const staged = await stageBytes(runtime, {
     userId: first.userId,
     organizationId: second.organizationId,
+    encryptedBytes: bytes,
   });
-  const blobId = crypto.randomUUID();
   const bind = await buildBind({
     blobId,
     document,
@@ -150,9 +161,13 @@ test("promotion, reads, and GC retries retain the organization key and preserve 
   const runtime = createServiceTestRuntime(undefined, {
     blobObjectStore: createFakeS3BlobObjectStore().store,
   });
-  const staged = await stageBytes(runtime, first);
-  const other = await stageBytes(runtime, second);
   const blobId = crypto.randomUUID();
+  const { bytes } = await createBlobEnvelopeFixture({
+    blobId,
+    organizationId: first.organizationId,
+  });
+  const staged = await stageBytes(runtime, { ...first, encryptedBytes: bytes });
+  const other = await stageBytes(runtime, { ...second, encryptedBytes: bytes });
   const bind = await buildBind({
     blobId,
     document,

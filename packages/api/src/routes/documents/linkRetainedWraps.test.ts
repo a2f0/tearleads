@@ -46,7 +46,7 @@ test("a retained wrap with an unrecognized metadata key can still be relinked", 
     document,
     owner,
     root,
-    stagedBlob: await stageBlob(owner),
+    stagedBlob: await stageBlob(owner, blobId),
   });
   await bindForTest({ blobId, owner, request: bind });
 
@@ -245,7 +245,7 @@ test("a shared bind carrying another document's stored wrap is accepted", async 
     document: first,
     owner,
     root,
-    stagedBlob: await stageBlob(owner),
+    stagedBlob: await stageBlob(owner, blobId),
   });
   await bindForTest({ blobId, owner, request: initial.request });
 

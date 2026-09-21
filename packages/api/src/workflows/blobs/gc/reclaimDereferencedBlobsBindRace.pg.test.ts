@@ -43,7 +43,7 @@ async function createDereferencedBlobFixture() {
     owner,
     root,
     slotId: "gc-race-initial",
-    stagedBlob: await stageBlob(owner),
+    stagedBlob: await stageBlob(owner, blobId),
   });
   await bindForTest({
     blobId,

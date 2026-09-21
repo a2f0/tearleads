@@ -31,7 +31,7 @@ import {
   initiateMultipartBlobStage,
   uploadMultipartBlobPartBytes,
 } from "../../src/services/blobs/multipartStage";
-import { blobObjectBytes } from "./blobObjectStore";
+import { createBlobEnvelopeFixture } from "./blobEnvelope";
 import { contentKeyEnvelopeFixture } from "./contentKeyEnvelope";
 import {
   asVerifiedContainerManifest,
@@ -54,29 +54,28 @@ function documentManifest(
   return document.accessManifest as unknown as VerifiedDocumentLinkSetManifest;
 }
 
-async function sha256Hex(value: string): Promise<string> {
-  const digest = new Uint8Array(
-    await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value)),
-  );
-  return Array.from(digest, (byte) => byte.toString(16).padStart(2, "0")).join(
-    "",
-  );
-}
-
-export async function stageBlob(owner: TestUser, organizationId?: string) {
-  const encryptedBytes = `encrypted:${crypto.randomUUID()}`;
-  const byteLength = new TextEncoder().encode(encryptedBytes).byteLength;
-  const sha256 = await sha256Hex(encryptedBytes);
+export async function stageBlob(
+  owner: TestUser,
+  blobId: string,
+  organizationId?: string,
+) {
+  const ownerOrganizationId =
+    organizationId ?? (await getDefaultOrganizationId(owner.userId));
+  const { bytes } = await createBlobEnvelopeFixture({
+    blobId,
+    organizationId: ownerOrganizationId,
+  });
+  const byteLength = bytes.byteLength;
+  const sha256 = new Bun.CryptoHasher("sha256").update(bytes).digest("hex");
   const staged = await initiateMultipartBlobStage(blobAttachmentTestRuntime, {
-    organizationId:
-      organizationId ?? (await getDefaultOrganizationId(owner.userId)),
+    organizationId: ownerOrganizationId,
     byteLength,
     sha256,
     userId: owner.userId,
   });
   const part = await uploadMultipartBlobPartBytes(blobAttachmentTestRuntime, {
     byteLength,
-    bytes: blobObjectBytes(encryptedBytes),
+    bytes,
     partNumber: 1,
     sha256,
     stageId: staged.stageId,

@@ -105,7 +105,7 @@ test("blob binding rejects malformed key envelopes without promoting or consumin
     root,
     document,
     blobId,
-    stagedBlob: await stageBlob(owner),
+    stagedBlob: await stageBlob(owner, blobId),
   });
   const target = request.contentKeyBundle.targets[0];
   if (!target) throw new Error("Expected blob target");

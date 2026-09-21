@@ -56,7 +56,10 @@ async function verifyAndStoreStagedBlobWriteHeader(input: {
   readonly proof: AttachmentAuthorizationProof;
   readonly request: BindBlobAttachmentInput["request"];
   readonly signingPublicKey: Uint8Array;
-  readonly stagedBlob: { readonly sha256: string } | null;
+  readonly stagedBlob: Pick<
+    PrevalidatedMultipartBlobStage,
+    "sha256" | "envelopeHeader"
+  > | null;
   readonly userId: string;
   readonly executor: DatabaseTransaction;
 }): Promise<string | undefined> {
@@ -85,6 +88,20 @@ async function verifyAndStoreStagedBlobWriteHeader(input: {
     throw new BlobMutationError(
       "Blob write header ciphertext hash does not match staged bytes",
       409,
+    );
+  }
+
+  const envelope = input.stagedBlob.envelopeHeader;
+  if (
+    envelope.blobId !== header.objectId ||
+    envelope.contentKeyEpoch !== header.contentKeyEpoch ||
+    envelope.contentRecordId !== header.contentRecordId ||
+    envelope.metadataHash !== header.metadataHash ||
+    envelope.nonceDomainHash !== header.nonceDomainHash
+  ) {
+    throw new BlobMutationError(
+      "Blob encrypted envelope does not match its signed write header",
+      400,
     );
   }
 

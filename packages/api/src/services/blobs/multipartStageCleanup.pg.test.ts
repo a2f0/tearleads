@@ -2,10 +2,8 @@ import { expect, test } from "bun:test";
 import { db, getDefaultApiDatabaseKind } from "@tearleads/api-shared/postgres";
 import { blobStages, blobs } from "@tearleads/api-shared/schema";
 import { eq, sql } from "drizzle-orm";
-import {
-  blobObjectBytes,
-  readBlobObjectText,
-} from "../../../test/helpers/blobObjectStore";
+import { createBlobEnvelopeFixture } from "../../../test/helpers/blobEnvelope";
+import { readBlobObjectText } from "../../../test/helpers/blobObjectStore";
 import { createBlobStageOwner } from "../../../test/helpers/blobStageOwner";
 import { gateTransactionSelectAfterExecution } from "../../../test/helpers/gateDatabaseSelect";
 import {
@@ -26,7 +24,10 @@ async function createStageFixture() {
   const runtime = createServiceTestRuntime();
   const { userId, organizationId } = await createBlobStageOwner();
   const blobId = crypto.randomUUID();
-  const bytes = blobObjectBytes("attachment committed during stage cleanup");
+  const { bytes, envelopeHeader } = await createBlobEnvelopeFixture({
+    blobId,
+    organizationId,
+  });
   const metadata = {
     byteLength: bytes.byteLength,
     sha256: await sha256Hex(bytes),
@@ -56,6 +57,7 @@ async function createStageFixture() {
     expectedOrganizationId: organizationId,
     prevalidatedMultipartStage: {
       ...metadata,
+      envelopeHeader,
       stageId: stage.stageId,
       storageKey,
     },

@@ -1,3 +1,4 @@
+import type { BlobEnvelopeRecord } from "@tearleads/crypto";
 import type {
   BlobAttachmentBindRequest,
   BlobAttachmentDetachRequest,
@@ -39,6 +40,7 @@ export interface BindBlobAttachmentInput {
 }
 
 export interface PrevalidatedMultipartBlobStage {
+  readonly envelopeHeader: BlobEnvelopeRecord;
   readonly byteLength: number;
   readonly sha256: string;
   readonly stageId: string;

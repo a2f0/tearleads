@@ -35,7 +35,7 @@ test("link and unlink atomically cover active blob bindings and retain prior wra
   const child = await createChildContainer({ parent: root, signer: owner });
   const document = await createDocument({ owner, root });
   const blobId = crypto.randomUUID();
-  const stagedBlob = await stageBlob(owner);
+  const stagedBlob = await stageBlob(owner, blobId);
   const { request: bind } = await buildBind({
     blobId,
     document,

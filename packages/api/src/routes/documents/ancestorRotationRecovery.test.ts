@@ -44,7 +44,7 @@ test("ancestor rotation keeps recovery projections and document reads available 
     owner,
     root: childFixture,
     containerPath: [root.bundle, childFixture.bundle],
-    stagedBlob: await stageBlob(owner),
+    stagedBlob: await stageBlob(owner, blobId),
   });
   await bindForTest({ blobId, owner, request: attachment.request });
   const headers = {
