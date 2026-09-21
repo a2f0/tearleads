@@ -108,7 +108,9 @@ function assertOneUserPerSigningKey(rows: Iterable<BackupSqlRow>): void {
     const key = `${domain}\u0000${signingKey}`;
     const bound = userBySigningKey.get(key);
     if (bound !== undefined && bound !== userId) {
-      throw new Error("Backup conflicts with a trusted identity pin (user_id)");
+      throw new Error(
+        `Backup conflicts with a trusted identity pin (user_id) in ${domain}`,
+      );
     }
     userBySigningKey.set(key, userId);
   }

@@ -21,3 +21,9 @@ This models transactional persistence as atomic. It does not prove SQL locking,
 cryptographic fingerprint validation, first-contact identity authenticity, or
 disk integrity. Runtime tests cover concurrent adapters, session recreation,
 incident reporting, and rejection before authentication publication.
+
+`Login` is the only action that writes pins. Registration and backup restore
+also write them and are not modeled; each is held to the same rule in code
+instead. Registration pins only after the server confirms the new user, so it
+behaves like a confirmed login, and restore refuses a backup that binds a
+pinned key to another user. Their tests cover both.
