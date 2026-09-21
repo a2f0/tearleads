@@ -419,6 +419,11 @@ async function validateCurrentTargetsForBundle(
   // unrecognized metadata key permanently un-linkable: a retained target must
   // be resubmitted byte-identical or the bundle is stale, so no client can
   // re-wrap its way out. Only new material is gated.
+  //
+  // The exemption is measured against the latest stored bundle, which on a
+  // content-key rotation is the epoch below the one being written. That is
+  // still sound: only bytes this document already holds are exempt, and a
+  // rotation re-wraps every target under a fresh key, so none of them match.
   assertSubmittedTargetsMatchCurrent({
     currentTargets,
     storedTargets: (await loadLatestBundle())?.targets ?? null,
