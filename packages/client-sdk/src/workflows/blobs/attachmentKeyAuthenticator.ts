@@ -1,6 +1,9 @@
-import { AES_GCM_TAG_BYTES, bytesToHex } from "@tearleads/crypto";
+import {
+  AES_GCM_TAG_BYTES,
+  blobChunkPlaintextByteLength,
+  bytesToHex,
+} from "@tearleads/crypto";
 import { createBlobEnvelopeStream } from "../../data/documents/blob/shared/blobEnvelopeStream";
-import { blobChunkPlaintextByteLength } from "../../data/documents/blob/shared/blobEnvelopeV2";
 import type {
   BlobEncryptedBytesRecord,
   DecryptDocumentAttachmentBlobInput,

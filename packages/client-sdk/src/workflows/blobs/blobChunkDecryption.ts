@@ -1,5 +1,5 @@
+import { deriveBlobChunkIv } from "@tearleads/crypto";
 import type { BlobBytes } from "../../data/blobContracts";
-import { deriveBlobChunkIv } from "../../data/documents/blob/shared/blobEnvelopeV2";
 import { contentRecordAdditionalDataBytes } from "../../data/documents/blob/shared/crypto";
 import type {
   BlobEncryptedBytesRecord,

@@ -1,16 +1,12 @@
-import {
-  AES_GCM_IV_BYTES,
-  AES_GCM_TAG_BYTES,
-  type KeyingCanonicalJson,
-  serializeKeyingCanonicalJson,
-} from "@tearleads/crypto";
-import type { BlobBytes } from "../../../blobContracts";
-import {
-  type BLOB_ENCRYPTED_BYTES_FORMAT,
-  BLOB_ENCRYPTED_BYTES_MAGIC,
-  type BLOB_ENCRYPTED_BYTES_VERSION,
-  TEXT_ENCODER,
-} from "./types";
+import { serializeKeyingCanonicalJson } from "./keying/canonical";
+import type { KeyingCanonicalJson } from "./keying/types";
+import { AES_GCM_IV_BYTES, AES_GCM_TAG_BYTES } from "./symmetric";
+
+export const BLOB_ENCRYPTED_BYTES_FORMAT = "tearleads.blob.bytes";
+export const BLOB_ENCRYPTED_BYTES_VERSION = 2;
+const BLOB_ENCRYPTED_BYTES_MAGIC = "tearleads.blob.bytes.v2";
+const TEXT_ENCODER = new TextEncoder();
+type BlobBytes = Uint8Array<ArrayBuffer>;
 
 const HEADER_LENGTH_BYTES = 4;
 export const BLOB_CHUNK_SIZE_BYTES = 5 * 1024 * 1024;

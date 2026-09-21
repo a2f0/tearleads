@@ -2,26 +2,26 @@ import {
   AES_256_KEY_BYTES,
   AES_GCM_TAG_BYTES,
   assertAesGcmIv,
+  BLOB_CHUNK_SIZE_BYTES,
+  BLOB_ENCRYPTED_BYTES_FORMAT,
+  BLOB_ENCRYPTED_BYTES_VERSION,
+  blobChunkPlaintextByteLength,
   bytesToHex,
   CONTENT_RECORD_ENCRYPTION_SUITE,
+  computeBlobChunkCount,
+  computeBlobEncryptedByteLength,
   computeContentRecordNonceDomainHash,
   createAesGcmIv,
   createIncrementalSha256,
+  deriveBlobChunkIv,
+  encodeBlobEnvelopeV2Header,
+  joinBlobPartBytes,
+  normalizeBlobChunkSize,
 } from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
 import type { BlobContentKeyBundleRequest } from "@tearleads/validators/request";
 import type { BlobByteSource, BlobBytes } from "../../../blobContracts";
 import { importContentKeyMaterial } from "../../shared/contentRecordKeys";
-import {
-  BLOB_CHUNK_SIZE_BYTES,
-  blobChunkPlaintextByteLength,
-  computeBlobChunkCount,
-  computeBlobEncryptedByteLength,
-  deriveBlobChunkIv,
-  encodeBlobEnvelopeV2Header,
-  joinBlobPartBytes,
-  normalizeBlobChunkSize,
-} from "./blobEnvelopeV2";
 import {
   blobContentMetadataHash,
   contentRecordAdditionalDataBytes,
@@ -34,10 +34,6 @@ import {
   readVerifiedBlobSourceChunk,
 } from "./blobSourceSnapshot";
 import type { BlobEncryptionPlan } from "./types";
-import {
-  BLOB_ENCRYPTED_BYTES_FORMAT,
-  BLOB_ENCRYPTED_BYTES_VERSION,
-} from "./types";
 
 export const DEFAULT_BLOB_CHUNK_SIZE_BYTES = BLOB_CHUNK_SIZE_BYTES;
 

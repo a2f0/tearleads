@@ -25,9 +25,6 @@ import type {
 import type { ExecSql } from "../../../sqlite/sqlSchema";
 import type { DocumentCreateAuthor } from "../../shared/types";
 
-export const BLOB_ENCRYPTED_BYTES_FORMAT = "tearleads.blob.bytes";
-export const BLOB_ENCRYPTED_BYTES_VERSION = 2;
-export const BLOB_ENCRYPTED_BYTES_MAGIC = "tearleads.blob.bytes.v2";
 export const BLOB_CONTENT_RECORD_KEY_INFO_DOMAIN =
   "tearleads.blob.content-record-key-info";
 export const BLOB_CONTENT_RECORD_AAD_DOMAIN =
@@ -38,20 +35,6 @@ export const BLOB_CONTENT_RECORD_NONCE_DOMAIN =
   "tearleads.blob.content-record-nonce";
 export const BLOB_CONTENT_RECORD_HKDF_SALT: Uint8Array<ArrayBuffer> =
   new TextEncoder().encode("tearleads.blob.content-record-hkdf-salt");
-export const BLOB_ENCRYPTED_BYTES_KEYS = new Set([
-  "blobId",
-  "byteLength",
-  "chunkCount",
-  "chunkSize",
-  "contentKeyEpoch",
-  "contentRecordId",
-  "encryptionSuite",
-  "format",
-  "iv",
-  "metadataHash",
-  "nonceDomainHash",
-  "version",
-]);
 export const TEXT_ENCODER = new TextEncoder();
 
 export interface BlobAttachmentRequestOptions {
