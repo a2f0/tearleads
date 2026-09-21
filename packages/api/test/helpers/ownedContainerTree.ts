@@ -33,6 +33,10 @@ export const isPathCurrent = (keks: readonly PathKek[]) =>
  * Each rotation answers with the container ids it carried, or null if refused.
  */
 interface OwnedContainerTree {
+  /** A signed rekey of any container that carries nothing, for posting raw. */
+  readonly bareRekeyRequest: (
+    containerId: string,
+  ) => Promise<ContainerMutationRequest>;
   /** A signed root rekey that carries nothing, for posting raw. */
   readonly bareRootRekeyRequest: () => Promise<ContainerMutationRequest>;
   readonly close: () => void;
@@ -91,18 +95,20 @@ export async function createOwnedTree(
   ) =>
     result &&
     (result.response.containerRekeys ?? []).map((rekey) => rekey.containerId);
+  const bareRekeyRequest = async (containerId: string) => {
+    const previousProjection =
+      await context.common.apiClient.getContainerWriterProjection(containerId);
+    if (!previousProjection) throw new Error("Expected a projection");
+    const bare = await buildMaterializedContainerRekeyPlan({
+      ...context.common,
+      persistVerificationCheckpoints: false,
+      previousProjection,
+    });
+    return bare.plan.request;
+  };
   return {
-    bareRootRekeyRequest: async () => {
-      const previousProjection =
-        await context.common.apiClient.getContainerWriterProjection(rootId);
-      if (!previousProjection) throw new Error("Expected root projection");
-      const bare = await buildMaterializedContainerRekeyPlan({
-        ...context.common,
-        persistVerificationCheckpoints: false,
-        previousProjection,
-      });
-      return bare.plan.request;
-    },
+    bareRekeyRequest,
+    bareRootRekeyRequest: () => bareRekeyRequest(rootId),
     close: context.close,
     createChild: async (parentContainerId) => {
       const child = await createRemoteContainer({

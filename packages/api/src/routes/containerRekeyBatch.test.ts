@@ -13,7 +13,10 @@ import {
   kekStateFromContainerResponse,
 } from "../../test/helpers/keyingWriterProjectionKit";
 import { registerUser } from "../../test/helpers/registerUser";
-import { getCurrentContainerKeyEpoch } from "../access/read/containerKekStore";
+import {
+  getCurrentContainerKeyEpoch,
+  getCurrentContainerKeyEpochPins,
+} from "../access/read/containerKekStore";
 import { routeApp } from "../routeApp";
 
 test("document create applies a chained container rekey batch", async () => {
@@ -55,6 +58,18 @@ test("document create applies a chained container rekey batch", async () => {
     db,
   );
   expect(currentEpoch?.id).toBe(secondRekey.kekState.containerKeyEpochId);
+  // The batched reader picks each container's latest epoch, not every epoch:
+  // this root now has three, and an unknown container simply has no entry.
+  const unknownId = crypto.randomUUID();
+  const pins = await getCurrentContainerKeyEpochPins(
+    [root.kekState.containerId, root.kekState.containerId, unknownId],
+    db,
+  );
+  expect([...pins.keys()]).toEqual([root.kekState.containerId]);
+  expect(pins.get(root.kekState.containerId)).toEqual({
+    id: secondRekey.kekState.containerKeyEpochId,
+    parentContainerKeyEpochId: null,
+  });
 });
 
 // #2340 finding 1. An inline rekey is a rotation like any other: one that would

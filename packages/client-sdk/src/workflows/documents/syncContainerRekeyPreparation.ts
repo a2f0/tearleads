@@ -107,12 +107,7 @@ async function commitRepairPrefix(input: {
   repairedIds: Set<string>;
   sync: SyncRemoteDocumentInput;
 }): Promise<void> {
-  // Containers an earlier repair in this prefix already re-keyed as something
-  // it had to carry. Their own plans were signed before that and now extend a
-  // superseded head, so they are dropped rather than resubmitted stale.
-  const carriedIds = new Set<string>();
   for (const { plan, writerProjection } of input.plans) {
-    if (carriedIds.has(plan.containerId)) continue;
     assertProjectionVerificationCurrent(input.sync.stillCurrent);
     if (input.sync.isRemoteSyncBlocked?.(plan.state.organizationId)) {
       throw new DocumentAncestorRepairAbandonedError("blocked");
@@ -158,9 +153,12 @@ async function commitRepairPrefix(input: {
     }
     input.repairedIds.add(plan.containerId);
     for (const carried of carriedPlans) {
-      carriedIds.add(carried.plan.containerId);
       input.repairedIds.add(carried.plan.containerId);
     }
+    // The rest of this prefix was signed before the carry. A plan for a carried
+    // container extends a superseded head, and one below it pins an epoch that
+    // was never minted. Stop here; the caller refetches and re-plans.
+    if (carriedPlans.length > 0) return;
   }
 }
 

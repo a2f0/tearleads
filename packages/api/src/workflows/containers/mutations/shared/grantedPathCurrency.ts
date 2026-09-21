@@ -139,8 +139,9 @@ async function loadAncestry(
 }
 
 /**
- * Strict descendants of a rotated container that are proper ancestors of a
- * directly granted container, parent-first. These are the levels a writer
+ * Strict descendants of the topmost rotated container on each granted chain
+ * that are proper ancestors of a directly granted container, parent-first,
+ * including any rotated further down. These are the levels a writer
  * granted only further down can never re-key itself: a rekey is authorized over
  * the root-to-target path, which a grant below the target is not on.
  *
@@ -164,22 +165,30 @@ async function listGrantedPathDescendants(
   const nodes = await loadAncestry(executor, grantedIds, shallowest);
   const closure = new Map<string, PathNode>();
   for (const grantedId of grantedIds) {
-    const above: PathNode[] = [];
+    // The chain above the grant, nearest first, up to the shallowest rotation.
+    const chain: PathNode[] = [];
     let node = nodes.get(nodes.get(grantedId)?.parentId ?? "");
-    while (node && !rotatedIds.has(node.id) && node.depth > shallowest) {
-      above.push(node);
+    while (node && node.depth >= shallowest) {
+      chain.push(node);
       node = node.parentId === null ? undefined : nodes.get(node.parentId);
     }
     // A chain that ran out above the rotated depth is a tree deeper than the
     // protocol allows: refuse rather than reason about a truncated path.
-    if (!node && above.at(-1)?.parentId != null) {
+    const top = chain.at(-1);
+    if (top && top.depth > shallowest && top.parentId !== null) {
       throw new ContainerMutationError(
         "Container ancestry exceeds the path depth limit",
         409,
       );
     }
-    if (node && rotatedIds.has(node.id)) {
-      for (const level of above) closure.set(level.id, level);
+    // Everything below the topmost rotated container on this chain is owed,
+    // rotated containers included: one rotated before its own parent, in the
+    // same batch, is left pinned to a retired epoch like any other level.
+    const topmostRotated = chain.findLastIndex((level) =>
+      rotatedIds.has(level.id),
+    );
+    for (const level of chain.slice(0, Math.max(topmostRotated, 0))) {
+      closure.set(level.id, level);
     }
   }
   return [...closure.values()].sort(

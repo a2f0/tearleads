@@ -154,3 +154,77 @@ test("the owed set is the union of granted chains within the organization", asyn
     other.close();
   }
 }, 240_000);
+
+// A carried rekey need not be a descendant. Rotating `lower` and then, in the
+// same batch, its parent `upper` leaves `lower` pinned to a retired epoch with a
+// grant beneath it. A rotated container's own pin counts like any other level.
+
+test("carrying an ancestor's rekey cannot strand the rotated container", async () => {
+  const tree = await createOwnedTree(1);
+  const [writer] = tree.members;
+  if (!writer) throw new Error("Expected a writer");
+  try {
+    const upper = await tree.createChild(tree.rootId);
+    const lower = await tree.createChild(upper);
+    const granted = await tree.createChild(lower);
+    await tree.share(granted, writer.userId);
+    const before = await tree.keksOf(granted);
+
+    const refused = await routeApp.request(`/containers/${lower}/rekey`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${tree.owner.token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        ...(await tree.bareRekeyRequest(lower)),
+        containerRekeys: [await tree.bareRekeyRequest(upper)],
+      }),
+    });
+    expect(refused.status, (await refused.clone().text()).slice(0, 300)).toBe(
+      409,
+    );
+    expect(await refused.json()).toMatchObject({
+      code: "container_descendant_rekeys_required",
+      requiredContainerIds: [lower],
+    });
+    // Refused whole: neither rotation landed.
+    expect(await tree.keksOf(granted)).toEqual(before);
+  } finally {
+    tree.close();
+  }
+}, 180_000);
+
+// Create and share validate with the loose mutation schema, which keeps unknown
+// keys, so `containerRekeys` reaches the workflow unvalidated on those routes.
+
+test("only a rotation may carry rekeys, and only as a list", async () => {
+  const tree = await createOwnedTree(0);
+  try {
+    const child = await tree.createChild(tree.rootId);
+    const request = await tree.bareRekeyRequest(child);
+    const share = (containerRekeys: unknown) =>
+      routeApp.request(`/containers/${child}/share`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${tree.owner.token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ ...request, containerRekeys }),
+      });
+    const carried = await share([request]);
+    expect(carried.status).toBe(400);
+    expect(await carried.json()).toMatchObject({
+      error: "Only a rotation may carry container rekeys",
+    });
+    for (const malformed of [5, {}, "rekeys"]) {
+      const response = await share(malformed);
+      expect(response.status).toBe(400);
+      expect(await response.json()).toMatchObject({
+        error: "Container rekeys must be a list",
+      });
+    }
+  } finally {
+    tree.close();
+  }
+}, 120_000);

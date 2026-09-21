@@ -15,6 +15,16 @@ import type { SecurityIncidentReporter } from "../../../data/securityIncidents";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import { rekeyRemoteContainer } from "./rekeyRemote";
 
+function carriesDirectGrant(
+  projection: ContainerWriterProjectionResponse,
+): boolean {
+  const directGrants = Reflect.get(
+    Object(projection.path.at(-1)?.state),
+    "directGrants",
+  );
+  return Array.isArray(directGrants) && directGrants.length > 0;
+}
+
 /** The first level on the path, the container included, pinning a retired epoch. */
 function firstStaleLevelId(
   projection: ContainerWriterProjectionResponse,
@@ -99,7 +109,17 @@ export async function projectionWithCurrentAncestors(input: {
         ? new ContainerKekRepairInaccessibleError(staleLevelId)
         : error;
     });
-    if (!repaired || input.stillCurrent?.() === false) return null;
+    if (input.stillCurrent?.() === false) return null;
+    if (!repaired) {
+      // This sharer could not re-key a level above a container that already
+      // carries a grant: stale past the carried-rekey cap, or after a group
+      // rematerialization. The server asks this only of a first grant, so let
+      // it decide rather than block a grant it would accept.
+      return staleLevelId !== input.containerId &&
+        carriesDirectGrant(projection)
+        ? projection
+        : null;
+    }
     const refreshed = await input.apiClient.getContainerWriterProjection(
       input.containerId,
     );

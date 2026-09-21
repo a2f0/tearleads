@@ -5,7 +5,10 @@ import {
   createTestExecSql,
 } from "@tearleads/test-utils";
 import { DOCUMENT_SYNC_ERROR_CODES } from "@tearleads/validators/response";
-import { createRotatedAncestorFixture } from "../../../test/helpers/ancestorRotationRecovery";
+import {
+  createDeepRotatedAncestorFixture,
+  createRotatedAncestorFixture,
+} from "../../../test/helpers/ancestorRotationRecovery";
 import { createMutationResponseFromRequest } from "../../../test/helpers/containerFixtures";
 import { createContainerServer } from "../../../test/helpers/containerMutationServer";
 import { writerKeyResolver } from "../../../test/helpers/documentFixtures";
@@ -197,6 +200,73 @@ test("a repair that carried the next level does not resubmit that level", async 
     // no stale `["grandchild"]` submission, and no `refused` abandon.
     expect(server.submissions).toEqual([["child"], ["child", "grandchild"]]);
   } finally {
+    database.close();
+  }
+}, 120_000);
+
+// With three stale levels the carry does not consume the remainder: the third
+// plan was signed against the second's speculative epoch, which the carry
+// replaced. The prefix stops after a carry so the caller re-plans from a fresh
+// projection instead of submitting it.
+
+test("a carry stops the prefix so the levels below it are re-planned", async () => {
+  const fixture = await createDeepRotatedAncestorFixture(3);
+  const staging = await createTestExecSql("inline-refused-deep-document");
+  const database = await createTestExecSql("inline-refused-deep");
+  try {
+    const created = await buildMaterializedDocumentCreatePlan({
+      ...fixture.input,
+      execSql: staging.execSql,
+      containerProjection: fixture.leaf,
+    });
+    const original = documentWriterProjectionFromCreateResponse({
+      containerProjection: fixture.leaf,
+      response: await createResponseFromRequest(created.plan.request),
+    });
+    const projection = {
+      ...original,
+      authorizingContainerPaths: [fixture.projection],
+    };
+    const [rotatedRoot] = fixture.projection.path;
+    const [rotatedRootKek] = fixture.projection.containerKeks;
+    if (!rotatedRoot || !rotatedRootKek) throw new Error("Expected the root");
+    const server = createContainerServer(
+      [
+        {
+          ...fixture.root.projection,
+          containerKeks: [rotatedRootKek],
+          path: [rotatedRoot],
+        },
+        ...fixture.descendants,
+      ],
+      { "descendant-0": ["descendant-1"] },
+    );
+    const sync = {
+      ...fixture.input,
+      apiClient: createMockApiClient({
+        getContainerWriterProjection:
+          server.apiClient.getContainerWriterProjection,
+        rekeyContainer: server.apiClient.rekeyContainer,
+        rekeyContainerResult: server.apiClient.rekeyContainerResult,
+      }),
+      buildRotationSnapshot: createFullHistoryRotationSnapshot,
+      documentId: projection.documentId,
+      execSql: database.execSql,
+      localVersionVector: null,
+      resolveWriterPublicKey: writerKeyResolver(fixture.root),
+      validateIncomingUpdates: () => undefined,
+    };
+    requireStandaloneAncestorRepairs(sync);
+    await expect(
+      prepareAutomaticContainerRekeys(sync, projection),
+    ).rejects.toThrow(/abandoned: unrefreshable/);
+    // Nothing for `descendant-2`: its pre-signed plan was never submitted.
+    expect(server.submissions).toEqual([
+      ["descendant-0"],
+      ["descendant-0", "descendant-1"],
+    ]);
+  } finally {
+    staging.close();
     database.close();
   }
 }, 120_000);

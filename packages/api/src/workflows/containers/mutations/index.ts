@@ -127,6 +127,11 @@ async function mutateContainerRotationInTransaction(
 ): Promise<ContainerRotationResponse> {
   const { containerRekeys = [], ...request } = input.request;
   const rotates = ROTATING_EVENT_TYPES.has(input.expectedEventType);
+  // Create and share validate with the loose mutation schema, which keeps
+  // unknown keys, so this one can arrive as anything at all.
+  if (!Array.isArray(containerRekeys)) {
+    throw mutationShapeError("Container rekeys must be a list");
+  }
   if (containerRekeys.length > 0 && !rotates) {
     throw mutationShapeError("Only a rotation may carry container rekeys");
   }
