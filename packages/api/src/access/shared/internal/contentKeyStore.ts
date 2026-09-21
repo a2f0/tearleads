@@ -87,8 +87,10 @@ interface CreateContentKeyStoreOptions<
   /**
    * Receives a loader for what this object already holds *at the epoch being
    * written*, so a caller can tell resubmitted material from newly wrapped
-   * material. Scoping it to that epoch means a rotation, which writes a new
-   * epoch, exempts nothing. It is lazy and memoized: the same read serves the
+   * material. Scoping it to that epoch means a document rotation, which writes
+   * a new epoch, exempts nothing. A blob epoch never changes without replacing
+   * the bytes, so for blobs the scoping is a no-op and the exemption lasts as
+   * long as the bundle does. It is lazy and memoized: the same read serves the
    * store below, and a request rejected by a cheaper check never pays for it.
    * A validator that calls it does move that read earlier in the transaction.
    * That is safe: the production entry points are the `*InTransaction` ones,

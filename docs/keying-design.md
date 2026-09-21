@@ -769,7 +769,8 @@ scoped to the content-key epoch being written, so a rotation exempts nothing.
 When a bundle submission is both malformed and stale, staleness usually wins:
 the target hash and current-target checks run first, and only the target-set
 comparison is ordered after the envelope shape check. A blob rewrap has no
-preceding hash check, so there the shape error always comes first.
+preceding target-hash check — it recomputes the hash afterward — but its epoch
+and coverage checks still run first.
 
 A retired blob target that re-enters a bundle is the one case where what lands
 is not what was submitted: the server discards the resubmitted wrap and writes

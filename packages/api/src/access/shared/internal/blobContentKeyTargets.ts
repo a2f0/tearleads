@@ -89,6 +89,9 @@ export const {
   targetKeyMaterialEqual,
 } = contentKeyTargetPolicy;
 
+// Blobs have no read-side counterpart to this: a blob content-key bundle is
+// projected through its attachment bindings, which assert currency
+// themselves, so nothing reads a stored target set back through this policy.
 export function assertSubmittedTargetsMatchCurrent(input: {
   readonly currentTargets: CurrentBlobKekTargets;
   readonly storedTargets: readonly BlobContentKeyTargetEnvelope[] | null;
