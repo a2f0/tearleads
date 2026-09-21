@@ -1,5 +1,10 @@
 import type { UploadMultipartBlobPartBytesRequest } from "@tearleads/api-client";
-import type { BlobContentKeyTarget, WriteHeader } from "@tearleads/crypto";
+import type {
+  BlobContentKeyTarget,
+  BlobEnvelopeHeaderRecord,
+  BlobEnvelopeRecord,
+  WriteHeader,
+} from "@tearleads/crypto";
 import type {
   BlobAttachmentBindRequest,
   BlobAttachmentDetachRequest,
@@ -92,33 +97,20 @@ export interface BlobAttachmentDetachApi {
 
 export type { BlobContentKeyTarget };
 
-export interface BlobEncryptedBytesRecord {
-  blobId: string;
-  byteLength: number;
-  chunkCount: number;
-  chunks: BlobEncryptedChunk[];
-  chunkSize: number;
-  contentKeyEpoch: number;
-  contentRecordId: string;
-  encryptedByteLength: number;
-  headerByteLength: number;
-  iv: Uint8Array;
-  metadataHash: string;
-  nonceDomainHash: string;
-}
+/**
+ * Aliases of the crypto parser's own types. The parser is shared with the API,
+ * so restating these shapes here would let the two drift apart silently.
+ */
+export type BlobEncryptedBytesRecord = BlobEnvelopeRecord;
 
 /**
  * The envelope as the header establishes it. Streaming readers hold this
  * before any ciphertext is read, so it has no `chunks`: an empty array there
  * would read as an empty object rather than an unread one.
  */
-export type BlobEncryptedBytesHeader = Omit<BlobEncryptedBytesRecord, "chunks">;
+export type BlobEncryptedBytesHeader = BlobEnvelopeHeaderRecord;
 
-export interface BlobEncryptedChunk {
-  ciphertext: BlobBytes;
-  index: number;
-  plaintextByteLength: number;
-}
+export type BlobEncryptedChunk = BlobEnvelopeRecord["chunks"][number];
 
 export interface BlobSourceSnapshot {
   readonly byteLength: number;

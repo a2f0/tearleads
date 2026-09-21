@@ -9,11 +9,20 @@ import {
 import { summarizeSha256Stream } from "../../utils/sha256";
 import { BlobMutationError } from "../../workflows/blobs/mutations";
 
-/** Hash the complete object while retaining at most its bounded public header. */
+/**
+ * Hash the complete object while retaining at most its bounded public header.
+ *
+ * The envelope is judged before the caller compares length and hash against
+ * the stage row, so a stored object that is both malformed and mismatched is
+ * reported as malformed (400) rather than as a storage conflict (409). That is
+ * deliberate: multipart completion has already verified the declared length
+ * and hash, so a mismatch here means storage changed after completion, and
+ * waiting to find out would mean reading every malformed upload to the end.
+ */
 export async function summarizeBlobEnvelopeStage(
   stream: ReadableStream<Uint8Array>,
 ) {
-  const prefix = new Uint8Array(
+  const headerBuffer = new Uint8Array(
     BLOB_ENVELOPE_PREFIX_BYTES + MAX_BLOB_ENVELOPE_HEADER_BYTES,
   );
   let retainedBytes = 0;
@@ -24,18 +33,21 @@ export async function summarizeBlobEnvelopeStage(
   const observed = stream.pipeThrough(
     new TransformStream<Uint8Array, Uint8Array>({
       transform(chunk, controller) {
-        const copied = Math.min(
-          chunk.byteLength,
-          prefix.byteLength - retainedBytes,
-        );
-        prefix.set(chunk.subarray(0, copied), retainedBytes);
-        retainedBytes += copied;
+        // Once the header is parsed, the rest is ciphertext: hash it, don't keep it.
+        if (parsed.header === null) {
+          const copied = Math.min(
+            chunk.byteLength,
+            headerBuffer.byteLength - retainedBytes,
+          );
+          headerBuffer.set(chunk.subarray(0, copied), retainedBytes);
+          retainedBytes += copied;
+        }
         if (
           headerByteLength === null &&
           retainedBytes >= BLOB_ENVELOPE_PREFIX_BYTES
         ) {
           try {
-            headerByteLength = readBlobEnvelopeHeaderByteLength(prefix);
+            headerByteLength = readBlobEnvelopeHeaderByteLength(headerBuffer);
           } catch (error) {
             throw invalidEnvelope(error);
           }
@@ -46,9 +58,9 @@ export async function summarizeBlobEnvelopeStage(
           retainedBytes >= headerByteLength
         ) {
           try {
-            // `headerByteLength` already spans the prefix and the payload.
+            // `headerByteLength` already spans the framing prefix and the payload.
             parsed.header = parseBlobEnvelopeV2Header(
-              prefix.subarray(0, headerByteLength),
+              headerBuffer.subarray(0, headerByteLength),
             );
           } catch (error) {
             throw invalidEnvelope(error);

@@ -1,4 +1,5 @@
 import { BlobEnvelopeError } from "./blobEnvelopeError";
+
 export function readRecordString(
   record: Record<string, unknown>,
   key: string,

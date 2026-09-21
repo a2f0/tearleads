@@ -47,7 +47,6 @@ import {
   appendUnexpectedUserWrapToRekey,
   buildRootContainerRekeyMutation,
 } from "../../../test/helpers/containerRekey";
-
 import { contentKeyEnvelopeFixture } from "../../../test/helpers/contentKeyEnvelope";
 import { getDefaultOrganizationId } from "../../../test/helpers/organizationMembership";
 import { getRootContainerForUser } from "../../../test/helpers/personalRootContainer";
