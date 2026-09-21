@@ -85,15 +85,16 @@ interface CreateContentKeyStoreOptions<
     executor: DatabaseSession,
   ) => Promise<TBundle>;
   /**
-   * Receives a loader for the stored bundle so a caller can tell resubmitted
-   * material from newly wrapped material. It is lazy and memoized: the same
-   * read serves the store below, and a request rejected by a cheaper check
-   * never pays for it.
+   * Receives a loader for what this object already holds *at the epoch being
+   * written*, so a caller can tell resubmitted material from newly wrapped
+   * material. Scoping it to that epoch means a rotation, which writes a new
+   * epoch, exempts nothing. It is lazy and memoized: the same read serves the
+   * store below, and a request rejected by a cheaper check never pays for it.
    */
   readonly validateCurrentTargets: (
     input: TInput,
     executor: DatabaseSession,
-    loadLatestBundle: () => Promise<TBundle | null>,
+    loadExistingBundle: () => Promise<TBundle | null>,
   ) => Promise<TCurrentTargets>;
 }
 
@@ -182,29 +183,29 @@ class ContentKeyStore<
     executor: DatabaseTransaction,
   ): Promise<TBundle & { readonly currentTargets: TCurrentTargets }> {
     const identifier = this.options.getIdentifier(input);
-    let pendingLatestBundle: Promise<TBundle | null> | null = null;
-    const loadLatestBundle = (): Promise<TBundle | null> => {
-      if (!pendingLatestBundle) {
-        pendingLatestBundle = this.getLatestBundle(identifier, executor);
+    let pendingExistingBundle: Promise<TBundle | null> | null = null;
+    const loadExistingBundle = (): Promise<TBundle | null> => {
+      if (!pendingExistingBundle) {
+        pendingExistingBundle = this.getBundle(
+          identifier,
+          input.contentKeyEpoch,
+          executor,
+        );
       }
-      return pendingLatestBundle;
+      return pendingExistingBundle;
     };
     const currentTargets = await this.options.validateCurrentTargets(
       input,
       executor,
-      loadLatestBundle,
+      loadExistingBundle,
     );
-    const latestBundle = await loadLatestBundle();
+    const latestBundle = await this.getLatestBundle(identifier, executor);
     const preparation = this.options.prepareStore({
       currentTargets,
       input,
       latestBundle,
     });
-    const existingBundle = await this.getBundle(
-      identifier,
-      input.contentKeyEpoch,
-      executor,
-    );
+    const existingBundle = await loadExistingBundle();
 
     let bundle: TBundle;
     if (!existingBundle) {

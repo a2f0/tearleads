@@ -7,6 +7,7 @@ import {
 } from "@tearleads/api-shared/schema";
 import { createTestUser } from "@tearleads/bob-and-alice";
 import { isPlainObject } from "@tearleads/validators/isPlainObject";
+import { isDocumentLinkSetMutationResponse } from "@tearleads/validators/response";
 import { eq } from "drizzle-orm";
 import { authenticate } from "../../../test/helpers/authenticate";
 import {
@@ -15,7 +16,10 @@ import {
   stageBlob,
 } from "../../../test/helpers/blobAttachmentKit";
 import { contentKeyEnvelopeFixture } from "../../../test/helpers/contentKeyEnvelope";
-import { buildDocumentLinkRequest } from "../../../test/helpers/documentLinkMutation";
+import {
+  buildDocumentLinkRequest,
+  buildDocumentUnlinkRequest,
+} from "../../../test/helpers/documentLinkMutation";
 import { createChildContainer } from "../../../test/helpers/keyingWriterProjectionChild";
 import {
   bootstrapRoot,
@@ -184,6 +188,42 @@ test("a retained document wrap with an unrecognized metadata key can still be re
   const response = await post(link);
   const body = await response.text();
   expect({ status: response.status, body }).toMatchObject({ status: 200 });
+  const linked = await JSON.parse(body);
+  if (!isDocumentLinkSetMutationResponse(linked))
+    throw new Error("Expected a linked document");
+
+  // An unlink rotates the content key, so every target is freshly wrapped and
+  // none is retained. This pins that the rotation path is gated at all; it
+  // does not discriminate the exemption's epoch scoping, because rotated
+  // bytes never match a stored envelope under either scoping.
+  const unlink = await buildDocumentUnlinkRequest({
+    child,
+    linkedDocument: linked,
+    owner,
+    root,
+  });
+  const rotated = structuredClone(unlink);
+  const rotatedTarget = rotated.contentKeyBundle.targets[0];
+  if (!rotatedTarget) throw new Error("Expected a rotated target");
+  Reflect.set(rotatedTarget, "wrappedKey", "AA==");
+  const refusedRotation = await routeApp.request(
+    `/documents/${document.id}/unlink`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${owner.token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(rotated),
+    },
+  );
+  const rotationBody = await refusedRotation.text();
+  expect({ status: refusedRotation.status, body: rotationBody }).toMatchObject({
+    status: 400,
+  });
+  expect(rotationBody).toContain(
+    "Document content-key target wrapped key has an invalid encoded length",
+  );
 });
 
 // A blob bind covers every active binding of that blob, so binding a blob a

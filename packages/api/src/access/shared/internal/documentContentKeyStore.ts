@@ -390,7 +390,7 @@ async function addDocumentContentKeyTargetsToExistingBundle(input: {
 async function validateCurrentTargetsForBundle(
   input: StoreDocumentContentKeyBundleInput,
   executor: DatabaseSession,
-  loadLatestBundle: () => Promise<StoredDocumentContentKeyBundle | null>,
+  loadExistingBundle: () => Promise<StoredDocumentContentKeyBundle | null>,
 ): Promise<CurrentDocumentKekTargets> {
   ensurePositiveContentKeyEpoch(input.contentKeyEpoch);
   await assertTargetHashMatches(input);
@@ -420,13 +420,11 @@ async function validateCurrentTargetsForBundle(
   // be resubmitted byte-identical or the bundle is stale, so no client can
   // re-wrap its way out. Only new material is gated.
   //
-  // The exemption is measured against the latest stored bundle, which on a
-  // content-key rotation is the epoch below the one being written. That is
-  // still sound: only bytes this document already holds are exempt, and a
-  // rotation re-wraps every target under a fresh key, so none of them match.
+  // The exemption is scoped to the epoch being written, so a rotation, which
+  // writes a new one, exempts nothing and is held to the full shape.
   assertSubmittedTargetsMatchCurrent({
     currentTargets,
-    storedTargets: (await loadLatestBundle())?.targets ?? null,
+    storedTargets: (await loadExistingBundle())?.targets ?? null,
     targets: input.targets,
   });
   return currentTargets;
