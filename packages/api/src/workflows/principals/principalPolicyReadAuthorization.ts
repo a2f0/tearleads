@@ -159,6 +159,74 @@ async function listRequesterSeedContainerIds(
   return uniqueSortedStrings(rows.map((row) => row.containerId));
 }
 
+/**
+ * Containers whose current head grants the principal directly. A requester
+ * who can read one of them (through a grant on it or on an ancestor) has the
+ * principal on the path their client verifies, even though the requester's
+ * own seed containers sit above the grant and never cite it.
+ */
+async function listContainerIdsGrantingPrincipal(
+  executor: DatabaseSession,
+  principal: Pick<StoredPrincipalState, "principalType" | "principalId">,
+): Promise<string[]> {
+  const rows = await executor
+    .select({
+      containerId: accessManifestContainerGrantProjection.containerId,
+    })
+    .from(accessManifestContainerGrantProjection)
+    .innerJoin(
+      accessManifestHeads,
+      and(
+        eq(accessManifestHeads.objectKind, "container"),
+        eq(
+          accessManifestHeads.objectId,
+          accessManifestContainerGrantProjection.containerId,
+        ),
+        eq(
+          accessManifestHeads.manifestHash,
+          accessManifestContainerGrantProjection.manifestHash,
+        ),
+      ),
+    )
+    .where(
+      and(
+        eq(
+          accessManifestContainerGrantProjection.subjectType,
+          principal.principalType,
+        ),
+        eq(
+          accessManifestContainerGrantProjection.subjectId,
+          principal.principalId,
+        ),
+      ),
+    )
+    .orderBy(asc(accessManifestContainerGrantProjection.containerId))
+    .limit(MAX_REFERENCING_SEED_CONTAINERS);
+  return uniqueSortedStrings(rows.map((row) => row.containerId));
+}
+
+async function canReadContainerGrantingPrincipal(
+  executor: DatabaseSession,
+  currentState: StoredPrincipalState,
+  userId: string,
+): Promise<boolean> {
+  const containerIds = await listContainerIdsGrantingPrincipal(
+    executor,
+    currentState,
+  );
+  if (containerIds.length === 0) {
+    return false;
+  }
+  const results = await resolveReadableContainerAccessBatch({
+    containerIds,
+    executor,
+    userId,
+  });
+  return Array.from(results.values()).some(
+    (result) => result.status === "fulfilled",
+  );
+}
+
 function accessPathReferencesPrincipal(
   access: ContainerAccessProjection,
   principal: Pick<StoredPrincipalState, "principalType" | "principalId">,
@@ -216,8 +284,10 @@ async function holdsGrantReferencingPrincipal(
  * ciphertexts, key fingerprints, and grant projection, so it is served only to
  * a requester with a legitimate verification dependency on it: an active
  * roster member of its organization, a user in its current projection, or a
- * holder of a current container grant whose verified path references it.
- * Honest clients are always in one of those sets.
+ * holder of a current container grant whose verified path references it, on
+ * either side of the grant: a requester granted below it sees the principal
+ * on their path, and a requester granted above it can read the container the
+ * principal is granted on. Honest clients are always in one of those sets.
  */
 export async function assertPrincipalPolicyReadable(input: {
   readonly currentState: StoredPrincipalState;
@@ -243,6 +313,15 @@ export async function assertPrincipalPolicyReadable(input: {
   }
   if (
     await holdsGrantReferencingPrincipal(
+      executor,
+      currentState,
+      requesterUserId,
+    )
+  ) {
+    return;
+  }
+  if (
+    await canReadContainerGrantingPrincipal(
       executor,
       currentState,
       requesterUserId,
