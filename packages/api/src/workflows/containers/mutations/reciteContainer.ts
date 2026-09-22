@@ -71,6 +71,7 @@ async function verifyRecitation(
       referencedPrincipalHeads: (previousContainerPath ?? []).flatMap(
         (manifest) => manifest.state.referencedPrincipalHeads,
       ),
+      requesterUserId: input.userId,
     },
   );
   const event = await verifyMutationEvent(context.executor, {

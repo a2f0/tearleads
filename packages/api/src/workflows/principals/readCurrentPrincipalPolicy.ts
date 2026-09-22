@@ -12,7 +12,8 @@ import { PrincipalPolicyError } from "./shared";
  * imports while it resolves referenced policies: the authorization here reads
  * container access back through that projection, so folding it in would close
  * an import cycle. Server-side callers that already hold a verified access
- * path keep using `getCurrentPrincipalPolicyWithExecutor` unauthorized.
+ * path read bundles by state through `getPrincipalPolicyForStateWithExecutor`
+ * without this check.
  */
 export async function runReadCurrentPrincipalPolicyWorkflow(
   db: ApiDatabase,

@@ -1,15 +1,12 @@
 import { expect, test } from "bun:test";
 import { db } from "@tearleads/api-shared/postgres";
-import {
-  organizationRosterEntries,
-  organizations,
-} from "@tearleads/api-shared/schema";
+import { organizations } from "@tearleads/api-shared/schema";
 import { createTestUser, type TestUser } from "@tearleads/bob-and-alice";
 import {
   isContainerMutationResponse,
   isPrincipalPolicyBundleResponse,
 } from "@tearleads/validators/response";
-import { and, eq } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import invariant from "invariant";
 import { authenticate } from "../../../test/helpers/authenticate";
 import {
@@ -17,6 +14,7 @@ import {
   buildRootGrantRequest,
 } from "../../../test/helpers/keyingWriterProjectionKit";
 import { getDefaultOrganizationId } from "../../../test/helpers/organizationMembership";
+import { stripOrganizationMembership } from "../../../test/helpers/principalPolicyReadFixtures";
 import { recoverRegisteredRootKek } from "../../../test/helpers/registeredRootKek";
 import { registerUser } from "../../../test/helpers/registerUser";
 import { grantRootThroughRotatedReadGroup } from "../../../test/helpers/rotatedReadGroupGrant";
@@ -115,7 +113,9 @@ test("GET principal policy serves a peer the owner shared a root with", async ()
   expect(isContainerMutationResponse(await shareResponse.json())).toBe(true);
 
   // The shared root cites the owner's Admins head, which the peer must fetch
-  // to verify the path it was just granted.
+  // to verify the path it was just granted; the grant alone must serve it,
+  // so the organization membership the share fixture enrolled is stripped.
+  await stripOrganizationMembership(organizationId, peer.userId);
   await expectBundle(await getPolicy(peer, "group", adminGroupId));
   await expectBundle(await getPolicy(peer, "organization", organizationId));
 });
@@ -135,21 +135,18 @@ test("GET principal policy serves a group-granted reader with no roster entry", 
     reader,
     root,
   });
-  // An ordinary group may name a user who is on no roster; strip the roster
-  // entry the fixture created so only the container grant can authorize.
-  await db
-    .delete(organizationRosterEntries)
-    .where(
-      and(
-        eq(organizationRosterEntries.organizationId, organizationId),
-        eq(organizationRosterEntries.userId, reader.userId),
-      ),
-    );
+  // An ordinary group may name a user who is on no roster; strip the
+  // organization membership the fixture created so only the container grant
+  // and the group projection can authorize.
+  await stripOrganizationMembership(organizationId, reader.userId);
 
   // Projection membership serves the reader's own group ...
   await expectBundle(await getPolicy(reader, "group", groupId));
-  // ... and the root's Admins head is reachable only through the grant.
+  // ... the root's Admins head is reachable only through the grant, and the
+  // organization bundle the client loads before verifying any of its groups
+  // follows from that same grant.
   await expectBundle(await getPolicy(reader, "group", adminGroupId));
+  await expectBundle(await getPolicy(reader, "organization", organizationId));
 
   const outsider = createTestUser();
   await registerAndAuthenticate(outsider);

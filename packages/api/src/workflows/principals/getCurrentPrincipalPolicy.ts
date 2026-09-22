@@ -79,7 +79,7 @@ export async function getPrincipalPolicyForStateWithExecutor(
   ).bundle;
 }
 
-export async function getCurrentPrincipalPolicyWithExecutor(
+async function getCurrentPrincipalPolicyWithExecutor(
   executor: DatabaseSession,
   principalType: "group" | "organization",
   principalId: string,

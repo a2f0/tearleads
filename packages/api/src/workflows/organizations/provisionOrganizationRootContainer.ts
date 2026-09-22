@@ -238,6 +238,7 @@ export async function storeInitialRootContainer(
   const principalPolicies = await assertPrincipalPoliciesCurrent(
     tx,
     principalPoliciesFromRequest(request),
+    { requesterUserId: input.userId },
   );
 
   const event = requireRootVerification(

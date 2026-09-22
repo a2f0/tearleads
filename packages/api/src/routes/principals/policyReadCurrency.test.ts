@@ -3,7 +3,6 @@ import { db } from "@tearleads/api-shared/postgres";
 import {
   organizationRosterEntries,
   organizations,
-  principalMembershipProjection,
 } from "@tearleads/api-shared/schema";
 import { createTestUser, type TestUser } from "@tearleads/bob-and-alice";
 import type { AccessManifestBundleWire } from "@tearleads/validators/request";
@@ -17,6 +16,7 @@ import {
 } from "../../../test/helpers/keyingWriterProjectionKit";
 import { buildRootRevokeRequest } from "../../../test/helpers/keyingWriterProjectionRevoke";
 import { getDefaultOrganizationId } from "../../../test/helpers/organizationMembership";
+import { stripOrganizationMembership } from "../../../test/helpers/principalPolicyReadFixtures";
 import { recoverRegisteredRootKek } from "../../../test/helpers/registeredRootKek";
 import { registerUser } from "../../../test/helpers/registerUser";
 import {
@@ -56,44 +56,6 @@ async function loadAdminGroupId(organizationId: string): Promise<string> {
     .limit(1);
   invariant(organization, "expected organization row");
   return organization.adminGroupId;
-}
-
-/**
- * The share and group fixtures also enrol the recipient in the organization:
- * a roster row and Members-group projection membership, either of which
- * authorizes the read on its own. Strip both so only the evidence under test
- * remains.
- */
-async function stripOrganizationMembership(
-  organizationId: string,
-  userId: string,
-): Promise<void> {
-  await db
-    .delete(organizationRosterEntries)
-    .where(
-      and(
-        eq(organizationRosterEntries.organizationId, organizationId),
-        eq(organizationRosterEntries.userId, userId),
-      ),
-    );
-  const [organization] = await db
-    .select({ memberGroupId: organizations.memberGroupId })
-    .from(organizations)
-    .where(eq(organizations.id, organizationId))
-    .limit(1);
-  invariant(organization, "expected organization row");
-  await db
-    .delete(principalMembershipProjection)
-    .where(
-      and(
-        eq(principalMembershipProjection.principalType, "group"),
-        eq(
-          principalMembershipProjection.principalId,
-          organization.memberGroupId,
-        ),
-        eq(principalMembershipProjection.userId, userId),
-      ),
-    );
 }
 
 async function postAsOwner(
