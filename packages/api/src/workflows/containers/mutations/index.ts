@@ -8,6 +8,7 @@ import {
   MAX_INLINE_CONTAINER_REKEYS,
   MAX_ROTATION_CONTAINER_REKEYS,
 } from "@tearleads/validators/util";
+import { readProjectionAccessEvent } from "../../../keyingProjectionRecords";
 import { assertOrganizationCanSync } from "../../billing/organizationSyncEligibility";
 import { createContainerWriterProjectionContext } from "../writerProjection";
 import {
@@ -155,6 +156,19 @@ async function mutateContainerRotationInTransaction(
       userId: input.userId,
     }),
   );
+  // Each carried rekey must sit below the rotated container; refuse before
+  // any of them is verified and written, since the batch rolls back anyway.
+  const objectIdOf = (event: unknown, label: string) =>
+    readProjectionAccessEvent(event, label, mutationShapeError).objectId;
+  await assertCarriedRekeysBelowRotations({
+    carriedContainerIds: containerRekeys.map((carriedRequest) =>
+      objectIdOf(carriedRequest.event, "Carried container rekey event"),
+    ),
+    executor: tx,
+    rotatedContainerIds: [
+      objectIdOf(request.event, "Container rotation event"),
+    ],
+  });
   // One prelock over the whole batch keeps the group -> organization lock
   // order deterministic, exactly as inline document rekeys do.
   const context: ContainerMutationContext = {
@@ -181,11 +195,6 @@ async function mutateContainerRotationInTransaction(
       }),
     );
   }
-  await assertCarriedRekeysBelowRotations({
-    carriedContainerIds: carriedResponses.map((carried) => carried.containerId),
-    executor: tx,
-    rotatedContainerIds: [response.containerId],
-  });
   await assertGrantedPathsCurrentBelowRotations({
     carriedLimit: MAX_ROTATION_CONTAINER_REKEYS,
     executor: tx,

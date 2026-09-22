@@ -15,7 +15,7 @@ export function assertBranchPushed(input: {
   }
   if (input.remoteHead !== input.localHead) {
     throw new Error(
-      `Branch '${input.branch}' is at ${input.remoteHead} on the repository but ${input.localHead} locally. Push the local head (without force) before opening the PR.`,
+      `Branch '${input.branch}' is at ${input.remoteHead} on the repository but ${input.localHead} locally. Fetch and reconcile, then push (never force) before opening the PR.`,
     );
   }
 }

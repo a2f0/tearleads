@@ -109,7 +109,9 @@ The title is validated with the repository's commitlint setup (see below) before
 the PR is created, so conventional-commit syntax and the 50-char header limit
 apply. The body is read from stdin (empty when none is piped), the head is the
 current branch, and the base defaults to the repository's default branch. Errors
-if an open PR already exists for the branch. Backs the `open-pr` skill.
+if an open PR already exists for the branch. It never pushes: it errors unless
+the branch is on the repository at the local head, since the push runs the
+pre-push gate, which belongs to the caller. Backs the `open-pr` skill.
 
 ## Squash merge
 

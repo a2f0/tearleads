@@ -155,10 +155,10 @@ test("the owed set is the union of granted chains within the organization", asyn
   }
 }, 240_000);
 
-// A carried rekey need not be a descendant. Rotating `lower` and then, in the
-// same batch, its parent `upper` leaves `lower` pinned to a retired epoch with a
-// grant beneath it. A carried rekey rides the rotation above it, and an
-// ancestor is not below anything the batch rotates.
+// A carried rekey rides the rotation above it, so it must sit below one. An
+// ancestor does not: rotating `lower` and then, in the same batch, its parent
+// `upper` would leave `lower` pinned to a retired epoch with a grant beneath
+// it. Nor does the rotated container itself.
 
 test("carrying an ancestor's rekey is refused as not below the rotation", async () => {
   const tree = await createOwnedTree(1);
@@ -189,6 +189,23 @@ test("carrying an ancestor's rekey is refused as not below the rotation", async 
       error: "Carried container rekey is not below the rotated container",
     });
     // Refused whole: neither rotation landed.
+    expect(await tree.keksOf(granted)).toEqual(before);
+
+    const selfCarried = await routeApp.request(`/containers/${lower}/rekey`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${tree.owner.token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        ...(await tree.bareRekeyRequest(lower)),
+        containerRekeys: [await tree.bareRekeyRequest(lower)],
+      }),
+    });
+    expect(selfCarried.status).toBe(409);
+    expect(await selfCarried.json()).toMatchObject({
+      error: "Carried container rekey is not below the rotated container",
+    });
     expect(await tree.keksOf(granted)).toEqual(before);
   } finally {
     tree.close();
