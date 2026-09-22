@@ -265,8 +265,9 @@ async function assertGrantedPathsCurrentBelow(input: {
 
 /**
  * Hold every organization a batch rotated in to the rule, each on its own. A
- * batch locks whatever organizations it names, and a carried rekey need not
- * share the rotation's, so checking only one would let a member of two strand
+ * carried rekey must sit below the rotation it rides, so today a batch stays
+ * in one organization; this walks whichever it names regardless, as defence in
+ * depth, since a batch locks all of them and a member of two must never strand
  * a grantee in the other.
  */
 export async function assertGrantedPathsCurrentBelowRotations(input: {

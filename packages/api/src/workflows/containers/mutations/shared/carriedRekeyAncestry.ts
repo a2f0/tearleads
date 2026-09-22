@@ -12,6 +12,8 @@ import { ContainerMutationError } from "../errors";
  * ancestor, within the path depth limit. Authorization is enforced per
  * mutation regardless; this refuses an unrelated rekey from riding a
  * rotation's transaction, and a rotation's own container from being "carried".
+ * A container that does not exist gets the same refusal as an unrelated one,
+ * deliberately: the answer must not say whether an id is real.
  */
 export async function assertCarriedRekeysBelowRotations(input: {
   readonly carriedContainerIds: readonly string[];

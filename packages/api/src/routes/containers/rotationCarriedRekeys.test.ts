@@ -318,6 +318,24 @@ test("a grant on an unrelated branch owes a rotation nothing", async () => {
     expect(await refused.json()).toMatchObject({
       requiredContainerIds: [leftUpper],
     });
+
+    // Nor may the rotation carry a rekey from that branch: a sibling's
+    // descendant is not below `left`, however much it shares.
+    const sibling = await routeApp.request(`/containers/${left}/rekey`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${tree.owner.token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        ...(await tree.bareRekeyRequest(left)),
+        containerRekeys: [await tree.bareRekeyRequest(rightUpper)],
+      }),
+    });
+    expect(sibling.status).toBe(409);
+    expect(await sibling.json()).toMatchObject({
+      error: "Carried container rekey is not below the rotated container",
+    });
   } finally {
     tree.close();
   }
