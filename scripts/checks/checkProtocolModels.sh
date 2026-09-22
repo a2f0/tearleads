@@ -20,7 +20,18 @@ cd "$REPO_ROOT"
 
 CHECK_ROOT=$(mktemp -d "${TMPDIR:-/tmp}/tearleads-tlc.XXXXXX")
 trap 'rm -rf "$CHECK_ROOT"' EXIT
-trap 'exit 1' HUP INT TERM
+
+# Overlapping TLC runs are background jobs, which a non-interactive shell starts
+# with SIGINT ignored, and a JVM keeps a signal ignored when it starts that way,
+# so Ctrl-C reaches none of them. Each in-flight run leaves its Java PID in a
+# file; an interrupted check stops those runs before its state is removed.
+stop_runs() {
+  for run_pid_file in "$CHECK_ROOT"/model-*.pid; do
+    [ -f "$run_pid_file" ] || continue
+    kill "$(cat "$run_pid_file")" 2>/dev/null || :
+  done
+}
+trap 'stop_runs; exit 1' HUP INT TERM
 
 REGISTERED_MODELS=$CHECK_ROOT/registered-models.txt
 SORTED_MODELS=$CHECK_ROOT/sorted-models.txt
@@ -186,25 +197,30 @@ printf '127.0.0.1 %s localhost\n' "$(hostname)" >"$TLC_HOSTS_FILE"
 run_model() {
   run_state_path=$CHECK_ROOT/model-$1
   mkdir "$run_state_path" "$run_state_path/java-tmp"
-  if "$JAVA_BIN" -XX:+UseParallelGC \
+  "$JAVA_BIN" -XX:+UseParallelGC \
     "-Djava.io.tmpdir=$run_state_path/java-tmp" \
     "-Djdk.net.hosts.file=$TLC_HOSTS_FILE" \
     -jar "$TLA_TOOLS_JAR" \
     -workers 1 \
     -metadir "$run_state_path" \
     -config "$3" \
-    "$2" >"$run_state_path.log" 2>&1 </dev/null; then
-    echo 0 >"$run_state_path.status"
+    "$2" >"$run_state_path.log" 2>&1 </dev/null &
+  echo "$!" >"$run_state_path.pid"
+  if wait "$!"; then
+    run_status=0
   else
-    echo "$?" >"$run_state_path.status"
+    run_status=$?
   fi
+  # A finished run's PID may be reused, so it must never be signalled.
+  rm -f "$run_state_path.pid"
+  echo "$run_status" >"$run_state_path.status"
 }
 
 # Up to $TLC_PARALLELISM runs overlap. A finished run posts its index to a FIFO,
 # which frees its slot. Output is replayed in registry order once every earlier
 # run has finished, so the log reads the same at any parallelism. After a
-# failure no new run starts, and the in-flight ones finish so no JVM outlives
-# the check; the first failure in registry order sets the exit status.
+# failure no new run starts and the in-flight ones finish; the first failure in
+# registry order sets the exit status.
 DONE_FIFO=$CHECK_ROOT/done
 mkfifo "$DONE_FIFO"
 exec 3<>"$DONE_FIFO"

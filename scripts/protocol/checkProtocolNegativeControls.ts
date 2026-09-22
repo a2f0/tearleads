@@ -99,7 +99,8 @@ for (const control of NEGATIVE_CONTROLS) {
 
 // Overlapped runs finish in completion order, so progress lines interleave.
 // After the first failure no new run starts; the in-flight ones finish so no
-// JVM outlives the check.
+// JVM outlives the check. A thrown error is recorded like any other failure:
+// rejecting Promise.all would exit while another worker's JVM still runs.
 const pending = [...NEGATIVE_CONTROLS];
 let failure: string | undefined;
 async function runPending(): Promise<void> {
@@ -108,7 +109,12 @@ async function runPending(): Promise<void> {
     control && failure === undefined;
     control = pending.shift()
   ) {
-    const problem = await runControl(root, tools, control);
+    let problem: string | undefined;
+    try {
+      problem = await runControl(root, tools, control);
+    } catch (error) {
+      problem = `${control.id} could not run: ${String(error)}`;
+    }
     failure ??= problem;
   }
 }

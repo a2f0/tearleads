@@ -132,6 +132,42 @@ for parallelism in 1 2; do
   fi
 done
 
+# An interrupted check must stop its in-flight runs. They are background jobs
+# that Ctrl-C does not reach, so only the check's own trap can end them; TERM
+# exercises that trap without depending on how the caller's shell handles INT.
+install_registry valid.txt
+(
+  cd "$TEST_ROOT"
+  exec env PATH="$TEST_ROOT/bin:$PATH" \
+    FAKE_JAVA="$TEST_ROOT/bin/java" \
+    FAKE_JAVA_LOG="$JAVA_LOG" \
+    FAKE_JAVA_HANG=1 \
+    FAKE_TLA_TOOLS_ROOT="$TEST_ROOT/tla-tools" \
+    TLA_TOOLS_JAR_SHA256="$FIXTURE_JAR_SHA256" \
+    "$CHECK_SCRIPT"
+) >/dev/null 2>&1 &
+interrupted_check=$!
+hang_wait=0
+until [ "$(wc -l <"$JAVA_LOG" 2>/dev/null | tr -d '[:space:]')" = 2 ]; do
+  hang_wait=$((hang_wait + 1))
+  [ "$hang_wait" -le 30 ] || fail "the interrupted check never started both runs."
+  sleep 1
+done
+# Both runs have logged; give each a moment to record its PID.
+sleep 1
+kill -TERM "$interrupted_check"
+wait "$interrupted_check" || :
+cut -d '|' -f 5 "$JAVA_LOG" >"$TEST_ROOT/run-pids"
+surviving_runs=
+while read -r run_pid; do
+  if kill -0 "$run_pid" 2>/dev/null; then
+    kill "$run_pid" 2>/dev/null || :
+    surviving_runs="$surviving_runs $run_pid"
+  fi
+done <"$TEST_ROOT/run-pids"
+[ -z "$surviving_runs" ] ||
+  fail "an interrupted check left TLC runs running:$surviving_runs."
+
 for parallelism in 0 two; do
   install_registry valid.txt
   if parallelism_output=$(PROTOCOL_TLC_PARALLELISM=$parallelism run_check 2>&1); then

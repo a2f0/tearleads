@@ -9,7 +9,8 @@ Run the smallest command that matches the handoff risk:
   architecture, file names, source shape, binary-file, and Markdown checks.
 - `bun run check:protocol-models`: all bounded TLC checks registered in
   `formal/protocol-models.txt`, using the Java and TLA+ tools pinned in
-  `.mise.toml`.
+  `.mise.toml`. It and `bun run check:protocol-negative-controls` run two TLC
+  processes at a time; set `PROTOCOL_TLC_PARALLELISM` to change that.
 - `bun run check:protocol-traces` and `bun run check:protocol-projection`:
   the TLC trace fixture drift check and the implementation-trace projection
   (both also inside `check:fast`; both need the mise-pinned Java/TLA+ tools).

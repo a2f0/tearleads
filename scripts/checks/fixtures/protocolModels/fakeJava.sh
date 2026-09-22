@@ -35,7 +35,13 @@ done
 # Real TLC resolves this host's name, which must not reach the system resolver.
 grep -q " $(hostname) " "$hosts_path" 2>/dev/null || exit 2
 
-printf '%s|%s|%s|%s\n' "$model_path" "$config_path" "$metadir_path" "$tmpdir_path" >>"$FAKE_JAVA_LOG"
+printf '%s|%s|%s|%s|%s\n' "$model_path" "$config_path" "$metadir_path" "$tmpdir_path" "$$" >>"$FAKE_JAVA_LOG"
+
+# A long model: keep this PID alive without reacting to SIGINT, as TLC does in a
+# background job.
+if [ -n "${FAKE_JAVA_HANG:-}" ]; then
+  exec sleep 60
+fi
 
 if [ "${FAKE_FAIL_CONFIG:-}" = "$config_path" ] ||
   [ "${FAKE_FAIL_MODEL:-}" = "$model_path" ]; then

@@ -23,6 +23,7 @@ exec bun test \
   protocol/lintFormalAbstractionMaps.test.ts \
   protocol/restartProbeTraceModule.test.ts \
   protocol/protocolNegativeControls.test.ts \
+  protocol/tlcTools.test.ts \
   protocol/noBrickTraceModule.test.ts \
   ../packages/api/src/documents/documentBaselineDominanceTraceReplay.test.ts \
   ../packages/crypto/src/keying/transparencyProofs.test.ts \

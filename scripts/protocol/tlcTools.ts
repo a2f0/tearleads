@@ -80,14 +80,26 @@ interface TlcRunInput {
 }
 
 /**
- * How many TLC runs a check may overlap. Shared with checkProtocolModels.sh,
- * which reads the same variable.
+ * Parses PROTOCOL_TLC_PARALLELISM by the same rules as checkProtocolModels.sh:
+ * unset or empty means 2, and anything but plain digits naming at least 1 is
+ * rejected (undefined).
  */
+export function parseTlcParallelism(
+  configured: string | undefined,
+): number | undefined {
+  const value = configured || "2";
+  if (!/^[0-9]+$/.test(value)) {
+    return undefined;
+  }
+  const parallelism = Number(value);
+  return parallelism >= 1 ? parallelism : undefined;
+}
+
+/** How many TLC runs a check may overlap. */
 export function tlcParallelism(): number {
   const { PROTOCOL_TLC_PARALLELISM } = process.env;
-  // Unset and empty both mean the default, matching the shell's ${VAR:-2}.
-  const parallelism = Number(PROTOCOL_TLC_PARALLELISM || "2");
-  if (!Number.isInteger(parallelism) || parallelism < 1) {
+  const parallelism = parseTlcParallelism(PROTOCOL_TLC_PARALLELISM);
+  if (parallelism === undefined) {
     fail("PROTOCOL_TLC_PARALLELISM must be a positive integer.");
   }
   return parallelism;
