@@ -49,7 +49,7 @@ export function openPr(rootDir: string, titleArg: string | undefined): number {
   const body = readBody();
   assertNoClaudeBranding(body);
 
-  // Local validation first; this is the one step that reaches the network.
+  // Local validation first; the remote head is the last thing checked.
   assertBranchPushed({
     branch,
     localHead: run("git", ["rev-parse", "HEAD"]),

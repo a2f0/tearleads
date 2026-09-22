@@ -284,10 +284,9 @@ function carriedRekeyInput(input: {
  * epoch. The client orders the whole batch parent-first, carried levels between
  * the rematerializations they sit under, so position says nothing here; an
  * entry is required by its container, and anything else must be a rekey of a
- * container the batch does not otherwise rotate, sitting below one it does
- * (checked once the batch is classified, since the rotated set is known only
- * then). What they leave current is checked after the batch applies; a rekey
- * citing an epoch not yet minted fails on its own.
+ * container the batch does not otherwise rotate, sitting below one it does.
+ * Both that and what they leave current are checked after the batch applies;
+ * a rekey citing an epoch not yet minted fails on its own.
  */
 function rematerializationInputs(input: {
   readonly fingerprint: string;
@@ -415,11 +414,6 @@ export async function applyPrincipalContainerRematerializations(input: {
   if (mutationInputs.length === 0) {
     return [];
   }
-  await assertCarriedRekeysBelowRotations({
-    carriedContainerIds,
-    executor: input.executor,
-    rotatedContainerIds,
-  });
 
   const context: ContainerMutationContext = {
     executor: input.executor,
@@ -453,6 +447,14 @@ export async function applyPrincipalContainerRematerializations(input: {
       409,
     );
   }
+  // Each carried rekey must sit below a rotation of this batch. Checked once
+  // every entry has been verified and applied under the batch locks, so the
+  // ids are known containers and the refusal rolls the batch back whole.
+  await assertCarriedRekeysBelowRotations({
+    carriedContainerIds,
+    executor: input.executor,
+    rotatedContainerIds,
+  });
   // Every rekey or revoke here rotated a container; what it carried rode with
   // it. A grant keeps its epoch and strands nothing.
   await assertGrantedPathsCurrentBelowRotations({

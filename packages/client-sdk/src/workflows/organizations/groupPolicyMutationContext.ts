@@ -320,8 +320,9 @@ async function submitGroupPolicyCommit(input: {
   try {
     carried = await input.carryDescendantRekeys(first.requiredContainerIds);
   } catch (error) {
-    // The refusal was answerable, and the answer failed: surface both, unless
-    // the generation that owned the attempt is gone and neither matters.
+    // The refusal was answerable, and the answer failed: surface both. Once
+    // the generation that owned the attempt is gone, only the failure is
+    // surfaced; a superseded refusal is not an error.
     if (input.stillCurrent?.() !== false) first.report?.();
     throw error;
   }

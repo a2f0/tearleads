@@ -188,8 +188,8 @@ async function mutateContainerRotationInTransaction(
   });
   // Each carried rekey must sit below the rotated container. Checked once the
   // rotation itself is authorized, so an unrelated caller cannot use the
-  // refusal to learn the tree, and before any carried entry is verified and
-  // written, since the batch rolls back anyway.
+  // refusal to learn the tree, and before any carried entry is written, since
+  // the batch rolls back anyway.
   await assertCarriedRekeysBelowRotations({
     carriedContainerIds,
     executor: tx,
