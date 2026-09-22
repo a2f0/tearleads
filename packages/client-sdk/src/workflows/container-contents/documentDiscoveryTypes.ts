@@ -83,10 +83,80 @@ export interface DocumentLinkInput {
 export type ContainerDocumentTombstone =
   ListContainerDocumentsResponse["tombstones"][number];
 
-export interface DiscoverContainerDocumentsOptions {
+export interface VerifiedContainerDocumentTombstone
+  extends ContainerDocumentTombstone {
+  /** The verified head's link-set epoch, not below the local document epoch. */
+  readonly accessEpoch: number;
+  /** The verified head link set; it omits `containerId`. */
+  readonly linkedContainerIds: ReadonlyArray<string>;
+}
+
+/**
+ * What the document's signed head says about a listing tombstone.
+ * - `verified`: the verified head link set omits the container; apply.
+ * - `refuted`: the verified head still links the container; drop it.
+ * - `unverified`: no verified head is available; hold, hide, retry later.
+ * - `deferred`: not attempted this run (the per-run head-load cap); hold
+ *   without counting an attempt, so the retry backoff does not grow.
+ */
+export type ContainerDocumentTombstoneVerdict =
+  | {
+      readonly kind: "verified";
+      readonly tombstone: VerifiedContainerDocumentTombstone;
+    }
+  | {
+      readonly kind: "refuted";
+      /** The verified head link set, which contains the container. */
+      readonly linkedContainerIds: ReadonlyArray<string>;
+      readonly tombstone: ContainerDocumentTombstone;
+    }
+  | {
+      readonly kind: "unverified";
+      readonly tombstone: ContainerDocumentTombstone;
+    }
+  | {
+      readonly kind: "deferred";
+      readonly tombstone: ContainerDocumentTombstone;
+    };
+
+export interface HeldContainerDocumentTombstoneInput
+  extends ContainerDocumentTombstone {
+  /** Held without a verification attempt; the backoff does not advance. */
+  readonly deferred?: boolean | undefined;
+}
+
+export type ContainerDocumentTombstoneVerifier = (
+  tombstones: ReadonlyArray<ContainerDocumentTombstone>,
+) => Promise<ReadonlyArray<ContainerDocumentTombstoneVerdict>>;
+
+export type ContainerDocumentPlacement = Pick<
+  ContainerDocumentTombstone,
+  "containerId" | "documentId"
+>;
+
+export interface ContainerDocumentTombstoneHoldStore {
+  holdContainerDocumentTombstones: (
+    tombstones: ReadonlyArray<HeldContainerDocumentTombstoneInput>,
+  ) => Promise<void>;
+  /** Held tombstones on these containers that are due for another attempt. */
+  listHeldContainerDocumentTombstones: (
+    containerIds: ReadonlyArray<string>,
+  ) => Promise<ReadonlyArray<ContainerDocumentTombstone>>;
+  /** The subset of placements that exist locally (link row or primary). */
+  listKnownContainerDocumentPlacements: (
+    placements: ReadonlyArray<ContainerDocumentPlacement>,
+  ) => Promise<ReadonlyArray<ContainerDocumentPlacement>>;
+  releaseContainerDocumentTombstoneHolds: (
+    placements: ReadonlyArray<ContainerDocumentPlacement>,
+  ) => Promise<void>;
+}
+
+export interface DiscoverContainerDocumentsOptions
+  extends ContainerDocumentTombstoneHoldStore {
   applyContainerDocumentTombstones: (
-    tombstones: ReadonlyArray<ContainerDocumentTombstone>,
+    tombstones: ReadonlyArray<VerifiedContainerDocumentTombstone>,
   ) => Promise<ReadonlyArray<DocumentSummary>>;
+  verifyContainerDocumentTombstones: ContainerDocumentTombstoneVerifier;
   cacheReferencedPrincipalPolicies?: (
     references: ReadonlyArray<ReferencedPrincipalStateResponse>,
   ) => Promise<void>;

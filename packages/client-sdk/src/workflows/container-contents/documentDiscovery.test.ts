@@ -18,6 +18,7 @@ import {
 import {
   createDiscoveryParentLaneBatchMock,
   nullContainerDocumentWatermarks,
+  trustedContainerDocumentTombstones,
 } from "./documentDiscovery.testUtils";
 import type { DocumentLinkInput } from "./documentDiscoveryTypes";
 
@@ -186,6 +187,7 @@ test("container document discovery resumes from stored watermark and advances af
   }> = [];
   const applyOrder: string[] = [];
   const discovered = await discoverContainerDocuments({
+    ...trustedContainerDocumentTombstones,
     applyContainerDocumentTombstones: async () => [],
     containerId: "shared-container",
     loadContainerDocumentWatermark: async () => ({
@@ -304,6 +306,7 @@ test("container document discovery does not advance watermark when local apply f
 
   await expect(
     discoverContainerDocuments({
+      ...trustedContainerDocumentTombstones,
       applyContainerDocumentTombstones: async () => [],
       containerId: "shared-container",
       loadContainerDocumentWatermark: async () => null,
@@ -335,14 +338,17 @@ test("container document discovery applies tombstones before advancing watermark
   const applyOrder: string[] = [];
   const appliedTombstones: Array<
     ReadonlyArray<{
+      accessEpoch?: number | undefined;
       containerId: string;
       documentId: string;
+      linkedContainerIds?: ReadonlyArray<string> | undefined;
       updatedAt: string;
     }>
   > = [];
   const saveContainerDocumentWatermarkCalls: SyncWatermark[] = [];
 
   const discovered = await discoverContainerDocuments({
+    ...trustedContainerDocumentTombstones,
     applyContainerDocumentTombstones: async (tombstones) => {
       applyOrder.push("apply-tombstones");
       appliedTombstones.push(tombstones);
@@ -395,7 +401,9 @@ test("container document discovery applies tombstones before advancing watermark
     [
       {
         containerId: "shared-container",
+        accessEpoch: Number.MAX_SAFE_INTEGER,
         documentId: "deleted-document",
+        linkedContainerIds: [],
         updatedAt: "2026-04-06T12:00:00.000Z",
       },
     ],
@@ -422,6 +430,7 @@ test("container document discovery does not advance watermark when tombstone app
 
   await expect(
     discoverContainerDocuments({
+      ...trustedContainerDocumentTombstones,
       applyContainerDocumentTombstones: async () => {
         throw new Error("tombstone apply failed");
       },

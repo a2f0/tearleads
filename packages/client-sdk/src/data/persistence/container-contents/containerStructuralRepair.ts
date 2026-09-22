@@ -9,6 +9,7 @@ import {
 } from "../../sqlite/schema";
 import type { ClientSQLiteTransactionScope } from "../../sqlite/sqlitePersistenceRuntime";
 import { deleteContainerWatermarksInTransaction } from "../containers/containerSyncWatermarkPersistence";
+import { deleteContainerDocumentTombstoneHoldsForContainers } from "../documents/containerDocumentTombstoneHoldsPersistence";
 import { getLatestTimestamp } from "../latestTimestamp";
 import type {
   ContainerRemoval,
@@ -107,6 +108,7 @@ export async function repairDocumentsForRemovedContainersInTransaction(input: {
       .delete(documentContainerProjection)
       .where(inArray(documentContainerProjection.containerId, containerIds))
       .run();
+    await deleteContainerDocumentTombstoneHoldsForContainers(tx, containerIds);
 
     const documentIds = Array.from(
       new Set(

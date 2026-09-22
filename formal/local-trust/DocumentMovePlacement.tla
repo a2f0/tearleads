@@ -3,10 +3,10 @@ EXTENDS Naturals, FiniteSets
 
 CONSTANTS ProtectPending, CheckEpoch, CheckRevision, CheckReadPlacement,
           CheckReadMembership, CaptureSettledEpoch, KeepNewestPageLinks,
-          ProtectPendingTombstones
+          ProtectPendingTombstones, TombstonesRequireSignedEvidence
 ASSUME {ProtectPending, CheckEpoch, CheckRevision, CheckReadPlacement,
         CheckReadMembership, CaptureSettledEpoch, KeepNewestPageLinks,
-          ProtectPendingTombstones}
+        ProtectPendingTombstones, TombstonesRequireSignedEvidence}
        \subseteq BOOLEAN
 
 VARIABLES revision, pending, desired, localLinks, localEpoch, visible,
@@ -100,6 +100,24 @@ ApplyTombstone ==
                   remoteLinks, remoteEpoch, attempt, attemptTarget, phase, recovering,
                   pageLinks, pageEpoch, pageReady, readLinks, readReady, readSummary>>
 
+(* A listing tombstone names a container to remove from the local link rows. *)
+(* The listing is an environment input the server controls, so the action    *)
+(* is always enabled for any local link; the signed-evidence gate admits the *)
+(* removal only when the committed (signed) link set no longer contains that *)
+(* container. Without the gate a dishonest listing deletes a link the signed *)
+(* head still has, which StablePlacement and StableView catch directly.      *)
+ApplyListingTombstone ==
+  /\ ~pending
+  /\ \E removed \in localLinks :
+       /\ IF TombstonesRequireSignedEvidence
+            THEN removed \notin remoteLinks
+            ELSE TRUE
+       /\ localLinks' = localLinks \ {removed}
+       /\ visible' = localLinks'
+       /\ UNCHANGED <<revision, pending, desired, localEpoch, remoteLinks,
+                       remoteEpoch, attempt, attemptTarget, phase, recovering,
+                       pageLinks, pageEpoch, pageReady, readLinks, readReady, readSummary>>
+
 ApplyPage ==
   /\ pageReady /\ pageReady' = FALSE
   /\ LET allowed == (~ProtectPending \/ ~pending)
@@ -143,7 +161,8 @@ StablePlacement == localLinks = {desired}
 StableView == visible = {desired}
 
 Next == QueueMove \/ StartReplay \/ Link \/ Unlink \/ Settle \/ LoseResponse
-        \/ CapturePage \/ MergeCurrentPage \/ ApplyPage \/ ApplyTombstone \/ StartRead \/ RefreshReadSummary \/ FinishRead
+        \/ CapturePage \/ MergeCurrentPage \/ ApplyPage \/ ApplyTombstone \/ ApplyListingTombstone
+        \/ StartRead \/ RefreshReadSummary \/ FinishRead
         \/ UNCHANGED vars
 Spec == Init /\ [][Next]_vars
 =============================================================================

@@ -1,5 +1,6 @@
 import { asc, eq, inArray } from "drizzle-orm";
 import {
+  containerDocumentTombstoneHolds,
   documentContainerProjection,
   documentContainerProjectionTables,
   documentMoveIntentTables,
@@ -10,6 +11,10 @@ import {
   getClientSQLitePersistenceRuntime,
 } from "../../sqlite/sqlitePersistenceRuntime";
 import { type ExecSql, ensureSqlTables } from "../../sqlite/sqlSchema";
+import {
+  deleteContainerDocumentTombstoneHoldRowsForLinks,
+  deleteContainerDocumentTombstoneHoldsForDocuments,
+} from "../documents/containerDocumentTombstoneHoldsPersistence";
 
 import {
   type DocumentPlacementInput,
@@ -42,6 +47,35 @@ interface DocumentContainerProjectionPersistence {
     inputs: ReadonlyArray<DocumentPlacementInput>,
     options?: DocumentPlacementWriteOptions,
   ) => Promise<void>;
+}
+
+/** Link rows and their tombstone holds leave together on a remote reset. */
+export async function deleteDocumentPlacementRowsByContainerIds(
+  tx: ClientSQLiteTransactionScope,
+  containerIds: ReadonlyArray<string>,
+): Promise<void> {
+  await tx
+    .delete(documentContainerProjection)
+    .where(inArray(documentContainerProjection.containerId, containerIds))
+    .run();
+  await tx
+    .delete(containerDocumentTombstoneHolds)
+    .where(inArray(containerDocumentTombstoneHolds.containerId, containerIds))
+    .run();
+}
+
+export async function deleteDocumentPlacementRowsByDocumentIds(
+  tx: ClientSQLiteTransactionScope,
+  documentIds: ReadonlyArray<string>,
+): Promise<void> {
+  await tx
+    .delete(documentContainerProjection)
+    .where(inArray(documentContainerProjection.documentId, documentIds))
+    .run();
+  await tx
+    .delete(containerDocumentTombstoneHolds)
+    .where(inArray(containerDocumentTombstoneHolds.documentId, documentIds))
+    .run();
 }
 
 export const sqlDocumentContainerProjectionPersistence: DocumentContainerProjectionPersistence =
@@ -137,6 +171,17 @@ export const sqlDocumentContainerProjectionPersistence: DocumentContainerProject
           options,
         );
         if (writable.length === 0) return;
+        // A placement the writer re-asserts is no longer tombstoned: a
+        // listing that links it again, or a local move that owns it, releases
+        // the hold so the document is not hidden until the next retry.
+        if (options?.moveIntentId) {
+          await deleteContainerDocumentTombstoneHoldsForDocuments(
+            tx,
+            writable.map((input) => input.documentId),
+          );
+        } else {
+          await deleteContainerDocumentTombstoneHoldRowsForLinks(tx, writable);
+        }
         await tx
           .delete(documentContainerProjection)
           .where(

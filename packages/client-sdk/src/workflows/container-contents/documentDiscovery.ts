@@ -20,6 +20,7 @@ import type {
   RefreshAllContainerDocumentsFromApiOptions,
   RefreshAllContainerDocumentsOptions,
 } from "./documentDiscoveryTypes";
+import { settleContainerDocumentTombstones } from "./documentTombstoneGate";
 
 export type { RefreshAllContainerDocumentsFromApiOptions } from "./documentDiscoveryTypes";
 
@@ -236,17 +237,19 @@ export function listAllRemoteContainerIdsFromApi(
   );
 }
 
-export async function discoverContainerDocuments({
-  applyContainerDocumentTombstones,
-  cacheReferencedPrincipalPolicies,
-  containerId,
-  loadContainerDocumentWatermark,
-  listContainerDocuments,
-  onFullListing,
-  replaceDocumentLinksBatch,
-  saveContainerDocumentWatermark,
-  upsertDiscoveredDocuments,
-}: DiscoverContainerDocumentsOptions): Promise<ReadonlyArray<DocumentSummary> | null> {
+export async function discoverContainerDocuments(
+  options: DiscoverContainerDocumentsOptions,
+): Promise<ReadonlyArray<DocumentSummary> | null> {
+  const {
+    cacheReferencedPrincipalPolicies,
+    containerId,
+    loadContainerDocumentWatermark,
+    listContainerDocuments,
+    onFullListing,
+    replaceDocumentLinksBatch,
+    saveContainerDocumentWatermark,
+    upsertDiscoveredDocuments,
+  } = options;
   const listedDocuments = await listAllContainerDocuments({
     containerId,
     loadContainerDocumentWatermark,
@@ -287,9 +290,11 @@ export async function discoverContainerDocuments({
     ),
   );
 
-  const tombstoneDocumentSummaries = await applyContainerDocumentTombstones(
-    getApplicableDocumentTombstones(listedDocuments),
-  );
+  const tombstoneDocumentSummaries = await settleContainerDocumentTombstones({
+    containerIds: [containerId],
+    store: options,
+    tombstones: getApplicableDocumentTombstones(listedDocuments),
+  });
 
   await saveAppliedContainerDocumentWatermark({
     containerId,
@@ -320,18 +325,18 @@ export function discoverContainerDocumentsFromApi({
   });
 }
 
-export async function discoverAllContainerDocuments({
-  applyContainerDocumentTombstones,
-  cacheReferencedPrincipalPolicies,
-  containerIds,
-  loadContainerDocumentWatermark,
-  listContainerDocuments,
-  replaceDocumentLinksBatch,
-  saveContainerDocumentWatermark,
-  upsertDiscoveredDocuments,
-}: DiscoverAllContainerDocumentsOptions): Promise<
-  ReadonlyArray<DocumentSummary>
-> {
+export async function discoverAllContainerDocuments(
+  options: DiscoverAllContainerDocumentsOptions,
+): Promise<ReadonlyArray<DocumentSummary>> {
+  const {
+    cacheReferencedPrincipalPolicies,
+    containerIds,
+    loadContainerDocumentWatermark,
+    listContainerDocuments,
+    replaceDocumentLinksBatch,
+    saveContainerDocumentWatermark,
+    upsertDiscoveredDocuments,
+  } = options;
   const uniqueContainerIds = Array.from(new Set(containerIds)).filter(
     (containerId): containerId is string =>
       typeof containerId === "string" && containerId.length > 0,
@@ -372,11 +377,16 @@ export async function discoverAllContainerDocuments({
     );
   }
 
-  const tombstoneDocumentSummaries = await applyContainerDocumentTombstones(
-    listedDocumentsByContainer.flatMap(({ listedDocuments }) =>
+  const tombstoneDocumentSummaries = await settleContainerDocumentTombstones({
+    containerIds: listedDocumentsByContainer.flatMap(
+      ({ containerId, listedDocuments }) =>
+        listedDocuments ? [containerId] : [],
+    ),
+    store: options,
+    tombstones: listedDocumentsByContainer.flatMap(({ listedDocuments }) =>
       listedDocuments ? getApplicableDocumentTombstones(listedDocuments) : [],
     ),
-  );
+  });
 
   await Promise.all(
     listedDocumentsByContainer.map(({ containerId, listedDocuments }) =>
