@@ -54,12 +54,14 @@ async function readCurrentPrincipalPolicies(input: {
   readonly executor: MutateContainerWithExecutorInput["executor"];
   readonly request: MutateContainerWithExecutorInput["request"];
   readonly referencedPrincipalHeads: readonly ReferencedPrincipalHead[];
+  readonly requesterUserId: string;
 }) {
   return assertPrincipalPoliciesCurrent(
     input.executor,
     principalPoliciesFromRequest(input.request),
     {
       referencedPrincipalHeads: input.referencedPrincipalHeads,
+      requesterUserId: input.requesterUserId,
     },
   );
 }
@@ -229,6 +231,7 @@ async function verifyMutationArtifacts(
   const principalPolicies = await readCurrentPrincipalPolicies({
     executor: context.executor,
     request: input.request,
+    requesterUserId: input.userId,
     referencedPrincipalHeads: collectReferencedPrincipalHeads([
       previousContainerPath,
       parentContainerPath,

@@ -18,9 +18,12 @@ import {
 } from "../../../../access/read/principalStateStore";
 import { canonicalJsonEquals } from "../../../../utils/canonicalJson";
 import {
-  getCurrentPrincipalPolicyWithExecutor,
+  getPrincipalPolicyForStateWithExecutor,
   getVerifiedPrincipalPolicyForStateWithExecutor,
 } from "../../../principals/getCurrentPrincipalPolicy";
+import { assertPrincipalPolicyReadable } from "../../../principals/principalPolicyReadAuthorization";
+import { PrincipalPolicyError } from "../../../principals/shared";
+import { createContainerWriterProjectionContext } from "../../writerProjection";
 import { ContainerMutationError, mutationStateStale } from "../errors";
 import type { PrincipalPolicyRequestArtifact } from "./principalPolicyRecords";
 
@@ -190,35 +193,57 @@ async function stalePrincipalPolicyError(input: {
   readonly executor: DatabaseTransaction;
   readonly message: string;
   readonly policies: readonly PrincipalPolicyRequestArtifact[];
+  readonly requesterUserId: string;
 }): Promise<ContainerMutationError> {
   const seenPrincipalPolicyKeys = new Set<string>();
-  const policiesToFetch: PrincipalPolicyRequestArtifact[] = [];
+  const statesToFetch: StoredPrincipalState[] = [];
+  // A repair carries at most this many bundles; the rest are re-requested
+  // on the retry. This also bounds the read-authorization work a request
+  // with an unbounded `principalPolicies` array can demand.
+  const MAX_STALE_POLICY_REPAIRS = 16;
 
   // Stale-policy rejects are repairable: return the server's current signed
   // bundles so the client can verify, cache, rebuild the mutation, and retry.
+  // Only bundles the requester may read are returned: this reject runs before
+  // the mutation's own authorization, so a fabricated stale entry naming any
+  // principal must not turn it into an unauthorized policy read.
   for (const policy of input.policies) {
     const key = principalPolicyKey(policy);
-    if (
-      seenPrincipalPolicyKeys.has(key) ||
-      !input.artifacts.currentStateByPolicyKey.has(key)
-    ) {
+    const currentState = input.artifacts.currentStateByPolicyKey.get(key);
+    if (seenPrincipalPolicyKeys.has(key) || !currentState) {
       continue;
     }
 
     seenPrincipalPolicyKeys.add(key);
-    policiesToFetch.push(policy);
+    if (statesToFetch.length < MAX_STALE_POLICY_REPAIRS) {
+      statesToFetch.push(currentState);
+    }
   }
 
-  const principalPolicies = await gatherWithExecutor(
-    input.executor,
-    policiesToFetch,
-    (policy) =>
-      getCurrentPrincipalPolicyWithExecutor(
-        input.executor,
-        policy.principalType,
-        policy.principalId,
-      ),
-  );
+  const context = createContainerWriterProjectionContext(input.executor);
+  const principalPolicies = (
+    await gatherWithExecutor(
+      input.executor,
+      statesToFetch,
+      async (currentState) => {
+        try {
+          await assertPrincipalPolicyReadable({
+            context,
+            currentState,
+            executor: input.executor,
+            requesterUserId: input.requesterUserId,
+          });
+        } catch (error) {
+          if (error instanceof PrincipalPolicyError) return null;
+          throw error;
+        }
+        return getPrincipalPolicyForStateWithExecutor(
+          input.executor,
+          currentState,
+        );
+      },
+    )
+  ).filter((bundle) => bundle !== null);
 
   return mutationStateStale(input.message, {
     code: "principal_policy_stale",
@@ -232,7 +257,8 @@ export async function assertPrincipalPoliciesCurrent(
   principalPolicies: readonly PrincipalPolicyRequestArtifact[],
   options: {
     readonly referencedPrincipalHeads?: readonly ReferencedPrincipalHead[];
-  } = {},
+    readonly requesterUserId: string;
+  },
 ): Promise<VerifiedPrincipalPolicy[]> {
   const artifacts = await loadPrincipalPolicyArtifacts(
     executor,
@@ -266,6 +292,7 @@ export async function assertPrincipalPoliciesCurrent(
       executor,
       message: staleMessage,
       policies: stalePolicies,
+      requesterUserId: options.requesterUserId,
     });
   }
 

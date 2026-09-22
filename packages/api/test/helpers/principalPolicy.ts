@@ -21,7 +21,7 @@ import invariant from "invariant";
 import { getCurrentPrincipalState } from "../../src/access/read/principalStateStore";
 import { routeApp } from "../../src/routeApp";
 import { parseOrganizationAuthorityDescriptor } from "../../src/workflows/organizations/organizationAuthorityDescriptor";
-import { runGetCurrentPrincipalPolicyWorkflow } from "../../src/workflows/principals/getCurrentPrincipalPolicy";
+import { getPrincipalPolicyForStateWithExecutor } from "../../src/workflows/principals/getCurrentPrincipalPolicy";
 import { groupPolicyPayload } from "./groupPolicyPayload";
 import { createPrincipalMemberEnvelopes } from "./principalMemberEnvelopes";
 import {
@@ -327,4 +327,21 @@ export async function submitOrganizationGroupPolicyCommit(input: {
       ),
     },
   );
+}
+
+/** The unauthorized bundle read tests use to inspect stored policy state. */
+export async function runGetCurrentPrincipalPolicyWorkflow(
+  database: ApiDatabase,
+  principalType: "group" | "organization",
+  principalId: string,
+): Promise<PrincipalPolicyBundleResponse> {
+  return database.transaction(async (tx) => {
+    const currentState = await getCurrentPrincipalState(
+      principalType,
+      principalId,
+      tx,
+    );
+    invariant(currentState, "expected a current principal state");
+    return getPrincipalPolicyForStateWithExecutor(tx, currentState);
+  });
 }

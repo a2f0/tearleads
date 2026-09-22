@@ -15,11 +15,11 @@ import { addOrganizationMember } from "../../../test/helpers/organizationMembers
 import {
   createSignedPrincipalState,
   getDefaultOrganizationId,
+  runGetCurrentPrincipalPolicyWorkflow,
   submitOrganizationGroupPolicyCommit,
 } from "../../../test/helpers/principalPolicy";
 import { registerUser } from "../../../test/helpers/registerUser";
 import { routeApp } from "../../routeApp";
-import { runGetCurrentPrincipalPolicyWorkflow } from "../../workflows/principals/getCurrentPrincipalPolicy";
 
 async function setup() {
   const owner = createTestUser();
