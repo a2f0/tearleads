@@ -98,23 +98,32 @@ export function addPlan(
 }
 
 /**
- * Levels of a re-rooted path pinned to an epoch the batch retires above them,
- * parent-first, the target itself excluded. A rotation planned above a target
- * strands every level between the two, and each must be re-keyed under the
- * one above before the target can be signed. The batch carries them without
- * waiting to be told: they are proper ancestors of a granted container, so
- * the server would name them, and a refusal per level is a round trip each.
+ * Levels of a re-rooted path pinned to an epoch the batch retires above them:
+ * those strictly between the rotated ancestor the path was re-rooted on and
+ * the target, parent-first, from the first stale one down. A rotation planned
+ * above a target strands every level between the two, and each must be
+ * re-keyed under the one above before the target can be signed. The batch
+ * carries them without waiting to be told: they are proper ancestors of a
+ * granted container, so the server would name them, and a refusal per level
+ * is a round trip each. Anything stale above the rotated ancestor is not this
+ * batch's doing and is left alone; the path depth limit bounds the rest.
  */
 export function staleLevelsAbove(
   projection: ContainerWriterProjectionResponse,
+  rotatedAncestorId: string,
 ): string[] {
   const keks = projection.containerKeks;
-  const firstStale = keks.findIndex(
+  const ancestor = keks.findIndex(
+    (kek) => kek.containerId === rotatedAncestorId,
+  );
+  if (ancestor < 0) return [];
+  const between = keks.slice(ancestor, -1);
+  const firstStale = between.findIndex(
     (kek, index) =>
       index > 0 &&
-      kek.parentContainerKeyEpochId !== keks[index - 1]?.containerKeyEpochId,
+      kek.parentContainerKeyEpochId !== between[index - 1]?.containerKeyEpochId,
   );
   return firstStale < 0
     ? []
-    : keks.slice(firstStale, -1).map((kek) => kek.containerId);
+    : between.slice(firstStale).map((kek) => kek.containerId);
 }

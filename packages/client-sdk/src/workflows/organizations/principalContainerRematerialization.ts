@@ -256,13 +256,14 @@ async function planRematerializationTarget(
   target: RematerializationTarget,
 ): Promise<void> {
   const { rematerialization } = batch;
-  const rebased = rebaseOnDeepestAncestor(
-    target.projection,
-    batch.rotatedAbove,
-  );
-  for (const containerId of rebased
-    ? staleLevelsAbove(rebased.projection)
-    : []) {
+  let rebased = rebaseOnDeepestAncestor(target.projection, batch.rotatedAbove);
+  const stale = rebased
+    ? staleLevelsAbove(
+        rebased.projection,
+        rebased.ancestor.containerKeks.at(-1)?.containerId ?? "",
+      )
+    : [];
+  for (const containerId of stale) {
     await carryLevel(
       batch,
       await loadServedProjection(rematerialization.apiClient, containerId),
@@ -272,9 +273,11 @@ async function planRematerializationTarget(
     await carryLevel(batch, target.projection);
     return;
   }
-  const previousProjection =
-    rebaseOnDeepestAncestor(target.projection, batch.rotatedAbove)
-      ?.projection ?? target.projection;
+  // Each level carried above re-roots the target one step deeper.
+  if (stale.length > 0) {
+    rebased = rebaseOnDeepestAncestor(target.projection, batch.rotatedAbove);
+  }
+  const previousProjection = rebased?.projection ?? target.projection;
   const planned = await buildPrincipalContainerRematerializationPlan({
     grantRow: target.grantRow,
     knownContainerKeks: batch.knownContainerKeks,

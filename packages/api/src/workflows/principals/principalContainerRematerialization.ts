@@ -242,12 +242,12 @@ function isRotatingPrincipalRevoke(input: {
   );
 }
 
+/** An entry outside the required set: a rekey of a container carried once. */
 function carriedRekeyInput(input: {
   readonly carriedContainerIds: Set<string>;
   readonly event: ReturnType<typeof requestEvent>;
   readonly fingerprint: string;
   readonly request: ContainerMutationRequest;
-  readonly requiredByContainerId: ReadonlyMap<string, unknown>;
   readonly userId: string;
 }): MutateContainerInput {
   const { event } = input;
@@ -260,10 +260,7 @@ function carriedRekeyInput(input: {
       409,
     );
   }
-  if (
-    input.requiredByContainerId.has(event.objectId) ||
-    input.carriedContainerIds.has(event.objectId)
-  ) {
+  if (input.carriedContainerIds.has(event.objectId)) {
     throw new PrincipalPolicyError(
       "Principal policy rotates a container twice",
       409,
@@ -311,7 +308,6 @@ function rematerializationInputs(input: {
         event,
         fingerprint: input.fingerprint,
         request,
-        requiredByContainerId,
         userId: input.userId,
       });
     }
