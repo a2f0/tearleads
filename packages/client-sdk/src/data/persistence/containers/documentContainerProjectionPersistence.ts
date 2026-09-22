@@ -11,6 +11,7 @@ import {
   getClientSQLitePersistenceRuntime,
 } from "../../sqlite/sqlitePersistenceRuntime";
 import { type ExecSql, ensureSqlTables } from "../../sqlite/sqlSchema";
+import { deleteContainerDocumentTombstoneHoldsForDocuments } from "../documents/internal/containerDocumentTombstoneHolds";
 
 import {
   type DocumentPlacementInput,
@@ -167,6 +168,12 @@ export const sqlDocumentContainerProjectionPersistence: DocumentContainerProject
           options,
         );
         if (writable.length === 0) return;
+        if (options?.moveIntentId) {
+          await deleteContainerDocumentTombstoneHoldsForDocuments(
+            tx,
+            writable.map((input) => input.documentId),
+          );
+        }
         await tx
           .delete(documentContainerProjection)
           .where(

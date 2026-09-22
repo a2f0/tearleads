@@ -21,12 +21,21 @@ export type DocumentHeadLinkSetLoader = (
   documentId: string,
 ) => Promise<ReadonlyArray<string> | null>;
 
-function verifiedHeadLinkSet(
+export interface DocumentHeadLinkSetLoaderDeps {
+  readonly assertDocumentWriterProjectionConsistent: typeof assertDocumentWriterProjectionConsistent;
+  readonly loadDocumentPurgeCheckpoint: typeof loadDocumentPurgeCheckpoint;
+}
+
+const HEAD_LINK_SET_LOAD_CONCURRENCY = 4;
+
+async function verifiedHeadLinkSet(
   runtime: ContainerContentsWorkflowRuntime,
+  deps: DocumentHeadLinkSetLoaderDeps,
+  documentId: string,
   projection: DocumentWriterProjectionResponse,
 ): Promise<ReadonlyArray<string>> {
   const linkedContainerIds: { value?: ReadonlyArray<string> } = {};
-  return assertDocumentWriterProjectionConsistent(projection, {
+  await deps.assertDocumentWriterProjectionConsistent(projection, {
     // Only the link set is read; a bundle wrapped to superseded KEK targets
     // still carries the signed head.
     allowStaleContentKeyBundle: true,
@@ -35,7 +44,7 @@ function verifiedHeadLinkSet(
       const head = authorization.documentManifestByHash.get(
         projection.documentManifest.manifestHash,
       );
-      if (head) {
+      if (head && head.state.documentId === documentId) {
         linkedContainerIds.value = uniqueSortedStrings(
           head.state.linkedContainerIds,
         );
@@ -44,21 +53,26 @@ function verifiedHeadLinkSet(
     resolveProjectionUserKey: createProjectionUserKeyResolver(runtime),
     warmReferencedPrincipalPolicies:
       createRuntimePrincipalPolicyWarmer(runtime),
-  }).then(() => {
-    if (!linkedContainerIds.value) {
-      throw new Error("Tombstone evidence lacks a verified document head");
-    }
-    return linkedContainerIds.value;
   });
+  if (!linkedContainerIds.value) {
+    throw new Error("Tombstone evidence lacks a verified document head");
+  }
+  return linkedContainerIds.value;
 }
 
 export function createDocumentHeadLinkSetLoader(
   runtime: ContainerContentsWorkflowRuntime,
+  deps: DocumentHeadLinkSetLoaderDeps = {
+    assertDocumentWriterProjectionConsistent,
+    loadDocumentPurgeCheckpoint,
+  },
 ): DocumentHeadLinkSetLoader {
   return async (documentId) => {
     // A verified purge proof is terminal signed evidence that the document
     // links nothing any more.
-    if (await loadDocumentPurgeCheckpoint(runtime.infra.execSql, documentId)) {
+    if (
+      await deps.loadDocumentPurgeCheckpoint(runtime.infra.execSql, documentId)
+    ) {
       return [];
     }
     // The cached projection may predate the unlink the tombstone reports.
@@ -74,7 +88,7 @@ export function createDocumentHeadLinkSetLoader(
       return null;
     }
     try {
-      return await verifiedHeadLinkSet(runtime, result.data);
+      return await verifiedHeadLinkSet(runtime, deps, documentId, result.data);
     } catch (error) {
       await reportKeyingVerificationErrorInCauseChain(
         error,
@@ -114,7 +128,7 @@ function judgeTombstones(
 
 /**
  * Judge listing tombstones against each document's verified head link set,
- * fetched once per document.
+ * fetched once per document with bounded concurrency.
  */
 export function createContainerDocumentTombstoneVerifier(
   loadDocumentHeadLinkSet: DocumentHeadLinkSetLoader,
@@ -126,12 +140,27 @@ export function createContainerDocumentTombstoneVerifier(
       group.push(tombstone);
       byDocumentId.set(tombstone.documentId, group);
     }
-    const verdicts: ContainerDocumentTombstoneVerdict[] = [];
-    for (const [documentId, group] of byDocumentId) {
-      verdicts.push(
-        ...judgeTombstones(group, await loadDocumentHeadLinkSet(documentId)),
-      );
-    }
-    return verdicts;
+    const groups = [...byDocumentId.entries()];
+    const verdicts: ContainerDocumentTombstoneVerdict[][] = [];
+    let next = 0;
+    const worker = async () => {
+      while (next < groups.length) {
+        const index = next++;
+        const entry = groups[index];
+        if (!entry) break;
+        const [documentId, group] = entry;
+        verdicts[index] = judgeTombstones(
+          group,
+          await loadDocumentHeadLinkSet(documentId),
+        );
+      }
+    };
+    await Promise.all(
+      Array.from(
+        { length: Math.min(HEAD_LINK_SET_LOAD_CONCURRENCY, groups.length) },
+        worker,
+      ),
+    );
+    return verdicts.flat();
   };
 }

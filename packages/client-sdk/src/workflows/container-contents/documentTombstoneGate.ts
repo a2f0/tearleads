@@ -10,6 +10,7 @@ type TombstoneGateStore = Pick<
   | "applyContainerDocumentTombstones"
   | "holdContainerDocumentTombstones"
   | "listHeldContainerDocumentTombstones"
+  | "listKnownContainerDocumentPlacements"
   | "releaseContainerDocumentTombstoneHolds"
   | "verifyContainerDocumentTombstones"
 >;
@@ -20,13 +21,26 @@ function placementKey(
   return `${placement.documentId}\u0000${placement.containerId}`;
 }
 
-/** One candidate per placement; the newest server timestamp wins. */
-function mergeTombstoneCandidates(
+/**
+ * One candidate per placement the device actually holds; the newest server
+ * timestamp wins. A tombstone for a placement this device never had has
+ * nothing to remove or hide, so its head is not fetched.
+ */
+async function mergeTombstoneCandidates(
+  store: TombstoneGateStore,
   listed: ReadonlyArray<ContainerDocumentTombstone>,
   held: ReadonlyArray<ContainerDocumentTombstone>,
-): ContainerDocumentTombstone[] {
+): Promise<ContainerDocumentTombstone[]> {
+  const known = new Set(
+    (await store.listKnownContainerDocumentPlacements(listed)).map(
+      placementKey,
+    ),
+  );
   const byPlacement = new Map<string, ContainerDocumentTombstone>();
-  for (const tombstone of [...held, ...listed]) {
+  for (const tombstone of [
+    ...held,
+    ...listed.filter((tombstone) => known.has(placementKey(tombstone))),
+  ]) {
     const key = placementKey(tombstone);
     const current = byPlacement.get(key);
     if (!current || current.updatedAt.localeCompare(tombstone.updatedAt) < 0) {
@@ -76,7 +90,11 @@ export async function settleContainerDocumentTombstones(input: {
   const held = await store.listHeldContainerDocumentTombstones(
     input.containerIds,
   );
-  const candidates = mergeTombstoneCandidates(input.tombstones, held);
+  const candidates = await mergeTombstoneCandidates(
+    store,
+    input.tombstones,
+    held,
+  );
   if (candidates.length === 0) {
     return [];
   }
@@ -93,7 +111,10 @@ export async function settleContainerDocumentTombstones(input: {
     verdict.kind === "unverified" ? [verdict.tombstone] : [],
   );
 
-  const summaries = await store.applyContainerDocumentTombstones(verified);
+  const summaries =
+    verified.length > 0
+      ? await store.applyContainerDocumentTombstones(verified)
+      : [];
   if (refuted.length > 0) {
     await store.releaseContainerDocumentTombstoneHolds(refuted);
   }

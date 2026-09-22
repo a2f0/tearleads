@@ -62,6 +62,7 @@ test("a delayed trash tombstone preserves the latest trash intent after restore"
       ["moving", "unrelated"].map((documentId) => ({
         documentId,
         containerId: "trash",
+        linkedContainerIds: [],
         updatedAt: "2026-09-17T00:00:00.000Z",
       })),
     );

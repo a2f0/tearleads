@@ -48,12 +48,10 @@ function buildContainerDocumentTombstoneState(
   >();
 
   for (const tombstone of uniqueTombstones) {
-    if (tombstone.linkedContainerIds) {
-      verifiedLinkedContainerIdsByDocumentId.set(
-        tombstone.documentId,
-        new Set(tombstone.linkedContainerIds),
-      );
-    }
+    verifiedLinkedContainerIdsByDocumentId.set(
+      tombstone.documentId,
+      new Set(tombstone.linkedContainerIds),
+    );
     const removedContainerIds =
       removedContainerIdsByDocumentId.get(tombstone.documentId) ?? new Set();
     removedContainerIds.add(tombstone.containerId);
@@ -95,25 +93,21 @@ async function deleteContainerDocumentTombstoneRows(
 }
 
 /**
- * The primary container after a removal. With signed evidence the head link
- * set is authoritative: a remaining local row the head does not link is a
+ * The primary container after a removal: the first remaining local row the
+ * verified head links. A remaining row the head does not link is a
  * listing-seeded row and never becomes the primary, so a listing cannot
- * re-home the document. Without a verified set (a pending-intent settlement
- * on the device's own move) the first remaining local row is used as before.
+ * re-home the document. With no such row the document is unplaced (`null`)
+ * and reachable through orphan recovery, rather than pointed at a head
+ * container this device may not be able to read.
  */
 function selectNextContainerId(
   remainingContainerIds: ReadonlyArray<string>,
-  verifiedLinkedContainerIds: ReadonlySet<string> | undefined,
+  verifiedLinkedContainerIds: ReadonlySet<string>,
 ): string | null {
-  if (!verifiedLinkedContainerIds) {
-    return remainingContainerIds[0] ?? null;
-  }
   return (
     remainingContainerIds.find((containerId) =>
       verifiedLinkedContainerIds.has(containerId),
-    ) ??
-    [...verifiedLinkedContainerIds].sort()[0] ??
-    null
+    ) ?? null
   );
 }
 
@@ -122,7 +116,7 @@ async function updateSelectedContainersForDocumentTombstones(input: {
   removedContainerIds: ReadonlySet<string>;
   tombstoneUpdatedAt: string | undefined;
   tx: ClientSQLiteTransactionScope;
-  verifiedLinkedContainerIds: ReadonlySet<string> | undefined;
+  verifiedLinkedContainerIds: ReadonlySet<string>;
 }): Promise<string[]> {
   const { documentId, removedContainerIds, tombstoneUpdatedAt, tx } = input;
   // A server document can own more than one local projection row: identity
@@ -236,7 +230,7 @@ export async function applyContainerDocumentTombstonesWithExec(
           tombstoneUpdatedAt: tombstoneUpdatedAtByDocumentId.get(documentId),
           tx,
           verifiedLinkedContainerIds:
-            verifiedLinkedContainerIdsByDocumentId.get(documentId),
+            verifiedLinkedContainerIdsByDocumentId.get(documentId) ?? new Set(),
         })),
       );
     }

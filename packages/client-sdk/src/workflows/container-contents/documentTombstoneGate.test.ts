@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import type {
+  ContainerDocumentPlacement,
   ContainerDocumentTombstone,
   ContainerDocumentTombstoneVerdict,
   VerifiedContainerDocumentTombstone,
@@ -23,6 +24,7 @@ function createGateStore(
       ContainerDocumentTombstone | VerifiedContainerDocumentTombstone
     >[],
     held: [] as ReadonlyArray<ContainerDocumentTombstone>[],
+    known: [] as ReadonlyArray<ContainerDocumentPlacement>[],
     listed: [] as ReadonlyArray<string>[],
     released: [] as ReadonlyArray<{
       containerId: string;
@@ -54,6 +56,14 @@ function createGateStore(
       calls.listed.push(containerIds);
       return held;
     },
+    listKnownContainerDocumentPlacements: async (
+      placements: ReadonlyArray<ContainerDocumentPlacement>,
+    ) => {
+      calls.known.push(placements);
+      return placements.filter(
+        (placement) => placement.documentId !== "unknown",
+      );
+    },
     releaseContainerDocumentTombstoneHolds: async (
       placements: ReadonlyArray<{ containerId: string; documentId: string }>,
     ) => {
@@ -82,7 +92,7 @@ test("a tombstone the verified head still links is dropped, never applied", asyn
   });
 
   expect(summaries).toEqual([]);
-  expect(calls.applied).toEqual([[]]);
+  expect(calls.applied).toEqual([]);
   expect(calls.held).toEqual([]);
   expect(calls.released).toEqual([[tombstone("doc", "real-folder")]]);
 });
@@ -119,7 +129,7 @@ test("an unverifiable tombstone is held instead of applied", async () => {
     tombstones: [tombstone("doc", "folder")],
   });
 
-  expect(calls.applied).toEqual([[]]);
+  expect(calls.applied).toEqual([]);
   expect(calls.held).toEqual([[tombstone("doc", "folder")]]);
   expect(calls.released).toEqual([]);
 });
@@ -151,6 +161,25 @@ test("held tombstones are retried with the listing and the newest timestamp wins
   expect(calls.held).toEqual([[other]]);
 });
 
+test("a tombstone for a placement the device never had is not verified", async () => {
+  const { calls, store } = createGateStore((candidate) => ({
+    kind: "unverified",
+    tombstone: candidate,
+  }));
+
+  await settleContainerDocumentTombstones({
+    containerIds: ["folder"],
+    store,
+    tombstones: [tombstone("unknown", "folder"), tombstone("doc", "folder")],
+  });
+
+  expect(calls.known).toEqual([
+    [tombstone("unknown", "folder"), tombstone("doc", "folder")],
+  ]);
+  expect(calls.verified).toEqual([[tombstone("doc", "folder")]]);
+  expect(calls.held).toEqual([[tombstone("doc", "folder")]]);
+});
+
 test("nothing is verified when there are no tombstones or holds", async () => {
   const { calls, store } = createGateStore(() => {
     throw new Error("unreachable");
@@ -163,6 +192,21 @@ test("nothing is verified when there are no tombstones or holds", async () => {
   });
 
   expect(calls.verified).toEqual([]);
+  expect(calls.applied).toEqual([]);
+});
+
+test("the apply step is skipped when no tombstone was verified", async () => {
+  const { calls, store } = createGateStore((candidate) => ({
+    kind: "unverified",
+    tombstone: candidate,
+  }));
+
+  await settleContainerDocumentTombstones({
+    containerIds: ["folder"],
+    store,
+    tombstones: [tombstone("doc", "folder")],
+  });
+
   expect(calls.applied).toEqual([]);
 });
 

@@ -1,5 +1,6 @@
 import type {
   ContainerDocumentDiscoveryApi,
+  ContainerDocumentPlacement,
   ContainerDocumentTombstone,
   ContainerDocumentTombstoneVerdict,
   ListContainersResponse,
@@ -9,6 +10,9 @@ import type {
 export const trustedContainerDocumentTombstones = {
   holdContainerDocumentTombstones: async () => {},
   listHeldContainerDocumentTombstones: async () => [],
+  listKnownContainerDocumentPlacements: async (
+    placements: ReadonlyArray<ContainerDocumentPlacement>,
+  ) => placements,
   releaseContainerDocumentTombstoneHolds: async () => {},
   verifyContainerDocumentTombstones: async (
     tombstones: ReadonlyArray<ContainerDocumentTombstone>,

@@ -1,4 +1,10 @@
 import type { DocumentSummary } from "../data/documents/documentSummary";
+import {
+  holdContainerDocumentTombstones,
+  listKnownContainerDocumentPlacements,
+  listRetryableHeldContainerDocumentTombstones,
+  releaseContainerDocumentTombstoneHolds,
+} from "../data/persistence/documents/containerDocumentTombstoneHoldsPersistence";
 import type { ContainerContentsStore } from "../stores/container-contents";
 import { discoverContainerDocumentsFromApi } from "../workflows/container-contents/documentDiscovery";
 import { createContainerDocumentQueriesFromRuntime } from "../workflows/container-contents/documentQueries";
@@ -44,7 +50,18 @@ export function discoverContainerDocumentsForRuntime({
           })
         : Promise.resolve(),
     containerId,
+    holdContainerDocumentTombstones: (tombstones) =>
+      holdContainerDocumentTombstones(input.infra.execSql, tombstones),
+    listHeldContainerDocumentTombstones: (containerIds) =>
+      listRetryableHeldContainerDocumentTombstones(
+        input.infra.execSql,
+        containerIds,
+      ),
+    listKnownContainerDocumentPlacements: (placements) =>
+      listKnownContainerDocumentPlacements(input.infra.execSql, placements),
     onFullListing,
+    releaseContainerDocumentTombstoneHolds: (placements) =>
+      releaseContainerDocumentTombstoneHolds(input.infra.execSql, placements),
     verifyContainerDocumentTombstones: createContainerDocumentTombstoneVerifier(
       createDocumentHeadLinkSetLoader(runtime),
     ),

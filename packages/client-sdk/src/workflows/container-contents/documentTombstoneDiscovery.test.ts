@@ -1,12 +1,24 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { sqlDocumentContainerProjectionPersistence as links } from "../../data/persistence/containers/documentContainerProjectionPersistence";
+import {
+  HELD_TOMBSTONE_RETRY_INTERVAL_MS,
+  holdContainerDocumentTombstones,
+  listContainerDocumentTombstoneHolds,
+  listKnownContainerDocumentPlacements,
+  listRetryableHeldContainerDocumentTombstones,
+  releaseContainerDocumentTombstoneHolds,
+} from "../../data/persistence/documents/containerDocumentTombstoneHoldsPersistence";
 import { sqlDocumentsPersistence as documents } from "../../data/persistence/documents/documentsPersistence";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import { defaultContainerContentsPersistence } from "./containerPersistence";
-import { discoverContainerDocuments } from "./documentDiscovery";
+import {
+  discoverAllContainerDocuments,
+  discoverContainerDocuments,
+} from "./documentDiscovery";
 import type {
   ContainerDocumentTombstone,
+  ContainerDocumentTombstoneHoldStore,
   ContainerDocumentTombstoneVerifier,
 } from "./documentDiscoveryTypes";
 import { createContainerDocumentQueriesFromRuntime } from "./documentQueries";
@@ -22,10 +34,37 @@ const tombstone: ContainerDocumentTombstone = {
   updatedAt: at,
 };
 
+/** The production hold store, with every hold immediately due for retry. */
+function createHoldStore(
+  execSql: ExecSql,
+): ContainerDocumentTombstoneHoldStore {
+  const clock = { now: Date.parse(at) };
+  return {
+    holdContainerDocumentTombstones: (tombstones) =>
+      holdContainerDocumentTombstones(
+        execSql,
+        tombstones,
+        new Date(clock.now).toISOString(),
+      ),
+    listHeldContainerDocumentTombstones: (containerIds) => {
+      clock.now += HELD_TOMBSTONE_RETRY_INTERVAL_MS + 1_000;
+      return listRetryableHeldContainerDocumentTombstones(
+        execSql,
+        containerIds,
+        new Date(clock.now),
+      );
+    },
+    listKnownContainerDocumentPlacements: (placements) =>
+      listKnownContainerDocumentPlacements(execSql, placements),
+    releaseContainerDocumentTombstoneHolds: (placements) =>
+      releaseContainerDocumentTombstoneHolds(execSql, placements),
+  };
+}
+
 async function seed(execSql: ExecSql) {
   await defaultContainerContentsPersistence.ensureSchema(execSql);
   await documents.ensureSchema(execSql);
-  for (const id of ["real-folder", "server-chosen"]) {
+  for (const id of ["real-folder", "server-chosen", "other"]) {
     await saveTestContainer({
       execSql,
       id,
@@ -47,18 +86,23 @@ async function seed(execSql: ExecSql) {
     "real-folder",
     "server-chosen",
   ]);
-  return createContainerDocumentQueriesFromRuntime({ infra: { execSql } });
+  return {
+    ...createContainerDocumentQueriesFromRuntime({ infra: { execSql } }),
+    ...createHoldStore(execSql),
+  };
 }
 
+type Store = Awaited<ReturnType<typeof seed>>;
+
 function discoverRealFolder(
-  readModel: ReturnType<typeof createContainerDocumentQueriesFromRuntime>,
+  store: Store,
   input: {
     tombstones: ContainerDocumentTombstone[];
     verify: ContainerDocumentTombstoneVerifier;
   },
 ) {
   return discoverContainerDocuments({
-    ...readModel,
+    ...store,
     containerId: "real-folder",
     listContainerDocuments: async () => ({
       hasMore: false,
@@ -70,12 +114,9 @@ function discoverRealFolder(
   });
 }
 
-const visibleIn = async (
-  readModel: ReturnType<typeof createContainerDocumentQueriesFromRuntime>,
-  containerId: string,
-) =>
+const visibleIn = async (store: Store, containerId: string) =>
   (
-    await readModel.listContainerItemWindow({
+    await store.listContainerItemWindow({
       containerId,
       limit: 10,
       offset: 0,
@@ -90,9 +131,9 @@ test("a listing tombstone the signed head still links cannot re-home the documen
     "tombstone-attack-refuted",
   );
   try {
-    const readModel = await seed(execSql);
+    const store = await seed(execSql);
 
-    await discoverRealFolder(readModel, {
+    await discoverRealFolder(store, {
       tombstones: [tombstone],
       verify: async (candidates) =>
         candidates.map((candidate) => ({
@@ -108,10 +149,11 @@ test("a listing tombstone the signed head still links cannot re-home the documen
       "real-folder",
       "server-chosen",
     ]);
-    expect(await visibleIn(readModel, "real-folder")).toEqual(["doc"]);
-    expect(
-      await readModel.loadContainerDocumentWatermark("real-folder"),
-    ).toEqual({ id: "doc", updatedAt: at });
+    expect(await visibleIn(store, "real-folder")).toEqual(["doc"]);
+    expect(await store.loadContainerDocumentWatermark("real-folder")).toEqual({
+      id: "doc",
+      updatedAt: at,
+    });
   } finally {
     close();
   }
@@ -120,9 +162,9 @@ test("a listing tombstone the signed head still links cannot re-home the documen
 test("an unverifiable tombstone hides the placement until a verified head settles it", async () => {
   const { close, execSql } = await createTestExecSql("tombstone-attack-held");
   try {
-    const readModel = await seed(execSql);
+    const store = await seed(execSql);
 
-    await discoverRealFolder(readModel, {
+    await discoverRealFolder(store, {
       tombstones: [tombstone],
       verify: async (candidates) =>
         candidates.map((candidate) => ({
@@ -132,7 +174,7 @@ test("an unverifiable tombstone hides the placement until a verified head settle
     });
 
     // Hidden, but the real placement is retained and nothing was repointed.
-    expect(await visibleIn(readModel, "real-folder")).toEqual([]);
+    expect(await visibleIn(store, "real-folder")).toEqual([]);
     expect(await documents.loadDocument(execSql, "doc-local")).toMatchObject({
       containerId: "real-folder",
     });
@@ -144,7 +186,7 @@ test("an unverifiable tombstone hides the placement until a verified head settle
     // The next discovery of the folder retries the hold with no new
     // tombstones; a verified head that still links the folder releases it.
     const retried: ContainerDocumentTombstone[][] = [];
-    await discoverRealFolder(readModel, {
+    await discoverRealFolder(store, {
       tombstones: [],
       verify: async (candidates) => {
         retried.push([...candidates]);
@@ -155,11 +197,15 @@ test("an unverifiable tombstone hides the placement until a verified head settle
       },
     });
     expect(retried).toEqual([[tombstone]]);
-    expect(await visibleIn(readModel, "real-folder")).toEqual(["doc"]);
+    expect(await visibleIn(store, "real-folder")).toEqual(["doc"]);
+    expect(
+      await listContainerDocumentTombstoneHolds(execSql, ["real-folder"]),
+    ).toEqual([]);
 
-    // A later verified head that omits the folder applies the removal and
-    // repoints to the head's link, not the listing-seeded row.
-    await discoverRealFolder(readModel, {
+    // A later verified head that omits the folder applies the removal. The
+    // listing-seeded row is not in the head link set, so the document is
+    // unplaced rather than re-homed into the server-chosen folder.
+    await discoverRealFolder(store, {
       tombstones: [tombstone],
       verify: async (candidates) =>
         candidates.map((candidate) => ({
@@ -171,9 +217,54 @@ test("an unverifiable tombstone hides the placement until a verified head settle
       "server-chosen",
     ]);
     expect(await documents.loadDocument(execSql, "doc-local")).toMatchObject({
-      containerId: "moved-to",
+      containerId: null,
     });
-    expect(await visibleIn(readModel, "real-folder")).toEqual([]);
+    expect(await visibleIn(store, "real-folder")).toEqual([]);
+  } finally {
+    close();
+  }
+});
+
+test("all-container discovery retries the holds of every listed container", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "tombstone-hold-retry-all",
+  );
+  try {
+    const store = await seed(execSql);
+    await links.replaceDocumentLinks(execSql, "doc", ["real-folder", "other"]);
+    await store.holdContainerDocumentTombstones([
+      tombstone,
+      { ...tombstone, containerId: "other" },
+    ]);
+
+    const retried: ContainerDocumentTombstone[][] = [];
+    await discoverAllContainerDocuments({
+      ...store,
+      containerIds: ["real-folder", "other"],
+      listContainerDocuments: async () => ({
+        hasMore: false,
+        items: [],
+        nextWatermark: null,
+        tombstones: [],
+      }),
+      verifyContainerDocumentTombstones: async (candidates) => {
+        retried.push([...candidates]);
+        return candidates.map((candidate) => ({
+          kind: "refuted",
+          tombstone: candidate,
+        }));
+      },
+    });
+
+    expect(retried).toEqual([
+      [{ ...tombstone, containerId: "other" }, tombstone],
+    ]);
+    expect(
+      await listContainerDocumentTombstoneHolds(execSql, [
+        "real-folder",
+        "other",
+      ]),
+    ).toEqual([]);
   } finally {
     close();
   }

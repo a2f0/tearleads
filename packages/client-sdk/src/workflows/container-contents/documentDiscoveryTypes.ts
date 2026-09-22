@@ -110,24 +110,32 @@ export type ContainerDocumentTombstoneVerifier = (
   tombstones: ReadonlyArray<ContainerDocumentTombstone>,
 ) => Promise<ReadonlyArray<ContainerDocumentTombstoneVerdict>>;
 
+export type ContainerDocumentPlacement = Pick<
+  ContainerDocumentTombstone,
+  "containerId" | "documentId"
+>;
+
 export interface ContainerDocumentTombstoneHoldStore {
   holdContainerDocumentTombstones: (
     tombstones: ReadonlyArray<ContainerDocumentTombstone>,
   ) => Promise<void>;
+  /** Held tombstones on these containers that are due for another attempt. */
   listHeldContainerDocumentTombstones: (
     containerIds: ReadonlyArray<string>,
   ) => Promise<ReadonlyArray<ContainerDocumentTombstone>>;
+  /** The subset of placements that exist locally (link row or primary). */
+  listKnownContainerDocumentPlacements: (
+    placements: ReadonlyArray<ContainerDocumentPlacement>,
+  ) => Promise<ReadonlyArray<ContainerDocumentPlacement>>;
   releaseContainerDocumentTombstoneHolds: (
-    placements: ReadonlyArray<
-      Pick<ContainerDocumentTombstone, "containerId" | "documentId">
-    >,
+    placements: ReadonlyArray<ContainerDocumentPlacement>,
   ) => Promise<void>;
 }
 
 export interface DiscoverContainerDocumentsOptions
   extends ContainerDocumentTombstoneHoldStore {
   applyContainerDocumentTombstones: (
-    tombstones: ReadonlyArray<ContainerDocumentTombstone>,
+    tombstones: ReadonlyArray<VerifiedContainerDocumentTombstone>,
   ) => Promise<ReadonlyArray<DocumentSummary>>;
   verifyContainerDocumentTombstones: ContainerDocumentTombstoneVerifier;
   cacheReferencedPrincipalPolicies?: (
