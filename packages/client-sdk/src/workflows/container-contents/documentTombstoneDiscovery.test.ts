@@ -138,6 +138,7 @@ test("a listing tombstone the signed head still links cannot re-home the documen
       verify: async (candidates) =>
         candidates.map((candidate) => ({
           kind: "refuted",
+          linkedContainerIds: [candidate.containerId],
           tombstone: candidate,
         })),
     });
@@ -192,6 +193,7 @@ test("an unverifiable tombstone hides the placement until a verified head settle
         retried.push([...candidates]);
         return candidates.map((candidate) => ({
           kind: "refuted",
+          linkedContainerIds: [candidate.containerId],
           tombstone: candidate,
         }));
       },
@@ -257,6 +259,7 @@ test("all-container discovery retries the holds of every listed container", asyn
         retried.push([...candidates]);
         return candidates.map((candidate) => ({
           kind: "refuted",
+          linkedContainerIds: [candidate.containerId],
           tombstone: candidate,
         }));
       },

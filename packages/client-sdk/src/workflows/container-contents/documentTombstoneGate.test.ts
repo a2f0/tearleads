@@ -3,6 +3,7 @@ import type {
   ContainerDocumentPlacement,
   ContainerDocumentTombstone,
   ContainerDocumentTombstoneVerdict,
+  HeldContainerDocumentTombstoneInput,
   VerifiedContainerDocumentTombstone,
 } from "./documentDiscoveryTypes";
 import { settleContainerDocumentTombstones } from "./documentTombstoneGate";
@@ -23,7 +24,7 @@ function createGateStore(
     applied: [] as ReadonlyArray<
       ContainerDocumentTombstone | VerifiedContainerDocumentTombstone
     >[],
-    held: [] as ReadonlyArray<ContainerDocumentTombstone>[],
+    held: [] as ReadonlyArray<HeldContainerDocumentTombstoneInput>[],
     known: [] as ReadonlyArray<ContainerDocumentPlacement>[],
     listed: [] as ReadonlyArray<string>[],
     released: [] as ReadonlyArray<{
@@ -46,7 +47,7 @@ function createGateStore(
       }));
     },
     holdContainerDocumentTombstones: async (
-      tombstones: ReadonlyArray<ContainerDocumentTombstone>,
+      tombstones: ReadonlyArray<HeldContainerDocumentTombstoneInput>,
     ) => {
       calls.held.push(tombstones);
     },
@@ -82,6 +83,7 @@ function createGateStore(
 test("a tombstone the verified head still links is dropped, never applied", async () => {
   const { calls, store } = createGateStore((candidate) => ({
     kind: "refuted",
+    linkedContainerIds: ["real-folder", "also-linked"],
     tombstone: candidate,
   }));
 
@@ -94,7 +96,13 @@ test("a tombstone the verified head still links is dropped, never applied", asyn
   expect(summaries).toEqual([]);
   expect(calls.applied).toEqual([]);
   expect(calls.held).toEqual([]);
-  expect(calls.released).toEqual([[tombstone("doc", "real-folder")]]);
+  // The loaded head also releases any hold on the other container it links.
+  expect(calls.released).toEqual([
+    [
+      tombstone("doc", "real-folder"),
+      { containerId: "also-linked", documentId: "doc" },
+    ],
+  ]);
 });
 
 test("a tombstone the verified head omits is applied with the head link set", async () => {
@@ -120,7 +128,9 @@ test("a tombstone the verified head omits is applied with the head link set", as
     ],
   ]);
   expect(calls.held).toEqual([]);
-  expect(calls.released).toEqual([]);
+  expect(calls.released).toEqual([
+    [{ containerId: "kept", documentId: "doc" }],
+  ]);
 });
 
 test("an unverifiable tombstone is held instead of applied", async () => {
@@ -201,6 +211,23 @@ test("nothing is verified when there are no tombstones or holds", async () => {
 
   expect(calls.verified).toEqual([]);
   expect(calls.applied).toEqual([]);
+});
+
+test("a deferred tombstone is held without counting an attempt", async () => {
+  const { calls, store } = createGateStore((candidate) => ({
+    kind: "deferred",
+    tombstone: candidate,
+  }));
+
+  await settleContainerDocumentTombstones({
+    containerIds: ["folder"],
+    store,
+    tombstones: [tombstone("doc", "folder")],
+  });
+
+  expect(calls.held).toEqual([
+    [{ ...tombstone("doc", "folder"), deferred: true }],
+  ]);
 });
 
 test("the apply step is skipped when no tombstone was verified", async () => {

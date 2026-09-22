@@ -1,6 +1,7 @@
 import type { DocumentSummary } from "../../data/documents/documentSummary";
 import { containerDocumentPlacementKey as placementKey } from "../../data/persistence/documents/containerDocumentTombstoneHoldsPersistence";
 import type {
+  ContainerDocumentPlacement,
   ContainerDocumentTombstone,
   ContainerDocumentTombstoneVerdict,
   DiscoverContainerDocumentsOptions,
@@ -15,6 +16,18 @@ type TombstoneGateStore = Pick<
   | "releaseContainerDocumentTombstoneHolds"
   | "verifyContainerDocumentTombstones"
 >;
+
+function dedupePlacements<T extends ContainerDocumentPlacement>(
+  placements: ReadonlyArray<T>,
+): T[] {
+  const seen = new Set<string>();
+  return placements.filter((placement) => {
+    const key = placementKey(placement);
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
 
 /**
  * One candidate per placement the device actually holds; the newest server
@@ -112,16 +125,36 @@ export async function settleContainerDocumentTombstones(input: {
   const unverified = verdicts.flatMap((verdict) =>
     verdict.kind === "unverified" ? [verdict.tombstone] : [],
   );
+  const deferred = verdicts.flatMap((verdict) =>
+    verdict.kind === "deferred"
+      ? [{ ...verdict.tombstone, deferred: true }]
+      : [],
+  );
+  // A loaded head is evidence for every placement it links, including holds
+  // on this document that were not due this run: release them now rather
+  // than hiding the placement until their own backoff expires.
+  const headLinkedPlacements = verdicts.flatMap((verdict) => {
+    if (verdict.kind !== "verified" && verdict.kind !== "refuted") return [];
+    const linked =
+      verdict.kind === "verified"
+        ? verdict.tombstone.linkedContainerIds
+        : verdict.linkedContainerIds;
+    return linked.map((containerId) => ({
+      containerId,
+      documentId: verdict.tombstone.documentId,
+    }));
+  });
 
   const summaries =
     verified.length > 0
       ? await store.applyContainerDocumentTombstones(verified)
       : [];
-  if (refuted.length > 0) {
-    await store.releaseContainerDocumentTombstoneHolds(refuted);
+  const released = dedupePlacements([...refuted, ...headLinkedPlacements]);
+  if (released.length > 0) {
+    await store.releaseContainerDocumentTombstoneHolds(released);
   }
-  if (unverified.length > 0) {
-    await store.holdContainerDocumentTombstones(unverified);
+  if (unverified.length + deferred.length > 0) {
+    await store.holdContainerDocumentTombstones([...unverified, ...deferred]);
   }
   return summaries;
 }

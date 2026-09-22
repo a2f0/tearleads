@@ -141,7 +141,11 @@ function judgeTombstones(
       return { kind: "unverified", tombstone };
     }
     if (head.linkedContainerIds.includes(tombstone.containerId)) {
-      return { kind: "refuted", tombstone };
+      return {
+        kind: "refuted",
+        linkedContainerIds: head.linkedContainerIds,
+        tombstone,
+      };
     }
     return { kind: "verified", tombstone: { ...tombstone, ...head } };
   });
@@ -167,8 +171,10 @@ export function createContainerDocumentTombstoneVerifier(
     }
     const groups = [...byDocumentId.entries()];
     const verdicts: ContainerDocumentTombstoneVerdict[][] = groups.map(
-      ([, group]): ContainerDocumentTombstoneVerdict[] =>
-        judgeTombstones(group, null),
+      ([, group], index): ContainerDocumentTombstoneVerdict[] =>
+        index < HEAD_LINK_SET_LOADS_PER_RUN
+          ? judgeTombstones(group, null)
+          : group.map((tombstone) => ({ kind: "deferred", tombstone })),
     );
     let next = 0;
     const worker = async () => {
@@ -178,12 +184,13 @@ export function createContainerDocumentTombstoneVerifier(
         if (!entry) break;
         const [documentId, group] = entry;
         const head = await loadDocumentHeadLinkSet(documentId);
-        if (
-          head === null ||
-          head.accessEpoch < (await loadLocalDocumentAccessEpoch(documentId))
-        ) {
-          continue;
-        }
+        if (head === null) continue;
+        // A local-state read that fails is treated like an unavailable head:
+        // the tombstones stay held rather than failing the discovery pass.
+        const localEpoch = await loadLocalDocumentAccessEpoch(documentId).catch(
+          () => Number.MAX_SAFE_INTEGER,
+        );
+        if (head.accessEpoch < localEpoch) continue;
         verdicts[index] = judgeTombstones(group, head);
       }
     };

@@ -30,7 +30,7 @@ export {
 
 /**
  * Retry backoff for a held tombstone: fifteen minutes after the first failed
- * verification, doubling on every further failure up to about a day. An
+ * verification, doubling on every further failure up to 32 hours. An
  * honest hold that can never verify (the requester lost read access to the
  * document, or it was purged elsewhere) would otherwise cost a head fetch on
  * every discovery of its container for as long as the container exists.

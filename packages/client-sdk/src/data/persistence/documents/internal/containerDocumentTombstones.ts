@@ -173,10 +173,14 @@ async function updateSelectedContainersForDocumentTombstones(input: {
     })
     .from(documentProjection)
     .where(inArray(documentProjection.localId, localIds));
+  // Every projection row whose primary container is tombstoned OR outside the
+  // verified link set is repointed: a primary at a listing-seeded row would
+  // otherwise keep showing the document in a container the head never named.
   const rowsAtRemovedContainer = projectionRows.flatMap((row) =>
     row.localId !== null &&
     row.containerId !== null &&
-    removedContainerIds.has(row.containerId)
+    (removedContainerIds.has(row.containerId) ||
+      !input.verifiedLinkedContainerIds.has(row.containerId))
       ? [{ localId: row.localId, updatedAt: row.updatedAt ?? undefined }]
       : [],
   );

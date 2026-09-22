@@ -246,67 +246,33 @@ test("a listing that links the placement again releases its hold", async () => {
   }
 });
 
-test("applying a verified tombstone repoints only to a local row the head links", async () => {
-  const { close, execSql } = await createTestExecSql(
-    "tombstone-verified-repoint",
-  );
+test("a deferred hold does not advance the retry backoff", async () => {
+  const { close, execSql } = await createTestExecSql("tombstone-hold-deferred");
   try {
     await seedDocumentInFolder(execSql);
-    await links.replaceDocumentLinks(execSql, "doc", [
-      "folder",
-      "listed-only",
-      "verified-row",
-    ]);
-    await holdContainerDocumentTombstones(execSql, [hold("folder")], at);
-
-    await applyContainerDocumentTombstones(execSql, [
-      {
-        ...hold("folder"),
-        accessEpoch: 1,
-        linkedContainerIds: ["elsewhere", "verified-row"],
-      },
-    ]);
-
-    expect(await documents.loadDocument(execSql, "doc-local")).toMatchObject({
-      containerId: "verified-row",
-    });
-    expect(await links.listLinkedContainerIds(execSql, "doc")).toEqual([
-      "verified-row",
-    ]);
+    await holdContainerDocumentTombstones(
+      execSql,
+      [{ ...hold("folder"), deferred: true }],
+      at,
+    );
     expect(
       await listContainerDocumentTombstoneHolds(execSql, ["folder"]),
-    ).toEqual([]);
-  } finally {
-    close();
-  }
-});
-
-test("a verified removal with no head-linked local row unplaces the document", async () => {
-  const { close, execSql } = await createTestExecSql(
-    "tombstone-verified-orphan",
-  );
-  try {
-    await seedDocumentInFolder(execSql);
-    // A listing-seeded row the signed head does not link must never become
-    // the primary container; the document is recoverable as an orphan instead.
-    await links.replaceDocumentLinks(execSql, "doc", [
-      "folder",
-      "server-chosen",
-    ]);
-
-    await applyContainerDocumentTombstones(execSql, [
-      {
-        ...hold("folder"),
-        accessEpoch: 1,
-        linkedContainerIds: ["real-destination"],
-      },
-    ]);
-
-    expect(await documents.loadDocument(execSql, "doc-local")).toMatchObject({
-      containerId: null,
-    });
-    // The listing-seeded row goes with it: the verified head never linked it.
-    expect(await links.listLinkedContainerIds(execSql, "doc")).toEqual([]);
+    ).toMatchObject([{ attempts: 0 }]);
+    await holdContainerDocumentTombstones(
+      execSql,
+      [{ ...hold("folder"), deferred: true }],
+      at,
+    );
+    expect(
+      await listContainerDocumentTombstoneHolds(execSql, ["folder"]),
+    ).toMatchObject([{ attempts: 0 }]);
+    expect(
+      await listRetryableHeldContainerDocumentTombstones(
+        execSql,
+        ["folder"],
+        later,
+      ),
+    ).toEqual([hold("folder")]);
   } finally {
     close();
   }

@@ -16,7 +16,10 @@ export interface ContainerDocumentPlacementKey {
 export type HeldContainerDocumentTombstone = Omit<
   ContainerDocumentTombstoneInput,
   "accessEpoch" | "linkedContainerIds"
->;
+> & {
+  /** Held without a verification attempt; the backoff does not advance. */
+  readonly deferred?: boolean | undefined;
+};
 
 /** Keep `IN (...)` lists well under SQLite's bound-parameter limit. */
 const HOLD_SQL_ID_BATCH_SIZE = 400;
@@ -147,7 +150,7 @@ export async function holdContainerDocumentTombstonesInTransaction(
     };
     await tx
       .insert(containerDocumentTombstoneHolds)
-      .values({ ...row, attempts: 1 })
+      .values({ ...row, attempts: tombstone.deferred ? 0 : 1 })
       .onConflictDoUpdate({
         target: [
           containerDocumentTombstoneHolds.documentId,
@@ -155,7 +158,9 @@ export async function holdContainerDocumentTombstonesInTransaction(
         ],
         set: {
           ...row,
-          attempts: sql`${containerDocumentTombstoneHolds.attempts} + 1`,
+          attempts: tombstone.deferred
+            ? sql`${containerDocumentTombstoneHolds.attempts}`
+            : sql`${containerDocumentTombstoneHolds.attempts} + 1`,
         },
       })
       .run();

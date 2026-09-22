@@ -216,6 +216,7 @@ test("tombstones are judged once per document against the verified head link set
   expect(verdicts).toEqual([
     {
       kind: "refuted",
+      linkedContainerIds: ["kept", "still-linked"],
       tombstone: {
         containerId: "still-linked",
         documentId: "linked",
@@ -282,7 +283,7 @@ test("a verified head older than local document state is no evidence", async () 
   ]);
 });
 
-test("head loads are capped per run; the rest stay unverified for a later retry", async () => {
+test("head loads are capped per run; the rest are deferred for a later retry", async () => {
   const loads: string[] = [];
   const verify = createContainerDocumentTombstoneVerifier(
     async (documentId) => {
@@ -305,7 +306,7 @@ test("head loads are capped per run; the rest stay unverified for a later retry"
     verdicts.filter((verdict) => verdict.kind === "verified"),
   ).toHaveLength(32);
   expect(
-    verdicts.filter((verdict) => verdict.kind === "unverified"),
+    verdicts.filter((verdict) => verdict.kind === "deferred"),
   ).toHaveLength(8);
 });
 
