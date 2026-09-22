@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, inArray } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, notInArray } from "drizzle-orm";
 import {
   documentContainerProjection,
   documentProjection,
@@ -13,6 +13,7 @@ import { filterWritableDocumentPlacements } from "../../containers/documentPlace
 import { getLatestTimestamp } from "../../latestTimestamp";
 import type { ContainerDocumentTombstoneInput } from "../types";
 import { DOCUMENTS_APP_KIND } from "./constants";
+import { deleteContainerDocumentTombstoneHoldRows } from "./containerDocumentTombstoneHolds";
 import {
   documentSummaryJoin,
   documentSummarySelection,
@@ -37,11 +38,20 @@ function buildContainerDocumentTombstoneState(
 ): {
   removedContainerIdsByDocumentId: Map<string, Set<string>>;
   tombstoneUpdatedAtByDocumentId: Map<string, string>;
+  verifiedLinkedContainerIdsByDocumentId: Map<string, ReadonlySet<string>>;
 } {
   const removedContainerIdsByDocumentId = new Map<string, Set<string>>();
   const tombstoneUpdatedAtByDocumentId = new Map<string, string>();
+  const verifiedLinkedContainerIdsByDocumentId = new Map<
+    string,
+    ReadonlySet<string>
+  >();
 
   for (const tombstone of uniqueTombstones) {
+    verifiedLinkedContainerIdsByDocumentId.set(
+      tombstone.documentId,
+      new Set(tombstone.linkedContainerIds),
+    );
     const removedContainerIds =
       removedContainerIdsByDocumentId.get(tombstone.documentId) ?? new Set();
     removedContainerIds.add(tombstone.containerId);
@@ -58,12 +68,26 @@ function buildContainerDocumentTombstoneState(
     );
   }
 
-  return { removedContainerIdsByDocumentId, tombstoneUpdatedAtByDocumentId };
+  return {
+    removedContainerIdsByDocumentId,
+    tombstoneUpdatedAtByDocumentId,
+    verifiedLinkedContainerIdsByDocumentId,
+  };
 }
 
+/**
+ * Remove the tombstoned placement and, with the head now verified, every
+ * remaining local link row the head does not link: those are listing-seeded
+ * rows, and leaving one would keep showing the document in a container the
+ * signed link set never named. Rows the head links are kept as they are.
+ */
 async function deleteContainerDocumentTombstoneRows(
   tx: ClientSQLiteTransactionScope,
   uniqueTombstones: ReadonlyArray<ContainerDocumentTombstoneInput>,
+  verifiedLinkedContainerIdsByDocumentId: ReadonlyMap<
+    string,
+    ReadonlySet<string>
+  >,
 ): Promise<void> {
   for (const tombstone of uniqueTombstones) {
     await tx
@@ -76,6 +100,38 @@ async function deleteContainerDocumentTombstoneRows(
       )
       .run();
   }
+  for (const [documentId, linked] of verifiedLinkedContainerIdsByDocumentId) {
+    await tx
+      .delete(documentContainerProjection)
+      .where(
+        linked.size === 0
+          ? eq(documentContainerProjection.documentId, documentId)
+          : and(
+              eq(documentContainerProjection.documentId, documentId),
+              notInArray(documentContainerProjection.containerId, [...linked]),
+            ),
+      )
+      .run();
+  }
+}
+
+/**
+ * The primary container after a removal: the first remaining local row the
+ * verified head links. A remaining row the head does not link is a
+ * listing-seeded row and never becomes the primary, so a listing cannot
+ * re-home the document. With no such row the document is unplaced (`null`)
+ * and reachable through orphan recovery, rather than pointed at a head
+ * container this device may not be able to read.
+ */
+function selectNextContainerId(
+  remainingContainerIds: ReadonlyArray<string>,
+  verifiedLinkedContainerIds: ReadonlySet<string>,
+): string | null {
+  return (
+    remainingContainerIds.find((containerId) =>
+      verifiedLinkedContainerIds.has(containerId),
+    ) ?? null
+  );
 }
 
 async function updateSelectedContainersForDocumentTombstones(input: {
@@ -83,6 +139,7 @@ async function updateSelectedContainersForDocumentTombstones(input: {
   removedContainerIds: ReadonlySet<string>;
   tombstoneUpdatedAt: string | undefined;
   tx: ClientSQLiteTransactionScope;
+  verifiedLinkedContainerIds: ReadonlySet<string>;
 }): Promise<string[]> {
   const { documentId, removedContainerIds, tombstoneUpdatedAt, tx } = input;
   // A server document can own more than one local projection row: identity
@@ -116,10 +173,14 @@ async function updateSelectedContainersForDocumentTombstones(input: {
     })
     .from(documentProjection)
     .where(inArray(documentProjection.localId, localIds));
+  // Every projection row whose primary container is tombstoned OR outside the
+  // verified link set is repointed: a primary at a listing-seeded row would
+  // otherwise keep showing the document in a container the head never named.
   const rowsAtRemovedContainer = projectionRows.flatMap((row) =>
     row.localId !== null &&
     row.containerId !== null &&
-    removedContainerIds.has(row.containerId)
+    (removedContainerIds.has(row.containerId) ||
+      !input.verifiedLinkedContainerIds.has(row.containerId))
       ? [{ localId: row.localId, updatedAt: row.updatedAt ?? undefined }]
       : [],
   );
@@ -132,7 +193,10 @@ async function updateSelectedContainersForDocumentTombstones(input: {
     .from(documentContainerProjection)
     .where(eq(documentContainerProjection.documentId, documentId))
     .orderBy(asc(documentContainerProjection.containerId));
-  const nextContainerId = remainingLinkRows[0]?.containerId ?? null;
+  const nextContainerId = selectNextContainerId(
+    remainingLinkRows.map((row) => row.containerId),
+    input.verifiedLinkedContainerIds,
+  );
 
   const changedLocalIds: string[] = [];
   for (const row of rowsAtRemovedContainer) {
@@ -162,9 +226,13 @@ export async function applyContainerDocumentTombstonesWithExec(
   const { db } = getClientSQLitePersistenceRuntime(execSql);
 
   return db.transaction(async (tx) => {
+    // Besides the pending-intent guard, the verified head must not be older
+    // than local document state: a lagging or replayed head must never
+    // delete rows a newer listing or settled move wrote (`CheckEpoch`).
     const writable = await filterWritableDocumentPlacements(
       tx,
       uniqueTombstones.map((tombstone) => ({
+        accessEpoch: tombstone.accessEpoch,
         documentId: tombstone.documentId,
         containerIds: [],
       })),
@@ -173,9 +241,17 @@ export async function applyContainerDocumentTombstonesWithExec(
     const applicable = uniqueTombstones.filter((tombstone) =>
       writableIds.has(tombstone.documentId),
     );
-    const { removedContainerIdsByDocumentId, tombstoneUpdatedAtByDocumentId } =
-      buildContainerDocumentTombstoneState(applicable);
-    await deleteContainerDocumentTombstoneRows(tx, applicable);
+    const {
+      removedContainerIdsByDocumentId,
+      tombstoneUpdatedAtByDocumentId,
+      verifiedLinkedContainerIdsByDocumentId,
+    } = buildContainerDocumentTombstoneState(applicable);
+    await deleteContainerDocumentTombstoneRows(
+      tx,
+      applicable,
+      verifiedLinkedContainerIdsByDocumentId,
+    );
+    await deleteContainerDocumentTombstoneHoldRows(tx, applicable);
 
     const changedLocalIds: string[] = [];
     for (const [
@@ -188,6 +264,8 @@ export async function applyContainerDocumentTombstonesWithExec(
           removedContainerIds,
           tombstoneUpdatedAt: tombstoneUpdatedAtByDocumentId.get(documentId),
           tx,
+          verifiedLinkedContainerIds:
+            verifiedLinkedContainerIdsByDocumentId.get(documentId) ?? new Set(),
         })),
       );
     }

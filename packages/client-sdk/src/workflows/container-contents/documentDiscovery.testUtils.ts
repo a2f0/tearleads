@@ -1,9 +1,34 @@
 import type {
   ContainerDocumentDiscoveryApi,
+  ContainerDocumentPlacement,
+  ContainerDocumentTombstone,
+  ContainerDocumentTombstoneVerdict,
   ListContainersResponse,
 } from "./documentDiscoveryTypes";
 
+/** Every listing tombstone is treated as verified; no holds are stored. */
+export const trustedContainerDocumentTombstones = {
+  holdContainerDocumentTombstones: async () => {},
+  listHeldContainerDocumentTombstones: async () => [],
+  listKnownContainerDocumentPlacements: async (
+    placements: ReadonlyArray<ContainerDocumentPlacement>,
+  ) => placements,
+  releaseContainerDocumentTombstoneHolds: async () => {},
+  verifyContainerDocumentTombstones: async (
+    tombstones: ReadonlyArray<ContainerDocumentTombstone>,
+  ): Promise<ContainerDocumentTombstoneVerdict[]> =>
+    tombstones.map((tombstone) => ({
+      kind: "verified",
+      tombstone: {
+        ...tombstone,
+        accessEpoch: Number.MAX_SAFE_INTEGER,
+        linkedContainerIds: [],
+      },
+    })),
+};
+
 export const nullContainerDocumentWatermarks = {
+  ...trustedContainerDocumentTombstones,
   applyContainerDocumentTombstones: async () => [],
   loadContainerDocumentWatermark: async () => null,
   saveContainerDocumentWatermark: async () => {},

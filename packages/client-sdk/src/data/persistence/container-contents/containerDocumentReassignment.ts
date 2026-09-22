@@ -8,6 +8,10 @@ import {
 } from "../../sqlite/schema";
 import type { ClientSQLiteTransactionScope } from "../../sqlite/sqlitePersistenceRuntime";
 import {
+  deleteContainerDocumentTombstoneHoldRowsForLinks,
+  deleteContainerDocumentTombstoneHoldsForContainers,
+} from "../documents/containerDocumentTombstoneHoldsPersistence";
+import {
   DOCUMENT_LINK_INTENT_TYPE,
   DOCUMENT_MOVE_INTENT_TYPE,
 } from "./documentMoveIntentPersistence";
@@ -45,6 +49,25 @@ async function reassignDocumentLinksForContainer(
       )
   `);
 
+  // The reassigned placements are asserted locally: a stale hold on the
+  // destination would hide them, and holds on the vacated container have
+  // nothing left to hide.
+  const movedDocumentIds = (
+    await tx
+      .select({ documentId: documentContainerProjection.documentId })
+      .from(documentContainerProjection)
+      .where(eq(documentContainerProjection.containerId, fromContainerId))
+  ).map((row) => row.documentId);
+  await deleteContainerDocumentTombstoneHoldRowsForLinks(
+    tx,
+    movedDocumentIds.map((documentId) => ({
+      containerIds: [toContainerId],
+      documentId,
+    })),
+  );
+  await deleteContainerDocumentTombstoneHoldsForContainers(tx, [
+    fromContainerId,
+  ]);
   await tx
     .delete(documentContainerProjection)
     .where(eq(documentContainerProjection.containerId, fromContainerId))

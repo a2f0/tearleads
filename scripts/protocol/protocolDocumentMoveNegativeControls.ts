@@ -65,4 +65,12 @@ export const DOCUMENT_MOVE_NEGATIVE_CONTROLS: readonly NegativeControl[] = [
     expect: { kind: "invariant", name: "StableView" },
     why: "A local read that captured the old placement must not publish after a move.",
   },
+  {
+    id: "listing-tombstone-removes-linked-container",
+    module: "formal/local-trust/DocumentMovePlacement.tla",
+    config: "formal/local-trust/DocumentMovePlacement.cfg",
+    constants: { TombstonesRequireSignedEvidence: "FALSE" },
+    expect: { kind: "invariant", name: "StablePlacement" },
+    why: "An unverified listing tombstone must not delete a local link row whose container the signed link set still contains.",
+  },
 ];
