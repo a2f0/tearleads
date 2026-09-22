@@ -47,7 +47,7 @@ function recorder() {
   return { finished, peak: () => peak, run, started };
 }
 
-const describe = (step: Step): string => step.id;
+const label = (step: Step): string => step.id;
 
 test("runs every item when all succeed, never exceeding the parallelism", async () => {
   const log = recorder();
@@ -56,7 +56,7 @@ test("runs every item when all succeed, never exceeding the parallelism", async 
     release: released(),
   }));
 
-  const failures = await runFailFastPool(steps, 2, log.run, describe);
+  const failures = await runFailFastPool(steps, 2, log.run, label);
 
   expect(failures).toEqual([]);
   expect(log.started).toEqual(["a", "b", "c", "d", "e"]);
@@ -73,7 +73,7 @@ test("starts nothing after a failure but lets in-flight items finish", async () 
     { id: "never-2", release: released() },
   ];
 
-  const pool = runFailFastPool(steps, 2, log.run, describe);
+  const pool = runFailFastPool(steps, 2, log.run, label);
   await Bun.sleep(0);
   slow.open();
   const failures = await pool;
@@ -92,7 +92,7 @@ test("records a thrown error as a failure and stops starting items", async () =>
     { id: "never", release: released() },
   ];
 
-  const pool = runFailFastPool(steps, 2, log.run, describe);
+  const pool = runFailFastPool(steps, 2, log.run, label);
   await Bun.sleep(0);
   slow.open();
   const failures = await pool;
@@ -112,7 +112,7 @@ test("reports every failure that was already in flight", async () => {
     { id: "never", release: released() },
   ];
 
-  const pool = runFailFastPool(steps, 2, log.run, describe);
+  const pool = runFailFastPool(steps, 2, log.run, label);
   first.open();
   second.open();
   const failures = await pool;

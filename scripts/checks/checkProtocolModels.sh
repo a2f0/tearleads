@@ -31,7 +31,8 @@ stop_runs() {
     kill "$(cat "$run_pid_file")" 2>/dev/null || :
   done
 }
-trap 'stop_runs; exit 1' HUP INT TERM
+# Waiting lets the stopped runs exit before the EXIT trap removes their state.
+trap 'stop_runs; wait; exit 1' HUP INT TERM
 
 REGISTERED_MODELS=$CHECK_ROOT/registered-models.txt
 SORTED_MODELS=$CHECK_ROOT/sorted-models.txt

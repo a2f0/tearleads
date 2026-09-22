@@ -27,7 +27,9 @@ FIXTURE_ROOT=$SOURCE_ROOT/scripts/checks/fixtures/protocolModels
 TEST_ROOT=$(mktemp -d "${TMPDIR:-/tmp}/protocol-models.XXXXXX")
 JAVA_LOG=$TEST_ROOT/java.log
 
-trap 'rm -rf "$TEST_ROOT"' EXIT
+# An interrupted run of this test must not strand the hung check it starts.
+interrupted_check=
+trap '[ -z "$interrupted_check" ] || kill -TERM "$interrupted_check" 2>/dev/null; rm -rf "$TEST_ROOT"' EXIT
 trap 'exit 1' HUP INT TERM
 
 git init --quiet --initial-branch=main "$TEST_ROOT"
@@ -160,6 +162,7 @@ done
 sleep 1
 kill -TERM "$interrupted_check"
 wait "$interrupted_check" || :
+interrupted_check=
 cut -d '|' -f 5 "$JAVA_LOG" >"$TEST_ROOT/run-pids"
 # A killed run is reaped by its own job shortly after the check exits, and
 # kill -0 still succeeds on it until then, so allow a few seconds to settle.

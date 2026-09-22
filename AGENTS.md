@@ -69,6 +69,12 @@ the previous build. The app test preload refuses to start on a stale dist;
 Rebuild with `bun run --filter='@tearleads/client-sdk' build` between an SDK edit
 and any api test run, or treat the result as meaningless.
 
+The same holds for `packages/client-sdk`'s own tests: `distArtifacts.test.ts`
+inspects `dist`, and a few tests import `@tearleads/client-sdk`. `turbo run test`
+builds the SDK first; a bare `bun run test` in the package does not, because a
+test script that rebuilt `dist` would delete it under other packages' tests
+running alongside it in turbo.
+
 ### Prove a security test fails without its fix
 
 A test written alongside a verifier change can pass for the wrong reason — the

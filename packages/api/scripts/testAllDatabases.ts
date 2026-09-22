@@ -76,7 +76,7 @@ async function runDatabaseTests(
 // suites share no state and run concurrently.
 const results = await Promise.all(databases.map(runDatabaseTests));
 
-console.log("\n[api:test] database timings");
+console.log("\n[api:test] database timings (backends ran concurrently)");
 for (const result of results) {
   console.log(
     `[api:test] ${result.database.padEnd(6)} ${formatDuration(result.durationMs)}`,

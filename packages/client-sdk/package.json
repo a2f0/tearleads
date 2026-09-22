@@ -27,7 +27,7 @@
   "scripts": {
     "build": "sh scripts/build.sh",
     "check": "tsc -p tsconfig.json --noEmit",
-    "test": "bun run build && bun test src --max-concurrency=4 --pass-with-no-tests"
+    "test": "bun test src --max-concurrency=4 --pass-with-no-tests"
   },
   "dependencies": {
     "@tearleads/api-client": "workspace:*",

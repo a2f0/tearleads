@@ -32,6 +32,7 @@ export async function runFailFastPool<T>(
       }
     }
   }
-  await Promise.all(Array.from({ length: parallelism }, work));
+  const workers = Math.min(parallelism, items.length);
+  await Promise.all(Array.from({ length: workers }, work));
   return failures;
 }
