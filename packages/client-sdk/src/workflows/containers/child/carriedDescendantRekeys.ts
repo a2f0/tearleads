@@ -1,3 +1,4 @@
+import type { VerifiedPrincipalPolicy } from "@tearleads/crypto";
 import type { ContainerWriterProjectionResponse } from "@tearleads/validators/response";
 import { MAX_ROTATION_CONTAINER_REKEYS } from "@tearleads/validators/util";
 import type {
@@ -6,6 +7,7 @@ import type {
   MaterializedContainerRekeyPlan,
 } from "../../../data/containers/shared/types";
 import {
+  type PrincipalPolicyCache,
   type ProjectionUserKeyResolver,
   type ReferencedPrincipalPolicyWarmer,
   verifyContainerWriterProjection,
@@ -19,6 +21,12 @@ export interface CarriedRekeyPlanningInput {
   readonly apiClient: Pick<ContainerRekeyApi, "getContainerWriterProjection">;
   readonly author: ContainerMutationAuthor;
   readonly execSql: ExecSql;
+  /**
+   * Verified policies the batch itself commits, which the rebased paths cite
+   * before any store holds them; and the one each carried rekey cites anew.
+   */
+  readonly principalPolicyCache?: PrincipalPolicyCache | undefined;
+  readonly replacementPrincipalPolicy?: VerifiedPrincipalPolicy | undefined;
   readonly resolveProjectionUserKey: ProjectionUserKeyResolver;
   readonly stillCurrent?: (() => boolean) | undefined;
   readonly targetSecretKey: Uint8Array;
@@ -103,6 +111,7 @@ export async function planCarriedDescendantRekeys(
     // its own batch after the server had committed it.
     await verifyContainerWriterProjection({
       execSql: input.execSql,
+      principalPolicyCache: input.principalPolicyCache,
       projection: served,
       resolveUserKey: input.resolveProjectionUserKey,
       stillCurrent: input.stillCurrent,
@@ -123,6 +132,8 @@ export async function planCarriedDescendantRekeys(
       // Nothing here is acknowledged yet: pins move only with the batch.
       persistVerificationCheckpoints: false,
       previousProjection,
+      principalPolicyCache: input.principalPolicyCache,
+      replacementPrincipalPolicy: input.replacementPrincipalPolicy,
       resolveProjectionUserKey: input.resolveProjectionUserKey,
       stillCurrent: input.stillCurrent,
       targetSecretKey: input.targetSecretKey,

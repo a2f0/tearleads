@@ -364,6 +364,7 @@ export function collectShareUserRecipientKeys(input: {
 
 export async function collectContainerSharePrincipalPolicies(input: {
   execSql: ExecSql;
+  persistVerificationCheckpoints?: boolean | undefined;
   principalPolicyCache?: PrincipalPolicyCache | undefined;
   previousProjection: ContainerWriterProjectionResponse;
   recipientPolicy?: VerifiedPrincipalPolicy | undefined;
@@ -374,6 +375,7 @@ export async function collectContainerSharePrincipalPolicies(input: {
   const previousPolicies =
     await collectContainerWriterProjectionPrincipalPolicies({
       execSql: input.execSql,
+      persistVerificationCheckpoints: input.persistVerificationCheckpoints,
       principalPolicyCache: input.principalPolicyCache,
       projection: input.previousProjection,
       resolveUserKey: input.resolveUserKey,

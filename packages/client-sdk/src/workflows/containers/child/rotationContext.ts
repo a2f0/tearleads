@@ -13,6 +13,7 @@ import { assertContainerKekPathCurrent } from "../../../data/documents/shared/co
 import { unwrapContainerKekPath } from "../../../data/documents/shared/projection";
 import { projectionVerificationOptions } from "../../../data/documents/shared/types";
 import type {
+  PrincipalPolicyCache,
   ProjectionUserKeyResolver,
   ReferencedPrincipalPolicyWarmer,
 } from "../../../data/keyingProjectionVerification";
@@ -41,6 +42,8 @@ export async function resolveRotationContext(
     execSql: ExecSql;
     persistVerificationCheckpoints?: boolean | undefined;
     previousProjection: ContainerWriterProjectionResponse;
+    /** Verified policies the path may cite before they are stored locally. */
+    principalPolicyCache?: PrincipalPolicyCache | undefined;
     resolveProjectionUserKey: ProjectionUserKeyResolver;
     stillCurrent?: (() => boolean) | undefined;
     targetSecretKey: Uint8Array;
@@ -63,6 +66,7 @@ export async function resolveRotationContext(
   const keksByEpochId = await unwrapContainerKekPath({
     execSql: input.execSql,
     persistVerificationCheckpoints: input.persistVerificationCheckpoints,
+    principalPolicyCache: input.principalPolicyCache,
     projection: input.previousProjection,
     secretKey: input.targetSecretKey,
     ...projectionVerificationOptions(input),

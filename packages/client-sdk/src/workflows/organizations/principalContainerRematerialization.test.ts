@@ -259,3 +259,78 @@ test("rematerializations are ordered parent-first, ids breaking ties", () => {
     ]).map((item) => item.grantRow.containerId),
   ).toEqual(["b-root", "z-root", "m-mid", "a-deep"]);
 });
+
+// #2340 finding 1, with real keys. A group granted on the root and on a child
+// beneath it rotates both. The child's rekey is signed against the root epoch
+// this batch mints and cites the group head this batch commits, which no store
+// holds yet: only the batch's own policy cache lets that path verify.
+
+test("a nested group grant is rekeyed against the epoch its ancestor mints in the batch", async () => {
+  const fixture = await createFixture({
+    // Both granted in every policy; the child's served projection is replaced
+    // below with a real child under the root.
+    containerIds: [ROOT_CONTAINER_ID, "a-nested-group-child"],
+    databaseName: "principal-container-rematerialization-nested",
+    rotateKey: true,
+  });
+  try {
+    const parentProjection =
+      await fixture.input.apiClient.getContainerWriterProjection(
+        ROOT_CONTAINER_ID,
+      );
+    if (!parentProjection) throw new Error("Expected parent projection");
+    const previous = fixture.previousBundle.currentState;
+    // Sorted by id this child would plan BEFORE the root; depth must win.
+    const materializedPlan = await buildMaterializedContainerCreatePlan({
+      author: fixture.input.author,
+      containerId: "a-nested-group-child",
+      execSql: fixture.database.execSql,
+      managedPrincipalGrant: {
+        accessLevel: "admin",
+        principalEncapsulationPublicKey: previous.encapsulationPublicKey,
+        principalHead: {
+          keyEpoch: previous.keyEpoch,
+          keyFingerprint: previous.keyFingerprint,
+          principalId: previous.principalId,
+          principalType: "group",
+          stateHash: previous.stateHash,
+          version: previous.version,
+        },
+      },
+      parentProjection,
+      parentSecretKey: fixture.input.targetSecretKey,
+      resolveProjectionUserKey: fixture.input.resolveTrustedUserIdentity,
+    });
+    fixture.serveProjection(
+      childContainerWriterProjectionFromCreatePlan({
+        materializedPlan,
+        parentProjection,
+      }),
+    );
+    const prepared = await preparePrincipalContainerRematerializationBatch(
+      fixture.input,
+    );
+    expect(
+      prepared.requests.map((request) =>
+        Reflect.get(Object(request.event), "objectId"),
+      ),
+    ).toEqual([ROOT_CONTAINER_ID, "a-nested-group-child"]);
+    const [rootRekey, childRekey] = prepared.plans;
+    if (
+      !rootRekey ||
+      !childRekey ||
+      !("keyring" in rootRekey.plan) ||
+      !("keyring" in childRekey.plan)
+    ) {
+      throw new Error("Expected two rotation plans");
+    }
+    expect(childRekey.plan.keyEpoch.parentContainerKeyEpochId).toBe(
+      rootRekey.plan.containerKeyEpochId,
+    );
+    expect(
+      childRekey.plan.request.previousContainerPath?.[0]?.manifestHash,
+    ).toBe(rootRekey.plan.manifestHash);
+  } finally {
+    fixture.database.close();
+  }
+});

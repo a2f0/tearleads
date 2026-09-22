@@ -38,6 +38,7 @@ import type {
 } from "../../../data/containers/shared/types";
 import { readCanonicalRecord } from "../../../data/keyingCanonicalJson";
 import {
+  type PrincipalPolicyCache,
   type ProjectionUserKeyResolver,
   type ReferencedPrincipalPolicyWarmer,
   requireProjectionUserKeyResolver,
@@ -199,6 +200,8 @@ interface RekeyPlanInput {
   keyringEntriesOverride?: readonly ContainerKekKeyringEntry[] | undefined;
   persistVerificationCheckpoints?: boolean | undefined;
   previousProjection: ContainerWriterProjectionResponse;
+  /** Verified policies the path may cite before they are stored locally. */
+  principalPolicyCache?: PrincipalPolicyCache | undefined;
   replacementPrincipalPolicy?: VerifiedPrincipalPolicy | undefined;
   resolveProjectionUserKey: ProjectionUserKeyResolver;
   signedAt?: string | undefined;
@@ -221,6 +224,7 @@ async function collectRekeyPrincipalPolicies(
     execSql: input.execSql,
     persistVerificationCheckpoints: input.persistVerificationCheckpoints,
     previousProjection: input.previousProjection,
+    principalPolicyCache: input.principalPolicyCache,
     resolveUserKey,
     stillCurrent: input.stillCurrent,
     warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,

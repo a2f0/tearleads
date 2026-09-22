@@ -23,9 +23,11 @@ import type {
   MaterializedContainerSharePlan,
 } from "../../data/containers/shared/types";
 import {
+  type PrincipalPolicyCache,
   type ReferencedPrincipalPolicyWarmer,
   verifyContainerWriterProjection,
 } from "../../data/keyingProjectionVerification";
+import { referencedPrincipalPolicyKey } from "../../data/keyingProjectionVerification/principalPolicyCache";
 import { createProjectionUserKeyResolver } from "../../data/keyingProjectionVerification/userKeyResolver";
 import type { SecurityIncidentReporter } from "../../data/securityIncidents";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
@@ -35,6 +37,7 @@ import { scheduleHeldDescendantRecitations } from "../containers/child/recite";
 import { buildMaterializedContainerRekeyPlan } from "../containers/child/rekey";
 import {
   containerWriterProjectionFromRotationPlan,
+  isSpeculativeContainerWriterProjection,
   rebaseContainerWriterProjection,
 } from "../containers/child/rekeyProjection";
 import { buildMaterializedContainerRevokePlan } from "../containers/child/revoke";
@@ -93,9 +96,16 @@ async function loadGrantedContainerContext(
   input: PrincipalContainerRematerializationInput,
   grantRow: PrincipalContainerGrant,
   projection: ContainerWriterProjectionResponse,
+  principalPolicyCache: PrincipalPolicyCache,
 ) {
+  // A projection re-rooted on a rotation this batch has yet to commit must
+  // not pin anything: its heads are speculative until acknowledged, and a
+  // pin past the group's served head would refuse the other served paths.
   await verifyContainerWriterProjection({
     execSql: input.execSql,
+    persistVerificationCheckpoints:
+      !isSpeculativeContainerWriterProjection(projection),
+    principalPolicyCache,
     projection,
     resolveUserKey: createProjectionUserKeyResolver({
       resolveTrustedUserIdentity: input.resolveTrustedUserIdentity,
@@ -176,6 +186,8 @@ function authoredMutationHead(
 
 async function buildPrincipalContainerRematerializationPlan(input: {
   readonly grantRow: PrincipalContainerGrant;
+  /** Holds the policy this batch commits, which rebased paths already cite. */
+  readonly principalPolicyCache: PrincipalPolicyCache;
   /** The served projection, re-rooted on any rotation planned above it. */
   readonly projection: ContainerWriterProjectionResponse;
   readonly rematerialization: PrincipalContainerRematerializationInput;
@@ -189,6 +201,7 @@ async function buildPrincipalContainerRematerializationPlan(input: {
       rematerialization,
       grantRow,
       input.projection,
+      input.principalPolicyCache,
     );
   const previousProjection = projection;
   const nextGrant = rematerialization.nextPolicy.grants.find(
@@ -201,7 +214,13 @@ async function buildPrincipalContainerRematerializationPlan(input: {
   const sharedInput = {
     author,
     execSql: rematerialization.execSql,
+    // Planning against a path this batch has yet to commit pins nothing; the
+    // acknowledgement advances every head at once. The rekey planner applies
+    // this rule itself; revoke and grant planning take it from here.
+    persistVerificationCheckpoints:
+      !isSpeculativeContainerWriterProjection(projection),
     previousProjection: projection,
+    principalPolicyCache: input.principalPolicyCache,
     resolveProjectionUserKey: input.resolveProjectionUserKey,
     stillCurrent: rematerialization.stillCurrent,
     targetSecretKey: rematerialization.targetSecretKey,
@@ -287,6 +306,25 @@ export function orderRematerializationsParentFirst<
   );
 }
 
+/** An in-memory cache holding only the policy this batch is about to commit. */
+function seededPrincipalPolicyCache(
+  nextPolicy: VerifiedPrincipalPolicy,
+): PrincipalPolicyCache {
+  return new Map([
+    [
+      referencedPrincipalPolicyKey({
+        keyEpoch: nextPolicy.keyEpoch,
+        keyFingerprint: nextPolicy.state.keyFingerprint,
+        principalId: nextPolicy.principalId,
+        principalType: nextPolicy.principalType,
+        stateHash: nextPolicy.stateHash,
+        version: nextPolicy.version,
+      }),
+      nextPolicy,
+    ],
+  ]);
+}
+
 async function buildPrincipalContainerRematerializationPlans(
   input: PrincipalContainerRematerializationInput,
 ): Promise<PlannedRematerialization[]> {
@@ -319,6 +357,9 @@ async function buildPrincipalContainerRematerializationPlans(
     served.push({ grantRow, projection });
   }
   orderRematerializationsParentFirst(served);
+  // A rotation planned above cites the group at the head this batch commits,
+  // which no store holds yet; the cache is what lets a rebased path verify.
+  const principalPolicyCache = seededPrincipalPolicyCache(input.nextPolicy);
   const plans: PlannedRematerialization[] = [];
   const rotatedAbove: Pick<
     ContainerWriterProjectionResponse,
@@ -332,6 +373,7 @@ async function buildPrincipalContainerRematerializationPlans(
     );
     const entry = await buildPrincipalContainerRematerializationPlan({
       grantRow,
+      principalPolicyCache,
       projection: rebased,
       rematerialization: input,
       resolveProjectionUserKey,
@@ -378,6 +420,10 @@ export async function preparePrincipalContainerRematerializationBatch(
         apiClient: input.apiClient,
         author: input.author,
         execSql: input.execSql,
+        principalPolicyCache: seededPrincipalPolicyCache(input.nextPolicy),
+        // Its path cites the policy this batch commits, so like every
+        // rematerialized rotation it must cite the successor.
+        replacementPrincipalPolicy: input.nextPolicy,
         requiredContainerIds,
         resolveProjectionUserKey: createProjectionUserKeyResolver({
           resolveTrustedUserIdentity: input.resolveTrustedUserIdentity,

@@ -223,8 +223,8 @@ export function createMockApiClient(
         ? { data, ok: true }
         : mockRequestFailure({
             message: "Mock group policy commit unavailable",
-            method: "POST",
-            path: `/organizations/${organizationId}/groups/${groupId}/policy`,
+            method: "PUT",
+            path: `/organizations/${organizationId}/groups/${groupId}/policy-commit`,
           });
     };
   }

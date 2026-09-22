@@ -317,6 +317,11 @@ async function submitGroupPolicyCommit(input: {
   }
   const carried = await input.carryDescendantRekeys(first.requiredContainerIds);
   if (input.stillCurrent?.() === false) return null;
+  // Nothing signed means the same refusal again; report the one already had.
+  if (carried.length === 0) {
+    first.report?.();
+    return null;
+  }
   input.request.containerMutations = [
     ...(input.request.containerMutations ?? []),
     ...carried,

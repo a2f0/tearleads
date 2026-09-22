@@ -41,6 +41,7 @@ import type {
 } from "../../../data/containers/shared/types";
 import { readCanonicalRecord } from "../../../data/keyingCanonicalJson";
 import {
+  type PrincipalPolicyCache,
   type ProjectionUserKeyResolver,
   type ReferencedPrincipalPolicyWarmer,
   requireProjectionUserKeyResolver,
@@ -158,7 +159,11 @@ export async function buildMaterializedContainerRevokePlan(input: {
   author: ContainerMutationAuthor;
   eventId?: string | undefined;
   execSql: ExecSql;
+  /** False for a projection re-rooted on rotations not yet acknowledged. */
+  persistVerificationCheckpoints?: boolean | undefined;
   previousProjection: ContainerWriterProjectionResponse;
+  /** Verified policies the path may cite before they are stored locally. */
+  principalPolicyCache?: PrincipalPolicyCache | undefined;
   replacementPrincipalPolicy?: VerifiedPrincipalPolicy | undefined;
   revokedSubject: ContainerRevokeSubject;
   resolveProjectionUserKey: ProjectionUserKeyResolver;
@@ -180,7 +185,9 @@ export async function buildMaterializedContainerRevokePlan(input: {
   } = await resolveRotationContext(input, "revoke");
   const principalPolicies = await collectContainerRevokePrincipalPolicies({
     execSql: input.execSql,
+    persistVerificationCheckpoints: input.persistVerificationCheckpoints,
     previousProjection: input.previousProjection,
+    principalPolicyCache: input.principalPolicyCache,
     resolveUserKey: resolveProjectionUserKey,
     stillCurrent: input.stillCurrent,
     warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
