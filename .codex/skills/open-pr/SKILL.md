@@ -24,7 +24,7 @@ PR **title must conform to the repository's commitlint rules**
 
 ## Prerequisites
 
-- `git`, `gh` (authenticated), and POSIX `awk` on `PATH`.
+- `git` and `gh` (authenticated) on `PATH`.
 - The `@tearleads/agent-tool` package: `packages/agent-tool/src/index.ts`.
 - `node_modules` installed (`bun install`) so the commitlint CLI is available.
 - The working tree contains only changes intended for this PR. Stop and ask
@@ -112,8 +112,9 @@ AGENT_TOOL="$ROOT_DIR/packages/agent-tool/src/index.ts"
 
      ```bash
      STASH_REF=$(
-       git stash list --format='%gd %H' |
-         awk -v stash_oid="$STASH_OID" '$2 == stash_oid { print $1; exit }'
+       git stash list --format='%H %gd' |
+         sed -n "s/^$STASH_OID //p" |
+         head -n 1
      )
      [ -n "$STASH_REF" ] || {
        echo "Error: restored stash OID is no longer in the stash list" >&2

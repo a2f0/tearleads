@@ -237,3 +237,8 @@ Do not edit generated or build output directly:
   `bun run report:dependencies:json` if the failure is not obvious.
 - When changing production dependencies, run both `bun run lint:knip:all` and
   `bun run lint:knip:production`.
+- Skill files (`.claude/skills/*/SKILL.md` and their `.codex/skills` copies)
+  must not contain `$1` through `$9`. Claude Code substitutes skill arguments
+  into those tokens, so a snippet such as `awk '{ print $1 }'` reaches the agent
+  corrupted whenever the skill is invoked with arguments, while the file on disk
+  still looks correct. Use `cut`, `sed`, or named variables instead.

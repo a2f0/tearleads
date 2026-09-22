@@ -51,7 +51,7 @@ commits to review and have no round limit.
 
 ## Prerequisites
 
-- `git`, `gh` (authenticated), `jq`, and POSIX `awk` on `PATH`.
+- `git`, `gh` (authenticated), and `jq` on `PATH`.
 - The `@tearleads/agent-tool` package: `packages/agent-tool/src/index.ts`.
 - For Claude Code reviews: `claude` CLI authenticated.
 - For Codex reviews: `codex` CLI configured (`OPENAI_API_KEY`).
@@ -157,7 +157,7 @@ checks. `--jq '… // ""'` yields an empty string only on a successful empty res
      BASE_REF="$DEFAULT_BRANCH"
      [ -z "$AGENT_TOOL_REVIEW_BASE_REF" ] || [ "$BASE_REF" = "$AGENT_TOOL_REVIEW_BASE_REF" ] || { echo "Error: default branch changed from pinned branch $AGENT_TOOL_REVIEW_BASE_REF to $BASE_REF" >&2; exit 1; }
    fi
-   LIVE_BASE_OID=$(git ls-remote "$BASE_REPO_URL" "refs/heads/$BASE_REF" | awk 'NR == 1 { print $1 }')
+   LIVE_BASE_OID=$(git ls-remote "$BASE_REPO_URL" "refs/heads/$BASE_REF" | cut -f1 | head -n 1)
    [ -n "$BASE_REPO_URL" ] && [ -n "$LIVE_BASE_OID" ] || { echo "Error: could not resolve the base repository snapshot" >&2; exit 1; }
    [ -z "$AGENT_TOOL_REVIEW_BASE_OID" ] || [ "$LIVE_BASE_OID" = "$AGENT_TOOL_REVIEW_BASE_OID" ] || { echo "Error: $BASE_REF advanced from pinned commit $AGENT_TOOL_REVIEW_BASE_OID to $LIVE_BASE_OID" >&2; exit 1; }
    BASE_OID=${AGENT_TOOL_REVIEW_BASE_OID:-$LIVE_BASE_OID}
