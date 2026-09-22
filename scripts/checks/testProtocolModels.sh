@@ -17,6 +17,10 @@ assert_contains() {
   esac
 }
 
+# The assertions below pick their own parallelism; a value exported by the
+# caller must not change them.
+unset PROTOCOL_TLC_PARALLELISM
+
 SOURCE_ROOT=$(git rev-parse --show-toplevel)
 CHECK_SCRIPT=$SOURCE_ROOT/scripts/checks/checkProtocolModels.sh
 FIXTURE_ROOT=$SOURCE_ROOT/scripts/checks/fixtures/protocolModels
@@ -49,6 +53,7 @@ run_check() (
     FAKE_FAIL_CONFIG="${FAKE_FAIL_CONFIG:-}" \
     FAKE_FAIL_MODEL="${FAKE_FAIL_MODEL:-}" \
     FAKE_FAIL_STATUS="${FAKE_FAIL_STATUS:-}" \
+    PROTOCOL_TLC_PARALLELISM="${PROTOCOL_TLC_PARALLELISM:-}" \
     TLA_TOOLS_JAR_SHA256="${TLA_TOOLS_JAR_SHA256:-$FIXTURE_JAR_SHA256}" \
     "$CHECK_SCRIPT"
 )
@@ -79,32 +84,63 @@ install_registry valid.txt
 valid_output=$(run_check)
 assert_contains "$valid_output" "Checked 3 protocol model configuration(s)."
 
-actual_runs=$(cut -d '|' -f 1,2 "$JAVA_LOG")
+# Overlapping runs start in no fixed order, so the launch log is unordered; the
+# reported order must still follow the registry.
+actual_runs=$(cut -d '|' -f 1,2 "$JAVA_LOG" | LC_ALL=C sort)
 expected_runs='formal/alpha/Alpha.tla|formal/alpha/Alpha.cfg
 formal/alpha/Alpha.tla|formal/alpha/AlphaBroad.cfg
 formal/zeta/Zeta.tla|formal/zeta/Zeta.cfg'
 [ "$actual_runs" = "$expected_runs" ] ||
-  fail "registered models did not run in deterministic order."
+  fail "registered models did not all run."
+
+reported_runs=$(printf '%s\n' "$valid_output" | sed -n 's/^Checking \(.*\)\.\.\.$/\1/p')
+expected_reported_runs='formal/alpha/Alpha.tla with formal/alpha/Alpha.cfg
+formal/alpha/Alpha.tla with formal/alpha/AlphaBroad.cfg
+formal/zeta/Zeta.tla with formal/zeta/Zeta.cfg'
+[ "$reported_runs" = "$expected_reported_runs" ] ||
+  fail "registered models were not reported in deterministic order."
 
 metadir_count=$(cut -d '|' -f 3 "$JAVA_LOG" | LC_ALL=C sort -u | wc -l | tr -d '[:space:]')
 [ "$metadir_count" -eq 3 ] || fail "TLC runs did not receive distinct state directories."
 
-install_registry valid.txt
-if failure_output=$(
-  FAKE_FAIL_CONFIG=formal/alpha/AlphaBroad.cfg \
-    FAKE_FAIL_STATUS=17 \
-    run_check 2>&1
-); then
-  fail "a TLC failure was accepted."
-else
-  failure_status=$?
-fi
+# Concurrent runs sharing java.io.tmpdir corrupt each other's standard modules.
+tmpdir_count=$(cut -d '|' -f 4 "$JAVA_LOG" | LC_ALL=C sort -u | wc -l | tr -d '[:space:]')
+[ "$tmpdir_count" -eq 3 ] || fail "TLC runs did not receive distinct Java tmpdirs."
 
-[ "$failure_status" -eq 17 ] ||
-  fail "TLC exit 17 was reported as $failure_status."
-assert_contains "$failure_output" "TLC failed for formal/alpha/Alpha.tla with formal/alpha/AlphaBroad.cfg."
-[ "$(wc -l <"$JAVA_LOG" | tr -d '[:space:]')" -eq 2 ] ||
-  fail "the checker did not stop after the first TLC failure."
+# One run at a time, a failure must stop the check before the next run starts.
+# With overlapping runs, which later runs had already started depends on
+# timing, so only the reported failure is asserted there.
+for parallelism in 1 2; do
+  install_registry valid.txt
+  if failure_output=$(
+    FAKE_FAIL_CONFIG=formal/alpha/AlphaBroad.cfg \
+      FAKE_FAIL_STATUS=17 \
+      PROTOCOL_TLC_PARALLELISM=$parallelism \
+      run_check 2>&1
+  ); then
+    fail "a TLC failure was accepted at parallelism $parallelism."
+  else
+    failure_status=$?
+  fi
+
+  [ "$failure_status" -eq 17 ] ||
+    fail "TLC exit 17 was reported as $failure_status at parallelism $parallelism."
+  assert_contains "$failure_output" "TLC failed for formal/alpha/Alpha.tla with formal/alpha/AlphaBroad.cfg."
+  if [ "$parallelism" -eq 1 ]; then
+    [ "$(wc -l <"$JAVA_LOG" | tr -d '[:space:]')" -eq 2 ] ||
+      fail "the checker did not stop after the first TLC failure."
+  fi
+done
+
+for parallelism in 0 two; do
+  install_registry valid.txt
+  if parallelism_output=$(PROTOCOL_TLC_PARALLELISM=$parallelism run_check 2>&1); then
+    fail "PROTOCOL_TLC_PARALLELISM=$parallelism was accepted."
+  fi
+  assert_contains "$parallelism_output" "PROTOCOL_TLC_PARALLELISM must be a positive integer."
+  [ ! -e "$JAVA_LOG" ] ||
+    fail "PROTOCOL_TLC_PARALLELISM=$parallelism launched Java anyway."
+done
 
 # A tla2tools.jar whose bytes do not match the pin must fail before TLC runs.
 install_registry valid.txt
