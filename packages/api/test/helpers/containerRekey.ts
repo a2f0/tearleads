@@ -42,7 +42,7 @@ interface ContainerRekeyFixture {
   readonly principalPolicies?: readonly VerifiedPrincipalPolicy[];
 }
 
-interface BuiltContainerRekeyMutation {
+export interface BuiltContainerRekeyMutation {
   readonly bundle: AccessManifestBundleWire;
   readonly container: {
     readonly bundle: VerifiedContainerAccessManifest;

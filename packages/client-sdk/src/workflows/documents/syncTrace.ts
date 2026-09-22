@@ -27,6 +27,7 @@ export type DocumentSyncTraceEmitter = (line: string) => void;
 export const ANCESTOR_REPAIR_ABANDON_REASONS = [
   "blocked",
   "depth-budget",
+  "inaccessible",
   "peer-rotation",
   "refused",
   "unrefreshable",

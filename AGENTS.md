@@ -42,6 +42,41 @@ Run the smallest command that matches the handoff risk:
 - `bun run report:dependencies:archi`: collapsed Graphviz DOT output for
   package/module reports.
 
+### Cheap checks that fail late
+
+The push gate runs its checks in order and stops at the first failure, so a
+mistake in a fast check still costs everything queued ahead of it. Two are worth
+running by hand rather than discovering ~8 minutes into a push:
+
+- `bun tsc --build --pretty false` (about 7s) after any type or signature
+  change. It is **not** part of `check:fast`; only `check:affected` and `check`
+  include it.
+- `bun run lint:architecture` (about 16s) after adding or moving an `import`.
+  A cycle is easy to create by importing a shared symbol back from a module that
+  already imports you; extract the symbol into its own module instead.
+
+Before a push, prefer `bun run check:fast` over a hand-picked subset. It is about
+six minutes and covers the static half of the gate; sampling a few of its checks
+individually is how a gate failure gets discovered at the forty-minute mark.
+
+### Rebuild the SDK before trusting app or api tests
+
+`packages/app` and `packages/api` resolve `@tearleads/client-sdk` from
+`packages/client-sdk/dist`, so after editing SDK source their tests run against
+the previous build. The app test preload refuses to start on a stale dist;
+**`packages/api` has no such guard and simply passes against the old code.**
+Rebuild with `bun run --filter='@tearleads/client-sdk' build` between an SDK edit
+and any api test run, or treat the result as meaningless.
+
+### Prove a security test fails without its fix
+
+A test written alongside a verifier change can pass for the wrong reason — the
+input is rejected by an earlier guard, a fixture returns one shared value for
+what should be distinct keys, or the assertion never reaches the branch. Before
+relying on one, revert the fix, confirm the test fails, and restore it. The same
+applies to a reviewer's claim: reproduce it before repairing, since a plausible
+mechanism can still have a consequence the code does not actually exhibit.
+
 Use `bun run lint:source-shape -- --staged` before committing, and
 `bun run lint:source-shape -- --range <base>..<head>` before handing off a
 larger branch.

@@ -491,6 +491,11 @@ export interface DocumentSyncApi {
    * transient one and is reported as a plain abandon.
    */
   rekeyContainerResult?: ContainerRekeyApi["rekeyContainerResult"];
+  /**
+   * Optional. A repair that must carry descendant rekeys reads each one's
+   * projection; without this such a repair is refused and the pass abandons.
+   */
+  getContainerWriterProjection?: ContainerRekeyApi["getContainerWriterProjection"];
   clearWriterProjectionCaches?(): void;
   evictDocumentWriterProjection?(documentId: string): void;
   getDocumentPurgeProof?(

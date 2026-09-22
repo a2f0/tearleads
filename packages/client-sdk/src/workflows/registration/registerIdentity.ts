@@ -401,10 +401,6 @@ export async function registerIdentity(
   input.log?.("Registering identity...");
 
   const newUserId = crypto.randomUUID();
-  await input.pinLocalUserIdentity(newUserId, {
-    encapsulationPublicKey: input.encapsulationKeyPair.publicKey,
-    signingPublicKey: input.signingKeyPair.signingPublicKey,
-  });
   const artifacts = await buildOrganizationProvisioningArtifacts({
     encapsulationKeyPair: input.encapsulationKeyPair,
     organizationProfileName: input.organizationProfileName,
@@ -440,8 +436,21 @@ export async function registerIdentity(
   if (response.userId !== newUserId) {
     throw new KeyingVerificationError(
       "object_mismatch",
-      "Registration response user does not match the locally pinned identity",
+      "Registration response user does not match the requested identity",
     );
+  }
+  // Pinned only once the server has confirmed this user, and before anything
+  // is persisted under it. The trust store binds each signing key to one user,
+  // so a pin for an id the server never accepted — a retry after a lost
+  // response, or a restored key that is already registered — would later
+  // refuse the key's real user at login. Like the persistence below, it is a
+  // durable write, so it is skipped once the registering identity has been
+  // replaced: the caller discards this result.
+  if (input.isIdentityCurrent?.() ?? true) {
+    await input.pinLocalUserIdentity(newUserId, {
+      encapsulationPublicKey: input.encapsulationKeyPair.publicKey,
+      signingPublicKey: input.signingKeyPair.signingPublicKey,
+    });
   }
 
   input.log?.(`Key registered (${response.userId})`);

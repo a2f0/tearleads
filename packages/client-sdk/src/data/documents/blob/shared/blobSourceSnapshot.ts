@@ -1,11 +1,12 @@
-import { bytesToHex, createIncrementalSha256 } from "@tearleads/crypto";
-import type { BlobByteSource, BlobBytes } from "../../../blobContracts";
-import { asWebCryptoBytes } from "../../shared/readers";
 import {
   blobChunkPlaintextByteLength,
+  bytesToHex,
   computeBlobChunkCount,
+  createIncrementalSha256,
   normalizeBlobChunkSize,
-} from "./blobEnvelopeV2";
+} from "@tearleads/crypto";
+import type { BlobByteSource, BlobBytes } from "../../../blobContracts";
+import { asWebCryptoBytes } from "../../shared/readers";
 import type { BlobSourceSnapshot } from "./types";
 
 export type { BlobSourceSnapshot } from "./types";

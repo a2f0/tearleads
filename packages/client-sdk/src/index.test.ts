@@ -79,6 +79,9 @@ test("root entrypoint exposes public facade symbols", () => {
 // change the public surface, update this list in the same PR.
 const EXPECTED_ROOT_VALUE_EXPORTS = [
   "Blobs",
+  "ContainerAuthorAccessError",
+  "ContainerKekRepairInaccessibleError",
+  "ContainerKekRepairRequiredError",
   "DEFAULT_DOCUMENT_ACCESS_EPOCH",
   "DEFAULT_DOCUMENT_ID",
   "DEFAULT_DOCUMENT_KIND",
@@ -125,6 +128,7 @@ const EXPECTED_ROOT_VALUE_EXPORTS = [
   "buildRosterProfileDocumentPatch",
   "cacheReferencedPrincipalPolicies",
   "checkNativePurchaseEligibility",
+  "classifyContainerWriteRefusal",
   "clearRemoteSyncState",
   "containerWriterProjectionFromRekeyPlan",
   "createBlobByteSource",

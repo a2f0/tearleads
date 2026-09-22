@@ -20,6 +20,7 @@ import {
   type WriteHeader,
 } from "@tearleads/crypto";
 import { eq } from "drizzle-orm";
+import { contentKeyEnvelopeFixture } from "../../../test/helpers/contentKeyEnvelope";
 import { createCurrentDocumentProjection } from "../../../test/helpers/currentProtocolProjection";
 import { registerServiceUser } from "../../../test/helpers/registerServiceUser";
 import {
@@ -88,8 +89,10 @@ async function createBlobContentKeyBundle(input: { blobId: string }) {
 
   const targets = currentTargets.targets.map((target) => ({
     ...target,
-    wrappedKey: `wrapped-key:${target.bindingId}:${target.containerId}`,
-    wrappingMetadata: { suite: "test-wrap" },
+    ...contentKeyEnvelopeFixture(
+      "Blob",
+      `wrapped-key:${target.bindingId}:${target.containerId}`,
+    ),
   }));
   await db.insert(blobContentKeyTargets).values(
     targets.map((target) => ({

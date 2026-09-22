@@ -2,6 +2,7 @@ formal/backup-restore/TerminalAnchors.tla|formal/backup-restore/TerminalAnchors.
 formal/container-keying/AncestorRecovery.tla|formal/container-keying/AncestorRecovery.cfg
 formal/container-keying/ContainerDeletion.tla|formal/container-keying/ContainerDeletion.cfg
 formal/container-keying/ContainerGrantScope.tla|formal/container-keying/ContainerGrantScope.cfg
+formal/container-keying/InaccessibleIntermediateRepair.tla|formal/container-keying/InaccessibleIntermediateRepair.cfg
 formal/container-keying/KeyringReachability.tla|formal/container-keying/KeyringReachability.cfg
 formal/container-keying/NoBrickedDevice.tla|formal/container-keying/NoBrickedDevice.cfg
 formal/container-keying/NoBrickedDevice.tla|formal/container-keying/NoBrickedDeviceAdversary.cfg
@@ -17,6 +18,7 @@ formal/document-sync/RawHistoryRecovery.tla|formal/document-sync/RawHistoryRecov
 formal/document-sync/RestartProbeConvergence.tla|formal/document-sync/RestartProbeConvergence.cfg
 formal/local-trust/OrganizationScope.tla|formal/local-trust/OrganizationScope.cfg
 formal/local-trust/ContainerAuthoring.tla|formal/local-trust/ContainerAuthoring.cfg
+formal/local-trust/DurableIdentityBinding.tla|formal/local-trust/DurableIdentityBinding.cfg
 formal/local-trust/RootDocumentPriming.tla|formal/local-trust/RootDocumentPriming.cfg
 formal/local-trust/SystemDestination.tla|formal/local-trust/SystemDestination.cfg
 formal/local-trust/UnacknowledgedInput.tla|formal/local-trust/UnacknowledgedInput.cfg

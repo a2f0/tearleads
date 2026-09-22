@@ -36,7 +36,7 @@ test("a cross-organization bind cannot revive a dereferenced blob", async () => 
     document: sourceDocument,
     owner: sourceOwner,
     root: sourceRoot,
-    stagedBlob: await stageBlob(sourceOwner),
+    stagedBlob: await stageBlob(sourceOwner, blobId),
   });
   await bindForTest({
     blobId,

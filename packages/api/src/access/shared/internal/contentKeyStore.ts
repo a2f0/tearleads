@@ -84,9 +84,24 @@ interface CreateContentKeyStoreOptions<
     row: TEpochRow,
     executor: DatabaseSession,
   ) => Promise<TBundle>;
+  /**
+   * Receives a loader for what this object already holds *at the epoch being
+   * written*, so a caller can tell resubmitted material from newly wrapped
+   * material. Scoping it to that epoch means a document rotation, which writes
+   * a new epoch, exempts nothing. A blob epoch never changes without replacing
+   * the bytes, so for blobs the scoping is a no-op and the exemption lasts as
+   * long as the bundle does. It is lazy and memoized: the same read serves the
+   * store below, and a request rejected by a cheaper check never pays for it.
+   * A validator that calls it does move that read earlier in the transaction.
+   * That is safe: the production entry points are the `*InTransaction` ones,
+   * whose callers hold the object's lock, and the latest bundle is now read
+   * after the epoch's, so a concurrent epoch bump is caught by the epoch
+   * check rather than missed.
+   */
   readonly validateCurrentTargets: (
     input: TInput,
     executor: DatabaseSession,
+    loadExistingBundle: () => Promise<TBundle | null>,
   ) => Promise<TCurrentTargets>;
 }
 
@@ -174,22 +189,30 @@ class ContentKeyStore<
     input: TInput,
     executor: DatabaseTransaction,
   ): Promise<TBundle & { readonly currentTargets: TCurrentTargets }> {
+    const identifier = this.options.getIdentifier(input);
+    let pendingExistingBundle: Promise<TBundle | null> | null = null;
+    const loadExistingBundle = (): Promise<TBundle | null> => {
+      if (!pendingExistingBundle) {
+        pendingExistingBundle = this.getBundle(
+          identifier,
+          input.contentKeyEpoch,
+          executor,
+        );
+      }
+      return pendingExistingBundle;
+    };
     const currentTargets = await this.options.validateCurrentTargets(
       input,
       executor,
+      loadExistingBundle,
     );
-    const identifier = this.options.getIdentifier(input);
     const latestBundle = await this.getLatestBundle(identifier, executor);
     const preparation = this.options.prepareStore({
       currentTargets,
       input,
       latestBundle,
     });
-    const existingBundle = await this.getBundle(
-      identifier,
-      input.contentKeyEpoch,
-      executor,
-    );
+    const existingBundle = await loadExistingBundle();
 
     let bundle: TBundle;
     if (!existingBundle) {

@@ -1,10 +1,9 @@
-import { bytesToHex } from "@tearleads/crypto";
+import { bytesToHex, MAX_BLOB_CHUNK_COUNT } from "@tearleads/crypto";
 import type {
   InitiateMultipartBlobStageResponse,
   MultipartBlobStagePart,
   MultipartBlobStageStatusResponse,
 } from "@tearleads/validators/response";
-import { MAX_BLOB_CHUNK_COUNT } from "../../data/documents/blob/shared/blobEnvelopeV2";
 import type { BlobEncryptionPlan } from "../../data/documents/blob/shared/crypto";
 import type {
   BlobAttachmentApi,

@@ -201,6 +201,7 @@ test("registration does not publish server context before local identity trust",
   );
   const session = createSession({
     api,
+    boundUserIdForSigningKey: async () => null,
     database: new Database({
       client: createSqlClient(execSql),
       id: "registration-identity-trust-publication",

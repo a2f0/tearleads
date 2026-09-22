@@ -52,6 +52,7 @@ export function createSessionHarness(
     database?: Database | undefined;
     identity?: Identity | undefined;
     logger?: TestLogger | undefined;
+    boundUserIdForSigningKey?: SessionDependencies["boundUserIdForSigningKey"];
     onUserIdentityAvailable?: SessionDependencies["onUserIdentityAvailable"];
     reportSecurityIncident?: SecurityIncidentReporter | undefined;
   } = {},
@@ -72,6 +73,8 @@ export function createSessionHarness(
       identity,
       log: logger.log,
       logError: logger.logError,
+      boundUserIdForSigningKey:
+        options.boundUserIdForSigningKey ?? (async () => null),
       onUserIdentityAvailable:
         options.onUserIdentityAvailable ?? (async () => undefined),
       reportSecurityIncident: options.reportSecurityIncident,

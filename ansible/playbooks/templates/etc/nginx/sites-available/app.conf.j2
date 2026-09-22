@@ -1,12 +1,12 @@
 # {{ ansible_managed }}
 # Static application server blocks for {{ app_hostname }} and
-# {{ app_demo_hostnames | join(' ') }}
+# {{ app_demo_hostname }}
 
-{% macro static_app_server(hostnames, root_path) -%}
+{% macro static_app_server(hostname, root_path) -%}
 server {
   listen 127.0.0.1:80;
   listen [::1]:80;
-  server_name {{ hostnames | join(' ') }};
+  server_name {{ hostname }};
 
   root {{ root_path }};
   index index.html;
@@ -56,5 +56,5 @@ server {
 }
 {%- endmacro %}
 
-{{ static_app_server([app_hostname], '/var/www/app-web') }}
-{{ static_app_server(app_demo_hostnames, '/var/www/app-demo') }}
+{{ static_app_server(app_hostname, '/var/www/app-web') }}
+{{ static_app_server(app_demo_hostname, '/var/www/app-demo') }}

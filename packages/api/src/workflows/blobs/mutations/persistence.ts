@@ -121,7 +121,10 @@ export async function promoteStagedBlobIfPresent(input: {
   readonly prevalidatedMultipartStage: PrevalidatedMultipartBlobStage | null;
   readonly request: BlobAttachmentBindRequest;
   readonly userId: string;
-}): Promise<{ readonly sha256: string } | null> {
+}): Promise<Pick<
+  PrevalidatedMultipartBlobStage,
+  "sha256" | "envelopeHeader"
+> | null> {
   if (!input.request.stagedBlob) {
     await ensureBlobExists({
       blobId: input.blobId,
@@ -209,7 +212,10 @@ export async function promoteStagedBlobIfPresent(input: {
   }
   await input.executor.delete(blobStages).where(eq(blobStages.id, stage.id));
 
-  return { sha256: stage.sha256 };
+  return {
+    sha256: stage.sha256,
+    envelopeHeader: input.prevalidatedMultipartStage.envelopeHeader,
+  };
 }
 
 // Clear a prior purge's soft-delete marker when a blob is (re)bound: the blob

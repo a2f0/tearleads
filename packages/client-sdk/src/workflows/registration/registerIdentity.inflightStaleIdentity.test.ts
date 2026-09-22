@@ -78,12 +78,15 @@ test("registration persists nothing when the identity goes stale in-flight", asy
     // queue, so past this await the persist is deterministically waiting
     // behind the held mutation — the window the in-mutex guard exists for.
     await persistEntersQueue;
+    // Registration also checks currency before pinning the confirmed user;
+    // only the probes from here on belong to the queued persist.
+    const probesBeforeQueueHead = identityProbes;
     // The identity is replaced while the persist waits, then the queue frees.
     identityCurrent = false;
     releaseHold();
     await holding;
     await registration;
-    expect(identityProbes).toBe(1);
+    expect(identityProbes - probesBeforeQueueHead).toBe(1);
 
     // The remote organization exists, but no stale bootstrap row may reach
     // the local database the replacement identity now owns.
@@ -135,10 +138,10 @@ test("a mid-sequence identity switch rolls the whole bootstrap back", async () =
   };
 
   try {
-    // The entry check (probe 1) passes, so every bootstrap write executes;
-    // the pre-commit guard (probe 2) then finds the identity replaced. The
-    // atomic transaction must leave NOTHING behind — the partial-persist
-    // window a single entry check cannot close.
+    // The pin gate (probe 1) and the persist entry check (probe 2) pass, so
+    // every bootstrap write executes; the pre-commit guard (probe 3) then
+    // finds the identity replaced. The atomic transaction must leave NOTHING
+    // behind — the partial-persist window a single entry check cannot close.
     let identityProbes = 0;
     const response = await registerIdentity({
       apiClient,
@@ -148,14 +151,14 @@ test("a mid-sequence identity switch rolls the whole bootstrap back", async () =
       encapsulationKeyPair,
       isIdentityCurrent: () => {
         identityProbes += 1;
-        return identityProbes < 2;
+        return identityProbes < 3;
       },
       organizationProfileName: "Acme Corp",
       pinLocalUserIdentity: async () => undefined,
       signingKeyPair,
     });
     expect(response).not.toBeNull();
-    expect(identityProbes).toBe(2);
+    expect(identityProbes).toBe(3);
     if (!capturedRootContainerId || !capturedOrganizationId) {
       throw new Error("Expected captured registration request");
     }

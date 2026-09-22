@@ -4,6 +4,8 @@ import {
   deleteContainerOperation,
   isContainerMutationOperationRequest,
   isContainerMutationOperationResponse,
+  isContainerRotationOperationRequest,
+  isContainerRotationOperationResponse,
   isCreateContainerWithMetadataDocumentOperationRequest,
   isCreateContainerWithMetadataDocumentOperationResponse,
   isDeleteContainerOperationResponse,
@@ -59,24 +61,24 @@ export const containerShare = {
 } as const;
 
 export const containerRevoke = {
-  isRequest: isContainerMutationOperationRequest,
-  isResponse: isContainerMutationOperationResponse,
+  isRequest: isContainerRotationOperationRequest,
+  isResponse: isContainerRotationOperationResponse,
   method: revokeContainerOperation.method,
   path: (containerId: string) =>
     containerMutationPath(revokeContainerOperation, containerId),
 } as const;
 
 export const containerRekey = {
-  isRequest: isContainerMutationOperationRequest,
-  isResponse: isContainerMutationOperationResponse,
+  isRequest: isContainerRotationOperationRequest,
+  isResponse: isContainerRotationOperationResponse,
   method: rekeyContainerOperation.method,
   path: (containerId: string) =>
     containerMutationPath(rekeyContainerOperation, containerId),
 } as const;
 
 export const containerMove = {
-  isRequest: isContainerMutationOperationRequest,
-  isResponse: isContainerMutationOperationResponse,
+  isRequest: isContainerRotationOperationRequest,
+  isResponse: isContainerRotationOperationResponse,
   method: moveContainerOperation.method,
   path: (containerId: string) =>
     containerMutationPath(moveContainerOperation, containerId),

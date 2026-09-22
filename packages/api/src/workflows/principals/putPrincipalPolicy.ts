@@ -42,6 +42,7 @@ import { listUserIdsReachableFromPrincipalState } from "./principalStateReachabi
 import {
   assertStandalonePrincipalPolicyWrite,
   PrincipalPolicyError,
+  principalPolicyErrorFromContainerMutation,
   toPrincipalPolicyError,
 } from "./shared";
 import { storeVerifiedPrincipalPolicyInTransaction } from "./storeVerifiedPrincipalPolicy";
@@ -408,10 +409,7 @@ export async function runPutPrincipalPolicyWorkflow(
   } catch (error) {
     const containerMutationError = toMutationError(error);
     if (containerMutationError) {
-      throw new PrincipalPolicyError(
-        containerMutationError.message,
-        containerMutationError.status,
-      );
+      throw principalPolicyErrorFromContainerMutation(containerMutationError);
     }
     if (error instanceof OrganizationManagerError) {
       throw new PrincipalPolicyError(error.message, error.status, error.code);

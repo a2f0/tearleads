@@ -1,4 +1,7 @@
 import {
+  ContentKeyEnvelopeError,
+  type ContentKeyEnvelopeKind,
+  decodeContentKeyEnvelope,
   type KeyingCanonicalJson,
   KeyingVerificationError,
 } from "@tearleads/crypto";
@@ -46,6 +49,7 @@ function assertNoDuplicateContentKeyTargets<T>(
   }
 }
 
+/** Stored rows keep only this invariant; strict shape is a submission gate. */
 function assertContentKeyWrappedMaterialPresent<
   T extends WrappedContentKeyTargetEnvelope,
 >(targets: readonly T[], createError: () => Error): void {
@@ -82,6 +86,11 @@ function assertContentKeyTargetsMatchCurrent<
   readonly targetFieldsEqual: (left: TCurrent, right: TCurrent) => boolean;
   readonly createDuplicateError: () => Error;
   readonly createMissingWrappedMaterialError: () => Error;
+  /** Envelopes this call is responsible for gating; empty on a read. */
+  readonly submittedTargets: readonly TEnvelope[];
+  readonly validateEnvelope: (
+    envelope: WrappedContentKeyTargetEnvelope,
+  ) => void;
   readonly createMismatchError: () => Error;
 }): void {
   assertNoDuplicateContentKeyTargets(
@@ -93,6 +102,7 @@ function assertContentKeyTargetsMatchCurrent<
     input.targets,
     input.createMissingWrappedMaterialError,
   );
+  for (const target of input.submittedTargets) input.validateEnvelope(target);
 
   const currentTargetByKey = expectedContentKeyTargetMap(
     input.currentTargets,
@@ -153,10 +163,75 @@ interface ContentKeyTargetPolicyOptions<
 > {
   readonly computeTargetHash: (targets: readonly TTarget[]) => Promise<string>;
   readonly createError: (message: string, status: 400 | 409) => Error;
+  readonly envelopeKind: ContentKeyEnvelopeKind;
   readonly messages: ContentKeyTargetPolicyMessages;
   readonly targetIdentityEqual: (left: TTarget, right: TTarget) => boolean;
   readonly targetKey: (target: TTarget) => string;
   readonly toTargetFields: (envelope: TEnvelope) => TTarget;
+}
+
+/**
+ * The two ways a target set is checked against the object's current KEK
+ * targets. They are separate entry points rather than one flag so a new store
+ * cannot take the read path by accident: the write path is the only one that
+ * names a submission, and it gates inside the same call.
+ */
+function createTargetSetMatchers<
+  TEnvelope extends WrappedContentKeyTargetEnvelope,
+  TCurrentTargets,
+>(policy: {
+  readonly matchCurrent: (input: {
+    readonly currentTargets: TCurrentTargets;
+    readonly submittedTargets: readonly TEnvelope[];
+    readonly targets: readonly TEnvelope[];
+  }) => void;
+  readonly targetEnvelopeMaterialEqual: (
+    left: TEnvelope,
+    right: TEnvelope,
+  ) => boolean;
+}) {
+  return {
+    /**
+     * Read path. Rows already persisted are never judged by the submission
+     * shape: doing so would turn a malformed stored envelope into a
+     * permanent, unhealable projection failure, and the contract is that
+     * submissions are rejected before persistence.
+     */
+    assertStoredTargetsMatchCurrent: (input: {
+      readonly currentTargets: TCurrentTargets;
+      readonly targets: readonly TEnvelope[];
+    }): void => {
+      policy.matchCurrent({ ...input, submittedTargets: [] });
+    },
+    /**
+     * Write path. `storedTargets` is what this object already holds, or null
+     * on a first write. A submission may carry retained envelopes verbatim
+     * beside newly wrapped ones — a document link resubmits the whole bundle,
+     * a blob bind covers every active binding — so the gate applies to the
+     * targets that do not byte-match stored material.
+     *
+     * "Byte-match" deliberately ignores `containerManifestHash`: a projection
+     * refresh rewrites it while keeping the wrap, and such a target is still
+     * retained. The field is not unchecked, just checked elsewhere — against
+     * the current targets, by `targetFieldsEqual`.
+     */
+    assertSubmittedTargetsMatchCurrent: (input: {
+      readonly currentTargets: TCurrentTargets;
+      readonly storedTargets: readonly TEnvelope[] | null;
+      readonly targets: readonly TEnvelope[];
+    }): void => {
+      policy.matchCurrent({
+        currentTargets: input.currentTargets,
+        targets: input.targets,
+        submittedTargets: input.targets.filter(
+          (target) =>
+            !input.storedTargets?.some((stored) =>
+              policy.targetEnvelopeMaterialEqual(stored, target),
+            ),
+        ),
+      });
+    },
+  };
 }
 
 export function createContentKeyTargetPolicy<
@@ -182,7 +257,45 @@ export function createContentKeyTargetPolicy<
   ): boolean =>
     contentKeyTargetEnvelopeEqualBy(left, right, targetKeyMaterialEqual);
 
+  const validateSubmittedEnvelope = (
+    envelope: WrappedContentKeyTargetEnvelope,
+  ): void => {
+    try {
+      decodeContentKeyEnvelope({
+        envelope,
+        kind: options.envelopeKind,
+        origin: "submission",
+      });
+    } catch (error) {
+      if (error instanceof ContentKeyEnvelopeError)
+        throw options.createError(error.message, 400);
+      throw error;
+    }
+  };
+
+  const matchCurrent = (input: {
+    readonly currentTargets: TCurrentTargets;
+    readonly submittedTargets: readonly TEnvelope[];
+    readonly targets: readonly TEnvelope[];
+  }): void => {
+    assertContentKeyTargetsMatchCurrent({
+      currentTargets: input.currentTargets.targets,
+      targets: input.targets,
+      submittedTargets: input.submittedTargets,
+      targetKey: options.targetKey,
+      targetFieldsEqual,
+      createDuplicateError: () =>
+        options.createError(options.messages.duplicateTargets, 409),
+      createMissingWrappedMaterialError: () =>
+        options.createError(options.messages.missingWrappedMaterial, 400),
+      validateEnvelope: validateSubmittedEnvelope,
+      createMismatchError: () =>
+        options.createError(options.messages.targetsMismatch, 409),
+    });
+  };
+
   return {
+    ...createTargetSetMatchers({ matchCurrent, targetEnvelopeMaterialEqual }),
     assertTargetHashMatches: async (input: {
       readonly targetHash: string;
       readonly targets: readonly TEnvelope[];
@@ -194,23 +307,6 @@ export function createContentKeyTargetPolicy<
         createHashMismatchError: () =>
           options.createError(options.messages.hashMismatch, 409),
         createVerificationError: (message) => options.createError(message, 409),
-      });
-    },
-    assertTargetsMatchCurrent: (input: {
-      readonly currentTargets: TCurrentTargets;
-      readonly targets: readonly TEnvelope[];
-    }): void => {
-      assertContentKeyTargetsMatchCurrent({
-        currentTargets: input.currentTargets.targets,
-        targets: input.targets,
-        targetKey: options.targetKey,
-        targetFieldsEqual,
-        createDuplicateError: () =>
-          options.createError(options.messages.duplicateTargets, 409),
-        createMissingWrappedMaterialError: () =>
-          options.createError(options.messages.missingWrappedMaterial, 400),
-        createMismatchError: () =>
-          options.createError(options.messages.targetsMismatch, 409),
       });
     },
     ensurePositiveContentKeyEpoch: (contentKeyEpoch: number): void => {

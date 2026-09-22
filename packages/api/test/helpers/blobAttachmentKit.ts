@@ -3,6 +3,7 @@ import type { TestUser } from "@tearleads/bob-and-alice";
 import type {
   AttachmentBindAccessEventBody,
   AttachmentDetachAccessEventBody,
+  BlobEnvelopeV2Header,
   KeyingCanonicalJson,
   VerifiedAttachmentBinding,
   VerifiedBlobKekTargets,
@@ -11,7 +12,6 @@ import type {
 import {
   CONTENT_RECORD_ENCRYPTION_SUITE,
   computeContentRecordNonceDomainHash,
-  computeKeyingDomainHash,
   deriveBlobKekTargets,
   signWriteHeader,
   verifyAttachmentBindingEvent,
@@ -26,19 +26,15 @@ import {
   bindBlobAttachment,
   detachBlobAttachment,
 } from "../../src/services/blobs/blobMutations";
-import {
-  completeMultipartBlobStage,
-  initiateMultipartBlobStage,
-  uploadMultipartBlobPartBytes,
-} from "../../src/services/blobs/multipartStage";
-import { blobObjectBytes } from "./blobObjectStore";
+import { fixtureBlobMetadataHash } from "./blobEnvelope";
+import { contentKeyEnvelopeFixture } from "./contentKeyEnvelope";
 import {
   asVerifiedContainerManifest,
   createSignedAccessEvent,
   type StoredRootFixture,
 } from "./keyingWriterProjectionKit";
-import { getDefaultOrganizationId } from "./organizationMembership";
 import { createServiceTestRuntime } from "./serviceRuntime";
+import { stageBlobEnvelopeFixture } from "./stagedBlobEnvelope";
 
 /**
  * The runtime every kit helper stages and binds against. Route-level tests
@@ -53,42 +49,21 @@ function documentManifest(
   return document.accessManifest as unknown as VerifiedDocumentLinkSetManifest;
 }
 
-async function sha256Hex(value: string): Promise<string> {
-  const digest = new Uint8Array(
-    await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value)),
-  );
-  return Array.from(digest, (byte) => byte.toString(16).padStart(2, "0")).join(
-    "",
-  );
-}
-
-export async function stageBlob(owner: TestUser, organizationId?: string) {
-  const encryptedBytes = `encrypted:${crypto.randomUUID()}`;
-  const byteLength = new TextEncoder().encode(encryptedBytes).byteLength;
-  const sha256 = await sha256Hex(encryptedBytes);
-  const staged = await initiateMultipartBlobStage(blobAttachmentTestRuntime, {
-    organizationId:
-      organizationId ?? (await getDefaultOrganizationId(owner.userId)),
-    byteLength,
-    sha256,
-    userId: owner.userId,
+export async function stageBlob(
+  owner: TestUser,
+  blobId: string,
+  options: {
+    readonly bytes?: Uint8Array<ArrayBuffer>;
+    readonly organizationId?: string;
+    readonly overrides?: Partial<BlobEnvelopeV2Header>;
+  } = {},
+) {
+  const staged = await stageBlobEnvelopeFixture(blobAttachmentTestRuntime, {
+    blobId,
+    owner,
+    ...options,
   });
-  const part = await uploadMultipartBlobPartBytes(blobAttachmentTestRuntime, {
-    byteLength,
-    bytes: blobObjectBytes(encryptedBytes),
-    partNumber: 1,
-    sha256,
-    stageId: staged.stageId,
-    uploadId: staged.uploadId,
-    userId: owner.userId,
-  });
-  await completeMultipartBlobStage(blobAttachmentTestRuntime, {
-    parts: [{ etag: part.part.etag, partNumber: 1 }],
-    stageId: staged.stageId,
-    uploadId: staged.uploadId,
-    userId: owner.userId,
-  });
-  return { sha256, stageId: staged.stageId };
+  return { sha256: staged.sha256, stageId: staged.stageId };
 }
 
 function contentKeyTargets(
@@ -96,8 +71,10 @@ function contentKeyTargets(
 ): BlobAttachmentBindRequest["contentKeyBundle"]["targets"] {
   return targets.targets.map((target) => ({
     ...target,
-    wrappedKey: `wrapped:${target.bindingId}:${target.containerId}`,
-    wrappingMetadata: { suite: "test-wrap" },
+    ...contentKeyEnvelopeFixture(
+      "Blob",
+      `wrapped:${target.bindingId}:${target.containerId}`,
+    ),
   }));
 }
 
@@ -132,10 +109,7 @@ async function createWriteHeader(input: {
         encryptionSuite: CONTENT_RECORD_ENCRYPTION_SUITE,
         contentRecordId: input.blobId,
       }),
-      metadataHash: await computeKeyingDomainHash(
-        "tearleads.keying.access-event-body",
-        { blobId: input.blobId, purpose: "ownership-regression" },
-      ),
+      metadataHash: await fixtureBlobMetadataHash(input.blobId),
       ciphertextHash: input.sha256,
       writerUserId: input.owner.userId,
       writerDeviceId: "ownership-regression",

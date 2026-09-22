@@ -7,6 +7,7 @@ import {
   buildBind,
   stageBlob,
 } from "../../../test/helpers/blobAttachmentKit";
+import { contentKeyEnvelopeFixture } from "../../../test/helpers/contentKeyEnvelope";
 import { buildDocumentLinkRequest } from "../../../test/helpers/documentLinkMutation";
 import { createChildContainer } from "../../../test/helpers/keyingWriterProjectionChild";
 import {
@@ -33,7 +34,7 @@ test("linking one document preserves another document's wraps for their shared b
     document: first,
     owner,
     root,
-    stagedBlob: await stageBlob(owner),
+    stagedBlob: await stageBlob(owner, blobId),
   });
   await bindForTest({ blobId, owner, request: initial.request });
   const shared = await buildBind({
@@ -73,7 +74,10 @@ test("linking one document preserves another document's wraps for their shared b
             containerManifestHash: childKek.accessManifestHash,
             containerKeyEpochId: childKek.containerKeyEpochId,
             containerKeyEpoch: childKek.containerKeyEpoch,
-            wrappedKey: "first-document-child-wrap",
+            wrappedKey: contentKeyEnvelopeFixture(
+              "Blob",
+              "first-document-child-wrap",
+            ).wrappedKey,
           },
         ],
       },

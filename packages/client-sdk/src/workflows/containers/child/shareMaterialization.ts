@@ -104,6 +104,8 @@ interface BuildMaterializedContainerSharePlanInput {
   eventId?: string | undefined;
   execSql: ExecSql;
   knownContainerKeks?: ReadonlyMap<string, Uint8Array> | undefined;
+  /** False for a projection re-rooted on rotations not yet acknowledged. */
+  persistVerificationCheckpoints?: boolean | undefined;
   principalPolicyCache?: PrincipalPolicyCache | undefined;
   previousProjection: ContainerWriterProjectionResponse;
   recipient: ContainerShareRecipient;
@@ -175,6 +177,7 @@ async function collectAuthorizedSharePolicies(
 ) {
   const principalPolicies = await collectContainerSharePrincipalPolicies({
     execSql: input.execSql,
+    persistVerificationCheckpoints: input.persistVerificationCheckpoints,
     principalPolicyCache: input.principalPolicyCache,
     previousProjection: input.previousProjection,
     ...(input.recipient.subjectType === "user"
@@ -199,6 +202,7 @@ export async function buildMaterializedContainerSharePlan(
   const keksByEpochId = await unwrapContainerKekPath({
     execSql: input.execSql,
     knownContainerKeks: input.knownContainerKeks,
+    persistVerificationCheckpoints: input.persistVerificationCheckpoints,
     principalPolicyCache: input.principalPolicyCache,
     projection: input.previousProjection,
     secretKey: input.targetSecretKey,

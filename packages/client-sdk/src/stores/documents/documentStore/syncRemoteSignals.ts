@@ -3,6 +3,7 @@ import {
   isDocumentUpdateCreatedEvent,
 } from "../../../data/documents/documentSync";
 import { sequenceUnchanged } from "../../../workflows/documents/syncLane";
+import { resumeAfterAncestorRepairHint } from "./ancestorRepairPark";
 import type { DocumentStoreState } from "./state";
 import {
   allowDocumentStoreRemoteSync,
@@ -77,10 +78,19 @@ export function handleDocumentRemoteEvents(
   // projection goes and the next mutation fetches a fresh one. This runs even
   // before the document has a remote id: a create in flight captured the
   // generation when it started and must not install its pre-hint projection.
-  if (nextEvents.some(isContainerProjectionInvalidationHint))
-    invalidateDocumentWriterProjection(state);
+  const projectionInvalidated = nextEvents.some(
+    isContainerProjectionInvalidationHint,
+  );
+  if (projectionInvalidated) invalidateDocumentWriterProjection(state);
 
   if (!state.record?.documentId) return;
+
+  // Writes parked behind an ancestor another member must re-key: this hint is
+  // the only signal that the repair may have landed. It names no ancestor, so
+  // any one re-runs the pass, which parks again if the path is still stale.
+  if (projectionInvalidated && resumeAfterAncestorRepairHint(state)) {
+    scheduleSync();
+  }
 
   if (hasRemoteDocumentUpdateEvent(state, nextEvents)) {
     allowDocumentStoreRemoteSync(state);

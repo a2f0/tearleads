@@ -16,7 +16,6 @@ import {
 } from "@tearleads/crypto";
 import type {
   ContainerKekResponse,
-  ContainerMutationResponse,
   ContainerWriterProjectionResponse,
 } from "@tearleads/validators/response";
 import { assertContainerAuthorAccess } from "../../../data/containers/shared/authorAccess";
@@ -34,17 +33,16 @@ import {
 } from "../../../data/containers/shared/projection";
 import type {
   ContainerMutationAuthor,
-  ContainerRekeyApi,
   ContainerRekeyPlan,
   MaterializedContainerRekeyPlan,
 } from "../../../data/containers/shared/types";
 import { readCanonicalRecord } from "../../../data/keyingCanonicalJson";
 import {
+  type PrincipalPolicyCache,
   type ProjectionUserKeyResolver,
   type ReferencedPrincipalPolicyWarmer,
   requireProjectionUserKeyResolver,
 } from "../../../data/keyingProjectionVerification";
-import type { SecurityIncidentReporter } from "../../../data/securityIncidents";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import {
   sealRotationKeyring,
@@ -55,13 +53,12 @@ import {
   previousPathRequestFields,
   readCanonicalRecordOrNull,
 } from "./mutationRequestCore";
-import { submitAcknowledgedContainerMutation } from "./mutationSubmit";
 import {
   containerWriterProjectionFromRekeyPlan,
   isSpeculativeContainerWriterProjection,
 } from "./rekeyProjection";
-import { collectContainerRevokePrincipalPolicies } from "./revoke";
 import { resolveRotationContext } from "./rotationContext";
+import { collectContainerRevokePrincipalPolicies } from "./rotationPrincipalPolicies";
 import { buildContainerRotationWraps } from "./rotationWraps";
 import {
   refreshedPrincipalPolicies,
@@ -201,8 +198,12 @@ interface RekeyPlanInput {
   eventId?: string | undefined;
   execSql: ExecSql;
   keyringEntriesOverride?: readonly ContainerKekKeyringEntry[] | undefined;
+  /** Keys a batch minted above this container and has yet to commit. */
+  knownContainerKeks?: ReadonlyMap<string, Uint8Array> | undefined;
   persistVerificationCheckpoints?: boolean | undefined;
   previousProjection: ContainerWriterProjectionResponse;
+  /** Verified policies the path may cite before they are stored locally. */
+  principalPolicyCache?: PrincipalPolicyCache | undefined;
   replacementPrincipalPolicy?: VerifiedPrincipalPolicy | undefined;
   resolveProjectionUserKey: ProjectionUserKeyResolver;
   signedAt?: string | undefined;
@@ -225,6 +226,7 @@ async function collectRekeyPrincipalPolicies(
     execSql: input.execSql,
     persistVerificationCheckpoints: input.persistVerificationCheckpoints,
     previousProjection: input.previousProjection,
+    principalPolicyCache: input.principalPolicyCache,
     resolveUserKey,
     stillCurrent: input.stillCurrent,
     warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
@@ -384,61 +386,4 @@ function buildContainerRekeyPlan(input: {
     userRecipientKeys: input.userRecipientKeys,
     wraps: input.wraps,
   };
-}
-
-export async function rekeyRemoteContainer(input: {
-  reportSecurityIncident: SecurityIncidentReporter;
-  apiClient: ContainerRekeyApi;
-  author: ContainerMutationAuthor;
-  containerId: string;
-  eventId?: string | undefined;
-  execSql: ExecSql;
-  keyringEntriesOverride?: readonly ContainerKekKeyringEntry[] | undefined;
-  resolveProjectionUserKey: ProjectionUserKeyResolver;
-  signedAt?: string | undefined;
-  stillCurrent?: (() => boolean) | undefined;
-  targetSecretKey: Uint8Array;
-  warmReferencedPrincipalPolicies?: ReferencedPrincipalPolicyWarmer | undefined;
-}): Promise<{
-  containerKey: Uint8Array;
-  plan: ContainerRekeyPlan;
-  response: ContainerMutationResponse;
-} | null> {
-  const previousProjection = await input.apiClient.getContainerWriterProjection(
-    input.containerId,
-  );
-  if (!previousProjection) {
-    return null;
-  }
-
-  const materializedPlan = await buildMaterializedContainerRekeyPlan({
-    author: input.author,
-    eventId: input.eventId,
-    execSql: input.execSql,
-    keyringEntriesOverride: input.keyringEntriesOverride,
-    previousProjection,
-    resolveProjectionUserKey: input.resolveProjectionUserKey,
-    signedAt: input.signedAt,
-    stillCurrent: input.stillCurrent,
-    targetSecretKey: input.targetSecretKey,
-    warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
-  });
-  return submitAcknowledgedContainerMutation({
-    reportSecurityIncident: input.reportSecurityIncident,
-    recitationPolicies: [],
-    apiClient: input.apiClient,
-    author: input.author,
-    containerKey: materializedPlan.containerKey,
-    execSql: input.execSql,
-    plan: materializedPlan.plan,
-    stillCurrent: input.stillCurrent,
-    submit: () =>
-      input.apiClient.rekeyContainer(
-        input.containerId,
-        materializedPlan.plan.request,
-        {
-          expectedPaymentRequiredOrganizationId: input.author.organizationId,
-        },
-      ),
-  });
 }

@@ -5,6 +5,7 @@ import {
   primaryKey,
   sqliteTable,
   text,
+  uniqueIndex,
 } from "drizzle-orm/sqlite-core";
 import {
   containerSQLiteSchema,
@@ -329,6 +330,14 @@ export const documentPurgeCheckpoints = sqliteTable(
  * Indexes:
  * - `(identityTrustDomain, userId)` is the primary key and scopes a user pin to
  *   the host-configured API authority that supplied it.
+ * - `(identityTrustDomain, signingKeyFingerprint)` binds the reverse identity
+ *   mapping durably, including across session recreation. There is no
+ *   migration for a table that already violates it. Earlier builds pinned a
+ *   registration's user id before the server confirmed it, so a device that
+ *   ran one may hold two users on one key; deployments are greenfield, and
+ *   such a device clears its local data, which recreates this table empty. A
+ *   device that used an environment before a reset does the same (see
+ *   docs/developer/greenfield-reset.md).
  */
 export const trustedUserIdentityPins = sqliteTable(
   "trusted_user_identity_pins",
@@ -350,6 +359,10 @@ export const trustedUserIdentityPins = sqliteTable(
     primaryKey({
       columns: [table.identityTrustDomain, table.userId],
     }),
+    uniqueIndex("trusted_user_identity_pins_domain_signing_fingerprint_idx").on(
+      table.identityTrustDomain,
+      table.signingKeyFingerprint,
+    ),
   ],
 );
 

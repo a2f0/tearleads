@@ -739,7 +739,43 @@ base64 encoding. Public keys add public metadata, not access to ancestor keys.
 Whole-path write-currency checks remain necessary: a stale intermediate key
 can be known to a revoked ancestor holder, so descendants must not wrap future
 keys to it. Public wrapping enables independent repair immediately below a
-current parent; it does not itself schedule repairs of inaccessible ancestors.
+current parent; it does not reach further up.
+
+A writer whose only grant sits below a stale intermediate therefore cannot
+restore currency itself. A rekey is authorized over the root-to-target path, so
+a grant further down never counts, and the writer is never given the
+intermediate's key: besides being reachable by the revoked holder, it opens the
+intermediate's other children, which that grant does not cover.
+
+No device may wait on another device's write, so that state is never committed.
+The invariant is that every proper ancestor of a directly granted container has
+a current parent edge. A rekey, revoke, or move must carry, in its own
+transaction, the rekeys of every descendant that sits above a directly granted
+container; the API refuses it otherwise and names them. The rotator can always
+comply, because access and keys inherit downward from the container it rotates.
+A container's first direct grant requires the chain above it to be current, and
+the sharer repairs a lazily stale path first; those repairs need not be atomic,
+since a repair never strands anyone. A container that already carries a grant
+owes nothing more for a further one. Inline repairs inside document and blob
+writes are checked against the same rule, though under it a stale container is
+never above a granted one, so an honest inline repair cannot trip it. With
+those levels current, a grantee re-keys from its own container downward and
+its writes depend on nobody else.
+
+Containers with no grant beneath them still repair lazily, first writer wins,
+which keeps a rotation's cost proportional to what is shared below it rather
+than to the subtree. A child container carries no direct grant unless shared, so
+the carried set is usually empty. It is capped at 64 per rotation; past the cap
+the remainder repairs lazily rather than refuse a revocation, and a writer who
+meets such a level parks under an explicit
+`document_ancestor_repair_inaccessible` state until the dependent-path hint that
+follows its repair. Group rematerialization is held to the same rule: a
+rekey or revoke among a policy's rematerialized containers carries the
+descendants it owes in the same batch, woven in parent-first beneath the
+rotation each rides, and a level the batch's own rotations strand between two
+of its containers is carried without being named.
+[`InaccessibleIntermediateRepair.tla`](../formal/container-keying/InaccessibleIntermediateRepair.md)
+models the rule and the alternatives it rejects.
 
 ## Blob Content Keys
 
@@ -752,6 +788,35 @@ For each active binding:
 3. derive the document's linked container KEK targets.
 
 The blob content key is wrapped to the union of those container KEK targets.
+
+Document and blob content-key envelopes share one public format check: the
+object-kind-specific AES-GCM suite, a canonical base64 12-byte IV, and a
+canonical base64 48-byte wrapped 32-byte key plus authentication tag. The API
+applies it to newly wrapped material, additionally requiring the wrapping
+metadata to carry exactly `suite` and `iv`, and rejects a failing submission
+before persistence. Clients apply the same check when reading a stored
+envelope, minus that exact-key requirement, so an unrecognized metadata key can
+never make a decryptable envelope unreadable. A document link, a blob relink,
+and a bind of a blob another document already holds all resubmit retained wraps
+verbatim alongside newly wrapped ones; the API judges the retained half as
+stored for the same reason, since a retained target must be resubmitted
+byte-identical and cannot be re-wrapped while it is active. The exemption is
+scoped to the content-key epoch being written, so a rotation exempts nothing.
+When a bundle submission is both malformed and stale, staleness usually wins:
+the target hash and current-target checks run first, and only the target-set
+comparison is ordered after the envelope shape check. A blob rewrap has no
+preceding target-hash check — it recomputes the hash afterward — but its epoch
+and coverage checks still run first.
+
+A retired blob target that re-enters a bundle is the one case where what lands
+is not what was submitted: the server discards the resubmitted wrap and writes
+back the authentic stored one, because active key material cannot be replaced.
+
+There are no legacy-suite or alternate-encoding paths. These checks validate
+structure; only a recipient with the KEK can authenticate the ciphertext and
+establish the recovered key. An authorized writer can still submit
+well-shaped, undecryptable material.
+
 Clients and the API reject blob writes or attachment commits that omit targets
 for other active bindings.
 
@@ -762,6 +827,16 @@ IV, suite, and ciphertext. The blob content-key bundle lives in
 `blob_content_key_epochs` and
 `blob_content_key_targets`, and attachment listing/bind responses return that
 bundle alongside server-visible binding metadata.
+
+Before promotion, the API hashes the staged object stream and validates it
+with the same binary-envelope parser SDK readers use: magic, bounded canonical
+JSON header, exact fields, suite/version, chunk layout, canonical 12-byte IV,
+and total encrypted length. The header buffer is bounded by 64 KiB plus the fixed
+prefix, and validation shares the existing hashing pass. The transaction also
+binds the parsed blob id, content-key epoch, record id, metadata hash, and nonce
+domain to the signed write header. Rejection rolls back promotion and binding.
+These checks reject malformed framing; an authorized writer can still submit
+well-shaped ciphertext that fails authentication or contains unwanted content.
 
 That separation lets key packages change without restaging immutable blob
 bytes. If active bindings grow, the same blob content key can be wrapped to the
@@ -1019,8 +1094,9 @@ be the default hot path.
 
 The main residual cost is lazy rekey after revocation. A subtractive change on
 a high-level container can force future writes in a large subtree to first
-materialize post-revocation descendant KEK epochs. That work can be spread out
-by background jobs or first-writer-wins lazy materialization. The security rule
+materialize post-revocation descendant KEK epochs. The levels above a directly
+granted container are re-keyed with the rotation itself; everything else is
+first-writer-wins lazy materialization. The security rule
 is that future writes must not continue under a KEK chain reachable by the
 revoked principal.
 

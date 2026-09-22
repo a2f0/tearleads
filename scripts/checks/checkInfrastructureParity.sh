@@ -157,10 +157,6 @@ assert_document_sync_ingress_cors() {
   fi
 }
 
-# Render the play's own demo variables. The hostnames reach nginx server_name
-# and the API CORS allowlist through Jinja, where a plausible-looking expression
-# can still produce the wrong string -- a folded scalar carrying `\\1` rendered
-# `demo.\1` for every extra zone while matching any source-text assertion.
 # The Stripe key-mode guard must reject a live key on staging (and vice
 # versa), an incomplete set, and must be called by every deploy path that
 # renders or bundles Stripe configuration.
@@ -243,25 +239,6 @@ assert_stripe_env_guard() {
   done
 }
 
-assert_demo_zone_rule_agreement() {
-  local pattern='[a-z0-9]([a-z0-9-]*[a-z0-9])?'
-  local file
-
-  # Terraform validates the variable, but the playbook and the app-web deploy
-  # read the same value and run without it (--skip-terraform), so all three
-  # copies of the rule have to stay identical.
-  for file in \
-    "$REPO_ROOT/terraform/stacks/prod/server/variables.tf" \
-    "$REPO_ROOT/terraform/stacks/staging/server/variables.tf" \
-    "$REPO_ROOT/ansible/playbooks/server.yml" \
-    "$REPO_ROOT/packages/app-web/scripts/deployAppWeb.sh"; do
-    if ! grep -Fq "$pattern" "$file"; then
-      echo "ERROR: extra demo zone names must be validated identically in ${file#"$REPO_ROOT"/}." >&2
-      return 1
-    fi
-  done
-}
-
 assert_server_tier_defaults() {
   local server_yml="$REPO_ROOT/ansible/playbooks/server.yml"
   local render_dir
@@ -279,14 +256,13 @@ assert_server_tier_defaults() {
   for tier in prod staging; do
     prefix="demo."
     [ "$tier" = "prod" ] || prefix="demo-staging."
-    cors="https://${prefix}example.test,https://${prefix}example.de"
+    cors="https://${prefix}example.test"
 
-    if ! assertion_result="$(TF_VAR_extra_demo_domains='["example.de"]' \
-      ANSIBLE_LOCALHOST_WARNING=false \
+    if ! assertion_result="$(ANSIBLE_LOCALHOST_WARNING=false \
       ANSIBLE_INVENTORY_UNPARSED_WARNING=false \
       ansible localhost --connection local \
         -m ansible.builtin.assert \
-        -a '{"that":["expected_cors in api_default_cors_origins", "desktop_origin in api_default_cors_origins.split(\",\")", "(postgres_managed | bool) == (deployment_tier == \"prod\")", "not (postgres_ssl | bool)"], "fail_msg":"Server tier defaults must select demo hosts and managed Postgres consistently; managed TLS comes from the persistent output."}' \
+        -a '{"that":["expected_cors in api_default_cors_origins", "desktop_origin in api_default_cors_origins.split(\",\")", "(postgres_managed | bool) == (deployment_tier == \"prod\")", "not (postgres_ssl | bool)"], "fail_msg":"Server tier defaults must select the demo host and managed Postgres consistently; managed TLS comes from the persistent output."}' \
         -e "@$play_vars" \
         -e "deployment_tier=$tier" \
         -e domain=example.test \
@@ -317,20 +293,20 @@ assert_demo_static_ingress() {
     ansible localhost --connection local \
       -m ansible.builtin.template \
       -a "src=$app_template dest=$rendered_app mode=0600" \
-      -e '{"app_hostname":"app.example.test","app_demo_hostnames":["demo.example.test","demo.example.de"]}' \
+      -e '{"app_hostname":"app.example.test","app_demo_hostname":"demo.example.test"}' \
       </dev/null >/dev/null 2>"$render_dir/ansible.stderr"; then
     sed -n '1,120p' "$render_dir/ansible.stderr" >&2
     return 1
   fi
 
   app_server="$(sed -n '/server_name app.example.test;/,/^}/p' "$rendered_app")"
-  demo_server="$(sed -n '/server_name demo.example.test demo.example.de;/,/^}/p' "$rendered_app")"
+  demo_server="$(sed -n '/server_name demo.example.test;/,/^}/p' "$rendered_app")"
   if ! grep -Fq 'root /var/www/app-web;' <<<"$app_server" ||
     ! grep -Fq 'root /var/www/app-demo;' <<<"$demo_server" ||
     ! grep -Fq "try_files \$uri \$uri/ /index.html;" <<<"$demo_server" ||
     ! grep -Fq 'listen 127.0.0.1:80 default_server;' "$nginx_template" ||
     ! grep -Fq 'return 444;' "$nginx_template"; then
-    echo "ERROR: Every demo host must be served the app-demo bundle, and unrouted hosts must hit a refusing default server." >&2
+    echo "ERROR: The demo host must be served the app-demo bundle, and unrouted hosts must hit a refusing default server." >&2
     return 1
   fi
 }
@@ -381,7 +357,6 @@ assert_blob_gc_healthcheck_url_validation
 assert_document_sync_ingress_cors
 assert_demo_static_ingress
 assert_server_tier_defaults
-assert_demo_zone_rule_agreement
 assert_stripe_env_guard
 bash "$REPO_ROOT/scripts/checks/checkPostgresDeployment.sh"
 bash "$REPO_ROOT/scripts/checks/checkStorageDeployment.sh"

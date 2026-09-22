@@ -62,6 +62,12 @@ export interface RequestFailure {
   readonly status: number | null;
   readonly statusText: string;
   readonly stalePrincipalPolicies?: PrincipalPolicyBundleResponse[] | undefined;
+  /**
+   * Set with `container_descendant_rekeys_required`: the descendant rekeys the
+   * refused rotation must carry, parent-first. A hint to plan from, never an
+   * authority; the caller verifies each container before signing for it.
+   */
+  readonly requiredContainerIds?: readonly string[] | undefined;
 }
 
 export interface RequestSuccess<T> {

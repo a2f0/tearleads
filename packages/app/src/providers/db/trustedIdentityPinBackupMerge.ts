@@ -92,6 +92,30 @@ function assertSameIdentity(
   }
 }
 
+/**
+ * Each signing key is bound to one user within a trust domain. The merge keys
+ * rows by user, so a backup that binds a known key to a different user would
+ * otherwise pass here and fail at the unique index on write — or, if the
+ * index were missing, restore a second user for a pinned key.
+ */
+function assertOneUserPerSigningKey(rows: Iterable<BackupSqlRow>): void {
+  const label = "Trusted identity pin";
+  const userBySigningKey = new Map<string, string>();
+  for (const row of rows) {
+    const domain = requireBackupString(row, "identity_trust_domain", label);
+    const signingKey = requireBackupHash(row, "signing_key_fingerprint", label);
+    const userId = requireBackupString(row, "user_id", label);
+    const key = `${domain}\u0000${signingKey}`;
+    const bound = userBySigningKey.get(key);
+    if (bound !== undefined && bound !== userId) {
+      throw new Error(
+        `Backup conflicts with a trusted identity pin (user_id) in ${domain}`,
+      );
+    }
+    userBySigningKey.set(key, userId);
+  }
+}
+
 /** Merge backup pins without resetting an existing TOFU decision. */
 export function mergeTrustedIdentityPinBackupTables(input: {
   readonly current: BackupTable | null;
@@ -138,5 +162,6 @@ export function mergeTrustedIdentityPinBackupTables(input: {
       );
     }
   }
+  assertOneUserPerSigningKey(currentRows.values());
   return { ...template, rows: [...currentRows.values()] };
 }

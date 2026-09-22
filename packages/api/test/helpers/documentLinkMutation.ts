@@ -18,6 +18,7 @@ import type {
   DocumentCreateResponse,
   DocumentLinkSetMutationResponse,
 } from "@tearleads/validators/response";
+import { contentKeyEnvelopeFixture } from "./contentKeyEnvelope";
 import { createSignedAtomicRotationBaseline } from "./documentUpdateRequests";
 import {
   accessManifestFromContainerResponse,
@@ -138,8 +139,10 @@ export async function buildDocumentLinkRequest(input: {
           containerManifestHash: childBundle.manifestHash,
           containerKeyEpochId: childKek.containerKeyEpochId,
           containerKeyEpoch: childKek.containerKeyEpoch,
-          wrappedKey: `document-key:${documentId}:child`,
-          wrappingMetadata: { alg: "test-wrap" },
+          ...contentKeyEnvelopeFixture(
+            "Document",
+            `document-key:${documentId}:child`,
+          ),
         },
       ],
     },
@@ -267,8 +270,10 @@ export async function buildDocumentUnlinkRequest(input: {
       targets: [
         {
           ...remainingTarget,
-          wrappedKey: `document-key:${documentId}:rotated-${remainingTarget.containerId}`,
-          wrappingMetadata: { alg: "test-wrap" },
+          ...contentKeyEnvelopeFixture(
+            "Document",
+            `document-key:${documentId}:rotated-${remainingTarget.containerId}`,
+          ),
         },
       ],
     },

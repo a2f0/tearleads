@@ -30,6 +30,7 @@ export interface TrustedUserIdentityPin {
 }
 
 type ComparedPinField =
+  | "userId"
   | "formatVersion"
   | "signingSuite"
   | "signingPublicKey"
@@ -39,6 +40,7 @@ type ComparedPinField =
   | "encapsulationKeyFingerprint";
 
 interface PinDiagnostic {
+  readonly userId: string;
   readonly formatVersion: number;
   readonly signingSuite: string;
   readonly signingKeyFingerprint: string;
@@ -53,6 +55,7 @@ interface PinScope {
 }
 
 const comparedPinFields: readonly ComparedPinField[] = [
+  "userId",
   "formatVersion",
   "signingSuite",
   "signingPublicKey",
@@ -75,6 +78,7 @@ const requiredStringFields = [
 
 function pinDiagnostic(pin: TrustedUserIdentityPin): PinDiagnostic {
   return {
+    userId: pin.userId,
     formatVersion: pin.formatVersion,
     signingSuite: pin.signingSuite,
     signingKeyFingerprint: pin.signingKeyFingerprint,
@@ -308,6 +312,35 @@ export async function loadTrustedUserIdentityPin(input: {
 }
 
 /**
+ * The user a signing key is already bound to in this trust domain, if any.
+ * Each key has at most one such user: the reverse binding is unique.
+ */
+export async function loadTrustedUserIdForSigningKey(input: {
+  readonly execSql: ExecSql;
+  readonly identityTrustDomain: string;
+  readonly signingKeyFingerprint: string;
+}): Promise<string | null> {
+  await ensureSqlTables(input.execSql, trustedUserIdentityPinTables);
+  const rows = await getClientSQLitePersistenceRuntime(input.execSql)
+    .db.select({ userId: trustedUserIdentityPins.userId })
+    .from(trustedUserIdentityPins)
+    .where(
+      and(
+        eq(
+          trustedUserIdentityPins.identityTrustDomain,
+          input.identityTrustDomain,
+        ),
+        eq(
+          trustedUserIdentityPins.signingKeyFingerprint,
+          input.signingKeyFingerprint,
+        ),
+      ),
+    )
+    .limit(1);
+  return rows[0]?.userId ?? null;
+}
+
+/**
  * Atomically establishes or verifies a trust-on-first-use identity pin.
  *
  * The immediate transaction serializes first contact across SDK instances that
@@ -325,10 +358,45 @@ export async function compareOrInsertTrustedUserIdentityPin(input: {
     await ensureSqlTables(input.execSql, trustedUserIdentityPinTables);
     return runtime.transaction(
       async (tx) => {
+        const aliases = await tx
+          .select()
+          .from(trustedUserIdentityPins)
+          .where(
+            and(
+              eq(
+                trustedUserIdentityPins.identityTrustDomain,
+                input.pin.identityTrustDomain,
+              ),
+              eq(
+                trustedUserIdentityPins.signingKeyFingerprint,
+                input.pin.signingKeyFingerprint,
+              ),
+            ),
+          )
+          .limit(1);
+        const alias = aliases[0];
+        if (alias && alias.userId !== input.pin.userId) {
+          throw new TrustedUserIdentityPinMismatchError(
+            parseStoredPin(alias, {
+              identityTrustDomain: input.pin.identityTrustDomain,
+              userId: alias.userId,
+            }),
+            input.pin,
+            ["userId"],
+          );
+        }
+        // Targets the primary key only: re-pinning the same user is a no-op,
+        // but a write that would bind this key to a second user must fail at
+        // the unique index rather than be silently skipped.
         await tx
           .insert(trustedUserIdentityPins)
           .values(input.pin)
-          .onConflictDoNothing()
+          .onConflictDoNothing({
+            target: [
+              trustedUserIdentityPins.identityTrustDomain,
+              trustedUserIdentityPins.userId,
+            ],
+          })
           .run();
 
         const stored = await selectStoredPin(tx, input.pin);

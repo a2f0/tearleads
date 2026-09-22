@@ -1,16 +1,14 @@
-import {
-  AES_GCM_TAG_BYTES,
-  assertAesGcmIv,
-  CONTENT_RECORD_ENCRYPTION_SUITE,
-} from "@tearleads/crypto";
-import { base64ToBytes } from "@tearleads/encoding";
+import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
 import { isPlainObject as isPlainRecord } from "@tearleads/validators/isPlainObject";
+import { BlobEnvelopeError } from "./blobEnvelopeError";
 import {
   assertOnlyRecordKeys,
   readRecordPositiveInteger,
   readRecordString,
-} from "../../shared/readers";
+} from "./blobEnvelopeFields";
 import {
+  BLOB_ENCRYPTED_BYTES_FORMAT,
+  BLOB_ENCRYPTED_BYTES_VERSION,
   BLOB_ENVELOPE_MAGIC_BYTES,
   BLOB_ENVELOPE_PREFIX_BYTES,
   type BlobEnvelopeV2Header,
@@ -19,21 +17,57 @@ import {
   computeBlobEncryptedByteLength,
   encodeBlobEnvelopeV2Header,
 } from "./blobEnvelopeV2";
-import type { BlobEncryptedBytesRecord, BlobEncryptedChunk } from "./types";
-import {
-  BLOB_ENCRYPTED_BYTES_FORMAT,
-  BLOB_ENCRYPTED_BYTES_KEYS,
-  BLOB_ENCRYPTED_BYTES_VERSION,
-} from "./types";
+import { CONTENT_RECORD_ENCRYPTION_SUITE } from "./keying/types";
+import { AES_GCM_TAG_BYTES, assertAesGcmIv } from "./symmetric";
 
-const MAX_HEADER_BYTES = 64 * 1024;
+export interface BlobEnvelopeRecord {
+  blobId: string;
+  byteLength: number;
+  chunkCount: number;
+  chunks: BlobEnvelopeChunk[];
+  chunkSize: number;
+  contentKeyEpoch: number;
+  contentRecordId: string;
+  encryptedByteLength: number;
+  headerByteLength: number;
+  iv: Uint8Array;
+  metadataHash: string;
+  nonceDomainHash: string;
+}
+/**
+ * What the header alone establishes. It deliberately has no `chunks`: a
+ * header-only parse has not read the ciphertext, and an empty array there
+ * would read as an empty object rather than an unread one.
+ */
+export type BlobEnvelopeHeaderRecord = Omit<BlobEnvelopeRecord, "chunks">;
+interface BlobEnvelopeChunk {
+  ciphertext: Uint8Array<ArrayBuffer>;
+  index: number;
+  plaintextByteLength: number;
+}
+const BLOB_ENCRYPTED_BYTES_KEYS = new Set([
+  "blobId",
+  "byteLength",
+  "chunkCount",
+  "chunkSize",
+  "contentKeyEpoch",
+  "contentRecordId",
+  "encryptionSuite",
+  "format",
+  "iv",
+  "metadataHash",
+  "nonceDomainHash",
+  "version",
+]);
+
+export const MAX_BLOB_ENVELOPE_HEADER_BYTES = 64 * 1024;
 const TEXT_DECODER = new TextDecoder("utf-8", { fatal: true });
 
 export function readBlobEnvelopeHeaderByteLength(
   encryptedBytes: Uint8Array<ArrayBuffer>,
 ): number {
   if (encryptedBytes.byteLength < BLOB_ENVELOPE_PREFIX_BYTES) {
-    throw new Error("Blob encrypted bytes envelope is truncated");
+    throw new BlobEnvelopeError("Blob encrypted bytes envelope is truncated");
   }
   for (
     let index = 0;
@@ -41,7 +75,7 @@ export function readBlobEnvelopeHeaderByteLength(
     index += 1
   ) {
     if (encryptedBytes[index] !== BLOB_ENVELOPE_MAGIC_BYTES[index]) {
-      throw new Error("Blob encrypted bytes magic is invalid");
+      throw new BlobEnvelopeError("Blob encrypted bytes magic is invalid");
     }
   }
   const headerPayloadByteLength = new DataView(
@@ -51,9 +85,11 @@ export function readBlobEnvelopeHeaderByteLength(
   ).getUint32(BLOB_ENVELOPE_MAGIC_BYTES.byteLength);
   if (
     headerPayloadByteLength === 0 ||
-    headerPayloadByteLength > MAX_HEADER_BYTES
+    headerPayloadByteLength > MAX_BLOB_ENVELOPE_HEADER_BYTES
   ) {
-    throw new Error("Blob encrypted bytes header length is invalid");
+    throw new BlobEnvelopeError(
+      "Blob encrypted bytes header length is invalid",
+    );
   }
   return BLOB_ENVELOPE_PREFIX_BYTES + headerPayloadByteLength;
 }
@@ -64,7 +100,7 @@ function readHeaderValue(encryptedBytes: Uint8Array<ArrayBuffer>): {
 } {
   const headerByteLength = readBlobEnvelopeHeaderByteLength(encryptedBytes);
   if (headerByteLength > encryptedBytes.byteLength) {
-    throw new Error("Blob encrypted bytes header is truncated");
+    throw new BlobEnvelopeError("Blob encrypted bytes header is truncated");
   }
 
   let value: unknown;
@@ -75,10 +111,10 @@ function readHeaderValue(encryptedBytes: Uint8Array<ArrayBuffer>): {
       ),
     );
   } catch {
-    throw new Error("Blob encrypted bytes are invalid JSON");
+    throw new BlobEnvelopeError("Blob encrypted bytes are invalid JSON");
   }
   if (!isPlainRecord(value)) {
-    throw new Error("Blob encrypted bytes must be an object");
+    throw new BlobEnvelopeError("Blob encrypted bytes must be an object");
   }
   return { headerByteLength, value };
 }
@@ -90,11 +126,38 @@ function readPlaintextByteLength(value: Record<string, unknown>): number {
     !Number.isSafeInteger(byteLength) ||
     byteLength < 0
   ) {
-    throw new Error(
+    throw new BlobEnvelopeError(
       "Blob encrypted bytes.byteLength must be a non-negative safe integer",
     );
   }
   return byteLength;
+}
+
+/**
+ * `base64ToBytes` and `assertAesGcmIv` belong to shared modules with their own
+ * error types, so both are wrapped: every structural rejection has to reach a
+ * caller as a BlobEnvelopeError to be reported as the submitter's fault.
+ */
+function readHeaderIv(value: Record<string, unknown>): {
+  readonly iv: Uint8Array;
+  readonly ivString: string;
+} {
+  const ivString = readRecordString(value, "iv", "Blob encrypted bytes");
+  let iv: Uint8Array;
+  try {
+    iv = base64ToBytes(ivString);
+    assertAesGcmIv(iv, "Blob encrypted bytes IV is invalid");
+  } catch (error) {
+    throw new BlobEnvelopeError("Blob encrypted bytes IV is invalid", {
+      cause: error,
+    });
+  }
+  if (bytesToBase64(iv) !== ivString) {
+    throw new BlobEnvelopeError(
+      "Blob encrypted bytes IV is not canonical base64",
+    );
+  }
+  return { iv, ivString };
 }
 
 function normalizeHeader(value: Record<string, unknown>): {
@@ -108,7 +171,7 @@ function normalizeHeader(value: Record<string, unknown>): {
   );
   const format = readRecordString(value, "format", "Blob encrypted bytes");
   if (format !== BLOB_ENCRYPTED_BYTES_FORMAT) {
-    throw new Error("Blob encrypted bytes format is invalid");
+    throw new BlobEnvelopeError("Blob encrypted bytes format is invalid");
   }
   const version = readRecordPositiveInteger(
     value,
@@ -116,7 +179,7 @@ function normalizeHeader(value: Record<string, unknown>): {
     "Blob encrypted bytes",
   );
   if (version !== BLOB_ENCRYPTED_BYTES_VERSION) {
-    throw new Error(
+    throw new BlobEnvelopeError(
       `Blob encrypted bytes version ${version} is invalid; expected ${BLOB_ENCRYPTED_BYTES_VERSION}`,
     );
   }
@@ -126,7 +189,7 @@ function normalizeHeader(value: Record<string, unknown>): {
     "Blob encrypted bytes",
   );
   if (encryptionSuite !== CONTENT_RECORD_ENCRYPTION_SUITE) {
-    throw new Error("Blob encrypted bytes suite is invalid");
+    throw new BlobEnvelopeError("Blob encrypted bytes suite is invalid");
   }
   const byteLength = readPlaintextByteLength(value);
   const chunkCount = readRecordPositiveInteger(
@@ -140,11 +203,9 @@ function normalizeHeader(value: Record<string, unknown>): {
     "Blob encrypted bytes",
   );
   if (chunkCount !== computeBlobChunkCount(byteLength, chunkSize)) {
-    throw new Error("Blob encrypted bytes chunk count is invalid");
+    throw new BlobEnvelopeError("Blob encrypted bytes chunk count is invalid");
   }
-  const ivString = readRecordString(value, "iv", "Blob encrypted bytes");
-  const iv = base64ToBytes(ivString);
-  assertAesGcmIv(iv, "Blob encrypted bytes IV is invalid");
+  const { iv, ivString } = readHeaderIv(value);
   return {
     header: {
       blobId: readRecordString(value, "blobId", "Blob encrypted bytes"),
@@ -187,7 +248,7 @@ function readEncryptedChunks(input: {
     "byteLength" | "chunkCount" | "chunkSize"
   >;
   readonly headerByteLength: number;
-}): BlobEncryptedChunk[] {
+}): BlobEnvelopeChunk[] {
   let chunkOffset = input.headerByteLength;
   return Array.from({ length: input.header.chunkCount }, (_, index) => {
     const plaintextByteLength = blobChunkPlaintextByteLength({
@@ -209,7 +270,7 @@ function readEncryptedChunks(input: {
 
 export function parseBlobEnvelopeV2Header(
   encryptedBytes: Uint8Array<ArrayBuffer>,
-): BlobEncryptedBytesRecord {
+): BlobEnvelopeHeaderRecord {
   const { headerByteLength, value } = readHeaderValue(encryptedBytes);
   const { header, iv } = normalizeHeader(value);
   const canonicalHeaderBytes = encodeBlobEnvelopeV2Header(header);
@@ -217,7 +278,7 @@ export function parseBlobEnvelopeV2Header(
     canonicalHeaderBytes.byteLength !== headerByteLength ||
     canonicalHeaderBytes.some((byte, index) => byte !== encryptedBytes[index])
   ) {
-    throw new Error("Blob encrypted bytes header is not canonical");
+    throw new BlobEnvelopeError("Blob encrypted bytes header is not canonical");
   }
   const expectedByteLength = computeBlobEncryptedByteLength({
     chunkCount: header.chunkCount,
@@ -228,7 +289,6 @@ export function parseBlobEnvelopeV2Header(
     blobId: header.blobId,
     byteLength: header.byteLength,
     chunkCount: header.chunkCount,
-    chunks: [],
     chunkSize: header.chunkSize,
     contentKeyEpoch: header.contentKeyEpoch,
     contentRecordId: header.contentRecordId,
@@ -242,10 +302,10 @@ export function parseBlobEnvelopeV2Header(
 
 export function parseBlobEnvelopeV2(
   encryptedBytes: Uint8Array<ArrayBuffer>,
-): BlobEncryptedBytesRecord {
+): BlobEnvelopeRecord {
   const encrypted = parseBlobEnvelopeV2Header(encryptedBytes);
   if (encryptedBytes.byteLength !== encrypted.encryptedByteLength)
-    throw new Error("Blob encrypted bytes length is invalid");
+    throw new BlobEnvelopeError("Blob encrypted bytes length is invalid");
   return {
     ...encrypted,
     chunks: readEncryptedChunks({

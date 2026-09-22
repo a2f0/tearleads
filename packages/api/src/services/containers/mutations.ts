@@ -1,10 +1,10 @@
 import type {
   ContainerCreateWithMetadataDocumentResponse,
-  ContainerMutationResponse,
   ContainerReciteResponse,
+  ContainerRotationResponse,
 } from "@tearleads/validators/response";
 import {
-  type MutateContainerInput,
+  type MutateContainerRotationInput,
   runContainerMutationWorkflow,
 } from "../../workflows/containers/mutations";
 import {
@@ -20,8 +20,8 @@ import { createDatabaseWorkflowService } from "../databaseWorkflowService";
 export { ContainerMutationError } from "../../workflows/containers/mutations";
 
 export const mutateContainer = createDatabaseWorkflowService<
-  MutateContainerInput,
-  ContainerMutationResponse
+  MutateContainerRotationInput,
+  ContainerRotationResponse
 >(runContainerMutationWorkflow);
 
 export const reciteContainer = createDatabaseWorkflowService<

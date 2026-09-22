@@ -2,8 +2,9 @@ import { expect, test } from "bun:test";
 import { db, getDefaultApiDatabaseKind } from "@tearleads/api-shared/postgres";
 import { blobStages, blobs } from "@tearleads/api-shared/schema";
 import { eq, sql } from "drizzle-orm";
+import { createBlobEnvelopeFixture } from "../../../test/helpers/blobEnvelope";
 import {
-  blobObjectBytes,
+  readBlobObjectBytes,
   readBlobObjectText,
 } from "../../../test/helpers/blobObjectStore";
 import { createBlobStageOwner } from "../../../test/helpers/blobStageOwner";
@@ -26,7 +27,10 @@ async function createStageFixture() {
   const runtime = createServiceTestRuntime();
   const { userId, organizationId } = await createBlobStageOwner();
   const blobId = crypto.randomUUID();
-  const bytes = blobObjectBytes("attachment committed during stage cleanup");
+  const { bytes, envelopeHeader } = await createBlobEnvelopeFixture({
+    blobId,
+    organizationId,
+  });
   const metadata = {
     byteLength: bytes.byteLength,
     sha256: await sha256Hex(bytes),
@@ -56,6 +60,7 @@ async function createStageFixture() {
     expectedOrganizationId: organizationId,
     prevalidatedMultipartStage: {
       ...metadata,
+      envelopeHeader,
       stageId: stage.stageId,
       storageKey,
     },
@@ -108,9 +113,9 @@ test.skipIf(getDefaultApiDatabaseKind() !== "postgres")(
       failedStages: 0,
     });
     expect(deletes).toBe(0);
-    expect(await readBlobObjectText(runtime.blobObjectStore, storageKey)).toBe(
-      new TextDecoder().decode(bytes),
-    );
+    expect(
+      await readBlobObjectBytes(runtime.blobObjectStore, storageKey),
+    ).toEqual(bytes);
     expect(
       await db.select({ id: blobs.id }).from(blobs).where(eq(blobs.id, blobId)),
     ).toEqual([{ id: blobId }]);

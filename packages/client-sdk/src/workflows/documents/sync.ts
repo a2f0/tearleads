@@ -1,6 +1,7 @@
 import { KeyingVerificationError } from "@tearleads/crypto";
 import type { DocumentWriterProjectionResponse } from "@tearleads/validators/response";
 import { isDocumentUpdateCreatedEvent } from "../../data/documents/documentSync";
+import { ContainerKekRepairInaccessibleError } from "../../data/documents/shared/containerKekCurrency";
 import { isDocumentSyncUpdateIsolationError } from "../../data/documents/shared/documentSyncUpdateIsolation";
 import {
   type DocumentSyncPullContinuation,
@@ -8,7 +9,6 @@ import {
   resolvePullContinuationMinLsn,
 } from "../../data/documents/shared/syncPagination";
 import type {
-  DocumentSyncSubmitFailure,
   MaterializedDocumentSyncPlan,
   SyncRemoteDocumentResult,
 } from "../../data/documents/shared/types";
@@ -24,10 +24,17 @@ import {
   type SyncRemoteDocumentInput,
   tryPersistedReadOnlyDocumentSync,
 } from "./readOnlySync";
+import {
+  abandonAfterRetryableConflicts,
+  abandonAncestorRepair,
+  abandonInaccessibleAncestorRepair,
+  abandonOversizedSyncPlan,
+} from "./syncAbandon";
 import type {
   RemoteDocumentSyncAttemptOutcome,
   RemoteDocumentSyncAttemptState,
 } from "./syncAttemptState";
+import { requireStandaloneAncestorRepairs } from "./syncContainerRekeyPreparation";
 import { buildRemoteDocumentSyncPlan } from "./syncContainerRekeys";
 import type { TerminalSubmitFailureHandler } from "./syncFailureClassification";
 import {
@@ -39,7 +46,6 @@ import {
 import { recoverablePendingUpdates } from "./syncPlanRequestBounds";
 import { DocumentAncestorRepairAbandonedError } from "./syncRepairAbandon";
 import { resolveSubmittedDocumentSyncResult } from "./syncSubmittedResult";
-import { traceAncestorRepairAbandoned } from "./syncTrace";
 
 export function hasDocumentUpdateEvent(
   events: ReadonlyArray<unknown>,
@@ -104,6 +110,7 @@ async function submitPlannedSyncAttempt(args: {
       expectedCommitLsnMode: args.pullContinuation?.commitLsnMode,
       isRemoteSyncBlocked: args.sync.isRemoteSyncBlocked,
       maxAttempts: args.maxAttempts,
+      onInlineRepairRefused: () => requireStandaloneAncestorRepairs(args.sync),
       onRemoteDocumentDeleted: args.sync.onRemoteDocumentDeleted,
       onOutgoingUpdatesMaterialized: args.sync.onOutgoingUpdatesMaterialized,
       onSyncTrace: args.sync.onSyncTrace,
@@ -164,44 +171,6 @@ function resolveAttemptProjection(
     stillCurrent: input.stillCurrent,
   });
 }
-function abandonAncestorRepair(
-  input: SyncRemoteDocumentInput,
-  error: DocumentAncestorRepairAbandonedError,
-): null {
-  // Trace as well as abandon: production wires onSyncTrace but not
-  // onSyncAbandoned, and this path has already issued server-side rekeys, so
-  // abandoning silently would leave a retrying loop with no way to see it.
-  traceAncestorRepairAbandoned(input.onSyncTrace, {
-    documentId: input.documentId,
-    reason: error.reason,
-  });
-  input.onSyncAbandoned?.(error.reason);
-  return null;
-}
-
-function abandonAfterRetryableConflicts(input: SyncRemoteDocumentInput): null {
-  input.onSyncAbandoned?.("every sync attempt hit a retryable conflict");
-  return null;
-}
-
-async function abandonOversizedSyncPlan(
-  input: SyncRemoteDocumentInput,
-  error: Error,
-): Promise<null> {
-  const failure: DocumentSyncSubmitFailure = {
-    code: "document_sync_request_too_large",
-    message: error.message,
-    ok: false,
-    report: () => undefined,
-    status: null,
-  };
-  await input.onTerminalSubmitFailure?.(failure);
-  input.onSyncAbandoned?.(
-    "a queued update cannot fit within the document sync request limit",
-  );
-  return null;
-}
-
 async function planDocumentSyncAttempt(input: {
   pendingUpdates: readonly PendingUpdateRecord[];
   pullContinuation?: DocumentSyncPullContinuation | undefined;
@@ -240,6 +209,9 @@ async function planDocumentSyncAttempt(input: {
   } catch (error) {
     if (error instanceof DocumentAncestorRepairAbandonedError) {
       return abandonAncestorRepair(input.sync, error);
+    }
+    if (error instanceof ContainerKekRepairInaccessibleError) {
+      return abandonInaccessibleAncestorRepair(input.sync, error);
     }
     if (!isDocumentSyncRequestLimitError(error)) {
       throw error;

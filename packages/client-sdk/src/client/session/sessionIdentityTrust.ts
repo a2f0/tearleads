@@ -78,3 +78,38 @@ export function requireRegistrationIdentityPinner(input: {
     }
   };
 }
+
+export type BoundUserIdLookup = (
+  signingKeyFingerprint: string,
+) => Promise<string | null>;
+
+/**
+ * A key this device already binds to a user belongs to that user: the trust
+ * store holds one user per key, so a new registration's pin would be refused
+ * only after the server had created the account. Registration declines before
+ * touching the server instead; like a lost or conflicting registration, the
+ * caller then proves ownership by logging in. After an environment reset this
+ * requires clearing the device's local data.
+ */
+export async function registrationKeyAlreadyBound(
+  dependencies: {
+    readonly boundUserIdForSigningKey?: BoundUserIdLookup | undefined;
+    readonly log: (message: string) => void;
+  },
+  signingFingerprint: string | null,
+): Promise<boolean> {
+  if (!dependencies.boundUserIdForSigningKey) {
+    throw new KeyingVerificationError(
+      "missing_dependency",
+      "Registration requires the durable local identity trust service",
+    );
+  }
+  if (!signingFingerprint) return false;
+  const boundUserId =
+    await dependencies.boundUserIdForSigningKey(signingFingerprint);
+  if (!boundUserId) return false;
+  dependencies.log(
+    `Registration skipped: this signing key is already bound to ${boundUserId}`,
+  );
+  return true;
+}

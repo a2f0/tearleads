@@ -19,8 +19,9 @@ import {
   currentTargetsCanCarryPreviousBundle as sharedCurrentTargetsCanCarryPreviousBundle,
 } from "./contentKeyStore";
 import {
+  assertStoredTargetsMatchCurrent,
+  assertSubmittedTargetsMatchCurrent,
   assertTargetHashMatches,
-  assertTargetsMatchCurrent,
   type CurrentDocumentKekTargets,
   DocumentContentKeyBundleError,
   type DocumentContentKeyTargetEnvelope,
@@ -217,7 +218,7 @@ export async function getLatestDocumentContentKeyBundleProjection(
 ): Promise<LatestDocumentContentKeyBundleProjection | null> {
   return projectLatestContentKeyBundle({
     assertTargetsCurrent: (bundle) =>
-      assertTargetsMatchCurrent({
+      assertStoredTargetsMatchCurrent({
         currentTargets: input.currentTargets,
         targets: bundle.targets,
       }),
@@ -389,6 +390,7 @@ async function addDocumentContentKeyTargetsToExistingBundle(input: {
 async function validateCurrentTargetsForBundle(
   input: StoreDocumentContentKeyBundleInput,
   executor: DatabaseSession,
+  loadExistingBundle: () => Promise<StoredDocumentContentKeyBundle | null>,
 ): Promise<CurrentDocumentKekTargets> {
   ensurePositiveContentKeyEpoch(input.contentKeyEpoch);
   await assertTargetHashMatches(input);
@@ -411,7 +413,20 @@ async function validateCurrentTargetsForBundle(
   if (currentTargets.linkSetManifestHash !== input.linkSetManifestHash) {
     throw staleBundle("Document link-set manifest hash is stale");
   }
-  assertTargetsMatchCurrent({ currentTargets, targets: input.targets });
+  // A link carries the stored bundle's targets verbatim and appends one
+  // freshly wrapped target, so this set mixes stored and new material. Judging
+  // the stored half by the submission shape would make a row carrying an
+  // unrecognized metadata key permanently un-linkable: a retained target must
+  // be resubmitted byte-identical or the bundle is stale, so no client can
+  // re-wrap its way out. Only new material is gated.
+  //
+  // The exemption is scoped to the epoch being written, so a rotation, which
+  // writes a new one, exempts nothing and is held to the full shape.
+  assertSubmittedTargetsMatchCurrent({
+    currentTargets,
+    storedTargets: (await loadExistingBundle())?.targets ?? null,
+    targets: input.targets,
+  });
   return currentTargets;
 }
 
@@ -638,7 +653,7 @@ export async function requireAndRefreshCurrentDocumentContentKeyBundle(input: {
       nextBundle: refreshedBundle,
       executor,
     });
-    assertTargetsMatchCurrent({
+    assertStoredTargetsMatchCurrent({
       currentTargets,
       targets: storedBundle.targets,
     });
@@ -648,7 +663,10 @@ export async function requireAndRefreshCurrentDocumentContentKeyBundle(input: {
       currentTargets,
     };
   }
-  assertTargetsMatchCurrent({ currentTargets, targets: bundle.targets });
+  assertStoredTargetsMatchCurrent({
+    currentTargets,
+    targets: bundle.targets,
+  });
 
   return {
     ...bundle,

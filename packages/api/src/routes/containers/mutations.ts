@@ -15,7 +15,7 @@ import {
   CONTAINER_NOT_FOUND_ERROR_CODE,
   type ContainerCreateWithMetadataDocumentResponse,
   type ContainerDeleteResponse,
-  type ContainerMutationResponse,
+  type ContainerRotationResponse,
 } from "@tearleads/validators/response";
 import type { MiddlewareHandler } from "hono";
 import { Hono } from "hono";
@@ -35,7 +35,10 @@ import type { ApiServiceRuntime } from "../../services/runtime";
 import { jsonRequestValidator } from "../../validators/jsonRequest";
 import { pathParamsValidator } from "../../validators/pathParams";
 import { respondToStatusError } from "../errorResponse";
-import { publishContainerMutationCreated } from "./mutationEvents";
+import {
+  publishCarriedContainerRekeys,
+  publishContainerMutationCreated,
+} from "./mutationEvents";
 
 interface ContainerMutationsRouteDeps {
   readonly publish: (event: PublishedRealtimeEvent) => Promise<void>;
@@ -109,8 +112,13 @@ function addContainerMutationRoute({
             listGroupMemberUserIds(runtime, groupId),
           response,
         });
+        await publishCarriedContainerRekeys({
+          carried: response.containerRekeys ?? [],
+          origin: { sessionId: session.id, userId: session.userId },
+          publish,
+        });
 
-        return c.json<ContainerMutationResponse>(response);
+        return c.json<ContainerRotationResponse>(response);
       } catch (error) {
         if (error instanceof ContainerMutationError) {
           return c.json(error.body ?? { error: error.message }, error.status);

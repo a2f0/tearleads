@@ -7,6 +7,7 @@ import {
   isDocumentWriterProjectionResponse,
 } from "@tearleads/validators/response";
 import { authenticate } from "../../test/helpers/authenticate";
+import { contentKeyEnvelopeFixture } from "../../test/helpers/contentKeyEnvelope";
 import {
   createSignedAtomicRotationBaseline,
   createSignedDocumentSyncRequest,
@@ -282,7 +283,10 @@ test("a heal that advances the content-key epoch must carry a newly written base
       ...healedRequestEnvelope.contentKeyBundle,
       targets: healedBundle.targets.map((target) => ({
         ...target,
-        wrappedKey: `document-key:${created.id}:losing-healer`,
+        ...contentKeyEnvelopeFixture(
+          "Document",
+          `document-key:${created.id}:losing-healer`,
+        ),
       })),
     },
     outgoingUpdates: [losingBaseline],

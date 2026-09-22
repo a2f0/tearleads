@@ -45,6 +45,10 @@ test("backup restore retains current pins and imports backup-only pins", () => {
   const restoredCopy = row({ first_seen_at: "2026-07-01T12:00:00.000Z" });
   const restoredOnly = row({
     user_id: "22222222-2222-4222-8222-222222222222",
+    signing_public_key: "signing-c",
+    signing_key_fingerprint: "c".repeat(64),
+    encapsulation_public_key: "kem-d",
+    encapsulation_key_fingerprint: "d".repeat(64),
   });
 
   expect(
@@ -62,6 +66,37 @@ test("backup restore rejects a conflicting current identity pin", () => {
       restored: table([row({ encapsulation_public_key: "kem-substituted" })]),
     }),
   ).toThrow("Backup conflicts with a trusted identity pin");
+});
+
+test("backup restore rejects binding a pinned signing key to another user", () => {
+  // Keyed by user, the merge would otherwise import this as a new pin and
+  // leave two users on one signing key within the trust domain.
+  const alias = row({ user_id: "22222222-2222-4222-8222-222222222222" });
+  expect(() =>
+    mergeTrustedIdentityPinBackupTables({
+      current: table([row()]),
+      restored: table([alias]),
+    }),
+  ).toThrow("Backup conflicts with a trusted identity pin (user_id)");
+  expect(() =>
+    mergeTrustedIdentityPinBackupTables({
+      current: null,
+      restored: table([row(), alias]),
+    }),
+  ).toThrow("Backup conflicts with a trusted identity pin (user_id)");
+});
+
+test("the same signing key may be pinned in another trust domain", () => {
+  const otherDomain = row({
+    identity_trust_domain: "https://other.example.test/v1",
+    user_id: "22222222-2222-4222-8222-222222222222",
+  });
+  expect(
+    mergeTrustedIdentityPinBackupTables({
+      current: table([row()]),
+      restored: table([otherDomain]),
+    })?.rows,
+  ).toEqual([row(), otherDomain]);
 });
 
 test("backup restore preserves lazy missing trusted identity tables", () => {

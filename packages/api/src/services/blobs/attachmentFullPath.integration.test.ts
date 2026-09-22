@@ -41,7 +41,7 @@ test("nested attachment bind and detach require exactly their signed full path",
     owner,
     root: leaf,
     containerPath,
-    stagedBlob: await stageBlob(owner),
+    stagedBlob: await stageBlob(owner, blobId),
   });
   const omission = await createSignedAccessEvent({
     body: readBindBodyClaim(bound.request.body),

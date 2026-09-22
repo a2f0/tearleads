@@ -8,7 +8,7 @@ import {
   replaceBlobContentKeyTargetsForExistingBundle,
 } from "./blobContentKeyStore";
 import {
-  assertTargetsMatchCurrent,
+  assertSubmittedTargetsMatchCurrent,
   BlobContentKeyBundleError,
 } from "./blobContentKeyTargets";
 import { resolveCurrentBlobKekTargets } from "./blobKekTargets";
@@ -48,8 +48,18 @@ export async function rewrapDocumentBlobContentKeyInTransaction(
       409,
     );
   }
-  assertTargetsMatchCurrent({
+  // A relink resubmits a retained wrap verbatim, so this set mixes stored and
+  // freshly wrapped material. Judging the stored half by the submission shape
+  // would make a row carrying an unrecognized metadata key permanently
+  // un-linkable, with no client-side heal; only new material is gated.
+  //
+  // "Stored" is the current bundle, not every row at the epoch. A retired
+  // target is absent from the bundle the client reads, so it re-wraps rather
+  // than resubmitting, and material for a target that is not currently stored
+  // is new by definition.
+  assertSubmittedTargetsMatchCurrent({
     currentTargets: { ...currentTargets, targets: documentTargets },
+    storedTargets: existingBundle.targets,
     targets: rewrap.targets,
   });
   // Another document's retained wraps are independent. Its own link mutation

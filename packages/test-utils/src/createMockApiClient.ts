@@ -52,6 +52,7 @@ export function createMockApiClient(
     listOrganizationGroupMembers: async () => null,
     moveContainer: async () => null,
     createOrganizationGroup: async () => null,
+    commitOrganizationGroupPolicy: async () => null,
     putPrincipalPolicy: async () => null,
     registerUser: async () => null,
     rekeyContainer: async () => null,
@@ -178,6 +179,10 @@ export function createMockApiClient(
     };
   }
 
+  // The SDK prefers a rotation's status-bearing variant whenever one exists,
+  // so each is derived from its mocked plain method. Left as the real client's,
+  // a test that mocks only `moveContainer` would have that mock skipped and a
+  // real request sent instead.
   if (!overrides.rekeyContainerResult) {
     apiClient.rekeyContainerResult = async (containerId, input, options) => {
       const data = await apiClient.rekeyContainer(containerId, input, options);
@@ -187,6 +192,51 @@ export function createMockApiClient(
             message: "Mock container rekey unavailable",
             method: "POST",
             path: `/containers/${containerId}/rekey`,
+          });
+    };
+  }
+  if (!overrides.revokeContainerResult) {
+    apiClient.revokeContainerResult = async (containerId, input, options) => {
+      const data = await apiClient.revokeContainer(containerId, input, options);
+      return data
+        ? { data, ok: true }
+        : mockRequestFailure({
+            message: "Mock container revoke unavailable",
+            method: "POST",
+            path: `/containers/${containerId}/revoke`,
+          });
+    };
+  }
+  // Group policy commits prefer the status-bearing variant for the same reason.
+  if (!overrides.commitOrganizationGroupPolicyResult) {
+    apiClient.commitOrganizationGroupPolicyResult = async (
+      organizationId,
+      groupId,
+      input,
+    ) => {
+      const data = await apiClient.commitOrganizationGroupPolicy(
+        organizationId,
+        groupId,
+        input,
+      );
+      return data
+        ? { data, ok: true }
+        : mockRequestFailure({
+            message: "Mock group policy commit unavailable",
+            method: "PUT",
+            path: `/organizations/${organizationId}/groups/${groupId}/policy-commit`,
+          });
+    };
+  }
+  if (!overrides.moveContainerResult) {
+    apiClient.moveContainerResult = async (containerId, input, options) => {
+      const data = await apiClient.moveContainer(containerId, input, options);
+      return data
+        ? { data, ok: true }
+        : mockRequestFailure({
+            message: "Mock container move unavailable",
+            method: "POST",
+            path: `/containers/${containerId}/move`,
           });
     };
   }

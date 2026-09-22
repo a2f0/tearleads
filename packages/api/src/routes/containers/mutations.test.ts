@@ -86,6 +86,7 @@ import {
   requestSingleContainerParentLane as listContainersForUser,
   readContainerParentLanePage as readLanePage,
 } from "../../../test/helpers/containerParentLaneQuery";
+import { contentKeyEnvelopeFixture } from "../../../test/helpers/contentKeyEnvelope";
 import { expectDocumentAccessHistoryAbsent } from "../../../test/helpers/documentAccessHistory";
 import { groupPolicyPayload } from "../../../test/helpers/groupPolicyPayload";
 import {
@@ -840,8 +841,10 @@ async function buildMetadataDocumentCreateRequest(input: {
       targets: [
         {
           ...target,
-          wrappedKey: `metadata-document-key:${containerBody.metadataDocumentId}`,
-          wrappingMetadata: { alg: "test-wrap" },
+          ...contentKeyEnvelopeFixture(
+            "Document",
+            `metadata-document-key:${containerBody.metadataDocumentId}`,
+          ),
         },
       ],
     },
@@ -1220,8 +1223,10 @@ async function seedDownstreamContentKeyRows(input: {
     containerManifestHash: input.containerManifestHash,
     containerKeyEpochId: input.containerKeyEpochId,
     containerKeyEpoch: input.containerKeyEpoch,
-    wrappedKey: `wrapped-document-key:${documentId}`,
-    wrappingMetadata: { alg: "test-wrap" },
+    ...contentKeyEnvelopeFixture(
+      "Document",
+      `wrapped-document-key:${documentId}`,
+    ),
   });
 
   const blobId = crypto.randomUUID();
@@ -1258,8 +1263,7 @@ async function seedDownstreamContentKeyRows(input: {
     containerManifestHash: input.containerManifestHash,
     containerKeyEpochId: input.containerKeyEpochId,
     containerKeyEpoch: input.containerKeyEpoch,
-    wrappedKey: `wrapped-blob-key:${blobId}`,
-    wrappingMetadata: { alg: "test-wrap" },
+    ...contentKeyEnvelopeFixture("Blob", `wrapped-blob-key:${blobId}`),
   });
 
   return {

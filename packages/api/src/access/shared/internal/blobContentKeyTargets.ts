@@ -62,6 +62,7 @@ const contentKeyTargetPolicy = createContentKeyTargetPolicy<
   computeTargetHash: computeBlobContentKeyTargetHash,
   createError: (message, status) =>
     new BlobContentKeyBundleError(message, status),
+  envelopeKind: "Blob",
   messages: {
     duplicateTargets: "Blob content-key targets contain duplicates",
     hashMismatch: "Blob content-key target hash mismatch",
@@ -88,9 +89,13 @@ export const {
   targetKeyMaterialEqual,
 } = contentKeyTargetPolicy;
 
-export function assertTargetsMatchCurrent(input: {
+// Blobs have no read-side counterpart to this: a blob content-key bundle is
+// projected through its attachment bindings, which assert currency
+// themselves, so nothing reads a stored target set back through this policy.
+export function assertSubmittedTargetsMatchCurrent(input: {
   readonly currentTargets: CurrentBlobKekTargets;
+  readonly storedTargets: readonly BlobContentKeyTargetEnvelope[] | null;
   readonly targets: readonly BlobContentKeyTargetEnvelope[];
 }): void {
-  contentKeyTargetPolicy.assertTargetsMatchCurrent(input);
+  contentKeyTargetPolicy.assertSubmittedTargetsMatchCurrent(input);
 }

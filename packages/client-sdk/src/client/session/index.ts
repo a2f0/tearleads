@@ -11,6 +11,7 @@ import {
   sessionSnapshotsEqual,
 } from "./sessionContext";
 import {
+  registrationKeyAlreadyBound,
   requireRegistrationIdentityPinner,
   requireUserIdentityAvailable,
   SessionIdentityAcknowledgments,
@@ -285,6 +286,12 @@ class SessionService implements Session {
       identitySnapshot,
       onUserIdentityAvailable: this.dependencies.onUserIdentityAvailable,
     });
+    const keyBound = await registrationKeyAlreadyBound(
+      this.dependencies,
+      identitySnapshot.signingFingerprint,
+    );
+    if (keyBound || this.dependencies.identity.snapshot !== identitySnapshot)
+      return null;
 
     let response: Awaited<ReturnType<typeof registerIdentityWorkflow>>;
     try {
@@ -319,13 +326,8 @@ class SessionService implements Session {
       return null;
     }
 
-    await pinLocalUserIdentity(response.userId, {
-      encapsulationPublicKey: encapsulationKeyPair.publicKey,
-      signingPublicKey: signingKeyPair.signingPublicKey,
-    });
-    if (this.dependencies.identity.snapshot !== identitySnapshot) {
-      return null;
-    }
+    // The workflow pinned `response.userId` once the server confirmed it,
+    // under the same currency check as above.
     await commitSessionRootAcknowledgment({
       context: {
         containerId: response.rootContainerId,

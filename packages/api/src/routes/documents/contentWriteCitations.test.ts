@@ -118,7 +118,7 @@ test("a document retains the signed path dependencies of its attachment content"
     await listDocumentContentWriteDependencyHashes(document.id, db),
   ).toEqual([]);
   const blobId = crypto.randomUUID();
-  const stagedBlob = await stageBlob(owner);
+  const stagedBlob = await stageBlob(owner, blobId);
   const { request } = await buildBind({
     blobId,
     document,

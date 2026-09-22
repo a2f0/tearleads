@@ -27,6 +27,7 @@ const EXPECTED_TABLES: Readonly<Record<string, number>> = {
   "formal/container-keying/ContainerDeletion.md": 1,
   "formal/local-trust/OrganizationScope.md": 1,
   "formal/container-keying/NoBrickedDevice.md": 1,
+  "formal/container-keying/InaccessibleIntermediateRepair.md": 1,
   "formal/container-keying/PrincipalReferenceProgress.md": 1,
   "formal/document-sync/AttachmentContentIdentity.md": 1,
   "formal/blob-attachments/BlobSourceAuthority.md": 1,
@@ -39,6 +40,7 @@ const EXPECTED_TABLES: Readonly<Record<string, number>> = {
   "formal/local-trust/UnacknowledgedInput.md": 1,
   "formal/local-trust/QueuedDocumentCreate.md": 1,
   "formal/local-trust/DocumentMovePlacement.md": 1,
+  "formal/local-trust/DurableIdentityBinding.md": 1,
   "formal/realtime/ContainerInterest.md": 1,
 };
 

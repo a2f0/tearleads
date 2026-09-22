@@ -40,6 +40,8 @@ interface VerifyContainerKekFromRequestArtifacts {
   readonly containerManifestHistory?:
     | readonly VerifiedContainerAccessManifest[]
     | undefined;
+  /** The head this mutation extends; null for a create. */
+  readonly previousManifest?: VerifiedContainerAccessManifest | null;
   readonly principalPolicies: readonly VerifiedPrincipalPolicy[];
 }
 
@@ -282,7 +284,12 @@ export async function verifyContainerKekFromRequest(
       : readVerifiedContainerKekState(request.parentKekState, "parentKekState");
 
   await assertUserRecipientKeysCurrent(executor, userRecipientKeys);
-  await assertParentKekStateCurrent(executor, manifest, parentKekState);
+  await assertParentKekStateCurrent(
+    executor,
+    manifest,
+    parentKekState,
+    artifacts.previousManifest ?? null,
+  );
 
   const keyEpoch: ContainerKeyEpoch = readContainerKeyEpoch(
     request.keyEpoch,

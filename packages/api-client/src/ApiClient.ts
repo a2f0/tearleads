@@ -79,6 +79,7 @@ import type {
   ContainerCreateWithMetadataDocumentRequest,
   ContainerMutationRequest,
   ContainerReciteRequest,
+  ContainerRotationRequest,
   CreateOrganizationGroupWithPolicyRequest,
   CreateOrganizationRequest,
   DeleteOrganizationGroupRequest,
@@ -96,9 +97,11 @@ import type {
 import type {
   BlobAttachmentBindResponse,
   BlobAttachmentDetachResponse,
+  CommitOrganizationGroupPolicyResponse,
   ContainerCreateWithMetadataDocumentResponse,
   ContainerDeleteResponse,
   ContainerMutationResponse,
+  ContainerRotationResponse,
   ContainerWriterProjectionResponse,
   DocumentCreateResponse,
   DocumentSyncResponse,
@@ -216,6 +219,13 @@ interface InFlightWriterProjectionResult<T> {
   readonly resultPromise: Promise<RequestResult<T>>;
   readonly slot: Promise<T | null> | undefined;
 }
+
+/** The rotations that may carry descendant rekeys, each with its operation. */
+const CONTAINER_ROTATIONS = {
+  move: { operation: moveContainerOperation, route: containerMove },
+  rekey: { operation: rekeyContainerOperation, route: containerRekey },
+  revoke: { operation: revokeContainerOperation, route: containerRevoke },
+} as const;
 
 export class ApiClient {
   private readonly requestRuntime: ApiRequestRuntime;
@@ -613,6 +623,24 @@ export class ApiClient {
     groupId: string,
     input: CommitOrganizationGroupPolicyRequest,
   ) {
+    return this.commitOrganizationGroupPolicyResult(
+      organizationId,
+      groupId,
+      input,
+    ).then((result) => (result.ok ? result.data : null));
+  }
+
+  /**
+   * Status-bearing group policy commit. A rematerialized rotation the server
+   * refuses for stranding a granted path names the descendant rekeys the batch
+   * must carry, which the plain method collapses to null.
+   */
+  async commitOrganizationGroupPolicyResult(
+    organizationId: string,
+    groupId: string,
+    input: CommitOrganizationGroupPolicyRequest,
+    options: RequestResultOptions = {},
+  ): Promise<RequestResult<CommitOrganizationGroupPolicyResponse>> {
     const groupRequestKey = JSON.stringify(["group", groupId]);
     const organizationRequestKey = JSON.stringify([
       "organization",
@@ -620,18 +648,20 @@ export class ApiClient {
     ]);
     this.principalPolicyRequestsByKey.delete(groupRequestKey);
     this.principalPolicyRequestsByKey.delete(organizationRequestKey);
-    return this.request(
-      organizationGroupPolicyCommit.path(organizationId, groupId),
-      organizationGroupPolicyCommit.isResponse,
-      organizationGroupPolicyCommit.method,
-      JSON.stringify(input),
-      { expectedPaymentRequiredOrganizationId: organizationId },
-      commitOrganizationGroupPolicyOperation,
-    ).finally(() => {
+    try {
+      return await this.requestResult(
+        organizationGroupPolicyCommit.path(organizationId, groupId),
+        organizationGroupPolicyCommit.isResponse,
+        organizationGroupPolicyCommit.method,
+        JSON.stringify(input),
+        { expectedPaymentRequiredOrganizationId: organizationId, ...options },
+        commitOrganizationGroupPolicyOperation,
+      );
+    } finally {
       this.principalPolicyRequestsByKey.delete(groupRequestKey);
       this.principalPolicyRequestsByKey.delete(organizationRequestKey);
       this.clearWriterProjectionCaches();
-    });
+    }
   }
 
   getOrganizationReadModelResult(
@@ -1296,7 +1326,7 @@ export class ApiClient {
 
   revokeContainer(
     containerId: string,
-    input: ContainerMutationRequest,
+    input: ContainerRotationRequest,
     options: RequestResultOptions = {},
   ) {
     return this.request(
@@ -1313,7 +1343,7 @@ export class ApiClient {
 
   rekeyContainer(
     containerId: string,
-    input: ContainerMutationRequest,
+    input: ContainerRotationRequest,
     options: RequestResultOptions = {},
   ) {
     return this.request(
@@ -1329,23 +1359,51 @@ export class ApiClient {
   }
 
   /**
-   * Status-bearing rekey: a caller that must tell a permanent refusal (403 once
-   * ancestor write access is revoked, 402) from a transient 5xx or an offline
-   * blip cannot do so through `rekeyContainer`, which collapses both to null.
+   * Status-bearing rotations: a caller that must tell a permanent refusal (403
+   * once ancestor write access is revoked, 402) from a transient 5xx or an
+   * offline blip cannot do so through the plain methods, which collapse both to
+   * null. They are also how a rotation learns which descendant rekeys it must
+   * carry.
    */
-  async rekeyContainerResult(
+  rekeyContainerResult(
     containerId: string,
-    input: ContainerMutationRequest,
+    input: ContainerRotationRequest,
     options: RequestResultOptions = {},
-  ): Promise<RequestResult<ContainerMutationResponse>> {
+  ): Promise<RequestResult<ContainerRotationResponse>> {
+    return this.rotationResult("rekey", containerId, input, options);
+  }
+
+  revokeContainerResult(
+    containerId: string,
+    input: ContainerRotationRequest,
+    options: RequestResultOptions = {},
+  ): Promise<RequestResult<ContainerRotationResponse>> {
+    return this.rotationResult("revoke", containerId, input, options);
+  }
+
+  moveContainerResult(
+    containerId: string,
+    input: ContainerRotationRequest,
+    options: RequestResultOptions = {},
+  ): Promise<RequestResult<ContainerRotationResponse>> {
+    return this.rotationResult("move", containerId, input, options);
+  }
+
+  private async rotationResult(
+    rotation: keyof typeof CONTAINER_ROTATIONS,
+    containerId: string,
+    input: ContainerRotationRequest,
+    options: RequestResultOptions,
+  ): Promise<RequestResult<ContainerRotationResponse>> {
+    const { operation, route } = CONTAINER_ROTATIONS[rotation];
     try {
       return await this.requestResult(
-        containerRekey.path(containerId),
-        containerRekey.isResponse,
-        containerRekey.method,
+        route.path(containerId),
+        route.isResponse,
+        route.method,
         JSON.stringify(input),
         options,
-        rekeyContainerOperation,
+        operation,
       );
     } finally {
       this.clearWriterProjectionCaches();
@@ -1369,7 +1427,7 @@ export class ApiClient {
 
   moveContainer(
     containerId: string,
-    input: ContainerMutationRequest,
+    input: ContainerRotationRequest,
     options: RequestResultOptions = {},
   ) {
     return this.request(

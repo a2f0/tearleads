@@ -1,12 +1,14 @@
 import {
+  ContentKeyEnvelopeError,
+  type ContentKeyEnvelopeKind,
   computeDocumentContentKeyTargetHash,
   DOCUMENT_CONTENT_KEY_WRAP_SUITE,
+  decodeContentKeyEnvelope,
   decryptWithDek,
   encryptWithDek,
   type VerifiedContainerAccessManifest,
 } from "@tearleads/crypto";
-import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
-import { isPlainObject as isPlainRecord } from "@tearleads/validators/isPlainObject";
+import { bytesToBase64 } from "@tearleads/encoding";
 import type { DocumentContentKeyTargetEnvelope } from "@tearleads/validators/request";
 import type {
   ContainerWriterProjectionResponse,
@@ -90,39 +92,33 @@ export async function wrapDocumentContentKeyForCreate(
   ];
 }
 
-export async function unwrapContentKeyTargetForSuite(input: {
+export async function unwrapContentKeyTargetForKind(input: {
   containerKek: Uint8Array;
-  /** Wraps a decrypt failure with this message; validation errors pass through. */
+  /** Wraps a decode or decrypt failure with this message. */
   decryptErrorMessage?: string | undefined;
   envelope: { wrappedKey: string; wrappingMetadata?: unknown };
-  label: "Blob" | "Document";
-  suite: string;
+  kind: ContentKeyEnvelopeKind;
 }): Promise<Uint8Array> {
-  const metadata = input.envelope.wrappingMetadata;
-  const suite = isPlainRecord(metadata)
-    ? Reflect.get(metadata, "suite")
-    : undefined;
-  const iv = isPlainRecord(metadata) ? Reflect.get(metadata, "iv") : undefined;
-  if (suite !== input.suite) {
-    throw new Error(`${input.label} content-key target uses an unknown suite`);
-  }
-  if (typeof iv !== "string" || iv.length === 0) {
-    throw new Error(`${input.label} content-key target is missing an IV`);
-  }
-
+  // Reading, not submitting: the suite still binds the envelope to its object
+  // kind, but an unrecognized extra metadata key is ignored rather than making
+  // an otherwise decryptable envelope permanently unreadable. The AEAD tag is
+  // what authenticates the recovered key. The KEK stays out of the decoder.
   try {
     return await decryptWithDek(
-      {
-        iv: base64ToBytes(iv),
-        ciphertext: base64ToBytes(input.envelope.wrappedKey),
-      },
+      decodeContentKeyEnvelope({
+        envelope: input.envelope,
+        kind: input.kind,
+        origin: "stored",
+      }),
       input.containerKek,
     );
   } catch (error) {
-    if (input.decryptErrorMessage) {
-      throw new Error(input.decryptErrorMessage, { cause: error });
-    }
-    throw error;
+    if (!input.decryptErrorMessage) throw error;
+    // Keep the structural diagnostic; the wrapper only adds which target it
+    // was, which the decoder cannot know.
+    const detail =
+      error instanceof ContentKeyEnvelopeError ? `: ${error.message}` : "";
+    throw new Error(`${input.decryptErrorMessage}${detail}`, { cause: error });
   }
 }
 
@@ -130,12 +126,11 @@ export async function unwrapDocumentContentKeyTarget(input: {
   containerKek: Uint8Array;
   envelope: DocumentContentKeyTargetEnvelope;
 }): Promise<Uint8Array> {
-  return unwrapContentKeyTargetForSuite({
+  return unwrapContentKeyTargetForKind({
     containerKek: input.containerKek,
     decryptErrorMessage: `Document content-key target for container ${input.envelope.containerId} at epoch ${input.envelope.containerKeyEpochId} could not be unwrapped`,
     envelope: input.envelope,
-    label: "Document",
-    suite: DOCUMENT_CONTENT_KEY_WRAP_SUITE,
+    kind: "Document",
   });
 }
 

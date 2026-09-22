@@ -16,7 +16,7 @@ import {
   unwrapContainerKekPath,
   verifiedDocumentWrapTargets,
 } from "../../shared/projection";
-import { unwrapContentKeyTargetForSuite } from "../../shared/projectionContentKeys";
+import { unwrapContentKeyTargetForKind } from "../../shared/projectionContentKeys";
 import {
   assertEqualBytes,
   normalizeDocumentKekTargetResponse,
@@ -26,7 +26,7 @@ import {
   projectionVerificationOptions,
 } from "../../shared/types";
 import { sortBlobTargets } from "./readers";
-import type { BlobContentKeyTarget, BlobEncryptedBytesRecord } from "./types";
+import type { BlobContentKeyTarget, BlobEncryptedBytesHeader } from "./types";
 
 function blobTargetsFor(
   input: { bindingId: string; documentId: string },
@@ -145,11 +145,10 @@ async function unwrapBlobContentKeyTarget(input: {
   containerKek: Uint8Array;
   envelope: BlobContentKeyTargetEnvelopeRequest;
 }): Promise<Uint8Array> {
-  return unwrapContentKeyTargetForSuite({
+  return unwrapContentKeyTargetForKind({
     containerKek: input.containerKek,
     envelope: input.envelope,
-    label: "Blob",
-    suite: BLOB_CONTENT_KEY_WRAP_SUITE,
+    kind: "Blob",
   });
 }
 
@@ -157,7 +156,7 @@ export async function unwrapBlobContentKey(
   input: {
     contentKeyBundle: BlobContentKeyBundleResponse;
     documentId: string;
-    encrypted: BlobEncryptedBytesRecord;
+    encrypted: BlobEncryptedBytesHeader;
     execSql?: ExecSql | undefined;
     expectedBindingId: string;
     secretKey: Uint8Array;

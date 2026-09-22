@@ -43,9 +43,13 @@ The security properties assume:
 The properties are relative to the authenticity of registered user identity
 keys. The client fetches each complete user identity through one strict gateway,
 checks both key fingerprints, and durably pins the exact bundle by trust domain
-and `userId`. Later substitutions hard-fail, and policy verification also checks
-the signing fingerprint embedded in signed state. The first accepted response
-is still TOFU, not a key-transparency or out-of-band identity proof.
+and `userId`. The reverse signing-fingerprint-to-user binding is also unique
+within that trust domain and checked in the same durable transaction. A new
+session without restored acknowledgments cannot bind a known signing identity
+to a different user. Later substitutions hard-fail, and policy verification
+also checks the signing fingerprint embedded in signed state. The first
+accepted response is still TOFU, not a key-transparency or out-of-band identity
+proof.
 
 ## Root And System Destinations
 
@@ -607,7 +611,9 @@ stay refused and a replacement receives a fresh organization id), so a
 checkpointed `(kind, organization, id)` is never recreated from version 1.
 User identity trust currently uses an exact durable
 full-bundle TOFU pin: any later change to either public key, fingerprint, suite,
-or format is rejected.
+or format is rejected. Logout and session recreation retain these pins. An
+intentional fresh-data environment reset must explicitly recreate the local
+trust store too; an authentication response cannot authorize clearing it.
 
 The organization policy also commits an exact sorted directory of current group
 heads. Group mutations issued by supported clients advance the group and this

@@ -57,6 +57,7 @@ export interface InternalRuntime {
   readonly sessionGeneration: number;
   readonly adoptRootContainer: ContainerContentsRootAdopter;
   readonly publicRuntime: Runtime;
+  boundUserId(signingKeyFingerprint: string): Promise<string | null>;
   pinLocalUserIdentity(
     userId: string,
     candidate: LocalUserIdentityCandidate,
@@ -131,6 +132,8 @@ export function createRuntime(
     },
     adoptRootContainer: (input) =>
       adoptSessionRootContainer(dependencies, input),
+    boundUserId: (signingKeyFingerprint) =>
+      trustedUserIdentityService.boundUserId(signingKeyFingerprint),
     async pinLocalUserIdentity(userId, candidate) {
       await runWithSecurityIncidentReporting(
         dependencies.reportSecurityIncident,

@@ -1,32 +1,14 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
+import { createPin } from "../../../test/helpers/trustedUserIdentityPin";
 import { createExecSql } from "../sqlite/sqlSchema";
 import {
   compareOrInsertTrustedUserIdentityPin,
   loadTrustedUserIdentityPin,
-  type TrustedUserIdentityPin,
   TrustedUserIdentityPinCorruptError,
   TrustedUserIdentityPinInputError,
   TrustedUserIdentityPinMismatchError,
 } from "./trustedUserIdentityPinPersistence";
-
-function createPin(
-  overrides: Partial<TrustedUserIdentityPin> = {},
-): TrustedUserIdentityPin {
-  return {
-    identityTrustDomain: "https://api.example.test/v1",
-    userId: "user-1",
-    formatVersion: 1,
-    signingSuite: "ML-DSA-87",
-    signingPublicKey: "signing-public-key-a",
-    signingKeyFingerprint: "signing-fingerprint-a",
-    encapsulationSuite: "ML-KEM-1024",
-    encapsulationPublicKey: "encapsulation-public-key-a",
-    encapsulationKeyFingerprint: "encapsulation-fingerprint-a",
-    firstSeenAt: "2026-07-15T12:00:00.000Z",
-    ...overrides,
-  };
-}
 
 test("trusted identity pins are inserted once and loaded by trust domain", async () => {
   const { close, execSql } = await createTestExecSql("trusted-identity-insert");
@@ -85,7 +67,10 @@ test("every identity field is immutable after first contact", async () => {
 
   try {
     for (const [index, [field, value]] of changes.entries()) {
-      const first = createPin({ userId: `user-${index}` });
+      const first = createPin({
+        userId: `user-${index}`,
+        signingKeyFingerprint: `fingerprint-${index}`,
+      });
       const candidate = { ...first, [field]: value };
       await compareOrInsertTrustedUserIdentityPin({ execSql, pin: first });
 
@@ -133,6 +118,7 @@ test("pins are independently scoped by trust domain and user", async () => {
     createPin({
       userId: "user-2",
       signingPublicKey: "other-user-signing-key",
+      signingKeyFingerprint: "other-user-signing-fingerprint",
     }),
   ];
 
@@ -343,7 +329,10 @@ test("stored pins require the current format version and suites", async () => {
 
   try {
     for (const [index, [column, value, reason]] of invalidFields.entries()) {
-      const pin = createPin({ userId: `stored-format-user-${index}` });
+      const pin = createPin({
+        userId: `stored-format-user-${index}`,
+        signingKeyFingerprint: `stored-fingerprint-${index}`,
+      });
       await compareOrInsertTrustedUserIdentityPin({ execSql, pin });
       await execSql(
         `UPDATE trusted_user_identity_pins

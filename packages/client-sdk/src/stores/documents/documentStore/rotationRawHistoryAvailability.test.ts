@@ -4,7 +4,7 @@ import { createTestExecSql } from "@tearleads/test-utils";
 import { createMutationResponseFromRequest } from "../../../../test/helpers/containerFixtures";
 import { buildRotatedDocumentContentKeyBundle } from "../../../data/documents/shared/projection";
 import { sqlDocumentsPersistence } from "../../../data/persistence/documents/documentsPersistence";
-import { rekeyRemoteContainer } from "../../../workflows/containers/child/rekey";
+import { rekeyRemoteContainer } from "../../../workflows/containers/child/rekeyRemote";
 import { DocumentRawHistoryUnavailableError } from "../../../workflows/documents";
 import {
   createRemoteHistoryFixture,

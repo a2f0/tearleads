@@ -7,7 +7,13 @@
   },
   "files": {
     "ignoreUnknown": true,
-    "includes": ["**", "!!docs/openapi.json"]
+    "includes": [
+      "**",
+      "!!docs/openapi.json",
+      // Generated, fully inlined, and neither formatted nor linted below: do
+      // not read it at all rather than warn about its size as the API grows.
+      "!!packages/validators/src/operation/generatedOpenApi.ts"
+    ]
   },
   "formatter": {
     "enabled": true,
@@ -113,8 +119,7 @@
     {
       "includes": [
         "docs/openapi.json",
-        "formal/document-sync/BaselineDominanceTraces.json",
-        "packages/validators/src/operation/generatedOpenApi.ts"
+        "formal/document-sync/BaselineDominanceTraces.json"
       ],
       "formatter": { "enabled": false },
       "linter": { "enabled": false }

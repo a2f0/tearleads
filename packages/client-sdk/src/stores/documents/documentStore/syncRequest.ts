@@ -15,6 +15,8 @@ import {
   validateDocumentSyncUpdateImports,
 } from "../../../workflows/documents";
 import { createRuntimePrincipalPolicyWarmer } from "../../../workflows/principals/runtimePolicyWarmer";
+import { requestDocumentStoreSync } from "../registry";
+import { parkForAncestorRepair } from "./ancestorRepairPark";
 import { chainIdentityWrite } from "./identityWriteChain";
 import { invalidateDocumentStorePullContinuation } from "./pullContinuationInvalidation";
 import {
@@ -134,6 +136,8 @@ function runRemoteDocumentSync(
   const { currentDoc, currentRecord, generation, pendingUpdates, state } =
     input;
   const runtime = state.runtime;
+  const writerProjectionGenerationAtStart = state.writerProjectionGeneration;
+  state.awaitingAncestorRepair = false;
   return syncRemoteDocument({
     apiClient: runtime.apiClient,
     author,
@@ -158,6 +162,15 @@ function runRemoteDocumentSync(
         documentId,
         commitPurgeProof,
       ),
+    onSyncAbandoned: (reason) => {
+      if (!isDocumentStoreSyncGenerationCurrent(state, generation)) return;
+      const hintLandedMidPass = parkForAncestorRepair(
+        state,
+        reason,
+        writerProjectionGenerationAtStart,
+      );
+      if (hintLandedMidPass) requestDocumentStoreSync(state);
+    },
     onSyncTrace: (line) => runtime.util.log(`Documents: ${line}`),
     onReadOnlyProjectionFailure: documentRevalidationFailureHandler(
       state,

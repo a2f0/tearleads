@@ -120,13 +120,23 @@ function upsertReferencedPrincipalHead(
 /**
  * The previous manifest's referenced principal heads with the replacement
  * policy's head upserted in place of any stale head for the same principal.
+ * A rekey substitutes references and never adds one: a manifest may reference
+ * only principals it grants, so a replacement for one it does not grant —
+ * a carried rekey below the container the policy is granted on — is left out.
  */
 export function refreshedPrincipalReferences(input: {
   readonly previousState: ContainerAccessManifestState;
   readonly replacementPrincipalPolicy?: VerifiedPrincipalPolicy | undefined;
 }): ContainerGrantPrincipalHead[] {
   const replacement = input.replacementPrincipalPolicy;
-  if (!replacement) {
+  if (
+    !replacement ||
+    !input.previousState.directGrants.some(
+      (grant) =>
+        grant.subjectType === replacement.principalType &&
+        grant.subjectId === replacement.principalId,
+    )
+  ) {
     return [...input.previousState.referencedPrincipalHeads];
   }
   return upsertReferencedPrincipalHead(
@@ -364,6 +374,7 @@ export function collectShareUserRecipientKeys(input: {
 
 export async function collectContainerSharePrincipalPolicies(input: {
   execSql: ExecSql;
+  persistVerificationCheckpoints?: boolean | undefined;
   principalPolicyCache?: PrincipalPolicyCache | undefined;
   previousProjection: ContainerWriterProjectionResponse;
   recipientPolicy?: VerifiedPrincipalPolicy | undefined;
@@ -374,6 +385,7 @@ export async function collectContainerSharePrincipalPolicies(input: {
   const previousPolicies =
     await collectContainerWriterProjectionPrincipalPolicies({
       execSql: input.execSql,
+      persistVerificationCheckpoints: input.persistVerificationCheckpoints,
       principalPolicyCache: input.principalPolicyCache,
       projection: input.previousProjection,
       resolveUserKey: input.resolveUserKey,
