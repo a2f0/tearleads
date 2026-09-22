@@ -6,7 +6,10 @@ import type {
   AccessEventType,
   VerifiedContainerAccessManifest,
 } from "@tearleads/crypto";
-import type { ContainerMutationRequest } from "@tearleads/validators/request";
+import type {
+  ContainerMutationRequest,
+  ContainerRotationRequest,
+} from "@tearleads/validators/request";
 import type { getCurrentAccessManifestHead } from "../../../access/read/accessManifestStore";
 import type { ContainerWriterProjectionContext } from "../writerProjection/types";
 
@@ -21,6 +24,12 @@ export interface MutateContainerInput {
   readonly fingerprint: string;
   readonly request: ContainerMutationRequest;
   readonly userId: string;
+}
+
+/** The public boundary: a rotation may carry its descendant rekeys. */
+export interface MutateContainerRotationInput
+  extends Omit<MutateContainerInput, "request"> {
+  readonly request: ContainerRotationRequest;
 }
 
 export interface MutateContainerWithExecutorInput extends MutateContainerInput {

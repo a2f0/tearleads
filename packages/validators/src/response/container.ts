@@ -149,16 +149,36 @@ const ContainerManifestMutationResponseShape = {
 const { accessManifest, containerId, ...containerMutationResponseFields } =
   ContainerManifestMutationResponseShape;
 
-export const ContainerMutationResponseSchema = loosePlainObject({
+const containerMutationResponseShape = {
   accessManifest,
   containerId,
   containerKek: ContainerKekResponseSchema,
   ...containerMutationResponseFields,
-});
+};
+
+export const ContainerMutationResponseSchema = loosePlainObject(
+  containerMutationResponseShape,
+);
 
 export type ContainerMutationResponse = z.infer<
   typeof ContainerMutationResponseSchema
 >;
+
+/** A rotation's acknowledgement, plus one per carried rekey in request order. */
+export const ContainerRotationResponseSchema = loosePlainObject({
+  ...containerMutationResponseShape,
+  containerRekeys: arraySchema(ContainerMutationResponseSchema).optional(),
+});
+
+export type ContainerRotationResponse = z.infer<
+  typeof ContainerRotationResponseSchema
+>;
+
+export function isContainerRotationResponse(
+  value: unknown,
+): value is ContainerRotationResponse {
+  return ContainerRotationResponseSchema.safeParse(value).success;
+}
 
 export const ContainerReciteResponseSchema = loosePlainObject(
   ContainerManifestMutationResponseShape,

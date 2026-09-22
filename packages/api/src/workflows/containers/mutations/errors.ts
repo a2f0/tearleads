@@ -68,6 +68,37 @@ export function containerUnavailable(label: string): ContainerMutationError {
   });
 }
 
+/**
+ * A rotation would leave `requiredContainerIds` (parent-first) pinned to a
+ * retired epoch above a directly granted container. Not `state_stale`:
+ * refetching cannot help, the client must sign and carry those re-keys.
+ */
+export function descendantRekeysRequired(
+  requiredContainerIds: readonly string[],
+): ContainerMutationError {
+  const message = "Container rotation must carry its descendant rekeys";
+  return new ContainerMutationError(message, 409, {
+    code: CONTAINER_MUTATION_ERROR_CODES.descendantRekeysRequired,
+    error: message,
+    requiredContainerIds: [...requiredContainerIds],
+  });
+}
+
+/**
+ * A container's first direct grant sits below a chain pinned to a retired
+ * epoch. Its grantee could never re-key those levels, so the sharer does first.
+ * Not `state_stale`, for the same reason as above. The message names the stale
+ * level; the sharer's own projection shows the rest of the chain.
+ */
+export function ancestorRekeysRequired(
+  message: string,
+): ContainerMutationError {
+  return new ContainerMutationError(message, 409, {
+    code: CONTAINER_MUTATION_ERROR_CODES.ancestorRekeysRequired,
+    error: message,
+  });
+}
+
 export function mutationShapeError(message: string): ContainerMutationError {
   return new ContainerMutationError(message, 400);
 }

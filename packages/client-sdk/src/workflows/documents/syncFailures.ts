@@ -1,6 +1,7 @@
-import type {
-  DocumentSyncResponse,
-  DocumentWriterProjectionResponse,
+import {
+  DOCUMENT_SYNC_ERROR_CODES,
+  type DocumentSyncResponse,
+  type DocumentWriterProjectionResponse,
 } from "@tearleads/validators/response";
 import {
   isUpstreamDeletedDocumentSyncFailure,
@@ -77,6 +78,7 @@ async function resolveFailedDocumentSyncAction(input: {
   documentId: string;
   failure: DocumentSyncSubmitFailure;
   maxAttempts: number;
+  onInlineRepairRefused?: (() => void) | undefined;
   onRemoteDocumentDeleted?: RemoteDocumentDeletionHandler | undefined;
   onSyncTrace?: DocumentSyncTraceEmitter | undefined;
   onTerminalSubmitFailure?: TerminalSubmitFailureHandler | undefined;
@@ -103,6 +105,7 @@ async function classifyFailedDocumentSyncAction(input: {
   documentId: string;
   failure: DocumentSyncSubmitFailure;
   maxAttempts: number;
+  onInlineRepairRefused?: (() => void) | undefined;
   onRemoteDocumentDeleted?: RemoteDocumentDeletionHandler | undefined;
   onTerminalSubmitFailure?: TerminalSubmitFailureHandler | undefined;
   pendingUpdates: readonly PendingUpdateRecord[];
@@ -124,6 +127,18 @@ async function classifyFailedDocumentSyncAction(input: {
       maxAttempts: input.maxAttempts,
     })
   ) {
+    return "retry";
+  }
+
+  // The write rolled back whole. Its inline repairs would have stranded a
+  // level above a directly granted container, and a flat rekey list cannot say
+  // what each must carry: the retry commits them standalone instead.
+  if (
+    input.attempt < input.maxAttempts &&
+    input.onInlineRepairRefused &&
+    input.failure.code === DOCUMENT_SYNC_ERROR_CODES.descendantRekeysRequired
+  ) {
+    input.onInlineRepairRefused();
     return "retry";
   }
 
@@ -163,6 +178,7 @@ async function submitDocumentSyncAttempt(input: {
   documentId: string;
   expectedCommitLsnMode?: DocumentSyncCommitLsnMode | undefined;
   maxAttempts: number;
+  onInlineRepairRefused?: (() => void) | undefined;
   onRemoteDocumentDeleted?: RemoteDocumentDeletionHandler | undefined;
   onSyncTrace?: DocumentSyncTraceEmitter | undefined;
   onTerminalSubmitFailure?: TerminalSubmitFailureHandler | undefined;
@@ -203,6 +219,7 @@ async function submitDocumentSyncAttempt(input: {
     documentId: input.documentId,
     failure: submitted,
     maxAttempts: input.maxAttempts,
+    onInlineRepairRefused: input.onInlineRepairRefused,
     onRemoteDocumentDeleted: input.onRemoteDocumentDeleted,
     onSyncTrace: input.onSyncTrace,
     onTerminalSubmitFailure: input.onTerminalSubmitFailure,

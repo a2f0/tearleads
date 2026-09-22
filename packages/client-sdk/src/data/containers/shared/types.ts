@@ -20,11 +20,13 @@ import type {
   AccessManifestBundleWire,
   ContainerCreateWithMetadataDocumentRequest,
   ContainerMutationRequest,
+  ContainerRotationRequest,
 } from "@tearleads/validators/request";
 import type {
   ContainerCreateWithMetadataDocumentResponse,
   ContainerKekResponse,
   ContainerMutationResponse,
+  ContainerRotationResponse,
   ContainerWriterProjectionResponse,
   PrincipalPolicyBundleResponse,
 } from "@tearleads/validators/response";
@@ -155,15 +157,37 @@ export interface ContainerShareApi extends ContainerReciteApi {
   ): Promise<ContainerMutationResponse | null>;
 }
 
+/**
+ * A status-bearing rotation outcome. A refusal that names
+ * `requiredContainerIds` is answerable: sign those descendant rekeys and
+ * resubmit with them carried.
+ */
+export type ContainerRotationResult =
+  | { readonly ok: true; readonly data: ContainerRotationResponse }
+  | {
+      readonly ok: false;
+      readonly code?: string | undefined;
+      /** Surface a failure that was submitted with `reportErrors: false`. */
+      readonly report?: (() => void) | undefined;
+      readonly requiredContainerIds?: readonly string[] | undefined;
+      readonly status: number | null;
+    };
+
 export interface ContainerMoveApi extends ContainerReciteApi {
   getContainerWriterProjection(
     containerId: string,
   ): Promise<ContainerWriterProjectionResponse | null>;
   moveContainer(
     containerId: string,
-    input: ContainerMutationRequest,
+    input: ContainerRotationRequest,
     options?: ContainerMutationRequestOptions,
-  ): Promise<ContainerMutationResponse | null>;
+  ): Promise<ContainerRotationResponse | null>;
+  /** Optional status-bearing variant; without it nothing can be carried. */
+  moveContainerResult?(
+    containerId: string,
+    input: ContainerRotationRequest,
+    options?: ContainerMutationRequestOptions,
+  ): Promise<ContainerRotationResult>;
 }
 
 export interface ContainerRevokeApi extends ContainerReciteApi {
@@ -172,9 +196,15 @@ export interface ContainerRevokeApi extends ContainerReciteApi {
   ): Promise<ContainerWriterProjectionResponse | null>;
   revokeContainer(
     containerId: string,
-    input: ContainerMutationRequest,
+    input: ContainerRotationRequest,
     options?: ContainerMutationRequestOptions,
-  ): Promise<ContainerMutationResponse | null>;
+  ): Promise<ContainerRotationResponse | null>;
+  /** Optional status-bearing variant; without it nothing can be carried. */
+  revokeContainerResult?(
+    containerId: string,
+    input: ContainerRotationRequest,
+    options?: ContainerMutationRequestOptions,
+  ): Promise<ContainerRotationResult>;
 }
 
 export interface CreateRemoteContainerResult {
@@ -216,6 +246,7 @@ export interface ContainerRevokePlan {
   event: AccessEvent;
   eventHash: string;
   keyEpoch: ContainerKeyEpoch;
+  keyring: ContainerKekKeyring;
   manifest: AccessManifest;
   manifestHash: string;
   previousManifest: AccessManifestBundleWire;
@@ -259,18 +290,15 @@ export interface ContainerRekeyApi extends ContainerReciteApi {
   ): Promise<ContainerWriterProjectionResponse | null>;
   rekeyContainer(
     containerId: string,
-    input: ContainerMutationRequest,
+    input: ContainerRotationRequest,
     options?: ContainerMutationRequestOptions,
-  ): Promise<ContainerMutationResponse | null>;
+  ): Promise<ContainerRotationResponse | null>;
   /** Optional status-bearing variant; see DocumentSyncApi. */
   rekeyContainerResult?(
     containerId: string,
-    input: ContainerMutationRequest,
+    input: ContainerRotationRequest,
     options?: ContainerMutationRequestOptions,
-  ): Promise<
-    | { readonly ok: true; readonly data: ContainerMutationResponse }
-    | { readonly ok: false; readonly status: number | null }
-  >;
+  ): Promise<ContainerRotationResult>;
 }
 
 export interface ContainerMovePlan {
@@ -280,6 +308,7 @@ export interface ContainerMovePlan {
   event: AccessEvent;
   eventHash: string;
   keyEpoch: ContainerKeyEpoch;
+  keyring: ContainerKekKeyring;
   manifest: AccessManifest;
   manifestHash: string;
   previousManifest: AccessManifestBundleWire;

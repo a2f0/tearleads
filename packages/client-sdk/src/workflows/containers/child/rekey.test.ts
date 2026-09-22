@@ -19,7 +19,7 @@ import {
   rebuildKeyringEntriesFromLog,
   recoverKeyringEntryFromWraps,
 } from "../../../data/documents/shared/keyringRebuild";
-import { rekeyRemoteContainer } from "./rekey";
+import { rekeyRemoteContainer } from "./rekeyRemote";
 
 test("a poisoned keyring is rebuilt from the log and repaired by rekey", async () => {
   const parent = await createParentProjection();

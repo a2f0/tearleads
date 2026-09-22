@@ -107,7 +107,12 @@ grant/revoke and roster transition over those categories.
 models cold recovery from persisted user/group recipient wraps, immutable
 predecessor bridges, and sealed historical keyrings. Its `Members` abstraction
 is the set of users authorized by active direct-user or same-organization group
-grants; organization principals are not recovery recipients.
+grants; organization principals are not recovery recipients. `Descendants`
+extend it with child containers whose key epochs pin the parent epoch current
+when they were minted: a descendant verifies against any pinned epoch the
+parent's retained history still covers, and the negative control
+`strict-parent-epoch-pin-strands-descendant` reproduces the pre-#2330 rule under
+which an ancestor rotation stranded the subtree.
 
 ## No Bricked Device
 
@@ -126,6 +131,15 @@ encrypted keys. The model assumes honest retained history and abstracts
 cryptography and authorization; the signed-history tampering tests cover that
 boundary in the implementation. Independent repair by a child-only writer is
 not established by this model.
+
+[`container-keying/InaccessibleIntermediateRepair.tla`](./container-keying/InaccessibleIntermediateRepair.tla)
+adds the actors that model leaves out. A writer granted only on the leaf can
+re-key its own container but never a stale intermediate above it, and is never
+given that key, so a rotation re-keys that intermediate in its own transaction.
+Only the blocked writer's step is fair, as in `NoBrickedDevice`; a rotation that
+commits alone parks the writer for good. Two further controls reproduce a write
+a revoked member can open and a writer holding a key outside its grant. See the
+[mapping and boundary](./container-keying/InaccessibleIntermediateRepair.md).
 
 [`container-keying/NoBrickedDevice.tla`](./container-keying/NoBrickedDevice.tla)
 models the invariant that no device may ever be unable to read or write

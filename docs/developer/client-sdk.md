@@ -599,9 +599,57 @@ inline; larger sets first commit bounded prefixes through `rekeyContainer`,
 validate each acknowledgement, and refetch before planning the next batch.
 Interrupted prefixes remain recoverable from the server's retained keys.
 Custom sync adapters must supply `rekeyContainer` as well as document methods.
-Inaccessible stale intermediate ancestors still require separate orchestration.
 Stale ancestors remain forbidden for new ciphertext, including when a valid
 recovery projection is available.
+
+A writer whose only grant sits below a stale intermediate cannot re-key it, and
+is never given its key: a stale container's KEK may be held by a revoked
+ancestor member. Such a writer must never wait on another device, so a rotation
+may not leave those levels stale. The API refuses a rekey, revoke, or move that
+would leave a descendant above a directly granted container pinned to a retired
+epoch, with `container_descendant_rekeys_required` and the `requiredContainerIds`
+it must carry, parent-first. `rekeyRemoteContainer`, `revokeRemoteContainer`,
+`moveRemoteContainer`, and document sync's standalone repairs answer it
+themselves: they sign those rekeys against the path the batch will leave behind,
+resubmit once with `containerRekeys` carried, and pin the whole batch together.
+The rotator can always comply, because access and keys inherit downward. The set
+is empty for almost every rotation, since a child container carries no direct
+grant unless shared. At most 64 rekeys ride one rotation; beyond that the
+remainder repairs lazily rather than refuse a revocation. Custom adapters opt in
+by supplying the status-bearing `rekeyContainerResult`, `revokeContainerResult`,
+or `moveContainerResult`, and `getContainerWriterProjection`.
+
+A container's first direct grant has the matching precondition: the chain above
+it must be current, since its new grantee could not repair it; the API refuses
+one below a stale chain with `container_ancestor_rekeys_required`. A container that
+already carries a grant has had its chain kept current by every rotation above
+it, so further grants and group rematerialization refreshes owe nothing more.
+`shareRemoteContainer` and `shareRemoteContainerWithGroup` re-key a lazily stale
+path first, the container included, because a grant cites the parent's current
+epoch and the container's key epoch must pin it. An adapter without
+`rekeyContainer` cannot make that repair and gets a plain error, not one that
+names another member; a sharer who cannot reach a stale level gets
+`ContainerKekRepairInaccessibleError`. Under this
+rule a stale container is never above a granted one, so an honest inline repair
+never strands anything. The API still checks: a document write refused that way
+fails with `document_sync_descendant_rekeys_required`, and the sync pass retries
+with its repairs committed standalone, where each carries its own descendants.
+A blob bind or detach refused that way is an uncoded 409; the document's next
+sync pass makes the path current.
+
+If a writer still meets a stale ancestor it cannot re-key (a dishonest server, a
+tree past the cap, or a race), its pass refetches once, then abandons with the
+`inaccessible` trace reason and reports `document_ancestor_repair_inaccessible`
+to `onTerminalSubmitFailure` instead of failing the sync lane; built-in stores
+keep its message, not the code, on the write-queue row. Its writes stay
+queued, and built-in stores re-run the pass on the next
+`container_path_changed` hint. Hosts
+that author container-scoped writes directly can call
+`classifyContainerWriteRefusal` on a thrown error: `repair-required` is
+retryable, `repair-inaccessible` waits on another member and names the
+container, and `unauthorized` is a `ContainerAuthorAccessError`.
+`ContainerKekRepairRequiredError` and its subclass
+`ContainerKekRepairInaccessibleError` are exported for `instanceof` checks.
 
 Principal rotations and membership changes rematerialize every retained group
 grant against the new current principal head in the same transaction. As a

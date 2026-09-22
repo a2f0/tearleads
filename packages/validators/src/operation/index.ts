@@ -73,6 +73,8 @@ export {
   deleteContainerOperation,
   isContainerMutationOperationRequest,
   isContainerMutationOperationResponse,
+  isContainerRotationOperationRequest,
+  isContainerRotationOperationResponse,
   isCreateContainerWithMetadataDocumentOperationRequest,
   isCreateContainerWithMetadataDocumentOperationResponse,
   isDeleteContainerOperationResponse,

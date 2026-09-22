@@ -253,3 +253,58 @@ export async function listContainerKeyWrapsByEpochId(
   }
   return wrapsByEpochId;
 }
+
+/** One container's current key epoch id and the parent epoch it pins. */
+interface CurrentContainerKeyEpochPin {
+  readonly id: string;
+  readonly parentContainerKeyEpochId: string | null;
+}
+
+const CURRENT_EPOCH_PIN_CHUNK_SIZE = 500;
+
+/**
+ * Current key epoch pins for many containers in a bounded number of queries.
+ * Reads only the pin columns of each container's latest epoch, so a wide batch
+ * never loads keyrings, bridges, or a long rotation history.
+ */
+export async function getCurrentContainerKeyEpochPins(
+  containerIds: readonly string[],
+  executor: DatabaseSession,
+): Promise<Map<string, CurrentContainerKeyEpochPin>> {
+  const uniqueIds = [...new Set(containerIds)];
+  const current = new Map<string, CurrentContainerKeyEpochPin>();
+  for (
+    let start = 0;
+    start < uniqueIds.length;
+    start += CURRENT_EPOCH_PIN_CHUNK_SIZE
+  ) {
+    const rows = await executor
+      .select({
+        containerId: containerKeyEpochs.containerId,
+        id: containerKeyEpochs.id,
+        parentContainerKeyEpochId: containerKeyEpochs.parentContainerKeyEpochId,
+      })
+      .from(containerKeyEpochs)
+      .where(
+        and(
+          inArray(
+            containerKeyEpochs.containerId,
+            uniqueIds.slice(start, start + CURRENT_EPOCH_PIN_CHUNK_SIZE),
+          ),
+          // `(container_id, key_epoch)` is unique, so this picks one row each.
+          sql`${containerKeyEpochs.keyEpoch} = (
+            select max(latest.key_epoch)
+            from ${containerKeyEpochs} latest
+            where latest.container_id = ${containerKeyEpochs.containerId}
+          )`,
+        ),
+      );
+    for (const row of rows) {
+      current.set(row.containerId, {
+        id: row.id,
+        parentContainerKeyEpochId: row.parentContainerKeyEpochId,
+      });
+    }
+  }
+  return current;
+}

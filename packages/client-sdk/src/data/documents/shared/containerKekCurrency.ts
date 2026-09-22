@@ -3,10 +3,34 @@ import type {
   DocumentWriterProjectionResponse,
 } from "@tearleads/validators/response";
 
+/**
+ * A write path cites a retired ancestor key epoch. Retryable: this writer's
+ * next sync pass, or a peer, re-keys the stale container parent-first.
+ */
 export class ContainerKekRepairRequiredError extends Error {
-  constructor(containerId: string) {
-    super(`Container write requires ancestor KEK repair for ${containerId}`);
+  constructor(
+    readonly containerId: string,
+    message = `Container write requires ancestor KEK repair for ${containerId}`,
+  ) {
+    super(message);
     this.name = "ContainerKekRepairRequiredError";
+  }
+}
+
+/**
+ * The stale container is one this writer cannot re-key: it holds no key for it
+ * or lacks write access on its path. It must not be handed that key either — a
+ * stale container's KEK may be held by a revoked ancestor member — so the
+ * repair belongs to a member with access at or above the container, normally
+ * the device that rotated the ancestor. Queued writes wait for that repair.
+ */
+export class ContainerKekRepairInaccessibleError extends ContainerKekRepairRequiredError {
+  constructor(containerId: string) {
+    super(
+      containerId,
+      `Container ${containerId} needs a key repair from a member with access to it; queued changes sync afterwards`,
+    );
+    this.name = "ContainerKekRepairInaccessibleError";
   }
 }
 

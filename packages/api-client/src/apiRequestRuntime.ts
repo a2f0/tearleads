@@ -122,6 +122,7 @@ export class ApiRequestRuntime {
     method: HttpMethod;
     path: string;
     reportErrors: boolean;
+    requiredContainerIds?: RequestFailure["requiredContainerIds"];
     stalePrincipalPolicies: RequestFailure["stalePrincipalPolicies"];
     status: number | null;
     statusText: string;
@@ -140,6 +141,9 @@ export class ApiRequestRuntime {
       statusText: input.statusText,
       ...(input.stalePrincipalPolicies
         ? { stalePrincipalPolicies: input.stalePrincipalPolicies }
+        : {}),
+      ...(input.requiredContainerIds
+        ? { requiredContainerIds: input.requiredContainerIds }
         : {}),
     };
     this.requestFailuresByKey.set(
@@ -359,6 +363,7 @@ export class ApiRequestRuntime {
       method: input.method,
       path: input.path,
       reportErrors,
+      requiredContainerIds: input.errorDescription.requiredContainerIds,
       stalePrincipalPolicies: input.errorDescription.stalePrincipalPolicies,
       status: input.response.status,
       statusText: input.response.statusText,

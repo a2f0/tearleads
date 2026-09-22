@@ -284,6 +284,21 @@ function recordPredecessorFailure(
   }
 }
 
+/**
+ * No wrap on the path opens the target for this reader, and no recorded
+ * history failure explains it: the reader simply holds no key here. Distinct
+ * from keyring damage, which rethrows the underlying integrity error instead.
+ */
+export class ContainerKekTargetUnreachableError extends Error {
+  constructor(
+    readonly containerId: string,
+    label: string,
+  ) {
+    super(`${label} could not be unwrapped`);
+    this.name = "ContainerKekTargetUnreachableError";
+  }
+}
+
 function assertTargetKekUnwrapped(input: {
   readonly keyMaterialByEpochId: ReadonlyMap<string, Uint8Array>;
   readonly predecessorFailuresByEpochId: ReadonlyMap<string, Error>;
@@ -323,8 +338,9 @@ function assertTargetKekUnwrapped(input: {
       throw predecessorFailure;
     }
   }
-  throw new Error(
-    `${projectionKekLabel(input.projection.containerKeks.length - 1)} could not be unwrapped`,
+  throw new ContainerKekTargetUnreachableError(
+    targetKek.containerId,
+    projectionKekLabel(input.projection.containerKeks.length - 1),
   );
 }
 

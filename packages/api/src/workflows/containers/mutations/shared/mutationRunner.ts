@@ -447,6 +447,7 @@ export async function mutateContainerWithExecutor(
         ...context.writerProjectionContext.verifiedManifestByHash.values(),
         ...context.verifiedManifestByHash.values(),
       ],
+      previousManifest: artifacts.previousManifest,
       principalPolicies: artifacts.principalPolicies,
     },
   );

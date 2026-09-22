@@ -14,7 +14,10 @@ import {
   getUpdateVersionVectors,
   importUpdates,
 } from "@tearleads/loro";
-import { createTestExecSql } from "@tearleads/test-utils";
+import {
+  createMockRequestFailure,
+  createTestExecSql,
+} from "@tearleads/test-utils";
 import type {
   ContainerMutationRequest,
   DocumentSyncRequest,
@@ -83,6 +86,52 @@ export async function createAncestorSdkContext(
   apiClient.createContainer = (request) => postMutation("/containers", request);
   apiClient.rekeyContainer = (id, request) =>
     postMutation(`/containers/${id}/rekey`, request);
+  // Status-bearing, as the real client is: a refusal naming the descendant
+  // rekeys a rotation must carry is an answer, not an exception.
+  const rotationResult =
+    (operation: "move" | "rekey" | "revoke") =>
+    async (id: string, request: ContainerMutationRequest) => {
+      const path = `/containers/${id}/${operation}`;
+      const response = await routeApp.request(path, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${actor.token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(request),
+      });
+      const value: unknown = await response.json();
+      if (response.ok && isContainerMutationResponse(value)) {
+        return { data: value, ok: true as const };
+      }
+      const code = Reflect.get(Object(value), "code");
+      const requiredContainerIds = Reflect.get(
+        Object(value),
+        "requiredContainerIds",
+      );
+      return createMockRequestFailure({
+        ...(typeof code === "string" ? { code } : {}),
+        message: `Container ${operation} failed: ${JSON.stringify(value)}`,
+        method: "POST",
+        path,
+        ...(Array.isArray(requiredContainerIds)
+          ? {
+              requiredContainerIds: requiredContainerIds.filter(
+                (containerId): containerId is string =>
+                  typeof containerId === "string",
+              ),
+            }
+          : {}),
+        status: response.status,
+      });
+    };
+  apiClient.rekeyContainerResult = rotationResult("rekey");
+  apiClient.revokeContainerResult = rotationResult("revoke");
+  apiClient.moveContainerResult = rotationResult("move");
+  apiClient.revokeContainer = (id, request) =>
+    postMutation(`/containers/${id}/revoke`, request);
+  apiClient.moveContainer = (id, request) =>
+    postMutation(`/containers/${id}/move`, request);
   apiClient.shareContainer = (id, request) =>
     postMutation(`/containers/${id}/share`, request);
   const common: AncestorSdkCommon = {
@@ -129,17 +178,19 @@ export async function editColdDocumentAfterAncestorRotation(input: {
   let interrupted = false;
   let blocked = false;
   let repairsWhileBlocked: number | undefined;
-  const rekey = context.common.apiClient.rekeyContainer.bind(
+  // The SDK prefers the status-bearing rekey, so that is the call to observe.
+  const rekeyResult = context.common.apiClient.rekeyContainerResult?.bind(
     context.common.apiClient,
   );
-  context.common.apiClient.rekeyContainer = async (id, request) => {
+  if (!rekeyResult) throw new Error("Expected a status-bearing rekey");
+  context.common.apiClient.rekeyContainerResult = async (id, request) => {
     standaloneRepairs.push(id);
-    const response = await rekey(id, request);
+    const result = await rekeyResult(id, request);
     if (input.loseFirstRepairResponse && !interrupted) {
       interrupted = true;
       throw lostResponse;
     }
-    return response;
+    return result;
   };
   const submit = context.common.apiClient.syncDocument.bind(
     context.common.apiClient,

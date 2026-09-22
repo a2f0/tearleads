@@ -1,5 +1,6 @@
 import { KeyingVerificationError } from "@tearleads/crypto";
 import {
+  CONTAINER_MUTATION_ERROR_CODES,
   CONTAINER_UNAVAILABLE_ERROR_CODE,
   DOCUMENT_MUTATION_ERROR_CODES,
   DOCUMENT_NOT_FOUND_ERROR_CODE,
@@ -90,6 +91,11 @@ function containerMutationErrorCode(
 ): DocumentMutationErrorCode | undefined {
   if (error.recovery === "state_stale") {
     return DOCUMENT_SYNC_ERROR_CODES.stateStale;
+  }
+  if (
+    error.body?.code === CONTAINER_MUTATION_ERROR_CODES.descendantRekeysRequired
+  ) {
+    return DOCUMENT_SYNC_ERROR_CODES.descendantRekeysRequired;
   }
   return error.body?.code === CONTAINER_UNAVAILABLE_ERROR_CODE
     ? DOCUMENT_MUTATION_ERROR_CODES.containerUnavailable

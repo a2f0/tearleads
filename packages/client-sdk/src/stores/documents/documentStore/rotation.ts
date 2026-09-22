@@ -149,6 +149,8 @@ async function pullVerifiedRawHistoryForRotation(input: {
           documentId,
           commitPurgeProof,
         ),
+      // Recorded, never parked: this pass submits no writes, so it plans no
+      // ancestor repair and cannot abandon as `inaccessible`.
       onSyncAbandoned: (reason) => {
         abandonReason = reason;
       },

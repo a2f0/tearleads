@@ -2,6 +2,7 @@ import { expect, test } from "bun:test";
 import {
   createContainerOperation,
   documentSyncOperation,
+  rekeyContainerOperation,
   webSocketTicketOperation,
 } from "@tearleads/validators/operation";
 import { SESSION_ERROR_CODES } from "@tearleads/validators/response";
@@ -207,4 +208,52 @@ test("describeErrorResponse preserves validated payment targets", async () => {
     error: "Sync seat required",
     paymentRequiredOrganizationId: "organization-1",
   });
+});
+
+// A rotation refused for stranding a level above a directly granted container
+// is answerable: the caller signs the named descendant rekeys and resubmits.
+
+test("describeErrorResponse lifts the descendant rekeys a rotation must carry", async () => {
+  const response = Response.json(
+    {
+      code: "container_descendant_rekeys_required",
+      error: "Container rotation must carry its descendant rekeys",
+      requiredContainerIds: ["upper", "lower"],
+    },
+    { status: 409 },
+  );
+  expect(
+    await describeErrorResponse(response, rekeyContainerOperation),
+  ).toMatchObject({
+    code: "container_descendant_rekeys_required",
+    requiredContainerIds: ["upper", "lower"],
+  });
+});
+
+test("describeErrorResponse ignores container ids under any other code", async () => {
+  const response = Response.json(
+    {
+      code: "container_mutation_state_stale",
+      error: "Container manifest head is stale",
+      requiredContainerIds: ["injected"],
+    },
+    { status: 409 },
+  );
+  expect(
+    await describeErrorResponse(response, rekeyContainerOperation),
+  ).not.toHaveProperty("requiredContainerIds");
+});
+
+test("describeErrorResponse rejects a malformed container id list", async () => {
+  const response = Response.json(
+    {
+      code: "container_descendant_rekeys_required",
+      error: "Container rotation must carry its descendant rekeys",
+      requiredContainerIds: ["upper", 7, ""],
+    },
+    { status: 409 },
+  );
+  expect(
+    await describeErrorResponse(response, rekeyContainerOperation),
+  ).not.toHaveProperty("requiredContainerIds");
 });

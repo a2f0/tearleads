@@ -76,6 +76,22 @@ export const CONTAINER_KEK_LOG_PAGE_LIMIT = 256;
 export const MAX_INLINE_CONTAINER_REKEYS = 16;
 
 /**
+ * Maximum descendant rekeys one container rotation may carry. A rotation must
+ * re-key, in its own transaction, every descendant that sits above a directly
+ * granted container, or a writer granted only further down would wait on
+ * another device's write. The set is empty for almost every rotation, since
+ * child containers carry no direct grant unless shared, so this bounds the
+ * body rather than shaping ordinary traffic. A rotation is never refused for
+ * exceeding it: beyond the cap the remainder repairs lazily.
+ *
+ * A sealed keyring is 64 bytes per retained epoch, so a full batch stays far
+ * inside the API's 100 MiB request limit unless its containers average tens of
+ * thousands of rotations each, which `MAX_CONTAINER_KEY_EPOCH` already treats
+ * as a runaway rather than a use.
+ */
+export const MAX_ROTATION_CONTAINER_REKEYS = 64;
+
+/**
  * Maximum recipient envelopes one kek-log epoch may serve, applied PER EPOCH
  * so no epoch can be starved by another's width — a starved epoch is
  * indistinguishable from an unaddressed one and would surface as a false
