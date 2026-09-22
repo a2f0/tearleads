@@ -172,6 +172,9 @@ AGENT_TOOL="$ROOT_DIR/packages/agent-tool/src/index.ts"
    The tool:
    - Resolves the current branch and repo, and errors if an open PR already
      exists for the branch.
+   - **Never pushes.** It errors if the branch is not on the repository, or is
+     there at a commit other than the local head; step 3's push is what puts
+     it there, and it runs the pre-push hook, which the tool must not.
    - Rejects a multi-line title.
    - Validates the title with the repo's commitlint setup (the same
      `@commitlint/cli` binary and `commitlint.config.mts` the commit-msg hook

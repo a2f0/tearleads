@@ -4,6 +4,7 @@ import {
   OrganizationPrincipalPolicyRequestSchema,
 } from "../request";
 import {
+  CommitOrganizationGroupPolicyConflictResponseSchema,
   CommitOrganizationGroupPolicyResponseSchema,
   ErrorResponseSchema,
   PaymentRequiredErrorResponseSchema,
@@ -75,7 +76,7 @@ test("compound organization group policy commits declare billing failures", () =
     402: PaymentRequiredErrorResponseSchema,
     403: PrincipalPolicyErrorResponseSchema,
     404: PrincipalPolicyErrorResponseSchema,
-    409: PrincipalPolicyErrorResponseSchema,
+    409: CommitOrganizationGroupPolicyConflictResponseSchema,
     500: ErrorResponseSchema,
     503: PrincipalPolicyErrorResponseSchema,
   });

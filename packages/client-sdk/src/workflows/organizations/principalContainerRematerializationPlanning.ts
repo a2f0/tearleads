@@ -3,6 +3,7 @@ import type {
   VerifiedPrincipalPolicy,
 } from "@tearleads/crypto";
 import type { ContainerWriterProjectionResponse } from "@tearleads/validators/response";
+import { MAX_ROTATION_CONTAINER_REKEYS } from "@tearleads/validators/util";
 import type { ContainerReciteApi } from "../../data/containers/shared/reciteApi";
 import type { ContainerMutationAuthor } from "../../data/containers/shared/types";
 import type {
@@ -60,12 +61,30 @@ export interface BatchPlanning {
   readonly rotatedAbove: SpeculativePath[];
 }
 
-/** Sign a rekey of `served` under the batch's rotations above it, and add it. */
+/** How many rekeys the batch carries beyond its rematerializations. */
+function carriedCount(batch: BatchPlanning): number {
+  return batch.plans.filter((entry) => entry.carried).length;
+}
+
+/**
+ * Sign a rekey of `served` under the batch's rotations above it, and add it.
+ * The server accepts at most `MAX_ROTATION_CONTAINER_REKEYS` carried entries;
+ * past that a rematerialization below them could not be signed on a current
+ * path, so the batch is refused here, before signing what the server would
+ * refuse anyway, and the policy change has to wait for a lazy repair of the
+ * tree. Groups granted that far apart on one chain are not a shape the SDK
+ * creates.
+ */
 export async function carryLevel(
   batch: BatchPlanning,
   served: ContainerWriterProjectionResponse,
 ): Promise<void> {
   const { rematerialization } = batch;
+  if (carriedCount(batch) >= MAX_ROTATION_CONTAINER_REKEYS) {
+    throw new Error(
+      `Policy change would carry more than ${MAX_ROTATION_CONTAINER_REKEYS} descendant rekeys`,
+    );
+  }
   const planned = await planCarriedDescendantRekey({
     apiClient: rematerialization.apiClient,
     author: rematerialization.author,
@@ -83,7 +102,7 @@ export async function carryLevel(
     warmReferencedPrincipalPolicies:
       rematerialization.warmReferencedPrincipalPolicies,
   });
-  addPlan(batch, { planned, rotated: planned.writerProjection });
+  addPlan(batch, { carried: true, planned, rotated: planned.writerProjection });
 }
 
 export function addPlan(
@@ -106,7 +125,7 @@ export function addPlan(
  * carries them without waiting to be told: they are proper ancestors of a
  * granted container, so the server would name them, and a refusal per level
  * is a round trip each. Anything stale above the rotated ancestor is not this
- * batch's doing and is left alone; the path depth limit bounds the rest.
+ * batch's doing and is left alone. `carryLevel` holds the count to the cap.
  */
 export function staleLevelsAbove(
   projection: ContainerWriterProjectionResponse,

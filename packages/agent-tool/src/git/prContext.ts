@@ -130,7 +130,7 @@ export function selectRepositoryGitUrl(
   throw new Error(`Unsupported or unavailable git protocol '${protocol}'.`);
 }
 
-function resolveRepositoryGitUrl(repo: string): string {
+export function resolveRepositoryGitUrl(repo: string): string {
   const repoRaw = run("gh", ["repo", "view", repo, "--json", "url,sshUrl"]);
   const httpsUrl = stringField(repoRaw, "url");
   const sshUrl = stringField(repoRaw, "sshUrl");
@@ -142,6 +142,29 @@ function resolveRepositoryGitUrl(repo: string): string {
   }
   const protocol = run("gh", ["config", "get", "git_protocol", "--host", host]);
   return selectRepositoryGitUrl(protocol, httpsUrl, sshUrl);
+}
+
+/** The line of an `ls-remote` listing naming exactly `refs/heads/<branch>`. */
+export function parseRemoteBranchHead(
+  listing: string,
+  branch: string,
+): string | null {
+  for (const line of listing.split("\n")) {
+    const [oid = "", ref = ""] = line.trim().split(/\s+/);
+    if (ref === `refs/heads/${branch}` && oid.length > 0) return oid;
+  }
+  return null;
+}
+
+/** The commit a branch points to on the repository, or null when absent. */
+export function remoteBranchHead(
+  repositoryUrl: string,
+  branch: string,
+): string | null {
+  return parseRemoteBranchHead(
+    run("git", ["ls-remote", "--heads", repositoryUrl, `refs/heads/${branch}`]),
+    branch,
+  );
 }
 
 /** Build a fetch that records the requested branch in a caller-owned ref. */

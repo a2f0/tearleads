@@ -21,6 +21,8 @@ export type MaterializedPrincipalContainerMutationPlan =
 
 /** A plan with its container's path once accepted; null for a grant, which rotates nothing. */
 export interface PlannedRematerialization {
+  /** A descendant rekey carried for a rotation above, not a rematerialization. */
+  readonly carried: boolean;
   readonly planned: MaterializedPrincipalContainerMutationPlan;
   readonly rotated: SpeculativePath | null;
 }

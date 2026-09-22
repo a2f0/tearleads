@@ -316,7 +316,16 @@ async function submitGroupPolicyCommit(input: {
     first.report?.();
     return null;
   }
-  const carried = await input.carryDescendantRekeys(first.requiredContainerIds);
+  let carried: readonly ContainerMutationRequest[];
+  try {
+    carried = await input.carryDescendantRekeys(first.requiredContainerIds);
+  } catch (error) {
+    // The refusal was answerable, and the answer failed: surface both. Once
+    // the generation that owned the attempt is gone, only the failure is
+    // surfaced; a superseded refusal is not an error.
+    if (input.stillCurrent?.() !== false) first.report?.();
+    throw error;
+  }
   if (input.stillCurrent?.() === false) return null;
   // Nothing signed means the same refusal again; report the one already had.
   if (carried.length === 0) {

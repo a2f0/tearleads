@@ -7,6 +7,7 @@ import {
   OrganizationPrincipalPolicyRequestSchema,
 } from "../request";
 import {
+  CommitOrganizationGroupPolicyConflictResponseSchema,
   CommitOrganizationGroupPolicyResponseSchema,
   ErrorResponseSchema,
   isCommitOrganizationGroupPolicyResponse,
@@ -90,7 +91,7 @@ export const commitOrganizationGroupPolicyOperation = defineJsonOperation({
     402: PaymentRequiredErrorResponseSchema,
     403: PrincipalPolicyErrorResponseSchema,
     404: PrincipalPolicyErrorResponseSchema,
-    409: PrincipalPolicyErrorResponseSchema,
+    409: CommitOrganizationGroupPolicyConflictResponseSchema,
     500: ErrorResponseSchema,
     503: PrincipalPolicyErrorResponseSchema,
   },

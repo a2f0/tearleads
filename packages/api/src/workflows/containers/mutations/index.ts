@@ -8,6 +8,7 @@ import {
   MAX_INLINE_CONTAINER_REKEYS,
   MAX_ROTATION_CONTAINER_REKEYS,
 } from "@tearleads/validators/util";
+import { readProjectionAccessEvent } from "../../../keyingProjectionRecords";
 import { assertOrganizationCanSync } from "../../billing/organizationSyncEligibility";
 import { createContainerWriterProjectionContext } from "../writerProjection";
 import {
@@ -16,6 +17,7 @@ import {
   toMutationError,
 } from "./errors";
 import { rekeyContainer } from "./rekeyContainer";
+import { assertCarriedRekeysBelowRotations } from "./shared/carriedRekeyAncestry";
 import { assertGrantedPathsCurrentBelowRotations } from "./shared/grantedPathCurrency";
 import {
   mutateContainerWithExecutor,
@@ -154,6 +156,22 @@ async function mutateContainerRotationInTransaction(
       userId: input.userId,
     }),
   );
+  const carriedContainerIds = containerRekeys.map(
+    (carriedRequest) =>
+      readProjectionAccessEvent(
+        carriedRequest.event,
+        "Carried container rekey event",
+        mutationShapeError,
+      ).objectId,
+  );
+  // The request's own ids say whether it carries the container it rotates;
+  // no lookup, so nothing is learned by asking.
+  if (carriedContainerIds.includes(target.expectedContainerId ?? "")) {
+    throw new ContainerMutationError(
+      "Carried container rekey is not below the rotated container",
+      409,
+    );
+  }
   // One prelock over the whole batch keeps the group -> organization lock
   // order deterministic, exactly as inline document rekeys do.
   const context: ContainerMutationContext = {
@@ -167,6 +185,15 @@ async function mutateContainerRotationInTransaction(
     ...target,
     context,
     executor: tx,
+  });
+  // Each carried rekey must sit below the rotated container. Checked once the
+  // rotation itself is authorized, so an unrelated caller cannot use the
+  // refusal to learn the tree, and before any carried entry is written, since
+  // the batch rolls back anyway.
+  await assertCarriedRekeysBelowRotations({
+    carriedContainerIds,
+    executor: tx,
+    rotatedContainerIds: [response.containerId],
   });
   const carriedResponses: ContainerMutationResponse[] = [];
   for (const carriedInput of carried) {
