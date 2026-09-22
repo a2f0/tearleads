@@ -486,7 +486,7 @@ the container hierarchy used for path-based access resolution.
 Related docs:
 
 - [container-dek-onboarding.md](./container-dek-onboarding.md#containers)
-- [constraints.md](./constraints.md)
+- [limits.md](./limits.md)
 
 ## Signed Write Header
 

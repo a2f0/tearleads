@@ -438,7 +438,8 @@ Document/blob writes also walk each ancestor's same-KEK manifest history to
 validate key bindings. That SQL walk admits at most 1024 manifests per container,
 using the independent API `MAX_SAME_EPOCH_MANIFEST_HISTORY` limit, with one
 overflow sentinel; it fails closed and requires a rekey beyond that
-boundary. It uses constant-size recursive rows and detects duplicate hashes
+boundary (see [limits.md](./limits.md#container-keying) for every history
+budget). It uses constant-size recursive rows and detects duplicate hashes
 after loading, rather than accumulating quadratic visited-path strings. This
 separate write-side bound applies to ordinary grant/move events too. A rekey
 starts a new same-KEK run; it does not compact the signed writer-projection chain.

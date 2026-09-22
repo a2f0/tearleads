@@ -325,7 +325,8 @@ the new epoch with a ciphertext length exactly matching the epoch number
 (`8 + (n - 1) * 64 + 16` bytes — over- and under-length both reject), and that
 both artifact hashes match the signed event body. Epoch numbers above
 `MAX_CONTAINER_KEY_EPOCH` (65536) are rejected at rotation time as a
-runaway-rotation backstop. Writer projections are gated by current access and
+runaway-rotation backstop; the other protocol bounds are listed in
+[limits.md](./limits.md). Writer projections are gated by current access and
 return the sealed keyring for each path epoch (null exactly at epoch 1).
 Consequently current document access includes retained history; projections do
 not return superseded recipient envelopes or filter old epochs by requester

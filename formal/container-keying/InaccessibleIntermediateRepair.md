@@ -43,7 +43,9 @@ intermediate's other children.
 The model abstracts signatures, ciphertext, and policy evaluation. It has one
 granted container; production computes the carried set over the whole subtree
 and caps it at `MAX_ROTATION_CONTAINER_REKEYS`, past which the remainder repairs
-lazily rather than refuse a revocation. The matching precondition on a
+lazily rather than refuse a revocation
+([docs/limits.md](../../docs/limits.md#limits-that-trade-write-liveness)
+records that as a write-liveness trade). The matching precondition on a
 container's first direct grant, a current chain above it, is enforced by
 `assertParentKekStateCurrent` and is not modeled: the grant exists from `Init`.
 Group rematerialization is one more `RotateRoot`, checked by the same seam.
