@@ -5,6 +5,7 @@ import {
   accessManifestPrincipalHeadProjection,
   containers,
   groups,
+  organizations,
   principalMembershipProjection,
 } from "@tearleads/api-shared/schema";
 import type { ManagedRecipientPrincipalType } from "@tearleads/crypto";
@@ -127,26 +128,45 @@ export async function listRequesterSeedContainerIds(
  * The principals whose presence on a verified path obliges a client to fetch
  * this bundle. A group is its own reference. An organization is never granted
  * or cited by a container, but a client verifying any of the organization's
- * groups first loads the organization bundle, so every group of the
- * organization references it.
+ * groups first loads the organization bundle, and a group signed by an
+ * organization admin is checked against the Admins bundle, so every group of
+ * the organization references both.
  */
 export async function listReferencingPrincipals(
   executor: DatabaseSession,
   principal: Pick<StoredPrincipalState, "principalType" | "principalId">,
 ): Promise<ReadonlySet<string>> {
-  if (principal.principalType !== "organization") {
-    return new Set([principalReferenceKey(principal)]);
+  const self = principalReferenceKey(principal);
+  const organizationId =
+    principal.principalType === "organization"
+      ? principal.principalId
+      : await organizationIdOfAdminsGroup(executor, principal.principalId);
+  if (organizationId === null) {
+    return new Set([self]);
   }
   const organizationGroups = await executor
     .select({ id: groups.id })
     .from(groups)
-    .where(eq(groups.organizationId, principal.principalId));
+    .where(eq(groups.organizationId, organizationId));
   return new Set([
-    principalReferenceKey(principal),
+    self,
     ...organizationGroups.map((group) =>
       principalReferenceKey({ principalId: group.id, principalType: "group" }),
     ),
   ]);
+}
+
+/** The organization whose Admins group this is, or null for any other group. */
+async function organizationIdOfAdminsGroup(
+  executor: DatabaseSession,
+  groupId: string,
+): Promise<string | null> {
+  const [organization] = await executor
+    .select({ id: organizations.id })
+    .from(organizations)
+    .where(eq(organizations.adminGroupId, groupId))
+    .limit(1);
+  return organization?.id ?? null;
 }
 
 export function principalReferenceKey(principal: {
@@ -157,16 +177,15 @@ export function principalReferenceKey(principal: {
 }
 
 /**
- * Containers whose current head grants or cites one of the referencing
- * principals: the places a verified path picks the principal up, so that a
- * client verifying any container at or below one of them must fetch this
- * bundle.
+ * Referencing containers below a seed are found by a scan the requester
+ * cannot widen, capped here; a requester granted above more than this many
+ * referencing containers verifies the first of them by id.
  */
-export async function listContainerIdsReferencingPrincipals(
-  executor: DatabaseSession,
+const MAX_REFERENCING_CONTAINER_SCAN = 256;
+
+function referencingPrincipalsByType(
   referencing: ReadonlySet<string>,
-): Promise<string[]> {
-  const containerIds: string[] = [];
+): Map<ManagedRecipientPrincipalType, string[]> {
   const byType = new Map<ManagedRecipientPrincipalType, string[]>();
   for (const key of referencing) {
     const [principalType, principalId] = key.split(":");
@@ -180,63 +199,122 @@ export async function listContainerIdsReferencingPrincipals(
       ]);
     }
   }
-  for (const [principalType, principalIds] of byType) {
+  return byType;
+}
+
+type ReferencingScope = ReadonlyArray<string> | undefined;
+
+function listGrantingContainerRows(
+  executor: DatabaseSession,
+  principalType: ManagedRecipientPrincipalType,
+  batch: readonly string[],
+  scope: ReferencingScope,
+) {
+  return executor
+    .select({
+      containerId: accessManifestContainerGrantProjection.containerId,
+    })
+    .from(accessManifestContainerGrantProjection)
+    .innerJoin(
+      accessManifestHeads,
+      currentContainerHeadJoin(accessManifestContainerGrantProjection),
+    )
+    .where(
+      and(
+        eq(accessManifestContainerGrantProjection.subjectType, principalType),
+        inArray(accessManifestContainerGrantProjection.subjectId, batch),
+        scope === undefined
+          ? undefined
+          : inArray(accessManifestContainerGrantProjection.containerId, scope),
+      ),
+    )
+    .limit(MAX_REFERENCING_CONTAINER_SCAN);
+}
+
+function listCitingContainerRows(
+  executor: DatabaseSession,
+  principalType: ManagedRecipientPrincipalType,
+  batch: readonly string[],
+  scope: ReferencingScope,
+) {
+  return executor
+    .select({
+      containerId: accessManifestPrincipalHeadProjection.objectId,
+    })
+    .from(accessManifestPrincipalHeadProjection)
+    .innerJoin(
+      accessManifestHeads,
+      and(
+        eq(accessManifestHeads.objectKind, "container"),
+        eq(
+          accessManifestHeads.objectId,
+          accessManifestPrincipalHeadProjection.objectId,
+        ),
+        eq(
+          accessManifestHeads.manifestHash,
+          accessManifestPrincipalHeadProjection.manifestHash,
+        ),
+      ),
+    )
+    .where(
+      and(
+        eq(accessManifestPrincipalHeadProjection.objectKind, "container"),
+        eq(accessManifestPrincipalHeadProjection.principalType, principalType),
+        inArray(accessManifestPrincipalHeadProjection.principalId, batch),
+        scope === undefined
+          ? undefined
+          : inArray(accessManifestPrincipalHeadProjection.objectId, scope),
+      ),
+    )
+    .limit(MAX_REFERENCING_CONTAINER_SCAN);
+}
+
+/**
+ * Containers whose current head grants or cites one of the referencing
+ * principals: the places a verified path picks the principal up. With
+ * `withinContainerIds` the search is anchored to those containers (the
+ * requester's own root paths) and is exact; without it the search is a scan
+ * over the referencing principals' grants, capped by
+ * `MAX_REFERENCING_CONTAINER_SCAN`.
+ */
+export async function listContainerIdsReferencingPrincipals(
+  executor: DatabaseSession,
+  referencing: ReadonlySet<string>,
+  options: { readonly withinContainerIds?: ReadonlyArray<string> } = {},
+): Promise<string[]> {
+  const within = options.withinContainerIds;
+  if (within !== undefined && within.length === 0) {
+    return [];
+  }
+  const containerIds: string[] = [];
+  const withinBatches = within === undefined ? [undefined] : batches(within);
+  for (const [principalType, principalIds] of referencingPrincipalsByType(
+    referencing,
+  )) {
     for (const batch of batches(principalIds)) {
-      const [granting, citing] = await Promise.all([
-        executor
-          .select({
-            containerId: accessManifestContainerGrantProjection.containerId,
-          })
-          .from(accessManifestContainerGrantProjection)
-          .innerJoin(
-            accessManifestHeads,
-            currentContainerHeadJoin(accessManifestContainerGrantProjection),
-          )
-          .where(
-            and(
-              eq(
-                accessManifestContainerGrantProjection.subjectType,
-                principalType,
-              ),
-              inArray(accessManifestContainerGrantProjection.subjectId, batch),
-            ),
-          ),
-        executor
-          .select({
-            containerId: accessManifestPrincipalHeadProjection.objectId,
-          })
-          .from(accessManifestPrincipalHeadProjection)
-          .innerJoin(
-            accessManifestHeads,
-            and(
-              eq(accessManifestHeads.objectKind, "container"),
-              eq(
-                accessManifestHeads.objectId,
-                accessManifestPrincipalHeadProjection.objectId,
-              ),
-              eq(
-                accessManifestHeads.manifestHash,
-                accessManifestPrincipalHeadProjection.manifestHash,
-              ),
-            ),
-          )
-          .where(
-            and(
-              eq(accessManifestPrincipalHeadProjection.objectKind, "container"),
-              eq(
-                accessManifestPrincipalHeadProjection.principalType,
-                principalType,
-              ),
-              inArray(accessManifestPrincipalHeadProjection.principalId, batch),
-            ),
-          ),
-      ]);
-      containerIds.push(
-        ...[...granting, ...citing].map((row) => row.containerId),
-      );
+      for (const scope of withinBatches) {
+        const granting = await listGrantingContainerRows(
+          executor,
+          principalType,
+          batch,
+          scope,
+        );
+        const citing = await listCitingContainerRows(
+          executor,
+          principalType,
+          batch,
+          scope,
+        );
+        containerIds.push(
+          ...[...granting, ...citing].map((row) => row.containerId),
+        );
+      }
     }
   }
-  return uniqueSortedStrings(containerIds);
+  return uniqueSortedStrings(containerIds).slice(
+    0,
+    within === undefined ? MAX_REFERENCING_CONTAINER_SCAN : undefined,
+  );
 }
 
 /** Parent ids for every container reachable upward from `containerIds`. */
@@ -269,7 +347,7 @@ export async function loadAncestorParents(
   return parentById;
 }
 
-function ancestorsOrSelf(
+export function ancestorsOrSelf(
   containerId: string,
   parentById: ReadonlyMap<string, string | null>,
 ): string[] {

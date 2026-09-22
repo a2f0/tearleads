@@ -7,12 +7,14 @@ import {
 import type { ManagedRecipientPrincipalType } from "@tearleads/crypto";
 import { and, eq } from "drizzle-orm";
 import type { StoredPrincipalState } from "../../access/read/principalStateStore";
+import { uniqueSortedStrings } from "../../utils/array";
 import {
   type ContainerAccessProjection,
   createContainerWriterProjectionContext,
 } from "../containers/writerProjection";
 import { resolveReadableContainerAccessBatch } from "../keyingReadAccess";
 import {
+  ancestorsOrSelf,
   listContainerIdsReferencingPrincipals,
   listReferencingPrincipals,
   listRequesterSeedContainerIds,
@@ -128,15 +130,33 @@ async function holdsGrantReferencingPrincipal(
     executor,
     currentState,
   );
-  const referencing = await listContainerIdsReferencingPrincipals(
+  // Exact for a requester at or below a referencing container: the search is
+  // anchored to the requester's own root paths, which the requester cannot
+  // widen. A requester above a referencing container is found by a capped
+  // scan of the referencing principals' current grants.
+  const seedParents = await loadAncestorParents(executor, seeds);
+  const seedChain = uniqueSortedStrings(
+    seeds.flatMap((seed) => ancestorsOrSelf(seed, seedParents)),
+  );
+  const anchored = await listContainerIdsReferencingPrincipals(
+    executor,
+    referencingPrincipals,
+    { withinContainerIds: seedChain },
+  );
+  const scanned = await listContainerIdsReferencingPrincipals(
     executor,
     referencingPrincipals,
   );
+  const referencing = uniqueSortedStrings([...anchored, ...scanned]);
   if (referencing.length === 0) {
     return false;
   }
+  const parentById = new Map([
+    ...seedParents,
+    ...(await loadAncestorParents(executor, scanned)),
+  ]);
   const candidates = selectCandidateContainerIds({
-    parentById: await loadAncestorParents(executor, [...seeds, ...referencing]),
+    parentById,
     referencing,
     seeds,
   }).slice(0, MAX_VERIFIED_CANDIDATE_CONTAINERS);

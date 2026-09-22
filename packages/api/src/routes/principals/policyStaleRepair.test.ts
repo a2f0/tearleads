@@ -111,7 +111,7 @@ test("a stale-policy reject returns only bundles the requester may read", async 
   expect(body.code).toBe("principal_policy_stale");
   expect(
     body.principalPolicies.map((bundle) => bundle.currentState.principalId),
-  ).not.toContain(victimAdminGroupId);
+  ).toEqual([]);
 });
 
 test("a stale-policy reject still repairs a bundle the requester may read", async () => {

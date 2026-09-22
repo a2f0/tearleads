@@ -196,6 +196,10 @@ async function stalePrincipalPolicyError(input: {
 }): Promise<ContainerMutationError> {
   const seenPrincipalPolicyKeys = new Set<string>();
   const statesToFetch: StoredPrincipalState[] = [];
+  // A repair carries at most this many bundles; the rest are re-requested
+  // on the retry. This also bounds the read-authorization work a request
+  // with an unbounded `principalPolicies` array can demand.
+  const MAX_STALE_POLICY_REPAIRS = 16;
 
   // Stale-policy rejects are repairable: return the server's current signed
   // bundles so the client can verify, cache, rebuild the mutation, and retry.
@@ -210,7 +214,9 @@ async function stalePrincipalPolicyError(input: {
     }
 
     seenPrincipalPolicyKeys.add(key);
-    statesToFetch.push(currentState);
+    if (statesToFetch.length < MAX_STALE_POLICY_REPAIRS) {
+      statesToFetch.push(currentState);
+    }
   }
 
   const principalPolicies = (
