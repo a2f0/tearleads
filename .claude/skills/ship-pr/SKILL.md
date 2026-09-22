@@ -163,7 +163,7 @@ loop, subject-only squash, and `MERGED`-state verification.
      https) REVIEW_BASE_URL="$REVIEW_BASE_HTTPS_URL" ;;
      *) echo "Error: unsupported git protocol for $REVIEW_BASE_HOST" >&2; exit 1 ;;
    esac
-   REVIEW_BASE_OID=$(git ls-remote "$REVIEW_BASE_URL" "refs/heads/$REVIEW_BASE_REF" | awk 'NR == 1 { print $1 }')
+   REVIEW_BASE_OID=$(git ls-remote "$REVIEW_BASE_URL" "refs/heads/$REVIEW_BASE_REF" | cut -f1 | head -n 1)
    [ -n "$REVIEW_BASE_OID" ] || { echo "Error: review base commit is unavailable" >&2; exit 1; }
    ```
 
@@ -209,7 +209,7 @@ loop, subject-only squash, and `MERGED`-state verification.
      CURRENT_REVIEW_BASE_REF=$(gh pr view "$PR_NUMBER" --json baseRefName -q .baseRefName -R "$REPO")
      [ "$CURRENT_REVIEW_BASE_REF" = "$REVIEW_BASE_REF" ] || { echo "Error: PR base changed during review; re-review required" >&2; exit 1; }
    fi
-   CURRENT_REVIEW_BASE_OID=$(git ls-remote "$REVIEW_BASE_URL" "refs/heads/$REVIEW_BASE_REF" | awk 'NR == 1 { print $1 }')
+   CURRENT_REVIEW_BASE_OID=$(git ls-remote "$REVIEW_BASE_URL" "refs/heads/$REVIEW_BASE_REF" | cut -f1 | head -n 1)
    [ "$CURRENT_REVIEW_BASE_OID" = "$REVIEW_BASE_OID" ] || { echo "Error: base advanced during review; update and re-review required" >&2; exit 1; }
    ```
 
@@ -291,7 +291,7 @@ loop, subject-only squash, and `MERGED`-state verification.
      https) COAUTHOR_BASE_URL="$COAUTHOR_BASE_HTTPS_URL" ;;
      *) echo "Error: unsupported git protocol for $COAUTHOR_BASE_HOST" >&2; exit 1 ;;
    esac
-   COAUTHOR_BASE_OID=$(git ls-remote "$COAUTHOR_BASE_URL" "refs/heads/$COAUTHOR_BASE_REF" | awk 'NR == 1 { print $1 }')
+   COAUTHOR_BASE_OID=$(git ls-remote "$COAUTHOR_BASE_URL" "refs/heads/$COAUTHOR_BASE_REF" | cut -f1 | head -n 1)
    [ -n "$COAUTHOR_BASE_OID" ] || { echo "Error: could not resolve live PR base $COAUTHOR_BASE_REF" >&2; exit 1; }
    git fetch "$COAUTHOR_BASE_URL" "$COAUTHOR_BASE_OID" || { echo "Error: could not fetch PR base $COAUTHOR_BASE_OID" >&2; exit 1; }
    git cat-file -e "$COAUTHOR_BASE_OID^{commit}"
@@ -356,7 +356,7 @@ loop, subject-only squash, and `MERGED`-state verification.
      https) BASE_REPO_URL="$BASE_REPO_HTTPS_URL" ;;
      *) echo "Error: unsupported git protocol for $BASE_REPO_HOST" >&2; exit 1 ;;
    esac
-   BASE_OID=$(git ls-remote "$BASE_REPO_URL" "refs/heads/$BASE_REF" | awk 'NR == 1 { print $1 }')
+   BASE_OID=$(git ls-remote "$BASE_REPO_URL" "refs/heads/$BASE_REF" | cut -f1 | head -n 1)
    [ -n "$BASE_REPO_URL" ] && [ -n "$BASE_OID" ] || { echo "Error: could not resolve the base repository snapshot" >&2; exit 1; }
    git fetch "$BASE_REPO_URL" "$BASE_OID" || { echo "Error: could not fetch $BASE_REF at $BASE_OID from $BASE_REPO_URL" >&2; exit 1; }
    git cat-file -e "$BASE_OID^{commit}" || { echo "Error: fetched base does not contain commit $BASE_OID" >&2; exit 1; }

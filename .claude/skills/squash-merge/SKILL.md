@@ -245,7 +245,7 @@ as-is.
    [ "$(git rev-parse "$MERGED_BRANCH")" = "$PR_HEAD_OID" ] || { echo "Error: local $MERGED_BRANCH moved after merge; skipping delete" >&2; exit 1; }
 
    REMOTE_HEAD_OUTPUT=$(git ls-remote "$HEAD_REPO_URL" "refs/heads/$PR_HEAD_BRANCH") || { echo "Error: could not read remote $PR_HEAD_REPO:$PR_HEAD_BRANCH; skipping delete" >&2; exit 1; }
-   REMOTE_HEAD_OID=$(printf '%s\n' "$REMOTE_HEAD_OUTPUT" | awk 'NR == 1 { print $1 }')
+   REMOTE_HEAD_OID=$(printf '%s\n' "$REMOTE_HEAD_OUTPUT" | cut -f1 | head -n 1)
    if [ -n "$REMOTE_HEAD_OID" ]; then
      [ "$REMOTE_HEAD_OID" = "$PR_HEAD_OID" ] || { echo "Error: remote $PR_HEAD_REPO:$PR_HEAD_BRANCH moved after merge; skipping delete" >&2; exit 1; }
      git push --force-with-lease="refs/heads/$PR_HEAD_BRANCH:$PR_HEAD_OID" "$HEAD_REPO_URL" --delete "$PR_HEAD_BRANCH" || { echo "Error: could not safely delete remote $PR_HEAD_REPO:$PR_HEAD_BRANCH" >&2; exit 1; }
