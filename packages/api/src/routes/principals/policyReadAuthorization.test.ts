@@ -1,44 +1,27 @@
 import { expect, test } from "bun:test";
-import { db } from "@tearleads/api-shared/postgres";
-import { organizations } from "@tearleads/api-shared/schema";
-import { createTestUser, type TestUser } from "@tearleads/bob-and-alice";
+import { createTestUser } from "@tearleads/bob-and-alice";
 import {
   isContainerMutationResponse,
   isPrincipalPolicyBundleResponse,
 } from "@tearleads/validators/response";
-import { eq } from "drizzle-orm";
-import invariant from "invariant";
-import { authenticate } from "../../../test/helpers/authenticate";
+import { grantContainerThroughReadGroup } from "../../../test/helpers/containerGroupGrant";
+import { createChildContainerFixture } from "../../../test/helpers/keyingWriterProjectionChild";
 import {
+  accessManifestFromContainerResponse,
   bootstrapRoot,
   buildRootGrantRequest,
+  kekStateFromContainerResponse,
 } from "../../../test/helpers/keyingWriterProjectionKit";
 import { getDefaultOrganizationId } from "../../../test/helpers/organizationMembership";
-import { stripOrganizationMembership } from "../../../test/helpers/principalPolicyReadFixtures";
+import {
+  getPolicy,
+  loadOrganizationGroups,
+  registerAndAuthenticate,
+  stripOrganizationMembership,
+} from "../../../test/helpers/principalPolicyReadFixtures";
 import { recoverRegisteredRootKek } from "../../../test/helpers/registeredRootKek";
-import { registerUser } from "../../../test/helpers/registerUser";
 import { grantRootThroughRotatedReadGroup } from "../../../test/helpers/rotatedReadGroupGrant";
 import { routeApp } from "../../routeApp";
-
-async function registerAndAuthenticate(...users: TestUser[]): Promise<void> {
-  for (const user of users) {
-    await registerUser(user);
-    await authenticate(user);
-  }
-}
-
-async function getPolicy(
-  actor: TestUser,
-  principalType: "group" | "organization",
-  principalId: string,
-): Promise<Response> {
-  return routeApp.request(
-    `/principals/${principalType}/${principalId}/policy`,
-    {
-      headers: { Authorization: `Bearer ${actor.token}` },
-    },
-  );
-}
 
 async function expectBundle(response: Response): Promise<void> {
   expect(response.status, await response.clone().text()).toBe(200);
@@ -50,19 +33,6 @@ async function expectDenied(response: Response): Promise<void> {
   expect(await response.json()).toEqual({
     error: "Principal policy access denied",
   });
-}
-
-async function loadOrganizationGroups(organizationId: string) {
-  const [organization] = await db
-    .select({
-      adminGroupId: organizations.adminGroupId,
-      memberGroupId: organizations.memberGroupId,
-    })
-    .from(organizations)
-    .where(eq(organizations.id, organizationId))
-    .limit(1);
-  invariant(organization, "expected organization row");
-  return organization;
 }
 
 test("GET principal policy refuses an account outside the organization", async () => {
@@ -151,4 +121,43 @@ test("GET principal policy serves a group-granted reader with no roster entry", 
   const outsider = createTestUser();
   await registerAndAuthenticate(outsider);
   await expectDenied(await getPolicy(outsider, "group", groupId));
+});
+
+test("GET principal policy serves a reader granted above a child's group grant", async () => {
+  const owner = createTestUser();
+  const reader = createTestUser();
+  await registerAndAuthenticate(owner, reader);
+  const organizationId = await getDefaultOrganizationId(owner.userId);
+  const root = await recoverRegisteredRootKek({
+    owner,
+    root: await bootstrapRoot(owner),
+  });
+  // The reader reaches the root through G1 ...
+  const { groupId: parentGroupId, root: grantedRoot } =
+    await grantRootThroughRotatedReadGroup({ actor: owner, reader, root });
+  // ... and a child under it is granted to G2, which never names the reader.
+  const child = await createChildContainerFixture({
+    parent: { bundle: grantedRoot.bundle, kekState: grantedRoot.kekState },
+    signer: owner,
+  });
+  const { groupId: childGroupId } = await grantContainerThroughReadGroup({
+    actor: owner,
+    container: {
+      bundle: accessManifestFromContainerResponse(child.response),
+      kekState: kekStateFromContainerResponse(child.response),
+      plaintextKek: child.plaintextKek,
+    },
+    parentKekState: grantedRoot.kekState,
+    parentPath: [grantedRoot.bundle],
+  });
+  await stripOrganizationMembership(organizationId, reader.userId);
+
+  // Reading the child through the root grant verifies a path that cites G2,
+  // so its bundle is served even though the reader's own grant sits above it.
+  await expectBundle(await getPolicy(reader, "group", childGroupId));
+  await expectBundle(await getPolicy(reader, "group", parentGroupId));
+
+  const outsider = createTestUser();
+  await registerAndAuthenticate(outsider);
+  await expectDenied(await getPolicy(outsider, "group", childGroupId));
 });

@@ -9,7 +9,7 @@ import {
   principalMembershipProjection,
 } from "@tearleads/api-shared/schema";
 import type { ManagedRecipientPrincipalType } from "@tearleads/crypto";
-import { and, eq, inArray } from "drizzle-orm";
+import { and, asc, eq, inArray } from "drizzle-orm";
 import {
   getCurrentPrincipalStates,
   type StoredPrincipalState,
@@ -178,8 +178,9 @@ export function principalReferenceKey(principal: {
 
 /**
  * Referencing containers below a seed are found by a scan the requester
- * cannot widen, capped here; a requester granted above more than this many
- * referencing containers verifies the first of them by id.
+ * cannot widen, capped here in container-id order; a requester granted above
+ * more than this many referencing containers verifies the first of them by
+ * id. The search anchored to the requester's own paths is not capped.
  */
 const MAX_REFERENCING_CONTAINER_SCAN = 256;
 
@@ -210,7 +211,7 @@ function listGrantingContainerRows(
   batch: readonly string[],
   scope: ReferencingScope,
 ) {
-  return executor
+  const rows = executor
     .select({
       containerId: accessManifestContainerGrantProjection.containerId,
     })
@@ -228,7 +229,10 @@ function listGrantingContainerRows(
           : inArray(accessManifestContainerGrantProjection.containerId, scope),
       ),
     )
-    .limit(MAX_REFERENCING_CONTAINER_SCAN);
+    .orderBy(asc(accessManifestContainerGrantProjection.containerId));
+  return scope === undefined
+    ? rows.limit(MAX_REFERENCING_CONTAINER_SCAN)
+    : rows;
 }
 
 function listCitingContainerRows(
@@ -237,10 +241,8 @@ function listCitingContainerRows(
   batch: readonly string[],
   scope: ReferencingScope,
 ) {
-  return executor
-    .select({
-      containerId: accessManifestPrincipalHeadProjection.objectId,
-    })
+  const rows = executor
+    .select({ containerId: accessManifestPrincipalHeadProjection.objectId })
     .from(accessManifestPrincipalHeadProjection)
     .innerJoin(
       accessManifestHeads,
@@ -266,7 +268,10 @@ function listCitingContainerRows(
           : inArray(accessManifestPrincipalHeadProjection.objectId, scope),
       ),
     )
-    .limit(MAX_REFERENCING_CONTAINER_SCAN);
+    .orderBy(asc(accessManifestPrincipalHeadProjection.objectId));
+  return scope === undefined
+    ? rows.limit(MAX_REFERENCING_CONTAINER_SCAN)
+    : rows;
 }
 
 /**
@@ -395,4 +400,27 @@ export function selectCandidateContainerIds(input: {
     }
   }
   return uniqueSortedStrings([...candidates]);
+}
+
+/** Whether the user is currently in any group of the organization. */
+export async function isCurrentMemberOfAnyOrganizationGroup(
+  executor: DatabaseSession,
+  organizationId: string,
+  userId: string,
+): Promise<boolean> {
+  const groupIds = await listCurrentGroupIdsForUser(executor, userId);
+  for (const batch of batches(groupIds)) {
+    const [row] = await executor
+      .select({ id: groups.id })
+      .from(groups)
+      .where(
+        and(
+          eq(groups.organizationId, organizationId),
+          inArray(groups.id, batch),
+        ),
+      )
+      .limit(1);
+    if (row) return true;
+  }
+  return false;
 }

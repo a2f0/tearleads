@@ -2,6 +2,7 @@ import type { DatabaseSession } from "@tearleads/api-shared/postgres";
 import {
   groups,
   organizationRosterEntries,
+  organizations,
   principalMembershipProjection,
 } from "@tearleads/api-shared/schema";
 import type { ManagedRecipientPrincipalType } from "@tearleads/crypto";
@@ -10,11 +11,13 @@ import type { StoredPrincipalState } from "../../access/read/principalStateStore
 import { uniqueSortedStrings } from "../../utils/array";
 import {
   type ContainerAccessProjection,
+  type ContainerWriterProjectionContext,
   createContainerWriterProjectionContext,
 } from "../containers/writerProjection";
 import { resolveReadableContainerAccessBatch } from "../keyingReadAccess";
 import {
   ancestorsOrSelf,
+  isCurrentMemberOfAnyOrganizationGroup,
   listContainerIdsReferencingPrincipals,
   listReferencingPrincipals,
   listRequesterSeedContainerIds,
@@ -47,6 +50,22 @@ async function resolvePrincipalOrganizationId(
     .where(eq(groups.id, principalId))
     .limit(1);
   return group?.organizationId ?? null;
+}
+
+async function isOrganizationOrAdminsPrincipal(
+  executor: DatabaseSession,
+  organizationId: string,
+  principal: Pick<StoredPrincipalState, "principalType" | "principalId">,
+): Promise<boolean> {
+  if (principal.principalType === "organization") {
+    return true;
+  }
+  const [organization] = await executor
+    .select({ adminGroupId: organizations.adminGroupId })
+    .from(organizations)
+    .where(eq(organizations.id, organizationId))
+    .limit(1);
+  return organization?.adminGroupId === principal.principalId;
 }
 
 async function isActiveRosterMember(
@@ -121,6 +140,7 @@ async function holdsGrantReferencingPrincipal(
   executor: DatabaseSession,
   currentState: StoredPrincipalState,
   userId: string,
+  sharedContext: ContainerWriterProjectionContext | undefined,
 ): Promise<boolean> {
   const seeds = await listRequesterSeedContainerIds(executor, userId);
   if (seeds.length === 0) {
@@ -143,10 +163,13 @@ async function holdsGrantReferencingPrincipal(
     referencingPrincipals,
     { withinContainerIds: seedChain },
   );
-  const scanned = await listContainerIdsReferencingPrincipals(
-    executor,
-    referencingPrincipals,
-  );
+  const scanned =
+    anchored.length > 0
+      ? []
+      : await listContainerIdsReferencingPrincipals(
+          executor,
+          referencingPrincipals,
+        );
   const referencing = uniqueSortedStrings([...anchored, ...scanned]);
   if (referencing.length === 0) {
     return false;
@@ -160,7 +183,8 @@ async function holdsGrantReferencingPrincipal(
     referencing,
     seeds,
   }).slice(0, MAX_VERIFIED_CANDIDATE_CONTAINERS);
-  const context = createContainerWriterProjectionContext(executor);
+  const context =
+    sharedContext ?? createContainerWriterProjectionContext(executor);
   for (
     let index = 0;
     index < candidates.length;
@@ -199,6 +223,8 @@ async function holdsGrantReferencingPrincipal(
  * on. Honest clients are always in one of those sets.
  */
 export async function assertPrincipalPolicyReadable(input: {
+  /** A writer-projection context to share across several checks. */
+  readonly context?: ContainerWriterProjectionContext | undefined;
   readonly currentState: StoredPrincipalState;
   readonly executor: DatabaseSession;
   readonly requesterUserId: string;
@@ -220,11 +246,29 @@ export async function assertPrincipalPolicyReadable(input: {
   ) {
     return;
   }
+  // A member of any group in the organization verifies that group against
+  // the organization and Admins bundles, so those two follow from membership.
+  if (
+    organizationId !== null &&
+    (await isOrganizationOrAdminsPrincipal(
+      executor,
+      organizationId,
+      currentState,
+    )) &&
+    (await isCurrentMemberOfAnyOrganizationGroup(
+      executor,
+      organizationId,
+      requesterUserId,
+    ))
+  ) {
+    return;
+  }
   if (
     await holdsGrantReferencingPrincipal(
       executor,
       currentState,
       requesterUserId,
+      input.context,
     )
   ) {
     return;

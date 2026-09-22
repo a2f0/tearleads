@@ -47,12 +47,12 @@ import {
 import { signPrincipalStateBundle } from "./principalState";
 import type { DecryptableStoredRootFixture } from "./registeredRootKek";
 
-interface SignedGroupSuccessor {
+export interface SignedGroupSuccessor {
   readonly policy: VerifiedPrincipalPolicy;
   readonly request: PutPrincipalPolicyRequest;
 }
 
-async function signGroupSuccessor(input: {
+export async function signGroupSuccessor(input: {
   actor: TestUser;
   current: VerifiedPrincipalPolicy;
   grants: readonly PrincipalContainerGrant[];
@@ -137,7 +137,7 @@ async function signGroupSuccessor(input: {
   };
 }
 
-function principalHead(
+export function principalHead(
   policy: VerifiedPrincipalPolicy,
 ): ContainerGrantPrincipalHead {
   return {
@@ -150,7 +150,7 @@ function principalHead(
   };
 }
 
-async function createManagedPrincipalWrap(input: {
+export async function createManagedPrincipalWrap(input: {
   readonly containerKey: Uint8Array;
   readonly containerKeyEpochId: string;
   readonly policy: VerifiedPrincipalPolicy;
@@ -251,7 +251,7 @@ async function buildGroupGrantMutation(input: {
   };
 }
 
-async function submitSuccessor(input: {
+export async function submitSuccessor(input: {
   actor: TestUser;
   containerMutation: ContainerMutationRequest;
   groupId: string;

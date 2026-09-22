@@ -25,7 +25,7 @@ import {
   loadPrincipalPoliciesForContainerPath,
 } from "./keyingWriterProjectionKit";
 
-export async function createChildContainer(input: {
+export interface CreateChildContainerInput {
   readonly parent: {
     readonly bundle: AccessManifestBundleWire | VerifiedContainerAccessManifest;
     readonly kekState: VerifiedContainerKekState;
@@ -33,14 +33,30 @@ export async function createChildContainer(input: {
   // The parent's own ancestors, root first; empty when the parent is a root.
   readonly parentPath?: readonly AccessManifestBundleWire[] | undefined;
   readonly signer: TestUser;
-}): Promise<ContainerMutationResponse> {
+}
+
+export async function createChildContainer(
+  input: CreateChildContainerInput,
+): Promise<ContainerMutationResponse> {
+  return (await createChildContainerFixture(input)).response;
+}
+
+/** A created child plus the plaintext KEK a later grant on it must wrap. */
+export async function createChildContainerFixture(
+  input: CreateChildContainerInput,
+): Promise<{
+  readonly containerKeyEpochId: string;
+  readonly plaintextKek: Uint8Array;
+  readonly response: ContainerMutationResponse;
+}> {
   const parentBundle = input.parent.bundle as AccessManifestBundleWire;
   const parentContainerPath = [...(input.parentPath ?? []), parentBundle];
   const containerId = crypto.randomUUID();
-  const { containerKeyEpochId } = await createTestContainerKekMaterial({
-    containerId,
-    keyEpoch: 1,
-  });
+  const { containerKeyEpochId, plaintextKek } =
+    await createTestContainerKekMaterial({
+      containerId,
+      keyEpoch: 1,
+    });
   const parentManifest = asVerifiedContainerManifest(parentBundle);
   const body: ContainerAccessEventBody = {
     containerKeyPublicKey:
@@ -127,5 +143,9 @@ export async function createChildContainer(input: {
   expect(response.status).toBe(200);
   const created = await response.json();
   expect(isContainerMutationResponse(created)).toBe(true);
-  return created as ContainerMutationResponse;
+  return {
+    containerKeyEpochId,
+    plaintextKek,
+    response: created as ContainerMutationResponse,
+  };
 }

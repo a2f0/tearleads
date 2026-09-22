@@ -1,24 +1,24 @@
 import { expect, test } from "bun:test";
 import { db } from "@tearleads/api-shared/postgres";
-import {
-  organizationRosterEntries,
-  organizations,
-} from "@tearleads/api-shared/schema";
+import { organizationRosterEntries } from "@tearleads/api-shared/schema";
 import { createTestUser, type TestUser } from "@tearleads/bob-and-alice";
 import type { AccessManifestBundleWire } from "@tearleads/validators/request";
-import type { ContainerMutationResponse } from "@tearleads/validators/response";
+import { isContainerMutationResponse } from "@tearleads/validators/response";
 import { and, eq } from "drizzle-orm";
 import invariant from "invariant";
-import { authenticate } from "../../../test/helpers/authenticate";
 import {
   bootstrapRoot,
   buildRootGrantRequest,
 } from "../../../test/helpers/keyingWriterProjectionKit";
 import { buildRootRevokeRequest } from "../../../test/helpers/keyingWriterProjectionRevoke";
 import { getDefaultOrganizationId } from "../../../test/helpers/organizationMembership";
-import { stripOrganizationMembership } from "../../../test/helpers/principalPolicyReadFixtures";
+import {
+  getPolicy,
+  loadOrganizationGroups,
+  registerAndAuthenticate,
+  stripOrganizationMembership,
+} from "../../../test/helpers/principalPolicyReadFixtures";
 import { recoverRegisteredRootKek } from "../../../test/helpers/registeredRootKek";
-import { registerUser } from "../../../test/helpers/registerUser";
 import {
   grantRootThroughRotatedReadGroup,
   rotateRootGroupMembership,
@@ -29,34 +29,6 @@ import { routeApp } from "../../routeApp";
 // entry, membership in the principal's current projection, or a grant on the
 // container's current head. Each test here removes exactly one of those and
 // shows the bundle is refused.
-
-async function registerAndAuthenticate(...users: TestUser[]): Promise<void> {
-  for (const user of users) {
-    await registerUser(user);
-    await authenticate(user);
-  }
-}
-
-async function getPolicy(
-  actor: TestUser,
-  principalType: "group" | "organization",
-  principalId: string,
-): Promise<Response> {
-  return routeApp.request(
-    `/principals/${principalType}/${principalId}/policy`,
-    { headers: { Authorization: `Bearer ${actor.token}` } },
-  );
-}
-
-async function loadAdminGroupId(organizationId: string): Promise<string> {
-  const [organization] = await db
-    .select({ adminGroupId: organizations.adminGroupId })
-    .from(organizations)
-    .where(eq(organizations.id, organizationId))
-    .limit(1);
-  invariant(organization, "expected organization row");
-  return organization.adminGroupId;
-}
 
 async function postAsOwner(
   owner: TestUser,
@@ -78,7 +50,7 @@ test("a disabled roster entry does not authorize a principal policy read", async
   const member = createTestUser();
   await registerAndAuthenticate(owner, member);
   const organizationId = await getDefaultOrganizationId(owner.userId);
-  const adminGroupId = await loadAdminGroupId(organizationId);
+  const { adminGroupId } = await loadOrganizationGroups(organizationId);
   // A bare roster row, with no projection membership and no grant, so the
   // roster status is the only thing that can authorize the read.
   await db.insert(organizationRosterEntries).values({
@@ -112,7 +84,7 @@ test("a user dropped from the group's current projection loses the read", async 
   const reader = createTestUser();
   await registerAndAuthenticate(owner, reader);
   const organizationId = await getDefaultOrganizationId(owner.userId);
-  const adminGroupId = await loadAdminGroupId(organizationId);
+  const { adminGroupId } = await loadOrganizationGroups(organizationId);
   const root = await recoverRegisteredRootKek({
     owner,
     root: await bootstrapRoot(owner),
@@ -143,7 +115,7 @@ test("a grant revoked from the container's current head no longer authorizes", a
   const peer = createTestUser();
   await registerAndAuthenticate(owner, peer);
   const organizationId = await getDefaultOrganizationId(owner.userId);
-  const adminGroupId = await loadAdminGroupId(organizationId);
+  const { adminGroupId } = await loadOrganizationGroups(organizationId);
   const root = await bootstrapRoot(owner);
   const shareResponse = await postAsOwner(
     owner,
@@ -156,7 +128,8 @@ test("a grant revoked from the container's current head no longer authorizes", a
     }),
   );
   expect(shareResponse.status, await shareResponse.clone().text()).toBe(200);
-  const shared = (await shareResponse.json()) as ContainerMutationResponse;
+  const shared: unknown = await shareResponse.json();
+  invariant(isContainerMutationResponse(shared), "expected a share response");
   await stripOrganizationMembership(organizationId, peer.userId);
   expect((await getPolicy(peer, "group", adminGroupId)).status).toBe(200);
 

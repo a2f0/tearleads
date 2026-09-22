@@ -1,41 +1,24 @@
 import { expect, test } from "bun:test";
 import { db } from "@tearleads/api-shared/postgres";
-import { organizations } from "@tearleads/api-shared/schema";
 import { createTestUser, type TestUser } from "@tearleads/bob-and-alice";
-import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
-import { eq } from "drizzle-orm";
+import { isPrincipalPolicyStaleErrorResponse } from "@tearleads/validators/response";
 import invariant from "invariant";
-import { authenticate } from "../../../test/helpers/authenticate";
 import {
   bootstrapRoot,
   buildRootGrantRequest,
 } from "../../../test/helpers/keyingWriterProjectionKit";
 import { getDefaultOrganizationId } from "../../../test/helpers/organizationMembership";
 import { loadVerifiedPrincipalPolicy } from "../../../test/helpers/principalPolicy";
-import { registerUser } from "../../../test/helpers/registerUser";
+import {
+  loadOrganizationGroups,
+  registerAndAuthenticate,
+} from "../../../test/helpers/principalPolicyReadFixtures";
 import { routeApp } from "../../routeApp";
 
 // A stale-policy 409 returns the current bundles so the client can repair its
 // mutation. That reject runs before the mutation's own authorization, so it
 // must serve only bundles the requester could read through GET; otherwise a
-// fabricated stale entry naming any principal is an unauthenticated read.
-
-async function registerAndAuthenticate(...users: TestUser[]): Promise<void> {
-  for (const user of users) {
-    await registerUser(user);
-    await authenticate(user);
-  }
-}
-
-async function loadAdminGroupId(organizationId: string): Promise<string> {
-  const [organization] = await db
-    .select({ adminGroupId: organizations.adminGroupId })
-    .from(organizations)
-    .where(eq(organizations.id, organizationId))
-    .limit(1);
-  invariant(organization, "expected organization row");
-  return organization.adminGroupId;
-}
+// fabricated stale entry naming any principal is an unauthorized read.
 
 /** A well-formed artifact for the group that names a superseded state. */
 async function staleArtifactFor(
@@ -93,7 +76,7 @@ test("a stale-policy reject returns only bundles the requester may read", async 
   const attacker = createTestUser();
   const bystander = createTestUser();
   await registerAndAuthenticate(victim, attacker, bystander);
-  const victimAdminGroupId = await loadAdminGroupId(
+  const { adminGroupId: victimAdminGroupId } = await loadOrganizationGroups(
     await getDefaultOrganizationId(victim.userId),
   );
 
@@ -104,11 +87,8 @@ test("a stale-policy reject returns only bundles the requester may read", async 
   );
 
   expect(response.status, await response.clone().text()).toBe(409);
-  const body = (await response.json()) as {
-    code: string;
-    principalPolicies: PrincipalPolicyBundleResponse[];
-  };
-  expect(body.code).toBe("principal_policy_stale");
+  const body: unknown = await response.json();
+  invariant(isPrincipalPolicyStaleErrorResponse(body), "expected stale reject");
   expect(
     body.principalPolicies.map((bundle) => bundle.currentState.principalId),
   ).toEqual([]);
@@ -118,18 +98,15 @@ test("a stale-policy reject still repairs a bundle the requester may read", asyn
   const owner = createTestUser();
   const peer = createTestUser();
   await registerAndAuthenticate(owner, peer);
-  const adminGroupId = await loadAdminGroupId(
+  const { adminGroupId } = await loadOrganizationGroups(
     await getDefaultOrganizationId(owner.userId),
   );
 
   const response = await shareOwnRootCiting(owner, peer, adminGroupId);
 
   expect(response.status, await response.clone().text()).toBe(409);
-  const body = (await response.json()) as {
-    code: string;
-    principalPolicies: PrincipalPolicyBundleResponse[];
-  };
-  expect(body.code).toBe("principal_policy_stale");
+  const body: unknown = await response.json();
+  invariant(isPrincipalPolicyStaleErrorResponse(body), "expected stale reject");
   expect(
     body.principalPolicies.map((bundle) => bundle.currentState.principalId),
   ).toEqual([adminGroupId]);

@@ -23,6 +23,7 @@ import {
 } from "../../../principals/getCurrentPrincipalPolicy";
 import { assertPrincipalPolicyReadable } from "../../../principals/principalPolicyReadAuthorization";
 import { PrincipalPolicyError } from "../../../principals/shared";
+import { createContainerWriterProjectionContext } from "../../writerProjection";
 import { ContainerMutationError, mutationStateStale } from "../errors";
 import type { PrincipalPolicyRequestArtifact } from "./principalPolicyRecords";
 
@@ -205,7 +206,7 @@ async function stalePrincipalPolicyError(input: {
   // bundles so the client can verify, cache, rebuild the mutation, and retry.
   // Only bundles the requester may read are returned: this reject runs before
   // the mutation's own authorization, so a fabricated stale entry naming any
-  // principal must not turn it into an unauthenticated policy read.
+  // principal must not turn it into an unauthorized policy read.
   for (const policy of input.policies) {
     const key = principalPolicyKey(policy);
     const currentState = input.artifacts.currentStateByPolicyKey.get(key);
@@ -219,6 +220,7 @@ async function stalePrincipalPolicyError(input: {
     }
   }
 
+  const context = createContainerWriterProjectionContext(input.executor);
   const principalPolicies = (
     await gatherWithExecutor(
       input.executor,
@@ -226,6 +228,7 @@ async function stalePrincipalPolicyError(input: {
       async (currentState) => {
         try {
           await assertPrincipalPolicyReadable({
+            context,
             currentState,
             executor: input.executor,
             requesterUserId: input.requesterUserId,
