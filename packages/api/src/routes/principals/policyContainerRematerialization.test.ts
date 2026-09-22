@@ -1,159 +1,18 @@
 import { expect, test } from "bun:test";
 import { db } from "@tearleads/api-shared/postgres";
-import { createTestUser } from "@tearleads/bob-and-alice";
-import {
-  computePrincipalStateHash,
-  generateKemSeedAndKeyPair,
-  makeVerifiedPrincipalPolicy,
-} from "@tearleads/crypto";
-import { base64ToBytes } from "@tearleads/encoding";
 import { isCommitOrganizationGroupPolicyResponse } from "@tearleads/validators/response";
 import invariant from "invariant";
-import { authenticate } from "../../../test/helpers/authenticate";
-import { buildPrincipalGrantRefreshRequest } from "../../../test/helpers/containerGrantRefresh";
 import { buildRootContainerRekeyMutation } from "../../../test/helpers/containerRekey";
+import { asVerifiedContainerManifest } from "../../../test/helpers/keyingWriterProjectionKit";
 import {
-  asVerifiedContainerManifest,
-  bootstrapRoot,
-} from "../../../test/helpers/keyingWriterProjectionKit";
-import { withGroupMembershipContainerMutations } from "../../../test/helpers/organizationMembershipGrants";
-import {
-  createSignedPrincipalState,
-  getDefaultOrganizationId,
-  submitOrganizationGroupPolicyCommit,
-} from "../../../test/helpers/principalPolicy";
-import { registerUser } from "../../../test/helpers/registerUser";
+  prepareRotation,
+  putPolicy,
+} from "../../../test/helpers/policyRotationFixture";
 import { getCurrentAccessManifestHeads } from "../../access/read/accessManifestStore";
 import { getCurrentContainerKeyEpoch } from "../../access/read/containerKekStore";
 import { getCurrentPrincipalState } from "../../access/read/principalStateStore";
 import { routeApp } from "../../routeApp";
 import { assertGroupReferenceHeadsCurrent } from "../../workflows/containers/mutations/shared/groupReferenceHeads";
-
-async function prepareRotation(input: { rotateKey?: boolean } = {}) {
-  const owner = createTestUser();
-  await registerUser(owner);
-  await authenticate(owner);
-  const root = await bootstrapRoot(owner);
-  const currentPolicy = root.principalPolicies[0];
-  if (!currentPolicy) {
-    throw new Error("Expected the root Admins policy");
-  }
-  const rotatesKey = input.rotateKey ?? true;
-  const generatedPrincipalKem = generateKemSeedAndKeyPair();
-  const principalKem = rotatesKey
-    ? generatedPrincipalKem
-    : {
-        publicKey: base64ToBytes(currentPolicy.state.encapsulationPublicKey),
-        secretKey: generatedPrincipalKem.secretKey,
-      };
-  const signed = await createSignedPrincipalState({
-    principalType: currentPolicy.principalType,
-    principalId: currentPolicy.principalId,
-    principalKem,
-    version: currentPolicy.version + 1,
-    prevStateHash: currentPolicy.stateHash,
-    keyEpoch: currentPolicy.keyEpoch + (rotatesKey ? 1 : 0),
-    members: currentPolicy.projection.map((member) => ({
-      userId: member.userId,
-    })),
-    projection: [...currentPolicy.projection],
-    grants: [...currentPolicy.grants],
-    signerUserId: owner.userId,
-    signerUserKeyFingerprint: owner.fingerprint,
-    signingPrivateKey: owner.signing.signingPrivateKey,
-  });
-  const stateHash = await computePrincipalStateHash(signed.state);
-  const nextState = {
-    ...signed.state,
-    stateHash,
-    createdAt: signed.state.signedAt,
-  };
-  const nextPolicy = makeVerifiedPrincipalPolicy({
-    principalType: nextState.principalType,
-    principalId: nextState.principalId,
-    version: nextState.version,
-    keyEpoch: nextState.keyEpoch,
-    stateHash,
-    state: nextState,
-    projection: signed.projection,
-    grants: signed.grants,
-    history: [
-      {
-        state: currentPolicy.state,
-        projection: currentPolicy.projection,
-        grants: currentPolicy.grants,
-      },
-      {
-        state: nextState,
-        projection: signed.projection,
-        grants: signed.grants,
-      },
-    ],
-    checkpoint: {
-      principalType: nextState.principalType,
-      principalId: nextState.principalId,
-      version: nextState.version,
-      stateHash,
-    },
-  });
-  const rootRekey = rotatesKey
-    ? await buildRootContainerRekeyMutation({
-        previous: root,
-        replacementPrincipalPolicy: nextPolicy,
-        signer: owner,
-      })
-    : {
-        bundle: root.bundle,
-        request: await buildPrincipalGrantRefreshRequest({
-          parentKekState: null,
-          previous: root.bundle,
-          previousContainerPath: [root.bundle],
-          previousKekState: root.kekState,
-          replacementPrincipalPolicy: nextPolicy,
-          signer: owner,
-        }),
-        kekState: root.kekState,
-      };
-  const dependentPolicy = await withGroupMembershipContainerMutations({
-    actor: owner,
-    containerIds: currentPolicy.grants
-      .filter((grant) => grant.containerId !== root.kekState.containerId)
-      .map((grant) => grant.containerId),
-    currentPolicy,
-    signedState: signed,
-  });
-  const metadataMutations = dependentPolicy.containerMutations ?? [];
-  expect(metadataMutations).toHaveLength(1);
-  return {
-    containerMutations: [rootRekey.request, ...metadataMutations],
-    currentPolicy,
-    metadataMutations,
-    nextPolicy,
-    owner,
-    root,
-    rootRekey,
-    signed,
-  };
-}
-
-async function putPolicy(
-  input: Awaited<ReturnType<typeof prepareRotation>>,
-  containerMutations = input.containerMutations,
-) {
-  return submitOrganizationGroupPolicyCommit({
-    actor: input.owner,
-    groupId: input.nextPolicy.principalId,
-    groupPolicy: {
-      state: input.signed.state,
-      encryptedPayload: input.signed.encryptedPayload,
-      projection: input.signed.projection,
-      grants: input.signed.grants,
-      memberEnvelopes: input.signed.memberEnvelopes,
-      containerMutations,
-    },
-    organizationId: await getDefaultOrganizationId(input.owner.userId),
-  });
-}
 
 async function expectMetadataHeads(
   prepared: Awaited<ReturnType<typeof prepareRotation>>,

@@ -413,6 +413,12 @@ export async function moveRemoteContainer(input: {
         apiClient: input.apiClient,
         author: input.author,
         execSql: input.execSql,
+        knownContainerKeks: new Map([
+          [
+            materializedPlan.plan.containerKeyEpochId,
+            materializedPlan.containerKey,
+          ],
+        ]),
         resolveProjectionUserKey: resolveProjectionUserKey,
         stillCurrent: input.stillCurrent,
         targetSecretKey: input.targetSecretKey,

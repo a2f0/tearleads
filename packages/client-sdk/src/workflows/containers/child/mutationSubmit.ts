@@ -3,7 +3,6 @@ import type { ContainerMutationRequest } from "@tearleads/validators/request";
 import {
   CONTAINER_MUTATION_ERROR_CODES,
   type ContainerRotationResponse,
-  type ContainerWriterProjectionResponse,
 } from "@tearleads/validators/response";
 import { rememberVerifiedContainerHeads } from "../../../data/containers/shared/heldContainerHeads";
 import {
@@ -21,6 +20,7 @@ import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import {
   type CarriedRekeyPlanningInput,
   planCarriedDescendantRekeys,
+  type SpeculativePath,
 } from "./carriedDescendantRekeys";
 import { scheduleHeldDescendantRecitations } from "./recite";
 
@@ -32,9 +32,7 @@ import { scheduleHeldDescendantRecitations } from "./recite";
 export interface CarriedRekeys {
   readonly planning: CarriedRekeyPlanningInput;
   /** The rotated container's own path once the rotation is accepted. */
-  readonly rotated: () => Promise<
-    Pick<ContainerWriterProjectionResponse, "containerKeks" | "path">
-  >;
+  readonly rotated: () => Promise<SpeculativePath>;
 }
 
 /** A mutation with no status-bearing variant: a share mints nothing to carry. */
@@ -91,7 +89,7 @@ export async function submitRotationCarryingDescendants(input: {
   const carriedPlans = await planCarriedDescendantRekeys({
     ...input.carriedRekeys.planning,
     requiredContainerIds: result.requiredContainerIds,
-    rotated: await input.carriedRekeys.rotated(),
+    rotated: [await input.carriedRekeys.rotated()],
   });
   // Superseded mid-flight: hand back the refusal unreported, since the caller
   // discards it and the generation that owned this attempt is gone.

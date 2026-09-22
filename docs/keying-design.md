@@ -769,8 +769,11 @@ the carried set is usually empty. It is capped at 64 per rotation; past the cap
 the remainder repairs lazily rather than refuse a revocation, and a writer who
 meets such a level parks under an explicit
 `document_ancestor_repair_inaccessible` state until the dependent-path hint that
-follows its repair. Group rematerialization does not yet carry descendants and
-is the one rotation source outside the rule; #2340 tracks closing it.
+follows its repair. Group rematerialization is held to the same rule: a
+rekey or revoke among a policy's rematerialized containers carries the
+descendants it owes in the same batch, woven in parent-first beneath the
+rotation each rides, and a level the batch's own rotations strand between two
+of its containers is carried without being named.
 [`InaccessibleIntermediateRepair.tla`](../formal/container-keying/InaccessibleIntermediateRepair.md)
 models the rule and the alternatives it rejects.
 

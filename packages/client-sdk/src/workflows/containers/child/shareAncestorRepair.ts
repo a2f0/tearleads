@@ -59,8 +59,8 @@ function firstStaleLevelId(
  *
  * Every share does this, not only a first grant, which is all the server
  * insists on. A container that already carries a grant is stale only past the
- * carried-rekey cap or after a group rematerialization, and its grantees are
- * then parked behind exactly these levels; the sharer is already here and able.
+ * carried-rekey cap, and its grantees are then parked behind exactly these
+ * levels; the sharer is already here and able.
  */
 export async function projectionWithCurrentAncestors(input: {
   apiClient: ContainerShareApi &
@@ -88,9 +88,9 @@ export async function projectionWithCurrentAncestors(input: {
       );
     }
     // This sharer may be unable to re-key a level above a container that
-    // already carries a grant: stale past the carried-rekey cap, or after a
-    // group rematerialization. The server asks a current chain only of a first
-    // grant, so it decides rather than this blocking a grant it would accept.
+    // already carries a grant, stale past the carried-rekey cap. The server
+    // asks a current chain only of a first grant, so it decides rather than
+    // this blocking a grant it would accept.
     const serverDecides =
       staleLevelId !== input.containerId && carriesDirectGrant(projection);
     const repaired = await rekeyRemoteContainer({

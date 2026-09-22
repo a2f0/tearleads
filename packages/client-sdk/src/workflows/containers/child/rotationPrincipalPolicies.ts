@@ -3,6 +3,7 @@ import type { ContainerWriterProjectionResponse } from "@tearleads/validators/re
 import { uniquePrincipalPolicies } from "../../../data/containers/shared/principalPolicies";
 import {
   collectContainerWriterProjectionPrincipalPolicies,
+  type PrincipalPolicyCache,
   type ProjectionUserKeyResolver,
   type ReferencedPrincipalPolicyWarmer,
 } from "../../../data/keyingProjectionVerification";
@@ -17,6 +18,7 @@ export async function collectContainerRevokePrincipalPolicies(input: {
   execSql: ExecSql;
   persistVerificationCheckpoints?: boolean | undefined;
   previousProjection: ContainerWriterProjectionResponse;
+  principalPolicyCache?: PrincipalPolicyCache | undefined;
   resolveUserKey: ProjectionUserKeyResolver;
   stillCurrent?: (() => boolean) | undefined;
   warmReferencedPrincipalPolicies?: ReferencedPrincipalPolicyWarmer | undefined;
@@ -25,6 +27,7 @@ export async function collectContainerRevokePrincipalPolicies(input: {
     await collectContainerWriterProjectionPrincipalPolicies({
       execSql: input.execSql,
       persistVerificationCheckpoints: input.persistVerificationCheckpoints,
+      principalPolicyCache: input.principalPolicyCache,
       projection: input.previousProjection,
       resolveUserKey: input.resolveUserKey,
       stillCurrent: input.stillCurrent,

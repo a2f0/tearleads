@@ -6,6 +6,7 @@ import {
 } from "@tearleads/crypto";
 import { base64ToBytes } from "@tearleads/encoding";
 import { createTestExecSql } from "@tearleads/test-utils";
+import type { ContainerWriterProjectionResponse } from "@tearleads/validators/response";
 import {
   ensurePrincipalPolicyTables,
   savePrincipalPolicyBundle,
@@ -164,6 +165,12 @@ export async function createPrincipalReciteFixture(input: {
 
   return {
     database,
+    /** The group as it stands before this rotation, for grants created under it. */
+    previousBundle,
+    /** Register a projection the fake API serves, e.g. a created child. */
+    serveProjection: (projection: ContainerWriterProjectionResponse) => {
+      projections.set(projection.containerId, projection);
+    },
     signingPublicKey,
     grants,
     requestedContainerIds,

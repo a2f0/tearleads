@@ -295,6 +295,7 @@ export async function buildMaterializedContainerCreatePlan(
     containerKeyEpochId?: string | undefined;
     eventId?: string | undefined;
     execSql?: ExecSql | undefined;
+    managedPrincipalGrant?: BuildContainerCreatePlanInput["managedPrincipalGrant"];
     metadataDocumentId?: string | undefined;
     systemSlot?: string | null | undefined;
     parentProjection: ContainerWriterProjectionResponse;
@@ -345,6 +346,7 @@ export async function buildMaterializedContainerCreatePlan(
     containerKey,
     containerKeyEpochId: input.containerKeyEpochId,
     eventId: input.eventId,
+    managedPrincipalGrant: input.managedPrincipalGrant,
     metadataDocumentId: input.metadataDocumentId,
     systemSlot: input.systemSlot,
     parentProjection: input.parentProjection,

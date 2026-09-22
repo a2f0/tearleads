@@ -50,8 +50,7 @@ export async function assertParentKekStateCurrent(
   // repairs that chain before sharing. A container that already carries a
   // grant is exempt: rotations above it must keep its chain current, so a
   // further grant, or a group rematerialization refreshing one, adds no new
-  // obligation. That chain can still be stale past the carried-rekey cap, or
-  // after a group rematerialization, which does not carry descendants yet;
+  // obligation. That chain can still be stale past the carried-rekey cap;
   // refusing a second grant there would repair nothing the first did not owe.
   const isFirstGrant =
     eventType === "container.grant" &&
