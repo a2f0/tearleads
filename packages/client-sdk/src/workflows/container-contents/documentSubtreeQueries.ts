@@ -1,6 +1,9 @@
 import type { DocumentSummary } from "../../data/documents/documentSummary";
 import { sqlDocumentContainerProjectionPersistence } from "../../data/persistence/containers/documentContainerProjectionPersistence";
-import { listContainerDocumentTombstoneHolds } from "../../data/persistence/documents/containerDocumentTombstoneHoldsPersistence";
+import {
+  containerDocumentPlacementKey,
+  listContainerDocumentTombstoneHoldsForDocuments,
+} from "../../data/persistence/documents/containerDocumentTombstoneHoldsPersistence";
 import { sqlDocumentsPersistence } from "../../data/persistence/documents/documentsPersistence";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import { compareContainerContentsDocumentSummaries } from "./documentQueries/rows";
@@ -93,7 +96,10 @@ function heldPlacementKey(
   documentId: string | null,
   containerId: string,
 ): string {
-  return `${documentId ?? ""}\u0000${containerId}`;
+  return containerDocumentPlacementKey({
+    containerId,
+    documentId: documentId ?? "",
+  });
 }
 
 function withoutHeldPlacements(
@@ -154,7 +160,7 @@ export async function listContainerContentsDocumentsForContainers(
       execSql,
       documentIds,
     ),
-    await listContainerDocumentTombstoneHolds(execSql, containerIds),
+    await listContainerDocumentTombstoneHoldsForDocuments(execSql, documentIds),
   );
 
   // An earlier link-id read can race a move. Recheck membership against the

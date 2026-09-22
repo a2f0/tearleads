@@ -1,4 +1,4 @@
-import { and, asc, eq, inArray, lte } from "drizzle-orm";
+import { and, asc, eq, inArray, sql } from "drizzle-orm";
 import {
   containerDocumentTombstoneHolds,
   documentContainerProjection,
@@ -30,9 +30,12 @@ function batches<T>(values: ReadonlyArray<T>): T[][] {
   return result;
 }
 
-function placementKey(placement: ContainerDocumentPlacementKey): string {
+export function containerDocumentPlacementKey(
+  placement: ContainerDocumentPlacementKey,
+): string {
   return `${placement.documentId}\u0000${placement.containerId}`;
 }
+const placementKey = containerDocumentPlacementKey;
 
 export async function deleteContainerDocumentTombstoneHoldRows(
   tx: ClientSQLiteTransactionScope,
@@ -55,9 +58,9 @@ export async function deleteContainerDocumentTombstoneHoldRows(
 }
 
 /**
- * A local move or relink takes ownership of a document's placement: the
- * intent, not a server listing, now says where it lives, so any hold that was
- * hiding one of its placements is released with the link rewrite.
+ * A local move takes ownership of a document's placement: the intent, not a
+ * server listing, now says where it lives, so every hold that was hiding one
+ * of its placements is released with the link rewrite.
  */
 export async function deleteContainerDocumentTombstoneHoldsForDocuments(
   tx: ClientSQLiteTransactionScope,
@@ -144,31 +147,69 @@ export async function holdContainerDocumentTombstonesInTransaction(
     };
     await tx
       .insert(containerDocumentTombstoneHolds)
-      .values(row)
+      .values({ ...row, attempts: 1 })
       .onConflictDoUpdate({
         target: [
           containerDocumentTombstoneHolds.documentId,
           containerDocumentTombstoneHolds.containerId,
         ],
-        set: row,
+        set: {
+          ...row,
+          attempts: sql`${containerDocumentTombstoneHolds.attempts} + 1`,
+        },
       })
       .run();
   }
 }
 
+/** Release the holds on placements a listing has re-asserted as linked. */
+export async function deleteContainerDocumentTombstoneHoldRowsForLinks(
+  tx: ClientSQLiteTransactionScope,
+  links: ReadonlyArray<{
+    readonly containerIds: ReadonlyArray<string>;
+    readonly documentId: string;
+  }>,
+): Promise<void> {
+  for (const link of links) {
+    for (const batch of batches(link.containerIds)) {
+      await tx
+        .delete(containerDocumentTombstoneHolds)
+        .where(
+          and(
+            eq(containerDocumentTombstoneHolds.documentId, link.documentId),
+            inArray(containerDocumentTombstoneHolds.containerId, batch),
+          ),
+        )
+        .run();
+    }
+  }
+}
+
+export interface ContainerDocumentTombstoneHoldRow
+  extends ContainerDocumentPlacementKey {
+  readonly attempts: number;
+  readonly tombstonedAt: string;
+  readonly updatedAt: string;
+}
+
+const holdRowSelection = {
+  attempts: containerDocumentTombstoneHolds.attempts,
+  containerId: containerDocumentTombstoneHolds.containerId,
+  documentId: containerDocumentTombstoneHolds.documentId,
+  tombstonedAt: containerDocumentTombstoneHolds.tombstonedAt,
+  updatedAt: containerDocumentTombstoneHolds.updatedAt,
+};
+
 /** Every hold on the given containers, for hiding placements in views. */
 export async function listContainerDocumentTombstoneHoldsInTransaction(
   handle: ClientSQLiteTransactionScope,
   containerIds: ReadonlyArray<string>,
-): Promise<ContainerDocumentPlacementKey[]> {
-  const holds: ContainerDocumentPlacementKey[] = [];
+): Promise<ContainerDocumentTombstoneHoldRow[]> {
+  const holds: ContainerDocumentTombstoneHoldRow[] = [];
   for (const batch of batches(containerIds)) {
     holds.push(
       ...(await handle
-        .select({
-          containerId: containerDocumentTombstoneHolds.containerId,
-          documentId: containerDocumentTombstoneHolds.documentId,
-        })
+        .select(holdRowSelection)
         .from(containerDocumentTombstoneHolds)
         .where(inArray(containerDocumentTombstoneHolds.containerId, batch))
         .orderBy(
@@ -180,51 +221,46 @@ export async function listContainerDocumentTombstoneHoldsInTransaction(
   return holds;
 }
 
-/**
- * Holds on the given containers due for another verification attempt: those
- * last attempted at or before `retryBefore`. A hold whose placement is gone
- * (the document was purged, reset, or relinked locally) has nothing left to
- * hide and is dropped first.
- */
-export async function listRetryableContainerDocumentTombstoneHoldsInTransaction(
-  tx: ClientSQLiteTransactionScope,
-  input: { containerIds: ReadonlyArray<string>; retryBefore: string },
-): Promise<HeldContainerDocumentTombstone[]> {
-  const retryable: HeldContainerDocumentTombstone[] = [];
-  for (const batch of batches(input.containerIds)) {
-    const rows = await tx
-      .select({
-        containerId: containerDocumentTombstoneHolds.containerId,
-        documentId: containerDocumentTombstoneHolds.documentId,
-        tombstonedAt: containerDocumentTombstoneHolds.tombstonedAt,
-      })
-      .from(containerDocumentTombstoneHolds)
-      .where(
-        and(
-          inArray(containerDocumentTombstoneHolds.containerId, batch),
-          lte(containerDocumentTombstoneHolds.updatedAt, input.retryBefore),
-        ),
-      )
-      .orderBy(
-        asc(containerDocumentTombstoneHolds.containerId),
-        asc(containerDocumentTombstoneHolds.documentId),
-      );
-    const known = new Set(
-      (await listKnownContainerDocumentPlacementsInTransaction(tx, rows)).map(
-        placementKey,
-      ),
-    );
-    const orphaned = rows.filter((row) => !known.has(placementKey(row)));
-    await deleteContainerDocumentTombstoneHoldRows(tx, orphaned);
-    retryable.push(
-      ...rows
-        .filter((row) => known.has(placementKey(row)))
-        .map((row) => ({
-          containerId: row.containerId,
-          documentId: row.documentId,
-          updatedAt: row.tombstonedAt,
-        })),
+/** Every hold on the given documents, in any container. */
+export async function listContainerDocumentTombstoneHoldsForDocumentsInTransaction(
+  handle: ClientSQLiteTransactionScope,
+  documentIds: ReadonlyArray<string>,
+): Promise<ContainerDocumentTombstoneHoldRow[]> {
+  const holds: ContainerDocumentTombstoneHoldRow[] = [];
+  for (const batch of batches(documentIds)) {
+    holds.push(
+      ...(await handle
+        .select(holdRowSelection)
+        .from(containerDocumentTombstoneHolds)
+        .where(inArray(containerDocumentTombstoneHolds.documentId, batch))
+        .orderBy(
+          asc(containerDocumentTombstoneHolds.documentId),
+          asc(containerDocumentTombstoneHolds.containerId),
+        )),
     );
   }
-  return retryable;
+  return holds;
+}
+
+/**
+ * Split the holds on the given containers into those whose placement is gone
+ * (the document was purged, reset, or relinked locally: nothing left to hide,
+ * so the hold is dropped) and those still hiding a placement.
+ */
+export async function partitionContainerDocumentTombstoneHolds(
+  handle: ClientSQLiteTransactionScope,
+  holds: ReadonlyArray<ContainerDocumentTombstoneHoldRow>,
+): Promise<{
+  live: ContainerDocumentTombstoneHoldRow[];
+  orphaned: ContainerDocumentTombstoneHoldRow[];
+}> {
+  const known = new Set(
+    (
+      await listKnownContainerDocumentPlacementsInTransaction(handle, holds)
+    ).map(placementKey),
+  );
+  return {
+    live: holds.filter((hold) => known.has(placementKey(hold))),
+    orphaned: holds.filter((hold) => !known.has(placementKey(hold))),
+  };
 }

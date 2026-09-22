@@ -11,7 +11,10 @@ import {
   getClientSQLitePersistenceRuntime,
 } from "../../sqlite/sqlitePersistenceRuntime";
 import { type ExecSql, ensureSqlTables } from "../../sqlite/sqlSchema";
-import { deleteContainerDocumentTombstoneHoldsForDocuments } from "../documents/internal/containerDocumentTombstoneHolds";
+import {
+  deleteContainerDocumentTombstoneHoldRowsForLinks,
+  deleteContainerDocumentTombstoneHoldsForDocuments,
+} from "../documents/internal/containerDocumentTombstoneHolds";
 
 import {
   type DocumentPlacementInput,
@@ -168,11 +171,16 @@ export const sqlDocumentContainerProjectionPersistence: DocumentContainerProject
           options,
         );
         if (writable.length === 0) return;
+        // A placement the writer re-asserts is no longer tombstoned: a
+        // listing that links it again, or a local move that owns it, releases
+        // the hold so the document is not hidden until the next retry.
         if (options?.moveIntentId) {
           await deleteContainerDocumentTombstoneHoldsForDocuments(
             tx,
             writable.map((input) => input.documentId),
           );
+        } else {
+          await deleteContainerDocumentTombstoneHoldRowsForLinks(tx, writable);
         }
         await tx
           .delete(documentContainerProjection)

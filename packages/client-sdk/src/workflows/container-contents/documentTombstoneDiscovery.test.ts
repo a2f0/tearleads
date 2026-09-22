@@ -203,8 +203,8 @@ test("an unverifiable tombstone hides the placement until a verified head settle
     ).toEqual([]);
 
     // A later verified head that omits the folder applies the removal. The
-    // listing-seeded row is not in the head link set, so the document is
-    // unplaced rather than re-homed into the server-chosen folder.
+    // listing-seeded row is not in the head link set either, so it goes too:
+    // the document is unplaced, never re-homed into the server-chosen folder.
     await discoverRealFolder(store, {
       tombstones: [tombstone],
       verify: async (candidates) =>
@@ -213,13 +213,15 @@ test("an unverifiable tombstone hides the placement until a verified head settle
           tombstone: { ...candidate, linkedContainerIds: ["moved-to"] },
         })),
     });
-    expect(await links.listLinkedContainerIds(execSql, "doc")).toEqual([
-      "server-chosen",
-    ]);
+    expect(await links.listLinkedContainerIds(execSql, "doc")).toEqual([]);
     expect(await documents.loadDocument(execSql, "doc-local")).toMatchObject({
       containerId: null,
     });
     expect(await visibleIn(store, "real-folder")).toEqual([]);
+    expect(await visibleIn(store, "server-chosen")).toEqual([]);
+    expect(
+      await store.hasOrphanedDocuments({ currentOrganizationId: "org-1" }),
+    ).toBe(true);
   } finally {
     close();
   }

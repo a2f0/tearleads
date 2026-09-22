@@ -4,6 +4,7 @@ import { sqlDocumentMoveIntentPersistence as intents } from "../../data/persiste
 import { sqlDocumentContainerProjectionPersistence as links } from "../../data/persistence/containers/documentContainerProjectionPersistence";
 import {
   HELD_TOMBSTONE_RETRY_INTERVAL_MS,
+  heldTombstoneRetryDelayMs,
   holdContainerDocumentTombstones,
   listContainerDocumentTombstoneHolds,
   listKnownContainerDocumentPlacements,
@@ -110,7 +111,9 @@ test("a held tombstone hides the placement from every container read without del
     });
     expect(
       await listContainerDocumentTombstoneHolds(execSql, ["folder", "other"]),
-    ).toEqual([{ containerId: "folder", documentId: "doc" }]);
+    ).toMatchObject([
+      { attempts: 1, containerId: "folder", documentId: "doc" },
+    ]);
 
     await releaseContainerDocumentTombstoneHolds(execSql, [
       { containerId: "folder", documentId: "doc" },
@@ -152,21 +155,30 @@ test("a hidden linked placement stays hidden while the primary placement shows",
     await holdContainerDocumentTombstones(execSql, [hold("shared")], at);
 
     expect(await sharedCount()).toBe(0);
+    // The subtree read hides the held placement even when it is not one of
+    // the requested containers, matching the item and sidebar views.
     expect(await folderDocumentRows(execSql, readModel)).toMatchObject({
       itemCount: 1,
       subtreeIds: ["doc"],
-      subtreeLinks: ["folder", "shared"],
+      subtreeLinks: ["folder"],
     });
   } finally {
     close();
   }
 });
 
-test("a held tombstone is retried only after the backoff interval", async () => {
+test("a held tombstone is retried after a backoff that doubles per attempt", async () => {
   const { close, execSql } = await createTestExecSql("tombstone-hold-backoff");
   try {
     await seedDocumentInFolder(execSql);
     await holdContainerDocumentTombstones(execSql, [hold("folder")], at);
+    expect(heldTombstoneRetryDelayMs(1)).toBe(HELD_TOMBSTONE_RETRY_INTERVAL_MS);
+    expect(heldTombstoneRetryDelayMs(3)).toBe(
+      4 * HELD_TOMBSTONE_RETRY_INTERVAL_MS,
+    );
+    expect(heldTombstoneRetryDelayMs(40)).toBe(
+      128 * HELD_TOMBSTONE_RETRY_INTERVAL_MS,
+    );
 
     expect(
       await listRetryableHeldContainerDocumentTombstones(
@@ -182,6 +194,53 @@ test("a held tombstone is retried only after the backoff interval", async () => 
         later,
       ),
     ).toEqual([hold("folder")]);
+
+    // A second failed attempt doubles the wait before the next one.
+    const secondAttempt = later.toISOString();
+    await holdContainerDocumentTombstones(
+      execSql,
+      [hold("folder")],
+      secondAttempt,
+    );
+    expect(
+      await listContainerDocumentTombstoneHolds(execSql, ["folder"]),
+    ).toMatchObject([{ attempts: 2, updatedAt: secondAttempt }]);
+    expect(
+      await listRetryableHeldContainerDocumentTombstones(
+        execSql,
+        ["folder"],
+        new Date(later.getTime() + HELD_TOMBSTONE_RETRY_INTERVAL_MS + 1_000),
+      ),
+    ).toEqual([]);
+    expect(
+      await listRetryableHeldContainerDocumentTombstones(
+        execSql,
+        ["folder"],
+        new Date(
+          later.getTime() + 2 * HELD_TOMBSTONE_RETRY_INTERVAL_MS + 1_000,
+        ),
+      ),
+    ).toEqual([hold("folder")]);
+  } finally {
+    close();
+  }
+});
+
+test("a listing that links the placement again releases its hold", async () => {
+  const { close, execSql } = await createTestExecSql("tombstone-hold-relisted");
+  try {
+    const readModel = await seedDocumentInFolder(execSql);
+    await holdContainerDocumentTombstones(execSql, [hold("folder")], at);
+    expect((await folderDocumentRows(execSql, readModel)).itemCount).toBe(0);
+
+    await readModel.replaceDocumentLinksBatch([
+      { containerIds: ["folder"], documentId: "doc" },
+    ]);
+
+    expect(
+      await listContainerDocumentTombstoneHolds(execSql, ["folder"]),
+    ).toEqual([]);
+    expect((await folderDocumentRows(execSql, readModel)).itemCount).toBe(1);
   } finally {
     close();
   }
@@ -210,6 +269,9 @@ test("applying a verified tombstone repoints only to a local row the head links"
     expect(await documents.loadDocument(execSql, "doc-local")).toMatchObject({
       containerId: "verified-row",
     });
+    expect(await links.listLinkedContainerIds(execSql, "doc")).toEqual([
+      "verified-row",
+    ]);
     expect(
       await listContainerDocumentTombstoneHolds(execSql, ["folder"]),
     ).toEqual([]);
@@ -238,9 +300,8 @@ test("a verified removal with no head-linked local row unplaces the document", a
     expect(await documents.loadDocument(execSql, "doc-local")).toMatchObject({
       containerId: null,
     });
-    expect(await links.listLinkedContainerIds(execSql, "doc")).toEqual([
-      "server-chosen",
-    ]);
+    // The listing-seeded row goes with it: the verified head never linked it.
+    expect(await links.listLinkedContainerIds(execSql, "doc")).toEqual([]);
   } finally {
     close();
   }

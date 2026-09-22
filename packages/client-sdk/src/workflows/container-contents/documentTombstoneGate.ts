@@ -1,4 +1,5 @@
 import type { DocumentSummary } from "../../data/documents/documentSummary";
+import { containerDocumentPlacementKey as placementKey } from "../../data/persistence/documents/containerDocumentTombstoneHoldsPersistence";
 import type {
   ContainerDocumentTombstone,
   ContainerDocumentTombstoneVerdict,
@@ -14,12 +15,6 @@ type TombstoneGateStore = Pick<
   | "releaseContainerDocumentTombstoneHolds"
   | "verifyContainerDocumentTombstones"
 >;
-
-function placementKey(
-  placement: Pick<ContainerDocumentTombstone, "containerId" | "documentId">,
-): string {
-  return `${placement.documentId}\u0000${placement.containerId}`;
-}
 
 /**
  * One candidate per placement the device actually holds; the newest server
@@ -43,7 +38,7 @@ async function mergeTombstoneCandidates(
   ]) {
     const key = placementKey(tombstone);
     const current = byPlacement.get(key);
-    if (!current || current.updatedAt.localeCompare(tombstone.updatedAt) < 0) {
+    if (!current || current.updatedAt < tombstone.updatedAt) {
       byPlacement.set(key, tombstone);
     }
   }
@@ -74,12 +69,14 @@ function assertVerdictsCoverCandidates(
  * container (`verified`). A head that still links the container `refuted`s
  * the tombstone, which is dropped and any earlier hold released. Without a
  * verified head the tombstone is `unverified`: the placement is held (kept
- * in the link rows but hidden from container views) and retried on the next
- * discovery of the container, together with the holds it already carries.
+ * in the link rows but hidden from container views) and retried, with
+ * backoff, on a later discovery of the container.
  *
  * An honest server only tombstones containers the signed head no longer
- * links, so this refuses no honest data; a dishonest listing can at most hide
- * a placement it could also have withheld, never re-home the document.
+ * links, so this refuses no honest data. A dishonest listing paired with a
+ * withheld head can still hide a placement this device already had, for as
+ * long as the head stays withheld; what it can no longer do is delete the
+ * placement or re-home the document into a container of its choosing.
  */
 export async function settleContainerDocumentTombstones(input: {
   containerIds: ReadonlyArray<string>;

@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, inArray } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, notInArray } from "drizzle-orm";
 import {
   documentContainerProjection,
   documentProjection,
@@ -75,9 +75,19 @@ function buildContainerDocumentTombstoneState(
   };
 }
 
+/**
+ * Remove the tombstoned placement and, with the head now verified, every
+ * remaining local link row the head does not link: those are listing-seeded
+ * rows, and leaving one would keep showing the document in a container the
+ * signed link set never named. Rows the head links are kept as they are.
+ */
 async function deleteContainerDocumentTombstoneRows(
   tx: ClientSQLiteTransactionScope,
   uniqueTombstones: ReadonlyArray<ContainerDocumentTombstoneInput>,
+  verifiedLinkedContainerIdsByDocumentId: ReadonlyMap<
+    string,
+    ReadonlySet<string>
+  >,
 ): Promise<void> {
   for (const tombstone of uniqueTombstones) {
     await tx
@@ -87,6 +97,19 @@ async function deleteContainerDocumentTombstoneRows(
           eq(documentContainerProjection.documentId, tombstone.documentId),
           eq(documentContainerProjection.containerId, tombstone.containerId),
         ),
+      )
+      .run();
+  }
+  for (const [documentId, linked] of verifiedLinkedContainerIdsByDocumentId) {
+    await tx
+      .delete(documentContainerProjection)
+      .where(
+        linked.size === 0
+          ? eq(documentContainerProjection.documentId, documentId)
+          : and(
+              eq(documentContainerProjection.documentId, documentId),
+              notInArray(documentContainerProjection.containerId, [...linked]),
+            ),
       )
       .run();
   }
@@ -215,7 +238,11 @@ export async function applyContainerDocumentTombstonesWithExec(
       tombstoneUpdatedAtByDocumentId,
       verifiedLinkedContainerIdsByDocumentId,
     } = buildContainerDocumentTombstoneState(applicable);
-    await deleteContainerDocumentTombstoneRows(tx, applicable);
+    await deleteContainerDocumentTombstoneRows(
+      tx,
+      applicable,
+      verifiedLinkedContainerIdsByDocumentId,
+    );
     await deleteContainerDocumentTombstoneHoldRows(tx, applicable);
 
     const changedLocalIds: string[] = [];

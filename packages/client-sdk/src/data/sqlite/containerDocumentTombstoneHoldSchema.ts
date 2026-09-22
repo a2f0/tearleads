@@ -1,4 +1,9 @@
-import { primaryKey, sqliteTable, text } from "drizzle-orm/sqlite-core";
+import {
+  integer,
+  primaryKey,
+  sqliteTable,
+  text,
+} from "drizzle-orm/sqlite-core";
 
 /**
  * Listing tombstones held back for lack of signed evidence.
@@ -17,6 +22,7 @@ import { primaryKey, sqliteTable, text } from "drizzle-orm/sqlite-core";
  * - `documentId`: Server document id the tombstone names.
  * - `containerId`: Container the tombstone would unlink the document from.
  * - `tombstonedAt`: Server timestamp carried by the tombstone.
+ * - `attempts`: Verification attempts so far; the retry backoff grows with it.
  * - `updatedAt`: Local timestamp of the last hold or retry.
  *
  * Indexes:
@@ -28,6 +34,7 @@ export const containerDocumentTombstoneHolds = sqliteTable(
     documentId: text("document_id").notNull(),
     containerId: text("container_id").notNull(),
     tombstonedAt: text("tombstoned_at").notNull(),
+    attempts: integer("attempts").notNull().default(1),
     updatedAt: text("updated_at").notNull(),
   },
   (table) => [primaryKey({ columns: [table.documentId, table.containerId] })],
