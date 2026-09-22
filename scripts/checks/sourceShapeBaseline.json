@@ -47,8 +47,8 @@
       "bytes": 18865
     },
     "docs/developer/client-sdk.md": {
-      "lines": 733,
-      "bytes": 37926
+      "lines": 734,
+      "bytes": 37988
     },
     "docs/developer/revenuecat-native-stores.md": {
       "lines": 364,
@@ -63,8 +63,8 @@
       "bytes": 19355
     },
     "docs/keying-design.md": {
-      "lines": 1154,
-      "bytes": 55252
+      "lines": 1156,
+      "bytes": 55430
     },
     "docs/loro-e2ee-sync-protocol.md": {
       "lines": 548,
@@ -75,12 +75,12 @@
       "bytes": 2846875
     },
     "docs/protocol-specification.md": {
-      "lines": 654,
-      "bytes": 33375
+      "lines": 655,
+      "bytes": 33441
     },
     "docs/security-guarantees.md": {
-      "lines": 819,
-      "bytes": 47268
+      "lines": 820,
+      "bytes": 47341
     },
     "formal/document-sync/BaselineDominanceTraces.json": {
       "lines": 2059,

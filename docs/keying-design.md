@@ -498,7 +498,8 @@ rejected by the same equality, and a keyring that omits an epoch fails the
 structural entry-count check. The `MAX_CONTAINER_KEY_EPOCH` write-time bound
 (65536) is a runaway-rotation backstop sized to be unreachable by legitimate
 use, enforced when a rotation is accepted — never against existing data — so
-it can never make retained ciphertext unreadable.
+it can never make retained ciphertext unreadable. Every keying bound and what
+lies past it is tabulated in [limits.md](./limits.md#container-keying).
 
 Every keyring entry is checked twice on the read path: against the material-id
 its ordinal commits to, and — for any epoch the projection's signed material
@@ -769,7 +770,8 @@ the carried set is usually empty. It is capped at 64 per rotation; past the cap
 the remainder repairs lazily rather than refuse a revocation, and a writer who
 meets such a level parks under an explicit
 `document_ancestor_repair_inaccessible` state until the dependent-path hint that
-follows its repair. Group rematerialization is held to the same rule: a
+follows its repair; [limits.md](./limits.md#limits-that-trade-write-liveness)
+records that trade. Group rematerialization is held to the same rule: a
 rekey or revoke among a policy's rematerialized containers carries the
 descendants it owes in the same batch, woven in parent-first beneath the
 rotation each rides, and a level the batch's own rotations strand between two

@@ -649,7 +649,8 @@ A blob bind or detach refused that way is an uncoded 409; the document's next
 sync pass makes the path current.
 
 If a writer still meets a stale ancestor it cannot re-key (a dishonest server, a
-tree past the cap, or a race), its pass refetches once, then abandons with the
+tree past the cap in [limits.md](../limits.md#limits-that-trade-write-liveness),
+or a race), its pass refetches once, then abandons with the
 `inaccessible` trace reason and reports `document_ancestor_repair_inaccessible`
 to `onTerminalSubmitFailure` instead of failing the sync lane; built-in stores
 keep its message, not the code, on the write-queue row. Its writes stay
