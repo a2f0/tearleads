@@ -1,4 +1,8 @@
 import { and, eq, inArray, or } from "drizzle-orm";
+import {
+  deleteDocumentPlacementRowsByContainerIds,
+  deleteDocumentPlacementRowsByDocumentIds,
+} from "../../data/persistence/containers/documentContainerProjectionPersistence";
 import { documentIntentLinkTargets } from "../../data/sqlite/documentPlacementIntentSchema";
 import {
   organizationDataUsageCategories,
@@ -23,7 +27,6 @@ import {
   containerMoveIntents,
   containers,
   documentAttachmentBlobProjection,
-  documentContainerProjection,
   documentMoveIntents,
   documentPendingAttachments,
   documentPendingUpdates,
@@ -146,10 +149,7 @@ async function clearScopedContainerRows(
   for (const containerBatch of remoteResetBatches(
     input.snapshot.containerIds,
   )) {
-    await input.tx
-      .delete(documentContainerProjection)
-      .where(inArray(documentContainerProjection.containerId, containerBatch))
-      .run();
+    await deleteDocumentPlacementRowsByContainerIds(input.tx, containerBatch);
     await input.tx
       .delete(containerMoveIntents)
       .where(inArray(containerMoveIntents.containerId, containerBatch))
@@ -170,10 +170,7 @@ async function clearScopedDocumentRows(
 ): Promise<void> {
   const { snapshot, tx } = input;
   for (const documentIdBatch of remoteResetBatches(snapshot.oldDocumentIds)) {
-    await tx
-      .delete(documentContainerProjection)
-      .where(inArray(documentContainerProjection.documentId, documentIdBatch))
-      .run();
+    await deleteDocumentPlacementRowsByDocumentIds(tx, documentIdBatch);
   }
   await clearResetPendingAttachments({
     attachmentUploads: input.attachmentUploads,

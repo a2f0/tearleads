@@ -1,5 +1,6 @@
 import { asc, eq, inArray } from "drizzle-orm";
 import {
+  containerDocumentTombstoneHolds,
   documentContainerProjection,
   documentContainerProjectionTables,
   documentMoveIntentTables,
@@ -42,6 +43,35 @@ interface DocumentContainerProjectionPersistence {
     inputs: ReadonlyArray<DocumentPlacementInput>,
     options?: DocumentPlacementWriteOptions,
   ) => Promise<void>;
+}
+
+/** Link rows and their tombstone holds leave together on a remote reset. */
+export async function deleteDocumentPlacementRowsByContainerIds(
+  tx: ClientSQLiteTransactionScope,
+  containerIds: ReadonlyArray<string>,
+): Promise<void> {
+  await tx
+    .delete(documentContainerProjection)
+    .where(inArray(documentContainerProjection.containerId, containerIds))
+    .run();
+  await tx
+    .delete(containerDocumentTombstoneHolds)
+    .where(inArray(containerDocumentTombstoneHolds.containerId, containerIds))
+    .run();
+}
+
+export async function deleteDocumentPlacementRowsByDocumentIds(
+  tx: ClientSQLiteTransactionScope,
+  documentIds: ReadonlyArray<string>,
+): Promise<void> {
+  await tx
+    .delete(documentContainerProjection)
+    .where(inArray(documentContainerProjection.documentId, documentIds))
+    .run();
+  await tx
+    .delete(containerDocumentTombstoneHolds)
+    .where(inArray(containerDocumentTombstoneHolds.documentId, documentIds))
+    .run();
 }
 
 export const sqlDocumentContainerProjectionPersistence: DocumentContainerProjectionPersistence =

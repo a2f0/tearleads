@@ -7,6 +7,7 @@ import {
   text,
   uniqueIndex,
 } from "drizzle-orm/sqlite-core";
+import { containerDocumentTombstoneHolds } from "./containerDocumentTombstoneHoldSchema";
 import {
   containerSQLiteSchema,
   containerTableSchemas,
@@ -62,7 +63,7 @@ export {
   principalPolicyOrganizations,
 } from "./principalPolicySchema";
 export { securityIncidents } from "./securityIncidentSchema";
-export { organizationReadModelTables };
+export { containerDocumentTombstoneHolds, organizationReadModelTables };
 
 const accessLevelColumn = "effective_access_level";
 
@@ -679,7 +680,10 @@ const securityIncidentTables: ReadonlyArray<SqlTableSchema> = [
 export const containerTables = containerTableSchemas;
 
 export const documentContainerProjectionTables: ReadonlyArray<SqlTableSchema> =
-  [defineSqlTableSchema(documentContainerProjection)];
+  [
+    defineSqlTableSchema(documentContainerProjection),
+    defineSqlTableSchema(containerDocumentTombstoneHolds),
+  ];
 
 export const documentMoveIntentTables: ReadonlyArray<SqlTableSchema> = [
   defineSqlTableSchema(documentMoveIntents),

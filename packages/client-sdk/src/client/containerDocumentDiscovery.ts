@@ -2,6 +2,10 @@ import type { DocumentSummary } from "../data/documents/documentSummary";
 import type { ContainerContentsStore } from "../stores/container-contents";
 import { discoverContainerDocumentsFromApi } from "../workflows/container-contents/documentDiscovery";
 import { createContainerDocumentQueriesFromRuntime } from "../workflows/container-contents/documentQueries";
+import {
+  createContainerDocumentTombstoneVerifier,
+  createDocumentHeadLinkSetLoader,
+} from "../workflows/container-contents/documentTombstoneEvidence";
 import { createContainerContentsWorkflowRuntime } from "../workflows/container-contents/runtime";
 import { createRuntimePrincipalPolicyWarmer } from "../workflows/principals/runtimePolicyWarmer";
 import type { InternalRuntime } from "./workflowRuntime";
@@ -41,5 +45,8 @@ export function discoverContainerDocumentsForRuntime({
         : Promise.resolve(),
     containerId,
     onFullListing,
+    verifyContainerDocumentTombstones: createContainerDocumentTombstoneVerifier(
+      createDocumentHeadLinkSetLoader(runtime),
+    ),
   });
 }

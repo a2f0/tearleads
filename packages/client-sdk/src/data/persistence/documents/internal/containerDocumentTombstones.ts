@@ -13,6 +13,7 @@ import { filterWritableDocumentPlacements } from "../../containers/documentPlace
 import { getLatestTimestamp } from "../../latestTimestamp";
 import type { ContainerDocumentTombstoneInput } from "../types";
 import { DOCUMENTS_APP_KIND } from "./constants";
+import { deleteContainerDocumentTombstoneHoldRows } from "./containerDocumentTombstoneHolds";
 import {
   documentSummaryJoin,
   documentSummarySelection,
@@ -37,11 +38,22 @@ function buildContainerDocumentTombstoneState(
 ): {
   removedContainerIdsByDocumentId: Map<string, Set<string>>;
   tombstoneUpdatedAtByDocumentId: Map<string, string>;
+  verifiedLinkedContainerIdsByDocumentId: Map<string, ReadonlySet<string>>;
 } {
   const removedContainerIdsByDocumentId = new Map<string, Set<string>>();
   const tombstoneUpdatedAtByDocumentId = new Map<string, string>();
+  const verifiedLinkedContainerIdsByDocumentId = new Map<
+    string,
+    ReadonlySet<string>
+  >();
 
   for (const tombstone of uniqueTombstones) {
+    if (tombstone.linkedContainerIds) {
+      verifiedLinkedContainerIdsByDocumentId.set(
+        tombstone.documentId,
+        new Set(tombstone.linkedContainerIds),
+      );
+    }
     const removedContainerIds =
       removedContainerIdsByDocumentId.get(tombstone.documentId) ?? new Set();
     removedContainerIds.add(tombstone.containerId);
@@ -58,7 +70,11 @@ function buildContainerDocumentTombstoneState(
     );
   }
 
-  return { removedContainerIdsByDocumentId, tombstoneUpdatedAtByDocumentId };
+  return {
+    removedContainerIdsByDocumentId,
+    tombstoneUpdatedAtByDocumentId,
+    verifiedLinkedContainerIdsByDocumentId,
+  };
 }
 
 async function deleteContainerDocumentTombstoneRows(
@@ -78,11 +94,35 @@ async function deleteContainerDocumentTombstoneRows(
   }
 }
 
+/**
+ * The primary container after a removal. With signed evidence the head link
+ * set is authoritative: a remaining local row the head does not link is a
+ * listing-seeded row and never becomes the primary, so a listing cannot
+ * re-home the document. Without a verified set (a pending-intent settlement
+ * on the device's own move) the first remaining local row is used as before.
+ */
+function selectNextContainerId(
+  remainingContainerIds: ReadonlyArray<string>,
+  verifiedLinkedContainerIds: ReadonlySet<string> | undefined,
+): string | null {
+  if (!verifiedLinkedContainerIds) {
+    return remainingContainerIds[0] ?? null;
+  }
+  return (
+    remainingContainerIds.find((containerId) =>
+      verifiedLinkedContainerIds.has(containerId),
+    ) ??
+    [...verifiedLinkedContainerIds].sort()[0] ??
+    null
+  );
+}
+
 async function updateSelectedContainersForDocumentTombstones(input: {
   documentId: string;
   removedContainerIds: ReadonlySet<string>;
   tombstoneUpdatedAt: string | undefined;
   tx: ClientSQLiteTransactionScope;
+  verifiedLinkedContainerIds: ReadonlySet<string> | undefined;
 }): Promise<string[]> {
   const { documentId, removedContainerIds, tombstoneUpdatedAt, tx } = input;
   // A server document can own more than one local projection row: identity
@@ -132,7 +172,10 @@ async function updateSelectedContainersForDocumentTombstones(input: {
     .from(documentContainerProjection)
     .where(eq(documentContainerProjection.documentId, documentId))
     .orderBy(asc(documentContainerProjection.containerId));
-  const nextContainerId = remainingLinkRows[0]?.containerId ?? null;
+  const nextContainerId = selectNextContainerId(
+    remainingLinkRows.map((row) => row.containerId),
+    input.verifiedLinkedContainerIds,
+  );
 
   const changedLocalIds: string[] = [];
   for (const row of rowsAtRemovedContainer) {
@@ -173,9 +216,13 @@ export async function applyContainerDocumentTombstonesWithExec(
     const applicable = uniqueTombstones.filter((tombstone) =>
       writableIds.has(tombstone.documentId),
     );
-    const { removedContainerIdsByDocumentId, tombstoneUpdatedAtByDocumentId } =
-      buildContainerDocumentTombstoneState(applicable);
+    const {
+      removedContainerIdsByDocumentId,
+      tombstoneUpdatedAtByDocumentId,
+      verifiedLinkedContainerIdsByDocumentId,
+    } = buildContainerDocumentTombstoneState(applicable);
     await deleteContainerDocumentTombstoneRows(tx, applicable);
+    await deleteContainerDocumentTombstoneHoldRows(tx, applicable);
 
     const changedLocalIds: string[] = [];
     for (const [
@@ -188,6 +235,8 @@ export async function applyContainerDocumentTombstonesWithExec(
           removedContainerIds,
           tombstoneUpdatedAt: tombstoneUpdatedAtByDocumentId.get(documentId),
           tx,
+          verifiedLinkedContainerIds:
+            verifiedLinkedContainerIdsByDocumentId.get(documentId),
         })),
       );
     }

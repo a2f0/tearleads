@@ -19,6 +19,12 @@ import {
 } from "../../sqlite/sqlitePersistenceRuntime";
 import { type ExecSql, runSerializedSqlMutation } from "../../sqlite/sqlSchema";
 import { DOCUMENTS_APP_KIND } from "./internal/constants";
+import {
+  type ContainerDocumentPlacementKey,
+  holdContainerDocumentTombstonesWithExec,
+  listHeldContainerDocumentTombstonesWithExec,
+  releaseContainerDocumentTombstoneHoldsWithExec,
+} from "./internal/containerDocumentTombstoneHolds";
 import { applyContainerDocumentTombstonesWithExec } from "./internal/containerDocumentTombstones";
 import { createStoredDocumentWithHistoryCheckpoint } from "./internal/createDocumentWithHistoryCheckpoint";
 import { discardStoredDocumentToShell } from "./internal/discardDocument";
@@ -243,6 +249,42 @@ export async function applyContainerDocumentTombstones(
     await sqlDocumentsPersistence.ensureSchema(lockedExecSql);
     return applyContainerDocumentTombstonesWithExec(lockedExecSql, tombstones);
   });
+}
+
+export async function holdContainerDocumentTombstones(
+  execSql: ExecSql,
+  tombstones: ReadonlyArray<ContainerDocumentTombstoneInput>,
+  now = new Date().toISOString(),
+): Promise<void> {
+  return runSerializedSqlMutation(execSql, async (lockedExecSql) => {
+    await sqlDocumentsPersistence.ensureSchema(lockedExecSql);
+    await holdContainerDocumentTombstonesWithExec(
+      lockedExecSql,
+      tombstones,
+      now,
+    );
+  });
+}
+
+export async function releaseContainerDocumentTombstoneHolds(
+  execSql: ExecSql,
+  placements: ReadonlyArray<ContainerDocumentPlacementKey>,
+): Promise<void> {
+  return runSerializedSqlMutation(execSql, async (lockedExecSql) => {
+    await sqlDocumentsPersistence.ensureSchema(lockedExecSql);
+    await releaseContainerDocumentTombstoneHoldsWithExec(
+      lockedExecSql,
+      placements,
+    );
+  });
+}
+
+export async function listHeldContainerDocumentTombstones(
+  execSql: ExecSql,
+  containerIds: ReadonlyArray<string>,
+): Promise<ContainerDocumentTombstoneInput[]> {
+  await sqlDocumentsPersistence.ensureSchema(execSql);
+  return listHeldContainerDocumentTombstonesWithExec(execSql, containerIds);
 }
 
 export async function listDocumentsByContainerIdsOrDocumentIds(

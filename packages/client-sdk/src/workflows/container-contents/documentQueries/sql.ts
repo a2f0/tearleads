@@ -136,6 +136,25 @@ function getContainerContentsContainerSystemSlotFilter(
   return `(${clauses.join(" OR ")})`;
 }
 
+/**
+ * A `(document, container)` placement under a tombstone hold is hidden from
+ * container views: the server said the document left the container, but the
+ * signed head that would prove it is not yet available, so the row is kept
+ * and hidden rather than deleted (`container_document_tombstone_holds`).
+ */
+function getHeldPlacementExclusionSql(
+  documentIdSql: string,
+  containerIdSql: string,
+): string {
+  return `
+        AND NOT EXISTS (
+          SELECT 1
+          FROM container_document_tombstone_holds hold
+          WHERE hold.document_id = ${documentIdSql}
+            AND hold.container_id = ${containerIdSql}
+        )`;
+}
+
 export function getContainerContentsContainerItemsBaseSql(
   visibleSystemSlotCount = 0,
   visibleForeignSystemContainerNameCount = 0,
@@ -217,7 +236,7 @@ export function getContainerContentsContainerItemsBaseSql(
         ON document_updates.local_id = d.local_id
       LEFT JOIN document_pending_attachment_counts document_attachments
         ON document_attachments.local_id = d.local_id
-      WHERE d.container_id = ?
+      WHERE d.container_id = ?${getHeldPlacementExclusionSql("d.document_id", "d.container_id")}
 
       UNION ALL
 
@@ -250,7 +269,7 @@ export function getContainerContentsContainerItemsBaseSql(
         AND (
           d.container_id IS NULL
           OR d.container_id != linked.container_id
-        )
+        )${getHeldPlacementExclusionSql("linked.document_id", "linked.container_id")}
     )
     SELECT *
     FROM container_items
@@ -276,7 +295,7 @@ export function getContainerContentsDocumentRowsBaseSql(): string {
         ON document_updates.local_id = d.local_id
       LEFT JOIN document_pending_attachment_counts document_attachments
         ON document_attachments.local_id = d.local_id
-      WHERE d.container_id = ?
+      WHERE d.container_id = ?${getHeldPlacementExclusionSql("d.document_id", "d.container_id")}
 
       UNION ALL
 
@@ -300,7 +319,7 @@ export function getContainerContentsDocumentRowsBaseSql(): string {
         AND (
           d.container_id IS NULL
           OR d.container_id != linked.container_id
-        )
+        )${getHeldPlacementExclusionSql("linked.document_id", "linked.container_id")}
     )
     SELECT *
     FROM container_documents

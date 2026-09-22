@@ -116,6 +116,8 @@ export interface RelinkPersistedDocumentInput {
 export interface ContainerDocumentTombstoneInput {
   containerId: string;
   documentId: string;
+  /** Verified head link set; the primary container is repointed only into it. */
+  linkedContainerIds?: ReadonlyArray<string> | undefined;
   updatedAt: string;
 }
 

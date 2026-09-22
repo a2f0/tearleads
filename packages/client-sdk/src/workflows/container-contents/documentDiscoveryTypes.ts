@@ -83,10 +83,53 @@ export interface DocumentLinkInput {
 export type ContainerDocumentTombstone =
   ListContainerDocumentsResponse["tombstones"][number];
 
-export interface DiscoverContainerDocumentsOptions {
+export interface VerifiedContainerDocumentTombstone
+  extends ContainerDocumentTombstone {
+  /** The verified head link set; it omits `containerId`. */
+  readonly linkedContainerIds: ReadonlyArray<string>;
+}
+
+/**
+ * What the document's signed head says about a listing tombstone.
+ * - `verified`: the verified head link set omits the container; apply.
+ * - `refuted`: the verified head still links the container; drop it.
+ * - `unverified`: no verified head is available; hold, hide, retry later.
+ */
+export type ContainerDocumentTombstoneVerdict =
+  | {
+      readonly kind: "verified";
+      readonly tombstone: VerifiedContainerDocumentTombstone;
+    }
+  | { readonly kind: "refuted"; readonly tombstone: ContainerDocumentTombstone }
+  | {
+      readonly kind: "unverified";
+      readonly tombstone: ContainerDocumentTombstone;
+    };
+
+export type ContainerDocumentTombstoneVerifier = (
+  tombstones: ReadonlyArray<ContainerDocumentTombstone>,
+) => Promise<ReadonlyArray<ContainerDocumentTombstoneVerdict>>;
+
+export interface ContainerDocumentTombstoneHoldStore {
+  holdContainerDocumentTombstones: (
+    tombstones: ReadonlyArray<ContainerDocumentTombstone>,
+  ) => Promise<void>;
+  listHeldContainerDocumentTombstones: (
+    containerIds: ReadonlyArray<string>,
+  ) => Promise<ReadonlyArray<ContainerDocumentTombstone>>;
+  releaseContainerDocumentTombstoneHolds: (
+    placements: ReadonlyArray<
+      Pick<ContainerDocumentTombstone, "containerId" | "documentId">
+    >,
+  ) => Promise<void>;
+}
+
+export interface DiscoverContainerDocumentsOptions
+  extends ContainerDocumentTombstoneHoldStore {
   applyContainerDocumentTombstones: (
     tombstones: ReadonlyArray<ContainerDocumentTombstone>,
   ) => Promise<ReadonlyArray<DocumentSummary>>;
+  verifyContainerDocumentTombstones: ContainerDocumentTombstoneVerifier;
   cacheReferencedPrincipalPolicies?: (
     references: ReadonlyArray<ReferencedPrincipalStateResponse>,
   ) => Promise<void>;

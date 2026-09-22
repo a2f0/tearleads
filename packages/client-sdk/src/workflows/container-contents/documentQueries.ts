@@ -12,6 +12,9 @@ import {
 import { sqlDocumentContainerProjectionPersistence } from "../../data/persistence/containers/documentContainerProjectionPersistence";
 import {
   applyContainerDocumentTombstones as applyPersistedContainerDocumentTombstones,
+  holdContainerDocumentTombstones as holdPersistedContainerDocumentTombstones,
+  listHeldContainerDocumentTombstones as listPersistedHeldContainerDocumentTombstones,
+  releaseContainerDocumentTombstoneHolds as releasePersistedContainerDocumentTombstoneHolds,
   sqlDocumentsPersistence,
   upsertDiscoveredDocuments,
 } from "../../data/persistence/documents/documentsPersistence";
@@ -85,6 +88,17 @@ export interface ContainerDocumentQueries {
   hasOrphanedDocuments(input: {
     currentOrganizationId: string | null;
   }): Promise<boolean>;
+  holdContainerDocumentTombstones(
+    tombstones: ReadonlyArray<ContainerDocumentTombstone>,
+  ): Promise<void>;
+  listHeldContainerDocumentTombstones(
+    containerIds: ReadonlyArray<string>,
+  ): Promise<ReadonlyArray<ContainerDocumentTombstone>>;
+  releaseContainerDocumentTombstoneHolds(
+    placements: ReadonlyArray<
+      Pick<ContainerDocumentTombstone, "containerId" | "documentId">
+    >,
+  ): Promise<void>;
   listContainerDocumentSidebarWindow(input: {
     /** Null selects the virtual orphaned-documents recovery collection. */
     containerId: string | null;
@@ -375,6 +389,21 @@ export function createContainerDocumentQueriesFromRuntime(
     },
     hasOrphanedDocuments({ currentOrganizationId }) {
       return hasOrphanedDocuments(execSql, currentOrganizationId);
+    },
+    holdContainerDocumentTombstones(tombstones) {
+      return holdPersistedContainerDocumentTombstones(execSql, tombstones);
+    },
+    listHeldContainerDocumentTombstones(containerIds) {
+      return listPersistedHeldContainerDocumentTombstones(
+        execSql,
+        containerIds,
+      );
+    },
+    releaseContainerDocumentTombstoneHolds(placements) {
+      return releasePersistedContainerDocumentTombstoneHolds(
+        execSql,
+        placements,
+      );
     },
     listContainerDocumentSidebarWindow(input) {
       return listContainerDocumentSidebarWindow(execSql, input);
