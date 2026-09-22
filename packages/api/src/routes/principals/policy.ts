@@ -206,7 +206,11 @@ function registerPolicyReadRoute(
 
       try {
         return c.json<PrincipalPolicyBundleResponse>(
-          await getCurrentPrincipalPolicy(runtime, principalType, principalId),
+          await getCurrentPrincipalPolicy(runtime, {
+            principalId,
+            principalType,
+            requesterUserId: c.get("session").userId,
+          }),
         );
       } catch (error) {
         const response = toPrincipalPolicyErrorResponse(error);

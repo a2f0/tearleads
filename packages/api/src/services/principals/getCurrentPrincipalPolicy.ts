@@ -1,15 +1,15 @@
 import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
-import { runGetCurrentPrincipalPolicyWorkflow } from "../../workflows/principals/getCurrentPrincipalPolicy";
+import { runReadCurrentPrincipalPolicyWorkflow } from "../../workflows/principals/readCurrentPrincipalPolicy";
 import type { ApiServiceRuntime } from "../runtime";
 
+/** The bundle a requester is authorized to read; a stranger receives 403. */
 export async function getCurrentPrincipalPolicy(
   runtime: ApiServiceRuntime,
-  principalType: "group" | "organization",
-  principalId: string,
+  input: {
+    readonly principalId: string;
+    readonly principalType: "group" | "organization";
+    readonly requesterUserId: string;
+  },
 ): Promise<PrincipalPolicyBundleResponse> {
-  return runGetCurrentPrincipalPolicyWorkflow(
-    runtime.db,
-    principalType,
-    principalId,
-  );
+  return runReadCurrentPrincipalPolicyWorkflow(runtime.db, input);
 }

@@ -585,8 +585,9 @@ test("PUT /principals/:principalType/:principalId/policy rejects a non-signer an
   const legitimateEnvelope = signedState.memberEnvelopes[0];
   invariant(legitimateEnvelope, "expected legitimate member envelope");
 
-  // The outsider learns the public policy and submits alternate, real wrapped
-  // material while replaying the owner's signed state.
+  // The bundle is not served to an account outside the principal, so the
+  // outsider replays the owner's signed state obtained out of band and submits
+  // alternate, real wrapped material with it.
   const outsiderPolicyResponse = await routeApp.request(
     `/principals/group/${principalId}/policy`,
     {
@@ -594,7 +595,7 @@ test("PUT /principals/:principalType/:principalId/policy rejects a non-signer an
       headers: { Authorization: `Bearer ${outsider.token}` },
     },
   );
-  expect(outsiderPolicyResponse.status).toBe(200);
+  expect(outsiderPolicyResponse.status).toBe(403);
 
   const [alternateWrappedKey] = await wrapDekForRecipients(
     principalKem.secretKey,

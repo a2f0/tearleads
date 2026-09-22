@@ -63500,6 +63500,32 @@
             },
             "description": "Failure JSON response"
           },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string",
+                      "enum": [
+                        "billing_checkout_no_active_members",
+                        "billing_roster_over_capacity"
+                      ]
+                    },
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": {}
+                }
+              }
+            },
+            "description": "Failure JSON response"
+          },
           "404": {
             "content": {
               "application/json": {

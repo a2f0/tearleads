@@ -23904,6 +23904,21 @@ export interface operations {
                 };
             };
             /** @description Failure JSON response */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {string} */
+                        code?: "billing_checkout_no_active_members" | "billing_roster_over_capacity";
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Failure JSON response */
             404: {
                 headers: {
                     [name: string]: unknown;
