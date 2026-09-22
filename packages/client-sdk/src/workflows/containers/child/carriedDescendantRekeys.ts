@@ -72,12 +72,17 @@ function rebaseOnDeepestAncestor(
 export async function planCarriedDescendantRekeys(
   input: CarriedRekeyPlanningInput & {
     readonly requiredContainerIds: readonly string[];
-    /** The rotated container's own path once the rotation is accepted. */
-    readonly rotated: SpeculativePath;
+    /**
+     * Each rotated container's own path once the batch is accepted: one for a
+     * standalone rotation, several for a policy batch that rotated many.
+     */
+    readonly rotated: SpeculativePath | readonly SpeculativePath[];
   },
 ): Promise<MaterializedContainerRekeyPlan[]> {
   const plans: MaterializedContainerRekeyPlan[] = [];
-  const speculativePaths: SpeculativePath[] = [input.rotated];
+  const speculativePaths: SpeculativePath[] = Array.isArray(input.rotated)
+    ? [...input.rotated]
+    : [input.rotated as SpeculativePath];
   const planned = new Set<string>();
   for (const containerId of input.requiredContainerIds) {
     if (plans.length >= MAX_ROTATION_CONTAINER_REKEYS) break;

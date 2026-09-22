@@ -97,6 +97,7 @@ import type {
 import type {
   BlobAttachmentBindResponse,
   BlobAttachmentDetachResponse,
+  CommitOrganizationGroupPolicyResponse,
   ContainerCreateWithMetadataDocumentResponse,
   ContainerDeleteResponse,
   ContainerMutationResponse,
@@ -622,6 +623,24 @@ export class ApiClient {
     groupId: string,
     input: CommitOrganizationGroupPolicyRequest,
   ) {
+    return this.commitOrganizationGroupPolicyResult(
+      organizationId,
+      groupId,
+      input,
+    ).then((result) => (result.ok ? result.data : null));
+  }
+
+  /**
+   * Status-bearing group policy commit. A rematerialized rotation the server
+   * refuses for stranding a granted path names the descendant rekeys the batch
+   * must carry, which the plain method collapses to null.
+   */
+  async commitOrganizationGroupPolicyResult(
+    organizationId: string,
+    groupId: string,
+    input: CommitOrganizationGroupPolicyRequest,
+    options: RequestResultOptions = {},
+  ): Promise<RequestResult<CommitOrganizationGroupPolicyResponse>> {
     const groupRequestKey = JSON.stringify(["group", groupId]);
     const organizationRequestKey = JSON.stringify([
       "organization",
@@ -629,18 +648,20 @@ export class ApiClient {
     ]);
     this.principalPolicyRequestsByKey.delete(groupRequestKey);
     this.principalPolicyRequestsByKey.delete(organizationRequestKey);
-    return this.request(
-      organizationGroupPolicyCommit.path(organizationId, groupId),
-      organizationGroupPolicyCommit.isResponse,
-      organizationGroupPolicyCommit.method,
-      JSON.stringify(input),
-      { expectedPaymentRequiredOrganizationId: organizationId },
-      commitOrganizationGroupPolicyOperation,
-    ).finally(() => {
+    try {
+      return await this.requestResult(
+        organizationGroupPolicyCommit.path(organizationId, groupId),
+        organizationGroupPolicyCommit.isResponse,
+        organizationGroupPolicyCommit.method,
+        JSON.stringify(input),
+        { expectedPaymentRequiredOrganizationId: organizationId, ...options },
+        commitOrganizationGroupPolicyOperation,
+      );
+    } finally {
       this.principalPolicyRequestsByKey.delete(groupRequestKey);
       this.principalPolicyRequestsByKey.delete(organizationRequestKey);
       this.clearWriterProjectionCaches();
-    });
+    }
   }
 
   getOrganizationReadModelResult(

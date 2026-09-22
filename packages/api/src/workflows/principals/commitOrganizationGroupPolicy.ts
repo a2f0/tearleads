@@ -12,7 +12,11 @@ import {
   assertPutPrincipalPolicyRouteBinding,
   putPrincipalPolicyInTransaction,
 } from "./putPrincipalPolicy";
-import { PrincipalPolicyError, toPrincipalPolicyError } from "./shared";
+import {
+  PrincipalPolicyError,
+  principalPolicyErrorFromContainerMutation,
+  toPrincipalPolicyError,
+} from "./shared";
 
 export interface CommitOrganizationGroupPolicyResult {
   readonly policy: CommitOrganizationGroupPolicyResponse;
@@ -81,10 +85,7 @@ export async function runCommitOrganizationGroupPolicyWorkflow(
   } catch (error) {
     const containerMutationError = toMutationError(error);
     if (containerMutationError) {
-      throw new PrincipalPolicyError(
-        containerMutationError.message,
-        containerMutationError.status,
-      );
+      throw principalPolicyErrorFromContainerMutation(containerMutationError);
     }
     if (error instanceof OrganizationManagerError) {
       throw new PrincipalPolicyError(error.message, error.status, error.code);

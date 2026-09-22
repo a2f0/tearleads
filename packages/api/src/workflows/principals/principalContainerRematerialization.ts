@@ -10,6 +10,7 @@ import type {
 } from "@tearleads/crypto";
 import type { ContainerMutationRequest } from "@tearleads/validators/request";
 import type { ContainerMutationResponse } from "@tearleads/validators/response";
+import { MAX_ROTATION_CONTAINER_REKEYS } from "@tearleads/validators/util";
 import { and, eq } from "drizzle-orm";
 import {
   readProjectionAccessEvent,
@@ -17,6 +18,7 @@ import {
   readProjectionString,
 } from "../../keyingProjectionRecords";
 import { ContainerMutationError } from "../containers/mutations/errors";
+import { assertGrantedPathsCurrentBelowRotations } from "../containers/mutations/shared/grantedPathCurrency";
 import {
   mutateContainerWithExecutor,
   prelockContainerMutationBatch,
@@ -257,44 +259,72 @@ function rematerializationInputs(input: {
       409,
     );
   }
-  if (input.requests.length > requiredByContainerId.size) {
+  // Beyond the required set a batch may carry descendant rekeys: a rekey or
+  // revoke among the rematerializations is a rotation like any other, and must
+  // not leave a level above a directly granted container pinned to a retired
+  // epoch. They apply after the required set, parent-first, and are checked
+  // there; here they only have to be rekeys.
+  const carried = input.requests.slice(requiredByContainerId.size);
+  if (carried.length > MAX_ROTATION_CONTAINER_REKEYS) {
     throw new PrincipalPolicyError(
-      "Principal policy contains unexpected container rematerializations",
+      "Principal policy carries too many descendant rekeys",
       409,
     );
   }
-
-  const seenContainerIds = new Set<string>();
-  return input.requests.map((request) => {
+  const carriedInputs = carried.map((request): MutateContainerInput => {
     const event = requestEvent(request);
-    const required = requiredByContainerId.get(event.objectId);
-    const isPrincipalRevoke =
-      event.eventType === "container.revoke" &&
-      isRotatingPrincipalRevoke({
-        nextHead: input.nextHead,
-        previousKeyEpoch: input.previousKeyEpoch,
-        request,
-      });
     if (
       event.objectKind !== "container" ||
-      !required ||
-      seenContainerIds.has(event.objectId) ||
-      (event.eventType !== required.eventType && !isPrincipalRevoke)
+      event.eventType !== "container.rekey"
     ) {
       throw new PrincipalPolicyError(
-        "Principal policy container rematerialization batch is incomplete or invalid",
+        "Principal policy may carry only container rekeys beyond its rematerializations",
         409,
       );
     }
-    seenContainerIds.add(event.objectId);
     return {
       expectedContainerId: event.objectId,
-      expectedEventType: event.eventType,
+      expectedEventType: "container.rekey",
       fingerprint: input.fingerprint,
       request,
       userId: input.userId,
     };
   });
+
+  const seenContainerIds = new Set<string>();
+  const requiredInputs = input.requests
+    .slice(0, requiredByContainerId.size)
+    .map((request) => {
+      const event = requestEvent(request);
+      const required = requiredByContainerId.get(event.objectId);
+      const isPrincipalRevoke =
+        event.eventType === "container.revoke" &&
+        isRotatingPrincipalRevoke({
+          nextHead: input.nextHead,
+          previousKeyEpoch: input.previousKeyEpoch,
+          request,
+        });
+      if (
+        event.objectKind !== "container" ||
+        !required ||
+        seenContainerIds.has(event.objectId) ||
+        (event.eventType !== required.eventType && !isPrincipalRevoke)
+      ) {
+        throw new PrincipalPolicyError(
+          "Principal policy container rematerialization batch is incomplete or invalid",
+          409,
+        );
+      }
+      seenContainerIds.add(event.objectId);
+      return {
+        expectedContainerId: event.objectId,
+        expectedEventType: event.eventType,
+        fingerprint: input.fingerprint,
+        request,
+        userId: input.userId,
+      };
+    });
+  return [...requiredInputs, ...carriedInputs];
 }
 
 export async function applyPrincipalContainerRematerializations(input: {
@@ -363,6 +393,16 @@ export async function applyPrincipalContainerRematerializations(input: {
       409,
     );
   }
+  // Every rekey or revoke here rotated a container; what it carried rode with
+  // it. A grant keeps its epoch and strands nothing.
+  await assertGrantedPathsCurrentBelowRotations({
+    carriedLimit: MAX_ROTATION_CONTAINER_REKEYS,
+    executor: input.executor,
+    rotated: responses.filter(
+      (_response, index) =>
+        mutationInputs[index]?.expectedEventType !== "container.grant",
+    ),
+  });
   await storeMutationAcknowledgements({
     executor: input.executor,
     nextHead: input.nextHead,

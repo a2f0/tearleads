@@ -8,6 +8,7 @@ import type {
   CommitOrganizationGroupPolicyResponse,
   PrincipalPolicyBundleResponse,
 } from "@tearleads/validators/response";
+import { CONTAINER_MUTATION_ERROR_CODES } from "@tearleads/validators/response";
 import type { MiddlewareHandler } from "hono";
 import { Hono } from "hono";
 import type { SessionEnv } from "../../middleware/session";
@@ -92,6 +93,12 @@ function toPrincipalPolicyErrorResponse(error: unknown): Response | null {
     const body = {
       error: error.message,
       ...(error.code === undefined ? {} : { code: error.code }),
+      ...(error.requiredContainerIds
+        ? {
+            code: CONTAINER_MUTATION_ERROR_CODES.descendantRekeysRequired,
+            requiredContainerIds: [...error.requiredContainerIds],
+          }
+        : {}),
     };
     return new Response(JSON.stringify(body), {
       headers: { "Content-Type": "application/json" },

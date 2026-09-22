@@ -45444,23 +45444,54 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "code": {
-                      "type": "string",
-                      "enum": [
-                        "billing_checkout_no_active_members",
-                        "billing_roster_over_capacity"
-                      ]
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "billing_checkout_no_active_members",
+                            "billing_roster_over_capacity"
+                          ]
+                        },
+                        "error": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "error"
+                      ],
+                      "additionalProperties": {}
                     },
-                    "error": {
-                      "type": "string"
+                    {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "const": "container_descendant_rekeys_required"
+                        },
+                        "error": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "requiredContainerIds": {
+                          "items": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "maxItems": 64,
+                          "type": "array"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "error",
+                        "requiredContainerIds"
+                      ],
+                      "additionalProperties": {}
                     }
-                  },
-                  "required": [
-                    "error"
-                  ],
-                  "additionalProperties": {}
+                  ]
                 }
               }
             },
@@ -45526,23 +45557,54 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "code": {
-                      "type": "string",
-                      "enum": [
-                        "billing_checkout_no_active_members",
-                        "billing_roster_over_capacity"
-                      ]
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "billing_checkout_no_active_members",
+                            "billing_roster_over_capacity"
+                          ]
+                        },
+                        "error": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "error"
+                      ],
+                      "additionalProperties": {}
                     },
-                    "error": {
-                      "type": "string"
+                    {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "const": "container_descendant_rekeys_required"
+                        },
+                        "error": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "requiredContainerIds": {
+                          "items": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "maxItems": 64,
+                          "type": "array"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "error",
+                        "requiredContainerIds"
+                      ],
+                      "additionalProperties": {}
                     }
-                  },
-                  "required": [
-                    "error"
-                  ],
-                  "additionalProperties": {}
+                  ]
                 }
               }
             },
@@ -45552,23 +45614,54 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "code": {
-                      "type": "string",
-                      "enum": [
-                        "billing_checkout_no_active_members",
-                        "billing_roster_over_capacity"
-                      ]
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "billing_checkout_no_active_members",
+                            "billing_roster_over_capacity"
+                          ]
+                        },
+                        "error": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "error"
+                      ],
+                      "additionalProperties": {}
                     },
-                    "error": {
-                      "type": "string"
+                    {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "const": "container_descendant_rekeys_required"
+                        },
+                        "error": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "requiredContainerIds": {
+                          "items": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "maxItems": 64,
+                          "type": "array"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "error",
+                        "requiredContainerIds"
+                      ],
+                      "additionalProperties": {}
                     }
-                  },
-                  "required": [
-                    "error"
-                  ],
-                  "additionalProperties": {}
+                  ]
                 }
               }
             },
@@ -45578,23 +45671,54 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "code": {
-                      "type": "string",
-                      "enum": [
-                        "billing_checkout_no_active_members",
-                        "billing_roster_over_capacity"
-                      ]
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "billing_checkout_no_active_members",
+                            "billing_roster_over_capacity"
+                          ]
+                        },
+                        "error": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "error"
+                      ],
+                      "additionalProperties": {}
                     },
-                    "error": {
-                      "type": "string"
+                    {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "const": "container_descendant_rekeys_required"
+                        },
+                        "error": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "requiredContainerIds": {
+                          "items": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "maxItems": 64,
+                          "type": "array"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "error",
+                        "requiredContainerIds"
+                      ],
+                      "additionalProperties": {}
                     }
-                  },
-                  "required": [
-                    "error"
-                  ],
-                  "additionalProperties": {}
+                  ]
                 }
               }
             },
@@ -45623,23 +45747,54 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "code": {
-                      "type": "string",
-                      "enum": [
-                        "billing_checkout_no_active_members",
-                        "billing_roster_over_capacity"
-                      ]
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "billing_checkout_no_active_members",
+                            "billing_roster_over_capacity"
+                          ]
+                        },
+                        "error": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "error"
+                      ],
+                      "additionalProperties": {}
                     },
-                    "error": {
-                      "type": "string"
+                    {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "const": "container_descendant_rekeys_required"
+                        },
+                        "error": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "requiredContainerIds": {
+                          "items": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "maxItems": 64,
+                          "type": "array"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "error",
+                        "requiredContainerIds"
+                      ],
+                      "additionalProperties": {}
                     }
-                  },
-                  "required": [
-                    "error"
-                  ],
-                  "additionalProperties": {}
+                  ]
                 }
               }
             },
@@ -63423,23 +63578,54 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "code": {
-                      "type": "string",
-                      "enum": [
-                        "billing_checkout_no_active_members",
-                        "billing_roster_over_capacity"
-                      ]
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "billing_checkout_no_active_members",
+                            "billing_roster_over_capacity"
+                          ]
+                        },
+                        "error": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "error"
+                      ],
+                      "additionalProperties": {}
                     },
-                    "error": {
-                      "type": "string"
+                    {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "const": "container_descendant_rekeys_required"
+                        },
+                        "error": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "requiredContainerIds": {
+                          "items": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "maxItems": 64,
+                          "type": "array"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "error",
+                        "requiredContainerIds"
+                      ],
+                      "additionalProperties": {}
                     }
-                  },
-                  "required": [
-                    "error"
-                  ],
-                  "additionalProperties": {}
+                  ]
                 }
               }
             },
@@ -63473,23 +63659,54 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "code": {
-                      "type": "string",
-                      "enum": [
-                        "billing_checkout_no_active_members",
-                        "billing_roster_over_capacity"
-                      ]
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "billing_checkout_no_active_members",
+                            "billing_roster_over_capacity"
+                          ]
+                        },
+                        "error": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "error"
+                      ],
+                      "additionalProperties": {}
                     },
-                    "error": {
-                      "type": "string"
+                    {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "const": "container_descendant_rekeys_required"
+                        },
+                        "error": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "requiredContainerIds": {
+                          "items": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "maxItems": 64,
+                          "type": "array"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "error",
+                        "requiredContainerIds"
+                      ],
+                      "additionalProperties": {}
                     }
-                  },
-                  "required": [
-                    "error"
-                  ],
-                  "additionalProperties": {}
+                  ]
                 }
               }
             },
@@ -65020,23 +65237,54 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "code": {
-                      "type": "string",
-                      "enum": [
-                        "billing_checkout_no_active_members",
-                        "billing_roster_over_capacity"
-                      ]
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "billing_checkout_no_active_members",
+                            "billing_roster_over_capacity"
+                          ]
+                        },
+                        "error": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "error"
+                      ],
+                      "additionalProperties": {}
                     },
-                    "error": {
-                      "type": "string"
+                    {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "const": "container_descendant_rekeys_required"
+                        },
+                        "error": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "requiredContainerIds": {
+                          "items": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "maxItems": 64,
+                          "type": "array"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "error",
+                        "requiredContainerIds"
+                      ],
+                      "additionalProperties": {}
                     }
-                  },
-                  "required": [
-                    "error"
-                  ],
-                  "additionalProperties": {}
+                  ]
                 }
               }
             },
@@ -65102,23 +65350,54 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "code": {
-                      "type": "string",
-                      "enum": [
-                        "billing_checkout_no_active_members",
-                        "billing_roster_over_capacity"
-                      ]
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "billing_checkout_no_active_members",
+                            "billing_roster_over_capacity"
+                          ]
+                        },
+                        "error": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "error"
+                      ],
+                      "additionalProperties": {}
                     },
-                    "error": {
-                      "type": "string"
+                    {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "const": "container_descendant_rekeys_required"
+                        },
+                        "error": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "requiredContainerIds": {
+                          "items": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "maxItems": 64,
+                          "type": "array"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "error",
+                        "requiredContainerIds"
+                      ],
+                      "additionalProperties": {}
                     }
-                  },
-                  "required": [
-                    "error"
-                  ],
-                  "additionalProperties": {}
+                  ]
                 }
               }
             },
@@ -65128,23 +65407,54 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "code": {
-                      "type": "string",
-                      "enum": [
-                        "billing_checkout_no_active_members",
-                        "billing_roster_over_capacity"
-                      ]
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "billing_checkout_no_active_members",
+                            "billing_roster_over_capacity"
+                          ]
+                        },
+                        "error": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "error"
+                      ],
+                      "additionalProperties": {}
                     },
-                    "error": {
-                      "type": "string"
+                    {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "const": "container_descendant_rekeys_required"
+                        },
+                        "error": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "requiredContainerIds": {
+                          "items": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "maxItems": 64,
+                          "type": "array"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "error",
+                        "requiredContainerIds"
+                      ],
+                      "additionalProperties": {}
                     }
-                  },
-                  "required": [
-                    "error"
-                  ],
-                  "additionalProperties": {}
+                  ]
                 }
               }
             },
@@ -65154,23 +65464,54 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "code": {
-                      "type": "string",
-                      "enum": [
-                        "billing_checkout_no_active_members",
-                        "billing_roster_over_capacity"
-                      ]
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "billing_checkout_no_active_members",
+                            "billing_roster_over_capacity"
+                          ]
+                        },
+                        "error": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "error"
+                      ],
+                      "additionalProperties": {}
                     },
-                    "error": {
-                      "type": "string"
+                    {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "const": "container_descendant_rekeys_required"
+                        },
+                        "error": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "requiredContainerIds": {
+                          "items": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "maxItems": 64,
+                          "type": "array"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "error",
+                        "requiredContainerIds"
+                      ],
+                      "additionalProperties": {}
                     }
-                  },
-                  "required": [
-                    "error"
-                  ],
-                  "additionalProperties": {}
+                  ]
                 }
               }
             },
@@ -65199,23 +65540,54 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "code": {
-                      "type": "string",
-                      "enum": [
-                        "billing_checkout_no_active_members",
-                        "billing_roster_over_capacity"
-                      ]
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "billing_checkout_no_active_members",
+                            "billing_roster_over_capacity"
+                          ]
+                        },
+                        "error": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "error"
+                      ],
+                      "additionalProperties": {}
                     },
-                    "error": {
-                      "type": "string"
+                    {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "const": "container_descendant_rekeys_required"
+                        },
+                        "error": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "requiredContainerIds": {
+                          "items": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "maxItems": 64,
+                          "type": "array"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "error",
+                        "requiredContainerIds"
+                      ],
+                      "additionalProperties": {}
                     }
-                  },
-                  "required": [
-                    "error"
-                  ],
-                  "additionalProperties": {}
+                  ]
                 }
               }
             },

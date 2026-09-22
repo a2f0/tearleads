@@ -54,6 +54,12 @@ interface PreparedGroupContainerMutations {
     responses: readonly ContainerMutationResponse[],
     stillCurrent?: (() => boolean) | undefined,
   ) => Promise<void>;
+  /** Sign the descendant rekeys a refused commit named; see `carry` there. */
+  readonly carry?:
+    | ((
+        requiredContainerIds: readonly string[],
+      ) => Promise<readonly ContainerMutationRequest[]>)
+    | undefined;
   readonly requests: readonly ContainerMutationRequest[];
 }
 
@@ -96,31 +102,42 @@ function createPolicyMutationCommitGuard(
   };
 }
 
+/**
+ * Plan the container mutations the policy change rematerializes and place their
+ * requests on the policy request. A bare request list has nothing to
+ * acknowledge or carry; a prepared batch does both.
+ */
+async function prepareGroupContainerMutations(
+  input: CommitAndCacheGroupPolicyMutationInput,
+  expectedHead: ReferencedPrincipalHead,
+): Promise<Partial<PreparedGroupContainerMutations> | null> {
+  if (!input.prepareContainerMutations) return null;
+  const prepared = await input.prepareContainerMutations({
+    currentPolicy: input.currentPolicy,
+    nextPolicy: await prepareAuthoredGroupPolicy({
+      currentPolicy: input.currentPolicy,
+      expectedHead,
+      request: input.request,
+    }),
+  });
+  if ("requests" in prepared) {
+    input.request.containerMutations = [...prepared.requests];
+    return prepared;
+  }
+  input.request.containerMutations = [...prepared];
+  return {};
+}
+
 async function commitAndCacheGroupPolicyMutation(
   input: CommitAndCacheGroupPolicyMutationInput,
 ): Promise<PrincipalPolicyMutationResponse> {
   const stillCurrent = createPolicyMutationCommitGuard(input.assertCanCommit);
   const expectedHead = await groupPolicyMutationHead(input.request);
   input.beforePolicyCommit?.(expectedHead);
-  let acknowledgeContainerMutations:
-    | PreparedGroupContainerMutations["acknowledge"]
-    | undefined;
-  if (input.prepareContainerMutations) {
-    const prepared = await input.prepareContainerMutations({
-      currentPolicy: input.currentPolicy,
-      nextPolicy: await prepareAuthoredGroupPolicy({
-        currentPolicy: input.currentPolicy,
-        expectedHead,
-        request: input.request,
-      }),
-    });
-    if ("requests" in prepared) {
-      input.request.containerMutations = [...prepared.requests];
-      acknowledgeContainerMutations = prepared.acknowledge;
-    } else {
-      input.request.containerMutations = [...prepared];
-    }
-  }
+  const containerMutations = await prepareGroupContainerMutations(
+    input,
+    expectedHead,
+  );
   const nextAdminProjection = input.policyContext.isOrganizationAdminsGroup
     ? input.request.projection
     : input.policyContext.adminPolicyBundle.currentProjection;
@@ -145,6 +162,7 @@ async function commitAndCacheGroupPolicyMutation(
   input.assertCanCommit?.();
   const acknowledgedBundle = await commitGroupPolicyMutation({
     apiClient: input.apiClient,
+    carryDescendantRekeys: containerMutations?.carry,
     currentPolicy: input.currentPolicy,
     execSql: input.execSql,
     expectedHead,
@@ -156,8 +174,8 @@ async function commitAndCacheGroupPolicyMutation(
     stillCurrent,
   });
   input.assertCanCommit?.();
-  if (acknowledgeContainerMutations) {
-    await acknowledgeContainerMutations(
+  if (containerMutations?.acknowledge) {
+    await containerMutations.acknowledge(
       acknowledgedBundle.containerMutations,
       stillCurrent,
     );

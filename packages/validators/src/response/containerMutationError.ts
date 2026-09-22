@@ -2,6 +2,7 @@ import { z } from "zod";
 import { arraySchema, nonEmptyStringSchema } from "../schema";
 import { MAX_ROTATION_CONTAINER_REKEYS } from "../util";
 import { CONTAINER_UNAVAILABLE_ERROR_CODE } from "./containerUnavailableError";
+import { CONTAINER_DESCENDANT_REKEYS_REQUIRED_ERROR_CODE } from "./descendantRekeysRequiredError";
 import { DocumentMutationErrorCodeSchema } from "./documentMutationError";
 import { PrincipalPolicyStaleErrorResponseSchema } from "./principal";
 
@@ -16,7 +17,7 @@ export const CONTAINER_MUTATION_ERROR_CODES = {
   // A rotation left a descendant above a granted container pinned to a retired
   // epoch. Not `stateStale`: refetching will not help, the client must sign and
   // carry the re-keys `requiredContainerIds` names.
-  descendantRekeysRequired: "container_descendant_rekeys_required",
+  descendantRekeysRequired: CONTAINER_DESCENDANT_REKEYS_REQUIRED_ERROR_CODE,
   manifestAlreadyExists: "container_manifest_already_exists",
   stateStale: "container_mutation_state_stale",
 } as const;

@@ -2,10 +2,13 @@ import { z } from "zod";
 import {
   arraySchema,
   loosePlainObject,
+  nonEmptyStringSchema,
   nonNegativeIntegerSchema,
   positiveIntegerSchema,
 } from "../schema";
+import { MAX_ROTATION_CONTAINER_REKEYS } from "../util";
 import { ContainerMutationResponseSchema } from "./container";
+import { CONTAINER_DESCENDANT_REKEYS_REQUIRED_ERROR_CODE } from "./descendantRekeysRequiredError";
 import { BillingErrorResponseSchema } from "./organizationBilling";
 
 export const PrincipalStateExternalAuthorityResponseSchema = loosePlainObject({
@@ -161,7 +164,34 @@ export type CommitOrganizationGroupPolicyResponse = z.infer<
   typeof CommitOrganizationGroupPolicyResponseSchema
 >;
 
-export const PrincipalPolicyErrorResponseSchema = BillingErrorResponseSchema;
+/**
+ * A group policy change rematerializes its granted containers, and a rekey or
+ * revoke among them is a rotation like any other: one that would leave a level
+ * above a directly granted container pinned to a retired epoch is refused, and
+ * this names the descendant rekeys the batch must carry, parent-first.
+ */
+const PrincipalPolicyDescendantRekeysRequiredResponseSchema = loosePlainObject({
+  code: z.literal(CONTAINER_DESCENDANT_REKEYS_REQUIRED_ERROR_CODE),
+  error: z.string().min(1),
+  requiredContainerIds: arraySchema(
+    nonEmptyStringSchema,
+    MAX_ROTATION_CONTAINER_REKEYS,
+  ),
+});
+
+export const PrincipalPolicyErrorResponseSchema = z.union([
+  BillingErrorResponseSchema,
+  PrincipalPolicyDescendantRekeysRequiredResponseSchema,
+]);
+
+export function isPrincipalPolicyDescendantRekeysRequiredResponse(
+  value: unknown,
+): value is z.infer<
+  typeof PrincipalPolicyDescendantRekeysRequiredResponseSchema
+> {
+  return PrincipalPolicyDescendantRekeysRequiredResponseSchema.safeParse(value)
+    .success;
+}
 
 export type PrincipalPolicyErrorResponse = z.infer<
   typeof PrincipalPolicyErrorResponseSchema

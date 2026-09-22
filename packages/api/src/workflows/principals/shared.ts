@@ -11,15 +11,47 @@ import type {
   PrincipalStatePayloadResponse,
   PrincipalStateResponse,
 } from "@tearleads/validators/response";
+import type { ContainerMutationError } from "../containers/mutations/errors";
 
 export class PrincipalPolicyError extends Error {
   constructor(
     message: string,
     readonly status: 400 | 403 | 404 | 409 | 503,
     readonly code?: BillingErrorCode,
+    /**
+     * Present when a rematerialized rotation would strand a level above a
+     * directly granted container: the descendant rekeys the batch must carry.
+     */
+    readonly requiredContainerIds?: readonly string[] | undefined,
   ) {
     super(message);
   }
+}
+
+/**
+ * Re-wrap a container mutation failure as a policy failure without losing the
+ * one answer a client can act on: a refused rotation names the descendant
+ * rekeys the batch must carry.
+ */
+export function principalPolicyErrorFromContainerMutation(
+  error: ContainerMutationError,
+): PrincipalPolicyError {
+  const body: unknown = error.body;
+  const requiredContainerIds = Reflect.get(
+    Object(body),
+    "requiredContainerIds",
+  );
+  return new PrincipalPolicyError(
+    error.message,
+    error.status,
+    undefined,
+    Array.isArray(requiredContainerIds)
+      ? requiredContainerIds.filter(
+          (containerId): containerId is string =>
+            typeof containerId === "string",
+        )
+      : undefined,
+  );
 }
 
 export function assertStandalonePrincipalPolicyWrite(

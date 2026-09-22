@@ -52,6 +52,7 @@ export function createMockApiClient(
     listOrganizationGroupMembers: async () => null,
     moveContainer: async () => null,
     createOrganizationGroup: async () => null,
+    commitOrganizationGroupPolicy: async () => null,
     putPrincipalPolicy: async () => null,
     registerUser: async () => null,
     rekeyContainer: async () => null,
@@ -203,6 +204,27 @@ export function createMockApiClient(
             message: "Mock container revoke unavailable",
             method: "POST",
             path: `/containers/${containerId}/revoke`,
+          });
+    };
+  }
+  // Group policy commits prefer the status-bearing variant for the same reason.
+  if (!overrides.commitOrganizationGroupPolicyResult) {
+    apiClient.commitOrganizationGroupPolicyResult = async (
+      organizationId,
+      groupId,
+      input,
+    ) => {
+      const data = await apiClient.commitOrganizationGroupPolicy(
+        organizationId,
+        groupId,
+        input,
+      );
+      return data
+        ? { data, ok: true }
+        : mockRequestFailure({
+            message: "Mock group policy commit unavailable",
+            method: "POST",
+            path: `/organizations/${organizationId}/groups/${groupId}/policy`,
           });
     };
   }

@@ -400,6 +400,7 @@ export {
   isCommitOrganizationGroupPolicyResponse,
   isCurrentPrincipalMemberEnvelopesResponse,
   isPrincipalPolicyBundleResponse,
+  isPrincipalPolicyDescendantRekeysRequiredResponse,
   isPrincipalPolicyMutationResponse,
   isPrincipalPolicyStaleErrorResponse,
   isPrincipalPolicyStateChainEntryResponse,

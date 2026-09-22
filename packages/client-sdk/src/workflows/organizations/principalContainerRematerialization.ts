@@ -30,8 +30,10 @@ import { createProjectionUserKeyResolver } from "../../data/keyingProjectionVeri
 import type { SecurityIncidentReporter } from "../../data/securityIncidents";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import type { TrustedUserIdentityResolver } from "../../data/trustedUserIdentity";
+import { planCarriedDescendantRekeys } from "../containers/child/carriedDescendantRekeys";
 import { scheduleHeldDescendantRecitations } from "../containers/child/recite";
 import { buildMaterializedContainerRekeyPlan } from "../containers/child/rekey";
+import { containerWriterProjectionFromRotationPlan } from "../containers/child/rekeyProjection";
 import { buildMaterializedContainerRevokePlan } from "../containers/child/revoke";
 import { buildMaterializedContainerSharePlan } from "../containers/child/shareMaterialization";
 
@@ -138,7 +140,7 @@ export async function buildPrincipalContainerRematerializationBatch(
   input: PrincipalContainerRematerializationInput,
 ): Promise<ContainerMutationRequest[]> {
   return (await buildPrincipalContainerRematerializationPlans(input)).map(
-    (planned) => planned.plan.request,
+    (entry) => entry.planned.plan.request,
   );
 }
 
@@ -147,11 +149,25 @@ type MaterializedPrincipalContainerMutationPlan =
   | MaterializedContainerRevokePlan
   | MaterializedContainerSharePlan;
 
+/** A plan with the served projection it extends, kept for carried rekeys. */
+interface PlannedRematerialization {
+  readonly planned: MaterializedPrincipalContainerMutationPlan;
+  readonly previousProjection: ContainerWriterProjectionResponse;
+}
+
 export interface PreparedPrincipalContainerRematerializationBatch {
   readonly acknowledge: (
     responses: readonly ContainerMutationResponse[],
     stillCurrent?: (() => boolean) | undefined,
   ) => Promise<void>;
+  /**
+   * Sign the descendant rekeys the server named for this batch's rotations,
+   * against the paths the batch will leave behind. Appended to `requests`;
+   * `acknowledge` then expects their responses in the same order.
+   */
+  readonly carry: (
+    requiredContainerIds: readonly string[],
+  ) => Promise<readonly ContainerMutationRequest[]>;
   readonly plans: readonly MaterializedPrincipalContainerMutationPlan[];
   readonly requests: readonly ContainerMutationRequest[];
 }
@@ -168,10 +184,11 @@ async function buildPrincipalContainerRematerializationPlan(input: {
   readonly resolveProjectionUserKey: ReturnType<
     typeof createProjectionUserKeyResolver
   >;
-}): Promise<MaterializedPrincipalContainerMutationPlan> {
+}): Promise<PlannedRematerialization> {
   const { grantRow, rematerialization } = input;
   const { grant, projection, referencedKeyEpoch } =
     await loadGrantedContainerContext(rematerialization, grantRow);
+  const previousProjection = projection;
   const nextGrant = rematerialization.nextPolicy.grants.find(
     (candidate) => candidate.containerId === grantRow.containerId,
   );
@@ -195,14 +212,17 @@ async function buildPrincipalContainerRematerializationPlan(input: {
         `Container ${grantRow.containerId} does not contain the revoked group grant`,
       );
     }
-    return buildMaterializedContainerRevokePlan({
-      ...sharedInput,
-      replacementPrincipalPolicy: rematerialization.nextPolicy,
-      revokedSubject: {
-        subjectId: rematerialization.groupId,
-        subjectType: "group",
-      },
-    });
+    return {
+      planned: await buildMaterializedContainerRevokePlan({
+        ...sharedInput,
+        replacementPrincipalPolicy: rematerialization.nextPolicy,
+        revokedSubject: {
+          subjectId: rematerialization.groupId,
+          subjectType: "group",
+        },
+      }),
+      previousProjection,
+    };
   }
   if (!grant || grant.accessLevel !== nextGrant?.accessLevel) {
     if (!nextGrant) {
@@ -210,36 +230,45 @@ async function buildPrincipalContainerRematerializationPlan(input: {
         `Container ${grantRow.containerId} is absent from the next group grant set`,
       );
     }
-    return buildMaterializedContainerSharePlan({
-      ...sharedInput,
-      accessLevel: nextGrant.accessLevel,
-      recipient: {
-        principalPolicy: rematerialization.nextPolicy,
-        subjectId: rematerialization.groupId,
-        subjectType: "group",
-      },
-    });
+    return {
+      planned: await buildMaterializedContainerSharePlan({
+        ...sharedInput,
+        accessLevel: nextGrant.accessLevel,
+        recipient: {
+          principalPolicy: rematerialization.nextPolicy,
+          subjectId: rematerialization.groupId,
+          subjectType: "group",
+        },
+      }),
+      previousProjection,
+    };
   }
   if (referencedKeyEpoch === rematerialization.nextPolicy.keyEpoch) {
-    return buildMaterializedContainerSharePlan({
-      ...sharedInput,
-      accessLevel: grant.accessLevel,
-      recipient: {
-        principalPolicy: rematerialization.nextPolicy,
-        subjectId: rematerialization.groupId,
-        subjectType: "group",
-      },
-    });
+    return {
+      planned: await buildMaterializedContainerSharePlan({
+        ...sharedInput,
+        accessLevel: grant.accessLevel,
+        recipient: {
+          principalPolicy: rematerialization.nextPolicy,
+          subjectId: rematerialization.groupId,
+          subjectType: "group",
+        },
+      }),
+      previousProjection,
+    };
   }
-  return buildMaterializedContainerRekeyPlan({
-    ...sharedInput,
-    replacementPrincipalPolicy: rematerialization.nextPolicy,
-  });
+  return {
+    planned: await buildMaterializedContainerRekeyPlan({
+      ...sharedInput,
+      replacementPrincipalPolicy: rematerialization.nextPolicy,
+    }),
+    previousProjection,
+  };
 }
 
 async function buildPrincipalContainerRematerializationPlans(
   input: PrincipalContainerRematerializationInput,
-): Promise<MaterializedPrincipalContainerMutationPlan[]> {
+): Promise<PlannedRematerialization[]> {
   if (
     input.revokedContainerId &&
     !input.grants.some(
@@ -251,7 +280,7 @@ async function buildPrincipalContainerRematerializationPlans(
   const resolveProjectionUserKey = createProjectionUserKeyResolver({
     resolveTrustedUserIdentity: input.resolveTrustedUserIdentity,
   });
-  const plans: MaterializedPrincipalContainerMutationPlan[] = [];
+  const plans: PlannedRematerialization[] = [];
   for (const grantRow of [...input.grants].sort((left, right) =>
     left.containerId.localeCompare(right.containerId),
   )) {
@@ -266,19 +295,61 @@ async function buildPrincipalContainerRematerializationPlans(
   return plans;
 }
 
+/** A rotation's speculative path once accepted; null for a grant. */
+async function rotatedPath(
+  entry: PlannedRematerialization,
+): Promise<Pick<
+  ContainerWriterProjectionResponse,
+  "containerKeks" | "path"
+> | null> {
+  const { plan } = entry.planned;
+  if (!("keyring" in plan)) return null;
+  return containerWriterProjectionFromRotationPlan({
+    plan,
+    previousProjection: entry.previousProjection,
+  });
+}
+
 export async function preparePrincipalContainerRematerializationBatch(
   input: PrincipalContainerRematerializationInput,
 ): Promise<PreparedPrincipalContainerRematerializationBatch> {
-  const plans = await buildPrincipalContainerRematerializationPlans(input);
+  const entries = await buildPrincipalContainerRematerializationPlans(input);
+  const plans = entries.map((entry) => entry.planned);
+  const carriedPlans: MaterializedContainerRekeyPlan[] = [];
   return {
     plans,
     requests: plans.map((planned) => planned.plan.request),
+    carry: async (requiredContainerIds) => {
+      // Each rotation in the batch is a speculative ancestor a carried rekey
+      // may sit below; the planner picks the deepest per container.
+      const rotated = (
+        await Promise.all(entries.map((entry) => rotatedPath(entry)))
+      ).filter((path) => path !== null);
+      const planned = await planCarriedDescendantRekeys({
+        apiClient: input.apiClient,
+        author: input.author,
+        execSql: input.execSql,
+        requiredContainerIds,
+        resolveProjectionUserKey: createProjectionUserKeyResolver({
+          resolveTrustedUserIdentity: input.resolveTrustedUserIdentity,
+        }),
+        rotated,
+        stillCurrent: input.stillCurrent,
+        targetSecretKey: input.targetSecretKey,
+        warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
+      });
+      carriedPlans.splice(0, carriedPlans.length, ...planned);
+      return planned.map(({ plan }) => plan.request);
+    },
     acknowledge: async (responses, stillCurrent) => {
       const isCurrent = () =>
         input.stillCurrent?.() !== false && stillCurrent?.() !== false;
       const acknowledged = await acknowledgeContainerMutationBatch({
         execSql: input.execSql,
-        plans: plans.map(authoredMutationHead),
+        plans: [
+          ...plans.map(authoredMutationHead),
+          ...carriedPlans.map(({ plan }) => plan),
+        ],
         responses,
         stillCurrent: isCurrent,
       });
@@ -287,7 +358,7 @@ export async function preparePrincipalContainerRematerializationBatch(
         string,
         AuthoredContainerMutationHead[]
       >();
-      for (const planned of plans) {
+      for (const planned of [...plans, ...carriedPlans]) {
         const head = authoredMutationHead(planned);
         const organizationId = head.state.organizationId;
         const group = plansByOrganization.get(organizationId) ?? [];

@@ -7,15 +7,17 @@ import type {
 } from "@tearleads/crypto";
 import type {
   CommitOrganizationGroupPolicyRequest,
+  ContainerMutationRequest,
   CreateOrganizationGroupWithPolicyRequest,
   PutPrincipalPolicyRequest,
 } from "@tearleads/validators/request";
-import type {
-  CommitOrganizationGroupPolicyResponse,
-  CreateOrganizationGroupResponse,
-  CurrentPrincipalMemberEnvelopesResponse,
-  PrincipalPolicyBundleResponse,
-  PrincipalPolicyMutationResponse,
+import {
+  CONTAINER_MUTATION_ERROR_CODES,
+  type CommitOrganizationGroupPolicyResponse,
+  type CreateOrganizationGroupResponse,
+  type CurrentPrincipalMemberEnvelopesResponse,
+  type PrincipalPolicyBundleResponse,
+  type PrincipalPolicyMutationResponse,
 } from "@tearleads/validators/response";
 import { persistVerifiedPrincipalPolicyBundlesAtomically } from "../../data/persistence/keyingCheckpointAdvancePersistence";
 import { retainLocallyAcknowledgedPrincipalPolicyBundles } from "../../data/persistence/locallyAcknowledgedCheckpointPersistence";
@@ -58,6 +60,29 @@ export interface PrincipalPolicyReadWriteApi extends PrincipalPolicyReadApi {
     groupId: string,
     input: CommitOrganizationGroupPolicyRequest,
   ) => Promise<CommitOrganizationGroupPolicyResponse | null>;
+  /**
+   * Optional status-bearing variant. A rematerialized rotation the server
+   * refuses for stranding a granted path names the descendant rekeys the batch
+   * must carry; without this the refusal is a plain failure.
+   */
+  commitOrganizationGroupPolicyResult?: (
+    organizationId: string,
+    groupId: string,
+    input: CommitOrganizationGroupPolicyRequest,
+    options?: { readonly reportErrors?: boolean | undefined },
+  ) => Promise<
+    | {
+        readonly ok: true;
+        readonly data: CommitOrganizationGroupPolicyResponse;
+      }
+    | {
+        readonly ok: false;
+        readonly code?: string | undefined;
+        readonly report?: (() => void) | undefined;
+        readonly requiredContainerIds?: readonly string[] | undefined;
+        readonly status: number | null;
+      }
+  >;
 }
 
 export interface OrganizationPrincipalPolicyApi extends PrincipalPolicyReadApi {
@@ -242,6 +267,74 @@ export async function loadGroupPolicyMutationContext(input: {
   };
 }
 
+/**
+ * Commit, answering one refusal: a rematerialized rekey or revoke that would
+ * strand a level above a directly granted container is refused with the
+ * descendant rekeys it must carry. The refused attempt rolled back whole, so
+ * the signed batch still extends the current heads; the carried rekeys are
+ * appended and the commit retried once. A second refusal means the tree moved
+ * underneath, and the caller's own retry starts from a fresh policy.
+ */
+async function submitGroupPolicyCommit(input: {
+  readonly apiClient: PrincipalPolicyReadWriteApi;
+  readonly carryDescendantRekeys?:
+    | ((
+        requiredContainerIds: readonly string[],
+      ) => Promise<readonly ContainerMutationRequest[]>)
+    | undefined;
+  readonly groupId: string;
+  readonly organizationId: string;
+  readonly organizationRequest: PutPrincipalPolicyRequest;
+  readonly request: PutPrincipalPolicyRequest;
+  readonly stillCurrent?: (() => boolean) | undefined;
+}): Promise<CommitOrganizationGroupPolicyResponse | null> {
+  const body = () => ({
+    groupPolicy: input.request,
+    organizationPolicy: input.organizationRequest,
+  });
+  const { commitOrganizationGroupPolicyResult } = input.apiClient;
+  if (!commitOrganizationGroupPolicyResult || !input.carryDescendantRekeys) {
+    return input.apiClient.commitOrganizationGroupPolicy(
+      input.organizationId,
+      input.groupId,
+      body(),
+    );
+  }
+  const first = await commitOrganizationGroupPolicyResult.call(
+    input.apiClient,
+    input.organizationId,
+    input.groupId,
+    body(),
+    { reportErrors: false },
+  );
+  if (first.ok) return first.data;
+  if (
+    first.code !== CONTAINER_MUTATION_ERROR_CODES.descendantRekeysRequired ||
+    !first.requiredContainerIds?.length
+  ) {
+    first.report?.();
+    return null;
+  }
+  const carried = await input.carryDescendantRekeys(first.requiredContainerIds);
+  if (input.stillCurrent?.() === false) return null;
+  input.request.containerMutations = [
+    ...(input.request.containerMutations ?? []),
+    ...carried,
+  ];
+  const second = await commitOrganizationGroupPolicyResult.call(
+    input.apiClient,
+    input.organizationId,
+    input.groupId,
+    body(),
+    { reportErrors: false },
+  );
+  if (!second.ok) {
+    second.report?.();
+    return null;
+  }
+  return second.data;
+}
+
 export async function commitGroupPolicyMutation(input: {
   readonly apiClient: PrincipalPolicyReadWriteApi;
   readonly currentPolicy: PrincipalPolicyBundleResponse;
@@ -251,18 +344,19 @@ export async function commitGroupPolicyMutation(input: {
   readonly organizationId: string;
   readonly organizationPolicy: PrincipalPolicyBundleResponse;
   readonly organizationRequest: PutPrincipalPolicyRequest;
+  /**
+   * Sign the descendant rekeys a refused batch must carry; they are appended
+   * to `containerMutations` and the commit is retried once.
+   */
+  readonly carryDescendantRekeys?:
+    | ((
+        requiredContainerIds: readonly string[],
+      ) => Promise<readonly ContainerMutationRequest[]>)
+    | undefined;
   readonly request: PutPrincipalPolicyRequest;
   readonly stillCurrent?: (() => boolean) | undefined;
 }): Promise<PrincipalPolicyMutationResponse> {
-  const stored = await input.apiClient.commitOrganizationGroupPolicy(
-    input.organizationId,
-    input.groupId,
-    {
-      groupPolicy: input.request,
-      organizationPolicy: input.organizationRequest,
-    },
-  );
-
+  const stored = await submitGroupPolicyCommit(input);
   if (!stored) {
     throw new Error("Group policy update failed");
   }

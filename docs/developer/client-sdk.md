@@ -621,7 +621,13 @@ or `moveContainerResult`, and `getContainerWriterProjection`.
 
 A container's first direct grant has the matching precondition: the chain above
 it must be current, since its new grantee could not repair it; the API refuses
-one below a stale chain with `container_ancestor_rekeys_required`. A container that
+one below a stale chain with `container_ancestor_rekeys_required`.
+A group policy change rematerializes the group's granted containers, and a
+rekey or revoke among them is a rotation like any other: `addOrganizationGroupUser`,
+`removeOrganizationGroupUser`, and the other group mutations answer the same
+refusal through the prepared batch's `carry` step and retry once with the named
+rekeys appended, acknowledged with the batch. Custom adapters opt in with
+`commitOrganizationGroupPolicyResult`. A container that
 already carries a grant has had its chain kept current by every rotation above
 it, so further grants and group rematerialization refreshes owe nothing more.
 `shareRemoteContainer` and `shareRemoteContainerWithGroup` re-key a lazily stale

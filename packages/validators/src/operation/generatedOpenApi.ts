@@ -23002,13 +23002,20 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
+                    "application/json": ({
                         /** @enum {string} */
                         code?: "billing_checkout_no_active_members" | "billing_roster_over_capacity";
                         error: string;
                     } & {
                         [key: string]: unknown;
-                    };
+                    }) | ({
+                        /** @constant */
+                        code: "container_descendant_rekeys_required";
+                        error: string;
+                        requiredContainerIds: string[];
+                    } & {
+                        [key: string]: unknown;
+                    });
                 };
             };
             /** @description Failure JSON response */
@@ -23048,13 +23055,20 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
+                    "application/json": ({
                         /** @enum {string} */
                         code?: "billing_checkout_no_active_members" | "billing_roster_over_capacity";
                         error: string;
                     } & {
                         [key: string]: unknown;
-                    };
+                    }) | ({
+                        /** @constant */
+                        code: "container_descendant_rekeys_required";
+                        error: string;
+                        requiredContainerIds: string[];
+                    } & {
+                        [key: string]: unknown;
+                    });
                 };
             };
             /** @description Failure JSON response */
@@ -23063,13 +23077,20 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
+                    "application/json": ({
                         /** @enum {string} */
                         code?: "billing_checkout_no_active_members" | "billing_roster_over_capacity";
                         error: string;
                     } & {
                         [key: string]: unknown;
-                    };
+                    }) | ({
+                        /** @constant */
+                        code: "container_descendant_rekeys_required";
+                        error: string;
+                        requiredContainerIds: string[];
+                    } & {
+                        [key: string]: unknown;
+                    });
                 };
             };
             /** @description Failure JSON response */
@@ -23078,13 +23099,20 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
+                    "application/json": ({
                         /** @enum {string} */
                         code?: "billing_checkout_no_active_members" | "billing_roster_over_capacity";
                         error: string;
                     } & {
                         [key: string]: unknown;
-                    };
+                    }) | ({
+                        /** @constant */
+                        code: "container_descendant_rekeys_required";
+                        error: string;
+                        requiredContainerIds: string[];
+                    } & {
+                        [key: string]: unknown;
+                    });
                 };
             };
             /** @description Failure JSON response */
@@ -23106,13 +23134,20 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
+                    "application/json": ({
                         /** @enum {string} */
                         code?: "billing_checkout_no_active_members" | "billing_roster_over_capacity";
                         error: string;
                     } & {
                         [key: string]: unknown;
-                    };
+                    }) | ({
+                        /** @constant */
+                        code: "container_descendant_rekeys_required";
+                        error: string;
+                        requiredContainerIds: string[];
+                    } & {
+                        [key: string]: unknown;
+                    });
                 };
             };
         };
@@ -23872,13 +23907,20 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
+                    "application/json": ({
                         /** @enum {string} */
                         code?: "billing_checkout_no_active_members" | "billing_roster_over_capacity";
                         error: string;
                     } & {
                         [key: string]: unknown;
-                    };
+                    }) | ({
+                        /** @constant */
+                        code: "container_descendant_rekeys_required";
+                        error: string;
+                        requiredContainerIds: string[];
+                    } & {
+                        [key: string]: unknown;
+                    });
                 };
             };
             /** @description Failure JSON response */
@@ -23902,13 +23944,20 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
+                    "application/json": ({
                         /** @enum {string} */
                         code?: "billing_checkout_no_active_members" | "billing_roster_over_capacity";
                         error: string;
                     } & {
                         [key: string]: unknown;
-                    };
+                    }) | ({
+                        /** @constant */
+                        code: "container_descendant_rekeys_required";
+                        error: string;
+                        requiredContainerIds: string[];
+                    } & {
+                        [key: string]: unknown;
+                    });
                 };
             };
             /** @description Failure JSON response */
@@ -24389,13 +24438,20 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
+                    "application/json": ({
                         /** @enum {string} */
                         code?: "billing_checkout_no_active_members" | "billing_roster_over_capacity";
                         error: string;
                     } & {
                         [key: string]: unknown;
-                    };
+                    }) | ({
+                        /** @constant */
+                        code: "container_descendant_rekeys_required";
+                        error: string;
+                        requiredContainerIds: string[];
+                    } & {
+                        [key: string]: unknown;
+                    });
                 };
             };
             /** @description Failure JSON response */
@@ -24435,13 +24491,20 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
+                    "application/json": ({
                         /** @enum {string} */
                         code?: "billing_checkout_no_active_members" | "billing_roster_over_capacity";
                         error: string;
                     } & {
                         [key: string]: unknown;
-                    };
+                    }) | ({
+                        /** @constant */
+                        code: "container_descendant_rekeys_required";
+                        error: string;
+                        requiredContainerIds: string[];
+                    } & {
+                        [key: string]: unknown;
+                    });
                 };
             };
             /** @description Failure JSON response */
@@ -24450,13 +24513,20 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
+                    "application/json": ({
                         /** @enum {string} */
                         code?: "billing_checkout_no_active_members" | "billing_roster_over_capacity";
                         error: string;
                     } & {
                         [key: string]: unknown;
-                    };
+                    }) | ({
+                        /** @constant */
+                        code: "container_descendant_rekeys_required";
+                        error: string;
+                        requiredContainerIds: string[];
+                    } & {
+                        [key: string]: unknown;
+                    });
                 };
             };
             /** @description Failure JSON response */
@@ -24465,13 +24535,20 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
+                    "application/json": ({
                         /** @enum {string} */
                         code?: "billing_checkout_no_active_members" | "billing_roster_over_capacity";
                         error: string;
                     } & {
                         [key: string]: unknown;
-                    };
+                    }) | ({
+                        /** @constant */
+                        code: "container_descendant_rekeys_required";
+                        error: string;
+                        requiredContainerIds: string[];
+                    } & {
+                        [key: string]: unknown;
+                    });
                 };
             };
             /** @description Failure JSON response */
@@ -24493,13 +24570,20 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
+                    "application/json": ({
                         /** @enum {string} */
                         code?: "billing_checkout_no_active_members" | "billing_roster_over_capacity";
                         error: string;
                     } & {
                         [key: string]: unknown;
-                    };
+                    }) | ({
+                        /** @constant */
+                        code: "container_descendant_rekeys_required";
+                        error: string;
+                        requiredContainerIds: string[];
+                    } & {
+                        [key: string]: unknown;
+                    });
                 };
             };
         };
