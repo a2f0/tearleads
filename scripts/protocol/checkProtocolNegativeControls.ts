@@ -11,6 +11,7 @@ import { spawnSync } from "node:child_process";
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, dirname, join } from "node:path";
+import { runFailFastPool } from "./failFastPool";
 import {
   NEGATIVE_CONTROLS,
   type NegativeControl,
@@ -98,29 +99,14 @@ for (const control of NEGATIVE_CONTROLS) {
 }
 
 // Overlapped runs finish in completion order, so progress lines interleave.
-// After the first failure no new run starts; the in-flight ones finish so no
-// JVM outlives the check. A thrown error is recorded like any other failure:
-// rejecting Promise.all would exit while another worker's JVM still runs.
-const pending = [...NEGATIVE_CONTROLS];
-let failure: string | undefined;
-async function runPending(): Promise<void> {
-  for (
-    let control = pending.shift();
-    control && failure === undefined;
-    control = pending.shift()
-  ) {
-    let problem: string | undefined;
-    try {
-      problem = await runControl(root, tools, control);
-    } catch (error) {
-      problem = `${control.id} could not run: ${String(error)}`;
-    }
-    failure ??= problem;
-  }
-}
-await Promise.all(Array.from({ length: tlcParallelism() }, runPending));
-if (failure !== undefined) {
-  fail(failure);
+const failures = await runFailFastPool(
+  NEGATIVE_CONTROLS,
+  tlcParallelism(),
+  (control) => runControl(root, tools, control),
+  (control) => control.id,
+);
+if (failures.length > 0) {
+  fail(failures.join("\n\n"));
 }
 console.log(
   `Checked ${NEGATIVE_CONTROLS.length} protocol negative control(s).`,

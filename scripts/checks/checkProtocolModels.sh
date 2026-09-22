@@ -205,6 +205,8 @@ run_model() {
     -metadir "$run_state_path" \
     -config "$3" \
     "$2" >"$run_state_path.log" 2>&1 </dev/null &
+  # A signal landing between this fork and the PID write finds no file, so that
+  # one run can outlive an interrupted check; the window is a few instructions.
   echo "$!" >"$run_state_path.pid"
   if wait "$!"; then
     run_status=0
@@ -266,10 +268,11 @@ while IFS='|' read -r model_path config_path; do
   printf '%s with %s' "$model_path" "$config_path" \
     >"$CHECK_ROOT/model-$model_count.label"
   # The post runs even if run_model dies, so the pool can never wait forever.
+  # stdin is the registry this loop is reading, so the job must not inherit it.
   {
     (run_model "$model_count" "$model_path" "$config_path") || :
     echo "$model_count" >&3
-  } &
+  } </dev/null &
 done <"$REGISTERED_MODELS"
 while [ "$running" -gt 0 ]; do
   await_run

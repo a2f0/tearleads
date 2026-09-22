@@ -150,7 +150,10 @@ interrupted_check=$!
 hang_wait=0
 until [ "$(wc -l <"$JAVA_LOG" 2>/dev/null | tr -d '[:space:]')" = 2 ]; do
   hang_wait=$((hang_wait + 1))
-  [ "$hang_wait" -le 30 ] || fail "the interrupted check never started both runs."
+  if [ "$hang_wait" -gt 30 ]; then
+    kill -TERM "$interrupted_check" 2>/dev/null || :
+    fail "the interrupted check never started both runs."
+  fi
   sleep 1
 done
 # Both runs have logged; give each a moment to record its PID.
@@ -158,15 +161,26 @@ sleep 1
 kill -TERM "$interrupted_check"
 wait "$interrupted_check" || :
 cut -d '|' -f 5 "$JAVA_LOG" >"$TEST_ROOT/run-pids"
-surviving_runs=
-while read -r run_pid; do
-  if kill -0 "$run_pid" 2>/dev/null; then
-    kill "$run_pid" 2>/dev/null || :
-    surviving_runs="$surviving_runs $run_pid"
+# A killed run is reaped by its own job shortly after the check exits, and
+# kill -0 still succeeds on it until then, so allow a few seconds to settle.
+settle_wait=0
+while :; do
+  surviving_runs=
+  while read -r run_pid; do
+    if kill -0 "$run_pid" 2>/dev/null; then
+      surviving_runs="$surviving_runs $run_pid"
+    fi
+  done <"$TEST_ROOT/run-pids"
+  [ -n "$surviving_runs" ] || break
+  settle_wait=$((settle_wait + 1))
+  if [ "$settle_wait" -gt 5 ]; then
+    for run_pid in $surviving_runs; do
+      kill "$run_pid" 2>/dev/null || :
+    done
+    fail "an interrupted check left TLC runs running:$surviving_runs."
   fi
-done <"$TEST_ROOT/run-pids"
-[ -z "$surviving_runs" ] ||
-  fail "an interrupted check left TLC runs running:$surviving_runs."
+  sleep 1
+done
 
 for parallelism in 0 two; do
   install_registry valid.txt
