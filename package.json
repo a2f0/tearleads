@@ -63,6 +63,7 @@
     "lint:package-assertions": "bun scripts/checks/lintPackageAssertions.ts",
     "lint:ruby": "sh scripts/checks/checkRuby.sh",
     "lint:scripts": "bun scripts/checks/lintScripts.ts",
+    "lint:skill-placeholders": "bun scripts/checks/lintSkillPlaceholders.ts",
     "lint:source-shape": "bun scripts/checks/lintSourceShape.ts",
     "report:dependencies": "bun scripts/architecture/reportDependencyGraph.ts",
     "report:dependencies:archi": "bun scripts/architecture/reportDependencyGraph.ts --format archi",
