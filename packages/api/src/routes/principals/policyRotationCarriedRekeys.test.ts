@@ -12,6 +12,7 @@ import {
   accessManifestFromContainerResponse,
   kekStateFromContainerResponse,
 } from "../../../test/helpers/keyingWriterProjectionKit";
+import { createOwnedTree } from "../../../test/helpers/ownedContainerTree";
 import {
   prepareRotation,
   putPolicy,
@@ -252,6 +253,25 @@ test("a policy batch may carry only rekeys, once each, up to the cap", async () 
     prepared,
   );
 }, 30_000);
+
+test("a policy batch may carry only what sits below one of its rotations", async () => {
+  const { prepared } = await prepareWithUpper(true);
+  const away = await createOwnedTree(0, [prepared.owner]);
+  try {
+    const elsewhere = await away.createChild(away.rootId);
+    await away.share(elsewhere, prepared.owner.userId);
+    await expectRefusal(
+      await putPolicy(prepared, [
+        ...prepared.containerMutations,
+        await away.bareRekeyRequestAs(prepared.owner, elsewhere),
+      ]),
+      "Carried container rekey is not below the rotated container",
+      prepared,
+    );
+  } finally {
+    away.close();
+  }
+}, 60_000);
 
 test("a policy batch that rotates nothing carries nothing", async () => {
   const { carriedUpper, prepared } = await prepareWithUpper(false);

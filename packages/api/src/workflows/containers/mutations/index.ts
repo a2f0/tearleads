@@ -16,6 +16,7 @@ import {
   toMutationError,
 } from "./errors";
 import { rekeyContainer } from "./rekeyContainer";
+import { assertCarriedRekeysBelowRotations } from "./shared/carriedRekeyAncestry";
 import { assertGrantedPathsCurrentBelowRotations } from "./shared/grantedPathCurrency";
 import {
   mutateContainerWithExecutor,
@@ -180,6 +181,11 @@ async function mutateContainerRotationInTransaction(
       }),
     );
   }
+  await assertCarriedRekeysBelowRotations({
+    carriedContainerIds: carriedResponses.map((carried) => carried.containerId),
+    executor: tx,
+    rotatedContainerIds: [response.containerId],
+  });
   await assertGrantedPathsCurrentBelowRotations({
     carriedLimit: MAX_ROTATION_CONTAINER_REKEYS,
     executor: tx,

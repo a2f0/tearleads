@@ -164,6 +164,12 @@ export type CommitOrganizationGroupPolicyResponse = z.infer<
   typeof CommitOrganizationGroupPolicyResponseSchema
 >;
 
+export const PrincipalPolicyErrorResponseSchema = BillingErrorResponseSchema;
+
+export type PrincipalPolicyErrorResponse = z.infer<
+  typeof PrincipalPolicyErrorResponseSchema
+>;
+
 /**
  * A group policy change rematerializes its granted containers, and a rekey or
  * revoke among them is a rotation like any other: one that would leave a level
@@ -179,14 +185,15 @@ const PrincipalPolicyDescendantRekeysRequiredResponseSchema = loosePlainObject({
   ),
 });
 
-export const PrincipalPolicyErrorResponseSchema = z.union([
-  BillingErrorResponseSchema,
+/**
+ * The commit's conflict envelope alone: only a group commit carries container
+ * mutations, so only it can be refused for what they strand. The principal
+ * policy read and the organization policy write keep the plain envelope.
+ */
+export const CommitOrganizationGroupPolicyConflictResponseSchema = z.union([
+  PrincipalPolicyErrorResponseSchema,
   PrincipalPolicyDescendantRekeysRequiredResponseSchema,
 ]);
-
-export type PrincipalPolicyErrorResponse = z.infer<
-  typeof PrincipalPolicyErrorResponseSchema
->;
 
 export const PrincipalPolicyStaleErrorResponseSchema = loosePlainObject({
   code: z.literal("principal_policy_stale"),

@@ -2,10 +2,13 @@ import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import {
   findOpenPrNumber,
+  remoteBranchHead,
   resolveRepoContext,
+  resolveRepositoryGitUrl,
   run,
   spawnExitCode,
 } from "../git/prContext";
+import { assertBranchPushed } from "./assertBranchPushed";
 import { assertNoClaudeBranding } from "./assertNoClaudeBranding";
 import { singleLineSubject } from "./subjectLine";
 import { validateCommitSubject } from "./validateCommitSubject";
@@ -28,7 +31,8 @@ function readBody(): string {
  * title. The title defaults to the branch's latest commit subject, is validated
  * against the repo's commitlint rules (conventional-commit syntax and the
  * 50-char header limit) before the PR is created, and the body is read from
- * stdin. The base defaults to the repository's default branch.
+ * stdin. The base defaults to the repository's default branch. The branch must
+ * already be pushed at the local head; this never pushes.
  */
 export function openPr(rootDir: string, titleArg: string | undefined): number {
   const { branch, repo, defaultBranch } = resolveRepoContext();
@@ -37,6 +41,12 @@ export function openPr(rootDir: string, titleArg: string | undefined): number {
   if (existing.length > 0) {
     throw new Error(`An open PR already exists for '${branch}': #${existing}.`);
   }
+
+  assertBranchPushed({
+    branch,
+    localHead: run("git", ["rev-parse", "HEAD"]),
+    remoteHead: remoteBranchHead(resolveRepositoryGitUrl(repo), branch),
+  });
 
   const tipSubject = run("git", ["log", "-1", "--format=%s"]);
   const title = singleLineSubject(titleArg, tipSubject, "PR title");

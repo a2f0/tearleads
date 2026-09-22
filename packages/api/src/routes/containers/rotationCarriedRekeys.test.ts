@@ -157,9 +157,10 @@ test("the owed set is the union of granted chains within the organization", asyn
 
 // A carried rekey need not be a descendant. Rotating `lower` and then, in the
 // same batch, its parent `upper` leaves `lower` pinned to a retired epoch with a
-// grant beneath it. A rotated container's own pin counts like any other level.
+// grant beneath it. A carried rekey rides the rotation above it, and an
+// ancestor is not below anything the batch rotates.
 
-test("carrying an ancestor's rekey cannot strand the rotated container", async () => {
+test("carrying an ancestor's rekey is refused as not below the rotation", async () => {
   const tree = await createOwnedTree(1);
   const [writer] = tree.members;
   if (!writer) throw new Error("Expected a writer");
@@ -185,8 +186,7 @@ test("carrying an ancestor's rekey cannot strand the rotated container", async (
       409,
     );
     expect(await refused.json()).toMatchObject({
-      code: "container_descendant_rekeys_required",
-      requiredContainerIds: [lower],
+      error: "Carried container rekey is not below the rotated container",
     });
     // Refused whole: neither rotation landed.
     expect(await tree.keksOf(granted)).toEqual(before);
@@ -229,20 +229,18 @@ test("only a rotation may carry rekeys, and only as a list", async () => {
   }
 }, 120_000);
 
-// A carried rekey need not even share the rotation's organization: the batch
-// locks whatever organizations it names. Each one is held to the rule on its
-// own, or a member of two could strand a grantee in the second by carrying
-// that rekey on a rotation in the first.
+// A container in another organization is never below this one's rotation, so
+// it cannot ride it. The per-organization currency walk behind that check
+// stays as defence in depth: a batch locks whatever organizations it names.
 
-test("a carried rekey in another organization is held to the rule there", async () => {
+test("a carried rekey in another organization is refused as not below the rotation", async () => {
   const home = await createOwnedTree(0);
   const away = await createOwnedTree(1, [home.owner]);
   const outsider = away.members.find((member) => member !== home.owner);
   if (!outsider) throw new Error("Expected an outsider");
   try {
     const upper = await away.createChild(away.rootId);
-    const middle = await away.createChild(upper);
-    const lower = await away.createChild(middle);
+    const lower = await away.createChild(await away.createChild(upper));
     // The home owner may write, and so rekey, from `upper` down.
     await away.share(upper, home.owner.userId);
     await away.share(lower, outsider.userId);
@@ -263,8 +261,7 @@ test("a carried rekey in another organization is held to the rule there", async 
       409,
     );
     expect(await refused.json()).toMatchObject({
-      code: "container_descendant_rekeys_required",
-      requiredContainerIds: [middle],
+      error: "Carried container rekey is not below the rotated container",
     });
     expect(await away.keksOf(lower)).toEqual(before);
   } finally {

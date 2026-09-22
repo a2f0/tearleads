@@ -316,7 +316,14 @@ async function submitGroupPolicyCommit(input: {
     first.report?.();
     return null;
   }
-  const carried = await input.carryDescendantRekeys(first.requiredContainerIds);
+  let carried: readonly ContainerMutationRequest[];
+  try {
+    carried = await input.carryDescendantRekeys(first.requiredContainerIds);
+  } catch (error) {
+    // The refusal was answerable, and the answer failed: surface both.
+    first.report?.();
+    throw error;
+  }
   if (input.stillCurrent?.() === false) return null;
   // Nothing signed means the same refusal again; report the one already had.
   if (carried.length === 0) {

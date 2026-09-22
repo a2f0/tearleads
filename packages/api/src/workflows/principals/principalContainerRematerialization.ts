@@ -18,6 +18,7 @@ import {
   readProjectionString,
 } from "../../keyingProjectionRecords";
 import { ContainerMutationError } from "../containers/mutations/errors";
+import { assertCarriedRekeysBelowRotations } from "../containers/mutations/shared/carriedRekeyAncestry";
 import { assertGrantedPathsCurrentBelowRotations } from "../containers/mutations/shared/grantedPathCurrency";
 import {
   mutateContainerWithExecutor,
@@ -283,8 +284,10 @@ function carriedRekeyInput(input: {
  * epoch. The client orders the whole batch parent-first, carried levels between
  * the rematerializations they sit under, so position says nothing here; an
  * entry is required by its container, and anything else must be a rekey of a
- * container the batch does not otherwise rotate. They are checked after the
- * batch applies; a rekey citing an epoch not yet minted fails on its own.
+ * container the batch does not otherwise rotate, sitting below one it does
+ * (checked once the batch is classified, since the rotated set is known only
+ * then). What they leave current is checked after the batch applies; a rekey
+ * citing an epoch not yet minted fails on its own.
  */
 function rematerializationInputs(input: {
   readonly fingerprint: string;
@@ -293,7 +296,11 @@ function rematerializationInputs(input: {
   readonly requests: readonly ContainerMutationRequest[];
   readonly required: readonly RequiredContainerRematerialization[];
   readonly userId: string;
-}): MutateContainerInput[] {
+}): {
+  carriedContainerIds: string[];
+  inputs: MutateContainerInput[];
+  rotatedContainerIds: string[];
+} {
   const requiredByContainerId = new Map(
     input.required.map((entry) => [entry.containerId, entry] as const),
   );
@@ -351,21 +358,24 @@ function rematerializationInputs(input: {
   }
   // A grant keeps its epoch and strands nothing, so a batch of grants alone
   // has nothing to carry; a rekey riding on one is a rotation in disguise.
-  if (
-    carriedContainerIds.size > 0 &&
-    !inputs.some(
-      (entry) =>
-        entry.expectedContainerId !== undefined &&
-        requiredByContainerId.has(entry.expectedContainerId) &&
-        entry.expectedEventType !== "container.grant",
-    )
-  ) {
+  const rotatedContainerIds = inputs.flatMap((entry) =>
+    entry.expectedContainerId !== undefined &&
+    requiredByContainerId.has(entry.expectedContainerId) &&
+    entry.expectedEventType !== "container.grant"
+      ? [entry.expectedContainerId]
+      : [],
+  );
+  if (carriedContainerIds.size > 0 && rotatedContainerIds.length === 0) {
     throw new PrincipalPolicyError(
       "Principal policy carries descendant rekeys without a rotation",
       409,
     );
   }
-  return inputs;
+  return {
+    carriedContainerIds: [...carriedContainerIds],
+    inputs,
+    rotatedContainerIds,
+  };
 }
 
 export async function applyPrincipalContainerRematerializations(input: {
@@ -390,7 +400,11 @@ export async function applyPrincipalContainerRematerializations(input: {
       requests: input.requests ?? [],
     });
   }
-  const mutationInputs = rematerializationInputs({
+  const {
+    carriedContainerIds,
+    inputs: mutationInputs,
+    rotatedContainerIds,
+  } = rematerializationInputs({
     fingerprint: input.fingerprint,
     nextHead: input.nextHead,
     previousKeyEpoch: input.previousKeyEpoch,
@@ -401,6 +415,11 @@ export async function applyPrincipalContainerRematerializations(input: {
   if (mutationInputs.length === 0) {
     return [];
   }
+  await assertCarriedRekeysBelowRotations({
+    carriedContainerIds,
+    executor: input.executor,
+    rotatedContainerIds,
+  });
 
   const context: ContainerMutationContext = {
     executor: input.executor,
