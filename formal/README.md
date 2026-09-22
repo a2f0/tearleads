@@ -21,6 +21,9 @@ registry. Each non-comment line pairs one repository-relative TLA+ module and
 configuration as `model|config`. The checker validates the complete registry
 before starting Java, rejects unregistered configuration files, sorts pairs
 deterministically, and gives each TLC invocation an isolated state directory.
+Runs overlap `PROTOCOL_TLC_PARALLELISM` at a time (default 2), each with a
+private Java tmpdir and hosts file, and their output is reported in registry
+order.
 
 Model documentation that maps abstract actions to production seams does so in
 `Model action … | Production …` tables; the registry in

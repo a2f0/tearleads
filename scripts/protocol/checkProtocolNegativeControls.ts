@@ -11,6 +11,7 @@ import { spawnSync } from "node:child_process";
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, dirname, join } from "node:path";
+import { runFailFastPool } from "./failFastPool";
 import {
   NEGATIVE_CONTROLS,
   type NegativeControl,
@@ -18,7 +19,7 @@ import {
   renderNegativeControlConfig,
   violationPattern,
 } from "./protocolNegativeControls";
-import { resolveTlcTools, runTlc } from "./tlcTools";
+import { resolveTlcTools, runTlcAsync, tlcParallelism } from "./tlcTools";
 
 function fail(message: string): never {
   console.error(`Error: ${message}`);
@@ -51,12 +52,12 @@ function assertBaseIsRegistered(root: string, control: NegativeControl): void {
   }
 }
 
-function runControl(
+/** Returns why the control failed, or undefined when TLC rejected it as expected. */
+async function runControl(
   root: string,
   tools: ReturnType<typeof resolveTlcTools>,
   control: NegativeControl,
-): void {
-  assertBaseIsRegistered(root, control);
+): Promise<string | undefined> {
   const base = parseConfig(readFileSync(join(root, control.config), "utf8"));
   const rendered = renderNegativeControlConfig(base, control);
   const workDirectory = mkdtempSync(join(tmpdir(), "tearleads-negative-"));
@@ -65,25 +66,22 @@ function runControl(
     const configPath = join(workDirectory, `${control.id}.cfg`);
     writeFileSync(modulePath, readFileSync(join(root, control.module)));
     writeFileSync(configPath, rendered);
-    const result = runTlc(tools, {
+    const result = await runTlcAsync(tools, {
       configPath,
       cwd: workDirectory,
       libraryPath: join(root, dirname(control.module)),
       modulePath,
     });
     if (result.ok) {
-      fail(
-        `${control.id} passed TLC; the ${control.expect.kind} ${control.expect.name} no longer depends on the flipped rule:\n${result.output}`,
-      );
+      return `${control.id} passed TLC; the ${control.expect.kind} ${control.expect.name} no longer depends on the flipped rule:\n${result.output}`;
     }
     if (!violationPattern(control.expect).test(result.output)) {
-      fail(
-        `${control.id} failed TLC, but not with the expected ${control.expect.kind} ${control.expect.name}:\n${result.output}`,
-      );
+      return `${control.id} failed TLC, but not with the expected ${control.expect.kind} ${control.expect.name}:\n${result.output}`;
     }
     console.log(
       `${control.id}: TLC reported ${control.expect.kind} ${control.expect.name} violated, as expected.`,
     );
+    return undefined;
   } finally {
     rmSync(workDirectory, { force: true, recursive: true });
   }
@@ -97,7 +95,18 @@ for (const control of NEGATIVE_CONTROLS) {
     fail(`negative control id ${control.id} is registered twice.`);
   }
   ids.add(control.id);
-  runControl(root, tools, control);
+  assertBaseIsRegistered(root, control);
+}
+
+// Overlapped runs finish in completion order, so progress lines interleave.
+const failures = await runFailFastPool(
+  NEGATIVE_CONTROLS,
+  tlcParallelism(),
+  (control) => runControl(root, tools, control),
+  (control) => control.id,
+);
+if (failures.length > 0) {
+  fail(failures.join("\n\n"));
 }
 console.log(
   `Checked ${NEGATIVE_CONTROLS.length} protocol negative control(s).`,

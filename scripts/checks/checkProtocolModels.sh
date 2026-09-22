@@ -20,7 +20,19 @@ cd "$REPO_ROOT"
 
 CHECK_ROOT=$(mktemp -d "${TMPDIR:-/tmp}/tearleads-tlc.XXXXXX")
 trap 'rm -rf "$CHECK_ROOT"' EXIT
-trap 'exit 1' HUP INT TERM
+
+# Overlapping TLC runs are background jobs, which a non-interactive shell starts
+# with SIGINT ignored, and a JVM keeps a signal ignored when it starts that way,
+# so Ctrl-C reaches none of them. Each in-flight run leaves its Java PID in a
+# file; an interrupted check stops those runs before its state is removed.
+stop_runs() {
+  for run_pid_file in "$CHECK_ROOT"/model-*.pid; do
+    [ -f "$run_pid_file" ] || continue
+    kill "$(cat "$run_pid_file")" 2>/dev/null || :
+  done
+}
+# Waiting lets the stopped runs exit before the EXIT trap removes their state.
+trap 'stop_runs; wait; exit 1' HUP INT TERM
 
 REGISTERED_MODELS=$CHECK_ROOT/registered-models.txt
 SORTED_MODELS=$CHECK_ROOT/sorted-models.txt
@@ -135,6 +147,13 @@ unregistered_model=$(sed -n '1p' "$UNREGISTERED_MODELS")
 mv "$SORTED_MODELS" "$REGISTERED_MODELS" ||
   fail "could not finalize the protocol model registry."
 
+TLC_PARALLELISM=${PROTOCOL_TLC_PARALLELISM:-2}
+case "$TLC_PARALLELISM" in
+  *[!0-9]*) fail "PROTOCOL_TLC_PARALLELISM must be a positive integer." ;;
+esac
+[ "$TLC_PARALLELISM" -ge 1 ] ||
+  fail "PROTOCOL_TLC_PARALLELISM must be a positive integer."
+
 command -v mise >/dev/null 2>&1 ||
   fail "mise is unavailable. Install mise, then run 'mise install github:tlaplus/tlaplus'."
 
@@ -161,24 +180,109 @@ fi
 [ "$tla_tools_jar_sha256" = "$TLA_TOOLS_JAR_SHA256" ] ||
   fail "$TLA_TOOLS_JAR sha256 $tla_tools_jar_sha256 does not match the pinned $TLA_TOOLS_JAR_SHA256."
 
-model_count=0
-while IFS='|' read -r model_path config_path; do
-  model_count=$((model_count + 1))
-  model_state_path=$CHECK_ROOT/model-$model_count
-  mkdir "$model_state_path"
+# Two isolations keep overlapping runs independent:
+#
+# - SANY copies every standard module it resolves out of the jar to
+#   ${java.io.tmpdir}/<Module>.tla, truncating the file on write and deleting
+#   it on exit. Runs that share a tmpdir — two in this pool, or two checkouts
+#   pushing at once — truncate each other's copy mid-parse and fail with a
+#   spurious SANY error, so each run gets a private tmpdir.
+# - TLC resolves the machine's hostname while sizing its fingerprint set and
+#   again on close. Where that name is not in /etc/hosts (a macOS *.local name
+#   goes to mDNS), two JVMs resolving it at the same instant stall one of them
+#   for the resolver's 5s timeout. A hosts file mapping the name to loopback
+#   keeps the system resolver out of every run.
+TLC_HOSTS_FILE=$CHECK_ROOT/hosts
+printf '127.0.0.1 %s localhost\n' "$(hostname)" >"$TLC_HOSTS_FILE"
 
-  echo "Checking $model_path with $config_path..."
-  if "$JAVA_BIN" -XX:+UseParallelGC -jar "$TLA_TOOLS_JAR" \
+run_model() {
+  run_state_path=$CHECK_ROOT/model-$1
+  mkdir "$run_state_path" "$run_state_path/java-tmp"
+  "$JAVA_BIN" -XX:+UseParallelGC \
+    "-Djava.io.tmpdir=$run_state_path/java-tmp" \
+    "-Djdk.net.hosts.file=$TLC_HOSTS_FILE" \
+    -jar "$TLA_TOOLS_JAR" \
     -workers 1 \
-    -metadir "$model_state_path" \
-    -config "$config_path" \
-    "$model_path"; then
-    :
+    -metadir "$run_state_path" \
+    -config "$3" \
+    "$2" >"$run_state_path.log" 2>&1 </dev/null &
+  # A signal landing between this fork and the PID write finds no file, so that
+  # one run can outlive an interrupted check; the window is a few instructions.
+  echo "$!" >"$run_state_path.pid"
+  if wait "$!"; then
+    run_status=0
   else
-    model_status=$?
-    echo "Error: TLC failed for $model_path with $config_path." >&2
-    exit "$model_status"
+    run_status=$?
   fi
+  # A finished run's PID may be reused, so it must never be signalled.
+  rm -f "$run_state_path.pid"
+  echo "$run_status" >"$run_state_path.status"
+}
+
+# Up to $TLC_PARALLELISM runs overlap. A finished run posts its index to a FIFO,
+# which frees its slot. Output is replayed in registry order once every earlier
+# run has finished, so the log reads the same at any parallelism. After a
+# failure no new run starts and the in-flight ones finish; the first failure in
+# registry order sets the exit status.
+DONE_FIFO=$CHECK_ROOT/done
+mkfifo "$DONE_FIFO"
+exec 3<>"$DONE_FIFO"
+
+model_count=0
+running=0
+next_report=1
+failed_index=
+stop_launching=
+
+report_finished_runs() {
+  while [ -z "$failed_index" ] && [ -e "$CHECK_ROOT/model-$next_report.done" ]; do
+    report_path=$CHECK_ROOT/model-$next_report
+    echo "Checking $(cat "$report_path.label")..."
+    cat "$report_path.log" 2>/dev/null || :
+    report_status=$(cat "$report_path.status" 2>/dev/null) || report_status=1
+    if [ "$report_status" -ne 0 ]; then
+      failed_index=$next_report
+      failed_status=$report_status
+    else
+      next_report=$((next_report + 1))
+    fi
+  done
+}
+
+await_run() {
+  read -r finished_index <&3
+  running=$((running - 1))
+  : >"$CHECK_ROOT/model-$finished_index.done"
+  finished_status=$(cat "$CHECK_ROOT/model-$finished_index.status" 2>/dev/null) ||
+    finished_status=1
+  [ "$finished_status" -eq 0 ] || stop_launching=1
+  report_finished_runs
+}
+
+while IFS='|' read -r model_path config_path; do
+  while [ "$running" -ge "$TLC_PARALLELISM" ] && [ -z "$stop_launching" ]; do
+    await_run
+  done
+  [ -z "$stop_launching" ] || break
+  model_count=$((model_count + 1))
+  running=$((running + 1))
+  printf '%s with %s' "$model_path" "$config_path" \
+    >"$CHECK_ROOT/model-$model_count.label"
+  # The post runs even if run_model dies, so the pool can never wait forever.
+  # stdin is the registry this loop is reading, so the job must not inherit it.
+  {
+    (run_model "$model_count" "$model_path" "$config_path") || :
+    echo "$model_count" >&3
+  } </dev/null &
 done <"$REGISTERED_MODELS"
+while [ "$running" -gt 0 ]; do
+  await_run
+done
+exec 3>&-
+
+if [ -n "$failed_index" ]; then
+  echo "Error: TLC failed for $(cat "$CHECK_ROOT/model-$failed_index.label")." >&2
+  exit "$failed_status"
+fi
 
 echo "Checked $model_count protocol model configuration(s)."

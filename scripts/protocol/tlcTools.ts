@@ -6,8 +6,14 @@
  */
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { mkdtempSync, readFileSync, rmSync } from "node:fs";
-import { tmpdir } from "node:os";
+import {
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
+import { hostname, tmpdir } from "node:os";
 import { join } from "node:path";
 
 export interface TlcTools {
@@ -66,41 +72,126 @@ export function resolveTlcTools(root: string): TlcTools {
   return { jarPath, javaBin };
 }
 
-export function runTlc(
+interface TlcRunInput {
+  readonly configPath: string;
+  readonly cwd: string;
+  readonly libraryPath?: string;
+  readonly modulePath: string;
+}
+
+/**
+ * Parses PROTOCOL_TLC_PARALLELISM by the same rules as checkProtocolModels.sh:
+ * unset or empty means 2, and anything but plain digits naming at least 1 is
+ * rejected (undefined).
+ */
+export function parseTlcParallelism(
+  configured: string | undefined,
+): number | undefined {
+  const value = configured || "2";
+  if (!/^[0-9]+$/.test(value)) {
+    return undefined;
+  }
+  const parallelism = Number(value);
+  return parallelism >= 1 ? parallelism : undefined;
+}
+
+/** How many TLC runs a check may overlap. */
+export function tlcParallelism(): number {
+  const { PROTOCOL_TLC_PARALLELISM } = process.env;
+  const parallelism = parseTlcParallelism(PROTOCOL_TLC_PARALLELISM);
+  if (parallelism === undefined) {
+    fail("PROTOCOL_TLC_PARALLELISM must be a positive integer.");
+  }
+  return parallelism;
+}
+
+/**
+ * Prepares a run's private files inside its state directory and returns the
+ * JVM and TLC arguments. Two isolations keep overlapping runs independent:
+ *
+ * - SANY copies every standard module it resolves out of the jar to
+ *   `${java.io.tmpdir}/<Module>.tla`, truncating the file on write and deleting
+ *   it on exit. Runs that share a tmpdir — two workers in one check, or two
+ *   checkouts pushing at once — truncate each other's copy mid-parse and fail
+ *   with a spurious SANY error, so each run gets a private tmpdir.
+ * - TLC resolves the machine's hostname while sizing its fingerprint set and
+ *   again on close. Where that name is not in /etc/hosts (a macOS `*.local`
+ *   name goes to mDNS), two JVMs resolving it at the same instant stall one of
+ *   them for the resolver's 5s timeout. A private hosts file mapping the name
+ *   to loopback keeps the system resolver out of every run.
+ */
+function prepareTlcRun(
   tools: TlcTools,
-  input: {
-    readonly configPath: string;
-    readonly cwd: string;
-    readonly libraryPath?: string;
-    readonly modulePath: string;
-  },
+  input: TlcRunInput,
+  stateDirectory: string,
+): string[] {
+  const javaTmpDirectory = join(stateDirectory, "java-tmp");
+  mkdirSync(javaTmpDirectory);
+  const hostsFile = join(stateDirectory, "hosts");
+  writeFileSync(hostsFile, `127.0.0.1 ${hostname()} localhost\n`);
+  return [
+    "-XX:+UseParallelGC",
+    `-Djava.io.tmpdir=${javaTmpDirectory}`,
+    `-Djdk.net.hosts.file=${hostsFile}`,
+    ...(input.libraryPath ? [`-DTLA-Library=${input.libraryPath}`] : []),
+    "-jar",
+    tools.jarPath,
+    "-workers",
+    "1",
+    "-metadir",
+    stateDirectory,
+    "-config",
+    input.configPath,
+    input.modulePath,
+  ];
+}
+
+function tlcResult(
+  status: number | null,
+  stdout: string,
+  stderr: string,
 ): TlcRunResult {
+  const output = `${stdout}${stderr}`;
+  return {
+    ok: status === 0 && output.includes("Model checking completed. No error"),
+    output,
+  };
+}
+
+export function runTlc(tools: TlcTools, input: TlcRunInput): TlcRunResult {
   const stateDirectory = mkdtempSync(join(tmpdir(), "tearleads-tlc-"));
   try {
     const result = spawnSync(
       tools.javaBin,
-      [
-        "-XX:+UseParallelGC",
-        ...(input.libraryPath ? [`-DTLA-Library=${input.libraryPath}`] : []),
-        "-jar",
-        tools.jarPath,
-        "-workers",
-        "1",
-        "-metadir",
-        stateDirectory,
-        "-config",
-        input.configPath,
-        input.modulePath,
-      ],
+      prepareTlcRun(tools, input, stateDirectory),
       { cwd: input.cwd, encoding: "utf8", maxBuffer: 64 * 1024 * 1024 },
     );
-    const output = `${result.stdout ?? ""}${result.stderr ?? ""}`;
-    return {
-      ok:
-        result.status === 0 &&
-        output.includes("Model checking completed. No error"),
-      output,
-    };
+    return tlcResult(result.status, result.stdout ?? "", result.stderr ?? "");
+  } finally {
+    rmSync(stateDirectory, { force: true, recursive: true });
+  }
+}
+
+/** `runTlc` without blocking the event loop, so a caller can overlap runs. */
+export async function runTlcAsync(
+  tools: TlcTools,
+  input: TlcRunInput,
+): Promise<TlcRunResult> {
+  const stateDirectory = mkdtempSync(join(tmpdir(), "tearleads-tlc-"));
+  try {
+    const child = Bun.spawn({
+      cmd: [tools.javaBin, ...prepareTlcRun(tools, input, stateDirectory)],
+      cwd: input.cwd,
+      stdin: "ignore",
+      stdout: "pipe",
+      stderr: "pipe",
+    });
+    const [stdout, stderr, status] = await Promise.all([
+      new Response(child.stdout).text(),
+      new Response(child.stderr).text(),
+      child.exited,
+    ]);
+    return tlcResult(status, stdout, stderr);
   } finally {
     rmSync(stateDirectory, { force: true, recursive: true });
   }
