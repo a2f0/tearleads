@@ -9,7 +9,8 @@ Run the smallest command that matches the handoff risk:
   architecture, file names, source shape, binary-file, and Markdown checks.
 - `bun run check:protocol-models`: all bounded TLC checks registered in
   `formal/protocol-models.txt`, using the Java and TLA+ tools pinned in
-  `.mise.toml`.
+  `.mise.toml`. It and `bun run check:protocol-negative-controls` run two TLC
+  processes at a time; set `PROTOCOL_TLC_PARALLELISM` to change that.
 - `bun run check:protocol-traces` and `bun run check:protocol-projection`:
   the TLC trace fixture drift check and the implementation-trace projection
   (both also inside `check:fast`; both need the mise-pinned Java/TLA+ tools).
@@ -67,6 +68,12 @@ the previous build. The app test preload refuses to start on a stale dist;
 **`packages/api` has no such guard and simply passes against the old code.**
 Rebuild with `bun run --filter='@tearleads/client-sdk' build` between an SDK edit
 and any api test run, or treat the result as meaningless.
+
+The same holds for `packages/client-sdk`'s own tests: `distArtifacts.test.ts`
+inspects `dist`, and a few tests import `@tearleads/client-sdk`. `turbo run test`
+builds the SDK first; a bare `bun run test` in the package does not, because a
+test script that rebuilt `dist` would delete it under other packages' tests
+running alongside it in turbo.
 
 ### Prove a security test fails without its fix
 
