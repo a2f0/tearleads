@@ -80,9 +80,8 @@ export async function planCarriedDescendantRekeys(
   },
 ): Promise<MaterializedContainerRekeyPlan[]> {
   const plans: MaterializedContainerRekeyPlan[] = [];
-  const speculativePaths: SpeculativePath[] = Array.isArray(input.rotated)
-    ? [...input.rotated]
-    : [input.rotated as SpeculativePath];
+  const speculativePaths: SpeculativePath[] =
+    "path" in input.rotated ? [input.rotated] : [...input.rotated];
   const planned = new Set<string>();
   for (const containerId of input.requiredContainerIds) {
     if (plans.length >= MAX_ROTATION_CONTAINER_REKEYS) break;
