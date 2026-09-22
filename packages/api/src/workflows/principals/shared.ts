@@ -36,20 +36,13 @@ export class PrincipalPolicyError extends Error {
 export function principalPolicyErrorFromContainerMutation(
   error: ContainerMutationError,
 ): PrincipalPolicyError {
-  const body: unknown = error.body;
-  const requiredContainerIds = Reflect.get(
-    Object(body),
-    "requiredContainerIds",
-  );
+  const body = error.body;
   return new PrincipalPolicyError(
     error.message,
     error.status,
     undefined,
-    Array.isArray(requiredContainerIds)
-      ? requiredContainerIds.filter(
-          (containerId): containerId is string =>
-            typeof containerId === "string",
-        )
+    body && "requiredContainerIds" in body
+      ? body.requiredContainerIds
       : undefined,
   );
 }

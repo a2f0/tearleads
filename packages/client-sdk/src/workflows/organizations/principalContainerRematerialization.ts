@@ -33,7 +33,10 @@ import type { TrustedUserIdentityResolver } from "../../data/trustedUserIdentity
 import { planCarriedDescendantRekeys } from "../containers/child/carriedDescendantRekeys";
 import { scheduleHeldDescendantRecitations } from "../containers/child/recite";
 import { buildMaterializedContainerRekeyPlan } from "../containers/child/rekey";
-import { containerWriterProjectionFromRotationPlan } from "../containers/child/rekeyProjection";
+import {
+  containerWriterProjectionFromRotationPlan,
+  rebaseContainerWriterProjection,
+} from "../containers/child/rekeyProjection";
 import { buildMaterializedContainerRevokePlan } from "../containers/child/revoke";
 import { buildMaterializedContainerSharePlan } from "../containers/child/shareMaterialization";
 
@@ -89,15 +92,8 @@ function referencedGroupKeyEpoch(input: {
 async function loadGrantedContainerContext(
   input: PrincipalContainerRematerializationInput,
   grantRow: PrincipalContainerGrant,
+  projection: ContainerWriterProjectionResponse,
 ) {
-  const projection = await input.apiClient.getContainerWriterProjection(
-    grantRow.containerId,
-  );
-  if (!projection) {
-    throw new Error(
-      `Container ${grantRow.containerId} could not be prepared for principal rotation`,
-    );
-  }
   await verifyContainerWriterProjection({
     execSql: input.execSql,
     projection,
@@ -180,6 +176,8 @@ function authoredMutationHead(
 
 async function buildPrincipalContainerRematerializationPlan(input: {
   readonly grantRow: PrincipalContainerGrant;
+  /** The served projection, re-rooted on any rotation planned above it. */
+  readonly projection: ContainerWriterProjectionResponse;
   readonly rematerialization: PrincipalContainerRematerializationInput;
   readonly resolveProjectionUserKey: ReturnType<
     typeof createProjectionUserKeyResolver
@@ -187,7 +185,11 @@ async function buildPrincipalContainerRematerializationPlan(input: {
 }): Promise<PlannedRematerialization> {
   const { grantRow, rematerialization } = input;
   const { grant, projection, referencedKeyEpoch } =
-    await loadGrantedContainerContext(rematerialization, grantRow);
+    await loadGrantedContainerContext(
+      rematerialization,
+      grantRow,
+      input.projection,
+    );
   const previousProjection = projection;
   const nextGrant = rematerialization.nextPolicy.grants.find(
     (candidate) => candidate.containerId === grantRow.containerId,
@@ -266,6 +268,25 @@ async function buildPrincipalContainerRematerializationPlan(input: {
   };
 }
 
+/**
+ * Order a batch parent-first, by served depth. A group granted on a container
+ * and on one of its descendants rotates both, and the lower rotation must be
+ * signed against the epoch the upper one mints in this same batch, or it
+ * extends a head the batch itself retires. Ties keep id order for stability.
+ */
+export function orderRematerializationsParentFirst<
+  T extends {
+    readonly grantRow: { readonly containerId: string };
+    readonly projection: { readonly path: readonly unknown[] };
+  },
+>(batch: T[]): T[] {
+  return batch.sort(
+    (left, right) =>
+      left.projection.path.length - right.projection.path.length ||
+      left.grantRow.containerId.localeCompare(right.grantRow.containerId),
+  );
+}
+
 async function buildPrincipalContainerRematerializationPlans(
   input: PrincipalContainerRematerializationInput,
 ): Promise<PlannedRematerialization[]> {
@@ -280,17 +301,44 @@ async function buildPrincipalContainerRematerializationPlans(
   const resolveProjectionUserKey = createProjectionUserKeyResolver({
     resolveTrustedUserIdentity: input.resolveTrustedUserIdentity,
   });
-  const plans: PlannedRematerialization[] = [];
+  const served: Array<{
+    grantRow: PrincipalContainerGrant;
+    projection: ContainerWriterProjectionResponse;
+  }> = [];
   for (const grantRow of [...input.grants].sort((left, right) =>
     left.containerId.localeCompare(right.containerId),
   )) {
-    plans.push(
-      await buildPrincipalContainerRematerializationPlan({
-        grantRow,
-        rematerialization: input,
-        resolveProjectionUserKey,
-      }),
+    const projection = await input.apiClient.getContainerWriterProjection(
+      grantRow.containerId,
     );
+    if (!projection) {
+      throw new Error(
+        `Container ${grantRow.containerId} could not be prepared for principal rotation`,
+      );
+    }
+    served.push({ grantRow, projection });
+  }
+  orderRematerializationsParentFirst(served);
+  const plans: PlannedRematerialization[] = [];
+  const rotatedAbove: Pick<
+    ContainerWriterProjectionResponse,
+    "containerKeks" | "path"
+  >[] = [];
+  for (const { grantRow, projection } of served) {
+    const rebased = rotatedAbove.reduce<ContainerWriterProjectionResponse>(
+      (current, rotated) =>
+        rebaseContainerWriterProjection(current, rotated) ?? current,
+      projection,
+    );
+    const entry = await buildPrincipalContainerRematerializationPlan({
+      grantRow,
+      projection: rebased,
+      rematerialization: input,
+      resolveProjectionUserKey,
+    });
+    plans.push(entry);
+    const rotated = await rotatedPath(entry);
+    if (rotated) rotatedAbove.push(rotated);
   }
   return plans;
 }
@@ -321,7 +369,8 @@ export async function preparePrincipalContainerRematerializationBatch(
     requests: plans.map((planned) => planned.plan.request),
     carry: async (requiredContainerIds) => {
       // Each rotation in the batch is a speculative ancestor a carried rekey
-      // may sit below; the planner picks the deepest per container.
+      // may sit below; the planner picks the deepest per container. The batch
+      // is planned parent-first, so the server never names one of its own.
       const rotated = (
         await Promise.all(entries.map((entry) => rotatedPath(entry)))
       ).filter((path) => path !== null);

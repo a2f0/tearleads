@@ -2,6 +2,7 @@ import { expect, test } from "bun:test";
 import { db } from "@tearleads/api-shared/postgres";
 import { createTestUser } from "@tearleads/bob-and-alice";
 import { isCommitOrganizationGroupPolicyResponse } from "@tearleads/validators/response";
+import { MAX_ROTATION_CONTAINER_REKEYS } from "@tearleads/validators/util";
 import invariant from "invariant";
 import { authenticate } from "../../../test/helpers/authenticate";
 import { buildContainerGrantRequest } from "../../../test/helpers/containerGrantMutation";
@@ -131,4 +132,50 @@ test("a policy rotation carries the levels above a granted container", async () 
   expect(upperEpoch?.parentContainerKeyEpochId).toBe(
     prepared.rootRekey.kekState.containerKeyEpochId,
   );
+}, 30_000);
+
+// Beyond the required rematerializations a batch may carry only rekeys, and
+// only so many: a grant or revoke there is not a repair, and the list is bounded
+// like a rotation's.
+
+test("a policy batch may carry only rekeys, and only up to the cap", async () => {
+  const prepared = await prepareRotation();
+  const rootGrant = prepared.containerMutations[0];
+  invariant(rootGrant, "expected the root rematerialization");
+  const notARekey = {
+    ...rootGrant,
+    body: { ...Object(rootGrant.body), eventType: "container.grant" },
+    event: { ...Object(rootGrant.event), eventType: "container.grant" },
+  };
+  const refused = await putPolicy(prepared, [
+    ...prepared.containerMutations,
+    notARekey,
+  ]);
+  expect(refused.status).toBe(409);
+  expect(await refused.json()).toMatchObject({
+    error:
+      "Principal policy may carry only container rekeys beyond its rematerializations",
+  });
+
+  const overCap = await putPolicy(prepared, [
+    ...prepared.containerMutations,
+    ...Array.from(
+      { length: MAX_ROTATION_CONTAINER_REKEYS + 1 },
+      () => rootGrant,
+    ),
+  ]);
+  expect(overCap.status).toBe(409);
+  expect(await overCap.json()).toMatchObject({
+    error: "Principal policy carries too many descendant rekeys",
+  });
+  // Neither attempt moved the policy.
+  expect(
+    (
+      await getCurrentPrincipalState(
+        "group",
+        prepared.nextPolicy.principalId,
+        db,
+      )
+    )?.stateHash,
+  ).toBe(prepared.currentPolicy.stateHash);
 }, 30_000);

@@ -93,7 +93,7 @@ function toPrincipalPolicyErrorResponse(error: unknown): Response | null {
     const body = {
       error: error.message,
       ...(error.code === undefined ? {} : { code: error.code }),
-      ...(error.requiredContainerIds
+      ...(error.requiredContainerIds?.length
         ? {
             code: CONTAINER_MUTATION_ERROR_CODES.descendantRekeysRequired,
             requiredContainerIds: [...error.requiredContainerIds],

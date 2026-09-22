@@ -14,6 +14,7 @@ import { buildMaterializedContainerCreatePlan } from "../containers/child/create
 import { childContainerWriterProjectionFromCreatePlan } from "../containers/child/createProjection";
 import {
   buildPrincipalContainerRematerializationBatch,
+  orderRematerializationsParentFirst,
   preparePrincipalContainerRematerializationBatch,
 } from "./principalContainerRematerialization";
 
@@ -237,4 +238,24 @@ test("principal rematerialization enumerates every signed grant", async () => {
   } finally {
     fixture.database.close();
   }
+});
+
+// #2340 finding 1. A group granted on a container and on one of its
+// descendants rotates both. Sorted by id the child could plan first and be
+// signed against the head its ancestor's rekey retires in the same batch, so
+// depth orders the batch and each lower plan is rebased on the ones above it.
+
+test("rematerializations are ordered parent-first, ids breaking ties", () => {
+  const entry = (containerId: string, depth: number) => ({
+    grantRow: { containerId },
+    projection: { path: Array.from({ length: depth }) },
+  });
+  expect(
+    orderRematerializationsParentFirst([
+      entry("a-deep", 3),
+      entry("z-root", 1),
+      entry("m-mid", 2),
+      entry("b-root", 1),
+    ]).map((item) => item.grantRow.containerId),
+  ).toEqual(["b-root", "z-root", "m-mid", "a-deep"]);
 });
