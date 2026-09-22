@@ -13,6 +13,7 @@ run_fast_checks() {
   step_timings_run architecture bun run lint:architecture
   step_timings_run architecture-tests bun run test:architecture
   step_timings_run file-names bun run lint:files
+  step_timings_run skill-placeholders bun run lint:skill-placeholders
   step_timings_run source-shape-worktree bun run lint:source-shape
   step_timings_run openapi bun run lint:openapi
   step_timings_run openapi-compatibility bun run lint:openapi:compatibility
