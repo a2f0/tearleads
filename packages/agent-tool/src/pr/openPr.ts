@@ -42,18 +42,19 @@ export function openPr(rootDir: string, titleArg: string | undefined): number {
     throw new Error(`An open PR already exists for '${branch}': #${existing}.`);
   }
 
-  assertBranchPushed({
-    branch,
-    localHead: run("git", ["rev-parse", "HEAD"]),
-    remoteHead: remoteBranchHead(resolveRepositoryGitUrl(repo), branch),
-  });
-
   const tipSubject = run("git", ["log", "-1", "--format=%s"]);
   const title = singleLineSubject(titleArg, tipSubject, "PR title");
   validateCommitSubject(rootDir, title);
 
   const body = readBody();
   assertNoClaudeBranding(body);
+
+  // Local validation first; this is the one step that reaches the network.
+  assertBranchPushed({
+    branch,
+    localHead: run("git", ["rev-parse", "HEAD"]),
+    remoteHead: remoteBranchHead(resolveRepositoryGitUrl(repo), branch),
+  });
 
   // Pin the base to the repo default branch; without --base, gh honors a
   // branch.<name>.gh-merge-base git config that could target another branch.

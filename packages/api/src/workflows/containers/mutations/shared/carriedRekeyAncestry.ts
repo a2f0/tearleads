@@ -21,6 +21,8 @@ export async function assertCarriedRekeysBelowRotations(input: {
   const carried = [...new Set(input.carriedContainerIds)];
   const rotated = [...new Set(input.rotatedContainerIds)];
   if (carried.length === 0) return;
+  // Unreachable from today's callers, which always rotate something first;
+  // kept so a carried entry can never ride an empty rotated set.
   if (rotated.length === 0) {
     throw new ContainerMutationError(
       "Carried container rekey is not below the rotated container",

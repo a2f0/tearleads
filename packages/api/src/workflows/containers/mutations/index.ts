@@ -156,19 +156,22 @@ async function mutateContainerRotationInTransaction(
       userId: input.userId,
     }),
   );
-  // Each carried rekey must sit below the rotated container; refuse before
-  // any of them is verified and written, since the batch rolls back anyway.
-  const objectIdOf = (event: unknown, label: string) =>
-    readProjectionAccessEvent(event, label, mutationShapeError).objectId;
-  await assertCarriedRekeysBelowRotations({
-    carriedContainerIds: containerRekeys.map((carriedRequest) =>
-      objectIdOf(carriedRequest.event, "Carried container rekey event"),
-    ),
-    executor: tx,
-    rotatedContainerIds: [
-      objectIdOf(request.event, "Container rotation event"),
-    ],
-  });
+  const carriedContainerIds = containerRekeys.map(
+    (carriedRequest) =>
+      readProjectionAccessEvent(
+        carriedRequest.event,
+        "Carried container rekey event",
+        mutationShapeError,
+      ).objectId,
+  );
+  // The request's own ids say whether it carries the container it rotates;
+  // no lookup, so nothing is learned by asking.
+  if (carriedContainerIds.includes(target.expectedContainerId ?? "")) {
+    throw new ContainerMutationError(
+      "Carried container rekey is not below the rotated container",
+      409,
+    );
+  }
   // One prelock over the whole batch keeps the group -> organization lock
   // order deterministic, exactly as inline document rekeys do.
   const context: ContainerMutationContext = {
@@ -182,6 +185,15 @@ async function mutateContainerRotationInTransaction(
     ...target,
     context,
     executor: tx,
+  });
+  // Each carried rekey must sit below the rotated container. Checked once the
+  // rotation itself is authorized, so an unrelated caller cannot use the
+  // refusal to learn the tree, and before any carried entry is verified and
+  // written, since the batch rolls back anyway.
+  await assertCarriedRekeysBelowRotations({
+    carriedContainerIds,
+    executor: tx,
+    rotatedContainerIds: [response.containerId],
   });
   const carriedResponses: ContainerMutationResponse[] = [];
   for (const carriedInput of carried) {

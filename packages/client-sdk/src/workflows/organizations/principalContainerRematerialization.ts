@@ -287,6 +287,7 @@ async function planRematerializationTarget(
     resolveProjectionUserKey: batch.resolveProjectionUserKey,
   });
   addPlan(batch, {
+    carried: false,
     planned,
     rotated: await rotatedPath({ planned, previousProjection }),
   });
