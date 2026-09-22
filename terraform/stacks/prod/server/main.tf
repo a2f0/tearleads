@@ -4,14 +4,10 @@ locals {
   server_location = coalesce(var.server_location, var.deployment_tier == "prod" ? "ash" : "hel1")
   server_type     = coalesce(var.server_type, var.deployment_tier == "prod" ? "cpx11" : "cx23")
 
-  hostname_suffix = var.deployment_tier == "staging" ? "-staging" : ""
-  api_hostname    = "api${local.hostname_suffix}.${var.domain}"
-  app_hostname    = "app${local.hostname_suffix}.${var.domain}"
-  demo_hostname   = "demo${local.hostname_suffix}.${var.domain}"
-  # Demo hosts outside this stack's zone (e.g. demo.tearleads.de) ride the same
-  # tunnel; only their DNS records live in another zone.
-  extra_demo_hostnames   = { for domain in var.extra_demo_domains : domain => "demo${local.hostname_suffix}.${domain}" }
-  demo_hostnames         = concat([local.demo_hostname], values(local.extra_demo_hostnames))
+  hostname_suffix        = var.deployment_tier == "staging" ? "-staging" : ""
+  api_hostname           = "api${local.hostname_suffix}.${var.domain}"
+  app_hostname           = "app${local.hostname_suffix}.${var.domain}"
+  demo_hostname          = "demo${local.hostname_suffix}.${var.domain}"
   primary_zone_hostnames = toset([local.app_hostname, local.demo_hostname, local.api_hostname])
   tailscale_hostname     = var.deployment_tier
   tunnel_cname           = module.tunnel.tunnel_cname
@@ -98,17 +94,6 @@ data "cloudflare_zone" "production" {
   }
 }
 
-data "cloudflare_zone" "extra_demo" {
-  for_each = toset(var.extra_demo_domains)
-
-  filter = {
-    account = {
-      id = var.cloudflare_account_id
-    }
-    name = each.value
-  }
-}
-
 module "tunnel" {
   source = "../../../modules/cloudflare-tunnel"
 
@@ -118,24 +103,20 @@ module "tunnel" {
   tunnel_name         = var.deployment_tier
   create_dns_records  = false
 
-  ingress_rules = concat(
-    [
-      {
-        hostname = local.app_hostname
-        service  = local.tunnel_http_service
-      },
-      {
-        hostname = local.api_hostname
-        service  = local.tunnel_http_service
-      }
-    ],
-    [
-      for hostname in local.demo_hostnames : {
-        hostname = hostname
-        service  = local.tunnel_http_service
-      }
-    ]
-  )
+  ingress_rules = [
+    {
+      hostname = local.app_hostname
+      service  = local.tunnel_http_service
+    },
+    {
+      hostname = local.api_hostname
+      service  = local.tunnel_http_service
+    },
+    {
+      hostname = local.demo_hostname
+      service  = local.tunnel_http_service
+    }
+  ]
 }
 
 resource "cloudflare_dns_record" "primary_zone_tunnel" {
@@ -147,25 +128,6 @@ resource "cloudflare_dns_record" "primary_zone_tunnel" {
   content = local.tunnel_cname
   proxied = true
   ttl     = 1
-}
-
-resource "cloudflare_dns_record" "extra_demo_tunnel" {
-  for_each = data.cloudflare_zone.extra_demo
-
-  zone_id = each.value.id
-  name    = local.extra_demo_hostnames[each.key]
-  type    = "CNAME"
-  content = local.tunnel_cname
-  proxied = true
-  ttl     = 1
-
-  lifecycle {
-    precondition {
-      # primary_zone_tunnel already publishes this tier's own demo host.
-      condition     = !contains(var.extra_demo_domains, var.domain)
-      error_message = "extra_demo_domains must not repeat this tier's own domain."
-    }
-  }
 }
 
 resource "terraform_data" "cloudflare_tunnel_destroy_grace" {
