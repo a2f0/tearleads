@@ -338,6 +338,7 @@ test("container document discovery applies tombstones before advancing watermark
   const applyOrder: string[] = [];
   const appliedTombstones: Array<
     ReadonlyArray<{
+      accessEpoch?: number | undefined;
       containerId: string;
       documentId: string;
       linkedContainerIds?: ReadonlyArray<string> | undefined;
@@ -400,6 +401,7 @@ test("container document discovery applies tombstones before advancing watermark
     [
       {
         containerId: "shared-container",
+        accessEpoch: Number.MAX_SAFE_INTEGER,
         documentId: "deleted-document",
         linkedContainerIds: [],
         updatedAt: "2026-04-06T12:00:00.000Z",

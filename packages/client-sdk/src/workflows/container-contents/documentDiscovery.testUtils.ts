@@ -19,7 +19,11 @@ export const trustedContainerDocumentTombstones = {
   ): Promise<ContainerDocumentTombstoneVerdict[]> =>
     tombstones.map((tombstone) => ({
       kind: "verified",
-      tombstone: { ...tombstone, linkedContainerIds: [] },
+      tombstone: {
+        ...tombstone,
+        accessEpoch: Number.MAX_SAFE_INTEGER,
+        linkedContainerIds: [],
+      },
     })),
 };
 

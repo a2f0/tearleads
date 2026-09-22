@@ -70,7 +70,7 @@ export const DOCUMENT_MOVE_NEGATIVE_CONTROLS: readonly NegativeControl[] = [
     module: "formal/local-trust/DocumentMovePlacement.tla",
     config: "formal/local-trust/DocumentMovePlacement.cfg",
     constants: { TombstonesRequireSignedEvidence: "FALSE" },
-    expect: { kind: "action", name: "TombstonesNeedSignedEvidence" },
+    expect: { kind: "invariant", name: "StablePlacement" },
     why: "An unverified listing tombstone must not delete a local link row whose container the signed link set still contains.",
   },
 ];

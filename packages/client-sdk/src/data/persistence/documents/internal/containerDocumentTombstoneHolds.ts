@@ -15,7 +15,7 @@ export interface ContainerDocumentPlacementKey {
 
 export type HeldContainerDocumentTombstone = Omit<
   ContainerDocumentTombstoneInput,
-  "linkedContainerIds"
+  "accessEpoch" | "linkedContainerIds"
 >;
 
 /** Keep `IN (...)` lists well under SQLite's bound-parameter limit. */

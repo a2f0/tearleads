@@ -85,6 +85,8 @@ export type ContainerDocumentTombstone =
 
 export interface VerifiedContainerDocumentTombstone
   extends ContainerDocumentTombstone {
+  /** The verified head's link-set epoch, not below the local document epoch. */
+  readonly accessEpoch: number;
   /** The verified head link set; it omits `containerId`. */
   readonly linkedContainerIds: ReadonlyArray<string>;
 }

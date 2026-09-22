@@ -3,6 +3,7 @@ import {
   holdContainerDocumentTombstones,
   listKnownContainerDocumentPlacements,
   listRetryableHeldContainerDocumentTombstones,
+  loadLocalDocumentAccessEpoch,
   releaseContainerDocumentTombstoneHolds,
 } from "../data/persistence/documents/containerDocumentTombstoneHoldsPersistence";
 import type { ContainerContentsStore } from "../stores/container-contents";
@@ -64,6 +65,8 @@ export function discoverContainerDocumentsForRuntime({
       releaseContainerDocumentTombstoneHolds(input.infra.execSql, placements),
     verifyContainerDocumentTombstones: createContainerDocumentTombstoneVerifier(
       createDocumentHeadLinkSetLoader(runtime),
+      (documentId) =>
+        loadLocalDocumentAccessEpoch(input.infra.execSql, documentId),
     ),
   });
 }

@@ -262,6 +262,7 @@ test("applying a verified tombstone repoints only to a local row the head links"
     await applyContainerDocumentTombstones(execSql, [
       {
         ...hold("folder"),
+        accessEpoch: 1,
         linkedContainerIds: ["elsewhere", "verified-row"],
       },
     ]);
@@ -294,7 +295,11 @@ test("a verified removal with no head-linked local row unplaces the document", a
     ]);
 
     await applyContainerDocumentTombstones(execSql, [
-      { ...hold("folder"), linkedContainerIds: ["real-destination"] },
+      {
+        ...hold("folder"),
+        accessEpoch: 1,
+        linkedContainerIds: ["real-destination"],
+      },
     ]);
 
     expect(await documents.loadDocument(execSql, "doc-local")).toMatchObject({
@@ -365,7 +370,7 @@ test("a hold whose placement is gone is dropped when retried", async () => {
     await holdContainerDocumentTombstones(execSql, [hold("folder")], at);
     await links.replaceDocumentLinks(execSql, "doc", []);
     await applyContainerDocumentTombstones(execSql, [
-      { ...hold("folder"), linkedContainerIds: [] },
+      { ...hold("folder"), accessEpoch: 1, linkedContainerIds: [] },
     ]);
     await holdContainerDocumentTombstones(execSql, [hold("folder")], at);
 

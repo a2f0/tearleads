@@ -116,6 +116,8 @@ export interface RelinkPersistedDocumentInput {
 export interface ContainerDocumentTombstoneInput {
   containerId: string;
   documentId: string;
+  /** Epoch of the verified head; apply refuses a head below local state. */
+  accessEpoch: number;
   /** Verified head link set (omits `containerId`); apply needs signed evidence. */
   linkedContainerIds: ReadonlyArray<string>;
   updatedAt: string;

@@ -57,6 +57,7 @@ test("listContainerItemWindow drops every duplicate projection when a document i
       {
         containerId: "root",
         documentId: "contact-1",
+        accessEpoch: 1,
         linkedContainerIds: [],
         updatedAt: "2026-05-03T00:00:00.000Z",
       },

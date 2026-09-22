@@ -222,9 +222,13 @@ export async function applyContainerDocumentTombstonesWithExec(
   const { db } = getClientSQLitePersistenceRuntime(execSql);
 
   return db.transaction(async (tx) => {
+    // Besides the pending-intent guard, the verified head must not be older
+    // than local document state: a lagging or replayed head must never
+    // delete rows a newer listing or settled move wrote (`CheckEpoch`).
     const writable = await filterWritableDocumentPlacements(
       tx,
       uniqueTombstones.map((tombstone) => ({
+        accessEpoch: tombstone.accessEpoch,
         documentId: tombstone.documentId,
         containerIds: [],
       })),

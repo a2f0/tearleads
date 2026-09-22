@@ -210,7 +210,11 @@ test("an unverifiable tombstone hides the placement until a verified head settle
       verify: async (candidates) =>
         candidates.map((candidate) => ({
           kind: "verified",
-          tombstone: { ...candidate, linkedContainerIds: ["moved-to"] },
+          tombstone: {
+            ...candidate,
+            accessEpoch: 1,
+            linkedContainerIds: ["moved-to"],
+          },
         })),
     });
     expect(await links.listLinkedContainerIds(execSql, "doc")).toEqual([]);

@@ -1,4 +1,9 @@
-import { documentContainerProjectionTables } from "../../sqlite/schema";
+import { eq, max } from "drizzle-orm";
+import {
+  documentContainerProjectionTables,
+  documents,
+  documentTables,
+} from "../../sqlite/schema";
 import { getClientSQLitePersistenceRuntime } from "../../sqlite/sqlitePersistenceRuntime";
 import {
   type ExecSql,
@@ -132,9 +137,16 @@ export async function listRetryableHeldContainerDocumentTombstones(
     await listContainerDocumentTombstoneHoldsInTransaction(db, containerIds),
   );
   if (orphaned.length > 0) {
+    // Re-check under the lock: a hold re-created between the unlocked read
+    // and this write is hiding a placement again and must survive.
     await runSerializedSqlMutation(execSql, (lockedExecSql) =>
-      getClientSQLitePersistenceRuntime(lockedExecSql).db.transaction((tx) =>
-        deleteContainerDocumentTombstoneHoldRows(tx, orphaned),
+      getClientSQLitePersistenceRuntime(lockedExecSql).db.transaction(
+        async (tx) =>
+          deleteContainerDocumentTombstoneHoldRows(
+            tx,
+            (await partitionContainerDocumentTombstoneHolds(tx, orphaned))
+              .orphaned,
+          ),
       ),
     );
   }
@@ -145,4 +157,18 @@ export async function listRetryableHeldContainerDocumentTombstones(
       documentId: hold.documentId,
       updatedAt: hold.tombstonedAt,
     }));
+}
+
+/** The highest access epoch local state records for a server document. */
+export async function loadLocalDocumentAccessEpoch(
+  execSql: ExecSql,
+  documentId: string,
+): Promise<number> {
+  await ensureSqlTables(execSql, documentTables);
+  const { db } = getClientSQLitePersistenceRuntime(execSql);
+  const [row] = await db
+    .select({ accessEpoch: max(documents.accessEpoch) })
+    .from(documents)
+    .where(eq(documents.documentId, documentId));
+  return row?.accessEpoch ?? 0;
 }

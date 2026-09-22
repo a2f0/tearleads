@@ -100,7 +100,7 @@ test("a tombstone the verified head still links is dropped, never applied", asyn
 test("a tombstone the verified head omits is applied with the head link set", async () => {
   const { calls, store } = createGateStore((candidate) => ({
     kind: "verified",
-    tombstone: { ...candidate, linkedContainerIds: ["kept"] },
+    tombstone: { ...candidate, accessEpoch: 1, linkedContainerIds: ["kept"] },
   }));
 
   const summaries = await settleContainerDocumentTombstones({
@@ -111,7 +111,13 @@ test("a tombstone the verified head omits is applied with the head link set", as
 
   expect(summaries).toMatchObject([{ documentId: "doc" }]);
   expect(calls.applied).toEqual([
-    [{ ...tombstone("doc", "removed"), linkedContainerIds: ["kept"] }],
+    [
+      {
+        ...tombstone("doc", "removed"),
+        accessEpoch: 1,
+        linkedContainerIds: ["kept"],
+      },
+    ],
   ]);
   expect(calls.held).toEqual([]);
   expect(calls.released).toEqual([]);
@@ -143,7 +149,7 @@ test("held tombstones are retried with the listing and the newest timestamp wins
       candidate.documentId === "doc"
         ? {
             kind: "verified",
-            tombstone: { ...candidate, linkedContainerIds: [] },
+            tombstone: { ...candidate, accessEpoch: 1, linkedContainerIds: [] },
           }
         : { kind: "unverified", tombstone: candidate },
     [newer, other],
@@ -157,7 +163,9 @@ test("held tombstones are retried with the listing and the newest timestamp wins
 
   expect(calls.listed).toEqual([["folder"]]);
   expect(calls.verified).toEqual([[newer, other]]);
-  expect(calls.applied).toEqual([[{ ...newer, linkedContainerIds: [] }]]);
+  expect(calls.applied).toEqual([
+    [{ ...newer, accessEpoch: 1, linkedContainerIds: [] }],
+  ]);
   expect(calls.held).toEqual([[other]]);
 });
 

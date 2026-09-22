@@ -13,7 +13,7 @@ trashed item reappear in its source folder.
 | `Settle`, `CheckRevision` | `settleDocumentMoveIntent` checks the exact intent revision and replaces links in the relink transaction; partial replay also checks ownership |
 | `LoseResponse`, `CaptureSettledEpoch` | `containerDocumentAlreadyMovedResult` verifies the writer projection and persists its epoch and key state before clearing the intent |
 | `ApplyTombstone`, `ProtectPendingTombstones` | `applyContainerDocumentTombstonesWithExec` uses `filterWritableDocumentPlacements` inside the deletion transaction |
-| `ApplyListingTombstone`, `TombstonesRequireSignedEvidence` | `settleContainerDocumentTombstones` applies a listing tombstone only with a `verified` verdict from `createContainerDocumentTombstoneVerifier`, whose head link set omits the container. The model states only that evidence condition; the `refuted` drop and the `unverified` hold-and-retry by `holdContainerDocumentTombstones` are production behaviour outside the model |
+| `ApplyListingTombstone`, `TombstonesRequireSignedEvidence` | `settleContainerDocumentTombstones` applies a listing tombstone only with a `verified` verdict from `createContainerDocumentTombstoneVerifier`, whose head link set omits the container and whose epoch is not below the local document epoch. The model states only that evidence condition; the `refuted` drop and the `unverified` hold-and-retry by `holdContainerDocumentTombstones` are production behaviour outside the model, as is the unverified listing-item path through `replaceDocumentLinksBatch` |
 | `MergeCurrentPage`, `KeepNewestPageLinks` | `mergeDiscoveredDocumentInputs` selects links from the newest access epoch across discovery lanes |
 | `CapturePage`, `ApplyPage`, `CheckEpoch` | `discoverContainerDocuments` and `discoverAllContainerDocuments` carry the access epoch into `filterWritableDocumentPlacements`; `resolveDiscoveredDocumentPlacement` preserves newer placement and access state |
 | `StartRead`, `FinishRead`, `CheckReadPlacement` | `saveDocumentRecord` publishes `placementChanged`; `refreshPersistedDocument` discards pending reads for structural writes before publication |
@@ -27,9 +27,12 @@ between real signed link/unlink operations, sequential trash moves during
 single and all-container discovery, superseded replay rollback, and
 first-hydration reads, and a listing tombstone that the verified head still
 links being refused while an unverifiable one is held and hidden rather than
-applied. Under the production configuration the signed link set never moves
-without a local intent, so `ApplyListingTombstone` is exercised by the
-negative control rather than by the passing run.
+applied. A listing tombstone is an environment input, so
+`ApplyListingTombstone` is always enabled for a local link; under the
+production configuration the signed link set never moves without a local
+intent, so the gate refuses every such tombstone and the passing run shows
+placement is stable against them, while the negative control shows an
+ungated one breaking `StablePlacement`.
 
 The model abstracts cryptography, content, network failures, and SQL internals.
 The local relink transaction includes intent enqueue or settlement and link

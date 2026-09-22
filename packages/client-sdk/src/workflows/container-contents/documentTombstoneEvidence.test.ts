@@ -90,7 +90,7 @@ const verifiedHead = (
     options.onVerifiedAuthorization?.({
       containerPathByManifestHash: new Map(),
       documentManifestByHash: new Map([
-        ["head-hash", { state: { documentId, linkedContainerIds } }],
+        ["head-hash", { state: { documentId, epoch: 7, linkedContainerIds } }],
       ]),
     } as never);
     return [];
@@ -105,7 +105,10 @@ test("a verified purge checkpoint is terminal evidence without a fetch", async (
     deps(verifiedHead("doc", ["x"]), true),
   );
 
-  expect(await load("doc")).toEqual([]);
+  expect(await load("doc")).toEqual({
+    accessEpoch: Number.MAX_SAFE_INTEGER,
+    linkedContainerIds: [],
+  });
   expect(calls.evicted).toEqual([]);
 });
 
@@ -116,7 +119,10 @@ test("the cached projection is evicted and the verified head link set returned s
     deps(verifiedHead("doc", ["b", "a", "b"])),
   );
 
-  expect(await load("doc")).toEqual(["a", "b"]);
+  expect(await load("doc")).toEqual({
+    accessEpoch: 7,
+    linkedContainerIds: ["a", "b"],
+  });
   expect(calls.evicted).toEqual(["doc"]);
   expect(calls.incidents).toEqual([]);
 });
@@ -170,15 +176,33 @@ test("a verification that never yields the document's own head is no evidence", 
   expect(await otherDocument("doc")).toBeNull();
 });
 
+test("a thrown fetch or checkpoint read leaves the tombstone unverified", async () => {
+  const { runtime } = createRuntime({});
+  const load = createDocumentHeadLinkSetLoader(runtime, {
+    assertDocumentWriterProjectionConsistent: verifiedHead("doc", ["x"]),
+    loadDocumentPurgeCheckpoint: async () => {
+      throw new Error("database unavailable");
+    },
+  });
+
+  expect(await load("doc")).toBeNull();
+});
+
+const head = (linkedContainerIds: string[], accessEpoch = 5) => ({
+  accessEpoch,
+  linkedContainerIds,
+});
+
 test("tombstones are judged once per document against the verified head link set", async () => {
   const loads: string[] = [];
   const verify = createContainerDocumentTombstoneVerifier(
     async (documentId) => {
       loads.push(documentId);
-      if (documentId === "linked") return ["kept", "still-linked"];
-      if (documentId === "purged") return [];
+      if (documentId === "linked") return head(["kept", "still-linked"]);
+      if (documentId === "purged") return head([]);
       return null;
     },
+    async () => 0,
   );
 
   const verdicts = await verify([
@@ -201,6 +225,7 @@ test("tombstones are judged once per document against the verified head link set
     {
       kind: "verified",
       tombstone: {
+        accessEpoch: 5,
         containerId: "gone",
         documentId: "linked",
         linkedContainerIds: ["kept", "still-linked"],
@@ -210,6 +235,7 @@ test("tombstones are judged once per document against the verified head link set
     {
       kind: "verified",
       tombstone: {
+        accessEpoch: 5,
         containerId: "anywhere",
         documentId: "purged",
         linkedContainerIds: [],
@@ -227,6 +253,62 @@ test("tombstones are judged once per document against the verified head link set
   ]);
 });
 
+test("a verified head older than local document state is no evidence", async () => {
+  const verify = createContainerDocumentTombstoneVerifier(
+    async () => head([], 3),
+    async (documentId) => (documentId === "stale" ? 4 : 3),
+  );
+
+  expect(
+    await verify([
+      { containerId: "gone", documentId: "stale", updatedAt: at },
+      { containerId: "gone", documentId: "current", updatedAt: at },
+    ]),
+  ).toEqual([
+    {
+      kind: "unverified",
+      tombstone: { containerId: "gone", documentId: "stale", updatedAt: at },
+    },
+    {
+      kind: "verified",
+      tombstone: {
+        accessEpoch: 3,
+        containerId: "gone",
+        documentId: "current",
+        linkedContainerIds: [],
+        updatedAt: at,
+      },
+    },
+  ]);
+});
+
+test("head loads are capped per run; the rest stay unverified for a later retry", async () => {
+  const loads: string[] = [];
+  const verify = createContainerDocumentTombstoneVerifier(
+    async (documentId) => {
+      loads.push(documentId);
+      return head([]);
+    },
+    async () => 0,
+  );
+
+  const verdicts = await verify(
+    Array.from({ length: 40 }, (_, index) => ({
+      containerId: "gone",
+      documentId: `doc-${index}`,
+      updatedAt: at,
+    })),
+  );
+
+  expect(loads).toHaveLength(32);
+  expect(
+    verdicts.filter((verdict) => verdict.kind === "verified"),
+  ).toHaveLength(32);
+  expect(
+    verdicts.filter((verdict) => verdict.kind === "unverified"),
+  ).toHaveLength(8);
+});
+
 test("head loads run with bounded concurrency and keep verdict order", async () => {
   let inFlight = 0;
   let peak = 0;
@@ -236,8 +318,9 @@ test("head loads run with bounded concurrency and keep verdict order", async () 
       peak = Math.max(peak, inFlight);
       await new Promise((resolve) => setTimeout(resolve, 5));
       inFlight -= 1;
-      return [`${documentId}-kept`];
+      return head([`${documentId}-kept`]);
     },
+    async () => 0,
   );
 
   const verdicts = await verify(

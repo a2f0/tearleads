@@ -38,7 +38,10 @@ async function mergeTombstoneCandidates(
   ]) {
     const key = placementKey(tombstone);
     const current = byPlacement.get(key);
-    if (!current || current.updatedAt < tombstone.updatedAt) {
+    if (
+      !current ||
+      Date.parse(current.updatedAt) < Date.parse(tombstone.updatedAt)
+    ) {
       byPlacement.set(key, tombstone);
     }
   }
@@ -75,8 +78,10 @@ function assertVerdictsCoverCandidates(
  * An honest server only tombstones containers the signed head no longer
  * links, so this refuses no honest data. A dishonest listing paired with a
  * withheld head can still hide a placement this device already had, for as
- * long as the head stays withheld; what it can no longer do is delete the
- * placement or re-home the document into a container of its choosing.
+ * long as the head stays withheld; what a tombstone can no longer do is
+ * delete the placement or re-home the document. The listing-item path
+ * (`replaceDocumentLinksBatch` and the discovered placement) remains
+ * unverified and is outside this gate.
  */
 export async function settleContainerDocumentTombstones(input: {
   containerIds: ReadonlyArray<string>;
