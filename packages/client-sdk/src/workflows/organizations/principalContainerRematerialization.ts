@@ -1,13 +1,13 @@
 import type {
   ContainerDirectGrant,
   PrincipalContainerGrant,
-  VerifiedPrincipalPolicy,
 } from "@tearleads/crypto";
 import type { ContainerMutationRequest } from "@tearleads/validators/request";
 import type {
   ContainerMutationResponse,
   ContainerWriterProjectionResponse,
 } from "@tearleads/validators/response";
+import { MAX_ROTATION_CONTAINER_REKEYS } from "@tearleads/validators/util";
 import { rememberVerifiedContainerHeads } from "../../data/containers/shared/heldContainerHeads";
 import type { AuthoredContainerMutationHead } from "../../data/containers/shared/mutationAcknowledgement";
 import { acknowledgeContainerMutationBatch } from "../../data/containers/shared/mutationAcknowledgement";
@@ -15,56 +15,33 @@ import {
   getTargetContainerContext,
   readContainerState,
 } from "../../data/containers/shared/projection";
-import type { ContainerReciteApi } from "../../data/containers/shared/reciteApi";
-import type {
-  ContainerMutationAuthor,
-  MaterializedContainerRekeyPlan,
-  MaterializedContainerRevokePlan,
-  MaterializedContainerSharePlan,
-} from "../../data/containers/shared/types";
 import {
   type PrincipalPolicyCache,
-  type ReferencedPrincipalPolicyWarmer,
   verifyContainerWriterProjection,
 } from "../../data/keyingProjectionVerification";
-import { referencedPrincipalPolicyKey } from "../../data/keyingProjectionVerification/principalPolicyCache";
 import { createProjectionUserKeyResolver } from "../../data/keyingProjectionVerification/userKeyResolver";
-import type { SecurityIncidentReporter } from "../../data/securityIncidents";
-import type { ExecSql } from "../../data/sqlite/sqlSchema";
-import type { TrustedUserIdentityResolver } from "../../data/trustedUserIdentity";
-import { planCarriedDescendantRekeys } from "../containers/child/carriedDescendantRekeys";
+import { rebaseOnDeepestAncestor } from "../containers/child/carriedDescendantRekeys";
 import { scheduleHeldDescendantRecitations } from "../containers/child/recite";
 import { buildMaterializedContainerRekeyPlan } from "../containers/child/rekey";
-import {
-  containerWriterProjectionFromRotationPlan,
-  isSpeculativeContainerWriterProjection,
-  rebaseContainerWriterProjection,
-} from "../containers/child/rekeyProjection";
+import { isSpeculativeContainerWriterProjection } from "../containers/child/rekeyProjection";
 import { buildMaterializedContainerRevokePlan } from "../containers/child/revoke";
 import { buildMaterializedContainerSharePlan } from "../containers/child/shareMaterialization";
-
-interface RematerializationApi extends ContainerReciteApi {
-  getContainerWriterProjection(
-    containerId: string,
-  ): Promise<ContainerWriterProjectionResponse | null>;
-}
-
-interface PrincipalContainerRematerializationInput {
-  readonly reportSecurityIncident: SecurityIncidentReporter;
-  readonly apiClient: RematerializationApi;
-  readonly author: ContainerMutationAuthor;
-  readonly execSql: ExecSql;
-  readonly grants: readonly PrincipalContainerGrant[];
-  readonly groupId: string;
-  readonly nextPolicy: VerifiedPrincipalPolicy;
-  readonly revokedContainerId?: string | undefined;
-  readonly resolveTrustedUserIdentity: TrustedUserIdentityResolver;
-  readonly stillCurrent?: (() => boolean) | undefined;
-  readonly targetSecretKey: Uint8Array;
-  readonly warmReferencedPrincipalPolicies?:
-    | ReferencedPrincipalPolicyWarmer
-    | undefined;
-}
+import {
+  addPlan,
+  type BatchPlanning,
+  carryLevel,
+  type PrincipalContainerRematerializationInput,
+  staleLevelsAbove,
+} from "./principalContainerRematerializationPlanning";
+import {
+  loadRematerializationTargets,
+  loadServedProjection,
+  type MaterializedPrincipalContainerMutationPlan,
+  type PlannedRematerialization,
+  type RematerializationTarget,
+  rotatedPath,
+  seededPrincipalPolicyCache,
+} from "./principalContainerRematerializationTargets";
 
 function matchingGroupGrant(input: {
   readonly directGrants: readonly ContainerDirectGrant[];
@@ -150,26 +127,18 @@ export async function buildPrincipalContainerRematerializationBatch(
   );
 }
 
-type MaterializedPrincipalContainerMutationPlan =
-  | MaterializedContainerRekeyPlan
-  | MaterializedContainerRevokePlan
-  | MaterializedContainerSharePlan;
-
-/** A plan with the served projection it extends, kept for carried rekeys. */
-interface PlannedRematerialization {
-  readonly planned: MaterializedPrincipalContainerMutationPlan;
-  readonly previousProjection: ContainerWriterProjectionResponse;
-}
-
 export interface PreparedPrincipalContainerRematerializationBatch {
   readonly acknowledge: (
     responses: readonly ContainerMutationResponse[],
     stillCurrent?: (() => boolean) | undefined,
   ) => Promise<void>;
   /**
-   * Sign the descendant rekeys the server named for this batch's rotations,
-   * against the paths the batch will leave behind. Appended to `requests`;
-   * `acknowledge` then expects their responses in the same order.
+   * Re-sign the batch with the descendant rekeys the server named for its
+   * rotations woven in, parent-first, each against the path the batch will
+   * leave behind. A named container the batch already rotates is re-planned
+   * under what is carried above it, so no container rotates twice. Returns the
+   * whole request list, which replaces `requests`; `acknowledge` then expects
+   * the responses in that order.
    */
   readonly carry: (
     requiredContainerIds: readonly string[],
@@ -186,6 +155,8 @@ function authoredMutationHead(
 
 async function buildPrincipalContainerRematerializationPlan(input: {
   readonly grantRow: PrincipalContainerGrant;
+  /** Keys the batch minted above this container; see `BatchPlanning`. */
+  readonly knownContainerKeks: ReadonlyMap<string, Uint8Array>;
   /** Holds the policy this batch commits, which rebased paths already cite. */
   readonly principalPolicyCache: PrincipalPolicyCache;
   /** The served projection, re-rooted on any rotation planned above it. */
@@ -194,7 +165,7 @@ async function buildPrincipalContainerRematerializationPlan(input: {
   readonly resolveProjectionUserKey: ReturnType<
     typeof createProjectionUserKeyResolver
   >;
-}): Promise<PlannedRematerialization> {
+}): Promise<MaterializedPrincipalContainerMutationPlan> {
   const { grantRow, rematerialization } = input;
   const { grant, projection, referencedKeyEpoch } =
     await loadGrantedContainerContext(
@@ -203,7 +174,6 @@ async function buildPrincipalContainerRematerializationPlan(input: {
       input.projection,
       input.principalPolicyCache,
     );
-  const previousProjection = projection;
   const nextGrant = rematerialization.nextPolicy.grants.find(
     (candidate) => candidate.containerId === grantRow.containerId,
   );
@@ -214,6 +184,7 @@ async function buildPrincipalContainerRematerializationPlan(input: {
   const sharedInput = {
     author,
     execSql: rematerialization.execSql,
+    knownContainerKeks: input.knownContainerKeks,
     // Planning against a path this batch has yet to commit pins nothing; the
     // acknowledgement advances every head at once. The rekey planner applies
     // this rule itself; revoke and grant planning take it from here.
@@ -233,17 +204,14 @@ async function buildPrincipalContainerRematerializationPlan(input: {
         `Container ${grantRow.containerId} does not contain the revoked group grant`,
       );
     }
-    return {
-      planned: await buildMaterializedContainerRevokePlan({
-        ...sharedInput,
-        replacementPrincipalPolicy: rematerialization.nextPolicy,
-        revokedSubject: {
-          subjectId: rematerialization.groupId,
-          subjectType: "group",
-        },
-      }),
-      previousProjection,
-    };
+    return buildMaterializedContainerRevokePlan({
+      ...sharedInput,
+      replacementPrincipalPolicy: rematerialization.nextPolicy,
+      revokedSubject: {
+        subjectId: rematerialization.groupId,
+        subjectType: "group",
+      },
+    });
   }
   if (!grant || grant.accessLevel !== nextGrant?.accessLevel) {
     if (!nextGrant) {
@@ -251,82 +219,85 @@ async function buildPrincipalContainerRematerializationPlan(input: {
         `Container ${grantRow.containerId} is absent from the next group grant set`,
       );
     }
-    return {
-      planned: await buildMaterializedContainerSharePlan({
-        ...sharedInput,
-        accessLevel: nextGrant.accessLevel,
-        recipient: {
-          principalPolicy: rematerialization.nextPolicy,
-          subjectId: rematerialization.groupId,
-          subjectType: "group",
-        },
-      }),
-      previousProjection,
-    };
+    return buildMaterializedContainerSharePlan({
+      ...sharedInput,
+      accessLevel: nextGrant.accessLevel,
+      recipient: {
+        principalPolicy: rematerialization.nextPolicy,
+        subjectId: rematerialization.groupId,
+        subjectType: "group",
+      },
+    });
   }
   if (referencedKeyEpoch === rematerialization.nextPolicy.keyEpoch) {
-    return {
-      planned: await buildMaterializedContainerSharePlan({
-        ...sharedInput,
-        accessLevel: grant.accessLevel,
-        recipient: {
-          principalPolicy: rematerialization.nextPolicy,
-          subjectId: rematerialization.groupId,
-          subjectType: "group",
-        },
-      }),
-      previousProjection,
-    };
-  }
-  return {
-    planned: await buildMaterializedContainerRekeyPlan({
+    return buildMaterializedContainerSharePlan({
       ...sharedInput,
-      replacementPrincipalPolicy: rematerialization.nextPolicy,
-    }),
-    previousProjection,
-  };
+      accessLevel: grant.accessLevel,
+      recipient: {
+        principalPolicy: rematerialization.nextPolicy,
+        subjectId: rematerialization.groupId,
+        subjectType: "group",
+      },
+    });
+  }
+  return buildMaterializedContainerRekeyPlan({
+    ...sharedInput,
+    replacementPrincipalPolicy: rematerialization.nextPolicy,
+  });
 }
 
 /**
- * Order a batch parent-first, by served depth. A group granted on a container
- * and on one of its descendants rotates both, and the lower rotation must be
- * signed against the epoch the upper one mints in this same batch, or it
- * extends a head the batch itself retires. Ties keep id order for stability.
+ * Plan one target against the paths already planned above it. A grant's
+ * rematerialization extends the served head; a rotation's, and every carried
+ * rekey, extends the epoch the batch mints above it.
  */
-export function orderRematerializationsParentFirst<
-  T extends {
-    readonly grantRow: { readonly containerId: string };
-    readonly projection: { readonly path: readonly unknown[] };
-  },
->(batch: T[]): T[] {
-  return batch.sort(
-    (left, right) =>
-      left.projection.path.length - right.projection.path.length ||
-      left.grantRow.containerId.localeCompare(right.grantRow.containerId),
+async function planRematerializationTarget(
+  batch: BatchPlanning,
+  target: RematerializationTarget,
+): Promise<void> {
+  const { rematerialization } = batch;
+  const rebased = rebaseOnDeepestAncestor(
+    target.projection,
+    batch.rotatedAbove,
   );
+  for (const containerId of rebased
+    ? staleLevelsAbove(rebased.projection)
+    : []) {
+    await carryLevel(
+      batch,
+      await loadServedProjection(rematerialization.apiClient, containerId),
+    );
+  }
+  if (!target.grantRow) {
+    await carryLevel(batch, target.projection);
+    return;
+  }
+  const previousProjection =
+    rebaseOnDeepestAncestor(target.projection, batch.rotatedAbove)
+      ?.projection ?? target.projection;
+  const planned = await buildPrincipalContainerRematerializationPlan({
+    grantRow: target.grantRow,
+    knownContainerKeks: batch.knownContainerKeks,
+    principalPolicyCache: batch.principalPolicyCache,
+    projection: previousProjection,
+    rematerialization,
+    resolveProjectionUserKey: batch.resolveProjectionUserKey,
+  });
+  addPlan(batch, {
+    planned,
+    rotated: await rotatedPath({ planned, previousProjection }),
+  });
 }
 
-/** An in-memory cache holding only the policy this batch is about to commit. */
-function seededPrincipalPolicyCache(
-  nextPolicy: VerifiedPrincipalPolicy,
-): PrincipalPolicyCache {
-  return new Map([
-    [
-      referencedPrincipalPolicyKey({
-        keyEpoch: nextPolicy.keyEpoch,
-        keyFingerprint: nextPolicy.state.keyFingerprint,
-        principalId: nextPolicy.principalId,
-        principalType: nextPolicy.principalType,
-        stateHash: nextPolicy.stateHash,
-        version: nextPolicy.version,
-      }),
-      nextPolicy,
-    ],
-  ]);
-}
-
+/**
+ * Sign the batch parent-first. `carriedContainerIds` are the descendant rekeys
+ * a refused attempt was told to carry; woven in by depth, each sits under the
+ * rotation it rides, and a named container the batch rematerializes anyway is
+ * re-planned there rather than rotated twice.
+ */
 async function buildPrincipalContainerRematerializationPlans(
   input: PrincipalContainerRematerializationInput,
+  carriedContainerIds: readonly string[] = [],
 ): Promise<PlannedRematerialization[]> {
   if (
     input.revokedContainerId &&
@@ -336,115 +307,85 @@ async function buildPrincipalContainerRematerializationPlans(
   ) {
     throw new Error("Revoked container is not granted to the group");
   }
-  const resolveProjectionUserKey = createProjectionUserKeyResolver({
-    resolveTrustedUserIdentity: input.resolveTrustedUserIdentity,
+  const targets = await loadRematerializationTargets({
+    apiClient: input.apiClient,
+    carriedContainerIds,
+    grants: input.grants,
   });
-  const served: Array<{
-    grantRow: PrincipalContainerGrant;
-    projection: ContainerWriterProjectionResponse;
-  }> = [];
-  for (const grantRow of [...input.grants].sort((left, right) =>
-    left.containerId.localeCompare(right.containerId),
-  )) {
-    const projection = await input.apiClient.getContainerWriterProjection(
-      grantRow.containerId,
-    );
-    if (!projection) {
-      throw new Error(
-        `Container ${grantRow.containerId} could not be prepared for principal rotation`,
-      );
-    }
-    served.push({ grantRow, projection });
+  const batch: BatchPlanning = {
+    knownContainerKeks: new Map(),
+    plans: [],
+    // A rotation planned above cites the group at the head this batch commits,
+    // which no store holds yet; the cache is what lets a rebased path verify.
+    principalPolicyCache: seededPrincipalPolicyCache(input.nextPolicy),
+    rematerialization: input,
+    resolveProjectionUserKey: createProjectionUserKeyResolver({
+      resolveTrustedUserIdentity: input.resolveTrustedUserIdentity,
+    }),
+    rotatedAbove: [],
+  };
+  for (const target of targets) {
+    await planRematerializationTarget(batch, target);
   }
-  orderRematerializationsParentFirst(served);
-  // A rotation planned above cites the group at the head this batch commits,
-  // which no store holds yet; the cache is what lets a rebased path verify.
-  const principalPolicyCache = seededPrincipalPolicyCache(input.nextPolicy);
-  const plans: PlannedRematerialization[] = [];
-  const rotatedAbove: Pick<
-    ContainerWriterProjectionResponse,
-    "containerKeks" | "path"
-  >[] = [];
-  for (const { grantRow, projection } of served) {
-    const rebased = rotatedAbove.reduce<ContainerWriterProjectionResponse>(
-      (current, rotated) =>
-        rebaseContainerWriterProjection(current, rotated) ?? current,
-      projection,
-    );
-    const entry = await buildPrincipalContainerRematerializationPlan({
-      grantRow,
-      principalPolicyCache,
-      projection: rebased,
-      rematerialization: input,
-      resolveProjectionUserKey,
-    });
-    plans.push(entry);
-    const rotated = await rotatedPath(entry);
-    if (rotated) rotatedAbove.push(rotated);
-  }
-  return plans;
+  return batch.plans;
 }
 
-/** A rotation's speculative path once accepted; null for a grant. */
-async function rotatedPath(
-  entry: PlannedRematerialization,
-): Promise<Pick<
-  ContainerWriterProjectionResponse,
-  "containerKeks" | "path"
-> | null> {
-  const { plan } = entry.planned;
-  if (!("keyring" in plan)) return null;
-  return containerWriterProjectionFromRotationPlan({
-    plan,
-    previousProjection: entry.previousProjection,
-  });
+/**
+ * The server names a level it found pinned to a retired epoch. A batch answers
+ * with a rotation of it: a carried rekey, or its own rematerialization when
+ * that is a rekey or revoke. A rematerialized grant rotates nothing, so a
+ * batch that both grants a container and must re-key it cannot be signed;
+ * no policy change the SDK builds combines the two.
+ */
+function assertNamedContainersRotated(
+  plans: readonly PlannedRematerialization[],
+  requiredContainerIds: readonly string[],
+): void {
+  const rotatedIds = new Set(
+    plans.flatMap((entry) =>
+      entry.rotated ? [entry.planned.plan.containerId] : [],
+    ),
+  );
+  const unrotated = requiredContainerIds
+    .slice(0, MAX_ROTATION_CONTAINER_REKEYS)
+    .find((containerId) => !rotatedIds.has(containerId));
+  if (unrotated !== undefined) {
+    throw new Error(
+      `Container ${unrotated} needs a rekey this policy change only grants`,
+    );
+  }
 }
 
 export async function preparePrincipalContainerRematerializationBatch(
   input: PrincipalContainerRematerializationInput,
 ): Promise<PreparedPrincipalContainerRematerializationBatch> {
   const entries = await buildPrincipalContainerRematerializationPlans(input);
-  const plans = entries.map((entry) => entry.planned);
-  const carriedPlans: MaterializedContainerRekeyPlan[] = [];
+  const requests = () => entries.map((entry) => entry.planned.plan.request);
   return {
-    plans,
-    requests: plans.map((planned) => planned.plan.request),
+    get plans() {
+      return entries.map((entry) => entry.planned);
+    },
+    get requests() {
+      return requests();
+    },
     carry: async (requiredContainerIds) => {
-      // Each rotation in the batch is a speculative ancestor a carried rekey
-      // may sit below; the planner picks the deepest per container. The batch
-      // is planned parent-first, so the server never names one of its own.
-      const rotated = (
-        await Promise.all(entries.map((entry) => rotatedPath(entry)))
-      ).filter((path) => path !== null);
-      const planned = await planCarriedDescendantRekeys({
-        apiClient: input.apiClient,
-        author: input.author,
-        execSql: input.execSql,
-        principalPolicyCache: seededPrincipalPolicyCache(input.nextPolicy),
-        // Its path cites the policy this batch commits, so like every
-        // rematerialized rotation it must cite the successor.
-        replacementPrincipalPolicy: input.nextPolicy,
+      // The refused attempt rolled back whole, so every served head still
+      // stands; the batch is signed again from them with the named levels in.
+      const replanned = await buildPrincipalContainerRematerializationPlans(
+        input,
         requiredContainerIds,
-        resolveProjectionUserKey: createProjectionUserKeyResolver({
-          resolveTrustedUserIdentity: input.resolveTrustedUserIdentity,
-        }),
-        rotated,
-        stillCurrent: input.stillCurrent,
-        targetSecretKey: input.targetSecretKey,
-        warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
-      });
-      carriedPlans.splice(0, carriedPlans.length, ...planned);
-      return planned.map(({ plan }) => plan.request);
+      );
+      assertNamedContainersRotated(replanned, requiredContainerIds);
+      entries.splice(0, entries.length, ...replanned);
+      return requests();
     },
     acknowledge: async (responses, stillCurrent) => {
       const isCurrent = () =>
         input.stillCurrent?.() !== false && stillCurrent?.() !== false;
+      const heads = entries.map((entry) => authoredMutationHead(entry.planned));
       const acknowledged = await acknowledgeContainerMutationBatch({
         execSql: input.execSql,
-        plans: [
-          ...plans.map(authoredMutationHead),
-          ...carriedPlans.map(({ plan }) => plan),
-        ],
+        plans: heads,
         responses,
         stillCurrent: isCurrent,
       });
@@ -453,8 +394,7 @@ export async function preparePrincipalContainerRematerializationBatch(
         string,
         AuthoredContainerMutationHead[]
       >();
-      for (const planned of [...plans, ...carriedPlans]) {
-        const head = authoredMutationHead(planned);
+      for (const head of heads) {
         const organizationId = head.state.organizationId;
         const group = plansByOrganization.get(organizationId) ?? [];
         group.push(head);

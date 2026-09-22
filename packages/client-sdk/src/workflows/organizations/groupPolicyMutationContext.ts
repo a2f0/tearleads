@@ -271,9 +271,10 @@ export async function loadGroupPolicyMutationContext(input: {
  * Commit, answering one refusal: a rematerialized rekey or revoke that would
  * strand a level above a directly granted container is refused with the
  * descendant rekeys it must carry. The refused attempt rolled back whole, so
- * the signed batch still extends the current heads; the carried rekeys are
- * appended and the commit retried once. A second refusal means the tree moved
- * underneath, and the caller's own retry starts from a fresh policy.
+ * the served heads still stand; the batch is signed again with the named
+ * levels woven in, replaces the container mutations, and the commit is retried
+ * once. A second refusal means the tree moved underneath, and the caller's own
+ * retry starts from a fresh policy.
  */
 async function submitGroupPolicyCommit(input: {
   readonly apiClient: PrincipalPolicyReadWriteApi;
@@ -322,10 +323,7 @@ async function submitGroupPolicyCommit(input: {
     first.report?.();
     return null;
   }
-  input.request.containerMutations = [
-    ...(input.request.containerMutations ?? []),
-    ...carried,
-  ];
+  input.request.containerMutations = [...carried];
   const second = await commitOrganizationGroupPolicyResult.call(
     input.apiClient,
     input.organizationId,
@@ -350,8 +348,8 @@ export async function commitGroupPolicyMutation(input: {
   readonly organizationPolicy: PrincipalPolicyBundleResponse;
   readonly organizationRequest: PutPrincipalPolicyRequest;
   /**
-   * Sign the descendant rekeys a refused batch must carry; they are appended
-   * to `containerMutations` and the commit is retried once.
+   * Re-sign the batch with the descendant rekeys a refusal named woven in; the
+   * result replaces `containerMutations` and the commit is retried once.
    */
   readonly carryDescendantRekeys?:
     | ((

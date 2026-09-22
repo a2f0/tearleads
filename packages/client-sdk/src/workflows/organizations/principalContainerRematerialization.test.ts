@@ -14,9 +14,9 @@ import { buildMaterializedContainerCreatePlan } from "../containers/child/create
 import { childContainerWriterProjectionFromCreatePlan } from "../containers/child/createProjection";
 import {
   buildPrincipalContainerRematerializationBatch,
-  orderRematerializationsParentFirst,
   preparePrincipalContainerRematerializationBatch,
 } from "./principalContainerRematerialization";
+import { orderRematerializationsParentFirst } from "./principalContainerRematerializationTargets";
 
 function eventType(request: { readonly event: Record<string, unknown> }) {
   return Reflect.get(request.event, "eventType");
@@ -247,17 +247,25 @@ test("principal rematerialization enumerates every signed grant", async () => {
 
 test("rematerializations are ordered parent-first, ids breaking ties", () => {
   const entry = (containerId: string, depth: number) => ({
-    grantRow: { containerId },
-    projection: { path: Array.from({ length: depth }) },
+    projection: { containerId, path: Array.from({ length: depth }) },
   });
+  const unordered = [
+    entry("a-deep", 3),
+    entry("z-root", 1),
+    entry("m-mid", 2),
+    entry("b-root", 1),
+  ];
   expect(
-    orderRematerializationsParentFirst([
-      entry("a-deep", 3),
-      entry("z-root", 1),
-      entry("m-mid", 2),
-      entry("b-root", 1),
-    ]).map((item) => item.grantRow.containerId),
+    orderRematerializationsParentFirst(unordered).map(
+      (item) => item.projection.containerId,
+    ),
   ).toEqual(["b-root", "z-root", "m-mid", "a-deep"]);
+  expect(unordered.map((item) => item.projection.containerId)).toEqual([
+    "a-deep",
+    "z-root",
+    "m-mid",
+    "b-root",
+  ]);
 });
 
 // #2340 finding 1, with real keys. A group granted on the root and on a child

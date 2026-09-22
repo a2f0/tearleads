@@ -625,11 +625,16 @@ one below a stale chain with `container_ancestor_rekeys_required`.
 A group policy change rematerializes the group's granted containers, and a
 rekey or revoke among them is a rotation like any other: `addOrganizationGroupUser`,
 `removeOrganizationGroupUser`, and the other group mutations answer the same
-refusal through the prepared batch's `carry` step and retry once with the named
-rekeys appended, acknowledged with the batch. Custom adapters opt in with
-`commitOrganizationGroupPolicyResult`. A container that
-already carries a grant has had its chain kept current by every rotation above
-it, so further grants and group rematerialization refreshes owe nothing more.
+refusal through the prepared batch's `carry` step, which re-signs the whole
+batch parent-first with the named rekeys woven in (a named container the batch
+already rotates is re-planned beneath them, never rotated twice), and retry
+once, acknowledging every response with the batch. The batch also carries, on
+its own, any level its rotations strand between two of its own containers.
+Custom adapters opt in with `commitOrganizationGroupPolicyResult`; a group share
+commits only grants, which rotate nothing, so it has nothing to carry. A
+container that already carries a grant has had its chain kept current by every
+rotation above it, so further grants and group rematerialization refreshes owe
+nothing more.
 `shareRemoteContainer` and `shareRemoteContainerWithGroup` re-key a lazily stale
 path first, the container included, because a grant cites the parent's current
 epoch and the container's key epoch must pin it. An adapter without

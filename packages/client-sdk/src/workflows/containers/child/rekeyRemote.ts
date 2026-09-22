@@ -64,6 +64,12 @@ export async function rekeyRemoteContainer(input: {
         apiClient: input.apiClient,
         author: input.author,
         execSql: input.execSql,
+        knownContainerKeks: new Map([
+          [
+            materializedPlan.plan.containerKeyEpochId,
+            materializedPlan.containerKey,
+          ],
+        ]),
         resolveProjectionUserKey: input.resolveProjectionUserKey,
         stillCurrent: input.stillCurrent,
         targetSecretKey: input.targetSecretKey,

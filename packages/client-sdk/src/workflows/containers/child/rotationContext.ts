@@ -40,6 +40,11 @@ export async function resolveRotationContext(
   input: {
     author: ContainerMutationAuthor;
     execSql: ExecSql;
+    /**
+     * Keys of epochs the projection names that no wrap on it opens for this
+     * signer yet: the ones a batch minted above and has not committed.
+     */
+    knownContainerKeks?: ReadonlyMap<string, Uint8Array> | undefined;
     persistVerificationCheckpoints?: boolean | undefined;
     previousProjection: ContainerWriterProjectionResponse;
     /** Verified policies the path may cite before they are stored locally. */
@@ -65,6 +70,7 @@ export async function resolveRotationContext(
   );
   const keksByEpochId = await unwrapContainerKekPath({
     execSql: input.execSql,
+    knownContainerKeks: input.knownContainerKeks,
     persistVerificationCheckpoints: input.persistVerificationCheckpoints,
     principalPolicyCache: input.principalPolicyCache,
     projection: input.previousProjection,

@@ -242,6 +242,53 @@ function isRotatingPrincipalRevoke(input: {
   );
 }
 
+function carriedRekeyInput(input: {
+  readonly carriedContainerIds: Set<string>;
+  readonly event: ReturnType<typeof requestEvent>;
+  readonly fingerprint: string;
+  readonly request: ContainerMutationRequest;
+  readonly requiredByContainerId: ReadonlyMap<string, unknown>;
+  readonly userId: string;
+}): MutateContainerInput {
+  const { event } = input;
+  if (
+    event.objectKind !== "container" ||
+    event.eventType !== "container.rekey"
+  ) {
+    throw new PrincipalPolicyError(
+      "Principal policy may carry only container rekeys beyond its rematerializations",
+      409,
+    );
+  }
+  if (
+    input.requiredByContainerId.has(event.objectId) ||
+    input.carriedContainerIds.has(event.objectId)
+  ) {
+    throw new PrincipalPolicyError(
+      "Principal policy rotates a container twice",
+      409,
+    );
+  }
+  input.carriedContainerIds.add(event.objectId);
+  return {
+    expectedContainerId: event.objectId,
+    expectedEventType: "container.rekey",
+    fingerprint: input.fingerprint,
+    request: input.request,
+    userId: input.userId,
+  };
+}
+
+/**
+ * Beyond the required set a batch may carry descendant rekeys: a rekey or
+ * revoke among the rematerializations is a rotation like any other, and must
+ * not leave a level above a directly granted container pinned to a retired
+ * epoch. The client orders the whole batch parent-first, carried levels between
+ * the rematerializations they sit under, so position says nothing here; an
+ * entry is required by its container, and anything else must be a rekey of a
+ * container the batch does not otherwise rotate. They are checked after the
+ * batch applies; a rekey citing an epoch not yet minted fails on its own.
+ */
 function rematerializationInputs(input: {
   readonly fingerprint: string;
   readonly nextHead: ContainerGrantPrincipalHead;
@@ -253,78 +300,76 @@ function rematerializationInputs(input: {
   const requiredByContainerId = new Map(
     input.required.map((entry) => [entry.containerId, entry] as const),
   );
-  if (input.requests.length < requiredByContainerId.size) {
-    throw new PrincipalPolicyError(
-      "Principal policy must rematerialize every stale container grant",
-      409,
-    );
-  }
-  // Beyond the required set a batch may carry descendant rekeys: a rekey or
-  // revoke among the rematerializations is a rotation like any other, and must
-  // not leave a level above a directly granted container pinned to a retired
-  // epoch. They apply after the required set, parent-first, and are checked
-  // there; here they only have to be rekeys.
-  const carried = input.requests.slice(requiredByContainerId.size);
-  if (carried.length > MAX_ROTATION_CONTAINER_REKEYS) {
-    throw new PrincipalPolicyError(
-      "Principal policy carries too many descendant rekeys",
-      409,
-    );
-  }
-  const carriedInputs = carried.map((request): MutateContainerInput => {
+  const seenContainerIds = new Set<string>();
+  const carriedContainerIds = new Set<string>();
+  const inputs = input.requests.map((request): MutateContainerInput => {
     const event = requestEvent(request);
+    const required = requiredByContainerId.get(event.objectId);
+    if (!required) {
+      return carriedRekeyInput({
+        carriedContainerIds,
+        event,
+        fingerprint: input.fingerprint,
+        request,
+        requiredByContainerId,
+        userId: input.userId,
+      });
+    }
+    const isPrincipalRevoke =
+      event.eventType === "container.revoke" &&
+      isRotatingPrincipalRevoke({
+        nextHead: input.nextHead,
+        previousKeyEpoch: input.previousKeyEpoch,
+        request,
+      });
     if (
       event.objectKind !== "container" ||
-      event.eventType !== "container.rekey"
+      seenContainerIds.has(event.objectId) ||
+      (event.eventType !== required.eventType && !isPrincipalRevoke)
     ) {
       throw new PrincipalPolicyError(
-        "Principal policy may carry only container rekeys beyond its rematerializations",
+        "Principal policy container rematerialization batch is incomplete or invalid",
         409,
       );
     }
+    seenContainerIds.add(event.objectId);
     return {
       expectedContainerId: event.objectId,
-      expectedEventType: "container.rekey",
+      expectedEventType: event.eventType,
       fingerprint: input.fingerprint,
       request,
       userId: input.userId,
     };
   });
-
-  const seenContainerIds = new Set<string>();
-  const requiredInputs = input.requests
-    .slice(0, requiredByContainerId.size)
-    .map((request) => {
-      const event = requestEvent(request);
-      const required = requiredByContainerId.get(event.objectId);
-      const isPrincipalRevoke =
-        event.eventType === "container.revoke" &&
-        isRotatingPrincipalRevoke({
-          nextHead: input.nextHead,
-          previousKeyEpoch: input.previousKeyEpoch,
-          request,
-        });
-      if (
-        event.objectKind !== "container" ||
-        !required ||
-        seenContainerIds.has(event.objectId) ||
-        (event.eventType !== required.eventType && !isPrincipalRevoke)
-      ) {
-        throw new PrincipalPolicyError(
-          "Principal policy container rematerialization batch is incomplete or invalid",
-          409,
-        );
-      }
-      seenContainerIds.add(event.objectId);
-      return {
-        expectedContainerId: event.objectId,
-        expectedEventType: event.eventType,
-        fingerprint: input.fingerprint,
-        request,
-        userId: input.userId,
-      };
-    });
-  return [...requiredInputs, ...carriedInputs];
+  if (seenContainerIds.size < requiredByContainerId.size) {
+    throw new PrincipalPolicyError(
+      "Principal policy must rematerialize every stale container grant",
+      409,
+    );
+  }
+  if (carriedContainerIds.size > MAX_ROTATION_CONTAINER_REKEYS) {
+    throw new PrincipalPolicyError(
+      "Principal policy carries too many descendant rekeys",
+      409,
+    );
+  }
+  // A grant keeps its epoch and strands nothing, so a batch of grants alone
+  // has nothing to carry; a rekey riding on one is a rotation in disguise.
+  if (
+    carriedContainerIds.size > 0 &&
+    !inputs.some(
+      (entry) =>
+        entry.expectedContainerId !== undefined &&
+        requiredByContainerId.has(entry.expectedContainerId) &&
+        entry.expectedEventType !== "container.grant",
+    )
+  ) {
+    throw new PrincipalPolicyError(
+      "Principal policy carries descendant rekeys without a rotation",
+      409,
+    );
+  }
+  return inputs;
 }
 
 export async function applyPrincipalContainerRematerializations(input: {

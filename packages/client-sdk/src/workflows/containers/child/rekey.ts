@@ -198,6 +198,8 @@ interface RekeyPlanInput {
   eventId?: string | undefined;
   execSql: ExecSql;
   keyringEntriesOverride?: readonly ContainerKekKeyringEntry[] | undefined;
+  /** Keys a batch minted above this container and has yet to commit. */
+  knownContainerKeks?: ReadonlyMap<string, Uint8Array> | undefined;
   persistVerificationCheckpoints?: boolean | undefined;
   previousProjection: ContainerWriterProjectionResponse;
   /** Verified policies the path may cite before they are stored locally. */

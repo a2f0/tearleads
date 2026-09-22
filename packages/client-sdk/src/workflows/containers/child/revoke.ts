@@ -159,6 +159,8 @@ export async function buildMaterializedContainerRevokePlan(input: {
   author: ContainerMutationAuthor;
   eventId?: string | undefined;
   execSql: ExecSql;
+  /** Keys a batch minted above this container and has yet to commit. */
+  knownContainerKeks?: ReadonlyMap<string, Uint8Array> | undefined;
   /** False for a projection re-rooted on rotations not yet acknowledged. */
   persistVerificationCheckpoints?: boolean | undefined;
   previousProjection: ContainerWriterProjectionResponse;
@@ -345,6 +347,12 @@ export async function revokeRemoteContainer(input: {
         apiClient: input.apiClient,
         author: input.author,
         execSql: input.execSql,
+        knownContainerKeks: new Map([
+          [
+            materializedPlan.plan.containerKeyEpochId,
+            materializedPlan.containerKey,
+          ],
+        ]),
         resolveProjectionUserKey: input.resolveProjectionUserKey,
         stillCurrent: input.stillCurrent,
         targetSecretKey: input.targetSecretKey,

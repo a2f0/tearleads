@@ -173,7 +173,7 @@ async function createRemovalFixture() {
 // granted containers, and a rekey among them is a rotation like any other: the
 // server refuses one that strands a level above a directly granted container,
 // naming the descendant rekeys the batch must carry. The commit answers that
-// once, appending what the prepared batch signs, and acknowledges the whole.
+// once with the batch re-signed around them, and acknowledges the whole.
 
 test("a refused group commit is retried once carrying the named rekeys", async () => {
   const fixture = await createRemovalFixture();
@@ -277,7 +277,10 @@ test("a refused group commit is retried once carrying the named rekeys", async (
         },
         carry: async (requiredContainerIds) => {
           expect(requiredContainerIds).toEqual(carried);
-          return requiredContainerIds.map(carriedRequest);
+          // The whole batch, parent-first, as the prepared batch re-signs it.
+          return ["rematerialized", ...requiredContainerIds].map(
+            carriedRequest,
+          );
         },
         requests: [carriedRequest("rematerialized")],
       }),
@@ -287,8 +290,8 @@ test("a refused group commit is retried once carrying the named rekeys", async (
       signingFingerprint: fixture.signingFingerprint,
       signingKeyPair: fixture.signingKeyPair,
     });
-    // Refused once, then resubmitted with the carried rekeys appended after
-    // the rematerializations, and every response handed to the batch.
+    // Refused once, then resubmitted as the batch `carry` returned, and every
+    // response handed to the batch.
     expect(submissions).toEqual([
       ["rematerialized"],
       ["rematerialized", ...carried],

@@ -184,15 +184,6 @@ export const PrincipalPolicyErrorResponseSchema = z.union([
   PrincipalPolicyDescendantRekeysRequiredResponseSchema,
 ]);
 
-export function isPrincipalPolicyDescendantRekeysRequiredResponse(
-  value: unknown,
-): value is z.infer<
-  typeof PrincipalPolicyDescendantRekeysRequiredResponseSchema
-> {
-  return PrincipalPolicyDescendantRekeysRequiredResponseSchema.safeParse(value)
-    .success;
-}
-
 export type PrincipalPolicyErrorResponse = z.infer<
   typeof PrincipalPolicyErrorResponseSchema
 >;

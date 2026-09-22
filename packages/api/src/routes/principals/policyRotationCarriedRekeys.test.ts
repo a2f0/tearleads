@@ -103,8 +103,8 @@ test("a policy rotation carries the levels above a granted container", async () 
     )?.stateHash,
   ).toBe(prepared.currentPolicy.stateHash);
 
-  // Carried after the rematerializations, signed against the root epoch the
-  // same batch mints.
+  // Signed against the root epoch the same batch mints, and placed where the
+  // client puts it: parent-first, between the rematerializations.
   const carriedUpper = await buildRekeyRequest({
     parentKekState: prepared.rootRekey.kekState,
     previous: upperBundle,
@@ -115,60 +115,79 @@ test("a policy rotation carries the levels above a granted container", async () 
     replacementPrincipalPolicy: prepared.nextPolicy,
     signer: prepared.owner,
   });
+  const [rootRekey, ...metadataMutations] = prepared.containerMutations;
+  invariant(rootRekey, "expected the root rekey");
   const committed = await putPolicy(prepared, [
-    ...prepared.containerMutations,
+    rootRekey,
     carriedUpper,
+    ...metadataMutations,
   ]);
   expect(committed.status, (await committed.clone().text()).slice(0, 300)).toBe(
     200,
   );
   const body: unknown = await committed.json();
   invariant(isCommitOrganizationGroupPolicyResponse(body), "expected commit");
-  // One acknowledgement per request, the carried one last.
-  expect(
-    body.groupPolicy.containerMutations.map((m) => m.containerId).at(-1),
-  ).toBe(upper);
+  // One acknowledgement per request, in the order submitted.
+  expect(body.groupPolicy.containerMutations.map((m) => m.containerId)).toEqual(
+    [
+      prepared.rootRekey.kekState.containerId,
+      upper,
+      ...metadataMutations.map((m) =>
+        String(Reflect.get(Object(m.event), "objectId")),
+      ),
+    ],
+  );
   const upperEpoch = await getCurrentContainerKeyEpoch(upper, db);
   expect(upperEpoch?.parentContainerKeyEpochId).toBe(
     prepared.rootRekey.kekState.containerKeyEpochId,
   );
 }, 30_000);
 
-// Beyond the required rematerializations a batch may carry only rekeys, and
-// only so many: a grant or revoke there is not a repair, and the list is bounded
+// Beyond the required rematerializations a batch may carry only rekeys, each
+// of a container it does not otherwise rotate, only so many, and only when
+// something in it rotates: a grant or revoke there is not a repair, a second
+// rekey of one container is a rotation in disguise, and the list is bounded
 // like a rotation's.
 
-test("a policy batch may carry only rekeys, and only up to the cap", async () => {
-  const prepared = await prepareRotation();
-  const rootGrant = prepared.containerMutations[0];
-  invariant(rootGrant, "expected the root rematerialization");
-  const notARekey = {
-    ...rootGrant,
-    body: { ...Object(rootGrant.body), eventType: "container.grant" },
-    event: { ...Object(rootGrant.event), eventType: "container.grant" },
-  };
-  const refused = await putPolicy(prepared, [
-    ...prepared.containerMutations,
-    notARekey,
-  ]);
-  expect(refused.status).toBe(409);
-  expect(await refused.json()).toMatchObject({
-    error:
-      "Principal policy may carry only container rekeys beyond its rematerializations",
+async function prepareWithUpper(rotateKey: boolean) {
+  let upper: {
+    bundle: ReturnType<typeof accessManifestFromContainerResponse>;
+    kekState: ReturnType<typeof kekStateFromContainerResponse>;
+  } | null = null;
+  const prepared = await prepareRotation({
+    beforeSigning: async (owner, root) => {
+      const child = await createChildContainer({ parent: root, signer: owner });
+      upper = {
+        bundle: accessManifestFromContainerResponse(child),
+        kekState: kekStateFromContainerResponse(child),
+      };
+      return root;
+    },
+    rotateKey,
   });
+  invariant(upper, "expected the upper container");
+  const { bundle, kekState } = upper;
+  const carriedUpper = await buildRekeyRequest({
+    parentKekState: prepared.rootRekey.kekState,
+    previous: bundle,
+    previousContainerPath: [prepared.rootRekey.bundle, bundle],
+    previousKekState: kekState,
+    replacementPrincipalPolicy: prepared.nextPolicy,
+    signer: prepared.owner,
+  });
+  return { carriedUpper, prepared };
+}
 
-  const overCap = await putPolicy(prepared, [
-    ...prepared.containerMutations,
-    ...Array.from(
-      { length: MAX_ROTATION_CONTAINER_REKEYS + 1 },
-      () => rootGrant,
-    ),
-  ]);
-  expect(overCap.status).toBe(409);
-  expect(await overCap.json()).toMatchObject({
-    error: "Principal policy carries too many descendant rekeys",
-  });
-  // Neither attempt moved the policy.
+async function expectRefusal(
+  response: Response,
+  error: string,
+  prepared: Awaited<ReturnType<typeof prepareRotation>>,
+) {
+  expect(response.status, (await response.clone().text()).slice(0, 300)).toBe(
+    409,
+  );
+  expect(await response.json()).toMatchObject({ error });
+  // The attempt did not move the policy.
   expect(
     (
       await getCurrentPrincipalState(
@@ -178,4 +197,67 @@ test("a policy batch may carry only rekeys, and only up to the cap", async () =>
       )
     )?.stateHash,
   ).toBe(prepared.currentPolicy.stateHash);
+}
+
+test("a policy batch may carry only rekeys, once each, up to the cap", async () => {
+  const { carriedUpper, prepared } = await prepareWithUpper(true);
+  const notARekey = {
+    ...carriedUpper,
+    body: { ...Object(carriedUpper.body), eventType: "container.grant" },
+    event: { ...Object(carriedUpper.event), eventType: "container.grant" },
+  };
+  await expectRefusal(
+    await putPolicy(prepared, [...prepared.containerMutations, notARekey]),
+    "Principal policy may carry only container rekeys beyond its rematerializations",
+    prepared,
+  );
+  await expectRefusal(
+    await putPolicy(prepared, [
+      ...prepared.containerMutations,
+      carriedUpper,
+      carriedUpper,
+    ]),
+    "Principal policy rotates a container twice",
+    prepared,
+  );
+  // A carried rekey of a container the batch rematerializes is a second
+  // rotation of it, whatever it is called.
+  const rootAgain = {
+    ...carriedUpper,
+    event: {
+      ...Object(carriedUpper.event),
+      objectId: prepared.rootRekey.kekState.containerId,
+    },
+  };
+  await expectRefusal(
+    await putPolicy(prepared, [...prepared.containerMutations, rootAgain]),
+    "Principal policy container rematerialization batch is incomplete or invalid",
+    prepared,
+  );
+  await expectRefusal(
+    await putPolicy(prepared, [
+      ...prepared.containerMutations,
+      ...Array.from(
+        { length: MAX_ROTATION_CONTAINER_REKEYS + 1 },
+        (_, index) => ({
+          ...carriedUpper,
+          event: {
+            ...Object(carriedUpper.event),
+            objectId: `00000000-0000-4000-8000-${String(index).padStart(12, "0")}`,
+          },
+        }),
+      ),
+    ]),
+    "Principal policy carries too many descendant rekeys",
+    prepared,
+  );
+}, 30_000);
+
+test("a policy batch that rotates nothing carries nothing", async () => {
+  const { carriedUpper, prepared } = await prepareWithUpper(false);
+  await expectRefusal(
+    await putPolicy(prepared, [...prepared.containerMutations, carriedUpper]),
+    "Principal policy carries descendant rekeys without a rotation",
+    prepared,
+  );
 }, 30_000);
