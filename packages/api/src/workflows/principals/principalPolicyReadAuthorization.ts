@@ -2,32 +2,48 @@ import type { DatabaseSession } from "@tearleads/api-shared/postgres";
 import {
   accessManifestContainerGrantProjection,
   accessManifestHeads,
+  accessManifestPrincipalHeadProjection,
+  containers,
   groups,
   organizationRosterEntries,
   principalMembershipProjection,
 } from "@tearleads/api-shared/schema";
 import type { ManagedRecipientPrincipalType } from "@tearleads/crypto";
-import { and, asc, eq, inArray, or } from "drizzle-orm";
+import { and, eq, inArray, or } from "drizzle-orm";
 import {
   getCurrentPrincipalStates,
   listProjectionMembersForState,
   type StoredPrincipalState,
 } from "../../access/read/principalStateStore";
 import { uniqueSortedStrings } from "../../utils/array";
-import type { ContainerAccessProjection } from "../containers/writerProjection";
+import {
+  type ContainerAccessProjection,
+  createContainerWriterProjectionContext,
+} from "../containers/writerProjection";
 import { resolveReadableContainerAccessBatch } from "../keyingReadAccess";
 import { PrincipalPolicyError } from "./shared";
 
 /**
- * Seed containers examined for a requester who is neither on the roster nor
- * in the projection. A seed is a container whose current head grants the
- * requester directly or through a group they are currently in; its verified
- * path cites every principal head the requester's client must fetch to verify
- * that access. The cap bounds the read-access resolution for one request; a
- * requester with more seeds than this who is also outside the roster and
- * projection is not a shape any product flow produces.
+ * Containers verified per request once structure says the requester and the
+ * principal meet on one path. Structural matching is exact, so this bounds
+ * cryptographic work without refusing an honest reader: only a requester with
+ * more than this many distinct matching containers that all fail to verify
+ * would be denied.
  */
-const MAX_REFERENCING_SEED_CONTAINERS = 64;
+const MAX_VERIFIED_CANDIDATE_CONTAINERS = 16;
+/** Longer chains than this are not valid container paths. */
+const MAX_ANCESTOR_WALK_DEPTH = 64;
+/** Keep `IN (...)` lists well under the bound-parameter limit. */
+const ID_BATCH_SIZE = 400;
+
+function batches(values: ReadonlyArray<string>): string[][] {
+  const unique = uniqueSortedStrings(values);
+  const result: string[][] = [];
+  for (let index = 0; index < unique.length; index += ID_BATCH_SIZE) {
+    result.push(unique.slice(index, index + ID_BATCH_SIZE));
+  }
+  return result;
+}
 
 async function resolvePrincipalOrganizationId(
   executor: DatabaseSession,
@@ -113,6 +129,23 @@ async function listCurrentGroupIdsForUser(
   );
 }
 
+/** Join a grant or cited-head projection to the container's CURRENT head. */
+function currentContainerHeadJoin(manifestHashColumn: {
+  readonly containerId: typeof accessManifestContainerGrantProjection.containerId;
+  readonly manifestHash: typeof accessManifestContainerGrantProjection.manifestHash;
+}) {
+  return and(
+    eq(accessManifestHeads.objectKind, "container"),
+    eq(accessManifestHeads.objectId, manifestHashColumn.containerId),
+    eq(accessManifestHeads.manifestHash, manifestHashColumn.manifestHash),
+  );
+}
+
+/**
+ * Seed containers: those whose current head grants the requester directly or
+ * through a group they are currently in. Every container the requester can
+ * read lies at or below one of these.
+ */
 async function listRequesterSeedContainerIds(
   executor: DatabaseSession,
   userId: string,
@@ -125,17 +158,7 @@ async function listRequesterSeedContainerIds(
     .from(accessManifestContainerGrantProjection)
     .innerJoin(
       accessManifestHeads,
-      and(
-        eq(accessManifestHeads.objectKind, "container"),
-        eq(
-          accessManifestHeads.objectId,
-          accessManifestContainerGrantProjection.containerId,
-        ),
-        eq(
-          accessManifestHeads.manifestHash,
-          accessManifestContainerGrantProjection.manifestHash,
-        ),
-      ),
+      currentContainerHeadJoin(accessManifestContainerGrantProjection),
     )
     .where(
       or(
@@ -153,77 +176,157 @@ async function listRequesterSeedContainerIds(
               ),
             ),
       ),
-    )
-    .orderBy(asc(accessManifestContainerGrantProjection.containerId))
-    .limit(MAX_REFERENCING_SEED_CONTAINERS);
+    );
   return uniqueSortedStrings(rows.map((row) => row.containerId));
 }
 
 /**
- * Containers whose current head grants the principal directly. A requester
- * who can read one of them (through a grant on it or on an ancestor) has the
- * principal on the path their client verifies, even though the requester's
- * own seed containers sit above the grant and never cite it.
+ * Containers whose current head grants or cites the principal: the places a
+ * verified path picks the principal up, so that a client verifying any
+ * container at or below one of them must fetch this bundle.
  */
-async function listContainerIdsGrantingPrincipal(
+async function listContainerIdsReferencingPrincipal(
   executor: DatabaseSession,
   principal: Pick<StoredPrincipalState, "principalType" | "principalId">,
 ): Promise<string[]> {
-  const rows = await executor
-    .select({
-      containerId: accessManifestContainerGrantProjection.containerId,
-    })
-    .from(accessManifestContainerGrantProjection)
-    .innerJoin(
-      accessManifestHeads,
-      and(
-        eq(accessManifestHeads.objectKind, "container"),
-        eq(
-          accessManifestHeads.objectId,
-          accessManifestContainerGrantProjection.containerId,
-        ),
-        eq(
-          accessManifestHeads.manifestHash,
-          accessManifestContainerGrantProjection.manifestHash,
-        ),
-      ),
-    )
-    .where(
-      and(
-        eq(
-          accessManifestContainerGrantProjection.subjectType,
-          principal.principalType,
-        ),
-        eq(
-          accessManifestContainerGrantProjection.subjectId,
-          principal.principalId,
+  const [granting, citing] = await Promise.all([
+    executor
+      .select({
+        containerId: accessManifestContainerGrantProjection.containerId,
+      })
+      .from(accessManifestContainerGrantProjection)
+      .innerJoin(
+        accessManifestHeads,
+        currentContainerHeadJoin(accessManifestContainerGrantProjection),
+      )
+      .where(
+        and(
+          eq(
+            accessManifestContainerGrantProjection.subjectType,
+            principal.principalType,
+          ),
+          eq(
+            accessManifestContainerGrantProjection.subjectId,
+            principal.principalId,
+          ),
         ),
       ),
-    )
-    .orderBy(asc(accessManifestContainerGrantProjection.containerId))
-    .limit(MAX_REFERENCING_SEED_CONTAINERS);
-  return uniqueSortedStrings(rows.map((row) => row.containerId));
+    executor
+      .select({ containerId: accessManifestPrincipalHeadProjection.objectId })
+      .from(accessManifestPrincipalHeadProjection)
+      .innerJoin(
+        accessManifestHeads,
+        and(
+          eq(accessManifestHeads.objectKind, "container"),
+          eq(
+            accessManifestHeads.objectId,
+            accessManifestPrincipalHeadProjection.objectId,
+          ),
+          eq(
+            accessManifestHeads.manifestHash,
+            accessManifestPrincipalHeadProjection.manifestHash,
+          ),
+        ),
+      )
+      .where(
+        and(
+          eq(accessManifestPrincipalHeadProjection.objectKind, "container"),
+          eq(
+            accessManifestPrincipalHeadProjection.principalType,
+            principal.principalType,
+          ),
+          eq(
+            accessManifestPrincipalHeadProjection.principalId,
+            principal.principalId,
+          ),
+        ),
+      ),
+  ]);
+  return uniqueSortedStrings(
+    [...granting, ...citing].map((row) => row.containerId),
+  );
 }
 
-async function canReadContainerGrantingPrincipal(
+/** Parent ids for every container reachable upward from `containerIds`. */
+async function loadAncestorParents(
   executor: DatabaseSession,
-  currentState: StoredPrincipalState,
-  userId: string,
-): Promise<boolean> {
-  const containerIds = await listContainerIdsGrantingPrincipal(
-    executor,
-    currentState,
-  );
-  if (containerIds.length === 0) {
-    return false;
+  containerIds: ReadonlyArray<string>,
+): Promise<ReadonlyMap<string, string | null>> {
+  const parentById = new Map<string, string | null>();
+  let frontier = uniqueSortedStrings(containerIds);
+  for (
+    let depth = 0;
+    frontier.length > 0 && depth < MAX_ANCESTOR_WALK_DEPTH;
+    depth += 1
+  ) {
+    const next = new Set<string>();
+    for (const batch of batches(frontier)) {
+      const rows = await executor
+        .select({ id: containers.id, parentId: containers.parentId })
+        .from(containers)
+        .where(inArray(containers.id, batch));
+      for (const row of rows) {
+        parentById.set(row.id, row.parentId);
+        if (row.parentId !== null && !parentById.has(row.parentId)) {
+          next.add(row.parentId);
+        }
+      }
+    }
+    frontier = [...next];
   }
-  const results = await resolveReadableContainerAccessBatch({
-    containerIds,
-    executor,
-    userId,
-  });
-  return Array.from(results.values()).some(
-    (result) => result.status === "fulfilled",
+  return parentById;
+}
+
+function ancestorsOrSelf(
+  containerId: string,
+  parentById: ReadonlyMap<string, string | null>,
+): string[] {
+  const chain: string[] = [];
+  const seen = new Set<string>();
+  let current: string | null | undefined = containerId;
+  while (
+    typeof current === "string" &&
+    !seen.has(current) &&
+    chain.length <= MAX_ANCESTOR_WALK_DEPTH
+  ) {
+    seen.add(current);
+    chain.push(current);
+    current = parentById.get(current);
+  }
+  return chain;
+}
+
+/**
+ * The containers whose readability by the requester proves a verification
+ * dependency on the principal: a seed at or below a referencing container
+ * (the seed's own path cites the principal), and a referencing container at
+ * or below a seed (the requester reads it through that seed).
+ */
+function selectCandidateContainerIds(input: {
+  readonly parentById: ReadonlyMap<string, string | null>;
+  readonly referencing: ReadonlyArray<string>;
+  readonly seeds: ReadonlyArray<string>;
+}): string[] {
+  const seeds = new Set(input.seeds);
+  const referencing = new Set(input.referencing);
+  const candidates = new Set<string>();
+  for (const seed of input.seeds) {
+    if (
+      ancestorsOrSelf(seed, input.parentById).some((id) => referencing.has(id))
+    ) {
+      candidates.add(seed);
+    }
+  }
+  for (const container of input.referencing) {
+    if (
+      ancestorsOrSelf(container, input.parentById).some((id) => seeds.has(id))
+    ) {
+      candidates.add(container);
+    }
+  }
+  return uniqueSortedStrings([...candidates]).slice(
+    0,
+    MAX_VERIFIED_CANDIDATE_CONTAINERS,
   );
 }
 
@@ -250,21 +353,33 @@ function accessPathReferencesPrincipal(
  * container grant whose verified path cites this principal: the referenced
  * heads are exactly what `listContainerDocuments` and the writer projection
  * tell that client to fetch, so refusing them would brick an honest reader.
+ * Structure (current grants, cited heads, and the container tree) selects the
+ * containers to check; the requester's verified read access to one of them,
+ * carrying the principal on its path, is what authorizes the read.
  */
 async function holdsGrantReferencingPrincipal(
   executor: DatabaseSession,
   currentState: StoredPrincipalState,
   userId: string,
 ): Promise<boolean> {
-  const seedContainerIds = await listRequesterSeedContainerIds(
-    executor,
-    userId,
-  );
-  if (seedContainerIds.length === 0) {
+  const [seeds, referencing] = await Promise.all([
+    listRequesterSeedContainerIds(executor, userId),
+    listContainerIdsReferencingPrincipal(executor, currentState),
+  ]);
+  if (seeds.length === 0 || referencing.length === 0) {
+    return false;
+  }
+  const candidates = selectCandidateContainerIds({
+    parentById: await loadAncestorParents(executor, [...seeds, ...referencing]),
+    referencing,
+    seeds,
+  });
+  if (candidates.length === 0) {
     return false;
   }
   const results = await resolveReadableContainerAccessBatch({
-    containerIds: seedContainerIds,
+    containerIds: candidates,
+    context: createContainerWriterProjectionContext(executor),
     executor,
     userId,
   });
@@ -313,15 +428,6 @@ export async function assertPrincipalPolicyReadable(input: {
   }
   if (
     await holdsGrantReferencingPrincipal(
-      executor,
-      currentState,
-      requesterUserId,
-    )
-  ) {
-    return;
-  }
-  if (
-    await canReadContainerGrantingPrincipal(
       executor,
       currentState,
       requesterUserId,
