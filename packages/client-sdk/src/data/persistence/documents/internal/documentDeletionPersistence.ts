@@ -28,6 +28,7 @@ import {
 } from "../../../sqlite/sqlSchema";
 import type { StoredDocumentRecord } from "../types";
 import { DOCUMENTS_APP_KIND } from "./constants";
+import { deleteContainerDocumentTombstoneHoldsForDocuments } from "./containerDocumentTombstoneHolds";
 import { sameCanonicalDocumentSecurityIdentity } from "./documentRecordIdentity";
 import { getDocumentScope } from "./documentRows";
 import { queueDocumentAttachmentBlobReclaims } from "./orphanSideRows";
@@ -65,6 +66,9 @@ async function deleteStoredDocumentRows(input: {
       .delete(documentContainerProjection)
       .where(eq(documentContainerProjection.documentId, existingDocumentId))
       .run();
+    await deleteContainerDocumentTombstoneHoldsForDocuments(tx, [
+      existingDocumentId,
+    ]);
     await tx
       .delete(documentIntentLinkTargets)
       .where(

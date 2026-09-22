@@ -25,6 +25,9 @@ import {
 export {
   type ContainerDocumentPlacementKey,
   containerDocumentPlacementKey,
+  deleteContainerDocumentTombstoneHoldRowsForLinks,
+  deleteContainerDocumentTombstoneHoldsForContainers,
+  deleteContainerDocumentTombstoneHoldsForDocuments,
   type HeldContainerDocumentTombstone,
 } from "./internal/containerDocumentTombstoneHolds";
 

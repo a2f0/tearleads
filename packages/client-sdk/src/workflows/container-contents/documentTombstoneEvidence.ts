@@ -123,10 +123,15 @@ export function createDocumentHeadLinkSetLoader(
           operation: "document.tombstone-evidence",
         },
       );
-      runtime.util.logError?.(
-        "Container contents: tombstone evidence is unavailable",
-        error,
-      );
+      try {
+        // A host logger that throws must not fail the discovery pass.
+        runtime.util.logError?.(
+          "Container contents: tombstone evidence is unavailable",
+          error,
+        );
+      } catch {
+        // Hosts may throw synchronously.
+      }
       return null;
     }
   };

@@ -14,7 +14,7 @@ import { type ExecSql, ensureSqlTables } from "../../sqlite/sqlSchema";
 import {
   deleteContainerDocumentTombstoneHoldRowsForLinks,
   deleteContainerDocumentTombstoneHoldsForDocuments,
-} from "../documents/internal/containerDocumentTombstoneHolds";
+} from "../documents/containerDocumentTombstoneHoldsPersistence";
 
 import {
   type DocumentPlacementInput,

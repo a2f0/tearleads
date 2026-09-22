@@ -83,7 +83,10 @@ function assertVerdictsCoverCandidates(
  * A listing tombstone is server-asserted placement removal. It is applied
  * only on signed evidence: the document's verified head link set omits the
  * container (`verified`). A head that still links the container `refuted`s
- * the tombstone, which is dropped and any earlier hold released. Without a
+ * the tombstone, which is dropped and any earlier hold released; a head that
+ * is current with local state yet lags the server's listing therefore drops
+ * an honest tombstone, and the placement heals when the destination is next
+ * discovered rather than through this gate. Without a
  * verified head the tombstone is `unverified`: the placement is held (kept
  * in the link rows but hidden from container views) and retried, with
  * backoff, on a later discovery of the container.

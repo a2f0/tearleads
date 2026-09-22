@@ -24,7 +24,7 @@ The bounded model checks safety, with nine negative controls disabling
 ownership, epoch, revision, read, discovery-merge, response-recovery, and
 tombstone-evidence guards independently. Regression tests cover a refresh
 between real signed link/unlink operations, sequential trash moves during
-single and all-container discovery, superseded replay rollback, and
+single and all-container discovery, superseded replay rollback,
 first-hydration reads, and a listing tombstone that the verified head still
 links being refused while an unverifiable one is held and hidden rather than
 applied. A listing tombstone is an environment input, so

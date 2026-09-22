@@ -261,11 +261,12 @@ test("a deferred hold does not advance the retry backoff", async () => {
     await holdContainerDocumentTombstones(
       execSql,
       [{ ...hold("folder"), deferred: true }],
-      at,
+      later.toISOString(),
     );
+    // Neither the attempt count nor the last-attempt time advances.
     expect(
       await listContainerDocumentTombstoneHolds(execSql, ["folder"]),
-    ).toMatchObject([{ attempts: 0 }]);
+    ).toMatchObject([{ attempts: 0, updatedAt: at }]);
     expect(
       await listRetryableHeldContainerDocumentTombstones(
         execSql,
@@ -273,6 +274,22 @@ test("a deferred hold does not advance the retry backoff", async () => {
         later,
       ),
     ).toEqual([hold("folder")]);
+  } finally {
+    close();
+  }
+});
+
+test("deleting the document locally clears its holds", async () => {
+  const { close, execSql } = await createTestExecSql("tombstone-hold-delete");
+  try {
+    await seedDocumentInFolder(execSql);
+    await holdContainerDocumentTombstones(execSql, [hold("folder")], at);
+
+    await documents.deleteDocument(execSql, "doc-local");
+
+    expect(
+      await listContainerDocumentTombstoneHolds(execSql, ["folder"]),
+    ).toEqual([]);
   } finally {
     close();
   }

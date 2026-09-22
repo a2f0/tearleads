@@ -77,6 +77,19 @@ export async function deleteContainerDocumentTombstoneHoldsForDocuments(
   }
 }
 
+/** Holds on containers whose link rows are being removed locally. */
+export async function deleteContainerDocumentTombstoneHoldsForContainers(
+  tx: ClientSQLiteTransactionScope,
+  containerIds: ReadonlyArray<string>,
+): Promise<void> {
+  for (const batch of batches(containerIds)) {
+    await tx
+      .delete(containerDocumentTombstoneHolds)
+      .where(inArray(containerDocumentTombstoneHolds.containerId, batch))
+      .run();
+  }
+}
+
 /**
  * The placements among `placements` that exist locally: a link row, or a
  * document projection row whose primary container is the named container.
@@ -148,6 +161,8 @@ export async function holdContainerDocumentTombstonesInTransaction(
       tombstonedAt: tombstone.updatedAt,
       updatedAt: now,
     };
+    // A deferred hold was not attempted: it keeps its attempt count and its
+    // last-attempt time, so it stays due and is not starved by the cap.
     await tx
       .insert(containerDocumentTombstoneHolds)
       .values({ ...row, attempts: tombstone.deferred ? 0 : 1 })
@@ -156,12 +171,12 @@ export async function holdContainerDocumentTombstonesInTransaction(
           containerDocumentTombstoneHolds.documentId,
           containerDocumentTombstoneHolds.containerId,
         ],
-        set: {
-          ...row,
-          attempts: tombstone.deferred
-            ? sql`${containerDocumentTombstoneHolds.attempts}`
-            : sql`${containerDocumentTombstoneHolds.attempts} + 1`,
-        },
+        set: tombstone.deferred
+          ? { tombstonedAt: row.tombstonedAt }
+          : {
+              ...row,
+              attempts: sql`${containerDocumentTombstoneHolds.attempts} + 1`,
+            },
       })
       .run();
   }
