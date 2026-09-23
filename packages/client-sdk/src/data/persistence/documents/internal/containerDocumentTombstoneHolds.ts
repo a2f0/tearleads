@@ -19,6 +19,8 @@ export type HeldContainerDocumentTombstone = Omit<
 > & {
   /** Held without a verification attempt; the backoff does not advance. */
   readonly deferred?: boolean | undefined;
+  /** A verified head still links it; retry the tombstone while keeping it visible. */
+  readonly refuted?: boolean | undefined;
 };
 
 /** Keep `IN (...)` lists well under SQLite's bound-parameter limit. */
@@ -159,6 +161,7 @@ export async function holdContainerDocumentTombstonesInTransaction(
       containerId: tombstone.containerId,
       documentId: tombstone.documentId,
       tombstonedAt: tombstone.updatedAt,
+      hidden: !tombstone.refuted,
       updatedAt: now,
     };
     // A deferred hold was not attempted: it keeps its attempt count and its
@@ -208,12 +211,14 @@ export async function deleteContainerDocumentTombstoneHoldRowsForLinks(
 export interface ContainerDocumentTombstoneHoldRow
   extends ContainerDocumentPlacementKey {
   readonly attempts: number;
+  readonly hidden: boolean;
   readonly tombstonedAt: string;
   readonly updatedAt: string;
 }
 
 const holdRowSelection = {
   attempts: containerDocumentTombstoneHolds.attempts,
+  hidden: containerDocumentTombstoneHolds.hidden,
   containerId: containerDocumentTombstoneHolds.containerId,
   documentId: containerDocumentTombstoneHolds.documentId,
   tombstonedAt: containerDocumentTombstoneHolds.tombstonedAt,
@@ -252,7 +257,12 @@ export async function listContainerDocumentTombstoneHoldsForDocumentsInTransacti
       ...(await handle
         .select(holdRowSelection)
         .from(containerDocumentTombstoneHolds)
-        .where(inArray(containerDocumentTombstoneHolds.documentId, batch))
+        .where(
+          and(
+            inArray(containerDocumentTombstoneHolds.documentId, batch),
+            eq(containerDocumentTombstoneHolds.hidden, true),
+          ),
+        )
         .orderBy(
           asc(containerDocumentTombstoneHolds.documentId),
           asc(containerDocumentTombstoneHolds.containerId),

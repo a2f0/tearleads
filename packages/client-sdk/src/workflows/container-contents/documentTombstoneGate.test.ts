@@ -80,7 +80,7 @@ function createGateStore(
   return { calls, store };
 }
 
-test("a tombstone the verified head still links is dropped, never applied", async () => {
+test("a tombstone the verified head still links remains visible and retryable", async () => {
   const { calls, store } = createGateStore((candidate) => ({
     kind: "refuted",
     linkedContainerIds: ["real-folder", "also-linked"],
@@ -95,13 +95,11 @@ test("a tombstone the verified head still links is dropped, never applied", asyn
 
   expect(summaries).toEqual([]);
   expect(calls.applied).toEqual([]);
-  expect(calls.held).toEqual([]);
-  // The loaded head also releases any hold on the other container it links.
+  expect(calls.held).toEqual([
+    [{ ...tombstone("doc", "real-folder"), refuted: true }],
+  ]);
   expect(calls.released).toEqual([
-    [
-      tombstone("doc", "real-folder"),
-      { containerId: "also-linked", documentId: "doc" },
-    ],
+    [{ containerId: "also-linked", documentId: "doc" }],
   ]);
 });
 

@@ -163,13 +163,12 @@ async function holdsGrantReferencingPrincipal(
     referencingPrincipals,
     { withinContainerIds: seedChain },
   );
-  const scanned =
-    anchored.length > 0
-      ? []
-      : await listContainerIdsReferencingPrincipals(
-          executor,
-          referencingPrincipals,
-        );
+  // An anchored structural match may fail signature/access verification.
+  // Keep the bounded descendant scan available even when such a match exists.
+  const scanned = await listContainerIdsReferencingPrincipals(
+    executor,
+    referencingPrincipals,
+  );
   const referencing = uniqueSortedStrings([...anchored, ...scanned]);
   if (referencing.length === 0) {
     return false;
@@ -178,11 +177,22 @@ async function holdsGrantReferencingPrincipal(
     ...seedParents,
     ...(await loadAncestorParents(executor, scanned)),
   ]);
-  const candidates = selectCandidateContainerIds({
-    parentById,
-    referencing,
-    seeds,
-  }).slice(0, MAX_VERIFIED_CANDIDATE_CONTAINERS);
+  // Preserve the anchored search's priority: scanned candidates must not
+  // displace its verified readers from the shared cryptographic-work budget.
+  const candidates = [
+    ...new Set([
+      ...selectCandidateContainerIds({
+        parentById,
+        referencing: anchored,
+        seeds,
+      }),
+      ...selectCandidateContainerIds({
+        parentById,
+        referencing: scanned,
+        seeds,
+      }),
+    ]),
+  ].slice(0, MAX_VERIFIED_CANDIDATE_CONTAINERS);
   const context =
     sharedContext ?? createContainerWriterProjectionContext(executor);
   for (

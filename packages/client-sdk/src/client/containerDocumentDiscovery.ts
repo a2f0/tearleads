@@ -8,6 +8,7 @@ import {
 } from "../data/persistence/documents/containerDocumentTombstoneHoldsPersistence";
 import type { ContainerContentsStore } from "../stores/container-contents";
 import { discoverContainerDocumentsFromApi } from "../workflows/container-contents/documentDiscovery";
+import { createDiscoveredDocumentVerifier } from "../workflows/container-contents/documentDiscoveryEvidence";
 import { createContainerDocumentQueriesFromRuntime } from "../workflows/container-contents/documentQueries";
 import {
   createContainerDocumentTombstoneVerifier,
@@ -40,6 +41,9 @@ export function discoverContainerDocumentsForRuntime({
   const warmReferencedPrincipalPolicies =
     createRuntimePrincipalPolicyWarmer(runtime);
 
+  const loadHead = createDocumentHeadLinkSetLoader(runtime);
+  const loadEpoch = (documentId: string) =>
+    loadLocalDocumentAccessEpoch(input.infra.execSql, documentId);
   return discoverContainerDocumentsFromApi({
     ...createContainerDocumentQueriesFromRuntime(runtime),
     apiClient: runtime.apiClient,
@@ -64,9 +68,12 @@ export function discoverContainerDocumentsForRuntime({
     releaseContainerDocumentTombstoneHolds: (placements) =>
       releaseContainerDocumentTombstoneHolds(input.infra.execSql, placements),
     verifyContainerDocumentTombstones: createContainerDocumentTombstoneVerifier(
-      createDocumentHeadLinkSetLoader(runtime),
-      (documentId) =>
-        loadLocalDocumentAccessEpoch(input.infra.execSql, documentId),
+      loadHead,
+      loadEpoch,
+    ),
+    verifyDiscoveredDocuments: createDiscoveredDocumentVerifier(
+      loadHead,
+      loadEpoch,
     ),
   });
 }

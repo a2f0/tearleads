@@ -43,13 +43,12 @@ export type OrganizationGroupPolicyPathParams = z.infer<
 export const getPrincipalPolicyOperation = defineJsonOperation({
   auth: "session",
   failureResponses: {
-    400: PrincipalPolicyErrorResponseSchema,
+    400: ErrorResponseSchema,
     401: SessionFailureResponseSchema,
-    403: PrincipalPolicyErrorResponseSchema,
-    404: PrincipalPolicyErrorResponseSchema,
+    403: ErrorResponseSchema,
     500: ErrorResponseSchema,
   },
-  failureStatuses: [400, 401, 403, 404, 500],
+  failureStatuses: [400, 401, 403, 500],
   id: "principals.policy.get",
   method: "GET",
   params: PrincipalPolicyPathParamsSchema,

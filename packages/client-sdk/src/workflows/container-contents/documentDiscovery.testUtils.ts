@@ -1,3 +1,4 @@
+import type { DiscoveredDocumentInput } from "../../data/documents/documentSummary";
 import type {
   ContainerDocumentDiscoveryApi,
   ContainerDocumentPlacement,
@@ -8,6 +9,9 @@ import type {
 
 /** Every listing tombstone is treated as verified; no holds are stored. */
 export const trustedContainerDocumentTombstones = {
+  verifyDiscoveredDocuments: async (
+    inputs: ReadonlyArray<DiscoveredDocumentInput>,
+  ) => inputs,
   holdContainerDocumentTombstones: async () => {},
   listHeldContainerDocumentTombstones: async () => [],
   listKnownContainerDocumentPlacements: async (

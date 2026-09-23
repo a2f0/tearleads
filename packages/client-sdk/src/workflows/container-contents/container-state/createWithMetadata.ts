@@ -33,6 +33,7 @@ import {
   resolveDocumentCreateAuthor,
 } from "../../documents";
 import { cachePrincipalPolicyBundles } from "../../principals/policyCache";
+import { PrincipalPolicyRepairBudget } from "../../principals/policyRepairBudget";
 import { createRuntimePrincipalPolicyWarmer } from "../../principals/runtimePolicyWarmer";
 import type {
   ContainerWorkflowRuntime,
@@ -391,7 +392,7 @@ async function createContainerWithMetadataWithRepairs(
   const { apiClient } = input.runtime;
   let parentProjection = input.parentProjection;
   let didRepairStaleParent = false;
-  let didRepairStalePolicies = false;
+  const policyRepairs = new PrincipalPolicyRepairBudget();
   for (;;) {
     const submitted = await createRemoteContainerWithMetadataDocumentAttempt({
       ...input,
@@ -404,7 +405,7 @@ async function createContainerWithMetadataWithRepairs(
       return submitted.state;
     }
     if (
-      !didRepairStalePolicies &&
+      policyRepairs.take(submitted.stalePrincipalPolicies) &&
       (await cacheStalePrincipalPolicyBundles({
         failure: submitted,
         organizationId: parentProjection.organizationId,
@@ -412,7 +413,6 @@ async function createContainerWithMetadataWithRepairs(
         stillCurrent: input.stillCurrent,
       }))
     ) {
-      didRepairStalePolicies = true;
       continue;
     }
     if (

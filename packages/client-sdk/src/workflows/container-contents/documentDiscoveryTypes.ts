@@ -94,7 +94,7 @@ export interface VerifiedContainerDocumentTombstone
 /**
  * What the document's signed head says about a listing tombstone.
  * - `verified`: the verified head link set omits the container; apply.
- * - `refuted`: the verified head still links the container; drop it.
+ * - `refuted`: the verified head still links the container; keep visible and retry.
  * - `unverified`: no verified head is available; hold, hide, retry later.
  * - `deferred`: not attempted this run (the per-run head-load cap); hold
  *   without counting an attempt, so the retry backoff does not grow.
@@ -123,6 +123,8 @@ export interface HeldContainerDocumentTombstoneInput
   extends ContainerDocumentTombstone {
   /** Held without a verification attempt; the backoff does not advance. */
   readonly deferred?: boolean | undefined;
+  /** A verified head still links it; retry the tombstone while keeping it visible. */
+  readonly refuted?: boolean | undefined;
 }
 
 export type ContainerDocumentTombstoneVerifier = (
@@ -157,6 +159,10 @@ export interface DiscoverContainerDocumentsOptions
     tombstones: ReadonlyArray<VerifiedContainerDocumentTombstone>,
   ) => Promise<ReadonlyArray<DocumentSummary>>;
   verifyContainerDocumentTombstones: ContainerDocumentTombstoneVerifier;
+  /** Return signed placements, or null to retry without advancing watermarks. */
+  verifyDiscoveredDocuments: (
+    inputs: ReadonlyArray<DiscoveredDocumentInput>,
+  ) => Promise<ReadonlyArray<DiscoveredDocumentInput> | null>;
   cacheReferencedPrincipalPolicies?: (
     references: ReadonlyArray<ReferencedPrincipalStateResponse>,
   ) => Promise<void>;

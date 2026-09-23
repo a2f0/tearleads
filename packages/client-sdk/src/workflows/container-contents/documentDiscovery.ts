@@ -267,7 +267,7 @@ export async function discoverContainerDocuments(
     ),
   );
 
-  const discoveredDocuments = await upsertDiscoveredDocuments(
+  const verifiedInputs = await options.verifyDiscoveredDocuments(
     listedDocuments.items.map((document) => ({
       accessEpoch: document.currentAccessEpoch,
       accessStateHash: document.currentAccessStateHash,
@@ -278,12 +278,14 @@ export async function discoverContainerDocuments(
       linkedContainerIds: document.linkedContainerIds,
     })),
   );
+  if (verifiedInputs === null) return null;
+  const discoveredDocuments = await upsertDiscoveredDocuments(verifiedInputs);
 
   await replaceDocumentLinksBatch(
     await withoutDeferredDocumentLinks(
-      listedDocuments.items.map((document) => ({
-        documentId: document.id,
-        accessEpoch: document.currentAccessEpoch,
+      verifiedInputs.map((document) => ({
+        documentId: document.documentId,
+        accessEpoch: document.accessEpoch,
         containerIds: document.linkedContainerIds,
       })),
       discoveredDocuments,
@@ -303,7 +305,7 @@ export async function discoverContainerDocuments(
   });
 
   if (listedDocuments.isFullListing) {
-    onFullListing?.(listedDocuments.items.map((document) => document.id));
+    onFullListing?.(verifiedInputs.map((document) => document.documentId));
   }
 
   return [...discoveredDocuments, ...tombstoneDocumentSummaries];
@@ -356,9 +358,10 @@ export async function discoverAllContainerDocuments(
       ),
     ),
   );
-  const discoveredDocumentInputs = collectDiscoveredDocumentInputs(
-    listedDocumentsByContainer,
+  const discoveredDocumentInputs = await options.verifyDiscoveredDocuments(
+    collectDiscoveredDocumentInputs(listedDocumentsByContainer),
   );
+  if (discoveredDocumentInputs === null) return [];
   const discoveredDocuments =
     discoveredDocumentInputs.length === 0
       ? []

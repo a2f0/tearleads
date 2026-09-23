@@ -89,6 +89,7 @@ async function seed(execSql: ExecSql) {
   return {
     ...createContainerDocumentQueriesFromRuntime({ infra: { execSql } }),
     ...createHoldStore(execSql),
+    verifyDiscoveredDocuments: async () => [],
   };
 }
 
@@ -202,7 +203,7 @@ test("an unverifiable tombstone hides the placement until a verified head settle
     expect(await visibleIn(store, "real-folder")).toEqual(["doc"]);
     expect(
       await listContainerDocumentTombstoneHolds(execSql, ["real-folder"]),
-    ).toEqual([]);
+    ).toMatchObject([{ containerId: "real-folder", hidden: false }]);
 
     // A later verified head that omits the folder applies the removal. The
     // listing-seeded row is not in the head link set either, so it goes too:
@@ -273,7 +274,10 @@ test("all-container discovery retries the holds of every listed container", asyn
         "real-folder",
         "other",
       ]),
-    ).toEqual([]);
+    ).toMatchObject([
+      { containerId: "other", hidden: false },
+      { containerId: "real-folder", hidden: false },
+    ]);
   } finally {
     close();
   }

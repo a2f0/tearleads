@@ -14,6 +14,8 @@ import type { ContainerContentsWorkflowRuntime } from "./runtime";
 
 export interface VerifiedDocumentHeadLinkSet {
   readonly accessEpoch: number;
+  /** Present for a signed head; a terminal purge has no live access state. */
+  readonly accessStateHash?: string;
   readonly linkedContainerIds: ReadonlyArray<string>;
 }
 
@@ -63,6 +65,7 @@ async function verifiedHeadLinkSet(
       if (head && head.state.documentId === documentId) {
         verified.value = {
           accessEpoch: head.state.epoch,
+          accessStateHash: head.manifestHash,
           linkedContainerIds: uniqueSortedStrings(
             head.state.linkedContainerIds,
           ),
@@ -152,7 +155,14 @@ function judgeTombstones(
         tombstone,
       };
     }
-    return { kind: "verified", tombstone: { ...tombstone, ...head } };
+    return {
+      kind: "verified",
+      tombstone: {
+        ...tombstone,
+        accessEpoch: head.accessEpoch,
+        linkedContainerIds: head.linkedContainerIds,
+      },
+    };
   });
 }
 

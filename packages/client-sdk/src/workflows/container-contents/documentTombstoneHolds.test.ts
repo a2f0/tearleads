@@ -402,3 +402,77 @@ test("only placements with a local link row or primary count as known", async ()
     close();
   }
 });
+
+test("a refuted tombstone stays visible and remains retryable if the head lagged", async () => {
+  const { close, execSql } = await createTestExecSql("tombstone-refuted-retry");
+  try {
+    const readModel = await seedDocumentInFolder(execSql);
+    await holdContainerDocumentTombstones(
+      execSql,
+      [{ ...hold("folder"), refuted: true }],
+      at,
+    );
+    expect(await folderDocumentRows(execSql, readModel)).toMatchObject({
+      itemCount: 1,
+      sidebarIds: ["doc"],
+      subtreeIds: ["doc"],
+    });
+    expect(
+      await listRetryableHeldContainerDocumentTombstones(
+        execSql,
+        ["folder"],
+        later,
+      ),
+    ).toEqual([hold("folder")]);
+    await applyContainerDocumentTombstones(execSql, [
+      {
+        ...hold("folder"),
+        accessEpoch: 2,
+        linkedContainerIds: [],
+      },
+    ]);
+    expect(await links.listLinkedContainerIds(execSql, "doc")).toEqual([]);
+    expect(
+      await listContainerDocumentTombstoneHolds(execSql, ["folder"]),
+    ).toEqual([]);
+  } finally {
+    close();
+  }
+});
+
+test("a document with every placement held remains available in orphan recovery", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "tombstone-held-orphan-recovery",
+  );
+  try {
+    const readModel = await seedDocumentInFolder(execSql);
+    await holdContainerDocumentTombstones(execSql, [hold("folder")], at);
+    expect(
+      await readModel.hasOrphanedDocuments({ currentOrganizationId: null }),
+    ).toBe(true);
+    const window = await readModel.listContainerItemWindow({
+      containerId: null,
+      currentOrganizationId: null,
+      limit: 10,
+      offset: 0,
+      sort: { direction: "asc", key: "name" },
+    });
+    expect(
+      window.rows.flatMap((row) =>
+        row.itemKind === "document" ? [row.documentId] : [],
+      ),
+    ).toEqual(["doc"]);
+    expect(
+      await readModel.loadOrphanedDocumentSummary({
+        localId: "doc-local",
+        currentOrganizationId: null,
+      }),
+    ).toMatchObject({ documentId: "doc" });
+    await links.replaceDocumentLinks(execSql, "doc", ["folder", "visible"]);
+    expect(
+      await readModel.hasOrphanedDocuments({ currentOrganizationId: null }),
+    ).toBe(false);
+  } finally {
+    close();
+  }
+});

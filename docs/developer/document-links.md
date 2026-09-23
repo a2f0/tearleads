@@ -40,3 +40,25 @@ surviving destination remain unavailable until a new local action retargets them
 Regression coverage includes local publication with an unresolved network request,
 transaction rollback, stale discovery, signed replay, retries, overlapping moves,
 multiple additions, container deletion, and Explorer's offline action.
+
+Container listings discover document ids; their placement and link arrays do not
+establish authority. Before inserting a discovered document or replacing its link
+rows, the SDK loads and verifies its signed head, uses that head's links and
+manifest hash, and requires an epoch at least as recent as both the listing and
+local state. Unavailable evidence leaves the listing watermark unchanged for a
+later retry. A signed head that no longer links the listed container discards that
+stale listing item. Pending local moves retain their existing transaction guards.
+
+Listing tombstones likewise remove a placement only when a verified head omits
+it. A head that still links it keeps the placement visible and retains a backed-off
+retry, since even an uncached signed head can lag the listing. Unavailable evidence
+keeps the placement hidden without deleting it. If every placement is hidden, the
+document remains available through orphan recovery. The greenfield SQLite schema
+records whether a pending tombstone hides its placement.
+
+Principal policy reads needed for verification return the same 403 body for an
+unknown principal and an unreadable one. Candidate container references are only
+search hints: an anchored candidate never suppresses the bounded descendant scan,
+and a verified readable path must justify the policy read. Stale-policy mutation
+replies carry at most 16 readable bundles. Container creation accepts successive
+repair pages, with a maximum of 16 rounds and no retry for an identical page.

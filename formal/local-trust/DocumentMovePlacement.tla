@@ -106,6 +106,16 @@ ApplyTombstone ==
 (* removal only when the committed (signed) link set no longer contains that *)
 (* container. Without the gate a dishonest listing deletes a link the signed *)
 (* head still has, which StablePlacement and StableView catch directly.      *)
+(* A peer unlinks the initial placement before any local move. The local
+   link remains until a listing tombstone supplies the signed empty head.
+   This makes the guarded apply reachable in the positive configuration. *)
+PeerUnlink ==
+  /\ revision = 0 /\ ~pending /\ phase = "idle" /\ remoteEpoch = 0
+  /\ remoteLinks' = {} /\ remoteEpoch' = 1
+  /\ UNCHANGED <<revision, pending, desired, localLinks, localEpoch, visible,
+                  attempt, attemptTarget, phase, recovering, pageLinks, pageEpoch,
+                  pageReady, readLinks, readReady, readSummary>>
+
 ApplyListingTombstone ==
   /\ ~pending
   /\ \E removed \in localLinks :
@@ -154,13 +164,13 @@ TypeOK ==
   /\ {desired, attemptTarget, readSummary} \subseteq {"root", "trash", "other"}
   /\ {localLinks, remoteLinks, visible, pageLinks, readLinks}
        \subseteq SUBSET {"root", "trash", "other"}
-  /\ {localEpoch, remoteEpoch, pageEpoch} \subseteq 0..4
+  /\ {localEpoch, remoteEpoch, pageEpoch} \subseteq 0..5
   /\ {pending, pageReady, readReady, recovering} \subseteq BOOLEAN
   /\ phase \in {"idle", "link", "unlink", "settle"}
-StablePlacement == localLinks = {desired}
-StableView == visible = {desired}
+StablePlacement == localLinks = {desired} \/ (remoteLinks = {} /\ localLinks = {})
+StableView == visible = {desired} \/ (remoteLinks = {} /\ visible = {})
 
-Next == QueueMove \/ StartReplay \/ Link \/ Unlink \/ Settle \/ LoseResponse
+Next == PeerUnlink \/ QueueMove \/ StartReplay \/ Link \/ Unlink \/ Settle \/ LoseResponse
         \/ CapturePage \/ MergeCurrentPage \/ ApplyPage \/ ApplyTombstone \/ ApplyListingTombstone
         \/ StartRead \/ RefreshReadSummary \/ FinishRead
         \/ UNCHANGED vars
