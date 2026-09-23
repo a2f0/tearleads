@@ -68,6 +68,7 @@ const invalidationHints: WsServerMessage[] = [
     updatedAt: "2026-09-03T00:00:00.000Z",
   },
   { containerIds: [C1], type: "container_path_changed" },
+  { containerIds: [C1], type: "container_children_changed" },
   { type: "shared_with_you", userId: "user-1" },
   { fingerprint: "fp", type: "user_registered", userId: "user-1" },
 ];
@@ -145,4 +146,17 @@ test("malformed and unknown server frames fail closed", () => {
       }),
     ),
   ).toBeNull();
+});
+
+test("child-list refresh hints require at least one nonempty parent id", () => {
+  for (const containerIds of [[], [""], [null]]) {
+    expect(
+      parseWsServerMessage(
+        JSON.stringify({
+          type: "container_children_changed",
+          containerIds,
+        }),
+      ),
+    ).toBeNull();
+  }
 });

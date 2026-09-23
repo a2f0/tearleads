@@ -244,6 +244,28 @@ test("a container_path_changed hint drops exactly the named dependents", () => {
   expect(clears()).toBe(1);
 });
 
+test("an eviction resync drops the flagged subtree before parent hydration", () => {
+  const { cached, clears, state } = treeState(
+    [
+      { id: "parent", parentId: null },
+      { id: "moved", parentId: "parent" },
+      { id: "descendant", parentId: "moved" },
+      { id: "sibling", parentId: "parent" },
+    ],
+    [{ type: "resync_required", containerIds: ["moved"] }],
+  );
+  handleContainerContentsRemoteEvents({
+    requestHydration: async () => {},
+    scheduleSync: () => {},
+    state,
+  });
+  expect(cached("moved")).toBe(false);
+  expect(cached("descendant")).toBe(false);
+  expect(cached("parent")).toBe(true);
+  expect(cached("sibling")).toBe(true);
+  expect(clears()).toBe(1);
+});
+
 test("a batch without container hints leaves the document projection cache alone", () => {
   const clearWriterProjectionCaches = mock(() => {});
   const apiClient = {
@@ -278,4 +300,25 @@ test("a batch without container hints leaves the document projection cache alone
     state,
   });
   expect(clearWriterProjectionCaches).not.toHaveBeenCalled();
+});
+
+test("a parent hint invalidates known children whose interest is still unconfirmed", () => {
+  const { cached, state } = treeState(
+    [
+      { id: "parent", parentId: null },
+      { id: "child", parentId: "parent" },
+      { id: "unrelated", parentId: null },
+    ],
+    [{ type: "container_children_changed", containerIds: ["parent"] }],
+  );
+  handleContainerContentsRemoteEvents({
+    requestHydration: async () => {},
+    scheduleSync: () => {},
+    state,
+  });
+  expect(cached("child")).toBe(false);
+  expect(cached("unrelated")).toBe(true);
+  expect(state.containerParentIdsNeedingHydration).toEqual(
+    new Set([null, "parent"]),
+  );
 });
