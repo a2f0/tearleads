@@ -14,9 +14,15 @@ import { useRegisterCurrentIdentity } from "./useRegisterCurrentIdentity";
 
 afterEach(cleanupIdentityManagerTestEnvironment);
 
-test.each([false, true])(
-  "registration recovery authenticates only the unchanged identity (replace: %s)",
-  async (replaceIdentity) => {
+test.each([
+  { bound: false, replaceIdentity: false, loginSucceeds: true },
+  { bound: false, replaceIdentity: true, loginSucceeds: true },
+  { bound: true, replaceIdentity: false, loginSucceeds: true },
+  { bound: true, replaceIdentity: true, loginSucceeds: true },
+  { bound: true, replaceIdentity: false, loginSucceeds: false },
+])(
+  "registration recovery handles %j",
+  async ({ bound, replaceIdentity, loginSucceeds }) => {
     const originalWebSocket = globalThis.WebSocket;
     Reflect.set(globalThis, "WebSocket", TestWebSocket);
     const sdkRef: { current: Tearleads | null } = { current: null };
@@ -50,19 +56,27 @@ test.each([false, true])(
       const sdk = sdkRef.current;
       if (!sdk) throw new Error("SDK was not initialized");
       const snapshot = sdk.identity.snapshot;
-      const login = spyOn(sdk.session, "login").mockResolvedValue(true);
+      const login = spyOn(sdk.session, "login").mockResolvedValue(
+        loginSucceeds,
+      );
       const register = spyOn(
         sdk.session,
         "registerIdentity",
       ).mockImplementation(async () => {
         if (replaceIdentity) await sdk.identity.generate();
-        return null;
+        return bound
+          ? { status: "identity-already-bound", userId: crypto.randomUUID() }
+          : null;
       });
       try {
         await act(async () => {
-          expect(
-            await view.result.current.registration.registerCurrentIdentity(),
-          ).toBe(!replaceIdentity);
+          const result =
+            view.result.current.registration.registerCurrentIdentity();
+          if (bound && !replaceIdentity && !loginSucceeds) {
+            await expect(result).rejects.toThrow("clear local app data");
+          } else {
+            expect(await result).toBe(!replaceIdentity);
+          }
         });
         expect(register).toHaveBeenCalledTimes(1);
         expect(login).toHaveBeenCalledTimes(replaceIdentity ? 0 : 1);

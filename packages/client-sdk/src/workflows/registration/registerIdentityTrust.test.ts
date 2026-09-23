@@ -95,3 +95,44 @@ test("a registration whose identity was replaced in flight pins nothing", async 
   expect(response).not.toBeNull();
   expect(pinned).toEqual([]);
 });
+
+for (const key of ["signing", "encapsulation"] as const) {
+  test(`registration validates the local ${key} key before contacting the server`, async () => {
+    const signingKeyPair = generateSigningSeedAndKeyPair();
+    const encapsulationKeyPair = generateKemSeedAndKeyPair();
+    let registrations = 0;
+    let pins = 0;
+    let writes = 0;
+    await expect(
+      registerIdentity({
+        apiClient: {
+          registerUser: async () => {
+            registrations += 1;
+            return null;
+          },
+        },
+        containerId: crypto.randomUUID(),
+        dbClient: {
+          exec: async () => {
+            writes += 1;
+            return { rows: [] };
+          },
+        },
+        encapsulationKeyPair:
+          key === "encapsulation"
+            ? { ...encapsulationKeyPair, publicKey: new Uint8Array(1) }
+            : encapsulationKeyPair,
+        signingKeyPair:
+          key === "signing"
+            ? { ...signingKeyPair, signingPublicKey: new Uint8Array(1) }
+            : signingKeyPair,
+        pinLocalUserIdentity: async () => {
+          pins += 1;
+        },
+      }),
+    ).rejects.toMatchObject({ code: "invalid_shape" });
+    expect(registrations).toBe(0);
+    expect(pins).toBe(0);
+    expect(writes).toBe(0);
+  });
+}

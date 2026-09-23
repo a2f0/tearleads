@@ -47,8 +47,8 @@
       "bytes": 18865
     },
     "docs/developer/client-sdk.md": {
-      "lines": 734,
-      "bytes": 37988
+      "lines": 743,
+      "bytes": 38496
     },
     "docs/developer/revenuecat-native-stores.md": {
       "lines": 364,
@@ -339,8 +339,8 @@
       "bytes": 15214
     },
     "packages/client-sdk/src/index.ts": {
-      "lines": 536,
-      "bytes": 15664
+      "lines": 537,
+      "bytes": 15694
     },
     "scripts/architecture/subsystems.ts": {
       "lines": 765,
@@ -351,8 +351,8 @@
       "bytes": 16825
     },
     "packages/client-sdk/src/workflows/README.md": {
-      "lines": 273,
-      "bytes": 20999
+      "lines": 279,
+      "bytes": 21447
     }
   },
   "suppressions": {

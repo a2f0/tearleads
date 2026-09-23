@@ -549,8 +549,17 @@ identity and canonical IDs. Login stores the token and configures API access:
 
 ```ts
 const registration = await tearleads.session.registerIdentity();
-if (registration) await tearleads.session.login(registration.challenge);
+if (registration && !("status" in registration)) {
+  await tearleads.session.login(registration.challenge);
+}
 ```
+
+Registration validates local public keys before contacting the API, then pins
+only the confirmed user. `SessionRegistrationRefusal` identifies an
+`identity-already-bound` result with the previously bound `userId`; no registration
+request is sent. Try login first. If the environment was intentionally reset,
+clear local app data before registering again. A `null` result still covers an
+unavailable prerequisite or unconfirmed response and can be retried through login.
 
 `prepareNativeSubscriptionRestoreOrganization()` durably replays one fresh
 restore org. Activate it, then call

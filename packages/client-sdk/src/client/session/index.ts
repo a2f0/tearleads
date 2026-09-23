@@ -36,6 +36,7 @@ import type {
   SessionDependencies,
   SessionListener,
   SessionRecoverOrganizationResult,
+  SessionRegistrationRefusal,
   SessionRegistrationResult,
   SessionSnapshot,
   UserSession,
@@ -250,7 +251,7 @@ class SessionService implements Session {
 
   async registerIdentity(
     options?: RegisterIdentityOptions,
-  ): Promise<SessionRegistrationResult | null> {
+  ): Promise<SessionRegistrationResult | SessionRegistrationRefusal | null> {
     const containerId = this.containerId;
     if (!containerId) {
       this.dependencies.log(
@@ -290,8 +291,8 @@ class SessionService implements Session {
       this.dependencies,
       identitySnapshot.signingFingerprint,
     );
-    if (keyBound || this.dependencies.identity.snapshot !== identitySnapshot)
-      return null;
+    if (this.dependencies.identity.snapshot !== identitySnapshot) return null;
+    if (keyBound) return keyBound;
 
     let response: Awaited<ReturnType<typeof registerIdentityWorkflow>>;
     try {

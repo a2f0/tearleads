@@ -97,19 +97,22 @@ export async function registrationKeyAlreadyBound(
     readonly log: (message: string) => void;
   },
   signingFingerprint: string | null,
-): Promise<boolean> {
+): Promise<{
+  readonly status: "identity-already-bound";
+  readonly userId: string;
+} | null> {
   if (!dependencies.boundUserIdForSigningKey) {
     throw new KeyingVerificationError(
       "missing_dependency",
       "Registration requires the durable local identity trust service",
     );
   }
-  if (!signingFingerprint) return false;
+  if (!signingFingerprint) return null;
   const boundUserId =
     await dependencies.boundUserIdForSigningKey(signingFingerprint);
-  if (!boundUserId) return false;
+  if (!boundUserId) return null;
   dependencies.log(
     `Registration skipped: this signing key is already bound to ${boundUserId}`,
   );
-  return true;
+  return { status: "identity-already-bound", userId: boundUserId };
 }

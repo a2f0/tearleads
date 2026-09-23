@@ -140,6 +140,7 @@ export type {
   SessionCreateOrganizationResult,
   SessionListener,
   SessionRecoverOrganizationResult,
+  SessionRegistrationRefusal,
   SessionRegistrationResult,
   SessionSnapshot,
   SetActiveDocumentContainerInput,

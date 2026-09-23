@@ -61,6 +61,16 @@ export function useRegisterCurrentIdentity(): RegisterCurrentIdentityResult {
       // through proof of key ownership instead of creating another identity.
       return login();
     }
+    if ("status" in response) {
+      const recovered = await login();
+      if (tearleads.identity.snapshot !== identitySnapshot) return false;
+      if (!recovered) {
+        throw new Error(
+          "This identity is already registered on this device. Try logging in again. If the server environment was reset, clear local app data before registering again.",
+        );
+      }
+      return true;
+    }
 
     return loginWithChallenge(response.challenge);
   }, [

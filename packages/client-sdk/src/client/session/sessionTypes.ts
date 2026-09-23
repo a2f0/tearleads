@@ -77,6 +77,12 @@ export interface SessionRegistrationResult {
   readonly userId: string;
 }
 
+/** Registration made no server request; try login with the bound identity. */
+export interface SessionRegistrationRefusal {
+  readonly status: "identity-already-bound";
+  readonly userId: string;
+}
+
 export interface SessionCreateOrganizationResult {
   readonly containerId: string;
   readonly organizationId: string;
@@ -166,7 +172,7 @@ export interface Session {
   ): Promise<SessionCreateOrganizationResult | null>;
   registerIdentity(
     options?: RegisterIdentityOptions,
-  ): Promise<SessionRegistrationResult | null>;
+  ): Promise<SessionRegistrationResult | SessionRegistrationRefusal | null>;
   recoverPurgedOrganization(
     organizationId: string,
     options?: CreateOrganizationOptions,
