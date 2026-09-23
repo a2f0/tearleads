@@ -45,6 +45,10 @@ import {
   type ContainerMutationRequest,
   ContainerMutationRequestSchema,
 } from "./container";
+import {
+  ContentKeyWrappedKeySchema,
+  contentKeyWrappingMetadataSchema,
+} from "./contentKeyEnvelopeSchema";
 
 /**
  * A reference to a container access manifest the server already stores, in lieu
@@ -76,8 +80,8 @@ export const DocumentContentKeyTargetEnvelopeSchema = loosePlainObject({
   containerKeyEpoch: positiveIntegerSchema,
   containerKeyEpochId: nonEmptyStringSchema,
   containerManifestHash: nonEmptyStringSchema,
-  wrappedKey: nonEmptyStringSchema,
-  wrappingMetadata: plainObjectSchema,
+  wrappedKey: ContentKeyWrappedKeySchema,
+  wrappingMetadata: contentKeyWrappingMetadataSchema("document"),
 });
 
 export type DocumentContentKeyTargetEnvelope = z.infer<

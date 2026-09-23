@@ -1,3 +1,4 @@
+import { contentKeyEnvelopeFixture } from "../contentKeyEnvelope.testFixtures";
 export function createDocumentContentKeyBundle(
   overrides: Record<string, unknown> = {},
 ) {
@@ -11,8 +12,7 @@ export function createDocumentContentKeyBundle(
         containerManifestHash: "container-manifest-hash",
         containerKeyEpochId: "container-key-epoch-id",
         containerKeyEpoch: 1,
-        wrappedKey: "wrapped-key",
-        wrappingMetadata: { alg: "x25519-hkdf-sha256" },
+        ...contentKeyEnvelopeFixture("document"),
       },
     ],
     ...overrides,
