@@ -545,12 +545,25 @@ restoring an encrypted session must persist and restore these acknowledgements;
 passing a view container to `setContext` never establishes root authority.
 
 Session state is explicit. `session.registerIdentity()` persists the current
-identity and canonical IDs. Login stores the token and configures API access:
+identity and canonical IDs. With keys, a container, and the database ready,
+registration can recover an unconfirmed response through login:
 
 ```ts
 const registration = await tearleads.session.registerIdentity();
-if (registration) await tearleads.session.login(registration.challenge);
+if (registration && !("status" in registration)) {
+  await tearleads.session.login(registration.challenge);
+} else {
+  await tearleads.session.login();
+}
 ```
+
+Registration validates local public keys before contacting the API, then pins
+only the confirmed user. `SessionRegistrationRefusal` identifies an
+`identity-already-bound` result with the previously bound `userId`; no registration
+request is sent. Try login first. If the environment was intentionally reset,
+clear local app data before registering again. A `null` result still covers an
+unavailable prerequisite or unconfirmed response. Restore missing prerequisites
+before retrying; login requires the signing key.
 
 `prepareNativeSubscriptionRestoreOrganization()` durably replays one fresh
 restore org. Activate it, then call

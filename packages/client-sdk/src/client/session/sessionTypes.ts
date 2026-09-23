@@ -7,8 +7,11 @@ import type { Database } from "../database";
 import type { Identity } from "../identity";
 import type {
   BoundUserIdLookup,
+  SessionRegistrationRefusal,
   UserIdentityAvailable,
 } from "./sessionIdentityTrust";
+
+export type { SessionRegistrationRefusal } from "./sessionIdentityTrust";
 
 export interface SessionDependencies {
   api: ApiClient;
@@ -166,7 +169,7 @@ export interface Session {
   ): Promise<SessionCreateOrganizationResult | null>;
   registerIdentity(
     options?: RegisterIdentityOptions,
-  ): Promise<SessionRegistrationResult | null>;
+  ): Promise<SessionRegistrationResult | SessionRegistrationRefusal | null>;
   recoverPurgedOrganization(
     organizationId: string,
     options?: CreateOrganizationOptions,

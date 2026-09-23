@@ -81,7 +81,9 @@ async function compareWithDurablePin(input: {
     if (error instanceof TrustedUserIdentityPinMismatchError) {
       throw new KeyingVerificationError(
         "equivocation",
-        `Trusted user identity changed for ${input.identity.userId}`,
+        error.existing.userId !== error.candidate.userId
+          ? `Signing key for ${input.identity.userId} is already bound to ${error.existing.userId}`
+          : `Trusted user identity changed for ${input.identity.userId}`,
       );
     }
     if (error instanceof TrustedUserIdentityPinCorruptError) {

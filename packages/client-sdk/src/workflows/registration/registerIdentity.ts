@@ -21,6 +21,7 @@ import type { DocumentProjectorRegistryInput } from "../../data/documents/docume
 import { encodeOrganizationAuthorityDescriptor } from "../../data/principals/organizationAuthorityDescriptor";
 import type { ExecSqlClientLike } from "../../data/sqlite/sqlSchema";
 import type { LocalUserIdentityCandidate } from "../../data/trustedUserIdentity";
+import { validateUserIdentityKeys } from "../../data/trustedUserIdentity";
 import { resolveDocumentCreateAuthor } from "../documents/author";
 import { groupPolicyMutationHead } from "../organizations/groupPolicyMutationHead";
 import {
@@ -107,6 +108,7 @@ export interface RegisterIdentityInput {
    * demo host passes each pane's peer-labeled self name ("Peer 1 (You)").
    */
   rosterProfileNickname?: string | undefined;
+  signingKeyFingerprint?: string | null | undefined;
   signingKeyPair: SigningKeyPair;
 }
 
@@ -399,6 +401,13 @@ export async function registerIdentity(
   input: RegisterIdentityInput,
 ): Promise<RegistrationResponse | null> {
   input.log?.("Registering identity...");
+  await validateUserIdentityKeys({
+    candidate: {
+      encapsulationPublicKey: input.encapsulationKeyPair.publicKey,
+      signingKeyFingerprint: input.signingKeyFingerprint,
+      signingPublicKey: input.signingKeyPair.signingPublicKey,
+    },
+  });
 
   const newUserId = crypto.randomUUID();
   const artifacts = await buildOrganizationProvisioningArtifacts({
