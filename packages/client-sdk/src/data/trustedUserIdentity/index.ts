@@ -7,3 +7,4 @@ export type {
   TrustedUserIdentity,
   TrustedUserIdentityResolver,
 } from "./types";
+export { validateUserIdentityKeys } from "./validation";

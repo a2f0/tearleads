@@ -96,7 +96,7 @@ test("a registration whose identity was replaced in flight pins nothing", async 
   expect(pinned).toEqual([]);
 });
 
-for (const key of ["signing", "encapsulation"] as const) {
+for (const key of ["signing", "encapsulation", "fingerprint"] as const) {
   test(`registration validates the local ${key} key before contacting the server`, async () => {
     const signingKeyPair = generateSigningSeedAndKeyPair();
     const encapsulationKeyPair = generateKemSeedAndKeyPair();
@@ -122,6 +122,8 @@ for (const key of ["signing", "encapsulation"] as const) {
           key === "encapsulation"
             ? { ...encapsulationKeyPair, publicKey: new Uint8Array(1) }
             : encapsulationKeyPair,
+        signingKeyFingerprint:
+          key === "fingerprint" ? "0".repeat(64) : undefined,
         signingKeyPair:
           key === "signing"
             ? { ...signingKeyPair, signingPublicKey: new Uint8Array(1) }
@@ -130,7 +132,9 @@ for (const key of ["signing", "encapsulation"] as const) {
           pins += 1;
         },
       }),
-    ).rejects.toMatchObject({ code: "invalid_shape" });
+    ).rejects.toMatchObject({
+      code: key === "fingerprint" ? "hash_mismatch" : "invalid_shape",
+    });
     expect(registrations).toBe(0);
     expect(pins).toBe(0);
     expect(writes).toBe(0);

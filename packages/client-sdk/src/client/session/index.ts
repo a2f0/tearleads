@@ -311,6 +311,7 @@ class SessionService implements Session {
         provisionedSystemContainers:
           this.dependencies.provisionedSystemContainers,
         rosterProfileNickname: options?.rosterProfileNickname,
+        signingKeyFingerprint: identitySnapshot.signingFingerprint,
         signingKeyPair,
       });
     } catch (error: unknown) {

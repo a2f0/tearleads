@@ -175,17 +175,16 @@ test.each([
         expect(sdk.identity.snapshot === snapshot).toBe(
           !replaceIdentity && !replaceDuringLogin,
         );
-        if (
-          bound &&
-          !replaceIdentity &&
-          !replaceDuringLogin &&
-          !loginSucceeds
-        ) {
+        if (!replaceIdentity && !replaceDuringLogin && !loginSucceeds) {
           await act(async () => {
             await view.result.current.mutations.handleRegisterIdentity();
           });
           expect(view.result.current.mutations.identityError).toContain(
-            offline ? "no network connection" : "clear local app data",
+            !bound
+              ? "Could not register key."
+              : offline
+                ? "no network connection"
+                : "clear local app data",
           );
           if (offline)
             expect(view.result.current.mutations.identityError).not.toContain(

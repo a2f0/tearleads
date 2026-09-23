@@ -8,7 +8,6 @@ import { useDatabase } from "../providers/db/DatabaseProvider";
 import { useAppHostConfig } from "../providers/host/AppHostConfigProvider";
 import { useIdentity } from "../providers/identity/IdentityProvider";
 import { useTearleads } from "../providers/sdk/TearleadsProvider";
-
 import { RegistrationRecoveryError } from "./registrationRecoveryError";
 
 export interface RegisterCurrentIdentityResult {
