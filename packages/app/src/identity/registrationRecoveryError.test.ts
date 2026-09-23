@@ -7,7 +7,7 @@ import {
 test("autopilot logs preserve recovery guidance and distinguish offline failures", () => {
   expect(
     autoRegisterFailureMessage(new RegistrationRecoveryError(true)),
-  ).toContain("Auto-register identity refused:");
+  ).toContain("Auto-register identity failed:");
   expect(
     autoRegisterFailureMessage(new RegistrationRecoveryError(true)),
   ).toContain("clear local app data");

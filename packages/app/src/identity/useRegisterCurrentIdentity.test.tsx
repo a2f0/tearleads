@@ -19,6 +19,13 @@ test.each([
   {
     bound: false,
     replaceIdentity: false,
+    loginSucceeds: false,
+    replaceDuringLogin: false,
+    offline: false,
+  },
+  {
+    bound: false,
+    replaceIdentity: false,
     loginSucceeds: true,
     replaceDuringLogin: false,
     offline: false,
@@ -158,7 +165,9 @@ test.each([
               offline ? "no network connection" : "clear local app data",
             );
           } else {
-            expect(await result).toBe(!replaceIdentity && !replaceDuringLogin);
+            expect(await result).toBe(
+              loginSucceeds && !replaceIdentity && !replaceDuringLogin,
+            );
           }
         });
         expect(register).toHaveBeenCalledTimes(1);

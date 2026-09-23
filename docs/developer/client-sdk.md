@@ -551,7 +551,7 @@ identity and canonical IDs. Login stores the token and configures API access:
 const registration = await tearleads.session.registerIdentity();
 if (registration && !("status" in registration)) {
   await tearleads.session.login(registration.challenge);
-} else if (registration) {
+} else {
   await tearleads.session.login();
 }
 ```

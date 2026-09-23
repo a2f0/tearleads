@@ -66,7 +66,7 @@ export function useRegisterCurrentIdentity(): RegisterCurrentIdentityResult {
       if (response && !recovered) {
         throw new RegistrationRecoveryError(tearleads.network.online);
       }
-      return true;
+      return recovered;
     }
 
     return loginWithChallenge(response.challenge);
