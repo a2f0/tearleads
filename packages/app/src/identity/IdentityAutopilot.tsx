@@ -9,6 +9,7 @@ import {
   IDENTITY_ACKNOWLEDGMENT_MISMATCH_MESSAGE,
   isIdentityAcknowledgmentMismatch,
 } from "./identityAcknowledgmentMismatch";
+import { RegistrationRecoveryError } from "./registrationRecoveryError";
 import { useRegisterCurrentIdentity } from "./useRegisterCurrentIdentity";
 
 /**
@@ -16,6 +17,7 @@ import { useRegisterCurrentIdentity } from "./useRegisterCurrentIdentity";
  * it as a security incident, and retrying registration cannot resolve it.
  */
 function autoRegisterFailureMessage(error: unknown): string {
+  if (error instanceof RegistrationRecoveryError) return error.message;
   return isIdentityAcknowledgmentMismatch(error)
     ? `Auto-register identity refused: ${IDENTITY_ACKNOWLEDGMENT_MISMATCH_MESSAGE}`
     : "Failed to auto-register identity";

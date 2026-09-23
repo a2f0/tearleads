@@ -102,7 +102,7 @@ async function validateFingerprints(input: {
   return { encapsulationKeyFingerprint, signingKeyFingerprint };
 }
 
-export async function validateLocalUserIdentityKeys(input: {
+export async function validateUserIdentityKeys(input: {
   readonly candidate: LocalUserIdentityCandidate;
   readonly encapsulationKeyFingerprint?: string | null | undefined;
 }): Promise<
@@ -139,7 +139,7 @@ export async function validateLocalUserIdentity(input: {
 }): Promise<ValidatedUserIdentityCandidate> {
   assertTrustedUserIdentityUserId(input.userId);
   return {
-    ...(await validateLocalUserIdentityKeys(input)),
+    ...(await validateUserIdentityKeys(input)),
     identityTrustDomain: input.identityTrustDomain,
     userId: input.userId,
   };
@@ -169,7 +169,7 @@ export async function validateRemoteUserIdentity(input: {
     label: "Encapsulation public key",
   });
 
-  const keys = await validateLocalUserIdentityKeys({
+  const keys = await validateUserIdentityKeys({
     candidate: {
       encapsulationPublicKey,
       signingKeyFingerprint: input.candidate.signingKeyFingerprint,

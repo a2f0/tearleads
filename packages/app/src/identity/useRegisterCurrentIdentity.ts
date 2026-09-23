@@ -9,6 +9,8 @@ import { useAppHostConfig } from "../providers/host/AppHostConfigProvider";
 import { useIdentity } from "../providers/identity/IdentityProvider";
 import { useTearleads } from "../providers/sdk/TearleadsProvider";
 
+import { RegistrationRecoveryError } from "./registrationRecoveryError";
+
 export interface RegisterCurrentIdentityResult {
   canRegisterCurrentIdentity: boolean;
   registerCurrentIdentity: () => Promise<boolean>;
@@ -65,9 +67,7 @@ export function useRegisterCurrentIdentity(): RegisterCurrentIdentityResult {
       const recovered = await login();
       if (tearleads.identity.snapshot !== identitySnapshot) return false;
       if (!recovered) {
-        throw new Error(
-          "This identity is already registered on this device. Try logging in again. If the server environment was reset, clear local app data before registering again.",
-        );
+        throw new RegistrationRecoveryError();
       }
       return true;
     }

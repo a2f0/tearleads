@@ -21,7 +21,7 @@ import type { DocumentProjectorRegistryInput } from "../../data/documents/docume
 import { encodeOrganizationAuthorityDescriptor } from "../../data/principals/organizationAuthorityDescriptor";
 import type { ExecSqlClientLike } from "../../data/sqlite/sqlSchema";
 import type { LocalUserIdentityCandidate } from "../../data/trustedUserIdentity";
-import { validateLocalUserIdentityKeys } from "../../data/trustedUserIdentity/validation";
+import { validateUserIdentityKeys } from "../../data/trustedUserIdentity/validation";
 import { resolveDocumentCreateAuthor } from "../documents/author";
 import { groupPolicyMutationHead } from "../organizations/groupPolicyMutationHead";
 import {
@@ -400,7 +400,7 @@ export async function registerIdentity(
   input: RegisterIdentityInput,
 ): Promise<RegistrationResponse | null> {
   input.log?.("Registering identity...");
-  await validateLocalUserIdentityKeys({
+  await validateUserIdentityKeys({
     candidate: {
       encapsulationPublicKey: input.encapsulationKeyPair.publicKey,
       signingPublicKey: input.signingKeyPair.signingPublicKey,
