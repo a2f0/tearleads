@@ -63,6 +63,14 @@ export function scopeHintToInterest(
     }
     case "container_mutation_created": {
       const { parentId, previousParentId } = event;
+      if (!held.has(event.containerId)) {
+        return {
+          type: "container_children_changed",
+          containerIds: [...new Set([parentId, previousParentId])].filter(
+            (id): id is string => typeof id === "string" && held.has(id),
+          ),
+        };
+      }
       return {
         type: event.type,
         containerId: event.containerId,

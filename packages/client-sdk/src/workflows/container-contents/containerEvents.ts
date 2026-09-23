@@ -74,48 +74,63 @@ export function listContainerProjectionInvalidationIds(
   return [...containerIds];
 }
 
+function addMutationHydrationLanes(
+  event: ContainerMutationEventCandidate,
+  parentIds: Map<string, string | null>,
+): void {
+  // Do NOT suppress by signer. A container mutation from any session of this
+  // identity — including this client's own authoring session — must be
+  // reconciled: the authoring session is already excluded server-side via the
+  // event's `origin` (mirroring document mutations), and every OTHER
+  // same-identity peer only learns of a new/moved container by re-listing the
+  // affected parent lane here. Filtering by the identity signing fingerprint
+  // dropped a sibling peer's create outright — both peers derive the same
+  // signing key from the shared seed phrase — leaving new folders invisible on
+  // the other peer until a manual refresh.
+  const containerId = readNonEmptyString(event.containerId);
+  const eventType = readNonEmptyString(event.eventType);
+  if (!containerId || !eventType) {
+    return;
+  }
+
+  // The server scopes each hint to the recipient's own interest: a parent or
+  // previous parent this client is not subscribed to is withheld entirely
+  // (undefined), while null still names the root. Hydrate only the lanes the
+  // hint names; the container's own lane resolves its current parent.
+  const parentId = readNullableString(event.parentId);
+  const previousParentId = readNullableString(event.previousParentId);
+  if (shouldHydrateRootLane({ eventType, parentId, previousParentId })) {
+    addHydrationParentId(parentIds, null);
+  }
+  if (parentId !== undefined) {
+    addHydrationParentId(parentIds, parentId);
+  }
+  addHydrationParentId(parentIds, containerId);
+
+  if (previousParentId !== undefined) {
+    addHydrationParentId(parentIds, previousParentId);
+  }
+}
+
 export function listContainerParentIdsForEventHydration(
   events: ReadonlyArray<unknown>,
 ): Array<string | null> {
   const parentIds = new Map<string, string | null>();
 
   for (const event of events) {
-    if (!isRecord(event) || event.type !== "container_mutation_created") {
+    if (!isRecord(event)) continue;
+    if (event.type === "container_children_changed") {
+      if (Array.isArray(event.containerIds)) {
+        for (const value of event.containerIds) {
+          const parentId = readNonEmptyString(value);
+          if (parentId) addHydrationParentId(parentIds, parentId);
+        }
+      }
       continue;
     }
+    if (event.type !== "container_mutation_created") continue;
 
-    // Do NOT suppress by signer. A container mutation from any session of this
-    // identity — including this client's own authoring session — must be
-    // reconciled: the authoring session is already excluded server-side via the
-    // event's `origin` (mirroring document mutations), and every OTHER
-    // same-identity peer only learns of a new/moved container by re-listing the
-    // affected parent lane here. Filtering by the identity signing fingerprint
-    // dropped a sibling peer's create outright — both peers derive the same
-    // signing key from the shared seed phrase — leaving new folders invisible on
-    // the other peer until a manual refresh.
-    const containerId = readNonEmptyString(event.containerId);
-    const eventType = readNonEmptyString(event.eventType);
-    if (!containerId || !eventType) {
-      continue;
-    }
-
-    // The server scopes each hint to the recipient's own interest: a parent or
-    // previous parent this client is not subscribed to is withheld entirely
-    // (undefined), while null still names the root. Hydrate only the lanes the
-    // hint names; the container's own lane resolves its current parent.
-    const parentId = readNullableString(event.parentId);
-    const previousParentId = readNullableString(event.previousParentId);
-    if (shouldHydrateRootLane({ eventType, parentId, previousParentId })) {
-      addHydrationParentId(parentIds, null);
-    }
-    if (parentId !== undefined) {
-      addHydrationParentId(parentIds, parentId);
-    }
-    addHydrationParentId(parentIds, containerId);
-
-    if (previousParentId !== undefined) {
-      addHydrationParentId(parentIds, previousParentId);
-    }
+    addMutationHydrationLanes(event, parentIds);
   }
 
   return Array.from(parentIds.values());

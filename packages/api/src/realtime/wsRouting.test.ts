@@ -230,7 +230,12 @@ test("routes container events by container, parent, and previous parent", () => 
   router.routeServerEvent(event);
 
   // The parent's watcher learns a child changed even without declaring the child.
-  expect(parentWatcher.sent).toEqual([event]);
+  expect(parentWatcher.sent).toEqual([
+    JSON.stringify({
+      type: "container_children_changed",
+      containerIds: [PARENT],
+    }),
+  ]);
 });
 
 test("delivers an origin-tagged container create to the author's other session, not the author", () => {
@@ -265,11 +270,8 @@ test("delivers an origin-tagged container create to the author's other session, 
   // the parent and surfaces the new folder — the cross-peer folder-sync path.
   expect(recoveredPeer.sent).toEqual([
     JSON.stringify({
-      type: "container_mutation_created",
-      containerId: CHILD,
-      eventType: "container.create",
-      parentId: PARENT,
-      updatedAt: "2026-06-22T00:00:00.000Z",
+      type: "container_children_changed",
+      containerIds: [PARENT],
     }),
   ]);
 });
