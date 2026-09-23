@@ -47,8 +47,8 @@
       "bytes": 18865
     },
     "docs/developer/client-sdk.md": {
-      "lines": 743,
-      "bytes": 38496
+      "lines": 745,
+      "bytes": 38558
     },
     "docs/developer/revenuecat-native-stores.md": {
       "lines": 364,
@@ -351,8 +351,8 @@
       "bytes": 16825
     },
     "packages/client-sdk/src/workflows/README.md": {
-      "lines": 279,
-      "bytes": 21447
+      "lines": 281,
+      "bytes": 21464
     }
   },
   "suppressions": {

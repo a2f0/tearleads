@@ -58,16 +58,13 @@ export function useRegisterCurrentIdentity(): RegisterCurrentIdentityResult {
     if (tearleads.identity.snapshot !== identitySnapshot) {
       return false;
     }
-    if (!response) {
-      // Registration may have committed before its response was lost. Recover
-      // through proof of key ownership instead of creating another identity.
-      return login();
-    }
-    if ("status" in response) {
+    if (!response || "status" in response) {
+      // Both a lost registration response and a known binding recover through
+      // proof of key ownership. Neither permits publishing a replaced identity.
       const recovered = await login();
       if (tearleads.identity.snapshot !== identitySnapshot) return false;
-      if (!recovered) {
-        throw new RegistrationRecoveryError();
+      if (response && !recovered) {
+        throw new RegistrationRecoveryError(tearleads.network.online);
       }
       return true;
     }

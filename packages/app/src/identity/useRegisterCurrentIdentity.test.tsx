@@ -21,46 +21,73 @@ test.each([
     replaceIdentity: false,
     loginSucceeds: true,
     replaceDuringLogin: false,
+    offline: false,
   },
   {
     bound: false,
     replaceIdentity: true,
     loginSucceeds: true,
     replaceDuringLogin: false,
+    offline: false,
   },
   {
     bound: true,
     replaceIdentity: false,
     loginSucceeds: true,
     replaceDuringLogin: false,
+    offline: false,
   },
   {
     bound: true,
     replaceIdentity: true,
     loginSucceeds: true,
     replaceDuringLogin: false,
+    offline: false,
   },
   {
     bound: true,
     replaceIdentity: false,
     loginSucceeds: false,
     replaceDuringLogin: false,
+    offline: false,
   },
   {
     bound: true,
     replaceIdentity: false,
     loginSucceeds: true,
     replaceDuringLogin: true,
+    offline: false,
   },
   {
     bound: true,
     replaceIdentity: false,
     loginSucceeds: false,
     replaceDuringLogin: true,
+    offline: false,
+  },
+  {
+    bound: false,
+    replaceIdentity: false,
+    loginSucceeds: true,
+    replaceDuringLogin: true,
+    offline: false,
+  },
+  {
+    bound: true,
+    replaceIdentity: false,
+    loginSucceeds: false,
+    replaceDuringLogin: false,
+    offline: true,
   },
 ])(
   "registration recovery handles %j",
-  async ({ bound, replaceIdentity, loginSucceeds, replaceDuringLogin }) => {
+  async ({
+    bound,
+    replaceIdentity,
+    loginSucceeds,
+    replaceDuringLogin,
+    offline,
+  }) => {
     const originalWebSocket = globalThis.WebSocket;
     Reflect.set(globalThis, "WebSocket", TestWebSocket);
     const sdkRef: { current: Tearleads | null } = { current: null };
@@ -104,6 +131,7 @@ test.each([
       if (!sdk) throw new Error("SDK was not initialized");
       const snapshot = sdk.identity.snapshot;
       const login = spyOn(sdk.session, "login").mockImplementation(async () => {
+        if (offline) sdk.network.setOnline(false);
         if (replaceDuringLogin) await sdk.identity.generate();
         return loginSucceeds;
       });
@@ -126,7 +154,9 @@ test.each([
             !replaceDuringLogin &&
             !loginSucceeds
           ) {
-            await expect(result).rejects.toThrow("clear local app data");
+            await expect(result).rejects.toThrow(
+              offline ? "no network connection" : "clear local app data",
+            );
           } else {
             expect(await result).toBe(!replaceIdentity && !replaceDuringLogin);
           }
@@ -146,8 +176,12 @@ test.each([
             await view.result.current.mutations.handleRegisterIdentity();
           });
           expect(view.result.current.mutations.identityError).toContain(
-            "clear local app data",
+            offline ? "no network connection" : "clear local app data",
           );
+          if (offline)
+            expect(view.result.current.mutations.identityError).not.toContain(
+              "clear local app data",
+            );
         }
       } finally {
         register.mockRestore();

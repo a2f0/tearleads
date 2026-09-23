@@ -79,6 +79,12 @@ export function requireRegistrationIdentityPinner(input: {
   };
 }
 
+/** Registration made no server request; try login with the bound identity. */
+export interface SessionRegistrationRefusal {
+  readonly status: "identity-already-bound";
+  readonly userId: string;
+}
+
 export type BoundUserIdLookup = (
   signingKeyFingerprint: string,
 ) => Promise<string | null>;
@@ -97,10 +103,7 @@ export async function registrationKeyAlreadyBound(
     readonly log: (message: string) => void;
   },
   signingFingerprint: string | null,
-): Promise<{
-  readonly status: "identity-already-bound";
-  readonly userId: string;
-} | null> {
+): Promise<SessionRegistrationRefusal | null> {
   if (!dependencies.boundUserIdForSigningKey) {
     throw new KeyingVerificationError(
       "missing_dependency",

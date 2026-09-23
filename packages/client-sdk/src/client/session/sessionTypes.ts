@@ -7,8 +7,11 @@ import type { Database } from "../database";
 import type { Identity } from "../identity";
 import type {
   BoundUserIdLookup,
+  SessionRegistrationRefusal,
   UserIdentityAvailable,
 } from "./sessionIdentityTrust";
+
+export type { SessionRegistrationRefusal } from "./sessionIdentityTrust";
 
 export interface SessionDependencies {
   api: ApiClient;
@@ -74,12 +77,6 @@ export interface SessionRegistrationResult {
   readonly challenge: string;
   readonly containerId: string;
   readonly organizationId: string;
-  readonly userId: string;
-}
-
-/** Registration made no server request; try login with the bound identity. */
-export interface SessionRegistrationRefusal {
-  readonly status: "identity-already-bound";
   readonly userId: string;
 }
 

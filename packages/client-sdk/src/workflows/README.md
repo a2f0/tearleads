@@ -271,6 +271,8 @@ Creates, identity changes, and structural relinks set it and invalidate in-fligh
 reads. Ordinary content saves allow an initial read before the trailing refresh.
 See [document links](../../../../docs/developer/document-links.md).
 
+## Registration
+
 Registration validates local identity public keys before the API call and pins
 only the server-confirmed user. The session facade returns
 `SessionRegistrationRefusal` (`status: "identity-already-bound"`, `userId`) when
