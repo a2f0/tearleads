@@ -110,7 +110,8 @@ the container ids that socket holds verified interest in (a document hint's
 linked containers, a directly held container hint's parent and previous parent).
 Parent-only recipients instead receive `container_children_changed` naming only
 the parent ids they hold, with no child id, event type, or mutation timestamp.
-The SDK refreshes those parent listings; eviction resync covers root moves.
+The SDK clears cached projections under those parents and refreshes their
+listings plus root, including children whose interest is still unconfirmed.
 See [Realtime hint privacy](../../docs/developer/realtime-hints.md) for the wire
 contract and the remaining traffic-timing disclosure.
 

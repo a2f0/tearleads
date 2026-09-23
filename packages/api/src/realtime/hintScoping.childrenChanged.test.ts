@@ -16,9 +16,7 @@ for (const eventType of [
       updatedAt: "2026-09-23T00:00:00.000Z",
       origin: { userId: "author", sessionId: "private-session" },
     };
-    expect(() => scopeHintToInterest(event, new Set(["unrelated"]))).toThrow(
-      "no matching interest",
-    );
+    expect(scopeHintToInterest(event, new Set(["unrelated"]))).toBeNull();
     expect(
       scopeHintToInterest(event, new Set(["source", "destination"])),
     ).toEqual({

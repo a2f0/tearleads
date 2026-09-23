@@ -64,6 +64,7 @@ export function listContainerProjectionInvalidationIds(
       if (containerId) containerIds.add(containerId);
     } else if (
       (event.type === "container_path_changed" ||
+        event.type === "container_children_changed" ||
         event.type === "resync_required") &&
       Array.isArray(event.containerIds)
     ) {
@@ -122,12 +123,15 @@ export function listContainerParentIdsForEventHydration(
   for (const event of events) {
     if (!isRecord(event)) continue;
     if (event.type === "container_children_changed") {
-      // Eviction resync handles root moves and drops former child projections.
-      // This frame names only parents whose own child lanes need refreshing.
+      // A known child may not yet have confirmed interest, so it receives no
+      // eviction resync on a move. Refresh root as well to discover a root move.
       if (Array.isArray(event.containerIds)) {
         for (const value of event.containerIds) {
           const parentId = readNonEmptyString(value);
-          if (parentId) addHydrationParentId(parentIds, parentId);
+          if (parentId) {
+            addHydrationParentId(parentIds, null);
+            addHydrationParentId(parentIds, parentId);
+          }
         }
       }
       continue;

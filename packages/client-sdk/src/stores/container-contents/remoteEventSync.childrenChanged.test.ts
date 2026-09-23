@@ -10,6 +10,7 @@ test("a generic child hint schedules the affected parent listings", () => {
     domainScope: createDomainScope(),
     execSql: mock(async () => []),
   });
+  base.apiClient.clearWriterProjectionCaches = mock(() => {});
   const state = createContainerContentsStoreState(
     {
       ...base,
@@ -35,7 +36,7 @@ test("a generic child hint schedules the affected parent listings", () => {
     scheduleSync,
   });
   expect(state.containerParentIdsNeedingHydration).toEqual(
-    new Set(["source", "destination"]),
+    new Set([null, "source", "destination"]),
   );
   expect(requestHydration).toHaveBeenCalledTimes(1);
   expect(scheduleSync).not.toHaveBeenCalled();

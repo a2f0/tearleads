@@ -90,7 +90,7 @@ test("container mutation hydration ignores malformed events", () => {
   ).toEqual([]);
 });
 
-test("generic child changes hydrate only the listed parent lanes", () => {
+test("generic child changes hydrate root and listed parent lanes", () => {
   expect(
     listContainerParentIdsForEventHydration([
       {
@@ -100,5 +100,5 @@ test("generic child changes hydrate only the listed parent lanes", () => {
       { type: "container_children_changed", containerIds: ["", null, 7] },
       { type: "container_children_changed" },
     ]),
-  ).toEqual(["source", "destination"]);
+  ).toEqual([null, "source", "destination"]);
 });

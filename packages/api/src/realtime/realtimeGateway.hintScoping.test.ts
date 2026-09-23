@@ -49,7 +49,7 @@ test("a source-only watcher receives only a child-list refresh", async () => {
   f.gateway.stop();
 });
 
-test("a root move keeps the null parent for every recipient", async () => {
+test("a child watcher keeps the null parent on a root move", async () => {
   const f = fixture({ authorize: async (_user, ids) => ids });
   await f.gateway.websocket.open(f.socket);
   await f.declare("known_containers", [CONTAINER]);

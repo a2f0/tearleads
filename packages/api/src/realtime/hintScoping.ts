@@ -51,7 +51,7 @@ function heldParent(
 export function scopeHintToInterest(
   event: PublishedHintEvent,
   held: ReadonlySet<string>,
-): WsInvalidationHint {
+): WsInvalidationHint | null {
   switch (event.type) {
     case "document_mutation_created":
     case "document_update_created": {
@@ -67,9 +67,7 @@ export function scopeHintToInterest(
         const containerIds = [...new Set([parentId, previousParentId])].filter(
           (id): id is string => typeof id === "string" && held.has(id),
         );
-        if (containerIds.length === 0) {
-          throw new Error("Container hint recipient has no matching interest");
-        }
+        if (containerIds.length === 0) return null;
         return { type: "container_children_changed", containerIds };
       }
       return {

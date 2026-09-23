@@ -10,9 +10,11 @@ verified interests.
   a null parent denotes the root.
 - A parent-only watcher receives `container_children_changed` with only the
   parent ids it watches. That frame carries no child id, event type, other
-  parent id,
-  author session, or mutation timestamp. The SDK refreshes those parent listings,
-  whose HTTP access checks determine which children it can discover.
+  parent id, author session, or mutation timestamp. The SDK clears cached
+  projections for those parents and known descendants, then refreshes the parent
+  listings and root lane. This also covers a known child whose own interest is
+  still awaiting confirmation. HTTP access checks determine which children it
+  can discover.
 - A previously authorized child watcher evicted by a move or revoke receives
   `resync_required` naming the ids it previously held. The SDK drops those
   containers' and their known descendants' cached projections, plus open document

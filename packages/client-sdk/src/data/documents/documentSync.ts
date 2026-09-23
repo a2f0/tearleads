@@ -103,6 +103,7 @@ export function isContainerProjectionInvalidationHint(event: unknown): boolean {
   return (
     type === "container_mutation_created" ||
     type === "container_path_changed" ||
+    type === "container_children_changed" ||
     type === "resync_required"
   );
 }
