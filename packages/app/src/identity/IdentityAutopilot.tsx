@@ -5,21 +5,8 @@ import { useIdentity } from "../providers/identity/IdentityProvider";
 import { useLocalKeyringLock } from "../providers/local-keyring/LocalKeyringLockProvider";
 import { useLog } from "../providers/logging/LogProvider";
 import { useSystemBootstrap } from "../providers/system-bootstrap/SystemBootstrapProvider";
-import {
-  IDENTITY_ACKNOWLEDGMENT_MISMATCH_MESSAGE,
-  isIdentityAcknowledgmentMismatch,
-} from "./identityAcknowledgmentMismatch";
+import { autoRegisterFailureMessage } from "./registrationRecoveryError";
 import { useRegisterCurrentIdentity } from "./useRegisterCurrentIdentity";
-
-/**
- * An acknowledgment mismatch is named distinctly: the SDK has already recorded
- * it as a security incident, and retrying registration cannot resolve it.
- */
-function autoRegisterFailureMessage(error: unknown): string {
-  return isIdentityAcknowledgmentMismatch(error)
-    ? `Auto-register identity refused: ${IDENTITY_ACKNOWLEDGMENT_MISMATCH_MESSAGE}`
-    : "Failed to auto-register identity";
-}
 
 /**
  * Boot-time identity autopilot. When the host profile opts in (see

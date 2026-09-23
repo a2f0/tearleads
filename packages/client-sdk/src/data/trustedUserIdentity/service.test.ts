@@ -172,7 +172,10 @@ test("a remote bundle reusing another user's pinned signing key is typed equivoc
       thrown = error;
     }
     expect(thrown).toBeInstanceOf(KeyingVerificationError);
-    expect(thrown).toMatchObject({ code: "equivocation" });
+    expect(thrown).toMatchObject({
+      code: "equivocation",
+      message: `Signing key for ${OTHER_USER_ID} is already bound to ${USER_ID}`,
+    });
     expect(invalidations).toEqual([OTHER_USER_ID]);
     await expect(
       loadTrustedUserIdentityPin({
