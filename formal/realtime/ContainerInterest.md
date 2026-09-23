@@ -99,12 +99,21 @@ and its parents, the gateway also sends each subscriber whose verified path
 cites the mutated container a `container_path_changed` hint naming those held
 containers; it evicts nothing, so a subtree granted directly at a descendant
 drops its cached projections without losing its subscriptions. The eviction is
-published before the hint so the evicted socket never receives it.
+published before the hint so the evicted socket never receives child details
+from that hint. Its `resync_required` frame names previously held ids and drops
+their cached subtree projections and open document projections before HTTP
+revalidation. A remaining parent subscription receives only a generic child-list
+refresh.
 
 Hint frames are scoped per recipient: the router rebuilds each frame with only
 the container ids that socket holds verified interest in (a document hint's
-linked containers, a container hint's parent and previous parent), so a watcher
-of one side of a move never learns the other side.
+linked containers, a directly held container hint's parent and previous parent).
+Parent-only recipients instead receive `container_children_changed` naming only
+the parent ids they hold, with no child id, event type, or mutation timestamp.
+The SDK clears cached projections under those parents and refreshes their
+listings plus root, including children whose interest is still unconfirmed.
+See [Realtime hint privacy](../../docs/developer/realtime-hints.md) for the wire
+contract and the remaining traffic-timing disclosure.
 
 Revocation frames batch affected IDs per socket. The app queues each affected
 container once and refreshes root plus distinct parent lanes once per batch;

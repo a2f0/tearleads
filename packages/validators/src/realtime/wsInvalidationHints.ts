@@ -42,6 +42,13 @@ export const WsContainerMutationCreatedHintSchema = z.object({
   updatedAt: z.string().min(1),
 });
 
+// Derived per recipient: parent watchers refresh authorized child listings
+// without learning a child's id, mutation type, or the other side of a move.
+const WsContainerChildrenChangedHintSchema = z.object({
+  type: z.literal("container_children_changed"),
+  containerIds: z.array(z.string().min(1)).min(1),
+});
+
 // Routed by user, not container interest: the recipient does not know the
 // shared container yet, so the client reacts by re-listing root containers.
 export const WsSharedWithYouHintSchema = z.object({
@@ -71,6 +78,7 @@ export const WsInvalidationHintSchema = z.discriminatedUnion("type", [
   WsDocumentMutationCreatedHintSchema,
   WsContainerMutationCreatedHintSchema,
   WsContainerPathChangedHintSchema,
+  WsContainerChildrenChangedHintSchema,
   WsSharedWithYouHintSchema,
   WsUserRegisteredHintSchema,
 ]);

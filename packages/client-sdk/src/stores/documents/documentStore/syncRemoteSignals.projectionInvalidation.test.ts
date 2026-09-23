@@ -99,3 +99,12 @@ test("a hint during an in-flight create is consumed as an invalidation even befo
   installDocumentWriterProjection(state, projection, capturedGeneration);
   expect(state.writerProjection).toBeNull();
 });
+
+for (const type of ["container_children_changed", "resync_required"]) {
+  test(`${type} invalidates an open document projection`, () => {
+    const { events, state } = createOpenDocument();
+    events.push({ type, id: "refresh-1", containerIds: ["ancestor"] });
+    handleDocumentRemoteEvents(state, () => undefined);
+    expect(state.writerProjection).toBeNull();
+  });
+}
