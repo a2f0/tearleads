@@ -64,12 +64,13 @@ export function scopeHintToInterest(
     case "container_mutation_created": {
       const { parentId, previousParentId } = event;
       if (!held.has(event.containerId)) {
-        return {
-          type: "container_children_changed",
-          containerIds: [...new Set([parentId, previousParentId])].filter(
-            (id): id is string => typeof id === "string" && held.has(id),
-          ),
-        };
+        const containerIds = [...new Set([parentId, previousParentId])].filter(
+          (id): id is string => typeof id === "string" && held.has(id),
+        );
+        if (containerIds.length === 0) {
+          throw new Error("Container hint recipient has no matching interest");
+        }
+        return { type: "container_children_changed", containerIds };
       }
       return {
         type: event.type,

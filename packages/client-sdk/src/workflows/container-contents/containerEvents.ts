@@ -47,7 +47,8 @@ function shouldHydrateRootLane(input: {
 /**
  * Containers whose cached writer projections a batch of hints invalidates: the
  * container a `container_mutation_created` hint names, and every held
- * dependent a gateway `container_path_changed` hint names. Grant, rekey, and
+ * dependent a gateway `container_path_changed` or `resync_required` frame names.
+ * Grant, rekey, and
  * recite no longer evict subscribers, so these hints are the only signal that
  * a projection's manifest head or cited ancestor path moved under a cached copy.
  */
@@ -62,7 +63,8 @@ export function listContainerProjectionInvalidationIds(
       const containerId = readNonEmptyString(event.containerId);
       if (containerId) containerIds.add(containerId);
     } else if (
-      event.type === "container_path_changed" &&
+      (event.type === "container_path_changed" ||
+        event.type === "resync_required") &&
       Array.isArray(event.containerIds)
     ) {
       for (const containerId of event.containerIds) {
@@ -120,6 +122,8 @@ export function listContainerParentIdsForEventHydration(
   for (const event of events) {
     if (!isRecord(event)) continue;
     if (event.type === "container_children_changed") {
+      // Eviction resync handles root moves and drops former child projections.
+      // This frame names only parents whose own child lanes need refreshing.
       if (Array.isArray(event.containerIds)) {
         for (const value of event.containerIds) {
           const parentId = readNonEmptyString(value);

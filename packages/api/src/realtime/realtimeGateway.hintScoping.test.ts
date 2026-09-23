@@ -155,3 +155,37 @@ test("a revoked socket is evicted before the revoke hint is routed", async () =>
   expect(f.router.interestedSocketCount(CONTAINER)).toBe(0);
   f.gateway.stop();
 });
+
+test("a move evicts a child watcher before sending its parent's generic hint", async () => {
+  const f = fixture({
+    paths: { [CONTAINER]: [OTHER, CONTAINER] },
+    authorize: async (_user, ids) => ids,
+  });
+  await f.gateway.websocket.open(f.socket);
+  await f.declare("known_containers", [CONTAINER, OTHER]);
+  const before = f.sent.length;
+  await publishContainerMutationCreated({
+    expectedEventType: "container.move",
+    origin: { sessionId: "author", userId: "owner" },
+    publish: async (event) => {
+      f.publish(event);
+    },
+    request: {
+      body: { eventType: "container.move" },
+      previousManifest: {
+        event: {},
+        manifest: {},
+        manifestHash: "previous",
+        state: { parentContainerId: OTHER },
+      },
+    },
+    response: { containerId: CONTAINER, parentId: null, updatedAt: UPDATED_AT },
+  });
+  expect(f.sent.slice(before)).toEqual([
+    { type: "resync_required", containerIds: [CONTAINER] },
+    { type: "container_children_changed", containerIds: [OTHER] },
+  ]);
+  expect(f.router.interestedSocketCount(CONTAINER)).toBe(0);
+  expect(f.router.interestedSocketCount(OTHER)).toBe(1);
+  f.gateway.stop();
+});

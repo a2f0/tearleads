@@ -9,9 +9,15 @@ verified interests.
   its id and event type. Parent ids appear only when that socket watches them;
   a null parent denotes the root.
 - A parent-only watcher receives `container_children_changed` with only the
-  parent ids it watches. It receives no child id, event type, other parent id,
+  parent ids it watches. That frame carries no child id, event type, other
+  parent id,
   author session, or mutation timestamp. The SDK refreshes those parent listings,
   whose HTTP access checks determine which children it can discover.
+- A previously authorized child watcher evicted by a move or revoke receives
+  `resync_required` naming the ids it previously held. The SDK drops those
+  containers' and their known descendants' cached projections, plus open document
+  projections, before HTTP revalidation. If it still watches a parent, its later
+  parent hint uses the generic frame above.
 - Descendant watchers retain `container_path_changed` for their own dependent
   paths; this does not reveal the mutated ancestor.
 

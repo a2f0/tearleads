@@ -23,6 +23,12 @@ export async function resyncContainerAccess(
   containerIds: readonly string[],
 ): Promise<void> {
   const flagged = new Set(containerIds);
+  // Notify open SDK stores before re-listing: eviction removed the child from
+  // interest, so a subsequent parent hint cannot identify its stale projection.
+  tearleads.events.push({
+    type: "resync_required",
+    containerIds: [...flagged],
+  });
   for (const containerId of flagged) {
     try {
       tearleads.deviceFirst

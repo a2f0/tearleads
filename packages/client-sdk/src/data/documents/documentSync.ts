@@ -94,12 +94,15 @@ export function isDocumentMutationCreatedEvent(
 /**
  * Realtime hints after which a cached writer projection may cite a stale
  * manifest: a container mutation (grant, rekey, recite, ...) or the gateway's
- * dependent-path notice. Neither evicts a subscription; both invalidate caches.
+ * dependent-path notice. An eviction resync also drops the previously held
+ * projection before revalidation; its later parent-only hint names no child.
  */
 export function isContainerProjectionInvalidationHint(event: unknown): boolean {
   if (typeof event !== "object" || event === null) return false;
   const type = Reflect.get(event, "type");
   return (
-    type === "container_mutation_created" || type === "container_path_changed"
+    type === "container_mutation_created" ||
+    type === "container_path_changed" ||
+    type === "resync_required"
   );
 }

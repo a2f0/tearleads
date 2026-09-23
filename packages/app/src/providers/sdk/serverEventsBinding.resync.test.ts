@@ -22,6 +22,7 @@ function createResyncHarness(options?: {
   throwOnReconciler?: boolean;
   throwOnOpenTree?: boolean;
 }) {
+  const events: unknown[] = [];
   const enqueueCalls: EnqueueCall[] = [];
   const refreshCalls: string[] = [];
   const refreshRootLaneOptions: (RefreshRootLaneOptions | undefined)[] = [];
@@ -61,6 +62,7 @@ function createResyncHarness(options?: {
   };
 
   const tearleads = {
+    events: { push: (event: unknown) => events.push(event) },
     deviceFirst: {
       open: () => ({
         containerStore: openTree(),
@@ -69,7 +71,13 @@ function createResyncHarness(options?: {
     },
   } as unknown as Tearleads;
 
-  return { enqueueCalls, refreshCalls, refreshRootLaneOptions, tearleads };
+  return {
+    enqueueCalls,
+    events,
+    refreshCalls,
+    refreshRootLaneOptions,
+    tearleads,
+  };
 }
 
 test("resync_required re-validates only the flagged container via the reconciler", async () => {
@@ -191,4 +199,13 @@ test("a batched resync revalidates distinct children and refreshes their parents
   expect(refreshRootLaneOptions).toEqual([
     { parentIds: ["root", "branch", "a", "b", "c"] },
   ]);
+});
+
+test("resync reaches SDK projection consumers before HTTP hydration", async () => {
+  const { events, tearleads } = createResyncHarness();
+  const pending = resyncContainerAccess(tearleads, ["moved", "moved"]);
+  expect(events).toEqual([
+    { type: "resync_required", containerIds: ["moved"] },
+  ]);
+  await pending;
 });
