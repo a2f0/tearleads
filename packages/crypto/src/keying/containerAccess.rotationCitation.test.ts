@@ -90,10 +90,18 @@ for (const eventType of ["container.rekey", "container.revoke"] as const) {
         expect(result.ok).toBe(true);
       } else {
         expect(result.ok).toBe(false);
-        if (!result.ok)
+        if (!result.ok) {
           expect(result.error.code).toBe(
             root ? "object_mismatch" : "missing_dependency",
           );
+          expect(result.error.message).toBe(
+            root
+              ? "root rotation must not cite a parent"
+              : scenario === "stale"
+                ? `${eventType} parent manifest hash mismatch`
+                : "container rotation requires its signed parent citation",
+          );
+        }
       }
     });
   }

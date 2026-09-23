@@ -6,7 +6,6 @@ import {
   normalizeContainerAccessEventBody,
   normalizeContainerKekKeyring,
   openContainerKekKeyring,
-  verifyContainerKekKeyringEntry,
 } from "@tearleads/crypto";
 import type { ContainerWriterProjectionResponse } from "@tearleads/validators/response";
 import {
@@ -14,6 +13,7 @@ import {
   readCanonicalRecord,
 } from "../../keyingCanonicalJson";
 import { readContainerKeyEpoch } from "../../keyingProjectionVerification/readers";
+import { verifyContainerKekEntries } from "./containerKekEntryVerification";
 import { readManifestContainerId } from "./readers";
 import type { UnwrappedContainerKek } from "./types";
 
@@ -159,15 +159,7 @@ async function openVerifiedKeyringEntries(input: {
   // id — fresh key, matching commitment — for an epoch the container never
   // had. Anchor every entry the projection can name to the epoch id its
   // signed history actually committed; anything else is a forged epoch.
-  await Promise.all(
-    entries.map((entry, ordinal) =>
-      verifyContainerKekKeyringEntry({
-        containerId: kek.containerId,
-        entry,
-        keyEpoch: ordinal + 1,
-      }),
-    ),
-  );
+  await verifyContainerKekEntries(kek.containerId, entries);
 
   // Every epoch id the signed manifest history names must be present in the
   // keyring. A forged entry can be self-consistent, but it cannot also make

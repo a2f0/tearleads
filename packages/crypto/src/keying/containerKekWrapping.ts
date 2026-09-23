@@ -7,6 +7,7 @@ import {
 } from "../encapsulation/generateKeyPair";
 import { unwrapDek } from "../encapsulation/unwrapDek";
 import { toFingerprint } from "../fingerprint";
+import { containerKekCacheToken } from "./containerKekCacheToken";
 import { throwVerification } from "./shared";
 
 // Bounded public-only cache. A digest distinguishes mutable buffers without
@@ -14,7 +15,6 @@ import { throwVerification } from "./shared";
 const publicWrappingKeys = new Map<string, string>();
 const MAX_PUBLIC_WRAPPING_KEYS = 128;
 const utf8 = new TextEncoder();
-const cacheKeyDomain = utf8.encode("tearleads.container-kek.public-cache.v1\0");
 const wrappingKeyDomain = utf8.encode(
   "tearleads.container-kek.parent-wrapping.ml-kem-1024.v1",
 );
@@ -67,14 +67,8 @@ export async function deriveContainerKekWrappingPublicKey(input: {
     );
   }
   const keyMaterial = input.keyMaterial.slice();
-  const digestInput = new Uint8Array(
-    cacheKeyDomain.length + keyMaterial.length,
-  );
-  digestInput.set(cacheKeyDomain);
-  digestInput.set(keyMaterial, cacheKeyDomain.length);
   try {
-    const digest = await crypto.subtle.digest("SHA-256", digestInput);
-    const cacheKey = `${input.containerId}:${bytesToBase64(new Uint8Array(digest))}`;
+    const cacheKey = `${input.containerId}:${await containerKekCacheToken(keyMaterial)}`;
     const cached = publicWrappingKeys.get(cacheKey);
     if (cached) {
       publicWrappingKeys.delete(cacheKey);
@@ -98,7 +92,6 @@ export async function deriveContainerKekWrappingPublicKey(input: {
     }
   } finally {
     keyMaterial.fill(0);
-    digestInput.fill(0);
   }
 }
 

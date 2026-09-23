@@ -398,8 +398,11 @@ the commitment independently. Only the v2 format is accepted; this is a greenfie
 protocol change with no translation of earlier ids.
 
 The wrapping public-key cache is bounded to 128 entries and indexed by container
-id plus a digest of the key bytes. It retains public keys only; temporary KEK
-copies, derivation seeds, and private wrapping keys are zeroized.
+id plus a process-local HMAC token of the key bytes. A second cache retains up to
+4,096 public material-id commitments, keyed by container, numeric epoch, and the
+same token. Neither cache retains KEKs, private wrapping keys, or derivation
+seeds; temporary copies and token buffers are zeroized. The non-extractable HMAC
+key is generated once per process, so tokens cannot be correlated across runs.
 
 Every epoch-creating child event has an explicit signed parent citation.
 `container.rekey` and `container.revoke` include `parentManifestHash` in their
@@ -498,12 +501,22 @@ serial walk through every intermediate unwrap. The work itself is not free and
 is not O(1): the sealed blob is 64 bytes per retained epoch, so transfer, AEAD
 processing, and per-entry material-id verification all grow linearly with
 epoch count. What changes is the shape — one bulk decrypt plus independent,
-parallelizable entry checks, rather than a dependent chain of round-trip-order
+entry checks in batches of 16 that yield to the event loop, rather than a
+dependent chain of round-trip-order
 unwraps where each step gates the next. At the epoch cap the sealed keyring is
 about 4 MB, which is why the kek-log serves at most one historical keyring per
 request. Rotation pays the linear cost instead — the rotator opens the
 previous keyring and re-seals it plus the retiring key under the new KEK —
 which is one decrypt, one seal, and tens of bytes per retained epoch.
+
+The v2 material check derives an ML-KEM public key on a cache miss. A local
+1,024-epoch probe measured about 945 ms cold and 22 ms when reopening the same
+history with fresh byte arrays; the regression test requires zero additional
+key derivations on the second pass. Cold work remains linear and can take tens
+of seconds near the 65,536-epoch cap. Bounded batches prevent an unbounded burst
+of pending derivations and keep the event loop responsive. Verification before
+re-sealing is intentional: skipping unused entries would let an honest rotation
+launder poisoned history into its new signed commitment.
 
 There is deliberately no depth cap and no truncation: the keyring for epoch
 `n` must contain exactly `n - 1` entries, over- and under-length payloads are
