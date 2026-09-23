@@ -205,7 +205,11 @@ test("resync reaches SDK projection consumers before HTTP hydration", async () =
   const { events, tearleads } = createResyncHarness();
   const pending = resyncContainerAccess(tearleads, ["moved", "moved"]);
   expect(events).toEqual([
-    { type: "resync_required", containerIds: ["moved"] },
+    {
+      id: expect.any(String),
+      type: "resync_required",
+      containerIds: ["moved"],
+    },
   ]);
   await pending;
 });

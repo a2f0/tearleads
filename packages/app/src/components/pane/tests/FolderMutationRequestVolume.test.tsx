@@ -251,14 +251,15 @@ test("folder creation, document linking, unlinking and trash have separate reque
       });
     },
     budget: {
-      total: 6,
+      // A parent-only hint must refresh the root lane independently.
+      total: 7,
       byRequest: {
         "GET /containers/:containerId/documents": 1,
         "GET /containers/:containerId/writer-projection": 0,
         "GET /documents/:documentId/writer-projection": 1,
         "GET /organizations/:organizationId/read-model": 1,
         "POST /containers/:containerId/move": 1,
-        "POST /containers/parent-lanes/query": 1,
+        "POST /containers/parent-lanes/query": 2,
         "POST /documents/:documentId/sync": 1,
       },
     },

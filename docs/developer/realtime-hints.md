@@ -26,3 +26,13 @@ verified interests.
 A parent refresh still reveals that something changed and when the notification
 arrived. This contract minimizes event details; it does not hide traffic timing.
 It is a greenfield wire change with no compatibility translation.
+
+SDK hosts must forward `resync_required` into `tearleads.events` with a fresh
+local event `id` and the frame's `containerIds` before starting HTTP refreshes.
+The app binding does this in `resyncContainerAccess`. Refreshing HTTP caches alone
+does not invalidate projections held by open document stores.
+
+A generic parent hint invalidates the parent's entire known subtree, including
+unaffected siblings. It also refreshes the root lane to cover moves that occurred
+before a child's interest was confirmed. This trades extra reads and cache misses
+for concealing child identity; a folder move may require two listing requests.
