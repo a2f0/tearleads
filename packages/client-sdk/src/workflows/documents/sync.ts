@@ -23,7 +23,7 @@ import {
 } from "./readOnlySync";
 import {
   abandonAfterRetryableConflicts,
-  abandonAncestorRepair,
+  abandonBlockedSync,
 } from "./syncAbandon";
 import {
   planDocumentSyncAttempt,
@@ -40,7 +40,6 @@ import {
   submitDocumentSyncAttemptIfAllowed,
 } from "./syncFailures";
 import { recoverablePendingUpdates } from "./syncPlanRequestBounds";
-import { DocumentAncestorRepairAbandonedError } from "./syncRepairAbandon";
 import { resolveSubmittedDocumentSyncResult } from "./syncSubmittedResult";
 
 export function hasDocumentUpdateEvent(
@@ -281,10 +280,7 @@ async function runRemoteDocumentSyncAttempt(input: {
     return retryRemoteSyncAttempt(input.sync, input.state.pullContinuation);
   }
   if (submitted === "blocked") {
-    abandonAncestorRepair(
-      input.sync,
-      new DocumentAncestorRepairAbandonedError("blocked"),
-    );
+    abandonBlockedSync(input.sync);
     return { kind: "complete", result: null };
   }
   if (submitted === "stop") {

@@ -405,8 +405,9 @@ Every epoch-creating child event has an explicit signed parent citation.
 `container.rekey` and `container.revoke` include `parentManifestHash` in their
 bodies, naming the current parent used to wrap the new epoch (null for roots).
 The derived state retains that citation for historical recovery. Selection uses
-that exact hash, even when the signed dependency list contains two heads of the
-same parent; withholding the cited head causes a missing-dependency refusal.
+that exact hash; withholding the cited head causes a missing-dependency refusal.
+The crypto verifier also handles two cited heads of the same parent as defense
+in depth; the API and SDK reject such duplicate-container dependency lists.
 
 ### Container Key Wrap Row
 

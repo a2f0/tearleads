@@ -1,6 +1,7 @@
 import {
   type AccessEvent,
   computeAccessEventHash,
+  DOCUMENT_CONTENT_KEY_WRAP_SUITE,
   generateKemSeedAndKeyPair,
   type WriteHeader,
 } from "@tearleads/crypto";
@@ -210,8 +211,11 @@ export async function createSyncFixture() {
     targetEnvelopes: [
       {
         ...target,
-        wrappedKey: "wrapped-document-key",
-        wrappingMetadata: {},
+        wrappedKey: "A".repeat(64),
+        wrappingMetadata: {
+          suite: DOCUMENT_CONTENT_KEY_WRAP_SUITE,
+          iv: "A".repeat(16),
+        },
       },
     ],
   });

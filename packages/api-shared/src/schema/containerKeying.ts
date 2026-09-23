@@ -26,8 +26,9 @@ import {
  * Columns:
  * - `id`: Crypto-level container key epoch id. This is the primary key and is
  *   referenced by content-key target rows. App-created ids use the
- *   `tearleads.container-kek.v1.sha256:<hash>` format, which lets clients
- *   verify unwrapped KEK material against the signed epoch id.
+ *   `tearleads.container-kek.v2.sha256:<hash>` public-key commitment, binding
+ *   the container id, numeric epoch, and derived ML-KEM wrapping public key.
+ *   KEK holders independently derive that key from unwrapped material.
  * - `containerId`: Container whose KEK this epoch belongs to.
  * - `keyEpoch`: Monotonic numeric key epoch for the container.
  * - `accessManifestHash`: Container access manifest hash that this KEK state

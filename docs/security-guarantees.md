@@ -553,10 +553,11 @@ scoped outside the principal cap and rank ahead of principal envelopes, so the
 anchors needing no policy state at all are never what a cap costs.
 
 All container KEK epochs use a
-`tearleads.container-kek.v1.sha256:<hash>` id, clients verify that the
-decrypted KEK material matches the signed epoch id before using that KEK to
-wrap document or blob content keys. Non-prefixed ids are rejected because they
-do not commit to the decrypted key material.
+`tearleads.container-kek.v2.sha256:<hash>` id committing to the container id,
+numeric key epoch, and derived ML-KEM wrapping public key. Public verifiers bind
+the advertised public key to that id; KEK holders independently derive the key
+from decrypted material before wrapping document or blob content keys. Only the
+v2 commitment format is accepted.
 
 When clients use verified principal policy bundles, a forged group or
 organization policy state should fail closed before the client unwraps a

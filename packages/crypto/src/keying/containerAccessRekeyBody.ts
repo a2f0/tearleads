@@ -54,7 +54,7 @@ export function normalizeContainerRekeyAccessEventBody(
     parentManifestHash: readNullableHashString(
       record,
       "parentManifestHash",
-      "container.rekey body",
+      "container.rekey event body",
     ),
     containerKeyEpochId: readString(
       record,

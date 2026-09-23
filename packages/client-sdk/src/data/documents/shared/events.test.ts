@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import {
   type AccessEvent,
+  DOCUMENT_CONTENT_KEY_WRAP_SUITE,
   type KeyingCanonicalJson,
   verifySignedAccessEvent,
 } from "@tearleads/crypto";
@@ -26,9 +27,10 @@ test("buildDocumentCreatePlan signs an initial document link manifest from a con
     targetEnvelopes: [
       {
         ...target,
-        wrappedKey: "wrapped-document-key",
+        wrappedKey: "A".repeat(64),
         wrappingMetadata: {
-          algorithm: "test-only",
+          suite: DOCUMENT_CONTENT_KEY_WRAP_SUITE,
+          iv: "A".repeat(16),
         },
       },
     ],
@@ -46,9 +48,10 @@ test("buildDocumentCreatePlan signs an initial document link manifest from a con
   expect(plan.request.contentKeyBundle.targets).toEqual([
     {
       ...target,
-      wrappedKey: "wrapped-document-key",
+      wrappedKey: "A".repeat(64),
       wrappingMetadata: {
-        algorithm: "test-only",
+        suite: DOCUMENT_CONTENT_KEY_WRAP_SUITE,
+        iv: "A".repeat(16),
       },
     },
   ]);
@@ -84,7 +87,7 @@ test("buildDocumentCreatePlan rejects missing or stale content-key target envelo
         {
           ...target,
           containerManifestHash: await fixtureHash("stale-manifest"),
-          wrappedKey: "wrapped-document-key",
+          wrappedKey: "A".repeat(64),
           wrappingMetadata: {},
         },
       ],

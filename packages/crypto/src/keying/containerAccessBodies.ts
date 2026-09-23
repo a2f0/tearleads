@@ -173,7 +173,7 @@ function normalizeContainerRevokeAccessEventBody(
     parentManifestHash: readNullableHashString(
       record,
       "parentManifestHash",
-      "container.revoke body",
+      "container.revoke event body",
     ),
     ...normalizeContainerAccessKeyState({
       containerKeyEpochId: record.containerKeyEpochId,

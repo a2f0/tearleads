@@ -1,5 +1,6 @@
 import type { DocumentWriterProjectionResponse } from "@tearleads/validators/response";
 import { ContainerKekRepairInaccessibleError } from "../../data/documents/shared/containerKekCurrency";
+import { assertDocumentManifestBundleConsistent } from "../../data/documents/shared/readers";
 import {
   type DocumentSyncPullContinuation,
   resolvePullContinuationMinLsn,
@@ -9,6 +10,7 @@ import { isDocumentSyncRequestLimitError } from "../../data/sync/documentSyncOut
 import type { SyncRemoteDocumentInput } from "./readOnlySync";
 import {
   abandonAncestorRepair,
+  abandonBlockedSync,
   abandonInaccessibleAncestorRepair,
   abandonOversizedSyncPlan,
 } from "./syncAbandon";
@@ -52,9 +54,16 @@ export async function planDocumentSyncAttempt(input: {
       input.pullContinuation === undefined ? input.pendingUpdates : [];
     if (
       pendingUpdates.length &&
-      input.sync.isRemoteSyncBlocked?.(input.sync.author.organizationId)
+      input.sync.isRemoteSyncBlocked?.(
+        (
+          await assertDocumentManifestBundleConsistent({
+            bundle: input.writerProjection.documentManifest,
+            label: "Document sync manifest",
+          })
+        ).organizationId,
+      )
     ) {
-      throw new DocumentAncestorRepairAbandonedError("blocked");
+      return abandonBlockedSync(input.sync);
     }
     // Durable repair happens once at this explicit attempt boundary. The
     // retryable builder below may only sign inline plans against its projection.
