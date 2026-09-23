@@ -63,8 +63,8 @@
       "bytes": 19355
     },
     "docs/keying-design.md": {
-      "lines": 1156,
-      "bytes": 55430
+      "lines": 1168,
+      "bytes": 56245
     },
     "docs/loro-e2ee-sync-protocol.md": {
       "lines": 548,
@@ -303,20 +303,16 @@
       "bytes": 16825
     },
     "packages/crypto/src/keying/containerAccess.test.ts": {
-      "lines": 921,
-      "bytes": 30124
-    },
-    "packages/crypto/src/keying/containerAccess.ts": {
-      "lines": 1148,
-      "bytes": 34524
+      "lines": 926,
+      "bytes": 30274
     },
     "packages/crypto/src/keying/containerKek.test.ts": {
-      "lines": 556,
-      "bytes": 19069
+      "lines": 568,
+      "bytes": 19315
     },
     "packages/crypto/src/keying/containerKek.ts": {
       "lines": 690,
-      "bytes": 19886
+      "bytes": 19892
     },
     "packages/crypto/src/keying/containerKek/contentKeyTargets.ts": {
       "lines": 650,
@@ -339,8 +335,8 @@
       "bytes": 13564
     },
     "packages/crypto/src/keying/types.ts": {
-      "lines": 1185,
-      "bytes": 37649
+      "lines": 1187,
+      "bytes": 37729
     },
     "packages/validators/src/operation/generatedOpenApi.ts": {
       "lines": 25629,

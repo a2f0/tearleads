@@ -9,6 +9,10 @@ import { unwrapDek } from "../encapsulation/unwrapDek";
 import { toFingerprint } from "../fingerprint";
 import { throwVerification } from "./shared";
 
+// Bounded public-only cache. A digest distinguishes mutable buffers without
+// retaining KEK bytes, private keys, or derivation seeds between calls.
+const publicWrappingKeys = new Map<string, string>();
+const MAX_PUBLIC_WRAPPING_KEYS = 128;
 const utf8 = new TextEncoder();
 const wrappingKeyDomain = utf8.encode(
   "tearleads.container-kek.parent-wrapping.ml-kem-1024.v1",
@@ -56,11 +60,37 @@ export async function deriveContainerKekWrappingPublicKey(input: {
   readonly containerId: string;
   readonly keyMaterial: Uint8Array;
 }): Promise<string> {
-  const pair = await deriveContainerKekWrappingKeyPair(input);
+  if (!input.containerId || input.keyMaterial.byteLength !== 32) {
+    throw new Error(
+      "Container wrapping derivation requires an ID and 32-byte KEK",
+    );
+  }
+  const keyMaterial = input.keyMaterial.slice();
   try {
-    return bytesToBase64(pair.publicKey);
+    const cacheKey = `${input.containerId}:${await toFingerprint(keyMaterial)}`;
+    const cached = publicWrappingKeys.get(cacheKey);
+    if (cached) {
+      publicWrappingKeys.delete(cacheKey);
+      publicWrappingKeys.set(cacheKey, cached);
+      return cached;
+    }
+    const pair = await deriveContainerKekWrappingKeyPair({
+      ...input,
+      keyMaterial,
+    });
+    try {
+      const publicKey = bytesToBase64(pair.publicKey);
+      publicWrappingKeys.set(cacheKey, publicKey);
+      if (publicWrappingKeys.size > MAX_PUBLIC_WRAPPING_KEYS) {
+        const oldest = publicWrappingKeys.keys().next().value;
+        if (oldest !== undefined) publicWrappingKeys.delete(oldest);
+      }
+      return publicKey;
+    } finally {
+      pair.secretKey.fill(0);
+    }
   } finally {
-    pair.secretKey.fill(0);
+    keyMaterial.fill(0);
   }
 }
 

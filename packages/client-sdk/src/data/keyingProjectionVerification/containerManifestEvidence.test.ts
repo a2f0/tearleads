@@ -99,6 +99,7 @@ test("required purge evidence reaches every recursive container predecessor", as
       "recursive-evidence-key-2",
     ),
     eventType: "container.revoke",
+    parentManifestHash: null,
     containerKeyEpochId: "recursive-evidence-key-2",
     keyringHash: await fixtureHash("recursive-evidence-keyring"),
     predecessorBridgeHash: await fixtureHash(

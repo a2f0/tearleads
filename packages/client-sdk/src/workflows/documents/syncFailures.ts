@@ -70,7 +70,8 @@ type DocumentSyncAttemptSubmission =
       readonly response: DocumentSyncResponse;
     }
   | FailedDocumentSyncAction
-  | "cancelled";
+  | "cancelled"
+  | "blocked";
 
 async function resolveFailedDocumentSyncAction(input: {
   attempt: number;
@@ -246,7 +247,7 @@ export async function submitDocumentSyncAttemptIfAllowed(
     input.plan.request.outgoingUpdates.length > 0 ||
     (input.plan.request.containerRekeys?.length ?? 0) > 0;
   if (hasRemoteWrites && isRemoteSyncBlocked?.(input.plan.organizationId)) {
-    return "stop";
+    return "blocked";
   }
   if (input.stillCurrent?.() === false) return "cancelled";
 

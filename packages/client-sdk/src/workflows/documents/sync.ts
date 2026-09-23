@@ -1,12 +1,10 @@
 import { KeyingVerificationError } from "@tearleads/crypto";
 import type { DocumentWriterProjectionResponse } from "@tearleads/validators/response";
 import { isDocumentUpdateCreatedEvent } from "../../data/documents/documentSync";
-import { ContainerKekRepairInaccessibleError } from "../../data/documents/shared/containerKekCurrency";
 import { isDocumentSyncUpdateIsolationError } from "../../data/documents/shared/documentSyncUpdateIsolation";
 import {
   type DocumentSyncPullContinuation,
   InvalidDocumentSyncPullContinuationError,
-  resolvePullContinuationMinLsn,
 } from "../../data/documents/shared/syncPagination";
 import type {
   MaterializedDocumentSyncPlan,
@@ -18,7 +16,6 @@ import {
   requireProjectionUserKeyResolver,
 } from "../../data/keyingProjectionVerification";
 import type { PendingUpdateRecord } from "../../data/sqlite/documentPersistence";
-import { isDocumentSyncRequestLimitError } from "../../data/sync/documentSyncOutgoingBatch";
 import { createVerifiedRemoteDocumentDeletionHandler } from "./purge";
 import {
   type SyncRemoteDocumentInput,
@@ -27,20 +24,19 @@ import {
 import {
   abandonAfterRetryableConflicts,
   abandonAncestorRepair,
-  abandonInaccessibleAncestorRepair,
-  abandonOversizedSyncPlan,
 } from "./syncAbandon";
+import {
+  planDocumentSyncAttempt,
+  projectionFailureHandler,
+} from "./syncAttemptPlanning";
 import type {
   RemoteDocumentSyncAttemptOutcome,
   RemoteDocumentSyncAttemptState,
 } from "./syncAttemptState";
 import { requireStandaloneAncestorRepairs } from "./syncContainerRekeyPreparation";
-import { buildRemoteDocumentSyncPlan } from "./syncContainerRekeys";
-import type { TerminalSubmitFailureHandler } from "./syncFailureClassification";
 import {
   assertRawContinuationCanRetry,
   resolveSyncAttemptWriterProjection,
-  retrySyncPlanOrAbandon,
   submitDocumentSyncAttemptIfAllowed,
 } from "./syncFailures";
 import { recoverablePendingUpdates } from "./syncPlanRequestBounds";
@@ -134,24 +130,6 @@ async function submitPlannedSyncAttempt(args: {
   }
 }
 
-/**
- * A write-bearing pass records through the submit handler (its queued writes
- * are what the failure blocks). A read-only pass records through the
- * revalidation handler so the refusal still leaves a durable trail instead
- * of silently never revalidating (edge-case row 13). A cursor continuation is
- * wire-level read-only, but its failure still blocks the queued writes it
- * deliberately deferred. Update-id recovery likewise empties the in-flight
- * batch while durable rows remain. Both keep the submit classification and
- * its 403 handling.
- */
-function projectionFailureHandler(
-  input: SyncRemoteDocumentInput,
-  failureBlocksQueuedWrites: boolean,
-): TerminalSubmitFailureHandler | undefined {
-  return failureBlocksQueuedWrites
-    ? input.onTerminalSubmitFailure
-    : input.onReadOnlyProjectionFailure;
-}
 function resolveAttemptProjection(
   input: SyncRemoteDocumentInput,
   failureBlocksQueuedWrites: boolean,
@@ -171,55 +149,6 @@ function resolveAttemptProjection(
     stillCurrent: input.stillCurrent,
   });
 }
-async function planDocumentSyncAttempt(input: {
-  pendingUpdates: readonly PendingUpdateRecord[];
-  pullContinuation?: DocumentSyncPullContinuation | undefined;
-  regenerateQueuedCheckpoints: boolean;
-  sync: SyncRemoteDocumentInput;
-  failureBlocksQueuedWrites: boolean;
-  writerProjection: DocumentWriterProjectionResponse;
-}) {
-  try {
-    return await retrySyncPlanOrAbandon({
-      apiClient: input.sync.apiClient,
-      buildWithProjection: (projection) =>
-        buildRemoteDocumentSyncPlan({
-          pendingUpdates:
-            input.pullContinuation === undefined ? input.pendingUpdates : [],
-          minLsn: resolvePullContinuationMinLsn(
-            input.pullContinuation,
-            input.sync.minLsn,
-          ),
-          pullCursor: input.pullContinuation?.cursor,
-          projection,
-          regenerateQueuedCheckpoints: input.regenerateQueuedCheckpoints,
-          sync: input.sync,
-        }),
-      documentId: input.sync.documentId,
-      onRemoteDocumentDeleted: input.sync.onRemoteDocumentDeleted,
-      onSyncAbandoned: input.sync.onSyncAbandoned,
-      onSyncTrace: input.sync.onSyncTrace,
-      onTerminalFailure: projectionFailureHandler(
-        input.sync,
-        input.failureBlocksQueuedWrites,
-      ),
-      stillCurrent: input.sync.stillCurrent,
-      writerProjection: input.writerProjection,
-    });
-  } catch (error) {
-    if (error instanceof DocumentAncestorRepairAbandonedError) {
-      return abandonAncestorRepair(input.sync, error);
-    }
-    if (error instanceof ContainerKekRepairInaccessibleError) {
-      return abandonInaccessibleAncestorRepair(input.sync, error);
-    }
-    if (!isDocumentSyncRequestLimitError(error)) {
-      throw error;
-    }
-    return abandonOversizedSyncPlan(input.sync, error);
-  }
-}
-
 function resolveRemoteSyncProjectionUserKey(input: SyncRemoteDocumentInput) {
   return requireProjectionUserKeyResolver(
     input.resolveProjectionUserKey,
@@ -279,6 +208,17 @@ function failureBlocksQueuedWrites(input: {
   );
 }
 
+async function retryRemoteSyncAttempt(
+  sync: SyncRemoteDocumentInput,
+  continuation: DocumentSyncPullContinuation | undefined,
+): Promise<RemoteDocumentSyncAttemptOutcome> {
+  evictStaleProjectionForRetry(sync);
+  return {
+    kind: "retry",
+    pullContinuation: await invalidatePullCursor(sync, continuation),
+  };
+}
+
 async function runRemoteDocumentSyncAttempt(input: {
   attempt: number;
   maxAttempts: number;
@@ -310,6 +250,9 @@ async function runRemoteDocumentSyncAttempt(input: {
     failureBlocksQueuedWrites: blocksQueuedWrites,
     writerProjection,
   });
+  if (planned === "retry") {
+    return retryRemoteSyncAttempt(input.sync, input.state.pullContinuation);
+  }
   if (!planned || input.sync.stillCurrent?.() === false) {
     return { kind: "complete", result: null };
   }
@@ -335,14 +278,14 @@ async function runRemoteDocumentSyncAttempt(input: {
       input.sync.historyMode,
       input.state.pullContinuation,
     );
-    evictStaleProjectionForRetry(input.sync);
-    return {
-      kind: "retry",
-      pullContinuation: await invalidatePullCursor(
-        input.sync,
-        input.state.pullContinuation,
-      ),
-    };
+    return retryRemoteSyncAttempt(input.sync, input.state.pullContinuation);
+  }
+  if (submitted === "blocked") {
+    abandonAncestorRepair(
+      input.sync,
+      new DocumentAncestorRepairAbandonedError("blocked"),
+    );
+    return { kind: "complete", result: null };
   }
   if (submitted === "stop") {
     input.sync.onSyncAbandoned?.("the sync submit failed terminally");

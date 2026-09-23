@@ -1,21 +1,18 @@
 import type { DocumentWriterProjectionResponse } from "@tearleads/validators/response";
+import type { MaterializedContainerRekeyPlan } from "../../data/containers/shared/types";
 import { projectionVerificationOptions } from "../../data/documents/shared/types";
 import type { PendingUpdateRecord } from "../../data/sqlite/documentPersistence";
 import type { SyncRemoteDocumentInput } from "./readOnlySync";
-import { prepareAutomaticContainerRekeys } from "./syncContainerRekeyPreparation";
+import { buildAutomaticContainerRekeys } from "./syncAutomaticContainerRekeys";
+import { requiresStandaloneAncestorRepairs } from "./syncContainerRekeyPreparation";
 import { applyDocumentSyncContainerRekeys } from "./syncContainerRekeyProjection";
 import { buildMaterializedDocumentSyncPlan } from "./syncPlanMaterial";
 import { computeInlineRekeyCommitId } from "./syncRekeyCommit";
+import { DocumentSyncPreparationRequiredError } from "./syncRepairAbandon";
 
-/**
- * Not purely a planning step: past the inline limit this issues durable
- * `POST /containers/:id/rekey` calls before the document write. `retrySyncPlan`
- * re-invokes plan building on a retryable error, so those commits can happen
- * more than once per pass — the repair budget is counted across the pass rather
- * than per call for that reason, and repaired ancestors are no longer stale on a
- * later attempt so they are not re-planned.
- */
+/** Plan only: standalone server repairs belong to the outer sync attempt. */
 export async function buildRemoteDocumentSyncPlan(input: {
+  preparedRekeys?: readonly MaterializedContainerRekeyPlan[] | undefined;
   minLsn?: string | undefined;
   pendingUpdates: readonly PendingUpdateRecord[];
   pullCursor?: string | undefined;
@@ -31,24 +28,37 @@ export async function buildRemoteDocumentSyncPlan(input: {
   // for an unhealable bundle — after a standalone prefix may already have been
   // committed. Such a pass is left to fail as it did before automatic repair.
   const canHealStaleBundle = input.sync.buildRotationSnapshot !== undefined;
-  const prepared =
+  let automaticPlans = input.preparedRekeys;
+  if (
     input.pendingUpdates.length &&
     !input.sync.buildContainerRekeys &&
-    canHealStaleBundle
-      ? await prepareAutomaticContainerRekeys(input.sync, input.projection)
-      : { projection: input.projection, plans: undefined };
+    canHealStaleBundle &&
+    automaticPlans === undefined
+  ) {
+    const batch = await buildAutomaticContainerRekeys(
+      input.sync,
+      input.projection,
+    );
+    if (
+      batch.hasMore ||
+      (batch.plans.length > 0 && requiresStandaloneAncestorRepairs(input.sync))
+    ) {
+      throw new DocumentSyncPreparationRequiredError();
+    }
+    automaticPlans = batch.plans;
+  }
   const rekeyPlans =
     input.pendingUpdates.length && input.sync.buildContainerRekeys
       ? await input.sync.buildContainerRekeys(input.projection, {
           persistVerificationCheckpoints: false,
         })
-      : prepared.plans;
+      : automaticPlans;
   const writerProjection = rekeyPlans?.length
     ? await applyDocumentSyncContainerRekeys({
         plans: rekeyPlans,
-        writerProjection: prepared.projection,
+        writerProjection: input.projection,
       })
-    : prepared.projection;
+    : input.projection;
   let inlineRekeyCommitId: string | undefined;
   if (rekeyPlans?.length) {
     const headPendingUpdate = input.pendingUpdates[0];
@@ -57,7 +67,7 @@ export async function buildRemoteDocumentSyncPlan(input: {
     }
     inlineRekeyCommitId = await computeInlineRekeyCommitId({
       headPendingUpdateId: headPendingUpdate.id,
-      projection: prepared.projection,
+      projection: input.projection,
     });
   }
   return buildMaterializedDocumentSyncPlan({

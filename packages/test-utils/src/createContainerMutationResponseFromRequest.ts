@@ -112,6 +112,7 @@ function deriveMutationState(input: {
     const revokedKey = `${body.subjectType}:${body.subjectId}`;
     return {
       ...base,
+      parentManifestHash: body.parentManifestHash,
       containerKeyEpochId: body.containerKeyEpochId,
       containerKeyPublicKey: body.containerKeyPublicKey,
       directGrants: previous.directGrants.filter(
@@ -139,6 +140,7 @@ function deriveMutationState(input: {
   }
   return {
     ...base,
+    parentManifestHash: body.parentManifestHash,
     containerKeyEpochId: body.containerKeyEpochId,
     containerKeyPublicKey: body.containerKeyPublicKey,
     referencedPrincipalHeads: [...body.referencedPrincipalHeads],

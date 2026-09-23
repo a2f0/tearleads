@@ -389,12 +389,24 @@ shape). The keyring is derived, rebuildable state; the bridge log is ground
 truth.
 
 Container KEK epochs use ids of the form
-`tearleads.container-kek.v1.sha256:<hash>`, where the hash commits to the
-container id, numeric KEK epoch, and plaintext 32-byte KEK material. The signed
-container manifest commits to this id through `containerKeyEpochId`, so clients
-that can unwrap the KEK reject a projection if the decrypted material does not
-match the committed id. Non-prefixed ids are rejected because they do not carry
-this material commitment.
+`tearleads.container-kek.v2.sha256:<hash>`. The domain-separated hash commits to
+version 2, the container id, numeric KEK epoch, and the canonical ML-KEM wrapping
+public key deterministically derived from the 32-byte KEK. Servers and child-only
+writers verify the published key against this commitment without an ancestor
+secret. KEK holders derive that same public key from recovered material and check
+the commitment independently. Only the v2 format is accepted; this is a greenfield
+protocol change with no translation of earlier ids.
+
+The wrapping public-key cache is bounded to 128 entries and indexed by container
+id plus a digest of the key bytes. It retains public keys only; temporary KEK
+copies, derivation seeds, and private wrapping keys are zeroized.
+
+Every epoch-creating child event has an explicit signed parent citation.
+`container.rekey` and `container.revoke` include `parentManifestHash` in their
+bodies, naming the current parent used to wrap the new epoch (null for roots).
+The derived state retains that citation for historical recovery. Selection uses
+that exact hash, even when the signed dependency list contains two heads of the
+same parent; withholding the cited head causes a missing-dependency refusal.
 
 ### Container Key Wrap Row
 

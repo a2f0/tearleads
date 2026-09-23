@@ -13,14 +13,14 @@ import {
 } from "../containers/child/mutationSubmit";
 import type { SyncRemoteDocumentInput } from "./readOnlySync";
 import { buildAutomaticContainerRekeys } from "./syncAutomaticContainerRekeys";
+import { shouldRetrySyncWithFreshWriterProjection } from "./syncFailureClassification";
 import { refreshSyncAttemptWriterProjection } from "./syncFailures";
 import { DocumentAncestorRepairAbandonedError } from "./syncRepairAbandon";
 
 /**
  * Repairs committed during one sync pass, keyed by the pass's own input object
- * (stable across all three attempts). `retrySyncPlan` re-invokes plan building,
- * so a counter local to one preparation call bounds only that call and a pass
- * could commit several times the budget.
+ * (stable across all three attempts). The sync loop explicitly prepares each
+ * attempt, so a counter local to one call would not bound the whole pass.
  */
 const passRepairTotals = new WeakMap<SyncRemoteDocumentInput, number>();
 
@@ -31,6 +31,12 @@ const passRepairTotals = new WeakMap<SyncRemoteDocumentInput, number>();
  * the pass commits every repair standalone before writing.
  */
 const standaloneRepairPasses = new WeakSet<SyncRemoteDocumentInput>();
+
+export function requiresStandaloneAncestorRepairs(
+  sync: SyncRemoteDocumentInput,
+): boolean {
+  return standaloneRepairPasses.has(sync);
+}
 
 export function requireStandaloneAncestorRepairs(
   sync: SyncRemoteDocumentInput,
@@ -165,10 +171,14 @@ async function commitRepairPrefix(input: {
   return committed;
 }
 
-/** Large repairs commit a bounded prefix; the last batch remains atomic with content. */
+/**
+ * Large repairs commit a bounded prefix; the last batch stays atomic with content.
+ * A tighter local resource budget may be used, but never above the protocol cap.
+ */
 export async function prepareAutomaticContainerRekeys(
   sync: SyncRemoteDocumentInput,
   initialProjection: DocumentWriterProjectionResponse,
+  maxRepairs = MAX_DOCUMENT_SYNC_AUTHORIZATION_PATH_DEPTH,
 ): Promise<{
   plans: readonly MaterializedContainerRekeyPlan[];
   projection: DocumentWriterProjectionResponse;
@@ -181,8 +191,8 @@ export async function prepareAutomaticContainerRekeys(
   }
   let projection = initialProjection;
   const repairedIds = new Set<string>();
-  // `repairedIds` only breaks a loop within one call, and retrySyncPlan can
-  // re-enter plan building several times per pass with a fresh set. Bound the
+  // `repairedIds` only breaks a loop within one preparation. An explicit sync
+  // retry starts another preparation with a fresh set. Bound the
   // work by the deepest authorizing path the protocol allows, counted across
   // the whole pass rather than per call: no honest chain needs more repairs
   // than that, so re-entry cannot multiply the budget.
@@ -210,7 +220,7 @@ export async function prepareAutomaticContainerRekeys(
     const committedBefore = passRepairTotals.get(sync) ?? 0;
     if (
       committedBefore + batch.plans.length >
-      MAX_DOCUMENT_SYNC_AUTHORIZATION_PATH_DEPTH
+      Math.min(maxRepairs, MAX_DOCUMENT_SYNC_AUTHORIZATION_PATH_DEPTH)
     ) {
       throw new DocumentAncestorRepairAbandonedError("depth-budget");
     }
@@ -251,4 +261,30 @@ export async function prepareAutomaticContainerRekeys(
     }
     projection = fresh;
   }
+}
+
+/** An explicit preparation retry may commit repairs; plan retries never do. */
+export async function prepareSyncAttemptContainerRekeys(
+  sync: SyncRemoteDocumentInput,
+  projection: DocumentWriterProjectionResponse,
+) {
+  try {
+    return await prepareAutomaticContainerRekeys(sync, projection);
+  } catch (error) {
+    if (
+      !sync.apiClient.evictDocumentWriterProjection ||
+      !shouldRetrySyncWithFreshWriterProjection(error)
+    )
+      throw error;
+  }
+  const fresh = await refreshSyncAttemptWriterProjection({
+    apiClient: sync.apiClient,
+    documentId: sync.documentId,
+    onRemoteDocumentDeleted: sync.onRemoteDocumentDeleted,
+    onSyncAbandoned: sync.onSyncAbandoned,
+    onSyncTrace: sync.onSyncTrace,
+    onTerminalFailure: sync.onTerminalSubmitFailure,
+    stillCurrent: sync.stillCurrent,
+  });
+  return fresh ? prepareAutomaticContainerRekeys(sync, fresh) : null;
 }

@@ -83,6 +83,7 @@ export async function buildRootRevokeRequest(input: {
     containerKeyPublicKey:
       containerWrappingPublicKeyForTest(containerKeyEpochId),
     eventType: "container.revoke",
+    parentManifestHash: null,
     containerKeyEpochId,
     keyringHash: await computeContainerKekKeyringHash(keyring),
     predecessorBridgeHash:
