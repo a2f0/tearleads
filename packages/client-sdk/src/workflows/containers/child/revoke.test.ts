@@ -97,6 +97,7 @@ test("revokeRemoteContainer removes a direct user grant and rotates the KEK", as
   expect(body).toEqual({
     containerKeyPublicKey: revoked.plan.state.containerKeyPublicKey,
     eventType: "container.revoke",
+    parentManifestHash: null,
     containerKeyEpochId: revoked.plan.containerKeyEpochId,
     keyringHash: body.keyringHash,
     predecessorBridgeHash: body.predecessorBridgeHash,

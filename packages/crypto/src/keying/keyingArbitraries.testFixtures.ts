@@ -111,11 +111,18 @@ export function sortedGrants(
 }
 
 let keyEpochCounter = 0;
+const epochsByContainer = new Map<string, number>();
 /** Key epoch ids commit to key material; the fixture id has that shape. */
-async function freshKeyEpochId(containerId: string): Promise<string> {
+async function freshKeyEpochId(
+  containerId: string,
+  keyEpoch = (epochsByContainer.get(containerId) ?? 0) + 1,
+): Promise<string> {
+  epochsByContainer.set(containerId, keyEpoch);
   keyEpochCounter += 1;
   return fixtureContainerKekMaterialId(
     `${containerId}:key-epoch:${keyEpochCounter}`,
+    containerId,
+    keyEpoch,
   );
 }
 
@@ -220,6 +227,7 @@ async function applyContainerStep(
     return containerSuccessor({
       body: {
         eventType: "container.revoke",
+        parentManifestHash: null,
         ...rotation,
         subjectId,
         subjectType: "user",
@@ -239,6 +247,7 @@ async function applyContainerStep(
   return containerSuccessor({
     body: {
       eventType: "container.rekey",
+      parentManifestHash: null,
       ...rotation,
       referencedPrincipalHeads: previous.state.referencedPrincipalHeads,
     },
@@ -271,7 +280,7 @@ export async function buildContainerChain(
   ]);
   const created = await createContainerManifestFixture({
     containerId,
-    containerKeyEpochId: await freshKeyEpochId(containerId),
+    containerKeyEpochId: await freshKeyEpochId(containerId, 1),
     directGrants: initialGrants,
     organizationId: ORGANIZATION_ID,
     signer: creator.signing,

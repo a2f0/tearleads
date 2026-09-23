@@ -557,7 +557,7 @@ export async function verifyContainerKekState({
 > {
   return runVerifier(async () => {
     const normalizedKeyEpoch = normalizeContainerKeyEpoch(keyEpoch);
-    assertContainerKeyEpochMatchesManifest({
+    await assertContainerKeyEpochMatchesManifest({
       containerManifest,
       keyEpoch: normalizedKeyEpoch,
     });

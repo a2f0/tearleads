@@ -17,3 +17,11 @@ export class DocumentAncestorRepairAbandonedError extends Error {
     this.name = "DocumentAncestorRepairAbandonedError";
   }
 }
+
+/** A refreshed projection needs durable preparation before another pure plan. */
+export class DocumentSyncPreparationRequiredError extends Error {
+  constructor() {
+    super("Document sync requires a new ancestor preparation step");
+    this.name = "DocumentSyncPreparationRequiredError";
+  }
+}

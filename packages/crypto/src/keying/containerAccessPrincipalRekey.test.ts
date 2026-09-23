@@ -57,6 +57,7 @@ test("a rekey advances a managed-principal pin without changing grants", async (
       "container-key-epoch-2",
     ),
     eventType: "container.rekey",
+    parentManifestHash: null,
     containerKeyEpochId: "container-key-epoch-2",
     keyringHash: "1".repeat(64),
     predecessorBridgeHash: "0".repeat(64),
@@ -105,6 +106,7 @@ test("rekeys require explicit principal heads, including an empty list", () => {
     containerKeyPublicKey:
       containerWrappingPublicKeyForTest("current-rekey-key"),
     eventType: "container.rekey",
+    parentManifestHash: null,
     containerKeyEpochId: "current-rekey-key",
     keyringHash: "1".repeat(64),
     predecessorBridgeHash: "0".repeat(64),

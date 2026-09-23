@@ -23,6 +23,7 @@ async function createOrganizationBlobBinding(input: {
     containerId: input.containerId,
     containerKeyEpochId: await fixtureContainerKekMaterialId(
       `${input.containerId}-key-epoch-1`,
+      input.containerId,
     ),
     directGrants: [
       {

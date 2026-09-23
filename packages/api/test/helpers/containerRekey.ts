@@ -222,6 +222,7 @@ export async function buildRootContainerRekeyMutation(input: {
       keyMaterial: plaintextKek,
     }),
     eventType: "container.rekey",
+    parentManifestHash: null,
     containerKeyEpochId,
     keyringHash: await computeContainerKekKeyringHash(keyring),
     predecessorBridgeHash:

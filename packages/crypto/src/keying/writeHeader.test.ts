@@ -117,6 +117,7 @@ test("write headers prove document write access through committed targets", asyn
     containerId: "container-write-proof",
     containerKeyEpochId: await fixtureContainerKekMaterialId(
       "container-write-proof-key-1",
+      "container-write-proof",
     ),
     directGrants: [
       {

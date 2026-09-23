@@ -37,7 +37,7 @@ export type KeyingHashDomain =
   | "tearleads.keying.container-access-key-target"
   | "tearleads.keying.container-access-structural"
   | "tearleads.keying.container-key-epoch"
-  | "tearleads.keying.container-kek-material-id"
+  | "tearleads.keying.container-kek-public-commitment"
   | "tearleads.keying.container-kek-keyring"
   | "tearleads.keying.container-kek-predecessor-bridge"
   | "tearleads.keying.container-kek-recipient-targets"
@@ -86,7 +86,7 @@ export const CONTAINER_KEK_PARENT_WRAP_SUITE =
 export const CONTAINER_KEK_PREDECESSOR_WRAP_SUITE =
   "tearleads.container-kek-wrap.aes-256-gcm-predecessor-kek" as const;
 export const CONTAINER_KEK_MATERIAL_ID_PREFIX =
-  "tearleads.container-kek.v1.sha256:" as const;
+  "tearleads.container-kek.v2.sha256:" as const;
 export const CONTAINER_KEK_KEYRING_SEAL_SUITE =
   "tearleads.container-kek-keyring.aes-256-gcm-current-kek" as const;
 // Write-time sanity cap on lifetime rotations. Sized to be unreachable by
@@ -202,6 +202,7 @@ export interface ContainerGrantAccessEventBody extends ContainerAccessKeyState {
 export interface ContainerRevokeAccessEventBody
   extends ContainerAccessKeyState {
   eventType: "container.revoke";
+  parentManifestHash: string | null;
   keyringHash: string;
   predecessorBridgeHash: string;
   subjectId: string;
@@ -210,6 +211,7 @@ export interface ContainerRevokeAccessEventBody
 
 export interface ContainerRekeyAccessEventBody {
   eventType: "container.rekey";
+  parentManifestHash: string | null;
   containerKeyEpochId: string;
   containerKeyPublicKey: string;
   keyringHash: string;

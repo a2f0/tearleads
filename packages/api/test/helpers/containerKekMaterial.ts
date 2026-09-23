@@ -5,9 +5,11 @@ import {
   computeContainerKekKeyringHash,
   computeContainerKekMaterialId,
   createContainerKekPredecessorBridge,
+  deriveContainerKekWrappingPublicKey,
   sealContainerKekKeyring,
   type VerifiedContainerAccessManifest,
 } from "@tearleads/crypto";
+import { containerWrappingPublicKeyForTest } from "@tearleads/crypto/test-fixtures";
 import type { AccessManifestBundleWire } from "@tearleads/validators/request";
 
 export function createRootContainerKeyEpoch(input: {
@@ -42,6 +44,13 @@ export async function createTestContainerKekMaterial(input: {
     keyMaterial: plaintextKek,
   });
 
+  containerWrappingPublicKeyForTest(
+    containerKeyEpochId,
+    await deriveContainerKekWrappingPublicKey({
+      containerId: input.containerId,
+      keyMaterial: plaintextKek,
+    }),
+  );
   return { containerKeyEpochId, plaintextKek };
 }
 

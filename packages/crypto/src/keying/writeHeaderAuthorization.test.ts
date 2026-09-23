@@ -31,6 +31,7 @@ test("write headers prove blob write access through derived attachment targets",
     containerId: "blob-write-container",
     containerKeyEpochId: await fixtureContainerKekMaterialId(
       "blob-write-container-key-1",
+      "blob-write-container",
     ),
     directGrants: [
       {
@@ -176,6 +177,7 @@ test("write header authorization covers every linked container target and histor
     containerId: "container-multi-write",
     containerKeyEpochId: await fixtureContainerKekMaterialId(
       "container-multi-write-key-1",
+      "container-multi-write",
     ),
     directGrants: [
       {
@@ -190,6 +192,7 @@ test("write header authorization covers every linked container target and histor
     containerId: "container-multi-read",
     containerKeyEpochId: await fixtureContainerKekMaterialId(
       "container-multi-read-key-1",
+      "container-multi-read",
     ),
     directGrants: [
       {
@@ -328,6 +331,7 @@ test("write header authorization covers every linked container target and histor
     containerId: writeContainer.state.containerId,
     containerKeyEpochId: await fixtureContainerKekMaterialId(
       "container-multi-write-key-2",
+      writeContainer.state.containerId,
     ),
     directGrants: [
       {
