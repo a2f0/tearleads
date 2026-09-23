@@ -30,7 +30,11 @@ export async function createHeadlessApiClient(execSql: ExecSql, id: string) {
     });
     await sdk.session.bootstrapLocalRootContainer();
     const registered = await sdk.session.registerIdentity();
-    if (!registered || !(await sdk.session.login(registered.challenge))) {
+    if (
+      !registered ||
+      "status" in registered ||
+      !(await sdk.session.login(registered.challenge))
+    ) {
       throw new Error("Test client registration or login failed");
     }
     return sdk;

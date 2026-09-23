@@ -37,7 +37,7 @@ describe("session", () => {
       session.setContainerId(containerId);
 
       const result = await session.registerIdentity();
-      if (!result) {
+      if (!result || "status" in result) {
         throw new Error("Expected registration to succeed");
       }
 

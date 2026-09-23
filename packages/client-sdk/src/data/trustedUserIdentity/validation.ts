@@ -102,12 +102,12 @@ async function validateFingerprints(input: {
   return { encapsulationKeyFingerprint, signingKeyFingerprint };
 }
 
-async function buildValidatedUserIdentityCandidate(input: {
+export async function validateUserIdentityKeys(input: {
   readonly candidate: LocalUserIdentityCandidate;
-  readonly identityTrustDomain: string;
-  readonly userId: string;
   readonly encapsulationKeyFingerprint?: string | null | undefined;
-}): Promise<ValidatedUserIdentityCandidate> {
+}): Promise<
+  Omit<ValidatedUserIdentityCandidate, "identityTrustDomain" | "userId">
+> {
   const signingPublicKey = validatePublicKeyLength({
     bytes: input.candidate.signingPublicKey,
     expectedLength: ML_DSA87_PUBLIC_KEY_BYTES,
@@ -128,9 +128,7 @@ async function buildValidatedUserIdentityCandidate(input: {
   return {
     ...fingerprints,
     encapsulationPublicKey,
-    identityTrustDomain: input.identityTrustDomain,
     signingPublicKey,
-    userId: input.userId,
   };
 }
 
@@ -140,7 +138,11 @@ export async function validateLocalUserIdentity(input: {
   readonly userId: string;
 }): Promise<ValidatedUserIdentityCandidate> {
   assertTrustedUserIdentityUserId(input.userId);
-  return buildValidatedUserIdentityCandidate(input);
+  return {
+    ...(await validateUserIdentityKeys(input)),
+    identityTrustDomain: input.identityTrustDomain,
+    userId: input.userId,
+  };
 }
 
 export async function validateRemoteUserIdentity(input: {
@@ -167,14 +169,17 @@ export async function validateRemoteUserIdentity(input: {
     label: "Encapsulation public key",
   });
 
-  return buildValidatedUserIdentityCandidate({
+  const keys = await validateUserIdentityKeys({
     candidate: {
       encapsulationPublicKey,
       signingKeyFingerprint: input.candidate.signingKeyFingerprint,
       signingPublicKey,
     },
     encapsulationKeyFingerprint: input.candidate.encapsulationKeyFingerprint,
+  });
+  return {
+    ...keys,
     identityTrustDomain: input.identityTrustDomain,
     userId: input.requestedUserId,
-  });
+  };
 }

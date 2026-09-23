@@ -270,3 +270,12 @@ workflow facade aggregated by the root SDK entry point once.
 Creates, identity changes, and structural relinks set it and invalidate in-flight
 reads. Ordinary content saves allow an initial read before the trailing refresh.
 See [document links](../../../../docs/developer/document-links.md).
+
+## Registration
+
+Registration validates local identity public keys before the API call and pins
+only the server-confirmed user. The session facade returns
+`SessionRegistrationRefusal` (`status: "identity-already-bound"`, `userId`) when
+the device already binds that key, distinct from an unconfirmed `null` result.
+Hosts should try login, and explain that an intentional environment reset
+requires clearing local app data if that recovery cannot find the account.
