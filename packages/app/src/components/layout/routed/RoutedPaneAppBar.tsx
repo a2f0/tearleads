@@ -1,3 +1,5 @@
+import { ArrowDownIcon } from "@phosphor-icons/react/dist/csr/ArrowDown";
+import { ArrowLeftIcon } from "@phosphor-icons/react/dist/csr/ArrowLeft";
 import { ArrowsClockwiseIcon } from "@phosphor-icons/react/dist/csr/ArrowsClockwise";
 import { CaretLeftIcon } from "@phosphor-icons/react/dist/csr/CaretLeft";
 import { CaretRightIcon } from "@phosphor-icons/react/dist/csr/CaretRight";
@@ -15,16 +17,21 @@ import {
   useWindowRefreshMenuItemValue,
   useWindowTitleBarActions,
 } from "../../window/WindowMenuContext";
+import type { LauncherPlacement } from "./LauncherPlacement";
 
 export function RoutedPaneAppBar({
   activeAppId,
   hasSidebar,
+  launcherPlacement,
+  onToggleLauncherPlacement,
   onToggleSidebar,
   sidebarExpanded,
   tier,
 }: {
   activeAppId: MiniAppId;
   hasSidebar: boolean;
+  launcherPlacement: LauncherPlacement;
+  onToggleLauncherPlacement: () => void;
   onToggleSidebar: () => void;
   sidebarExpanded: boolean;
   tier: RoutedLayoutTier;
@@ -39,7 +46,12 @@ export function RoutedPaneAppBar({
   const backLabel = backAction?.label ?? "Back";
   const canGoBack = backAction ? !backAction.disabled : history.canGoBack;
   const sidebarLabel = sidebarExpanded ? "Hide Sidebar" : "Show Sidebar";
-  const showToolbar = toolbarActions.length > 0 || refreshItem !== null;
+  const showToolbar =
+    tier === "tablet" || toolbarActions.length > 0 || refreshItem !== null;
+  const placementLabel =
+    launcherPlacement === "side"
+      ? "Move launcher to bottom"
+      : "Move launcher to side";
 
   return (
     <header className="routed-pane-appbar">
@@ -92,6 +104,21 @@ export function RoutedPaneAppBar({
           className="routed-pane-toolbar"
           role="toolbar"
         >
+          {tier === "tablet" && (
+            <button
+              aria-label={placementLabel}
+              className="routed-pane-iconbutton"
+              title={placementLabel}
+              type="button"
+              onClick={onToggleLauncherPlacement}
+            >
+              {launcherPlacement === "side" ? (
+                <ArrowDownIcon aria-hidden size={18} />
+              ) : (
+                <ArrowLeftIcon aria-hidden size={18} />
+              )}
+            </button>
+          )}
           <WindowTitleBarActionButtons
             actions={toolbarActions}
             className="routed-pane-iconbutton"

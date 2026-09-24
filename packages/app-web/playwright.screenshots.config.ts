@@ -28,7 +28,7 @@ export default defineConfig({
   },
   projects: [
     {
-      // Desktop / windowed layout (viewport >= 1024px).
+      // Desktop / windowed capture; the screenshot helper selects windowed mode.
       name: "web",
       metadata: { screenshotApiBaseUrl: WEB_API_BASE_URL },
       testMatch: "**/capture.spec.ts",

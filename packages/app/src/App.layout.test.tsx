@@ -50,6 +50,22 @@ test("normal App omits global chrome and keeps the lower layout switch", () => {
   view.unmount();
 });
 
+test("desktop App defaults to the tablet shell and can switch to windows", () => {
+  const view = render(
+    <App hostConfig={createTestAppHostConfig({ navigationMode: undefined })} />,
+  );
+
+  expect(view.container.querySelector(".layout--routed")).toBeTruthy();
+  fireEvent.click(
+    view.getByRole("button", { name: "Switch to windowed layout" }),
+  );
+  expect(view.container.querySelector(".layout--routed")).toBeNull();
+  expect(
+    view.getByRole("button", { name: "Switch to iPad / mobile layout" }),
+  ).toBeTruthy();
+  view.unmount();
+});
+
 test("mobile routed App omits the global frame header", () => {
   const originalMatchMedia = window.matchMedia;
 

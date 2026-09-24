@@ -11,6 +11,7 @@ import { useVisibleMiniAppItems } from "../../../mini-apps/useVisibleMiniAppItem
 import { useAppNavigationActions } from "../../../navigation/AppNavigationProvider";
 import type { RoutedLayoutTier } from "../../../navigation/useRoutedLayoutTier";
 import { classNames } from "../../shared/classNames";
+import type { LauncherPlacement } from "./LauncherPlacement";
 import { useMobileSheetDrag } from "./useMobileSheetDrag";
 import "./RoutedPaneNav.css";
 
@@ -167,7 +168,7 @@ function RoutedPaneMobileNavTile({
 }
 
 /**
- * The mobile bottom-sheet navigation: every routed mini-app as a grid of square
+ * The bottom-sheet navigation: every routed mini-app as a grid of square
  * icon-and-label tiles (styled after Explorer's New Document screen). Like the
  * tablet rail it carries no system or per-app contextual actions — the sheet is
  * a pure launcher. Selecting a tile navigates and dismisses.
@@ -226,12 +227,13 @@ function RoutedPaneMobileSheetHandle({
 
 /**
  * The navigation surface in its tier-appropriate container: a persistent
- * `<aside>` rail on tablet, or a bottom sheet of launcher tiles (plus dismiss
- * scrim) on mobile.
+ * `<aside>` rail in tablet side mode, or a bottom sheet of launcher tiles (plus
+ * dismiss scrim) on mobile and in tablet bottom mode.
  */
 export function RoutedPaneNav({
   activeAppId,
   drawerOpen,
+  launcherPlacement,
   onCloseDrawer,
   onToggleRail,
   railExpanded,
@@ -239,17 +241,19 @@ export function RoutedPaneNav({
 }: {
   activeAppId: MiniAppId;
   drawerOpen: boolean;
+  launcherPlacement: LauncherPlacement;
   onCloseDrawer: () => void;
   onToggleRail: () => void;
   railExpanded: boolean;
   tier: RoutedLayoutTier;
 }) {
   const mobileSheetDrag = useMobileSheetDrag({
-    drawerOpen: tier === "mobile" && drawerOpen,
+    drawerOpen:
+      (tier === "mobile" || launcherPlacement === "bottom") && drawerOpen,
     onClose: onCloseDrawer,
   });
 
-  if (tier === "tablet") {
+  if (tier === "tablet" && launcherPlacement === "side") {
     return (
       <aside
         className={classNames(

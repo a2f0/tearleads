@@ -28,6 +28,7 @@ import {
 } from "../../window/WindowSidebarContext";
 import { TestSystemBanner } from "../TestSystemBanner";
 import "./RoutedPane.css";
+import type { LauncherPlacement } from "./LauncherPlacement";
 import { RoutedPaneAppBar } from "./RoutedPaneAppBar";
 import { ROUTED_PANE_NAV_PANEL_ID, RoutedPaneNav } from "./RoutedPaneNav";
 import { RoutedPaneOverlayHostProvider } from "./RoutedPaneOverlayHost";
@@ -70,14 +71,14 @@ export function resolveRoutedActiveMiniAppId(
 /**
  * The routed shell's bottom taskbar — the routed counterpart of the windowed
  * pane footer. Present in both tiers: the centered Tearleads logo is the menu
- * affordance (opening the launcher sheet on mobile, revealing the rail on
- * tablet) and the corner hosts the windowed/routed switch so the layout can be
- * flipped back to windows from inside the routed shell. On mobile it is hidden
- * while a text-editing control has focus to leave room for the software
- * keyboard.
+ * affordance (opening the launcher sheet on mobile or in bottom mode, revealing
+ * the rail in tablet side mode). The corner hosts the windowed/routed switch.
+ * On mobile it hides while a text-editing control has focus to leave room for
+ * the software keyboard.
  */
 function RoutedPaneTaskBar({
   tier,
+  launcherPlacement,
   hidden,
   drawerOpen,
   onToggleDrawer,
@@ -85,19 +86,20 @@ function RoutedPaneTaskBar({
   onToggleRail,
 }: {
   tier: RoutedLayoutTier;
+  launcherPlacement: LauncherPlacement;
   hidden: boolean;
   drawerOpen: boolean;
   onToggleDrawer: () => void;
   railExpanded: boolean;
   onToggleRail: () => void;
 }) {
-  const isMobile = tier === "mobile";
-  const expanded = isMobile ? drawerOpen : railExpanded;
-  // The mobile launcher sheet stays mounted (just hidden), so keep its
-  // disclosure relationship wired regardless of open state. The tablet rail's
+  const usesSheet = tier === "mobile" || launcherPlacement === "bottom";
+  const expanded = usesSheet ? drawerOpen : railExpanded;
+  // The launcher sheet stays mounted (just hidden), so keep its disclosure
+  // relationship wired regardless of open state. The tablet rail's
   // nav panel only exists while expanded, so reference it only then (mirroring
   // the rail toggle) rather than pointing aria-controls at an absent element.
-  const controls = isMobile
+  const controls = usesSheet
     ? "routed-pane-sheet"
     : expanded
       ? ROUTED_PANE_NAV_PANEL_ID
@@ -111,7 +113,7 @@ function RoutedPaneTaskBar({
         aria-label="Menu"
         className="routed-pane-taskbar-menu-button"
         type="button"
-        onClick={isMobile ? onToggleDrawer : onToggleRail}
+        onClick={usesSheet ? onToggleDrawer : onToggleRail}
       >
         <TearleadsLogo className="routed-pane-taskbar-menu-logo" />
       </button>
@@ -124,9 +126,8 @@ function RoutedPaneTaskBar({
 }
 
 // Reset the tier-specific overlays when the layout crosses the breakpoint
-// (resize / rotation): the nav drawer only exists on mobile, and the expanded
-// sidebar becomes a full-screen dialog on mobile, so neither should linger open
-// into a tier where it would cover or no longer fit the content.
+// (resize / rotation): the bottom sheet belongs to mobile or tablet bottom
+// mode, and the expanded sidebar becomes a full-screen dialog on mobile.
 function useCollapseOverlaysOnTierChange({
   closeDrawer,
   closeSidebar,
@@ -152,7 +153,9 @@ function useCollapseOverlaysOnTierChange({
 interface RoutedPaneSurfaceProps {
   activeAppId: MiniAppId;
   ActiveMiniApp: ComponentType;
+  launcherPlacement: LauncherPlacement;
   navigationRailExpanded: boolean;
+  onToggleLauncherPlacement: () => void;
   onToggleNavigationRail: () => void;
   tier: RoutedLayoutTier;
 }
@@ -160,7 +163,9 @@ interface RoutedPaneSurfaceProps {
 function RoutedPaneSurface({
   activeAppId,
   ActiveMiniApp,
+  launcherPlacement,
   navigationRailExpanded,
+  onToggleLauncherPlacement,
   onToggleNavigationRail,
   tier,
 }: RoutedPaneSurfaceProps) {
@@ -193,6 +198,10 @@ function RoutedPaneSurface({
   const closeSidebar = useCallback(() => setSidebarExpanded(false), []);
   const toggleDrawer = useCallback(() => setDrawerOpen(invertBoolean), []);
   const closeDrawer = useCallback(() => setDrawerOpen(false), []);
+  const moveLauncher = useCallback(() => {
+    closeDrawer();
+    onToggleLauncherPlacement();
+  }, [closeDrawer, onToggleLauncherPlacement]);
 
   useCollapseOverlaysOnTierChange({ closeDrawer, closeSidebar, tier });
 
@@ -202,12 +211,15 @@ function RoutedPaneSurface({
     <section
       className={`routed-pane routed-pane--${tier}`}
       data-keyboard={mobileKeyboardVisible ? "open" : "closed"}
+      data-launcher-placement={launcherPlacement}
       data-sidebar={sidebarVisible ? "open" : "closed"}
       role="application"
     >
       <RoutedPaneAppBar
         activeAppId={activeAppId}
         hasSidebar={hasSidebar}
+        launcherPlacement={launcherPlacement}
+        onToggleLauncherPlacement={moveLauncher}
         onToggleSidebar={toggleSidebar}
         sidebarExpanded={sidebarExpanded}
         tier={tier}
@@ -215,6 +227,7 @@ function RoutedPaneSurface({
       <RoutedPaneNav
         activeAppId={activeAppId}
         drawerOpen={drawerOpen}
+        launcherPlacement={launcherPlacement}
         onCloseDrawer={closeDrawer}
         onToggleRail={onToggleNavigationRail}
         railExpanded={navigationRailExpanded}
@@ -249,6 +262,7 @@ function RoutedPaneSurface({
       <RoutedPaneTaskBar
         drawerOpen={drawerOpen}
         hidden={mobileKeyboardVisible}
+        launcherPlacement={launcherPlacement}
         onToggleDrawer={toggleDrawer}
         onToggleRail={onToggleNavigationRail}
         railExpanded={navigationRailExpanded}
@@ -276,6 +290,8 @@ function RoutedPaneWithRegistries(props: RoutedPaneSurfaceProps) {
 export function RoutedPane() {
   const { userId } = useCryptoSession();
   const tier = useRoutedLayoutTier();
+  const [launcherPlacement, setLauncherPlacement] =
+    useState<LauncherPlacement>("side");
   const [navigationRailExpanded, setNavigationRailExpanded] = useState(false);
   const {
     route: { appId },
@@ -290,13 +306,19 @@ export function RoutedPane() {
     () => setNavigationRailExpanded(invertBoolean),
     [],
   );
+  const toggleLauncherPlacement = useCallback(() => {
+    setNavigationRailExpanded(false);
+    setLauncherPlacement((current) => (current === "side" ? "bottom" : "side"));
+  }, []);
 
   return (
     <RoutedPaneWithRegistries
       key={activeAppId}
       activeAppId={activeAppId}
       ActiveMiniApp={ActiveMiniApp}
+      launcherPlacement={launcherPlacement}
       navigationRailExpanded={navigationRailExpanded}
+      onToggleLauncherPlacement={toggleLauncherPlacement}
       tier={tier}
       onToggleNavigationRail={toggleNavigationRail}
     />

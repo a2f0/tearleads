@@ -3,6 +3,7 @@ import {
   expectActionBelowField,
   expectWindowedInputClamps,
 } from "./trackerAssertions";
+import { openWindowedDesktop } from "./windowedDesktop";
 
 function visiblePane(page: Page): Locator {
   return page.locator(".pane:not(.pane-hidden)").first();
@@ -17,7 +18,7 @@ async function openExplorerWindow(page: Page): Promise<{
   toolbar: Locator;
 }> {
   await page.setViewportSize({ width: 1400, height: 900 });
-  await page.goto("/");
+  await openWindowedDesktop(page);
 
   const pane = visiblePane(page);
   await expect(pane).toBeVisible({ timeout: 30_000 });

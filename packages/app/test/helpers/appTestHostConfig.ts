@@ -44,6 +44,8 @@ export function createTestAppHostConfig({
         workerConstructor: MockWorker,
       }),
     profile: autoProvisionIdentity ? profile : withManualIdentity(profile),
+    // Existing full-app smoke tests exercise the windowed shell explicitly.
+    navigationMode: "windowed",
     wsUrl: "ws://localhost:3002",
     ...options,
   });

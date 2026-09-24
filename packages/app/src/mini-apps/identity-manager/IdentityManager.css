@@ -14,11 +14,11 @@
  * The 34rem floor keeps the desktop *window* from collapsing its columns, but
  * it must not apply in the routed mobile/tablet shell — there the app has to
  * reflow to the viewport instead of forcing the whole pane to scroll sideways.
- * The windowed layout only exists at/above MOBILE_BREAKPOINT_PX (see
- * navigation/breakpoints.ts), so scope the minimum to that viewport range.
+ * Scope the minimum to wide windowed layouts; routed tablets can also be wider
+ * than 1024px.
  */
 @media (min-width: 1024px) {
-  .identity-manager {
+  :root[data-navigation-mode="windowed"] .identity-manager {
     min-width: 34rem;
   }
 }
@@ -131,7 +131,9 @@
  * scroll. Scope it to the windowed layout, matching `.identity-manager` above.
  */
 @media (min-width: 1024px) {
-  .identity-manager-session-table .mini-app-table {
+  :root[data-navigation-mode="windowed"]
+    .identity-manager-session-table
+    .mini-app-table {
     min-width: 34rem;
   }
 }

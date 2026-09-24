@@ -1,4 +1,8 @@
 import { expect, type Page } from "@playwright/test";
+import {
+  openWindowedDesktop,
+  switchToWindowedDesktop,
+} from "./windowedDesktop";
 
 function encodePdf(objects: string[]): Buffer {
   let pdf = "%PDF-1.4\n";
@@ -82,7 +86,11 @@ export async function uploadAndOpenPdf(
   buffer: Buffer,
   navigate = true,
 ) {
-  if (navigate) await page.goto("/");
+  if (navigate) {
+    await openWindowedDesktop(page);
+  } else {
+    await switchToWindowedDesktop(page);
+  }
   await page.locator(".pane-footer-menu-button").first().click();
   await page
     .locator(".menu")

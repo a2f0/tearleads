@@ -1,4 +1,5 @@
 import { expect, type Locator, type Page, test } from "@playwright/test";
+import { openWindowedDesktop } from "./windowedDesktop";
 
 /*
  * A tracker's index (list) view is one table with one set of sortable column
@@ -77,7 +78,7 @@ test("windowed tracker index draws its readings as one column grid", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 1400, height: 900 });
-  await page.goto("/");
+  await openWindowedDesktop(page);
 
   const pane = page.locator(".pane:not(.pane-hidden)").first();
   await expect(pane).toBeVisible({ timeout: 30_000 });

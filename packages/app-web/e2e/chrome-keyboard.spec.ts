@@ -1,10 +1,11 @@
 import { expect, test } from "@playwright/test";
+import { openWindowedDesktop } from "./windowedDesktop";
 
 test("desktop launcher supports keyboard selection, dismissal and taskbar state", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
-  await page.goto("/");
+  await openWindowedDesktop(page);
   const launcher = page
     .locator(".pane:not(.pane-hidden) .pane-footer-menu-button")
     .first();
@@ -50,7 +51,7 @@ test("Tab leaves a popover through its trigger without cycling through a closed 
   page,
 }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
-  await page.goto("/");
+  await openWindowedDesktop(page);
   const launcher = page
     .locator(".pane:not(.pane-hidden) .pane-footer-menu-button")
     .first();

@@ -3,7 +3,7 @@
 }
 
 @media (min-width: 1024px) {
-  .root-console {
+  :root[data-navigation-mode="windowed"] .root-console {
     min-width: 34rem;
   }
 }

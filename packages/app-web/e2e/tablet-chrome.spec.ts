@@ -143,6 +143,37 @@ const PICTURE_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="300" height=
 // would show it. Assert the drawn boxes.
 const TABLET_VIEWPORT = { height: 1000, width: 900 } as const;
 
+test("desktop tablet launcher can open from the bottom", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/");
+
+  const pane = page.locator(".routed-pane--tablet");
+  await expect(pane).toBeVisible();
+  await expect(pane).toHaveAttribute("data-launcher-placement", "side");
+  await page.getByRole("button", { name: "Move launcher to bottom" }).click();
+  await expect(pane).toHaveAttribute("data-launcher-placement", "bottom");
+  await expect(page.locator(".routed-pane-rail")).toHaveCount(0);
+
+  await page.getByRole("button", { name: "Menu", exact: true }).click();
+  const sheet = page.locator(".routed-pane-sheet");
+  await expect(sheet).toHaveAttribute("data-open", "true");
+  await expect(sheet).toHaveCSS("transform", "matrix(1, 0, 0, 1, 0, 0)");
+  const box = await sheet.boundingBox();
+  expect(box).not.toBeNull();
+  expect(box?.y).toBeGreaterThan(300);
+  expect((box?.y ?? 0) + (box?.height ?? 0)).toBeCloseTo(900, 0);
+
+  await sheet.getByRole("link", { name: "Contacts" }).click();
+  await expect(pane).toHaveAttribute("data-launcher-placement", "bottom");
+  await expect(page.locator(".routed-pane-sheet")).toHaveAttribute(
+    "data-open",
+    "false",
+  );
+  await page.getByRole("button", { name: "Move launcher to side" }).click();
+  await expect(pane).toHaveAttribute("data-launcher-placement", "side");
+  await expect(page.locator(".routed-pane-rail")).toBeVisible();
+});
+
 test("tablet image viewer fills the content pane, not the screen", async ({
   page,
 }) => {

@@ -5,8 +5,7 @@ import type { AppNavigationMode } from "./AppNavigationMode";
 type NavigationModeOverride = AppNavigationMode | null;
 
 interface NavigationModeOverrideContextValue {
-  // The manual windowed/routed choice, or `null` to defer to automatic
-  // viewport/pointer detection.
+  // The manual windowed/routed choice, or `null` to use the host/default mode.
   override: NavigationModeOverride;
   setOverride: (next: NavigationModeOverride) => void;
 }
@@ -21,9 +20,8 @@ const navigationModeOverrideContext =
  * whole app (in Layout) so the windowed footer switch and routed taskbar switch
  * drive the one choice — and so the layout reads from the same source.
  *
- * The override is intentionally in-memory only: it resets to `null` (auto) on a
- * full reload, so viewport/pointer detection resumes and a mode forced for a
- * quick preview never sticks silently.
+ * The override is intentionally in-memory only: it resets to `null` on a full
+ * reload, so the host/default mode resumes.
  */
 export function NavigationModeOverrideProvider({
   children,

@@ -442,8 +442,8 @@ test("capture two-peer note blame", async ({ page }, testInfo) => {
     undefined,
     { timeout: 30_000 },
   );
+  await switchToWindowed(page);
   if (layout !== "web") {
-    await switchToWindowed(page);
     await page.setViewportSize(SETUP_VIEWPORT);
   }
 

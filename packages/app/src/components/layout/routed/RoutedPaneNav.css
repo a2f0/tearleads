@@ -1,6 +1,6 @@
 /*
  * Routed shell navigation surfaces: the tablet rail's app-link panel, the rail
- * itself, and the mobile bottom-sheet app launcher with its scrim. Shell grid,
+ * itself, and the bottom-sheet app launcher with its scrim. Shell grid,
  * app bar, main, taskbar, and the shared `.routed-pane-iconbutton` live in
  * RoutedPane.css; the tier tokens (--routed-rail-width,
  * --routed-rail-collapsed-width, ...) are declared there on .routed-pane and
@@ -103,7 +103,7 @@
   scrollbar-gutter: var(--scrollbar-gutter);
 }
 
-/* === Mobile bottom sheet + scrim === */
+/* === Bottom sheet + scrim === */
 
 .routed-pane-scrim {
   position: absolute;

@@ -1,4 +1,5 @@
 import { expect, type Locator, test } from "@playwright/test";
+import { switchToWindowedDesktop } from "./windowedDesktop";
 
 async function readAppearance(checkbox: Locator) {
   return checkbox.evaluate((element) => {
@@ -31,6 +32,7 @@ for (const colorScheme of ["light", "dark"] as const) {
         );
         await page.goto(mobile ? "/app/backup-restore" : "/");
         if (!mobile) {
+          await switchToWindowedDesktop(page);
           const pane = page.locator(".pane:not(.pane-hidden)").first();
           await expect(pane.locator(".pane-footer")).toBeVisible();
           await page
