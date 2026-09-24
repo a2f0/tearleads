@@ -14,6 +14,7 @@ export const trustedContainerDocumentTombstones = {
     inputs: ReadonlyArray<DiscoveredDocumentCandidate>,
   ) => ({
     inputs: inputs.map(({ listedContainerIds: _listed, ...input }) => input),
+    isCurrent: async () => true,
     commit: async () => true,
   }),
   holdContainerDocumentTombstones: async () => {},

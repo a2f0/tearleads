@@ -169,6 +169,8 @@ export interface DiscoverContainerDocumentsOptions
     generation: number,
   ) => Promise<{
     inputs: ReadonlyArray<DiscoveredDocumentInput>;
+    /** False once a remote trust reset cancels this listing pass. */
+    isCurrent: () => Promise<boolean>;
     /** Acknowledge only after local apply; true means no pending candidates remain. */
     commit: () => Promise<boolean>;
   }>;

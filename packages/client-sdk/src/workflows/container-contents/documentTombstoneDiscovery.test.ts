@@ -92,6 +92,7 @@ async function seed(execSql: ExecSql) {
     beginDocumentDiscovery: async () => 1,
     verifyDiscoveredDocuments: async () => ({
       inputs: [],
+      isCurrent: async () => true,
       commit: async () => true,
     }),
   };

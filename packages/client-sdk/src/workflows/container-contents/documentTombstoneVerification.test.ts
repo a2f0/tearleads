@@ -221,7 +221,7 @@ for (const listedContainer of [
   });
 }
 
-test("a tampered listing head cannot write placement or advance its watermark", async () => {
+test("a tampered listing head queues evidence before advancing its watermark", async () => {
   const harness = await createVerificationHarness((projection) => ({
     ...projection,
     documentManifest: {

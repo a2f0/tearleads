@@ -31,6 +31,7 @@ export interface CachedDiscoveryHead {
 }
 export interface DocumentDiscoveryEvidenceStore {
   begin(): Promise<number>;
+  isCurrent(generation: number): Promise<boolean>;
   stage(
     inputs: readonly DiscoveredDocumentCandidate[],
     generation: number,
@@ -111,6 +112,8 @@ class SqlDocumentDiscoveryEvidenceStore
     });
     return generation;
   };
+  isCurrent = async (generation: number) =>
+    isDocumentDiscoveryGenerationCurrent(await this.read(), generation);
   stage = (
     inputs: readonly DiscoveredDocumentCandidate[],
     generation: number,

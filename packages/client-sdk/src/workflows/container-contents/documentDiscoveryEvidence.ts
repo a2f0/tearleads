@@ -69,8 +69,9 @@ export function createDiscoveredDocumentVerifier(
   onPendingDiscovery?: ((delayMs: number) => void) | undefined,
 ): DiscoverContainerDocumentsOptions["verifyDiscoveredDocuments"] {
   return async (inputs, containerIds, generation) => {
+    const isCurrent = () => store.isCurrent(generation);
     if (!(await store.stage(inputs, generation)))
-      return { inputs: [], commit: async () => true };
+      return { inputs: [], isCurrent, commit: async () => true };
     const candidates = groupPendingDocumentDiscoveries(
       await store.pending(containerIds, HEAD_LINK_SET_LOADS_PER_RUN),
     );
@@ -105,6 +106,7 @@ export function createDiscoveredDocumentVerifier(
     );
     return {
       inputs: [...verified.values()],
+      isCurrent,
       commit: async () => {
         await store.acknowledge(settled, generation);
         const retryDelay = await store.retryDelay(containerIds);

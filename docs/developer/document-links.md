@@ -69,6 +69,10 @@ Listing discovery retains candidates durably before advancing watermarks. A
 durable local request sequence orders overlapping listings; untrusted server
 epochs cannot prevent a newer request from replacing a poisoned candidate.
 Each pass verifies at most 32 candidates with four concurrent head loads.
+A cold first sync needs one writer-projection GET per distinct document and
+roughly one reconciliation pass per 32 candidate rows; each extra pass repeats
+the listing and delta reconciliation. Explicit discovery calls run one bounded
+pass; later calls or background reconciliation resume the durable remainder.
 Signed heads are cached by document id and exact manifest hash, so unchanged
 listings reuse verified links. Unavailable candidates retry independently with
 the tombstone backoff (fifteen minutes, doubling to thirty-two hours);
@@ -87,4 +91,6 @@ never signed deletion evidence for an existing placement. Candidate lanes are
 grouped by document before verification, and malformed listing epochs are skipped
 before persistence. Remote trust reset clears the verified cache and scoped
 candidates, and advances a local generation fence so an earlier request cannot
-repopulate the cache. Request ordinals stay monotone across resets.
+repopulate the cache. A canceled pass also skips placement apply, watermark
+advancement, and full-listing callbacks, including in other organizations.
+Request ordinals stay monotone across resets.

@@ -282,6 +282,7 @@ export async function discoverContainerDocuments(
     [containerId],
     generation,
   );
+  if (!(await verification.isCurrent())) return null;
   const verifiedInputs = verification.inputs;
   const discoveredDocuments = verifiedInputs.length
     ? await upsertDiscoveredDocuments(verifiedInputs)
@@ -306,6 +307,7 @@ export async function discoverContainerDocuments(
   });
 
   const complete = await verification.commit();
+  if (!(await verification.isCurrent())) return null;
   await saveAppliedContainerDocumentWatermark({
     containerId,
     listedDocuments,
@@ -377,6 +379,7 @@ export async function discoverAllContainerDocuments(
     uniqueContainerIds,
     generation,
   );
+  if (!(await verification.isCurrent())) return null;
   const discoveredDocumentInputs = verification.inputs;
   const discoveredDocuments =
     discoveredDocumentInputs.length === 0
@@ -408,6 +411,7 @@ export async function discoverAllContainerDocuments(
   });
 
   const complete = await verification.commit();
+  if (!(await verification.isCurrent())) return null;
 
   await Promise.all(
     listedDocumentsByContainer.map(({ containerId, listedDocuments }) =>
