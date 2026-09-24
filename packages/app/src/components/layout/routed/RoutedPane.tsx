@@ -334,12 +334,10 @@ export function RoutedPane() {
   );
   const toggleLauncherPlacement = useCallback(() => {
     setNavigationRailExpanded(false);
-    setLauncherPlacement((current) => {
-      const next = current === "side" ? "bottom" : "side";
-      saveLauncherPlacement(next);
-      return next;
-    });
-  }, []);
+    const next = launcherPlacement === "side" ? "bottom" : "side";
+    setLauncherPlacement(next);
+    saveLauncherPlacement(next);
+  }, [launcherPlacement]);
 
   return (
     <RoutedPaneWithRegistries

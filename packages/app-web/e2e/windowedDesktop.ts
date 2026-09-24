@@ -1,6 +1,10 @@
 import { expect, type Page } from "@playwright/test";
 
 export async function switchToWindowedDesktop(page: Page): Promise<void> {
+  await page
+    .locator(".pane:not(.pane-hidden), .routed-pane")
+    .first()
+    .waitFor({ state: "visible", timeout: 30_000 });
   const pane = page.locator(".pane:not(.pane-hidden)").first();
   if (!(await pane.isVisible())) {
     await page

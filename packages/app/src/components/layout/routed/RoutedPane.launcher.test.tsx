@@ -1,5 +1,5 @@
 import { afterEach, expect, test } from "bun:test";
-import { fireEvent } from "@testing-library/react";
+import { act, fireEvent } from "@testing-library/react";
 import {
   forceMobileRoutedTier,
   forceTabletRoutedTier,
@@ -66,3 +66,30 @@ test("mobile launcher stays at the bottom without a placement control", () => {
     restoreMatchMedia();
   }
 });
+
+for (const tier of ["tablet", "mobile"] as const) {
+  test(`${tier} bottom launcher closes with Escape and restores focus`, () => {
+    const restoreMatchMedia =
+      tier === "tablet" ? forceTabletRoutedTier() : forceMobileRoutedTier();
+    const view = renderRoutedPane();
+
+    try {
+      if (tier === "tablet") {
+        fireEvent.click(
+          view.getByRole("button", { name: "Move launcher to bottom" }),
+        );
+      }
+      const menu = view.getByRole("button", { name: "Menu" });
+      act(() => menu.focus());
+      fireEvent.click(menu);
+      expect(menu.getAttribute("aria-expanded")).toBe("true");
+
+      act(() => fireEvent.keyDown(document, { key: "Escape" }));
+      expect(menu.getAttribute("aria-expanded")).toBe("false");
+      expect(document.activeElement).toBe(menu);
+    } finally {
+      view.unmount();
+      restoreMatchMedia();
+    }
+  });
+}

@@ -23,6 +23,7 @@ const contentTypes: Record<string, string> = {
 };
 
 async function assertDemoLayout(page: Page): Promise<void> {
+  const originalViewport = page.viewportSize();
   await expect(page.locator(".layout--demo-peer-split")).toBeVisible();
   await expect(
     page.getByRole("button", { name: "Switch to windowed layout" }),
@@ -34,6 +35,9 @@ async function assertDemoLayout(page: Page): Promise<void> {
   await expect(page.locator(".layout--routed")).toBeVisible();
   await page.setViewportSize({ width: 1440, height: 900 });
   await expect(page.locator(".layout--demo-peer-split")).toBeVisible();
+  if (originalViewport) {
+    await page.setViewportSize(originalViewport);
+  }
 }
 
 for (const variant of ["app", "demo"]) {

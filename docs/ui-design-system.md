@@ -41,8 +41,9 @@ windowed and routed shells via the taskbar/footer control
 shell is active (`navigation/useNavigationModeDocumentAttribute.ts`). All touch
 sizing hangs off that attribute — deliberately NOT `@media (pointer: coarse)`,
 because an iPad with a mouse reports a fine pointer but still renders the touch
-shell. Stamping the root element also lets portaled menus and modals inherit
-the sizing.
+shell. The routed shell is also the desktop default, so mouse users get these
+sizes until they choose windowed mode. Stamping the root element also lets
+portaled menus and modals inherit the sizing.
 
 Two Apple HIG rules drive the values (see the comment block in
 `packages/ui/src/styles.css`):
@@ -70,8 +71,8 @@ touches a screen edge absorbs that edge's inset**:
 - top — the frame header (`.tearleads-header`);
 - bottom — the routed taskbar and bottom sheet (`RoutedPane.css`), and the
   frame footer when present;
-- left — the tablet nav rail, or the app bar / taskbar / main content on the
-  mobile tier (the rail absorbs it on tablet);
+- left — the tablet nav rail in side mode; the app bar, taskbar, main content,
+  and sidebar in tablet bottom mode or on mobile;
 - right — the app bar, taskbar, main content, and the mobile sidebar drawer.
 
 Vertical sizing uses `100dvh` (with a `100vh` fallback) so iOS Safari's
