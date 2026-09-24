@@ -41,15 +41,18 @@ const TARGET_ICON = {
 export function NavigationModeSwitch({
   mode,
   className,
+  allowWindowed = false,
 }: {
   mode: AppNavigationMode;
   className?: string | undefined;
+  allowWindowed?: boolean | undefined;
 }) {
   const override = useOptionalNavigationModeOverride();
   if (
     !override ||
     isCapacitor() ||
     (mode === "routed" &&
+      !allowWindowed &&
       !isWindowedLayoutEligible(readAppNavigationEnvironment()))
   ) {
     return null;

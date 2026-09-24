@@ -90,6 +90,11 @@ for (const tier of ["tablet", "mobile"] as const) {
       act(() => fireEvent.keyDown(document, { key: "Escape" }));
       expect(menu.getAttribute("aria-expanded")).toBe("false");
       expect(document.activeElement).toBe(menu);
+
+      fireEvent.click(menu);
+      fireEvent.click(view.getByRole("button", { name: "Close menu" }));
+      expect(menu.getAttribute("aria-expanded")).toBe("false");
+      expect(document.activeElement).toBe(menu);
     } finally {
       view.unmount();
       restoreMatchMedia();

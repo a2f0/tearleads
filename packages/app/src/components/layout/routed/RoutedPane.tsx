@@ -101,6 +101,7 @@ function RoutedPaneTaskBar({
   railExpanded: boolean;
   onToggleRail: () => void;
 }) {
+  const { navigationMode } = useAppHostConfig();
   const usesSheet = tier === "mobile" || launcherPlacement === "bottom";
   const expanded = usesSheet ? drawerOpen : railExpanded;
   // The launcher sheet stays mounted (just hidden), so keep its disclosure
@@ -127,7 +128,10 @@ function RoutedPaneTaskBar({
         <TearleadsLogo className="routed-pane-taskbar-menu-logo" />
       </button>
       <div className="routed-pane-taskbar-end">
-        <NavigationModeSwitch mode="routed" />
+        <NavigationModeSwitch
+          allowWindowed={navigationMode === "windowed"}
+          mode="routed"
+        />
         <SyncStatusIndicator />
       </div>
     </footer>
@@ -157,6 +161,25 @@ function useCollapseOverlaysOnTierChange({
       closeSidebar();
     }
   }, [tier, closeSidebar]);
+}
+
+function useEscapeToDismissDrawer(
+  drawerOpen: boolean,
+  dismissDrawer: () => void,
+) {
+  useEffect(() => {
+    if (!drawerOpen) {
+      return;
+    }
+    const dismissOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape" && !event.defaultPrevented) {
+        event.preventDefault();
+        dismissDrawer();
+      }
+    };
+    document.addEventListener("keydown", dismissOnEscape);
+    return () => document.removeEventListener("keydown", dismissOnEscape);
+  }, [dismissDrawer, drawerOpen]);
 }
 
 interface RoutedPaneSurfaceProps {
@@ -208,20 +231,11 @@ function RoutedPaneSurface({
   const closeSidebar = useCallback(() => setSidebarExpanded(false), []);
   const toggleDrawer = useCallback(() => setDrawerOpen(invertBoolean), []);
   const closeDrawer = useCallback(() => setDrawerOpen(false), []);
-  useEffect(() => {
-    if (!drawerOpen) {
-      return;
-    }
-    const dismissOnEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape" && !event.defaultPrevented) {
-        event.preventDefault();
-        closeDrawer();
-        menuButtonRef.current?.focus();
-      }
-    };
-    document.addEventListener("keydown", dismissOnEscape);
-    return () => document.removeEventListener("keydown", dismissOnEscape);
-  }, [closeDrawer, drawerOpen]);
+  const dismissDrawer = useCallback(() => {
+    closeDrawer();
+    menuButtonRef.current?.focus();
+  }, [closeDrawer]);
+  useEscapeToDismissDrawer(drawerOpen, dismissDrawer);
   const moveLauncher = useCallback(() => {
     closeDrawer();
     onToggleLauncherPlacement();
@@ -252,7 +266,7 @@ function RoutedPaneSurface({
         activeAppId={activeAppId}
         drawerOpen={drawerOpen}
         launcherPlacement={launcherPlacement}
-        onCloseDrawer={closeDrawer}
+        onCloseDrawer={dismissDrawer}
         onToggleRail={onToggleNavigationRail}
         railExpanded={navigationRailExpanded}
         tier={tier}

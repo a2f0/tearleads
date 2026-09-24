@@ -4,6 +4,7 @@ declare namespace NodeJS {
     /** Build identity, stamped by scripts/lib/withBuildInfoEnv.sh. */
     BUN_PUBLIC_APP_VERSION?: string;
     BUN_PUBLIC_APP_VARIANT?: string;
+    BUN_PUBLIC_NAVIGATION_MODE?: string;
     BUN_PUBLIC_GIT_SHA?: string;
     /** Stripe publishable key for the direct checkout Payment Element. */
     BUN_PUBLIC_STRIPE_PUBLISHABLE_KEY?: string;

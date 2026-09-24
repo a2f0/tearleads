@@ -79,3 +79,28 @@ test("the routed switch offers (and selects) the windowed layout", () => {
   expect(reloaded.getByText("windowed")).toBeTruthy();
   reloaded.unmount();
 });
+
+test("narrow screens hide the windowed switch unless the host forces windows", () => {
+  const originalWidth = Object.getOwnPropertyDescriptor(window, "innerWidth");
+  Object.defineProperty(window, "innerWidth", {
+    configurable: true,
+    value: 900,
+  });
+
+  try {
+    const view = render(
+      <NavigationModeOverrideProvider>
+        <NavigationModeSwitch mode="routed" />
+        <NavigationModeSwitch allowWindowed mode="routed" />
+      </NavigationModeOverrideProvider>,
+    );
+    expect(
+      view.getAllByRole("button", { name: "Switch to windowed layout" }),
+    ).toHaveLength(1);
+    view.unmount();
+  } finally {
+    if (originalWidth) {
+      Object.defineProperty(window, "innerWidth", originalWidth);
+    }
+  }
+});
