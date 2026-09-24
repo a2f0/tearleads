@@ -29,12 +29,17 @@ export interface CachedDiscoveryHead {
   readonly accessStateHash?: string;
   readonly linkedContainerIds: readonly string[];
 }
+interface RemovedDiscoveryPlacement {
+  readonly containerId: string;
+  readonly documentId: string;
+}
 export interface DocumentDiscoveryEvidenceStore {
   begin(): Promise<number>;
   isCurrent(generation: number): Promise<boolean>;
   stage(
     inputs: readonly DiscoveredDocumentCandidate[],
     generation: number,
+    removed?: readonly RemovedDiscoveryPlacement[],
   ): Promise<boolean>;
   pending(
     containerIds: readonly string[],
@@ -117,11 +122,12 @@ class SqlDocumentDiscoveryEvidenceStore
   stage = (
     inputs: readonly DiscoveredDocumentCandidate[],
     generation: number,
+    removed: readonly RemovedDiscoveryPlacement[] = [],
   ) => {
     return this.write(async (db) => {
       if (!(await isDocumentDiscoveryGenerationCurrent(db, generation)))
         return false;
-      if (inputs.length === 0) return true;
+      if (inputs.length === 0 && removed.length === 0) return true;
       await db.transaction(async (tx) => {
         for (const input of inputs) {
           if (!isDiscoveredDocumentCandidate(input)) continue;
@@ -155,6 +161,20 @@ class SqlDocumentDiscoveryEvidenceStore
               })
               .run();
           }
+        }
+        // These are untrusted, unapplied hints only. Removing an existing local
+        // placement still requires the separate signed tombstone evidence gate.
+        for (const row of removed) {
+          await tx
+            .delete(pending)
+            .where(
+              and(
+                eq(pending.containerId, row.containerId),
+                eq(pending.documentId, row.documentId),
+                lte(pending.generation, generation),
+              ),
+            )
+            .run();
         }
       });
       return true;

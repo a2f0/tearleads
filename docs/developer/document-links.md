@@ -6,7 +6,8 @@ wait for authentication, signing keys, a server write, or a refresh.
 
 The SDK commits the document summary, link projection, and structural intent in
 one transaction. It then publishes a placement change and schedules background
-sync. A failed local commit publishes nothing. The preferred container and content
+sync. A failed local commit publishes nothing. The preferred container and
+content
 key epoch remain unchanged.
 
 Additional link targets live in `document_intent_link_targets`, keyed by the
@@ -16,45 +17,59 @@ and an older response cannot settle a newer action. An explicit `document.link`
 discriminator distinguishes additive edits from coalesced round-trip moves.
 Multiple additions coalesce.
 Ordinary moves retain them; a replace move supersedes prior additions.
-Unlink records a removal under a new revision and cancels any queued addition for
+Unlink records a removal under a new revision and cancels any queued addition
+for
 that target. A partially successful replay cannot resurrect the removed link.
 Replay reads the parent and its targets in one serialized transaction.
 
-Replay uses current, verified writer projections to submit signed link mutations.
+Replay uses current, verified writer projections to submit signed link
+mutations.
 It adds only explicitly queued targets, preserves unrelated remote links, and
 does not restore a preferred link removed by a peer. Additions do not rotate the
 content key; queued removals require a full-history rotation proof. Network
 failures leave
-the durable intent available for retry. Permission denials and vanished containers
-use the existing structural queue's recovery policy. Successful settlement clears
+the durable intent available for retry. Permission denials and vanished
+containers
+use the existing structural queue's recovery policy. Successful settlement
+clears
 the parent intent and its targets atomically with the verified document state.
 
-Document deletion and scoped remote reset remove the associated targets. Container
+Document deletion and scoped remote reset remove the associated targets.
+Container
 reassignment retargets pending additions. Container deletion or revoked access
-prunes obsolete additions and rehomes the preferred container to a surviving link.
+prunes obsolete additions and rehomes the preferred container to a surviving
+link.
 Queued removals remain until the signed document manifest proves them absent.
 Both paths change the revision so an in-flight response cannot
 overwrite recovery. Intents without surviving work are removed; those without a
-surviving destination remain unavailable until a new local action retargets them.
+surviving destination remain unavailable until a new local action retargets
+them.
 
-Regression coverage includes local publication with an unresolved network request,
-transaction rollback, stale discovery, signed replay, retries, overlapping moves,
+Regression coverage includes local publication with an unresolved network
+request,
+transaction rollback, stale discovery, signed replay, retries, overlapping
+moves,
 multiple additions, container deletion, and Explorer's offline action.
 
 Container listings discover document ids; their placement and link arrays do not
-establish authority. Before inserting a discovered document or replacing its link
+establish authority. Before inserting a discovered document or replacing its
+link
 rows, the SDK loads and verifies its signed head, uses that head's links and
 manifest hash, and requires an epoch at least as recent as both the listing and
 local state. Unavailable evidence is retained per document for a later retry,
 allowing the listing watermark and verified siblings to advance. A signed head
 that no longer links any of the listed lanes discards that stale listing item
-only when its hash matches the listing. A different same-epoch head may lag a
+when its hash matches the listing or its epoch is strictly newer. A different
+same-epoch head may lag a
 link addition, so the candidate remains pending until the named head arrives.
-A verified terminal purge can also settle an unapplied candidate.
+A verified terminal purge can also settle an unapplied candidate. Later lane
+listing tombstones discard pending hints for that placement, without touching
+local placement rows; those still require signed removal evidence.
 Pending local moves retain their existing transaction guards.
 
 Listing tombstones likewise remove a placement only when a verified head omits
-it. A head that still links it keeps the placement visible and retains a backed-off
+it. A head that still links it keeps the placement visible and retains a
+backed-off
 retry, since even an uncached signed head can lag the listing. An unrefuted
 tombstone keeps the placement hidden without deleting it while evidence is
 unavailable. If every placement is hidden, the
@@ -63,7 +78,8 @@ records whether a pending tombstone hides its placement.
 
 Principal policy reads needed for verification return the same 403 body for an
 unknown principal and an unreadable one. Candidate container references are only
-search hints: an anchored candidate never suppresses the bounded descendant scan,
+search hints: an anchored candidate never suppresses the bounded descendant
+scan,
 and a verified readable path must justify the policy read. Stale-policy mutation
 replies carry at most 16 readable bundles. Container creation accepts successive
 repair pages, with a maximum of 16 rounds and no retry for an identical page.
@@ -91,7 +107,8 @@ A pending evidence retry is settled for the current reconciliation sweep, so it
 does not retain a force request or trigger repeated automatic pulls. A coded
 document-not-found reply discards only an unapplied discovery candidate; it is
 never signed deletion evidence for an existing placement. Candidate lanes are
-grouped by document before verification, and malformed listing epochs are skipped
+grouped by document before verification, and malformed listing epochs are
+skipped
 before persistence. Remote trust reset clears the verified cache and scoped
 candidates, and advances a local generation fence so an earlier request cannot
 repopulate the cache. Discovery checks cancellation before placement apply and

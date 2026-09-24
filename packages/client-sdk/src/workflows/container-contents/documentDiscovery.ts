@@ -7,6 +7,7 @@ import {
 } from "./containerDocumentListing";
 import { withoutDeferredDocumentLinks } from "./deferredDocumentLinks";
 import {
+  collectApplicableDocumentTombstones,
   collectDiscoveredDocumentInputs,
   getApplicableDocumentTombstones,
 } from "./documentDiscoveryInputs";
@@ -281,6 +282,7 @@ export async function discoverContainerDocuments(
     })),
     [containerId],
     generation,
+    getApplicableDocumentTombstones(listedDocuments),
   );
   if (!(await verification.isCurrent())) return null;
   const verifiedInputs = verification.inputs;
@@ -378,6 +380,7 @@ export async function discoverAllContainerDocuments(
     collectDiscoveredDocumentInputs(listedDocumentsByContainer),
     uniqueContainerIds,
     generation,
+    collectApplicableDocumentTombstones(listedDocumentsByContainer),
   );
   if (!(await verification.isCurrent())) return null;
   const discoveredDocumentInputs = verification.inputs;
@@ -405,9 +408,7 @@ export async function discoverAllContainerDocuments(
         listedDocuments ? [containerId] : [],
     ),
     store: options,
-    tombstones: listedDocumentsByContainer.flatMap(({ listedDocuments }) =>
-      listedDocuments ? getApplicableDocumentTombstones(listedDocuments) : [],
-    ),
+    tombstones: collectApplicableDocumentTombstones(listedDocumentsByContainer),
   });
 
   const complete = await verification.commit();

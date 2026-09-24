@@ -51,6 +51,11 @@ test("a lagging same-epoch head retains a link-addition candidate until the head
 
 for (const head of [
   {
+    accessEpoch: 2,
+    accessStateHash: "later-removed-head",
+    linkedContainerIds: ["source"],
+  },
+  {
     accessEpoch: 1,
     accessStateHash: "linked-head",
     linkedContainerIds: ["source"],

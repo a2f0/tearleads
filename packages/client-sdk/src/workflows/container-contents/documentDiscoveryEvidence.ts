@@ -45,7 +45,8 @@ async function verifyInput(
   if (!containerId) {
     // A same-epoch head can predate a link addition. Only the named head or
     // terminal signed purge evidence can settle a candidate without a retry.
-    return head.accessStateHash === input.accessStateHash ||
+    return head.accessEpoch > input.accessEpoch ||
+      head.accessStateHash === input.accessStateHash ||
       (!head.accessStateHash && head.accessEpoch === Number.MAX_SAFE_INTEGER)
       ? null
       : "unavailable";
@@ -75,9 +76,11 @@ export function createDiscoveredDocumentVerifier(
   store: DocumentDiscoveryEvidenceStore,
   onPendingDiscovery?: ((delayMs: number) => void) | undefined,
 ): DiscoverContainerDocumentsOptions["verifyDiscoveredDocuments"] {
-  return async (inputs, containerIds, generation) => {
+  return async (inputs, containerIds, generation, tombstones = []) => {
     const isCurrent = () => store.isCurrent(generation);
-    if (!(await store.stage(inputs, generation)))
+    const lanes = new Set(containerIds);
+    const removed = tombstones.filter((row) => lanes.has(row.containerId));
+    if (!(await store.stage(inputs, generation, removed)))
       return { inputs: [], isCurrent, commit: async () => true };
     const candidates = groupPendingDocumentDiscoveries(
       await store.pending(containerIds, HEAD_LINK_SET_LOADS_PER_RUN),

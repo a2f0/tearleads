@@ -167,6 +167,7 @@ export interface DiscoverContainerDocumentsOptions
     inputs: ReadonlyArray<DiscoveredDocumentCandidate>,
     containerIds: ReadonlyArray<string>,
     generation: number,
+    tombstones?: ReadonlyArray<ContainerDocumentTombstone>,
   ) => Promise<{
     inputs: ReadonlyArray<DiscoveredDocumentInput>;
     /** False once a remote trust reset cancels this listing pass. */

@@ -125,3 +125,11 @@ export function getApplicableDocumentTombstones(
     );
   });
 }
+
+export function collectApplicableDocumentTombstones(
+  lanes: ReadonlyArray<ListedContainerDocumentsLane>,
+): ContainerDocumentTombstone[] {
+  return lanes.flatMap(({ listedDocuments }) =>
+    listedDocuments ? getApplicableDocumentTombstones(listedDocuments) : [],
+  );
+}
