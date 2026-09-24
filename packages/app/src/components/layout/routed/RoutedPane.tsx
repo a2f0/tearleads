@@ -267,6 +267,7 @@ function RoutedPaneSurface({
         drawerOpen={drawerOpen}
         launcherPlacement={launcherPlacement}
         onCloseDrawer={dismissDrawer}
+        onNavigateRail={closeDrawer}
         onToggleRail={onToggleNavigationRail}
         railExpanded={navigationRailExpanded}
         tier={tier}

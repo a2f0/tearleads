@@ -22,6 +22,7 @@
 }
 
 .routed-pane--tablet[data-launcher-placement="bottom"] .routed-pane-sidebar {
+  width: calc(var(--routed-rail-width) + var(--safe-area-left));
   padding-inline-start: var(--safe-area-left);
 }
 

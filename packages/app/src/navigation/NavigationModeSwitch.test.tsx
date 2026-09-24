@@ -101,6 +101,8 @@ test("narrow screens hide the windowed switch unless the host forces windows", (
   } finally {
     if (originalWidth) {
       Object.defineProperty(window, "innerWidth", originalWidth);
+    } else {
+      Reflect.deleteProperty(window, "innerWidth");
     }
   }
 });

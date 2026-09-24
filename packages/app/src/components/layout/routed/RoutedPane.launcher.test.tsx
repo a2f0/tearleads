@@ -18,6 +18,17 @@ test("tablet launcher can move between side rail and bottom sheet", () => {
     const pane = view.container.querySelector(".routed-pane");
     expect(pane?.getAttribute("data-launcher-placement")).toBe("side");
 
+    fireEvent.click(view.getByRole("button", { name: "Menu" }));
+    const activeRailLink = view.container.querySelector(
+      '.routed-pane-nav-link[aria-current="page"]',
+    );
+    expect(activeRailLink).toBeInstanceOf(HTMLElement);
+    if (activeRailLink instanceof HTMLElement) {
+      act(() => activeRailLink.focus());
+      fireEvent.click(activeRailLink);
+      expect(document.activeElement).toBe(activeRailLink);
+    }
+
     fireEvent.click(
       view.getByRole("button", { name: "Move launcher to bottom" }),
     );

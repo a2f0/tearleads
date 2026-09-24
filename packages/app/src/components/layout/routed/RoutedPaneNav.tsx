@@ -237,6 +237,7 @@ export function RoutedPaneNav({
   drawerOpen,
   launcherPlacement,
   onCloseDrawer,
+  onNavigateRail,
   onToggleRail,
   railExpanded,
   tier,
@@ -245,6 +246,7 @@ export function RoutedPaneNav({
   drawerOpen: boolean;
   launcherPlacement: LauncherPlacement;
   onCloseDrawer: () => void;
+  onNavigateRail: () => void;
   onToggleRail: () => void;
   railExpanded: boolean;
   tier: RoutedLayoutTier;
@@ -282,7 +284,7 @@ export function RoutedPaneNav({
           <RoutedPaneNavPanel
             activeAppId={activeAppId}
             id={ROUTED_PANE_NAV_PANEL_ID}
-            onNavigate={onCloseDrawer}
+            onNavigate={onNavigateRail}
           />
         )}
       </aside>
