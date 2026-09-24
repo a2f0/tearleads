@@ -62,6 +62,7 @@ import {
   getOrganizationNativePurchaseEligibilityOperation,
   startOrganizationTrialOperation,
 } from "./organizationBilling";
+import { getOrganizationPolicyHistoryOperation } from "./organizationPolicyHistory";
 import {
   createOrganizationGroupOperation,
   createOrganizationOperation,
@@ -157,6 +158,7 @@ export const protocolOperations: readonly [
   typeof cancelStripeSubscriptionOperation,
   typeof getOrganizationDataUsageOperation,
   typeof getOrganizationReadModelOperation,
+  typeof getOrganizationPolicyHistoryOperation,
   typeof createOrganizationGroupOperation,
   typeof deleteOrganizationGroupOperation,
   typeof listOrganizationGroupMembersOperation,
@@ -228,6 +230,7 @@ export const protocolOperations: readonly [
   cancelStripeSubscriptionOperation,
   getOrganizationDataUsageOperation,
   getOrganizationReadModelOperation,
+  getOrganizationPolicyHistoryOperation,
   createOrganizationGroupOperation,
   deleteOrganizationGroupOperation,
   listOrganizationGroupMembersOperation,

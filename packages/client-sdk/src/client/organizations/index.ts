@@ -73,7 +73,10 @@ export type {
   OrganizationGroupMembers,
   OrganizationGroupPolicyHistory,
   OrganizationGroupSummary,
+  OrganizationPolicyGrantChange,
+  OrganizationPolicyGroupChange,
   OrganizationPolicyHistory,
+  OrganizationPolicyHistoryEntry,
   OrganizationProfile,
   OrganizationUserDetail,
 } from "../../workflows/organizations";

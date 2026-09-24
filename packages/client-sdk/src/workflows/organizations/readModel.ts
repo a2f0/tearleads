@@ -20,7 +20,10 @@ import type { OrganizationGroupPolicyHistory } from "./policyHistoryReadModel";
 export type {
   OrganizationGroupPolicyHistory,
   OrganizationGroupPolicyHistoryEntry,
+  OrganizationPolicyGrantChange,
+  OrganizationPolicyGroupChange,
   OrganizationPolicyHistory,
+  OrganizationPolicyHistoryEntry,
   OrganizationPrincipalMemberChange,
   OrganizationPrincipalMemberChangeType,
   OrganizationPrincipalPolicyHistory,

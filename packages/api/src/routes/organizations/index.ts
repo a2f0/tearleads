@@ -4,6 +4,7 @@ import { createOrganizationCreateRoute } from "./create";
 import { createOrganizationDataUsageRoute } from "./dataUsage";
 import { createOrganizationGroupsRoute } from "./groups";
 import { createOrganizationMutationsRoute } from "./mutations";
+import { createOrganizationPolicyHistoryRoute } from "./policyHistory";
 import { createOrganizationProfileRoute } from "./profile";
 import { createOrganizationReadModelRoute } from "./readModel";
 import { createOrganizationRosterRoute } from "./roster";
@@ -18,6 +19,7 @@ export function createOrganizationsRouter(deps: OrganizationsRouterDeps) {
   organizationsRouter.route("/", createOrganizationMutationsRoute(deps));
   organizationsRouter.route("/", createOrganizationProfileRoute(deps));
   organizationsRouter.route("/", createOrganizationReadModelRoute(deps));
+  organizationsRouter.route("/", createOrganizationPolicyHistoryRoute(deps));
   organizationsRouter.route("/", createOrganizationRosterRoute(deps));
 
   return organizationsRouter;

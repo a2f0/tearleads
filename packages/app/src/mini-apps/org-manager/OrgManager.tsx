@@ -124,6 +124,7 @@ function OrgManagerContent({
     return (
       <OrganizationView
         directory={model.directory}
+        groups={model.groups}
         organizationId={organizationId}
         pending={model.dataPending}
         policyHistoryPending={model.organizationPolicyHistoryPending}
