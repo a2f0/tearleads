@@ -173,6 +173,8 @@ Inspect and abort remaining multipart uploads. Check deletion API results for
 per-object errors and verify emptiness; a successful HTTP response alone does
 not prove every object was deleted. Do not bypass an unexpected retention or
 Object Lock policy; report that concrete blocker with the remaining resources.
+Some AWS CLI queries return empty stdout for an empty result. Check the command
+exit status first, then normalize that empty output before parsing JSON.
 
 Prepare, inspect, and apply the storage destruction plan through the wrapper:
 
@@ -195,8 +197,11 @@ Remove all reset overrides before generating creation plans. In production,
 apply the independent Postgres stack, wait for readiness and role creation,
 then apply the storage stack. Use `run-postgres-stack.sh` and
 `run-storage-stack.sh` with inspected plans. Confirm the new database branch ID
-differs from the old ID and its connection verifies TLS. Verify there are no
-application tables before baseline initialization, and no old blobs in storage.
+differs from the old ID and its connection verifies TLS. Use client connection
+evidence with `sslmode=verify-full`; a managed proxy's `pg_stat_ssl` backend row
+may describe a different transport leg and cannot establish client TLS. Verify
+there are no application tables before baseline initialization, and no old blobs
+in storage.
 
 For staging, generate and persist a fresh application `POSTGRES_PASSWORD` in
 the private tier file `.secrets/staging.env`, preserving its other settings,
@@ -214,7 +219,12 @@ script provisions storage and the server/local PostgreSQL. Both scripts run
 Ansible, deploy API/CLI, initialize the schema, and deploy the website/web app
 and demos. Resolve SSH from the new Terraform outputs; remove stale inherited
 generic/tier overrides unless an explicit target has been verified against the
-new node. Server IDs establish replacement even when an IP address is reused.
+new node. If the new Tailscale hostname has not resolved yet, verify the node's
+provider identity and authorized Tailscale IP before using a tier-specific SSH
+host override. Use `sync_known_host_key` in `terraform/scripts/common.sh` to
+replace stale entries with the retained host key for that IP; a probe using
+`HostKeyAlias` does not install an IP entry
+for Ansible. Server IDs establish replacement even when an IP address is reused.
 
 Verify current schema initialization and application-table emptiness before any
 test identities are created. Compare schema against the current baseline rather
