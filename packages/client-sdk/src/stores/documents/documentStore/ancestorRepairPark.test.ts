@@ -105,3 +105,13 @@ test("a hint that landed mid-pass re-runs instead of parking", () => {
   );
   expect(state.awaitingAncestorRepair).toBe(false);
 });
+
+test("an eviction resync drops the open document projection and advances its generation", () => {
+  const { events, state } = createOpenDocument();
+  state.writerProjection = {} as NonNullable<typeof state.writerProjection>;
+  const generation = state.writerProjectionGeneration;
+  events.push({ type: "resync_required", containerIds: ["leaf"] });
+  handleDocumentRemoteEvents(state, () => undefined);
+  expect(state.writerProjection).toBeNull();
+  expect(state.writerProjectionGeneration).toBe(generation + 1);
+});

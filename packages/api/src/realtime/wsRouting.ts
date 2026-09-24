@@ -309,9 +309,9 @@ export class WsEventRouter {
       const key = held.join(",");
       let frame = frames.get(key);
       if (frame === undefined) {
-        frame = serializeWsServerMessage(
-          scopeHintToInterest(event, new Set(held)),
-        );
+        const hint = scopeHintToInterest(event, new Set(held));
+        if (hint === null) continue;
+        frame = serializeWsServerMessage(hint);
         frames.set(key, frame);
       }
       sendSafely(ws, frame);

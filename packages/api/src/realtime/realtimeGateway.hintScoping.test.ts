@@ -11,7 +11,7 @@ import type { PublishedRealtimeEvent } from "./publishedRealtimeEvents";
 const DESTINATION = "00000000-0000-4000-8000-000000000003";
 const UPDATED_AT = "2026-09-13T00:00:00.000Z";
 
-test("a watcher of only the destination receives a move hint without the source", async () => {
+test("a destination-only watcher receives only a child-list refresh", async () => {
   const f = fixture({ authorize: async (_user, ids) => ids });
   await f.gateway.websocket.open(f.socket);
   await f.declare("known_containers", [DESTINATION]);
@@ -24,16 +24,13 @@ test("a watcher of only the destination receives a move hint without the source"
     updatedAt: UPDATED_AT,
   });
   expect(f.sent.at(-1)).toEqual({
-    type: "container_mutation_created",
-    containerId: CONTAINER,
-    eventType: "container.move",
-    parentId: DESTINATION,
-    updatedAt: UPDATED_AT,
+    type: "container_children_changed",
+    containerIds: [DESTINATION],
   });
   f.gateway.stop();
 });
 
-test("a watcher of only the source receives a move hint without the destination", async () => {
+test("a source-only watcher receives only a child-list refresh", async () => {
   const f = fixture({ authorize: async (_user, ids) => ids });
   await f.gateway.websocket.open(f.socket);
   await f.declare("known_containers", [OTHER]);
@@ -46,16 +43,13 @@ test("a watcher of only the source receives a move hint without the destination"
     updatedAt: UPDATED_AT,
   });
   expect(f.sent.at(-1)).toEqual({
-    type: "container_mutation_created",
-    containerId: CONTAINER,
-    eventType: "container.move",
-    previousParentId: OTHER,
-    updatedAt: UPDATED_AT,
+    type: "container_children_changed",
+    containerIds: [OTHER],
   });
   f.gateway.stop();
 });
 
-test("a root move keeps the null parent for every recipient", async () => {
+test("a child watcher keeps the null parent on a root move", async () => {
   const f = fixture({ authorize: async (_user, ids) => ids });
   await f.gateway.websocket.open(f.socket);
   await f.declare("known_containers", [CONTAINER]);
@@ -159,5 +153,39 @@ test("a revoked socket is evicted before the revoke hint is routed", async () =>
     { type: "resync_required", containerIds: [CONTAINER] },
   ]);
   expect(f.router.interestedSocketCount(CONTAINER)).toBe(0);
+  f.gateway.stop();
+});
+
+test("a move evicts a child watcher before sending its parent's generic hint", async () => {
+  const f = fixture({
+    paths: { [CONTAINER]: [OTHER, CONTAINER] },
+    authorize: async (_user, ids) => ids,
+  });
+  await f.gateway.websocket.open(f.socket);
+  await f.declare("known_containers", [CONTAINER, OTHER]);
+  const before = f.sent.length;
+  await publishContainerMutationCreated({
+    expectedEventType: "container.move",
+    origin: { sessionId: "author", userId: "owner" },
+    publish: async (event) => {
+      f.publish(event);
+    },
+    request: {
+      body: { eventType: "container.move" },
+      previousManifest: {
+        event: {},
+        manifest: {},
+        manifestHash: "previous",
+        state: { parentContainerId: OTHER },
+      },
+    },
+    response: { containerId: CONTAINER, parentId: null, updatedAt: UPDATED_AT },
+  });
+  expect(f.sent.slice(before)).toEqual([
+    { type: "resync_required", containerIds: [CONTAINER] },
+    { type: "container_children_changed", containerIds: [OTHER] },
+  ]);
+  expect(f.router.interestedSocketCount(CONTAINER)).toBe(0);
+  expect(f.router.interestedSocketCount(OTHER)).toBe(1);
   f.gateway.stop();
 });
