@@ -11,6 +11,7 @@ import {
 } from "./idleBackfill";
 import { createInitialDocumentProbe } from "./initialDocumentProbe";
 import {
+  clearPendingDiscoveryRetries,
   isCurrentReconciliationLifecycle,
   reconcileMarkedContainer,
   sweepKnownContainers,
@@ -288,6 +289,7 @@ function stopReconciliationService(
   host: ReconciliationHost,
   state: ReconciliationState,
 ): void {
+  clearPendingDiscoveryRetries(state);
   state.active = false;
   state.probeContinuationCancel?.();
   state.probeContinuationCancel = null;

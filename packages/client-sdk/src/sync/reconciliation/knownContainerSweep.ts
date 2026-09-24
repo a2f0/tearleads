@@ -18,6 +18,45 @@ interface KnownContainerSweepState extends IdleBackfillState {
   lifecycleGeneration: number;
 }
 
+const pendingRetries = new WeakMap<
+  KnownContainerSweepState,
+  Map<string, { due: number; timer: ReturnType<typeof setTimeout> }>
+>();
+
+export function clearPendingDiscoveryRetries(
+  state: KnownContainerSweepState,
+): void {
+  for (const { timer } of pendingRetries.get(state)?.values() ?? [])
+    clearTimeout(timer);
+  pendingRetries.delete(state);
+}
+
+function schedulePendingDiscovery(
+  state: KnownContainerSweepState,
+  containerId: string,
+  delayMs: number,
+): void {
+  if (!state.active) return;
+  const retries = pendingRetries.get(state) ?? new Map();
+  pendingRetries.set(state, retries);
+  const due = Date.now() + delayMs;
+  const existing = retries.get(containerId);
+  if (existing && existing.due <= due) return;
+  if (existing) clearTimeout(existing.timer);
+  const generation = state.lifecycleGeneration;
+  const timer = setTimeout(
+    () => {
+      retries.delete(containerId);
+      if (!state.active || state.lifecycleGeneration !== generation) return;
+      state.discoveredContainerIds.delete(containerId);
+      state.queue.enqueue(containerId, "idle");
+      state.lane?.requestSync();
+    },
+    Math.max(1, delayMs),
+  );
+  retries.set(containerId, { due, timer });
+}
+
 export function isCurrentReconciliationLifecycle(
   state: KnownContainerSweepState,
   generation: number,
@@ -41,6 +80,8 @@ export async function reconcileMarkedContainer(
     const reconciled = await reconcileOneContainer(host, containerId, {
       forceDocumentContentPull,
       onFullListing: state.initialDocumentProbe.captureListing(containerId),
+      onPendingDiscovery: (delayMs) =>
+        schedulePendingDiscovery(state, containerId, delayMs),
     });
     if (!reconciled) {
       state.discoveredContainerIds.delete(containerId);

@@ -8,6 +8,7 @@ import type {
   DiscoveredDocumentInput,
   DocumentSummary,
 } from "../../data/documents/documentSummary";
+import type { DiscoveredDocumentCandidate } from "../../data/persistence/documents/documentDiscoveryEvidencePersistence";
 
 export interface ListedContainerDocument {
   createdAt: string;
@@ -159,10 +160,18 @@ export interface DiscoverContainerDocumentsOptions
     tombstones: ReadonlyArray<VerifiedContainerDocumentTombstone>,
   ) => Promise<ReadonlyArray<DocumentSummary>>;
   verifyContainerDocumentTombstones: ContainerDocumentTombstoneVerifier;
-  /** Return signed placements, or null to retry without advancing watermarks. */
+  /** Allocate durable local order before fetching a listing. */
+  beginDocumentDiscovery: () => Promise<number>;
+  /** Persist pending candidates and return only signed placements. */
   verifyDiscoveredDocuments: (
-    inputs: ReadonlyArray<DiscoveredDocumentInput>,
-  ) => Promise<ReadonlyArray<DiscoveredDocumentInput> | null>;
+    inputs: ReadonlyArray<DiscoveredDocumentCandidate>,
+    containerIds: ReadonlyArray<string>,
+    generation: number,
+  ) => Promise<{
+    inputs: ReadonlyArray<DiscoveredDocumentInput>;
+    /** Acknowledge only after local apply; true means no pending candidates remain. */
+    commit: () => Promise<boolean>;
+  }>;
   cacheReferencedPrincipalPolicies?: (
     references: ReadonlyArray<ReferencedPrincipalStateResponse>,
   ) => Promise<void>;

@@ -250,6 +250,7 @@ export async function discoverContainerDocuments(
     saveContainerDocumentWatermark,
     upsertDiscoveredDocuments,
   } = options;
+  const generation = await options.beginDocumentDiscovery();
   const listedDocuments = await listAllContainerDocuments({
     containerId,
     loadContainerDocumentWatermark,
@@ -267,30 +268,36 @@ export async function discoverContainerDocuments(
     ),
   );
 
-  const verifiedInputs = await options.verifyDiscoveredDocuments(
+  const verification = await options.verifyDiscoveredDocuments(
     listedDocuments.items.map((document) => ({
       accessEpoch: document.currentAccessEpoch,
       accessStateHash: document.currentAccessStateHash,
       containerId,
+      listedContainerIds: [containerId],
       createdAt: document.createdAt,
       documentId: document.id,
       effectiveAccessLevel: document.effectiveAccessLevel,
       linkedContainerIds: document.linkedContainerIds,
     })),
+    [containerId],
+    generation,
   );
-  if (verifiedInputs === null) return null;
-  const discoveredDocuments = await upsertDiscoveredDocuments(verifiedInputs);
+  const verifiedInputs = verification.inputs;
+  const discoveredDocuments = verifiedInputs.length
+    ? await upsertDiscoveredDocuments(verifiedInputs)
+    : [];
 
-  await replaceDocumentLinksBatch(
-    await withoutDeferredDocumentLinks(
-      verifiedInputs.map((document) => ({
-        documentId: document.documentId,
-        accessEpoch: document.accessEpoch,
-        containerIds: document.linkedContainerIds,
-      })),
-      discoveredDocuments,
-    ),
-  );
+  if (verifiedInputs.length)
+    await replaceDocumentLinksBatch(
+      await withoutDeferredDocumentLinks(
+        verifiedInputs.map((document) => ({
+          documentId: document.documentId,
+          accessEpoch: document.accessEpoch,
+          containerIds: document.linkedContainerIds,
+        })),
+        discoveredDocuments,
+      ),
+    );
 
   const tombstoneDocumentSummaries = await settleContainerDocumentTombstones({
     containerIds: [containerId],
@@ -298,17 +305,22 @@ export async function discoverContainerDocuments(
     tombstones: getApplicableDocumentTombstones(listedDocuments),
   });
 
+  const complete = await verification.commit();
   await saveAppliedContainerDocumentWatermark({
     containerId,
     listedDocuments,
     saveContainerDocumentWatermark,
   });
 
-  if (listedDocuments.isFullListing) {
+  if (complete && listedDocuments.isFullListing) {
     onFullListing?.(verifiedInputs.map((document) => document.documentId));
   }
 
-  return [...discoveredDocuments, ...tombstoneDocumentSummaries];
+  return !complete &&
+    discoveredDocuments.length === 0 &&
+    tombstoneDocumentSummaries.length === 0
+    ? null
+    : [...discoveredDocuments, ...tombstoneDocumentSummaries];
 }
 
 export function discoverContainerDocumentsFromApi({
@@ -329,7 +341,7 @@ export function discoverContainerDocumentsFromApi({
 
 export async function discoverAllContainerDocuments(
   options: DiscoverAllContainerDocumentsOptions,
-): Promise<ReadonlyArray<DocumentSummary>> {
+): Promise<ReadonlyArray<DocumentSummary> | null> {
   const {
     cacheReferencedPrincipalPolicies,
     containerIds,
@@ -343,6 +355,7 @@ export async function discoverAllContainerDocuments(
     (containerId): containerId is string =>
       typeof containerId === "string" && containerId.length > 0,
   );
+  const generation = await options.beginDocumentDiscovery();
   const listedDocumentsByContainer = await listContainerDocumentLanes({
     containerIds: uniqueContainerIds,
     loadContainerDocumentWatermark,
@@ -358,10 +371,12 @@ export async function discoverAllContainerDocuments(
       ),
     ),
   );
-  const discoveredDocumentInputs = await options.verifyDiscoveredDocuments(
+  const verification = await options.verifyDiscoveredDocuments(
     collectDiscoveredDocumentInputs(listedDocumentsByContainer),
+    uniqueContainerIds,
+    generation,
   );
-  if (discoveredDocumentInputs === null) return [];
+  const discoveredDocumentInputs = verification.inputs;
   const discoveredDocuments =
     discoveredDocumentInputs.length === 0
       ? []
@@ -391,6 +406,8 @@ export async function discoverAllContainerDocuments(
     ),
   });
 
+  const complete = await verification.commit();
+
   await Promise.all(
     listedDocumentsByContainer.map(({ containerId, listedDocuments }) =>
       listedDocuments
@@ -403,7 +420,11 @@ export async function discoverAllContainerDocuments(
     ),
   );
 
-  return [...discoveredDocuments, ...tombstoneDocumentSummaries];
+  return !complete &&
+    discoveredDocuments.length === 0 &&
+    tombstoneDocumentSummaries.length === 0
+    ? null
+    : [...discoveredDocuments, ...tombstoneDocumentSummaries];
 }
 
 async function refreshAllContainerDocuments({

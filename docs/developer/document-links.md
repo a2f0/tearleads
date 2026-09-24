@@ -45,14 +45,16 @@ Container listings discover document ids; their placement and link arrays do not
 establish authority. Before inserting a discovered document or replacing its link
 rows, the SDK loads and verifies its signed head, uses that head's links and
 manifest hash, and requires an epoch at least as recent as both the listing and
-local state. Unavailable evidence leaves the listing watermark unchanged for a
-later retry. A signed head that no longer links the listed container discards that
-stale listing item. Pending local moves retain their existing transaction guards.
+local state. Unavailable evidence is retained per document for a later retry,
+allowing the listing watermark and verified siblings to advance. A signed head
+that no longer links any of the listed lanes discards that stale listing item.
+Pending local moves retain their existing transaction guards.
 
 Listing tombstones likewise remove a placement only when a verified head omits
 it. A head that still links it keeps the placement visible and retains a backed-off
-retry, since even an uncached signed head can lag the listing. Unavailable evidence
-keeps the placement hidden without deleting it. If every placement is hidden, the
+retry, since even an uncached signed head can lag the listing. An unrefuted
+tombstone keeps the placement hidden without deleting it while evidence is
+unavailable. If every placement is hidden, the
 document remains available through orphan recovery. The greenfield SQLite schema
 records whether a pending tombstone hides its placement.
 
@@ -62,3 +64,16 @@ search hints: an anchored candidate never suppresses the bounded descendant scan
 and a verified readable path must justify the policy read. Stale-policy mutation
 replies carry at most 16 readable bundles. Container creation accepts successive
 repair pages, with a maximum of 16 rounds and no retry for an identical page.
+
+Listing discovery retains candidates durably before advancing watermarks. A
+durable local request sequence orders overlapping listings; untrusted server
+epochs cannot prevent a newer request from replacing a poisoned candidate.
+Each pass verifies at most 32 candidates with four concurrent head loads.
+Signed heads are cached by document id and exact manifest hash, so unchanged
+listings reuse verified links. Unavailable candidates retry independently
+after one minute; verified siblings and tombstones settle immediately. Pending
+candidates are acknowledged only after local apply, and a newer candidate
+cannot be removed by an older attempt's acknowledgement. The background
+reconciler publishes each partial result and schedules the next batch or
+delayed retry, cancelling timers when its lifecycle stops. A refuted tombstone
+stays visible during later network failures while its evidence is retried.

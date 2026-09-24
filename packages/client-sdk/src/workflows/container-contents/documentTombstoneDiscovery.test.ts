@@ -89,7 +89,11 @@ async function seed(execSql: ExecSql) {
   return {
     ...createContainerDocumentQueriesFromRuntime({ infra: { execSql } }),
     ...createHoldStore(execSql),
-    verifyDiscoveredDocuments: async () => [],
+    beginDocumentDiscovery: async () => 1,
+    verifyDiscoveredDocuments: async () => ({
+      inputs: [],
+      commit: async () => true,
+    }),
   };
 }
 

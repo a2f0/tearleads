@@ -6,6 +6,7 @@ import {
   loadLocalDocumentAccessEpoch,
   releaseContainerDocumentTombstoneHolds,
 } from "../data/persistence/documents/containerDocumentTombstoneHoldsPersistence";
+import { createDocumentDiscoveryEvidenceStore } from "../data/persistence/documents/documentDiscoveryEvidencePersistence";
 import type { ContainerContentsStore } from "../stores/container-contents";
 import { discoverContainerDocumentsFromApi } from "../workflows/container-contents/documentDiscovery";
 import { createDiscoveredDocumentVerifier } from "../workflows/container-contents/documentDiscoveryEvidence";
@@ -23,11 +24,13 @@ export function discoverContainerDocumentsForRuntime({
   containerId,
   getContainerStore,
   onFullListing,
+  onPendingDiscovery,
   runtimeService,
 }: {
   containerId: string;
   getContainerStore: () => ContainerContentsStore;
   onFullListing?: ((documentIds: ReadonlyArray<string>) => void) | undefined;
+  onPendingDiscovery?: ((delayMs: number) => void) | undefined;
   runtimeService: InternalRuntime;
 }): Promise<ReadonlyArray<DocumentSummary> | null> {
   const input = runtimeService.workflowInput();
@@ -41,12 +44,16 @@ export function discoverContainerDocumentsForRuntime({
   const warmReferencedPrincipalPolicies =
     createRuntimePrincipalPolicyWarmer(runtime);
 
+  const evidenceStore = createDocumentDiscoveryEvidenceStore(
+    input.infra.execSql,
+  );
   const loadHead = createDocumentHeadLinkSetLoader(runtime);
   const loadEpoch = (documentId: string) =>
     loadLocalDocumentAccessEpoch(input.infra.execSql, documentId);
   return discoverContainerDocumentsFromApi({
     ...createContainerDocumentQueriesFromRuntime(runtime),
     apiClient: runtime.apiClient,
+    beginDocumentDiscovery: () => evidenceStore.begin(),
     cacheReferencedPrincipalPolicies: (references) =>
       containerOrganizationId
         ? warmReferencedPrincipalPolicies({
@@ -74,6 +81,8 @@ export function discoverContainerDocumentsForRuntime({
     verifyDiscoveredDocuments: createDiscoveredDocumentVerifier(
       loadHead,
       loadEpoch,
+      evidenceStore,
+      onPendingDiscovery,
     ),
   });
 }

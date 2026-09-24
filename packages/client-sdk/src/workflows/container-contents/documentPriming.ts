@@ -147,7 +147,9 @@ async function listPrimeRequiredLocalIdsFromRuntime(
 /**
  * Last-link orphans (docs/sync-edge-cases.md row 3): the container cascade
  * nulled their projection container and dropped their link rows, so no
- * subtree listing can route them. They are primed with a null container
+ * subtree listing can route them. Placements held for unsigned tombstones
+ * also qualify when every link is hidden; their link rows remain intact.
+ * These documents are primed with a null container
  * scope instead — the documents runtime accepts one, and the document's own
  * sync pass then resolves its fate against the server: 403 parks it (row 8),
  * a coded 404 destroys it (row 1), and a local-only orphan's create attempt

@@ -3,6 +3,7 @@ import { createTestExecSql } from "@tearleads/test-utils";
 import type { DocumentWriterProjectionResponse } from "@tearleads/validators/response";
 import { createMaterializedSyncFixture } from "../../../test/helpers/documentFixtures";
 import { createWorkflowInputFixture } from "../../../test/helpers/internalRuntimeFixtures";
+import { createDocumentDiscoveryEvidenceStore } from "../../data/persistence/documents/documentDiscoveryEvidencePersistence";
 import type { SecurityIncidentContext } from "../../data/securityIncidents";
 import { discoverContainerDocuments } from "./documentDiscovery";
 import { nullContainerDocumentWatermarks } from "./documentDiscovery.testUtils";
@@ -58,6 +59,7 @@ async function createVerificationHarness(
     },
   });
   return {
+    store: createDocumentDiscoveryEvidenceStore(database.execSql),
     close: database.close,
     evicted,
     fixture,
@@ -167,6 +169,7 @@ for (const listedContainer of [
         verifyDiscoveredDocuments: createDiscoveredDocumentVerifier(
           harness.load,
           async () => 1,
+          harness.store,
         ),
         upsertDiscoveredDocuments: async (values) => {
           inputs.push(...values);
@@ -256,6 +259,7 @@ test("a tampered listing head cannot write placement or advance its watermark", 
         verifyDiscoveredDocuments: createDiscoveredDocumentVerifier(
           harness.load,
           async () => 1,
+          harness.store,
         ),
         upsertDiscoveredDocuments: persist,
         replaceDocumentLinksBatch: replaceLinks,
@@ -264,7 +268,8 @@ test("a tampered listing head cannot write placement or advance its watermark", 
     ).toBeNull();
     expect(persist).not.toHaveBeenCalled();
     expect(replaceLinks).not.toHaveBeenCalled();
-    expect(watermark).not.toHaveBeenCalled();
+    expect(watermark).toHaveBeenCalledTimes(1);
+    expect(await harness.store.hasPending(["attacker"])).toBe(true);
     expect(harness.incidents).toHaveLength(1);
   } finally {
     harness.close();
@@ -281,19 +286,25 @@ for (const [listingEpoch, localEpoch] of [
       const verify = createDiscoveredDocumentVerifier(
         harness.load,
         async () => localEpoch,
+        harness.store,
       );
-      expect(
-        await verify([
+      const result = await verify(
+        [
           {
             accessEpoch: listingEpoch,
             accessStateHash: "listing-head",
             containerId: "materialized-sync-container",
+            listedContainerIds: ["materialized-sync-container"],
             createdAt: at,
             documentId: DOCUMENT_ID,
             linkedContainerIds: ["materialized-sync-container"],
           },
-        ]),
-      ).toBeNull();
+        ],
+        ["materialized-sync-container"],
+        await harness.store.begin(),
+      );
+      expect(result.inputs).toEqual([]);
+      expect(await result.commit()).toBe(false);
       expect(harness.incidents).toEqual([]);
     } finally {
       harness.close();

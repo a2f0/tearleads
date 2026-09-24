@@ -1,11 +1,15 @@
 import { expect, test } from "bun:test";
 import { db } from "@tearleads/api-shared/postgres";
-import { accessManifestPrincipalHeadProjection } from "@tearleads/api-shared/schema";
+import {
+  accessManifestPrincipalHeadProjection,
+  principalStatePayloads,
+} from "@tearleads/api-shared/schema";
 import { createTestUser } from "@tearleads/bob-and-alice";
 import {
   isContainerMutationResponse,
   isPrincipalPolicyBundleResponse,
 } from "@tearleads/validators/response";
+import { eq } from "drizzle-orm";
 import { grantContainerThroughReadGroup } from "../../../test/helpers/containerGroupGrant";
 import { createChildContainerFixture } from "../../../test/helpers/keyingWriterProjectionChild";
 import {
@@ -181,4 +185,16 @@ test("GET principal policy serves a reader granted above a child's group grant",
   const outsider = createTestUser();
   await registerAndAuthenticate(outsider);
   await expectDenied(await getPolicy(outsider, "group", childGroupId));
+});
+
+test("an authorized policy with a missing stored payload is a server failure", async () => {
+  const owner = createTestUser();
+  await registerAndAuthenticate(owner);
+  const organizationId = await getDefaultOrganizationId(owner.userId);
+  const { adminGroupId } = await loadOrganizationGroups(organizationId);
+  await db
+    .delete(principalStatePayloads)
+    .where(eq(principalStatePayloads.principalId, adminGroupId));
+  const response = await getPolicy(owner, "group", adminGroupId);
+  expect(response.status).toBe(500);
 });

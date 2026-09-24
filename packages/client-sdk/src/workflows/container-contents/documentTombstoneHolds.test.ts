@@ -424,6 +424,14 @@ test("a refuted tombstone stays visible and remains retryable if the head lagged
         later,
       ),
     ).toEqual([hold("folder")]);
+    await holdContainerDocumentTombstones(
+      execSql,
+      [hold("folder")],
+      later.toISOString(),
+    );
+    expect(await folderDocumentRows(execSql, readModel)).toMatchObject({
+      itemCount: 1,
+    });
     await applyContainerDocumentTombstones(execSql, [
       {
         ...hold("folder"),

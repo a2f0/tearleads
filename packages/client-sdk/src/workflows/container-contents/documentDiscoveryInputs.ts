@@ -2,8 +2,8 @@ import {
   maxEffectiveAccessLevel,
   normalizeEffectiveAccessLevel,
 } from "../../data/accessLevel";
-import type { DiscoveredDocumentInput } from "../../data/documents/documentSummary";
 import { uniqueSortedStrings } from "../../data/documents/shared/readers";
+import type { DiscoveredDocumentCandidate } from "../../data/persistence/documents/documentDiscoveryEvidencePersistence";
 import type {
   ContainerDocumentTombstone,
   ListedContainerDocument,
@@ -12,13 +12,19 @@ import type {
 } from "./documentDiscoveryTypes";
 
 function mergeDiscoveredDocumentInputs(
-  current: DiscoveredDocumentInput,
-  next: DiscoveredDocumentInput,
-): DiscoveredDocumentInput {
+  current: DiscoveredDocumentCandidate,
+  next: DiscoveredDocumentCandidate,
+): DiscoveredDocumentCandidate {
   // A lane page carries a complete link set for its epoch. Combining an old
   // root page with a newer trash page must not manufacture a newer root link.
   if (next.accessEpoch !== current.accessEpoch) {
-    return next.accessEpoch > current.accessEpoch ? next : current;
+    return {
+      ...(next.accessEpoch > current.accessEpoch ? next : current),
+      listedContainerIds: uniqueSortedStrings([
+        ...current.listedContainerIds,
+        ...next.listedContainerIds,
+      ]),
+    };
   }
   const accessStateHash =
     next.accessEpoch >= current.accessEpoch
@@ -29,6 +35,10 @@ function mergeDiscoveredDocumentInputs(
     accessEpoch: Math.max(current.accessEpoch, next.accessEpoch),
     ...(accessStateHash === undefined ? {} : { accessStateHash }),
     containerId: current.containerId,
+    listedContainerIds: uniqueSortedStrings([
+      ...current.listedContainerIds,
+      ...next.listedContainerIds,
+    ]),
     createdAt:
       current.createdAt.localeCompare(next.createdAt) <= 0
         ? current.createdAt
@@ -49,10 +59,10 @@ function mergeDiscoveredDocumentInputs(
 
 export function collectDiscoveredDocumentInputs(
   listedDocumentsByContainer: ReadonlyArray<ListedContainerDocumentsLane>,
-): DiscoveredDocumentInput[] {
+): DiscoveredDocumentCandidate[] {
   const discoveredDocumentInputsByDocumentId = new Map<
     string,
-    DiscoveredDocumentInput
+    DiscoveredDocumentCandidate
   >();
 
   for (const { containerId, listedDocuments } of listedDocumentsByContainer) {
@@ -61,10 +71,11 @@ export function collectDiscoveredDocumentInputs(
     }
 
     for (const document of listedDocuments.items) {
-      const discoveredDocumentInput: DiscoveredDocumentInput = {
+      const discoveredDocumentInput: DiscoveredDocumentCandidate = {
         accessEpoch: document.currentAccessEpoch,
         accessStateHash: document.currentAccessStateHash,
         containerId,
+        listedContainerIds: [containerId],
         createdAt: document.createdAt,
         documentId: document.id,
         effectiveAccessLevel: normalizeEffectiveAccessLevel(
@@ -75,13 +86,13 @@ export function collectDiscoveredDocumentInputs(
           ...document.linkedContainerIds,
         ]),
       };
-      const currentDiscoveredDocumentInput =
+      const currentDiscoveredDocumentCandidate =
         discoveredDocumentInputsByDocumentId.get(document.id);
       discoveredDocumentInputsByDocumentId.set(
         document.id,
-        currentDiscoveredDocumentInput
+        currentDiscoveredDocumentCandidate
           ? mergeDiscoveredDocumentInputs(
-              currentDiscoveredDocumentInput,
+              currentDiscoveredDocumentCandidate,
               discoveredDocumentInput,
             )
           : discoveredDocumentInput,

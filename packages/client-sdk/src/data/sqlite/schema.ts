@@ -17,6 +17,11 @@ import {
   documentPendingAttachments,
 } from "./documentAttachmentSchema";
 import {
+  documentDiscoveryHeads,
+  documentDiscoverySequence,
+  pendingDocumentDiscoveries,
+} from "./documentDiscoveryEvidenceSchema";
+import {
   documentOrphanBlobReclaims,
   documentOrphanBlobReclaimTable,
 } from "./documentOrphanBlobReclaims";
@@ -682,7 +687,13 @@ export const containerTables = containerTableSchemas;
 export const documentContainerProjectionTables: ReadonlyArray<SqlTableSchema> =
   [
     defineSqlTableSchema(documentContainerProjection),
-    defineSqlTableSchema(containerDocumentTombstoneHolds),
+    {
+      ...defineSqlTableSchema(containerDocumentTombstoneHolds),
+      requiredColumns: ["hidden"],
+    },
+    defineSqlTableSchema(pendingDocumentDiscoveries),
+    defineSqlTableSchema(documentDiscoveryHeads),
+    defineSqlTableSchema(documentDiscoverySequence),
   ];
 
 export const documentMoveIntentTables: ReadonlyArray<SqlTableSchema> = [

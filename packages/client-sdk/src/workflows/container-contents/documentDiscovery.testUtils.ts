@@ -1,4 +1,4 @@
-import type { DiscoveredDocumentInput } from "../../data/documents/documentSummary";
+import type { DiscoveredDocumentCandidate } from "../../data/persistence/documents/documentDiscoveryEvidencePersistence";
 import type {
   ContainerDocumentDiscoveryApi,
   ContainerDocumentPlacement,
@@ -7,11 +7,15 @@ import type {
   ListContainersResponse,
 } from "./documentDiscoveryTypes";
 
-/** Every listing tombstone is treated as verified; no holds are stored. */
+/** Listing items and tombstones are trusted here; no pending evidence is stored. */
 export const trustedContainerDocumentTombstones = {
+  beginDocumentDiscovery: async () => 1,
   verifyDiscoveredDocuments: async (
-    inputs: ReadonlyArray<DiscoveredDocumentInput>,
-  ) => inputs,
+    inputs: ReadonlyArray<DiscoveredDocumentCandidate>,
+  ) => ({
+    inputs: inputs.map(({ listedContainerIds: _listed, ...input }) => input),
+    commit: async () => true,
+  }),
   holdContainerDocumentTombstones: async () => {},
   listHeldContainerDocumentTombstones: async () => [],
   listKnownContainerDocumentPlacements: async (

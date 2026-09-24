@@ -178,6 +178,9 @@ export async function holdContainerDocumentTombstonesInTransaction(
           ? { tombstonedAt: row.tombstonedAt }
           : {
               ...row,
+              hidden: tombstone.refuted
+                ? false
+                : containerDocumentTombstoneHolds.hidden,
               attempts: sql`${containerDocumentTombstoneHolds.attempts} + 1`,
             },
       })
@@ -225,7 +228,7 @@ const holdRowSelection = {
   updatedAt: containerDocumentTombstoneHolds.updatedAt,
 };
 
-/** Every hold on the given containers, for hiding placements in views. */
+/** Every hidden hold on the given containers, for hiding placements in views. */
 export async function listContainerDocumentTombstoneHoldsInTransaction(
   handle: ClientSQLiteTransactionScope,
   containerIds: ReadonlyArray<string>,
@@ -246,7 +249,7 @@ export async function listContainerDocumentTombstoneHoldsInTransaction(
   return holds;
 }
 
-/** Every hold on the given documents, in any container. */
+/** Every hidden hold on the given documents, in any container. */
 export async function listContainerDocumentTombstoneHoldsForDocumentsInTransaction(
   handle: ClientSQLiteTransactionScope,
   documentIds: ReadonlyArray<string>,

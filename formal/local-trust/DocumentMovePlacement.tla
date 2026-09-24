@@ -100,12 +100,6 @@ ApplyTombstone ==
                   remoteLinks, remoteEpoch, attempt, attemptTarget, phase, recovering,
                   pageLinks, pageEpoch, pageReady, readLinks, readReady, readSummary>>
 
-(* A listing tombstone names a container to remove from the local link rows. *)
-(* The listing is an environment input the server controls, so the action    *)
-(* is always enabled for any local link; the signed-evidence gate admits the *)
-(* removal only when the committed (signed) link set no longer contains that *)
-(* container. Without the gate a dishonest listing deletes a link the signed *)
-(* head still has, which StablePlacement and StableView catch directly.      *)
 (* A peer unlinks the initial placement before any local move. The local
    link remains until a listing tombstone supplies the signed empty head.
    This makes the guarded apply reachable in the positive configuration. *)
@@ -116,6 +110,12 @@ PeerUnlink ==
                   attempt, attemptTarget, phase, recovering, pageLinks, pageEpoch,
                   pageReady, readLinks, readReady, readSummary>>
 
+(* A listing tombstone names a container to remove from the local link rows. *)
+(* The listing is an environment input the server controls, so the action    *)
+(* is always enabled for any local link; the signed-evidence gate admits the *)
+(* removal only when the committed (signed) link set no longer contains that *)
+(* container. Without the gate a dishonest listing deletes a link the signed *)
+(* head still has, which StablePlacement and StableView catch directly.      *)
 ApplyListingTombstone ==
   /\ ~pending
   /\ \E removed \in localLinks :
@@ -167,8 +167,8 @@ TypeOK ==
   /\ {localEpoch, remoteEpoch, pageEpoch} \subseteq 0..5
   /\ {pending, pageReady, readReady, recovering} \subseteq BOOLEAN
   /\ phase \in {"idle", "link", "unlink", "settle"}
-StablePlacement == localLinks = {desired} \/ (remoteLinks = {} /\ localLinks = {})
-StableView == visible = {desired} \/ (remoteLinks = {} /\ visible = {})
+StablePlacement == localLinks = {desired} \/ (~pending /\ remoteLinks = {} /\ localLinks = {})
+StableView == visible = {desired} \/ (~pending /\ remoteLinks = {} /\ visible = {})
 
 Next == PeerUnlink \/ QueueMove \/ StartReplay \/ Link \/ Unlink \/ Settle \/ LoseResponse
         \/ CapturePage \/ MergeCurrentPage \/ ApplyPage \/ ApplyTombstone \/ ApplyListingTombstone

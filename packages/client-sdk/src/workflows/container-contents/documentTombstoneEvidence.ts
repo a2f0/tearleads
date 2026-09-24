@@ -38,13 +38,13 @@ export interface DocumentHeadLinkSetLoaderDeps {
   readonly loadDocumentPurgeCheckpoint: typeof loadDocumentPurgeCheckpoint;
 }
 
-const HEAD_LINK_SET_LOAD_CONCURRENCY = 4;
+export const HEAD_LINK_SET_LOAD_CONCURRENCY = 4;
 /**
  * Head loads per settle. Tombstones beyond it stay unverified and are held
  * for a later, backed-off retry, so a bulk move out of a folder does not cost
  * every device an unbounded burst of fetches before the watermark advances.
  */
-const HEAD_LINK_SET_LOADS_PER_RUN = 32;
+export const HEAD_LINK_SET_LOADS_PER_RUN = 32;
 
 async function verifiedHeadLinkSet(
   runtime: ContainerContentsWorkflowRuntime,
