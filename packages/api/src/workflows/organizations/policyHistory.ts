@@ -1,16 +1,13 @@
-import type {
-  ApiDatabase,
-  DatabaseSession,
-} from "@tearleads/api-shared/postgres";
+import type { ApiDatabase } from "@tearleads/api-shared/postgres";
 import type { OrganizationPolicyHistoryResponse } from "@tearleads/validators/response";
 import {
-  getPrincipalStatePayloadForState,
-  getPrincipalStatesForReferences,
-  listPrincipalStateHistory,
-  principalStateReferenceKey,
-} from "../../access/read/principalStateStore";
-import { buildPrincipalPolicySnapshotForStateWithExecutor } from "../principals/principalPolicyBundleRecords";
-import { toPrincipalStatePayloadResponse } from "../principals/shared";
+  listGroupHistoryThroughHeads,
+  listOrganizationHistoryPayloads,
+} from "../../access/read/principalHistory";
+import {
+  toPrincipalStatePayloadResponse,
+  toPrincipalStateResponse,
+} from "../principals/shared";
 import { requireDirectOrganizationAccess } from "./access";
 import { OrganizationManagerError } from "./errors";
 import {
@@ -18,34 +15,22 @@ import {
   parseOrganizationAuthorityDescriptor,
 } from "./organizationAuthorityDescriptor";
 
-async function loadDirectoryPayloads(
-  tx: DatabaseSession,
+function collectGroupHeads(
   organizationId: string,
-  history: Awaited<ReturnType<typeof listPrincipalStateHistory>>,
+  payloads: OrganizationPolicyHistoryResponse["organizationPayloads"],
 ) {
-  const organizationPayloads: OrganizationPolicyHistoryResponse["organizationPayloads"] =
-    [];
   const groupHeads = new Map<string, OrganizationGroupHead>();
-  for (const { state } of history) {
-    const payload = await getPrincipalStatePayloadForState(
-      "organization",
-      organizationId,
-      state.stateHash,
-      tx,
-    );
-    if (!payload)
-      throw new Error("Organization policy history payload is missing");
+  for (const payload of payloads) {
     const descriptor = parseOrganizationAuthorityDescriptor(payload.ciphertext);
     if (!descriptor || descriptor.organizationId !== organizationId)
       throw new Error("Organization policy history descriptor is invalid");
-    organizationPayloads.push(toPrincipalStatePayloadResponse(payload));
     for (const head of descriptor.groupHeads) {
       const previous = groupHeads.get(head.principalId);
       if (!previous || head.version > previous.version)
         groupHeads.set(head.principalId, head);
     }
   }
-  return { organizationPayloads, groupHeads };
+  return [...groupHeads.values()];
 }
 
 /** Read existing evidence at an exact organization head; never persist labels. */
@@ -63,37 +48,46 @@ export async function runGetOrganizationPolicyHistoryWorkflow(
       organizationId: input.organizationId,
       userId: input.requesterUserId,
     });
-    const history = await listPrincipalStateHistory(
-      "organization",
-      input.organizationId,
+    const payloads = await listOrganizationHistoryPayloads(
       tx,
+      input.organizationId,
+      input.stateHash,
     );
-    const target = history.find(
-      (entry) => entry.state.stateHash === input.stateHash,
-    );
-    if (!target)
+    if (!payloads)
       throw new OrganizationManagerError(
         "Organization policy history unavailable",
         400,
       );
-    const { organizationPayloads, groupHeads } = await loadDirectoryPayloads(
-      tx,
+    const organizationPayloads = payloads.map(toPrincipalStatePayloadResponse);
+    const groupHeads = collectGroupHeads(
       input.organizationId,
-      history.filter((entry) => entry.state.version <= target.state.version),
+      organizationPayloads,
     );
-    const states = await getPrincipalStatesForReferences(
-      [...groupHeads.values()],
-      tx,
-    );
-    const groups: OrganizationPolicyHistoryResponse["groups"] = [];
-    for (const head of groupHeads.values()) {
-      const state = states.get(principalStateReferenceKey(head));
-      if (!state)
+    const history = await listGroupHistoryThroughHeads(tx, groupHeads);
+    const groups = groupHeads.map((head) => {
+      const entries = history
+        .filter((entry) => entry.state.principalId === head.principalId)
+        .map((entry) => ({
+          state: toPrincipalStateResponse(entry.state),
+          projection: entry.projection.map(({ userId, role }) => ({
+            userId,
+            role,
+          })),
+          grants: entry.grants.map(({ containerId, accessLevel }) => ({
+            containerId,
+            accessLevel,
+          })),
+        }));
+      const current = entries.pop();
+      if (!current || current.state.stateHash !== head.stateHash)
         throw new Error("Organization policy history group state is missing");
-      groups.push(
-        await buildPrincipalPolicySnapshotForStateWithExecutor(tx, state),
-      );
-    }
+      return {
+        currentState: current.state,
+        currentProjection: current.projection,
+        currentGrants: current.grants,
+        previousStates: entries,
+      };
+    });
     return {
       organizationId: input.organizationId,
       stateHash: input.stateHash,

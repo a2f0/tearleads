@@ -138,3 +138,29 @@ test("unavailable group evidence is explicit and unresolved names use identifier
     missing.queryByText(ORG_MANAGER_LABELS.noMembershipChanges),
   ).toBeNull();
 });
+
+test("group detail hides exact mirrored changes while retaining other organization changes", () => {
+  const entry = historyWithAddition.entries[0];
+  const mirrored = entry?.groupChanges?.[0]?.changes[0];
+  if (!entry || !mirrored) throw new Error("Expected membership fixture");
+  const view = renderSection({
+    history: {
+      ...historyWithAddition,
+      entries: [
+        {
+          ...entry,
+          changes: [
+            mirrored,
+            { ...mirrored, userId: "another-admin", nextRole: "admin" },
+          ],
+        },
+      ],
+    },
+    profileDisplayNamesByUserId: new Map([
+      ["member-user", "Alice"],
+      ["another-admin", "Bob"],
+    ]),
+  });
+  expect(view.getAllByText(/Alice/)).toHaveLength(1);
+  expect(view.getByText(/Bob/)).toBeTruthy();
+});

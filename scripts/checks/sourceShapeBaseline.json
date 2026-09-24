@@ -342,6 +342,10 @@
       "lines": 25864,
       "bytes": 1078507
     },
+    "packages/validators/src/response/index.ts": {
+      "lines": 504,
+      "bytes": 17676
+    },
     "packages/validators/src/response/response.test.ts": {
       "lines": 940,
       "bytes": 28424
@@ -349,10 +353,6 @@
     "scripts/architecture/subsystems.ts": {
       "lines": 765,
       "bytes": 28628
-    },
-    "packages/validators/src/response/index.ts": {
-      "lines": 504,
-      "bytes": 17676
     }
   },
   "suppressions": {

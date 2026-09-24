@@ -217,7 +217,6 @@ export const ORG_MANAGER_LABELS = {
   policyUpdated: "Policy updated.",
   policyKeyRotated: "Group key rotated",
   policyContainerAccess: "Container access",
-
   none: "None",
   noPolicyHistory: "No policy history.",
   noUserContainerLinks: "No direct user container links.",

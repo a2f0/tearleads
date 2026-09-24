@@ -1,6 +1,8 @@
 import type { ApiClient } from "@tearleads/api-client";
+import { reportKeyingVerificationErrorInCauseChain } from "../../data/keyingProjectionVerification/error";
 import { loadPrincipalPolicyCheckpoint } from "../../data/persistence/keyingCheckpointPersistence";
 import { loadPrincipalPolicyBundle } from "../../data/persistence/principalPolicyPersistence";
+import type { SecurityIncidentReporter } from "../../data/securityIncidents";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import type { TrustedUserIdentityResolver } from "../../data/trustedUserIdentity";
 import { loadLocalOrganizationPolicyHistory } from "./localReadModelDetails";
@@ -22,6 +24,7 @@ export async function loadPolicyHistoryDetails(input: {
   history: OrganizationPolicyHistory;
   resolveTrustedUserIdentity: TrustedUserIdentityResolver;
   stillCurrent: () => boolean;
+  reportSecurityIncident?: SecurityIncidentReporter | undefined;
   logError: (message: string | Error, cause?: unknown) => void;
 }): Promise<OrganizationPolicyHistory | null> {
   const access = { ...input, requesterUserId: input.currentUserId };
@@ -38,18 +41,20 @@ export async function loadPolicyHistoryDetails(input: {
     "organization",
     input.organizationId,
   );
+  if (!current()) return null;
   if (
-    !current() ||
     !bundle ||
     bundle.currentState.stateHash !== input.history.entries[0]?.stateHash
-  )
-    return null;
+  ) {
+    const latest = await loadLocalOrganizationPolicyHistory(input);
+    return current() ? latest : null;
+  }
   const retain = async (history: OrganizationPolicyHistory) => {
     const latest = await loadLocalOrganizationPolicyHistory(input);
-    return current() &&
-      latest?.entries[0]?.stateHash === bundle.currentState.stateHash
+    if (!current()) return null;
+    return latest?.entries[0]?.stateHash === bundle.currentState.stateHash
       ? history
-      : null;
+      : latest;
   };
   try {
     const response = await input.apiClient.getOrganizationPolicyHistoryResult(
@@ -79,6 +84,16 @@ export async function loadPolicyHistoryDetails(input: {
     });
     return retain(history);
   } catch (error) {
+    await reportKeyingVerificationErrorInCauseChain(
+      error,
+      input.reportSecurityIncident,
+      {
+        objectId: input.organizationId,
+        objectKind: "principal",
+        operation: "organization.policy_history.load",
+        organizationId: input.organizationId,
+      },
+    );
     input.logError(
       "Failed to load verified organization policy history details",
       error,

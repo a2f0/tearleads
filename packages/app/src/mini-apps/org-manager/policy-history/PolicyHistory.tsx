@@ -46,8 +46,23 @@ function PolicyHistoryEntry({
     user: signerUser,
     userId: entry.signerUserId,
   });
-  const showMembershipChanges =
-    !("groupChanges" in entry) || !entry.groupChanges?.length;
+  // Organization admin membership mirrors the admin group. Hide only exact
+  // duplicates; unrelated organization changes must remain visible.
+  const membershipChanges = entry.changes.filter(
+    (change) =>
+      !(
+        "groupChanges" in entry &&
+        entry.groupChanges?.some((group) =>
+          group.changes.some(
+            (member) =>
+              member.userId === change.userId &&
+              member.changeType === change.changeType &&
+              member.previousRole === change.previousRole &&
+              member.nextRole === change.nextRole,
+          ),
+        )
+      ),
+  );
 
   return (
     <MiniAppRow
@@ -71,8 +86,8 @@ function PolicyHistoryEntry({
           )}
         </MiniAppRowText>
         <div className="org-manager-policy-change-list">
-          {showMembershipChanges && entry.changes.length > 0 ? (
-            entry.changes.map((change) => (
+          {membershipChanges.length > 0 ? (
+            membershipChanges.map((change) => (
               <PolicyHistoryChange
                 change={change}
                 directory={directory}

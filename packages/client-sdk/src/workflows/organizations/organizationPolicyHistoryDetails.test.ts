@@ -91,7 +91,12 @@ test("rejects an altered directory payload even when its advertised ciphertext h
 });
 
 test("rejects missing or duplicated directory history and wrong organization scope", async () => {
-  for (const alter of [
+  const messages = [
+    "directory history is incomplete",
+    "directory payload scope is invalid",
+    "response does not match the requested organization head",
+  ];
+  for (const [index, alter] of [
     (value: Awaited<ReturnType<typeof fixture>>["input"]) => {
       value.evidence.organizationPayloads.pop();
     },
@@ -103,11 +108,11 @@ test("rejects missing or duplicated directory history and wrong organization sco
     (value: Awaited<ReturnType<typeof fixture>>["input"]) => {
       value.evidence.organizationId = crypto.randomUUID();
     },
-  ]) {
+  ].entries()) {
     const { input } = await fixture();
     alter(input);
     await expect(buildDetailedOrganizationPolicyHistory(input)).rejects.toThrow(
-      "Organization policy history",
+      messages[index],
     );
   }
 });
@@ -119,7 +124,9 @@ test("rejects group membership tampering and a missing group snapshot", async ()
   const member = group.currentProjection[0];
   if (!member) throw new Error("Expected member");
   member.userId = crypto.randomUUID();
-  await expect(buildDetailedOrganizationPolicyHistory(input)).rejects.toThrow();
+  await expect(buildDetailedOrganizationPolicyHistory(input)).rejects.toThrow(
+    "principal policy projection root does not match projection",
+  );
   input.evidence.groups.pop();
   await expect(buildDetailedOrganizationPolicyHistory(input)).rejects.toThrow(
     "group history does not match the signed directory",

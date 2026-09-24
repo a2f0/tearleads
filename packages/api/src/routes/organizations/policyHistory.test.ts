@@ -1,5 +1,5 @@
-import { expect, test } from "bun:test";
-import { db } from "@tearleads/api-shared/postgres";
+import { expect, spyOn, test } from "bun:test";
+import { type ApiDatabase, db } from "@tearleads/api-shared/postgres";
 import { principalStatePayloads } from "@tearleads/api-shared/schema";
 import { createTestUser, type TestUser } from "@tearleads/bob-and-alice";
 import { OrganizationPolicyHistoryResponseSchema } from "@tearleads/validators/response";
@@ -13,6 +13,8 @@ import { getDefaultOrganizationId } from "../../../test/helpers/organizationMemb
 import { registerAndAuthenticate } from "../../../test/helpers/principalPolicyReadFixtures";
 import { getCurrentPrincipalState } from "../../access/read/principalStateStore";
 import { routeApp } from "../../routeApp";
+import { requireDirectOrganizationAccess } from "../../workflows/organizations/access";
+import { runGetOrganizationPolicyHistoryWorkflow } from "../../workflows/organizations/policyHistory";
 
 function getHistory(
   actor: TestUser,
@@ -93,6 +95,34 @@ test("history returns exact existing evidence without plaintext names, including
     .from(principalStatePayloads)
     .where(eq(principalStatePayloads.principalId, organizationId));
   expect(after).toEqual(before);
+  let historySelects = 0;
+  const countedDb: ApiDatabase = {
+    ...db,
+    transaction: (operation) =>
+      db.transaction(async (tx) => {
+        const select = spyOn(tx, "select");
+        try {
+          await requireDirectOrganizationAccess({
+            executor: tx,
+            organizationId,
+            userId: owner.userId,
+          });
+          const accessSelects = select.mock.calls.length;
+          select.mockClear();
+          const result = await operation(tx);
+          historySelects = select.mock.calls.length - accessSelects;
+          return result;
+        } finally {
+          select.mockRestore();
+        }
+      }),
+  };
+  await runGetOrganizationPolicyHistoryWorkflow(countedDb, {
+    organizationId,
+    requesterUserId: owner.userId,
+    stateHash: target.stateHash,
+  });
+  expect(historySelects).toBeLessThanOrEqual(5);
 });
 
 test("organization members may read history while outsiders and unauthenticated requests are refused", async () => {

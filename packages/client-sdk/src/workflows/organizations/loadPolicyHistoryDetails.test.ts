@@ -1,4 +1,4 @@
-import { expect, test } from "bun:test";
+import { expect, mock, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { ORGANIZATION_PRESENTATION_ERROR_CODES } from "@tearleads/validators/response";
 import { createOrganizationHistoryFixture } from "../../../test/helpers/organizationPolicyHistory";
@@ -104,13 +104,15 @@ test("history evidence cannot restore a presentation after its runtime changes",
   }
 });
 
-test("malformed evidence retains only the selected verified entries without invented details", async () => {
+test("malformed evidence reports an incident and retains only verified entries", async () => {
   const { data, input, close } = await fixture();
   try {
     const evidence = data.evidence();
     evidence.organizationPayloads.pop();
+    const reportSecurityIncident = mock(async () => {});
     const result = await loadPolicyHistoryDetails({
       ...input,
+      reportSecurityIncident,
       apiClient: {
         getOrganizationPolicyHistoryResult: async () => ({
           ok: true,
@@ -119,6 +121,7 @@ test("malformed evidence retains only the selected verified entries without inve
       },
     });
     expect(result).toEqual(input.history);
+    expect(reportSecurityIncident).toHaveBeenCalledTimes(1);
   } finally {
     close();
   }

@@ -314,6 +314,7 @@ class OrganizationReadModelCoordinatorImpl
           domainScope,
         ),
       logError: active.runtime.util.logError,
+      reportSecurityIncident: active.runtime.util.reportSecurityIncident,
     });
   }
 
