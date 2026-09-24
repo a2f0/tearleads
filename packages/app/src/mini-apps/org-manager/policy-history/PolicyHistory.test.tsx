@@ -164,3 +164,52 @@ test("group detail hides exact mirrored changes while retaining other organizati
   expect(view.getAllByText(/Alice/)).toHaveLength(1);
   expect(view.getByText(/Bob/)).toBeTruthy();
 });
+
+test("history renders deletion, grant changes, key rotation, and policy-only updates", () => {
+  const entry = historyWithAddition.entries[0];
+  const group = entry?.groupChanges?.[0];
+  if (!entry || !group) throw new Error("Expected group fixture");
+  const view = renderSection({
+    history: {
+      ...historyWithAddition,
+      entries: [
+        {
+          ...entry,
+          groupChanges: [
+            { ...group, changeType: "deleted", changes: [] },
+            {
+              ...group,
+              groupId: "rotated-group",
+              keyEpoch: 2,
+              changes: [],
+              grantChanges: [
+                {
+                  containerId: "container-added",
+                  previousAccess: null,
+                  nextAccess: "read",
+                },
+                {
+                  containerId: "container-upgraded",
+                  previousAccess: "read",
+                  nextAccess: "write",
+                },
+                {
+                  containerId: "container-removed",
+                  previousAccess: "write",
+                  nextAccess: null,
+                },
+              ],
+            },
+          ],
+        },
+        { ...entry, stateHash: "policy-only", version: 4, groupChanges: [] },
+      ],
+    },
+  });
+  expect(view.getByText(/Group deleted:/)).toBeTruthy();
+  expect(view.getByText("Group key rotated: 1 → 2")).toBeTruthy();
+  expect(view.getByText(/None → read/)).toBeTruthy();
+  expect(view.getByText(/read → write/)).toBeTruthy();
+  expect(view.getByText(/write → None/)).toBeTruthy();
+  expect(view.getByText(ORG_MANAGER_LABELS.policyUpdated)).toBeTruthy();
+});

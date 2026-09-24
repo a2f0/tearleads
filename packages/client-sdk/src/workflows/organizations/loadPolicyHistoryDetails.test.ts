@@ -160,3 +160,25 @@ test("history access denial durably purges the local presentation", async () => 
     close();
   }
 });
+
+test("an unavailable signer preserves verified entries without a tampering incident", async () => {
+  const { data, input, close } = await fixture();
+  const reportSecurityIncident = mock(async () => {});
+  try {
+    const result = await loadPolicyHistoryDetails({
+      ...input,
+      resolveTrustedUserIdentity: async () => null,
+      reportSecurityIncident,
+      apiClient: {
+        getOrganizationPolicyHistoryResult: async () => ({
+          ok: true,
+          data: data.evidence(),
+        }),
+      },
+    });
+    expect(result).toEqual(input.history);
+    expect(reportSecurityIncident).not.toHaveBeenCalled();
+  } finally {
+    close();
+  }
+});

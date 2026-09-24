@@ -1,5 +1,6 @@
 import {
   computePrincipalStatePayloadCiphertextHash,
+  type KeyingVerificationCode,
   KeyingVerificationError,
   type PrincipalPolicyCheckpoint,
   principalPolicyMatchesReference,
@@ -8,6 +9,7 @@ import type {
   OrganizationPolicyHistoryResponse,
   PrincipalPolicyBundleResponse,
 } from "@tearleads/validators/response";
+import { ProjectionDependencyUnavailableError } from "../../data/keyingProjectionVerification/dependencyUnavailable";
 import { verifyPrincipalPolicySnapshots } from "../../data/keyingProjectionVerification/principalPolicySnapshotVerification";
 import {
   type OrganizationAuthorityDescriptor,
@@ -17,9 +19,12 @@ import { verifyOrganizationAdminPolicy } from "../../data/principals/principalPo
 import type { TrustedUserIdentityResolver } from "../../data/trustedUserIdentity";
 import { collectPrincipalPolicySignerPublicKeys } from "../principals/policyVerification";
 
-function reject(message: string): never {
+function reject(
+  message: string,
+  code: KeyingVerificationCode = "hash_mismatch",
+): never {
   throw new KeyingVerificationError(
-    "hash_mismatch",
+    code,
     `Organization policy history: ${message}`,
   );
 }
@@ -34,7 +39,7 @@ async function verifyDirectoryPayloads(
     bundle.currentState,
   ];
   if (evidence.organizationPayloads.length !== states.length)
-    reject("directory history is incomplete");
+    reject("directory history is incomplete", "invalid_shape");
   const descriptors = new Map<string, OrganizationAuthorityDescriptor>();
   for (const payload of evidence.organizationPayloads) {
     const state = states.find(
@@ -46,7 +51,7 @@ async function verifyDirectoryPayloads(
       payload.principalType !== "organization" ||
       payload.principalId !== organizationId
     )
-      reject("directory payload scope is invalid");
+      reject("directory payload scope is invalid", "object_mismatch");
     const hash = await computePrincipalStatePayloadCiphertextHash(
       payload.ciphertext,
     );
@@ -54,7 +59,7 @@ async function verifyDirectoryPayloads(
       reject("directory payload does not match its signed hash");
     const descriptor = parseOrganizationAuthorityDescriptor(payload.ciphertext);
     if (descriptor.organizationId !== organizationId)
-      reject("directory belongs to another organization");
+      reject("directory belongs to another organization", "object_mismatch");
     descriptors.set(state.stateHash, descriptor);
   }
   return descriptors;
@@ -73,9 +78,18 @@ export async function verifyOrganizationPolicyHistory(input: {
     evidence.organizationId !== organizationId ||
     evidence.stateHash !== bundle.currentState.stateHash
   )
-    reject("response does not match the requested organization head");
+    reject(
+      "response does not match the requested organization head",
+      "object_mismatch",
+    );
   const keys = await collectPrincipalPolicySignerPublicKeys(input);
-  if ("error" in keys) reject("signer identity is unavailable");
+  if ("error" in keys) {
+    if (keys.error === "not-found")
+      throw new ProjectionDependencyUnavailableError(
+        "Organization policy history signer identity is unavailable",
+      );
+    reject("signer fingerprint does not match", "signer_mismatch");
+  }
   const verified = await verifyOrganizationAdminPolicy({
     ...input,
     signerPublicKeys: keys.signerPublicKeys,
@@ -105,7 +119,8 @@ export async function verifyOrganizationPolicyHistory(input: {
         reject("group history does not match the signed directory");
     }
   }
-  if (groups.length !== expectedGroups.size) reject("unexpected group history");
+  if (groups.length !== expectedGroups.size)
+    reject("unexpected group history", "invalid_shape");
   for (const group of groups) {
     const heads = [...descriptors.values()].flatMap((descriptor) =>
       descriptor.groupHeads.filter(

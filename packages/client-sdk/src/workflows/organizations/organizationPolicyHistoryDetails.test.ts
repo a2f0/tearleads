@@ -142,3 +142,69 @@ test("rejects a valid older group policy substituted for the committed membershi
     "group history does not match the signed directory",
   );
 });
+
+test("history describes grants, permission and role changes, removals, and key rotation", async () => {
+  const { data, input } = await fixture();
+  const containerId = crypto.randomUUID();
+  const granted = await data.advanceGroup(
+    data.added,
+    data.added.currentProjection,
+    [{ containerId, accessLevel: "read" }],
+  );
+  const afterGrant = await data.advanceDirectory(data.afterAddition, granted);
+  const upgraded = await data.advanceGroup(
+    granted,
+    [{ userId: data.targetUserId, role: "admin" }],
+    [{ containerId, accessLevel: "write" }],
+  );
+  const afterUpgrade = await data.advanceDirectory(afterGrant, upgraded);
+  const removed = await data.advanceGroup(upgraded, [], [], true);
+  const afterRemoval = await data.advanceDirectory(afterUpgrade, removed);
+  const evidence = data.evidence();
+  const result = await buildDetailedOrganizationPolicyHistory({
+    ...input,
+    bundle: afterRemoval,
+    evidence: {
+      ...evidence,
+      stateHash: afterRemoval.currentState.stateHash,
+      organizationPayloads: [
+        ...evidence.organizationPayloads,
+        afterGrant.currentPayload,
+        afterUpgrade.currentPayload,
+        afterRemoval.currentPayload,
+      ],
+      groups: [...evidence.groups.slice(0, -1), policySnapshot(removed)],
+    },
+  });
+  expect(result.entries[2]?.groupChanges?.[0]?.grantChanges).toEqual([
+    { containerId, previousAccess: null, nextAccess: "read" },
+  ]);
+  expect(result.entries[1]?.groupChanges?.[0]).toMatchObject({
+    changes: [
+      {
+        userId: data.targetUserId,
+        changeType: "role_changed",
+        previousRole: "member",
+        nextRole: "admin",
+      },
+    ],
+    grantChanges: [
+      { containerId, previousAccess: "read", nextAccess: "write" },
+    ],
+    previousKeyEpoch: 1,
+    keyEpoch: 1,
+  });
+  expect(result.entries[0]?.groupChanges?.[0]).toMatchObject({
+    changes: [
+      {
+        userId: data.targetUserId,
+        changeType: "removed",
+        previousRole: "admin",
+        nextRole: null,
+      },
+    ],
+    grantChanges: [{ containerId, previousAccess: "write", nextAccess: null }],
+    previousKeyEpoch: 1,
+    keyEpoch: 2,
+  });
+});

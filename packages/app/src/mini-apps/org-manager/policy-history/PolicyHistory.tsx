@@ -46,8 +46,8 @@ function PolicyHistoryEntry({
     user: signerUser,
     userId: entry.signerUserId,
   });
-  // Organization admin membership mirrors the admin group. Hide only exact
-  // duplicates; unrelated organization changes must remain visible.
+  // Hide membership details already shown in a changed group, including the
+  // admin-group mirror. Unrelated organization changes remain visible.
   const membershipChanges = entry.changes.filter(
     (change) =>
       !(

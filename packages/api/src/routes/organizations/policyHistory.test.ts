@@ -165,3 +165,47 @@ test("organization members may read history while outsiders and unauthenticated 
     ).status,
   ).toBe(400);
 });
+
+test("a requested organization head excludes later group membership versions", async () => {
+  const owner = createTestUser();
+  const laterMember = createTestUser();
+  await registerAndAuthenticate(owner, laterMember);
+  const organizationId = await getDefaultOrganizationId(owner.userId);
+  const before = await getCurrentPrincipalState(
+    "organization",
+    organizationId,
+    db,
+  );
+  if (!before) throw new Error("Expected organization policy");
+  const original = OrganizationPolicyHistoryResponseSchema.parse(
+    await (await getHistory(owner, organizationId, before.stateHash)).json(),
+  );
+  await addMemberGroupUser({
+    actor: owner,
+    memberUserId: laterMember.userId,
+    organizationId,
+  });
+  const historical = OrganizationPolicyHistoryResponseSchema.parse(
+    await (await getHistory(owner, organizationId, before.stateHash)).json(),
+  );
+  expect(historical).toEqual(original);
+  expect(
+    historical.groups
+      .flatMap((group) => group.currentProjection)
+      .some((member) => member.userId === laterMember.userId),
+  ).toBe(false);
+  const current = await getCurrentPrincipalState(
+    "organization",
+    organizationId,
+    db,
+  );
+  if (!current) throw new Error("Expected current organization policy");
+  const latest = OrganizationPolicyHistoryResponseSchema.parse(
+    await (await getHistory(owner, organizationId, current.stateHash)).json(),
+  );
+  expect(
+    latest.groups
+      .flatMap((group) => group.currentProjection)
+      .some((member) => member.userId === laterMember.userId),
+  ).toBe(true);
+});

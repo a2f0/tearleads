@@ -3,6 +3,7 @@ import {
   generateSigningSeedAndKeyPair,
   toFingerprint,
 } from "@tearleads/crypto";
+import { bytesToBase64 } from "@tearleads/encoding";
 import type {
   PrincipalPolicyBundleResponse,
   PrincipalPolicySnapshotResponse,
@@ -146,7 +147,45 @@ export async function createOrganizationHistoryFixture() {
     ].map((bundle) => bundle.currentPayload),
     groups: [admin, members, added].map(policySnapshot),
   });
+  const advanceGroup = async (
+    previous: PrincipalPolicyBundleResponse,
+    projection: PrincipalPolicyBundleResponse["currentProjection"],
+    grants: PrincipalPolicyBundleResponse["currentGrants"],
+    rotate = false,
+  ) => {
+    const key = rotate ? generateKemSeedAndKeyPair() : null;
+    return signedPrincipalPolicyBundle({
+      memberEnvelopes: [],
+      payloadCiphertext: previous.currentPayload.ciphertext,
+      projection,
+      previousStates: [
+        ...previous.previousStates,
+        {
+          state: previous.currentState,
+          projection: previous.currentProjection,
+          grants: previous.currentGrants,
+        },
+      ],
+      signing: {
+        ...previous.currentState,
+        version: previous.currentState.version + 1,
+        prevStateHash: previous.currentState.stateHash,
+        signedAt: new Date().toISOString(),
+        grants,
+        ...(key
+          ? {
+              keyEpoch: previous.currentState.keyEpoch + 1,
+              encapsulationPublicKey: bytesToBase64(key.publicKey),
+              keyFingerprint: await toFingerprint(key.publicKey),
+            }
+          : {}),
+      },
+      signingPrivateKey: signingKeyPair.signingPrivateKey,
+    });
+  };
   return {
+    advanceGroup,
+    advanceDirectory,
     organizationId,
     signerUserId,
     targetUserId,
