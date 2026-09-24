@@ -116,17 +116,38 @@ test("demo App starts split without global header controls", () => {
 });
 
 test("demo App defaults to its peer split on desktop", () => {
-  const view = render(
-    <App
-      hostConfig={createTestAppHostConfig({
-        navigationMode: undefined,
-        profile: APP_HOST_PROFILES.demo,
-      })}
-    />,
-  );
+  const originalWidth = window.innerWidth;
+  const originalMatchMedia = window.matchMedia;
+  Reflect.set(window, "innerWidth", 1440);
+  window.matchMedia = ((query: string) => ({
+    addEventListener: () => {},
+    addListener: () => {},
+    dispatchEvent: () => false,
+    matches: false,
+    media: query,
+    onchange: null,
+    removeEventListener: () => {},
+    removeListener: () => {},
+  })) as unknown as typeof window.matchMedia;
 
-  expect(view.container.querySelector(".layout--demo-peer-split")).toBeTruthy();
-  view.unmount();
+  try {
+    const view = render(
+      <App
+        hostConfig={createTestAppHostConfig({
+          navigationMode: undefined,
+          profile: APP_HOST_PROFILES.demo,
+        })}
+      />,
+    );
+
+    expect(
+      view.container.querySelector(".layout--demo-peer-split"),
+    ).toBeTruthy();
+    view.unmount();
+  } finally {
+    Reflect.set(window, "innerWidth", originalWidth);
+    window.matchMedia = originalMatchMedia;
+  }
 });
 
 test("switching workspaces shares one identity database instead of booting a second", async () => {

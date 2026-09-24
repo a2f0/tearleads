@@ -366,6 +366,9 @@ async function openRoutedDocumentBlame(
 }
 
 async function switchToWindowed(page: Page): Promise<void> {
+  if (await activePane(page, "left").isVisible()) {
+    return;
+  }
   await page
     .getByRole("button", { name: "Switch to windowed layout", exact: true })
     .click();

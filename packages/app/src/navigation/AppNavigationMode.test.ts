@@ -45,4 +45,14 @@ test("the peer demo keeps windows on desktop and routes on touch or narrow scree
       preferWindowedPeerSplit: true,
     }),
   ).toBe("routed");
+  expect(
+    resolveAppNavigationMode({
+      environment: {
+        ...DESKTOP_ENVIRONMENT,
+        maxTouchPoints: 5,
+        userAgent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15)",
+      },
+      preferWindowedPeerSplit: true,
+    }),
+  ).toBe("routed");
 });

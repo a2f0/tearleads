@@ -8,8 +8,8 @@ export const DEMO_SPLIT_MOBILE_QUERY = `(max-width: ${DEMO_SPLIT_BREAKPOINT_PX -
  *
  * - Below this width the shell is a phone-style chrome: a top app bar with a
  *   hamburger that opens a slide-in navigation drawer.
- * - At or above it the shell is a tablet/iPad-style chrome: a persistent left
- *   sidebar rail beside the main content.
+ * - At or above it the shell is a tablet/iPad-style chrome with a launcher that
+ *   can use a left rail or bottom sheet.
  *
  * Mirrors the `760px` media query in `RoutedPane.css`; keep the two in sync.
  */

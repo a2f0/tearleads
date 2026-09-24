@@ -36,6 +36,7 @@ export function useAppNavigationMode(
     const mobileQuery = window.matchMedia(DEMO_SPLIT_MOBILE_QUERY);
     const pointerQuery = window.matchMedia(COARSE_POINTER_QUERY);
     const updateEnvironment = () => setEnvironment(readEnvironment());
+    updateEnvironment();
     mobileQuery.addEventListener("change", updateEnvironment);
     pointerQuery.addEventListener("change", updateEnvironment);
     return () => {
