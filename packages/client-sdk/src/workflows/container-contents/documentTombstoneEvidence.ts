@@ -1,4 +1,7 @@
-import type { DocumentWriterProjectionResponse } from "@tearleads/validators/response";
+import {
+  DOCUMENT_NOT_FOUND_ERROR_CODE,
+  type DocumentWriterProjectionResponse,
+} from "@tearleads/validators/response";
 import { assertDocumentWriterProjectionConsistent } from "../../data/documents/shared/projection";
 import { uniqueSortedStrings } from "../../data/documents/shared/readers";
 import { reportKeyingVerificationErrorInCauseChain } from "../../data/keyingProjectionVerification/error";
@@ -27,7 +30,7 @@ export interface VerifiedDocumentHeadLinkSet {
 export type DocumentHeadLinkSetLoader = (
   documentId: string,
   expectedManifestHash?: string,
-) => Promise<VerifiedDocumentHeadLinkSet | null>;
+) => Promise<VerifiedDocumentHeadLinkSet | "not-found" | null>;
 
 /** The highest access epoch local state records for the document. */
 export type LocalDocumentAccessEpochLoader = (
@@ -122,6 +125,11 @@ export function createDocumentHeadLinkSetLoader(
         );
       }
       if (!result.ok) {
+        if (
+          result.status === 404 &&
+          result.code === DOCUMENT_NOT_FOUND_ERROR_CODE
+        )
+          return "not-found";
         runtime.util.log(
           `Container contents: tombstone evidence for document ${documentId} is unavailable (${result.status ?? "offline"})`,
         );
@@ -213,7 +221,7 @@ export function createContainerDocumentTombstoneVerifier(
         if (!entry) break;
         const [documentId, group] = entry;
         const head = await loadDocumentHeadLinkSet(documentId);
-        if (head === null) continue;
+        if (head === null || head === "not-found") continue;
         // A local-state read that fails is treated like an unavailable head:
         // the tombstones stay held rather than failing the discovery pass.
         const localEpoch = await loadLocalDocumentAccessEpoch(documentId).catch(

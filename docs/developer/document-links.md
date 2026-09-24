@@ -79,3 +79,12 @@ each partial result and schedules the next batch or delayed retry, keeping the
 open container at active priority and cancelling timers when its lifecycle
 stops. A refuted tombstone stays visible during later network failures while
 its evidence is retried.
+
+A pending evidence retry is settled for the current reconciliation sweep, so it
+does not retain a force request or trigger repeated automatic pulls. A coded
+document-not-found reply discards only an unapplied discovery candidate; it is
+never signed deletion evidence for an existing placement. Candidate lanes are
+grouped by document before verification, and malformed listing epochs are skipped
+before persistence. Remote trust reset clears the verified cache and scoped
+candidates, and advances a local generation fence so an earlier request cannot
+repopulate the cache. Request ordinals stay monotone across resets.

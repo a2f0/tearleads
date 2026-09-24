@@ -16,7 +16,7 @@ const projection = {
 } as unknown as DocumentWriterProjectionResponse;
 
 function createRuntime(input: {
-  fetch?: { ok: true } | { ok: false; status: number | null };
+  fetch?: { ok: true } | { ok: false; status: number | null; code?: string };
 }) {
   const calls = {
     evicted: [] as string[],
@@ -34,6 +34,7 @@ function createRuntime(input: {
           ? { data: projection, ok: true as const }
           : {
               message: "denied",
+              code: fetch.code,
               ok: false as const,
               report: () => {},
               status: fetch.status,
@@ -337,4 +338,26 @@ test("head loads run with bounded concurrency and keep verdict order", async () 
   expect(verdicts.map((verdict) => verdict.tombstone.documentId)).toEqual(
     Array.from({ length: 10 }, (_, index) => `doc-${index}`),
   );
+});
+
+test("a coded missing document settles discovery but never authorizes a tombstone", async () => {
+  for (const code of [undefined, "document_not_found"]) {
+    const { runtime } = createRuntime({
+      fetch: { ok: false, status: 404, ...(code ? { code } : {}) },
+    });
+    const load = createDocumentHeadLinkSetLoader(
+      runtime,
+      deps(verifiedHead("doc", ["folder"])),
+    );
+    expect(await load("doc")).toBe(code ? "not-found" : null);
+    const verify = createContainerDocumentTombstoneVerifier(
+      load,
+      async () => 1,
+    );
+    expect(
+      await verify([
+        { documentId: "doc", containerId: "folder", updatedAt: at },
+      ]),
+    ).toMatchObject([{ kind: "unverified" }]);
+  }
 });

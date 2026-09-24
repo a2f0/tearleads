@@ -36,7 +36,9 @@ export async function reconcileOneContainer(
       delta.documentSummaries,
       options.forceDocumentContentPull ?? false,
     );
-    return !pending;
+    // A durable, scheduled retry is settled for this sweep and force request.
+    // Its own timer will reopen the lane when evidence is due.
+    return true;
   } catch (error) {
     if (host.isIgnorableError(error)) {
       return false;

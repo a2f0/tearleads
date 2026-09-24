@@ -17,8 +17,11 @@ import { heldTombstoneRetryDelayMs } from "./containerDocumentTombstoneHoldsPers
 
 import {
   type DiscoveredDocumentCandidate,
+  isDiscoveredDocumentCandidate,
   readStoredDiscoveryCandidate,
 } from "./documentDiscoveryCandidate";
+
+import { isDocumentDiscoveryGenerationCurrent } from "./documentDiscoveryReset";
 
 export type { DiscoveredDocumentCandidate } from "./documentDiscoveryCandidate";
 export interface CachedDiscoveryHead {
@@ -31,20 +34,27 @@ export interface DocumentDiscoveryEvidenceStore {
   stage(
     inputs: readonly DiscoveredDocumentCandidate[],
     generation: number,
-  ): Promise<void>;
+  ): Promise<boolean>;
   pending(
     containerIds: readonly string[],
     limit: number,
   ): Promise<readonly DiscoveredDocumentCandidate[]>;
-  defer(input: DiscoveredDocumentCandidate): Promise<void>;
-  acknowledge(inputs: readonly DiscoveredDocumentCandidate[]): Promise<void>;
+  defer(input: DiscoveredDocumentCandidate, generation: number): Promise<void>;
+  acknowledge(
+    inputs: readonly DiscoveredDocumentCandidate[],
+    generation: number,
+  ): Promise<void>;
   hasPending(containerIds: readonly string[]): Promise<boolean>;
   retryDelay(containerIds: readonly string[]): Promise<number | null>;
   loadHead(
     documentId: string,
     manifestHash: string | null | undefined,
   ): Promise<CachedDiscoveryHead | null>;
-  saveHead(documentId: string, head: CachedDiscoveryHead): Promise<void>;
+  saveHead(
+    documentId: string,
+    head: CachedDiscoveryHead,
+    generation: number,
+  ): Promise<boolean>;
 }
 
 const pending = pendingDocumentDiscoveries;
@@ -73,14 +83,14 @@ class SqlDocumentDiscoveryEvidenceStore
     await ensureSqlTables(this.execSql, documentContainerProjectionTables);
     return getClientSQLitePersistenceRuntime(this.execSql).db;
   };
-  private write = async (
+  private write = async <T>(
     operation: (
       db: ReturnType<typeof getClientSQLitePersistenceRuntime>["db"],
-    ) => Promise<void>,
+    ) => Promise<T>,
   ) =>
     runSerializedSqlMutation(this.execSql, async (locked) => {
       await ensureSqlTables(locked, documentContainerProjectionTables);
-      await operation(getClientSQLitePersistenceRuntime(locked).db);
+      return operation(getClientSQLitePersistenceRuntime(locked).db);
     });
   begin = async () => {
     let generation = 0;
@@ -105,12 +115,19 @@ class SqlDocumentDiscoveryEvidenceStore
     inputs: readonly DiscoveredDocumentCandidate[],
     generation: number,
   ) => {
-    if (inputs.length === 0) return Promise.resolve();
     return this.write(async (db) => {
+      if (!(await isDocumentDiscoveryGenerationCurrent(db, generation)))
+        return false;
+      if (inputs.length === 0) return true;
       await db.transaction(async (tx) => {
-        for (const input of inputs)
+        for (const input of inputs) {
+          if (!isDiscoveredDocumentCandidate(input)) continue;
           for (const containerId of input.listedContainerIds) {
-            const rowInput = { ...input, containerId };
+            const rowInput = {
+              ...input,
+              containerId,
+              listedContainerIds: [containerId],
+            };
             const inputJson = JSON.stringify(rowInput);
             await tx
               .insert(pending)
@@ -135,7 +152,9 @@ class SqlDocumentDiscoveryEvidenceStore
               })
               .run();
           }
+        }
       });
+      return true;
     });
   };
   pending = async (containerIds: readonly string[], limit: number) => {
@@ -160,8 +179,9 @@ class SqlDocumentDiscoveryEvidenceStore
     }
     return result;
   };
-  defer = (input: DiscoveredDocumentCandidate) =>
+  defer = (input: DiscoveredDocumentCandidate, generation: number) =>
     this.write(async (db) => {
+      if (!(await isDocumentDiscoveryGenerationCurrent(db, generation))) return;
       const [row] = await db
         .select({ attempts: pending.attempts })
         .from(pending)
@@ -178,8 +198,12 @@ class SqlDocumentDiscoveryEvidenceStore
         .where(identity(input))
         .run();
     });
-  acknowledge = (inputs: readonly DiscoveredDocumentCandidate[]) =>
+  acknowledge = (
+    inputs: readonly DiscoveredDocumentCandidate[],
+    generation: number,
+  ) =>
     this.write(async (db) => {
+      if (!(await isDocumentDiscoveryGenerationCurrent(db, generation))) return;
       await db.transaction(async (tx) => {
         for (const input of inputs)
           await tx.delete(pending).where(identity(input)).run();
@@ -243,9 +267,17 @@ class SqlDocumentDiscoveryEvidenceStore
         }
       : null;
   };
-  saveHead = (documentId: string, head: CachedDiscoveryHead) =>
+  saveHead = (
+    documentId: string,
+    head: CachedDiscoveryHead,
+    generation: number,
+  ) =>
     this.write(async (db) => {
-      if (!head.accessStateHash) return;
+      if (
+        !head.accessStateHash ||
+        !(await isDocumentDiscoveryGenerationCurrent(db, generation))
+      )
+        return false;
       const row = {
         documentId,
         manifestHash: head.accessStateHash,
@@ -261,6 +293,7 @@ class SqlDocumentDiscoveryEvidenceStore
           setWhere: lte(heads.accessEpoch, head.accessEpoch),
         })
         .run();
+      return true;
     });
 }
 

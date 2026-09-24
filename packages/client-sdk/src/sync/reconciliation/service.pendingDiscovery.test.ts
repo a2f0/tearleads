@@ -12,6 +12,7 @@ for (const stop of [false, true]) {
   test(`partial discovery publishes its delta and schedules a scoped retry (stop=${stop})`, async () => {
     let calls = 0;
     let applied = 0;
+    const forces: boolean[] = [];
     const firstApply = createGate();
     const secondApply = createGate();
     const service = createReconciliationService(
@@ -20,6 +21,9 @@ for (const stop of [false, true]) {
           calls++;
           if (calls === 1) onPending?.(50);
           return [];
+        },
+        requestDocumentContentPull: (_id, _docs, force) => {
+          forces.push(force ?? false);
         },
         applyReconciled: () => {
           applied++;
@@ -38,6 +42,7 @@ for (const stop of [false, true]) {
       else await secondApply.wait;
       expect(calls).toBe(stop ? 1 : 2);
       expect(applied).toBe(stop ? 1 : 2);
+      expect(forces).toEqual(stop ? [true] : [true, false]);
     } finally {
       service.stop();
     }
@@ -58,7 +63,7 @@ test("a pending discovery for the open container retries ahead of idle work", as
     active: true,
     activeContainerId: "open",
     automaticRetryGenerations: new Map<string, number>(),
-    discoveredContainerIds: new Set<string>(),
+    discoveredContainerIds: new Set(["open"]),
     forcedContainerGenerations: new Map<string, number>(),
     initialDocumentProbe: createInitialDocumentProbe(host),
     nextForceGeneration: 0,
@@ -66,7 +71,8 @@ test("a pending discovery for the open container retries ahead of idle work", as
     lifecycleGeneration: 0,
     lane: { requestSync: scheduled.open, requestSyncAfter: () => {} },
   };
-  await reconcileMarkedContainer(host, state, "open", false);
+  expect(await reconcileMarkedContainer(host, state, "open", false)).toBe(true);
+  expect(state.discoveredContainerIds.has("open")).toBe(true);
   await scheduled.wait;
   expect(queue.dequeue()).toBe("open");
   expect(queue.dequeue()).toBe("background");

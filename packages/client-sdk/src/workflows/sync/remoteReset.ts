@@ -3,6 +3,7 @@ import {
   deleteDocumentPlacementRowsByContainerIds,
   deleteDocumentPlacementRowsByDocumentIds,
 } from "../../data/persistence/containers/documentContainerProjectionPersistence";
+import { clearDocumentDiscoveryEvidenceOnRemoteReset } from "../../data/persistence/documents/documentDiscoveryReset";
 import { documentIntentLinkTargets } from "../../data/sqlite/documentPlacementIntentSchema";
 import {
   organizationDataUsageCategories,
@@ -240,6 +241,10 @@ async function clearScopedRemoteRows(
       .where(eq(table.organizationId, organizationId))
       .run();
   }
+  await clearDocumentDiscoveryEvidenceOnRemoteReset(tx, {
+    containerIds: input.snapshot.containerIds,
+    documentIds: input.snapshot.oldDocumentIds,
+  });
   await clearScopedPrincipalRows(input);
   await clearScopedContainerRows(input);
   await clearScopedDocumentRows(input);

@@ -312,8 +312,9 @@ export async function discoverContainerDocuments(
     saveContainerDocumentWatermark,
   });
 
-  if (complete && listedDocuments.isFullListing) {
-    onFullListing?.(verifiedInputs.map((document) => document.documentId));
+  if (listedDocuments.isFullListing) {
+    // Initial probes consume ids as discovery hints and verify their own heads.
+    onFullListing?.(listedDocuments.items.map((document) => document.id));
   }
 
   return !complete &&

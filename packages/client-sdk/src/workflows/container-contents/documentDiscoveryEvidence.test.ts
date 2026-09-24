@@ -256,7 +256,7 @@ test("unavailable candidates back off across restarts and changed evidence reset
     const input = candidate("doc");
     await store.stage([input], await store.begin());
     for (let attempt = 1; attempt <= 9; attempt++) {
-      await store.defer(input);
+      await store.defer(input, await store.begin());
       const delay = 15 * 60_000 * 2 ** Math.min(attempt - 1, 7);
       expect(await store.retryDelay(["a"])).toBe(delay);
       store = createDocumentDiscoveryEvidenceStore(execSql, () => now);
@@ -269,7 +269,95 @@ test("unavailable candidates back off across restarts and changed evidence reset
     const changed = { ...input, accessEpoch: 2, accessStateHash: "new-head" };
     await store.stage([changed], await store.begin());
     expect(await store.retryDelay(["a"])).toBe(0);
-    await store.defer(changed);
+    await store.defer(changed, await store.begin());
+    expect(await store.retryDelay(["a"])).toBe(15 * 60_000);
+  } finally {
+    close();
+  }
+});
+
+test("a coded missing head settles an unapplied listing candidate", async () => {
+  const { execSql, close } = await createTestExecSql("discovery-missing-head");
+  try {
+    const store = createDocumentDiscoveryEvidenceStore(execSql);
+    const verify = createDiscoveredDocumentVerifier(
+      async () => "not-found",
+      async () => 0,
+      store,
+    );
+    const result = await verify(
+      [candidate("gone")],
+      ["a"],
+      await store.begin(),
+    );
+    expect(result.inputs).toEqual([]);
+    expect(await result.commit()).toBe(true);
+    expect(await store.hasPending(["a"])).toBe(false);
+  } finally {
+    close();
+  }
+});
+
+test("invalid listing epochs cannot poison durable discovery", async () => {
+  const { execSql, close } = await createTestExecSql(
+    "discovery-invalid-candidate",
+  );
+  try {
+    const store = createDocumentDiscoveryEvidenceStore(execSql);
+    const verify = createDiscoveredDocumentVerifier(
+      async () => head,
+      async () => 0,
+      store,
+    );
+    const result = await verify(
+      [
+        ...[0, -1, 1.5].map((accessEpoch) => ({
+          ...candidate(String(accessEpoch)),
+          accessEpoch,
+        })),
+        candidate("valid"),
+      ],
+      ["a"],
+      await store.begin(),
+    );
+    expect(result.inputs.map((input) => input.documentId)).toEqual(["valid"]);
+    expect(await result.commit()).toBe(true);
+  } finally {
+    close();
+  }
+});
+
+test("one signed verification covers multiple listed lanes without resetting backoff", async () => {
+  const { execSql, close } = await createTestExecSql(
+    "discovery-deduplicated-lanes",
+  );
+  try {
+    const store = createDocumentDiscoveryEvidenceStore(execSql, () => 0);
+    let calls = 0;
+    const verify = createDiscoveredDocumentVerifier(
+      async () => {
+        calls++;
+        return { ...head, linkedContainerIds: ["a", "b"] };
+      },
+      async () => 0,
+      store,
+    );
+    const result = await verify(
+      [{ ...candidate("doc"), listedContainerIds: ["b", "a"] }],
+      ["a", "b"],
+      await store.begin(),
+    );
+    expect(calls).toBe(1);
+    expect(result.inputs).toMatchObject([
+      { documentId: "doc", containerId: "a" },
+    ]);
+    expect(await result.commit()).toBe(true);
+    await store.stage([candidate("doc")], await store.begin());
+    await store.defer(candidate("doc"), await store.begin());
+    await store.stage(
+      [{ ...candidate("doc"), listedContainerIds: ["a", "b"] }],
+      await store.begin(),
+    );
     expect(await store.retryDelay(["a"])).toBe(15 * 60_000);
   } finally {
     close();

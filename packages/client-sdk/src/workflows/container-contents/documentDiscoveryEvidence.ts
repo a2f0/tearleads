@@ -3,6 +3,7 @@ import type {
   DiscoveredDocumentCandidate,
   DocumentDiscoveryEvidenceStore,
 } from "../../data/persistence/documents/documentDiscoveryEvidencePersistence";
+import { groupPendingDocumentDiscoveries } from "./documentDiscoveryCandidates";
 import type { DiscoverContainerDocumentsOptions } from "./documentDiscoveryTypes";
 import type {
   DocumentHeadLinkSetLoader,
@@ -18,6 +19,7 @@ async function verifyInput(
   loadHead: DocumentHeadLinkSetLoader,
   loadLocalEpoch: LocalDocumentAccessEpochLoader,
   store: DocumentDiscoveryEvidenceStore,
+  generation: number,
 ): Promise<DiscoveredDocumentInput | null | "unavailable"> {
   const localEpoch = await loadLocalEpoch(input.documentId).catch(
     () => Number.MAX_SAFE_INTEGER,
@@ -33,6 +35,7 @@ async function verifyInput(
             ? (input.accessStateHash ?? undefined)
             : undefined,
         );
+  if (head === "not-found") return null;
   if (!head || head.accessEpoch < Math.max(localEpoch, input.accessEpoch))
     return "unavailable";
   // A stale first lane must not hide a document present in another listed lane.
@@ -41,7 +44,8 @@ async function verifyInput(
   );
   if (!containerId) return null;
   if (!head.accessStateHash) return "unavailable";
-  await store.saveHead(input.documentId, head);
+  if (!(await store.saveHead(input.documentId, head, generation)))
+    return "unavailable";
   const { listedContainerIds: _listedContainerIds, ...document } = input;
   return {
     ...document,
@@ -65,29 +69,31 @@ export function createDiscoveredDocumentVerifier(
   onPendingDiscovery?: ((delayMs: number) => void) | undefined,
 ): DiscoverContainerDocumentsOptions["verifyDiscoveredDocuments"] {
   return async (inputs, containerIds, generation) => {
-    await store.stage(inputs, generation);
-    const candidates = await store.pending(
-      containerIds,
-      HEAD_LINK_SET_LOADS_PER_RUN,
+    if (!(await store.stage(inputs, generation)))
+      return { inputs: [], commit: async () => true };
+    const candidates = groupPendingDocumentDiscoveries(
+      await store.pending(containerIds, HEAD_LINK_SET_LOADS_PER_RUN),
     );
     const verified = new Map<string, DiscoveredDocumentInput>();
     const settled: DiscoveredDocumentCandidate[] = [];
     let next = 0;
     const worker = async () => {
       while (next < candidates.length) {
-        const input = candidates[next++];
-        if (!input) break;
+        const group = candidates[next++];
+        if (!group) break;
+        const { input, rows } = group;
         const result = await verifyInput(
           input,
           loadHead,
           loadLocalEpoch,
           store,
+          generation,
         );
         if (result === "unavailable") {
-          await store.defer(input);
+          await Promise.all(rows.map((row) => store.defer(row, generation)));
         } else {
           if (result) verified.set(result.documentId, result);
-          settled.push(input);
+          settled.push(...rows);
         }
       }
     };
@@ -100,7 +106,7 @@ export function createDiscoveredDocumentVerifier(
     return {
       inputs: [...verified.values()],
       commit: async () => {
-        await store.acknowledge(settled);
+        await store.acknowledge(settled, generation);
         const retryDelay = await store.retryDelay(containerIds);
         if (retryDelay !== null) onPendingDiscovery?.(retryDelay);
         return retryDelay === null;

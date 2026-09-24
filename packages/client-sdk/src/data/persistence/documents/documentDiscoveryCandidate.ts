@@ -12,7 +12,9 @@ function isStringArray(value: unknown): value is string[] {
   );
 }
 
-function isCandidate(value: unknown): value is DiscoveredDocumentCandidate {
+export function isDiscoveredDocumentCandidate(
+  value: unknown,
+): value is DiscoveredDocumentCandidate {
   if (!isPlainObject(value)) return false;
   const level = readRecordValue(value, "effectiveAccessLevel");
   const hash = readRecordValue(value, "accessStateHash");
@@ -38,7 +40,7 @@ export function readStoredDiscoveryCandidate(
   json: string,
 ): DiscoveredDocumentCandidate {
   const value: unknown = JSON.parse(json);
-  if (!isCandidate(value))
+  if (!isDiscoveredDocumentCandidate(value))
     throw new Error("Stored document discovery candidate is invalid");
   // Preserve property order: acknowledgements compare the exact stored input.
   return value;

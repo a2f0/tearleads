@@ -34,5 +34,6 @@ export const documentDiscoverySequence = sqliteTable(
   {
     id: text("id").primaryKey(),
     generation: integer("generation").notNull(),
+    invalidatedThrough: integer("invalidated_through").notNull().default(0),
   },
 );
