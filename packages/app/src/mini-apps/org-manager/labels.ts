@@ -224,9 +224,9 @@ export const ORG_MANAGER_LABELS = {
   newGroupAction: "New Group",
   newOrganizationAction: "New Organization",
   organization: "Organization",
+  organizationDetailTabsLabel: "Organization detail sections",
   organizations: "Organizations",
   organizationName: "Organization name",
-  organizationPolicyHistory: "Organization policy history",
   organizationProfileUnavailable:
     "The organization profile hasn't synced yet. Try Refresh.",
   open: "Open",
@@ -249,10 +249,12 @@ export const ORG_MANAGER_LABELS = {
   policySignedBy: "signed by",
   policyVersion: "Version",
   principal: "Principal",
+  profile: "Profile",
   profileDocument: "Profile document",
   profileDocumentId: "Profile document ID",
   profileDocumentUnavailable: "This profile hasn't synced yet. Try Refresh.",
   refresh: "Refresh",
+  rosterDetailTabsLabel: "Roster detail sections",
   remove: "Remove",
   revoke: "Revoke",
   revokeGrantConfirmationMessage:

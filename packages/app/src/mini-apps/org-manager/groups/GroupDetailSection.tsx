@@ -128,7 +128,7 @@ export function GroupDetailSection({
       />
       <MiniAppTabPanel
         activeTab={activeTab}
-        className="org-manager-group-detail-tab-panel"
+        className="org-manager-detail-tab-panel"
         idPrefix={idPrefix}
       >
         {activeTab === "members" ? (
