@@ -14,6 +14,7 @@ test("bottom launcher closes with Escape and returns focus to Menu", async ({
     "data-open",
     "true",
   );
+  await expect(page.locator(".routed-pane-sheet-tile:focus")).toHaveCount(1);
   await page.keyboard.press("Escape");
   await expect(page.locator(".routed-pane-sheet")).toHaveAttribute(
     "data-open",

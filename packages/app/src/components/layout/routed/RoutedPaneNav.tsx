@@ -4,6 +4,8 @@ import {
   type MouseEvent as ReactMouseEvent,
   type PointerEvent as ReactPointerEvent,
   useCallback,
+  useEffect,
+  useRef,
 } from "react";
 import { ROUTED_MINI_APP_NAV_ITEMS } from "../../../mini-apps/registry";
 import type { MiniAppId } from "../../../mini-apps/types";
@@ -247,6 +249,19 @@ export function RoutedPaneNav({
   railExpanded: boolean;
   tier: RoutedLayoutTier;
 }) {
+  const sheetRef = useRef<HTMLElement>(null);
+  useEffect(() => {
+    if (drawerOpen && (tier === "mobile" || launcherPlacement === "bottom")) {
+      const sheet = sheetRef.current;
+      const tile = sheet?.querySelector<HTMLElement>(
+        '.routed-pane-sheet-tile[aria-current="page"]',
+      );
+      (
+        tile ?? sheet?.querySelector<HTMLElement>(".routed-pane-sheet-tile")
+      )?.focus();
+    }
+  }, [drawerOpen, launcherPlacement, tier]);
+
   const mobileSheetDrag = useMobileSheetDrag({
     drawerOpen:
       (tier === "mobile" || launcherPlacement === "bottom") && drawerOpen,
@@ -287,6 +302,7 @@ export function RoutedPaneNav({
       <aside
         aria-hidden={!drawerOpen}
         className="routed-pane-sheet"
+        ref={sheetRef}
         data-dragging={mobileSheetDrag.dragging ? "true" : "false"}
         data-open={drawerOpen ? "true" : "false"}
         id="routed-pane-sheet"

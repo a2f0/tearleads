@@ -83,6 +83,9 @@ for (const tier of ["tablet", "mobile"] as const) {
       act(() => menu.focus());
       fireEvent.click(menu);
       expect(menu.getAttribute("aria-expanded")).toBe("true");
+      expect(
+        document.activeElement?.classList.contains("routed-pane-sheet-tile"),
+      ).toBe(true);
 
       act(() => fireEvent.keyDown(document, { key: "Escape" }));
       expect(menu.getAttribute("aria-expanded")).toBe("false");
