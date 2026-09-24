@@ -186,7 +186,9 @@ for (const listedContainer of [
         },
       });
       const accepted = listedContainer === "materialized-sync-container";
-      expect(summaries).toHaveLength(accepted ? 1 : 0);
+      if (accepted) expect(summaries).toHaveLength(1);
+      else expect(summaries).toBeNull();
+      expect(await harness.store.hasPending([listedContainer])).toBe(!accepted);
       expect(inputs).toEqual(
         accepted
           ? [
