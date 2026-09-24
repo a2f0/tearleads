@@ -42,7 +42,14 @@ async function verifyInput(
   const containerId = input.listedContainerIds.find((id) =>
     head.linkedContainerIds.includes(id),
   );
-  if (!containerId) return null;
+  if (!containerId) {
+    // A same-epoch head can predate a link addition. Only the named head or
+    // terminal signed purge evidence can settle a candidate without a retry.
+    return head.accessStateHash === input.accessStateHash ||
+      (!head.accessStateHash && head.accessEpoch === Number.MAX_SAFE_INTEGER)
+      ? null
+      : "unavailable";
+  }
   if (!head.accessStateHash) return "unavailable";
   if (!(await store.saveHead(input.documentId, head, generation)))
     return "unavailable";

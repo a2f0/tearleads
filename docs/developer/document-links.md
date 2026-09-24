@@ -47,7 +47,10 @@ rows, the SDK loads and verifies its signed head, uses that head's links and
 manifest hash, and requires an epoch at least as recent as both the listing and
 local state. Unavailable evidence is retained per document for a later retry,
 allowing the listing watermark and verified siblings to advance. A signed head
-that no longer links any of the listed lanes discards that stale listing item.
+that no longer links any of the listed lanes discards that stale listing item
+only when its hash matches the listing. A different same-epoch head may lag a
+link addition, so the candidate remains pending until the named head arrives.
+A verified terminal purge can also settle an unapplied candidate.
 Pending local moves retain their existing transaction guards.
 
 Listing tombstones likewise remove a placement only when a verified head omits
@@ -91,6 +94,9 @@ never signed deletion evidence for an existing placement. Candidate lanes are
 grouped by document before verification, and malformed listing epochs are skipped
 before persistence. Remote trust reset clears the verified cache and scoped
 candidates, and advances a local generation fence so an earlier request cannot
-repopulate the cache. A canceled pass also skips placement apply, watermark
-advancement, and full-listing callbacks, including in other organizations.
+repopulate the cache. Discovery checks cancellation before placement apply and
+again before
+watermark publication, including in other organizations. These checks are not
+atomic with the separate placement and watermark writes; a reset inside those
+writes can still overlap them.
 Request ordinals stay monotone across resets.

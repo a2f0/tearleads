@@ -15,6 +15,7 @@ import {
   createContainerWriterProjectionContext,
 } from "../containers/writerProjection";
 import { resolveReadableContainerAccessBatch } from "../keyingReadAccess";
+import { wasOrganizationGroupDeleted } from "../organizations/groupTombstone";
 import {
   ancestorsOrSelf,
   isCurrentMemberOfAnyOrganizationGroup,
@@ -240,6 +241,15 @@ export async function assertPrincipalPolicyReadable(input: {
   readonly requesterUserId: string;
 }): Promise<void> {
   const { currentState, executor, requesterUserId } = input;
+  if (
+    currentState.principalType === "group" &&
+    (await wasOrganizationGroupDeleted({
+      executor,
+      groupId: currentState.principalId,
+    }))
+  ) {
+    throw new PrincipalPolicyError("Principal policy access denied", 403);
+  }
   const organizationId = await resolvePrincipalOrganizationId(
     executor,
     currentState.principalType,

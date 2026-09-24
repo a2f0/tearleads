@@ -143,7 +143,10 @@ test("deleted group IDs reject policy replay and catalog reuse", async () => {
     `/principals/group/${groupId}/policy`,
     { headers: { Authorization: `Bearer ${owner.token}` } },
   );
-  expect(retainedPolicyResponse.status).toBe(404);
+  expect(retainedPolicyResponse.status).toBe(403);
+  expect(await retainedPolicyResponse.json()).toEqual({
+    error: "Principal policy access denied",
+  });
   const before = await readSnapshot(owner, organization.organizationId);
 
   const replayResponse = await routeApp.request(
