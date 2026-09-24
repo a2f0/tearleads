@@ -3,7 +3,7 @@ import type {
   OrganizationGroupSummary,
   OrganizationPolicyHistory,
 } from "@tearleads/client-sdk";
-import { useId, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import {
   MiniAppHeader,
   MiniAppHeaderCopy,
@@ -50,6 +50,11 @@ export function OrganizationView({
     useState<OrganizationDetailTabId>("profile");
   const [organizationName, setOrganizationName] = useState<string | null>(null);
 
+  useEffect(() => {
+    setActiveTab("profile");
+    setOrganizationName(null);
+  }, [organizationId]);
+
   return (
     <section className="org-manager-panel">
       <MiniAppHeader className="org-manager-detail-header">
@@ -75,6 +80,7 @@ export function OrganizationView({
         <div hidden={activeTab !== "profile"}>
           <OrganizationProfileEditor
             canEdit={directory?.currentUser.isOrgAdmin ?? false}
+            key={organizationId}
             onNameChange={setOrganizationName}
             organizationId={organizationId}
             pending={pending}

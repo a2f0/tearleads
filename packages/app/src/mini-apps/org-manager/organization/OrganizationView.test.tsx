@@ -34,7 +34,6 @@ function organizationViewElement(
       <OrganizationView
         directory={null}
         groups={[]}
-        key={props.organizationId ?? "organization-1"}
         organizationId="organization-1"
         pending={true}
         policyHistory={null}
@@ -166,15 +165,41 @@ test("changing organizations returns to the Profile tab", async () => {
     );
   });
 
-  const nextTabs = view.getByRole("tablist", {
-    name: ORG_MANAGER_LABELS.organizationDetailTabsLabel,
-  });
   expect(
-    within(nextTabs)
+    within(tabs)
       .getByRole("tab", { name: ORG_MANAGER_LABELS.profile })
       .getAttribute("aria-selected"),
   ).toBe("true");
   expect(view.getByRole("tabpanel").textContent).toContain(
     ORG_MANAGER_LABELS.loadingOrganizationProfile,
   );
+});
+
+test("changing organizations starts a new profile document lookup", async () => {
+  let ensureCount = 0;
+  const actions = {
+    ...orgManagerActionsStub,
+    ensureOrganizationProfileDocument: async () => {
+      ensureCount += 1;
+      return null;
+    },
+  } as NonNullable<ContextType<typeof OrgManagerContext>>;
+  const view = renderOrganizationView(
+    { directory: adminDirectory, pending: false },
+    actions,
+  );
+  await waitFor(() => expect(ensureCount).toBe(1));
+
+  view.rerender(
+    organizationViewElement(
+      {
+        directory: adminDirectory,
+        organizationId: "organization-2",
+        pending: false,
+      },
+      actions,
+    ),
+  );
+
+  await waitFor(() => expect(ensureCount).toBe(2));
 });
