@@ -16,11 +16,12 @@ import type {
 import type { SecurityIncidentReporter } from "../../../data/securityIncidents";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import type { TrustedUserIdentityResolver } from "../../../data/trustedUserIdentity";
+import type { PrincipalPolicyRepairBudget } from "../../principals/policyRepairBudget";
 import { cacheRemoteContainerCreatePolicyRepair } from "./policyRepair";
 
 export interface ContainerCreateRepairState {
   didRepairStaleParent: boolean;
-  didRepairStalePolicies: boolean;
+  policyRepairs: PrincipalPolicyRepairBudget;
 }
 
 export interface RemoteContainerCreateInput {
@@ -89,7 +90,7 @@ export async function repairContainerCreateFailure(input: {
     return { kind: "unavailable" };
   }
   if (
-    !input.state.didRepairStalePolicies &&
+    input.state.policyRepairs.take(input.failure.stalePrincipalPolicies) &&
     (await cacheRemoteContainerCreatePolicyRepair({
       apiClient: input.apiClient,
       execSql: input.execSql,
@@ -100,7 +101,6 @@ export async function repairContainerCreateFailure(input: {
       stillCurrent: input.stillCurrent,
     }))
   ) {
-    input.state.didRepairStalePolicies = true;
     return { kind: "retry", parentProjection: input.parentProjection };
   }
   if (input.stillCurrent?.() === false) {

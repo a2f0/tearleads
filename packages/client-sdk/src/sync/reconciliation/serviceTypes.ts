@@ -28,6 +28,7 @@ export interface ReconciliationHost extends InitialDocumentProbeHost {
   discoverContainerDocuments: (
     containerId: string,
     onFullListing?: ((documentIds: ReadonlyArray<string>) => void) | undefined,
+    onPendingDiscovery?: ((delayMs: number) => void) | undefined,
   ) => Promise<ReadonlyArray<DocumentSummary> | null>;
   /** Read a container's freshly-persisted summaries+links from SQLite. */
   loadContainerDelta: (

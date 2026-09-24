@@ -40,3 +40,68 @@ surviving destination remain unavailable until a new local action retargets them
 Regression coverage includes local publication with an unresolved network request,
 transaction rollback, stale discovery, signed replay, retries, overlapping moves,
 multiple additions, container deletion, and Explorer's offline action.
+
+Container listings discover document ids; their placement and link arrays do
+not establish authority. Before inserting a discovered document or replacing
+its link rows, the SDK loads and verifies its signed head, uses that head's
+links and manifest hash, and requires an epoch at least as recent as both the
+listing and local state. Unavailable evidence is retained per document for a
+later retry, allowing the listing watermark and verified siblings to advance.
+A signed head that no longer links any of the listed lanes discards that stale
+listing item when its hash matches the listing or its epoch is strictly newer.
+A different same-epoch head may lag a link addition, so the candidate remains
+pending until the named head arrives. A verified terminal purge can also
+settle an unapplied candidate. Later lane listing tombstones discard pending
+hints for that placement, without touching local placement rows; those still
+require signed removal evidence. Pending local moves retain their existing
+transaction guards.
+
+Listing tombstones likewise remove a placement only when a verified head omits
+it. A head that still links it keeps the placement visible and retains a
+backed-off retry, since even an uncached signed head can lag the listing. An
+unrefuted tombstone keeps the placement hidden without deleting it while
+evidence is unavailable. If every placement is hidden, the document remains
+available through orphan recovery. The greenfield SQLite schema records
+whether a pending tombstone hides its placement.
+
+Principal policy reads needed for verification return the same 403 body for an
+unknown principal and an unreadable one. Candidate container references are
+only search hints: an anchored candidate never suppresses the bounded
+descendant scan, and a verified readable path must justify the policy read.
+Stale-policy mutation replies carry at most 16 readable bundles. Container
+creation accepts successive repair pages, with a maximum of 16 rounds and no
+retry for an identical page.
+
+Listing discovery retains candidates durably before advancing watermarks. A
+durable local request sequence orders overlapping listings; untrusted server
+epochs cannot prevent a newer request from replacing a poisoned candidate.
+Each pass verifies at most 32 candidates with four concurrent head loads. A
+cold first sync needs one writer-projection GET per distinct document and
+roughly one reconciliation pass per 32 candidate rows; each extra pass repeats
+the listing and delta reconciliation. Explicit discovery calls run one bounded
+pass; later calls or background reconciliation resume the durable remainder.
+Signed heads are cached by document id and exact manifest hash. Reuse also
+requires an exact match with the durable document verification checkpoint; a
+head verified by another path cannot be rolled back through this cache.
+Unavailable candidates retry independently with the tombstone backoff (fifteen
+minutes, doubling to thirty-two hours); verified siblings and tombstones
+settle immediately. Pending candidates are acknowledged only after local
+apply, and a newer candidate cannot be removed by an older attempt's
+acknowledgement. The background reconciler publishes each partial result and
+schedules the next batch or delayed retry, keeping the open container at
+active priority and cancelling timers when its lifecycle stops. A refuted
+tombstone stays visible during later network failures while its evidence is
+retried.
+
+A pending evidence retry is settled for the current reconciliation sweep, so
+it does not retain a force request or trigger repeated automatic pulls. A
+coded document-not-found reply discards only an unapplied discovery candidate;
+it is never signed deletion evidence for an existing placement. Candidate
+lanes are grouped by document before verification, and malformed listing
+epochs are skipped before persistence. Remote trust reset clears the verified
+cache and scoped candidates, and advances a local generation fence so an
+earlier request cannot repopulate the cache. Discovery checks cancellation
+before placement apply and again before watermark publication, including in
+other organizations. These checks are not atomic with the separate placement
+and watermark writes; a reset inside those writes can still overlap them.
+Request ordinals stay monotone across resets.

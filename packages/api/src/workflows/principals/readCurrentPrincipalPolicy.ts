@@ -30,7 +30,7 @@ export async function runReadCurrentPrincipalPolicyWorkflow(
       tx,
     );
     if (!currentState) {
-      throw new PrincipalPolicyError("Principal state not found", 404);
+      throw new PrincipalPolicyError("Principal policy access denied", 403);
     }
     await assertPrincipalPolicyReadable({
       currentState,

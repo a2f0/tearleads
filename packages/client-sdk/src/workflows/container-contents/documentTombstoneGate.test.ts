@@ -27,7 +27,7 @@ function createGateStore(
     held: [] as ReadonlyArray<HeldContainerDocumentTombstoneInput>[],
     known: [] as ReadonlyArray<ContainerDocumentPlacement>[],
     listed: [] as ReadonlyArray<string>[],
-    released: [] as ReadonlyArray<{
+    refuted: [] as ReadonlyArray<{
       containerId: string;
       documentId: string;
     }>[],
@@ -65,10 +65,10 @@ function createGateStore(
         (placement) => placement.documentId !== "unknown",
       );
     },
-    releaseContainerDocumentTombstoneHolds: async (
+    refuteContainerDocumentTombstoneHolds: async (
       placements: ReadonlyArray<{ containerId: string; documentId: string }>,
     ) => {
-      calls.released.push(placements);
+      calls.refuted.push(placements);
     },
     verifyContainerDocumentTombstones: async (
       tombstones: ReadonlyArray<ContainerDocumentTombstone>,
@@ -80,7 +80,7 @@ function createGateStore(
   return { calls, store };
 }
 
-test("a tombstone the verified head still links is dropped, never applied", async () => {
+test("a tombstone the verified head still links remains visible and retryable", async () => {
   const { calls, store } = createGateStore((candidate) => ({
     kind: "refuted",
     linkedContainerIds: ["real-folder", "also-linked"],
@@ -95,13 +95,11 @@ test("a tombstone the verified head still links is dropped, never applied", asyn
 
   expect(summaries).toEqual([]);
   expect(calls.applied).toEqual([]);
-  expect(calls.held).toEqual([]);
-  // The loaded head also releases any hold on the other container it links.
-  expect(calls.released).toEqual([
-    [
-      tombstone("doc", "real-folder"),
-      { containerId: "also-linked", documentId: "doc" },
-    ],
+  expect(calls.held).toEqual([
+    [{ ...tombstone("doc", "real-folder"), refuted: true }],
+  ]);
+  expect(calls.refuted).toEqual([
+    [{ containerId: "also-linked", documentId: "doc" }],
   ]);
 });
 
@@ -128,9 +126,7 @@ test("a tombstone the verified head omits is applied with the head link set", as
     ],
   ]);
   expect(calls.held).toEqual([]);
-  expect(calls.released).toEqual([
-    [{ containerId: "kept", documentId: "doc" }],
-  ]);
+  expect(calls.refuted).toEqual([[{ containerId: "kept", documentId: "doc" }]]);
 });
 
 test("an unverifiable tombstone is held instead of applied", async () => {
@@ -147,7 +143,7 @@ test("an unverifiable tombstone is held instead of applied", async () => {
 
   expect(calls.applied).toEqual([]);
   expect(calls.held).toEqual([[tombstone("doc", "folder")]]);
-  expect(calls.released).toEqual([]);
+  expect(calls.refuted).toEqual([]);
 });
 
 test("held tombstones are retried with the listing and the newest timestamp wins", async () => {

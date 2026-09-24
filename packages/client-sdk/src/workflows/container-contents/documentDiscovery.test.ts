@@ -391,12 +391,7 @@ test("container document discovery applies tombstones before advancing watermark
     },
   });
 
-  expect(applyOrder).toEqual([
-    "upsert-documents",
-    "replace-links",
-    "apply-tombstones",
-    "save-watermark",
-  ]);
+  expect(applyOrder).toEqual(["apply-tombstones", "save-watermark"]);
   expect(appliedTombstones).toEqual([
     [
       {

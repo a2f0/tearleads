@@ -1,5 +1,7 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
+import { sqlDocumentContainerProjectionPersistence as links } from "../../data/persistence/containers/documentContainerProjectionPersistence";
+import { holdContainerDocumentTombstones } from "../../data/persistence/documents/containerDocumentTombstoneHoldsPersistence";
 import { sqlDocumentsPersistence } from "../../data/persistence/documents/documentsPersistence";
 import { defaultContainerContentsPersistence } from "./containerPersistence";
 import { primeDocumentsForLoadedRoots } from "./documentPriming";
@@ -370,6 +372,44 @@ test("a pre-auth orphan with no organization still primes", async () => {
 
     expect(result.orphanPrimedCount).toBe(1);
     expect(opened).toEqual([{ containerId: null, localId: "preauth-orphan" }]);
+  } finally {
+    close();
+  }
+});
+
+test("priming recovers an all-held document without deleting its retained link", async () => {
+  const { close, execSql } = await createTestExecSql("priming-all-held");
+  try {
+    await defaultContainerContentsPersistence.ensureSchema(execSql);
+    await sqlDocumentsPersistence.ensureSchema(execSql);
+    await saveTestDocument({
+      containerId: "held",
+      documentId: "doc",
+      execSql,
+      id: "local-doc",
+      title: "held",
+      updatedAt: "2026-09-23T00:00:00.000Z",
+    });
+    await links.replaceDocumentLinks(execSql, "doc", ["held"]);
+    await holdContainerDocumentTombstones(execSql, [
+      {
+        containerId: "held",
+        documentId: "doc",
+        updatedAt: "2026-09-23T00:00:00.000Z",
+      },
+    ]);
+    const opened: Array<{ containerId: string | null; localId: string }> = [];
+    const result = await primeDocumentsForLoadedRoots({
+      containersById: new Map(),
+      host: createPrimeHost(opened),
+      organizationId: "org-a",
+      runtime: { infra: { execSql } },
+    });
+    expect(result.orphanPrimedCount).toBe(1);
+    expect(opened).toEqual([{ containerId: null, localId: "local-doc" }]);
+    expect(await links.listLinkedContainerIds(execSql, "doc")).toEqual([
+      "held",
+    ]);
   } finally {
     close();
   }

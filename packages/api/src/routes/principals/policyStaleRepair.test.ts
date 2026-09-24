@@ -7,6 +7,7 @@ import {
   bootstrapRoot,
   buildRootGrantRequest,
 } from "../../../test/helpers/keyingWriterProjectionKit";
+import { createGroupRequest } from "../../../test/helpers/organizationGroup";
 import { getDefaultOrganizationId } from "../../../test/helpers/organizationMembership";
 import { loadVerifiedPrincipalPolicy } from "../../../test/helpers/principalPolicy";
 import {
@@ -46,7 +47,7 @@ async function staleArtifactFor(
 async function shareOwnRootCiting(
   actor: TestUser,
   recipient: TestUser,
-  groupId: string,
+  groupIds: string | string[],
 ): Promise<Response> {
   const root = await bootstrapRoot(actor);
   const request = await buildRootGrantRequest({
@@ -60,7 +61,11 @@ async function shareOwnRootCiting(
       ...request,
       principalPolicies: [
         ...request.principalPolicies,
-        await staleArtifactFor(groupId),
+        ...(await Promise.all(
+          (typeof groupIds === "string" ? [groupIds] : groupIds).map(
+            staleArtifactFor,
+          ),
+        )),
       ],
     }),
     headers: {
@@ -111,3 +116,51 @@ test("a stale-policy reject still repairs a bundle the requester may read", asyn
     body.principalPolicies.map((bundle) => bundle.currentState.principalId),
   ).toEqual([adminGroupId]);
 });
+
+test("stale-policy replies cap distinct readable bundles at sixteen", async () => {
+  const owner = createTestUser();
+  const peer = createTestUser();
+  await registerAndAuthenticate(owner, peer);
+  const organizationId = await getDefaultOrganizationId(owner.userId);
+  const groupIds: string[] = [];
+  for (let index = 0; index < 17; index++) {
+    const groupId = crypto.randomUUID();
+    const response = await routeApp.request(
+      `/organizations/${organizationId}/groups`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${owner.token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(
+          await createGroupRequest({
+            actor: owner,
+            groupId,
+            name: `Repair ${index}`,
+          }),
+        ),
+      },
+    );
+    expect(response.status, await response.clone().text()).toBe(200);
+    groupIds.push(groupId);
+  }
+  const response = await shareOwnRootCiting(owner, peer, groupIds);
+  expect(response.status).toBe(409);
+  const body: unknown = await response.json();
+  invariant(isPrincipalPolicyStaleErrorResponse(body), "expected stale reject");
+  expect(
+    body.principalPolicies.map((bundle) => bundle.currentState.principalId),
+  ).toEqual(groupIds.slice(0, 16));
+  const remainder = await shareOwnRootCiting(owner, peer, groupIds.slice(16));
+  const remainderBody: unknown = await remainder.json();
+  invariant(
+    isPrincipalPolicyStaleErrorResponse(remainderBody),
+    "expected remaining repair",
+  );
+  expect(
+    remainderBody.principalPolicies.map(
+      (bundle) => bundle.currentState.principalId,
+    ),
+  ).toEqual(groupIds.slice(16));
+}, 30_000);

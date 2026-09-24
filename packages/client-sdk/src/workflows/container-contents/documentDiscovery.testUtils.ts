@@ -1,3 +1,8 @@
+import type { DiscoveredDocumentCandidate } from "../../data/persistence/documents/documentDiscoveryEvidencePersistence";
+import { upsertAccessManifestCheckpointInTransaction } from "../../data/persistence/keyingCheckpointPersistence";
+import { keyingCheckpointTables } from "../../data/sqlite/schema";
+import { getClientSQLitePersistenceRuntime } from "../../data/sqlite/sqlitePersistenceRuntime";
+import { type ExecSql, ensureSqlTables } from "../../data/sqlite/sqlSchema";
 import type {
   ContainerDocumentDiscoveryApi,
   ContainerDocumentPlacement,
@@ -6,14 +11,22 @@ import type {
   ListContainersResponse,
 } from "./documentDiscoveryTypes";
 
-/** Every listing tombstone is treated as verified; no holds are stored. */
+/** Listing items and tombstones are trusted here; no pending evidence is stored. */
 export const trustedContainerDocumentTombstones = {
+  beginDocumentDiscovery: async () => 1,
+  verifyDiscoveredDocuments: async (
+    inputs: ReadonlyArray<DiscoveredDocumentCandidate>,
+  ) => ({
+    inputs: inputs.map(({ listedContainerIds: _listed, ...input }) => input),
+    isCurrent: async () => true,
+    commit: async () => true,
+  }),
   holdContainerDocumentTombstones: async () => {},
   listHeldContainerDocumentTombstones: async () => [],
   listKnownContainerDocumentPlacements: async (
     placements: ReadonlyArray<ContainerDocumentPlacement>,
   ) => placements,
-  releaseContainerDocumentTombstoneHolds: async () => {},
+  refuteContainerDocumentTombstoneHolds: async () => {},
   verifyContainerDocumentTombstones: async (
     tombstones: ReadonlyArray<ContainerDocumentTombstone>,
   ): Promise<ContainerDocumentTombstoneVerdict[]> =>
@@ -61,4 +74,23 @@ export function createDiscoveryParentLaneBatchMock(
     }
     return { results };
   };
+}
+
+export async function pinTestDiscoveryHead(
+  execSql: ExecSql,
+  documentId: string,
+  manifestHash: string,
+) {
+  await ensureSqlTables(execSql, keyingCheckpointTables);
+  await upsertAccessManifestCheckpointInTransaction(
+    getClientSQLitePersistenceRuntime(execSql).db,
+    {
+      objectKind: "document",
+      organizationId: "org",
+      objectId: documentId,
+      epoch: 1,
+      manifestHash,
+    },
+    "2026-09-23T00:00:00.000Z",
+  );
 }

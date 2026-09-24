@@ -29,7 +29,6 @@ test("principal policy OpenAPI documents both shared operations", () => {
     "400",
     "401",
     "403",
-    "404",
     "500",
     "503",
   ]);

@@ -57,6 +57,7 @@ import {
   requireProjectionUserKeyResolver,
 } from "../../../data/keyingProjectionVerification";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
+import { PrincipalPolicyRepairBudget } from "../../principals/policyRepairBudget";
 import {
   type ContainerCreateRepairState,
   type RemoteContainerCreateInput,
@@ -378,7 +379,7 @@ async function createRemoteContainerWithRepairs(input: {
   let parentProjection = input.parentProjection;
   const repairState: ContainerCreateRepairState = {
     didRepairStaleParent: false,
-    didRepairStalePolicies: false,
+    policyRepairs: new PrincipalPolicyRepairBudget(),
   };
   for (;;) {
     const materializedPlan = await buildMaterializedContainerCreatePlan({

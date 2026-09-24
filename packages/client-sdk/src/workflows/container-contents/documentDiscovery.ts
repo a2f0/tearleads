@@ -7,6 +7,7 @@ import {
 } from "./containerDocumentListing";
 import { withoutDeferredDocumentLinks } from "./deferredDocumentLinks";
 import {
+  collectApplicableDocumentTombstones,
   collectDiscoveredDocumentInputs,
   getApplicableDocumentTombstones,
 } from "./documentDiscoveryInputs";
@@ -250,6 +251,7 @@ export async function discoverContainerDocuments(
     saveContainerDocumentWatermark,
     upsertDiscoveredDocuments,
   } = options;
+  const generation = await options.beginDocumentDiscovery();
   const listedDocuments = await listAllContainerDocuments({
     containerId,
     loadContainerDocumentWatermark,
@@ -267,28 +269,38 @@ export async function discoverContainerDocuments(
     ),
   );
 
-  const discoveredDocuments = await upsertDiscoveredDocuments(
+  const verification = await options.verifyDiscoveredDocuments(
     listedDocuments.items.map((document) => ({
       accessEpoch: document.currentAccessEpoch,
       accessStateHash: document.currentAccessStateHash,
       containerId,
+      listedContainerIds: [containerId],
       createdAt: document.createdAt,
       documentId: document.id,
       effectiveAccessLevel: document.effectiveAccessLevel,
       linkedContainerIds: document.linkedContainerIds,
     })),
+    [containerId],
+    generation,
+    getApplicableDocumentTombstones(listedDocuments),
   );
+  if (!(await verification.isCurrent())) return null;
+  const verifiedInputs = verification.inputs;
+  const discoveredDocuments = verifiedInputs.length
+    ? await upsertDiscoveredDocuments(verifiedInputs)
+    : [];
 
-  await replaceDocumentLinksBatch(
-    await withoutDeferredDocumentLinks(
-      listedDocuments.items.map((document) => ({
-        documentId: document.id,
-        accessEpoch: document.currentAccessEpoch,
-        containerIds: document.linkedContainerIds,
-      })),
-      discoveredDocuments,
-    ),
-  );
+  if (verifiedInputs.length)
+    await replaceDocumentLinksBatch(
+      await withoutDeferredDocumentLinks(
+        verifiedInputs.map((document) => ({
+          documentId: document.documentId,
+          accessEpoch: document.accessEpoch,
+          containerIds: document.linkedContainerIds,
+        })),
+        discoveredDocuments,
+      ),
+    );
 
   const tombstoneDocumentSummaries = await settleContainerDocumentTombstones({
     containerIds: [containerId],
@@ -296,6 +308,8 @@ export async function discoverContainerDocuments(
     tombstones: getApplicableDocumentTombstones(listedDocuments),
   });
 
+  const complete = await verification.commit();
+  if (!(await verification.isCurrent())) return null;
   await saveAppliedContainerDocumentWatermark({
     containerId,
     listedDocuments,
@@ -303,10 +317,15 @@ export async function discoverContainerDocuments(
   });
 
   if (listedDocuments.isFullListing) {
+    // Initial probes consume ids as discovery hints and verify their own heads.
     onFullListing?.(listedDocuments.items.map((document) => document.id));
   }
 
-  return [...discoveredDocuments, ...tombstoneDocumentSummaries];
+  return !complete &&
+    discoveredDocuments.length === 0 &&
+    tombstoneDocumentSummaries.length === 0
+    ? null
+    : [...discoveredDocuments, ...tombstoneDocumentSummaries];
 }
 
 export function discoverContainerDocumentsFromApi({
@@ -327,7 +346,7 @@ export function discoverContainerDocumentsFromApi({
 
 export async function discoverAllContainerDocuments(
   options: DiscoverAllContainerDocumentsOptions,
-): Promise<ReadonlyArray<DocumentSummary>> {
+): Promise<ReadonlyArray<DocumentSummary> | null> {
   const {
     cacheReferencedPrincipalPolicies,
     containerIds,
@@ -341,6 +360,7 @@ export async function discoverAllContainerDocuments(
     (containerId): containerId is string =>
       typeof containerId === "string" && containerId.length > 0,
   );
+  const generation = await options.beginDocumentDiscovery();
   const listedDocumentsByContainer = await listContainerDocumentLanes({
     containerIds: uniqueContainerIds,
     loadContainerDocumentWatermark,
@@ -356,9 +376,14 @@ export async function discoverAllContainerDocuments(
       ),
     ),
   );
-  const discoveredDocumentInputs = collectDiscoveredDocumentInputs(
-    listedDocumentsByContainer,
+  const verification = await options.verifyDiscoveredDocuments(
+    collectDiscoveredDocumentInputs(listedDocumentsByContainer),
+    uniqueContainerIds,
+    generation,
+    collectApplicableDocumentTombstones(listedDocumentsByContainer),
   );
+  if (!(await verification.isCurrent())) return null;
+  const discoveredDocumentInputs = verification.inputs;
   const discoveredDocuments =
     discoveredDocumentInputs.length === 0
       ? []
@@ -383,10 +408,11 @@ export async function discoverAllContainerDocuments(
         listedDocuments ? [containerId] : [],
     ),
     store: options,
-    tombstones: listedDocumentsByContainer.flatMap(({ listedDocuments }) =>
-      listedDocuments ? getApplicableDocumentTombstones(listedDocuments) : [],
-    ),
+    tombstones: collectApplicableDocumentTombstones(listedDocumentsByContainer),
   });
+
+  const complete = await verification.commit();
+  if (!(await verification.isCurrent())) return null;
 
   await Promise.all(
     listedDocumentsByContainer.map(({ containerId, listedDocuments }) =>
@@ -400,7 +426,11 @@ export async function discoverAllContainerDocuments(
     ),
   );
 
-  return [...discoveredDocuments, ...tombstoneDocumentSummaries];
+  return !complete &&
+    discoveredDocuments.length === 0 &&
+    tombstoneDocumentSummaries.length === 0
+    ? null
+    : [...discoveredDocuments, ...tombstoneDocumentSummaries];
 }
 
 async function refreshAllContainerDocuments({

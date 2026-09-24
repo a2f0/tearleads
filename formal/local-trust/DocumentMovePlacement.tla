@@ -28,6 +28,7 @@ Init ==
 (* Local placement, links and intent commit atomically. Two distinct intents
    model trash followed by a move elsewhere while the first replay is active. *)
 QueueMove ==
+  /\ remoteLinks # {}
   /\ revision < 2 /\ revision' = revision + 1 /\ pending' = TRUE
   /\ desired' = IF revision = 0 THEN "trash" ELSE "other"
   /\ localLinks' = {desired'} /\ visible' = {desired'}
@@ -100,6 +101,16 @@ ApplyTombstone ==
                   remoteLinks, remoteEpoch, attempt, attemptTarget, phase, recovering,
                   pageLinks, pageEpoch, pageReady, readLinks, readReady, readSummary>>
 
+(* A peer purges the document before any local move. The local link remains
+   until a listing tombstone supplies the verified terminal purge proof.
+   This makes the guarded apply reachable in the positive configuration. *)
+PeerPurge ==
+  /\ revision = 0 /\ ~pending /\ phase = "idle" /\ remoteEpoch = 0
+  /\ remoteLinks' = {} /\ remoteEpoch' = 1
+  /\ UNCHANGED <<revision, pending, desired, localLinks, localEpoch, visible,
+                  attempt, attemptTarget, phase, recovering, pageLinks, pageEpoch,
+                  pageReady, readLinks, readReady, readSummary>>
+
 (* A listing tombstone names a container to remove from the local link rows. *)
 (* The listing is an environment input the server controls, so the action    *)
 (* is always enabled for any local link; the signed-evidence gate admits the *)
@@ -154,13 +165,13 @@ TypeOK ==
   /\ {desired, attemptTarget, readSummary} \subseteq {"root", "trash", "other"}
   /\ {localLinks, remoteLinks, visible, pageLinks, readLinks}
        \subseteq SUBSET {"root", "trash", "other"}
-  /\ {localEpoch, remoteEpoch, pageEpoch} \subseteq 0..4
+  /\ {localEpoch, remoteEpoch, pageEpoch} \subseteq 0..5
   /\ {pending, pageReady, readReady, recovering} \subseteq BOOLEAN
   /\ phase \in {"idle", "link", "unlink", "settle"}
-StablePlacement == localLinks = {desired}
-StableView == visible = {desired}
+StablePlacement == localLinks = {desired} \/ (~pending /\ remoteLinks = {} /\ localLinks = {})
+StableView == visible = {desired} \/ (~pending /\ remoteLinks = {} /\ visible = {})
 
-Next == QueueMove \/ StartReplay \/ Link \/ Unlink \/ Settle \/ LoseResponse
+Next == PeerPurge \/ QueueMove \/ StartReplay \/ Link \/ Unlink \/ Settle \/ LoseResponse
         \/ CapturePage \/ MergeCurrentPage \/ ApplyPage \/ ApplyTombstone \/ ApplyListingTombstone
         \/ StartRead \/ RefreshReadSummary \/ FinishRead
         \/ UNCHANGED vars

@@ -349,10 +349,6 @@
     "scripts/architecture/subsystems.ts": {
       "lines": 765,
       "bytes": 28628
-    },
-    "scripts/checks/openApiCompatibilityErrors.ignore": {
-      "lines": 300,
-      "bytes": 36430
     }
   },
   "suppressions": {

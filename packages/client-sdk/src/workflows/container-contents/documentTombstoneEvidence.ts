@@ -1,4 +1,7 @@
-import type { DocumentWriterProjectionResponse } from "@tearleads/validators/response";
+import {
+  DOCUMENT_NOT_FOUND_ERROR_CODE,
+  type DocumentWriterProjectionResponse,
+} from "@tearleads/validators/response";
 import { assertDocumentWriterProjectionConsistent } from "../../data/documents/shared/projection";
 import { uniqueSortedStrings } from "../../data/documents/shared/readers";
 import { reportKeyingVerificationErrorInCauseChain } from "../../data/keyingProjectionVerification/error";
@@ -14,6 +17,8 @@ import type { ContainerContentsWorkflowRuntime } from "./runtime";
 
 export interface VerifiedDocumentHeadLinkSet {
   readonly accessEpoch: number;
+  /** Present for a signed head; a terminal purge has no live access state. */
+  readonly accessStateHash?: string;
   readonly linkedContainerIds: ReadonlyArray<string>;
 }
 
@@ -24,7 +29,8 @@ export interface VerifiedDocumentHeadLinkSet {
  */
 export type DocumentHeadLinkSetLoader = (
   documentId: string,
-) => Promise<VerifiedDocumentHeadLinkSet | null>;
+  expectedManifestHash?: string,
+) => Promise<VerifiedDocumentHeadLinkSet | "not-found" | null>;
 
 /** The highest access epoch local state records for the document. */
 export type LocalDocumentAccessEpochLoader = (
@@ -36,13 +42,13 @@ export interface DocumentHeadLinkSetLoaderDeps {
   readonly loadDocumentPurgeCheckpoint: typeof loadDocumentPurgeCheckpoint;
 }
 
-const HEAD_LINK_SET_LOAD_CONCURRENCY = 4;
+export const HEAD_LINK_SET_LOAD_CONCURRENCY = 4;
 /**
  * Head loads per settle. Tombstones beyond it stay unverified and are held
  * for a later, backed-off retry, so a bulk move out of a folder does not cost
  * every device an unbounded burst of fetches before the watermark advances.
  */
-const HEAD_LINK_SET_LOADS_PER_RUN = 32;
+export const HEAD_LINK_SET_LOADS_PER_RUN = 32;
 
 async function verifiedHeadLinkSet(
   runtime: ContainerContentsWorkflowRuntime,
@@ -63,6 +69,7 @@ async function verifiedHeadLinkSet(
       if (head && head.state.documentId === documentId) {
         verified.value = {
           accessEpoch: head.state.epoch,
+          accessStateHash: head.manifestHash,
           linkedContainerIds: uniqueSortedStrings(
             head.state.linkedContainerIds,
           ),
@@ -86,7 +93,7 @@ export function createDocumentHeadLinkSetLoader(
     loadDocumentPurgeCheckpoint,
   },
 ): DocumentHeadLinkSetLoader {
-  return async (documentId) => {
+  return async (documentId, expectedManifestHash) => {
     try {
       // A verified purge proof is terminal signed evidence that the document
       // links nothing any more.
@@ -98,13 +105,31 @@ export function createDocumentHeadLinkSetLoader(
       ) {
         return { accessEpoch: Number.MAX_SAFE_INTEGER, linkedContainerIds: [] };
       }
-      // The cached projection may predate the unlink the tombstone reports.
-      runtime.apiClient.evictDocumentWriterProjection(documentId);
-      const result = await runtime.apiClient.getDocumentWriterProjectionResult(
+      // Tombstones require a fresh head. Listings can reuse a matching cached
+      // projection, whose signature and local checkpoint are still verified.
+      if (!expectedManifestHash)
+        runtime.apiClient.evictDocumentWriterProjection(documentId);
+      let result = await runtime.apiClient.getDocumentWriterProjectionResult(
         documentId,
         { reportErrors: false },
       );
+      if (
+        expectedManifestHash &&
+        result.ok &&
+        result.data.documentManifest.manifestHash !== expectedManifestHash
+      ) {
+        runtime.apiClient.evictDocumentWriterProjection(documentId);
+        result = await runtime.apiClient.getDocumentWriterProjectionResult(
+          documentId,
+          { reportErrors: false },
+        );
+      }
       if (!result.ok) {
+        if (
+          result.status === 404 &&
+          result.code === DOCUMENT_NOT_FOUND_ERROR_CODE
+        )
+          return "not-found";
         runtime.util.log(
           `Container contents: tombstone evidence for document ${documentId} is unavailable (${result.status ?? "offline"})`,
         );
@@ -152,7 +177,14 @@ function judgeTombstones(
         tombstone,
       };
     }
-    return { kind: "verified", tombstone: { ...tombstone, ...head } };
+    return {
+      kind: "verified",
+      tombstone: {
+        ...tombstone,
+        accessEpoch: head.accessEpoch,
+        linkedContainerIds: head.linkedContainerIds,
+      },
+    };
   });
 }
 
@@ -189,7 +221,7 @@ export function createContainerDocumentTombstoneVerifier(
         if (!entry) break;
         const [documentId, group] = entry;
         const head = await loadDocumentHeadLinkSet(documentId);
-        if (head === null) continue;
+        if (head === null || head === "not-found") continue;
         // A local-state read that fails is treated like an unavailable head:
         // the tombstones stay held rather than failing the discovery pass.
         const localEpoch = await loadLocalDocumentAccessEpoch(documentId).catch(

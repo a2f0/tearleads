@@ -1,9 +1,15 @@
 import { expect, test } from "bun:test";
+import { db } from "@tearleads/api-shared/postgres";
+import {
+  accessManifestPrincipalHeadProjection,
+  principalStatePayloads,
+} from "@tearleads/api-shared/schema";
 import { createTestUser } from "@tearleads/bob-and-alice";
 import {
   isContainerMutationResponse,
   isPrincipalPolicyBundleResponse,
 } from "@tearleads/validators/response";
+import { eq } from "drizzle-orm";
 import { grantContainerThroughReadGroup } from "../../../test/helpers/containerGroupGrant";
 import { createChildContainerFixture } from "../../../test/helpers/keyingWriterProjectionChild";
 import {
@@ -22,6 +28,7 @@ import {
 import { recoverRegisteredRootKek } from "../../../test/helpers/registeredRootKek";
 import { grantRootThroughRotatedReadGroup } from "../../../test/helpers/rotatedReadGroupGrant";
 import { routeApp } from "../../routeApp";
+import { requireDirectOrganizationAccess } from "../../workflows/organizations/access";
 
 async function expectBundle(response: Response): Promise<void> {
   expect(response.status, await response.clone().text()).toBe(200);
@@ -43,6 +50,10 @@ test("GET principal policy refuses an account outside the organization", async (
   const { adminGroupId, memberGroupId } =
     await loadOrganizationGroups(organizationId);
 
+  await expectDenied(await getPolicy(outsider, "group", crypto.randomUUID()));
+  await expectDenied(
+    await getPolicy(outsider, "organization", crypto.randomUUID()),
+  );
   await expectDenied(await getPolicy(outsider, "group", adminGroupId));
   await expectDenied(await getPolicy(outsider, "group", memberGroupId));
   await expectDenied(await getPolicy(outsider, "organization", organizationId));
@@ -157,7 +168,44 @@ test("GET principal policy serves a reader granted above a child's group grant",
   await expectBundle(await getPolicy(reader, "group", childGroupId));
   await expectBundle(await getPolicy(reader, "group", parentGroupId));
 
+  // A stale derived reference on an anchored root is only a candidate. It must
+  // not suppress scanning the readable descendant that really cites this group.
+  await db.insert(accessManifestPrincipalHeadProjection).values({
+    manifestHash: grantedRoot.bundle.manifestHash,
+    objectKind: "container",
+    objectId: grantedRoot.kekState.containerId,
+    principalType: "group",
+    principalId: childGroupId,
+    version: 1,
+    keyEpoch: 1,
+    stateHash: "stale-derived-reference",
+    keyFingerprint: "stale",
+  });
+  await expectBundle(await getPolicy(reader, "group", childGroupId));
+
   const outsider = createTestUser();
   await registerAndAuthenticate(outsider);
   await expectDenied(await getPolicy(outsider, "group", childGroupId));
+});
+
+test("an authorized policy with a missing stored payload is a server failure", async () => {
+  const owner = createTestUser();
+  await registerAndAuthenticate(owner);
+  const organizationId = await getDefaultOrganizationId(owner.userId);
+  const { adminGroupId } = await loadOrganizationGroups(organizationId);
+  await db
+    .delete(principalStatePayloads)
+    .where(eq(principalStatePayloads.principalId, adminGroupId));
+  const response = await getPolicy(owner, "group", adminGroupId);
+  expect(response.status).toBe(500);
+  await expect(
+    requireDirectOrganizationAccess({
+      executor: db,
+      organizationId,
+      userId: owner.userId,
+    }),
+  ).rejects.toMatchObject({
+    status: 409,
+    message: "Organization access policy failed integrity verification",
+  });
 });

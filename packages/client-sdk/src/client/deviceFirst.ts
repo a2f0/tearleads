@@ -292,11 +292,16 @@ class DeviceFirstService implements DeviceFirst {
       // retain every regular container. Exclude only this identity's own system
       // children; cold/auth backfill and explicit full Refresh cover those.
       listAutomaticRootCatchupContainerIds,
-      discoverContainerDocuments: (containerId, onFullListing) =>
+      discoverContainerDocuments: (
+        containerId,
+        onFullListing,
+        onPendingDiscovery,
+      ) =>
         discoverContainerDocumentsForRuntime({
           containerId,
           getContainerStore: () => store.getContainerStore(),
           onFullListing,
+          onPendingDiscovery,
           runtimeService,
         }),
       loadContainerDelta: (containerId) =>

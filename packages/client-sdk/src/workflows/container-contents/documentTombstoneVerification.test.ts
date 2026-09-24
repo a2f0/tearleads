@@ -1,9 +1,13 @@
-import { expect, test } from "bun:test";
+import { expect, mock, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
 import type { DocumentWriterProjectionResponse } from "@tearleads/validators/response";
 import { createMaterializedSyncFixture } from "../../../test/helpers/documentFixtures";
 import { createWorkflowInputFixture } from "../../../test/helpers/internalRuntimeFixtures";
+import { createDocumentDiscoveryEvidenceStore } from "../../data/persistence/documents/documentDiscoveryEvidencePersistence";
 import type { SecurityIncidentContext } from "../../data/securityIncidents";
+import { discoverContainerDocuments } from "./documentDiscovery";
+import { nullContainerDocumentWatermarks } from "./documentDiscovery.testUtils";
+import { createDiscoveredDocumentVerifier } from "./documentDiscoveryEvidence";
 import {
   createContainerDocumentTombstoneVerifier,
   createDocumentHeadLinkSetLoader,
@@ -55,6 +59,7 @@ async function createVerificationHarness(
     },
   });
   return {
+    store: createDocumentDiscoveryEvidenceStore(database.execSql),
     close: database.close,
     evicted,
     fixture,
@@ -128,6 +133,199 @@ test("a tampered head is no evidence and is reported as a security incident", as
         operation: "document.tombstone-evidence",
       },
     ]);
+  } finally {
+    harness.close();
+  }
+});
+
+for (const listedContainer of [
+  "materialized-sync-container",
+  "forged-placement",
+]) {
+  test(`listing ${listedContainer} uses only signed placement and links`, async () => {
+    const harness = await createVerificationHarness();
+    try {
+      const inputs: unknown[] = [];
+      const links: unknown[] = [];
+      const summaries = await discoverContainerDocuments({
+        ...nullContainerDocumentWatermarks,
+        containerId: listedContainer,
+        listContainerDocuments: async () => ({
+          hasMore: false,
+          nextWatermark: null,
+          tombstones: [],
+          items: [
+            {
+              id: DOCUMENT_ID,
+              currentAccessEpoch: 1,
+              currentAccessStateHash: "forged-hash",
+              linkedContainerIds: ["forged-placement"],
+              createdAt: at,
+              updatedAt: at,
+              referencedPrincipals: [],
+            },
+          ],
+        }),
+        verifyDiscoveredDocuments: createDiscoveredDocumentVerifier(
+          harness.load,
+          async () => 1,
+          harness.store,
+        ),
+        upsertDiscoveredDocuments: async (values) => {
+          inputs.push(...values);
+          return values.map((value) => ({
+            id: value.documentId,
+            documentId: value.documentId,
+            containerId: value.containerId,
+            title: "document",
+            updatedAt: at,
+          }));
+        },
+        replaceDocumentLinksBatch: async (values) => {
+          links.push(...values);
+        },
+      });
+      const accepted = listedContainer === "materialized-sync-container";
+      if (accepted) expect(summaries).toHaveLength(1);
+      else expect(summaries).toBeNull();
+      expect(await harness.store.hasPending([listedContainer])).toBe(!accepted);
+      expect(inputs).toEqual(
+        accepted
+          ? [
+              {
+                accessEpoch: 1,
+                accessStateHash:
+                  harness.fixture.writerProjection.documentManifest
+                    .manifestHash,
+                containerId: listedContainer,
+                createdAt: at,
+                documentId: DOCUMENT_ID,
+                effectiveAccessLevel: undefined,
+                linkedContainerIds: ["materialized-sync-container"],
+              },
+            ]
+          : [],
+      );
+      expect(links).toEqual(
+        accepted
+          ? [
+              {
+                documentId: DOCUMENT_ID,
+                accessEpoch: 1,
+                containerIds: ["materialized-sync-container"],
+              },
+            ]
+          : [],
+      );
+    } finally {
+      harness.close();
+    }
+  });
+}
+
+test("a tampered listing head queues evidence before advancing its watermark", async () => {
+  const harness = await createVerificationHarness((projection) => ({
+    ...projection,
+    documentManifest: {
+      ...projection.documentManifest,
+      state: {
+        ...projection.documentManifest.state,
+        linkedContainerIds: ["attacker"],
+      },
+    },
+  }));
+  try {
+    const persist = mock(async () => []);
+    const watermark = mock(async () => {});
+    const replaceLinks = mock(async () => {});
+    expect(
+      await discoverContainerDocuments({
+        ...nullContainerDocumentWatermarks,
+        containerId: "attacker",
+        listContainerDocuments: async () => ({
+          hasMore: false,
+          nextWatermark: { id: DOCUMENT_ID, updatedAt: at },
+          tombstones: [],
+          items: [
+            {
+              id: DOCUMENT_ID,
+              currentAccessEpoch: 1,
+              currentAccessStateHash: "forged",
+              linkedContainerIds: ["attacker"],
+              createdAt: at,
+              updatedAt: at,
+              referencedPrincipals: [],
+            },
+          ],
+        }),
+        verifyDiscoveredDocuments: createDiscoveredDocumentVerifier(
+          harness.load,
+          async () => 1,
+          harness.store,
+        ),
+        upsertDiscoveredDocuments: persist,
+        replaceDocumentLinksBatch: replaceLinks,
+        saveContainerDocumentWatermark: watermark,
+      }),
+    ).toBeNull();
+    expect(persist).not.toHaveBeenCalled();
+    expect(replaceLinks).not.toHaveBeenCalled();
+    expect(watermark).toHaveBeenCalledTimes(1);
+    expect(await harness.store.hasPending(["attacker"])).toBe(true);
+    expect(harness.incidents).toHaveLength(1);
+  } finally {
+    harness.close();
+  }
+});
+
+for (const [listingEpoch, localEpoch] of [
+  [2, 1],
+  [1, 2],
+] as const) {
+  test(`discovery refuses a signed head behind listing=${listingEpoch}, local=${localEpoch}`, async () => {
+    const harness = await createVerificationHarness();
+    try {
+      const verify = createDiscoveredDocumentVerifier(
+        harness.load,
+        async () => localEpoch,
+        harness.store,
+      );
+      const result = await verify(
+        [
+          {
+            accessEpoch: listingEpoch,
+            accessStateHash: "listing-head",
+            containerId: "materialized-sync-container",
+            listedContainerIds: ["materialized-sync-container"],
+            createdAt: at,
+            documentId: DOCUMENT_ID,
+            linkedContainerIds: ["materialized-sync-container"],
+          },
+        ],
+        ["materialized-sync-container"],
+        await harness.store.begin(),
+      );
+      expect(result.inputs).toEqual([]);
+      expect(await result.commit()).toBe(false);
+      expect(harness.incidents).toEqual([]);
+    } finally {
+      harness.close();
+    }
+  });
+}
+
+test("matching cached projections remain signed evidence without cache eviction", async () => {
+  const harness = await createVerificationHarness();
+  try {
+    const hash = harness.fixture.writerProjection.documentManifest.manifestHash;
+    expect(await harness.load(DOCUMENT_ID, hash)).toMatchObject({
+      accessStateHash: hash,
+    });
+    expect(harness.evicted).toEqual([]);
+    expect(
+      await harness.load(DOCUMENT_ID, "different-listing-head"),
+    ).not.toBeNull();
+    expect(harness.evicted).toEqual([DOCUMENT_ID]);
   } finally {
     harness.close();
   }

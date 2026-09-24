@@ -4,10 +4,12 @@ import {
   listKnownContainerDocumentPlacements,
   listRetryableHeldContainerDocumentTombstones,
   loadLocalDocumentAccessEpoch,
-  releaseContainerDocumentTombstoneHolds,
+  refuteContainerDocumentTombstoneHolds,
 } from "../data/persistence/documents/containerDocumentTombstoneHoldsPersistence";
+import { createDocumentDiscoveryEvidenceStore } from "../data/persistence/documents/documentDiscoveryEvidencePersistence";
 import type { ContainerContentsStore } from "../stores/container-contents";
 import { discoverContainerDocumentsFromApi } from "../workflows/container-contents/documentDiscovery";
+import { createDiscoveredDocumentVerifier } from "../workflows/container-contents/documentDiscoveryEvidence";
 import { createContainerDocumentQueriesFromRuntime } from "../workflows/container-contents/documentQueries";
 import {
   createContainerDocumentTombstoneVerifier,
@@ -22,11 +24,13 @@ export function discoverContainerDocumentsForRuntime({
   containerId,
   getContainerStore,
   onFullListing,
+  onPendingDiscovery,
   runtimeService,
 }: {
   containerId: string;
   getContainerStore: () => ContainerContentsStore;
   onFullListing?: ((documentIds: ReadonlyArray<string>) => void) | undefined;
+  onPendingDiscovery?: ((delayMs: number) => void) | undefined;
   runtimeService: InternalRuntime;
 }): Promise<ReadonlyArray<DocumentSummary> | null> {
   const input = runtimeService.workflowInput();
@@ -40,9 +44,16 @@ export function discoverContainerDocumentsForRuntime({
   const warmReferencedPrincipalPolicies =
     createRuntimePrincipalPolicyWarmer(runtime);
 
+  const evidenceStore = createDocumentDiscoveryEvidenceStore(
+    input.infra.execSql,
+  );
+  const loadHead = createDocumentHeadLinkSetLoader(runtime);
+  const loadEpoch = (documentId: string) =>
+    loadLocalDocumentAccessEpoch(input.infra.execSql, documentId);
   return discoverContainerDocumentsFromApi({
     ...createContainerDocumentQueriesFromRuntime(runtime),
     apiClient: runtime.apiClient,
+    beginDocumentDiscovery: () => evidenceStore.begin(),
     cacheReferencedPrincipalPolicies: (references) =>
       containerOrganizationId
         ? warmReferencedPrincipalPolicies({
@@ -61,12 +72,17 @@ export function discoverContainerDocumentsForRuntime({
     listKnownContainerDocumentPlacements: (placements) =>
       listKnownContainerDocumentPlacements(input.infra.execSql, placements),
     onFullListing,
-    releaseContainerDocumentTombstoneHolds: (placements) =>
-      releaseContainerDocumentTombstoneHolds(input.infra.execSql, placements),
+    refuteContainerDocumentTombstoneHolds: (placements) =>
+      refuteContainerDocumentTombstoneHolds(input.infra.execSql, placements),
     verifyContainerDocumentTombstones: createContainerDocumentTombstoneVerifier(
-      createDocumentHeadLinkSetLoader(runtime),
-      (documentId) =>
-        loadLocalDocumentAccessEpoch(input.infra.execSql, documentId),
+      loadHead,
+      loadEpoch,
+    ),
+    verifyDiscoveredDocuments: createDiscoveredDocumentVerifier(
+      loadHead,
+      loadEpoch,
+      evidenceStore,
+      onPendingDiscovery,
     ),
   });
 }

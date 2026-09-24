@@ -52,7 +52,7 @@ export async function buildPrincipalPolicyForStateWithExecutor(
     executor,
   );
   if (!currentPayload) {
-    throw new PrincipalPolicyError("Principal state payload not found", 404);
+    throw new PrincipalPolicyError("Principal state payload not found", 500);
   }
   const currentProjection = await listProjectionMembersForState(
     principalType,

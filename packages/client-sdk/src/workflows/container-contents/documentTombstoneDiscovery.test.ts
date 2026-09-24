@@ -7,7 +7,7 @@ import {
   listContainerDocumentTombstoneHolds,
   listKnownContainerDocumentPlacements,
   listRetryableHeldContainerDocumentTombstones,
-  releaseContainerDocumentTombstoneHolds,
+  refuteContainerDocumentTombstoneHolds,
 } from "../../data/persistence/documents/containerDocumentTombstoneHoldsPersistence";
 import { sqlDocumentsPersistence as documents } from "../../data/persistence/documents/documentsPersistence";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
@@ -56,8 +56,8 @@ function createHoldStore(
     },
     listKnownContainerDocumentPlacements: (placements) =>
       listKnownContainerDocumentPlacements(execSql, placements),
-    releaseContainerDocumentTombstoneHolds: (placements) =>
-      releaseContainerDocumentTombstoneHolds(execSql, placements),
+    refuteContainerDocumentTombstoneHolds: (placements) =>
+      refuteContainerDocumentTombstoneHolds(execSql, placements),
   };
 }
 
@@ -89,6 +89,12 @@ async function seed(execSql: ExecSql) {
   return {
     ...createContainerDocumentQueriesFromRuntime({ infra: { execSql } }),
     ...createHoldStore(execSql),
+    beginDocumentDiscovery: async () => 1,
+    verifyDiscoveredDocuments: async () => ({
+      inputs: [],
+      isCurrent: async () => true,
+      commit: async () => true,
+    }),
   };
 }
 
@@ -202,7 +208,7 @@ test("an unverifiable tombstone hides the placement until a verified head settle
     expect(await visibleIn(store, "real-folder")).toEqual(["doc"]);
     expect(
       await listContainerDocumentTombstoneHolds(execSql, ["real-folder"]),
-    ).toEqual([]);
+    ).toMatchObject([{ containerId: "real-folder", hidden: false }]);
 
     // A later verified head that omits the folder applies the removal. The
     // listing-seeded row is not in the head link set either, so it goes too:
@@ -273,7 +279,10 @@ test("all-container discovery retries the holds of every listed container", asyn
         "real-folder",
         "other",
       ]),
-    ).toEqual([]);
+    ).toMatchObject([
+      { containerId: "other", hidden: false },
+      { containerId: "real-folder", hidden: false },
+    ]);
   } finally {
     close();
   }

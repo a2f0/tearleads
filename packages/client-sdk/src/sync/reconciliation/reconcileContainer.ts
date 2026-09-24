@@ -6,6 +6,7 @@ export async function reconcileOneContainer(
   options: {
     forceDocumentContentPull?: boolean;
     onFullListing?: ((documentIds: ReadonlyArray<string>) => void) | undefined;
+    onPendingDiscovery?: ((delayMs: number) => void) | undefined;
   } = {},
 ): Promise<boolean> {
   // A queued local root/system id can become stale before the document phase.
@@ -14,11 +15,16 @@ export async function reconcileOneContainer(
   }
 
   try {
+    let pending = false;
     const discovered = await host.discoverContainerDocuments(
       containerId,
       options.onFullListing,
+      (delayMs) => {
+        pending = true;
+        options.onPendingDiscovery?.(delayMs);
+      },
     );
-    if (discovered === null) {
+    if (discovered === null && !pending) {
       return false;
     }
     const delta = await host.loadContainerDelta(containerId);
@@ -30,6 +36,8 @@ export async function reconcileOneContainer(
       delta.documentSummaries,
       options.forceDocumentContentPull ?? false,
     );
+    // A durable, scheduled retry is settled for this sweep and force request.
+    // Its own timer will reopen the lane when evidence is due.
     return true;
   } catch (error) {
     if (host.isIgnorableError(error)) {

@@ -152,6 +152,7 @@ function getHeldPlacementExclusionSql(
           FROM container_document_tombstone_holds hold
           WHERE hold.document_id = ${documentIdSql}
             AND hold.container_id = ${containerIdSql}
+            AND hold.hidden = 1
         )`;
 }
 

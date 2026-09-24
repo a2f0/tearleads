@@ -13,7 +13,7 @@ type TombstoneGateStore = Pick<
   | "holdContainerDocumentTombstones"
   | "listHeldContainerDocumentTombstones"
   | "listKnownContainerDocumentPlacements"
-  | "releaseContainerDocumentTombstoneHolds"
+  | "refuteContainerDocumentTombstoneHolds"
   | "verifyContainerDocumentTombstones"
 >;
 
@@ -80,24 +80,11 @@ function assertVerdictsCoverCandidates(
 }
 
 /**
- * A listing tombstone is server-asserted placement removal. It is applied
- * only on signed evidence: the document's verified head link set omits the
- * container (`verified`). A head that still links the container `refuted`s
- * the tombstone, which is dropped and any earlier hold released; a head that
- * is current with local state yet lags the server's listing therefore drops
- * an honest tombstone, and the placement heals when the destination is next
- * discovered rather than through this gate. Without a
- * verified head the tombstone is `unverified`: the placement is held (kept
- * in the link rows but hidden from container views) and retried, with
- * backoff, on a later discovery of the container.
- *
- * An honest server only tombstones containers the signed head no longer
- * links, so this refuses no honest data. A dishonest listing paired with a
- * withheld head can still hide a placement this device already had, for as
- * long as the head stays withheld; what a tombstone can no longer do is
- * delete the placement or re-home the document. The listing-item path
- * (`replaceDocumentLinksBatch` and the discovered placement) remains
- * unverified and is outside this gate.
+ * Apply a tombstone only when the signed head omits its container. Unavailable
+ * heads leave hidden placements. A head that still links a container keeps its
+ * placement visible, but retains a backed-off retry: even an uncached signed
+ * head can lag the listing, so its refutation must not discard an honest move.
+ * Listing items pass their own signed-head gate before reaching persistence.
  */
 export async function settleContainerDocumentTombstones(input: {
   containerIds: ReadonlyArray<string>;
@@ -134,8 +121,8 @@ export async function settleContainerDocumentTombstones(input: {
       : [],
   );
   // A loaded head is evidence for every placement it links, including holds
-  // on this document that were not due this run: release them now rather
-  // than hiding the placement until their own backoff expires.
+  // on this document that were not due this run: make them visible while
+  // retaining each retry, since the head may lag any of those tombstones.
   const headLinkedPlacements = verdicts.flatMap((verdict) => {
     if (verdict.kind !== "verified" && verdict.kind !== "refuted") return [];
     const linked =
@@ -152,12 +139,18 @@ export async function settleContainerDocumentTombstones(input: {
     verified.length > 0
       ? await store.applyContainerDocumentTombstones(verified)
       : [];
-  const released = dedupePlacements([...refuted, ...headLinkedPlacements]);
-  if (released.length > 0) {
-    await store.releaseContainerDocumentTombstoneHolds(released);
+  const retryKeys = new Set(refuted.map(placementKey));
+  const visibleRetries = dedupePlacements(headLinkedPlacements).filter(
+    (placement) => !retryKeys.has(placementKey(placement)),
+  );
+  if (visibleRetries.length > 0) {
+    await store.refuteContainerDocumentTombstoneHolds(visibleRetries);
   }
-  if (unverified.length + deferred.length > 0) {
-    await store.holdContainerDocumentTombstones([...unverified, ...deferred]);
-  }
+  const retries = [
+    ...unverified,
+    ...deferred,
+    ...refuted.map((tombstone) => ({ ...tombstone, refuted: true })),
+  ];
+  if (retries.length > 0) await store.holdContainerDocumentTombstones(retries);
   return summaries;
 }

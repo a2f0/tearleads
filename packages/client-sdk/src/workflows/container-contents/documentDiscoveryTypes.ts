@@ -8,6 +8,7 @@ import type {
   DiscoveredDocumentInput,
   DocumentSummary,
 } from "../../data/documents/documentSummary";
+import type { DiscoveredDocumentCandidate } from "../../data/persistence/documents/documentDiscoveryEvidencePersistence";
 
 export interface ListedContainerDocument {
   createdAt: string;
@@ -94,7 +95,7 @@ export interface VerifiedContainerDocumentTombstone
 /**
  * What the document's signed head says about a listing tombstone.
  * - `verified`: the verified head link set omits the container; apply.
- * - `refuted`: the verified head still links the container; drop it.
+ * - `refuted`: the verified head still links the container; keep visible and retry.
  * - `unverified`: no verified head is available; hold, hide, retry later.
  * - `deferred`: not attempted this run (the per-run head-load cap); hold
  *   without counting an attempt, so the retry backoff does not grow.
@@ -123,6 +124,8 @@ export interface HeldContainerDocumentTombstoneInput
   extends ContainerDocumentTombstone {
   /** Held without a verification attempt; the backoff does not advance. */
   readonly deferred?: boolean | undefined;
+  /** A verified head still links it; retry the tombstone while keeping it visible. */
+  readonly refuted?: boolean | undefined;
 }
 
 export type ContainerDocumentTombstoneVerifier = (
@@ -146,7 +149,7 @@ export interface ContainerDocumentTombstoneHoldStore {
   listKnownContainerDocumentPlacements: (
     placements: ReadonlyArray<ContainerDocumentPlacement>,
   ) => Promise<ReadonlyArray<ContainerDocumentPlacement>>;
-  releaseContainerDocumentTombstoneHolds: (
+  refuteContainerDocumentTombstoneHolds: (
     placements: ReadonlyArray<ContainerDocumentPlacement>,
   ) => Promise<void>;
 }
@@ -157,6 +160,21 @@ export interface DiscoverContainerDocumentsOptions
     tombstones: ReadonlyArray<VerifiedContainerDocumentTombstone>,
   ) => Promise<ReadonlyArray<DocumentSummary>>;
   verifyContainerDocumentTombstones: ContainerDocumentTombstoneVerifier;
+  /** Allocate durable local order before fetching a listing. */
+  beginDocumentDiscovery: () => Promise<number>;
+  /** Persist pending candidates and return only signed placements. */
+  verifyDiscoveredDocuments: (
+    inputs: ReadonlyArray<DiscoveredDocumentCandidate>,
+    containerIds: ReadonlyArray<string>,
+    generation: number,
+    tombstones?: ReadonlyArray<ContainerDocumentTombstone>,
+  ) => Promise<{
+    inputs: ReadonlyArray<DiscoveredDocumentInput>;
+    /** False once a remote trust reset cancels this listing pass. */
+    isCurrent: () => Promise<boolean>;
+    /** Acknowledge only after local apply; true means no pending candidates remain. */
+    commit: () => Promise<boolean>;
+  }>;
   cacheReferencedPrincipalPolicies?: (
     references: ReadonlyArray<ReferencedPrincipalStateResponse>,
   ) => Promise<void>;

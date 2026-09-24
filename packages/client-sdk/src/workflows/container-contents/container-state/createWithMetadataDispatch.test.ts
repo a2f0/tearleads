@@ -8,13 +8,16 @@ import {
 import { createResponseFromRequest } from "../../../../test/helpers/documentFixtures";
 import { buildInitialGroupPolicyRequest } from "../../../../test/helpers/groupMetadata";
 import {
+  organizationPolicyBundleFromInitialRequest,
   policyBundleFromInitialRequest,
   principalPolicyHead,
 } from "../../../../test/helpers/principalPolicyFixtures";
 import { createMemoryBlobStore } from "../../../data/blobs/memoryBlobStore";
 import { defaultDocumentProjectorRegistry } from "../../../data/documents/documentKinds";
 import { createDomainScope } from "../../../data/domainScope";
+import { loadPrincipalPolicyCheckpoint } from "../../../data/persistence/keyingCheckpointPersistence";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
+import { buildInitialOrganizationPolicyRequest } from "../../registration/registerIdentity";
 
 import { createContainerContentsWorkflowRuntime } from "../runtime";
 import {
@@ -227,6 +230,86 @@ test("stale-policy repair preserves the policy API receiver", async () => {
       }),
     ).rejects.toMatchObject({ name: "KeyingVerificationError" });
     expect(policyReceiver).toBe(apiClient);
+  } finally {
+    database.close();
+  }
+});
+
+test("compound create consumes successive policy pages and stops a repeated page", async () => {
+  const parent = await createParentProjection();
+  const database = await createTestExecSql("compound-create-policy-pages");
+  try {
+    const signingKeyPair = {
+      signingPrivateKey: parent.author.signerPrivateKey,
+      signingPublicKey: parent.signingPublicKey,
+    };
+    const bundles = await Promise.all(
+      ["policy-a", "policy-b"].map(async (groupId) =>
+        policyBundleFromInitialRequest(
+          await buildInitialGroupPolicyRequest({
+            creatorEncapsulationKeyPair: {
+              publicKey: parent.encapsulationPublicKey,
+              secretKey: parent.secretKey,
+            },
+            groupId,
+            name: groupId,
+            signerUserId: parent.userId,
+            signingFingerprint: parent.author.signerKeyFingerprint,
+            signingKeyPair,
+          }),
+        ),
+      ),
+    );
+    const directory = await organizationPolicyBundleFromInitialRequest(
+      parent.projection.organizationId,
+      await buildInitialOrganizationPolicyRequest({
+        adminGroupId: "policy-a",
+        memberGroupId: "policy-b",
+        organizationId: parent.projection.organizationId,
+        encapsulationPublicKey: parent.encapsulationPublicKey,
+        groupHeads: bundles.map((bundle) => principalPolicyHead(bundle)),
+        signingKeyPair,
+        userId: parent.userId,
+      }),
+    );
+    let calls = 0;
+    const apiClient = createMockApiClient({
+      getCurrentPrincipalPolicy: async (type, id) =>
+        type === "organization"
+          ? directory
+          : (bundles.find((bundle) => bundle.currentState.principalId === id) ??
+            null),
+      createContainerWithMetadataDocumentResult: async () => {
+        const page = bundles.slice(calls++ === 0 ? 0 : 1, calls === 1 ? 1 : 2);
+        return {
+          kind: "http",
+          ok: false,
+          method: "POST",
+          path: "/containers/with-metadata-document",
+          message: "stale principal policy",
+          status: 409,
+          statusText: "Conflict",
+          report: () => {},
+          stalePrincipalPolicies: page,
+        };
+      },
+    });
+    const result = await createRemoteContainerWithMetadataDocument({
+      containerId: "compound-policy-pages-child",
+      parentContainerId: parent.projection.containerId,
+      parentProjection: parent.projection,
+      resolveProjectionUserKey: createParentProjectionUserKeyResolver(parent),
+      runtime: createRuntime({ apiClient, execSql: database.execSql, parent }),
+    });
+    expect(result).toBeNull();
+    expect(calls).toBe(3);
+    expect(
+      await loadPrincipalPolicyCheckpoint(
+        database.execSql,
+        "group",
+        "policy-b",
+      ),
+    ).not.toBeNull();
   } finally {
     database.close();
   }

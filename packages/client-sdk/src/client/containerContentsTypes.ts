@@ -196,8 +196,12 @@ export interface ContainerContents {
    * principal policies needed by newly visible documents, and advances the
    * container-document watermark after the local apply completes.
    *
-   * Returns the document summaries touched by the apply, or `null` when the
-   * local database is unavailable or the remote lane could not be fully listed.
+   * One call verifies a bounded batch. Pending evidence is durable; a later
+   * explicit call or background reconciliation resumes it.
+   *
+   * Returns the summaries touched by the apply, or `null` when the database or
+   * listing is unavailable, a trust reset cancels the pass, or all evidence is
+   * pending. Pending evidence may advance the watermark after durable staging.
    *
    * Parameters:
    * - `containerId`: Remote container id whose document lane should be listed.
