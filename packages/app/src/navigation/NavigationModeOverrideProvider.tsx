@@ -1,8 +1,20 @@
-import { type PropsWithChildren, useMemo, useState } from "react";
+import { type PropsWithChildren, useCallback, useMemo, useState } from "react";
 import { createRequiredContext } from "../utils/createRequiredContext";
+import {
+  getLocalStorage,
+  loadStoredPreference,
+  saveStoredPreference,
+} from "../utils/storedPreference";
 import type { AppNavigationMode } from "./AppNavigationMode";
 
 type NavigationModeOverride = AppNavigationMode | null;
+const STORAGE_KEY = "tearleads.navigation.mode";
+
+function loadOverride(): NavigationModeOverride {
+  return loadStoredPreference(STORAGE_KEY, (stored) =>
+    stored === "routed" || stored === "windowed" ? stored : null,
+  );
+}
 
 interface NavigationModeOverrideContextValue {
   // The manual windowed/routed choice, or `null` to use the host/default mode.
@@ -20,17 +32,30 @@ const navigationModeOverrideContext =
  * whole app (in Layout) so the windowed footer switch and routed taskbar switch
  * drive the one choice — and so the layout reads from the same source.
  *
- * The override is intentionally in-memory only: it resets to `null` on a full
- * reload, so the host/default mode resumes.
+ * A manual choice persists across reloads. With no saved choice, the host
+ * default still decides the layout.
  */
 export function NavigationModeOverrideProvider({
   children,
 }: PropsWithChildren) {
-  const [override, setOverride] = useState<NavigationModeOverride>(null);
+  const [override, setCurrentOverride] =
+    useState<NavigationModeOverride>(loadOverride);
+  const setOverride = useCallback((next: NavigationModeOverride) => {
+    setCurrentOverride(next);
+    if (next) {
+      saveStoredPreference(STORAGE_KEY, next);
+    } else {
+      try {
+        getLocalStorage()?.removeItem(STORAGE_KEY);
+      } catch {
+        // Storage is best-effort, matching the other display preferences.
+      }
+    }
+  }, []);
 
   const value = useMemo<NavigationModeOverrideContextValue>(
     () => ({ override, setOverride }),
-    [override],
+    [override, setOverride],
   );
 
   return (

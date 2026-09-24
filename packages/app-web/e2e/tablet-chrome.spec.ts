@@ -182,6 +182,8 @@ test("desktop tablet launcher can open from the bottom", async ({ page }) => {
     "data-open",
     "false",
   );
+  await page.reload();
+  await expect(pane).toHaveAttribute("data-launcher-placement", "bottom");
   await page.getByRole("button", { name: "Move launcher to side" }).click();
   await expect(pane).toHaveAttribute("data-launcher-placement", "side");
   await expect(page.locator(".routed-pane-rail")).toBeVisible();

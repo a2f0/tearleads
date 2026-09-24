@@ -9,10 +9,11 @@ import { NavigationModeSwitch } from "./NavigationModeSwitch";
 afterEach(() => {
   cleanup();
   delete window.Capacitor;
+  globalThis.localStorage.removeItem("tearleads.navigation.mode");
 });
 
 // Surfaces the current override alongside the switch so a test can read what the
-// click set on the shared (in-memory) override.
+// click set on the shared override.
 function OverrideReadout() {
   const { override } = useNavigationModeOverride();
   return <output>{override ?? "auto"}</output>;
@@ -69,4 +70,12 @@ test("the routed switch offers (and selects) the windowed layout", () => {
 
   expect(view.getByText("windowed")).toBeTruthy();
   view.unmount();
+
+  const reloaded = render(
+    <NavigationModeOverrideProvider>
+      <OverrideReadout />
+    </NavigationModeOverrideProvider>,
+  );
+  expect(reloaded.getByText("windowed")).toBeTruthy();
+  reloaded.unmount();
 });

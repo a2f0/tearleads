@@ -1,10 +1,14 @@
-import { expect, test } from "bun:test";
+import { afterEach, expect, test } from "bun:test";
 import { fireEvent } from "@testing-library/react";
 import {
   forceMobileRoutedTier,
   forceTabletRoutedTier,
   renderRoutedPane,
 } from "../../../../test/helpers/routedPaneTestUtils";
+
+afterEach(() => {
+  globalThis.localStorage.removeItem("tearleads.launcher.placement");
+});
 
 test("tablet launcher can move between side rail and bottom sheet", () => {
   const restoreMatchMedia = forceTabletRoutedTier();
@@ -18,6 +22,9 @@ test("tablet launcher can move between side rail and bottom sheet", () => {
       view.getByRole("button", { name: "Move launcher to bottom" }),
     );
     expect(pane?.getAttribute("data-launcher-placement")).toBe("bottom");
+    expect(
+      globalThis.localStorage.getItem("tearleads.launcher.placement"),
+    ).toBe("bottom");
     expect(view.container.querySelector(".routed-pane-rail")).toBeNull();
 
     const menuButton = view.getByRole("button", { name: "Menu" });

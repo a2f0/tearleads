@@ -157,6 +157,13 @@ test("desktop opens in tablet mode and the window toggle still works", async ({
 
   await expect(page.locator(".routed-pane--tablet")).toBeVisible();
   await switchToWindowedDesktop(page);
+  await expect(page.locator(".layout--routed")).toHaveCount(0);
+  await page.reload();
+  await expect(page.locator(".pane:not(.pane-hidden)").first()).toBeVisible();
+  await page
+    .getByRole("button", { name: "Switch to iPad / mobile layout" })
+    .click();
+  await expect(page.locator(".routed-pane--tablet")).toBeVisible();
   await page.reload();
   await expect(page.locator(".routed-pane--tablet")).toBeVisible();
 });

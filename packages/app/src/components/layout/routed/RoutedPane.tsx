@@ -1,9 +1,11 @@
 import { TearleadsLogo } from "@tearleads/ui";
 import {
   type ComponentType,
+  type RefObject,
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import { MINI_APPS } from "../../../mini-apps/registry";
@@ -28,7 +30,11 @@ import {
 } from "../../window/WindowSidebarContext";
 import { TestSystemBanner } from "../TestSystemBanner";
 import "./RoutedPane.css";
-import type { LauncherPlacement } from "./LauncherPlacement";
+import {
+  type LauncherPlacement,
+  loadLauncherPlacement,
+  saveLauncherPlacement,
+} from "./LauncherPlacement";
 import { RoutedPaneAppBar } from "./RoutedPaneAppBar";
 import { ROUTED_PANE_NAV_PANEL_ID, RoutedPaneNav } from "./RoutedPaneNav";
 import { RoutedPaneOverlayHostProvider } from "./RoutedPaneOverlayHost";
@@ -81,6 +87,7 @@ function RoutedPaneTaskBar({
   launcherPlacement,
   hidden,
   drawerOpen,
+  menuButtonRef,
   onToggleDrawer,
   railExpanded,
   onToggleRail,
@@ -89,6 +96,7 @@ function RoutedPaneTaskBar({
   launcherPlacement: LauncherPlacement;
   hidden: boolean;
   drawerOpen: boolean;
+  menuButtonRef: RefObject<HTMLButtonElement | null>;
   onToggleDrawer: () => void;
   railExpanded: boolean;
   onToggleRail: () => void;
@@ -112,6 +120,7 @@ function RoutedPaneTaskBar({
         aria-expanded={expanded}
         aria-label="Menu"
         className="routed-pane-taskbar-menu-button"
+        ref={menuButtonRef}
         type="button"
         onClick={usesSheet ? onToggleDrawer : onToggleRail}
       >
@@ -181,6 +190,7 @@ function RoutedPaneSurface({
     initialRoutedSidebarExpanded(tier, activeAppId),
   );
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const menuButtonRef = useRef<HTMLButtonElement>(null);
   // Held in state rather than a ref so the overlays that portal into the pane
   // re-render once it is on screen. The ref callback runs in the commit phase
   // and this update flushes before paint, so the pane is already the host by the
@@ -198,6 +208,20 @@ function RoutedPaneSurface({
   const closeSidebar = useCallback(() => setSidebarExpanded(false), []);
   const toggleDrawer = useCallback(() => setDrawerOpen(invertBoolean), []);
   const closeDrawer = useCallback(() => setDrawerOpen(false), []);
+  useEffect(() => {
+    if (!drawerOpen) {
+      return;
+    }
+    const dismissOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        closeDrawer();
+        menuButtonRef.current?.focus();
+      }
+    };
+    document.addEventListener("keydown", dismissOnEscape);
+    return () => document.removeEventListener("keydown", dismissOnEscape);
+  }, [closeDrawer, drawerOpen]);
   const moveLauncher = useCallback(() => {
     closeDrawer();
     onToggleLauncherPlacement();
@@ -263,6 +287,7 @@ function RoutedPaneSurface({
         drawerOpen={drawerOpen}
         hidden={mobileKeyboardVisible}
         launcherPlacement={launcherPlacement}
+        menuButtonRef={menuButtonRef}
         onToggleDrawer={toggleDrawer}
         onToggleRail={onToggleNavigationRail}
         railExpanded={navigationRailExpanded}
@@ -290,8 +315,9 @@ function RoutedPaneWithRegistries(props: RoutedPaneSurfaceProps) {
 export function RoutedPane() {
   const { userId } = useCryptoSession();
   const tier = useRoutedLayoutTier();
-  const [launcherPlacement, setLauncherPlacement] =
-    useState<LauncherPlacement>("side");
+  const [launcherPlacement, setLauncherPlacement] = useState<LauncherPlacement>(
+    loadLauncherPlacement,
+  );
   const [navigationRailExpanded, setNavigationRailExpanded] = useState(false);
   const {
     route: { appId },
@@ -308,7 +334,11 @@ export function RoutedPane() {
   );
   const toggleLauncherPlacement = useCallback(() => {
     setNavigationRailExpanded(false);
-    setLauncherPlacement((current) => (current === "side" ? "bottom" : "side"));
+    setLauncherPlacement((current) => {
+      const next = current === "side" ? "bottom" : "side";
+      saveLauncherPlacement(next);
+      return next;
+    });
   }, []);
 
   return (
