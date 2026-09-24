@@ -2,40 +2,32 @@ import { useEffect, useState } from "react";
 import {
   type AppNavigationEnvironment,
   type AppNavigationMode,
+  isWindowedLayoutEligible,
+  readAppNavigationEnvironment,
   resolveAppNavigationMode,
 } from "./AppNavigationMode";
 import { DEMO_SPLIT_MOBILE_QUERY } from "./breakpoints";
 
 const COARSE_POINTER_QUERY = "(pointer: coarse)";
 
-function readEnvironment(): AppNavigationEnvironment {
-  return {
-    innerWidth: window.innerWidth,
-    maxTouchPoints: navigator.maxTouchPoints,
-    pointerCoarse: window.matchMedia(COARSE_POINTER_QUERY).matches,
-    userAgent: navigator.userAgent,
-  };
-}
-
 /**
- * A manual choice wins over the host mode. Regular apps default to routed;
- * desktop peer demos keep their split windowed layout.
+ * A manual choice wins over the host mode while windowed remains eligible.
+ * Narrow and touch screens route even when a desktop windowed choice is saved.
  */
 export function useAppNavigationMode(
   forcedMode?: AppNavigationMode | undefined,
   override?: AppNavigationMode | null | undefined,
   preferWindowedPeerSplit = false,
 ): AppNavigationMode {
-  const [environment, setEnvironment] = useState(readEnvironment);
+  const [environment, setEnvironment] = useState<AppNavigationEnvironment>(
+    readAppNavigationEnvironment,
+  );
 
   useEffect(() => {
-    if (!preferWindowedPeerSplit || override || forcedMode) {
-      return;
-    }
-
     const mobileQuery = window.matchMedia(DEMO_SPLIT_MOBILE_QUERY);
     const pointerQuery = window.matchMedia(COARSE_POINTER_QUERY);
-    const updateEnvironment = () => setEnvironment(readEnvironment());
+    const updateEnvironment = () =>
+      setEnvironment(readAppNavigationEnvironment());
     updateEnvironment();
     mobileQuery.addEventListener("change", updateEnvironment);
     pointerQuery.addEventListener("change", updateEnvironment);
@@ -43,11 +35,16 @@ export function useAppNavigationMode(
       mobileQuery.removeEventListener("change", updateEnvironment);
       pointerQuery.removeEventListener("change", updateEnvironment);
     };
-  }, [forcedMode, override, preferWindowedPeerSplit]);
+  }, []);
+
+  const availableOverride =
+    override === "windowed" && !isWindowedLayoutEligible(environment)
+      ? null
+      : override;
 
   return resolveAppNavigationMode({
     environment,
-    forcedMode: override ?? forcedMode,
+    forcedMode: availableOverride ?? forcedMode,
     preferWindowedPeerSplit,
   });
 }

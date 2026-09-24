@@ -213,7 +213,7 @@ function RoutedPaneSurface({
       return;
     }
     const dismissOnEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
+      if (event.key === "Escape" && !event.defaultPrevented) {
         event.preventDefault();
         closeDrawer();
         menuButtonRef.current?.focus();

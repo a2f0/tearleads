@@ -2,7 +2,11 @@ import { AppWindowIcon } from "@phosphor-icons/react/dist/csr/AppWindow";
 import { DeviceTabletIcon } from "@phosphor-icons/react/dist/csr/DeviceTablet";
 import { classNames } from "../components/shared/classNames";
 import { isCapacitor } from "../host/isCapacitor";
-import type { AppNavigationMode } from "./AppNavigationMode";
+import {
+  type AppNavigationMode,
+  isWindowedLayoutEligible,
+  readAppNavigationEnvironment,
+} from "./AppNavigationMode";
 import { useOptionalNavigationModeOverride } from "./NavigationModeOverrideProvider";
 
 // A two-state (no "auto") layout control styled like the theme toggle so it
@@ -42,7 +46,12 @@ export function NavigationModeSwitch({
   className?: string | undefined;
 }) {
   const override = useOptionalNavigationModeOverride();
-  if (!override || isCapacitor()) {
+  if (
+    !override ||
+    isCapacitor() ||
+    (mode === "routed" &&
+      !isWindowedLayoutEligible(readAppNavigationEnvironment()))
+  ) {
     return null;
   }
 

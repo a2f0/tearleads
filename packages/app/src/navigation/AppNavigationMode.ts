@@ -23,6 +23,25 @@ function isIPadLikeEnvironment(environment: AppNavigationEnvironment): boolean {
   );
 }
 
+export function readAppNavigationEnvironment(): AppNavigationEnvironment {
+  return {
+    innerWidth: window.innerWidth,
+    maxTouchPoints: navigator.maxTouchPoints,
+    pointerCoarse: window.matchMedia("(pointer: coarse)").matches,
+    userAgent: navigator.userAgent,
+  };
+}
+
+export function isWindowedLayoutEligible(
+  environment: AppNavigationEnvironment,
+): boolean {
+  return (
+    environment.innerWidth >= DEMO_SPLIT_BREAKPOINT_PX &&
+    !environment.pointerCoarse &&
+    !isIPadLikeEnvironment(environment)
+  );
+}
+
 export function resolveAppNavigationMode({
   environment,
   forcedMode,
@@ -35,9 +54,7 @@ export function resolveAppNavigationMode({
   if (
     preferWindowedPeerSplit &&
     environment &&
-    environment.innerWidth >= DEMO_SPLIT_BREAKPOINT_PX &&
-    !environment.pointerCoarse &&
-    !isIPadLikeEnvironment(environment)
+    isWindowedLayoutEligible(environment)
   ) {
     return "windowed";
   }

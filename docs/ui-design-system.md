@@ -33,7 +33,8 @@ The tablet breakpoint lives in
 The switch between shells never remounts the runtime-owning subtrees — see the
 comment in `components/layout/Layout.tsx`. A user can also switch between
 windowed and routed shells via the taskbar/footer control
-(`NavigationModeOverrideProvider`).
+(`NavigationModeOverrideProvider`). The choice survives reloads; a saved
+windowed choice yields to routed mode on narrow or touch screens.
 
 ## Touch sizing keys off an attribute, not a media query
 

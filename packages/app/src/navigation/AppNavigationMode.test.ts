@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import {
   type AppNavigationEnvironment,
+  isWindowedLayoutEligible,
   resolveAppNavigationMode,
 } from "./AppNavigationMode";
 
@@ -55,4 +56,14 @@ test("the peer demo keeps windows on desktop and routes on touch or narrow scree
       preferWindowedPeerSplit: true,
     }),
   ).toBe("routed");
+});
+
+test("windowed layout is eligible only on a wide fine-pointer desktop", () => {
+  expect(isWindowedLayoutEligible(DESKTOP_ENVIRONMENT)).toBe(true);
+  expect(
+    isWindowedLayoutEligible({ ...DESKTOP_ENVIRONMENT, innerWidth: 900 }),
+  ).toBe(false);
+  expect(
+    isWindowedLayoutEligible({ ...DESKTOP_ENVIRONMENT, pointerCoarse: true }),
+  ).toBe(false);
 });

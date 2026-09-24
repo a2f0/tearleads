@@ -1,7 +1,6 @@
 import { type PropsWithChildren, useCallback, useMemo, useState } from "react";
 import { createRequiredContext } from "../utils/createRequiredContext";
 import {
-  getLocalStorage,
   loadStoredPreference,
   saveStoredPreference,
 } from "../utils/storedPreference";
@@ -19,7 +18,7 @@ function loadOverride(): NavigationModeOverride {
 interface NavigationModeOverrideContextValue {
   // The manual windowed/routed choice, or `null` to use the host/default mode.
   override: NavigationModeOverride;
-  setOverride: (next: NavigationModeOverride) => void;
+  setOverride: (next: AppNavigationMode) => void;
 }
 
 const navigationModeOverrideContext =
@@ -40,17 +39,9 @@ export function NavigationModeOverrideProvider({
 }: PropsWithChildren) {
   const [override, setCurrentOverride] =
     useState<NavigationModeOverride>(loadOverride);
-  const setOverride = useCallback((next: NavigationModeOverride) => {
+  const setOverride = useCallback((next: AppNavigationMode) => {
     setCurrentOverride(next);
-    if (next) {
-      saveStoredPreference(STORAGE_KEY, next);
-    } else {
-      try {
-        getLocalStorage()?.removeItem(STORAGE_KEY);
-      } catch {
-        // Storage is best-effort, matching the other display preferences.
-      }
-    }
+    saveStoredPreference(STORAGE_KEY, next);
   }, []);
 
   const value = useMemo<NavigationModeOverrideContextValue>(
