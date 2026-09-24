@@ -25,6 +25,7 @@ import {
   BlobMutationError,
   bindBlobAttachment,
 } from "../../services/blobs/blobMutations";
+import { createDocument as submitDocument } from "../../services/documents/documentMutations";
 
 test("document creation rejects malformed key envelopes without consuming the signed event", async () => {
   const owner = createTestUser();
@@ -80,7 +81,22 @@ test("document creation rejects malformed key envelopes without consuming the si
     });
     const body = await response.text();
     expect({ status: response.status, body }).toMatchObject({ status: 400 });
-    expect(body).toContain(expected);
+    expect(body).toContain("Invalid request");
+    // Exercise the cryptographic workflow too: the earlier schema guard must
+    // not turn the verifier regression into a test of an unrelated rejection.
+    await expect(
+      submitDocument(blobAttachmentTestRuntime, {
+        fingerprint: owner.fingerprint,
+        userId: owner.userId,
+        request: {
+          ...request,
+          contentKeyBundle: {
+            ...request.contentKeyBundle,
+            targets: [envelope],
+          },
+        },
+      }),
+    ).rejects.toThrow(expected);
   }
   const accepted = await routeApp.request("/documents", {
     method: "POST",

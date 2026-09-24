@@ -4,6 +4,7 @@ import { normalizeContainerKekWrappingPublicKey } from "./containerKekWrapping";
 import {
   assertExactKeys,
   readHashString,
+  readNullableHashString,
   readString,
   throwVerification,
 } from "./shared";
@@ -28,6 +29,7 @@ export function normalizeContainerRekeyAccessEventBody(
       "containerKeyPublicKey",
       "eventType",
       "keyringHash",
+      "parentManifestHash",
       "predecessorBridgeHash",
       "referencedPrincipalHeads",
     ],
@@ -49,6 +51,11 @@ export function normalizeContainerRekeyAccessEventBody(
   return {
     containerKeyPublicKey,
     eventType: "container.rekey",
+    parentManifestHash: readNullableHashString(
+      record,
+      "parentManifestHash",
+      "container.rekey event body",
+    ),
     containerKeyEpochId: readString(
       record,
       "containerKeyEpochId",

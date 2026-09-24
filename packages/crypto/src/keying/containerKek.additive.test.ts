@@ -15,6 +15,7 @@ test("verifyContainerKekState accepts additive wraps on the existing KEK epoch",
     containerId: "additive-container",
     containerKeyEpochId: await fixtureContainerKekMaterialId(
       "additive-container-key-epoch-1",
+      "additive-container",
     ),
     directGrants: [
       {

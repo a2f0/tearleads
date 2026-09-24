@@ -152,3 +152,10 @@ test("keying target hashes reject duplicate canonical entries", async () => {
     computeDocumentContentKeyTargetHash([target, target]),
   ).rejects.toThrow("document content-key targets contains a duplicate");
 });
+
+test("canonical payloads reject negative zero at every nesting level", () => {
+  for (const value of [-0, [-0], { nested: { value: -0 } }]) {
+    expect(() => serializeKeyingCanonicalJson(value)).toThrow("negative zero");
+  }
+  expect(serializeKeyingCanonicalJson({ value: 0 })).toBe('{"value":0}');
+});

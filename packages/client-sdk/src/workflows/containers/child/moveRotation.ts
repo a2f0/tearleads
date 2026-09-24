@@ -8,10 +8,10 @@ import {
   normalizeContainerKekKeyring,
   openContainerKekKeyring,
   sealContainerKekKeyring,
-  verifyContainerKekKeyringEntry,
 } from "@tearleads/crypto";
 import type { ContainerKekResponse } from "@tearleads/validators/response";
 import { resolveContainerKekEpochId } from "../../../data/containers/shared/events";
+import { verifyContainerKekEntries } from "../../../data/documents/shared/containerKekEntryVerification";
 import { manifestHistoryEpochIds } from "../../../data/documents/shared/containerKekPathHistory";
 
 /**
@@ -33,15 +33,7 @@ export async function verifyKeyringEntriesForSeal(
    */
   currentKek?: ContainerKekResponse | undefined,
 ): Promise<void> {
-  await Promise.all(
-    entries.map((entry, ordinal) =>
-      verifyContainerKekKeyringEntry({
-        containerId,
-        entry,
-        keyEpoch: ordinal + 1,
-      }),
-    ),
-  );
+  await verifyContainerKekEntries(containerId, entries);
   if (!currentKek) {
     return;
   }

@@ -100,6 +100,7 @@ const CODE_FRAGMENT = [...SAFE_FAILURE_CODES, "none", "other"].join("|");
  * DOCUMENT_SYNC_TRACE_PATTERN to validate a complete line.
  */
 export const DOCUMENT_SYNC_TRACE_FRAGMENT = [
+  `document sync blocked document=${UUID_FRAGMENT}`,
   `document sync stale bundle document=${UUID_FRAGMENT} epoch=\\d+ pending=\\d+`,
   `document sync heal planned document=${UUID_FRAGMENT} fromEpoch=\\d+ toEpoch=\\d+ updates=\\d+ heldBack=\\d+`,
   `document sync stale read document=${UUID_FRAGMENT} epoch=\\d+`,

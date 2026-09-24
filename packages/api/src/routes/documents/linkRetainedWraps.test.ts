@@ -7,7 +7,6 @@ import {
 } from "@tearleads/api-shared/schema";
 import { createTestUser } from "@tearleads/bob-and-alice";
 import { isPlainObject } from "@tearleads/validators/isPlainObject";
-import { isDocumentLinkSetMutationResponse } from "@tearleads/validators/response";
 import { eq } from "drizzle-orm";
 import { authenticate } from "../../../test/helpers/authenticate";
 import {
@@ -16,10 +15,7 @@ import {
   stageBlob,
 } from "../../../test/helpers/blobAttachmentKit";
 import { contentKeyEnvelopeFixture } from "../../../test/helpers/contentKeyEnvelope";
-import {
-  buildDocumentLinkRequest,
-  buildDocumentUnlinkRequest,
-} from "../../../test/helpers/documentLinkMutation";
+import { buildDocumentLinkRequest } from "../../../test/helpers/documentLinkMutation";
 import { createChildContainer } from "../../../test/helpers/keyingWriterProjectionChild";
 import {
   bootstrapRoot,
@@ -29,11 +25,8 @@ import {
 import { registerUser } from "../../../test/helpers/registerUser";
 import { routeApp } from "../../routeApp";
 
-// A relink resubmits a retained wrap verbatim. Holding that stored envelope to
-// the submission shape would make a row carrying an unrecognized metadata key
-// permanently un-linkable, with no client-side heal: the API refuses to
-// replace an active target's wrap, so the row can never be rewritten.
-test("a retained wrap with an unrecognized metadata key can still be relinked", async () => {
+// Greenfield writes validate every submitted envelope, including retained ones.
+test("a retained blob wrap with extra metadata is rejected on relink", async () => {
   const owner = createTestUser();
   await registerUser(owner);
   await authenticate(owner);
@@ -54,7 +47,7 @@ test("a retained wrap with an unrecognized metadata key can still be relinked", 
   if (!rawTarget) throw new Error("Expected an initial blob target");
   const wrappingMetadata = {
     ...rawTarget.wrappingMetadata,
-    unrecognized: "written by a newer build",
+    unrecognized: "injected stored field",
   };
   await db
     .update(blobContentKeyTargets)
@@ -96,7 +89,7 @@ test("a retained wrap with an unrecognized metadata key can still be relinked", 
     body: JSON.stringify(link),
   });
   const body = await response.text();
-  expect({ status: response.status, body }).toMatchObject({ status: 200 });
+  expect({ status: response.status, body }).toMatchObject({ status: 400 });
 
   const rows = await db
     .select()
@@ -107,16 +100,12 @@ test("a retained wrap with an unrecognized metadata key can still be relinked", 
       (row) =>
         isPlainObject(row.wrappingMetadata) &&
         Reflect.get(row.wrappingMetadata, "unrecognized") ===
-          "written by a newer build",
+          "injected stored field",
     ),
   ).not.toHaveLength(0);
 });
 
-// The document link path has the same shape: `linkSet.ts` carries the stored
-// bundle's targets verbatim and appends one freshly wrapped target, so the
-// submitted set mixes stored and new material. There is no heal here either —
-// a retained target must be resubmitted byte-identical or the bundle is stale.
-test("a retained document wrap with an unrecognized metadata key can still be relinked", async () => {
+test("a retained document wrap with extra metadata is rejected on relink", async () => {
   const owner = createTestUser();
   await registerUser(owner);
   await authenticate(owner);
@@ -128,7 +117,7 @@ test("a retained document wrap with an unrecognized metadata key can still be re
   if (!retainedTarget) throw new Error("Expected a stored document target");
   const wrappingMetadata = {
     ...retainedTarget.wrappingMetadata,
-    unrecognized: "written by a newer build",
+    unrecognized: "injected stored field",
   };
   const [epoch] = await db
     .select({ id: documentContentKeyEpochs.id })
@@ -167,72 +156,12 @@ test("a retained document wrap with an unrecognized metadata key can still be re
       body: JSON.stringify(request),
     });
 
-  // The newly appended target is the half the filter must still gate. The
-  // target hash covers neither the wrapped key nor its metadata, so this
-  // reaches envelope validation rather than a hash mismatch.
-  const malformed = structuredClone(link);
-  const appended = malformed.contentKeyBundle.targets.find(
-    (target) => target.containerId === child.containerId,
-  );
-  if (!appended) throw new Error("Expected the appended child target");
-  Reflect.set(appended, "wrappedKey", "AA==");
-  const refused = await post(malformed);
-  const refusedBody = await refused.text();
-  expect({ status: refused.status, body: refusedBody }).toMatchObject({
-    status: 400,
-  });
-  expect(refusedBody).toContain(
-    "Document content-key target wrapped key has an invalid encoded length",
-  );
-
   const response = await post(link);
-  const body = await response.text();
-  expect({ status: response.status, body }).toMatchObject({ status: 200 });
-  const linked = JSON.parse(body);
-  if (!isDocumentLinkSetMutationResponse(linked))
-    throw new Error("Expected a linked document");
-
-  // An unlink rotates the content key, writing a new epoch. Replaying the
-  // stored epoch-1 envelope into it must not be exempt: the exemption is
-  // scoped to the epoch being written, so this is the case that distinguishes
-  // it from measuring against whatever bundle is merely latest — which would
-  // let the malformed row be laundered forward into a fresh epoch.
-  const unlink = await buildDocumentUnlinkRequest({
-    child,
-    linkedDocument: linked,
-    owner,
-    root,
-  });
-  const rotated = structuredClone(unlink);
-  const rotatedTarget = rotated.contentKeyBundle.targets[0];
-  if (!rotatedTarget) throw new Error("Expected a rotated target");
-  Reflect.set(rotatedTarget, "wrappedKey", retainedTarget.wrappedKey);
-  Reflect.set(rotatedTarget, "wrappingMetadata", wrappingMetadata);
-  const refusedRotation = await routeApp.request(
-    `/documents/${document.id}/unlink`,
-    {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${owner.token}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(rotated),
-    },
-  );
-  const rotationBody = await refusedRotation.text();
-  expect({ status: refusedRotation.status, body: rotationBody }).toMatchObject({
-    status: 400,
-  });
-  expect(rotationBody).toContain(
-    "Document content-key target metadata must contain exactly suite and iv",
-  );
+  expect(response.status).toBe(400);
+  expect(await response.json()).toEqual({ error: "Invalid request" });
 });
 
-// A blob bind covers every active binding of that blob, so binding a blob a
-// second document already holds resubmits the first document's stored wraps.
-// That is the third write path where stored and fresh material arrive
-// together, and the one a first bind does not exercise.
-test("a shared bind carrying another document's stored wrap is accepted", async () => {
+test("a shared bind rejects extra metadata in another document's retained wrap", async () => {
   const owner = createTestUser();
   await registerUser(owner);
   await authenticate(owner);
@@ -253,7 +182,7 @@ test("a shared bind carrying another document's stored wrap is accepted", async 
   if (!firstTarget) throw new Error("Expected the first document's target");
   const wrappingMetadata = {
     ...firstTarget.wrappingMetadata,
-    unrecognized: "written by a newer build",
+    unrecognized: "injected stored field",
   };
   await db
     .update(blobContentKeyTargets)
@@ -284,41 +213,11 @@ test("a shared bind carrying another document's stored wrap is accepted", async 
     },
   });
 
-  // The second document's target is the newly wrapped half, and it is still
-  // gated: the exemption covers stored bytes, not everything in the set.
   await expect(
-    bindForTest({
-      blobId,
-      owner,
-      request: retainingBind((target) => ({ ...target, wrappedKey: "AA==" })),
-    }),
-  ).rejects.toThrow(
-    "Blob content-key target wrapped key has an invalid encoded length",
-  );
-
-  // Nor can the first document's stored bytes be replayed under the second
-  // document's target: the exemption matches on target identity and key epoch
-  // as well as the bytes, so this is a new envelope for that target and is
-  // held to the published shape like any other.
-  await expect(
-    bindForTest({
-      blobId,
-      owner,
-      request: retainingBind((target) => ({
-        ...target,
-        wrappedKey: firstTarget.wrappedKey,
-        wrappingMetadata,
-      })),
-    }),
+    bindForTest({ blobId, owner, request: retainingBind((target) => target) }),
   ).rejects.toThrow(
     "Blob content-key target metadata must contain exactly suite and iv",
   );
-
-  await bindForTest({
-    blobId,
-    owner,
-    request: retainingBind((target) => target),
-  });
 
   const rows = await db
     .select()
@@ -329,7 +228,7 @@ test("a shared bind carrying another document's stored wrap is accepted", async 
       (row) =>
         isPlainObject(row.wrappingMetadata) &&
         Reflect.get(row.wrappingMetadata, "unrecognized") ===
-          "written by a newer build",
+          "injected stored field",
     ),
   ).not.toHaveLength(0);
 });

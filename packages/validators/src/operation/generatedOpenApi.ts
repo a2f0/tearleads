@@ -1926,7 +1926,9 @@ export interface operations {
                                     containerManifestHash: string;
                                     wrappedKey: string;
                                     wrappingMetadata: {
-                                        [key: string]: unknown;
+                                        iv: string;
+                                        /** @constant */
+                                        suite: "tearleads.document.content-key-wrap.aes-256-gcm-container-kek";
                                     };
                                 } & {
                                     [key: string]: unknown;
@@ -2098,7 +2100,9 @@ export interface operations {
                                     containerManifestHash: string;
                                     wrappedKey: string;
                                     wrappingMetadata: {
-                                        [key: string]: unknown;
+                                        iv: string;
+                                        /** @constant */
+                                        suite: "tearleads.document.content-key-wrap.aes-256-gcm-container-kek";
                                     };
                                 } & {
                                     [key: string]: unknown;
@@ -2451,7 +2455,9 @@ export interface operations {
                                 containerManifestHash: string;
                                 wrappedKey: string;
                                 wrappingMetadata: {
-                                    [key: string]: unknown;
+                                    iv: string;
+                                    /** @constant */
+                                    suite: "tearleads.document.content-key-wrap.aes-256-gcm-container-kek";
                                 };
                             } & {
                                 [key: string]: unknown;
@@ -2584,7 +2590,9 @@ export interface operations {
                                     containerManifestHash: string;
                                     wrappedKey: string;
                                     wrappingMetadata: {
-                                        [key: string]: unknown;
+                                        iv: string;
+                                        /** @constant */
+                                        suite: "tearleads.document.content-key-wrap.aes-256-gcm-container-kek";
                                     };
                                 } & {
                                     [key: string]: unknown;
@@ -2893,7 +2901,9 @@ export interface operations {
                                 containerManifestHash: string;
                                 wrappedKey: string;
                                 wrappingMetadata: {
-                                    [key: string]: unknown;
+                                    iv: string;
+                                    /** @constant */
+                                    suite: "tearleads.document.content-key-wrap.aes-256-gcm-container-kek";
                                 };
                             } & {
                                 [key: string]: unknown;
@@ -3026,7 +3036,9 @@ export interface operations {
                                     containerManifestHash: string;
                                     wrappedKey: string;
                                     wrappingMetadata: {
-                                        [key: string]: unknown;
+                                        iv: string;
+                                        /** @constant */
+                                        suite: "tearleads.document.content-key-wrap.aes-256-gcm-container-kek";
                                     };
                                 } & {
                                     [key: string]: unknown;
@@ -3327,7 +3339,9 @@ export interface operations {
                                     containerManifestHash: string;
                                     wrappedKey: string;
                                     wrappingMetadata: {
-                                        [key: string]: unknown;
+                                        iv: string;
+                                        /** @constant */
+                                        suite: "tearleads.document.content-key-wrap.aes-256-gcm-container-kek";
                                     };
                                 } & {
                                     [key: string]: unknown;
@@ -3499,7 +3513,9 @@ export interface operations {
                                     containerManifestHash: string;
                                     wrappedKey: string;
                                     wrappingMetadata: {
-                                        [key: string]: unknown;
+                                        iv: string;
+                                        /** @constant */
+                                        suite: "tearleads.document.content-key-wrap.aes-256-gcm-container-kek";
                                     };
                                 } & {
                                     [key: string]: unknown;
@@ -3671,7 +3687,9 @@ export interface operations {
                                 containerManifestHash: string;
                                 wrappedKey: string;
                                 wrappingMetadata: {
-                                    [key: string]: unknown;
+                                    iv: string;
+                                    /** @constant */
+                                    suite: "tearleads.document.content-key-wrap.aes-256-gcm-container-kek";
                                 };
                             } & {
                                 [key: string]: unknown;
@@ -3804,7 +3822,9 @@ export interface operations {
                                     containerManifestHash: string;
                                     wrappedKey: string;
                                     wrappingMetadata: {
-                                        [key: string]: unknown;
+                                        iv: string;
+                                        /** @constant */
+                                        suite: "tearleads.document.content-key-wrap.aes-256-gcm-container-kek";
                                     };
                                 } & {
                                     [key: string]: unknown;
@@ -4105,7 +4125,9 @@ export interface operations {
                                     containerManifestHash: string;
                                     wrappedKey: string;
                                     wrappingMetadata: {
-                                        [key: string]: unknown;
+                                        iv: string;
+                                        /** @constant */
+                                        suite: "tearleads.document.content-key-wrap.aes-256-gcm-container-kek";
                                     };
                                 } & {
                                     [key: string]: unknown;
@@ -4277,7 +4299,9 @@ export interface operations {
                                     containerManifestHash: string;
                                     wrappedKey: string;
                                     wrappingMetadata: {
-                                        [key: string]: unknown;
+                                        iv: string;
+                                        /** @constant */
+                                        suite: "tearleads.document.content-key-wrap.aes-256-gcm-container-kek";
                                     };
                                 } & {
                                     [key: string]: unknown;
@@ -5871,7 +5895,9 @@ export interface operations {
                             documentId: string;
                             wrappedKey: string;
                             wrappingMetadata: {
-                                [key: string]: unknown;
+                                iv: string;
+                                /** @constant */
+                                suite: "tearleads.blob.content-key-wrap.aes-256-gcm-container-kek";
                             };
                         } & {
                             [key: string]: unknown;
@@ -11666,7 +11692,9 @@ export interface operations {
                                 containerManifestHash: string;
                                 wrappedKey: string;
                                 wrappingMetadata: {
-                                    [key: string]: unknown;
+                                    iv: string;
+                                    /** @constant */
+                                    suite: "tearleads.document.content-key-wrap.aes-256-gcm-container-kek";
                                 };
                             } & {
                                 [key: string]: unknown;
@@ -12279,7 +12307,9 @@ export interface operations {
                             containerManifestHash: string;
                             wrappedKey: string;
                             wrappingMetadata: {
-                                [key: string]: unknown;
+                                iv: string;
+                                /** @constant */
+                                suite: "tearleads.document.content-key-wrap.aes-256-gcm-container-kek";
                             };
                         } & {
                             [key: string]: unknown;
@@ -13141,7 +13171,9 @@ export interface operations {
                             containerManifestHash: string;
                             wrappedKey: string;
                             wrappingMetadata: {
-                                [key: string]: unknown;
+                                iv: string;
+                                /** @constant */
+                                suite: "tearleads.document.content-key-wrap.aes-256-gcm-container-kek";
                             };
                         } & {
                             [key: string]: unknown;
@@ -14233,7 +14265,9 @@ export interface operations {
                             containerManifestHash: string;
                             wrappedKey: string;
                             wrappingMetadata: {
-                                [key: string]: unknown;
+                                iv: string;
+                                /** @constant */
+                                suite: "tearleads.document.content-key-wrap.aes-256-gcm-container-kek";
                             };
                         } & {
                             [key: string]: unknown;
@@ -14792,7 +14826,9 @@ export interface operations {
                             containerManifestHash: string;
                             wrappedKey: string;
                             wrappingMetadata: {
-                                [key: string]: unknown;
+                                iv: string;
+                                /** @constant */
+                                suite: "tearleads.document.content-key-wrap.aes-256-gcm-container-kek";
                             };
                         } & {
                             [key: string]: unknown;
@@ -15939,7 +15975,9 @@ export interface operations {
                                     containerManifestHash: string;
                                     wrappedKey: string;
                                     wrappingMetadata: {
-                                        [key: string]: unknown;
+                                        iv: string;
+                                        /** @constant */
+                                        suite: "tearleads.document.content-key-wrap.aes-256-gcm-container-kek";
                                     };
                                 } & {
                                     [key: string]: unknown;
@@ -16111,7 +16149,9 @@ export interface operations {
                                     containerManifestHash: string;
                                     wrappedKey: string;
                                     wrappingMetadata: {
-                                        [key: string]: unknown;
+                                        iv: string;
+                                        /** @constant */
+                                        suite: "tearleads.document.content-key-wrap.aes-256-gcm-container-kek";
                                     };
                                 } & {
                                     [key: string]: unknown;
@@ -16464,7 +16504,9 @@ export interface operations {
                                 containerManifestHash: string;
                                 wrappedKey: string;
                                 wrappingMetadata: {
-                                    [key: string]: unknown;
+                                    iv: string;
+                                    /** @constant */
+                                    suite: "tearleads.document.content-key-wrap.aes-256-gcm-container-kek";
                                 };
                             } & {
                                 [key: string]: unknown;
@@ -16597,7 +16639,9 @@ export interface operations {
                                     containerManifestHash: string;
                                     wrappedKey: string;
                                     wrappingMetadata: {
-                                        [key: string]: unknown;
+                                        iv: string;
+                                        /** @constant */
+                                        suite: "tearleads.document.content-key-wrap.aes-256-gcm-container-kek";
                                     };
                                 } & {
                                     [key: string]: unknown;
@@ -16906,7 +16950,9 @@ export interface operations {
                                 containerManifestHash: string;
                                 wrappedKey: string;
                                 wrappingMetadata: {
-                                    [key: string]: unknown;
+                                    iv: string;
+                                    /** @constant */
+                                    suite: "tearleads.document.content-key-wrap.aes-256-gcm-container-kek";
                                 };
                             } & {
                                 [key: string]: unknown;
@@ -17039,7 +17085,9 @@ export interface operations {
                                     containerManifestHash: string;
                                     wrappedKey: string;
                                     wrappingMetadata: {
-                                        [key: string]: unknown;
+                                        iv: string;
+                                        /** @constant */
+                                        suite: "tearleads.document.content-key-wrap.aes-256-gcm-container-kek";
                                     };
                                 } & {
                                     [key: string]: unknown;
@@ -17340,7 +17388,9 @@ export interface operations {
                                     containerManifestHash: string;
                                     wrappedKey: string;
                                     wrappingMetadata: {
-                                        [key: string]: unknown;
+                                        iv: string;
+                                        /** @constant */
+                                        suite: "tearleads.document.content-key-wrap.aes-256-gcm-container-kek";
                                     };
                                 } & {
                                     [key: string]: unknown;
@@ -17512,7 +17562,9 @@ export interface operations {
                                     containerManifestHash: string;
                                     wrappedKey: string;
                                     wrappingMetadata: {
-                                        [key: string]: unknown;
+                                        iv: string;
+                                        /** @constant */
+                                        suite: "tearleads.document.content-key-wrap.aes-256-gcm-container-kek";
                                     };
                                 } & {
                                     [key: string]: unknown;
@@ -17684,7 +17736,9 @@ export interface operations {
                                 containerManifestHash: string;
                                 wrappedKey: string;
                                 wrappingMetadata: {
-                                    [key: string]: unknown;
+                                    iv: string;
+                                    /** @constant */
+                                    suite: "tearleads.document.content-key-wrap.aes-256-gcm-container-kek";
                                 };
                             } & {
                                 [key: string]: unknown;
@@ -17817,7 +17871,9 @@ export interface operations {
                                     containerManifestHash: string;
                                     wrappedKey: string;
                                     wrappingMetadata: {
-                                        [key: string]: unknown;
+                                        iv: string;
+                                        /** @constant */
+                                        suite: "tearleads.document.content-key-wrap.aes-256-gcm-container-kek";
                                     };
                                 } & {
                                     [key: string]: unknown;
@@ -18118,7 +18174,9 @@ export interface operations {
                                     containerManifestHash: string;
                                     wrappedKey: string;
                                     wrappingMetadata: {
-                                        [key: string]: unknown;
+                                        iv: string;
+                                        /** @constant */
+                                        suite: "tearleads.document.content-key-wrap.aes-256-gcm-container-kek";
                                     };
                                 } & {
                                     [key: string]: unknown;
@@ -18290,7 +18348,9 @@ export interface operations {
                                     containerManifestHash: string;
                                     wrappedKey: string;
                                     wrappingMetadata: {
-                                        [key: string]: unknown;
+                                        iv: string;
+                                        /** @constant */
+                                        suite: "tearleads.document.content-key-wrap.aes-256-gcm-container-kek";
                                     };
                                 } & {
                                     [key: string]: unknown;

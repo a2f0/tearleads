@@ -146,11 +146,15 @@ export function assertOnlyRecordKeys(
   const unexpectedKeys = Object.keys(record).filter(
     (key) => !allowedKeys.has(key),
   );
-  if (unexpectedKeys.length > 0) {
-    throw new Error(
-      `${label} has unexpected keys: ${unexpectedKeys.join(",")}`,
-    );
-  }
+  if (unexpectedKeys.length === 0) return;
+  const named = unexpectedKeys
+    .slice(0, 3)
+    .map((key) => JSON.stringify(key.slice(0, 32)))
+    .join(",");
+  const remaining = unexpectedKeys.length - 3;
+  throw new Error(
+    `${label} has unexpected keys: ${named}${remaining > 0 ? ` and ${remaining} more` : ""}`,
+  );
 }
 
 export function normalizeContainerKeyWrap(value: unknown): ContainerKeyWrap {

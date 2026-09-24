@@ -143,6 +143,8 @@ async function deriveRekeyManifestArtifacts(input: {
 }) {
   const body: ContainerRekeyAccessEventBody = {
     eventType: "container.rekey",
+    parentManifestHash:
+      input.previousProjection.path.at(-2)?.manifestHash ?? null,
     containerKeyPublicKey: await deriveContainerKekWrappingPublicKey({
       containerId: input.previousState.containerId,
       keyMaterial: input.containerKey,
@@ -167,6 +169,7 @@ async function deriveRekeyManifestArtifacts(input: {
   });
   const state = {
     ...input.previousState,
+    parentManifestHash: body.parentManifestHash,
     containerKeyPublicKey: body.containerKeyPublicKey,
     epoch: input.previousState.epoch + 1,
     previousManifestHash: input.target.manifest.manifestHash,

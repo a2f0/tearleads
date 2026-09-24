@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+import { contentKeyEnvelopeFixture } from "../contentKeyEnvelope.testFixtures";
 import {
   MAX_DOCUMENT_SYNC_AUTHORIZATION_PATH_DEPTH,
   MAX_DOCUMENT_SYNC_AUTHORIZATION_PATH_REFS,
@@ -19,8 +20,7 @@ const TARGET = {
   containerKeyEpoch: 1,
   containerKeyEpochId: "container-key-epoch-id",
   containerManifestHash: "container-manifest-hash",
-  wrappedKey: "wrapped-key",
-  wrappingMetadata: { algorithm: "test" },
+  ...contentKeyEnvelopeFixture("document"),
 };
 const UPDATE = {
   encryptedData: "ciphertext",

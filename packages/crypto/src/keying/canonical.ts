@@ -32,6 +32,9 @@ export function normalizeCanonicalJsonValue(
       );
     }
 
+    if (Object.is(value, -0)) {
+      throwVerification("invalid_shape", `${label} contains negative zero`);
+    }
     return value;
   }
 

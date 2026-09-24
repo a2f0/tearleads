@@ -11,6 +11,10 @@ import {
 } from "../schema";
 import { MAX_INLINE_CONTAINER_REKEYS } from "../util";
 import { ContainerMutationRequestSchema } from "./container";
+import {
+  ContentKeyWrappedKeySchema,
+  contentKeyWrappingMetadataSchema,
+} from "./contentKeyEnvelopeSchema";
 import { ContainerManifestRefArrayArraySchema } from "./document";
 
 export const InitiateMultipartBlobStageRequestSchema = loosePlainObject({
@@ -48,8 +52,8 @@ export const BlobContentKeyTargetEnvelopeRequestSchema = loosePlainObject({
   containerKeyEpochId: nonEmptyStringSchema,
   containerManifestHash: nonEmptyStringSchema,
   documentId: nonEmptyStringSchema,
-  wrappedKey: nonEmptyStringSchema,
-  wrappingMetadata: plainObjectSchema,
+  wrappedKey: ContentKeyWrappedKeySchema,
+  wrappingMetadata: contentKeyWrappingMetadataSchema("blob"),
 });
 
 export type BlobContentKeyTargetEnvelopeRequest = z.infer<

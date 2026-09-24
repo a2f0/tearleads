@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+import { contentKeyEnvelopeFixture } from "../contentKeyEnvelope.testFixtures";
 import { createContainerMutation } from "../operation/openApiTestFixtures";
 import {
   DocumentSyncResponseSchema,
@@ -22,8 +23,7 @@ function createSyncRequest() {
           containerKeyEpoch: 1,
           containerKeyEpochId: "container-key-epoch-id",
           containerManifestHash: "container-manifest-hash",
-          wrappedKey: "wrapped-key",
-          wrappingMetadata: { algorithm: "test" },
+          ...contentKeyEnvelopeFixture("document"),
         },
       ],
     },
@@ -57,8 +57,7 @@ function createContentKeyBundleResponse() {
         containerKeyEpoch: 1,
         containerKeyEpochId: "container-key-epoch-id",
         containerManifestHash: "container-manifest-hash",
-        wrappedKey: "wrapped-key",
-        wrappingMetadata: { algorithm: "test" },
+        ...contentKeyEnvelopeFixture("document"),
       },
     ],
   };

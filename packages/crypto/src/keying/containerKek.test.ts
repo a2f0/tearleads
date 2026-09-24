@@ -32,7 +32,7 @@ test("deriveDocumentKekTargets resolves every linked container KEK target", asyn
   const writerSigning = generateSigningSeedAndKeyPair();
   const firstContainer = await createContainerManifestFixture({
     containerId: "container-a",
-    containerKeyEpochId: await kekId("container-a-key-epoch-1"),
+    containerKeyEpochId: await kekId("container-a-key-epoch-1", "container-a"),
     directGrants: [
       {
         subjectType: "user",
@@ -45,7 +45,7 @@ test("deriveDocumentKekTargets resolves every linked container KEK target", asyn
   });
   const secondContainer = await createContainerManifestFixture({
     containerId: "container-b",
-    containerKeyEpochId: await kekId("container-b-key-epoch-1"),
+    containerKeyEpochId: await kekId("container-b-key-epoch-1", "container-b"),
     directGrants: [
       {
         subjectType: "user",
@@ -143,7 +143,10 @@ test("deriveBlobKekTargets resolves the union of every active attachment binding
   const writerSigning = generateSigningSeedAndKeyPair();
   const firstContainer = await createContainerManifestFixture({
     containerId: "blob-container-a",
-    containerKeyEpochId: await kekId("blob-container-a-key-epoch-1"),
+    containerKeyEpochId: await kekId(
+      "blob-container-a-key-epoch-1",
+      "blob-container-a",
+    ),
     directGrants: [
       {
         subjectType: "user",
@@ -156,7 +159,10 @@ test("deriveBlobKekTargets resolves the union of every active attachment binding
   });
   const secondContainer = await createContainerManifestFixture({
     containerId: "blob-container-b",
-    containerKeyEpochId: await kekId("blob-container-b-key-epoch-1"),
+    containerKeyEpochId: await kekId(
+      "blob-container-b-key-epoch-1",
+      "blob-container-b",
+    ),
     directGrants: [
       {
         subjectType: "user",
@@ -301,7 +307,7 @@ test("deriveBlobKekTargets resolves the union of every active attachment binding
 test("verifyContainerKekState derives user, principal, and parent wrap targets", async () => {
   const parentManifest = await createContainerManifestFixture({
     containerId: "parent-container",
-    containerKeyEpochId: await kekId("parent-key-epoch-1"),
+    containerKeyEpochId: await kekId("parent-key-epoch-1", "parent-container"),
     directGrants: [
       {
         subjectType: "user",
@@ -348,7 +354,7 @@ test("verifyContainerKekState derives user, principal, and parent wrap targets",
   };
   const childManifest = await createContainerManifestFixture({
     containerId: "child-container",
-    containerKeyEpochId: await kekId("child-key-epoch-1"),
+    containerKeyEpochId: await kekId("child-key-epoch-1", "child-container"),
     directGrants: [
       {
         subjectType: "user",
@@ -438,7 +444,10 @@ test("verifyContainerKekState derives user, principal, and parent wrap targets",
 test("verifyContainerKekState rejects forged wrap fingerprints and parent edges", async () => {
   const parentManifest = await createContainerManifestFixture({
     containerId: "parent-container-for-reject",
-    containerKeyEpochId: await kekId("reject-parent-key-epoch-1"),
+    containerKeyEpochId: await kekId(
+      "reject-parent-key-epoch-1",
+      "parent-container-for-reject",
+    ),
     directGrants: [
       {
         subjectType: "user",
@@ -476,7 +485,10 @@ test("verifyContainerKekState rejects forged wrap fingerprints and parent edges"
 
   const childManifest = await createContainerManifestFixture({
     containerId: "child-container-for-reject",
-    containerKeyEpochId: await kekId("reject-child-key-epoch-1"),
+    containerKeyEpochId: await kekId(
+      "reject-child-key-epoch-1",
+      "child-container-for-reject",
+    ),
     directGrants: [
       {
         subjectType: "user",

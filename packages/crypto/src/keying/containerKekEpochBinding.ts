@@ -1,4 +1,7 @@
-import { isContainerKekMaterialId } from "./containerKekMaterial";
+import {
+  computeContainerKekPublicCommitment,
+  isContainerKekMaterialId,
+} from "./containerKekMaterial";
 import {
   type ContainerKekParentBinding,
   creationParentEpochId,
@@ -109,10 +112,10 @@ export function assertContainerKeyEpochParentBinding(input: {
   }
 }
 
-export function assertContainerKeyEpochMatchesManifest(input: {
+export async function assertContainerKeyEpochMatchesManifest(input: {
   readonly containerManifest: VerifiedContainerAccessManifest;
   readonly keyEpoch: ContainerKeyEpoch;
-}): void {
+}): Promise<void> {
   const containerKeyEpochId = input.containerManifest.state.containerKeyEpochId;
 
   if (containerKeyEpochId === null) {
@@ -142,6 +145,21 @@ export function assertContainerKeyEpochMatchesManifest(input: {
     throwVerification(
       "object_mismatch",
       "container key epoch belongs to the wrong container",
+    );
+  }
+
+  const publicKey = input.containerManifest.state.containerKeyPublicKey;
+  if (
+    publicKey === null ||
+    (await computeContainerKekPublicCommitment({
+      containerId: input.keyEpoch.containerId,
+      keyEpoch: input.keyEpoch.keyEpoch,
+      containerKeyPublicKey: publicKey,
+    })) !== containerKeyEpochId
+  ) {
+    throwVerification(
+      "hash_mismatch",
+      "container KEK public key does not match its epoch commitment",
     );
   }
 }

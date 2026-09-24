@@ -1,3 +1,4 @@
+import { contentKeyEnvelopeFixture } from "../contentKeyEnvelope.testFixtures";
 export const SYNC_PATH = "/documents/{documentId}/sync";
 const UPDATE_ID = "550e8400-e29b-41d4-a716-446655440111";
 
@@ -104,8 +105,7 @@ function createDocumentContentKeyBundleRequest() {
         containerKeyEpoch: 1,
         containerKeyEpochId: "container-key-epoch-id",
         containerManifestHash: "manifest-hash",
-        wrappedKey: "wrapped-key",
-        wrappingMetadata: { algorithm: "test" },
+        ...contentKeyEnvelopeFixture("document"),
       },
     ],
   };
@@ -217,8 +217,7 @@ export function createSyncRequest() {
           containerKeyEpoch: 1,
           containerKeyEpochId: "container-key-epoch-id",
           containerManifestHash: "manifest-hash",
-          wrappedKey: "wrapped-key",
-          wrappingMetadata: { algorithm: "test" },
+          ...contentKeyEnvelopeFixture("document"),
         },
       ],
     },
@@ -255,8 +254,7 @@ function createContentKeyBundleResponse() {
         containerKeyEpoch: 1,
         containerKeyEpochId: "container-key-epoch-id",
         containerManifestHash: "manifest-hash",
-        wrappedKey: "wrapped-key",
-        wrappingMetadata: { algorithm: "test" },
+        ...contentKeyEnvelopeFixture("document"),
       },
     ],
   };

@@ -98,8 +98,12 @@ export function createRegistrationRequestFixture(): RegistrationRequest {
         containerKeyEpoch: 1,
         containerKeyEpochId: "container-key-epoch-id",
         containerManifestHash: "container-manifest-hash",
-        wrappedKey: "wrapped-key",
-        wrappingMetadata: { alg: "x25519-hkdf-sha256" },
+        wrappedKey: "A".repeat(64),
+        wrappingMetadata: {
+          suite:
+            "tearleads.document.content-key-wrap.aes-256-gcm-container-kek",
+          iv: "A".repeat(16),
+        },
       },
     ],
   };

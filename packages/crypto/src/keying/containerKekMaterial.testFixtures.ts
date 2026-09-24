@@ -1,8 +1,17 @@
-import { fixtureHash } from "./testFixtures";
-import { CONTAINER_KEK_MATERIAL_ID_PREFIX } from "./types";
+import { computeContainerKekPublicCommitment } from "./containerKekMaterial";
+import { containerWrappingPublicKeyForTest } from "./containerWrapping.testFixtures";
 
 export async function fixtureContainerKekMaterialId(
   label: string,
-): Promise<`${typeof CONTAINER_KEK_MATERIAL_ID_PREFIX}${string}`> {
-  return `${CONTAINER_KEK_MATERIAL_ID_PREFIX}${await fixtureHash(label)}`;
+  containerId: string,
+  keyEpoch = 1,
+) {
+  const containerKeyPublicKey = containerWrappingPublicKeyForTest(label);
+  const id = await computeContainerKekPublicCommitment({
+    containerId,
+    keyEpoch,
+    containerKeyPublicKey,
+  });
+  containerWrappingPublicKeyForTest(id, containerKeyPublicKey);
+  return id;
 }

@@ -2177,12 +2177,29 @@
                                     },
                                     "wrappedKey": {
                                       "type": "string",
-                                      "minLength": 1
+                                      "minLength": 64,
+                                      "maxLength": 64,
+                                      "pattern": "^[A-Za-z0-9+/]{64}$"
                                     },
                                     "wrappingMetadata": {
                                       "type": "object",
-                                      "properties": {},
-                                      "additionalProperties": {}
+                                      "properties": {
+                                        "suite": {
+                                          "type": "string",
+                                          "const": "tearleads.document.content-key-wrap.aes-256-gcm-container-kek"
+                                        },
+                                        "iv": {
+                                          "type": "string",
+                                          "minLength": 16,
+                                          "maxLength": 16,
+                                          "pattern": "^[A-Za-z0-9+/]{16}$"
+                                        }
+                                      },
+                                      "required": [
+                                        "suite",
+                                        "iv"
+                                      ],
+                                      "additionalProperties": false
                                     }
                                   },
                                   "required": [
@@ -2647,12 +2664,29 @@
                                     },
                                     "wrappedKey": {
                                       "type": "string",
-                                      "minLength": 1
+                                      "minLength": 64,
+                                      "maxLength": 64,
+                                      "pattern": "^[A-Za-z0-9+/]{64}$"
                                     },
                                     "wrappingMetadata": {
                                       "type": "object",
-                                      "properties": {},
-                                      "additionalProperties": {}
+                                      "properties": {
+                                        "suite": {
+                                          "type": "string",
+                                          "const": "tearleads.document.content-key-wrap.aes-256-gcm-container-kek"
+                                        },
+                                        "iv": {
+                                          "type": "string",
+                                          "minLength": 16,
+                                          "maxLength": 16,
+                                          "pattern": "^[A-Za-z0-9+/]{16}$"
+                                        }
+                                      },
+                                      "required": [
+                                        "suite",
+                                        "iv"
+                                      ],
+                                      "additionalProperties": false
                                     }
                                   },
                                   "required": [
@@ -3747,12 +3781,29 @@
                                 },
                                 "wrappedKey": {
                                   "type": "string",
-                                  "minLength": 1
+                                  "minLength": 64,
+                                  "maxLength": 64,
+                                  "pattern": "^[A-Za-z0-9+/]{64}$"
                                 },
                                 "wrappingMetadata": {
                                   "type": "object",
-                                  "properties": {},
-                                  "additionalProperties": {}
+                                  "properties": {
+                                    "suite": {
+                                      "type": "string",
+                                      "const": "tearleads.document.content-key-wrap.aes-256-gcm-container-kek"
+                                    },
+                                    "iv": {
+                                      "type": "string",
+                                      "minLength": 16,
+                                      "maxLength": 16,
+                                      "pattern": "^[A-Za-z0-9+/]{16}$"
+                                    }
+                                  },
+                                  "required": [
+                                    "suite",
+                                    "iv"
+                                  ],
+                                  "additionalProperties": false
                                 }
                               },
                               "required": [
@@ -4196,12 +4247,29 @@
                                     },
                                     "wrappedKey": {
                                       "type": "string",
-                                      "minLength": 1
+                                      "minLength": 64,
+                                      "maxLength": 64,
+                                      "pattern": "^[A-Za-z0-9+/]{64}$"
                                     },
                                     "wrappingMetadata": {
                                       "type": "object",
-                                      "properties": {},
-                                      "additionalProperties": {}
+                                      "properties": {
+                                        "suite": {
+                                          "type": "string",
+                                          "const": "tearleads.document.content-key-wrap.aes-256-gcm-container-kek"
+                                        },
+                                        "iv": {
+                                          "type": "string",
+                                          "minLength": 16,
+                                          "maxLength": 16,
+                                          "pattern": "^[A-Za-z0-9+/]{16}$"
+                                        }
+                                      },
+                                      "required": [
+                                        "suite",
+                                        "iv"
+                                      ],
+                                      "additionalProperties": false
                                     }
                                   },
                                   "required": [
@@ -5031,12 +5099,29 @@
                                 },
                                 "wrappedKey": {
                                   "type": "string",
-                                  "minLength": 1
+                                  "minLength": 64,
+                                  "maxLength": 64,
+                                  "pattern": "^[A-Za-z0-9+/]{64}$"
                                 },
                                 "wrappingMetadata": {
                                   "type": "object",
-                                  "properties": {},
-                                  "additionalProperties": {}
+                                  "properties": {
+                                    "suite": {
+                                      "type": "string",
+                                      "const": "tearleads.document.content-key-wrap.aes-256-gcm-container-kek"
+                                    },
+                                    "iv": {
+                                      "type": "string",
+                                      "minLength": 16,
+                                      "maxLength": 16,
+                                      "pattern": "^[A-Za-z0-9+/]{16}$"
+                                    }
+                                  },
+                                  "required": [
+                                    "suite",
+                                    "iv"
+                                  ],
+                                  "additionalProperties": false
                                 }
                               },
                               "required": [
@@ -5480,12 +5565,29 @@
                                     },
                                     "wrappedKey": {
                                       "type": "string",
-                                      "minLength": 1
+                                      "minLength": 64,
+                                      "maxLength": 64,
+                                      "pattern": "^[A-Za-z0-9+/]{64}$"
                                     },
                                     "wrappingMetadata": {
                                       "type": "object",
-                                      "properties": {},
-                                      "additionalProperties": {}
+                                      "properties": {
+                                        "suite": {
+                                          "type": "string",
+                                          "const": "tearleads.document.content-key-wrap.aes-256-gcm-container-kek"
+                                        },
+                                        "iv": {
+                                          "type": "string",
+                                          "minLength": 16,
+                                          "maxLength": 16,
+                                          "pattern": "^[A-Za-z0-9+/]{16}$"
+                                        }
+                                      },
+                                      "required": [
+                                        "suite",
+                                        "iv"
+                                      ],
+                                      "additionalProperties": false
                                     }
                                   },
                                   "required": [
@@ -6318,12 +6420,29 @@
                                     },
                                     "wrappedKey": {
                                       "type": "string",
-                                      "minLength": 1
+                                      "minLength": 64,
+                                      "maxLength": 64,
+                                      "pattern": "^[A-Za-z0-9+/]{64}$"
                                     },
                                     "wrappingMetadata": {
                                       "type": "object",
-                                      "properties": {},
-                                      "additionalProperties": {}
+                                      "properties": {
+                                        "suite": {
+                                          "type": "string",
+                                          "const": "tearleads.document.content-key-wrap.aes-256-gcm-container-kek"
+                                        },
+                                        "iv": {
+                                          "type": "string",
+                                          "minLength": 16,
+                                          "maxLength": 16,
+                                          "pattern": "^[A-Za-z0-9+/]{16}$"
+                                        }
+                                      },
+                                      "required": [
+                                        "suite",
+                                        "iv"
+                                      ],
+                                      "additionalProperties": false
                                     }
                                   },
                                   "required": [
@@ -6788,12 +6907,29 @@
                                     },
                                     "wrappedKey": {
                                       "type": "string",
-                                      "minLength": 1
+                                      "minLength": 64,
+                                      "maxLength": 64,
+                                      "pattern": "^[A-Za-z0-9+/]{64}$"
                                     },
                                     "wrappingMetadata": {
                                       "type": "object",
-                                      "properties": {},
-                                      "additionalProperties": {}
+                                      "properties": {
+                                        "suite": {
+                                          "type": "string",
+                                          "const": "tearleads.document.content-key-wrap.aes-256-gcm-container-kek"
+                                        },
+                                        "iv": {
+                                          "type": "string",
+                                          "minLength": 16,
+                                          "maxLength": 16,
+                                          "pattern": "^[A-Za-z0-9+/]{16}$"
+                                        }
+                                      },
+                                      "required": [
+                                        "suite",
+                                        "iv"
+                                      ],
+                                      "additionalProperties": false
                                     }
                                   },
                                   "required": [
@@ -7319,12 +7455,29 @@
                                 },
                                 "wrappedKey": {
                                   "type": "string",
-                                  "minLength": 1
+                                  "minLength": 64,
+                                  "maxLength": 64,
+                                  "pattern": "^[A-Za-z0-9+/]{64}$"
                                 },
                                 "wrappingMetadata": {
                                   "type": "object",
-                                  "properties": {},
-                                  "additionalProperties": {}
+                                  "properties": {
+                                    "suite": {
+                                      "type": "string",
+                                      "const": "tearleads.document.content-key-wrap.aes-256-gcm-container-kek"
+                                    },
+                                    "iv": {
+                                      "type": "string",
+                                      "minLength": 16,
+                                      "maxLength": 16,
+                                      "pattern": "^[A-Za-z0-9+/]{16}$"
+                                    }
+                                  },
+                                  "required": [
+                                    "suite",
+                                    "iv"
+                                  ],
+                                  "additionalProperties": false
                                 }
                               },
                               "required": [
@@ -7768,12 +7921,29 @@
                                     },
                                     "wrappedKey": {
                                       "type": "string",
-                                      "minLength": 1
+                                      "minLength": 64,
+                                      "maxLength": 64,
+                                      "pattern": "^[A-Za-z0-9+/]{64}$"
                                     },
                                     "wrappingMetadata": {
                                       "type": "object",
-                                      "properties": {},
-                                      "additionalProperties": {}
+                                      "properties": {
+                                        "suite": {
+                                          "type": "string",
+                                          "const": "tearleads.document.content-key-wrap.aes-256-gcm-container-kek"
+                                        },
+                                        "iv": {
+                                          "type": "string",
+                                          "minLength": 16,
+                                          "maxLength": 16,
+                                          "pattern": "^[A-Za-z0-9+/]{16}$"
+                                        }
+                                      },
+                                      "required": [
+                                        "suite",
+                                        "iv"
+                                      ],
+                                      "additionalProperties": false
                                     }
                                   },
                                   "required": [
@@ -8608,12 +8778,29 @@
                                       },
                                       "wrappedKey": {
                                         "type": "string",
-                                        "minLength": 1
+                                        "minLength": 64,
+                                        "maxLength": 64,
+                                        "pattern": "^[A-Za-z0-9+/]{64}$"
                                       },
                                       "wrappingMetadata": {
                                         "type": "object",
-                                        "properties": {},
-                                        "additionalProperties": {}
+                                        "properties": {
+                                          "suite": {
+                                            "type": "string",
+                                            "const": "tearleads.document.content-key-wrap.aes-256-gcm-container-kek"
+                                          },
+                                          "iv": {
+                                            "type": "string",
+                                            "minLength": 16,
+                                            "maxLength": 16,
+                                            "pattern": "^[A-Za-z0-9+/]{16}$"
+                                          }
+                                        },
+                                        "required": [
+                                          "suite",
+                                          "iv"
+                                        ],
+                                        "additionalProperties": false
                                       }
                                     },
                                     "required": [
@@ -9078,12 +9265,29 @@
                                       },
                                       "wrappedKey": {
                                         "type": "string",
-                                        "minLength": 1
+                                        "minLength": 64,
+                                        "maxLength": 64,
+                                        "pattern": "^[A-Za-z0-9+/]{64}$"
                                       },
                                       "wrappingMetadata": {
                                         "type": "object",
-                                        "properties": {},
-                                        "additionalProperties": {}
+                                        "properties": {
+                                          "suite": {
+                                            "type": "string",
+                                            "const": "tearleads.document.content-key-wrap.aes-256-gcm-container-kek"
+                                          },
+                                          "iv": {
+                                            "type": "string",
+                                            "minLength": 16,
+                                            "maxLength": 16,
+                                            "pattern": "^[A-Za-z0-9+/]{16}$"
+                                          }
+                                        },
+                                        "required": [
+                                          "suite",
+                                          "iv"
+                                        ],
+                                        "additionalProperties": false
                                       }
                                     },
                                     "required": [
@@ -15002,12 +15206,29 @@
                             },
                             "wrappedKey": {
                               "type": "string",
-                              "minLength": 1
+                              "minLength": 64,
+                              "maxLength": 64,
+                              "pattern": "^[A-Za-z0-9+/]{64}$"
                             },
                             "wrappingMetadata": {
                               "type": "object",
-                              "properties": {},
-                              "additionalProperties": {}
+                              "properties": {
+                                "suite": {
+                                  "type": "string",
+                                  "const": "tearleads.blob.content-key-wrap.aes-256-gcm-container-kek"
+                                },
+                                "iv": {
+                                  "type": "string",
+                                  "minLength": 16,
+                                  "maxLength": 16,
+                                  "pattern": "^[A-Za-z0-9+/]{16}$"
+                                }
+                              },
+                              "required": [
+                                "suite",
+                                "iv"
+                              ],
+                              "additionalProperties": false
                             }
                           },
                           "required": [
@@ -16848,12 +17069,29 @@
                                 },
                                 "wrappedKey": {
                                   "type": "string",
-                                  "minLength": 1
+                                  "minLength": 64,
+                                  "maxLength": 64,
+                                  "pattern": "^[A-Za-z0-9+/]{64}$"
                                 },
                                 "wrappingMetadata": {
                                   "type": "object",
-                                  "properties": {},
-                                  "additionalProperties": {}
+                                  "properties": {
+                                    "suite": {
+                                      "type": "string",
+                                      "const": "tearleads.document.content-key-wrap.aes-256-gcm-container-kek"
+                                    },
+                                    "iv": {
+                                      "type": "string",
+                                      "minLength": 16,
+                                      "maxLength": 16,
+                                      "pattern": "^[A-Za-z0-9+/]{16}$"
+                                    }
+                                  },
+                                  "required": [
+                                    "suite",
+                                    "iv"
+                                  ],
+                                  "additionalProperties": false
                                 }
                               },
                               "required": [
@@ -32021,12 +32259,29 @@
                             },
                             "wrappedKey": {
                               "type": "string",
-                              "minLength": 1
+                              "minLength": 64,
+                              "maxLength": 64,
+                              "pattern": "^[A-Za-z0-9+/]{64}$"
                             },
                             "wrappingMetadata": {
                               "type": "object",
-                              "properties": {},
-                              "additionalProperties": {}
+                              "properties": {
+                                "suite": {
+                                  "type": "string",
+                                  "const": "tearleads.document.content-key-wrap.aes-256-gcm-container-kek"
+                                },
+                                "iv": {
+                                  "type": "string",
+                                  "minLength": 16,
+                                  "maxLength": 16,
+                                  "pattern": "^[A-Za-z0-9+/]{16}$"
+                                }
+                              },
+                              "required": [
+                                "suite",
+                                "iv"
+                              ],
+                              "additionalProperties": false
                             }
                           },
                           "required": [
@@ -34994,12 +35249,29 @@
                             },
                             "wrappedKey": {
                               "type": "string",
-                              "minLength": 1
+                              "minLength": 64,
+                              "maxLength": 64,
+                              "pattern": "^[A-Za-z0-9+/]{64}$"
                             },
                             "wrappingMetadata": {
                               "type": "object",
-                              "properties": {},
-                              "additionalProperties": {}
+                              "properties": {
+                                "suite": {
+                                  "type": "string",
+                                  "const": "tearleads.document.content-key-wrap.aes-256-gcm-container-kek"
+                                },
+                                "iv": {
+                                  "type": "string",
+                                  "minLength": 16,
+                                  "maxLength": 16,
+                                  "pattern": "^[A-Za-z0-9+/]{16}$"
+                                }
+                              },
+                              "required": [
+                                "suite",
+                                "iv"
+                              ],
+                              "additionalProperties": false
                             }
                           },
                           "required": [
@@ -36726,12 +36998,29 @@
                             },
                             "wrappedKey": {
                               "type": "string",
-                              "minLength": 1
+                              "minLength": 64,
+                              "maxLength": 64,
+                              "pattern": "^[A-Za-z0-9+/]{64}$"
                             },
                             "wrappingMetadata": {
                               "type": "object",
-                              "properties": {},
-                              "additionalProperties": {}
+                              "properties": {
+                                "suite": {
+                                  "type": "string",
+                                  "const": "tearleads.document.content-key-wrap.aes-256-gcm-container-kek"
+                                },
+                                "iv": {
+                                  "type": "string",
+                                  "minLength": 16,
+                                  "maxLength": 16,
+                                  "pattern": "^[A-Za-z0-9+/]{16}$"
+                                }
+                              },
+                              "required": [
+                                "suite",
+                                "iv"
+                              ],
+                              "additionalProperties": false
                             }
                           },
                           "required": [
@@ -38478,12 +38767,29 @@
                             },
                             "wrappedKey": {
                               "type": "string",
-                              "minLength": 1
+                              "minLength": 64,
+                              "maxLength": 64,
+                              "pattern": "^[A-Za-z0-9+/]{64}$"
                             },
                             "wrappingMetadata": {
                               "type": "object",
-                              "properties": {},
-                              "additionalProperties": {}
+                              "properties": {
+                                "suite": {
+                                  "type": "string",
+                                  "const": "tearleads.document.content-key-wrap.aes-256-gcm-container-kek"
+                                },
+                                "iv": {
+                                  "type": "string",
+                                  "minLength": 16,
+                                  "maxLength": 16,
+                                  "pattern": "^[A-Za-z0-9+/]{16}$"
+                                }
+                              },
+                              "required": [
+                                "suite",
+                                "iv"
+                              ],
+                              "additionalProperties": false
                             }
                           },
                           "required": [
@@ -53368,12 +53674,29 @@
                                     },
                                     "wrappedKey": {
                                       "type": "string",
-                                      "minLength": 1
+                                      "minLength": 64,
+                                      "maxLength": 64,
+                                      "pattern": "^[A-Za-z0-9+/]{64}$"
                                     },
                                     "wrappingMetadata": {
                                       "type": "object",
-                                      "properties": {},
-                                      "additionalProperties": {}
+                                      "properties": {
+                                        "suite": {
+                                          "type": "string",
+                                          "const": "tearleads.document.content-key-wrap.aes-256-gcm-container-kek"
+                                        },
+                                        "iv": {
+                                          "type": "string",
+                                          "minLength": 16,
+                                          "maxLength": 16,
+                                          "pattern": "^[A-Za-z0-9+/]{16}$"
+                                        }
+                                      },
+                                      "required": [
+                                        "suite",
+                                        "iv"
+                                      ],
+                                      "additionalProperties": false
                                     }
                                   },
                                   "required": [
@@ -53838,12 +54161,29 @@
                                     },
                                     "wrappedKey": {
                                       "type": "string",
-                                      "minLength": 1
+                                      "minLength": 64,
+                                      "maxLength": 64,
+                                      "pattern": "^[A-Za-z0-9+/]{64}$"
                                     },
                                     "wrappingMetadata": {
                                       "type": "object",
-                                      "properties": {},
-                                      "additionalProperties": {}
+                                      "properties": {
+                                        "suite": {
+                                          "type": "string",
+                                          "const": "tearleads.document.content-key-wrap.aes-256-gcm-container-kek"
+                                        },
+                                        "iv": {
+                                          "type": "string",
+                                          "minLength": 16,
+                                          "maxLength": 16,
+                                          "pattern": "^[A-Za-z0-9+/]{16}$"
+                                        }
+                                      },
+                                      "required": [
+                                        "suite",
+                                        "iv"
+                                      ],
+                                      "additionalProperties": false
                                     }
                                   },
                                   "required": [
@@ -54938,12 +55278,29 @@
                                 },
                                 "wrappedKey": {
                                   "type": "string",
-                                  "minLength": 1
+                                  "minLength": 64,
+                                  "maxLength": 64,
+                                  "pattern": "^[A-Za-z0-9+/]{64}$"
                                 },
                                 "wrappingMetadata": {
                                   "type": "object",
-                                  "properties": {},
-                                  "additionalProperties": {}
+                                  "properties": {
+                                    "suite": {
+                                      "type": "string",
+                                      "const": "tearleads.document.content-key-wrap.aes-256-gcm-container-kek"
+                                    },
+                                    "iv": {
+                                      "type": "string",
+                                      "minLength": 16,
+                                      "maxLength": 16,
+                                      "pattern": "^[A-Za-z0-9+/]{16}$"
+                                    }
+                                  },
+                                  "required": [
+                                    "suite",
+                                    "iv"
+                                  ],
+                                  "additionalProperties": false
                                 }
                               },
                               "required": [
@@ -55387,12 +55744,29 @@
                                     },
                                     "wrappedKey": {
                                       "type": "string",
-                                      "minLength": 1
+                                      "minLength": 64,
+                                      "maxLength": 64,
+                                      "pattern": "^[A-Za-z0-9+/]{64}$"
                                     },
                                     "wrappingMetadata": {
                                       "type": "object",
-                                      "properties": {},
-                                      "additionalProperties": {}
+                                      "properties": {
+                                        "suite": {
+                                          "type": "string",
+                                          "const": "tearleads.document.content-key-wrap.aes-256-gcm-container-kek"
+                                        },
+                                        "iv": {
+                                          "type": "string",
+                                          "minLength": 16,
+                                          "maxLength": 16,
+                                          "pattern": "^[A-Za-z0-9+/]{16}$"
+                                        }
+                                      },
+                                      "required": [
+                                        "suite",
+                                        "iv"
+                                      ],
+                                      "additionalProperties": false
                                     }
                                   },
                                   "required": [
@@ -56222,12 +56596,29 @@
                                 },
                                 "wrappedKey": {
                                   "type": "string",
-                                  "minLength": 1
+                                  "minLength": 64,
+                                  "maxLength": 64,
+                                  "pattern": "^[A-Za-z0-9+/]{64}$"
                                 },
                                 "wrappingMetadata": {
                                   "type": "object",
-                                  "properties": {},
-                                  "additionalProperties": {}
+                                  "properties": {
+                                    "suite": {
+                                      "type": "string",
+                                      "const": "tearleads.document.content-key-wrap.aes-256-gcm-container-kek"
+                                    },
+                                    "iv": {
+                                      "type": "string",
+                                      "minLength": 16,
+                                      "maxLength": 16,
+                                      "pattern": "^[A-Za-z0-9+/]{16}$"
+                                    }
+                                  },
+                                  "required": [
+                                    "suite",
+                                    "iv"
+                                  ],
+                                  "additionalProperties": false
                                 }
                               },
                               "required": [
@@ -56671,12 +57062,29 @@
                                     },
                                     "wrappedKey": {
                                       "type": "string",
-                                      "minLength": 1
+                                      "minLength": 64,
+                                      "maxLength": 64,
+                                      "pattern": "^[A-Za-z0-9+/]{64}$"
                                     },
                                     "wrappingMetadata": {
                                       "type": "object",
-                                      "properties": {},
-                                      "additionalProperties": {}
+                                      "properties": {
+                                        "suite": {
+                                          "type": "string",
+                                          "const": "tearleads.document.content-key-wrap.aes-256-gcm-container-kek"
+                                        },
+                                        "iv": {
+                                          "type": "string",
+                                          "minLength": 16,
+                                          "maxLength": 16,
+                                          "pattern": "^[A-Za-z0-9+/]{16}$"
+                                        }
+                                      },
+                                      "required": [
+                                        "suite",
+                                        "iv"
+                                      ],
+                                      "additionalProperties": false
                                     }
                                   },
                                   "required": [
@@ -57509,12 +57917,29 @@
                                     },
                                     "wrappedKey": {
                                       "type": "string",
-                                      "minLength": 1
+                                      "minLength": 64,
+                                      "maxLength": 64,
+                                      "pattern": "^[A-Za-z0-9+/]{64}$"
                                     },
                                     "wrappingMetadata": {
                                       "type": "object",
-                                      "properties": {},
-                                      "additionalProperties": {}
+                                      "properties": {
+                                        "suite": {
+                                          "type": "string",
+                                          "const": "tearleads.document.content-key-wrap.aes-256-gcm-container-kek"
+                                        },
+                                        "iv": {
+                                          "type": "string",
+                                          "minLength": 16,
+                                          "maxLength": 16,
+                                          "pattern": "^[A-Za-z0-9+/]{16}$"
+                                        }
+                                      },
+                                      "required": [
+                                        "suite",
+                                        "iv"
+                                      ],
+                                      "additionalProperties": false
                                     }
                                   },
                                   "required": [
@@ -57979,12 +58404,29 @@
                                     },
                                     "wrappedKey": {
                                       "type": "string",
-                                      "minLength": 1
+                                      "minLength": 64,
+                                      "maxLength": 64,
+                                      "pattern": "^[A-Za-z0-9+/]{64}$"
                                     },
                                     "wrappingMetadata": {
                                       "type": "object",
-                                      "properties": {},
-                                      "additionalProperties": {}
+                                      "properties": {
+                                        "suite": {
+                                          "type": "string",
+                                          "const": "tearleads.document.content-key-wrap.aes-256-gcm-container-kek"
+                                        },
+                                        "iv": {
+                                          "type": "string",
+                                          "minLength": 16,
+                                          "maxLength": 16,
+                                          "pattern": "^[A-Za-z0-9+/]{16}$"
+                                        }
+                                      },
+                                      "required": [
+                                        "suite",
+                                        "iv"
+                                      ],
+                                      "additionalProperties": false
                                     }
                                   },
                                   "required": [
@@ -58510,12 +58952,29 @@
                                 },
                                 "wrappedKey": {
                                   "type": "string",
-                                  "minLength": 1
+                                  "minLength": 64,
+                                  "maxLength": 64,
+                                  "pattern": "^[A-Za-z0-9+/]{64}$"
                                 },
                                 "wrappingMetadata": {
                                   "type": "object",
-                                  "properties": {},
-                                  "additionalProperties": {}
+                                  "properties": {
+                                    "suite": {
+                                      "type": "string",
+                                      "const": "tearleads.document.content-key-wrap.aes-256-gcm-container-kek"
+                                    },
+                                    "iv": {
+                                      "type": "string",
+                                      "minLength": 16,
+                                      "maxLength": 16,
+                                      "pattern": "^[A-Za-z0-9+/]{16}$"
+                                    }
+                                  },
+                                  "required": [
+                                    "suite",
+                                    "iv"
+                                  ],
+                                  "additionalProperties": false
                                 }
                               },
                               "required": [
@@ -58959,12 +59418,29 @@
                                     },
                                     "wrappedKey": {
                                       "type": "string",
-                                      "minLength": 1
+                                      "minLength": 64,
+                                      "maxLength": 64,
+                                      "pattern": "^[A-Za-z0-9+/]{64}$"
                                     },
                                     "wrappingMetadata": {
                                       "type": "object",
-                                      "properties": {},
-                                      "additionalProperties": {}
+                                      "properties": {
+                                        "suite": {
+                                          "type": "string",
+                                          "const": "tearleads.document.content-key-wrap.aes-256-gcm-container-kek"
+                                        },
+                                        "iv": {
+                                          "type": "string",
+                                          "minLength": 16,
+                                          "maxLength": 16,
+                                          "pattern": "^[A-Za-z0-9+/]{16}$"
+                                        }
+                                      },
+                                      "required": [
+                                        "suite",
+                                        "iv"
+                                      ],
+                                      "additionalProperties": false
                                     }
                                   },
                                   "required": [
@@ -59799,12 +60275,29 @@
                                       },
                                       "wrappedKey": {
                                         "type": "string",
-                                        "minLength": 1
+                                        "minLength": 64,
+                                        "maxLength": 64,
+                                        "pattern": "^[A-Za-z0-9+/]{64}$"
                                       },
                                       "wrappingMetadata": {
                                         "type": "object",
-                                        "properties": {},
-                                        "additionalProperties": {}
+                                        "properties": {
+                                          "suite": {
+                                            "type": "string",
+                                            "const": "tearleads.document.content-key-wrap.aes-256-gcm-container-kek"
+                                          },
+                                          "iv": {
+                                            "type": "string",
+                                            "minLength": 16,
+                                            "maxLength": 16,
+                                            "pattern": "^[A-Za-z0-9+/]{16}$"
+                                          }
+                                        },
+                                        "required": [
+                                          "suite",
+                                          "iv"
+                                        ],
+                                        "additionalProperties": false
                                       }
                                     },
                                     "required": [
@@ -60269,12 +60762,29 @@
                                       },
                                       "wrappedKey": {
                                         "type": "string",
-                                        "minLength": 1
+                                        "minLength": 64,
+                                        "maxLength": 64,
+                                        "pattern": "^[A-Za-z0-9+/]{64}$"
                                       },
                                       "wrappingMetadata": {
                                         "type": "object",
-                                        "properties": {},
-                                        "additionalProperties": {}
+                                        "properties": {
+                                          "suite": {
+                                            "type": "string",
+                                            "const": "tearleads.document.content-key-wrap.aes-256-gcm-container-kek"
+                                          },
+                                          "iv": {
+                                            "type": "string",
+                                            "minLength": 16,
+                                            "maxLength": 16,
+                                            "pattern": "^[A-Za-z0-9+/]{16}$"
+                                          }
+                                        },
+                                        "required": [
+                                          "suite",
+                                          "iv"
+                                        ],
+                                        "additionalProperties": false
                                       }
                                     },
                                     "required": [

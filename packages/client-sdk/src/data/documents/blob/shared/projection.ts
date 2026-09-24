@@ -111,7 +111,10 @@ export async function wrapBlobContentKey(
     writerProjection: DocumentWriterProjectionResponse;
   } & ProjectionVerificationOptions,
 ): Promise<BlobContentKeyTargetEnvelopeRequest[]> {
-  assertDocumentKekPathsCurrent(input.writerProjection);
+  assertDocumentKekPathsCurrent(
+    input.writerProjection,
+    new Set(input.targets.map((target) => target.containerId)),
+  );
   const keksByEpochId = await collectContainerKeks({
     execSql: input.execSql,
     secretKey: input.secretKey,
