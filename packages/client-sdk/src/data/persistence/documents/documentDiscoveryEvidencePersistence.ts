@@ -13,6 +13,7 @@ import {
   runSerializedSqlMutation,
 } from "../../sqlite/sqlSchema";
 import { loadDocumentPurgeCheckpoint } from "../documentPurgeCheckpointPersistence";
+import { heldTombstoneRetryDelayMs } from "./containerDocumentTombstoneHoldsPersistence";
 
 import {
   type DiscoveredDocumentCandidate,
@@ -48,7 +49,6 @@ export interface DocumentDiscoveryEvidenceStore {
 
 const pending = pendingDocumentDiscoveries;
 const heads = documentDiscoveryHeads;
-const RETRY_MS = 60_000;
 const ID_BATCH_SIZE = 400;
 const batches = (ids: readonly string[]) =>
   Array.from({ length: Math.ceil(ids.length / ID_BATCH_SIZE) }, (_, i) =>
@@ -104,8 +104,9 @@ class SqlDocumentDiscoveryEvidenceStore
   stage = (
     inputs: readonly DiscoveredDocumentCandidate[],
     generation: number,
-  ) =>
-    this.write(async (db) => {
+  ) => {
+    if (inputs.length === 0) return Promise.resolve();
+    return this.write(async (db) => {
       await db.transaction(async (tx) => {
         for (const input of inputs)
           for (const containerId of input.listedContainerIds) {
@@ -128,6 +129,7 @@ class SqlDocumentDiscoveryEvidenceStore
                   generation,
                   inputJson,
                   retryAt: sql`case when ${pending.inputJson} = ${inputJson} then ${pending.retryAt} else 0 end`,
+                  attempts: sql`case when ${pending.inputJson} = ${inputJson} then ${pending.attempts} else 0 end`,
                 },
                 setWhere: lte(pending.generation, generation),
               })
@@ -135,6 +137,7 @@ class SqlDocumentDiscoveryEvidenceStore
           }
       });
     });
+  };
   pending = async (containerIds: readonly string[], limit: number) => {
     const db = await this.read();
     const result: DiscoveredDocumentCandidate[] = [];
@@ -159,9 +162,19 @@ class SqlDocumentDiscoveryEvidenceStore
   };
   defer = (input: DiscoveredDocumentCandidate) =>
     this.write(async (db) => {
+      const [row] = await db
+        .select({ attempts: pending.attempts })
+        .from(pending)
+        .where(identity(input))
+        .limit(1);
+      if (!row) return;
+      const attempts = Math.min(row.attempts + 1, 8);
       await db
         .update(pending)
-        .set({ retryAt: this.now() + RETRY_MS })
+        .set({
+          attempts,
+          retryAt: this.now() + heldTombstoneRetryDelayMs(attempts),
+        })
         .where(identity(input))
         .run();
     });

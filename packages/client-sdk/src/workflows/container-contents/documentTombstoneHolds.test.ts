@@ -9,7 +9,7 @@ import {
   listContainerDocumentTombstoneHolds,
   listKnownContainerDocumentPlacements,
   listRetryableHeldContainerDocumentTombstones,
-  releaseContainerDocumentTombstoneHolds,
+  refuteContainerDocumentTombstoneHolds,
 } from "../../data/persistence/documents/containerDocumentTombstoneHoldsPersistence";
 import {
   applyContainerDocumentTombstones,
@@ -115,8 +115,13 @@ test("a held tombstone hides the placement from every container read without del
       { attempts: 1, containerId: "folder", documentId: "doc" },
     ]);
 
-    await releaseContainerDocumentTombstoneHolds(execSql, [
+    await refuteContainerDocumentTombstoneHolds(execSql, [
       { containerId: "folder", documentId: "doc" },
+    ]);
+    expect(
+      await listContainerDocumentTombstoneHolds(execSql, ["folder"]),
+    ).toMatchObject([
+      { containerId: "folder", documentId: "doc", hidden: false, attempts: 1 },
     ]);
 
     expect(await folderDocumentRows(execSql, readModel)).toMatchObject({

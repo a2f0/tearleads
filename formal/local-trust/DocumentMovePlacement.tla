@@ -28,6 +28,7 @@ Init ==
 (* Local placement, links and intent commit atomically. Two distinct intents
    model trash followed by a move elsewhere while the first replay is active. *)
 QueueMove ==
+  /\ remoteLinks # {}
   /\ revision < 2 /\ revision' = revision + 1 /\ pending' = TRUE
   /\ desired' = IF revision = 0 THEN "trash" ELSE "other"
   /\ localLinks' = {desired'} /\ visible' = {desired'}
@@ -100,10 +101,10 @@ ApplyTombstone ==
                   remoteLinks, remoteEpoch, attempt, attemptTarget, phase, recovering,
                   pageLinks, pageEpoch, pageReady, readLinks, readReady, readSummary>>
 
-(* A peer unlinks the initial placement before any local move. The local
-   link remains until a listing tombstone supplies the signed empty head.
+(* A peer purges the document before any local move. The local link remains
+   until a listing tombstone supplies the verified terminal purge proof.
    This makes the guarded apply reachable in the positive configuration. *)
-PeerUnlink ==
+PeerPurge ==
   /\ revision = 0 /\ ~pending /\ phase = "idle" /\ remoteEpoch = 0
   /\ remoteLinks' = {} /\ remoteEpoch' = 1
   /\ UNCHANGED <<revision, pending, desired, localLinks, localEpoch, visible,
@@ -170,7 +171,7 @@ TypeOK ==
 StablePlacement == localLinks = {desired} \/ (~pending /\ remoteLinks = {} /\ localLinks = {})
 StableView == visible = {desired} \/ (~pending /\ remoteLinks = {} /\ visible = {})
 
-Next == PeerUnlink \/ QueueMove \/ StartReplay \/ Link \/ Unlink \/ Settle \/ LoseResponse
+Next == PeerPurge \/ QueueMove \/ StartReplay \/ Link \/ Unlink \/ Settle \/ LoseResponse
         \/ CapturePage \/ MergeCurrentPage \/ ApplyPage \/ ApplyTombstone \/ ApplyListingTombstone
         \/ StartRead \/ RefreshReadSummary \/ FinishRead
         \/ UNCHANGED vars

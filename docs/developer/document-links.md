@@ -70,10 +70,12 @@ durable local request sequence orders overlapping listings; untrusted server
 epochs cannot prevent a newer request from replacing a poisoned candidate.
 Each pass verifies at most 32 candidates with four concurrent head loads.
 Signed heads are cached by document id and exact manifest hash, so unchanged
-listings reuse verified links. Unavailable candidates retry independently
-after one minute; verified siblings and tombstones settle immediately. Pending
-candidates are acknowledged only after local apply, and a newer candidate
-cannot be removed by an older attempt's acknowledgement. The background
-reconciler publishes each partial result and schedules the next batch or
-delayed retry, cancelling timers when its lifecycle stops. A refuted tombstone
-stays visible during later network failures while its evidence is retried.
+listings reuse verified links. Unavailable candidates retry independently with
+the tombstone backoff (fifteen minutes, doubling to thirty-two hours);
+verified siblings and tombstones settle immediately. Pending candidates are
+acknowledged only after local apply, and a newer candidate cannot be removed
+by an older attempt's acknowledgement. The background reconciler publishes
+each partial result and schedules the next batch or delayed retry, keeping the
+open container at active priority and cancelling timers when its lifecycle
+stops. A refuted tombstone stays visible during later network failures while
+its evidence is retried.

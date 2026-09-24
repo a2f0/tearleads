@@ -228,7 +228,7 @@ const holdRowSelection = {
   updatedAt: containerDocumentTombstoneHolds.updatedAt,
 };
 
-/** Every hidden hold on the given containers, for hiding placements in views. */
+/** Every hold on the given containers, including visible refuted retries. */
 export async function listContainerDocumentTombstoneHoldsInTransaction(
   handle: ClientSQLiteTransactionScope,
   containerIds: ReadonlyArray<string>,

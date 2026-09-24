@@ -21,7 +21,7 @@ export const trustedContainerDocumentTombstones = {
   listKnownContainerDocumentPlacements: async (
     placements: ReadonlyArray<ContainerDocumentPlacement>,
   ) => placements,
-  releaseContainerDocumentTombstoneHolds: async () => {},
+  refuteContainerDocumentTombstoneHolds: async () => {},
   verifyContainerDocumentTombstones: async (
     tombstones: ReadonlyArray<ContainerDocumentTombstone>,
   ): Promise<ContainerDocumentTombstoneVerdict[]> =>

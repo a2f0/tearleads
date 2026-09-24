@@ -149,7 +149,7 @@ export interface ContainerDocumentTombstoneHoldStore {
   listKnownContainerDocumentPlacements: (
     placements: ReadonlyArray<ContainerDocumentPlacement>,
   ) => Promise<ReadonlyArray<ContainerDocumentPlacement>>;
-  releaseContainerDocumentTombstoneHolds: (
+  refuteContainerDocumentTombstoneHolds: (
     placements: ReadonlyArray<ContainerDocumentPlacement>,
   ) => Promise<void>;
 }

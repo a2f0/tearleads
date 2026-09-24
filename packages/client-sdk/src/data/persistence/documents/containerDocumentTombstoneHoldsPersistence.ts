@@ -1,5 +1,6 @@
-import { eq, max } from "drizzle-orm";
+import { and, eq, max } from "drizzle-orm";
 import {
+  containerDocumentTombstoneHolds,
   documentContainerProjectionTables,
   documents,
   documentTables,
@@ -74,7 +75,7 @@ export async function holdContainerDocumentTombstones(
   });
 }
 
-export async function releaseContainerDocumentTombstoneHolds(
+export async function refuteContainerDocumentTombstoneHolds(
   execSql: ExecSql,
   placements: ReadonlyArray<ContainerDocumentPlacementKey>,
 ): Promise<void> {
@@ -82,9 +83,26 @@ export async function releaseContainerDocumentTombstoneHolds(
   return runSerializedSqlMutation(execSql, async (lockedExecSql) => {
     await ensureSqlTables(lockedExecSql, documentContainerProjectionTables);
     const { db } = getClientSQLitePersistenceRuntime(lockedExecSql);
-    await db.transaction((tx) =>
-      deleteContainerDocumentTombstoneHoldRows(tx, placements),
-    );
+    await db.transaction(async (tx) => {
+      for (const placement of placements) {
+        await tx
+          .update(containerDocumentTombstoneHolds)
+          .set({ hidden: false })
+          .where(
+            and(
+              eq(
+                containerDocumentTombstoneHolds.containerId,
+                placement.containerId,
+              ),
+              eq(
+                containerDocumentTombstoneHolds.documentId,
+                placement.documentId,
+              ),
+            ),
+          )
+          .run();
+      }
+    });
   });
 }
 

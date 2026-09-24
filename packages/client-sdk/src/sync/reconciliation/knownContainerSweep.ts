@@ -49,7 +49,10 @@ function schedulePendingDiscovery(
       retries.delete(containerId);
       if (!state.active || state.lifecycleGeneration !== generation) return;
       state.discoveredContainerIds.delete(containerId);
-      state.queue.enqueue(containerId, "idle");
+      state.queue.enqueue(
+        containerId,
+        state.activeContainerId === containerId ? "active" : "idle",
+      );
       state.lane?.requestSync();
     },
     Math.max(1, delayMs),

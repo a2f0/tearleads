@@ -26,6 +26,7 @@ export interface VerifiedDocumentHeadLinkSet {
  */
 export type DocumentHeadLinkSetLoader = (
   documentId: string,
+  expectedManifestHash?: string,
 ) => Promise<VerifiedDocumentHeadLinkSet | null>;
 
 /** The highest access epoch local state records for the document. */
@@ -89,7 +90,7 @@ export function createDocumentHeadLinkSetLoader(
     loadDocumentPurgeCheckpoint,
   },
 ): DocumentHeadLinkSetLoader {
-  return async (documentId) => {
+  return async (documentId, expectedManifestHash) => {
     try {
       // A verified purge proof is terminal signed evidence that the document
       // links nothing any more.
@@ -101,12 +102,25 @@ export function createDocumentHeadLinkSetLoader(
       ) {
         return { accessEpoch: Number.MAX_SAFE_INTEGER, linkedContainerIds: [] };
       }
-      // The cached projection may predate the unlink the tombstone reports.
-      runtime.apiClient.evictDocumentWriterProjection(documentId);
-      const result = await runtime.apiClient.getDocumentWriterProjectionResult(
+      // Tombstones require a fresh head. Listings can reuse a matching cached
+      // projection, whose signature and local checkpoint are still verified.
+      if (!expectedManifestHash)
+        runtime.apiClient.evictDocumentWriterProjection(documentId);
+      let result = await runtime.apiClient.getDocumentWriterProjectionResult(
         documentId,
         { reportErrors: false },
       );
+      if (
+        expectedManifestHash &&
+        result.ok &&
+        result.data.documentManifest.manifestHash !== expectedManifestHash
+      ) {
+        runtime.apiClient.evictDocumentWriterProjection(documentId);
+        result = await runtime.apiClient.getDocumentWriterProjectionResult(
+          documentId,
+          { reportErrors: false },
+        );
+      }
       if (!result.ok) {
         runtime.util.log(
           `Container contents: tombstone evidence for document ${documentId} is unavailable (${result.status ?? "offline"})`,

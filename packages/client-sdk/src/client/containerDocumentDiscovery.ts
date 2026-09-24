@@ -4,7 +4,7 @@ import {
   listKnownContainerDocumentPlacements,
   listRetryableHeldContainerDocumentTombstones,
   loadLocalDocumentAccessEpoch,
-  releaseContainerDocumentTombstoneHolds,
+  refuteContainerDocumentTombstoneHolds,
 } from "../data/persistence/documents/containerDocumentTombstoneHoldsPersistence";
 import { createDocumentDiscoveryEvidenceStore } from "../data/persistence/documents/documentDiscoveryEvidencePersistence";
 import type { ContainerContentsStore } from "../stores/container-contents";
@@ -72,8 +72,8 @@ export function discoverContainerDocumentsForRuntime({
     listKnownContainerDocumentPlacements: (placements) =>
       listKnownContainerDocumentPlacements(input.infra.execSql, placements),
     onFullListing,
-    releaseContainerDocumentTombstoneHolds: (placements) =>
-      releaseContainerDocumentTombstoneHolds(input.infra.execSql, placements),
+    refuteContainerDocumentTombstoneHolds: (placements) =>
+      refuteContainerDocumentTombstoneHolds(input.infra.execSql, placements),
     verifyContainerDocumentTombstones: createContainerDocumentTombstoneVerifier(
       loadHead,
       loadEpoch,

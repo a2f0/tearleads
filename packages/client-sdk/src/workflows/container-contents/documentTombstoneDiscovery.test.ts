@@ -7,7 +7,7 @@ import {
   listContainerDocumentTombstoneHolds,
   listKnownContainerDocumentPlacements,
   listRetryableHeldContainerDocumentTombstones,
-  releaseContainerDocumentTombstoneHolds,
+  refuteContainerDocumentTombstoneHolds,
 } from "../../data/persistence/documents/containerDocumentTombstoneHoldsPersistence";
 import { sqlDocumentsPersistence as documents } from "../../data/persistence/documents/documentsPersistence";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
@@ -56,8 +56,8 @@ function createHoldStore(
     },
     listKnownContainerDocumentPlacements: (placements) =>
       listKnownContainerDocumentPlacements(execSql, placements),
-    releaseContainerDocumentTombstoneHolds: (placements) =>
-      releaseContainerDocumentTombstoneHolds(execSql, placements),
+    refuteContainerDocumentTombstoneHolds: (placements) =>
+      refuteContainerDocumentTombstoneHolds(execSql, placements),
   };
 }
 

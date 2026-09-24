@@ -311,3 +311,20 @@ for (const [listingEpoch, localEpoch] of [
     }
   });
 }
+
+test("matching cached projections remain signed evidence without cache eviction", async () => {
+  const harness = await createVerificationHarness();
+  try {
+    const hash = harness.fixture.writerProjection.documentManifest.manifestHash;
+    expect(await harness.load(DOCUMENT_ID, hash)).toMatchObject({
+      accessStateHash: hash,
+    });
+    expect(harness.evicted).toEqual([]);
+    expect(
+      await harness.load(DOCUMENT_ID, "different-listing-head"),
+    ).not.toBeNull();
+    expect(harness.evicted).toEqual([DOCUMENT_ID]);
+  } finally {
+    harness.close();
+  }
+});

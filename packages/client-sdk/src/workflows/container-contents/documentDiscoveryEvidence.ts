@@ -27,7 +27,12 @@ async function verifyInput(
   const head =
     cached && cached.accessEpoch >= minimumEpoch
       ? cached
-      : await loadHead(input.documentId);
+      : await loadHead(
+          input.documentId,
+          input.accessEpoch >= localEpoch
+            ? (input.accessStateHash ?? undefined)
+            : undefined,
+        );
   if (!head || head.accessEpoch < Math.max(localEpoch, input.accessEpoch))
     return "unavailable";
   // A stale first lane must not hide a document present in another listed lane.

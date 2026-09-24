@@ -13,7 +13,7 @@ type TombstoneGateStore = Pick<
   | "holdContainerDocumentTombstones"
   | "listHeldContainerDocumentTombstones"
   | "listKnownContainerDocumentPlacements"
-  | "releaseContainerDocumentTombstoneHolds"
+  | "refuteContainerDocumentTombstoneHolds"
   | "verifyContainerDocumentTombstones"
 >;
 
@@ -121,8 +121,8 @@ export async function settleContainerDocumentTombstones(input: {
       : [],
   );
   // A loaded head is evidence for every placement it links, including holds
-  // on this document that were not due this run: release them now rather
-  // than hiding the placement until their own backoff expires.
+  // on this document that were not due this run: make them visible while
+  // retaining each retry, since the head may lag any of those tombstones.
   const headLinkedPlacements = verdicts.flatMap((verdict) => {
     if (verdict.kind !== "verified" && verdict.kind !== "refuted") return [];
     const linked =
@@ -140,11 +140,11 @@ export async function settleContainerDocumentTombstones(input: {
       ? await store.applyContainerDocumentTombstones(verified)
       : [];
   const retryKeys = new Set(refuted.map(placementKey));
-  const released = dedupePlacements(headLinkedPlacements).filter(
+  const visibleRetries = dedupePlacements(headLinkedPlacements).filter(
     (placement) => !retryKeys.has(placementKey(placement)),
   );
-  if (released.length > 0) {
-    await store.releaseContainerDocumentTombstoneHolds(released);
+  if (visibleRetries.length > 0) {
+    await store.refuteContainerDocumentTombstoneHolds(visibleRetries);
   }
   const retries = [
     ...unverified,

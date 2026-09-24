@@ -15,6 +15,7 @@ export const pendingDocumentDiscoveries = sqliteTable(
     generation: integer("generation").notNull(),
     inputJson: text("input_json").notNull(),
     retryAt: integer("retry_at").notNull().default(0),
+    attempts: integer("attempts").notNull().default(0),
   },
   (table) => [primaryKey({ columns: [table.containerId, table.documentId] })],
 );
