@@ -227,7 +227,6 @@ export const ORG_MANAGER_LABELS = {
   organizationDetailTabsLabel: "Organization detail sections",
   organizations: "Organizations",
   organizationName: "Organization name",
-  organizationPolicyHistory: "Organization policy history",
   organizationProfileUnavailable:
     "The organization profile hasn't synced yet. Try Refresh.",
   open: "Open",

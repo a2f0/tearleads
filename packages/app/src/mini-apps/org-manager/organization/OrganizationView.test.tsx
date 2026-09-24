@@ -34,6 +34,7 @@ function organizationViewElement(
       <OrganizationView
         directory={null}
         groups={[]}
+        key={props.organizationId ?? "organization-1"}
         organizationId="organization-1"
         pending={true}
         policyHistory={null}
@@ -165,8 +166,11 @@ test("changing organizations returns to the Profile tab", async () => {
     );
   });
 
+  const nextTabs = view.getByRole("tablist", {
+    name: ORG_MANAGER_LABELS.organizationDetailTabsLabel,
+  });
   expect(
-    within(tabs)
+    within(nextTabs)
       .getByRole("tab", { name: ORG_MANAGER_LABELS.profile })
       .getAttribute("aria-selected"),
   ).toBe("true");

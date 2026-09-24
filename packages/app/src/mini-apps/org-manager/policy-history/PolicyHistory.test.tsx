@@ -17,12 +17,7 @@ function renderSection(
   overrides: Partial<Parameters<typeof PolicyHistorySection>[0]> = {},
 ) {
   return render(
-    <PolicyHistorySection
-      directory={null}
-      heading={ORG_MANAGER_LABELS.organizationPolicyHistory}
-      history={null}
-      {...overrides}
-    />,
+    <PolicyHistorySection directory={null} history={null} {...overrides} />,
   );
 }
 
