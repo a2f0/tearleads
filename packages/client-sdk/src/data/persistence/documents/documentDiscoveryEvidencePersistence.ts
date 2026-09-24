@@ -1,5 +1,5 @@
 import { and, asc, eq, inArray, lte, min, sql } from "drizzle-orm";
-import type { DiscoveredDocumentInput } from "../../documents/documentSummary";
+import { readStringArray } from "../../recordReaders";
 import {
   documentDiscoveryHeads,
   documentDiscoverySequence,
@@ -14,9 +14,12 @@ import {
 } from "../../sqlite/sqlSchema";
 import { loadDocumentPurgeCheckpoint } from "../documentPurgeCheckpointPersistence";
 
-export interface DiscoveredDocumentCandidate extends DiscoveredDocumentInput {
-  readonly listedContainerIds: readonly string[];
-}
+import {
+  type DiscoveredDocumentCandidate,
+  readStoredDiscoveryCandidate,
+} from "./documentDiscoveryCandidate";
+
+export type { DiscoveredDocumentCandidate } from "./documentDiscoveryCandidate";
 export interface CachedDiscoveryHead {
   readonly accessEpoch: number;
   readonly accessStateHash?: string;
@@ -149,9 +152,7 @@ class SqlDocumentDiscoveryEvidenceStore
         .orderBy(asc(pending.retryAt), asc(pending.documentId))
         .limit(limit - result.length);
       result.push(
-        ...rows.map(
-          (row) => JSON.parse(row.inputJson) as DiscoveredDocumentCandidate,
-        ),
+        ...rows.map((row) => readStoredDiscoveryCandidate(row.inputJson)),
       );
     }
     return result;
@@ -222,7 +223,10 @@ class SqlDocumentDiscoveryEvidenceStore
       ? {
           accessEpoch: row.accessEpoch,
           accessStateHash: row.manifestHash,
-          linkedContainerIds: JSON.parse(row.linksJson) as string[],
+          linkedContainerIds: readStringArray(
+            JSON.parse(row.linksJson),
+            "stored discovery links",
+          ),
         }
       : null;
   };
