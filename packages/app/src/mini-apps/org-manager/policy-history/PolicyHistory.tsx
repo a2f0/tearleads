@@ -85,7 +85,7 @@ function PolicyHistoryEntry({
             signerLabel,
           )}
         </MiniAppRowText>
-        <div className="org-manager-policy-change-list">
+        <span className="org-manager-policy-change-list">
           {membershipChanges.length > 0 ? (
             membershipChanges.map((change) => (
               <PolicyHistoryChange
@@ -109,7 +109,7 @@ function PolicyHistoryEntry({
               hasAdminChanges={entry.changes.length > 0}
             />
           )}
-        </div>
+        </span>
       </MiniAppRowStack>
     </MiniAppRow>
   );

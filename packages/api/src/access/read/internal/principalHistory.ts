@@ -62,15 +62,16 @@ async function loadHistoryArtifacts(
     ]),
   );
   for (let start = 0; start < states.length; start += HISTORY_BATCH_SIZE) {
-    const hashes = states
-      .slice(start, start + HISTORY_BATCH_SIZE)
-      .map((s) => s.stateHash);
+    const batch = states.slice(start, start + HISTORY_BATCH_SIZE);
+    const hashes = batch.map((state) => state.stateHash);
+    const principalIds = [...new Set(batch.map((state) => state.principalId))];
     const members = await executor
       .select(principalProjectionMemberSelect)
       .from(principalMembershipProjection)
       .where(
         and(
           eq(principalMembershipProjection.principalType, "group"),
+          inArray(principalMembershipProjection.principalId, principalIds),
           inArray(principalMembershipProjection.stateHash, hashes),
         ),
       )
@@ -81,6 +82,7 @@ async function loadHistoryArtifacts(
       .where(
         and(
           eq(principalContainerGrantProjection.principalType, "group"),
+          inArray(principalContainerGrantProjection.principalId, principalIds),
           inArray(principalContainerGrantProjection.stateHash, hashes),
         ),
       )

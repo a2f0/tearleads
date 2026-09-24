@@ -44,7 +44,7 @@ export function OrganizationPolicyChanges({
             ?.find((group) => group.groupId === change.groupId)
             ?.name?.trim() || compactFingerprint(change.groupId);
         return (
-          <div className="org-manager-policy-change-list" key={change.groupId}>
+          <span className="org-manager-policy-change-list" key={change.groupId}>
             <strong title={change.groupId}>
               {groupChangeLabels[change.changeType]}: {name}
             </strong>
@@ -71,7 +71,7 @@ export function OrganizationPolicyChanges({
                   {change.previousKeyEpoch} → {change.keyEpoch}
                 </span>
               )}
-          </div>
+          </span>
         );
       })}
     </>

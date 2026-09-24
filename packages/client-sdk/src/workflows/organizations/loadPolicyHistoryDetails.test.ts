@@ -3,6 +3,7 @@ import { createTestExecSql } from "@tearleads/test-utils";
 import { ORGANIZATION_PRESENTATION_ERROR_CODES } from "@tearleads/validators/response";
 import { createOrganizationHistoryFixture } from "../../../test/helpers/organizationPolicyHistory";
 import { organizationReadModelSnapshot } from "../../../test/helpers/organizationReadModelProjectionFixtures";
+import { createDomainScope } from "../../data/domainScope";
 import {
   applyOrganizationReadModelResponse,
   loadOrganizationReadModelProjection,
@@ -13,6 +14,11 @@ import {
 } from "../../data/persistence/principalPolicyPersistence";
 import { loadPolicyHistoryDetails } from "./loadPolicyHistoryDetails";
 import { loadLocalOrganizationPolicyHistory } from "./localReadModelDetails";
+import {
+  captureOrganizationPresentationAccessAttempt,
+  denyOrganizationPresentationAccess,
+  restoreOrganizationPresentationAccess,
+} from "./organizationPresentationAccessState";
 import { buildOrganizationPolicyHistory } from "./policyHistoryReadModel";
 
 async function fixture() {
@@ -39,6 +45,7 @@ async function fixture() {
   );
   const input = {
     ...common,
+    domainScope: createDomainScope(),
     history: buildOrganizationPolicyHistory(data.afterAddition),
     resolveTrustedUserIdentity: data.resolveTrustedUserIdentity,
     stillCurrent: () => true,
@@ -178,6 +185,85 @@ test("an unavailable signer preserves verified entries without a tampering incid
     });
     expect(result).toEqual(input.history);
     expect(reportSecurityIncident).not.toHaveBeenCalled();
+  } finally {
+    close();
+  }
+});
+
+test("cached history is isolated from caller edits, identity scopes, and restored access", async () => {
+  const { data, input, close } = await fixture();
+  let requests = 0;
+  const apiClient = {
+    getOrganizationPolicyHistoryResult: async () => {
+      requests += 1;
+      return { ok: true as const, data: data.evidence() };
+    },
+  };
+  try {
+    const first = await loadPolicyHistoryDetails({ ...input, apiClient });
+    const entry = first?.entries[0];
+    if (!entry) throw new Error("Expected verified history");
+    entry.groupChanges?.splice(0);
+    const cached = await loadPolicyHistoryDetails({ ...input, apiClient });
+    expect(cached?.entries[0]?.groupChanges).toHaveLength(1);
+    expect(requests).toBe(1);
+    const nextScope = { ...input, domainScope: createDomainScope() };
+    await loadPolicyHistoryDetails({ ...nextScope, apiClient });
+    expect(requests).toBe(2);
+    const access = { ...input, requesterUserId: input.currentUserId };
+    denyOrganizationPresentationAccess(access, ["readModel"]);
+    expect(
+      await loadPolicyHistoryDetails({ ...nextScope, apiClient }),
+    ).toBeNull();
+    expect(requests).toBe(2);
+    expect(
+      restoreOrganizationPresentationAccess(
+        access,
+        captureOrganizationPresentationAccessAttempt(access, "readModel"),
+      ),
+    ).toBe(true);
+    await loadPolicyHistoryDetails({ ...nextScope, apiClient });
+    expect(requests).toBe(3);
+  } finally {
+    close();
+  }
+});
+
+test("a newer organization head fetches new evidence instead of reusing cached details", async () => {
+  const { data, input, close } = await fixture();
+  let requests = 0;
+  const apiClient = {
+    getOrganizationPolicyHistoryResult: async () => {
+      requests += 1;
+      return { ok: true as const, data: data.evidence(requests > 1) };
+    },
+  };
+  try {
+    await loadPolicyHistoryDetails({ ...input, apiClient });
+    const response = organizationReadModelSnapshot({
+      ...input,
+      cursor: "cursor-2",
+    });
+    response.lanes.organizationPolicy.currentState =
+      data.afterDeletion.currentState;
+    await applyOrganizationReadModelResponse({
+      ...input,
+      requestedCursor: "cursor-1",
+      response,
+    });
+    await savePrincipalPolicyBundle(
+      input.execSql,
+      data.afterDeletion,
+      new Date().toISOString(),
+      input.organizationId,
+    );
+    const next = await loadPolicyHistoryDetails({
+      ...input,
+      apiClient,
+      history: buildOrganizationPolicyHistory(data.afterDeletion),
+    });
+    expect(requests).toBe(2);
+    expect(next?.entries[0]?.groupChanges?.[0]?.changeType).toBe("deleted");
   } finally {
     close();
   }

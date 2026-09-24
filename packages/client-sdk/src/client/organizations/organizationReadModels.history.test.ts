@@ -53,6 +53,8 @@ test("organization history enriches online and preserves verified local entries 
     expect(online?.entries[0]?.groupChanges?.[0]?.changes).toMatchObject([
       { userId: data.targetUserId, changeType: "added" },
     ]);
+    expect(await coordinator.loadOrganizationPolicyHistory()).toEqual(online);
+    expect(requests).toBe(1);
     input = { ...input, state: { ...input.state, online: false } };
     const offline = await coordinator.loadOrganizationPolicyHistory();
     expect(offline?.entries[0]?.stateHash).toBe(online?.entries[0]?.stateHash);

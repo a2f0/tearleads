@@ -186,6 +186,7 @@ export async function createOrganizationHistoryFixture() {
   return {
     advanceGroup,
     advanceDirectory,
+    createGroup: group,
     organizationId,
     signerUserId,
     targetUserId,

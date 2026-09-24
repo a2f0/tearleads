@@ -1,4 +1,5 @@
 import type { ApiClient } from "@tearleads/api-client";
+import type { DomainScope } from "../../data/domainScope";
 import { reportKeyingVerificationErrorInCauseChain } from "../../data/keyingProjectionVerification/error";
 import { loadPrincipalPolicyCheckpoint } from "../../data/persistence/keyingCheckpointPersistence";
 import { loadPrincipalPolicyBundle } from "../../data/persistence/principalPolicyPersistence";
@@ -14,11 +15,16 @@ import {
 } from "./organizationPresentationAccessState";
 import { isOrganizationPresentationAccessDeniedFailure } from "./organizationPresentationFailures";
 import { denyPolicyHistoryAccess } from "./policyHistoryAccessDenial";
+import {
+  cachePolicyHistory,
+  loadCachedPolicyHistory,
+} from "./policyHistoryCache";
 import type { OrganizationPolicyHistory } from "./policyHistoryTypes";
 
 export async function loadPolicyHistoryDetails(input: {
   apiClient: Pick<ApiClient, "getOrganizationPolicyHistoryResult">;
   currentUserId: string;
+  domainScope: DomainScope;
   execSql: ExecSql;
   organizationId: string;
   history: OrganizationPolicyHistory;
@@ -56,6 +62,12 @@ export async function loadPolicyHistoryDetails(input: {
       ? history
       : latest;
   };
+  const cached = loadCachedPolicyHistory({
+    domainScope: input.domainScope,
+    access,
+    stateHash: bundle.currentState.stateHash,
+  });
+  if (cached) return retain(cached);
   try {
     const response = await input.apiClient.getOrganizationPolicyHistoryResult(
       input.organizationId,
@@ -82,7 +94,15 @@ export async function loadPolicyHistoryDetails(input: {
       ),
       resolveTrustedUserIdentity: input.resolveTrustedUserIdentity,
     });
-    return retain(history);
+    const retained = await retain(history);
+    if (retained === history)
+      cachePolicyHistory({
+        domainScope: input.domainScope,
+        access,
+        attempt,
+        history,
+      });
+    return retained;
   } catch (error) {
     await reportKeyingVerificationErrorInCauseChain(
       error,

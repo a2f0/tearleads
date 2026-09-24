@@ -208,3 +208,27 @@ test("history describes grants, permission and role changes, removals, and key r
     keyEpoch: 2,
   });
 });
+
+test("rejects an extra signed group not referenced by the organization directory", async () => {
+  const { data, input } = await fixture();
+  input.evidence.groups.push(
+    policySnapshot(await data.createGroup("Unreferenced")),
+  );
+  await expect(buildDetailedOrganizationPolicyHistory(input)).rejects.toThrow(
+    "unexpected group history",
+  );
+});
+
+test("rejects a newer signed group head beyond the selected organization version", async () => {
+  const { data, input } = await fixture();
+  const newer = await data.advanceGroup(
+    data.added,
+    data.added.currentProjection,
+    [],
+  );
+  input.evidence.groups[input.evidence.groups.length - 1] =
+    policySnapshot(newer);
+  await expect(buildDetailedOrganizationPolicyHistory(input)).rejects.toThrow(
+    "group history extends beyond the selected organization head",
+  );
+});

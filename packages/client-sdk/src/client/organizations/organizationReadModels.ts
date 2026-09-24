@@ -301,6 +301,7 @@ class OrganizationReadModelCoordinatorImpl
     if (!history || !active.runtime.state.online) return history;
     const domainScope = active.runtime.state.domainScope;
     return loadPolicyHistoryDetails({
+      domainScope,
       apiClient: active.runtime.apiClient,
       currentUserId: active.userId,
       execSql: active.runtime.infra.execSql,

@@ -757,6 +757,8 @@ deletion, membership, grants, and key rotation; `null` means the additional
 evidence is unavailable. The exported `OrganizationPolicyGroupChange` and
 `OrganizationPolicyGrantChange` types describe those details. No new database
 columns, decrypted name snapshots, or persisted summaries are introduced.
+A memory cache reuses verified details at the same head within the current
+identity/database scope; access-generation changes invalidate cached entries.
 The app resolves current group names and roster profile names through existing
 local projections; missing or deleted names fall back to identifiers. Offline
 history retains its verified policy entries and reports unavailable group
