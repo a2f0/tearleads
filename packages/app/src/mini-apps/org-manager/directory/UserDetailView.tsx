@@ -71,51 +71,49 @@ function UserDetailTabContent({
   organizationId: string;
   revokeGrant: (grant: OrganizationContainerGrant) => void;
 }) {
-  if (activeTab === "profile") {
-    return (
-      <MiniAppSection className="org-manager-roster-detail">
-        <RosterProfileEditor
-          canEdit={canEditRosterProfile}
-          isEditing={isRosterProfileEditing}
-          onDisplayNameChange={onRosterProfileDisplayNameChange}
-          organizationId={organizationId}
-          user={detail.user}
-        />
-        <UserRosterMetadata user={detail.user} />
-      </MiniAppSection>
-    );
-  }
-
-  if (activeTab === "groups") {
-    return (
-      <MiniAppSection>
-        <MiniAppSectionHeading>
-          {ORG_MANAGER_LABELS.groups}
-        </MiniAppSectionHeading>
-        <UserGroups groups={detail.groups} openGroupRoute={openGroupRoute} />
-      </MiniAppSection>
-    );
-  }
-
   return (
-    <GrantSections
-      canRevokeGrants={canRevokeGrants}
-      mutating={mutating}
-      openGrantRoute={openGrantRoute}
-      revokeGrant={revokeGrant}
-      sections={[
-        {
-          emptyLabel: ORG_MANAGER_LABELS.noUserContainerLinks,
-          grants: detail.grants.directGrants,
-          label: ORG_MANAGER_LABELS.userContainerLinks,
-        },
-        {
-          emptyLabel: ORG_MANAGER_LABELS.noGroupContainerLinks,
-          grants: detail.grants.groupGrants,
-          label: ORG_MANAGER_LABELS.groupContainerLinks,
-        },
-      ]}
-    />
+    <>
+      <div hidden={activeTab !== "profile"}>
+        <MiniAppSection className="org-manager-roster-detail">
+          <RosterProfileEditor
+            canEdit={canEditRosterProfile}
+            isEditing={isRosterProfileEditing}
+            onDisplayNameChange={onRosterProfileDisplayNameChange}
+            organizationId={organizationId}
+            user={detail.user}
+          />
+          <UserRosterMetadata user={detail.user} />
+        </MiniAppSection>
+      </div>
+      {activeTab === "groups" ? (
+        <MiniAppSection>
+          <MiniAppSectionHeading>
+            {ORG_MANAGER_LABELS.groups}
+          </MiniAppSectionHeading>
+          <UserGroups groups={detail.groups} openGroupRoute={openGroupRoute} />
+        </MiniAppSection>
+      ) : null}
+      {activeTab === "links" ? (
+        <GrantSections
+          canRevokeGrants={canRevokeGrants}
+          mutating={mutating}
+          openGrantRoute={openGrantRoute}
+          revokeGrant={revokeGrant}
+          sections={[
+            {
+              emptyLabel: ORG_MANAGER_LABELS.noUserContainerLinks,
+              grants: detail.grants.directGrants,
+              label: ORG_MANAGER_LABELS.userContainerLinks,
+            },
+            {
+              emptyLabel: ORG_MANAGER_LABELS.noGroupContainerLinks,
+              grants: detail.grants.groupGrants,
+              label: ORG_MANAGER_LABELS.groupContainerLinks,
+            },
+          ]}
+        />
+      ) : null}
+    </>
   );
 }
 

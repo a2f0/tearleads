@@ -173,6 +173,9 @@ test("roster detail tabs show only the selected section", async () => {
   ).toBe("true");
   expect(view.getByText(ORG_MANAGER_LABELS.joined)).toBeTruthy();
   expect(view.queryByText(ORG_MANAGER_LABELS.noGroups)).toBeNull();
+  const profileSection = view.container.querySelector(
+    ".org-manager-roster-detail",
+  );
 
   fireEvent.click(
     within(tabs).getByRole("tab", { name: ORG_MANAGER_LABELS.groups }),
@@ -180,7 +183,9 @@ test("roster detail tabs show only the selected section", async () => {
   expect(view.getByRole("tabpanel").textContent).toContain(
     ORG_MANAGER_LABELS.noGroups,
   );
-  expect(view.queryByText(ORG_MANAGER_LABELS.joined)).toBeNull();
+  expect(
+    view.getByText(ORG_MANAGER_LABELS.joined).closest("[hidden]"),
+  ).not.toBeNull();
   await waitFor(() => {
     expect(
       within(toolbar).queryByRole("button", { name: ORG_MANAGER_LABELS.edit }),
@@ -197,6 +202,9 @@ test("roster detail tabs show only the selected section", async () => {
     ORG_MANAGER_LABELS.noGroupContainerLinks,
   );
   expect(view.queryByText(ORG_MANAGER_LABELS.noGroups)).toBeNull();
+  expect(view.container.querySelector(".org-manager-roster-detail")).toBe(
+    profileSection,
+  );
 });
 
 test("a roster edit request opens the profile tab", async () => {
