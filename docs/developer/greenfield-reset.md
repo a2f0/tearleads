@@ -221,8 +221,9 @@ and demos. Resolve SSH from the new Terraform outputs; remove stale inherited
 generic/tier overrides unless an explicit target has been verified against the
 new node. If the new Tailscale hostname has not resolved yet, verify the node's
 provider identity and authorized Tailscale IP before using a tier-specific SSH
-host override. Use the repository's known-host helper to install the retained
-host key for that IP; a probe using `HostKeyAlias` does not install an IP entry
+host override. Use `sync_known_host_key` in `terraform/scripts/common.sh` to
+replace stale entries with the retained host key for that IP; a probe using
+`HostKeyAlias` does not install an IP entry
 for Ansible. Server IDs establish replacement even when an IP address is reused.
 
 Verify current schema initialization and application-table emptiness before any

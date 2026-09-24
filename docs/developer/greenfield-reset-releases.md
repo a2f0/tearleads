@@ -16,7 +16,8 @@ assets and authenticated read access to the Match repository, Apple API
 credentials, Google Play service account and track access,
 Sentry source-map upload credentials, and both selected download buckets. Match
 preflight must use the configured release authentication, including
-`MATCH_GIT_BASIC_AUTHORIZATION` when set; an unauthenticated `git ls-remote`
+`MATCH_GIT_BASIC_AUTHORIZATION` from the release environment when set;
+an unauthenticated `git ls-remote`
 is not an equivalent probe. Keep authorization out of logs and command arguments.
 
 If Bundler resolves a different Ruby from `mise which ruby`, prepend the
@@ -62,6 +63,8 @@ Dispatch `electrobun-windows.yml` at a pushed ref resolving to the frozen SHA,
 with `tier=staging`, `production`, or `both`. Record the run ID and verify its
 `headSha` before publication. The workflow runs CEF persistence and installer
 checks; successful builds alone do not publish a release.
+Dispatch once the source is frozen, before downtime where practical, so the
+remote build can run alongside infrastructure work.
 
 After the run succeeds, use `scripts/windowsRelease.sh download <tier> RUN_ID`
 and `upload <tier> RUN_ID` from the clean frozen checkout. These helpers verify
@@ -82,11 +85,11 @@ failure requires a reviewed repair and a recorded release revision change.
   context; native archives can temporarily change tracked project files and
   restore them on exit. Never restore or edit those files under a running build.
 - Linux builds use isolated Docker output and can overlap macOS builds after
-  confirming output separation. Before starting either Linux upload, require
-  the frozen clean checkout. The simplest reliable schedule is macOS and Linux
-  first, then mobile sequentially; allow a host archive to finish before retrying
-  a checkout-cleanliness failure. Keep unrelated Docker containers and mounted
-  user applications untouched.
+  confirming output separation. Linux uploads and Windows downloads/uploads
+  require the frozen clean checkout. Finish desktop publication before mobile
+  builds; allow a host archive to finish before retrying a checkout-cleanliness
+  failure. Remote Windows builds can overlap host builds. Keep unrelated Docker
+  containers and mounted user applications untouched.
 - Keep separate logs, exit statuses, source SHA, and artifact/build identities
   for every matrix cell. `tee` requires `pipefail` or explicit child-status
   capture. Skip a completed cell only after reading back the same publication.
@@ -103,7 +106,8 @@ failure requires a reviewed repair and a recorded release revision change.
   succeeds, before another tier can reuse a host output directory. Linux output
   lives under `packages/app-electrobun/build/linux-x64/<tier>/`; macOS artifacts
   use `packages/app-electrobun/build/artifacts/`. Derive filenames from the
-  current packaging config and logs.
+  current packaging config and logs. Windows uses the per-commit directory in
+  the Windows section above.
 
 ## macOS key access and notarization
 

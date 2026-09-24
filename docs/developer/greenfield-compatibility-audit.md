@@ -65,8 +65,11 @@ running `scripts/deployProduction.sh`.
 
 `scripts/deployEverything.sh` deploys both tiers and uploads iOS and Android.
 macOS and Linux uploads additionally require their staging and production root
-release scripts. Website and web-app deployment are included in each tier's
-deployment script.
+release scripts. Windows x64 requires the Actions build followed by
+`scripts/windowsRelease.sh upload` for each selected tier. Website and web-app
+deployment are included in each tier's deployment script; refresh the website
+after all desktop publications as described in the
+[release runbook](greenfield-reset-releases.md).
 
 The reusable [greenfield reset runbook](greenfield-reset.md) covers teardown,
 rebuild, external state, and coordinated release verification.
