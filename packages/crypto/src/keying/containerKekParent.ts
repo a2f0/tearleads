@@ -43,11 +43,16 @@ export function creationParentEpochId(
 ): string | null {
   const parentId = manifest.state.parentContainerId;
   if (parentId === null) return null;
-  const parents = manifest.event.event.dependencyManifestHashes
-    .map((hash) => manifests.get(hash))
-    .filter((candidate) => candidate?.state.containerId === parentId);
-  const parent = parents[0];
-  if (parents.length !== 1 || !parent?.state.containerKeyEpochId) {
+  const hash = manifest.state.parentManifestHash;
+  const parent = hash === null ? undefined : manifests.get(hash);
+  if (
+    !hash ||
+    !manifest.event.event.dependencyManifestHashes.includes(hash) ||
+    !parent?.state.containerKeyEpochId ||
+    parent.manifestHash !== hash ||
+    parent.state.containerId !== parentId ||
+    parent.state.organizationId !== manifest.state.organizationId
+  ) {
     throwVerification(
       "missing_dependency",
       "container KEK creation requires its signed parent citation",

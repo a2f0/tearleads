@@ -224,9 +224,9 @@ async function resolveContainerManifestAuthorization(
           parentPath,
           previousManifestHash: event.event.previousManifestHash,
         });
-  // The parent this event leaves the container under comes from signed data:
-  // the previous manifest for a grant, revoke, or rekey, and the signed body
-  // for a create or move, never from the server-supplied wire state.
+  // Resolve the signed placement lineage, never the server-supplied wire state.
+  // Rotations also resolve their new epoch's exact signed parent citation via
+  // cited-ancestor verification below; that can differ from this previous path.
   const eventType = event.event.eventType;
   const { parentContainerId, parentManifestHash } =
     previousManifest && eventType !== "container.move"

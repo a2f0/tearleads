@@ -175,6 +175,7 @@ export async function createContainerRevokeManifestFixture(input: {
       input.containerKeyPublicKey ??
       containerWrappingPublicKeyForTest(input.containerKeyEpochId),
     eventType: "container.revoke",
+    parentManifestHash: null,
     containerKeyEpochId: input.containerKeyEpochId,
     keyringHash: input.keyringHash,
     predecessorBridgeHash: input.predecessorBridgeHash,

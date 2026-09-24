@@ -397,7 +397,7 @@ export async function openContainerKekKeyring(input: {
 }
 
 /**
- * The lazy per-use check: proves a recovered entry is THE key the
+ * A memoized material check: proves a recovered entry is THE key the
  * manifest-anchored epoch id commits to. Entry ordinal i is key epoch i + 1.
  */
 export async function verifyContainerKekKeyringEntry(input: {

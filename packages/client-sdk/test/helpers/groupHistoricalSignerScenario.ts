@@ -2,6 +2,7 @@ import {
   type ContainerGrantPrincipalHead,
   computeContainerKekMaterialId,
   deriveContainerKekRecipientTargets,
+  deriveContainerKekWrappingPublicKey,
   generateKemSeedAndKeyPair,
   generateSigningSeedAndKeyPair,
   toFingerprint,
@@ -59,12 +60,18 @@ function participant(userId: string): Participant {
   };
 }
 
-function materialId(containerId: string, keyEpoch: number) {
-  return computeContainerKekMaterialId({
+async function materialId(containerId: string, keyEpoch: number) {
+  const keyMaterial = crypto.getRandomValues(new Uint8Array(32));
+  const id = await computeContainerKekMaterialId({
     containerId,
     keyEpoch,
-    keyMaterial: crypto.getRandomValues(new Uint8Array(32)),
+    keyMaterial,
   });
+  containerWrappingPublicKeyForTest(
+    id,
+    await deriveContainerKekWrappingPublicKey({ containerId, keyMaterial }),
+  );
+  return id;
 }
 
 async function groupPolicy(input: {
@@ -177,6 +184,7 @@ export async function createGroupHistoricalSignerScenario() {
         rootKeyEpochIds[1],
       ),
       eventType: "container.rekey",
+      parentManifestHash: null,
       containerKeyEpochId: rootKeyEpochIds[1],
       keyringHash: await fixtureHash("group-root-keyring"),
       predecessorBridgeHash: await fixtureHash("group-root-bridge"),

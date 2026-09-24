@@ -10,6 +10,12 @@ type AbandonedSyncInput = Pick<
   "documentId" | "onSyncAbandoned" | "onSyncTrace" | "onTerminalSubmitFailure"
 >;
 
+export function abandonBlockedSync(input: AbandonedSyncInput): null {
+  input.onSyncTrace?.(`document sync blocked document=${input.documentId}`);
+  input.onSyncAbandoned?.("blocked");
+  return null;
+}
+
 export function abandonAncestorRepair(
   input: AbandonedSyncInput,
   error: DocumentAncestorRepairAbandonedError,

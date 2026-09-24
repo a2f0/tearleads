@@ -122,11 +122,12 @@ async function harvestServedKeyring(input: {
  * would silently report the epochs below its start as unreachable, so the
  * shape is checked up front rather than inferred from a thin result.
  */
-function sortedCompleteLogEpochs(input: {
+async function sortedCompleteLogEpochs(input: {
+  currentContainerKey: Uint8Array;
   containerId: string;
   currentContainerKeyEpochId: string;
   log: AggregatedContainerKekLog;
-}): ContainerKekLogEpochResponse[] {
+}): Promise<ContainerKekLogEpochResponse[]> {
   if (input.log.containerId !== input.containerId) {
     throw new Error("Container KEK log container is inconsistent");
   }
@@ -140,6 +141,17 @@ function sortedCompleteLogEpochs(input: {
   }
   if (!tail || tail.containerKeyEpochId !== input.currentContainerKeyEpochId) {
     throw new Error("Container KEK log does not end at the current epoch");
+  }
+  if (
+    (await computeContainerKekMaterialId({
+      containerId: input.containerId,
+      keyEpoch: tail.containerKeyEpoch,
+      keyMaterial: input.currentContainerKey,
+    })) !== input.currentContainerKeyEpochId
+  ) {
+    throw new Error(
+      "Container KEK log current key material does not match its epoch",
+    );
   }
   return epochs;
 }
@@ -179,7 +191,7 @@ export async function rebuildKeyringEntriesFromLog(input: {
   currentContainerKeyEpochId: string;
   log: AggregatedContainerKekLog;
 }): Promise<KeyringRebuildResult> {
-  const epochs = sortedCompleteLogEpochs(input);
+  const epochs = await sortedCompleteLogEpochs(input);
 
   const anchors = input.anchorKeysByEpochId ?? new Map<string, Uint8Array>();
   const recovered = new Map<string, Uint8Array>();

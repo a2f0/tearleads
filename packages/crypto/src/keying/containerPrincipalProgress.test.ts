@@ -84,6 +84,7 @@ for (const eventType of ["container.grant", "container.rekey"] as const) {
             }
           : {
               eventType,
+              parentManifestHash: null,
               containerKeyPublicKey: containerWrappingPublicKeyForTest("key-3"),
               containerKeyEpochId: "key-3",
               referencedPrincipalHeads: [next],

@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+import { contentKeyEnvelopeFixture } from "../contentKeyEnvelope.testFixtures";
 import {
   MAX_DOCUMENT_SYNC_AUTHORIZATION_PATH_DEPTH,
   MAX_DOCUMENT_SYNC_AUTHORIZATION_PATHS,
@@ -44,8 +45,7 @@ function createBlobContentKeyBundle(overrides: Record<string, unknown> = {}) {
         containerManifestHash: "container-manifest-hash",
         containerKeyEpochId: "container-key-epoch-id",
         containerKeyEpoch: 1,
-        wrappedKey: "wrapped-key",
-        wrappingMetadata: { alg: "x25519-hkdf-sha256" },
+        ...contentKeyEnvelopeFixture("blob"),
       },
     ],
     ...overrides,

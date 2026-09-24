@@ -210,6 +210,8 @@ export async function buildMaterializedContainerRevokePlan(input: {
     });
   const body: ContainerRevokeAccessEventBody = {
     eventType: "container.revoke",
+    parentManifestHash:
+      input.previousProjection.path.at(-2)?.manifestHash ?? null,
     containerKeyPublicKey: await deriveContainerKekWrappingPublicKey({
       containerId: previousState.containerId,
       keyMaterial: containerKey,
@@ -235,6 +237,7 @@ export async function buildMaterializedContainerRevokePlan(input: {
   const { manifest, manifestHash, state } = await deriveContainerRevokeManifest(
     {
       containerKeyPublicKey: body.containerKeyPublicKey,
+      parentManifestHash: body.parentManifestHash,
       containerKeyEpochId,
       eventHash,
       previousManifest: target.manifest,

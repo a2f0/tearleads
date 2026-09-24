@@ -162,3 +162,40 @@ test("staged bytes that are not an envelope are refused before promotion", async
     bindForTest({ blobId, owner, request }),
   ).resolves.toBeUndefined();
 });
+
+test("a bad signature takes precedence over a mismatched envelope", async () => {
+  const owner = createTestUser();
+  await registerUser(owner);
+  await authenticate(owner);
+  const root = await bootstrapRoot(owner);
+  const document = await createDocument({ owner, root });
+  const blobId = crypto.randomUUID();
+  const { request } = await buildBind({
+    blobId,
+    document,
+    owner,
+    root,
+    stagedBlob: await stageBlob(owner, blobId),
+  });
+  const staged = request.stagedBlob;
+  if (!staged) throw new Error("Expected staged write header");
+  const header = readWriteHeader(staged.writeHeader, "test header");
+  await expect(
+    bindForTest({
+      blobId,
+      owner,
+      request: {
+        ...request,
+        stagedBlob: {
+          ...staged,
+          writeHeader: { ...header, metadataHash: "0".repeat(64) },
+        },
+      },
+    }),
+  ).rejects.toMatchObject({
+    message: "write header signature verification failed",
+  });
+  await expect(
+    bindForTest({ blobId, owner, request }),
+  ).resolves.toBeUndefined();
+});

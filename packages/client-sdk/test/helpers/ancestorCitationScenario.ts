@@ -156,6 +156,7 @@ export async function createScenario() {
     body: {
       containerKeyPublicKey: containerWrappingPublicKeyForTest("root-key-2"),
       eventType: "container.revoke",
+      parentManifestHash: null,
       containerKeyEpochId: "root-key-2",
       keyringHash: await fixtureHash("ancestor-root-keyring"),
       predecessorBridgeHash: await fixtureHash("ancestor-root-bridge"),

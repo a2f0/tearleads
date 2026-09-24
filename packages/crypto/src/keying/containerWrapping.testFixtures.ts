@@ -24,14 +24,21 @@ function structuralSeed(epochId: string): Uint8Array {
 }
 
 /** For signature/shape fixtures only; decryption fixtures derive from their actual KEK. */
-export function containerWrappingPublicKeyForTest(epochId: string): string;
+export function containerWrappingPublicKeyForTest(
+  epochId: string,
+  committedPublicKey?: string,
+): string;
 export function containerWrappingPublicKeyForTest(
   epochId: string | null,
 ): string | null;
 export function containerWrappingPublicKeyForTest(
   epochId: string | null,
+  committedPublicKey?: string,
 ): string | null {
   if (epochId === null) return null;
+  // Tests that mint a real material commitment register its actual public key.
+  if (committedPublicKey !== undefined)
+    publicKeysByEpochId.set(epochId, committedPublicKey);
   const cached = publicKeysByEpochId.get(epochId);
   if (cached) return cached;
   const publicKey = bytesToBase64(

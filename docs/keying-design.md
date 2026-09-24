@@ -389,12 +389,28 @@ shape). The keyring is derived, rebuildable state; the bridge log is ground
 truth.
 
 Container KEK epochs use ids of the form
-`tearleads.container-kek.v1.sha256:<hash>`, where the hash commits to the
-container id, numeric KEK epoch, and plaintext 32-byte KEK material. The signed
-container manifest commits to this id through `containerKeyEpochId`, so clients
-that can unwrap the KEK reject a projection if the decrypted material does not
-match the committed id. Non-prefixed ids are rejected because they do not carry
-this material commitment.
+`tearleads.container-kek.v2.sha256:<hash>`. The domain-separated hash commits to
+version 2, the container id, numeric KEK epoch, and the canonical ML-KEM wrapping
+public key deterministically derived from the 32-byte KEK. Servers and child-only
+writers verify the published key against this commitment without an ancestor
+secret. KEK holders derive that same public key from recovered material and check
+the commitment independently. Only the v2 format is accepted; this is a greenfield
+protocol change with no translation of earlier ids.
+
+The wrapping public-key cache is bounded to 128 entries and indexed by container
+id plus a process-local HMAC token of the key bytes. A second cache retains up to
+65,536 public material-id commitments, keyed by container, numeric epoch, and the
+same token. Neither cache retains KEKs, private wrapping keys, or derivation
+seeds; temporary copies and token buffers are zeroized. The non-extractable HMAC
+key is generated once per process, so tokens cannot be correlated across runs.
+
+Every epoch-creating child event has an explicit signed parent citation.
+`container.rekey` and `container.revoke` include `parentManifestHash` in their
+bodies, naming the current parent used to wrap the new epoch (null for roots).
+The derived state retains that citation for historical recovery. Selection uses
+that exact hash; withholding the cited head causes a missing-dependency refusal.
+The crypto verifier also handles two cited heads of the same parent as defense
+in depth; the API and SDK reject such duplicate-container dependency lists.
 
 ### Container Key Wrap Row
 
@@ -485,12 +501,25 @@ serial walk through every intermediate unwrap. The work itself is not free and
 is not O(1): the sealed blob is 64 bytes per retained epoch, so transfer, AEAD
 processing, and per-entry material-id verification all grow linearly with
 epoch count. What changes is the shape — one bulk decrypt plus independent,
-parallelizable entry checks, rather than a dependent chain of round-trip-order
+entry checks in batches of 16 that yield to the event loop, rather than a
+dependent chain of round-trip-order
 unwraps where each step gates the next. At the epoch cap the sealed keyring is
 about 4 MB, which is why the kek-log serves at most one historical keyring per
 request. Rotation pays the linear cost instead — the rotator opens the
 previous keyring and re-seals it plus the retiring key under the new KEK —
 which is one decrypt, one seal, and tens of bytes per retained epoch.
+
+The v2 material check derives an ML-KEM public key on a cache miss. A local
+1,024-epoch probe measured about 945 ms cold and 22 ms when reopening the same
+history with fresh byte arrays; a 4,097-epoch regression exceeds the former
+cache capacity and requires zero additional derivations on the second pass.
+The compact commitment cache covers one full history at the protocol epoch
+cap. Interleaving histories larger than the global cache can still evict
+entries. Cold work remains linear and can take tens of seconds near the
+65,536-epoch cap. Bounded batches prevent an unbounded burst of pending
+derivations and keep the event loop responsive. Verification before re-sealing
+is intentional: skipping unused entries would let an honest rotation launder
+poisoned history into its new signed commitment.
 
 There is deliberately no depth cap and no truncation: the keyring for epoch
 `n` must contain exactly `n - 1` entries, over- and under-length payloads are
@@ -1154,3 +1183,9 @@ Deployment boundaries:
 - Regression coverage includes malicious API fixtures for forged grants,
  swapped keys, omitted targets, stale manifests, split projection rows, and
  key-epoch reuse after membership shrink.
+
+Every submitted content-key envelope uses the strict current wire shape, including
+retained envelopes on link, unlink, bind, rewrap, and sync writes. There is no
+retained-envelope validation exemption. Stored projection reads remain available
+for diagnostics, but malformed stored material cannot be resubmitted unchanged.
+This assumes the greenfield data reset; no older envelope format is supported.

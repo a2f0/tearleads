@@ -69,6 +69,17 @@ type NormalizeWireType<Value> = Value extends readonly (infer Item)[]
         >;
       }
     : Value;
+// Request metadata is intentionally opaque to consumers of stored envelopes.
+// Its refined runtime/OpenAPI shape is asserted in contentKeyEnvelopeSchema.test.
+type OpaqueEnvelopeMetadata<Value> = Value extends readonly (infer Item)[]
+  ? OpaqueEnvelopeMetadata<Item>[]
+  : Value extends object
+    ? {
+        [Key in keyof Value]: Key extends "wrappingMetadata"
+          ? Record<string, unknown>
+          : OpaqueEnvelopeMetadata<Value[Key]>;
+      }
+    : Value;
 type LooseWireObject<Shape> = Shape & Record<string, unknown>;
 type GeneratedOperation = operations["documents.sync"];
 type GeneratedPathOperation = paths["/documents/{documentId}/sync"]["post"];
@@ -187,7 +198,7 @@ test("generated OpenAPI types match the document sync structural contract", () =
   assertType<IsAssignable<{ documentId: string }, GeneratedPathParams>>();
   assertType<
     IsEqual<
-      NormalizeWireType<GeneratedRequest>,
+      NormalizeWireType<OpaqueEnvelopeMetadata<GeneratedRequest>>,
       NormalizeWireType<DocumentSyncRequest>
     >
   >();

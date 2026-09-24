@@ -173,6 +173,8 @@ export async function buildRevokeRequest(input: {
     containerKeyPublicKey:
       containerWrappingPublicKeyForTest(containerKeyEpochId),
     eventType: "container.revoke",
+    parentManifestHash:
+      input.previousContainerPath.at(-2)?.manifestHash ?? null,
     containerKeyEpochId,
     keyringHash,
     predecessorBridgeHash:
@@ -195,6 +197,7 @@ export async function buildRevokeRequest(input: {
   const bundle = await createManifestBundle(
     {
       ...previous.state,
+      parentManifestHash: body.parentManifestHash,
       containerKeyPublicKey: body.containerKeyPublicKey,
       epoch: previous.state.epoch + 1,
       previousManifestHash: input.previous.manifestHash,
@@ -294,6 +297,8 @@ export async function buildRekeyRequest(input: {
     containerKeyPublicKey:
       containerWrappingPublicKeyForTest(containerKeyEpochId),
     eventType: "container.rekey",
+    parentManifestHash:
+      input.previousContainerPath.at(-2)?.manifestHash ?? null,
     containerKeyEpochId,
     keyringHash,
     predecessorBridgeHash:
@@ -315,6 +320,7 @@ export async function buildRekeyRequest(input: {
   const bundle = await createManifestBundle(
     {
       ...previous.state,
+      parentManifestHash: body.parentManifestHash,
       containerKeyPublicKey: body.containerKeyPublicKey,
       epoch: previous.state.epoch + 1,
       previousManifestHash: input.previous.manifestHash,

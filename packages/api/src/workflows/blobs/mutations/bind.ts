@@ -91,20 +91,6 @@ async function verifyAndStoreStagedBlobWriteHeader(input: {
     );
   }
 
-  const envelope = input.stagedBlob.envelopeHeader;
-  if (
-    envelope.blobId !== header.objectId ||
-    envelope.contentKeyEpoch !== header.contentKeyEpoch ||
-    envelope.contentRecordId !== header.contentRecordId ||
-    envelope.metadataHash !== header.metadataHash ||
-    envelope.nonceDomainHash !== header.nonceDomainHash
-  ) {
-    throw new BlobMutationError(
-      "Blob encrypted envelope does not match its signed write header",
-      400,
-    );
-  }
-
   const verified = await verifyWriteHeader({
     blobAuthorization: {
       authorizingContainerPaths: input.proof.authorizingContainerPaths,
@@ -123,6 +109,20 @@ async function verifyAndStoreStagedBlobWriteHeader(input: {
   });
   if (!verified.ok) {
     throw verified.error;
+  }
+
+  const envelope = input.stagedBlob.envelopeHeader;
+  if (
+    envelope.blobId !== header.objectId ||
+    envelope.contentKeyEpoch !== header.contentKeyEpoch ||
+    envelope.contentRecordId !== header.contentRecordId ||
+    envelope.metadataHash !== header.metadataHash ||
+    envelope.nonceDomainHash !== header.nonceDomainHash
+  ) {
+    throw new BlobMutationError(
+      "Blob encrypted envelope does not match its signed write header",
+      400,
+    );
   }
 
   await storeBlobContentWriteHeader(

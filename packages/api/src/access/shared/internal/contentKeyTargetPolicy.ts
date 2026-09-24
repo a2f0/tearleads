@@ -185,10 +185,6 @@ function createTargetSetMatchers<
     readonly submittedTargets: readonly TEnvelope[];
     readonly targets: readonly TEnvelope[];
   }) => void;
-  readonly targetEnvelopeMaterialEqual: (
-    left: TEnvelope,
-    right: TEnvelope,
-  ) => boolean;
 }) {
   return {
     /**
@@ -203,32 +199,15 @@ function createTargetSetMatchers<
     }): void => {
       policy.matchCurrent({ ...input, submittedTargets: [] });
     },
-    /**
-     * Write path. `storedTargets` is what this object already holds, or null
-     * on a first write. A submission may carry retained envelopes verbatim
-     * beside newly wrapped ones — a document link resubmits the whole bundle,
-     * a blob bind covers every active binding — so the gate applies to the
-     * targets that do not byte-match stored material.
-     *
-     * "Byte-match" deliberately ignores `containerManifestHash`: a projection
-     * refresh rewrites it while keeping the wrap, and such a target is still
-     * retained. The field is not unchecked, just checked elsewhere — against
-     * the current targets, by `targetFieldsEqual`.
-     */
+    /** Every submitted envelope must use the current greenfield wire shape. */
     assertSubmittedTargetsMatchCurrent: (input: {
       readonly currentTargets: TCurrentTargets;
-      readonly storedTargets: readonly TEnvelope[] | null;
       readonly targets: readonly TEnvelope[];
     }): void => {
       policy.matchCurrent({
         currentTargets: input.currentTargets,
         targets: input.targets,
-        submittedTargets: input.targets.filter(
-          (target) =>
-            !input.storedTargets?.some((stored) =>
-              policy.targetEnvelopeMaterialEqual(stored, target),
-            ),
-        ),
+        submittedTargets: input.targets,
       });
     },
   };
@@ -295,7 +274,7 @@ export function createContentKeyTargetPolicy<
   };
 
   return {
-    ...createTargetSetMatchers({ matchCurrent, targetEnvelopeMaterialEqual }),
+    ...createTargetSetMatchers({ matchCurrent }),
     assertTargetHashMatches: async (input: {
       readonly targetHash: string;
       readonly targets: readonly TEnvelope[];
