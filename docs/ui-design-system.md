@@ -13,7 +13,8 @@ The app renders one React tree with two interchangeable shells, selected by
 - **windowed** — the desktop window-manager UI (`components/window/*`,
   `components/pane/*`). Available through the lower-right layout switch.
 - **routed** — the single-pane UI (`components/layout/routed/*`). The default
-  on desktop, iPad, and phone.
+  on desktop, iPad, and phone. The two-peer demo keeps its windowed split on
+  wide desktop screens.
 
 Inside the routed shell there are two tiers, split at 760px:
 

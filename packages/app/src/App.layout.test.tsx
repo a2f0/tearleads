@@ -115,6 +115,20 @@ test("demo App starts split without global header controls", () => {
   view.unmount();
 });
 
+test("demo App defaults to its peer split on desktop", () => {
+  const view = render(
+    <App
+      hostConfig={createTestAppHostConfig({
+        navigationMode: undefined,
+        profile: APP_HOST_PROFILES.demo,
+      })}
+    />,
+  );
+
+  expect(view.container.querySelector(".layout--demo-peer-split")).toBeTruthy();
+  view.unmount();
+});
+
 test("switching workspaces shares one identity database instead of booting a second", async () => {
   const originalWebSocket = globalThis.WebSocket;
 

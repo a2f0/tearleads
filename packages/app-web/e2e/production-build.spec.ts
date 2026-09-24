@@ -84,6 +84,9 @@ for (const variant of ["app", "demo"]) {
 
       const assertSentry = await observeProductionSentry(page);
       await page.goto(origin);
+      if (variant === "demo") {
+        await expect(page.locator(".layout--demo-peer-split")).toBeVisible();
+      }
       const menu = page
         .getByRole("button", { name: "Menu", exact: true })
         .first();

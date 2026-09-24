@@ -107,8 +107,7 @@
   background: var(--color-muted);
 }
 
-/* Only the mobile tier puts the app bar's leading edge at the screen edge —
-   on tablet the rail sits there and absorbs the left inset instead. */
+/* Mobile and tablet bottom mode put the app bar at the screen's leading edge. */
 .routed-pane--mobile .routed-pane-appbar {
   padding-inline-start: calc(var(--space-sm) + var(--safe-area-left));
 }
@@ -230,12 +229,17 @@
   overflow: auto;
   scrollbar-gutter: var(--scrollbar-gutter);
   /* Keep content out of a landscape cutout. The trailing edge is the screen
-     edge in both tiers; the leading edge only on mobile (tablet's rail absorbs
-     the left inset). Zero everywhere else, so full-bleed lists are unchanged. */
+     edge in both tiers; the leading edge on mobile and tablet bottom mode when
+     the app sidebar is closed. Zero elsewhere, preserving full-bleed lists. */
   padding-inline-end: var(--safe-area-right);
 }
 
 .routed-pane--mobile .routed-pane-main {
+  padding-inline-start: var(--safe-area-left);
+}
+
+.routed-pane--tablet[data-launcher-placement="bottom"][data-sidebar="closed"]
+  .routed-pane-main {
   padding-inline-start: var(--safe-area-left);
 }
 
@@ -289,8 +293,7 @@
   padding-block-end: max(var(--space-xs), var(--safe-area-bottom));
 }
 
-/* Same tier scoping as the app bar: only mobile's taskbar reaches the
-   screen's leading edge; tablet's rail absorbs the left inset. */
+/* Same leading-edge safe area as the app bar. */
 .routed-pane--mobile .routed-pane-taskbar {
   padding-inline-start: calc(var(--space-sm) + var(--safe-area-left));
 }

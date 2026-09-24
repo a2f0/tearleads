@@ -154,6 +154,19 @@ test("desktop tablet launcher can open from the bottom", async ({ page }) => {
   await expect(pane).toHaveAttribute("data-launcher-placement", "bottom");
   await expect(page.locator(".routed-pane-rail")).toHaveCount(0);
 
+  await pane.evaluate((element) => {
+    (element as HTMLElement).style.setProperty("--safe-area-left", "24px");
+  });
+  await expect(page.locator(".routed-pane-sidebar")).toHaveCSS(
+    "padding-left",
+    "24px",
+  );
+  await page.getByRole("button", { name: "Hide Sidebar" }).click();
+  await expect(pane.locator(".routed-pane-main")).toHaveCSS(
+    "padding-left",
+    "24px",
+  );
+
   await page.getByRole("button", { name: "Menu", exact: true }).click();
   const sheet = page.locator(".routed-pane-sheet");
   await expect(sheet).toHaveAttribute("data-open", "true");

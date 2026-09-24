@@ -1,3 +1,8 @@
+/** The demo's peer split needs desktop width; smaller screens use routed mode. */
+export const DEMO_SPLIT_BREAKPOINT_PX = 1024;
+
+export const DEMO_SPLIT_MOBILE_QUERY = `(max-width: ${DEMO_SPLIT_BREAKPOINT_PX - 1}px)`;
+
 /**
  * Within the routed layout, the divider between the two responsive tiers:
  *

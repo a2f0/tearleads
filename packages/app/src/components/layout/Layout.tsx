@@ -86,6 +86,10 @@ function LayoutInner({ hostConfig }: LayoutProps) {
   const navigationMode = useAppNavigationMode(
     hostConfig.navigationMode,
     override,
+    Boolean(
+      hostConfig.profile.defaultSplit &&
+        hostConfig.profile.features.panePeerUserIds,
+    ),
   );
   const split = hostConfig.profile.defaultSplit;
   const { activeWorkspace, workspaceIds } = useWorkspace();

@@ -1,5 +1,15 @@
 import { expect, test } from "bun:test";
-import { resolveAppNavigationMode } from "./AppNavigationMode";
+import {
+  type AppNavigationEnvironment,
+  resolveAppNavigationMode,
+} from "./AppNavigationMode";
+
+const DESKTOP_ENVIRONMENT: AppNavigationEnvironment = {
+  innerWidth: 1280,
+  maxTouchPoints: 0,
+  pointerCoarse: false,
+  userAgent: "Mozilla/5.0",
+};
 
 test("routed navigation is the default", () => {
   expect(resolveAppNavigationMode({})).toBe("routed");
@@ -8,4 +18,31 @@ test("routed navigation is the default", () => {
 test("an explicit navigation mode overrides the default", () => {
   expect(resolveAppNavigationMode({ forcedMode: "windowed" })).toBe("windowed");
   expect(resolveAppNavigationMode({ forcedMode: "routed" })).toBe("routed");
+});
+
+test("the peer demo keeps windows on desktop and routes on touch or narrow screens", () => {
+  expect(
+    resolveAppNavigationMode({
+      environment: DESKTOP_ENVIRONMENT,
+      preferWindowedPeerSplit: true,
+    }),
+  ).toBe("windowed");
+  expect(
+    resolveAppNavigationMode({
+      environment: { ...DESKTOP_ENVIRONMENT, innerWidth: 900 },
+      preferWindowedPeerSplit: true,
+    }),
+  ).toBe("routed");
+  expect(
+    resolveAppNavigationMode({
+      environment: { ...DESKTOP_ENVIRONMENT, pointerCoarse: true },
+      preferWindowedPeerSplit: true,
+    }),
+  ).toBe("routed");
+  expect(
+    resolveAppNavigationMode({
+      environment: { ...DESKTOP_ENVIRONMENT, userAgent: "iPad" },
+      preferWindowedPeerSplit: true,
+    }),
+  ).toBe("routed");
 });
