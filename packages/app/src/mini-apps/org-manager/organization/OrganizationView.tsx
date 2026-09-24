@@ -1,5 +1,6 @@
 import type {
   OrganizationDirectory,
+  OrganizationGroupSummary,
   OrganizationPolicyHistory,
 } from "@tearleads/client-sdk";
 import { useEffect, useState } from "react";
@@ -14,6 +15,7 @@ import { OrganizationProfileEditor } from "./OrganizationProfileEditor";
 
 export function OrganizationView({
   directory,
+  groups,
   organizationId,
   pending,
   policyHistory,
@@ -21,6 +23,7 @@ export function OrganizationView({
   profileDisplayNamesByUserId = EMPTY_PROFILE_DISPLAY_NAMES,
 }: {
   directory: OrganizationDirectory | null;
+  groups: readonly OrganizationGroupSummary[];
   organizationId: string;
   // The directory (which the profile editor derives `canEdit` from) has not
   // settled yet.
@@ -55,6 +58,7 @@ export function OrganizationView({
       />
       <PolicyHistorySection
         directory={directory}
+        groups={groups}
         heading={ORG_MANAGER_LABELS.organizationPolicyHistory}
         history={policyHistory}
         pending={policyHistoryPending}

@@ -17,6 +17,7 @@ import {
   type OrganizationUserDetail,
   reconcileOrganizationDirectoryAndGroups,
 } from "../../workflows/organizations";
+import { loadPolicyHistoryDetails } from "../../workflows/organizations/loadPolicyHistoryDetails";
 import {
   organizationAccessScopeKey,
   wasOrganizationPresentationAccessDeniedByServer,
@@ -286,7 +287,7 @@ class OrganizationReadModelCoordinatorImpl
     if (!active) {
       return null;
     }
-    return this.loadPolicyHistoryAfterWarm({
+    const history = await this.loadPolicyHistoryAfterWarm({
       active,
       loadLocal: () =>
         loadLocalOrganizationPolicyHistory({
@@ -296,6 +297,23 @@ class OrganizationReadModelCoordinatorImpl
         }),
       principalId: active.organizationId,
       principalType: "organization",
+    });
+    if (!history || !active.runtime.state.online) return history;
+    const domainScope = active.runtime.state.domainScope;
+    return loadPolicyHistoryDetails({
+      apiClient: active.runtime.apiClient,
+      currentUserId: active.userId,
+      execSql: active.runtime.infra.execSql,
+      organizationId: active.organizationId,
+      history,
+      resolveTrustedUserIdentity: active.runtime.resolveTrustedUserIdentity,
+      stillCurrent: () =>
+        isOrganizationDataRuntimeCurrent(
+          this.runtimeService,
+          active,
+          domainScope,
+        ),
+      logError: active.runtime.util.logError,
     });
   }
 

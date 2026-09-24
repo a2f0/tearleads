@@ -279,3 +279,20 @@ only the server-confirmed user. The session facade returns
 the device already binds that key, distinct from an unconfirmed `null` result.
 Hosts should try login, and explain that an intentional environment reset
 requires clearing local app data if that recovery cannot find the account.
+
+Organization policy history details are derived in memory from existing signed
+records returned by `GET /organizations/:organizationId/policy-history`, bound
+to the exact selected organization state hash. Historical directory payloads
+are checked against their signed hashes, and group membership/grant snapshots
+are verified against every referenced directory head. This read endpoint is
+available to current organization members, including non-admin members.
+`OrganizationPolicyHistoryEntry.groupChanges` describes group creation,
+deletion, membership, grants, and key rotation; `null` means the additional
+evidence is unavailable. The exported `OrganizationPolicyGroupChange` and
+`OrganizationPolicyGrantChange` types describe those details. No new database
+columns, decrypted name snapshots, or persisted summaries are introduced.
+The app resolves current group names and roster profile names through existing
+local projections; missing or deleted names fall back to identifiers. Offline
+history retains its verified policy entries and reports unavailable group
+details explicitly. Authoritative access denial purges organization presentation
+through the existing access-revocation path.

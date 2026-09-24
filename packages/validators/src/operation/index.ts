@@ -194,6 +194,7 @@ export {
   OrganizationBillingPathParamsSchema,
   startOrganizationTrialOperation,
 } from "./organizationBilling";
+export { getOrganizationPolicyHistoryOperation } from "./organizationPolicyHistory";
 export {
   createOrganizationGroupOperation,
   createOrganizationOperation,

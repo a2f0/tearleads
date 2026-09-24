@@ -3,46 +3,25 @@ import type {
   PrincipalProjectionMemberResponse,
   PrincipalStateResponse,
 } from "@tearleads/validators/response";
+import type {
+  OrganizationGroupPolicyHistory,
+  OrganizationPolicyHistory,
+  OrganizationPrincipalMemberChange,
+  OrganizationPrincipalPolicyHistoryEntry,
+} from "./policyHistoryTypes";
 
-export type OrganizationPrincipalMemberChangeType =
-  | "added"
-  | "removed"
-  | "role_changed";
-export interface OrganizationPrincipalMemberChange {
-  readonly changeType: OrganizationPrincipalMemberChangeType;
-  readonly userId: string;
-  readonly nextRole: PrincipalProjectionMemberResponse["role"] | null;
-  readonly previousRole: PrincipalProjectionMemberResponse["role"] | null;
-}
-export interface OrganizationPrincipalPolicyHistoryEntry {
-  readonly changes: OrganizationPrincipalMemberChange[];
-  readonly createdAt: string;
-  readonly keyEpoch: number;
-  readonly memberCount: number;
-  readonly signedAt: string;
-  readonly signerUserId: string;
-  readonly signerUserKeyFingerprint: string;
-  readonly stateHash: string;
-  readonly version: number;
-}
-export type OrganizationGroupPolicyHistoryEntry =
-  OrganizationPrincipalPolicyHistoryEntry;
-export interface OrganizationPrincipalPolicyHistory {
-  readonly entries: OrganizationPrincipalPolicyHistoryEntry[];
-  readonly principalId: string;
-  readonly principalType: PrincipalStateResponse["principalType"];
-}
-export interface OrganizationGroupPolicyHistory
-  extends OrganizationPrincipalPolicyHistory {
-  readonly groupId: string;
-  readonly organizationId: string;
-  readonly principalType: "group";
-}
-export interface OrganizationPolicyHistory
-  extends OrganizationPrincipalPolicyHistory {
-  readonly organizationId: string;
-  readonly principalType: "organization";
-}
+export type {
+  OrganizationGroupPolicyHistory,
+  OrganizationGroupPolicyHistoryEntry,
+  OrganizationPolicyGrantChange,
+  OrganizationPolicyGroupChange,
+  OrganizationPolicyHistory,
+  OrganizationPolicyHistoryEntry,
+  OrganizationPrincipalMemberChange,
+  OrganizationPrincipalMemberChangeType,
+  OrganizationPrincipalPolicyHistory,
+  OrganizationPrincipalPolicyHistoryEntry,
+} from "./policyHistoryTypes";
 
 interface PrincipalPolicyHistoryState {
   readonly projection: ReadonlyArray<PrincipalProjectionMemberResponse>;
@@ -65,7 +44,7 @@ function comparePrincipalMemberChanges(
   );
 }
 
-function diffPrincipalProjectionMembers(input: {
+export function diffPrincipalProjectionMembers(input: {
   readonly current: ReadonlyArray<PrincipalProjectionMemberResponse>;
   readonly previous: ReadonlyArray<PrincipalProjectionMemberResponse>;
 }): OrganizationPrincipalMemberChange[] {
@@ -175,7 +154,10 @@ export function buildOrganizationPolicyHistory(
   bundle: PrincipalPolicyBundleResponse,
 ): OrganizationPolicyHistory {
   return {
-    entries: buildPrincipalPolicyHistoryEntries(bundle),
+    entries: buildPrincipalPolicyHistoryEntries(bundle).map((entry) => ({
+      ...entry,
+      groupChanges: null,
+    })),
     organizationId: bundle.currentState.principalId,
     principalId: bundle.currentState.principalId,
     principalType: "organization",

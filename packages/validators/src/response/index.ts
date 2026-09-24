@@ -360,6 +360,10 @@ export {
   OrganizationNativePurchaseIneligibilityReasonSchema,
 } from "./organizationNativePurchaseEligibility";
 export {
+  type OrganizationPolicyHistoryResponse,
+  OrganizationPolicyHistoryResponseSchema,
+} from "./organizationPolicyHistory";
+export {
   ORGANIZATION_PRESENTATION_ERROR_CODES,
   type OrganizationPresentationErrorCode,
   OrganizationPresentationErrorCodeSchema,

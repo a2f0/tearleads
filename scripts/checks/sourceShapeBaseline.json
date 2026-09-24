@@ -47,8 +47,8 @@
       "bytes": 18865
     },
     "docs/developer/client-sdk.md": {
-      "lines": 747,
-      "bytes": 38648
+      "lines": 764,
+      "bytes": 39841
     },
     "docs/developer/revenuecat-native-stores.md": {
       "lines": 364,
@@ -71,8 +71,8 @@
       "bytes": 23535
     },
     "docs/openapi.json": {
-      "lines": 68545,
-      "bytes": 2862825
+      "lines": 69180,
+      "bytes": 2889739
     },
     "docs/protocol-specification.md": {
       "lines": 655,
@@ -91,8 +91,8 @@
       "bytes": 23719
     },
     "packages/api-client/src/ApiClient.ts": {
-      "lines": 1991,
-      "bytes": 64220
+      "lines": 2005,
+      "bytes": 64665
     },
     "packages/api/src/access/read/documentKekTargets.test.ts": {
       "lines": 574,
@@ -259,8 +259,8 @@
       "bytes": 16859
     },
     "packages/client-sdk/src/index.ts": {
-      "lines": 537,
-      "bytes": 15694
+      "lines": 540,
+      "bytes": 15794
     },
     "packages/client-sdk/src/stores/container-contents/containerContentsStore.rootRefresh.test.ts": {
       "lines": 592,
@@ -271,8 +271,8 @@
       "bytes": 18896
     },
     "packages/client-sdk/src/workflows/README.md": {
-      "lines": 281,
-      "bytes": 21464
+      "lines": 298,
+      "bytes": 22657
     },
     "packages/client-sdk/src/workflows/blobs/hydrate.test.ts": {
       "lines": 572,
@@ -339,8 +339,8 @@
       "bytes": 37729
     },
     "packages/validators/src/operation/generatedOpenApi.ts": {
-      "lines": 25629,
-      "bytes": 1068806
+      "lines": 25864,
+      "bytes": 1078507
     },
     "packages/validators/src/response/response.test.ts": {
       "lines": 940,
@@ -349,6 +349,10 @@
     "scripts/architecture/subsystems.ts": {
       "lines": 765,
       "bytes": 28628
+    },
+    "packages/validators/src/response/index.ts": {
+      "lines": 504,
+      "bytes": 17676
     }
   },
   "suppressions": {

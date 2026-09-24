@@ -280,3 +280,14 @@ the access and keying authority.
 This control event never enters the container/document event queue and schedules
 only organization read-model reconciliation. HTTP remains authoritative after
 hints, reconnects, explicit refreshes, and cursor-gap recovery.
+
+### Organization policy change details
+
+The policy-history read endpoint accepts an exact organization `stateHash` and
+returns existing organization payloads plus public group policy snapshots up to
+that head. Deleted groups retain the signed states and projections needed for
+this history, while their encrypted names and key envelopes remain deleted.
+Clients verify all evidence and derive differences in memory. The history
+response contains no group or roster display names, and viewing it writes no
+new history data. Names are resolved through the same encrypted metadata and
+roster profiles used elsewhere in Org Manager.
