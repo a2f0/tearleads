@@ -5,7 +5,7 @@ import type {
   OrganizationGroupSummary,
   OrganizationUserDetail,
 } from "@tearleads/client-sdk";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useState } from "react";
 import {
   MiniAppActions,
   MiniAppHeader,
@@ -13,6 +13,9 @@ import {
   MiniAppSection,
   MiniAppSectionHeading,
   MiniAppStatus,
+  type MiniAppTabDescriptor,
+  MiniAppTabList,
+  MiniAppTabPanel,
 } from "../../../components/mini-app/MiniAppLayout";
 import {
   MiniAppRowButton,
@@ -34,6 +37,87 @@ import { ORG_MANAGER_LABELS } from "../labels";
 import type { OrgManagerGrantRouteRef } from "../routes";
 import { UserRosterMetadata } from "./RosterMetadata";
 import { RosterProfileEditor } from "./RosterProfileEditor";
+
+type UserDetailTabId = "profile" | "groups" | "links";
+
+const USER_DETAIL_TABS: ReadonlyArray<MiniAppTabDescriptor<UserDetailTabId>> = [
+  { id: "profile", label: ORG_MANAGER_LABELS.profile },
+  { id: "groups", label: ORG_MANAGER_LABELS.groups },
+  { id: "links", label: ORG_MANAGER_LABELS.groupLinksTab },
+];
+
+function UserDetailTabContent({
+  activeTab,
+  canEditRosterProfile,
+  canRevokeGrants,
+  detail,
+  isRosterProfileEditing,
+  mutating,
+  onRosterProfileDisplayNameChange,
+  openGrantRoute,
+  openGroupRoute,
+  organizationId,
+  revokeGrant,
+}: {
+  activeTab: UserDetailTabId;
+  canEditRosterProfile: boolean;
+  canRevokeGrants: boolean;
+  detail: OrganizationUserDetail;
+  isRosterProfileEditing: boolean;
+  mutating: boolean;
+  onRosterProfileDisplayNameChange: (displayName: string | null) => void;
+  openGrantRoute: (grantRef: OrgManagerGrantRouteRef) => void;
+  openGroupRoute: (groupId: string) => void;
+  organizationId: string;
+  revokeGrant: (grant: OrganizationContainerGrant) => void;
+}) {
+  if (activeTab === "profile") {
+    return (
+      <MiniAppSection className="org-manager-roster-detail">
+        <RosterProfileEditor
+          canEdit={canEditRosterProfile}
+          isEditing={isRosterProfileEditing}
+          onDisplayNameChange={onRosterProfileDisplayNameChange}
+          organizationId={organizationId}
+          user={detail.user}
+        />
+        <UserRosterMetadata user={detail.user} />
+      </MiniAppSection>
+    );
+  }
+
+  if (activeTab === "groups") {
+    return (
+      <MiniAppSection>
+        <MiniAppSectionHeading>
+          {ORG_MANAGER_LABELS.groups}
+        </MiniAppSectionHeading>
+        <UserGroups groups={detail.groups} openGroupRoute={openGroupRoute} />
+      </MiniAppSection>
+    );
+  }
+
+  return (
+    <GrantSections
+      canRevokeGrants={canRevokeGrants}
+      mutating={mutating}
+      openGrantRoute={openGrantRoute}
+      revokeGrant={revokeGrant}
+      sections={[
+        {
+          emptyLabel: ORG_MANAGER_LABELS.noUserContainerLinks,
+          grants: detail.grants.directGrants,
+          label: ORG_MANAGER_LABELS.userContainerLinks,
+        },
+        {
+          emptyLabel: ORG_MANAGER_LABELS.noGroupContainerLinks,
+          grants: detail.grants.groupGrants,
+          label: ORG_MANAGER_LABELS.groupContainerLinks,
+        },
+      ]}
+    />
+  );
+}
 
 function UserGroups({
   groups,
@@ -115,6 +199,8 @@ export function UserDetailView({
   revokeGrant: (grant: OrganizationContainerGrant) => void;
   syncSeatAssigned: boolean | null;
 }) {
+  const idPrefix = useId();
+  const [activeTab, setActiveTab] = useState<UserDetailTabId>("profile");
   const [isRosterProfileEditing, setIsRosterProfileEditing] = useState(false);
 
   useEffect(() => {
@@ -125,6 +211,7 @@ export function UserDetailView({
       return;
     }
 
+    setActiveTab("profile");
     setIsRosterProfileEditing(true);
   }, [canEditRosterProfile, rosterProfileEditRequestKey]);
 
@@ -135,7 +222,7 @@ export function UserDetailView({
   }, [canEditRosterProfile]);
 
   const editAction = useMemo(() => {
-    if (!detail || !canEditRosterProfile) {
+    if (!detail || !canEditRosterProfile || activeTab !== "profile") {
       return null;
     }
 
@@ -154,7 +241,7 @@ export function UserDetailView({
       },
       priority: 110,
     };
-  }, [canEditRosterProfile, detail, isRosterProfileEditing]);
+  }, [activeTab, canEditRosterProfile, detail, isRosterProfileEditing]);
 
   useWindowTitleBarAction(editAction);
 
@@ -209,40 +296,32 @@ export function UserDetailView({
           )}
         </MiniAppActions>
       </MiniAppHeader>
-      <MiniAppSection className="org-manager-roster-detail">
-        <RosterProfileEditor
-          canEdit={canEditRosterProfile}
-          isEditing={isRosterProfileEditing}
-          onDisplayNameChange={onRosterProfileDisplayNameChange}
-          organizationId={organizationId}
-          user={detail.user}
-        />
-        <UserRosterMetadata user={detail.user} />
-      </MiniAppSection>
-      <MiniAppSection>
-        <MiniAppSectionHeading>
-          {ORG_MANAGER_LABELS.groups}
-        </MiniAppSectionHeading>
-        <UserGroups groups={detail.groups} openGroupRoute={openGroupRoute} />
-      </MiniAppSection>
-      <GrantSections
-        canRevokeGrants={canRevokeGrants}
-        mutating={mutating}
-        openGrantRoute={openGrantRoute}
-        revokeGrant={revokeGrant}
-        sections={[
-          {
-            emptyLabel: ORG_MANAGER_LABELS.noUserContainerLinks,
-            grants: detail.grants.directGrants,
-            label: ORG_MANAGER_LABELS.userContainerLinks,
-          },
-          {
-            emptyLabel: ORG_MANAGER_LABELS.noGroupContainerLinks,
-            grants: detail.grants.groupGrants,
-            label: ORG_MANAGER_LABELS.groupContainerLinks,
-          },
-        ]}
+      <MiniAppTabList
+        activeTab={activeTab}
+        idPrefix={idPrefix}
+        label={ORG_MANAGER_LABELS.rosterDetailTabsLabel}
+        onSelect={setActiveTab}
+        tabs={USER_DETAIL_TABS}
       />
+      <MiniAppTabPanel
+        activeTab={activeTab}
+        className="org-manager-detail-tab-panel"
+        idPrefix={idPrefix}
+      >
+        <UserDetailTabContent
+          activeTab={activeTab}
+          canEditRosterProfile={canEditRosterProfile}
+          canRevokeGrants={canRevokeGrants}
+          detail={detail}
+          isRosterProfileEditing={isRosterProfileEditing}
+          mutating={mutating}
+          onRosterProfileDisplayNameChange={onRosterProfileDisplayNameChange}
+          openGrantRoute={openGrantRoute}
+          openGroupRoute={openGroupRoute}
+          organizationId={organizationId}
+          revokeGrant={revokeGrant}
+        />
+      </MiniAppTabPanel>
     </>
   );
 }

@@ -158,3 +158,85 @@ test("roster profile editing is controlled from the toolbar", async () => {
     within(toolbar).getByRole("button", { name: ORG_MANAGER_LABELS.done }),
   ).toBeTruthy();
 });
+
+test("roster detail tabs show only the selected section", async () => {
+  const view = renderUserDetailView({ canEditRosterProfile: true });
+  const tabs = view.getByRole("tablist", {
+    name: ORG_MANAGER_LABELS.rosterDetailTabsLabel,
+  });
+  const toolbar = view.getByRole("toolbar", { name: "Toolbar" });
+
+  expect(
+    within(tabs)
+      .getByRole("tab", { name: ORG_MANAGER_LABELS.profile })
+      .getAttribute("aria-selected"),
+  ).toBe("true");
+  expect(view.getByText(ORG_MANAGER_LABELS.joined)).toBeTruthy();
+  expect(view.queryByText(ORG_MANAGER_LABELS.noGroups)).toBeNull();
+
+  fireEvent.click(
+    within(tabs).getByRole("tab", { name: ORG_MANAGER_LABELS.groups }),
+  );
+  expect(view.getByRole("tabpanel").textContent).toContain(
+    ORG_MANAGER_LABELS.noGroups,
+  );
+  expect(view.queryByText(ORG_MANAGER_LABELS.joined)).toBeNull();
+  await waitFor(() => {
+    expect(
+      within(toolbar).queryByRole("button", { name: ORG_MANAGER_LABELS.edit }),
+    ).toBeNull();
+  });
+
+  fireEvent.click(
+    within(tabs).getByRole("tab", { name: ORG_MANAGER_LABELS.groupLinksTab }),
+  );
+  expect(view.getByRole("tabpanel").textContent).toContain(
+    ORG_MANAGER_LABELS.noUserContainerLinks,
+  );
+  expect(view.getByRole("tabpanel").textContent).toContain(
+    ORG_MANAGER_LABELS.noGroupContainerLinks,
+  );
+  expect(view.queryByText(ORG_MANAGER_LABELS.noGroups)).toBeNull();
+});
+
+test("a roster edit request opens the profile tab", async () => {
+  const view = renderUserDetailView({ canEditRosterProfile: true });
+  const tabs = view.getByRole("tablist", {
+    name: ORG_MANAGER_LABELS.rosterDetailTabsLabel,
+  });
+
+  fireEvent.click(
+    within(tabs).getByRole("tab", { name: ORG_MANAGER_LABELS.groups }),
+  );
+  view.rerender(
+    <UserDetailView
+      canEditRosterProfile={true}
+      canRevokeGrants={false}
+      detail={detail}
+      pending={false}
+      mutating={false}
+      onRosterProfileDisplayNameChange={() => undefined}
+      openGrantRoute={() => undefined}
+      openGroupRoute={() => undefined}
+      organizationId={detail.organizationId}
+      profileDisplayName={undefined}
+      revokeGrant={() => undefined}
+      rosterProfileEditRequestKey={1}
+      syncSeatAssigned={null}
+    />,
+  );
+
+  await waitFor(() => {
+    expect(
+      within(tabs)
+        .getByRole("tab", { name: ORG_MANAGER_LABELS.profile })
+        .getAttribute("aria-selected"),
+    ).toBe("true");
+    expect(
+      within(view.getByRole("toolbar", { name: "Toolbar" })).getByRole(
+        "button",
+        { name: ORG_MANAGER_LABELS.done },
+      ),
+    ).toBeTruthy();
+  });
+});
