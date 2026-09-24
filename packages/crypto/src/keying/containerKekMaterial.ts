@@ -1,4 +1,7 @@
-import { isSha256HexString } from "@tearleads/validators/util";
+import {
+  isSha256HexString,
+  MAX_CONTAINER_KEY_EPOCH,
+} from "@tearleads/validators/util";
 import { computeKeyingDomainHash } from "./canonical";
 import { containerKekCacheToken } from "./containerKekCacheToken";
 import {
@@ -45,7 +48,7 @@ const materialIds = new Map<
   string,
   `${typeof CONTAINER_KEK_MATERIAL_ID_PREFIX}${string}`
 >();
-const MAX_CACHED_MATERIAL_IDS = 4096;
+const MAX_CACHED_MATERIAL_IDS = MAX_CONTAINER_KEY_EPOCH;
 
 export async function computeContainerKekMaterialId(input: {
   readonly containerId: string;

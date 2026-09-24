@@ -214,7 +214,6 @@ export async function replaceBlobContentKeyTargetsForExistingBundle(input: {
 async function validateCurrentTargetsForBundle(
   input: StoreBlobContentKeyBundleInput,
   executor: DatabaseSession,
-  loadExistingBundle: () => Promise<StoredBlobContentKeyBundle | null>,
 ): Promise<CurrentBlobKekTargets> {
   ensurePositiveContentKeyEpoch(input.contentKeyEpoch);
   await assertTargetHashMatches(input);
@@ -233,14 +232,9 @@ async function validateCurrentTargetsForBundle(
     }
     throw error;
   }
-  // Current targets span every active binding of the blob, so binding a blob
-  // that another document already holds requires resubmitting that document's
-  // stored wraps, which cannot be replaced while they are active. Like the
-  // link and rewrap paths, only material that does not byte-match a stored
-  // envelope is held to the submission shape.
+  // Retained and newly wrapped targets share the same submission contract.
   assertSubmittedTargetsMatchCurrent({
     currentTargets,
-    storedTargets: (await loadExistingBundle())?.targets ?? null,
     targets: input.targets,
   });
   return currentTargets;

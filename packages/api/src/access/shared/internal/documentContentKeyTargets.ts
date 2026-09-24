@@ -94,7 +94,6 @@ export function assertStoredTargetsMatchCurrent(input: {
 
 export function assertSubmittedTargetsMatchCurrent(input: {
   readonly currentTargets: CurrentDocumentKekTargets;
-  readonly storedTargets: readonly DocumentContentKeyTargetEnvelope[] | null;
   readonly targets: readonly DocumentContentKeyTargetEnvelope[];
 }): void {
   contentKeyTargetPolicy.assertSubmittedTargetsMatchCurrent(input);

@@ -94,7 +94,6 @@ export const {
 // themselves, so nothing reads a stored target set back through this policy.
 export function assertSubmittedTargetsMatchCurrent(input: {
   readonly currentTargets: CurrentBlobKekTargets;
-  readonly storedTargets: readonly BlobContentKeyTargetEnvelope[] | null;
   readonly targets: readonly BlobContentKeyTargetEnvelope[];
 }): void {
   contentKeyTargetPolicy.assertSubmittedTargetsMatchCurrent(input);

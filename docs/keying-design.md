@@ -399,7 +399,7 @@ protocol change with no translation of earlier ids.
 
 The wrapping public-key cache is bounded to 128 entries and indexed by container
 id plus a process-local HMAC token of the key bytes. A second cache retains up to
-4,096 public material-id commitments, keyed by container, numeric epoch, and the
+65,536 public material-id commitments, keyed by container, numeric epoch, and the
 same token. Neither cache retains KEKs, private wrapping keys, or derivation
 seeds; temporary copies and token buffers are zeroized. The non-extractable HMAC
 key is generated once per process, so tokens cannot be correlated across runs.
@@ -511,12 +511,15 @@ which is one decrypt, one seal, and tens of bytes per retained epoch.
 
 The v2 material check derives an ML-KEM public key on a cache miss. A local
 1,024-epoch probe measured about 945 ms cold and 22 ms when reopening the same
-history with fresh byte arrays; the regression test requires zero additional
-key derivations on the second pass. Cold work remains linear and can take tens
-of seconds near the 65,536-epoch cap. Bounded batches prevent an unbounded burst
-of pending derivations and keep the event loop responsive. Verification before
-re-sealing is intentional: skipping unused entries would let an honest rotation
-launder poisoned history into its new signed commitment.
+history with fresh byte arrays; a 4,097-epoch regression exceeds the former
+cache capacity and requires zero additional derivations on the second pass.
+The compact commitment cache covers one full history at the protocol epoch
+cap. Interleaving histories larger than the global cache can still evict
+entries. Cold work remains linear and can take tens of seconds near the
+65,536-epoch cap. Bounded batches prevent an unbounded burst of pending
+derivations and keep the event loop responsive. Verification before re-sealing
+is intentional: skipping unused entries would let an honest rotation launder
+poisoned history into its new signed commitment.
 
 There is deliberately no depth cap and no truncation: the keyring for epoch
 `n` must contain exactly `n - 1` entries, over- and under-length payloads are
@@ -1180,3 +1183,9 @@ Deployment boundaries:
 - Regression coverage includes malicious API fixtures for forged grants,
  swapped keys, omitted targets, stale manifests, split projection rows, and
  key-epoch reuse after membership shrink.
+
+Every submitted content-key envelope uses the strict current wire shape, including
+retained envelopes on link, unlink, bind, rewrap, and sync writes. There is no
+retained-envelope validation exemption. Stored projection reads remain available
+for diagnostics, but malformed stored material cannot be resubmitted unchanged.
+This assumes the greenfield data reset; no older envelope format is supported.

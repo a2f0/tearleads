@@ -1,9 +1,9 @@
 import { expect, spyOn, test } from "bun:test";
 import { computeContainerKekMaterialId } from "./containerKekMaterial";
 
-test("reopening a 1024-epoch history reuses public commitments across byte arrays", async () => {
+test("reopening a 4097-epoch history reuses public commitments across byte arrays", async () => {
   const containerId = crypto.randomUUID();
-  const keys = Array.from({ length: 1024 }, () =>
+  const keys = Array.from({ length: 4097 }, () =>
     crypto.getRandomValues(new Uint8Array(32)),
   );
   const derivation = spyOn(crypto.subtle, "deriveBits");
@@ -18,7 +18,7 @@ test("reopening a 1024-epoch history reuses public commitments across byte array
         }),
       );
     }
-    expect(derivation).toHaveBeenCalledTimes(1024);
+    expect(derivation).toHaveBeenCalledTimes(4097);
     for (const [ordinal, keyMaterial] of keys.entries()) {
       const expected = ids[ordinal];
       if (!expected) throw new Error("Missing history commitment");
@@ -30,7 +30,7 @@ test("reopening a 1024-epoch history reuses public commitments across byte array
         }),
       ).toBe(expected);
     }
-    expect(derivation).toHaveBeenCalledTimes(1024);
+    expect(derivation).toHaveBeenCalledTimes(4097);
   } finally {
     derivation.mockRestore();
   }

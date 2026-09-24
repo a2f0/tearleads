@@ -12,11 +12,14 @@ export async function containerKekCacheToken(
   input.set(domain);
   input.set(keyMaterial, domain.length);
   try {
-    tokenKey ??= crypto.subtle.generateKey(
-      { name: "HMAC", hash: "SHA-256", length: 256 },
-      false,
-      ["sign"],
-    );
+    tokenKey ??= crypto.subtle
+      .generateKey({ name: "HMAC", hash: "SHA-256", length: 256 }, false, [
+        "sign",
+      ])
+      .catch((error: unknown) => {
+        tokenKey = undefined;
+        throw error;
+      });
     const token = new Uint8Array(
       await crypto.subtle.sign("HMAC", await tokenKey, input),
     );
