@@ -7,7 +7,10 @@ import {
 import { documentContainerProjectionTables } from "../../data/sqlite/schema";
 import { ensureSqlTables } from "../../data/sqlite/sqlSchema";
 import { discoverAllContainerDocuments } from "./documentDiscovery";
-import { nullContainerDocumentWatermarks } from "./documentDiscovery.testUtils";
+import {
+  nullContainerDocumentWatermarks,
+  pinTestDiscoveryHead,
+} from "./documentDiscovery.testUtils";
 import { createDiscoveredDocumentVerifier } from "./documentDiscoveryEvidence";
 
 const at = "2026-09-23T00:00:00.000Z";
@@ -88,6 +91,7 @@ test("matching signed heads avoid repeat fetches and changed candidates survive 
       async () => 1,
       store,
     );
+    await pinTestDiscoveryHead(execSql, "doc", "signed-head");
     const first = await verify([candidate("doc")], ["a"], await store.begin());
     expect(await store.hasPending(["a"])).toBe(true); // Local apply has not committed yet.
     expect(await first.commit()).toBe(true);
@@ -233,6 +237,7 @@ test("a local epoch advance refreshes a matching but outdated signed-head cache"
       async () => epoch,
       store,
     );
+    await pinTestDiscoveryHead(execSql, "doc", "head-1");
     const input = { ...candidate("doc"), accessStateHash: "head-1" };
     const first = await verify([input], ["a"], await store.begin());
     await first.commit();

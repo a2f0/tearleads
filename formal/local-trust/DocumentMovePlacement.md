@@ -34,7 +34,8 @@ initial purge by another client, so the passing model exercises a successful
 signed removal as well as refusal while the head still links the container.
 `StablePlacement` and `StableView` allow an empty placement only when the
 signed remote link set is empty, which represents terminal purge evidence.
-Local moves cannot start after that terminal transition. The negative control
+This model excludes new local moves after `PeerPurge`; local writes racing an
+unseen purge remain outside its scope. The negative control
 still catches an unsigned removal while the remote head links the original
 container.
 

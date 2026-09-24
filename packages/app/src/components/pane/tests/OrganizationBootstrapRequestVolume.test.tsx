@@ -52,13 +52,14 @@ test(
       budget: {
         // Root acknowledgement and verified adoption can each schedule a
         // root-lane pass; signed destination reads remain bounded at four.
-        total: 29,
+        total: 30,
         byRequest: {
           "GET /containers/:containerId/documents": 5,
           "POST /documents/:documentId/sync": 8,
           "POST /containers/parent-lanes/query": 5,
           "GET /containers/:containerId/writer-projection": 4,
-          "GET /documents/:documentId/writer-projection": 1,
+          // Discovery verifies the signed placement of each new document.
+          "GET /documents/:documentId/writer-projection": 2,
           "GET /organizations/:organizationId/billing": 1,
           "POST /auth/register": 1,
           "POST /auth/verify": 1,
@@ -111,8 +112,10 @@ test(
       },
       mutations: [{ method: "POST", path: /^\/organizations$/u, count: 1 }],
       budget: {
-        total: 8,
+        total: 9,
         byRequest: {
+          // The new organization metadata document needs signed discovery evidence.
+          "GET /documents/:documentId/writer-projection": 1,
           "GET /containers/:containerId/documents": 4,
           "GET /organizations/:organizationId/billing": 1,
           "GET /organizations/:organizationId/read-model": 1,

@@ -28,6 +28,7 @@ import {
 import { recoverRegisteredRootKek } from "../../../test/helpers/registeredRootKek";
 import { grantRootThroughRotatedReadGroup } from "../../../test/helpers/rotatedReadGroupGrant";
 import { routeApp } from "../../routeApp";
+import { requireDirectOrganizationAccess } from "../../workflows/organizations/access";
 
 async function expectBundle(response: Response): Promise<void> {
   expect(response.status, await response.clone().text()).toBe(200);
@@ -197,4 +198,14 @@ test("an authorized policy with a missing stored payload is a server failure", a
     .where(eq(principalStatePayloads.principalId, adminGroupId));
   const response = await getPolicy(owner, "group", adminGroupId);
   expect(response.status).toBe(500);
+  await expect(
+    requireDirectOrganizationAccess({
+      executor: db,
+      organizationId,
+      userId: owner.userId,
+    }),
+  ).rejects.toMatchObject({
+    status: 409,
+    message: "Organization access policy failed integrity verification",
+  });
 });

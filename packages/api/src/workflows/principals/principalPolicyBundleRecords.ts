@@ -14,6 +14,7 @@ import {
   type StoredPrincipalState,
 } from "../../access/read/principalStateStore";
 import {
+  PrincipalPolicyError,
   toCurrentPrincipalMemberEnvelopesResponse,
   toPrincipalStatePayloadResponse,
   toPrincipalStateResponse,
@@ -51,7 +52,7 @@ export async function buildPrincipalPolicyForStateWithExecutor(
     executor,
   );
   if (!currentPayload) {
-    throw new Error("Principal state payload not found");
+    throw new PrincipalPolicyError("Principal state payload not found", 500);
   }
   const currentProjection = await listProjectionMembersForState(
     principalType,

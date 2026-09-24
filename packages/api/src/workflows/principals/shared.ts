@@ -16,7 +16,7 @@ import type { ContainerMutationError } from "../containers/mutations/errors";
 export class PrincipalPolicyError extends Error {
   constructor(
     message: string,
-    readonly status: 400 | 403 | 404 | 409 | 503,
+    readonly status: 400 | 403 | 404 | 409 | 500 | 503,
     readonly code?: BillingErrorCode,
     /**
      * Present when a rematerialized rotation would strand a level above a

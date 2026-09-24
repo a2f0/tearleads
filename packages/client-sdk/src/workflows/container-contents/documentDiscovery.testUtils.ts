@@ -1,4 +1,8 @@
 import type { DiscoveredDocumentCandidate } from "../../data/persistence/documents/documentDiscoveryEvidencePersistence";
+import { upsertAccessManifestCheckpointInTransaction } from "../../data/persistence/keyingCheckpointPersistence";
+import { keyingCheckpointTables } from "../../data/sqlite/schema";
+import { getClientSQLitePersistenceRuntime } from "../../data/sqlite/sqlitePersistenceRuntime";
+import { type ExecSql, ensureSqlTables } from "../../data/sqlite/sqlSchema";
 import type {
   ContainerDocumentDiscoveryApi,
   ContainerDocumentPlacement,
@@ -70,4 +74,23 @@ export function createDiscoveryParentLaneBatchMock(
     }
     return { results };
   };
+}
+
+export async function pinTestDiscoveryHead(
+  execSql: ExecSql,
+  documentId: string,
+  manifestHash: string,
+) {
+  await ensureSqlTables(execSql, keyingCheckpointTables);
+  await upsertAccessManifestCheckpointInTransaction(
+    getClientSQLitePersistenceRuntime(execSql).db,
+    {
+      objectKind: "document",
+      organizationId: "org",
+      objectId: documentId,
+      epoch: 1,
+      manifestHash,
+    },
+    "2026-09-23T00:00:00.000Z",
+  );
 }

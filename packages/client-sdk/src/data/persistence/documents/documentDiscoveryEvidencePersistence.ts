@@ -5,7 +5,10 @@ import {
   documentDiscoverySequence,
   pendingDocumentDiscoveries,
 } from "../../sqlite/documentDiscoveryEvidenceSchema";
-import { documentContainerProjectionTables } from "../../sqlite/schema";
+import {
+  accessManifestCheckpoints,
+  documentContainerProjectionTables,
+} from "../../sqlite/schema";
 import { getClientSQLitePersistenceRuntime } from "../../sqlite/sqlitePersistenceRuntime";
 import {
   type ExecSql,
@@ -279,6 +282,25 @@ class SqlDocumentDiscoveryEvidenceStore
         ),
       )
       .limit(1);
+    // A different verifier (for example tombstone removal) can advance the
+    // signed checkpoint without updating documents.accessEpoch or this cache.
+    // Missing or ambiguous pins also require full projection verification.
+    const checkpoints = await db
+      .select()
+      .from(accessManifestCheckpoints)
+      .where(
+        and(
+          eq(accessManifestCheckpoints.objectKind, "document"),
+          eq(accessManifestCheckpoints.objectId, documentId),
+        ),
+      )
+      .limit(2);
+    if (
+      checkpoints.length !== 1 ||
+      checkpoints[0]?.manifestHash !== row?.manifestHash ||
+      checkpoints[0]?.epoch !== row?.accessEpoch
+    )
+      return null;
     return row
       ? {
           accessEpoch: row.accessEpoch,

@@ -4,7 +4,7 @@ import {
   type OrganizationReadModelErrorCode,
 } from "@tearleads/validators/response";
 
-type OrganizationManagerErrorStatus = 400 | 403 | 404 | 409 | 503;
+type OrganizationManagerErrorStatus = 400 | 403 | 404 | 409 | 500 | 503;
 
 export class OrganizationManagerError extends Error {
   constructor(
