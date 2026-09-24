@@ -77,15 +77,16 @@ export function OrganizationView({
         className="org-manager-detail-tab-panel"
         idPrefix={idPrefix}
       >
-        {activeTab === "profile" ? (
+        <div hidden={activeTab !== "profile"}>
           <OrganizationProfileEditor
             canEdit={directory?.currentUser.isOrgAdmin ?? false}
+            key={organizationId}
             onNameChange={setOrganizationName}
             organizationId={organizationId}
             pending={pending}
             profileDocumentId={directory?.profileDocumentId ?? null}
           />
-        ) : null}
+        </div>
         {activeTab === "policy-history" ? (
           <PolicyHistorySection
             directory={directory}
