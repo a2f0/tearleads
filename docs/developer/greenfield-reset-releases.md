@@ -12,8 +12,12 @@ Read [desktop packaging](../../packages/app-electrobun/README.md),
 wrappers. Resolve tooling from `.mise.toml` and verify the processes actually
 use it: Bun, Ruby, Bundler/Fastlane, Java, Xcode, and Docker where applicable.
 Check `bundle check` in the native package's documented context. Check signing
-assets, Apple API credentials, Google Play service account and track access,
-Sentry source-map upload credentials, and both selected download buckets.
+assets and authenticated read access to the Match repository, Apple API
+credentials, Google Play service account and track access,
+Sentry source-map upload credentials, and both selected download buckets. Match
+preflight must use the configured release authentication, including
+`MATCH_GIT_BASIC_AUTHORIZATION` when set; an unauthenticated `git ls-remote`
+is not an equivalent probe. Keep authorization out of logs and command arguments.
 
 If Bundler resolves a different Ruby from `mise which ruby`, prepend the
 directories returned by `mise which ruby` and `mise which bun` to this run's
@@ -28,27 +32,49 @@ targets must be rebuilt to restore a common revision.
 
 ## Required matrix
 
-Run each selected tier's wrappers from the repository root with no positional
-tier argument. The wrappers build fresh artifacts before uploading.
+Run macOS, Linux, and mobile wrappers from the repository root without a
+positional tier argument; they build fresh artifacts before uploading. Windows
+uses the separate Actions build and local publication workflow below.
 
 | Target | Staging script | Production script | Current destination |
 | --- | --- | --- | --- |
 | macOS ARM64 | `scripts/uploadMacosStagingRelease.sh` | `scripts/uploadMacosRelease.sh` | Signed/notarized DMG and update archive in tier's S3 download bucket |
 | Linux x64 | `scripts/uploadLinuxStagingRelease.sh` | `scripts/uploadLinuxRelease.sh` | Tested installer and update archive in tier's S3 download bucket |
+| Windows x64 | `scripts/windowsRelease.sh upload staging RUN_ID` | `scripts/windowsRelease.sh upload production RUN_ID` | Verified Actions ZIP and update archive in tier's S3 download bucket |
 | iOS | `scripts/uploadIosStagingRelease.sh` | `scripts/uploadIosRelease.sh` | TestFlight internal |
 | Android | `scripts/uploadAndroidStagingRelease.sh` | `scripts/uploadAndroidRelease.sh` | Google Play internal |
 
 Verify the current store lane settings before upload and report their actual
 destinations. “Production app” describes the app identity; it does not request
 a public store rollout. If a new supported target has acquired a release wrapper,
-include it or report the scope decision. The current desktop wrappers publish
-macOS ARM64 and Linux x64; they do not publish a Windows installer.
+include it or report the scope decision. The current desktop targets are
+macOS ARM64, Linux x64, and Windows x64.
 
 `scripts/deployEverything.sh` deploys both environments and uploads both mobile
 tiers, but omits desktop uploads. `scripts/uploadAllReleases.sh` currently
 uploads only production mobile builds and redeploys web artifacts for both tiers.
 Neither script alone completes this matrix. Prefer individual tier deployments
 before store uploads so both environments regain service sooner.
+
+## Windows build and publication
+
+Dispatch `electrobun-windows.yml` at a pushed ref resolving to the frozen SHA,
+with `tier=staging`, `production`, or `both`. Record the run ID and verify its
+`headSha` before publication. The workflow runs CEF persistence and installer
+checks; successful builds alone do not publish a release.
+
+After the run succeeds, use `scripts/windowsRelease.sh download <tier> RUN_ID`
+and `upload <tier> RUN_ID` from the clean frozen checkout. These helpers verify
+the workflow, tier, source revision, and payload checksums; upload also publishes
+source maps. Artifacts live under
+`packages/app-electrobun/build/win-x64/<tier>/<commit>/`. Read the current
+[Windows release instructions](../../packages/app-electrobun/README.md#windows-releases-from-github-actions)
+for artifact retention and installer signing status.
+
+If a job fails, inspect its logs before retrying. A transient runner failure can
+be retried with `gh run rerun RUN_ID --failed`; retain successful jobs from the
+same revision and require the resulting run to succeed. A reproducible source
+failure requires a reviewed repair and a recorded release revision change.
 
 ## Scheduling and resumability
 
@@ -64,6 +90,10 @@ before store uploads so both environments regain service sooner.
 - Keep separate logs, exit statuses, source SHA, and artifact/build identities
   for every matrix cell. `tee` requires `pipefail` or explicit child-status
   capture. Skip a completed cell only after reading back the same publication.
+- Serialize Google Play uploads and track readback for the same app. The Play
+  client reads tracks through an edit transaction; opening another edit during
+  upload can invalidate the publisher's edit. Wait for the upload to exit before
+  querying tracks, including in independent store-verification helpers.
 - Mobile root wrappers replace any supplied `IOS_RELEASE_BUILD_NUMBER_FILE` or
   `ANDROID_RELEASE_BUILD_NUMBER_FILE`. Capture the final `Build number: <n>`
   output; do not depend on passing a filename through them. If number capture
@@ -79,7 +109,10 @@ before store uploads so both environments regain service sooner.
 
 An `errSecInternalComponent` failure may mean this tool session cannot use the
 signing key even when it is unlocked. Inspect the signing failure; the OS log
-may report `CSSMERR_CSP_NO_USER_INTERACTION`. The existing
+may report `CSSMERR_CSP_NO_USER_INTERACTION`. First repeat a minimal signing and
+verification probe on a private disposable binary in the owner's Terminal. If
+that works, run the release there without changing keychain permissions. The
+existing
 `scripts/keychain/authorizeCodesignPartitionList.sh` requires the owner's
 interactive Terminal. Never request or capture a keychain password in chat.
 
@@ -106,8 +139,8 @@ independent targets.
    where configured, and their packaging/install/persistence checks passed.
    Success in a build phase does not establish successful publication.
 2. Fetch each tier's `canary` (staging) or `stable` (production) discovery JSON
-   for both `macos-arm64` and `linux-x64`. Resolve public bucket endpoints from
-   the release scripts; currently they are
+   for `macos-arm64`, `linux-x64`, and `win-x64`. Resolve public bucket endpoints
+   from the release scripts; currently they are
    `https://s3.us-east-1.amazonaws.com/<bucket>/`. The bucket names themselves
    need not have DNS records.
 3. Validate each discovery document names a matching immutable installer and
@@ -122,11 +155,11 @@ independent targets.
 5. Read back Apple processing and internal-testing availability, not just upload
    acceptance. Query Google Play's selected track and confirm its exact version
    code. Wait for processing/visibility without re-uploading while pending.
-6. After both desktop releases for a tier, run
+6. After all three desktop releases for a tier, run
    `scripts/deployStagingWebsite.sh` or `scripts/deployProductionWebsite.sh`.
    Website download links are resolved at build time and may silently use an old
    offline fallback if discovery fails. Parse the served HTML and require the
-   exact current installer and checksum links for both desktop platforms.
+   exact current installer and checksum links for all three desktop platforms.
 
 ## Environment and fresh-client checks
 
@@ -135,7 +168,11 @@ including additional configured demo domains. Verify HTTP success and expected
 content for each selected tier. Use the repository's normal HTTP tooling. If
 one client receives a CDN rejection, compare with another client and inspect
 the response before treating it as an origin outage; do not change protection
-rules merely to satisfy a probe.
+rules merely to satisfy a probe. Recreated DNS can remain negatively cached by
+local resolvers. Compare authoritative/public DNS with the system resolver; a
+scoped `curl --resolve` or browser host-resolver rule can verify the new endpoint
+while retaining hostname and TLS checks. Record that workaround and repeat the
+normal-resolver check after caches recover; do not alter unrelated DNS settings.
 
 With isolated fresh profiles and disposable identities in the reset's authorized
 test scope, verify registration/login, creation of a container and document,
@@ -145,6 +182,15 @@ rows directly or weaken signed-artifact validation. Clean up only the test data
 created by this run through supported deletion, and report any residue. If live
 account creation is outside the selected scope, report that functional check as
 not performed; HTTP checks alone are not an end-to-end sync test.
+
+The current fresh web profile registers automatically. For recovery into the
+second profile, wait for the explicit recovery-complete state before navigating
+away. Wait for the note and blob to arrive before downloading. For cleanup, move
+the test folder to Trash and use Delete Forever; wait for purge completion before
+closing its progress dialog. Account identities and system metadata may remain
+when the app has no account-deletion flow. Purged blobs also remain until the
+normal GC grace period expires; report both residues without shortening retention
+or deleting objects directly.
 
 Verify old server sessions are refused where a safely held test token permits,
 and that production and staging point to different databases/blob buckets and

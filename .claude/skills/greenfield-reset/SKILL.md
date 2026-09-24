@@ -68,7 +68,7 @@ request a reset.
    rules in the release runbook. Preserve the frozen source revision throughout.
    Record real exit statuses, installer hashes, and resolved store build numbers.
    Wait for notarization and store processing; a quiet log alone is not failure.
-5. **Refresh and verify.** Redeploy each website after both desktop uploads.
+5. **Refresh and verify.** Redeploy each website after all desktop uploads.
    Verify public installer bytes against this run's builds, current website
    links, store acceptance, API/web/demo health, and the scoped functional smoke
    checks. Review leftover resources and restored production protections.
