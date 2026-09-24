@@ -4,6 +4,8 @@ import {
   type MouseEvent as ReactMouseEvent,
   type PointerEvent as ReactPointerEvent,
   useCallback,
+  useEffect,
+  useRef,
 } from "react";
 import { ROUTED_MINI_APP_NAV_ITEMS } from "../../../mini-apps/registry";
 import type { MiniAppId } from "../../../mini-apps/types";
@@ -11,6 +13,7 @@ import { useVisibleMiniAppItems } from "../../../mini-apps/useVisibleMiniAppItem
 import { useAppNavigationActions } from "../../../navigation/AppNavigationProvider";
 import type { RoutedLayoutTier } from "../../../navigation/useRoutedLayoutTier";
 import { classNames } from "../../shared/classNames";
+import type { LauncherPlacement } from "./LauncherPlacement";
 import { useMobileSheetDrag } from "./useMobileSheetDrag";
 import "./RoutedPaneNav.css";
 
@@ -167,7 +170,7 @@ function RoutedPaneMobileNavTile({
 }
 
 /**
- * The mobile bottom-sheet navigation: every routed mini-app as a grid of square
+ * The bottom-sheet navigation: every routed mini-app as a grid of square
  * icon-and-label tiles (styled after Explorer's New Document screen). Like the
  * tablet rail it carries no system or per-app contextual actions — the sheet is
  * a pure launcher. Selecting a tile navigates and dismisses.
@@ -226,30 +229,48 @@ function RoutedPaneMobileSheetHandle({
 
 /**
  * The navigation surface in its tier-appropriate container: a persistent
- * `<aside>` rail on tablet, or a bottom sheet of launcher tiles (plus dismiss
- * scrim) on mobile.
+ * `<aside>` rail in tablet side mode, or a bottom sheet of launcher tiles (plus
+ * dismiss scrim) on mobile and in tablet bottom mode.
  */
 export function RoutedPaneNav({
   activeAppId,
   drawerOpen,
+  launcherPlacement,
   onCloseDrawer,
+  onNavigateRail,
   onToggleRail,
   railExpanded,
   tier,
 }: {
   activeAppId: MiniAppId;
   drawerOpen: boolean;
+  launcherPlacement: LauncherPlacement;
   onCloseDrawer: () => void;
+  onNavigateRail: () => void;
   onToggleRail: () => void;
   railExpanded: boolean;
   tier: RoutedLayoutTier;
 }) {
+  const sheetRef = useRef<HTMLElement>(null);
+  useEffect(() => {
+    if (drawerOpen && (tier === "mobile" || launcherPlacement === "bottom")) {
+      const sheet = sheetRef.current;
+      const tile = sheet?.querySelector<HTMLElement>(
+        '.routed-pane-sheet-tile[aria-current="page"]',
+      );
+      (
+        tile ?? sheet?.querySelector<HTMLElement>(".routed-pane-sheet-tile")
+      )?.focus();
+    }
+  }, [drawerOpen, launcherPlacement, tier]);
+
   const mobileSheetDrag = useMobileSheetDrag({
-    drawerOpen: tier === "mobile" && drawerOpen,
+    drawerOpen:
+      (tier === "mobile" || launcherPlacement === "bottom") && drawerOpen,
     onClose: onCloseDrawer,
   });
 
-  if (tier === "tablet") {
+  if (tier === "tablet" && launcherPlacement === "side") {
     return (
       <aside
         className={classNames(
@@ -263,7 +284,7 @@ export function RoutedPaneNav({
           <RoutedPaneNavPanel
             activeAppId={activeAppId}
             id={ROUTED_PANE_NAV_PANEL_ID}
-            onNavigate={onCloseDrawer}
+            onNavigate={onNavigateRail}
           />
         )}
       </aside>
@@ -283,6 +304,7 @@ export function RoutedPaneNav({
       <aside
         aria-hidden={!drawerOpen}
         className="routed-pane-sheet"
+        ref={sheetRef}
         data-dragging={mobileSheetDrag.dragging ? "true" : "false"}
         data-open={drawerOpen ? "true" : "false"}
         id="routed-pane-sheet"

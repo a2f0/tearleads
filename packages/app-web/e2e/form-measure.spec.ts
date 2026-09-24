@@ -1,5 +1,6 @@
 import { expect, type Page, test } from "@playwright/test";
 import { measureAttached } from "./domMeasure";
+import { openWindowedDesktop } from "./windowedDesktop";
 
 /*
  * Geometry for the form measure (`--form-measure`, packages/ui/src/styles.css).
@@ -70,7 +71,7 @@ async function readColumnGeometry(page: Page): Promise<ColumnGeometry> {
 // entry.
 test("windowed form column stops at the measure", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1200 });
-  await page.goto("/");
+  await openWindowedDesktop(page);
 
   const pane = page.locator(".pane:not(.pane-hidden)").first();
   await expect(pane).toBeVisible({ timeout: 30_000 });
@@ -161,7 +162,7 @@ test("tablet passport image stops at the measure", async ({ page }) => {
  * one every future form will rely on.
  */
 test("a field caps itself inside an uncapped panel", async ({ page }) => {
-  // 1000px is still the routed shell (MOBILE_BREAKPOINT_PX is 1024) and leaves
+  // 1000px uses the routed tablet shell and leaves
   // the parent comfortably clear of the cap; at 900px the rail and the contacts
   // sidebar eat into it until the margin is thin enough that a chrome tweak
   // would read as a failure of the measure.

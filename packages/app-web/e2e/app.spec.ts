@@ -1,4 +1,8 @@
 import { expect, type Locator, type Page, test } from "@playwright/test";
+import {
+  openWindowedDesktop,
+  switchToWindowedDesktop,
+} from "./windowedDesktop";
 
 const SQLITE_READY_PATTERN = /SQLite Worker:\s*ready/u;
 const PUBLIC_KEY_PATTERN = /Public Key:\s*([0-9a-f]{64})/u;
@@ -145,6 +149,34 @@ async function panePublicKey(pane: Locator): Promise<string> {
   return match[1];
 }
 
+test("desktop opens in tablet mode and the window toggle still works", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/");
+
+  await expect(page.locator(".routed-pane--tablet")).toBeVisible();
+  await switchToWindowedDesktop(page);
+  await expect(page.locator(".layout--routed")).toHaveCount(0);
+  await page.reload();
+  await expect(page.locator(".pane:not(.pane-hidden)").first()).toBeVisible();
+  await page.setViewportSize({ width: 900, height: 900 });
+  await expect(page.locator(".routed-pane--tablet")).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Switch to windowed layout" }),
+  ).toHaveCount(0);
+  await page.reload();
+  await expect(page.locator(".routed-pane--tablet")).toBeVisible();
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await expect(page.locator(".pane:not(.pane-hidden)").first()).toBeVisible();
+  await page
+    .getByRole("button", { name: "Switch to iPad / mobile layout" })
+    .click();
+  await expect(page.locator(".routed-pane--tablet")).toBeVisible();
+  await page.reload();
+  await expect(page.locator(".routed-pane--tablet")).toBeVisible();
+});
+
 test("page loads", async ({ page }) => {
   const sqliteWarnings: string[] = [];
   page.on("console", (message) => {
@@ -154,7 +186,7 @@ test("page loads", async ({ page }) => {
     }
   });
 
-  await page.goto("/");
+  await openWindowedDesktop(page);
 
   await expect(page).toHaveTitle("App");
   const firstVisiblePane = visiblePane(page);
@@ -208,7 +240,7 @@ test("windowed Back unwinds an Explorer window's route stack", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 1400, height: 900 });
-  await page.goto("/");
+  await openWindowedDesktop(page);
 
   const pane = visiblePane(page);
   await expect(pane).toBeVisible({ timeout: 30_000 });
@@ -258,7 +290,7 @@ test("a deep-linked window's fallback Back does not stack a loop", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 1400, height: 900 });
-  await page.goto("/");
+  await openWindowedDesktop(page);
 
   await expect(visiblePane(page)).toBeVisible({ timeout: 30_000 });
   const syncIndicator = page
@@ -293,7 +325,7 @@ test("SQLite tables survive a hard reload", async ({ page }) => {
   // Regression coverage for persistent OPFS-SAHPool reloads: the restored
   // identity must reopen its existing SQLite tables, not race a hidden pane or
   // fall back to a fresh empty database.
-  await page.goto("/");
+  await openWindowedDesktop(page);
 
   const pane = visiblePane(page, "left");
   await generateKeyPair(page, pane);
@@ -304,6 +336,7 @@ test("SQLite tables survive a hard reload", async ({ page }) => {
   const publicKey = await panePublicKey(pane);
 
   await page.reload({ waitUntil: "domcontentloaded" });
+  await switchToWindowedDesktop(page);
 
   const reloadedPane = visiblePane(page, "left");
   await waitForPaneBooted(reloadedPane);
@@ -329,7 +362,7 @@ test("killed worker does not poison a hard reload", async ({ page }) => {
   // Capture the browser worker before boot so this recovery test can still
   // simulate an unexpected termination without restoring that UI action.
   await captureWorkersForTermination(page);
-  await page.goto("/");
+  await openWindowedDesktop(page);
 
   const pane = visiblePane(page, "left");
   await generateKeyPair(page, pane);
@@ -342,6 +375,7 @@ test("killed worker does not poison a hard reload", async ({ page }) => {
   // Restore once before forcing the crash so the assertion isolates worker
   // termination from the independent first-generation persistence race.
   await page.reload({ waitUntil: "domcontentloaded" });
+  await switchToWindowedDesktop(page);
   const restoredPane = visiblePane(page, "left");
   await waitForPaneBooted(restoredPane);
   await expect
@@ -350,6 +384,7 @@ test("killed worker does not poison a hard reload", async ({ page }) => {
 
   await terminateLatestWorker(page);
   await page.reload({ waitUntil: "domcontentloaded" });
+  await switchToWindowedDesktop(page);
 
   const reloadedPane = visiblePane(page, "left");
   await waitForPaneBooted(reloadedPane);
@@ -362,7 +397,7 @@ test("same persisted identity can boot in two tabs", async ({
   context,
   page,
 }) => {
-  await page.goto("/");
+  await openWindowedDesktop(page);
 
   const firstPane = visiblePane(page, "left");
   await generateKeyPair(page, firstPane);
@@ -370,7 +405,7 @@ test("same persisted identity can boot in two tabs", async ({
   const publicKey = await panePublicKey(firstPane);
 
   const secondPage = await context.newPage();
-  await secondPage.goto("/");
+  await openWindowedDesktop(secondPage);
 
   const secondPane = visiblePane(secondPage, "left");
   await waitForPaneBooted(secondPane);
@@ -395,7 +430,7 @@ test("the container header kebab reaches the current folder's actions", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 1400, height: 900 });
-  await page.goto("/");
+  await openWindowedDesktop(page);
 
   const pane = visiblePane(page);
   await expect(pane).toBeVisible({ timeout: 30_000 });

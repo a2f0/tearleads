@@ -1,10 +1,33 @@
 import { expect, test } from "@playwright/test";
+import { openWindowedDesktop } from "./windowedDesktop";
+
+test("bottom launcher closes with Escape and returns focus to Menu", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/");
+  await page.getByRole("button", { name: "Move launcher to bottom" }).click();
+  const menu = page.getByRole("button", { name: "Menu", exact: true });
+  await menu.focus();
+  await page.keyboard.press("Enter");
+  await expect(page.locator(".routed-pane-sheet")).toHaveAttribute(
+    "data-open",
+    "true",
+  );
+  await expect(page.locator(".routed-pane-sheet-tile:focus")).toHaveCount(1);
+  await page.keyboard.press("Escape");
+  await expect(page.locator(".routed-pane-sheet")).toHaveAttribute(
+    "data-open",
+    "false",
+  );
+  await expect(menu).toBeFocused();
+});
 
 test("desktop launcher supports keyboard selection, dismissal and taskbar state", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
-  await page.goto("/");
+  await openWindowedDesktop(page);
   const launcher = page
     .locator(".pane:not(.pane-hidden) .pane-footer-menu-button")
     .first();
@@ -50,7 +73,7 @@ test("Tab leaves a popover through its trigger without cycling through a closed 
   page,
 }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
-  await page.goto("/");
+  await openWindowedDesktop(page);
   const launcher = page
     .locator(".pane:not(.pane-hidden) .pane-footer-menu-button")
     .first();

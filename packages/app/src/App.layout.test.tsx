@@ -50,6 +50,22 @@ test("normal App omits global chrome and keeps the lower layout switch", () => {
   view.unmount();
 });
 
+test("desktop App defaults to the tablet shell and can switch to windows", () => {
+  const view = render(
+    <App hostConfig={createTestAppHostConfig({ navigationMode: undefined })} />,
+  );
+
+  expect(view.container.querySelector(".layout--routed")).toBeTruthy();
+  fireEvent.click(
+    view.getByRole("button", { name: "Switch to windowed layout" }),
+  );
+  expect(view.container.querySelector(".layout--routed")).toBeNull();
+  expect(
+    view.getByRole("button", { name: "Switch to iPad / mobile layout" }),
+  ).toBeTruthy();
+  view.unmount();
+});
+
 test("mobile routed App omits the global frame header", () => {
   const originalMatchMedia = window.matchMedia;
 
@@ -97,6 +113,41 @@ test("demo App starts split without global header controls", () => {
   expect(view.queryByRole("button", { name: "Hide Peer" })).toBeNull();
   expect(view.queryByRole("button", { name: "Show Peer" })).toBeNull();
   view.unmount();
+});
+
+test("demo App defaults to its peer split on desktop", () => {
+  const originalWidth = window.innerWidth;
+  const originalMatchMedia = window.matchMedia;
+  Reflect.set(window, "innerWidth", 1440);
+  window.matchMedia = ((query: string) => ({
+    addEventListener: () => {},
+    addListener: () => {},
+    dispatchEvent: () => false,
+    matches: false,
+    media: query,
+    onchange: null,
+    removeEventListener: () => {},
+    removeListener: () => {},
+  })) as unknown as typeof window.matchMedia;
+
+  try {
+    const view = render(
+      <App
+        hostConfig={createTestAppHostConfig({
+          navigationMode: undefined,
+          profile: APP_HOST_PROFILES.demo,
+        })}
+      />,
+    );
+
+    expect(
+      view.container.querySelector(".layout--demo-peer-split"),
+    ).toBeTruthy();
+    view.unmount();
+  } finally {
+    Reflect.set(window, "innerWidth", originalWidth);
+    window.matchMedia = originalMatchMedia;
+  }
 });
 
 test("switching workspaces shares one identity database instead of booting a second", async () => {

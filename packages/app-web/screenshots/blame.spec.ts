@@ -366,6 +366,9 @@ async function openRoutedDocumentBlame(
 }
 
 async function switchToWindowed(page: Page): Promise<void> {
+  if (await activePane(page, "left").isVisible()) {
+    return;
+  }
   await page
     .getByRole("button", { name: "Switch to windowed layout", exact: true })
     .click();
@@ -442,8 +445,8 @@ test("capture two-peer note blame", async ({ page }, testInfo) => {
     undefined,
     { timeout: 30_000 },
   );
+  await switchToWindowed(page);
   if (layout !== "web") {
-    await switchToWindowed(page);
     await page.setViewportSize(SETUP_VIEWPORT);
   }
 

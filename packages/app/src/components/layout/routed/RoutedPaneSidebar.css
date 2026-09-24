@@ -21,6 +21,11 @@
   flex-shrink: 0;
 }
 
+.routed-pane--tablet[data-launcher-placement="bottom"] .routed-pane-sidebar {
+  width: calc(var(--routed-rail-width) + var(--safe-area-left));
+  padding-inline-start: var(--safe-area-left);
+}
+
 /* The drawer slides in from the leading edge, matching the app bar's sidebar
    toggle (and the tablet tier's rail-side sidebar column). */
 .routed-pane--mobile .routed-pane-sidebar {

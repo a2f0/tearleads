@@ -1,4 +1,5 @@
 import { expect, type Locator, type Page, test } from "@playwright/test";
+import { openWindowedDesktop } from "./windowedDesktop";
 
 function visiblePane(page: Page): Locator {
   return page.locator(".pane:not(.pane-hidden)").first();
@@ -29,7 +30,7 @@ test("a short System Monitor window scrolls its table tabs", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 1400, height: 900 });
-  await page.goto("/");
+  await openWindowedDesktop(page);
 
   const pane = visiblePane(page);
   await expect(pane).toBeVisible({ timeout: 30_000 });

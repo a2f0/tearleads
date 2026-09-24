@@ -28,7 +28,7 @@ export default defineConfig({
   },
   projects: [
     {
-      // Desktop / windowed layout (viewport >= 1024px).
+      // Desktop / windowed capture; the screenshot helper selects windowed mode.
       name: "web",
       metadata: { screenshotApiBaseUrl: WEB_API_BASE_URL },
       testMatch: "**/capture.spec.ts",
@@ -139,7 +139,7 @@ export default defineConfig({
     },
     {
       command:
-        "APP_WEB_PORT=32101 BUN_PUBLIC_API_BASE_URL=http://127.0.0.1:32003 BUN_PUBLIC_APP_VARIANT=demo bun src/servers/e2eServer.ts",
+        "APP_WEB_PORT=32101 BUN_PUBLIC_API_BASE_URL=http://127.0.0.1:32003 BUN_PUBLIC_APP_VARIANT=demo BUN_PUBLIC_NAVIGATION_MODE=windowed bun src/servers/e2eServer.ts",
       url: COLLABORATION_APP_BASE_URL,
       reuseExistingServer: false,
       stdout: "pipe",

@@ -7,6 +7,7 @@ import {
   clearStaleLocalState,
   disableAnimations,
   openWindowedApp,
+  preferWindowedScreenshotLayout,
   setStoredTheme,
   visiblePane,
   waitForBooted,
@@ -401,6 +402,9 @@ async function applyTheme(page: Page, theme: string): Promise<void> {
 
 test("capture screenshots", async ({ page }, testInfo) => {
   const project = testInfo.project.name;
+  if (project === "web") {
+    preferWindowedScreenshotLayout(page);
+  }
   const projectDir = path.join(REPO_ROOT, ".screenshots", project);
   const { screenshotApiBaseUrl } = testInfo.project.metadata;
   if (typeof screenshotApiBaseUrl !== "string") {

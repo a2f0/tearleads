@@ -13,17 +13,36 @@ const DISABLE_ANIMATIONS_CSS = `
   }
 `;
 
+const windowedScreenshotPages = new WeakSet<Page>();
+
+export function preferWindowedScreenshotLayout(page: Page): void {
+  windowedScreenshotPages.add(page);
+}
+
 export function visiblePane(page: Page): Locator {
   return page.locator(".pane:not(.pane-hidden)").first();
 }
 
 export async function waitForBooted(page: Page): Promise<void> {
-  // Windowed shell mounts `.pane`; the routed (mobile) shell mounts
+  // Windowed shell mounts `.pane`; the routed (tablet/mobile) shell mounts
   // `.routed-pane`. Either means the app tree has rendered.
   await page
     .locator(".pane:not(.pane-hidden), .routed-pane")
     .first()
     .waitFor({ state: "visible", timeout: 60_000 });
+
+  if (
+    windowedScreenshotPages.has(page) &&
+    !(await page.locator(".pane:not(.pane-hidden)").first().isVisible())
+  ) {
+    await page
+      .getByRole("button", { name: "Switch to windowed layout" })
+      .click();
+    await page
+      .locator(".pane:not(.pane-hidden)")
+      .first()
+      .waitFor({ state: "visible", timeout: 30_000 });
+  }
 
   // Best-effort: let initial asset loads and any host-enabled identity autopilot
   // work settle. Never block on background network activity.

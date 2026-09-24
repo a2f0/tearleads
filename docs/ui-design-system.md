@@ -11,28 +11,30 @@ The app renders one React tree with two interchangeable shells, selected by
 `packages/app/src/navigation/AppNavigationMode.ts`:
 
 - **windowed** — the desktop window-manager UI (`components/window/*`,
-  `components/pane/*`). Active at or above 1024px with a fine pointer.
-- **routed** — the single-pane touch UI (`components/layout/routed/*`). Active
-  below 1024px, on any coarse-pointer device, and on iPad-like environments
-  (`isIPadLikeEnvironment` matches iPad UAs and Macs with touch points, so an
-  iPad running a desktop-class browser still gets the touch shell).
+  `components/pane/*`). Available through the lower-right layout switch.
+- **routed** — the single-pane UI (`components/layout/routed/*`). The default
+  on desktop, iPad, and phone. The two-peer demo keeps its windowed split on
+  wide desktop screens.
 
 Inside the routed shell there are two tiers, split at 760px:
 
 - **mobile** (< 760px) — top app bar, bottom taskbar, slide-in per-app sidebar
   drawer, bottom-sheet app launcher.
-- **tablet** (>= 760px) — persistent left nav rail beside the content (the iPad
-  layout), same app bar and taskbar.
+- **tablet** (>= 760px) — an app bar and taskbar with a launcher that opens in
+  the left rail by default. The app bar control can move that launcher to a
+  bottom sheet, freeing the rail's width for content.
 
-Breakpoint constants live in one place:
-`packages/app/src/navigation/breakpoints.ts` (`MOBILE_BREAKPOINT_PX = 1024`,
-`ROUTED_TABLET_BREAKPOINT_PX = 760`). CSS cannot read TS constants, so
+The tablet breakpoint lives in
+`packages/app/src/navigation/breakpoints.ts`
+(`ROUTED_TABLET_BREAKPOINT_PX = 760`). CSS cannot read TS constants, so
 `RoutedPane.css` mirrors the 760px line in a media query;
 `packages/app/src/navigation/breakpoints.test.ts` fails if the two drift.
 
 The switch between shells never remounts the runtime-owning subtrees — see the
-comment in `components/layout/Layout.tsx`. A user can also force a mode via the
-taskbar/footer switch (`NavigationModeOverrideProvider`).
+comment in `components/layout/Layout.tsx`. A user can also switch between
+windowed and routed shells via the taskbar/footer control
+(`NavigationModeOverrideProvider`). The choice survives reloads; a saved
+windowed choice yields to routed mode on narrow or touch screens.
 
 ## Touch sizing keys off an attribute, not a media query
 
@@ -40,8 +42,9 @@ taskbar/footer switch (`NavigationModeOverrideProvider`).
 shell is active (`navigation/useNavigationModeDocumentAttribute.ts`). All touch
 sizing hangs off that attribute — deliberately NOT `@media (pointer: coarse)`,
 because an iPad with a mouse reports a fine pointer but still renders the touch
-shell. Stamping the root element also lets portaled menus and modals inherit
-the sizing.
+shell. The routed shell is also the desktop default, so mouse users get these
+sizes until they choose windowed mode. Stamping the root element also lets
+portaled menus and modals inherit the sizing.
 
 Two Apple HIG rules drive the values (see the comment block in
 `packages/ui/src/styles.css`):
@@ -69,8 +72,8 @@ touches a screen edge absorbs that edge's inset**:
 - top — the frame header (`.tearleads-header`);
 - bottom — the routed taskbar and bottom sheet (`RoutedPane.css`), and the
   frame footer when present;
-- left — the tablet nav rail, or the app bar / taskbar / main content on the
-  mobile tier (the rail absorbs it on tablet);
+- left — the tablet nav rail in side mode; the app bar, taskbar, main content,
+  and sidebar in tablet bottom mode or on mobile;
 - right — the app bar, taskbar, main content, and the mobile sidebar drawer.
 
 Vertical sizing uses `100dvh` (with a `100vh` fallback) so iOS Safari's

@@ -81,11 +81,15 @@ function WorkspaceRuntimeHost({
 
 function LayoutInner({ hostConfig }: LayoutProps) {
   // The override is driven by the footer/taskbar mode switch. It defaults to
-  // null (auto) until the user flips that lower-right control.
+  // null (host/default mode) until the user flips that lower-right control.
   const { override } = useNavigationModeOverride();
   const navigationMode = useAppNavigationMode(
     hostConfig.navigationMode,
     override,
+    Boolean(
+      hostConfig.profile.defaultSplit &&
+        hostConfig.profile.features.panePeerUserIds,
+    ),
   );
   const split = hostConfig.profile.defaultSplit;
   const { activeWorkspace, workspaceIds } = useWorkspace();
@@ -100,9 +104,8 @@ function LayoutInner({ hostConfig }: LayoutProps) {
   // touch whenever the routed (mobile/tablet/iPad) shell is active.
   useNavigationModeDocumentAttribute(navigationMode);
 
-  // One tree for both modes. The windowed↔routed switch (driven by viewport
-  // resize across the breakpoint) only changes the frame chrome and each pane's
-  // leaf surface — never the structure of the runtime-owning PaneProvider
+  // One tree for both modes. The windowed↔routed switch only changes the frame
+  // chrome and each pane's leaf surface — never the runtime-owning PaneProvider
   // subtrees — so React keeps those mounted and the SQLite worker / SDK client /
   // websocket / keyring session survive the toggle instead of rebooting.
   return (

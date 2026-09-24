@@ -4,7 +4,7 @@ import { createServer } from "node:http";
 import { extname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
-import { expect, test } from "@playwright/test";
+import { expect, type Page, test } from "@playwright/test";
 import packageJson from "../package.json" with { type: "json" };
 import { cjkPdf, uploadAndOpenPdf } from "./pdfFixtures";
 import {
@@ -21,6 +21,24 @@ const contentTypes: Record<string, string> = {
   ".js": "text/javascript",
   ".wasm": "application/wasm",
 };
+
+async function assertDemoLayout(page: Page): Promise<void> {
+  const originalViewport = page.viewportSize();
+  await expect(page.locator(".layout--demo-peer-split")).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Switch to windowed layout" }),
+  ).toHaveCount(0);
+  await expect(
+    page.getByRole("button", { name: "Switch to iPad / mobile layout" }),
+  ).toHaveCount(2);
+  await page.setViewportSize({ width: 900, height: 900 });
+  await expect(page.locator(".layout--routed")).toBeVisible();
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await expect(page.locator(".layout--demo-peer-split")).toBeVisible();
+  if (originalViewport) {
+    await page.setViewportSize(originalViewport);
+  }
+}
 
 for (const variant of ["app", "demo"]) {
   test(`production ${variant} starts and reloads offline`, async ({
@@ -84,6 +102,9 @@ for (const variant of ["app", "demo"]) {
 
       const assertSentry = await observeProductionSentry(page);
       await page.goto(origin);
+      if (variant === "demo") {
+        await assertDemoLayout(page);
+      }
       const menu = page
         .getByRole("button", { name: "Menu", exact: true })
         .first();

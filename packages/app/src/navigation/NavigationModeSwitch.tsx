@@ -2,17 +2,20 @@ import { AppWindowIcon } from "@phosphor-icons/react/dist/csr/AppWindow";
 import { DeviceTabletIcon } from "@phosphor-icons/react/dist/csr/DeviceTablet";
 import { classNames } from "../components/shared/classNames";
 import { isCapacitor } from "../host/isCapacitor";
-import type { AppNavigationMode } from "./AppNavigationMode";
+import {
+  type AppNavigationMode,
+  isWindowedLayoutEligible,
+  readAppNavigationEnvironment,
+} from "./AppNavigationMode";
 import { useOptionalNavigationModeOverride } from "./NavigationModeOverrideProvider";
 
 // A two-state (no "auto") layout control styled like the theme toggle so it
 // docks in the lower-right tray. It forces one of the two concrete layouts and
-// always writes an explicit override — the manual choice the user reaches for
-// to preview the iPad/mobile shell on a desktop (or drop back to windows).
+// always writes an explicit override so the user can switch between the
+// default tablet shell and windows.
 //
-// Which is why it hides itself in the native Capacitor app: previewing the
-// phone/tablet shell is a desktop-browser affordance, and the windowed layout it
-// offers to switch back to is not one a phone or tablet should ever land in.
+// It hides itself in the native Capacitor app, where the windowed layout is not
+// an appropriate choice.
 
 const OTHER_MODE = {
   windowed: "routed",
@@ -38,12 +41,20 @@ const TARGET_ICON = {
 export function NavigationModeSwitch({
   mode,
   className,
+  allowWindowed = false,
 }: {
   mode: AppNavigationMode;
   className?: string | undefined;
+  allowWindowed?: boolean | undefined;
 }) {
   const override = useOptionalNavigationModeOverride();
-  if (!override || isCapacitor()) {
+  if (
+    !override ||
+    isCapacitor() ||
+    (mode === "routed" &&
+      !allowWindowed &&
+      !isWindowedLayoutEligible(readAppNavigationEnvironment()))
+  ) {
     return null;
   }
 

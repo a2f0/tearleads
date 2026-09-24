@@ -9,10 +9,11 @@ import { NavigationModeSwitch } from "./NavigationModeSwitch";
 afterEach(() => {
   cleanup();
   delete window.Capacitor;
+  globalThis.localStorage.removeItem("tearleads.navigation.mode");
 });
 
 // Surfaces the current override alongside the switch so a test can read what the
-// click set on the shared (in-memory) override.
+// click set on the shared override.
 function OverrideReadout() {
   const { override } = useNavigationModeOverride();
   return <output>{override ?? "auto"}</output>;
@@ -69,4 +70,39 @@ test("the routed switch offers (and selects) the windowed layout", () => {
 
   expect(view.getByText("windowed")).toBeTruthy();
   view.unmount();
+
+  const reloaded = render(
+    <NavigationModeOverrideProvider>
+      <OverrideReadout />
+    </NavigationModeOverrideProvider>,
+  );
+  expect(reloaded.getByText("windowed")).toBeTruthy();
+  reloaded.unmount();
+});
+
+test("narrow screens hide the windowed switch unless the host forces windows", () => {
+  const originalWidth = Object.getOwnPropertyDescriptor(window, "innerWidth");
+  Object.defineProperty(window, "innerWidth", {
+    configurable: true,
+    value: 900,
+  });
+
+  try {
+    const view = render(
+      <NavigationModeOverrideProvider>
+        <NavigationModeSwitch mode="routed" />
+        <NavigationModeSwitch allowWindowed mode="routed" />
+      </NavigationModeOverrideProvider>,
+    );
+    expect(
+      view.getAllByRole("button", { name: "Switch to windowed layout" }),
+    ).toHaveLength(1);
+    view.unmount();
+  } finally {
+    if (originalWidth) {
+      Object.defineProperty(window, "innerWidth", originalWidth);
+    } else {
+      Reflect.deleteProperty(window, "innerWidth");
+    }
+  }
 });

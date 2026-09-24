@@ -2,62 +2,49 @@ import { useEffect, useState } from "react";
 import {
   type AppNavigationEnvironment,
   type AppNavigationMode,
+  isWindowedLayoutEligible,
+  readAppNavigationEnvironment,
   resolveAppNavigationMode,
 } from "./AppNavigationMode";
-import { COARSE_POINTER_QUERY, MOBILE_BREAKPOINT_QUERY } from "./breakpoints";
+import { DEMO_SPLIT_MOBILE_QUERY } from "./breakpoints";
 
-function readEnvironment(): AppNavigationEnvironment {
-  return {
-    innerWidth: window.innerWidth,
-    maxTouchPoints: navigator.maxTouchPoints,
-    pointerCoarse: window.matchMedia(COARSE_POINTER_QUERY).matches,
-    userAgent: navigator.userAgent,
-  };
-}
+const COARSE_POINTER_QUERY = "(pointer: coarse)";
 
 /**
- * Resolves the active navigation mode.
- *
- * Precedence: an explicit {@link override} (e.g. a manual test toggle) wins,
- * then a host-level {@link forcedMode}, then live viewport detection that
- * tracks the {@link MOBILE_BREAKPOINT_QUERY} and pointer media queries.
+ * A manual choice wins over the host mode while windowed remains eligible.
+ * Narrow and touch screens route even when a desktop windowed choice is saved.
  */
 export function useAppNavigationMode(
   forcedMode?: AppNavigationMode | undefined,
   override?: AppNavigationMode | null | undefined,
+  preferWindowedPeerSplit = false,
 ): AppNavigationMode {
-  const resolvedForced = override ?? forcedMode;
-  const [mode, setMode] = useState(() =>
-    resolveAppNavigationMode({
-      environment: readEnvironment(),
-      forcedMode: resolvedForced ?? undefined,
-    }),
+  const [environment, setEnvironment] = useState<AppNavigationEnvironment>(
+    readAppNavigationEnvironment,
   );
 
   useEffect(() => {
-    if (resolvedForced) {
-      setMode(resolvedForced);
-      return;
-    }
-
-    const mobileQuery = window.matchMedia(MOBILE_BREAKPOINT_QUERY);
+    const mobileQuery = window.matchMedia(DEMO_SPLIT_MOBILE_QUERY);
     const pointerQuery = window.matchMedia(COARSE_POINTER_QUERY);
-    const updateMode = () => {
-      setMode(
-        resolveAppNavigationMode({
-          environment: readEnvironment(),
-        }),
-      );
-    };
-
-    updateMode();
-    mobileQuery.addEventListener("change", updateMode);
-    pointerQuery.addEventListener("change", updateMode);
+    const updateEnvironment = () =>
+      setEnvironment(readAppNavigationEnvironment());
+    updateEnvironment();
+    mobileQuery.addEventListener("change", updateEnvironment);
+    pointerQuery.addEventListener("change", updateEnvironment);
     return () => {
-      mobileQuery.removeEventListener("change", updateMode);
-      pointerQuery.removeEventListener("change", updateMode);
+      mobileQuery.removeEventListener("change", updateEnvironment);
+      pointerQuery.removeEventListener("change", updateEnvironment);
     };
-  }, [resolvedForced]);
+  }, []);
 
-  return mode;
+  const availableOverride =
+    override === "windowed" && !isWindowedLayoutEligible(environment)
+      ? null
+      : override;
+
+  return resolveAppNavigationMode({
+    environment,
+    forcedMode: availableOverride ?? forcedMode,
+    preferWindowedPeerSplit,
+  });
 }

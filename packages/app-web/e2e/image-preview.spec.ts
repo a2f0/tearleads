@@ -1,4 +1,5 @@
 import { expect, type Locator, type Page, test } from "@playwright/test";
+import { openWindowedDesktop } from "./windowedDesktop";
 
 /*
  * A file document's image preview, measured in a real engine. Its fit is pure
@@ -20,7 +21,7 @@ const TALL_IMAGE = `<svg xmlns="http://www.w3.org/2000/svg" width="300" height="
 // The desktop shell opens on an empty desktop; Explorer is launched from the
 // footer menu as a window, then maximized so the pane is the whole viewport.
 async function openExplorerWindow(page: Page): Promise<Locator> {
-  await page.goto("/");
+  await openWindowedDesktop(page);
   await page.locator(".pane-footer-menu-button").first().click();
   await page
     .locator(".menu")

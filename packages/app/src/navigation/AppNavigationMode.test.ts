@@ -1,57 +1,51 @@
 import { expect, test } from "bun:test";
 import {
   type AppNavigationEnvironment,
+  isWindowedLayoutEligible,
   resolveAppNavigationMode,
 } from "./AppNavigationMode";
 
-const DESKTOP_ENVIRONMENT = {
+const DESKTOP_ENVIRONMENT: AppNavigationEnvironment = {
   innerWidth: 1280,
   maxTouchPoints: 0,
   pointerCoarse: false,
   userAgent: "Mozilla/5.0",
-} satisfies AppNavigationEnvironment;
+};
 
-test("forced navigation mode wins over device traits", () => {
-  expect(
-    resolveAppNavigationMode({
-      environment: {
-        ...DESKTOP_ENVIRONMENT,
-        innerWidth: 390,
-        pointerCoarse: true,
-      },
-      forcedMode: "windowed",
-    }),
-  ).toBe("windowed");
+test("routed navigation is the default", () => {
+  expect(resolveAppNavigationMode({})).toBe("routed");
+});
 
+test("an explicit navigation mode overrides the default", () => {
+  expect(resolveAppNavigationMode({ forcedMode: "windowed" })).toBe("windowed");
+  expect(resolveAppNavigationMode({ forcedMode: "routed" })).toBe("routed");
+});
+
+test("the peer demo keeps windows on desktop and routes on touch or narrow screens", () => {
   expect(
     resolveAppNavigationMode({
       environment: DESKTOP_ENVIRONMENT,
-      forcedMode: "routed",
+      preferWindowedPeerSplit: true,
     }),
-  ).toBe("routed");
-});
-
-test("small and coarse-pointer devices use routed navigation", () => {
+  ).toBe("windowed");
   expect(
     resolveAppNavigationMode({
-      environment: {
-        ...DESKTOP_ENVIRONMENT,
-        innerWidth: 760,
-      },
+      environment: { ...DESKTOP_ENVIRONMENT, innerWidth: 900 },
+      preferWindowedPeerSplit: true,
     }),
   ).toBe("routed");
-
   expect(
     resolveAppNavigationMode({
-      environment: {
-        ...DESKTOP_ENVIRONMENT,
-        pointerCoarse: true,
-      },
+      environment: { ...DESKTOP_ENVIRONMENT, pointerCoarse: true },
+      preferWindowedPeerSplit: true,
     }),
   ).toBe("routed");
-});
-
-test("ipad-like browsers use routed navigation", () => {
+  expect(
+    resolveAppNavigationMode({
+      environment: { ...DESKTOP_ENVIRONMENT, userAgent: "iPad" },
+      preferWindowedPeerSplit: true,
+    }),
+  ).toBe("routed");
   expect(
     resolveAppNavigationMode({
       environment: {
@@ -59,14 +53,17 @@ test("ipad-like browsers use routed navigation", () => {
         maxTouchPoints: 5,
         userAgent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15)",
       },
+      preferWindowedPeerSplit: true,
     }),
   ).toBe("routed");
 });
 
-test("desktop browsers use windowed navigation", () => {
+test("windowed layout is eligible only on a wide fine-pointer desktop", () => {
+  expect(isWindowedLayoutEligible(DESKTOP_ENVIRONMENT)).toBe(true);
   expect(
-    resolveAppNavigationMode({
-      environment: DESKTOP_ENVIRONMENT,
-    }),
-  ).toBe("windowed");
+    isWindowedLayoutEligible({ ...DESKTOP_ENVIRONMENT, innerWidth: 900 }),
+  ).toBe(false);
+  expect(
+    isWindowedLayoutEligible({ ...DESKTOP_ENVIRONMENT, pointerCoarse: true }),
+  ).toBe(false);
 });

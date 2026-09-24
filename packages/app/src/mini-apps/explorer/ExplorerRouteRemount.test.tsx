@@ -73,7 +73,7 @@ async function openExplorerInPane(
 }
 
 // Remounting Explorer while its window route still points at a selected document
-// (e.g. crossing the windowed/routed breakpoint, or a workspace round trip) used
+// (e.g. switching between windowed and routed, or a workspace round trip) used
 // to strand the detail pane on "Select a container.": the route was restored but
 // the document's summary was never reloaded into the freshly mounted view.
 test(
@@ -82,7 +82,9 @@ test(
     pinSystemMonitors();
     const view = render(
       <App
-        hostConfig={createTestHostConfig({ autoProvisionIdentity: true })}
+        hostConfig={createTestHostConfig({
+          autoProvisionIdentity: true,
+        }).withOverrides({ navigationMode: "windowed" })}
       />,
     );
 

@@ -1,5 +1,6 @@
 import { expect, type Page, test } from "@playwright/test";
 import { twoPagePdf } from "./pdfFixtures";
+import { openWindowedDesktop } from "./windowedDesktop";
 
 async function openNote(page: Page, surface: "explorer" | "notes") {
   if (surface === "notes") {
@@ -7,7 +8,7 @@ async function openNote(page: Page, surface: "explorer" | "notes") {
     await page.goto("/app/notes");
     await page.getByRole("button", { name: "New Note", exact: true }).click();
   } else {
-    await page.goto("/");
+    await openWindowedDesktop(page);
     await page.locator(".pane-footer-menu-button").first().click();
     await page
       .locator(".menu")
