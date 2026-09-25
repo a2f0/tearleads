@@ -79,8 +79,8 @@
       "bytes": 33441
     },
     "docs/security-guarantees.md": {
-      "lines": 821,
-      "bytes": 47422
+      "lines": 823,
+      "bytes": 47523
     },
     "formal/document-sync/BaselineDominanceTraces.json": {
       "lines": 2059,
@@ -319,8 +319,8 @@
       "bytes": 18726
     },
     "packages/crypto/src/keying/documentAccess.ts": {
-      "lines": 907,
-      "bytes": 26210
+      "lines": 908,
+      "bytes": 26255
     },
     "packages/crypto/src/keying/principalPolicy.ts": {
       "lines": 719,

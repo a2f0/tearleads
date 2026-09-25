@@ -267,3 +267,26 @@ test("every supplied path must have contiguous ancestry, even after a valid path
   expect(result.ok).toBe(false);
   if (!result.ok) expect(result.error.code).toBe("missing_dependency");
 });
+
+for (const operation of ["document.link", "document.unlink"] as const) {
+  test(`${operation} keeps a concurrent unlink retryable before checking citation scope`, async () => {
+    const fixture = await citationScopeFixture();
+    const { first, second, unrelated, document, transition } = fixture;
+    const both = await transition("document.link", second, document, [[first]]);
+    const target = operation === "document.link" ? unrelated : first;
+    const stale = await transition(operation, target, both, [[second]]);
+    const current = await transition("document.unlink", second, both, [
+      [first],
+    ]);
+    const result = await verifyDocumentLinkSetManifest({
+      event: stale.event,
+      expectedManifestHash: stale.manifestHash,
+      manifest: stale.manifest,
+      previousManifest: current,
+      targetContainerPath: [target],
+      authorizingContainerPaths: [[second]],
+    });
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error.code).toBe("stale_predecessor");
+  });
+}

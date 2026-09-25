@@ -4,15 +4,22 @@ import {
   computeAccessManifestHash,
   deriveDocumentLinkSetManifest,
 } from "@tearleads/crypto";
-import { authenticate } from "../../test/helpers/authenticate";
+import { isDocumentLinkSetMutationResponse } from "@tearleads/validators/response";
+import { authenticate } from "../../../test/helpers/authenticate";
+import {
+  buildDocumentLinkRequest,
+  buildDocumentUnlinkRequest,
+} from "../../../test/helpers/documentLinkMutation";
+import { createChildContainer } from "../../../test/helpers/keyingWriterProjectionChild";
 import {
   asVerifiedContainerManifest,
   bootstrapRoot,
+  createDocument,
   createDocumentRequest,
   createSignedAccessEvent,
-} from "../../test/helpers/keyingWriterProjectionKit";
-import { registerUser } from "../../test/helpers/registerUser";
-import { routeApp } from "../routeApp";
+} from "../../../test/helpers/keyingWriterProjectionKit";
+import { registerUser } from "../../../test/helpers/registerUser";
+import { routeApp } from "../../routeApp";
 
 test("document creation cannot commit an unrelated organization citation", async () => {
   const owner = createTestUser();
@@ -91,4 +98,57 @@ test("document creation cannot commit an unrelated organization citation", async
       })
     ).status,
   ).toBe(200);
+});
+
+test("a relink racing an unlink returns retryable stale state", async () => {
+  const owner = createTestUser();
+  await registerUser(owner);
+  await authenticate(owner);
+  const root = await bootstrapRoot(owner);
+  const child = await createChildContainer({ parent: root, signer: owner });
+  const target = await createChildContainer({ parent: root, signer: owner });
+  const created = await createDocument({ owner, root });
+  const post = (operation: "link" | "unlink", request: unknown) =>
+    routeApp.request(`/documents/${created.id}/${operation}`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${owner.token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(request),
+    });
+  const first = await post(
+    "link",
+    await buildDocumentLinkRequest({
+      child,
+      createdDocument: created,
+      owner,
+      root,
+    }),
+  );
+  expect(first.status).toBe(200);
+  const linked = await first.json();
+  if (!isDocumentLinkSetMutationResponse(linked))
+    throw new Error("Expected linked document");
+  const childBundle = child.accessManifest;
+  const stale = await buildDocumentLinkRequest({
+    child: target,
+    createdDocument: { ...linked, createdAt: created.createdAt },
+    owner,
+    root,
+    authorizingContainerPath: [root.bundle, childBundle],
+  });
+  const removed = await post(
+    "unlink",
+    await buildDocumentUnlinkRequest({
+      child,
+      linkedDocument: linked,
+      owner,
+      root,
+    }),
+  );
+  expect(removed.status).toBe(200);
+  const refused = await post("link", stale);
+  expect(refused.status).toBe(409);
+  expect(await refused.text()).toContain("previous manifest");
 });

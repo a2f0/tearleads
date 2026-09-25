@@ -627,6 +627,7 @@ function preparePreviousDocumentLinkSetTransition(
     );
   }
 
+  assertDocumentLinkSetCitationScope(input);
   return {
     previousState: previousManifest.state,
     nextBase: {
@@ -657,6 +658,7 @@ function deriveInitialDocumentLinkSetManifestState(
     );
   }
 
+  assertDocumentLinkSetCitationScope(input);
   requireDocumentContainerPathWriteAccess({
     authorizationMembership: input.authorizationMembership,
     containerId: body.containerId,
@@ -774,7 +776,6 @@ function deriveDocumentLinkSetManifestStateFromEvent(
   input: DocumentLinkSetManifestDerivationInput,
 ): DocumentLinkSetManifestState {
   assertDocumentAccessEventDomain(input);
-  assertDocumentLinkSetCitationScope(input);
 
   if (input.body.eventType === "document.link" && !input.previousManifest) {
     return deriveInitialDocumentLinkSetManifestState(input, input.body);
