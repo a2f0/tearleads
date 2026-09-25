@@ -3,6 +3,7 @@ import {
   listContainerProjectionInvalidationIds,
 } from "../../workflows/container-contents/containerEvents";
 import { listContainerMetadataDocumentUpdateIds } from "../../workflows/container-contents/metadata";
+import { observeContainerBackgroundHydration } from "./backgroundHydration";
 import { bumpMetadataSyncSeq } from "./metadataSyncSignal";
 import { invalidateCachedProjections } from "./remoteEventProjectionInvalidation";
 import type { ContainerContentsStoreSyncState } from "./syncAgentTypes";
@@ -35,7 +36,7 @@ export function handleContainerContentsRemoteEvents(input: {
     state.containerParentIdsNeedingHydration.add(parentId);
   }
   if (addedHydrationLane) {
-    void requestHydration();
+    observeContainerBackgroundHydration(state, requestHydration());
   }
 
   const metadataDocumentIds = listContainerMetadataDocumentUpdateIds(
