@@ -248,6 +248,7 @@ async function storeAcknowledgedPrincipalPolicyBundles(input: {
         tx,
         input.retiredContainers,
         input.entries.map(({ policy }) => policy),
+        input.organizationId,
       );
     for (const entry of input.entries) {
       if (input.placement === "current") {

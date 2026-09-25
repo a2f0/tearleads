@@ -54,6 +54,31 @@ test("a container skipped as deleted during rotation cannot reappear under its o
     // A hint alone cannot retire a container before the commit is acknowledged.
     await verify();
     // The policy commit is acknowledged before the container batch, as in the workflow.
+    for (const retiredContainers of [
+      {
+        containerIds: [crypto.randomUUID()],
+        organizationId: ORGANIZATION_ID,
+        policy: fixture.input.nextPolicy,
+      },
+      {
+        containerIds: prepared.retiredContainerIds,
+        organizationId: "wrong-organization",
+        policy: fixture.input.nextPolicy,
+      },
+    ]) {
+      await expect(
+        retainLocallyAcknowledgedPrincipalPolicyBundles({
+          entries: [
+            { bundle: fixture.nextBundle, policy: fixture.input.nextPolicy },
+          ],
+          execSql: fixture.database.execSql,
+          organizationId: ORGANIZATION_ID,
+          retiredContainers,
+          updatedAt: new Date().toISOString(),
+        }),
+      ).rejects.toThrow("Retirement must match");
+      await verify();
+    }
     await retainLocallyAcknowledgedPrincipalPolicyBundles({
       entries: [
         { bundle: fixture.nextBundle, policy: fixture.input.nextPolicy },

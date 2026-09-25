@@ -17,6 +17,7 @@ export async function storePrincipalGrantRetirements(
   tx: ClientSQLiteTransactionScope,
   retirement: AcknowledgedPrincipalGrantRetirements,
   policies: readonly VerifiedPrincipalPolicy[],
+  organizationId: string | undefined,
 ): Promise<void> {
   if (
     !policies.some(
@@ -29,6 +30,23 @@ export async function storePrincipalGrantRetirements(
     throw new KeyingVerificationError(
       "object_mismatch",
       "Retirement must accompany its acknowledged policy",
+    );
+  }
+  const previous = retirement.policy.history?.find(
+    (entry) => entry.state.stateHash === retirement.policy.state.prevStateHash,
+  );
+  const granted = new Set(
+    [...retirement.policy.grants, ...(previous?.grants ?? [])].map(
+      (grant) => grant.containerId,
+    ),
+  );
+  if (
+    retirement.organizationId !== organizationId ||
+    retirement.containerIds.some((id) => !granted.has(id))
+  ) {
+    throw new KeyingVerificationError(
+      "object_mismatch",
+      "Retirement must match the acknowledged organization and signed grants",
     );
   }
   for (const containerId of new Set(retirement.containerIds)) {
