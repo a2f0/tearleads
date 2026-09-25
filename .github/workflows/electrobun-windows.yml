@@ -1,17 +1,7 @@
 name: Electrobun Windows
 
 on:
-  pull_request:
-    paths:
-      - ".github/workflows/electrobun-windows.yml"
-      - "bun.lock"
-      - "package.json"
-      - "packages/app-electrobun/**"
-      - "packages/app/**"
-      - "packages/client-sdk/**"
-      - "packages/loro/**"
-      - "packages/sqlite-instance/**"
-      - "packages/sqlite-worker/**"
+  workflow_call:
   workflow_dispatch:
     inputs:
       tier:
@@ -28,7 +18,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}-${{ inputs.tier }}
+  group: electrobun-windows-${{ github.run_id }}-${{ github.event_name }}-${{ github.ref }}-${{ inputs.tier }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
@@ -56,7 +46,7 @@ jobs:
         run: bun run --cwd packages/app-electrobun prepare:devkit
 
       - name: Verify Windows archives and source-map staging
-        run: bun test ./packages/app-electrobun/scripts/verifyWindowsArtifacts.test.ts ./packages/app-electrobun/scripts/windowsSourceMapStaging.test.ts ./packages/app-electrobun/scripts/sentryReleaseSource.test.ts
+        run: bun test ./packages/app-electrobun/scripts/cefMonitorExpression.test.ts ./packages/app-electrobun/scripts/verifyWindowsArtifacts.test.ts ./packages/app-electrobun/scripts/windowsSourceMapStaging.test.ts ./packages/app-electrobun/scripts/sentryReleaseSource.test.ts
 
       - name: Build and reopen the Windows CEF app
         shell: bash
@@ -64,7 +54,7 @@ jobs:
 
   release:
     name: Windows ${{ matrix.tier }} installer
-    if: github.event_name == 'workflow_dispatch'
+    if: github.event_name == 'workflow_dispatch' && inputs.tier != ''
     needs: persistence
     runs-on: windows-2025
     timeout-minutes: 30

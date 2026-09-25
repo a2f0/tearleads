@@ -191,8 +191,8 @@ test("exports without a password despite stale mismatched fields and restores wi
   expect(backupFileRequiresPassword(text)).toBe(false);
 
   fireEvent.click(view.getByRole("tab", { name: "Restore" }));
-  chooseBackup(view, text);
-  await waitFor(() => expect(view.queryByLabelText("Password")).toBeNull());
+  await act(async () => chooseBackup(view, text));
+  expect(view.queryByLabelText("Password")).toBeNull();
   expect(view.queryByText(/This backup is not encrypted/)).toBeTruthy();
   fireEvent.click(
     view.getByRole("button", { name: "Restore Unencrypted Backup" }),

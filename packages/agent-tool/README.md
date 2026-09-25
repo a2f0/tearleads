@@ -137,6 +137,12 @@ the PR immediately before the mutation and refuses an observed retarget. GitHub
 does not expose an atomic expected-base input, so callers must not concurrently
 retarget the PR during that final request. Backs the `squash-merge` skill.
 
+Before invoking it, wait for CI with `gh pr checks --watch --fail-fast`.
+The helper refuses pending or failed checks, requires every core check in
+[the merge gate policy](../../docs/developer/ci-merge-gate.md) to succeed in
+the CI workflow, and rechecks the head after reading the latest check runs.
+It never waits, bypasses CI, or enables automatic merging.
+
 The tool only merges. Returning to the base branch, fast-forwarding it, and
 deleting the merged branch live in the `squash-merge` skill *around* this call —
 as does its `--keep-branch` flag, which the tool does not accept. Invoking the
