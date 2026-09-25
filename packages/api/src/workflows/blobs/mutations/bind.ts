@@ -255,6 +255,17 @@ function lockBindAttachmentAuthorization(
   });
 }
 
+function storeBindingKeys(
+  input: BindBlobAttachmentInput,
+  binding: Parameters<typeof toStoredContentKeyBundleInput>[0],
+  tx: DatabaseTransaction,
+) {
+  return storeBlobContentKeyBundleInTransaction(
+    toStoredContentKeyBundleInput(binding, input.request.contentKeyBundle),
+    tx,
+  );
+}
+
 async function bindBlobAttachmentTransaction(
   input: BindBlobAttachmentInput & {
     readonly prevalidatedMultipartStage: PrevalidatedMultipartBlobStage | null;
@@ -312,11 +323,8 @@ async function bindBlobAttachmentTransaction(
   // The blob now has an active binding again; clear any prior purge soft-delete
   // so the GC sweep does not reclaim a blob this bind just re-referenced.
   await reviveBlobIfDereferenced({ blobId: input.blobId, executor: tx });
-  const contentKeyBundle = await storeBlobContentKeyBundleInTransaction(
-    toStoredContentKeyBundleInput(input.blobId, input.request.contentKeyBundle),
-    tx,
-  );
-  const currentTargets = contentKeyBundle.currentTargets;
+  const contentKeyBundle = await storeBindingKeys(input, verifiedBinding, tx);
+  const { currentTargets } = contentKeyBundle;
   const writeHeaderHash = await verifyAndStoreStagedBlobWriteHeader({
     blobId: input.blobId,
     blobKekTargets: currentTargets,

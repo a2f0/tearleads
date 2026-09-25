@@ -15,7 +15,6 @@ import {
   type resolveCurrentContainerKekTargets,
   resolveCurrentContainerKekTargetsMapped,
 } from "./containerKekTargets";
-import { assertExpectedTargetHashCurrent } from "./contentKeyTargetPolicy";
 
 export class BlobKekTargetError extends Error {
   constructor(
@@ -37,12 +36,6 @@ interface ResolvedBlobKekTargets {
   readonly targets: readonly BlobContentKeyTarget[];
   readonly blobKeyTargetHash: string;
   readonly blobAccessManifestHash: string;
-}
-
-interface AssertBlobKekTargetsCurrentInput {
-  readonly blobId: string;
-  readonly expectedTargets?: readonly BlobContentKeyTarget[];
-  readonly expectedTargetHash?: string;
 }
 
 function blobTargetKey(target: BlobContentKeyTarget): string {
@@ -331,26 +324,4 @@ export async function resolveCurrentBlobKekTargets(
       blobKeyTargetHash,
     }),
   };
-}
-
-export async function assertBlobKekTargetsCurrent(
-  input: AssertBlobKekTargetsCurrentInput,
-  executor: DatabaseSession,
-): Promise<ResolvedBlobKekTargets> {
-  const currentTargets = await resolveCurrentBlobKekTargets(
-    input.blobId,
-    executor,
-  );
-  await assertExpectedTargetHashCurrent({
-    currentTargetHash: currentTargets.blobKeyTargetHash,
-    expectedTargetHash: input.expectedTargetHash,
-    expectedTargets: input.expectedTargets,
-    computeTargetHash: computeBlobContentKeyTargetHash,
-    createRequiredError: () =>
-      new BlobKekTargetError("Expected blob KEK targets are required", 409),
-    createStaleError: () =>
-      new BlobKekTargetError("Blob KEK targets are stale", 409),
-  });
-
-  return currentTargets;
 }

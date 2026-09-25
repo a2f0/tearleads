@@ -361,7 +361,6 @@ async function buildBindRequest(input: {
   readonly documents?: readonly StoredDocumentFixture[];
   readonly expectedBindingId: string | null;
   readonly owner: TestUser;
-  readonly omitExistingTargets?: boolean;
   readonly slotId: string;
   readonly stagedBlob?: Awaited<ReturnType<typeof stageEncryptedBlob>>;
 }): Promise<BuiltBindRequest> {
@@ -426,7 +425,7 @@ async function buildBindRequest(input: {
     contentKeyBundle: {
       contentKeyEpoch: 1,
       targetHash: blobKekTargets.blobKeyTargetHash,
-      targets: input.omitExistingTargets ? allTargets.slice(-1) : allTargets,
+      targets: allTargets,
     },
   };
 
@@ -1098,7 +1097,7 @@ test("bindBlobAttachment rejects malformed staged blob write headers", async () 
   );
 });
 
-test("bind rejects stale slots and incomplete shared targets", async () => {
+test("bind rejects stale slots and targets outside its binding", async () => {
   const owner = createTestUser();
   await registerOnly(owner);
   const container = await bootstrapRoot(owner);
@@ -1161,7 +1160,6 @@ test("bind rejects stale slots and incomplete shared targets", async () => {
     document: secondDocument,
     documents: [firstDocument, secondDocument],
     expectedBindingId: null,
-    omitExistingTargets: true,
     owner,
     slotId: "slot-b",
   });
@@ -1181,11 +1179,9 @@ test("bind rejects stale slots and incomplete shared targets", async () => {
   );
 
   const sharedBind = await buildBindRequest({
-    activeBindings: [firstBind.verifiedBinding],
     blobId,
     container,
     document: secondDocument,
-    documents: [firstDocument, secondDocument],
     expectedBindingId: null,
     owner,
     slotId: "slot-b",

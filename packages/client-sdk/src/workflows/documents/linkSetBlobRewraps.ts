@@ -10,8 +10,14 @@ import type {
   ContainerWriterProjectionResponse,
   DocumentWriterProjectionResponse,
 } from "@tearleads/validators/response";
-import { unwrapContainerKekPath } from "../../data/documents/shared/projection";
-import { assertEqualBytes } from "../../data/documents/shared/readers";
+import {
+  deriveDocumentTargetFromProjection,
+  unwrapContainerKekPath,
+} from "../../data/documents/shared/projection";
+import {
+  assertEqualBytes,
+  targetKey,
+} from "../../data/documents/shared/readers";
 import type {
   DocumentLinkSetMutationApi,
   ProjectionVerificationOptions,
@@ -95,8 +101,11 @@ export async function prepareDocumentLinkBlobRewraps(
               "Attachment wrap metadata",
             ),
           };
-        const kek = keks.get(target.containerKeyEpochId);
-        if (!kek) throw new Error("Attachment destination KEK is unavailable");
+        const kek = keks.get(targetKey(target));
+        if (!kek)
+          throw new Error(
+            "Attachment destination is not a verified current container head",
+          );
         if (!contentKey)
           throw new Error("Attachment content key is unavailable");
         const wrapped = await encryptWithDek(contentKey, kek);
@@ -154,7 +163,18 @@ async function collectRelinkKeks(
       execSql: input.execSql,
       ...projectionVerificationOptions(input),
     });
-    for (const [id, key] of keys) {
+    // Every node of this verified path has a current signed head. Historical
+    // keyring entries may open source bytes, but never enter the destination map.
+    for (const [index, head] of projection.containerKeks.entries()) {
+      const target = deriveDocumentTargetFromProjection({
+        ...projection,
+        containerId: head.containerId,
+        path: projection.path.slice(0, index + 1),
+        containerKeks: projection.containerKeks.slice(0, index + 1),
+      });
+      const key = keys.get(target.containerKeyEpochId);
+      if (!key) throw new Error("Attachment destination KEK is unavailable");
+      const id = targetKey(target);
       const previous = keks.get(id);
       if (previous)
         assertEqualBytes(

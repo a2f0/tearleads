@@ -32,6 +32,7 @@ const EXPECTED_TABLES: Readonly<Record<string, number>> = {
   "formal/document-sync/AttachmentContentIdentity.md": 1,
   "formal/blob-attachments/BlobSourceAuthority.md": 1,
   "formal/document-sync/AttachmentKeyReachability.md": 1,
+  "formal/document-sync/BlobEnvelopeAuthority.md": 1,
   "formal/document-sync/BaselineDominance.md": 1,
   "formal/document-sync/ContentWriteAuthority.md": 1,
   "formal/document-sync/DeferredTailSettlement.md": 1,

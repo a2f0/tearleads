@@ -15,6 +15,8 @@ import {
 } from "../../../../test/helpers/blobAttachmentKit";
 import { buildContainerGrantRequest } from "../../../../test/helpers/containerGrantMutation";
 import { buildChildCreateRequest } from "../../../../test/helpers/containerMutationArtifactKit";
+import { buildRekeyRequest } from "../../../../test/helpers/containerMutationRotations";
+import { contentKeyEnvelopeFixture } from "../../../../test/helpers/contentKeyEnvelope";
 import {
   accessManifestFromContainerResponse,
   bootstrapRoot,
@@ -24,6 +26,8 @@ import {
 } from "../../../../test/helpers/keyingWriterProjectionKit";
 import { registerUser } from "../../../../test/helpers/registerUser";
 import { getLatestBlobContentKeyBundle } from "../../../access/read/blobContentKeyStore";
+import { resolveCurrentBlobKekTargets } from "../../../access/read/blobKekTargets";
+import { rewrapDocumentBlobContentKeyInTransaction } from "../../../access/write/blobContentKeyStore";
 import { routeApp } from "../../../routeApp";
 
 type TestUser = ReturnType<typeof createTestUser>;
@@ -88,7 +92,7 @@ function asDestination(
 // The positive half of `assertExistingBlobSourceAuthority`: a non-author with
 // current read on a document actively binding the blob holds source authority
 // for those bytes, so it may bind them to a document it can write.
-test("current read on an actively bound document authorizes rebinding the blob", async () => {
+test("a source reader binds only its destination and cannot replace foreign wraps after rotation", async () => {
   const owner = createTestUser();
   const reader = createTestUser();
   for (const user of [owner, reader]) {
@@ -142,25 +146,81 @@ test("current read on an actively bound document authorizes rebinding the blob",
     owner: reader,
     root: destination,
   });
-  // The blob's content-key bundle must keep covering the source document.
+  // Only the owner can rotate the source; the reader has no write authority there.
+  await postJson(
+    owner,
+    `/containers/${readable.containerId}/rekey`,
+    await buildRekeyRequest({
+      parentKekState: root.kekState,
+      previous: source.bundle,
+      previousContainerPath: sourcePath,
+      previousKekState: source.kekState,
+      signer: owner,
+    }),
+  );
+  const current = await resolveCurrentBlobKekTargets(blobId, db);
+  const foreignTargets = current.targets.map((target) => ({
+    ...target,
+    ...contentKeyEnvelopeFixture("Blob", "foreign-replacement"),
+  }));
   const targets = [
-    ...original.request.contentKeyBundle.targets,
+    ...foreignTargets,
     ...rebind.request.contentKeyBundle.targets,
   ];
-  rebind.request.contentKeyBundle = {
-    ...rebind.request.contentKeyBundle,
-    targets,
-    targetHash: await computeBlobContentKeyTargetHash(
-      targets.map(
-        ({ wrappedKey: _wrapped, wrappingMetadata: _metadata, ...target }) =>
-          target,
-      ),
-    ),
-  };
+  await expect(
+    bindForTest({
+      blobId,
+      owner: reader,
+      request: {
+        ...rebind.request,
+        contentKeyBundle: {
+          ...rebind.request.contentKeyBundle,
+          targets,
+          targetHash: await computeBlobContentKeyTargetHash(
+            targets.map(
+              ({ wrappedKey: _key, wrappingMetadata: _metadata, ...target }) =>
+                target,
+            ),
+          ),
+        },
+      },
+    }),
+  ).rejects.toThrow(
+    "Blob content-key targets do not match current KEK targets",
+  );
+  expect<unknown>(
+    (await getLatestBlobContentKeyBundle(blobId, db))?.targets,
+  ).toEqual(original.request.contentKeyBundle.targets);
+
+  // The SDK submits only the new binding. The server carries A's old bytes exactly.
   await bindForTest({ blobId, owner: reader, request: rebind.request });
 
   const bundle = await getLatestBlobContentKeyBundle(blobId, db);
   expect(
     new Set(bundle?.targets.map((target) => target.documentId) ?? []),
   ).toEqual(new Set([bound.id, target.id]));
+  expect<unknown>(
+    bundle?.targets.filter((entry) => entry.documentId === bound.id),
+  ).toEqual(original.request.contentKeyBundle.targets);
+  // A's own later rewrap can still advance its epoch; B did not poison it.
+  const ownTargets = foreignTargets.map((entry) => ({
+    ...entry,
+    ...contentKeyEnvelopeFixture("Blob", "owner-repair"),
+  }));
+  await db.transaction((tx) =>
+    rewrapDocumentBlobContentKeyInTransaction(
+      {
+        documentId: bound.id,
+        rewrap: { blobId, contentKeyEpoch: 1, targets: ownTargets },
+      },
+      tx,
+    ),
+  );
+  const repaired = await getLatestBlobContentKeyBundle(blobId, db);
+  expect<unknown>(
+    repaired?.targets.filter((entry) => entry.documentId === bound.id),
+  ).toEqual(ownTargets);
+  expect<unknown>(
+    repaired?.targets.filter((entry) => entry.documentId === target.id),
+  ).toEqual(rebind.request.contentKeyBundle.targets);
 });
