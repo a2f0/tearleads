@@ -221,6 +221,10 @@ test("a group share does not acknowledge a policy after its generation expires d
             },
           };
         },
+        getContainerWriterProjectionResult: async () => ({
+          ok: true,
+          data: parent.projection,
+        }),
         getContainerWriterProjection: async () => parent.projection,
         getCurrentPrincipalPolicy: async (principalType, principalId) => {
           if (principalType === "organization") return organizationPolicy;
@@ -318,6 +322,10 @@ test("a missing group grant returns null when projection verification expires", 
         commitOrganizationGroupPolicy: async () => {
           submissions += 1;
           throw new Error("Expired preparation must not be committed");
+        },
+        getContainerWriterProjectionResult: async () => {
+          projectionRequests += 1;
+          return { ok: true, data: parent.projection };
         },
         getContainerWriterProjection: async () => {
           projectionRequests += 1;

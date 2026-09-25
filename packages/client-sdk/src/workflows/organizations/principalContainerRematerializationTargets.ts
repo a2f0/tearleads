@@ -1,9 +1,11 @@
+import type { ApiClient } from "@tearleads/api-client";
 import type {
   PrincipalContainerGrant,
   VerifiedPrincipalPolicy,
 } from "@tearleads/crypto";
 import type { ContainerWriterProjectionResponse } from "@tearleads/validators/response";
 import { MAX_ROTATION_CONTAINER_REKEYS } from "@tearleads/validators/util";
+import { isContainerNotFoundFailure } from "../../data/containers/shared/mutationFailures";
 import type {
   MaterializedContainerRekeyPlan,
   MaterializedContainerRevokePlan,
@@ -88,10 +90,13 @@ export async function loadServedProjection(
  * never an authority; each is verified where it is planned.
  */
 export async function loadRematerializationTargets(input: {
-  readonly apiClient: ProjectionApi;
+  readonly apiClient: Pick<ApiClient, "getContainerWriterProjectionResult">;
   readonly carriedContainerIds: readonly string[];
   readonly grants: readonly PrincipalContainerGrant[];
-}): Promise<RematerializationTarget[]> {
+}): Promise<{
+  targets: RematerializationTarget[];
+  retiredContainerIds: string[];
+}> {
   const grantByContainerId = new Map(
     input.grants.map((grant) => [grant.containerId, grant] as const),
   );
@@ -99,15 +104,39 @@ export async function loadRematerializationTargets(input: {
     .filter((containerId) => !grantByContainerId.has(containerId))
     .slice(0, MAX_ROTATION_CONTAINER_REKEYS);
   const targets: RematerializationTarget[] = [];
+  const retiredContainerIds: string[] = [];
   for (const containerId of [...grantByContainerId.keys(), ...carried].sort(
     (left, right) => left.localeCompare(right),
   )) {
-    targets.push({
-      grantRow: grantByContainerId.get(containerId) ?? null,
-      projection: await loadServedProjection(input.apiClient, containerId),
-    });
+    const grantRow = grantByContainerId.get(containerId) ?? null;
+    const result = await input.apiClient.getContainerWriterProjectionResult(
+      containerId,
+      { reportErrors: false },
+    );
+    if (!result.ok) {
+      // This is only a planning hint. Keep the signed grant intact; the API
+      // independently requires every live grant under the organization lock.
+      if (
+        grantRow &&
+        result.kind === "http" &&
+        isContainerNotFoundFailure(result)
+      ) {
+        retiredContainerIds.push(containerId);
+        continue;
+      }
+      result.report();
+      throw new Error(
+        `Container ${containerId} could not be prepared for principal rotation: ${result.message}`,
+      );
+    }
+    if (result.data.containerId !== containerId)
+      throw new Error("Served projection describes another container");
+    targets.push({ grantRow, projection: result.data });
   }
-  return orderRematerializationsParentFirst(targets);
+  return {
+    targets: orderRematerializationsParentFirst(targets),
+    retiredContainerIds,
+  };
 }
 
 /** An in-memory cache holding only the policy this batch is about to commit. */

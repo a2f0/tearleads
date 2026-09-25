@@ -104,6 +104,10 @@ test("shareRemoteContainerWithGroup grants a managed principal with the selected
             },
           };
         },
+        getContainerWriterProjectionResult: async () => ({
+          ok: true,
+          data: parent.projection,
+        }),
         getContainerWriterProjection: async () => parent.projection,
         getCurrentPrincipalPolicy: async (principalType, principalId) => {
           if (principalType === "organization") {
@@ -256,6 +260,13 @@ test("shareRemoteContainerWithGroup accepts empty groups signed by an org admin"
         apiClient: {
           reciteContainer: async () => null,
           commitOrganizationGroupPolicy: async () => null,
+          getContainerWriterProjectionResult: async (id) => ({
+            ok: true,
+            data:
+              id === metadata.projection.containerId
+                ? metadata.projection
+                : parent.projection,
+          }),
           getContainerWriterProjection: async (id) =>
             id === metadata.projection.containerId
               ? metadata.projection

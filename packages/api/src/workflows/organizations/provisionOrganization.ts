@@ -22,7 +22,7 @@ import {
   DocumentMutationError,
 } from "../documents/mutations";
 import { appendProvisionedDocumentInitialUpdate } from "../documents/mutations/syncDocument";
-import { listCurrentPrincipalContainerGrants } from "../principals/principalContainerRematerialization";
+import { listCurrentPrincipalContainerGrants } from "../principals/principalContainerGrants";
 import { lockPrincipalMutationInTransaction } from "../principals/principalMutationLock";
 import { toPrincipalPolicyError } from "../principals/shared";
 import { storeVerifiedPrincipalPolicyInTransaction } from "../principals/storeVerifiedPrincipalPolicy";

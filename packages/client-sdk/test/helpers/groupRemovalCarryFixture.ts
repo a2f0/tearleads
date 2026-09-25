@@ -5,7 +5,10 @@ import {
   toFingerprint,
 } from "@tearleads/crypto";
 import { createTestExecSql } from "@tearleads/test-utils";
-import { buildAddGroupUserPolicyRequest } from "../../src/workflows/organizations/groupPolicyRequests";
+import {
+  buildAddGroupUserPolicyRequest,
+  buildSetGroupContainerGrantPolicyRequest,
+} from "../../src/workflows/organizations/groupPolicyRequests";
 import { buildInitialOrganizationPolicyRequest } from "../../src/workflows/registration/registerIdentity";
 import {
   buildInitialGroupPolicyRequest,
@@ -38,7 +41,9 @@ function signerPublicKeys(input: {
  * rematerializes its grants; the container mutations themselves are stubbed
  * by each test.
  */
-export async function createRemovalFixture() {
+export async function createRemovalFixture(
+  input: { grantedContainerIds?: readonly string[] } = {},
+) {
   const signingKeyPair = generateSigningSeedAndKeyPair();
   const remainingUserKem = generateKemSeedAndKeyPair();
   const removedUserKem = generateKemSeedAndKeyPair();
@@ -95,10 +100,28 @@ export async function createRemovalFixture() {
       signingPublicKey: signingKeyPair.signingPublicKey,
     }),
   });
-  const previousPolicy = await policyBundleAfterMutation({
+  let previousPolicy = await policyBundleAfterMutation({
     mutation: addedMutation,
     previous: initialPolicy,
   });
+  for (const containerId of input.grantedContainerIds ?? []) {
+    previousPolicy = await policyBundleAfterMutation({
+      previous: previousPolicy,
+      mutation: await buildSetGroupContainerGrantPolicyRequest({
+        currentPolicy: previousPolicy,
+        currentPolicySignerPublicKeys: signerPublicKeys({
+          signerUserId,
+          signingFingerprint,
+          signingKeyPair,
+        }),
+        signerUserId,
+        signingFingerprint,
+        signingKeyPair,
+        containerId,
+        accessLevel: "read",
+      }),
+    });
+  }
   let organizationPolicy = await organizationPolicyBundleFromInitialRequest(
     organizationId,
     await buildInitialOrganizationPolicyRequest({
