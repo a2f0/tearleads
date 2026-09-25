@@ -475,14 +475,17 @@ For bind, the API verifies:
 - expected previous binding matches the active slot binding
 - staged blob owner and expiry when `stagedBlob` is supplied
 - existing blob presence when no staged blob is supplied
-- blob content-key bundle matches derived blob KEK targets
+- submitted blob content-key targets and their hash match only the new binding's
+ current derived KEK targets; any other binding in the submission is refused
 - staged blob write header matches blob id, blob access manifest hash,
  content-key epoch, target hash, `ciphertextHash` matching the staged
  SHA-256, and writer identity
 
 After verification, the API promotes staged bytes when supplied, detaches the
 previous active slot binding if present, stores the new binding, persists blob
-content-key targets, stores the blob write header, appends attachment audit
+content-key targets merged with the exact stored envelopes of all other bindings
+under the blob row lock, recomputes the merged target hash, stores the blob write
+header, appends attachment audit
 events, and touches the document plus linked containers for sync discovery.
 
 Detach uses:

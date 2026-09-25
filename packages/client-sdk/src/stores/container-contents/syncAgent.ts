@@ -5,6 +5,7 @@ import {
   registerContainerContentsSyncLane,
 } from "../../workflows/container-contents/syncLane";
 import { createRestoredAccessReconciler } from "./accessRestorationSweep";
+import { observeContainerBackgroundHydration } from "./backgroundHydration";
 import { primeStoreDocumentSubtree } from "./documentRecovery";
 import { refreshLocalContainerStates } from "./localRefresh";
 import { getContainerContentsStoreLogLabel } from "./logLabel";
@@ -243,6 +244,21 @@ function logSyncLaneFailure(
   return logError ? logError(message, error) : log(message);
 }
 
+function createHydrationRequester(input: {
+  host: RemoteContainerHydrationHost;
+  resumeRecoveryWork: () => Promise<void>;
+  scheduleSync: () => void;
+  state: ContainerContentsStoreSyncState;
+}): ContainerContentsStoreSyncAgent["requestRemoteHydration"] {
+  return (options = {}) =>
+    requestContainerContentsRemoteHydration({
+      ...input,
+      followDiscoveredParentLanes: options.followDiscoveredParentLanes,
+      parentIds: options.parentIds,
+      resetAllLaneWatermarks: options.resetAllLaneWatermarks,
+    });
+}
+
 export function createContainerContentsStoreSyncAgent(input: {
   host: RemoteContainerHydrationHost;
   state: ContainerContentsStoreSyncState;
@@ -256,17 +272,12 @@ export function createContainerContentsStoreSyncAgent(input: {
   });
   const resumeRecoveryWork = remoteContainerIngestion.resumeInterruptedWork;
 
-  const requestHydration: ContainerContentsStoreSyncAgent["requestRemoteHydration"] =
-    (options = {}) =>
-      requestContainerContentsRemoteHydration({
-        followDiscoveredParentLanes: options.followDiscoveredParentLanes,
-        host,
-        parentIds: options.parentIds,
-        resetAllLaneWatermarks: options.resetAllLaneWatermarks,
-        resumeRecoveryWork,
-        scheduleSync,
-        state,
-      });
+  const requestHydration = createHydrationRequester({
+    host,
+    resumeRecoveryWork,
+    scheduleSync,
+    state,
+  });
   const requestRefreshHydration = (options: RemoteHydrationRefreshOptions) =>
     requestContainerContentsRemoteHydration({
       ...options,
@@ -275,6 +286,9 @@ export function createContainerContentsStoreSyncAgent(input: {
       scheduleSync,
       state,
     });
+  const scheduleHydration = (
+    options?: Parameters<typeof requestHydration>[0],
+  ) => observeContainerBackgroundHydration(state, requestHydration(options));
   const refresh = () =>
     refreshAllRemoteHydration({
       requestHydration: requestRefreshHydration,
@@ -299,7 +313,7 @@ export function createContainerContentsStoreSyncAgent(input: {
         host,
         reconcileRestoredAccess,
         requestRemoteReconciliation: (parentContainerId) => {
-          void requestHydration({
+          scheduleHydration({
             followDiscoveredParentLanes: false,
             parentIds: [parentContainerId],
           });
@@ -334,9 +348,7 @@ export function createContainerContentsStoreSyncAgent(input: {
         state,
       }),
     requestRemoteHydration: requestHydration,
-    scheduleRemoteHydration: () => {
-      void requestHydration();
-    },
+    scheduleRemoteHydration: scheduleHydration,
     scheduleSync,
   };
 }

@@ -63,8 +63,8 @@
       "bytes": 19355
     },
     "docs/keying-design.md": {
-      "lines": 1191,
-      "bytes": 57820
+      "lines": 1202,
+      "bytes": 58527
     },
     "docs/loro-e2ee-sync-protocol.md": {
       "lines": 548,
@@ -75,8 +75,8 @@
       "bytes": 2889739
     },
     "docs/protocol-specification.md": {
-      "lines": 655,
-      "bytes": 33441
+      "lines": 658,
+      "bytes": 33660
     },
     "docs/security-guarantees.md": {
       "lines": 821,

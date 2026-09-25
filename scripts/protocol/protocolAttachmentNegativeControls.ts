@@ -2,6 +2,22 @@ import type { NegativeControl } from "./protocolNegativeControls";
 
 export const ATTACHMENT_NEGATIVE_CONTROLS: readonly NegativeControl[] = [
   {
+    id: "bind-overwrites-foreign-envelopes",
+    module: "formal/document-sync/BlobEnvelopeAuthority.tla",
+    config: "formal/document-sync/BlobEnvelopeAuthority.cfg",
+    constants: { ScopeBindingWrites: "FALSE" },
+    expect: { kind: "invariant", name: "ForeignEnvelopesUnchanged" },
+    why: "Reading one document cannot authorize replacing its envelopes while binding a blob to another document.",
+  },
+  {
+    id: "relink-wraps-fresh-key-to-retired-epoch",
+    module: "formal/document-sync/BlobEnvelopeAuthority.tla",
+    config: "formal/document-sync/BlobEnvelopeAuthority.cfg",
+    constants: { VerifyFreshDestination: "FALSE" },
+    expect: { kind: "invariant", name: "FreshKeysUseCurrentEpoch" },
+    why: "Historical keys used for source authentication must not become fresh envelope destinations selected by unsigned server targets.",
+  },
+  {
     id: "move-reuses-stale-attachment-cache",
     module: "formal/document-sync/AttachmentKeyReachability.tla",
     config: "formal/document-sync/AttachmentKeyReachability.cfg",
