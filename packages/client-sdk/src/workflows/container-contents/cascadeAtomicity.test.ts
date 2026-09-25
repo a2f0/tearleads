@@ -103,140 +103,153 @@ async function countRows(
 // it fully unapplied — container, intents, and metadata all intact — so the
 // re-fetched tombstone can re-apply it, instead of stranding metadata rows
 // that re-delivered tombstones would skip.
-test("a mid-cascade crash leaves the cascade fully unapplied", async () => {
-  const { close, execSql } = await createTestExecSql("cascade-atomicity");
-  try {
-    await seedContainerWithMetadata(execSql);
+test.each([false, true])(
+  "a mid-cascade crash leaves discoveryOnly=%s fully unapplied",
+  async (discoveryOnly) => {
+    const { close, execSql } = await createTestExecSql("cascade-atomicity");
+    try {
+      await seedContainerWithMetadata(execSql);
 
-    // Forward ALL arguments (including rowMode) so the wrapped connection
-    // behaves identically to the real one for every statement it passes.
-    const failingExecSql = (async (
-      sql: string,
-      bind?: SqlBind,
-      options?: { rowMode?: SqlRowMode },
-    ) => {
-      if (/delete\s+from\s+"?container_sync_lane_checks/i.test(sql)) {
-        throw new Error("injected crash at the cascade's final statement");
-      }
-      return execSql(sql, bind, options as { rowMode: "array" });
-    }) as ExecSql;
+      // Forward ALL arguments (including rowMode) so the wrapped connection
+      // behaves identically to the real one for every statement it passes.
+      const failingExecSql = (async (
+        sql: string,
+        bind?: SqlBind,
+        options?: { rowMode?: SqlRowMode },
+      ) => {
+        if (/delete\s+from\s+"?container_sync_lane_checks/i.test(sql)) {
+          throw new Error("injected crash at the cascade's final statement");
+        }
+        return execSql(sql, bind, options as { rowMode: "array" });
+      }) as ExecSql;
 
-    await expect(
-      defaultContainerContentsPersistence.deleteContainers(failingExecSql, [
-        { containerId: "doomed", reason: "deleted", updatedAt: T1 },
-      ]),
-    ).rejects.toThrow();
+      await expect(
+        defaultContainerContentsPersistence.deleteContainers(
+          failingExecSql,
+          [{ containerId: "doomed", reason: "deleted", updatedAt: T1 }],
+          { discoveryOnly },
+        ),
+      ).rejects.toThrow();
 
-    // Fully unapplied: nothing was deleted, repaired, or unlinked.
-    expect(
-      await defaultContainerContentsPersistence.containerExists(
-        execSql,
-        "doomed",
-      ),
-    ).toBe(true);
-    expect(await linkedDocContainerId(execSql)).toBe("doomed");
-    expect(
-      await countRows(
-        execSql,
-        `SELECT COUNT(*) AS n FROM document_container_projection
+      expect(await execSql("SELECT * FROM dormant_container_metadata")).toEqual(
+        [],
+      );
+      expect(
+        await execSql("SELECT * FROM container_hydration_tombstones"),
+      ).toEqual([]);
+      // Fully unapplied: nothing was deleted, repaired, or unlinked.
+      expect(
+        await defaultContainerContentsPersistence.containerExists(
+          execSql,
+          "doomed",
+        ),
+      ).toBe(true);
+      expect(await linkedDocContainerId(execSql)).toBe("doomed");
+      expect(
+        await countRows(
+          execSql,
+          `SELECT COUNT(*) AS n FROM document_container_projection
          WHERE container_id = ?`,
-        ["doomed"],
-      ),
-    ).toBe(1);
-    expect(
-      await countRows(
-        execSql,
-        `SELECT COUNT(*) AS n FROM container_create_intents
+          ["doomed"],
+        ),
+      ).toBe(1);
+      expect(
+        await countRows(
+          execSql,
+          `SELECT COUNT(*) AS n FROM container_create_intents
          WHERE container_id = ?`,
-        ["doomed"],
-      ),
-    ).toBe(1);
-    expect(
-      await countRows(
-        execSql,
-        `SELECT COUNT(*) AS n FROM container_sync_watermarks
+          ["doomed"],
+        ),
+      ).toBe(1);
+      expect(
+        await countRows(
+          execSql,
+          `SELECT COUNT(*) AS n FROM container_sync_watermarks
          WHERE lane_id = ?`,
-        ["doomed"],
-      ),
-    ).toBe(1);
-    expect(
-      await countRows(
-        execSql,
-        `SELECT COUNT(*) AS n FROM container_sync_lane_checks
+          ["doomed"],
+        ),
+      ).toBe(1);
+      expect(
+        await countRows(
+          execSql,
+          `SELECT COUNT(*) AS n FROM container_sync_lane_checks
          WHERE lane_id = ?`,
-        ["doomed"],
-      ),
-    ).toBe(1);
-    expect(
-      await countRows(
-        execSql,
-        `SELECT COUNT(*) AS n FROM documents
+          ["doomed"],
+        ),
+      ).toBe(1);
+      expect(
+        await countRows(
+          execSql,
+          `SELECT COUNT(*) AS n FROM documents
          WHERE app_kind = 'container-metadata' AND local_id = ?`,
-        ["doomed"],
-      ),
-    ).toBe(1);
-    expect(
-      await countRows(
-        execSql,
-        `SELECT COUNT(*) AS n FROM document_pending_updates
+          ["doomed"],
+        ),
+      ).toBe(1);
+      expect(
+        await countRows(
+          execSql,
+          `SELECT COUNT(*) AS n FROM document_pending_updates
          WHERE app_kind = 'container-metadata' AND local_id = ?`,
-        ["doomed"],
-      ),
-    ).toBe(1);
+          ["doomed"],
+        ),
+      ).toBe(1);
 
-    // The re-applied cascade (the refetched tombstone) completes cleanly.
-    await defaultContainerContentsPersistence.deleteContainers(execSql, [
-      { containerId: "doomed", reason: "deleted", updatedAt: T1 },
-    ]);
-    expect(
-      await defaultContainerContentsPersistence.containerExists(
+      // The re-applied cascade (the refetched tombstone) completes cleanly.
+      await defaultContainerContentsPersistence.deleteContainers(
         execSql,
-        "doomed",
-      ),
-    ).toBe(false);
-    expect(
-      await countRows(
-        execSql,
-        `SELECT COUNT(*) AS n FROM document_pending_updates
+        [{ containerId: "doomed", reason: "deleted", updatedAt: T1 }],
+        { discoveryOnly },
+      );
+      expect(
+        await defaultContainerContentsPersistence.containerExists(
+          execSql,
+          "doomed",
+        ),
+      ).toBe(false);
+      expect(
+        await countRows(
+          execSql,
+          `SELECT COUNT(*) AS n FROM document_pending_updates
          WHERE app_kind = 'container-metadata' AND local_id = ?`,
-        ["doomed"],
-      ),
-    ).toBe(0);
-    // The retry orphaned the linked document and removed links and intents.
-    expect(await linkedDocContainerId(execSql)).toBeNull();
-    expect(
-      await countRows(
-        execSql,
-        `SELECT COUNT(*) AS n FROM document_container_projection
+          ["doomed"],
+        ),
+      ).toBe(discoveryOnly ? 1 : 0);
+      // The retry orphaned the linked document and removed links and intents.
+      expect(await linkedDocContainerId(execSql)).toBeNull();
+      expect(
+        await countRows(
+          execSql,
+          `SELECT COUNT(*) AS n FROM document_container_projection
          WHERE container_id = ?`,
-        ["doomed"],
-      ),
-    ).toBe(0);
-    expect(
-      await countRows(
-        execSql,
-        `SELECT COUNT(*) AS n FROM container_create_intents
+          ["doomed"],
+        ),
+      ).toBe(0);
+      expect(
+        await countRows(
+          execSql,
+          `SELECT COUNT(*) AS n FROM container_create_intents
          WHERE container_id = ?`,
-        ["doomed"],
-      ),
-    ).toBe(0);
-    expect(
-      await countRows(
-        execSql,
-        `SELECT COUNT(*) AS n FROM container_sync_watermarks
+          ["doomed"],
+        ),
+      ).toBe(discoveryOnly ? 1 : 0);
+      expect(
+        await countRows(
+          execSql,
+          `SELECT COUNT(*) AS n FROM container_sync_watermarks
          WHERE lane_id = ?`,
-        ["doomed"],
-      ),
-    ).toBe(0);
-    expect(
-      await countRows(
-        execSql,
-        `SELECT COUNT(*) AS n FROM container_sync_lane_checks
+          ["doomed"],
+        ),
+      ).toBe(0);
+      expect(
+        await countRows(
+          execSql,
+          `SELECT COUNT(*) AS n FROM container_sync_lane_checks
          WHERE lane_id = ?`,
-        ["doomed"],
-      ),
-    ).toBe(0);
-  } finally {
-    await close();
-  }
-});
+          ["doomed"],
+        ),
+      ).toBe(0);
+    } finally {
+      await close();
+    }
+  },
+);

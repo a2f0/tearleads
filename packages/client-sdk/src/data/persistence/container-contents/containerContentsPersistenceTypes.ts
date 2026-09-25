@@ -187,19 +187,12 @@ export interface ContainerContentsPersistence
     removals: ReadonlyArray<ContainerRemoval>,
     options?: {
       /** Unsigned discovery removes listings but preserves metadata and local intent. */
-      discoveryOnly?: { readonly tombstoneContainerIds: readonly string[] };
+      discoveryOnly?: boolean;
       /**
        * Request-time states rechecked inside the deletion transaction. An
        * absent or changed row means another pane won and aborts the cascade.
        */
       expectedContainers?: ReadonlyArray<ContainerDeletionGuard>;
-      /**
-       * Containers whose own container-metadata document (record, queued
-       * updates, failure rows) must survive the cascade — the access_revoked
-       * branch of docs/sync-edge-cases.md row 4. The metadata re-attaches by
-       * container id when access restoration rehydrates the container.
-       */
-      retainMetadataForContainerIds?: ReadonlyArray<string>;
       stillCurrent?: (() => boolean) | undefined;
     },
   ) => Promise<ReadonlyArray<string>>;

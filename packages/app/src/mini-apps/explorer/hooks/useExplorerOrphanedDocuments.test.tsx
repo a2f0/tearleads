@@ -74,3 +74,40 @@ test("the Explorer logs an orphan visibility query failure", async () => {
   });
   expect(view.result.current).toEqual([]);
 });
+
+test("a local folder with a missing parent makes Recovery reachable", async () => {
+  const documentQueries = {
+    hasOrphanedDocuments: async () => false,
+  } as unknown as ContainerDocumentQueries;
+  const node = {
+    id: "local",
+    organizationId: "org",
+    parentId: "missing",
+    metadataDocumentId: null,
+    name: "Local",
+    kind: "container" as const,
+    syncState: {
+      pendingUpdateCount: 0,
+      pendingAttachmentCount: 0,
+      pendingAttachmentBytes: 0,
+      lastError: null,
+      status: "local-only" as const,
+    },
+  };
+  const view = renderHook(() =>
+    useExplorerNodesWithOrphanedDocuments({
+      dbReady: true,
+      documentLinkProjectionVersion: 0,
+      documentListRevision: 0,
+      documentQueries,
+      logError: () => undefined,
+      nodes: [node],
+      organizationId: "org",
+      ready: true,
+    }),
+  );
+  expect(view.result.current.map((item) => item.id)).toContain(
+    EXPLORER_ORPHANED_DOCUMENTS_ID,
+  );
+  await waitFor(() => expect(view.result.current).toHaveLength(2));
+});

@@ -90,7 +90,7 @@ test("restoration sweep completion retains unmatched metadata in every organizat
       await defaultContainerContentsPersistence.deleteContainers(
         execSql,
         [{ containerId, reason: "access_revoked", updatedAt: T1 }],
-        { retainMetadataForContainerIds: [containerId] },
+        { discoveryOnly: true },
       );
     }
 

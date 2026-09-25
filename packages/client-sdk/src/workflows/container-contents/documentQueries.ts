@@ -4,6 +4,7 @@ import type {
   DiscoveredDocumentInput,
   DocumentSummary,
 } from "../../data/documents/documentSummary";
+import { hasRetainedContainerMetadata } from "../../data/persistence/container-contents/containerRecoveryPersistence";
 import { ensureContainerTables } from "../../data/persistence/containers/containerPersistence";
 import {
   containerContentsSyncLane,
@@ -46,6 +47,7 @@ import type {
   ContainerItemSort,
   ContainerItemWindow,
 } from "./documentQueries/types";
+import { createFolderRecoveryQueries } from "./folderRecovery";
 import {
   getOrphanedDocumentQueryBind,
   getOrphanedDocumentWhereSql,
@@ -78,7 +80,8 @@ interface ListContainerItemWindowInput {
   visibleSystemSlots?: ReadonlyArray<ContainerSystemSlot> | undefined;
 }
 
-export interface ContainerDocumentQueries {
+export interface ContainerDocumentQueries
+  extends ReturnType<typeof createFolderRecoveryQueries> {
   applyContainerDocumentTombstones(
     tombstones: ReadonlyArray<ContainerDocumentTombstone>,
   ): Promise<ReadonlyArray<DocumentSummary>>;
@@ -194,7 +197,10 @@ async function hasOrphanedDocuments(
     getOrphanedDocumentExistsSql(),
     getOrphanedDocumentQueryBind(currentOrganizationId),
   );
-  return rows.length > 0;
+  return (
+    rows.length > 0 ||
+    (await hasRetainedContainerMetadata(execSql, currentOrganizationId))
+  );
 }
 
 async function listContainerDocumentSidebarWindow(
@@ -370,6 +376,7 @@ export function createContainerDocumentQueriesFromRuntime(
 ): ContainerDocumentQueries {
   const execSql = runtime.infra.execSql;
   return {
+    ...createFolderRecoveryQueries(execSql),
     applyContainerDocumentTombstones(tombstones) {
       return applyPersistedContainerDocumentTombstones(execSql, tombstones);
     },

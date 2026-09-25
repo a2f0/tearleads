@@ -134,7 +134,7 @@ async function applyContainerTombstoneCascade(input: {
       return removal ? [{ containerId, ...removal }] : [];
     }),
     {
-      discoveryOnly: { tombstoneContainerIds: [tombstone.containerId] },
+      discoveryOnly: true,
       expectedContainers: Array.from(affectedContainerIds, (containerId) => ({
         containerId,
         expectedContainer:

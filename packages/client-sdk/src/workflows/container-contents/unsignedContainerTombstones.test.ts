@@ -46,6 +46,24 @@ const empty: ListContainersResponse = {
 
 const directory = await createSignedContainerDirectory([
   {
+    id: "folder-p",
+    parentId: "root-1",
+    metadataDocumentId: "p-meta",
+    organizationId: ORG,
+  },
+  {
+    id: "folder-q",
+    parentId: "root-1",
+    metadataDocumentId: "q-meta",
+    organizationId: ORG,
+  },
+  {
+    id: "folder-c",
+    parentId: "folder-q",
+    metadataDocumentId: "c-meta",
+    organizationId: ORG,
+  },
+  {
     id: "root-1",
     parentId: null,
     organizationId: ORG,
@@ -183,6 +201,11 @@ test("unsigned deletion preserves queued metadata and permits verified rediscove
     );
     expect(pendingBefore.length).toBe(1);
 
+    const metadataBeforeTombstone =
+      await defaultContainerContentsPersistence.loadContainerMetadataRecord(
+        execSql,
+        "child-1",
+      );
     // 3. One malicious root-lane page: a `deleted` tombstone for root-1, which
     //    has a server-side child (an honest DELETE refuses non-leaf containers),
     //    with a canonical but fabricated far-future timestamp.
@@ -246,10 +269,31 @@ test("unsigned deletion preserves queued metadata and permits verified rediscove
         parentContainerId: "move-destination",
       }),
     ]);
+    // A page started before the parent tombstone observed no child fence.
+    // Its saved metadata still matches: only the removal generation can reject it.
+    const staleChild =
+      await defaultContainerContentsPersistence.commitHydratedContainer(
+        execSql,
+        {
+          container: childState.container,
+          record: childState.record,
+          expectedDormantRecord: metadataBeforeTombstone,
+          expectedHydrationTombstone: null,
+          purgeDormantMetadata: false,
+          remoteUpdatedAt: T0,
+          saveOptions: {},
+        },
+      );
+    expect(staleChild.committed).toBe(false);
     const fences = await execSql(
       "SELECT container_id, reason, updated_at FROM container_hydration_tombstones ORDER BY container_id",
     );
     expect(fences).toEqual([
+      {
+        container_id: "child-1",
+        reason: "deleted",
+        updated_at: "9999-01-01T00:00:00.000Z",
+      },
       {
         container_id: "root-1",
         reason: "deleted",

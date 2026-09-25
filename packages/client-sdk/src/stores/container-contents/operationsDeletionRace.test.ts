@@ -417,3 +417,64 @@ test.each(["rename", "icon"] as const)(
     }
   },
 );
+
+test("a local child whose parent disappeared can move and replace its create intent", async () => {
+  const database = await createTestExecSql("orphan-local-folder-move");
+  try {
+    const source = await createState({
+      id: "local-child",
+      parentId: "missing-parent",
+      documentId: null,
+    });
+    const target = await createState({
+      id: "surviving-root",
+      parentId: null,
+      documentId: "root-metadata",
+    });
+    const persistence = defaultContainerContentsPersistence;
+    await persistence.ensureSchema(database.execSql);
+    await persistence.saveContainer(
+      database.execSql,
+      source.container,
+      source.record,
+      { createIntent: { parentContainerId: "missing-parent" } },
+    );
+    await persistence.saveContainer(
+      database.execSql,
+      target.container,
+      target.record,
+    );
+    const state = createContainerContentsStoreState(
+      createContainerContentsTestRuntime({
+        domainScope: {} as DomainScope,
+        execSql: database.execSql,
+      }),
+      persistence,
+    );
+    state.containersById.set(source.container.id, source);
+    state.containersById.set(target.container.id, target);
+    state.initialized = true;
+    updateContainerContentsSnapshot(state);
+    const syncAgent = {
+      scheduleSync: () => undefined,
+    } as unknown as ContainerContentsStoreSyncAgent;
+    expect(
+      await moveContainer(
+        state,
+        syncAgent,
+        source.container.id,
+        target.container.id,
+      ),
+    ).toMatchObject({ id: source.container.id, parentId: target.container.id });
+    const intents = await persistence.listPendingCreateIntents(
+      database.execSql,
+    );
+    expect(intents).toHaveLength(1);
+    expect(intents[0]).toMatchObject({
+      containerId: source.container.id,
+      parentContainerId: target.container.id,
+    });
+  } finally {
+    database.close();
+  }
+});

@@ -302,7 +302,7 @@ test("a revocation during fetch fences its stale live response", async () => {
     await defaultContainerContentsPersistence.deleteContainers(
       execSql,
       [{ containerId, reason: "access_revoked", updatedAt: timestamp }],
-      { retainMetadataForContainerIds: [containerId] },
+      { discoveryOnly: true },
     );
     releaseRequest();
     await hydration;

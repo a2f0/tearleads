@@ -64,7 +64,7 @@ test("revoke, restore, and restart preserve metadata page-one recovery", async (
           updatedAt: T2,
         },
       ],
-      { retainMetadataForContainerIds: [container.id] },
+      { discoveryOnly: true },
     );
 
     const dormant =

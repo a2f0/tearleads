@@ -163,13 +163,7 @@ async function applyContainerRemovals(input: {
 }): Promise<ReadonlyArray<string>> {
   const containerIds = input.removals.map((removal) => removal.containerId);
   await recordContainerHydrationTombstones({
-    removals: input.discoveryOnly
-      ? input.removals.filter((removal) =>
-          input.discoveryOnly?.tombstoneContainerIds.includes(
-            removal.containerId,
-          ),
-        )
-      : input.removals,
+    removals: input.removals,
     tx: input.tx,
   });
   await retainRemovedContainerMetadata({
@@ -233,10 +227,7 @@ export async function deleteStoredContainers(
         return [];
       }
       const retainedMetadataIds = uniqueRemovals.flatMap((removal) =>
-        options?.discoveryOnly ||
-        options?.retainMetadataForContainerIds?.includes(removal.containerId)
-          ? [removal.containerId]
-          : [],
+        options?.discoveryOnly ? [removal.containerId] : [],
       );
       return applyContainerRemovals({
         discoveryOnly: options?.discoveryOnly,

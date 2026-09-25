@@ -7,6 +7,7 @@ import { isIgnorableDatabaseWorkerError } from "../../../stores/explorer/documen
 import {
   createExplorerOrphanedDocumentsNode,
   EXPLORER_ORPHANED_DOCUMENTS_ID,
+  listLocalOrphanFolders,
 } from "../../../stores/explorer/orphanedDocuments";
 import { EXPLORER_LABELS } from "../labels";
 
@@ -108,12 +109,15 @@ export function useExplorerNodesWithOrphanedDocuments(params: {
     ready,
   ]);
 
+  const hasLocalOrphans =
+    listLocalOrphanFolders(nodes, organizationId).length > 0;
   const visible =
     dbReady &&
     ready &&
-    visibility?.documentQueries === documentQueries &&
-    visibility.organizationId === organizationId &&
-    visibility.visible;
+    (hasLocalOrphans ||
+      (visibility?.documentQueries === documentQueries &&
+        visibility.organizationId === organizationId &&
+        visibility.visible));
 
   return useMemo(
     () =>

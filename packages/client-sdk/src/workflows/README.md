@@ -298,3 +298,11 @@ local projections; missing or deleted names fall back to identifiers. Offline
 history retains its verified policy entries and reports unavailable group
 details explicitly. Authoritative access denial purges organization presentation
 through the existing access-revocation path.
+
+## Retained folder recovery
+
+`ContainerDocumentQueries.listRecoveryFolders` exposes the names and queued-work
+counts of dormant metadata in the selected organization. `discardRecoveryFolder`
+requires its exact revision token and returns false after concurrent edits or
+rehydration. This explicit local action never deletes remote documents. Unsigned
+discovery never calls it. `RecoveryFolder` is exported from the SDK root.

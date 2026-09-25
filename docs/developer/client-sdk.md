@@ -764,3 +764,14 @@ local projections; missing or deleted names fall back to identifiers. Offline
 history retains its verified policy entries and reports unavailable group
 details explicitly. Authoritative access denial purges organization presentation
 through the existing access-revocation path.
+
+## Retained folder recovery
+
+Container document queries expose `listRecoveryFolders` and
+`discardRecoveryFolder`. The exported `RecoveryFolder` carries a revision token
+covering the retained metadata and affected placement intents. Discard commits
+only while the container remains absent and that revision is unchanged. Explorer
+shows these copies alongside local folders whose parents disappeared; local
+folder actions can move them to a surviving parent. Explicit container refresh
+resets all discovery lanes, allowing fresh verified state to restore a folder
+without waiting for a timestamp change or an access-restoration event.

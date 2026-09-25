@@ -334,6 +334,7 @@ export type {
   // alias on the public surface.
   ContainerDocumentLinkInput as ContainerDocumentQueriesLinkInput,
   ContainerSystemSlotDefinition,
+  RecoveryFolder,
 } from "./workflows/container-contents";
 export {
   createContainerContentsDocumentsRuntime,

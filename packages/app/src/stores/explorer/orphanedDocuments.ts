@@ -49,3 +49,17 @@ export function createExplorerOrphanedDocumentsNode(
     },
   };
 }
+
+export function listLocalOrphanFolders(
+  nodes: readonly ContainerNode[],
+  organizationId: string | null,
+): ContainerNode[] {
+  const ids = new Set(nodes.map((node) => node.id));
+  return nodes.filter(
+    (node) =>
+      node.organizationId === organizationId &&
+      node.metadataDocumentId == null &&
+      node.parentId !== null &&
+      !ids.has(node.parentId),
+  );
+}

@@ -10,6 +10,7 @@ import {
   type DocumentRecord,
   defaultDocumentsPersistence,
 } from "../documents";
+import { availableDocumentLinkIntent } from "./availableDocumentLinkIntent";
 import { moveRemoteContainerDocument } from "./documentLinks";
 import {
   deniedReplayMatchesGeneration,
@@ -19,6 +20,7 @@ import {
   type DocumentMoveFailureState,
   describeRejectedDocumentMove,
 } from "./documentMoveFailure";
+import { recordPendingDocumentMoveIntentError } from "./documentMoveIntentErrors";
 import { settleDocumentMoveIntent } from "./documentMoveIntentSettlement";
 import { moveWithVanishedContainerRefresh } from "./documentMoveVanishedRefresh";
 import type {
@@ -51,34 +53,6 @@ interface DocumentMoveIntentSyncState {
   lifecycleGeneration?: number | undefined;
   resolveProjectionUserKey: ContainerContentsProjectionUserKeyResolver;
   runtime: ContainerContentsWorkflowRuntime;
-}
-
-async function recordPendingDocumentMoveIntentError(input: {
-  blocked?: boolean | undefined;
-  denied?: boolean | undefined;
-  documentId: string;
-  expectedIntentId?: string | undefined;
-  expectedUpdatedAt?: string | undefined;
-  isCurrent: () => boolean;
-  message: string;
-  state: DocumentMoveIntentSyncState;
-  unavailable?: boolean | undefined;
-}): Promise<boolean> {
-  if (!input.isCurrent()) return false;
-  await sqlDocumentMoveIntentPersistence.recordMoveIntentError(
-    input.state.runtime.infra.execSql,
-    {
-      blocked: input.blocked,
-      denied: input.denied,
-      documentId: input.documentId,
-      expectedIntentId: input.expectedIntentId,
-      expectedUpdatedAt: input.expectedUpdatedAt,
-      message: input.message,
-      stillCurrent: input.isCurrent,
-      unavailable: input.unavailable,
-    },
-  );
-  return input.isCurrent();
 }
 
 async function relinkMovedDocumentStore<TRuntime>(input: {
@@ -383,7 +357,13 @@ async function trySyncPendingDocumentMoveIntent<TRuntime>(input: {
   state: DocumentMoveIntentSyncState;
 }): Promise<DocumentMoveIntentReplayResult> {
   const { host, intent, state } = input;
-  const preflight = await resolveMoveIntentPreflight(input);
+  const available = availableDocumentLinkIntent(intent, (id) =>
+    state.containersById.has(id),
+  );
+  const preflight = await resolveMoveIntentPreflight({
+    ...input,
+    intent: available.intent,
+  });
   if (preflight.result !== undefined) {
     return preflight.result;
   }
@@ -397,13 +377,13 @@ async function trySyncPendingDocumentMoveIntent<TRuntime>(input: {
           existingContainerId: existingDocument.containerId,
           host,
           isCurrent: input.isCurrent,
-          intent,
+          intent: available.intent,
           onFailure,
           state,
         }),
       execSql: state.runtime.infra.execSql,
       existingContainerId: existingDocument.containerId,
-      intent,
+      intent: available.intent,
       isCurrent: input.isCurrent,
     });
     if (outcome === "abandoned" || !input.isCurrent()) return "abandoned";
@@ -422,7 +402,9 @@ async function trySyncPendingDocumentMoveIntent<TRuntime>(input: {
       host,
       intent,
       isCurrent: input.isCurrent,
-      moved: outcome.moved,
+      moved: available.deferred
+        ? { ...outcome.moved, status: "partial" }
+        : outcome.moved,
       state,
       unavailable: outcome.unavailable,
     });

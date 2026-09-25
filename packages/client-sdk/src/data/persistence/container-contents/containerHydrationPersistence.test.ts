@@ -102,7 +102,7 @@ test("dormant metadata reattaches only when the fetch observed its revocation fe
           updatedAt: revokedAt,
         },
       ],
-      { retainMetadataForContainerIds: [container.id] },
+      { discoveryOnly: true },
     );
     const dormantRecord =
       await sqlContainerContentsPersistence.loadContainerMetadataRecord(
@@ -391,7 +391,7 @@ test("a tombstone transaction refuses a newer pane's container state", async () 
               expectedContainer: staleState.container,
             },
           ],
-          retainMetadataForContainerIds: [container.id],
+          discoveryOnly: true,
         },
       ),
     ).resolves.toEqual([]);
