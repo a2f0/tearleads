@@ -1,4 +1,3 @@
-import { KeyingVerificationError } from "@tearleads/crypto";
 import {
   mapBackupRowsByScope,
   projectBackupRow,
@@ -51,17 +50,8 @@ export function mergePrincipalGrantRetirementBackupTables(input: {
   const rows = rowsByScope(input.current);
   for (const [scope, restored] of rowsByScope(input.restored)) {
     const current = rows.get(scope);
-    if (
-      current &&
-      ["principal_id", "policy_state_hash"].some(
-        (column) => current[column] !== restored[column],
-      )
-    ) {
-      throw new KeyingVerificationError(
-        "object_mismatch",
-        "Backup disagrees with the local principal grant retirement",
-      );
-    }
+    // Either acknowledgement establishes the same terminal expectation. Keep
+    // the first local observation, matching the SDK's on-conflict insertion.
     if (!current)
       rows.set(
         scope,

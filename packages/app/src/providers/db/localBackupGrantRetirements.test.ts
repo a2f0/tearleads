@@ -63,7 +63,7 @@ test("restore unions grant retirements by organization and container idempotentl
 });
 
 test.each(["principal_id", "policy_state_hash"])(
-  "conflicting restored retirement %s leaves the database unchanged",
+  "another acknowledged retirement %s preserves the live observation",
   async (column) => {
     const target = createNativeTestExecSql();
     try {
@@ -80,11 +80,11 @@ test.each(["principal_id", "policy_state_hash"])(
           [column]: "b".repeat(64),
         })),
       }));
-      await expect(
-        restoreBackupDatabase({ ...backup, tables, execSql: target.execSql }),
-      ).rejects.toThrow(
-        "Backup disagrees with the local principal grant retirement",
-      );
+      await restoreBackupDatabase({
+        ...backup,
+        tables,
+        execSql: target.execSql,
+      });
       expect(
         (await readBackupDatabase({ execSql: target.execSql })).tables,
       ).toEqual(backup.tables);
