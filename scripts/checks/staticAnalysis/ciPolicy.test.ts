@@ -50,6 +50,14 @@ test("selects native and infrastructure checks without skipping their dependenci
   );
   expect(ciScopes(["terraform/main.tf"]).terraform).toBe(true);
   for (const path of [
+    "scripts/deployStaging.sh",
+    "scripts/deployProduction.sh",
+    "packages/api/scripts/deployProductionApi.sh",
+    "packages/app-web/scripts/deployAppWeb.sh",
+  ]) {
+    expect(ciScopes([path]).terraform).toBe(true);
+  }
+  for (const path of [
     ".github/workflows/ci.yml",
     "bun.lock",
     "scripts/checks/ciPolicy.ts",

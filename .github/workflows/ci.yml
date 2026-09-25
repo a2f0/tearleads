@@ -10,7 +10,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.ref }}-${{ github.event_name == 'pull_request' && 'pr' || github.run_id }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
@@ -146,10 +146,6 @@ jobs:
   postgres-concurrency:
     name: Postgres concurrency
     runs-on: ubuntu-latest
-    if: >-
-      ${{ github.event_name == 'workflow_dispatch' ||
-          github.event_name == 'pull_request' ||
-          github.ref == 'refs/heads/main' }}
     timeout-minutes: 20
 
     services:

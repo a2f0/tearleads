@@ -1,11 +1,10 @@
 import { expect, test } from "bun:test";
-import { assertMergeChecks } from "./mergeChecks";
+import { assertMergeChecks, requirePassingMergeChecks } from "./mergeChecks";
 
-const check = (name: string, conclusion = "SUCCESS", status = "COMPLETED") => ({
-  __typename: "CheckRun",
+const check = (name: string, state = "SUCCESS", workflow = "CI") => ({
   name,
-  conclusion,
-  status,
+  state,
+  workflow,
 });
 const coreChecks = () =>
   [
@@ -16,7 +15,7 @@ const coreChecks = () =>
     "windows / Windows CEF persistence",
   ].map((name) => check(name));
 const response = (checks: unknown[], headRefOid = "reviewed") =>
-  JSON.stringify({ headRefOid, statusCheckRollup: checks });
+  JSON.stringify({ headRefOid, checks });
 
 test("accepts completed CI and deliberately skipped optional jobs", () => {
   expect(() =>
@@ -25,7 +24,7 @@ test("accepts completed CI and deliberately skipped optional jobs", () => {
         ...coreChecks(),
         check("Windows CEF persistence"),
         check("installer", "SKIPPED"),
-        { __typename: "StatusContext", context: "external", state: "SUCCESS" },
+        check("external", "SUCCESS", ""),
       ]),
       "reviewed",
     ),
@@ -55,7 +54,7 @@ test("rejects failed, pending, cancelled, neutral and unknown optional checks", 
     assertMergeChecks(
       response([
         ...coreChecks(),
-        check("Windows CEF persistence", "", "IN_PROGRESS"),
+        check("Windows CEF persistence", "IN_PROGRESS"),
       ]),
       "reviewed",
     ),
@@ -91,4 +90,52 @@ test("rejects absent/skipped core checks, unreadable responses and changed heads
     assertMergeChecks(response(coreChecks(), "new-head"), "reviewed"),
   ).toThrow("head changed");
   expect(() => assertMergeChecks("invalid", "reviewed")).toThrow();
+});
+
+test("a legacy status or another workflow cannot substitute for core CI", () => {
+  const rest = coreChecks().filter(({ name }) => name !== "CI gate");
+  for (const workflow of ["", "Unrelated workflow"]) {
+    expect(() =>
+      assertMergeChecks(
+        response([...rest, check("CI gate", "SUCCESS", workflow)]),
+        "reviewed",
+      ),
+    ).toThrow("Required CI check");
+  }
+});
+
+test("uses gh's latest paginated checks and then verifies the head", () => {
+  const calls: string[][] = [];
+  requirePassingMergeChecks(
+    { prNumber: "123", repo: "owner/repo" },
+    "reviewed",
+    (command, args) => {
+      calls.push([command, ...args]);
+      return args[1] === "checks"
+        ? JSON.stringify(coreChecks())
+        : JSON.stringify({ headRefOid: "reviewed" });
+    },
+  );
+  expect(calls).toEqual([
+    [
+      "gh",
+      "pr",
+      "checks",
+      "123",
+      "-R",
+      "owner/repo",
+      "--json",
+      "name,state,workflow",
+    ],
+    ["gh", "pr", "view", "123", "-R", "owner/repo", "--json", "headRefOid"],
+  ]);
+  expect(() =>
+    requirePassingMergeChecks(
+      { prNumber: "123", repo: "owner/repo" },
+      "reviewed",
+      () => {
+        throw new Error("GitHub checks unavailable");
+      },
+    ),
+  ).toThrow("GitHub checks unavailable");
 });

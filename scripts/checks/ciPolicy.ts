@@ -6,16 +6,11 @@ export function ciScopes(paths: readonly string[]) {
   );
   return {
     native:
-      common ||
-      paths.some((path) =>
-        /^packages\/app-capacitor\/(android\/|ios\/|capacitor\.config\.ts$|package\.json$)/.test(
-          path,
-        ),
-      ),
+      common || paths.some((path) => /^packages\/app-capacitor\//.test(path)),
     terraform:
       common ||
       paths.some((path) =>
-        /^(terraform\/|ansible\/|\.tflint\.hcl$|scripts\/checks\/check.*\.sh$)/.test(
+        /^(terraform\/|ansible\/|\.tflint\.hcl$|scripts\/|packages\/[^/]+\/scripts\/)/.test(
           path,
         ),
       ),
