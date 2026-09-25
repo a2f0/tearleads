@@ -17,6 +17,16 @@ test("tablet launcher can move between side rail and bottom sheet", () => {
   try {
     const pane = view.container.querySelector(".routed-pane");
     expect(pane?.getAttribute("data-launcher-placement")).toBe("side");
+    expect(
+      view.container.querySelector(
+        ".routed-pane-rail .routed-pane-placement-button",
+      ),
+    ).toBeTruthy();
+    expect(
+      view.container.querySelector(
+        ".routed-pane-toolbar .routed-pane-placement-button",
+      ),
+    ).toBeNull();
 
     fireEvent.click(view.getByRole("button", { name: "Menu" }));
     const activeRailLink = view.container.querySelector(
@@ -47,6 +57,11 @@ test("tablet launcher can move between side rail and bottom sheet", () => {
         .querySelector(".routed-pane-sheet")
         ?.getAttribute("data-open"),
     ).toBe("true");
+    expect(
+      view.container.querySelector(
+        ".routed-pane-sheet .routed-pane-placement-button",
+      ),
+    ).toBeTruthy();
 
     fireEvent.click(
       view.getByRole("button", { name: "Move launcher to side" }),

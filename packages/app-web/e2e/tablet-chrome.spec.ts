@@ -150,9 +150,10 @@ test("desktop tablet launcher can open from the bottom", async ({ page }) => {
   const pane = page.locator(".routed-pane--tablet");
   await expect(pane).toBeVisible();
   await expect(pane).toHaveAttribute("data-launcher-placement", "side");
-  await page.getByRole("button", { name: "Move launcher to bottom" }).click();
+  const rail = pane.locator(".routed-pane-rail");
+  await rail.getByRole("button", { name: "Move launcher to bottom" }).click();
   await expect(pane).toHaveAttribute("data-launcher-placement", "bottom");
-  await expect(page.locator(".routed-pane-rail")).toHaveCount(0);
+  await expect(rail).toHaveCount(0);
 
   await pane.evaluate((element) => {
     (element as HTMLElement).style.setProperty("--safe-area-left", "24px");
@@ -184,9 +185,31 @@ test("desktop tablet launcher can open from the bottom", async ({ page }) => {
   );
   await page.reload();
   await expect(pane).toHaveAttribute("data-launcher-placement", "bottom");
-  await page.getByRole("button", { name: "Move launcher to side" }).click();
+  await page.getByRole("button", { name: "Menu", exact: true }).click();
+  await sheet.getByRole("button", { name: "Move launcher to side" }).click();
   await expect(pane).toHaveAttribute("data-launcher-placement", "side");
-  await expect(page.locator(".routed-pane-rail")).toBeVisible();
+  await expect(rail).toBeVisible();
+});
+
+test("Explorer sidebar has its own surface color", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/app/explorer");
+
+  const pane = page.locator(".routed-pane--tablet");
+  await expect(pane.locator(".routed-pane-sidebar")).toBeVisible();
+  const surfaces = await pane.evaluate((element) => {
+    const color = (selector: string) => {
+      const surface = element.querySelector(selector);
+      if (!surface) throw new Error(`Missing ${selector}`);
+      return getComputedStyle(surface).backgroundColor;
+    };
+    return [
+      color(".routed-pane-rail"),
+      color(".routed-pane-sidebar"),
+      getComputedStyle(element).backgroundColor,
+    ];
+  });
+  expect(new Set(surfaces).size).toBe(3);
 });
 
 test("tablet image viewer fills the content pane, not the screen", async ({
