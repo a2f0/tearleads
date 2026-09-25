@@ -33,4 +33,12 @@ export const TOMBSTONE_NEGATIVE_CONTROLS: readonly NegativeControl[] = [
     expect: { kind: "invariant", name: "LateProofNeverRestores" },
     why: "Ignoring generation changes accepts a proof fetched before a newer local removal.",
   },
+  {
+    id: "tombstone-reuses-fence-generation",
+    module: "formal/container-keying/ContainerTombstoneRecovery.tla",
+    config: "formal/container-keying/ContainerTombstoneRecovery.cfg",
+    constants: { RetainGeneration: "FALSE" },
+    expect: { kind: "invariant", name: "LateProofNeverRestores" },
+    why: "Reusing a cleared fence generation admits an older response after another removal.",
+  },
 ];

@@ -1,7 +1,7 @@
 --------------------- MODULE ContainerTombstoneRecovery ---------------------
 EXTENDS Naturals, FiniteSets
-CONSTANTS PreserveWork, FenceAllRemoved, UseGeneration, IgnoreUnsignedClock
-ASSUME {PreserveWork, FenceAllRemoved, UseGeneration, IgnoreUnsignedClock} \subseteq BOOLEAN
+CONSTANTS PreserveWork, FenceAllRemoved, UseGeneration, IgnoreUnsignedClock, RetainGeneration
+ASSUME {PreserveWork, FenceAllRemoved, UseGeneration, IgnoreUnsignedClock, RetainGeneration} \subseteq BOOLEAN
 Objects == {"parent", "child"}
 Work == {"rename", "create", "move"}
 VARIABLES visible, work, generation, fetched, live, moved, removedAt,
@@ -34,7 +34,9 @@ ObserveHint ==
   /\ work' = IF PreserveWork THEN work ELSE {}
   /\ removalRevision' = [o \in Objects |-> removalRevision[o] + 1]
   /\ generation' = [o \in Objects |->
-       IF o = "parent" \/ FenceAllRemoved THEN generation[o] + 1 ELSE generation[o]]
+       IF o = "parent" \/ FenceAllRemoved
+       THEN IF RetainGeneration \/ o \notin visible THEN generation[o] + 1 ELSE 1
+       ELSE generation[o]]
   /\ removedAt' = [o \in Objects |-> 2]
   /\ UNCHANGED <<fetched, live, moved, fetchedRevision, visibleRevision>>
 

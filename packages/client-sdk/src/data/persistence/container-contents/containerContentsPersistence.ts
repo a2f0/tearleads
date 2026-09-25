@@ -196,7 +196,8 @@ export const sqlContainerContentsPersistence: ContainerContentsPersistence = {
         reason: containerHydrationTombstones.reason,
         updatedAt: containerHydrationTombstones.updatedAt,
       })
-      .from(containerHydrationTombstones);
+      .from(containerHydrationTombstones)
+      .where(eq(containerHydrationTombstones.cleared, false));
     return rows.flatMap((row) =>
       row.reason === "access_revoked" || row.reason === "deleted"
         ? [{ ...row, reason: row.reason }]

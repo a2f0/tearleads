@@ -39,13 +39,15 @@ export const containers = sqliteTable(
 /**
  * Latest removal observed for each container. Hydration must observe the same
  * generation before fetching verified restoration evidence; unsigned clocks
- * never establish a terminal deletion or bypass a concurrent removal.
+ * never establish a terminal deletion or bypass a concurrent removal. Cleared
+ * observations retain their generation so remove/restore/remove cannot reuse it.
  */
 export const containerHydrationTombstones = sqliteTable(
   "container_hydration_tombstones",
   {
     containerId: text("container_id").notNull(),
     generation: integer("generation").notNull().default(1),
+    cleared: integer("cleared", { mode: "boolean" }).notNull().default(false),
     reason: text("reason").notNull(),
     updatedAt: text("updated_at").notNull(),
   },

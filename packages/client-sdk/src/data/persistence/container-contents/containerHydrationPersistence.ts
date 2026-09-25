@@ -1,4 +1,4 @@
-import { eq, sql } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { documentSyncPullContinuationsEqual } from "../../documents/shared/pullContinuation";
 import { containerHydrationTombstones, containers } from "../../sqlite/schema";
 import {
@@ -86,6 +86,7 @@ export async function recordContainerHydrationTombstones(input: {
       target: containerHydrationTombstones.containerId,
       set: {
         generation: sql`${containerHydrationTombstones.generation} + 1`,
+        cleared: false,
         reason: sql`CASE
           WHEN ${containerHydrationTombstones.reason} = 'deleted' THEN 'deleted'
           ELSE excluded.reason
@@ -119,7 +120,12 @@ export async function commitStoredHydratedContainer(
           updatedAt: containerHydrationTombstones.updatedAt,
         })
         .from(containerHydrationTombstones)
-        .where(eq(containerHydrationTombstones.containerId, input.container.id))
+        .where(
+          and(
+            eq(containerHydrationTombstones.containerId, input.container.id),
+            eq(containerHydrationTombstones.cleared, false),
+          ),
+        )
         .limit(1);
       const fence = fences[0];
       const currentDormantRecord = await selectContainerMetadataRecord(
@@ -153,7 +159,8 @@ export async function commitStoredHydratedContainer(
         tx,
       });
       await tx
-        .delete(containerHydrationTombstones)
+        .update(containerHydrationTombstones)
+        .set({ cleared: true })
         .where(eq(containerHydrationTombstones.containerId, input.container.id))
         .run();
       return { committed: true as const, container };

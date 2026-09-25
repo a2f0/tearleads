@@ -167,3 +167,40 @@ export function discardLinkIntentsForRemovedContainers(input: {
 }): Promise<void> {
   return repairRemovedLinks({ ...input, discardPrimaryMoves: true });
 }
+
+/** An unsigned absence hint must not strand surviving additions after a 404. */
+export async function rearmUnavailableLinkIntents(input: {
+  containerIds: ReadonlyArray<string>;
+  tx: ClientSQLiteTransactionScope;
+}): Promise<void> {
+  const { tx } = input;
+  for (const intent of await loadAffectedIntents(
+    tx,
+    input.containerIds,
+    false,
+  )) {
+    if (
+      intent.intentType !== DOCUMENT_LINK_INTENT_TYPE ||
+      intent.syncStatus !== "unavailable"
+    )
+      continue;
+    // Rotate the revision to refuse completion from a pass that parked the old intent.
+    const id = crypto.randomUUID();
+    await tx
+      .update(documentIntentLinkTargets)
+      .set({ intentId: id })
+      .where(eq(documentIntentLinkTargets.intentId, intent.id ?? ""))
+      .run();
+    await tx
+      .update(documentMoveIntents)
+      .set({
+        id,
+        syncStatus: "pending",
+        lastError: null,
+        lastAttemptedAt: null,
+        updatedAt: new Date().toISOString(),
+      })
+      .where(eq(documentMoveIntents.id, intent.id ?? ""))
+      .run();
+  }
+}
