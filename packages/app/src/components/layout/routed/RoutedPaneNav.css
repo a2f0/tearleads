@@ -229,6 +229,14 @@
   }
 }
 
+@media (min-width: 90rem) {
+  .routed-pane-sheet-grid {
+    /* Bound each square on wide desktops while tablet rows stay compact. */
+    grid-template-columns: repeat(auto-fit, minmax(10rem, 12rem));
+    justify-content: center;
+  }
+}
+
 .routed-pane-sheet-tile {
   border-radius: var(--app-radius-surface);
   display: flex;
@@ -255,6 +263,11 @@
 
 .routed-pane-sheet-tile svg {
   flex: 0 0 auto;
+  /* The tiles widen with the viewport; keep the artwork at roughly a third of
+     each square instead of leaving a fixed 32px icon in a large tile. */
+  width: clamp(3rem, 34%, 5rem);
+  height: auto;
+  aspect-ratio: 1;
 }
 
 .routed-pane-sheet-tile-label {

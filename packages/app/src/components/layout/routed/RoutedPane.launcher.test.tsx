@@ -51,10 +51,11 @@ test("tablet launcher can move between side rail and bottom sheet", () => {
     expect(view.container.querySelector(".routed-pane-rail")).toBeNull();
 
     const menuButton = view.getByRole("button", { name: "Menu" });
-    expect(document.activeElement).toBe(menuButton);
     expect(menuButton.getAttribute("aria-controls")).toBe("routed-pane-sheet");
-    fireEvent.click(menuButton);
     expect(menuButton.getAttribute("aria-expanded")).toBe("true");
+    expect(
+      document.activeElement?.classList.contains("routed-pane-sheet-tile"),
+    ).toBe(true);
     expect(
       view.container
         .querySelector(".routed-pane-sheet")
@@ -74,7 +75,34 @@ test("tablet launcher can move between side rail and bottom sheet", () => {
     expect(pane?.getAttribute("data-launcher-placement")).toBe("side");
     expect(view.container.querySelector(".routed-pane-sheet")).toBeNull();
     expect(view.container.querySelector(".routed-pane-rail")).toBeTruthy();
+    expect(
+      view.container
+        .querySelector(".routed-pane-rail")
+        ?.getAttribute("data-state"),
+    ).toBe("open");
     expect(document.activeElement).toBe(menuButton);
+    expect(
+      view.getByRole("button", { name: "Menu" }).getAttribute("aria-expanded"),
+    ).toBe("true");
+  } finally {
+    view.unmount();
+    restoreMatchMedia();
+  }
+});
+
+test("moving a collapsed rail to the bottom leaves the sheet closed", () => {
+  const restoreMatchMedia = forceTabletRoutedTier();
+  const view = renderRoutedPane();
+
+  try {
+    fireEvent.click(
+      view.getByRole("button", { name: "Move launcher to bottom" }),
+    );
+    expect(
+      view.container
+        .querySelector(".routed-pane-sheet")
+        ?.getAttribute("data-open"),
+    ).toBe("false");
     expect(
       view.getByRole("button", { name: "Menu" }).getAttribute("aria-expanded"),
     ).toBe("false");

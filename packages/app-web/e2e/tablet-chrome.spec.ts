@@ -203,6 +203,7 @@ test("desktop tablet launcher can open from the bottom", async ({ page }) => {
   await sheet.getByRole("button", { name: "Move launcher to side" }).click();
   await expect(pane).toHaveAttribute("data-launcher-placement", "side");
   await expect(rail).toBeVisible();
+  await expect(rail).toHaveAttribute("data-state", "open");
   await expect(
     page.getByRole("button", { name: "Menu", exact: true }),
   ).toBeFocused();
