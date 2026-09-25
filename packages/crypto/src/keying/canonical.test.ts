@@ -159,3 +159,14 @@ test("canonical payloads reject negative zero at every nesting level", () => {
   }
   expect(serializeKeyingCanonicalJson({ value: 0 })).toBe('{"value":0}');
 });
+
+test("canonical JSON rejects lone surrogates in values and property names", () => {
+  for (const text of ["\ud800", "\udfff", "prefix\ud800suffix"]) {
+    for (const value of [text, [text], { nested: text }, { [text]: "value" }]) {
+      expect(() => serializeKeyingCanonicalJson(value)).toThrow("well-formed");
+    }
+  }
+  expect(
+    serializeKeyingCanonicalJson({ emoji: "😀", decomposed: "e\u0301" }),
+  ).toBe('{"decomposed":"e\u0301","emoji":"😀"}');
+});

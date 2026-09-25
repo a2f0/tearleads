@@ -6,11 +6,21 @@ import {
 } from "@tearleads/crypto";
 import { base64ToBytes } from "@tearleads/encoding";
 import { eq } from "drizzle-orm";
+import { isCanonicalStoredUuid } from "./canonicalStoredUuid";
 
 export async function loadPrincipalStateSigner(
   state: SignedPrincipalState,
   executor: DatabaseSession,
 ): Promise<{ signingPublicKey: Uint8Array; userId: string }> {
+  if (
+    !isCanonicalStoredUuid(state.principalId) ||
+    !isCanonicalStoredUuid(state.signerUserId)
+  ) {
+    throwPrincipalPolicyValidationError(
+      "invalid_shape",
+      "Principal state identities must be canonical UUIDs",
+    );
+  }
   const [signer] = await executor
     .select({
       id: users.id,
