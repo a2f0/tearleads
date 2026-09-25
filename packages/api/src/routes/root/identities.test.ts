@@ -118,17 +118,23 @@ test("filters identities by signing key fingerprint", async () => {
 });
 
 test("pages identities through opaque cursors without gaps or repeats", async () => {
+  // Other test files leave identities in the shared database. Size the walk
+  // from its contents, while keeping multiple pages even when run in isolation.
+  const expected = await db.select({ id: users.id }).from(users);
+  const limit = Math.max(1, Math.min(50, Math.floor(expected.length / 2)));
   const seen: string[] = [];
   let cursor: string | null = null;
-  for (let page = 0; page < 500; page += 1) {
+  for (let page = 0; page <= Math.ceil(expected.length / limit); page += 1) {
     const query = cursor === null ? "" : `&cursor=${cursor}`;
-    const response = await fetchAsRoot(`/root/identities?limit=1${query}`);
+    const response = await fetchAsRoot(
+      `/root/identities?limit=${limit}${query}`,
+    );
     expect(response.status).toBe(200);
     const body: {
       identities: { userId: string }[];
       nextCursor: string | null;
     } = await response.json();
-    expect(body.identities.length).toBeLessThanOrEqual(1);
+    expect(body.identities.length).toBeLessThanOrEqual(limit);
     seen.push(...body.identities.map((identity) => identity.userId));
     cursor = body.nextCursor;
     if (cursor === null) {
@@ -138,6 +144,7 @@ test("pages identities through opaque cursors without gaps or repeats", async ()
 
   expect(cursor).toBeNull();
   expect(new Set(seen).size).toBe(seen.length);
+  expect(new Set(seen)).toEqual(new Set(expected.map(({ id }) => id)));
   expect(seen).toContain(root.userId);
   expect(seen).toContain(member.userId);
 });

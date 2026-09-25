@@ -114,21 +114,27 @@ test("searches only exact organization IDs", async () => {
 });
 
 test("pages organizations without repeats or gaps", async () => {
+  // The full suite shares a database, so the catalog can exceed 500 entries.
+  const expected = await db
+    .select({ id: organizations.id })
+    .from(organizations);
+  const limit = Math.max(1, Math.min(50, Math.floor(expected.length / 2)));
   const seen: string[] = [];
   let cursor: string | null = null;
-  for (let page = 0; page < 500; page += 1) {
+  for (let page = 0; page <= Math.ceil(expected.length / limit); page += 1) {
     const response = await request(
-      `/root/organizations?limit=1${cursor === null ? "" : `&cursor=${encodeURIComponent(cursor)}`}`,
+      `/root/organizations?limit=${limit}${cursor === null ? "" : `&cursor=${encodeURIComponent(cursor)}`}`,
     );
     expect(response.status).toBe(200);
     const data = RootOrganizationsResponseSchema.parse(await response.json());
-    expect(data.organizations.length).toBeLessThanOrEqual(1);
+    expect(data.organizations.length).toBeLessThanOrEqual(limit);
     seen.push(...data.organizations.map((org) => org.organizationId));
     cursor = data.nextCursor;
     if (cursor === null) break;
   }
   expect(cursor).toBeNull();
   expect(new Set(seen).size).toBe(seen.length);
+  expect(new Set(seen)).toEqual(new Set(expected.map(({ id }) => id)));
   expect(seen).toContain(organizationId);
   expect(seen).toContain(rootOrganizationId);
 });
