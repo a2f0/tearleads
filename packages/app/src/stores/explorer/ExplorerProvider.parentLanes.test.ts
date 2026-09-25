@@ -270,7 +270,7 @@ test("explorer sync applies container tombstones before advancing the parent wat
       id: "child-container",
       organizationId: "org-1",
       parentId: "root-container",
-      metadataDocumentId: null,
+      metadataDocumentId: "child-metadata-document",
       name: "Child",
       icon: null,
     });
@@ -286,7 +286,7 @@ test("explorer sync applies container tombstones before advancing the parent wat
       id: "grandchild-container",
       organizationId: "org-1",
       parentId: "child-container",
-      metadataDocumentId: null,
+      metadataDocumentId: "grandchild-metadata-document",
       name: "Grandchild",
       icon: null,
     });

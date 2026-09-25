@@ -10,28 +10,31 @@ export function availableDocumentLinkIntent(
 ): { intent: DocumentMoveIntentRecord; deferred: boolean } {
   if (intent.intentType !== DOCUMENT_LINK_INTENT_TYPE)
     return { intent, deferred: false };
-  const requested = [
-    ...new Set([
-      intent.targetContainerId,
-      ...(intent.additionalLinkContainerIds ?? []),
-    ]),
-  ];
+  // For link intents the primary target is a routing hint, often the old source.
+  // Only explicit additions can defer the requested removals.
+  const requested = [...new Set(intent.additionalLinkContainerIds ?? [])];
   const available = requested.filter(hasContainer);
-  const targetContainerId = available[0];
-  if (!targetContainerId || available.length === requested.length)
-    return { intent, deferred: false };
-  // Defer every removal until all requested additions are available. The
-  // original durable intent is used for partial settlement and later retries.
+  const deferred = available.length !== requested.length;
+  const targetContainerId = hasContainer(intent.targetContainerId)
+    ? intent.targetContainerId
+    : (available[0] ??
+      (intent.sourceContainerId && hasContainer(intent.sourceContainerId)
+        ? intent.sourceContainerId
+        : undefined));
+  if (
+    !targetContainerId ||
+    (!deferred && targetContainerId === intent.targetContainerId)
+  )
+    return { intent, deferred };
   return {
-    deferred: true,
+    deferred,
     intent: {
       ...intent,
       targetContainerId,
-      additionalLinkContainerIds: (
-        intent.additionalLinkContainerIds ?? []
-      ).filter(hasContainer),
-      removedLinkContainerIds: [],
-      replaceLinkedContainers: false,
+      additionalLinkContainerIds: available,
+      ...(deferred
+        ? { removedLinkContainerIds: [], replaceLinkedContainers: false }
+        : {}),
     },
   };
 }
