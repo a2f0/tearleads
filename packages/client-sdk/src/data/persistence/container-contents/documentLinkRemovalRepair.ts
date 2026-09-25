@@ -13,6 +13,7 @@ import {
 function loadAffectedIntents(
   tx: ClientSQLiteTransactionScope,
   containerIds: ReadonlyArray<string>,
+  discardPrimaryMoves: boolean,
 ) {
   return tx
     .select()
@@ -25,7 +26,9 @@ function loadAffectedIntents(
         ]),
         or(
           and(
-            eq(documentMoveIntents.intentType, DOCUMENT_LINK_INTENT_TYPE),
+            discardPrimaryMoves
+              ? undefined
+              : eq(documentMoveIntents.intentType, DOCUMENT_LINK_INTENT_TYPE),
             inArray(documentMoveIntents.targetContainerId, containerIds),
           ),
           inArray(
@@ -42,15 +45,53 @@ function loadAffectedIntents(
     );
 }
 
+async function survivingIntentTarget(input: {
+  tx: ClientSQLiteTransactionScope;
+  intent: typeof documentMoveIntents.$inferSelect;
+  intentType: string;
+  removed: ReadonlySet<string>;
+  targets: ReadonlyArray<typeof documentIntentLinkTargets.$inferSelect>;
+}): Promise<string> {
+  const { tx, intent, intentType, removed, targets } = input;
+  if (
+    intentType !== DOCUMENT_LINK_INTENT_TYPE ||
+    !removed.has(intent.targetContainerId)
+  )
+    return intent.targetContainerId;
+  const [remaining] = await tx
+    .select()
+    .from(documentContainerProjection)
+    .where(eq(documentContainerProjection.documentId, intent.documentId))
+    .orderBy(asc(documentContainerProjection.containerId))
+    .limit(1);
+  return (
+    remaining?.containerId ??
+    targets.find((target) => target.operation === "link")?.containerId ??
+    intent.targetContainerId
+  );
+}
+
 /** Runs after removed containers have been dropped from local link projections. */
-export async function repairLinkIntentsForRemovedContainers(input: {
+async function repairRemovedLinks(input: {
   containerIds: ReadonlyArray<string>;
+  discardPrimaryMoves: boolean;
   tx: ClientSQLiteTransactionScope;
 }): Promise<void> {
   const { containerIds, tx } = input;
   const removed = new Set(containerIds);
-  const affected = await loadAffectedIntents(tx, containerIds);
+  const affected = await loadAffectedIntents(
+    tx,
+    containerIds,
+    input.discardPrimaryMoves,
+  );
   for (const intent of affected) {
+    const discardedMove =
+      input.discardPrimaryMoves &&
+      intent.intentType === DOCUMENT_MOVE_INTENT_TYPE &&
+      removed.has(intent.targetContainerId);
+    const intentType = discardedMove
+      ? DOCUMENT_LINK_INTENT_TYPE
+      : intent.intentType;
     const targets = (
       await tx
         .select()
@@ -64,29 +105,20 @@ export async function repairLinkIntentsForRemovedContainers(input: {
       .delete(documentIntentLinkTargets)
       .where(eq(documentIntentLinkTargets.intentId, intent.id ?? ""))
       .run();
-    if (
-      intent.intentType === DOCUMENT_LINK_INTENT_TYPE &&
-      targets.length === 0
-    ) {
+    if (intentType === DOCUMENT_LINK_INTENT_TYPE && targets.length === 0) {
       await tx
         .delete(documentMoveIntents)
         .where(eq(documentMoveIntents.documentId, intent.documentId))
         .run();
       continue;
     }
-    let targetContainerId = intent.targetContainerId;
-    if (
-      intent.intentType === DOCUMENT_LINK_INTENT_TYPE &&
-      removed.has(targetContainerId)
-    ) {
-      const [remaining] = await tx
-        .select()
-        .from(documentContainerProjection)
-        .where(eq(documentContainerProjection.documentId, intent.documentId))
-        .orderBy(asc(documentContainerProjection.containerId))
-        .limit(1);
-      targetContainerId = remaining?.containerId ?? targetContainerId;
-    }
+    const targetContainerId = await survivingIntentTarget({
+      tx,
+      intent,
+      intentType,
+      removed,
+      targets,
+    });
     // A removed preferred link is only a routing hint for an additive intent.
     // Keep explicit operations for surviving containers, and invalidate any
     // replay that captured the old target set before this transaction.
@@ -101,6 +133,10 @@ export async function repairLinkIntentsForRemovedContainers(input: {
       .update(documentMoveIntents)
       .set({
         id,
+        intentType,
+        replaceLinkedContainers: discardedMove
+          ? false
+          : intent.replaceLinkedContainers,
         targetContainerId,
         // The source records what the user moved. Clearing it would make
         // replay fall back to the active link and remove that link instead.
@@ -115,4 +151,19 @@ export async function repairLinkIntentsForRemovedContainers(input: {
       .where(eq(documentMoveIntents.documentId, intent.documentId))
       .run();
   }
+}
+
+export function repairLinkIntentsForRemovedContainers(input: {
+  containerIds: ReadonlyArray<string>;
+  tx: ClientSQLiteTransactionScope;
+}): Promise<void> {
+  return repairRemovedLinks({ ...input, discardPrimaryMoves: false });
+}
+
+/** Explicit discard cancels placement into these folders, retaining unrelated operations. */
+export function discardLinkIntentsForRemovedContainers(input: {
+  containerIds: ReadonlyArray<string>;
+  tx: ClientSQLiteTransactionScope;
+}): Promise<void> {
+  return repairRemovedLinks({ ...input, discardPrimaryMoves: true });
 }

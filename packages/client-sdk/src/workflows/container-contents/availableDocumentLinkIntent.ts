@@ -27,7 +27,9 @@ export function availableDocumentLinkIntent(
     intent: {
       ...intent,
       targetContainerId,
-      additionalLinkContainerIds: available.slice(1),
+      additionalLinkContainerIds: (
+        intent.additionalLinkContainerIds ?? []
+      ).filter(hasContainer),
       removedLinkContainerIds: [],
       replaceLinkedContainers: false,
     },

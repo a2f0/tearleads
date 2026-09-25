@@ -13,7 +13,8 @@ import {
 } from "../../sqlite/sqlSchema";
 import { sqlContainerContentsPersistence } from "./containerContentsPersistence";
 import { recordContainerHydrationTombstones } from "./containerHydrationPersistence";
-import { repairLinkIntentsForRemovedContainers } from "./documentLinkRemovalRepair";
+import { repairDocumentsForRemovedContainersInTransaction } from "./containerStructuralRepair";
+import { discardLinkIntentsForRemovedContainers } from "./documentLinkRemovalRepair";
 import { deleteContainerMetadataDocumentRowsInTransaction } from "./dormantContainerMetadata";
 
 // The token covers all local work the user is agreeing to discard, including
@@ -151,7 +152,17 @@ export async function discardRetainedContainerMetadata(
             },
           ],
         });
-        await repairLinkIntentsForRemovedContainers({
+        await repairDocumentsForRemovedContainersInTransaction({
+          tx,
+          removals: [
+            {
+              containerId: input.containerId,
+              reason: "deleted",
+              updatedAt: new Date().toISOString(),
+            },
+          ],
+        });
+        await discardLinkIntentsForRemovedContainers({
           tx,
           containerIds: [input.containerId],
         });

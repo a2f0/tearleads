@@ -200,3 +200,56 @@ test("retry bookkeeping does not invalidate discard but a changed move target do
     f.close();
   }
 });
+
+test.each([false, true])(
+  "discard cancels placement into the folder while preserving other explicit links (extra: %s)",
+  async (extra) => {
+    const f = await fixture();
+    try {
+      await f.execSql(`INSERT INTO document_move_intents
+      (id, local_id, document_id, target_container_id, source_container_id, replace_linked_containers, intent_type, sync_status, created_at, updated_at)
+      VALUES ('move-document', 'local-doc', 'remote-doc', 'folder', 'source', 1, 'document.move', 'blocked', 'before', 'before')`);
+      await f.execSql(
+        "INSERT INTO document_container_projection (document_id, container_id, updated_at) VALUES ('remote-doc', 'folder', 'before')",
+      );
+      if (extra)
+        await f.execSql(
+          `INSERT INTO document_intent_link_targets (intent_id, operation, container_id) VALUES ('move-document', 'link', 'other-folder')`,
+        );
+      const [folder] = await f.queries.listRecoveryFolders({
+        currentOrganizationId: "org",
+      });
+      if (!folder) throw new Error("Missing recovery folder");
+      expect(await f.queries.discardRecoveryFolder(folder)).toBe(true);
+      await persistence.saveContainer(
+        f.execSql,
+        f.original.container,
+        f.original.record,
+      );
+      expect(
+        await f.execSql(
+          "SELECT * FROM document_container_projection WHERE container_id = 'folder'",
+        ),
+      ).toEqual([]);
+      const intents = await f.execSql(
+        "SELECT id, intent_type, target_container_id, replace_linked_containers FROM document_move_intents",
+      );
+      if (extra) {
+        expect(intents).toHaveLength(1);
+        expect(intents[0]).toMatchObject({
+          intent_type: "document.link",
+          target_container_id: "other-folder",
+          replace_linked_containers: 0,
+        });
+        expect(Reflect.get(intents[0] ?? {}, "id")).not.toBe("move-document");
+        expect(
+          await f.execSql(
+            "SELECT operation, container_id FROM document_intent_link_targets",
+          ),
+        ).toEqual([{ operation: "link", container_id: "other-folder" }]);
+      } else expect(intents).toEqual([]);
+    } finally {
+      f.close();
+    }
+  },
+);
