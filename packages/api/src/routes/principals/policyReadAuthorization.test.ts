@@ -134,6 +134,7 @@ test("GET principal policy serves a group-granted reader with no roster entry", 
   await expectDenied(await getPolicy(outsider, "group", groupId));
 });
 
+// Registrations, two group grants, and descendant verification exceed 5s on CI.
 test("GET principal policy serves a reader granted above a child's group grant", async () => {
   const owner = createTestUser();
   const reader = createTestUser();
@@ -186,7 +187,7 @@ test("GET principal policy serves a reader granted above a child's group grant",
   const outsider = createTestUser();
   await registerAndAuthenticate(outsider);
   await expectDenied(await getPolicy(outsider, "group", childGroupId));
-});
+}, 15_000);
 
 test("an authorized policy with a missing stored payload is a server failure", async () => {
   const owner = createTestUser();

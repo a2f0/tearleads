@@ -1,7 +1,7 @@
+import { openSystemMonitorExpression } from "./cefMonitorExpression";
+
 const devtoolsUrl = "http://127.0.0.1:9222/json";
 const startupTimeoutMs = 45_000;
-
-export {};
 
 interface DevToolsTarget {
   readonly type: string;
@@ -125,7 +125,7 @@ async function readReadySnapshot(
 
       await evaluate<undefined>(
         page.webSocketDebuggerUrl,
-        "document.querySelector('[aria-label=\"System Monitor\"]')?.click()",
+        openSystemMonitorExpression,
       );
       lastSnapshot = await evaluate<StorageSnapshot>(
         page.webSocketDebuggerUrl,

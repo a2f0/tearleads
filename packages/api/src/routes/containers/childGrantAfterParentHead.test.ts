@@ -153,6 +153,7 @@ test("a warm-cache child share succeeds after its parent head advanced", async (
 // The cited parent manifest now sits two heads below the current one, so the
 // intermediate is already process-cached when the child is verified. The
 // creation citation must still resolve rather than depending on cache warmth.
+// Four registrations and three signed shares need more than 5s on CI runners.
 test("a child share succeeds after its parent head advanced twice", async () => {
   const owner = createTestUser();
   await registerUser(owner);
@@ -224,7 +225,7 @@ test("a child share succeeds after its parent head advanced twice", async () => 
   );
   const ct = await cs.text();
   expect(cs.status, ct.slice(0, 400)).toBe(200);
-});
+}, 15_000);
 
 // Read-first ordering: a writer-projection GET warms both the child's creation
 // manifest and the current parent head into the process-wide verification cache
