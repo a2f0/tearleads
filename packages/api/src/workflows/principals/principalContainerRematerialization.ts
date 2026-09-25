@@ -1,9 +1,4 @@
 import type { DatabaseTransaction } from "@tearleads/api-shared/postgres";
-import {
-  accessManifestContainerGrantProjection,
-  accessManifestHeads,
-  accessManifestPrincipalHeadProjection,
-} from "@tearleads/api-shared/schema";
 import type {
   ContainerGrantPrincipalHead,
   PrincipalContainerGrant,
@@ -11,7 +6,6 @@ import type {
 import type { ContainerMutationRequest } from "@tearleads/validators/request";
 import type { ContainerMutationResponse } from "@tearleads/validators/response";
 import { MAX_ROTATION_CONTAINER_REKEYS } from "@tearleads/validators/util";
-import { and, eq } from "drizzle-orm";
 import {
   readProjectionAccessEvent,
   readProjectionPlainRecord,
@@ -30,6 +24,10 @@ import type {
 } from "../containers/mutations/types";
 import { createContainerWriterProjectionContext } from "../containers/writerProjection";
 import {
+  listCurrentPrincipalContainerGrants,
+  livePrincipalContainerGrants,
+} from "./principalContainerGrants";
+import {
   loadExactReplayMutationResponses,
   storeMutationAcknowledgements,
 } from "./principalPolicyMutationAcknowledgements";
@@ -43,24 +41,6 @@ type RematerializationEventType =
 interface RequiredContainerRematerialization {
   readonly containerId: string;
   readonly eventType: RematerializationEventType;
-}
-
-function requirePrincipalGrantAccessLevel(
-  value: string,
-): PrincipalContainerGrant["accessLevel"] {
-  if (value !== "admin" && value !== "read" && value !== "write") {
-    throw new Error(
-      "Stored principal container grant has an invalid access level",
-    );
-  }
-  return value;
-}
-
-interface CurrentPrincipalContainerGrant extends PrincipalContainerGrant {
-  readonly keyEpoch: number | null;
-  readonly keyFingerprint: string | null;
-  readonly stateHash: string | null;
-  readonly version: number | null;
 }
 
 function principalHeadMatches(
@@ -80,63 +60,6 @@ function principalHeadMatches(
   );
 }
 
-export async function listCurrentPrincipalContainerGrants(input: {
-  readonly executor: DatabaseTransaction;
-  readonly principalId: string;
-}): Promise<CurrentPrincipalContainerGrant[]> {
-  const rows = await input.executor
-    .select({
-      accessLevel: accessManifestContainerGrantProjection.accessLevel,
-      containerId: accessManifestContainerGrantProjection.containerId,
-      keyEpoch: accessManifestPrincipalHeadProjection.keyEpoch,
-      keyFingerprint: accessManifestPrincipalHeadProjection.keyFingerprint,
-      stateHash: accessManifestPrincipalHeadProjection.stateHash,
-      version: accessManifestPrincipalHeadProjection.version,
-    })
-    .from(accessManifestContainerGrantProjection)
-    .innerJoin(
-      accessManifestHeads,
-      and(
-        eq(accessManifestHeads.objectKind, "container"),
-        eq(
-          accessManifestHeads.objectId,
-          accessManifestContainerGrantProjection.containerId,
-        ),
-        eq(
-          accessManifestHeads.manifestHash,
-          accessManifestContainerGrantProjection.manifestHash,
-        ),
-      ),
-    )
-    .leftJoin(
-      accessManifestPrincipalHeadProjection,
-      and(
-        eq(
-          accessManifestPrincipalHeadProjection.manifestHash,
-          accessManifestContainerGrantProjection.manifestHash,
-        ),
-        eq(accessManifestPrincipalHeadProjection.principalType, "group"),
-        eq(
-          accessManifestPrincipalHeadProjection.principalId,
-          input.principalId,
-        ),
-      ),
-    )
-    .where(
-      and(
-        eq(accessManifestContainerGrantProjection.subjectType, "group"),
-        eq(accessManifestContainerGrantProjection.subjectId, input.principalId),
-      ),
-    );
-
-  return rows
-    .map((row) => ({
-      ...row,
-      accessLevel: requirePrincipalGrantAccessLevel(row.accessLevel),
-    }))
-    .sort((left, right) => left.containerId.localeCompare(right.containerId));
-}
-
 async function listRequiredContainerRematerializations(input: {
   readonly executor: DatabaseTransaction;
   readonly nextGrants: readonly PrincipalContainerGrant[];
@@ -150,8 +73,12 @@ async function listRequiredContainerRematerializations(input: {
   const currentByContainerId = new Map(
     rows.map((row) => [row.containerId, row] as const),
   );
+  const liveNextGrants = await livePrincipalContainerGrants(
+    input.executor,
+    input.nextGrants,
+  );
   const nextByContainerId = new Map(
-    input.nextGrants.map((grant) => [grant.containerId, grant] as const),
+    liveNextGrants.map((grant) => [grant.containerId, grant] as const),
   );
   const containerIds = [
     ...new Set([...currentByContainerId.keys(), ...nextByContainerId.keys()]),

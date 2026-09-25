@@ -1,3 +1,4 @@
+import type { RequestResult } from "@tearleads/api-client";
 import {
   generateKemSeedAndKeyPair,
   makeVerifiedPrincipalPolicy,
@@ -178,6 +179,15 @@ export async function createPrincipalReciteFixture(input: {
       reportSecurityIncident: async () => {},
       apiClient: {
         reciteContainer: async () => null,
+        getContainerWriterProjectionResult: async (
+          containerId: string,
+        ): Promise<RequestResult<ContainerWriterProjectionResponse>> => {
+          requestedContainerIds.push(containerId);
+          const data = projections.get(containerId);
+          if (!data)
+            throw new Error(`Unexpected missing projection: ${containerId}`);
+          return { ok: true, data };
+        },
         getContainerWriterProjection: async (containerId: string) => {
           requestedContainerIds.push(containerId);
           return projections.get(containerId) ?? null;

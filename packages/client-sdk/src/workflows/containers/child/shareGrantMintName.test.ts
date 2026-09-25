@@ -68,6 +68,10 @@ test("minting a group grant without the chosen name fails closed", async () => {
             policyCommits += 1;
             return null;
           },
+          getContainerWriterProjectionResult: async () => ({
+            ok: true,
+            data: parent.projection,
+          }),
           getContainerWriterProjection: async () => parent.projection,
           getCurrentPrincipalPolicy: async (principalType) =>
             principalType === "organization" ? organizationPolicy : groupPolicy,

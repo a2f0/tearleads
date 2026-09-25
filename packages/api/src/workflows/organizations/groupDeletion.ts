@@ -2,6 +2,7 @@ import type { DatabaseSession } from "@tearleads/api-shared/postgres";
 import {
   accessManifestContainerGrantProjection,
   accessManifestHeads,
+  containers,
   groups as groupsTable,
   organizationGroupTombstones,
   organizations,
@@ -26,6 +27,10 @@ async function hasCurrentContainerGrant(input: {
   const [grant] = await input.executor
     .select({ id: accessManifestContainerGrantProjection.id })
     .from(accessManifestContainerGrantProjection)
+    .innerJoin(
+      containers,
+      eq(containers.id, accessManifestContainerGrantProjection.containerId),
+    )
     .innerJoin(
       accessManifestHeads,
       and(
