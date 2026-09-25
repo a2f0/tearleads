@@ -155,7 +155,10 @@ export function CreditCardSecretField(params: {
         placeholder={params.ready ? params.placeholder : "Loading..."}
         disabled={params.disabled}
         autoComplete={params.autoComplete}
+        autoCapitalize="off"
+        autoCorrect="off"
         inputMode="numeric"
+        spellCheck={false}
         {...(params.maxLength === undefined
           ? {}
           : { maxLength: params.maxLength })}

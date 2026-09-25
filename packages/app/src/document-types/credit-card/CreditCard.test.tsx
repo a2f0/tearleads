@@ -148,6 +148,9 @@ test("an empty card number starts visible and stays visible while entering it", 
   ) as HTMLInputElement;
 
   expect(cardNumber.type).toBe("text");
+  expect(cardNumber.getAttribute("spellcheck")).toBe("false");
+  expect(cardNumber.getAttribute("autocorrect")).toBe("off");
+  expect(cardNumber.getAttribute("autocapitalize")).toBe("off");
   expect(
     (view.getByLabelText("Credit card CVV code") as HTMLInputElement).type,
   ).toBe("password");
