@@ -50,8 +50,13 @@ function useCreditCardEditReveal(
   } | null>(null);
   const [isCvvCodeRevealed, setIsCvvCodeRevealed] = useState(false);
   useEffect(() => {
+    if (numberVisibility === null) return;
     if (
-      numberVisibility !== null &&
+      numberVisibility.value === cardNumber &&
+      numberVisibility.sourceValue !== cardNumber
+    ) {
+      setNumberVisibility({ ...numberVisibility, sourceValue: cardNumber });
+    } else if (
       numberVisibility.value !== cardNumber &&
       numberVisibility.sourceValue !== cardNumber
     ) {
