@@ -88,3 +88,17 @@ test("reads local measurement time independently of timezone, including seconds"
   );
   expect(trackerGraphTimestamp("2026-07-16T24:30")).toBeNaN();
 });
+
+test("close decimal weights have distinct vertical-axis labels", () => {
+  const view = render(
+    graph([
+      { id: "first", measuredAt: "2026-07-16T08:00", value: 180.25 },
+      { id: "second", measuredAt: "2026-07-17T08:00", value: 180.26 },
+    ]),
+  );
+  const labels = Array.from(
+    view.container.querySelectorAll('text[dominant-baseline="middle"]'),
+  ).map((label) => label.textContent);
+  expect(labels.length).toBeGreaterThan(1);
+  expect(new Set(labels).size).toBe(labels.length);
+});

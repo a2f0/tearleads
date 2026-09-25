@@ -74,7 +74,7 @@ export function TimeSeriesValueAxis({
         textAnchor="end"
         dominantBaseline="middle"
       >
-        {Number(value.toFixed(2))}
+        {Number(value.toPrecision(12))}
       </text>
     </g>
   ));
