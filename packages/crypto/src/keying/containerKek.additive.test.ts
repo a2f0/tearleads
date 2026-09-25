@@ -1,13 +1,12 @@
 import { expect, test } from "bun:test";
 import { fixtureContainerKekMaterialId } from "./containerKekMaterial.testFixtures";
-import type { ContainerUserRecipientKey } from "./index";
+import { createContainerUserRecipientKey } from "./containerUserRecipientKey.testFixtures";
 import { verifyContainerKekState } from "./index";
 import {
   createContainerKeyEpochFixture,
   createContainerKeyWrap,
   createContainerManifestFixture,
   expectVerificationError,
-  fixtureHash,
 } from "./testFixtures";
 
 test("verifyContainerKekState accepts additive wraps on the existing KEK epoch", async () => {
@@ -39,16 +38,8 @@ test("verifyContainerKekState accepts additive wraps on the existing KEK epoch",
     epoch: 2,
     previousManifestHash: originalManifest.manifestHash,
   });
-  const aliceKey: ContainerUserRecipientKey = {
-    userId: "alice",
-    recipientKeyEpochId: "alice-key-epoch-1",
-    recipientKeyFingerprint: await fixtureHash("alice-key"),
-  };
-  const bobKey: ContainerUserRecipientKey = {
-    userId: "bob",
-    recipientKeyEpochId: "bob-key-epoch-1",
-    recipientKeyFingerprint: await fixtureHash("bob-key"),
-  };
+  const aliceKey = await createContainerUserRecipientKey("alice");
+  const bobKey = await createContainerUserRecipientKey("bob");
   const keyEpoch = await createContainerKeyEpochFixture({
     manifest: currentManifest,
     createdByManifest: originalManifest,

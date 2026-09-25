@@ -5,7 +5,6 @@ import type {
   ContainerDirectGrant,
   ContainerKeyEpoch,
   ContainerKeyWrap,
-  ContainerUserRecipientKey,
   ReferencedPrincipalHead,
   VerifiedContainerAccessManifest,
   VerifiedPrincipalPolicy,
@@ -21,6 +20,7 @@ import {
   createTestContainerKekMaterial,
 } from "../../../test/helpers/containerKekMaterial";
 import {
+  createContainerKekStoreUserKey,
   createContainerKekStoreManifestFixture as createContainerManifestFixture,
   containerKekStoreFixtureHash as fixtureHash,
 } from "../../../test/helpers/containerKekStoreFixtures";
@@ -156,16 +156,8 @@ test("container KEK store persists additive wraps and resolves verified state", 
     previousManifestHash: originalManifest.manifestHash,
     salt: "additive-current",
   });
-  const aliceKey: ContainerUserRecipientKey = {
-    userId: aliceUserId,
-    recipientKeyEpochId: "alice-key-epoch-1",
-    recipientKeyFingerprint: await fixtureHash("alice-key"),
-  };
-  const bobKey: ContainerUserRecipientKey = {
-    userId: bobUserId,
-    recipientKeyEpochId: "bob-key-epoch-1",
-    recipientKeyFingerprint: await fixtureHash("bob-key"),
-  };
+  const aliceKey = await createContainerKekStoreUserKey(aliceUserId);
+  const bobKey = await createContainerKekStoreUserKey(bobUserId);
   const keyEpoch = await createContainerKeyEpochFixture({
     manifest: currentManifest,
     createdByManifest: originalManifest,
@@ -384,11 +376,7 @@ test("container KEK resolver rejects tampered stored wrap fingerprints", async (
     ],
     salt: "tamper",
   });
-  const aliceKey: ContainerUserRecipientKey = {
-    userId: aliceUserId,
-    recipientKeyEpochId: "alice-key-epoch-1",
-    recipientKeyFingerprint: await fixtureHash("alice-key"),
-  };
+  const aliceKey = await createContainerKekStoreUserKey(aliceUserId);
   const keyEpoch = await createContainerKeyEpochFixture({
     manifest,
     keyEpoch: 1,
@@ -485,16 +473,8 @@ test("container KEK store advances a revoke rekey with its sealed keyring", asyn
     ],
     salt: "revoke-current",
   });
-  const adminKey: ContainerUserRecipientKey = {
-    userId: adminUserId,
-    recipientKeyEpochId: "admin-key-epoch-1",
-    recipientKeyFingerprint: await fixtureHash("admin-key"),
-  };
-  const removedKey: ContainerUserRecipientKey = {
-    userId: removedUserId,
-    recipientKeyEpochId: "removed-key-epoch-1",
-    recipientKeyFingerprint: await fixtureHash("removed-key"),
-  };
+  const adminKey = await createContainerKekStoreUserKey(adminUserId);
+  const removedKey = await createContainerKekStoreUserKey(removedUserId);
   const oldEpoch = await createContainerKeyEpochFixture({
     manifest: previousManifest,
     keyEpoch: 1,
