@@ -46,14 +46,18 @@ export function createBlobBytesResponse(input: {
 
 export async function createUploadedAttachmentFixture(input?: {
   bytes?: BlobBytes;
+  nestedContainer?: boolean;
 }) {
   const {
     author,
+    parentProjection,
     publicKey,
     resolveProjectionUserKey,
     secretKey,
     writerProjection,
-  } = await createMaterializedSyncFixture();
+  } = await createMaterializedSyncFixture({
+    nestedContainer: input?.nestedContainer ?? false,
+  });
   const blobId = "550e8400-e29b-41d4-a716-446655440560";
   const bindingId = "550e8400-e29b-41d4-a716-446655440561";
   const slotId = "preview";
@@ -117,6 +121,7 @@ export async function createUploadedAttachmentFixture(input?: {
     contentKey,
     close,
     execSql,
+    parentProjection,
     publicKey,
     resolveProjectionUserKey,
     secretKey,

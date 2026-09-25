@@ -59,7 +59,7 @@ export function assertDocumentCitationScope(input: {
     ) {
       throwVerification(
         "object_mismatch",
-        `${input.label} authorizing path is outside the document scope`,
+        `${input.label} authorizing path is outside the signed target scope`,
       );
     }
   }
@@ -69,8 +69,8 @@ export function assertDocumentCitationScope(input: {
   ]);
   if (input.dependencyManifestHashes?.some((hash) => !dependencies.has(hash))) {
     throwVerification(
-      "object_mismatch",
-      `${input.label} authorizing citation is outside the document scope`,
+      "missing_dependency",
+      `${input.label} authorizing citation lacks a supplied path`,
     );
   }
 }

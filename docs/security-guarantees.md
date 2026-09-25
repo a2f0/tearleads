@@ -340,12 +340,12 @@ The original parent pin and a newer group snapshot cannot replace write-time
 authority. Every cited path must belong to a linked container or the explicit
 link/unlink target, including ancestor evidence already in those paths. One writable
 linked path proves access; committed key targets still cover every linked
-container. Content-write citations must additionally use the manifest head
+container. Content-write citations must use the manifest head
 committed by the matching content-key target. Attachment bind
 events likewise use referenced membership when read and current membership
-when submitted. The bounded ContentWriteAuthority model checks this delayed
-read behavior and the submission rule; negative controls reproduce both
-historical refusals and acceptance of a stale submitted path.
+when submitted. Runtime tests cover scope and target matching. The bounded
+ContentWriteAuthority model assumes verified citations and checks historical
+membership and submission freshness, with negative controls for both.
 
 The owner-directed scope of #2158 and #1555 excludes semantic-currentness
 witnessing: a new-to-device document head, content-write header, or attachment
