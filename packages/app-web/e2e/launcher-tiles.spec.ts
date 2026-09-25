@@ -3,6 +3,7 @@ import { expect, test } from "@playwright/test";
 for (const { name, width, height, moveToBottom } of [
   { name: "narrow phone", width: 320, height: 700, moveToBottom: false },
   { name: "phone", width: 360, height: 800, moveToBottom: false },
+  { name: "wide phone", width: 600, height: 800, moveToBottom: false },
   { name: "desktop", width: 1440, height: 900, moveToBottom: true },
   { name: "wide desktop", width: 2560, height: 1200, moveToBottom: true },
 ]) {
