@@ -37,3 +37,15 @@ The history comparison covers references present in consecutive signed states.
 A revoked group has no successor reference to compare; a later re-grant still
 passes the API's locked current-head check. This model does not represent revoke
 and re-grant or freshness of a first-seen policy on a dishonest server.
+
+## Client retirement evidence
+
+A coded container-not-found response is only a planning hint. The SDK keeps the
+signed grant and records skipped container IDs atomically with the exact verified
+policy acknowledgement. Failed or unacknowledged commits do not retire anything.
+Current projection and local acknowledgement checkpoint transactions reject a
+later head for one of those IDs as equivocation; historical evidence remains
+usable. `deletedContainerGrantReappearance.test.ts` exercises a dishonest 404,
+a successful rotation, and the contradictory old-key reappearance. This durable
+client expectation is tested at runtime, outside this model's honest-API progress
+abstraction. No compatibility or grant-rewriting path is involved.

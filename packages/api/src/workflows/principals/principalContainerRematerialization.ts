@@ -63,6 +63,8 @@ function principalHeadMatches(
 async function listRequiredContainerRematerializations(input: {
   readonly executor: DatabaseTransaction;
   readonly nextGrants: readonly PrincipalContainerGrant[];
+  readonly previousGrants: readonly PrincipalContainerGrant[];
+  readonly organizationId: string;
   readonly nextHead: ContainerGrantPrincipalHead;
 }): Promise<RequiredContainerRematerialization[]> {
   const head = input.nextHead;
@@ -76,6 +78,8 @@ async function listRequiredContainerRematerializations(input: {
   const liveNextGrants = await livePrincipalContainerGrants(
     input.executor,
     input.nextGrants,
+    input.previousGrants,
+    input.organizationId,
   );
   const nextByContainerId = new Map(
     liveNextGrants.map((grant) => [grant.containerId, grant] as const),
@@ -310,6 +314,8 @@ export async function applyPrincipalContainerRematerializations(input: {
   readonly isExactReplay: boolean;
   readonly nextHead: ContainerGrantPrincipalHead;
   readonly nextGrants: readonly PrincipalContainerGrant[];
+  readonly previousGrants: readonly PrincipalContainerGrant[];
+  readonly organizationId: string;
   readonly previousKeyEpoch: number | null;
   readonly requests?: readonly ContainerMutationRequest[] | undefined;
   readonly userId: string;
@@ -317,6 +323,8 @@ export async function applyPrincipalContainerRematerializations(input: {
   const required = await listRequiredContainerRematerializations({
     executor: input.executor,
     nextGrants: input.nextGrants,
+    previousGrants: input.previousGrants,
+    organizationId: input.organizationId,
     nextHead: input.nextHead,
   });
   if (input.isExactReplay && required.length === 0) {
@@ -366,6 +374,8 @@ export async function applyPrincipalContainerRematerializations(input: {
   const unresolved = await listRequiredContainerRematerializations({
     executor: input.executor,
     nextGrants: input.nextGrants,
+    previousGrants: input.previousGrants,
+    organizationId: input.organizationId,
     nextHead: input.nextHead,
   });
   if (unresolved.length > 0) {

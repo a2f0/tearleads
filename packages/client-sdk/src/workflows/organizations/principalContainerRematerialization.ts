@@ -122,12 +122,13 @@ async function loadGrantedContainerContext(
 export async function buildPrincipalContainerRematerializationBatch(
   input: PrincipalContainerRematerializationInput,
 ): Promise<ContainerMutationRequest[]> {
-  return (await buildPrincipalContainerRematerializationPlans(input)).map(
-    (entry) => entry.planned.plan.request,
-  );
+  return (
+    await buildPrincipalContainerRematerializationPlans(input)
+  ).entries.map((entry) => entry.planned.plan.request);
 }
 
 export interface PreparedPrincipalContainerRematerializationBatch {
+  readonly retiredContainerIds: readonly string[];
   readonly acknowledge: (
     responses: readonly ContainerMutationResponse[],
     stillCurrent?: (() => boolean) | undefined,
@@ -302,7 +303,10 @@ async function planRematerializationTarget(
 async function buildPrincipalContainerRematerializationPlans(
   input: PrincipalContainerRematerializationInput,
   carriedContainerIds: readonly string[] = [],
-): Promise<PlannedRematerialization[]> {
+): Promise<{
+  entries: PlannedRematerialization[];
+  retiredContainerIds: readonly string[];
+}> {
   if (
     input.revokedContainerId &&
     !input.grants.some(
@@ -311,7 +315,7 @@ async function buildPrincipalContainerRematerializationPlans(
   ) {
     throw new Error("Revoked container is not granted to the group");
   }
-  const targets = await loadRematerializationTargets({
+  const { targets, retiredContainerIds } = await loadRematerializationTargets({
     apiClient: input.apiClient,
     carriedContainerIds,
     grants: input.grants,
@@ -331,7 +335,7 @@ async function buildPrincipalContainerRematerializationPlans(
   for (const target of targets) {
     await planRematerializationTarget(batch, target);
   }
-  return batch.plans;
+  return { entries: batch.plans, retiredContainerIds };
 }
 
 /**
@@ -363,9 +367,13 @@ function assertNamedContainersRotated(
 export async function preparePrincipalContainerRematerializationBatch(
   input: PrincipalContainerRematerializationInput,
 ): Promise<PreparedPrincipalContainerRematerializationBatch> {
-  const entries = await buildPrincipalContainerRematerializationPlans(input);
+  let { entries, retiredContainerIds } =
+    await buildPrincipalContainerRematerializationPlans(input);
   const requests = () => entries.map((entry) => entry.planned.plan.request);
   return {
+    get retiredContainerIds() {
+      return retiredContainerIds;
+    },
     get plans() {
       return entries.map((entry) => entry.planned);
     },
@@ -379,8 +387,9 @@ export async function preparePrincipalContainerRematerializationBatch(
         input,
         requiredContainerIds,
       );
-      assertNamedContainersRotated(replanned, requiredContainerIds);
-      entries.splice(0, entries.length, ...replanned);
+      assertNamedContainersRotated(replanned.entries, requiredContainerIds);
+      entries = replanned.entries;
+      retiredContainerIds = replanned.retiredContainerIds;
       return requests();
     },
     acknowledge: async (responses, stillCurrent) => {

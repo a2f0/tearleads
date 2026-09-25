@@ -188,7 +188,8 @@ export function assertPutPrincipalPolicyRouteBinding(
   }
 }
 
-function applyPolicyContainerRematerializations(input: {
+async function applyPolicyContainerRematerializations(input: {
+  readonly organizationId: string;
   readonly nextState: StoredPrincipalState;
   readonly policy: PutPrincipalPolicyInput;
   readonly previousState: StoredPrincipalState | null;
@@ -210,6 +211,15 @@ function applyPolicyContainerRematerializations(input: {
       keyFingerprint: input.nextState.keyFingerprint,
     },
     nextGrants: input.policy.grants,
+    organizationId: input.organizationId,
+    previousGrants: input.previousState
+      ? (
+          await getPrincipalPolicyForStateWithExecutor(
+            input.tx,
+            input.previousState,
+          )
+        ).currentGrants
+      : [],
     previousKeyEpoch: input.previousState?.keyEpoch ?? null,
     requests: input.policy.containerMutations,
     userId: input.policy.requesterUserId,
@@ -268,6 +278,7 @@ export async function putPrincipalPolicyInTransaction(
   );
   const applyRematerializations = () =>
     applyPolicyContainerRematerializations({
+      organizationId: policyTarget.organizationId,
       nextState,
       policy: input,
       previousState,

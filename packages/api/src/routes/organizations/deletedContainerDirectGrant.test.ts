@@ -46,6 +46,15 @@ test("a deleted folder direct grant does not block roster removal", async () => 
     },
   );
   expect(share.status).toBe(200);
+  const beforeDelete = await removeMemberGroupUser({
+    actor: owner,
+    memberUserId: member.userId,
+    organizationId,
+  }).then(
+    () => null,
+    (error: unknown) => String(error),
+  );
+  expect(beforeDelete).toContain("409");
   const deleted = await routeApp.request(
     `/containers/${childKek.containerId}`,
     {

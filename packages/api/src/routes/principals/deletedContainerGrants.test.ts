@@ -115,3 +115,54 @@ test("a missing grant target is not treated as a deleted container", async () =>
     (await loadVerifiedPrincipalPolicy(db, "group", groupId)).stateHash,
   ).toBe(current.stateHash);
 });
+
+test.each(["changed", "new", "foreign"] as const)(
+  "a deleted container cannot acquire a %s group grant",
+  async (mode) => {
+    const fixture = await grantedChild();
+    const { owner, organizationId, groupId } = fixture;
+    await fixture.remove();
+    let current = await loadVerifiedPrincipalPolicy(db, "group", groupId);
+    if (mode === "new") {
+      const drop = await signGroupSuccessor({
+        actor: owner,
+        current,
+        grants: [],
+      });
+      expect(
+        (
+          await submitOrganizationGroupPolicyCommit({
+            actor: owner,
+            organizationId,
+            groupId,
+            groupPolicy: drop.request,
+          })
+        ).status,
+      ).toBe(200);
+      current = await loadVerifiedPrincipalPolicy(db, "group", groupId);
+    }
+    let containerId = fixture.containerId;
+    if (mode === "foreign") {
+      const foreign = await grantedChild();
+      await foreign.remove();
+      containerId = foreign.containerId;
+    }
+    const next = await signGroupSuccessor({
+      actor: owner,
+      current,
+      grants: [
+        { containerId, accessLevel: mode === "changed" ? "admin" : "read" },
+      ],
+    });
+    const response = await submitOrganizationGroupPolicyCommit({
+      actor: owner,
+      organizationId,
+      groupId,
+      groupPolicy: next.request,
+    });
+    expect(response.status).toBe(409);
+    expect(
+      (await loadVerifiedPrincipalPolicy(db, "group", groupId)).stateHash,
+    ).toBe(current.stateHash);
+  },
+);

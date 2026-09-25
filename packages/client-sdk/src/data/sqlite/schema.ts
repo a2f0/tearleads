@@ -35,6 +35,7 @@ import {
   organizationReadModelSQLiteSchema,
   organizationReadModelTables,
 } from "./organizationReadModelTableRegistry";
+import { principalGrantRetirements } from "./principalGrantRetirementSchema";
 import {
   principalPolicies,
   principalPolicyBundleHistory,
@@ -670,6 +671,7 @@ export const principalPolicyTables: ReadonlyArray<SqlTableSchema> = [
 
 export const keyingCheckpointTables: ReadonlyArray<SqlTableSchema> = [
   defineSqlTableSchema(accessManifestCheckpoints),
+  defineSqlTableSchema(principalGrantRetirements),
   defineSqlTableSchema(documentPurgeCheckpoints),
   defineSqlTableSchema(principalPolicyCheckpoints),
 ];
@@ -747,6 +749,7 @@ export const clientSqlTables: ReadonlyArray<SqlTableSchema> = [
 ];
 
 export const clientSQLiteSchema = {
+  principalGrantRetirements,
   documents,
   documentPendingUpdates,
   documentSyncFailures,

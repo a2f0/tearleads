@@ -29,6 +29,8 @@ test("group policies with no container grants need no rematerialization", async 
         keyFingerprint: "next-fingerprint",
       },
       nextGrants: [],
+      previousGrants: [],
+      organizationId: crypto.randomUUID(),
       previousKeyEpoch: 1,
       requests: [],
       userId: crypto.randomUUID(),

@@ -92,6 +92,8 @@ export async function listCurrentPrincipalContainerGrants(input: {
 export async function livePrincipalContainerGrants(
   executor: DatabaseTransaction,
   grants: readonly PrincipalContainerGrant[],
+  previousGrants: readonly PrincipalContainerGrant[],
+  organizationId: string,
 ): Promise<PrincipalContainerGrant[]> {
   if (grants.length === 0) return [];
   const rows = await executor
@@ -104,6 +106,7 @@ export async function livePrincipalContainerGrants(
     .where(
       and(
         eq(accessManifestHeads.objectKind, "container"),
+        eq(accessManifestHeads.organizationId, organizationId),
         inArray(
           accessManifestHeads.objectId,
           grants.map((grant) => grant.containerId),
@@ -118,6 +121,19 @@ export async function livePrincipalContainerGrants(
         "Principal grant container does not exist",
         409,
       );
-    return row.liveId !== null;
+    if (row.liveId !== null) return true;
+    if (
+      !previousGrants.some(
+        (previous) =>
+          previous.containerId === grant.containerId &&
+          previous.accessLevel === grant.accessLevel,
+      )
+    ) {
+      throw new PrincipalPolicyError(
+        "Deleted container grants must be retained unchanged",
+        409,
+      );
+    }
+    return false;
   });
 }

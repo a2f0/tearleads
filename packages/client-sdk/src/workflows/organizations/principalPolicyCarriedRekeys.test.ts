@@ -85,6 +85,7 @@ test("a refused group commit is retried once carrying the named rekeys", async (
       groupId: fixture.groupId,
       organizationId: fixture.organizationId,
       prepareContainerMutations: async () => ({
+        retiredContainerIds: [],
         acknowledge: async (responses) => {
           acknowledged.push([...responses]);
         },

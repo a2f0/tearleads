@@ -168,6 +168,7 @@ export async function createPrincipalReciteFixture(input: {
     database,
     /** The group as it stands before this rotation, for grants created under it. */
     previousBundle,
+    nextBundle,
     /** Register a projection the fake API serves, e.g. a created child. */
     serveProjection: (projection: ContainerWriterProjectionResponse) => {
       projections.set(projection.containerId, projection);

@@ -29,6 +29,7 @@ import {
   upsertAccessManifestCheckpointInTransaction,
   upsertPrincipalPolicyCheckpointInTransaction,
 } from "./keyingCheckpointPersistence";
+import { assertContainerNotRetired } from "./principalGrantRetirementPersistence";
 import {
   assertPrincipalPolicyBundleStoredInTransaction,
   writePrincipalPolicyBundleInTransaction,
@@ -145,6 +146,7 @@ async function validateAccessAdvances(
   const pending = new Map<string, PendingAccessCheckpoint>();
 
   for (const advance of advances) {
+    await assertContainerNotRetired(tx, advance.head.checkpoint);
     const key = accessManifestObjectKey(advance.head.checkpoint);
     if (pending.has(key)) {
       throw new KeyingVerificationError(

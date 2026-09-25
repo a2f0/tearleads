@@ -65,6 +65,7 @@ function refusingRemoval(
       groupId: fixture.groupId,
       organizationId: fixture.organizationId,
       prepareContainerMutations: async () => ({
+        retiredContainerIds: [],
         acknowledge: async () => {
           throw new Error("Nothing committed, so nothing to acknowledge");
         },
