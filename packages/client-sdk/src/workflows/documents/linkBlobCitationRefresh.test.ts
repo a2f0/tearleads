@@ -14,7 +14,7 @@ import { readWriteHeader } from "../../data/documents/shared/readers";
 import { prepareDocumentLinkBlobRewraps } from "./linkSetBlobRewraps";
 
 for (const freshEvidence of [false, true]) {
-  test(`attachment rewrap refreshes missing citations once (fresh=${freshEvidence})`, async () => {
+  test(`attachment rewrap refreshes citations without accepting unrelated paths (fresh=${freshEvidence})`, async () => {
     const fixture = await createUploadedAttachmentFixture();
     try {
       const extra = await createContainerWriterProjectionFixture({
@@ -79,17 +79,11 @@ for (const freshEvidence of [false, true]) {
         ],
         writerProjection: fixture.writerProjection,
       });
-      if (freshEvidence) {
-        const result = await rewraps;
-        expect(result).toHaveLength(1);
-        expect(result[0]?.targets).toHaveLength(2);
-        expect(result[0]?.targets[0]?.wrappedKey).toBe(
-          binding.contentKeyBundle.targets[0]?.wrappedKey,
-        );
-      } else
-        await expect(rewraps).rejects.toMatchObject({
-          code: "missing_dependency",
-        });
+      // The extra container is a proposed destination, not a container that
+      // authorized the existing blob write. Its citation stays out of scope.
+      await expect(rewraps).rejects.toMatchObject({
+        code: freshEvidence ? "object_mismatch" : "missing_dependency",
+      });
       expect(fetches).toBe(1);
       expect(evictions).toBe(1);
       expect(downloads).toBe(1);

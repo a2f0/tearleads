@@ -11,7 +11,7 @@ import { createAttachmentDecryptor } from "./attachmentDecryptor";
 import { hydrateDocumentAttachmentBlobs } from "./hydrate";
 
 for (const freshEvidence of [false, true]) {
-  test(`attachment hydration refreshes missing signed citations once (fresh=${freshEvidence})`, async () => {
+  test(`attachment hydration refreshes citations without accepting unrelated paths (fresh=${freshEvidence})`, async () => {
     const fixture = await createUploadedAttachmentFixture();
     try {
       const extra = await createContainerWriterProjectionFixture({
@@ -76,17 +76,11 @@ for (const freshEvidence of [false, true]) {
         resolveProjectionUserKey: fixture.resolveProjectionUserKey,
         targetSecretKey: fixture.secretKey,
       });
-      if (freshEvidence) {
-        const hydrated = await hydration;
-        expect(hydrated).toHaveLength(1);
-        expect(hydrated?.[0]?.bytes).toEqual(fixture.bytes);
-      } else {
-        expect(await hydration).toEqual([]);
-        expect(incidents).toHaveLength(1);
-        expect(incidents[0]).toMatchObject({
-          code: "missing_dependency",
-        });
-      }
+      expect(await hydration).toEqual([]);
+      expect(incidents).toHaveLength(1);
+      expect(incidents[0]).toMatchObject({
+        code: freshEvidence ? "object_mismatch" : "missing_dependency",
+      });
       expect(projections).toBe(2);
       expect(evictions).toBe(1);
       expect(downloads).toBe(1);
@@ -111,9 +105,9 @@ for (const freshEvidence of [false, true]) {
           targetSecretKey: fixture.secretKey,
           writerProjection: fixture.writerProjection,
         };
-        expect(
-          await Promise.all([decrypt(decryptInput), decrypt(decryptInput)]),
-        ).toEqual([fixture.bytes, fixture.bytes]);
+        await expect(
+          Promise.all([decrypt(decryptInput), decrypt(decryptInput)]),
+        ).rejects.toMatchObject({ code: "object_mismatch" });
         expect(sharedFetches).toBe(1);
       }
     } finally {

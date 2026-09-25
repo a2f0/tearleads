@@ -16,7 +16,7 @@ import { buildMaterializedDocumentSyncPlan } from "./syncPlanMaterial";
 
 for (const historyMode of ["normal", "raw"] as const) {
   for (const hasFreshEvidence of [false, true]) {
-    test(`a submitted ${historyMode} response refetches citations missing from the cached projection (fresh=${hasFreshEvidence})`, async () => {
+    test(`a submitted ${historyMode} response refreshes missing citations and refuses unrelated paths (fresh=${hasFreshEvidence})`, async () => {
       const fixture = await createMaterializedSyncFixture();
       const { close, execSql } = await createTestExecSql(
         `submitted-citation-${historyMode}`,
@@ -88,12 +88,11 @@ for (const historyMode of ["normal", "raw"] as const) {
           targetSecretKey: fixture.secretKey,
           writerProjection: fixture.writerProjection,
         });
-        if (hasFreshEvidence)
-          expect((await result)?.decryptedUpdates).toHaveLength(1);
-        else
-          await expect(result).rejects.toMatchObject({
-            code: "missing_dependency",
-          });
+        // This is signed evidence for an unlinked container. Fetching it fixes
+        // availability, but cannot turn it into document write authority.
+        await expect(result).rejects.toMatchObject({
+          code: hasFreshEvidence ? "object_mismatch" : "missing_dependency",
+        });
         expect(refreshes).toBe(1);
         expect(submissions).toBe(1);
       } finally {
