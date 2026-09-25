@@ -62,8 +62,8 @@ function CreditCardRevealButton(params: {
  * The trailing controls for a masked field: reveal it, or copy it.
  *
  * Copy is the more useful of the two while the value is masked — the input is a
- * password field, so selecting the text by hand means revealing it first, in
- * front of whoever is looking at the screen. It therefore copies the stored
+ * password field when masked, so selecting the text by hand may mean revealing
+ * it in front of whoever is looking at the screen. It copies the stored
  * value rather than the mask, and stays available whether or not the field is
  * revealed. The clipboard sits after the eye, at the row's trailing edge, where
  * every other surface in the app puts a copy button.
@@ -97,8 +97,8 @@ export function CreditCardSecretActions(params: {
   );
 }
 
-// Each mode owns its own reveal state, so leaving edit mode re-masks the
-// values rather than carrying a reveal across the switch.
+// Read mode owns its reveal state, so leaving edit mode re-masks the values
+// rather than carrying a reveal across the switch.
 export function useCreditCardReveal() {
   const [isCardNumberRevealed, setIsCardNumberRevealed] = useState(false);
   const [isCvvCodeRevealed, setIsCvvCodeRevealed] = useState(false);
@@ -112,12 +112,10 @@ export function useCreditCardReveal() {
 }
 
 /**
- * A masked credit card row: the number and the CVV.
+ * A sensitive credit card row: the number and the CVV.
  *
- * Both hide their value behind a password input, both carry the reveal/copy
- * pair, and both keep their own reveal state. Sharing one component is what
- * keeps the two from drifting apart — a change to how a secret is masked or
- * copied should not have to be made twice.
+ * Both carry the reveal/copy pair. Each row's reveal state is owned by the
+ * caller; this component renders that choice.
  */
 export function CreditCardSecretField(params: {
   autoComplete: string;
@@ -157,7 +155,10 @@ export function CreditCardSecretField(params: {
         placeholder={params.ready ? params.placeholder : "Loading..."}
         disabled={params.disabled}
         autoComplete={params.autoComplete}
+        autoCapitalize="off"
+        autoCorrect="off"
         inputMode="numeric"
+        spellCheck={false}
         {...(params.maxLength === undefined
           ? {}
           : { maxLength: params.maxLength })}

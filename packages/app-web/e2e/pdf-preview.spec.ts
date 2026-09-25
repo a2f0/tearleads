@@ -95,7 +95,11 @@ test("closing while awaiting a password releases the PDF worker", async ({
 }) => {
   await page.addInitScript(() => {
     const NativeWorker = globalThis.Worker;
+    let created = 0;
     let terminated = 0;
+    Object.defineProperty(globalThis, "__pdfWorkersCreated", {
+      get: () => created,
+    });
     Object.defineProperty(globalThis, "__pdfWorkersTerminated", {
       get: () => terminated,
     });
@@ -105,6 +109,7 @@ test("closing while awaiting a password releases the PDF worker", async ({
       constructor(url: string | URL, options?: WorkerOptions) {
         super(url, options);
         this.pdfWorker = String(url).includes("/pdf.worker.js");
+        if (this.pdfWorker) created += 1;
       }
 
       override terminate() {
@@ -122,11 +127,16 @@ test("closing while awaiting a password releases the PDF worker", async ({
     preview.getByText("This PDF requires a password."),
   ).toBeVisible();
   await window.locator(".window-close").click();
-  await page.waitForFunction(
-    () =>
-      (globalThis as typeof globalThis & { __pdfWorkersTerminated?: number })
-        .__pdfWorkersTerminated === 1,
-  );
+  await page.waitForFunction(() => {
+    const state = globalThis as typeof globalThis & {
+      __pdfWorkersCreated?: number;
+      __pdfWorkersTerminated?: number;
+    };
+    return (
+      state.__pdfWorkersCreated === state.__pdfWorkersTerminated &&
+      (state.__pdfWorkersCreated ?? 0) > 0
+    );
+  });
 });
 
 test("closing and reopening PDFs releases their workers", async ({ page }) => {
