@@ -45,8 +45,9 @@ signed grant and records skipped container IDs atomically with the exact verifie
 policy acknowledgement. Failed or unacknowledged commits do not retire anything.
 Current projection and local acknowledgement checkpoint transactions reject a
 head for one of those IDs, even the previously pinned head, as equivocation;
-historical evidence remains
-usable. `deletedContainerGrantReappearance.test.ts` exercises a dishonest 404,
+historical evidence remains usable. Backup restore unions these expectations
+and rejects conflicting retirement evidence.
+`deletedContainerGrantReappearance.test.ts` exercises a dishonest 404,
 a successful rotation, and the contradictory old-key reappearance. This durable
 client expectation is tested at runtime, outside this model's honest-API progress
 abstraction. No compatibility or grant-rewriting path is involved.
