@@ -187,7 +187,7 @@ interface RoutedPaneSurfaceProps {
   ActiveMiniApp: ComponentType;
   launcherPlacement: LauncherPlacement;
   navigationRailExpanded: boolean;
-  onToggleLauncherPlacement: () => void;
+  onToggleLauncherPlacement: (wasOpen: boolean) => void;
   onToggleNavigationRail: () => void;
   tier: RoutedLayoutTier;
 }
@@ -236,10 +236,13 @@ function RoutedPaneSurface({
     menuButtonRef.current?.focus();
   }, [closeDrawer]);
   useEscapeToDismissDrawer(drawerOpen, dismissDrawer);
-  const moveLauncher = useCallback(() => {
-    dismissDrawer();
-    onToggleLauncherPlacement();
-  }, [dismissDrawer, onToggleLauncherPlacement]);
+  const moveLauncher = () => {
+    const wasOpen =
+      launcherPlacement === "side" ? navigationRailExpanded : drawerOpen;
+    setDrawerOpen(launcherPlacement === "side" && wasOpen);
+    menuButtonRef.current?.focus();
+    onToggleLauncherPlacement(wasOpen);
+  };
 
   useCollapseOverlaysOnTierChange({ closeDrawer, closeSidebar, tier });
 
@@ -346,12 +349,15 @@ export function RoutedPane() {
     () => setNavigationRailExpanded(invertBoolean),
     [],
   );
-  const toggleLauncherPlacement = useCallback(() => {
-    setNavigationRailExpanded(false);
-    const next = launcherPlacement === "side" ? "bottom" : "side";
-    setLauncherPlacement(next);
-    saveLauncherPlacement(next);
-  }, [launcherPlacement]);
+  const toggleLauncherPlacement = useCallback(
+    (wasOpen: boolean) => {
+      const next = launcherPlacement === "side" ? "bottom" : "side";
+      setNavigationRailExpanded(next === "side" && wasOpen);
+      setLauncherPlacement(next);
+      saveLauncherPlacement(next);
+    },
+    [launcherPlacement],
+  );
 
   return (
     <RoutedPaneWithRegistries
