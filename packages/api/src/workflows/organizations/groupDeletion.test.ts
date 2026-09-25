@@ -3,6 +3,7 @@ import { db } from "@tearleads/api-shared/postgres";
 import {
   accessManifestContainerGrantProjection,
   accessManifestHeads,
+  containers,
 } from "@tearleads/api-shared/schema";
 import { requireOrganizationGroupWithoutDeleteBlockers } from "./groupDeletion";
 
@@ -11,6 +12,9 @@ test("group deletion is blocked by a current container grant", async () => {
   const groupOrganizationId = crypto.randomUUID();
   const containerId = crypto.randomUUID();
   const manifestHash = `current:${crypto.randomUUID()}`;
+  await db
+    .insert(containers)
+    .values({ id: containerId, organizationId: groupOrganizationId });
   await db.insert(accessManifestHeads).values({
     epoch: 1,
     manifestHash,

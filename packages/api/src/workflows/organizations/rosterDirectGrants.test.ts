@@ -3,6 +3,7 @@ import { db } from "@tearleads/api-shared/postgres";
 import {
   accessManifestContainerGrantProjection,
   accessManifestHeads,
+  containers,
 } from "@tearleads/api-shared/schema";
 import { assertOrganizationUsersHaveNoCurrentDirectContainerGrants } from "./roster";
 
@@ -11,6 +12,9 @@ test("organization members with current direct grants cannot be disabled", async
   const containerId = crypto.randomUUID();
   const userId = crypto.randomUUID();
   const manifestHash = `current:${crypto.randomUUID()}`;
+  await db
+    .insert(containers)
+    .values({ id: containerId, organizationId: organizationId });
   await db.insert(accessManifestHeads).values({
     epoch: 1,
     manifestHash,
@@ -43,6 +47,9 @@ test("superseded and foreign-organization direct grants do not block removal", a
   const organizationId = crypto.randomUUID();
   const userId = crypto.randomUUID();
   const supersededContainerId = crypto.randomUUID();
+  await db
+    .insert(containers)
+    .values({ id: supersededContainerId, organizationId });
   await db.insert(accessManifestHeads).values({
     epoch: 2,
     manifestHash: `successor:${crypto.randomUUID()}`,
@@ -59,12 +66,16 @@ test("superseded and foreign-organization direct grants do not block removal", a
   });
   const foreignContainerId = crypto.randomUUID();
   const foreignManifestHash = `foreign:${crypto.randomUUID()}`;
+  const foreignOrganizationId = crypto.randomUUID();
+  await db
+    .insert(containers)
+    .values({ id: foreignContainerId, organizationId: foreignOrganizationId });
   await db.insert(accessManifestHeads).values({
     epoch: 1,
     manifestHash: foreignManifestHash,
     objectId: foreignContainerId,
     objectKind: "container",
-    organizationId: crypto.randomUUID(),
+    organizationId: foreignOrganizationId,
   });
   await db.insert(accessManifestContainerGrantProjection).values({
     accessLevel: "read",
