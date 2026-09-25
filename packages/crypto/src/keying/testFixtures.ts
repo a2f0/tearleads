@@ -568,9 +568,7 @@ export async function createVerifiedContainerKekStateFixture(input: {
       );
       return {
         userId,
-        recipientKeyEpochId: ["user", userId, 1, recipientKeyFingerprint].join(
-          ":",
-        ),
+        recipientKeyEpochId: `user:${userId}:encapsulation:${recipientKeyFingerprint}`,
         recipientKeyFingerprint,
       };
     }),
