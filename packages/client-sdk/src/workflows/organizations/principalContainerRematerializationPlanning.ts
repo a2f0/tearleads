@@ -1,3 +1,4 @@
+import type { ApiClient } from "@tearleads/api-client";
 import type {
   PrincipalContainerGrant,
   VerifiedPrincipalPolicy,
@@ -20,7 +21,9 @@ import {
 } from "../containers/child/carriedDescendantRekeys";
 import type { PlannedRematerialization } from "./principalContainerRematerializationTargets";
 
-export interface RematerializationApi extends ContainerReciteApi {
+export interface RematerializationApi
+  extends ContainerReciteApi,
+    Pick<ApiClient, "getContainerWriterProjectionResult"> {
   getContainerWriterProjection(
     containerId: string,
   ): Promise<ContainerWriterProjectionResponse | null>;

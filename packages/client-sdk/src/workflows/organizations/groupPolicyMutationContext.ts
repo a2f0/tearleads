@@ -348,6 +348,7 @@ async function submitGroupPolicyCommit(input: {
 }
 
 export async function commitGroupPolicyMutation(input: {
+  readonly retiredContainerIds?: (() => readonly string[]) | undefined;
   readonly apiClient: PrincipalPolicyReadWriteApi;
   readonly currentPolicy: PrincipalPolicyBundleResponse;
   readonly execSql: ExecSql;
@@ -401,6 +402,11 @@ export async function commitGroupPolicyMutation(input: {
     response: stored.organizationPolicy,
   });
   await retainLocallyAcknowledgedPrincipalPolicyBundles({
+    retiredContainers: {
+      containerIds: input.retiredContainerIds?.() ?? [],
+      organizationId: input.organizationId,
+      policy: acknowledgedPolicy,
+    },
     entries: [
       { bundle: storedPolicy, policy: acknowledgedPolicy },
       {

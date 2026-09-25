@@ -300,6 +300,14 @@ export const NEGATIVE_CONTROLS: readonly NegativeControl[] = [
     why: "A fresh session accepts a second user for an already pinned signing fingerprint after losing volatile acknowledgments (#2329).",
   },
   {
+    id: "deleted-container-grant-blocks-policy",
+    module: "formal/container-keying/PrincipalReferenceProgress.tla",
+    config: "formal/container-keying/PrincipalReferenceProgress.cfg",
+    constants: { FilterDeletedGrants: "FALSE" },
+    expect: { kind: "invariant", name: "DeletedGrantsDoNotBlockProgress" },
+    why: "A deleted container retains its signed grant but must not block group rotation (#2365 finding 4).",
+  },
+  {
     id: "container-grant-selects-old-group-key",
     module: "formal/container-keying/PrincipalReferenceProgress.tla",
     config: "formal/container-keying/PrincipalReferenceProgress.cfg",

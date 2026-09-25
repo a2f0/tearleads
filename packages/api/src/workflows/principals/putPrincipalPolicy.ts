@@ -5,6 +5,7 @@ import type {
 import type { PrincipalPolicyMutationResponse } from "@tearleads/validators/response";
 import {
   getCurrentPrincipalState,
+  listContainerGrantsForState,
   type StoredPrincipalState,
 } from "../../access/read/principalStateStore";
 import { reconcileOrganizationBillingSeats } from "../billing/organizationSeats";
@@ -188,14 +189,15 @@ export function assertPutPrincipalPolicyRouteBinding(
   }
 }
 
-function applyPolicyContainerRematerializations(input: {
+async function applyPolicyContainerRematerializations(input: {
+  readonly organizationId: string;
   readonly nextState: StoredPrincipalState;
   readonly policy: PutPrincipalPolicyInput;
   readonly previousState: StoredPrincipalState | null;
   readonly tx: DatabaseTransaction;
 }) {
   if (input.nextState.principalType === "organization") {
-    return Promise.resolve([]);
+    return [];
   }
   return applyPrincipalContainerRematerializations({
     executor: input.tx,
@@ -210,6 +212,15 @@ function applyPolicyContainerRematerializations(input: {
       keyFingerprint: input.nextState.keyFingerprint,
     },
     nextGrants: input.policy.grants,
+    organizationId: input.organizationId,
+    previousGrants: input.previousState
+      ? await listContainerGrantsForState(
+          "group",
+          input.previousState.principalId,
+          input.previousState.stateHash,
+          input.tx,
+        )
+      : [],
     previousKeyEpoch: input.previousState?.keyEpoch ?? null,
     requests: input.policy.containerMutations,
     userId: input.policy.requesterUserId,
@@ -268,6 +279,7 @@ export async function putPrincipalPolicyInTransaction(
   );
   const applyRematerializations = () =>
     applyPolicyContainerRematerializations({
+      organizationId: policyTarget.organizationId,
       nextState,
       policy: input,
       previousState,

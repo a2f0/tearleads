@@ -65,6 +65,9 @@ function refusingRemoval(
       groupId: fixture.groupId,
       organizationId: fixture.organizationId,
       prepareContainerMutations: async () => ({
+        retiredContainerIds: fixture
+          .getCurrentPolicy()
+          .currentGrants.map((grant) => grant.containerId),
         acknowledge: async () => {
           throw new Error("Nothing committed, so nothing to acknowledge");
         },
@@ -85,7 +88,9 @@ function refusingRemoval(
 // not reported as an error.
 
 test("a second refusal ends the attempt and is the one reported", async () => {
-  const fixture = await createRemovalFixture();
+  const fixture = await createRemovalFixture({
+    grantedContainerIds: [crypto.randomUUID()],
+  });
   try {
     const { remove, reported, submissions } = refusingRemoval(
       fixture,
@@ -97,6 +102,11 @@ test("a second refusal ends the attempt and is the one reported", async () => {
       ["rematerialized", "carried-upper"],
     ]);
     expect(reported).toEqual([0, 1]);
+    expect(
+      await fixture.execSql(
+        "SELECT container_id FROM principal_grant_retirements",
+      ),
+    ).toEqual([]);
   } finally {
     fixture.close();
   }

@@ -182,6 +182,10 @@ export async function assertOrganizationUsersHaveNoCurrentDirectContainerGrants(
     .select({ id: accessManifestContainerGrantProjection.id })
     .from(accessManifestContainerGrantProjection)
     .innerJoin(
+      containers,
+      eq(containers.id, accessManifestContainerGrantProjection.containerId),
+    )
+    .innerJoin(
       accessManifestHeads,
       and(
         eq(accessManifestHeads.objectKind, "container"),

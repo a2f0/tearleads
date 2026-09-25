@@ -1,3 +1,4 @@
+import type { ApiClient } from "@tearleads/api-client";
 import {
   KeyingVerificationError,
   type ManagedPrincipalKind,
@@ -42,7 +43,9 @@ import {
   type PrincipalPolicySignerPublicKeyLoadErrorCode,
 } from "../../principals/policyVerification";
 
-export interface ContainerManagedPrincipalShareApi extends ContainerShareApi {
+export interface ContainerManagedPrincipalShareApi
+  extends ContainerShareApi,
+    Pick<ApiClient, "getContainerWriterProjectionResult"> {
   commitOrganizationGroupPolicy: (
     organizationId: string,
     groupId: string,
