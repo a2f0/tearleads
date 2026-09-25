@@ -405,6 +405,15 @@ function assertAttachmentDocumentAuthority(input: {
     );
   }
 
+  assertDocumentCitationScope({
+    dependencyManifestHashes: input.event.event.dependencyManifestHashes,
+    additionalDependencyHashes: [input.documentManifest.manifestHash],
+    label: input.body.eventType,
+    linkedContainerIds: input.documentManifest.state.linkedContainerIds,
+    organizationId: input.documentManifest.state.organizationId,
+    paths: input.authorizingContainerPaths ?? [],
+  });
+
   requireAnyDocumentLinkedContainerWriteAccess({
     authorizationMembership: input.authorizationMembership,
     event: input.event,
@@ -413,15 +422,6 @@ function assertAttachmentDocumentAuthority(input: {
     organizationId: input.documentManifest.state.organizationId,
     paths: input.authorizingContainerPaths,
     principalPolicies: input.principalPolicies,
-  });
-
-  assertDocumentCitationScope({
-    dependencyManifestHashes: input.event.event.dependencyManifestHashes,
-    additionalDependencyHashes: [input.documentManifest.manifestHash],
-    label: input.body.eventType,
-    linkedContainerIds: input.documentManifest.state.linkedContainerIds,
-    organizationId: input.documentManifest.state.organizationId,
-    paths: input.authorizingContainerPaths ?? [],
   });
 }
 

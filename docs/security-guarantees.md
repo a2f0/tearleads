@@ -340,7 +340,8 @@ The original parent pin and a newer group snapshot cannot replace write-time
 authority. Every cited path must belong to a linked container or the explicit
 link/unlink target, including only their own ancestor prefixes. One writable
 linked path proves access; committed key targets still cover every linked
-container. Attachment bind
+container. Content-write citations must additionally use the manifest head
+committed by the matching content-key target. Attachment bind
 events likewise use referenced membership when read and current membership
 when submitted. The bounded ContentWriteAuthority model checks this delayed
 read behavior and the submission rule; negative controls reproduce both

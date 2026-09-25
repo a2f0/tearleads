@@ -64,7 +64,6 @@ test("a write retains its advanced linked head independently of the original lin
     }),
   });
   if (synced.status !== 200) throw new Error(await synced.text());
-  expect(synced.status).toBe(200);
   expect(
     await listDocumentContentWriteDependencyHashes(created.id, db),
   ).toEqual([rekey.bundle.manifestHash]);
