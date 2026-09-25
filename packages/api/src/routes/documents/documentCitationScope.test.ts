@@ -89,7 +89,7 @@ test("document creation cannot commit an unrelated organization citation", async
     },
   });
   expect(refused.status).toBe(400);
-  expect(await refused.text()).toContain("outside the document scope");
+  expect(await refused.text()).toContain("outside the signed target scope");
   expect((await post(request)).status).toBe(200);
   expect(
     (
