@@ -1,0 +1,79 @@
+.time-series-graph {
+  min-width: 0;
+  padding: var(--space-sm);
+  border: var(--border);
+  font-size: var(--font-size-sm);
+}
+
+.time-series-graph-heading {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-sm);
+}
+
+.time-series-graph-viewport {
+  min-width: 0;
+  overflow-x: auto;
+}
+
+.time-series-graph-plot {
+  display: block;
+  width: 100%;
+  min-width: 280px;
+  height: 248px;
+  font: 11px sans-serif;
+  fill: currentColor;
+}
+
+.time-series-graph-grid {
+  stroke: var(--color-hairline);
+}
+
+.time-series-graph-axis {
+  stroke: currentColor;
+  fill: none;
+  opacity: var(--opacity-muted);
+}
+
+.time-series-graph-series {
+  stroke: currentColor;
+  stroke-width: 2;
+}
+
+.time-series-graph-series--1 {
+  opacity: 0.65;
+}
+
+.time-series-graph-series--1 polyline {
+  stroke-dasharray: 6 4;
+}
+
+.time-series-graph-legend {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--space-md);
+  margin: var(--space-xs) 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.time-series-graph-legend li {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+}
+
+.time-series-graph-key {
+  width: 1.5rem;
+  border-top: 2px solid currentColor;
+}
+
+.time-series-graph-key.time-series-graph-series--1 {
+  border-top-style: dashed;
+}
+
+.time-series-graph-empty {
+  margin-block: var(--space-md);
+  opacity: var(--opacity-muted);
+}
