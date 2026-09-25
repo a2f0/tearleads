@@ -97,8 +97,8 @@ export function CreditCardSecretActions(params: {
   );
 }
 
-// Each mode owns its own reveal state, so leaving edit mode re-masks the
-// values rather than carrying a reveal across the switch.
+// Read mode owns its reveal state, so leaving edit mode re-masks the values
+// rather than carrying a reveal across the switch.
 export function useCreditCardReveal() {
   const [isCardNumberRevealed, setIsCardNumberRevealed] = useState(false);
   const [isCvvCodeRevealed, setIsCvvCodeRevealed] = useState(false);
@@ -114,8 +114,8 @@ export function useCreditCardReveal() {
 /**
  * A sensitive credit card row: the number and the CVV.
  *
- * Both carry the reveal/copy pair and keep their own reveal state. The caller
- * chooses the initial visibility; this component renders that choice.
+ * Both carry the reveal/copy pair. Each row's reveal state is owned by the
+ * caller; this component renders that choice.
  */
 export function CreditCardSecretField(params: {
   autoComplete: string;

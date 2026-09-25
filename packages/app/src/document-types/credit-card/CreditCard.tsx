@@ -1,4 +1,4 @@
-import { useId, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import type { useDocument } from "../../stores/documents/DocumentsProvider";
 import { DocumentAttachmentSlots } from "../shared/DocumentAttachmentSlots";
 import {
@@ -45,9 +45,19 @@ function useCreditCardEditReveal(
 ) {
   const [numberVisibility, setNumberVisibility] = useState<{
     revealed: boolean;
+    sourceValue: string;
     value: string;
   } | null>(null);
   const [isCvvCodeRevealed, setIsCvvCodeRevealed] = useState(false);
+  useEffect(() => {
+    if (
+      numberVisibility !== null &&
+      numberVisibility.value !== cardNumber &&
+      numberVisibility.sourceValue !== cardNumber
+    ) {
+      setNumberVisibility(null);
+    }
+  }, [cardNumber, numberVisibility]);
   // An empty number starts visible. A value change keeps the current choice;
   // a different value arriving from sync has no choice and starts masked.
   const isCardNumberRevealed =
@@ -59,12 +69,17 @@ function useCreditCardEditReveal(
     isCardNumberRevealed,
     isCvvCodeRevealed,
     onCardNumberChange: (value: string) => {
-      setNumberVisibility({ revealed: isCardNumberRevealed, value });
+      setNumberVisibility({
+        revealed: isCardNumberRevealed,
+        sourceValue: cardNumber,
+        value,
+      });
       onCardNumberChange(value);
     },
     toggleCardNumber: () =>
       setNumberVisibility({
         revealed: !isCardNumberRevealed,
+        sourceValue: cardNumber,
         value: cardNumber,
       }),
     toggleCvvCode: () => setIsCvvCodeRevealed((revealed) => !revealed),
