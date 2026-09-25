@@ -246,6 +246,10 @@ test("same-level Admins re-wrap survives a group rotation and cold root unwrap",
         commitOrganizationGroupPolicy: async () => {
           throw new Error("Unexpected group policy commit");
         },
+        getContainerWriterProjectionResult: async () => ({
+          ok: true,
+          data: initialProjection,
+        }),
         getContainerWriterProjection: async () => initialProjection,
         getCurrentPrincipalPolicy: async (principalType, principalId) => {
           if (principalType === "organization") {

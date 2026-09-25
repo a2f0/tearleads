@@ -25,6 +25,7 @@ import {
  * honest proof is accepted here before deleting or replacing each node,
  * swapping each adjacent pair, or appending a foreign node. These mutations
  * and decoy checkpoints must be refused with the documented error code.
+ * The bounded matrices hash thousands of proofs; allow slower CI workers.
  */
 
 test("consistency mutations at every node position through size 32 are refused", async () => {
@@ -107,7 +108,7 @@ test("consistency mutations at every node position through size 32 are refused",
   }
   // For each 1 <= m < n <= 32: 3 * node count + 2 mutations.
   expect(cases).toBe(7661);
-});
+}, 30_000);
 
 test("inclusion mutations at every node position through size 32 are refused", async () => {
   const foreign = await foreignNodeHash();
@@ -190,4 +191,4 @@ test("inclusion mutations at every node position through size 32 are refused", a
   }
   // Every leaf through size 32, including the empty path at size 1.
   expect(cases).toBe(9168);
-});
+}, 30_000);
