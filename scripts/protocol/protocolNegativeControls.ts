@@ -153,6 +153,14 @@ export const NEGATIVE_CONTROLS: readonly NegativeControl[] = [
     why: "A live reserved metadata ID must not be created under an unrelated container whose content would disappear on metadata teardown (#2266).",
   },
   {
+    id: "content-write-unscoped-citations",
+    module: "formal/document-sync/ContentWriteAuthority.tla",
+    config: "formal/document-sync/ContentWriteAuthority.cfg",
+    constants: { RequireScopedCitations: "FALSE" },
+    expect: { kind: "invariant", name: "CitationsStayInDocumentScope" },
+    why: "One valid write path must not admit unrelated or foreign citations into a document's signed history (#2365).",
+  },
+  {
     id: "content-write-pinned-parent",
     module: "formal/document-sync/ContentWriteAuthority.tla",
     config: "formal/document-sync/ContentWriteAuthority.cfg",
