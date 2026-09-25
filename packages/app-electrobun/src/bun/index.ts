@@ -3,7 +3,7 @@ import { isAbsolute, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { getSqliteWasmAssetUrl } from "@tearleads/sqlite-worker/assets";
 import { serve } from "bun";
-import { BrowserWindow, Utils } from "electrobun/bun";
+import { ApplicationMenu, BrowserWindow, Utils } from "electrobun/bun";
 import pdfjsPackage from "pdfjs-dist/package.json" with { type: "json" };
 import { configureMainProcessDiagnostics } from "../diagnostics/mainProcess";
 import { createRendererBuildConfig } from "../rendererEnvironment";
@@ -290,6 +290,48 @@ const appServer = serve({
 });
 
 console.log(`Electrobun app server running at ${appServer.url}`);
+
+// Linux forwards menu roles as actions instead of handling quit natively.
+ApplicationMenu.on("application-menu-clicked", (event) => {
+  if (typeof event !== "object" || event === null || !("data" in event)) return;
+  const { data } = event;
+  if (
+    typeof data === "object" &&
+    data !== null &&
+    "action" in data &&
+    data.action === "quit"
+  ) {
+    Utils.quit();
+  }
+});
+
+ApplicationMenu.setApplicationMenu([
+  // macOS reserves the first menu for the application name.
+  ...(process.platform === "darwin"
+    ? [
+        {
+          label: TEARLEADS_ELECTROBUN_APP_NAME,
+          submenu: [{ role: "quit", accelerator: "q" }],
+        },
+      ]
+    : []),
+  {
+    label: "File",
+    submenu: [{ role: "quit", accelerator: "q" }],
+  },
+  {
+    label: "Edit",
+    submenu: [
+      { role: "undo" },
+      { role: "redo" },
+      { type: "separator" },
+      { role: "cut" },
+      { role: "copy" },
+      { role: "paste" },
+      { role: "selectAll" },
+    ],
+  },
+]);
 
 new BrowserWindow({
   title: TEARLEADS_ELECTROBUN_APP_NAME,
