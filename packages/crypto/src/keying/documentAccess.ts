@@ -10,10 +10,12 @@ import {
   requireDocumentContainerPathWriteAccess,
   requireEventDependency,
 } from "./documentAccessAuthorization";
+import { normalizeDocumentAccessEventBody } from "./documentAccessBody";
+import { assertDocumentBlobRewrapScope } from "./documentBlobRewraps";
 import {
-  assertDocumentBlobRewrapScope,
-  normalizeDocumentBlobRewraps,
-} from "./documentBlobRewraps";
+  assertDocumentCitationScope,
+  assertDocumentLinkSetCitationScope,
+} from "./documentCitationScope";
 import {
   assertExactKeys,
   normalizeUniqueSortedStrings,
@@ -64,6 +66,7 @@ import {
 } from "./types";
 
 export { requireEventDependency } from "./documentAccessAuthorization";
+export { normalizeDocumentAccessEventBody } from "./documentAccessBody";
 export {
   requireWriteAccessThroughCommittedBlobTarget,
   requireWriteAccessThroughCommittedDocumentTarget,
@@ -192,78 +195,6 @@ export async function deriveDocumentLinkSetManifest(
     referencedPrincipalHeads: [],
     keyTargetHash: await computeDocumentLinkSetKeyTargetHash(),
   };
-}
-
-function normalizeDocumentLinkAccessEventBody(
-  value: KeyingCanonicalJson,
-): DocumentLinkAccessEventBody {
-  const record = assertExactKeys(
-    value,
-    ["blobRewraps", "containerId", "containerManifestHash", "eventType"],
-    "document.link event body",
-  );
-
-  return {
-    eventType: "document.link",
-    blobRewraps: normalizeDocumentBlobRewraps(record.blobRewraps),
-    containerId: readString(record, "containerId", "document.link event body"),
-    containerManifestHash: readHashString(
-      record,
-      "containerManifestHash",
-      "document.link event body",
-    ),
-  };
-}
-
-function normalizeDocumentUnlinkAccessEventBody(
-  value: KeyingCanonicalJson,
-): DocumentUnlinkAccessEventBody {
-  const record = assertExactKeys(
-    value,
-    ["blobRewraps", "containerId", "containerManifestHash", "eventType"],
-    "document.unlink event body",
-  );
-
-  return {
-    eventType: "document.unlink",
-    blobRewraps: normalizeDocumentBlobRewraps(record.blobRewraps),
-    containerId: readString(
-      record,
-      "containerId",
-      "document.unlink event body",
-    ),
-    containerManifestHash: readHashString(
-      record,
-      "containerManifestHash",
-      "document.unlink event body",
-    ),
-  };
-}
-
-export function normalizeDocumentAccessEventBody(
-  value: KeyingCanonicalJson,
-): DocumentAccessEventBody {
-  if (!isPlainObject(value)) {
-    throwVerification(
-      "invalid_shape",
-      "document access event body must be a plain object",
-    );
-  }
-
-  const eventType = readString(value, "eventType", "document access body");
-
-  if (eventType === "document.link") {
-    return normalizeDocumentLinkAccessEventBody(value);
-  }
-
-  if (eventType === "document.unlink") {
-    return normalizeDocumentUnlinkAccessEventBody(value);
-  }
-
-  throwVerification(
-    "invalid_domain",
-    "document access event body eventType is unsupported",
-  );
 }
 
 function normalizeAttachmentBindAccessEventBody(
@@ -473,6 +404,15 @@ function assertAttachmentDocumentAuthority(input: {
       "attachment event organization does not match document manifest",
     );
   }
+
+  assertDocumentCitationScope({
+    dependencyManifestHashes: input.event.event.dependencyManifestHashes,
+    additionalDependencyHashes: [input.documentManifest.manifestHash],
+    label: input.body.eventType,
+    linkedContainerIds: input.documentManifest.state.linkedContainerIds,
+    organizationId: input.documentManifest.state.organizationId,
+    paths: input.authorizingContainerPaths ?? [],
+  });
 
   requireAnyDocumentLinkedContainerWriteAccess({
     authorizationMembership: input.authorizationMembership,
@@ -687,6 +627,7 @@ function preparePreviousDocumentLinkSetTransition(
     );
   }
 
+  assertDocumentLinkSetCitationScope(input);
   return {
     previousState: previousManifest.state,
     nextBase: {
@@ -717,6 +658,7 @@ function deriveInitialDocumentLinkSetManifestState(
     );
   }
 
+  assertDocumentLinkSetCitationScope(input);
   requireDocumentContainerPathWriteAccess({
     authorizationMembership: input.authorizationMembership,
     containerId: body.containerId,

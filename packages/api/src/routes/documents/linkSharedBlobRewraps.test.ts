@@ -38,10 +38,8 @@ test("linking one document preserves another document's wraps for their shared b
   });
   await bindForTest({ blobId, owner, request: initial.request });
   const shared = await buildBind({
-    activeBindings: [initial.binding],
     blobId,
     document: second,
-    documents: [first, second],
     owner,
     root,
   });

@@ -229,11 +229,27 @@ export async function createSyncFixture() {
 }
 
 export async function createMaterializedSyncFixture(
-  input: { documentId?: string; organizationId?: string; userId?: string } = {},
+  input: {
+    documentId?: string;
+    organizationId?: string;
+    userId?: string;
+    nestedContainer?: boolean;
+  } = {},
 ) {
   const { author, signingPublicKey } = await createAuthor(input);
   const keyPair = generateKemSeedAndKeyPair();
+  const parentProjection = input.nestedContainer
+    ? await createContainerWriterProjectionFixture({
+        containerId: "materialized-sync-parent",
+        encapsulationPublicKey: keyPair.publicKey,
+        organizationId: author.organizationId,
+        signerKeyFingerprint: author.signerKeyFingerprint,
+        signerPrivateKey: author.signerPrivateKey,
+        userId: author.signerUserId,
+      })
+    : undefined;
   const projection = await createContainerWriterProjectionFixture({
+    parentProjection,
     containerId: "materialized-sync-container",
     encapsulationPublicKey: keyPair.publicKey,
     organizationId: author.organizationId,
@@ -279,6 +295,7 @@ export async function createMaterializedSyncFixture(
     author,
     contentKey,
     createResponse: response,
+    parentProjection,
     projection,
     publicKey: keyPair.publicKey,
     resolveProjectionUserKey,

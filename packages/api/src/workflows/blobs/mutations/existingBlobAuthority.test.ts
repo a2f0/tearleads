@@ -1,6 +1,5 @@
 import { expect, test } from "bun:test";
 import { createTestUser } from "@tearleads/bob-and-alice";
-import { computeBlobContentKeyTargetHash } from "@tearleads/crypto";
 import { isContainerMutationResponse } from "@tearleads/validators/response";
 import invariant from "invariant";
 import { authenticate } from "../../../../test/helpers/authenticate";
@@ -101,21 +100,7 @@ test("writing a destination does not authorize rebinding a private existing blob
     containerPath,
     contentKeyEpoch: 1,
   });
-  // Knowing the retained blob id and public target fields is not source authority.
-  const targets = [
-    ...original.request.contentKeyBundle.targets,
-    ...attempted.request.contentKeyBundle.targets,
-  ];
-  attempted.request.contentKeyBundle = {
-    ...attempted.request.contentKeyBundle,
-    targets,
-    targetHash: await computeBlobContentKeyTargetHash(
-      targets.map(
-        ({ wrappedKey: _wrapped, wrappingMetadata: _metadata, ...target }) =>
-          target,
-      ),
-    ),
-  };
+  // A request scoped to the destination still needs source read authority.
   await expect(
     bindForTest({ blobId, owner: writer, request: attempted.request }),
   ).rejects.toMatchObject({ status: 403 });

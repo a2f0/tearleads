@@ -819,6 +819,17 @@ For each active binding:
 3. derive the document's linked container KEK targets.
 
 The blob content key is wrapped to the union of those container KEK targets.
+A bind submits only its new binding's targets and target hash. The API holds the
+blob row lock, checks that exact scope, carries every other stored binding's
+envelopes byte for byte (including retained historical epochs), and recomputes
+the merged stored hash. Read access to an existing blob never permits replacing
+another binding's key material.
+
+For fresh link-set attachment envelopes, the SDK indexes KEKs by the full
+container, manifest, epoch identity, and epoch number derived from verified
+current paths. Historical keyring keys can authenticate existing content but
+cannot serve as fresh destinations chosen by unsigned target rows. Existing
+authenticated envelopes for an inaccessible linked container remain reusable.
 
 Document and blob content-key envelopes share one public format check: the
 object-kind-specific AES-GCM suite, a canonical base64 12-byte IV, and a
@@ -827,9 +838,9 @@ applies it to newly wrapped material, additionally requiring the wrapping
 metadata to carry exactly `suite` and `iv`, and rejects a failing submission
 before persistence. Clients apply the same check when reading a stored
 envelope, minus that exact-key requirement, so an unrecognized metadata key can
-never make a decryptable envelope unreadable. A document link, a blob relink,
-and a bind of a blob another document already holds all resubmit retained wraps
-verbatim alongside newly wrapped ones; the API judges the retained half as
+never make a decryptable envelope unreadable. Document links and blob relinks
+resubmit retained wraps verbatim alongside newly wrapped ones within their own
+document scope; the API judges the retained half as
 stored for the same reason, since a retained target must be resubmitted
 byte-identical and cannot be re-wrapped while it is active. The exemption is
 scoped to the content-key epoch being written, so a rotation exempts nothing.

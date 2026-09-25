@@ -41,9 +41,6 @@ test("attachment locks reject client-selected target heads", () => {
   expect(() =>
     assertRequestedBlobTargetHeadsAreKnown({
       documentId: "document",
-      existingBlobTargets: [
-        { containerId: "existing-container", documentId: "existing-document" },
-      ],
       linkedContainerIds: ["linked-container"],
       requestedTargets: [
         { containerId: "unrelated-container", documentId: "document" },
@@ -53,11 +50,22 @@ test("attachment locks reject client-selected target heads", () => {
   expect(() =>
     assertRequestedBlobTargetHeadsAreKnown({
       documentId: "document",
-      existingBlobTargets: [],
       linkedContainerIds: ["linked-container"],
       requestedTargets: [
         { containerId: "linked-container", documentId: "document" },
         { containerId: "linked-container", documentId: "document" },
+      ],
+    }),
+  ).toThrow("Blob content-key target heads are stale");
+});
+
+test("attachment locks refuse another document even at a linked container", () => {
+  expect(() =>
+    assertRequestedBlobTargetHeadsAreKnown({
+      documentId: "document",
+      linkedContainerIds: ["linked-container"],
+      requestedTargets: [
+        { containerId: "linked-container", documentId: "other-document" },
       ],
     }),
   ).toThrow("Blob content-key target heads are stale");

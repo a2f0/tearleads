@@ -49,10 +49,8 @@ async function createPurgeBindRaceFixture() {
     request: initialBind.request,
   });
   const racingBind = await buildBind({
-    activeBindings: [initialBind.binding],
     blobId,
     document: destinationDocument,
-    documents: [sourceDocument, destinationDocument],
     owner,
     root,
     slotId: "purge-race-destination",

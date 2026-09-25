@@ -3,6 +3,7 @@ import {
   resolveContainerPathUserAccessLevel,
 } from "./containerAccess";
 import { resolveHistoricalContainerPathUserAccessLevel } from "./containerPathAccess";
+import { assertDocumentCitationScope } from "./documentCitationScope";
 import { throwVerification } from "./shared";
 import type {
   AnyVerifiedPrincipalPolicy as Policy,
@@ -22,6 +23,17 @@ export function requireWriteAccessThroughCommittedDocumentTarget(input: {
   readonly principalPolicies: readonly Policy[];
   readonly userId: string;
 }): void {
+  assertDocumentCitationScope({
+    label: input.label,
+    linkedContainerIds: input.documentManifest.state.linkedContainerIds,
+    leafManifestHashes: new Set(
+      input.documentKekTargets.targets.map(
+        (target) => target.containerManifestHash,
+      ),
+    ),
+    organizationId: input.documentManifest.state.organizationId,
+    paths: input.paths,
+  });
   const targetHashByContainerId = new Map(
     input.documentKekTargets.targets.map((target) => [
       target.containerId,
@@ -77,6 +89,19 @@ export function requireWriteAccessThroughCommittedBlobTarget(input: {
   readonly paths: readonly (readonly VerifiedContainerAccessManifest[])[];
   readonly principalPolicies: readonly Policy[];
 }): void {
+  assertDocumentCitationScope({
+    label: input.label,
+    linkedContainerIds: input.blobKekTargets.targets.map(
+      (target) => target.containerId,
+    ),
+    leafManifestHashes: new Set(
+      input.blobKekTargets.targets.map(
+        (target) => target.containerManifestHash,
+      ),
+    ),
+    organizationId: input.header.organizationId,
+    paths: input.paths,
+  });
   const targetManifestHashesByContainerId = new Map<string, Set<string>>();
 
   for (const target of input.blobKekTargets.targets) {

@@ -387,7 +387,8 @@ The blob binding route validates:
 - staged blob ownership/expiry when a staged blob is supplied
 - staged encrypted blob bytes carry a fresh per-record AES-GCM IV committed by
     the staged object hash and signed blob write header
-- blob content-key bundle against current derived blob KEK targets
+- blob content-key submission against the new binding's current derived KEK
+  targets, preserving other bindings' stored envelopes under the blob lock
 - signed staged blob write header when bytes are promoted
 
 Blob staged bytes and document updates use the content-record encryption suite
