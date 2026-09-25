@@ -15,6 +15,7 @@ interface TrackerDocumentProps<Row extends TrackerRow, QuickEntry> {
   editingRowId?: string | null | undefined;
   editActionId: string;
   emptyLabel: string;
+  graph?: ReactNode;
   isEditing?: boolean | undefined;
   listLabel: string;
   onAddRow: AddTrackerRow<QuickEntry>;
@@ -155,6 +156,7 @@ export function TrackerDocument<Row extends TrackerRow, QuickEntry>(
   if (!isEditing) {
     return (
       <div className="tracker-document-fields">
+        {ready ? params.graph : null}
         <section className="tracker-entry-list">
           <strong>{listLabel}</strong>
           {onEnterEdit

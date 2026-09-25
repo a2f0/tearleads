@@ -10,6 +10,7 @@ import {
   BloodPressureReadingEditRow,
   type UpdateReading,
 } from "./BloodPressureEditRow";
+import { BloodPressureGraph } from "./BloodPressureGraph";
 import {
   BloodPressureQuickAdd,
   type BloodPressureQuickReading,
@@ -57,6 +58,7 @@ export function BloodPressureFields(params: BloodPressureFieldsProps) {
       editingRowId={params.editingReadingId ?? null}
       editActionId="blood-pressure-toggle-edit"
       emptyLabel="No readings"
+      graph={<BloodPressureGraph readings={params.readings} />}
       isEditing={params.isEditing ?? true}
       listLabel="Readings"
       onAddRow={params.onAddReading}

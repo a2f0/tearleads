@@ -11,6 +11,7 @@ import { readStructuredTrackerField } from "../shared/trackerRows";
 import type { AddTrackerRow } from "../shared/useSavedTrackerRows";
 import { useTrackerDocument } from "../shared/useTrackerDocument";
 import { type UpdateEntry, WeightEntryEditRow } from "./WeightEditRow";
+import { WeightGraph } from "./WeightGraph";
 import { WeightQuickAdd, type WeightQuickEntry } from "./WeightQuickAdd";
 import { WeightEntryReadRow } from "./WeightReadRow";
 import { WeightReadTable } from "./WeightReadTable";
@@ -91,6 +92,7 @@ export function WeightFields(params: WeightFieldsProps) {
       editingRowId={params.editingEntryId ?? null}
       editActionId="weight-toggle-edit"
       emptyLabel="No entries"
+      graph={<WeightGraph entries={params.entries} unit={params.unit} />}
       isEditing={params.isEditing ?? true}
       listLabel="Entries"
       onAddRow={params.onAddEntry}
