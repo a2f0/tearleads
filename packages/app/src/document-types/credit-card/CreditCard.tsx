@@ -1,4 +1,4 @@
-import { useId, useRef, useState } from "react";
+import { useId, useState } from "react";
 import type { useDocument } from "../../stores/documents/DocumentsProvider";
 import { DocumentAttachmentSlots } from "../shared/DocumentAttachmentSlots";
 import {
@@ -43,29 +43,23 @@ function useCreditCardEditReveal(
   ready: boolean,
   onCardNumberChange: (value: string) => void,
 ) {
-  const lastTypedNumber = useRef<string | null>(null);
   const [numberVisibility, setNumberVisibility] = useState<{
     revealed: boolean;
     value: string;
   } | null>(null);
   const [isCvvCodeRevealed, setIsCvvCodeRevealed] = useState(false);
-  // A synced number is masked immediately; only an empty field or the value
-  // typed in this form is visible without using the reveal button.
+  // An empty number starts visible. A value change keeps the current choice;
+  // a different value arriving from sync has no choice and starts masked.
   const isCardNumberRevealed =
     numberVisibility?.value === cardNumber
       ? numberVisibility.revealed
-      : ready &&
-        (!hasCreditCardValue(cardNumber) ||
-          lastTypedNumber.current === cardNumber);
+      : ready && !hasCreditCardValue(cardNumber);
 
   return {
     isCardNumberRevealed,
     isCvvCodeRevealed,
     onCardNumberChange: (value: string) => {
-      lastTypedNumber.current = value;
-      setNumberVisibility((current) =>
-        current === null ? null : { ...current, value },
-      );
+      setNumberVisibility({ revealed: isCardNumberRevealed, value });
       onCardNumberChange(value);
     },
     toggleCardNumber: () =>

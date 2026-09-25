@@ -203,9 +203,42 @@ test("a newly synced number re-masks a manually revealed saved number", () => {
   fireEvent.click(view.getByLabelText("Show credit card number"));
   expect(cardNumber.type).toBe("text");
 
+  const syncedNumber = "5555 5555 5555 4444";
   view.rerender(
     <CreditCardFields
-      fields={{ ...fields, cardNumber: "5555 5555 5555 4444" }}
+      fields={{ ...fields, cardNumber: syncedNumber }}
+      inputIds={inputIds}
+      isEditing
+      onChange={() => undefined}
+      ready
+    />,
+  );
+  expect(cardNumber.type).toBe("password");
+
+  fireEvent.change(cardNumber, { target: { value: "5555 5555 5555 444" } });
+  view.rerender(
+    <CreditCardFields
+      fields={{ ...fields, cardNumber: "5555 5555 5555 444" }}
+      inputIds={inputIds}
+      isEditing
+      onChange={() => undefined}
+      ready
+    />,
+  );
+  expect(cardNumber.type).toBe("password");
+});
+
+test("editing a masked saved number keeps it masked", () => {
+  const view = renderCreditCardFields({ isEditing: true });
+  const cardNumber = view.getByLabelText(
+    "Credit card number",
+  ) as HTMLInputElement;
+  expect(cardNumber.type).toBe("password");
+
+  fireEvent.change(cardNumber, { target: { value: "4111 1111 1111 111" } });
+  view.rerender(
+    <CreditCardFields
+      fields={{ ...fields, cardNumber: "4111 1111 1111 111" }}
       inputIds={inputIds}
       isEditing
       onChange={() => undefined}
