@@ -124,6 +124,54 @@ test("edit mode exposes the existing credit card controls", () => {
   ).toBe("123");
 });
 
+test("an empty card number starts visible and stays visible while entering it", () => {
+  const emptyFields = { ...fields, cardNumber: "" };
+  const view = renderCreditCardFields({ fields: emptyFields, isEditing: true });
+  const cardNumber = view.getByLabelText(
+    "Credit card number",
+  ) as HTMLInputElement;
+
+  expect(cardNumber.type).toBe("text");
+  expect(
+    (view.getByLabelText("Credit card CVV code") as HTMLInputElement).type,
+  ).toBe("password");
+  view.rerender(
+    <CreditCardFields
+      fields={{ ...emptyFields, cardNumber: "4111" }}
+      inputIds={inputIds}
+      isEditing
+      onChange={() => undefined}
+      ready
+    />,
+  );
+  expect(cardNumber.type).toBe("text");
+  fireEvent.click(view.getByLabelText("Hide credit card number"));
+  expect(cardNumber.type).toBe("password");
+});
+
+test("a card number loaded after the edit form mounts stays masked", () => {
+  const view = renderCreditCardFields({
+    fields: { ...fields, cardNumber: "" },
+    isEditing: true,
+    ready: false,
+  });
+  const cardNumber = view.getByLabelText(
+    "Credit card number",
+  ) as HTMLInputElement;
+  expect(cardNumber.type).toBe("password");
+
+  view.rerender(
+    <CreditCardFields
+      fields={fields}
+      inputIds={inputIds}
+      isEditing
+      onChange={() => undefined}
+      ready
+    />,
+  );
+  expect(cardNumber.type).toBe("password");
+});
+
 test("read mode reveals the card number and CVV independently", () => {
   const view = renderCreditCardFields();
 

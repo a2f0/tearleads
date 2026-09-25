@@ -106,18 +106,18 @@ export function useCreditCardReveal() {
   return {
     isCardNumberRevealed,
     isCvvCodeRevealed,
+    showCardNumber: () => setIsCardNumberRevealed(true),
     toggleCardNumber: () => setIsCardNumberRevealed((revealed) => !revealed),
     toggleCvvCode: () => setIsCvvCodeRevealed((revealed) => !revealed),
   };
 }
 
 /**
- * A masked credit card row: the number and the CVV.
+ * A sensitive credit card row: the number and the CVV.
  *
- * Both hide their value behind a password input, both carry the reveal/copy
- * pair, and both keep their own reveal state. Sharing one component is what
- * keeps the two from drifting apart — a change to how a secret is masked or
- * copied should not have to be made twice.
+ * Both carry the reveal/copy pair and keep their own reveal state. The edit
+ * form starts an empty card number visible to make entry easier; saved numbers
+ * and the CVV start masked.
  */
 export function CreditCardSecretField(params: {
   autoComplete: string;

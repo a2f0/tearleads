@@ -41,6 +41,7 @@ test("Explorer file menu creates the selected document kind", async () => {
       throw new Error("Expected a credit card number input.");
     }
     expect(input.disabled).toBe(false);
+    expect(input.type).toBe("text");
   });
   await waitForPersistedSummaryFlush();
   expect(within(explorer).getByLabelText("Credit card number")).toBeTruthy();

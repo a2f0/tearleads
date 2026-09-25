@@ -1,4 +1,4 @@
-import { useId } from "react";
+import { useEffect, useId, useRef } from "react";
 import type { useDocument } from "../../stores/documents/DocumentsProvider";
 import { DocumentAttachmentSlots } from "../shared/DocumentAttachmentSlots";
 import {
@@ -101,9 +101,23 @@ function CreditCardEditFields(params: {
   const {
     isCardNumberRevealed,
     isCvvCodeRevealed,
+    showCardNumber,
     toggleCardNumber,
     toggleCvvCode,
   } = useCreditCardReveal();
+
+  // Wait for stored fields before deciding whether this is an empty number.
+  // Keep the choice as the user types or uses the visibility toggle.
+  const initializedNumberVisibility = useRef(false);
+  useEffect(() => {
+    if (!ready || initializedNumberVisibility.current) {
+      return;
+    }
+    initializedNumberVisibility.current = true;
+    if (!hasCreditCardValue(fields.cardNumber)) {
+      showCardNumber();
+    }
+  }, [fields.cardNumber, ready, showCardNumber]);
 
   return (
     <StructuredDocumentFields>
