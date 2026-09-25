@@ -225,7 +225,13 @@
 
 @media (min-width: 30rem) {
   .routed-pane-sheet-grid {
-    /* Bound each square on wide screens so its icon stays in proportion. */
+    grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+  }
+}
+
+@media (min-width: 90rem) {
+  .routed-pane-sheet-grid {
+    /* Bound each square on wide desktops while tablet rows stay compact. */
     grid-template-columns: repeat(auto-fit, minmax(10rem, 12rem));
     justify-content: center;
   }
