@@ -17,6 +17,16 @@ test("tablet launcher can move between side rail and bottom sheet", () => {
   try {
     const pane = view.container.querySelector(".routed-pane");
     expect(pane?.getAttribute("data-launcher-placement")).toBe("side");
+    expect(
+      view.container.querySelector(
+        ".routed-pane-rail .routed-pane-placement-button",
+      ),
+    ).toBeTruthy();
+    expect(
+      view.container.querySelector(
+        ".routed-pane-toolbar .routed-pane-placement-button",
+      ),
+    ).toBeNull();
 
     fireEvent.click(view.getByRole("button", { name: "Menu" }));
     const activeRailLink = view.container.querySelector(
@@ -29,9 +39,11 @@ test("tablet launcher can move between side rail and bottom sheet", () => {
       expect(document.activeElement).toBe(activeRailLink);
     }
 
-    fireEvent.click(
-      view.getByRole("button", { name: "Move launcher to bottom" }),
-    );
+    const moveToBottom = view.getByRole("button", {
+      name: "Move launcher to bottom",
+    });
+    act(() => moveToBottom.focus());
+    fireEvent.click(moveToBottom);
     expect(pane?.getAttribute("data-launcher-placement")).toBe("bottom");
     expect(
       globalThis.localStorage.getItem("tearleads.launcher.placement"),
@@ -39,6 +51,7 @@ test("tablet launcher can move between side rail and bottom sheet", () => {
     expect(view.container.querySelector(".routed-pane-rail")).toBeNull();
 
     const menuButton = view.getByRole("button", { name: "Menu" });
+    expect(document.activeElement).toBe(menuButton);
     expect(menuButton.getAttribute("aria-controls")).toBe("routed-pane-sheet");
     fireEvent.click(menuButton);
     expect(menuButton.getAttribute("aria-expanded")).toBe("true");
@@ -47,13 +60,21 @@ test("tablet launcher can move between side rail and bottom sheet", () => {
         .querySelector(".routed-pane-sheet")
         ?.getAttribute("data-open"),
     ).toBe("true");
+    expect(
+      view.container.querySelector(
+        ".routed-pane-sheet .routed-pane-placement-button",
+      ),
+    ).toBeTruthy();
 
-    fireEvent.click(
-      view.getByRole("button", { name: "Move launcher to side" }),
-    );
+    const moveToSide = view.getByRole("button", {
+      name: "Move launcher to side",
+    });
+    act(() => moveToSide.focus());
+    fireEvent.click(moveToSide);
     expect(pane?.getAttribute("data-launcher-placement")).toBe("side");
     expect(view.container.querySelector(".routed-pane-sheet")).toBeNull();
     expect(view.container.querySelector(".routed-pane-rail")).toBeTruthy();
+    expect(document.activeElement).toBe(menuButton);
     expect(
       view.getByRole("button", { name: "Menu" }).getAttribute("aria-expanded"),
     ).toBe("false");

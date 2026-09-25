@@ -14,8 +14,8 @@ import { expect, test } from "@playwright/test";
 
 // Four mini-apps register Refresh through useWindowRefreshMenuItem alone, which
 // the windowed shell renders in its View menu. The routed shell has no menu bar
-// and its nav rail is a pure app launcher, so the app bar toolbar is the only
-// surface left that can carry it. A registration that renders nowhere still
+// and its nav rail only carries launcher actions, so the app bar toolbar is the
+// surface that carries it. A registration that renders nowhere still
 // type-checks and still passes every unit test, so assert the drawn button.
 test("routed app bar carries the app's Refresh action", async ({ page }) => {
   await page.setViewportSize({ width: 900, height: 1000 });
@@ -150,9 +150,24 @@ test("desktop tablet launcher can open from the bottom", async ({ page }) => {
   const pane = page.locator(".routed-pane--tablet");
   await expect(pane).toBeVisible();
   await expect(pane).toHaveAttribute("data-launcher-placement", "side");
-  await page.getByRole("button", { name: "Move launcher to bottom" }).click();
+  const rail = pane.locator(".routed-pane-rail");
+  const moveToBottom = rail.getByRole("button", {
+    name: "Move launcher to bottom",
+  });
+  const toggleBox = await rail
+    .getByRole("button", { name: "Expand navigation rail" })
+    .boundingBox();
+  const placementBox = await moveToBottom.boundingBox();
+  if (!toggleBox || !placementBox) {
+    throw new Error("Expected both launcher rail controls.");
+  }
+  expect(placementBox.y).toBeGreaterThan(toggleBox.y + toggleBox.height);
+  await moveToBottom.click();
   await expect(pane).toHaveAttribute("data-launcher-placement", "bottom");
-  await expect(page.locator(".routed-pane-rail")).toHaveCount(0);
+  await expect(rail).toHaveCount(0);
+  await expect(
+    page.getByRole("button", { name: "Menu", exact: true }),
+  ).toBeFocused();
 
   await pane.evaluate((element) => {
     (element as HTMLElement).style.setProperty("--safe-area-left", "24px");
@@ -184,9 +199,37 @@ test("desktop tablet launcher can open from the bottom", async ({ page }) => {
   );
   await page.reload();
   await expect(pane).toHaveAttribute("data-launcher-placement", "bottom");
-  await page.getByRole("button", { name: "Move launcher to side" }).click();
+  await page.getByRole("button", { name: "Menu", exact: true }).click();
+  await sheet.getByRole("button", { name: "Move launcher to side" }).click();
   await expect(pane).toHaveAttribute("data-launcher-placement", "side");
-  await expect(page.locator(".routed-pane-rail")).toBeVisible();
+  await expect(rail).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Menu", exact: true }),
+  ).toBeFocused();
+});
+
+test("routed internal sidebar has its own surface color", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/app/explorer");
+
+  const pane = page.locator(".routed-pane--tablet");
+  await expect(pane.locator(".routed-pane-sidebar")).toBeVisible({
+    timeout: 30_000,
+  });
+  const surfaces = await pane.evaluate((element) => {
+    const color = (selector: string) => {
+      const surface = element.querySelector(selector);
+      if (!surface) throw new Error(`Missing ${selector}`);
+      return getComputedStyle(surface).backgroundColor;
+    };
+    return [
+      color(".routed-pane-rail"),
+      color(".routed-pane-sidebar"),
+      getComputedStyle(element).backgroundColor,
+    ];
+  });
+  expect(new Set(surfaces).size).toBe(3);
+  expect(surfaces[1]).not.toBe("rgba(0, 0, 0, 0)");
 });
 
 test("tablet image viewer fills the content pane, not the screen", async ({

@@ -368,10 +368,10 @@ test("tablet rail carries app links only", () => {
     expect(rail.querySelectorAll(".routed-pane-nav-link svg").length).toBe(
       VISIBLE_NAV_ITEM_COUNT,
     );
-    // ...and no system or per-app contextual actions: those moved to the app
-    // bar toolbar, leaving the rail toggle as the rail's only button.
-    expect(rail.querySelectorAll("button").length).toBe(1);
+    // ...and only the rail controls, with per-app actions in the app bar.
+    expect(rail.querySelectorAll("button").length).toBe(2);
     expect(rail.querySelector(".routed-pane-rail-toggle")).toBeTruthy();
+    expect(rail.querySelector(".routed-pane-placement-button")).toBeTruthy();
   } finally {
     view?.unmount();
     restoreMatchMedia();

@@ -71,28 +71,30 @@
   width: calc(var(--routed-rail-collapsed-width) + var(--safe-area-left));
 }
 
-/*
- * The rail's expand/collapse toggle wears `.routed-pane-iconbutton`
- * (RoutedPane.css) — the same square 44px box, border, glyph size, and hover
- * treatment as the app bar's controls sitting immediately to its right, so the
- * shell's leading control is not a smaller one-off. Only placement lives here.
- *
- * `--space-xs` of block-start margin is exactly the app bar's own block-start
- * padding, and both surfaces start at the top of the tablet grid absorbing the
- * same top safe-area inset — so the two 44px boxes share a top edge and read as
- * one row of controls.
- */
+/* The rail toggle keeps its top-right corner beside the app bar's Back button.
+   Both surfaces absorb the same safe-area inset; this margin matches the app
+   bar's top padding so their 44px controls line up. */
 .routed-pane-rail-toggle {
   align-self: flex-end;
   margin-block-start: var(--space-xs);
-  /* Expanded, the trailing gutter matches the nav panel's padding so the
-     toggle's edge lines up with the nav links beneath it. */
   margin-inline-end: var(--space-sm);
 }
 
-/* Collapsed, the rail is sized to the button plus a gutter either side
-   (--routed-rail-collapsed-width), so centering supplies both. */
 .routed-pane-rail--collapsed .routed-pane-rail-toggle {
+  align-self: center;
+  margin-inline-end: 0;
+}
+
+/* Keep the placement action at the foot of the launcher, away from the rail
+   toggle and app links, with room for a bottom device inset. */
+.routed-pane-rail > .routed-pane-placement-button {
+  align-self: flex-end;
+  margin-block-start: auto;
+  margin-block-end: max(var(--space-sm), var(--safe-area-bottom));
+  margin-inline-end: var(--space-sm);
+}
+
+.routed-pane-rail--collapsed > .routed-pane-placement-button {
   align-self: center;
   margin-inline-end: 0;
 }
@@ -153,10 +155,20 @@
     visibility 0s;
 }
 
-.routed-pane-sheet-handle {
+.routed-pane-sheet-header {
   position: sticky;
   top: 0;
   z-index: 1;
+  background: var(--color-muted);
+}
+
+.routed-pane-sheet-header .routed-pane-placement-button {
+  position: absolute;
+  inset-block-start: 0;
+  inset-inline-end: var(--space-sm);
+}
+
+.routed-pane-sheet-handle {
   display: flex;
   align-items: center;
   justify-content: center;

@@ -237,9 +237,9 @@ function RoutedPaneSurface({
   }, [closeDrawer]);
   useEscapeToDismissDrawer(drawerOpen, dismissDrawer);
   const moveLauncher = useCallback(() => {
-    closeDrawer();
+    dismissDrawer();
     onToggleLauncherPlacement();
-  }, [closeDrawer, onToggleLauncherPlacement]);
+  }, [dismissDrawer, onToggleLauncherPlacement]);
 
   useCollapseOverlaysOnTierChange({ closeDrawer, closeSidebar, tier });
 
@@ -256,8 +256,6 @@ function RoutedPaneSurface({
       <RoutedPaneAppBar
         activeAppId={activeAppId}
         hasSidebar={hasSidebar}
-        launcherPlacement={launcherPlacement}
-        onToggleLauncherPlacement={moveLauncher}
         onToggleSidebar={toggleSidebar}
         sidebarExpanded={sidebarExpanded}
         tier={tier}
@@ -268,6 +266,7 @@ function RoutedPaneSurface({
         launcherPlacement={launcherPlacement}
         onCloseDrawer={dismissDrawer}
         onNavigateRail={closeDrawer}
+        onToggleLauncherPlacement={moveLauncher}
         onToggleRail={onToggleNavigationRail}
         railExpanded={navigationRailExpanded}
         tier={tier}

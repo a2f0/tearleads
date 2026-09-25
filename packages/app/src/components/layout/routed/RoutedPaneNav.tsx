@@ -14,6 +14,7 @@ import { useAppNavigationActions } from "../../../navigation/AppNavigationProvid
 import type { RoutedLayoutTier } from "../../../navigation/useRoutedLayoutTier";
 import { classNames } from "../../shared/classNames";
 import type { LauncherPlacement } from "./LauncherPlacement";
+import { RoutedPanePlacementButton } from "./RoutedPanePlacementButton";
 import { useMobileSheetDrag } from "./useMobileSheetDrag";
 import "./RoutedPaneNav.css";
 
@@ -78,9 +79,8 @@ function RoutedPaneNavLink({
 
 /**
  * The tablet rail's navigation surface: an icon-and-label link per routed
- * mini-app, and nothing else. Like the mobile sheet it is a pure launcher —
- * system commands and per-app file/view actions belong to the app bar toolbar
- * at the top of the shell.
+ * mini-app. System commands and per-app file/view actions belong to the app bar
+ * toolbar at the top of the shell.
  */
 function RoutedPaneNavPanel({
   activeAppId,
@@ -172,8 +172,8 @@ function RoutedPaneMobileNavTile({
 /**
  * The bottom-sheet navigation: every routed mini-app as a grid of square
  * icon-and-label tiles (styled after Explorer's New Document screen). Like the
- * tablet rail it carries no system or per-app contextual actions — the sheet is
- * a pure launcher. Selecting a tile navigates and dismisses.
+ * tablet rail it carries no per-app contextual actions. Selecting a tile
+ * navigates and dismisses.
  */
 function RoutedPaneMobileNav({
   activeAppId,
@@ -238,6 +238,7 @@ export function RoutedPaneNav({
   launcherPlacement,
   onCloseDrawer,
   onNavigateRail,
+  onToggleLauncherPlacement,
   onToggleRail,
   railExpanded,
   tier,
@@ -247,6 +248,7 @@ export function RoutedPaneNav({
   launcherPlacement: LauncherPlacement;
   onCloseDrawer: () => void;
   onNavigateRail: () => void;
+  onToggleLauncherPlacement: () => void;
   onToggleRail: () => void;
   railExpanded: boolean;
   tier: RoutedLayoutTier;
@@ -287,6 +289,10 @@ export function RoutedPaneNav({
             onNavigate={onNavigateRail}
           />
         )}
+        <RoutedPanePlacementButton
+          launcherPlacement={launcherPlacement}
+          onToggle={onToggleLauncherPlacement}
+        />
       </aside>
     );
   }
@@ -314,11 +320,19 @@ export function RoutedPaneNav({
             : undefined
         }
       >
-        <RoutedPaneMobileSheetHandle
-          dragging={mobileSheetDrag.dragging}
-          onClick={mobileSheetDrag.handleClick}
-          onPointerDown={mobileSheetDrag.handlePointerDown}
-        />
+        <div className="routed-pane-sheet-header">
+          <RoutedPaneMobileSheetHandle
+            dragging={mobileSheetDrag.dragging}
+            onClick={mobileSheetDrag.handleClick}
+            onPointerDown={mobileSheetDrag.handlePointerDown}
+          />
+          {tier === "tablet" && (
+            <RoutedPanePlacementButton
+              launcherPlacement={launcherPlacement}
+              onToggle={onToggleLauncherPlacement}
+            />
+          )}
+        </div>
         <RoutedPaneMobileNav
           activeAppId={activeAppId}
           onNavigate={onCloseDrawer}

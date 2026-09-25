@@ -25,6 +25,11 @@
   overflow: hidden;
   color: var(--color-dark);
   background: var(--color-light);
+  --routed-sidebar-surface: color-mix(
+    in srgb,
+    var(--color-light) 60%,
+    var(--color-muted)
+  );
   /* The floor keeps the longest app name ("Identity Manager") on one line beside
      its glyph on the narrowest tablet; the rail links ellipsize past that. */
   --routed-rail-width: clamp(14rem, 22vw, 17rem);
@@ -151,7 +156,8 @@
 /*
  * The routed shell's icon button: one square `--control-height` (44px) control
  * shared by the app bar's back / forward / sidebar buttons, every registered
- * toolbar action, and the rail's expand/collapse toggle (RoutedPaneNav.css).
+ * toolbar action, and the rail's expand/collapse and launcher placement
+ * controls (RoutedPaneNav.css).
  * Self-contained rather than scoped to `.routed-pane-appbar button` so a
  * control outside the bar opts into the identical HIG touch target, border, and
  * hover treatment instead of re-deriving a near-miss of its own.
@@ -191,7 +197,7 @@
 
 /* The shell only renders in the routed layout, so `--control-icon-size` is
    always defined here. It grows the app bar's back / forward / sidebar glyphs,
-   the rail toggle's, and every registered toolbar action's icon off their
+   the rail controls', and every registered toolbar action's icon off their
    `size={18}` attribute to the touch size — see the token's note in
    @tearleads/ui's styles.routed.css. */
 .routed-pane-iconbutton svg {
