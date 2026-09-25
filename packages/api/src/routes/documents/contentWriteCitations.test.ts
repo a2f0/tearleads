@@ -87,7 +87,8 @@ test("the API requires exact signed write paths and retains their dependency bun
     outgoingUpdates: [{ ...update, writeHeader: { ...signed } }],
   });
   expect(unrelated.status).toBe(400);
-  // Signing an unrelated child does not bring it into this document scope.
+  expect(await unrelated.text()).toContain("outside the document scope");
+  // Signing an unlinked child does not bring it into this document scope.
   expect((await postSync(owner.token, created.id, request)).status).toBe(200);
   expect(
     await listDocumentContentWriteDependencyHashes(created.id, db),

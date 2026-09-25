@@ -246,7 +246,7 @@ test("link-set history accepts reconstructed ancestor prefixes", async () => {
   }
 });
 
-test("a second path cannot disguise an unrelated citation as an ancestor", async () => {
+test("every supplied path must have contiguous ancestry, even after a valid path", async () => {
   const fixture = await citationScopeFixture();
   const { first, second, unrelated, document } = fixture;
   const paths = [[first], [unrelated, first]];
@@ -265,4 +265,5 @@ test("a second path cannot disguise an unrelated citation as an ancestor", async
     authorizingContainerPaths: paths,
   });
   expect(result.ok).toBe(false);
+  if (!result.ok) expect(result.error.code).toBe("missing_dependency");
 });

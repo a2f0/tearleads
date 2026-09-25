@@ -58,7 +58,7 @@ ReadWrite(write) ==
           ELSE /\ readerHeads' = readerHeads
                /\ refused' = (refused \/ citedParent \notin readerHeads
                                        \/ ~Authorized(citedParent, membership)
-                                       \/ write[4] \notin ScopedCitations)
+                                       )
   /\ UNCHANGED <<parent, leaf, writes>>
 
 Next == \/ AdvanceParent

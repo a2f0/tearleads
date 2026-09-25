@@ -12,7 +12,7 @@ type Path = readonly VerifiedContainerAccessManifest[];
 /**
  * Historical readers reconstruct a path for every cited ancestor. Those
  * prefixes are evidence only when a scoped leaf's path actually contains them.
- * Check the complete citation set before accepting any one writable path.
+ * A writable path alone cannot license the rest of the citation set.
  */
 export function assertDocumentCitationScope(input: {
   readonly dependencyManifestHashes?: readonly string[];

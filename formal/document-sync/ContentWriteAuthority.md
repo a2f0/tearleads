@@ -41,3 +41,11 @@ sets, document/blob target coverage, and lineage validation are abstracted as
 verified inputs here; runtime tests cover their concrete checks. This model does
 not prove semantic currency against a dishonest server or prevent a removed
 signer and server from supplying a previously valid historical authorization.
+
+Citation topology is deliberately collapsed to a classified extra citation in
+this bounded model: `linked` and `ancestor` are both valid scopes, while
+`unlinked` and `foreign` are refused at commit. Concrete runtime tests establish
+that classification from every supplied path, including contiguous ancestry and
+ancestor-prefix evidence. The scope invariant is a boundary-admission check,
+not a proof of path derivation. The honest-write readability property concerns
+write-time authority and retained evidence independently of this admission rule.
