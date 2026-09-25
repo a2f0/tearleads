@@ -33,7 +33,7 @@ async function openRoutedSystemMonitorStatus(
   });
 }
 
-// The routed nav rail is a pure app launcher, so the manual network controls
+// The routed nav rail only carries launcher actions, so manual network controls
 // live on the System Monitor's own context menu (as they do in windowed mode).
 async function clickRoutedNetworkModeItem(
   view: ReturnType<typeof renderPane>,

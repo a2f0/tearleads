@@ -151,7 +151,18 @@ test("desktop tablet launcher can open from the bottom", async ({ page }) => {
   await expect(pane).toBeVisible();
   await expect(pane).toHaveAttribute("data-launcher-placement", "side");
   const rail = pane.locator(".routed-pane-rail");
-  await rail.getByRole("button", { name: "Move launcher to bottom" }).click();
+  const moveToBottom = rail.getByRole("button", {
+    name: "Move launcher to bottom",
+  });
+  const toggleBox = await rail
+    .getByRole("button", { name: "Expand navigation rail" })
+    .boundingBox();
+  const placementBox = await moveToBottom.boundingBox();
+  if (!toggleBox || !placementBox) {
+    throw new Error("Expected both launcher rail controls.");
+  }
+  expect(placementBox.y).toBeGreaterThan(toggleBox.y + toggleBox.height);
+  await moveToBottom.click();
   await expect(pane).toHaveAttribute("data-launcher-placement", "bottom");
   await expect(rail).toHaveCount(0);
   await expect(
@@ -197,7 +208,7 @@ test("desktop tablet launcher can open from the bottom", async ({ page }) => {
   ).toBeFocused();
 });
 
-test("Explorer sidebar has its own surface color", async ({ page }) => {
+test("routed internal sidebar has its own surface color", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/app/explorer");
 

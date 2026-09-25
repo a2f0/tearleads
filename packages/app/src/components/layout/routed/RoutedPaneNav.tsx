@@ -281,16 +281,7 @@ export function RoutedPaneNav({
         )}
         data-state={railExpanded ? "open" : "closed"}
       >
-        <div className="routed-pane-rail-controls">
-          <RoutedPaneRailToggle
-            expanded={railExpanded}
-            onToggle={onToggleRail}
-          />
-          <RoutedPanePlacementButton
-            launcherPlacement={launcherPlacement}
-            onToggle={onToggleLauncherPlacement}
-          />
-        </div>
+        <RoutedPaneRailToggle expanded={railExpanded} onToggle={onToggleRail} />
         {railExpanded && (
           <RoutedPaneNavPanel
             activeAppId={activeAppId}
@@ -298,6 +289,10 @@ export function RoutedPaneNav({
             onNavigate={onNavigateRail}
           />
         )}
+        <RoutedPanePlacementButton
+          launcherPlacement={launcherPlacement}
+          onToggle={onToggleLauncherPlacement}
+        />
       </aside>
     );
   }

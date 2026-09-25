@@ -71,19 +71,32 @@
   width: calc(var(--routed-rail-collapsed-width) + var(--safe-area-left));
 }
 
-/* Align the rail controls with the app bar controls across the top edge. */
-.routed-pane-rail-controls {
-  display: flex;
-  justify-content: flex-end;
-  gap: var(--space-xs);
-  padding: var(--space-xs) var(--space-sm) 0;
+/* The rail toggle keeps its top-right corner beside the app bar's Back button.
+   Both surfaces absorb the same safe-area inset; this margin matches the app
+   bar's top padding so their 44px controls line up. */
+.routed-pane-rail-toggle {
+  align-self: flex-end;
+  margin-block-start: var(--space-xs);
+  margin-inline-end: var(--space-sm);
 }
 
-/* The collapsed rail stacks both controls within its single-button width. */
-.routed-pane-rail--collapsed .routed-pane-rail-controls {
-  flex-direction: column;
-  align-items: center;
-  padding-inline: var(--space-xs);
+.routed-pane-rail--collapsed .routed-pane-rail-toggle {
+  align-self: center;
+  margin-inline-end: 0;
+}
+
+/* Keep the placement action at the foot of the launcher, away from the rail
+   toggle and app links, with room for a bottom device inset. */
+.routed-pane-rail > .routed-pane-placement-button {
+  align-self: flex-end;
+  margin-block-start: auto;
+  margin-block-end: max(var(--space-sm), var(--safe-area-bottom));
+  margin-inline-end: var(--space-sm);
+}
+
+.routed-pane-rail--collapsed > .routed-pane-placement-button {
+  align-self: center;
+  margin-inline-end: 0;
 }
 
 .routed-pane-rail .routed-pane-nav-panel {
