@@ -18,7 +18,12 @@ import { removeOrganizationGroupUser } from "./principalPolicy";
 // once with the batch re-signed around them, and acknowledges the whole.
 
 test("a refused group commit is retried once carrying the named rekeys", async () => {
-  const fixture = await createRemovalFixture();
+  const beforeCarry = crypto.randomUUID();
+  const afterCarry = crypto.randomUUID();
+  const fixture = await createRemovalFixture({
+    grantedContainerIds: [beforeCarry, afterCarry],
+  });
+  let retiredContainerIds = [beforeCarry];
   const submissions: Array<readonly string[]> = [];
   const carried = ["carried-upper", "carried-lower"];
   const acknowledged: unknown[][] = [];
@@ -85,11 +90,15 @@ test("a refused group commit is retried once carrying the named rekeys", async (
       groupId: fixture.groupId,
       organizationId: fixture.organizationId,
       prepareContainerMutations: async () => ({
+        get retiredContainerIds() {
+          return retiredContainerIds;
+        },
         acknowledge: async (responses) => {
           acknowledged.push([...responses]);
         },
         carry: async (requiredContainerIds) => {
           expect(requiredContainerIds).toEqual(carried);
+          retiredContainerIds = [afterCarry];
           // The whole batch, parent-first, as the prepared batch re-signs it.
           return ["rematerialized", ...requiredContainerIds].map(
             carriedRequest,
@@ -103,6 +112,17 @@ test("a refused group commit is retried once carrying the named rekeys", async (
       signingFingerprint: fixture.signingFingerprint,
       signingKeyPair: fixture.signingKeyPair,
     });
+    expect(
+      await fixture.execSql(
+        "SELECT container_id, organization_id, policy_state_hash FROM principal_grant_retirements",
+      ),
+    ).toEqual([
+      {
+        container_id: afterCarry,
+        organization_id: fixture.organizationId,
+        policy_state_hash: fixture.getCurrentPolicy().currentState.stateHash,
+      },
+    ]);
     // Refused once, then resubmitted as the batch `carry` returned, and every
     // response handed to the batch.
     expect(submissions).toEqual([

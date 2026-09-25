@@ -50,6 +50,7 @@ import {
 export { buildInitialGroupPolicyRequest, buildInitialMemberGroupPolicyRequest };
 
 interface PreparedGroupContainerMutations {
+  readonly retiredContainerIds: readonly string[];
   readonly acknowledge: (
     responses: readonly ContainerMutationResponse[],
     stillCurrent?: (() => boolean) | undefined,
@@ -163,6 +164,7 @@ async function commitAndCacheGroupPolicyMutation(
   const acknowledgedBundle = await commitGroupPolicyMutation({
     apiClient: input.apiClient,
     carryDescendantRekeys: containerMutations?.carry,
+    retiredContainerIds: () => containerMutations?.retiredContainerIds ?? [],
     currentPolicy: input.currentPolicy,
     execSql: input.execSql,
     expectedHead,

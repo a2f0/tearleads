@@ -27,6 +27,11 @@ import {
   upsertPrincipalPolicyCheckpointInTransaction,
 } from "./keyingCheckpointPersistence";
 import {
+  type AcknowledgedPrincipalGrantRetirements,
+  assertContainerNotRetired,
+  storePrincipalGrantRetirements,
+} from "./principalGrantRetirementPersistence";
+import {
   retainPrincipalPolicyBundleInTransaction,
   writePrincipalPolicyBundleInTransaction,
 } from "./principalPolicyPersistence";
@@ -80,6 +85,7 @@ async function validateAcknowledgedHeads(
 ): Promise<Map<string, AccessManifestCheckpoint>> {
   const pending = new Map<string, AccessManifestCheckpoint>();
   for (const head of heads) {
+    await assertContainerNotRetired(tx, head.checkpoint);
     const key = accessManifestObjectKey(head.checkpoint);
     if (pending.has(key)) {
       throw new KeyingVerificationError(
@@ -211,6 +217,9 @@ function assertUniqueAcknowledgedPolicies(
 }
 
 async function storeAcknowledgedPrincipalPolicyBundles(input: {
+  readonly retiredContainers?:
+    | AcknowledgedPrincipalGrantRetirements
+    | undefined;
   readonly entries: readonly LocallyAcknowledgedPrincipalPolicyBundle[];
   readonly execSql: ExecSql;
   readonly organizationId?: string | undefined;
@@ -234,6 +243,13 @@ async function storeAcknowledgedPrincipalPolicyBundles(input: {
         await loadStoredPrincipalPolicyCheckpoint(tx, policy),
       );
     }
+    if (input.retiredContainers)
+      await storePrincipalGrantRetirements(
+        tx,
+        input.retiredContainers,
+        input.entries.map(({ policy }) => policy),
+        input.organizationId,
+      );
     for (const entry of input.entries) {
       if (input.placement === "current") {
         await writePrincipalPolicyBundleInTransaction(
@@ -301,6 +317,9 @@ export function persistLocallyAcknowledgedPrincipalPolicyBundle(
 }
 
 export function retainLocallyAcknowledgedPrincipalPolicyBundles(input: {
+  readonly retiredContainers?:
+    | AcknowledgedPrincipalGrantRetirements
+    | undefined;
   readonly entries: readonly LocallyAcknowledgedPrincipalPolicyBundle[];
   readonly execSql: ExecSql;
   readonly organizationId?: string | undefined;

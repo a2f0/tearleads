@@ -9,6 +9,11 @@ import {
 } from "./keyingCheckpointBackupMerge";
 import type { BackupIndex, BackupTable } from "./localBackupFormat";
 import {
+  mergePrincipalGrantRetirementBackupTables,
+  PRINCIPAL_GRANT_RETIREMENT_COLUMNS,
+  PRINCIPAL_GRANT_RETIREMENT_TABLE_NAME,
+} from "./principalGrantRetirementBackupMerge";
+import {
   DOCUMENT_PURGE_CHECKPOINT_COLUMNS,
   DOCUMENT_PURGE_CHECKPOINT_TABLE_NAME,
   mergeDocumentPurgeCheckpointBackupTables,
@@ -31,6 +36,7 @@ export const securityAnchorBackupColumns: ReadonlyMap<
   string,
   ReadonlyArray<string>
 > = new Map([
+  [PRINCIPAL_GRANT_RETIREMENT_TABLE_NAME, PRINCIPAL_GRANT_RETIREMENT_COLUMNS],
   [ACCESS_MANIFEST_CHECKPOINT_TABLE_NAME, ACCESS_MANIFEST_CHECKPOINT_COLUMNS],
   [PRINCIPAL_POLICY_CHECKPOINT_TABLE_NAME, PRINCIPAL_POLICY_CHECKPOINT_COLUMNS],
   [TRUSTED_IDENTITY_PIN_TABLE_NAME, TRUSTED_IDENTITY_PIN_COLUMNS],
@@ -113,6 +119,16 @@ export async function mergeSecurityAnchorBackupTables(input: {
       DOCUMENT_PURGE_CHECKPOINT_TABLE_NAME,
     ),
   });
+  const mergedRetirements = mergePrincipalGrantRetirementBackupTables({
+    current: uniqueBackupTableByName(
+      input.current,
+      PRINCIPAL_GRANT_RETIREMENT_TABLE_NAME,
+    ),
+    restored: uniqueBackupTableByName(
+      input.restored,
+      PRINCIPAL_GRANT_RETIREMENT_TABLE_NAME,
+    ),
+  });
   const mergedIncidents = await mergeSecurityIncidentBackupTables({
     current: uniqueBackupTableByName(
       input.current,
@@ -130,6 +146,7 @@ export async function mergeSecurityAnchorBackupTables(input: {
     ...(mergedPrincipalCheckpoints ? [mergedPrincipalCheckpoints] : []),
     ...(mergedIdentityPins ? [mergedIdentityPins] : []),
     ...(mergedPurgeCheckpoints ? [mergedPurgeCheckpoints] : []),
+    ...(mergedRetirements ? [mergedRetirements] : []),
     ...(mergedIncidents ? [mergedIncidents] : []),
   ];
 }

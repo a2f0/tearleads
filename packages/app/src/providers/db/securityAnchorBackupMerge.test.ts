@@ -19,7 +19,7 @@ test("anchor column lists match the SDK SQLite schema for every anchor table", a
         return [schema.name, schema] as const;
       }),
     );
-    expect(securityAnchorBackupColumns.size).toBe(5);
+    expect(securityAnchorBackupColumns.size).toBe(6);
     for (const [tableName, anchorColumns] of securityAnchorBackupColumns) {
       const schema = schemas.get(tableName);
       if (!schema) throw new Error(`SDK schema has no table ${tableName}`);
