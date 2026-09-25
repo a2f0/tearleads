@@ -10,8 +10,8 @@ configuration; editing a workflow alone does not make a check required.
 workspace builds, TypeScript, package tests, the web build, and Postgres
 concurrency and Windows CEF persistence to pass on every PR. It also waits for
 native purchase bridge compiles and Terraform checks whenever their paths change.
-The platform
-workflows are reusable and retain their standalone manual dispatch entry points.
+The platform workflows are reusable and retain their standalone manual dispatch
+entry points.
 
 `scripts/checks/ciPolicy.ts` owns the path selection and gate verdict. A platform
 job may be skipped only when successful change detection explicitly marked it

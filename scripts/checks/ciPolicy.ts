@@ -1,3 +1,14 @@
+export function ciDiffRange(
+  base: string | undefined,
+  head: string | undefined,
+) {
+  if (!base || /^0+$/.test(base)) return undefined;
+  if (!/^[a-f0-9]{40}$/.test(base) || !head || !/^[a-f0-9]{40}$/.test(head)) {
+    throw new Error("CI diff requires full base and head commit SHAs.");
+  }
+  return `${base}...${head}`;
+}
+
 export function ciScopes(paths: readonly string[]) {
   const common = paths.some((path) =>
     /^(\.github\/workflows\/|scripts\/checks\/ci|\.mise\.toml$|bun\.lock$|package\.json$)/.test(

@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { assertCiSuccess, ciScopes } from "../ciPolicy";
+import { assertCiSuccess, ciDiffRange, ciScopes } from "../ciPolicy";
 
 const successful = () => ({
   changes: {
@@ -12,6 +12,42 @@ const successful = () => ({
   windows: { result: "success" },
   native: { result: "skipped" },
   terraform: { result: "skipped" },
+});
+
+test("required native and Terraform jobs must succeed, never skip", () => {
+  for (const job of ["native", "terraform"]) {
+    const needs = successful();
+    needs.changes.outputs = { ...needs.changes.outputs, [job]: "true" };
+    expect(() => assertCiSuccess(needs)).toThrow(`${job} must be success`);
+    expect(() =>
+      assertCiSuccess({
+        ...needs,
+        [job]: { result: "success" },
+      }),
+    ).not.toThrow();
+    for (const result of ["failure", "cancelled", "pending"]) {
+      expect(() => assertCiSuccess({ ...needs, [job]: { result } })).toThrow();
+    }
+  }
+});
+
+test("diff selection validates SHAs and defaults to all scopes without a base", () => {
+  const base = "a".repeat(40);
+  const head = "b".repeat(40);
+  expect(ciDiffRange(base, head)).toBe(`${base}...${head}`);
+  for (const missing of [undefined, "", "0".repeat(40)]) {
+    expect(ciDiffRange(missing, head)).toBeUndefined();
+  }
+  for (const invalid of [
+    undefined,
+    "",
+    "main",
+    "--output=bad",
+    "c".repeat(39),
+  ]) {
+    expect(() => ciDiffRange(base, invalid)).toThrow("full base and head");
+  }
+  expect(() => ciDiffRange("main", head)).toThrow("full base and head");
 });
 
 test("requires every applicable check and permits only explicitly irrelevant skips", () => {

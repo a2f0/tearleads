@@ -58,8 +58,9 @@ export function requirePassingMergeChecks(
   read: typeof run = run,
 ): void {
   // gh pr checks paginates and selects the latest run per workflow/job/event.
-  // Raw statusCheckRollup can retain failures from superseded runs. Nonzero
-  // exits (including pending checks and API failures) throw before any merge.
+  // Raw statusCheckRollup can retain failures from superseded runs. JSON mode
+  // can exit zero for pending/failed checks: assertMergeChecks enforces states.
+  // API and other command failures also throw before any merge.
   const checks: unknown = JSON.parse(
     read("gh", [
       "pr",
