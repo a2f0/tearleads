@@ -58,7 +58,6 @@ export function listLocalOrphanFolders(
   return nodes.filter(
     (node) =>
       node.organizationId === organizationId &&
-      node.metadataDocumentId == null &&
       node.parentId !== null &&
       !ids.has(node.parentId),
   );

@@ -55,6 +55,12 @@ test("revoke, restore, and restart preserve metadata page-one recovery", async (
        WHERE app_kind = 'container-metadata' AND local_id = ?`,
       [container.id],
     );
+    await execSql(
+      `INSERT INTO document_pending_updates
+      (id, app_kind, local_id, update_data, partial_start_version_vector, partial_end_version_vector, created_at)
+      VALUES ('pending-rename', 'container-metadata', ?, 'data', '', '', 'now')`,
+      [container.id],
+    );
     await defaultContainerContentsPersistence.deleteContainers(
       execSql,
       [

@@ -64,6 +64,7 @@ interface ExplorerModel {
   deleteDocument: ExplorerPanelState["deleteDocument"];
   purgeDocument: ExplorerPanelState["purgeDocument"];
   documentListRevision: number;
+  onRecoveryChanged: () => void;
   documentQueries: ContainerDocumentQueries;
   documentSummaries: ReadonlyArray<DocumentSummary>;
   explorer: ExplorerModelExplorer;
@@ -341,6 +342,7 @@ export function useExplorerModel(
 
   return {
     ...selectedDocumentMutationState,
+    onRecoveryChanged: bumpDocumentListRevision,
     activeContainerHasRules,
     activateLinkedContainer,
     canCreateChildInActiveContainer,

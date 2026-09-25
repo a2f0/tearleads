@@ -116,6 +116,7 @@ interface ExplorerDetailPanelProps {
   currentSelfContactLocalId: string | null | undefined;
   currentUserId: string | null | undefined;
   documentListRevision: number;
+  onRecoveryChanged: () => void;
   documentQueries: ContainerDocumentQueries;
   documentSummaries: ReadonlyArray<DocumentSummary>;
   domainScope: DomainScope;
@@ -384,6 +385,7 @@ function renderExplorerRouteDetail(params: ExplorerDetailPanelProps) {
   if (selectedNode) {
     return (
       <ExplorerContainerDetail
+        onRecoveryChanged={params.onRecoveryChanged}
         containerNodes={params.nodes}
         contactAvatarUrlByLocalId={params.contactAvatarUrlByLocalId}
         contextTarget={params.contextTarget}

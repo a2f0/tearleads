@@ -275,10 +275,10 @@ export function createContainerContentsStoreSyncAgent(input: {
       scheduleSync,
       state,
     });
-  const refresh = () =>
+  const refresh: ContainerContentsStoreSyncAgent["refresh"] = (options) =>
     refreshAllRemoteHydration({
       // Explicit user refresh must rediscover children hidden by unsigned hints.
-      resetAllLaneWatermarks: true,
+      resetAllLaneWatermarks: options?.resetAllLaneWatermarks,
       requestHydration: requestRefreshHydration,
       state,
     });

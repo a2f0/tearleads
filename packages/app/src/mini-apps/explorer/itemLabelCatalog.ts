@@ -9,5 +9,5 @@ export const EXPLORER_ITEM_LABELS = {
   itemTableEmpty: "No items.",
   orphanedDocumentsEmpty: "No orphaned documents.",
   orphanedDocumentsName: "Recovery",
-  orphanedDocumentsType: "Recovery",
+  orphanedDocumentsType: "Retained local items",
 } as const;

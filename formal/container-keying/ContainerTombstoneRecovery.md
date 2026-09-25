@@ -9,7 +9,7 @@ erasing local work or declaring every cached descendant terminally deleted.
 | Model action or predicate | Production seam |
 | --- | --- |
 | `ObserveHint` | `applyContainerTombstones`, `deleteStoredContainers` quarantine listings while retaining metadata and structural intents |
-| `LateProofNeverRestores` | Every removed descendant gets an observation fence; an earlier fetch cannot make it visible |
+| `LateProofNeverRestores` | `recordContainerHydrationTombstones` fences every removed descendant; an earlier fetch cannot make it visible |
 | `Fetch` | `fetchContainerParentLaneBatch`, `verifyRemoteContainerDestination` observe local generations before verifying restoration evidence |
 | `Restore` / `LateProofNeverRestores` | `commitStoredHydratedContainer` compares the observed generation and metadata before committing |
 | `LocalWorkSurvives` | `completeRestorationSweeps` retains unavailable metadata instead of purging it from an unsigned 404 |

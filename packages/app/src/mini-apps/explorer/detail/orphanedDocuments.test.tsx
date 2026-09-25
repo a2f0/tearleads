@@ -47,6 +47,7 @@ test("the orphan recovery collection queries null scope without folder actions",
       currentSigningFingerprint={null}
       currentSelfContactLocalId={null}
       currentUserId={null}
+      onRecoveryChanged={() => {}}
       documentListRevision={0}
       documentQueries={documentQueries}
       uploadManager={uploadManager}

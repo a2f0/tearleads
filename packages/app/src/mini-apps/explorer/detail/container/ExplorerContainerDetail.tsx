@@ -116,6 +116,7 @@ interface ExplorerContainerDetailProps {
   currentSelfContactLocalId: string | null | undefined;
   currentUserId: string | null | undefined;
   documentListRevision: number;
+  onRecoveryChanged: () => void;
   documentQueries: ContainerDocumentQueries;
   uploadManager: ExplorerUploadManager;
   online: boolean;

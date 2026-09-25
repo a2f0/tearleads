@@ -47,6 +47,7 @@ function fixture(discarded: Array<typeof retained>, result = true) {
       containerNodes={[local]}
       currentOrganizationId="org"
       documentQueries={documentQueries}
+      onRecoveryChanged={() => {}}
       documentListRevision={0}
       setSelectedId={(id) => selected.push(id)}
       onContainerContextMenu={(_, id) => menus.push(id)}
@@ -92,4 +93,56 @@ test("a stale confirmation keeps the retained folder visible", async () => {
     "This folder changed. Review the updated copy before discarding it.",
   );
   expect(view.getByText("Queued rename")).toBeTruthy();
+});
+
+test("sync snapshots keep the dialog open and a stale refusal reloads its revision", async () => {
+  let calls = 0;
+  let revision = "revision-1";
+  const attempted: string[] = [];
+  let changed = 0;
+  const documentQueries = {
+    listRecoveryFolders: async () => {
+      calls += 1;
+      return [{ ...retained, revision }];
+    },
+    discardRecoveryFolder: async (input: typeof retained) => {
+      attempted.push(input.revision);
+      revision = "revision-2";
+      return input.revision === revision;
+    },
+  } as unknown as ContainerDocumentQueries;
+  const props = {
+    currentOrganizationId: "org",
+    documentQueries,
+    documentListRevision: 0,
+    onRecoveryChanged: () => {
+      changed += 1;
+    },
+    setSelectedId: () => {},
+    onContainerContextMenu: () => {},
+  };
+  const view = render(
+    <ExplorerRecoveryFolders {...props} containerNodes={[local]} />,
+  );
+  await view.findByText("Queued rename");
+  fireEvent.click(view.getByRole("button", { name: "Discard local copy" }));
+  view.rerender(
+    <ExplorerRecoveryFolders {...props} containerNodes={[{ ...local }]} />,
+  );
+  expect(view.getByRole("dialog")).toBeTruthy();
+  expect(calls).toBe(1);
+  const submit = () => {
+    const button = view
+      .getByRole("dialog")
+      .querySelector('button[type="submit"]');
+    if (!button) throw new Error("Missing confirmation submit");
+    fireEvent.click(button);
+  };
+  submit();
+  await waitFor(() => expect(calls).toBe(2));
+  await waitFor(() => expect(view.queryByRole("dialog")).toBeNull());
+  fireEvent.click(view.getByRole("button", { name: "Discard local copy" }));
+  submit();
+  await waitFor(() => expect(changed).toBe(1));
+  expect(attempted).toEqual(["revision-1", "revision-2"]);
 });

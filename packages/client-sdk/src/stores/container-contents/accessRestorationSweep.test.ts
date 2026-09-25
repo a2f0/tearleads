@@ -65,6 +65,12 @@ async function seedDormantMetadata(
       snapshotEndVersion: "",
     },
   );
+  await execSql(
+    `INSERT INTO document_pending_updates
+    (id, app_kind, local_id, update_data, partial_start_version_vector, partial_end_version_vector, created_at)
+    VALUES (?, 'container-metadata', ?, 'data', '', '', 'now')`,
+    [`pending-${containerId}`, containerId],
+  );
   await defaultContainerContentsPersistence.deleteContainers(
     execSql,
     [

@@ -131,6 +131,7 @@ function containerDetailElement(props: {
       currentSigningFingerprint={null}
       currentSelfContactLocalId={null}
       currentUserId={null}
+      onRecoveryChanged={() => {}}
       documentListRevision={props.documentListRevision}
       documentQueries={props.documentQueries}
       uploadManager={props.uploadManager ?? idleUploadManager}

@@ -2,7 +2,9 @@ import { inArray } from "drizzle-orm";
 import { ensureDocumentProjectionTables } from "../../sqlite/documentPersistence";
 import {
   containerCreateIntents,
+  containerCreateIntentTables,
   containerMoveIntents,
+  containerMoveIntentTables,
   containers,
   documentContainerProjectionTables,
   documentMoveIntentTables,
@@ -29,6 +31,7 @@ import type {
   ContainerRemoval,
 } from "./containerContentsPersistenceTypes";
 import { recordContainerHydrationTombstones } from "./containerHydrationPersistence";
+import { containerIdsWithRemovalWork } from "./containerRemovalWork";
 import { repairDocumentsForRemovedContainersInTransaction } from "./containerStructuralRepair";
 import { repairLinkIntentsForRemovedContainers } from "./documentLinkRemovalRepair";
 import {
@@ -213,6 +216,8 @@ export async function deleteStoredContainers(
     await ensureSqlTables(lockedExecSql, documentContainerProjectionTables);
     await ensureSqlTables(lockedExecSql, documentMoveIntentTables);
     await ensureContainerTables(lockedExecSql);
+    await ensureSqlTables(lockedExecSql, containerCreateIntentTables);
+    await ensureSqlTables(lockedExecSql, containerMoveIntentTables);
     await ensureDocumentProjectionTables(lockedExecSql);
     await sqlContainerSyncWatermarkPersistence.ensureSchema(lockedExecSql);
     const runtime = getClientSQLitePersistenceRuntime(lockedExecSql);
@@ -226,9 +231,12 @@ export async function deleteStoredContainers(
       ) {
         return [];
       }
-      const retainedMetadataIds = uniqueRemovals.flatMap((removal) =>
-        options?.discoveryOnly ? [removal.containerId] : [],
-      );
+      const retainedMetadataIds = options?.discoveryOnly
+        ? await containerIdsWithRemovalWork(
+            tx,
+            uniqueRemovals.map((removal) => removal.containerId),
+          )
+        : [];
       return applyContainerRemovals({
         discoveryOnly: options?.discoveryOnly,
         metadataDeleteIds: uniqueRemovals.flatMap((removal) =>

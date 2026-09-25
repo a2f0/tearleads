@@ -19,6 +19,7 @@ interface RecoveryFoldersProps {
   currentOrganizationId: string | null;
   documentQueries: ContainerDocumentQueries;
   documentListRevision: number;
+  onRecoveryChanged: () => void;
   onContainerContextMenu: (event: MouseEvent<HTMLElement>, id: string) => void;
   setSelectedId: (id: string | null) => void;
 }
@@ -35,16 +36,19 @@ function useRecoveryFolders(params: RecoveryFoldersProps) {
     documentQueries,
     documentListRevision,
   } = params;
+  const nodeIdsKey = containerNodes.map((node) => node.id).join("\u0000");
   useEffect(() => {
-    let current = true;
     setFolders([]);
     setConfirm(null);
+    setError(null);
+  }, [currentOrganizationId, documentQueries]);
+  useEffect(() => {
+    let current = true;
     void documentQueries
       .listRecoveryFolders({ currentOrganizationId })
       .then((next) => {
         if (current) {
           setFolders(next);
-          setError(null);
         }
       })
       .catch((cause: unknown) => {
@@ -60,7 +64,7 @@ function useRecoveryFolders(params: RecoveryFoldersProps) {
       current = false;
     };
   }, [
-    containerNodes,
+    nodeIdsKey,
     currentOrganizationId,
     documentQueries,
     documentListRevision,
@@ -76,11 +80,13 @@ function useRecoveryFolders(params: RecoveryFoldersProps) {
     try {
       const removed = await documentQueries.discardRecoveryFolder(confirm);
       setConfirm(null);
-      if (!removed)
+      if (!removed) {
+        setRevision((value) => value + 1);
         setError(
           "This folder changed. Review the updated copy before discarding it.",
         );
-      else {
+      } else {
+        params.onRecoveryChanged();
         setError(null);
         setFolders((rows) =>
           rows.filter((row) => row.containerId !== confirm.containerId),
@@ -134,7 +140,9 @@ export function ExplorerRecoveryFolders(params: RecoveryFoldersProps) {
           <MiniAppButton onClick={() => params.setSelectedId(folder.id)}>
             {folder.name}
           </MiniAppButton>
-          <span>Local folder</span>
+          <span>
+            {folder.metadataDocumentId ? "Pending folder move" : "Local folder"}
+          </span>
           <MiniAppButton
             onClick={(event) => params.onContainerContextMenu(event, folder.id)}
             aria-label={`Actions for ${folder.name}`}
@@ -147,7 +155,8 @@ export function ExplorerRecoveryFolders(params: RecoveryFoldersProps) {
         <MiniAppActions key={folder.containerId}>
           <strong>{folder.name}</strong>
           <span>
-            {folder.pendingUpdateCount} queued edits
+            {folder.pendingUpdateCount} queued{" "}
+            {folder.pendingUpdateCount === 1 ? "edit" : "edits"}
             {folder.hasStructuralIntent ? ", pending placement" : ""}
           </span>
           <MiniAppButton onClick={() => setConfirm(folder)}>

@@ -47,7 +47,10 @@ import type {
   ContainerItemSort,
   ContainerItemWindow,
 } from "./documentQueries/types";
-import { createFolderRecoveryQueries } from "./folderRecovery";
+import {
+  createFolderRecoveryQueries,
+  type RecoveryFolder,
+} from "./folderRecovery";
 import {
   getOrphanedDocumentQueryBind,
   getOrphanedDocumentWhereSql,
@@ -80,8 +83,13 @@ interface ListContainerItemWindowInput {
   visibleSystemSlots?: ReadonlyArray<ContainerSystemSlot> | undefined;
 }
 
-export interface ContainerDocumentQueries
-  extends ReturnType<typeof createFolderRecoveryQueries> {
+export interface ContainerDocumentQueries {
+  listRecoveryFolders(input: {
+    currentOrganizationId: string | null;
+  }): Promise<RecoveryFolder[]>;
+  discardRecoveryFolder(
+    input: Pick<RecoveryFolder, "containerId" | "organizationId" | "revision">,
+  ): Promise<boolean>;
   applyContainerDocumentTombstones(
     tombstones: ReadonlyArray<ContainerDocumentTombstone>,
   ): Promise<ReadonlyArray<DocumentSummary>>;

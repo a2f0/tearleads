@@ -24,42 +24,47 @@ async function recoverySnapshot(
   organizationId: string,
 ) {
   const [dormant] = await execSql(
-    `SELECT * FROM dormant_container_metadata
+    `SELECT container_id, organization_id FROM dormant_container_metadata
     WHERE container_id = ? AND organization_id = ?
     AND NOT EXISTS (SELECT 1 FROM containers WHERE id = ?)`,
     [containerId, organizationId, containerId],
   );
   if (!dormant) return null;
   const metadata = [];
-  for (const table of [
-    "documents",
-    "document_history_checkpoints",
-    "document_history_updates",
-    "document_pending_updates",
-    "document_sync_failures",
+  for (const [table, columns] of [
+    [
+      "documents",
+      "document_id, recovery_document_id, recovery_generation, snapshot_end_version, pending_base_version",
+    ],
+    ["document_history_checkpoints", "snapshot, end_version_vector"],
+    ["document_history_updates", "id, update_data, origin"],
+    [
+      "document_pending_updates",
+      "id, update_data, partial_start_version_vector, partial_end_version_vector, source_version_vector",
+    ],
   ]) {
     metadata.push(
       await execSql(
-        `SELECT * FROM ${table} WHERE app_kind = 'container-metadata' AND local_id = ? ORDER BY rowid`,
+        `SELECT ${columns} FROM ${table} WHERE app_kind = 'container-metadata' AND local_id = ? ORDER BY rowid`,
         [containerId],
       ),
     );
   }
   const creates = await execSql(
-    "SELECT * FROM container_create_intents WHERE container_id = ? ORDER BY id",
+    "SELECT id, container_id, parent_container_id, intent_type, remote_container_id, remote_metadata_document_id, remote_metadata_access_state_hash FROM container_create_intents WHERE container_id = ? AND sync_status = 'pending' ORDER BY id",
     [containerId],
   );
   const moves = await execSql(
-    "SELECT * FROM container_move_intents WHERE container_id = ? ORDER BY id",
+    "SELECT id, container_id, parent_container_id, previous_parent_container_id, intent_type FROM container_move_intents WHERE container_id = ? ORDER BY id",
     [containerId],
   );
   const links = await execSql(
-    `SELECT * FROM document_move_intents WHERE target_container_id = ? OR id IN
+    `SELECT id, local_id, document_id, target_container_id, source_container_id, replace_linked_containers, intent_type FROM document_move_intents WHERE target_container_id = ? OR id IN
     (SELECT intent_id FROM document_intent_link_targets WHERE container_id = ?) ORDER BY id`,
     [containerId, containerId],
   );
   const targets = await execSql(
-    `SELECT * FROM document_intent_link_targets WHERE intent_id IN
+    `SELECT intent_id, operation, container_id FROM document_intent_link_targets WHERE intent_id IN
     (SELECT id FROM document_move_intents WHERE target_container_id = ? OR id IN
       (SELECT intent_id FROM document_intent_link_targets WHERE container_id = ?)) ORDER BY intent_id, container_id, operation`,
     [containerId, containerId],
