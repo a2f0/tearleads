@@ -8,6 +8,7 @@ import pdfjsPackage from "pdfjs-dist/package.json" with { type: "json" };
 import { configureMainProcessDiagnostics } from "../diagnostics/mainProcess";
 import { createRendererBuildConfig } from "../rendererEnvironment";
 import { planSaveFileRequest } from "../saveFileHandler";
+import { installApplicationMenu } from "./applicationMenu";
 import { resolvePdfAssetPath } from "./pdfAssetPaths";
 
 const packageDirEnvName = "TEARLEADS_ELECTROBUN_PACKAGE_DIR";
@@ -290,6 +291,8 @@ const appServer = serve({
 });
 
 console.log(`Electrobun app server running at ${appServer.url}`);
+
+installApplicationMenu(TEARLEADS_ELECTROBUN_APP_NAME);
 
 new BrowserWindow({
   title: TEARLEADS_ELECTROBUN_APP_NAME,
