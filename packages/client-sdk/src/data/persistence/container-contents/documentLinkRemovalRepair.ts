@@ -13,7 +13,7 @@ import {
 function loadAffectedIntents(
   tx: ClientSQLiteTransactionScope,
   containerIds: ReadonlyArray<string>,
-  discardPrimaryMoves: boolean,
+  includePrimaryMoves: boolean,
 ) {
   return tx
     .select()
@@ -26,7 +26,7 @@ function loadAffectedIntents(
         ]),
         or(
           and(
-            discardPrimaryMoves
+            includePrimaryMoves
               ? undefined
               : eq(documentMoveIntents.intentType, DOCUMENT_LINK_INTENT_TYPE),
             inArray(documentMoveIntents.targetContainerId, containerIds),
@@ -170,8 +170,8 @@ export function discardLinkIntentsForRemovedContainers(input: {
   return repairRemovedLinks({ ...input, discardPrimaryMoves: true });
 }
 
-/** An unsigned absence hint must not strand surviving additions after a 404. */
-export async function refreshLinkIntentsAfterRemoval(input: {
+/** An unsigned absence hint must not let an old 404 strand queued placement. */
+export async function refreshPlacementIntentsAfterRemoval(input: {
   containerIds: ReadonlyArray<string>;
   tx: ClientSQLiteTransactionScope;
 }): Promise<void> {
@@ -179,9 +179,8 @@ export async function refreshLinkIntentsAfterRemoval(input: {
   for (const intent of await loadAffectedIntents(
     tx,
     input.containerIds,
-    false,
+    true,
   )) {
-    if (intent.intentType !== DOCUMENT_LINK_INTENT_TYPE) continue;
     // Rotate the revision to refuse completion from a pass that parked the old intent.
     const id = crypto.randomUUID();
     await tx
