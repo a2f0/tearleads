@@ -18,6 +18,7 @@ import {
   createTestContainerKekMaterial,
 } from "../../../test/helpers/containerKekMaterial";
 import {
+  createContainerKekStoreUserKey,
   createContainerKekStoreManifestFixture as createContainerManifestFixture,
   containerKekStoreFixtureHash as fixtureHash,
 } from "../../../test/helpers/containerKekStoreFixtures";
@@ -94,11 +95,7 @@ async function createRotationFixture(): Promise<RotationFixture> {
   const { containerKeyEpochId: newKeyEpochId, plaintextKek: newKey } =
     await createTestContainerKekMaterial({ containerId, keyEpoch: 2 });
   const adminUserId = crypto.randomUUID();
-  const adminKey: ContainerUserRecipientKey = {
-    userId: adminUserId,
-    recipientKeyEpochId: "admin-key-epoch-1",
-    recipientKeyFingerprint: await fixtureHash("admin-key"),
-  };
+  const adminKey = await createContainerKekStoreUserKey(adminUserId);
   const directGrants = [
     {
       subjectType: "user" as const,

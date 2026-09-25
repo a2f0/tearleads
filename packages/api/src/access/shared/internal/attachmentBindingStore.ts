@@ -11,6 +11,7 @@ import type {
 import { and, eq, isNull } from "drizzle-orm";
 import { nowExpression } from "../../../utils/sqlDialect";
 import { storeVerifiedAccessEventInTransaction } from "./accessManifestStore";
+import { assertCanonicalStoredUuid } from "./canonicalStoredUuid";
 
 class AttachmentBindingProjectionError extends Error {
   constructor(
@@ -27,6 +28,7 @@ function assertStoredBindingMatches(input: {
   readonly row: typeof attachmentBindings.$inferSelect;
 }): void {
   if (
+    input.row.id !== input.binding.bindingId ||
     input.row.documentId !== input.binding.documentId ||
     input.row.slotId !== input.binding.slotId ||
     input.row.blobId !== input.binding.blobId ||
@@ -67,6 +69,7 @@ export async function storeVerifiedAttachmentBindingInTransaction(
   binding: VerifiedAttachmentBinding,
   executor: DatabaseTransaction,
 ): Promise<typeof attachmentBindings.$inferSelect> {
+  assertCanonicalStoredUuid(binding.bindingId, "Attachment binding id");
   await storeVerifiedAccessEventInTransaction(binding.event, executor);
   const [insertedRow] = await executor
     .insert(attachmentBindings)
