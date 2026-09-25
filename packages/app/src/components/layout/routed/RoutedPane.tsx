@@ -237,9 +237,9 @@ function RoutedPaneSurface({
   }, [closeDrawer]);
   useEscapeToDismissDrawer(drawerOpen, dismissDrawer);
   const moveLauncher = useCallback(() => {
-    closeDrawer();
+    dismissDrawer();
     onToggleLauncherPlacement();
-  }, [closeDrawer, onToggleLauncherPlacement]);
+  }, [dismissDrawer, onToggleLauncherPlacement]);
 
   useCollapseOverlaysOnTierChange({ closeDrawer, closeSidebar, tier });
 

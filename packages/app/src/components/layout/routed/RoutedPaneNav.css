@@ -82,6 +82,7 @@
 .routed-pane-rail--collapsed .routed-pane-rail-controls {
   flex-direction: column;
   align-items: center;
+  padding-inline: var(--space-xs);
 }
 
 .routed-pane-rail .routed-pane-nav-panel {
@@ -149,8 +150,8 @@
 
 .routed-pane-sheet-header .routed-pane-placement-button {
   position: absolute;
-  top: var(--space-xs);
-  right: var(--space-sm);
+  inset-block-start: 0;
+  inset-inline-end: var(--space-sm);
 }
 
 .routed-pane-sheet-handle {

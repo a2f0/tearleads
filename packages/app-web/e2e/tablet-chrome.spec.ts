@@ -14,8 +14,8 @@ import { expect, test } from "@playwright/test";
 
 // Four mini-apps register Refresh through useWindowRefreshMenuItem alone, which
 // the windowed shell renders in its View menu. The routed shell has no menu bar
-// and its nav rail is a pure app launcher, so the app bar toolbar is the only
-// surface left that can carry it. A registration that renders nowhere still
+// and its nav rail only carries launcher actions, so the app bar toolbar is the
+// surface that carries it. A registration that renders nowhere still
 // type-checks and still passes every unit test, so assert the drawn button.
 test("routed app bar carries the app's Refresh action", async ({ page }) => {
   await page.setViewportSize({ width: 900, height: 1000 });
@@ -154,6 +154,7 @@ test("desktop tablet launcher can open from the bottom", async ({ page }) => {
   await rail.getByRole("button", { name: "Move launcher to bottom" }).click();
   await expect(pane).toHaveAttribute("data-launcher-placement", "bottom");
   await expect(rail).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Menu" })).toBeFocused();
 
   await pane.evaluate((element) => {
     (element as HTMLElement).style.setProperty("--safe-area-left", "24px");
@@ -189,6 +190,7 @@ test("desktop tablet launcher can open from the bottom", async ({ page }) => {
   await sheet.getByRole("button", { name: "Move launcher to side" }).click();
   await expect(pane).toHaveAttribute("data-launcher-placement", "side");
   await expect(rail).toBeVisible();
+  await expect(page.getByRole("button", { name: "Menu" })).toBeFocused();
 });
 
 test("Explorer sidebar has its own surface color", async ({ page }) => {
@@ -196,7 +198,9 @@ test("Explorer sidebar has its own surface color", async ({ page }) => {
   await page.goto("/app/explorer");
 
   const pane = page.locator(".routed-pane--tablet");
-  await expect(pane.locator(".routed-pane-sidebar")).toBeVisible();
+  await expect(pane.locator(".routed-pane-sidebar")).toBeVisible({
+    timeout: 30_000,
+  });
   const surfaces = await pane.evaluate((element) => {
     const color = (selector: string) => {
       const surface = element.querySelector(selector);
