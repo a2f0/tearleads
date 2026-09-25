@@ -161,7 +161,7 @@ test("a retained document wrap with extra metadata is rejected on relink", async
   expect(await response.json()).toEqual({ error: "Invalid request" });
 });
 
-test("a shared bind rejects extra metadata in another document's retained wrap", async () => {
+test("a shared bind refuses another document's stored envelope", async () => {
   const owner = createTestUser();
   await registerUser(owner);
   await authenticate(owner);
@@ -180,55 +180,25 @@ test("a shared bind rejects extra metadata in another document's retained wrap",
 
   const firstTarget = initial.request.contentKeyBundle.targets[0];
   if (!firstTarget) throw new Error("Expected the first document's target");
-  const wrappingMetadata = {
-    ...firstTarget.wrappingMetadata,
-    unrecognized: "injected stored field",
-  };
-  await db
-    .update(blobContentKeyTargets)
-    .set({ wrappingMetadata })
-    .where(eq(blobContentKeyTargets.documentId, first.id));
-
-  const shared = await buildBind({
-    activeBindings: [initial.binding],
-    blobId,
-    document: second,
-    documents: [first, second],
-    owner,
-    root,
-  });
-  const retainingBind = (
-    mapTarget: (
-      target: (typeof shared.request.contentKeyBundle.targets)[number],
-    ) => (typeof shared.request.contentKeyBundle.targets)[number],
-  ) => ({
-    ...shared.request,
-    contentKeyBundle: {
-      ...shared.request.contentKeyBundle,
-      targets: shared.request.contentKeyBundle.targets.map((target) =>
-        target.documentId === first.id
-          ? { ...target, wrappingMetadata }
-          : mapTarget(target),
-      ),
-    },
-  });
-
+  const shared = await buildBind({ blobId, document: second, owner, root });
   await expect(
-    bindForTest({ blobId, owner, request: retainingBind((target) => target) }),
-  ).rejects.toThrow(
-    "Blob content-key target metadata must contain exactly suite and iv",
-  );
+    bindForTest({
+      blobId,
+      owner,
+      request: {
+        ...shared.request,
+        contentKeyBundle: {
+          ...shared.request.contentKeyBundle,
+          targets: [...shared.request.contentKeyBundle.targets, firstTarget],
+        },
+      },
+    }),
+  ).rejects.toThrow("Blob content-key target heads are stale");
 
   const rows = await db
     .select()
     .from(blobContentKeyTargets)
     .where(eq(blobContentKeyTargets.documentId, first.id));
-  expect(
-    rows.filter(
-      (row) =>
-        isPlainObject(row.wrappingMetadata) &&
-        Reflect.get(row.wrappingMetadata, "unrecognized") ===
-          "injected stored field",
-    ),
-  ).not.toHaveLength(0);
+  expect(rows).toHaveLength(1);
+  expect(rows[0]?.wrappedKey).toBe(firstTarget.wrappedKey);
 });

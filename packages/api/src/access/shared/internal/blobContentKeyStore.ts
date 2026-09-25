@@ -7,6 +7,7 @@ import {
   blobContentKeyEpochs,
   blobContentKeyTargets,
 } from "@tearleads/api-shared/schema";
+import { computeBlobContentKeyTargetHash } from "@tearleads/crypto";
 import { and, desc, eq } from "drizzle-orm";
 import {
   assertSubmittedTargetsMatchCurrent,
@@ -21,8 +22,8 @@ import {
   targetEnvelopeEqual,
 } from "./blobContentKeyTargets";
 import {
-  assertBlobKekTargetsCurrent,
   BlobKekTargetError,
+  resolveCurrentBlobKekTargets,
 } from "./blobKekTargets";
 import { createContentKeyStore } from "./contentKeyStore";
 import { resolveRetainedBlobTargetEnvelopes } from "./retainedBlobTargetEnvelopes";
@@ -33,11 +34,16 @@ export type {
 } from "./blobContentKeyTargets";
 export { BlobContentKeyBundleError } from "./blobContentKeyTargets";
 
-interface StoreBlobContentKeyBundleInput {
+interface BlobContentKeyBundleInput {
   readonly blobId: string;
   readonly contentKeyEpoch: number;
   readonly targetHash: string;
   readonly targets: readonly BlobContentKeyTargetEnvelope[];
+}
+
+interface StoreBlobContentKeyBundleInput extends BlobContentKeyBundleInput {
+  readonly bindingId: string;
+  readonly documentId: string;
 }
 
 async function loadBlobContentKeyEpochRow(
@@ -162,7 +168,7 @@ async function insertBlobContentKeyTargets(input: {
 
 export async function replaceBlobContentKeyTargetsForExistingBundle(input: {
   readonly existingBundle: StoredBlobContentKeyBundle;
-  readonly nextBundle: StoreBlobContentKeyBundleInput;
+  readonly nextBundle: BlobContentKeyBundleInput;
   readonly executor: DatabaseSession;
 }): Promise<StoredBlobContentKeyBundle> {
   const epochRow = await loadBlobContentKeyEpochRow(
@@ -219,22 +225,27 @@ async function validateCurrentTargetsForBundle(
   await assertTargetHashMatches(input);
   let currentTargets: CurrentBlobKekTargets;
   try {
-    currentTargets = await assertBlobKekTargetsCurrent(
-      {
-        blobId: input.blobId,
-        expectedTargetHash: input.targetHash,
-      },
-      executor,
-    );
+    currentTargets = await resolveCurrentBlobKekTargets(input.blobId, executor);
   } catch (error) {
     if (error instanceof BlobKekTargetError) {
       throw new BlobContentKeyBundleError(error.message, error.status);
     }
     throw error;
   }
-  // Retained and newly wrapped targets share the same submission contract.
+  // This request owns one verified attachment binding, not the blob's union.
+  const bindingTargets = currentTargets.targets.filter(
+    (target) =>
+      target.bindingId === input.bindingId &&
+      target.documentId === input.documentId,
+  );
+  if (bindingTargets.length === 0) {
+    throw new BlobContentKeyBundleError(
+      "Blob binding has no current KEK targets",
+      409,
+    );
+  }
   assertSubmittedTargetsMatchCurrent({
-    currentTargets,
+    currentTargets: { ...currentTargets, targets: bindingTargets },
     targets: input.targets,
   });
   return currentTargets;
@@ -257,7 +268,7 @@ function assertContentKeyEpochCanBeStored(input: {
 
 async function refreshExistingBundleMetadata(input: {
   readonly existingBundle: StoredBlobContentKeyBundle;
-  readonly nextBundle: StoreBlobContentKeyBundleInput;
+  readonly nextBundle: BlobContentKeyBundleInput;
   readonly executor: DatabaseSession;
 }): Promise<StoredBlobContentKeyBundle> {
   if (input.existingBundle.targetHash !== input.nextBundle.targetHash) {
@@ -341,12 +352,34 @@ const blobContentKeyStore = createContentKeyStore<
     });
     return undefined;
   },
-  reconcileExistingBundle: ({ existingBundle, executor, input }) =>
-    replaceBlobContentKeyTargetsForExistingBundle({
+  reconcileExistingBundle: async ({
+    currentTargets,
+    existingBundle,
+    executor,
+    input,
+  }) => {
+    // Caller holds the blob row lock. Other bindings retain their exact stored
+    // envelopes, including historical epochs; only their own writer may rewrap.
+    const targets = [
+      ...existingBundle.targets.filter(
+        (target) =>
+          target.bindingId !== input.bindingId &&
+          currentTargets.activeBindingIds.includes(target.bindingId),
+      ),
+      ...input.targets,
+    ];
+    const targetHash = await computeBlobContentKeyTargetHash(
+      targets.map(
+        ({ wrappedKey: _key, wrappingMetadata: _metadata, ...target }) =>
+          target,
+      ),
+    );
+    return replaceBlobContentKeyTargetsForExistingBundle({
       existingBundle,
-      nextBundle: input,
+      nextBundle: { ...input, targetHash, targets },
       executor,
-    }),
+    });
+  },
   refreshExistingBundleMetadata,
   sortTargetEnvelopes,
   targetEnvelopeEqual,

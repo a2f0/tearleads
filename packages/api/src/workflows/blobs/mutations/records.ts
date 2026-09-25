@@ -243,11 +243,13 @@ function toStoredTargetEnvelope(
 }
 
 export function toStoredContentKeyBundleInput(
-  blobId: string,
+  binding: VerifiedAttachmentBinding,
   bundle: BlobContentKeyBundleRequest,
 ) {
   return {
-    blobId,
+    blobId: binding.blobId,
+    bindingId: binding.bindingId,
+    documentId: binding.documentId,
     contentKeyEpoch: bundle.contentKeyEpoch,
     targetHash: bundle.targetHash,
     targets: bundle.targets.map(toStoredTargetEnvelope),

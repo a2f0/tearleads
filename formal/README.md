@@ -247,6 +247,12 @@ modeled in [AttachmentKeyReachability](./document-sync/AttachmentKeyReachability
 This includes attachment cache invalidation between the link and unlink steps
 of a single-device move.
 
+## Attachment Envelope Authority
+
+[BlobEnvelopeAuthority](./document-sync/BlobEnvelopeAuthority.md) checks that
+a binding writer preserves other active bindings’ envelopes and that fresh
+wraps use verified current container heads.
+
 ## Queued Document Creation
 
 [QueuedDocumentCreate](./local-trust/QueuedDocumentCreate.md) checks that a queued
