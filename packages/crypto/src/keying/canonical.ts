@@ -16,6 +16,9 @@ export function normalizeCanonicalJsonValue(
   value: unknown,
   label: string,
 ): KeyingCanonicalJson {
+  if (typeof value === "string" && !value.isWellFormed()) {
+    throwVerification("invalid_shape", `${label} must be well-formed Unicode`);
+  }
   if (
     value === null ||
     typeof value === "string" ||
@@ -52,6 +55,12 @@ export function normalizeCanonicalJsonValue(
     Object.keys(value)
       .sort(compareCanonicalStrings)
       .map((key) => {
+        if (!key.isWellFormed()) {
+          throwVerification(
+            "invalid_shape",
+            `${label} property name must be well-formed Unicode`,
+          );
+        }
         const item = value[key];
         if (item === undefined) {
           throwVerification("invalid_shape", `${label}.${key} is undefined`);

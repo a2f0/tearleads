@@ -1,8 +1,8 @@
 import { expect, test } from "bun:test";
 import { generateSigningSeedAndKeyPair } from "../signing/generateKeyPair";
 import { fixtureContainerKekMaterialId as kekId } from "./containerKekMaterial.testFixtures";
+import { createContainerUserRecipientKey } from "./containerUserRecipientKey.testFixtures";
 import type {
-  ContainerUserRecipientKey,
   DocumentAccessEventBody,
   VerifiedContainerKekState,
 } from "./index";
@@ -316,11 +316,7 @@ test("verifyContainerKekState derives user, principal, and parent wrap targets",
       },
     ],
   });
-  const parentUserKey: ContainerUserRecipientKey = {
-    userId: "parent-user",
-    recipientKeyEpochId: "parent-user-key-epoch-1",
-    recipientKeyFingerprint: await fixtureHash("parent-user-key"),
-  };
+  const parentUserKey = await createContainerUserRecipientKey("parent-user");
   const parentKeyEpoch = await createContainerKeyEpochFixture({
     manifest: parentManifest,
   });
@@ -371,11 +367,7 @@ test("verifyContainerKekState derives user, principal, and parent wrap targets",
     parentManifestHash: parentManifest.manifestHash,
     referencedPrincipalHeads: [groupHead],
   });
-  const aliceKey: ContainerUserRecipientKey = {
-    userId: "alice",
-    recipientKeyEpochId: "alice-key-epoch-1",
-    recipientKeyFingerprint: await fixtureHash("alice-key"),
-  };
+  const aliceKey = await createContainerUserRecipientKey("alice");
   const childKeyEpoch = await createContainerKeyEpochFixture({
     manifest: childManifest,
     parentContainerKeyEpochId: parentKekState.value.containerKeyEpochId,
@@ -456,11 +448,7 @@ test("verifyContainerKekState rejects forged wrap fingerprints and parent edges"
       },
     ],
   });
-  const parentUserKey: ContainerUserRecipientKey = {
-    userId: "parent-user",
-    recipientKeyEpochId: "parent-user-key-epoch-1",
-    recipientKeyFingerprint: await fixtureHash("parent-user-key"),
-  };
+  const parentUserKey = await createContainerUserRecipientKey("parent-user");
   const parentKeyEpoch = await createContainerKeyEpochFixture({
     manifest: parentManifest,
   });
@@ -499,11 +487,7 @@ test("verifyContainerKekState rejects forged wrap fingerprints and parent edges"
     parentContainerId: parentManifest.state.containerId,
     parentManifestHash: parentManifest.manifestHash,
   });
-  const aliceKey: ContainerUserRecipientKey = {
-    userId: "alice",
-    recipientKeyEpochId: "alice-key-epoch-1",
-    recipientKeyFingerprint: await fixtureHash("alice-key"),
-  };
+  const aliceKey = await createContainerUserRecipientKey("alice");
   const childKeyEpoch = await createContainerKeyEpochFixture({
     manifest: childManifest,
     parentContainerKeyEpochId: parentKekState.value.containerKeyEpochId,
