@@ -1,5 +1,6 @@
 import { afterEach, expect, test } from "bun:test";
 import { cleanup, fireEvent, render, waitFor } from "@testing-library/react";
+import { useState } from "react";
 import { WithWindowToolbar } from "../../../test/helpers/windowToolbarProbe";
 import { CreditCardDocumentFieldsPane, CreditCardFields } from "./CreditCard";
 import type { CreditCardDocumentFields } from "./creditCardDocument";
@@ -155,6 +156,37 @@ test("an empty card number starts visible and stays visible while entering it", 
   expect(cardNumber.type).toBe("text");
   fireEvent.click(view.getByLabelText("Hide credit card number"));
   expect(cardNumber.type).toBe("password");
+});
+
+test("typing a new number sends the patch and stays visible through the parent update", () => {
+  const patches: Array<Partial<CreditCardDocumentFields>> = [];
+  function EditableCard() {
+    const [currentFields, setCurrentFields] = useState({
+      ...fields,
+      cardNumber: "",
+    });
+    return (
+      <CreditCardFields
+        fields={currentFields}
+        inputIds={inputIds}
+        isEditing
+        onChange={(patch) => {
+          patches.push(patch);
+          setCurrentFields((previous) => ({ ...previous, ...patch }));
+        }}
+        ready
+      />
+    );
+  }
+  const view = render(<EditableCard />);
+  const cardNumber = view.getByLabelText(
+    "Credit card number",
+  ) as HTMLInputElement;
+  fireEvent.change(cardNumber, { target: { value: "4111" } });
+
+  expect(patches).toEqual([{ cardNumber: "4111" }]);
+  expect(cardNumber.value).toBe("4111");
+  expect(cardNumber.type).toBe("text");
 });
 
 test("a card number loaded after the edit form mounts stays masked", () => {

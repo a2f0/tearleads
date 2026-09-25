@@ -63,8 +63,8 @@ function useCreditCardEditReveal(
       setNumberVisibility(null);
     }
   }, [cardNumber, numberVisibility]);
-  // An empty number starts visible. A value change keeps the current choice;
-  // a different value arriving from sync has no choice and starts masked.
+  // An empty number starts visible. A typed value keeps the current choice;
+  // a different non-empty value arriving from sync starts masked.
   const isCardNumberRevealed =
     numberVisibility?.value === cardNumber
       ? numberVisibility.revealed

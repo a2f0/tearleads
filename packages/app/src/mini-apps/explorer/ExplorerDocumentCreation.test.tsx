@@ -44,7 +44,10 @@ test("Explorer file menu creates the selected document kind", async () => {
     expect(input.type).toBe("text");
   });
   await waitForPersistedSummaryFlush();
-  expect(within(explorer).getByLabelText("Credit card number")).toBeTruthy();
+  expect(
+    (within(explorer).getByLabelText("Credit card number") as HTMLInputElement)
+      .type,
+  ).toBe("text");
 });
 
 test("Explorer context menu creates the selected document kind", async () => {
