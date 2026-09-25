@@ -28,6 +28,28 @@ the actual `.tla` and `.cfg` files, registered configurations in
   confirmed. Distinguish a model counterexample from a verified production
   finding, and do not treat a passing bounded check as proof of correctness.
 
+Defects that earlier audits found, worth checking on every model:
+
+- A negative control named in `formal/README.md` or a model `.md` but missing
+  from every `scripts/protocol/*NegativeControls.ts` registry.
+- A module with no registered negative control at all.
+- Invariants that restate an action's own guard, or hold by `TypeOK`, so they
+  cannot fail.
+- A liveness property narrower than the documented claim, such as read
+  currency standing in for "read or write".
+- Environment actions that are honest by construction (a served page equal to
+  the true state), so the refusal rule under test is never exercised against
+  forged input.
+- Actions that fire unconditionally where production can refuse (a group
+  advance that always rematerializes), which assumes the atomicity under test.
+- No resource bounds: depth, history length, and caps are absent, so a commit
+  the API later refuses to verify is invisible.
+- Trace projections that replay only some verifier entry points. List the
+  production verifier calls and options they skip.
+- Assumptions stated only implicitly, such as "anything the API commits,
+  clients accept". State them as boundaries, because parity findings live
+  there.
+
 ## Run existing checks
 
 Use the mise-pinned Java and TLA+ tools for checks relevant to the audited
@@ -41,6 +63,12 @@ bun run check:no-brick-projection         # verifier runs vs NoBrickedDevice
 bun run check:protocol-traces             # trace fixture drift, no generation
 bun run check:protocol-projection         # implementation trace projection
 ```
+
+Start these in the background while establishing the baseline, logging each
+command's output and exit code to the scratch directory, so results are ready
+before verification and auditors can read the logs instead of re-running TLC.
+Take per-configuration generated and distinct state counts and depth from the
+`check:protocol-models` log for the report.
 
 Keep logs, TLC metadata, and captured counterexamples outside the checkout. To
 inspect an existing configuration directly, follow `runTlc` in
