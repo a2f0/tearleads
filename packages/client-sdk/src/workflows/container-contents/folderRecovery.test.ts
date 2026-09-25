@@ -2,6 +2,7 @@ import { expect, test } from "bun:test";
 import { bytesToBase64 } from "@tearleads/encoding";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { createInitializedContainerMetadataDocument } from "../../data/containers/containerMetadataDocument";
+import { sqlDocumentMoveIntentPersistence as placementIntents } from "../../data/persistence/container-contents/documentMoveIntentPersistence";
 import { defaultContainerContentsPersistence as persistence } from "./containerPersistence";
 import { createContainerDocumentQueriesFromRuntime } from "./documentQueries";
 import {
@@ -201,21 +202,40 @@ test("retry bookkeeping does not invalidate discard but a changed move target do
   }
 });
 
-test.each([false, true])(
-  "discard cancels placement into the folder while preserving other explicit links (extra: %s)",
-  async (extra) => {
+test.each([
+  { extra: false, replaceLinkedContainers: false },
+  { extra: true, replaceLinkedContainers: false },
+  { extra: false, replaceLinkedContainers: true },
+  { extra: true, replaceLinkedContainers: true },
+])(
+  "discard cancels placement while preserving other explicit links (%j)",
+  async ({ extra, replaceLinkedContainers }) => {
     const f = await fixture();
     try {
-      await f.execSql(`INSERT INTO document_move_intents
-      (id, local_id, document_id, target_container_id, source_container_id, replace_linked_containers, intent_type, sync_status, created_at, updated_at)
-      VALUES ('move-document', 'local-doc', 'remote-doc', 'folder', 'source', 1, 'document.move', 'blocked', 'before', 'before')`);
+      const input = {
+        documentId: "remote-doc",
+        localId: "local-doc",
+        sourceContainerId: "source",
+        targetContainerId: "folder",
+      };
+      await placementIntents.enqueueMoveIntent(f.execSql, {
+        ...input,
+        id: "move-document",
+        replaceLinkedContainers,
+      });
       await f.execSql(
         "INSERT INTO document_container_projection (document_id, container_id, updated_at) VALUES ('remote-doc', 'folder', 'before')",
       );
-      if (extra)
-        await f.execSql(
-          `INSERT INTO document_intent_link_targets (intent_id, operation, container_id) VALUES ('move-document', 'link', 'other-folder')`,
-        );
+      if (extra) {
+        await placementIntents.enqueueLinkIntent(f.execSql, {
+          ...input,
+          targetContainerId: "other-folder",
+        });
+        await placementIntents.enqueueUnlinkIntent(f.execSql, {
+          ...input,
+          removedContainerId: "unrelated-folder",
+        });
+      }
       const [folder] = await f.queries.listRecoveryFolders({
         currentOrganizationId: "org",
       });
@@ -246,7 +266,10 @@ test.each([false, true])(
           await f.execSql(
             "SELECT operation, container_id FROM document_intent_link_targets",
           ),
-        ).toEqual([{ operation: "link", container_id: "other-folder" }]);
+        ).toEqual([
+          { operation: "link", container_id: "other-folder" },
+          { operation: "unlink", container_id: "unrelated-folder" },
+        ]);
       } else expect(intents).toEqual([]);
     } finally {
       f.close();

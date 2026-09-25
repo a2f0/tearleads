@@ -92,14 +92,16 @@ async function repairRemovedLinks(input: {
     const intentType = discardedMove
       ? DOCUMENT_LINK_INTENT_TYPE
       : intent.intentType;
+    // Cancel both halves of a discarded move; unrelated link edits survive.
     const targets = (
       await tx
         .select()
         .from(documentIntentLinkTargets)
         .where(eq(documentIntentLinkTargets.intentId, intent.id ?? ""))
-    ).filter(
-      (target) =>
-        target.operation === "unlink" || !removed.has(target.containerId),
+    ).filter((target) =>
+      target.operation === "unlink"
+        ? !(discardedMove && target.containerId === intent.sourceContainerId)
+        : !removed.has(target.containerId),
     );
     await tx
       .delete(documentIntentLinkTargets)
