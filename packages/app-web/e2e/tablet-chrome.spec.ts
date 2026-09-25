@@ -154,7 +154,9 @@ test("desktop tablet launcher can open from the bottom", async ({ page }) => {
   await rail.getByRole("button", { name: "Move launcher to bottom" }).click();
   await expect(pane).toHaveAttribute("data-launcher-placement", "bottom");
   await expect(rail).toHaveCount(0);
-  await expect(page.getByRole("button", { name: "Menu" })).toBeFocused();
+  await expect(
+    page.getByRole("button", { name: "Menu", exact: true }),
+  ).toBeFocused();
 
   await pane.evaluate((element) => {
     (element as HTMLElement).style.setProperty("--safe-area-left", "24px");
@@ -190,7 +192,9 @@ test("desktop tablet launcher can open from the bottom", async ({ page }) => {
   await sheet.getByRole("button", { name: "Move launcher to side" }).click();
   await expect(pane).toHaveAttribute("data-launcher-placement", "side");
   await expect(rail).toBeVisible();
-  await expect(page.getByRole("button", { name: "Menu" })).toBeFocused();
+  await expect(
+    page.getByRole("button", { name: "Menu", exact: true }),
+  ).toBeFocused();
 });
 
 test("Explorer sidebar has its own surface color", async ({ page }) => {
@@ -214,6 +218,7 @@ test("Explorer sidebar has its own surface color", async ({ page }) => {
     ];
   });
   expect(new Set(surfaces).size).toBe(3);
+  expect(surfaces[1]).not.toBe("rgba(0, 0, 0, 0)");
 });
 
 test("tablet image viewer fills the content pane, not the screen", async ({

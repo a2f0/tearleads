@@ -71,7 +71,7 @@
   width: calc(var(--routed-rail-collapsed-width) + var(--safe-area-left));
 }
 
-/* The collapsed rail stacks its controls within its single-button width. */
+/* Align the rail controls with the app bar controls across the top edge. */
 .routed-pane-rail-controls {
   display: flex;
   justify-content: flex-end;
@@ -79,6 +79,7 @@
   padding: var(--space-xs) var(--space-sm) 0;
 }
 
+/* The collapsed rail stacks both controls within its single-button width. */
 .routed-pane-rail--collapsed .routed-pane-rail-controls {
   flex-direction: column;
   align-items: center;
