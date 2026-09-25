@@ -1,6 +1,10 @@
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 import { documentSyncPullContinuationsEqual } from "../../documents/shared/pullContinuation";
-import { containerHydrationTombstones, containers } from "../../sqlite/schema";
+import {
+  containerHydrationTombstones,
+  containerMoveIntents,
+  containers,
+} from "../../sqlite/schema";
 import {
   type ClientSQLiteTransactionScope,
   getClientSQLitePersistenceRuntime,
@@ -114,6 +118,35 @@ async function placementCheckpointMatches(
   );
 }
 
+/** A retained local move continues to own placement after verified reattachment. */
+async function saveRecoveredContainer(
+  tx: ClientSQLiteTransactionScope,
+  input: Parameters<ContainerContentsPersistence["commitHydratedContainer"]>[1],
+) {
+  const [move] = await tx
+    .select()
+    .from(containerMoveIntents)
+    .where(
+      and(
+        eq(containerMoveIntents.containerId, input.container.id),
+        inArray(containerMoveIntents.syncStatus, ["pending", "blocked"]),
+      ),
+    )
+    .limit(1);
+  return saveContainerContentsContainerRows({
+    container: move
+      ? { ...input.container, parentId: move.parentContainerId }
+      : input.container,
+    localUpdatedAt:
+      move?.updatedAt ??
+      input.saveOptions.localUpdatedAt ??
+      input.remoteUpdatedAt,
+    record: input.record,
+    serverTimestamps: input.saveOptions.serverTimestamps,
+    tx,
+  });
+}
+
 export async function commitStoredHydratedContainer(
   execSql: Parameters<
     ContainerContentsPersistence["commitHydratedContainer"]
@@ -168,15 +201,7 @@ export async function commitStoredHydratedContainer(
         ]);
       }
 
-      const localUpdatedAt =
-        input.saveOptions.localUpdatedAt ?? input.remoteUpdatedAt;
-      const container = await saveContainerContentsContainerRows({
-        container: input.container,
-        localUpdatedAt,
-        record: input.record,
-        serverTimestamps: input.saveOptions.serverTimestamps,
-        tx,
-      });
+      const container = await saveRecoveredContainer(tx, input);
       await tx
         .update(containerHydrationTombstones)
         .set({ cleared: true })

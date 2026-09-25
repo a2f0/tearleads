@@ -6,6 +6,7 @@ import type {
 } from "@tearleads/validators/response";
 import { createSignedContainerDirectory } from "../../../test/helpers/signedContainerDirectory";
 import { defaultContainerContentsPersistence } from "./containerPersistence";
+import { createContainerDocumentQueriesFromRuntime } from "./documentQueries";
 import { insertTestPendingUpdate } from "./documentQueries.testFixtures";
 import { hydrateRemoteContainers } from "./remoteHydration";
 import { getApplicableRemoteContainerItems } from "./remoteHydration/tombstoneApplication";
@@ -320,6 +321,15 @@ test("unsigned deletion preserves queued metadata and permits verified rediscove
       ),
     });
     expect(containersById.has("root-1")).toBe(true);
+    expect(containersById.get("child-1")?.container.parentId).toBe(
+      "move-destination",
+    );
+    const queries = createContainerDocumentQueriesFromRuntime({
+      infra: { execSql },
+    });
+    expect(
+      await queries.listRecoveryFolderMoveIds({ currentOrganizationId: ORG }),
+    ).toContain("child-1");
     await expect(
       defaultContainerContentsPersistence.containerExists(execSql, "root-1"),
     ).resolves.toBe(true);

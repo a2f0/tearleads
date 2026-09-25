@@ -115,7 +115,10 @@ export const containerProjection = sqliteTable(
 
 export const containerTableSchemas: ReadonlyArray<SqlTableSchema> = [
   defineSqlTableSchema(containers),
-  defineSqlTableSchema(containerHydrationTombstones),
+  {
+    ...defineSqlTableSchema(containerHydrationTombstones),
+    requiredColumns: ["cleared"],
+  },
   defineSqlTableSchema(containerProjection),
   defineSqlTableSchema(dormantContainerMetadata),
   defineSqlTableSchema(dormantMetadataSweepRequests),
