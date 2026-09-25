@@ -338,7 +338,7 @@ bundles with the ciphertext. Historical reads reconstruct those signed paths
 with the same lineage floors, using the group membership at each cited head.
 The original parent pin and a newer group snapshot cannot replace write-time
 authority. Every cited path must belong to a linked container or the explicit
-link/unlink target, including only their own ancestor prefixes. One writable
+link/unlink target, including ancestor evidence already in those paths. One writable
 linked path proves access; committed key targets still cover every linked
 container. Content-write citations must additionally use the manifest head
 committed by the matching content-key target. Attachment bind

@@ -319,7 +319,7 @@ test("attachment binding events prove signed document write authority", async ()
     documentManifest,
     authorizingContainerPaths: [],
   });
-  expectVerificationError(missingAuthorityResult, "unauthorized");
+  expectVerificationError(missingAuthorityResult, "object_mismatch");
 
   const detachBody: AttachmentDetachAccessEventBody = {
     eventType: "attachment.detach",

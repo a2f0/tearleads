@@ -5,7 +5,7 @@ EXTENDS Naturals
 (* the writer and rematerializes that grant. Writes cite the current path. *)
 (* The leaf may advance before a delayed document/blob write is read.      *)
 CONSTANTS RequireCurrentCitations, ReadPinnedParent, ReadCurrentMembership,
-          RefreshMissingCitations, RequireScopedCitations
+          RefreshMissingCitations
 VARIABLES parent, leaf, writes, refused, readerHeads
 vars == <<parent, leaf, writes, refused, readerHeads>>
 
@@ -18,9 +18,6 @@ GroupMembers == [version \in 0..1 |->
 Authorized(pathHead, membershipHead) ==
   /\ ParentHeads[pathHead].grantsWrite
   /\ "writer" \in GroupMembers[ParentHeads[membershipHead].groupVersion]
-
-CitationScopes == {"linked", "ancestor", "unlinked", "foreign"}
-ScopedCitations == {"linked", "ancestor"}
 
 Init == /\ parent = 0
         /\ leaf = 0
@@ -38,13 +35,11 @@ AdvanceLeaf ==
   /\ leaf' = 1
   /\ UNCHANGED <<parent, writes, refused, readerHeads>>
 
-CommitWrite(citation, extraScope) ==
+CommitWrite(citation) ==
   /\ citation \in 0..parent
   /\ (~RequireCurrentCitations \/ citation = parent)
   /\ Authorized(citation, citation)
-  /\ extraScope \in CitationScopes
-  /\ (~RequireScopedCitations \/ extraScope \in ScopedCitations)
-  /\ writes' = writes \cup {<<citation, leaf, parent, extraScope>>}
+  /\ writes' = writes \cup {<<citation, leaf, parent>>}
   /\ UNCHANGED <<parent, leaf, refused, readerHeads>>
 
 ReadWrite(write) ==
@@ -62,18 +57,16 @@ ReadWrite(write) ==
 
 Next == \/ AdvanceParent
         \/ AdvanceLeaf
-        \/ \E citation \in 0..2, extraScope \in CitationScopes :
-             CommitWrite(citation, extraScope)
+        \/ \E citation \in 0..2 : CommitWrite(citation)
         \/ \E write \in writes : ReadWrite(write)
         \/ UNCHANGED vars
 Spec == Init /\ [][Next]_vars
 
 TypeOK == /\ parent \in 0..2
           /\ leaf \in 0..1
-          /\ writes \subseteq (0..2) \X (0..1) \X (0..2) \X CitationScopes
+          /\ writes \subseteq (0..2) \X (0..1) \X (0..2)
           /\ refused \in BOOLEAN
           /\ readerHeads \subseteq 0..parent
 HonestWritesRemainReadable == ~refused
 NewWritesUseCurrentAuthority == \A write \in writes : write[1] = write[3]
-CitationsStayInDocumentScope == \A write \in writes : write[4] \in ScopedCitations
 ========================================================================
