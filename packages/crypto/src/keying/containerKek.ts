@@ -10,6 +10,7 @@ import {
   type ContainerKekParentBinding,
   resolveContainerKekParentBinding,
 } from "./containerKekParent";
+import { normalizeContainerUserRecipientKey } from "./containerUserRecipientKey";
 import {
   assertExactKeys,
   normalizeKekRecipientKind,
@@ -131,30 +132,6 @@ function normalizeContainerKeyWrap(value: unknown): ContainerKeyWrap {
       record,
       "wrapManifestHash",
       "container key wrap",
-    ),
-  };
-}
-
-function normalizeContainerUserRecipientKey(
-  value: unknown,
-): ContainerUserRecipientKey {
-  const record = assertExactKeys(
-    value,
-    ["recipientKeyEpochId", "recipientKeyFingerprint", "userId"],
-    "container user recipient key",
-  );
-
-  return {
-    userId: readString(record, "userId", "container user recipient key"),
-    recipientKeyEpochId: readString(
-      record,
-      "recipientKeyEpochId",
-      "container user recipient key",
-    ),
-    recipientKeyFingerprint: readHashString(
-      record,
-      "recipientKeyFingerprint",
-      "container user recipient key",
     ),
   };
 }

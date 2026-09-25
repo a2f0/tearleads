@@ -12,15 +12,14 @@ import {
   accessManifestPrincipalHeadProjection,
   accessManifests,
 } from "@tearleads/api-shared/schema";
-import {
-  type AccessManifest,
-  type AccessObjectKind,
-  type AnyVerifiedAccessManifest,
-  type ContainerAccessManifestState,
-  type KeyingCanonicalJson,
-  KeyingVerificationError,
-  type ReferencedPrincipalHead,
-  type VerifiedAccessEvent,
+import type {
+  AccessManifest,
+  AccessObjectKind,
+  AnyVerifiedAccessManifest,
+  ContainerAccessManifestState,
+  KeyingCanonicalJson,
+  ReferencedPrincipalHead,
+  VerifiedAccessEvent,
 } from "@tearleads/crypto";
 import { and, asc, eq, inArray, lt } from "drizzle-orm";
 import { uniqueSortedStrings as unique } from "../../../utils/array";
@@ -30,8 +29,8 @@ import {
 } from "../../../utils/canonicalJson";
 import { isSqliteApiDatabase } from "../../../utils/sqlDialect";
 import { toStoredAccessEvent } from "./accessEventLookup";
+import { insertAccessEvent } from "./accessEventStore";
 import {
-  accessEventDependencyHashes,
   accessManifestReferencedHeads,
   accessManifestState,
   containerManifestState,
@@ -44,7 +43,6 @@ import {
   referencedPrincipalHeadsCanonicalJson,
 } from "./accessManifestJson";
 import { selectOneOrThrow } from "./selectOneOrThrow";
-import { assertStoredSignedAtVerbatim } from "./storedSignedAt";
 
 /**
  * access projection tables are derived cache only.
@@ -107,51 +105,6 @@ function toStoredAccessManifestHead(
   };
 }
 
-async function insertAccessEvent(
-  verifiedEvent: VerifiedAccessEvent,
-  executor: DatabaseSession,
-): Promise<void> {
-  const event = verifiedEvent.event;
-
-  const [insertedEvent] = await executor
-    .insert(accessEvents)
-    .values({
-      version: event.version,
-      eventId: event.eventId,
-      eventType: event.eventType,
-      objectKind: event.objectKind,
-      objectId: event.objectId,
-      organizationId: event.organizationId,
-      previousManifestHash: event.previousManifestHash,
-      dependencyManifestHashes: accessEventDependencyHashes(verifiedEvent),
-      bodyHash: event.bodyHash,
-      body: verifiedEvent.body,
-      eventHash: verifiedEvent.eventHash,
-      signerUserId: event.signerUserId,
-      signerDeviceId: event.signerDeviceId,
-      signerKeyFingerprint: event.signerKeyFingerprint,
-      signature: event.signature,
-      signedAt: new Date(event.signedAt),
-    })
-    .onConflictDoNothing({ target: accessEvents.eventHash })
-    .returning();
-
-  if (!insertedEvent) {
-    await ensureStoredAccessEventMatches(verifiedEvent, executor);
-    return;
-  }
-  assertStoredSignedAtVerbatim(
-    insertedEvent.signedAt.toISOString(),
-    event.signedAt,
-    (message) => {
-      throw new KeyingVerificationError(
-        "invalid_shape",
-        `Access event ${message}`,
-      );
-    },
-  );
-}
-
 export async function storeVerifiedAccessEventInTransaction(
   verifiedEvent: VerifiedAccessEvent,
   tx: DatabaseTransaction,
@@ -160,44 +113,6 @@ export async function storeVerifiedAccessEventInTransaction(
   const storedEvent = await loadAccessEventRow(verifiedEvent.eventHash, tx);
   await regenerateAccessEventDependencyProjection(storedEvent, tx);
   return verifiedEvent;
-}
-
-async function ensureStoredAccessEventMatches(
-  verifiedEvent: VerifiedAccessEvent,
-  executor: DatabaseSession,
-): Promise<void> {
-  const storedEvent = await selectOneOrThrow(
-    executor
-      .select()
-      .from(accessEvents)
-      .where(eq(accessEvents.eventHash, verifiedEvent.eventHash))
-      .limit(1),
-    "Failed to load stored access event",
-  );
-
-  const event = verifiedEvent.event;
-  if (
-    storedEvent.version !== event.version ||
-    storedEvent.eventId !== event.eventId ||
-    storedEvent.eventType !== event.eventType ||
-    storedEvent.objectKind !== event.objectKind ||
-    storedEvent.objectId !== event.objectId ||
-    storedEvent.organizationId !== event.organizationId ||
-    storedEvent.previousManifestHash !== event.previousManifestHash ||
-    !canonicalJsonEquals(
-      storedEvent.dependencyManifestHashes,
-      accessEventDependencyHashes(verifiedEvent),
-    ) ||
-    storedEvent.bodyHash !== event.bodyHash ||
-    !canonicalJsonEquals(storedEvent.body, verifiedEvent.body) ||
-    storedEvent.signerUserId !== event.signerUserId ||
-    storedEvent.signerDeviceId !== event.signerDeviceId ||
-    storedEvent.signerKeyFingerprint !== event.signerKeyFingerprint ||
-    storedEvent.signature !== event.signature ||
-    storedEvent.signedAt.toISOString() !== event.signedAt
-  ) {
-    throw new Error("Access event conflict");
-  }
 }
 
 async function insertAccessManifest(
