@@ -13,7 +13,7 @@ import { selectOneOrThrow } from "./selectOneOrThrow";
 export async function insertAccessEvent(
   verifiedEvent: VerifiedAccessEvent,
   executor: DatabaseSession,
-): Promise<void> {
+): Promise<typeof accessEvents.$inferSelect> {
   const event = verifiedEvent.event;
   for (const field of ["objectId", "organizationId", "signerUserId"] as const) {
     assertCanonicalStoredUuid(event[field], `Access event ${field}`);
@@ -43,13 +43,13 @@ export async function insertAccessEvent(
 
   // Compare the representation readers will reconstruct, including on first
   // insertion. Verification before storage cannot authenticate normalized data.
-  await ensureStoredAccessEventMatches(verifiedEvent, executor);
+  return ensureStoredAccessEventMatches(verifiedEvent, executor);
 }
 
 async function ensureStoredAccessEventMatches(
   verifiedEvent: VerifiedAccessEvent,
   executor: DatabaseSession,
-): Promise<void> {
+): Promise<typeof accessEvents.$inferSelect> {
   const storedEvent = await selectOneOrThrow(
     executor
       .select()
@@ -85,4 +85,5 @@ async function ensureStoredAccessEventMatches(
       "Stored access event does not preserve the verified event verbatim",
     );
   }
+  return storedEvent;
 }

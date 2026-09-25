@@ -1,6 +1,7 @@
 import type {
   AccessManifest,
   ContainerDirectGrant,
+  ContainerUserRecipientKey,
   ReferencedPrincipalHead,
   VerifiedAccessEvent,
   VerifiedContainerAccessManifest,
@@ -79,4 +80,15 @@ export async function createContainerKekStoreManifestFixture(input: {
       referencedPrincipalHeads: [...(input.referencedPrincipalHeads ?? [])],
     },
   } as unknown as VerifiedContainerAccessManifest;
+}
+
+export async function createContainerKekStoreUserKey(
+  userId: string,
+): Promise<ContainerUserRecipientKey> {
+  const recipientKeyFingerprint = await containerKekStoreFixtureHash(userId);
+  return {
+    userId,
+    recipientKeyFingerprint,
+    recipientKeyEpochId: `user:${userId}:encapsulation:${recipientKeyFingerprint}`,
+  };
 }

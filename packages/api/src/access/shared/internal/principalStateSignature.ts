@@ -1,4 +1,5 @@
 import {
+  computePrincipalStateHash,
   throwPrincipalPolicyValidationError as rejectPrincipalPolicy,
   type SignedPrincipalState,
   verifySignedPrincipalStateResult,
@@ -30,4 +31,20 @@ export async function assertSignedPrincipalStateVerified(
     "unauthorized_signer",
     "Invalid principal state signature",
   );
+}
+
+export async function assertStoredPrincipalStateVerbatim(
+  stored: SignedPrincipalState,
+  submitted: SignedPrincipalState,
+  expectedStateHash: string,
+): Promise<void> {
+  if (
+    (await computePrincipalStateHash(stored)) !== expectedStateHash ||
+    stored.signature !== submitted.signature
+  ) {
+    rejectPrincipalPolicy(
+      "invalid_shape",
+      "Stored principal state does not preserve the verified state verbatim",
+    );
+  }
 }

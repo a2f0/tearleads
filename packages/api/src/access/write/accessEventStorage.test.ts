@@ -52,7 +52,7 @@ async function signedEvent(input: {
 test("stored access events preserve valid Unicode and signatures exactly", async () => {
   const { signing, verified } = await signedEvent({
     signerDeviceId: "device-😀-e\u0301",
-    body: { value: "é differs from e\u0301" },
+    body: { value: "\u00e9 differs from e\u0301" },
   });
   await db.transaction((tx) =>
     storeVerifiedAccessEventInTransaction(verified, tx),

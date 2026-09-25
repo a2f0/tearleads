@@ -168,5 +168,5 @@ test("canonical JSON rejects lone surrogates in values and property names", () =
   }
   expect(
     serializeKeyingCanonicalJson({ emoji: "😀", decomposed: "e\u0301" }),
-  ).toBe('{"decomposed":"é","emoji":"😀"}');
+  ).toBe('{"decomposed":"e\u0301","emoji":"😀"}');
 });
