@@ -1,5 +1,6 @@
 import { afterEach, expect, test } from "bun:test";
 import { cleanup, fireEvent, render, waitFor } from "@testing-library/react";
+import { useState } from "react";
 import { WithWindowToolbar } from "../../../test/helpers/windowToolbarProbe";
 import { CreditCardDocumentFieldsPane, CreditCardFields } from "./CreditCard";
 import type { CreditCardDocumentFields } from "./creditCardDocument";
@@ -67,6 +68,21 @@ function renderCreditCardFields(
   );
 }
 
+function rerenderEditNumber(
+  view: ReturnType<typeof renderCreditCardFields>,
+  cardNumber: string,
+) {
+  view.rerender(
+    <CreditCardFields
+      fields={{ ...fields, cardNumber }}
+      inputIds={inputIds}
+      isEditing
+      onChange={() => undefined}
+      ready
+    />,
+  );
+}
+
 test("read mode renders masked card details without editable inputs", () => {
   const view = renderCreditCardFields();
 
@@ -122,6 +138,150 @@ test("edit mode exposes the existing credit card controls", () => {
   expect(
     (view.getByLabelText("Credit card CVV code") as HTMLInputElement).value,
   ).toBe("123");
+});
+
+test("an empty card number starts visible and stays visible while entering it", () => {
+  const emptyFields = { ...fields, cardNumber: "" };
+  const view = renderCreditCardFields({ fields: emptyFields, isEditing: true });
+  const cardNumber = view.getByLabelText(
+    "Credit card number",
+  ) as HTMLInputElement;
+
+  expect(cardNumber.type).toBe("text");
+  expect(cardNumber.getAttribute("spellcheck")).toBe("false");
+  expect(cardNumber.getAttribute("autocorrect")).toBe("off");
+  expect(cardNumber.getAttribute("autocapitalize")).toBe("off");
+  expect(
+    (view.getByLabelText("Credit card CVV code") as HTMLInputElement).type,
+  ).toBe("password");
+  fireEvent.change(cardNumber, { target: { value: "4111" } });
+  rerenderEditNumber(view, "4111");
+  expect(cardNumber.type).toBe("text");
+  fireEvent.click(view.getByLabelText("Hide credit card number"));
+  expect(cardNumber.type).toBe("password");
+});
+
+test("typing a new number sends the patch and stays visible through the parent update", () => {
+  const patches: Array<Partial<CreditCardDocumentFields>> = [];
+  function EditableCard() {
+    const [currentFields, setCurrentFields] = useState({
+      ...fields,
+      cardNumber: "",
+    });
+    return (
+      <CreditCardFields
+        fields={currentFields}
+        inputIds={inputIds}
+        isEditing
+        onChange={(patch) => {
+          patches.push(patch);
+          setCurrentFields((previous) => ({ ...previous, ...patch }));
+        }}
+        ready
+      />
+    );
+  }
+  const view = render(<EditableCard />);
+  const cardNumber = view.getByLabelText(
+    "Credit card number",
+  ) as HTMLInputElement;
+  fireEvent.change(cardNumber, { target: { value: "4111" } });
+
+  expect(patches).toEqual([{ cardNumber: "4111" }]);
+  expect(cardNumber.value).toBe("4111");
+  expect(cardNumber.type).toBe("text");
+});
+
+test("a card number loaded after the edit form mounts stays masked", () => {
+  const view = renderCreditCardFields({
+    fields: { ...fields, cardNumber: "" },
+    isEditing: true,
+    ready: false,
+  });
+  const cardNumber = view.getByLabelText(
+    "Credit card number",
+  ) as HTMLInputElement;
+  expect(cardNumber.type).toBe("password");
+
+  rerenderEditNumber(view, fields.cardNumber);
+  expect(cardNumber.type).toBe("password");
+});
+
+test("a saved number arriving after an empty card is ready stays masked", () => {
+  const view = renderCreditCardFields({
+    fields: { ...fields, cardNumber: "" },
+    isEditing: true,
+  });
+  const cardNumber = view.getByLabelText(
+    "Credit card number",
+  ) as HTMLInputElement;
+  expect(cardNumber.type).toBe("text");
+
+  rerenderEditNumber(view, fields.cardNumber);
+  expect(cardNumber.type).toBe("password");
+});
+
+test("a newly synced number re-masks a manually revealed saved number", () => {
+  const view = renderCreditCardFields({ isEditing: true });
+  const cardNumber = view.getByLabelText(
+    "Credit card number",
+  ) as HTMLInputElement;
+  fireEvent.click(view.getByLabelText("Show credit card number"));
+  expect(cardNumber.type).toBe("text");
+
+  const syncedNumber = "5555 5555 5555 4444";
+  rerenderEditNumber(view, syncedNumber);
+  expect(cardNumber.type).toBe("password");
+
+  fireEvent.change(cardNumber, { target: { value: "5555 5555 5555 444" } });
+  rerenderEditNumber(view, "5555 5555 5555 444");
+  expect(cardNumber.type).toBe("password");
+});
+
+test("a previous reveal does not return when a saved number returns", () => {
+  const view = renderCreditCardFields({ isEditing: true });
+  const cardNumber = view.getByLabelText(
+    "Credit card number",
+  ) as HTMLInputElement;
+  fireEvent.click(view.getByLabelText("Show credit card number"));
+  expect(cardNumber.type).toBe("text");
+
+  rerenderEditNumber(view, "5555 5555 5555 4444");
+  expect(cardNumber.type).toBe("password");
+
+  rerenderEditNumber(view, fields.cardNumber);
+  expect(cardNumber.type).toBe("password");
+});
+
+test("a reveal does not return after an edited number is reverted and reapplied", () => {
+  const view = renderCreditCardFields({ isEditing: true });
+  const cardNumber = view.getByLabelText(
+    "Credit card number",
+  ) as HTMLInputElement;
+  fireEvent.click(view.getByLabelText("Show credit card number"));
+  expect(cardNumber.type).toBe("text");
+
+  const editedNumber = "4111 1111 1111 111";
+  fireEvent.change(cardNumber, { target: { value: editedNumber } });
+  rerenderEditNumber(view, editedNumber);
+  expect(cardNumber.type).toBe("text");
+
+  rerenderEditNumber(view, fields.cardNumber);
+  expect(cardNumber.type).toBe("password");
+  rerenderEditNumber(view, editedNumber);
+  expect(cardNumber.type).toBe("password");
+});
+
+test("editing a masked saved number keeps it masked", () => {
+  const view = renderCreditCardFields({ isEditing: true });
+  const cardNumber = view.getByLabelText(
+    "Credit card number",
+  ) as HTMLInputElement;
+  expect(cardNumber.type).toBe("password");
+
+  fireEvent.change(cardNumber, { target: { value: "4111 1111 1111 111" } });
+  rerenderEditNumber(view, "4111 1111 1111 111");
+  expect(cardNumber.type).toBe("password");
 });
 
 test("read mode reveals the card number and CVV independently", () => {
