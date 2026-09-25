@@ -1,5 +1,6 @@
 import { TrackerInputField } from "../shared/TrackerFormControls";
 import { TrackerQuickAdd } from "../shared/TrackerQuickAdd";
+import { currentTrackerDateTime } from "../shared/trackerValues";
 import type { AddTrackerRow } from "../shared/useSavedTrackerRows";
 import { isValidBloodPressureMeasurement } from "./bloodPressureDocumentDefinition";
 
@@ -58,6 +59,10 @@ export function BloodPressureQuickAdd(params: {
       addLabel="Add Reading"
       className="blood-pressure-reading-row"
       controlsDisabled={controlsDisabled}
+      createEntry={() => ({
+        ...EMPTY_READING,
+        measuredAt: currentTrackerDateTime(),
+      })}
       emptyEntry={EMPTY_READING}
       isValid={(reading) =>
         isValidBloodPressureMeasurement(reading.systolic) &&

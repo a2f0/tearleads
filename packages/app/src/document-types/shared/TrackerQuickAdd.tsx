@@ -13,6 +13,7 @@ export function TrackerQuickAdd<
   addLabel: string;
   className: string;
   controlsDisabled: boolean;
+  createEntry?: () => Entry;
   emptyEntry: Entry;
   isValid: (entry: Entry) => boolean;
   onAddEntry: AddTrackerRow<Entry>;
@@ -27,6 +28,7 @@ export function TrackerQuickAdd<
     addLabel,
     className,
     controlsDisabled,
+    createEntry,
     emptyEntry,
     isValid,
     onAddEntry,
@@ -63,6 +65,7 @@ export function TrackerQuickAdd<
         withIcon
         disabled={controlsDisabled}
         onClick={() => {
+          setEntry(createEntry?.() ?? emptyEntry);
           setOpen(true);
           onPendingChange(true);
         }}
