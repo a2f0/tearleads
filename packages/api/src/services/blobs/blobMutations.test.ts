@@ -1153,7 +1153,7 @@ test("bind rejects stale slots and targets outside its binding", async () => {
     ),
   );
 
-  const omittedTargetsBind = await buildBindRequest({
+  const unionTargetsBind = await buildBindRequest({
     activeBindings: [firstBind.verifiedBinding],
     blobId,
     container,
@@ -1167,7 +1167,7 @@ test("bind rejects stale slots and targets outside its binding", async () => {
     bindBlobAttachment(runtime, {
       blobId,
       fingerprint: owner.fingerprint,
-      request: omittedTargetsBind.request,
+      request: unionTargetsBind.request,
       sessionId: "test-session",
       userId: owner.userId,
     }),

@@ -257,7 +257,7 @@ test("storeBlobContentKeyBundle rewrites key packages without replacing blob byt
     db,
   );
   expect(shrunk.contentKeyEpoch).toBe(1);
-  expect(shrunk.targets).toEqual(expandedEnvelopes);
+  expect(shrunk.targets).toEqual(initialEnvelopes);
 
   await ensureContainerHead({
     containerId: firstContainerId,
@@ -268,8 +268,8 @@ test("storeBlobContentKeyBundle rewrites key packages without replacing blob byt
   const rekeyedTargets = await resolveCurrentBlobKekTargets(blobId, db);
   const rekeyedEnvelopes = targetEnvelopes(rekeyedTargets, "rekeyed");
   const staleBundle = await getLatestBlobContentKeyBundle(blobId, db);
-  expect(staleBundle?.targetHash).toBe(expandedTargets.blobKeyTargetHash);
-  expect(staleBundle?.targets).toEqual(expandedEnvelopes);
+  expect(staleBundle?.targetHash).toBe(shrunkTargets.blobKeyTargetHash);
+  expect(staleBundle?.targets).toEqual(initialEnvelopes);
 
   const rekeyed = await storeBlobContentKeyBundle(
     {
@@ -283,9 +283,7 @@ test("storeBlobContentKeyBundle rewrites key packages without replacing blob byt
     db,
   );
   expect(rekeyed.contentKeyEpoch).toBe(1);
-  expect(rekeyed.targets).toEqual(
-    expect.arrayContaining([...rekeyedEnvelopes, ...secondEnvelopes]),
-  );
+  expect(rekeyed.targets).toEqual(rekeyedEnvelopes);
   const retained = await db
     .select({ wrappedKey: blobContentKeyTargets.wrappedKey })
     .from(blobContentKeyTargets)
@@ -316,4 +314,56 @@ test("storeBlobContentKeyBundle rewrites key packages without replacing blob byt
       409,
     ),
   );
+});
+
+test("adding a second slot retains the first binding of the same document", async () => {
+  const blobId = crypto.randomUUID();
+  const documentId = crypto.randomUUID();
+  const manifestHash = await setDocumentHead({
+    documentId,
+    organizationId: crypto.randomUUID(),
+    epoch: 1,
+    linkedContainerIds: [crypto.randomUUID()],
+  });
+  let firstTargets: Awaited<
+    ReturnType<typeof storeBlobContentKeyBundle>
+  >["targets"] = [];
+  for (const slotId of ["first", "second"]) {
+    const bindingId = crypto.randomUUID();
+    await attachBlob({
+      blobId,
+      documentId,
+      bindingId,
+      documentManifestHash: manifestHash,
+      slotId,
+    });
+    const all = await resolveCurrentBlobKekTargets(blobId, db);
+    const targets = targetEnvelopes(all, slotId).filter(
+      (target) => target.bindingId === bindingId,
+    );
+    const targetHash = await computeBlobContentKeyTargetHash(
+      targets.map(
+        ({ wrappedKey: _key, wrappingMetadata: _metadata, ...target }) =>
+          target,
+      ),
+    );
+    const stored = await storeBlobContentKeyBundle(
+      {
+        blobId,
+        documentId,
+        bindingId,
+        contentKeyEpoch: 1,
+        targetHash,
+        targets,
+      },
+      db,
+    );
+    if (slotId === "first") firstTargets = stored.targets;
+    else {
+      expect(stored.targets).toHaveLength(2);
+      expect(stored.targets).toEqual(
+        expect.arrayContaining([...firstTargets, ...targets]),
+      );
+    }
+  }
 });

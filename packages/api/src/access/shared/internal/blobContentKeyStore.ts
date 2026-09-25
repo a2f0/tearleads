@@ -352,12 +352,19 @@ const blobContentKeyStore = createContentKeyStore<
     });
     return undefined;
   },
-  reconcileExistingBundle: async ({ existingBundle, executor, input }) => {
+  reconcileExistingBundle: async ({
+    currentTargets,
+    existingBundle,
+    executor,
+    input,
+  }) => {
     // Caller holds the blob row lock. Other bindings retain their exact stored
     // envelopes, including historical epochs; only their own writer may rewrap.
     const targets = [
       ...existingBundle.targets.filter(
-        (target) => target.bindingId !== input.bindingId,
+        (target) =>
+          target.bindingId !== input.bindingId &&
+          currentTargets.activeBindingIds.includes(target.bindingId),
       ),
       ...input.targets,
     ];

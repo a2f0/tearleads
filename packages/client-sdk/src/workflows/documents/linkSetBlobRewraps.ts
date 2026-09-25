@@ -173,7 +173,8 @@ async function collectRelinkKeks(
         containerKeks: projection.containerKeks.slice(0, index + 1),
       });
       const key = keys.get(target.containerKeyEpochId);
-      if (!key) throw new Error("Attachment destination KEK is unavailable");
+      // A direct child grantee need not possess any ancestor secret.
+      if (!key) continue;
       const id = targetKey(target);
       const previous = keks.get(id);
       if (previous)
