@@ -424,14 +424,14 @@ test("a child moved before its old parent is deleted remains recoverable", async
       ),
     });
     const fence = await execSql(
-      "SELECT reason, updated_at FROM container_hydration_tombstones WHERE container_id = 'folder-c'",
+      "SELECT generation, cleared FROM container_hydration_tombstones WHERE container_id = 'folder-c'",
     );
     const renameLeft = await execSql(
       "SELECT id FROM document_pending_updates WHERE local_id = 'folder-c'",
     );
 
     expect(renameLeft.length).toBe(1);
-    expect(fence).toEqual([]);
+    expect(fence).toEqual([{ generation: 1, cleared: 1 }]);
     expect(containersById.get("folder-c")?.container.parentId).toBe("folder-q");
   } finally {
     await close();

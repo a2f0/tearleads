@@ -34,7 +34,7 @@ import { recordContainerHydrationTombstones } from "./containerHydrationPersiste
 import { containerIdsWithRemovalWork } from "./containerRemovalWork";
 import { repairDocumentsForRemovedContainersInTransaction } from "./containerStructuralRepair";
 import {
-  rearmUnavailableLinkIntents,
+  refreshLinkIntentsAfterRemoval,
   repairLinkIntentsForRemovedContainers,
 } from "./documentLinkRemovalRepair";
 import {
@@ -189,7 +189,7 @@ async function applyContainerRemovals(input: {
     tx: input.tx,
   });
   if (input.discoveryOnly) {
-    await rearmUnavailableLinkIntents({ containerIds, tx: input.tx });
+    await refreshLinkIntentsAfterRemoval({ containerIds, tx: input.tx });
   } else {
     await repairLinkIntentsForRemovedContainers({ containerIds, tx: input.tx });
     await input.tx

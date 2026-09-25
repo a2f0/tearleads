@@ -169,7 +169,7 @@ export function discardLinkIntentsForRemovedContainers(input: {
 }
 
 /** An unsigned absence hint must not strand surviving additions after a 404. */
-export async function rearmUnavailableLinkIntents(input: {
+export async function refreshLinkIntentsAfterRemoval(input: {
   containerIds: ReadonlyArray<string>;
   tx: ClientSQLiteTransactionScope;
 }): Promise<void> {
@@ -179,11 +179,7 @@ export async function rearmUnavailableLinkIntents(input: {
     input.containerIds,
     false,
   )) {
-    if (
-      intent.intentType !== DOCUMENT_LINK_INTENT_TYPE ||
-      intent.syncStatus !== "unavailable"
-    )
-      continue;
+    if (intent.intentType !== DOCUMENT_LINK_INTENT_TYPE) continue;
     // Rotate the revision to refuse completion from a pass that parked the old intent.
     const id = crypto.randomUUID();
     await tx
@@ -195,9 +191,12 @@ export async function rearmUnavailableLinkIntents(input: {
       .update(documentMoveIntents)
       .set({
         id,
-        syncStatus: "pending",
-        lastError: null,
-        lastAttemptedAt: null,
+        syncStatus:
+          intent.syncStatus === "unavailable" ? "pending" : intent.syncStatus,
+        lastError:
+          intent.syncStatus === "unavailable" ? null : intent.lastError,
+        lastAttemptedAt:
+          intent.syncStatus === "unavailable" ? null : intent.lastAttemptedAt,
         updatedAt: new Date().toISOString(),
       })
       .where(eq(documentMoveIntents.id, intent.id ?? ""))
