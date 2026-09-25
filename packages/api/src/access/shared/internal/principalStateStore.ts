@@ -42,14 +42,16 @@ import {
   toStoredPrincipalState,
   toStoredProjectionMember,
 } from "./principalStateRecords";
-import { assertSignedPrincipalStateVerified } from "./principalStateSignature";
+import {
+  assertSignedPrincipalStateVerified,
+  assertStoredPrincipalStateVerbatim,
+} from "./principalStateSignature";
 import { loadPrincipalStateSigner } from "./principalStateSigner";
 import {
   projectionIncludesAdminUser,
   validatePrincipalPolicyTransition,
   validatePrincipalStateArtifacts,
 } from "./principalStateValidation";
-import { assertStoredSignedAtVerbatim } from "./storedSignedAt";
 
 export { listContainerGrantsForState } from "./principalContainerGrantStore";
 export { listProjectionMembersForState } from "./principalProjectionStore";
@@ -419,10 +421,10 @@ async function ensureStoredPrincipalStateMatches(
   if (storedState.stateHash !== input.stateHash) {
     rejectPrincipalPolicy("state_conflict", "Principal state version conflict");
   }
-  assertStoredSignedAtVerbatim(
-    storedState.signedAt,
-    input.normalizedInput.state.signedAt,
-    (message) => rejectPrincipalPolicy("invalid_shape", message),
+  await assertStoredPrincipalStateVerbatim(
+    storedState,
+    input.normalizedInput.state,
+    input.stateHash,
   );
 
   return storedState;

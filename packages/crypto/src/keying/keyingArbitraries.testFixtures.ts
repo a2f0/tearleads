@@ -411,9 +411,7 @@ export async function buildKekState(
       );
       return {
         userId,
-        recipientKeyEpochId: ["user", userId, 1, recipientKeyFingerprint].join(
-          ":",
-        ),
+        recipientKeyEpochId: `user:${userId}:encapsulation:${recipientKeyFingerprint}`,
         recipientKeyFingerprint,
       };
     }),
