@@ -22,6 +22,7 @@ test.each([false, true])(
         });
       },
     });
+    if (!fixture.extraContainerId) throw new Error("Missing extra container");
     expect(fixture.remoteLinkedContainerIds).not.toContain(
       fixture.rootContainerId,
     );
