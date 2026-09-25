@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef } from "react";
+import { useId, useRef, useState } from "react";
 import type { useDocument } from "../../stores/documents/DocumentsProvider";
 import { DocumentAttachmentSlots } from "../shared/DocumentAttachmentSlots";
 import {
@@ -36,6 +36,45 @@ interface CreditCardInputIds {
   expirationDate: string;
   issuer: string;
   nameOnCard: string;
+}
+
+function useCreditCardEditReveal(
+  cardNumber: string,
+  ready: boolean,
+  onCardNumberChange: (value: string) => void,
+) {
+  const lastTypedNumber = useRef<string | null>(null);
+  const [numberVisibility, setNumberVisibility] = useState<{
+    revealed: boolean;
+    value: string;
+  } | null>(null);
+  const [isCvvCodeRevealed, setIsCvvCodeRevealed] = useState(false);
+  // A synced number is masked immediately; only an empty field or the value
+  // typed in this form is visible without using the reveal button.
+  const isCardNumberRevealed =
+    numberVisibility?.value === cardNumber
+      ? numberVisibility.revealed
+      : ready &&
+        (!hasCreditCardValue(cardNumber) ||
+          lastTypedNumber.current === cardNumber);
+
+  return {
+    isCardNumberRevealed,
+    isCvvCodeRevealed,
+    onCardNumberChange: (value: string) => {
+      lastTypedNumber.current = value;
+      setNumberVisibility((current) =>
+        current === null ? null : { ...current, value },
+      );
+      onCardNumberChange(value);
+    },
+    toggleCardNumber: () =>
+      setNumberVisibility({
+        revealed: !isCardNumberRevealed,
+        value: cardNumber,
+      }),
+    toggleCvvCode: () => setIsCvvCodeRevealed((revealed) => !revealed),
+  };
 }
 
 function CreditCardReadFields(params: { fields: CreditCardDocumentFields }) {
@@ -98,26 +137,11 @@ function CreditCardEditFields(params: {
   ready: boolean;
 }) {
   const { disabled, fields, inputIds, onChange, ready } = params;
-  const {
-    isCardNumberRevealed,
-    isCvvCodeRevealed,
-    showCardNumber,
-    toggleCardNumber,
-    toggleCvvCode,
-  } = useCreditCardReveal();
-
-  // Wait for stored fields before deciding whether this is an empty number.
-  // Keep the choice as the user types or uses the visibility toggle.
-  const initializedNumberVisibility = useRef(false);
-  useEffect(() => {
-    if (!ready || initializedNumberVisibility.current) {
-      return;
-    }
-    initializedNumberVisibility.current = true;
-    if (!hasCreditCardValue(fields.cardNumber)) {
-      showCardNumber();
-    }
-  }, [fields.cardNumber, ready, showCardNumber]);
+  const reveal = useCreditCardEditReveal(
+    fields.cardNumber,
+    ready,
+    (cardNumber) => onChange({ cardNumber }),
+  );
 
   return (
     <StructuredDocumentFields>
@@ -136,10 +160,10 @@ function CreditCardEditFields(params: {
         disabled={disabled}
         inputId={inputIds.cardNumber}
         inputLabel="Credit card number"
-        isRevealed={isCardNumberRevealed}
+        isRevealed={reveal.isCardNumberRevealed}
         label="Card Number"
-        onChange={(cardNumber) => onChange({ cardNumber })}
-        onToggle={toggleCardNumber}
+        onChange={reveal.onCardNumberChange}
+        onToggle={reveal.toggleCardNumber}
         placeholder="4111 1111 1111 1111"
         ready={ready}
         revealLabel={CREDIT_CARD_NUMBER_REVEAL_LABEL}
@@ -175,11 +199,11 @@ function CreditCardEditFields(params: {
         disabled={disabled}
         inputId={inputIds.cvvCode}
         inputLabel="Credit card CVV code"
-        isRevealed={isCvvCodeRevealed}
+        isRevealed={reveal.isCvvCodeRevealed}
         label="CVV Code"
         maxLength={4}
         onChange={(cvvCode) => onChange({ cvvCode })}
-        onToggle={toggleCvvCode}
+        onToggle={reveal.toggleCvvCode}
         placeholder="123"
         ready={ready}
         revealLabel={CREDIT_CARD_CVV_REVEAL_LABEL}

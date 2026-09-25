@@ -135,6 +135,7 @@ test("an empty card number starts visible and stays visible while entering it", 
   expect(
     (view.getByLabelText("Credit card CVV code") as HTMLInputElement).type,
   ).toBe("password");
+  fireEvent.change(cardNumber, { target: { value: "4111" } });
   view.rerender(
     <CreditCardFields
       fields={{ ...emptyFields, cardNumber: "4111" }}
@@ -163,6 +164,48 @@ test("a card number loaded after the edit form mounts stays masked", () => {
   view.rerender(
     <CreditCardFields
       fields={fields}
+      inputIds={inputIds}
+      isEditing
+      onChange={() => undefined}
+      ready
+    />,
+  );
+  expect(cardNumber.type).toBe("password");
+});
+
+test("a saved number arriving after an empty card is ready stays masked", () => {
+  const view = renderCreditCardFields({
+    fields: { ...fields, cardNumber: "" },
+    isEditing: true,
+  });
+  const cardNumber = view.getByLabelText(
+    "Credit card number",
+  ) as HTMLInputElement;
+  expect(cardNumber.type).toBe("text");
+
+  view.rerender(
+    <CreditCardFields
+      fields={fields}
+      inputIds={inputIds}
+      isEditing
+      onChange={() => undefined}
+      ready
+    />,
+  );
+  expect(cardNumber.type).toBe("password");
+});
+
+test("a newly synced number re-masks a manually revealed saved number", () => {
+  const view = renderCreditCardFields({ isEditing: true });
+  const cardNumber = view.getByLabelText(
+    "Credit card number",
+  ) as HTMLInputElement;
+  fireEvent.click(view.getByLabelText("Show credit card number"));
+  expect(cardNumber.type).toBe("text");
+
+  view.rerender(
+    <CreditCardFields
+      fields={{ ...fields, cardNumber: "5555 5555 5555 4444" }}
       inputIds={inputIds}
       isEditing
       onChange={() => undefined}

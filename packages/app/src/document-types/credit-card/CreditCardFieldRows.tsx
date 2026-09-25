@@ -62,7 +62,7 @@ function CreditCardRevealButton(params: {
  * The trailing controls for a masked field: reveal it, or copy it.
  *
  * Copy is the more useful of the two while the value is masked — the input is a
- * password field, so selecting the text by hand means revealing it first, in
+ * password field when masked, so selecting the text by hand may mean revealing it in
  * front of whoever is looking at the screen. It therefore copies the stored
  * value rather than the mask, and stays available whether or not the field is
  * revealed. The clipboard sits after the eye, at the row's trailing edge, where
@@ -106,7 +106,6 @@ export function useCreditCardReveal() {
   return {
     isCardNumberRevealed,
     isCvvCodeRevealed,
-    showCardNumber: () => setIsCardNumberRevealed(true),
     toggleCardNumber: () => setIsCardNumberRevealed((revealed) => !revealed),
     toggleCvvCode: () => setIsCvvCodeRevealed((revealed) => !revealed),
   };
