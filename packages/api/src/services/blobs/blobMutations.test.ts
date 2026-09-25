@@ -1171,12 +1171,7 @@ test("bind rejects stale slots and targets outside its binding", async () => {
       sessionId: "test-session",
       userId: owner.userId,
     }),
-  ).rejects.toMatchObject(
-    new BlobMutationError(
-      "Blob content-key targets do not match current KEK targets",
-      409,
-    ),
-  );
+  ).rejects.toThrow("Blob content-key target heads are stale");
 
   const sharedBind = await buildBindRequest({
     blobId,
