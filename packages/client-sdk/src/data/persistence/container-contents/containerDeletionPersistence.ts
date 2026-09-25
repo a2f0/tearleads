@@ -155,6 +155,7 @@ async function retainRemovedContainerMetadata(input: {
 }
 
 async function applyContainerRemovals(input: {
+  discoveryOnly: DeleteContainerOptions["discoveryOnly"];
   metadataDeleteIds: ReadonlyArray<string>;
   removals: ReadonlyArray<ContainerRemoval>;
   retainedMetadataIds: ReadonlyArray<string>;
@@ -162,7 +163,13 @@ async function applyContainerRemovals(input: {
 }): Promise<ReadonlyArray<string>> {
   const containerIds = input.removals.map((removal) => removal.containerId);
   await recordContainerHydrationTombstones({
-    removals: input.removals,
+    removals: input.discoveryOnly
+      ? input.removals.filter((removal) =>
+          input.discoveryOnly?.tombstoneContainerIds.includes(
+            removal.containerId,
+          ),
+        )
+      : input.removals,
     tx: input.tx,
   });
   await retainRemovedContainerMetadata({
@@ -170,19 +177,28 @@ async function applyContainerRemovals(input: {
     retainedAt: new Date().toISOString(),
     tx: input.tx,
   });
+  // Listing clocks are untrusted; they cannot advance local projection clocks.
+  const localObservedAt = new Date().toISOString();
   await repairDocumentsForRemovedContainersInTransaction({
-    removals: input.removals,
+    removals: input.discoveryOnly
+      ? input.removals.map((removal) => ({
+          ...removal,
+          updatedAt: localObservedAt,
+        }))
+      : input.removals,
     tx: input.tx,
   });
-  await repairLinkIntentsForRemovedContainers({ containerIds, tx: input.tx });
-  await input.tx
-    .delete(containerCreateIntents)
-    .where(inArray(containerCreateIntents.containerId, containerIds))
-    .run();
-  await input.tx
-    .delete(containerMoveIntents)
-    .where(inArray(containerMoveIntents.containerId, containerIds))
-    .run();
+  if (!input.discoveryOnly) {
+    await repairLinkIntentsForRemovedContainers({ containerIds, tx: input.tx });
+    await input.tx
+      .delete(containerCreateIntents)
+      .where(inArray(containerCreateIntents.containerId, containerIds))
+      .run();
+    await input.tx
+      .delete(containerMoveIntents)
+      .where(inArray(containerMoveIntents.containerId, containerIds))
+      .run();
+  }
   await deleteContainerRowsInTransaction(input.tx, containerIds);
   await deleteContainerMetadataDocumentRowsInTransaction(
     input.tx,
@@ -217,11 +233,13 @@ export async function deleteStoredContainers(
         return [];
       }
       const retainedMetadataIds = uniqueRemovals.flatMap((removal) =>
+        options?.discoveryOnly ||
         options?.retainMetadataForContainerIds?.includes(removal.containerId)
           ? [removal.containerId]
           : [],
       );
       return applyContainerRemovals({
+        discoveryOnly: options?.discoveryOnly,
         metadataDeleteIds: uniqueRemovals.flatMap((removal) =>
           retainedMetadataIds.includes(removal.containerId)
             ? []

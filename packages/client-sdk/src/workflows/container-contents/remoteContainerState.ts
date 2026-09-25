@@ -446,8 +446,14 @@ export async function upsertRemoteContainerState(input: {
   remoteContainer: RemoteContainer;
   state: RemoteContainerHydrationState;
 }): Promise<ContainerState | null> {
-  if (needsVerifiedContainerDestination(input)) {
-    const verified = await verifyRemoteContainerDestination(input);
+  if (
+    input.expectedHydrationTombstone ||
+    needsVerifiedContainerDestination(input)
+  ) {
+    const verified = await verifyRemoteContainerDestination({
+      ...input,
+      refresh: !!input.expectedHydrationTombstone,
+    });
     if (!verified || input.isCurrent?.() === false) return null;
     input = { ...input, remoteContainer: verified };
   }

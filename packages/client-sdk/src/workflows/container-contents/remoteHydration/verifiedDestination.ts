@@ -169,6 +169,7 @@ async function verifyDestinationRole(input: {
 
 /** Listing hints may trigger a fetch, but never establish a system/root role. */
 export async function verifyRemoteContainerDestination(input: {
+  refresh?: boolean;
   remoteContainer: RemoteContainer;
   state: RemoteContainerHydrationState;
   isCurrent?: (() => boolean) | undefined;
@@ -184,8 +185,12 @@ export async function verifyRemoteContainerDestination(input: {
       organizationId: listed.organizationId,
     },
     async () => {
+      if (input.refresh)
+        runtime.apiClient.evictContainerWriterProjection(listed.id);
       const role =
-        cachedDestinationRole(runtime.infra.execSql, listed) ??
+        (input.refresh
+          ? undefined
+          : cachedDestinationRole(runtime.infra.execSql, listed)) ??
         (await verifyDestinationRole({ isCurrent, listed, runtime }));
       if (!role || isCurrent?.() === false) return null;
       assertAcknowledgedRootSigner({ listed, role, runtime });

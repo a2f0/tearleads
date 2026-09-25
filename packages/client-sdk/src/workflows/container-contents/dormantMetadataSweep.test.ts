@@ -70,7 +70,7 @@ async function countMarkers(execSql: ExecSql, containerId: string) {
   return Number(Reflect.get(rows[0] ?? {}, "n") ?? 0);
 }
 
-test("restoration sweep purges only unmatched metadata in its organization", async () => {
+test("restoration sweep completion retains unmatched metadata in every organization", async () => {
   const { close, execSql } = await createTestExecSql(
     "dormant-metadata-restoration-sweep",
   );
@@ -110,22 +110,13 @@ test("restoration sweep purges only unmatched metadata in its organization", asy
     if (!sweep) {
       throw new Error("Expected a restoration sweep");
     }
-    const candidates =
-      await defaultContainerContentsPersistence.listDormantMetadataSweepCandidates(
-        execSql,
-        sweep,
-      );
-    expect(candidates).toEqual(["deleted-after-revoke"]);
-    await expect(
-      defaultContainerContentsPersistence.purgeDormantContainerMetadataCandidates(
-        execSql,
-        sweep,
-        candidates,
-      ),
-    ).resolves.toBe(1);
+    await defaultContainerContentsPersistence.completeDormantMetadataSweepRequest(
+      execSql,
+      sweep,
+    );
 
     expect(await countRows(execSql, "documents", "deleted-after-revoke")).toBe(
-      0,
+      1,
     );
     expect(
       await countRows(
@@ -133,8 +124,8 @@ test("restoration sweep purges only unmatched metadata in its organization", asy
         "document_pending_updates",
         "deleted-after-revoke",
       ),
-    ).toBe(0);
-    expect(await countMarkers(execSql, "deleted-after-revoke")).toBe(0);
+    ).toBe(1);
+    expect(await countMarkers(execSql, "deleted-after-revoke")).toBe(1);
     expect(await countRows(execSql, "documents", "reattached")).toBe(1);
     expect(await countMarkers(execSql, "reattached")).toBe(0);
     expect(await countRows(execSql, "documents", "other-organization")).toBe(1);

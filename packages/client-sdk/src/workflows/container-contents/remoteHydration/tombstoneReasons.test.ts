@@ -1,8 +1,5 @@
 import { expect, test } from "bun:test";
-import {
-  collectRemovedContainers,
-  selectRetainedMetadataContainerIds,
-} from "./tombstoneReasons";
+import { collectRemovedContainers } from "./tombstoneReasons";
 
 const T0 = "2026-01-01T00:00:00.000Z";
 
@@ -121,8 +118,8 @@ test("preserved containers are skipped and unknown ids filtered", () => {
   expect(removedContainerIds).toEqual(["root"]);
 });
 
-test("a deleted tombstone for an absent container lands in the purge list", () => {
-  const { purgeMetadataContainerIds, removedContainerIds } =
+test("a deleted tombstone for an absent container gets its own observation fence", () => {
+  const { absentDeletedContainerIds, removedContainerIds } =
     collectRemovedContainers({
       childIdsByParentId: childIndex({}),
       containersById: containers([]),
@@ -146,7 +143,7 @@ test("a deleted tombstone for an absent container lands in the purge list", () =
     });
 
   expect(removedContainerIds).toEqual([]);
-  expect(purgeMetadataContainerIds).toEqual(["revoked-earlier"]);
+  expect(absentDeletedContainerIds).toEqual(["revoked-earlier"]);
 });
 
 test("an upgrade requeues the shared node so grandchildren re-inherit", () => {
@@ -185,79 +182,4 @@ test("an upgrade requeues the shared node so grandchildren re-inherit", () => {
 
   expect(reasonByContainerId.get("shared")).toBe("deleted");
   expect(reasonByContainerId.get("grand")).toBe("deleted");
-});
-
-test("local-only descendants are excluded from metadata retention", () => {
-  const containersById = new Map([
-    ["root", { container: { metadataDocumentId: "metadata-root" } }],
-    ["localChild", { container: { metadataDocumentId: null } }],
-  ]);
-  const { reasonByContainerId, removedContainerIds } = collectRemovedContainers(
-    {
-      childIdsByParentId: childIndex({ root: ["localChild"] }),
-      containersById,
-      preservedContainerIds: new Set(),
-      tombstones: [
-        {
-          containerId: "root",
-          depth: 0,
-          parentId: null,
-          reason: "access_revoked",
-          updatedAt: T0,
-        },
-      ],
-    },
-  );
-
-  expect(removedContainerIds.sort()).toEqual(["localChild", "root"]);
-  expect(
-    selectRetainedMetadataContainerIds({
-      containersById,
-      ownTombstoneContainerIds: new Set(["root"]),
-      reasonByContainerId,
-      removedContainerIds,
-    }),
-  ).toEqual(["root"]);
-});
-
-test("an own tombstone proves remote existence for retention", () => {
-  // A create whose response was lost leaves metadataDocumentId null locally,
-  // but the server only tombstones committed containers — so a container
-  // with its OWN access_revoked tombstone is retained despite looking
-  // local-only.
-  const containersById = new Map([
-    ["root", { container: { metadataDocumentId: "metadata-root" } }],
-    ["lostCreate", { container: { metadataDocumentId: null } }],
-  ]);
-  const { ownTombstoneContainerIds, reasonByContainerId, removedContainerIds } =
-    collectRemovedContainers({
-      childIdsByParentId: childIndex({ root: ["lostCreate"] }),
-      containersById,
-      preservedContainerIds: new Set(),
-      tombstones: [
-        {
-          containerId: "root",
-          depth: 0,
-          parentId: null,
-          reason: "access_revoked",
-          updatedAt: T0,
-        },
-        {
-          containerId: "lostCreate",
-          depth: 1,
-          parentId: "root",
-          reason: "access_revoked",
-          updatedAt: T0,
-        },
-      ],
-    });
-
-  expect(
-    selectRetainedMetadataContainerIds({
-      containersById,
-      ownTombstoneContainerIds,
-      reasonByContainerId,
-      removedContainerIds,
-    }).sort(),
-  ).toEqual(["lostCreate", "root"]);
 });

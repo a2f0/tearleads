@@ -6,6 +6,7 @@ import type {
   ListContainerParentLanesResponse,
   ListContainersResponse,
 } from "@tearleads/validators/response";
+import { createSignedContainerDirectory } from "../../../test/helpers/signedContainerDirectory";
 import {
   createContainerMetadataDocument,
   writeContainerMetadataValue,
@@ -18,6 +19,21 @@ import type {
   ContainerState,
   RemoteContainerHydrationState,
 } from "./remoteHydration/types";
+
+const directory = await createSignedContainerDirectory([
+  {
+    id: "unlisted-parent",
+    parentId: null,
+    organizationId: "peer-organization",
+    metadataDocumentId: "parent-metadata",
+  },
+  {
+    id: "revoked",
+    parentId: "unlisted-parent",
+    organizationId: "peer-organization",
+    metadataDocumentId: "metadata-revoked",
+  },
+]);
 
 const T0 = "2026-01-01T00:00:00.000Z";
 const T1 = "2026-01-01T00:00:01.000Z";
@@ -69,8 +85,11 @@ test("revoke and remote re-list retain and re-attach through hydration", async (
       containersById: new Map<string, ContainerState>(),
       persistence: defaultContainerContentsPersistence,
       runtime: {
+        resolveTrustedUserIdentity: directory.resolveTrustedUserIdentity,
         adoptRootContainer: () => {},
         apiClient: {
+          evictContainerWriterProjection: () => {},
+          getContainerWriterProjection: directory.getContainerWriterProjection,
           async listContainerParentLanes(request: {
             lanes: ReadonlyArray<{ laneId: string; parentId: string | null }>;
           }): Promise<ListContainerParentLanesResponse> {
@@ -207,7 +226,7 @@ test("revoke and remote re-list retain and re-attach through hydration", async (
   }
 });
 
-test("a replaced metadata document purges the dormant scope", async () => {
+test("an unsigned metadata replacement cannot purge the dormant scope", async () => {
   const { close, execSql } = await createTestExecSql(
     "tombstone-metadata-replaced",
   );
@@ -219,8 +238,11 @@ test("a replaced metadata document purges the dormant scope", async () => {
       containersById: new Map<string, ContainerState>(),
       persistence: defaultContainerContentsPersistence,
       runtime: {
+        resolveTrustedUserIdentity: directory.resolveTrustedUserIdentity,
         adoptRootContainer: () => {},
         apiClient: {
+          evictContainerWriterProjection: () => {},
+          getContainerWriterProjection: directory.getContainerWriterProjection,
           async listContainerParentLanes(request: {
             lanes: ReadonlyArray<{ laneId: string; parentId: string | null }>;
           }): Promise<ListContainerParentLanesResponse> {
@@ -280,9 +302,8 @@ test("a replaced metadata document purges the dormant scope", async () => {
     );
     await hydrate();
 
-    // Restoration returns the container with a ROTATED metadata document id:
-    // the dormant scope belongs to a dead stream and must be purged, not
-    // re-attached or resurfaced.
+    // The listing claims a replacement; the signed container still binds the
+    // original metadata identity, so retained edits must survive.
     rootLanePages.push(
       lanePage({
         items: [
@@ -297,15 +318,15 @@ test("a replaced metadata document purges the dormant scope", async () => {
 
     const restored = state.containersById.get("revoked");
     expect(restored?.container.name).not.toBe("Renamed");
-    expect(restored?.record?.documentId).toBe("metadata-replaced");
+    expect(restored?.record?.documentId).toBe("metadata-revoked");
     const pendingRows = await execSql(
       `SELECT COUNT(*) AS n FROM document_pending_updates
        WHERE app_kind = 'container-metadata' AND local_id = ?`,
       ["revoked"],
     );
-    expect(Number(Reflect.get(pendingRows[0] ?? {}, "n") ?? -1)).toBe(0);
+    expect(Number(Reflect.get(pendingRows[0] ?? {}, "n") ?? -1)).toBe(1);
     const listed = await listPendingWrites(execSql);
-    expect(listed.some((item) => item.localId === "revoked")).toBe(false);
+    expect(listed.some((item) => item.localId === "revoked")).toBe(true);
   } finally {
     await close();
   }
@@ -323,8 +344,11 @@ test("a never-bound dormant record re-attaches instead of purging", async () => 
       containersById: new Map<string, ContainerState>(),
       persistence: defaultContainerContentsPersistence,
       runtime: {
+        resolveTrustedUserIdentity: directory.resolveTrustedUserIdentity,
         adoptRootContainer: () => {},
         apiClient: {
+          evictContainerWriterProjection: () => {},
+          getContainerWriterProjection: directory.getContainerWriterProjection,
           async listContainerParentLanes(request: {
             lanes: ReadonlyArray<{ laneId: string; parentId: string | null }>;
           }): Promise<ListContainerParentLanesResponse> {

@@ -90,6 +90,11 @@ test("revoke, restore, and restart preserve metadata page-one recovery", async (
           serverUpdatedAt: T3,
         },
         expectedDormantRecord: dormant,
+        expectedHydrationTombstone: (
+          await defaultContainerContentsPersistence.loadContainerHydrationTombstones(
+            execSql,
+          )
+        )[0],
         purgeDormantMetadata: false,
         record: {
           ...record,

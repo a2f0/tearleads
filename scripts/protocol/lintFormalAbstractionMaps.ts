@@ -25,6 +25,7 @@ const EXPECTED_TABLES: Readonly<Record<string, number>> = {
   "formal/local-trust/ContainerAuthoring.md": 1,
   "formal/backup-restore/TerminalAnchors.md": 1,
   "formal/container-keying/ContainerDeletion.md": 1,
+  "formal/container-keying/ContainerTombstoneRecovery.md": 1,
   "formal/local-trust/OrganizationScope.md": 1,
   "formal/container-keying/NoBrickedDevice.md": 1,
   "formal/container-keying/InaccessibleIntermediateRepair.md": 1,

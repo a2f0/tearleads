@@ -128,9 +128,7 @@ export async function commitStoredHydratedContainer(
       );
       if (
         fence &&
-        fence.updatedAt >= input.remoteUpdatedAt &&
-        (fence.reason === "deleted" ||
-          !sameHydrationTombstone(fence, input.expectedHydrationTombstone))
+        !sameHydrationTombstone(fence, input.expectedHydrationTombstone)
       ) {
         return { committed: false as const };
       }

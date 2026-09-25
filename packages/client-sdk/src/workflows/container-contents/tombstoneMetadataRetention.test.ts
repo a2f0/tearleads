@@ -195,7 +195,7 @@ test("mixed cascade retains only the revoked container's metadata", async () => 
   }
 });
 
-test("a later deleted tombstone purges dormant retained metadata", async () => {
+test("explicit local deletion purges dormant retained metadata", async () => {
   const { close, execSql } = await createTestExecSql(
     "tombstone-metadata-purge",
   );
@@ -211,7 +211,7 @@ test("a later deleted tombstone purges dormant retained metadata", async () => {
     ).toBe(1);
 
     // The container is already absent locally; the purge call carries no
-    // retain entry, mirroring a later `deleted` tombstone for the same id.
+    // retain entry, as an explicit local deletion (not a remote discovery hint).
     await defaultContainerContentsPersistence.deleteContainers(execSql, [
       containerRemoval("revoked", "deleted"),
     ]);

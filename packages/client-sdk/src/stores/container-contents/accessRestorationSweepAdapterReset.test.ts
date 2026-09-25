@@ -22,19 +22,13 @@ test("adapter replacement resumes a claimed sweep on the same database", async (
     claimDormantMetadataSweepAttempt: async () => true,
     listDormantMetadataSweepRequests: async () => [sweep],
   };
-  let candidateLoads = 0;
   let completionCount = 0;
-  let purgeCount = 0;
   const replacementPersistence = {
     claimDormantMetadataSweepAttempt: async () => {
       throw new Error("the already-claimed attempt must not be claimed again");
     },
     completeDormantMetadataSweepRequest: async () => {
       completionCount += 1;
-    },
-    listDormantMetadataSweepCandidates: async () => {
-      candidateLoads += 1;
-      return candidateLoads === 1 ? ["deleted-container"] : [];
     },
     listDormantMetadataSweepRequests: async () => [
       {
@@ -43,10 +37,6 @@ test("adapter replacement resumes a claimed sweep on the same database", async (
         lastAttemptedAt: new Date().toISOString(),
       },
     ],
-    purgeDormantContainerMetadataCandidates: async () => {
-      purgeCount += 1;
-      return 1;
-    },
   };
   const state = {
     containerParentIdsNeedingHydration: new Set(),
@@ -92,7 +82,5 @@ test("adapter replacement resumes a claimed sweep on the same database", async (
 
   await recreateCompletion?.()();
 
-  expect(candidateLoads).toBe(2);
-  expect(purgeCount).toBe(1);
   expect(completionCount).toBe(1);
 });

@@ -73,6 +73,7 @@ export interface ContainerState {
 }
 
 interface RemoteContainerHydrationApi {
+  evictContainerWriterProjection(containerId: string): void;
   getContainerWriterProjection(
     containerId: string,
   ): Promise<ContainerWriterProjectionResponse | null>;

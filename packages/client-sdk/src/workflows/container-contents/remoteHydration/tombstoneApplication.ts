@@ -2,12 +2,10 @@ import type {
   ContainerSyncTombstone,
   ListContainersResponse,
 } from "@tearleads/validators/response";
+import { isCanonicalSignedAt } from "@tearleads/validators/util";
 import { removeIndexedContainerChild } from "./childIndex";
 import { containerStateMatchesFingerprint } from "./containerStateFingerprint";
-import {
-  collectRemovedContainers,
-  selectRetainedMetadataContainerIds,
-} from "./tombstoneReasons";
+import { collectRemovedContainers } from "./tombstoneReasons";
 import type {
   ContainerChildIndex,
   ExpectedContainerState,
@@ -34,6 +32,8 @@ function latestContainerTombstonesById(
 ): Map<string, ContainerSyncTombstone> {
   const latestTombstones = new Map<string, ContainerSyncTombstone>();
   for (const tombstone of tombstones) {
+    if (!isCanonicalSignedAt(tombstone.updatedAt))
+      throw new Error("Container tombstone timestamp is not canonical");
     const current = latestTombstones.get(tombstone.containerId);
     if (
       !current ||
@@ -97,10 +97,8 @@ async function applyContainerTombstoneCascade(input: {
   } = input;
   const {
     fenceOnlyContainerIds,
-    ownTombstoneContainerIds,
-    purgeMetadataContainerIds,
+    absentDeletedContainerIds,
     removalByContainerId,
-    reasonByContainerId,
     removedContainerIds,
   } = collectRemovedContainers({
     childIdsByParentId,
@@ -110,7 +108,7 @@ async function applyContainerTombstoneCascade(input: {
   });
   const affectedContainerIds = new Set([
     ...removedContainerIds,
-    ...purgeMetadataContainerIds,
+    ...absentDeletedContainerIds,
     ...fenceOnlyContainerIds,
   ]);
   for (const containerId of affectedContainerIds) {
@@ -129,26 +127,19 @@ async function applyContainerTombstoneCascade(input: {
     state.runtime.infra.execSql,
     [
       ...removedContainerIds,
-      ...purgeMetadataContainerIds,
+      ...absentDeletedContainerIds,
       ...fenceOnlyContainerIds,
     ].flatMap((containerId) => {
       const removal = removalByContainerId.get(containerId);
       return removal ? [{ containerId, ...removal }] : [];
     }),
     {
+      discoveryOnly: { tombstoneContainerIds: [tombstone.containerId] },
       expectedContainers: Array.from(affectedContainerIds, (containerId) => ({
         containerId,
         expectedContainer:
           expectedContainerStates.get(containerId)?.container ?? null,
       })),
-      // Revoked server-backed metadata stays dormant for re-attachment;
-      // deleted metadata is irrecoverable and is purged with its cascade.
-      retainMetadataForContainerIds: selectRetainedMetadataContainerIds({
-        containersById: state.containersById,
-        ownTombstoneContainerIds,
-        reasonByContainerId,
-        removedContainerIds,
-      }).concat(fenceOnlyContainerIds),
       stillCurrent: input.isCurrent,
     },
   );
@@ -206,8 +197,16 @@ export async function applyContainerTombstones(input: {
     const preservedContainerIds = new Set([
       ...liveContainerIds,
       ...tombstoneRootIds,
+      ...Array.from(input.state.containersById, ([id, state]) =>
+        state.container.metadataDocumentId === null ? id : null,
+      ).filter((id): id is string => id !== null),
     ]);
-    preservedContainerIds.delete(tombstone.containerId);
+    if (
+      input.state.containersById.get(tombstone.containerId)?.container
+        .metadataDocumentId !== null
+    ) {
+      preservedContainerIds.delete(tombstone.containerId);
+    }
     const result = await applyContainerTombstoneCascade({
       childIdsByParentId: input.childIdsByParentId,
       expectedContainerStates: input.expectedContainerStates,

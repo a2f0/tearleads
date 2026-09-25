@@ -65,6 +65,11 @@ test("a deletion fence rejects an equal absent-container hydration", async () =>
           serverUpdatedAt: "2026-01-04T00:00:00.000Z",
         },
         expectedDormantRecord: null,
+        expectedHydrationTombstone: (
+          await sqlContainerContentsPersistence.loadContainerHydrationTombstones(
+            execSql,
+          )
+        )[0],
         purgeDormantMetadata: false,
         record,
         remoteUpdatedAt: "2026-01-04T00:00:00.000Z",
@@ -181,7 +186,7 @@ test("an observed fence-only revocation permits unchanged rehydration", async ()
   }
 });
 
-test("each deletion fence keeps its own remote timestamp", async () => {
+test("unobserved deletion generations refuse hydration regardless of timestamps", async () => {
   const { close, execSql } = await createTestExecSql(
     "container-hydration-per-container-fence",
   );
@@ -215,7 +220,7 @@ test("each deletion fence keeps its own remote timestamp", async () => {
         saveOptions: {},
       });
 
-    expect((await hydrate("container-earlier")).committed).toBe(true);
+    expect((await hydrate("container-earlier")).committed).toBe(false);
     expect(await hydrate("container-later")).toEqual({ committed: false });
   } finally {
     await close();

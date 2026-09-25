@@ -37,9 +37,9 @@ export const containers = sqliteTable(
 );
 
 /**
- * Latest remote removal observed for each container. Deleted fences reject
- * equal-or-older hydration, while access-revoked fences allow the same unchanged
- * server object to re-attach after access is restored.
+ * Latest removal observed for each container. Hydration must observe the same
+ * generation before fetching verified restoration evidence; unsigned clocks
+ * never establish a terminal deletion or bypass a concurrent removal.
  */
 export const containerHydrationTombstones = sqliteTable(
   "container_hydration_tombstones",
