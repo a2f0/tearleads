@@ -185,9 +185,7 @@ test("a source reader binds only its destination and cannot replace foreign wrap
         },
       },
     }),
-  ).rejects.toThrow(
-    "Blob content-key targets do not match current KEK targets",
-  );
+  ).rejects.toThrow("Blob content-key target heads are stale");
   expect<unknown>(
     (await getLatestBlobContentKeyBundle(blobId, db))?.targets,
   ).toEqual(original.request.contentKeyBundle.targets);

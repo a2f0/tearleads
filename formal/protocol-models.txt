@@ -7,10 +7,10 @@ formal/container-keying/KeyringReachability.tla|formal/container-keying/KeyringR
 formal/container-keying/NoBrickedDevice.tla|formal/container-keying/NoBrickedDevice.cfg
 formal/container-keying/NoBrickedDevice.tla|formal/container-keying/NoBrickedDeviceAdversary.cfg
 formal/container-keying/PrincipalReferenceProgress.tla|formal/container-keying/PrincipalReferenceProgress.cfg
-formal/document-sync/BlobEnvelopeAuthority.tla|formal/document-sync/BlobEnvelopeAuthority.cfg
 formal/document-sync/AttachmentKeyReachability.tla|formal/document-sync/AttachmentKeyReachability.cfg
 formal/document-sync/BaselineDominance.tla|formal/document-sync/BaselineDominance.cfg
 formal/document-sync/BaselineDominanceTraceExport.tla|formal/document-sync/BaselineDominanceTraceExport.cfg
+formal/document-sync/BlobEnvelopeAuthority.tla|formal/document-sync/BlobEnvelopeAuthority.cfg
 formal/document-sync/ContentWriteAuthority.tla|formal/document-sync/ContentWriteAuthority.cfg
 formal/document-sync/DeferredTailSettlement.tla|formal/document-sync/DeferredTailSettlement.cfg
 formal/document-sync/EmptyFrontierUnlink.tla|formal/document-sync/EmptyFrontierUnlink.cfg

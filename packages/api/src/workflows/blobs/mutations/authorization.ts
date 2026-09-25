@@ -257,35 +257,19 @@ export function assertBlobTargetOrganizationMatches(input: {
 
 export function assertRequestedBlobTargetHeadsAreKnown(input: {
   readonly documentId: string;
-  readonly existingBlobTargets: readonly {
-    readonly containerId: string;
-    readonly documentId: string;
-  }[];
   readonly linkedContainerIds: readonly string[];
   readonly requestedTargets: readonly {
     readonly containerId: string;
     readonly documentId: string;
   }[];
 }): void {
-  const maximumTargetCount =
-    input.existingBlobTargets.length + input.linkedContainerIds.length;
-  if (input.requestedTargets.length > maximumTargetCount) {
-    throw new BlobMutationError("Blob content-key target heads are stale", 409);
-  }
-
-  const knownContainerIds = new Set([
-    ...input.linkedContainerIds,
-    ...input.existingBlobTargets.map((target) => target.containerId),
-  ]);
-  const knownDocumentIds = new Set([
-    input.documentId,
-    ...input.existingBlobTargets.map((target) => target.documentId),
-  ]);
+  const linked = new Set(input.linkedContainerIds);
   if (
+    input.requestedTargets.length > linked.size ||
     input.requestedTargets.some(
       (target) =>
-        !knownContainerIds.has(target.containerId) ||
-        !knownDocumentIds.has(target.documentId),
+        target.documentId !== input.documentId ||
+        !linked.has(target.containerId),
     )
   ) {
     throw new BlobMutationError("Blob content-key target heads are stale", 409);
@@ -323,7 +307,6 @@ export async function lockAttachmentAuthorizationForShare(input: {
   if (input.contentKeyTargets !== undefined) {
     assertRequestedBlobTargetHeadsAreKnown({
       documentId: input.documentId,
-      existingBlobTargets,
       linkedContainerIds,
       requestedTargets: input.contentKeyTargets,
     });
