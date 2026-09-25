@@ -1,6 +1,7 @@
 import { spawnSync } from "node:child_process";
 
 import { prState, resolvePr, run, spawnExitCode } from "../git/prContext";
+import { requirePassingMergeChecks } from "./mergeChecks";
 import {
   appendPrNumberSuffix,
   assertPrNumberSuffix,
@@ -191,6 +192,7 @@ export function squashMerge(
   validateCommitSubject(rootDir, baseSubject);
   const finalSubject = appendPrNumberSuffix(baseSubject, pr.prNumber);
   const mergeTarget = resolvePullRequestMergeTarget(pr, expectedBaseRef);
+  requirePassingMergeChecks(pr, expectedHeadSha || mergeTarget.headOid);
 
   const result = spawnSync(
     "gh",

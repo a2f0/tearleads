@@ -2,17 +2,65 @@ name: CI
 
 on:
   push:
+    branches: [main]
   pull_request:
   workflow_dispatch:
 
 permissions:
   contents: read
 
-# TEMPORARY: broad build and Terraform jobs remain manually dispatched to
-# conserve Actions credits. Lint stays automatic, as do the path-scoped native
-# purchase bridge compiles because those first-party bridges have no fallback.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
+  changes:
+    name: Detect required checks
+    runs-on: ubuntu-latest
+    outputs:
+      native: ${{ steps.scopes.outputs.native }}
+      terraform: ${{ steps.scopes.outputs.terraform }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version: 1.4.2
+      - name: Determine platform checks
+        id: scopes
+        env:
+          CI_BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+          CI_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: bun scripts/checks/ciChanges.ts
+
+  windows:
+    uses: ./.github/workflows/electrobun-windows.yml
+
+  native:
+    needs: changes
+    if: needs.changes.outputs.native == 'true'
+    uses: ./.github/workflows/native-purchase-bridges.yml
+
+  gate:
+    name: CI gate
+    if: always()
+    needs: [changes, lint, build, postgres-concurrency, windows, native, terraform]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version: 1.4.2
+      - name: Require every applicable check to succeed
+        env:
+          CI_NEEDS: ${{ toJSON(needs) }}
+        run: bun scripts/checks/ciGate.ts
+
   lint:
     name: Lint
     runs-on: ubuntu-latest
@@ -59,7 +107,7 @@ jobs:
   build:
     name: Build and test
     runs-on: ubuntu-latest
-    if: ${{ github.event_name == 'workflow_dispatch' }}
+    timeout-minutes: 30
 
     steps:
       - name: Checkout
@@ -80,8 +128,20 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
+      - name: Build workspace packages
+        run: bun run build:packages
+
+      - name: Check TypeScript
+        run: bun tsc --build --pretty false
+
       - name: Run tests
-        run: bun run test:bun
+        run: bun run test:turbo:bun
+
+      - name: Build web application
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y imagemagick
+          bun run --cwd packages/app-web build
 
   postgres-concurrency:
     name: Postgres concurrency
@@ -130,7 +190,8 @@ jobs:
   terraform:
     name: Terraform lint
     runs-on: ubuntu-latest
-    if: ${{ github.event_name == 'workflow_dispatch' }}
+    needs: changes
+    if: needs.changes.outputs.terraform == 'true'
 
     steps:
       - name: Checkout
