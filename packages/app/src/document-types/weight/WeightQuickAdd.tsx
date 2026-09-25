@@ -1,5 +1,6 @@
 import { TrackerInputField } from "../shared/TrackerFormControls";
 import { TrackerQuickAdd } from "../shared/TrackerQuickAdd";
+import { currentTrackerDateTime } from "../shared/trackerValues";
 import type { AddTrackerRow } from "../shared/useSavedTrackerRows";
 import {
   isValidWeightMeasurement,
@@ -31,6 +32,10 @@ export function WeightQuickAdd(params: {
       addLabel="Add Entry"
       className="weight-entry-row"
       controlsDisabled={controlsDisabled}
+      createEntry={() => ({
+        ...EMPTY_ENTRY,
+        measuredAt: currentTrackerDateTime(),
+      })}
       emptyEntry={EMPTY_ENTRY}
       isValid={(entry) => isValidWeightMeasurement(entry.weight)}
       onAddEntry={onAddEntry}

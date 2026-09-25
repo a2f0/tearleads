@@ -15,6 +15,13 @@ export const TRACKER_EMPTY_VALUE = "None";
  */
 export const TRACKER_ABSENT_VALUE = "—";
 
+/** A local wall-clock value accepted by a `datetime-local` input. */
+export function currentTrackerDateTime(): string {
+  const now = new Date();
+  const pad = (value: number) => String(value).padStart(2, "0");
+  return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}`;
+}
+
 /**
  * A `datetime-local` value ("2026-07-16T08:30") read as a plain timestamp.
  * Swapping the "T" for a space keeps the read view legible without pulling in
