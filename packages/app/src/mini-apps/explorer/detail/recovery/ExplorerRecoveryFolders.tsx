@@ -12,7 +12,10 @@ import {
   MiniAppModalPanel,
   MiniAppStatus,
 } from "../../../../components/mini-app/MiniAppLayout";
-import { listLocalOrphanFolders } from "../../../../stores/explorer/orphanedDocuments";
+import {
+  containerTopologyKey,
+  listLocalOrphanFolders,
+} from "../../../../stores/explorer/orphanedDocuments";
 
 interface RecoveryFoldersProps {
   containerNodes: ReadonlyArray<ContainerNode>;
@@ -24,31 +27,64 @@ interface RecoveryFoldersProps {
   setSelectedId: (id: string | null) => void;
 }
 
+function useRecoveryDiscard(input: {
+  confirm: RecoveryFolder | null;
+  documentQueries: ContainerDocumentQueries;
+  onResult: (removed: boolean) => void;
+  setError: (message: string | null) => void;
+}) {
+  const [busy, setBusy] = useState(false);
+  const discard = async () => {
+    if (!input.confirm || busy) return;
+    setBusy(true);
+    try {
+      input.onResult(
+        await input.documentQueries.discardRecoveryFolder(input.confirm),
+      );
+    } catch (cause) {
+      input.setError(
+        cause instanceof Error
+          ? cause.message
+          : "Could not discard the local copy.",
+      );
+    } finally {
+      setBusy(false);
+    }
+  };
+  return { busy, discard };
+}
+
 function useRecoveryFolders(params: RecoveryFoldersProps) {
   const [folders, setFolders] = useState<RecoveryFolder[]>([]);
+  const [pendingMoveIds, setPendingMoveIds] = useState<ReadonlySet<string>>(
+    new Set(),
+  );
   const [revision, setRevision] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [confirm, setConfirm] = useState<RecoveryFolder | null>(null);
-  const [busy, setBusy] = useState(false);
   const {
     containerNodes,
     currentOrganizationId,
     documentQueries,
     documentListRevision,
   } = params;
-  const nodeIdsKey = containerNodes.map((node) => node.id).join("\u0000");
+  const nodeIdsKey = containerTopologyKey(containerNodes);
   useEffect(() => {
     setFolders([]);
+    setPendingMoveIds(new Set());
     setConfirm(null);
     setError(null);
   }, [currentOrganizationId, documentQueries]);
   useEffect(() => {
     let current = true;
-    void documentQueries
-      .listRecoveryFolders({ currentOrganizationId })
-      .then((next) => {
+    void Promise.all([
+      documentQueries.listRecoveryFolders({ currentOrganizationId }),
+      documentQueries.listRecoveryFolderMoveIds({ currentOrganizationId }),
+    ])
+      .then(([next, moves]) => {
         if (current) {
           setFolders(next);
+          setPendingMoveIds(new Set(moves));
         }
       })
       .catch((cause: unknown) => {
@@ -73,12 +109,13 @@ function useRecoveryFolders(params: RecoveryFoldersProps) {
   const localFolders = listLocalOrphanFolders(
     containerNodes,
     currentOrganizationId,
+    pendingMoveIds,
   );
-  const discard = async () => {
-    if (!confirm || busy) return;
-    setBusy(true);
-    try {
-      const removed = await documentQueries.discardRecoveryFolder(confirm);
+  const { busy, discard } = useRecoveryDiscard({
+    confirm,
+    documentQueries,
+    setError,
+    onResult: (removed) => {
       setConfirm(null);
       if (!removed) {
         setRevision((value) => value + 1);
@@ -89,19 +126,12 @@ function useRecoveryFolders(params: RecoveryFoldersProps) {
         params.onRecoveryChanged();
         setError(null);
         setFolders((rows) =>
-          rows.filter((row) => row.containerId !== confirm.containerId),
+          rows.filter((row) => row.containerId !== confirm?.containerId),
         );
       }
-    } catch (cause) {
-      setError(
-        cause instanceof Error
-          ? cause.message
-          : "Could not discard the local copy.",
-      );
-    } finally {
-      setBusy(false);
-    }
-  };
+    },
+  });
+
   return {
     folders,
     localFolders,

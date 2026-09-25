@@ -6,6 +6,7 @@ import {
   getClientSQLitePersistenceRuntime,
 } from "../../sqlite/sqlitePersistenceRuntime";
 import { runSerializedSqlMutation } from "../../sqlite/sqlSchema";
+import { loadStoredAccessManifestCheckpoint } from "../keyingCheckpointPersistence";
 import type {
   ContainerContentsPersistence,
   ContainerHydrationTombstone,
@@ -97,6 +98,22 @@ export async function recordContainerHydrationTombstones(input: {
     .run();
 }
 
+async function placementCheckpointMatches(
+  tx: ClientSQLiteTransactionScope,
+  input: Parameters<ContainerContentsPersistence["commitHydratedContainer"]>[1],
+): Promise<boolean> {
+  const expected = input.expectedPlacementCheckpoint;
+  if (!expected) return true;
+  const current = await loadStoredAccessManifestCheckpoint(tx, expected);
+  return (
+    expected.objectKind === "container" &&
+    expected.objectId === input.container.id &&
+    expected.organizationId === input.container.organizationId &&
+    current?.epoch === expected.epoch &&
+    current.manifestHash === expected.manifestHash
+  );
+}
+
 export async function commitStoredHydratedContainer(
   execSql: Parameters<
     ContainerContentsPersistence["commitHydratedContainer"]
@@ -112,6 +129,8 @@ export async function commitStoredHydratedContainer(
         .where(eq(containers.id, input.container.id))
         .limit(1);
       if (existingContainers.length > 0) return { committed: false as const };
+      if (!(await placementCheckpointMatches(tx, input)))
+        return { committed: false as const };
 
       const fences = await tx
         .select({

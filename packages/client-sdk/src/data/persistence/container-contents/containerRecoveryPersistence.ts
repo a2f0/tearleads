@@ -197,3 +197,21 @@ export async function hasRetainedContainerMetadata(
   );
   return rows.length > 0;
 }
+
+/** Existing local folders whose queued move points at an unavailable parent. */
+export async function listRecoveryFolderMoveIds(
+  execSql: ExecSql,
+  organizationId: string | null,
+): Promise<string[]> {
+  if (!organizationId) return [];
+  await sqlContainerContentsPersistence.ensureSchema(execSql);
+  const rows = await execSql(
+    `SELECT c.id FROM containers c JOIN container_move_intents i
+    ON i.container_id = c.id AND i.parent_container_id = c.parent_id
+    WHERE c.organization_id = ? AND i.sync_status IN ('pending', 'blocked')
+    AND NOT EXISTS (SELECT 1 FROM containers p WHERE p.id = c.parent_id)
+    ORDER BY c.id`,
+    [organizationId],
+  );
+  return rows.map((row) => String(Reflect.get(row, "id")));
+}

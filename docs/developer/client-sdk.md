@@ -775,3 +775,7 @@ shows these copies alongside local folders whose parents disappeared; local
 folder actions can move them to a surviving parent. Explicit container refresh
 resets all discovery lanes, allowing fresh verified state to restore a folder
 without waiting for a timestamp change or an access-restoration event.
+
+`ContainerDocumentQueries.listRecoveryFolderMoveIds` lists queued folder moves
+whose local destination parent is unavailable. Recovery uses it to distinguish
+local work from shared folders with inaccessible parents.

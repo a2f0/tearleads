@@ -1,4 +1,5 @@
 import {
+  type AccessManifestCheckpoint,
   KeyingVerificationError,
   type VerifiedContainerAccessManifest,
 } from "@tearleads/crypto";
@@ -7,6 +8,7 @@ import {
   verifiedContainerCreateManifest,
   verifyContainerDestinationProjection,
 } from "../../../data/keyingProjectionVerification/containerDestinationVerification";
+import { verifyContainerWriterProjection } from "../../../data/keyingProjectionVerification/containerProjectionVerification";
 import {
   reportKeyingVerificationErrorInCauseChain,
   runWithSecurityIncidentReporting,
@@ -124,6 +126,10 @@ function assertAcknowledgedRootSigner(input: {
 }
 
 async function verifyDestinationRole(input: {
+  verifyCurrentPlacement: boolean;
+  onVerifiedCheckpoint:
+    | ((checkpoint: AccessManifestCheckpoint) => void)
+    | undefined;
   isCurrent?: (() => boolean) | undefined;
   listed: DestinationIdentity;
   runtime: RemoteContainerHydrationState["runtime"];
@@ -142,13 +148,15 @@ async function verifyDestinationRole(input: {
       "container destination projection has the wrong identity",
     );
   }
-  const { path, verifiedByHash } = await verifyContainerDestinationProjection({
+  const verificationInput = {
     execSql: runtime.infra.execSql,
     projection,
     resolveUserKey: runtime.resolveTrustedUserIdentity,
     warmReferencedPrincipalPolicies:
       createRuntimePrincipalPolicyWarmer(runtime),
-  });
+  };
+  const { path, verifiedByHash } =
+    await verifyContainerDestinationProjection(verificationInput);
   if (isCurrent?.() === false) return null;
   const role = await destinationRoleFromPath({ listed, path, verifiedByHash });
   if (role.parentId === null && role.systemSlot !== null) {
@@ -163,6 +171,19 @@ async function verifyDestinationRole(input: {
     })(head.state);
   }
   if (isCurrent?.() === false) return null;
+  if (input.verifyCurrentPlacement) {
+    // Check the immutable role before allowing current placement to advance pins.
+    assertAcknowledgedRootSigner({ listed, role, runtime });
+    const currentPath = await verifyContainerWriterProjection({
+      ...verificationInput,
+      stillCurrent: isCurrent,
+    });
+    const currentHead = currentPath.at(-1);
+    if (!currentHead)
+      throw new Error("Recovery placement manifest is unavailable");
+    input.onVerifiedCheckpoint?.(currentHead.checkpoint);
+  }
+  if (isCurrent?.() === false) return null;
   rememberDestinationRole(runtime.infra.execSql, listed, role);
   return role;
 }
@@ -170,6 +191,9 @@ async function verifyDestinationRole(input: {
 /** Listing hints may trigger a fetch, but never establish a system/root role. */
 export async function verifyRemoteContainerDestination(input: {
   refresh?: boolean;
+  onVerifiedCheckpoint?:
+    | ((checkpoint: AccessManifestCheckpoint) => void)
+    | undefined;
   remoteContainer: RemoteContainer;
   state: RemoteContainerHydrationState;
   isCurrent?: (() => boolean) | undefined;
@@ -191,7 +215,13 @@ export async function verifyRemoteContainerDestination(input: {
         (input.refresh
           ? undefined
           : cachedDestinationRole(runtime.infra.execSql, listed)) ??
-        (await verifyDestinationRole({ isCurrent, listed, runtime }));
+        (await verifyDestinationRole({
+          isCurrent,
+          listed,
+          runtime,
+          verifyCurrentPlacement: input.refresh === true,
+          onVerifiedCheckpoint: input.onVerifiedCheckpoint,
+        }));
       if (!role || isCurrent?.() === false) return null;
       assertAcknowledgedRootSigner({ listed, role, runtime });
       return {

@@ -1,3 +1,4 @@
+import type { AccessManifestCheckpoint } from "@tearleads/crypto";
 import type { DocumentSyncPullContinuation } from "../../documents/shared/pullContinuation";
 import type {
   DocumentRecord,
@@ -153,6 +154,8 @@ export interface ContainerContentsPersistence
         | ContainerHydrationTombstone
         | null
         | undefined;
+      /** Current placement verified and pinned before recovery insertion. */
+      expectedPlacementCheckpoint?: AccessManifestCheckpoint | undefined;
       purgeDormantMetadata: boolean;
       record: ContainerMetadataRecord;
       remoteUpdatedAt: string;

@@ -13,6 +13,7 @@ test("the orphan recovery collection queries null scope without folder actions",
     Parameters<ContainerDocumentQueries["listContainerItemWindow"]>[0]
   > = [];
   const documentQueries = {
+    listRecoveryFolderMoveIds: async () => [],
     listRecoveryFolders: async () => [],
     discardRecoveryFolder: async () => false,
     listContainerItemWindow: async (

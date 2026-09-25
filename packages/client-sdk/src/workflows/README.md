@@ -306,3 +306,7 @@ counts of dormant metadata in the selected organization. `discardRecoveryFolder`
 requires its exact revision token and returns false after concurrent edits or
 rehydration. This explicit local action never deletes remote documents. Unsigned
 discovery never calls it. `RecoveryFolder` is exported from the SDK root.
+
+`ContainerDocumentQueries.listRecoveryFolderMoveIds` lists queued folder moves
+whose local destination parent is unavailable. Recovery uses it to distinguish
+local work from shared folders with inaccessible parents.

@@ -27,6 +27,11 @@ concurrent generation change, or reuse a cleared generation, respectively.
 
 The model abstracts signatures, database transactions, metadata records, and
 individual intent bytes. Runtime tests cover those boundaries, persistence
-across reloads, and canonical timestamp parsing. Recovery is enabled after
+across reloads, canonical timestamp parsing, and signed-placement rollback.
+Recovery checks and pins current writer projections after destination-role
+validation, then compares the leaf pin in the insertion transaction. A newer
+move pinned during verification or before insertion cannot restore an older
+parent. These checkpoint races are covered by runtime tests rather than this
+removal-generation model. Recovery is enabled after
 verified live evidence; no guarantee is made that a dishonest server supplies
 that evidence. Explicit user deletion remains a separate authorized operation.

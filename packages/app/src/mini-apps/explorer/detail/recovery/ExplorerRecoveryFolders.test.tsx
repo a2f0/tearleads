@@ -36,6 +36,7 @@ function fixture(discarded: Array<typeof retained>, result = true) {
   const selected: Array<string | null> = [];
   const menus: string[] = [];
   const documentQueries = {
+    listRecoveryFolderMoveIds: async () => [],
     listRecoveryFolders: async () => [retained],
     discardRecoveryFolder: async (input: typeof retained) => {
       discarded.push(input);
@@ -101,6 +102,7 @@ test("sync snapshots keep the dialog open and a stale refusal reloads its revisi
   const attempted: string[] = [];
   let changed = 0;
   const documentQueries = {
+    listRecoveryFolderMoveIds: async () => [],
     listRecoveryFolders: async () => {
       calls += 1;
       return [{ ...retained, revision }];
@@ -145,4 +147,34 @@ test("sync snapshots keep the dialog open and a stale refusal reloads its revisi
   submit();
   await waitFor(() => expect(changed).toBe(1));
   expect(attempted).toEqual(["revision-1", "revision-2"]);
+});
+
+test("recovery shows a queued move without listing an ordinary shared folder", async () => {
+  const shared = {
+    ...local,
+    id: "shared",
+    name: "Shared folder",
+    metadataDocumentId: "metadata-shared",
+    syncState: { ...local.syncState, status: "synced" as const },
+  };
+  const moving = { ...shared, id: "moving", name: "Queued move" };
+  const view = render(
+    <ExplorerRecoveryFolders
+      containerNodes={[shared, moving]}
+      currentOrganizationId="org"
+      documentQueries={
+        {
+          listRecoveryFolders: async () => [],
+          listRecoveryFolderMoveIds: async () => [moving.id],
+        } as unknown as ContainerDocumentQueries
+      }
+      documentListRevision={0}
+      onRecoveryChanged={() => {}}
+      onContainerContextMenu={() => {}}
+      setSelectedId={() => {}}
+    />,
+  );
+  await view.findByText("Queued move");
+  expect(view.queryByText("Shared folder")).toBeNull();
+  expect(view.getByText("Pending folder move")).toBeTruthy();
 });

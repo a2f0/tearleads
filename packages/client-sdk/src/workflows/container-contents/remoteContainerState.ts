@@ -1,3 +1,4 @@
+import type { AccessManifestCheckpoint } from "@tearleads/crypto";
 import {
   createContainerMetadataDocument,
   getDefaultContainerName,
@@ -18,6 +19,7 @@ import {
 import {
   applyRemoteContainerTimestamps,
   remoteContainerHydrationSaveOptions,
+  resolveRemoteContainerHydrationLocalUpdatedAt,
 } from "./remoteHydration/remoteContainerTimestamps";
 import type {
   ContainerChildIndex,
@@ -31,31 +33,6 @@ import {
   verifyRemoteContainerDestination,
 } from "./remoteHydration/verifiedDestination";
 import { materializeStoredContainerStateReadOnly } from "./storedContainerState";
-
-function resolveRemoteContainerHydrationLocalUpdatedAt(input: {
-  containerIdsWithPendingMetadataUpdates: ReadonlySet<string>;
-  hasPendingStructuralIntent: boolean;
-  previousLocalUpdatedAt: string | null | undefined;
-  remoteContainer: RemoteContainer;
-}): string {
-  const {
-    containerIdsWithPendingMetadataUpdates,
-    hasPendingStructuralIntent,
-    previousLocalUpdatedAt,
-    remoteContainer,
-  } = input;
-  if (
-    !previousLocalUpdatedAt ||
-    previousLocalUpdatedAt.localeCompare(remoteContainer.updatedAt) <= 0
-  ) {
-    return remoteContainer.updatedAt;
-  }
-
-  return containerIdsWithPendingMetadataUpdates.has(remoteContainer.id) ||
-    hasPendingStructuralIntent
-    ? previousLocalUpdatedAt
-    : remoteContainer.updatedAt;
-}
 
 // Container ids (restricted to the inbound page) that carry an unsynced local
 // create or move intent. Such a container's parent and local-edit timestamp are
@@ -288,6 +265,7 @@ interface InsertRemoteContainerStateInput {
   childIdsByParentId?: ContainerChildIndex | undefined;
   host: RemoteContainerHydrationHost;
   expectedHydrationTombstone: ContainerHydrationTombstone | null;
+  expectedPlacementCheckpoint?: AccessManifestCheckpoint | undefined;
   isCurrent?: (() => boolean) | undefined;
   remoteContainer: RemoteContainer;
   state: RemoteContainerHydrationState;
@@ -385,6 +363,7 @@ async function insertRemoteContainerState(
     container: containerState.container,
     expectedDormantRecord,
     expectedHydrationTombstone: input.expectedHydrationTombstone,
+    expectedPlacementCheckpoint: input.expectedPlacementCheckpoint,
     purgeDormantMetadata:
       expectedDormantRecord?.documentId != null &&
       expectedDormantRecord.documentId !== remoteContainer.metadataDocumentId,
@@ -446,6 +425,7 @@ export async function upsertRemoteContainerState(input: {
   remoteContainer: RemoteContainer;
   state: RemoteContainerHydrationState;
 }): Promise<ContainerState | null> {
+  let expectedPlacementCheckpoint: AccessManifestCheckpoint | undefined;
   if (
     input.expectedHydrationTombstone ||
     needsVerifiedContainerDestination(input)
@@ -453,6 +433,9 @@ export async function upsertRemoteContainerState(input: {
     const verified = await verifyRemoteContainerDestination({
       ...input,
       refresh: !!input.expectedHydrationTombstone,
+      onVerifiedCheckpoint: (checkpoint) => {
+        expectedPlacementCheckpoint = checkpoint;
+      },
     });
     if (!verified || input.isCurrent?.() === false) return null;
     input = { ...input, remoteContainer: verified };
@@ -477,6 +460,7 @@ export async function upsertRemoteContainerState(input: {
         childIdsByParentId: input.childIdsByParentId,
         host: input.host,
         expectedHydrationTombstone: input.expectedHydrationTombstone ?? null,
+        expectedPlacementCheckpoint,
         isCurrent: input.isCurrent,
         remoteContainer: input.remoteContainer,
         state: input.state,

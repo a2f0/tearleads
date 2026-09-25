@@ -4,7 +4,10 @@ import type {
   DiscoveredDocumentInput,
   DocumentSummary,
 } from "../../data/documents/documentSummary";
-import { hasRetainedContainerMetadata } from "../../data/persistence/container-contents/containerRecoveryPersistence";
+import {
+  hasRetainedContainerMetadata,
+  listRecoveryFolderMoveIds,
+} from "../../data/persistence/container-contents/containerRecoveryPersistence";
 import { ensureContainerTables } from "../../data/persistence/containers/containerPersistence";
 import {
   containerContentsSyncLane,
@@ -84,6 +87,9 @@ interface ListContainerItemWindowInput {
 }
 
 export interface ContainerDocumentQueries {
+  listRecoveryFolderMoveIds(input: {
+    currentOrganizationId: string | null;
+  }): Promise<string[]>;
   listRecoveryFolders(input: {
     currentOrganizationId: string | null;
   }): Promise<RecoveryFolder[]>;
@@ -207,7 +213,8 @@ async function hasOrphanedDocuments(
   );
   return (
     rows.length > 0 ||
-    (await hasRetainedContainerMetadata(execSql, currentOrganizationId))
+    (await hasRetainedContainerMetadata(execSql, currentOrganizationId)) ||
+    (await listRecoveryFolderMoveIds(execSql, currentOrganizationId)).length > 0
   );
 }
 

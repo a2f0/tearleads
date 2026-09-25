@@ -6,6 +6,7 @@ import {
 } from "../../data/containers/containerMetadataDocument";
 import {
   discardRetainedContainerMetadata,
+  listRecoveryFolderMoveIds,
   listRetainedContainerMetadata,
 } from "../../data/persistence/container-contents/containerRecoveryPersistence";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
@@ -22,6 +23,11 @@ export interface RecoveryFolder {
 
 export function createFolderRecoveryQueries(execSql: ExecSql) {
   return {
+    listRecoveryFolderMoveIds(input: {
+      currentOrganizationId: string | null;
+    }): Promise<string[]> {
+      return listRecoveryFolderMoveIds(execSql, input.currentOrganizationId);
+    },
     async listRecoveryFolders(input: {
       currentOrganizationId: string | null;
     }): Promise<RecoveryFolder[]> {
