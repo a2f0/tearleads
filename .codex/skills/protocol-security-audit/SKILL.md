@@ -64,18 +64,31 @@ exploitable paths.
 2. Create a scratch directory outside the checkout with
    `mktemp -d "${TMPDIR:-/tmp}/tearleads-audit.XXXXXX"` for notes, probes, and
    the issue draft.
-3. Read `docs/security-guarantees.md` and `formal/README.md` in full.
-4. Build the known-issues list so slices do not re-report fixed work:
+3. Start the existing formal checks from
+   [`references/formal-models.md`](references/formal-models.md), logging to
+   the scratch directory. Run them in the background if the session supports
+   it; otherwise run them now, before the slices, so their results are ready
+   for verification.
+4. If `packages/client-sdk/dist` is older than the SDK source, rebuild it once
+   with `bun run --filter='@tearleads/client-sdk' build`. `packages/api`
+   resolves the SDK from `dist`, so API probes otherwise test stale code. Do
+   not rebuild it again mid-audit while other probes may be running.
+5. Read `docs/security-guarantees.md` and `formal/README.md` in full.
+6. Build the known-issues list so slices do not re-report fixed work:
    - prior audit issues and their follow-ups, with each finding's fix PR
      (`gh issue list --state all --search "audit in:title"`, plus #2158 and
-     #2266);
+     #2266). Read the closing comments too;
+   - the "Not in scope" or follow-up sections of each fix PR
+     (`gh pr view <n>`), where carried-forward items are recorded;
    - security commits since the last audit, from
      `git log --since=<last audit> --oneline` filtered for keying, verify,
-     signature, checkpoint, projection, grant, wrap, purge, and incident.
+     signature, checkpoint, projection, grant, wrap, purge, and incident. Treat
+     these as the least-reviewed code and examine them first.
 
    A known item is reported again only as a regression or a bypass.
-5. Size the surface with non-test TypeScript line counts per directory, so
-   slices stay balanced. Split an oversized slice rather than skimming it.
+7. Size the surface with non-test TypeScript line counts per directory, so
+   slices stay balanced. Split an oversized slice rather than skimming it; the
+   brief splits `sync` into `sync-placement` and `sync-runtime` by default.
 
 ## 2. Work through the slices
 
@@ -100,17 +113,29 @@ report without a second look.
 - Re-read the cited code on the real production call path. Confirm option
   defaults at the call site, not only in the helper; an omitted option such as
   `authorizationMembership` silently takes the verifier's default.
+- Decide honest reachability from the honest client's own flow. A server-side
+  guard gap is reachable by honest use only if the SDK never avoids it. For
+  example, the SDK delete path does not revoke grants first.
 - Prefer a runtime probe. Write it in the scratch directory, import repository
   modules by absolute path, and run `bun test <absolute path>` from the owning
   package directory so workspace imports resolve. Reuse
   `packages/crypto/src/keying/testFixtures.ts` and
   `packages/client-sdk/test/helpers/`. Never add probe files to the checkout.
+  Read what a probe asserts: one that calls a helper directly proves less than
+  one that drives the production handler.
+- Run API probes with `API_DATABASE=memory` (PGlite, Postgres semantics). The
+  sqlite backend hides uuid lowercasing and text normalization. For parity,
+  the strongest evidence is a probe from `packages/api` that commits through
+  real routes and feeds the served projection to the real SDK verifier.
+- Build long chains or deep trees with fixtures rather than routes when a probe
+  needs thousands of commits; route-driven cost grows with history.
 - Generalize each confirmed root cause. Search sibling artifact types and twin
   paths (principal state, access event, write header; document and blob
   stores; container and document verifiers). A second instance often has a
   worse impact than the first.
 - Merge findings from different slices that share a root cause, and keep the
-  strongest impact analysis.
+  strongest impact analysis. Expect several: api-writes overlaps every
+  API-side slice, and sync overlaps identity and documents.
 - Drop findings that are documented residuals, unreachable, or fixable only by
   a refusal that would brick a device. Say why in the coverage section.
 
@@ -130,6 +155,11 @@ Severity:
   server, or lockout with a narrow trigger.
 - **Low:** metadata leaks, incident-ledger integrity, or attacks that need a
   malicious server plus a colluding member.
+
+A key wrapped for an unauthorized recipient is High even when it needs only a
+malicious server, as in #2158. It drops to Low when a colluding member must
+also act. Medium steering means choosing where a write lands without a key
+reaching an unauthorized party.
 
 ## 4. Audit the TLA+ models and recommend changes
 
