@@ -81,6 +81,11 @@ test("historical content writes retain a grant added after the leaf parent pin",
     })),
   };
   const projection: DocumentWriterProjectionResponse = {
+    policyEvidence: {
+      organization: null,
+      organizationPayloads: [],
+      groups: [],
+    },
     documentId,
     documentManifest: {
       event: {

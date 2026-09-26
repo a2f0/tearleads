@@ -27,6 +27,8 @@ The abstraction maps to production at these seams:
 | `AdvanceAuthority` / `RevokeLateSigner` | a share, revoke, rekey, or move committed against the ancestor's current path by `assertCurrentContainerPath`; an Admins successor |
 | `CommitDependent` | `assertAccessEventDependenciesMatchRequest`, which refuses a descendant event whose signed citations are not the current heads at commit |
 | `HonestSync` / `DishonestSync` | `verifyContainerWriterProjection` verifying the served path through `verifyContainerManifestPath`; `verifyDocumentWriterProjection` verifying the served document head and history through `verifyDocumentManifestBundle`; `verifyPrincipalPolicyBundle` for a group policy |
+| `DropAuthorityReference` / `DeleteAuthority` | a group grant becomes history-only; `deleteOrganizationGroupRows` removes encrypted group payloads and key envelopes while retaining signed public policy states |
+| `AuthorityEvidenceServed` | `loadProjectionPolicyEvidence` adds public policy and directory history after projection access is authorized; `verifyProjectionPolicyEvidence` checks signatures, directory commitments and historical group scope |
 | `SyncAuthority` | the ancestor's own projection fetched by `ApiClient.getContainerWriterProjection` |
 | `RollbackOk` / `ForkOk` | `verifyAccessManifestLocalCheckpoint` (rollback, equivocation, and a chain that does not extend the checkpoint); `verifyPrincipalPolicyCheckpoint` |
 | `CitationOk` | `assertCitedAncestorsDoNotRegress`; `verifyPrincipalPolicyExternalAuthorityProgress` |
@@ -73,16 +75,16 @@ no other device ever writes again. TLC also checks that checkpoints and held
 citations are monotone, that a held chain never contradicts a checkpoint the
 device already held, that the held authority covers the held citation, that
 the held signer had membership at its citation, and that the honest server is
-never refused. The run explores 78,678 generated and 16,016 distinct states at
-depth 9.
+never refused. The run explores 271,744 generated and 48,048 distinct states at
+depth 11.
 
 [`NoBrickedDeviceAdversary.cfg`](./NoBrickedDeviceAdversary.cfg) sets
 `ServerHonest = FALSE`: a served projection may carry any genuine authority
 head and any dependent head the late signer could have forged, agreeing with
 the honest chain through any prefix. The safety properties are per device, so
 this configuration uses one device; liveness is not checked, since a
-dishonest server can simply withhold. The run explores 136,428 generated and
-4,676 distinct states at depth 7.
+dishonest server can simply withhold. The run explores 413,744 generated and
+14,028 distinct states at depth 9.
 
 ## Negative controls
 
@@ -90,6 +92,10 @@ dishonest server can simply withhold. The run explores 136,428 generated and
 configuration per entry in `scripts/protocol/protocolNegativeControls.ts`, flips
 a single rule, and requires TLC to report exactly the named violation:
 
+- `ServeDeletedAuthority = FALSE` violates `HonestServerNeverRefused`:
+  deleting the group must not remove public proofs needed by a fresh reader.
+- `ServeHistoryOnlyAuthority = FALSE` violates `DeviceEventuallyCurrent`:
+  current-grant authorization alone strands a device on retained citations.
 - `RefuseSignerRevokedAtCurrent = TRUE` violates `HonestServerNeverRefused`:
   even a fresh device rejects history signed before the signer was removed.
 - `RefuseStaleHeadCitation = TRUE` violates `DeviceEventuallyCurrent` and, as
@@ -111,7 +117,7 @@ registered configurations only once the liveness run still passes.
 ## Implementation trace projection
 
 `bun run check:no-brick-projection` (part of `check:fast`) replays recorded
-implementation runs through this model. Three scenario tests in
+implementation runs through this model. Four scenario tests in
 `packages/client-sdk` drive the real verifiers and record each run as a
 sequence of the model's actions with the outcome the verifier produced:
 
@@ -127,6 +133,11 @@ sequence of the model's actions with the outcome the verifier produced:
   admin before removal, delivered to a cold device after the root has adopted
   the successor group policy. Authorization uses the signed historical group
   reference while the current ancestor still satisfies citation floors.
+- `.../noBrickHistoricalPolicyProjection.test.ts` verifies signed public policy
+  snapshots and organization directory history on two fresh local databases,
+  before and after deletion. It checks that the served chain still covers the
+  frozen group citation. The real API + SDK counterpart is
+  `packages/api/src/routes/principals/historicalPolicyProjection.test.ts`.
 - `.../noBrickPolicyProjection.test.ts` drives `verifyPrincipalPolicyBundle`
   through the #2173 shape: a group successor by a since-removed admin citing
   the older Admins head is accepted after Admins advances, a later successor
@@ -142,7 +153,7 @@ cites, its signer, and the served root's epoch. The generated module
 model's `WellFormed` bound on what a server can serve, and the recorded
 outcome per step, and pins the device's initial checkpoint; a sequence, a
 served shape, or an outcome the model's rules disagree with deadlocks TLC and
-fails the check. Five negative controls run every time — a flipped final
+fails the check. Six negative controls run every time — a flipped final
 outcome in each late-delivery trace and a dropped revocation in both container
 traces — so the oracle
 cannot silently go vacuous. Each trace validates one recorded interleaving,

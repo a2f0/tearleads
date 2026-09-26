@@ -22,6 +22,11 @@ function documentInfoProjection(input: {
   const manifestHash = input.document.contentKeyBundle.linkSetManifestHash;
 
   return {
+    policyEvidence: {
+      organization: null,
+      organizationPayloads: [],
+      groups: [],
+    },
     authorizingContainerPaths: [input.projection],
     contentKeyBundle: input.document.contentKeyBundle,
     documentContainerManifestHistory: input.projection.path,

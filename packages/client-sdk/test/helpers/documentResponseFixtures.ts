@@ -276,6 +276,11 @@ export async function createMaterializedSyncFixture(
   });
   const response = createResponse(materializedCreate.plan);
   const writerProjection: DocumentWriterProjectionResponse = {
+    policyEvidence: {
+      organization: null,
+      organizationPayloads: [],
+      groups: [],
+    },
     documentId: response.id,
     documentManifest: response.accessManifest,
     documentManifestHistory: [],

@@ -151,6 +151,11 @@ export async function runQueuedDocumentMoveFixture(input: {
     rotationDocument.commit();
     const rotationSnapshot = exportFullHistorySnapshot(rotationDocument);
     const initialWriterProjection: DocumentWriterProjectionResponse = {
+      policyEvidence: {
+        organization: null,
+        organizationPayloads: [],
+        groups: [],
+      },
       authorizingContainerPaths: [rootProjection],
       contentKeyBundle: createdResponse.contentKeyBundle,
       documentContainerManifestHistory: [

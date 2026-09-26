@@ -12,6 +12,7 @@ import {
   type ContainerWriterProjectionResponse,
 } from "@tearleads/validators/response";
 import { uniqueSortedStrings } from "../../utils/array";
+import { loadProjectionPolicyEvidence } from "../principals/projectionPolicyEvidence";
 import {
   asContainerWriterProjectionError,
   buildContainerAccessProjection,
@@ -102,6 +103,14 @@ async function resolveContainerProjectionWithAccess(input: {
     organizationId: targetManifest.state.organizationId,
     path: access.path,
     containerKeks,
+    policyEvidence: await loadProjectionPolicyEvidence({
+      executor: input.executor,
+      organizationId: targetManifest.state.organizationId,
+      bundles: [
+        ...access.path,
+        ...containerKeks.flatMap((kek) => kek.containerManifestHistory),
+      ],
+    }),
   };
 }
 

@@ -14,6 +14,7 @@ import {
 } from "../../../../test/helpers/containerFixtures";
 import { buildInitialGroupPolicyRequest } from "../../../../test/helpers/groupMetadata";
 import { createSuccessorGroupPolicyBundle } from "../../../../test/helpers/groupPolicyFixtures";
+import { policySnapshot } from "../../../../test/helpers/organizationPolicyHistory";
 import {
   organizationPolicyBundleFromInitialRequest,
   policyBundleFromInitialRequest,
@@ -43,7 +44,6 @@ const ADMIN_GROUP_ID = "admins-group";
 const ORGANIZATION_ID = "organization-1";
 const ROOT_CONTAINER_ID = "root-container";
 const USER_ID = "remaining-admin";
-
 async function setUpAdminGroupRoot() {
   const { author, signingPublicKey } = await createAuthor({
     organizationId: ORGANIZATION_ID,
@@ -125,6 +125,11 @@ async function setUpAdminGroupRoot() {
   const initialProjection = rootContainerWriterProjectionFromCreatePlan(
     root.plan,
   );
+  initialProjection.policyEvidence = {
+    organization: policySnapshot(organizationPolicy),
+    organizationPayloads: [organizationPolicy.currentPayload],
+    groups: [policySnapshot(epochTwoPolicy)],
+  };
   const resolveUserIdentity = createTestTrustedUserIdentityResolver({
     encapsulationPublicKey: memberKem.publicKey,
     signingKeyFingerprint: author.signerKeyFingerprint,
@@ -324,6 +329,7 @@ test("same-level Admins re-wrap survives a group rotation and cold root unwrap",
       state: shared.plan.state as unknown as Record<string, unknown>,
     };
     const rotatedProjection: ContainerWriterProjectionResponse = {
+      policyEvidence: initialProjection.policyEvidence,
       containerId: ROOT_CONTAINER_ID,
       organizationId: ORGANIZATION_ID,
       path: [rotatedManifest],
@@ -447,6 +453,7 @@ test("Admins rotation rekeys the root and a fresh current member opens all epoch
       initialKek,
     );
     const coldProjection: ContainerWriterProjectionResponse = {
+      policyEvidence: initialProjection.policyEvidence,
       containerId: ROOT_CONTAINER_ID,
       organizationId: ORGANIZATION_ID,
       path: [response.accessManifest],

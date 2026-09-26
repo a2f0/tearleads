@@ -360,6 +360,11 @@ export async function createParentProjection(input?: {
     parentContainerKek,
     parentKekState,
     projection: {
+      policyEvidence: {
+        organization: null,
+        organizationPayloads: [],
+        groups: [],
+      },
       containerId,
       organizationId,
       path: [

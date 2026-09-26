@@ -69,6 +69,11 @@ test("relinkRemoteContainerDocument persists linked container projections after 
     });
     const createdResponse = createResponse(created.plan);
     const writerProjection: DocumentWriterProjectionResponse = {
+      policyEvidence: {
+        organization: null,
+        organizationPayloads: [],
+        groups: [],
+      },
       authorizingContainerPaths: [rootProjection],
       contentKeyBundle: createdResponse.contentKeyBundle,
       ...writerProjectionEvidence([rootProjection], []),

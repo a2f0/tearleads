@@ -29,6 +29,11 @@ export function rootContainerProjectionFromArtifacts(
   artifacts: RootContainerProjectionArtifacts,
 ): ContainerWriterProjectionResponse {
   return {
+    policyEvidence: {
+      organization: null,
+      organizationPayloads: [],
+      groups: [],
+    },
     containerId: artifacts.state.containerId,
     organizationId: artifacts.state.organizationId,
     path: [

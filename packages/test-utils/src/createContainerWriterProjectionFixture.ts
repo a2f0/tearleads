@@ -276,6 +276,11 @@ export async function createContainerWriterProjectionFixture(
     await computeContainerKekRecipientTargetHash(recipientTargets);
   const keyEpochHash = await computeContainerKeyEpochHash(keyEpoch);
   const projection: ContainerWriterProjectionResponse = {
+    policyEvidence: {
+      organization: null,
+      organizationPayloads: [],
+      groups: [],
+    },
     containerId: input.containerId,
     organizationId: input.organizationId,
     path: [

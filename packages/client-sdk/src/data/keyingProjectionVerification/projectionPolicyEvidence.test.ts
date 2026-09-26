@@ -1,0 +1,181 @@
+import { expect, test } from "bun:test";
+import { computePrincipalStatePayloadCiphertextHash } from "@tearleads/crypto";
+import { createNativeTestExecSql } from "@tearleads/test-utils";
+import {
+  createOrganizationHistoryFixture,
+  policySnapshot,
+} from "../../../test/helpers/organizationPolicyHistory";
+import { loadPrincipalPolicyCheckpoint } from "../persistence/keyingCheckpointPersistence";
+import {
+  encodeOrganizationAuthorityDescriptor,
+  parseOrganizationAuthorityDescriptor,
+} from "../principals/organizationAuthorityDescriptor";
+import { verifyProjectionPolicyEvidence } from "./projectionPolicyEvidence";
+
+async function fixture() {
+  const data = await createOrganizationHistoryFixture();
+  const history = data.evidence(true);
+  return {
+    data,
+    input: {
+      organizationId: data.organizationId,
+      resolveUserKey: data.resolveTrustedUserIdentity,
+      evidence: {
+        organization: policySnapshot(data.afterDeletion),
+        organizationPayloads: history.organizationPayloads,
+        groups: history.groups,
+      },
+    },
+  };
+}
+
+test("deleted group evidence verifies without advancing current-policy checkpoints", async () => {
+  const { data, input } = await fixture();
+  const { close, execSql } = createNativeTestExecSql();
+  try {
+    const policies = await verifyProjectionPolicyEvidence({
+      ...input,
+      execSql,
+    });
+    expect(
+      policies.some(
+        (policy) => policy.stateHash === data.added.currentState.stateHash,
+      ),
+    ).toBe(true);
+    expect(
+      await loadPrincipalPolicyCheckpoint(
+        execSql,
+        "group",
+        data.added.currentState.principalId,
+      ),
+    ).toBeNull();
+    expect(JSON.stringify(input.evidence)).not.toContain(
+      "currentMemberEnvelopes",
+    );
+    expect(JSON.stringify(input.evidence)).not.toContain("currentPayload");
+  } finally {
+    close();
+  }
+});
+
+test("directory payload tampering is refused even with a recomputed advertised hash", async () => {
+  const { input } = await fixture();
+  const payload = input.evidence.organizationPayloads[1];
+  if (!payload) throw new Error("Expected historical directory");
+  const descriptor = parseOrganizationAuthorityDescriptor(payload.ciphertext);
+  payload.ciphertext = encodeOrganizationAuthorityDescriptor({
+    ...descriptor,
+    groupHeads: descriptor.groupHeads.filter(
+      (head) =>
+        head.principalId === descriptor.adminGroupId ||
+        head.principalId === descriptor.memberGroupId,
+    ),
+  });
+  payload.ciphertextHash = await computePrincipalStatePayloadCiphertextHash(
+    payload.ciphertext,
+  );
+  const { close, execSql } = createNativeTestExecSql();
+  try {
+    await expect(
+      verifyProjectionPolicyEvidence({ ...input, execSql }),
+    ).rejects.toThrow("signed hash");
+  } finally {
+    close();
+  }
+});
+
+test("a correctly signed group outside the organization directory is refused", async () => {
+  const { data, input } = await fixture();
+  input.evidence.groups.push(
+    policySnapshot(await data.createGroup("Unbound group")),
+  );
+  const { close, execSql } = createNativeTestExecSql();
+  try {
+    await expect(
+      verifyProjectionPolicyEvidence({ ...input, execSql }),
+    ).rejects.toThrow("absent from signed directory");
+  } finally {
+    close();
+  }
+});
+
+test("a signed directory from another organization is refused", async () => {
+  const { input } = await fixture();
+  const { close, execSql } = createNativeTestExecSql();
+  try {
+    await expect(
+      verifyProjectionPolicyEvidence({
+        ...input,
+        execSql,
+        organizationId: "other",
+      }),
+    ).rejects.toThrow("principal scope");
+  } finally {
+    close();
+  }
+});
+
+for (const malformed of ["missing", "duplicate"] as const) {
+  test(`${malformed} signed directory payloads are refused`, async () => {
+    const { input } = await fixture();
+    const [first] = input.evidence.organizationPayloads;
+    if (!first) throw new Error("Expected directory history");
+    if (malformed === "missing") input.evidence.organizationPayloads.shift();
+    else input.evidence.organizationPayloads.push(first);
+    const { close, execSql } = createNativeTestExecSql();
+    try {
+      await expect(
+        verifyProjectionPolicyEvidence({ ...input, execSql }),
+      ).rejects.toThrow(malformed === "missing" ? "incomplete" : "scope");
+    } finally {
+      close();
+    }
+  });
+}
+
+for (const fork of [false, true]) {
+  test(`historical proof ${fork ? "refuses a fork of" : "connects without advancing"} a durable group pin`, async () => {
+    const { data, input } = await fixture();
+    const state = data.created.currentState;
+    const { close, execSql } = createNativeTestExecSql();
+    try {
+      await loadPrincipalPolicyCheckpoint(execSql, "group", state.principalId);
+      const stateHash = fork ? "f".repeat(64) : state.stateHash;
+      await execSql(
+        `INSERT INTO principal_policy_checkpoints
+          (principal_type, principal_id, version, state_hash, updated_at)
+          VALUES (?, ?, ?, ?, ?)`,
+        [
+          "group",
+          state.principalId,
+          state.version,
+          stateHash,
+          "2026-09-26T00:00:00.000Z",
+        ],
+      );
+      const verification = verifyProjectionPolicyEvidence({
+        ...input,
+        execSql,
+      });
+      if (fork)
+        await expect(verification).rejects.toThrow(
+          "does not extend the local checkpoint",
+        );
+      else
+        expect(
+          (await verification).some(
+            (policy) => policy.stateHash === data.added.currentState.stateHash,
+          ),
+        ).toBe(true);
+      expect(
+        await loadPrincipalPolicyCheckpoint(
+          execSql,
+          "group",
+          state.principalId,
+        ),
+      ).toMatchObject({ version: state.version, stateHash });
+    } finally {
+      close();
+    }
+  });
+}

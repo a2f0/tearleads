@@ -75,6 +75,11 @@ async function runMoveRemoteContainerDocumentFixture(input: {
     });
     const createdResponse = createResponse(created.plan);
     let writerProjection: DocumentWriterProjectionResponse = {
+      policyEvidence: {
+        organization: null,
+        organizationPayloads: [],
+        groups: [],
+      },
       authorizingContainerPaths: [rootProjection],
       contentKeyBundle: createdResponse.contentKeyBundle,
       ...writerProjectionEvidence([rootProjection], []),
@@ -139,6 +144,11 @@ async function runMoveRemoteContainerDocumentFixture(input: {
             request,
           );
           writerProjection = {
+            policyEvidence: {
+              organization: null,
+              organizationPayloads: [],
+              groups: [],
+            },
             authorizingContainerPaths: [rootProjection, siblingProjection],
             contentKeyBundle: response.contentKeyBundle,
             ...writerProjectionEvidence(
@@ -171,6 +181,11 @@ async function runMoveRemoteContainerDocumentFixture(input: {
             request,
           );
           writerProjection = {
+            policyEvidence: {
+              organization: null,
+              organizationPayloads: [],
+              groups: [],
+            },
             authorizingContainerPaths: [siblingProjection],
             contentKeyBundle: response.contentKeyBundle,
             ...writerProjectionEvidence(

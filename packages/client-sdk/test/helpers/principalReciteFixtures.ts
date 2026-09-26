@@ -20,6 +20,7 @@ import { createAuthor, SIGNED_AT } from "./containerFixtures";
 import { buildInitialGroupPolicyRequest } from "./groupMetadata";
 import { createSuccessorGroupPolicyBundle } from "./groupPolicyFixtures";
 import { policyBundleFromInitialRequest } from "./principalPolicyFixtures";
+import { createProjectionPolicyEvidence } from "./projectionPolicyEvidence";
 import { createTestTrustedUserIdentity } from "./trustedUserIdentity";
 
 export const GROUP_ID = "admins-group";
@@ -126,6 +127,12 @@ export async function createPrincipalReciteFixture(input: {
       stateHash: nextState.stateHash,
     },
   });
+  const policyEvidence = await createProjectionPolicyEvidence({
+    author,
+    group: previousBundle,
+    signingPublicKey,
+    encapsulationKeyPair: memberKem,
+  });
   const projections = new Map(
     await Promise.all(
       containerIds.map(async (containerId) => {
@@ -140,7 +147,10 @@ export async function createPrincipalReciteFixture(input: {
         });
         return [
           containerId,
-          rootContainerWriterProjectionFromCreatePlan(root.plan),
+          {
+            ...rootContainerWriterProjectionFromCreatePlan(root.plan),
+            policyEvidence,
+          },
         ] as const;
       }),
     ),

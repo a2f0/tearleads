@@ -90,6 +90,11 @@ test("createRemoteDocument submits the materialized request and persists the ver
     documentManifestBundle: JSON.stringify(response.accessManifest),
   });
   expect(created.writerProjection).toEqual({
+    policyEvidence: {
+      organization: null,
+      organizationPayloads: [],
+      groups: [],
+    },
     authorizingContainerPaths: [projection],
     contentKeyBundle: response.contentKeyBundle,
     documentContainerManifestHistory: [

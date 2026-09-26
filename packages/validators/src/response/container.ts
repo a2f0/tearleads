@@ -24,6 +24,7 @@ import {
   ReferencedPrincipalStateResponseSchema,
   ReferencedPrincipalStateResponseShape,
 } from "./principalReference";
+import { ProjectionPolicyEvidenceResponseSchema } from "./projectionPolicyEvidence";
 import { SyncWatermarkSchema } from "./syncWatermark";
 
 const ContainerGrantPrincipalStateResponseSchema = loosePlainObject({
@@ -209,6 +210,7 @@ export const ContainerWriterProjectionResponseSchema =
       containerKeks: arraySchema(ContainerKekResponseSchema),
       organizationId: z.string(),
       path: nonEmptyArraySchema(AccessManifestBundleWireResponseSchema),
+      policyEvidence: ProjectionPolicyEvidenceResponseSchema,
     }).superRefine((projection, context) => {
       if (
         Array.isArray(projection.containerKeks) &&

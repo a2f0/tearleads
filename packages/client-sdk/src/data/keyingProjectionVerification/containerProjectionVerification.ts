@@ -1,4 +1,5 @@
 import {
+  type AnyVerifiedPrincipalPolicy,
   type ContainerUserRecipientKey,
   computeContainerKekRecipientTargetHash,
   computeContainerKeyEpochHash,
@@ -28,6 +29,7 @@ import {
   throwKeyingVerificationShapeFailure,
 } from "./error";
 import { collectReferencedPrincipalPolicies } from "./principalPolicyVerification";
+import { verifyProjectionAuthorizationEvidence } from "./projectionAuthorizationEvidence";
 import {
   readContainerKekRecipientTarget,
   readContainerKeyEpoch,
@@ -96,7 +98,7 @@ function containerKekManifestHistory(input: {
 }
 
 async function verifyContainerKekProjection(input: {
-  readonly checkpointContext: ProjectionCheckpointContext;
+  readonly authorizationEvidence: readonly AnyVerifiedPrincipalPolicy[];
   readonly kek: ContainerWriterProjectionResponse["containerKeks"][number];
   readonly label: string;
   readonly parentKekState: VerifiedContainerKekState | null;
@@ -128,19 +130,6 @@ async function verifyContainerKekProjection(input: {
     history: input.verifiedManifestHistory,
     verifiedManifest: input.verifiedManifest,
   });
-  const principalPolicies = await collectReferencedPrincipalPolicies({
-    checkpointContext: input.checkpointContext,
-    organizationId: input.verifiedManifest.state.organizationId,
-    principalPolicyCache: input.principalPolicyCache,
-    references: [
-      ...verifiedKekManifestHistory.flatMap(
-        (manifest) => manifest.state.referencedPrincipalHeads,
-      ),
-      ...input.verifiedManifest.state.referencedPrincipalHeads,
-    ],
-    resolveUserKey: input.resolveUserKey,
-    warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
-  });
   const verified = await verifyContainerKekState({
     allowHistoricalParentEpoch: true,
     containerManifest: input.verifiedManifest,
@@ -148,7 +137,7 @@ async function verifyContainerKekProjection(input: {
     parentManifestHistory: input.parentManifestHistory,
     keyEpoch,
     parentKekState: input.parentKekState,
-    principalPolicies,
+    principalPolicies: input.authorizationEvidence,
     userRecipientKeys,
     wraps,
   });
@@ -240,7 +229,17 @@ export async function verifyContainerWriterProjectionWithContext(
     input.verifiedByHash ?? new Map<string, VerifiedContainerAccessManifest>();
   const principalPolicyCache =
     input.principalPolicyCache ?? new Map<string, VerifiedPrincipalPolicy>();
+  const authorizationEvidence = await verifyProjectionAuthorizationEvidence({
+    bundles: [...bundlesByHash.values()],
+    checkpointContext,
+    policyEvidence: input.projection.policyEvidence,
+    organizationId: input.projection.organizationId,
+    principalPolicyCache,
+    resolveUserKey: input.resolveUserKey,
+  });
   const verifiedPath = await verifyContainerManifestPath({
+    authorizationEvidence,
+    requireAuthorizationEvidence: true,
     servedAsCurrent: true,
     bundlesByHash,
     checkpointContext,
@@ -266,6 +265,8 @@ export async function verifyContainerWriterProjectionWithContext(
     ] of kek.containerManifestHistory.entries()) {
       verifiedManifestHistory.push(
         await verifyContainerManifestBundle({
+          authorizationEvidence,
+          requireAuthorizationEvidence: true,
           bundle,
           bundlesByHash,
           checkpointContext,
@@ -282,7 +283,7 @@ export async function verifyContainerWriterProjectionWithContext(
     }
 
     const verifiedKekState = await verifyContainerKekProjection({
-      checkpointContext,
+      authorizationEvidence,
       kek,
       label: `Container writer projection KEK[${index}]`,
       parentKekState: index > 0 ? (verifiedKekStates[index - 1] ?? null) : null,
@@ -331,17 +332,9 @@ export async function verifyContainerWriterProjection(
   }
 }
 
-export async function collectContainerWriterProjectionPrincipalPolicies(input: {
-  readonly execSql: ExecSql;
-  readonly persistVerificationCheckpoints?: boolean | undefined;
-  readonly principalPolicyCache?: PrincipalPolicyCache | undefined;
-  readonly projection: ContainerWriterProjectionResponse;
-  readonly resolveUserKey: ProjectionUserKeyResolver;
-  readonly stillCurrent?: (() => boolean) | undefined;
-  readonly warmReferencedPrincipalPolicies?:
-    | ReferencedPrincipalPolicyWarmer
-    | undefined;
-}): Promise<VerifiedPrincipalPolicy[]> {
+export async function collectContainerWriterProjectionPrincipalPolicies(
+  input: ContainerWriterProjectionVerificationInput,
+): Promise<VerifiedPrincipalPolicy[]> {
   try {
     assertProjectionVerificationCurrent(input.stillCurrent);
     const warmReferencedPrincipalPolicies =
@@ -359,6 +352,7 @@ export async function collectContainerWriterProjectionPrincipalPolicies(input: {
       {
         principalPolicyCache,
         projection: input.projection,
+        verifiedByHash: input.verifiedByHash,
         resolveUserKey: input.resolveUserKey,
         warmReferencedPrincipalPolicies,
       },

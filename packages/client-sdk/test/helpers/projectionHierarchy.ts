@@ -145,6 +145,11 @@ export async function moveContainerProjection(input: {
   }
   const bundle = movePlanManifestBundle(moved.plan);
   const projection: ContainerWriterProjectionResponse = {
+    policyEvidence: {
+      organization: null,
+      organizationPayloads: [],
+      groups: [],
+    },
     containerId: moved.plan.containerId,
     organizationId: moved.plan.state.organizationId,
     path: [...input.destinationParentProjection.path, bundle],

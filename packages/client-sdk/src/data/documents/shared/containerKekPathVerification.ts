@@ -1,8 +1,8 @@
 import type { VerifiedContainerAccessManifest } from "@tearleads/crypto";
 import type { ContainerWriterProjectionResponse } from "@tearleads/validators/response";
 import {
+  collectContainerWriterProjectionPrincipalPolicies,
   type PrincipalPolicyCache,
-  verifyContainerWriterProjection,
 } from "../../keyingProjectionVerification";
 import type { ExecSql } from "../../sqlite/sqlSchema";
 import type { ProjectionVerificationOptions } from "./types";
@@ -37,7 +37,7 @@ export async function verifyContainerKekPathProjection(
     return;
   }
 
-  await verifyContainerWriterProjection({
+  await collectContainerWriterProjectionPrincipalPolicies({
     execSql: input.execSql,
     persistVerificationCheckpoints: input.persistVerificationCheckpoints,
     principalPolicyCache: input.principalPolicyCache,

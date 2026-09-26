@@ -21,7 +21,7 @@ import {
   observeAccessManifestCheckpoints,
   type ProjectionCheckpointContext,
 } from "./checkpointContext";
-import { verifyDocumentManifestBundle } from "./documentProjectionVerification";
+import { verifyDocumentManifestBundle } from "./documentManifestVerification";
 import { loadManifestCheckpointVerification } from "./manifestCheckpointVerification";
 import { readAccessManifest, readDocumentAccessEventBody } from "./readers";
 import type { PrincipalPolicyCache, ProjectionUserKeyResolver } from "./types";

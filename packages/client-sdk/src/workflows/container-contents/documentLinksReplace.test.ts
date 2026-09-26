@@ -84,6 +84,11 @@ test("moveRemoteContainerDocument can replace every existing link with the targe
     });
     const createdResponse = createResponse(created.plan);
     const initialWriterProjection: DocumentWriterProjectionResponse = {
+      policyEvidence: {
+        organization: null,
+        organizationPayloads: [],
+        groups: [],
+      },
       authorizingContainerPaths: [contactsProjection],
       contentKeyBundle: createdResponse.contentKeyBundle,
       documentContainerManifestHistory: [
@@ -113,6 +118,11 @@ test("moveRemoteContainerDocument can replace every existing link with the targe
       extraLink.plan.request,
     );
     let writerProjection: DocumentWriterProjectionResponse = {
+      policyEvidence: {
+        organization: null,
+        organizationPayloads: [],
+        groups: [],
+      },
       authorizingContainerPaths: [contactsProjection, extraProjection],
       contentKeyBundle: extraLinkResponse.contentKeyBundle,
       documentContainerManifestHistory: [

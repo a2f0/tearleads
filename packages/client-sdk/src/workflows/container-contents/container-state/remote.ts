@@ -68,32 +68,15 @@ export async function createRemoteContainer(input: {
   return createRemoteContainerWithMetadataDocument(input);
 }
 
-function containerWriterProjectionFromMutationResponse(input: {
-  previousProjection: ContainerWriterProjectionResponse;
-  response: ContainerMutationResponse;
-}): ContainerWriterProjectionResponse {
-  if (input.response.containerId !== input.previousProjection.containerId) {
-    throw new Error("Container mutation response projection mismatch");
-  }
-
-  return {
-    containerId: input.response.containerId,
-    organizationId: input.response.organizationId,
-    path: [
-      ...input.previousProjection.path.slice(0, -1),
-      input.response.accessManifest,
-    ],
-    containerKeks: [
-      ...input.previousProjection.containerKeks.slice(0, -1),
-      input.response.containerKek,
-    ],
-  };
-}
-
-function sharedRemoteContainerStateFromMutation(
-  previousProjection: ContainerWriterProjectionResponse,
+async function sharedRemoteContainerStateFromMutation(
+  apiClient: ContainerWorkflowRuntime["apiClient"],
   response: ContainerMutationResponse,
-): SharedRemoteContainerState {
+): Promise<SharedRemoteContainerState> {
+  const writerProjection = await apiClient.getContainerWriterProjection(
+    response.containerId,
+  );
+  if (!writerProjection)
+    throw new Error("Shared container projection is unavailable");
   return {
     accessManifestHash: response.manifestHead.manifestHash,
     accessEpoch: response.manifestHead.epoch,
@@ -102,10 +85,7 @@ function sharedRemoteContainerStateFromMutation(
     referencedPrincipalHeads:
       referencedPrincipalHeadsFromContainerMutationResponse({ response }),
     updatedAt: response.updatedAt,
-    writerProjection: containerWriterProjectionFromMutationResponse({
-      previousProjection,
-      response,
-    }),
+    writerProjection,
   };
 }
 
@@ -148,10 +128,7 @@ export async function shareRemoteContainer(input: {
     return null;
   }
 
-  return sharedRemoteContainerStateFromMutation(
-    input.previousProjection,
-    shared.response,
-  );
+  return sharedRemoteContainerStateFromMutation(apiClient, shared.response);
 }
 
 export async function shareRemoteContainerWithGroup(input: {
@@ -204,10 +181,7 @@ export async function shareRemoteContainerWithGroup(input: {
     return null;
   }
 
-  return sharedRemoteContainerStateFromMutation(
-    input.previousProjection,
-    shared.response,
-  );
+  return sharedRemoteContainerStateFromMutation(apiClient, shared.response);
 }
 
 export async function moveRemoteContainer(input: {

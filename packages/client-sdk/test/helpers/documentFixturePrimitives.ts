@@ -71,6 +71,11 @@ export async function createProjection(): Promise<ContainerWriterProjectionRespo
   const keyTargetHash = await fixtureHash("container-key-target");
 
   return {
+    policyEvidence: {
+      organization: null,
+      organizationPayloads: [],
+      groups: [],
+    },
     containerId,
     organizationId,
     path: [

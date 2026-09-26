@@ -71,8 +71,8 @@
       "bytes": 23535
     },
     "docs/openapi.json": {
-      "lines": 69180,
-      "bytes": 2889739
+      "lines": 71982,
+      "bytes": 3041521
     },
     "docs/protocol-specification.md": {
       "lines": 658,
@@ -336,15 +336,15 @@
     },
     "packages/crypto/src/keying/types.ts": {
       "lines": 1187,
-      "bytes": 37729
+      "bytes": 37744
     },
     "packages/validators/src/operation/generatedOpenApi.ts": {
-      "lines": 25864,
-      "bytes": 1078507
+      "lines": 26587,
+      "bytes": 1120379
     },
     "packages/validators/src/response/index.ts": {
-      "lines": 504,
-      "bytes": 17676
+      "lines": 508,
+      "bytes": 17805
     },
     "packages/validators/src/response/response.test.ts": {
       "lines": 940,

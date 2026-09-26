@@ -9,6 +9,16 @@ import {
 } from "../../data/containers/shared/authorAccess";
 import { readLinkedContainerIdsFromDocumentManifest } from "../../data/documents/shared/projection";
 import type { DocumentCreateAuthor } from "../../data/documents/shared/types";
+import {
+  type ProjectionVerificationOptions,
+  resolveProjectionVerifier,
+} from "../../data/documents/shared/types";
+import {
+  collectContainerWriterProjectionPrincipalPolicies,
+  type PrincipalPolicyCache,
+} from "../../data/keyingProjectionVerification";
+import { throwKeyingVerificationErrorWithContext } from "../../data/keyingProjectionVerification/error";
+import type { ExecSql } from "../../data/sqlite/sqlSchema";
 
 /** Both paths have been verified; a readable proof does not authorize a link. */
 export function assertDocumentLinkAuthorAccess(input: {
@@ -45,4 +55,37 @@ export function assertDocumentLinkAuthorAccess(input: {
   throw new ContainerAuthorAccessError(
     "Document signer lacks write access through a linked container",
   );
+}
+
+/** Current write authorization needs full policies for the readable paths. */
+export async function verifyDocumentLinkSetCurrentPolicies(
+  input: {
+    execSql?: ExecSql | undefined;
+    principalPolicyCache: PrincipalPolicyCache;
+    targetContainerProjection: ContainerWriterProjectionResponse;
+    writerProjection: DocumentWriterProjectionResponse;
+  } & ProjectionVerificationOptions,
+): Promise<void> {
+  resolveProjectionVerifier(input, "Document link-set current policies");
+  if (input.trustedLocalProjection === true) return;
+  try {
+    for (const projection of [
+      input.targetContainerProjection,
+      ...input.writerProjection.authorizingContainerPaths,
+    ]) {
+      await collectContainerWriterProjectionPrincipalPolicies({
+        execSql: input.execSql,
+        principalPolicyCache: input.principalPolicyCache,
+        projection,
+        resolveUserKey: input.resolveProjectionUserKey,
+        stillCurrent: input.stillCurrent,
+        warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
+      });
+    }
+  } catch (error) {
+    throwKeyingVerificationErrorWithContext(
+      error,
+      "Document link-set current policy verification failed",
+    );
+  }
 }

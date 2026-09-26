@@ -15,6 +15,7 @@ export function childContainerWriterProjectionFromCreatePlan(input: {
   const parentKek = getParentCreateContext(parentProjection).kek;
 
   return {
+    policyEvidence: parentProjection.policyEvidence,
     containerId: plan.containerId,
     organizationId: plan.state.organizationId,
     path: [

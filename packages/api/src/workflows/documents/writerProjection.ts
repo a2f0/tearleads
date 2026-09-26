@@ -9,9 +9,6 @@ import type {
 } from "@tearleads/crypto";
 import type {
   AccessManifestBundleWireResponse,
-  DocumentNotFoundErrorCode,
-  DocumentProjectionErrorCode,
-  DocumentSyncErrorCode,
   DocumentWriterProjectionResponse,
 } from "@tearleads/validators/response";
 import {
@@ -25,10 +22,6 @@ import {
   getCurrentAccessManifestHead,
 } from "../../access/read/accessManifestStore";
 import { listDocumentContentWriteDependencyHashes } from "../../access/read/contentWriteDependencies";
-import {
-  DocumentContentKeyBundleError,
-  getLatestDocumentContentKeyBundleProjection,
-} from "../../access/read/documentContentKeyStore";
 import {
   DocumentKekTargetError,
   resolveCurrentDocumentKekTargets,
@@ -49,37 +42,12 @@ import {
   verifyStoredDocumentManifest,
 } from "./storedDocumentManifestVerification";
 import { resolveAuthorizingContainerPathCandidates } from "./writerProjectionContainerPaths";
+import { loadWriterProjectionContentKey } from "./writerProjectionContentKey";
+import { loadDocumentProjectionPolicyEvidence } from "./writerProjectionPolicyEvidence";
 
-type DocumentWriterProjectionStatus = 403 | 404 | 409;
+export { DocumentWriterProjectionError } from "./writerProjectionError";
 
-export class DocumentWriterProjectionError extends Error {
-  readonly code?:
-    | DocumentNotFoundErrorCode
-    | DocumentProjectionErrorCode
-    | DocumentSyncErrorCode
-    | undefined;
-
-  constructor(
-    message: string,
-    readonly status: DocumentWriterProjectionStatus,
-    code?:
-      | DocumentNotFoundErrorCode
-      | DocumentProjectionErrorCode
-      | DocumentSyncErrorCode
-      | undefined,
-  ) {
-    super(message);
-    this.name = "DocumentWriterProjectionError";
-    // Every 409 must carry a stable code — an uncoded conflict is
-    // undiagnosable from a System Monitor report. Malformed stored state is
-    // the fail-safe class for paths that do not name a more specific one.
-    this.code =
-      code ??
-      (status === 409
-        ? DOCUMENT_PROJECTION_ERROR_CODES.stateInvalid
-        : undefined);
-  }
-}
+import { DocumentWriterProjectionError } from "./writerProjectionError";
 
 function projectionError(message: string): DocumentWriterProjectionError {
   return new DocumentWriterProjectionError(message, 409);
@@ -629,31 +597,11 @@ async function resolveDocumentWriterProjection(input: {
     }
     throw error;
   }
-  let contentKeyBundle: Awaited<
-    ReturnType<typeof getLatestDocumentContentKeyBundleProjection>
-  >;
-  try {
-    contentKeyBundle = await getLatestDocumentContentKeyBundleProjection(
-      {
-        currentTargets: documentKekTargets,
-        documentId: input.documentId,
-      },
-      input.executor,
-    );
-  } catch (error) {
-    if (error instanceof DocumentContentKeyBundleError) {
-      throw new DocumentWriterProjectionError(error.message, 409, error.code);
-    }
-    throw error;
-  }
-
-  if (!contentKeyBundle) {
-    throw new DocumentWriterProjectionError(
-      "Document content-key bundle missing",
-      409,
-      DOCUMENT_PROJECTION_ERROR_CODES.contentKeyBundleMissing,
-    );
-  }
+  const contentKeyBundle = await loadWriterProjectionContentKey(
+    input.executor,
+    input.documentId,
+    documentKekTargets,
+  );
   const verificationMaterial =
     await loadDocumentWriterProjectionVerificationMaterial({
       documentManifest,
@@ -674,6 +622,13 @@ async function resolveDocumentWriterProjection(input: {
     // (a 409 here would deny them the current targets they need to do so).
     ...(contentKeyBundle.stale ? { contentKeyBundleStale: true as const } : {}),
     authorizingContainerPaths,
+    policyEvidence: await loadDocumentProjectionPolicyEvidence({
+      executor: input.executor,
+      organizationId: documentState.organizationId,
+      documentManifest,
+      ...verificationMaterial,
+      authorizingContainerPaths,
+    }),
   };
 }
 

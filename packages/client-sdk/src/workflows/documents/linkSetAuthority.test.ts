@@ -42,6 +42,11 @@ async function createFixture(
     });
     const response = createResponse(created.plan);
     writerProjection = {
+      policyEvidence: {
+        organization: null,
+        organizationPayloads: [],
+        groups: [],
+      },
       authorizingContainerPaths: [target.projection],
       contentKeyBundle: response.contentKeyBundle,
       ...writerProjectionEvidence([target.projection], []),

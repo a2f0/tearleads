@@ -54,6 +54,11 @@ export async function createRelinkScopeFixture() {
     );
     const projections = [source.projection, rotated.writerProjection];
     const writerProjection: DocumentWriterProjectionResponse = {
+      policyEvidence: {
+        organization: null,
+        organizationPayloads: [],
+        groups: [],
+      },
       documentId: response.id,
       documentManifest: response.accessManifest,
       documentKekTargets: response.documentKekTargets,

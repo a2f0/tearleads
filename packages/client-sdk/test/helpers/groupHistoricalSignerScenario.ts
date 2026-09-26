@@ -1,5 +1,4 @@
 import {
-  type ContainerGrantPrincipalHead,
   computeContainerKekMaterialId,
   deriveContainerKekRecipientTargets,
   deriveContainerKekWrappingPublicKey,
@@ -9,7 +8,6 @@ import {
   type VerifiedContainerAccessManifest,
   type VerifiedContainerKekState,
   type VerifiedDocumentLinkSetManifest,
-  type VerifiedPrincipalPolicy,
   verifyContainerKekState,
 } from "@tearleads/crypto";
 import {
@@ -18,7 +16,6 @@ import {
   createContainerKeyWrap,
   createContainerManifestFixture,
   createDocumentLinkSetManifestFixture,
-  createPrincipalPolicyFixture,
   createVerifiedContainerAccessEvent,
   createVerifiedDocumentAccessEvent,
   fixtureHash,
@@ -35,6 +32,7 @@ import {
   type Signer,
   successor,
 } from "./ancestorCitationScenario";
+import { historicalGroupPolicy } from "./historicalGroupPolicy";
 import { createTestTrustedUserIdentity } from "./trustedUserIdentity";
 
 // A group admin signs a child head and a document link, then is removed from
@@ -74,53 +72,17 @@ async function materialId(containerId: string, keyEpoch: number) {
   return id;
 }
 
-async function groupPolicy(input: {
-  readonly former: Participant;
-  readonly remaining: Participant;
-}) {
-  const firstHead: ContainerGrantPrincipalHead = {
-    principalType: "group",
-    principalId: "historical-admins",
-    version: 1,
-    keyEpoch: 1,
-    stateHash: await fixtureHash("historical-admins-1"),
-    keyFingerprint: await fixtureHash("historical-admins-key-1"),
-  };
-  const currentHead = {
-    ...firstHead,
-    version: 2,
-    keyEpoch: 2,
-    stateHash: await fixtureHash("historical-admins-2"),
-    keyFingerprint: await fixtureHash("historical-admins-key-2"),
-  };
-  const remaining = [{ role: "admin", userId: input.remaining.userId }];
-  // Persisted policy checkpoints compare against the signed state, so it
-  // carries the full head rather than the fixture's key fingerprint alone.
-  const policy = {
-    ...createPrincipalPolicyFixture(currentHead),
-    projection: remaining,
-    state: currentHead,
-    history: [
-      {
-        grants: [],
-        projection: [{ role: "admin", userId: input.former.userId }],
-        state: firstHead,
-      },
-      { grants: [], projection: remaining, state: currentHead },
-    ],
-  } as unknown as VerifiedPrincipalPolicy;
-  return { currentHead, firstHead, policy };
-}
-
 export async function createGroupHistoricalSignerScenario() {
   const alice = participant("alice");
   const mallory = participant("mallory");
   const reader = participant("reader");
   const peer = participant("peer");
-  const { currentHead, firstHead, policy } = await groupPolicy({
-    former: mallory,
-    remaining: alice,
-  });
+  const { currentHead, firstHead, policy, policyEvidence } =
+    await historicalGroupPolicy({
+      organizationId: ORGANIZATION_ID,
+      former: mallory,
+      remaining: alice,
+    });
   const rootKeyEpochIds = [
     await materialId(GROUP_ROOT_ID, 1),
     await materialId(GROUP_ROOT_ID, 2),
@@ -222,6 +184,7 @@ export async function createGroupHistoricalSignerScenario() {
     policy,
     reader,
     resolveUserKey,
+    policyEvidence,
     root1,
     root2,
   };
@@ -349,6 +312,7 @@ export async function childWriterProjection(
     scenario,
   });
   return {
+    policyEvidence: scenario.policyEvidence,
     containerId: served.head.state.containerId,
     containerKeks: [root.response, child.response],
     organizationId: ORGANIZATION_ID,
@@ -403,6 +367,7 @@ export async function documentWriterProjection(
   if (!head) throw new Error("A document projection needs a head");
   const authorizing = await childWriterProjection(scenario);
   return {
+    policyEvidence: scenario.policyEvidence,
     authorizingContainerPaths: [authorizing],
     documentContainerManifestHistory: [
       scenario.root1,

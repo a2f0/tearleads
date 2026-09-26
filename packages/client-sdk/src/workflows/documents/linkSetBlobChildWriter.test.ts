@@ -112,6 +112,11 @@ test("a child-only writer relinks an attachment without the parent secret", asyn
     });
     const created = createResponse(document.plan);
     const writerProjection = {
+      policyEvidence: {
+        organization: null,
+        organizationPayloads: [],
+        groups: [],
+      },
       documentId: created.id,
       documentManifest: created.accessManifest,
       documentKekTargets: created.documentKekTargets,

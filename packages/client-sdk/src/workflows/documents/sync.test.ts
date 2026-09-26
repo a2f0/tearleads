@@ -348,6 +348,11 @@ test("buildMaterializedDocumentSyncPlan rejects document writer projections with
   });
   const response = createResponse(materializedCreate.plan);
   const writerProjection: DocumentWriterProjectionResponse = {
+    policyEvidence: {
+      organization: null,
+      organizationPayloads: [],
+      groups: [],
+    },
     documentId: response.id,
     documentManifest: response.accessManifest,
     ...writerProjectionEvidence([projection], []),
@@ -416,6 +421,11 @@ test("buildMaterializedDocumentSyncPlan rejects substituted KEK material before 
     userId: parent.userId,
   });
   const writerProjection: DocumentWriterProjectionResponse = {
+    policyEvidence: {
+      organization: null,
+      organizationPayloads: [],
+      groups: [],
+    },
     authorizingContainerPaths: [tamperedProjection],
     contentKeyBundle: response.contentKeyBundle,
     ...writerProjectionEvidence([tamperedProjection], []),
@@ -461,6 +471,11 @@ test("buildMaterializedDocumentSyncPlan verifies each authorizing path once acro
   });
   const response = createResponse(materializedCreate.plan);
   const writerProjection: DocumentWriterProjectionResponse = {
+    policyEvidence: {
+      organization: null,
+      organizationPayloads: [],
+      groups: [],
+    },
     authorizingContainerPaths: [parent.projection],
     contentKeyBundle: response.contentKeyBundle,
     ...writerProjectionEvidence([parent.projection], []),
@@ -521,6 +536,11 @@ test("buildMaterializedDocumentSyncPlan verifies linked document manifest histor
   });
   const createdResponse = createResponse(materializedCreate.plan);
   const initialWriterProjection: DocumentWriterProjectionResponse = {
+    policyEvidence: {
+      organization: null,
+      organizationPayloads: [],
+      groups: [],
+    },
     documentId: createdResponse.id,
     documentManifest: createdResponse.accessManifest,
     ...writerProjectionEvidence([rootProjection], []),
@@ -557,6 +577,11 @@ test("buildMaterializedDocumentSyncPlan verifies linked document manifest histor
       resolveProjectionUserKey,
       targetSecretKey: encapsulationKeyPair.secretKey,
       writerProjection: {
+        policyEvidence: {
+          organization: null,
+          organizationPayloads: [],
+          groups: [],
+        },
         documentId: linkResponse.id,
         documentManifest: linkResponse.accessManifest,
         ...writerProjectionEvidence([rootProjection, childProjection], []),
@@ -575,6 +600,11 @@ test("buildMaterializedDocumentSyncPlan verifies linked document manifest histor
     resolveProjectionUserKey,
     targetSecretKey: encapsulationKeyPair.secretKey,
     writerProjection: {
+      policyEvidence: {
+        organization: null,
+        organizationPayloads: [],
+        groups: [],
+      },
       documentId: linkResponse.id,
       documentManifest: linkResponse.accessManifest,
       documentManifestHistory: [createdResponse.accessManifest],

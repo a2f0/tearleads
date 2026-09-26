@@ -122,6 +122,7 @@ export function documentWriterProjectionFromCreateResponse(input: {
   response: DocumentCreateResponse;
 }): DocumentWriterProjectionResponse {
   return {
+    policyEvidence: input.containerProjection.policyEvidence,
     authorizingContainerPaths: [input.containerProjection],
     contentKeyBundle: input.response.contentKeyBundle,
     documentContainerManifestHistory: [

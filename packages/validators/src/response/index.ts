@@ -441,6 +441,10 @@ export {
   ReferencedPrincipalStateResponseSchema,
 } from "./principalReference";
 export {
+  type ProjectionPolicyEvidenceResponse,
+  ProjectionPolicyEvidenceResponseSchema,
+} from "./projectionPolicyEvidence";
+export {
   isRegistrationResponse,
   type RegistrationResponse,
   RegistrationResponseSchema,

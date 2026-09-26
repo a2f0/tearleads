@@ -21,6 +21,11 @@ function projectionFor(
   manifestHash: string,
 ): ContainerWriterProjectionResponse {
   return {
+    policyEvidence: {
+      organization: null,
+      organizationPayloads: [],
+      groups: [],
+    },
     containerId,
     containerKeks: [{ accessManifestHash: manifestHash, containerId }],
     path: [{ containerId, manifestHash }],

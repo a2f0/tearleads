@@ -45,7 +45,7 @@ export interface CarriedRekeyPlanningInput {
 /** A rotated container's own path once its batch is accepted. */
 export type SpeculativePath = Pick<
   ContainerWriterProjectionResponse,
-  "containerKeks" | "organizationId" | "path"
+  "containerKeks" | "organizationId" | "path" | "policyEvidence"
 >;
 
 /**

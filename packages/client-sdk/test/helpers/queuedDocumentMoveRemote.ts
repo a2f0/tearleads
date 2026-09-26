@@ -87,6 +87,11 @@ export function createQueuedDocumentMoveRemote(input: {
           ),
       );
       remote.writerProjection = {
+        policyEvidence: {
+          organization: null,
+          organizationPayloads: [],
+          groups: [],
+        },
         authorizingContainerPaths,
         contentKeyBundle: response.contentKeyBundle,
         documentContainerManifestHistory: [
@@ -124,6 +129,11 @@ export function createQueuedDocumentMoveRemote(input: {
       );
       const previous = remote.writerProjection;
       remote.writerProjection = {
+        policyEvidence: {
+          organization: null,
+          organizationPayloads: [],
+          groups: [],
+        },
         authorizingContainerPaths: linkedProjections(request),
         contentKeyBundle: response.contentKeyBundle,
         documentContainerManifestHistory: [

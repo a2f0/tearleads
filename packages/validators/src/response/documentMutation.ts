@@ -19,6 +19,7 @@ import {
   DocumentSyncResponseSchema,
 } from "./documentSyncSchema";
 import { PrincipalPolicySnapshotResponseSchema } from "./principal";
+import { ProjectionPolicyEvidenceResponseSchema } from "./projectionPolicyEvidence";
 
 export {
   type DocumentContentKeyBundleResponse,
@@ -94,6 +95,7 @@ export const DocumentPurgeResponseSchema = loosePlainObject({
 export type DocumentPurgeResponse = z.infer<typeof DocumentPurgeResponseSchema>;
 
 export const DocumentWriterProjectionResponseSchema = loosePlainObject({
+  policyEvidence: ProjectionPolicyEvidenceResponseSchema,
   authorizingContainerPaths: nonEmptyArraySchema(
     ContainerWriterProjectionResponseSchema,
   ),

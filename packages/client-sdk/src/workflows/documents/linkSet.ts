@@ -51,16 +51,14 @@ import {
   type MaterializedDocumentLinkSetMutationPlan,
   type ProjectionVerificationOptions,
   projectionVerificationOptions,
-  resolveProjectionVerifier,
 } from "../../data/documents/shared/types";
 import { readCanonicalRecord } from "../../data/keyingCanonicalJson";
-import {
-  type PrincipalPolicyCache,
-  verifyContainerWriterProjection,
-} from "../../data/keyingProjectionVerification";
-import { throwKeyingVerificationErrorWithContext } from "../../data/keyingProjectionVerification/error";
+import type { PrincipalPolicyCache } from "../../data/keyingProjectionVerification";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
-import { assertDocumentLinkAuthorAccess } from "./linkSetAuthority";
+import {
+  assertDocumentLinkAuthorAccess,
+  verifyDocumentLinkSetCurrentPolicies,
+} from "./linkSetAuthority";
 
 function deriveDocumentLinkSetTargetState(input: {
   operation: DocumentLinkSetMutationOperation;
@@ -201,38 +199,6 @@ async function resolveDocumentLinkSetMutationOrganization(input: {
   return manifestIdentity.organizationId;
 }
 
-async function verifyDocumentLinkSetTargetContainerProjection(
-  input: {
-    execSql?: ExecSql | undefined;
-    principalPolicyCache?: PrincipalPolicyCache | undefined;
-    targetContainerProjection: ContainerWriterProjectionResponse;
-  } & ProjectionVerificationOptions,
-): Promise<void> {
-  resolveProjectionVerifier(
-    input,
-    "Document link-set target container projection",
-  );
-  if (input.trustedLocalProjection === true) {
-    return;
-  }
-
-  try {
-    await verifyContainerWriterProjection({
-      execSql: input.execSql,
-      principalPolicyCache: input.principalPolicyCache,
-      projection: input.targetContainerProjection,
-      resolveUserKey: input.resolveProjectionUserKey,
-      stillCurrent: input.stillCurrent,
-      warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
-    });
-  } catch (error) {
-    throwKeyingVerificationErrorWithContext(
-      error,
-      "Document link-set target container projection verification failed",
-    );
-  }
-}
-
 function readDocumentLinkSetPreviousEpoch(
   writerProjection: DocumentWriterProjectionResponse,
 ): number {
@@ -358,10 +324,11 @@ export async function buildMaterializedDocumentLinkSetMutationPlan(
     principalPolicyCache,
     ...verificationOptions,
   });
-  await verifyDocumentLinkSetTargetContainerProjection({
+  await verifyDocumentLinkSetCurrentPolicies({
     execSql: input.execSql,
     principalPolicyCache,
     targetContainerProjection: input.targetContainerProjection,
+    writerProjection: input.writerProjection,
     ...verificationOptions,
   });
   if (input.resolveProjectionUserKey)
