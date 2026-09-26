@@ -27,3 +27,28 @@ export function remoteContainerHydrationSaveOptions(input: {
     },
   };
 }
+
+export function resolveRemoteContainerHydrationLocalUpdatedAt(input: {
+  containerIdsWithPendingMetadataUpdates: ReadonlySet<string>;
+  hasPendingStructuralIntent: boolean;
+  previousLocalUpdatedAt: string | null | undefined;
+  remoteContainer: RemoteContainer;
+}): string {
+  const {
+    containerIdsWithPendingMetadataUpdates,
+    hasPendingStructuralIntent,
+    previousLocalUpdatedAt,
+    remoteContainer,
+  } = input;
+  if (
+    !previousLocalUpdatedAt ||
+    previousLocalUpdatedAt.localeCompare(remoteContainer.updatedAt) <= 0
+  ) {
+    return remoteContainer.updatedAt;
+  }
+
+  return containerIdsWithPendingMetadataUpdates.has(remoteContainer.id) ||
+    hasPendingStructuralIntent
+    ? previousLocalUpdatedAt
+    : remoteContainer.updatedAt;
+}

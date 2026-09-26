@@ -60,10 +60,10 @@ const OWNER_GRANTED_ROOT_ATTACHMENT_REQUEST_BUDGET: ProxiedApiRequestBudget = {
   // and historical-path verification re-read a few more projections and
   // policies. Measured 71-73 on main at fe7f09962.
   total: 76,
-  // A newly visible root adds one signed proof (measured up to 46.5 KB).
-  // Response bytes measured 1.26-1.43 MB on main at fe7f09962 (served
-  // predecessor manifests and attachment listings from #2277).
-  bodyBytes: { request: 380_000, response: 1_500_000 },
+  // Complete post-share hydration and scoped document citations (#2365)
+  // measured 1.525 MB, including 936 KB of document writer proofs. Keep
+  // byte headroom without relaxing request or write-bearing sync limits.
+  bodyBytes: { request: 380_000, response: 1_650_000 },
   byRequest: {
     "GET /documents/:documentId/writer-projection": 11,
     "POST /documents/:documentId/sync": 18,

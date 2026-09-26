@@ -28,16 +28,11 @@ import {
 } from "../containers/containerPersistence";
 import { sqlContainerSyncWatermarkPersistence } from "../containers/containerSyncWatermarkPersistence";
 import { getLatestTimestamp } from "../latestTimestamp";
-import {
-  CONTAINER_METADATA_APP_KIND,
-  deleteContainerMetadataDocumentRowsInTransaction,
-} from "./dormantContainerMetadata";
+import { CONTAINER_METADATA_APP_KIND } from "./dormantContainerMetadata";
 import {
   claimDormantMetadataSweepAttempt,
   completeDormantMetadataSweepRequest,
-  listDormantMetadataSweepCandidates,
   listDormantMetadataSweepRequests,
-  purgeDormantContainerMetadataCandidates,
 } from "./dormantMetadataSweep";
 
 export type {
@@ -201,31 +196,14 @@ export const sqlContainerContentsPersistence: ContainerContentsPersistence = {
         reason: containerHydrationTombstones.reason,
         updatedAt: containerHydrationTombstones.updatedAt,
       })
-      .from(containerHydrationTombstones);
+      .from(containerHydrationTombstones)
+      .where(eq(containerHydrationTombstones.cleared, false));
     return rows.flatMap((row) =>
       row.reason === "access_revoked" || row.reason === "deleted"
         ? [{ ...row, reason: row.reason }]
         : [],
     );
   },
-  async purgeDormantContainerMetadata(execSql, containerId) {
-    await sqlContainerContentsPersistence.ensureSchema(execSql);
-    await runSerializedSqlMutation(execSql, async (lockedExecSql) => {
-      // ONE transaction: a crash that deleted the documents row but kept the
-      // pending updates would hide the dormant record from the next
-      // hydration's mismatch check, letting dead-stream updates resurface
-      // against the replacement metadata document.
-      await getClientSQLitePersistenceRuntime(lockedExecSql).transaction(
-        async (tx) => {
-          await deleteContainerMetadataDocumentRowsInTransaction(tx, [
-            containerId,
-          ]);
-        },
-      );
-    });
-  },
-  listDormantMetadataSweepCandidates,
-  purgeDormantContainerMetadataCandidates,
   async loadContainers(execSql) {
     const containers = await loadContainerRecords(execSql);
     const storedContainers = await Promise.all(

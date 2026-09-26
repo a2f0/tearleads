@@ -38,6 +38,9 @@ export function createExplorerDocumentQueries(
   return {
     applyContainerDocumentTombstones: async () => [],
     hasOrphanedDocuments: async () => false,
+    listRecoveryFolderMoveIds: async () => [],
+    listRecoveryFolders: async () => [],
+    discardRecoveryFolder: async () => false,
     listContainerDocumentSidebarWindow: async ({
       containerId,
       limit,

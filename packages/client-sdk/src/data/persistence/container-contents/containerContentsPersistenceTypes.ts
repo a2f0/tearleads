@@ -1,3 +1,4 @@
+import type { AccessManifestCheckpoint } from "@tearleads/crypto";
 import type { DocumentSyncPullContinuation } from "../../documents/shared/pullContinuation";
 import type {
   DocumentRecord,
@@ -153,6 +154,8 @@ export interface ContainerContentsPersistence
         | ContainerHydrationTombstone
         | null
         | undefined;
+      /** Current placement verified and pinned before recovery insertion. */
+      expectedPlacementCheckpoint?: AccessManifestCheckpoint | undefined;
       purgeDormantMetadata: boolean;
       record: ContainerMetadataRecord;
       remoteUpdatedAt: string;
@@ -186,18 +189,13 @@ export interface ContainerContentsPersistence
     execSql: ExecSql,
     removals: ReadonlyArray<ContainerRemoval>,
     options?: {
+      /** Unsigned discovery removes listings but preserves metadata and local intent. */
+      discoveryOnly?: boolean;
       /**
        * Request-time states rechecked inside the deletion transaction. An
        * absent or changed row means another pane won and aborts the cascade.
        */
       expectedContainers?: ReadonlyArray<ContainerDeletionGuard>;
-      /**
-       * Containers whose own container-metadata document (record, queued
-       * updates, failure rows) must survive the cascade — the access_revoked
-       * branch of docs/sync-edge-cases.md row 4. The metadata re-attaches by
-       * container id when access restoration rehydrates the container.
-       */
-      retainMetadataForContainerIds?: ReadonlyArray<string>;
       stillCurrent?: (() => boolean) | undefined;
     },
   ) => Promise<ReadonlyArray<string>>;
@@ -390,16 +388,6 @@ export interface ContainerContentsPersistence
       stillCurrent?: (() => boolean) | undefined;
     },
   ) => Promise<StoredContainerState | null>;
-  /**
-   * Destroy a dormant container-metadata scope whose remote metadata document
-   * was replaced while access was revoked: its record, queued updates, and
-   * failure rows all belong to a dead update stream and must never target the
-   * replacement document.
-   */
-  purgeDormantContainerMetadata: (
-    execSql: ExecSql,
-    containerId: string,
-  ) => Promise<void>;
   saveContainer: (
     execSql: ExecSql,
     container: ContainerRecord,

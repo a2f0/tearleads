@@ -4,9 +4,7 @@ import { ensureContainerTables } from "../containers/containerPersistence";
 import {
   claimDormantMetadataSweepAttempt,
   completeDormantMetadataSweepRequest,
-  listDormantMetadataSweepCandidates,
   listDormantMetadataSweepRequests,
-  purgeDormantContainerMetadataCandidates,
   requestDormantMetadataRestorationSweeps,
 } from "./dormantMetadataSweep";
 
@@ -28,7 +26,7 @@ test("restoration requests are skipped without dormant metadata", async () => {
   }
 });
 
-test("sweeps preserve newer requests and post-request retentions", async () => {
+test("sweep completion preserves newer requests and all retained metadata", async () => {
   const { close, execSql } = await createTestExecSql(
     "dormant-metadata-sweep-generation",
   );
@@ -88,14 +86,6 @@ test("sweeps preserve newer requests and post-request retentions", async () => {
       lastAttemptedAt: "2026-01-01T00:00:00.000Z",
     });
     await requestDormantMetadataRestorationSweeps(execSql, request);
-    expect(
-      await listDormantMetadataSweepCandidates(execSql, firstSweep),
-    ).toEqual([]);
-    expect(
-      await purgeDormantContainerMetadataCandidates(execSql, firstSweep, [
-        "old-marker",
-      ]),
-    ).toBe(0);
     await completeDormantMetadataSweepRequest(execSql, firstSweep);
     const latestSweep = (
       await listDormantMetadataSweepRequests(execSql, request.requesterUserId)
@@ -108,22 +98,13 @@ test("sweeps preserve newer requests and post-request retentions", async () => {
     if (!latestSweep) {
       throw new Error("Expected the newer restoration sweep");
     }
-    const candidates = await listDormantMetadataSweepCandidates(
-      execSql,
-      latestSweep,
-    );
-    expect(candidates).toEqual(["old-marker"]);
-    expect(
-      await purgeDormantContainerMetadataCandidates(
-        execSql,
-        latestSweep,
-        candidates,
-      ),
-    ).toBe(1);
     const remainingMarkers = await execSql(
       "SELECT container_id FROM dormant_container_metadata ORDER BY container_id",
     );
-    expect(remainingMarkers).toEqual([{ container_id: "late-marker" }]);
+    expect(remainingMarkers).toEqual([
+      { container_id: "late-marker" },
+      { container_id: "old-marker" },
+    ]);
     await completeDormantMetadataSweepRequest(execSql, latestSweep);
     expect(
       await listDormantMetadataSweepRequests(execSql, request.requesterUserId),
@@ -136,7 +117,7 @@ test("sweeps preserve newer requests and post-request retentions", async () => {
   }
 });
 
-test("an expired generation cannot purge metadata or complete its sweep", async () => {
+test("an expired generation cannot complete its sweep", async () => {
   const { close, execSql } = await createTestExecSql(
     "dormant-metadata-sweep-expired-generation",
   );
@@ -153,14 +134,6 @@ test("an expired generation cannot purge metadata or complete its sweep", async 
     const [sweep] = await listDormantMetadataSweepRequests(execSql, "user-1");
     if (!sweep) throw new Error("Expected restoration sweep");
 
-    expect(
-      await purgeDormantContainerMetadataCandidates(
-        execSql,
-        sweep,
-        ["retained-marker"],
-        () => false,
-      ),
-    ).toBe(0);
     await completeDormantMetadataSweepRequest(execSql, sweep, () => false);
 
     expect(

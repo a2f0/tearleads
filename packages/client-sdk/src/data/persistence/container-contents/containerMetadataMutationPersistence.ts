@@ -19,7 +19,6 @@ import {
   type ContainerRecord,
   loadContainerById,
 } from "../containers/containerPersistence";
-import { getLatestTimestamp } from "../latestTimestamp";
 import type {
   ContainerContentsPersistence,
   ContainerMetadataRecord,
@@ -296,25 +295,28 @@ async function prepareContainerMutationWrite(input: {
   const preserveDurableStructure =
     mutation.preserveDurableStructureWhenPending === true &&
     (await hasPendingStructuralIntent(tx, mutation.container.id));
-  const localUpdatedAt = preserveDurableStructure
-    ? (currentContainer.localUpdatedAt ?? requestedLocalUpdatedAt)
-    : requestedLocalUpdatedAt;
+  // Syncing metadata is not a local edit. Preserve the durable edit clock,
+  // including an edit another pane made while this request was in flight.
+  const localUpdatedAt =
+    preserveDurableStructure || mutation.settleAcceptedPendingOnConflict
+      ? (currentContainer.localUpdatedAt ?? requestedLocalUpdatedAt)
+      : requestedLocalUpdatedAt;
   const structurallyRebasedContainer = preserveDurableStructure
     ? { ...mutation.container, parentId: currentContainer.parentId }
     : mutation.container;
   const didSettleOutgoing =
     mutation.acceptedPendingUpdateIds.length > 0 &&
-    !(await hasPendingUpdates(tx, mutation.container.id));
-  const container = didSettleOutgoing
-    ? {
-        ...structurallyRebasedContainer,
-        serverUpdatedAt: getLatestTimestamp(
-          structurallyRebasedContainer.serverUpdatedAt,
-          localUpdatedAt,
-        ),
-      }
-    : structurallyRebasedContainer;
-  return { container, localUpdatedAt };
+    !(await hasPendingUpdates(tx, mutation.container.id)) &&
+    !(await hasPendingStructuralIntent(tx, mutation.container.id));
+  // Only container responses establish the server's structural clock. A
+  // metadata acknowledgement supplies no such timestamp; marking it with our
+  // wall clock would make later valid listings appear stale forever.
+  return {
+    container: structurallyRebasedContainer,
+    localUpdatedAt: didSettleOutgoing
+      ? (currentContainer.serverUpdatedAt ?? localUpdatedAt)
+      : localUpdatedAt,
+  };
 }
 
 export async function commitStoredMetadataMutation(

@@ -49,8 +49,32 @@ test("container schema includes durable hydration tombstones", async () => {
       notNull: 1,
       type: "INTEGER",
     });
+    expect(requireColumn(columns, "cleared")).toMatchObject({
+      defaultValue: "0",
+      notNull: 1,
+      type: "INTEGER",
+    });
     expect(requireColumn(columns, "reason").notNull).toBe(1);
     expect(requireColumn(columns, "updated_at").notNull).toBe(1);
+  } finally {
+    await close();
+  }
+});
+
+test("obsolete hydration fences require a database reset", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "obsolete-hydration-fence",
+  );
+  try {
+    await execSql(`CREATE TABLE container_hydration_tombstones (
+      container_id TEXT PRIMARY KEY NOT NULL,
+      generation INTEGER NOT NULL DEFAULT 1,
+      reason TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    )`);
+    await expect(ensureSqlTables(execSql, containerTables)).rejects.toThrow(
+      "reset the local database",
+    );
   } finally {
     await close();
   }

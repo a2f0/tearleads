@@ -50,9 +50,6 @@ const metadataTestPersistenceStubs = {
   async listContainerIdsWithPullContinuations() {
     return [];
   },
-  async listDormantMetadataSweepCandidates() {
-    return [];
-  },
   async listDormantMetadataSweepRequests() {
     return [];
   },
@@ -70,10 +67,6 @@ const metadataTestPersistenceStubs = {
   },
   async markMoveIntentRevisionSynced() {
     return true;
-  },
-  async purgeDormantContainerMetadata() {},
-  async purgeDormantContainerMetadataCandidates() {
-    return 0;
   },
   async recordCreateIntentRevisionError() {},
   async recordMoveIntentError() {},

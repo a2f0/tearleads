@@ -70,7 +70,7 @@ test("remote deletion fences only an exactly coded missing container", async () 
   );
 });
 
-test("remote deletion uses the server clock for its hydration fence", async () => {
+test("remote deletion prevents unobserved hydration even with a later server clock", async () => {
   const { close, execSql } = await createTestExecSql(
     "container-delete-server-clock",
   );
@@ -122,7 +122,7 @@ test("remote deletion uses the server clock for its hydration fence", async () =
       });
 
     await expect(hydrate(T2)).resolves.toEqual({ committed: false });
-    await expect(hydrate(T4)).resolves.toMatchObject({ committed: true });
+    await expect(hydrate(T4)).resolves.toMatchObject({ committed: false });
   } finally {
     await close();
   }

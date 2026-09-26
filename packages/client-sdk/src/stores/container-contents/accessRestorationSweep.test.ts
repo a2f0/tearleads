@@ -65,6 +65,12 @@ async function seedDormantMetadata(
       snapshotEndVersion: "",
     },
   );
+  await execSql(
+    `INSERT INTO document_pending_updates
+    (id, app_kind, local_id, update_data, partial_start_version_vector, partial_end_version_vector, created_at)
+    VALUES (?, 'container-metadata', ?, 'data', '', '', 'now')`,
+    [`pending-${containerId}`, containerId],
+  );
   await defaultContainerContentsPersistence.deleteContainers(
     execSql,
     [
@@ -74,7 +80,7 @@ async function seedDormantMetadata(
         updatedAt: "2026-01-01T00:00:00.000Z",
       },
     ],
-    { retainMetadataForContainerIds: [containerId] },
+    { discoveryOnly: true },
   );
 }
 
@@ -181,14 +187,14 @@ test("a structural generation change cancels restoration before claiming sweeps"
   expect(hydrationCount).toBe(0);
 });
 
-test("restoration sweep waits for a complete recursive hydration", async () => {
+test("restoration waits for hydration and preserves metadata despite unsigned absence", async () => {
   const { close, execSql } = await createTestExecSql(
     "container-access-restoration-sweep",
   );
   const domainScope = createDomainScope();
   let failHydration = true;
   let hydrationRequests = 0;
-  let retryProbeStatus = 503;
+  const retryProbeStatus = 503;
   try {
     await defaultContainerContentsPersistence.ensureSchema(execSql);
     await seedDormantMetadata(execSql, "revoked");
@@ -264,50 +270,23 @@ test("restoration sweep waits for a complete recursive hydration", async () => {
     );
     await waitForDomainSyncCoordinatorToSettle(domainScope);
     expect(hydrationRequests).toBeGreaterThan(hydrationRequestsAfterFailure);
-    expect(await countMetadataDocuments(execSql, "revoked")).toBe(0);
+    expect(await countMetadataDocuments(execSql, "revoked")).toBe(1);
     expect(await countMetadataDocuments(execSql, "still-revoked")).toBe(1);
     expect(await countMetadataDocuments(execSql, "retry-probe")).toBe(1);
     expect(
       await listDormantMetadataSweepRequests(execSql, "user-1"),
-    ).toHaveLength(1);
+    ).toHaveLength(0);
 
-    const hydrationRequestsAfterAmbiguousProbe = hydrationRequests;
-    await new Promise((resolve) => setTimeout(resolve, 25));
-    store.requestSync();
-    await waitForDomainSyncCoordinatorToSettle(domainScope);
-    expect(hydrationRequests).toBe(hydrationRequestsAfterAmbiguousProbe);
-
-    await execSql(
-      `UPDATE dormant_metadata_sweep_requests
-       SET attempt_count = 4,
-           last_attempted_at = '2000-01-01T00:00:00.000Z'`,
-    );
-    store.requestSync();
-    await waitFor(
-      () => hydrationRequests > hydrationRequestsAfterAmbiguousProbe,
-      "Final bounded restoration probe was not attempted.",
-      2_000,
-    );
-    await waitForDomainSyncCoordinatorToSettle(domainScope);
-    expect(await countMetadataDocuments(execSql, "retry-probe")).toBe(1);
-    expect(await listDormantMetadataSweepRequests(execSql, "user-1")).toEqual(
-      [],
-    );
-
-    const hydrationRequestsAfterExhaustion = hydrationRequests;
+    // A later explicit restoration request can retry discovery; neither a
+    // coded 404 nor an empty listing authorizes purging the retained bytes.
     await requestDormantMetadataRestorationSweeps(execSql, {
       requesterUserId: "user-1",
     });
-    retryProbeStatus = 404;
     store.requestSync();
-    await waitFor(
-      () => hydrationRequests > hydrationRequestsAfterExhaustion,
-      "A new restoration edge did not reset the bounded probe budget.",
-      2_000,
-    );
     await waitForDomainSyncCoordinatorToSettle(domainScope);
-    expect(await countMetadataDocuments(execSql, "retry-probe")).toBe(0);
+    expect(await countMetadataDocuments(execSql, "revoked")).toBe(1);
     expect(await countMetadataDocuments(execSql, "still-revoked")).toBe(1);
+    expect(await countMetadataDocuments(execSql, "retry-probe")).toBe(1);
     expect(await listDormantMetadataSweepRequests(execSql, "user-1")).toEqual(
       [],
     );

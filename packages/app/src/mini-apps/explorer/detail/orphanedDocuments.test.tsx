@@ -13,6 +13,9 @@ test("the orphan recovery collection queries null scope without folder actions",
     Parameters<ContainerDocumentQueries["listContainerItemWindow"]>[0]
   > = [];
   const documentQueries = {
+    listRecoveryFolderMoveIds: async () => [],
+    listRecoveryFolders: async () => [],
+    discardRecoveryFolder: async () => false,
     listContainerItemWindow: async (
       input: Parameters<ContainerDocumentQueries["listContainerItemWindow"]>[0],
     ) => {
@@ -45,6 +48,7 @@ test("the orphan recovery collection queries null scope without folder actions",
       currentSigningFingerprint={null}
       currentSelfContactLocalId={null}
       currentUserId={null}
+      onRecoveryChanged={() => {}}
       documentListRevision={0}
       documentQueries={documentQueries}
       uploadManager={uploadManager}
@@ -69,14 +73,16 @@ test("the orphan recovery collection queries null scope without folder actions",
     containerId: null,
     currentOrganizationId: "org-1",
   });
-  expect(view.getByText(EXPLORER_LABELS.orphanedDocumentsType)).toBeTruthy();
+  expect(
+    view.getAllByText(EXPLORER_LABELS.orphanedDocumentsType).length,
+  ).toBeTruthy();
   expect(
     view.queryByRole("button", {
       name: `${EXPLORER_LABELS.containerHeaderActionsLabel}: ${node.name}`,
     }),
   ).toBeNull();
   const table = view.getByRole("table", {
-    name: "Items in Orphaned Documents",
+    name: `Items in ${EXPLORER_LABELS.orphanedDocumentsName}`,
   });
   expect(fireEvent.contextMenu(table)).toBe(false);
   fireEvent.drop(table, {

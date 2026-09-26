@@ -42,10 +42,7 @@ type SaveContainerOptions = Parameters<
   ContainerContentsPersistence["saveContainer"]
 >[3];
 
-export {
-  createReadOnlyMetadataSyncSaveOptions,
-  hasCurrentContainerMetadataReadState,
-} from "./metadataReadState";
+export { hasCurrentContainerMetadataReadState } from "./metadataReadState";
 export { installContainerMetadataRecord } from "./metadataStateInstallation";
 export { currentMetadataPullContinuation };
 

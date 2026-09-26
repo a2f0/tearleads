@@ -188,6 +188,7 @@ test("remote ingestion replays after recovery without another event", async () =
     lifecycleGeneration: 0,
     persistence: {
       listPendingCreateIntents: async () => [],
+      loadContainerHydrationTombstones: async () => [],
       listUnsyncedMoveIntents: async () => [],
       loadContainerMetadataRecord,
       commitHydratedContainer,
@@ -261,6 +262,7 @@ test("remote ingestion discards payloads from a replaced structural context", as
     persistence: {
       commitHydratedContainer,
       listPendingCreateIntents: async () => [],
+      loadContainerHydrationTombstones: async () => [],
       listUnsyncedMoveIntents: async () => [],
       loadContainerMetadataRecord,
     },
@@ -337,6 +339,7 @@ test("reset during a batch replays every item into the recovered database", asyn
     lifecycleGeneration: 0,
     persistence: {
       listPendingCreateIntents: async () => [],
+      loadContainerHydrationTombstones: async () => [],
       listUnsyncedMoveIntents: async () => [],
       loadContainerMetadataRecord,
       commitHydratedContainer,

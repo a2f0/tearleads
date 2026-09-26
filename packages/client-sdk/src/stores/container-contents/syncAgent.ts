@@ -289,8 +289,10 @@ export function createContainerContentsStoreSyncAgent(input: {
   const scheduleHydration = (
     options?: Parameters<typeof requestHydration>[0],
   ) => observeContainerBackgroundHydration(state, requestHydration(options));
-  const refresh = () =>
+  const refresh: ContainerContentsStoreSyncAgent["refresh"] = (options) =>
     refreshAllRemoteHydration({
+      // Explicit user refresh must rediscover children hidden by unsigned hints.
+      resetAllLaneWatermarks: options?.resetAllLaneWatermarks,
       requestHydration: requestRefreshHydration,
       state,
     });

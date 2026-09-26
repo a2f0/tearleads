@@ -37,15 +37,17 @@ export const containers = sqliteTable(
 );
 
 /**
- * Latest remote removal observed for each container. Deleted fences reject
- * equal-or-older hydration, while access-revoked fences allow the same unchanged
- * server object to re-attach after access is restored.
+ * Latest removal observed for each container. Hydration must observe the same
+ * generation before fetching verified restoration evidence; unsigned clocks
+ * never establish a terminal deletion or bypass a concurrent removal. Cleared
+ * observations retain their generation so remove/restore/remove cannot reuse it.
  */
 export const containerHydrationTombstones = sqliteTable(
   "container_hydration_tombstones",
   {
     containerId: text("container_id").notNull(),
     generation: integer("generation").notNull().default(1),
+    cleared: integer("cleared", { mode: "boolean" }).notNull().default(false),
     reason: text("reason").notNull(),
     updatedAt: text("updated_at").notNull(),
   },
@@ -113,7 +115,10 @@ export const containerProjection = sqliteTable(
 
 export const containerTableSchemas: ReadonlyArray<SqlTableSchema> = [
   defineSqlTableSchema(containers),
-  defineSqlTableSchema(containerHydrationTombstones),
+  {
+    ...defineSqlTableSchema(containerHydrationTombstones),
+    requiredColumns: ["cleared"],
+  },
   defineSqlTableSchema(containerProjection),
   defineSqlTableSchema(dormantContainerMetadata),
   defineSqlTableSchema(dormantMetadataSweepRequests),

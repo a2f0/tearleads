@@ -8,6 +8,6 @@ export const EXPLORER_ITEM_LABELS = {
   itemSyncColumn: "Sync",
   itemTableEmpty: "No items.",
   orphanedDocumentsEmpty: "No orphaned documents.",
-  orphanedDocumentsName: "Orphaned Documents",
-  orphanedDocumentsType: "Recovery",
+  orphanedDocumentsName: "Recovery",
+  orphanedDocumentsType: "Retained local items",
 } as const;

@@ -17,7 +17,6 @@ import { createDomainScope } from "../../src/data/domainScope";
 import { sqlDocumentMoveIntentPersistence } from "../../src/data/persistence/container-contents/documentMoveIntentPersistence";
 import { sqlDocumentContainerProjectionPersistence } from "../../src/data/persistence/containers/documentContainerProjectionPersistence";
 import type { ExecSql } from "../../src/data/sqlite/sqlSchema";
-import { createTestContainerState } from "../../src/workflows/container-contents/container-state/containerState.testFixtures";
 import { syncPendingDocumentMoveIntents } from "../../src/workflows/container-contents/documentMoveIntentSync";
 import type { DocumentStructuralMutationRelinkInput } from "../../src/workflows/container-contents/documentStructure";
 import type { ContainerContentsWorkflowRuntime } from "../../src/workflows/container-contents/runtime";
@@ -28,6 +27,7 @@ import {
 import { buildMaterializedDocumentCreatePlan } from "../../src/workflows/documents/create";
 import { createRuntimePrincipalPolicyWarmer } from "../../src/workflows/principals/runtimePolicyWarmer";
 import { createAuthor, createResponse } from "./documentFixtures";
+import { queuedDocumentMoveLocalState } from "./queuedDocumentMoveLocalState";
 import {
   createQueuedDocumentMoveRemote,
   type QueuedDocumentMoveFailure,
@@ -43,6 +43,7 @@ import { createTestTrustedUserIdentity } from "./trustedUserIdentity";
 export type { QueuedDocumentMoveFailure } from "./queuedDocumentMoveRemote";
 
 export async function runQueuedDocumentMoveFixture(input: {
+  absentLocalContainerIds?: readonly string[];
   linkOnly?: boolean | undefined;
   remoteUnlinkSource?: boolean | undefined;
   linkSuccessesBeforeFailure?: number | undefined;
@@ -420,18 +421,11 @@ export async function runQueuedDocumentMoveFixture(input: {
     // One state object across passes = one launch (the denied replay runs
     // once), matching a structural lane re-arming against the same store.
     const state = {
-      containersById: new Map(
-        containerProjections.map((projection) => [
-          projection.containerId,
-          createTestContainerState({
-            id: projection.containerId,
-            parentId:
-              projection.containerId === rootProjection.containerId
-                ? null
-                : rootProjection.containerId,
-          }),
-        ]),
-      ),
+      containersById: queuedDocumentMoveLocalState({
+        projections: containerProjections,
+        rootId: rootProjection.containerId,
+        absentIds: input.absentLocalContainerIds,
+      }),
       resolveProjectionUserKey,
       runtime,
     };

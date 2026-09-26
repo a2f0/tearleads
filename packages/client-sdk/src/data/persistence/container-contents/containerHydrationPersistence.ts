@@ -1,11 +1,16 @@
-import { eq, sql } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 import { documentSyncPullContinuationsEqual } from "../../documents/shared/pullContinuation";
-import { containerHydrationTombstones, containers } from "../../sqlite/schema";
+import {
+  containerHydrationTombstones,
+  containerMoveIntents,
+  containers,
+} from "../../sqlite/schema";
 import {
   type ClientSQLiteTransactionScope,
   getClientSQLitePersistenceRuntime,
 } from "../../sqlite/sqlitePersistenceRuntime";
 import { runSerializedSqlMutation } from "../../sqlite/sqlSchema";
+import { loadStoredAccessManifestCheckpoint } from "../keyingCheckpointPersistence";
 import type {
   ContainerContentsPersistence,
   ContainerHydrationTombstone,
@@ -86,6 +91,7 @@ export async function recordContainerHydrationTombstones(input: {
       target: containerHydrationTombstones.containerId,
       set: {
         generation: sql`${containerHydrationTombstones.generation} + 1`,
+        cleared: false,
         reason: sql`CASE
           WHEN ${containerHydrationTombstones.reason} = 'deleted' THEN 'deleted'
           ELSE excluded.reason
@@ -94,6 +100,51 @@ export async function recordContainerHydrationTombstones(input: {
       },
     })
     .run();
+}
+
+async function placementCheckpointMatches(
+  tx: ClientSQLiteTransactionScope,
+  input: Parameters<ContainerContentsPersistence["commitHydratedContainer"]>[1],
+): Promise<boolean> {
+  const expected = input.expectedPlacementCheckpoint;
+  if (!expected) return true;
+  const current = await loadStoredAccessManifestCheckpoint(tx, expected);
+  return (
+    expected.objectKind === "container" &&
+    expected.objectId === input.container.id &&
+    expected.organizationId === input.container.organizationId &&
+    current?.epoch === expected.epoch &&
+    current.manifestHash === expected.manifestHash
+  );
+}
+
+/** A retained local move continues to own placement after verified reattachment. */
+async function saveRecoveredContainer(
+  tx: ClientSQLiteTransactionScope,
+  input: Parameters<ContainerContentsPersistence["commitHydratedContainer"]>[1],
+) {
+  const [move] = await tx
+    .select()
+    .from(containerMoveIntents)
+    .where(
+      and(
+        eq(containerMoveIntents.containerId, input.container.id),
+        inArray(containerMoveIntents.syncStatus, ["pending", "blocked"]),
+      ),
+    )
+    .limit(1);
+  return saveContainerContentsContainerRows({
+    container: move
+      ? { ...input.container, parentId: move.parentContainerId }
+      : input.container,
+    localUpdatedAt:
+      move?.updatedAt ??
+      input.saveOptions.localUpdatedAt ??
+      input.remoteUpdatedAt,
+    record: input.record,
+    serverTimestamps: input.saveOptions.serverTimestamps,
+    tx,
+  });
 }
 
 export async function commitStoredHydratedContainer(
@@ -111,6 +162,8 @@ export async function commitStoredHydratedContainer(
         .where(eq(containers.id, input.container.id))
         .limit(1);
       if (existingContainers.length > 0) return { committed: false as const };
+      if (!(await placementCheckpointMatches(tx, input)))
+        return { committed: false as const };
 
       const fences = await tx
         .select({
@@ -119,7 +172,12 @@ export async function commitStoredHydratedContainer(
           updatedAt: containerHydrationTombstones.updatedAt,
         })
         .from(containerHydrationTombstones)
-        .where(eq(containerHydrationTombstones.containerId, input.container.id))
+        .where(
+          and(
+            eq(containerHydrationTombstones.containerId, input.container.id),
+            eq(containerHydrationTombstones.cleared, false),
+          ),
+        )
         .limit(1);
       const fence = fences[0];
       const currentDormantRecord = await selectContainerMetadataRecord(
@@ -128,9 +186,7 @@ export async function commitStoredHydratedContainer(
       );
       if (
         fence &&
-        fence.updatedAt >= input.remoteUpdatedAt &&
-        (fence.reason === "deleted" ||
-          !sameHydrationTombstone(fence, input.expectedHydrationTombstone))
+        !sameHydrationTombstone(fence, input.expectedHydrationTombstone)
       ) {
         return { committed: false as const };
       }
@@ -145,17 +201,10 @@ export async function commitStoredHydratedContainer(
         ]);
       }
 
-      const localUpdatedAt =
-        input.saveOptions.localUpdatedAt ?? input.remoteUpdatedAt;
-      const container = await saveContainerContentsContainerRows({
-        container: input.container,
-        localUpdatedAt,
-        record: input.record,
-        serverTimestamps: input.saveOptions.serverTimestamps,
-        tx,
-      });
+      const container = await saveRecoveredContainer(tx, input);
       await tx
-        .delete(containerHydrationTombstones)
+        .update(containerHydrationTombstones)
+        .set({ cleared: true })
         .where(eq(containerHydrationTombstones.containerId, input.container.id))
         .run();
       return { committed: true as const, container };

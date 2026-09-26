@@ -156,7 +156,13 @@ async function upsertQueuedRemoteContainer(input: {
     return false;
   }
 
+  const tombstones = await state.persistence.loadContainerHydrationTombstones(
+    state.runtime.infra.execSql,
+  );
   const upserted = await upsertRemoteContainerState({
+    expectedHydrationTombstone:
+      tombstones.find((row) => row.containerId === queuedRemoteContainer.id) ??
+      null,
     containerIdsWithPendingMetadataUpdates,
     containerIdsWithPendingStructuralIntents,
     host,

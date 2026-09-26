@@ -65,6 +65,11 @@ test("a deletion fence rejects an equal absent-container hydration", async () =>
           serverUpdatedAt: "2026-01-04T00:00:00.000Z",
         },
         expectedDormantRecord: null,
+        expectedHydrationTombstone: (
+          await sqlContainerContentsPersistence.loadContainerHydrationTombstones(
+            execSql,
+          )
+        )[0],
         purgeDormantMetadata: false,
         record,
         remoteUpdatedAt: "2026-01-04T00:00:00.000Z",
@@ -88,6 +93,12 @@ test("dormant metadata reattaches only when the fetch observed its revocation fe
       container,
       record,
     );
+    await execSql(
+      `INSERT INTO document_pending_updates
+      (id, app_kind, local_id, update_data, partial_start_version_vector, partial_end_version_vector, created_at)
+      VALUES ('pending-rename', 'container-metadata', ?, 'data', '', '', 'now')`,
+      [container.id],
+    );
     await sqlContainerContentsPersistence.deleteContainers(
       execSql,
       [
@@ -97,7 +108,7 @@ test("dormant metadata reattaches only when the fetch observed its revocation fe
           updatedAt: revokedAt,
         },
       ],
-      { retainMetadataForContainerIds: [container.id] },
+      { discoveryOnly: true },
     );
     const dormantRecord =
       await sqlContainerContentsPersistence.loadContainerMetadataRecord(
@@ -181,7 +192,7 @@ test("an observed fence-only revocation permits unchanged rehydration", async ()
   }
 });
 
-test("each deletion fence keeps its own remote timestamp", async () => {
+test("unobserved deletion generations refuse hydration regardless of timestamps", async () => {
   const { close, execSql } = await createTestExecSql(
     "container-hydration-per-container-fence",
   );
@@ -215,7 +226,7 @@ test("each deletion fence keeps its own remote timestamp", async () => {
         saveOptions: {},
       });
 
-    expect((await hydrate("container-earlier")).committed).toBe(true);
+    expect((await hydrate("container-earlier")).committed).toBe(false);
     expect(await hydrate("container-later")).toEqual({ committed: false });
   } finally {
     await close();
@@ -386,7 +397,7 @@ test("a tombstone transaction refuses a newer pane's container state", async () 
               expectedContainer: staleState.container,
             },
           ],
-          retainMetadataForContainerIds: [container.id],
+          discoveryOnly: true,
         },
       ),
     ).resolves.toEqual([]);

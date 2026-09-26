@@ -4,6 +4,10 @@ import type {
   DiscoveredDocumentInput,
   DocumentSummary,
 } from "../../data/documents/documentSummary";
+import {
+  hasRetainedContainerMetadata,
+  listRecoveryFolderMoveIds,
+} from "../../data/persistence/container-contents/containerRecoveryPersistence";
 import { ensureContainerTables } from "../../data/persistence/containers/containerPersistence";
 import {
   containerContentsSyncLane,
@@ -47,6 +51,10 @@ import type {
   ContainerItemWindow,
 } from "./documentQueries/types";
 import {
+  createFolderRecoveryQueries,
+  type RecoveryFolder,
+} from "./folderRecovery";
+import {
   getOrphanedDocumentQueryBind,
   getOrphanedDocumentWhereSql,
 } from "./orphanedDocumentSql";
@@ -79,6 +87,15 @@ interface ListContainerItemWindowInput {
 }
 
 export interface ContainerDocumentQueries {
+  listRecoveryFolderMoveIds(input: {
+    currentOrganizationId: string | null;
+  }): Promise<string[]>;
+  listRecoveryFolders(input: {
+    currentOrganizationId: string | null;
+  }): Promise<RecoveryFolder[]>;
+  discardRecoveryFolder(
+    input: Pick<RecoveryFolder, "containerId" | "organizationId" | "revision">,
+  ): Promise<boolean>;
   applyContainerDocumentTombstones(
     tombstones: ReadonlyArray<ContainerDocumentTombstone>,
   ): Promise<ReadonlyArray<DocumentSummary>>;
@@ -194,7 +211,11 @@ async function hasOrphanedDocuments(
     getOrphanedDocumentExistsSql(),
     getOrphanedDocumentQueryBind(currentOrganizationId),
   );
-  return rows.length > 0;
+  return (
+    rows.length > 0 ||
+    (await hasRetainedContainerMetadata(execSql, currentOrganizationId)) ||
+    (await listRecoveryFolderMoveIds(execSql, currentOrganizationId)).length > 0
+  );
 }
 
 async function listContainerDocumentSidebarWindow(
@@ -370,6 +391,7 @@ export function createContainerDocumentQueriesFromRuntime(
 ): ContainerDocumentQueries {
   const execSql = runtime.infra.execSql;
   return {
+    ...createFolderRecoveryQueries(execSql),
     applyContainerDocumentTombstones(tombstones) {
       return applyPersistedContainerDocumentTombstones(execSql, tombstones);
     },

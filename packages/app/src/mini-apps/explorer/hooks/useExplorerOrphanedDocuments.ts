@@ -5,8 +5,10 @@ import type {
 import { useEffect, useMemo, useRef, useState } from "react";
 import { isIgnorableDatabaseWorkerError } from "../../../stores/explorer/documentRuntime";
 import {
+  containerTopologyKey,
   createExplorerOrphanedDocumentsNode,
   EXPLORER_ORPHANED_DOCUMENTS_ID,
+  listLocalOrphanFolders,
 } from "../../../stores/explorer/orphanedDocuments";
 import { EXPLORER_LABELS } from "../labels";
 
@@ -53,7 +55,7 @@ export function useExplorerNodesWithOrphanedDocuments(params: {
   logErrorRef.current = logError;
   // A container removal can create row-3 orphans, so topology changes must
   // re-probe even when the document revision counters have not changed.
-  const nodeIdsKey = nodes.map((node) => node.id).join("\u0000");
+  const nodeIdsKey = containerTopologyKey(nodes);
 
   useEffect(() => {
     if (!dbReady || !ready) {
@@ -108,12 +110,15 @@ export function useExplorerNodesWithOrphanedDocuments(params: {
     ready,
   ]);
 
+  const hasLocalOrphans =
+    listLocalOrphanFolders(nodes, organizationId, new Set()).length > 0;
   const visible =
     dbReady &&
     ready &&
-    visibility?.documentQueries === documentQueries &&
-    visibility.organizationId === organizationId &&
-    visibility.visible;
+    (hasLocalOrphans ||
+      (visibility?.documentQueries === documentQueries &&
+        visibility.organizationId === organizationId &&
+        visibility.visible));
 
   return useMemo(
     () =>

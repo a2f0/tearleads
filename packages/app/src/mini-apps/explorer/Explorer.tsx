@@ -120,14 +120,14 @@ interface BlobPickPanelRenderParams extends BlobPickPanelProps {
 function renderExplorerDetailPanelWithBlobPick(
   params: BlobPickPanelRenderParams,
 ) {
-  const { appData, blobPick, model, onOpenGrant, resolveAttributionUserLabel } =
-    params;
+  const { appData, blobPick, model } = params;
   const { routeState } = model;
 
   return (
     <ExplorerDetailPanel
+      onRecoveryChanged={model.onRecoveryChanged}
       activateLinkedContainer={model.activateLinkedContainer}
-      attributionUserLabelResolver={resolveAttributionUserLabel}
+      attributionUserLabelResolver={params.resolveAttributionUserLabel}
       blobPickTarget={blobPick.pickTarget}
       blobStore={appData.infra.blobStore}
       billingBlockedOrganizationId={params.billingBlockedOrganizationId}
@@ -169,7 +169,7 @@ function renderExplorerDetailPanelWithBlobPick(
       onContainerContextMenu={model.contextMenuState.handleContainerContextMenu}
       onItemContextMenu={model.contextMenuState.handleItemContextMenu}
       openSyncLanesRoute={routeState.openSyncLanesRoute}
-      onOpenGrant={onOpenGrant}
+      onOpenGrant={params.onOpenGrant}
       onOpenSyncLaneDetailRoute={routeState.openSyncLaneDetailRoute}
       onPickBlob={blobPick.resolveBlobPick}
       openInlineDocument={model.openInlineDocument}

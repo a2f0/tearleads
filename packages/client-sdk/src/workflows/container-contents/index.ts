@@ -91,6 +91,7 @@ export {
   removeDocumentLink,
   type SetLinkedContainerIdsForDocument,
 } from "./documentStructure";
+export type { RecoveryFolder } from "./folderRecovery";
 export {
   type ContainerMetadataPatch,
   hasContainerMetadataDocumentUpdateEvent,

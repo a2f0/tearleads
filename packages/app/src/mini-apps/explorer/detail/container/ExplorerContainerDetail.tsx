@@ -26,6 +26,7 @@ import type { ExplorerUploadManager } from "../../hooks/useExplorerUploadManager
 import { EXPLORER_LABELS } from "../../labels";
 import { ExplorerContainerIcon } from "../../shared/ExplorerContainerIcon";
 import { ExplorerSyncStateBadge } from "../../shared/ExplorerSyncStateBadge";
+import { ExplorerRecoveryFolders } from "../recovery/ExplorerRecoveryFolders";
 import { ExplorerContainerItemTable } from "./ExplorerContainerItemTable";
 import {
   getNextExplorerItemSort,
@@ -115,6 +116,7 @@ interface ExplorerContainerDetailProps {
   currentSelfContactLocalId: string | null | undefined;
   currentUserId: string | null | undefined;
   documentListRevision: number;
+  onRecoveryChanged: () => void;
   documentQueries: ContainerDocumentQueries;
   uploadManager: ExplorerUploadManager;
   online: boolean;
@@ -220,15 +222,11 @@ function ExplorerContainerImportStatus({
 export function ExplorerContainerDetail(params: ExplorerContainerDetailProps) {
   const {
     contactAvatarUrlByLocalId,
-    contextTarget,
     currentSigningFingerprint,
     currentSelfContactLocalId,
-    currentUserId,
     online,
     uploadManager,
-    onContainerContextMenu,
     onItemContextMenu,
-    refreshError,
     selectDocumentProjection,
     selectedNode,
     setSelectedId,
@@ -257,24 +255,30 @@ export function ExplorerContainerDetail(params: ExplorerContainerDetailProps) {
     >
       <ExplorerContainerDetailHeader
         online={online}
-        onContainerContextMenu={onContainerContextMenu}
+        onContainerContextMenu={params.onContainerContextMenu}
         recoveryCollection={recoveryCollection}
         selectedNode={selectedNode}
         showHeaderSyncIndicator={params.showHeaderSyncIndicator}
       />
-      {refreshError ? (
+      {params.refreshError ? (
         <MiniAppStatus as="span" tone="error">
-          {refreshError}
+          {params.refreshError}
         </MiniAppStatus>
+      ) : null}
+      {recoveryCollection ? (
+        <ExplorerRecoveryFolders
+          {...params}
+          currentOrganizationId={params.currentOrganizationId ?? null}
+        />
       ) : null}
       <ExplorerContainerImportStatus fileDropTarget={fileDropTarget} />
       <ExplorerContainerItemTable
         compact={compact}
         contactAvatarUrlByLocalId={contactAvatarUrlByLocalId}
-        contextTarget={contextTarget}
+        contextTarget={params.contextTarget}
         currentSigningFingerprint={currentSigningFingerprint}
         currentSelfContactLocalId={currentSelfContactLocalId}
-        currentUserId={currentUserId}
+        currentUserId={params.currentUserId}
         dragActive={fileDropTarget.dragActive}
         dragDisabled={recoveryCollection}
         emptyLabel={getExplorerContainerEmptyLabel(recoveryCollection)}
@@ -289,7 +293,7 @@ export function ExplorerContainerDetail(params: ExplorerContainerDetailProps) {
         isLoading={itemWindow.isLoading}
         online={online}
         onBlankContextMenu={
-          recoveryCollection ? undefined : onContainerContextMenu
+          recoveryCollection ? undefined : params.onContainerContextMenu
         }
         onItemContextMenu={onItemContextMenu}
         onSort={handleSort}

@@ -27,7 +27,7 @@ export interface ContainerContentsStoreSyncAgent {
     isCurrent?: (() => boolean) | undefined,
   ) => Promise<void>;
   refreshLocalContainers: () => Promise<void>;
-  refresh: () => Promise<boolean>;
+  refresh: (options?: { resetAllLaneWatermarks?: boolean }) => Promise<boolean>;
   refreshRootLane: (options?: RefreshRootLaneOptions) => Promise<boolean>;
   requestRemoteHydration: (options?: {
     followDiscoveredParentLanes?: boolean | undefined;

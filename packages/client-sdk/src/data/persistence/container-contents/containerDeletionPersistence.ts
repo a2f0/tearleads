@@ -2,7 +2,9 @@ import { inArray } from "drizzle-orm";
 import { ensureDocumentProjectionTables } from "../../sqlite/documentPersistence";
 import {
   containerCreateIntents,
+  containerCreateIntentTables,
   containerMoveIntents,
+  containerMoveIntentTables,
   containers,
   documentContainerProjectionTables,
   documentMoveIntentTables,
@@ -29,8 +31,12 @@ import type {
   ContainerRemoval,
 } from "./containerContentsPersistenceTypes";
 import { recordContainerHydrationTombstones } from "./containerHydrationPersistence";
+import { containerIdsWithRemovalWork } from "./containerRemovalWork";
 import { repairDocumentsForRemovedContainersInTransaction } from "./containerStructuralRepair";
-import { repairLinkIntentsForRemovedContainers } from "./documentLinkRemovalRepair";
+import {
+  refreshPlacementIntentsAfterRemoval,
+  repairLinkIntentsForRemovedContainers,
+} from "./documentLinkRemovalRepair";
 import {
   deleteContainerMetadataDocumentRowsInTransaction,
   retainDormantContainerMetadataInTransaction,
@@ -155,6 +161,7 @@ async function retainRemovedContainerMetadata(input: {
 }
 
 async function applyContainerRemovals(input: {
+  discoveryOnly: DeleteContainerOptions["discoveryOnly"];
   metadataDeleteIds: ReadonlyArray<string>;
   removals: ReadonlyArray<ContainerRemoval>;
   retainedMetadataIds: ReadonlyArray<string>;
@@ -170,19 +177,30 @@ async function applyContainerRemovals(input: {
     retainedAt: new Date().toISOString(),
     tx: input.tx,
   });
+  // Listing clocks are untrusted; they cannot advance local projection clocks.
+  const localObservedAt = new Date().toISOString();
   await repairDocumentsForRemovedContainersInTransaction({
-    removals: input.removals,
+    removals: input.discoveryOnly
+      ? input.removals.map((removal) => ({
+          ...removal,
+          updatedAt: localObservedAt,
+        }))
+      : input.removals,
     tx: input.tx,
   });
-  await repairLinkIntentsForRemovedContainers({ containerIds, tx: input.tx });
-  await input.tx
-    .delete(containerCreateIntents)
-    .where(inArray(containerCreateIntents.containerId, containerIds))
-    .run();
-  await input.tx
-    .delete(containerMoveIntents)
-    .where(inArray(containerMoveIntents.containerId, containerIds))
-    .run();
+  if (input.discoveryOnly) {
+    await refreshPlacementIntentsAfterRemoval({ containerIds, tx: input.tx });
+  } else {
+    await repairLinkIntentsForRemovedContainers({ containerIds, tx: input.tx });
+    await input.tx
+      .delete(containerCreateIntents)
+      .where(inArray(containerCreateIntents.containerId, containerIds))
+      .run();
+    await input.tx
+      .delete(containerMoveIntents)
+      .where(inArray(containerMoveIntents.containerId, containerIds))
+      .run();
+  }
   await deleteContainerRowsInTransaction(input.tx, containerIds);
   await deleteContainerMetadataDocumentRowsInTransaction(
     input.tx,
@@ -203,6 +221,8 @@ export async function deleteStoredContainers(
     await ensureSqlTables(lockedExecSql, documentContainerProjectionTables);
     await ensureSqlTables(lockedExecSql, documentMoveIntentTables);
     await ensureContainerTables(lockedExecSql);
+    await ensureSqlTables(lockedExecSql, containerCreateIntentTables);
+    await ensureSqlTables(lockedExecSql, containerMoveIntentTables);
     await ensureDocumentProjectionTables(lockedExecSql);
     await sqlContainerSyncWatermarkPersistence.ensureSchema(lockedExecSql);
     const runtime = getClientSQLitePersistenceRuntime(lockedExecSql);
@@ -216,12 +236,14 @@ export async function deleteStoredContainers(
       ) {
         return [];
       }
-      const retainedMetadataIds = uniqueRemovals.flatMap((removal) =>
-        options?.retainMetadataForContainerIds?.includes(removal.containerId)
-          ? [removal.containerId]
-          : [],
-      );
+      const retainedMetadataIds = options?.discoveryOnly
+        ? await containerIdsWithRemovalWork(
+            tx,
+            uniqueRemovals.map((removal) => removal.containerId),
+          )
+        : [];
       return applyContainerRemovals({
+        discoveryOnly: options?.discoveryOnly,
         metadataDeleteIds: uniqueRemovals.flatMap((removal) =>
           retainedMetadataIds.includes(removal.containerId)
             ? []

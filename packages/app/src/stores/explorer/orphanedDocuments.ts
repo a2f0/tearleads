@@ -49,3 +49,24 @@ export function createExplorerOrphanedDocumentsNode(
     },
   };
 }
+
+export function listLocalOrphanFolders(
+  nodes: readonly ContainerNode[],
+  organizationId: string | null,
+  pendingMoveIds: ReadonlySet<string>,
+): ContainerNode[] {
+  const ids = new Set(nodes.map((node) => node.id));
+  return nodes.filter(
+    (node) =>
+      node.organizationId === organizationId &&
+      (!node.metadataDocumentId ||
+        node.syncState.status === "local-only" ||
+        pendingMoveIds.has(node.id)) &&
+      node.parentId !== null &&
+      !ids.has(node.parentId),
+  );
+}
+
+export function containerTopologyKey(nodes: readonly ContainerNode[]): string {
+  return nodes.map((node) => `${node.id}:${node.parentId}`).join("\u0000");
+}
