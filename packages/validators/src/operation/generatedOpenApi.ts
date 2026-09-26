@@ -11524,6 +11524,8 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        /** @constant */
+                        code: "container_projection_state_invalid";
                         error: string;
                     } & {
                         [key: string]: unknown;

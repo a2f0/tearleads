@@ -4,10 +4,7 @@ import type {
   ReferencedPrincipalHead,
   VerifiedPrincipalPolicySnapshot,
 } from "@tearleads/crypto";
-import {
-  principalPolicyMatchesReference,
-  verifyPrincipalPolicySnapshot,
-} from "@tearleads/crypto";
+import { principalPolicyMatchesReference } from "@tearleads/crypto";
 import type { PrincipalPolicySnapshotResponse } from "@tearleads/validators/response";
 import {
   getPrincipalStatesForReferences,
@@ -16,6 +13,7 @@ import {
 } from "../../access/read/principalStateStore";
 import { buildPrincipalPolicySnapshotForStateWithExecutor } from "./principalPolicyBundleRecords";
 import { PrincipalPolicyError } from "./shared";
+import { verifyStoredPolicySnapshot } from "./snapshotVerificationCache";
 import { loadPolicySignerPublicKeys } from "./storedPrincipalPolicySource";
 
 interface VerifiedSnapshot {
@@ -174,7 +172,7 @@ async function verifySnapshot(input: {
     input.executor,
     input.snapshot,
   );
-  const direct = await verifyPrincipalPolicySnapshot({
+  const direct = await verifyStoredPolicySnapshot({
     expectedReference: input.reference,
     signerPublicKeys,
     snapshot: input.snapshot,
@@ -198,7 +196,7 @@ async function verifySnapshot(input: {
       input.executor,
       authorityState,
     );
-  const authority = await verifyPrincipalPolicySnapshot({
+  const authority = await verifyStoredPolicySnapshot({
     expectedReference: authorityReference,
     signerPublicKeys: await loadPolicySignerPublicKeys(
       input.executor,
@@ -209,7 +207,7 @@ async function verifySnapshot(input: {
   if (!authority.ok) {
     throw new PrincipalPolicyError(authority.error.message, 409);
   }
-  const verified = await verifyPrincipalPolicySnapshot({
+  const verified = await verifyStoredPolicySnapshot({
     expectedReference: input.reference,
     externalAuthority: externalAuthorityFromPolicy(authority.value),
     signerPublicKeys,

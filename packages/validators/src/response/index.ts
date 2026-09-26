@@ -111,6 +111,7 @@ export {
   ContainerSummaryResponseSchema,
   type ContainerSyncTombstone,
   ContainerSyncTombstoneResponseSchema,
+  ContainerWriterProjectionErrorResponseSchema,
   type ContainerWriterProjectionResponse,
   ContainerWriterProjectionResponseSchema,
   isContainerDeleteResponse,

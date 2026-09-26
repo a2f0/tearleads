@@ -29291,11 +29291,16 @@
                 "schema": {
                   "type": "object",
                   "properties": {
+                    "code": {
+                      "type": "string",
+                      "const": "container_projection_state_invalid"
+                    },
                     "error": {
                       "type": "string"
                     }
                   },
                   "required": [
+                    "code",
                     "error"
                   ],
                   "additionalProperties": {}

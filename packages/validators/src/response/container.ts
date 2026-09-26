@@ -205,6 +205,10 @@ export type ContainerDeleteResponse = z.infer<
 
 export const CONTAINER_PROJECTION_STATE_INVALID_ERROR_CODE =
   "container_projection_state_invalid";
+export const ContainerWriterProjectionErrorResponseSchema = loosePlainObject({
+  code: z.literal(CONTAINER_PROJECTION_STATE_INVALID_ERROR_CODE),
+  error: z.string(),
+});
 
 const containerKeyingPathShape = {
   containerId: z.string(),
@@ -216,7 +220,12 @@ function refineContainerKeyingPath(
   projection: { containerKeks: unknown[]; path: unknown[] },
   context: z.RefinementCtx,
 ) {
-  if (projection.containerKeks.length !== projection.path.length)
+  // loosePlainObject can continue refinements after reporting malformed fields.
+  if (
+    Array.isArray(projection.containerKeks) &&
+    Array.isArray(projection.path) &&
+    projection.containerKeks.length !== projection.path.length
+  )
     context.addIssue({
       code: "custom",
       message: "container KEK count must match the manifest path length",

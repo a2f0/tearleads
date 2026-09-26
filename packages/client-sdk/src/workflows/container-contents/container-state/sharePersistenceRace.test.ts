@@ -94,9 +94,11 @@ for (const variant of ["new share", "duplicate share"] as const) {
         containerId,
         organizationId: "organization-1",
       } as ContainerWriterProjectionResponse;
+      let policyReadCount = 0;
       const runtime = {
         apiClient: {
           getCurrentPrincipalPolicy: async () => {
+            policyReadCount += 1;
             throw new Error(
               "Policy service became unavailable after the share committed",
             );
@@ -144,16 +146,7 @@ for (const variant of ["new share", "duplicate share"] as const) {
                 accessStateHash: "access-after-share",
                 createdAt: "2026-01-01T00:00:00.000Z",
                 metadataDocumentId: `metadata-${containerId}`,
-                referencedPrincipalHeads: [
-                  {
-                    principalType: "group",
-                    principalId: "committed-share-group",
-                    version: 2,
-                    keyEpoch: 1,
-                    stateHash: "a".repeat(64),
-                    keyFingerprint: "b".repeat(64),
-                  },
-                ],
+                referencedPrincipalHeads: [],
                 updatedAt: "2026-01-02T00:00:00.000Z",
               },
               persistence,
@@ -164,6 +157,7 @@ for (const variant of ["new share", "duplicate share"] as const) {
       if (result?.status !== "persisted") {
         throw new Error("Expected persisted share state");
       }
+      if (variant === "new share") expect(policyReadCount).toBe(0);
       expect(containerState.doc).toBe(liveDoc);
       expect(
         readContainerMetadataValue(containerState.doc, "fallback"),

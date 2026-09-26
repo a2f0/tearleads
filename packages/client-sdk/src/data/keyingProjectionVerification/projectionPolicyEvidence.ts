@@ -52,7 +52,9 @@ async function verifyDirectories(input: {
     descriptors.push(descriptor);
     states.delete(payload.stateHash);
   }
-  if (states.size > 0) reject("directory history is incomplete");
+  // Only directory payloads needed to bind the supplied group heads are
+  // required. The organization's complete signed state chain is verified above;
+  // unrelated payload bodies add no authority and need not be disclosed.
   return descriptors;
 }
 

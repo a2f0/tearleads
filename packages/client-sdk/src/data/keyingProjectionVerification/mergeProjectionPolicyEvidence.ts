@@ -1,6 +1,7 @@
 import { KeyingVerificationError } from "@tearleads/crypto";
 import type {
   PrincipalPolicySnapshotResponse,
+  PrincipalStatePayloadResponse,
   ProjectionPolicyEvidenceResponse,
 } from "@tearleads/validators/response";
 
@@ -31,10 +32,26 @@ export function mergeProjectionPolicyEvidence(
 ): ProjectionPolicyEvidenceResponse {
   let directory: ProjectionPolicyEvidenceResponse | undefined;
   const groups = new Map<string, PrincipalPolicySnapshotResponse>();
+  const payloads = new Map<string, PrincipalStatePayloadResponse>();
   for (const proof of evidence) {
     const organization = proof.organization;
     if (organization && newer(directory?.organization, organization))
       directory = proof;
+    for (const payload of proof.organizationPayloads) {
+      const previous = payloads.get(payload.stateHash);
+      if (
+        previous &&
+        (previous.principalId !== payload.principalId ||
+          previous.principalType !== payload.principalType ||
+          previous.ciphertext !== payload.ciphertext ||
+          previous.ciphertextHash !== payload.ciphertextHash)
+      )
+        throw new KeyingVerificationError(
+          "hash_mismatch",
+          "Projection evidence contains conflicting directory payloads",
+        );
+      payloads.set(payload.stateHash, payload);
+    }
     for (const group of proof.groups) {
       const prior = groups.get(group.currentState.principalId);
       if (newer(prior, group))
@@ -43,7 +60,7 @@ export function mergeProjectionPolicyEvidence(
   }
   return {
     organization: directory?.organization ?? null,
-    organizationPayloads: directory?.organizationPayloads ?? [],
+    organizationPayloads: [...payloads.values()],
     groups: [...groups.values()],
   };
 }

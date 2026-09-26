@@ -24,10 +24,7 @@ import {
 import { verifyContainerManifestBundle } from "./containerManifestVerification";
 import { verifyContainerManifestPath } from "./containerPathVerification";
 import { ProjectionDependencyUnavailableError } from "./dependencyUnavailable";
-import {
-  rethrowProjectionVerificationBoundaryError,
-  throwKeyingVerificationShapeFailure,
-} from "./error";
+import { throwKeyingVerificationShapeFailure } from "./error";
 import { collectReferencedPrincipalPolicies } from "./principalPolicyVerification";
 import { verifyProjectionAuthorizationEvidence } from "./projectionAuthorizationEvidence";
 import {
@@ -371,8 +368,7 @@ export async function collectContainerWriterProjectionPrincipalPolicies(
     assertProjectionVerificationCurrent(input.stillCurrent);
     return policies;
   } catch (error) {
-    rethrowProjectionVerificationBoundaryError(error);
-    throw error;
+    throwKeyingVerificationShapeFailure(error);
   }
 }
 

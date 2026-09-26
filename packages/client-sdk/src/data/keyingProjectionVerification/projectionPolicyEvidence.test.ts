@@ -117,16 +117,23 @@ test("a signed directory from another organization is refused", async () => {
 
 for (const malformed of ["missing", "duplicate"] as const) {
   test(`${malformed} signed directory payloads are refused`, async () => {
-    const { input } = await fixture();
+    const { data, input } = await fixture();
     const [first] = input.evidence.organizationPayloads;
     if (!first) throw new Error("Expected directory history");
-    if (malformed === "missing") input.evidence.organizationPayloads.shift();
+    if (malformed === "missing")
+      input.evidence.organizationPayloads =
+        input.evidence.organizationPayloads.filter(
+          (payload) =>
+            payload.stateHash !== data.afterAddition.currentState.stateHash,
+        );
     else input.evidence.organizationPayloads.push(first);
     const { close, execSql } = createNativeTestExecSql();
     try {
       await expect(
         verifyProjectionPolicyEvidence({ ...input, execSql }),
-      ).rejects.toThrow(malformed === "missing" ? "incomplete" : "scope");
+      ).rejects.toThrow(
+        malformed === "missing" ? "absent from signed directory" : "scope",
+      );
     } finally {
       close();
     }
@@ -139,6 +146,8 @@ for (const fork of [false, true]) {
     const state = data.created.currentState;
     const { close, execSql } = createNativeTestExecSql();
     try {
+      // Reuse memoized signatures after the durable trust anchor changes.
+      await verifyProjectionPolicyEvidence({ ...input, execSql });
       await loadPrincipalPolicyCheckpoint(execSql, "group", state.principalId);
       const stateHash = fork ? "f".repeat(64) : state.stateHash;
       await execSql(
@@ -197,6 +206,19 @@ test("a directory-bound group cannot use an authority other than the organizatio
     await expect(
       verifyProjectionPolicyEvidence({ ...input, execSql }),
     ).rejects.toThrow("not the organization's Admins");
+  } finally {
+    close();
+  }
+});
+
+test("unrelated directory payloads can be omitted while the signed chain remains complete", async () => {
+  const { data, input } = await fixture();
+  input.evidence.organizationPayloads = [data.afterAddition.currentPayload];
+  const { close, execSql } = createNativeTestExecSql();
+  try {
+    expect(
+      (await verifyProjectionPolicyEvidence({ ...input, execSql })).length,
+    ).toBe(4);
   } finally {
     close();
   }
