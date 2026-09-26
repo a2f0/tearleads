@@ -125,10 +125,10 @@ afterEach(async () => {
   await resetMockServer();
 });
 
-test(
-  "a recovered peer shares a newly created local organization name and preserves the You label",
-  async () => {
-    useTestApiAppHandlers();
+test.each([0, 40])(
+  "a recovered peer shares a newly created local organization name and preserves the You label (%dms responses)",
+  async (responseDelayMs) => {
+    useTestApiAppHandlers({ responseDelayMs });
     const view = renderDualPane({ autoProvisionRight: false });
     const primaryPane = getPaneRoot(view, "left");
     const secondaryPane = getPaneRoot(view, "right");
@@ -141,6 +141,7 @@ test(
     const primarySelfIdentity = await readPaneExplorerDocumentIdentity(
       primaryPane,
       "You",
+      { containerName: "Contacts" },
     );
     const primarySelfDocumentId = primarySelfIdentity.documentId;
     invariant(

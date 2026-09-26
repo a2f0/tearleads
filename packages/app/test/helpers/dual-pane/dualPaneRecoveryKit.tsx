@@ -7,7 +7,7 @@ import {
   getExplorerSidebarItem,
   interact,
   openIdentityManagerForPane,
-  queryExplorerItemTable,
+  selectContainerAndWaitForItemTable,
   waitForSinglePaneProvisioning,
 } from "./dualPaneCore";
 
@@ -187,13 +187,14 @@ function getInfoRowTitle(pane: HTMLElement, label: string): string | null {
 async function openPaneExplorerDocumentInfo(
   pane: HTMLElement,
   itemLabel: string,
+  containerName?: string,
 ): Promise<PaneExplorerDocumentIdentity> {
   // Acquire the row inside waitFor: remote hydration re-renders can unmount
   // the item table for a frame between the caller's checks and this read.
   const itemRow = await waitFor(
     () => {
       const itemTable = within(pane).getByRole("table", {
-        name: /^Items in /u,
+        name: containerName ? `Items in ${containerName}` : /^Items in /u,
       });
       const itemButton = within(itemTable).getByRole("button", {
         name: itemLabel,
@@ -267,10 +268,13 @@ export async function readPaneExplorerDocumentIdentity(
     containerName?: string | undefined;
   } = {},
 ): Promise<PaneExplorerDocumentIdentity> {
-  if (options.expectedDocumentId === undefined) {
-    return openPaneExplorerDocumentInfo(pane, itemLabel);
-  }
   const { containerName } = options;
+  if (containerName) {
+    await selectContainerAndWaitForItemTable(pane, containerName);
+  }
+  if (options.expectedDocumentId === undefined) {
+    return openPaneExplorerDocumentInfo(pane, itemLabel, containerName);
+  }
   invariant(
     containerName,
     "expectedDocumentId polling requires containerName to remount the Info panel between reads.",
@@ -278,7 +282,11 @@ export async function readPaneExplorerDocumentIdentity(
 
   const deadline = Date.now() + 20_000;
   while (true) {
-    const identity = await openPaneExplorerDocumentInfo(pane, itemLabel);
+    const identity = await openPaneExplorerDocumentInfo(
+      pane,
+      itemLabel,
+      containerName,
+    );
     if (
       identity.documentId === options.expectedDocumentId ||
       Date.now() > deadline
@@ -289,15 +297,9 @@ export async function readPaneExplorerDocumentIdentity(
     await new Promise((resolve) => setTimeout(resolve, 250));
     // Navigate back to the container view so the info route unmounts and the
     // next Get Info performs a fresh load instead of reusing the stale panel.
-    const containerItem = await waitFor(
-      () => getExplorerSidebarItem(pane, containerName),
-      { timeout: Math.max(1, deadline - Date.now()) },
-    );
-    await interact(() => {
-      fireEvent.click(containerItem);
+    await waitFor(() => getExplorerSidebarItem(pane, containerName), {
+      timeout: Math.max(1, deadline - Date.now()),
     });
-    await waitFor(() => {
-      expect(queryExplorerItemTable(pane)).toBeTruthy();
-    });
+    await selectContainerAndWaitForItemTable(pane, containerName);
   }
 }

@@ -319,7 +319,12 @@ test(
     const syncIntents = documentSyncIntentCounts(
       listProxiedApiRequests().slice(testRequestStartIndex),
     );
-    expect(syncIntents.writeBearing).toBe(2);
+    // The empty folder metadata and note attachment each need a write.
+    // If the eager note create finishes before typing, the text needs its own
+    // sync; otherwise it is already in the create payload. Both schedules are
+    // valid (delaying typing until after creation reproduces the third write).
+    expect(syncIntents.writeBearing).toBeGreaterThanOrEqual(2);
+    expect(syncIntents.writeBearing).toBeLessThanOrEqual(3);
     expect(syncIntents.readOnly).toBeLessThanOrEqual(16);
     expectProxiedApiRequestBudget(
       "active-roster-user root attachment share",
