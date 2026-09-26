@@ -1,5 +1,7 @@
 import { afterEach, expect, test } from "bun:test";
+import type { ContainerContentsStore } from "@tearleads/client-sdk";
 import { act, cleanup } from "@testing-library/react";
+import { useEffect } from "react";
 import { waitForAppTestRuntimeToSettle } from "../../../../test/helpers/appRuntimeIdle";
 import {
   DUAL_PANE_ATTACHMENT_TEST_TIMEOUT_MS,
@@ -27,6 +29,24 @@ import {
 } from "../../../../test/helpers/proxiedApiRequestBudget";
 import { documentSyncIntentCounts } from "../../../../test/helpers/proxiedApiRequestMetrics";
 import { waitForCondition } from "../../../../test/helpers/waitForCondition";
+import { useDeviceFirstContainerContents } from "../../../stores/device-first/DeviceFirstProvider";
+import { type PaneSide, usePaneSide } from "../dual-pane";
+
+function ContainerTreeProbe({
+  trees,
+}: {
+  trees: Map<PaneSide, ContainerContentsStore>;
+}) {
+  const side = usePaneSide();
+  const { containerStore } = useDeviceFirstContainerContents();
+  useEffect(() => {
+    trees.set(side, containerStore);
+    return () => {
+      trees.delete(side);
+    };
+  }, [containerStore, side, trees]);
+  return null;
+}
 
 // Separate navigation from mutation so UI reads cannot conceal sync churn.
 // The deferred author-echo release still reads the feed: a sibling client can
@@ -64,9 +84,9 @@ const ADMIN_GROUP_MUTATION_REQUEST_BUDGET: ProxiedApiRequestBudget = {
   total: 63,
   // Public parent keys measure 389.5 KB sent with one descendant recitation;
   // retain room for the second 60 KB recitation already allowed below.
-  // Signed destination roles and fresh container-info proofs measure 1.827 MB
-  // in response.
-  bodyBytes: { request: 450_000, response: 1_850_000 },
+  // Completing child hydration adds the peer's system-slot proofs and their
+  // metadata paths: 2.186 MB received, with room for the second recitation.
+  bodyBytes: { request: 450_000, response: 2_300_000 },
   byRequest: {
     "GET /containers": 0,
     "POST /containers/parent-lanes/query": 8,
@@ -78,9 +98,9 @@ const ADMIN_GROUP_MUTATION_REQUEST_BUDGET: ProxiedApiRequestBudget = {
     "GET /organizations/:organizationId/read-model": 6,
     "GET /organizations/:organizationId/groups/:groupId/containers": 0,
     "GET /organizations/:organizationId/groups/:groupId/members": 1,
-    // Includes first classification of system roles, newly visible roots,
-    // and fresh container info. A cold newly visible root adds one proof.
-    "GET /containers/:containerId/writer-projection": 5,
+    // Includes first classification of all newly visible system slots, roots,
+    // and fresh container info; blocked child hydration used only five.
+    "GET /containers/:containerId/writer-projection": 7,
     "GET /organizations/:organizationId/directory": 0,
     "GET /organizations/:organizationId/groups": 0,
     "GET /organizations/:organizationId/data-usage": 0,
@@ -102,11 +122,19 @@ test(
   "adding a peer to the Admins group stays within its network request budget",
   async () => {
     useTestApiAppHandlers();
-    const view = renderDualPane();
+    const trees = new Map<PaneSide, ContainerContentsStore>();
+    const view = renderDualPane({
+      children: <ContainerTreeProbe trees={trees} />,
+    });
     const leftPane = getPaneRoot(view, "left");
     const rightPane = getPaneRoot(view, "right");
 
     await waitForDualPaneProvisioning(leftPane, rightPane);
+    const founderRootId = trees
+      .get("left")
+      ?.getSnapshot()
+      .nodes.find((node) => node.parentId === null && !node.systemSlot)?.id;
+    if (!founderRootId) throw new Error("Founder root was not provisioned");
     // Contacts is promoted after authentication, separately from the eager
     // Trash provisioning. Wait for both panes' promotion before measuring
     // navigation so its container creation is not attributed to org manager.
@@ -145,6 +173,14 @@ test(
       [leftPane, rightPane],
       adminAddBaseline,
     );
+    // A low request count must not pass because a stale discovery page blocked
+    // every child. The peer must finish hydrating the granted system folders.
+    const sharedNames = trees
+      .get("right")
+      ?.getSnapshot()
+      .nodes.filter((node) => node.parentId === founderRootId)
+      .map((node) => node.name);
+    expect(sharedNames).toEqual(expect.arrayContaining(["Contacts", "Trash"]));
 
     const adminAddRequests = listProxiedApiRequests().slice(
       adminAddBaseline.requestStartIndex,

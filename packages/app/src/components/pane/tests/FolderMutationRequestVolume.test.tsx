@@ -279,10 +279,12 @@ test("folder creation, document linking, unlinking and trash have separate reque
       });
     },
     budget: {
-      total: 8,
+      // Root reconciliation now completes and verifies the remaining system
+      // slot, alongside the moved folder and destination root. No duplicate reads.
+      total: 9,
       byRequest: {
         "GET /containers/:containerId/documents": 1,
-        "GET /containers/:containerId/writer-projection": 2,
+        "GET /containers/:containerId/writer-projection": 3,
         "GET /documents/:documentId/writer-projection": 1,
         "GET /organizations/:organizationId/read-model": 1,
         "POST /containers/:containerId/move": 1,
