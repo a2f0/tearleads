@@ -6,7 +6,8 @@ export function expectPublicProjectionPolicyEvidence(
   evidence: ProjectionPolicyEvidenceResponse,
 ) {
   expect(evidence.organization).not.toBeNull();
-  for (const group of evidence.groups) {
+  for (const group of [evidence.organization, ...evidence.groups]) {
+    if (!group) throw new Error("Expected organization policy snapshot");
     expect(Object.keys(group).sort()).toEqual([
       "currentGrants",
       "currentProjection",

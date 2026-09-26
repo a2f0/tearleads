@@ -29,10 +29,12 @@ test("reused proof bytes skip signatures while changed bytes and trusted keys st
     const version = first.value.version;
     Reflect.set(first.value, "version", -1); // Callers cannot corrupt the memo.
     for (let index = 0; index < 16; index += 1) {
-      const next = await verifyReceivedPolicySnapshot(input);
+      const next = await verifyReceivedPolicySnapshot(structuredClone(input));
       expect(next.ok && next.value.version).toBe(version);
     }
     expect(verify).toHaveBeenCalledTimes(1);
+    expect(Object.getOwnPropertySymbols(first.value)).toHaveLength(1);
+    expect(Object.isFrozen(first.value.history)).toBe(true);
     const grants = input.snapshot.currentGrants;
     input.snapshot.currentGrants = [
       { containerId: "injected", accessLevel: "admin" },

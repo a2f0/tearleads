@@ -1,14 +1,27 @@
 import { expect, test } from "bun:test";
 import { createTestUser } from "@tearleads/bob-and-alice";
-import { createRemoteDocument } from "@tearleads/client-sdk";
+import {
+  createRemoteDocument,
+  syncRemoteDocument,
+  validateDocumentSyncUpdateImports,
+} from "@tearleads/client-sdk";
 import {
   DOCUMENT_CONTENT_KEY_WRAP_SUITE,
   encryptWithDek,
 } from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
+import {
+  createDocument,
+  encodeVersionVector,
+  exportUpdatesSince,
+  getUpdateVersionVectors,
+} from "@tearleads/loro";
 import { DocumentWriterProjectionResponseSchema } from "@tearleads/validators/response";
 import { createAncestorSdkContext } from "../../../test/helpers/ancestorSdkRepair";
-import { coldRematerializeEncryptedDocument } from "../../../test/helpers/coldSdkRematerialization";
+import {
+  coldRematerializeEncryptedDocument,
+  writerResolver,
+} from "../../../test/helpers/coldSdkRematerialization";
 import { grantContainerThroughReadGroup } from "../../../test/helpers/containerGroupGrant";
 import { buildDocumentLinkRequest } from "../../../test/helpers/documentLinkMutation";
 import { createChildContainerFixture } from "../../../test/helpers/keyingWriterProjectionChild";
@@ -65,6 +78,33 @@ test("a non-roster guest verifies a document's inaccessible sibling-group citati
       containerId: sibling.response.containerId,
     });
     if (!created?.response) throw new Error("Expected sibling document");
+    const document = await createDocument(
+      `historical-citation-${crypto.randomUUID()}`,
+    );
+    const before = encodeVersionVector(document);
+    document
+      .getText("text")
+      .update("content behind the historical sibling citation");
+    const updateData = exportUpdatesSince(document, before);
+    const vectors = getUpdateVersionVectors(updateData);
+    const updateId = crypto.randomUUID();
+    const written = await syncRemoteDocument({
+      ...context.common,
+      documentId: created.documentId,
+      localVersionVector: null,
+      resolveWriterPublicKey: writerResolver(owner),
+      validateIncomingUpdates: ({ decryptedUpdates, response }) =>
+        validateDocumentSyncUpdateImports({
+          currentDocument: document,
+          decryptedUpdates,
+          responseUpdates: response.updates,
+        }),
+      writerProjection: created.writerProjection,
+      pendingUpdates: [
+        { id: updateId, ...vectors, updateData: bytesToBase64(updateData) },
+      ],
+    });
+    expect(written?.settledPendingUpdateIds).toContain(updateId);
     const request = await buildDocumentLinkRequest({
       child: readable.response,
       createdDocument: created.response,
@@ -129,8 +169,10 @@ test("a non-roster guest verifies a document's inaccessible sibling-group citati
       owner,
       reader: guest,
     });
-    expect(recovered.recoveredText).toBe("");
-    expect(recovered.updateIds).toEqual([]);
+    expect(recovered.recoveredText).toBe(
+      "content behind the historical sibling citation",
+    );
+    expect(recovered.updateIds).toEqual([updateId]);
     expect((await getPolicy(guest, "group", sibling.groupId)).status).toBe(403);
   } finally {
     context.close();

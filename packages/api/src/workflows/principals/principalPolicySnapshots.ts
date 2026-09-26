@@ -172,20 +172,15 @@ async function verifySnapshot(input: {
     input.executor,
     input.snapshot,
   );
-  const direct = await verifyStoredPolicySnapshot({
-    expectedReference: input.reference,
-    signerPublicKeys,
-    snapshot: input.snapshot,
-  });
-  if (direct.ok) {
-    return { policy: direct.value };
-  }
-  if (direct.error.code !== "unauthorized") {
-    throw new PrincipalPolicyError(direct.error.message, 409);
-  }
   const authorityReference = externalAuthorityReference(input.snapshot);
   if (!authorityReference) {
-    throw new PrincipalPolicyError(direct.error.message, 409);
+    const direct = await verifyStoredPolicySnapshot({
+      expectedReference: input.reference,
+      signerPublicKeys,
+      snapshot: input.snapshot,
+    });
+    if (!direct.ok) throw new PrincipalPolicyError(direct.error.message, 409);
+    return { policy: direct.value };
   }
   const authorityState = await loadExactState(
     input.executor,

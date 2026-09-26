@@ -82,14 +82,20 @@ or a newer local checkpoint, so this change imposes no read or commit history
 cap. Compact signed chains require separate protocol work; finding #6 remains
 open. This tradeoff is accepted for this fix and measured by the load regression.
 
-The API memoizes verified snapshots by state hash and actual source bytes,
-trusted signer keys, expected reference, and external authority. It holds at
-most 16 snapshots and skips sources larger than four million serialized
-characters. The SDK memoizes signatures for the lifetime of a supplied snapshot
-object, with the same content/key checks and size cutoff. Changed bytes cannot
-reuse previous verification. Directory binding and durable checkpoint checks
-still run for each use. Projections without principal citations carry empty
-proofs and disclose no directory.
+Both API and SDK memoize verified snapshots by a SHA-256 digest of the actual
+source bytes, trusted signer keys, expected reference, and external authority.
+Each holds at most 16 snapshots and skips sources larger than four million
+serialized characters. Independently decoded responses reuse signature work;
+changed bytes or trust inputs cannot reuse previous verification. Verified
+results are deeply frozen, preserving their runtime verification brand. Directory
+binding and durable checkpoint checks still run for each SDK use. Projections
+without principal citations carry empty proofs and disclose no directory.
+
+The API separately memoizes parsed directory bindings by the immutable stored
+organization head. A successor head misses that cache. It holds at most 16 heads,
+skips directory histories over four million serialized characters, and returns
+isolated copies to callers. This avoids repeating history reads and parsing for
+each projection at a stable head. Large uncached histories remain valid.
 
 The API load regression seeds 64 additional signed groups (66 directory entries)
 and measures 64 and 128 signed directory successors through real API reads and

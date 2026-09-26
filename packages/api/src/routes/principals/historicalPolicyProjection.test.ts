@@ -36,6 +36,8 @@ import {
 import { routeApp } from "../../routeApp";
 import { clearStoredContainerManifestVerificationCache } from "../../workflows/containers/writerProjection/storedManifestVerification";
 
+import { clearProjectionDirectoryBindingsCache } from "../../workflows/principals/projectionDirectoryBindings";
+
 test("a fresh SDK verifies container history after its group is deleted", async () => {
   const owner = createTestUser();
   const reader = createTestUser();
@@ -149,6 +151,8 @@ test("a fresh SDK verifies container history after its group is deleted", async 
         eq(principalStatePayloads.stateHash, oldest.state.stateHash),
       ),
     );
+  // Exercise a cold loader: the warm memo still holds valid immutable proofs.
+  clearProjectionDirectoryBindingsCache();
   for (const [path, code] of [
     [
       `/containers/${root.kekState.containerId}/writer-projection`,

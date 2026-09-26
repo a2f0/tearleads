@@ -43,6 +43,8 @@ test("stored snapshot memo binds the actual bytes, reference, and signer keys", 
     const first = await verifyStoredPolicySnapshot(input);
     expect(first.ok).toBe(true);
     if (!first.ok) throw first.error;
+    expect(Object.getOwnPropertySymbols(first.value)).toHaveLength(1);
+    expect(Object.isFrozen(first.value.history)).toBe(true);
     Reflect.set(first.value, "version", -1);
     const second = await verifyStoredPolicySnapshot(structuredClone(input));
     expect(second.ok && second.value.version).toBe(1);

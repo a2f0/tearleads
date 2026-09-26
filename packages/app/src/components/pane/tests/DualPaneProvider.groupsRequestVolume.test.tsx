@@ -114,11 +114,6 @@ test(
     const rightPane = getPaneRoot(view, "right");
 
     await waitForDualPaneProvisioning(leftPane, rightPane);
-    const founderRootId = trees
-      .get("left")
-      ?.getSnapshot()
-      .nodes.find((node) => node.parentId === null && !node.systemSlot)?.id;
-    if (!founderRootId) throw new Error("Founder root was not provisioned");
     // Contacts is promoted after authentication, separately from the eager
     // Trash provisioning. Wait for both panes' promotion before measuring
     // navigation so its container creation is not attributed to org manager.
@@ -141,6 +136,13 @@ test(
         timeoutMs: POST_SHARE_SYNC_SETTLE_TIMEOUT_MS,
       });
     });
+    // Login can precede reconciliation of the device-local root into the
+    // registered root. Capture the shared parent only after startup settles.
+    const founderRootId = trees
+      .get("left")
+      ?.getSnapshot()
+      .nodes.find((node) => node.parentId === null && !node.systemSlot)?.id;
+    if (!founderRootId) throw new Error("Founder root was not provisioned");
     profileProxiedApiRequests("provisioning + settle", 0);
 
     const adminAddBaseline = capturePostShareSyncBaseline();

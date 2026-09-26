@@ -112,8 +112,8 @@ The access and policy handshake has these layers:
    manifests. Manifests bind the object, organization, epoch, predecessor hash,
    event hash, structural hash, grant root, referenced principal heads, and
    key-target hash.
-6. App clients fetch referenced principal policy bundles, verify them, and
-   cache only bundles whose signed state chain matches the object reference.
+6. Clients verify [historical policy proofs](projection-policy-evidence.md),
+   including public roster/grant disclosures to non-roster object readers.
 7. App clients unwrap group or organization addressed object envelopes only
    through verified cached principal policies, valid member envelopes, and signed
    access manifests.

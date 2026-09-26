@@ -150,20 +150,15 @@ async function verifySnapshotAuthorization(input: {
   readonly snapshot: PrincipalPolicySnapshotResponse;
 }): Promise<VerifiedPrincipalPolicySnapshot> {
   const reference = snapshotReference(input.snapshot);
-  const direct = await verifyReceivedPolicySnapshot({
-    expectedReference: reference,
-    signerPublicKeys: input.signerPublicKeys,
-    snapshot: input.snapshot,
-  });
-  if (direct.ok) {
-    return direct.value;
-  }
-  if (direct.error.code !== "unauthorized") {
-    throw direct.error;
-  }
   const authorityHead = authorityReference(input.snapshot);
   if (!authorityHead) {
-    throw direct.error;
+    const direct = await verifyReceivedPolicySnapshot({
+      expectedReference: reference,
+      signerPublicKeys: input.signerPublicKeys,
+      snapshot: input.snapshot,
+    });
+    if (!direct.ok) throw direct.error;
+    return direct.value;
   }
   const authorityPolicy = await input.resolveAuthority(authorityHead);
   if (
