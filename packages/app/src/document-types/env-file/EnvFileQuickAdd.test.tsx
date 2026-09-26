@@ -30,7 +30,7 @@ test("quick-add values can be revealed without nesting the action in a label", (
   expect(value.value).toBe("secret");
 });
 
-test("unsupported text masking keeps values hidden when the field is idle", () => {
+test("unsupported text masking requires Show before editing a value", () => {
   const originalCss = Object.getOwnPropertyDescriptor(globalThis, "CSS");
   Object.defineProperty(globalThis, "CSS", {
     configurable: true,
@@ -51,19 +51,24 @@ test("unsupported text masking keeps values hidden when the field is idle", () =
       "Quick add env variable value",
     ) as HTMLInputElement;
 
-    fireEvent.change(value, { target: { value: "secret" } });
-    expect(value.value).toBe("••••••");
+    expect(value.readOnly).toBe(true);
     expect(value.type).toBe("text");
-
     fireEvent.focus(value);
-    expect(value.value).toBe("secret");
-    fireEvent.blur(value);
-    expect(value.value).toBe("••••••");
+    expect(value.value).toBe("");
 
     fireEvent.click(
       view.getByRole("button", { name: "Show Quick add env variable value" }),
     );
+    expect(value.readOnly).toBe(false);
+    fireEvent.change(value, { target: { value: "secret" } });
     expect(value.value).toBe("secret");
+    fireEvent.click(
+      view.getByRole("button", { name: "Hide Quick add env variable value" }),
+    );
+    expect(value.readOnly).toBe(true);
+    expect(value.value).toBe("••••••");
+    fireEvent.focus(value);
+    expect(value.value).toBe("••••••");
   } finally {
     if (originalCss) {
       Object.defineProperty(globalThis, "CSS", originalCss);
