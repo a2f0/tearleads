@@ -11,7 +11,6 @@ import { settleOutgoingPassAndDecideReArm } from "../../data/sync/outgoingUpdate
 import { shouldClearDocumentSyncFailureAfterPass } from "../documents";
 import { applyIncomingContainerMetadataUpdates } from "./metadataIncomingUpdateIsolation";
 import {
-  createReadOnlyMetadataSyncSaveOptions,
   currentMetadataPullContinuation,
   hasCurrentContainerMetadataReadState,
   installContainerMetadataRecord,
@@ -331,10 +330,6 @@ async function finalizeContainerMetadataSync(input: {
     },
     persistence: input.persistence,
     runtime: input.runtime,
-    saveOptions:
-      outgoingUpdateCount === 0
-        ? createReadOnlyMetadataSyncSaveOptions()
-        : undefined,
     stillCurrent: input.isCurrent,
   });
   if (!input.isCurrent()) {

@@ -1,17 +1,4 @@
-import type { ContainerContentsPersistence } from "../../data/persistence/container-contents/containerContentsPersistence";
 import type { ContainerDocumentRecord as DocumentRecord } from "./containerPersistence";
-
-type SaveContainerOptions = Parameters<
-  ContainerContentsPersistence["saveContainer"]
->[3];
-
-export function createReadOnlyMetadataSyncSaveOptions(): SaveContainerOptions {
-  const syncTimestamp = new Date().toISOString();
-  return {
-    localUpdatedAt: syncTimestamp,
-    serverTimestamps: { updatedAt: syncTimestamp },
-  };
-}
 
 export function hasCurrentContainerMetadataReadState(
   record: Pick<

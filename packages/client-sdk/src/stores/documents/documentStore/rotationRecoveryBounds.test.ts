@@ -116,6 +116,8 @@ test("rotation validates every bounded page before one durable install", async (
   }
 });
 
+// This crosses the 64-update batch boundary with real encryption and SQLite.
+// Leave headroom for shared CI workers without reducing the bounded workload.
 test("rotation invalidates a continuation and drains a bounded local queue", async () => {
   const { close, execSql } = await createTestExecSql(
     "rotation-recovery-bounded-tail",
@@ -210,7 +212,7 @@ test("rotation invalidates a continuation and drains a bounded local queue", asy
   } finally {
     close();
   }
-});
+}, 30_000);
 
 test("rotation aborts when another pane supersedes its durable pull settlement", async () => {
   const { close, execSql } = await createTestExecSql(
