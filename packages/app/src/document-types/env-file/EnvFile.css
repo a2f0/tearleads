@@ -13,6 +13,11 @@
   grid-area: value;
 }
 
+.env-file-variable-value-field:not(.env-file-variable-value-revealed)
+  .mini-app-input {
+  -webkit-text-security: disc;
+}
+
 .env-file-variable-row .mini-app-input {
   font-family:
     ui-monospace, "SFMono-Regular", "SF Mono", Consolas, "Liberation Mono",
