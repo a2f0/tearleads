@@ -136,6 +136,7 @@ test("a child-only writer relinks an attachment without the parent secret", asyn
         secretKey: kem.secretKey,
         signingPublicKey: peer.signingPublicKey,
         contentKey,
+        parentProjection: root.projection,
         projection,
         createResponse: created,
         writerProjection,

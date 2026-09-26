@@ -211,7 +211,10 @@ test("a new-to-device document head and its historical write retain cited ancest
         header: correctlyCitedHeader,
       });
       expect(refused.ok).toBe(false);
-      if (!refused.ok) expect(refused.error.code).toBe("unauthorized");
+      if (!refused.ok)
+        expect(refused.error.code).toBe(
+          path.length === 1 ? "object_mismatch" : "unauthorized",
+        );
     }
   } finally {
     database.close();

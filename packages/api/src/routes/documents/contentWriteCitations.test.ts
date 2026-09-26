@@ -67,7 +67,7 @@ test("the API requires exact signed write paths and retains their dependency bun
       },
     ],
   ];
-  // The extra verified path is legal, but must be committed by the signature.
+  // An unsigned extra path fails exact citation coverage first.
   const extraPathRequest = { ...request, authorizingContainerPathRefs: paths };
   expect(
     (await postSync(owner.token, created.id, extraPathRequest)).status,
@@ -82,16 +82,19 @@ test("the API requires exact signed write paths and retains their dependency bun
     { ...unsigned, dependencyManifestHashes: hashes },
     owner.signing.signingPrivateKey,
   );
-  const committed = await postSync(owner.token, created.id, {
+  // Signing an unlinked child does not bring it into this document scope.
+  const unrelated = await postSync(owner.token, created.id, {
     ...extraPathRequest,
     outgoingUpdates: [{ ...update, writeHeader: { ...signed } }],
   });
-  expect(committed.status).toBe(200);
+  expect(unrelated.status).toBe(400);
+  expect(await unrelated.text()).toContain("outside the signed target scope");
+  expect((await postSync(owner.token, created.id, request)).status).toBe(200);
   expect(
     await listDocumentContentWriteDependencyHashes(created.id, db),
-  ).toEqual(hashes);
+  ).toEqual([root.bundle.manifestHash]);
 
-  // This child occurs only in the content header, not the document's link event.
+  // The refused child citation must never enter the retained proof bundle.
   const projectionResponse = await routeApp.request(
     `/documents/${created.id}/writer-projection`,
     {
@@ -105,7 +108,7 @@ test("the API requires exact signed write paths and retains their dependency bun
     material.documentManifestContainerPaths
       .flat()
       .map((bundle) => bundle.manifestHash),
-  ).toContain(child.accessManifest.manifestHash);
+  ).not.toContain(child.accessManifest.manifestHash);
 });
 
 test("a document retains the signed path dependencies of its attachment content", async () => {
