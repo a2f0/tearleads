@@ -121,7 +121,7 @@ export async function resolveContainerReaderKeyingPath(input: {
   });
 }
 
-export async function resolveContainerReaderProjection(
+async function resolveContainerReaderProjection(
   input: Parameters<typeof resolveContainerReaderKeyingPath>[0],
 ): Promise<ContainerWriterProjectionResponse> {
   const path = await resolveContainerReaderKeyingPath(input);
