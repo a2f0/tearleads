@@ -1,8 +1,8 @@
 import { afterEach, expect, test } from "bun:test";
 import type { ContainerContentsStore } from "@tearleads/client-sdk";
 import { act, cleanup } from "@testing-library/react";
-import { useEffect } from "react";
 import { waitForAppTestRuntimeToSettle } from "../../../../test/helpers/appRuntimeIdle";
+import { ContainerTreeProbe } from "../../../../test/helpers/dual-pane/ContainerTreeProbe";
 import {
   DUAL_PANE_ATTACHMENT_TEST_TIMEOUT_MS,
   getPaneRoot,
@@ -29,24 +29,7 @@ import {
 } from "../../../../test/helpers/proxiedApiRequestBudget";
 import { documentSyncIntentCounts } from "../../../../test/helpers/proxiedApiRequestMetrics";
 import { waitForCondition } from "../../../../test/helpers/waitForCondition";
-import { useDeviceFirstContainerContents } from "../../../stores/device-first/DeviceFirstProvider";
-import { type PaneSide, usePaneSide } from "../dual-pane";
-
-function ContainerTreeProbe({
-  trees,
-}: {
-  trees: Map<PaneSide, ContainerContentsStore>;
-}) {
-  const side = usePaneSide();
-  const { containerStore } = useDeviceFirstContainerContents();
-  useEffect(() => {
-    trees.set(side, containerStore);
-    return () => {
-      trees.delete(side);
-    };
-  }, [containerStore, side, trees]);
-  return null;
-}
+import type { PaneSide } from "../dual-pane";
 
 // Separate navigation from mutation so UI reads cannot conceal sync churn.
 // The deferred author-echo release still reads the feed: a sibling client can

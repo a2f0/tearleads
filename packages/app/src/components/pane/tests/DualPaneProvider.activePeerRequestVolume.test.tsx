@@ -1,4 +1,5 @@
 import { afterEach, expect, test } from "bun:test";
+import type { ContainerContentsStore } from "@tearleads/client-sdk";
 import {
   act,
   cleanup,
@@ -8,6 +9,7 @@ import {
 } from "@testing-library/react";
 import invariant from "invariant";
 import { waitForAppTestRuntimeToSettle } from "../../../../test/helpers/appRuntimeIdle";
+import { ContainerTreeProbe } from "../../../../test/helpers/dual-pane/ContainerTreeProbe";
 import {
   DUAL_PANE_ATTACHMENT_TEST_TIMEOUT_MS,
   getPaneRoot,
@@ -32,6 +34,7 @@ import {
   useTestApiAppHandlers,
 } from "../../../../test/helpers/mswServer";
 import { waitForCondition } from "../../../../test/helpers/waitForCondition";
+import type { PaneSide } from "../dual-pane";
 
 interface AuthenticatedSessionResponse {
   organizationId?: unknown;
@@ -78,6 +81,7 @@ function isContainerOrDocumentRequest(url: string): boolean {
 
 async function switchMountedOrgManagerToForeignOrganization(input: {
   founderOrganizationId: string;
+  trees: Map<PaneSide, ContainerContentsStore>;
   pane: HTMLElement;
   peerAuthorization: string;
 }) {
@@ -118,6 +122,30 @@ async function switchMountedOrgManagerToForeignOrganization(input: {
               `/organizations/${input.founderOrganizationId}/read-model`,
         ),
     "Peer Org Manager did not load the founder organization read model.",
+  );
+  // Network silence alone can precede a bootstrap poll. Observe the signed
+  // foreign Trash in the actual provider tree before measuring the mutation.
+  await waitForCondition(
+    () => {
+      const nodes = input.trees.get("right")?.getSnapshot().nodes ?? [];
+      const root = nodes.find(
+        (node) =>
+          node.organizationId === input.founderOrganizationId &&
+          node.parentId === null &&
+          !node.systemSlot,
+      );
+      return Boolean(
+        root &&
+          nodes.some(
+            (node) =>
+              node.parentId === root.id &&
+              node.name === "Trash" &&
+              (node.systemSlot ?? null) !== null,
+          ),
+      );
+    },
+    "Peer did not hydrate the founder organization's provisioned Trash.",
+    POST_SHARE_SYNC_SETTLE_TIMEOUT_MS,
   );
   let settled = false;
   await act(async () => {
@@ -188,7 +216,10 @@ test(
   "an active peer Org Manager reconciles an ungranted group mutation without container fanout",
   async () => {
     useTestApiAppHandlers();
-    const view = renderDualPane();
+    const trees = new Map<PaneSide, ContainerContentsStore>();
+    const view = renderDualPane({
+      children: <ContainerTreeProbe trees={trees} />,
+    });
     const founderPane = getPaneRoot(view, "left");
     const peerPane = getPaneRoot(view, "right");
 
@@ -213,6 +244,7 @@ test(
     await createOrganizationGroup(founderPane, "Realtime Budget Observers");
     await switchMountedOrgManagerToForeignOrganization({
       founderOrganizationId: founderSession.organizationId,
+      trees,
       pane: peerPane,
       peerAuthorization: peerSession.authorization,
     });
