@@ -12,7 +12,16 @@ export function EnvFileValueField(params: {
 }) {
   const { ariaLabel, disabled, onChange, value } = params;
   const [revealed, setRevealed] = useState(false);
+  const [focused, setFocused] = useState(false);
+  const supportsTextSecurity =
+    typeof CSS !== "undefined" &&
+    CSS.supports?.("-webkit-text-security", "disc");
   const revealAction = `${revealed ? "Hide" : "Show"} ${ariaLabel}`;
+  // Browsers without CSS text masking show bullets until the field is focused.
+  const displayValue =
+    !revealed && !focused && !supportsTextSecurity
+      ? "•".repeat(value.length)
+      : value;
 
   return (
     <TrackerInputField
@@ -35,15 +44,17 @@ export function EnvFileValueField(params: {
       }
       aria-label={ariaLabel}
       autoCapitalize="off"
-      autoComplete="new-password"
-      className="env-file-variable-value-field"
+      autoComplete="off"
+      className={`env-file-variable-value-field${revealed ? " env-file-variable-value-revealed" : ""}`}
       disabled={disabled}
       label="Value"
+      onBlur={() => setFocused(false)}
       onChange={onChange}
+      onFocus={() => setFocused(true)}
       placeholder="secret"
       spellCheck={false}
-      type={revealed ? "text" : "password"}
-      value={value}
+      type="text"
+      value={displayValue}
     />
   );
 }
