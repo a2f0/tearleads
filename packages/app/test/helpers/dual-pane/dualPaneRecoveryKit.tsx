@@ -10,6 +10,7 @@ import {
   selectContainerAndWaitForItemTable,
   waitForSinglePaneProvisioning,
 } from "./dualPaneCore";
+import { waitForExplorerDocumentRow } from "./explorerDocumentRow";
 
 export async function createPaneCustomContact(
   pane: HTMLElement,
@@ -189,23 +190,10 @@ async function openPaneExplorerDocumentInfo(
   itemLabel: string,
   containerName?: string,
 ): Promise<PaneExplorerDocumentIdentity> {
-  // Acquire the row inside waitFor: remote hydration re-renders can unmount
-  // the item table for a frame between the caller's checks and this read.
-  const itemRow = await waitFor(
-    () => {
-      const itemTable = within(pane).getByRole("table", {
-        name: containerName ? `Items in ${containerName}` : /^Items in /u,
-      });
-      const itemButton = within(itemTable).getByRole("button", {
-        name: itemLabel,
-      });
-      const row = itemButton.closest("tr");
-      if (!row) {
-        throw new Error(`Expected an Explorer row for ${itemLabel}.`);
-      }
-      return row;
-    },
-    { timeout: 10_000 },
+  const itemRow = await waitForExplorerDocumentRow(
+    pane,
+    itemLabel,
+    containerName,
   );
   await interact(() => {
     fireEvent.contextMenu(itemRow);
