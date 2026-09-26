@@ -179,3 +179,25 @@ for (const fork of [false, true]) {
     }
   });
 }
+
+test("a directory-bound group cannot use an authority other than the organization's Admins", async () => {
+  const { data, input } = await fixture();
+  const other = await data.createGroup("Other authority");
+  const dependent = await data.createGroup("Wrong authority", false, other);
+  const withOther = await data.advanceDirectory(data.afterDeletion, other);
+  const withDependent = await data.advanceDirectory(withOther, dependent);
+  input.evidence.organization = policySnapshot(withDependent);
+  input.evidence.organizationPayloads.push(
+    withOther.currentPayload,
+    withDependent.currentPayload,
+  );
+  input.evidence.groups.push(policySnapshot(other), policySnapshot(dependent));
+  const { close, execSql } = createNativeTestExecSql();
+  try {
+    await expect(
+      verifyProjectionPolicyEvidence({ ...input, execSql }),
+    ).rejects.toThrow("not the organization's Admins");
+  } finally {
+    close();
+  }
+});

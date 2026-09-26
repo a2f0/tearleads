@@ -56,7 +56,7 @@ for (const reason of ["depth-budget", "peer-rotation"] as const) {
     await withStaleDocument(
       17,
       async ({ fixture, projection: initial, sync }) => {
-        let projection = initial;
+        let projection: DocumentWriterProjectionResponse = initial;
         let writes = 0;
         let refreshed = false;
         const apiClient = createMockApiClient({
@@ -88,6 +88,7 @@ for (const reason of ["depth-budget", "peer-rotation"] as const) {
                 execSql: sync.execSql,
                 previousProjection: {
                   ...path,
+                  policyEvidence: projection.policyEvidence,
                   containerId: fixture.root.projection.containerId,
                   path: path.path.slice(0, 1),
                   containerKeks: path.containerKeks.slice(0, 1),

@@ -1,5 +1,6 @@
 import type {
   AccessManifestBundleWireResponse,
+  ContainerKeyingPathResponse,
   ContainerWriterProjectionResponse,
   DocumentLinkSetMutationResponse,
   DocumentWriterProjectionResponse,
@@ -46,7 +47,7 @@ function uniqueManifestPaths(
 }
 
 function containerProjectionManifestHistory(
-  projection: ContainerWriterProjectionResponse,
+  projection: ContainerKeyingPathResponse,
 ): AccessManifestBundleWireResponse[] {
   return projection.containerKeks.flatMap(
     (kek) => kek.containerManifestHistory,

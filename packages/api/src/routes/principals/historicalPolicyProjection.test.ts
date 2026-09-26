@@ -1,10 +1,17 @@
 import { expect, test } from "bun:test";
 import { db } from "@tearleads/api-shared/postgres";
+import { principalStatePayloads } from "@tearleads/api-shared/schema";
 import { createTestUser } from "@tearleads/bob-and-alice";
 import {
   buildMaterializedContainerRekeyPlan,
   revokeRemoteContainer,
 } from "@tearleads/client-sdk";
+import {
+  CONTAINER_PROJECTION_STATE_INVALID_ERROR_CODE,
+  DOCUMENT_PROJECTION_ERROR_CODES,
+  PrincipalPolicyBundleResponseSchema,
+} from "@tearleads/validators/response";
+import { and, eq } from "drizzle-orm";
 import { createAncestorSdkContext } from "../../../test/helpers/ancestorSdkRepair";
 import {
   COLD_DOCUMENT_TEXT,
@@ -19,6 +26,7 @@ import {
   getPolicy,
   registerAndAuthenticate,
 } from "../../../test/helpers/principalPolicyReadFixtures";
+import { expectPublicProjectionPolicyEvidence } from "../../../test/helpers/projectionPolicyEvidenceAssertions";
 import { recoverRegisteredRootKek } from "../../../test/helpers/registeredRootKek";
 import {
   grantRootThroughRotatedReadGroup,
@@ -111,6 +119,12 @@ test("a fresh SDK verifies container history after its group is deleted", async 
         root.kekState.containerId,
       );
     if (!previousProjection) throw new Error("Expected a readable projection");
+    expectPublicProjectionPolicyEvidence(previousProjection.policyEvidence);
+    expect(
+      previousProjection.policyEvidence.groups.some(
+        (group) => group.currentState.principalId === granted.groupId,
+      ),
+    ).toBe(true);
     const materialized = await buildMaterializedContainerRekeyPlan({
       ...cold.common,
       previousProjection,
@@ -118,5 +132,40 @@ test("a fresh SDK verifies container history after its group is deleted", async 
     expect(materialized.plan.request).toBeDefined();
   } finally {
     cold.close();
+  }
+  // Only the historical directory is damaged. Current access still succeeds,
+  // then the new evidence loader must map its failure to a coded conflict.
+  const organization = PrincipalPolicyBundleResponseSchema.parse(
+    await (await getPolicy(owner, "organization", organizationId)).json(),
+  );
+  const oldest = organization.previousStates[0];
+  if (!oldest) throw new Error("Expected retained directory history");
+  await db
+    .update(principalStatePayloads)
+    .set({ ciphertext: "invalid-directory" })
+    .where(
+      and(
+        eq(principalStatePayloads.principalId, organizationId),
+        eq(principalStatePayloads.stateHash, oldest.state.stateHash),
+      ),
+    );
+  for (const [path, code] of [
+    [
+      `/containers/${root.kekState.containerId}/writer-projection`,
+      CONTAINER_PROJECTION_STATE_INVALID_ERROR_CODE,
+    ],
+    [
+      `/documents/${document.documentId}/writer-projection`,
+      DOCUMENT_PROJECTION_ERROR_CODES.stateInvalid,
+    ],
+  ] as const) {
+    const response = await routeApp.request(path, {
+      headers: { Authorization: `Bearer ${owner.token}` },
+    });
+    expect(response.status, await response.clone().text()).toBe(409);
+    expect(await response.json()).toMatchObject({
+      code,
+      error: "Projection directory organization mismatch",
+    });
   }
 }, 30_000);

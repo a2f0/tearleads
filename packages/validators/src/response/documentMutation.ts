@@ -9,7 +9,7 @@ import {
   AccessEventBundleWireResponseSchema,
   AccessManifestBundleWireResponseSchema,
 } from "../util";
-import { ContainerWriterProjectionResponseSchema } from "./container";
+import { ContainerKeyingPathResponseSchema } from "./container";
 import {
   type DocumentContentKeyBundleResponse,
   DocumentContentKeyBundleResponseSchema,
@@ -97,7 +97,7 @@ export type DocumentPurgeResponse = z.infer<typeof DocumentPurgeResponseSchema>;
 export const DocumentWriterProjectionResponseSchema = loosePlainObject({
   policyEvidence: ProjectionPolicyEvidenceResponseSchema,
   authorizingContainerPaths: nonEmptyArraySchema(
-    ContainerWriterProjectionResponseSchema,
+    ContainerKeyingPathResponseSchema,
   ),
   contentKeyBundle: DocumentContentKeyBundleResponseSchema,
   /** Present only when the stored content-key bundle targets stale KEKs. */

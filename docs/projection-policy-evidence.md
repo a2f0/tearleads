@@ -7,6 +7,9 @@ only through a document's other linked container. It fixes audit #2365 finding #
 a fresh device can verify historical signatures without access to the cited
 group's current policy endpoint.
 
+Document paths carry no nested proof: the API loads one evidence set per document
+response, and the SDK reuses its verified result across those paths.
+
 The API authorizes the container or document before loading this evidence. The
 response carries the signed organization snapshot, its complete signed directory
 payload history, and public group snapshots with their predecessor chains and
@@ -39,3 +42,25 @@ history-only and deleted-authority delivery, bounded negative controls, and the
 SDK implementation trace. API regressions exercise encrypted cold recovery after
 group deletion and a non-roster guest reading a linked document while direct
 access to the other container and its group remains forbidden.
+
+## Read authorization and deployment
+
+A current container/document grant deliberately includes access to the public
+verification closure of its signed history. That closure discloses membership
+user ids, grant container ids, group public keys, signatures, and organization
+directory ids across retained versions. Non-roster readers can therefore see
+public historical policy metadata that the organization-manager history and full
+policy endpoints do not serve them. Those endpoints also expose management data
+or key envelopes and keep their existing authorization checks. Group names,
+group payload ciphertexts, and member key envelopes are not part of this proof.
+
+A group's chain extends through its last directory-bound head, rather than
+stopping at the citation: a reader may already have checkpointed a later version
+without retaining a full policy bundle. Serving only the cited prefix would
+reintroduce the refusal this change fixes. Evidence is restricted to cited groups
+and their Admins authority; it does not include all directory groups' snapshots.
+The complete signed directory payload history is needed to authenticate those
+bindings under the existing signed-payload hash format.
+
+Deploy the API contract before releasing the updated clients. All supported
+clients are updated together; there is no compatibility reader or schema migration.

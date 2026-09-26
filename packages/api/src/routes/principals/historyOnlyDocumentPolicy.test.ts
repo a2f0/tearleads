@@ -6,6 +6,7 @@ import {
   encryptWithDek,
 } from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
+import { DocumentWriterProjectionResponseSchema } from "@tearleads/validators/response";
 import { createAncestorSdkContext } from "../../../test/helpers/ancestorSdkRepair";
 import { coldRematerializeEncryptedDocument } from "../../../test/helpers/coldSdkRematerialization";
 import { grantContainerThroughReadGroup } from "../../../test/helpers/containerGroupGrant";
@@ -22,6 +23,7 @@ import {
   registerAndAuthenticate,
   stripOrganizationMembership,
 } from "../../../test/helpers/principalPolicyReadFixtures";
+import { expectPublicProjectionPolicyEvidence } from "../../../test/helpers/projectionPolicyEvidenceAssertions";
 import { recoverRegisteredRootKek } from "../../../test/helpers/registeredRootKek";
 import { routeApp } from "../../routeApp";
 
@@ -104,6 +106,23 @@ test("a non-roster guest verifies a document's inaccessible sibling-group citati
       },
     );
     expect(inaccessible.status).toBe(403);
+    const served = await routeApp.request(
+      `/documents/${created.documentId}/writer-projection`,
+      { headers: { Authorization: `Bearer ${guest.token}` } },
+    );
+    expect(served.status).toBe(200);
+    const projection = DocumentWriterProjectionResponseSchema.parse(
+      await served.json(),
+    );
+    expectPublicProjectionPolicyEvidence(projection.policyEvidence);
+    expect(
+      projection.policyEvidence.groups.some(
+        (group) => group.currentState.principalId === sibling.groupId,
+      ),
+    ).toBe(true);
+    for (const path of projection.authorizingContainerPaths)
+      expect(path).not.toHaveProperty("policyEvidence");
+
     const recovered = await coldRematerializeEncryptedDocument({
       documentId: created.documentId,
       organizationId,

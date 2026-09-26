@@ -26,6 +26,7 @@ import {
   readCanonicalJson,
   readCanonicalRecord,
 } from "../../data/keyingCanonicalJson";
+import { documentContainerProjections } from "../../data/keyingProjectionVerification/documentContainerProjections";
 import { decryptDocumentAttachmentBlob } from "../blobs/decrypt";
 import { buildMaterializedContainerRekeyPlan } from "../containers/child/rekey";
 import { relinkRemoteDocument } from "./linkSetRemote";
@@ -169,8 +170,9 @@ test("a signed link carries attachment keys usable with only the destination KEK
 
 test("a cold device reads retained blob wraps after a signed container rekey", async () => {
   const fixture = await createUploadedAttachmentFixture();
-  const previousProjection =
-    fixture.writerProjection.authorizingContainerPaths[0];
+  const previousProjection = documentContainerProjections(
+    fixture.writerProjection,
+  )[0];
   if (!previousProjection) throw new Error("Expected container path");
   const rotated = await buildMaterializedContainerRekeyPlan({
     author: fixture.author,

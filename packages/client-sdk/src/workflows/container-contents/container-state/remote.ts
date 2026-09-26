@@ -68,15 +68,15 @@ export async function createRemoteContainer(input: {
   return createRemoteContainerWithMetadataDocument(input);
 }
 
-async function sharedRemoteContainerStateFromMutation(
-  apiClient: ContainerWorkflowRuntime["apiClient"],
+function sharedRemoteContainerStateFromMutation(
+  previousProjection: ContainerWriterProjectionResponse,
   response: ContainerMutationResponse,
-): Promise<SharedRemoteContainerState> {
-  const writerProjection = await apiClient.getContainerWriterProjection(
-    response.containerId,
-  );
-  if (!writerProjection)
-    throw new Error("Shared container projection is unavailable");
+): SharedRemoteContainerState {
+  if (
+    response.containerId !== previousProjection.containerId ||
+    response.organizationId !== previousProjection.organizationId
+  )
+    throw new Error("Container mutation response projection mismatch");
   return {
     accessManifestHash: response.manifestHead.manifestHash,
     accessEpoch: response.manifestHead.epoch,
@@ -85,7 +85,9 @@ async function sharedRemoteContainerStateFromMutation(
     referencedPrincipalHeads:
       referencedPrincipalHeadsFromContainerMutationResponse({ response }),
     updatedAt: response.updatedAt,
-    writerProjection,
+    // The next read obtains the post-commit proof. A failed read cannot undo
+    // acknowledgement of this successful mutation.
+    writerProjection: null,
   };
 }
 
@@ -128,7 +130,10 @@ export async function shareRemoteContainer(input: {
     return null;
   }
 
-  return sharedRemoteContainerStateFromMutation(apiClient, shared.response);
+  return sharedRemoteContainerStateFromMutation(
+    input.previousProjection,
+    shared.response,
+  );
 }
 
 export async function shareRemoteContainerWithGroup(input: {
@@ -181,7 +186,10 @@ export async function shareRemoteContainerWithGroup(input: {
     return null;
   }
 
-  return sharedRemoteContainerStateFromMutation(apiClient, shared.response);
+  return sharedRemoteContainerStateFromMutation(
+    input.previousProjection,
+    shared.response,
+  );
 }
 
 export async function moveRemoteContainer(input: {

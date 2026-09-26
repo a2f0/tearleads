@@ -43,11 +43,10 @@ import {
 } from "./storedDocumentManifestVerification";
 import { resolveAuthorizingContainerPathCandidates } from "./writerProjectionContainerPaths";
 import { loadWriterProjectionContentKey } from "./writerProjectionContentKey";
+import { DocumentWriterProjectionError } from "./writerProjectionError";
 import { loadDocumentProjectionPolicyEvidence } from "./writerProjectionPolicyEvidence";
 
 export { DocumentWriterProjectionError } from "./writerProjectionError";
-
-import { DocumentWriterProjectionError } from "./writerProjectionError";
 
 function projectionError(message: string): DocumentWriterProjectionError {
   return new DocumentWriterProjectionError(message, 409);

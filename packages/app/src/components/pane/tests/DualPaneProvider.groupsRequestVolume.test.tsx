@@ -68,8 +68,9 @@ const ADMIN_GROUP_MUTATION_REQUEST_BUDGET: ProxiedApiRequestBudget = {
   // Public parent keys measure 389.5 KB sent with one descendant recitation;
   // retain room for the second 60 KB recitation already allowed below.
   // Completing child hydration adds the peer's system-slot proofs and their
-  // metadata paths: 2.186 MB received, with room for the second recitation.
-  bodyBytes: { request: 450_000, response: 2_300_000 },
+  // metadata paths and retained public policy proofs: 2.95 MB received. Each
+  // document carries one shared proof bundle for all of its authorizing paths.
+  bodyBytes: { request: 450_000, response: 3_100_000 },
   byRequest: {
     "GET /containers": 0,
     "POST /containers/parent-lanes/query": 8,
@@ -150,6 +151,23 @@ test(
         "open org manager + select Admins",
         adminAddBaseline.requestStartIndex,
         mutationRequestStartIndex,
+      );
+    });
+    // Background discovery also verifies signatures between network requests;
+    // a quiet API and settled sync lanes alone do not mean its tree is ready.
+    await act(async () => {
+      await waitForCondition(
+        () => {
+          const names =
+            trees
+              .get("right")
+              ?.getSnapshot()
+              .nodes.filter((node) => node.parentId === founderRootId)
+              .map((node) => node.name) ?? [];
+          return names.includes("Contacts") && names.includes("Trash");
+        },
+        "Shared system folders did not finish hydrating.",
+        POST_SHARE_SYNC_SETTLE_TIMEOUT_MS,
       );
     });
     await waitForNoPostShareSyncFailures(

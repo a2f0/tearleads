@@ -9,10 +9,13 @@ import type {
 } from "@tearleads/crypto";
 import {
   CONTAINER_NOT_FOUND_ERROR_CODE,
+  CONTAINER_PROJECTION_STATE_INVALID_ERROR_CODE,
+  type ContainerKeyingPathResponse,
   type ContainerWriterProjectionResponse,
 } from "@tearleads/validators/response";
 import { uniqueSortedStrings } from "../../utils/array";
 import { loadProjectionPolicyEvidence } from "../principals/projectionPolicyEvidence";
+import { PrincipalPolicyError } from "../principals/shared";
 import {
   asContainerWriterProjectionError,
   buildContainerAccessProjection,
@@ -53,7 +56,7 @@ async function resolveContainerProjectionWithAccess(input: {
   readonly executor: DatabaseSession;
   readonly minimumAccessLevel: ContainerAccessLevel;
   readonly userId: string;
-}): Promise<ContainerWriterProjectionResponse> {
+}): Promise<ContainerKeyingPathResponse> {
   const context =
     input.context ?? createContainerWriterProjectionContext(input.executor);
   const access = await resolveContainerAccessProjection({
@@ -103,27 +106,46 @@ async function resolveContainerProjectionWithAccess(input: {
     organizationId: targetManifest.state.organizationId,
     path: access.path,
     containerKeks,
-    policyEvidence: await loadProjectionPolicyEvidence({
-      executor: input.executor,
-      organizationId: targetManifest.state.organizationId,
-      bundles: [
-        ...access.path,
-        ...containerKeks.flatMap((kek) => kek.containerManifestHistory),
-      ],
-    }),
   };
 }
 
-export async function resolveContainerReaderProjection(input: {
+export async function resolveContainerReaderKeyingPath(input: {
   readonly context?: ContainerWriterProjectionContext;
   readonly containerId: string;
   readonly executor: DatabaseSession;
   readonly userId: string;
-}): Promise<ContainerWriterProjectionResponse> {
+}): Promise<ContainerKeyingPathResponse> {
   return resolveContainerProjectionWithAccess({
     ...input,
     minimumAccessLevel: "read",
   });
+}
+
+export async function resolveContainerReaderProjection(
+  input: Parameters<typeof resolveContainerReaderKeyingPath>[0],
+): Promise<ContainerWriterProjectionResponse> {
+  const path = await resolveContainerReaderKeyingPath(input);
+  try {
+    return {
+      ...path,
+      policyEvidence: await loadProjectionPolicyEvidence({
+        executor: input.executor,
+        organizationId: path.organizationId,
+        bundles: [
+          ...path.path,
+          ...path.containerKeks.flatMap((kek) => kek.containerManifestHistory),
+        ],
+      }),
+    };
+  } catch (error) {
+    if (error instanceof PrincipalPolicyError)
+      throw new ContainerWriterProjectionError(
+        error.message,
+        409,
+        CONTAINER_PROJECTION_STATE_INVALID_ERROR_CODE,
+      );
+    throw error;
+  }
 }
 
 export async function resolveContainerAccessProjection(input: {

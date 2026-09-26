@@ -26,6 +26,7 @@ import { projectionVerificationOptions } from "../../data/documents/shared/types
 import { readCanonicalJson } from "../../data/keyingCanonicalJson";
 import { requireProjectionUserKeyResolver } from "../../data/keyingProjectionVerification";
 import { ProjectionDependencyUnavailableError } from "../../data/keyingProjectionVerification/dependencyUnavailable";
+import { documentContainerProjections } from "../../data/keyingProjectionVerification/documentContainerProjections";
 import { assertProjectionVerificationCurrent } from "../../data/keyingProjectionVerification/types";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import { createAttachmentProofReader } from "../blobs/attachmentDecryptor";
@@ -154,7 +155,7 @@ async function collectRelinkKeks(
 ): Promise<Map<string, Uint8Array>> {
   const keks = new Map<string, Uint8Array>();
   for (const projection of [
-    ...input.writerProjection.authorizingContainerPaths,
+    ...documentContainerProjections(input.writerProjection),
     input.targetContainerProjection,
   ]) {
     const keys = await unwrapContainerKekPath({

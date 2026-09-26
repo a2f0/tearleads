@@ -21,6 +21,7 @@ import {
   ContainerKekHistoryUnavailableError,
   DocumentHistoryUnavailableError,
 } from "../../data/documents/shared/projection";
+import { documentContainerProjections } from "../../data/keyingProjectionVerification/documentContainerProjections";
 import { readContainerKeyEpoch } from "../../data/keyingProjectionVerification/readers";
 import { rekeyRemoteContainer } from "../containers/child/rekeyRemote";
 import { DocumentRawHistoryUnavailableError } from "./syncContentKeys";
@@ -37,7 +38,7 @@ import { syncRemoteDocumentResultFromResponse } from "./syncResponseResult";
 async function expectDamagedPredecessorReadToFail(damagedKeyring: boolean) {
   const fixture = await createMaterializedSyncFixture();
   const projection = structuredClone(
-    fixture.writerProjection.authorizingContainerPaths[0],
+    documentContainerProjections(fixture.writerProjection)[0],
   );
   const currentKek = projection?.containerKeks[0];
   const currentManifest = projection?.path[0];

@@ -10,7 +10,6 @@ import {
   readCanonicalRecord,
   readCanonicalRecords,
 } from "../../../data/keyingCanonicalJson";
-
 import { mergeProjectionPolicyEvidence } from "../../../data/keyingProjectionVerification/mergeProjectionPolicyEvidence";
 
 const speculativeProjections = new WeakSet<ContainerWriterProjectionResponse>();

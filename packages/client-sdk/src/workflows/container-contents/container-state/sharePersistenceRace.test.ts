@@ -95,7 +95,13 @@ for (const variant of ["new share", "duplicate share"] as const) {
         organizationId: "organization-1",
       } as ContainerWriterProjectionResponse;
       const runtime = {
-        apiClient: { getCurrentPrincipalPolicy: async () => null },
+        apiClient: {
+          getCurrentPrincipalPolicy: async () => {
+            throw new Error(
+              "Policy service became unavailable after the share committed",
+            );
+          },
+        },
         infra: { execSql: database.execSql },
         resolveTrustedUserIdentity: async () => null,
         util: {
@@ -116,9 +122,18 @@ for (const variant of ["new share", "duplicate share"] as const) {
                 accessManifestHash: "access-after-share",
                 createdAt: "2026-01-01T00:00:00.000Z",
                 metadataDocumentId: `metadata-${containerId}`,
-                referencedPrincipalHeads: [],
+                referencedPrincipalHeads: [
+                  {
+                    principalType: "group",
+                    principalId: "committed-share-group",
+                    version: 2,
+                    keyEpoch: 1,
+                    stateHash: "a".repeat(64),
+                    keyFingerprint: "b".repeat(64),
+                  },
+                ],
                 updatedAt: "2026-01-02T00:00:00.000Z",
-                writerProjection: projection,
+                writerProjection: null,
               },
             })
           : await persistDuplicateContainerShare({
@@ -129,7 +144,16 @@ for (const variant of ["new share", "duplicate share"] as const) {
                 accessStateHash: "access-after-share",
                 createdAt: "2026-01-01T00:00:00.000Z",
                 metadataDocumentId: `metadata-${containerId}`,
-                referencedPrincipalHeads: [],
+                referencedPrincipalHeads: [
+                  {
+                    principalType: "group",
+                    principalId: "committed-share-group",
+                    version: 2,
+                    keyEpoch: 1,
+                    stateHash: "a".repeat(64),
+                    keyFingerprint: "b".repeat(64),
+                  },
+                ],
                 updatedAt: "2026-01-02T00:00:00.000Z",
               },
               persistence,

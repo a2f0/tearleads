@@ -16,6 +16,7 @@ import {
 } from "../../../test/helpers/documentFixtures";
 import { syncRemoteDocumentWithoutImportValidationForTest as syncRemoteDocument } from "../../../test/helpers/documentSync";
 import { createFullHistoryRotationSnapshot } from "../../../test/helpers/staleBundleSyncFixture";
+import { documentContainerProjections } from "../../data/keyingProjectionVerification/documentContainerProjections";
 import { ensureDocumentTables } from "../../data/sqlite/documentPersistence";
 import { buildMaterializedContainerRekeyPlan } from "../containers/child/rekey";
 import { buildMaterializedDocumentSyncPlan } from "./syncPlanMaterial";
@@ -89,7 +90,7 @@ test("lost inline rekey recovery retains a held-back checkpoint", async () => {
         author,
         buildContainerRekeys: async (currentProjection, verification) => {
           const previousProjection =
-            currentProjection.authorizingContainerPaths[0];
+            documentContainerProjections(currentProjection)[0];
           if (!previousProjection) {
             throw new Error("Expected an authorizing container projection");
           }

@@ -102,14 +102,10 @@ async function verifyContainerKekProjection(input: {
   readonly kek: ContainerWriterProjectionResponse["containerKeks"][number];
   readonly label: string;
   readonly parentKekState: VerifiedContainerKekState | null;
-  readonly principalPolicyCache: PrincipalPolicyCache;
   readonly resolveUserKey: ProjectionUserKeyResolver;
   readonly verifiedManifest: VerifiedContainerAccessManifest;
   readonly verifiedManifestHistory: readonly VerifiedContainerAccessManifest[];
   readonly parentManifestHistory: readonly VerifiedContainerAccessManifest[];
-  readonly warmReferencedPrincipalPolicies?:
-    | ReferencedPrincipalPolicyWarmer
-    | undefined;
 }): Promise<VerifiedContainerKekState> {
   if (input.verifiedManifest.state.parentContainerId && !input.parentKekState) {
     throw new Error(`${input.label} requires verified parent KEK state`);
@@ -214,7 +210,9 @@ function collectContainerProjectionBundles(
 }
 
 export async function verifyContainerWriterProjectionWithContext(
-  input: Omit<ContainerWriterProjectionVerificationInput, "execSql">,
+  input: Omit<ContainerWriterProjectionVerificationInput, "execSql"> & {
+    readonly authorizationEvidence?: readonly AnyVerifiedPrincipalPolicy[];
+  },
   checkpointContext: ProjectionCheckpointContext,
 ): Promise<VerifiedContainerAccessManifest[]> {
   if (input.projection.path.length !== input.projection.containerKeks.length) {
@@ -229,14 +227,16 @@ export async function verifyContainerWriterProjectionWithContext(
     input.verifiedByHash ?? new Map<string, VerifiedContainerAccessManifest>();
   const principalPolicyCache =
     input.principalPolicyCache ?? new Map<string, VerifiedPrincipalPolicy>();
-  const authorizationEvidence = await verifyProjectionAuthorizationEvidence({
-    bundles: [...bundlesByHash.values()],
-    checkpointContext,
-    policyEvidence: input.projection.policyEvidence,
-    organizationId: input.projection.organizationId,
-    principalPolicyCache,
-    resolveUserKey: input.resolveUserKey,
-  });
+  const authorizationEvidence =
+    input.authorizationEvidence ??
+    (await verifyProjectionAuthorizationEvidence({
+      bundles: [...bundlesByHash.values()],
+      checkpointContext,
+      policyEvidence: input.projection.policyEvidence,
+      organizationId: input.projection.organizationId,
+      principalPolicyCache,
+      resolveUserKey: input.resolveUserKey,
+    }));
   const verifiedPath = await verifyContainerManifestPath({
     authorizationEvidence,
     requireAuthorizationEvidence: true,
@@ -287,12 +287,10 @@ export async function verifyContainerWriterProjectionWithContext(
       kek,
       label: `Container writer projection KEK[${index}]`,
       parentKekState: index > 0 ? (verifiedKekStates[index - 1] ?? null) : null,
-      principalPolicyCache,
       resolveUserKey: input.resolveUserKey,
       verifiedManifest,
       verifiedManifestHistory,
       parentManifestHistory: [...verifiedByHash.values()],
-      warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
     });
     verifiedKekStates.push(verifiedKekState);
   }

@@ -22,6 +22,7 @@ import {
   verifiedContainerManifestsForBundles,
   verifyContainerWriterProjectionWithContext,
 } from "./containerProjectionVerification";
+import { documentContainerProjections } from "./documentContainerProjections";
 import { verifyDocumentProjectionManifests } from "./documentManifestVerification";
 import { rejectPurgedDocumentProjection } from "./documentPurgeCheckpointEnforcement";
 import { throwKeyingVerificationShapeFailure } from "./error";
@@ -50,10 +51,9 @@ function collectDocumentProjectionContainerBundles(
   projection: DocumentWriterProjectionResponse,
 ): Map<string, AccessManifestBundleWireResponse> {
   const bundlesByHash = new Map<string, AccessManifestBundleWireResponse>();
-  for (const [
-    index,
-    authorizing,
-  ] of projection.authorizingContainerPaths.entries()) {
+  for (const [index, authorizing] of documentContainerProjections(
+    projection,
+  ).entries()) {
     addContainerWriterProjectionBundles(
       bundlesByHash,
       authorizing,
@@ -104,9 +104,10 @@ async function verifyProjectionContainerPaths(input: {
   // same authorizing container paths does not re-verify identical manifests.
   const verifiedByHash =
     input.verifiedByHash ?? new Map<string, VerifiedContainerAccessManifest>();
-  for (const projection of input.projection.authorizingContainerPaths) {
+  for (const projection of documentContainerProjections(input.projection)) {
     const path = await verifyContainerWriterProjectionWithContext(
       {
+        authorizationEvidence: input.authorizationEvidence,
         principalPolicyCache: input.principalPolicyCache,
         projection,
         resolveUserKey: input.resolveUserKey,

@@ -41,12 +41,6 @@ export async function persistSharedContainerState(input: {
   writerProjectionGeneration: number;
 }): Promise<SharedContainerStateResult | null> {
   if (input.stillCurrent?.() === false) return { status: "confirmed" };
-  await createRuntimePrincipalPolicyWarmer(input.runtime)({
-    organizationId: input.shared.writerProjection.organizationId,
-    references: input.shared.referencedPrincipalHeads,
-    stillCurrent: input.stillCurrent,
-  });
-  if (input.stillCurrent?.() === false) return { status: "confirmed" };
   const candidateState = await createDetachedContainerMetadataState(
     input.containerState,
     { writerProjectionGeneration: input.writerProjectionGeneration },

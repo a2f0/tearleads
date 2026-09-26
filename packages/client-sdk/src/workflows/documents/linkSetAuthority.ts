@@ -17,6 +17,7 @@ import {
   collectContainerWriterProjectionPrincipalPolicies,
   type PrincipalPolicyCache,
 } from "../../data/keyingProjectionVerification";
+import { documentContainerProjections } from "../../data/keyingProjectionVerification/documentContainerProjections";
 import { throwKeyingVerificationErrorWithContext } from "../../data/keyingProjectionVerification/error";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 
@@ -43,7 +44,9 @@ export function assertDocumentLinkAuthorAccess(input: {
   const linked = readLinkedContainerIdsFromDocumentManifest(
     input.writerProjection,
   );
-  for (const projection of input.writerProjection.authorizingContainerPaths) {
+  for (const projection of documentContainerProjections(
+    input.writerProjection,
+  )) {
     if (!linked.includes(projection.containerId)) continue;
     try {
       assertContainerAuthorAccess({ ...permission, projection });
@@ -71,7 +74,7 @@ export async function verifyDocumentLinkSetCurrentPolicies(
   try {
     for (const projection of [
       input.targetContainerProjection,
-      ...input.writerProjection.authorizingContainerPaths,
+      ...documentContainerProjections(input.writerProjection),
     ]) {
       await collectContainerWriterProjectionPrincipalPolicies({
         execSql: input.execSql,

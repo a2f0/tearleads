@@ -90,6 +90,7 @@ export {
   BlobMutationFailureResponseSchema,
 } from "./blobMutationError";
 export {
+  CONTAINER_PROJECTION_STATE_INVALID_ERROR_CODE,
   type ContainerDeleteResponse,
   ContainerDeleteResponseSchema,
   type ContainerKekKeyringWireResponse,
@@ -98,6 +99,8 @@ export {
   type ContainerKekLogResponse,
   ContainerKekLogResponseSchema,
   type ContainerKekResponse,
+  type ContainerKeyingPathResponse,
+  ContainerKeyingPathResponseSchema,
   type ContainerMutationResponse,
   ContainerMutationResponseSchema,
   type ContainerReciteResponse,

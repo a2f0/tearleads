@@ -231,7 +231,11 @@ async function holdsGrantReferencingPrincipal(
  * for an organization, one of its groups), on either side of the grant: a
  * requester granted below it sees the principal on their path, and a
  * requester granted above it can read the container the principal is granted
- * on. Honest clients are always in one of those sets.
+ * on. Historical citations instead use public snapshot evidence embedded in an
+ * authorized writer projection (projectionPolicyEvidence.ts). That evidence
+ * deliberately includes retained membership/grants and signed directory ids,
+ * including deleted/history-only groups, but never group payloads or envelopes.
+ * This endpoint remains restricted because it supplies the full keying bundle.
  */
 export async function assertPrincipalPolicyReadable(input: {
   /** A writer-projection context to share across several checks. */

@@ -25,6 +25,7 @@ import type {
   PrincipalPolicyBundleCacheRequest,
   ReferencedPrincipalPolicyWarmer,
 } from "../../data/keyingProjectionVerification";
+import { documentContainerProjections } from "../../data/keyingProjectionVerification/documentContainerProjections";
 import { ensureDocumentTables } from "../../data/sqlite/documentPersistence";
 import { buildMaterializedContainerRekeyPlan } from "../containers/child/rekey";
 import { buildMaterializedDocumentSyncPlan } from "./syncPlanMaterial";
@@ -181,10 +182,9 @@ test("syncRemoteDocument retries failed chained rekeys after caching stale polic
         expect(policiesCached).toBe(rekeyBuildCount > 1);
         expect(verification.persistVerificationCheckpoints).toBe(false);
         const previousProjection =
-          currentProjection.authorizingContainerPaths[0];
-        if (!previousProjection) {
+          documentContainerProjections(currentProjection)[0];
+        if (!previousProjection)
           throw new Error("Expected an authorizing container projection");
-        }
         const firstRekey = await buildMaterializedContainerRekeyPlan({
           author,
           execSql,
@@ -383,7 +383,7 @@ test("response-loss recovery does not commit a second inline rekey", async () =>
         buildContainerRekeys: async (currentProjection, verification) => {
           rekeyBuildCount += 1;
           const previousProjection =
-            currentProjection.authorizingContainerPaths[0];
+            documentContainerProjections(currentProjection)[0];
           if (!previousProjection) {
             throw new Error("Expected an authorizing container projection");
           }

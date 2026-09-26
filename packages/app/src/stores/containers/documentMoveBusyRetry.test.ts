@@ -137,7 +137,7 @@ test.each([false, true])(
           async () =>
             expect(
               await db.execSql(
-                'select "id", "last_error" from "document_move_intents" where "document_id" = ?',
+                'select "id" from "document_move_intents" where "document_id" = ?',
                 [documentId],
               ),
             ).toEqual([]),

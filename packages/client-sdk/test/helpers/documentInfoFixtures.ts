@@ -12,11 +12,6 @@ export function createDocumentWriterProjection(): DocumentWriterProjectionRespon
     },
     authorizingContainerPaths: [
       {
-        policyEvidence: {
-          organization: null,
-          organizationPayloads: [],
-          groups: [],
-        },
         containerId: "container-1",
         containerKeks: [
           {

@@ -97,7 +97,7 @@ export interface SharedRemoteContainerState {
   metadataDocumentId: string;
   referencedPrincipalHeads: ReferencedPrincipalStateResponse[];
   updatedAt: string;
-  writerProjection: ContainerWriterProjectionResponse;
+  writerProjection: ContainerWriterProjectionResponse | null;
 }
 
 export interface SharedContainerState {
