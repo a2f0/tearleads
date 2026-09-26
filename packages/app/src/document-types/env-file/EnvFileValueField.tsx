@@ -12,7 +12,13 @@ export function EnvFileValueField(params: {
 }) {
   const { ariaLabel, disabled, onChange, value } = params;
   const [revealed, setRevealed] = useState(false);
+  const supportsTextSecurity =
+    typeof CSS !== "undefined" &&
+    CSS.supports?.("-webkit-text-security", "disc");
   const revealAction = `${revealed ? "Hide" : "Show"} ${ariaLabel}`;
+  // Browsers without CSS text masking require Show before editing the value.
+  const displayValue =
+    !revealed && !supportsTextSecurity ? "•".repeat(value.length) : value;
 
   return (
     <TrackerInputField
@@ -21,7 +27,7 @@ export function EnvFileValueField(params: {
           aria-label={revealAction}
           aria-pressed={revealed}
           className="mini-app-icon-button"
-          disabled={disabled || value.length === 0}
+          disabled={disabled || (value.length === 0 && supportsTextSecurity)}
           onClick={() => setRevealed((current) => !current)}
           title={revealAction}
           variant="ghost"
@@ -35,15 +41,16 @@ export function EnvFileValueField(params: {
       }
       aria-label={ariaLabel}
       autoCapitalize="off"
-      autoComplete="new-password"
-      className="env-file-variable-value-field"
+      autoComplete="off"
+      className={`env-file-variable-value-field${revealed ? " env-file-variable-value-revealed" : ""}`}
       disabled={disabled}
       label="Value"
       onChange={onChange}
       placeholder="secret"
+      readOnly={!revealed && !supportsTextSecurity}
       spellCheck={false}
-      type={revealed ? "text" : "password"}
-      value={value}
+      type="text"
+      value={displayValue}
     />
   );
 }

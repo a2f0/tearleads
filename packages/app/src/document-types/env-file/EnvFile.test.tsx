@@ -113,16 +113,27 @@ test("renders env variables as editable key value rows", () => {
     (view.getByLabelText("Env variable 1 key") as HTMLInputElement).value,
   ).toBe("API_URL");
   const value = view.getByLabelText("Env variable 1 value") as HTMLInputElement;
+  expect(value.type).toBe("text");
+  expect(value.autocomplete).toBe("off");
   expect(value.value).toBe("https://api.example.test");
-  expect(value.type).toBe("password");
+  expect(
+    value
+      .closest(".env-file-variable-value-field")
+      ?.classList.contains("env-file-variable-value-revealed"),
+  ).toBe(false);
   fireEvent.click(
     view.getByRole("button", { name: "Show Env variable 1 value" }),
   );
   expect(value.type).toBe("text");
+  expect(
+    value
+      .closest(".env-file-variable-value-field")
+      ?.classList.contains("env-file-variable-value-revealed"),
+  ).toBe(true);
   fireEvent.click(
     view.getByRole("button", { name: "Hide Env variable 1 value" }),
   );
-  expect(value.type).toBe("password");
+  expect(value.type).toBe("text");
   expect(view.container.querySelector(".env-file-variable-row")).toBeTruthy();
 });
 
@@ -320,7 +331,7 @@ test("read mode saves a new variable without entering edit mode", () => {
   expect(
     (view.getByLabelText("Quick add env variable value") as HTMLInputElement)
       .type,
-  ).toBe("password");
+  ).toBe("text");
   fireEvent.click(view.getByRole("button", { name: "Save Variable" }));
 
   expect(added).toEqual([{ key: "API_TOKEN", value: "secret" }]);
