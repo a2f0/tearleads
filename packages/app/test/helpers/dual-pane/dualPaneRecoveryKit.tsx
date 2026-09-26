@@ -4,10 +4,8 @@ import invariant from "invariant";
 import { RECOVERY_KEY_ACKNOWLEDGEMENT_PHRASE } from "../../../src/mini-apps/identity-manager/actions/recoveryKeyDisclosure";
 import { flattenPaneStatusText } from "../paneTestUtils";
 import {
-  getExplorerSidebarItem,
   interact,
   openIdentityManagerForPane,
-  selectContainerAndWaitForItemTable,
   waitForSinglePaneProvisioning,
 } from "./dualPaneCore";
 import { waitForExplorerDocumentRow } from "./explorerDocumentRow";
@@ -257,9 +255,6 @@ export async function readPaneExplorerDocumentIdentity(
   } = {},
 ): Promise<PaneExplorerDocumentIdentity> {
   const { containerName } = options;
-  if (containerName) {
-    await selectContainerAndWaitForItemTable(pane, containerName);
-  }
   if (options.expectedDocumentId === undefined) {
     return openPaneExplorerDocumentInfo(pane, itemLabel, containerName);
   }
@@ -283,11 +278,7 @@ export async function readPaneExplorerDocumentIdentity(
       return identity;
     }
     await new Promise((resolve) => setTimeout(resolve, 250));
-    // Navigate back to the container view so the info route unmounts and the
-    // next Get Info performs a fresh load instead of reusing the stale panel.
-    await waitFor(() => getExplorerSidebarItem(pane, containerName), {
-      timeout: Math.max(1, deadline - Date.now()),
-    });
-    await selectContainerAndWaitForItemTable(pane, containerName);
+    // The row lookup reopens the named container from the info route on the
+    // next iteration, remounting the panel so Get Info reads fresh state.
   }
 }
