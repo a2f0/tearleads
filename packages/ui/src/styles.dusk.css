@@ -1,0 +1,39 @@
+/*
+ * Dusk: slate-blue surfaces, soft ivory text, and muted blue selections.
+ * Elevation runs from the chrome bands through the desktop, window body,
+ * toolbars, and title bar. Color stays in the surfaces and accents so text
+ * remains neutral and crisp. Structural tokens come from styles.css.
+ *
+ * Keep colors in hex: payment fields and native status bars read these tokens
+ * through consumers that only parse legacy color forms.
+ */
+:root[data-theme="dusk"] {
+  color-scheme: dark;
+
+  --color-muted: #293242;
+  --color-dark: #e7e5df;
+  --color-light: #222a37;
+  --color-danger: #f0918b;
+  --color-hairline: color-mix(in srgb, var(--color-dark) 13%, transparent);
+
+  --tearleads-background: #1b2230;
+  --tearleads-border: #364154;
+  --tearleads-accent: #a6bddb;
+  --tearleads-text: #e7e5df;
+  --tearleads-header-background: #171d28;
+  --tearleads-header-text: #e7e5df;
+  --tearleads-footer-background: #171d28;
+  --tearleads-footer-text: #e7e5df;
+
+  --tearleads-window-titlebar-background: #303c50;
+  --tearleads-window-titlebar-text: #eeede8;
+  --border-strong-color: #46536a;
+  --border-color: color-mix(in srgb, var(--color-dark) 23%, transparent);
+
+  --emphasis-surface: #405575;
+  --emphasis-text: #f4f1ea;
+  --tearleads-action-hover-surface: var(--emphasis-surface);
+  --tearleads-action-hover-text: var(--emphasis-text);
+
+  --overlay-background: rgb(10 14 22 / 58%);
+}
