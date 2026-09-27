@@ -2,7 +2,6 @@ import type {
   ContainerWriterProjectionResponse,
   ReferencedPrincipalStateResponse,
 } from "@tearleads/validators/response";
-import { createRuntimePrincipalPolicyWarmer } from "../../principals/runtimePolicyWarmer";
 import type { ContainerContentsPersistence } from "../containerPersistence";
 import {
   type ContainerMetadataPatch,
@@ -111,12 +110,6 @@ export async function persistDuplicateContainerShare(input: {
   /** `writerProjectionGeneration` captured before the share flow began. */
   writerProjectionGeneration: number;
 }): Promise<SharedContainerStateResult | null> {
-  if (input.stillCurrent?.() === false) return { status: "confirmed" };
-  await createRuntimePrincipalPolicyWarmer(input.runtime)({
-    organizationId: input.projection.organizationId,
-    references: input.grant.referencedPrincipalHeads,
-    stillCurrent: input.stillCurrent,
-  });
   if (input.stillCurrent?.() === false) return { status: "confirmed" };
   const candidateState = await createDetachedContainerMetadataState(
     input.containerState,

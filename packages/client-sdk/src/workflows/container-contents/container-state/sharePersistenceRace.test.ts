@@ -112,6 +112,16 @@ for (const variant of ["new share", "duplicate share"] as const) {
         },
       } as unknown as ContainerWorkflowRuntime;
 
+      const referencedPrincipalHeads = [
+        {
+          principalType: "group" as const,
+          principalId: "committed-share-group",
+          version: 2,
+          keyEpoch: 1,
+          stateHash: "a".repeat(64),
+          keyFingerprint: "b".repeat(64),
+        },
+      ];
       const result =
         variant === "new share"
           ? await persistSharedContainerState({
@@ -124,16 +134,7 @@ for (const variant of ["new share", "duplicate share"] as const) {
                 accessManifestHash: "access-after-share",
                 createdAt: "2026-01-01T00:00:00.000Z",
                 metadataDocumentId: `metadata-${containerId}`,
-                referencedPrincipalHeads: [
-                  {
-                    principalType: "group",
-                    principalId: "committed-share-group",
-                    version: 2,
-                    keyEpoch: 1,
-                    stateHash: "a".repeat(64),
-                    keyFingerprint: "b".repeat(64),
-                  },
-                ],
+                referencedPrincipalHeads,
                 updatedAt: "2026-01-02T00:00:00.000Z",
                 writerProjection: null,
               },
@@ -146,7 +147,7 @@ for (const variant of ["new share", "duplicate share"] as const) {
                 accessStateHash: "access-after-share",
                 createdAt: "2026-01-01T00:00:00.000Z",
                 metadataDocumentId: `metadata-${containerId}`,
-                referencedPrincipalHeads: [],
+                referencedPrincipalHeads,
                 updatedAt: "2026-01-02T00:00:00.000Z",
               },
               persistence,
@@ -157,7 +158,7 @@ for (const variant of ["new share", "duplicate share"] as const) {
       if (result?.status !== "persisted") {
         throw new Error("Expected persisted share state");
       }
-      if (variant === "new share") expect(policyReadCount).toBe(0);
+      expect(policyReadCount).toBe(0);
       expect(containerState.doc).toBe(liveDoc);
       expect(
         readContainerMetadataValue(containerState.doc, "fallback"),

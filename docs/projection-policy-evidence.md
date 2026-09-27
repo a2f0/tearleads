@@ -63,6 +63,9 @@ from Members is refused until signed removals from all other live groups and
 direct container grants have committed. The app enrolls users in Members before
 adding them to another group and removes ordinary-group memberships before
 disabling the roster. No group mutation implicitly enrolls a user on the server.
+Direct user grants independently require active same-organization membership
+(`groupReferences.ts`); Members removal refuses outstanding direct grants
+(`roster.ts`). They do not provide a non-roster access exception.
 
 A group's chain extends through its last directory-bound head, rather than
 stopping at the citation: a reader may already have checkpointed a later version
@@ -74,7 +77,10 @@ chain. Only the bodies needed to bind the supplied heads are sent. Those bodies
 list every group ID and head at their respective versions.
 
 Deploy the API contract before releasing the updated clients. All supported
-clients are updated together; there is no compatibility reader or schema migration.
+clients are updated together. This is a greenfield rollout: preexisting off-roster
+memberships are outside the deployment contract. No cleanup migration, backfill,
+or compatibility reader is needed. The active-roster invariant applies to all
+live groups, not just users changed by a particular Members write.
 
 ## Cost and retained-history tradeoff
 
