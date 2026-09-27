@@ -1,0 +1,70 @@
+/*
+ * === Phosphor theme ===
+ *
+ * Companion to styles.css, imported immediately after it (see TearleadsFrame)
+ * and split out, like styles.routed.css, to keep each stylesheet within the
+ * source-shape size budget. It overrides only the THEME TOKENS that styles.css
+ * declares; the attribute selector outranks the base `:root` by specificity.
+ *
+ * A green-phosphor terminal: the app already speaks in monospace, so this theme
+ * leans into it. It keeps the design system's monochrome discipline — one hue
+ * instead of none — by tinting the whole ramp toward a P1-phosphor green (OKLCh
+ * hue ~150), with --color-danger again the lone off-hue token.
+ *
+ * Surfaces climb the same even elevation ladder as Dark, a step deeper so the
+ * face reads as a CRT's near-black glass: chrome bands #07110a -> desktop
+ * #0a170f -> body #102016 -> muted bars #162a1d -> title bar #162d1f. Glyphs
+ * are lit phosphor (#80f194, ~12:1 on the body, matching Dark's text contrast).
+ *
+ * Emphasis is the one deliberate departure from Dark: selections, the active
+ * menu, and primary buttons render as inverse video — a lit phosphor bar with
+ * dark glyphs — the way terminal UIs have always shown a cursor row. The
+ * header/footer hovers inherit the base inversion for the same reason.
+ *
+ * Every value is hex (not oklch) because some consumers read the resolved
+ * colors back: the payment element and Android's status bar only parse
+ * legacy color forms.
+ */
+:root[data-theme="phosphor"] {
+  color-scheme: dark;
+
+  --color-muted: #162a1d;
+  --color-dark: #80f194;
+  --color-light: #102016;
+  /* Warm coral: still reads as an alarm against a field of green. */
+  --color-danger: #f7806a;
+  --color-hairline: color-mix(in srgb, var(--color-dark) 14%, transparent);
+
+  --tearleads-background: #0a170f;
+  --tearleads-border: #193222;
+  --tearleads-accent: #60c473;
+  --tearleads-text: #80f194;
+  --tearleads-header-background: #07110a;
+  --tearleads-header-text: #80f194;
+  --tearleads-footer-background: #07110a;
+  --tearleads-footer-text: #80f194;
+
+  --tearleads-window-titlebar-background: #162d1f;
+  --tearleads-window-titlebar-text: #80f194;
+  --border-strong-color: #1f3d2a;
+
+  /* Same reasoning as Dark: a full-strength phosphor currentColor would draw
+     every gridline and divider as a lit trace. */
+  --border-color: color-mix(in srgb, var(--color-dark) 24%, transparent);
+
+  /* Inverse video, a touch below full brightness so a selected row glows
+     rather than flares. */
+  --emphasis-surface: #65db7c;
+  --emphasis-text: #04130a;
+
+  --overlay-background: rgb(0 6 2 / 62%);
+}
+
+/* Phosphor bloom — the one rule in this sheet that is not a token override.
+   A faint halo of each glyph's own color (currentColor, so coral danger text
+   blooms coral and inverse-video text stays crisp) is what makes the ramp read
+   as a lit screen rather than a green-tinted Dark. Form controls are listed
+   because the UA sheet resets their text-shadow instead of inheriting it. */
+:root[data-theme="phosphor"] :is(body, button, input, select, textarea) {
+  text-shadow: 0 0 0.3em color-mix(in srgb, currentColor 45%, transparent);
+}

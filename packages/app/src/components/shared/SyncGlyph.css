@@ -2,7 +2,8 @@
    monochrome save for the one chromatic --color-danger token, so the "synced"
    green and the "billing" amber are scoped here rather than promoted to global
    tokens. Red reuses --color-danger (already theme-aware); the two added hues
-   carry a Light default and a Dark override, matching that token's shape. */
+   carry a Light default and a dark-scheme override (shared by every dark
+   theme), matching that token's shape. */
 .sync-glyph {
   --sync-glyph-synced-color: #1a7f37;
   --sync-glyph-warning-color: #9a6700;
@@ -10,7 +11,7 @@
   flex: 0 0 auto;
 }
 
-:root[data-theme="dark"] .sync-glyph {
+:root[data-theme-scheme="dark"] .sync-glyph {
   --sync-glyph-synced-color: #6fbf87;
   --sync-glyph-warning-color: #e3b341;
 }

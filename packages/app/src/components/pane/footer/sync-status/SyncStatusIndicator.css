@@ -12,6 +12,9 @@
   padding: 0;
   border: 0;
   background: none;
+  /* The glyph sets its own hue, but the focus ring is currentColor; without
+     this it falls back to the UA ButtonText (white/black) in every theme. */
+  color: inherit;
   cursor: pointer;
 }
 
