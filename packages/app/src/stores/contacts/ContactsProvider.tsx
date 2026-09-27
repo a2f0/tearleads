@@ -259,15 +259,29 @@ function useContactsSystemContainerBootstrap(input: {
       return;
     }
 
-    void store
-      .ensureSystemContainer(contactsSystemSlot, CONTACTS_CONTAINER_NAME, {
-        icon: CONTACTS_CONTAINER_ICON,
-        deferRemoteBootstrap: true,
-        skipAdvancedManagedRoot: true,
+    let cancelled = false;
+    // Parent effects publish the authenticated store runtime after child
+    // effects. Queue the write afterward so that publication cannot invalidate
+    // the bootstrap's captured runtime before it starts.
+    void Promise.resolve()
+      .then(() => {
+        if (cancelled) return;
+        return store.ensureSystemContainer(
+          contactsSystemSlot,
+          CONTACTS_CONTAINER_NAME,
+          {
+            icon: CONTACTS_CONTAINER_ICON,
+            deferRemoteBootstrap: true,
+            skipAdvancedManagedRoot: true,
+          },
+        );
       })
       .catch((error: unknown) => {
         logError("Failed to queue contacts system container", error);
       });
+    return () => {
+      cancelled = true;
+    };
   }, [
     canBootstrap,
     contactsSystemSlot,
