@@ -274,6 +274,12 @@
   max-width: 100%;
 }
 
+.explorer-container-icon-picker .mini-app-select-menu-popover {
+  right: auto;
+  width: max-content;
+  min-width: 100%;
+}
+
 /* Full-screen diagnostics hub: a tab strip over the sync, blob, and durable
    write panels. The hub fills the main pane height so the active panel scrolls. */
 .explorer-sections-hub {
