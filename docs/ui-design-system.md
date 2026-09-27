@@ -80,9 +80,10 @@ Vertical sizing uses `100dvh` (with a `100vh` fallback) so iOS Safari's
 collapsing toolbars never hide the bottom taskbar.
 
 On native, `packages/app-capacitor/src/device/statusBar.ts` syncs the status-bar
-style with the theme: the header band is dark in both themes, so icons are
-always light, and Android additionally paints the bar to match the header. It
-observes the same `<html data-theme>` attribute the CSS keys off.
+style with the theme: it keys the icon style off `<html data-theme-scheme>`
+(dark icons over a light theme, light icons over a dark one), and Android
+additionally paints the bar with the resolved `--color-muted` app-bar color, so
+every theme matches without being listed there.
 
 ## Tokens and theming
 
@@ -97,8 +98,13 @@ motion. Rules:
   (The only sanctioned literals are structural one-offs like resize-handle hit
   zones, each with a comment.)
 - Themes override only the color tokens, under `:root[data-theme="<id>"]`.
-  The registry is `packages/app/src/theme/themes.ts`; `ThemeProvider` stamps
-  `<html data-theme>`. Structural tokens are theme-independent by design.
+  The registry is `packages/app/src/theme/themes.ts` (Light, Dark, and
+  Phosphor, whose block lives in the companion `styles.phosphor.css`);
+  `ThemeProvider` stamps `<html data-theme>` and `<html data-theme-scheme>`
+  (`light` | `dark`). A rule that only cares whether surfaces are dark keys off
+  the scheme, never a theme id. Structural tokens are theme-independent by
+  design; Phosphor's glyph glow (a `text-shadow` in its own sheet) is the one
+  non-token theme rule.
 - Each component ships a sibling `.css` file imported by its `.tsx`; class
   names are composed with `classNames` from `components/shared/classNames`.
 

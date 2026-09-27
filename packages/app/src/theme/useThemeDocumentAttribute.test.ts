@@ -6,31 +6,41 @@ import { useThemeDocumentAttribute } from "./useThemeDocumentAttribute";
 afterEach(() => {
   cleanup();
   document.documentElement.removeAttribute("data-theme");
+  document.documentElement.removeAttribute("data-theme-scheme");
 });
 
-test("stamps the active theme onto the document root for theme CSS", () => {
+function rootAttributes() {
+  return {
+    theme: document.documentElement.getAttribute("data-theme"),
+    scheme: document.documentElement.getAttribute("data-theme-scheme"),
+  };
+}
+
+test("stamps the active theme and its scheme onto the document root", () => {
   renderHook(() => useThemeDocumentAttribute("dark"));
 
-  expect(document.documentElement.getAttribute("data-theme")).toBe("dark");
+  expect(rootAttributes()).toEqual({ theme: "dark", scheme: "dark" });
 });
 
-test("clears the attribute on unmount so it does not leak globally", () => {
+test("clears both attributes on unmount so they do not leak globally", () => {
   const { unmount } = renderHook(() => useThemeDocumentAttribute("dark"));
-  expect(document.documentElement.getAttribute("data-theme")).toBe("dark");
+  expect(rootAttributes()).toEqual({ theme: "dark", scheme: "dark" });
 
   unmount();
 
-  expect(document.documentElement.getAttribute("data-theme")).toBe(null);
+  expect(rootAttributes()).toEqual({ theme: null, scheme: null });
 });
 
-test("updates the attribute when the theme changes", () => {
+test("updates both attributes when the theme changes", () => {
   const { rerender } = renderHook(
     ({ theme }: { theme: ThemeId }) => useThemeDocumentAttribute(theme),
     { initialProps: { theme: "light" as ThemeId } },
   );
-  expect(document.documentElement.getAttribute("data-theme")).toBe("light");
+  expect(rootAttributes()).toEqual({ theme: "light", scheme: "light" });
 
-  rerender({ theme: "dark" });
+  rerender({ theme: "phosphor" });
 
-  expect(document.documentElement.getAttribute("data-theme")).toBe("dark");
+  // Phosphor is its own theme id but shares the dark scheme, so rules keyed on
+  // the scheme (shadow depth, status glyphs, the native status bar) follow it.
+  expect(rootAttributes()).toEqual({ theme: "phosphor", scheme: "dark" });
 });

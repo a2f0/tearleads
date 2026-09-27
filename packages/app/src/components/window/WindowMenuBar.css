@@ -12,6 +12,9 @@
   padding: var(--window-bar-padding);
   border: none;
   background: none;
+  /* Take the theme's text color rather than the UA ButtonText (pure white or
+     black), which only happened to pass for the greyscale themes. */
+  color: inherit;
   cursor: pointer;
 }
 
@@ -42,6 +45,7 @@
   padding: var(--menu-item-padding);
   border: none;
   background: none;
+  color: inherit;
   text-align: left;
   white-space: nowrap;
   cursor: pointer;
