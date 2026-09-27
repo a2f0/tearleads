@@ -1,4 +1,4 @@
-import { afterEach, expect, test } from "bun:test";
+import { afterEach, expect, spyOn, test } from "bun:test";
 import type { Tearleads } from "@tearleads/client-sdk";
 import {
   act,
@@ -79,20 +79,41 @@ test(
     organizations.listLocalOrganizations = async () => [];
 
     await generateIdentityAndWaitForDb(view);
-    await registerAndWaitForUserId(view);
-    const contactsWindow = await openContacts(view);
-
-    await waitFor(
-      () => {
-        expect(
-          within(contactsWindow).getByText(CONTACTS_LABELS.emptyState),
-        ).toBeTruthy();
-        expect(
-          within(contactsWindow).queryByText(CONTACTS_LABELS.loadingState),
-        ).toBeNull();
+    const allowLogin = Promise.withResolvers<void>();
+    const originalLogin = tearleads.session.login.bind(tearleads.session);
+    const login = spyOn(tearleads.session, "login").mockImplementation(
+      async (challenge) => {
+        await allowLogin.promise;
+        return originalLogin(challenge);
       },
-      { timeout: PANE_LONG_ASYNC_TEST_TIMEOUT_MS },
     );
+    try {
+      await registerAndWaitForUserId(view);
+      // Registration exposes the user ID before login completes. Mount
+      // Contacts during that gap to exercise its authentication transition.
+      const contactsWindow = await openContacts(view);
+      expect(tearleads.session.isAuthenticated).toBe(false);
+      expect(
+        within(contactsWindow).getByText(CONTACTS_LABELS.loadingState),
+      ).toBeTruthy();
+      allowLogin.resolve();
+
+      await waitFor(
+        () => {
+          expect(tearleads.session.isAuthenticated).toBe(true);
+          expect(
+            within(contactsWindow).getByText(CONTACTS_LABELS.emptyState),
+          ).toBeTruthy();
+          expect(
+            within(contactsWindow).queryByText(CONTACTS_LABELS.loadingState),
+          ).toBeNull();
+        },
+        { timeout: 10_000 },
+      );
+    } finally {
+      allowLogin.resolve();
+      login.mockRestore();
+    }
   },
   PANE_LONG_ASYNC_TEST_TIMEOUT_MS,
 );
