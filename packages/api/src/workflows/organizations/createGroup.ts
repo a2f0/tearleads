@@ -234,8 +234,7 @@ export async function runCreateOrganizationGroupWorkflow(
 
       // A brand-new group's initial policy goes through this route rather than
       // the policy PUT, so it needs the same roster rule: a group must not be
-      // stood up already naming a disabled user, which would hand back access
-      // the organization revoked.
+      // stood up naming someone outside the organization's active roster.
       await assertManagedPrincipalRosterMembership({
         organizationId,
         principalId: input.groupId,

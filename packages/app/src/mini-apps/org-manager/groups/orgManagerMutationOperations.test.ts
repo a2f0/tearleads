@@ -163,7 +163,6 @@ test("adding a roster user stops before the write when an import resolves in a s
     directoryUser: undefined,
     groupId: "custom-group",
     groupName: "Operators",
-    isAdminGroup: false,
     isOperationActive,
     memberGroupId: null,
     operationOrganizationId: DIRECTORY.organizationId,
@@ -194,7 +193,6 @@ test("adding a roster user reports a stale result when the organization changes 
     directoryUser: undefined,
     groupId: "custom-group",
     groupName: "Operators",
-    isAdminGroup: false,
     isOperationActive,
     memberGroupId: null,
     operationOrganizationId: DIRECTORY.organizationId,
@@ -212,48 +210,50 @@ test("adding a roster user reports a stale result when the organization changes 
   expect(result).toBeNull();
 });
 
-test("a failed Admins add after a Members add reports the user is now a billed member", async () => {
-  // The two writes cannot be one transaction. When the second fails the first
-  // has already landed, so the user is an organization member and on the
-  // invoice; reporting a bare failure would hide that.
-  const addUserToGroup = mock(async (groupId: string) => {
-    if (groupId === "admins") {
-      throw new Error("policy write failed");
-    }
-    return undefined as never;
-  });
-  const { observed, setError } = createErrorSetter();
-  const actions = createActions({
-    addUserToGroup,
-    loadGroupMembers: mock(async () => MEMBERS),
-  });
+test.each(["admins", "custom-group"])(
+  "a failed %s add after enrollment reports the billed membership",
+  async (groupId) => {
+    // The two writes cannot be one transaction. When the second fails the first
+    // has already landed, so the user is an organization member and on the
+    // invoice; reporting a bare failure would hide that.
+    const addUserToGroup = mock(async (targetGroupId: string) => {
+      if (targetGroupId === groupId) {
+        throw new Error("policy write failed");
+      }
+      return undefined as never;
+    });
+    const { observed, setError } = createErrorSetter();
+    const actions = createActions({
+      addUserToGroup,
+      loadGroupMembers: mock(async () => MEMBERS),
+    });
 
-  const result = await addRosterUserToGroup({
-    directoryUser: { ...TARGET_USER } as never,
-    groupId: "admins",
-    groupName: "Admins",
-    isAdminGroup: true,
-    isOperationActive: () => true,
-    memberGroupId: "members",
-    operationOrganizationId: DIRECTORY.organizationId,
-    orgManagerActions: actions,
-    setError,
-    targetUserId: TARGET_USER.userId,
-  });
+    const result = await addRosterUserToGroup({
+      directoryUser: { ...TARGET_USER } as never,
+      groupId,
+      groupName: "Admins",
+      isOperationActive: () => true,
+      memberGroupId: "members",
+      operationOrganizationId: DIRECTORY.organizationId,
+      orgManagerActions: actions,
+      setError,
+      targetUserId: TARGET_USER.userId,
+    });
 
-  expect(result).toBeNull();
-  expect(addUserToGroup).toHaveBeenCalledTimes(2);
-  expect(addUserToGroup).toHaveBeenNthCalledWith(
-    1,
-    "members",
-    TARGET_USER.userId,
-    "Members",
-  );
-  expect(addUserToGroup).toHaveBeenNthCalledWith(
-    2,
-    "admins",
-    TARGET_USER.userId,
-    "Admins",
-  );
-  expect(observed).toContain(ORG_MANAGER_LABELS.failedAddAdminAfterMemberAdd);
-});
+    expect(result).toBeNull();
+    expect(addUserToGroup).toHaveBeenCalledTimes(2);
+    expect(addUserToGroup).toHaveBeenNthCalledWith(
+      1,
+      "members",
+      TARGET_USER.userId,
+      "Members",
+    );
+    expect(addUserToGroup).toHaveBeenNthCalledWith(
+      2,
+      groupId,
+      TARGET_USER.userId,
+      "Admins",
+    );
+    expect(observed).toContain(ORG_MANAGER_LABELS.failedAddGroupAfterMemberAdd);
+  },
+);

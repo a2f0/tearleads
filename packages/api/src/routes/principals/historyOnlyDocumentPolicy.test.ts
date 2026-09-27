@@ -34,23 +34,22 @@ import { getDefaultOrganizationId } from "../../../test/helpers/organizationMemb
 import {
   getPolicy,
   registerAndAuthenticate,
-  stripOrganizationMembership,
 } from "../../../test/helpers/principalPolicyReadFixtures";
 import { expectPublicProjectionPolicyEvidence } from "../../../test/helpers/projectionPolicyEvidenceAssertions";
 import { recoverRegisteredRootKek } from "../../../test/helpers/registeredRootKek";
 import { routeApp } from "../../routeApp";
 
-test("a non-roster guest verifies a document's inaccessible sibling-group citation", async () => {
+test("an organization member verifies a document's inaccessible sibling-container citation", async () => {
   const owner = createTestUser();
-  const guest = createTestUser();
-  await registerAndAuthenticate(owner, guest);
+  const reader = createTestUser();
+  await registerAndAuthenticate(owner, reader);
   const organizationId = await getDefaultOrganizationId(owner.userId);
   const root = await recoverRegisteredRootKek({
     owner,
     root: await bootstrapRoot(owner),
   });
   const children = [];
-  for (const member of [guest, undefined]) {
+  for (const member of [reader, undefined]) {
     const child = await createChildContainerFixture({
       parent: root,
       signer: owner,
@@ -71,7 +70,7 @@ test("a non-roster guest verifies a document's inaccessible sibling-group citati
   const [readable, sibling] = children;
   if (!readable || !sibling)
     throw new Error("Expected two group-granted children");
-  const context = await createAncestorSdkContext(owner, organizationId, guest);
+  const context = await createAncestorSdkContext(owner, organizationId, reader);
   try {
     const created = await createRemoteDocument({
       ...context.common,
@@ -137,18 +136,21 @@ test("a non-roster guest verifies a document's inaccessible sibling-group citati
       },
     );
     expect(linked.status, await linked.clone().text()).toBe(200);
-    await stripOrganizationMembership(organizationId, guest.userId);
-    expect((await getPolicy(guest, "group", sibling.groupId)).status).toBe(403);
+    // Active roster membership permits group policy reads, but never grants
+    // access to this sibling container's content.
+    expect((await getPolicy(reader, "group", sibling.groupId)).status).toBe(
+      200,
+    );
     const inaccessible = await routeApp.request(
       `/containers/${sibling.response.containerId}/writer-projection`,
       {
-        headers: { Authorization: `Bearer ${guest.token}` },
+        headers: { Authorization: `Bearer ${reader.token}` },
       },
     );
     expect(inaccessible.status).toBe(403);
     const served = await routeApp.request(
       `/documents/${created.documentId}/writer-projection`,
-      { headers: { Authorization: `Bearer ${guest.token}` } },
+      { headers: { Authorization: `Bearer ${reader.token}` } },
     );
     expect(served.status).toBe(200);
     const projection = DocumentWriterProjectionResponseSchema.parse(
@@ -167,13 +169,15 @@ test("a non-roster guest verifies a document's inaccessible sibling-group citati
       documentId: created.documentId,
       organizationId,
       owner,
-      reader: guest,
+      reader: reader,
     });
     expect(recovered.recoveredText).toBe(
       "content behind the historical sibling citation",
     );
     expect(recovered.updateIds).toEqual([updateId]);
-    expect((await getPolicy(guest, "group", sibling.groupId)).status).toBe(403);
+    expect((await getPolicy(reader, "group", sibling.groupId)).status).toBe(
+      200,
+    );
   } finally {
     context.close();
   }

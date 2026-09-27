@@ -205,7 +205,7 @@ test("PUT /principals/:principalType/:principalId/policy rejects Admins users wh
 
   expect(response.status).toBe(409);
   expect(await response.json()).toEqual({
-    error: "Admins contains users who are not active organization members",
+    error: "Principal contains users who are not active organization members",
   });
 });
 

@@ -42,19 +42,27 @@ migration.
 See the [NoBrickedDevice model](../formal/container-keying/NoBrickedDevice.md) for
 history-only and deleted-authority delivery, bounded negative controls, and the
 SDK implementation trace. API regressions exercise encrypted cold recovery after
-group deletion and a non-roster guest reading a linked document while direct
-access to the other container and its group remains forbidden.
+group deletion and an active organization member reading a linked document
+while direct access to its other container remains forbidden.
 
 ## Read authorization and deployment
 
 A current container/document grant deliberately includes access to the public
 verification closure of its signed history. That closure discloses membership
 user ids, grant container ids, group public keys, signatures, and organization
-directory ids across retained versions. Non-roster readers can therefore see
-public historical policy metadata that the organization-manager history and full
-policy endpoints do not serve them. Those endpoints also expose management data
-or key envelopes and keep their existing authorization checks. Group names,
+directory ids across retained versions. Organization members can already read
+full policy histories for live groups; this closure also serves the public
+history of deleted groups. Management endpoints retain their own authorization
+checks. Group names,
 group payload ciphertexts, and member key envelopes are not part of this proof.
+
+The product decision for #2365 is to retain this metadata contract and require
+active organization roster membership for every group member. Group creation
+and policy updates enforce that requirement transactionally. Removing a user
+from Members is refused until signed removals from all other live groups and
+direct container grants have committed. The app enrolls users in Members before
+adding them to another group and removes ordinary-group memberships before
+disabling the roster. No group mutation implicitly enrolls a user on the server.
 
 A group's chain extends through its last directory-bound head, rather than
 stopping at the citation: a reader may already have checkpointed a later version
