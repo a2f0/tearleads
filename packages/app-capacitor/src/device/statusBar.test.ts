@@ -167,7 +167,7 @@ test("repaints on a switch between two dark themes that keeps the scheme", () =>
   stampTheme("dark", "dark", "rgb(46, 46, 46)");
   syncStatusBarWithTheme();
 
-  // Dark -> Phosphor changes only data-theme, so the observer must watch it,
+  // Dark -> Dusk changes only data-theme, so the observer must watch it,
   // not just the scheme, or the Android bar keeps Dark's grey.
   expect(fixture.observed?.target).toBe(documentElement);
   expect(fixture.observed?.options.attributeFilter).toEqual([
@@ -175,24 +175,24 @@ test("repaints on a switch between two dark themes that keeps the scheme", () =>
     "data-theme-scheme",
   ]);
 
-  stampTheme("phosphor", "dark", "rgb(22, 42, 29)");
+  stampTheme("dusk", "dark", "rgb(41, 50, 66)");
   reapply();
 
   expect(fixture.styles).toEqual(["DARK", "DARK"]);
-  expect(fixture.backgrounds).toEqual(["#2e2e2e", "#162a1d"]);
+  expect(fixture.backgrounds).toEqual(["#2e2e2e", "#293242"]);
 });
 
 test("converts an rgba() resolution to the opaque hex Android accepts", () => {
-  stampTheme("phosphor", "dark", "rgba(7, 17, 10, 0.5)");
+  stampTheme("dusk", "dark", "rgba(23, 29, 40, 0.5)");
 
   syncStatusBarWithTheme();
 
-  expect(fixture.backgrounds).toEqual(["#07110a"]);
+  expect(fixture.backgrounds).toEqual(["#171d28"]);
 });
 
 test("falls back to the scheme's literal when the token is not rgb()", () => {
   // A color-mix() token serializes as color(srgb …), which is not parsed.
-  stampTheme("phosphor", "dark", "color(srgb 0.09 0.16 0.11)");
+  stampTheme("dusk", "dark", "color(srgb 0.16 0.20 0.26)");
   syncStatusBarWithTheme();
   expect(fixture.backgrounds).toEqual(["#2e2e2e"]);
 
@@ -211,7 +211,7 @@ test("treats a root without a scheme attribute as light", () => {
 
 test("sets only the icon style on iOS, whose bar is transparent", () => {
   fixture.platform = "ios";
-  stampTheme("phosphor", "dark", "rgb(22, 42, 29)");
+  stampTheme("dusk", "dark", "rgb(41, 50, 66)");
 
   syncStatusBarWithTheme();
 
@@ -222,7 +222,7 @@ test("sets only the icon style on iOS, whose bar is transparent", () => {
 
 test("does nothing off a native platform", () => {
   fixture.native = false;
-  stampTheme("phosphor", "dark", "rgb(22, 42, 29)");
+  stampTheme("dusk", "dark", "rgb(41, 50, 66)");
 
   syncStatusBarWithTheme();
 

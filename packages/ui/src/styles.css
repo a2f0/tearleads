@@ -4,8 +4,8 @@
  * the tokens in this block, so a theme is just a re-declaration of this same
  * set. The base `:root` holds the default (Light) theme; every additional theme
  * overrides the same tokens under a `:root[data-theme="<id>"]` rule (see the
- * Dark theme immediately after this block, and Phosphor in the companion
- * styles.phosphor.css). ThemeProvider stamps
+ * Dark theme immediately after this block, and Dusk in the companion
+ * styles.dusk.css). ThemeProvider stamps
  * `<html data-theme>` (plus `data-theme-scheme`, "light" | "dark", for rules
  * that only care whether surfaces are dark); a document with no attribute
  * falls back to Light here.

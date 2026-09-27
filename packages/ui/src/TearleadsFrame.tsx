@@ -1,8 +1,8 @@
 import type { PropsWithChildren, ReactNode } from "react";
 import { classNames } from "./classNames";
 import "./styles.css";
-// Phosphor theme token block; kept beside styles.css (see that file).
-import "./styles.phosphor.css";
+// Dusk theme token block; kept beside styles.css (see that file).
+import "./styles.dusk.css";
 // Touch/routed-layout overrides; must load after styles.css (see that file).
 import "./styles.routed.css";
 // Base anchor reset, shared by every shell (see that file).

@@ -90,7 +90,7 @@ export function syncStatusBarWithTheme(): void {
   observer.observe(document.documentElement, {
     attributes: true,
     // Both, because switching between two themes of the same scheme (Dark ->
-    // Phosphor) changes only data-theme, yet still repaints the Android bar.
+    // Dusk) changes only data-theme, yet still repaints the Android bar.
     attributeFilter: ["data-theme", "data-theme-scheme"],
   });
 }

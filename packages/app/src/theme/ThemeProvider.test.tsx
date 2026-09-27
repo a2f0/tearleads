@@ -75,7 +75,7 @@ test("defaults to the OS dark preference when the system prefers dark", () => {
 
   expect(document.documentElement.getAttribute("data-theme")).toBe("dark");
   expect(view.getByRole("button").getAttribute("aria-label")).toBe(
-    "Switch to Phosphor theme",
+    "Switch to Dusk theme",
   );
   expect(globalThis.localStorage.getItem(CHOICE_KEY)).toBeNull();
 });
@@ -94,7 +94,7 @@ test("follows a live OS preference change while the user has not chosen", () => 
   // Still no explicit choice — the app is tracking the system, not storing it.
   expect(globalThis.localStorage.getItem(CHOICE_KEY)).toBeNull();
   expect(view.getByRole("button").getAttribute("aria-label")).toBe(
-    "Switch to Phosphor theme",
+    "Switch to Dusk theme",
   );
 });
 
@@ -108,7 +108,7 @@ test("toggling advances from the OS default, persists the choice, and restamps t
   expect(document.documentElement.getAttribute("data-theme")).toBe("dark");
   expect(globalThis.localStorage.getItem(CHOICE_KEY)).toBe("dark");
   expect(view.getByRole("button").getAttribute("aria-label")).toBe(
-    "Switch to Phosphor theme",
+    "Switch to Dusk theme",
   );
 });
 
@@ -119,8 +119,8 @@ test("the toggle cycles every theme in order and persists each choice", () => {
   const button = view.getByRole("button");
 
   const steps: Array<[theme: string, scheme: string, nextLabel: string]> = [
-    ["dark", "dark", "Switch to Phosphor theme"],
-    ["phosphor", "dark", "Switch to Light theme"],
+    ["dark", "dark", "Switch to Dusk theme"],
+    ["dusk", "dark", "Switch to Light theme"],
     ["light", "light", "Switch to Dark theme"],
   ];
   for (const [theme, scheme, nextLabel] of steps) {
@@ -161,17 +161,17 @@ test("restores the persisted choice on mount", () => {
 
   expect(document.documentElement.getAttribute("data-theme")).toBe("dark");
   expect(view.getByRole("button").getAttribute("aria-label")).toBe(
-    "Switch to Phosphor theme",
+    "Switch to Dusk theme",
   );
 });
 
 test("restores a persisted non-default theme on mount", () => {
   installMatchMedia(false);
-  globalThis.localStorage.setItem(CHOICE_KEY, "phosphor");
+  globalThis.localStorage.setItem(CHOICE_KEY, "dusk");
 
   const view = renderToggle();
 
-  expect(document.documentElement.getAttribute("data-theme")).toBe("phosphor");
+  expect(document.documentElement.getAttribute("data-theme")).toBe("dusk");
   expect(document.documentElement.getAttribute("data-theme-scheme")).toBe(
     "dark",
   );

@@ -3,8 +3,8 @@ import { DEFAULT_THEME_ID, getTheme, isThemeId, nextThemeId } from "./themes";
 
 test("nextThemeId advances to the next theme and wraps around", () => {
   expect(nextThemeId("light")).toBe("dark");
-  expect(nextThemeId("dark")).toBe("phosphor");
-  expect(nextThemeId("phosphor")).toBe("light");
+  expect(nextThemeId("dark")).toBe("dusk");
+  expect(nextThemeId("dusk")).toBe("light");
 });
 
 test("nextThemeId cycles the whole registry in a stable order", () => {
@@ -17,10 +17,10 @@ test("nextThemeId cycles the whole registry in a stable order", () => {
   expect(cycle).toEqual([
     "light",
     "dark",
-    "phosphor",
+    "dusk",
     "light",
     "dark",
-    "phosphor",
+    "dusk",
     "light",
   ]);
 });
@@ -28,7 +28,7 @@ test("nextThemeId cycles the whole registry in a stable order", () => {
 test("isThemeId accepts registered ids and rejects everything else", () => {
   expect(isThemeId("light")).toBe(true);
   expect(isThemeId("dark")).toBe(true);
-  expect(isThemeId("phosphor")).toBe(true);
+  expect(isThemeId("dusk")).toBe(true);
   expect(isThemeId("solarized")).toBe(false);
   expect(isThemeId("")).toBe(false);
   expect(isThemeId(null)).toBe(false);
@@ -46,9 +46,9 @@ test("getTheme resolves each id to its labelled definition and scheme", () => {
     label: "Dark",
     scheme: "dark",
   });
-  expect(getTheme("phosphor")).toEqual({
-    id: "phosphor",
-    label: "Phosphor",
+  expect(getTheme("dusk")).toEqual({
+    id: "dusk",
+    label: "Dusk",
     scheme: "dark",
   });
 });
