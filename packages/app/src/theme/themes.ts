@@ -6,14 +6,14 @@
 // Adding a theme:
 //   1. Add a `:root[data-theme="<id>"]` token block to @tearleads/ui — in
 //      packages/ui/src/styles.css, or a companion `styles.<id>.css` imported by
-//      TearleadsFrame when styles.css is at its size budget (as Phosphor is).
+//      TearleadsFrame when styles.css is at its size budget (as Dusk is).
 //   2. Add its id/label/scheme to THEMES below (and to the ThemeId union).
 // Nothing else needs to change — the provider, persistence, and toggle all read
 // from this list, and the few surfaces that depend on light-vs-dark (shadow
 // depth, status-glyph hues, the native status bar) key off the scheme rather
 // than a theme id.
 
-export type ThemeId = "light" | "dark" | "phosphor";
+export type ThemeId = "light" | "dark" | "dusk";
 
 // Whether a theme paints dark surfaces. Stamped as `<html data-theme-scheme>`
 // alongside the theme id so CSS and native chrome can adapt to "a dark theme"
@@ -29,11 +29,11 @@ export interface ThemeDefinition {
 // The ordered registry. Kept module-private for now (consumed only through the
 // helpers below); export it when a multi-theme picker needs to enumerate themes.
 // The OS preference only ever resolves to Light or Dark, so those two lead and
-// Phosphor is an opt-in stop at the end of the cycle.
+// Dusk is an opt-in stop at the end of the cycle.
 const THEMES: readonly ThemeDefinition[] = [
   { id: "light", label: "Light", scheme: "light" },
   { id: "dark", label: "Dark", scheme: "dark" },
-  { id: "phosphor", label: "Phosphor", scheme: "dark" },
+  { id: "dusk", label: "Dusk", scheme: "dark" },
 ];
 
 export const DEFAULT_THEME_ID: ThemeId = "light";
@@ -53,7 +53,7 @@ export function getTheme(id: ThemeId): ThemeDefinition {
 }
 
 // Advance to the next theme in registry order, wrapping around, so the single
-// footer control cycles Light -> Dark -> Phosphor -> Light.
+// footer control cycles Light -> Dark -> Dusk -> Light.
 export function nextThemeId(current: ThemeId): ThemeId {
   const index = THEMES.findIndex((theme) => theme.id === current);
   const next = THEMES[(index + 1) % THEMES.length];

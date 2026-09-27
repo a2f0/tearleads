@@ -38,9 +38,9 @@ test("updates both attributes when the theme changes", () => {
   );
   expect(rootAttributes()).toEqual({ theme: "light", scheme: "light" });
 
-  rerender({ theme: "phosphor" });
+  rerender({ theme: "dusk" });
 
-  // Phosphor is its own theme id but shares the dark scheme, so rules keyed on
+  // Dusk is its own theme id but shares the dark scheme, so rules keyed on
   // the scheme (shadow depth, status glyphs, the native status bar) follow it.
-  expect(rootAttributes()).toEqual({ theme: "phosphor", scheme: "dark" });
+  expect(rootAttributes()).toEqual({ theme: "dusk", scheme: "dark" });
 });
