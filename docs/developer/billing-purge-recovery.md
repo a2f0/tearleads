@@ -12,6 +12,14 @@ and attachment sources remain available for republishing. A replacement reset
 also accepts a fresh organization id and root container id and rebinds the
 retained local records to them.
 
+Reset scope comes from local container ownership and document projections,
+including document-to-container links. Organization and roster profile pointers
+in the server read model cannot add documents to that scope. A profile document
+with a local projection for the affected organization still resets even when it
+has no current container projection. This scope rule does not authenticate the
+replacement response or retain trust checkpoints; those remain open in
+[#2365, finding #10](https://github.com/a2f0/tearleads/issues/2365).
+
 Normal clients should call `session.recoverPurgedOrganization(...)` only after
 the server reports `purged`. The session provisions a replacement personal
 organization in local-only billing state. Until that replacement has active

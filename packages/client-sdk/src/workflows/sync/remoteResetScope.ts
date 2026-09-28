@@ -1,9 +1,5 @@
 import { eq } from "drizzle-orm";
 import {
-  organizationReadModelDirectoryUsers,
-  organizationReadModelState,
-} from "../../data/sqlite/organizationReadModelSchema";
-import {
   containerCreateIntents,
   containerMoveIntents,
   containerSyncLaneChecks,
@@ -108,17 +104,12 @@ async function loadDocumentScope(input: {
 }> {
   const { organizationId, tx } = input;
   const containerIdSet = new Set(input.containerIds);
-  const [allDocuments, projectionRows, linkRows, stateRows, directoryRows] =
-    await loadDocumentAssociationRows(tx, organizationId);
+  const [allDocuments, projectionRows, linkRows] =
+    await loadDocumentAssociationRows(tx);
   const linkedDocumentIds = new Set(
     linkRows
       .filter((row) => containerIdSet.has(row.containerId))
       .map((row) => row.documentId),
-  );
-  const profileDocumentIds = new Set(
-    [...stateRows, ...directoryRows].flatMap((row) =>
-      row.profileDocumentId ? [row.profileDocumentId] : [],
-    ),
   );
   const projectedLocalIds = new Set(
     projectionRows
@@ -135,9 +126,7 @@ async function loadDocumentScope(input: {
       (row.appKind === "container-metadata" &&
         containerIdSet.has(row.localId)) ||
       (row.appKind === "documents" && projectedLocalIds.has(row.localId)) ||
-      (row.documentId !== null &&
-        (linkedDocumentIds.has(row.documentId) ||
-          profileDocumentIds.has(row.documentId))),
+      (row.documentId !== null && linkedDocumentIds.has(row.documentId)),
   );
   return {
     documentLocalIds: [
@@ -156,10 +145,7 @@ async function loadDocumentScope(input: {
   };
 }
 
-function loadDocumentAssociationRows(
-  tx: ClientSQLiteTransactionScope,
-  organizationId: string,
-) {
+function loadDocumentAssociationRows(tx: ClientSQLiteTransactionScope) {
   return Promise.all([
     tx
       .select({
@@ -171,21 +157,6 @@ function loadDocumentAssociationRows(
       .from(documents),
     tx.select().from(documentProjection),
     tx.select().from(documentContainerProjection),
-    tx
-      .select({
-        profileDocumentId: organizationReadModelState.profileDocumentId,
-      })
-      .from(organizationReadModelState)
-      .where(eq(organizationReadModelState.organizationId, organizationId)),
-    tx
-      .select({
-        profileDocumentId:
-          organizationReadModelDirectoryUsers.profileDocumentId,
-      })
-      .from(organizationReadModelDirectoryUsers)
-      .where(
-        eq(organizationReadModelDirectoryUsers.organizationId, organizationId),
-      ),
   ]);
 }
 
