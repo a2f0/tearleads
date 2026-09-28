@@ -73,6 +73,16 @@ for (const attack of ["rollback", "equivocation"] as const) {
       try {
         await advance(head);
         await clearRemoteSyncState(execSql, { organizationId: OLD_ORG });
+        await expect(
+          advance(
+            accessEvidence(
+              objectKind,
+              OLD_ORG,
+              attack === "rollback" ? 1 : 2,
+              FORK,
+            ),
+          ),
+        ).rejects.toMatchObject({ code: attack });
         await clearRemoteSyncState(execSql, {
           organizationId: OLD_ORG,
           replacement: { organizationId: NEW_ORG, rootContainerId: "new-root" },
@@ -129,6 +139,11 @@ for (const attack of ["rollback", "equivocation"] as const) {
       try {
         await advance(head);
         await clearRemoteSyncState(execSql, { organizationId: OLD_ORG });
+        await expect(
+          advance(
+            policyEvidence(principalType, attack === "rollback" ? 1 : 2, FORK),
+          ),
+        ).rejects.toMatchObject({ code: attack });
         // Retained group pins must retain their ownership too, so a subsequent
         // reset still knows which organization owns the policy evidence.
         await clearRemoteSyncState(execSql, {

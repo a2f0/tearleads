@@ -53,6 +53,15 @@ test("discovery uses the replacement organization's pin while retaining the old 
       .where(eq(accessManifestCheckpoints.organizationId, "new-org"));
     expect(await store.loadHead("document", "new-head")).toBeNull();
     expect(await db.select().from(accessManifestCheckpoints)).toHaveLength(2);
+    // A matching pin from another organization cannot authorize the cached head.
+    await db
+      .delete(accessManifestCheckpoints)
+      .where(eq(accessManifestCheckpoints.organizationId, "new-org"));
+    await db
+      .update(accessManifestCheckpoints)
+      .set({ epoch: 1, manifestHash: "new-head" })
+      .where(eq(accessManifestCheckpoints.organizationId, "old-org"));
+    expect(await store.loadHead("document", "new-head")).toBeNull();
   } finally {
     close();
   }
