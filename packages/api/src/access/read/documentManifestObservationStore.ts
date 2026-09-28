@@ -1,1 +1,4 @@
-export { hasDocumentManifestObservation } from "../shared/internal/documentManifestObservationStore";
+export {
+  hasAnyDocumentManifestObservation,
+  hasDocumentManifestObservation,
+} from "../shared/internal/documentManifestObservationStore";

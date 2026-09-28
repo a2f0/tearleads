@@ -284,9 +284,8 @@ export async function verifyPurgeDocumentManifest(input: {
   // purge requires an exact existing pin or verified signed transitions from
   // that pin (or signed genesis for a fresh device).
   if (
-    (input.enforceLocalCheckpoints && !isPinnedHead) ||
-    (!input.enforceLocalCheckpoints &&
-      input.proof.documentManifestPredecessors.length > 0)
+    input.proof.documentManifestPredecessors.length > 0 ||
+    (input.enforceLocalCheckpoints && !isPinnedHead)
   ) {
     return verifySignedPurgeDocumentManifestChain(input);
   }

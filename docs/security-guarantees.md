@@ -301,14 +301,14 @@ hash. Projection hashes may still be useful cache keys, but they are not the
 authorization source.
 
 Document purge is a signed terminal event committing the document head and sole
-authorizing container head. Its signer must have write access through that path.
-The API retains signed evidence after content deletion. A coded not-found
-response only prompts proof fetching; deletion requires an exact local document
-pin or every signed transition from a pin or signed genesis. A hash-only
-snapshot cannot advance a checkpoint. A later pinned authorizing-container head
-makes verification fail closed: ancestry cannot order the separate purge
-signature relative to that later head.
-Full history also requires a prior signed-head observation by that caller.
+authorizing container head. Its signer must have write access through that
+path. The API retains evidence after deletion. Full history requires a prior
+signed-head observation by that caller. A coded not-found response only prompts
+proof fetching; deletion requires an exact local document pin or every signed
+transition from a pin or signed genesis. A hash-only snapshot cannot advance a
+checkpoint. A later pinned authorizing-container head makes verification fail
+closed: ancestry cannot order the separate purge signature relative to that
+later head.
 
 A container manifest pins the parent manifest it was created or moved under,
 and successor manifests inherit that pin, so the pin does not say which

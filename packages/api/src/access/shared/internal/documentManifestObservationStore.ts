@@ -3,7 +3,7 @@ import type {
   DatabaseTransaction,
 } from "@tearleads/api-shared/postgres";
 import { documentManifestObservations } from "@tearleads/api-shared/schema";
-import { and, eq } from "drizzle-orm";
+import { and, eq, type SQL } from "drizzle-orm";
 
 export async function recordDocumentManifestObservationInTransaction(
   executor: DatabaseTransaction,
@@ -19,14 +19,15 @@ export async function recordDocumentManifestObservationInTransaction(
     .onConflictDoNothing();
 }
 
-export async function hasDocumentManifestObservation(
+interface DocumentObservationScope {
+  readonly documentId: string;
+  readonly userId: string;
+}
+
+async function hasObservation(
   executor: DatabaseSession,
-  input: {
-    readonly documentId: string;
-    /** Omit to check whether this caller observed any head of this document. */
-    readonly manifestHash?: string | undefined;
-    readonly userId: string;
-  },
+  input: DocumentObservationScope,
+  manifestCondition?: SQL,
 ): Promise<boolean> {
   const [observation] = await executor
     .select({ id: documentManifestObservations.id })
@@ -34,12 +35,28 @@ export async function hasDocumentManifestObservation(
     .where(
       and(
         eq(documentManifestObservations.documentId, input.documentId),
-        input.manifestHash === undefined
-          ? undefined
-          : eq(documentManifestObservations.manifestHash, input.manifestHash),
         eq(documentManifestObservations.userId, input.userId),
+        manifestCondition,
       ),
     )
     .limit(1);
   return observation !== undefined;
+}
+
+export function hasDocumentManifestObservation(
+  executor: DatabaseSession,
+  input: DocumentObservationScope & { readonly manifestHash: string },
+): Promise<boolean> {
+  return hasObservation(
+    executor,
+    input,
+    eq(documentManifestObservations.manifestHash, input.manifestHash),
+  );
+}
+
+export function hasAnyDocumentManifestObservation(
+  executor: DatabaseSession,
+  input: DocumentObservationScope,
+): Promise<boolean> {
+  return hasObservation(executor, input);
 }
