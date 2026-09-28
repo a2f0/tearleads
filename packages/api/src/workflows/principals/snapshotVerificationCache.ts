@@ -1,10 +1,10 @@
 import { verifyPrincipalPolicySnapshot } from "@tearleads/crypto";
+import { ByteBudgetCache } from "../../utils/byteBudgetCache";
 import { sha256Hex } from "../../utils/sha256";
 
 type SnapshotResult = Awaited<ReturnType<typeof verifyPrincipalPolicySnapshot>>;
-const snapshots = new Map<string, SnapshotResult>();
+const snapshots = new ByteBudgetCache<SnapshotResult>(32 * 1024 * 1024);
 const MAX_CACHED_SOURCE_CHARACTERS = 4_000_000;
-const MAX_ENTRIES = 16;
 
 function freezeResult(value: object): void {
   for (const child of Object.values(value)) {
@@ -23,19 +23,12 @@ export async function verifyStoredPolicySnapshot(
     return verifyPrincipalPolicySnapshot(input);
   const key = sha256Hex(source);
   const cached = snapshots.get(key);
-  if (cached) {
-    snapshots.delete(key);
-    snapshots.set(key, cached);
-    return cached;
-  }
+  if (cached) return cached;
   const result = await verifyPrincipalPolicySnapshot(structuredClone(input));
   if (result.ok) {
     freezeResult(result);
-    snapshots.set(key, result);
-    while (snapshots.size > MAX_ENTRIES) {
-      const oldest = snapshots.keys().next().value;
-      if (oldest !== undefined) snapshots.delete(oldest);
-    }
+    // Charge both string storage and object/array overhead conservatively.
+    snapshots.set(key, result, JSON.stringify(result).length * 4);
   }
   return result;
 }

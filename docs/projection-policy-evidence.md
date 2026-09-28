@@ -81,6 +81,9 @@ clients are updated together. This is a greenfield rollout: preexisting off-rost
 memberships are outside the deployment contract. No cleanup migration, backfill,
 or compatibility reader is needed. The active-roster invariant applies to all
 live groups, not just users changed by a particular Members write.
+During the coordinated rollout, older clients cannot add off-roster users to
+ordinary groups or disable users who remain in another group; the server rejects
+those writes. There is no feature flag or compatibility path for that behavior.
 
 ## Cost and retained-history tradeoff
 
@@ -93,23 +96,32 @@ merge distinct bindings rather than dropping an older deleted group's evidence.
 Cold state-chain size and verification still grow with retained versions; this
 is not a constant-size proof. Truncating a chain would refuse valid old citations
 or a newer local checkpoint, so this change imposes no read or commit history
-cap. Compact signed chains require separate protocol work; finding #6 remains
-open. This tradeoff is accepted for this fix and measured by the load regression.
+cap. Compact signed chains require separate protocol work;
+[finding #6](https://github.com/a2f0/tearleads/issues/2365) remains open. This
+tradeoff is accepted for this fix and measured by the load regression.
 
 Both API and SDK memoize verified snapshots by a SHA-256 digest of the actual
 source bytes, trusted signer keys, expected reference, and external authority.
-Each holds at most 16 snapshots and skips sources larger than four million
-serialized characters. Independently decoded responses reuse signature work;
+The SDK holds at most 16 snapshots; the API uses a 32 MiB estimated retained-byte
+budget so small snapshots from many organizations do not compete for 16 slots.
+Both skip sources larger than four million serialized characters.
+Independently decoded responses reuse signature work;
 changed bytes or trust inputs cannot reuse previous verification. Verified
 results are deeply frozen, preserving their runtime verification brand. Directory
 binding and durable checkpoint checks still run for each SDK use. Projections
 without principal citations carry empty proofs and disclose no directory.
 
 The API separately memoizes parsed directory bindings by the immutable stored
-organization head. A successor head misses that cache. It holds at most 16 heads,
-skips directory histories over four million serialized characters, and returns
+organization head. A successor head misses that cache. It has a separate 32 MiB
+estimated retained-byte budget, skips histories over four million serialized
+characters, and returns
 isolated copies to callers. This avoids repeating history reads and parsing for
 each projection at a stable head. Large uncached histories remain valid.
+Both API caches charge serialized retained values conservatively plus entry
+overhead and evict least-recently-used entries. These budgets bound retention;
+they do not bound cold verification work or eliminate misses for larger working
+sets. A 24-organization regression counts actual signature-verifier calls and
+directory-history reads: the second pass repeats neither (previously 48 and 24).
 
 The API load regression seeds 64 additional signed groups (66 directory entries)
 and measures 64 and 128 signed directory successors through real API reads and

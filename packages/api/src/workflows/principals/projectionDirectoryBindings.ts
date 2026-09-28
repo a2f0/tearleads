@@ -1,6 +1,7 @@
 import type { DatabaseSession } from "@tearleads/api-shared/postgres";
 import type { ReferencedPrincipalHead } from "@tearleads/crypto";
 import { listOrganizationHistoryPayloads } from "../../access/read/principalHistory";
+import { ByteBudgetCache } from "../../utils/byteBudgetCache";
 import { parseOrganizationAuthorityDescriptor } from "../organizations/organizationAuthorityDescriptor";
 import { PrincipalPolicyError } from "./shared";
 
@@ -15,8 +16,7 @@ interface DirectoryBindings {
 
 // Retained directory payloads are immutable beneath the stored organization
 // head. Cache only parsed bindings; object authorization still precedes this.
-const bindingsByHead = new Map<string, DirectoryBindings>();
-const MAX_ENTRIES = 16;
+const bindingsByHead = new ByteBudgetCache<DirectoryBindings>(32 * 1024 * 1024);
 const MAX_CACHED_SOURCE_CHARACTERS = 4_000_000;
 
 /** Drop process-local derived state, including for cold-loader fault tests. */
@@ -59,8 +59,6 @@ export async function loadProjectionDirectoryBindings(input: {
   const key = `${input.organizationId}:${input.stateHash}`;
   const cached = bindingsByHead.get(key);
   if (cached) {
-    bindingsByHead.delete(key);
-    bindingsByHead.set(key, cached);
     return structuredClone(cached);
   }
   const payloads = await listOrganizationHistoryPayloads(
@@ -72,11 +70,16 @@ export async function loadProjectionDirectoryBindings(input: {
     throw new PrincipalPolicyError("Projection directory history missing", 409);
   const bindings = directoryBindings(payloads, input.organizationId);
   if (JSON.stringify(payloads).length <= MAX_CACHED_SOURCE_CHARACTERS) {
-    bindingsByHead.set(key, structuredClone(bindings));
-    while (bindingsByHead.size > MAX_ENTRIES) {
-      const oldest = bindingsByHead.keys().next().value;
-      if (oldest !== undefined) bindingsByHead.delete(oldest);
-    }
+    // Many groups share one directory payload; charge each retained body once.
+    const size =
+      JSON.stringify({
+        heads: [...bindings.latest.values()],
+        admins: [...bindings.adminGroupIds],
+        payloads: [...new Set(bindings.bindingPayloadByGroupState.values())],
+      }).length *
+        4 +
+      bindings.latest.size * 256;
+    bindingsByHead.set(key, structuredClone(bindings), size);
   }
   return bindings;
 }
