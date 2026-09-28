@@ -36,6 +36,8 @@ const storageSnapshotExpression = [
   "  return {",
   "    body,",
   "    databaseName: databaseMatch?.[1] ?? null,",
+  // Injected by the pinned native core; fail closed if an upgrade removes it.
+  // https://github.com/blackboardsh/electrobun/blob/v2.0.2-beta.35/package/src/core/main.zig#L1622
   "    hostTransportPort: window.__electrobunHostSocketPort,",
   "    registry: registryKey ? localStorage.getItem(registryKey) : null,",
   "    rootChildren: document.getElementById('root')?.children.length ?? 0,",
@@ -173,12 +175,20 @@ async function readReadySnapshot(
 
 function toPersistentState(snapshot: StorageSnapshot): PersistentState {
   const { TEARLEADS_TEST_BLOCKED_RPC_PORT: blockedPort } = process.env;
-  if (blockedPort) {
+  if (blockedPort !== undefined) {
+    const blockedPortNumber = Number(blockedPort);
+    if (
+      !Number.isInteger(blockedPortNumber) ||
+      blockedPortNumber < 1 ||
+      blockedPortNumber >= 65_535
+    ) {
+      throw new Error(`Invalid blocked host transport port: ${blockedPort}.`);
+    }
     const selectedPort = snapshot.hostTransportPort;
     if (
       !Number.isInteger(selectedPort) ||
       selectedPort === undefined ||
-      selectedPort <= Number(blockedPort) ||
+      selectedPort <= blockedPortNumber ||
       selectedPort > 65_535
     ) {
       throw new Error(

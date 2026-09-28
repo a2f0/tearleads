@@ -58,6 +58,11 @@ stop_app() {
     cat "$round_log" >&2
     return 1
   fi
+  if /bin/kill -0 -- "-$app_pid" 2>/dev/null; then
+    echo "Electrobun left processes alive after its launcher exited:" >&2
+    cat "$round_log" >&2
+    return 1
+  fi
   app_pid=""
 }
 

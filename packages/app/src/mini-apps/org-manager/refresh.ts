@@ -162,7 +162,7 @@ interface ScopedRefresherInput<Result> {
   readonly load: (() => Promise<Result>) | null;
   readonly onError?: (error: unknown) => void;
   readonly onSettled?: () => void;
-  readonly onUnavailable?: (isCurrentRequest: () => boolean) => void;
+  readonly onUnavailable?: () => void;
   readonly options?: RefreshBehaviorOptions;
   readonly requestKind: OrgManagerRequestKind;
   readonly setError: (error: string | null) => void;
@@ -179,7 +179,7 @@ export async function runScopedRefresher<Result>(
     return;
   }
   if (input.load === null) {
-    input.onUnavailable?.(isCurrentRequest);
+    input.onUnavailable?.();
     return;
   }
 
