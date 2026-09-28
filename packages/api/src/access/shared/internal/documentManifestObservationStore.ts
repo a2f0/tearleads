@@ -23,7 +23,8 @@ export async function hasDocumentManifestObservation(
   executor: DatabaseSession,
   input: {
     readonly documentId: string;
-    readonly manifestHash: string;
+    /** Omit to check whether this caller observed any head of this document. */
+    readonly manifestHash?: string | undefined;
     readonly userId: string;
   },
 ): Promise<boolean> {
@@ -33,7 +34,9 @@ export async function hasDocumentManifestObservation(
     .where(
       and(
         eq(documentManifestObservations.documentId, input.documentId),
-        eq(documentManifestObservations.manifestHash, input.manifestHash),
+        input.manifestHash === undefined
+          ? undefined
+          : eq(documentManifestObservations.manifestHash, input.manifestHash),
         eq(documentManifestObservations.userId, input.userId),
       ),
     )

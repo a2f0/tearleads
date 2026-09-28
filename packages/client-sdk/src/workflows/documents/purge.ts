@@ -81,7 +81,7 @@ async function loadLocalDocumentCheckpointManifestHash(input: {
   return storedDocument?.manifestHash ?? input.documentCheckpoint.manifestHash;
 }
 
-async function loadCheckpointBoundedDocumentPurgeProof(input: {
+async function loadDocumentPurgeProofForLocalCheckpoint(input: {
   readonly apiClient: Pick<DocumentSyncApi, "getDocumentPurgeProof">;
   readonly documentId: string;
   readonly execSql: ExecSql;
@@ -121,7 +121,10 @@ async function loadCheckpointBoundedDocumentPurgeProof(input: {
     });
   if (
     documentCheckpointManifestHash ===
-    initialProof.documentManifest.manifestHash
+      initialProof.documentManifest.manifestHash ||
+    initialProof.documentManifestPredecessors.some(
+      (bundle) => bundle.manifestHash === documentCheckpointManifestHash,
+    )
   ) {
     return initialProof;
   }
@@ -243,7 +246,7 @@ export function createVerifiedRemoteDocumentDeletionHandler(input: {
   readonly resolveProjectionUserKey: ProjectionUserKeyResolver;
 }): (deleted: { readonly documentId: string }) => Promise<void> {
   return async ({ documentId }) => {
-    const proof = await loadCheckpointBoundedDocumentPurgeProof({
+    const proof = await loadDocumentPurgeProofForLocalCheckpoint({
       apiClient: input.apiClient,
       documentId,
       execSql: input.execSql,
@@ -290,7 +293,7 @@ export async function purgeRemoteDocument(input: {
     return null;
   }
   if (writerProjection === REMOTE_DOCUMENT_ALREADY_PURGED) {
-    const proof = await loadCheckpointBoundedDocumentPurgeProof({
+    const proof = await loadDocumentPurgeProofForLocalCheckpoint({
       apiClient: input.apiClient,
       documentId: input.documentId,
       execSql: input.execSql,

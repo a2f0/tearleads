@@ -21,6 +21,7 @@ import {
   observeAccessManifestCheckpoints,
   type ProjectionCheckpointContext,
 } from "./checkpointContext";
+import { ProjectionDependencyUnavailableError } from "./dependencyUnavailable";
 import { verifyDocumentManifestBundle } from "./documentManifestVerification";
 import { loadManifestCheckpointVerification } from "./manifestCheckpointVerification";
 import { readAccessManifest, readDocumentAccessEventBody } from "./readers";
@@ -42,9 +43,8 @@ async function verifyPinnedChainEndpoint(input: {
   });
   const localCheckpoint = checkpointVerification.localCheckpoint;
   if (!localCheckpoint) {
-    throw new KeyingVerificationError(
-      "missing_dependency",
-      "Document purge predecessor chain has no local checkpoint",
+    throw new ProjectionDependencyUnavailableError(
+      "Document purge history needs a local checkpoint or signed genesis",
     );
   }
   if (

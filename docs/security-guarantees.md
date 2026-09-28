@@ -308,6 +308,7 @@ pin or every signed transition from a pin or signed genesis. A hash-only
 snapshot cannot advance a checkpoint. A later pinned authorizing-container head
 makes verification fail closed: ancestry cannot order the separate purge
 signature relative to that later head.
+Full history also requires a prior signed-head observation by that caller.
 
 A container manifest pins the parent manifest it was created or moved under,
 and successor manifests inherit that pin, so the pin does not say which

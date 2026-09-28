@@ -576,15 +576,15 @@ commitments before using historical group membership. Group deletion can
 therefore erase recoverable server-side key material without making an earlier
 terminal purge unverifiable.
 
-Initial proofs include signed document history through genesis and its
-verification dependencies. The SDK authenticates this response before reading
-local checkpoint identities. It may then request a shorter chain using a known
-document hash. Deletion requires an exact local pin or every signed transition
-from that pin or signed genesis; a hash-only snapshot cannot advance a pin.
-The signed purge-time container path must satisfy local container checkpoints
-directly. A later local container head is ambiguous: ancestry cannot order the
-separate purge signature, so verification fails closed. Proofs expose only the
-document chain and its required container/policy history, without keys.
+Purge-path access permits a terminal snapshot. A caller's prior signed-head
+observation also permits full document history; an earlier explicit floor needs
+its exact observation. History includes cited public container/policy evidence,
+not keys. The SDK authenticates before reading local pins, reuses a complete
+proof, or requests missing history using a known hash. Deletion requires an exact
+pin or signed transitions from a pin or genesis. Missing history defers deletion
+without an incident; hash-only snapshots cannot advance pins. Purge-time
+container paths must satisfy local pins: a later head is ambiguous because
+ancestry cannot order the separate purge signature.
 The SDK commits the terminal purge checkpoint in the same local SQLite
 transaction that removes the matching document row and its side state. A stale
 local generation, identity replacement, failed cleanup, or interruption rolls

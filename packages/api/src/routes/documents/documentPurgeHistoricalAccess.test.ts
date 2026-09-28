@@ -97,6 +97,11 @@ test("a formerly linked replica cannot retrieve an unrelated later purge proof",
     owner,
     root: sharedFirstChild,
   });
+  const formerObservation = await routeApp.request(
+    `/documents/${created.id}/writer-projection`,
+    { headers: { Authorization: `Bearer ${formerReplica.token}` } },
+  );
+  expect(formerObservation.status).toBe(200);
 
   const secondChild = await createChildContainer({
     parent: root,
@@ -240,4 +245,36 @@ test("a formerly linked replica cannot retrieve an unrelated later purge proof",
     { headers: { Authorization: `Bearer ${owner.token}` } },
   );
   expect(unobservedCheckpointResponse.status).toBe(403);
+
+  // Another observed head still authorizes the default complete history.
+  const otherObservationResponse = await routeApp.request(
+    `/documents/${created.id}/purge`,
+    { headers: { Authorization: `Bearer ${owner.token}` } },
+  );
+  expect(otherObservationResponse.status).toBe(200);
+  const otherObservationProof = await otherObservationResponse.json();
+  if (!isDocumentPurgeProofResponse(otherObservationProof)) {
+    throw new Error("Expected history for a recorded document reader");
+  }
+  expect(otherObservationProof.documentManifestPredecessors).toHaveLength(2);
+
+  // Purge-path access alone must not disclose the retained document chain.
+  await db
+    .delete(documentManifestObservations)
+    .where(
+      and(
+        eq(documentManifestObservations.documentId, created.id),
+        eq(documentManifestObservations.userId, owner.userId),
+      ),
+    );
+  const unobservedProofResponse = await routeApp.request(
+    `/documents/${created.id}/purge`,
+    { headers: { Authorization: `Bearer ${owner.token}` } },
+  );
+  expect(unobservedProofResponse.status).toBe(200);
+  const unobservedProof = await unobservedProofResponse.json();
+  if (!isDocumentPurgeProofResponse(unobservedProof)) {
+    throw new Error("Expected purge-time snapshot for an unobserved document");
+  }
+  expect(unobservedProof.documentManifestPredecessors).toEqual([]);
 });

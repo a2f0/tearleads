@@ -210,13 +210,14 @@ document must have exactly one remaining container link; recursive container
 purge unlinks any additional in-subtree links before calling it. `null` means
 the purge was refused or could not be verified, and callers must retain the
 local document.
-Initial proofs include signed document history through genesis and its
-container/policy dependencies. The SDK authenticates before reading local pins,
-then may request a shorter chain using a known hash. Deletion requires an exact
-pin or signed transitions from a pin or genesis; a hash-only snapshot cannot
-advance it. The purge-time container path must satisfy local pins. A later head
-is ambiguous: ancestry cannot order the separate purge signature. A coded
-not-found during a user-initiated purge retry follows this same proof flow.
+Recorded readers get signed genesis history and its
+container/policy dependencies; purge-path access alone reveals a terminal
+snapshot. The SDK authenticates before reading local pins, then reuses the
+proof or requests missing predecessors with a known hash. Deletion requires
+an exact pin or signed transitions from a pin or genesis. Unavailable history
+defers deletion without an incident; hash-only snapshots cannot advance pins.
+Later container pins fail closed because ancestry cannot order the separate
+purge signature. Lost-response purge retries use this same flow.
 
 Organization directory, group-summary, state-hash-bound membership, grant, and
 policy-head rows are presentation projections. The SDK reconciles them through

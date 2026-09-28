@@ -4,11 +4,13 @@ import { DocumentMutationError } from "./errors";
 export function selectDocumentManifestPredecessors(input: {
   /** Exact hash already authorized from durable caller-observation state. */
   readonly authorizedCheckpointManifestHash?: string | undefined;
+  /** Server-owned observation check, never a caller-provided flag. */
+  readonly includeObservedHistory: boolean;
   readonly head: AccessManifestBundleWireResponse;
   readonly history: readonly AccessManifestBundleWireResponse[];
 }): AccessManifestBundleWireResponse[] {
   if (input.authorizedCheckpointManifestHash === undefined) {
-    return [...input.history];
+    return input.includeObservedHistory ? [...input.history] : [];
   }
   if (input.authorizedCheckpointManifestHash === input.head.manifestHash) {
     return [];

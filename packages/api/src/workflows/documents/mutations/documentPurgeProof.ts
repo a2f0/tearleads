@@ -15,6 +15,7 @@ import type {
 } from "@tearleads/validators/response";
 import { and, eq } from "drizzle-orm";
 import { getStoredAccessEventByObjectType } from "../../../access/read/accessManifestStore";
+import { hasDocumentManifestObservation } from "../../../access/read/documentManifestObservationStore";
 import {
   keyingVerificationHttpStatus,
   projectionVerifiedAccessEventRecord,
@@ -247,6 +248,12 @@ export async function loadDocumentPurgeProof(input: {
   const documentManifestPredecessorBundles = selectDocumentManifestPredecessors(
     {
       authorizedCheckpointManifestHash: input.documentCheckpointManifestHash,
+      includeObservedHistory:
+        input.documentCheckpointManifestHash === undefined &&
+        (await hasDocumentManifestObservation(input.executor, {
+          documentId: input.documentId,
+          userId: input.userId,
+        })),
       head: material.documentManifest,
       history: material.documentManifestHistory,
     },
