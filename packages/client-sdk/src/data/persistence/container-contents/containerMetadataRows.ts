@@ -1,6 +1,6 @@
 import { base64ToBytes } from "@tearleads/encoding";
 import { getImportBlobMetadata } from "@tearleads/loro";
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { serializeDocumentSyncPullContinuation } from "../../documents/shared/pullContinuation";
 import {
   documentRecordSelection,
@@ -16,7 +16,6 @@ import {
   type ContainerRecord,
   saveContainerRows,
 } from "../containers/containerPersistence";
-import { DOCUMENTS_APP_KIND } from "../documents/internal/constants";
 import type {
   ContainerCreateIntentInput,
   ContainerMetadataRecord,
@@ -140,24 +139,6 @@ export async function saveContainerContentsContainerRows(input: {
     serverTimestamps,
     tx,
   } = input;
-  const metadataIds = [container.metadataDocumentId, record?.documentId].filter(
-    (id): id is string => typeof id === "string",
-  );
-  if (metadataIds.length > 0) {
-    const [collision] = await tx
-      .select({ localId: documents.localId })
-      .from(documents)
-      .where(
-        and(
-          eq(documents.appKind, DOCUMENTS_APP_KIND),
-          inArray(documents.documentId, metadataIds),
-        ),
-      )
-      .limit(1);
-    if (collision) {
-      throw new Error("Container metadata cannot name an ordinary document");
-    }
-  }
   const nextContainer = {
     ...container,
     ...(serverTimestamps
