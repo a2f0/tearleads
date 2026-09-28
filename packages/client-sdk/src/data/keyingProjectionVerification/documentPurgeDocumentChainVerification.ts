@@ -280,8 +280,8 @@ export async function verifyPurgeDocumentManifest(input: {
   const isPinnedHead =
     localCheckpoint?.epoch === manifest.epoch &&
     localCheckpoint.manifestHash === input.proof.documentManifest.manifestHash;
-  // A hash-only snapshot may select a read-only refetch floor. Committing a
-  // purge requires an exact existing pin or verified signed transitions from
+  // Baseline inspection may read a hash-only snapshot. Committing a purge
+  // requires an exact existing pin or verified signed transitions from
   // that pin (or signed genesis for a fresh device).
   if (
     input.proof.documentManifestPredecessors.length > 0 ||
