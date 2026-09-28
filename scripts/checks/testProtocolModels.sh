@@ -24,6 +24,13 @@ unset PROTOCOL_TLC_PARALLELISM
 SOURCE_ROOT=$(git rev-parse --show-toplevel)
 CHECK_SCRIPT=$SOURCE_ROOT/scripts/checks/checkProtocolModels.sh
 FIXTURE_ROOT=$SOURCE_ROOT/scripts/checks/fixtures/protocolModels
+
+# Hooks export the caller's repository metadata. Fixture initialization must
+# target its own repository, including when this script runs in a linked worktree.
+for git_local_env in $(git rev-parse --local-env-vars); do
+  unset "$git_local_env"
+done
+
 TEST_ROOT=$(mktemp -d "${TMPDIR:-/tmp}/protocol-models.XXXXXX")
 JAVA_LOG=$TEST_ROOT/java.log
 
