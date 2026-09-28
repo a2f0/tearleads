@@ -12,7 +12,7 @@ difference for the same document is a conflict, without an epoch comparison.
 | `ObserveIncident` | `appendSecurityIncident` |
 | `Preflight` | `preflightSecurityAnchorRestore` |
 | `Restore` | `restoreBackupDatabase` repeats the merge in its write transaction |
-| `Compatible` / `MergePins` | `mergeDocumentPurgeCheckpointBackupTables` |
+| `Compatible` / `MergePins` | `mergeDocumentPurgeCheckpointBackupTables` and `mergePrincipalPolicyOwnerBackupTables` |
 | `RestoredIncidents` | `mergeSecurityIncidentBackupTables` |
 
 The bounded configuration uses one document, two conflicting purge decisions,
@@ -46,3 +46,17 @@ Restored incident observations more than five minutes ahead of the restoring
 device are refused, so an imported future clock cannot suppress subsequent
 incidents indefinitely through retention ordering. Correcting that clock and
 retrying restore preserves the evidence without rewriting its timestamps.
+
+Principal-policy organization ownership follows the same immutable union rule:
+a principal's type and ID select one organization, which cannot be replaced by
+an older backup. In that interpretation the model's document key represents a
+principal key and its pin value represents the organization ID. Checkpoint
+versions themselves are outside this model. The restore keeps current-only
+ownership, imports backup-only ownership, and rejects conflicting owners before
+writing. Retaining a group checkpoint without its owner would strand later
+organization-scoped recovery (#2365). Native SQLite regressions cover restoring
+an empty or absent owner table, merging overlapping scopes, conflict refusal,
+and successful remote-state reset after restore. Preflight refuses any merged
+group checkpoint that has no owner, before changing the database. Ownership is
+never inferred
+from display rows or backfilled from unsigned metadata.
