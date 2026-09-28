@@ -56,5 +56,7 @@ ownership, imports backup-only ownership, and rejects conflicting owners before
 writing. Retaining a group checkpoint without its owner would strand later
 organization-scoped recovery (#2365). Native SQLite regressions cover restoring
 an empty or absent owner table, merging overlapping scopes, conflict refusal,
-and successful remote-state reset after restore. Ownership is never inferred
+and successful remote-state reset after restore. Preflight refuses any merged
+group checkpoint that has no owner, before changing the database. Ownership is
+never inferred
 from display rows or backfilled from unsigned metadata.

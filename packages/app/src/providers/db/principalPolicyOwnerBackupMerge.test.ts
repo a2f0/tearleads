@@ -31,3 +31,13 @@ test.each([
     }),
   ).toThrow();
 });
+
+test("owner merge retains overlap once and imports a backup-only principal", () => {
+  const imported = { ...row, principal_id: "backup-only" };
+  expect(
+    mergePrincipalPolicyOwnerBackupTables({
+      current: table,
+      restored: { ...table, rows: [row, imported] },
+    })?.rows,
+  ).toEqual([row, imported]);
+});

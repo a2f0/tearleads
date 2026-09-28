@@ -39,15 +39,15 @@ async function pin(
   ]);
 }
 
-for (const emptyOwnerTable of [false, true]) {
-  test(`restore retains current policy ownership and permits recovery (empty table=${emptyOwnerTable})`, async () => {
+for (const ownerTable of ["absent", "empty"] as const) {
+  test(`restore retains current policy ownership and permits recovery (owner table=${ownerTable})`, async () => {
     const source = createNativeTestExecSql();
     const target = createNativeTestExecSql();
     try {
       await initialize(source.execSql);
       await initialize(target.execSql);
       await pin(target.execSql, "current-only", "org", 2);
-      if (!emptyOwnerTable)
+      if (ownerTable === "absent")
         await source.execSql("DROP TABLE principal_policy_organizations");
       const payload = await createBackupPayload({
         blobStore,
@@ -163,3 +163,43 @@ test("conflicting policy ownership refuses restore before replacing the live dat
     target.close();
   }
 });
+
+for (const ownerTable of ["absent", "empty"] as const) {
+  test(`an unowned backup checkpoint refuses restore (${ownerTable})`, async () => {
+    const source = createNativeTestExecSql();
+    const target = createNativeTestExecSql();
+    try {
+      await initialize(source.execSql);
+      await initialize(target.execSql);
+      await pin(source.execSql, "unowned", "backup-org", 1);
+      await pin(target.execSql, "current", "org", 2);
+      await source.execSql(
+        ownerTable === "absent"
+          ? "DROP TABLE principal_policy_organizations"
+          : "DELETE FROM principal_policy_organizations",
+      );
+      const payload = await createBackupPayload({
+        blobStore,
+        execSql: source.execSql,
+        databaseId: null,
+        signingFingerprint: null,
+      });
+      await expect(
+        restoreBackupPayload({
+          blobStore,
+          execSql: target.execSql,
+          payload,
+          securityIncidents: unexpectedSecurityIncidents,
+        }),
+      ).rejects.toThrow("Backup contains an unowned group policy checkpoint");
+      expect(
+        await target.execSql(
+          "SELECT principal_id FROM principal_policy_checkpoints",
+        ),
+      ).toEqual([{ principal_id: "current" }]);
+    } finally {
+      source.close();
+      target.close();
+    }
+  });
+}

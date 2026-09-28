@@ -70,6 +70,10 @@ class PausingBlobStore extends RecordingBlobStore {
 }
 
 async function createCheckpointTables(execSql: ExecSql): Promise<void> {
+  await execSql(`CREATE TABLE principal_policy_organizations (
+    principal_type TEXT NOT NULL, principal_id TEXT NOT NULL,
+    organization_id TEXT NOT NULL, PRIMARY KEY (principal_type, principal_id)
+  )`);
   await execSql(`
     CREATE TABLE access_manifest_checkpoints (
       object_kind TEXT NOT NULL,
@@ -130,6 +134,11 @@ async function insertPrincipalCheckpoint(
      ) VALUES (?, ?, ?, ?, ?)`,
     ["group", input.principalId, input.version, input.hash, UPDATED_AT],
   );
+  await execSql("INSERT INTO principal_policy_organizations VALUES (?, ?, ?)", [
+    "group",
+    input.principalId,
+    "organization-1",
+  ]);
 }
 
 async function createPayload(

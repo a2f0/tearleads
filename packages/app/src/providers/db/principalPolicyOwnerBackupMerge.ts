@@ -65,3 +65,24 @@ export function mergePrincipalPolicyOwnerBackupTables(input: {
   }
   return { ...template, rows: [...rows.values()] };
 }
+
+/** Refuse an incomplete restore rather than inventing ownership for old pins. */
+export function assertPrincipalCheckpointBackupOwners(
+  checkpoints: BackupTable | null,
+  owners: BackupTable | null,
+): void {
+  const groups = new Set(
+    (owners?.rows ?? [])
+      .filter(
+        (row) => requireBackupString(row, "principal_type", label) === "group",
+      )
+      .map((row) => requireBackupString(row, "principal_id", label)),
+  );
+  for (const row of checkpoints?.rows ?? []) {
+    if (
+      requireBackupString(row, "principal_type", label) === "group" &&
+      !groups.has(requireBackupString(row, "principal_id", label))
+    )
+      throw new Error("Backup contains an unowned group policy checkpoint");
+  }
+}

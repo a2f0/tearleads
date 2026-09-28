@@ -14,6 +14,7 @@ import {
   PRINCIPAL_GRANT_RETIREMENT_TABLE_NAME,
 } from "./principalGrantRetirementBackupMerge";
 import {
+  assertPrincipalCheckpointBackupOwners,
   mergePrincipalPolicyOwnerBackupTables,
   PRINCIPAL_POLICY_OWNER_COLUMNS,
   PRINCIPAL_POLICY_OWNER_TABLE_NAME,
@@ -82,79 +83,36 @@ export async function mergeSecurityAnchorBackupTables(input: {
   readonly current: ReadonlyArray<BackupTable>;
   readonly restored: ReadonlyArray<BackupTable>;
 }): Promise<BackupTable[]> {
-  const mergedAccessCheckpoints = mergeAccessManifestCheckpointBackupTables({
-    current: uniqueBackupTableByName(
-      input.current,
-      ACCESS_MANIFEST_CHECKPOINT_TABLE_NAME,
-    ),
-    restored: uniqueBackupTableByName(
-      input.restored,
-      ACCESS_MANIFEST_CHECKPOINT_TABLE_NAME,
-    ),
+  const tableInput = (name: string) => ({
+    current: uniqueBackupTableByName(input.current, name),
+    restored: uniqueBackupTableByName(input.restored, name),
   });
-  const mergedPrincipalCheckpoints = mergePrincipalPolicyCheckpointBackupTables(
-    {
-      current: uniqueBackupTableByName(
-        input.current,
-        PRINCIPAL_POLICY_CHECKPOINT_TABLE_NAME,
-      ),
-      restored: uniqueBackupTableByName(
-        input.restored,
-        PRINCIPAL_POLICY_CHECKPOINT_TABLE_NAME,
-      ),
-    },
+  const mergedAccessCheckpoints = mergeAccessManifestCheckpointBackupTables(
+    tableInput(ACCESS_MANIFEST_CHECKPOINT_TABLE_NAME),
   );
-  const mergedPolicyOwners = mergePrincipalPolicyOwnerBackupTables({
-    current: uniqueBackupTableByName(
-      input.current,
-      PRINCIPAL_POLICY_OWNER_TABLE_NAME,
-    ),
-    restored: uniqueBackupTableByName(
-      input.restored,
-      PRINCIPAL_POLICY_OWNER_TABLE_NAME,
-    ),
-  });
-  const mergedIdentityPins = mergeTrustedIdentityPinBackupTables({
-    current: uniqueBackupTableByName(
-      input.current,
-      TRUSTED_IDENTITY_PIN_TABLE_NAME,
-    ),
-    restored: uniqueBackupTableByName(
-      input.restored,
-      TRUSTED_IDENTITY_PIN_TABLE_NAME,
-    ),
-  });
+  const mergedPrincipalCheckpoints = mergePrincipalPolicyCheckpointBackupTables(
+    tableInput(PRINCIPAL_POLICY_CHECKPOINT_TABLE_NAME),
+  );
+  const mergedPolicyOwners = mergePrincipalPolicyOwnerBackupTables(
+    tableInput(PRINCIPAL_POLICY_OWNER_TABLE_NAME),
+  );
+  assertPrincipalCheckpointBackupOwners(
+    mergedPrincipalCheckpoints,
+    mergedPolicyOwners,
+  );
+  const mergedIdentityPins = mergeTrustedIdentityPinBackupTables(
+    tableInput(TRUSTED_IDENTITY_PIN_TABLE_NAME),
+  );
 
-  const mergedPurgeCheckpoints = mergeDocumentPurgeCheckpointBackupTables({
-    current: uniqueBackupTableByName(
-      input.current,
-      DOCUMENT_PURGE_CHECKPOINT_TABLE_NAME,
-    ),
-    restored: uniqueBackupTableByName(
-      input.restored,
-      DOCUMENT_PURGE_CHECKPOINT_TABLE_NAME,
-    ),
-  });
-  const mergedRetirements = mergePrincipalGrantRetirementBackupTables({
-    current: uniqueBackupTableByName(
-      input.current,
-      PRINCIPAL_GRANT_RETIREMENT_TABLE_NAME,
-    ),
-    restored: uniqueBackupTableByName(
-      input.restored,
-      PRINCIPAL_GRANT_RETIREMENT_TABLE_NAME,
-    ),
-  });
-  const mergedIncidents = await mergeSecurityIncidentBackupTables({
-    current: uniqueBackupTableByName(
-      input.current,
-      SECURITY_INCIDENT_TABLE_NAME,
-    ),
-    restored: uniqueBackupTableByName(
-      input.restored,
-      SECURITY_INCIDENT_TABLE_NAME,
-    ),
-  });
+  const mergedPurgeCheckpoints = mergeDocumentPurgeCheckpointBackupTables(
+    tableInput(DOCUMENT_PURGE_CHECKPOINT_TABLE_NAME),
+  );
+  const mergedRetirements = mergePrincipalGrantRetirementBackupTables(
+    tableInput(PRINCIPAL_GRANT_RETIREMENT_TABLE_NAME),
+  );
+  const mergedIncidents = await mergeSecurityIncidentBackupTables(
+    tableInput(SECURITY_INCIDENT_TABLE_NAME),
+  );
 
   return [
     ...input.restored.filter((table) => !isSecurityAnchorTableName(table.name)),
