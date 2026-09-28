@@ -50,7 +50,7 @@ test("an accepted long container history remains verifiable after a restart", as
   expect(repeatedLoads).toBe(0);
 }, 300_000);
 
-test("concurrent cold readers share verification of the same signed history", async () => {
+test("independent database snapshots share successful verification of the same signed history", async () => {
   const { bundles, executor, loadBundle } = await signedContainerHistory(4);
   const head = bundles.at(-1);
   if (!head) throw new Error("Missing history head");
@@ -59,7 +59,9 @@ test("concurrent cold readers share verification of the same signed history", as
     Array.from({ length: 3 }, () =>
       verifyStoredContainerManifest({
         bundle: head,
-        context: createContainerWriterProjectionContext(executor),
+        context: createContainerWriterProjectionContext(
+          new Proxy(executor, {}),
+        ),
         loadBundle: (hash) => {
           loads += 1;
           return loadBundle(hash);

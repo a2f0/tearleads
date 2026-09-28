@@ -50,13 +50,13 @@ verifies retained dependencies iteratively, including ancestor lineage, so cache
 eviction does not invalidate an accepted history. Cold verification still loads
 retained history. Each verifier separately retains 128 requested verified heads,
 keeping them available while the 2,048-entry dependency cache turns over during
-long history walks. Identical concurrent head verification
-shares work within the same database session; separate transactions remain
-independent. Both caches check the complete bundle and signer-key fingerprint.
+long history walks. Identical concurrent head verification waits for a successful
+result across database sessions. A failure is retried in each caller's own
+snapshot rather than propagated from another transaction. Both caches check the
+complete bundle and signer key.
 They are optional process caches, not persistent verification markers or a
-bound on first-cold-read cost. For N ancestor manifests, the shared lineage
-index uses
-O(N log N) work and space, with O(log N) per lineage query; see
+bound on first-cold-read cost. For N ancestor manifests, the shared lineage index
+uses O(N log N) work and space, with O(log N) per lineage query; see
 [the availability model](../formal/container-keying/ManifestHistory.md).
 
 The sealed keyring is 64 bytes per retained epoch and is never truncated, so

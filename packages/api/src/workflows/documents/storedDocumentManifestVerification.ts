@@ -335,7 +335,6 @@ export async function verifyStoredDocumentManifest(
       manifest: parsed,
     });
     const verified = await storedManifestWork.run({
-      scope: input.containerContext.executor,
       key: input.bundle.manifestHash,
       source: storedVerificationSource(input.bundle, signerPublicKey),
       verify: () =>

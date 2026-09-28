@@ -2,13 +2,13 @@ import { sha256Hex } from "./sha256";
 import { StoredVerificationCache } from "./storedVerificationCache";
 
 /**
- * Requested heads outlive intermediate-history cache churn. Pending work is
- * shared only inside one database session; an uncommitted transaction must not
- * lend its pending verification or failures to another snapshot.
+ * Requested heads outlive intermediate-history cache churn. Concurrent readers
+ * wait for the same immutable source, then reuse only a successful verified
+ * result. Failures are retried in each caller's own database snapshot.
  */
 export class StoredManifestWork<T> {
   private readonly heads: StoredVerificationCache<T>;
-  private pending = new WeakMap<object, Map<string, Promise<T>>>();
+  private pending = new Map<string, Promise<T>>();
   private generation = 0;
 
   constructor(maxHeads: number) {
@@ -20,7 +20,6 @@ export class StoredManifestWork<T> {
   }
 
   async run(input: {
-    readonly scope: object;
     readonly key: string;
     readonly source: unknown;
     readonly verify: () => Promise<T>;
@@ -30,14 +29,20 @@ export class StoredManifestWork<T> {
     const fingerprint = this.fingerprint(input.source);
     const cached = this.heads.get(input.key, fingerprint);
     if (cached !== undefined) return cached;
-    let pending = this.pending.get(input.scope);
-    if (!pending) {
-      pending = new Map();
-      this.pending.set(input.scope, pending);
-    }
+    const pending = this.pending;
     const pendingKey = JSON.stringify([input.key, fingerprint]);
     const existing = pending.get(pendingKey);
-    if (existing) return existing;
+    if (existing) {
+      try {
+        await existing;
+      } catch {
+        // A different transaction may lack dependencies visible to this one.
+        // Its failure is not evidence about this caller's stored history.
+      }
+      // Recheck the source and cache after waiting, including an intervening
+      // clear or eviction. Never return an unretained result from old work.
+      return this.run(input);
+    }
     const generation = this.generation;
     const result = Promise.resolve()
       .then(input.verify)
@@ -57,7 +62,7 @@ export class StoredManifestWork<T> {
   clear(): void {
     this.generation += 1;
     this.heads.clear();
-    this.pending = new WeakMap();
+    this.pending = new Map();
   }
 
   private fingerprint(source: unknown): string {

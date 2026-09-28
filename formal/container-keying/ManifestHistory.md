@@ -39,7 +39,9 @@ become a permanent lifetime-history refusal or a cap that prevents revocation.
 No existing history is trusted merely because its depth is large.
 
 The implementation separately retains 128 requested verified heads per verifier
-and shares identical concurrent verification within a database session. This
+and coordinates identical concurrent verification across database sessions.
+Only successful results are reused; failures are retried in each caller's
+own snapshot. This
 prevents intermediate-history cache churn from evicting recently requested heads
 and avoids duplicate concurrent walks. Regressions reproduce both failures with
 the protection removed. These optional caches do not bound the first cold walk,

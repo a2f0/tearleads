@@ -371,7 +371,6 @@ export async function verifyStoredContainerManifest(
     const parsed = toVerifiedContainerManifest(input.bundle);
     const signerPublicKey = await loadStoredEventSigner(input, parsed);
     const verified = await storedManifestWork.run({
-      scope: input.context.executor,
       key: input.bundle.manifestHash,
       source: storedVerificationSource(input.bundle, signerPublicKey),
       verify: () =>
