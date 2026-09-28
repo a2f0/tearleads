@@ -183,11 +183,11 @@ function getInfoRowTitle(pane: HTMLElement, label: string): string | null {
   );
 }
 
-async function openPaneExplorerDocumentInfo(
+async function navigateToPaneExplorerDocumentInfo(
   pane: HTMLElement,
   itemLabel: string,
   containerName?: string,
-): Promise<PaneExplorerDocumentIdentity> {
+): Promise<void> {
   const itemRow = await waitForExplorerDocumentRow(
     pane,
     itemLabel,
@@ -211,9 +211,27 @@ async function openPaneExplorerDocumentInfo(
   await interact(() => {
     fireEvent.click(getInfoButton);
   });
+}
+
+async function openPaneExplorerDocumentInfo(
+  pane: HTMLElement,
+  itemLabel: string,
+  containerName?: string,
+): Promise<PaneExplorerDocumentIdentity> {
+  await navigateToPaneExplorerDocumentInfo(pane, itemLabel, containerName);
 
   return waitFor(
-    () => {
+    async () => {
+      // Recovery may replace the provisional folder after Get Info opens,
+      // invalidating that route. Reacquire the named folder only if the panel
+      // disappeared; an intact panel may still be loading its identity rows.
+      if (!pane.querySelector(".explorer-detail--document-info")) {
+        await navigateToPaneExplorerDocumentInfo(
+          pane,
+          itemLabel,
+          containerName,
+        );
+      }
       const documentId = getInfoRowTitle(pane, "Document ID");
       const localId = getInfoRowTitle(pane, "Local ID");
       const containerId = getInfoRowTitle(pane, "Container");

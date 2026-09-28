@@ -157,21 +157,23 @@ test(
     });
     // Background discovery also verifies signatures between network requests;
     // a quiet API and settled sync lanes alone do not mean its tree is ready.
-    await act(async () => {
-      await waitForCondition(
-        () => {
-          const names =
-            trees
-              .get("right")
-              ?.getSnapshot()
-              .nodes.filter((node) => node.parentId === founderRootId)
-              .map((node) => node.name) ?? [];
-          return names.includes("Contacts") && names.includes("Trash");
-        },
-        "Shared system folders did not finish hydrating.",
-        POST_SHARE_SYNC_SETTLE_TIMEOUT_MS,
-      );
-    });
+    await waitForCondition(
+      async () => {
+        // Discovery routes newly visible containers through React effects.
+        // Flush each poll; one act around the whole wait can hold those effects
+        // until after the hydration it is waiting for has timed out.
+        await act(async () => {});
+        const names =
+          trees
+            .get("right")
+            ?.getSnapshot()
+            .nodes.filter((node) => node.parentId === founderRootId)
+            .map((node) => node.name) ?? [];
+        return names.includes("Contacts") && names.includes("Trash");
+      },
+      "Shared system folders did not finish hydrating.",
+      POST_SHARE_SYNC_SETTLE_TIMEOUT_MS,
+    );
     await waitForNoPostShareSyncFailures(
       [leftPane, rightPane],
       adminAddBaseline,
