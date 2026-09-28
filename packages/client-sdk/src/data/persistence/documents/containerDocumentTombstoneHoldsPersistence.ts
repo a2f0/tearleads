@@ -11,6 +11,7 @@ import {
   ensureSqlTables,
   runSerializedSqlMutation,
 } from "../../sqlite/sqlSchema";
+import { DOCUMENTS_APP_KIND } from "./internal/constants";
 import {
   type ContainerDocumentPlacementKey,
   type ContainerDocumentTombstoneHoldRow,
@@ -180,7 +181,7 @@ export async function listRetryableHeldContainerDocumentTombstones(
     }));
 }
 
-/** The highest access epoch local state records for a server document. */
+/** Ordinary-document floors must exclude unsigned container-metadata epochs. */
 export async function loadLocalDocumentAccessEpoch(
   execSql: ExecSql,
   documentId: string,
@@ -190,6 +191,11 @@ export async function loadLocalDocumentAccessEpoch(
   const [row] = await db
     .select({ accessEpoch: max(documents.accessEpoch) })
     .from(documents)
-    .where(eq(documents.documentId, documentId));
+    .where(
+      and(
+        eq(documents.appKind, DOCUMENTS_APP_KIND),
+        eq(documents.documentId, documentId),
+      ),
+    );
   return row?.accessEpoch ?? 0;
 }

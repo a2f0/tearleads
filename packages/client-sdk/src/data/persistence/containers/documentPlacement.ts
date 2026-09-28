@@ -1,6 +1,7 @@
-import { eq, inArray } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import { documentMoveIntents, documents } from "../../sqlite/schema";
 import type { ClientSQLiteTransactionScope } from "../../sqlite/sqlitePersistenceRuntime";
+import { DOCUMENTS_APP_KIND } from "../documents/internal/constants";
 
 export interface DocumentPlacementInput {
   documentId: string;
@@ -58,7 +59,12 @@ export async function filterWritableDocumentPlacements(
         accessEpoch: documents.accessEpoch,
       })
       .from(documents)
-      .where(inArray(documents.documentId, versionedIds));
+      .where(
+        and(
+          eq(documents.appKind, DOCUMENTS_APP_KIND),
+          inArray(documents.documentId, versionedIds),
+        ),
+      );
     for (const row of rows)
       if (row.documentId)
         epochs.set(
