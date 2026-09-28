@@ -48,16 +48,22 @@ async function createExplorerNote(pane: HTMLElement) {
   const deadline = Date.now() + DUAL_PANE_TEST_TIMEOUT_MS;
   while (Date.now() < deadline) {
     let created = false;
+    let pickerVisible = false;
     await interact(() => {
       // Reconciliation can replace the picker between asynchronous steps.
       // Query and click in the same act, and retry navigation if it vanished.
       const note = within(pane).queryByRole("button", { name: "Note" });
+      pickerVisible = note !== null;
       if (note instanceof HTMLButtonElement && !note.disabled) {
         fireEvent.click(note);
         created = true;
       }
     });
     if (created) return;
+    if (pickerVisible) {
+      await new Promise((resolve) => setTimeout(resolve, 100));
+      continue;
+    }
 
     await interact(() => {
       const fileMenu = within(getExplorerWindowRoot(pane)).queryByRole(
