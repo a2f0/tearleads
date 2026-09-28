@@ -56,6 +56,10 @@ async function restorePrimaryIdentityIntoSecondary(
 ) {
   const primaryUserId = getPaneUserId(primaryPane);
   const primarySessionId = readPaneStatusValue(primaryPane, "Session");
+  const previousSecondarySession = readPaneStatusValue(
+    secondaryPane,
+    "Session",
+  );
   const recoveryKey = await readPaneRecoveryKey(primaryPane);
   await restorePaneFromRecoveryKey(secondaryPane, recoveryKey);
 
@@ -67,7 +71,11 @@ async function restorePrimaryIdentityIntoSecondary(
   await waitForCondition(
     () => {
       const sessionId = readPaneStatusValue(secondaryPane, "Session");
-      return sessionId !== "none" && sessionId !== primarySessionId;
+      return (
+        sessionId !== "none" &&
+        sessionId !== primarySessionId &&
+        sessionId !== previousSecondarySession
+      );
     },
     "Secondary pane did not establish a distinct session.",
     20_000,
