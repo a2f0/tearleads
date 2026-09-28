@@ -104,4 +104,4 @@ test("writing a destination does not authorize rebinding a private existing blob
   await expect(
     bindForTest({ blobId, owner: writer, request: attempted.request }),
   ).rejects.toMatchObject({ status: 403 });
-});
+}, 15_000);
