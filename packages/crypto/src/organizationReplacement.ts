@@ -5,6 +5,7 @@ import {
   type OrganizationReplacementAuthorization,
   OrganizationReplacementAuthorizationSchema,
 } from "@tearleads/validators/util";
+import { serializeKeyingCanonicalJson } from "./keying/canonical";
 import { KeyingVerificationError } from "./keying/verificationError";
 import { computePrincipalStateHash } from "./principalState";
 import type { SigningKeyPair } from "./signing/generateKeyPair";
@@ -132,7 +133,7 @@ export function organizationReplacementSigningBytes(
   payload: AuthorizationPayload,
 ): Uint8Array {
   return new TextEncoder().encode(
-    JSON.stringify({
+    serializeKeyingCanonicalJson({
       domain: "tearleads.organization-replacement.v1",
       replacesOrganizationId: payload.replacesOrganizationId,
       organizationId: payload.organizationId,

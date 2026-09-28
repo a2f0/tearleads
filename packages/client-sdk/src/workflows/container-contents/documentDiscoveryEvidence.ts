@@ -5,6 +5,7 @@ import type {
 } from "../../data/persistence/documents/documentDiscoveryEvidencePersistence";
 import { groupPendingDocumentDiscoveries } from "./documentDiscoveryCandidates";
 import type { DiscoverContainerDocumentsOptions } from "./documentDiscoveryTypes";
+import { documentHeadMatchesOrganization } from "./documentHeadScope";
 import type {
   DocumentHeadLinkSetLoader,
   LocalDocumentAccessEpochLoader,
@@ -39,14 +40,7 @@ async function verifyInput(
   if (head === "not-found") return null;
   if (!head || head.accessEpoch < Math.max(localEpoch, input.accessEpoch))
     return "unavailable";
-  const terminalPurge =
-    head.organizationId === null &&
-    !head.accessStateHash &&
-    head.accessEpoch === Number.MAX_SAFE_INTEGER;
-  if (
-    !terminalPurge &&
-    (!organizationId || head.organizationId !== organizationId)
-  )
+  if (!documentHeadMatchesOrganization(head, organizationId))
     return "unavailable";
   // A stale first lane must not hide a document present in another listed lane.
   const containerId = input.listedContainerIds.find((id) =>

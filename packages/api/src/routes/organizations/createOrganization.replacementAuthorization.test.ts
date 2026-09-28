@@ -47,6 +47,11 @@ for (const field of [
   "rootContainerId",
   "userId",
   "organizationStateHash",
+  "adminGroupId",
+  "adminGroupStateHash",
+  "memberGroupId",
+  "memberGroupStateHash",
+  "rootMetadataDocumentId",
   "rootManifestHash",
 ] as const) {
   test(`replacement provisioning rejects a signed authorization with a different ${field}`, async () => {
@@ -144,3 +149,15 @@ test.each(["replay", "finalization"] as const)(
     expect(stored?.defaultOrganizationId).toBe(oldOrganizationId);
   },
 );
+
+test("ordinary creation refuses replacement intent and returns a null authorization", async () => {
+  const { user, request } = await purgedActor();
+  const { replacesOrganizationId: _replaced, ...withProof } = request;
+  expect((await submitCreateOrganization(user, withProof)).status).toBe(400);
+  const { replacementAuthorization: _proof, ...ordinary } = withProof;
+  const response = await submitCreateOrganization(user, ordinary);
+  expect(response.status).toBe(200);
+  expect(await response.json()).toMatchObject({
+    replacementAuthorization: null,
+  });
+});

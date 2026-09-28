@@ -20,6 +20,7 @@ for (const attack of [
   "substituted root",
   "altered principal genesis",
   "altered root genesis",
+  "signed mismatched root genesis",
 ] as const) {
   test(`purge recovery preserves local data and pins after ${attack}`, async () => {
     const harness = await createOrganizationReplacementRecoveryHarness(
@@ -73,6 +74,24 @@ for (const attack of [
                 organizationStateHash: "e".repeat(64),
               },
             };
+          case "signed mismatched root genesis": {
+            const other = {
+              ...authorization,
+              rootManifestHash: "e".repeat(64),
+            };
+            return {
+              ...response,
+              replacementAuthorization: {
+                ...other,
+                signature: bytesToBase64(
+                  sign(
+                    organizationReplacementSigningBytes(other),
+                    signingKeyPair.signingPrivateKey,
+                  ),
+                ),
+              },
+            };
+          }
           case "altered root genesis":
             return {
               ...response,

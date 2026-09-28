@@ -72,6 +72,7 @@ test("a real signed head refutes a tombstone for a container it links and verifi
   const harness = await createVerificationHarness();
   try {
     const verify = createContainerDocumentTombstoneVerifier(
+      harness.fixture.author.organizationId,
       harness.load,
       async () => 1,
     );

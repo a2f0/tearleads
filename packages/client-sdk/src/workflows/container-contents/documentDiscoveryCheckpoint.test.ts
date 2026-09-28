@@ -126,6 +126,7 @@ test("a cached discovery head cannot resurrect a placement removed by a newer si
     });
     await remote.submitUnlink(documentId, unlink.plan.request);
     const [verdict] = await createContainerDocumentTombstoneVerifier(
+      fixture.author.organizationId,
       load,
       loadEpoch,
     )([{ containerId, documentId, updatedAt: at }]);

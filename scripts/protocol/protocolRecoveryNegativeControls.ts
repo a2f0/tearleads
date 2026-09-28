@@ -115,4 +115,12 @@ export const RECOVERY_NEGATIVE_CONTROLS: readonly NegativeControl[] = [
     expect: { kind: "invariant", name: "DiscoveryStaysInReplacement" },
     why: "A signed old-organization document head cannot populate a reused replacement container ID (#2365).",
   },
+  {
+    id: "purge-recovery-adopts-before-pinning-genesis",
+    module: "formal/local-trust/PurgeRecovery.tla",
+    config: "formal/local-trust/PurgeRecovery.cfg",
+    constants: { PinBeforeAdoption: "FALSE" },
+    expect: { kind: "invariant", name: "RetainWinningGenesis" },
+    why: "Adopting a replacement must first durably seed its authenticated genesis (#2365).",
+  },
 ];

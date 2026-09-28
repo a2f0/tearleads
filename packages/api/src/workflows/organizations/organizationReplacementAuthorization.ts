@@ -1,4 +1,5 @@
 import {
+  KeyingVerificationError,
   organizationReplacementAuthorizationPayload,
   organizationReplacementSigningBytes,
   verifyOrganizationReplacementAuthorization,
@@ -34,14 +35,13 @@ export async function validateOrganizationReplacementAuthorization(
       bytesToBase64(organizationReplacementSigningBytes(authorization)) !==
       bytesToBase64(organizationReplacementSigningBytes(expected))
     ) {
-      throw new Error("Replacement authorization does not match provisioning");
+      throw new KeyingVerificationError(
+        "object_mismatch",
+        "Replacement authorization does not match provisioning",
+      );
     }
   } catch (error) {
-    throw new OrganizationProvisioningError(
-      error instanceof Error
-        ? error.message
-        : "Replacement authorization is invalid",
-      400,
-    );
+    if (!(error instanceof KeyingVerificationError)) throw error;
+    throw new OrganizationProvisioningError(error.message, 400);
   }
 }

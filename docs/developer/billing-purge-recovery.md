@@ -53,16 +53,21 @@ checks every returned destination field, and atomically pins the winning root
 and all three principal genesis hashes before adopting IDs or resetting data.
 Conflicting genesis or organization ownership aborts the pin transaction; later
 observed checkpoints are retained. A losing device trusts the winner's explicit
-signature from the same identity, without persisting its own unrelated bootstrap.
+signature from the same identity, without persisting its own unrelated
+bootstrap.
 
 Missing, malformed, foreign-signed, or mismatched proofs stop recovery and leave
 the old corpus and checkpoints intact. The durable attempt keeps the exact
 original signature and artifacts for retry. Finalization responses are verified
 again before clearing that attempt or switching the session. This is the current
-wire and local attempt contract; no legacy artifact decoder or migration exists.
-Discovery also checks each live signed or cached document head against the listed
+wire and local attempt contract. Stored server replacement and native-restore
+provisioning responses also require the new field; old server rows require the
+greenfield reset. No legacy artifact decoder or migration exists.
+Discovery and listing-tombstone verification check each live signed or cached
+head against the listed
 container's current organization, so an old organization's proof cannot populate
-reused local IDs after recovery. Missing organization scope leaves discovery pending.
+reused local IDs after recovery. Missing organization scope leaves discovery
+pending.
 See [the bounded recovery model](../../formal/local-trust/PurgeRecovery.md).
 
 Normal clients should call `session.recoverPurgedOrganization(...)` only after

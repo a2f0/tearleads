@@ -339,7 +339,6 @@ class ContainerContentsService implements ContainerContents {
   ): Promise<ReadonlyArray<DocumentSummary> | null> {
     return discoverContainerDocumentsForRuntime({
       containerId,
-      getContainerStore: () => this.openTree(),
       runtimeService: this.runtimeService,
     });
   }

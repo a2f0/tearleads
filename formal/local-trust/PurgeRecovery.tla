@@ -1,7 +1,7 @@
 --------------------------- MODULE PurgeRecovery ---------------------------
 EXTENDS Naturals
-CONSTANTS VerifyReplacement, VerifyProvisioning, PreserveCheckpoints, ScopeDiscovery
-ASSUME {VerifyReplacement, VerifyProvisioning, PreserveCheckpoints, ScopeDiscovery}
+CONSTANTS VerifyReplacement, VerifyProvisioning, PreserveCheckpoints, ScopeDiscovery, PinBeforeAdoption
+ASSUME {VerifyReplacement, VerifyProvisioning, PreserveCheckpoints, ScopeDiscovery, PinBeforeAdoption}
        \subseteq BOOLEAN
 Devices == {"left", "right"}
 VARIABLES signerIsSelf, sameOldOrganization, responseMatchesProof, freshPrivateGenesis,
@@ -33,7 +33,7 @@ Provision ==
 Authenticate ==
   /\ phase = "pending"
   /\ ~VerifyReplacement \/ Authorized
-  /\ phase' = "authenticated" /\ newCheckpoint' = 1
+  /\ phase' = "authenticated" /\ newCheckpoint' = IF PinBeforeAdoption THEN 1 ELSE 0
   /\ UNCHANGED <<signerIsSelf, sameOldOrganization, responseMatchesProof, freshPrivateGenesis,
                   winner, corpusTarget, oldCheckpoint, provisioned, discoveryOrganization, discovered>>
 Reset ==

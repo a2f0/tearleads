@@ -13,6 +13,7 @@ import type {
   ContainerDocumentTombstoneVerdict,
   ContainerDocumentTombstoneVerifier,
 } from "./documentDiscoveryTypes";
+import { documentHeadMatchesOrganization } from "./documentHeadScope";
 import type { ContainerContentsWorkflowRuntime } from "./runtime";
 
 export interface VerifiedDocumentHeadLinkSet {
@@ -202,6 +203,7 @@ function judgeTombstones(
  * listing or settled move wrote.
  */
 export function createContainerDocumentTombstoneVerifier(
+  organizationId: string | undefined,
   loadDocumentHeadLinkSet: DocumentHeadLinkSetLoader,
   loadLocalDocumentAccessEpoch: LocalDocumentAccessEpochLoader,
 ): ContainerDocumentTombstoneVerifier {
@@ -228,6 +230,7 @@ export function createContainerDocumentTombstoneVerifier(
         const [documentId, group] = entry;
         const head = await loadDocumentHeadLinkSet(documentId);
         if (head === null || head === "not-found") continue;
+        if (!documentHeadMatchesOrganization(head, organizationId)) continue;
         // A local-state read that fails is treated like an unavailable head:
         // the tombstones stay held rather than failing the discovery pass.
         const localEpoch = await loadLocalDocumentAccessEpoch(documentId).catch(

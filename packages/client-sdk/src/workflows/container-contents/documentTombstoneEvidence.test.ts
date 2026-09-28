@@ -210,6 +210,7 @@ const head = (linkedContainerIds: string[], accessEpoch = 5) => ({
 test("tombstones are judged once per document against the verified head link set", async () => {
   const loads: string[] = [];
   const verify = createContainerDocumentTombstoneVerifier(
+    "org",
     async (documentId) => {
       loads.push(documentId);
       if (documentId === "linked") return head(["kept", "still-linked"]);
@@ -270,6 +271,7 @@ test("tombstones are judged once per document against the verified head link set
 
 test("a verified head older than local document state is no evidence", async () => {
   const verify = createContainerDocumentTombstoneVerifier(
+    "org",
     async () => head([], 3),
     async (documentId) => (documentId === "stale" ? 4 : 3),
   );
@@ -300,6 +302,7 @@ test("a verified head older than local document state is no evidence", async () 
 test("head loads are capped per run; the rest are deferred for a later retry", async () => {
   const loads: string[] = [];
   const verify = createContainerDocumentTombstoneVerifier(
+    "org",
     async (documentId) => {
       loads.push(documentId);
       return head([]);
@@ -328,6 +331,7 @@ test("head loads run with bounded concurrency and keep verdict order", async () 
   let inFlight = 0;
   let peak = 0;
   const verify = createContainerDocumentTombstoneVerifier(
+    "org",
     async (documentId) => {
       inFlight += 1;
       peak = Math.max(peak, inFlight);
@@ -364,6 +368,7 @@ test("a coded missing document settles discovery but never authorizes a tombston
     );
     expect(await load("doc")).toBe(code ? "not-found" : null);
     const verify = createContainerDocumentTombstoneVerifier(
+      "org",
       load,
       async () => 1,
     );
