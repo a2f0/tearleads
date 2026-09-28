@@ -75,6 +75,7 @@ for (const scope of ["single", "all"] as const) {
             };
           },
           verifyDiscoveredDocuments: createDiscoveredDocumentVerifier(
+            "org-b",
             async () => {
               await maybeReset("head");
               return {

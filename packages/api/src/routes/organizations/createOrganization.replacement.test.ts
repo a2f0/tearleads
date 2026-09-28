@@ -71,14 +71,12 @@ test("replacement creation returns one winner to competing devices", async () =>
     .where(
       eq(organizationBilling.organizationId, registered.defaultOrganizationId),
     );
-  const firstBody = {
-    ...(await createOrganizationRequestBody(user)),
+  const firstBody = await createOrganizationRequestBody(user, {
     replacesOrganizationId: registered.defaultOrganizationId,
-  };
-  const secondBody = {
-    ...(await createOrganizationRequestBody(user)),
+  });
+  const secondBody = await createOrganizationRequestBody(user, {
     replacesOrganizationId: registered.defaultOrganizationId,
-  };
+  });
 
   const firstResponse = await submitCreateOrganization(user, firstBody);
   expect(firstResponse.status).toBe(200);

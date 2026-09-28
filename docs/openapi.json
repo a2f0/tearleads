@@ -63496,6 +63496,82 @@
                     "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
                     "type": "string"
                   },
+                  "replacementAuthorization": {
+                    "type": "object",
+                    "properties": {
+                      "replacesOrganizationId": {
+                        "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+                        "type": "string"
+                      },
+                      "organizationId": {
+                        "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+                        "type": "string"
+                      },
+                      "rootContainerId": {
+                        "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+                        "type": "string"
+                      },
+                      "userId": {
+                        "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+                        "type": "string"
+                      },
+                      "organizationStateHash": {
+                        "maxLength": 64,
+                        "minLength": 64,
+                        "pattern": "^[0-9a-f]+$",
+                        "type": "string"
+                      },
+                      "adminGroupId": {
+                        "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+                        "type": "string"
+                      },
+                      "adminGroupStateHash": {
+                        "maxLength": 64,
+                        "minLength": 64,
+                        "pattern": "^[0-9a-f]+$",
+                        "type": "string"
+                      },
+                      "memberGroupId": {
+                        "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+                        "type": "string"
+                      },
+                      "memberGroupStateHash": {
+                        "maxLength": 64,
+                        "minLength": 64,
+                        "pattern": "^[0-9a-f]+$",
+                        "type": "string"
+                      },
+                      "rootManifestHash": {
+                        "maxLength": 64,
+                        "minLength": 64,
+                        "pattern": "^[0-9a-f]+$",
+                        "type": "string"
+                      },
+                      "rootMetadataDocumentId": {
+                        "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+                        "type": "string"
+                      },
+                      "signature": {
+                        "type": "string",
+                        "minLength": 1
+                      }
+                    },
+                    "required": [
+                      "replacesOrganizationId",
+                      "organizationId",
+                      "rootContainerId",
+                      "userId",
+                      "organizationStateHash",
+                      "adminGroupId",
+                      "adminGroupStateHash",
+                      "memberGroupId",
+                      "memberGroupStateHash",
+                      "rootManifestHash",
+                      "rootMetadataDocumentId",
+                      "signature"
+                    ],
+                    "additionalProperties": false
+                  },
                   "nativeSubscriptionRestore": {
                     "type": "boolean",
                     "const": true
@@ -65717,6 +65793,89 @@
                     },
                     "userId": {
                       "type": "string"
+                    },
+                    "replacementAuthorization": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "replacesOrganizationId": {
+                              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+                              "type": "string"
+                            },
+                            "organizationId": {
+                              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+                              "type": "string"
+                            },
+                            "rootContainerId": {
+                              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+                              "type": "string"
+                            },
+                            "userId": {
+                              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+                              "type": "string"
+                            },
+                            "organizationStateHash": {
+                              "maxLength": 64,
+                              "minLength": 64,
+                              "pattern": "^[0-9a-f]+$",
+                              "type": "string"
+                            },
+                            "adminGroupId": {
+                              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+                              "type": "string"
+                            },
+                            "adminGroupStateHash": {
+                              "maxLength": 64,
+                              "minLength": 64,
+                              "pattern": "^[0-9a-f]+$",
+                              "type": "string"
+                            },
+                            "memberGroupId": {
+                              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+                              "type": "string"
+                            },
+                            "memberGroupStateHash": {
+                              "maxLength": 64,
+                              "minLength": 64,
+                              "pattern": "^[0-9a-f]+$",
+                              "type": "string"
+                            },
+                            "rootManifestHash": {
+                              "maxLength": 64,
+                              "minLength": 64,
+                              "pattern": "^[0-9a-f]+$",
+                              "type": "string"
+                            },
+                            "rootMetadataDocumentId": {
+                              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+                              "type": "string"
+                            },
+                            "signature": {
+                              "type": "string",
+                              "minLength": 1
+                            }
+                          },
+                          "required": [
+                            "replacesOrganizationId",
+                            "organizationId",
+                            "rootContainerId",
+                            "userId",
+                            "organizationStateHash",
+                            "adminGroupId",
+                            "adminGroupStateHash",
+                            "memberGroupId",
+                            "memberGroupStateHash",
+                            "rootManifestHash",
+                            "rootMetadataDocumentId",
+                            "signature"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
                     }
                   },
                   "required": [
@@ -65731,7 +65890,8 @@
                     "rootMetadataDocument",
                     "rootMetadataDocumentId",
                     "systemContainers",
-                    "userId"
+                    "userId",
+                    "replacementAuthorization"
                   ],
                   "additionalProperties": {}
                 }

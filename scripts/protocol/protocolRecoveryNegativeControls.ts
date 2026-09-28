@@ -82,4 +82,37 @@ export const RECOVERY_NEGATIVE_CONTROLS: readonly NegativeControl[] = [
     expect: { kind: "invariant", name: "WriterHoldsOnlyGrantedKeys" },
     why: "Unblocking a leaf-only writer by serving it the stale intermediate's key, instead of carrying the repair in the rotation, hands it a key outside its grant (#2340).",
   },
+
+  {
+    id: "purge-recovery-unsigned-adoption",
+    module: "formal/local-trust/PurgeRecovery.tla",
+    config: "formal/local-trust/PurgeRecovery.cfg",
+    constants: { VerifyReplacement: "FALSE" },
+    expect: { kind: "invariant", name: "OnlyAuthorizedAdoption" },
+    why: "An API-chosen replacement must not receive the local corpus without identity-signed replacement intent (#2365).",
+  },
+  {
+    id: "purge-recovery-unbound-provisioning",
+    module: "formal/local-trust/PurgeRecovery.tla",
+    config: "formal/local-trust/PurgeRecovery.cfg",
+    constants: { VerifyProvisioning: "FALSE" },
+    expect: { kind: "invariant", name: "OnlyAuthorizedProvisioning" },
+    why: "Replacement provisioning and replay must verify signed intent against the submitted personal genesis (#2365).",
+  },
+  {
+    id: "purge-recovery-drops-checkpoints",
+    module: "formal/local-trust/PurgeRecovery.tla",
+    config: "formal/local-trust/PurgeRecovery.cfg",
+    constants: { PreserveCheckpoints: "FALSE" },
+    expect: { kind: "invariant", name: "RetainOldCheckpoint" },
+    why: "Recovery must preserve trust anchors independently of ordinary remote caches (#2365).",
+  },
+  {
+    id: "purge-recovery-cross-organization-discovery",
+    module: "formal/local-trust/PurgeRecovery.tla",
+    config: "formal/local-trust/PurgeRecovery.cfg",
+    constants: { ScopeDiscovery: "FALSE" },
+    expect: { kind: "invariant", name: "DiscoveryStaysInReplacement" },
+    why: "A signed old-organization document head cannot populate a reused replacement container ID (#2365).",
+  },
 ];

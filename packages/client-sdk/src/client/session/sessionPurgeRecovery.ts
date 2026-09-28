@@ -4,6 +4,7 @@ import {
   loadOrganizationReplacementFinalizationRequest,
   removeOrganizationProvisioningAttempt,
 } from "../../workflows/organizations/organizationProvisioningAttempt";
+import { verifyOrganizationReplacementResponse } from "../../workflows/organizations/organizationReplacementVerification";
 import { clearRemoteSyncState } from "../../workflows/sync";
 import type { Database } from "../database";
 import type { Identity } from "../identity";
@@ -63,6 +64,34 @@ export async function clearSessionRemoteSyncState(
   }
   dependencies.log("Remote sync state cleared");
   return result;
+}
+
+function verifyFinalizedReplacement(
+  finalizedReplacement: Awaited<ReturnType<ApiClient["createOrganization"]>>,
+  replacement: SessionCreateOrganizationResult,
+  replacesOrganizationId: string,
+  userId: string,
+  signingKeyPair: Identity["snapshot"]["signingKeyPair"],
+): void {
+  if (
+    !finalizedReplacement ||
+    finalizedReplacement.organizationId !== replacement.organizationId ||
+    finalizedReplacement.rootContainerId !== replacement.containerId ||
+    finalizedReplacement.userId !== userId
+  ) {
+    throw new Error("Organization replacement finalization was inconsistent");
+  }
+  if (!signingKeyPair) {
+    throw new Error(
+      "Organization replacement requires the current signing identity",
+    );
+  }
+  verifyOrganizationReplacementResponse({
+    replacesOrganizationId,
+    response: finalizedReplacement,
+    signingPublicKey: signingKeyPair.signingPublicKey,
+    userId,
+  });
 }
 
 export async function recoverPurgedSessionOrganization(
@@ -128,14 +157,13 @@ export async function recoverPurgedSessionOrganization(
   const finalizedReplacement =
     await dependencies.api.createOrganization(finalizationRequest);
   if (!isRecoveryCurrent()) return null;
-  if (
-    !finalizedReplacement ||
-    finalizedReplacement.organizationId !== replacement.organizationId ||
-    finalizedReplacement.rootContainerId !== replacement.containerId ||
-    finalizedReplacement.userId !== userId
-  ) {
-    throw new Error("Organization replacement finalization was inconsistent");
-  }
+  verifyFinalizedReplacement(
+    finalizedReplacement,
+    replacement,
+    organizationId,
+    userId,
+    identitySnapshot.signingKeyPair,
+  );
   const attemptRemoved = await removeOrganizationProvisioningAttempt({
     canCommit: isRecoveryCurrent,
     execSql,

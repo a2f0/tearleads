@@ -21,6 +21,7 @@ import {
 } from "../request";
 import {
   CreateOrganizationGroupResponseSchema,
+  CreateOrganizationResponseSchema,
   DeleteOrganizationGroupResponseSchema,
   ErrorResponseSchema,
   isCreateOrganizationGroupResponse,
@@ -36,7 +37,6 @@ import {
   OrganizationGroupMembersResponseSchema,
   OrganizationPresentationFailureResponseSchema,
   OrganizationProfileResponseSchema,
-  OrganizationProvisioningResponseSchema,
   OrganizationReadModelFailureResponseSchema,
   OrganizationReadModelResponseSchema,
   PaymentRequiredErrorResponseSchema,
@@ -86,7 +86,7 @@ export const createOrganizationOperation = defineJsonOperation({
   params: CreateOrganizationPathParamsSchema,
   path: "/organizations",
   responses: {
-    200: OrganizationProvisioningResponseSchema,
+    200: CreateOrganizationResponseSchema,
   },
   runtimeRefinements: [
     ...documentSyncRequestRuntimeRefinements,

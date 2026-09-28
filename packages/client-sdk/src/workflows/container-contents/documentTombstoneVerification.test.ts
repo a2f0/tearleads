@@ -167,6 +167,7 @@ for (const listedContainer of [
           ],
         }),
         verifyDiscoveredDocuments: createDiscoveredDocumentVerifier(
+          harness.fixture.author.organizationId,
           harness.load,
           async () => 1,
           harness.store,
@@ -259,6 +260,7 @@ test("a tampered listing head queues evidence before advancing its watermark", a
           ],
         }),
         verifyDiscoveredDocuments: createDiscoveredDocumentVerifier(
+          harness.fixture.author.organizationId,
           harness.load,
           async () => 1,
           harness.store,
@@ -286,6 +288,7 @@ for (const [listingEpoch, localEpoch] of [
     const harness = await createVerificationHarness();
     try {
       const verify = createDiscoveredDocumentVerifier(
+        harness.fixture.author.organizationId,
         harness.load,
         async () => localEpoch,
         harness.store,

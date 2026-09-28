@@ -20,6 +20,7 @@ async function verifyInput(
   loadLocalEpoch: LocalDocumentAccessEpochLoader,
   store: DocumentDiscoveryEvidenceStore,
   generation: number,
+  organizationId: string | undefined,
 ): Promise<DiscoveredDocumentInput | null | "unavailable"> {
   const localEpoch = await loadLocalEpoch(input.documentId).catch(
     () => Number.MAX_SAFE_INTEGER,
@@ -37,6 +38,15 @@ async function verifyInput(
         );
   if (head === "not-found") return null;
   if (!head || head.accessEpoch < Math.max(localEpoch, input.accessEpoch))
+    return "unavailable";
+  const terminalPurge =
+    head.organizationId === null &&
+    !head.accessStateHash &&
+    head.accessEpoch === Number.MAX_SAFE_INTEGER;
+  if (
+    !terminalPurge &&
+    (!organizationId || head.organizationId !== organizationId)
+  )
     return "unavailable";
   // A stale first lane must not hide a document present in another listed lane.
   const containerId = input.listedContainerIds.find((id) =>
@@ -71,6 +81,7 @@ async function verifyInput(
  * a crash cannot lose a candidate behind an already advanced listing watermark.
  */
 export function createDiscoveredDocumentVerifier(
+  organizationId: string | undefined,
   loadHead: DocumentHeadLinkSetLoader,
   loadLocalEpoch: LocalDocumentAccessEpochLoader,
   store: DocumentDiscoveryEvidenceStore,
@@ -99,6 +110,7 @@ export function createDiscoveredDocumentVerifier(
           loadLocalEpoch,
           store,
           generation,
+          organizationId,
         );
         if (result === "unavailable") {
           await Promise.all(rows.map((row) => store.defer(row, generation)));

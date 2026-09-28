@@ -79,6 +79,7 @@ export function discoverContainerDocumentsForRuntime({
       loadEpoch,
     ),
     verifyDiscoveredDocuments: createDiscoveredDocumentVerifier(
+      containerOrganizationId,
       loadHead,
       loadEpoch,
       evidenceStore,

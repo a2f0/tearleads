@@ -42,6 +42,7 @@ test("unavailable discoveries back off independently and a bounded prefix surviv
     };
     const store = createDocumentDiscoveryEvidenceStore(execSql, () => now);
     const first = await createDiscoveredDocumentVerifier(
+      "org",
       load,
       async () => 1,
       store,
@@ -59,6 +60,7 @@ test("unavailable discoveries back off independently and a bounded prefix surviv
     // unavailable document or relying on closure-local progress.
     const reopened = createDocumentDiscoveryEvidenceStore(execSql, () => now);
     const verify = createDiscoveredDocumentVerifier(
+      "org",
       load,
       async () => 1,
       reopened,
@@ -85,6 +87,7 @@ test("matching signed heads avoid repeat fetches and changed candidates survive 
     const store = createDocumentDiscoveryEvidenceStore(execSql);
     let calls = 0;
     const verify = createDiscoveredDocumentVerifier(
+      "org",
       async () => {
         calls++;
         return head;
@@ -149,6 +152,7 @@ for (const available of [true, false]) {
           return [];
         },
         verifyDiscoveredDocuments: createDiscoveredDocumentVerifier(
+          "org",
           async () =>
             available ? { ...head, linkedContainerIds: ["b"] } : null,
           async () => 1,
@@ -227,6 +231,7 @@ test("a local epoch advance refreshes a matching but outdated signed-head cache"
     let epoch = 1;
     let calls = 0;
     const verify = createDiscoveredDocumentVerifier(
+      "org",
       async () => {
         calls++;
         return {
@@ -287,6 +292,7 @@ test("a coded missing head settles an unapplied listing candidate", async () => 
   try {
     const store = createDocumentDiscoveryEvidenceStore(execSql);
     const verify = createDiscoveredDocumentVerifier(
+      "org",
       async () => "not-found",
       async () => 0,
       store,
@@ -311,6 +317,7 @@ test("invalid listing epochs cannot poison durable discovery", async () => {
   try {
     const store = createDocumentDiscoveryEvidenceStore(execSql);
     const verify = createDiscoveredDocumentVerifier(
+      "org",
       async () => head,
       async () => 0,
       store,
@@ -341,6 +348,7 @@ test("one signed verification covers multiple listed lanes without resetting bac
     const store = createDocumentDiscoveryEvidenceStore(execSql, () => 0);
     let calls = 0;
     const verify = createDiscoveredDocumentVerifier(
+      "org",
       async () => {
         calls++;
         return { ...head, linkedContainerIds: ["a", "b"] };
