@@ -58,6 +58,13 @@ stop_app() {
     cat "$round_log" >&2
     return 1
   fi
+  # CEF helpers can finish just after the launcher. Require the group to drain
+  # within a bounded grace period before reopening its profile.
+  attempt=0
+  while /bin/kill -0 -- "-$app_pid" 2>/dev/null && [ "$attempt" -lt 150 ]; do
+    attempt=$((attempt + 1))
+    sleep 0.1
+  done
   if /bin/kill -0 -- "-$app_pid" 2>/dev/null; then
     echo "Electrobun left processes alive after its launcher exited:" >&2
     cat "$round_log" >&2

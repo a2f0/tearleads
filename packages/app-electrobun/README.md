@@ -243,9 +243,11 @@ pwsh ./packages/app-electrobun/scripts/testWindowsPortConflict.ps1
 
 The Windows CEF persistence CI job runs this check on a native Windows runner
 through `scripts/testWindowsPortConflict.ps1`. That wrapper holds the native
-host transport's first candidate port (50000) exclusively, or reports an
-existing reservation, so the app must select another internal websocket port.
-The renderer probe asserts and reports that selected port on each launch.
+host transport's first candidate port (50000) exclusively, verifies that the old
+SO_REUSEADDR configuration receives access denied, then requires the app to
+select a later internal websocket port on each launch. If an outside reservation
+or listener prevents the test from owning 50000, it reports that condition and
+runs the persistence checks without those forced-conflict assertions.
 The application origin remains `http://127.0.0.1:3002` across both launches.
 It verifies bundled CEF selection and reuses the Linux storage probe to confirm
 that a populated encrypted identity database reopens after a process restart

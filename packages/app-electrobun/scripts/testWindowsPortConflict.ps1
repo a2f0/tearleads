@@ -8,38 +8,43 @@ $ErrorActionPreference = "Stop"
 $listener = [System.Net.Sockets.TcpListener]::new([System.Net.IPAddress]::Loopback, 50000)
 $listener.ExclusiveAddressUse = $true
 $previousExpectedPort = $env:TEARLEADS_TEST_BLOCKED_RPC_PORT
+$ownsPort = $false
 try {
     try {
         $listener.Start()
+        $ownsPort = $true
         Write-Output "Holding Electrobun host transport port 50000 exclusively."
     } catch [System.Net.Sockets.SocketException] {
         if ($_.Exception.NativeErrorCode -notin @(10013, 10048)) { throw }
-        Write-Output "Port 50000 is already reserved or occupied ($($_.Exception.NativeErrorCode))."
+        Write-Output "Port 50000 is already reserved or occupied ($($_.Exception.NativeErrorCode)); running persistence without the owned-conflict assertions."
     }
 
-    # Exercise the old socket configuration against the conflict. This proves
-    # the access-denied bind condition, not a full run of the old application.
-    # https://learn.microsoft.com/en-us/windows/win32/winsock/using-so-reuseaddr-and-so-exclusiveaddruse
-    $reuseProbe = [System.Net.Sockets.TcpListener]::new([System.Net.IPAddress]::Loopback, 50000)
-    $reuseProbe.ExclusiveAddressUse = $false
-    $reuseProbe.Server.SetSocketOption([System.Net.Sockets.SocketOptionLevel]::Socket, [System.Net.Sockets.SocketOptionName]::ReuseAddress, $true)
-    try {
+    $env:TEARLEADS_TEST_BLOCKED_RPC_PORT = $null
+    if ($ownsPort) {
+        # Exercise the old socket configuration against the conflict. This proves
+        # the access-denied bind condition, not a full run of the old application.
+        # https://learn.microsoft.com/en-us/windows/win32/winsock/using-so-reuseaddr-and-so-exclusiveaddruse
+        $reuseProbe = [System.Net.Sockets.TcpListener]::new([System.Net.IPAddress]::Loopback, 50000)
+        $reuseProbe.ExclusiveAddressUse = $false
+        $reuseProbe.Server.SetSocketOption([System.Net.Sockets.SocketOptionLevel]::Socket, [System.Net.Sockets.SocketOptionName]::ReuseAddress, $true)
         try {
-            $reuseProbe.Start()
-            throw "SO_REUSEADDR unexpectedly bound the blocked host transport port."
-        } catch [System.Net.Sockets.SocketException] {
-            if ($_.Exception.NativeErrorCode -ne 10013) { throw }
-            Write-Output "The old SO_REUSEADDR listener configuration fails with WSAEACCES (10013)."
+            try {
+                $reuseProbe.Start()
+                throw "SO_REUSEADDR unexpectedly bound the blocked host transport port."
+            } catch [System.Net.Sockets.SocketException] {
+                if ($_.Exception.NativeErrorCode -ne 10013) { throw }
+                Write-Output "The old SO_REUSEADDR listener configuration fails with WSAEACCES (10013)."
+            }
+        } finally {
+            $reuseProbe.Stop()
         }
-    } finally {
-        $reuseProbe.Stop()
-    }
 
-    $env:TEARLEADS_TEST_BLOCKED_RPC_PORT = "50000"
+        $env:TEARLEADS_TEST_BLOCKED_RPC_PORT = "50000"
+    }
     & bun run --cwd "$PSScriptRoot/.." test:windows-persistence
     if ($LASTEXITCODE -ne 0) {
         & netsh interface ipv4 show excludedportrange protocol=tcp
-        throw "Windows persistence failed with the first host transport port unavailable."
+        throw "Windows persistence failed (owned port-conflict fixture: $ownsPort)."
     }
 } finally {
     $listener.Stop()
