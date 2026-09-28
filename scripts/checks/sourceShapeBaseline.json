@@ -207,12 +207,8 @@
       "bytes": 17034
     },
     "packages/app/src/mini-apps/explorer/detail/sync/ExplorerWriteQueuePanel.test.tsx": {
-      "lines": 632,
-      "bytes": 17992
-    },
-    "packages/app/src/mini-apps/explorer/detail/sync/ExplorerWriteQueuePanel.tsx": {
-      "lines": 550,
-      "bytes": 18114
+      "lines": 619,
+      "bytes": 17705
     },
     "packages/app/src/mini-apps/explorer/labelCatalog.ts": {
       "lines": 464,

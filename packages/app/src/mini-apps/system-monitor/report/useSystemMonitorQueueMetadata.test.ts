@@ -27,15 +27,15 @@ test("a scope switch hides the prior queue when the replacement read never repor
       domainScope: nextScope,
       observed: {
         domainScope: previousScope,
-        report: { available: true, items: [QUEUED_ITEM] },
+        report: { status: "available", items: [QUEUED_ITEM] },
       },
     }),
-  ).toEqual({ available: false, items: [] });
+  ).toEqual({ status: "unavailable" });
 });
 
 test("the queue is exposed only for the exact active scope", () => {
   const domainScope = createDomainScope();
-  const report = { available: true, items: [QUEUED_ITEM] } as const;
+  const report = { status: "available", items: [QUEUED_ITEM] } as const;
 
   expect(
     selectSystemMonitorWriteQueue({
@@ -50,5 +50,5 @@ test("the queue is exposed only for the exact active scope", () => {
       domainScope,
       observed: { domainScope, report },
     }),
-  ).toEqual({ available: false, items: [] });
+  ).toEqual({ status: "unavailable" });
 });

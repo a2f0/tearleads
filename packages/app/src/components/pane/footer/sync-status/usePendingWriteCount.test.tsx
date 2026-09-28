@@ -55,6 +55,7 @@ test("stays in the loading state until the db is ready", () => {
     count: 0,
     failedCount: 0,
     firstError: null,
+    readError: null,
   });
 });
 
@@ -84,5 +85,22 @@ test("resets to loading when the db goes not-ready", async () => {
     count: 0,
     failedCount: 0,
     firstError: null,
+    readError: null,
   });
+});
+
+test("reports a failed read instead of loading forever", async () => {
+  const queries = {
+    listPendingWrites: async () => {
+      throw new Error("Local database schema is obsolete");
+    },
+  } as unknown as ContainerDocumentQueries;
+  const { result } = renderHook(() =>
+    usePendingWriteCount(queries, scope, true),
+  );
+
+  await waitFor(() =>
+    expect(result.current.readError).toBe("Local database schema is obsolete"),
+  );
+  expect(result.current.loaded).toBe(false);
 });
