@@ -3,8 +3,6 @@ import {
   type VerifiedContainerAccessManifest,
 } from "@tearleads/crypto";
 
-const MAX_MANIFEST_HISTORY_DEPTH = 4_096;
-
 type LoadManifest = (hash: string) => Promise<VerifiedContainerAccessManifest>;
 
 async function descendsFrom(
@@ -16,10 +14,10 @@ async function descendsFrom(
   const seen = new Set<string>();
   while (head && head.state.epoch >= floor.state.epoch) {
     if (head.manifestHash === floor.manifestHash) return true;
-    if (seen.has(head.manifestHash) || seen.size >= MAX_MANIFEST_HISTORY_DEPTH)
+    if (seen.has(head.manifestHash))
       throw new KeyingVerificationError(
         "object_mismatch",
-        "ancestor lineage is cyclic or too deep",
+        "ancestor lineage is cyclic",
       );
     seen.add(head.manifestHash);
     const previousHash: string | null = head.state.previousManifestHash;

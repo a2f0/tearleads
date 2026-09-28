@@ -1,6 +1,7 @@
 import { ATTACHMENT_NEGATIVE_CONTROLS } from "./protocolAttachmentNegativeControls";
 import { DOCUMENT_MOVE_NEGATIVE_CONTROLS } from "./protocolDocumentMoveNegativeControls";
 import { HISTORICAL_POLICY_NEGATIVE_CONTROLS } from "./protocolHistoricalPolicyNegativeControls";
+import { HISTORY_NEGATIVE_CONTROLS } from "./protocolHistoryNegativeControls";
 import { RECOVERY_NEGATIVE_CONTROLS } from "./protocolRecoveryNegativeControls";
 import { SYSTEM_DESTINATION_NEGATIVE_CONTROLS } from "./protocolSystemDestinationNegativeControls";
 import { TOMBSTONE_NEGATIVE_CONTROLS } from "./protocolTombstoneNegativeControls";
@@ -38,6 +39,7 @@ const NO_BRICK_ADVERSARY =
   "formal/container-keying/NoBrickedDeviceAdversary.cfg";
 
 export const NEGATIVE_CONTROLS: readonly NegativeControl[] = [
+  ...HISTORY_NEGATIVE_CONTROLS,
   ...HISTORICAL_POLICY_NEGATIVE_CONTROLS,
   ...ATTACHMENT_NEGATIVE_CONTROLS,
   ...TOMBSTONE_NEGATIVE_CONTROLS,
@@ -372,14 +374,6 @@ export const NEGATIVE_CONTROLS: readonly NegativeControl[] = [
     constants: { RefuseCitationRegression: "FALSE" },
     expect: { kind: "action", name: "HeldCitationsNeverRegress" },
     why: "Without the lineage floor a forged head can cite an authority head older than the one its predecessor established.",
-  },
-  {
-    id: "no-brick-served-authority-rollback",
-    module: NO_BRICK_MODULE,
-    config: NO_BRICK_ADVERSARY,
-    constants: { RefuseServedAuthorityRollback: "FALSE" },
-    expect: { kind: "invariant", name: "HeldAuthorityCoversHeldCitation" },
-    why: "Without the served-ancestor rule a device accepts a current authority head older than the one the dependent head's signature proves exists.",
   },
   {
     id: "no-brick-signer-revoked-at-citation",
