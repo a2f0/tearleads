@@ -81,7 +81,12 @@ test("a cached discovery head cannot resurrect a placement removed by a newer si
     const load = createDocumentHeadLinkSetLoader(runtime);
     const store = createDocumentDiscoveryEvidenceStore(execSql);
     const loadEpoch = (id: string) => loadLocalDocumentAccessEpoch(execSql, id);
-    const verify = createDiscoveredDocumentVerifier(load, loadEpoch, store);
+    const verify = createDiscoveredDocumentVerifier(
+      fixture.author.organizationId,
+      load,
+      loadEpoch,
+      store,
+    );
     const oldHead = await load(documentId);
     if (!oldHead || oldHead === "not-found")
       throw new Error("Expected signed initial head");
@@ -121,6 +126,7 @@ test("a cached discovery head cannot resurrect a placement removed by a newer si
     });
     await remote.submitUnlink(documentId, unlink.plan.request);
     const [verdict] = await createContainerDocumentTombstoneVerifier(
+      fixture.author.organizationId,
       load,
       loadEpoch,
     )([{ containerId, documentId, updatedAt: at }]);

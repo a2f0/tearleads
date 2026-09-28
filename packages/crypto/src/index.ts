@@ -313,6 +313,13 @@ export {
   verifyWriteHeader,
 } from "./keying";
 export {
+  organizationReplacementAuthorizationPayload,
+  organizationReplacementSigningBytes,
+  signOrganizationReplacementAuthorization,
+  type VerifiedOrganizationReplacementAuthorization,
+  verifyOrganizationReplacementAuthorization,
+} from "./organizationReplacement";
+export {
   computePrincipalContainerGrantRoot,
   normalizePrincipalContainerGrants,
 } from "./principalContainerGrants";

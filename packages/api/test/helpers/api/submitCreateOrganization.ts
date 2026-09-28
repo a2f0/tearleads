@@ -1,4 +1,5 @@
 import type { TestUser } from "@tearleads/bob-and-alice";
+import { signOrganizationReplacementAuthorization } from "@tearleads/crypto";
 import type { CreateOrganizationRequest } from "@tearleads/validators/request";
 import { routeApp } from "../../../src/routeApp";
 import { createRegistrationRequestBody } from "./submitRegistration";
@@ -16,6 +17,7 @@ export async function createOrganizationRequestBody(
     includeRosterProfileDocument?: boolean | undefined;
     includeTrashSystemContainer?: boolean | undefined;
     organizationId?: string | undefined;
+    replacesOrganizationId?: string | undefined;
     rootContainerId?: string | undefined;
   } = {},
 ): Promise<CreateOrganizationRequest> {
@@ -29,7 +31,15 @@ export async function createOrganizationRequestBody(
     user.kem.publicKey,
     { ...options, userId: user.userId },
   );
-  return request;
+  if (!options.replacesOrganizationId) return request;
+  return {
+    ...request,
+    replacesOrganizationId: options.replacesOrganizationId,
+    replacementAuthorization: await signOrganizationReplacementAuthorization(
+      { ...request, replacesOrganizationId: options.replacesOrganizationId },
+      user.signing,
+    ),
+  };
 }
 
 export async function submitCreateOrganization(

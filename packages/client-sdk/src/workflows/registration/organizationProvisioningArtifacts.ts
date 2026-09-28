@@ -5,6 +5,7 @@ import type {
   ProvisionedSystemContainerRequest,
   RegistrationRequest,
 } from "@tearleads/validators/request";
+import type { OrganizationReplacementAuthorization } from "@tearleads/validators/util";
 import type { buildContainerCreatePlan } from "../containers/child/create";
 import type { buildRootContainerCreatePlan } from "../containers/root/create";
 import type { buildMaterializedDocumentCreatePlan } from "../documents/create";
@@ -59,6 +60,7 @@ export interface InitialOrganizationMetadataBootstrap {
 }
 
 export interface OrganizationProvisioningArtifacts {
+  replacementAuthorization: OrganizationReplacementAuthorization | null;
   bootstrap: Awaited<ReturnType<typeof createInitialRootMetadataBootstrap>>;
   initialAdminGroup: CreateOrganizationGroupRequest;
   initialMemberGroup: CreateOrganizationGroupRequest;

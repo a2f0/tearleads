@@ -7,6 +7,7 @@ import {
   nonEmptyStringSchema,
   uuidV4StringSchema,
 } from "../schema";
+import { OrganizationReplacementAuthorizationSchema } from "../util/organizationReplacement";
 import { ContainerCreateWithMetadataDocumentResponseSchema } from "./containerMetadata";
 import { DocumentCreateResponseSchema } from "./documentMutation";
 
@@ -88,12 +89,24 @@ export function isOrganizationProvisioningResponse(
 /**
  * Response to creating an additional organization for the authenticated user.
  * The user is already registered, so unlike registration this carries no auth
- * challenge — it is exactly the shared provisioning result.
+ * challenge. Replacements additionally carry identity-signed recovery intent.
  */
-export type CreateOrganizationResponse = OrganizationProvisioningResponse;
+export const CreateOrganizationResponseSchema =
+  registerJsonSchemaRuntimeRefinements(
+    loosePlainObject({
+      ...organizationProvisioningResponseShape,
+      replacementAuthorization:
+        OrganizationReplacementAuthorizationSchema.nullable(),
+    }).superRefine(addCommittedUpdateIdIssues),
+    [organizationProvisioningCommittedUpdateIdsRefinement],
+  );
+
+export type CreateOrganizationResponse = z.infer<
+  typeof CreateOrganizationResponseSchema
+>;
 
 export function isCreateOrganizationResponse(
   value: unknown,
 ): value is CreateOrganizationResponse {
-  return isOrganizationProvisioningResponse(value);
+  return CreateOrganizationResponseSchema.safeParse(value).success;
 }

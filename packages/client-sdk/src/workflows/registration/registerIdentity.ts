@@ -382,6 +382,7 @@ export async function buildOrganizationProvisioningArtifacts(
   );
 
   return {
+    replacementAuthorization: null,
     bootstrap,
     initialAdminGroup,
     initialMemberGroup,

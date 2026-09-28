@@ -20,6 +20,7 @@ test("a lagging same-epoch head retains a link-addition candidate until the head
     let caughtUp = false;
     const store = createDocumentDiscoveryEvidenceStore(execSql, () => now);
     const verify = createDiscoveredDocumentVerifier(
+      "org",
       async () => ({
         organizationId: "org",
         accessEpoch: 1,
@@ -76,6 +77,7 @@ for (const head of [
     try {
       const store = createDocumentDiscoveryEvidenceStore(execSql);
       const result = await createDiscoveredDocumentVerifier(
+        "org",
         async () => head,
         async () => 0,
         store,

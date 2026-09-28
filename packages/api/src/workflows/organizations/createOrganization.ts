@@ -19,6 +19,7 @@ import {
   OrganizationSyncDisabledError,
 } from "../billing/organizationSyncEligibility";
 import { lockPrincipalMutationInTransaction } from "../principals/principalMutationLock";
+import { validateOrganizationReplacementAuthorization } from "./organizationReplacementAuthorization";
 import {
   type OrganizationProvisioningSigner,
   type ProvisionOrganizationOptions,
@@ -288,6 +289,10 @@ export async function runCreateOrganizationWorkflow(
   }
   const signer = await readProvisioningSigner(db, input.userId);
   await validateOrganizationProvisioningInput(input, signer);
+  await validateOrganizationReplacementAuthorization(
+    input,
+    signer.signingPublicKey,
+  );
   try {
     return await db.transaction(async (tx) => {
       if (input.nativeSubscriptionRestore) {
@@ -317,10 +322,10 @@ export async function runCreateOrganizationWorkflow(
         signer,
         ADDITIONAL_ORGANIZATION_OPTIONS,
       );
-      const response = toOrganizationProvisioningResponse(
-        input.userId,
-        provisioned,
-      );
+      const response: CreateOrganizationResponse = {
+        ...toOrganizationProvisioningResponse(input.userId, provisioned),
+        replacementAuthorization: input.replacementAuthorization ?? null,
+      };
       await markNativeRestoreDestination(tx, input, response);
       await linkReplacementOrganization(tx, input, response);
       await finalizeReplacementDefaultOrganization(tx, input, response);

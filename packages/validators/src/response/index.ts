@@ -376,6 +376,7 @@ export {
 } from "./organizationPresentationError";
 export {
   type CreateOrganizationResponse,
+  CreateOrganizationResponseSchema,
   isCreateOrganizationResponse,
   isOrganizationProvisioningResponse,
   type OrganizationProvisioningResponse,

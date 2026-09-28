@@ -35,8 +35,40 @@ this release expects a fresh local database. The existing schema guard rejects
 obsolete caches with a local-database-reset error; there is no schema upgrade,
 backfill, or compatibility path.
 
-Authenticating the replacement response remains open in
-[#2365, finding #10](https://github.com/a2f0/tearleads/issues/2365).
+Replacement provisioning carries an explicit identity signature under the
+`tearleads.organization-replacement.v1` domain. It binds the old organization,
+new organization, user, root container, root metadata document, organization
+policy genesis hash, Admins and Members group IDs and genesis hashes, and root
+manifest genesis hash. The SDK signs this intent only for a fresh personal
+organization whose sole founding authority is the current user and whose root
+is private, parentless, and not a system container. An ordinary signed root is
+insufficient authority to re-home the corpus.
+
+The API requires `replacementAuthorization` for every replacement request and
+checks it against the submitted signed provisioning artifacts before creation,
+stored-winner replay, and finalization. Ordinary organization requests omit it;
+the response always includes the field, with `null` for ordinary creation. The
+SDK verifies a replacement response with its locally held signing public key,
+checks every returned destination field, and atomically pins the winning root
+and all three principal genesis hashes before adopting IDs or resetting data.
+Conflicting genesis or organization ownership aborts the pin transaction; later
+observed checkpoints are retained. A losing device trusts the winner's explicit
+signature from the same identity, without persisting its own unrelated
+bootstrap.
+
+Missing, malformed, foreign-signed, or mismatched proofs stop recovery and leave
+the old corpus and checkpoints intact. The durable attempt keeps the exact
+original signature and artifacts for retry. Finalization responses are verified
+again before clearing that attempt or switching the session. This is the current
+wire and local attempt contract. Stored server replacement and native-restore
+provisioning responses also require the new field; old server rows require the
+greenfield reset. No legacy artifact decoder or migration exists.
+Discovery and listing-tombstone verification check each live signed or cached
+head against the listed
+container's current organization, so an old organization's proof cannot populate
+reused local IDs after recovery. Missing organization scope leaves discovery
+pending.
+See [the bounded recovery model](../../formal/local-trust/PurgeRecovery.md).
 
 Normal clients should call `session.recoverPurgedOrganization(...)` only after
 the server reports `purged`. The session provisions a replacement personal

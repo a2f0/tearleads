@@ -132,16 +132,19 @@ export async function createNoteWithAttachment(
 ) {
   await selectContainerAndWaitForItemTable(pane, containerName);
   await openExplorerNewStructuredDocumentRoute(pane);
-  const newNoteButton = await within(pane).findByRole("button", {
+  await within(pane).findByRole("button", {
     name: "Note",
   });
   await interact(() => {
-    fireEvent.click(newNoteButton);
+    // Reconciliation can replace the picker between the await and the click.
+    fireEvent.click(within(pane).getByRole("button", { name: "Note" }));
   });
 
-  const editor = await within(pane).findByRole("textbox", {
-    name: /Notes editor/u,
-  });
+  const editor = await within(pane).findByRole(
+    "textbox",
+    { name: /Notes editor/u },
+    { timeout: DUAL_PANE_TEST_TIMEOUT_MS },
+  );
   // The explorer's inline note view renders the editor and attachments
   // without the notes mini-app toolbar, so attachments are staged through
   // the hidden file input (and drag/drop) rather than an Attach button. Wait

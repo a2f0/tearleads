@@ -107,7 +107,8 @@ cursor. It retains local Loro history for republish, principal-policy checkpoint
 and ownership, and container/document access-manifest checkpoints to detect
 rollback and forks. Cursor keys omit the selected organization.
 A post-purge reset takes fresh organization/root ids through `replacement`.
-Normal clients use `session.recoverPurgedOrganization(...)` after `purged`.
+`session.recoverPurgedOrganization(...)` verifies signed replacement intent
+before reset.
 Until the replacement has sync-eligible billing, it exposes those ids through
 `PurgedOrganizationRecoveryBillingRequiredError`. It then rebinds retained local
 data and finalizes the server's default-organization pointer.

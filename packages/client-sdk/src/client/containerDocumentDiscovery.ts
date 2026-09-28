@@ -1,4 +1,5 @@
 import type { DocumentSummary } from "../data/documents/documentSummary";
+import { sqlContainerContentsPersistence } from "../data/persistence/container-contents/containerContentsPersistence";
 import {
   holdContainerDocumentTombstones,
   listKnownContainerDocumentPlacements,
@@ -7,7 +8,6 @@ import {
   refuteContainerDocumentTombstoneHolds,
 } from "../data/persistence/documents/containerDocumentTombstoneHoldsPersistence";
 import { createDocumentDiscoveryEvidenceStore } from "../data/persistence/documents/documentDiscoveryEvidencePersistence";
-import type { ContainerContentsStore } from "../stores/container-contents";
 import { discoverContainerDocumentsFromApi } from "../workflows/container-contents/documentDiscovery";
 import { createDiscoveredDocumentVerifier } from "../workflows/container-contents/documentDiscoveryEvidence";
 import { createContainerDocumentQueriesFromRuntime } from "../workflows/container-contents/documentQueries";
@@ -20,40 +20,44 @@ import { createRuntimePrincipalPolicyWarmer } from "../workflows/principals/runt
 import type { InternalRuntime } from "./workflowRuntime";
 
 /** Internal adapter shared by explicit discovery and background reconciliation. */
-export function discoverContainerDocumentsForRuntime({
+export async function discoverContainerDocumentsForRuntime({
   containerId,
-  getContainerStore,
   onFullListing,
   onPendingDiscovery,
   runtimeService,
 }: {
   containerId: string;
-  getContainerStore: () => ContainerContentsStore;
   onFullListing?: ((documentIds: ReadonlyArray<string>) => void) | undefined;
   onPendingDiscovery?: ((delayMs: number) => void) | undefined;
   runtimeService: InternalRuntime;
 }): Promise<ReadonlyArray<DocumentSummary> | null> {
   const input = runtimeService.workflowInput();
   if (input.infra.dbStatus !== "ready") {
-    return Promise.resolve(null);
+    return null;
   }
   const runtime = createContainerContentsWorkflowRuntime(input);
-  const containerOrganizationId = getContainerStore()
-    .getSnapshot()
-    .nodes.find((node) => node.id === containerId)?.organizationId;
-  const warmReferencedPrincipalPolicies =
-    createRuntimePrincipalPolicyWarmer(runtime);
-
   const evidenceStore = createDocumentDiscoveryEvidenceStore(
     input.infra.execSql,
   );
+  // Capture the reset fence before reading scope, so a reset between this read
+  // and listing cannot publish old-organization evidence into its replacement.
+  const generation = await evidenceStore.begin();
+  const stored =
+    await sqlContainerContentsPersistence.loadContainerMetadataState(
+      input.infra.execSql,
+      containerId,
+    );
+  if (!stored) return null;
+  const containerOrganizationId = stored.container.organizationId;
+  const warmReferencedPrincipalPolicies =
+    createRuntimePrincipalPolicyWarmer(runtime);
   const loadHead = createDocumentHeadLinkSetLoader(runtime);
   const loadEpoch = (documentId: string) =>
     loadLocalDocumentAccessEpoch(input.infra.execSql, documentId);
   return discoverContainerDocumentsFromApi({
     ...createContainerDocumentQueriesFromRuntime(runtime),
     apiClient: runtime.apiClient,
-    beginDocumentDiscovery: () => evidenceStore.begin(),
+    beginDocumentDiscovery: async () => generation,
     cacheReferencedPrincipalPolicies: (references) =>
       containerOrganizationId
         ? warmReferencedPrincipalPolicies({
@@ -75,10 +79,12 @@ export function discoverContainerDocumentsForRuntime({
     refuteContainerDocumentTombstoneHolds: (placements) =>
       refuteContainerDocumentTombstoneHolds(input.infra.execSql, placements),
     verifyContainerDocumentTombstones: createContainerDocumentTombstoneVerifier(
+      containerOrganizationId,
       loadHead,
       loadEpoch,
     ),
     verifyDiscoveredDocuments: createDiscoveredDocumentVerifier(
+      containerOrganizationId,
       loadHead,
       loadEpoch,
       evidenceStore,

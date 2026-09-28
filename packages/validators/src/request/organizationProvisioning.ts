@@ -5,6 +5,7 @@ import {
   organizationProvisioningDocumentSeedRefinement,
 } from "../organizationProvisioningRefinements";
 import { arraySchema, loosePlainObject, uuidV4StringSchema } from "../schema";
+import { OrganizationReplacementAuthorizationSchema } from "../util/organizationReplacement";
 import { ContainerMutationRequestSchema } from "./container";
 import { containerCreateWithMetadataDocumentRequestShape } from "./containerMetadata";
 import {
@@ -153,6 +154,8 @@ export function isOrganizationProvisioningRequest(
  */
 export const CreateOrganizationRequestSchema = loosePlainObject({
   ...organizationProvisioningRequestShape,
+  replacementAuthorization:
+    OrganizationReplacementAuthorizationSchema.optional(),
   /**
    * Marks this fresh organization as the durable destination for one native
    * subscription restore. The server records and later verifies this intent;
