@@ -225,7 +225,7 @@ export async function createScenario() {
 type Scenario = Awaited<ReturnType<typeof createScenario>>;
 
 export function verifyPath(
-  scenario: Scenario,
+  scenario: Pick<Scenario, "resolveUserKey">,
   execSql: Awaited<ReturnType<typeof createTestExecSql>>["execSql"],
   input: {
     readonly bundles: readonly VerifiedContainerAccessManifest[];

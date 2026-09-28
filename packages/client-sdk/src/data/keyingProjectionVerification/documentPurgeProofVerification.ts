@@ -13,18 +13,17 @@ import { isDocumentPurgeProofResponse } from "@tearleads/validators/response";
 import type { ExecSql } from "../sqlite/sqlSchema";
 import { addBundleByHash } from "./bundleVerification";
 import {
-  commitProjectionCheckpoints,
   createProjectionCheckpointContext,
   observeAccessManifestCheckpoints,
-  observePrincipalPolicy,
 } from "./checkpointContext";
 import { verifyContainerManifestPath } from "./containerPathVerification";
 import { verifiedContainerManifestsForBundles } from "./containerProjectionVerification";
-import { authenticateDocumentPurgeArtifacts } from "./documentPurgePrincipalEvidence";
 import {
-  enforcePrincipalPolicySnapshotCheckpoints,
-  verifyPrincipalPolicySnapshots,
-} from "./principalPolicySnapshotVerification";
+  commitDocumentPurgeCheckpoints,
+  validateDocumentPurgeCheckpoints,
+} from "./documentPurgeCheckpointCurrency";
+import { authenticateDocumentPurgeArtifacts } from "./documentPurgePrincipalEvidence";
+import { verifyPrincipalPolicySnapshots } from "./principalPolicySnapshotVerification";
 import type { PrincipalPolicyCache, ProjectionUserKeyResolver } from "./types";
 
 interface VerifyDocumentPurgeProofInput {
@@ -213,7 +212,9 @@ async function verifyDocumentPurgeProofWithMode(
   } = await verifyPurgeContainerPaths({
     authorizationEvidence,
     checkpointContext,
-    enforceLocalCheckpoints,
+    // Authenticate the event, document chain and policies before classifying
+    // an older authorization path as an unavailable ordering dependency.
+    enforceLocalCheckpoints: false,
     principalPolicyCache,
     proof: input.proof,
     resolveUserKey: input.resolveUserKey,
@@ -238,17 +239,11 @@ async function verifyDocumentPurgeProofWithMode(
     );
   }
   if (enforceLocalCheckpoints) {
-    const policiesToPin = await enforcePrincipalPolicySnapshotCheckpoints({
+    await validateDocumentPurgeCheckpoints({
+      context: checkpointContext,
       execSql: input.execSql,
-      policies: principalPolicies,
+      principalPolicies,
     });
-    for (const policy of policiesToPin) {
-      observePrincipalPolicy(
-        checkpointContext,
-        policy,
-        input.expectedOrganizationId,
-      );
-    }
   }
   const documentPurgeCheckpoint = {
     documentId: input.expectedDocumentId,
@@ -258,9 +253,11 @@ async function verifyDocumentPurgeProofWithMode(
   };
   return {
     commitCheckpoints: (execSql = input.execSql) =>
-      commitProjectionCheckpoints(checkpointContext, {
+      commitDocumentPurgeCheckpoints({
+        context: checkpointContext,
         documentPurgeCheckpoint,
         execSql,
+        principalPolicies,
       }),
     documentCheckpoint: documentManifest.checkpoint,
   };
