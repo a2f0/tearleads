@@ -151,6 +151,12 @@ async function verifySnapshotAuthorization(input: {
 }): Promise<VerifiedPrincipalPolicySnapshot> {
   const reference = snapshotReference(input.snapshot);
   const authorityHead = authorityReference(input.snapshot);
+  if (reference.principalType === "organization" && authorityHead) {
+    throw new KeyingVerificationError(
+      "unauthorized",
+      "organization states cannot cite external authority",
+    );
+  }
   if (!authorityHead) {
     const direct = await verifyReceivedPolicySnapshot({
       expectedReference: reference,
