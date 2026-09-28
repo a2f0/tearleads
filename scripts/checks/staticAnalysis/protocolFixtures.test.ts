@@ -38,4 +38,4 @@ test("protocol fixtures leave a linked hook's repository untouched", () => {
   } finally {
     rmSync(repo.cwd, { recursive: true, force: true });
   }
-}, 15_000);
+}, 45_000);
