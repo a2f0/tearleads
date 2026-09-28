@@ -38,12 +38,12 @@ and incremental proof delivery remain tracked in
 become a permanent lifetime-history refusal or a cap that prevents revocation.
 No existing history is trusted merely because its depth is large.
 
-The implementation separately retains 128 requested verified heads per verifier
-and coordinates identical concurrent verification across database sessions.
-Only successful results are reused; failures are retried in each caller's
-own snapshot. This
-prevents intermediate-history cache churn from evicting recently requested heads
-and avoids duplicate concurrent walks. Regressions reproduce both failures with
-the protection removed. These optional caches do not bound the first cold walk,
-isolate tenants, or represent durable progress, and the model does not abstract
-their scheduling or eviction policy.
+The implementation separately retains 128 requested verified heads per verifier.
+Pending database work is shared only within one executor; pure signature/hash
+checks are shared across requests. Completed immutable results can be reused
+across database sessions, while failures are retried in the caller's snapshot.
+This prevents intermediate-cache churn from evicting recently requested heads
+and avoids repeated signature checks without waiting across transaction locks.
+Regressions reproduce those failures with the protections removed. These
+optional caches do not bound the first cold walk, isolate tenants, or represent
+durable progress. The model does not abstract their scheduling or eviction.
