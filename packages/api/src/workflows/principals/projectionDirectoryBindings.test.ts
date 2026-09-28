@@ -71,10 +71,11 @@ test("directory binding memo reuses a head, isolates callers, and misses on succ
     for (let index = 0; index < 16; index += 1)
       await loadProjectionDirectoryBindings({
         ...input,
-        stateHash: `eviction-${index}`,
+        stateHash: `additional-small-head-${index}`,
       });
     await loadProjectionDirectoryBindings(input);
-    expect(load).toHaveBeenCalledTimes(19);
+    // Small histories share the byte budget instead of evicting after 16 heads.
+    expect(load).toHaveBeenCalledTimes(18);
   } finally {
     load.mockRestore();
   }
