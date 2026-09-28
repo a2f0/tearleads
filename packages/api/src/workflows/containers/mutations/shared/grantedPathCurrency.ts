@@ -4,7 +4,7 @@ import {
   accessManifestHeads,
   containers,
 } from "@tearleads/api-shared/schema";
-import { MAX_DOCUMENT_SYNC_AUTHORIZATION_PATH_DEPTH } from "@tearleads/validators/util";
+import { MAX_CONTAINER_PATH_LENGTH } from "@tearleads/validators/util";
 import { and, eq, gte, inArray, sql } from "drizzle-orm";
 import { getCurrentContainerKeyEpochPins } from "../../../../access/read/containerKekStore";
 import { uuidValue } from "../../../../utils/sqlDialect";
@@ -137,7 +137,7 @@ async function loadAncestry(
         from ${containers} parent
         inner join ancestry on parent.id = ancestry.parent_id
         where ancestry.depth > ${stopDepth}
-          and ancestry.distance < ${MAX_DOCUMENT_SYNC_AUTHORIZATION_PATH_DEPTH}
+          and ancestry.distance < ${MAX_CONTAINER_PATH_LENGTH}
       )
       select distinct id, parent_id, depth from ancestry
     `);

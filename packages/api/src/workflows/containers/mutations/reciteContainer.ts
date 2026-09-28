@@ -21,6 +21,7 @@ import {
   runConflictBoundary,
   toMutationError,
 } from "./errors";
+import { persistContainerStructure } from "./shared/containerStructure";
 import {
   assertAccessEventDependenciesMatchRequest,
   verifyMutationEvent,
@@ -32,7 +33,6 @@ import {
   assertMutationHeadCanAdvance,
   verifyContainerManifestFromRequest,
 } from "./shared/manifests";
-import { persistContainerStructure } from "./shared/persistence";
 import { assertPrincipalPoliciesCurrent } from "./shared/principalPolicies";
 import { principalPoliciesFromRequest } from "./shared/principalPolicyRecords";
 import { resolveVerifiedStoredContainerManifest } from "./shared/storedManifestArtifacts";

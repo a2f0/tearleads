@@ -103,8 +103,8 @@
       "bytes": 23585
     },
     "packages/api/src/access/shared/internal/containerKekTargets.ts": {
-      "lines": 626,
-      "bytes": 19595
+      "lines": 636,
+      "bytes": 20007
     },
     "packages/api/src/access/shared/internal/documentContentKeyStore.ts": {
       "lines": 770,
@@ -173,10 +173,6 @@
     "packages/api/src/services/blobs/blobMutations.test.ts": {
       "lines": 1299,
       "bytes": 39259
-    },
-    "packages/api/src/workflows/containers/mutations/shared/persistence.ts": {
-      "lines": 655,
-      "bytes": 19073
     },
     "packages/api/src/workflows/documents/writerProjection.ts": {
       "lines": 700,

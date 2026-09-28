@@ -1,6 +1,6 @@
 import { KeyingVerificationError } from "@tearleads/crypto";
 import type { DocumentWriterProjectionResponse } from "@tearleads/validators/response";
-import { MAX_DOCUMENT_SYNC_AUTHORIZATION_PATH_DEPTH } from "@tearleads/validators/util";
+import { MAX_CONTAINER_PATH_LENGTH } from "@tearleads/validators/util";
 import { acknowledgeContainerMutationBatch } from "../../data/containers/shared/mutationAcknowledgement";
 import type { MaterializedContainerRekeyPlan } from "../../data/containers/shared/types";
 import { assertDocumentWriterProjectionConsistent } from "../../data/documents/shared/projection";
@@ -178,7 +178,7 @@ async function commitRepairPrefix(input: {
 export async function prepareAutomaticContainerRekeys(
   sync: SyncRemoteDocumentInput,
   initialProjection: DocumentWriterProjectionResponse,
-  maxRepairs = MAX_DOCUMENT_SYNC_AUTHORIZATION_PATH_DEPTH,
+  maxRepairs = MAX_CONTAINER_PATH_LENGTH,
 ): Promise<{
   plans: readonly MaterializedContainerRekeyPlan[];
   projection: DocumentWriterProjectionResponse;
@@ -220,7 +220,7 @@ export async function prepareAutomaticContainerRekeys(
     const committedBefore = passRepairTotals.get(sync) ?? 0;
     if (
       committedBefore + batch.plans.length >
-      Math.min(maxRepairs, MAX_DOCUMENT_SYNC_AUTHORIZATION_PATH_DEPTH)
+      Math.min(maxRepairs, MAX_CONTAINER_PATH_LENGTH)
     ) {
       throw new DocumentAncestorRepairAbandonedError("depth-budget");
     }
