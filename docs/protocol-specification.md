@@ -576,23 +576,22 @@ commitments before using historical group membership. Group deletion can
 therefore erase recoverable server-side key material without making an earlier
 terminal purge unverifiable.
 
-API and SDK change together without legacy responses.
-Purge-path access permits a terminal snapshot. A caller's prior signed-head
-observation also permits full document history; an earlier explicit floor needs
-its exact observation. History includes cited public container/policy evidence,
-not keys. The SDK authenticates before reading local pins and verifies one
-response without refetching. Deletion requires an exact
-pin or signed transitions from a pin or genesis. Missing history defers deletion
-without an incident; hash-only snapshots cannot advance pins. Purge-time
-container paths must satisfy local pins: a later head is ambiguous because
-ancestry cannot order the separate purge signature.
-The SDK commits the terminal purge checkpoint in the same local SQLite
-transaction that removes the matching document row and its side state. A stale
-local generation, identity replacement, failed cleanup, or interruption rolls
-back both the checkpoint and deletion so the verified proof can be retried
-safely. If the purge committed but its POST response was lost, a coded
-not-found on retry switches to the retained proof instead of submitting the
-purge twice.
+Purge-path access permits a terminal snapshot. A caller's recorded observation
+of a signed document head also permits full history; an explicit earlier
+checkpoint requires that caller's observation of that exact head. History
+includes cited public container/policy evidence, not keys. The SDK
+authenticates before reading local pins (verified manifest checkpoints) and
+verifies one response without refetching. Deletion requires an exact pin or
+signed transitions from a pin or genesis. Missing history with no local
+checkpoint defers deletion without an incident. A conflicting checkpoint
+records an incident; snapshots cannot advance it. Purge-time container paths
+must satisfy local pins: a later head is ambiguous because ancestry cannot
+order the separate purge signature. The SDK commits the terminal purge
+checkpoint in the same local SQLite transaction that removes the matching
+document row and its side state. A stale local generation, identity
+replacement, failed cleanup, or interruption rolls back both the checkpoint and
+deletion so the verified proof can be retried safely. After a lost POST
+response, a coded not-found retry uses the retained proof.
 
 The API also requires that the document is linked to exactly one container — a
 document still linked to more than one container must be unlinked down to a

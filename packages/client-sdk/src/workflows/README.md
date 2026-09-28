@@ -203,19 +203,17 @@ decrypted values, and remote-state reset does not erase them.
 Remote document deletion commits its verified terminal purge checkpoint in the
 same local transaction as the matching document teardown. An interruption,
 stale store generation, or identity replacement leaves both operations
-uncommitted so the current generation can retry the retained proof.
-The public entry point is
-`tearleads.containerContents.documentLinks().purgeDocument({ note })`. A remote
-document must have exactly one remaining container link; recursive container
-purge unlinks any additional in-subtree links before calling it. `null` means
-the purge was refused or could not be verified, and callers must retain the
-local document.
-Recorded readers get signed genesis history and its
-container/policy dependencies; purge-path access alone reveals a terminal
-snapshot. The SDK authenticates before reading local pins, then reuses the
-proof without a checkpoint-floor retry. Deletion requires
-an exact pin or signed transitions from a pin or genesis. Unavailable history
-defers deletion without an incident; hash-only snapshots cannot advance pins.
+uncommitted so the current generation can retry the retained proof. The public
+entry point is `tearleads.containerContents.documentLinks().purgeDocument({
+note })`. A remote document must have exactly one remaining container link;
+recursive container purge unlinks any additional in-subtree links before
+calling it. `null` means the purge was refused or could not be verified, and
+callers must retain the local document. Recorded readers get signed genesis
+history and its container/policy dependencies; purge-path access alone reveals
+a terminal snapshot. The SDK authenticates before reading local pins, then
+reuses the proof without a checkpoint-floor retry. Deletion requires an exact
+pin or signed transitions from a pin or genesis. Missing history without a pin
+defers deletion without an incident; snapshots cannot advance existing pins.
 Later container pins fail closed because ancestry cannot order the separate
 purge signature. Lost-response purge retries use this same flow.
 
