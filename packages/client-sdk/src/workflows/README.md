@@ -101,17 +101,16 @@ The `sync` facade exposes read-only coordinator snapshots through
 `subscribeToDomainSyncCoordinator(...)`. Host diagnostics and product UI may use
 those snapshots to show lane status, request/run/error counts, and last action
 timestamps without reaching into coordinator internals or owning sync policy.
-`clearRemoteSyncState(execSql, { organizationId })` clears only one
-organization's remote-derived rows and child/document cursor lanes, plus the
-global cross-organization root-list cursor, while retaining local Loro history
-for republish. Cursor keys never include the viewer's selected organization.
-A post-purge replacement supplies a fresh organization
-and root through `replacement`; normal session consumers use
-`session.recoverPurgedOrganization(...)` after billing reaches `purged`. The
-method exposes the replacement organization and root-container ids through
-`PurgedOrganizationRecoveryBillingRequiredError` until that replacement has
-sync-eligible billing; only then does it rebind retained local data and finalize
-the server default-organization pointer.
+`clearRemoteSyncState(execSql, { organizationId })` clears the organization's
+remote-derived rows and child/document cursors, plus the global root-list
+cursor. It retains local Loro history for republish, principal-policy checkpoints
+and ownership, and container/document access-manifest checkpoints to detect
+rollback and forks. Cursor keys omit the selected organization.
+A post-purge reset takes fresh organization/root ids through `replacement`.
+Normal clients use `session.recoverPurgedOrganization(...)` after `purged`.
+Until the replacement has sync-eligible billing, it exposes those ids through
+`PurgedOrganizationRecoveryBillingRequiredError`. It then rebinds retained local
+data and finalizes the server's default-organization pointer.
 
 Provider-neutral purchase errors live in
 `client/billing/purchaseErrors.ts`, outside the organization workflow

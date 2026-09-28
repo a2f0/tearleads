@@ -78,6 +78,7 @@ for (const scope of ["single", "all"] as const) {
             async () => {
               await maybeReset("head");
               return {
+                organizationId: "org-b",
                 accessEpoch: 1,
                 accessStateHash: "signed-head",
                 linkedContainerIds: ["org-b-container"],

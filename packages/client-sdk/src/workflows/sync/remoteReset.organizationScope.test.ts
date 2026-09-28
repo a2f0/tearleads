@@ -374,11 +374,15 @@ test("remote reset clears owned policy caches without read-model rows", async ()
 
     expect(result.clearedPrincipalPolicyCount).toBe(1);
     for (const table of [
+      principalPolicyCheckpoints,
+      principalPolicyOrganizations,
+    ] as const) {
+      expect(await db.select().from(table)).toHaveLength(3);
+    }
+    for (const table of [
       principalPolicies,
       principalPolicyBundleHistory,
       principalPolicyBundleReferences,
-      principalPolicyCheckpoints,
-      principalPolicyOrganizations,
     ] as const) {
       const rows = await db.select().from(table);
       expect(rows).toHaveLength(2);

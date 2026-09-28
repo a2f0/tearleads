@@ -21,7 +21,6 @@ import {
   organizationReadModelState,
 } from "../../data/sqlite/organizationReadModelSchema";
 import {
-  accessManifestCheckpoints,
   clientSqlTables,
   containerCreateIntents,
   containerHydrationTombstones,
@@ -39,8 +38,6 @@ import {
   principalPolicies,
   principalPolicyBundleHistory,
   principalPolicyBundleReferences,
-  principalPolicyCheckpoints,
-  principalPolicyOrganizations,
 } from "../../data/sqlite/schema";
 import {
   type ClientSQLiteTransactionScope,
@@ -114,6 +111,8 @@ interface ScopedRemoteRowsInput {
   tx: ClientSQLiteTransactionScope;
 }
 
+// Trust checkpoints and their ownership survive reset. Clearing cached bundles
+// must not turn a previously observed principal or object into first sight.
 async function clearScopedPrincipalRows(
   input: ScopedRemoteRowsInput,
 ): Promise<void> {
@@ -124,8 +123,6 @@ async function clearScopedPrincipalRows(
       principalPolicies,
       principalPolicyBundleHistory,
       principalPolicyBundleReferences,
-      principalPolicyCheckpoints,
-      principalPolicyOrganizations,
     ] as const) {
       await input.tx
         .delete(table)
@@ -232,7 +229,6 @@ async function clearScopedRemoteRows(
   const { organizationId, tx } = input;
   await clearOrganizationPresentationRows(tx, organizationId);
   for (const table of [
-    accessManifestCheckpoints,
     dormantContainerMetadata,
     dormantMetadataSweepRequests,
   ] as const) {

@@ -24,6 +24,7 @@ const candidate = (id: string): DiscoveredDocumentCandidate => ({
   createdAt: at,
 });
 const head = {
+  organizationId: "org",
   accessEpoch: 1,
   accessStateHash: "signed-head",
   linkedContainerIds: ["a"],

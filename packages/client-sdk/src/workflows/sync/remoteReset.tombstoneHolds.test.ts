@@ -58,6 +58,7 @@ test("remote reset clears tombstone holds with the link rows they hide", async (
       linkedContainerIds: ["child"],
     };
     const head = {
+      organizationId: "org-old",
       accessEpoch: 1,
       accessStateHash: "old-head",
       linkedContainerIds: ["child"],

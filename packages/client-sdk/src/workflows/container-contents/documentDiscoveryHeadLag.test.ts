@@ -21,6 +21,7 @@ test("a lagging same-epoch head retains a link-addition candidate until the head
     const store = createDocumentDiscoveryEvidenceStore(execSql, () => now);
     const verify = createDiscoveredDocumentVerifier(
       async () => ({
+        organizationId: "org",
         accessEpoch: 1,
         accessStateHash: caughtUp ? "linked-head" : "prior-head",
         linkedContainerIds: caughtUp ? ["source", "destination"] : ["source"],
@@ -51,16 +52,22 @@ test("a lagging same-epoch head retains a link-addition candidate until the head
 
 for (const head of [
   {
+    organizationId: "org",
     accessEpoch: 2,
     accessStateHash: "later-removed-head",
     linkedContainerIds: ["source"],
   },
   {
+    organizationId: "org",
     accessEpoch: 1,
     accessStateHash: "linked-head",
     linkedContainerIds: ["source"],
   },
-  { accessEpoch: Number.MAX_SAFE_INTEGER, linkedContainerIds: [] },
+  {
+    organizationId: null,
+    accessEpoch: Number.MAX_SAFE_INTEGER,
+    linkedContainerIds: [],
+  },
 ]) {
   test(`matching exclusion or terminal purge settles a candidate (${head.accessEpoch})`, async () => {
     const { execSql, close } = await createTestExecSql(

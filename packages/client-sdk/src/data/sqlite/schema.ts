@@ -694,7 +694,10 @@ export const documentContainerProjectionTables: ReadonlyArray<SqlTableSchema> =
       requiredColumns: ["hidden"],
     },
     defineSqlTableSchema(pendingDocumentDiscoveries),
-    defineSqlTableSchema(documentDiscoveryHeads),
+    {
+      ...defineSqlTableSchema(documentDiscoveryHeads),
+      requiredColumns: ["organization_id"],
+    },
     defineSqlTableSchema(documentDiscoverySequence),
   ];
 
