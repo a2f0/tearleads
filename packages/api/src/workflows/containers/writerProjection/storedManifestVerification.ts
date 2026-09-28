@@ -8,6 +8,7 @@ import {
   verifySignedAccessEvent,
 } from "@tearleads/crypto";
 import type { AccessManifestBundleWireResponse } from "@tearleads/validators/response";
+import { MAX_CONTAINER_PATH_LENGTH } from "@tearleads/validators/util";
 import { uniqueSortedStrings } from "../../../utils/array";
 import { canonicalJsonEquals } from "../../../utils/canonicalJson";
 import {
@@ -26,7 +27,6 @@ import {
   ContainerWriterProjectionError,
 } from "./types";
 
-const MAX_CONTAINER_PATH_DEPTH = 100;
 const verifiedStoredManifests =
   new StoredVerificationCache<VerifiedContainerAccessManifest>(2_048);
 
@@ -201,7 +201,7 @@ function citedAncestorPath(
       throw integrityError("cited ancestor path contains a cycle");
     }
     seen.add(containerId);
-    if (reversed.length >= MAX_CONTAINER_PATH_DEPTH) {
+    if (reversed.length >= MAX_CONTAINER_PATH_LENGTH) {
       throw integrityError("container path exceeds maximum depth");
     }
     const ancestor = cited.get(containerId);

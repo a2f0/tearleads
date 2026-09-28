@@ -2,10 +2,9 @@ import {
   KeyingVerificationError,
   type VerifiedContainerAccessManifest,
 } from "@tearleads/crypto";
+import { MAX_CONTAINER_PATH_LENGTH } from "@tearleads/validators/util";
 import type { StoredManifestLineage } from "../containers/writerProjection/storedManifestLineage";
 import { assertStoredDocumentPathLineage } from "./storedDocumentPathLineage";
-
-const MAX_CONTAINER_PATH_DEPTH = 100;
 
 /** The loader must verify each exact stored head before returning it. */
 export async function loadCitedDocumentContainerPaths(input: {
@@ -51,7 +50,7 @@ export async function loadCitedDocumentContainerPaths(input: {
           "cited container path contains a cycle",
         );
       }
-      if (reversed.length >= MAX_CONTAINER_PATH_DEPTH) {
+      if (reversed.length >= MAX_CONTAINER_PATH_LENGTH) {
         throw new KeyingVerificationError(
           "object_mismatch",
           "container path exceeds maximum depth",

@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import { contentKeyEnvelopeFixture } from "../contentKeyEnvelope.testFixtures";
 import {
-  MAX_DOCUMENT_SYNC_AUTHORIZATION_PATH_DEPTH,
+  MAX_CONTAINER_PATH_LENGTH,
   MAX_DOCUMENT_SYNC_AUTHORIZATION_PATHS,
   MAX_DOCUMENT_SYNC_CONTENT_KEY_TARGETS,
   MAX_DOCUMENT_SYNC_REQUEST_BYTES,
@@ -327,7 +327,7 @@ test("document link mutations bound post-link authorization references", () => {
     manifestHash: "container-manifest-hash",
   };
   const authorizingPath = Array.from(
-    { length: MAX_DOCUMENT_SYNC_AUTHORIZATION_PATH_DEPTH },
+    { length: MAX_CONTAINER_PATH_LENGTH },
     () => reference,
   );
   const validRequest = {

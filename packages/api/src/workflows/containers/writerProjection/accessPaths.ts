@@ -8,6 +8,7 @@ import type {
 } from "@tearleads/crypto";
 import { resolveContainerPathUserAccessLevel } from "@tearleads/crypto";
 import { CONTAINER_NOT_FOUND_ERROR_CODE } from "@tearleads/validators/response";
+import { MAX_CONTAINER_PATH_LENGTH } from "@tearleads/validators/util";
 import { eq } from "drizzle-orm";
 import {
   getAccessManifestBundle,
@@ -27,8 +28,6 @@ import {
   type ContainerWriterProjectionContext,
   ContainerWriterProjectionError,
 } from "./types";
-
-const MAX_CONTAINER_PATH_DEPTH = 100;
 
 function isAccessLevelAtLeast(
   accessLevel: ContainerAccessLevel | null,
@@ -54,7 +53,7 @@ async function loadContainerPath(
   let currentContainerId: string | null = containerId;
 
   while (currentContainerId !== null) {
-    if (path.length >= MAX_CONTAINER_PATH_DEPTH) {
+    if (path.length >= MAX_CONTAINER_PATH_LENGTH) {
       throw new ContainerWriterProjectionError(
         "Container path exceeds maximum depth",
         409,

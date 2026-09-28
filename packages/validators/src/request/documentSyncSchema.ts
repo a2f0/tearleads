@@ -31,8 +31,8 @@ import {
 } from "../schema";
 import { AccessManifestBundleWireSchema } from "../util/accessManifestBundle";
 import { MAX_INLINE_CONTAINER_REKEYS } from "../util/containerKekKeyringWire";
+import { MAX_CONTAINER_PATH_LENGTH } from "../util/containerLimits";
 import {
-  MAX_DOCUMENT_SYNC_AUTHORIZATION_PATH_DEPTH,
   MAX_DOCUMENT_SYNC_AUTHORIZATION_PATHS,
   MAX_DOCUMENT_SYNC_CONTENT_KEY_TARGETS,
   MAX_DOCUMENT_SYNC_OUTGOING_UPDATES,
@@ -67,7 +67,7 @@ export type ContainerManifestRef = z.infer<typeof ContainerManifestRefSchema>;
 
 export const ContainerManifestPathSchema = boundedNonEmptyArraySchema(
   ContainerManifestRefSchema,
-  MAX_DOCUMENT_SYNC_AUTHORIZATION_PATH_DEPTH,
+  MAX_CONTAINER_PATH_LENGTH,
 );
 
 export const ContainerManifestRefArrayArraySchema = arraySchema(

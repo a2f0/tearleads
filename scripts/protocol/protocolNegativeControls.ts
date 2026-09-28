@@ -1,4 +1,5 @@
 import { ATTACHMENT_NEGATIVE_CONTROLS } from "./protocolAttachmentNegativeControls";
+import { CONTAINER_DEPTH_NEGATIVE_CONTROLS } from "./protocolContainerDepthNegativeControls";
 import { DOCUMENT_MOVE_NEGATIVE_CONTROLS } from "./protocolDocumentMoveNegativeControls";
 import { HISTORICAL_POLICY_NEGATIVE_CONTROLS } from "./protocolHistoricalPolicyNegativeControls";
 import { HISTORY_NEGATIVE_CONTROLS } from "./protocolHistoryNegativeControls";
@@ -8,13 +9,9 @@ import { SYSTEM_DESTINATION_NEGATIVE_CONTROLS } from "./protocolSystemDestinatio
 import { TOMBSTONE_NEGATIVE_CONTROLS } from "./protocolTombstoneNegativeControls";
 
 /**
- * Registry and rendering for the protocol negative controls. Each control
- * derives a configuration from a registered model configuration with one
- * refusal rule or lock flipped away from its production value, and names
- * the single invariant or property TLC must then report as violated. The
- * registered runs check the production rule set within its bounds;
- * controls show that each selected property detects its modeled fault.
- * scripts/protocol/checkProtocolNegativeControls.ts runs the registry.
+ * Registered fault injections into bounded protocol configurations. Each
+ * control disables a production guard and names the exact violation required
+ * by checkProtocolNegativeControls.ts; positive runs check the intact rules.
  */
 
 export type ExpectedViolation =
@@ -37,6 +34,7 @@ export interface NegativeControl {
 export const NEGATIVE_CONTROLS: readonly NegativeControl[] = [
   ...HISTORY_NEGATIVE_CONTROLS,
   ...NO_BRICK_NEGATIVE_CONTROLS,
+  ...CONTAINER_DEPTH_NEGATIVE_CONTROLS,
   ...HISTORICAL_POLICY_NEGATIVE_CONTROLS,
   ...ATTACHMENT_NEGATIVE_CONTROLS,
   ...TOMBSTONE_NEGATIVE_CONTROLS,

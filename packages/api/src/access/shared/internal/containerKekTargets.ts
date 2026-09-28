@@ -4,6 +4,7 @@ import {
   accessManifests,
 } from "@tearleads/api-shared/schema";
 import type { ContainerKekTarget } from "@tearleads/crypto";
+import { MAX_CONTAINER_PATH_LENGTH } from "@tearleads/validators/util";
 import { sql } from "drizzle-orm";
 import { uniqueSortedStrings as unique } from "../../../utils/array";
 import { isRecord } from "../../../utils/record";
@@ -148,6 +149,7 @@ export type ContainerManifestTarget = {
 };
 
 interface ContainerAncestorClosureRow {
+  readonly depth: number;
   readonly cycleDetected: boolean;
   readonly id: string;
   readonly manifestHash: string;
@@ -163,6 +165,7 @@ function isContainerAncestorClosureRow(
     typeof value === "object" &&
     value !== null &&
     isSqlBooleanValue(Reflect.get(value, "cycleDetected")) &&
+    Number.isSafeInteger(Reflect.get(value, "depth")) &&
     typeof Reflect.get(value, "id") === "string" &&
     typeof Reflect.get(value, "manifestHash") === "string" &&
     typeof Reflect.get(value, "objectId") === "string" &&
@@ -254,7 +257,7 @@ export async function loadCurrentContainerManifestTargetClosure(input: {
         )}
       inner join ${accessManifests} m on m.manifest_hash = h.manifest_hash
       where not ap.cycle_detected
-        and ap.depth < 100
+        and ap.depth < ${MAX_CONTAINER_PATH_LENGTH - 1}
         and ${jsonTextProperty(sql`ap.state`, "parentContainerId")} is not null
     )
     select
@@ -263,6 +266,7 @@ export async function loadCurrentContainerManifestTargetClosure(input: {
       object_kind as "objectKind",
       manifest_object_id as "objectId",
       state as "state",
+      depth as "depth",
       cycle_detected as "cycleDetected"
     from ancestor_path
     order by object_id asc
@@ -289,13 +293,19 @@ export async function loadCurrentContainerManifestTargetClosure(input: {
         409,
       );
     }
-    if (targetByContainerId.has(row.id)) {
-      continue;
-    }
     const target = readContainerManifestTarget({
       containerId: row.id,
       state: row.state,
     });
+    if (
+      row.depth >= MAX_CONTAINER_PATH_LENGTH - 1 &&
+      target.parentContainerId !== null
+    )
+      throw new ContainerKekTargetError(
+        "Container path exceeds maximum depth",
+        409,
+      );
+    if (targetByContainerId.has(row.id)) continue;
     targetByContainerId.set(row.id, {
       containerId: row.id,
       containerManifestHash: row.manifestHash,
