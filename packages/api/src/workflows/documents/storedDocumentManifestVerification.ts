@@ -8,7 +8,6 @@ import {
   KeyingVerificationError,
   makeVerifiedDocumentLinkSetManifest,
   verifyDocumentLinkSetManifest,
-  verifySignedAccessEvent,
 } from "@tearleads/crypto";
 import type { AccessManifestBundleWireResponse } from "@tearleads/validators/response";
 import { getAccessManifestBundle } from "../../access/read/accessManifestStore";
@@ -18,6 +17,7 @@ import {
   documentLinkSetStateRecord,
 } from "../../keyingProjectionRecords";
 import { canonicalJsonEquals } from "../../utils/canonicalJson";
+import { verifyStoredAccessEvent } from "../../utils/storedAccessEventVerification";
 import {
   type StoredManifestVerificationStep,
   verifyStoredManifestGraph,
@@ -145,25 +145,6 @@ async function loadStoredDocumentBundle(
     throw integrityError("document manifest dependency is missing");
   }
   return toManifestBundleResponse(bundle);
-}
-
-async function verifyStoredEvent(input: {
-  readonly manifest: VerifiedDocumentLinkSetManifest;
-  readonly signerPublicKey: Uint8Array;
-}): Promise<VerifiedAccessEvent> {
-  const event = input.manifest.event;
-  const result = await verifySignedAccessEvent({
-    body: event.body,
-    event: event.event,
-    signerPublicKey: input.signerPublicKey,
-  });
-  if (!result.ok) {
-    throw integrityError(result.error.message);
-  }
-  if (result.value.eventHash !== event.eventHash) {
-    throw integrityError("access event hash is inconsistent");
-  }
-  return result.value;
 }
 
 export function verifyStoredDocumentManifestTransition(
@@ -307,7 +288,11 @@ async function prepareBundle(
     input.verifiedByHash.set(input.bundle.manifestHash, processCached);
     return { value: processCached };
   }
-  const event = await verifyStoredEvent({ manifest: parsed, signerPublicKey });
+  const event = await verifyStoredAccessEvent({
+    stored: parsed.event,
+    signerPublicKey,
+    error: integrityError,
+  });
   const previousHash = parsed.state.previousManifestHash;
   return {
     dependencies: previousHash ? [previousHash] : [],
@@ -335,6 +320,7 @@ export async function verifyStoredDocumentManifest(
       manifest: parsed,
     });
     const verified = await storedManifestWork.run({
+      scope: input.containerContext.executor,
       key: input.bundle.manifestHash,
       source: storedVerificationSource(input.bundle, signerPublicKey),
       verify: () =>

@@ -50,10 +50,11 @@ verifies retained dependencies iteratively, including ancestor lineage, so cache
 eviction does not invalidate an accepted history. Cold verification still loads
 retained history. Each verifier separately retains 128 requested verified heads,
 keeping them available while the 2,048-entry dependency cache turns over during
-long history walks. Identical concurrent head verification waits for a successful
-result across database sessions. A failure is retried in each caller's own
-snapshot rather than propagated from another transaction. Both caches check the
-complete bundle and signer key.
+long history walks. Pending database verification is shared only within the same
+executor, avoiding waits across transaction locks. Pure signature/hash checks
+share pending work across requests in a separate 2,048-entry cache. Completed
+immutable verification results can be reused across database sessions; failures
+are retried. Reuse checks the complete source and signer key.
 They are optional process caches, not persistent verification markers or a
 bound on first-cold-read cost. For N ancestor manifests, the shared lineage index
 uses O(N log N) work and space, with O(log N) per lineage query; see

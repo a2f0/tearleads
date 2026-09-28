@@ -2,13 +2,14 @@ import { sha256Hex } from "./sha256";
 import { StoredVerificationCache } from "./storedVerificationCache";
 
 /**
- * Requested heads outlive intermediate-history cache churn. Concurrent readers
- * wait for the same immutable source, then reuse only a successful verified
- * result. Failures are retried in each caller's own database snapshot.
+ * Requested heads outlive intermediate-history cache churn. Pending database
+ * work shares an executor scope, avoiding waits across transaction locks.
+ * Pure cryptographic work can use a process-wide scope. Completed immutable
+ * results are reusable across scopes after checking the complete source.
  */
 export class StoredManifestWork<T> {
   private readonly heads: StoredVerificationCache<T>;
-  private pending = new Map<string, Promise<T>>();
+  private pending = new WeakMap<object, Map<string, Promise<T>>>();
   private generation = 0;
 
   constructor(maxHeads: number) {
@@ -20,6 +21,7 @@ export class StoredManifestWork<T> {
   }
 
   async run(input: {
+    readonly scope: object;
     readonly key: string;
     readonly source: unknown;
     readonly verify: () => Promise<T>;
@@ -29,15 +31,18 @@ export class StoredManifestWork<T> {
     const fingerprint = this.fingerprint(input.source);
     const cached = this.heads.get(input.key, fingerprint);
     if (cached !== undefined) return cached;
-    const pending = this.pending;
+    let pending = this.pending.get(input.scope);
+    if (!pending) {
+      pending = new Map();
+      this.pending.set(input.scope, pending);
+    }
     const pendingKey = JSON.stringify([input.key, fingerprint]);
     const existing = pending.get(pendingKey);
     if (existing) {
       try {
         await existing;
       } catch {
-        // A different transaction may lack dependencies visible to this one.
-        // Its failure is not evidence about this caller's stored history.
+        // A failed attempt must not replace this caller's own verification.
       }
       // Recheck the source and cache after waiting, including an intervening
       // clear or eviction. Never return an unretained result from old work.
@@ -62,7 +67,7 @@ export class StoredManifestWork<T> {
   clear(): void {
     this.generation += 1;
     this.heads.clear();
-    this.pending = new Map();
+    this.pending = new WeakMap();
   }
 
   private fingerprint(source: unknown): string {

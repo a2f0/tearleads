@@ -248,6 +248,7 @@ export const subsystems: readonly Subsystem[] = [
       `${api}/utils/record.ts`,
       `${api}/utils/sha256.ts`,
       `${api}/utils/sqlDialect.ts`,
+      `${api}/utils/storedAccessEventVerification.ts`,
       `${api}/utils/storedManifestGraph.ts`,
       `${api}/utils/storedManifestWork.ts`,
       `${api}/utils/storedVerificationCache.ts`,

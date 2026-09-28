@@ -3,14 +3,15 @@ import type {
   VerifiedAccessEvent,
   VerifiedContainerAccessManifest,
 } from "@tearleads/crypto";
-import {
-  verifyContainerAccessManifest,
-  verifySignedAccessEvent,
-} from "@tearleads/crypto";
+import { verifyContainerAccessManifest } from "@tearleads/crypto";
 import type { AccessManifestBundleWireResponse } from "@tearleads/validators/response";
 import { MAX_CONTAINER_PATH_LENGTH } from "@tearleads/validators/util";
 import { uniqueSortedStrings } from "../../../utils/array";
 import { canonicalJsonEquals } from "../../../utils/canonicalJson";
+import {
+  clearStoredAccessEventVerificationCache,
+  verifyStoredAccessEvent,
+} from "../../../utils/storedAccessEventVerification";
 import {
   type StoredManifestVerificationStep,
   verifyStoredManifestGraph,
@@ -36,6 +37,7 @@ const storedManifestWork =
 export function clearStoredContainerManifestVerificationCache(): void {
   verifiedStoredManifests.clear();
   storedManifestWork.clear();
+  clearStoredAccessEventVerificationCache();
 }
 
 interface StoredManifestVerificationInput {
@@ -116,24 +118,6 @@ function collectPrincipalReferences(
       (path ?? []).flatMap((entry) => entry.state.referencedPrincipalHeads),
     ),
   ];
-}
-
-async function verifyStoredEvent(
-  parsed: VerifiedContainerAccessManifest,
-  signerPublicKey: Uint8Array,
-): Promise<VerifiedAccessEvent> {
-  const result = await verifySignedAccessEvent({
-    body: parsed.event.body,
-    event: parsed.event.event,
-    signerPublicKey,
-  });
-  if (!result.ok) {
-    throw integrityError(result.error.message);
-  }
-  if (result.value.eventHash !== parsed.event.eventHash) {
-    throw integrityError("access event hash is inconsistent");
-  }
-  return result.value;
 }
 
 async function loadStoredEventSigner(
@@ -340,7 +324,11 @@ async function prepareBundle(
     );
     return { value: processCached };
   }
-  const signedEvent = await verifyStoredEvent(parsed, signerPublicKey);
+  const signedEvent = await verifyStoredAccessEvent({
+    stored: parsed.event,
+    signerPublicKey,
+    error: integrityError,
+  });
   return {
     dependencies: [
       ...(parsed.state.previousManifestHash
@@ -371,6 +359,7 @@ export async function verifyStoredContainerManifest(
     const parsed = toVerifiedContainerManifest(input.bundle);
     const signerPublicKey = await loadStoredEventSigner(input, parsed);
     const verified = await storedManifestWork.run({
+      scope: input.context.executor,
       key: input.bundle.manifestHash,
       source: storedVerificationSource(input.bundle, signerPublicKey),
       verify: () =>
