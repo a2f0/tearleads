@@ -14,6 +14,7 @@ import {
 } from "../../../../test/helpers/dual-pane/dualPaneSharingKit";
 import { useTestApiAppHandlers } from "../../../../test/helpers/mswServer";
 import { cleanupPaneTestEnvironment } from "../../../../test/helpers/paneTestUtils";
+import { documentSyncIntentCounts } from "../../../../test/helpers/proxiedApiRequestMetrics";
 import { waitForPersonalBootstrap } from "../../../../test/helpers/waitForPersonalBootstrap";
 import { measureWorkflowRequests } from "../../../../test/helpers/workflowRequestBudget";
 
@@ -47,7 +48,7 @@ test("group creation and adding a peer have separate request budgets", async () 
         { method: "POST", path: /^\/organizations\/[^/]+\/groups$/u, count: 1 },
       ],
     });
-    await measureWorkflowRequests({
+    const membershipRequests = await measureWorkflowRequests({
       label: `add peer to ${group} custom group`,
       operation: async () => {
         const input = within(pane).getByLabelText("User ID");
@@ -75,24 +76,39 @@ test("group creation and adding a peer have separate request budgets", async () 
         );
       },
       budget: {
-        // Verify the selected encrypted name with the shared metadata key.
-        total: group === "first" ? 10 : 9,
+        // The first add enrolls the peer in Members before the custom group,
+        // including metadata discovery, read-only sync, and a billing refresh.
+        // The second add reuses that roster membership and stays a single write.
+        total: group === "first" ? 32 : 10,
         byRequest: {
-          "GET /containers/:containerId/writer-projection": 1,
-          "GET /organizations/:organizationId/read-model": 3,
-          "GET /principals/group/:groupId/policy": 3,
-          "GET /auth/user-identity/:userId": group === "first" ? 1 : 0,
-          "GET /principals/organization/:organizationId/policy": 1,
-          "PUT /organizations/:organizationId/groups/:groupId/policy-commit": 1,
+          "GET /containers/:containerId/writer-projection":
+            group === "first" ? 3 : 1,
+          "GET /organizations/:organizationId/read-model":
+            group === "first" ? 4 : 3,
+          "GET /principals/group/:groupId/policy": group === "first" ? 8 : 3,
+          "GET /auth/user-identity/:userId": group === "first" ? 2 : 0,
+          "GET /principals/organization/:organizationId/policy":
+            group === "first" ? 3 : 1,
+          "PUT /organizations/:organizationId/groups/:groupId/policy-commit":
+            group === "first" ? 2 : 1,
+          "GET /documents/:documentId/writer-projection":
+            group === "first" ? 2 : 0,
+          "POST /documents/:documentId/sync": group === "first" ? 3 : 0,
+          "POST /containers/parent-lanes/query": group === "first" ? 2 : 0,
+          "GET /containers/:containerId/documents": group === "first" ? 1 : 0,
+          "GET /organizations/:organizationId/billing":
+            group === "first" ? 1 : 0,
+          "GET /organizations/:organizationId/groups/:groupId/members": 1,
         },
       },
       mutations: [
         {
           method: "PUT",
           path: /^\/organizations\/[^/]+\/groups\/[^/]+\/policy-commit$/u,
-          count: 1,
+          count: group === "first" ? 2 : 1,
         },
       ],
     });
+    expect(documentSyncIntentCounts(membershipRequests).writeBearing).toBe(0);
   }
 }, 90_000);
