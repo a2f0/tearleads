@@ -16,8 +16,18 @@ Reset scope comes from local container ownership and document projections,
 including document-to-container links. Organization and roster profile pointers
 in the server read model cannot add documents to that scope. A profile document
 with a local projection for the affected organization still resets even when it
-has no current container projection. This scope rule does not authenticate the
-replacement response or retain trust checkpoints; those remain open in
+has no current container projection.
+
+Reset preserves principal-policy checkpoints and their organization ownership,
+and access-manifest checkpoints for containers and documents. Cached policy
+bundles may be cleared, but later verification still rejects rollback and forks
+against those durable observations. Repeated resets preserve the same anchors.
+Access checkpoints include the organization id in their identity, so a fresh
+replacement organization can reuse local container ids without erasing the old
+organization's trust history. Reset within the same organization cannot make a
+conflicting genesis acceptable.
+
+Authenticating the replacement response remains open in
 [#2365, finding #10](https://github.com/a2f0/tearleads/issues/2365).
 
 Normal clients should call `session.recoverPurgedOrganization(...)` only after

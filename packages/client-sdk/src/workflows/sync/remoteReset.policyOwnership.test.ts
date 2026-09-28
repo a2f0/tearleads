@@ -203,11 +203,15 @@ test("reset follows pinned cache ownership without deriving it from read models"
 
     expect(result.clearedPrincipalPolicyCount).toBe(1);
     for (const table of [
+      principalPolicyCheckpoints,
+      principalPolicyOrganizations,
+    ] as const) {
+      expect(await db.select().from(table)).toHaveLength(2);
+    }
+    for (const table of [
       principalPolicies,
       principalPolicyBundleHistory,
       principalPolicyBundleReferences,
-      principalPolicyCheckpoints,
-      principalPolicyOrganizations,
     ] as const) {
       expect(await db.select().from(table)).toEqual([
         expect.objectContaining({
