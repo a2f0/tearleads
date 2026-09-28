@@ -1,4 +1,5 @@
 import type { DatabaseSession } from "@tearleads/api-shared/postgres";
+import { users } from "@tearleads/api-shared/schema";
 import type {
   ContainerAccessEventBody,
   ContainerDirectGrant,
@@ -83,7 +84,11 @@ export async function signedContainerHistory(length: number) {
   // signer's real key. No group-policy references require additional queries.
   const executor = {
     select: () => ({
-      from: () => ({ where: () => ({ limit: async () => [user] }) }),
+      from: (table: unknown) => {
+        if (table !== users)
+          throw new Error("Unexpected history fixture query");
+        return { where: () => ({ limit: async () => [user] }) };
+      },
     }),
   } as unknown as DatabaseSession;
   const bundles = manifests.map((manifest) =>

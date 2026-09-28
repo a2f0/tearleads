@@ -17,12 +17,4 @@ export const HISTORY_NEGATIVE_CONTROLS: readonly NegativeControl[] = [
     expect: { kind: "invariant", name: "RevocationAvailable" },
     why: "Limiting accepted history length cannot refuse an otherwise authorized revocation.",
   },
-  {
-    id: "no-brick-served-authority-rollback",
-    module: "formal/container-keying/NoBrickedDevice.tla",
-    config: "formal/container-keying/NoBrickedDeviceAdversary.cfg",
-    constants: { RefuseServedAuthorityRollback: "FALSE" },
-    expect: { kind: "invariant", name: "HeldAuthorityCoversHeldCitation" },
-    why: "Without the served-ancestor rule a device accepts a current authority head older than the one the dependent head's signature proves exists.",
-  },
 ];

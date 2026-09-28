@@ -2,6 +2,7 @@ import { ATTACHMENT_NEGATIVE_CONTROLS } from "./protocolAttachmentNegativeContro
 import { DOCUMENT_MOVE_NEGATIVE_CONTROLS } from "./protocolDocumentMoveNegativeControls";
 import { HISTORICAL_POLICY_NEGATIVE_CONTROLS } from "./protocolHistoricalPolicyNegativeControls";
 import { HISTORY_NEGATIVE_CONTROLS } from "./protocolHistoryNegativeControls";
+import { NO_BRICK_NEGATIVE_CONTROLS } from "./protocolNoBrickNegativeControls";
 import { RECOVERY_NEGATIVE_CONTROLS } from "./protocolRecoveryNegativeControls";
 import { SYSTEM_DESTINATION_NEGATIVE_CONTROLS } from "./protocolSystemDestinationNegativeControls";
 import { TOMBSTONE_NEGATIVE_CONTROLS } from "./protocolTombstoneNegativeControls";
@@ -33,13 +34,9 @@ export interface NegativeControl {
   readonly why: string;
 }
 
-const NO_BRICK_MODULE = "formal/container-keying/NoBrickedDevice.tla";
-const NO_BRICK_HONEST = "formal/container-keying/NoBrickedDevice.cfg";
-const NO_BRICK_ADVERSARY =
-  "formal/container-keying/NoBrickedDeviceAdversary.cfg";
-
 export const NEGATIVE_CONTROLS: readonly NegativeControl[] = [
   ...HISTORY_NEGATIVE_CONTROLS,
+  ...NO_BRICK_NEGATIVE_CONTROLS,
   ...HISTORICAL_POLICY_NEGATIVE_CONTROLS,
   ...ATTACHMENT_NEGATIVE_CONTROLS,
   ...TOMBSTONE_NEGATIVE_CONTROLS,
@@ -216,14 +213,6 @@ export const NEGATIVE_CONTROLS: readonly NegativeControl[] = [
   },
   ...SYSTEM_DESTINATION_NEGATIVE_CONTROLS,
   {
-    id: "no-brick-signer-revoked-at-current",
-    module: NO_BRICK_MODULE,
-    config: NO_BRICK_HONEST,
-    constants: { RefuseSignerRevokedAtCurrent: "TRUE" },
-    expect: { kind: "invariant", name: "HonestServerNeverRefused" },
-    why: "Requiring current membership rejects an honest late-delivered head signed before the group removed its signer (#2266).",
-  },
-  {
     id: "restore-drops-terminal-anchors",
     module: "formal/backup-restore/TerminalAnchors.tla",
     config: "formal/backup-restore/TerminalAnchors.cfg",
@@ -326,62 +315,6 @@ export const NEGATIVE_CONTROLS: readonly NegativeControl[] = [
     constants: { EnforceProgress: "FALSE" },
     expect: { kind: "action", name: "HeldReferencesNeverRegress" },
     why: "A dishonest server can serve a signed successor that reintroduces an older group reference (#2266).",
-  },
-  {
-    id: "no-brick-stale-head-citation",
-    module: NO_BRICK_MODULE,
-    config: NO_BRICK_HONEST,
-    constants: { RefuseStaleHeadCitation: "TRUE" },
-    expect: { kind: "liveness", name: "DeviceEventuallyCurrent" },
-    why: "The withdrawn #2174 currency rule refuses an honest late-delivered head, so a device that already holds the dependent can never advance without another device's write.",
-  },
-  {
-    id: "no-brick-stale-head-citation-refuses-honest-server",
-    module: NO_BRICK_MODULE,
-    config: NO_BRICK_HONEST,
-    constants: { RefuseStaleHeadCitation: "TRUE" },
-    expect: { kind: "invariant", name: "HonestServerNeverRefused" },
-    why: "The same rule, caught as a safety violation: the refused projection is the honest server's.",
-  },
-  {
-    id: "no-brick-stale-chain-citation",
-    module: NO_BRICK_MODULE,
-    config: NO_BRICK_HONEST,
-    constants: { RefuseStaleChainCitation: "TRUE" },
-    expect: { kind: "liveness", name: "DeviceEventuallyCurrent" },
-    why: "The #2173 principal-policy currency rule refuses every chain entry above the checkpoint that cites an older authority head, so even a later honest successor cannot heal the device.",
-  },
-  {
-    id: "no-brick-fork",
-    module: NO_BRICK_MODULE,
-    config: NO_BRICK_ADVERSARY,
-    constants: { RefuseFork: "FALSE" },
-    expect: { kind: "action", name: "HeldChainNeverContradictsCheckpoint" },
-    why: "Without the checkpoint chain rule a device accepts a same-epoch fork or a chain that does not extend what it already holds.",
-  },
-  {
-    id: "no-brick-rollback",
-    module: NO_BRICK_MODULE,
-    config: NO_BRICK_ADVERSARY,
-    constants: { RefuseRollback: "FALSE" },
-    expect: { kind: "action", name: "CheckpointsAreMonotone" },
-    why: "Without the rollback rule a device accepts a head or authority below its own checkpoint.",
-  },
-  {
-    id: "no-brick-citation-regression",
-    module: NO_BRICK_MODULE,
-    config: NO_BRICK_ADVERSARY,
-    constants: { RefuseCitationRegression: "FALSE" },
-    expect: { kind: "action", name: "HeldCitationsNeverRegress" },
-    why: "Without the lineage floor a forged head can cite an authority head older than the one its predecessor established.",
-  },
-  {
-    id: "no-brick-signer-revoked-at-citation",
-    module: NO_BRICK_MODULE,
-    config: NO_BRICK_ADVERSARY,
-    constants: { RefuseSignerRevokedAtCitation: "FALSE" },
-    expect: { kind: "invariant", name: "HeldSignerWasMemberAtCitation" },
-    why: "Without authorization at the cited head a revoked member's forged head citing a post-revocation authority is accepted.",
   },
   {
     id: "empty-frontier-unlink-unlocked",

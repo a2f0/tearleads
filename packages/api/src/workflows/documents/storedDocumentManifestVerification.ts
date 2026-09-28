@@ -214,6 +214,7 @@ async function loadContainerPaths(input: {
 }): Promise<VerifiedContainerAccessManifest[][]> {
   return loadCitedDocumentContainerPaths({
     dependencyManifestHashes: input.event.event.dependencyManifestHashes,
+    lineageByHash: input.context.manifestLineageByHash,
     loadManifest: async (manifestHash) => {
       const bundle = await loadContainerManifestBundleByHash(
         input.context,

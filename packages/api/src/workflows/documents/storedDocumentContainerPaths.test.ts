@@ -35,6 +35,7 @@ async function scenario() {
 test("stored paths follow cited ancestors and ignore creation pins and input order", async () => {
   const { root2, child, loadManifest } = await scenario();
   const paths = await loadCitedDocumentContainerPaths({
+    lineageByHash: new Map(),
     dependencyManifestHashes: [child.manifestHash, root2.manifestHash],
     loadManifest,
   });
@@ -72,8 +73,10 @@ test("stored paths reject stale and forked ancestors proved by a descendant's ci
       head,
     ]),
   );
+  const lineageByHash = new Map();
   const run = (ancestor: VerifiedContainerAccessManifest) =>
     loadCitedDocumentContainerPaths({
+      lineageByHash,
       dependencyManifestHashes: [
         ancestor.manifestHash,
         child.manifestHash,
@@ -92,6 +95,9 @@ test("stored paths reject stale and forked ancestors proved by a descendant's ci
     child.manifestHash,
     grandchild.manifestHash,
   ]);
+  // Previously proven shared prefixes must not turn a fork into a descendant.
+  for (const ancestor of [root1, fork])
+    await expect(run(ancestor)).rejects.toThrow("does not descend");
 });
 
 test("stored cited paths reject ancestors from another organization", async () => {
@@ -103,6 +109,7 @@ test("stored cited paths reject ancestors from another organization", async () =
   });
   await expect(
     loadCitedDocumentContainerPaths({
+      lineageByHash: new Map(),
       dependencyManifestHashes: [foreignRoot.manifestHash, child.manifestHash],
       loadManifest: async (hash) =>
         hash === foreignRoot.manifestHash ? foreignRoot : child,
@@ -114,6 +121,7 @@ test("stored paths reject omitted ancestors even when the loader has the pinned 
   const { child, loadManifest } = await scenario();
   await expect(
     loadCitedDocumentContainerPaths({
+      lineageByHash: new Map(),
       dependencyManifestHashes: [child.manifestHash],
       loadManifest,
     }),
@@ -124,6 +132,7 @@ test("stored paths reject two cited heads of one container", async () => {
   const { root1, root2, loadManifest } = await scenario();
   await expect(
     loadCitedDocumentContainerPaths({
+      lineageByHash: new Map(),
       dependencyManifestHashes: [root1.manifestHash, root2.manifestHash],
       loadManifest,
     }),
@@ -134,12 +143,14 @@ test("stored paths reject unavailable and mismatched citation lookups", async ()
   const { root1, loadManifest } = await scenario();
   await expect(
     loadCitedDocumentContainerPaths({
+      lineageByHash: new Map(),
       dependencyManifestHashes: ["withheld"],
       loadManifest,
     }),
   ).rejects.toThrow("unavailable");
   await expect(
     loadCitedDocumentContainerPaths({
+      lineageByHash: new Map(),
       dependencyManifestHashes: ["substituted"],
       loadManifest: async () => root1,
     }),
@@ -164,6 +175,7 @@ test("stored path reconstruction bounds cycles and depth", async () => {
   );
   const run = () =>
     loadCitedDocumentContainerPaths({
+      lineageByHash: new Map(),
       dependencyManifestHashes: heads.map((head) => head.manifestHash),
       loadManifest: async (hash) => {
         const head = heads.find((candidate) => candidate.manifestHash === hash);

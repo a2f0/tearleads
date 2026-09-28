@@ -18,13 +18,20 @@ regressions exercise the real signature verifier and histories longer than the
 former 4,096-entry limit. The history counter saturates only to keep the model
 finite; revocation still has an enabled transition at the model boundary.
 
-Two negative controls reproduce the rejected designs. Bounded cold verification
+The positive configuration makes `Readable` unconditional: it specifies the
+intended acceptance contract, not the traversal algorithm. The two negative
+controls supply the meaningful counterexamples to rejected designs. Bounded
+cold verification
 with unrestricted commits violates `HonestReadsAvailable` after a warm history
 grows and the process restarts. Capping mutations at the read limit preserves
 reads but violates `RevocationAvailable`. These are enabled-action safety checks,
 not claims of eventual network or scheduler progress.
 
 This first repair removes the deterministic history-depth refusal. Verification
-still uses memory and time proportional to retained evidence on a cold read.
+still loads each retained manifest on a cold read. Document ancestor queries
+share a request-local binary ancestor index: indexing N manifests uses
+O(N log N) time and space, and each lineage query takes O(log N). Cold-request
+resource budgets remain follow-up work; they must not become a permanent
+lifetime-history refusal or a cap that prevents revocation.
 Persistent verification markers and incremental proof delivery remain separate
 work; no existing history is trusted merely because its depth is large.

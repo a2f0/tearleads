@@ -9,17 +9,19 @@ import { createContainerWriterProjectionContext } from "../containers/writerProj
 import { toManifestBundleResponse } from "../containers/writerProjection/records";
 import { verifyStoredDocumentManifest } from "./storedDocumentManifestVerification";
 
-test("a cold document verifier accepts a long retained link history", async () => {
+test("a cold document verifier accepts a long retained link history below a parent", async () => {
   const head = await signedDocumentHistory(4_098);
   const verifiedByHash = new Map<string, VerifiedDocumentLinkSetManifest>();
+  const containerContext = createContainerWriterProjectionContext(db);
   const verified = await verifyStoredDocumentManifest({
     bundle: toManifestBundleResponse({
       ...head,
       state: head.state as unknown as KeyingCanonicalJson,
     }),
-    containerContext: createContainerWriterProjectionContext(db),
+    containerContext,
     verifiedByHash,
   });
   expect(verified.manifestHash).toBe(head.manifestHash);
   expect(verifiedByHash.size).toBe(4_098);
+  expect(containerContext.manifestLineageByHash.size).toBe(1);
 }, 300_000);

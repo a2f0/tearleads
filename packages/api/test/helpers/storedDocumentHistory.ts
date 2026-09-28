@@ -13,12 +13,25 @@ export async function signedDocumentHistory(length: number) {
   const user = createTestUser();
   await registerUser(user);
   const organizationId = crypto.randomUUID();
+  const root = await createContainerManifestFixture({
+    containerId: crypto.randomUUID(),
+    containerKeyEpochId: crypto.randomUUID(),
+    organizationId,
+    directGrants: [
+      { subjectType: "user", subjectId: user.userId, accessLevel: "admin" },
+    ],
+    signer: user.signing,
+    signerUserId: user.userId,
+  });
+  await storeVerifiedAccessManifest({ verifiedManifest: root }, db);
   const containers = await Promise.all(
     [0, 1].map(async () => {
       const container = await createContainerManifestFixture({
         containerId: crypto.randomUUID(),
         containerKeyEpochId: crypto.randomUUID(),
         organizationId,
+        parentContainerId: root.state.containerId,
+        parentManifestHash: root.manifestHash,
         directGrants: [
           { subjectType: "user", subjectId: user.userId, accessLevel: "admin" },
         ],
@@ -43,9 +56,10 @@ export async function signedDocumentHistory(length: number) {
         containerId: target.state.containerId,
         containerManifestHash: target.manifestHash,
       },
-      dependencyManifestHashes: (epoch === 1 ? [first] : containers).map(
-        (container) => container.manifestHash,
-      ),
+      dependencyManifestHashes: (epoch === 1
+        ? [root, first]
+        : [root, ...containers]
+      ).map((container) => container.manifestHash),
       objectId: documentId,
       organizationId,
       previousManifestHash: head?.manifestHash ?? null,

@@ -10,6 +10,7 @@ import {
   type AccessManifestBundleWireResponse,
   CONTAINER_PROJECTION_STATE_INVALID_ERROR_CODE,
 } from "@tearleads/validators/response";
+import type { StoredManifestLineage } from "./storedManifestLineage";
 
 type ContainerWriterProjectionStatus = 403 | 404 | 409;
 
@@ -66,6 +67,7 @@ export interface ContainerWriterProjectionContext {
   >;
   readonly principalPolicyAuthorizationEvidence: readonly AnyVerifiedPrincipalPolicy[];
   readonly verifiedManifestByHash: Map<string, VerifiedContainerAccessManifest>;
+  readonly manifestLineageByHash: StoredManifestLineage;
 }
 
 export interface ContainerKekManifestHistory {

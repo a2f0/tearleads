@@ -172,14 +172,13 @@ function verifyHistoricalContainerManifest(
  * mutation submits are all current, so they cannot disagree on a container.
  */
 async function loadCitedManifestsByContainer(input: {
-  readonly parsed: VerifiedContainerAccessManifest;
+  readonly event: VerifiedAccessEvent;
   readonly verifyHash: (
     manifestHash: string,
   ) => Promise<VerifiedContainerAccessManifest>;
 }): Promise<ReadonlyMap<string, VerifiedContainerAccessManifest>> {
   const byContainer = new Map<string, VerifiedContainerAccessManifest>();
-  for (const manifestHash of input.parsed.event.event
-    .dependencyManifestHashes) {
+  for (const manifestHash of input.event.event.dependencyManifestHashes) {
     const cited = await input.verifyHash(manifestHash);
     if (byContainer.has(cited.state.containerId)) {
       throw integrityError("access event cites two heads of one container");
@@ -219,12 +218,13 @@ function citedAncestorPath(
 
 async function loadStoredManifestArtifacts(input: {
   readonly parsed: VerifiedContainerAccessManifest;
+  readonly event: VerifiedAccessEvent;
   readonly verifyHash: (
     manifestHash: string,
   ) => Promise<VerifiedContainerAccessManifest>;
 }): Promise<StoredManifestArtifacts> {
   const { parsed } = input;
-  const eventType = parsed.event.event.eventType;
+  const eventType = input.event.event.eventType;
   const previousManifest = parsed.state.previousManifestHash
     ? await input.verifyHash(parsed.state.previousManifestHash)
     : null;
@@ -259,7 +259,11 @@ async function verifyPreparedBundle(
   signedEvent: VerifiedAccessEvent,
   verifyHash: (hash: string) => Promise<VerifiedContainerAccessManifest>,
 ): Promise<VerifiedContainerAccessManifest> {
-  const artifacts = await loadStoredManifestArtifacts({ parsed, verifyHash });
+  const artifacts = await loadStoredManifestArtifacts({
+    parsed,
+    event: signedEvent,
+    verifyHash,
+  });
   const principalPolicies =
     await loadPrincipalAuthorizationPoliciesForReferences(
       input.context.executor,

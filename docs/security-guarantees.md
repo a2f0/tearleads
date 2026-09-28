@@ -405,12 +405,8 @@ and principal policies under the mutation locks and requires admin authority.
 The signed transition stops admitting re-citations once the prior container
 epoch reaches 512. This leaves at least 512 ordinary same-key mutations before
 the 1024-entry write-history bound, even without a prior rekey. Re-citations
-cannot restart their allowance by rekeying. They also reserve most of the
-API verifier's 4096-manifest
-history budget (`MAX_CONTAINER_HISTORY_DEPTH` in
-`packages/api/src/workflows/containers/writerProjection/storedManifestVerification.ts`)
-for ordinary mutations; it is not history compaction. The SDK
-skips signing at that boundary, and the API independently rejects it.
+cannot restart their allowance by rekeying. This is not history compaction.
+The SDK skips signing at that boundary, and the API independently rejects it.
 
 Local listing cursors use one cross-organization root feed and globally unique
 container IDs for child/document feeds, matching the API's actual scope. An

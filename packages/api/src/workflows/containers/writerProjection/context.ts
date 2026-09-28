@@ -14,6 +14,7 @@ export function createContainerWriterProjectionContext(
     manifestBundleByHash: new Map(),
     principalPolicyAuthorizationEvidence,
     verifiedManifestByHash: new Map(),
+    manifestLineageByHash: new Map(),
   };
 }
 
