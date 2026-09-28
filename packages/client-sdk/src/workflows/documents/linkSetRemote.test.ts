@@ -98,6 +98,11 @@ test("relinkRemoteDocument submits a verified signed link-set mutation", async (
   });
   const createdResponse = createResponse(created.plan);
   const writerProjection: DocumentWriterProjectionResponse = {
+    policyEvidence: {
+      organization: null,
+      organizationPayloads: [],
+      groups: [],
+    },
     authorizingContainerPaths: [projection],
     contentKeyBundle: createdResponse.contentKeyBundle,
     ...writerProjectionEvidence([projection], []),
@@ -233,6 +238,11 @@ test("link planning rolls back checkpoints after generation expiry", async () =>
   });
   const createdResponse = createResponse(created.plan);
   const writerProjection: DocumentWriterProjectionResponse = {
+    policyEvidence: {
+      organization: null,
+      organizationPayloads: [],
+      groups: [],
+    },
     authorizingContainerPaths: [projection],
     contentKeyBundle: createdResponse.contentKeyBundle,
     ...writerProjectionEvidence([projection], []),
@@ -340,6 +350,11 @@ test("relinkRemoteDocument rejects bad unlink target container signatures before
   });
   const createdResponse = createResponse(created.plan);
   const initialWriterProjection: DocumentWriterProjectionResponse = {
+    policyEvidence: {
+      organization: null,
+      organizationPayloads: [],
+      groups: [],
+    },
     authorizingContainerPaths: [projection],
     contentKeyBundle: createdResponse.contentKeyBundle,
     ...writerProjectionEvidence([projection], []),
@@ -361,6 +376,11 @@ test("relinkRemoteDocument rejects bad unlink target container signatures before
     linked.plan.request,
   );
   const linkedWriterProjection: DocumentWriterProjectionResponse = {
+    policyEvidence: {
+      organization: null,
+      organizationPayloads: [],
+      groups: [],
+    },
     authorizingContainerPaths: [projection, siblingProjection],
     contentKeyBundle: linkResponse.contentKeyBundle,
     ...writerProjectionEvidence(

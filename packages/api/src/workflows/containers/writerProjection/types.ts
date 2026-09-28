@@ -6,7 +6,10 @@ import type {
   VerifiedContainerKekState,
   VerifiedPrincipalPolicy,
 } from "@tearleads/crypto";
-import type { AccessManifestBundleWireResponse } from "@tearleads/validators/response";
+import {
+  type AccessManifestBundleWireResponse,
+  CONTAINER_PROJECTION_STATE_INVALID_ERROR_CODE,
+} from "@tearleads/validators/response";
 
 type ContainerWriterProjectionStatus = 403 | 404 | 409;
 
@@ -14,7 +17,9 @@ export class ContainerWriterProjectionError extends Error {
   constructor(
     message: string,
     readonly status: ContainerWriterProjectionStatus,
-    readonly code?: string,
+    readonly code: string | undefined = status === 409
+      ? CONTAINER_PROJECTION_STATE_INVALID_ERROR_CODE
+      : undefined,
   ) {
     super(message);
     this.name = "ContainerWriterProjectionError";

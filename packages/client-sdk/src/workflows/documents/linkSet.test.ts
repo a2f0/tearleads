@@ -68,6 +68,11 @@ test("buildMaterializedDocumentLinkSetMutationPlan adds links without rotating a
   });
   const createdResponse = createResponse(created.plan);
   const writerProjection: DocumentWriterProjectionResponse = {
+    policyEvidence: {
+      organization: null,
+      organizationPayloads: [],
+      groups: [],
+    },
     authorizingContainerPaths: [projection],
     contentKeyBundle: createdResponse.contentKeyBundle,
     ...writerProjectionEvidence([projection], []),
@@ -128,6 +133,11 @@ test("buildMaterializedDocumentLinkSetMutationPlan adds links without rotating a
     targetSecretKey: secretKey,
     trustedLocalProjection: true,
     writerProjection: {
+      policyEvidence: {
+        organization: null,
+        organizationPayloads: [],
+        groups: [],
+      },
       authorizingContainerPaths: [projection, siblingProjection],
       contentKeyBundle: linkResponse.contentKeyBundle,
       ...writerProjectionEvidence(
@@ -188,6 +198,11 @@ test("buildMaterializedDocumentLinkSetMutationPlan rejects split writer projecti
       targetSecretKey: secretKey,
       trustedLocalProjection: true,
       writerProjection: {
+        policyEvidence: {
+          organization: null,
+          organizationPayloads: [],
+          groups: [],
+        },
         authorizingContainerPaths: [projection],
         contentKeyBundle: {
           ...createdResponse.contentKeyBundle,
@@ -224,6 +239,11 @@ test("buildMaterializedDocumentSyncPlan rejects authorizing paths outside the do
   });
   const createdResponse = createResponse(created.plan);
   const writerProjection: DocumentWriterProjectionResponse = {
+    policyEvidence: {
+      organization: null,
+      organizationPayloads: [],
+      groups: [],
+    },
     authorizingContainerPaths: [projection],
     contentKeyBundle: createdResponse.contentKeyBundle,
     ...writerProjectionEvidence([projection], []),
@@ -271,6 +291,11 @@ test("buildMaterializedDocumentSyncPlan rejects authorizing paths outside the do
       targetSecretKey: secretKey,
       trustedLocalProjection: true,
       writerProjection: {
+        policyEvidence: {
+          organization: null,
+          organizationPayloads: [],
+          groups: [],
+        },
         authorizingContainerPaths: [siblingProjection],
         contentKeyBundle: {
           ...createdResponse.contentKeyBundle,
@@ -349,6 +374,11 @@ test("buildMaterializedDocumentLinkSetMutationPlan names inaccessible remaining 
   });
   const createdResponse = createResponse(created.plan);
   const writerProjection: DocumentWriterProjectionResponse = {
+    policyEvidence: {
+      organization: null,
+      organizationPayloads: [],
+      groups: [],
+    },
     authorizingContainerPaths: [projection],
     contentKeyBundle: createdResponse.contentKeyBundle,
     ...writerProjectionEvidence([projection], []),
@@ -387,6 +417,11 @@ test("buildMaterializedDocumentLinkSetMutationPlan names inaccessible remaining 
       targetSecretKey: secretKey,
       trustedLocalProjection: true,
       writerProjection: {
+        policyEvidence: {
+          organization: null,
+          organizationPayloads: [],
+          groups: [],
+        },
         authorizingContainerPaths: [projection, inaccessibleSiblingProjection],
         contentKeyBundle: linkResponse.contentKeyBundle,
         ...writerProjectionEvidence(

@@ -54,6 +54,7 @@ export async function createOrganizationHistoryFixture() {
   const group = async (
     name: string,
     includeSignerAsAdmin = true,
+    authority?: PrincipalPolicyBundleResponse,
   ): Promise<PrincipalPolicyBundleResponse> =>
     policyBundleFromInitialRequest(
       await buildInitialGroupPolicyRequest({
@@ -65,7 +66,7 @@ export async function createOrganizationHistoryFixture() {
         ...(includeSignerAsAdmin
           ? {}
           : {
-              externalAuthority: principalPolicyHead(admin) as {
+              externalAuthority: principalPolicyHead(authority ?? admin) as {
                 principalType: "group";
               } & ReturnType<typeof principalPolicyHead>,
             }),
@@ -184,6 +185,7 @@ export async function createOrganizationHistoryFixture() {
     });
   };
   return {
+    signingKeyPair,
     advanceGroup,
     advanceDirectory,
     createGroup: group,

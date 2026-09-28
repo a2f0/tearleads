@@ -11,6 +11,7 @@ import {
 } from "../../../test/helpers/blobHydrationFixture";
 import { deriveDocumentTargetFromProjection } from "../../data/documents/shared/projection";
 import { readWriteHeader } from "../../data/documents/shared/readers";
+import { documentContainerProjections } from "../../data/keyingProjectionVerification/documentContainerProjections";
 import { prepareDocumentLinkBlobRewraps } from "../documents/linkSetBlobRewraps";
 import { createAttachmentKeyAuthenticator } from "./attachmentKeyAuthenticator";
 
@@ -70,7 +71,7 @@ test.each([false, true])(
     const fixture = await createUploadedAttachmentFixture();
     let downloads = 0;
     try {
-      const target = fixture.writerProjection.authorizingContainerPaths[0];
+      const target = documentContainerProjections(fixture.writerProjection)[0];
       if (!target) throw new Error("Expected target");
       const result = await prepareDocumentLinkBlobRewraps({
         apiClient: createMockApiClient({

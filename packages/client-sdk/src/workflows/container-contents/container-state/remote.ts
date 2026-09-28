@@ -68,32 +68,15 @@ export async function createRemoteContainer(input: {
   return createRemoteContainerWithMetadataDocument(input);
 }
 
-function containerWriterProjectionFromMutationResponse(input: {
-  previousProjection: ContainerWriterProjectionResponse;
-  response: ContainerMutationResponse;
-}): ContainerWriterProjectionResponse {
-  if (input.response.containerId !== input.previousProjection.containerId) {
-    throw new Error("Container mutation response projection mismatch");
-  }
-
-  return {
-    containerId: input.response.containerId,
-    organizationId: input.response.organizationId,
-    path: [
-      ...input.previousProjection.path.slice(0, -1),
-      input.response.accessManifest,
-    ],
-    containerKeks: [
-      ...input.previousProjection.containerKeks.slice(0, -1),
-      input.response.containerKek,
-    ],
-  };
-}
-
 function sharedRemoteContainerStateFromMutation(
   previousProjection: ContainerWriterProjectionResponse,
   response: ContainerMutationResponse,
 ): SharedRemoteContainerState {
+  if (
+    response.containerId !== previousProjection.containerId ||
+    response.organizationId !== previousProjection.organizationId
+  )
+    throw new Error("Container mutation response projection mismatch");
   return {
     accessManifestHash: response.manifestHead.manifestHash,
     accessEpoch: response.manifestHead.epoch,
@@ -102,10 +85,9 @@ function sharedRemoteContainerStateFromMutation(
     referencedPrincipalHeads:
       referencedPrincipalHeadsFromContainerMutationResponse({ response }),
     updatedAt: response.updatedAt,
-    writerProjection: containerWriterProjectionFromMutationResponse({
-      previousProjection,
-      response,
-    }),
+    // The next read obtains the post-commit proof. A failed read cannot undo
+    // acknowledgement of this successful mutation.
+    writerProjection: null,
   };
 }
 

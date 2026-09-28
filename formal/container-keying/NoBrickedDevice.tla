@@ -26,7 +26,9 @@ EXTENDS Naturals, FiniteSets
 (* detect stays outside this model.                                        *)
 (***************************************************************************)
 
-CONSTANTS Devices,
+CONSTANTS ServeDeletedAuthority,
+          ServeHistoryOnlyAuthority,
+          Devices,
           MaxAuthorityVersion,
           MaxDependentVersion,
           ServerHonest,                  \* only the honest projection is ever served
@@ -46,13 +48,16 @@ ASSUME /\ Devices # {}
        /\ {ServerHonest, RefuseRollback, RefuseFork, RefuseCitationRegression,
            RefuseServedAuthorityRollback, RefuseSignerRevokedAtCitation,
            RefuseSignerRevokedAtCurrent, RefuseStaleHeadCitation,
-           RefuseStaleChainCitation} \subseteq BOOLEAN
+           RefuseStaleChainCitation, ServeDeletedAuthority,
+           ServeHistoryOnlyAuthority} \subseteq BOOLEAN
 
 AuthorityVersions == 1..MaxAuthorityVersion
 DependentVersions == 1..MaxDependentVersion
 Outcomes == {"none", "accepted", "refused"}
 
-VARIABLES authorityVersion,     \* honest current authority head
+VARIABLES authorityDeleted,
+          authorityCurrentReference,
+          authorityVersion,     \* honest current authority head
           revokedAt,            \* authority head that revoked the late signer; 0 while a member
           dependentVersion,     \* honest current dependent head
           cites,                \* dependent version -> authority version its event cites; 0 unwritten
@@ -65,7 +70,8 @@ VARIABLES authorityVersion,     \* honest current authority head
           outcome,              \* device -> last verification outcome
           honestRefused         \* some device refused the honest projection
 
-serverVars == << authorityVersion, revokedAt, dependentVersion, cites, signedByLate >>
+serverVars == << authorityVersion, revokedAt, dependentVersion, cites, signedByLate,
+                 authorityDeleted, authorityCurrentReference >>
 deviceVars == << checkpoint, heldHonestPrefix, heldCitation, heldSignedByLate,
                  authorityCheckpoint, outcome >>
 vars == << serverVars, deviceVars, honestRefused >>
@@ -73,6 +79,8 @@ vars == << serverVars, deviceVars, honestRefused >>
 Min(a, b) == IF a <= b THEN a ELSE b
 
 TypeOK ==
+  /\ authorityDeleted \in BOOLEAN
+  /\ authorityCurrentReference \in BOOLEAN
   /\ authorityVersion \in AuthorityVersions
   /\ revokedAt \in 0..MaxAuthorityVersion
   /\ dependentVersion \in DependentVersions
@@ -89,6 +97,8 @@ TypeOK ==
 (* The dependent exists at version 1 citing authority version 1. A device    *)
 (* either holds that state or has no history yet.                            *)
 Init ==
+  /\ authorityDeleted = FALSE
+  /\ authorityCurrentReference = TRUE
   /\ authorityVersion = 1
   /\ revokedAt = 0
   /\ dependentVersion = 1
@@ -108,28 +118,52 @@ MemberAt(late, version) == ~late \/ revokedAt = 0 \/ version < revokedAt
 
 (* A share, rekey, or move at the ancestor; an Admins successor. *)
 AdvanceAuthority ==
+  /\ ~authorityDeleted
   /\ authorityVersion < MaxAuthorityVersion
   /\ authorityVersion' = authorityVersion + 1
   /\ UNCHANGED << revokedAt, dependentVersion, cites, signedByLate,
-                  deviceVars, honestRefused >>
+                  deviceVars, honestRefused, authorityDeleted, authorityCurrentReference >>
 
 RevokeLateSigner ==
+  /\ ~authorityDeleted
   /\ revokedAt = 0
   /\ authorityVersion < MaxAuthorityVersion
   /\ authorityVersion' = authorityVersion + 1
   /\ revokedAt' = authorityVersion + 1
   /\ UNCHANGED << dependentVersion, cites, signedByLate, deviceVars,
-                  honestRefused >>
+                  honestRefused, authorityDeleted, authorityCurrentReference >>
 
 (* The honest API commits a dependent head only for a signer with          *)
 (* membership at the current authority head, citing exactly that head.     *)
 CommitDependent(late) ==
+  /\ ~authorityDeleted
+  /\ authorityCurrentReference
   /\ dependentVersion < MaxDependentVersion
   /\ MemberAt(late, authorityVersion)
   /\ dependentVersion' = dependentVersion + 1
   /\ cites' = [cites EXCEPT ![dependentVersion + 1] = authorityVersion]
   /\ signedByLate' = [signedByLate EXCEPT ![dependentVersion + 1] = late]
-  /\ UNCHANGED << authorityVersion, revokedAt, deviceVars, honestRefused >>
+  /\ UNCHANGED << authorityVersion, revokedAt, deviceVars, honestRefused,
+                  authorityDeleted, authorityCurrentReference >>
+
+(* A revoke removes a current grant; retained signed history still cites it. *)
+DropAuthorityReference ==
+  /\ authorityCurrentReference
+  /\ authorityCurrentReference' = FALSE
+  /\ UNCHANGED << authorityVersion, revokedAt, dependentVersion, cites,
+                  signedByLate, authorityDeleted, deviceVars, honestRefused >>
+
+(* Deletion erases keys and current directory membership, retaining proofs. *)
+DeleteAuthority ==
+  /\ ~authorityCurrentReference
+  /\ ~authorityDeleted
+  /\ authorityDeleted' = TRUE
+  /\ UNCHANGED << authorityVersion, revokedAt, dependentVersion, cites,
+                  signedByLate, authorityCurrentReference, deviceVars, honestRefused >>
+
+AuthorityEvidenceServed ==
+  IF authorityDeleted THEN ServeDeletedAuthority
+  ELSE authorityCurrentReference \/ ServeHistoryOnlyAuthority
 
 (* A served projection: the dependent head, how far its chain agrees with  *)
 (* the honest one, the authority head its event cites, its signer, and the *)
@@ -196,6 +230,7 @@ StaleChainOk(d, p) ==
           cites[v] = p.authority
 
 Accepts(d, p) ==
+  /\ AuthorityEvidenceServed
   /\ RollbackOk(d, p)
   /\ ForkOk(d, p)
   /\ CitationOk(d, p)
@@ -239,6 +274,7 @@ DishonestSync(d) ==
 
 (* Syncing the authority's own projection. *)
 SyncAuthority(d) ==
+  /\ AuthorityEvidenceServed
   /\ HoldsHonestChain(d)
   /\ authorityCheckpoint[d] < authorityVersion
   /\ authorityCheckpoint' = [authorityCheckpoint EXCEPT ![d] = authorityVersion]
@@ -246,6 +282,8 @@ SyncAuthority(d) ==
                   heldSignedByLate, outcome, honestRefused >>
 
 Next ==
+  \/ DropAuthorityReference
+  \/ DeleteAuthority
   \/ AdvanceAuthority
   \/ RevokeLateSigner
   \/ \E late \in BOOLEAN : CommitDependent(late)

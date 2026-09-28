@@ -27,6 +27,8 @@ export interface NoBrickProjection {
 }
 
 export type NoBrickTraceStep =
+  | { readonly action: "DropAuthorityReference" }
+  | { readonly action: "DeleteAuthority" }
   | { readonly action: "AdvanceAuthority" }
   | { readonly action: "RevokeLateSigner" }
   | { readonly action: "CommitDependent"; readonly late: boolean }

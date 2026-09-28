@@ -1,6 +1,7 @@
 import { z } from "zod";
 import {
   ContainerNotFoundErrorResponseSchema,
+  ContainerWriterProjectionErrorResponseSchema,
   ContainerWriterProjectionResponseSchema,
   DocumentNotFoundErrorResponseSchema,
   DocumentWriterProjectionErrorResponseSchema,
@@ -35,7 +36,7 @@ export const getContainerWriterProjectionOperation = defineJsonOperation({
     401: SessionFailureResponseSchema,
     403: ErrorResponseSchema,
     404: ContainerNotFoundErrorResponseSchema,
-    409: ErrorResponseSchema,
+    409: ContainerWriterProjectionErrorResponseSchema,
     500: ErrorResponseSchema,
   },
   failureStatuses: [400, 401, 403, 404, 409, 500],

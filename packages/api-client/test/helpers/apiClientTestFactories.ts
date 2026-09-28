@@ -96,6 +96,11 @@ export function createContainerWriterProjectionResponse(): ContainerWriterProjec
   const mutationResponse = createContainerMutationResponse();
 
   return {
+    policyEvidence: {
+      organization: null,
+      organizationPayloads: [],
+      groups: [],
+    },
     containerId: mutationResponse.containerId,
     organizationId: mutationResponse.organizationId,
     path: [mutationResponse.accessManifest],
@@ -345,6 +350,11 @@ export function createDocumentWriterProjectionResponse(): DocumentWriterProjecti
   const mutationResponse = createDocumentLinkSetMutationResponse();
 
   return {
+    policyEvidence: {
+      organization: null,
+      organizationPayloads: [],
+      groups: [],
+    },
     documentId: mutationResponse.id,
     documentManifest: mutationResponse.accessManifest,
     documentManifestHistory: [],

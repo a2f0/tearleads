@@ -240,6 +240,7 @@ export const subsystems: readonly Subsystem[] = [
     seam: "utils/* direct import",
     paths: [
       `${api}/utils/array.ts`,
+      `${api}/utils/byteBudgetCache.ts`,
       `${api}/utils/canonicalJson.ts`,
       `${api}/utils/cursor.ts`,
       `${api}/utils/databaseErrors.ts`,

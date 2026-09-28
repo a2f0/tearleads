@@ -9,13 +9,13 @@ import {
   principalPolicyMatchesReference,
   toFingerprint,
   verifyPrincipalPolicyCheckpoint,
-  verifyPrincipalPolicySnapshot,
 } from "@tearleads/crypto";
 import type { PrincipalPolicySnapshotResponse } from "@tearleads/validators/response";
 import { loadPrincipalPolicyCheckpoint } from "../persistence/keyingCheckpointPersistence";
 import { loadPrincipalPolicyBundleForReference } from "../persistence/principalPolicyReferencePersistence";
 import type { ExecSql } from "../sqlite/sqlSchema";
 import { ProjectionDependencyUnavailableError } from "./dependencyUnavailable";
+import { verifyReceivedPolicySnapshot } from "./snapshotVerificationCache";
 import type { ProjectionUserKeyResolver } from "./types";
 
 function identityKey(input: {
@@ -150,20 +150,21 @@ async function verifySnapshotAuthorization(input: {
   readonly snapshot: PrincipalPolicySnapshotResponse;
 }): Promise<VerifiedPrincipalPolicySnapshot> {
   const reference = snapshotReference(input.snapshot);
-  const direct = await verifyPrincipalPolicySnapshot({
-    expectedReference: reference,
-    signerPublicKeys: input.signerPublicKeys,
-    snapshot: input.snapshot,
-  });
-  if (direct.ok) {
-    return direct.value;
-  }
-  if (direct.error.code !== "unauthorized") {
-    throw direct.error;
-  }
   const authorityHead = authorityReference(input.snapshot);
+  if (reference.principalType === "organization" && authorityHead) {
+    throw new KeyingVerificationError(
+      "unauthorized",
+      "organization states cannot cite external authority",
+    );
+  }
   if (!authorityHead) {
-    throw direct.error;
+    const direct = await verifyReceivedPolicySnapshot({
+      expectedReference: reference,
+      signerPublicKeys: input.signerPublicKeys,
+      snapshot: input.snapshot,
+    });
+    if (!direct.ok) throw direct.error;
+    return direct.value;
   }
   const authorityPolicy = await input.resolveAuthority(authorityHead);
   if (
@@ -177,7 +178,7 @@ async function verifySnapshotAuthorization(input: {
       "Principal policy snapshot authority omits the referenced head",
     );
   }
-  const verified = await verifyPrincipalPolicySnapshot({
+  const verified = await verifyReceivedPolicySnapshot({
     expectedReference: reference,
     externalAuthority: externalAuthority(authorityPolicy),
     signerPublicKeys: input.signerPublicKeys,

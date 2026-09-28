@@ -116,6 +116,11 @@ function buildWrappedProjection(input: {
   } = input;
 
   return {
+    policyEvidence: {
+      organization: null,
+      organizationPayloads: [],
+      groups: [],
+    },
     containerId: childContainerId,
     organizationId,
     path: [
@@ -305,6 +310,11 @@ export async function createSiblingProjection(input: {
 
   return {
     projection: {
+      policyEvidence: {
+        organization: null,
+        organizationPayloads: [],
+        groups: [],
+      },
       containerId: siblingContainerId,
       organizationId: input.baseProjection.organizationId,
       path: [

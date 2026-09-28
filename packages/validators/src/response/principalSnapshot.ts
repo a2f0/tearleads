@@ -1,0 +1,149 @@
+import { z } from "zod";
+import {
+  arraySchema,
+  loosePlainObject,
+  nonNegativeIntegerSchema,
+  positiveIntegerSchema,
+} from "../schema";
+
+export const PrincipalStateExternalAuthorityResponseSchema = loosePlainObject({
+  keyEpoch: positiveIntegerSchema,
+  keyFingerprint: z.string(),
+  principalId: z.string(),
+  principalType: z.literal("group"),
+  stateHash: z.string(),
+  version: positiveIntegerSchema,
+});
+
+export type PrincipalStateExternalAuthorityResponse = z.infer<
+  typeof PrincipalStateExternalAuthorityResponseSchema
+>;
+
+export const PrincipalStateResponseSchema = loosePlainObject({
+  createdAt: z.string(),
+  encapsulationPublicKey: z.string(),
+  externalAuthority: PrincipalStateExternalAuthorityResponseSchema.nullable(),
+  grantCount: nonNegativeIntegerSchema,
+  grantRoot: z.string(),
+  keyEpoch: z.number(),
+  keyFingerprint: z.string(),
+  memberCount: nonNegativeIntegerSchema,
+  memberEnvelopesRoot: z.string(),
+  membershipMode: z.literal("projection"),
+  membershipRoot: z.string(),
+  payloadCiphertextHash: z.string(),
+  prevStateHash: z.string().nullable(),
+  principalId: z.string(),
+  principalType: z.literal(["group", "organization"]),
+  projectionRoot: z.string(),
+  signature: z.string(),
+  signedAt: z.string(),
+  signerUserId: z.string(),
+  signerUserKeyFingerprint: z.string(),
+  stateHash: z.string(),
+  version: z.number(),
+});
+
+export type PrincipalStateResponse = z.infer<
+  typeof PrincipalStateResponseSchema
+>;
+
+export const PrincipalProjectionMemberResponseSchema = loosePlainObject({
+  role: z.literal(["member", "admin"]),
+  userId: z.string(),
+});
+
+export type PrincipalProjectionMemberResponse = z.infer<
+  typeof PrincipalProjectionMemberResponseSchema
+>;
+
+export const PrincipalContainerGrantResponseSchema = loosePlainObject({
+  accessLevel: z.literal(["admin", "read", "write"]),
+  containerId: z.string(),
+});
+
+export type PrincipalContainerGrantResponse = z.infer<
+  typeof PrincipalContainerGrantResponseSchema
+>;
+
+export const PrincipalStatePayloadResponseSchema = loosePlainObject({
+  cipherSuite: z.literal("aes-256-gcm"),
+  ciphertext: z.string(),
+  ciphertextHash: z.string(),
+  createdAt: z.string(),
+  principalId: z.string(),
+  principalType: z.literal(["group", "organization"]),
+  stateHash: z.string(),
+});
+
+export type PrincipalStatePayloadResponse = z.infer<
+  typeof PrincipalStatePayloadResponseSchema
+>;
+
+export const PrincipalMemberEnvelopeResponseSchema = loosePlainObject({
+  kemCipherText: z.string(),
+  memberKeyFingerprint: z.string(),
+  userId: z.string(),
+  wrappedKey: z.string(),
+});
+
+export type PrincipalMemberEnvelopeResponse = z.infer<
+  typeof PrincipalMemberEnvelopeResponseSchema
+>;
+
+export const CurrentPrincipalMemberEnvelopesResponseSchema = loosePlainObject({
+  envelopes: arraySchema(PrincipalMemberEnvelopeResponseSchema),
+  epoch: z.number(),
+  principalId: z.string(),
+  principalType: z.literal(["group", "organization"]),
+  stateHash: z.string(),
+});
+
+export type CurrentPrincipalMemberEnvelopesResponse = z.infer<
+  typeof CurrentPrincipalMemberEnvelopesResponseSchema
+>;
+
+export const PrincipalPolicyStateChainEntryResponseSchema = loosePlainObject({
+  grants: arraySchema(PrincipalContainerGrantResponseSchema),
+  projection: arraySchema(PrincipalProjectionMemberResponseSchema),
+  state: PrincipalStateResponseSchema,
+});
+
+export type PrincipalPolicyStateChainEntryResponse = z.infer<
+  typeof PrincipalPolicyStateChainEntryResponseSchema
+>;
+
+export const PrincipalPolicySnapshotResponseSchema = loosePlainObject({
+  currentGrants: arraySchema(PrincipalContainerGrantResponseSchema),
+  currentProjection: arraySchema(PrincipalProjectionMemberResponseSchema),
+  currentState: PrincipalStateResponseSchema,
+  previousStates: arraySchema(PrincipalPolicyStateChainEntryResponseSchema),
+});
+
+export type PrincipalPolicySnapshotResponse = z.infer<
+  typeof PrincipalPolicySnapshotResponseSchema
+>;
+
+export function isPrincipalStateResponse(
+  value: unknown,
+): value is PrincipalStateResponse {
+  return PrincipalStateResponseSchema.safeParse(value).success;
+}
+
+export function isPrincipalStatePayloadResponse(
+  value: unknown,
+): value is PrincipalStatePayloadResponse {
+  return PrincipalStatePayloadResponseSchema.safeParse(value).success;
+}
+
+export function isCurrentPrincipalMemberEnvelopesResponse(
+  value: unknown,
+): value is CurrentPrincipalMemberEnvelopesResponse {
+  return CurrentPrincipalMemberEnvelopesResponseSchema.safeParse(value).success;
+}
+
+export function isPrincipalPolicyStateChainEntryResponse(
+  value: unknown,
+): value is PrincipalPolicyStateChainEntryResponse {
+  return PrincipalPolicyStateChainEntryResponseSchema.safeParse(value).success;
+}

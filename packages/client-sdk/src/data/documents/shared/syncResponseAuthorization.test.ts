@@ -73,6 +73,11 @@ test("a new-to-device document head and its historical write retain cited ancest
     })),
   };
   const projection: DocumentWriterProjectionResponse = {
+    policyEvidence: {
+      organization: null,
+      organizationPayloads: [],
+      groups: [],
+    },
     documentId,
     documentManifest: {
       event: {

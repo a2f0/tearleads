@@ -8,6 +8,7 @@ import { ContainerAuthorAccessError } from "../../data/containers/shared/authorA
 import type { MaterializedContainerRekeyPlan } from "../../data/containers/shared/types";
 import { ContainerKekRepairInaccessibleError } from "../../data/documents/shared/containerKekCurrency";
 import { ContainerKekTargetUnreachableError } from "../../data/documents/shared/containerKekPath";
+import { documentContainerProjections } from "../../data/keyingProjectionVerification/documentContainerProjections";
 import { assertProjectionVerificationCurrent } from "../../data/keyingProjectionVerification/types";
 import { buildMaterializedContainerRekeyPlan } from "../containers/child/rekey";
 import type { SyncRemoteDocumentInput } from "./readOnlySync";
@@ -23,7 +24,7 @@ interface StaleContainer {
 function firstStaleContainer(
   projection: DocumentWriterProjectionResponse,
 ): StaleContainer | null {
-  for (const path of projection.authorizingContainerPaths) {
+  for (const path of documentContainerProjections(projection)) {
     for (let index = 1; index < path.containerKeks.length; index += 1) {
       const parent = path.containerKeks[index - 1];
       const child = path.containerKeks[index];

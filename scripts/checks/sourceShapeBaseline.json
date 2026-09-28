@@ -71,8 +71,8 @@
       "bytes": 23535
     },
     "docs/openapi.json": {
-      "lines": 69180,
-      "bytes": 2889739
+      "lines": 71053,
+      "bytes": 2987380
     },
     "docs/protocol-specification.md": {
       "lines": 658,
@@ -239,8 +239,8 @@
       "bytes": 31624
     },
     "packages/client-sdk/src/data/containers/shared/projection.test.ts": {
-      "lines": 1043,
-      "bytes": 37199
+      "lines": 703,
+      "bytes": 26168
     },
     "packages/client-sdk/src/data/documents/editAttribution.test.ts": {
       "lines": 580,
@@ -283,8 +283,8 @@
       "bytes": 30465
     },
     "packages/client-sdk/src/workflows/container-contents/documentInfo.test.ts": {
-      "lines": 644,
-      "bytes": 19720
+      "lines": 512,
+      "bytes": 15786
     },
     "packages/client-sdk/src/workflows/container-contents/documentQueries.test.ts": {
       "lines": 590,
@@ -336,23 +336,23 @@
     },
     "packages/crypto/src/keying/types.ts": {
       "lines": 1187,
-      "bytes": 37729
+      "bytes": 37744
     },
     "packages/validators/src/operation/generatedOpenApi.ts": {
-      "lines": 25864,
-      "bytes": 1078507
+      "lines": 26348,
+      "bytes": 1105888
     },
     "packages/validators/src/response/index.ts": {
-      "lines": 504,
-      "bytes": 17676
+      "lines": 512,
+      "bytes": 17975
     },
     "packages/validators/src/response/response.test.ts": {
-      "lines": 940,
-      "bytes": 28424
+      "lines": 587,
+      "bytes": 17549
     },
     "scripts/architecture/subsystems.ts": {
-      "lines": 765,
-      "bytes": 28628
+      "lines": 766,
+      "bytes": 28669
     }
   },
   "suppressions": {

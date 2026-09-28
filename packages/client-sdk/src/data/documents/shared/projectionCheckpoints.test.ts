@@ -81,6 +81,11 @@ test("document dependency evidence cannot hide a newer container head", async ()
   });
   const response = createResponse(created.plan);
   const projection: DocumentWriterProjectionResponse = {
+    policyEvidence: {
+      organization: null,
+      organizationPayloads: [],
+      groups: [],
+    },
     authorizingContainerPaths: [parent.projection],
     contentKeyBundle: response.contentKeyBundle,
     documentId: response.id,

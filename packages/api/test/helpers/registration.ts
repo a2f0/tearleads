@@ -807,6 +807,11 @@ function childContainerProjectionFromArtifacts(input: {
   }
 
   return {
+    policyEvidence: {
+      organization: null,
+      organizationPayloads: [],
+      groups: [],
+    },
     containerId: input.child.state.containerId,
     organizationId: input.child.state.organizationId,
     path: [

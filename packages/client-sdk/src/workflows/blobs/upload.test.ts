@@ -174,7 +174,7 @@ test("uploadDocumentAttachment stages binary v2 with multipart uploads", async (
   expect(completedPartNumbers.toSorted()).toEqual([1, 2]);
 });
 
-test("uploadDocumentAttachment warms managed policies for the projection owner before staging", async () => {
+test("uploadDocumentAttachment refuses missing managed-policy evidence before staging", async () => {
   const {
     author,
     projection,
@@ -269,13 +269,8 @@ test("uploadDocumentAttachment warms managed policies for the projection owner b
         },
         writerProjection: managedWriterProjection,
       }),
-    ).rejects.toThrow("Attachment upload policy warmer reached");
-    expect(requests).toEqual([
-      {
-        organizationId: projection.organizationId,
-        references: [groupHead],
-      },
-    ]);
+    ).rejects.toThrow("Projection omits required principal policy evidence");
+    expect(requests).toEqual([]);
   } finally {
     close();
   }
@@ -302,6 +297,11 @@ test("uploadDocumentAttachment rejects substituted KEK material before staging",
     userId: parent.userId,
   });
   const writerProjection: DocumentWriterProjectionResponse = {
+    policyEvidence: {
+      organization: null,
+      organizationPayloads: [],
+      groups: [],
+    },
     authorizingContainerPaths: [tamperedProjection],
     contentKeyBundle: response.contentKeyBundle,
     documentContainerManifestHistory: [

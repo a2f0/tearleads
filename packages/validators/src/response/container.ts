@@ -24,6 +24,7 @@ import {
   ReferencedPrincipalStateResponseSchema,
   ReferencedPrincipalStateResponseShape,
 } from "./principalReference";
+import { ProjectionPolicyEvidenceResponseSchema } from "./projectionPolicyEvidence";
 import { SyncWatermarkSchema } from "./syncWatermark";
 
 const ContainerGrantPrincipalStateResponseSchema = loosePlainObject({
@@ -202,26 +203,51 @@ export type ContainerDeleteResponse = z.infer<
   typeof ContainerDeleteResponseSchema
 >;
 
+export const CONTAINER_PROJECTION_STATE_INVALID_ERROR_CODE =
+  "container_projection_state_invalid";
+export const ContainerWriterProjectionErrorResponseSchema = loosePlainObject({
+  code: z.literal(CONTAINER_PROJECTION_STATE_INVALID_ERROR_CODE),
+  error: z.string(),
+});
+
+const containerKeyingPathShape = {
+  containerId: z.string(),
+  containerKeks: arraySchema(ContainerKekResponseSchema),
+  organizationId: z.string(),
+  path: nonEmptyArraySchema(AccessManifestBundleWireResponseSchema),
+};
+function refineContainerKeyingPath(
+  projection: { containerKeks: unknown[]; path: unknown[] },
+  context: z.RefinementCtx,
+) {
+  // loosePlainObject can continue refinements after reporting malformed fields.
+  if (
+    Array.isArray(projection.containerKeks) &&
+    Array.isArray(projection.path) &&
+    projection.containerKeks.length !== projection.path.length
+  )
+    context.addIssue({
+      code: "custom",
+      message: "container KEK count must match the manifest path length",
+      path: ["containerKeks"],
+    });
+}
+export const ContainerKeyingPathResponseSchema =
+  registerJsonSchemaRuntimeRefinements(
+    loosePlainObject(containerKeyingPathShape).superRefine(
+      refineContainerKeyingPath,
+    ),
+    [containerWriterProjectionPathKekCountRefinement],
+  );
+export type ContainerKeyingPathResponse = z.infer<
+  typeof ContainerKeyingPathResponseSchema
+>;
 export const ContainerWriterProjectionResponseSchema =
   registerJsonSchemaRuntimeRefinements(
     loosePlainObject({
-      containerId: z.string(),
-      containerKeks: arraySchema(ContainerKekResponseSchema),
-      organizationId: z.string(),
-      path: nonEmptyArraySchema(AccessManifestBundleWireResponseSchema),
-    }).superRefine((projection, context) => {
-      if (
-        Array.isArray(projection.containerKeks) &&
-        Array.isArray(projection.path) &&
-        projection.containerKeks.length !== projection.path.length
-      ) {
-        context.addIssue({
-          code: "custom",
-          message: "container KEK count must match the manifest path length",
-          path: ["containerKeks"],
-        });
-      }
-    }),
+      ...containerKeyingPathShape,
+      policyEvidence: ProjectionPolicyEvidenceResponseSchema,
+    }).superRefine(refineContainerKeyingPath),
     [containerWriterProjectionPathKekCountRefinement],
   );
 

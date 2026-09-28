@@ -137,7 +137,6 @@ export async function addRosterUserToGroup(input: {
   directoryUser: OrganizationDirectory["users"][number] | undefined;
   groupId: string;
   groupName: string;
-  isAdminGroup: boolean;
   isOperationActive: IsOperationActive;
   memberGroupId: string | null;
   operationOrganizationId: string;
@@ -151,12 +150,8 @@ export async function addRosterUserToGroup(input: {
   }
 
   let seededMembership = false;
-  // An admin must be an organization member. Nesting used to supply that for
-  // free — Members contained Admins — so adding straight to Admins was enough.
-  // Now Members has to be seeded first, and the server rejects the write if it
-  // is not. Ordinary groups keep their old behaviour: they may hold users who
-  // are not Members, so seeding them would change who gets billed.
-  if (input.isAdminGroup && input.memberGroupId) {
+  // Enroll in Members before any other group; the server enforces the roster.
+  if (input.memberGroupId && input.groupId !== input.memberGroupId) {
     const membership = await ensureRosterUserInGroup({
       ...input,
       groupId: input.memberGroupId,
@@ -169,7 +164,7 @@ export async function addRosterUserToGroup(input: {
     seededMembership = membership === "added";
   }
 
-  // Two writes cannot be one transaction, so the Admins half can fail with the
+  // Two writes cannot be one transaction, so the group half can fail with the
   // Members half already committed. Say so plainly: the user really is an
   // organization member and really is billed, and silently reporting "add
   // failed" would leave that invisible.
@@ -187,7 +182,7 @@ export async function addRosterUserToGroup(input: {
       seededMembership &&
       input.isOperationActive(input.operationOrganizationId)
     ) {
-      input.setError(ORG_MANAGER_LABELS.failedAddAdminAfterMemberAdd);
+      input.setError(ORG_MANAGER_LABELS.failedAddGroupAfterMemberAdd);
       return null;
     }
     throw error;

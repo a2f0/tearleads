@@ -322,7 +322,10 @@ export async function syncDocumentWithInlineRootRekey(input: {
           author,
           execSql,
           ...verification,
-          previousProjection,
+          previousProjection: {
+            ...previousProjection,
+            policyEvidence: writerProjection.policyEvidence,
+          },
           resolveProjectionUserKey: resolveTrustedUserIdentity,
           targetSecretKey: input.owner.kem.secretKey,
           warmReferencedPrincipalPolicies,

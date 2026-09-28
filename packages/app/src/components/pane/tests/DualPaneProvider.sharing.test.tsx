@@ -61,9 +61,9 @@ const OWNER_GRANTED_ROOT_ATTACHMENT_REQUEST_BUDGET: ProxiedApiRequestBudget = {
   // policies. Measured 71-73 on main at fe7f09962.
   total: 76,
   // Complete post-share hydration and scoped document citations (#2365)
-  // measured 1.525 MB, including 936 KB of document writer proofs. Keep
+  // plus retained historical policy proofs measure 1.98 MB. Keep
   // byte headroom without relaxing request or write-bearing sync limits.
-  bodyBytes: { request: 380_000, response: 1_650_000 },
+  bodyBytes: { request: 380_000, response: 2_100_000 },
   byRequest: {
     "GET /documents/:documentId/writer-projection": 11,
     "POST /documents/:documentId/sync": 18,
@@ -73,8 +73,9 @@ const OWNER_GRANTED_ROOT_ATTACHMENT_REQUEST_BUDGET: ProxiedApiRequestBudget = {
     "POST /containers/parent-lanes/query": 11,
     "GET /auth/user-identity/:userId": 0,
     "POST /auth/ws-ticket": 0,
-    // Includes classifying a newly visible root plus fresh container info.
-    "GET /containers/:containerId/writer-projection": 5,
+    // Includes classifying a newly visible root, fresh container info, and
+    // the lazy projection read after acknowledging a successful share.
+    "GET /containers/:containerId/writer-projection": 6,
     "GET /documents/:documentId/attachments": 2,
     "GET /organizations/:organizationId/billing": 0,
     "GET /organizations/:organizationId/read-model": 6,

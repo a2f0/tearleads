@@ -14,6 +14,9 @@ export const NO_BRICK_MODEL_DIRECTORY = "formal/container-keying";
 /** Model declarations the projection names; the check pins them to the module. */
 export const MODEL_VOCABULARY = [
   "AdvanceAuthority",
+  "DropAuthorityReference",
+  "DeleteAuthority",
+  "AuthorityEvidenceServed",
   "RevokeLateSigner",
   "CommitDependent",
   "SyncAuthority",
@@ -39,6 +42,8 @@ export interface NoBrickProjection {
 }
 
 export type NoBrickTraceStep =
+  | { readonly action: "DropAuthorityReference" }
+  | { readonly action: "DeleteAuthority" }
   | { readonly action: "AdvanceAuthority" }
   | { readonly action: "RevokeLateSigner" }
   | { readonly action: "CommitDependent"; readonly late: boolean }
@@ -143,6 +148,8 @@ function isStep(value: unknown, devices: readonly string[]): boolean {
   const keys = Object.keys(value).sort().join(",");
   const step: LooseStep = value;
   switch (step.action) {
+    case "DropAuthorityReference":
+    case "DeleteAuthority":
     case "AdvanceAuthority":
     case "RevokeLateSigner":
       return keys === "action";
@@ -211,6 +218,8 @@ export function projectionFormula(projection: NoBrickProjection): string {
 
 export function traceStepFormula(step: NoBrickTraceStep): string {
   switch (step.action) {
+    case "DropAuthorityReference":
+    case "DeleteAuthority":
     case "AdvanceAuthority":
     case "RevokeLateSigner":
       return step.action;
@@ -322,6 +331,8 @@ TSpec == TInit /\\ [][TNext]_<< vars, idx >>
   const cfg = `SPECIFICATION TSpec
 
 CONSTANTS
+  ServeDeletedAuthority = TRUE
+  ServeHistoryOnlyAuthority = TRUE
   Devices = {${devices.map((device) => `"${device}"`).join(", ")}}
   MaxAuthorityVersion = ${bounds.maxAuthorityVersion}
   MaxDependentVersion = ${bounds.maxDependentVersion}

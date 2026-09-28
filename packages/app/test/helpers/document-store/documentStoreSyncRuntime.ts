@@ -184,6 +184,11 @@ export async function documentWorkflowRuntimePatch(input: {
           return null;
         }
         const projection = {
+          policyEvidence: {
+            organization: null,
+            organizationPayloads: [],
+            groups: [],
+          },
           authorizingContainerPaths: [await getProjection()],
           contentKeyBundle: storedDocument.contentKeyBundle,
           documentId: storedDocument.id,

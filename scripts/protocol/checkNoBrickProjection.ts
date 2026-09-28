@@ -43,12 +43,14 @@ const SCENARIO_TESTS: readonly string[] = [
   "src/data/keyingProjectionVerification/noBrickContainerProjection.test.ts",
   "src/data/keyingProjectionVerification/noBrickPolicyProjection.test.ts",
   "src/data/keyingProjectionVerification/noBrickGroupProjection.test.ts",
+  "src/data/keyingProjectionVerification/noBrickHistoricalPolicyProjection.test.ts",
 ];
 const EXPECTED_TRACES = [
   "container-fresh-device",
   "container-group-late-delivery",
   "container-late-chain",
   "container-late-delivery",
+  "historical-policy-delivery",
   "policy-late-delivery",
 ];
 
@@ -199,10 +201,14 @@ function runProjectionCheck(): void {
     const group = traces.find(
       (trace) => trace.scenario === "container-group-late-delivery",
     );
-    if (!lateDelivery || !policy || !group) {
+    const historical = traces.find(
+      (trace) => trace.scenario === "historical-policy-delivery",
+    );
+    if (!lateDelivery || !policy || !group || !historical) {
       projectionFail("negative controls require the late-delivery traces.");
     }
     const negatives = [
+      flippedOutcomeTrace(historical),
       flippedOutcomeTrace(lateDelivery),
       droppedRevocationTrace(lateDelivery),
       flippedOutcomeTrace(policy),

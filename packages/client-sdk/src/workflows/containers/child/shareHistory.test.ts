@@ -141,6 +141,11 @@ test("repeated shares submit every same-container manifest needed by retained wr
         throw new Error(`Expected share result ${index + 1}`);
       }
       projection = {
+        policyEvidence: {
+          organization: null,
+          organizationPayloads: [],
+          groups: [],
+        },
         containerId: shared.response.containerId,
         organizationId: shared.response.organizationId,
         path: [shared.response.accessManifest],

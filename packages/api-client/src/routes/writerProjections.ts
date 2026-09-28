@@ -6,6 +6,7 @@ import {
   operationRequestPath,
 } from "@tearleads/validators/operation";
 import type {
+  ContainerKeyingPathResponse,
   ContainerWriterProjectionResponse,
   DocumentWriterProjectionResponse,
 } from "@tearleads/validators/response";
@@ -30,7 +31,7 @@ function manifestDescribes(
 }
 
 function containerProjectionDescribes(
-  projection: ContainerWriterProjectionResponse,
+  projection: ContainerKeyingPathResponse,
   containerId: string,
 ): boolean {
   const leaf = projection.path.at(-1);

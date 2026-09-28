@@ -2,10 +2,7 @@ import {
   getContainerWriterProjectionOperation,
   operationRoutePath,
 } from "@tearleads/validators/operation";
-import {
-  CONTAINER_NOT_FOUND_ERROR_CODE,
-  type ContainerWriterProjectionResponse,
-} from "@tearleads/validators/response";
+import type { ContainerWriterProjectionResponse } from "@tearleads/validators/response";
 import type { MiddlewareHandler } from "hono";
 import { Hono } from "hono";
 import type { SessionEnv } from "../../middleware/session";
@@ -50,10 +47,10 @@ export function createContainerWriterProjectionRoute({
           error,
           ContainerWriterProjectionError,
           error instanceof ContainerWriterProjectionError &&
-            error.code === CONTAINER_NOT_FOUND_ERROR_CODE
+            error.code !== undefined
             ? {
-                code: CONTAINER_NOT_FOUND_ERROR_CODE,
-                status: 404,
+                code: error.code,
+                status: error.status,
               }
             : undefined,
         );

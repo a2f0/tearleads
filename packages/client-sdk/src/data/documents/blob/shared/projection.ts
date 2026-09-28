@@ -9,6 +9,7 @@ import type {
   BlobContentKeyBundleResponse,
   DocumentWriterProjectionResponse,
 } from "@tearleads/validators/response";
+import { documentContainerProjections } from "../../../keyingProjectionVerification/documentContainerProjections";
 import type { ExecSql } from "../../../sqlite/sqlSchema";
 import { assertDocumentKekPathsCurrent } from "../../shared/containerKekCurrency";
 import {
@@ -77,7 +78,9 @@ async function collectContainerKeks(
 ): Promise<ReadonlyMap<string, Uint8Array>> {
   const keksByEpochId = new Map<string, Uint8Array>();
 
-  for (const projection of input.writerProjection.authorizingContainerPaths) {
+  for (const projection of documentContainerProjections(
+    input.writerProjection,
+  )) {
     const projectionKeks = await unwrapContainerKekPath({
       execSql: input.execSql,
       projection,

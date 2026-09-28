@@ -112,8 +112,9 @@ The access and policy handshake has these layers:
    manifests. Manifests bind the object, organization, epoch, predecessor hash,
    event hash, structural hash, grant root, referenced principal heads, and
    key-target hash.
-6. App clients fetch referenced principal policy bundles, verify them, and
-   cache only bundles whose signed state chain matches the object reference.
+6. Clients verify [historical policy proofs](projection-policy-evidence.md),
+   including retained membership/grant metadata for authorized object readers,
+   and fetch and cache verified full current policies for key unwrapping.
 7. App clients unwrap group or organization addressed object envelopes only
    through verified cached principal policies, valid member envelopes, and signed
    access manifests.
@@ -722,13 +723,12 @@ Result: detected and fail closed.
 Org-manager directory lifecycle is stored in `organization_roster_entries`.
 Active roster state is synchronized from users reachable through the reserved
 `Members` group, and disabled rows may remain visible after access removal.
-`Admins` is no longer nested into `Members`, so admins are not members by
-construction. Instead the policy write refuses any managed principal naming a
-_disabled_ roster user, and refuses `Admins` specifically unless every user it
-names is an _active_ roster entry — including after a `Members` transition,
-which is re-checked against `Admins`. An admin is therefore always an active
-organization member, and always counted as a seat. Ordinary groups may still
-name users who are not in `Members`, exactly as they could under nesting.
+Group creation and policy writes require every named user to have an active
+roster entry in the same organization, including ordinary groups and `Admins`.
+A `Members` removal rechecks all live groups in the same transaction; signed
+removals from other groups and direct container grants must precede disabling.
+Group membership implies organization membership and a billed
+seat. Historical projections remain available for verification after removal.
 
 If roster or projection rows are edited directly, server-side directory and
 listing surfaces can be distorted, but those rows are still not cryptographic

@@ -1,14 +1,14 @@
 import type { DatabaseSession } from "@tearleads/api-shared/postgres";
 import { gatherWithExecutor } from "@tearleads/api-shared/postgres";
-import type { ContainerWriterProjectionResponse } from "@tearleads/validators/response";
+import type { ContainerKeyingPathResponse } from "@tearleads/validators/response";
 import {
   type ContainerWriterProjectionContext,
   ContainerWriterProjectionError,
-  resolveContainerReaderProjection,
+  resolveContainerReaderKeyingPath,
 } from "../containers/writerProjection";
 
 interface AuthorizingContainerPathCandidates {
-  readonly paths: ContainerWriterProjectionResponse[];
+  readonly paths: ContainerKeyingPathResponse[];
 }
 
 export async function resolveAuthorizingContainerPathCandidates(input: {
@@ -20,11 +20,11 @@ export async function resolveAuthorizingContainerPathCandidates(input: {
   const results = await gatherWithExecutor(
     input.executor,
     input.containerIds,
-    async (containerId): Promise<ContainerWriterProjectionResponse | null> => {
+    async (containerId): Promise<ContainerKeyingPathResponse | null> => {
       try {
         // Document sync also uses this projection for read-only pulls. Mutations
         // still verify write access before accepting document updates.
-        return await resolveContainerReaderProjection({
+        return await resolveContainerReaderKeyingPath({
           containerId,
           context: input.context,
           executor: input.executor,

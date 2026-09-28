@@ -389,6 +389,11 @@ export function rootContainerWriterProjectionFromCreatePlan(
   plan: ContainerCreatePlan,
 ): ContainerWriterProjectionResponse {
   return {
+    policyEvidence: {
+      organization: null,
+      organizationPayloads: [],
+      groups: [],
+    },
     containerId: plan.containerId,
     organizationId: plan.state.organizationId,
     path: [

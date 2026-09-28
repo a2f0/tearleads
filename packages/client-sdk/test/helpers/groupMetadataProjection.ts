@@ -98,6 +98,11 @@ export async function createTestGroupMetadataProjection(
   return {
     key: { organizationId, containerId, containerKeyEpochId, keyMaterial },
     projection: {
+      policyEvidence: {
+        organization: null,
+        organizationPayloads: [],
+        groups: [],
+      },
       organizationId,
       containerId,
       path: [

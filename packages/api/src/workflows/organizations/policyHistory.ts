@@ -33,7 +33,11 @@ function collectGroupHeads(
   return [...groupHeads.values()];
 }
 
-/** Read existing evidence at an exact organization head; never persist labels. */
+/**
+ * Organization-manager history is a roster operation. Authorized writer
+ * projections separately disclose the public directory proof their citations
+ * require, including deleted groups; they do not grant this endpoint.
+ */
 export async function runGetOrganizationPolicyHistoryWorkflow(
   db: ApiDatabase,
   input: {

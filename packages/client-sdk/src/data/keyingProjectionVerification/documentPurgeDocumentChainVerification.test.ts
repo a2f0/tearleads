@@ -48,6 +48,11 @@ function projectionAfterMutation(input: {
     input.target.path,
   ]);
   return {
+    policyEvidence: {
+      organization: null,
+      organizationPayloads: [],
+      groups: [],
+    },
     authorizingContainerPaths,
     contentKeyBundle: input.response.contentKeyBundle,
     documentContainerManifestHistory: [

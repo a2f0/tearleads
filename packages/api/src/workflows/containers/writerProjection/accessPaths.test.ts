@@ -1,6 +1,9 @@
 import { expect, test } from "bun:test";
 import type { DatabaseSession } from "@tearleads/api-shared/postgres";
-import { CONTAINER_NOT_FOUND_ERROR_CODE } from "@tearleads/validators/response";
+import {
+  CONTAINER_NOT_FOUND_ERROR_CODE,
+  CONTAINER_PROJECTION_STATE_INVALID_ERROR_CODE,
+} from "@tearleads/validators/response";
 import { loadContainerAccessPath } from "./accessPaths";
 import { createContainerWriterProjectionContext } from "./context";
 import type { ContainerPathRow } from "./types";
@@ -50,7 +53,7 @@ test("container path absence distinguishes the target from an ancestor", async (
       "child",
     ),
   ).rejects.toMatchObject({
-    code: undefined,
+    code: CONTAINER_PROJECTION_STATE_INVALID_ERROR_CODE,
     status: 409,
   });
 });

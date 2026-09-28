@@ -84,7 +84,6 @@ async function addUserToSelectedGroup(
         directoryUser,
         groupId: selectedGroupId,
         groupName,
-        isAdminGroup: params.selectedGroupIsAdminsGroup,
         isOperationActive: params.isOperationActive,
         memberGroupId,
         operationOrganizationId,

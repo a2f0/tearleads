@@ -111,6 +111,11 @@ test("document store uploads attachment bytes with signed bindings", async () =>
   const writerProjection = (): DocumentWriterProjectionResponse | null =>
     storedDocument
       ? {
+          policyEvidence: {
+            organization: null,
+            organizationPayloads: [],
+            groups: [],
+          },
           authorizingContainerPaths: [fixture.projection],
           contentKeyBundle: storedDocument.contentKeyBundle,
           documentContainerManifestHistory: [

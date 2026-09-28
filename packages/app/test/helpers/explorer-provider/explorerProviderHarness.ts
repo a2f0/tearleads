@@ -95,6 +95,11 @@ export function createExplorerContainerApiHarness(
         }
 
         projections.set(response.containerId, {
+          policyEvidence: {
+            organization: null,
+            organizationPayloads: [],
+            groups: [],
+          },
           containerId: response.containerId,
           organizationId: response.organizationId,
           path: [...parentProjection.path, response.accessManifest],
@@ -126,6 +131,11 @@ export function createExplorerContainerApiHarness(
         }
 
         projections.set(container.containerId, {
+          policyEvidence: {
+            organization: null,
+            organizationPayloads: [],
+            groups: [],
+          },
           containerId: container.containerId,
           organizationId: container.organizationId,
           path: [...parentProjection.path, container.accessManifest],
@@ -196,6 +206,11 @@ export function createExplorerContainerApiHarness(
         }
 
         return {
+          policyEvidence: {
+            organization: null,
+            organizationPayloads: [],
+            groups: [],
+          },
           authorizingContainerPaths: [containerProjection],
           contentKeyBundle: storedDocument.contentKeyBundle,
           documentId: storedDocument.id,
@@ -241,6 +256,11 @@ export function createExplorerContainerApiHarness(
         );
 
         projections.set(containerId, {
+          policyEvidence: {
+            organization: null,
+            organizationPayloads: [],
+            groups: [],
+          },
           containerId,
           organizationId: response.organizationId,
           path: [
@@ -284,6 +304,11 @@ export function createExplorerContainerApiHarness(
         }
 
         projections.set(containerId, {
+          policyEvidence: {
+            organization: null,
+            organizationPayloads: [],
+            groups: [],
+          },
           containerId,
           organizationId: response.organizationId,
           path: [...destinationProjection.path, response.accessManifest],
@@ -361,6 +386,11 @@ export async function createExplorerMetadataFixture(input: {
   );
   let syncCallCount = 0;
   const writerProjection: DocumentWriterProjectionResponse = {
+    policyEvidence: {
+      organization: null,
+      organizationPayloads: [],
+      groups: [],
+    },
     authorizingContainerPaths: [containerProjection],
     contentKeyBundle: storedDocument.contentKeyBundle,
     documentId: storedDocument.id,

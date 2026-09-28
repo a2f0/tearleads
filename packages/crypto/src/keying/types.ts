@@ -932,7 +932,7 @@ export interface VerifyAttachmentBindingEventInput
   readonly authorizationMembership?: "current" | "referenced";
   readonly documentManifest: VerifiedDocumentLinkSetManifest;
   readonly authorizingContainerPaths?: readonly (readonly VerifiedContainerAccessManifest[])[];
-  readonly principalPolicies?: readonly VerifiedPrincipalPolicy[];
+  readonly principalPolicies?: readonly AnyVerifiedPrincipalPolicy[];
   readonly expectedBindingId?: string;
   readonly expectedBlobId?: string;
   readonly expectedDocumentId?: string;
@@ -945,7 +945,7 @@ export interface VerifyAttachmentDetachEventInput
   readonly authorizationMembership?: "current" | "referenced";
   readonly documentManifest: VerifiedDocumentLinkSetManifest;
   readonly authorizingContainerPaths?: readonly (readonly VerifiedContainerAccessManifest[])[];
-  readonly principalPolicies?: readonly VerifiedPrincipalPolicy[];
+  readonly principalPolicies?: readonly AnyVerifiedPrincipalPolicy[];
   readonly expectedBindingId?: string;
   readonly expectedBlobId?: string;
   readonly expectedDocumentId?: string;
@@ -1003,7 +1003,7 @@ export interface VerifyDocumentLinkSetManifestInput {
 export interface DeriveContainerKekRecipientTargetsInput {
   readonly containerManifest: VerifiedContainerAccessManifest;
   readonly parentKekState?: VerifiedContainerKekState | null;
-  readonly principalPolicies?: readonly VerifiedPrincipalPolicy[];
+  readonly principalPolicies?: readonly AnyVerifiedPrincipalPolicy[];
   readonly userRecipientKeys?: readonly ContainerUserRecipientKey[];
 }
 
@@ -1043,12 +1043,12 @@ export interface VerifyWriteHeaderInput {
     readonly documentManifest: VerifiedDocumentLinkSetManifest;
     readonly documentKekTargets: VerifiedDocumentKekTargets;
     readonly authorizingContainerPaths: readonly (readonly VerifiedContainerAccessManifest[])[];
-    readonly principalPolicies?: readonly VerifiedPrincipalPolicy[];
+    readonly principalPolicies?: readonly AnyVerifiedPrincipalPolicy[];
   };
   readonly blobAuthorization?: {
     readonly blobKekTargets: VerifiedBlobKekTargets;
     readonly authorizingContainerPaths: readonly (readonly VerifiedContainerAccessManifest[])[];
-    readonly principalPolicies?: readonly VerifiedPrincipalPolicy[];
+    readonly principalPolicies?: readonly AnyVerifiedPrincipalPolicy[];
   };
 }
 

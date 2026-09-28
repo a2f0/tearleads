@@ -16,6 +16,7 @@ import type {
   DocumentWriterProjectionResponse,
 } from "@tearleads/validators/response";
 import type { PrincipalPolicyCache } from "../../keyingProjectionVerification";
+import { documentContainerProjections } from "../../keyingProjectionVerification/documentContainerProjections";
 import { throwKeyingVerificationErrorWithContext } from "../../keyingProjectionVerification/error";
 import type { ExecSql } from "../../sqlite/sqlSchema";
 import {
@@ -198,7 +199,9 @@ export async function collectContainerKeksForDocumentSync(
   const predecessorFailuresByEpochId = new Map<string, Error>();
   const unattributedPredecessorFailuresByContainerId = new Map<string, Error>();
 
-  for (const projection of input.writerProjection.authorizingContainerPaths) {
+  for (const projection of documentContainerProjections(
+    input.writerProjection,
+  )) {
     let projectionKeks: Awaited<
       ReturnType<typeof unwrapContainerKekPathWithHistoryFailures>
     >;

@@ -262,6 +262,11 @@ function createContentKeyBundleResponse() {
 
 export function createContainerWriterProjectionResponse() {
   return {
+    policyEvidence: {
+      organization: null,
+      organizationPayloads: [],
+      groups: [],
+    },
     containerId: "container-1",
     containerKeks: [
       {
@@ -352,6 +357,11 @@ export function createListContainerParentLanesResponse() {
 
 export function createDocumentWriterProjectionResponse() {
   return {
+    policyEvidence: {
+      organization: null,
+      organizationPayloads: [],
+      groups: [],
+    },
     authorizingContainerPaths: [createContainerWriterProjectionResponse()],
     contentKeyBundle: createContentKeyBundleResponse(),
     documentContainerManifestHistory: [],

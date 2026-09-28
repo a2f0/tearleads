@@ -8,7 +8,7 @@ import type {
   DocumentContentKeyTargetEnvelope,
 } from "@tearleads/validators/request";
 import type {
-  ContainerWriterProjectionResponse,
+  ContainerKeyingPathResponse,
   DocumentWriterProjectionResponse,
 } from "@tearleads/validators/response";
 import {
@@ -24,7 +24,7 @@ import {
 import type { DocumentLinkSetMutationOperation } from "./types";
 
 export function deriveDocumentCreateTargets(
-  projection: ContainerWriterProjectionResponse,
+  projection: ContainerKeyingPathResponse,
 ): DocumentContentKeyTarget[] {
   const targetIndex = projection.path.length - 1;
   const targetManifest = projection.path[targetIndex];
@@ -95,14 +95,14 @@ export function mergeTargetEnvelopes(
 }
 
 function projectionLeafContainerId(
-  projection: ContainerWriterProjectionResponse,
+  projection: ContainerKeyingPathResponse,
 ): string | null {
   const leafBundle = projection.path.at(-1);
   return leafBundle ? readManifestContainerId(leafBundle) : null;
 }
 
 export function describeProjectionTargetKek(
-  projection: ContainerWriterProjectionResponse,
+  projection: ContainerKeyingPathResponse,
 ): string {
   const targetKek = projection.containerKeks.at(-1);
   const containerId =
@@ -115,7 +115,7 @@ export function describeProjectionTargetKek(
 }
 
 export function deriveDocumentTargetFromProjection(
-  projection: ContainerWriterProjectionResponse,
+  projection: ContainerKeyingPathResponse,
 ): DocumentContentKeyTarget {
   const target = deriveDocumentCreateTargets(projection)[0];
   if (!target) {
@@ -232,7 +232,7 @@ export function currentDocumentTargets(
  * re-embedding the full signed bundles it received in the writer projection.
  */
 export function containerPathRefs(
-  path: ContainerWriterProjectionResponse["path"],
+  path: ContainerKeyingPathResponse["path"],
 ): ContainerManifestRef[] {
   return path.map((bundle) => {
     const containerId = readManifestContainerId(bundle);

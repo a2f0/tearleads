@@ -61,6 +61,11 @@ function createMetadataWriterProjection(
   const targetHash = "document-target-hash";
 
   return {
+    policyEvidence: {
+      organization: null,
+      organizationPayloads: [],
+      groups: [],
+    },
     authorizingContainerPaths: [],
     contentKeyBundle: {
       contentKeyEpoch: 1,

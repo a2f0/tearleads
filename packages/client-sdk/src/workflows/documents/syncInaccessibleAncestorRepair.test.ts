@@ -11,6 +11,7 @@ import { createFullHistoryRotationSnapshot } from "../../../test/helpers/staleBu
 import { ContainerKekRepairInaccessibleError } from "../../data/documents/shared/containerKekCurrency";
 import { unwrapContainerKekPath } from "../../data/documents/shared/containerKekPath";
 import { normalizeContainerKeyWrap } from "../../data/documents/shared/readers";
+import { documentContainerProjections } from "../../data/keyingProjectionVerification/documentContainerProjections";
 import { buildMaterializedContainerRekeyPlan } from "../containers/child/rekey";
 import {
   buildMaterializedDocumentCreatePlan,
@@ -207,7 +208,8 @@ test("the writer repairs its own leaf once the intermediate is repaired", async 
     // The writer got there without either ancestor's secret...
     const writerKeys = await unwrapContainerKekPath({
       ...writer,
-      projection: repaired.authorizingContainerPaths[0] ?? fixture.staleLeaf,
+      projection:
+        documentContainerProjections(repaired)[0] ?? fixture.staleLeaf,
       secretKey: fixture.peerSecretKey,
     });
     expect(writerKeys.has(fixture.intermediate.epochId)).toBe(false);

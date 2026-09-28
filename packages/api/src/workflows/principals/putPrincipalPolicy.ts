@@ -27,7 +27,7 @@ import {
 } from "./groupReferenceLock";
 import {
   assertManagedPrincipalRosterMembership,
-  assertOrganizationAdminsRosterMembership,
+  assertOrganizationGroupsRosterMembership,
 } from "./managedPrincipalRosterMembership";
 import { assertPrincipalOrganizationIsSyncEntitled } from "./organizationSync";
 import { applyPrincipalContainerRematerializations } from "./principalContainerRematerialization";
@@ -92,8 +92,8 @@ async function syncRosterForStoredPrincipalState(input: {
     });
   } else {
     // A Members write just moved the roster underneath every other group.
-    // Admins is the one that must not be left holding an off-roster user.
-    await assertOrganizationAdminsRosterMembership({
+    // No live group may be left holding an off-roster user.
+    await assertOrganizationGroupsRosterMembership({
       organizationId: rosterSyncTarget.organizationId,
       tx: input.tx,
     });

@@ -51,6 +51,11 @@ async function createScenario() {
   });
   const createResponseBody = createResponse(created.plan);
   const initialProjection: DocumentWriterProjectionResponse = {
+    policyEvidence: {
+      organization: null,
+      organizationPayloads: [],
+      groups: [],
+    },
     authorizingContainerPaths: [parent.projection],
     contentKeyBundle: createResponseBody.contentKeyBundle,
     documentId: createResponseBody.id,
@@ -279,6 +284,11 @@ test("a stale dependency path never replaces the authorizing path for its leaf",
     });
     const createResponseBody = createResponse(created.plan);
     const initialProjection: DocumentWriterProjectionResponse = {
+      policyEvidence: {
+        organization: null,
+        organizationPayloads: [],
+        groups: [],
+      },
       authorizingContainerPaths: [childCurrent],
       contentKeyBundle: createResponseBody.contentKeyBundle,
       documentId: createResponseBody.id,

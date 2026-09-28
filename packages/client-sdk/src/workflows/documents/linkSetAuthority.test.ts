@@ -10,6 +10,7 @@ import {
   createResponse,
   writerProjectionEvidence,
 } from "../../../test/helpers/documentFixtures";
+import { documentContainerProjections } from "../../data/keyingProjectionVerification/documentContainerProjections";
 import { buildMaterializedDocumentCreatePlan } from "./create";
 import { buildMaterializedDocumentLinkSetMutationPlan } from "./linkSet";
 import { relinkRemoteDocument } from "./linkSetRemote";
@@ -42,6 +43,11 @@ async function createFixture(
     });
     const response = createResponse(created.plan);
     writerProjection = {
+      policyEvidence: {
+        organization: null,
+        organizationPayloads: [],
+        groups: [],
+      },
       authorizingContainerPaths: [target.projection],
       contentKeyBundle: response.contentKeyBundle,
       ...writerProjectionEvidence([target.projection], []),
@@ -49,7 +55,9 @@ async function createFixture(
       documentKekTargets: response.documentKekTargets,
       documentManifest: response.accessManifest,
     };
-    const ownContainer = source.writerProjection.authorizingContainerPaths[0];
+    const ownContainer = documentContainerProjections(
+      source.writerProjection,
+    )[0];
     if (!ownContainer) throw new Error("Expected writable destination");
     targetContainerProjection = ownContainer;
   }

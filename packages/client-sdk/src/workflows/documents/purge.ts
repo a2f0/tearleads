@@ -39,6 +39,7 @@ import {
   verifyDocumentWriterProjection,
 } from "../../data/keyingProjectionVerification";
 import { ProjectionDependencyUnavailableError } from "../../data/keyingProjectionVerification/dependencyUnavailable";
+import { documentContainerProjections } from "../../data/keyingProjectionVerification/documentContainerProjections";
 import { loadAccessManifestCheckpoint } from "../../data/persistence/keyingCheckpointPersistence";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 
@@ -181,11 +182,12 @@ export async function buildDocumentPurgeRequest(input: {
     throw new Error("Document purge requires exactly one linked container");
   }
   const [containerId] = linkedContainerIds;
-  const authorizingProjection =
-    input.writerProjection.authorizingContainerPaths.find((projection) => {
-      const leaf = projection.path.at(-1);
-      return leaf && readManifestContainerId(leaf) === containerId;
-    });
+  const authorizingProjection = documentContainerProjections(
+    input.writerProjection,
+  ).find((projection) => {
+    const leaf = projection.path.at(-1);
+    return leaf && readManifestContainerId(leaf) === containerId;
+  });
   const containerManifestHash =
     authorizingProjection?.path.at(-1)?.manifestHash;
   if (!authorizingProjection || !containerId || !containerManifestHash) {

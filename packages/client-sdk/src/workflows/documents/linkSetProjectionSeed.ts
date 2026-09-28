@@ -1,11 +1,13 @@
 import type {
   AccessManifestBundleWireResponse,
+  ContainerKeyingPathResponse,
   ContainerWriterProjectionResponse,
   DocumentLinkSetMutationResponse,
   DocumentWriterProjectionResponse,
 } from "@tearleads/validators/response";
 import { assertDocumentWriterProjectionConsistent } from "../../data/documents/shared/projection";
 import type { DocumentLinkSetMutationOperation } from "../../data/documents/shared/types";
+import { mergeProjectionPolicyEvidence } from "../../data/keyingProjectionVerification/mergeProjectionPolicyEvidence";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 
 interface DocumentLinkSetProjectionSeedApi {
@@ -45,7 +47,7 @@ function uniqueManifestPaths(
 }
 
 function containerProjectionManifestHistory(
-  projection: ContainerWriterProjectionResponse,
+  projection: ContainerKeyingPathResponse,
 ): AccessManifestBundleWireResponse[] {
   return projection.containerKeks.flatMap(
     (kek) => kek.containerManifestHistory,
@@ -114,6 +116,10 @@ function linkSetWriterProjectionFromResponse(input: {
     input.targetContainerProjection.path,
   ]);
   return {
+    policyEvidence: mergeProjectionPolicyEvidence([
+      input.priorProjection.policyEvidence,
+      input.targetContainerProjection.policyEvidence,
+    ]),
     authorizingContainerPaths,
     contentKeyBundle: input.response.contentKeyBundle,
     documentId: input.response.id,

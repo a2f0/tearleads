@@ -25,6 +25,7 @@ import {
   toVerificationResult,
 } from "./shared";
 import type {
+  AnyVerifiedPrincipalPolicy,
   ContainerAccessManifestState,
   ContainerDirectGrant,
   ContainerKekRecipientTarget,
@@ -37,7 +38,6 @@ import type {
   ReferencedPrincipalHead,
   VerifiedContainerAccessManifest,
   VerifiedContainerKekState,
-  VerifiedPrincipalPolicy,
   VerifyContainerKekStateInput,
 } from "./types";
 import { makeVerifiedContainerKekState } from "./types";
@@ -200,7 +200,7 @@ function buildContainerUserRecipientKeyMap(
 function requirePrincipalRecipientTarget(input: {
   readonly grant: ContainerDirectGrant;
   readonly state: ContainerAccessManifestState;
-  readonly principalPolicies: readonly VerifiedPrincipalPolicy[];
+  readonly principalPolicies: readonly AnyVerifiedPrincipalPolicy[];
 }): ContainerKekRecipientTarget {
   if (input.grant.subjectType === "user") {
     throwVerification(
@@ -357,7 +357,7 @@ function buildAuthorizedContainerManifestMap(input: {
 function deriveTargetsForWrapManifest(input: {
   readonly manifest: VerifiedContainerAccessManifest;
   readonly parentKekState: ContainerKekParentBinding | null;
-  readonly principalPolicies: readonly VerifiedPrincipalPolicy[];
+  readonly principalPolicies: readonly AnyVerifiedPrincipalPolicy[];
   readonly targetsByManifestHash: Map<string, ContainerKekRecipientTarget[]>;
   readonly userRecipientKeys: readonly ContainerUserRecipientKey[];
 }): ContainerKekRecipientTarget[] {
@@ -413,7 +413,7 @@ function verifyContainerKeyWraps(input: {
   readonly keyEpoch: ContainerKeyEpoch;
   readonly manifestByHash: ReadonlyMap<string, VerifiedContainerAccessManifest>;
   readonly parentKekState: ContainerKekParentBinding | null;
-  readonly principalPolicies: readonly VerifiedPrincipalPolicy[];
+  readonly principalPolicies: readonly AnyVerifiedPrincipalPolicy[];
   readonly targetsByManifestHash: Map<string, ContainerKekRecipientTarget[]>;
   readonly userRecipientKeys: readonly ContainerUserRecipientKey[];
   readonly wraps: readonly ContainerKeyWrap[];

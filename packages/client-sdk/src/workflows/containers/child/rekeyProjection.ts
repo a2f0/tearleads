@@ -10,6 +10,7 @@ import {
   readCanonicalRecord,
   readCanonicalRecords,
 } from "../../../data/keyingCanonicalJson";
+import { mergeProjectionPolicyEvidence } from "../../../data/keyingProjectionVerification/mergeProjectionPolicyEvidence";
 
 const speculativeProjections = new WeakSet<ContainerWriterProjectionResponse>();
 
@@ -64,7 +65,10 @@ function recipientTargets(
  * rekey or revoke, the destination parent's path for a move.
  */
 export async function containerWriterProjectionFromRotationPlan(input: {
-  ancestors?: Pick<ContainerWriterProjectionResponse, "containerKeks" | "path">;
+  ancestors?: Pick<
+    ContainerWriterProjectionResponse,
+    "containerKeks" | "path" | "policyEvidence"
+  >;
   plan: RotationPlanArtifacts;
   previousProjection: ContainerWriterProjectionResponse;
 }): Promise<ContainerWriterProjectionResponse> {
@@ -116,6 +120,10 @@ export async function containerWriterProjectionFromRotationPlan(input: {
   };
   const projection = {
     ...input.previousProjection,
+    policyEvidence: mergeProjectionPolicyEvidence([
+      input.previousProjection.policyEvidence,
+      ...(input.ancestors ? [input.ancestors.policyEvidence] : []),
+    ]),
     path: [...ancestors.path, nextManifest],
     containerKeks: [...ancestors.containerKeks, nextKek],
   };
@@ -143,7 +151,10 @@ export function containerWriterProjectionFromRekeyPlan(input: {
  */
 export function rebaseContainerWriterProjection(
   descendant: ContainerWriterProjectionResponse,
-  rotated: Pick<ContainerWriterProjectionResponse, "containerKeks" | "path">,
+  rotated: Pick<
+    ContainerWriterProjectionResponse,
+    "containerKeks" | "path" | "policyEvidence"
+  >,
 ): ContainerWriterProjectionResponse | null {
   const rotatedId = rotated.containerKeks.at(-1)?.containerId;
   const index = descendant.containerKeks.findIndex(
@@ -153,6 +164,10 @@ export function rebaseContainerWriterProjection(
   if (index === descendant.containerKeks.length - 1) return null;
   const projection = {
     ...descendant,
+    policyEvidence: mergeProjectionPolicyEvidence([
+      descendant.policyEvidence,
+      rotated.policyEvidence,
+    ]),
     path: [...rotated.path, ...descendant.path.slice(index + 1)],
     containerKeks: [
       ...rotated.containerKeks,

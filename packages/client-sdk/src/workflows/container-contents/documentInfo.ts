@@ -2,7 +2,7 @@ import { bytesToBase64 } from "@tearleads/encoding";
 import { exportFullHistorySnapshot } from "@tearleads/loro";
 import type {
   BlobAttachmentSummary,
-  ContainerWriterProjectionResponse,
+  ContainerKeyingPathResponse,
   DocumentEditAttributionResponse,
   DocumentWriterProjectionResponse,
   ListDocumentAttachmentsResponse,
@@ -332,7 +332,7 @@ function mapAttachmentBinding(
 }
 
 function mapAuthorizingContainerPath(
-  projection: ContainerWriterProjectionResponse,
+  projection: ContainerKeyingPathResponse,
 ): DocumentInfoAuthorizingContainerPath {
   const leafBundle = projection.path.at(-1);
   const leafKek = projection.containerKeks.at(-1);

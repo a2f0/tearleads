@@ -9,6 +9,7 @@ import type {
   AccessManifestBundleWire,
   ContainerMutationRequest,
 } from "@tearleads/validators/request";
+import type { ContainerMutationResponse } from "@tearleads/validators/response";
 import invariant from "invariant";
 import { routeApp } from "../../src/routeApp";
 import {
@@ -132,7 +133,10 @@ export async function grantContainerThroughReadGroup(input: {
   readonly member?: TestUser | undefined;
   readonly parentKekState: VerifiedContainerKekState;
   readonly parentPath: readonly AccessManifestBundleWire[];
-}): Promise<{ readonly groupId: string }> {
+}): Promise<{
+  readonly groupId: string;
+  readonly response: ContainerMutationResponse;
+}> {
   const organizationId = asVerifiedContainerManifest(input.container.bundle)
     .state.organizationId;
   if (input.member) {
@@ -169,7 +173,7 @@ export async function grantContainerThroughReadGroup(input: {
       },
     ],
   });
-  await submitSuccessor({
+  const response = await submitSuccessor({
     actor: input.actor,
     containerMutation: await buildContainerGroupGrantMutation({
       accessLevel: input.accessLevel ?? "read",
@@ -183,5 +187,5 @@ export async function grantContainerThroughReadGroup(input: {
     organizationId,
     successor: granted,
   });
-  return { groupId };
+  return { groupId, response };
 }

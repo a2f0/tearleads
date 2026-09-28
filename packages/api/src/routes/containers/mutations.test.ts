@@ -399,14 +399,9 @@ async function putGroupPrincipalPolicy(input: {
   };
   let response: Response;
   if (isInitialState) {
-    const [actor] = await db
-      .select({ organizationId: users.defaultOrganizationId })
-      .from(users)
-      .where(eq(users.id, input.actor.userId))
-      .limit(1);
-    invariant(actor, "expected registered actor");
+    const organizationId = await getDefaultOrganizationId(input.actor.userId);
     response = await routeApp.request(
-      `/organizations/${actor.organizationId}/groups`,
+      `/organizations/${organizationId}/groups`,
       {
         method: "POST",
         headers: {
@@ -416,7 +411,7 @@ async function putGroupPrincipalPolicy(input: {
         body: JSON.stringify({
           ...(await withOrganizationGroupDirectoryPolicy({
             actor: input.actor,
-            organizationId: actor.organizationId,
+            organizationId,
             request: {
               groupId: input.principalId,
               initialGroupPolicy: policyRequest,
@@ -2491,6 +2486,7 @@ test("group grant revoke requires and commits with principal rotation", async ()
     signer: owner,
   });
   const createdBundle = accessManifestFromResponse(created);
+  await joinOrg(created.organizationId, owner, recipient);
   const groupPrincipalId = crypto.randomUUID();
   const group = await putGroupPrincipalPolicy({
     actor: owner,
@@ -2601,6 +2597,7 @@ test("PUT /principals/group/:principalId/policy emits tombstones for removed gro
     signer: owner,
   });
   const createdBundle = accessManifestFromResponse(created);
+  await joinOrg(created.organizationId, owner, recipient);
   const groupPrincipalId = crypto.randomUUID();
   const group = await putGroupPrincipalPolicy({
     actor: owner,
@@ -3761,6 +3758,7 @@ test("POST share group grant prunes member tombstones", async () => {
   });
   const childBundle = accessManifestFromResponse(created);
   const childKek = kekStateFromResponse(created);
+  await joinOrg(created.organizationId, owner, recipient);
   const groupPrincipalId = crypto.randomUUID();
   const group = await putGroupPrincipalPolicy({
     actor: owner,

@@ -2,6 +2,7 @@ import { expect, test } from "bun:test";
 import { createMockApiClient } from "@tearleads/test-utils";
 import { createUploadedAttachmentFixture } from "../../../test/helpers/blobHydration";
 import { ProjectionDependencyUnavailableError } from "../../data/keyingProjectionVerification/dependencyUnavailable";
+import { documentContainerProjections } from "../../data/keyingProjectionVerification/documentContainerProjections";
 import { prepareDocumentLinkBlobRewraps } from "./linkSetBlobRewraps";
 
 // The API refuses a link unless every active binding is rewrapped, so a
@@ -10,8 +11,9 @@ import { prepareDocumentLinkBlobRewraps } from "./linkSetBlobRewraps";
 // evidence and not as an anonymous error.
 test("an unavailable attachment listing fails relinking as a retryable dependency", async () => {
   const fixture = await createUploadedAttachmentFixture();
-  const targetContainerProjection =
-    fixture.writerProjection.authorizingContainerPaths[0];
+  const targetContainerProjection = documentContainerProjections(
+    fixture.writerProjection,
+  )[0];
   if (!targetContainerProjection) throw new Error("Expected container path");
   let listings = 0;
   await expect(

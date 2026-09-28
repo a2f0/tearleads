@@ -153,7 +153,7 @@ test("shareContainerState treats an existing matching user grant as an idempoten
     expect(shared.container.serverCreatedAt).toBe(remoteCreatedAt);
     expect(shared.container.serverUpdatedAt).toBe(remoteUpdatedAt);
     expect(shared.container.updatedAt).toBe(remoteUpdatedAt);
-    expect(requestedPrincipalPolicies).toEqual(["group:group-1"]);
+    expect(requestedPrincipalPolicies).toEqual([]);
   } finally {
     close();
   }

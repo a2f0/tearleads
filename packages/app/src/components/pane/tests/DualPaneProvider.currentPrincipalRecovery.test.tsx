@@ -50,14 +50,20 @@ import {
   resetMockServer,
   useTestApiAppHandlers,
 } from "../../../../test/helpers/mswServer";
+import { createOrganizationReadDrain } from "../../../../test/helpers/organizationReadDrain";
 import { waitForCondition } from "../../../../test/helpers/waitForCondition";
 
 const GROUP_NAME = "Rotated recovery readers";
 const NOTE_TEXT = "Historical group data survives current-head recovery";
 const CURRENT_PRINCIPAL_RECOVERY_TIMEOUT_MS = 120_000;
+const organizationReads = createOrganizationReadDrain();
 
 afterEach(async () => {
   cleanup();
+  // Flush the SDK's deferred disposal, then finish presentation policy loads
+  // before resetting their API handlers. Those loads are not sync lanes.
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  await organizationReads.drain();
   globalThis.localStorage.clear();
   await resetMockServer();
 });
@@ -184,7 +190,7 @@ test.each([false, true])(
   "current group recovery and post-rotation share=%s",
   async (shareAfterRotation) => {
     useTestApiAppHandlers();
-    const view = renderDualPane();
+    const view = renderDualPane({ children: <organizationReads.Probe /> });
     const ownerPane = getPaneRoot(view, "left");
     const peerPane = getPaneRoot(view, "right");
     await waitForDualPaneProvisioning(ownerPane, peerPane);
