@@ -119,7 +119,13 @@ async function loadDocumentPurgeProofForLocalCheckpoint(input: {
       execSql: input.execSql,
       expectedOrganizationId: input.expectedOrganizationId,
     });
+  const historyEndpoint =
+    initialProof.documentManifestPredecessors.at(-1) ??
+    initialProof.documentManifest;
+  // A complete chain can prove a conflict with the local pin. Refetching
+  // that absent floor would turn the conflict into an availability failure.
   if (
+    Reflect.get(historyEndpoint.manifest, "previousManifestHash") === null ||
     documentCheckpointManifestHash ===
       initialProof.documentManifest.manifestHash ||
     initialProof.documentManifestPredecessors.some(

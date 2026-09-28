@@ -65,10 +65,21 @@ test("an empty purge history cannot replace a pinned document with an unrelated 
         execSql: database.execSql,
         expectedDocumentId: proof.documentId,
         expectedOrganizationId: owner.author.organizationId,
-        proof: { ...proof, documentManifestPredecessors: [original] },
+        proof: {
+          ...proof,
+          documentManifestPredecessors: [original],
+          documentManifestContainerPaths: [
+            ...proof.documentManifestContainerPaths,
+            ...owner.writerProjection.documentManifestContainerPaths,
+          ],
+          documentContainerManifestHistory: [
+            ...proof.documentContainerManifestHistory,
+            ...owner.writerProjection.documentContainerManifestHistory,
+          ],
+        },
         resolveUserKey,
       }),
-    ).rejects.toMatchObject({ name: "KeyingVerificationError" });
+    ).rejects.toMatchObject({ code: "hash_mismatch" });
 
     const requestedFloors: (string | undefined)[] = [];
     let deletions = 0;
@@ -90,7 +101,7 @@ test("an empty purge history cannot replace a pinned document with an unrelated 
     await expect(
       handler({ documentId: proof.documentId }),
     ).rejects.toMatchObject({
-      name: "KeyingVerificationError",
+      code: "stale_predecessor",
     });
     expect(requestedFloors).toEqual([undefined, original.manifestHash]);
     expect(deletions).toBe(0);

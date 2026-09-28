@@ -2,7 +2,11 @@ import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { createHistoricalPolicyPurgeFixture } from "../../../test/helpers/documentPurgeHistoricalPolicy";
 import { createVerifiedRemoteDocumentDeletionHandler } from "../../workflows/documents/purge";
-import { loadAccessManifestCheckpoint } from "../persistence/keyingCheckpointPersistence";
+import {
+  loadAccessManifestCheckpoint,
+  upsertAccessManifestCheckpointInTransaction,
+} from "../persistence/keyingCheckpointPersistence";
+import { getClientSQLitePersistenceRuntime } from "../sqlite/sqlitePersistenceRuntime";
 import { verifyDocumentPurgeProofBaseline } from "./documentPurgeProofVerification";
 
 test("a pinned purge head still verifies policy evidence used only by earlier links", async () => {
@@ -22,24 +26,21 @@ test("a pinned purge head still verifies policy evidence used only by earlier li
     });
     const pin = baseline.documentCheckpoint;
     expect(pin.epoch).toBe(5);
-    await loadAccessManifestCheckpoint(
-      database.execSql,
-      "document",
-      pin.organizationId,
-      pin.objectId,
-    );
-    await database.execSql(
-      `INSERT INTO access_manifest_checkpoints
-       (object_kind, organization_id, object_id, epoch, manifest_hash, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?)`,
-      [
-        pin.objectKind,
+    expect(
+      await loadAccessManifestCheckpoint(
+        database.execSql,
+        "document",
         pin.organizationId,
         pin.objectId,
-        pin.epoch,
-        pin.manifestHash,
-        "2026-09-28T00:00:00.000Z",
-      ],
+      ),
+    ).toBeNull();
+    await getClientSQLitePersistenceRuntime(database.execSql).transaction(
+      (tx) =>
+        upsertAccessManifestCheckpointInTransaction(
+          tx,
+          pin,
+          "2026-09-28T00:00:00.000Z",
+        ),
     );
     let deletions = 0;
     const handler = createVerifiedRemoteDocumentDeletionHandler({
