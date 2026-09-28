@@ -115,3 +115,33 @@ test("coalesces a revision-bump burst and keeps stale rows while re-reading", as
   );
   expect(queryCount).toBe(2);
 });
+
+test("surfaces a durable-write query failure", async () => {
+  const documentQueries = {
+    listPendingWrites: async () => {
+      throw new Error("database unavailable");
+    },
+  } as unknown as ContainerDocumentQueries;
+  const view = render(
+    <ExplorerWriteQueuePanel
+      billingBlockedOrganizationId={null}
+      documentListRevision={0}
+      documentQueries={documentQueries}
+      domainScope={createDomainScope()}
+      isAuthenticated={true}
+      nodes={[ARCHIVE_NODE]}
+      online={true}
+      openContainerInfoRoute={() => undefined}
+      openDocument={() => undefined}
+      openWriteQueueEntryRoute={() => undefined}
+      organizationNamesById={new Map()}
+      selectedEntryKey={null}
+    />,
+  );
+
+  expect(
+    await view.findByText(EXPLORER_LABELS.writeQueueFailedToLoad),
+  ).toBeTruthy();
+  expect(view.getByRole("alert")).toBeTruthy();
+  expect(view.getByText("database unavailable")).toBeTruthy();
+});

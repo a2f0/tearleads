@@ -10,7 +10,7 @@ import {
   requestAllDomainSyncLanes,
   requestContainerContentsDocumentPriming,
 } from "@tearleads/client-sdk";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import {
   MiniAppActions,
   MiniAppButton,
@@ -42,6 +42,7 @@ import {
   WRITE_QUEUE_COMPACT_COLUMNS,
 } from "./ExplorerWriteQueueTable";
 import { useDomainSyncSnapshot } from "./useDomainSyncSnapshot";
+import { usePendingWriteQueueItems } from "./usePendingWriteQueueItems";
 import "./ExplorerWriteQueuePanel.css";
 
 interface ExplorerWriteQueuePanelProps {
@@ -70,7 +71,8 @@ interface ExplorerWriteQueuePanelViewProps
   // Requests the confirmation dialog; the destructive discard itself only
   // runs from the dialog's confirm action.
   discardPendingWrites: (item: PendingWriteQueueItem) => void;
-  error: boolean;
+  // Why the latest pending-write read failed, or null when it succeeded.
+  error: string | null;
   items: ReadonlyArray<PendingWriteQueueItem>;
   loading: boolean;
   retryPendingWrites: (item: PendingWriteQueueItem) => void;
@@ -150,14 +152,23 @@ function WriteQueueBlockers(params: {
   );
 }
 
-function WriteQueueEmptyState(params: { error: boolean; loading: boolean }) {
+// The read's own error rides along with the label: it is what tells the user
+// whether the failure is transient or needs action (e.g. an obsolete local
+// schema that only a local database reset fixes).
+function WriteQueueLoadError(params: { error: string }) {
+  return (
+    <span role="alert">
+      {EXPLORER_LABELS.writeQueueFailedToLoad} <span>{params.error}</span>
+    </span>
+  );
+}
+
+function WriteQueueEmptyState(params: {
+  error: string | null;
+  loading: boolean;
+}) {
   const compact = useRoutedLayoutTier() === "mobile";
   const columns = compact ? WRITE_QUEUE_COMPACT_COLUMNS : WRITE_QUEUE_COLUMNS;
-  const label = params.loading
-    ? EXPLORER_LABELS.writeQueueLoading
-    : params.error
-      ? EXPLORER_LABELS.writeQueueFailedToLoad
-      : EXPLORER_LABELS.writeQueueEmpty;
   return (
     <MiniAppTableFrame className="mini-app-table-frame--bleed">
       <MiniAppTable
@@ -165,7 +176,15 @@ function WriteQueueEmptyState(params: { error: boolean; loading: boolean }) {
         columns={columns}
       >
         <MiniAppTableEmptyRow colSpan={columns.length}>
-          <span role={params.error ? "alert" : "status"}>{label}</span>
+          {!params.loading && params.error !== null ? (
+            <WriteQueueLoadError error={params.error} />
+          ) : (
+            <span role="status">
+              {params.loading
+                ? EXPLORER_LABELS.writeQueueLoading
+                : EXPLORER_LABELS.writeQueueEmpty}
+            </span>
+          )}
         </MiniAppTableEmptyRow>
       </MiniAppTable>
     </MiniAppTableFrame>
@@ -205,10 +224,10 @@ function WriteQueueEntryBody(params: ExplorerWriteQueuePanelViewProps) {
 
   // The read failed, so an empty list is a query failure, not an empty queue.
   // Surface the error instead of falsely claiming the change finished syncing.
-  if (params.error) {
+  if (params.error !== null) {
     return (
       <MiniAppStatus>
-        <span role="alert">{EXPLORER_LABELS.writeQueueFailedToLoad}</span>
+        <WriteQueueLoadError error={params.error} />
       </MiniAppStatus>
     );
   }
@@ -234,7 +253,7 @@ function WriteQueueListBody(
         online={params.online}
         organizationNamesById={params.organizationNamesById}
       />
-      {params.error || params.items.length === 0 ? (
+      {params.error !== null || params.items.length === 0 ? (
         <WriteQueueEmptyState error={params.error} loading={params.loading} />
       ) : (
         <ExplorerWriteQueueTable
@@ -279,7 +298,7 @@ function getWriteQueuePanelTitles(params: ExplorerWriteQueuePanelViewProps): {
   const listSubtitle =
     params.loading && params.items.length === 0
       ? EXPLORER_LABELS.writeQueueSummaryLoading
-      : params.error
+      : params.error !== null
         ? EXPLORER_LABELS.writeQueueSummaryUnavailable
         : summary;
   return {
@@ -332,111 +351,6 @@ export function ExplorerWriteQueuePanelView(
       ) : null}
     </MiniAppPanel>
   );
-}
-
-// Minimum spacing between chained pending-write reads. listPendingWrites() is
-// an identity-wide SQLite scan sharing the database's single serialized queue,
-// so during a bulk import a read per revision bump would stack hundreds of
-// heavy scans behind the import's writes. Instead at most one read is in
-// flight, at most one re-read is queued behind it, and chained re-reads wait
-// this long — the final read still observes the settled state.
-const PENDING_WRITE_READ_COALESCE_MS = 300;
-
-interface PendingWriteReadState {
-  disposed: boolean;
-  inFlight: boolean;
-  rerunRequested: boolean;
-  timer: ReturnType<typeof setTimeout> | null;
-}
-
-// Owns the coalesced pending-write reads: loading is true only until the first
-// read settles; later re-reads keep the last result on screen instead of
-// flipping the panel back to "Loading".
-function usePendingWriteQueueItems(
-  params: Pick<
-    ExplorerWriteQueuePanelProps,
-    "documentListRevision" | "documentQueries" | "nodes"
-  > & { syncHasPendingWork: boolean; syncSettlementRevision: string },
-) {
-  const [state, setState] = useState<{
-    error: boolean;
-    items: ReadonlyArray<PendingWriteQueueItem>;
-    loading: boolean;
-  }>({ error: false, items: [], loading: true });
-  const readStateRef = useRef<PendingWriteReadState>({
-    disposed: false,
-    inFlight: false,
-    rerunRequested: false,
-    timer: null,
-  });
-
-  const runRead = useCallback(() => {
-    const readState = readStateRef.current;
-    readState.timer = null;
-    if (readState.disposed) {
-      return;
-    }
-    if (readState.inFlight) {
-      readState.rerunRequested = true;
-      return;
-    }
-
-    readState.inFlight = true;
-    void params.documentQueries
-      .listPendingWrites()
-      .then(
-        (items) => {
-          if (!readState.disposed) {
-            setState({ error: false, items, loading: false });
-          }
-        },
-        () => {
-          if (!readState.disposed) {
-            setState({ error: true, items: [], loading: false });
-          }
-        },
-      )
-      .then(() => {
-        readState.inFlight = false;
-        if (readState.rerunRequested && !readState.disposed) {
-          readState.rerunRequested = false;
-          readState.timer = setTimeout(runRead, PENDING_WRITE_READ_COALESCE_MS);
-        }
-      });
-  }, [params.documentQueries]);
-
-  useEffect(() => {
-    const readState = readStateRef.current;
-    readState.disposed = false;
-    return () => {
-      readState.disposed = true;
-      if (readState.timer !== null) {
-        clearTimeout(readState.timer);
-        readState.timer = null;
-      }
-    };
-  }, []);
-
-  useEffect(() => {
-    const readState = readStateRef.current;
-    if (readState.timer !== null) {
-      // An already-scheduled re-read will observe this change when it fires.
-      return;
-    }
-    if (readState.inFlight) {
-      readState.rerunRequested = true;
-      return;
-    }
-    runRead();
-  }, [
-    runRead,
-    params.documentListRevision,
-    params.nodes,
-    params.syncHasPendingWork,
-    params.syncSettlementRevision,
-  ]);
-
-  return state;
 }
 
 export function ExplorerWriteQueuePanel(params: ExplorerWriteQueuePanelProps) {

@@ -24,9 +24,10 @@ interface SystemMonitorQueueMetadata {
 }
 
 const UNAVAILABLE_WRITE_QUEUE: SystemMonitorWriteQueueReport = {
-  available: false,
-  items: [],
+  status: "unavailable",
 };
+
+const FAILED_WRITE_QUEUE: SystemMonitorWriteQueueReport = { status: "failed" };
 
 interface ScopedWriteQueueReport {
   readonly domainScope: DomainScope | null;
@@ -112,8 +113,12 @@ export function useSystemMonitorQueueMetadata(): SystemMonitorQueueMetadata {
       onSnapshot: (items) =>
         setObservedWriteQueue({
           domainScope,
-          report: { available: true, items },
+          report: { status: "available", items },
         }),
+      // The error text stays out of the report (see its redaction policy); the
+      // footer sync indicator and the Explorer Write Queue show it.
+      onError: () =>
+        setObservedWriteQueue({ domainScope, report: FAILED_WRITE_QUEUE }),
       throttleMs: WRITE_QUEUE_READ_THROTTLE_MS,
     });
     return () => watcher.stop();
