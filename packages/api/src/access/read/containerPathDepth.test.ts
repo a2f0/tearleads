@@ -58,7 +58,7 @@ test("ancestor closure accepts exactly 100 containers including the root", async
 });
 
 test.each([false, true])(
-  "ancestor closure refuses 101 containers with duplicate seed paths: %s",
+  "ancestor closure refuses 101 containers (all seeds: %s)",
   async (allSeeds) => {
     const leaf = ids[100];
     if (!leaf) throw new Error("Missing overflow leaf");

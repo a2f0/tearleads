@@ -15,6 +15,7 @@ import {
   type StoredManifestVerificationStep,
   verifyStoredManifestGraph,
 } from "../../../utils/storedManifestGraph";
+import { StoredManifestWork } from "../../../utils/storedManifestWork";
 import { StoredVerificationCache } from "../../../utils/storedVerificationCache";
 import {
   loadPrincipalAuthorizationPoliciesForReferences,
@@ -29,9 +30,12 @@ import {
 
 const verifiedStoredManifests =
   new StoredVerificationCache<VerifiedContainerAccessManifest>(2_048);
+const storedManifestWork =
+  new StoredManifestWork<VerifiedContainerAccessManifest>(128);
 
 export function clearStoredContainerManifestVerificationCache(): void {
   verifiedStoredManifests.clear();
+  storedManifestWork.clear();
 }
 
 interface StoredManifestVerificationInput {
@@ -325,10 +329,10 @@ async function prepareBundle(
   if (cached) return { value: cached };
   const parsed = toVerifiedContainerManifest(bundle);
   const signerPublicKey = await loadStoredEventSigner(input, parsed);
-  const processCached = verifiedStoredManifests.get(
-    bundle.manifestHash,
-    storedVerificationSource(bundle, signerPublicKey),
-  );
+  const source = storedVerificationSource(bundle, signerPublicKey);
+  const processCached =
+    storedManifestWork.get(bundle.manifestHash, source) ??
+    verifiedStoredManifests.get(bundle.manifestHash, source);
   if (processCached) {
     input.context.verifiedManifestByHash.set(
       bundle.manifestHash,
@@ -360,19 +364,36 @@ export async function verifyStoredContainerManifest(
   input: StoredManifestVerificationInput,
 ): Promise<VerifiedContainerAccessManifest> {
   try {
-    return await verifyStoredManifestGraph({
-      rootHash: input.bundle.manifestHash,
-      error: integrityError,
-      prepare: async (hash) => {
-        const bundle =
-          hash === input.bundle.manifestHash
-            ? input.bundle
-            : await input.loadBundle(hash);
-        if (bundle.manifestHash !== hash)
-          throw integrityError("manifest dependency hash is inconsistent");
-        return prepareBundle(input, bundle);
-      },
+    const cached = input.context.verifiedManifestByHash.get(
+      input.bundle.manifestHash,
+    );
+    if (cached) return cached;
+    const parsed = toVerifiedContainerManifest(input.bundle);
+    const signerPublicKey = await loadStoredEventSigner(input, parsed);
+    const verified = await storedManifestWork.run({
+      scope: input.context.executor,
+      key: input.bundle.manifestHash,
+      source: storedVerificationSource(input.bundle, signerPublicKey),
+      verify: () =>
+        verifyStoredManifestGraph({
+          rootHash: input.bundle.manifestHash,
+          error: integrityError,
+          prepare: async (hash) => {
+            const bundle =
+              hash === input.bundle.manifestHash
+                ? input.bundle
+                : await input.loadBundle(hash);
+            if (bundle.manifestHash !== hash)
+              throw integrityError("manifest dependency hash is inconsistent");
+            return prepareBundle(input, bundle);
+          },
+        }),
     });
+    input.context.verifiedManifestByHash.set(
+      input.bundle.manifestHash,
+      verified,
+    );
+    return verified;
   } catch (error) {
     if (error instanceof ContainerWriterProjectionError) {
       throw error;

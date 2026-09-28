@@ -48,7 +48,14 @@ an unclosed parent at the boundary rather than silently truncating it.
 Lifetime container and document manifest history has no depth refusal. The API
 verifies retained dependencies iteratively, including ancestor lineage, so cache
 eviction does not invalidate an accepted history. Cold verification still loads
-retained history. For N ancestor manifests, the shared lineage index uses
+retained history. Each verifier separately retains 128 requested verified heads,
+keeping them available while the 2,048-entry dependency cache turns over during
+long history walks. Identical concurrent head verification
+shares work within the same database session; separate transactions remain
+independent. Both caches check the complete bundle and signer-key fingerprint.
+They are optional process caches, not persistent verification markers or a
+bound on first-cold-read cost. For N ancestor manifests, the shared lineage
+index uses
 O(N log N) work and space, with O(log N) per lineage query; see
 [the availability model](../formal/container-keying/ManifestHistory.md).
 

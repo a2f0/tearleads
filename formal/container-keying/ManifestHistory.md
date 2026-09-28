@@ -37,3 +37,11 @@ and incremental proof delivery remain tracked in
 [#2365, finding 6](https://github.com/a2f0/tearleads/issues/2365). They must not
 become a permanent lifetime-history refusal or a cap that prevents revocation.
 No existing history is trusted merely because its depth is large.
+
+The implementation separately retains 128 requested verified heads per verifier
+and shares identical concurrent verification within a database session. This
+prevents intermediate-history cache churn from evicting recently requested heads
+and avoids duplicate concurrent walks. Regressions reproduce both failures with
+the protection removed. These optional caches do not bound the first cold walk,
+isolate tenants, or represent durable progress, and the model does not abstract
+their scheduling or eviction policy.
