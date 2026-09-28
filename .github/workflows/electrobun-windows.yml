@@ -48,9 +48,9 @@ jobs:
       - name: Verify Windows archives and source-map staging
         run: bun test ./packages/app-electrobun/scripts/cefMonitorExpression.test.ts ./packages/app-electrobun/scripts/verifyWindowsArtifacts.test.ts ./packages/app-electrobun/scripts/windowsSourceMapStaging.test.ts ./packages/app-electrobun/scripts/sentryReleaseSource.test.ts
 
-      - name: Build and reopen the Windows CEF app
-        shell: bash
-        run: bun run --cwd packages/app-electrobun test:windows-persistence
+      - name: Build and reopen CEF with a port conflict
+        shell: pwsh
+        run: ./packages/app-electrobun/scripts/testWindowsPortConflict.ps1
 
   release:
     name: Windows ${{ matrix.tier }} installer
