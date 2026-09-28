@@ -44,38 +44,50 @@ export async function openExplorer(pane: HTMLElement) {
   );
 }
 
-async function openExplorerNewStructuredDocumentRoute(pane: HTMLElement) {
+async function createExplorerNote(pane: HTMLElement) {
   const deadline = Date.now() + DUAL_PANE_TEST_TIMEOUT_MS;
   while (Date.now() < deadline) {
-    if (within(pane).queryByRole("button", { name: "Note" })) {
-      return;
+    let created = false;
+    let pickerVisible = false;
+    await interact(() => {
+      // Reconciliation can replace the picker between asynchronous steps.
+      // Query and click in the same act, and retry navigation if it vanished.
+      const note = within(pane).queryByRole("button", { name: "Note" });
+      pickerVisible = note !== null;
+      if (note instanceof HTMLButtonElement && !note.disabled) {
+        fireEvent.click(note);
+        created = true;
+      }
+    });
+    if (created) return;
+    if (pickerVisible) {
+      await new Promise((resolve) => setTimeout(resolve, 100));
+      continue;
     }
 
-    const explorerWindow = getExplorerWindowRoot(pane);
-    const fileMenu = within(explorerWindow).queryByRole("menuitem", {
-      name: "File",
+    await interact(() => {
+      const fileMenu = within(getExplorerWindowRoot(pane)).queryByRole(
+        "menuitem",
+        { name: "File" },
+      );
+      if (fileMenu) fireEvent.click(fileMenu);
     });
-    if (fileMenu) {
-      await interact(() => {
-        fireEvent.click(fileMenu);
-      });
-      const newDocumentItem = within(explorerWindow).queryByRole("menuitem", {
-        name: "New Document",
-      });
+    await interact(() => {
+      const newDocumentItem = within(getExplorerWindowRoot(pane)).queryByRole(
+        "menuitem",
+        { name: "New Document" },
+      );
       if (
         newDocumentItem instanceof HTMLButtonElement &&
         !newDocumentItem.disabled
       ) {
-        await interact(() => {
-          fireEvent.click(newDocumentItem);
-        });
+        fireEvent.click(newDocumentItem);
       }
-    }
-
+    });
     await new Promise((resolve) => setTimeout(resolve, 100));
   }
 
-  throw new Error("Explorer did not open the new document route.");
+  throw new Error("Explorer did not offer the new Note action.");
 }
 
 export async function createChildContainer(pane: HTMLElement, name: string) {
@@ -131,14 +143,7 @@ export async function createNoteWithAttachment(
   } = {},
 ) {
   await selectContainerAndWaitForItemTable(pane, containerName);
-  await openExplorerNewStructuredDocumentRoute(pane);
-  await within(pane).findByRole("button", {
-    name: "Note",
-  });
-  await interact(() => {
-    // Reconciliation can replace the picker between the await and the click.
-    fireEvent.click(within(pane).getByRole("button", { name: "Note" }));
-  });
+  await createExplorerNote(pane);
 
   const editor = await within(pane).findByRole(
     "textbox",
@@ -191,13 +196,7 @@ export async function createNoteInContainer(
   title: string,
 ) {
   await selectContainerAndWaitForItemTable(pane, containerName);
-  await openExplorerNewStructuredDocumentRoute(pane);
-  const newNoteButton = await within(pane).findByRole("button", {
-    name: "Note",
-  });
-  await interact(() => {
-    fireEvent.click(newNoteButton);
-  });
+  await createExplorerNote(pane);
 
   const editor = await within(pane).findByRole("textbox", {
     name: /Notes editor/u,

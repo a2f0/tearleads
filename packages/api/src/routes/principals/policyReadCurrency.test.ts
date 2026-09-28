@@ -79,6 +79,7 @@ test("a disabled roster entry does not authorize a principal policy read", async
   );
 });
 
+// Real signed setup and protocol steps approach five seconds in PGlite CI.
 test("a user dropped from the group's current projection loses the read", async () => {
   const owner = createTestUser();
   const reader = createTestUser();
@@ -108,7 +109,7 @@ test("a user dropped from the group's current projection loses the read", async 
 
   expect((await getPolicy(reader, "group", groupId)).status).toBe(403);
   expect((await getPolicy(reader, "group", adminGroupId)).status).toBe(403);
-});
+}, 15_000);
 
 test("a grant revoked from the container's current head no longer authorizes", async () => {
   const owner = createTestUser();

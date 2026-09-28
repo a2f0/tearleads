@@ -28,6 +28,7 @@ import { openOrgManager } from "../../../../test/helpers/dual-pane/dualPaneShari
 import {
   requestPath,
   summarizeProxiedApiRequests,
+  truncateText,
 } from "../../../../test/helpers/dualPaneRequestSummary";
 import {
   listProxiedApiRequests,
@@ -114,6 +115,9 @@ test(
     await generatePaneKeyPairFromMenu(secondaryPane);
     const restoreRequestStartIndex = listProxiedApiRequests().length;
     await restorePaneRecoveryKey(secondaryPane, recoveryKey);
+    expect(
+      within(secondaryPane).queryAllByText(/Recovery key restored$/u),
+    ).toHaveLength(1);
     await waitForCondition(
       () => getPaneUserId(secondaryPane) === primaryUserId,
       "Secondary pane did not restore the primary identity.",
@@ -142,7 +146,14 @@ test(
         ).some((button) => button.textContent?.trim() === "Contacts"),
       "Recovered Contacts container did not appear in Explorer.",
       20_000,
-    );
+    ).catch((error) => {
+      // The default DOM dump truncates inside the primary pane, hiding the
+      // recovered pane and the requests needed to diagnose this failure.
+      throw new Error(
+        `Recovered Contacts container did not appear.\nPane: ${truncateText(secondaryPane.textContent ?? "", 8_000)}\nRequests: ${summarizeProxiedApiRequests(listProxiedApiRequests().slice(restoreRequestStartIndex))}`,
+        { cause: error },
+      );
+    });
     await selectContainerAndWaitForItemTable(secondaryPane, "Contacts");
     await waitForCondition(
       () => {

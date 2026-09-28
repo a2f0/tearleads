@@ -43,6 +43,7 @@ async function createPaginatedDocumentHistory() {
   return { created, owner, signed };
 }
 
+// Real signed setup and protocol steps approach five seconds in PGlite CI.
 test("the sync route traverses more than 64 updates exactly once", async () => {
   const { created, owner, signed } = await createPaginatedDocumentHistory();
 
@@ -71,7 +72,7 @@ test("the sync route traverses more than 64 updates exactly once", async () => {
   expect(new Set(receivedIds)).toEqual(
     new Set(signed.map(({ updateId }) => updateId)),
   );
-});
+}, 15_000);
 
 test("a lost continuation response retries without skipped or duplicated updates", async () => {
   const { created, owner, signed } = await createPaginatedDocumentHistory();
