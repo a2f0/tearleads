@@ -19,6 +19,9 @@ const commonScript = resolve(
   import.meta.dir,
   "../../../terraform/scripts/common.sh",
 );
+// Full promotion forks ten stub commands plus the shell preflight. On macOS,
+// the parallel workspace gate can exceed Bun's five-second default.
+const FULL_PROMOTION_TIMEOUT_MS = 15_000;
 
 const commandPaths = [
   "terraform/scripts/prepare-storage.sh",
@@ -208,26 +211,30 @@ async function runHarness(
   }
 }
 
-test("runs every release in promotion order from the repository root", async () => {
-  const run = await runHarness();
-  expect(run.exitCode, run.stderr).toBe(0);
-  expect(run.calls.map((call) => call.split("|").slice(0, 2))).toEqual([
-    ["storage-staging", ""],
-    ["terraform-staging", ""],
-    ["deployStaging.sh", "staging-user@staging-host"],
-    ["uploadIosStagingRelease.sh", ""],
-    ["uploadAndroidStagingRelease.sh", ""],
-    ["storage-production", ""],
-    ["terraform-production", ""],
-    ["deployProduction.sh", "prod-user@prod-host"],
-    ["uploadIosRelease.sh", ""],
-    ["uploadAndroidRelease.sh", ""],
-  ]);
-  const workingDirectories = new Set(
-    run.calls.map((call) => call.split("|").slice(2).join("|")),
-  );
-  expect(workingDirectories).toEqual(new Set([run.root]));
-});
+test(
+  "runs every release in promotion order from the repository root",
+  async () => {
+    const run = await runHarness();
+    expect(run.exitCode, run.stderr).toBe(0);
+    expect(run.calls.map((call) => call.split("|").slice(0, 2))).toEqual([
+      ["storage-staging", ""],
+      ["terraform-staging", ""],
+      ["deployStaging.sh", "staging-user@staging-host"],
+      ["uploadIosStagingRelease.sh", ""],
+      ["uploadAndroidStagingRelease.sh", ""],
+      ["storage-production", ""],
+      ["terraform-production", ""],
+      ["deployProduction.sh", "prod-user@prod-host"],
+      ["uploadIosRelease.sh", ""],
+      ["uploadAndroidRelease.sh", ""],
+    ]);
+    const workingDirectories = new Set(
+      run.calls.map((call) => call.split("|").slice(2).join("|")),
+    );
+    expect(workingDirectories).toEqual(new Set([run.root]));
+  },
+  FULL_PROMOTION_TIMEOUT_MS,
+);
 
 test("stops at the first failing release command", async () => {
   const run = await runHarness({ failAt: "uploadAndroidStagingRelease.sh" });
@@ -253,21 +260,24 @@ test("stops before Terraform when identity readiness fails", async () => {
   expect(run.calls).toEqual([]);
 });
 
-test("keeps distinct tier overrides isolated", async () => {
-  const run = await runHarness({
-    environment: {
-      STAGING_SSH_TARGET: "staging-user@explicit-staging",
-      PRODUCTION_SSH_TARGET: "prod-user@explicit-production",
-    },
-    secretStagingTarget: "wrong-secret-target",
-    secretProductionTarget: "wrong-secret-target",
-  });
-  expect(run.exitCode, run.stderr).toBe(0);
-  expect(run.calls.map((call) => call.split("|")[1]).filter(Boolean)).toEqual([
-    "staging-user@explicit-staging",
-    "prod-user@explicit-production",
-  ]);
-});
+test(
+  "keeps distinct tier overrides isolated",
+  async () => {
+    const run = await runHarness({
+      environment: {
+        STAGING_SSH_TARGET: "staging-user@explicit-staging",
+        PRODUCTION_SSH_TARGET: "prod-user@explicit-production",
+      },
+      secretStagingTarget: "wrong-secret-target",
+      secretProductionTarget: "wrong-secret-target",
+    });
+    expect(run.exitCode, run.stderr).toBe(0);
+    expect(run.calls.map((call) => call.split("|")[1]).filter(Boolean)).toEqual(
+      ["staging-user@explicit-staging", "prod-user@explicit-production"],
+    );
+  },
+  FULL_PROMOTION_TIMEOUT_MS,
+);
 
 test("rejects explicit targets on the same host before applying", async () => {
   const run = await runHarness({
