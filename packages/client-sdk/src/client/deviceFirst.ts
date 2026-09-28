@@ -299,7 +299,6 @@ class DeviceFirstService implements DeviceFirst {
       ) =>
         discoverContainerDocumentsForRuntime({
           containerId,
-          getContainerStore: () => store.getContainerStore(),
           onFullListing,
           onPendingDiscovery,
           runtimeService,

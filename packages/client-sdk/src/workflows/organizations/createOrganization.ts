@@ -1,8 +1,13 @@
-import type { EncapsulationKeyPair, SigningKeyPair } from "@tearleads/crypto";
+import {
+  type EncapsulationKeyPair,
+  type SigningKeyPair,
+  signOrganizationReplacementAuthorization,
+} from "@tearleads/crypto";
 import type { CreateOrganizationRequest } from "@tearleads/validators/request";
 import type { CreateOrganizationResponse } from "@tearleads/validators/response";
 import type { DocumentProjectorRegistryInput } from "../../data/documents/documentKinds";
 import type { ExecSqlClientLike } from "../../data/sqlite/sqlSchema";
+import { createExecSql } from "../../data/sqlite/sqlSchema";
 import {
   buildOrganizationProvisioningArtifacts,
   type OrganizationProvisioningArtifacts,
@@ -10,11 +15,11 @@ import {
   type ProvisionedSystemContainerSpec,
   persistOrganizationProvisioningState,
 } from "../registration/registerIdentity";
-
 import {
   makeOrganizationProvisioningAttemptDurable,
   removeNativeSubscriptionRestoreProvisioningAttempt,
 } from "./organizationProvisioningAttempt";
+import { pinOrganizationReplacementResponse } from "./organizationReplacementVerification";
 
 export { removeNativeSubscriptionRestoreProvisioningAttempt };
 
@@ -91,6 +96,49 @@ function isAdoptedReplacementResponse(input: {
   return true;
 }
 
+async function buildOrganizationCandidate(
+  input: CreateOrganizationInput,
+  rootContainerId: string,
+): Promise<OrganizationProvisioningArtifacts | null> {
+  const artifactsInput: OrganizationProvisioningArtifactsInput = {
+    encapsulationKeyPair: input.encapsulationKeyPair,
+    organizationProfileName: input.organizationProfileName,
+    provisionedSystemContainers: input.provisionedSystemContainers,
+    rootContainerId,
+    rosterProfileNickname: input.rosterProfileNickname,
+    signingKeyPair: input.signingKeyPair,
+    userId: input.userId,
+  };
+  const artifacts: OrganizationProvisioningArtifacts =
+    await buildOrganizationProvisioningArtifacts(artifactsInput);
+
+  if (input.replacesOrganizationId) {
+    artifacts.replacementAuthorization =
+      await signOrganizationReplacementAuthorization(
+        {
+          ...artifacts,
+          replacesOrganizationId: input.replacesOrganizationId,
+          rootContainerId,
+          userId: input.userId,
+        },
+        input.signingKeyPair,
+      );
+  }
+
+  if (
+    input.replacesOrganizationId &&
+    input.isIdentityCurrent &&
+    !input.isIdentityCurrent()
+  ) {
+    input.log?.(
+      "Organization creation aborted: identity changed while building artifacts",
+    );
+    return null;
+  }
+
+  return artifacts;
+}
+
 /**
  * Provisions an additional organization for an already-registered user, reusing
  * the exact artifact-build and local-persistence path as registration
@@ -105,28 +153,12 @@ export async function createOrganization(
   input.log?.("Creating organization...");
 
   const rootContainerId = crypto.randomUUID();
-  const artifactsInput: OrganizationProvisioningArtifactsInput = {
-    encapsulationKeyPair: input.encapsulationKeyPair,
-    organizationProfileName: input.organizationProfileName,
-    provisionedSystemContainers: input.provisionedSystemContainers,
+  const candidateArtifacts = await buildOrganizationCandidate(
+    input,
     rootContainerId,
-    rosterProfileNickname: input.rosterProfileNickname,
-    signingKeyPair: input.signingKeyPair,
-    userId: input.userId,
-  };
-  const candidateArtifacts: OrganizationProvisioningArtifacts =
-    await buildOrganizationProvisioningArtifacts(artifactsInput);
+  );
 
-  if (
-    input.replacesOrganizationId &&
-    input.isIdentityCurrent &&
-    !input.isIdentityCurrent()
-  ) {
-    input.log?.(
-      "Organization creation aborted: identity changed while building artifacts",
-    );
-    return null;
-  }
+  if (!candidateArtifacts) return null;
 
   const durableAttempt = await makeOrganizationProvisioningAttemptDurable({
     artifacts: candidateArtifacts,
@@ -168,9 +200,22 @@ export async function createOrganization(
     return null;
   }
 
+  if (
+    input.replacesOrganizationId &&
+    !(await pinOrganizationReplacementResponse({
+      replacesOrganizationId: input.replacesOrganizationId,
+      response,
+      signingPublicKey: input.signingKeyPair.signingPublicKey,
+      userId: input.userId,
+      execSql: createExecSql(input.dbClient),
+      stillCurrent: input.isIdentityCurrent,
+    }))
+  )
+    return null;
+
   if (isAdoptedReplacementResponse({ creation: input, request, response })) {
-    // Another device won the serialized replacement race. Its encrypted
-    // bootstrap is server-authoritative and will hydrate normally; persisting
+    // Another device authorized this winning genesis with the same identity.
+    // Its encrypted bootstrap will hydrate normally; persisting
     // this device's losing candidate would instead create an unrelated local
     // root. The session reset rebinds retained local data to the winning ids.
     return response;

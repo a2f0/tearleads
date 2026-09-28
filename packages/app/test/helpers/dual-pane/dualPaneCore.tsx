@@ -32,6 +32,8 @@ import { truncateText } from "../dualPaneRequestSummary";
 import { createTestHostConfig, flattenPaneStatusText } from "../paneTestUtils";
 import { waitForCondition } from "../waitForCondition";
 
+import { restorePaneRecoveryKey } from "./dualPaneRecoveryKeyActions";
+
 export const DUAL_PANE_TEST_TIMEOUT_MS = 20_000;
 export const DUAL_PANE_ATTACHMENT_TEST_TIMEOUT_MS = 60_000;
 export const POST_SHARE_SYNC_SETTLE_TIMEOUT_MS = 15_000;
@@ -469,30 +471,11 @@ export async function restorePaneFromRecoveryKey(
   pane: HTMLElement,
   seedPhrase: string,
 ) {
-  const identityManager = await openIdentityManagerForPane(pane);
-  fireEvent.click(
-    within(identityManager).getByRole("button", { name: "Recovery Key" }),
-  );
-  fireEvent.click(
-    within(identityManager).getByRole("tab", { name: "Recovery" }),
-  );
-  const restoreInput =
-    within(identityManager).getByLabelText("Restore passphrase");
-  await interact(() => {
-    fireEvent.change(restoreInput, { target: { value: seedPhrase } });
+  await restorePaneRecoveryKey({
+    identityManager: await openIdentityManagerForPane(pane),
+    pane,
+    seedPhrase,
+    timeoutMs: DUAL_PANE_TEST_TIMEOUT_MS,
   });
-  await interact(() => {
-    fireEvent.click(
-      within(identityManager).getByRole("button", {
-        name: "Restore from Passphrase",
-      }),
-    );
-  });
-
   await waitForSinglePaneProvisioning(pane);
-  await waitFor(() => {
-    expect(flattenPaneStatusText(pane)).toMatch(
-      /(?:sqlite worker|SQLite Worker):\s*ready/,
-    );
-  });
 }

@@ -18895,6 +18895,20 @@ export interface operations {
                     /** @constant */
                     nativeSubscriptionRestore?: true;
                     organizationId: string;
+                    replacementAuthorization?: {
+                        adminGroupId: string;
+                        adminGroupStateHash: string;
+                        memberGroupId: string;
+                        memberGroupStateHash: string;
+                        organizationId: string;
+                        organizationStateHash: string;
+                        replacesOrganizationId: string;
+                        rootContainerId: string;
+                        rootManifestHash: string;
+                        rootMetadataDocumentId: string;
+                        signature: string;
+                        userId: string;
+                    };
                     replacesOrganizationId?: string;
                     rootContainerId: string;
                     userId: string;
@@ -19134,6 +19148,20 @@ export interface operations {
                             [key: string]: unknown;
                         };
                         organizationProfileDocumentId?: string;
+                        replacementAuthorization: {
+                            adminGroupId: string;
+                            adminGroupStateHash: string;
+                            memberGroupId: string;
+                            memberGroupStateHash: string;
+                            organizationId: string;
+                            organizationStateHash: string;
+                            replacesOrganizationId: string;
+                            rootContainerId: string;
+                            rootManifestHash: string;
+                            rootMetadataDocumentId: string;
+                            signature: string;
+                            userId: string;
+                        } | null;
                         rootContainerId: string;
                         rootMetadataAccessEpoch: number;
                         rootMetadataAccessStateHash: string;

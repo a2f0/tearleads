@@ -8,6 +8,12 @@ import type { CreateOrganizationRequest } from "@tearleads/validators/request";
 import { execSqlClientFromExecSql } from "../../../test/helpers/execSqlClient";
 import { respondToOrganizationProvisioning } from "../../../test/helpers/organizationProvisioningResponder";
 import { sqlContainerContentsPersistence } from "../../data/persistence/container-contents/containerContentsPersistence";
+import {
+  accessManifestCheckpoints,
+  principalPolicyCheckpoints,
+  principalPolicyOrganizations,
+} from "../../data/sqlite/schema";
+import { getClientSQLitePersistenceRuntime } from "../../data/sqlite/sqlitePersistenceRuntime";
 import { createOrganization } from "./createOrganization";
 
 function requireRequest(
@@ -133,6 +139,32 @@ test("two devices adopt the same winning replacement organization", async () => 
         losingRootId,
       ),
     ).resolves.toBe(false);
+    const authorization = leftResponse?.replacementAuthorization;
+    if (!authorization) throw new Error("Expected winning authorization");
+    const { db } = getClientSQLitePersistenceRuntime(right.execSql);
+    expect(await db.select().from(accessManifestCheckpoints)).toEqual([
+      expect.objectContaining({
+        organizationId: authorization.organizationId,
+        objectId: authorization.rootContainerId,
+        manifestHash: authorization.rootManifestHash,
+        epoch: 1,
+      }),
+    ]);
+    expect(await db.select().from(principalPolicyCheckpoints)).toHaveLength(3);
+    expect(await db.select().from(principalPolicyOrganizations)).toEqual(
+      expect.arrayContaining(
+        [
+          authorization.organizationId,
+          authorization.adminGroupId,
+          authorization.memberGroupId,
+        ].map((principalId) =>
+          expect.objectContaining({
+            principalId,
+            organizationId: authorization.organizationId,
+          }),
+        ),
+      ),
+    );
   } finally {
     left.close();
     right.close();

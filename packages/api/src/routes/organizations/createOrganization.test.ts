@@ -432,10 +432,9 @@ test("POST /organizations leaves the caller's default organization unchanged", a
 
 test("POST /organizations links a replacement only after purge completion", async () => {
   const { user, defaultOrganizationId } = await registeredActor();
-  const body = {
-    ...(await createOrganizationRequestBody(user)),
+  const body = await createOrganizationRequestBody(user, {
     replacesOrganizationId: defaultOrganizationId,
-  };
+  });
   await db
     .update(organizationBilling)
     .set({ purgeStartedAt: new Date(), status: "deleting" })

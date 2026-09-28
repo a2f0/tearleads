@@ -1,6 +1,9 @@
 import type { ApiClient } from "@tearleads/api-client";
-import type { OrganizationProvisioningRequest } from "@tearleads/validators/request";
-import type { OrganizationProvisioningResponse } from "@tearleads/validators/response";
+import type {
+  CreateOrganizationRequest,
+  OrganizationProvisioningRequest,
+} from "@tearleads/validators/request";
+import type { CreateOrganizationResponse } from "@tearleads/validators/response";
 import { createMutationResponseFromRequest } from "./containerFixtures";
 import { createResponseFromRequest } from "./documentFixtures";
 
@@ -10,8 +13,8 @@ import { createResponseFromRequest } from "./documentFixtures";
  * workflow tests so they can drive local persistence without a real server.
  */
 export async function respondToOrganizationProvisioning(
-  request: OrganizationProvisioningRequest,
-): Promise<OrganizationProvisioningResponse> {
+  request: OrganizationProvisioningRequest | CreateOrganizationRequest,
+): Promise<CreateOrganizationResponse> {
   const rootMetadataDocument = await createResponseFromRequest(
     request.initialRootMetadataDocument,
   );
@@ -81,6 +84,10 @@ export async function respondToOrganizationProvisioning(
   );
 
   return {
+    replacementAuthorization:
+      "replacementAuthorization" in request
+        ? (request.replacementAuthorization ?? null)
+        : null,
     userId: request.userId,
     organizationId: request.organizationId,
     rootContainerId: request.rootContainerId,

@@ -4,6 +4,7 @@ import {
   type CreateOrganizationRequest,
   isCreateOrganizationRequest,
 } from "@tearleads/validators/request";
+import { isOrganizationReplacementAuthorization } from "@tearleads/validators/util";
 import { sqlOrganizationProvisioningAttemptPersistence } from "../../data/persistence/organizations/organizationProvisioningAttemptPersistence";
 import type { ExecSql, ExecSqlClientLike } from "../../data/sqlite/sqlSchema";
 import { createExecSql } from "../../data/sqlite/sqlSchema";
@@ -28,6 +29,9 @@ function buildCreateOrganizationRequest(input: {
   const { artifacts } = input;
   return {
     userId: input.userId,
+    ...(artifacts.replacementAuthorization
+      ? { replacementAuthorization: artifacts.replacementAuthorization }
+      : {}),
     organizationId: artifacts.organizationId,
     rootContainerId: input.rootContainerId,
     initialAdminGroup: artifacts.initialAdminGroup,
@@ -146,6 +150,10 @@ function isOrganizationProvisioningArtifacts(
   const metadata = Reflect.get(value, "organizationMetadataBootstrap");
   const systemContainers = Reflect.get(value, "systemContainerBootstraps");
   return (
+    (Reflect.get(value, "replacementAuthorization") === null ||
+      isOrganizationReplacementAuthorization(
+        Reflect.get(value, "replacementAuthorization"),
+      )) &&
     typeof Reflect.get(value, "organizationId") === "string" &&
     isPlainObject(bootstrap) &&
     hasBytes(bootstrap, "initialUpdate") &&

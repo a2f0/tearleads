@@ -28,6 +28,7 @@ for (const scope of ["single", "all"] as const) {
     try {
       const store = createDocumentDiscoveryEvidenceStore(execSql);
       const verify = createDiscoveredDocumentVerifier(
+        "org",
         async () => null,
         async () => 0,
         store,
