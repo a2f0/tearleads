@@ -46,6 +46,21 @@ test("discovery uses the replacement organization's pin while retaining the old 
       linkedContainerIds: ["new-root"],
     });
 
+    // A replayed old-organization head must not strand the replacement cache
+    // behind that other organization's higher epoch counter.
+    await store.saveHead(
+      "document",
+      {
+        organizationId: "old-org",
+        accessEpoch: 9,
+        accessStateHash: "old-head",
+        linkedContainerIds: ["old-root"],
+      },
+      await store.begin(),
+    );
+    await store.saveHead("document", head, await store.begin());
+    expect(await store.loadHead("document", "new-head")).toEqual(head);
+
     // A newer pin in the same organization must still invalidate cached links.
     await db
       .update(accessManifestCheckpoints)

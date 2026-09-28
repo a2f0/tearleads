@@ -344,7 +344,9 @@ class SqlDocumentDiscoveryEvidenceStore
         .onConflictDoUpdate({
           target: heads.documentId,
           set: row,
-          setWhere: lte(heads.accessEpoch, head.accessEpoch),
+          // Epoch counters belong to an organization. A verified head from a
+          // fresh replacement may start below the previous organization's head.
+          setWhere: sql`${heads.organizationId} != ${head.organizationId} OR ${heads.accessEpoch} <= ${head.accessEpoch}`,
         })
         .run();
       return true;
