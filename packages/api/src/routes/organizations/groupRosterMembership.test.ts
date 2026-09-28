@@ -8,7 +8,10 @@ import {
 import { createTestUser, type TestUser } from "@tearleads/bob-and-alice";
 import { and, eq } from "drizzle-orm";
 import invariant from "invariant";
-import { createGroupRequest } from "../../../test/helpers/organizationGroup";
+import {
+  createGroupRequest,
+  deleteGroupRequest,
+} from "../../../test/helpers/organizationGroup";
 import { joinOrg } from "../../../test/helpers/organizationMembership";
 import { withGroupMembershipContainerMutations } from "../../../test/helpers/organizationMembershipGrants";
 import {
@@ -156,59 +159,61 @@ test("group successors require active roster membership in the same organization
   expect(accepted.status, await accepted.clone().text()).toBe(200);
 });
 
-test("Members removal requires ordinary group removal first and rolls back the roster", async () => {
-  const owner = createTestUser();
-  const member = createTestUser();
-  await registerAndAuthenticate(owner, member);
-  const organizationId = await getDefaultOrganizationId(owner.userId);
-  await joinOrg(organizationId, owner, member);
-  const { groupId, response } = await createGroup(owner, [member]);
-  expect(response.status, await response.clone().text()).toBe(200);
-  const [organization] = await db
-    .select({ memberGroupId: organizations.memberGroupId })
-    .from(organizations)
-    .where(eq(organizations.id, organizationId));
-  invariant(organization, "expected organization");
-  const before = await getCurrentPrincipalState(
-    "group",
-    organization.memberGroupId,
-    db,
-  );
-  const orgBefore = await getCurrentPrincipalState(
-    "organization",
-    organizationId,
-    db,
-  );
-  const rejected = await commitMembers({
-    owner,
-    organizationId,
-    groupId: organization.memberGroupId,
-    members: [],
-  });
-  expect(rejected.status, await rejected.clone().text()).toBe(409);
-  expect(await rejected.json()).toEqual({
-    error: "Principal contains disabled organization users",
-  });
-  expect(
-    await getCurrentPrincipalState("group", organization.memberGroupId, db),
-  ).toEqual(before);
-  expect(
-    await getCurrentPrincipalState("organization", organizationId, db),
-  ).toEqual(orgBefore);
-  expect(await rosterStatus(organizationId, member.userId)).toBe("active");
-  const removed = await commitMembers({
-    owner,
-    organizationId,
-    groupId,
-    members: [],
-  });
-  expect(removed.status, await removed.clone().text()).toBe(200);
-  const disabled = await commitMembers({
-    owner,
-    organizationId,
-    groupId: organization.memberGroupId,
-    members: [],
-  });
-  expect(disabled.status, await disabled.clone().text()).toBe(200);
-  expect(await rosterStatus(organizationId, member.userId)).toBe("disabled");
-});
+test.each(["remove", "delete"] as const)(
+  "Members removal requires %s of ordinary membership first and ignores its retained history",
+  async (operation) => {
+    const owner = createTestUser();
+    const member = createTestUser();
+    await registerAndAuthenticate(owner, member);
+    const organizationId = await getDefaultOrganizationId(owner.userId);
+    await joinOrg(organizationId, owner, member);
+    const { groupId, response } = await createGroup(owner, [member]);
+    expect(response.status, await response.clone().text()).toBe(200);
+    const [organization] = await db
+      .select({ memberGroupId: organizations.memberGroupId })
+      .from(organizations)
+      .where(eq(organizations.id, organizationId));
+    invariant(organization, "expected organization");
+    const before = await getCurrentPrincipalState(
+      "group",
+      organization.memberGroupId,
+      db,
+    );
+    const orgBefore = await getCurrentPrincipalState(
+      "organization",
+      organizationId,
+      db,
+    );
+    const rejected = await commitMembers({
+      owner,
+      organizationId,
+      groupId: organization.memberGroupId,
+      members: [],
+    });
+    expect(rejected.status, await rejected.clone().text()).toBe(409);
+    expect(await rejected.json()).toEqual({
+      error:
+        "Remove users from other organization groups before removing them from Members",
+    });
+    expect(
+      await getCurrentPrincipalState("group", organization.memberGroupId, db),
+    ).toEqual(before);
+    expect(
+      await getCurrentPrincipalState("organization", organizationId, db),
+    ).toEqual(orgBefore);
+    expect(await rosterStatus(organizationId, member.userId)).toBe("active");
+    const removed =
+      operation === "delete"
+        ? await deleteGroupRequest({ actor: owner, organizationId, groupId })
+        : await commitMembers({ owner, organizationId, groupId, members: [] });
+    expect(removed.status, await removed.clone().text()).toBe(200);
+    const disabled = await commitMembers({
+      owner,
+      organizationId,
+      groupId: organization.memberGroupId,
+      members: [],
+    });
+    expect(disabled.status, await disabled.clone().text()).toBe(200);
+    expect(await rosterStatus(organizationId, member.userId)).toBe("disabled");
+  },
+);

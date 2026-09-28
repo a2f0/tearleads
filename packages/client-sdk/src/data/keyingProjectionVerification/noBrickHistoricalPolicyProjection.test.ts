@@ -1,18 +1,26 @@
 import { expect, test } from "bun:test";
 import { principalPolicyMatchesReference } from "@tearleads/crypto";
-import { createContainerManifestFixture } from "@tearleads/crypto/test-fixtures";
+import {
+  containerWrappingPublicKeyForTest,
+  createContainerManifestFixture,
+  fixtureHash,
+} from "@tearleads/crypto/test-fixtures";
 import {
   createNativeTestExecSql,
   createNoBrickTraceRecorder,
   persistNoBrickTrace,
 } from "@tearleads/test-utils";
-import { manifestBundle } from "../../../test/helpers/ancestorCitationScenario";
+import {
+  manifestBundle,
+  successor,
+} from "../../../test/helpers/ancestorCitationScenario";
 import {
   createOrganizationHistoryFixture,
   policySnapshot,
 } from "../../../test/helpers/organizationPolicyHistory";
 import { principalPolicyHead } from "../../../test/helpers/principalPolicyFixtures";
-import { verifyContainerDestinationProjection } from "./containerDestinationVerification";
+import { createProjectionCheckpointContext } from "./checkpointContext";
+import { verifyContainerManifestPath } from "./containerPathVerification";
 import { verifyProjectionPolicyEvidence } from "./projectionPolicyEvidence";
 
 test("fresh devices receive verifiable authority after its citation becomes historical and the group is deleted", async () => {
@@ -39,7 +47,34 @@ test("fresh devices receive verifiable authority after its citation becomes hist
     signer: data.signingKeyPair,
     signerUserId: data.signerUserId,
   });
-  const bundle = manifestBundle(root);
+  const revoked = await successor({
+    previous: root,
+    cited: [root.manifestHash],
+    signer: { keyPair: data.signingKeyPair, userId: data.signerUserId },
+    body: {
+      eventType: "container.revoke",
+      parentManifestHash: null,
+      containerKeyEpochId: "revoked-key-epoch",
+      containerKeyPublicKey:
+        containerWrappingPublicKeyForTest("revoked-key-epoch"),
+      keyringHash: await fixtureHash("revoked-keyring"),
+      predecessorBridgeHash: await fixtureHash("revoked-bridge"),
+      subjectId: data.created.currentState.principalId,
+      subjectType: "group",
+    },
+    state: (previous) => ({
+      containerKeyEpochId: "revoked-key-epoch",
+      directGrants: previous.directGrants.filter(
+        (grant) => grant.subjectType !== "group",
+      ),
+      referencedPrincipalHeads: [],
+    }),
+  });
+  expect(
+    revoked.state.directGrants.every((grant) => grant.subjectType === "user"),
+  ).toBe(true);
+  expect(revoked.state.referencedPrincipalHeads).toEqual([]);
+  const bundles = [root, revoked].map(manifestBundle);
   const recorder = createNoBrickTraceRecorder("historical-policy-delivery", {
     d1: 0,
     d2: 0,
@@ -73,24 +108,28 @@ test("fresh devices receive verifiable authority after its citation becomes hist
           }),
         ),
       ).toBe(true);
-      const verified = await verifyContainerDestinationProjection({
-        execSql: database.execSql,
-        projection: {
-          containerId,
+      const verifiedByHash = new Map();
+      const verified = await verifyContainerManifestPath({
+        authorizationEvidence: policies,
+        authorizationMembership: "referenced",
+        bundlesByHash: new Map(
+          bundles.map((bundle) => [bundle.manifestHash, bundle]),
+        ),
+        checkpointContext: createProjectionCheckpointContext({
+          execSql: database.execSql,
           organizationId: data.organizationId,
-          path: [bundle],
-          containerKeks: [],
-          policyEvidence: {
-            organization: policySnapshot(
-              deleted ? data.afterDeletion : data.afterAddition,
-            ),
-            organizationPayloads: history.organizationPayloads,
-            groups: history.groups,
-          },
-        },
+        }),
+        enforceLocalCheckpoints: true,
+        servedAsCurrent: true,
+        requireAuthorizationEvidence: true,
+        label: "Historical policy delivery",
+        path: [manifestBundle(revoked)],
+        principalPolicyCache: new Map(),
         resolveUserKey: data.resolveTrustedUserIdentity,
+        verifiedByHash,
       });
-      expect(verified.path.at(-1)?.manifestHash).toBe(root.manifestHash);
+      expect(verified.at(-1)?.manifestHash).toBe(revoked.manifestHash);
+      expect(verifiedByHash.has(root.manifestHash)).toBe(true);
       recorder.record({
         action: "HonestSync",
         device: deleted ? "d2" : "d1",

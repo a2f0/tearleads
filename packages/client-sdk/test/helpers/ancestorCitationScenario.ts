@@ -73,7 +73,7 @@ export async function successor(input: {
     body: input.body,
     dependencyManifestHashes: input.cited,
     objectId: input.previous.state.containerId,
-    organizationId: ORGANIZATION_ID,
+    organizationId: input.previous.state.organizationId,
     previousManifestHash: input.previous.manifestHash,
     signer: input.signer.keyPair,
     signerUserId: input.signer.userId,

@@ -36,7 +36,7 @@ function collectGroupHeads(
 /**
  * Organization-manager history is a roster operation. Authorized writer
  * projections separately disclose the public directory proof their citations
- * require, including to non-roster readers; they do not grant this endpoint.
+ * require, including deleted groups; they do not grant this endpoint.
  */
 export async function runGetOrganizationPolicyHistoryWorkflow(
   db: ApiDatabase,

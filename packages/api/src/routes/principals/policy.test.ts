@@ -256,12 +256,11 @@ test("PUT /principals/:principalType/:principalId/policy rejects a Members remov
     signedState,
   });
 
-  // The removal disables their roster entry in the same transaction, so Admins
-  // is now holding a disabled user and that rule reports first. Either way the
-  // write is refused rather than stranding an admin off the roster.
+  // The roster and policy removal roll back rather than stranding an admin.
   expect(response.status).toBe(409);
   expect(await response.json()).toEqual({
-    error: "Principal contains disabled organization users",
+    error:
+      "Remove users from other organization groups before removing them from Members",
   });
   expect(
     (await getCurrentPrincipalState("group", organization.memberGroupId, db))

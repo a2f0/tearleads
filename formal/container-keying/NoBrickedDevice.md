@@ -135,8 +135,9 @@ sequence of the model's actions with the outcome the verifier produced:
   reference while the current ancestor still satisfies citation floors.
 - `.../noBrickHistoricalPolicyProjection.test.ts` verifies signed public policy
   snapshots and organization directory history on two fresh local databases,
-  before and after deletion. It checks that the served chain still covers the
-  frozen group citation. The real API + SDK counterpart is
+  before and after deletion. A signed revoke removes the live grant before
+  deletion; the current path verifies through its retained, group-citing
+  predecessor. The real API + SDK counterpart is
   `packages/api/src/routes/principals/historicalPolicyProjection.test.ts`.
 - `.../noBrickPolicyProjection.test.ts` drives `verifyPrincipalPolicyBundle`
   through the #2173 shape: a group successor by a since-removed admin citing

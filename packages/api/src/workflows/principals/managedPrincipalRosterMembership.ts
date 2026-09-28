@@ -107,9 +107,7 @@ export async function assertOrganizationGroupsRosterMembership(input: {
     .limit(1);
   if (invalid) {
     throw new PrincipalPolicyError(
-      invalid.status === "disabled"
-        ? "Principal contains disabled organization users"
-        : "Principal contains users who are not active organization members",
+      "Remove users from other organization groups before removing them from Members",
       409,
     );
   }

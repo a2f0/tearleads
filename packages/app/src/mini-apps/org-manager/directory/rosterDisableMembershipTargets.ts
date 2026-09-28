@@ -28,15 +28,12 @@ export async function loadRosterDisableMembershipTargets(input: {
       name: RESERVED_ORGANIZATION_GROUP_NAMES.members,
     },
   ];
-  const memberships = await Promise.all(
-    groups.map(async (group) => ({
-      group,
-      members: await input.orgManagerActions.loadGroupMembers(group.groupId),
-    })),
-  );
-  if (!input.isOperationActive(input.organizationId)) return null;
   const targets: RosterDisableMembershipTarget[] = [];
-  for (const { group, members } of memberships) {
+  for (const group of groups) {
+    const members = await input.orgManagerActions.loadGroupMembers(
+      group.groupId,
+    );
+    if (!input.isOperationActive(input.organizationId)) return null;
     if (!members) {
       input.setError(ORG_MANAGER_LABELS.failedLoadGroupMembers);
       return null;
