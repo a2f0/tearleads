@@ -5,6 +5,8 @@ ASSUME /\ ReadBound > 0 /\ MaxHistory > ReadBound
        /\ {IterativeVerification, CapMutations} \subseteq BOOLEAN
 VARIABLES history, warm, revoked
 vars == <<history, warm, revoked>>
+\* The positive guard specifies the desired acceptance contract. Negative
+\* controls exercise the two faulty budgets; runtime tests cover traversal.
 Readable == IterativeVerification \/ warm \/ history <= ReadBound
 MutationAllowed == Readable /\ (~CapMutations \/ history < ReadBound)
 Init == /\ history = 1 /\ warm = FALSE /\ revoked = FALSE

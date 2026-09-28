@@ -1,10 +1,12 @@
-import { expect, test } from "bun:test";
+import { afterEach, expect, test } from "bun:test";
 import { signedContainerHistory } from "../../../../test/helpers/storedManifestHistory";
 import { createContainerWriterProjectionContext } from "./context";
 import {
   clearStoredContainerManifestVerificationCache,
   verifyStoredContainerManifest,
 } from "./storedManifestVerification";
+
+afterEach(clearStoredContainerManifestVerificationCache);
 
 test("a cold history rejects a forged intermediate event", async () => {
   const { bundles, executor, loadBundle } = await signedContainerHistory(3);
@@ -39,5 +41,4 @@ test("a warm process cache does not hide an edited stored head", async () => {
       loadBundle,
     }),
   ).rejects.toMatchObject({ status: 409 });
-  clearStoredContainerManifestVerificationCache();
 });

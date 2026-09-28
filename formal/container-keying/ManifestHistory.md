@@ -30,8 +30,10 @@ not claims of eventual network or scheduler progress.
 This first repair removes the deterministic history-depth refusal. Verification
 still loads each retained manifest on a cold read. Document ancestor queries
 share a request-local binary ancestor index: indexing N manifests uses
-O(N log N) time and space, and each lineage query takes O(log N). Cold-request
-resource budgets remain follow-up work; they must not become a permanent
-lifetime-history refusal or a cap that prevents revocation.
-Persistent verification markers and incremental proof delivery remain separate
-work; no existing history is trusted merely because its depth is large.
+O(N log N) time and space, and each indexed lineage query takes O(log N).
+The index expands only down to requested floors; it never loads older ancestors
+merely to assign a depth. Cold-request resource budgets, persistent markers,
+and incremental proof delivery remain tracked in
+[#2365, finding 6](https://github.com/a2f0/tearleads/issues/2365). They must not
+become a permanent lifetime-history refusal or a cap that prevents revocation.
+No existing history is trusted merely because its depth is large.

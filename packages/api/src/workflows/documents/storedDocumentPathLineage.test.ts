@@ -127,3 +127,69 @@ test("document history shares lineage work across changing heads and pins", asyn
   // Both heads and pins change: a cache of only identical queries is inadequate.
   expect(loads).toBeLessThan(2_048);
 });
+
+test("a recent creation pin does not load the parent's older history", async () => {
+  const first = await createContainerManifestFixture({
+    containerId: "ancestor",
+    directGrants: [],
+  });
+  const history = [first];
+  for (let epoch = 2; epoch <= 4_098; epoch += 1) {
+    const previous = history.at(-1);
+    if (!previous) throw new Error("Missing ancestor");
+    history.push({
+      ...first,
+      manifestHash: epoch.toString(16).padStart(64, "0"),
+      state: {
+        ...first.state,
+        epoch,
+        previousManifestHash: previous.manifestHash,
+      },
+    });
+  }
+  const floor = history.at(-2);
+  const head = history.at(-1);
+  if (!floor || !head) throw new Error("Missing recent history");
+  const child = await createContainerManifestFixture({
+    containerId: "child",
+    directGrants: [],
+    parentContainerId: first.state.containerId,
+    parentManifestHash: floor.manifestHash,
+  });
+  const byHash = new Map(
+    [...history, child].map((entry) => [entry.manifestHash, entry]),
+  );
+  let loads = 0;
+  const shared = {
+    lineageByHash: new Map(),
+    loadManifest: async (hash: string) => {
+      loads += 1;
+      const entry = byHash.get(hash);
+      if (!entry) throw new Error("Missing manifest");
+      return entry;
+    },
+  };
+  const loadPath = (leaf: VerifiedContainerAccessManifest) =>
+    loadCitedDocumentContainerPaths({
+      ...shared,
+      dependencyManifestHashes: [head.manifestHash, leaf.manifestHash],
+    });
+  const paths = await loadPath(child);
+  expect(paths.at(-1)?.map((entry) => entry.manifestHash)).toEqual([
+    head.manifestHash,
+    child.manifestHash,
+  ]);
+  expect(loads).toBe(3);
+  const olderChild = await createContainerManifestFixture({
+    containerId: "older-child",
+    directGrants: [],
+    parentContainerId: first.state.containerId,
+    parentManifestHash: first.manifestHash,
+  });
+  byHash.set(olderChild.manifestHash, olderChild);
+  expect((await loadPath(olderChild)).at(-1)).toHaveLength(2);
+  expect(shared.lineageByHash.size).toBe(4_098);
+  const previousLoads = loads;
+  expect((await loadPath(child)).at(-1)).toHaveLength(2);
+  expect(loads - previousLoads).toBe(3);
+});

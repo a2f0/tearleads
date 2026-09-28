@@ -1,10 +1,12 @@
-import { expect, test } from "bun:test";
+import { afterEach, expect, test } from "bun:test";
 import { signedContainerHistory } from "../../../../test/helpers/storedManifestHistory";
 import { createContainerWriterProjectionContext } from "./context";
 import {
   clearStoredContainerManifestVerificationCache,
   verifyStoredContainerManifest,
 } from "./storedManifestVerification";
+
+afterEach(clearStoredContainerManifestVerificationCache);
 
 test("an accepted long container history remains verifiable after a restart", async () => {
   const { bundles, executor, loadBundle } = await signedContainerHistory(4_098);
@@ -28,5 +30,4 @@ test("an accepted long container history remains verifiable after a restart", as
   });
   expect(verified.state.epoch).toBe(4_098);
   expect(context.verifiedManifestByHash.size).toBe(4_098);
-  clearStoredContainerManifestVerificationCache();
 }, 300_000);
