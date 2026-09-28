@@ -1,0 +1,59 @@
+import { expect, test } from "bun:test";
+import { createTestExecSql } from "@tearleads/test-utils";
+import { eq } from "drizzle-orm";
+import { createDocumentDiscoveryEvidenceStore } from "../../data/persistence/documents/documentDiscoveryEvidencePersistence";
+import {
+  accessManifestCheckpoints,
+  clientSqlTables,
+} from "../../data/sqlite/schema";
+import { getClientSQLitePersistenceRuntime } from "../../data/sqlite/sqlitePersistenceRuntime";
+import { ensureSqlTables } from "../../data/sqlite/sqlTableSchema";
+
+test("discovery uses the replacement organization's pin while retaining the old pin", async () => {
+  const { close, execSql } = await createTestExecSql("discovery-recovery-pins");
+  try {
+    await ensureSqlTables(execSql, clientSqlTables);
+    const { db } = getClientSQLitePersistenceRuntime(execSql);
+    await db.insert(accessManifestCheckpoints).values([
+      {
+        objectKind: "document",
+        organizationId: "old-org",
+        objectId: "document",
+        epoch: 9,
+        manifestHash: "old-head",
+        updatedAt: "2026-09-28",
+      },
+      {
+        objectKind: "document",
+        organizationId: "new-org",
+        objectId: "document",
+        epoch: 1,
+        manifestHash: "new-head",
+        updatedAt: "2026-09-28",
+      },
+    ]);
+    const store = createDocumentDiscoveryEvidenceStore(execSql);
+    const head = {
+      organizationId: "new-org",
+      accessEpoch: 1,
+      accessStateHash: "new-head",
+      linkedContainerIds: ["new-root"],
+    };
+    await store.saveHead("document", head, await store.begin());
+    expect(await store.loadHead("document", "new-head")).toMatchObject({
+      accessEpoch: 1,
+      accessStateHash: "new-head",
+      linkedContainerIds: ["new-root"],
+    });
+
+    // A newer pin in the same organization must still invalidate cached links.
+    await db
+      .update(accessManifestCheckpoints)
+      .set({ epoch: 2, manifestHash: "unlinked-head" })
+      .where(eq(accessManifestCheckpoints.organizationId, "new-org"));
+    expect(await store.loadHead("document", "new-head")).toBeNull();
+    expect(await db.select().from(accessManifestCheckpoints)).toHaveLength(2);
+  } finally {
+    close();
+  }
+});

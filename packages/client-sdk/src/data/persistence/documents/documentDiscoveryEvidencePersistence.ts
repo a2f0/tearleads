@@ -28,6 +28,7 @@ import { isDocumentDiscoveryGenerationCurrent } from "./documentDiscoveryReset";
 
 export type { DiscoveredDocumentCandidate } from "./documentDiscoveryCandidate";
 export interface CachedDiscoveryHead {
+  readonly organizationId: string | null;
   readonly accessEpoch: number;
   readonly accessStateHash?: string;
   readonly linkedContainerIds: readonly string[];
@@ -269,7 +270,11 @@ class SqlDocumentDiscoveryEvidenceStore
     manifestHash: string | null | undefined,
   ) => {
     if (await loadDocumentPurgeCheckpoint(this.execSql, documentId))
-      return { accessEpoch: Number.MAX_SAFE_INTEGER, linkedContainerIds: [] };
+      return {
+        organizationId: null,
+        accessEpoch: Number.MAX_SAFE_INTEGER,
+        linkedContainerIds: [],
+      };
     if (!manifestHash) return null;
     const db = await this.read();
     const [row] = await db
@@ -282,9 +287,11 @@ class SqlDocumentDiscoveryEvidenceStore
         ),
       )
       .limit(1);
+    if (!row) return null;
     // A different verifier (for example tombstone removal) can advance the
     // signed checkpoint without updating documents.accessEpoch or this cache.
-    // Missing or ambiguous pins also require full projection verification.
+    // Old-organization pins survive recovery; only the cached signed head's
+    // organization can authorize reuse. Missing pins require full verification.
     const checkpoints = await db
       .select()
       .from(accessManifestCheckpoints)
@@ -292,25 +299,25 @@ class SqlDocumentDiscoveryEvidenceStore
         and(
           eq(accessManifestCheckpoints.objectKind, "document"),
           eq(accessManifestCheckpoints.objectId, documentId),
+          eq(accessManifestCheckpoints.organizationId, row.organizationId),
         ),
       )
-      .limit(2);
+      .limit(1);
     if (
       checkpoints.length !== 1 ||
-      checkpoints[0]?.manifestHash !== row?.manifestHash ||
-      checkpoints[0]?.epoch !== row?.accessEpoch
+      checkpoints[0]?.manifestHash !== row.manifestHash ||
+      checkpoints[0]?.epoch !== row.accessEpoch
     )
       return null;
-    return row
-      ? {
-          accessEpoch: row.accessEpoch,
-          accessStateHash: row.manifestHash,
-          linkedContainerIds: readStringArray(
-            JSON.parse(row.linksJson),
-            "stored discovery links",
-          ),
-        }
-      : null;
+    return {
+      organizationId: row.organizationId,
+      accessEpoch: row.accessEpoch,
+      accessStateHash: row.manifestHash,
+      linkedContainerIds: readStringArray(
+        JSON.parse(row.linksJson),
+        "stored discovery links",
+      ),
+    };
   };
   saveHead = (
     documentId: string,
@@ -320,11 +327,13 @@ class SqlDocumentDiscoveryEvidenceStore
     this.write(async (db) => {
       if (
         !head.accessStateHash ||
+        !head.organizationId ||
         !(await isDocumentDiscoveryGenerationCurrent(db, generation))
       )
         return false;
       const row = {
         documentId,
+        organizationId: head.organizationId,
         manifestHash: head.accessStateHash,
         accessEpoch: head.accessEpoch,
         linksJson: JSON.stringify(head.linkedContainerIds),

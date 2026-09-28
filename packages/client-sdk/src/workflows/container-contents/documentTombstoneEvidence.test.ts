@@ -91,7 +91,17 @@ const verifiedHead = (
     options.onVerifiedAuthorization?.({
       containerPathByManifestHash: new Map(),
       documentManifestByHash: new Map([
-        ["head-hash", { state: { documentId, epoch: 7, linkedContainerIds } }],
+        [
+          "head-hash",
+          {
+            state: {
+              organizationId: "org",
+              documentId,
+              epoch: 7,
+              linkedContainerIds,
+            },
+          },
+        ],
       ]),
     } as never);
     return [];
@@ -107,6 +117,7 @@ test("a verified purge checkpoint is terminal evidence without a fetch", async (
   );
 
   expect(await load("doc")).toEqual({
+    organizationId: null,
     accessEpoch: Number.MAX_SAFE_INTEGER,
     linkedContainerIds: [],
   });
@@ -121,6 +132,7 @@ test("the cached projection is evicted and the verified head link set returned s
   );
 
   expect(await load("doc")).toEqual({
+    organizationId: "org",
     accessEpoch: 7,
     linkedContainerIds: ["a", "b"],
   });
@@ -190,6 +202,7 @@ test("a thrown fetch or checkpoint read leaves the tombstone unverified", async 
 });
 
 const head = (linkedContainerIds: string[], accessEpoch = 5) => ({
+  organizationId: "org",
   accessEpoch,
   linkedContainerIds,
 });

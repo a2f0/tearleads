@@ -25,7 +25,10 @@ against those durable observations. Repeated resets preserve the same anchors.
 Access checkpoints include the organization id in their identity, so a fresh
 replacement organization can reuse local container ids without erasing the old
 organization's trust history. Reset within the same organization cannot make a
-conflicting genesis acceptable.
+conflicting genesis acceptable. These anchors remain until the local database
+is fully reset; purged-organization cleanup must not remove them. The discovery
+cache compares each signed head against its own organization's checkpoint, so
+retaining an old organization's pin does not disable caching after recovery.
 
 Authenticating the replacement response remains open in
 [#2365, finding #10](https://github.com/a2f0/tearleads/issues/2365).

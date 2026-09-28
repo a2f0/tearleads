@@ -16,6 +16,7 @@ import type {
 import type { ContainerContentsWorkflowRuntime } from "./runtime";
 
 export interface VerifiedDocumentHeadLinkSet {
+  readonly organizationId: string | null;
   readonly accessEpoch: number;
   /** Present for a signed head; a terminal purge has no live access state. */
   readonly accessStateHash?: string;
@@ -68,6 +69,7 @@ async function verifiedHeadLinkSet(
       );
       if (head && head.state.documentId === documentId) {
         verified.value = {
+          organizationId: head.state.organizationId,
           accessEpoch: head.state.epoch,
           accessStateHash: head.manifestHash,
           linkedContainerIds: uniqueSortedStrings(
@@ -103,7 +105,11 @@ export function createDocumentHeadLinkSetLoader(
           documentId,
         )
       ) {
-        return { accessEpoch: Number.MAX_SAFE_INTEGER, linkedContainerIds: [] };
+        return {
+          organizationId: null,
+          accessEpoch: Number.MAX_SAFE_INTEGER,
+          linkedContainerIds: [],
+        };
       }
       // Tombstones require a fresh head. Listings can reuse a matching cached
       // projection, whose signature and local checkpoint are still verified.
