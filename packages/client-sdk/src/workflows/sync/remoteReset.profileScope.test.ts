@@ -12,6 +12,8 @@ import {
 } from "../../data/sqlite/schema";
 import { getClientSQLitePersistenceRuntime } from "../../data/sqlite/sqlitePersistenceRuntime";
 import { ensureSqlTables } from "../../data/sqlite/sqlTableSchema";
+import { ORGANIZATION_PROFILE_DOCUMENT_KIND } from "../organizations/organizationProfile";
+import { ROSTER_PROFILE_DOCUMENT_KIND } from "../organizations/rosterProfileContainer";
 import { clearRemoteSyncState } from "./remoteReset";
 
 const NOW = "2026-09-27T00:00:00.000Z";
@@ -50,6 +52,10 @@ for (const pointer of ["organization", "roster"] as const) {
         {
           localId: "owned-local",
           documentId: "owned-document",
+          documentKind:
+            pointer === "organization"
+              ? ORGANIZATION_PROFILE_DOCUMENT_KIND
+              : ROSTER_PROFILE_DOCUMENT_KIND,
           containerId: null,
           organizationId: "old-org",
           updatedAt: NOW,
