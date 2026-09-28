@@ -141,9 +141,13 @@ test("a fresh and then pinned SDK accepts API purge history with an old group-on
         (policy) => policy.currentState.principalId === grouped.groupId,
       ),
     ).toBe(true);
-    expect(proof.documentManifest.event.event).not.toHaveProperty(
+    const terminalCitations = Reflect.get(
+      proof.documentManifest.event.event,
       "dependencyManifestHashes",
-      expect.arrayContaining([grouped.response.accessManifest.manifestHash]),
+    );
+    expect(Array.isArray(terminalCitations)).toBe(true);
+    expect(terminalCitations).not.toContain(
+      grouped.response.accessManifest.manifestHash,
     );
     let deletions = 0;
     for (const expectedDeletions of [1, 2]) {

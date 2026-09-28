@@ -213,7 +213,7 @@ local document.
 Recorded readers get signed genesis history and its
 container/policy dependencies; purge-path access alone reveals a terminal
 snapshot. The SDK authenticates before reading local pins, then reuses the
-proof or requests missing predecessors with a known hash. Deletion requires
+proof without a checkpoint-floor retry. Deletion requires
 an exact pin or signed transitions from a pin or genesis. Unavailable history
 defers deletion without an incident; hash-only snapshots cannot advance pins.
 Later container pins fail closed because ancestry cannot order the separate

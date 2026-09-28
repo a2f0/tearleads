@@ -225,8 +225,8 @@ All three probes use normal document sync: verified Loro updates are projected
 before attachments and blob bytes hydrate. A coded `document_not_found` fetches
 a signed purge proof; the SDK verifies it before local destruction. Proofs
 include signed history for recorded document readers; others receive a terminal
-snapshot. The SDK authenticates before reading local pins, then reuses the proof
-or requests missing history. Deletion needs an exact pin or signed transitions
+snapshot. The SDK authenticates before reading local pins and verifies this
+single response. Deletion needs an exact pin or signed transitions
 from a pin or genesis. Later container pins fail closed: their order relative to
 the purge is unsigned. Unavailable history defers deletion without an incident;
 bare 404s remain non-destructive, and 403s keep normal parking behavior.

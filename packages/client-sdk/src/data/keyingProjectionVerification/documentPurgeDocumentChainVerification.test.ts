@@ -11,7 +11,7 @@ import { verifyDocumentPurgeProof } from "./documentPurgeProofVerification";
 import { runWithSecurityIncidentReporting } from "./error";
 import { verifyPrincipalPolicySnapshots } from "./principalPolicySnapshotVerification";
 
-test("document purge verifies every signed transition after its checkpoint", async () => {
+test("a compact purge proof verifies transitions from a non-genesis pin", async () => {
   const fixture = await createPurgeChainFixture();
   const { close, execSql } = await createTestExecSql(
     "document-purge-signed-chain",
@@ -19,14 +19,19 @@ test("document purge verifies every signed transition after its checkpoint", asy
   try {
     await verifyDocumentWriterProjection({
       execSql,
-      projection: fixture.writerProjection,
+      projection: fixture.linkedProjection,
       resolveUserKey: fixture.resolveProjectionUserKey,
     });
     const verified = await verifyDocumentPurgeProof({
       execSql,
       expectedDocumentId: fixture.writerProjection.documentId,
       expectedOrganizationId: fixture.author.organizationId,
-      proof: fixture.proof,
+      proof: {
+        ...fixture.proof,
+        documentManifestPredecessors: [
+          fixture.linkedProjection.documentManifest,
+        ],
+      },
       resolveUserKey: fixture.resolveProjectionUserKey,
     });
     expect(verified.documentCheckpoint.manifestHash).toBe(

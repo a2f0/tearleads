@@ -576,11 +576,12 @@ commitments before using historical group membership. Group deletion can
 therefore erase recoverable server-side key material without making an earlier
 terminal purge unverifiable.
 
+API and SDK change together without legacy responses.
 Purge-path access permits a terminal snapshot. A caller's prior signed-head
 observation also permits full document history; an earlier explicit floor needs
 its exact observation. History includes cited public container/policy evidence,
-not keys. The SDK authenticates before reading local pins, reuses a complete
-proof, or requests missing history using a known hash. Deletion requires an exact
+not keys. The SDK authenticates before reading local pins and verifies one
+response without refetching. Deletion requires an exact
 pin or signed transitions from a pin or genesis. Missing history defers deletion
 without an incident; hash-only snapshots cannot advance pins. Purge-time
 container paths must satisfy local pins: a later head is ambiguous because

@@ -103,7 +103,7 @@ test("an empty purge history cannot replace a pinned document with an unrelated 
     ).rejects.toMatchObject({
       code: "stale_predecessor",
     });
-    expect(requestedFloors).toEqual([undefined, original.manifestHash]);
+    expect(requestedFloors).toEqual([undefined]);
     expect(deletions).toBe(0);
     expect(
       await loadAccessManifestCheckpoint(
