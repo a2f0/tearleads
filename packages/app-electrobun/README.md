@@ -236,12 +236,16 @@ On Windows, exercise the native build and encrypted identity database restart:
 
 ```sh
 bun run --cwd packages/app-electrobun test:windows-persistence
+
+# Match CI's native RPC port-conflict regression:
+pwsh ./packages/app-electrobun/scripts/testWindowsPortConflict.ps1
 ```
 
 The Windows CEF persistence CI job runs this check on a native Windows runner
 through `scripts/testWindowsPortConflict.ps1`. That wrapper holds the native
 host transport's first candidate port (50000) exclusively, or reports an
 existing reservation, so the app must select another internal websocket port.
+The renderer probe asserts and reports that selected port on each launch.
 The application origin remains `http://127.0.0.1:3002` across both launches.
 It verifies bundled CEF selection and reuses the Linux storage probe to confirm
 that a populated encrypted identity database reopens after a process restart
