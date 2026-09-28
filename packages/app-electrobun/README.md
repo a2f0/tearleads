@@ -266,7 +266,12 @@ bun run --cwd packages/app-electrobun test:linux-persistence
 The smoke test builds the dev bundle, launches bundled CEF twice with an
 isolated home directory, exercises the database worker's real OPFS
 sync-access-handle backend, and confirms the populated identity database reopens
-after relaunch.
+after relaunch. It requests a native X11 window close and requires a successful
+process exit before restarting, so CEF can flush its storage. Forced termination
+is reserved for failure cleanup. The test-only close helper uses XRes to restrict
+requests to the launcher's process group. A C compiler and X11/XRes development
+headers are required (`build-essential libx11-dev libxres-dev` on Ubuntu); the
+release test image includes them.
 
 The dev smoke tests use CEF's development DevTools endpoint. The Linux release
 probe enables it only for the launched test process through

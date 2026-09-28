@@ -173,6 +173,11 @@ export async function runScopedRefresher<Result>(
   input: ScopedRefresherInput<Result>,
 ): Promise<void> {
   const isCurrentRequest = input.beginRequest(input.requestKind);
+  // A multi-step refresh may resume after its view has unmounted. Refuse
+  // the next load as well as its eventual state updates in that case.
+  if (!isCurrentRequest()) {
+    return;
+  }
   if (input.load === null) {
     input.onUnavailable?.(isCurrentRequest);
     return;

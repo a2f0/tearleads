@@ -130,12 +130,14 @@ test(
     );
     // Settle both panes' provisioning/backfill so the admin-add slice measured
     // below is isolated from unrelated background convergence churn.
+    let provisioningSettled = false;
     await act(async () => {
-      await waitForAppTestRuntimeToSettle({
+      provisioningSettled = await waitForAppTestRuntimeToSettle({
         apiQuietMs: POST_SHARE_NETWORK_IDLE_QUIET_MS,
         timeoutMs: POST_SHARE_SYNC_SETTLE_TIMEOUT_MS,
       });
     });
+    expect(provisioningSettled).toBe(true);
     // Login can precede reconciliation of the device-local root into the
     // registered root. Capture the shared parent only after startup settles.
     const founderRootId = trees
@@ -173,7 +175,23 @@ test(
       },
       "Shared system folders did not finish hydrating.",
       POST_SHARE_SYNC_SETTLE_TIMEOUT_MS,
-    );
+    ).catch((error: unknown) => {
+      console.error(
+        "Hydration diagnostics",
+        JSON.stringify({
+          founderRootId,
+          left: trees.get("left")?.getSnapshot(),
+          right: trees.get("right")?.getSnapshot(),
+          rightPane: rightPane.textContent,
+          requests: listProxiedApiRequests().map((request) => ({
+            method: request.method,
+            url: request.url,
+            status: request.status,
+          })),
+        }),
+      );
+      throw error;
+    });
     await waitForNoPostShareSyncFailures(
       [leftPane, rightPane],
       adminAddBaseline,
