@@ -17,6 +17,8 @@ interface SyncStatusResult {
   readonly title: string;
   /** Aggregate unflushed write-operation count; drives the "view queue" link. */
   readonly pendingWriteCount: number;
+  /** The latest write-queue read failed; the queue view shows why. */
+  readonly queueReadFailed: boolean;
 }
 
 /**
@@ -70,12 +72,14 @@ export function useSyncStatus(): SyncStatusResult {
     ready: dbReady && queue.loaded,
     pendingWriteCount: queue.count,
     failedWriteCount: queue.failedCount,
+    queueReadError: queue.readError,
   });
   const title = describeSyncStatus({
     status,
     pendingWriteCount: queue.count,
     failedWriteCount: queue.failedCount,
     firstWriteError: queue.firstError,
+    queueReadError: queue.readError,
     online,
     billingStatus: billing.view?.status ?? null,
     // The active org's own lapse is the more specific reason, so it names the
@@ -83,5 +87,10 @@ export function useSyncStatus(): SyncStatusResult {
     billingBlockScope: billingNeedsAttention ? "active" : "other",
   });
 
-  return { status, title, pendingWriteCount: queue.count };
+  return {
+    status,
+    title,
+    pendingWriteCount: queue.count,
+    queueReadFailed: queue.readError !== null,
+  };
 }

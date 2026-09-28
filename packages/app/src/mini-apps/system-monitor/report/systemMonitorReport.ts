@@ -39,17 +39,22 @@ export interface SystemMonitorReportFlag {
 /**
  * The durable write queue as the report sees it.
  *
- * `available` is false while the local database is still booting, so the report
- * can distinguish "the queue could not be read" from "the queue is empty". The
- * items are the SDK's payload-free projection (`PendingWriteQueueItem`). The
- * report omits decrypted display names and redacts every free-text diagnostic;
- * serialized Loro updates, storage keys, encryption material, titles, names,
- * errors, and content are never copied into the clipboard report.
+ * `unavailable` while the local database is still booting and `failed` when
+ * the read itself threw, so the report can distinguish "the queue could not be
+ * read" (and why not) from "the queue is empty". The items are the SDK's
+ * payload-free projection (`PendingWriteQueueItem`). The report omits decrypted
+ * display names and redacts every free-text diagnostic — including a failed
+ * read's error; serialized Loro updates, storage keys, encryption material,
+ * titles, names, errors, and content are never copied into the clipboard
+ * report.
  */
-export interface SystemMonitorWriteQueueReport {
-  readonly available: boolean;
-  readonly items: ReadonlyArray<PendingWriteQueueItem>;
-}
+export type SystemMonitorWriteQueueReport =
+  | { readonly status: "unavailable" }
+  | { readonly status: "failed" }
+  | {
+      readonly status: "available";
+      readonly items: ReadonlyArray<PendingWriteQueueItem>;
+    };
 
 interface SystemMonitorReportInput {
   readonly capturedAt: string;
@@ -338,12 +343,15 @@ function formatWriteQueueSection(
   writeQueue: SystemMonitorWriteQueueReport,
 ): ReadonlyArray<string> {
   const heading = "## Write Queue";
-  if (!writeQueue.available) {
+  if (writeQueue.status === "unavailable") {
     return [
       heading,
       "",
       "_The local database is not ready, so the write queue is unavailable._",
     ];
+  }
+  if (writeQueue.status === "failed") {
+    return [heading, "", "_The write queue could not be read._"];
   }
 
   const { items } = writeQueue;

@@ -65,6 +65,7 @@ test("resolveSyncStatus is synced when ready with an empty queue", () => {
       ready: true,
       pendingWriteCount: 0,
       failedWriteCount: 0,
+      queueReadError: null,
     }),
   ).toBe("synced");
 });
@@ -77,6 +78,7 @@ test("resolveSyncStatus is pending when ready with unflushed data", () => {
       ready: true,
       pendingWriteCount: 4,
       failedWriteCount: 0,
+      queueReadError: null,
     }),
   ).toBe("pending");
 });
@@ -89,6 +91,7 @@ test("resolveSyncStatus is loading before the first read resolves", () => {
       ready: false,
       pendingWriteCount: 0,
       failedWriteCount: 0,
+      queueReadError: null,
     }),
   ).toBe("loading");
 });
@@ -101,6 +104,7 @@ test("resolveSyncStatus surfaces billing over a pending queue", () => {
       ready: true,
       pendingWriteCount: 9,
       failedWriteCount: 2,
+      queueReadError: null,
     }),
   ).toBe("billing");
 });
@@ -113,6 +117,7 @@ test("resolveSyncStatus surfaces billing even before the queue is read", () => {
       ready: false,
       pendingWriteCount: 0,
       failedWriteCount: 0,
+      queueReadError: null,
     }),
   ).toBe("billing");
 });
@@ -127,6 +132,7 @@ test("resolveSyncStatus surfaces billing for a non-active organization", () => {
       ready: true,
       pendingWriteCount: 5,
       failedWriteCount: 0,
+      queueReadError: null,
     }),
   ).toBe("billing");
 });
@@ -140,6 +146,7 @@ test("describeSyncStatus names another organization as the billing reason", () =
       pendingWriteCount: 0,
       failedWriteCount: 0,
       firstWriteError: null,
+      queueReadError: null,
       online: true,
       billingStatus: "active",
       billingBlockScope: "other",
@@ -154,6 +161,7 @@ test("describeSyncStatus labels the settled states", () => {
       pendingWriteCount: 0,
       failedWriteCount: 0,
       firstWriteError: null,
+      queueReadError: null,
       online: true,
       billingStatus: null,
       billingBlockScope: "active",
@@ -165,6 +173,7 @@ test("describeSyncStatus labels the settled states", () => {
       pendingWriteCount: 0,
       failedWriteCount: 0,
       firstWriteError: null,
+      queueReadError: null,
       online: true,
       billingStatus: null,
       billingBlockScope: "active",
@@ -179,6 +188,7 @@ test("describeSyncStatus uses the singular for one pending change", () => {
       pendingWriteCount: 1,
       failedWriteCount: 0,
       firstWriteError: null,
+      queueReadError: null,
       online: true,
       billingStatus: null,
       billingBlockScope: "active",
@@ -193,6 +203,7 @@ test("describeSyncStatus pluralizes and notes offline for pending changes", () =
       pendingWriteCount: 3,
       failedWriteCount: 0,
       firstWriteError: null,
+      queueReadError: null,
       online: false,
       billingStatus: null,
       billingBlockScope: "active",
@@ -207,6 +218,7 @@ test("describeSyncStatus names an expired trial as the billing reason", () => {
       pendingWriteCount: 0,
       failedWriteCount: 0,
       firstWriteError: null,
+      queueReadError: null,
       online: true,
       billingStatus: "trialing",
       billingBlockScope: "active",
@@ -221,6 +233,7 @@ test("describeSyncStatus explains disabled billing", () => {
       pendingWriteCount: 0,
       failedWriteCount: 0,
       firstWriteError: null,
+      queueReadError: null,
       online: true,
       billingStatus: "disabled",
       billingBlockScope: "active",
@@ -235,6 +248,7 @@ test("describeSyncStatus falls back to a generic billing message", () => {
       pendingWriteCount: 0,
       failedWriteCount: 0,
       firstWriteError: null,
+      queueReadError: null,
       online: true,
       billingStatus: "deleting",
       billingBlockScope: "active",
@@ -263,6 +277,7 @@ test("resolveSyncStatus surfaces error over a merely pending queue", () => {
       ready: true,
       pendingWriteCount: 4,
       failedWriteCount: 1,
+      queueReadError: null,
     }),
   ).toBe("error");
 });
@@ -274,6 +289,7 @@ test("describeSyncStatus appends the recorded failure to the error label", () =>
       pendingWriteCount: 4,
       failedWriteCount: 1,
       firstWriteError: "Write access denied by the server (403)",
+      queueReadError: null,
       online: true,
       billingStatus: null,
       billingBlockScope: "active",
@@ -285,9 +301,53 @@ test("describeSyncStatus appends the recorded failure to the error label", () =>
       pendingWriteCount: 4,
       failedWriteCount: 2,
       firstWriteError: null,
+      queueReadError: null,
       online: true,
       billingStatus: null,
       billingBlockScope: "active",
     }),
   ).toBe("2 changes failed to sync");
+});
+
+test("resolveSyncStatus surfaces a failed queue read as error, not loading", () => {
+  // The first read never succeeded, so the queue is not loaded — but waiting on
+  // a read that keeps failing must not leave the indicator checking forever.
+  expect(
+    resolveSyncStatus({
+      billingNeedsAttention: false,
+      otherOrganizationBillingBlocked: false,
+      ready: false,
+      pendingWriteCount: 0,
+      failedWriteCount: 0,
+      queueReadError: "Local database schema is obsolete",
+    }),
+  ).toBe("error");
+});
+
+test("resolveSyncStatus keeps billing over a failed queue read", () => {
+  expect(
+    resolveSyncStatus({
+      billingNeedsAttention: true,
+      otherOrganizationBillingBlocked: false,
+      ready: false,
+      pendingWriteCount: 0,
+      failedWriteCount: 0,
+      queueReadError: "Local database schema is obsolete",
+    }),
+  ).toBe("billing");
+});
+
+test("describeSyncStatus names the queue read failure over stale failed writes", () => {
+  expect(
+    describeSyncStatus({
+      status: "error",
+      pendingWriteCount: 4,
+      failedWriteCount: 1,
+      firstWriteError: "Write access denied by the server (403)",
+      queueReadError: "Local database schema is obsolete",
+      online: true,
+      billingStatus: null,
+      billingBlockScope: "active",
+    }),
+  ).toBe("Unable to check sync status — Local database schema is obsolete");
 });

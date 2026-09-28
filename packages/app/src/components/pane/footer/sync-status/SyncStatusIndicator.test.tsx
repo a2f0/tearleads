@@ -97,7 +97,7 @@ test("popover shows the status detail and no link when nothing is unflushed", ()
   const { getByText, queryByRole } = render(
     <SyncStatusPopover
       billingBlocked={false}
-      hasUnflushed={false}
+      showWriteQueueLink={false}
       onOpenBilling={noop}
       onOpenWriteQueue={noop}
       title="All changes synced"
@@ -113,7 +113,7 @@ test("popover links to the write queue when there is unflushed data", () => {
   const { getByRole } = render(
     <SyncStatusPopover
       billingBlocked={false}
-      hasUnflushed={true}
+      showWriteQueueLink={true}
       onOpenBilling={noop}
       onOpenWriteQueue={onOpenWriteQueue}
       title="3 changes not yet synced"
@@ -131,7 +131,7 @@ test("popover links to billing when billing blocks sync", () => {
   const { getByRole } = render(
     <SyncStatusPopover
       billingBlocked={true}
-      hasUnflushed={false}
+      showWriteQueueLink={false}
       onOpenBilling={onOpenBilling}
       onOpenWriteQueue={noop}
       title="Subscription disabled — sync paused. Update billing to resume."
@@ -150,7 +150,7 @@ test("popover shows both links when billing is blocked and data is unflushed", (
   const { getAllByRole } = render(
     <SyncStatusPopover
       billingBlocked={true}
-      hasUnflushed={true}
+      showWriteQueueLink={true}
       onOpenBilling={onOpenBilling}
       onOpenWriteQueue={onOpenWriteQueue}
       title="Free trial ended — sync paused. Update billing to resume."

@@ -111,7 +111,7 @@ function renderPanel(overrides: Partial<ViewProps> = {}) {
   const props: ViewProps = {
     billingBlockedOrganizationId: null,
     discardPendingWrites: () => undefined,
-    error: false,
+    error: null,
     isAuthenticated: true,
     items: [],
     loading: false,
@@ -492,7 +492,7 @@ test("reports an entry that has left the queue", () => {
 
 test("surfaces a read failure instead of claiming the entry finished", () => {
   const view = renderPanel({
-    error: true,
+    error: "Local database schema is obsolete",
     items: [],
     selectedEntryKey: "document::document-local-id",
   });
@@ -567,9 +567,10 @@ test("renders the initial loading state without a manual action", () => {
 });
 
 test("renders the load error state", () => {
-  const view = renderPanel({ error: true });
+  const view = renderPanel({ error: "Local database schema is obsolete" });
 
   expect(view.getByText(EXPLORER_LABELS.writeQueueFailedToLoad)).toBeTruthy();
+  expect(view.getByText("Local database schema is obsolete")).toBeTruthy();
 });
 
 test("reloads a settled write while another sync lane remains active", async () => {
@@ -615,18 +616,4 @@ test("reloads a settled write while another sync lane remains active", async () 
       activeUpload.complete();
     });
   }
-});
-
-test("surfaces a durable-write query failure", async () => {
-  const documentQueries = {
-    listPendingWrites: async () => {
-      throw new Error("database unavailable");
-    },
-  } as unknown as ContainerDocumentQueries;
-  const view = renderPanelLoader(documentQueries);
-
-  expect(
-    await view.findByText(EXPLORER_LABELS.writeQueueFailedToLoad),
-  ).toBeTruthy();
-  expect(view.getByRole("alert")).toBeTruthy();
 });

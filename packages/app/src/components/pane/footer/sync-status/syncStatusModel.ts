@@ -9,10 +9,12 @@ import type {
 // resulting red "pending" dot. `error` outranks `pending`: a queue item whose
 // last submission failed terminally (e.g. the server denied the write after
 // group access was revoked) will not flush on its own, which matters more than
-// the same item's generic unflushed-ness. `loading` covers the window before
-// the local write queue has been read once (or while the database is still
-// booting), so a fresh mount never flashes a misleading green before the first
-// read resolves.
+// the same item's generic unflushed-ness. A failed read of the queue itself is
+// also `error`: the true state is unknown, and waiting on a read that keeps
+// failing (e.g. an obsolete local schema) would otherwise leave the indicator
+// "checking" forever. `loading` covers the window before the local write queue
+// has been read once (or while the database is still booting), so a fresh mount
+// never flashes a misleading green before the first read resolves.
 export type SyncStatus = "loading" | "synced" | "pending" | "error" | "billing";
 
 type BillingStatus = OrganizationBillingView["status"];
@@ -93,11 +95,16 @@ interface SyncStatusInput {
   readonly pendingWriteCount: number;
   /** Queue items whose last submission failed terminally (status `error`). */
   readonly failedWriteCount: number;
+  /** Why the latest write-queue read failed, or null when it succeeded. */
+  readonly queueReadError: string | null;
 }
 
 export function resolveSyncStatus(input: SyncStatusInput): SyncStatus {
   if (input.billingNeedsAttention || input.otherOrganizationBillingBlocked) {
     return "billing";
+  }
+  if (input.queueReadError !== null) {
+    return "error";
   }
   if (!input.ready) {
     return "loading";
@@ -118,6 +125,7 @@ const SYNC_STATUS_LABELS = {
   pendingOther: "changes not yet synced",
   errorOne: "1 change failed to sync",
   errorOther: "changes failed to sync",
+  queueReadFailed: "Unable to check sync status",
   offlineSuffix: " (offline)",
   billingTrialEnded:
     "Free trial ended — sync paused. Update billing to resume.",
@@ -146,6 +154,7 @@ interface SyncStatusDescriptionInput {
   readonly pendingWriteCount: number;
   readonly failedWriteCount: number;
   readonly firstWriteError: string | null;
+  readonly queueReadError: string | null;
   readonly online: boolean;
   readonly billingStatus: BillingStatus | null;
   /** Whose billing paused sync; only read when `status` is `billing`. */
@@ -164,6 +173,11 @@ export function describeSyncStatus(input: SyncStatusDescriptionInput): string {
         ? SYNC_STATUS_LABELS.billingOtherOrganization
         : describeBillingBlock(input.billingStatus);
     case "error": {
+      // A failed queue read outranks the failed-write count, which is only the
+      // last successful read's and may be stale.
+      if (input.queueReadError !== null) {
+        return `${SYNC_STATUS_LABELS.queueReadFailed} — ${input.queueReadError}`;
+      }
       const base =
         input.failedWriteCount === 1
           ? SYNC_STATUS_LABELS.errorOne

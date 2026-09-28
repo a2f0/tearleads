@@ -13,6 +13,12 @@ interface PendingWriteWatcherDeps {
    * the System Monitor report), so the watcher stays a generic read machine.
    */
   readonly onSnapshot: (items: ReadonlyArray<PendingWriteQueueItem>) => void;
+  /**
+   * Report a failed read. A read that keeps failing (e.g. an obsolete local
+   * schema) would otherwise leave a caller that waits for its first snapshot
+   * stuck in its loading state forever with nothing to show for it.
+   */
+  readonly onError: (error: unknown) => void;
   /** Trailing-throttle window (ms) collapsing a burst of changes into one scan. */
   readonly throttleMs: number;
 }
@@ -27,12 +33,14 @@ interface PendingWriteWatcher {
  * then re-reads on any subscribed change — throttled so a burst collapses into a
  * single scan, serialized so reads never overlap (a change mid-read queues
  * exactly one follow-up), and guarded so nothing is reported after `stop()`. A
- * failed read reports nothing, so the caller keeps its last known value.
+ * failed read reports its error rather than a snapshot, so the caller keeps its
+ * last known value and can surface the failure.
  */
 export function createPendingWriteWatcher(
   deps: PendingWriteWatcherDeps,
 ): PendingWriteWatcher {
-  const { listPendingWrites, subscribe, onSnapshot, throttleMs } = deps;
+  const { listPendingWrites, subscribe, onSnapshot, onError, throttleMs } =
+    deps;
   let active = true;
   let reading = false;
   let rereadPending = false;
@@ -63,14 +71,18 @@ export function createPendingWriteWatcher(
     }
     reading = true;
     listPendingWrites()
-      .then((items) => {
-        if (active) {
-          onSnapshot(items);
-        }
-      })
-      // A failed read leaves the true state unknown; report nothing so the caller
-      // keeps its last known value rather than showing a wrong count.
-      .catch(() => undefined)
+      .then(
+        (items) => {
+          if (active) {
+            onSnapshot(items);
+          }
+        },
+        (error: unknown) => {
+          if (active) {
+            onError(error);
+          }
+        },
+      )
       .finally(() => {
         reading = false;
         if (active && rereadPending) {

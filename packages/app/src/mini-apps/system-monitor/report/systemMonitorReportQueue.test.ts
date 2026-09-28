@@ -129,7 +129,7 @@ test("report serializes write-queue item and operation detail", () => {
     logEntries: [],
     status: createStatus(),
     writeQueue: {
-      available: true,
+      status: "available",
       items: [
         createWriteItem({
           status: "error",
@@ -170,7 +170,7 @@ test("report identifies unnamed queued objects by opaque id", () => {
     logEntries: [],
     status: createStatus(),
     writeQueue: {
-      available: true,
+      status: "available",
       items: [createWriteItem({ name: null })],
     },
   });
@@ -186,7 +186,7 @@ test("report redacts caller-controlled queue identifiers and namespaces", () => 
     logEntries: [],
     status: createStatus(),
     writeQueue: {
-      available: true,
+      status: "available",
       items: [
         createWriteItem({
           containerId: `${privateText} container`,
@@ -218,7 +218,7 @@ test("report redacts a queued operation's free-text error", () => {
     logEntries: [],
     status: createStatus(),
     writeQueue: {
-      available: true,
+      status: "available",
       items: [
         createWriteItem({
           operations: [createOperation({ lastError: "429 | rate limited" })],
@@ -231,24 +231,34 @@ test("report redacts a queued operation's free-text error", () => {
   expect(report).toContain("| [redacted] |");
 });
 
-test("report distinguishes an unavailable write queue from an empty one", () => {
+test("report distinguishes an unavailable or unreadable write queue from an empty one", () => {
   const unavailable = formatSystemMonitorReport({
     capturedAt: CAPTURED_AT,
     environment: [],
     logEntries: [],
     status: createStatus(),
-    writeQueue: { available: false, items: [] },
+    writeQueue: { status: "unavailable" },
   });
   expect(unavailable).toContain(
     "_The local database is not ready, so the write queue is unavailable._",
   );
+
+  const failed = formatSystemMonitorReport({
+    capturedAt: CAPTURED_AT,
+    environment: [],
+    logEntries: [],
+    status: createStatus(),
+    writeQueue: { status: "failed" },
+  });
+  expect(failed).toContain("_The write queue could not be read._");
+  expect(failed).not.toContain("not ready");
 
   const empty = formatSystemMonitorReport({
     capturedAt: CAPTURED_AT,
     environment: [],
     logEntries: [],
     status: createStatus(),
-    writeQueue: { available: true, items: [] },
+    writeQueue: { status: "available", items: [] },
   });
   expect(empty).toContain("_No pending writes._");
 });
@@ -270,7 +280,7 @@ test("report caps the write queue and says so rather than truncating silently", 
     environment: [],
     logEntries: [],
     status: createStatus(),
-    writeQueue: { available: true, items },
+    writeQueue: { status: "available", items },
   });
 
   expect(report).toContain(

@@ -7,6 +7,7 @@ import {
   subscribeToPersistedDocuments,
 } from "@tearleads/client-sdk";
 import { useEffect, useState } from "react";
+import { unknownErrorMessage } from "../../../../utils/unknownErrorMessage";
 import { createPendingWriteWatcher } from "./pendingWriteWatcher";
 import {
   type PendingWriteQueueSummary,
@@ -21,6 +22,11 @@ const READ_THROTTLE_MS = 750;
 interface PendingWriteCount extends PendingWriteQueueSummary {
   /** False until the first successful read resolves (or while the db is booting). */
   readonly loaded: boolean;
+  /**
+   * Why the latest read failed, or null once a read succeeds. The counts keep
+   * their last known values alongside it.
+   */
+  readonly readError: string | null;
 }
 
 const EMPTY_PENDING_WRITE_COUNT: PendingWriteCount = {
@@ -28,6 +34,7 @@ const EMPTY_PENDING_WRITE_COUNT: PendingWriteCount = {
   count: 0,
   failedCount: 0,
   firstError: null,
+  readError: null,
 };
 
 /**
@@ -53,7 +60,10 @@ export function usePendingWriteCount(
       // Idempotent reset: return the same state when already cleared so a
       // re-render with unchanged not-ready inputs cannot loop.
       setState((prev) =>
-        prev.loaded || prev.count !== 0 || prev.failedCount !== 0
+        prev.loaded ||
+        prev.count !== 0 ||
+        prev.failedCount !== 0 ||
+        prev.readError !== null
           ? EMPTY_PENDING_WRITE_COUNT
           : prev,
       );
@@ -76,7 +86,19 @@ export function usePendingWriteCount(
         };
       },
       onSnapshot: (items) =>
-        setState({ loaded: true, ...summarizePendingWrites(items) }),
+        setState({
+          loaded: true,
+          readError: null,
+          ...summarizePendingWrites(items),
+        }),
+      onError: (error) => {
+        const readError = unknownErrorMessage(error);
+        // Every re-read of a persistently broken queue fails the same way, so
+        // an unchanged message keeps the current state and skips the render.
+        setState((prev) =>
+          prev.readError === readError ? prev : { ...prev, readError },
+        );
+      },
       throttleMs: READ_THROTTLE_MS,
     });
     return () => watcher.stop();
