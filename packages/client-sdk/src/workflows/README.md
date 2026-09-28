@@ -210,14 +210,13 @@ document must have exactly one remaining container link; recursive container
 purge unlinks any additional in-subtree links before calling it. `null` means
 the purge was refused or could not be verified, and callers must retain the
 local document.
-Proof fetching reveals only purge-time heads by default. The SDK authenticates
-that baseline, including its redacted signed principal-policy snapshots, before
-reading local checkpoint identities. It may then supply an already-known
-document hash to fetch signed predecessor history. The purge-time container
-path must satisfy local container checkpoints directly; a later local head is
-ambiguous and fails closed because ancestry cannot order the separate purge
-signature. A coded not-found while retrying a user-initiated purge follows this
-retained-proof path as well.
+Initial proofs include signed document history through genesis and its
+container/policy dependencies. The SDK authenticates before reading local pins,
+then may request a shorter chain using a known hash. Deletion requires an exact
+pin or signed transitions from a pin or genesis; a hash-only snapshot cannot
+advance it. The purge-time container path must satisfy local pins. A later head
+is ambiguous: ancestry cannot order the separate purge signature. A coded
+not-found during a user-initiated purge retry follows this same proof flow.
 
 Organization directory, group-summary, state-hash-bound membership, grant, and
 policy-head rows are presentation projections. The SDK reconciles them through

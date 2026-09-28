@@ -190,6 +190,14 @@ test("a formerly linked replica cannot retrieve an unrelated later purge proof",
   );
   expect(ownerProof.documentManifestContainerPaths.length).toBeGreaterThan(0);
   expect(ownerProof).not.toHaveProperty("documentManifestHistory");
+  expect(
+    ownerProof.documentManifestPredecessors.map(
+      (predecessor: { manifestHash: string }) => predecessor.manifestHash,
+    ),
+  ).toEqual([
+    linked.accessManifest.manifestHash,
+    created.accessManifest.manifestHash,
+  ]);
 
   const boundedProofResponse = await routeApp.request(
     `/documents/${created.id}/purge?documentCheckpointManifestHash=${created.accessManifest.manifestHash}`,

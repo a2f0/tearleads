@@ -300,15 +300,14 @@ Clients should commit writes to the verified manifest hash and derived target
 hash. Projection hashes may still be useful cache keys, but they are not the
 authorization source.
 
-Document purge is likewise a signed terminal event. It commits the exact
-document head and sole authorizing container head, and requires signer write
-access through that path. The API retains the event and manifest evidence after
-content deletion. On another device, a coded not-found response is only a
-prompt to fetch that proof; the SDK deletes local state only after independently
-verifying it against pinned identities and local checkpoints. A later pinned
-authorizing-container head makes the proof fail closed because its ordering
-relative to the purge is not signed. Document predecessor history can still
-advance an older document checkpoint to the purge-time head.
+Document purge is a signed terminal event committing the document head and sole
+authorizing container head. Its signer must have write access through that path.
+The API retains signed evidence after content deletion. A coded not-found
+response only prompts proof fetching; deletion requires an exact local document
+pin or every signed transition from a pin or signed genesis. A hash-only
+snapshot cannot advance a checkpoint. A later pinned authorizing-container head
+makes verification fail closed: ancestry cannot order the separate purge
+signature relative to that later head.
 
 A container manifest pins the parent manifest it was created or moved under,
 and successor manifests inherit that pin, so the pin does not say which

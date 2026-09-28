@@ -118,6 +118,43 @@ async function recordSnapshotContainerEvidence(input: {
   }
 }
 
+async function verifyPurgeChainEndpoint(
+  input: Parameters<typeof verifySignedPurgeDocumentManifestChain>[0] & {
+    readonly endpoint: AccessManifestBundleWireResponse;
+    readonly bundlesByHash: ReadonlyMap<
+      string,
+      AccessManifestBundleWireResponse
+    >;
+    readonly verifiedByHash: Map<string, VerifiedDocumentLinkSetManifest>;
+  },
+): Promise<VerifiedDocumentLinkSetSnapshot | null> {
+  const endpointManifest = readAccessManifest(
+    input.endpoint.manifest,
+    "Document purge chain endpoint",
+  );
+  if (endpointManifest.previousManifestHash === null) {
+    await verifyDocumentManifestBundle({
+      ...input,
+      authorizationMembership: "referenced",
+      bundle: input.endpoint,
+      enforceLocalCheckpoint: false,
+      label: "Document purge genesis",
+      requireAuthorizationEvidence: true,
+    });
+    return null;
+  }
+  if (!input.enforceLocalCheckpoints) {
+    throw new KeyingVerificationError(
+      "missing_dependency",
+      "Initial document purge history does not reach signed genesis",
+    );
+  }
+  return verifyPinnedChainEndpoint({
+    bundle: input.endpoint,
+    checkpointContext: input.checkpointContext,
+  });
+}
+
 async function verifySignedPurgeDocumentManifestChain(input: {
   readonly authorizationEvidence: readonly AnyVerifiedPrincipalPolicy[];
   readonly checkpointContext: ProjectionCheckpointContext;
@@ -125,6 +162,7 @@ async function verifySignedPurgeDocumentManifestChain(input: {
     string,
     readonly VerifiedContainerAccessManifest[]
   >;
+  readonly enforceLocalCheckpoints: boolean;
   readonly principalPolicyCache: PrincipalPolicyCache;
   readonly proof: DocumentPurgeProofResponse;
   readonly resolveUserKey: ProjectionUserKeyResolver;
@@ -149,22 +187,35 @@ async function verifySignedPurgeDocumentManifestChain(input: {
     );
   }
 
-  const endpoint = input.proof.documentManifestPredecessors.at(-1);
-  if (!endpoint) {
-    throw new KeyingVerificationError(
-      "missing_dependency",
-      "Signed document purge history has no pinned endpoint",
+  const endpoint =
+    input.proof.documentManifestPredecessors.at(-1) ??
+    input.proof.documentManifest;
+  const verifiedByHash = new Map<string, VerifiedDocumentLinkSetManifest>();
+  const trustedPredecessorByHash = new Map<
+    string,
+    VerifiedDocumentLinkSetSnapshot
+  >();
+  const verifiedEndpoint = await verifyPurgeChainEndpoint({
+    ...input,
+    endpoint,
+    bundlesByHash,
+    verifiedByHash,
+  });
+  if (verifiedEndpoint) {
+    trustedPredecessorByHash.set(
+      verifiedEndpoint.manifestHash,
+      verifiedEndpoint,
     );
   }
-  const verifiedByHash = new Map<string, VerifiedDocumentLinkSetManifest>();
-  const verifiedEndpoint = await verifyPinnedChainEndpoint({
-    bundle: endpoint,
-    checkpointContext: input.checkpointContext,
-  });
-  const trustedPredecessorByHash = new Map([
-    [verifiedEndpoint.manifestHash, verifiedEndpoint],
-  ]);
 
+  const verificationInput = {
+    ...input,
+    authorizationMembership: "referenced" as const,
+    bundlesByHash,
+    requireAuthorizationEvidence: true,
+    trustedPredecessorByHash,
+    verifiedByHash,
+  };
   for (
     let index = input.proof.documentManifestPredecessors.length - 2;
     index >= 0;
@@ -178,38 +229,17 @@ async function verifySignedPurgeDocumentManifestChain(input: {
       );
     }
     await verifyDocumentManifestBundle({
-      authorizationMembership: "referenced",
-      authorizationEvidence: input.authorizationEvidence,
+      ...verificationInput,
       bundle,
-      bundlesByHash,
-      checkpointContext: input.checkpointContext,
-      containerPathByManifestHash: input.containerPathByManifestHash,
       enforceLocalCheckpoint: false,
       label: `Document purge predecessor[${index}]`,
-      principalPolicyCache: input.principalPolicyCache,
-      resolveUserKey: input.resolveUserKey,
-      requireAuthorizationEvidence: true,
-      trustedPredecessorByHash,
-      usedContainerManifests: input.usedContainerManifests,
-      verifiedByHash,
     });
   }
-
   const head = await verifyDocumentManifestBundle({
-    authorizationMembership: "referenced",
-    authorizationEvidence: input.authorizationEvidence,
+    ...verificationInput,
     bundle: input.proof.documentManifest,
-    bundlesByHash,
-    checkpointContext: input.checkpointContext,
-    containerPathByManifestHash: input.containerPathByManifestHash,
-    enforceLocalCheckpoint: false,
+    enforceLocalCheckpoint: input.enforceLocalCheckpoints,
     label: "Document purge manifest",
-    principalPolicyCache: input.principalPolicyCache,
-    resolveUserKey: input.resolveUserKey,
-    requireAuthorizationEvidence: true,
-    trustedPredecessorByHash,
-    usedContainerManifests: input.usedContainerManifests,
-    verifiedByHash,
   });
   observeAccessManifestCheckpoints(input.checkpointContext, {
     verifiedHeads: [head],
@@ -233,17 +263,6 @@ export async function verifyPurgeDocumentManifest(input: {
     | Map<string, VerifiedContainerAccessManifest>
     | undefined;
 }): Promise<VerifiedDocumentLinkSetManifest | VerifiedDocumentLinkSetSnapshot> {
-  if (input.proof.documentManifestPredecessors.length > 0) {
-    return verifySignedPurgeDocumentManifestChain({
-      authorizationEvidence: input.authorizationEvidence,
-      checkpointContext: input.checkpointContext,
-      containerPathByManifestHash: input.containerPathByManifestHash,
-      principalPolicyCache: input.principalPolicyCache,
-      proof: input.proof,
-      resolveUserKey: input.resolveUserKey,
-      usedContainerManifests: input.usedContainerManifests,
-    });
-  }
   const verifiedByHash = new Map<string, VerifiedAccessManifestSnapshot>();
   const manifest = readAccessManifest(
     input.proof.documentManifest.manifest,
@@ -257,6 +276,20 @@ export async function verifyPurgeDocumentManifest(input: {
         verifiedManifests: verifiedByHash,
       })
     : undefined;
+  const localCheckpoint = checkpointVerification?.localCheckpoint;
+  const isPinnedHead =
+    localCheckpoint?.epoch === manifest.epoch &&
+    localCheckpoint.manifestHash === input.proof.documentManifest.manifestHash;
+  // A hash-only snapshot may select a read-only refetch floor. Committing a
+  // purge requires an exact existing pin or verified signed transitions from
+  // that pin (or signed genesis for a fresh device).
+  if (
+    (input.enforceLocalCheckpoints && !isPinnedHead) ||
+    (!input.enforceLocalCheckpoints &&
+      input.proof.documentManifestPredecessors.length > 0)
+  ) {
+    return verifySignedPurgeDocumentManifestChain(input);
+  }
   const verified = await verifyDocumentLinkSetSnapshot({
     ...(checkpointVerification ?? {}),
     expectedManifestHash: input.proof.documentManifest.manifestHash,

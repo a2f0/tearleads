@@ -7,10 +7,10 @@ export function selectDocumentManifestPredecessors(input: {
   readonly head: AccessManifestBundleWireResponse;
   readonly history: readonly AccessManifestBundleWireResponse[];
 }): AccessManifestBundleWireResponse[] {
-  if (
-    input.authorizedCheckpointManifestHash === undefined ||
-    input.authorizedCheckpointManifestHash === input.head.manifestHash
-  ) {
+  if (input.authorizedCheckpointManifestHash === undefined) {
+    return [...input.history];
+  }
+  if (input.authorizedCheckpointManifestHash === input.head.manifestHash) {
     return [];
   }
   const checkpointIndex = input.history.findIndex(
