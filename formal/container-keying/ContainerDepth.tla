@@ -7,8 +7,8 @@ ASSUME /\ Root \in Nodes
        /\ MaxPathLength > 0
        /\ {GuardCreateDepth, GuardMoveDepth, GuardSubtreeDepth} \subseteq BOOLEAN
 
-VARIABLES live, parent, depth, revoked
-vars == <<live, parent, depth, revoked>>
+VARIABLES live, parent, depth
+vars == <<live, parent, depth>>
 
 RECURSIVE Ancestors(_, _)
 Ancestors(parents, node) ==
@@ -20,7 +20,6 @@ Init ==
   /\ live = {Root}
   /\ parent = [node \in Nodes |-> Root]
   /\ depth = [node \in Nodes |-> 0]
-  /\ revoked = FALSE
 
 Create(node, destination) ==
   /\ node \in Nodes \ live
@@ -29,7 +28,6 @@ Create(node, destination) ==
   /\ live' = live \cup {node}
   /\ parent' = [parent EXCEPT ![node] = destination]
   /\ depth' = [depth EXCEPT ![node] = depth[destination] + 1]
-  /\ UNCHANGED revoked
 
 Move(node, destination) ==
   /\ node \in live \ {Root}
@@ -42,22 +40,14 @@ Move(node, destination) ==
         /\ depth' = [child \in Nodes |->
              IF child \in moved THEN depth[child] + delta ELSE depth[child]]
   /\ parent' = [parent EXCEPT ![node] = destination]
-  /\ UNCHANGED <<live, revoked>>
-
-Revoke ==
-  /\ ~revoked
-  /\ revoked' = TRUE
-  /\ UNCHANGED <<live, parent, depth>>
+  /\ UNCHANGED live
 
 Next == (\E node, destination \in Nodes : Create(node, destination) \/ Move(node, destination))
-        \/ Revoke
 Spec == Init /\ [][Next]_vars
 
 TypeOK == /\ live \subseteq Nodes /\ Root \in live
           /\ parent \in [Nodes -> Nodes]
           /\ depth \in [Nodes -> Nat]
-          /\ revoked \in BOOLEAN
 DepthMatchesParents == \A node \in live : depth[node] = Cardinality(Ancestors(parent, node))
 HonestReadsAvailable == \A node \in live : depth[node] < MaxPathLength
-RevocationAvailable == ~revoked => ENABLED Revoke
 =============================================================================

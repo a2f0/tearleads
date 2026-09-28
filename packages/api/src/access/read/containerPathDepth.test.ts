@@ -54,7 +54,7 @@ function closure(containerIds: readonly string[]) {
 test("ancestor closure accepts exactly 100 containers including the root", async () => {
   const leaf = ids[99];
   if (!leaf) throw new Error("Missing boundary leaf");
-  expect(await closure([leaf])).toEqual([...ids.slice(0, 100)].sort());
+  expect(await closure([leaf])).toEqual(ids.slice(0, 100).sort());
 });
 
 test.each([false, true])(

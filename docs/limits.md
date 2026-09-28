@@ -27,7 +27,7 @@ source of truth and the tables are a map to it.
 Create and move preserve the reader's structural bound. Policy rotations and
 revocations do not change structure and do not run these depth guards. The
 bounded [container depth model](../formal/container-keying/ContainerDepth.md)
-checks both mutation guards and revocation availability. Readers also refuse
+checks the create and move guards. Readers also refuse
 malformed paths; the ancestor CTE accepts at most 100 containers and rejects
 an unclosed parent at the boundary rather than silently truncating it.
 

@@ -11,7 +11,6 @@ path has depths zero through 99.
 | `Move` / `GuardMoveDepth` | `persistContainerStructure` checks the destination in `assertContainerMoveDepth` |
 | `Subtree` / `GuardSubtreeDepth` | `assertContainerMoveDepth` walks descendants and checks the deepest resulting depth |
 | `HonestReadsAvailable` | `MAX_CONTAINER_PATH_LENGTH` bounds `loadContainerAccessPath` and `assertContainerChildPathFits` |
-| `Revoke` / `RevocationAvailable` | `touchContainerStructure` preserves structure during policy rotation |
 
 The bounded configuration explores five nodes and paths of up to three
 containers, including moves where the moved root fits but a descendant does
@@ -27,7 +26,8 @@ subtree move, and the exact valid boundary on SQLite and PGlite. SDK tests check
 early destination refusal; the API must check descendants that a client may not
 be able to discover.
 
-Revocation does not change structure and remains enabled regardless of depth.
-This is an enabled-action check, not a temporal liveness proof; carried-rekey
-obligations and their independent resource limits belong to the other keying
-models. No migration or compatibility behavior is modeled or implemented.
+This model covers structural create and move transitions only. Production
+revocations do not change structure and do not call the new depth guards;
+revocation availability and carried-rekey obligations are outside this model.
+It establishes no temporal liveness result. No migration or compatibility
+behavior is modeled or implemented.

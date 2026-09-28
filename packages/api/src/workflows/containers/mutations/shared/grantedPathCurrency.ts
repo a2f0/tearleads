@@ -46,9 +46,9 @@ export function requiredCarriedRekeys(input: {
  *
  * `chain` runs from the grant's parent upward. A chain the bounded walk could
  * not follow to a rotated container owes nothing, exactly like overflow past
- * the carried-rekey cap: those levels repair lazily. Nothing caps a tree's
- * depth at create or move, and a revocation must never be blockable by a
- * tree's shape, so an over-deep chain is never a refusal.
+ * the carried-rekey cap: those levels repair lazily. Create and move enforce
+ * the readable depth, so this remains a fail-safe for malformed stored trees.
+ * A revocation must never be blockable by a tree's shape.
  */
 export function owedLevelsOnChain<T extends { readonly id: string }>(
   chain: readonly T[],

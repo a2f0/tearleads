@@ -56,8 +56,8 @@ that all intended actions are reachable. See the [September 2026 audit](./audit-
 for the coverage inventory, improvements, and prioritized remaining work.
 
 The [container depth model](./container-keying/ContainerDepth.md) checks that
-create and subtree moves preserve readable paths, without adding a structural
-guard to policy revocation. Three negative controls remove its mutation guards.
+create and subtree moves preserve readable paths. Policy revocation is outside
+its boundary. Three negative controls remove the structural mutation guards.
 
 The [F1/F2 gate audit](./verification-gates.md) maps #2192's no-brick and
 verifier-property requirements to executable evidence, records their bounds,
