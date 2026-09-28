@@ -57,18 +57,18 @@ export function SyncStatusIndicatorView({
 
 // The popover body: the status detail, plus a link into the Org Manager's
 // Billing view when billing has sync paused and a link into the Explorer Write
-// Queue when the local queue holds unflushed data. Props-only for the same
-// reason.
+// Queue when the local queue holds unflushed data or could not be read (that
+// panel shows why). Props-only for the same reason.
 export function SyncStatusPopover({
   title,
   billingBlocked,
-  hasUnflushed,
+  showWriteQueueLink,
   onOpenBilling,
   onOpenWriteQueue,
 }: {
   title: string;
   billingBlocked: boolean;
-  hasUnflushed: boolean;
+  showWriteQueueLink: boolean;
   onOpenBilling: () => void;
   onOpenWriteQueue: () => void;
 }) {
@@ -84,7 +84,7 @@ export function SyncStatusPopover({
           <span className="menu-item-label">{OPEN_BILLING_LABEL}</span>
         </button>
       )}
-      {hasUnflushed && (
+      {showWriteQueueLink && (
         <button
           className="sync-status-popover-action"
           onClick={onOpenWriteQueue}
@@ -98,13 +98,14 @@ export function SyncStatusPopover({
 }
 
 // A persistent footer-tray indicator (green = synced, red = unflushed data,
-// red warning = writes failing terminally, amber warning = billing paused).
+// red warning = writes failing terminally or the queue unreadable, amber
+// warning = billing paused).
 // Clicking it opens a popover with the status detail plus a link into the Org
 // Manager's Billing view when billing has sync paused and, when the write queue
 // is non-empty, a link into the Explorer's Write Queue view. Same source of
 // truth as that panel (see `useSyncStatus`).
 export function SyncStatusIndicator() {
-  const { status, title, pendingWriteCount } = useSyncStatus();
+  const { status, title, pendingWriteCount, queueReadFailed } = useSyncStatus();
   const { openMiniApp } = useMiniAppBusActions();
   const [menuPosition, setMenuPosition] = useState<MenuPosition | null>(null);
 
@@ -138,7 +139,7 @@ export function SyncStatusIndicator() {
         <Menu onClose={closeMenu} position={menuPosition}>
           <SyncStatusPopover
             billingBlocked={status === "billing"}
-            hasUnflushed={pendingWriteCount > 0}
+            showWriteQueueLink={pendingWriteCount > 0 || queueReadFailed}
             onOpenBilling={openBilling}
             onOpenWriteQueue={openWriteQueue}
             title={title}

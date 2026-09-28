@@ -59,6 +59,7 @@ test("reads once immediately and reports the items verbatim", async () => {
     listPendingWrites: async () => items,
     subscribe: () => () => {},
     onSnapshot,
+    onError: () => {},
     throttleMs: THROTTLE_MS,
   });
 
@@ -82,6 +83,7 @@ test("re-reads once when a subscribed change fires", async () => {
       return () => {};
     },
     onSnapshot: () => {},
+    onError: () => {},
     throttleMs: THROTTLE_MS,
   });
 
@@ -106,6 +108,7 @@ test("coalesces a burst of changes into a single re-read", async () => {
       return () => {};
     },
     onSnapshot: () => {},
+    onError: () => {},
     throttleMs: THROTTLE_MS,
   });
 
@@ -137,6 +140,7 @@ test("serializes: a change mid-read queues exactly one follow-up", async () => {
       return () => {};
     },
     onSnapshot: () => {},
+    onError: () => {},
     throttleMs: THROTTLE_MS,
   });
 
@@ -165,6 +169,7 @@ test("reports nothing after stop(), even for an in-flight read", async () => {
     listPendingWrites: () => gate.promise,
     subscribe: () => () => {},
     onSnapshot,
+    onError: () => {},
     throttleMs: THROTTLE_MS,
   });
 
@@ -174,32 +179,53 @@ test("reports nothing after stop(), even for an in-flight read", async () => {
   expect(onSnapshot).not.toHaveBeenCalled();
 });
 
-test("a failed read reports nothing and a later change still reads", async () => {
+test("a failed read reports the error, not a snapshot, and a later change still reads", async () => {
   let calls = 0;
   let notify = () => {};
+  const failure = new Error("read failed");
   const onSnapshot = mock((_items: WatchedItems) => {});
+  const onError = mock((_error: unknown) => {});
   const watcher = createPendingWriteWatcher({
     listPendingWrites: () => {
       calls += 1;
-      return calls === 1
-        ? Promise.reject(new Error("read failed"))
-        : Promise.resolve([item(4)]);
+      return calls === 1 ? Promise.reject(failure) : Promise.resolve([item(4)]);
     },
     subscribe: (onChange) => {
       notify = onChange;
       return () => {};
     },
     onSnapshot,
+    onError,
     throttleMs: THROTTLE_MS,
   });
 
   await settle();
   expect(onSnapshot).not.toHaveBeenCalled();
+  expect(onError).toHaveBeenCalledTimes(1);
+  expect(onError.mock.calls[0]?.[0]).toBe(failure);
   notify();
   await settle();
   expect(onSnapshot).toHaveBeenCalledTimes(1);
   expect(onSnapshot.mock.calls[0]?.[0]?.[0]?.operations[0]?.count).toBe(4);
+  expect(onError).toHaveBeenCalledTimes(1);
   watcher.stop();
+});
+
+test("reports no error after stop(), even for an in-flight read", async () => {
+  const gate = deferred<PendingWriteQueueItem[]>();
+  const onError = mock((_error: unknown) => {});
+  const watcher = createPendingWriteWatcher({
+    listPendingWrites: () => gate.promise,
+    subscribe: () => () => {},
+    onSnapshot: () => {},
+    onError,
+    throttleMs: THROTTLE_MS,
+  });
+
+  watcher.stop();
+  gate.reject(new Error("read failed"));
+  await settle();
+  expect(onError).not.toHaveBeenCalled();
 });
 
 test("stop() unsubscribes from the change source", () => {
@@ -210,6 +236,7 @@ test("stop() unsubscribes from the change source", () => {
       unsubscribed = true;
     },
     onSnapshot: () => {},
+    onError: () => {},
     throttleMs: THROTTLE_MS,
   });
 
