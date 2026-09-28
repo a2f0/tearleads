@@ -193,84 +193,88 @@ test(
   LINEAGE_TEST_TIMEOUT_MS,
 );
 
-test("a document authored through a newer parent grant verifies from its signed citations", async () => {
-  const owner = createTestUser();
-  await registerUser(owner);
-  await authenticate(owner);
-  const bob = await registerReader();
-  const root = await bootstrapRoot(owner);
-  const parent1 = storedContainer(
-    await createChildContainer({ parent: root, signer: owner }),
-  );
-  const child1 = storedContainer(
-    await createChildContainer({
-      parent: { bundle: parent1.bundle, kekState: parent1.kekState },
-      parentPath: [root.bundle],
+test(
+  "a document authored through a newer parent grant verifies from its signed citations",
+  async () => {
+    const owner = createTestUser();
+    await registerUser(owner);
+    await authenticate(owner);
+    const bob = await registerReader();
+    const root = await bootstrapRoot(owner);
+    const parent1 = storedContainer(
+      await createChildContainer({ parent: root, signer: owner }),
+    );
+    const child1 = storedContainer(
+      await createChildContainer({
+        parent: { bundle: parent1.bundle, kekState: parent1.kekState },
+        parentPath: [root.bundle],
+        signer: owner,
+      }),
+    );
+    const parent2 = await shareContainer({
+      accessLevel: "write",
+      container: parent1,
+      parentKekState: root.kekState,
+      path: [root.bundle],
+      recipient: bob,
       signer: owner,
-    }),
-  );
-  const parent2 = await shareContainer({
-    accessLevel: "write",
-    container: parent1,
-    parentKekState: root.kekState,
-    path: [root.bundle],
-    recipient: bob,
-    signer: owner,
-  });
-  expect(Reflect.get(child1.bundle.state, "parentManifestHash")).toBe(
-    parent1.bundle.manifestHash,
-  );
-  const document = await createDocument({
-    containerPath: [root.bundle, parent2.bundle, child1.bundle],
-    owner: bob,
-    root: {
-      bundle: child1.bundle,
-      kekState: child1.kekState,
-      principalPolicies: root.principalPolicies,
-    },
-  });
-  expect(document.accessManifest).toMatchObject({
-    event: {
-      event: {
-        dependencyManifestHashes: expect.arrayContaining([
-          root.bundle.manifestHash,
-          parent2.bundle.manifestHash,
-          child1.bundle.manifestHash,
-        ]),
+    });
+    expect(Reflect.get(child1.bundle.state, "parentManifestHash")).toBe(
+      parent1.bundle.manifestHash,
+    );
+    const document = await createDocument({
+      containerPath: [root.bundle, parent2.bundle, child1.bundle],
+      owner: bob,
+      root: {
+        bundle: child1.bundle,
+        kekState: child1.kekState,
+        principalPolicies: root.principalPolicies,
       },
-    },
-  });
-  // The signed parent2 must remain available even after it leaves the current
-  // path; the child's creation-time pin still names parent1.
-  await shareContainer({
-    container: parent2,
-    history: [parent1.bundle],
-    parentKekState: root.kekState,
-    path: [root.bundle],
-    recipient: await registerReader(),
-    signer: owner,
-  });
-  const response = await routeApp.request(
-    `/documents/${document.id}/writer-projection`,
-    {
-      headers: { Authorization: `Bearer ${bob.token}` },
-    },
-  );
-  expect(response.status, await response.clone().text()).toBe(200);
-  const projection: unknown = await response.json();
-  if (!isDocumentWriterProjectionResponse(projection))
-    throw new Error("Expected writer projection");
-  const served = new Set(
-    [
-      ...projection.documentContainerManifestHistory,
-      ...projection.documentManifestContainerPaths.flat(),
-    ].map((bundle) => bundle.manifestHash),
-  );
-  expect(served.has(parent2.bundle.manifestHash)).toBe(true);
-  expect(projection.documentManifest.manifestHash).toBe(
-    document.accessManifest.manifestHash,
-  );
-});
+    });
+    expect(document.accessManifest).toMatchObject({
+      event: {
+        event: {
+          dependencyManifestHashes: expect.arrayContaining([
+            root.bundle.manifestHash,
+            parent2.bundle.manifestHash,
+            child1.bundle.manifestHash,
+          ]),
+        },
+      },
+    });
+    // The signed parent2 must remain available even after it leaves the current
+    // path; the child's creation-time pin still names parent1.
+    await shareContainer({
+      container: parent2,
+      history: [parent1.bundle],
+      parentKekState: root.kekState,
+      path: [root.bundle],
+      recipient: await registerReader(),
+      signer: owner,
+    });
+    const response = await routeApp.request(
+      `/documents/${document.id}/writer-projection`,
+      {
+        headers: { Authorization: `Bearer ${bob.token}` },
+      },
+    );
+    expect(response.status, await response.clone().text()).toBe(200);
+    const projection: unknown = await response.json();
+    if (!isDocumentWriterProjectionResponse(projection))
+      throw new Error("Expected writer projection");
+    const served = new Set(
+      [
+        ...projection.documentContainerManifestHistory,
+        ...projection.documentManifestContainerPaths.flat(),
+      ].map((bundle) => bundle.manifestHash),
+    );
+    expect(served.has(parent2.bundle.manifestHash)).toBe(true);
+    expect(projection.documentManifest.manifestHash).toBe(
+      document.accessManifest.manifestHash,
+    );
+  },
+  LINEAGE_TEST_TIMEOUT_MS,
+);
 
 test("POST /containers/:containerId/share refuses a path that does not start at a root", async () => {
   const owner = createTestUser();
