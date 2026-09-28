@@ -21,13 +21,19 @@ export const pendingDocumentDiscoveries = sqliteTable(
 );
 
 /** Only the verified signed head writes this cache, never listing fields. */
-export const documentDiscoveryHeads = sqliteTable("document_discovery_heads", {
-  documentId: text("document_id").primaryKey(),
-  organizationId: text("organization_id").notNull(),
-  manifestHash: text("manifest_hash").notNull(),
-  accessEpoch: integer("access_epoch").notNull(),
-  linksJson: text("links_json").notNull(),
-});
+export const documentDiscoveryHeads = sqliteTable(
+  "document_discovery_heads",
+  {
+    documentId: text("document_id").notNull(),
+    organizationId: text("organization_id").notNull(),
+    manifestHash: text("manifest_hash").notNull(),
+    accessEpoch: integer("access_epoch").notNull(),
+    linksJson: text("links_json").notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.documentId, table.organizationId] }),
+  ],
+);
 
 /** Local request order, independent of untrusted server epoch claims. */
 export const documentDiscoverySequence = sqliteTable(

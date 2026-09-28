@@ -81,3 +81,32 @@ test("discovery uses the replacement organization's pin while retaining the old 
     close();
   }
 });
+
+test("obsolete discovery caches require a fresh database without changing old rows", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "discovery-obsolete-schema",
+  );
+  try {
+    await execSql(`CREATE TABLE document_discovery_heads (
+      document_id TEXT PRIMARY KEY, manifest_hash TEXT NOT NULL,
+      access_epoch INTEGER NOT NULL, links_json TEXT NOT NULL
+    )`);
+    await execSql(
+      "INSERT INTO document_discovery_heads VALUES ('doc', 'head', 1, '[]')",
+    );
+    const store = createDocumentDiscoveryEvidenceStore(execSql);
+    await expect(store.loadHead("doc", "head")).rejects.toThrow(
+      "Local database schema for document_discovery_heads is obsolete; reset the local database before continuing",
+    );
+    expect(await execSql("SELECT * FROM document_discovery_heads")).toEqual([
+      {
+        document_id: "doc",
+        manifest_hash: "head",
+        access_epoch: 1,
+        links_json: "[]",
+      },
+    ]);
+  } finally {
+    close();
+  }
+});

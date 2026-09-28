@@ -29,9 +29,11 @@ conflicting genesis acceptable. These anchors remain until the local database
 is fully reset; purged-organization cleanup must not remove them. The discovery
 cache compares each signed head against its own organization's checkpoint, so
 retaining an old organization's pin does not disable caching after recovery.
-The cache's required organization column is a greenfield schema change: this
-release expects a fresh local database and intentionally provides no legacy
-schema upgrade, backfill, or compatibility path.
+The cache is keyed by document and organization, so their epoch counters remain
+independent. Its required organization column is a greenfield schema change:
+this release expects a fresh local database. The existing schema guard rejects
+obsolete caches with a local-database-reset error; there is no schema upgrade,
+backfill, or compatibility path.
 
 Authenticating the replacement response remains open in
 [#2365, finding #10](https://github.com/a2f0/tearleads/issues/2365).
