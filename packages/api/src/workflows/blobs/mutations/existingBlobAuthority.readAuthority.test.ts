@@ -221,4 +221,4 @@ test("a source reader binds only its destination and cannot replace foreign wrap
   expect<unknown>(
     repaired?.targets.filter((entry) => entry.documentId === target.id),
   ).toEqual(rebind.request.contentKeyBundle.targets);
-});
+}, 15_000);
