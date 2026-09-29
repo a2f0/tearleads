@@ -32,5 +32,5 @@ export async function markStoredDocumentManifest(
     containerContext: createContainerWriterProjectionContext(executor),
     documentMarkers,
   });
-  await documentMarkers.flush?.();
+  await documentMarkers.flush();
 }

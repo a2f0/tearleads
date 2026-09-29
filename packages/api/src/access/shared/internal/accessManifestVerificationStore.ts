@@ -36,14 +36,15 @@ export async function selectAccessManifestVerificationMacs(
 export async function upsertAccessManifestVerificationMacs(
   macs: ReadonlyMap<string, string>,
   executor: DatabaseSession,
+  rowsPerStatement = BATCH_SIZE,
 ): Promise<void> {
   const rows = [...macs]
     .sort(([left], [right]) => (left < right ? -1 : left > right ? 1 : 0))
     .map(([manifestHash, mac]) => ({ manifestHash, mac }));
-  for (let offset = 0; offset < rows.length; offset += BATCH_SIZE) {
+  for (let offset = 0; offset < rows.length; offset += rowsPerStatement) {
     await executor
       .insert(accessManifestVerifications)
-      .values(rows.slice(offset, offset + BATCH_SIZE))
+      .values(rows.slice(offset, offset + rowsPerStatement))
       .onConflictDoUpdate({
         target: accessManifestVerifications.manifestHash,
         set: { mac: sql`excluded.mac` },

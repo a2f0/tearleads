@@ -12,11 +12,13 @@ import { authenticate } from "../../../test/helpers/authenticate";
 import {
   bootstrapRoot,
   createDocument,
+  createDocumentRequest,
 } from "../../../test/helpers/keyingWriterProjectionKit";
 import { registerUser } from "../../../test/helpers/registerUser";
 import { routeApp } from "../../routeApp";
-import { markStoredDocumentManifest } from "../../workflows/documents/markStoredDocumentManifest";
+import * as markStoredDocument from "../../workflows/documents/markStoredDocumentManifest";
 import { deleteDocumentRows } from "../../workflows/documents/mutations/purgeDocumentRows";
+import { StoredDocumentManifestError } from "../../workflows/documents/storedDocumentManifestVerification";
 
 async function setup() {
   const owner = createTestUser();
@@ -96,7 +98,7 @@ test("a marked document row edited in place is refused", async () => {
 test("marking refuses a hash that is not a stored document manifest", async () => {
   const { root } = await setup();
   await expect(
-    markStoredDocumentManifest(db, root.bundle.manifestHash),
+    markStoredDocument.markStoredDocumentManifest(db, root.bundle.manifestHash),
   ).rejects.toMatchObject({ status: 409 });
 });
 
@@ -121,4 +123,29 @@ test("deleting a document's history deletes its markers", async () => {
       .where(eq(accessManifests.manifestHash, manifestHash)),
   ).toEqual([]);
   expect(await readMarker(manifestHash)).toBeNull();
+});
+
+test("a refused write-time document mark rejects the create with a conflict", async () => {
+  const owner = createTestUser();
+  await registerUser(owner);
+  await authenticate(owner);
+  const root = await bootstrapRoot(owner);
+  const mark = spyOn(
+    markStoredDocument,
+    "markStoredDocumentManifest",
+  ).mockRejectedValue(new StoredDocumentManifestError("test"));
+  try {
+    const response = await routeApp.request("/documents", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${owner.token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(await createDocumentRequest({ owner, root })),
+    });
+    expect(response.status).toBe(409);
+    expect(mark).toHaveBeenCalledTimes(1);
+  } finally {
+    mark.mockRestore();
+  }
 });

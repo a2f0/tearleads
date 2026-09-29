@@ -91,7 +91,14 @@ export interface AccessManifestVerificationMarkerStore {
   /** Remember a marker; nothing is written until `flush`. */
   save(manifestHash: string, mac: string): Promise<void>;
   /** Write the markers saved since the last flush. */
-  flush?(executor?: DatabaseSession): Promise<void>;
+  flush(options?: MarkerFlushOptions): Promise<void>;
+}
+
+interface MarkerFlushOptions {
+  /** Defaults to the executor the store reads with. */
+  readonly executor?: DatabaseSession;
+  /** Defaults to the largest batch the dialects accept. */
+  readonly rowsPerStatement?: number;
 }
 
 /**
@@ -128,10 +135,14 @@ export function databaseVerificationMarkerStore(
       saved.set(manifestHash, mac);
       loaded.set(manifestHash, mac);
     },
-    async flush(flushExecutor = executor) {
+    async flush(options = {}) {
       const macs = new Map(saved);
       saved.clear();
-      await upsertAccessManifestVerificationMacs(macs, flushExecutor);
+      await upsertAccessManifestVerificationMacs(
+        macs,
+        options.executor ?? executor,
+        options.rowsPerStatement,
+      );
     },
   };
 }
@@ -139,16 +150,18 @@ export function databaseVerificationMarkerStore(
 /**
  * Write back the markers a read's full verification earned, after its
  * transaction committed, so a history re-verified after a rotated secret or
- * new rules is verified once rather than on every read. Each is an
- * independent autocommit upsert holding no other lock. Losing one only costs
- * a later re-verification, so a failure is reported, not returned.
+ * new rules is verified once rather than on every read. Each marker is its own
+ * autocommit upsert, so the reader never holds one marker row while waiting
+ * for another: a writer that marks more than once in its transaction cannot
+ * deadlock with it. Losing one only costs a later re-verification, so a
+ * failure is reported, not returned.
  */
 export async function flushVerificationMarkersAfterRead(
   store: AccessManifestVerificationMarkerStore,
   executor: DatabaseSession,
 ): Promise<void> {
   try {
-    await store.flush?.(executor);
+    await store.flush({ executor, rowsPerStatement: 1 });
   } catch (error) {
     console.error(
       "Failed to write access manifest verification markers:",

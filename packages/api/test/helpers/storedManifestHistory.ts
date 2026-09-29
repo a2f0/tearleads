@@ -116,6 +116,7 @@ export async function signedContainerHistory(length: number) {
     save: async (manifestHash, mac) => {
       markers.set(manifestHash, mac);
     },
+    flush: async () => {},
   };
   const createContext = () => ({
     ...createContainerWriterProjectionContext(executor),

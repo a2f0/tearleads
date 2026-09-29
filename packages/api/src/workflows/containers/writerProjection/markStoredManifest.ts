@@ -21,5 +21,5 @@ export async function markStoredContainerManifest(
     context,
     loadBundle: (hash) => loadContainerManifestBundleByHash(context, hash),
   });
-  await context.verificationMarkers.flush?.();
+  await context.verificationMarkers.flush();
 }

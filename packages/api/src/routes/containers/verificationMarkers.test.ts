@@ -12,6 +12,8 @@ import {
 import { clearAccessManifestVerificationMarkers } from "../../../test/helpers/verificationMarkers";
 import * as manifestStore from "../../access/read/accessManifestStore";
 import { routeApp } from "../../routeApp";
+import * as markStoredManifest from "../../workflows/containers/writerProjection/markStoredManifest";
+import { ContainerWriterProjectionError } from "../../workflows/containers/writerProjection/types";
 
 const RECITATIONS = 40;
 
@@ -140,4 +142,34 @@ test("a marked head does not hide an edited predecessor row", async () => {
     { headers: { Authorization: `Bearer ${owner.token}` } },
   );
   expect(response.status).toBe(409);
+}, 120_000);
+
+test("a refused write-time mark rejects the mutation with a conflict", async () => {
+  const created = await scenario();
+  const { owner, root, child } = created;
+  const mark = spyOn(
+    markStoredManifest,
+    "markStoredContainerManifest",
+  ).mockRejectedValue(
+    new ContainerWriterProjectionError(
+      "Stored container manifest failed integrity verification: test",
+      409,
+    ),
+  );
+  try {
+    const response = await post(
+      child.containerId,
+      owner,
+      await request({
+        path: [root.bundle, child.accessManifest],
+        signer: owner,
+      }),
+    );
+    expect(response.status).toBe(409);
+    expect(mark).toHaveBeenCalledTimes(1);
+  } finally {
+    mark.mockRestore();
+  }
+  // The refused recitation rolled back, so the old head still extends.
+  await recite(created, child.accessManifest, 1);
 }, 120_000);
