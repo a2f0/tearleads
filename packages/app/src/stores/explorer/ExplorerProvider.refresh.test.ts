@@ -18,7 +18,7 @@ import {
   createSqlRuntime,
   runtimeWithPatch,
 } from "../../../test/helpers/explorer-provider/explorerProviderHarness";
-import { createSignedExplorerRoots } from "../../../test/helpers/explorer-provider/signedExplorerRoots";
+import { createSignedExplorerDirectory } from "../../../test/helpers/explorer-provider/signedExplorerDirectory";
 import { waitForCondition } from "../../../test/helpers/waitForCondition";
 
 test("explorer store refreshes remote containers on demand after initialization", async () => {
@@ -30,11 +30,17 @@ test("explorer store refreshes remote containers on demand after initialization"
   runtime = runtimeWithPatch(runtime, {
     apiClient: createMockApiClient({
       ...runtime.apiClient,
-      ...(await createSignedExplorerRoots([
+      ...(await createSignedExplorerDirectory([
         {
           id: "shared-root-container",
           organizationId: "org-2",
           metadataDocumentId: "shared-root-metadata-document",
+        },
+        {
+          id: "shared-child-container",
+          metadataDocumentId: "shared-child-metadata-document",
+          organizationId: "org-2",
+          parentId: "shared-root-container",
         },
       ])),
       listContainerParentLanes: createContainerParentLaneBatchMock(

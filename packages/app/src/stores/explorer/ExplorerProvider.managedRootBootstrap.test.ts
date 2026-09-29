@@ -15,14 +15,14 @@ import {
   createSqlRuntime,
   runtimeWithPatch,
 } from "../../../test/helpers/explorer-provider/explorerProviderHarness";
-import { createSignedExplorerRoots } from "../../../test/helpers/explorer-provider/signedExplorerRoots";
+import { createSignedExplorerDirectory } from "../../../test/helpers/explorer-provider/signedExplorerDirectory";
 import { waitForCondition } from "../../../test/helpers/waitForCondition";
 
 test("explorer store can skip background system container creation after managed root policy advances", async () => {
   let runtime = await createSqlRuntime();
   // The session acknowledges this root as its own, so its creator is the
   // session user.
-  const signedRoots = await createSignedExplorerRoots(
+  const signedRoots = await createSignedExplorerDirectory(
     [
       {
         id: "root-container",
