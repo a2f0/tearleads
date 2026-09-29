@@ -371,6 +371,7 @@ export {
   ContainerAuthorAccessError,
   ContainerKekRepairInaccessibleError,
   ContainerKekRepairRequiredError,
+  ContainerPathTooDeepError,
   classifyContainerWriteRefusal,
   containerWriterProjectionFromRekeyPlan,
   createRemoteContainer,

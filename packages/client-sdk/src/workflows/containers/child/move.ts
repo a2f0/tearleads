@@ -272,7 +272,6 @@ async function collectAuthorizedMovePolicies(
 async function buildMaterializedContainerMovePlan(
   input: MaterializedContainerMoveInput,
 ): Promise<MaterializedContainerMovePlan> {
-  assertContainerChildPathFits(input.destinationParentProjection.path);
   const {
     containerKey: predecessorContainerKey,
     destinationParent,
@@ -286,6 +285,9 @@ async function buildMaterializedContainerMovePlan(
     targetSecretKey: input.targetSecretKey,
     warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
   });
+  // Only a verified path is a final depth refusal; a padded unverified path
+  // must fail verification (an incident), never look like an honest refusal.
+  assertContainerChildPathFits(input.destinationParentProjection.path);
   const { destinationState, previousState } = readContainerMoveStates({
     authorOrganizationId: input.author.organizationId,
     destinationParent,

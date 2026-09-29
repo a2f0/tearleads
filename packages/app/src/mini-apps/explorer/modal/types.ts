@@ -85,6 +85,8 @@ export interface ExplorerModalController {
   openPurgeModal: (nodeId: string) => void;
   openRenameModal: (nodeId: string) => void;
   openSharePeerModal: (nodeId: string) => void;
+  /** The explorer banner for refusals outside a modal (e.g. Move to Trash). */
+  setBackgroundActionError: (error: string | null) => void;
   setDraftName: Dispatch<SetStateAction<string>>;
   setDraftTargetContainerId: Dispatch<SetStateAction<string>>;
   setModalError: Dispatch<SetStateAction<string | null>>;

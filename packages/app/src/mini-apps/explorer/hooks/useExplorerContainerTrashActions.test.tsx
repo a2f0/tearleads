@@ -1,6 +1,9 @@
 import { afterEach, expect, test } from "bun:test";
 import type { ContainerNode } from "@tearleads/client-sdk";
-import { syncedContainerDocumentObjectSyncState } from "@tearleads/client-sdk";
+import {
+  ContainerPathTooDeepError,
+  syncedContainerDocumentObjectSyncState,
+} from "@tearleads/client-sdk";
 import { act, cleanup, renderHook } from "@testing-library/react";
 import type { RuntimeSnapshot } from "../../../providers/sdk/TearleadsProvider";
 import { TrashUnavailableError } from "../../../stores/systemContainerTrash";
@@ -120,4 +123,35 @@ test("the shared destination resolver surfaces an own-org Trash awaiting sync", 
     name: "TrashUnavailableError",
     reason: "awaiting-sync",
   });
+});
+
+test("a folder too deep to move into Trash tells the user to Delete Forever", async () => {
+  const { appData, explorer } = createHarness({
+    nodes: [...nodes, node("viewer-folder", VIEWER_ORG, "viewer-root")],
+  });
+  explorer.moveContainer = async () => {
+    throw new ContainerPathTooDeepError();
+  };
+  const reported: (string | null)[] = [];
+  const { result } = renderHook(() =>
+    useExplorerContainerTrashActions({
+      appData,
+      explorer,
+      onSettled: () => undefined,
+      reportBackgroundError: (message) => {
+        reported.push(message);
+      },
+      selectExplorerItem: () => undefined,
+    }),
+  );
+
+  await act(async () => {
+    expect(await result.current.moveContainerToTrash("viewer-folder")).toBe(
+      null,
+    );
+  });
+
+  expect(reported).toEqual([
+    "This folder is nested too deeply to move to Trash. Use Delete Forever instead.",
+  ]);
 });

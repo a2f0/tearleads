@@ -184,7 +184,7 @@ function useExplorerModalSubmit(params: ExplorerModalSubmitControllerParams) {
         if (!isIgnorableDatabaseWorkerError(error)) {
           params.logError(getExplorerModalLog(modalState.mode), error);
         }
-        setModalError(getExplorerModalError(modalState.mode));
+        setModalError(getExplorerModalError(modalState.mode, error));
       } finally {
         setIsSubmittingModal(false);
       }

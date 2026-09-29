@@ -129,6 +129,11 @@ export const EXPLORER_LABELS = {
   containerEmptyTrashAction: "Empty Trash",
   containerMoveToTrashAction: "Move to Trash",
   createChildFolderAction: "Create Child Folder",
+  // A create or move that would pass the readable folder depth.
+  folderNestedTooDeeply: "This folder would be nested too deeply.",
+  // Trash sits under the root, so a very deep subtree cannot move into it.
+  trashNestedTooDeeply:
+    "This folder is nested too deeply to move to Trash. Use Delete Forever instead.",
   databaseLoadError: "Couldn't open the local database.",
   // Suffixes for the compact sort selector's accessible state.
   columnSortedAscending: "sorted ascending",

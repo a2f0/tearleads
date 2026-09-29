@@ -453,4 +453,14 @@ export interface ContainerContentsPersistence
     execSql: ExecSql,
     input: ContainerMoveIntentRevisionInput,
   ) => Promise<boolean>;
+  /**
+   * Drop a move revision the server refuses for good and restore the
+   * folder's previous parent in the same transaction; false if superseded.
+   */
+  abandonMoveIntentRevision: (
+    execSql: ExecSql,
+    input: ContainerMoveIntentRevisionInput & {
+      previousParentContainerId: string;
+    },
+  ) => Promise<boolean>;
 }
