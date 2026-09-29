@@ -23,9 +23,15 @@ recovery additionally verifies current placement against durable checkpoints.
 
 A held folder keeps its organization and metadata document id. Hydration loads
 the held binding (in-memory state, else the durable row or retained dormant
-metadata) and refuses a conflicting listing before fetching its projection or
-caching its role. Metadata-mutation and hydration-commit transactions recheck
-the durable binding; a conflicting dormant record is refused, never purged.
+metadata). A listing that repeats a held ordinary binding needs no second proof.
+A conflicting proof is accepted only when the session user's own signed create
+re-homed the folder (purged-organization recovery reuses container ids); the
+rebind resets the metadata record's remote stream and keeps queued edits. Any
+other conflict is refused before placement pins advance or the role is cached.
+Metadata-mutation and hydration-commit transactions recheck the durable binding;
+a conflicting dormant record is refused, never purged. Page hydration prefetches
+newly discovered folders' projections four at a time; verification stays
+sequential.
 
 A page with a concurrently changed live item or tombstone remains unacknowledged:
 its watermark and restoration-completion callback must not advance. Independent

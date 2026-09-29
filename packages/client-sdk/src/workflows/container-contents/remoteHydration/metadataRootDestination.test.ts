@@ -25,6 +25,7 @@ test("a self-authorized signed root cannot impersonate the organization's metada
       runtime: {
         apiClient: {
           ...directory.apiClient,
+          evictContainerWriterProjection: () => {},
           getContainerWriterProjection: async () => {
             reads += 1;
             return metadata.projection;

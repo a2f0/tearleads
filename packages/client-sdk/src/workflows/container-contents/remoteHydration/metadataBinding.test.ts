@@ -8,6 +8,7 @@ import {
   writeContainerMetadataValue,
 } from "../../../data/containers/containerMetadataDocument";
 import { sqlContainerContentsPersistence } from "../../../data/persistence/container-contents/containerContentsPersistence";
+import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import { renameContainerMetadataStateFromRuntime } from "../metadataPersistence";
 import { verifyRemoteContainerDestination } from "./verifiedDestination";
 
@@ -173,6 +174,8 @@ test("unauthenticated metadata bindings never persist or enter the cache", async
       code: "signature_mismatch",
     });
     expect(fixture.incidents).toHaveLength(1);
+    // The API client must not re-serve the rejected projection.
+    expect(fixture.projectionEvictions()).toBe(1);
     expect(
       await sqlContainerContentsPersistence.loadContainers(execSql),
     ).toEqual([]);
@@ -186,6 +189,40 @@ test("unauthenticated metadata bindings never persist or enter the cache", async
     const hydrated = await fixture.hydrate();
     expect(hydrated?.record.documentId).toBe(fixture.metadataDocumentId);
     expect(fixture.projectionReads()).toBe(2);
+  } finally {
+    close();
+  }
+});
+
+test("a restarted store reuses a verified binding its listing repeats", async () => {
+  const { execSql, close } = createNativeTestExecSql();
+  try {
+    const fixture = await createMetadataBindingFixture(execSql);
+    await fixture.hydrate();
+    // A distinct connection handle starts with an empty role cache, as after
+    // a restart; only the durable held binding remains.
+    const restartedExecSql = ((...args: unknown[]) =>
+      Reflect.apply(execSql, undefined, args)) as unknown as ExecSql;
+    const restarted = await verifyRemoteContainerDestination({
+      heldBinding:
+        await sqlContainerContentsPersistence.loadHeldContainerBinding(
+          restartedExecSql,
+          fixture.listed.id,
+        ),
+      remoteContainer: {
+        ...fixture.listed,
+        metadataDocumentId: fixture.metadataDocumentId,
+      },
+      state: {
+        ...fixture.state,
+        runtime: {
+          ...fixture.state.runtime,
+          infra: { ...fixture.state.runtime.infra, execSql: restartedExecSql },
+        },
+      },
+    });
+    expect(restarted?.metadataDocumentId).toBe(fixture.metadataDocumentId);
+    expect(fixture.projectionReads()).toBe(1);
   } finally {
     close();
   }

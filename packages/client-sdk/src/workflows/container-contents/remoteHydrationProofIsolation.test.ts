@@ -76,6 +76,7 @@ for (const failure of ["withheld", "tampered", "runtime"] as const) {
           runtime: {
             resolveTrustedUserIdentity: directory.resolveTrustedUserIdentity,
             apiClient: {
+              evictContainerWriterProjection: () => {},
               getContainerWriterProjection: async (id: string) => {
                 if (id !== bad.id)
                   return directory.getContainerWriterProjection(id);

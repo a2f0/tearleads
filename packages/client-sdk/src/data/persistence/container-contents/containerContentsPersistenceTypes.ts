@@ -292,6 +292,20 @@ export interface ContainerContentsPersistence
     containerId: string,
   ) => Promise<HeldContainerBinding | null>;
   /**
+   * Move a held folder to the binding its own user re-created it under,
+   * resetting the metadata record's remote stream; false if the held binding
+   * changed since it was read.
+   */
+  rebindHeldContainer: (
+    execSql: ExecSql,
+    input: {
+      containerId: string;
+      expected: HeldContainerBinding;
+      next: { metadataDocumentId: string; organizationId: string };
+      stillCurrent?: (() => boolean) | undefined;
+    },
+  ) => Promise<boolean>;
+  /**
    * Load a container-metadata record by container id alone, without
    * requiring a containers row — the dormant shape row 4's access_revoked
    * branch leaves behind, re-attached on rehydration.

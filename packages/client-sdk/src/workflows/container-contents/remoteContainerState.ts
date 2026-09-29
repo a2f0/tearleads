@@ -1,6 +1,9 @@
 import type { AccessManifestCheckpoint } from "@tearleads/crypto";
 import { heldContainerBinding } from "../../data/containers/containerBinding";
-import { runWithSecurityIncidentReporting } from "../../data/keyingProjectionVerification/error";
+import {
+  isKeyingVerificationError,
+  runWithSecurityIncidentReporting,
+} from "../../data/keyingProjectionVerification/error";
 import type { ContainerHydrationTombstone } from "./containerPersistence";
 import { installContainerMetadataRecord } from "./metadataPersistence";
 import { projectionGeneration } from "./projectionGeneration";
@@ -8,6 +11,8 @@ import {
   moveIndexedContainerChild,
   removeIndexedContainerChild,
 } from "./remoteHydration/childIndex";
+import type { PrefetchedDestinationProjection } from "./remoteHydration/destinationPrefetch";
+import { rebindReHomedContainer } from "./remoteHydration/heldContainerRebind";
 import { insertRemoteContainerState } from "./remoteHydration/insertRemoteContainer";
 import {
   reconcileLocalOnlyRootContainers,
@@ -261,6 +266,7 @@ interface UpsertRemoteContainerStateInput {
   host: RemoteContainerHydrationHost;
   expectedHydrationTombstone?: ContainerHydrationTombstone | null | undefined;
   isCurrent?: (() => boolean) | undefined;
+  prefetchedProjection?: PrefetchedDestinationProjection | undefined;
   remoteContainer: RemoteContainer;
   state: RemoteContainerHydrationState;
 }
@@ -298,12 +304,20 @@ export async function upsertRemoteContainerState(
       operation: "container.binding.persist",
       organizationId: verified.organizationId,
     },
-    () =>
-      persistVerifiedRemoteContainer({
-        ...input,
+    async () =>
+      (await rebindReHomedContainer({
         existingState,
-        expectedPlacementCheckpoint,
-      }),
+        heldBinding,
+        isCurrent: input.isCurrent,
+        state: input.state,
+        verified,
+      }))
+        ? persistVerifiedRemoteContainer({
+            ...input,
+            existingState,
+            expectedPlacementCheckpoint,
+          })
+        : null,
   );
   if (!remoteState) {
     return null;
@@ -316,6 +330,22 @@ export async function upsertRemoteContainerState(
     state: input.state,
   });
   return remoteState;
+}
+
+/**
+ * Upsert one listed folder, isolating a rejected proof or binding. The refusal
+ * was already reported; returning no state leaves the item unapplied without
+ * blocking independent folders.
+ */
+export async function upsertIsolatedRemoteContainerState(
+  input: UpsertRemoteContainerStateInput,
+): Promise<ContainerState | null> {
+  try {
+    return await upsertRemoteContainerState(input);
+  } catch (error) {
+    if (!isKeyingVerificationError(error)) throw error;
+    return null;
+  }
 }
 
 function persistVerifiedRemoteContainer(

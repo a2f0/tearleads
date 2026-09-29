@@ -34,13 +34,16 @@ export async function createMetadataBindingFixture(execSql: ExecSql) {
   });
   await sqlContainerContentsPersistence.ensureSchema(execSql);
   let projectionReads = 0;
+  let projectionEvictions = 0;
   const incidents: unknown[] = [];
   const state = {
     containersById: new Map(),
     persistence: sqlContainerContentsPersistence,
     runtime: {
       apiClient: {
-        evictContainerWriterProjection: () => {},
+        evictContainerWriterProjection: () => {
+          projectionEvictions += 1;
+        },
         getContainerWriterProjection: async () => {
           projectionReads += 1;
           return projection;
@@ -81,11 +84,14 @@ export async function createMetadataBindingFixture(execSql: ExecSql) {
     updatedAt: "2026-09-28T00:00:01.000Z",
   };
   return {
+    author: parent.author,
+    encapsulationPublicKey: parent.encapsulationPublicKey,
     incidents,
     listed,
     metadataDocumentId: materializedPlan.plan.metadataDocumentId,
     projection,
     state,
+    projectionEvictions: () => projectionEvictions,
     projectionReads: () => projectionReads,
     hydrate: async () => {
       const tombstones =
@@ -126,49 +132,80 @@ export async function createMetadataBindingFixture(execSql: ExecSql) {
 }
 
 /**
- * Serve an independently valid signed projection for the same container id
- * from another organization's identity, naming another metadata document.
+ * Serve an independently valid signed projection for the same container id in
+ * another organization, created either by a foreign owner or by this session's
+ * own user (as purged-organization recovery re-homes folders).
  */
-export async function installForeignOrganizationBinding(
+export async function installOrganizationBinding(
   fixture: Awaited<ReturnType<typeof createMetadataBindingFixture>>,
-  metadataDocumentId = "foreign-metadata",
+  input: {
+    metadataDocumentId: string;
+    organizationId: string;
+    signer: "foreign-owner" | "session-user";
+  },
 ) {
-  const signer = generateSigningSeedAndKeyPair();
-  const kem = generateKemSeedAndKeyPair();
-  const fingerprint = await toFingerprint(signer.signingPublicKey);
-  const foreign = await createContainerWriterProjectionFixture({
-    containerId: fixture.listed.id,
-    encapsulationPublicKey: kem.publicKey,
-    metadataDocumentId,
-    organizationId: "foreign-organization",
-    signerKeyFingerprint: fingerprint,
-    signerPrivateKey: signer.signingPrivateKey,
-    userId: "foreign-owner",
-  });
-  let foreignReads = 0;
+  const { metadataDocumentId, organizationId } = input;
   const runtime = fixture.state.runtime;
+  const ownResolver = runtime.resolveTrustedUserIdentity;
+  let creator = {
+    encapsulationPublicKey: fixture.encapsulationPublicKey,
+    signerKeyFingerprint: fixture.author.signerKeyFingerprint,
+    signerPrivateKey: fixture.author.signerPrivateKey,
+    userId: fixture.author.signerUserId,
+  };
+  if (input.signer === "foreign-owner") {
+    const signer = generateSigningSeedAndKeyPair();
+    const kem = generateKemSeedAndKeyPair();
+    const fingerprint = await toFingerprint(signer.signingPublicKey);
+    creator = {
+      encapsulationPublicKey: kem.publicKey,
+      signerKeyFingerprint: fingerprint,
+      signerPrivateKey: signer.signingPrivateKey,
+      userId: "foreign-owner",
+    };
+    const foreignResolver = createTestTrustedUserIdentityResolver({
+      encapsulationPublicKey: kem.publicKey,
+      signingKeyFingerprint: fingerprint,
+      signingPublicKey: signer.signingPublicKey,
+      userId: "foreign-owner",
+    });
+    const resolveTrustedUserIdentity: typeof ownResolver = async (userId) =>
+      userId === "foreign-owner"
+        ? foreignResolver(userId)
+        : ownResolver(userId);
+    Object.assign(runtime, { resolveTrustedUserIdentity });
+  }
+  const projection = await createContainerWriterProjectionFixture({
+    ...creator,
+    containerId: fixture.listed.id,
+    metadataDocumentId,
+    organizationId,
+  });
+  let reads = 0;
   const ownProjection = runtime.apiClient.getContainerWriterProjection;
   runtime.apiClient.getContainerWriterProjection = async (containerId) => {
-    if (fixture.listed.organizationId !== "foreign-organization")
+    if (fixture.listed.organizationId !== organizationId)
       return ownProjection(containerId);
-    foreignReads += 1;
-    return foreign;
+    reads += 1;
+    return projection;
   };
-  const ownResolver = runtime.resolveTrustedUserIdentity;
-  const foreignResolver = createTestTrustedUserIdentityResolver({
-    encapsulationPublicKey: kem.publicKey,
-    signingKeyFingerprint: fingerprint,
-    signingPublicKey: signer.signingPublicKey,
-    userId: "foreign-owner",
-  });
-  const resolveTrustedUserIdentity: typeof ownResolver = async (userId) =>
-    userId === "foreign-owner" ? foreignResolver(userId) : ownResolver(userId);
-  Object.assign(runtime, { resolveTrustedUserIdentity });
   return {
-    foreignReads: () => foreignReads,
+    reads: () => reads,
     relist: () => {
-      fixture.listed.organizationId = "foreign-organization";
+      fixture.listed.organizationId = organizationId;
       fixture.listed.metadataDocumentId = metadataDocumentId;
     },
   };
+}
+
+/** A foreign owner's copy of a held folder's id in another organization. */
+export function installForeignOrganizationBinding(
+  fixture: Awaited<ReturnType<typeof createMetadataBindingFixture>>,
+  metadataDocumentId = "foreign-metadata",
+) {
+  return installOrganizationBinding(fixture, {
+    metadataDocumentId,
+    organizationId: "foreign-organization",
+    signer: "foreign-owner",
+  });
 }

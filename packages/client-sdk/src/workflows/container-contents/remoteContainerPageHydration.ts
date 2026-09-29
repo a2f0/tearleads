@@ -1,11 +1,11 @@
-import { isKeyingVerificationError } from "../../data/keyingProjectionVerification/error";
 import { createRuntimePrincipalPolicyWarmer } from "../principals/runtimePolicyWarmer";
 import {
   listRemoteContainerIdsWithPendingMetadataUpdates,
   listRemoteContainerIdsWithPendingStructuralIntents,
-  upsertRemoteContainerState,
+  upsertIsolatedRemoteContainerState,
 } from "./remoteContainerState";
 import { containerStateMatchesFingerprint } from "./remoteHydration/containerStateFingerprint";
+import { prefetchDestinationProjections } from "./remoteHydration/destinationPrefetch";
 import { markContainerParentLaneFetched } from "./remoteHydration/laneFetchMarkers";
 import { fetchContainerParentLaneBatch } from "./remoteHydration/parentLaneFetch";
 import { cacheRemoteContainerPrincipalPolicies } from "./remoteHydration/principalPolicyCache";
@@ -16,7 +16,6 @@ import {
 import type {
   ContainerChildIndex,
   ContainerParentHydrationLane,
-  ContainerState,
   ExpectedContainerState,
   FetchedContainerParentLanePage,
   ListedRemoteContainerPageItem,
@@ -32,19 +31,6 @@ interface HydrationProgress {
   complete: boolean;
   shouldStop: boolean;
 }
-async function upsertPageContainer(
-  input: Parameters<typeof upsertRemoteContainerState>[0],
-): Promise<ContainerState | null> {
-  try {
-    return await upsertRemoteContainerState(input);
-  } catch (error) {
-    if (!isKeyingVerificationError(error)) throw error;
-    // Destination verification already reported the rejected proof. Returning
-    // no item leaves this page unacknowledged without blocking other folders.
-    return null;
-  }
-}
-
 async function applyRemoteContainerPage(input: {
   childIdsByParentId: ContainerChildIndex;
   expectedContainerStates: ReadonlyMap<string, ExpectedContainerState>;
@@ -94,6 +80,17 @@ async function applyRemoteContainerPage(input: {
   if (input.isCurrent?.() === false) {
     return { changedCount: 0, completed: false };
   }
+  const prefetchedProjections = await prefetchDestinationProjections({
+    containerIds: items.flatMap(({ id }) =>
+      seenContainerIds.has(id) ||
+      state.containersById.has(id) ||
+      expectedHydrationTombstones.get(id)
+        ? []
+        : [id],
+    ),
+    isCurrent: input.isCurrent,
+    runtime: state.runtime,
+  });
   for (const container of items) {
     if (input.isCurrent?.() === false) {
       return { changedCount: hydratedCount, completed: false };
@@ -109,7 +106,7 @@ async function applyRemoteContainerPage(input: {
         pageCompleted = false;
         continue;
       }
-      const upserted = await upsertPageContainer({
+      const upserted = await upsertIsolatedRemoteContainerState({
         childIdsByParentId,
         containerIdsWithPendingMetadataUpdates,
         containerIdsWithPendingStructuralIntents,
@@ -117,6 +114,7 @@ async function applyRemoteContainerPage(input: {
         isCurrent: input.isCurrent,
         expectedHydrationTombstone:
           expectedHydrationTombstones.get(container.id) ?? null,
+        prefetchedProjection: prefetchedProjections.get(container.id),
         remoteContainer: container,
         state,
       });

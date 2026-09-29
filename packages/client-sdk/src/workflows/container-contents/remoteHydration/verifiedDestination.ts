@@ -7,6 +7,7 @@ import { deriveOrganizationMetadataContainerSystemSlot } from "@tearleads/valida
 import {
   assertHeldContainerBinding,
   type HeldContainerBinding,
+  listingRepeatsHeldOrdinaryBinding,
 } from "../../../data/containers/containerBinding";
 import {
   verifiedContainerCreateManifest,
@@ -14,10 +15,12 @@ import {
 } from "../../../data/keyingProjectionVerification/containerDestinationVerification";
 import { verifyContainerWriterProjection } from "../../../data/keyingProjectionVerification/containerProjectionVerification";
 import {
+  isKeyingVerificationError,
   reportKeyingVerificationErrorInCauseChain,
   runWithSecurityIncidentReporting,
 } from "../../../data/keyingProjectionVerification/error";
 import { createGroupMetadataContainerVerifier } from "../../organizations/groupMetadataContainerAuthority";
+import type { PrefetchedDestinationProjection } from "./destinationPrefetch";
 import {
   cachedDestinationRole,
   type DestinationRole,
@@ -120,8 +123,28 @@ function assertAcknowledgedRootSigner(input: {
   assertRootCreatedBySessionUser(role, runtime);
 }
 
+/**
+ * A held folder keeps its binding unless its new copy was created by this
+ * session's own user: purged-organization recovery re-homes folders under their
+ * existing ids. Any other signer cannot move a held folder.
+ */
+function assertPermittedDestinationBinding(input: {
+  heldBinding: HeldContainerBinding | null;
+  listed: DestinationIdentity;
+  role: DestinationRole;
+  runtime: RemoteContainerHydrationState["runtime"];
+}): void {
+  const { heldBinding, listed, role, runtime } = input;
+  if (role.createSignerUserId === runtime.auth.userId) return;
+  assertHeldContainerBinding(heldBinding, {
+    organizationId: listed.organizationId,
+    metadataDocumentIds: [role.metadataDocumentId],
+  });
+}
+
 async function verifyDestinationRole(input: {
   heldBinding: HeldContainerBinding | null;
+  prefetched: PrefetchedDestinationProjection | undefined;
   verifyCurrentPlacement: boolean;
   onVerifiedCheckpoint:
     | ((checkpoint: AccessManifestCheckpoint) => void)
@@ -131,9 +154,9 @@ async function verifyDestinationRole(input: {
   runtime: RemoteContainerHydrationState["runtime"];
 }): Promise<{ role: DestinationRole; parentId: string | null } | null> {
   const { isCurrent, listed, runtime } = input;
-  const projection = await runtime.apiClient.getContainerWriterProjection(
-    listed.id,
-  );
+  const projection = input.prefetched
+    ? input.prefetched.projection
+    : await runtime.apiClient.getContainerWriterProjection(listed.id);
   if (!projection || isCurrent?.() === false) return null;
   if (
     projection.containerId !== listed.id ||
@@ -159,9 +182,11 @@ async function verifyDestinationRole(input: {
   });
   const { role } = destination;
   // Refuse a rebinding before group checks or placement pins run for it.
-  assertHeldContainerBinding(input.heldBinding, {
-    organizationId: listed.organizationId,
-    metadataDocumentIds: [role.metadataDocumentId],
+  assertPermittedDestinationBinding({
+    heldBinding: input.heldBinding,
+    listed,
+    role,
+    runtime,
   });
   if (role.parentId === null && role.systemSlot !== null) {
     const head = path.at(-1);
@@ -193,6 +218,8 @@ async function verifyDestinationRole(input: {
 
 type VerifyRemoteContainerDestinationInput = {
   heldBinding: HeldContainerBinding | null;
+  /** Fetched ahead by page hydration; ignored when placement is refreshed. */
+  prefetchedProjection?: PrefetchedDestinationProjection | undefined;
   refresh?: boolean;
   onVerifiedCheckpoint?:
     | ((checkpoint: AccessManifestCheckpoint) => void)
@@ -222,6 +249,7 @@ async function resolveDestinationRole(
   }
   const verified = await verifyDestinationRole({
     heldBinding: input.heldBinding,
+    prefetched: input.refresh ? undefined : input.prefetchedProjection,
     isCurrent,
     listed,
     runtime,
@@ -241,8 +269,9 @@ async function resolveDestinationRole(
 
 /**
  * Listing hints never establish a metadata target or a system/root role, and a
- * held folder keeps its organization and metadata target: a conflicting listing
- * is refused before its projection is fetched or its role is cached.
+ * held folder keeps its organization and metadata target unless its own user
+ * re-created it elsewhere. A conflicting proof is refused before placement pins
+ * advance or its role is cached.
  */
 export async function verifyRemoteContainerDestination(
   input: VerifyRemoteContainerDestinationInput,
@@ -258,17 +287,31 @@ export async function verifyRemoteContainerDestination(
       organizationId: listed.organizationId,
     },
     async () => {
-      assertHeldContainerBinding(input.heldBinding, {
-        organizationId: listed.organizationId,
-      });
+      // A held ordinary binding was verified (or signed by this device) when
+      // it was stored; a listing that repeats it needs no second proof.
+      if (
+        !input.refresh &&
+        listingRepeatsHeldOrdinaryBinding(input.heldBinding, listed)
+      ) {
+        return { ...listed, systemSlot: null };
+      }
       if (input.refresh)
         runtime.apiClient.evictContainerWriterProjection(listed.id);
-      const resolved = await resolveDestinationRole(input);
+      const resolved = await resolveDestinationRole(input).catch(
+        (error: unknown) => {
+          // Never re-serve a cached projection that failed verification.
+          if (isKeyingVerificationError(error))
+            runtime.apiClient.evictContainerWriterProjection(listed.id);
+          throw error;
+        },
+      );
       if (!resolved || isCurrent?.() === false) return null;
       const { role, parentId } = resolved;
-      assertHeldContainerBinding(input.heldBinding, {
-        organizationId: listed.organizationId,
-        metadataDocumentIds: [role.metadataDocumentId],
+      assertPermittedDestinationBinding({
+        heldBinding: input.heldBinding,
+        listed,
+        role,
+        runtime,
       });
       if (resolved.freshlyVerified)
         rememberDestinationRole(runtime.infra.execSql, listed, role);

@@ -58,6 +58,7 @@ test("a server response cannot move a held folder into another organization", as
       persistence.loadHeldContainerBinding(execSql, container.id),
     ).resolves.toEqual({
       metadataDocumentId: "held-metadata",
+      ordinary: true,
       organizationId: "organization-1",
     });
   } finally {
@@ -84,6 +85,7 @@ test("an unbound local folder accepts its first binding", async () => {
       persistence.loadHeldContainerBinding(execSql, container.id),
     ).resolves.toEqual({
       metadataDocumentId: "held-metadata",
+      ordinary: true,
       organizationId: "organization-1",
     });
   } finally {

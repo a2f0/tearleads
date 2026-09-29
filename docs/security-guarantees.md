@@ -72,11 +72,13 @@ are allowed: sharing a legitimate Trash must not disable deletion. A create
 acknowledgement persists the client-signed slot and refuses a differing echo.
 
 Every folder's metadata document id comes from its signed manifest, never from
-the listing. A held folder's organization and metadata document are immutable
-locally: a listing, acknowledgement or mutation naming others is refused as an
-`object_mismatch` incident before any fetch or cache write, leaving the row,
-dormant metadata, queued edits and checkpoints intact; transactions recheck the
-durable binding. Unbound folders (pre-login or not yet created) accept one.
+the listing. A held folder keeps its organization and metadata document unless
+the session user's own signed `container.create` re-homed it, as purged
+organization recovery does under existing ids. Any other conflicting proof is an
+`object_mismatch` incident, refused before pins advance or its role is cached;
+the row, dormant metadata, queued edits and checkpoints stay. Mutation and
+hydration transactions recheck the durable binding. Unbound folders accept one.
+Residual (#2389): another member holding a folder its owner re-homed is refused.
 The app selects a foreign organization's Trash only by a slot the viewer can
 derive; another identity's Trash is reported unavailable, never matched by name.
 

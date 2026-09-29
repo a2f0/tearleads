@@ -33,6 +33,9 @@ const metadataTestPersistenceStubs = {
   async loadHeldContainerBinding() {
     return null;
   },
+  async rebindHeldContainer() {
+    return false;
+  },
   async claimDormantMetadataSweepAttempt() {
     return false;
   },

@@ -3,6 +3,7 @@ import { createNativeTestExecSql } from "@tearleads/test-utils";
 import {
   createMetadataBindingFixture,
   installForeignOrganizationBinding,
+  installOrganizationBinding,
 } from "../../../../test/helpers/containerMetadataBinding";
 import { loadAccessManifestCheckpoint } from "../../../data/persistence/keyingCheckpointPersistence";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
@@ -87,7 +88,8 @@ test("a foreign organization cannot rebind a held folder or its queued rename", 
       code: "object_mismatch",
     });
     expect(fixture.incidents).toHaveLength(1);
-    expect(foreign.foreignReads()).toBe(0);
+    // Fetched once to learn its creator, then refused without caching.
+    expect(foreign.reads()).toBe(1);
     expect(await readCheckpoints(execSql, fixture)).toEqual(checkpoints);
     expect(
       cachedDestinationRole(execSql, {
@@ -117,7 +119,8 @@ test("a restarted store refuses the rebinding from its durable binding", async (
       code: "object_mismatch",
     });
     expect(fixture.incidents).toHaveLength(1);
-    expect(foreign.foreignReads()).toBe(0);
+    // Fetched once to learn its creator, then refused without caching.
+    expect(foreign.reads()).toBe(1);
     expect(fixture.state.containersById.size).toBe(0);
     await expectHeldBinding({ execSql, fixture, organizationId, pending });
   } finally {
@@ -155,7 +158,8 @@ test("retained dormant metadata keeps its organization across a relisting", asyn
     await expect(fixture.hydrate()).rejects.toMatchObject({
       code: "object_mismatch",
     });
-    expect(foreign.foreignReads()).toBe(0);
+    // Fetched once to learn its creator, then refused without caching.
+    expect(foreign.reads()).toBe(1);
     expect(await readCheckpoints(execSql, fixture)).toEqual(checkpoints);
     expect(
       await persistence.loadHeldContainerBinding(execSql, fixture.listed.id),
@@ -245,3 +249,87 @@ for (const target of ["another", "the same"] as const) {
     }
   });
 }
+
+test("the session user's own re-home moves a held folder with its queued rename", async () => {
+  const { execSql, close } = createNativeTestExecSql();
+  try {
+    const { fixture, pending } = await hydrateWithQueuedRename(execSql);
+    // Purged-organization recovery on another device re-created the folder
+    // under its existing id in the replacement organization.
+    const replacement = await installOrganizationBinding(fixture, {
+      metadataDocumentId: "replacement-metadata",
+      organizationId: "replacement-organization",
+      signer: "session-user",
+    });
+    replacement.relist();
+
+    const reHomed = await fixture.hydrate();
+
+    expect(fixture.incidents).toHaveLength(0);
+    expect(replacement.reads()).toBe(1);
+    expect(reHomed?.container).toMatchObject({
+      metadataDocumentId: "replacement-metadata",
+      name: "Private queued rename",
+      organizationId: "replacement-organization",
+    });
+    const stored = await persistence.loadContainerMetadataState(
+      execSql,
+      fixture.listed.id,
+    );
+    expect(stored?.container.organizationId).toBe("replacement-organization");
+    expect(stored?.record).toMatchObject({
+      accessEpoch: fixture.listed.metadataAccessEpoch,
+      documentId: "replacement-metadata",
+      lastCommitLsn: null,
+    });
+    expect(
+      await persistence.listPendingUpdates(execSql, fixture.listed.id),
+    ).toEqual(pending);
+  } finally {
+    close();
+  }
+});
+
+test("retained metadata follows the session user's own re-home", async () => {
+  const { execSql, close } = createNativeTestExecSql();
+  try {
+    const { fixture, pending } = await hydrateWithQueuedRename(execSql);
+    await persistence.deleteContainers(
+      execSql,
+      [
+        {
+          containerId: fixture.listed.id,
+          reason: "access_revoked",
+          updatedAt: fixture.listed.updatedAt,
+        },
+      ],
+      { discoveryOnly: true },
+    );
+    fixture.state.containersById.clear();
+    const replacement = await installOrganizationBinding(fixture, {
+      metadataDocumentId: fixture.metadataDocumentId,
+      organizationId: "replacement-organization",
+      signer: "session-user",
+    });
+    replacement.relist();
+
+    const reHomed = await fixture.hydrate();
+
+    expect(fixture.incidents).toHaveLength(0);
+    expect(reHomed?.container).toMatchObject({
+      name: "Private queued rename",
+      organizationId: "replacement-organization",
+    });
+    expect(
+      await persistence.loadHeldContainerBinding(execSql, fixture.listed.id),
+    ).toMatchObject({
+      metadataDocumentId: fixture.metadataDocumentId,
+      organizationId: "replacement-organization",
+    });
+    expect(
+      await persistence.listPendingUpdates(execSql, fixture.listed.id),
+    ).toEqual(pending);
+  } finally {
+    close();
+  }
+});
