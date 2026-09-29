@@ -82,7 +82,7 @@ test("syncRemoteDocument notifies when submit returns coded document 404", async
   close();
 });
 
-test("purge authorized before a pinned revocation fails closed", async () => {
+test("purge citing a pre-revocation head withholds deletion without an integrity claim", async () => {
   const {
     author,
     projection,
@@ -111,7 +111,8 @@ test("purge authorized before a pinned revocation fails closed", async () => {
     subjectId: author.signerUserId,
     subjectType: "user",
   });
-  // Model a revoked writer signing against the stale pre-revocation head.
+  // A stale signer can still sign against the old head. The client cannot
+  // distinguish that from a genuine earlier purge, so it must withhold deletion.
   const purgeProof = await createDocumentPurgeProof(author, writerProjection);
   const deletedDocumentIds: string[] = [];
   const { close, execSql } = await createTestExecSql(
@@ -167,7 +168,7 @@ test("purge authorized before a pinned revocation fails closed", async () => {
         expect(options).toBeUndefined();
         return purgeProof;
       }),
-    ).rejects.toMatchObject({ code: "rollback" });
+    ).rejects.toMatchObject({ name: "ProjectionDependencyUnavailableError" });
 
     expect(proofFetches).toBe(1);
     expect(deletedDocumentIds).toEqual([]);

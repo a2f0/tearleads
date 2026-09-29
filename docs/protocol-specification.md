@@ -584,9 +584,9 @@ authenticates before reading local pins (verified manifest checkpoints) and
 verifies one response without refetching. Deletion requires an exact pin or
 signed transitions from a pin or genesis. Missing history with no local
 checkpoint defers deletion without an incident. A conflicting checkpoint
-records an incident; snapshots cannot advance it. Purge-time container paths
-must satisfy local pins: a later head is ambiguous because ancestry cannot
-order the separate purge signature. The SDK commits the terminal purge
+records an incident; snapshots cannot advance it. A newer path pin, ancestors
+included, withholds deletion without incidents or retry loops: ancestry
+cannot order the purge signature. The SDK commits the terminal purge
 checkpoint in the same local SQLite transaction that removes the matching
 document row and its side state. A stale local generation, identity
 replacement, failed cleanup, or interruption rolls back both the checkpoint and
