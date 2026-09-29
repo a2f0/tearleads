@@ -16,7 +16,8 @@ export interface HeldContainerBinding {
   /**
    * A live, bound ordinary folder: its binding came from a verified signed
    * manifest or this device's own signed create, so a listing that repeats it
-   * needs no second proof.
+   * needs no second proof. Greenfield contract: rows written by earlier
+   * clients, which trusted listing ids, are unsupported; environments reset.
    */
   readonly ordinary?: true | undefined;
 }

@@ -333,3 +333,31 @@ test("retained metadata follows the session user's own re-home", async () => {
     close();
   }
 });
+
+test("a foreign signer cannot retarget a live folder within its organization", async () => {
+  const { execSql, close } = createNativeTestExecSql();
+  try {
+    const { fixture, hydrated, pending } =
+      await hydrateWithQueuedRename(execSql);
+    const organizationId = hydrated.container.organizationId;
+    const foreign = await installOrganizationBinding(fixture, {
+      metadataDocumentId: "foreign-metadata",
+      organizationId,
+      signer: "foreign-owner",
+    });
+    foreign.relist();
+    // A cold role cache forces the conflicting proof to be fetched.
+    const coldExecSql = ((...args: unknown[]) =>
+      Reflect.apply(execSql, undefined, args)) as unknown as ExecSql;
+    Object.assign(fixture.state.runtime.infra, { execSql: coldExecSql });
+
+    await expect(fixture.hydrate()).rejects.toMatchObject({
+      code: "object_mismatch",
+    });
+    expect(foreign.reads()).toBe(1);
+    expect(fixture.incidents).toHaveLength(1);
+    await expectHeldBinding({ execSql, fixture, organizationId, pending });
+  } finally {
+    close();
+  }
+});

@@ -24,8 +24,9 @@ function sameBinding(
  * Move a held folder to the binding its own user re-created it under: purged
  * organization recovery re-homes folders under their existing ids. Local
  * content and queued edits follow, as they do on the recovering device, and
- * the metadata record's remote stream starts over at the new target. Returns
- * false, changing nothing, when the held binding changed since it was read.
+ * the metadata record's remote stream starts over at the new target. An
+ * already-applied re-home succeeds; any other change to the held binding since
+ * it was read returns false and changes nothing.
  */
 export async function rebindStoredHeldContainer(
   execSql: ExecSql,
@@ -45,8 +46,11 @@ export async function rebindStoredHeldContainer(
           lockedExecSql,
           input.containerId,
         );
-        if (!sameBinding(current, input.expected)) return false;
         const { metadataDocumentId, organizationId } = input.next;
+        // Another store over this database may have applied the same re-home.
+        if (sameBinding(current, { metadataDocumentId, organizationId }))
+          return true;
+        if (!sameBinding(current, input.expected)) return false;
         // The old stream's clock cannot order listings of the new one.
         await tx
           .update(containers)

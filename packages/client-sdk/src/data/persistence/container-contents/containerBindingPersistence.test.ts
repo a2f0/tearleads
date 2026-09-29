@@ -147,3 +147,57 @@ test("retained dormant metadata refuses another organization's relisting", async
     await close();
   }
 });
+
+test("a re-home rebinds only the binding it was verified against", async () => {
+  const { close, execSql } = await createTestExecSql("held-binding-rebind");
+  const held = {
+    metadataDocumentId: "held-metadata",
+    organizationId: "organization-1",
+  };
+  const next = {
+    metadataDocumentId: "replacement-metadata",
+    organizationId: "replacement-organization",
+  };
+  try {
+    await persistence.ensureSchema(execSql);
+    await persistence.saveContainer(execSql, container, {
+      ...record,
+      accessEpoch: 4,
+      lastCommitLsn: "lsn-9",
+    });
+    const rebind = (expected: typeof held, stillCurrent?: () => boolean) =>
+      persistence.rebindHeldContainer(execSql, {
+        containerId: container.id,
+        expected,
+        next,
+        stillCurrent,
+      });
+
+    await expect(
+      rebind({ ...held, organizationId: "organization-0" }),
+    ).resolves.toBe(false);
+    await expect(rebind(held, () => false)).resolves.toBe(false);
+    await expect(
+      persistence.loadHeldContainerBinding(execSql, container.id),
+    ).resolves.toMatchObject(held);
+
+    await expect(rebind(held)).resolves.toBe(true);
+    const rebound = await persistence.loadContainerMetadataState(
+      execSql,
+      container.id,
+    );
+    expect(rebound?.container).toMatchObject({
+      ...next,
+      serverUpdatedAt: null,
+    });
+    expect(rebound?.record).toMatchObject({
+      accessEpoch: 1,
+      documentId: next.metadataDocumentId,
+      lastCommitLsn: null,
+    });
+    // A second store applying the same verified re-home is not refused.
+    await expect(rebind(held)).resolves.toBe(true);
+  } finally {
+    await close();
+  }
+});

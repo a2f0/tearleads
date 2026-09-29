@@ -178,15 +178,12 @@ export async function loadStoredHeldContainerBinding(
   const record = await selectContainerMetadataRecord(execSql, containerId);
   if (container) return heldContainerBinding({ container, record });
   if (!record) return null;
+  // Retention records the organization with each retained record; without one
+  // the retained metadata target still pins the binding.
   const dormantOrganizationId = await loadDormantOrganizationId(
     execSql,
     containerId,
   );
-  // Retention records the organization with every retained record, and a
-  // remote reset clears both the organization row and the document id.
-  if (dormantOrganizationId === null && record.documentId !== null) {
-    throw new Error("Retained container metadata lost its organization");
-  }
   return {
     organizationId: dormantOrganizationId ?? "",
     metadataDocumentId: record.documentId,

@@ -70,6 +70,8 @@ purged personal one is legitimately replaced.
 Only a root administrator may create a signed system slot. Additional grantees
 are allowed: sharing a legitimate Trash must not disable deletion. A create
 acknowledgement persists the client-signed slot and refuses a differing echo.
+The app selects a foreign organization's Trash only by a slot the viewer can
+derive; another identity's Trash is reported unavailable, never matched by name.
 
 Every folder's metadata document id comes from its signed manifest, never from
 the listing. A held folder keeps its organization and metadata document unless
@@ -79,8 +81,6 @@ organization recovery does under existing ids. Any other conflicting proof is an
 the row, dormant metadata, queued edits and checkpoints stay. Mutation and
 hydration transactions recheck the durable binding. Unbound folders accept one.
 Residual (#2389): another member holding a folder its owner re-homed is refused.
-The app selects a foreign organization's Trash only by a slot the viewer can
-derive; another identity's Trash is reported unavailable, never matched by name.
 
 ## Recovery Key Disclosure
 
