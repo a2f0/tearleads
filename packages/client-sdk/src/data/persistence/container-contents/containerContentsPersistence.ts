@@ -53,7 +53,10 @@ import type {
   SaveContainerWithPendingUpdateOptions,
 } from "./containerContentsPersistenceTypes";
 import { deleteStoredContainers } from "./containerDeletionPersistence";
-import { commitStoredHydratedContainer } from "./containerHydrationPersistence";
+import {
+  commitStoredHydratedContainer,
+  loadStoredHeldContainerBinding,
+} from "./containerHydrationPersistence";
 import { containerIntentPersistence } from "./containerIntentPersistence";
 import {
   commitStoredMetadataMutation,
@@ -181,6 +184,10 @@ export const sqlContainerContentsPersistence: ContainerContentsPersistence = {
         await sqlContainerSyncWatermarkPersistence.ensureSchema(lockedExecSql);
       }),
     );
+  },
+  async loadHeldContainerBinding(execSql, containerId) {
+    await sqlContainerContentsPersistence.ensureSchema(execSql);
+    return loadStoredHeldContainerBinding(execSql, containerId);
   },
   async loadContainerMetadataRecord(execSql, containerId) {
     await sqlContainerContentsPersistence.ensureSchema(execSql);

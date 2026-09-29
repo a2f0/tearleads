@@ -101,7 +101,6 @@ test("revoke, restore, and restart preserve metadata page-one recovery", async (
             execSql,
           )
         )[0],
-        purgeDormantMetadata: false,
         record: {
           ...record,
           lastCommitLsn: reattached.lastCommitLsn,

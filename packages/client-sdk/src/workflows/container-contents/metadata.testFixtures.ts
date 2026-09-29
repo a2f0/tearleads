@@ -30,6 +30,9 @@ function recordContainerSave(
 }
 
 const metadataTestPersistenceStubs = {
+  async loadHeldContainerBinding() {
+    return null;
+  },
   async claimDormantMetadataSweepAttempt() {
     return false;
   },

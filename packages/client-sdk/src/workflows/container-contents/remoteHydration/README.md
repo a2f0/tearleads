@@ -21,6 +21,12 @@ because moves can change them. Root/system parents remain fixed. Separate
 reconciliation roles. Tombstone
 recovery additionally verifies current placement against durable checkpoints.
 
+A held folder keeps its organization and metadata document id. Hydration loads
+the held binding (in-memory state, else the durable row or retained dormant
+metadata) and refuses a conflicting listing before fetching its projection or
+caching its role. Metadata-mutation and hydration-commit transactions recheck
+the durable binding; a conflicting dormant record is refused, never purged.
+
 A page with a concurrently changed live item or tombstone remains unacknowledged:
 its watermark and restoration-completion callback must not advance. Independent
 pages and newly discovered child lanes still run. This prevents an unrelated

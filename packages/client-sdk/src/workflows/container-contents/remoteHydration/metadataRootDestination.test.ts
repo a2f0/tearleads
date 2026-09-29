@@ -59,7 +59,11 @@ test("a self-authorized signed root cannot impersonate the organization's metada
     };
     for (let attempt = 0; attempt < 2; attempt += 1)
       await expect(
-        verifyRemoteContainerDestination({ remoteContainer, state }),
+        verifyRemoteContainerDestination({
+          heldBinding: null,
+          remoteContainer,
+          state,
+        }),
       ).rejects.toThrow("reserved group grants");
     expect(reads).toBe(2); // A rejected role must never enter the destination cache.
   } finally {

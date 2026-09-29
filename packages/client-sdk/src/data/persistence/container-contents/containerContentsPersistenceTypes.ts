@@ -1,4 +1,5 @@
 import type { AccessManifestCheckpoint } from "@tearleads/crypto";
+import type { HeldContainerBinding } from "../../containers/containerBinding";
 import type { DocumentSyncPullContinuation } from "../../documents/shared/pullContinuation";
 import type {
   DocumentRecord,
@@ -156,7 +157,6 @@ export interface ContainerContentsPersistence
         | undefined;
       /** Current placement verified and pinned before recovery insertion. */
       expectedPlacementCheckpoint?: AccessManifestCheckpoint | undefined;
-      purgeDormantMetadata: boolean;
       record: ContainerMetadataRecord;
       remoteUpdatedAt: string;
       saveOptions: {
@@ -283,6 +283,14 @@ export interface ContainerContentsPersistence
     execSql: ExecSql,
     containerId: string,
   ) => Promise<StoredContainerState | null>;
+  /**
+   * The organization and metadata target this device holds for a container,
+   * from its live row or retained dormant metadata; null when never held.
+   */
+  loadHeldContainerBinding: (
+    execSql: ExecSql,
+    containerId: string,
+  ) => Promise<HeldContainerBinding | null>;
   /**
    * Load a container-metadata record by container id alone, without
    * requiring a containers row — the dormant shape row 4's access_revoked

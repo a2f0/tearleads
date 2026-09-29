@@ -1,17 +1,14 @@
 import type { AccessManifestCheckpoint } from "@tearleads/crypto";
-import {
-  createContainerMetadataDocument,
-  getDefaultContainerName,
-} from "../../data/containers/containerMetadataDocument";
+import { heldContainerBinding } from "../../data/containers/containerBinding";
+import { runWithSecurityIncidentReporting } from "../../data/keyingProjectionVerification/error";
 import type { ContainerHydrationTombstone } from "./containerPersistence";
 import { installContainerMetadataRecord } from "./metadataPersistence";
 import { projectionGeneration } from "./projectionGeneration";
 import {
-  addIndexedContainerChild,
   moveIndexedContainerChild,
   removeIndexedContainerChild,
 } from "./remoteHydration/childIndex";
-import { reattachDormantContainerMetadata } from "./remoteHydration/reattachMetadata";
+import { insertRemoteContainerState } from "./remoteHydration/insertRemoteContainer";
 import {
   reconcileLocalOnlyRootContainers,
   reconcileLocalOnlySystemContainers,
@@ -29,7 +26,6 @@ import type {
   RemoteContainerHydrationState,
 } from "./remoteHydration/types";
 import { verifyRemoteContainerDestination } from "./remoteHydration/verifiedDestination";
-import { materializeStoredContainerStateReadOnly } from "./storedContainerState";
 
 // Container ids (restricted to the inbound page) that carry an unsynced local
 // create or move intent. Such a container's parent and local-edit timestamp are
@@ -258,161 +254,7 @@ async function updateExistingRemoteContainerState(input: {
   return existingState;
 }
 
-interface InsertRemoteContainerStateInput {
-  childIdsByParentId?: ContainerChildIndex | undefined;
-  host: RemoteContainerHydrationHost;
-  expectedHydrationTombstone: ContainerHydrationTombstone | null;
-  expectedPlacementCheckpoint?: AccessManifestCheckpoint | undefined;
-  isCurrent?: (() => boolean) | undefined;
-  remoteContainer: RemoteContainer;
-  state: RemoteContainerHydrationState;
-}
-
-function createInsertedRemoteContainerState(input: {
-  doc: ContainerState["doc"];
-  dormantRecord: Awaited<
-    ReturnType<
-      RemoteContainerHydrationState["persistence"]["loadContainerMetadataRecord"]
-    >
-  >;
-  remoteContainer: RemoteContainer;
-}): ContainerState {
-  const { doc, dormantRecord, remoteContainer } = input;
-  const reattached = reattachDormantContainerMetadata({
-    defaultName: getDefaultContainerName(remoteContainer.parentId),
-    doc,
-    dormantRecord,
-    remoteMetadataDocumentId: remoteContainer.metadataDocumentId,
-  });
-  return {
-    container: applyRemoteContainerTimestamps(
-      {
-        id: remoteContainer.id,
-        effectiveAccessLevel: remoteContainer.effectiveAccessLevel,
-        organizationId: remoteContainer.organizationId,
-        parentId: remoteContainer.parentId,
-        metadataDocumentId: remoteContainer.metadataDocumentId,
-        systemSlot: remoteContainer.systemSlot ?? null,
-        name: reattached.name,
-        icon: reattached.icon,
-      },
-      remoteContainer,
-    ),
-    metadataReferencedPrincipals: remoteContainer.metadataReferencedPrincipals,
-    doc,
-    record: {
-      accessEpoch: remoteContainer.metadataAccessEpoch,
-      accessStateHash: remoteContainer.metadataAccessStateHash,
-      documentId: remoteContainer.metadataDocumentId,
-      id: remoteContainer.id,
-      lastCommitLsn: reattached.lastCommitLsn,
-      metadataUpdates: reattached.initialSnapshot,
-      ...(reattached.pullContinuation === undefined
-        ? {}
-        : { pullContinuation: reattached.pullContinuation }),
-      ...(reattached.pullContinuationRecoveryRequired
-        ? { pullContinuationRecoveryRequired: true as const }
-        : {}),
-      snapshotEndVersion: reattached.snapshotEndVersion,
-      contentKeyBundle: null,
-      documentKekTargets: null,
-      documentManifestBundle: null,
-    },
-  };
-}
-
-async function insertRemoteContainerState(
-  input: InsertRemoteContainerStateInput,
-): Promise<ContainerState | null> {
-  const { childIdsByParentId, host, remoteContainer, state } = input;
-  const execSql = state.runtime.infra.execSql;
-  const persistence = state.persistence;
-  const doc = await createContainerMetadataDocument(remoteContainer.id);
-  if (input.isCurrent?.() === false) {
-    return null;
-  }
-  // A container inserted with dormant retained metadata (row 4's
-  // access_revoked branch) is a re-attach, not a fresh discovery: import the
-  // retained content and markers instead of overwriting them with an empty
-  // document. Access and keying fields still come from the remote container —
-  // revocation may have rotated them.
-  let dormantRecord = await persistence.loadContainerMetadataRecord(
-    execSql,
-    remoteContainer.id,
-  );
-  const expectedDormantRecord = dormantRecord;
-  if (input.isCurrent?.() === false) {
-    return null;
-  }
-  if (
-    dormantRecord?.documentId != null &&
-    dormantRecord.documentId !== remoteContainer.metadataDocumentId
-  ) {
-    dormantRecord = null;
-  }
-  const containerState = createInsertedRemoteContainerState({
-    doc,
-    dormantRecord,
-    remoteContainer,
-  });
-
-  const committed = await persistence.commitHydratedContainer(execSql, {
-    container: containerState.container,
-    expectedDormantRecord,
-    expectedHydrationTombstone: input.expectedHydrationTombstone,
-    expectedPlacementCheckpoint: input.expectedPlacementCheckpoint,
-    purgeDormantMetadata:
-      expectedDormantRecord?.documentId != null &&
-      expectedDormantRecord.documentId !== remoteContainer.metadataDocumentId,
-    record: containerState.record,
-    remoteUpdatedAt: remoteContainer.updatedAt,
-    saveOptions: remoteContainerHydrationSaveOptions({ remoteContainer }),
-    stillCurrent: input.isCurrent,
-  });
-  let installedState = containerState;
-  if (committed.committed) {
-    installedState.container = committed.container;
-  } else {
-    const winningStoredState = await persistence.loadContainerMetadataState(
-      execSql,
-      remoteContainer.id,
-    );
-    if (!winningStoredState) return null;
-    const winningState = await materializeStoredContainerStateReadOnly({
-      storedContainer: winningStoredState,
-    });
-    if (
-      !winningState ||
-      !(await persistence.containerExists(execSql, remoteContainer.id))
-    ) {
-      return null;
-    }
-    installedState = winningState;
-    installedState.metadataReferencedPrincipals =
-      remoteContainer.metadataReferencedPrincipals;
-  }
-  if (input.isCurrent?.() === false) {
-    return null;
-  }
-  state.containersById.set(remoteContainer.id, installedState);
-  if (childIdsByParentId) {
-    addIndexedContainerChild(
-      childIdsByParentId,
-      remoteContainer.id,
-      installedState.container.parentId,
-    );
-  }
-  await reconcileLocalOnlyRootContainers({
-    childIdsByParentId,
-    isCurrent: input.isCurrent,
-    remoteRootState: installedState,
-    requestDocumentPriming: host.requestDocumentPriming,
-    state,
-  });
-  return installedState;
-}
-
-export async function upsertRemoteContainerState(input: {
+interface UpsertRemoteContainerStateInput {
   childIdsByParentId?: ContainerChildIndex | undefined;
   containerIdsWithPendingMetadataUpdates: ReadonlySet<string>;
   containerIdsWithPendingStructuralIntents: ReadonlySet<string>;
@@ -421,10 +263,23 @@ export async function upsertRemoteContainerState(input: {
   isCurrent?: (() => boolean) | undefined;
   remoteContainer: RemoteContainer;
   state: RemoteContainerHydrationState;
-}): Promise<ContainerState | null> {
+}
+
+export async function upsertRemoteContainerState(
+  input: UpsertRemoteContainerStateInput,
+): Promise<ContainerState | null> {
   let expectedPlacementCheckpoint: AccessManifestCheckpoint | undefined;
+  const heldState = input.state.containersById.get(input.remoteContainer.id);
+  const heldBinding = heldState
+    ? heldContainerBinding(heldState)
+    : await input.state.persistence.loadHeldContainerBinding(
+        input.state.runtime.infra.execSql,
+        input.remoteContainer.id,
+      );
+  if (input.isCurrent?.() === false) return null;
   const verified = await verifyRemoteContainerDestination({
     ...input,
+    heldBinding,
     refresh: !!input.expectedHydrationTombstone,
     onVerifiedCheckpoint: (checkpoint) => {
       expectedPlacementCheckpoint = checkpoint;
@@ -435,28 +290,21 @@ export async function upsertRemoteContainerState(input: {
   const existingState = input.state.containersById.get(
     input.remoteContainer.id,
   );
-  const remoteState = existingState
-    ? await updateExistingRemoteContainerState({
-        childIdsByParentId: input.childIdsByParentId,
-        containerIdsWithPendingMetadataUpdates:
-          input.containerIdsWithPendingMetadataUpdates,
-        containerIdsWithPendingStructuralIntents:
-          input.containerIdsWithPendingStructuralIntents,
+  const remoteState = await runWithSecurityIncidentReporting(
+    input.state.runtime.util.reportSecurityIncident,
+    {
+      objectId: verified.id,
+      objectKind: "container",
+      operation: "container.binding.persist",
+      organizationId: verified.organizationId,
+    },
+    () =>
+      persistVerifiedRemoteContainer({
+        ...input,
         existingState,
-        host: input.host,
-        isCurrent: input.isCurrent,
-        remoteContainer: input.remoteContainer,
-        state: input.state,
-      })
-    : await insertRemoteContainerState({
-        childIdsByParentId: input.childIdsByParentId,
-        host: input.host,
-        expectedHydrationTombstone: input.expectedHydrationTombstone ?? null,
         expectedPlacementCheckpoint,
-        isCurrent: input.isCurrent,
-        remoteContainer: input.remoteContainer,
-        state: input.state,
-      });
+      }),
+  );
   if (!remoteState) {
     return null;
   }
@@ -468,4 +316,35 @@ export async function upsertRemoteContainerState(input: {
     state: input.state,
   });
   return remoteState;
+}
+
+function persistVerifiedRemoteContainer(
+  input: UpsertRemoteContainerStateInput & {
+    existingState: ContainerState | undefined;
+    expectedPlacementCheckpoint: AccessManifestCheckpoint | undefined;
+  },
+): Promise<ContainerState | null> {
+  const { existingState, expectedPlacementCheckpoint } = input;
+  return existingState
+    ? updateExistingRemoteContainerState({
+        childIdsByParentId: input.childIdsByParentId,
+        containerIdsWithPendingMetadataUpdates:
+          input.containerIdsWithPendingMetadataUpdates,
+        containerIdsWithPendingStructuralIntents:
+          input.containerIdsWithPendingStructuralIntents,
+        existingState,
+        host: input.host,
+        isCurrent: input.isCurrent,
+        remoteContainer: input.remoteContainer,
+        state: input.state,
+      })
+    : insertRemoteContainerState({
+        childIdsByParentId: input.childIdsByParentId,
+        host: input.host,
+        expectedHydrationTombstone: input.expectedHydrationTombstone ?? null,
+        expectedPlacementCheckpoint,
+        isCurrent: input.isCurrent,
+        remoteContainer: input.remoteContainer,
+        state: input.state,
+      });
 }

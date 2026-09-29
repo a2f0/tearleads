@@ -5,6 +5,10 @@ import {
 } from "@tearleads/crypto";
 import { deriveOrganizationMetadataContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
 import {
+  assertHeldContainerBinding,
+  type HeldContainerBinding,
+} from "../../../data/containers/containerBinding";
+import {
   verifiedContainerCreateManifest,
   verifyContainerDestinationProjection,
 } from "../../../data/keyingProjectionVerification/containerDestinationVerification";
@@ -117,6 +121,7 @@ function assertAcknowledgedRootSigner(input: {
 }
 
 async function verifyDestinationRole(input: {
+  heldBinding: HeldContainerBinding | null;
   verifyCurrentPlacement: boolean;
   onVerifiedCheckpoint:
     | ((checkpoint: AccessManifestCheckpoint) => void)
@@ -153,6 +158,11 @@ async function verifyDestinationRole(input: {
     verifiedByHash,
   });
   const { role } = destination;
+  // Refuse a rebinding before group checks or placement pins run for it.
+  assertHeldContainerBinding(input.heldBinding, {
+    organizationId: listed.organizationId,
+    metadataDocumentIds: [role.metadataDocumentId],
+  });
   if (role.parentId === null && role.systemSlot !== null) {
     const head = path.at(-1);
     if (!head) throw new Error("Metadata root manifest is unavailable");
@@ -178,12 +188,11 @@ async function verifyDestinationRole(input: {
     input.onVerifiedCheckpoint?.(currentHead.checkpoint);
   }
   if (isCurrent?.() === false) return null;
-  rememberDestinationRole(runtime.infra.execSql, listed, role);
   return destination;
 }
 
-/** Listing hints never establish a metadata target or a system/root role. */
-export async function verifyRemoteContainerDestination(input: {
+type VerifyRemoteContainerDestinationInput = {
+  heldBinding: HeldContainerBinding | null;
   refresh?: boolean;
   onVerifiedCheckpoint?:
     | ((checkpoint: AccessManifestCheckpoint) => void)
@@ -191,7 +200,53 @@ export async function verifyRemoteContainerDestination(input: {
   remoteContainer: RemoteContainer;
   state: RemoteContainerHydrationState;
   isCurrent?: (() => boolean) | undefined;
-}): Promise<RemoteContainer | null> {
+};
+
+/** A cached immutable role, or a freshly verified one with its signed parent. */
+async function resolveDestinationRole(
+  input: VerifyRemoteContainerDestinationInput,
+): Promise<{
+  freshlyVerified: boolean;
+  parentId: string | null | undefined;
+  role: DestinationRole;
+} | null> {
+  const { remoteContainer: listed, isCurrent } = input;
+  const runtime = input.state.runtime;
+  const cached = input.refresh
+    ? undefined
+    : cachedDestinationRole(runtime.infra.execSql, listed);
+  // Ordinary parent edges are not immutable. A refresh authenticates current
+  // placement; a forged root hint must also be corrected from a signed path.
+  if (cached && !(cached.parentId === undefined && listed.parentId === null)) {
+    return { freshlyVerified: false, parentId: cached.parentId, role: cached };
+  }
+  const verified = await verifyDestinationRole({
+    heldBinding: input.heldBinding,
+    isCurrent,
+    listed,
+    runtime,
+    verifyCurrentPlacement: input.refresh === true,
+    onVerifiedCheckpoint: input.onVerifiedCheckpoint,
+  });
+  if (!verified) return null;
+  return {
+    freshlyVerified: true,
+    parentId:
+      input.refresh || listed.parentId === null
+        ? verified.parentId
+        : verified.role.parentId,
+    role: verified.role,
+  };
+}
+
+/**
+ * Listing hints never establish a metadata target or a system/root role, and a
+ * held folder keeps its organization and metadata target: a conflicting listing
+ * is refused before its projection is fetched or its role is cached.
+ */
+export async function verifyRemoteContainerDestination(
+  input: VerifyRemoteContainerDestinationInput,
+): Promise<RemoteContainer | null> {
   const { remoteContainer: listed, state, isCurrent } = input;
   const runtime = state.runtime;
   return runWithSecurityIncidentReporting(
@@ -203,30 +258,20 @@ export async function verifyRemoteContainerDestination(input: {
       organizationId: listed.organizationId,
     },
     async () => {
+      assertHeldContainerBinding(input.heldBinding, {
+        organizationId: listed.organizationId,
+      });
       if (input.refresh)
         runtime.apiClient.evictContainerWriterProjection(listed.id);
-      let role = input.refresh
-        ? undefined
-        : cachedDestinationRole(runtime.infra.execSql, listed);
-      let parentId = role?.parentId;
-      // Ordinary parent edges are not immutable. A refresh authenticates current
-      // placement; a forged root hint must also be corrected from a signed path.
-      if (!role || (role.parentId === undefined && listed.parentId === null)) {
-        const verified = await verifyDestinationRole({
-          isCurrent,
-          listed,
-          runtime,
-          verifyCurrentPlacement: input.refresh === true,
-          onVerifiedCheckpoint: input.onVerifiedCheckpoint,
-        });
-        if (!verified) return null;
-        role = verified.role;
-        parentId =
-          input.refresh || listed.parentId === null
-            ? verified.parentId
-            : role.parentId;
-      }
-      if (!role || isCurrent?.() === false) return null;
+      const resolved = await resolveDestinationRole(input);
+      if (!resolved || isCurrent?.() === false) return null;
+      const { role, parentId } = resolved;
+      assertHeldContainerBinding(input.heldBinding, {
+        organizationId: listed.organizationId,
+        metadataDocumentIds: [role.metadataDocumentId],
+      });
+      if (resolved.freshlyVerified)
+        rememberDestinationRole(runtime.infra.execSql, listed, role);
       assertAcknowledgedRootSigner({ listed, role, runtime });
       return {
         ...listed,

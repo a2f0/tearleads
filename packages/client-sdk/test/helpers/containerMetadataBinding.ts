@@ -1,3 +1,9 @@
+import {
+  generateKemSeedAndKeyPair,
+  generateSigningSeedAndKeyPair,
+  toFingerprint,
+} from "@tearleads/crypto";
+import { createContainerWriterProjectionFixture } from "@tearleads/test-utils";
 import { sqlContainerContentsPersistence } from "../../src/data/persistence/container-contents/containerContentsPersistence";
 import type { ExecSql } from "../../src/data/sqlite/sqlSchema";
 import { persistContainerMetadataStateFromRuntime } from "../../src/workflows/container-contents/metadataPersistence";
@@ -115,6 +121,54 @@ export async function createMetadataBindingFixture(execSql: ExecSql) {
           },
         },
       });
+    },
+  };
+}
+
+/**
+ * Serve an independently valid signed projection for the same container id
+ * from another organization's identity, naming another metadata document.
+ */
+export async function installForeignOrganizationBinding(
+  fixture: Awaited<ReturnType<typeof createMetadataBindingFixture>>,
+  metadataDocumentId = "foreign-metadata",
+) {
+  const signer = generateSigningSeedAndKeyPair();
+  const kem = generateKemSeedAndKeyPair();
+  const fingerprint = await toFingerprint(signer.signingPublicKey);
+  const foreign = await createContainerWriterProjectionFixture({
+    containerId: fixture.listed.id,
+    encapsulationPublicKey: kem.publicKey,
+    metadataDocumentId,
+    organizationId: "foreign-organization",
+    signerKeyFingerprint: fingerprint,
+    signerPrivateKey: signer.signingPrivateKey,
+    userId: "foreign-owner",
+  });
+  let foreignReads = 0;
+  const runtime = fixture.state.runtime;
+  const ownProjection = runtime.apiClient.getContainerWriterProjection;
+  runtime.apiClient.getContainerWriterProjection = async (containerId) => {
+    if (fixture.listed.organizationId !== "foreign-organization")
+      return ownProjection(containerId);
+    foreignReads += 1;
+    return foreign;
+  };
+  const ownResolver = runtime.resolveTrustedUserIdentity;
+  const foreignResolver = createTestTrustedUserIdentityResolver({
+    encapsulationPublicKey: kem.publicKey,
+    signingKeyFingerprint: fingerprint,
+    signingPublicKey: signer.signingPublicKey,
+    userId: "foreign-owner",
+  });
+  const resolveTrustedUserIdentity: typeof ownResolver = async (userId) =>
+    userId === "foreign-owner" ? foreignResolver(userId) : ownResolver(userId);
+  Object.assign(runtime, { resolveTrustedUserIdentity });
+  return {
+    foreignReads: () => foreignReads,
+    relist: () => {
+      fixture.listed.organizationId = "foreign-organization";
+      fixture.listed.metadataDocumentId = metadataDocumentId;
     },
   };
 }

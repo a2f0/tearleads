@@ -14,7 +14,7 @@ function createExistingState(): ContainerState {
     container: {
       icon: null,
       id: "container-1",
-      metadataDocumentId: "metadata-old",
+      metadataDocumentId: "metadata-1",
       name: "Existing",
       organizationId: "organization-1",
       parentId: "root-1",
@@ -28,7 +28,7 @@ function createExistingState(): ContainerState {
       accessEpoch: 1,
       accessStateHash: "access-old",
       contentKeyBundle: null,
-      documentId: "metadata-old",
+      documentId: "metadata-1",
       documentKekTargets: null,
       documentManifestBundle: null,
       id: "container-1",
@@ -45,7 +45,7 @@ const remoteContainer: RemoteContainer = {
   id: "container-1",
   metadataAccessEpoch: 2,
   metadataAccessStateHash: "access-new",
-  metadataDocumentId: "metadata-new",
+  metadataDocumentId: "metadata-1",
   metadataReferencedPrincipals: [],
   organizationId: "organization-1",
   parentId: "root-2",
@@ -93,7 +93,7 @@ test("stale existing-container persistence cannot publish after reset", async ()
   resolvePersist({ record: existingState.record, status: "persisted" });
   await hydration;
 
-  expect(existingState.container.metadataDocumentId).toBe("metadata-old");
+  expect(existingState.record.accessStateHash).toBe("access-old");
   expect(existingState.container.parentId).toBe("root-1");
   expect(existingState.container.updatedAt).toBe("2026-01-01T00:00:00.000Z");
   expect(existingState.containerWriterProjection).not.toBeNull();
@@ -136,6 +136,7 @@ test("reset during insert cannot redirect hydration into the recovered database"
   const state = {
     containersById: new Map(),
     persistence: {
+      loadHeldContainerBinding: async () => null,
       loadContainerMetadataRecord,
       commitHydratedContainer,
     },
@@ -194,6 +195,7 @@ test("remote ingestion replays after recovery without another event", async () =
     containersById: new Map(),
     lifecycleGeneration: 0,
     persistence: {
+      loadHeldContainerBinding: async () => null,
       listPendingCreateIntents: async () => [],
       loadContainerHydrationTombstones: async () => [],
       listUnsyncedMoveIntents: async () => [],
@@ -264,6 +266,7 @@ test("remote ingestion discards payloads from a replaced structural context", as
     containersById: new Map(),
     lifecycleGeneration: 0,
     persistence: {
+      loadHeldContainerBinding: async () => null,
       commitHydratedContainer,
       listPendingCreateIntents: async () => [],
       loadContainerHydrationTombstones: async () => [],
@@ -343,6 +346,7 @@ test("reset during a batch replays every item into the recovered database", asyn
     containersById: new Map(),
     lifecycleGeneration: 0,
     persistence: {
+      loadHeldContainerBinding: async () => null,
       listPendingCreateIntents: async () => [],
       loadContainerHydrationTombstones: async () => [],
       listUnsyncedMoveIntents: async () => [],

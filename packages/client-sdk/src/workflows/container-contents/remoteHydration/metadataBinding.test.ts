@@ -136,6 +136,7 @@ test("cached metadata bindings do not freeze an ordinary child's parent", async 
     const fixture = await createMetadataBindingFixture(execSql);
     await fixture.hydrate();
     const moved = await verifyRemoteContainerDestination({
+      heldBinding: null,
       remoteContainer: { ...fixture.listed, parentId: "new-listed-parent" },
       state: fixture.state,
     });
@@ -144,6 +145,7 @@ test("cached metadata bindings do not freeze an ordinary child's parent", async 
     expect(fixture.projectionReads()).toBe(1);
     await expect(
       verifyRemoteContainerDestination({
+        heldBinding: null,
         remoteContainer: {
           ...fixture.listed,
           organizationId: "other-organization",

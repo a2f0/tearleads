@@ -1,15 +1,22 @@
 import { and, eq, inArray, sql } from "drizzle-orm";
+import {
+  assertHeldContainerBinding,
+  type HeldContainerBinding,
+  heldContainerBinding,
+} from "../../containers/containerBinding";
 import { documentSyncPullContinuationsEqual } from "../../documents/shared/pullContinuation";
 import {
   containerHydrationTombstones,
   containerMoveIntents,
   containers,
+  dormantContainerMetadata,
 } from "../../sqlite/schema";
 import {
   type ClientSQLiteTransactionScope,
   getClientSQLitePersistenceRuntime,
 } from "../../sqlite/sqlitePersistenceRuntime";
-import { runSerializedSqlMutation } from "../../sqlite/sqlSchema";
+import { type ExecSql, runSerializedSqlMutation } from "../../sqlite/sqlSchema";
+import { loadContainerById } from "../containers/containerPersistence";
 import { loadStoredAccessManifestCheckpoint } from "../keyingCheckpointPersistence";
 import type {
   ContainerContentsPersistence,
@@ -20,7 +27,6 @@ import {
   saveContainerContentsContainerRows,
   selectContainerMetadataRecord,
 } from "./containerMetadataRows";
-import { deleteContainerMetadataDocumentRowsInTransaction } from "./dormantContainerMetadata";
 
 function sameNullableValue(
   left: string | null | undefined,
@@ -147,6 +153,41 @@ async function saveRecoveredContainer(
   });
 }
 
+async function loadDormantOrganizationId(
+  execSql: ExecSql,
+  containerId: string,
+): Promise<string | null> {
+  const [row] = await getClientSQLitePersistenceRuntime(execSql)
+    .db.select({ organizationId: dormantContainerMetadata.organizationId })
+    .from(dormantContainerMetadata)
+    .where(eq(dormantContainerMetadata.containerId, containerId))
+    .limit(1);
+  return row?.organizationId ?? null;
+}
+
+/**
+ * The binding this device holds for a container id: its live row, or the
+ * organization and metadata target retained after access loss. Null when the
+ * device has never held the container.
+ */
+export async function loadStoredHeldContainerBinding(
+  execSql: ExecSql,
+  containerId: string,
+): Promise<HeldContainerBinding | null> {
+  const container = await loadContainerById(execSql, containerId);
+  const record = await selectContainerMetadataRecord(execSql, containerId);
+  if (container) return heldContainerBinding({ container, record });
+  const dormantOrganizationId = await loadDormantOrganizationId(
+    execSql,
+    containerId,
+  );
+  if (dormantOrganizationId === null && !record) return null;
+  return {
+    organizationId: dormantOrganizationId ?? "",
+    metadataDocumentId: record?.documentId ?? null,
+  };
+}
+
 export async function commitStoredHydratedContainer(
   execSql: Parameters<
     ContainerContentsPersistence["commitHydratedContainer"]
@@ -195,11 +236,25 @@ export async function commitStoredHydratedContainer(
       ) {
         return { committed: false as const };
       }
-      if (input.purgeDormantMetadata) {
-        await deleteContainerMetadataDocumentRowsInTransaction(tx, [
-          input.container.id,
-        ]);
-      }
+      // Retained metadata keeps its organization and target; a relisting that
+      // names others rolls back rather than replacing retained private edits.
+      const dormantOrganizationId = await loadDormantOrganizationId(
+        lockedExecSql,
+        input.container.id,
+      );
+      assertHeldContainerBinding(
+        {
+          organizationId: dormantOrganizationId ?? "",
+          metadataDocumentId: currentDormantRecord?.documentId ?? null,
+        },
+        {
+          organizationId: input.container.organizationId,
+          metadataDocumentIds: [
+            input.container.metadataDocumentId,
+            input.record.documentId,
+          ],
+        },
+      );
 
       const container = await saveRecoveredContainer(tx, input);
       await tx

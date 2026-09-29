@@ -49,8 +49,8 @@ Only roots and system containers also cache their fixed parent. Grant, key and
 ordinary-container parent state are never cached by this classifier. Ordinary
 children now require signed metadata bindings before hydration (finding 15 of
 issue #2365). The model covers root/system classification and immutability for reuse;
-metadata-target authentication and cache eviction are covered by runtime tests,
-not by this model.
+metadata-target authentication, the locally held organization/metadata binding
+and cache eviction are covered by runtime tests, not by this model.
 
 Session root acknowledgements are stored separately from the local root
 awaiting reconciliation. The first login for an organization records the

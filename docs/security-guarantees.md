@@ -70,6 +70,13 @@ purged personal one is legitimately replaced.
 Only a root administrator may create a signed system slot. Additional grantees
 are allowed: sharing a legitimate Trash must not disable deletion. A create
 acknowledgement persists the client-signed slot and refuses a differing echo.
+
+Every folder's metadata document id comes from its signed manifest, never from
+the listing. A held folder's organization and metadata document are immutable
+locally: a listing, acknowledgement or mutation naming others is refused as an
+`object_mismatch` incident before any fetch or cache write, leaving the row,
+dormant metadata, queued edits and checkpoints intact; transactions recheck the
+durable binding. Unbound folders (pre-login or not yet created) accept one.
 The app selects a foreign organization's Trash only by a slot the viewer can
 derive; another identity's Trash is reported unavailable, never matched by name.
 
