@@ -182,29 +182,42 @@ export async function persistAcceptedMoveIntent(input: {
 
 /**
  * A move refused for path length never succeeds; the queue-time check saw only
- * the descendants this device holds. Drop the queued move so hydration
- * restores the server placement instead of retrying it forever.
+ * the descendants this device holds. Drop the queued move and restore the
+ * previous parent together: the server row never changed, so no listing would
+ * ever put the folder back.
  */
 async function abandonTooDeepMove(
   syncInput: ContainerMoveIntentSyncInput,
 ): Promise<MoveIntentSyncResult> {
-  const { intent, state } = syncInput;
-  const dropped = await state.persistence.markMoveIntentRevisionSynced(
+  const { host, intent, state } = syncInput;
+  const previousParentId = intent.previousParentContainerId;
+  if (previousParentId === null) {
+    throw new Error("A queued container move must name its previous parent");
+  }
+  const abandoned = await state.persistence.abandonMoveIntentRevision(
     state.runtime.infra.execSql,
     {
       containerId: intent.containerId,
       expectedIntentId: intent.id,
       expectedUpdatedAt: intent.updatedAt,
+      previousParentContainerId: previousParentId,
       stillCurrent: syncInput.isCurrent,
     },
   );
   if (!syncInput.isCurrent()) return "abandoned";
   // A newer local move superseded this revision; it replays on its own.
-  if (!dropped) return "failed";
+  if (!abandoned) return "failed";
+  const containerState = state.containersById.get(intent.containerId);
+  if (containerState) {
+    containerState.container = {
+      ...containerState.container,
+      parentId: previousParentId,
+    };
+  }
+  host.updateSnapshot();
   state.runtime.util.log(
     `Container contents: abandoned queued move of ${intent.containerId}; its path would exceed the maximum depth`,
   );
-  syncInput.requestRemoteReconciliation(intent.previousParentContainerId);
   return "failed";
 }
 

@@ -9,12 +9,14 @@ import { CONTAINER_MUTATION_ERROR_CODES } from "@tearleads/validators/response";
 import { MAX_CONTAINER_PATH_LENGTH } from "@tearleads/validators/util";
 import { createAuthor } from "../../../../test/helpers/documentFixturePrimitives";
 import { createTestTrustedUserIdentityResolver } from "../../../../test/helpers/trustedUserIdentity";
-import { ContainerPathTooDeepError } from "../../../data/containers/shared/containerPathLimits";
+import {
+  CONTAINER_PATH_TOO_DEEP_MESSAGE,
+  ContainerPathTooDeepError,
+} from "../../../data/containers/shared/containerPathLimits";
 import { createDomainScope } from "../../../data/domainScope";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import {
   type ContainerCreateIntentRecord,
-  type ContainerMoveIntentRecord,
   defaultContainerContentsPersistence,
 } from "../containerPersistence";
 import type { ContainerState } from "../remoteHydration";
@@ -144,6 +146,59 @@ test("a queued create whose local path is too deep waits without a request", asy
   expect(recorded).toEqual(["Container path exceeds maximum depth"]);
 });
 
+test("a create refused for path length waits for a local move instead of refetching", async () => {
+  // A shared tree whose higher ancestors this device does not hold passes the
+  // local check; the verified plan refuses it instead.
+  const containersById = localChain(2);
+  containersById.set(
+    "child",
+    createTestContainerState({ id: "child", parentId: "c1", synced: false }),
+  );
+  let intent: ContainerCreateIntentRecord = {
+    containerId: "child",
+    createdAt: "2026-09-29T00:00:00.000Z",
+    id: "create-child",
+    intentType: "container.create",
+    lastAttemptedAt: null,
+    lastError: null,
+    parentContainerId: "c1",
+    remoteContainerId: null,
+    remoteMetadataAccessStateHash: null,
+    remoteMetadataDocumentId: null,
+    syncStatus: "pending",
+    updatedAt: "2026-09-29T00:00:00.000Z",
+  };
+  const recorded: string[] = [];
+  let projectionRequests = 0;
+  const state = syncState({
+    containersById,
+    onProjectionRequest: () => {
+      projectionRequests += 1;
+    },
+    persistence: {
+      ...defaultContainerContentsPersistence,
+      listPendingCreateIntents: async () => [intent],
+      recordCreateIntentRevisionError: async (_execSql, input) => {
+        recorded.push(input.message);
+        intent = { ...intent, lastError: input.message };
+      },
+    },
+  });
+  const pass = () =>
+    syncPendingContainerCreateIntents({
+      host: noHost,
+      isCurrent: () => true,
+      isRemoteSyncBlocked: () => false,
+      requestRemoteReconciliation: () => {},
+      state,
+    });
+
+  await expect(pass()).resolves.toBe(0);
+  await expect(pass()).resolves.toBe(0);
+  expect(projectionRequests).toBe(1);
+  expect(recorded).toEqual([CONTAINER_PATH_TOO_DEEP_MESSAGE]);
+});
+
 test("a queued move the server refuses for path length is abandoned, not retried", async () => {
   const { author, signingPublicKey } = await createAuthor();
   const kem = generateKemSeedAndKeyPair();
@@ -170,41 +225,45 @@ test("a queued move the server refuses for path length is abandoned, not retried
   );
   if (!moved || !destination) throw new Error("Expected signed fixtures");
   const database = await createTestExecSql("container-depth-abandon");
-  const intent: ContainerMoveIntentRecord = {
-    containerId: "moved",
-    createdAt: "2026-09-29T00:00:00.000Z",
-    id: "move-moved",
-    intentType: "container.move",
-    lastAttemptedAt: null,
-    lastError: null,
-    parentContainerId: "destination",
-    previousParentContainerId: "root",
-    syncStatus: "pending",
-    updatedAt: "2026-09-29T00:00:00.000Z",
-  };
-  const dropped: string[] = [];
+  await defaultContainerContentsPersistence.ensureSchema(database.execSql);
+  // The local move already placed the folder under its destination.
+  const movedLocally = createTestContainerState({
+    id: "moved",
+    organizationId: author.organizationId,
+    parentId: "destination",
+  });
+  await defaultContainerContentsPersistence.saveContainer(
+    database.execSql,
+    movedLocally.container,
+    movedLocally.record,
+    {
+      moveIntent: {
+        parentContainerId: "destination",
+        previousParentContainerId: "root",
+      },
+    },
+  );
   const retried: string[] = [];
   const reconciled: (string | null)[] = [];
   let submissions = 0;
   const state = syncState({
-    containersById: new Map(
-      ["root", "moved", "destination"].map((id) => [
-        id,
-        createTestContainerState({
-          id,
-          organizationId: author.organizationId,
-          parentId: id === "root" ? null : "root",
-        }),
-      ]),
-    ),
+    containersById: new Map([
+      ...["root", "destination"].map(
+        (id) =>
+          [
+            id,
+            createTestContainerState({
+              id,
+              organizationId: author.organizationId,
+              parentId: id === "root" ? null : "root",
+            }),
+          ] as const,
+      ),
+      ["moved", movedLocally] as const,
+    ]),
     onProjectionRequest: () => {},
     persistence: {
       ...defaultContainerContentsPersistence,
-      listUnsyncedMoveIntents: async () => [intent],
-      markMoveIntentRevisionSynced: async (_execSql, input) => {
-        dropped.push(input.expectedIntentId);
-        return true;
-      },
       recordMoveIntentError: async (_execSql, input) => {
         retried.push(input.message);
       },
@@ -256,6 +315,12 @@ test("a queued move the server refuses for path length is abandoned, not retried
     },
   } as ContainerCreateIntentSyncState;
 
+  let remaining: unknown[] = [];
+  let stored: Awaited<
+    ReturnType<
+      typeof defaultContainerContentsPersistence.loadContainerMetadataState
+    >
+  > = null;
   try {
     await expect(
       syncPendingContainerMoveIntents({
@@ -268,11 +333,23 @@ test("a queued move the server refuses for path length is abandoned, not retried
         state: withMove,
       }),
     ).resolves.toBe(0);
+    remaining =
+      await defaultContainerContentsPersistence.listUnsyncedMoveIntents(
+        database.execSql,
+      );
+    stored =
+      await defaultContainerContentsPersistence.loadContainerMetadataState(
+        database.execSql,
+        "moved",
+      );
   } finally {
     database.close();
   }
   expect(submissions).toBe(1);
-  expect(dropped).toEqual(["move-moved"]);
   expect(retried).toEqual([]);
-  expect(reconciled).toEqual(["root"]);
+  expect(reconciled).toEqual([]);
+  // The server row never changed, so the folder must be back locally now.
+  expect(movedLocally.container.parentId).toBe("root");
+  expect(remaining).toEqual([]);
+  expect(stored?.container.parentId).toBe("root");
 }, 30_000);

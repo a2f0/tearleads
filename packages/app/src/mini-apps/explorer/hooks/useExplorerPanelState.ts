@@ -3,7 +3,7 @@ import type {
   DocumentSummary,
 } from "@tearleads/client-sdk";
 import type { ReactNode } from "react";
-import { useCallback, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import type { AvatarUrlByContactId } from "../../../document-types/contact/useContactAvatarUrls";
 import {
   type RuntimeSnapshot,
@@ -295,7 +295,9 @@ export function useExplorerPanelState(params: {
     startContainerPurge,
     startEmptyTrash: purgeRun.startEmptyTrash,
   });
-  backgroundErrorRef.current = modalState.setBackgroundActionError;
+  useEffect(() => {
+    backgroundErrorRef.current = modalState.setBackgroundActionError;
+  }, [modalState.setBackgroundActionError]);
   const initialDocumentEditing = useInitialDocumentEditing();
   const selectedDocumentStartsInEditMode =
     initialDocumentEditing.documentStartsInEditMode(
