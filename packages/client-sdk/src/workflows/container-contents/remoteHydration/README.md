@@ -18,3 +18,10 @@ trigger verification but cannot choose that target. Verified bindings are cached
 by database, organization and container ID; ordinary parent edges are excluded
 because moves can change them. Root/system parents remain fixed. Tombstone
 recovery additionally verifies current placement against durable checkpoints.
+
+A page with a concurrently changed live item or tombstone remains unacknowledged:
+its watermark and restoration-completion callback must not advance. Independent
+pages and newly discovered child lanes still run. This prevents an unrelated
+metadata sync from leaving a newly shared root permanently without children.
+Generation changes, unavailable responses, and verification errors still stop
+the pass; an incomplete page is not retried automatically within that pass.

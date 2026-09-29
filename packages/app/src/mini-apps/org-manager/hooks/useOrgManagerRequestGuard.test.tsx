@@ -1,6 +1,7 @@
-import { afterEach, expect, test } from "bun:test";
+import { afterEach, expect, mock, test } from "bun:test";
 import { act, cleanup, render } from "@testing-library/react";
 import { useEffect } from "react";
+import { runScopedRefresher } from "../refresh";
 import {
   type OrgManagerRequestKind,
   useOrgManagerRequestGuard,
@@ -91,4 +92,40 @@ test("org-manager request guards invalidate work on unmount", () => {
   view.unmount();
 
   expect(request()).toBe(false);
+});
+
+test("a delayed follow-up cannot start a policy load after Org Manager unmounts", async () => {
+  const captured: {
+    current: ReturnType<typeof useOrgManagerRequestGuard> | null;
+  } = { current: null };
+  const view = render(
+    <GuardProbe
+      capture={(next) => {
+        captured.current = next;
+      }}
+      scopeKey="org-a"
+    />,
+  );
+  const beginRequest = requireBeginRequest(captured.current);
+  const precedingRead = Promise.withResolvers<void>();
+  const load = mock(async () => "policy");
+  const updateView = mock(() => {});
+  const followUp = precedingRead.promise.then(() =>
+    runScopedRefresher({
+      apply: updateView,
+      beginRequest,
+      load,
+      requestKind: "groupDetails",
+      setError: updateView,
+      setLoading: updateView,
+      onSettled: updateView,
+    }),
+  );
+
+  view.unmount();
+  precedingRead.resolve();
+  await followUp;
+
+  expect(load).not.toHaveBeenCalled();
+  expect(updateView).not.toHaveBeenCalled();
 });

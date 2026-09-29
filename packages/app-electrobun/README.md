@@ -14,12 +14,14 @@ editor or `tsc` resolves the package. Root `build:packages` and `check:fast` pre
 it automatically. The repository's TypeScript rules take precedence over the
 SDK config; the package lists its vendor compatibility exceptions explicitly.
 
-The pinned npm package selects Hutch 0.24.3 for Electrobun 2.0.1. Its
-[bootstrap](https://github.com/blackboardsh/electrobun/blob/v2.0.1/npm/electrobun/bin/resolve-hutch.cjs)
+The pinned npm package selects Hutch 0.27.0 for Electrobun 2.0.2-beta.35. This
+prerelease includes the native Windows listener fix for reserved or occupied
+ports; 2.0.1 can exit at startup with a websocket `Unexpected` error. Its
+[bootstrap](https://github.com/blackboardsh/electrobun/blob/v2.0.2-beta.35/npm/electrobun/bin/resolve-hutch.cjs)
 checks the release index's archive size and SHA-256, then validates cached
 launcher/engine hashes. It reuses `~/.hutch/` on subsequent runs. After the first
 setup, `DASH_RELEASE_OFFLINE=1 bun run --cwd packages/app-electrobun prepare:devkit`
-works without downloading; this was verified during the upgrade. A fresh CI
+works without downloading once the selected release is cached. A fresh CI
 runner downloads the paired release once, like the other mise-managed tools.
 Deleting `.hutch/devkit/` requires rerunning preparation before standalone
 `bun tsc --build` or `bun run lint:knip:all` / `bun run lint:knip:production`.
@@ -173,7 +175,7 @@ Emulated builds take longer than native Linux x64 builds. Linux CEF launches
 renderer processes directly (`no-zygote`), allowing the packaged app to run
 under QEMU as well as on native Linux.
 
-The pinned [Electrobun 2.0.1 Linux wrapper](https://github.com/blackboardsh/electrobun/blob/v2.0.1/package/src/native/linux/nativeWrapper.cpp#L2548)
+The pinned [Electrobun Linux wrapper](https://github.com/blackboardsh/electrobun/blob/v2.0.2-beta.35/package/src/native/linux/nativeWrapper.cpp)
 already sets `settings.no_sandbox = true`. `no-zygote` changes process startup
 without changing that sandbox setting. We accept the additional renderer startup
 cost so the exact published application can pass installation and persistence
@@ -234,9 +236,19 @@ On Windows, exercise the native build and encrypted identity database restart:
 
 ```sh
 bun run --cwd packages/app-electrobun test:windows-persistence
+
+# Match CI's native RPC port-conflict regression:
+pwsh ./packages/app-electrobun/scripts/testWindowsPortConflict.ps1
 ```
 
-The Windows CEF persistence CI job runs this check on a native Windows runner.
+The Windows CEF persistence CI job runs this check on a native Windows runner
+through `scripts/testWindowsPortConflict.ps1`. That wrapper holds the native
+host transport's first candidate port (50000) exclusively, verifies that the old
+SO_REUSEADDR configuration receives access denied, then requires the app to
+select a later internal websocket port on each launch. If an outside reservation
+or listener prevents the test from owning 50000, it reports that condition and
+runs the persistence checks without those forced-conflict assertions.
+The application origin remains `http://127.0.0.1:3002` across both launches.
 It verifies bundled CEF selection and reuses the Linux storage probe to confirm
 that a populated encrypted identity database reopens after a process restart
 and a nested-route reload.
@@ -256,12 +268,17 @@ bun run --cwd packages/app-electrobun test:linux-persistence
 The smoke test builds the dev bundle, launches bundled CEF twice with an
 isolated home directory, exercises the database worker's real OPFS
 sync-access-handle backend, and confirms the populated identity database reopens
-after relaunch.
+after relaunch. It requests a native X11 window close and requires a successful
+process exit before restarting, so CEF can flush its storage. Forced termination
+is reserved for failure cleanup. The test-only close helper uses XRes to restrict
+requests to the launcher's process group. A C compiler and X11/XRes development
+headers are required (`build-essential libx11-dev libxres-dev` on Ubuntu); the
+release test image includes them.
 
 The dev smoke tests use CEF's development DevTools endpoint. The Linux release
 probe enables it only for the launched test process through
-`ELECTROBUN_CEF_REMOTE_DEBUGGING_PORT`. Electrobun 2.0.1
-[disables remote debugging by default for canary and stable builds](https://github.com/blackboardsh/electrobun/blob/v2.0.1/package/src/native/shared/chromium_flags.test.cpp#L23).
+`ELECTROBUN_CEF_REMOTE_DEBUGGING_PORT`. Electrobun
+[disables remote debugging by default for canary and stable builds](https://github.com/blackboardsh/electrobun/blob/v2.0.2-beta.35/package/src/native/shared/chromium_flags.test.cpp#L23).
 
 See [dependency upgrade notes](../../docs/dependency-upgrades.md) and the
 [Electrobun migration guide](https://github.com/blackboardsh/electrobun/blob/main/docs/src/content/docs/electrobun/guides/migrating-to-v2.mdx)

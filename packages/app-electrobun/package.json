@@ -36,7 +36,7 @@
     "@tearleads/diagnostics": "workspace:*",
     "@tearleads/sqlite-worker": "workspace:*",
     "app": "workspace:*",
-    "electrobun": "2.0.1",
+    "electrobun": "2.0.2-beta.35",
     "pdfjs-dist": "6.3.289",
     "react-dom": "catalog:react"
   },

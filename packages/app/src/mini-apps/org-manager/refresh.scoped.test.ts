@@ -56,7 +56,7 @@ test("scoped refresher applies and settles only the current request", async () =
 
 test("scoped refresher contains current errors and skips unavailable work", async () => {
   const setError = mock((_error: string | null) => {});
-  const onUnavailable = mock((_isCurrentRequest: () => boolean) => {});
+  const onUnavailable = mock(() => {});
 
   await runScopedRefresher({
     apply: () => {},
