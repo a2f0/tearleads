@@ -472,7 +472,7 @@ export async function hydrateRemoteContainers(input: {
   await finishRemoteHydration({
     changedCount,
     complete:
-      !result.shouldStop &&
+      result.complete &&
       canHydrateRemoteContainers(state) &&
       input.isCurrent?.() !== false,
     containerIdsBeforeHydration,
