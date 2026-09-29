@@ -37,8 +37,8 @@ or forged marker falls back to full verification. Document ancestor queries
 share a request-local binary ancestor index: indexing N manifests uses
 O(N log N) time and space, and each indexed lineage query takes O(log N). The
 index expands only down to requested floors. Incremental proof delivery, so a
-writer projection need not ship a container's full key history, remains tracked
-in [#2365, finding 6](https://github.com/a2f0/tearleads/issues/2365). It must
+writer projection need not ship a container's full key history, is tracked in
+[#2392](https://github.com/a2f0/tearleads/issues/2392). It must
 not become a permanent lifetime-history refusal or a cap that prevents
 revocation. No existing history is trusted merely because its depth is large.
 Regressions cover a full 4,098-entry verification without markers, a marked

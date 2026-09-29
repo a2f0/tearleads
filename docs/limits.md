@@ -60,8 +60,9 @@ marker, so each manifest is signature-checked about once in its lifetime. An
 edited row, forged marker, rotated secret or new rule revision falls back to
 full verification until the object's next mutation re-marks it. Serving a
 writer projection still loads every retained manifest its key history cites,
-now in a few batched queries; incremental history delivery is tracked in #2365
-finding 6. For N ancestor manifests, the request-local lineage index uses
+now in a few batched queries; incremental history delivery is tracked in
+[#2392](https://github.com/a2f0/tearleads/issues/2392). For N ancestor
+manifests, the request-local lineage index uses
 O(N log N) work and space, with O(log N) per lineage query; see
 [the availability model](../formal/container-keying/ManifestHistory.md).
 
