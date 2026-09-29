@@ -22,12 +22,14 @@ source of truth and the tables are a map to it.
 
 | Limit | Value | Where enforced | Past the limit |
 | --- | --- | --- | --- |
-| Container path depth | 100 levels (`MAX_CONTAINER_PATH_DEPTH`, `MAX_DOCUMENT_SYNC_AUTHORIZATION_PATH_DEPTH`) | API: the recursive CTE in `access/shared/internal/containerKekTargets.ts` stops at depth 100 and rejects parent cycles; `workflows/containers/writerProjection/accessPaths.ts` (409) and the stored path loaders (`object_mismatch`). SDK: `data/keyingProjectionVerification/documentDependencyPaths.ts`. | Refusal for reads and writes that walk the path. Nothing caps depth at container create or move; see the carried-rekey row below for why. |
+| Container path length | 100 containers, including root and leaf (`MAX_CONTAINER_PATH_LENGTH`); depths zero through 99 | API: create and subtree-move checks in `workflows/containers/mutations/shared/containerDepth.ts`, under the organization lock; the CTE in `access/shared/internal/containerKekTargets.ts` and writer/stored path loaders. SDK: create/move destination prechecks and `data/keyingProjectionVerification/documentDependencyPaths.ts`. | Refusal (409) before creating an unreadable path. A subtree move checks the deepest descendant, including descendants the caller cannot discover. |
 
-The depth limit is enforced when a path is walked, not when a tree is built.
-That is intentional: a revocation must never be refusable because of a tree's
-shape, so a walk that cannot follow a chain to its rotated ancestor treats that
-chain as owing nothing rather than refusing the rotation.
+Create and move preserve the reader's structural bound. Policy rotations and
+revocations do not change structure and do not run these depth guards. The
+bounded [container depth model](../formal/container-keying/ContainerDepth.md)
+checks the create and move guards. Readers also refuse
+malformed paths; the ancestor CTE accepts at most 100 containers and rejects
+an unclosed parent at the boundary rather than silently truncating it.
 
 ## Container keying
 
@@ -35,7 +37,7 @@ chain as owing nothing rather than refusing the rotation.
 | --- | --- | --- | --- |
 | Carried descendant rekeys per rotation | 64 (`MAX_ROTATION_CONTAINER_REKEYS`, `validators/src/util/containerKekKeyringWire.ts`) | API: `workflows/containers/mutations/shared/grantedPathCurrency.ts` computes the stranded closure and owes only its parent-first prefix; the request schema rejects more. SDK: the proactive carry refuses before signing what the server would refuse. | Lazy remainder. The rotation commits; levels past the prefix stay stale and repair on their next capable write. A writer granted only below one parks with `document_ancestor_repair_inaccessible`. |
 | Inline container rekeys per document or blob write | 16 (`MAX_INLINE_CONTAINER_REKEYS`) | Validators: `request/document.ts`, `request/blob.ts`. | Pagination. The sync pass commits the surplus as standalone rekeys before the write, within the per-pass budget below. |
-| Ancestor repairs committed per sync pass | 100 (reuses `MAX_DOCUMENT_SYNC_AUTHORIZATION_PATH_DEPTH`) | SDK: `workflows/documents/syncContainerRekeyPreparation.ts`. | The pass abandons with the `depth-budget` trace reason; writes stay queued and the next pass continues. |
+| Ancestor repairs committed per sync pass | 100 (reuses `MAX_CONTAINER_PATH_LENGTH`) | SDK: `workflows/documents/syncContainerRekeyPreparation.ts`. | The pass abandons with the `depth-budget` trace reason; writes stay queued and the next pass continues. |
 | Rekeys attempted per pending update row | 5 (`MAX_PENDING_UPDATE_REKEYS`) | SDK: `data/sqlite/documentPendingUpdatePersistence.ts`, persisted so it survives restarts. | The row is left untouched and reported as no progress, so a poisoned update cannot re-key forever. |
 | Consecutive rekey-only sync passes | 3 (`MAX_CONSECUTIVE_REKEY_ONLY_PASSES`) | SDK: `data/sync/outgoingUpdateSettlement.ts`. | The lane goes idle; a later mutation or sync signal retries the pending work. Guards against a server that under-settles without conflicting. |
 | Container key epoch | 65,536 (`MAX_CONTAINER_KEY_EPOCH`) | API at rotation time; response guards on every layer before cryptographic work. | Refusal of the rotation only. Never applied to existing data, so retained ciphertext stays readable. A runaway-rotation backstop, not a use case. |
@@ -90,24 +92,20 @@ for the exact-length rule.
 
 The no-bricked-device invariant says no device may be unable to read or write
 because another device must write first. Reads are never affected by any limit
-above: a reader resolves a retired parent pin through retained history. Two
-limits knowingly leave a writer waiting on another device's write, and both
-were chosen so that a revocation can never be refused because of a tree's
-size or shape:
+above: a reader resolves a retired parent pin through retained history. The carried-rekey
+limit can leave a writer waiting on another device's write so that a
+revocation is never refused because of a tree's size:
 
 - **Carried descendant rekeys past 64.** Levels beyond the parent-first prefix
   stay stale after the rotation commits. A writer granted only below such a
   level cannot re-key it and must not be handed its key, so it parks under
   `document_ancestor_repair_inaccessible` until a member with access at that
   level writes there.
-- **Container path depth past 100.** A grant whose chain the bounded ancestry
-  walk cannot follow to the rotated container is treated as owing nothing, so
-  the same levels stay stale the same way.
 
-Inside both bounds, the model in
+Within the carried-rekey bound, the model in
 [InaccessibleIntermediateRepair.md](../formal/container-keying/InaccessibleIntermediateRepair.md)
 proves the writer is eventually unblocked with fairness only on its own step.
-Outside them, that model's `rotation-without-descendant-repairs-bricks-leaf-writer`
+Outside it, that model's `rotation-without-descendant-repairs-bricks-leaf-writer`
 control is the exact behaviour, and it violates the liveness property by
 design. Nothing schedules the lazy repair; whichever capable member writes
 beneath the stale level first performs it. See

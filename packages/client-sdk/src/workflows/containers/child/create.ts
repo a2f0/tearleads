@@ -16,6 +16,7 @@ import type {
   ContainerWriterProjectionResponse,
 } from "@tearleads/validators/response";
 import { assertContainerAuthorAccess } from "../../../data/containers/shared/authorAccess";
+import { assertContainerChildPathFits } from "../../../data/containers/shared/containerPathLimits";
 import {
   buildContainerCreateBody,
   buildContainerCreateKeyEpoch,
@@ -112,6 +113,7 @@ async function resolveContainerCreatePlanContext(
   input: BuildContainerCreatePlanInput,
 ): Promise<ContainerCreatePlanContext> {
   assertContainerCreatePlanInput(input);
+  assertContainerChildPathFits(input.parentProjection.path);
   assertContainerKekPathCurrent(input.parentProjection.containerKeks);
   const containerId = input.containerId ?? crypto.randomUUID();
 

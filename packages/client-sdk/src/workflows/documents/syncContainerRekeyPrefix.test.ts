@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import { createMockApiClient, createTestExecSql } from "@tearleads/test-utils";
 import {
-  MAX_DOCUMENT_SYNC_AUTHORIZATION_PATH_DEPTH,
+  MAX_CONTAINER_PATH_LENGTH,
   MAX_INLINE_CONTAINER_REKEYS,
 } from "@tearleads/validators/util";
 import { createDeepRotatedAncestorFixture } from "../../../test/helpers/ancestorRotationRecovery";
@@ -247,7 +247,7 @@ test("a server replaying a stale chain cannot drive endless rekeys", async () =>
     // Bounded well under the depth backstop: one prefix, then the replay is
     // refused rather than repaired again.
     expect(rekeys).toBeLessThanOrEqual(MAX_INLINE_CONTAINER_REKEYS);
-    expect(rekeys).toBeLessThan(MAX_DOCUMENT_SYNC_AUTHORIZATION_PATH_DEPTH);
+    expect(rekeys).toBeLessThan(MAX_CONTAINER_PATH_LENGTH);
   } finally {
     staging.close();
     cold.close();

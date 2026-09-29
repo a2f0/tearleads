@@ -20,6 +20,7 @@ import type {
   ContainerWriterProjectionResponse,
 } from "@tearleads/validators/response";
 import { assertContainerAuthorAccess } from "../../../data/containers/shared/authorAccess";
+import { assertContainerChildPathFits } from "../../../data/containers/shared/containerPathLimits";
 import {
   asContainerManifestBundle,
   getTargetContainerContext,
@@ -271,6 +272,7 @@ async function collectAuthorizedMovePolicies(
 async function buildMaterializedContainerMovePlan(
   input: MaterializedContainerMoveInput,
 ): Promise<MaterializedContainerMovePlan> {
+  assertContainerChildPathFits(input.destinationParentProjection.path);
   const {
     containerKey: predecessorContainerKey,
     destinationParent,
