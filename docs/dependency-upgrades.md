@@ -11,6 +11,9 @@ checksums are checked in with their owning packages.
   JavaScript compiler API.
 - Electrobun consumes its generated Hutch SDK and TypeScript configuration.
   `prepare:devkit` prepares the ignored SDK output before standalone checks.
+  Electrobun is pinned to 2.0.2-beta.35 (Hutch 0.27.0) for the upstream Windows
+  host-transport listener fix. Return to a stable release at or above 2.0.2
+  once published and validated on all three desktop platforms.
 - Redis uses RESP2, explicit keepalive settings, and disabled command timeouts
   for session and realtime connections.
 - Zod schemas define runtime validation; OpenAPI generation preserves the

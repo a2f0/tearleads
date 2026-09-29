@@ -63,11 +63,9 @@ export function useOrgManagerGroupDetailsRefresher(input: {
           setUnknownError(setError, error);
         },
         onSettled: () => markGroupDetailsSettled(groupId),
-        onUnavailable: (isCurrentRequest) => {
-          if (isCurrentRequest()) {
-            setMembers(null);
-            setGroupPolicyHistory(null);
-          }
+        onUnavailable: () => {
+          setMembers(null);
+          setGroupPolicyHistory(null);
         },
         options,
         requestKind: "groupDetails",

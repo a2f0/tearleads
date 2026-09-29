@@ -12,6 +12,7 @@ interface DevToolsTarget {
 interface StorageSnapshot {
   readonly body: string;
   readonly databaseName: string | null;
+  readonly hostTransportPort?: number;
   readonly registry: string | null;
   readonly rootChildren: number;
   readonly timeOrigin: number;
@@ -35,6 +36,9 @@ const storageSnapshotExpression = [
   "  return {",
   "    body,",
   "    databaseName: databaseMatch?.[1] ?? null,",
+  // Injected by the pinned native core; fail closed if an upgrade removes it.
+  // https://github.com/blackboardsh/electrobun/blob/v2.0.2-beta.35/package/src/core/main.zig#L1622
+  "    hostTransportPort: window.__electrobunHostSocketPort,",
   "    registry: registryKey ? localStorage.getItem(registryKey) : null,",
   "    rootChildren: document.getElementById('root')?.children.length ?? 0,",
   "    timeOrigin: performance.timeOrigin,",
@@ -170,6 +174,29 @@ async function readReadySnapshot(
 }
 
 function toPersistentState(snapshot: StorageSnapshot): PersistentState {
+  const { TEARLEADS_TEST_BLOCKED_RPC_PORT: blockedPort } = process.env;
+  if (blockedPort !== undefined) {
+    const blockedPortNumber = Number(blockedPort);
+    if (
+      !Number.isInteger(blockedPortNumber) ||
+      blockedPortNumber < 1 ||
+      blockedPortNumber >= 65_535
+    ) {
+      throw new Error(`Invalid blocked host transport port: ${blockedPort}.`);
+    }
+    const selectedPort = snapshot.hostTransportPort;
+    if (
+      !Number.isInteger(selectedPort) ||
+      selectedPort === undefined ||
+      selectedPort <= blockedPortNumber ||
+      selectedPort > 65_535
+    ) {
+      throw new Error(
+        `Expected a host transport port after ${blockedPort}; got ${String(selectedPort)}.`,
+      );
+    }
+    console.error(`CEF uses host transport port ${String(selectedPort)}.`);
+  }
   if (!snapshot.databaseName || !snapshot.registry) {
     throw new Error("The ready snapshot omitted persistent identity state.");
   }
