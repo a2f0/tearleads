@@ -282,10 +282,21 @@ export async function upsertRemoteContainerState(
         input.state.runtime.infra.execSql,
         input.remoteContainer.id,
       );
+  const listed = input.remoteContainer;
+  // Only a held folder listed under another organization can be a replay.
+  const supersededListing =
+    heldBinding !== null &&
+    heldBinding.organizationId !== "" &&
+    heldBinding.organizationId !== listed.organizationId &&
+    (await input.state.persistence.isSupersededContainerBinding(
+      input.state.runtime.infra.execSql,
+      { containerId: listed.id, organizationId: listed.organizationId },
+    ));
   if (input.isCurrent?.() === false) return null;
   const verified = await verifyRemoteContainerDestination({
     ...input,
     heldBinding,
+    supersededListing,
     refresh: !!input.expectedHydrationTombstone,
     onVerifiedCheckpoint: (checkpoint) => {
       expectedPlacementCheckpoint = checkpoint;

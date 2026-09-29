@@ -291,6 +291,11 @@ export interface ContainerContentsPersistence
     execSql: ExecSql,
     containerId: string,
   ) => Promise<HeldContainerBinding | null>;
+  /** Whether a held folder was re-homed away from this organization. */
+  isSupersededContainerBinding: (
+    execSql: ExecSql,
+    input: { containerId: string; organizationId: string },
+  ) => Promise<boolean>;
   /**
    * Move a held folder to the binding its own user re-created it under,
    * resetting the metadata record's remote stream; false if the held binding

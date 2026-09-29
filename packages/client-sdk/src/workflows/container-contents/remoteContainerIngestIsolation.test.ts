@@ -40,6 +40,7 @@ test("a refused live folder is acknowledged without blocking the batch", async (
       listUnsyncedMoveIntents: async () => [],
       loadContainerHydrationTombstones: async () => [],
       loadContainerMetadataRecord: async () => null,
+      isSupersededContainerBinding: async () => false,
       // The device holds the first folder under another organization.
       loadHeldContainerBinding: async (_execSql: unknown, id: string) =>
         id === refused.id

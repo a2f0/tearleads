@@ -194,7 +194,24 @@ test("a re-home rebinds only the binding it was verified against", async () => {
       accessEpoch: 1,
       documentId: next.metadataDocumentId,
       lastCommitLsn: null,
+      // Local Loro content and its version marker do not depend on the stream.
+      metadataUpdates: record.metadataUpdates,
+      snapshotEndVersion: record.snapshotEndVersion,
     });
+    await expect(
+      persistence.isSupersededContainerBinding(execSql, {
+        containerId: container.id,
+        organizationId: held.organizationId,
+      }),
+    ).resolves.toBe(true);
+    // Binding back to the organization it left is a replay.
+    await expect(
+      persistence.rebindHeldContainer(execSql, {
+        containerId: container.id,
+        expected: next,
+        next: held,
+      }),
+    ).resolves.toBe(false);
     // A second store applying the same verified re-home is not refused.
     await expect(rebind(held)).resolves.toBe(true);
   } finally {

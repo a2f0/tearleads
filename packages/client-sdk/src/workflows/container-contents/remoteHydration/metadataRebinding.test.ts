@@ -361,3 +361,85 @@ test("a foreign signer cannot retarget a live folder within its organization", a
     close();
   }
 });
+
+test("a replayed original create cannot move a re-homed folder back", async () => {
+  const { execSql, close } = createNativeTestExecSql();
+  try {
+    const { fixture, hydrated, pending } =
+      await hydrateWithQueuedRename(execSql);
+    const original = {
+      metadataDocumentId: fixture.metadataDocumentId,
+      organizationId: hydrated.container.organizationId,
+    };
+    const replacement = await installOrganizationBinding(fixture, {
+      metadataDocumentId: "replacement-metadata",
+      organizationId: "replacement-organization",
+      signer: "session-user",
+    });
+    replacement.relist();
+    await fixture.hydrate();
+
+    // The server replays the folder's original, genuinely self-signed create;
+    // its role is still warm in the destination cache.
+    Object.assign(fixture.listed, original);
+    await expect(fixture.hydrate()).rejects.toMatchObject({
+      code: "object_mismatch",
+    });
+    expect(fixture.projectionReads()).toBe(1);
+    const stored = await persistence.loadContainerMetadataState(
+      execSql,
+      fixture.listed.id,
+    );
+    expect(stored?.container).toMatchObject({
+      metadataDocumentId: "replacement-metadata",
+      organizationId: "replacement-organization",
+    });
+    expect(
+      await persistence.listPendingUpdates(execSql, fixture.listed.id),
+    ).toEqual(pending);
+  } finally {
+    close();
+  }
+});
+
+test("a pending local folder binds only to its own user's create", async () => {
+  const { execSql, close } = createNativeTestExecSql();
+  try {
+    const fixture = await createMetadataBindingFixture(execSql);
+    // An unacknowledged local create: organization chosen, no metadata target.
+    await persistence.saveContainer(
+      execSql,
+      {
+        effectiveAccessLevel: "admin",
+        icon: null,
+        id: fixture.listed.id,
+        metadataDocumentId: null,
+        name: "Private local folder",
+        organizationId: fixture.listed.organizationId,
+        parentId: fixture.listed.parentId,
+      },
+      {
+        accessEpoch: 1,
+        documentId: null,
+        id: fixture.listed.id,
+        metadataUpdates: "",
+        snapshotEndVersion: "",
+      },
+    );
+    const colluding = await installOrganizationBinding(fixture, {
+      metadataDocumentId: "colluding-metadata",
+      organizationId: fixture.listed.organizationId,
+      signer: "foreign-owner",
+    });
+    colluding.relist();
+
+    await expect(fixture.hydrate()).rejects.toMatchObject({
+      code: "signer_mismatch",
+    });
+    await expect(
+      persistence.loadHeldContainerBinding(execSql, fixture.listed.id),
+    ).resolves.toMatchObject({ metadataDocumentId: null });
+  } finally {
+    close();
+  }
+});

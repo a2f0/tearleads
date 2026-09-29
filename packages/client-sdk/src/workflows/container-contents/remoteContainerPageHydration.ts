@@ -6,6 +6,7 @@ import {
 } from "./remoteContainerState";
 import { containerStateMatchesFingerprint } from "./remoteHydration/containerStateFingerprint";
 import { prefetchDestinationProjections } from "./remoteHydration/destinationPrefetch";
+import { cachedDestinationRole } from "./remoteHydration/destinationRoleCache";
 import { markContainerParentLaneFetched } from "./remoteHydration/laneFetchMarkers";
 import { fetchContainerParentLaneBatch } from "./remoteHydration/parentLaneFetch";
 import { cacheRemoteContainerPrincipalPolicies } from "./remoteHydration/principalPolicyCache";
@@ -81,12 +82,13 @@ async function applyRemoteContainerPage(input: {
     return { changedCount: 0, completed: false };
   }
   const prefetchedProjections = await prefetchDestinationProjections({
-    containerIds: items.flatMap(({ id }) =>
-      seenContainerIds.has(id) ||
-      state.containersById.has(id) ||
-      expectedHydrationTombstones.get(id)
+    containerIds: items.flatMap((item) =>
+      seenContainerIds.has(item.id) ||
+      state.containersById.has(item.id) ||
+      expectedHydrationTombstones.get(item.id) ||
+      cachedDestinationRole(state.runtime.infra.execSql, item)
         ? []
-        : [id],
+        : [item.id],
     ),
     isCurrent: input.isCurrent,
     runtime: state.runtime,

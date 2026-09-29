@@ -14,6 +14,7 @@ import {
   principalPolicyBundleReferences,
   principalPolicyCheckpoints,
   principalPolicyOrganizations,
+  supersededContainerBindings,
 } from "../../data/sqlite/schema";
 import { getClientSQLitePersistenceRuntime } from "../../data/sqlite/sqlitePersistenceRuntime";
 import { ensureSqlTables } from "../../data/sqlite/sqlTableSchema";
@@ -179,6 +180,15 @@ test("remote reset rebinds only the purged organization to its replacement", asy
     expect(await db.select().from(containerSyncWatermarks)).toEqual([
       expect.objectContaining({ laneId: "parent:keep-root" }),
     ]);
+    // The purged organization can never bind its re-homed folders again.
+    expect(
+      await db
+        .select({
+          containerId: supersededContainerBindings.containerId,
+          organizationId: supersededContainerBindings.organizationId,
+        })
+        .from(supersededContainerBindings),
+    ).toEqual([{ containerId: "old-root", organizationId: "org-old" }]);
     expect(await db.select().from(documentHistoryCheckpoints)).toEqual([
       expect.objectContaining({ localId: "keep-local" }),
     ]);

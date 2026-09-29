@@ -43,5 +43,6 @@ test("prefetch stops when the hydration pass is no longer current", async () => 
       return null;
     }),
   });
-  expect(fetched.length).toBeLessThanOrEqual(4);
+  // The first fetch ends the pass; no other worker starts another.
+  expect(fetched).toEqual(["a"]);
 });

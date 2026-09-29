@@ -69,7 +69,10 @@ import {
   selectContainerMetadataRecord,
 } from "./containerMetadataRows";
 import { containerPendingUpdatePersistence } from "./containerPendingUpdatePersistence";
-import { rebindStoredHeldContainer } from "./containerRebindPersistence";
+import {
+  isSupersededContainerBinding,
+  rebindStoredHeldContainer,
+} from "./containerRebindPersistence";
 import { containerReconcilePersistence } from "./containerReconcilePersistence";
 
 async function saveStoredContainer(
@@ -189,6 +192,10 @@ export const sqlContainerContentsPersistence: ContainerContentsPersistence = {
   async loadHeldContainerBinding(execSql, containerId) {
     await sqlContainerContentsPersistence.ensureSchema(execSql);
     return loadStoredHeldContainerBinding(execSql, containerId);
+  },
+  async isSupersededContainerBinding(execSql, input) {
+    await sqlContainerContentsPersistence.ensureSchema(execSql);
+    return isSupersededContainerBinding(execSql, input);
   },
   async rebindHeldContainer(execSql, input) {
     await sqlContainerContentsPersistence.ensureSchema(execSql);

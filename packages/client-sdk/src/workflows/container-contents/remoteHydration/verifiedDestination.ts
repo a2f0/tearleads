@@ -126,7 +126,8 @@ function assertAcknowledgedRootSigner(input: {
 /**
  * A held folder keeps its binding unless its new copy was created by this
  * session's own user: purged-organization recovery re-homes folders under their
- * existing ids. Any other signer cannot move a held folder.
+ * existing ids. Any other signer cannot move a held folder, and an unbound one
+ * (a pending create or reset) binds only to its own user's create.
  */
 function assertPermittedDestinationBinding(input: {
   heldBinding: HeldContainerBinding | null;
@@ -136,6 +137,13 @@ function assertPermittedDestinationBinding(input: {
 }): void {
   const { heldBinding, listed, role, runtime } = input;
   if (role.createSignerUserId === runtime.auth.userId) return;
+  // An unbound held folder awaits this device's own create.
+  if (heldBinding?.metadataDocumentId === null) {
+    throw new KeyingVerificationError(
+      "signer_mismatch",
+      "a local folder can bind only to its own signed create",
+    );
+  }
   assertHeldContainerBinding(heldBinding, {
     organizationId: listed.organizationId,
     metadataDocumentIds: [role.metadataDocumentId],
@@ -218,6 +226,8 @@ async function verifyDestinationRole(input: {
 
 type VerifyRemoteContainerDestinationInput = {
   heldBinding: HeldContainerBinding | null;
+  /** The held folder was re-homed away from the listed organization. */
+  supersededListing?: boolean | undefined;
   /** Fetched ahead by page hydration; ignored when placement is refreshed. */
   prefetchedProjection?: PrefetchedDestinationProjection | undefined;
   refresh?: boolean;
@@ -287,6 +297,12 @@ export async function verifyRemoteContainerDestination(
       organizationId: listed.organizationId,
     },
     async () => {
+      if (input.supersededListing) {
+        throw new KeyingVerificationError(
+          "object_mismatch",
+          "container was re-homed away from the listed organization",
+        );
+      }
       // A held ordinary binding was verified (or signed by this device) when
       // it was stored; a listing that repeats it needs no second proof.
       if (
