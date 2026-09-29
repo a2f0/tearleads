@@ -1,36 +1,49 @@
 import { Buffer } from "node:buffer";
-import { createHmac, hkdfSync, timingSafeEqual } from "node:crypto";
+import {
+  createHmac,
+  hkdfSync,
+  randomBytes,
+  timingSafeEqual,
+} from "node:crypto";
 import type { DatabaseSession } from "@tearleads/api-shared/postgres";
 import { accessManifestVerifications } from "@tearleads/api-shared/schema";
-import { serializeKeyingCanonicalJson } from "@tearleads/crypto";
+import {
+  ACCESS_MANIFEST_VERIFICATION_REVISION,
+  serializeKeyingCanonicalJson,
+} from "@tearleads/crypto";
 import type { AccessManifestBundleWireResponse } from "@tearleads/validators/response";
-import { eq, inArray } from "drizzle-orm";
+import { eq, inArray, sql } from "drizzle-orm";
 import { isKeyingCanonicalJson } from "./canonicalJson";
-import { readDocumentSyncCursorHmacKey } from "./serverSecrets";
+import { readConfiguredDocumentSyncCursorHmacKey } from "./serverSecrets";
 import { sha256Hex } from "./sha256";
 
-/**
- * Stored-history verification rules this deployment applies. Bump it whenever
- * those rules change: markers written under older rules are then ignored and
- * their manifests re-verified in full.
- */
-const ACCESS_MANIFEST_VERIFIER_VERSION = 1;
+/** Markers are keyed to the crypto verifiers' rule revision. */
+const ACCESS_MANIFEST_VERIFIER_VERSION = ACCESS_MANIFEST_VERIFICATION_REVISION;
 
 const MARKER_DOMAIN = "tearleads.access-manifest-verification.v1";
 // Keeps each IN list well inside every supported dialect's bind limit.
 const BATCH_SIZE = 500;
 
-/** Derived per use so a rotated server secret invalidates every marker. */
+// Without a configured secret (development, previews) markers use a key that
+// lives only in this process, so nobody who can edit the database can forge
+// one; they simply stop matching after a restart.
+const processMarkerKey = randomBytes(32);
+let derivedMarkerKey: { readonly secret: string; readonly key: Buffer } | null =
+  null;
+
+/** Re-derived when the secret changes, so a rotation retires every marker. */
 function markerKey(): Buffer {
-  return Buffer.from(
-    hkdfSync(
-      "sha256",
-      readDocumentSyncCursorHmacKey(),
-      Buffer.alloc(0),
-      MARKER_DOMAIN,
-      32,
-    ),
-  );
+  const secret = readConfiguredDocumentSyncCursorHmacKey();
+  if (secret === null) return processMarkerKey;
+  if (derivedMarkerKey?.secret !== secret) {
+    derivedMarkerKey = {
+      secret,
+      key: Buffer.from(
+        hkdfSync("sha256", secret, Buffer.alloc(0), MARKER_DOMAIN, 32),
+      ),
+    };
+  }
+  return derivedMarkerKey.key;
 }
 
 function markerMac(
@@ -70,6 +83,8 @@ export interface AccessManifestVerificationMarkerStore {
   ): Promise<AccessManifestVerificationMarkerRow | null>;
   /** Batch-load markers a request is about to read. */
   prefetch?(manifestHashes: readonly string[]): Promise<void>;
+  /** Write recorded markers; a no-op for stores that only read. */
+  flush?(): Promise<void>;
   save(
     manifestHash: string,
     marker: AccessManifestVerificationMarkerRow,
@@ -77,14 +92,18 @@ export interface AccessManifestVerificationMarkerStore {
 }
 
 /**
- * Markers written through the verifying executor, so a verification inside a
- * transaction is marked only if that transaction commits.
+ * Markers in the database. Reads only consult them: a store that records is
+ * created solely where a manifest is stored, inside its organization-locked
+ * transaction, so marker rows are never written by concurrent readers and a
+ * marker exists only if that transaction commits.
  */
 export function databaseVerificationMarkerStore(
   executor: DatabaseSession,
+  options: { readonly record?: boolean } = {},
 ): AccessManifestVerificationMarkerStore {
   // Request-scoped: the store is created with each verification context.
   const loaded = new Map<string, AccessManifestVerificationMarkerRow | null>();
+  const pending = new Map<string, AccessManifestVerificationMarkerRow>();
   return {
     async load(manifestHash) {
       const cached = loaded.get(manifestHash);
@@ -117,14 +136,28 @@ export function databaseVerificationMarkerStore(
       }
     },
     async save(manifestHash, marker) {
-      await executor
-        .insert(accessManifestVerifications)
-        .values({ manifestHash, ...marker })
-        .onConflictDoUpdate({
-          target: accessManifestVerifications.manifestHash,
-          set: marker,
-        });
+      if (!options.record) return;
+      pending.set(manifestHash, marker);
       loaded.set(manifestHash, marker);
+    },
+    async flush() {
+      // One sorted pass, so overlapping flushes lock rows in the same order.
+      const rows = [...pending]
+        .sort(([left], [right]) => (left < right ? -1 : left > right ? 1 : 0))
+        .map(([manifestHash, marker]) => ({ manifestHash, ...marker }));
+      pending.clear();
+      for (let offset = 0; offset < rows.length; offset += BATCH_SIZE) {
+        await executor
+          .insert(accessManifestVerifications)
+          .values(rows.slice(offset, offset + BATCH_SIZE))
+          .onConflictDoUpdate({
+            target: accessManifestVerifications.manifestHash,
+            set: {
+              mac: sql`excluded.mac`,
+              verifierVersion: sql`excluded.verifier_version`,
+            },
+          });
+      }
     },
   };
 }
@@ -138,7 +171,10 @@ export async function hasAccessManifestVerificationMarker(
   bundle: AccessManifestBundleWireResponse,
 ): Promise<boolean> {
   const marker = await store.load(bundle.manifestHash);
-  if (marker?.verifierVersion !== ACCESS_MANIFEST_VERIFIER_VERSION) {
+  if (
+    marker === null ||
+    marker.verifierVersion !== ACCESS_MANIFEST_VERIFIER_VERSION
+  ) {
     return false;
   }
   const expected = markerMac(bundle, marker.verifierVersion);

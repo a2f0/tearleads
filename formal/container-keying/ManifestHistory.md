@@ -27,18 +27,19 @@ grows and the process restarts. Capping mutations at the read limit preserves
 reads but violates `RevocationAvailable`. These are enabled-action safety checks,
 not claims of eventual network or scheduler progress.
 
-This repair removes the deterministic history-depth refusal. Each manifest the
-stored-history verifier accepts is marked with a MAC under a key derived from a
-server-held secret, binding its hash, a digest of the complete stored bundle and
-the verifier version. A later read stops at the first valid marker, so only an
-unmarked tail is re-verified; the database is still not a trust boundary, since
-an edited row or forged marker falls back to full verification. Document
-ancestor queries share a request-local binary ancestor index: indexing N
-manifests uses O(N log N) time and space, and each indexed lineage query takes
-O(log N). The index expands only down to requested floors. Incremental proof
-delivery, so a writer projection need not ship a container's full key history,
-remains tracked in [#2365, finding 6](https://github.com/a2f0/tearleads/issues/2365).
-It must not become a permanent lifetime-history refusal or a cap that prevents
+This repair removes the deterministic history-depth refusal. Each transaction
+that stores a manifest runs the stored-history verifier over it and marks it,
+with any unmarked history it depends on, using a MAC under a key derived from a
+server-held secret over its hash, a digest of the complete stored bundle and the
+crypto verifiers' rule revision. Reads only consult markers and stop at the
+first valid one; the database is still not a trust boundary, since an edited row
+or forged marker falls back to full verification. Document ancestor queries
+share a request-local binary ancestor index: indexing N manifests uses
+O(N log N) time and space, and each indexed lineage query takes O(log N). The
+index expands only down to requested floors. Incremental proof delivery, so a
+writer projection need not ship a container's full key history, remains tracked
+in [#2365, finding 6](https://github.com/a2f0/tearleads/issues/2365). It must
+not become a permanent lifetime-history refusal or a cap that prevents
 revocation. No existing history is trusted merely because its depth is large.
 Regressions cover a full 4,098-entry verification without markers, a marked
 history that is neither walked nor re-signed, edited rows, forged markers and a

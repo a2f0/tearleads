@@ -1,6 +1,9 @@
 import { expect, spyOn, test } from "bun:test";
+import { db } from "@tearleads/api-shared/postgres";
+import { accessEvents, accessManifests } from "@tearleads/api-shared/schema";
 import * as crypto from "@tearleads/crypto";
 import { isContainerReciteResponse } from "@tearleads/validators/response";
+import { eq } from "drizzle-orm";
 import {
   postRecite as post,
   buildReciteRequest as request,
@@ -73,24 +76,22 @@ async function countProjectionSignatureChecks(
 test("a long signed history is verified about once, not on every read", async () => {
   const created = await scenario();
   const { owner, child } = created;
-  await recite(created, child.accessManifest, RECITATIONS);
+  const last = await recite(created, child.accessManifest, RECITATIONS);
 
-  // Each mutation verified and marked its predecessor; a read verifies at most
-  // the unmarked head, whatever the history length.
-  const firstRead = await countProjectionSignatureChecks(
-    child.containerId,
-    owner.token,
-  );
-  expect(firstRead).toBeLessThanOrEqual(2);
+  // Each mutation marked the head it stored, so no read re-verifies history.
   expect(
     await countProjectionSignatureChecks(child.containerId, owner.token),
   ).toBe(0);
 
-  // Without markers (a rotated secret) the whole history verifies again.
+  // Without markers (a rotated secret) reads verify the whole history, and
+  // being reads they never write markers back.
   await clearAccessManifestVerificationMarkers();
-  expect(
-    await countProjectionSignatureChecks(child.containerId, owner.token),
-  ).toBeGreaterThan(RECITATIONS);
+  for (let read = 0; read < 2; read += 1)
+    expect(
+      await countProjectionSignatureChecks(child.containerId, owner.token),
+    ).toBeGreaterThan(RECITATIONS);
+  // The next mutation re-marks the history under its organization lock.
+  await recite(created, last, 1);
   expect(
     await countProjectionSignatureChecks(child.containerId, owner.token),
   ).toBe(0);
@@ -105,6 +106,35 @@ test("reading a longer history issues no queries per retained manifest", async (
   await recite(created, shorter, 20);
   await countSingleManifestLoads(child.containerId, owner.token);
   const after = await countSingleManifestLoads(child.containerId, owner.token);
-  // The lineage loads in bulk; 20 more manifests add no per-manifest loads.
+  // Path heads still load singly, which proves the spy observes the loader;
+  // the lineage loads in bulk, so 20 more manifests add no per-manifest loads.
+  expect(before).toBeGreaterThan(0);
   expect(after).toBe(before);
+}, 120_000);
+
+test("a marked head does not hide an edited predecessor row", async () => {
+  const created = await scenario();
+  const { owner, child } = created;
+  const head = await recite(created, child.accessManifest, 3);
+  expect(
+    await countProjectionSignatureChecks(child.containerId, owner.token),
+  ).toBe(0);
+  // Edit a stored predecessor's signed event in place; its marker no longer
+  // matches the bundle, so the read must verify it and refuse.
+  const previousHash = Reflect.get(head.manifest, "previousManifestHash");
+  if (typeof previousHash !== "string") throw new Error("Expected predecessor");
+  const [predecessor] = await db
+    .select({ eventHash: accessManifests.eventHash })
+    .from(accessManifests)
+    .where(eq(accessManifests.manifestHash, previousHash));
+  if (!predecessor) throw new Error("Expected stored predecessor");
+  await db
+    .update(accessEvents)
+    .set({ signature: "invalid" })
+    .where(eq(accessEvents.eventHash, predecessor.eventHash));
+  const response = await routeApp.request(
+    `/containers/${child.containerId}/writer-projection`,
+    { headers: { Authorization: `Bearer ${owner.token}` } },
+  );
+  expect(response.status).toBe(409);
 }, 120_000);

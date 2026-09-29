@@ -16,6 +16,7 @@ import {
   assertRosterProfileBindingPreserved,
   type RepairedRosterProfileBinding,
 } from "../../organizations/rosterProfileBindingInvariant";
+import { markStoredDocumentManifest } from "../markStoredDocumentManifest";
 import {
   appendAtomicRotationBaseline,
   assertAtomicRotationBaselineCoversCommittedFrontier,
@@ -116,6 +117,7 @@ async function advanceDocumentLinkSet(input: {
     { verifiedManifest: input.manifest },
     input.executor,
   );
+  await markStoredDocumentManifest(input.executor, input.manifest.manifestHash);
   if (input.baseline) {
     await assertAtomicRotationBaselineCoversCommittedFrontier(input.executor, {
       baseline: input.baseline,

@@ -6,12 +6,13 @@ const DEVELOPMENT_DOCUMENT_SYNC_CURSOR_HMAC_KEY =
   "tearleads-development-document-sync-cursor-key";
 
 /**
- * The server-held HMAC secret. Document sync cursors use it directly; other
+ * The deployment's configured server-held HMAC secret, or null when none is
+ * configured outside production. Document sync cursors use it directly; other
  * uses derive independent keys from it under their own domain labels.
  */
-export function readDocumentSyncCursorHmacKey(
+export function readConfiguredDocumentSyncCursorHmacKey(
   env: NodeJS.ProcessEnv = process.env,
-): string {
+): string | null {
   const configured = env[DOCUMENT_SYNC_CURSOR_HMAC_KEY_ENV]?.trim();
   if (configured) {
     if (Buffer.byteLength(configured, "utf8") < 32) {
@@ -26,5 +27,15 @@ export function readDocumentSyncCursorHmacKey(
       `${DOCUMENT_SYNC_CURSOR_HMAC_KEY_ENV} is required when NODE_ENV=production`,
     );
   }
-  return DEVELOPMENT_DOCUMENT_SYNC_CURSOR_HMAC_KEY;
+  return null;
+}
+
+/** The cursor HMAC secret, with a fixed development fallback. */
+export function readDocumentSyncCursorHmacKey(
+  env: NodeJS.ProcessEnv = process.env,
+): string {
+  return (
+    readConfiguredDocumentSyncCursorHmacKey(env) ??
+    DEVELOPMENT_DOCUMENT_SYNC_CURSOR_HMAC_KEY
+  );
 }

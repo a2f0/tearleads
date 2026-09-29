@@ -25,6 +25,7 @@ import {
   userIdsWithReadableAccessThroughPath,
 } from "../../containerPathUsers";
 import { createContainerWriterProjectionContext } from "../../writerProjection";
+import { markStoredContainerManifest } from "../../writerProjection/markStoredManifest";
 import {
   ContainerMutationError,
   mutationStateStale,
@@ -342,6 +343,7 @@ export async function persistVerifiedMutation(
   if (manifestHead.manifestHash !== manifest.manifestHash) {
     throw mutationStateStale("Container manifest head is stale");
   }
+  await markStoredContainerManifest(executor, manifest.manifestHash);
   context.manifestHeadByContainerId.set(
     manifest.state.containerId,
     manifestHead,
