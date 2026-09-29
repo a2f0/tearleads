@@ -218,3 +218,42 @@ test("a re-home rebinds only the binding it was verified against", async () => {
     await close();
   }
 });
+
+test("hydration never commits a folder into an organization it left", async () => {
+  const { close, execSql } = await createTestExecSql("held-binding-superseded");
+  try {
+    await persistence.ensureSchema(execSql);
+    await persistence.saveContainer(execSql, container, record);
+    await persistence.rebindHeldContainer(execSql, {
+      containerId: container.id,
+      expected: {
+        metadataDocumentId: container.metadataDocumentId,
+        organizationId: container.organizationId,
+      },
+      next: {
+        metadataDocumentId: container.metadataDocumentId,
+        organizationId: "replacement-organization",
+      },
+    });
+    await persistence.deleteContainers(execSql, [
+      { containerId: container.id, reason: "deleted", updatedAt: T2 },
+    ]);
+    const [fence] = await persistence.loadContainerHydrationTombstones(execSql);
+
+    await expect(
+      persistence.commitHydratedContainer(execSql, {
+        container,
+        expectedDormantRecord: null,
+        expectedHydrationTombstone: fence,
+        record,
+        remoteUpdatedAt: T2,
+        saveOptions: {},
+      }),
+    ).rejects.toMatchObject({ code: "object_mismatch" });
+    await expect(
+      persistence.containerExists(execSql, container.id),
+    ).resolves.toBe(false);
+  } finally {
+    await close();
+  }
+});

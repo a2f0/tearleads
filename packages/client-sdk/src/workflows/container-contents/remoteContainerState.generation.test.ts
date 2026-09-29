@@ -136,6 +136,7 @@ test("reset during insert cannot redirect hydration into the recovered database"
   const state = {
     containersById: new Map(),
     persistence: {
+      isSupersededContainerBinding: async () => false,
       loadHeldContainerBinding: async () => null,
       loadContainerMetadataRecord,
       commitHydratedContainer,
@@ -195,6 +196,7 @@ test("remote ingestion replays after recovery without another event", async () =
     containersById: new Map(),
     lifecycleGeneration: 0,
     persistence: {
+      isSupersededContainerBinding: async () => false,
       loadHeldContainerBinding: async () => null,
       listPendingCreateIntents: async () => [],
       loadContainerHydrationTombstones: async () => [],
@@ -266,6 +268,7 @@ test("remote ingestion discards payloads from a replaced structural context", as
     containersById: new Map(),
     lifecycleGeneration: 0,
     persistence: {
+      isSupersededContainerBinding: async () => false,
       loadHeldContainerBinding: async () => null,
       commitHydratedContainer,
       listPendingCreateIntents: async () => [],
@@ -346,6 +349,7 @@ test("reset during a batch replays every item into the recovered database", asyn
     containersById: new Map(),
     lifecycleGeneration: 0,
     persistence: {
+      isSupersededContainerBinding: async () => false,
       loadHeldContainerBinding: async () => null,
       listPendingCreateIntents: async () => [],
       loadContainerHydrationTombstones: async () => [],

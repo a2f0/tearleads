@@ -6,7 +6,10 @@ import {
   installOrganizationBinding,
 } from "../../../../test/helpers/containerMetadataBinding";
 import { loadAccessManifestCheckpoint } from "../../../data/persistence/keyingCheckpointPersistence";
+import { clientSqlTables } from "../../../data/sqlite/schema";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
+import { ensureSqlTables } from "../../../data/sqlite/sqlTableSchema";
+import { clearRemoteSyncState } from "../../sync/remoteReset";
 import { defaultContainerContentsPersistence as persistence } from "../containerPersistence";
 import { renameContainerMetadataStateFromRuntime } from "../metadataPersistence";
 import { upsertRemoteContainerState } from "../remoteContainerState";
@@ -439,6 +442,50 @@ test("a pending local folder binds only to its own user's create", async () => {
     await expect(
       persistence.loadHeldContainerBinding(execSql, fixture.listed.id),
     ).resolves.toMatchObject({ metadataDocumentId: null });
+  } finally {
+    close();
+  }
+});
+
+test("a replacement reset retires a dormant folder's purged organization", async () => {
+  const { execSql, close } = createNativeTestExecSql();
+  try {
+    const { fixture, hydrated } = await hydrateWithQueuedRename(execSql);
+    const purgedOrganizationId = hydrated.container.organizationId;
+    await persistence.deleteContainers(
+      execSql,
+      [
+        {
+          containerId: fixture.listed.id,
+          reason: "access_revoked",
+          updatedAt: fixture.listed.updatedAt,
+        },
+      ],
+      { discoveryOnly: true },
+    );
+    fixture.state.containersById.clear();
+    await ensureSqlTables(execSql, clientSqlTables);
+    await clearRemoteSyncState(execSql, {
+      organizationId: purgedOrganizationId,
+      replacement: {
+        organizationId: "replacement-organization",
+        rootContainerId: "replacement-root",
+      },
+    });
+    // The reset leaves the retained record unbound.
+    await expect(
+      persistence.loadHeldContainerBinding(execSql, fixture.listed.id),
+    ).resolves.toMatchObject({ metadataDocumentId: null, organizationId: "" });
+
+    // The server replays the folder's original self-signed create.
+    fixture.listed.organizationId = purgedOrganizationId;
+    fixture.listed.metadataDocumentId = fixture.metadataDocumentId;
+    await expect(fixture.hydrate()).rejects.toMatchObject({
+      code: "object_mismatch",
+    });
+    expect(await persistence.containerExists(execSql, fixture.listed.id)).toBe(
+      false,
+    );
   } finally {
     close();
   }

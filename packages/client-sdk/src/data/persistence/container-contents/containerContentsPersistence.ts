@@ -69,11 +69,9 @@ import {
   selectContainerMetadataRecord,
 } from "./containerMetadataRows";
 import { containerPendingUpdatePersistence } from "./containerPendingUpdatePersistence";
-import {
-  isSupersededContainerBinding,
-  rebindStoredHeldContainer,
-} from "./containerRebindPersistence";
+import { rebindStoredHeldContainer } from "./containerRebindPersistence";
 import { containerReconcilePersistence } from "./containerReconcilePersistence";
+import { isSupersededContainerBinding } from "./supersededContainerBindings";
 
 async function saveStoredContainer(
   execSql: Parameters<ContainerContentsPersistence["saveContainer"]>[0],

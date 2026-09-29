@@ -76,11 +76,11 @@ derive; another identity's Trash is reported unavailable, never matched by name.
 Every folder's metadata document id comes from its signed manifest, never from
 the listing. A held folder keeps its organization and metadata document unless
 the session user's own signed `container.create` re-homed it, as purged
-organization recovery does under existing ids. Any other conflicting proof is an
-`object_mismatch` incident, refused before pins advance or its role is cached;
-the row, dormant metadata, queued edits and checkpoints stay. Mutation and
-hydration transactions recheck the durable binding. Unbound folders accept one.
-Residual (#2389): another member holding a folder its owner re-homed is refused.
+organization recovery does under existing ids; an organization a folder left is
+recorded and never binds it again. Other conflicts are refused as incidents
+before pins or role caching, keeping the row, queued edits and checkpoints; an
+unbound folder binds only to its own user's create. Transactions recheck the
+durable binding. Residual (#2389): another member holding a re-homed folder.
 
 ## Recovery Key Disclosure
 

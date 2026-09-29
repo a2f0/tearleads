@@ -1,3 +1,4 @@
+import { KeyingVerificationError } from "@tearleads/crypto";
 import { and, eq, inArray, sql } from "drizzle-orm";
 import {
   assertHeldContainerBinding,
@@ -27,6 +28,7 @@ import {
   saveContainerContentsContainerRows,
   selectContainerMetadataRecord,
 } from "./containerMetadataRows";
+import { isSupersededContainerBinding } from "./supersededContainerBindings";
 
 function sameNullableValue(
   left: string | null | undefined,
@@ -237,6 +239,17 @@ export async function commitStoredHydratedContainer(
         !sameMetadataRecord(currentDormantRecord, input.expectedDormantRecord)
       ) {
         return { committed: false as const };
+      }
+      if (
+        await isSupersededContainerBinding(lockedExecSql, {
+          containerId: input.container.id,
+          organizationId: input.container.organizationId,
+        })
+      ) {
+        throw new KeyingVerificationError(
+          "object_mismatch",
+          "container was re-homed away from this organization",
+        );
       }
       // Retained metadata keeps its organization and target; a relisting that
       // names others rolls back rather than replacing retained private edits.

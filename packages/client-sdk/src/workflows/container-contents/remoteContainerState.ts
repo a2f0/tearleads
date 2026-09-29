@@ -1,5 +1,8 @@
 import type { AccessManifestCheckpoint } from "@tearleads/crypto";
-import { heldContainerBinding } from "../../data/containers/containerBinding";
+import {
+  heldContainerBinding,
+  listingRepeatsHeldOrdinaryBinding,
+} from "../../data/containers/containerBinding";
 import {
   isKeyingVerificationError,
   runWithSecurityIncidentReporting,
@@ -283,11 +286,10 @@ export async function upsertRemoteContainerState(
         input.remoteContainer.id,
       );
   const listed = input.remoteContainer;
-  // Only a held folder listed under another organization can be a replay.
+  // A folder re-homed away from the listed organization never returns there,
+  // whatever binding (possibly none, after a reset) the device holds now.
   const supersededListing =
-    heldBinding !== null &&
-    heldBinding.organizationId !== "" &&
-    heldBinding.organizationId !== listed.organizationId &&
+    !listingRepeatsHeldOrdinaryBinding(heldBinding, listed) &&
     (await input.state.persistence.isSupersededContainerBinding(
       input.state.runtime.infra.execSql,
       { containerId: listed.id, organizationId: listed.organizationId },

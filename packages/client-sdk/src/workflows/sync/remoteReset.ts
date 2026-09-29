@@ -1,5 +1,5 @@
 import { and, eq, inArray, or } from "drizzle-orm";
-import { recordSupersededContainerBindingsInTransaction } from "../../data/persistence/container-contents/containerRebindPersistence";
+import { recordSupersededContainerBindingsInTransaction } from "../../data/persistence/container-contents/supersededContainerBindings";
 import {
   deleteDocumentPlacementRowsByContainerIds,
   deleteDocumentPlacementRowsByDocumentIds,
