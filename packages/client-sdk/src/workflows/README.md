@@ -203,21 +203,19 @@ decrypted values, and remote-state reset does not erase them.
 Remote document deletion commits its verified terminal purge checkpoint in the
 same local transaction as the matching document teardown. An interruption,
 stale store generation, or identity replacement leaves both operations
-uncommitted so the current generation can retry the retained proof.
-The public entry point is
-`tearleads.containerContents.documentLinks().purgeDocument({ note })`. A remote
-document must have exactly one remaining container link; recursive container
-purge unlinks any additional in-subtree links before calling it. `null` means
-the purge was refused or could not be verified, and callers must retain the
-local document.
-Proof fetching reveals only purge-time heads by default. The SDK authenticates
-that baseline, including its redacted signed principal-policy snapshots, before
-reading local checkpoint identities. It may then supply an already-known
-document hash to fetch signed predecessor history. The purge-time container
-path must satisfy local container checkpoints directly; a later local head is
-ambiguous and fails closed because ancestry cannot order the separate purge
-signature. A coded not-found while retrying a user-initiated purge follows this
-retained-proof path as well.
+uncommitted so the current generation can retry the retained proof. The public
+entry point is `tearleads.containerContents.documentLinks().purgeDocument({
+note })`. A remote document must have exactly one remaining container link;
+recursive container purge unlinks any additional in-subtree links before
+calling it. `null` means the purge was refused or could not be verified, and
+callers must retain the local document. Recorded readers get signed genesis
+history and its container/policy dependencies; purge-path access alone reveals
+a terminal snapshot. The SDK authenticates before reading local pins, then
+reuses the proof without a checkpoint-floor retry. Deletion requires an exact
+pin or signed transitions from a pin or genesis. Missing history without a pin
+defers deletion without an incident; snapshots cannot advance existing pins.
+Later container pins fail closed because ancestry cannot order the separate
+purge signature. Lost-response purge retries use this same flow.
 
 Organization directory, group-summary, state-hash-bound membership, grant, and
 policy-head rows are presentation projections. The SDK reconciles them through

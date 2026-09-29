@@ -281,6 +281,7 @@ test("root-lane refresh follows a newly discovered shared root into its children
     const childLaneParentIds: Array<string | null | undefined> = [];
     const signedDirectory = await createSignedContainerDirectory([
       { id: "owner-root", parentId: null, organizationId: "org-2" },
+      { id: "owner-child", parentId: "owner-root", organizationId: "org-2" },
     ]);
     const runtime = createContainerContentsTestRuntime({
       resolveTrustedUserIdentity: signedDirectory.resolveTrustedUserIdentity,

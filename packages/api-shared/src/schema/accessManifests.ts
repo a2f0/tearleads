@@ -162,10 +162,10 @@ export const accessManifestHeads = pgTable(
 
 /**
  * Durable proof that an authorized user was served a document manifest while
- * the document was live. Purge-proof retrieval accepts a historical checkpoint
- * only when this table shows the caller already knew that exact hash, preventing
- * the terminal proof endpoint from becoming a history-enumeration oracle.
- * These rows intentionally survive signed document purge.
+ * the document was live. With purge-path access, any observation of the document
+ * permits full purge-proof history; an explicit earlier checkpoint additionally
+ * requires this caller's observation of that exact hash. Path access alone only
+ * permits a terminal snapshot. These rows survive signed document purge.
  */
 export const documentManifestObservations = pgTable(
   "document_manifest_observations",

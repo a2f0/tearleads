@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import { execDatabaseStatement } from "@tearleads/sqlite-worker/load-sqlite3";
 import { initTestSqliteDatabase } from "@tearleads/test-utils";
+import { cachedContainerHydrationRuntime } from "../../../test/helpers/cachedContainerHydrationRuntime";
 import type { ContainerContentsPersistence } from "../../data/persistence/container-contents/containerContentsPersistence";
 import { sqlContainerContentsPersistence } from "../../data/persistence/container-contents/containerContentsPersistence";
 import {
@@ -54,10 +55,10 @@ function createState(
   return {
     containersById: new Map(),
     persistence,
-    runtime: {
-      auth: { organizationId: "organization-1" },
-      infra: { execSql: runtime.execSql },
-    },
+    runtime: cachedContainerHydrationRuntime(
+      [remoteContainer],
+      runtime.execSql,
+    ),
   } as RemoteContainerHydrationState;
 }
 

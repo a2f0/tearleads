@@ -1,5 +1,4 @@
 import {
-  type AccessManifestCheckpoint,
   computeAccessEventBodyHash,
   type DocumentPurgeAccessEventBody,
   KeyingVerificationError,
@@ -40,7 +39,6 @@ import {
 } from "../../data/keyingProjectionVerification";
 import { ProjectionDependencyUnavailableError } from "../../data/keyingProjectionVerification/dependencyUnavailable";
 import { documentContainerProjections } from "../../data/keyingProjectionVerification/documentContainerProjections";
-import { loadAccessManifestCheckpoint } from "../../data/persistence/keyingCheckpointPersistence";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 
 interface DocumentPurgeApi {
@@ -67,21 +65,7 @@ interface DocumentPurgeApi {
 
 const REMOTE_DOCUMENT_ALREADY_PURGED = Symbol("remoteDocumentAlreadyPurged");
 
-async function loadLocalDocumentCheckpointManifestHash(input: {
-  readonly documentCheckpoint: AccessManifestCheckpoint;
-  readonly execSql: ExecSql;
-  readonly expectedOrganizationId: string;
-}): Promise<string> {
-  const storedDocument = await loadAccessManifestCheckpoint(
-    input.execSql,
-    "document",
-    input.expectedOrganizationId,
-    input.documentCheckpoint.objectId,
-  );
-  return storedDocument?.manifestHash ?? input.documentCheckpoint.manifestHash;
-}
-
-async function loadCheckpointBoundedDocumentPurgeProof(input: {
+async function loadAuthenticatedDocumentPurgeProof(input: {
   readonly apiClient: Pick<DocumentSyncApi, "getDocumentPurgeProof">;
   readonly documentId: string;
   readonly execSql: ExecSql;
@@ -106,32 +90,17 @@ async function loadCheckpointBoundedDocumentPurgeProof(input: {
     // Keep local data and defer deletion until an actual proof verifies.
     return null;
   }
-  const baseline = await verifyDocumentPurgeProofBaseline({
+  await verifyDocumentPurgeProofBaseline({
     execSql: input.execSql,
     expectedDocumentId: input.documentId,
     expectedOrganizationId: input.expectedOrganizationId,
     proof: initialProof,
     resolveUserKey: input.resolveProjectionUserKey,
   });
-  const documentCheckpointManifestHash =
-    await loadLocalDocumentCheckpointManifestHash({
-      documentCheckpoint: baseline.documentCheckpoint,
-      execSql: input.execSql,
-      expectedOrganizationId: input.expectedOrganizationId,
-    });
-  if (
-    documentCheckpointManifestHash ===
-    initialProof.documentManifest.manifestHash
-  ) {
-    return initialProof;
-  }
-  return input.apiClient.getDocumentPurgeProof(
-    input.documentId,
-    { documentCheckpointManifestHash },
-    {
-      expectedPaymentRequiredOrganizationId: input.expectedOrganizationId,
-    },
-  );
+  // The current API returns complete history to recorded readers. Otherwise
+  // its terminal snapshot needs an exact local pin; a floor refetch cannot
+  // grant missing observation authority.
+  return initialProof;
 }
 
 async function resolveDocumentPurgeWriterProjection(input: {
@@ -243,7 +212,7 @@ export function createVerifiedRemoteDocumentDeletionHandler(input: {
   readonly resolveProjectionUserKey: ProjectionUserKeyResolver;
 }): (deleted: { readonly documentId: string }) => Promise<void> {
   return async ({ documentId }) => {
-    const proof = await loadCheckpointBoundedDocumentPurgeProof({
+    const proof = await loadAuthenticatedDocumentPurgeProof({
       apiClient: input.apiClient,
       documentId,
       execSql: input.execSql,
@@ -290,7 +259,7 @@ export async function purgeRemoteDocument(input: {
     return null;
   }
   if (writerProjection === REMOTE_DOCUMENT_ALREADY_PURGED) {
-    const proof = await loadCheckpointBoundedDocumentPurgeProof({
+    const proof = await loadAuthenticatedDocumentPurgeProof({
       apiClient: input.apiClient,
       documentId: input.documentId,
       execSql: input.execSql,

@@ -107,6 +107,7 @@ for (const [signedSlot, listedSlot] of [
       expect(stored?.container.systemSlot).toBe(signedSlot);
       expect(stored?.container.parentId).toBe(parent.projection.containerId);
       const again = await verifyRemoteContainerDestination({
+        heldBinding: null,
         remoteContainer: { ...listed, metadataDocumentId: "another-forged-id" },
         state,
       });
@@ -222,13 +223,18 @@ test("an acknowledged root created by another identity is never the merge target
     // against the session user on every reuse.
     auth.userId = attacker.userId;
     const own = await verifyRemoteContainerDestination({
+      heldBinding: null,
       remoteContainer: listed,
       state,
     });
     expect(own?.parentId).toBeNull();
     auth.userId = victimUserId;
     await expect(
-      verifyRemoteContainerDestination({ remoteContainer: listed, state }),
+      verifyRemoteContainerDestination({
+        heldBinding: null,
+        remoteContainer: listed,
+        state,
+      }),
     ).rejects.toMatchObject({ code: "signer_mismatch" });
     expect(projectionReads).toBe(1);
     expect(incidents).toHaveLength(2);
@@ -314,6 +320,7 @@ test("a root head at a later epoch binds the epoch-1 creator through its served 
       updatedAt: "2026-09-12T00:00:00.000Z",
     };
     const own = await verifyRemoteContainerDestination({
+      heldBinding: null,
       remoteContainer: listed,
       state,
     });
@@ -326,7 +333,11 @@ test("a root head at a later epoch binds the epoch-1 creator through its served 
     expect(own?.metadataDocumentId).toBe(signedMetadataDocumentId);
     auth.userId = revokedUserId;
     await expect(
-      verifyRemoteContainerDestination({ remoteContainer: listed, state }),
+      verifyRemoteContainerDestination({
+        heldBinding: null,
+        remoteContainer: listed,
+        state,
+      }),
     ).rejects.toMatchObject({ code: "signer_mismatch" });
   });
 });

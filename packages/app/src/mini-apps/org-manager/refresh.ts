@@ -162,7 +162,7 @@ interface ScopedRefresherInput<Result> {
   readonly load: (() => Promise<Result>) | null;
   readonly onError?: (error: unknown) => void;
   readonly onSettled?: () => void;
-  readonly onUnavailable?: (isCurrentRequest: () => boolean) => void;
+  readonly onUnavailable?: () => void;
   readonly options?: RefreshBehaviorOptions;
   readonly requestKind: OrgManagerRequestKind;
   readonly setError: (error: string | null) => void;
@@ -173,8 +173,13 @@ export async function runScopedRefresher<Result>(
   input: ScopedRefresherInput<Result>,
 ): Promise<void> {
   const isCurrentRequest = input.beginRequest(input.requestKind);
+  // A multi-step refresh may resume after its view has unmounted. Refuse
+  // the next load as well as its eventual state updates in that case.
+  if (!isCurrentRequest()) {
+    return;
+  }
   if (input.load === null) {
-    input.onUnavailable?.(isCurrentRequest);
+    input.onUnavailable?.();
     return;
   }
 

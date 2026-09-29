@@ -127,6 +127,7 @@ test("a persisted shared root created by another user never absorbs local conten
     // Hydrated earlier as an ordinary shared root: verified, cached, no signer
     // check because it was not the session root then.
     const verified = await verifyRemoteContainerDestination({
+      heldBinding: null,
       remoteContainer: listed,
       state,
     });
@@ -159,7 +160,11 @@ test("a persisted shared root created by another user never absorbs local conten
     // refuses it as the session root, and leaves the role cached, so the next
     // reconciliation decides from the cache and refuses again.
     await expect(
-      verifyRemoteContainerDestination({ remoteContainer: listed, state }),
+      verifyRemoteContainerDestination({
+        heldBinding: null,
+        remoteContainer: listed,
+        state,
+      }),
     ).rejects.toMatchObject({ code: "signer_mismatch" });
     expect(projectionReads).toBe(2);
     await expect(reconcile()).resolves.toBe(0);

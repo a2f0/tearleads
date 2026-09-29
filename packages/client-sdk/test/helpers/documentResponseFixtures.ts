@@ -230,6 +230,7 @@ export async function createSyncFixture() {
 
 export async function createMaterializedSyncFixture(
   input: {
+    containerId?: string;
     documentId?: string;
     organizationId?: string;
     userId?: string;
@@ -250,7 +251,7 @@ export async function createMaterializedSyncFixture(
     : undefined;
   const projection = await createContainerWriterProjectionFixture({
     parentProjection,
-    containerId: "materialized-sync-container",
+    containerId: input.containerId ?? "materialized-sync-container",
     encapsulationPublicKey: keyPair.publicKey,
     organizationId: author.organizationId,
     signerKeyFingerprint: author.signerKeyFingerprint,

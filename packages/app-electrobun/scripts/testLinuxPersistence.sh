@@ -35,16 +35,50 @@ stop_app() {
   fi
 
   if kill -0 "$app_pid" 2>/dev/null; then
-    /bin/kill -INT -- "-$app_pid" 2>/dev/null || true
-    sleep 2
-    /bin/kill -KILL -- "-$app_pid" 2>/dev/null || true
+    # Ask the native window to close. Signaling the process group also kills
+    # CEF's storage processes before its profile has finished flushing.
+    if ! "$smoke_root/close-app" "$app_pid"; then
+      echo "Could not request a native app-window close:" >&2
+      cat "$round_log" >&2
+      return 1
+    fi
+    attempt=0
+    while kill -0 "$app_pid" 2>/dev/null && [ "$attempt" -lt 150 ]; do
+      attempt=$((attempt + 1))
+      sleep 0.1
+    done
+    if kill -0 "$app_pid" 2>/dev/null; then
+      echo "Electrobun did not exit after the native close request:" >&2
+      cat "$round_log" >&2
+      return 1
+    fi
   fi
-  wait "$app_pid" 2>/dev/null || true
+  if ! wait "$app_pid"; then
+    echo "Electrobun exited unsuccessfully:" >&2
+    cat "$round_log" >&2
+    return 1
+  fi
+  # CEF helpers can finish just after the launcher. Require the group to drain
+  # within a bounded grace period before reopening its profile.
+  attempt=0
+  while /bin/kill -0 -- "-$app_pid" 2>/dev/null && [ "$attempt" -lt 150 ]; do
+    attempt=$((attempt + 1))
+    sleep 0.1
+  done
+  if /bin/kill -0 -- "-$app_pid" 2>/dev/null; then
+    echo "Electrobun left processes alive after its launcher exited:" >&2
+    cat "$round_log" >&2
+    return 1
+  fi
   app_pid=""
 }
 
 cleanup() {
-  stop_app
+  # Forced termination is failure cleanup only, never a successful test round.
+  if [ -n "$app_pid" ]; then
+    /bin/kill -KILL -- "-$app_pid" 2>/dev/null || true
+    wait "$app_pid" 2>/dev/null || true
+  fi
   case "$smoke_root" in
     /tmp/tearleads-electrobun-persistence-*) rm -rf -- "$smoke_root" ;;
   esac
@@ -119,6 +153,8 @@ if curl --fail --max-time 1 --silent "$devtools_url" >/dev/null 2>&1; then
 fi
 
 smoke_root=$(mktemp -d /tmp/tearleads-electrobun-persistence-XXXXXX)
+cc -Wall -Wextra -Werror "$script_dir/closeLinuxApp.c" \
+  -o "$smoke_root/close-app" -lX11 -lXRes
 mkdir -p "$smoke_root/home" "$smoke_root/cache" "$smoke_root/data"
 first_state="$smoke_root/first-state.json"
 

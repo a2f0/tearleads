@@ -2,12 +2,12 @@ import { expect } from "bun:test";
 import { fireEvent, waitFor, within } from "@testing-library/react";
 import invariant from "invariant";
 import { RECOVERY_KEY_ACKNOWLEDGEMENT_PHRASE } from "../../../src/mini-apps/identity-manager/actions/recoveryKeyDisclosure";
-import { flattenPaneStatusText } from "../paneTestUtils";
 import {
+  DUAL_PANE_TEST_TIMEOUT_MS,
   interact,
   openIdentityManagerForPane,
-  waitForSinglePaneProvisioning,
 } from "./dualPaneCore";
+import { restorePaneRecoveryKey as restorePaneRecoveryKeyAction } from "./dualPaneRecoveryKeyActions";
 import { waitForExplorerDocumentRow } from "./explorerDocumentRow";
 
 export async function createPaneCustomContact(
@@ -144,29 +144,11 @@ export async function restorePaneRecoveryKey(
   recoveryKey: string,
 ) {
   const identityManager = await openIdentityManagerForPane(pane);
-  fireEvent.click(
-    within(identityManager).getByRole("button", { name: "Recovery Key" }),
-  );
-  fireEvent.click(
-    within(identityManager).getByRole("tab", { name: "Recovery" }),
-  );
-  await interact(() => {
-    fireEvent.change(
-      within(identityManager).getByLabelText("Restore passphrase"),
-      { target: { value: recoveryKey } },
-    );
-    fireEvent.click(
-      within(identityManager).getByRole("button", {
-        name: "Restore from Passphrase",
-      }),
-    );
-  });
-
-  await waitForSinglePaneProvisioning(pane);
-  await waitFor(() => {
-    expect(flattenPaneStatusText(pane)).toMatch(
-      /(?:sqlite worker|SQLite Worker):\s*ready/,
-    );
+  await restorePaneRecoveryKeyAction({
+    identityManager,
+    pane,
+    seedPhrase: recoveryKey,
+    timeoutMs: DUAL_PANE_TEST_TIMEOUT_MS,
   });
 }
 

@@ -89,13 +89,16 @@ test("a failed page upsert does not checkpoint or skip trailing containers", asy
             signedDirectory.getContainerWriterProjection,
           getCurrentPrincipalPolicy: async () => null,
           listContainerParentLanes: async (request: {
-            lanes: ReadonlyArray<{ laneId: string }>;
+            lanes: ReadonlyArray<{ laneId: string; parentId: string | null }>;
           }): Promise<ListContainerParentLanesResponse> => ({
-            results: request.lanes.map(({ laneId }) => ({
+            results: request.lanes.map(({ laneId, parentId }) => ({
               laneId,
               page: {
                 hasMore: false,
-                items: [remoteContainer("failed"), remoteContainer("trailing")],
+                items:
+                  parentId === null
+                    ? [remoteContainer("failed"), remoteContainer("trailing")]
+                    : [],
                 nextWatermark: pageWatermark,
                 tombstones: [],
               },
@@ -299,18 +302,21 @@ test("a stale page item does not starve an independent new container", async () 
             signedDirectory.getContainerWriterProjection,
           getCurrentPrincipalPolicy: async () => null,
           listContainerParentLanes: async (request: {
-            lanes: ReadonlyArray<{ laneId: string }>;
+            lanes: ReadonlyArray<{ laneId: string; parentId: string | null }>;
           }): Promise<ListContainerParentLanesResponse> => {
             existingState.record.documentId = "newer-local-metadata";
             return {
-              results: request.lanes.map(({ laneId }) => ({
+              results: request.lanes.map(({ laneId, parentId }) => ({
                 laneId,
                 page: {
                   hasMore: false,
-                  items: [
-                    remoteContainer(existingState.container.id),
-                    newContainer,
-                  ],
+                  items:
+                    parentId === null
+                      ? [
+                          remoteContainer(existingState.container.id),
+                          newContainer,
+                        ]
+                      : [],
                   nextWatermark: {
                     id: "partial-page-end",
                     updatedAt: "2026-01-02T00:00:00.000Z",

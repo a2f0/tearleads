@@ -270,12 +270,6 @@ export async function verifyDocumentPurgeProofBaseline(
   input: VerifyDocumentPurgeProofInput,
 ): Promise<Pick<VerifiedDocumentPurgeProofCommit, "documentCheckpoint">> {
   requirePurgeProofShape(input.proof);
-  if (input.proof.documentManifestPredecessors.length !== 0) {
-    throw new KeyingVerificationError(
-      "invalid_shape",
-      "Initial document purge proof is not purge-time bounded",
-    );
-  }
   const verified = await verifyDocumentPurgeProofWithMode(input, false);
   return {
     documentCheckpoint: verified.documentCheckpoint,

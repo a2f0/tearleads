@@ -28,16 +28,16 @@ export function reattachDormantContainerMetadata(input: {
   snapshotEndVersion: string;
 } {
   const { defaultName, doc, dormantRecord } = input;
-  // Re-attach when the dormant record describes the SAME remote metadata
-  // document — or was never bound to one at all (documentId null: a
-  // lost-response create retained via its own tombstone). Only a concrete
-  // DIFFERENT id proves the document was replaced while access was revoked;
-  // that dead stream's content, marker, and LSN cursor must not carry over.
-  const matches =
-    dormantRecord !== null &&
-    (dormantRecord.documentId === input.remoteMetadataDocumentId ||
-      dormantRecord.documentId === null);
-  if (!matches || !dormantRecord) {
+  // The signed metadata document id never changes, and hydration refuses a
+  // relisting that conflicts with the retained binding before reaching here.
+  // A null id is a lost-response create retained via its own tombstone.
+  if (
+    dormantRecord?.documentId != null &&
+    dormantRecord.documentId !== input.remoteMetadataDocumentId
+  ) {
+    throw new Error("Dormant container metadata binding was not verified");
+  }
+  if (!dormantRecord) {
     return {
       icon: null,
       initialSnapshot: bytesToBase64(exportAllUpdates(doc)),
