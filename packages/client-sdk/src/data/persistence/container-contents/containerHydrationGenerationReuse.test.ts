@@ -28,7 +28,6 @@ test("a remove-restore-remove cycle cannot reuse an earlier hydration observatio
       container,
       expectedDormantRecord: null,
       expectedHydrationTombstone: fence,
-      purgeDormantMetadata: false,
       record: {
         id: container.id,
         documentId: container.metadataDocumentId,

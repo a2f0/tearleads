@@ -42,6 +42,7 @@ test("explorer store shares an authenticated container without reseeding metadat
   const containerProjection = await createExplorerMetadataContainerProjection({
     containerId: "child-container",
     encapsulationPublicKey: localKeyPair.publicKey,
+    metadataDocumentId: "metadata-document-1",
     organizationId: "org-1",
     signerKeyFingerprint: signingFingerprint,
     signerPrivateKey: signingKeyPair.signingPrivateKey,

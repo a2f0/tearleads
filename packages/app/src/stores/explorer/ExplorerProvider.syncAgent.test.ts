@@ -23,7 +23,7 @@ import {
   createSqlRuntime,
   runtimeWithPatch,
 } from "../../../test/helpers/explorer-provider/explorerProviderHarness";
-import { createSignedExplorerRoots } from "../../../test/helpers/explorer-provider/signedExplorerRoots";
+import { createSignedExplorerDirectory } from "../../../test/helpers/explorer-provider/signedExplorerDirectory";
 import { waitForCondition } from "../../../test/helpers/waitForCondition";
 
 test("explorer snapshot update skips notifications when node contents are unchanged", async () => {
@@ -145,11 +145,17 @@ test("explorer sync agent batches concurrent remote ingests into one snapshot up
   const requestedPrincipalPolicies: string[] = [];
   const runtime = runtimeWithPatch(await createSqlRuntime(), {
     apiClient: createMockApiClient({
-      ...(await createSignedExplorerRoots([
+      ...(await createSignedExplorerDirectory([
         {
           id: "container-a",
           organizationId: "org-1",
           metadataDocumentId: "metadata-document-a",
+        },
+        {
+          id: "container-b",
+          metadataDocumentId: "metadata-document-b",
+          organizationId: "org-1",
+          parentId: "container-a",
         },
       ])),
       getCurrentPrincipalPolicy: async (principalType, principalId) => {
@@ -262,11 +268,17 @@ test("explorer sync agent retries remote ingests after a failed batch", async ()
   const requestedPrincipalPolicies: string[] = [];
   const runtime = runtimeWithPatch(await createSqlRuntime(), {
     apiClient: createMockApiClient({
-      ...(await createSignedExplorerRoots([
+      ...(await createSignedExplorerDirectory([
         {
           id: "container-a",
           organizationId: "org-1",
           metadataDocumentId: "metadata-document-a",
+        },
+        {
+          id: "container-b",
+          metadataDocumentId: "metadata-document-b",
+          organizationId: "org-1",
+          parentId: "container-a",
         },
       ])),
       getCurrentPrincipalPolicy: async (principalType, principalId) => {

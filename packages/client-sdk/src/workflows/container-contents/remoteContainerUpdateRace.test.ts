@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import { execDatabaseStatement } from "@tearleads/sqlite-worker/load-sqlite3";
 import { initTestSqliteDatabase } from "@tearleads/test-utils";
+import { cachedContainerHydrationRuntime } from "../../../test/helpers/cachedContainerHydrationRuntime";
 import type { ContainerContentsPersistence } from "../../data/persistence/container-contents/containerContentsPersistence";
 import { sqlContainerContentsPersistence } from "../../data/persistence/container-contents/containerContentsPersistence";
 import {
@@ -162,7 +163,10 @@ test("stale same-identity hydration cannot overwrite a newer pane", async () => 
         [staleRemoteContainer.id, staleState],
       ]),
       persistence: sqlContainerContentsPersistence,
-      runtime: { infra: { execSql: first.runtime.execSql } },
+      runtime: cachedContainerHydrationRuntime(
+        [staleRemoteContainer],
+        first.runtime.execSql,
+      ),
     } as RemoteContainerHydrationState;
     await expect(
       upsertRemoteContainerState({
@@ -268,7 +272,10 @@ test("pending structural hydration preserves a newer pane move", async () => {
         [staleRemoteContainer.id, staleState],
       ]),
       persistence: sqlContainerContentsPersistence,
-      runtime: { infra: { execSql: first.runtime.execSql } },
+      runtime: cachedContainerHydrationRuntime(
+        [staleRemoteContainer],
+        first.runtime.execSql,
+      ),
     } as RemoteContainerHydrationState;
 
     await expect(

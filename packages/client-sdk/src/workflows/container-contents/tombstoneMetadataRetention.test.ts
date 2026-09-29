@@ -356,19 +356,17 @@ test("revoke then rehydrate re-attaches dormant metadata content", async () => {
       snapshotEndVersion: dormantRecord?.snapshotEndVersion ?? "",
     });
 
-    // A rotated metadata document id means the dormant stream is dead: no
-    // content, marker, or LSN cursor may carry over.
+    // The signed metadata document id never changes. Hydration refuses a
+    // conflicting relisting before re-attachment, so a mismatch is a bug.
     const freshDoc = await createContainerMetadataDocument("revoked");
-    const mismatched = reattachDormantContainerMetadata({
-      defaultName: "Untitled",
-      doc: freshDoc,
-      dormantRecord: dormantRecord ?? null,
-      remoteMetadataDocumentId: "metadata-replaced",
-    });
-    expect(mismatched.name).toBe("Untitled");
-    expect(mismatched.lastCommitLsn).toBeNull();
-    expect(mismatched.snapshotEndVersion).toBe("");
-    expect(mismatched.initialSnapshot).not.toBe(authoredSnapshot);
+    expect(() =>
+      reattachDormantContainerMetadata({
+        defaultName: "Untitled",
+        doc: freshDoc,
+        dormantRecord: dormantRecord ?? null,
+        remoteMetadataDocumentId: "metadata-replaced",
+      }),
+    ).toThrow("Dormant container metadata binding was not verified");
   } finally {
     await close();
   }

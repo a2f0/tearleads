@@ -103,10 +103,11 @@ test("an overtaking create can atomically adopt remote identity as a move", asyn
     "container-create-intent-atomic-settlement",
   );
   const sameUpdatedAt = "2026-09-01T00:00:00.000Z";
+  // A local create is unbound until the server acknowledges its signed create.
   const record = {
     accessEpoch: 1,
     accessStateHash: "local-access",
-    documentId: "local-metadata",
+    documentId: null,
     id: "child-atomic-create",
     metadataUpdates: "",
     snapshotEndVersion: "",

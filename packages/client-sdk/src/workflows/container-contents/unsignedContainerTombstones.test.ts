@@ -280,7 +280,6 @@ test("unsigned deletion preserves queued metadata and permits verified rediscove
           record: childState.record,
           expectedDormantRecord: metadataBeforeTombstone,
           expectedHydrationTombstone: null,
-          purgeDormantMetadata: false,
           remoteUpdatedAt: T0,
           saveOptions: {},
         },

@@ -422,41 +422,41 @@ test("an out-of-order remote mutation cannot roll back a metadata access epoch",
     if (!replacementExpected?.record) {
       throw new Error("Expected metadata state before replacement");
     }
-    const replacement =
-      await sqlContainerContentsPersistence.commitMetadataMutation(
-        runtime.execSql,
-        {
-          acceptedPendingUpdateIds: [],
-          container: {
-            ...replacementExpected.container,
-            metadataDocumentId: "replacement-metadata",
-          },
-          expectedContainer: replacementExpected.container,
-          expectedRecord: replacementExpected.record,
-          record: {
-            ...replacementExpected.record,
-            accessEpoch: 1,
-            accessStateHash: "replacement-access-1",
-            documentId: "replacement-metadata",
-          },
-          saveOptions: {
-            localUpdatedAt: T2,
-            serverTimestamps: { createdAt: T1, updatedAt: T2 },
-          },
-          settleAcceptedPendingOnConflict: false,
+    // The signed metadata document id is immutable: a lower-epoch record for
+    // another document is a rebinding, never a replacement.
+    await expect(
+      sqlContainerContentsPersistence.commitMetadataMutation(runtime.execSql, {
+        acceptedPendingUpdateIds: [],
+        container: {
+          ...replacementExpected.container,
+          metadataDocumentId: "replacement-metadata",
         },
-      );
-    expect(replacement).toMatchObject({ committed: true });
+        expectedContainer: replacementExpected.container,
+        expectedRecord: replacementExpected.record,
+        record: {
+          ...replacementExpected.record,
+          accessEpoch: 1,
+          accessStateHash: "replacement-access-1",
+          documentId: "replacement-metadata",
+        },
+        saveOptions: {
+          localUpdatedAt: T2,
+          serverTimestamps: { createdAt: T1, updatedAt: T2 },
+        },
+        settleAcceptedPendingOnConflict: false,
+      }),
+    ).rejects.toMatchObject({ code: "object_mismatch" });
     await expect(
       sqlContainerContentsPersistence.loadContainerMetadataState(
         runtime.execSql,
         container.id,
       ),
     ).resolves.toMatchObject({
+      container: { metadataDocumentId: container.metadataDocumentId },
       record: {
-        accessEpoch: 1,
-        accessStateHash: "replacement-access-1",
-        documentId: "replacement-metadata",
+        accessEpoch: 2,
+        accessStateHash: "access-2",
+        documentId: container.metadataDocumentId,
       },
     });
   } finally {

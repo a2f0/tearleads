@@ -76,6 +76,24 @@ export const dormantContainerMetadata = sqliteTable(
 );
 
 /**
+ * Organizations a held folder was re-homed away from. Purged-organization
+ * recovery re-creates folders under their existing ids and a purged
+ * organization never returns, so a later proof binding the folder back to one
+ * of these organizations is a replay. Retained across remote resets.
+ */
+export const supersededContainerBindings = sqliteTable(
+  "superseded_container_bindings",
+  {
+    containerId: text("container_id").notNull(),
+    organizationId: text("organization_id").notNull(),
+    supersededAt: text("superseded_at").notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.containerId, table.organizationId] }),
+  ],
+);
+
+/**
  * Durable request for a post-access-restoration crawl and sweep. Attempt state
  * enforces exponential backoff and a bounded retry budget across restarts.
  */
@@ -122,6 +140,7 @@ export const containerTableSchemas: ReadonlyArray<SqlTableSchema> = [
   defineSqlTableSchema(containerProjection),
   defineSqlTableSchema(dormantContainerMetadata),
   defineSqlTableSchema(dormantMetadataSweepRequests),
+  defineSqlTableSchema(supersededContainerBindings),
 ];
 
 export const containerSQLiteSchema = {
@@ -130,4 +149,5 @@ export const containerSQLiteSchema = {
   containerProjection,
   dormantContainerMetadata,
   dormantMetadataSweepRequests,
+  supersededContainerBindings,
 };

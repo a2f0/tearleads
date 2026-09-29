@@ -1,4 +1,5 @@
 import { and, eq, inArray, or } from "drizzle-orm";
+import { recordSupersededContainerBindingsInTransaction } from "../../data/persistence/container-contents/supersededContainerBindings";
 import {
   deleteDocumentPlacementRowsByContainerIds,
   deleteDocumentPlacementRowsByDocumentIds,
@@ -290,6 +291,17 @@ async function resetRemoteColumns(input: {
       })
       .where(inArray(documentProjection.localId, localIdBatch))
       .run();
+  }
+  // Replacement re-homes folders under their ids; the purged organization
+  // can never bind them again on this device.
+  for (const containerIds of reset.replacement
+    ? remoteResetBatches(snapshot.containerIds)
+    : []) {
+    await recordSupersededContainerBindingsInTransaction(tx, {
+      containerIds,
+      organizationId: reset.organizationId,
+      supersededAt: now,
+    });
   }
   for (const row of snapshot.containerRows) {
     await tx

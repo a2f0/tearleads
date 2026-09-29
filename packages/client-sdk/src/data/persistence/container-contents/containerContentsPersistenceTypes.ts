@@ -1,4 +1,5 @@
 import type { AccessManifestCheckpoint } from "@tearleads/crypto";
+import type { HeldContainerBinding } from "../../containers/containerBinding";
 import type { DocumentSyncPullContinuation } from "../../documents/shared/pullContinuation";
 import type {
   DocumentRecord,
@@ -156,7 +157,6 @@ export interface ContainerContentsPersistence
         | undefined;
       /** Current placement verified and pinned before recovery insertion. */
       expectedPlacementCheckpoint?: AccessManifestCheckpoint | undefined;
-      purgeDormantMetadata: boolean;
       record: ContainerMetadataRecord;
       remoteUpdatedAt: string;
       saveOptions: {
@@ -283,6 +283,33 @@ export interface ContainerContentsPersistence
     execSql: ExecSql,
     containerId: string,
   ) => Promise<StoredContainerState | null>;
+  /**
+   * The organization and metadata target this device holds for a container,
+   * from its live row or retained dormant metadata; null when never held.
+   */
+  loadHeldContainerBinding: (
+    execSql: ExecSql,
+    containerId: string,
+  ) => Promise<HeldContainerBinding | null>;
+  /** Whether a held folder was re-homed away from this organization. */
+  isSupersededContainerBinding: (
+    execSql: ExecSql,
+    input: { containerId: string; organizationId: string },
+  ) => Promise<boolean>;
+  /**
+   * Move a held folder to the binding its own user re-created it under,
+   * resetting the metadata record's remote stream; false if the held binding
+   * changed since it was read.
+   */
+  rebindHeldContainer: (
+    execSql: ExecSql,
+    input: {
+      containerId: string;
+      expected: HeldContainerBinding;
+      next: { metadataDocumentId: string; organizationId: string };
+      stillCurrent?: (() => boolean) | undefined;
+    },
+  ) => Promise<boolean>;
   /**
    * Load a container-metadata record by container id alone, without
    * requiring a containers row — the dormant shape row 4's access_revoked

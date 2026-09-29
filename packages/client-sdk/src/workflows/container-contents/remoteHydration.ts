@@ -6,7 +6,7 @@ import {
 import {
   listRemoteContainerIdsWithPendingMetadataUpdates,
   listRemoteContainerIdsWithPendingStructuralIntents,
-  upsertRemoteContainerState,
+  upsertIsolatedRemoteContainerState,
 } from "./remoteContainerState";
 import { createContainerChildIndex } from "./remoteHydration/childIndex";
 import { finishRemoteHydration } from "./remoteHydration/completeHydration";
@@ -159,7 +159,8 @@ async function upsertQueuedRemoteContainer(input: {
   const tombstones = await state.persistence.loadContainerHydrationTombstones(
     state.runtime.infra.execSql,
   );
-  const upserted = await upsertRemoteContainerState({
+  // A refused folder is reported and acknowledged; the batch continues.
+  const upserted = await upsertIsolatedRemoteContainerState({
     expectedHydrationTombstone:
       tombstones.find((row) => row.containerId === queuedRemoteContainer.id) ??
       null,
