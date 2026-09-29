@@ -7,6 +7,7 @@ import {
 } from "../metadataStateIsolation";
 import type { ContainerState } from "../remoteHydration";
 import { hasRemoteContainerMetadataState } from "../remoteHydration/reconciliation";
+import { deferTooDeepCreate } from "./createIntentDepth";
 import { settleContainerCreateIntent } from "./createIntentSettlement";
 import { CONTAINER_ALREADY_COMMITTED } from "./createWithMetadata";
 import { createRemoteContainer, deleteRemoteContainer } from "./remote";
@@ -409,6 +410,10 @@ async function trySyncPendingContainerContentsContainerCreateIntent(
 
   if (!hasRemoteContainerMetadataState(parentState)) {
     return "blocked";
+  }
+
+  if (await deferTooDeepCreate(input)) {
+    return currentCreateResult(input.isCurrent, "blocked");
   }
 
   return createPendingRemoteContainer({

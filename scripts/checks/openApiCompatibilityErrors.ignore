@@ -1,0 +1,15 @@
+# #2365 finding 12: a container create or move that would leave a path longer
+# than readers accept is refused with the new `container_path_too_deep` code,
+# so queued offline intents can treat the refusal as final instead of retrying.
+# Greenfield flag day: servers and every client are wiped and redeployed
+# together, so no client written against the previous contract survives.
+# Remove after merge to main.
+POST /containers added the new `container_path_too_deep` enum value to the `anyOf[subschema #1]/code/anyOf[subschema #1]/` response property for the response status `409`
+POST /containers/with-metadata-document added the new `container_path_too_deep` enum value to the `anyOf[subschema #1]/code/anyOf[subschema #1]/` response property for the response status `409`
+DELETE /containers/{containerId} added the new `container_path_too_deep` enum value to the `anyOf[subschema #1]/code/anyOf[subschema #1]/` response property for the response status `409`
+POST /containers/{containerId}/move added the new `container_path_too_deep` enum value to the `anyOf[subschema #1]/code/anyOf[subschema #1]/` response property for the response status `409`
+POST /containers/{containerId}/recite added the new `container_path_too_deep` enum value to the `anyOf[subschema #1]/code/anyOf[subschema #1]/` response property for the response status `409`
+POST /containers/{containerId}/rekey added the new `container_path_too_deep` enum value to the `anyOf[subschema #1]/code/anyOf[subschema #1]/` response property for the response status `409`
+POST /containers/{containerId}/revoke added the new `container_path_too_deep` enum value to the `anyOf[subschema #1]/code/anyOf[subschema #1]/` response property for the response status `409`
+POST /containers/{containerId}/share added the new `container_path_too_deep` enum value to the `anyOf[subschema #1]/code/anyOf[subschema #1]/` response property for the response status `409`
+ 

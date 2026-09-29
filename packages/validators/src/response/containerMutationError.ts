@@ -19,6 +19,9 @@ export const CONTAINER_MUTATION_ERROR_CODES = {
   // carry the re-keys `requiredContainerIds` names.
   descendantRekeysRequired: CONTAINER_DESCENDANT_REKEYS_REQUIRED_ERROR_CODE,
   manifestAlreadyExists: "container_manifest_already_exists",
+  // A create or move would leave a path longer than readers accept. Final:
+  // the same request never succeeds, so replay must not retry it.
+  pathTooDeep: "container_path_too_deep",
   stateStale: "container_mutation_state_stale",
 } as const;
 
@@ -26,6 +29,7 @@ export const ContainerMutationBehaviorErrorCodeSchema = z.literal([
   CONTAINER_MUTATION_ERROR_CODES.ancestorRekeysRequired,
   CONTAINER_MUTATION_ERROR_CODES.descendantRekeysRequired,
   CONTAINER_MUTATION_ERROR_CODES.manifestAlreadyExists,
+  CONTAINER_MUTATION_ERROR_CODES.pathTooDeep,
   CONTAINER_MUTATION_ERROR_CODES.stateStale,
 ]);
 

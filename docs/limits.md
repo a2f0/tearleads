@@ -22,7 +22,7 @@ source of truth and the tables are a map to it.
 
 | Limit | Value | Where enforced | Past the limit |
 | --- | --- | --- | --- |
-| Container path length | 100 containers, including root and leaf (`MAX_CONTAINER_PATH_LENGTH`); depths zero through 99 | API: create and subtree-move checks in `workflows/containers/mutations/shared/containerDepth.ts`, under the organization lock; the CTE in `access/shared/internal/containerKekTargets.ts` and writer/stored path loaders. SDK: create/move destination prechecks and `data/keyingProjectionVerification/documentDependencyPaths.ts`. | Refusal (409) before creating an unreadable path. A subtree move checks the deepest descendant, including descendants the caller cannot discover. |
+| Container path length | 100 containers, including root and leaf (`MAX_CONTAINER_PATH_LENGTH`); depths zero through 99 | API: create and subtree-move checks in `workflows/containers/mutations/shared/containerDepth.ts`, under the organization lock; the CTE in `access/shared/internal/containerKekTargets.ts` and writer/stored path loaders. SDK: local create/move refused before queuing (`workflows/container-contents/container-state/localPathDepth.ts`), plan-time destination prechecks, and `data/keyingProjectionVerification/documentDependencyPaths.ts`. | Final refusal (409 `container_path_too_deep`) before creating an unreadable path. A subtree move checks the deepest descendant, including descendants the caller cannot discover; a queued move refused for that reason is abandoned and hydration restores the server placement. |
 
 Create and move preserve the reader's structural bound. Policy rotations and
 revocations do not change structure and do not run these depth guards. The
@@ -30,6 +30,9 @@ bounded [container depth model](../formal/container-keying/ContainerDepth.md)
 checks the create and move guards. Readers also refuse
 malformed paths; the ancestor CTE accepts at most 100 containers and rejects
 an unclosed parent at the boundary rather than silently truncating it.
+A queued create whose local path is already too deep waits without a request
+until a local move re-arms it; one a stale local view lets through keeps
+retrying like other permanent server refusals.
 
 ## Container keying
 

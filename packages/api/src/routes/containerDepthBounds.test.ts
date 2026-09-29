@@ -1,5 +1,9 @@
 import { beforeAll, expect, test } from "bun:test";
+import { db } from "@tearleads/api-shared/postgres";
+import { containers } from "@tearleads/api-shared/schema";
 import type { ContainerMutationRequest } from "@tearleads/validators/request";
+import { CONTAINER_MUTATION_ERROR_CODES } from "@tearleads/validators/response";
+import { eq } from "drizzle-orm";
 import { createContainerDepthFixture } from "../../test/helpers/containerDepthFixture";
 import { buildChildCreateRequest } from "../../test/helpers/containerMutationArtifactKit";
 import { createChildContainer } from "../../test/helpers/keyingWriterProjectionChild";
@@ -23,6 +27,25 @@ function submit(path: string, request: ContainerMutationRequest) {
   });
 }
 
+/** The structural row a refused mutation must leave untouched. */
+async function loadStructure(containerId: string) {
+  const [row] = await db
+    .select({ depth: containers.depth, parentId: containers.parentId })
+    .from(containers)
+    .where(eq(containers.id, containerId))
+    .limit(1);
+  return row ?? null;
+}
+
+/** The mutation guard's coded refusal, distinct from the readers' checks. */
+async function expectPathTooDeep(response: Response) {
+  expect(response.status, await response.clone().text()).toBe(409);
+  await expect(response.json()).resolves.toEqual({
+    code: CONTAINER_MUTATION_ERROR_CODES.pathTooDeep,
+    error: "Container path exceeds maximum depth",
+  });
+}
+
 async function assertReadable(containerId: string) {
   const response = await routeApp.request(
     `/containers/${containerId}/writer-projection`,
@@ -43,10 +66,10 @@ test("create refuses a child beyond the readable path depth", async () => {
     signer: fixture.owner,
   });
   const response = await submit("/containers", request);
-  expect(response.status, await response.clone().text()).toBe(409);
-  await expect(response.json()).resolves.toEqual({
-    error: "Container path exceeds maximum depth",
-  });
+  await expectPathTooDeep(response);
+  const containerId = Reflect.get(request.manifest, "objectId");
+  if (typeof containerId !== "string") throw new Error("Missing container id");
+  await expect(loadStructure(containerId)).resolves.toBeNull();
 }, 30_000);
 
 test("move refuses a leaf beyond the readable path depth", async () => {
@@ -65,14 +88,13 @@ test("move refuses a leaf beyond the readable path depth", async () => {
     previousKekState: kekStateFromContainerResponse(leaf),
     signer: fixture.owner,
   });
+  const before = await loadStructure(leaf.containerId);
   const response = await submit(
     `/containers/${leaf.containerId}/move`,
     request,
   );
-  expect(response.status, await response.clone().text()).toBe(409);
-  await expect(response.json()).resolves.toEqual({
-    error: "Container path exceeds maximum depth",
-  });
+  await expectPathTooDeep(response);
+  await expect(loadStructure(leaf.containerId)).resolves.toEqual(before);
   await assertReadable(leaf.containerId);
 }, 30_000);
 
@@ -102,14 +124,17 @@ test("move accounts for the entire subtree before changing depths", async () => 
     previousKekState: kekStateFromContainerResponse(parent),
     signer: fixture.owner,
   });
+  const parentBefore = await loadStructure(parent.containerId);
+  const childBefore = await loadStructure(child.containerId);
   const response = await submit(
     `/containers/${parent.containerId}/move`,
     request,
   );
-  expect(response.status, await response.clone().text()).toBe(409);
-  await expect(response.json()).resolves.toEqual({
-    error: "Container path exceeds maximum depth",
-  });
+  await expectPathTooDeep(response);
+  await expect(loadStructure(parent.containerId)).resolves.toEqual(
+    parentBefore,
+  );
+  await expect(loadStructure(child.containerId)).resolves.toEqual(childBefore);
   await assertReadable(child.containerId);
 }, 30_000);
 

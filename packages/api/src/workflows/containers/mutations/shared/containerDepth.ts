@@ -3,7 +3,7 @@ import { containers } from "@tearleads/api-shared/schema";
 import { MAX_CONTAINER_PATH_LENGTH } from "@tearleads/validators/util";
 import { sql } from "drizzle-orm";
 import { intExpression, uuidValue } from "../../../../utils/sqlDialect";
-import { ContainerMutationError } from "../errors";
+import { ContainerMutationError, containerPathTooDeep } from "../errors";
 
 export function assertContainerDepth(depth: number): void {
   if (
@@ -11,10 +11,7 @@ export function assertContainerDepth(depth: number): void {
     depth < 0 ||
     depth >= MAX_CONTAINER_PATH_LENGTH
   )
-    throw new ContainerMutationError(
-      "Container path exceeds maximum depth",
-      409,
-    );
+    throw containerPathTooDeep();
 }
 
 /** Called inside the organization-locked mutation transaction, before any move. */
