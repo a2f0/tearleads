@@ -257,6 +257,9 @@ tier is healthy, rebuild the next selected tier before long store uploads.
   separately requested. Inventory retained application secrets such as
   `DOCUMENT_SYNC_CURSOR_HMAC_KEY` and report any requested rotation separately;
   recreating infrastructure does not change persistent env-file values.
+  Rotating that key also retires every stored-history verification marker, so
+  each object's next projection read verifies its retained history in full
+  once and writes the markers back.
 - **Existing client devices:** a reset wipes the server but not the devices
   that used it, and each keeps its identity-trust store. That store binds each
   signing key to one user, so on such a device registration is declined, and

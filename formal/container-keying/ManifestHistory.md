@@ -27,15 +27,17 @@ grows and the process restarts. Capping mutations at the read limit preserves
 reads but violates `RevocationAvailable`. These are enabled-action safety checks,
 not claims of eventual network or scheduler progress.
 
-This repair removes the deterministic history-depth refusal. Each transaction
-that stores a manifest runs the stored-history verifier over it and marks it,
-with any unmarked history it depends on, using a MAC under a key derived from a
-server-held secret over its hash, a digest of the complete stored bundle and the
-crypto verifiers' rule revision. Reads only consult markers and stop at the
-first valid one; the database is still not a trust boundary, since an edited row
-or forged marker falls back to full verification. Document ancestor queries
-share a request-local binary ancestor index: indexing N manifests uses
-O(N log N) time and space, and each indexed lineage query takes O(log N). The
+This repair removes the deterministic history-depth refusal. Each mutation runs
+the stored-history verifier over the manifest it stores and marks it, and a
+projection read writes back the markers it earned after committing. A marker is
+a MAC under a key derived from a server-held secret over the manifest hash, a
+digest of that manifest's complete stored bundle, its signer's stored key and
+the crypto and API rule revisions. Verification stops at the first valid
+marker; the database is still not a trust boundary, since an edited row,
+changed signer key or forged marker makes that manifest verify in full.
+Document ancestor queries share a request-local binary ancestor index: indexing
+N manifests uses O(N log N) time and space, and each indexed lineage query
+takes O(log N). The
 index expands only down to requested floors. Incremental proof delivery, so a
 writer projection need not ship a container's full key history, is tracked in
 [#2392](https://github.com/a2f0/tearleads/issues/2392). It must

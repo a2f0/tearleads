@@ -39,6 +39,7 @@ import {
   type ContainerWriterProjectionContext,
   ContainerWriterProjectionError,
 } from "./writerProjection/types";
+import { flushVerificationMarkersAfterRead } from "./writerProjection/verificationMarkers";
 
 export type {
   ContainerAccessProjection,
@@ -279,12 +280,18 @@ export async function runContainerWriterProjectionWorkflow(
     readonly userId: string;
   },
 ): Promise<ContainerWriterProjectionResponse> {
-  return db.transaction((tx) =>
-    resolveContainerReaderProjection({
-      containerId: input.containerId,
-      context: createContainerWriterProjectionContext(tx),
-      executor: tx,
-      userId: input.userId,
-    }),
-  );
+  const { markers, projection } = await db.transaction(async (tx) => {
+    const context = createContainerWriterProjectionContext(tx);
+    return {
+      markers: context.verificationMarkers,
+      projection: await resolveContainerReaderProjection({
+        containerId: input.containerId,
+        context,
+        executor: tx,
+        userId: input.userId,
+      }),
+    };
+  });
+  await flushVerificationMarkersAfterRead(markers, db);
+  return projection;
 }

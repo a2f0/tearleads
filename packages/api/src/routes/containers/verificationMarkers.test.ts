@@ -83,14 +83,17 @@ test("a long signed history is verified about once, not on every read", async ()
     await countProjectionSignatureChecks(child.containerId, owner.token),
   ).toBe(0);
 
-  // Without markers (a rotated secret) reads verify the whole history, and
-  // being reads they never write markers back.
+  // Without markers (a rotated secret) the next read verifies the history in
+  // full and writes its markers back once committed; later reads do not.
   await clearAccessManifestVerificationMarkers();
-  for (let read = 0; read < 2; read += 1)
-    expect(
-      await countProjectionSignatureChecks(child.containerId, owner.token),
-    ).toBeGreaterThan(RECITATIONS);
-  // The next mutation re-marks the history under its organization lock.
+  expect(
+    await countProjectionSignatureChecks(child.containerId, owner.token),
+  ).toBeGreaterThan(RECITATIONS);
+  expect(
+    await countProjectionSignatureChecks(child.containerId, owner.token),
+  ).toBe(0);
+  // A mutation marks the unmarked history its new head depends on.
+  await clearAccessManifestVerificationMarkers();
   await recite(created, last, 1);
   expect(
     await countProjectionSignatureChecks(child.containerId, owner.token),

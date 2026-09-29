@@ -1,0 +1,124 @@
+import { expect, spyOn, test } from "bun:test";
+import { db } from "@tearleads/api-shared/postgres";
+import {
+  accessEvents,
+  accessManifests,
+  accessManifestVerifications,
+} from "@tearleads/api-shared/schema";
+import { createTestUser } from "@tearleads/bob-and-alice";
+import * as crypto from "@tearleads/crypto";
+import { eq } from "drizzle-orm";
+import { authenticate } from "../../../test/helpers/authenticate";
+import {
+  bootstrapRoot,
+  createDocument,
+} from "../../../test/helpers/keyingWriterProjectionKit";
+import { registerUser } from "../../../test/helpers/registerUser";
+import { routeApp } from "../../routeApp";
+import { markStoredDocumentManifest } from "../../workflows/documents/markStoredDocumentManifest";
+import { deleteDocumentRows } from "../../workflows/documents/mutations/purgeDocumentRows";
+
+async function setup() {
+  const owner = createTestUser();
+  await registerUser(owner);
+  await authenticate(owner);
+  const root = await bootstrapRoot(owner);
+  const created = await createDocument({ owner, root });
+  return { created, owner, root };
+}
+
+async function readMarker(manifestHash: string): Promise<string | null> {
+  const [row] = await db
+    .select({ mac: accessManifestVerifications.mac })
+    .from(accessManifestVerifications)
+    .where(eq(accessManifestVerifications.manifestHash, manifestHash));
+  return row?.mac ?? null;
+}
+
+async function projectionSignatureChecks(
+  documentId: string,
+  token: string,
+): Promise<{ readonly checks: number; readonly status: number }> {
+  const verify = spyOn(crypto, "verifySignedAccessEvent");
+  try {
+    const response = await routeApp.request(
+      `/documents/${documentId}/writer-projection`,
+      { headers: { Authorization: `Bearer ${token}` } },
+    );
+    return { checks: verify.mock.calls.length, status: response.status };
+  } finally {
+    verify.mockRestore();
+  }
+}
+
+test("a document create marks the manifest it stores", async () => {
+  const { created, owner } = await setup();
+  expect(await readMarker(created.accessManifest.manifestHash)).not.toBeNull();
+  // The first read writes back markers for the unmarked provisioned root.
+  expect(
+    (await projectionSignatureChecks(created.id, owner.token)).status,
+  ).toBe(200);
+  expect(await projectionSignatureChecks(created.id, owner.token)).toEqual({
+    checks: 0,
+    status: 200,
+  });
+});
+
+test("a forged document marker is ignored and replaced", async () => {
+  const { created, owner } = await setup();
+  const manifestHash = created.accessManifest.manifestHash;
+  const genuine = await readMarker(manifestHash);
+  await projectionSignatureChecks(created.id, owner.token);
+  await db
+    .update(accessManifestVerifications)
+    .set({ mac: Buffer.alloc(32).toString("base64") })
+    .where(eq(accessManifestVerifications.manifestHash, manifestHash));
+  // Only the document manifest is unmarked now, so exactly its event verifies.
+  expect(await projectionSignatureChecks(created.id, owner.token)).toEqual({
+    checks: 1,
+    status: 200,
+  });
+  expect(await readMarker(manifestHash)).toBe(genuine);
+});
+
+test("a marked document row edited in place is refused", async () => {
+  const { created, owner } = await setup();
+  await projectionSignatureChecks(created.id, owner.token);
+  await db
+    .update(accessEvents)
+    .set({ signature: "tampered-signature" })
+    .where(eq(accessEvents.eventHash, created.accessManifest.event.eventHash));
+  expect(
+    (await projectionSignatureChecks(created.id, owner.token)).status,
+  ).toBe(409);
+});
+
+test("marking refuses a hash that is not a stored document manifest", async () => {
+  const { root } = await setup();
+  await expect(
+    markStoredDocumentManifest(db, root.bundle.manifestHash),
+  ).rejects.toMatchObject({ status: 409 });
+});
+
+test("deleting a document's history deletes its markers", async () => {
+  const { created } = await setup();
+  const manifestHash = created.accessManifest.manifestHash;
+  expect(await readMarker(manifestHash)).not.toBeNull();
+  // A signed purge keeps its history for purge proofs; container deletion
+  // and organization purge remove a document's history outright.
+  await db.transaction((executor) =>
+    deleteDocumentRows({
+      documentId: created.id,
+      executor,
+      orphanedBlobIds: [],
+      retainAccessHistory: false,
+    }),
+  );
+  expect(
+    await db
+      .select()
+      .from(accessManifests)
+      .where(eq(accessManifests.manifestHash, manifestHash)),
+  ).toEqual([]);
+  expect(await readMarker(manifestHash)).toBeNull();
+});

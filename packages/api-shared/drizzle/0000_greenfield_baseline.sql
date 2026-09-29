@@ -73,7 +73,6 @@ CREATE TABLE "access_manifest_principal_head_projection" (
 --> statement-breakpoint
 CREATE TABLE "access_manifest_verifications" (
 	"manifest_hash" text PRIMARY KEY NOT NULL,
-	"verifier_version" integer NOT NULL,
 	"mac" text NOT NULL,
 	"created_at" timestamp DEFAULT now() NOT NULL
 );

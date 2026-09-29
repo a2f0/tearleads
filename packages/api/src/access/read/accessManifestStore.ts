@@ -12,4 +12,5 @@ export {
   lockAccessManifestHeadsForShare,
   lockAccessManifestHeadsForUpdate,
 } from "../shared/internal/accessManifestStore";
+export { selectAccessManifestVerificationMacs } from "../shared/internal/accessManifestVerificationStore";
 export { getObjectAccessManifestBundles } from "../shared/internal/objectManifestHistory";

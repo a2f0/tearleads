@@ -1,5 +1,6 @@
 import { expect, spyOn, test } from "bun:test";
 import * as crypto from "@tearleads/crypto";
+import { bytesToBase64 } from "@tearleads/encoding";
 import { signedContainerHistory } from "../../../../test/helpers/storedManifestHistory";
 import { verifyStoredContainerManifest } from "./storedManifestVerification";
 
@@ -45,6 +46,28 @@ test("a marker does not hide an edited stored head", async () => {
   ).rejects.toMatchObject({ status: 409 });
 });
 
+test("a marker does not survive an edited signer key", async () => {
+  const { bundles, createContext, loadBundle, signerRow } =
+    await signedContainerHistory(2);
+  const head = bundles.at(-1);
+  if (!head) throw new Error("Missing history fixture");
+  await verifyStoredContainerManifest({
+    bundle: head,
+    context: createContext(),
+    loadBundle,
+  });
+  signerRow.signingPublicKey = bytesToBase64(
+    crypto.generateSigningSeedAndKeyPair().signingPublicKey,
+  );
+  await expect(
+    verifyStoredContainerManifest({
+      bundle: head,
+      context: createContext(),
+      loadBundle,
+    }),
+  ).rejects.toMatchObject({ status: 409 });
+});
+
 test("a marker without the server secret is ignored", async () => {
   const { bundles, createContext, loadBundle, markers } =
     await signedContainerHistory(3);
@@ -52,10 +75,7 @@ test("a marker without the server secret is ignored", async () => {
   if (!head) throw new Error("Missing history fixture");
   // A database writer can insert rows, but cannot compute their MAC.
   for (const bundle of bundles) {
-    markers.set(bundle.manifestHash, {
-      mac: Buffer.alloc(32).toString("base64"),
-      verifierVersion: 1,
-    });
+    markers.set(bundle.manifestHash, Buffer.alloc(32).toString("base64"));
   }
   const verify = spyOn(crypto, "verifySignedAccessEvent");
   try {

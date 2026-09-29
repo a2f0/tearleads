@@ -6,10 +6,6 @@ import type {
 import { verifyContainerAccessManifest } from "@tearleads/crypto";
 import type { AccessManifestBundleWireResponse } from "@tearleads/validators/response";
 import { MAX_CONTAINER_PATH_LENGTH } from "@tearleads/validators/util";
-import {
-  hasAccessManifestVerificationMarker,
-  recordAccessManifestVerificationMarker,
-} from "../../../utils/accessManifestVerificationMarkers";
 import { uniqueSortedStrings } from "../../../utils/array";
 import { canonicalJsonEquals } from "../../../utils/canonicalJson";
 import { verifyStoredAccessEvent } from "../../../utils/storedAccessEventVerification";
@@ -27,6 +23,10 @@ import {
   type ContainerWriterProjectionContext,
   ContainerWriterProjectionError,
 } from "./types";
+import {
+  hasAccessManifestVerificationMarker,
+  recordAccessManifestVerificationMarker,
+} from "./verificationMarkers";
 
 interface StoredManifestVerificationInput {
   readonly bundle: AccessManifestBundleWireResponse;
@@ -112,11 +112,15 @@ async function loadStoredEventSigner(
   input: StoredManifestVerificationInput,
   parsed: VerifiedContainerAccessManifest,
 ): Promise<Uint8Array> {
-  return loadSignerPublicKey(input.context.executor, {
-    error: () => integrityError("access event signer is inconsistent"),
-    fingerprint: parsed.event.event.signerKeyFingerprint,
-    userId: parsed.event.event.signerUserId,
-  });
+  return loadSignerPublicKey(
+    input.context.executor,
+    {
+      error: () => integrityError("access event signer is inconsistent"),
+      fingerprint: parsed.event.event.signerKeyFingerprint,
+      userId: parsed.event.event.signerUserId,
+    },
+    input.context.signerByUserId,
+  );
 }
 
 function verifyHistoricalContainerManifest(
@@ -217,11 +221,16 @@ async function loadStoredManifestArtifacts(input: {
   };
 }
 
+interface PreparedContainerBundle {
+  readonly bundle: AccessManifestBundleWireResponse;
+  readonly parsed: VerifiedContainerAccessManifest;
+  readonly signedEvent: VerifiedAccessEvent;
+  readonly signerPublicKey: Uint8Array;
+}
+
 async function verifyPreparedBundle(
   input: StoredManifestVerificationInput,
-  bundle: AccessManifestBundleWireResponse,
-  parsed: VerifiedContainerAccessManifest,
-  signedEvent: VerifiedAccessEvent,
+  { bundle, parsed, signedEvent, signerPublicKey }: PreparedContainerBundle,
   verifyHash: (hash: string) => Promise<VerifiedContainerAccessManifest>,
 ): Promise<VerifiedContainerAccessManifest> {
   const artifacts = await loadStoredManifestArtifacts({
@@ -279,6 +288,7 @@ async function verifyPreparedBundle(
   await recordAccessManifestVerificationMarker(
     input.context.verificationMarkers,
     bundle,
+    signerPublicKey,
   );
   return verification.value;
 }
@@ -290,18 +300,20 @@ async function prepareBundle(
   const cached = input.context.verifiedManifestByHash.get(bundle.manifestHash);
   if (cached) return { value: cached };
   const parsed = toVerifiedContainerManifest(bundle);
-  // A marked manifest was verified with its whole history; only its stored
-  // bytes are rebound, and the walk stops here.
+  // The signer resolves as for full verification. A marked manifest was
+  // verified after its history, under this signer key; only its stored bytes
+  // and the key are rebound, and the walk stops here.
+  const signerPublicKey = await loadStoredEventSigner(input, parsed);
   if (
     await hasAccessManifestVerificationMarker(
       input.context.verificationMarkers,
       bundle,
+      signerPublicKey,
     )
   ) {
     input.context.verifiedManifestByHash.set(bundle.manifestHash, parsed);
     return { value: parsed };
   }
-  const signerPublicKey = await loadStoredEventSigner(input, parsed);
   const signedEvent = await verifyStoredAccessEvent({
     stored: parsed.event,
     signerPublicKey,
@@ -315,8 +327,10 @@ async function prepareBundle(
       ...signedEvent.event.dependencyManifestHashes,
     ],
     verify: (dependency) =>
-      verifyPreparedBundle(input, bundle, parsed, signedEvent, async (hash) =>
-        dependency(hash),
+      verifyPreparedBundle(
+        input,
+        { bundle, parsed, signedEvent, signerPublicKey },
+        async (hash) => dependency(hash),
       ),
   };
 }

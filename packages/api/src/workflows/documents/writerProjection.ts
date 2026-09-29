@@ -33,6 +33,7 @@ import {
   type ContainerWriterProjectionContext,
   createContainerWriterProjectionContext,
 } from "../containers/writerProjection";
+import { flushVerificationMarkersAfterRead } from "../containers/writerProjection/verificationMarkers";
 import {
   toContentKeyBundleResponse,
   toDocumentKekTargetsResponse,
@@ -537,6 +538,7 @@ async function resolveAuthorizingContainerPaths(input: {
 }
 
 async function resolveDocumentWriterProjection(input: {
+  readonly containerProjectionContext: ContainerWriterProjectionContext;
   readonly documentId: string;
   readonly executor: DatabaseSession;
   readonly userId: string;
@@ -545,9 +547,7 @@ async function resolveDocumentWriterProjection(input: {
     input.executor,
     input.documentId,
   );
-  const containerProjectionContext = createContainerWriterProjectionContext(
-    input.executor,
-  );
+  const { containerProjectionContext } = input;
   let documentState: DocumentLinkSetManifestState;
   try {
     documentState = (
@@ -638,8 +638,11 @@ export async function runDocumentWriterProjectionWorkflow(
     readonly userId: string;
   },
 ): Promise<DocumentWriterProjectionResponse> {
-  return db.transaction(async (tx) => {
+  const { markers, projection } = await db.transaction(async (tx) => {
+    const containerProjectionContext =
+      createContainerWriterProjectionContext(tx);
     const projection = await resolveDocumentWriterProjection({
+      containerProjectionContext,
       documentId: input.documentId,
       executor: tx,
       userId: input.userId,
@@ -649,6 +652,11 @@ export async function runDocumentWriterProjectionWorkflow(
       manifestHash: projection.documentManifest.manifestHash,
       userId: input.userId,
     });
-    return projection;
+    return {
+      markers: containerProjectionContext.verificationMarkers,
+      projection,
+    };
   });
+  await flushVerificationMarkersAfterRead(markers, db);
+  return projection;
 }

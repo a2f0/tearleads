@@ -1,5 +1,5 @@
 {
-  "id": "ca5727e1-85d2-4b3a-bdc9-ae0acc452055",
+  "id": "6a12896b-028b-497c-9d00-f22081f1320d",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -891,12 +891,6 @@
           "name": "manifest_hash",
           "type": "text",
           "primaryKey": true,
-          "notNull": true
-        },
-        "verifier_version": {
-          "name": "verifier_version",
-          "type": "integer",
-          "primaryKey": false,
           "notNull": true
         },
         "mac": {

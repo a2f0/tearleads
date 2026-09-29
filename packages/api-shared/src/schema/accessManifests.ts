@@ -162,28 +162,26 @@ export const accessManifestHeads = pgTable(
 
 /**
  * Tamper-evident record that stored-history verification accepted a manifest
- * and, transitively, every manifest it depends on.
+ * after accepting every manifest it depends on.
  *
  * The database is not a trust boundary, so a marker is only honored when its
  * `mac` verifies under a key derived from a server secret the database never
- * holds. The MAC binds the manifest hash, a digest of the complete stored
- * bundle (manifest, state and signed event) and the verifier version, so an
- * edited row, a forged marker, a rotated secret or a verifier change each fall
- * back to full verification. Reads then re-verify only the unmarked tail of a
- * history instead of every retained entry.
+ * holds. The MAC binds the manifest hash, a digest of its own complete stored
+ * bundle (manifest, state and signed event), the signer's stored public key
+ * and the current verification rule revisions. A row whose bytes changed, a
+ * changed signer key, a forged marker, a rotated secret or changed rules
+ * therefore fall back to full verification of that manifest.
  *
  * Columns:
  * - `manifestHash`: Verified manifest. Joins to `accessManifests.manifestHash`.
- * - `verifierVersion`: Verification rules the marker was written under.
- * - `mac`: HMAC over the domain, verifier version, manifest hash and bundle
- *   digest.
+ * - `mac`: HMAC over the domain, rule revisions, manifest hash, bundle digest
+ *   and signer key.
  * - `createdAt`: Server-side insertion timestamp.
  */
 export const accessManifestVerifications = pgTable(
   "access_manifest_verifications",
   {
     manifestHash: text("manifest_hash").primaryKey(),
-    verifierVersion: integer("verifier_version").notNull(),
     mac: text("mac").notNull(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },

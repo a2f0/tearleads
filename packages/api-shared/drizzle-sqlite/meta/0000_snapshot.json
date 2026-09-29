@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "25273d65-f0ea-40d0-b63e-cba475861b1f",
+  "id": "27a0b95f-08e3-4e65-ab9d-eb6a888a2dbf",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
     "access_event_dependency_projection": {
@@ -593,13 +593,6 @@
           "name": "manifest_hash",
           "type": "text",
           "primaryKey": true,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "verifier_version": {
-          "name": "verifier_version",
-          "type": "integer",
-          "primaryKey": false,
           "notNull": true,
           "autoincrement": false
         },

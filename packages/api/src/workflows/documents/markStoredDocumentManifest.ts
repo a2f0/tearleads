@@ -1,7 +1,8 @@
 import type { DatabaseSession } from "@tearleads/api-shared/postgres";
 import { getAccessManifestBundle } from "../../access/read/accessManifestStore";
-import { createMarkingVerificationContext } from "../containers/writerProjection/markStoredManifest";
+import { createContainerWriterProjectionContext } from "../containers/writerProjection/context";
 import { toManifestBundleResponse } from "../containers/writerProjection/records";
+import { databaseVerificationMarkerStore } from "../containers/writerProjection/verificationMarkers";
 import {
   StoredDocumentManifestError,
   verifyStoredDocumentManifest,
@@ -9,8 +10,11 @@ import {
 
 /**
  * Run the stored-history verifier over a document manifest this transaction
- * just stored and mark it, with any unmarked history it depends on. See
- * `markStoredContainerManifest`.
+ * just stored, and write the markers for it and its unmarked document history.
+ * Container markers the walk earns are not written: this transaction holds
+ * its document lock and container heads for share, not the organization lock
+ * container mutations mark under, and document marker rows belong to one
+ * document whose writers that lock already serializes.
  */
 export async function markStoredDocumentManifest(
   executor: DatabaseSession,
@@ -22,10 +26,11 @@ export async function markStoredDocumentManifest(
       "stored document manifest is missing",
     );
   }
-  const containerContext = createMarkingVerificationContext(executor);
+  const documentMarkers = databaseVerificationMarkerStore(executor);
   await verifyStoredDocumentManifest({
     bundle: toManifestBundleResponse(stored),
-    containerContext,
+    containerContext: createContainerWriterProjectionContext(executor),
+    documentMarkers,
   });
-  await containerContext.verificationMarkers.flush?.();
+  await documentMarkers.flush?.();
 }

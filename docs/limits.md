@@ -49,21 +49,26 @@ retrying like other permanent server refusals.
 | KEK-log page | 256 epochs (`CONTAINER_KEK_LOG_PAGE_LIMIT`) | API: `workflows/containers/kekLog.ts`. | Pagination. Recovery walks from the newest page backward, so page size, not lifetime rotation count, bounds a response. |
 
 Lifetime container and document manifest history has no depth refusal. The API
-verifies retained dependencies iteratively, including ancestor lineage. Each
-transaction that stores a manifest verifies it as stored history and marks it,
-with any unmarked history it depends on, in `access_manifest_verifications`
-under its organization lock; reads only consult markers. A marker's MAC, keyed
-from the server-held `DOCUMENT_SYNC_CURSOR_HMAC_KEY` (or a per-process key when
-none is configured), binds the manifest hash, a digest of the complete stored
-bundle and the crypto verifiers' rule revision. Reads stop at the first valid
-marker, so each manifest is signature-checked about once in its lifetime. An
-edited row, forged marker, rotated secret or new rule revision falls back to
-full verification until the object's next mutation re-marks it. Serving a
+verifies retained dependencies iteratively, including ancestor lineage, and
+records each accepted manifest in `access_manifest_verifications`. A container
+mutation marks the manifest it stores, with any unmarked history it depends on,
+under its organization lock; a document mutation marks only its document's
+history. A container or document projection read that verified unmarked
+history writes those markers back after its transaction commits, in one sorted
+upsert. A marker's MAC, keyed from the server-held
+`DOCUMENT_SYNC_CURSOR_HMAC_KEY` (or a per-process key when none is configured),
+binds the manifest hash, a digest of that manifest's complete stored bundle,
+its signer's stored public key, and the crypto and API rule revisions.
+Verification stops at the first valid marker, so each manifest is
+signature-checked about once in its lifetime. A row whose bytes changed, a
+changed signer key or a forged marker makes that manifest verify in full
+wherever it is used; a rotated secret or new rule revision re-verifies each
+object's history once, on its next projection read or mutation. Serving a
 writer projection still loads every retained manifest its key history cites,
-now in a few batched queries; incremental history delivery is tracked in
+in a few batched queries; incremental history delivery is tracked in
 [#2392](https://github.com/a2f0/tearleads/issues/2392). For N ancestor
-manifests, the request-local lineage index uses
-O(N log N) work and space, with O(log N) per lineage query; see
+manifests, the request-local lineage index uses O(N log N) work and space, with
+O(log N) per lineage query; see
 [the availability model](../formal/container-keying/ManifestHistory.md).
 
 The sealed keyring is 64 bytes per retained epoch and is never truncated, so

@@ -15,9 +15,9 @@ import {
   createVerifiedContainerAccessEvent,
 } from "@tearleads/crypto/test-fixtures";
 import { bytesToBase64 } from "@tearleads/encoding";
-import type { AccessManifestVerificationMarkerStore } from "../../src/utils/accessManifestVerificationMarkers";
 import { createContainerWriterProjectionContext } from "../../src/workflows/containers/writerProjection/context";
 import { toManifestBundleResponse } from "../../src/workflows/containers/writerProjection/records";
+import type { AccessManifestVerificationMarkerStore } from "../../src/workflows/containers/writerProjection/verificationMarkers";
 
 export async function signedContainerHistory(length: number) {
   const signer = generateSigningSeedAndKeyPair();
@@ -78,6 +78,7 @@ export async function signedContainerHistory(length: number) {
       }),
     );
   }
+  // Mutable so a test can model an edited signer row.
   const user = {
     fingerprint: await toFingerprint(signer.signingPublicKey),
     signingPublicKey: bytesToBase64(signer.signingPublicKey),
@@ -109,19 +110,24 @@ export async function signedContainerHistory(length: number) {
   };
   // Markers persist in the database in production; this fixture keeps them in
   // memory so a "restart" can keep or drop them explicitly.
-  const markers = new Map<
-    string,
-    { readonly mac: string; readonly verifierVersion: number }
-  >();
+  const markers = new Map<string, string>();
   const verificationMarkers: AccessManifestVerificationMarkerStore = {
     load: async (manifestHash) => markers.get(manifestHash) ?? null,
-    save: async (manifestHash, marker) => {
-      markers.set(manifestHash, marker);
+    save: async (manifestHash, mac) => {
+      markers.set(manifestHash, mac);
     },
   };
   const createContext = () => ({
     ...createContainerWriterProjectionContext(executor),
     verificationMarkers,
   });
-  return { bundles, createContext, executor, loadBundle, manifests, markers };
+  return {
+    bundles,
+    createContext,
+    executor,
+    loadBundle,
+    manifests,
+    markers,
+    signerRow: user,
+  };
 }

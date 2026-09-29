@@ -1,6 +1,8 @@
 import { expect, spyOn, test } from "bun:test";
 import { db } from "@tearleads/api-shared/postgres";
 import {
+  accessManifests,
+  accessManifestVerifications,
   blobAuditObjects,
   blobs,
   containers,
@@ -103,6 +105,25 @@ test("organization purge removes one organization's remote state and retains its
       .where(eq(containers.organizationId, organizationId))
   ).map((row) => row.id);
   expect(purgedContainerIds).not.toEqual([]);
+  // Verification markers have no foreign key to the manifests they cover.
+  const markedManifests = await db
+    .select({
+      manifestHash: accessManifests.manifestHash,
+      organizationId: accessManifests.organizationId,
+    })
+    .from(accessManifests)
+    .where(
+      inArray(accessManifests.organizationId, [
+        organizationId,
+        untouchedOrganizationId,
+      ]),
+    );
+  await db
+    .insert(accessManifestVerifications)
+    .values(
+      markedManifests.map(({ manifestHash }) => ({ manifestHash, mac: "m" })),
+    )
+    .onConflictDoNothing();
   const published: PublishedRealtimeEvent[] = [];
 
   expect(
@@ -170,6 +191,26 @@ test("organization purge removes one organization's remote state and retains its
   expect(
     await db.select().from(blobs).where(eq(blobs.id, unrelatedBlobId)),
   ).toHaveLength(1);
+  const remainingMarkers = await db
+    .select({ manifestHash: accessManifestVerifications.manifestHash })
+    .from(accessManifestVerifications)
+    .where(
+      inArray(
+        accessManifestVerifications.manifestHash,
+        markedManifests.map(({ manifestHash }) => manifestHash),
+      ),
+    );
+  expect(
+    remainingMarkers.map(({ manifestHash }) => manifestHash).sort(),
+  ).toEqual(
+    markedManifests
+      .filter((row) => row.organizationId === untouchedOrganizationId)
+      .map(({ manifestHash }) => manifestHash)
+      .sort(),
+  );
+  expect(
+    markedManifests.some((row) => row.organizationId === organizationId),
+  ).toBe(true);
   expect(
     await db.select().from(groups).where(inArray(groups.id, principalIds)),
   ).toEqual([]);
