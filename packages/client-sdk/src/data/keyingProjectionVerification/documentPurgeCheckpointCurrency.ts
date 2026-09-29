@@ -1,9 +1,9 @@
-import {
-  KeyingVerificationError,
-  type VerifiedAccessManifestCheckpointEvidence,
-  type VerifiedPrincipalPolicySnapshot,
+import type {
+  VerifiedAccessManifestCheckpointEvidence,
+  VerifiedPrincipalPolicySnapshot,
 } from "@tearleads/crypto";
 import type { DocumentPurgeCheckpoint } from "../persistence/documentPurgeCheckpointPersistence";
+import { validateAccessManifestCheckpointEvidence } from "../persistence/keyingCheckpointEvidence";
 import {
   accessManifestObjectKey,
   loadAccessManifestCheckpoint,
@@ -46,22 +46,15 @@ async function currentContainerHeads(input: PurgeCheckpointInput) {
     // A newer head does not order this separately signed purge event. Still
     // reject signed forks visible in the supplied evidence before deferring.
     const key = accessManifestObjectKey(checkpoint);
-    const hashes = new Map<number, string>();
-    for (const evidence of input.context.verifiedManifests) {
-      if (accessManifestObjectKey(evidence.checkpoint) !== key) continue;
-      const epoch = evidence.checkpoint.epoch;
-      const previous = hashes.get(epoch);
-      if (
-        (previous && previous !== evidence.manifestHash) ||
-        (epoch === local.epoch && evidence.manifestHash !== local.manifestHash)
-      ) {
-        throw new KeyingVerificationError(
-          "equivocation",
-          "Document purge container evidence conflicts with a verified checkpoint",
-        );
-      }
-      hashes.set(epoch, evidence.manifestHash);
-    }
+    validateAccessManifestCheckpointEvidence({
+      head,
+      localCheckpoint: local,
+      predecessors: input.context.verifiedManifests.filter(
+        (evidence) =>
+          accessManifestObjectKey(evidence.checkpoint) === key &&
+          evidence.manifestHash !== head.manifestHash,
+      ),
+    });
     superseded = true;
   }
   return { current, superseded };

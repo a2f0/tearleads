@@ -16,9 +16,3 @@ inside the atomic local-deletion transaction, so a racing checkpoint advance
 rolls back teardown. Actual invalid signatures and conflicting checkpoints remain
 integrity errors. The retained purge-time proof alone cannot resolve this ordering
 ambiguity; eventual deletion after a later path checkpoint is not guaranteed.
-
-The SDK tests exercise both ancestor and leaf advances, repeated sync requests,
-commit-time races through actual local teardown, and signature and checkpoint
-forks. Reverting the currency guard reproduces the false rollback classification.
-The normal cold-device and policy-checkpoint suites cover successful deletion
-and policy conflict refusal.

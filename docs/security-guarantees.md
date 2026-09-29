@@ -302,7 +302,7 @@ authorization source.
 
 Document purge requires a signed terminal event, verified write authority, and
 an exact local document pin or a signed chain from a pin or genesis. Later
-checkpoints anywhere on its authorizing path defer deletion without a false
+checkpoints anywhere on its authorizing path withhold deletion without a false
 integrity incident; signatures and visible forks are still checked. Currency is
 rechecked inside atomic teardown. See [document purge verification](document-purge-verification.md)
 for the retained evidence, retry behavior, and ordering limitation.

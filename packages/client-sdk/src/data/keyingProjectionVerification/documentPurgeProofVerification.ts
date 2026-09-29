@@ -88,7 +88,6 @@ export async function verifyPurgeContainerPaths(input: {
   readonly checkpointContext: ReturnType<
     typeof createProjectionCheckpointContext
   >;
-  readonly enforceLocalCheckpoints: boolean;
   readonly principalPolicyCache: PrincipalPolicyCache;
   readonly proof: PurgeContainerEvidence;
   readonly resolveUserKey: ProjectionUserKeyResolver;
@@ -101,10 +100,9 @@ export async function verifyPurgeContainerPaths(input: {
     authorizationEvidence: input.authorizationEvidence,
     bundlesByHash,
     checkpointContext: input.checkpointContext,
-    // This signed path is the purge's authorization boundary. A later local
-    // head makes the purge ambiguous because ancestry does not order the purge
-    // signature; fail closed instead of accepting server-supplied descendants.
-    enforceLocalCheckpoints: input.enforceLocalCheckpoints,
+    // Authenticate the signed path here; the complete purge's local currency
+    // is checked after its event and document evidence have authenticated.
+    enforceLocalCheckpoints: false,
     label: "Document purge authorizing container path",
     path: input.proof.authorizingContainerPath,
     principalPolicyCache: input.principalPolicyCache,
@@ -212,9 +210,6 @@ async function verifyDocumentPurgeProofWithMode(
   } = await verifyPurgeContainerPaths({
     authorizationEvidence,
     checkpointContext,
-    // Authenticate the event, document chain and policies before classifying
-    // an older authorization path as an unavailable ordering dependency.
-    enforceLocalCheckpoints: false,
     principalPolicyCache,
     proof: input.proof,
     resolveUserKey: input.resolveUserKey,

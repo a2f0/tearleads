@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import { createNativeTestExecSql } from "@tearleads/test-utils";
+import { manifestBundle } from "../../../test/helpers/ancestorCitationScenario";
 import { createMaterializedSyncFixture } from "../../../test/helpers/documentFixtures";
 import { createPurgeCurrencyFixture } from "../../../test/helpers/documentPurgeCurrency";
 import { verifyContainerWriterProjection } from "./containerProjectionVerification";
@@ -91,3 +92,29 @@ for (const objectKind of ["container", "document"] as const) {
     }
   });
 }
+
+test("a superseded purge path still rejects evidence newer than its declared head", async () => {
+  const { execSql, close } = createNativeTestExecSql();
+  try {
+    const { verification, head, originalPath, advanceLater } =
+      await createPurgeCurrencyFixture(execSql, 0);
+    const leaf = originalPath.at(-1);
+    if (!leaf) throw new Error("Expected authorization leaf");
+    const proof = {
+      ...verification.proof,
+      documentManifestContainerPaths: [
+        ...verification.proof.documentManifestContainerPaths,
+        [head, leaf].map(manifestBundle),
+      ],
+    };
+    await expect(
+      verifyDocumentPurgeProof({ ...verification, proof }),
+    ).rejects.toMatchObject({ code: "stale_predecessor" });
+    await advanceLater();
+    await expect(
+      verifyDocumentPurgeProof({ ...verification, proof }),
+    ).rejects.toMatchObject({ code: "stale_predecessor" });
+  } finally {
+    close();
+  }
+});

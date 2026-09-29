@@ -137,46 +137,79 @@ test("purge commit atomically pins first-seen policy snapshots", async () => {
   }
 });
 
-test("purge commit rolls back when a policy checkpoint races verification", async () => {
-  const { close, execSql } = await createTestExecSql(
-    "document-purge-policy-race",
-  );
-  try {
-    const fixture = await createGroupAuthorizedPurge({ execSql });
-    const verified = await verifyDocumentPurgeProof({
-      execSql,
-      expectedDocumentId: fixture.writerProjection.documentId,
-      expectedOrganizationId: fixture.organizationId,
-      proof: fixture.proof,
-      resolveUserKey: fixture.resolveUserKey,
-    });
-    const raced = fixture.policies[0];
-    if (!raced) throw new Error("Expected a purge policy snapshot");
-    await loadPrincipalPolicyCheckpoint(
-      execSql,
-      raced.principalType,
-      raced.principalId,
+for (const supersededPath of [false, true]) {
+  test(`purge verification and commit reject a raced policy fork (superseded path: ${supersededPath})`, async () => {
+    const { close, execSql } = await createTestExecSql(
+      "document-purge-policy-race",
     );
-    await execSql(
-      `INSERT INTO principal_policy_checkpoints
-         (principal_type, principal_id, version, state_hash, updated_at)
-       VALUES (?, ?, ?, ?, ?)`,
-      [
+    try {
+      const fixture = await createGroupAuthorizedPurge({ execSql });
+      const verification = {
+        execSql,
+        expectedDocumentId: fixture.writerProjection.documentId,
+        expectedOrganizationId: fixture.organizationId,
+        proof: fixture.proof,
+        resolveUserKey: fixture.resolveUserKey,
+      };
+      const verified = await verifyDocumentPurgeProof(verification);
+      const raced = fixture.policies[0];
+      if (!raced) throw new Error("Expected a purge policy snapshot");
+      await loadPrincipalPolicyCheckpoint(
+        execSql,
         raced.principalType,
         raced.principalId,
-        raced.version,
-        "d".repeat(64),
-        "2026-08-27T00:00:00.000Z",
-      ],
-    );
+      );
+      await execSql(
+        `INSERT INTO principal_policy_checkpoints
+         (principal_type, principal_id, version, state_hash, updated_at)
+       VALUES (?, ?, ?, ?, ?)`,
+        [
+          raced.principalType,
+          raced.principalId,
+          raced.version,
+          "d".repeat(64),
+          "2026-08-27T00:00:00.000Z",
+        ],
+      );
 
-    await expect(verified.commitCheckpoints(execSql)).rejects.toMatchObject({
-      code: "equivocation",
-    });
-    await expect(
-      loadDocumentPurgeCheckpoint(execSql, fixture.writerProjection.documentId),
-    ).resolves.toBeNull();
-  } finally {
-    close();
-  }
-});
+      if (supersededPath) {
+        const root = fixture.proof.authorizingContainerPath[0]?.state;
+        if (!root) throw new Error("Expected signed root identity");
+        const { containerId, epoch } = root;
+        if (typeof containerId !== "string" || typeof epoch !== "number")
+          throw new Error("Expected signed root identity");
+        // Model a previously authenticated durable head independently of the
+        // forked principal checkpoint. Real signed advances are covered by the
+        // ancestor/leaf currency fixtures.
+        await execSql(
+          `INSERT OR REPLACE INTO access_manifest_checkpoints
+        (object_kind, organization_id, object_id, epoch, manifest_hash, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?)`,
+          [
+            "container",
+            fixture.organizationId,
+            containerId,
+            epoch + 1,
+            "e".repeat(64),
+            "2026-09-28T00:00:00.000Z",
+          ],
+        );
+      }
+      await expect(
+        verifyDocumentPurgeProof(verification),
+      ).rejects.toMatchObject({ code: "equivocation" });
+
+      await expect(verified.commitCheckpoints(execSql)).rejects.toMatchObject({
+        code: "equivocation",
+      });
+      await expect(
+        loadDocumentPurgeCheckpoint(
+          execSql,
+          fixture.writerProjection.documentId,
+        ),
+      ).resolves.toBeNull();
+    } finally {
+      close();
+    }
+  });
+}
