@@ -24,6 +24,12 @@ import type {
 } from "./remoteHydration/types";
 
 const CONTAINER_PARENT_HYDRATION_CONCURRENCY = 4;
+
+interface HydrationProgress {
+  changedCount: number;
+  complete: boolean;
+  shouldStop: boolean;
+}
 async function applyRemoteContainerPage(input: {
   childIdsByParentId: ContainerChildIndex;
   expectedContainerStates: ReadonlyMap<string, ExpectedContainerState>;
@@ -134,7 +140,7 @@ async function applyContainerParentLanePage(input: {
   queueParentLane: QueueContainerParentLane;
   seenContainerIds: Set<string>;
   state: RemoteContainerHydrationState;
-}): Promise<{ changedCount: number; shouldStop: boolean }> {
+}): Promise<HydrationProgress> {
   const {
     childIdsByParentId,
     fetchedPage,
@@ -153,7 +159,7 @@ async function applyContainerParentLanePage(input: {
   } = fetchedPage;
   let changedCount = 0;
   if (input.isCurrent?.() === false) {
-    return { changedCount, shouldStop: true };
+    return { changedCount, complete: false, shouldStop: true };
   }
 
   const remoteContainerItems = getApplicableRemoteContainerItems(response);
@@ -166,11 +172,11 @@ async function applyContainerParentLanePage(input: {
     state,
   });
   if (!tombstoneResult.current) {
-    return { changedCount, shouldStop: true };
+    return { changedCount, complete: false, shouldStop: true };
   }
   changedCount += tombstoneResult.changedCount;
   if (input.isCurrent?.() === false) {
-    return { changedCount, shouldStop: true };
+    return { changedCount, complete: false, shouldStop: true };
   }
   if (tombstoneResult.changedCount > 0) {
     // A live tombstone cascade may have orphaned documents (row 3); re-arm
@@ -192,10 +198,13 @@ async function applyContainerParentLanePage(input: {
   });
   changedCount += appliedPage.changedCount;
   if (!tombstoneResult.completed || !appliedPage.completed) {
-    return { changedCount, shouldStop: true };
+    // Keep this page retryable without discarding independent lanes, including
+    // children of roots first discovered here. Otherwise the root becomes known
+    // but its children are never fetched by subsequent root-only refreshes.
+    return { changedCount, complete: false, shouldStop: false };
   }
   if (input.isCurrent?.() === false) {
-    return { changedCount, shouldStop: true };
+    return { changedCount, complete: false, shouldStop: true };
   }
 
   const didMarkFetched = await markContainerParentLaneFetched({
@@ -205,21 +214,21 @@ async function applyContainerParentLanePage(input: {
     syncLane,
   });
   if (!didMarkFetched) {
-    return { changedCount, shouldStop: true };
+    return { changedCount, complete: false, shouldStop: true };
   }
 
   if (!response.hasMore) {
-    return { changedCount, shouldStop: false };
+    return { changedCount, complete: true, shouldStop: false };
   }
   if (!response.nextWatermark) {
-    return { changedCount, shouldStop: true };
+    return { changedCount, complete: false, shouldStop: true };
   }
 
   queueContinuationLane({
     parentId: lane.parentId,
     watermark: response.nextWatermark,
   });
-  return { changedCount, shouldStop: false };
+  return { changedCount, complete: true, shouldStop: false };
 }
 
 function takeContainerParentLaneBatch(input: {
@@ -254,7 +263,7 @@ async function applyContainerParentLaneBatch(input: {
   queueParentLane: QueueContainerParentLane;
   seenContainerIds: Set<string>;
   state: RemoteContainerHydrationState;
-}): Promise<{ changedCount: number; shouldStop: boolean }> {
+}): Promise<HydrationProgress> {
   const {
     childIdsByParentId,
     fetchedPages,
@@ -265,10 +274,11 @@ async function applyContainerParentLaneBatch(input: {
     state,
   } = input;
   let changedCount = 0;
+  let complete = true;
 
   for (const fetchedPage of fetchedPages) {
     if (!canHydrateRemoteContainers(state) || input.isCurrent?.() === false) {
-      return { changedCount, shouldStop: true };
+      return { changedCount, complete: false, shouldStop: true };
     }
     if (
       fetchedPage.lane.parentId !== null &&
@@ -288,13 +298,14 @@ async function applyContainerParentLaneBatch(input: {
       state,
     });
     changedCount += result.changedCount;
+    complete &&= result.complete;
 
     if (result.shouldStop) {
-      return { changedCount, shouldStop: true };
+      return { changedCount, complete: false, shouldStop: true };
     }
   }
 
-  return { changedCount, shouldStop: false };
+  return { changedCount, complete, shouldStop: false };
 }
 
 export async function hydrateContainerParentLanes(input: {
@@ -305,7 +316,7 @@ export async function hydrateContainerParentLanes(input: {
   queueParentLane: QueueContainerParentLane;
   seenContainerIds: Set<string>;
   state: RemoteContainerHydrationState;
-}): Promise<{ changedCount: number; shouldStop: boolean }> {
+}): Promise<HydrationProgress> {
   const {
     childIdsByParentId,
     host,
@@ -315,10 +326,11 @@ export async function hydrateContainerParentLanes(input: {
     state,
   } = input;
   let changedCount = 0;
+  let complete = true;
 
   while (lanes.length > 0) {
     if (!canHydrateRemoteContainers(state) || input.isCurrent?.() === false) {
-      return { changedCount, shouldStop: true };
+      return { changedCount, complete: false, shouldStop: true };
     }
 
     const batch = takeContainerParentLaneBatch({ lanes, state });
@@ -332,10 +344,10 @@ export async function hydrateContainerParentLanes(input: {
       state,
     });
     if (!fetchedPages) {
-      return { changedCount, shouldStop: true };
+      return { changedCount, complete: false, shouldStop: true };
     }
     if (input.isCurrent?.() === false) {
-      return { changedCount, shouldStop: true };
+      return { changedCount, complete: false, shouldStop: true };
     }
 
     const result = await applyContainerParentLaneBatch({
@@ -349,11 +361,12 @@ export async function hydrateContainerParentLanes(input: {
       state,
     });
     changedCount += result.changedCount;
+    complete &&= result.complete;
 
     if (result.shouldStop) {
-      return { changedCount, shouldStop: true };
+      return { changedCount, complete: false, shouldStop: true };
     }
   }
 
-  return { changedCount, shouldStop: false };
+  return { changedCount, complete, shouldStop: false };
 }

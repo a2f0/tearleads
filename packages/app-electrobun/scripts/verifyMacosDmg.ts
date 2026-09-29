@@ -81,7 +81,7 @@ export async function verifyMacosDmg(
     // Reach the bundled Bun through the native launcher on a read-only volume.
     // Exit in a test-only preload before opening windows, binding the app port,
     // or contacting services; all installer records go into the isolated home.
-    // Electrobun 2.0.1's launcher inherits its environment into Bun; its
+    // Electrobun's launcher inherits its environment into Bun; its
     // extractor honors ELECTROBUN_INSTALLER_UI_AUTOCLOSE for failure probes.
     const marker = join(root, "dmg-launched");
     const preload = join(root, "launchProbe.ts");
