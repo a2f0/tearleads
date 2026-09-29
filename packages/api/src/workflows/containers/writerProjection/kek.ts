@@ -306,6 +306,9 @@ async function loadUncachedContainerKekState(
     allowHistoricalParentEpoch: true,
     containerManifest: manifest,
     containerManifestHistory: containerManifestHistory.verified,
+    // The parent's KEK state was loaded in this context first, and its history
+    // walk verified the parent's whole lineage and every head it cites: the
+    // evidence a historical parent pin resolves against.
     parentManifestHistory: [...context.verifiedManifestByHash.values()],
     keyEpoch,
     parentKekState: input.parentKekState,
