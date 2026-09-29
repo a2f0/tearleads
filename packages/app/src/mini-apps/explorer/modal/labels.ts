@@ -1,3 +1,4 @@
+import { ContainerPathTooDeepError } from "@tearleads/client-sdk";
 import { EXPLORER_LABELS } from "../labels";
 import type { ExplorerModalState } from "./types";
 
@@ -16,7 +17,10 @@ const EXPLORER_MODAL_FAILURES: Record<ExplorerModalState["mode"], string> = {
 
 export function getExplorerModalError(
   mode: ExplorerModalState["mode"],
+  error?: unknown,
 ): string {
+  if (error instanceof ContainerPathTooDeepError)
+    return EXPLORER_LABELS.folderNestedTooDeeply;
   return `${EXPLORER_MODAL_FAILURES[mode]}.`;
 }
 

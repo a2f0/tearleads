@@ -82,6 +82,7 @@ const EXPECTED_ROOT_VALUE_EXPORTS = [
   "ContainerAuthorAccessError",
   "ContainerKekRepairInaccessibleError",
   "ContainerKekRepairRequiredError",
+  "ContainerPathTooDeepError",
   "DEFAULT_DOCUMENT_ACCESS_EPOCH",
   "DEFAULT_DOCUMENT_ID",
   "DEFAULT_DOCUMENT_KIND",

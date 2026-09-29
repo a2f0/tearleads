@@ -1,6 +1,14 @@
 import { expect, test } from "bun:test";
-import { createMockApiClient } from "@tearleads/test-utils";
+import { generateKemSeedAndKeyPair } from "@tearleads/crypto";
+import {
+  createContainerWriterProjectionFixture,
+  createMockApiClient,
+  createTestExecSql,
+} from "@tearleads/test-utils";
+import { CONTAINER_MUTATION_ERROR_CODES } from "@tearleads/validators/response";
 import { MAX_CONTAINER_PATH_LENGTH } from "@tearleads/validators/util";
+import { createAuthor } from "../../../../test/helpers/documentFixturePrimitives";
+import { createTestTrustedUserIdentityResolver } from "../../../../test/helpers/trustedUserIdentity";
 import { ContainerPathTooDeepError } from "../../../data/containers/shared/containerPathLimits";
 import { createDomainScope } from "../../../data/domainScope";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
@@ -136,12 +144,32 @@ test("a queued create whose local path is too deep waits without a request", asy
   expect(recorded).toEqual(["Container path exceeds maximum depth"]);
 });
 
-test("a queued move refused for path length is abandoned, not retried", async () => {
-  const containersById = localChain(2);
-  containersById.set(
-    "moved",
-    createTestContainerState({ id: "moved", parentId: "c1" }),
+test("a queued move the server refuses for path length is abandoned, not retried", async () => {
+  const { author, signingPublicKey } = await createAuthor();
+  const kem = generateKemSeedAndKeyPair();
+  const signer = {
+    encapsulationPublicKey: kem.publicKey,
+    organizationId: author.organizationId,
+    signerDeviceId: author.signerDeviceId,
+    signerKeyFingerprint: author.signerKeyFingerprint,
+    signerPrivateKey: author.signerPrivateKey,
+    userId: author.signerUserId,
+  };
+  const root = await createContainerWriterProjectionFixture({
+    ...signer,
+    containerId: "root",
+  });
+  const [moved, destination] = await Promise.all(
+    ["moved", "destination"].map((containerId) =>
+      createContainerWriterProjectionFixture({
+        ...signer,
+        containerId,
+        parentProjection: root,
+      }),
+    ),
   );
+  if (!moved || !destination) throw new Error("Expected signed fixtures");
+  const database = await createTestExecSql("container-depth-abandon");
   const intent: ContainerMoveIntentRecord = {
     containerId: "moved",
     createdAt: "2026-09-29T00:00:00.000Z",
@@ -149,16 +177,26 @@ test("a queued move refused for path length is abandoned, not retried", async ()
     intentType: "container.move",
     lastAttemptedAt: null,
     lastError: null,
-    parentContainerId: "c1",
-    previousParentContainerId: "c0",
+    parentContainerId: "destination",
+    previousParentContainerId: "root",
     syncStatus: "pending",
     updatedAt: "2026-09-29T00:00:00.000Z",
   };
   const dropped: string[] = [];
   const retried: string[] = [];
   const reconciled: (string | null)[] = [];
+  let submissions = 0;
   const state = syncState({
-    containersById,
+    containersById: new Map(
+      ["root", "moved", "destination"].map((id) => [
+        id,
+        createTestContainerState({
+          id,
+          organizationId: author.organizationId,
+          parentId: id === "root" ? null : "root",
+        }),
+      ]),
+    ),
     onProjectionRequest: () => {},
     persistence: {
       ...defaultContainerContentsPersistence,
@@ -172,19 +210,69 @@ test("a queued move refused for path length is abandoned, not retried", async ()
       },
     },
   });
-
-  await expect(
-    syncPendingContainerMoveIntents({
-      host: noHost,
-      isCurrent: () => true,
-      isRemoteSyncBlocked: () => false,
-      requestRemoteReconciliation: (parentId) => {
-        reconciled.push(parentId);
-      },
-      state,
+  // The descendants the server counts are ones this device cannot see.
+  const withMove = {
+    ...state,
+    resolveProjectionUserKey: createTestTrustedUserIdentityResolver({
+      encapsulationPublicKey: kem.publicKey,
+      signingKeyFingerprint: author.signerKeyFingerprint,
+      signingPublicKey,
+      userId: author.signerUserId,
     }),
-  ).resolves.toBe(0);
+    runtime: {
+      ...state.runtime,
+      apiClient: createMockApiClient({
+        getContainerWriterProjection: async (id) =>
+          id === "moved" ? moved : destination,
+        moveContainerResult: async () => {
+          submissions += 1;
+          return {
+            code: CONTAINER_MUTATION_ERROR_CODES.pathTooDeep,
+            kind: "http" as const,
+            message: "Container path exceeds maximum depth",
+            method: "POST" as const,
+            ok: false as const,
+            path: "/containers/moved/move",
+            report: () => {},
+            status: 409,
+            statusText: "Conflict",
+          };
+        },
+      }),
+      auth: {
+        isAuthenticated: true,
+        organizationId: author.organizationId,
+        userId: author.signerUserId,
+      },
+      crypto: {
+        encapsulationKeyPair: kem,
+        signingFingerprint: author.signerKeyFingerprint,
+        signingKeyPair: {
+          signingPrivateKey: author.signerPrivateKey,
+          signingPublicKey,
+        },
+      },
+      infra: { ...state.runtime.infra, execSql: database.execSql },
+    },
+  } as ContainerCreateIntentSyncState;
+
+  try {
+    await expect(
+      syncPendingContainerMoveIntents({
+        host: noHost,
+        isCurrent: () => true,
+        isRemoteSyncBlocked: () => false,
+        requestRemoteReconciliation: (parentId) => {
+          reconciled.push(parentId);
+        },
+        state: withMove,
+      }),
+    ).resolves.toBe(0);
+  } finally {
+    database.close();
+  }
+  expect(submissions).toBe(1);
   expect(dropped).toEqual(["move-moved"]);
   expect(retried).toEqual([]);
-  expect(reconciled).toEqual(["c0"]);
-});
+  expect(reconciled).toEqual(["root"]);
+}, 30_000);

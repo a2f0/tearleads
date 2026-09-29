@@ -19,8 +19,9 @@ export const CONTAINER_MUTATION_ERROR_CODES = {
   // carry the re-keys `requiredContainerIds` names.
   descendantRekeysRequired: CONTAINER_DESCENDANT_REKEYS_REQUIRED_ERROR_CODE,
   manifestAlreadyExists: "container_manifest_already_exists",
-  // A create or move would leave a path longer than readers accept. Final:
-  // the same request never succeeds, so replay must not retry it.
+  // A create or move would leave a path longer than readers accept. The same
+  // request never succeeds: a queued move is abandoned, while a queued create
+  // keeps its intent (a later local move can re-arm it).
   pathTooDeep: "container_path_too_deep",
   stateStale: "container_mutation_state_stale",
 } as const;

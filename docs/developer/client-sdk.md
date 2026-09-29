@@ -675,6 +675,10 @@ retryable, `repair-inaccessible` waits on another member and names the
 container, and `unauthorized` is a `ContainerAuthorAccessError`.
 `ContainerKekRepairRequiredError` and its subclass
 `ContainerKekRepairInaccessibleError` are exported for `instanceof` checks.
+A local create or move whose path would exceed the readable length throws
+`ContainerPathTooDeepError` (`code` `container_path_too_deep`) before anything
+is queued; hosts can map that code to a specific message. A queued move the
+API refuses with that code is abandoned and hydration restores its placement.
 
 Principal rotations and membership changes rematerialize every retained group
 grant against the new current principal head in the same transaction. As a

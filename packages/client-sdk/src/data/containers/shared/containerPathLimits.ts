@@ -1,15 +1,19 @@
 import { CONTAINER_MUTATION_ERROR_CODES } from "@tearleads/validators/response";
 import { MAX_CONTAINER_PATH_LENGTH } from "@tearleads/validators/util";
 
+export const CONTAINER_PATH_TOO_DEEP_MESSAGE =
+  "Container path exceeds maximum depth";
+
 /**
- * A create or move would leave a path longer than readers accept. Final: the
- * same request never succeeds, so queued intents must not retry it.
+ * A create or move would leave a path longer than readers accept. The same
+ * request never succeeds: a queued move is abandoned, and a queued create
+ * waits for a local move to re-arm it.
  */
 export class ContainerPathTooDeepError extends Error {
   readonly code = CONTAINER_MUTATION_ERROR_CODES.pathTooDeep;
 
   constructor() {
-    super("Container path exceeds maximum depth");
+    super(CONTAINER_PATH_TOO_DEEP_MESSAGE);
     this.name = "ContainerPathTooDeepError";
   }
 }

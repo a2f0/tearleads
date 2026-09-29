@@ -70,7 +70,8 @@ export function containerUnavailable(label: string): ContainerMutationError {
 
 /**
  * A create or move would leave a path longer than readers accept. Coded so a
- * queued client intent treats it as final: the same request never succeeds.
+ * client can tell the same request never succeeds: it abandons a queued move
+ * and keeps a queued create until a local move re-arms it.
  */
 export function containerPathTooDeep(): ContainerMutationError {
   const message = "Container path exceeds maximum depth";

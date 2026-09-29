@@ -1,8 +1,6 @@
-import { ContainerPathTooDeepError } from "../../../data/containers/shared/containerPathLimits";
+import { CONTAINER_PATH_TOO_DEEP_MESSAGE } from "../../../data/containers/shared/containerPathLimits";
 import { localChildPathFits } from "./localPathDepth";
 import type { ContainerCreateIntentSyncInput } from "./types";
-
-const PATH_TOO_DEEP_MESSAGE = new ContainerPathTooDeepError().message;
 
 /**
  * A create whose path is already too deep here can never succeed, so waiting
@@ -17,14 +15,14 @@ export async function deferTooDeepCreate(
   if (localChildPathFits(state.containersById, intent.parentContainerId)) {
     return false;
   }
-  if (intent.lastError !== PATH_TOO_DEEP_MESSAGE) {
+  if (intent.lastError !== CONTAINER_PATH_TOO_DEEP_MESSAGE) {
     await state.persistence.recordCreateIntentRevisionError(
       state.runtime.infra.execSql,
       {
         containerId: intent.containerId,
         expectedIntentId: intent.id,
         expectedUpdatedAt: intent.updatedAt,
-        message: PATH_TOO_DEEP_MESSAGE,
+        message: CONTAINER_PATH_TOO_DEEP_MESSAGE,
         stillCurrent: input.isCurrent,
       },
     );
