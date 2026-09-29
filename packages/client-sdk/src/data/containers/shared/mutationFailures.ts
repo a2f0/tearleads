@@ -48,6 +48,19 @@ export function isVanishedContainerFailure(
   );
 }
 
+/**
+ * The server refused a create or move for exceeding the readable path length.
+ * Final: resubmitting the same request never succeeds.
+ */
+export function isContainerPathTooDeepFailure(
+  failure: ContainerBehaviorFailure,
+): boolean {
+  return (
+    failure.status === 409 &&
+    failure.code === CONTAINER_MUTATION_ERROR_CODES.pathTooDeep
+  );
+}
+
 export function isStaleParentContainerPathFailure(
   failure: ContainerMutationSubmitFailure,
 ): boolean {

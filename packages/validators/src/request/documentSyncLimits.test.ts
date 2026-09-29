@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import { contentKeyEnvelopeFixture } from "../contentKeyEnvelope.testFixtures";
+import { MAX_CONTAINER_PATH_LENGTH } from "../util/containerLimits";
 import {
-  MAX_DOCUMENT_SYNC_AUTHORIZATION_PATH_DEPTH,
   MAX_DOCUMENT_SYNC_AUTHORIZATION_PATH_REFS,
   MAX_DOCUMENT_SYNC_AUTHORIZATION_PATHS,
   MAX_DOCUMENT_SYNC_CONTENT_KEY_TARGETS,
@@ -221,7 +221,7 @@ test("document sync bounds authorization path count", () => {
 test("document sync bounds authorization path depth", () => {
   const valid = createSyncRequest();
   const path = Array.from(
-    { length: MAX_DOCUMENT_SYNC_AUTHORIZATION_PATH_DEPTH + 1 },
+    { length: MAX_CONTAINER_PATH_LENGTH + 1 },
     () => MANIFEST_REF,
   );
 
@@ -237,16 +237,11 @@ test("document sync admits the structurally maximal authorization reference set"
   const valid = createSyncRequest();
   const authorizingContainerPathRefs = Array.from(
     { length: MAX_DOCUMENT_SYNC_AUTHORIZATION_PATHS },
-    () =>
-      Array.from(
-        { length: MAX_DOCUMENT_SYNC_AUTHORIZATION_PATH_DEPTH },
-        () => MANIFEST_REF,
-      ),
+    () => Array.from({ length: MAX_CONTAINER_PATH_LENGTH }, () => MANIFEST_REF),
   );
 
   expect(MAX_DOCUMENT_SYNC_AUTHORIZATION_PATH_REFS).toBe(
-    MAX_DOCUMENT_SYNC_AUTHORIZATION_PATHS *
-      MAX_DOCUMENT_SYNC_AUTHORIZATION_PATH_DEPTH,
+    MAX_DOCUMENT_SYNC_AUTHORIZATION_PATHS * MAX_CONTAINER_PATH_LENGTH,
   );
   expect(
     isDocumentSyncRequest({ ...valid, authorizingContainerPathRefs }),

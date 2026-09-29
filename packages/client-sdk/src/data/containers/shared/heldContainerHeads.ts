@@ -4,6 +4,7 @@ import type {
   VerifiedContainerAccessManifest,
 } from "@tearleads/crypto";
 import type { AccessManifestBundleWire } from "@tearleads/validators/request";
+import { MAX_CONTAINER_PATH_LENGTH } from "@tearleads/validators/util";
 import { readCanonicalRecord } from "../../keyingCanonicalJson";
 import { type ExecSql, resolveCanonicalExecSql } from "../../sqlite/sqlSchema";
 import type { AuthoredContainerMutationHead } from "./mutationAcknowledgement";
@@ -189,7 +190,7 @@ export function heldContainerPath(
   const seen = new Set<string>();
   let id: string | null = containerId;
   while (id !== null) {
-    if (seen.has(id) || path.length >= 100) return null;
+    if (seen.has(id) || path.length >= MAX_CONTAINER_PATH_LENGTH) return null;
     seen.add(id);
     const head = heads.get(id);
     if (!head) return null;

@@ -1,6 +1,6 @@
 import type { DatabaseTransaction } from "@tearleads/api-shared/postgres";
 import { containers } from "@tearleads/api-shared/schema";
-import { MAX_DOCUMENT_SYNC_AUTHORIZATION_PATH_DEPTH } from "@tearleads/validators/util";
+import { MAX_CONTAINER_PATH_LENGTH } from "@tearleads/validators/util";
 import { sql } from "drizzle-orm";
 import { uuidValue } from "../../../../utils/sqlDialect";
 import { ContainerMutationError } from "../errors";
@@ -44,7 +44,7 @@ export async function assertCarriedRekeysBelowRotations(input: {
       select ancestry.start_id, parent.parent_id, ancestry.distance + 1
       from ${containers} parent
       inner join ancestry on parent.id = ancestry.parent_id
-      where ancestry.distance < ${MAX_DOCUMENT_SYNC_AUTHORIZATION_PATH_DEPTH}
+      where ancestry.distance < ${MAX_CONTAINER_PATH_LENGTH}
     )
     select distinct start_id
     from ancestry

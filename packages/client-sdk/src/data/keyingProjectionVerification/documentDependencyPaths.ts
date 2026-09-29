@@ -2,9 +2,8 @@ import {
   KeyingVerificationError,
   type VerifiedContainerAccessManifest,
 } from "@tearleads/crypto";
+import { MAX_CONTAINER_PATH_LENGTH } from "@tearleads/validators/util";
 import { assertCitedAncestorsDoNotRegress } from "./containerAncestorCitations";
-
-const MAX_CONTAINER_PATH_DEPTH = 100;
 
 /**
  * Rebuild historical authorization from the event's signed heads, not from
@@ -55,7 +54,7 @@ export function resolveEventContainerPaths(input: {
     while (containerId !== null) {
       if (
         seen.has(containerId) ||
-        reversed.length >= MAX_CONTAINER_PATH_DEPTH
+        reversed.length >= MAX_CONTAINER_PATH_LENGTH
       ) {
         throw new KeyingVerificationError(
           "object_mismatch",

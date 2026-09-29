@@ -1,3 +1,5 @@
+import { MAX_CONTAINER_PATH_LENGTH } from "./containerLimits";
+
 export const MAX_DOCUMENT_SYNC_REQUEST_BYTES = 16 * 1024 * 1024;
 
 // A response page must be able to carry the largest accepted atomic rotation
@@ -17,14 +19,12 @@ export const MAX_DOCUMENT_SYNC_OUTGOING_UPDATES = 64;
 // the exact serialized-byte ceiling after encryption and trims the batch; a
 // smaller estimate here would permanently strand an otherwise valid update.
 export const MAX_DOCUMENT_SYNC_AUTHORIZATION_PATHS = 64;
-export const MAX_DOCUMENT_SYNC_AUTHORIZATION_PATH_DEPTH = 100;
 // Derive the aggregate ceiling from the structural limits so every valid link
 // set remains syncable after later container moves deepen its paths. This is
 // still a finite verification bound; the serialized request has a separate
 // 16 MiB ceiling.
 export const MAX_DOCUMENT_SYNC_AUTHORIZATION_PATH_REFS =
-  MAX_DOCUMENT_SYNC_AUTHORIZATION_PATHS *
-  MAX_DOCUMENT_SYNC_AUTHORIZATION_PATH_DEPTH;
+  MAX_DOCUMENT_SYNC_AUTHORIZATION_PATHS * MAX_CONTAINER_PATH_LENGTH;
 // Flag-day product maximum for every document content-key bundle. Create/link
 // request validation and the client link preflight keep a greenfield database
 // from ever producing a document that cannot fit this sync contract.

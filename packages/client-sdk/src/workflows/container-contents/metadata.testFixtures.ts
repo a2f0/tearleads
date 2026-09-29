@@ -74,6 +74,9 @@ const metadataTestPersistenceStubs = {
   async markCreateIntentRevisionSynced() {
     return true;
   },
+  async abandonMoveIntentRevision() {
+    return false;
+  },
   async markMoveIntentRevisionSynced() {
     return true;
   },

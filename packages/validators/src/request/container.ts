@@ -11,6 +11,7 @@ import {
 import {
   AccessManifestBundleWireSchema,
   ContainerKekKeyringWireRecordSchema,
+  MAX_CONTAINER_PATH_LENGTH,
   MAX_INLINE_CONTAINER_REKEYS,
   MAX_ROTATION_CONTAINER_REKEYS,
 } from "../util";
@@ -80,7 +81,7 @@ export const ContainerReciteRequestSchema = loosePlainObject({
   manifest: plainObjectSchema,
   previousContainerPath: boundedNonEmptyArraySchema(
     AccessManifestBundleWireSchema,
-    100,
+    MAX_CONTAINER_PATH_LENGTH,
   ),
   previousManifest: AccessManifestBundleWireSchema,
   principalPolicies: arraySchema(plainObjectSchema),

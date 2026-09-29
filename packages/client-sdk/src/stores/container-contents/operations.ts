@@ -2,6 +2,10 @@ import type { ContainerSystemSlot } from "@tearleads/validators/containerSystemS
 import { createChildContainerState } from "../../workflows/container-contents/container-state/createChild";
 import { deleteContainerState } from "../../workflows/container-contents/container-state/delete";
 import {
+  assertLocalChildPathFits,
+  assertLocalMovePathFits,
+} from "../../workflows/container-contents/container-state/localPathDepth";
+import {
   installContainerMetadataRecord,
   renameContainerMetadataStateFromRuntime,
 } from "../../workflows/container-contents/metadata";
@@ -57,6 +61,7 @@ export async function createChildContainer(
   if (!parentState) {
     return null;
   }
+  assertLocalChildPathFits(state.containersById, parentId);
 
   const created = await createChildContainerState({
     createRemote: false,
@@ -432,6 +437,7 @@ export async function moveContainer(
   if (existingState.container.parentId === parentId) {
     return toContainerNode(existingState);
   }
+  assertLocalMovePathFits(state.containersById, containerId, parentId);
 
   const isRemoteContainer = Boolean(existingState.record.documentId);
   const saveOptions = isRemoteContainer

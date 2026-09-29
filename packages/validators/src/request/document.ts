@@ -10,7 +10,7 @@ import {
 } from "../schema";
 import {
   AccessManifestBundleWireSchema,
-  MAX_DOCUMENT_SYNC_AUTHORIZATION_PATH_DEPTH,
+  MAX_CONTAINER_PATH_LENGTH,
   MAX_DOCUMENT_SYNC_AUTHORIZATION_PATH_REFS,
   MAX_DOCUMENT_SYNC_AUTHORIZATION_PATHS,
   MAX_INLINE_CONTAINER_REKEYS,
@@ -95,12 +95,10 @@ export const DocumentLinkSetMutationRequestSchema =
       if (
         request.authorizingContainerPathRefs.length >
           MAX_DOCUMENT_SYNC_AUTHORIZATION_PATHS ||
-        request.targetContainerPathRefs.length >
-          MAX_DOCUMENT_SYNC_AUTHORIZATION_PATH_DEPTH ||
+        request.targetContainerPathRefs.length > MAX_CONTAINER_PATH_LENGTH ||
         request.authorizingContainerPathRefs.some(
           (path) =>
-            !Array.isArray(path) ||
-            path.length > MAX_DOCUMENT_SYNC_AUTHORIZATION_PATH_DEPTH,
+            !Array.isArray(path) || path.length > MAX_CONTAINER_PATH_LENGTH,
         )
       ) {
         return;

@@ -9,10 +9,7 @@ import type {
   ContainerWriterProjectionResponse,
 } from "@tearleads/validators/response";
 import { locallyAcknowledgedContainerMutationHead } from "../../../data/containers/shared/mutationAcknowledgement";
-import {
-  isContainerManifestAlreadyExistsConflict,
-  isStaleParentContainerPathFailure,
-} from "../../../data/containers/shared/mutationFailures";
+import { isStaleParentContainerPathFailure } from "../../../data/containers/shared/mutationFailures";
 import type { ContainerMutationSubmitFailure } from "../../../data/containers/shared/types";
 import { assertDocumentWriterProjectionConsistent } from "../../../data/documents/shared/projection";
 import type { ProjectionUserKeyResolver } from "../../../data/keyingProjectionVerification";
@@ -35,6 +32,7 @@ import {
 import { cachePrincipalPolicyBundles } from "../../principals/policyCache";
 import { PrincipalPolicyRepairBudget } from "../../principals/policyRepairBudget";
 import { createRuntimePrincipalPolicyWarmer } from "../../principals/runtimePolicyWarmer";
+import { settleTerminalCreateFailure } from "./createTerminalFailure";
 import type {
   ContainerWorkflowRuntime,
   CreatedRemoteContainerState,
@@ -100,13 +98,6 @@ async function cacheStalePrincipalPolicyBundles(input: {
     stillCurrent: input.stillCurrent,
   });
   return input.stillCurrent?.() !== false;
-}
-
-function reportContainerCreateFailureIfCurrent(
-  failure: ContainerMutationSubmitFailure,
-  stillCurrent: (() => boolean) | undefined,
-): void {
-  if (stillCurrent?.() !== false) failure.report();
 }
 
 /**
@@ -433,16 +424,10 @@ async function createContainerWithMetadataWithRepairs(
       parentProjection = refreshedProjection;
       continue;
     }
-    if (isContainerManifestAlreadyExistsConflict(submitted)) {
-      // A create whose response was lost re-sends the same stable ids; the server
-      // reports the manifest already exists. The container is committed remotely,
-      // so this is the benign outcome of an idempotent retry — do not report it as
-      // an error. It reconciles via hydration, matching createRemoteDocument's
-      // manifest-exists handling on the document create path.
-      return CONTAINER_ALREADY_COMMITTED;
-    }
-    reportContainerCreateFailureIfCurrent(submitted, input.stillCurrent);
-    return null;
+    return settleTerminalCreateFailure(submitted, input.stillCurrent) ===
+      "committed"
+      ? CONTAINER_ALREADY_COMMITTED
+      : null;
   }
 }
 

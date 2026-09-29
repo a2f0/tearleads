@@ -69,6 +69,19 @@ export function containerUnavailable(label: string): ContainerMutationError {
 }
 
 /**
+ * A create or move would leave a path longer than readers accept. Coded so a
+ * client can tell the same request never succeeds: it abandons a queued move
+ * and keeps a queued create until a local move re-arms it.
+ */
+export function containerPathTooDeep(): ContainerMutationError {
+  const message = "Container path exceeds maximum depth";
+  return new ContainerMutationError(message, 409, {
+    code: CONTAINER_MUTATION_ERROR_CODES.pathTooDeep,
+    error: message,
+  });
+}
+
+/**
  * A rotation would leave `requiredContainerIds` (parent-first) pinned to a
  * retired epoch above a directly granted container. Not `state_stale`:
  * refetching cannot help, the client must sign and carry those re-keys.
