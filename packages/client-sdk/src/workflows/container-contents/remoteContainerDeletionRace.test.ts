@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+import { cachedContainerHydrationRuntime } from "../../../test/helpers/cachedContainerHydrationRuntime";
 import { upsertRemoteContainerState } from "./remoteContainerState";
 import type {
   ContainerState,
@@ -43,6 +44,7 @@ test("hydration removes the mapped container when persistence observes deletion"
   } as unknown as ContainerState;
   const state = {
     containersById: new Map([[remoteContainer.id, existingState]]),
+    runtime: cachedContainerHydrationRuntime([remoteContainer]),
   } as unknown as RemoteContainerHydrationState;
   const childIdsByParentId = new Map([
     [remoteContainer.parentId as string, new Set([remoteContainer.id])],

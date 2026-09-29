@@ -115,7 +115,6 @@ test("remote deletion prevents unobserved hydration even with a later server clo
           serverUpdatedAt: updatedAt,
         },
         expectedDormantRecord: null,
-        purgeDormantMetadata: false,
         record: containerState.record,
         remoteUpdatedAt: updatedAt,
         saveOptions: {},

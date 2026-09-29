@@ -75,7 +75,9 @@ const OWNER_GRANTED_ROOT_ATTACHMENT_REQUEST_BUDGET: ProxiedApiRequestBudget = {
     "POST /auth/ws-ticket": 0,
     // Includes classifying a newly visible root, fresh container info, and
     // the lazy projection read after acknowledging a successful share.
-    "GET /containers/:containerId/writer-projection": 6,
+    // One more read authenticates the ordinary empty child's metadata binding
+    // on the receiving device (#2365 finding #15).
+    "GET /containers/:containerId/writer-projection": 7,
     "GET /documents/:documentId/attachments": 2,
     "GET /organizations/:organizationId/billing": 0,
     "GET /organizations/:organizationId/read-model": 6,

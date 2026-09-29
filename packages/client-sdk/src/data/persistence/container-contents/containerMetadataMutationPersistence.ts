@@ -1,4 +1,8 @@
 import { and, eq, inArray } from "drizzle-orm";
+import {
+  assertHeldContainerBinding,
+  heldContainerBinding,
+} from "../../containers/containerBinding";
 import { documentSyncPullContinuationsEqual } from "../../documents/shared/pullContinuation";
 import {
   enqueueDocumentPendingUpdate,
@@ -319,6 +323,24 @@ async function prepareContainerMutationWrite(input: {
   };
 }
 
+/** Server acknowledgements and listings cannot rebind a held folder. */
+function assertMutationKeepsHeldBinding(
+  currentState: StoredContainerState & { record: ContainerMetadataRecord },
+  input: CommitMetadataMutationInput,
+): void {
+  const recordDocumentIds =
+    input.record.documentId === currentState.record.documentId
+      ? []
+      : [input.record.documentId];
+  assertHeldContainerBinding(heldContainerBinding(currentState), {
+    organizationId: input.container.organizationId,
+    metadataDocumentIds: [
+      input.container.metadataDocumentId,
+      ...recordDocumentIds,
+    ],
+  });
+}
+
 export async function commitStoredMetadataMutation(
   execSql: Parameters<
     ContainerContentsPersistence["commitMetadataMutation"]
@@ -346,6 +368,7 @@ export async function commitStoredMetadataMutation(
             tx,
           });
         }
+        assertMutationKeepsHeldBinding(currentState, input);
 
         await enqueuePendingUpdate(
           lockedExecSql,

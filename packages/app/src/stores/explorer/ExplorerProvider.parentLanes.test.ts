@@ -26,7 +26,7 @@ import {
   createSqlRuntime,
   runtimeWithPatch,
 } from "../../../test/helpers/explorer-provider/explorerProviderHarness";
-import { createSignedExplorerRoots } from "../../../test/helpers/explorer-provider/signedExplorerRoots";
+import { createSignedExplorerDirectory } from "../../../test/helpers/explorer-provider/signedExplorerDirectory";
 import { waitForCondition } from "../../../test/helpers/waitForCondition";
 
 test("explorer sync retries failed parent lane batches without advancing their watermarks", async () => {
@@ -38,7 +38,7 @@ test("explorer sync retries failed parent lane batches without advancing their w
   runtime = runtimeWithPatch(runtime, {
     apiClient: createMockApiClient({
       ...runtime.apiClient,
-      ...(await createSignedExplorerRoots([
+      ...(await createSignedExplorerDirectory([
         {
           id: "parent-a",
           organizationId: "org-1",
@@ -48,6 +48,18 @@ test("explorer sync retries failed parent lane batches without advancing their w
           id: "parent-b",
           organizationId: "org-1",
           metadataDocumentId: "parent-b-metadata-document",
+        },
+        {
+          id: "child-a",
+          metadataDocumentId: "child-a-metadata-document",
+          organizationId: "org-1",
+          parentId: "parent-a",
+        },
+        {
+          id: "child-b",
+          metadataDocumentId: "child-b-metadata-document",
+          organizationId: "org-1",
+          parentId: "parent-b",
         },
       ])),
       listContainerParentLanes: batchParentLanes(async (options) => {

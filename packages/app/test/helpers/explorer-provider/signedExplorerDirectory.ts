@@ -11,15 +11,15 @@ import type {
 } from "@tearleads/validators/response";
 
 /**
- * Explicit signed roots for Explorer tests that exercise remote discovery. A
+ * Explicit signed folders for Explorer tests that exercise remote discovery. A
  * root the session acknowledges as its own must be created by the session
  * user (the SDK refuses any other creator), so such tests pass that user id.
  */
-export async function createSignedExplorerRoots(
-  roots: readonly Pick<
+export async function createSignedExplorerDirectory(
+  containers: readonly (Pick<
     ContainerSummary,
     "id" | "organizationId" | "metadataDocumentId"
-  >[],
+  > & { readonly parentId?: string | null })[],
   options: { readonly userId?: string | undefined } = {},
 ) {
   const signer = generateSigningSeedAndKeyPair();
@@ -31,6 +31,27 @@ export async function createSignedExplorerRoots(
     string,
     Promise<ContainerWriterProjectionResponse>
   >();
+  const load = (id: string): Promise<ContainerWriterProjectionResponse> => {
+    const pending = projections.get(id);
+    if (pending) return pending;
+    const container = containers.find((container) => container.id === id);
+    if (!container) throw new Error(`Unknown signed Explorer folder: ${id}`);
+    const projection = (async () =>
+      createContainerWriterProjectionFixture({
+        containerId: id,
+        metadataDocumentId: container.metadataDocumentId,
+        organizationId: container.organizationId,
+        parentProjection: container.parentId
+          ? await load(container.parentId)
+          : undefined,
+        userId,
+        signerKeyFingerprint: fingerprint,
+        signerPrivateKey: signer.signingPrivateKey,
+        encapsulationPublicKey: kem.publicKey,
+      }))();
+    projections.set(id, projection);
+    return projection;
+  };
   return {
     getUserIdentity: async (requestedUserId: string) =>
       requestedUserId === userId
@@ -43,22 +64,9 @@ export async function createSignedExplorerRoots(
           }
         : null,
     getContainerWriterProjection: async (id: string) => {
-      const root = roots.find((root) => root.id === id);
-      if (!root) return null;
-      let projection = projections.get(id);
-      if (!projection) {
-        projection = createContainerWriterProjectionFixture({
-          containerId: id,
-          metadataDocumentId: root.metadataDocumentId,
-          organizationId: root.organizationId,
-          userId,
-          signerKeyFingerprint: fingerprint,
-          signerPrivateKey: signer.signingPrivateKey,
-          encapsulationPublicKey: kem.publicKey,
-        });
-        projections.set(id, projection);
-      }
-      return projection;
+      return containers.some((container) => container.id === id)
+        ? load(id)
+        : null;
     },
   };
 }

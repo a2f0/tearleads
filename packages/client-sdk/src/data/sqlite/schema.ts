@@ -55,6 +55,7 @@ export {
   containers,
   dormantContainerMetadata,
   dormantMetadataSweepRequests,
+  supersededContainerBindings,
 } from "./containerSchema";
 export {
   documentAttachmentBlobProjection,

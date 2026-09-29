@@ -84,7 +84,7 @@ test("explorer sync replays moved synced containers from disk after restart and 
       id: "root-container",
       metadataAccessEpoch: 1,
       metadataAccessStateHash: "root-access-state-hash-1",
-      metadataDocumentId: "root-metadata-document",
+      metadataDocumentId: "root-container-metadata-document",
       organizationId: "org-1",
       parentId: null,
     }),
@@ -108,7 +108,7 @@ test("explorer sync replays moved synced containers from disk after restart and 
       id: "child-container",
       metadataAccessEpoch: 1,
       metadataAccessStateHash: "child-access-state-hash-1",
-      metadataDocumentId: "child-metadata-document",
+      metadataDocumentId: "child-container-metadata-document",
       organizationId: "org-1",
       parentId: "parent-a",
     }),
@@ -174,7 +174,7 @@ test("explorer sync replays moved synced containers from disk after restart and 
     await saveSyncedContainer({
       id: "root-container",
       metadataAccessStateHash: "root-access-state-hash-1",
-      metadataDocumentId: "root-metadata-document",
+      metadataDocumentId: "root-container-metadata-document",
       name: "/",
       parentId: null,
     });
@@ -195,7 +195,7 @@ test("explorer sync replays moved synced containers from disk after restart and 
     await saveSyncedContainer({
       id: "child-container",
       metadataAccessStateHash: "child-access-state-hash-1",
-      metadataDocumentId: "child-metadata-document",
+      metadataDocumentId: "child-container-metadata-document",
       name: "Child",
       parentId: "parent-a",
     });

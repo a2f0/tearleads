@@ -375,7 +375,8 @@ test("a never-bound dormant record re-attaches instead of purging", async () => 
             };
           },
         },
-        auth: { isAuthenticated: true },
+        // The lost-response create was this user's own.
+        auth: { isAuthenticated: true, userId: "user-1" },
         infra: { dbStatus: "ready", execSql },
         state: { online: true },
         util: { log: () => {} },
