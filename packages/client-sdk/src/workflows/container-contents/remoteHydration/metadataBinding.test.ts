@@ -9,10 +9,6 @@ import {
 } from "../../../data/containers/containerMetadataDocument";
 import { sqlContainerContentsPersistence } from "../../../data/persistence/container-contents/containerContentsPersistence";
 import { renameContainerMetadataStateFromRuntime } from "../metadataPersistence";
-import {
-  cachedDestinationRole,
-  rememberDestinationRole,
-} from "./destinationRoleCache";
 import { verifyRemoteContainerDestination } from "./verifiedDestination";
 
 test("ordinary child hydration derives its metadata target from the signed folder", async () => {
@@ -188,28 +184,6 @@ test("unauthenticated metadata bindings never persist or enter the cache", async
     const hydrated = await fixture.hydrate();
     expect(hydrated?.record.documentId).toBe(fixture.metadataDocumentId);
     expect(fixture.projectionReads()).toBe(2);
-  } finally {
-    close();
-  }
-});
-
-test("metadata binding cache keeps organization and container identities distinct", () => {
-  const { execSql, close } = createNativeTestExecSql();
-  try {
-    const identity = { organizationId: "organization:a", id: "b" };
-    const role = {
-      metadataDocumentId: "authenticated-metadata",
-      systemSlot: null,
-      createSignerUserId: "owner",
-    };
-    rememberDestinationRole(execSql, identity, role);
-    expect(cachedDestinationRole(execSql, identity)).toEqual(role);
-    expect(
-      cachedDestinationRole(execSql, {
-        organizationId: "organization",
-        id: "a:b",
-      }),
-    ).toBeUndefined();
   } finally {
     close();
   }

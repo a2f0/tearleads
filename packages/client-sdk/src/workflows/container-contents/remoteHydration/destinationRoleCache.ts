@@ -10,7 +10,11 @@ export interface DestinationRole
 }
 /** Roles are verified and cached under the container's id and organization. */
 type DestinationIdentity = Pick<RemoteContainer, "id" | "organizationId">;
-const rolesByDatabase = new WeakMap<ExecSql, Map<string, DestinationRole>>();
+interface DestinationRoles {
+  fixed: Map<string, DestinationRole>;
+  ordinary: Map<string, DestinationRole>;
+}
+const rolesByDatabase = new WeakMap<ExecSql, DestinationRoles>();
 const MAX_ROLES = 1_000;
 
 function destinationKey(identity: DestinationIdentity): string {
@@ -21,7 +25,9 @@ export function cachedDestinationRole(
   execSql: ExecSql,
   listed: DestinationIdentity,
 ): DestinationRole | undefined {
-  return rolesByDatabase.get(execSql)?.get(destinationKey(listed));
+  const roles = rolesByDatabase.get(execSql);
+  const key = destinationKey(listed);
+  return roles?.fixed.get(key) ?? roles?.ordinary.get(key);
 }
 
 export function rememberDestinationRole(
@@ -44,14 +50,18 @@ export function rememberDestinationRole(
       "Ordinary container parents cannot enter the immutable binding cache",
     );
   }
-  let roles = rolesByDatabase.get(execSql);
-  if (!roles) {
-    roles = new Map();
-    rolesByDatabase.set(execSql, roles);
+  let cache = rolesByDatabase.get(execSql);
+  if (!cache) {
+    cache = { fixed: new Map(), ordinary: new Map() };
+    rolesByDatabase.set(execSql, cache);
   }
-  if (roles.size >= MAX_ROLES) {
+  // Ordinary directory growth must not evict root/system reconciliation roles.
+  // Both buckets are bounded independently.
+  const roles = role.parentId === undefined ? cache.ordinary : cache.fixed;
+  const key = destinationKey(listed);
+  if (roles.size >= MAX_ROLES && !roles.has(key)) {
     const oldest = roles.keys().next().value;
     if (oldest !== undefined) roles.delete(oldest);
   }
-  roles.set(destinationKey(listed), role);
+  roles.set(key, role);
 }

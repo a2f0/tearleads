@@ -1,3 +1,4 @@
+import { isKeyingVerificationError } from "../../data/keyingProjectionVerification/error";
 import { createRuntimePrincipalPolicyWarmer } from "../principals/runtimePolicyWarmer";
 import {
   listRemoteContainerIdsWithPendingMetadataUpdates,
@@ -15,6 +16,7 @@ import {
 import type {
   ContainerChildIndex,
   ContainerParentHydrationLane,
+  ContainerState,
   ExpectedContainerState,
   FetchedContainerParentLanePage,
   ListedRemoteContainerPageItem,
@@ -30,6 +32,19 @@ interface HydrationProgress {
   complete: boolean;
   shouldStop: boolean;
 }
+async function upsertPageContainer(
+  input: Parameters<typeof upsertRemoteContainerState>[0],
+): Promise<ContainerState | null> {
+  try {
+    return await upsertRemoteContainerState(input);
+  } catch (error) {
+    if (!isKeyingVerificationError(error)) throw error;
+    // Destination verification already reported the rejected proof. Returning
+    // no item leaves this page unacknowledged without blocking other folders.
+    return null;
+  }
+}
+
 async function applyRemoteContainerPage(input: {
   childIdsByParentId: ContainerChildIndex;
   expectedContainerStates: ReadonlyMap<string, ExpectedContainerState>;
@@ -94,7 +109,7 @@ async function applyRemoteContainerPage(input: {
         pageCompleted = false;
         continue;
       }
-      const upserted = await upsertRemoteContainerState({
+      const upserted = await upsertPageContainer({
         childIdsByParentId,
         containerIdsWithPendingMetadataUpdates,
         containerIdsWithPendingStructuralIntents,

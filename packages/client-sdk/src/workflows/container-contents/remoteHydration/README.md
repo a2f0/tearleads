@@ -16,12 +16,17 @@ Every listed container must prove its immutable metadata document ID before
 hydration changes a metadata record or its pending updates. The listing can
 trigger verification but cannot choose that target. Verified bindings are cached
 by database, organization and container ID; ordinary parent edges are excluded
-because moves can change them. Root/system parents remain fixed. Tombstone
+because moves can change them. Root/system parents remain fixed. Separate
+1,000-entry buckets keep ordinary folder discovery from evicting root/system
+reconciliation roles. Tombstone
 recovery additionally verifies current placement against durable checkpoints.
 
 A page with a concurrently changed live item or tombstone remains unacknowledged:
 its watermark and restoration-completion callback must not advance. Independent
 pages and newly discovered child lanes still run. This prevents an unrelated
 metadata sync from leaving a newly shared root permanently without children.
-Generation changes, unavailable responses, and verification errors still stop
-the pass; an incomplete page is not retried automatically within that pass.
+A rejected destination proof is reported and leaves that folder unapplied;
+independent folders and lanes continue. Its page remains unacknowledged and
+restoration cleanup stays pending. Generation changes, unavailable lane responses
+and unexpected runtime/storage errors still stop the pass. An incomplete page
+is not retried automatically within that pass.
