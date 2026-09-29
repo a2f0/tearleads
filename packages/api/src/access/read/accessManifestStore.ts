@@ -12,3 +12,4 @@ export {
   lockAccessManifestHeadsForShare,
   lockAccessManifestHeadsForUpdate,
 } from "../shared/internal/accessManifestStore";
+export { getObjectAccessManifestBundles } from "../shared/internal/objectManifestHistory";

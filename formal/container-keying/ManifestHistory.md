@@ -1,14 +1,14 @@
 # Manifest history availability
 
 [`ManifestHistory.tla`](./ManifestHistory.tla) models issue #2365 finding #6:
-accepted signed histories must remain readable after process-cache eviction,
-and reaching a verification budget must not prevent revocation.
+accepted signed histories must remain readable when verification markers are
+lost or retired, and reaching a verification budget must not prevent revocation.
 
 | Model action or predicate | Production seam |
 | --- | --- |
 | `Read` / `Readable` | `verifyStoredContainerManifest` and `verifyStoredDocumentManifest` authenticate retained history |
 | `IterativeVerification` | `verifyStoredManifestGraph` walks dependencies with an explicit stack rather than rejecting a lifetime history depth |
-| `Restart` / `warm` | `StoredVerificationCache` is an optional process cache; clearing it must preserve acceptance |
+| `Restart` / `warm` | `access_manifest_verifications` markers only accelerate reads; a cleared table, rotated secret or new verifier version must preserve acceptance |
 | `Commit` / `Revoke` | `verifyStoredContainerManifest` verifies the previous manifest before mutation authorization; history length adds no new mutation refusal |
 
 The model abstracts one valid object history, with complete retained evidence
@@ -27,23 +27,19 @@ grows and the process restarts. Capping mutations at the read limit preserves
 reads but violates `RevocationAvailable`. These are enabled-action safety checks,
 not claims of eventual network or scheduler progress.
 
-This first repair removes the deterministic history-depth refusal. Verification
-still loads each retained manifest on a cold read. Document ancestor queries
-share a request-local binary ancestor index: indexing N manifests uses
-O(N log N) time and space, and each indexed lineage query takes O(log N).
-The index expands only down to requested floors; it never loads older ancestors
-merely to assign a depth. Cold-request resource budgets, persistent markers,
-and incremental proof delivery remain tracked in
-[#2365, finding 6](https://github.com/a2f0/tearleads/issues/2365). They must not
-become a permanent lifetime-history refusal or a cap that prevents revocation.
-No existing history is trusted merely because its depth is large.
-
-The implementation separately retains 128 requested verified heads per verifier.
-Pending database work is shared only within one executor; pure signature/hash
-checks are shared across requests. Completed immutable results can be reused
-across database sessions, while failures are retried in the caller's snapshot.
-This prevents intermediate-cache churn from evicting recently requested heads
-and avoids repeated signature checks without waiting across transaction locks.
-Regressions reproduce those failures with the protections removed. These
-optional caches do not bound the first cold walk, isolate tenants, or represent
-durable progress. The model does not abstract their scheduling or eviction.
+This repair removes the deterministic history-depth refusal. Each manifest the
+stored-history verifier accepts is marked with a MAC under a key derived from a
+server-held secret, binding its hash, a digest of the complete stored bundle and
+the verifier version. A later read stops at the first valid marker, so only an
+unmarked tail is re-verified; the database is still not a trust boundary, since
+an edited row or forged marker falls back to full verification. Document
+ancestor queries share a request-local binary ancestor index: indexing N
+manifests uses O(N log N) time and space, and each indexed lineage query takes
+O(log N). The index expands only down to requested floors. Incremental proof
+delivery, so a writer projection need not ship a container's full key history,
+remains tracked in [#2365, finding 6](https://github.com/a2f0/tearleads/issues/2365).
+It must not become a permanent lifetime-history refusal or a cap that prevents
+revocation. No existing history is trusted merely because its depth is large.
+Regressions cover a full 4,098-entry verification without markers, a marked
+history that is neither walked nor re-signed, edited rows, forged markers and a
+rotated secret. The model does not abstract markers.

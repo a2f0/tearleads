@@ -424,7 +424,7 @@ belonging to other organizations. Viewing a foreign shared container therefore
 cannot leave a cursor in the viewer's namespace after that container is removed.
 
 Every successful re-cite permanently adds one manifest to the descendant's
-history. Writer projections return and re-verify that chain, so repeated
+history. Writer projections return that chain for clients to verify, so repeated
 ancestor changes can increase per-read bytes and verification cost up to this
 bound even when the descendant itself is never edited. Re-citation also
 advances `metadataAccessStateHash`: each accepted event invalidates the

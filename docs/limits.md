@@ -46,18 +46,18 @@ an unclosed parent at the boundary rather than silently truncating it.
 | KEK-log page | 256 epochs (`CONTAINER_KEK_LOG_PAGE_LIMIT`) | API: `workflows/containers/kekLog.ts`. | Pagination. Recovery walks from the newest page backward, so page size, not lifetime rotation count, bounds a response. |
 
 Lifetime container and document manifest history has no depth refusal. The API
-verifies retained dependencies iteratively, including ancestor lineage, so cache
-eviction does not invalidate an accepted history. Cold verification still loads
-retained history. Each verifier separately retains 128 requested verified heads,
-keeping them available while the 2,048-entry dependency cache turns over during
-long history walks. Pending database verification is shared only within the same
-executor, avoiding waits across transaction locks. Pure signature/hash checks
-share pending work across requests in a separate 2,048-entry cache. Completed
-immutable verification results can be reused across database sessions; failures
-are retried. Reuse checks the complete source and signer key.
-They are optional process caches, not persistent verification markers or a
-bound on first-cold-read cost. For N ancestor manifests, the shared lineage index
-uses O(N log N) work and space, with O(log N) per lineage query; see
+verifies retained dependencies iteratively, including ancestor lineage, and
+records each manifest it accepts in `access_manifest_verifications`. A marker's
+MAC, under a key derived from the server-held `DOCUMENT_SYNC_CURSOR_HMAC_KEY`,
+binds the manifest hash, a digest of the complete stored bundle and the verifier
+version. Later reads stop at the first marked manifest, so each manifest's
+signatures and authorization are verified about once in its lifetime rather
+than on every cold read. An edited row, a forged marker, a rotated secret or a
+new verifier version falls back to full verification, which re-marks.
+Serving a writer projection still loads every retained manifest its key history
+cites; incremental history delivery is tracked in #2365 finding 6. For N
+ancestor manifests, the request-local lineage index uses O(N log N) work and
+space, with O(log N) per lineage query; see
 [the availability model](../formal/container-keying/ManifestHistory.md).
 
 The sealed keyring is 64 bytes per retained epoch and is never truncated, so

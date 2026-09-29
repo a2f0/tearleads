@@ -1,5 +1,5 @@
 {
-  "id": "114a6cdf-efc6-44c9-8525-595308f85305",
+  "id": "ca5727e1-85d2-4b3a-bdc9-ae0acc452055",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -876,6 +876,44 @@
           "with": {}
         }
       },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.access_manifest_verifications": {
+      "name": "access_manifest_verifications",
+      "schema": "",
+      "columns": {
+        "manifest_hash": {
+          "name": "manifest_hash",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "verifier_version": {
+          "name": "verifier_version",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "mac": {
+          "name": "mac",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
       "foreignKeys": {},
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},

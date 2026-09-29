@@ -6,18 +6,17 @@ import type {
 import { verifyContainerAccessManifest } from "@tearleads/crypto";
 import type { AccessManifestBundleWireResponse } from "@tearleads/validators/response";
 import { MAX_CONTAINER_PATH_LENGTH } from "@tearleads/validators/util";
+import {
+  hasAccessManifestVerificationMarker,
+  recordAccessManifestVerificationMarker,
+} from "../../../utils/accessManifestVerificationMarkers";
 import { uniqueSortedStrings } from "../../../utils/array";
 import { canonicalJsonEquals } from "../../../utils/canonicalJson";
-import {
-  clearStoredAccessEventVerificationCache,
-  verifyStoredAccessEvent,
-} from "../../../utils/storedAccessEventVerification";
+import { verifyStoredAccessEvent } from "../../../utils/storedAccessEventVerification";
 import {
   type StoredManifestVerificationStep,
   verifyStoredManifestGraph,
 } from "../../../utils/storedManifestGraph";
-import { StoredManifestWork } from "../../../utils/storedManifestWork";
-import { StoredVerificationCache } from "../../../utils/storedVerificationCache";
 import {
   loadPrincipalAuthorizationPoliciesForReferences,
   PrincipalPolicyProjectionError,
@@ -28,17 +27,6 @@ import {
   type ContainerWriterProjectionContext,
   ContainerWriterProjectionError,
 } from "./types";
-
-const verifiedStoredManifests =
-  new StoredVerificationCache<VerifiedContainerAccessManifest>(2_048);
-const storedManifestWork =
-  new StoredManifestWork<VerifiedContainerAccessManifest>(128);
-
-export function clearStoredContainerManifestVerificationCache(): void {
-  verifiedStoredManifests.clear();
-  storedManifestWork.clear();
-  clearStoredAccessEventVerificationCache();
-}
 
 interface StoredManifestVerificationInput {
   readonly bundle: AccessManifestBundleWireResponse;
@@ -129,16 +117,6 @@ async function loadStoredEventSigner(
     fingerprint: parsed.event.event.signerKeyFingerprint,
     userId: parsed.event.event.signerUserId,
   });
-}
-
-function storedVerificationSource(
-  bundle: AccessManifestBundleWireResponse,
-  signerPublicKey: Uint8Array,
-) {
-  return {
-    bundle,
-    signerPublicKey,
-  };
 }
 
 function verifyHistoricalContainerManifest(
@@ -243,7 +221,6 @@ async function verifyPreparedBundle(
   input: StoredManifestVerificationInput,
   bundle: AccessManifestBundleWireResponse,
   parsed: VerifiedContainerAccessManifest,
-  signerPublicKey: Uint8Array,
   signedEvent: VerifiedAccessEvent,
   verifyHash: (hash: string) => Promise<VerifiedContainerAccessManifest>,
 ): Promise<VerifiedContainerAccessManifest> {
@@ -297,10 +274,11 @@ async function verifyPreparedBundle(
     bundle.manifestHash,
     verification.value,
   );
-  verifiedStoredManifests.set(
-    bundle.manifestHash,
-    storedVerificationSource(bundle, signerPublicKey),
-    verification.value,
+  // Every dependency was verified (or marked) first, so the marker attests
+  // this manifest's whole history.
+  await recordAccessManifestVerificationMarker(
+    input.context.verificationMarkers,
+    bundle,
   );
   return verification.value;
 }
@@ -312,18 +290,18 @@ async function prepareBundle(
   const cached = input.context.verifiedManifestByHash.get(bundle.manifestHash);
   if (cached) return { value: cached };
   const parsed = toVerifiedContainerManifest(bundle);
-  const signerPublicKey = await loadStoredEventSigner(input, parsed);
-  const source = storedVerificationSource(bundle, signerPublicKey);
-  const processCached =
-    storedManifestWork.get(bundle.manifestHash, source) ??
-    verifiedStoredManifests.get(bundle.manifestHash, source);
-  if (processCached) {
-    input.context.verifiedManifestByHash.set(
-      bundle.manifestHash,
-      processCached,
-    );
-    return { value: processCached };
+  // A marked manifest was verified with its whole history; only its stored
+  // bytes are rebound, and the walk stops here.
+  if (
+    await hasAccessManifestVerificationMarker(
+      input.context.verificationMarkers,
+      bundle,
+    )
+  ) {
+    input.context.verifiedManifestByHash.set(bundle.manifestHash, parsed);
+    return { value: parsed };
   }
+  const signerPublicKey = await loadStoredEventSigner(input, parsed);
   const signedEvent = await verifyStoredAccessEvent({
     stored: parsed.event,
     signerPublicKey,
@@ -337,13 +315,8 @@ async function prepareBundle(
       ...signedEvent.event.dependencyManifestHashes,
     ],
     verify: (dependency) =>
-      verifyPreparedBundle(
-        input,
-        bundle,
-        parsed,
-        signerPublicKey,
-        signedEvent,
-        async (hash) => dependency(hash),
+      verifyPreparedBundle(input, bundle, parsed, signedEvent, async (hash) =>
+        dependency(hash),
       ),
   };
 }
@@ -356,26 +329,18 @@ export async function verifyStoredContainerManifest(
       input.bundle.manifestHash,
     );
     if (cached) return cached;
-    const parsed = toVerifiedContainerManifest(input.bundle);
-    const signerPublicKey = await loadStoredEventSigner(input, parsed);
-    const verified = await storedManifestWork.run({
-      scope: input.context.executor,
-      key: input.bundle.manifestHash,
-      source: storedVerificationSource(input.bundle, signerPublicKey),
-      verify: () =>
-        verifyStoredManifestGraph({
-          rootHash: input.bundle.manifestHash,
-          error: integrityError,
-          prepare: async (hash) => {
-            const bundle =
-              hash === input.bundle.manifestHash
-                ? input.bundle
-                : await input.loadBundle(hash);
-            if (bundle.manifestHash !== hash)
-              throw integrityError("manifest dependency hash is inconsistent");
-            return prepareBundle(input, bundle);
-          },
-        }),
+    const verified = await verifyStoredManifestGraph({
+      rootHash: input.bundle.manifestHash,
+      error: integrityError,
+      prepare: async (hash) => {
+        const bundle =
+          hash === input.bundle.manifestHash
+            ? input.bundle
+            : await input.loadBundle(hash);
+        if (bundle.manifestHash !== hash)
+          throw integrityError("manifest dependency hash is inconsistent");
+        return prepareBundle(input, bundle);
+      },
     });
     input.context.verifiedManifestByHash.set(
       input.bundle.manifestHash,

@@ -33,8 +33,8 @@ import {
   signGroupSuccessor,
   submitSuccessor,
 } from "../../../test/helpers/rotatedReadGroupGrant";
+import { clearAccessManifestVerificationMarkers } from "../../../test/helpers/verificationMarkers";
 import { routeApp } from "../../routeApp";
-import { clearStoredContainerManifestVerificationCache } from "../../workflows/containers/writerProjection/storedManifestVerification";
 
 import { clearProjectionDirectoryBindingsCache } from "../../workflows/principals/projectionDirectoryBindings";
 
@@ -97,7 +97,7 @@ test("a fresh SDK verifies container history after its group is deleted", async 
   });
   expect(deleted.status, await deleted.clone().text()).toBe(200);
   expect((await getPolicy(owner, "group", granted.groupId)).status).toBe(403);
-  clearStoredContainerManifestVerificationCache();
+  await clearAccessManifestVerificationMarkers();
 
   const recovered = await coldRematerializeEncryptedDocument({
     documentId: document.documentId,

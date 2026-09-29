@@ -15,6 +15,8 @@ import {
   createVerifiedContainerAccessEvent,
 } from "@tearleads/crypto/test-fixtures";
 import { bytesToBase64 } from "@tearleads/encoding";
+import type { AccessManifestVerificationMarkerStore } from "../../src/utils/accessManifestVerificationMarkers";
+import { createContainerWriterProjectionContext } from "../../src/workflows/containers/writerProjection/context";
 import { toManifestBundleResponse } from "../../src/workflows/containers/writerProjection/records";
 
 export async function signedContainerHistory(length: number) {
@@ -105,5 +107,21 @@ export async function signedContainerHistory(length: number) {
     if (!bundle) throw new Error("Missing history dependency");
     return bundle;
   };
-  return { bundles, executor, loadBundle, manifests };
+  // Markers persist in the database in production; this fixture keeps them in
+  // memory so a "restart" can keep or drop them explicitly.
+  const markers = new Map<
+    string,
+    { readonly mac: string; readonly verifierVersion: number }
+  >();
+  const verificationMarkers: AccessManifestVerificationMarkerStore = {
+    load: async (manifestHash) => markers.get(manifestHash) ?? null,
+    save: async (manifestHash, marker) => {
+      markers.set(manifestHash, marker);
+    },
+  };
+  const createContext = () => ({
+    ...createContainerWriterProjectionContext(executor),
+    verificationMarkers,
+  });
+  return { bundles, createContext, executor, loadBundle, manifests, markers };
 }

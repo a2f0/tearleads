@@ -1,14 +1,9 @@
-import { afterEach, expect, test } from "bun:test";
+import { expect, test } from "bun:test";
 import { generateSigningSeedAndKeyPair } from "@tearleads/crypto";
 import { createContainerManifestFixture } from "@tearleads/crypto/test-fixtures";
-import {
-  clearStoredAccessEventVerificationCache,
-  verifyStoredAccessEvent,
-} from "./storedAccessEventVerification";
+import { verifyStoredAccessEvent } from "./storedAccessEventVerification";
 
-afterEach(clearStoredAccessEventVerificationCache);
-
-test("a cached event still binds its signature bytes and signer key", async () => {
+test("a stored event binds its signature bytes and signer key", async () => {
   const signer = generateSigningSeedAndKeyPair();
   const manifest = await createContainerManifestFixture({
     signer,

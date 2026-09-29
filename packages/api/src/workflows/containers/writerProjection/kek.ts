@@ -15,7 +15,10 @@ import {
   toContainerKeyEpoch,
   toContainerKeyWrap,
 } from "../../../access/read/containerKekStore";
-import { loadContainerManifestBundleByHash } from "./accessPaths";
+import {
+  loadContainerManifestBundleByHash,
+  prefetchContainerManifestHistory,
+} from "./accessPaths";
 import { cachedProjectionValue } from "./context";
 import { principalPolicyCacheKey } from "./principalPolicies";
 import { verifyStoredContainerManifest } from "./storedManifestVerification";
@@ -100,6 +103,8 @@ export async function loadContainerKekManifestHistory(input: {
 
   const bundles: ContainerKekManifestHistory["bundles"] = [];
   const verified: ContainerKekManifestHistory["verified"] = [];
+  // The walk reaches each container's genesis; load each lineage in bulk.
+  await prefetchContainerManifestHistory(input.context, currentContainerId);
   while (pendingHashes.size > 0) {
     const next = pendingHashes.values().next();
     if (next.done) {
@@ -121,6 +126,11 @@ export async function loadContainerKekManifestHistory(input: {
     });
     const isCurrentContainer =
       verifiedManifest.state.containerId === currentContainerId;
+    if (!input.onlyCurrentContainer)
+      await prefetchContainerManifestHistory(
+        input.context,
+        verifiedManifest.state.containerId,
+      );
     bundles.push(bundle);
     if (isCurrentContainer) {
       verified.push(verifiedManifest);

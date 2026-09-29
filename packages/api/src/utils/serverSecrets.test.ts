@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { readDocumentSyncCursorHmacKey } from "./runtime";
+import { readDocumentSyncCursorHmacKey } from "./serverSecrets";
 
 test("document sync cursor HMAC key accepts a configured deployment secret", () => {
   const key = "a-configured-document-sync-cursor-key";

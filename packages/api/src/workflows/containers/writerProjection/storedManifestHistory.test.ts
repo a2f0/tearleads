@@ -1,29 +1,15 @@
-import { afterEach, expect, spyOn, test } from "bun:test";
+import { expect, spyOn, test } from "bun:test";
 import * as crypto from "@tearleads/crypto";
 import { signedContainerHistory } from "../../../../test/helpers/storedManifestHistory";
-import { createContainerWriterProjectionContext } from "./context";
-import {
-  clearStoredContainerManifestVerificationCache,
-  verifyStoredContainerManifest,
-} from "./storedManifestVerification";
+import { verifyStoredContainerManifest } from "./storedManifestVerification";
 
-afterEach(clearStoredContainerManifestVerificationCache);
-
-test("an accepted long container history remains verifiable after a restart", async () => {
-  const { bundles, executor, loadBundle } = await signedContainerHistory(4_098);
-  for (const bundle of bundles) {
-    // Independent requests can share the process LRU, just like normal writes.
-    const verified = await verifyStoredContainerManifest({
-      bundle,
-      context: createContainerWriterProjectionContext(executor),
-      loadBundle,
-    });
-    expect(verified.manifestHash).toBe(bundle.manifestHash);
-  }
-  clearStoredContainerManifestVerificationCache();
+test("a long container history verifies in full without any marker", async () => {
+  const { bundles, createContext, loadBundle, markers } =
+    await signedContainerHistory(4_098);
   const head = bundles.at(-1);
   if (!head) throw new Error("Missing history head");
-  const context = createContainerWriterProjectionContext(executor);
+  // No markers at all: a new deployment secret or verifier version.
+  const context = createContext();
   const verified = await verifyStoredContainerManifest({
     bundle: head,
     context,
@@ -31,63 +17,62 @@ test("an accepted long container history remains verifiable after a restart", as
   });
   expect(verified.state.epoch).toBe(4_098);
   expect(context.verifiedManifestByHash.size).toBe(4_098);
+  // Full verification marks every manifest it accepted.
+  expect(markers.size).toBe(4_098);
+}, 300_000);
 
-  const middle = bundles[2_048];
-  if (!middle) throw new Error("Missing alternate history head");
+test("a marked history is not walked or re-signed after a restart", async () => {
+  const { bundles, createContext, loadBundle } =
+    await signedContainerHistory(2_050);
+  const head = bundles.at(-1);
+  const middle = bundles[1_024];
+  if (!head || !middle) throw new Error("Missing history fixture");
   await verifyStoredContainerManifest({
     bundle: middle,
-    context: createContainerWriterProjectionContext(executor),
+    context: createContext(),
     loadBundle,
   });
-  let repeatedLoads = 0;
+  // Only the unmarked tail above the marked middle is verified.
+  let tailLoads = 0;
   await verifyStoredContainerManifest({
     bundle: head,
-    context: createContainerWriterProjectionContext(executor),
+    context: createContext(),
     loadBundle: (hash) => {
-      repeatedLoads += 1;
+      tailLoads += 1;
       return loadBundle(hash);
     },
   });
-  expect(repeatedLoads).toBe(0);
-}, 300_000);
+  expect(tailLoads).toBe(2_049 - 1_024);
 
-test("independent database snapshots share pure signature verification", async () => {
-  const { bundles, executor, loadBundle } = await signedContainerHistory(4);
-  const head = bundles.at(-1);
-  if (!head) throw new Error("Missing history head");
   const verify = spyOn(crypto, "verifySignedAccessEvent");
+  let loads = 0;
   try {
-    const results = await Promise.all(
-      Array.from({ length: 3 }, () =>
-        verifyStoredContainerManifest({
-          bundle: head,
-          context: createContainerWriterProjectionContext(
-            new Proxy(executor, {}),
-          ),
-          loadBundle,
-        }),
-      ),
-    );
-    expect(results.map((value) => value.manifestHash)).toEqual([
-      head.manifestHash,
-      head.manifestHash,
-      head.manifestHash,
-    ]);
-    expect(verify).toHaveBeenCalledTimes(4);
+    const verified = await verifyStoredContainerManifest({
+      bundle: head,
+      context: createContext(),
+      loadBundle: (hash) => {
+        loads += 1;
+        return loadBundle(hash);
+      },
+    });
+    expect(verified.state.epoch).toBe(2_050);
+    expect(loads).toBe(0);
+    expect(verify).not.toHaveBeenCalled();
   } finally {
     verify.mockRestore();
   }
-});
+}, 300_000);
 
 test("a transaction holding a connection does not wait for a reader needing that connection", async () => {
-  const { bundles, executor, loadBundle } = await signedContainerHistory(2);
+  const { bundles, createContext, loadBundle } =
+    await signedContainerHistory(2);
   const head = bundles.at(-1);
   if (!head) throw new Error("Missing history head");
   const reading = Promise.withResolvers<void>();
   const released = Promise.withResolvers<void>();
   const outsideReader = verifyStoredContainerManifest({
     bundle: head,
-    context: createContainerWriterProjectionContext(executor),
+    context: createContext(),
     loadBundle: async (hash) => {
       reading.resolve();
       // Model a pool read queued behind the transaction below. That caller
@@ -99,7 +84,7 @@ test("a transaction holding a connection does not wait for a reader needing that
   await reading.promise;
   const transaction = verifyStoredContainerManifest({
     bundle: head,
-    context: createContainerWriterProjectionContext(new Proxy(executor, {})),
+    context: createContext(),
     loadBundle,
   });
   let timer: ReturnType<typeof setTimeout> | undefined;
