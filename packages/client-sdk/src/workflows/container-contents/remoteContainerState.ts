@@ -28,10 +28,7 @@ import type {
   RemoteContainerHydrationHost,
   RemoteContainerHydrationState,
 } from "./remoteHydration/types";
-import {
-  needsVerifiedContainerDestination,
-  verifyRemoteContainerDestination,
-} from "./remoteHydration/verifiedDestination";
+import { verifyRemoteContainerDestination } from "./remoteHydration/verifiedDestination";
 import { materializeStoredContainerStateReadOnly } from "./storedContainerState";
 
 // Container ids (restricted to the inbound page) that carry an unsynced local
@@ -426,20 +423,15 @@ export async function upsertRemoteContainerState(input: {
   state: RemoteContainerHydrationState;
 }): Promise<ContainerState | null> {
   let expectedPlacementCheckpoint: AccessManifestCheckpoint | undefined;
-  if (
-    input.expectedHydrationTombstone ||
-    needsVerifiedContainerDestination(input)
-  ) {
-    const verified = await verifyRemoteContainerDestination({
-      ...input,
-      refresh: !!input.expectedHydrationTombstone,
-      onVerifiedCheckpoint: (checkpoint) => {
-        expectedPlacementCheckpoint = checkpoint;
-      },
-    });
-    if (!verified || input.isCurrent?.() === false) return null;
-    input = { ...input, remoteContainer: verified };
-  }
+  const verified = await verifyRemoteContainerDestination({
+    ...input,
+    refresh: !!input.expectedHydrationTombstone,
+    onVerifiedCheckpoint: (checkpoint) => {
+      expectedPlacementCheckpoint = checkpoint;
+    },
+  });
+  if (!verified || input.isCurrent?.() === false) return null;
+  input = { ...input, remoteContainer: verified };
   const existingState = input.state.containersById.get(
     input.remoteContainer.id,
   );

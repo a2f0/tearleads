@@ -1,4 +1,5 @@
 import { expect, mock, test } from "bun:test";
+import { cachedContainerHydrationRuntime } from "../../../test/helpers/cachedContainerHydrationRuntime";
 import { upsertRemoteContainerState } from "./remoteContainerState";
 import { createRemoteContainerIngestor } from "./remoteHydration";
 import type {
@@ -56,6 +57,7 @@ test("stale existing-container persistence cannot publish after reset", async ()
   const existingState = createExistingState();
   const state = {
     containersById: new Map([[existingState.container.id, existingState]]),
+    runtime: cachedContainerHydrationRuntime([remoteContainer]),
   } as unknown as RemoteContainerHydrationState;
   let current = true;
   let resolvePersist: (
@@ -84,6 +86,7 @@ test("stale existing-container persistence cannot publish after reset", async ()
     remoteContainer,
     state,
   });
+  await waitFor(() => persistedCandidate !== null);
   expect(persistedCandidate).not.toBe(existingState);
 
   current = false;
@@ -107,8 +110,10 @@ async function waitFor(condition: () => boolean): Promise<void> {
 }
 
 test("reset during insert cannot redirect hydration into the recovered database", async () => {
-  const staleExecSql = {};
-  const recoveredExecSql = {};
+  const staleExecSql = cachedContainerHydrationRuntime([remoteContainer]).infra
+    .execSql;
+  const recoveredExecSql = cachedContainerHydrationRuntime([remoteContainer])
+    .infra.execSql;
   let resolveDormantRecord: (record: null) => void = () => {
     throw new Error("dormant-record promise was not initialized");
   };
@@ -134,7 +139,7 @@ test("reset during insert cannot redirect hydration into the recovered database"
       loadContainerMetadataRecord,
       commitHydratedContainer,
     },
-    runtime: { infra: { execSql: staleExecSql } },
+    runtime: cachedContainerHydrationRuntime([remoteContainer], staleExecSql),
   } as unknown as RemoteContainerHydrationState;
 
   const hydration = upsertRemoteContainerState({
@@ -158,8 +163,10 @@ test("reset during insert cannot redirect hydration into the recovered database"
 });
 
 test("remote ingestion replays after recovery without another event", async () => {
-  const staleExecSql = {};
-  const recoveredExecSql = {};
+  const staleExecSql = cachedContainerHydrationRuntime([remoteContainer]).infra
+    .execSql;
+  const recoveredExecSql = cachedContainerHydrationRuntime([remoteContainer])
+    .infra.execSql;
   const resolvers: Array<(record: null) => void> = [];
   let activeLoads = 0;
   let maxActiveLoads = 0;
@@ -193,10 +200,7 @@ test("remote ingestion replays after recovery without another event", async () =
       loadContainerMetadataRecord,
       commitHydratedContainer,
     },
-    runtime: {
-      auth: { organizationId: "organization-1" },
-      infra: { dbStatus: "ready", execSql: staleExecSql },
-    },
+    runtime: cachedContainerHydrationRuntime([remoteContainer], staleExecSql),
   } as unknown as RemoteContainerHydrationState;
   const ingest = createRemoteContainerIngestor({
     getSerializationBarrier: () => serializationBarrier,
@@ -266,10 +270,7 @@ test("remote ingestion discards payloads from a replaced structural context", as
       listUnsyncedMoveIntents: async () => [],
       loadContainerMetadataRecord,
     },
-    runtime: {
-      auth: { organizationId: "organization-1" },
-      infra: { dbStatus: "ready", execSql: {} },
-    },
+    runtime: cachedContainerHydrationRuntime([remoteContainer]),
     structuralGeneration: 0,
   } as unknown as RemoteContainerHydrationState;
   const ingest = createRemoteContainerIngestor({
@@ -303,13 +304,17 @@ test("remote ingestion discards payloads from a replaced structural context", as
 });
 
 test("reset during a batch replays every item into the recovered database", async () => {
-  const staleExecSql = {};
-  const recoveredExecSql = {};
+  const staleExecSql = cachedContainerHydrationRuntime([remoteContainer]).infra
+    .execSql;
+  const recoveredExecSql = cachedContainerHydrationRuntime([remoteContainer])
+    .infra.execSql;
   const secondRemoteContainer: RemoteContainer = {
     ...remoteContainer,
     id: "container-2",
     metadataDocumentId: "metadata-2",
   };
+  cachedContainerHydrationRuntime([secondRemoteContainer], staleExecSql);
+  cachedContainerHydrationRuntime([secondRemoteContainer], recoveredExecSql);
   let resolveSecondStaleLoad: (record: null) => void = () => {
     throw new Error("second stale load promise was not initialized");
   };
@@ -344,10 +349,7 @@ test("reset during a batch replays every item into the recovered database", asyn
       loadContainerMetadataRecord,
       commitHydratedContainer,
     },
-    runtime: {
-      auth: { organizationId: "organization-1" },
-      infra: { dbStatus: "ready", execSql: staleExecSql },
-    },
+    runtime: cachedContainerHydrationRuntime([remoteContainer], staleExecSql),
   } as unknown as RemoteContainerHydrationState;
   const ingest = createRemoteContainerIngestor({
     host: {

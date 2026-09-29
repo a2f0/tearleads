@@ -4,6 +4,7 @@ import type {
   ListContainerParentLanesResponse,
   ListContainersResponse,
 } from "@tearleads/validators/response";
+import { createSignedContainerDirectory } from "../../../test/helpers/signedContainerDirectory";
 import {
   createContainerParentSyncLane,
   defaultContainerContentsPersistence,
@@ -90,6 +91,19 @@ test("a stale tombstone does not starve independent page work", async () => {
         containerState.record,
       );
     }
+    const directory = await createSignedContainerDirectory([
+      {
+        id: parentState.container.id,
+        parentId: null,
+        organizationId: discoveredContainer.organizationId,
+      },
+      {
+        id: discoveredContainer.id,
+        parentId: parentState.container.id,
+        organizationId: discoveredContainer.organizationId,
+        metadataDocumentId: discoveredContainer.metadataDocumentId,
+      },
+    ]);
     const pageWatermark = {
       id: "mixed-tombstone-page",
       updatedAt: "2026-01-02T00:00:00.000Z",
@@ -101,7 +115,9 @@ test("a stale tombstone does not starve independent page work", async () => {
       ]),
       persistence: defaultContainerContentsPersistence,
       runtime: {
+        resolveTrustedUserIdentity: directory.resolveTrustedUserIdentity,
         apiClient: {
+          getContainerWriterProjection: directory.getContainerWriterProjection,
           getCurrentPrincipalPolicy: async () => null,
           listContainerParentLanes: async (request: {
             lanes: ReadonlyArray<{

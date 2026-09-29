@@ -11,3 +11,10 @@ remote container tree state into the local `container-contents` query facade.
 
 Keep API pagination and watermark orchestration in `../remoteHydration.ts`.
 Keep React-free store scheduling in `packages/client-sdk/src/stores`.
+
+Every listed container must prove its immutable metadata document ID before
+hydration changes a metadata record or its pending updates. The listing can
+trigger verification but cannot choose that target. Verified bindings are cached
+by database, organization and container ID; ordinary parent edges are excluded
+because moves can change them. Root/system parents remain fixed. Tombstone
+recovery additionally verifies current placement against durable checkpoints.

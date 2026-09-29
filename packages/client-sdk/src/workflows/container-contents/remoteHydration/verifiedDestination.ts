@@ -28,25 +28,11 @@ import type {
 /** The identity a role is verified and cached under. */
 type DestinationIdentity = Pick<RemoteContainer, "id" | "organizationId">;
 
-export function needsVerifiedContainerDestination(input: {
-  remoteContainer: RemoteContainer;
-  state: RemoteContainerHydrationState;
-}): boolean {
-  const listed = input.remoteContainer;
-  const existing = input.state.containersById.get(listed.id)?.container;
-  return (
-    !!listed.systemSlot ||
-    !!existing?.systemSlot ||
-    listed.parentId === null ||
-    existing?.parentId === null
-  );
-}
-
 async function destinationRoleFromPath(input: {
   listed: DestinationIdentity;
   path: readonly VerifiedContainerAccessManifest[];
   verifiedByHash: ReadonlyMap<string, VerifiedContainerAccessManifest>;
-}): Promise<DestinationRole> {
+}): Promise<{ role: DestinationRole; parentId: string | null }> {
   const { listed, path } = input;
   const head = path.at(-1);
   if (
@@ -79,10 +65,16 @@ async function destinationRoleFromPath(input: {
     verifiedByHash: input.verifiedByHash,
   });
   return {
-    createSignerUserId: created.event.event.signerUserId,
-    metadataDocumentId: head.state.metadataDocumentId,
     parentId: head.state.parentContainerId,
-    systemSlot: head.state.systemSlot,
+    role: {
+      createSignerUserId: created.event.event.signerUserId,
+      metadataDocumentId: head.state.metadataDocumentId,
+      ...(head.state.parentContainerId === null ||
+      head.state.systemSlot !== null
+        ? { parentId: head.state.parentContainerId }
+        : {}),
+      systemSlot: head.state.systemSlot,
+    },
   };
 }
 
@@ -132,7 +124,7 @@ async function verifyDestinationRole(input: {
   isCurrent?: (() => boolean) | undefined;
   listed: DestinationIdentity;
   runtime: RemoteContainerHydrationState["runtime"];
-}): Promise<DestinationRole | null> {
+}): Promise<{ role: DestinationRole; parentId: string | null } | null> {
   const { isCurrent, listed, runtime } = input;
   const projection = await runtime.apiClient.getContainerWriterProjection(
     listed.id,
@@ -155,7 +147,12 @@ async function verifyDestinationRole(input: {
   const { path, verifiedByHash } =
     await verifyContainerDestinationProjection(verificationInput);
   if (isCurrent?.() === false) return null;
-  const role = await destinationRoleFromPath({ listed, path, verifiedByHash });
+  const destination = await destinationRoleFromPath({
+    listed,
+    path,
+    verifiedByHash,
+  });
+  const { role } = destination;
   if (role.parentId === null && role.systemSlot !== null) {
     const head = path.at(-1);
     if (!head) throw new Error("Metadata root manifest is unavailable");
@@ -182,10 +179,10 @@ async function verifyDestinationRole(input: {
   }
   if (isCurrent?.() === false) return null;
   rememberDestinationRole(runtime.infra.execSql, listed, role);
-  return role;
+  return destination;
 }
 
-/** Listing hints may trigger a fetch, but never establish a system/root role. */
+/** Listing hints never establish a metadata target or a system/root role. */
 export async function verifyRemoteContainerDestination(input: {
   refresh?: boolean;
   onVerifiedCheckpoint?:
@@ -208,23 +205,33 @@ export async function verifyRemoteContainerDestination(input: {
     async () => {
       if (input.refresh)
         runtime.apiClient.evictContainerWriterProjection(listed.id);
-      const role =
-        (input.refresh
-          ? undefined
-          : cachedDestinationRole(runtime.infra.execSql, listed)) ??
-        (await verifyDestinationRole({
+      let role = input.refresh
+        ? undefined
+        : cachedDestinationRole(runtime.infra.execSql, listed);
+      let parentId = role?.parentId;
+      // Ordinary parent edges are not immutable. A refresh authenticates current
+      // placement; a forged root hint must also be corrected from a signed path.
+      if (!role || (role.parentId === undefined && listed.parentId === null)) {
+        const verified = await verifyDestinationRole({
           isCurrent,
           listed,
           runtime,
           verifyCurrentPlacement: input.refresh === true,
           onVerifiedCheckpoint: input.onVerifiedCheckpoint,
-        }));
+        });
+        if (!verified) return null;
+        role = verified.role;
+        parentId =
+          input.refresh || listed.parentId === null
+            ? verified.parentId
+            : role.parentId;
+      }
       if (!role || isCurrent?.() === false) return null;
       assertAcknowledgedRootSigner({ listed, role, runtime });
       return {
         ...listed,
         metadataDocumentId: role.metadataDocumentId,
-        parentId: role.parentId,
+        parentId: parentId === undefined ? listed.parentId : parentId,
         systemSlot: role.systemSlot,
       };
     },
