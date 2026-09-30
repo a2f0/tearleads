@@ -20,7 +20,10 @@ import {
 import { storeVerifiedPrincipalPolicyInTransaction } from "../principals/storeVerifiedPrincipalPolicy";
 import { requireDirectOrganizationAccess } from "./access";
 import { OrganizationManagerError } from "./errors";
-import { assertCreatedGroupPolicyName } from "./groupPolicyName";
+import {
+  assertCreatedGroupPolicyName,
+  assertCreatedGroupPolicyNameKey,
+} from "./groupPolicyName";
 import { toGroupSummary } from "./groupSummary";
 import { wasOrganizationGroupDeleted } from "./groupTombstone";
 import { requireSerializedOrganizationMutationAccess } from "./mutationAccess";
@@ -189,6 +192,11 @@ export async function runCreateOrganizationGroupWorkflow(
       organizationId,
       policy: input.organizationPolicy,
       sessionUserId,
+    });
+    await assertCreatedGroupPolicyNameKey({
+      ciphertext: input.initialGroupPolicy.encryptedPayload.ciphertext,
+      executor: tx,
+      organizationId,
     });
 
     const [insertedGroup] = await tx

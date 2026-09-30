@@ -210,6 +210,8 @@ container KEK. Authentication binds the group, organization, container and key
 epoch. All organization members can read every group's name; the verified
 historical keyring preserves readability after rotation. The API has no group
 or organization name columns. Organization names live in encrypted profiles.
+The API refuses names citing other keys; readers blank a name that fails to
+decrypt instead of failing the directory.
 
 The organization metadata root has only Admins/admin and Members/read grants.
 Both signed group indexes bind its ID; creation also verifies its current
