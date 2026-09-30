@@ -172,3 +172,41 @@ test("a mismatched Admins head is rejected before signer identity trust", async 
   expect(resolvedUserIds).toContain(fixture.organizationSignerUserId);
   expect(resolvedUserIds).not.toContain(fixture.adminSignerUserId);
 });
+
+test.each(["organization", "Admins"] as const)(
+  "a trusted %s signer whose key differs from the signed one is a signer mismatch, not a cache miss",
+  async (signer) => {
+    const fixture = await createExternalAdminFixture();
+    const signerUserId =
+      signer === "organization"
+        ? fixture.organizationSignerUserId
+        : fixture.adminSignerUserId;
+    const substitute = generateSigningSeedAndKeyPair();
+    const trusted = fixture.identities.get(signerUserId);
+    if (!trusted) throw new Error("Expected the signer identity");
+    fixture.identities.set(signerUserId, {
+      ...trusted,
+      signingKeyFingerprint: await toFingerprint(substitute.signingPublicKey),
+      signingPublicKey: substitute.signingPublicKey,
+    });
+    const { close, execSql } = await createTestExecSql(
+      `external-admin-${signer}-signer-mismatch`,
+    );
+    try {
+      await expect(
+        loadOrganizationExternalAdminPolicy({
+          execSql,
+          getCurrentPrincipalPolicy: async (principalType) =>
+            principalType === "organization"
+              ? fixture.organizationPolicy
+              : fixture.adminPolicy,
+          organizationId: fixture.organizationId,
+          resolveTrustedUserIdentity: async (userId) =>
+            fixture.identities.get(userId) ?? null,
+        }),
+      ).rejects.toMatchObject({ code: "signer_mismatch" });
+    } finally {
+      close();
+    }
+  },
+);

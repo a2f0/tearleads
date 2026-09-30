@@ -4,7 +4,10 @@ import {
   accessManifestHeads,
   containers,
 } from "@tearleads/api-shared/schema";
-import { MAX_CONTAINER_PATH_LENGTH } from "@tearleads/validators/util";
+import {
+  MAX_CONTAINER_PATH_LENGTH,
+  MAX_ROTATION_CONTAINER_REKEYS,
+} from "@tearleads/validators/util";
 import { and, eq, gte, inArray, sql } from "drizzle-orm";
 import { getCurrentContainerKeyEpochPins } from "../../../../access/read/containerKekStore";
 import { uuidValue } from "../../../../utils/sqlDialect";
@@ -220,7 +223,6 @@ async function listGrantedPathDescendants(
  * less costs a refusal per level, and the refused attempt rolled back anyway.
  */
 async function assertGrantedPathsCurrentBelow(input: {
-  readonly carriedLimit: number;
   readonly executor: DatabaseTransaction;
   readonly organizationId: string;
   readonly rotatedContainerIds: readonly string[];
@@ -255,8 +257,11 @@ async function assertGrantedPathsCurrentBelow(input: {
       strandedIds.add(node.id);
     }
   }
+  // One cap for every rotation, inline repairs included (#2365 finding 30):
+  // an inline write that cannot carry the owed prefix is refused and the SDK
+  // commits the repairs as standalone rotations instead.
   const required = requiredCarriedRekeys({
-    carriedLimit: input.carriedLimit,
+    carriedLimit: MAX_ROTATION_CONTAINER_REKEYS,
     closureIds: closure.map((node) => node.id),
     strandedIds,
   });
@@ -271,7 +276,6 @@ async function assertGrantedPathsCurrentBelow(input: {
  * a grantee in the other.
  */
 export async function assertGrantedPathsCurrentBelowRotations(input: {
-  readonly carriedLimit: number;
   readonly executor: DatabaseTransaction;
   readonly rotated: readonly {
     readonly containerId: string;
@@ -287,7 +291,6 @@ export async function assertGrantedPathsCurrentBelowRotations(input: {
   // Sorted, so concurrent batches walk organizations in one order.
   for (const organizationId of [...idsByOrganization.keys()].sort()) {
     await assertGrantedPathsCurrentBelow({
-      carriedLimit: input.carriedLimit,
       executor: input.executor,
       organizationId,
       rotatedContainerIds: idsByOrganization.get(organizationId) ?? [],

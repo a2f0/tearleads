@@ -21,7 +21,10 @@ import {
 } from "../../data/principals/principalPolicyAdminSigners";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import type { TrustedUserIdentityResolver } from "../../data/trustedUserIdentity";
-import { collectPrincipalPolicySignerPublicKeys } from "./policyVerification";
+import {
+  collectPrincipalPolicySignerPublicKeys,
+  type PrincipalPolicySignerPublicKeyLoadErrorCode,
+} from "./policyVerification";
 
 export interface VerifiedExternalAdminPolicy {
   readonly adminBundle: PrincipalPolicyBundleResponse;
@@ -62,6 +65,23 @@ function assertAdminsPolicyShape(policy: VerifiedPrincipalPolicy): void {
   }
 }
 
+/**
+ * A signer the caller cannot resolve is a cache miss, but a resolved signer
+ * whose trusted key differs from the one the policy signed with is a
+ * verification failure, as on every other policy path (#2365 finding 23).
+ */
+function signerKeysUnavailable(
+  error: PrincipalPolicySignerPublicKeyLoadErrorCode,
+): null {
+  if (error === "fingerprint-mismatch") {
+    throw new KeyingVerificationError(
+      "signer_mismatch",
+      "external admin policy signer key fingerprint mismatch",
+    );
+  }
+  return null;
+}
+
 async function verifyOrganizationPolicy(input: {
   readonly bundle: PrincipalPolicyBundleResponse;
   readonly execSql: ExecSql;
@@ -78,7 +98,7 @@ async function verifyOrganizationPolicy(input: {
     resolveTrustedUserIdentity: input.resolveTrustedUserIdentity,
   });
   if ("error" in signerPublicKeys) {
-    return null;
+    return signerKeysUnavailable(signerPublicKeys.error);
   }
   const verified = await verifyOrganizationAdminPolicy({
     bundle: input.bundle,
@@ -157,7 +177,7 @@ async function loadVerifiedAdminsPolicy(input: {
     resolveTrustedUserIdentity: input.resolveTrustedUserIdentity,
   });
   if ("error" in signerPublicKeys) {
-    return null;
+    return signerKeysUnavailable(signerPublicKeys.error);
   }
   const verified = await verifyPrincipalPolicyBundle({
     bundle,
