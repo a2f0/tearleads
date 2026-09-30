@@ -16,21 +16,22 @@ export class MetadataRootBehindDirectoryError extends Error {
 
 /**
  * Runs `load`, then once more after `evictRoot` if the root it read was
- * behind. Honest servers re-cite the reserved groups in the commit that
- * advances them, so a root still behind after a fresh read is an incident.
+ * behind; `reread` tells `load` to skip any root it was handed. Honest servers
+ * re-cite the reserved groups in the commit that advances them, so a root
+ * still behind after a fresh read is an incident.
  */
 export async function withMetadataRootReload<Result>(
-  load: () => Promise<Result>,
+  load: (reread: boolean) => Promise<Result>,
   evictRoot: () => void,
 ): Promise<Result> {
   try {
-    return await load();
+    return await load(false);
   } catch (error) {
     if (!(error instanceof MetadataRootBehindDirectoryError)) throw error;
   }
   evictRoot();
   try {
-    return await load();
+    return await load(true);
   } catch (error) {
     if (error instanceof MetadataRootBehindDirectoryError) {
       throw new KeyingVerificationError(

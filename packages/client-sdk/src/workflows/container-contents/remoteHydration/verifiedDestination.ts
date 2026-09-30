@@ -20,13 +20,13 @@ import {
   runWithSecurityIncidentReporting,
 } from "../../../data/keyingProjectionVerification/error";
 import { createGroupMetadataContainerVerifier } from "../../organizations/groupMetadataContainerAuthority";
-import { withMetadataRootReload } from "../../organizations/groupMetadataErrors";
 import type { PrefetchedDestinationProjection } from "./destinationPrefetch";
 import {
   cachedDestinationRole,
   type DestinationRole,
   rememberDestinationRole,
 } from "./destinationRoleCache";
+import { resolveWithMetadataRootReload } from "./destinationRootReload";
 import type {
   ContainerState,
   RemoteContainer,
@@ -315,8 +315,9 @@ export async function verifyRemoteContainerDestination(
       if (input.refresh)
         runtime.apiClient.evictContainerWriterProjection(listed.id);
       // A metadata root read before a reserved-group commit is reloaded once.
-      const resolved = await withMetadataRootReload(
-        () => resolveDestinationRole(input),
+      const resolved = await resolveWithMetadataRootReload(
+        input,
+        resolveDestinationRole,
         () => runtime.apiClient.evictContainerWriterProjection(listed.id),
       ).catch((error: unknown) => {
         // Never re-serve a cached projection that failed verification.
