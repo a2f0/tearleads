@@ -14,6 +14,7 @@ import { useLog } from "../../providers/logging/LogProvider";
 import { downloadTextAsFile } from "../../utils/downloadFile";
 import { unknownErrorMessage } from "../../utils/unknownErrorMessage";
 import { restoreFailureMessage } from "./restoreFailureMessage";
+import { reloadAfterRestore } from "./restoreReload";
 
 type BackupRestoreBusyState = "export" | "restore" | null;
 type ExportLocalBackup = ReturnType<
@@ -374,14 +375,13 @@ export function useBackupRestore() {
   // reopened app re-derives the root container + read models from the restored
   // database instead of re-bootstrapping an empty root.
   const handleReload = useCallback(() => {
-    // Keep the identity's root acknowledgements across the restore (#2365
-    // finding 24) before the caches that pin the old root are cleared. The
-    // preparation never rejects: it falls back to dropping the record.
-    void prepareForRestoreReload().then(() => {
-      clearRestoredLocalCaches();
-      window.location.reload();
+    void reloadAfterRestore({
+      clearCaches: clearRestoredLocalCaches,
+      logError,
+      prepare: prepareForRestoreReload,
+      reload: () => window.location.reload(),
     });
-  }, [prepareForRestoreReload]);
+  }, [logError, prepareForRestoreReload]);
 
   return {
     backupPassword: state.backupPassword,

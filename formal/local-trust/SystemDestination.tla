@@ -92,7 +92,8 @@ TypeOK ==
   /\ systemSlotRole \in {"metadata", "other"}
   /\ {malformedSlot, sameOrganization, shared, hydrated, rootRole, systemRole, merged, usedSystem,
        unauthorizedSlot, moved, rootCreatorIsUser} \subseteq BOOLEAN
-OnlyServerRootsAcknowledged == acknowledgedRoot = "ownRoot"
+(* "none" is a cleared acknowledgement, harmless until a login fills it.   *)
+OnlyServerRootsAcknowledged == acknowledgedRoot \in {"ownRoot", "none"}
 RootWritesStayInOrganization == merged => sameOrganization
 OnlyOwnRootReceivesLocalContent == merged => candidate = "ownRoot"
 OnlyUserCreatedRootReceivesLocalContent == merged => rootCreatorIsUser

@@ -415,6 +415,7 @@ export function CryptoSessionProvider({ children }: PropsWithChildren) {
   const actions = useCryptoAuthActions(tearleads);
   const prepareForRestoreReload = usePrepareForRestoreReload({
     localPersistence: localSessionPersistence,
+    restoreSettled: sessionRestoreSettled,
     sessionState,
     signingFingerprint,
   });
