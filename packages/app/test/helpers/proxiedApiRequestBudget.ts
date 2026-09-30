@@ -261,12 +261,14 @@ export function expectProxiedApiRequestBudget(
 
   if (budget.bodyBytes) {
     const bytes = proxiedApiBodyBytes(requests);
-    expect(bytes.request, `${label}: request body bytes`).toBeLessThanOrEqual(
-      budget.bodyBytes.request,
-    );
-    expect(bytes.response, `${label}: response body bytes`).toBeLessThanOrEqual(
-      budget.bodyBytes.response,
-    );
+    expect(
+      bytes.request,
+      `${label}: request body bytes.\n${failureSummary}`,
+    ).toBeLessThanOrEqual(budget.bodyBytes.request);
+    expect(
+      bytes.response,
+      `${label}: response body bytes.\n${failureSummary}`,
+    ).toBeLessThanOrEqual(budget.bodyBytes.response);
   }
   const countsByRequest = countProxiedApiRequestVolume(requests);
   for (const [requestKey, requestBudget] of Object.entries(

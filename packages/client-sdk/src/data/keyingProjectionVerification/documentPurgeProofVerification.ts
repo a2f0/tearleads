@@ -13,18 +13,17 @@ import { isDocumentPurgeProofResponse } from "@tearleads/validators/response";
 import type { ExecSql } from "../sqlite/sqlSchema";
 import { addBundleByHash } from "./bundleVerification";
 import {
-  commitProjectionCheckpoints,
   createProjectionCheckpointContext,
   observeAccessManifestCheckpoints,
-  observePrincipalPolicy,
 } from "./checkpointContext";
 import { verifyContainerManifestPath } from "./containerPathVerification";
 import { verifiedContainerManifestsForBundles } from "./containerProjectionVerification";
-import { authenticateDocumentPurgeArtifacts } from "./documentPurgePrincipalEvidence";
 import {
-  enforcePrincipalPolicySnapshotCheckpoints,
-  verifyPrincipalPolicySnapshots,
-} from "./principalPolicySnapshotVerification";
+  commitDocumentPurgeCheckpoints,
+  validateDocumentPurgeCheckpoints,
+} from "./documentPurgeCheckpointCurrency";
+import { authenticateDocumentPurgeArtifacts } from "./documentPurgePrincipalEvidence";
+import { verifyPrincipalPolicySnapshots } from "./principalPolicySnapshotVerification";
 import type { PrincipalPolicyCache, ProjectionUserKeyResolver } from "./types";
 
 interface VerifyDocumentPurgeProofInput {
@@ -89,7 +88,6 @@ export async function verifyPurgeContainerPaths(input: {
   readonly checkpointContext: ReturnType<
     typeof createProjectionCheckpointContext
   >;
-  readonly enforceLocalCheckpoints: boolean;
   readonly principalPolicyCache: PrincipalPolicyCache;
   readonly proof: PurgeContainerEvidence;
   readonly resolveUserKey: ProjectionUserKeyResolver;
@@ -102,10 +100,9 @@ export async function verifyPurgeContainerPaths(input: {
     authorizationEvidence: input.authorizationEvidence,
     bundlesByHash,
     checkpointContext: input.checkpointContext,
-    // This signed path is the purge's authorization boundary. A later local
-    // head makes the purge ambiguous because ancestry does not order the purge
-    // signature; fail closed instead of accepting server-supplied descendants.
-    enforceLocalCheckpoints: input.enforceLocalCheckpoints,
+    // Authenticate the signed path here; the complete purge's local currency
+    // is checked after its event and document evidence have authenticated.
+    enforceLocalCheckpoints: false,
     label: "Document purge authorizing container path",
     path: input.proof.authorizingContainerPath,
     principalPolicyCache: input.principalPolicyCache,
@@ -213,7 +210,6 @@ async function verifyDocumentPurgeProofWithMode(
   } = await verifyPurgeContainerPaths({
     authorizationEvidence,
     checkpointContext,
-    enforceLocalCheckpoints,
     principalPolicyCache,
     proof: input.proof,
     resolveUserKey: input.resolveUserKey,
@@ -238,17 +234,11 @@ async function verifyDocumentPurgeProofWithMode(
     );
   }
   if (enforceLocalCheckpoints) {
-    const policiesToPin = await enforcePrincipalPolicySnapshotCheckpoints({
+    await validateDocumentPurgeCheckpoints({
+      context: checkpointContext,
       execSql: input.execSql,
-      policies: principalPolicies,
+      principalPolicies,
     });
-    for (const policy of policiesToPin) {
-      observePrincipalPolicy(
-        checkpointContext,
-        policy,
-        input.expectedOrganizationId,
-      );
-    }
   }
   const documentPurgeCheckpoint = {
     documentId: input.expectedDocumentId,
@@ -258,9 +248,11 @@ async function verifyDocumentPurgeProofWithMode(
   };
   return {
     commitCheckpoints: (execSql = input.execSql) =>
-      commitProjectionCheckpoints(checkpointContext, {
+      commitDocumentPurgeCheckpoints({
+        context: checkpointContext,
         documentPurgeCheckpoint,
         execSql,
+        principalPolicies,
       }),
     documentCheckpoint: documentManifest.checkpoint,
   };
