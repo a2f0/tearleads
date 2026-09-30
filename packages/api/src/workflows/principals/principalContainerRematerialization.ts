@@ -395,7 +395,6 @@ export async function applyPrincipalContainerRematerializations(input: {
   // Every rekey or revoke here rotated a container; what it carried rode with
   // it. A grant keeps its epoch and strands nothing.
   await assertGrantedPathsCurrentBelowRotations({
-    carriedLimit: MAX_ROTATION_CONTAINER_REKEYS,
     executor: input.executor,
     rotated: responses.filter(
       (_response, index) =>
