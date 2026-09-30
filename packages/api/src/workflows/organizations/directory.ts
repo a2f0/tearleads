@@ -3,6 +3,7 @@ import { organizations } from "@tearleads/api-shared/schema";
 import type { OrganizationDirectoryResponse } from "@tearleads/validators/response";
 import { eq } from "drizzle-orm";
 import { OrganizationManagerError } from "./errors";
+import { isOrganizationProfileDocument } from "./profileDocumentValidity";
 import {
   listOrganizationRosterEntries,
   toOrganizationDirectoryUser,
@@ -38,13 +39,28 @@ async function loadOrganizationProfileDocumentId(input: {
   return organization.profileDocumentId;
 }
 
+/**
+ * The stored pointer was valid when written, but an admin can later link the
+ * document elsewhere; like roster pointers, it is re-checked on every read.
+ */
+async function loadValidOrganizationProfileDocumentId(input: {
+  executor: DatabaseSession;
+  organizationId: string;
+}): Promise<string | null> {
+  const profileDocumentId = await loadOrganizationProfileDocumentId(input);
+  return profileDocumentId &&
+    (await isOrganizationProfileDocument({ ...input, profileDocumentId }))
+    ? profileDocumentId
+    : null;
+}
+
 export async function loadOrganizationDirectoryInTransaction(input: {
   readonly executor: DatabaseSession;
   readonly isOrgAdmin: boolean;
   readonly organizationId: string;
   readonly sessionUserId: string;
 }): Promise<OrganizationDirectoryResponse> {
-  const profileDocumentId = await loadOrganizationProfileDocumentId(input);
+  const profileDocumentId = await loadValidOrganizationProfileDocumentId(input);
   const rosterEntries = await listOrganizationRosterEntries(input);
   const validProfileDocumentIds = await listValidRosterProfileDocumentIds({
     executor: input.executor,

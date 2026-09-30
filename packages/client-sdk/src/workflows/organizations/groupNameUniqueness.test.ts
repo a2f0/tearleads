@@ -4,13 +4,18 @@ import { createTestExecSql } from "@tearleads/test-utils";
 import { readTestGroupName } from "../../../test/helpers/groupMetadata";
 import { createGroupNameDirectory } from "../../../test/helpers/groupNameDirectory";
 import { loadOrganizationExternalAdminPolicy } from "../principals/externalAdminPolicy";
+import { GroupMetadataUnreadableError } from "./groupMetadataAccess";
 import { assertGroupNameUniqueInDirectory } from "./groupNameUniqueness";
+import type { GroupPolicyNameReader } from "./principalPolicyRequest";
 
 // Signed group names are unique per organization by construction: before an
 // admin signs a new group, every group committed in the signed directory is
 // verified and its committed name compared by canonical key.
 
-async function createUniquenessCheck(testLabel: string) {
+async function createUniquenessCheck(
+  testLabel: string,
+  readEncryptedName: GroupPolicyNameReader = readTestGroupName,
+) {
   const { close, execSql } = await createTestExecSql(testLabel);
   const directory = await createGroupNameDirectory();
   const externalAdminPolicy = await loadOrganizationExternalAdminPolicy({
@@ -24,7 +29,7 @@ async function createUniquenessCheck(testLabel: string) {
   }
   const assertUnique = (name: string) =>
     assertGroupNameUniqueInDirectory({
-      readEncryptedName: readTestGroupName,
+      readEncryptedName,
       apiClient: directory.apiClient,
       descriptor: externalAdminPolicy.descriptor,
       execSql,
@@ -123,5 +128,39 @@ test("a directory group that fails verification fails closed", async () => {
     );
   } finally {
     close();
+  }
+});
+
+test("a group whose name does not decrypt is skipped, while other failures block", async () => {
+  const failOperators =
+    (error: Error): GroupPolicyNameReader =>
+    (bundle) =>
+      bundle.currentState.principalId === "group-1"
+        ? Promise.reject(error)
+        : readTestGroupName(bundle);
+  const unreadable = await createUniquenessCheck(
+    "group-name-uniqueness-unreadable",
+    failOperators(
+      new GroupMetadataUnreadableError("group-1", new Error("AEAD")),
+    ),
+  );
+  try {
+    // No member can open the poisoned name, so it neither blocks creation nor
+    // hides the names every other group still carries.
+    await expect(unreadable.assertUnique("Operators")).resolves.toBeUndefined();
+    await expect(unreadable.assertUnique("Members")).rejects.toThrow(TAKEN);
+  } finally {
+    unreadable.close();
+  }
+  const unavailable = await createUniquenessCheck(
+    "group-name-uniqueness-unavailable",
+    failOperators(new Error("Group metadata container is unavailable")),
+  );
+  try {
+    await expect(unavailable.assertUnique("Finance")).rejects.toThrow(
+      "Group metadata container is unavailable",
+    );
+  } finally {
+    unavailable.close();
   }
 });
