@@ -64,8 +64,9 @@ its signer's stored public key, and the crypto and API rule revisions.
 Verification stops at the first valid marker, so each manifest is
 signature-checked about once in its lifetime. A row whose bytes changed, a
 changed signer key or a forged marker makes that manifest verify in full
-wherever it is used; a rotated secret or new rule revision re-verifies each
-object's history once, on its next projection read or mutation. Serving a
+wherever the server verifies it; a rotated secret or new rule revision
+re-verifies each object's history once, on its next projection read or
+mutation. Serving a
 writer projection still loads every retained manifest its key history cites,
 in a few batched queries; incremental history delivery is tracked in
 [#2392](https://github.com/a2f0/tearleads/issues/2392). For N ancestor

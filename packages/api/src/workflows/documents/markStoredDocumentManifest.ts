@@ -27,7 +27,7 @@ export async function markStoredDocumentManifest(
     );
   }
   const documentMarkers = databaseVerificationMarkerStore(executor, {
-    shareWithProcess: true,
+    recordsMarkers: true,
   });
   await verifyStoredDocumentManifest({
     bundle: toManifestBundleResponse(stored),

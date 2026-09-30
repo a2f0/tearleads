@@ -34,7 +34,8 @@ a MAC under a key derived from a server-held secret over the manifest hash, a
 digest of that manifest's complete stored bundle, its signer's stored key and
 the crypto and API rule revisions. Verification stops at the first valid
 marker; the database is still not a trust boundary, since an edited row,
-changed signer key or forged marker makes that manifest verify in full.
+changed signer key or forged marker makes that manifest verify in full
+wherever the server verifies it.
 Document ancestor queries share a request-local binary ancestor index: indexing
 N manifests uses O(N log N) time and space, and each indexed lineage query
 takes O(log N). The

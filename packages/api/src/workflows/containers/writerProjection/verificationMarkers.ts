@@ -124,12 +124,13 @@ interface MarkerFlushOptions {
  * markers. Saved markers are buffered and written to the table only by an
  * explicit `flush`: a mutation flushes the markers for what it stored inside
  * its transaction, and a projection read flushes after its transaction commits
- * (`flushVerificationMarkersAfterRead`). A store may share what it saves with
- * the process only when its verification used no request-supplied evidence.
+ * (`flushVerificationMarkersAfterRead`). A store whose verification used
+ * request-supplied evidence records nothing, neither in the process nor in the
+ * table: a marker must attest only what stored evidence alone accepts.
  */
 export function databaseVerificationMarkerStore(
   executor: DatabaseSession,
-  options: { readonly shareWithProcess: boolean },
+  options: { readonly recordsMarkers: boolean },
 ): AccessManifestVerificationMarkerStore {
   const loaded = new Map<string, string | null>();
   const saved = new Map<string, string>();
@@ -160,10 +161,10 @@ export function databaseVerificationMarkerStore(
       for (const hash of missing) loaded.set(hash, macs.get(hash) ?? null);
     },
     async save(manifestHash, mac) {
+      if (!options.recordsMarkers) return;
       saved.set(manifestHash, mac);
       loaded.set(manifestHash, mac);
-      if (options.shareWithProcess)
-        processMarkers.set(manifestHash, mac, mac.length * 2);
+      processMarkers.set(manifestHash, mac, mac.length * 2);
     },
     async flush(options = {}) {
       const macs = new Map(saved);

@@ -129,9 +129,10 @@ export function toMutationError(error: unknown): ContainerMutationError | null {
     );
   }
 
-  // Stored-history verification inside a mutation (its write-time marking,
-  // the citations its KEK check reads). A missing stored row is no proof the
-  // container is gone, so it never reaches the client as a 404.
+  // Writer-projection work a mutation runs, such as stored-history
+  // verification for its write-time marking and the citations its KEK check
+  // reads. A missing stored row is no proof the container is gone, so it never
+  // reaches the client as a 404.
   if (error instanceof ContainerWriterProjectionError) {
     return new ContainerMutationError(
       error.message,

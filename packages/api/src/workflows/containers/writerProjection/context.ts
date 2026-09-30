@@ -16,7 +16,7 @@ export function createContainerWriterProjectionContext(
     principalPolicyAuthorizationEvidence,
     verifiedManifestByHash: new Map(),
     verificationMarkers: databaseVerificationMarkerStore(executor, {
-      shareWithProcess: principalPolicyAuthorizationEvidence.length === 0,
+      recordsMarkers: principalPolicyAuthorizationEvidence.length === 0,
     }),
     signerByUserId: new Map(),
     prefetchedHistoryContainerIds: new Set(),
