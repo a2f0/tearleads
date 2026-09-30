@@ -4,6 +4,7 @@ import {
   operationResponseHeaderNames,
 } from "@tearleads/validators/operation";
 import { errorMessage } from "./requestInternals";
+import { responseBodyFailure } from "./responseBodyFailure";
 import type {
   OperationResponseRequestFn,
   RequestResult,
@@ -163,10 +164,10 @@ export async function decodeJsonOperationResponse(
     try {
       value = await response.json();
     } catch (error) {
-      const message = errorMessage(error);
+      const failure = responseBodyFailure(error, errorMessage(error));
       return request.reportFailure({
-        kind: "json",
-        message: `${operation.method} ${path}: failed to parse JSON: ${message}`,
+        kind: failure.kind,
+        message: `${operation.method} ${path}: ${failure.message}`,
         method: operation.method,
         options,
         path,

@@ -18,10 +18,12 @@ import type {
 import { assertProjectionVerificationCurrent } from "../../data/keyingProjectionVerification/types";
 import { loadContainers } from "../../data/persistence/containers/containerPersistence";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
+import { withMetadataRootReload } from "./groupMetadataErrors";
 import type { GroupPolicyNameReader } from "./principalPolicyRequest";
 
 export interface GroupMetadataAccessInput {
   readonly apiClient: {
+    evictContainerWriterProjection(containerId: string): void;
     getContainerWriterProjection(
       containerId: string,
     ): Promise<ContainerWriterProjectionResponse | null>;
@@ -53,7 +55,17 @@ export class GroupMetadataUnreadableError extends Error {
   }
 }
 
-async function loadMetadataKeyring(
+function loadMetadataKeyring(
+  input: GroupMetadataAccessInput,
+  containerId: string,
+) {
+  return withMetadataRootReload(
+    () => loadMetadataKeyringOnce(input, containerId),
+    () => input.apiClient.evictContainerWriterProjection(containerId),
+  );
+}
+
+async function loadMetadataKeyringOnce(
   input: GroupMetadataAccessInput,
   containerId: string,
 ) {

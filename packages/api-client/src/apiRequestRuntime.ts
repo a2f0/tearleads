@@ -12,6 +12,7 @@ import {
   normalizeApiBaseUrl,
   requestFailureKey,
 } from "./requestInternals";
+import { responseBodyFailure } from "./responseBodyFailure";
 import { shouldRetryAfterSessionExpired } from "./sessionRefresh";
 import type {
   HttpMethod,
@@ -205,9 +206,13 @@ export class ApiRequestRuntime {
     try {
       data = await response.json();
     } catch (error) {
+      const failure = responseBodyFailure(error, errorMessage(error));
+      if (failure.kind === "network") {
+        this.onNetworkError?.();
+      }
       return this.requestFailure({
-        kind: "json",
-        message: `${method} ${path}: failed to parse JSON: ${errorMessage(error)}`,
+        kind: failure.kind,
+        message: `${method} ${path}: ${failure.message}`,
         method,
         path,
         reportErrors,
@@ -394,6 +399,9 @@ export class ApiRequestRuntime {
   private reportResponseRequestFailure(
     input: ResponseRequestValidationFailureInput,
   ): RequestFailure {
+    if (input.kind === "network") {
+      this.onNetworkError?.();
+    }
     return this.requestFailure({
       ...input,
       reportErrors: input.options?.reportErrors ?? true,
