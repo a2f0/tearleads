@@ -202,6 +202,7 @@ export type {
   WriteHeader,
 } from "./keying";
 export {
+  ACCESS_MANIFEST_VERIFICATION_REVISION,
   accessManifestCheckpointFromManifest,
   accessManifestTransparencyLeaf,
   assertSealedContainerKekKeyringLength,

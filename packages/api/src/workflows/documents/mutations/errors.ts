@@ -21,6 +21,7 @@ import {
 import { ContainerMutationError } from "../../containers/mutations";
 import { ContainerWriterProjectionError } from "../../containers/writerProjection/types";
 import { PrincipalPolicyProjectionError } from "../../principals/principalPolicyProjection";
+import { StoredDocumentManifestError } from "../storedDocumentManifestVerification";
 
 type DocumentMutationStatus = 400 | 403 | 404 | 409 | 503;
 
@@ -175,6 +176,10 @@ export function toMutationError(error: unknown): DocumentMutationError | null {
       error.message,
       nonWipeStatus(error.status),
     );
+  }
+
+  if (error instanceof StoredDocumentManifestError) {
+    return new DocumentMutationError(error.message, error.status);
   }
 
   if (error instanceof KeyingVerificationError) {

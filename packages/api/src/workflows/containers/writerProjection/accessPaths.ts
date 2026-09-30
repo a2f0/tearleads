@@ -13,6 +13,7 @@ import { eq } from "drizzle-orm";
 import {
   getAccessManifestBundle,
   getCurrentAccessManifestHead,
+  getObjectAccessManifestBundles,
 } from "../../../access/read/accessManifestStore";
 import { cachedProjectionValue } from "./context";
 import {
@@ -149,6 +150,32 @@ async function loadCurrentContainerManifestBundle(
       return loadContainerManifestBundleByHash(context, head.manifestHash);
     },
   );
+}
+
+/**
+ * Load a container's whole retained lineage, and its verification markers, in
+ * a few batched queries before a walk that would otherwise issue several
+ * queries per manifest. Only bundles not already cached are installed.
+ */
+export async function prefetchContainerManifestHistory(
+  context: ContainerWriterProjectionContext,
+  containerId: string,
+): Promise<void> {
+  if (context.prefetchedHistoryContainerIds.has(containerId)) return;
+  context.prefetchedHistoryContainerIds.add(containerId);
+  const bundles = await getObjectAccessManifestBundles(
+    "container",
+    containerId,
+    context.executor,
+  );
+  for (const [manifestHash, bundle] of bundles) {
+    if (!context.manifestBundleByHash.has(manifestHash))
+      context.manifestBundleByHash.set(
+        manifestHash,
+        Promise.resolve(toManifestBundleResponse(bundle)),
+      );
+  }
+  await context.verificationMarkers.prefetch?.([...bundles.keys()]);
 }
 
 export async function loadContainerManifestBundleByHash(

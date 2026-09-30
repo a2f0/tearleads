@@ -35,6 +35,8 @@ The durable tables are:
 - `access_event_dependency_projection`
 - `access_manifest_principal_head_projection`
 - `access_manifest_document_link_projection`
+- `access_manifest_verifications` (MAC'd stored-history verification markers;
+  deleted with the manifests they cover)
 - `container_key_epochs`
 - `container_key_wraps`
 - `document_content_key_epochs`

@@ -1,6 +1,7 @@
 import type { DatabaseSession } from "@tearleads/api-shared/postgres";
 import type { AnyVerifiedPrincipalPolicy } from "@tearleads/crypto";
 import type { ContainerWriterProjectionContext } from "./types";
+import { databaseVerificationMarkerStore } from "./verificationMarkers";
 
 export function createContainerWriterProjectionContext(
   executor: DatabaseSession,
@@ -14,6 +15,12 @@ export function createContainerWriterProjectionContext(
     manifestBundleByHash: new Map(),
     principalPolicyAuthorizationEvidence,
     verifiedManifestByHash: new Map(),
+    verificationMarkers: databaseVerificationMarkerStore(executor, {
+      recordsMarkers: principalPolicyAuthorizationEvidence.length === 0,
+    }),
+    signerByUserId: new Map(),
+    prefetchedHistoryContainerIds: new Set(),
+    manifestLineageByHash: new Map(),
   };
 }
 

@@ -12,6 +12,7 @@ import {
   isSerializationFailure,
   isUniqueViolation,
 } from "../../../utils/databaseErrors";
+import { ContainerWriterProjectionError } from "../writerProjection/types";
 import type { ContainerMutationStatus } from "./types";
 
 type ContainerMutationErrorBody =
@@ -125,6 +126,17 @@ export function toMutationError(error: unknown): ContainerMutationError | null {
     return new ContainerMutationError(
       error.message,
       keyingVerificationHttpStatus(error),
+    );
+  }
+
+  // Writer-projection work a mutation runs, such as stored-history
+  // verification for its write-time marking and the citations its KEK check
+  // reads. A missing stored row is no proof the container is gone, so it never
+  // reaches the client as a 404.
+  if (error instanceof ContainerWriterProjectionError) {
+    return new ContainerMutationError(
+      error.message,
+      error.status === 404 ? 409 : error.status,
     );
   }
 

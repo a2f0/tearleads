@@ -121,6 +121,17 @@ parent's retained history still covers, and the negative control
 `strict-parent-epoch-pin-strands-descendant` reproduces the pre-#2330 rule under
 which an ancestor rotation stranded the subtree.
 
+## Manifest History Availability
+
+[`container-keying/ManifestHistory.tla`](./container-keying/ManifestHistory.tla)
+models read acceptance after cache eviction and enabled revocation. Its positive
+configuration states the intended contract; two negative controls demonstrate
+why a cold-read history cap and a matching mutation cap are both invalid repairs.
+Both availability predicates are true by definition in the positive configuration;
+that run does not explore a verifier algorithm or establish a resource bound.
+Runtime regressions cover real signatures and long histories. See the
+[mapping and resource boundaries](./container-keying/ManifestHistory.md).
+
 ## No Bricked Device
 
 [`container-keying/AncestorRecovery.tla`](./container-keying/AncestorRecovery.tla)

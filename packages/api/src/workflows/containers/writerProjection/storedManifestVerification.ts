@@ -3,15 +3,16 @@ import type {
   VerifiedAccessEvent,
   VerifiedContainerAccessManifest,
 } from "@tearleads/crypto";
-import {
-  verifyContainerAccessManifest,
-  verifySignedAccessEvent,
-} from "@tearleads/crypto";
+import { verifyContainerAccessManifest } from "@tearleads/crypto";
 import type { AccessManifestBundleWireResponse } from "@tearleads/validators/response";
 import { MAX_CONTAINER_PATH_LENGTH } from "@tearleads/validators/util";
 import { uniqueSortedStrings } from "../../../utils/array";
 import { canonicalJsonEquals } from "../../../utils/canonicalJson";
-import { StoredVerificationCache } from "../../../utils/storedVerificationCache";
+import { verifyStoredAccessEvent } from "../../../utils/storedAccessEventVerification";
+import {
+  type StoredManifestVerificationStep,
+  verifyStoredManifestGraph,
+} from "../../../utils/storedManifestGraph";
 import {
   loadPrincipalAuthorizationPoliciesForReferences,
   PrincipalPolicyProjectionError,
@@ -22,14 +23,10 @@ import {
   type ContainerWriterProjectionContext,
   ContainerWriterProjectionError,
 } from "./types";
-
-const MAX_CONTAINER_HISTORY_DEPTH = 4_096;
-const verifiedStoredManifests =
-  new StoredVerificationCache<VerifiedContainerAccessManifest>(2_048);
-
-export function clearStoredContainerManifestVerificationCache(): void {
-  verifiedStoredManifests.clear();
-}
+import {
+  hasAccessManifestVerificationMarker,
+  recordAccessManifestVerificationMarker,
+} from "./verificationMarkers";
 
 interface StoredManifestVerificationInput {
   readonly bundle: AccessManifestBundleWireResponse;
@@ -111,43 +108,19 @@ function collectPrincipalReferences(
   ];
 }
 
-async function verifyStoredEvent(
-  parsed: VerifiedContainerAccessManifest,
-  signerPublicKey: Uint8Array,
-): Promise<VerifiedAccessEvent> {
-  const result = await verifySignedAccessEvent({
-    body: parsed.event.body,
-    event: parsed.event.event,
-    signerPublicKey,
-  });
-  if (!result.ok) {
-    throw integrityError(result.error.message);
-  }
-  if (result.value.eventHash !== parsed.event.eventHash) {
-    throw integrityError("access event hash is inconsistent");
-  }
-  return result.value;
-}
-
 async function loadStoredEventSigner(
   input: StoredManifestVerificationInput,
   parsed: VerifiedContainerAccessManifest,
 ): Promise<Uint8Array> {
-  return loadSignerPublicKey(input.context.executor, {
-    error: () => integrityError("access event signer is inconsistent"),
-    fingerprint: parsed.event.event.signerKeyFingerprint,
-    userId: parsed.event.event.signerUserId,
-  });
-}
-
-function storedVerificationSource(
-  bundle: AccessManifestBundleWireResponse,
-  signerPublicKey: Uint8Array,
-) {
-  return {
-    bundle,
-    signerPublicKey,
-  };
+  return loadSignerPublicKey(
+    input.context.executor,
+    {
+      error: () => integrityError("access event signer is inconsistent"),
+      fingerprint: parsed.event.event.signerKeyFingerprint,
+      userId: parsed.event.event.signerUserId,
+    },
+    input.context.signerByUserId,
+  );
 }
 
 function verifyHistoricalContainerManifest(
@@ -169,14 +142,13 @@ function verifyHistoricalContainerManifest(
  * mutation submits are all current, so they cannot disagree on a container.
  */
 async function loadCitedManifestsByContainer(input: {
-  readonly parsed: VerifiedContainerAccessManifest;
+  readonly event: VerifiedAccessEvent;
   readonly verifyHash: (
     manifestHash: string,
   ) => Promise<VerifiedContainerAccessManifest>;
 }): Promise<ReadonlyMap<string, VerifiedContainerAccessManifest>> {
   const byContainer = new Map<string, VerifiedContainerAccessManifest>();
-  for (const manifestHash of input.parsed.event.event
-    .dependencyManifestHashes) {
+  for (const manifestHash of input.event.event.dependencyManifestHashes) {
     const cited = await input.verifyHash(manifestHash);
     if (byContainer.has(cited.state.containerId)) {
       throw integrityError("access event cites two heads of one container");
@@ -216,12 +188,13 @@ function citedAncestorPath(
 
 async function loadStoredManifestArtifacts(input: {
   readonly parsed: VerifiedContainerAccessManifest;
+  readonly event: VerifiedAccessEvent;
   readonly verifyHash: (
     manifestHash: string,
   ) => Promise<VerifiedContainerAccessManifest>;
 }): Promise<StoredManifestArtifacts> {
   const { parsed } = input;
-  const eventType = parsed.event.event.eventType;
+  const eventType = input.event.event.eventType;
   const previousManifest = parsed.state.previousManifestHash
     ? await input.verifyHash(parsed.state.previousManifestHash)
     : null;
@@ -248,104 +221,146 @@ async function loadStoredManifestArtifacts(input: {
   };
 }
 
-async function verifyBundle(
+interface PreparedContainerBundle {
+  readonly bundle: AccessManifestBundleWireResponse;
+  readonly parsed: VerifiedContainerAccessManifest;
+  readonly signedEvent: VerifiedAccessEvent;
+  readonly signerPublicKey: Uint8Array;
+}
+
+async function verifyPreparedBundle(
+  input: StoredManifestVerificationInput,
+  { bundle, parsed, signedEvent, signerPublicKey }: PreparedContainerBundle,
+  verifyHash: (hash: string) => Promise<VerifiedContainerAccessManifest>,
+): Promise<VerifiedContainerAccessManifest> {
+  const artifacts = await loadStoredManifestArtifacts({
+    parsed,
+    event: signedEvent,
+    verifyHash,
+  });
+  const principalPolicies =
+    await loadPrincipalAuthorizationPoliciesForReferences(
+      input.context.executor,
+      collectPrincipalReferences(parsed, [
+        artifacts.previousPath,
+        artifacts.parentPath,
+        artifacts.destinationParentPath,
+      ]),
+      input.context.principalPolicyAuthorizationEvidence,
+    );
+  const verification = await verifyHistoricalContainerManifest({
+    event: signedEvent,
+    expectedManifestHash: bundle.manifestHash,
+    manifest: parsed.manifest,
+    previousManifest: artifacts.previousManifest,
+    principalPolicies,
+    ...(artifacts.destinationParentPath !== undefined
+      ? {
+          destinationParentContainerPath: artifacts.destinationParentPath,
+        }
+      : {}),
+    ...(artifacts.parentPath !== undefined
+      ? { parentContainerPath: artifacts.parentPath }
+      : {}),
+    ...(artifacts.previousPath !== undefined
+      ? { previousContainerPath: artifacts.previousPath }
+      : {}),
+  });
+  if (!verification.ok) {
+    throw integrityError(verification.error.message);
+  }
+  if (!canonicalJsonEquals(verification.value.state, parsed.state)) {
+    throw integrityError("stored state does not match the signed transition");
+  }
+  assertEventDependencies({
+    destinationParentPath: artifacts.destinationParentPath,
+    event: verification.value.event,
+    parentPath: artifacts.parentPath,
+    previousManifest: artifacts.previousManifest,
+    previousPath: artifacts.previousPath,
+  });
+  input.context.verifiedManifestByHash.set(
+    bundle.manifestHash,
+    verification.value,
+  );
+  // Every dependency was verified (or marked) first, so the marker attests
+  // this manifest's whole history.
+  await recordAccessManifestVerificationMarker(
+    input.context.verificationMarkers,
+    bundle,
+    signerPublicKey,
+  );
+  return verification.value;
+}
+
+async function prepareBundle(
   input: StoredManifestVerificationInput,
   bundle: AccessManifestBundleWireResponse,
-  visiting: Set<string>,
-): Promise<VerifiedContainerAccessManifest> {
+): Promise<StoredManifestVerificationStep<VerifiedContainerAccessManifest>> {
   const cached = input.context.verifiedManifestByHash.get(bundle.manifestHash);
-  if (cached) {
-    return cached;
-  }
+  if (cached) return { value: cached };
   const parsed = toVerifiedContainerManifest(bundle);
+  // The signer resolves as for full verification. A marked manifest was
+  // verified after its history, under this signer key; only its stored bytes
+  // and the key are rebound, and the walk stops here.
   const signerPublicKey = await loadStoredEventSigner(input, parsed);
-  const source = storedVerificationSource(bundle, signerPublicKey);
-  const processCached = verifiedStoredManifests.get(
-    bundle.manifestHash,
-    source,
-  );
-  if (processCached) {
-    input.context.verifiedManifestByHash.set(
-      bundle.manifestHash,
-      processCached,
-    );
-    return processCached;
+  if (
+    await hasAccessManifestVerificationMarker(
+      input.context.verificationMarkers,
+      bundle,
+      signerPublicKey,
+    )
+  ) {
+    input.context.verifiedManifestByHash.set(bundle.manifestHash, parsed);
+    return { value: parsed };
   }
-  if (visiting.has(bundle.manifestHash)) {
-    throw integrityError("manifest history contains a cycle");
-  }
-  if (visiting.size >= MAX_CONTAINER_HISTORY_DEPTH) {
-    throw integrityError("manifest history exceeds maximum depth");
-  }
-  visiting.add(bundle.manifestHash);
-  try {
-    const signedEvent = await verifyStoredEvent(parsed, signerPublicKey);
-    const verifyHash = async (
-      manifestHash: string,
-    ): Promise<VerifiedContainerAccessManifest> =>
-      verifyBundle(input, await input.loadBundle(manifestHash), visiting);
-    const artifacts = await loadStoredManifestArtifacts({ parsed, verifyHash });
-    const principalPolicies =
-      await loadPrincipalAuthorizationPoliciesForReferences(
-        input.context.executor,
-        collectPrincipalReferences(parsed, [
-          artifacts.previousPath,
-          artifacts.parentPath,
-          artifacts.destinationParentPath,
-        ]),
-        input.context.principalPolicyAuthorizationEvidence,
-      );
-    const verification = await verifyHistoricalContainerManifest({
-      event: signedEvent,
-      expectedManifestHash: bundle.manifestHash,
-      manifest: parsed.manifest,
-      previousManifest: artifacts.previousManifest,
-      principalPolicies,
-      ...(artifacts.destinationParentPath !== undefined
-        ? {
-            destinationParentContainerPath: artifacts.destinationParentPath,
-          }
-        : {}),
-      ...(artifacts.parentPath !== undefined
-        ? { parentContainerPath: artifacts.parentPath }
-        : {}),
-      ...(artifacts.previousPath !== undefined
-        ? { previousContainerPath: artifacts.previousPath }
-        : {}),
-    });
-    if (!verification.ok) {
-      throw integrityError(verification.error.message);
-    }
-    if (!canonicalJsonEquals(verification.value.state, parsed.state)) {
-      throw integrityError("stored state does not match the signed transition");
-    }
-    assertEventDependencies({
-      destinationParentPath: artifacts.destinationParentPath,
-      event: verification.value.event,
-      parentPath: artifacts.parentPath,
-      previousManifest: artifacts.previousManifest,
-      previousPath: artifacts.previousPath,
-    });
-    input.context.verifiedManifestByHash.set(
-      bundle.manifestHash,
-      verification.value,
-    );
-    verifiedStoredManifests.set(
-      bundle.manifestHash,
-      source,
-      verification.value,
-    );
-    return verification.value;
-  } finally {
-    visiting.delete(bundle.manifestHash);
-  }
+  const signedEvent = await verifyStoredAccessEvent({
+    stored: parsed.event,
+    signerPublicKey,
+    error: integrityError,
+  });
+  return {
+    dependencies: [
+      ...(parsed.state.previousManifestHash
+        ? [parsed.state.previousManifestHash]
+        : []),
+      ...signedEvent.event.dependencyManifestHashes,
+    ],
+    verify: (dependency) =>
+      verifyPreparedBundle(
+        input,
+        { bundle, parsed, signedEvent, signerPublicKey },
+        async (hash) => dependency(hash),
+      ),
+  };
 }
 
 export async function verifyStoredContainerManifest(
   input: StoredManifestVerificationInput,
 ): Promise<VerifiedContainerAccessManifest> {
   try {
-    return await verifyBundle(input, input.bundle, new Set());
+    const cached = input.context.verifiedManifestByHash.get(
+      input.bundle.manifestHash,
+    );
+    if (cached) return cached;
+    const verified = await verifyStoredManifestGraph({
+      rootHash: input.bundle.manifestHash,
+      error: integrityError,
+      prepare: async (hash) => {
+        const bundle =
+          hash === input.bundle.manifestHash
+            ? input.bundle
+            : await input.loadBundle(hash);
+        if (bundle.manifestHash !== hash)
+          throw integrityError("manifest dependency hash is inconsistent");
+        return prepareBundle(input, bundle);
+      },
+    });
+    input.context.verifiedManifestByHash.set(
+      input.bundle.manifestHash,
+      verified,
+    );
+    return verified;
   } catch (error) {
     if (error instanceof ContainerWriterProjectionError) {
       throw error;

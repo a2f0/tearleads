@@ -44,10 +44,35 @@ retrying like other permanent server refusals.
 | Rekeys attempted per pending update row | 5 (`MAX_PENDING_UPDATE_REKEYS`) | SDK: `data/sqlite/documentPendingUpdatePersistence.ts`, persisted so it survives restarts. | The row is left untouched and reported as no progress, so a poisoned update cannot re-key forever. |
 | Consecutive rekey-only sync passes | 3 (`MAX_CONSECUTIVE_REKEY_ONLY_PASSES`) | SDK: `data/sync/outgoingUpdateSettlement.ts`. | The lane goes idle; a later mutation or sync signal retries the pending work. Guards against a server that under-settles without conflicting. |
 | Container key epoch | 65,536 (`MAX_CONTAINER_KEY_EPOCH`) | API at rotation time; response guards on every layer before cryptographic work. | Refusal of the rotation only. Never applied to existing data, so retained ciphertext stays readable. A runaway-rotation backstop, not a use case. |
-| Container recitation epoch | 512 (`MAX_CONTAINER_RECITATION_EPOCH`, `crypto/src/keying/containerAccessReciteBody.ts`) | Crypto: `containerAccess.ts`; the SDK skips signing at the boundary and the API rejects independently. | Refusal. The ceiling is absolute and does not reset on rekey, reserving the history budgets below for ordinary mutations. |
+| Container recitation epoch | 512 (`MAX_CONTAINER_RECITATION_EPOCH`, `crypto/src/keying/containerAccessReciteBody.ts`) | Crypto: `containerAccess.ts`; the SDK skips signing at the boundary and the API rejects independently. | Refusal. The ceiling is absolute and does not reset on rekey, reserving half of the same-epoch history budget below for ordinary mutations. |
 | Same-epoch manifest history per container | 1,024 (`MAX_SAME_EPOCH_MANIFEST_HISTORY`, `api/src/access/shared/internal/containerKekTargets.ts`) | API: the SQL walk that validates key bindings on document and blob writes, with one overflow sentinel. | Refusal (409). Fails closed and requires a rekey, which starts a new same-epoch chain. |
-| Manifest history per container | 4,096 (`MAX_CONTAINER_HISTORY_DEPTH`, `api/src/workflows/containers/writerProjection/storedManifestVerification.ts`) | API: stored manifest verification. | Refusal as an integrity error. |
 | KEK-log page | 256 epochs (`CONTAINER_KEK_LOG_PAGE_LIMIT`) | API: `workflows/containers/kekLog.ts`. | Pagination. Recovery walks from the newest page backward, so page size, not lifetime rotation count, bounds a response. |
+
+Lifetime container and document manifest history has no depth refusal. The API
+verifies retained dependencies iteratively, including ancestor lineage, and
+records each accepted manifest in `access_manifest_verifications`. A container
+mutation marks the manifest it stores, with any unmarked history it depends on,
+under its organization lock; a document mutation marks only its document's
+history. A container or document projection read that verified unmarked
+history writes those markers back after its transaction commits, one autocommit
+upsert per marker; every read path also keeps the markers it computed in a
+bounded per-process cache, so no path re-verifies a history on each request. A
+marker's MAC, keyed from the server-held
+`DOCUMENT_SYNC_CURSOR_HMAC_KEY` (or a per-process key when none is configured),
+binds the manifest hash, a digest of that manifest's complete stored bundle,
+its signer's stored public key, and the crypto and API rule revisions.
+Verification stops at the first valid marker, so each manifest is
+signature-checked about once in its lifetime. A row whose bytes changed, a
+changed signer key or a forged marker makes that manifest verify in full
+wherever the server verifies it; a rotated secret or new rule revision
+re-verifies each object's history once, on its next projection read or
+mutation. Serving a
+writer projection still loads every retained manifest its key history cites,
+in a few batched queries; incremental history delivery is tracked in
+[#2392](https://github.com/a2f0/tearleads/issues/2392). For N ancestor
+manifests, the request-local lineage index uses O(N log N) work and space, with
+O(log N) per lineage query; see
+[the availability model](../formal/container-keying/ManifestHistory.md).
 
 The sealed keyring is 64 bytes per retained epoch and is never truncated, so
 at the epoch cap it is about 4 MB; that is why the KEK log serves at most one
