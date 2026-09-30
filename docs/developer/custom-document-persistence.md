@@ -98,9 +98,13 @@ returns `false` without replacing the slot. A `null` expected version means no
 canonical row is expected; it does not disable the document-version check.
 Its synchronous `stillCurrent` guard runs immediately before commit dispatch;
 refusal rolls back the replacement. Replaced or refused byte copies enter the
-reference-checked orphan reclaim queue. Memory adapters must preserve the same
-compare-and-set behavior. Attachment entries require `contentSha256`, the
-plaintext digest stored inside authenticated encrypted document content. Local
+reference-checked orphan reclaim queue. `deleteLocalAttachment(...)` and the
+discard teardown queue the storage keys of the rows they delete in the same
+transaction and never delete bytes themselves: hydration keys a copy by blob id,
+so one copy can back slots in several documents. Memory adapters must preserve
+the same compare-and-set and queueing behavior. Attachment entries require
+`contentSha256`, the plaintext digest stored inside authenticated encrypted
+document content. Local
 attachment records carry the plaintext digest of the bytes they hold, so read
 models can flag a held copy whose digest differs from the document intent.
 

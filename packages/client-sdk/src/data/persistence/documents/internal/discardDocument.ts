@@ -35,6 +35,7 @@ import {
   resolveDocumentSaveTimestamp,
   saveDocumentRows,
 } from "./documentRows";
+import { queueDocumentAttachmentStorageKeys } from "./orphanSideRows";
 
 function buildDiscardShellDocument(
   localId: string,
@@ -220,16 +221,19 @@ async function discardDocumentRowsToShell(input: {
         tx,
       });
       await saveDiscardShell({ ...input, candidate, tx });
+      // The deleted rows were these bytes' only pointers from this document,
+      // but a hydrated copy is shared by every slot holding the same blob.
+      // Queue them for the reference-checked reclaim instead of deleting.
+      await queueDocumentAttachmentStorageKeys(tx, [
+        ...new Set([
+          ...candidate.pendingAttachments.map((row) => row.storageKey),
+          ...candidate.detachedStorageKeys,
+        ]),
+      ]);
       return {
         discarded: true,
         documentKind:
           candidate.existingDocument.documentKind ?? DEFAULT_DOCUMENT_KIND,
-        reclaimableBlobStorageKeys: [
-          ...new Set([
-            ...candidate.pendingAttachments.map((row) => row.storageKey),
-            ...candidate.detachedStorageKeys,
-          ]),
-        ],
       };
     },
     { behavior: "immediate" },

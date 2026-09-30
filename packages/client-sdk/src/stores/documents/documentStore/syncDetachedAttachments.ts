@@ -2,6 +2,7 @@ import { getDocumentAttachments } from "../../../data/documents/documentContent"
 import { detachDocumentAttachment } from "../../../workflows/blobs/detach";
 import {
   type DocumentRecord,
+  reclaimDocumentOrphanBlobs,
   resolveDocumentCreateAuthor,
 } from "../../../workflows/documents";
 import { deleteLocalAttachmentRecord } from "./attachmentPersistence";
@@ -163,10 +164,8 @@ async function cleanupDetachedAttachmentMarker(
     marker.storageKey,
     currentDoc,
   );
-  if (!detachedSyncContextIsCurrent(state, generation, requestRecord)) {
-    return false;
-  }
-  await state.runtime.infra.blobStore.deleteBytes(marker.storageKey);
+  // Deleting the row queued its bytes for the reference-checked reclaim.
+  void reclaimDocumentOrphanBlobs(state.runtime);
   return detachedSyncContextIsCurrent(state, generation, requestRecord);
 }
 
