@@ -60,10 +60,11 @@ const OWNER_GRANTED_ROOT_ATTACHMENT_REQUEST_BUDGET: ProxiedApiRequestBudget = {
   // and historical-path verification re-read a few more projections and
   // policies. Measured 71-73 on main at fe7f09962.
   total: 76,
-  // Complete post-share hydration and scoped document citations (#2365)
-  // plus retained historical policy proofs measure 1.98 MB. Keep
-  // byte headroom without relaxing request or write-bearing sync limits.
-  bodyBytes: { request: 380_000, response: 2_100_000 },
+  // Responses measure 2.05-2.06 MB on main at 30b96c982. A discovery pass
+  // that re-syncs a shared document re-reads its ~200 KB writer projection
+  // (2.26 MB, about one run in three), so bytes keep headroom for the same
+  // three extra document projection reads the per-route budget below allows.
+  bodyBytes: { request: 380_000, response: 2_700_000 },
   byRequest: {
     "GET /documents/:documentId/writer-projection": 11,
     "POST /documents/:documentId/sync": 18,
