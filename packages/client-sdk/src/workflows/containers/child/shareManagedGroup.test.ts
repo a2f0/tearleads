@@ -73,6 +73,7 @@ test("shareRemoteContainerWithGroup grants a managed principal with the selected
       accessLevel: "read",
       apiClient: {
         reciteContainer: async () => null,
+        evictContainerWriterProjection: () => {},
         commitOrganizationGroupPolicy: async (
           _organizationId,
           _groupId,
@@ -259,6 +260,7 @@ test("shareRemoteContainerWithGroup accepts empty groups signed by an org admin"
         accessLevel: "read",
         apiClient: {
           reciteContainer: async () => null,
+          evictContainerWriterProjection: () => {},
           commitOrganizationGroupPolicy: async () => null,
           getContainerWriterProjectionResult: async (id) => ({
             ok: true,

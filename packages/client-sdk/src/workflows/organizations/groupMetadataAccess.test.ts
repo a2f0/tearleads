@@ -19,6 +19,7 @@ import {
   createGroupMetadataAccess,
   GroupMetadataUnreadableError,
 } from "./groupMetadataAccess";
+import { MetadataRootBehindDirectoryError } from "./groupMetadataErrors";
 import { buildInitialGroupPolicyRequest } from "./principalPolicyRequest";
 
 async function fixture() {
@@ -77,6 +78,7 @@ test("organization metadata readers decrypt a group with no group membership or 
       createGroupMetadataAccess({
         verifyMetadataContainer: async () => {},
         apiClient: {
+          evictContainerWriterProjection: () => {},
           getContainerWriterProjection: async () => metadata.projection,
         },
         execSql,
@@ -121,7 +123,10 @@ test("a fresh reader recovers existing group names after metadata key rotation",
     );
     const access = createGroupMetadataAccess({
       verifyMetadataContainer: async () => {},
-      apiClient: { getContainerWriterProjection: async () => rotated },
+      apiClient: {
+        evictContainerWriterProjection: () => {},
+        getContainerWriterProjection: async () => rotated,
+      },
       execSql,
       organizationId: parent.author.organizationId,
       resolveProjectionUserKey,
@@ -152,7 +157,10 @@ test("an unsigned projection change or a different signed system container canno
     for (const projection of [forged, parent.projection]) {
       const access = createGroupMetadataAccess({
         verifyMetadataContainer: async () => {},
-        apiClient: { getContainerWriterProjection: async () => projection },
+        apiClient: {
+          evictContainerWriterProjection: () => {},
+          getContainerWriterProjection: async () => projection,
+        },
         execSql,
         organizationId: parent.author.organizationId,
         resolveProjectionUserKey,
@@ -176,6 +184,7 @@ test("group creation discovers and verifies the organization metadata key", asyn
     const access = createGroupMetadataAccess({
       verifyMetadataContainer: async () => {},
       apiClient: {
+        evictContainerWriterProjection: () => {},
         getContainerWriterProjection: async () => metadata.projection,
       },
       execSql,
@@ -198,6 +207,45 @@ test("group creation discovers and verifies the organization metadata key", asyn
       icon: null,
     });
     await expect(access.loadEncryptionKey()).resolves.toEqual(metadata.key);
+  } finally {
+    close();
+  }
+});
+
+test("a metadata root behind the directory is evicted and reloaded once", async () => {
+  const { close, execSql } = await createTestExecSql("group-metadata-reload");
+  try {
+    const { parent, member, metadata, resolveProjectionUserKey, bundle } =
+      await fixture();
+    const evicted: string[] = [];
+    const access = (staleReads: number) => {
+      let reads = 0;
+      return createGroupMetadataAccess({
+        verifyMetadataContainer: async () => {
+          reads += 1;
+          if (reads <= staleReads) throw new MetadataRootBehindDirectoryError();
+        },
+        apiClient: {
+          evictContainerWriterProjection: (containerId) => {
+            evicted.push(containerId);
+          },
+          getContainerWriterProjection: async () => metadata.projection,
+        },
+        execSql,
+        organizationId: parent.author.organizationId,
+        resolveProjectionUserKey,
+        targetSecretKey: member.secretKey,
+      });
+    };
+    await expect(access(1).readName(bundle)).resolves.toBe("Confidential team");
+    expect(evicted).toEqual([metadata.key.containerId]);
+    // Honest servers re-cite the reserved groups in the advancing commit, so
+    // a root still behind after a fresh read is an incident.
+    evicted.length = 0;
+    await expect(access(2).readName(bundle)).rejects.toMatchObject({
+      code: "object_mismatch",
+    });
+    expect(evicted).toEqual([metadata.key.containerId]);
   } finally {
     close();
   }
@@ -230,6 +278,7 @@ test("a name that does not open under its cited key is unreadable for that group
     const access = createGroupMetadataAccess({
       verifyMetadataContainer: async () => {},
       apiClient: {
+        evictContainerWriterProjection: () => {},
         getContainerWriterProjection: async () => metadata.projection,
       },
       execSql,
