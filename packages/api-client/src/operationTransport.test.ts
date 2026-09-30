@@ -241,6 +241,30 @@ test("reports malformed JSON and shapes through ApiClient policy", async () => {
   expect(reported.map((failure) => failure.kind)).toEqual(["json", "shape"]);
 });
 
+test("a body dropped mid-stream is a network failure, not malformed JSON", async () => {
+  const droppedBody = new ReadableStream<Uint8Array>({
+    start(controller) {
+      controller.enqueue(new TextEncoder().encode('{"status":'));
+      controller.error(new TypeError("The network connection was lost."));
+    },
+  });
+  const request = Object.assign(
+    async () => ({
+      data: new Response(droppedBody, { status: 200, statusText: "OK" }),
+      ok: true as const,
+    }),
+    {
+      reportFailure: (input: ResponseRequestValidationFailureInput) =>
+        requestFailure(input),
+    },
+  ) as OperationResponseRequestFn;
+  const transport = createJsonOperationTransport(request);
+
+  expect(
+    await transport.requestResult(getHealthOperation, { params: {} }),
+  ).toMatchObject({ kind: "network", ok: false, path: "/", status: 200 });
+});
+
 test("returns status-specific parsed response bodies and headers", async () => {
   const request = Object.assign(
     async () => ({

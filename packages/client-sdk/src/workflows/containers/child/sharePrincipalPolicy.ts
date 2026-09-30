@@ -45,7 +45,10 @@ import {
 
 export interface ContainerManagedPrincipalShareApi
   extends ContainerShareApi,
-    Pick<ApiClient, "getContainerWriterProjectionResult"> {
+    Pick<
+      ApiClient,
+      "evictContainerWriterProjection" | "getContainerWriterProjectionResult"
+    > {
   commitOrganizationGroupPolicy: (
     organizationId: string,
     groupId: string,

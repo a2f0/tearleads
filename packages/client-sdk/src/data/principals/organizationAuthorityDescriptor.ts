@@ -1,5 +1,6 @@
 import type { ReferencedPrincipalHead } from "@tearleads/crypto";
 import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
+import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
 
 export type OrganizationGroupHead = ReferencedPrincipalHead & {
   readonly principalType: "group";
@@ -179,6 +180,29 @@ export function requireOrganizationGroupHead(
     throw new Error("Group is absent from the signed organization directory");
   }
   return head;
+}
+
+/**
+ * Whether a served policy bundle's previous states include `head`. The chain
+ * is only as trustworthy as the bundle: callers decide whether it is verified.
+ */
+export function previousStatesIncludeHead(
+  bundle: Pick<PrincipalPolicyBundleResponse, "previousStates">,
+  head: ReferencedPrincipalHead,
+): boolean {
+  return bundle.previousStates.some(({ state }) =>
+    principalHeadMatchesReference(
+      {
+        principalType: state.principalType,
+        principalId: state.principalId,
+        version: state.version,
+        keyEpoch: state.keyEpoch,
+        stateHash: state.stateHash,
+        keyFingerprint: state.keyFingerprint,
+      },
+      head,
+    ),
+  );
 }
 
 export function principalHeadMatchesReference(
