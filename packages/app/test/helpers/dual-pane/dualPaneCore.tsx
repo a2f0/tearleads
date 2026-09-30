@@ -343,24 +343,36 @@ export function formatExplorerWindowDebug(pane: HTMLElement): string {
   ].join("\n");
 }
 
+/**
+ * Select a sidebar container and wait for its item table. A sidebar reload
+ * (identity recovery, a projection refresh) can drop or rebuild the item
+ * between the caller seeing it and the click landing, so each attempt clicks a
+ * freshly queried item and a missed click is retried until the table mounts.
+ */
 export async function selectContainerAndWaitForItemTable(
   pane: HTMLElement,
   name: string,
 ): Promise<HTMLElement> {
-  await interact(() => {
-    fireEvent.click(getExplorerSidebarItem(pane, name));
-  });
-
-  let table: HTMLElement | null = null;
-  await waitFor(() => {
-    table = within(pane).getByRole("table", {
-      name: `Items in ${name}`,
-    });
-    expect(table).toBeTruthy();
-  });
-
-  invariant(table, `Expected explorer item table for "${name}".`);
-  return table;
+  const deadline = Date.now() + DUAL_PANE_TEST_TIMEOUT_MS;
+  while (true) {
+    const item = getExplorerSidebarItemsByName(pane, name)[0];
+    if (item) {
+      await interact(() => {
+        fireEvent.click(item);
+      });
+      const table = await within(pane)
+        .findByRole("table", { name: `Items in ${name}` })
+        .catch(() => null);
+      if (table) {
+        return table;
+      }
+    }
+    invariant(
+      Date.now() < deadline,
+      `Expected explorer item table for "${name}".`,
+    );
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
 }
 
 export async function waitForSinglePaneProvisioning(pane: HTMLElement) {
