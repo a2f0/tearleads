@@ -270,26 +270,6 @@ export async function syncOrganizationRosterFromMemberReachability(input: {
   return { changedUserIds };
 }
 
-export async function isOrganizationProfileDocument(input: {
-  readonly executor: DatabaseSession;
-  readonly organizationId: string;
-  readonly profileDocumentId: string;
-}): Promise<boolean> {
-  const [head] = await input.executor
-    .select({ objectId: accessManifestHeads.objectId })
-    .from(accessManifestHeads)
-    .where(
-      and(
-        eq(accessManifestHeads.objectKind, "document"),
-        eq(accessManifestHeads.objectId, input.profileDocumentId),
-        eq(accessManifestHeads.organizationId, input.organizationId),
-      ),
-    )
-    .limit(1);
-
-  return Boolean(head);
-}
-
 export async function isOrganizationRosterProfileDocumentForUser(input: {
   readonly executor: DatabaseSession;
   readonly organizationId: string;

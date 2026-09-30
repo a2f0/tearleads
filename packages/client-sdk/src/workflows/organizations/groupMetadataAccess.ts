@@ -39,6 +39,20 @@ export interface GroupMetadataAccessInput {
     | undefined;
 }
 
+/**
+ * A group's signed name does not open under the metadata key it cites, or opens
+ * to an invalid name. Every reader holding that key gets the same result. The
+ * API checks the citation but can never check the ciphertext, so a dishonest
+ * admin can sign such a name; directory walks isolate the group instead of
+ * failing every name in the organization.
+ */
+export class GroupMetadataUnreadableError extends Error {
+  constructor(groupId: string, cause: unknown) {
+    super(`Group ${groupId} metadata cannot be decrypted`, { cause });
+    this.name = "GroupMetadataUnreadableError";
+  }
+}
+
 async function loadMetadataKeyring(
   input: GroupMetadataAccessInput,
   containerId: string,
@@ -118,11 +132,18 @@ export function createGroupMetadataAccess(input: GroupMetadataAccessInput) {
     const keyMaterial = keyring?.keys.get(metadata.containerKeyEpochId);
     if (!keyMaterial)
       throw new Error("Group metadata historical key is unavailable");
-    return decryptGroupMetadata({
-      key: { ...metadata, keyMaterial },
-      groupId: bundle.currentState.principalId,
-      payload: bundle.currentPayload.ciphertext,
-    });
+    try {
+      return await decryptGroupMetadata({
+        key: { ...metadata, keyMaterial },
+        groupId: bundle.currentState.principalId,
+        payload: bundle.currentPayload.ciphertext,
+      });
+    } catch (cause) {
+      throw new GroupMetadataUnreadableError(
+        bundle.currentState.principalId,
+        cause,
+      );
+    }
   };
   return {
     readName,

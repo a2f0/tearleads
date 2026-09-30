@@ -4,6 +4,7 @@ import { readGroupMetadata } from "@tearleads/crypto";
 import type { PutPrincipalPolicyRequest } from "@tearleads/validators/request";
 import { eq } from "drizzle-orm";
 import type { StoredPrincipalState } from "../../access/read/principalStateStore";
+import { isOrganizationGroupMetadataKey } from "../organizations/groupMetadataKeyScope";
 import { PrincipalPolicyError } from "./shared";
 
 /** Membership and grant updates preserve the signed, encrypted group metadata. */
@@ -25,7 +26,13 @@ export async function assertGroupPolicyNamePreserved(
       if (
         "role" in metadata ||
         metadata.groupId !== group.id ||
-        metadata.organizationId !== group.organizationId
+        metadata.organizationId !== group.organizationId ||
+        !(await isOrganizationGroupMetadataKey({
+          containerId: metadata.containerId,
+          containerKeyEpochId: metadata.containerKeyEpochId,
+          executor: tx,
+          organizationId: group.organizationId,
+        }))
       )
         throw new Error("Invalid initial group metadata");
     } catch {
