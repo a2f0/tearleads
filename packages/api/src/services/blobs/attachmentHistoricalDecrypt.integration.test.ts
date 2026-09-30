@@ -187,7 +187,7 @@ test("SDK decrypts a historical binding after ancestor head changes and document
     const wrapped = await wrapContentKey(blobContentKey, destinationKey, {
       kind: "Blob",
       objectId: uploaded.blobId,
-      contentKeyEpoch: 1,
+      contentKeyEpoch: uploaded.request.contentKeyBundle.contentKeyEpoch,
       containerId: other.containerId,
       containerKeyEpochId: destinationState.containerKeyEpochId,
     });

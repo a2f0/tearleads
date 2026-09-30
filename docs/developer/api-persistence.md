@@ -51,6 +51,10 @@ following onto a database that predates it requires the greenfield reset above
   cannot be unlinked (the path needs the deleted container) and cannot be
   purged. No repair path exists by design; the greenfield reset covers such
   rows. The 409 is coded `container_unavailable` (#2278).
+- #2365 finding 19: document and blob content-key wraps authenticate the
+  suite, object id, content-key epoch and target as AES-GCM associated data,
+  under unchanged suite ids. A wrap stored before it no longer opens and reads
+  as an integrity failure, not as an older format.
 
 Organization purge (`status = "purged"`) is terminal and not a reset: the
 organization row survives, but every container, document, and blob mutation in

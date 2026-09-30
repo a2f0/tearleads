@@ -106,7 +106,8 @@ export const documentContentKeyEpochs = pgTable(
  *   `wrappedKey`; current clients use suite
  *   `tearleads.document.content-key-wrap.aes-256-gcm-container-kek` with an
  *   AES-GCM IV. The wrap's authenticated data binds the suite, document id,
- *   content-key epoch and this target, so it opens for no other row.
+ *   content-key epoch and target container epoch, so it opens for no other
+ *   document, epoch or target.
  * - `createdAt`: Server-side insertion timestamp for the target row.
  *
  * Indexes:

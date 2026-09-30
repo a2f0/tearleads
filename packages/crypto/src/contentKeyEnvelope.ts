@@ -81,7 +81,7 @@ export interface ContentKeyWrapBinding {
  * object's wrap in another's bundle, or at another epoch or target, and it
  * would still open.
  */
-export function contentKeyWrapAssociatedData(
+function contentKeyWrapAssociatedData(
   binding: ContentKeyWrapBinding,
 ): Uint8Array<ArrayBuffer> {
   return TEXT_ENCODER.encode(

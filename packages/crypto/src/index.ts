@@ -39,7 +39,6 @@ export type {
 } from "./contentKeyEnvelope";
 export {
   ContentKeyEnvelopeError,
-  contentKeyWrapAssociatedData,
   decodeContentKeyEnvelope,
   unwrapContentKey,
   wrapContentKey,

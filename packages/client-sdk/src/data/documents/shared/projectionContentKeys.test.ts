@@ -2,11 +2,15 @@ import { expect, test } from "bun:test";
 import {
   BLOB_CONTENT_KEY_WRAP_SUITE,
   type ContentKeyEnvelopeKind,
+  computeDocumentContentKeyTargetHash,
   DOCUMENT_CONTENT_KEY_WRAP_SUITE,
   wrapContentKey,
 } from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
-import { unwrapContentKeyTargetForKind } from "./projectionContentKeys";
+import {
+  unwrapContentKeyTargetForKind,
+  unwrapDocumentContentKeyFromBundle,
+} from "./projectionContentKeys";
 
 const SEALED = {
   objectId: "document-a",
@@ -93,4 +97,22 @@ test("a wrap served for another document or epoch does not open (#2365, #19)", a
       }),
     ).rejects.toThrow();
   }
+});
+
+test("a bundle naming another document is refused before any unwrap", async () => {
+  // The reader supplies the document it is reading; a server-chosen id in the
+  // bundle would otherwise pick which document's wraps get opened.
+  await expect(
+    unwrapDocumentContentKeyFromBundle(
+      {
+        contentKeyEpoch: SEALED.contentKeyEpoch,
+        documentId: "document-b",
+        linkSetManifestHash: "link-set",
+        targetHash: await computeDocumentContentKeyTargetHash([]),
+        targets: [],
+      },
+      SEALED.objectId,
+      new Map(),
+    ),
+  ).rejects.toThrow("Document content-key bundle names another document");
 });
