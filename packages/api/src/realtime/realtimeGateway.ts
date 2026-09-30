@@ -29,6 +29,10 @@ import {
   readOrganizationReadModelAudienceMessage,
 } from "./wsOrganizationRouting";
 import { type AppliedInterest, WsEventRouter } from "./wsRouting";
+import {
+  createWsSessionLivenessCheck,
+  type ValidateWsSession,
+} from "./wsSessionLiveness";
 
 type InterestStore = Pick<typeof wsInterestStore, "apply" | "load">;
 type Subscribe = typeof addListener;
@@ -50,6 +54,8 @@ interface RealtimeGatewayDeps {
   readonly router?: WsEventRouter;
   readonly subscribe?: Subscribe;
   readonly subscribeReconnect?: SubscribeReconnect;
+  /** Whether a socket's session is still live; defaults to the session store. */
+  readonly validateSession?: ValidateWsSession;
 }
 
 async function authorizeOrganizationAccessWithWorkflow(
@@ -383,10 +389,14 @@ export function createRealtimeGateway(deps: RealtimeGatewayDeps = {}) {
     router,
     resolveProofAgePolicy(deps.revalidation),
   );
-  const revalidation = new ContainerInterestRevalidationSchedule(
-    (ws) => containerInterest.revalidate(ws),
-    deps.revalidation,
+  const closeIfSessionEnded = createWsSessionLivenessCheck(
+    router,
+    deps.validateSession,
   );
+  const revalidation = new ContainerInterestRevalidationSchedule(async (ws) => {
+    if (await closeIfSessionEnded(ws)) return;
+    await containerInterest.revalidate(ws);
+  }, deps.revalidation);
   const websocket = createWebsocketHandler({
     containerInterest,
     organizationInterest,
@@ -439,8 +449,8 @@ export function createRealtimeGateway(deps: RealtimeGatewayDeps = {}) {
     // reconnect re-verifies each live socket's subscriptions server-side and
     // asks every client to resync what it holds.
     unsubscribeReconnect = subscribeReconnect(() => {
-      void containerInterest
-        .revalidateAll({ resyncAll: true })
+      void Promise.all(router.openSockets().map(closeIfSessionEnded))
+        .then(() => containerInterest.revalidateAll({ resyncAll: true }))
         .catch((error: unknown) => {
           reportBackgroundFailure(error, "websocket.revalidate");
         });

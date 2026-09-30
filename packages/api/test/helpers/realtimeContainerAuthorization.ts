@@ -29,6 +29,8 @@ export function fixture(input: {
   timeoutMs?: number;
   principalKeys?: readonly string[];
   revalidation?: RevalidationScheduleOptions;
+  /** Defaults to a live session; a test ends it to check the socket closes. */
+  sessionLive?: () => boolean;
 }) {
   const sent: Array<Record<string, unknown>> = [];
   const closed: number[] = [];
@@ -72,6 +74,7 @@ export function fixture(input: {
         listener = undefined;
       };
     },
+    validateSession: async () => input.sessionLive?.() ?? true,
   });
   gateway.start();
   return {

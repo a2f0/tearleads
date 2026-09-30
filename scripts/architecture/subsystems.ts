@@ -179,6 +179,7 @@ export const subsystems: readonly Subsystem[] = [
       `${api}/realtime/wsInterestStore.ts`,
       `${api}/realtime/wsTicket.ts`,
       `${api}/realtime/wsIdentity.ts`,
+      `${api}/realtime/wsSessionLiveness.ts`,
     ],
   },
   {

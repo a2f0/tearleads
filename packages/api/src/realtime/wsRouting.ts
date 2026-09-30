@@ -342,6 +342,11 @@ export class WsEventRouter {
   }
 
   private handleSessionRevoked(userId: string, sessionId: string): void {
+    this.closeSession(userId, sessionId);
+  }
+
+  /** Closes every socket of a session that has ended, as a revocation does. */
+  closeSession(userId: string, sessionId: string): void {
     const sockets = this.socketsBySessionKey.get(sessionKey(userId, sessionId));
     if (!sockets) {
       return;

@@ -14,6 +14,9 @@ closed socket.
 | `RetryAuthorization` | `authorizationWasInvalidated` checks requested IDs and accepted proof dependencies |
 | `ChangeAccess` | Container mutation and principal policy routes publish invalidations; `ContainerInterestAuthorizer.invalidateAccess` and `WsEventRouter.routeServerEvent` observe them |
 | `CloseSocket` | `ContainerInterestAuthorizer.close` and `WsEventRouter.close` |
+| `EndSession` | `destroyUserSession` publishes `session_revoked` once through `createSessionRevocationNotifier`, and `WsEventRouter.closeSession` closes the session's sockets if it arrives; expiry publishes nothing |
+| `RevalidateSocket` | Each `ContainerInterestRevalidationSchedule` tick and every `addSubscriberReconnectListener` pass first runs `createWsSessionLivenessCheck`, which checks `isLiveUserSession` and calls `WsEventRouter.closeSession` for an ended session |
+| `EndedSessionsCloseByNextPass` | `WsEventRouter.closeSession` closes an ended session's socket with 1008 in the next pass, before `ContainerInterestAuthorizer.revalidate` or `ContainerInterestAuthorizer.revalidateAll` runs |
 | (boundary assumption) lost pub/sub delivery | `ContainerInterestAuthorizer.revalidate` re-verifies installed proofs on the jittered `ContainerInterestRevalidationSchedule` interval and on every subscriber reconnect via `addSubscriberReconnectListener` |
 
 The bounded model has a child subscription that depends on its root and a group
@@ -133,8 +136,20 @@ Roster updates only replace a profile-document pointer. These guards live in
 `principalPolicyAuthorityConstraints.ts`, `groupDeletion.ts`, and
 `rosterMutation.ts`; those operations need no interest invalidation.
 
+A socket's session is checked once, at upgrade. Revocation publishes
+`session_revoked` at most once, and expiry publishes nothing, so `EndSession`
+may leave the socket open and indexed. Each revalidation pass, whether a tick or
+a subscriber reconnect, rechecks the session in the session store before
+anything else and closes every socket of an ended session. A lost revocation or
+a silent expiry is therefore served for at most one interval, like a lost
+invalidation. The model checks only that recheck; proof re-verification stays
+the boundary assumption above. The model also assumes the session store
+answers. When a read fails, the pass reports it and goes on to proof
+re-verification, so an unreadable store defers the close to the first pass that
+can read it rather than skipping a reconnect's resync.
+
 Negative controls remove authorization, dependency invalidation, the live-socket
-guard, scoped eviction, query relevance, principal-change notification, and the
-reconnect proof dependency guard.
+guard, scoped eviction, query relevance, principal-change notification, the
+reconnect proof dependency guard, and the session recheck.
 Each exposes the corresponding unreadable interest, closed socket, unrelated
-eviction, or unnecessary retry.
+eviction, unnecessary retry, or ended session served past a pass.
