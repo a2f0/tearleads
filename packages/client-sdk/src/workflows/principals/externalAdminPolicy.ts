@@ -70,7 +70,7 @@ function assertAdminsPolicyShape(policy: VerifiedPrincipalPolicy): void {
  * whose trusted key differs from the one the policy signed with is a
  * verification failure, as on every other policy path (#2365 finding 23).
  */
-function signerKeysUnavailable(
+function signerKeyLoadFailure(
   error: PrincipalPolicySignerPublicKeyLoadErrorCode,
 ): null {
   if (error === "fingerprint-mismatch") {
@@ -98,7 +98,7 @@ async function verifyOrganizationPolicy(input: {
     resolveTrustedUserIdentity: input.resolveTrustedUserIdentity,
   });
   if ("error" in signerPublicKeys) {
-    return signerKeysUnavailable(signerPublicKeys.error);
+    return signerKeyLoadFailure(signerPublicKeys.error);
   }
   const verified = await verifyOrganizationAdminPolicy({
     bundle: input.bundle,
@@ -177,7 +177,7 @@ async function loadVerifiedAdminsPolicy(input: {
     resolveTrustedUserIdentity: input.resolveTrustedUserIdentity,
   });
   if ("error" in signerPublicKeys) {
-    return signerKeysUnavailable(signerPublicKeys.error);
+    return signerKeyLoadFailure(signerPublicKeys.error);
   }
   const verified = await verifyPrincipalPolicyBundle({
     bundle,

@@ -257,9 +257,14 @@ async function assertGrantedPathsCurrentBelow(input: {
       strandedIds.add(node.id);
     }
   }
-  // One cap for every rotation, inline repairs included (#2365 finding 30):
-  // an inline write that cannot carry the owed prefix is refused and the SDK
-  // commits the repairs as standalone rotations instead.
+  // One cap for every rotation, inline repairs included (#2365 finding 30).
+  // An inline batch of at most MAX_INLINE_CONTAINER_REKEYS rekeys can leave
+  // at most one fewer owed level current: the topmost rotated container owes
+  // nothing, and a level it or a carried rekey sits above is stranded unless
+  // carried too. Its first stranded level therefore always falls inside a
+  // prefix of that size, so the shared cap decides exactly as the inline one
+  // did, and stays correct if the inline cap grows. A refused inline write is
+  // repaired by the SDK as standalone rotations.
   const required = requiredCarriedRekeys({
     carriedLimit: MAX_ROTATION_CONTAINER_REKEYS,
     closureIds: closure.map((node) => node.id),

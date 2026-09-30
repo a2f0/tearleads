@@ -210,3 +210,25 @@ test.each(["organization", "Admins"] as const)(
     }
   },
 );
+
+test("an unresolvable signer is still a cache miss", async () => {
+  const fixture = await createExternalAdminFixture();
+  const { close, execSql } = await createTestExecSql(
+    "external-admin-unresolved-signer",
+  );
+  try {
+    expect(
+      await loadOrganizationExternalAdminPolicy({
+        execSql,
+        getCurrentPrincipalPolicy: async (principalType) =>
+          principalType === "organization"
+            ? fixture.organizationPolicy
+            : fixture.adminPolicy,
+        organizationId: fixture.organizationId,
+        resolveTrustedUserIdentity: async () => null,
+      }),
+    ).toBeNull();
+  } finally {
+    close();
+  }
+});
