@@ -45,6 +45,8 @@ test("blob wrapping checks every ancestor of its targets without blocking on an 
     };
     const input = {
       ...fixture.input,
+      blobId: crypto.randomUUID(),
+      contentKeyEpoch: 1,
       execSql: database.execSql,
       contentKey: crypto.getRandomValues(new Uint8Array(32)),
       secretKey: fixture.root.secretKey,

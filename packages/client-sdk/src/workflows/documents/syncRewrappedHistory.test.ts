@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import { base64ToBytes } from "@tearleads/encoding";
 import { createTestExecSql } from "@tearleads/test-utils";
+import { sealContentKeyBundle } from "../../../test/helpers/contentKeyBundleSealing";
 import {
   createMaterializedSyncFixture,
   createPendingUpdateRecord,
@@ -30,10 +31,13 @@ for (const historyMode of [undefined, "raw"] as const) {
         const historicalResponse = await createSyncResponse(
           historicalPlan.plan,
         );
-        const currentBundle = {
-          ...fixture.writerProjection.contentKeyBundle,
+        const currentBundle = await sealContentKeyBundle({
+          bundle: fixture.writerProjection.contentKeyBundle,
+          contentKey: fixture.contentKey,
           contentKeyEpoch: 2,
-        };
+          projection: fixture.projection,
+          secretKey: fixture.secretKey,
+        });
         const writerProjection = {
           ...fixture.writerProjection,
           contentKeyBundle: currentBundle,
@@ -56,6 +60,9 @@ for (const historyMode of [undefined, "raw"] as const) {
               targets: wrongKey
                 ? await wrapDocumentContentKeyForCreate({
                     contentKey: new Uint8Array(32).fill(7),
+                    contentKeyEpoch:
+                      historicalResponse.contentKeyBundle.contentKeyEpoch,
+                    documentId: fixture.writerProjection.documentId,
                     execSql,
                     projection: fixture.projection,
                     resolveProjectionUserKey: fixture.resolveProjectionUserKey,

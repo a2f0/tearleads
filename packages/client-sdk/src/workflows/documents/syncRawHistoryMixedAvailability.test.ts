@@ -8,6 +8,7 @@ import {
   getUpdateVersionVectors,
 } from "@tearleads/loro";
 import { createTestExecSql } from "@tearleads/test-utils";
+import { sealContentKeyBundle } from "../../../test/helpers/contentKeyBundleSealing";
 import {
   createMaterializedSyncFixture,
   createPendingUpdateRecord,
@@ -33,10 +34,13 @@ test("decryptable poison outranks an unavailable raw-history sibling", async () 
   const scratchDocument = await createDocument("mixed-raw-page-validator");
   try {
     const fixture = await createMaterializedSyncFixture();
-    const currentBundle = {
-      ...fixture.writerProjection.contentKeyBundle,
+    const currentBundle = await sealContentKeyBundle({
+      bundle: fixture.writerProjection.contentKeyBundle,
+      contentKey: fixture.contentKey,
       contentKeyEpoch: 3,
-    };
+      projection: fixture.projection,
+      secretKey: fixture.secretKey,
+    });
     const currentWriterProjection = {
       ...fixture.writerProjection,
       contentKeyBundle: currentBundle,
@@ -140,10 +144,13 @@ test("an unrelated unresolved update outranks raw-history availability", async (
   const scratchDocument = await createDocument("unresolved-raw-page-validator");
   try {
     const fixture = await createMaterializedSyncFixture();
-    const currentBundle = {
-      ...fixture.writerProjection.contentKeyBundle,
+    const currentBundle = await sealContentKeyBundle({
+      bundle: fixture.writerProjection.contentKeyBundle,
+      contentKey: fixture.contentKey,
       contentKeyEpoch: 3,
-    };
+      projection: fixture.projection,
+      secretKey: fixture.secretKey,
+    });
     const currentWriterProjection = {
       ...fixture.writerProjection,
       contentKeyBundle: currentBundle,

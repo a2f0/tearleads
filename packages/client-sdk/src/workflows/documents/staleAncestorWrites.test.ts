@@ -41,7 +41,9 @@ test("stale ancestors cannot receive newly wrapped blob content keys", async () 
     await expect(
       wrapBlobContentKey({
         ...input,
+        blobId: crypto.randomUUID(),
         contentKey: crypto.getRandomValues(new Uint8Array(32)),
+        contentKeyEpoch: 1,
         secretKey: input.targetSecretKey,
         targets,
         writerProjection: projection,
