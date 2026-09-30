@@ -40,6 +40,7 @@ async function reauthenticateOrganizationId(
   invariant(typeof challengeHex === "string", "expected challenge string");
   const signature = sign(
     authChallengeSigningBytes({
+      apiOrigin: "http://localhost",
       challengeHex,
       fingerprint: user.fingerprint,
     }),

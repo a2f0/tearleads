@@ -30,7 +30,11 @@ async function authenticate(): Promise<string> {
   invariant(typeof challenge === "string", "expected challenge string");
 
   const signature = sign(
-    authChallengeSigningBytes({ challengeHex: challenge, fingerprint }),
+    authChallengeSigningBytes({
+      apiOrigin: "http://localhost",
+      challengeHex: challenge,
+      fingerprint,
+    }),
     signingKeys.signingPrivateKey,
   );
   const res = await submitVerify(fingerprint, signature);
