@@ -54,8 +54,10 @@ records each accepted manifest in `access_manifest_verifications`. A container
 mutation marks the manifest it stores, with any unmarked history it depends on,
 under its organization lock; a document mutation marks only its document's
 history. A container or document projection read that verified unmarked
-history writes those markers back after its transaction commits, in one sorted
-upsert. A marker's MAC, keyed from the server-held
+history writes those markers back after its transaction commits, one autocommit
+upsert per marker; every read path also keeps the markers it computed in a
+bounded per-process cache, so no path re-verifies a history on each request. A
+marker's MAC, keyed from the server-held
 `DOCUMENT_SYNC_CURSOR_HMAC_KEY` (or a per-process key when none is configured),
 binds the manifest hash, a digest of that manifest's complete stored bundle,
 its signer's stored public key, and the crypto and API rule revisions.

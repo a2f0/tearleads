@@ -112,7 +112,10 @@ export async function signedContainerHistory(length: number) {
   // memory so a "restart" can keep or drop them explicitly.
   const markers = new Map<string, string>();
   const verificationMarkers: AccessManifestVerificationMarkerStore = {
-    load: async (manifestHash) => markers.get(manifestHash) ?? null,
+    load: async (manifestHash) => ({
+      table: markers.get(manifestHash) ?? null,
+      process: null,
+    }),
     save: async (manifestHash, mac) => {
       markers.set(manifestHash, mac);
     },

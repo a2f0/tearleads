@@ -26,7 +26,9 @@ export async function markStoredDocumentManifest(
       "stored document manifest is missing",
     );
   }
-  const documentMarkers = databaseVerificationMarkerStore(executor);
+  const documentMarkers = databaseVerificationMarkerStore(executor, {
+    shareWithProcess: true,
+  });
   await verifyStoredDocumentManifest({
     bundle: toManifestBundleResponse(stored),
     containerContext: createContainerWriterProjectionContext(executor),

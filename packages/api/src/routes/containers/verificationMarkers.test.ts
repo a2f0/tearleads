@@ -1,6 +1,10 @@
 import { expect, spyOn, test } from "bun:test";
 import { db } from "@tearleads/api-shared/postgres";
-import { accessEvents, accessManifests } from "@tearleads/api-shared/schema";
+import {
+  accessEvents,
+  accessManifests,
+  accessManifestVerifications,
+} from "@tearleads/api-shared/schema";
 import * as crypto from "@tearleads/crypto";
 import { isContainerReciteResponse } from "@tearleads/validators/response";
 import { eq } from "drizzle-orm";
@@ -172,4 +176,48 @@ test("a refused write-time mark rejects the mutation with a conflict", async () 
   }
   // The refused recitation rolled back, so the old head still extends.
   await recite(created, child.accessManifest, 1);
+}, 120_000);
+
+async function countKekLogSignatureChecks(
+  containerId: string,
+  token: string,
+): Promise<number> {
+  const verify = spyOn(crypto, "verifySignedAccessEvent");
+  try {
+    const response = await routeApp.request(
+      `/containers/${containerId}/kek-log`,
+      { headers: { Authorization: `Bearer ${token}` } },
+    );
+    expect(response.status, await response.clone().text()).toBe(200);
+    return verify.mock.calls.length;
+  } finally {
+    verify.mockRestore();
+  }
+}
+
+test("a read path that writes no markers still verifies a history once per process", async () => {
+  const created = await scenario();
+  const { owner, child } = created;
+  await recite(created, child.accessManifest, RECITATIONS);
+  await clearAccessManifestVerificationMarkers();
+  expect(
+    await countKekLogSignatureChecks(child.containerId, owner.token),
+  ).toBeGreaterThan(RECITATIONS);
+  // The KEK log never writes markers back; this process remembers them.
+  expect(await countKekLogSignatureChecks(child.containerId, owner.token)).toBe(
+    0,
+  );
+  expect(
+    await db
+      .select({ manifestHash: accessManifestVerifications.manifestHash })
+      .from(accessManifestVerifications)
+      .innerJoin(
+        accessManifests,
+        eq(
+          accessManifests.manifestHash,
+          accessManifestVerifications.manifestHash,
+        ),
+      )
+      .where(eq(accessManifests.objectId, child.containerId)),
+  ).toEqual([]);
 }, 120_000);

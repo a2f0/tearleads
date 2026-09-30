@@ -16,6 +16,7 @@ import {
 } from "../../../test/helpers/keyingWriterProjectionKit";
 import { registerUser } from "../../../test/helpers/registerUser";
 import { routeApp } from "../../routeApp";
+import { clearProcessVerificationMarkers } from "../../workflows/containers/writerProjection/verificationMarkers";
 import * as markStoredDocument from "../../workflows/documents/markStoredDocumentManifest";
 import { deleteDocumentRows } from "../../workflows/documents/mutations/purgeDocumentRows";
 import { StoredDocumentManifestError } from "../../workflows/documents/storedDocumentManifestVerification";
@@ -75,7 +76,9 @@ test("a forged document marker is ignored and replaced", async () => {
     .update(accessManifestVerifications)
     .set({ mac: Buffer.alloc(32).toString("base64") })
     .where(eq(accessManifestVerifications.manifestHash, manifestHash));
-  // Only the document manifest is unmarked now, so exactly its event verifies.
+  // Another process has only the table: the document manifest is unmarked
+  // there, so exactly its event verifies.
+  clearProcessVerificationMarkers();
   expect(await projectionSignatureChecks(created.id, owner.token)).toEqual({
     checks: 1,
     status: 200,

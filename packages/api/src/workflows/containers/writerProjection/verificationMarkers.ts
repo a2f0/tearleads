@@ -14,6 +14,7 @@ import type { AccessManifestBundleWireResponse } from "@tearleads/validators/res
 import { selectAccessManifestVerificationMacs } from "../../../access/read/accessManifestStore";
 import { upsertAccessManifestVerificationMacs } from "../../../access/write/accessManifestStore";
 import { reportBackgroundFailure } from "../../../diagnostics/reportBackgroundFailure";
+import { ByteBudgetCache } from "../../../utils/byteBudgetCache";
 import { isKeyingCanonicalJson } from "../../../utils/canonicalJson";
 import { readConfiguredDocumentSyncCursorHmacKey } from "../../../utils/serverSecrets";
 import { sha256Hex } from "../../../utils/sha256";
@@ -82,10 +83,27 @@ function sameMac(stored: string, expected: string): boolean {
   );
 }
 
+// MACs this process computed, consulted alongside the table. Most read paths
+// never write markers back, so without this a history the table has no valid
+// marker for (after a rotated secret or new rules) would re-verify on every
+// request rather than once per process. Entries are checked like rows.
+const PROCESS_MARKER_BYTES = 8 * 1024 * 1024;
+const processMarkers = new ByteBudgetCache<string>(PROCESS_MARKER_BYTES);
+
+/** Forget this process's markers, as a restart would. */
+export function clearProcessVerificationMarkers(): void {
+  processMarkers.clear();
+}
+
+/** The MACs recorded for one manifest, by where they were found. */
+interface RecordedMarkers {
+  readonly table: string | null;
+  readonly process: string | null;
+}
+
 /** Where markers live; the database in production. */
 export interface AccessManifestVerificationMarkerStore {
-  /** The stored MAC for a manifest, or null when it is unmarked. */
-  load(manifestHash: string): Promise<string | null>;
+  load(manifestHash: string): Promise<RecordedMarkers>;
   /** Batch-load markers a request is about to read. */
   prefetch?(manifestHashes: readonly string[]): Promise<void>;
   /** Remember a marker; nothing is written until `flush`. */
@@ -102,26 +120,36 @@ interface MarkerFlushOptions {
 }
 
 /**
- * Markers in the database, cached for one request. Saved markers are buffered
- * and written only by an explicit `flush`: a mutation flushes the markers for
- * what it stored inside its transaction, and a projection read flushes after
- * its transaction commits (`flushVerificationMarkersAfterRead`).
+ * Markers in the database, cached for one request, backed by this process's
+ * markers. Saved markers are buffered and written to the table only by an
+ * explicit `flush`: a mutation flushes the markers for what it stored inside
+ * its transaction, and a projection read flushes after its transaction commits
+ * (`flushVerificationMarkersAfterRead`). A store may share what it saves with
+ * the process only when its verification used no request-supplied evidence.
  */
 export function databaseVerificationMarkerStore(
   executor: DatabaseSession,
+  options: { readonly shareWithProcess: boolean },
 ): AccessManifestVerificationMarkerStore {
   const loaded = new Map<string, string | null>();
   const saved = new Map<string, string>();
+  const withProcessMarker = (
+    manifestHash: string,
+    table: string | null,
+  ): RecordedMarkers => ({
+    table,
+    process: processMarkers.get(manifestHash) ?? null,
+  });
   return {
     async load(manifestHash) {
       const cached = loaded.get(manifestHash);
-      if (cached !== undefined) return cached;
+      if (cached !== undefined) return withProcessMarker(manifestHash, cached);
       const mac =
         (
           await selectAccessManifestVerificationMacs([manifestHash], executor)
         ).get(manifestHash) ?? null;
       loaded.set(manifestHash, mac);
-      return mac;
+      return withProcessMarker(manifestHash, mac);
     },
     async prefetch(manifestHashes) {
       const missing = manifestHashes.filter((hash) => !loaded.has(hash));
@@ -134,6 +162,8 @@ export function databaseVerificationMarkerStore(
     async save(manifestHash, mac) {
       saved.set(manifestHash, mac);
       loaded.set(manifestHash, mac);
+      if (options.shareWithProcess)
+        processMarkers.set(manifestHash, mac, mac.length * 2);
     },
     async flush(options = {}) {
       const macs = new Map(saved);
@@ -181,10 +211,16 @@ export async function hasAccessManifestVerificationMarker(
   bundle: AccessManifestBundleWireResponse,
   signerPublicKey: Uint8Array,
 ): Promise<boolean> {
-  const stored = await store.load(bundle.manifestHash);
-  if (stored === null) return false;
+  const recorded = await store.load(bundle.manifestHash);
+  if (recorded.table === null && recorded.process === null) return false;
   const expected = markerMac(bundle, signerPublicKey);
-  return expected !== null && sameMac(stored, expected);
+  if (expected === null) return false;
+  if (recorded.table !== null && sameMac(recorded.table, expected)) return true;
+  if (recorded.process === null || !sameMac(recorded.process, expected))
+    return false;
+  // Only this process knew it; let the table learn it on the next flush.
+  await store.save(bundle.manifestHash, recorded.process);
+  return true;
 }
 
 /**
