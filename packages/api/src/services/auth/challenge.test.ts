@@ -16,6 +16,8 @@ import { CreateChallengeError, createChallenge } from "./createChallenge";
 import { registerUser } from "./registration";
 import { VerifyChallengeError, verifyChallenge } from "./verifyChallenge";
 
+const API_ORIGIN = "https://api.example.test";
+
 async function registerAuthServiceUser() {
   const runtime = createServiceTestRuntime();
   const user = createTestUser();
@@ -73,11 +75,16 @@ test("verifyChallenge returns a session token for a valid signature", async () =
   const { fingerprint, runtime, user } = await registerAuthServiceUser();
   const { challenge } = await createChallenge(runtime, { fingerprint });
   const signature = sign(
-    authChallengeSigningBytes({ challengeHex: challenge, fingerprint }),
+    authChallengeSigningBytes({
+      apiOrigin: API_ORIGIN,
+      challengeHex: challenge,
+      fingerprint,
+    }),
     user.signing.signingPrivateKey,
   );
 
   const result = await verifyChallenge(runtime, {
+    apiOrigin: API_ORIGIN,
     fingerprint,
     signature: Array.from(signature),
   });
@@ -92,10 +99,15 @@ test("registered users can log in after the Redis identity cache is lost", async
 
   const { challenge } = await createChallenge(runtime, { fingerprint });
   const result = await verifyChallenge(runtime, {
+    apiOrigin: API_ORIGIN,
     fingerprint,
     signature: Array.from(
       sign(
-        authChallengeSigningBytes({ challengeHex: challenge, fingerprint }),
+        authChallengeSigningBytes({
+          apiOrigin: API_ORIGIN,
+          challengeHex: challenge,
+          fingerprint,
+        }),
         user.signing.signingPrivateKey,
       ),
     ),
@@ -111,6 +123,7 @@ test("verifyChallenge rejects raw challenge signatures without the auth domain",
 
   const error = await expectVerifyChallengeError(
     verifyChallenge(runtime, {
+      apiOrigin: API_ORIGIN,
       fingerprint,
       signature: Array.from(signature),
     }),
@@ -128,12 +141,17 @@ test("verifyChallenge uses the canonical database signing key when redis drifts"
   );
   const { challenge } = await createChallenge(runtime, { fingerprint });
   const staleSignature = sign(
-    authChallengeSigningBytes({ challengeHex: challenge, fingerprint }),
+    authChallengeSigningBytes({
+      apiOrigin: API_ORIGIN,
+      challengeHex: challenge,
+      fingerprint,
+    }),
     staleKeys.signingPrivateKey,
   );
 
   const staleError = await expectVerifyChallengeError(
     verifyChallenge(runtime, {
+      apiOrigin: API_ORIGIN,
       fingerprint,
       signature: Array.from(staleSignature),
     }),
@@ -143,6 +161,7 @@ test("verifyChallenge uses the canonical database signing key when redis drifts"
   const nextChallenge = await createChallenge(runtime, { fingerprint });
   const canonicalSignature = sign(
     authChallengeSigningBytes({
+      apiOrigin: API_ORIGIN,
       challengeHex: nextChallenge.challenge,
       fingerprint,
     }),
@@ -150,6 +169,7 @@ test("verifyChallenge uses the canonical database signing key when redis drifts"
   );
 
   const result = await verifyChallenge(runtime, {
+    apiOrigin: API_ORIGIN,
     fingerprint,
     signature: Array.from(canonicalSignature),
   });
@@ -171,12 +191,17 @@ test("verifyChallenge rejects challenges backed only by stale redis keys", async
   const challenge = "ab".repeat(32);
   await runtime.keyValueStore.set(`challenge:${fingerprint}`, challenge);
   const signature = sign(
-    authChallengeSigningBytes({ challengeHex: challenge, fingerprint }),
+    authChallengeSigningBytes({
+      apiOrigin: API_ORIGIN,
+      challengeHex: challenge,
+      fingerprint,
+    }),
     staleKeys.signingPrivateKey,
   );
 
   const error = await expectVerifyChallengeError(
     verifyChallenge(runtime, {
+      apiOrigin: API_ORIGIN,
       fingerprint,
       signature: Array.from(signature),
     }),
@@ -190,6 +215,7 @@ test("verifyChallenge throws service errors for auth failures", async () => {
 
   const missingChallenge = await expectVerifyChallengeError(
     verifyChallenge(runtime, {
+      apiOrigin: API_ORIGIN,
       fingerprint: "missing-challenge",
       signature: Array.from(new Uint8Array(32)),
     }),
@@ -199,11 +225,16 @@ test("verifyChallenge throws service errors for auth failures", async () => {
   const { challenge } = await createChallenge(runtime, { fingerprint });
   const wrongUser = createTestUser();
   const invalidSignature = sign(
-    authChallengeSigningBytes({ challengeHex: challenge, fingerprint }),
+    authChallengeSigningBytes({
+      apiOrigin: API_ORIGIN,
+      challengeHex: challenge,
+      fingerprint,
+    }),
     wrongUser.signing.signingPrivateKey,
   );
   const badSignature = await expectVerifyChallengeError(
     verifyChallenge(runtime, {
+      apiOrigin: API_ORIGIN,
       fingerprint,
       signature: Array.from(invalidSignature),
     }),

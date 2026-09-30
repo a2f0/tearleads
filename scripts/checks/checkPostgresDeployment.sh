@@ -44,6 +44,7 @@ for managed in true false; do
   "postgres_db": "postgres",
   "redis_bind": "127.0.0.1",
   "api_cors_origins": "https://app.example.test",
+  "api_hostname": "api.example.test",
   "document_sync_cursor_hmac_key": "fixture-cursor-key"
 }
 EOF
@@ -90,6 +91,7 @@ set -eu
 cd "$1"
 . "$1/api.env"
 test "$BLOB_OBJECT_STORE" = s3
+test "$API_PUBLIC_ORIGIN" = https://api.example.test
 test "$BLOB_OBJECT_STORE_S3_BUCKET" = fixture-blobs
 test "$BLOB_OBJECT_STORE_S3_ACCESS_KEY_ID" = fixture-access-key
 test "$BLOB_OBJECT_STORE_S3_SECRET_ACCESS_KEY" = "$(cat storage-secret)"

@@ -30,7 +30,11 @@ async function authenticatedToken(): Promise<string> {
   const { challenge } = await (await requestChallenge(fingerprint)).json();
   invariant(typeof challenge === "string", "expected challenge string");
   const signature = sign(
-    authChallengeSigningBytes({ challengeHex: challenge, fingerprint }),
+    authChallengeSigningBytes({
+      apiOrigin: "http://localhost",
+      challengeHex: challenge,
+      fingerprint,
+    }),
     signingKeys.signingPrivateKey,
   );
   const body = await (await submitVerify(fingerprint, signature)).json();

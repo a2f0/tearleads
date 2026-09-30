@@ -176,6 +176,7 @@ test("resetMockServer recreates isolated auth state for the proxied test API app
     fingerprint,
     sign(
       authChallengeSigningBytes({
+        apiOrigin: apiBaseUrl,
         challengeHex: challengeBody.challenge,
         fingerprint,
       }),

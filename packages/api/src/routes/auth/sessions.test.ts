@@ -50,6 +50,7 @@ async function authenticate(
 
   const signature = sign(
     authChallengeSigningBytes({
+      apiOrigin: "http://localhost",
       challengeHex: challenge,
       fingerprint: user.fingerprint,
     }),

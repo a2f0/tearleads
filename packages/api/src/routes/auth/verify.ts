@@ -4,6 +4,7 @@ import {
 } from "@tearleads/validators/operation";
 import type { VerifyResponse } from "@tearleads/validators/response";
 import { Hono } from "hono";
+import { readApiPublicOrigin } from "../../apiPublicOrigin";
 import { readRequestIpAddress } from "../../middleware/requestIp";
 import type { SessionEnv } from "../../middleware/session";
 import {
@@ -15,6 +16,7 @@ import { jsonRequestValidator } from "../../validators/jsonRequest";
 
 export function createVerifyRoute(runtime: ApiServiceRuntime) {
   const verifyRoute = new Hono<SessionEnv>();
+  const publicOrigin = readApiPublicOrigin();
 
   verifyRoute.on(
     verifyOperation.method,
@@ -24,6 +26,7 @@ export function createVerifyRoute(runtime: ApiServiceRuntime) {
       try {
         const result = await verifyChallenge(runtime, {
           ...c.req.valid("json"),
+          apiOrigin: publicOrigin ?? new URL(c.req.url).origin,
           ipAddress: readRequestIpAddress(c),
         });
 

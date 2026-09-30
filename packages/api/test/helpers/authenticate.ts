@@ -9,6 +9,7 @@ async function authenticateWithChallenge(
 ): Promise<void> {
   const signature = sign(
     authChallengeSigningBytes({
+      apiOrigin: "http://localhost",
       challengeHex,
       fingerprint: user.fingerprint,
     }),
