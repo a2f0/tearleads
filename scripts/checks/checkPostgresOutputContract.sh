@@ -25,6 +25,7 @@ cat >"$CONTRACT_DIR/play.yml" <<EOF
   vars:
     redis_bind: 127.0.0.1
     api_cors_origins: https://app.example.test
+    api_hostname: api.example.test
     document_sync_cursor_hmac_key: fixture-cursor-key
   tasks:
     - name: Require managed mode from Terraform
