@@ -1,13 +1,8 @@
 import { reportBackgroundFailure } from "../diagnostics/reportBackgroundFailure";
 import { isLiveUserSession } from "../middleware/session";
 import { socketSessionKey, type WsConnection } from "./wsConnection";
-import type { WebSocketTicketIdentity } from "./wsIdentity";
+import type { WebSocketTicketIdentity, WsSessionValidator } from "./wsIdentity";
 import type { WsEventRouter } from "./wsRouting";
-
-/** Whether a socket's session is still live in the session store. */
-export type WsSessionValidator = (
-  identity: WebSocketTicketIdentity,
-) => Promise<boolean>;
 
 export interface WsSessionLivenessCheck {
   /** Rechecks one socket's session on its revalidation tick. */

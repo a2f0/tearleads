@@ -5,6 +5,7 @@ import {
   recordingSocket,
 } from "../../test/helpers/realtimeContainerAuthorization";
 import * as sentry from "../diagnostics/sentry";
+import { type WsConnection, WsEventRouter } from "./wsRouting";
 
 afterEach(() => {
   mock.restore();
@@ -44,11 +45,30 @@ function silenceReports() {
   return spyOn(sentry, "captureApiError").mockImplementation(() => undefined);
 }
 
+test("an ended session's sockets close with a neutral reason", () => {
+  const router = new WsEventRouter();
+  const closed: Array<[number | undefined, string | undefined]> = [];
+  const socket = {
+    data: { userId: "user", sessionId: "session" },
+    send: () => undefined,
+    close: (code?: number, reason?: string) => closed.push([code, reason]),
+  } as unknown as WsConnection;
+  router.open(socket);
+  router.closeSession("user", "session");
+  expect(closed).toEqual([[1008, "Session ended"]]);
+});
+
 test("a revalidation tick closes the socket of an ended session", async () => {
   const timers = manualTimers();
   let live = true;
   const f = fixture({
-    revalidation: { intervalMs: 4, random: () => 0, schedule: timers.schedule },
+    // Proof age off: only the manual tick may run, never a deadline eviction.
+    revalidation: {
+      intervalMs: 4,
+      maxProofAgeMs: 0,
+      random: () => 0,
+      schedule: timers.schedule,
+    },
     sessionLive: () => live,
     authorize: async (_user, ids) => ids,
   });
@@ -72,7 +92,13 @@ test("a tick still re-verifies proofs when the session store fails", async () =>
   const timers = manualTimers();
   let calls = 0;
   const f = fixture({
-    revalidation: { intervalMs: 4, random: () => 0, schedule: timers.schedule },
+    // Proof age off: only the manual tick may run, never a deadline eviction.
+    revalidation: {
+      intervalMs: 4,
+      maxProofAgeMs: 0,
+      random: () => 0,
+      schedule: timers.schedule,
+    },
     sessionLive: () => {
       throw new Error("Session store unavailable");
     },

@@ -21,7 +21,7 @@ import {
 } from "./containerInterestTypes";
 import { parsePublishedRealtimeEvent } from "./publishedRealtimeEvents";
 import { sendSafely } from "./wsConnection";
-import type { WebSocketTicketIdentity } from "./wsIdentity";
+import type { WebSocketTicketIdentity, WsSessionValidator } from "./wsIdentity";
 import { wsInterestStore } from "./wsInterestStore";
 import {
   type OrganizationInterestDeclaration,
@@ -29,10 +29,7 @@ import {
   readOrganizationReadModelAudienceMessage,
 } from "./wsOrganizationRouting";
 import { type AppliedInterest, WsEventRouter } from "./wsRouting";
-import {
-  createWsSessionLivenessCheck,
-  type WsSessionValidator,
-} from "./wsSessionLiveness";
+import { createWsSessionLivenessCheck } from "./wsSessionLiveness";
 
 type InterestStore = Pick<typeof wsInterestStore, "apply" | "load">;
 type Subscribe = typeof addListener;

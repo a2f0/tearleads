@@ -4,8 +4,7 @@ import { hasStringProperty, isUuidV4String } from "@tearleads/validators/util";
 import { getdel, set } from "../adapters/redis";
 import { isLiveUserSession } from "../middleware/session";
 import { isSessionId } from "../validators/session";
-import type { WebSocketTicketIdentity } from "./wsIdentity";
-import type { WsSessionValidator } from "./wsSessionLiveness";
+import type { WebSocketTicketIdentity, WsSessionValidator } from "./wsIdentity";
 
 // One-time, short-lived ticket that authenticates a websocket upgrade. Browsers
 // cannot attach an Authorization header to a WebSocket handshake, so an
