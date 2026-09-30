@@ -3,6 +3,7 @@ import { createTestExecSql } from "@tearleads/test-utils";
 import { readTestGroupName } from "../../../test/helpers/groupMetadata";
 import { createGroupNameDirectory } from "../../../test/helpers/groupNameDirectory";
 import { principalPolicyHead } from "../../../test/helpers/principalPolicyFixtures";
+import { GroupMetadataUnreadableError } from "./groupMetadataAccess";
 import { hydrateOrganizationGroupNames } from "./organizationGroupNames";
 
 test("directory labels are decrypted only at their authenticated group heads", async () => {
@@ -49,6 +50,23 @@ test("directory labels are decrypted only at their authenticated group heads", a
       "Admins",
       "Members",
       "Operators",
+    ]);
+    // One group's undecryptable name blanks that group alone.
+    const isolated = await hydrateOrganizationGroupNames({
+      ...input,
+      readEncryptedName: (bundle) =>
+        bundle.currentState.principalId === "group-1"
+          ? Promise.reject(
+              new GroupMetadataUnreadableError("group-1", new Error("AEAD")),
+            )
+          : readTestGroupName(bundle),
+    });
+    expect(
+      isolated.groups.map((group) => [group.groupId, group.name]).sort(),
+    ).toEqual([
+      ["admins-group", "Admins"],
+      ["group-1", ""],
+      ["members-group", "Members"],
     ]);
     await expect(
       hydrateOrganizationGroupNames({

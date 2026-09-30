@@ -143,9 +143,11 @@ roster entries are synchronized from users reachable through `Members`, while
 disabled roster entries can remain visible after access removal. The roster is
 not access authority; signed groups and container grants remain authoritative.
 Optional roster profile details are bound by `profileDocumentId` and live in
-encrypted documents, not in plaintext directory responses. Org-manager hides
-both reserved groups from the normal group list. The organization principal
-policy is still signed managed-principal state, but org-manager does not expose
+encrypted documents, not in plaintext directory responses. The organization
+profile pointer may name only a document whose current links place it solely in
+the organization metadata container. Org-manager hides both reserved groups from
+the normal group list. The organization principal policy is still signed
+managed-principal state, but org-manager does not expose
 `directory.users[].role` or treat organization-principal roles as product
 authorization.
 

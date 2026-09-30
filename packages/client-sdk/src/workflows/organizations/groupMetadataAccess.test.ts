@@ -15,7 +15,10 @@ import {
 } from "../../data/persistence/containers/containerPersistence";
 import { buildMaterializedContainerRekeyPlan } from "../containers/child/rekey";
 import { containerWriterProjectionFromRekeyPlan } from "../containers/child/rekeyProjection";
-import { createGroupMetadataAccess } from "./groupMetadataAccess";
+import {
+  createGroupMetadataAccess,
+  GroupMetadataUnreadableError,
+} from "./groupMetadataAccess";
 import { MetadataRootBehindDirectoryError } from "./groupMetadataErrors";
 import { buildInitialGroupPolicyRequest } from "./principalPolicyRequest";
 
@@ -86,9 +89,14 @@ test("organization metadata readers decrypt a group with no group membership or 
     await expect(access(member.secretKey).readName(bundle)).resolves.toBe(
       "Confidential team",
     );
-    await expect(
-      access(generateKemSeedAndKeyPair().secretKey).readName(bundle),
-    ).rejects.toThrow();
+    // A reader that cannot unwrap the keyring fails closed, not per group.
+    const locked = access(generateKemSeedAndKeyPair().secretKey).readName(
+      bundle,
+    );
+    await expect(locked).rejects.toThrow();
+    await expect(locked).rejects.not.toBeInstanceOf(
+      GroupMetadataUnreadableError,
+    );
   } finally {
     close();
   }
@@ -238,6 +246,49 @@ test("a metadata root behind the directory is evicted and reloaded once", async 
       code: "object_mismatch",
     });
     expect(evicted).toEqual([metadata.key.containerId]);
+  } finally {
+    close();
+  }
+});
+
+test("a name that does not open under its cited key is unreadable for that group alone", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "group-metadata-unreadable",
+  );
+  try {
+    const { parent, member, metadata, resolveProjectionUserKey } =
+      await fixture();
+    // A dishonest admin cites the real metadata epoch but seals the name under
+    // other key material; the API can check the citation, never the ciphertext.
+    const poisoned = await policyBundleFromInitialRequest(
+      await buildInitialGroupPolicyRequest({
+        creatorEncapsulationKeyPair: generateKemSeedAndKeyPair(),
+        groupId: "poisoned-group",
+        name: "Unopenable",
+        metadataKey: { ...metadata.key, keyMaterial: new Uint8Array(32) },
+        includeSignerAsAdmin: false,
+        signerUserId: parent.userId,
+        signingFingerprint: parent.author.signerKeyFingerprint,
+        signingKeyPair: {
+          signingPrivateKey: parent.author.signerPrivateKey,
+          signingPublicKey: parent.signingPublicKey,
+        },
+      }),
+    );
+    const access = createGroupMetadataAccess({
+      verifyMetadataContainer: async () => {},
+      apiClient: {
+        evictContainerWriterProjection: () => {},
+        getContainerWriterProjection: async () => metadata.projection,
+      },
+      execSql,
+      organizationId: parent.author.organizationId,
+      resolveProjectionUserKey,
+      targetSecretKey: member.secretKey,
+    });
+    await expect(access.readName(poisoned)).rejects.toBeInstanceOf(
+      GroupMetadataUnreadableError,
+    );
   } finally {
     close();
   }

@@ -3,6 +3,7 @@ import { organizations, users } from "@tearleads/api-shared/schema";
 import type { TestUser } from "@tearleads/bob-and-alice";
 import {
   encryptGroupMetadata,
+  type GroupMetadataKey,
   generateKemSeedAndKeyPair,
   normalizePrincipalProjectionMembers,
   toFingerprint,
@@ -12,6 +13,7 @@ import { eq } from "drizzle-orm";
 import invariant from "invariant";
 import { getCurrentPrincipalState } from "../../src/access/read/principalStateStore";
 import { routeApp } from "../../src/routeApp";
+import { loadOrganizationGroupMetadataKey } from "./organizationMetadataContainer";
 import { createPrincipalMemberEnvelopes } from "./principalMemberEnvelopes";
 import {
   buildOrganizationGroupDeletionRequest,
@@ -28,6 +30,8 @@ export async function createGroupRequest(input: {
   additionalMembers?: readonly TestUser[] | undefined;
   groupId: string;
   includeActorAsAdmin?: boolean | undefined;
+  /** Overrides the metadata key the encrypted name cites. */
+  metadataKey?: GroupMetadataKey | undefined;
   name: string;
 }) {
   const [organization] = await db
@@ -57,12 +61,9 @@ export async function createGroupRequest(input: {
     })),
   ]);
   const payloadCiphertext = await encryptGroupMetadata({
-    key: {
-      organizationId: organization.organizationId,
-      containerId: "test-metadata-container",
-      containerKeyEpochId: "test-metadata-epoch",
-      keyMaterial: new Uint8Array(32).fill(7),
-    },
+    key:
+      input.metadataKey ??
+      (await loadOrganizationGroupMetadataKey(organization.organizationId)),
     groupId: input.groupId,
     name: input.name.trim(),
   });
