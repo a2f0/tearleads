@@ -109,11 +109,15 @@ test("buildMaterializedDocumentLinkSetMutationPlan adds links without rotating a
   await expect(
     unwrapDocumentContentKeyTarget({
       containerKek: childContainerKek,
+      contentKeyEpoch: linked.plan.contentKeyEpoch,
+      documentId: writerProjection.documentId,
       envelope: siblingEnvelope,
     }),
   ).rejects.toThrow();
   const siblingContentKey = await unwrapDocumentContentKeyTarget({
     containerKek: siblingContainerKek,
+    contentKeyEpoch: linked.plan.contentKeyEpoch,
+    documentId: writerProjection.documentId,
     envelope: siblingEnvelope,
   });
   expect(Array.from(siblingContentKey)).toEqual(Array.from(contentKey));
@@ -164,6 +168,8 @@ test("buildMaterializedDocumentLinkSetMutationPlan adds links without rotating a
   }
   const remainingContentKey = await unwrapDocumentContentKeyTarget({
     containerKek: siblingContainerKek,
+    contentKeyEpoch: unlinked.plan.contentKeyEpoch,
+    documentId: linkResponse.id,
     envelope: remainingEnvelope,
   });
   expect(Array.from(remainingContentKey)).toEqual(

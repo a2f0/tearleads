@@ -32,6 +32,8 @@ test("buildMaterializedDocumentCreatePlan wraps the content key to the target co
   }
   const unwrappedContentKey = await unwrapDocumentContentKeyTarget({
     containerKek: childContainerKek,
+    contentKeyEpoch: 1,
+    documentId: "document-materialized",
     envelope: targetEnvelope,
   });
   expect(Array.from(materialized.contentKey)).toEqual(Array.from(contentKey));

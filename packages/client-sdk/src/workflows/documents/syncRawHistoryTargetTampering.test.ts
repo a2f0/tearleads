@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import { computeDocumentContentKeyTargetHash } from "@tearleads/crypto";
+import { sealContentKeyBundle } from "../../../test/helpers/contentKeyBundleSealing";
 import {
   createMaterializedSyncFixture,
   createSignedSyncResponseUpdate,
@@ -15,10 +16,13 @@ import { buildMaterializedDocumentSyncPlan } from "./syncPlanMaterial";
 
 test("tampered unavailable targets remain poison instead of availability", async () => {
   const fixture = await createMaterializedSyncFixture();
-  const currentBundle = {
-    ...fixture.writerProjection.contentKeyBundle,
+  const currentBundle = await sealContentKeyBundle({
+    bundle: fixture.writerProjection.contentKeyBundle,
+    contentKey: fixture.contentKey,
     contentKeyEpoch: 3,
-  };
+    projection: fixture.projection,
+    secretKey: fixture.secretKey,
+  });
   const currentWriterProjection = {
     ...fixture.writerProjection,
     contentKeyBundle: currentBundle,
@@ -85,10 +89,13 @@ test("tampered unavailable targets remain poison instead of availability", async
 for (const mismatchedField of ["targetHash", "linkSetManifestHash"] as const) {
   test(`unavailable bundles with mismatched ${mismatchedField} remain integrity failures`, async () => {
     const fixture = await createMaterializedSyncFixture();
-    const currentBundle = {
-      ...fixture.writerProjection.contentKeyBundle,
+    const currentBundle = await sealContentKeyBundle({
+      bundle: fixture.writerProjection.contentKeyBundle,
+      contentKey: fixture.contentKey,
       contentKeyEpoch: 3,
-    };
+      projection: fixture.projection,
+      secretKey: fixture.secretKey,
+    });
     const currentWriterProjection = {
       ...fixture.writerProjection,
       contentKeyBundle: currentBundle,
@@ -170,10 +177,13 @@ for (const mismatchedField of ["targetHash", "linkSetManifestHash"] as const) {
 
 test("malformed unavailable encrypted records remain poison", async () => {
   const fixture = await createMaterializedSyncFixture();
-  const currentBundle = {
-    ...fixture.writerProjection.contentKeyBundle,
+  const currentBundle = await sealContentKeyBundle({
+    bundle: fixture.writerProjection.contentKeyBundle,
+    contentKey: fixture.contentKey,
     contentKeyEpoch: 3,
-  };
+    projection: fixture.projection,
+    secretKey: fixture.secretKey,
+  });
   const currentWriterProjection = {
     ...fixture.writerProjection,
     contentKeyBundle: currentBundle,

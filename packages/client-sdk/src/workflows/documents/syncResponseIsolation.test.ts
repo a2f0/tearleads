@@ -7,6 +7,7 @@ import {
   getUpdateVersionVectors,
 } from "@tearleads/loro";
 import { createMockApiClient, createTestExecSql } from "@tearleads/test-utils";
+import { sealNextContentKeyEpoch } from "../../../test/helpers/contentKeyBundleSealing";
 import {
   createMaterializedSyncFixture,
   createPendingUpdateRecord,
@@ -127,19 +128,17 @@ test("pre-auth content-key failures quarantine the batch without naming a writer
     "sync-content-key-isolation",
   );
   try {
+    const fixture = await createMaterializedSyncFixture();
     const {
       author,
       resolveProjectionUserKey,
       secretKey,
       signingPublicKey,
       writerProjection,
-    } = await createMaterializedSyncFixture();
+    } = fixture;
     const rotatedProjection = {
       ...writerProjection,
-      contentKeyBundle: {
-        ...writerProjection.contentKeyBundle,
-        contentKeyEpoch: writerProjection.contentKeyBundle.contentKeyEpoch + 1,
-      },
+      contentKeyBundle: await sealNextContentKeyEpoch(fixture),
     };
     const materializedPlan = await buildMaterializedDocumentSyncPlan({
       author,
@@ -366,19 +365,17 @@ test("content-key recovery preserves projection integrity errors", async () => {
     "sync-content-key-projection-integrity",
   );
   try {
+    const fixture = await createMaterializedSyncFixture();
     const {
       author,
       resolveProjectionUserKey,
       secretKey,
       signingPublicKey,
       writerProjection,
-    } = await createMaterializedSyncFixture();
+    } = fixture;
     const rotatedProjection = {
       ...writerProjection,
-      contentKeyBundle: {
-        ...writerProjection.contentKeyBundle,
-        contentKeyEpoch: writerProjection.contentKeyBundle.contentKeyEpoch + 1,
-      },
+      contentKeyBundle: await sealNextContentKeyEpoch(fixture),
     };
     const materializedPlan = await buildMaterializedDocumentSyncPlan({
       author,

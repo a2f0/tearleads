@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+import { sealNextContentKeyEpoch } from "../../../../test/helpers/contentKeyBundleSealing";
 import {
   createAuthor,
   createMaterializedSyncFixture,
@@ -67,8 +68,8 @@ test("persistedDocumentCreateStateFromResponse stores verified create bundles", 
 });
 
 test("persistedDocumentSyncStateFromResponse verifies accepted writes and returned write headers", async () => {
-  const { author, secretKey, signingPublicKey, writerProjection } =
-    await createMaterializedSyncFixture();
+  const fixture = await createMaterializedSyncFixture();
+  const { author, secretKey, signingPublicKey, writerProjection } = fixture;
   const materialized = await buildMaterializedDocumentSyncPlan({
     author,
     localVersionVector: null,
@@ -197,10 +198,7 @@ test("persistedDocumentSyncStateFromResponse verifies accepted writes and return
 
   const rotatedProjection = {
     ...writerProjection,
-    contentKeyBundle: {
-      ...writerProjection.contentKeyBundle,
-      contentKeyEpoch: writerProjection.contentKeyBundle.contentKeyEpoch + 1,
-    },
+    contentKeyBundle: await sealNextContentKeyEpoch(fixture),
   };
   const rotatedMaterialized = await buildMaterializedDocumentSyncPlan({
     author,

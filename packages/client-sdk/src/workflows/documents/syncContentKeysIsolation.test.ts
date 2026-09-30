@@ -6,6 +6,7 @@ import {
 import { bytesToBase64 } from "@tearleads/encoding";
 import { createTestExecSql } from "@tearleads/test-utils";
 import type { DocumentSyncResponse } from "@tearleads/validators/response";
+import { sealContentKeyBundle } from "../../../test/helpers/contentKeyBundleSealing";
 import {
   createMaterializedSyncFixture,
   createPendingUpdateRecord,
@@ -253,10 +254,13 @@ test("a forged old-epoch header cannot bypass poison isolation through a missing
   );
   try {
     const fixture = await createMaterializedSyncFixture();
-    const currentBundle = {
-      ...fixture.writerProjection.contentKeyBundle,
+    const currentBundle = await sealContentKeyBundle({
+      bundle: fixture.writerProjection.contentKeyBundle,
+      contentKey: fixture.contentKey,
       contentKeyEpoch: 3,
-    };
+      projection: fixture.projection,
+      secretKey: fixture.secretKey,
+    });
     const currentWriterProjection = {
       ...fixture.writerProjection,
       contentKeyBundle: currentBundle,
@@ -318,10 +322,13 @@ test("a forged old-epoch header cannot bypass poison isolation through a missing
 
 test("a malformed later epoch outranks raw-history unavailability", async () => {
   const fixture = await createMaterializedSyncFixture();
-  const currentBundle = {
-    ...fixture.writerProjection.contentKeyBundle,
+  const currentBundle = await sealContentKeyBundle({
+    bundle: fixture.writerProjection.contentKeyBundle,
+    contentKey: fixture.contentKey,
     contentKeyEpoch: 3,
-  };
+    projection: fixture.projection,
+    secretKey: fixture.secretKey,
+  });
   const currentWriterProjection = {
     ...fixture.writerProjection,
     contentKeyBundle: currentBundle,
@@ -415,10 +422,13 @@ test("raw response validation poison-isolates a future content-key epoch", async
   );
   try {
     const fixture = await createMaterializedSyncFixture();
-    const currentBundle = {
-      ...fixture.writerProjection.contentKeyBundle,
+    const currentBundle = await sealContentKeyBundle({
+      bundle: fixture.writerProjection.contentKeyBundle,
+      contentKey: fixture.contentKey,
       contentKeyEpoch: 3,
-    };
+      projection: fixture.projection,
+      secretKey: fixture.secretKey,
+    });
     const currentWriterProjection = {
       ...fixture.writerProjection,
       contentKeyBundle: currentBundle,

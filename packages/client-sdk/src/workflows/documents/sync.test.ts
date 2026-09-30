@@ -34,6 +34,7 @@ import {
   createParentProjectionUserKeyResolver,
   substituteFirstProjectionUserWrapMaterial,
 } from "../../../test/helpers/containerFixtures";
+import { sealNextContentKeyEpoch } from "../../../test/helpers/contentKeyBundleSealing";
 import {
   createAuthor,
   createDeepNonCanonicalRecord,
@@ -945,13 +946,14 @@ test("syncRemoteDocument falls back to writer projection when persisted read-onl
 });
 
 test("syncRemoteDocument decrypts returned updates with historical content-key bundles", async () => {
+  const fixture = await createMaterializedSyncFixture();
   const {
     author,
     resolveProjectionUserKey,
     secretKey,
     signingPublicKey,
     writerProjection,
-  } = await createMaterializedSyncFixture();
+  } = fixture;
   const historicalMaterialized = await buildMaterializedDocumentSyncPlan({
     author,
     execSql,
@@ -971,10 +973,7 @@ test("syncRemoteDocument decrypts returned updates with historical content-key b
   }
   const currentWriterProjection: DocumentWriterProjectionResponse = {
     ...writerProjection,
-    contentKeyBundle: {
-      ...writerProjection.contentKeyBundle,
-      contentKeyEpoch: writerProjection.contentKeyBundle.contentKeyEpoch + 1,
-    },
+    contentKeyBundle: await sealNextContentKeyEpoch(fixture),
   };
   const synced = await syncRemoteDocument({
     apiClient: createMockApiClient({
@@ -1102,13 +1101,14 @@ test("document sync rejects substituted writer-authorization targets", async () 
 });
 
 test("syncRemoteDocument recovers pending write id conflicts with a read-only sync", async () => {
+  const fixture = await createMaterializedSyncFixture();
   const {
     author,
     resolveProjectionUserKey,
     secretKey,
     signingPublicKey,
     writerProjection,
-  } = await createMaterializedSyncFixture();
+  } = fixture;
   const pendingUpdate = await createLoroPendingUpdate("settled update");
   const historicalMaterialized = await buildMaterializedDocumentSyncPlan({
     author,
@@ -1129,10 +1129,7 @@ test("syncRemoteDocument recovers pending write id conflicts with a read-only sy
   }
   const currentWriterProjection: DocumentWriterProjectionResponse = {
     ...writerProjection,
-    contentKeyBundle: {
-      ...writerProjection.contentKeyBundle,
-      contentKeyEpoch: writerProjection.contentKeyBundle.contentKeyEpoch + 1,
-    },
+    contentKeyBundle: await sealNextContentKeyEpoch(fixture),
   };
   const submittedOutgoingCounts: number[] = [];
   const synced = await syncRemoteDocument({
@@ -1209,13 +1206,14 @@ test("syncRemoteDocument recovers pending write id conflicts with a read-only sy
 });
 
 test("syncRemoteDocument does not settle recovered pending conflicts with different content", async () => {
+  const fixture = await createMaterializedSyncFixture();
   const {
     author,
     resolveProjectionUserKey,
     secretKey,
     signingPublicKey,
     writerProjection,
-  } = await createMaterializedSyncFixture();
+  } = fixture;
   const pendingUpdate = await createLoroPendingUpdate("local update");
   const remoteUpdate = await createLoroPendingUpdate(
     "remote update",
@@ -1240,10 +1238,7 @@ test("syncRemoteDocument does not settle recovered pending conflicts with differ
   }
   const currentWriterProjection: DocumentWriterProjectionResponse = {
     ...writerProjection,
-    contentKeyBundle: {
-      ...writerProjection.contentKeyBundle,
-      contentKeyEpoch: writerProjection.contentKeyBundle.contentKeyEpoch + 1,
-    },
+    contentKeyBundle: await sealNextContentKeyEpoch(fixture),
   };
   const synced = await syncRemoteDocument({
     apiClient: createMockApiClient({

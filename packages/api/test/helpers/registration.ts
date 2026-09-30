@@ -28,13 +28,13 @@ import {
   deriveDocumentLinkSetManifest,
   derivePrincipalRecipientKeyEpochId,
   encodeBuiltinGroupMetadata,
-  encryptWithDek,
   generateKemSeedAndKeyPair,
   type PrincipalContainerGrant,
   signAccessEvent,
   signPrincipalState,
   toFingerprint,
   type UnsignedAccessEvent,
+  wrapContentKey,
   wrapDekForRecipients,
 } from "@tearleads/crypto";
 import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
@@ -911,9 +911,16 @@ async function createRootMetadataDocumentRequest(input: {
   const manifestHash = await computeAccessManifestHash(manifest);
   const targetHash = await computeDocumentContentKeyTargetHash([target]);
   const contentKey = crypto.getRandomValues(new Uint8Array(32));
-  const wrappedContentKey = await encryptWithDek(
+  const wrappedContentKey = await wrapContentKey(
     contentKey,
     input.containerKey,
+    {
+      kind: "Document",
+      objectId: input.rootMetadataDocumentId,
+      contentKeyEpoch: 1,
+      containerId: target.containerId,
+      containerKeyEpochId: target.containerKeyEpochId,
+    },
   );
 
   return {
