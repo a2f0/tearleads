@@ -5,7 +5,7 @@ import {
   type DocumentContentKeyTarget,
   type DocumentLinkSetManifestState,
   deriveDocumentLinkSetManifest,
-  encryptWithDek,
+  wrapContentKey,
 } from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
 import { isPlainObject as isPlainRecord } from "@tearleads/validators/isPlainObject";
@@ -150,6 +150,8 @@ export function assertDocumentLinkAuthorizationPathCapacity(
 
 async function wrapDocumentContentKeyForTargets(input: {
   contentKey: Uint8Array;
+  contentKeyEpoch: number;
+  documentId: string;
   keksByEpochId: ReadonlyMap<string, Uint8Array>;
   targets: readonly DocumentContentKeyTarget[];
 }): Promise<DocumentContentKeyTargetEnvelope[]> {
@@ -162,7 +164,13 @@ async function wrapDocumentContentKeyForTargets(input: {
         );
       }
 
-      const wrapped = await encryptWithDek(input.contentKey, targetKek);
+      const wrapped = await wrapContentKey(input.contentKey, targetKek, {
+        kind: "Document",
+        objectId: input.documentId,
+        contentKeyEpoch: input.contentKeyEpoch,
+        containerId: target.containerId,
+        containerKeyEpochId: target.containerKeyEpochId,
+      });
       return {
         ...target,
         wrappedKey: bytesToBase64(wrapped.ciphertext),
@@ -355,47 +363,21 @@ export async function buildMaterializedDocumentLinkSetMutationPlan(
   if (contentKey.byteLength !== 32) {
     throw new Error("Document content key must be 32 bytes");
   }
-
-  const targetEnvelopes =
-    input.operation === "link"
-      ? [
-          ...input.writerProjection.contentKeyBundle.targets,
-          ...(await wrapDocumentContentKeyForTargets({
-            contentKey,
-            keksByEpochId: await unwrapContainerKekPath({
-              execSql: input.execSql,
-              projection: input.targetContainerProjection,
-              secretKey: input.targetSecretKey,
-              ...verificationOptions,
-            }),
-            targets: [targetState.target],
-          })),
-        ]
-      : await wrapDocumentContentKeyForTargets({
-          contentKey,
-          keksByEpochId: (
-            await collectContainerKeksForDocumentSync({
-              execSql: input.execSql,
-              secretKey: input.targetSecretKey,
-              writerProjection: input.writerProjection,
-              ...verificationOptions,
-            })
-          ).keksByEpochId,
-          // The rotated key is wrapped only to verified current heads of the
-          // remaining linked containers, never to a server-listed epoch.
-          targets: verifiedDocumentWrapTargets({
-            linkedContainerIds: targetState.linkedContainerIds,
-            serverTargets: targetState.targets,
-            writerProjection: input.writerProjection,
-          }),
-        });
+  // A link carries the existing envelopes forward at the same epoch; an
+  // unlink rotates to a fresh key at the next one.
+  const contentKeyEpoch =
+    input.writerProjection.contentKeyBundle.contentKeyEpoch +
+    (contentKeyRotated ? 1 : 0);
+  const targetEnvelopes = await buildLinkSetTargetEnvelopes(input, {
+    contentKey,
+    contentKeyEpoch,
+    targetState,
+  });
 
   const plan = await buildDocumentLinkSetMutationPlan({
     author: input.author,
     blobRewraps: await input.prepareBlobRewraps(targetState.targets),
-    contentKeyEpoch:
-      input.writerProjection.contentKeyBundle.contentKeyEpoch +
-      (contentKeyRotated ? 1 : 0),
+    contentKeyEpoch,
     eventId: input.eventId,
     operation: input.operation,
     signedAt: input.signedAt,
@@ -409,6 +391,55 @@ export async function buildMaterializedDocumentLinkSetMutationPlan(
     contentKeyRotated,
     plan,
   };
+}
+
+async function buildLinkSetTargetEnvelopes(
+  input: Parameters<typeof buildMaterializedDocumentLinkSetMutationPlan>[0],
+  wrap: {
+    contentKey: Uint8Array;
+    contentKeyEpoch: number;
+    targetState: ReturnType<typeof deriveDocumentLinkSetTargetState>;
+  },
+): Promise<DocumentContentKeyTargetEnvelope[]> {
+  const verificationOptions = projectionVerificationOptions(input);
+  const sealing = {
+    contentKey: wrap.contentKey,
+    contentKeyEpoch: wrap.contentKeyEpoch,
+    documentId: input.writerProjection.documentId,
+  };
+  if (input.operation === "link") {
+    return [
+      ...input.writerProjection.contentKeyBundle.targets,
+      ...(await wrapDocumentContentKeyForTargets({
+        ...sealing,
+        keksByEpochId: await unwrapContainerKekPath({
+          execSql: input.execSql,
+          projection: input.targetContainerProjection,
+          secretKey: input.targetSecretKey,
+          ...verificationOptions,
+        }),
+        targets: [wrap.targetState.target],
+      })),
+    ];
+  }
+  return wrapDocumentContentKeyForTargets({
+    ...sealing,
+    keksByEpochId: (
+      await collectContainerKeksForDocumentSync({
+        execSql: input.execSql,
+        secretKey: input.targetSecretKey,
+        writerProjection: input.writerProjection,
+        ...verificationOptions,
+      })
+    ).keksByEpochId,
+    // The rotated key is wrapped only to verified current heads of the
+    // remaining linked containers, never to a server-listed epoch.
+    targets: verifiedDocumentWrapTargets({
+      linkedContainerIds: wrap.targetState.linkedContainerIds,
+      serverTargets: wrap.targetState.targets,
+      writerProjection: input.writerProjection,
+    }),
+  });
 }
 
 function assertLinkSetWriteKeksCurrent(

@@ -255,6 +255,7 @@ function assertBundleMatchesUpdateHeaders(input: {
  */
 async function unwrapHistoricalContentKey(input: {
   bundle: DocumentSyncResponse["contentKeyBundle"];
+  documentId: string;
   collectedKeks: Awaited<
     ReturnType<typeof collectContainerKeksForDocumentSync>
   >;
@@ -264,6 +265,7 @@ async function unwrapHistoricalContentKey(input: {
   try {
     return await unwrapDocumentContentKeyFromBundle(
       input.bundle,
+      input.documentId,
       input.collectedKeks.keksByEpochId,
       input.collectedKeks.predecessorFailuresByEpochId,
       input.collectedKeks.unattributedPredecessorFailuresByContainerId,
@@ -383,6 +385,7 @@ export async function unwrapDocumentSyncResponseContentKeys(
         await unwrapHistoricalContentKey({
           bundle,
           collectedKeks,
+          documentId: input.writerProjection.documentId,
           updates: responseUpdates,
         }),
       );

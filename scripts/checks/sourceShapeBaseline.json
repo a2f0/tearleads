@@ -63,8 +63,8 @@
       "bytes": 19355
     },
     "docs/keying-design.md": {
-      "lines": 1202,
-      "bytes": 58527
+      "lines": 1203,
+      "bytes": 58589
     },
     "docs/loro-e2ee-sync-protocol.md": {
       "lines": 548,
@@ -231,8 +231,8 @@
       "bytes": 31624
     },
     "packages/client-sdk/src/data/containers/shared/projection.test.ts": {
-      "lines": 703,
-      "bytes": 26168
+      "lines": 709,
+      "bytes": 26461
     },
     "packages/client-sdk/src/data/documents/editAttribution.test.ts": {
       "lines": 580,

@@ -3,8 +3,8 @@ import {
   computeContainerKekMaterialId,
   computeDocumentContentKeyTargetHash,
   DOCUMENT_CONTENT_KEY_WRAP_SUITE,
-  encryptWithDek,
   sealContainerKekKeyring,
+  wrapContentKey,
 } from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
 import type {
@@ -51,9 +51,17 @@ function writerProjectionFor(
 
 async function wrapContentKeyToEpoch1(rotated: KeyringRotationFixture) {
   const contentKey = crypto.getRandomValues(new Uint8Array(32));
-  const wrapped = await encryptWithDek(
+  const documentId = crypto.randomUUID();
+  const wrapped = await wrapContentKey(
     contentKey,
     rotated.fixture.rootContainerKek,
+    {
+      kind: "Document",
+      objectId: documentId,
+      contentKeyEpoch: 1,
+      containerId: rotated.successor.containerId,
+      containerKeyEpochId: rotated.predecessorEpochId,
+    },
   );
   const target = {
     containerId: rotated.successor.containerId,
@@ -68,7 +76,7 @@ async function wrapContentKeyToEpoch1(rotated: KeyringRotationFixture) {
   };
   const bundle = {
     contentKeyEpoch: 1,
-    documentId: crypto.randomUUID(),
+    documentId,
     linkSetManifestHash: await fixtureHash("history-link-set"),
     targetHash: await computeDocumentContentKeyTargetHash([
       targetEnvelopeReference(target),
@@ -99,6 +107,7 @@ test("cold unwrap recovers every epoch of a twice-rotated container from the key
   const { bundle, contentKey } = await wrapContentKeyToEpoch1(rotated);
   const unwrappedContentKey = await unwrapDocumentContentKeyFromBundle(
     bundle,
+    bundle.documentId,
     collected.keksByEpochId,
     collected.predecessorFailuresByEpochId,
   );
@@ -145,6 +154,7 @@ test("document projection shares keyring-recovered keys across authorizing paths
   const { bundle, contentKey } = await wrapContentKeyToEpoch1(rotated);
   const unwrappedContentKey = await unwrapDocumentContentKeyFromBundle(
     bundle,
+    bundle.documentId,
     collected.keksByEpochId,
     collected.predecessorFailuresByEpochId,
   );
@@ -174,6 +184,7 @@ test("shared-path integrity failures outrank unavailable history in either order
     });
     const error = await unwrapDocumentContentKeyFromBundle(
       bundle,
+      bundle.documentId,
       collected.keksByEpochId,
       collected.predecessorFailuresByEpochId,
       collected.unattributedPredecessorFailuresByContainerId,
@@ -306,6 +317,7 @@ test("document unwrap reports corrupt history when its content key needs that ep
   const { bundle } = await wrapContentKeyToEpoch1(rotated);
   const error = await unwrapDocumentContentKeyFromBundle(
     bundle,
+    bundle.documentId,
     collectedKeks.keksByEpochId,
     collectedKeks.predecessorFailuresByEpochId,
   ).then(

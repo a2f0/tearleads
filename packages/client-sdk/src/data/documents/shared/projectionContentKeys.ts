@@ -4,9 +4,9 @@ import {
   computeDocumentContentKeyTargetHash,
   DOCUMENT_CONTENT_KEY_WRAP_SUITE,
   decodeContentKeyEnvelope,
-  decryptWithDek,
-  encryptWithDek,
+  unwrapContentKey,
   type VerifiedContainerAccessManifest,
+  wrapContentKey,
 } from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
 import type { DocumentContentKeyTargetEnvelope } from "@tearleads/validators/request";
@@ -57,6 +57,8 @@ function getOnlyDocumentCreateTarget(
 export async function wrapDocumentContentKeyForCreate(
   input: {
     contentKey: Uint8Array;
+    contentKeyEpoch: number;
+    documentId: string;
     execSql?: ExecSql | undefined;
     knownContainerKeks?: ReadonlyMap<string, Uint8Array> | undefined;
     persistVerificationCheckpoints?: boolean | undefined;
@@ -79,7 +81,13 @@ export async function wrapDocumentContentKeyForCreate(
     throw new Error("Document create target KEK could not be unwrapped");
   }
 
-  const wrapped = await encryptWithDek(input.contentKey, targetKek);
+  const wrapped = await wrapContentKey(input.contentKey, targetKek, {
+    kind: "Document",
+    objectId: input.documentId,
+    contentKeyEpoch: input.contentKeyEpoch,
+    containerId: target.containerId,
+    containerKeyEpochId: target.containerKeyEpochId,
+  });
 
   return [
     {
@@ -95,23 +103,40 @@ export async function wrapDocumentContentKeyForCreate(
 
 export async function unwrapContentKeyTargetForKind(input: {
   containerKek: Uint8Array;
+  /** The content-key epoch of the bundle the envelope was served in. */
+  contentKeyEpoch: number;
   /** Wraps a decode or decrypt failure with this message. */
   decryptErrorMessage?: string | undefined;
-  envelope: { wrappedKey: string; wrappingMetadata?: unknown };
+  envelope: {
+    containerId: string;
+    containerKeyEpochId: string;
+    wrappedKey: string;
+    wrappingMetadata?: unknown;
+  };
   kind: ContentKeyEnvelopeKind;
+  /** The document or blob the caller is reading, never read from the bundle. */
+  objectId: string;
 }): Promise<Uint8Array> {
   // Reading, not submitting: the suite still binds the envelope to its object
   // kind, but an unrecognized extra metadata key is ignored rather than making
   // an otherwise decryptable envelope permanently unreadable. The AEAD tag is
-  // what authenticates the recovered key. The KEK stays out of the decoder.
+  // what authenticates the recovered key, bound to the object, content-key
+  // epoch and target it was sealed for. The KEK stays out of the decoder.
   try {
-    return await decryptWithDek(
+    return await unwrapContentKey(
       decodeContentKeyEnvelope({
         envelope: input.envelope,
         kind: input.kind,
         origin: "stored",
       }),
       input.containerKek,
+      {
+        kind: input.kind,
+        objectId: input.objectId,
+        contentKeyEpoch: input.contentKeyEpoch,
+        containerId: input.envelope.containerId,
+        containerKeyEpochId: input.envelope.containerKeyEpochId,
+      },
     );
   } catch (error) {
     if (!input.decryptErrorMessage) throw error;
@@ -125,13 +150,17 @@ export async function unwrapContentKeyTargetForKind(input: {
 
 export async function unwrapDocumentContentKeyTarget(input: {
   containerKek: Uint8Array;
+  contentKeyEpoch: number;
+  documentId: string;
   envelope: DocumentContentKeyTargetEnvelope;
 }): Promise<Uint8Array> {
   return unwrapContentKeyTargetForKind({
     containerKek: input.containerKek,
+    contentKeyEpoch: input.contentKeyEpoch,
     decryptErrorMessage: `Document content-key target for container ${input.envelope.containerId} at epoch ${input.envelope.containerKeyEpochId} could not be unwrapped`,
     envelope: input.envelope,
     kind: "Document",
+    objectId: input.documentId,
   });
 }
 
@@ -268,6 +297,8 @@ export async function collectContainerKeksForDocumentSync(
 
 export async function unwrapDocumentContentKeyFromBundle(
   bundle: DocumentContentKeyBundleResponse,
+  /** The document being read; its wraps must be sealed to it. */
+  documentId: string,
   containerKeksByEpochId: ReadonlyMap<string, Uint8Array>,
   predecessorFailuresByEpochId: ReadonlyMap<string, Error> = new Map(),
   unattributedPredecessorFailuresByContainerId: ReadonlyMap<
@@ -280,6 +311,9 @@ export async function unwrapDocumentContentKeyFromBundle(
   );
   if (canonicalTargetHash !== bundle.targetHash) {
     throw new Error("Document content-key bundle target hash is not canonical");
+  }
+  if (bundle.documentId !== documentId) {
+    throw new Error("Document content-key bundle names another document");
   }
   let contentKey: Uint8Array | null = null;
   const predecessorFailures: Error[] = [];
@@ -297,6 +331,8 @@ export async function unwrapDocumentContentKeyFromBundle(
     }
     const unwrapped = await unwrapDocumentContentKeyTarget({
       containerKek,
+      contentKeyEpoch: bundle.contentKeyEpoch,
+      documentId,
       envelope,
     });
     if (contentKey) {
@@ -337,6 +373,7 @@ export async function unwrapDocumentContentKeyFromWriterProjection(
 
   return unwrapDocumentContentKeyFromBundle(
     input.writerProjection.contentKeyBundle,
+    input.writerProjection.documentId,
     collectedKeks.keksByEpochId,
     collectedKeks.predecessorFailuresByEpochId,
     collectedKeks.unattributedPredecessorFailuresByContainerId,
@@ -375,6 +412,7 @@ export async function buildRotatedDocumentContentKeyBundle(input: {
     writerProjection: input.writerProjection,
   });
   const envelopes: DocumentContentKeyBundleResponse["targets"] = [];
+  const contentKeyEpoch = contentKeyBundle.contentKeyEpoch + 1;
 
   for (const target of targets) {
     const containerKek = input.containerKeksByEpochId.get(
@@ -385,7 +423,13 @@ export async function buildRotatedDocumentContentKeyBundle(input: {
         `Document content-key re-wrap KEK is unavailable for ${describeDocumentTargetKek(target)}`,
       );
     }
-    const wrapped = await encryptWithDek(input.contentKey, containerKek);
+    const wrapped = await wrapContentKey(input.contentKey, containerKek, {
+      kind: "Document",
+      objectId: contentKeyBundle.documentId,
+      contentKeyEpoch,
+      containerId: target.containerId,
+      containerKeyEpochId: target.containerKeyEpochId,
+    });
     envelopes.push({
       ...target,
       wrappedKey: bytesToBase64(wrapped.ciphertext),
@@ -397,7 +441,7 @@ export async function buildRotatedDocumentContentKeyBundle(input: {
   }
 
   return {
-    contentKeyEpoch: contentKeyBundle.contentKeyEpoch + 1,
+    contentKeyEpoch,
     documentId: contentKeyBundle.documentId,
     linkSetManifestHash: documentKekTargets.linkSetManifestHash,
     targetHash: documentKekTargets.documentKeyTargetHash,

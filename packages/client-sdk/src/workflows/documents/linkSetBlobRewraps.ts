@@ -2,7 +2,7 @@ import {
   BLOB_CONTENT_KEY_WRAP_SUITE,
   type DocumentContentKeyTarget,
   type DocumentLinkAccessEventBody,
-  encryptWithDek,
+  wrapContentKey,
 } from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
 import type {
@@ -109,17 +109,13 @@ export async function prepareDocumentLinkBlobRewraps(
           );
         if (!contentKey)
           throw new Error("Attachment content key is unavailable");
-        const wrapped = await encryptWithDek(contentKey, kek);
-        return {
-          ...target,
-          bindingId: binding.bindingId,
+        return wrapBlobKeyForTarget({
+          binding,
+          contentKey,
           documentId,
-          wrappedKey: bytesToBase64(wrapped.ciphertext),
-          wrappingMetadata: {
-            suite: BLOB_CONTENT_KEY_WRAP_SUITE,
-            iv: bytesToBase64(wrapped.iv),
-          },
-        };
+          kek,
+          target,
+        });
       }),
     );
     const rewrap = rewrapByBlob.get(binding.blobId) ?? {
@@ -134,6 +130,33 @@ export async function prepareDocumentLinkBlobRewraps(
     assertProjectionVerificationCurrent(input.stillCurrent);
   }
   return [...rewrapByBlob.values()].sort(compareBlobIds);
+}
+
+async function wrapBlobKeyForTarget(input: {
+  binding: BlobAttachmentSummary;
+  contentKey: Uint8Array;
+  documentId: string;
+  kek: Uint8Array;
+  target: DocumentContentKeyTarget;
+}) {
+  const { binding, target } = input;
+  const wrapped = await wrapContentKey(input.contentKey, input.kek, {
+    kind: "Blob",
+    objectId: binding.blobId,
+    contentKeyEpoch: binding.contentKeyBundle.contentKeyEpoch,
+    containerId: target.containerId,
+    containerKeyEpochId: target.containerKeyEpochId,
+  });
+  return {
+    ...target,
+    bindingId: binding.bindingId,
+    documentId: input.documentId,
+    wrappedKey: bytesToBase64(wrapped.ciphertext),
+    wrappingMetadata: {
+      suite: BLOB_CONTENT_KEY_WRAP_SUITE,
+      iv: bytesToBase64(wrapped.iv),
+    },
+  };
 }
 
 function retainedTarget(

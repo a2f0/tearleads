@@ -33,10 +33,16 @@ export {
   CHALLENGE_TTL_SECONDS,
   generateChallenge,
 } from "./challenge";
-export type { ContentKeyEnvelopeKind } from "./contentKeyEnvelope";
+export type {
+  ContentKeyEnvelopeKind,
+  ContentKeyWrapBinding,
+} from "./contentKeyEnvelope";
 export {
   ContentKeyEnvelopeError,
+  contentKeyWrapAssociatedData,
   decodeContentKeyEnvelope,
+  unwrapContentKey,
+  wrapContentKey,
 } from "./contentKeyEnvelope";
 export { decryptAsRecipient } from "./encapsulation/decryptAsRecipient";
 export { encryptForRecipients } from "./encapsulation/encryptForRecipients";

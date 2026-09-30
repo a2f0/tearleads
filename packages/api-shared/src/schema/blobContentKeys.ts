@@ -100,7 +100,8 @@ export const blobContentKeyEpochs = pgTable(
  * - `wrappingMetadata`: Canonical metadata needed by the client to unwrap
  *   `wrappedKey`; current clients use suite
  *   `tearleads.blob.content-key-wrap.aes-256-gcm-container-kek` with an
- *   AES-GCM IV.
+ *   AES-GCM IV. The wrap's authenticated data binds the suite, blob id,
+ *   content-key epoch and this target, so it opens for no other row.
  * - `createdAt`: Server-side insertion timestamp for the target row.
  *
  * Indexes:

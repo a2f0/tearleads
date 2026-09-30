@@ -396,8 +396,9 @@ Blob staged bytes and document updates use the content-record encryption suite
 `tearleads.document.content-key-wrap.aes-256-gcm-container-kek`, and blob
 content-key targets use
 `tearleads.blob.content-key-wrap.aes-256-gcm-container-kek`; those wrap suites
-are direct AES-GCM under a verified container KEK and are separate from the
-HKDF content-record suite.
+are direct AES-GCM under a verified container KEK, with AAD binding the object,
+content-key epoch and target, and are separate from the HKDF content-record
+suite.
 
 The blob detach route validates:
 

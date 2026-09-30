@@ -7,7 +7,7 @@ import {
 } from "@tearleads/client-sdk";
 import {
   DOCUMENT_CONTENT_KEY_WRAP_SUITE,
-  encryptWithDek,
+  wrapContentKey,
 } from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
 import {
@@ -111,14 +111,21 @@ test("an organization member verifies a document's inaccessible sibling-containe
       root,
       authorizingContainerPath: [root.bundle, sibling.response.accessManifest],
     });
-    const wrapped = await encryptWithDek(
-      created.contentKey,
-      readable.plaintextKek,
-    );
     const envelope = request.contentKeyBundle.targets.find(
       (target) => target.containerId === readable.response.containerId,
     );
     if (!envelope) throw new Error("Expected readable target");
+    const wrapped = await wrapContentKey(
+      created.contentKey,
+      readable.plaintextKek,
+      {
+        kind: "Document",
+        objectId: created.documentId,
+        contentKeyEpoch: request.contentKeyBundle.contentKeyEpoch,
+        containerId: envelope.containerId,
+        containerKeyEpochId: envelope.containerKeyEpochId,
+      },
+    );
     envelope.wrappedKey = bytesToBase64(wrapped.ciphertext);
     envelope.wrappingMetadata = {
       suite: DOCUMENT_CONTENT_KEY_WRAP_SUITE,

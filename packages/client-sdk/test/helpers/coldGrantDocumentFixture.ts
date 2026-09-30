@@ -1,7 +1,7 @@
 import {
   computeDocumentContentKeyTargetHash,
   DOCUMENT_CONTENT_KEY_WRAP_SUITE,
-  encryptWithDek,
+  wrapContentKey,
 } from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
 import {
@@ -58,7 +58,13 @@ async function createContentKeyBundle(input: {
     containerKeyEpochId: input.containerKeyEpochId,
     containerManifestHash: input.containerManifestHash,
   };
-  const wrapped = await encryptWithDek(input.contentKey, input.containerKey);
+  const wrapped = await wrapContentKey(input.contentKey, input.containerKey, {
+    kind: "Document",
+    objectId: DOCUMENT_ID,
+    contentKeyEpoch: input.contentKeyEpoch,
+    containerId: input.containerId,
+    containerKeyEpochId: input.containerKeyEpochId,
+  });
 
   return {
     contentKeyEpoch: input.contentKeyEpoch,

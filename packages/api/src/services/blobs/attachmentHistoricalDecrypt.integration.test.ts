@@ -11,7 +11,7 @@ import {
   uploadDocumentAttachment,
 } from "@tearleads/client-sdk";
 import { createTestTrustedUserIdentityResolver } from "@tearleads/client-sdk/testing";
-import { BLOB_CONTENT_KEY_WRAP_SUITE, encryptWithDek } from "@tearleads/crypto";
+import { BLOB_CONTENT_KEY_WRAP_SUITE, wrapContentKey } from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { authenticate } from "../../../test/helpers/authenticate";
@@ -184,7 +184,13 @@ test("SDK decrypts a historical binding after ancestor head changes and document
       destinationState.containerKeyEpochId,
     );
     if (!destinationKey) throw new Error("Expected verified destination KEK");
-    const wrapped = await encryptWithDek(blobContentKey, destinationKey);
+    const wrapped = await wrapContentKey(blobContentKey, destinationKey, {
+      kind: "Blob",
+      objectId: uploaded.blobId,
+      contentKeyEpoch: 1,
+      containerId: other.containerId,
+      containerKeyEpochId: destinationState.containerKeyEpochId,
+    });
     const originalTarget = uploaded.request.contentKeyBundle.targets[0];
     if (!originalTarget) throw new Error("Expected uploaded attachment target");
     const relinked = await apiClient.linkDocument(
