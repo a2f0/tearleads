@@ -186,6 +186,9 @@ export class ApiRequestRuntime {
       data = await response.json();
     } catch (error) {
       const failure = responseBodyFailure(error, errorMessage(error));
+      if (failure.kind === "network") {
+        this.onNetworkError?.();
+      }
       return this.requestFailure({
         kind: failure.kind,
         message: `${method} ${path}: ${failure.message}`,

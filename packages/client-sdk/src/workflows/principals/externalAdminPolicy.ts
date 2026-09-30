@@ -139,25 +139,35 @@ function parseScopedAuthorityDescriptor(
 /**
  * The organization and its Admins group are separate reads, so an honest
  * Admins commit between them serves a chain that extends the head the
- * directory cites. That is a stale directory, not tampering (#2365 finding 22).
+ * directory cites: a stale directory, not tampering (#2365 finding 22). The
+ * claim is checked before any signer is trusted, so it is unverified and buys
+ * only one organization refetch; a disagreement after that is an incident.
  */
 class AdminsHeadAdvanced extends Error {}
 
-function servedChainExtends(
+function servedChainClaimsToExtend(
   bundle: PrincipalPolicyBundleResponse,
   head: ReturnType<typeof requireOrganizationGroupHead>,
 ): boolean {
-  return bundle.previousStates.some(
-    (entry) =>
-      entry.state.principalId === head.principalId &&
-      entry.state.version === head.version &&
-      entry.state.stateHash === head.stateHash,
+  return bundle.previousStates.some(({ state }) =>
+    principalHeadMatchesReference(
+      {
+        principalType: state.principalType,
+        principalId: state.principalId,
+        version: state.version,
+        keyEpoch: state.keyEpoch,
+        stateHash: state.stateHash,
+        keyFingerprint: state.keyFingerprint,
+      },
+      head,
+    ),
   );
 }
 
 async function loadVerifiedAdminsPolicy(input: {
   readonly adminGroupId: string;
   readonly expectedHead: ReturnType<typeof requireOrganizationGroupHead>;
+  readonly mayRefetchDirectory: boolean;
   readonly execSql: ExecSql;
   readonly getCurrentPrincipalPolicy: (
     principalType: "group" | "organization",
@@ -181,7 +191,10 @@ async function loadVerifiedAdminsPolicy(input: {
       input.expectedHead,
     )
   ) {
-    if (servedChainExtends(bundle, input.expectedHead)) {
+    if (
+      input.mayRefetchDirectory &&
+      servedChainClaimsToExtend(bundle, input.expectedHead)
+    ) {
       throw new AdminsHeadAdvanced();
     }
     throw new KeyingVerificationError(
@@ -237,6 +250,7 @@ interface ExternalAdminPolicyInput {
 async function loadExternalAdminPolicyOnce(
   input: ExternalAdminPolicyInput,
   organizationId: string,
+  mayRefetchDirectory: boolean,
 ): Promise<VerifiedExternalAdminPolicy | null> {
   const bundle = await input.getCurrentPrincipalPolicy(
     "organization",
@@ -257,6 +271,7 @@ async function loadExternalAdminPolicyOnce(
   const descriptor = parseScopedAuthorityDescriptor(bundle, organizationId);
   const admin = await loadVerifiedAdminsPolicy({
     adminGroupId: descriptor.adminGroupId,
+    mayRefetchDirectory,
     expectedHead: requireOrganizationGroupHead(
       descriptor,
       descriptor.adminGroupId,
@@ -298,17 +313,12 @@ export async function loadOrganizationExternalAdminPolicy(
     return null;
   }
   try {
-    // An honest server serves Admins at or after the head the directory
-    // cites, so only an extending chain is a race: refetch once, then treat
-    // a second advance as a cache miss. Anything else stays an incident.
-    for (let attempt = 0; attempt < 2; attempt++) {
-      try {
-        return await loadExternalAdminPolicyOnce(input, organizationId);
-      } catch (error) {
-        if (!(error instanceof AdminsHeadAdvanced)) throw error;
-      }
+    try {
+      return await loadExternalAdminPolicyOnce(input, organizationId, true);
+    } catch (error) {
+      if (!(error instanceof AdminsHeadAdvanced)) throw error;
+      return await loadExternalAdminPolicyOnce(input, organizationId, false);
     }
-    return null;
   } catch (error) {
     if (error instanceof KeyingVerificationError) {
       throw error;

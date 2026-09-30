@@ -81,15 +81,22 @@ test("an Admins commit between the two reads is refetched, not an incident", asy
   );
 });
 
-test("a disagreement that survives the refetch is a cache miss", async () => {
+test("a disagreement that survives the refetch is an incident", async () => {
   const { advancedAdmin, fixture } = await createAdminsRace();
+  let organizationReads = 0;
 
+  // An honest server commits Admins and the directory together, so the
+  // refetched directory cites the served head; this one never does.
   await expect(
-    loadWith(fixture, "external-admin-race-miss", {
+    loadWith(fixture, "external-admin-race-persists", {
       admins: () => advancedAdmin,
-      organization: () => fixture.initial,
+      organization: () => {
+        organizationReads += 1;
+        return fixture.initial;
+      },
     }),
-  ).resolves.toBeNull();
+  ).rejects.toMatchObject({ code: "hash_mismatch" });
+  expect(organizationReads).toBe(2);
 });
 
 test("an Admins head that does not extend the directory is still tampering", async () => {
@@ -101,7 +108,24 @@ test("an Admins head that does not extend the directory is still tampering", asy
   });
 
   await expect(rolledBack).rejects.toBeInstanceOf(KeyingVerificationError);
-  await expect(rolledBack).rejects.toThrow(
-    "reserved Admins policy does not match the signed organization directory",
-  );
+  await expect(rolledBack).rejects.toMatchObject({ code: "hash_mismatch" });
+});
+
+test("a forged predecessor buys one refetch, then is an incident", async () => {
+  const { advancedAdmin, fixture } = await createAdminsRace();
+  // The public fields of the cited head are copied, but not its signature.
+  const forged = {
+    ...advancedAdmin,
+    previousStates: advancedAdmin.previousStates.map((entry) => ({
+      ...entry,
+      state: { ...entry.state, signature: "forged-signature" },
+    })),
+  };
+
+  await expect(
+    loadWith(fixture, "external-admin-race-forged", {
+      admins: () => forged,
+      organization: () => fixture.initial,
+    }),
+  ).rejects.toBeInstanceOf(KeyingVerificationError);
 });

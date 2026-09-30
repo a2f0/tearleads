@@ -23,10 +23,10 @@ import {
   replaceOrganizationGroupHead,
 } from "./organizationGroupDirectory";
 
-// The metadata root and the signed directory are separate reads. A Members
-// commit between them leaves the root citing the previous Members head.
+// The metadata root and the signed directory are separate reads. A reserved-
+// group commit between them leaves the root citing that group's previous head.
 
-async function createMembersAdvance() {
+async function createReservedGroupAdvance(advancing: "Admins" | "Members") {
   const signing = generateSigningSeedAndKeyPair();
   const identity = generateKemSeedAndKeyPair();
   const signingFingerprint = await toFingerprint(signing.signingPublicKey);
@@ -52,23 +52,24 @@ async function createMembersAdvance() {
     artifacts.organizationId,
     artifacts.initialOrganizationPolicy,
   );
-  const advancedMembers = await signedPrincipalPolicyBundle({
-    memberEnvelopes: members.currentMemberEnvelopes.envelopes,
-    payloadCiphertext: members.currentPayload.ciphertext,
-    projection: members.currentProjection,
+  const previous = advancing === "Admins" ? admin : members;
+  const advanced = await signedPrincipalPolicyBundle({
+    memberEnvelopes: previous.currentMemberEnvelopes.envelopes,
+    payloadCiphertext: previous.currentPayload.ciphertext,
+    projection: previous.currentProjection,
     previousStates: [
       {
-        state: members.currentState,
-        projection: members.currentProjection,
-        grants: members.currentGrants,
+        state: previous.currentState,
+        projection: previous.currentProjection,
+        grants: previous.currentGrants,
       },
     ],
     signing: {
-      ...members.currentState,
-      grants: members.currentGrants,
-      prevStateHash: members.currentState.stateHash,
+      ...previous.currentState,
+      grants: previous.currentGrants,
+      prevStateHash: previous.currentState.stateHash,
       signedAt: new Date().toISOString(),
-      version: members.currentState.version + 1,
+      version: previous.currentState.version + 1,
     },
     signingPrivateKey: signing.signingPrivateKey,
   });
@@ -84,7 +85,7 @@ async function createMembersAdvance() {
       descriptor,
       groupHeads: replaceOrganizationGroupHead({
         descriptor,
-        nextHead: principalPolicyHead(advancedMembers),
+        nextHead: principalPolicyHead(advanced),
       }),
       signerUserId: "founder",
       signingFingerprint,
@@ -99,9 +100,11 @@ async function createMembersAdvance() {
         getCurrentPrincipalPolicy: async (type, id) =>
           type === "organization"
             ? advancedDirectory
-            : id === admin.currentState.principalId
-              ? admin
-              : advancedMembers,
+            : id === previous.currentState.principalId
+              ? advanced
+              : id === admin.currentState.principalId
+                ? admin
+                : members,
       },
       execSql,
       organizationId: artifacts.organizationId,
@@ -116,25 +119,31 @@ async function createMembersAdvance() {
   };
 }
 
-test("a root read before a Members commit is a stale read, not tampering", async () => {
-  const { close, execSql } = await createTestExecSql("metadata-root-behind");
-  try {
-    const { state, verifier } = await createMembersAdvance();
-    const behind = verifier(execSql)(state);
-
-    await expect(behind).rejects.toBeInstanceOf(
-      MetadataRootBehindDirectoryError,
+test.each(["Admins", "Members"] as const)(
+  "a root read before an %s commit is a stale read, not tampering",
+  async (advancing) => {
+    const { close, execSql } = await createTestExecSql(
+      `metadata-root-behind-${advancing}`,
     );
-    await expect(behind).rejects.not.toBeInstanceOf(KeyingVerificationError);
-  } finally {
-    close();
-  }
-});
+    try {
+      const { state, verifier } = await createReservedGroupAdvance(advancing);
+      const behind = verifier(execSql)(state);
+
+      await expect(behind).rejects.toBeInstanceOf(
+        MetadataRootBehindDirectoryError,
+      );
+      await expect(behind).rejects.not.toBeInstanceOf(KeyingVerificationError);
+    } finally {
+      close();
+    }
+  },
+);
 
 test("a root citing a head outside the directory's chain is still tampering", async () => {
   const { close, execSql } = await createTestExecSql("metadata-root-forged");
   try {
-    const { members, state, verifier } = await createMembersAdvance();
+    const { members, state, verifier } =
+      await createReservedGroupAdvance("Members");
     const forged = verifier(execSql)({
       ...state,
       referencedPrincipalHeads: state.referencedPrincipalHeads.map((head) =>

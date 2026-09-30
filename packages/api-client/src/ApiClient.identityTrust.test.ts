@@ -60,9 +60,14 @@ testApiClient(
     );
 
     const client = new ApiClient(apiBaseUrl);
+    let networkErrors = 0;
+    client.setOnNetworkError(() => {
+      networkErrors += 1;
+    });
     expect(await client.getUserIdentity("user-1")).toBeNull();
     expect(client.getUserIdentityRequestFailure("user-1")).toMatchObject({
       kind: "network",
     });
+    expect(networkErrors).toBe(1);
   },
 );
