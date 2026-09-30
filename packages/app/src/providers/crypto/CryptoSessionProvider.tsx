@@ -28,6 +28,7 @@ import {
 } from "./localCryptoSessionPersistence";
 import { useEnsureDatabaseForIdentity } from "./useEnsureDatabaseForIdentity";
 import { usePersistCryptoSession } from "./usePersistCryptoSession";
+import { usePrepareForRestoreReload } from "./usePrepareForRestoreReload";
 
 export interface CryptoSessionContextValue {
   userId: string | null;
@@ -54,6 +55,11 @@ export interface CryptoSessionContextValue {
   login: () => Promise<boolean>;
   loginWithChallenge: (challengeHex: string) => Promise<boolean>;
   logout: () => void;
+  /**
+   * Leaves a signed-out record that keeps this identity's root
+   * acknowledgements, before a backup restore reloads the app.
+   */
+  prepareForRestoreReload: () => Promise<void>;
 }
 
 const CryptoSessionContext = createContext<CryptoSessionContextValue | null>(
@@ -309,6 +315,7 @@ function useCryptoSessionContextValue(
   sessionState: ReturnType<typeof useSdkBackedCryptoSessionState>,
   sessionRestoreSettled: boolean,
   actions: ReturnType<typeof useCryptoAuthActions>,
+  prepareForRestoreReload: () => Promise<void>,
 ) {
   const { login, loginWithChallenge, logout } = actions;
   return useMemo<CryptoSessionContextValue>(
@@ -320,6 +327,7 @@ function useCryptoSessionContextValue(
       login,
       loginWithChallenge,
       logout,
+      prepareForRestoreReload,
       organizationId: sessionState.organizationId,
       sessionRestoreSettled,
       setContainerId: sessionState.setContainerId,
@@ -331,6 +339,7 @@ function useCryptoSessionContextValue(
       login,
       loginWithChallenge,
       logout,
+      prepareForRestoreReload,
       sessionRestoreSettled,
       sessionState.authToken,
       sessionState.containerId,
@@ -404,10 +413,16 @@ export function CryptoSessionProvider({ children }: PropsWithChildren) {
   const sessionRestoreSettled =
     checkedPersistedSessionFingerprint === signingFingerprint;
   const actions = useCryptoAuthActions(tearleads);
+  const prepareForRestoreReload = usePrepareForRestoreReload({
+    localPersistence: localSessionPersistence,
+    sessionState,
+    signingFingerprint,
+  });
   const contextValue = useCryptoSessionContextValue(
     sessionState,
     sessionRestoreSettled,
     actions,
+    prepareForRestoreReload,
   );
 
   return (

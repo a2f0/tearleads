@@ -1,5 +1,6 @@
 import type { FileSaver } from "@tearleads/client-sdk";
 import { type ChangeEvent, useCallback, useRef, useState } from "react";
+import { useCryptoSession } from "../../providers/crypto/CryptoSessionProvider";
 import { BackupRestoreConflictError } from "../../providers/db/backupRestoreConflict";
 import { clearRestoredLocalCaches } from "../../providers/db/clearRestoredLocalCaches";
 import {
@@ -340,6 +341,7 @@ function useBackupRestoreState() {
 }
 
 export function useBackupRestore() {
+  const { prepareForRestoreReload } = useCryptoSession();
   const fileSaver = useFileSaver();
   const { log, logError } = useLog();
   const { exportLocalBackup, restoreLocalBackup } = useLocalBackupOperations();
@@ -372,9 +374,14 @@ export function useBackupRestore() {
   // reopened app re-derives the root container + read models from the restored
   // database instead of re-bootstrapping an empty root.
   const handleReload = useCallback(() => {
-    clearRestoredLocalCaches();
-    window.location.reload();
-  }, []);
+    // Keep the identity's root acknowledgements across the restore (#2365
+    // finding 24) before the caches that pin the old root are cleared. The
+    // preparation never rejects: it falls back to dropping the record.
+    void prepareForRestoreReload().then(() => {
+      clearRestoredLocalCaches();
+      window.location.reload();
+    });
+  }, [prepareForRestoreReload]);
 
   return {
     backupPassword: state.backupPassword,

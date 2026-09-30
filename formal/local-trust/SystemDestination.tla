@@ -2,10 +2,10 @@
 EXTENDS Naturals
 CONSTANTS VerifyDestination, RequireSessionRoot, RequireSystemAdministrator,
           PreserveDestinationIdentity, PreserveSessionAcknowledgment, RejectSharedSystem, RequireSystemScope, RequireRootScope, RequireSystemTopology,
-          RequireRootCreator, RefuseRootSwap
+          RequireRootCreator, RefuseRootSwap, PreserveAcknowledgmentsOnRestore
 ASSUME {VerifyDestination, RequireSessionRoot, RequireSystemAdministrator,
         PreserveDestinationIdentity, PreserveSessionAcknowledgment, RejectSharedSystem, RequireSystemScope, RequireRootScope, RequireSystemTopology,
-        RequireRootCreator, RefuseRootSwap}
+        RequireRootCreator, RefuseRootSwap, PreserveAcknowledgmentsOnRestore}
        \subseteq BOOLEAN
 Candidates == {"ownRoot", "foreignRoot", "ordinary", "system"}
 VARIABLES systemLocation, systemSlotRole, malformedSlot, sameOrganization, acknowledgedRoot, candidate, shared, creatorRole, hydrated, rootRole, systemRole,
@@ -69,14 +69,24 @@ SelectView ==
   /\ UNCHANGED <<systemLocation, systemSlotRole, malformedSlot, sameOrganization, candidate, shared, creatorRole, hydrated, rootRole, systemRole,
                   merged, usedSystem, unauthorizedSlot, moved, rootCreatorIsUser>>
 (* A later unsigned login names the candidate as the organization's root. *)
+(* With no acknowledgement yet, the login's root is taken as given.        *)
 Login ==
-  /\ acknowledgedRoot' = IF RefuseRootSwap /\ candidate # acknowledgedRoot THEN acknowledgedRoot ELSE candidate
+  /\ acknowledgedRoot' =
+       IF RefuseRootSwap /\ acknowledgedRoot # "none" /\ candidate # acknowledgedRoot
+         THEN acknowledgedRoot ELSE candidate
   /\ UNCHANGED <<systemLocation, systemSlotRole, malformedSlot, sameOrganization, candidate, shared, creatorRole, hydrated, rootRole, systemRole,
                   merged, usedSystem, unauthorizedSlot, moved, rootCreatorIsUser>>
-Next == SelectView \/ Login \/ Hydrate \/ MergeRoot \/ UseSystem \/ CreateSystem \/ MoveDestination \/ UNCHANGED vars
+(* A backup restore reloads the app into a signed-out session. The fixed    *)
+(* restore keeps the identity's root acknowledgements (#2365 finding 24);   *)
+(* clearing them lets the next login acknowledge any root.                  *)
+RestoreBackup ==
+  /\ acknowledgedRoot' = IF PreserveAcknowledgmentsOnRestore THEN acknowledgedRoot ELSE "none"
+  /\ UNCHANGED <<systemLocation, systemSlotRole, malformedSlot, sameOrganization, candidate, shared, creatorRole, hydrated, rootRole, systemRole,
+                  merged, usedSystem, unauthorizedSlot, moved, rootCreatorIsUser>>
+Next == SelectView \/ Login \/ RestoreBackup \/ Hydrate \/ MergeRoot \/ UseSystem \/ CreateSystem \/ MoveDestination \/ UNCHANGED vars
 Spec == Init /\ [][Next]_vars
 TypeOK ==
-  /\ acknowledgedRoot \in Candidates
+  /\ acknowledgedRoot \in Candidates \cup {"none"}
   /\ candidate \in Candidates /\ creatorRole \in {"write", "admin"}
   /\ systemLocation \in {"root", "rootChild", "nestedChild"}
   /\ systemSlotRole \in {"metadata", "other"}
