@@ -217,8 +217,8 @@ Authentication uses challenge signing:
 
 1. `POST /auth/challenge` stores a short-lived challenge for a registered
  signing-key fingerprint.
-2. `POST /auth/verify` verifies the signature over the challenge and issues a
- session token.
+2. `POST /auth/verify` verifies the signature over the challenge and this API's
+ origin, then issues a session token.
 3. `GET /auth/sessions`, `DELETE /auth/sessions/:sessionId`, and
  `POST /auth/logout` manage authenticated session tokens.
 4. Authenticated mutation routes require the session user and fingerprint to
