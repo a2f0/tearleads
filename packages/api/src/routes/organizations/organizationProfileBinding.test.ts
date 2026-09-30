@@ -2,15 +2,25 @@ import { expect, test } from "bun:test";
 import { db } from "@tearleads/api-shared/postgres";
 import {
   containerMetadataDocuments,
+  containers,
+  documentContainerLinks,
   organizations,
   users,
 } from "@tearleads/api-shared/schema";
 import { createTestUser, type TestUser } from "@tearleads/bob-and-alice";
+import { deriveOrganizationMetadataContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
 import { isOrganizationReadModelResponse } from "@tearleads/validators/response";
 import { eq } from "drizzle-orm";
 import invariant from "invariant";
 import { authenticate } from "../../../test/helpers/authenticate";
 import { createCurrentDocumentProjection } from "../../../test/helpers/currentProtocolProjection";
+import { buildDocumentLinkRequest } from "../../../test/helpers/documentLinkMutation";
+import { postDocumentPurge } from "../../../test/helpers/documentPurge";
+import { createChildContainer } from "../../../test/helpers/keyingWriterProjectionChild";
+import {
+  bootstrapRoot,
+  createDocument,
+} from "../../../test/helpers/keyingWriterProjectionKit";
 import { loadOrganizationMetadataContainerId } from "../../../test/helpers/organizationMetadataContainer";
 import { registerUser } from "../../../test/helpers/registerUser";
 import { routeApp } from "../../routeApp";
@@ -154,7 +164,7 @@ async function readDirectoryProfilePointer(
   return body.lanes.directory.profileDocumentId;
 }
 
-test("the directory withholds a stored pointer that no longer validates", async () => {
+test("the directory withholds a stored pointer that does not validate", async () => {
   const admin = await registerAdmin();
   const profileDocumentId = await createOrganizationDocument(admin, [
     admin.metadataContainerId,
@@ -162,15 +172,95 @@ test("the directory withholds a stored pointer that no longer validates", async 
   expect((await putProfilePointer(admin, profileDocumentId)).status).toBe(200);
   expect(await readDirectoryProfilePointer(admin)).toBe(profileDocumentId);
 
-  // An admin later links the profile document into a container others write.
-  const relinkedDocumentId = await createOrganizationDocument(admin, [
+  // The link and purge guards keep a bound document in place, so only a
+  // direct write can store this; the read check is defence in depth.
+  const multiplyLinkedDocumentId = await createOrganizationDocument(admin, [
     admin.metadataContainerId,
     admin.actor.rootContainerId,
   ]);
   await db
     .update(organizations)
-    .set({ profileDocumentId: relinkedDocumentId })
+    .set({ profileDocumentId: multiplyLinkedDocumentId })
     .where(eq(organizations.id, admin.organizationId));
 
   expect(await readDirectoryProfilePointer(admin)).toBeNull();
+});
+
+/**
+ * Relabels the admin's signed root as the metadata container, so a document
+ * created through the routes can be bound and then relinked or purged.
+ */
+async function bindSignedProfileDocument(admin: RegisteredAdmin) {
+  const root = await bootstrapRoot(admin.actor);
+  await db
+    .update(containers)
+    .set({ systemSlot: "retired-metadata-slot" })
+    .where(eq(containers.id, admin.metadataContainerId));
+  await db
+    .update(containers)
+    .set({
+      systemSlot: await deriveOrganizationMetadataContainerSystemSlot({
+        organizationId: admin.organizationId,
+      }),
+    })
+    .where(eq(containers.id, root.kekState.containerId));
+  const profile = await createDocument({ owner: admin.actor, root });
+  expect((await putProfilePointer(admin, profile.id)).status).toBe(200);
+  return { profile, root };
+}
+
+test("a bound organization profile cannot gain another container link", async () => {
+  const admin = await registerAdmin();
+  const { profile, root } = await bindSignedProfileDocument(admin);
+  const secondContainer = await createChildContainer({
+    parent: root,
+    signer: admin.actor,
+  });
+  const linkRequest = await buildDocumentLinkRequest({
+    child: secondContainer,
+    createdDocument: profile,
+    owner: admin.actor,
+    root,
+  });
+
+  const response = await routeApp.request(`/documents/${profile.id}/link`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${admin.actor.token}`,
+    },
+    body: JSON.stringify(linkRequest),
+  });
+
+  expect(response.status).toBe(409);
+  expect(await response.json()).toEqual({
+    error:
+      "Bound organization profile documents must remain exclusively in the organization metadata container",
+  });
+  const links = await db
+    .select({ containerId: documentContainerLinks.containerId })
+    .from(documentContainerLinks)
+    .where(eq(documentContainerLinks.documentId, profile.id));
+  expect(links.map((link) => link.containerId)).toEqual([
+    root.kekState.containerId,
+  ]);
+  expect(await readDirectoryProfilePointer(admin)).toBe(profile.id);
+});
+
+test("a bound organization profile document cannot be purged", async () => {
+  const admin = await registerAdmin();
+  const { profile, root } = await bindSignedProfileDocument(admin);
+
+  const response = await postDocumentPurge({
+    documentId: profile.id,
+    documentManifestHash: profile.accessManifest.manifestHash,
+    owner: admin.actor,
+    root,
+  });
+
+  expect(response.status).toBe(409);
+  expect(await response.json()).toEqual({
+    error: "Bound organization profile documents cannot be purged",
+  });
+  expect(await loadProfilePointer(admin.organizationId)).toBe(profile.id);
 });
