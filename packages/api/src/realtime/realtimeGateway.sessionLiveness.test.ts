@@ -1,9 +1,14 @@
-import { expect, spyOn, test } from "bun:test";
+import { afterEach, expect, mock, spyOn, test } from "bun:test";
 import {
   CONTAINER,
   fixture,
+  recordingSocket,
 } from "../../test/helpers/realtimeContainerAuthorization";
 import * as sentry from "../diagnostics/sentry";
+
+afterEach(() => {
+  mock.restore();
+});
 
 const flush = () => new Promise((resolve) => setTimeout(resolve, 0));
 
@@ -23,6 +28,7 @@ function manualTimers() {
       if (!run) throw new Error("No revalidation tick is scheduled");
       run();
       await flush();
+      await flush();
     },
   };
 }
@@ -33,13 +39,43 @@ function resyncFrames(sent: ReadonlyArray<Record<string, unknown>>) {
   );
 }
 
+function silenceReports() {
+  spyOn(console, "error").mockImplementation(() => undefined);
+  return spyOn(sentry, "captureApiError").mockImplementation(() => undefined);
+}
+
 test("a revalidation tick closes the socket of an ended session", async () => {
   const timers = manualTimers();
   let live = true;
-  let calls = 0;
   const f = fixture({
     revalidation: { intervalMs: 4, random: () => 0, schedule: timers.schedule },
     sessionLive: () => live,
+    authorize: async (_user, ids) => ids,
+  });
+  try {
+    await f.gateway.websocket.open(f.socket);
+    await f.declare();
+    await timers.fire();
+    expect(f.closed).toEqual([]);
+    // Expired, or revoked with the revocation publication lost.
+    live = false;
+    await timers.fire();
+    expect(f.closed).toEqual([1008]);
+    expect(f.router.interestedSocketCount(CONTAINER)).toBe(0);
+  } finally {
+    f.gateway.stop();
+  }
+});
+
+test("a tick still re-verifies proofs when the session store fails", async () => {
+  const capture = silenceReports();
+  const timers = manualTimers();
+  let calls = 0;
+  const f = fixture({
+    revalidation: { intervalMs: 4, random: () => 0, schedule: timers.schedule },
+    sessionLive: () => {
+      throw new Error("Session store unavailable");
+    },
     authorize: async (_user, ids) => {
       calls++;
       return ids;
@@ -48,22 +84,17 @@ test("a revalidation tick closes the socket of an ended session", async () => {
   try {
     await f.gateway.websocket.open(f.socket);
     await f.declare();
-    expect(f.router.interestedSocketCount(CONTAINER)).toBe(1);
-    await timers.fire();
-    expect(f.closed).toEqual([]);
     const before = calls;
-    // Expired or revoked with the revocation publication lost.
-    live = false;
     await timers.fire();
-    expect(f.closed).toEqual([1008]);
-    expect(f.router.interestedSocketCount(CONTAINER)).toBe(0);
-    expect(calls).toBe(before);
+    expect(calls).toBe(before + 1);
+    expect(f.closed).toEqual([]);
+    expect(capture).toHaveBeenCalledTimes(1);
   } finally {
     f.gateway.stop();
   }
 });
 
-test("a subscriber reconnect closes an ended session before resyncing", async () => {
+test("a subscriber reconnect closes an ended session's socket", async () => {
   let live = true;
   const f = fixture({
     sessionLive: () => live,
@@ -78,13 +109,12 @@ test("a subscriber reconnect closes an ended session before resyncing", async ()
     await flush();
     expect(f.closed).toEqual([1008]);
     expect(f.router.interestedSocketCount(CONTAINER)).toBe(0);
-    expect(resyncFrames(f.sent)).toEqual([]);
   } finally {
     f.gateway.stop();
   }
 });
 
-test("a subscriber reconnect keeps a live session's socket", async () => {
+test("a reconnect keeps a live session's socket and resyncs it", async () => {
   const f = fixture({ authorize: async (_user, ids) => ids });
   try {
     await f.gateway.websocket.open(f.socket);
@@ -100,28 +130,54 @@ test("a subscriber reconnect keeps a live session's socket", async () => {
   }
 });
 
-test("an unreadable session store still lets the reconnect resync", async () => {
-  const capture = spyOn(sentry, "captureApiError").mockImplementation(
-    () => undefined,
-  );
+test("a hung session read does not hold back the reconnect resync", async () => {
+  const f = fixture({ authorize: async (_user, ids) => ids });
+  const hung = fixture({
+    authorize: async (_user, ids) => ids,
+    validateSession: () => new Promise<boolean>(() => undefined),
+  });
+  try {
+    for (const g of [f, hung]) {
+      await g.gateway.websocket.open(g.socket);
+      await g.declare();
+      g.reconnect();
+      await flush();
+      await flush();
+    }
+    expect(resyncFrames(hung.sent)).toEqual(resyncFrames(f.sent));
+    expect(resyncFrames(hung.sent)).toHaveLength(1);
+    expect(hung.closed).toEqual([]);
+  } finally {
+    f.gateway.stop();
+    hung.gateway.stop();
+  }
+});
+
+test("a reconnect checks each session once and reports one failure", async () => {
+  const capture = silenceReports();
+  let checks = 0;
   const f = fixture({
     sessionLive: () => {
+      checks++;
       throw new Error("Session store unavailable");
     },
     authorize: async (_user, ids) => ids,
   });
+  const sameSession = recordingSocket("user", "session");
+  const otherSession = recordingSocket("user", "other-session");
   try {
     await f.gateway.websocket.open(f.socket);
+    await f.gateway.websocket.open(sameSession.socket);
+    await f.gateway.websocket.open(otherSession.socket);
     await f.declare();
     f.reconnect();
     await flush();
     await flush();
-    expect(f.closed).toEqual([]);
-    expect(f.router.interestedSocketCount(CONTAINER)).toBe(1);
+    expect(checks).toBe(2);
+    expect(capture).toHaveBeenCalledTimes(1);
     expect(resyncFrames(f.sent)).toHaveLength(1);
-    expect(capture).toHaveBeenCalled();
+    expect(f.closed).toEqual([]);
   } finally {
     f.gateway.stop();
-    capture.mockRestore();
   }
 });

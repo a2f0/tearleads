@@ -28,8 +28,9 @@ import {
 
 export type { WsConnection } from "./wsConnection";
 
-const SESSION_REVOKED_CLOSE_CODE = 1008;
+const SESSION_ENDED_CLOSE_CODE = 1008;
 const SESSION_REVOKED_CLOSE_REASON = "Session revoked";
+const SESSION_ENDED_CLOSE_REASON = "Session ended";
 
 /**
  * A requested interest change. The gateway authorizes it before indexing or
@@ -229,7 +230,11 @@ export class WsEventRouter {
     }
     switch (event.type) {
       case "session_revoked":
-        this.handleSessionRevoked(event.userId, event.sessionId);
+        this.closeSession(
+          event.userId,
+          event.sessionId,
+          SESSION_REVOKED_CLOSE_REASON,
+        );
         return [];
       case "access_changed":
         return this.handleAccessChanged(event.containerId);
@@ -341,19 +346,19 @@ export class WsEventRouter {
     return evictions;
   }
 
-  private handleSessionRevoked(userId: string, sessionId: string): void {
-    this.closeSession(userId, sessionId);
-  }
-
-  /** Closes every socket of a session that has ended, as a revocation does. */
-  closeSession(userId: string, sessionId: string): void {
+  /** Closes every socket of a session that was revoked or found ended. */
+  closeSession(
+    userId: string,
+    sessionId: string,
+    reason = SESSION_ENDED_CLOSE_REASON,
+  ): void {
     const sockets = this.socketsBySessionKey.get(sessionKey(userId, sessionId));
     if (!sockets) {
       return;
     }
 
     for (const ws of [...sockets]) {
-      closeSafely(ws, SESSION_REVOKED_CLOSE_CODE, SESSION_REVOKED_CLOSE_REASON);
+      closeSafely(ws, SESSION_ENDED_CLOSE_CODE, reason);
       this.close(ws);
     }
   }

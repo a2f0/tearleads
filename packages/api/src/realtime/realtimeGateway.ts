@@ -31,7 +31,7 @@ import {
 import { type AppliedInterest, WsEventRouter } from "./wsRouting";
 import {
   createWsSessionLivenessCheck,
-  type ValidateWsSession,
+  type WsSessionValidator,
 } from "./wsSessionLiveness";
 
 type InterestStore = Pick<typeof wsInterestStore, "apply" | "load">;
@@ -55,7 +55,7 @@ interface RealtimeGatewayDeps {
   readonly subscribe?: Subscribe;
   readonly subscribeReconnect?: SubscribeReconnect;
   /** Whether a socket's session is still live; defaults to the session store. */
-  readonly validateSession?: ValidateWsSession;
+  readonly validateSession?: WsSessionValidator;
 }
 
 async function authorizeOrganizationAccessWithWorkflow(
@@ -389,13 +389,10 @@ export function createRealtimeGateway(deps: RealtimeGatewayDeps = {}) {
     router,
     resolveProofAgePolicy(deps.revalidation),
   );
-  const closeIfSessionEnded = createWsSessionLivenessCheck(
-    router,
-    deps.validateSession,
-  );
-  const revalidation = new ContainerInterestRevalidationSchedule(async (ws) => {
-    if (await closeIfSessionEnded(ws)) return;
-    await containerInterest.revalidate(ws);
+  const liveness = createWsSessionLivenessCheck(router, deps.validateSession);
+  const revalidation = new ContainerInterestRevalidationSchedule((ws) => {
+    void liveness.checkSocket(ws);
+    return containerInterest.revalidate(ws);
   }, deps.revalidation);
   const websocket = createWebsocketHandler({
     containerInterest,
@@ -449,11 +446,14 @@ export function createRealtimeGateway(deps: RealtimeGatewayDeps = {}) {
     // reconnect re-verifies each live socket's subscriptions server-side and
     // asks every client to resync what it holds.
     unsubscribeReconnect = subscribeReconnect(() => {
-      void Promise.all(router.openSockets().map(closeIfSessionEnded))
-        .then(() => containerInterest.revalidateAll({ resyncAll: true }))
+      void containerInterest
+        .revalidateAll({ resyncAll: true })
         .catch((error: unknown) => {
           reportBackgroundFailure(error, "websocket.revalidate");
         });
+      // Beside the pass, never ahead of it: a hung session read must not hold
+      // back marking the outage's queries stale.
+      void liveness.checkAll(router.openSockets());
     });
   }
 

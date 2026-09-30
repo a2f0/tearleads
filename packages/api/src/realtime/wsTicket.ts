@@ -5,6 +5,7 @@ import { getdel, set } from "../adapters/redis";
 import { isLiveUserSession } from "../middleware/session";
 import { isSessionId } from "../validators/session";
 import type { WebSocketTicketIdentity } from "./wsIdentity";
+import type { WsSessionValidator } from "./wsSessionLiveness";
 
 // One-time, short-lived ticket that authenticates a websocket upgrade. Browsers
 // cannot attach an Authorization header to a WebSocket handshake, so an
@@ -13,10 +14,6 @@ import type { WebSocketTicketIdentity } from "./wsIdentity";
 // a short TTL, deleted on first use.
 const WS_TICKET_PREFIX = "ws-ticket:";
 const WS_TICKET_TTL_SECONDS = 60;
-
-type WebSocketTicketSessionValidator = (
-  identity: WebSocketTicketIdentity,
-) => Promise<boolean>;
 
 function ticketKey(ticket: string): string {
   return `${WS_TICKET_PREFIX}${ticket}`;
@@ -67,7 +64,7 @@ export async function issueWebSocketTicket(
  */
 export async function consumeWebSocketTicket(
   ticket: string,
-  validateSession: WebSocketTicketSessionValidator = isLiveUserSession,
+  validateSession: WsSessionValidator = isLiveUserSession,
 ): Promise<WebSocketTicketIdentity | null> {
   if (!isTicket(ticket)) {
     return null;
@@ -87,7 +84,7 @@ export async function consumeWebSocketTicket(
 }
 
 export function createWebSocketTicketConsumer(
-  validateSession: WebSocketTicketSessionValidator,
+  validateSession: WsSessionValidator,
 ): (ticket: string) => Promise<WebSocketTicketIdentity | null> {
   return (ticket) => consumeWebSocketTicket(ticket, validateSession);
 }

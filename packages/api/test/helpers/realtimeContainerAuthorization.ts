@@ -31,6 +31,8 @@ export function fixture(input: {
   revalidation?: RevalidationScheduleOptions;
   /** Defaults to a live session; a test ends it to check the socket closes. */
   sessionLive?: () => boolean;
+  /** Replaces the session check outright, e.g. with a read that never ends. */
+  validateSession?: () => Promise<boolean>;
 }) {
   const sent: Array<Record<string, unknown>> = [];
   const closed: number[] = [];
@@ -74,7 +76,8 @@ export function fixture(input: {
         listener = undefined;
       };
     },
-    validateSession: async () => input.sessionLive?.() ?? true,
+    validateSession:
+      input.validateSession ?? (async () => input.sessionLive?.() ?? true),
   });
   gateway.start();
   return {

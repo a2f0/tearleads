@@ -101,7 +101,7 @@ EndSession(delivered) ==
 
 \* A revalidation tick or subscriber reconnect over an open socket. Proof
 \* re-verification is the boundary assumption documented in the map; this
-\* action models the session recheck that precedes it.
+\* action models the session recheck that runs beside it.
 RevalidateSocket ==
     /\ open
     /\ IF CheckSessionLiveness /\ ~sessionLive
