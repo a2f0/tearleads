@@ -140,7 +140,6 @@ test("an equal-time deletion beats a same-page live item and fences it", async (
           parentId: null,
         },
         expectedDormantRecord: null,
-        purgeDormantMetadata: false,
         record: {
           accessEpoch: 1,
           accessStateHash: remoteContainer.metadataAccessStateHash,
@@ -221,7 +220,6 @@ test("an absent access revocation fences another pane's delayed item", async () 
           parentId: null,
         },
         expectedDormantRecord: null,
-        purgeDormantMetadata: false,
         record: {
           accessEpoch: 1,
           accessStateHash: remoteContainer.metadataAccessStateHash,

@@ -97,7 +97,8 @@ Cold state-chain size and verification still grow with retained versions; this
 is not a constant-size proof. Truncating a chain would refuse valid old citations
 or a newer local checkpoint, so this change imposes no read or commit history
 cap. Compact signed chains require separate protocol work;
-[finding #6](https://github.com/a2f0/tearleads/issues/2365) remains open. This
+incremental delivery is tracked in
+[#2392](https://github.com/a2f0/tearleads/issues/2392). This
 tradeoff is accepted for this fix and measured by the load regression.
 
 Both API and SDK memoize verified snapshots by a SHA-256 digest of the actual

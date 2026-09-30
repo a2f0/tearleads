@@ -1,5 +1,6 @@
 export * from "./accessEvent";
 export * from "./accessManifestSnapshot";
+export { ACCESS_MANIFEST_VERIFICATION_REVISION } from "./accessManifestVerificationRevision";
 export * from "./canonical";
 export * from "./checkpoints";
 export * from "./containerAccess";

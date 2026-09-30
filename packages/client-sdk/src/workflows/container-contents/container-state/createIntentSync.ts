@@ -1,3 +1,4 @@
+import { ContainerPathTooDeepError } from "../../../data/containers/shared/containerPathLimits";
 import { errorMessage } from "../../../data/errorMessage";
 import { reportAndRethrowKeyingVerificationError } from "../../../data/keyingProjectionVerification/error";
 import { ContainerCreateIntentSupersededError } from "../../../data/persistence/container-contents/containerIntentPersistence";
@@ -7,6 +8,10 @@ import {
 } from "../metadataStateIsolation";
 import type { ContainerState } from "../remoteHydration";
 import { hasRemoteContainerMetadataState } from "../remoteHydration/reconciliation";
+import {
+  deferTooDeepCreate,
+  recordRefusedTooDeepCreate,
+} from "./createIntentDepth";
 import { settleContainerCreateIntent } from "./createIntentSettlement";
 import { CONTAINER_ALREADY_COMMITTED } from "./createWithMetadata";
 import { createRemoteContainer, deleteRemoteContainer } from "./remote";
@@ -325,6 +330,8 @@ async function createPendingRemoteContainer(input: {
       stillCurrent: syncInput.isCurrent,
     });
   } catch (error) {
+    if (error instanceof ContainerPathTooDeepError)
+      return recordRefusedTooDeepCreate(syncInput);
     return recordContainerCreateFailure({
       error,
       isCurrent: syncInput.isCurrent,
@@ -409,6 +416,10 @@ async function trySyncPendingContainerContentsContainerCreateIntent(
 
   if (!hasRemoteContainerMetadataState(parentState)) {
     return "blocked";
+  }
+
+  if (await deferTooDeepCreate(input)) {
+    return currentCreateResult(input.isCurrent, "blocked");
   }
 
   return createPendingRemoteContainer({

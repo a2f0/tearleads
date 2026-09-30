@@ -12,6 +12,7 @@ import { recordDocumentManifestObservationInTransaction } from "../../../access/
 import { assertOrganizationCanSync } from "../../billing/organizationSyncEligibility";
 import { applyContainerRekeys } from "../../containers/mutations";
 import { assertRosterProfileDocumentIdCanBeCreated } from "../../organizations/rosterProfileBindingInvariant";
+import { markStoredDocumentManifest } from "../markStoredDocumentManifest";
 import { lockDocumentLifecycleInTransaction } from "./documentLifecycleLock";
 import { DocumentMutationError, toMutationError } from "./errors";
 import { uniqueSortedContainerIds } from "./linkSetMutationLocks";
@@ -145,6 +146,7 @@ export async function createDocumentWithExecutor(input: {
       { verifiedManifest: manifest },
       input.executor,
     );
+    await markStoredDocumentManifest(input.executor, manifest.manifestHash);
     await recordDocumentManifestObservationInTransaction(input.executor, {
       documentId: manifest.state.documentId,
       manifestHash: manifest.manifestHash,

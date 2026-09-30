@@ -25,7 +25,7 @@ test("Postgres baseline initializes all tables without application data", async 
     const { rows } = await client.query<{ tablename: string }>(
       "SELECT tablename FROM pg_tables WHERE schemaname = 'public'",
     );
-    expect(rows).toHaveLength(55);
+    expect(rows).toHaveLength(56);
     const nameColumns = await client.query(
       "SELECT table_name FROM information_schema.columns WHERE table_schema = 'public' AND table_name IN ('groups', 'organizations') AND column_name = 'name'",
     );
@@ -75,7 +75,7 @@ test("SQLite baseline initializes all tables without application data", () => {
         "SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' AND name <> '__drizzle_migrations'",
       )
       .all();
-    expect(rows).toHaveLength(55);
+    expect(rows).toHaveLength(56);
     for (const table of ["groups", "organizations"]) {
       const columns = client
         .query<{ name: string }, []>(`PRAGMA table_info('${table}')`)

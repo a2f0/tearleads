@@ -17883,6 +17883,7 @@
                                 "container_ancestor_rekeys_required",
                                 "container_descendant_rekeys_required",
                                 "container_manifest_already_exists",
+                                "container_path_too_deep",
                                 "container_mutation_state_stale"
                               ]
                             },
@@ -20652,6 +20653,7 @@
                                 "container_ancestor_rekeys_required",
                                 "container_descendant_rekeys_required",
                                 "container_manifest_already_exists",
+                                "container_path_too_deep",
                                 "container_mutation_state_stale"
                               ]
                             },
@@ -21734,6 +21736,7 @@
                                 "container_ancestor_rekeys_required",
                                 "container_descendant_rekeys_required",
                                 "container_manifest_already_exists",
+                                "container_path_too_deep",
                                 "container_mutation_state_stale"
                               ]
                             },
@@ -23808,6 +23811,7 @@
                                 "container_ancestor_rekeys_required",
                                 "container_descendant_rekeys_required",
                                 "container_manifest_already_exists",
+                                "container_path_too_deep",
                                 "container_mutation_state_stale"
                               ]
                             },
@@ -25888,6 +25892,7 @@
                                 "container_ancestor_rekeys_required",
                                 "container_descendant_rekeys_required",
                                 "container_manifest_already_exists",
+                                "container_path_too_deep",
                                 "container_mutation_state_stale"
                               ]
                             },
@@ -27336,6 +27341,7 @@
                                 "container_ancestor_rekeys_required",
                                 "container_descendant_rekeys_required",
                                 "container_manifest_already_exists",
+                                "container_path_too_deep",
                                 "container_mutation_state_stale"
                               ]
                             },
@@ -29539,6 +29545,7 @@
                                 "container_ancestor_rekeys_required",
                                 "container_descendant_rekeys_required",
                                 "container_manifest_already_exists",
+                                "container_path_too_deep",
                                 "container_mutation_state_stale"
                               ]
                             },
@@ -30970,6 +30977,7 @@
                                 "container_ancestor_rekeys_required",
                                 "container_descendant_rekeys_required",
                                 "container_manifest_already_exists",
+                                "container_path_too_deep",
                                 "container_mutation_state_stale"
                               ]
                             },

@@ -1,4 +1,3 @@
-import { Buffer } from "node:buffer";
 import { db } from "@tearleads/api-shared/postgres";
 import type { BlobObjectStore } from "../adapters/blobObjectStore";
 import { createDefaultBlobObjectStore } from "../adapters/defaultBlobObjectStore";
@@ -6,6 +5,7 @@ import { del, get, getdel, set } from "../adapters/redis";
 import { publish } from "../adapters/redisPubSub";
 import { createSession } from "../middleware/session";
 import type { PublishedRealtimeEvent } from "../realtime/publishedRealtimeEvents";
+import { readDocumentSyncCursorHmacKey } from "../utils/serverSecrets";
 import type { SessionCreateInput } from "../validators/session";
 
 export interface KeyValueStore {
@@ -30,31 +30,6 @@ export interface ApiServiceRuntime {
   eventPublisher: EventPublisher;
   keyValueStore: KeyValueStore;
   sessionTokenIssuer: SessionTokenIssuer;
-}
-
-const DOCUMENT_SYNC_CURSOR_HMAC_KEY_ENV =
-  "DOCUMENT_SYNC_CURSOR_HMAC_KEY" as const;
-const DEVELOPMENT_DOCUMENT_SYNC_CURSOR_HMAC_KEY =
-  "tearleads-development-document-sync-cursor-key";
-
-export function readDocumentSyncCursorHmacKey(
-  env: NodeJS.ProcessEnv = process.env,
-): string {
-  const configured = env[DOCUMENT_SYNC_CURSOR_HMAC_KEY_ENV]?.trim();
-  if (configured) {
-    if (Buffer.byteLength(configured, "utf8") < 32) {
-      throw new Error(
-        `${DOCUMENT_SYNC_CURSOR_HMAC_KEY_ENV} must be at least 32 bytes`,
-      );
-    }
-    return configured;
-  }
-  if (env.NODE_ENV?.trim() === "production") {
-    throw new Error(
-      `${DOCUMENT_SYNC_CURSOR_HMAC_KEY_ENV} is required when NODE_ENV=production`,
-    );
-  }
-  return DEVELOPMENT_DOCUMENT_SYNC_CURSOR_HMAC_KEY;
 }
 
 function buildDefaultApiServiceRuntime(): ApiServiceRuntime {

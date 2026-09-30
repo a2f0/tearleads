@@ -2,9 +2,11 @@ import { createRuntimePrincipalPolicyWarmer } from "../principals/runtimePolicyW
 import {
   listRemoteContainerIdsWithPendingMetadataUpdates,
   listRemoteContainerIdsWithPendingStructuralIntents,
-  upsertRemoteContainerState,
+  upsertIsolatedRemoteContainerState,
 } from "./remoteContainerState";
 import { containerStateMatchesFingerprint } from "./remoteHydration/containerStateFingerprint";
+import { prefetchDestinationProjections } from "./remoteHydration/destinationPrefetch";
+import { cachedDestinationRole } from "./remoteHydration/destinationRoleCache";
 import { markContainerParentLaneFetched } from "./remoteHydration/laneFetchMarkers";
 import { fetchContainerParentLaneBatch } from "./remoteHydration/parentLaneFetch";
 import { cacheRemoteContainerPrincipalPolicies } from "./remoteHydration/principalPolicyCache";
@@ -79,6 +81,18 @@ async function applyRemoteContainerPage(input: {
   if (input.isCurrent?.() === false) {
     return { changedCount: 0, completed: false };
   }
+  const prefetchedProjections = await prefetchDestinationProjections({
+    containerIds: items.flatMap((item) =>
+      seenContainerIds.has(item.id) ||
+      state.containersById.has(item.id) ||
+      expectedHydrationTombstones.get(item.id) ||
+      cachedDestinationRole(state.runtime.infra.execSql, item)
+        ? []
+        : [item.id],
+    ),
+    isCurrent: input.isCurrent,
+    runtime: state.runtime,
+  });
   for (const container of items) {
     if (input.isCurrent?.() === false) {
       return { changedCount: hydratedCount, completed: false };
@@ -94,7 +108,7 @@ async function applyRemoteContainerPage(input: {
         pageCompleted = false;
         continue;
       }
-      const upserted = await upsertRemoteContainerState({
+      const upserted = await upsertIsolatedRemoteContainerState({
         childIdsByParentId,
         containerIdsWithPendingMetadataUpdates,
         containerIdsWithPendingStructuralIntents,
@@ -102,6 +116,7 @@ async function applyRemoteContainerPage(input: {
         isCurrent: input.isCurrent,
         expectedHydrationTombstone:
           expectedHydrationTombstones.get(container.id) ?? null,
+        prefetchedProjection: prefetchedProjections.get(container.id),
         remoteContainer: container,
         state,
       });

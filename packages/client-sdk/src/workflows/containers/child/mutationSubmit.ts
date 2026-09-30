@@ -4,11 +4,13 @@ import {
   CONTAINER_MUTATION_ERROR_CODES,
   type ContainerRotationResponse,
 } from "@tearleads/validators/response";
+import { ContainerPathTooDeepError } from "../../../data/containers/shared/containerPathLimits";
 import { rememberVerifiedContainerHeads } from "../../../data/containers/shared/heldContainerHeads";
 import {
   acknowledgeContainerMutation,
   acknowledgeContainerMutationBatch,
 } from "../../../data/containers/shared/mutationAcknowledgement";
+import { isContainerPathTooDeepFailure } from "../../../data/containers/shared/mutationFailures";
 import type { ContainerReciteApi } from "../../../data/containers/shared/reciteApi";
 import type {
   ContainerMutationAuthor,
@@ -137,7 +139,12 @@ export async function submitAcknowledgedContainerMutation<
 } | null> {
   if (input.stillCurrent?.() === false) return null;
   const submitted = await submitRotationCarryingDescendants(input);
-  if (!submitted.result.ok) return null;
+  if (!submitted.result.ok) {
+    // Final, unlike the other refusals: a queued move must not retry it.
+    if (isContainerPathTooDeepFailure(submitted.result))
+      throw new ContainerPathTooDeepError();
+    return null;
+  }
   const { carriedPlans } = submitted;
   const response = submitted.result.data;
 

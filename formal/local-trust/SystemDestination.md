@@ -43,10 +43,14 @@ real signatures and SQLite persistence, including an ordinary container and a
 legitimate system container. The crypto
 authorization matrix separately covers an additional direct recipient.
 
-The SDK caches only the immutable role, parent identity, and metadata id of
-verified roots and system containers, with a bounded per-database cache. Grant,
-key and ordinary-container parent state are never cached by this classifier.
-The model covers the immutability requirement for reuse, not cache eviction.
+The SDK caches the immutable role and metadata id of every verified container,
+with a bounded per-database cache scoped by organization and container identity.
+Only roots and system containers also cache their fixed parent. Grant, key and
+ordinary-container parent state are never cached by this classifier. Ordinary
+children now require signed metadata bindings before hydration (finding 15 of
+issue #2365). The model covers root/system classification and immutability for reuse;
+metadata-target authentication, the locally held organization/metadata binding
+and cache eviction are covered by runtime tests, not by this model.
 
 Session root acknowledgements are stored separately from the local root
 awaiting reconciliation. The first login for an organization records the

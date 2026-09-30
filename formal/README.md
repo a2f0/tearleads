@@ -55,6 +55,10 @@ Negative controls do not establish non-vacuity for every property or prove
 that all intended actions are reachable. See the [September 2026 audit](./audit-2026-09.md)
 for the coverage inventory, improvements, and prioritized remaining work.
 
+The [container depth model](./container-keying/ContainerDepth.md) checks that
+create and subtree moves preserve readable paths. Policy revocation is outside
+its boundary. Three negative controls remove the structural mutation guards.
+
 The [F1/F2 gate audit](./verification-gates.md) maps #2192's no-brick and
 verifier-property requirements to executable evidence, records their bounds,
 and identifies the remaining Lean proof and vector work.
@@ -116,6 +120,17 @@ when they were minted: a descendant verifies against any pinned epoch the
 parent's retained history still covers, and the negative control
 `strict-parent-epoch-pin-strands-descendant` reproduces the pre-#2330 rule under
 which an ancestor rotation stranded the subtree.
+
+## Manifest History Availability
+
+[`container-keying/ManifestHistory.tla`](./container-keying/ManifestHistory.tla)
+models read acceptance after cache eviction and enabled revocation. Its positive
+configuration states the intended contract; two negative controls demonstrate
+why a cold-read history cap and a matching mutation cap are both invalid repairs.
+Both availability predicates are true by definition in the positive configuration;
+that run does not explore a verifier algorithm or establish a resource bound.
+Runtime regressions cover real signatures and long histories. See the
+[mapping and resource boundaries](./container-keying/ManifestHistory.md).
 
 ## No Bricked Device
 

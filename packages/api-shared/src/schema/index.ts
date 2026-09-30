@@ -8,6 +8,7 @@ export {
   accessManifestHeads,
   accessManifestPrincipalHeadProjection,
   accessManifests,
+  accessManifestVerifications,
   containerBuiltinGrants,
   documentManifestObservations,
 } from "./accessManifests";

@@ -87,9 +87,9 @@ test("a grant directly below the rotation, or on another branch, owes nothing", 
   expect(owedLevelsOnChain(chain, new Set(["elsewhere"]))).toEqual([]);
 });
 
-// Nothing caps a tree's depth, and the walk is bounded, so a chain it could not
-// follow to the rotation never reaches a rotated id. It must owe nothing rather
-// than refuse: a revocation is never blockable by a tree's shape.
+// Create and move cap tree depth. The bounded walk still fails safe for a
+// malformed stored tree: a chain that never reaches the rotation owes nothing
+// rather than refusing revocation because of the tree's shape.
 
 test("a chain the bounded walk could not finish is never a refusal", () => {
   const truncated = Array.from({ length: 100 }, (_, index) =>

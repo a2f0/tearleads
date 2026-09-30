@@ -41,7 +41,7 @@ async function loadPrincipalPoliciesForContainerPaths(
   return uniquePrincipalPolicies(principalPolicySets.flat());
 }
 
-async function buildContainerMoveRequest(input: {
+export async function buildContainerMoveRequest(input: {
   readonly destinationParent: AccessManifestBundleWire;
   readonly destinationParentKekState: VerifiedContainerKekState;
   readonly destinationParentPath: readonly AccessManifestBundleWire[];

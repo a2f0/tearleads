@@ -53,7 +53,10 @@ import type {
   SaveContainerWithPendingUpdateOptions,
 } from "./containerContentsPersistenceTypes";
 import { deleteStoredContainers } from "./containerDeletionPersistence";
-import { commitStoredHydratedContainer } from "./containerHydrationPersistence";
+import {
+  commitStoredHydratedContainer,
+  loadStoredHeldContainerBinding,
+} from "./containerHydrationPersistence";
 import { containerIntentPersistence } from "./containerIntentPersistence";
 import {
   commitStoredMetadataMutation,
@@ -65,8 +68,11 @@ import {
   saveContainerContentsContainerRows,
   selectContainerMetadataRecord,
 } from "./containerMetadataRows";
+import { abandonStoredMoveIntentRevision } from "./containerMoveAbandonPersistence";
 import { containerPendingUpdatePersistence } from "./containerPendingUpdatePersistence";
+import { rebindStoredHeldContainer } from "./containerRebindPersistence";
 import { containerReconcilePersistence } from "./containerReconcilePersistence";
+import { isSupersededContainerBinding } from "./supersededContainerBindings";
 
 async function saveStoredContainer(
   execSql: Parameters<ContainerContentsPersistence["saveContainer"]>[0],
@@ -181,6 +187,22 @@ export const sqlContainerContentsPersistence: ContainerContentsPersistence = {
         await sqlContainerSyncWatermarkPersistence.ensureSchema(lockedExecSql);
       }),
     );
+  },
+  async loadHeldContainerBinding(execSql, containerId) {
+    await sqlContainerContentsPersistence.ensureSchema(execSql);
+    return loadStoredHeldContainerBinding(execSql, containerId);
+  },
+  async isSupersededContainerBinding(execSql, input) {
+    await sqlContainerContentsPersistence.ensureSchema(execSql);
+    return isSupersededContainerBinding(execSql, input);
+  },
+  async abandonMoveIntentRevision(execSql, input) {
+    await sqlContainerContentsPersistence.ensureSchema(execSql);
+    return abandonStoredMoveIntentRevision(execSql, input);
+  },
+  async rebindHeldContainer(execSql, input) {
+    await sqlContainerContentsPersistence.ensureSchema(execSql);
+    return rebindStoredHeldContainer(execSql, input);
   },
   async loadContainerMetadataRecord(execSql, containerId) {
     await sqlContainerContentsPersistence.ensureSchema(execSql);

@@ -22,12 +22,17 @@ source of truth and the tables are a map to it.
 
 | Limit | Value | Where enforced | Past the limit |
 | --- | --- | --- | --- |
-| Container path depth | 100 levels (`MAX_CONTAINER_PATH_DEPTH`, `MAX_DOCUMENT_SYNC_AUTHORIZATION_PATH_DEPTH`) | API: the recursive CTE in `access/shared/internal/containerKekTargets.ts` stops at depth 100 and rejects parent cycles; `workflows/containers/writerProjection/accessPaths.ts` (409) and the stored path loaders (`object_mismatch`). SDK: `data/keyingProjectionVerification/documentDependencyPaths.ts`. | Refusal for reads and writes that walk the path. Nothing caps depth at container create or move; see the carried-rekey row below for why. |
+| Container path length | 100 containers, including root and leaf (`MAX_CONTAINER_PATH_LENGTH`); depths zero through 99 | API: create and subtree-move checks in `workflows/containers/mutations/shared/containerDepth.ts`, under the organization lock; the CTE in `access/shared/internal/containerKekTargets.ts` and writer/stored path loaders. SDK: local create/move refused before queuing (`workflows/container-contents/container-state/localPathDepth.ts`), plan-time destination prechecks, and `data/keyingProjectionVerification/documentDependencyPaths.ts`. | Final refusal (409 `container_path_too_deep`) before creating an unreadable path. A subtree move checks the deepest descendant, including descendants the caller cannot discover; a queued move refused for that reason is abandoned and its previous placement restored in the same local transaction. |
 
-The depth limit is enforced when a path is walked, not when a tree is built.
-That is intentional: a revocation must never be refusable because of a tree's
-shape, so a walk that cannot follow a chain to its rotated ancestor treats that
-chain as owing nothing rather than refusing the rotation.
+Create and move preserve the reader's structural bound. Policy rotations and
+revocations do not change structure and do not run these depth guards. The
+bounded [container depth model](../formal/container-keying/ContainerDepth.md)
+checks the create and move guards. Readers also refuse
+malformed paths; the ancestor CTE accepts at most 100 containers and rejects
+an unclosed parent at the boundary rather than silently truncating it.
+A queued create whose local path is already too deep waits without a request
+until a local move re-arms it; one a stale local view lets through keeps
+retrying like other permanent server refusals.
 
 ## Container keying
 
@@ -35,14 +40,39 @@ chain as owing nothing rather than refusing the rotation.
 | --- | --- | --- | --- |
 | Carried descendant rekeys per rotation | 64 (`MAX_ROTATION_CONTAINER_REKEYS`, `validators/src/util/containerKekKeyringWire.ts`) | API: `workflows/containers/mutations/shared/grantedPathCurrency.ts` computes the stranded closure and owes only its parent-first prefix; the request schema rejects more. SDK: the proactive carry refuses before signing what the server would refuse. | Lazy remainder. The rotation commits; levels past the prefix stay stale and repair on their next capable write. A writer granted only below one parks with `document_ancestor_repair_inaccessible`. |
 | Inline container rekeys per document or blob write | 16 (`MAX_INLINE_CONTAINER_REKEYS`) | Validators: `request/document.ts`, `request/blob.ts`. | Pagination. The sync pass commits the surplus as standalone rekeys before the write, within the per-pass budget below. |
-| Ancestor repairs committed per sync pass | 100 (reuses `MAX_DOCUMENT_SYNC_AUTHORIZATION_PATH_DEPTH`) | SDK: `workflows/documents/syncContainerRekeyPreparation.ts`. | The pass abandons with the `depth-budget` trace reason; writes stay queued and the next pass continues. |
+| Ancestor repairs committed per sync pass | 100 (reuses `MAX_CONTAINER_PATH_LENGTH`) | SDK: `workflows/documents/syncContainerRekeyPreparation.ts`. | The pass abandons with the `depth-budget` trace reason; writes stay queued and the next pass continues. |
 | Rekeys attempted per pending update row | 5 (`MAX_PENDING_UPDATE_REKEYS`) | SDK: `data/sqlite/documentPendingUpdatePersistence.ts`, persisted so it survives restarts. | The row is left untouched and reported as no progress, so a poisoned update cannot re-key forever. |
 | Consecutive rekey-only sync passes | 3 (`MAX_CONSECUTIVE_REKEY_ONLY_PASSES`) | SDK: `data/sync/outgoingUpdateSettlement.ts`. | The lane goes idle; a later mutation or sync signal retries the pending work. Guards against a server that under-settles without conflicting. |
 | Container key epoch | 65,536 (`MAX_CONTAINER_KEY_EPOCH`) | API at rotation time; response guards on every layer before cryptographic work. | Refusal of the rotation only. Never applied to existing data, so retained ciphertext stays readable. A runaway-rotation backstop, not a use case. |
-| Container recitation epoch | 512 (`MAX_CONTAINER_RECITATION_EPOCH`, `crypto/src/keying/containerAccessReciteBody.ts`) | Crypto: `containerAccess.ts`; the SDK skips signing at the boundary and the API rejects independently. | Refusal. The ceiling is absolute and does not reset on rekey, reserving the history budgets below for ordinary mutations. |
+| Container recitation epoch | 512 (`MAX_CONTAINER_RECITATION_EPOCH`, `crypto/src/keying/containerAccessReciteBody.ts`) | Crypto: `containerAccess.ts`; the SDK skips signing at the boundary and the API rejects independently. | Refusal. The ceiling is absolute and does not reset on rekey, reserving half of the same-epoch history budget below for ordinary mutations. |
 | Same-epoch manifest history per container | 1,024 (`MAX_SAME_EPOCH_MANIFEST_HISTORY`, `api/src/access/shared/internal/containerKekTargets.ts`) | API: the SQL walk that validates key bindings on document and blob writes, with one overflow sentinel. | Refusal (409). Fails closed and requires a rekey, which starts a new same-epoch chain. |
-| Manifest history per container | 4,096 (`MAX_CONTAINER_HISTORY_DEPTH`, `api/src/workflows/containers/writerProjection/storedManifestVerification.ts`) | API: stored manifest verification. | Refusal as an integrity error. |
 | KEK-log page | 256 epochs (`CONTAINER_KEK_LOG_PAGE_LIMIT`) | API: `workflows/containers/kekLog.ts`. | Pagination. Recovery walks from the newest page backward, so page size, not lifetime rotation count, bounds a response. |
+
+Lifetime container and document manifest history has no depth refusal. The API
+verifies retained dependencies iteratively, including ancestor lineage, and
+records each accepted manifest in `access_manifest_verifications`. A container
+mutation marks the manifest it stores, with any unmarked history it depends on,
+under its organization lock; a document mutation marks only its document's
+history. A container or document projection read that verified unmarked
+history writes those markers back after its transaction commits, one autocommit
+upsert per marker; every read path also keeps the markers it computed in a
+bounded per-process cache, so no path re-verifies a history on each request. A
+marker's MAC, keyed from the server-held
+`DOCUMENT_SYNC_CURSOR_HMAC_KEY` (or a per-process key when none is configured),
+binds the manifest hash, a digest of that manifest's complete stored bundle,
+its signer's stored public key, and the crypto and API rule revisions.
+Verification stops at the first valid marker, so each manifest is
+signature-checked about once in its lifetime. A row whose bytes changed, a
+changed signer key or a forged marker makes that manifest verify in full
+wherever the server verifies it; a rotated secret or new rule revision
+re-verifies each object's history once, on its next projection read or
+mutation. Serving a
+writer projection still loads every retained manifest its key history cites,
+in a few batched queries; incremental history delivery is tracked in
+[#2392](https://github.com/a2f0/tearleads/issues/2392). For N ancestor
+manifests, the request-local lineage index uses O(N log N) work and space, with
+O(log N) per lineage query; see
+[the availability model](../formal/container-keying/ManifestHistory.md).
 
 The sealed keyring is 64 bytes per retained epoch and is never truncated, so
 at the epoch cap it is about 4 MB; that is why the KEK log serves at most one
@@ -90,24 +120,20 @@ for the exact-length rule.
 
 The no-bricked-device invariant says no device may be unable to read or write
 because another device must write first. Reads are never affected by any limit
-above: a reader resolves a retired parent pin through retained history. Two
-limits knowingly leave a writer waiting on another device's write, and both
-were chosen so that a revocation can never be refused because of a tree's
-size or shape:
+above: a reader resolves a retired parent pin through retained history. The carried-rekey
+limit can leave a writer waiting on another device's write so that a
+revocation is never refused because of a tree's size:
 
 - **Carried descendant rekeys past 64.** Levels beyond the parent-first prefix
   stay stale after the rotation commits. A writer granted only below such a
   level cannot re-key it and must not be handed its key, so it parks under
   `document_ancestor_repair_inaccessible` until a member with access at that
   level writes there.
-- **Container path depth past 100.** A grant whose chain the bounded ancestry
-  walk cannot follow to the rotated container is treated as owing nothing, so
-  the same levels stay stale the same way.
 
-Inside both bounds, the model in
+Within the carried-rekey bound, the model in
 [InaccessibleIntermediateRepair.md](../formal/container-keying/InaccessibleIntermediateRepair.md)
 proves the writer is eventually unblocked with fairness only on its own step.
-Outside them, that model's `rotation-without-descendant-repairs-bricks-leaf-writer`
+Outside it, that model's `rotation-without-descendant-repairs-bricks-leaf-writer`
 control is the exact behaviour, and it violates the liveness property by
 design. Nothing schedules the lazy repair; whichever capable member writes
 beneath the stale level first performs it. See

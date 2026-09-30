@@ -31,7 +31,7 @@ import {
   createSqlRuntime,
   runtimeWithPatch,
 } from "../../../test/helpers/explorer-provider/explorerProviderHarness";
-import { createSignedExplorerRoots } from "../../../test/helpers/explorer-provider/signedExplorerRoots";
+import { createSignedExplorerDirectory } from "../../../test/helpers/explorer-provider/signedExplorerDirectory";
 import { waitForCondition } from "../../../test/helpers/waitForCondition";
 
 test("explorer hydration repairs stale local timestamps for remote containers without pending metadata", async () => {
@@ -113,11 +113,23 @@ test("explorer hydration repairs stale local timestamps for remote containers wi
   runtime = runtimeWithPatch(runtime, {
     apiClient: createMockApiClient({
       ...runtime.apiClient,
-      ...(await createSignedExplorerRoots([
+      ...(await createSignedExplorerDirectory([
         {
           id: "shared-root-container",
           organizationId: "org-2",
           metadataDocumentId: "shared-root-metadata-document",
+        },
+        {
+          id: "shared-child-container",
+          metadataDocumentId: "shared-child-metadata-document",
+          organizationId: "org-2",
+          parentId: "shared-root-container",
+        },
+        {
+          id: "shared-child-container-b",
+          metadataDocumentId: "shared-child-b-metadata-document",
+          organizationId: "org-2",
+          parentId: "shared-root-container",
         },
       ])),
       listContainerParentLanes: createContainerParentLaneBatchMock(

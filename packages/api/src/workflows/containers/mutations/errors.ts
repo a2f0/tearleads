@@ -12,6 +12,7 @@ import {
   isSerializationFailure,
   isUniqueViolation,
 } from "../../../utils/databaseErrors";
+import { ContainerWriterProjectionError } from "../writerProjection/types";
 import type { ContainerMutationStatus } from "./types";
 
 type ContainerMutationErrorBody =
@@ -69,6 +70,19 @@ export function containerUnavailable(label: string): ContainerMutationError {
 }
 
 /**
+ * A create or move would leave a path longer than readers accept. Coded so a
+ * client can tell the same request never succeeds: it abandons a queued move
+ * and keeps a queued create until a local move re-arms it.
+ */
+export function containerPathTooDeep(): ContainerMutationError {
+  const message = "Container path exceeds maximum depth";
+  return new ContainerMutationError(message, 409, {
+    code: CONTAINER_MUTATION_ERROR_CODES.pathTooDeep,
+    error: message,
+  });
+}
+
+/**
  * A rotation would leave `requiredContainerIds` (parent-first) pinned to a
  * retired epoch above a directly granted container. Not `state_stale`:
  * refetching cannot help, the client must sign and carry those re-keys.
@@ -112,6 +126,17 @@ export function toMutationError(error: unknown): ContainerMutationError | null {
     return new ContainerMutationError(
       error.message,
       keyingVerificationHttpStatus(error),
+    );
+  }
+
+  // Writer-projection work a mutation runs, such as stored-history
+  // verification for its write-time marking and the citations its KEK check
+  // reads. A missing stored row is no proof the container is gone, so it never
+  // reaches the client as a 404.
+  if (error instanceof ContainerWriterProjectionError) {
+    return new ContainerMutationError(
+      error.message,
+      error.status === 404 ? 409 : error.status,
     );
   }
 

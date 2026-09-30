@@ -3,7 +3,7 @@ import type {
   DocumentSummary,
 } from "@tearleads/client-sdk";
 import type { ReactNode } from "react";
-import { useCallback, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import type { AvatarUrlByContactId } from "../../../document-types/contact/useContactAvatarUrls";
 import {
   type RuntimeSnapshot,
@@ -259,6 +259,15 @@ export function useExplorerPanelState(params: {
     toggleCollapsed: selection.toggleCollapsed,
     treeEntries,
   });
+  // The banner setter comes from the modal controller built below; the ref
+  // keeps this callback stable across renders.
+  const backgroundErrorRef = useRef<(message: string | null) => void>(
+    () => undefined,
+  );
+  const reportBackgroundError = useCallback(
+    (message: string | null) => backgroundErrorRef.current(message),
+    [],
+  );
   // The container trash lifecycle: move-to-trash plus the long-running "Delete
   // Forever" / "Empty Trash" purge run (its own progress + cancel modal).
   const { moveContainerToTrash, purgeRun, startContainerPurge } =
@@ -266,6 +275,7 @@ export function useExplorerPanelState(params: {
       appData,
       explorer,
       onSettled: bumpDocumentListRevision,
+      reportBackgroundError,
       selectExplorerItem: routeState.selectExplorerItem,
     });
   const modalState = useExplorerDocumentModalState({
@@ -285,6 +295,9 @@ export function useExplorerPanelState(params: {
     startContainerPurge,
     startEmptyTrash: purgeRun.startEmptyTrash,
   });
+  useEffect(() => {
+    backgroundErrorRef.current = modalState.setBackgroundActionError;
+  }, [modalState.setBackgroundActionError]);
   const initialDocumentEditing = useInitialDocumentEditing();
   const selectedDocumentStartsInEditMode =
     initialDocumentEditing.documentStartsInEditMode(

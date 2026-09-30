@@ -47,8 +47,8 @@
       "bytes": 18865
     },
     "docs/developer/client-sdk.md": {
-      "lines": 781,
-      "bytes": 40845
+      "lines": 785,
+      "bytes": 41152
     },
     "docs/developer/revenuecat-native-stores.md": {
       "lines": 364,
@@ -71,16 +71,16 @@
       "bytes": 23535
     },
     "docs/openapi.json": {
-      "lines": 71213,
-      "bytes": 2994905
+      "lines": 71221,
+      "bytes": 2995377
     },
     "docs/protocol-specification.md": {
       "lines": 658,
       "bytes": 33660
     },
     "docs/security-guarantees.md": {
-      "lines": 824,
-      "bytes": 47641
+      "lines": 833,
+      "bytes": 48219
     },
     "formal/document-sync/BaselineDominanceTraces.json": {
       "lines": 2059,
@@ -103,8 +103,8 @@
       "bytes": 23585
     },
     "packages/api/src/access/shared/internal/containerKekTargets.ts": {
-      "lines": 626,
-      "bytes": 19595
+      "lines": 636,
+      "bytes": 20007
     },
     "packages/api/src/access/shared/internal/documentContentKeyStore.ts": {
       "lines": 770,
@@ -174,10 +174,6 @@
       "lines": 1299,
       "bytes": 39259
     },
-    "packages/api/src/workflows/containers/mutations/shared/persistence.ts": {
-      "lines": 655,
-      "bytes": 19073
-    },
     "packages/api/src/workflows/documents/writerProjection.ts": {
       "lines": 700,
       "bytes": 22229
@@ -211,8 +207,8 @@
       "bytes": 17705
     },
     "packages/app/src/mini-apps/explorer/labelCatalog.ts": {
-      "lines": 464,
-      "bytes": 21157
+      "lines": 467,
+      "bytes": 21329
     },
     "packages/app/src/mini-apps/explorer/sidebar/ExplorerTree.test.tsx": {
       "lines": 624,
@@ -255,8 +251,8 @@
       "bytes": 16859
     },
     "packages/client-sdk/src/index.ts": {
-      "lines": 541,
-      "bytes": 15812
+      "lines": 542,
+      "bytes": 15841
     },
     "packages/client-sdk/src/stores/container-contents/containerContentsStore.rootRefresh.test.ts": {
       "lines": 592,
@@ -267,8 +263,8 @@
       "bytes": 18896
     },
     "packages/client-sdk/src/workflows/README.md": {
-      "lines": 312,
-      "bytes": 23452
+      "lines": 310,
+      "bytes": 23649
     },
     "packages/client-sdk/src/workflows/blobs/hydrate.test.ts": {
       "lines": 572,
@@ -336,7 +332,7 @@
     },
     "packages/validators/src/operation/generatedOpenApi.ts": {
       "lines": 26376,
-      "bytes": 1107288
+      "bytes": 1107512
     },
     "packages/validators/src/response/index.ts": {
       "lines": 513,
@@ -347,8 +343,8 @@
       "bytes": 17549
     },
     "scripts/architecture/subsystems.ts": {
-      "lines": 766,
-      "bytes": 28669
+      "lines": 770,
+      "bytes": 28936
     }
   },
   "suppressions": {

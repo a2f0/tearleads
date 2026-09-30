@@ -12,6 +12,7 @@ import { assertOrganizationCanSync } from "../../../billing/organizationSyncElig
 import { lockOrganizationReadModelHeadForUpdateInTransaction } from "../../../organizations/readModelChanges";
 import { lockAndFindMissingGroupReferencesInTransaction } from "../../../principals/groupReferenceLock";
 import { createContainerWriterProjectionContext } from "../../writerProjection";
+import { loadKekCreationCitations } from "../../writerProjection/kekCreationCitations";
 import { ContainerMutationError } from "../errors";
 import type {
   ContainerMutationContext,
@@ -440,6 +441,10 @@ export async function mutateContainerWithExecutor(
     previousManifest: artifacts.previousManifest,
   });
   await assertMutationHeadCanAdvance(context, artifacts.manifest);
+  await loadKekCreationCitations(context.writerProjectionContext, [
+    artifacts.manifest,
+    ...(artifacts.containerManifestHistory ?? []),
+  ]);
   const verifiedKekMutation = await verifyContainerKekFromRequest(
     context.executor,
     input.request,

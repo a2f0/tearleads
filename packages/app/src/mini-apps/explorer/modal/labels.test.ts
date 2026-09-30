@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+import { ContainerPathTooDeepError } from "@tearleads/client-sdk";
 import {
   getExplorerModalError,
   getExplorerModalLog,
@@ -160,4 +161,17 @@ test("submit disabled state enforces mode-specific requirements", () => {
       peerUserId: "peer-user",
     }),
   ).toBe(false);
+});
+
+test("a path-length refusal names the reason instead of the generic failure", () => {
+  const refusal = new ContainerPathTooDeepError();
+  expect(getExplorerModalError("move", refusal)).toBe(
+    "This folder would be nested too deeply.",
+  );
+  expect(getExplorerModalError("create-child", refusal)).toBe(
+    "This folder would be nested too deeply.",
+  );
+  expect(getExplorerModalError("move", new Error("offline"))).toBe(
+    "Failed to move container.",
+  );
 });

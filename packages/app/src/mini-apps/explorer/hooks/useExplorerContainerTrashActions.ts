@@ -1,3 +1,4 @@
+import { ContainerPathTooDeepError } from "@tearleads/client-sdk";
 import { useCallback } from "react";
 import type { RuntimeSnapshot } from "../../../providers/sdk/TearleadsProvider";
 import { isExplorerContainerUnderTrash } from "../../../stores/explorer/ExplorerSystemContainers";
@@ -5,6 +6,7 @@ import {
   resolveDeleteToTrashTarget,
   TrashUnavailableError,
 } from "../../../stores/systemContainerTrash";
+import { EXPLORER_LABELS } from "../labels";
 import {
   type ExplorerPurgeRun,
   useExplorerPurgeRun,
@@ -47,6 +49,8 @@ interface UseExplorerContainerTrashActionsParams {
   // drops destroyed rows (the recursive purge only bumps the sidebar-tree
   // snapshot, not the document list).
   onSettled: () => void;
+  /** Tells the user why a move to Trash was refused (the explorer banner). */
+  reportBackgroundError?: ((message: string | null) => void) | undefined;
   selectExplorerItem: (containerId: string) => void;
 }
 
@@ -62,7 +66,13 @@ interface ExplorerContainerTrashActions {
 export function useExplorerContainerTrashActions(
   params: UseExplorerContainerTrashActionsParams,
 ): ExplorerContainerTrashActions {
-  const { appData, explorer, onSettled, selectExplorerItem } = params;
+  const {
+    appData,
+    explorer,
+    onSettled,
+    reportBackgroundError,
+    selectExplorerItem,
+  } = params;
 
   const purgeRun = useExplorerPurgeRun({
     emptyTrash: explorer.emptyTrash,
@@ -141,6 +151,9 @@ export function useExplorerContainerTrashActions(
           "Failed to move explorer container to trash",
           error,
         );
+        // Delete Forever still works; say so instead of failing silently.
+        if (error instanceof ContainerPathTooDeepError)
+          reportBackgroundError?.(EXPLORER_LABELS.trashNestedTooDeeply);
         return null;
       }
     },
@@ -148,6 +161,7 @@ export function useExplorerContainerTrashActions(
       appData.auth.organizationId,
       appData.util.logError,
       explorer,
+      reportBackgroundError,
       selectExplorerItem,
     ],
   );

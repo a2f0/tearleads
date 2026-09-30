@@ -16,11 +16,13 @@ import {
   lockOrganizationReadModelHeadForUpdateInTransaction,
 } from "../../organizations/readModelChanges";
 import { createContainerWriterProjectionContext } from "../writerProjection";
+import { markStoredContainerManifest } from "../writerProjection/markStoredManifest";
 import {
   mutationStateStale,
   runConflictBoundary,
   toMutationError,
 } from "./errors";
+import { persistContainerStructure } from "./shared/containerStructure";
 import {
   assertAccessEventDependenciesMatchRequest,
   verifyMutationEvent,
@@ -32,7 +34,6 @@ import {
   assertMutationHeadCanAdvance,
   verifyContainerManifestFromRequest,
 } from "./shared/manifests";
-import { persistContainerStructure } from "./shared/persistence";
 import { assertPrincipalPoliciesCurrent } from "./shared/principalPolicies";
 import { principalPoliciesFromRequest } from "./shared/principalPolicyRecords";
 import { resolveVerifiedStoredContainerManifest } from "./shared/storedManifestArtifacts";
@@ -103,6 +104,7 @@ async function persistRecitation(
   );
   if (manifestHead.manifestHash !== manifest.manifestHash)
     throw mutationStateStale("Container manifest head is stale");
+  await markStoredContainerManifest(context.executor, manifest.manifestHash);
   // No KEK, wrap, grant, parent edge, or tombstone changes accompany a re-cite.
   // The grants read model includes metadataAccessStateHash from the current
   // manifest head (organizations/containerGrants.ts), so omitting this lane

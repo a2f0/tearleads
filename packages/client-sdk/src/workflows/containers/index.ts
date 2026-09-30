@@ -1,6 +1,9 @@
 // Refusals the SDK raises before it encrypts or sends a container-scoped
 // write; hosts classify them with classifyContainerWriteRefusal.
 export { ContainerAuthorAccessError } from "../../data/containers/shared/authorAccess";
+// A create or move past the readable path length; `code` is
+// `container_path_too_deep`. Queued moves are abandoned, queued creates wait.
+export { ContainerPathTooDeepError } from "../../data/containers/shared/containerPathLimits";
 export type { ContainerReciteApi } from "../../data/containers/shared/reciteApi";
 export type {
   ContainerMutationAuthor,

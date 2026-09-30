@@ -20,6 +20,7 @@ import type {
   ContainerWriterProjectionResponse,
 } from "@tearleads/validators/response";
 import { assertContainerAuthorAccess } from "../../../data/containers/shared/authorAccess";
+import { assertContainerChildPathFits } from "../../../data/containers/shared/containerPathLimits";
 import {
   asContainerManifestBundle,
   getTargetContainerContext,
@@ -284,6 +285,9 @@ async function buildMaterializedContainerMovePlan(
     targetSecretKey: input.targetSecretKey,
     warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
   });
+  // Only a verified path is a final depth refusal; a padded unverified path
+  // must fail verification (an incident), never look like an honest refusal.
+  assertContainerChildPathFits(input.destinationParentProjection.path);
   const { destinationState, previousState } = readContainerMoveStates({
     authorOrganizationId: input.author.organizationId,
     destinationParent,

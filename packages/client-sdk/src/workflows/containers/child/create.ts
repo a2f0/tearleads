@@ -16,6 +16,7 @@ import type {
   ContainerWriterProjectionResponse,
 } from "@tearleads/validators/response";
 import { assertContainerAuthorAccess } from "../../../data/containers/shared/authorAccess";
+import { assertContainerChildPathFits } from "../../../data/containers/shared/containerPathLimits";
 import {
   buildContainerCreateBody,
   buildContainerCreateKeyEpoch,
@@ -321,6 +322,8 @@ export async function buildMaterializedContainerCreatePlan(
   });
   const parent = getParentCreateContext(input.parentProjection);
   requireUnwrappedKek(parentKeksByEpochId, parent.kek, "Container parent");
+  // Checked on the path verification just accepted, never on the raw response.
+  assertContainerChildPathFits(input.parentProjection.path);
   const principalPolicies = input.resolveProjectionUserKey
     ? await collectContainerWriterProjectionPrincipalPolicies({
         execSql: input.execSql,

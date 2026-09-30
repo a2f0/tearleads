@@ -4,7 +4,7 @@ import {
   accessManifestHeads,
   containers,
 } from "@tearleads/api-shared/schema";
-import { MAX_DOCUMENT_SYNC_AUTHORIZATION_PATH_DEPTH } from "@tearleads/validators/util";
+import { MAX_CONTAINER_PATH_LENGTH } from "@tearleads/validators/util";
 import { and, eq, gte, inArray, sql } from "drizzle-orm";
 import { getCurrentContainerKeyEpochPins } from "../../../../access/read/containerKekStore";
 import { uuidValue } from "../../../../utils/sqlDialect";
@@ -46,9 +46,9 @@ export function requiredCarriedRekeys(input: {
  *
  * `chain` runs from the grant's parent upward. A chain the bounded walk could
  * not follow to a rotated container owes nothing, exactly like overflow past
- * the carried-rekey cap: those levels repair lazily. Nothing caps a tree's
- * depth at create or move, and a revocation must never be blockable by a
- * tree's shape, so an over-deep chain is never a refusal.
+ * the carried-rekey cap: those levels repair lazily. Create and move enforce
+ * the readable depth, so this remains a fail-safe for malformed stored trees.
+ * A revocation must never be blockable by a tree's shape.
  */
 export function owedLevelsOnChain<T extends { readonly id: string }>(
   chain: readonly T[],
@@ -137,7 +137,7 @@ async function loadAncestry(
         from ${containers} parent
         inner join ancestry on parent.id = ancestry.parent_id
         where ancestry.depth > ${stopDepth}
-          and ancestry.distance < ${MAX_DOCUMENT_SYNC_AUTHORIZATION_PATH_DEPTH}
+          and ancestry.distance < ${MAX_CONTAINER_PATH_LENGTH}
       )
       select distinct id, parent_id, depth from ancestry
     `);
