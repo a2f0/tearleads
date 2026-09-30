@@ -114,6 +114,22 @@ export const ATTACHMENT_NEGATIVE_CONTROLS: readonly NegativeControl[] = [
     why: "Another facade can install newer bytes while an older view is still hydrating.",
   },
   {
+    id: "reclaim-deletes-held-shared-copy",
+    module: "formal/document-sync/SharedCopyReclaim.tla",
+    config: "formal/document-sync/SharedCopyReclaim.cfg",
+    constants: { CheckReferences: "FALSE" },
+    expect: { kind: "invariant", name: "HeldCopyPresent" },
+    why: "Deleting one slot's row must not delete a hydrated copy another slot still holds (#2365 finding 18).",
+  },
+  {
+    id: "reclaim-races-rehydration",
+    module: "formal/document-sync/SharedCopyReclaim.tla",
+    config: "formal/document-sync/SharedCopyReclaim.cfg",
+    constants: { LockReclaim: "FALSE" },
+    expect: { kind: "invariant", name: "HeldCopyPresent" },
+    why: "A slot re-hydrated between the reclaim's reference check and its delete must keep its bytes.",
+  },
+  {
     id: "blob-bind-without-source-authority",
     module: "formal/blob-attachments/BlobSourceAuthority.tla",
     config: "formal/blob-attachments/BlobSourceAuthority.cfg",

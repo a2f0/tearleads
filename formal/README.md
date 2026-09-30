@@ -279,6 +279,8 @@ read cannot retire a replacement store generation.
 [`document-sync/AttachmentContentIdentity.tla`](./document-sync/AttachmentContentIdentity.tla)
 models authenticated attachment intent and concurrent hydration. See the
 [mapping and boundaries](./document-sync/AttachmentContentIdentity.md).
+[SharedCopyReclaim](./document-sync/SharedCopyReclaim.md) checks that deleting
+one slot's row keeps a hydrated copy another slot still holds.
 
 ## Historical Write Authority and Organization Scope
 

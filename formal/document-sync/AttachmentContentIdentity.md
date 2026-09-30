@@ -29,7 +29,8 @@ of when unrelated document edits advanced the frontier.
 The model checks both current-view intent and preservation of a newer durable
 copy installed by another facade. Each guard has a registered negative control.
 It abstracts authenticated document history, signature verification, collision
-resistance, encryption, and storage keys unique to each replacement. Different
+resistance and encryption. Hydrated copies share one storage key per blob across
+slots; [SharedCopyReclaim](./SharedCopyReclaim.md) checks their deletion. Different
 bindings carrying identical plaintext represent the same content identity.
 Missing or mismatching bytes are availability failures: a document update can
 arrive before its attachment upload. The model proves safety, not eventual
