@@ -28,12 +28,6 @@ export type DiscardDocumentToShellResult =
   | {
       discarded: true;
       documentKind: StoredDocumentKind;
-      /**
-       * Storage keys whose rows the discard deleted — staged uploads plus
-       * detached local-attachment markers. Those rows were the only durable
-       * pointers to the bytes, so the caller reclaims them.
-       */
-      reclaimableBlobStorageKeys: ReadonlyArray<string>;
     };
 
 export interface PendingUpdateInsert extends PendingUpdateFields {

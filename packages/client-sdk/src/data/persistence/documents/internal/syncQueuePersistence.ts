@@ -26,6 +26,7 @@ import {
   mapPendingAttachmentRecord,
 } from "./attachmentRows";
 import { getDocumentScope } from "./documentRows";
+import { queueDocumentAttachmentStorageKeys } from "./orphanSideRows";
 
 type DocumentSyncQueuePersistence = Pick<
   DocumentsPersistence,
@@ -190,6 +191,9 @@ export const documentSyncQueuePersistence: DocumentSyncQueuePersistence = {
           ),
         )
         .run();
+      // Another slot may hold the same hydrated copy; the reclaim deletes
+      // the bytes only once no row references them.
+      await queueDocumentAttachmentStorageKeys(db, [storageKey]);
     });
   },
   async markLocalAttachmentDetached(execSql, localId, slotId, storageKey) {

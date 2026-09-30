@@ -40,6 +40,7 @@ function createRuntime(
         deleteBytes: async (storageKey: string) => {
           deletedBlobStorageKeys.push(storageKey);
         },
+        openByteSource: async () => null,
       },
       dbStatus: "ready",
       documentProjectors: {
@@ -340,23 +341,22 @@ test("a failing byte store cannot fail the discard once rows committed", async (
       storageKey: "staged-storage-key",
     });
     const state = createStoreState(execSql, localId);
-    let deleteAttempts = 0;
     (
       state.runtime.infra.blobStore as {
         deleteBytes: (storageKey: string) => Promise<void>;
       }
     ).deleteBytes = async () => {
-      deleteAttempts += 1;
       throw new Error("byte store unavailable");
     };
 
-    // The pointer rows are already gone when reclaim runs, so a rejecting
-    // byte store must not turn a committed discard into a reported failure.
-    // The delete is retried, then the orphaned key is logged for diagnostics.
+    // A rejecting byte store must not turn a committed discard into a
+    // reported failure; the key stays queued for a later reclaim.
     expect(await discardDocumentStoreLocalState(state, "remote-doc")).toBe(
       true,
     );
-    expect(deleteAttempts).toBeGreaterThan(1);
+    expect(
+      await execSql("SELECT storage_key FROM document_orphan_blob_reclaims"),
+    ).toEqual([{ storage_key: "staged-storage-key" }]);
     const shell = await sqlDocumentsPersistence.loadDocument(execSql, localId);
     expect(shell?.snapshotEndVersion).toBe("");
     expect(
