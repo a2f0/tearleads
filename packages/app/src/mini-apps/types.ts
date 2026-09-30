@@ -1,14 +1,22 @@
 import type { ComponentType } from "react";
 
-export type MiniAppId =
-  | "backup-restore"
-  | "contacts"
-  | "explorer"
-  | "identity-manager"
-  | "notes"
-  | "org-manager"
-  | "root"
-  | "system-monitor";
+const MINI_APP_IDS = [
+  "backup-restore",
+  "contacts",
+  "explorer",
+  "identity-manager",
+  "notes",
+  "org-manager",
+  "root",
+  "system-monitor",
+] as const;
+
+export type MiniAppId = (typeof MINI_APP_IDS)[number];
+
+// Window state stores an app id as an opaque string; narrow it back here.
+export function isMiniAppId(value: string | undefined): value is MiniAppId {
+  return MINI_APP_IDS.some((appId) => appId === value);
+}
 
 export interface MiniAppDefinition {
   createComponent: () => ComponentType;

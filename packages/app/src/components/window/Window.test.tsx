@@ -1,6 +1,6 @@
 import { afterEach, expect, test } from "bun:test";
 import { cleanup, fireEvent, render, waitFor } from "@testing-library/react";
-import { useEffect, useMemo, useState } from "react";
+import { type PropsWithChildren, useEffect, useMemo, useState } from "react";
 import {
   MiniAppClipboardButton,
   MiniAppImageViewer,
@@ -11,6 +11,7 @@ import { useWindowSidebar } from "./WindowSidebarContext";
 import {
   useWindowActions,
   useWindowStateData,
+  type WindowEntry,
   WindowStateProvider,
 } from "./WindowStateProvider";
 
@@ -157,6 +158,53 @@ function WindowViewerHarness({
     </div>
   );
 }
+
+function HostBoundary({
+  children,
+  entry,
+}: PropsWithChildren<{ entry: WindowEntry }>) {
+  return (
+    <section aria-label={`boundary for ${entry.appId}`}>{children}</section>
+  );
+}
+
+function BoundaryHarness() {
+  const { windows } = useWindowStateData();
+  const { create } = useWindowActions();
+
+  useEffect(() => {
+    function Content() {
+      return <p>window content</p>;
+    }
+
+    create("Owned", 0, 0, Content, { appId: "host-app" });
+  }, [create]);
+
+  return (
+    <div>
+      {windows.map((window) => (
+        <Window
+          key={window.id}
+          ContentBoundary={HostBoundary}
+          windowId={window.id}
+        />
+      ))}
+    </div>
+  );
+}
+
+test("a host's content boundary wraps the window content with its entry", async () => {
+  const view = render(
+    <WindowStateProvider>
+      <BoundaryHarness />
+    </WindowStateProvider>,
+  );
+
+  const boundary = await view.findByRole("region", {
+    name: "boundary for host-app",
+  });
+  expect(boundary.textContent).toBe("window content");
+});
 
 test("maximizing a background window brings it to the front", async () => {
   const view = render(

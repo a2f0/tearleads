@@ -6,11 +6,11 @@ import {
   render,
   waitFor,
 } from "@testing-library/react";
-import { Window } from "../components/window/Window";
 import {
   useWindowStateData,
   WindowStateProvider,
 } from "../components/window/WindowStateProvider";
+import { MiniAppWindow } from "../mini-apps/MiniAppWindow";
 import type { MiniAppDefinition, MiniAppId } from "../mini-apps/types";
 import {
   AppNavigationProvider,
@@ -131,8 +131,8 @@ function NavigationProbe() {
         {contactsRoute.pathSegments.join("/")}
       </div>
       <div data-testid="window-count">{windows.length}</div>
-      {windows.map((windowEntry) => (
-        <Window key={windowEntry.id} windowId={windowEntry.id} />
+      {windows.map((entry) => (
+        <MiniAppWindow key={entry.id} windowId={entry.id} />
       ))}
     </>
   );
