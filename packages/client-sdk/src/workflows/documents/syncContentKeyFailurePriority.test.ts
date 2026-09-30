@@ -55,6 +55,7 @@ test.each([
     );
     const error = await unwrapDocumentContentKeyFromBundle(
       await bundleWithTargets([firstTarget, secondTarget]),
+      "document-id",
       new Map(),
       new Map([
         [availabilityTarget.containerKeyEpochId, unavailable],

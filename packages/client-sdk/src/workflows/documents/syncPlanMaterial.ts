@@ -310,6 +310,7 @@ async function resolveSyncPlanContentMaterial(
     try {
       staleContentKey = await unwrapDocumentContentKeyFromBundle(
         input.writerProjection.contentKeyBundle,
+        input.writerProjection.documentId,
         collectedKeks.keksByEpochId,
         collectedKeks.predecessorFailuresByEpochId,
         collectedKeks.unattributedPredecessorFailuresByContainerId,
@@ -344,6 +345,7 @@ async function resolveSyncPlanContentMaterial(
   const normalMaterial: ResolvedSyncPlanContentMaterial = {
     contentKey: await unwrapDocumentContentKeyFromBundle(
       input.writerProjection.contentKeyBundle,
+      input.writerProjection.documentId,
       collectedKeks.keksByEpochId,
       collectedKeks.predecessorFailuresByEpochId,
       collectedKeks.unattributedPredecessorFailuresByContainerId,

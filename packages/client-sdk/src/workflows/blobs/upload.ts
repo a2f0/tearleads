@@ -92,7 +92,9 @@ async function buildBlobAttachmentMaterial(
     contentKeyEpoch: input.contentKeyEpoch,
     targetHash,
     targets: await wrapBlobContentKey({
+      blobId: input.blobId,
       contentKey: input.contentKey,
+      contentKeyEpoch: input.contentKeyEpoch,
       execSql: input.execSql,
       secretKey: input.targetSecretKey,
       targets,

@@ -734,7 +734,8 @@ suite identifiers are:
   `tearleads.container-kek-wrap.aes-256-gcm-predecessor-kek`
 
 Document and blob content-key target envelopes carry `wrappingMetadata.suite`
-and an AES-GCM IV. Container KEK wraps are an existing wire format without a
+and an AES-GCM IV; the AAD binds suite, object id, content-key epoch and
+target. Container KEK wraps are an existing wire format without a
 separate suite field: `recipientKind` selects the user/managed-principal
 ML-KEM wrap path or the parent-container ML-KEM wrap path.
 

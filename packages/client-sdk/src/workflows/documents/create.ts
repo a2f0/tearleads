@@ -60,8 +60,14 @@ export async function buildMaterializedDocumentCreatePlan(
   if (contentKey.byteLength !== 32) {
     throw new Error("Document content key must be 32 bytes");
   }
+  // Resolved before wrapping: each envelope is sealed to its document and
+  // content-key epoch.
+  const documentId = input.documentId ?? crypto.randomUUID();
+  const contentKeyEpoch = input.contentKeyEpoch ?? 1;
   const targetEnvelopes = await wrapDocumentContentKeyForCreate({
     contentKey,
+    contentKeyEpoch,
+    documentId,
     execSql: input.execSql,
     knownContainerKeks: input.knownContainerKeks,
     persistVerificationCheckpoints: input.persistVerificationCheckpoints,
@@ -93,10 +99,8 @@ export async function buildMaterializedDocumentCreatePlan(
   const plan = await buildDocumentCreatePlan({
     author: input.author,
     containerProjection: input.containerProjection,
-    ...(input.contentKeyEpoch === undefined
-      ? {}
-      : { contentKeyEpoch: input.contentKeyEpoch }),
-    ...(input.documentId === undefined ? {} : { documentId: input.documentId }),
+    contentKeyEpoch,
+    documentId,
     ...(input.eventId === undefined ? {} : { eventId: input.eventId }),
     ...(input.signedAt === undefined ? {} : { signedAt: input.signedAt }),
     targetEnvelopes,

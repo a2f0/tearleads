@@ -161,6 +161,7 @@ for (const grantKind of ["user", "group"] as const) {
         trustedLocalProjection: true,
         writerProjection: {
           authorizingContainerPaths: [projection],
+          documentId: DOCUMENT_ID,
         } as unknown as DocumentWriterProjectionResponse,
       });
 
@@ -290,6 +291,7 @@ test("an interrupted client warms a rotated-group policy and recovers in the sam
       trustedLocalProjection: true,
       writerProjection: {
         authorizingContainerPaths: [rootOnlyProjection(rotated, [currentWrap])],
+        documentId: DOCUMENT_ID,
       } as unknown as DocumentWriterProjectionResponse,
     });
     const decrypted = await decryptDocumentSyncUpdatesByEpoch({

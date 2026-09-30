@@ -160,6 +160,7 @@ export async function prepareDocumentAttachmentBlobDecryption({
     documentId,
   });
   const contentKey = await unwrapBlobContentKey({
+    blobId: binding.blobId,
     contentKeyBundle: binding.contentKeyBundle,
     documentId,
     encrypted,

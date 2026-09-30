@@ -1,8 +1,8 @@
 import { expect, test } from "bun:test";
 import {
   computeDocumentContentKeyTargetHash,
-  decryptWithDek,
   normalizeDocumentAccessEventBody,
+  unwrapContentKey,
 } from "@tearleads/crypto";
 import { base64ToBytes } from "@tearleads/encoding";
 import { createMockApiClient } from "@tearleads/test-utils";
@@ -102,18 +102,26 @@ for (const steer of [false, true]) {
               const body = normalizeDocumentAccessEventBody(
                 readCanonicalJson(request.body, "link body"),
               );
-              const target = body.blobRewraps[0]?.targets.find(
+              const rewrap = body.blobRewraps[0];
+              const target = rewrap?.targets.find(
                 (entry) => entry.containerId === retiredTarget.containerId,
               );
-              if (!target) throw new Error("Expected B's envelope");
+              if (!rewrap || !target) throw new Error("Expected B's envelope");
               if (steer) {
                 const metadata = target.wrappingMetadata as { iv: string };
-                const opened = await decryptWithDek(
+                const opened = await unwrapContentKey(
                   {
                     ciphertext: base64ToBytes(target.wrappedKey),
                     iv: base64ToBytes(metadata.iv),
                   },
                   retiredKey,
+                  {
+                    kind: "Blob",
+                    objectId: rewrap.blobId,
+                    contentKeyEpoch: rewrap.contentKeyEpoch,
+                    containerId: target.containerId,
+                    containerKeyEpochId: target.containerKeyEpochId,
+                  },
                 );
                 disclosed = opened.every(
                   (byte, index) => byte === fixture.contentKey[index],

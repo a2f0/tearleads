@@ -10,12 +10,12 @@ import {
   computeContainerKekPredecessorBridgeHash,
   computeWriteHeaderHash,
   createContainerKekPredecessorBridge,
-  decryptWithDek,
   deriveContainerKekWrappingPublicKey,
   generateKemSeedAndKeyPair,
   generateSigningSeedAndKeyPair,
   sealContainerKekKeyring,
   toFingerprint,
+  unwrapContentKey,
   type VerifiedContainerAccessManifest,
   verifyContainerKekState,
   type WriteHeader,
@@ -476,11 +476,12 @@ test("unwrapContainerKekPath rejects revoked users after KEK epoch rotation", as
     ).rejects.toThrow("could not be unwrapped");
 
     const contentKey = crypto.getRandomValues(new Uint8Array(32));
+    const createdDocumentId = "550e8400-e29b-41d4-a716-446655440700";
     const createdDocument = await buildMaterializedDocumentCreatePlan({
       author: parent.author,
       containerProjection: revokedProjection,
       contentKey,
-      documentId: "550e8400-e29b-41d4-a716-446655440700",
+      documentId: createdDocumentId,
       eventId: "document-after-revoke-event",
       execSql,
       resolveProjectionUserKey,
@@ -500,14 +501,17 @@ test("unwrapContainerKekPath rejects revoked users after KEK epoch rotation", as
         containerKeyEpochId: rotatedContainerKeyEpochId,
       },
     ]);
+    const sealedFor = { contentKeyEpoch: 1, documentId: createdDocumentId };
     const ownerContentKey = await unwrapDocumentContentKeyTarget({
       containerKek: rotatedContainerKek,
+      ...sealedFor,
       envelope: targetEnvelope,
     });
     expect(Array.from(ownerContentKey)).toEqual(Array.from(contentKey));
     await expect(
       unwrapDocumentContentKeyTarget({
         containerKek: previousContainerKek,
+        ...sealedFor,
         envelope: targetEnvelope,
       }),
     ).rejects.toThrow();
@@ -680,22 +684,24 @@ test("unwrapContainerKekPath rejects revoked users after KEK epoch rotation", as
         containerKeyEpochId: rotatedContainerKeyEpochId,
       }),
     );
-    const ownerBlobContentKey = await decryptWithDek(
-      {
-        iv: base64ToBytes(blobWrapIv),
-        ciphertext: base64ToBytes(blobTargetEnvelope.wrappedKey),
-      },
+    const blobWrap = {
+      iv: base64ToBytes(blobWrapIv),
+      ciphertext: base64ToBytes(blobTargetEnvelope.wrappedKey),
+    };
+    const blobSealedFor = {
+      ...blobTargetEnvelope,
+      kind: "Blob",
+      objectId: blobId,
+      contentKeyEpoch: uploadedBlob.request.contentKeyBundle.contentKeyEpoch,
+    } as const;
+    const ownerBlobContentKey = await unwrapContentKey(
+      blobWrap,
       rotatedContainerKek,
+      blobSealedFor,
     );
     expect(Array.from(ownerBlobContentKey)).toEqual(Array.from(blobContentKey));
     await expect(
-      decryptWithDek(
-        {
-          iv: base64ToBytes(blobWrapIv),
-          ciphertext: base64ToBytes(blobTargetEnvelope.wrappedKey),
-        },
-        previousContainerKek,
-      ),
+      unwrapContentKey(blobWrap, previousContainerKek, blobSealedFor),
     ).rejects.toThrow();
   } finally {
     closeProjectionDb();

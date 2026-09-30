@@ -52,6 +52,8 @@ async function unwrapCreatedKeys(
   });
   const metadataContentKey = await unwrapDocumentContentKeyTarget({
     containerKek: containerKey,
+    contentKeyEpoch: request.metadataDocument.contentKeyBundle.contentKeyEpoch,
+    documentId: requiredString(request.metadataDocument.event, "objectId"),
     envelope: metadataEnvelope,
   });
   return { containerKey, metadataContentKey };

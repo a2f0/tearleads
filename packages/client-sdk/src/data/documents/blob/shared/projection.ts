@@ -1,7 +1,7 @@
 import {
   BLOB_CONTENT_KEY_WRAP_SUITE,
   type DocumentContentKeyTarget,
-  encryptWithDek,
+  wrapContentKey,
 } from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
 import type { BlobContentKeyTargetEnvelopeRequest } from "@tearleads/validators/request";
@@ -107,7 +107,9 @@ async function collectContainerKeks(
 
 export async function wrapBlobContentKey(
   input: {
+    blobId: string;
     contentKey: Uint8Array;
+    contentKeyEpoch: number;
     execSql?: ExecSql | undefined;
     secretKey: Uint8Array;
     targets: readonly BlobContentKeyTarget[];
@@ -134,7 +136,13 @@ export async function wrapBlobContentKey(
         );
       }
 
-      const wrapped = await encryptWithDek(input.contentKey, targetKek);
+      const wrapped = await wrapContentKey(input.contentKey, targetKek, {
+        kind: "Blob",
+        objectId: input.blobId,
+        contentKeyEpoch: input.contentKeyEpoch,
+        containerId: target.containerId,
+        containerKeyEpochId: target.containerKeyEpochId,
+      });
       return {
         ...target,
         wrappedKey: bytesToBase64(wrapped.ciphertext),
@@ -148,18 +156,24 @@ export async function wrapBlobContentKey(
 }
 
 async function unwrapBlobContentKeyTarget(input: {
+  blobId: string;
   containerKek: Uint8Array;
+  contentKeyEpoch: number;
   envelope: BlobContentKeyTargetEnvelopeRequest;
 }): Promise<Uint8Array> {
   return unwrapContentKeyTargetForKind({
     containerKek: input.containerKek,
+    contentKeyEpoch: input.contentKeyEpoch,
     envelope: input.envelope,
     kind: "Blob",
+    objectId: input.blobId,
   });
 }
 
 export async function unwrapBlobContentKey(
   input: {
+    /** The blob being read; its wraps must be sealed to it. */
+    blobId: string;
     contentKeyBundle: BlobContentKeyBundleResponse;
     documentId: string;
     encrypted: BlobEncryptedBytesHeader;
@@ -192,7 +206,9 @@ export async function unwrapBlobContentKey(
       continue;
     }
     const unwrapped = await unwrapBlobContentKeyTarget({
+      blobId: input.blobId,
       containerKek,
+      contentKeyEpoch: input.contentKeyBundle.contentKeyEpoch,
       envelope,
     });
     if (contentKey) {
