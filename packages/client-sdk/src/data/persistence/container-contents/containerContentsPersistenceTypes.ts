@@ -81,6 +81,11 @@ export interface ContainerCreateIntentRevisionInput
   remoteMetadataAccessStateHash: string;
   remoteMetadataDocumentId: string;
   supersededMovePreviousParentId?: string | null | undefined;
+  /**
+   * The parent the settled intent wants. When it differs from the remotely
+   * committed `supersededMovePreviousParentId`, settlement queues the move.
+   */
+  desiredParentContainerId?: string | undefined;
 }
 
 export interface LocalRootDescendantReparentInput {

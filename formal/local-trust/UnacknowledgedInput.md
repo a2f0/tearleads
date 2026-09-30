@@ -11,7 +11,7 @@ user ID for the same signing identity.
 | `DeferLinkDiscovery` / `linkedScope` | `withoutDeferredDocumentLinks` preserves pending link projections in single and batched discovery |
 | `VerifyCreate` | `adoptExistingRemoteDocument` checks `assertExpectedAdoptionScope` and verifies the projection |
 | `DiscoverContainer` / `VerifyContainerAdoption` | a listing with remote metadata reaches the adoption branch of `trySyncPendingContainerContentsContainerCreateIntent` |
-| `AdoptContainerCreate` | `assertContainerCreateAdoptable` walks the verified projection to its create with `verifiedContainerCreateManifest` and checks signer, organization and parent |
+| `AdoptContainerCreate` | `assertContainerCreateAdoptable` walks the verified projection to its create with `verifiedContainerCreateManifest` and checks signer and organization; a different committed parent is queued as a move by `settleContainerCreateIntentRevision` |
 | `SwitchIdentity` | `IdentityService.setKeyPairs` changes the active signing identity |
 | `BeginLogin` / `FinishLogin` | `SessionService.login` captures and rechecks the identity snapshot |
 | `EnforceLoginBinding` | `SessionIdentityAcknowledgments.assertMatches` runs before pinning login's user ID |

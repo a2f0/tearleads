@@ -54,6 +54,8 @@ async function reportContainerCreateIntegrityFailure(input: {
 }
 
 async function recordContainerCreateFailure(input: {
+  /** What failed, when it was not the remote create itself. */
+  readonly action?: string | undefined;
   readonly error: unknown;
   readonly isCurrent: () => boolean;
   readonly intent: ContainerCreateIntentSyncInput["intent"];
@@ -78,7 +80,7 @@ async function recordContainerCreateFailure(input: {
       containerId: input.intent.containerId,
       expectedIntentId: input.intent.id,
       expectedUpdatedAt: input.intent.updatedAt,
-      message: `${input.error instanceof IncompleteContainerCreateSettlementError ? "Container create persistence failed" : "Remote container create failed"}: ${errorMessage(input.error)}`,
+      message: `${input.action ?? (input.error instanceof IncompleteContainerCreateSettlementError ? "Container create persistence failed" : "Remote container create failed")}: ${errorMessage(input.error)}`,
       stillCurrent: input.isCurrent,
     },
   );
@@ -379,10 +381,16 @@ async function trySyncPendingContainerContentsContainerCreateIntent(
   }
 
   if (hasRemoteContainerMetadataState(containerState)) {
+    let committedParentId: string;
     try {
-      await verifyListedContainerCreate({ intent, parentState, state });
+      committedParentId = await verifyListedContainerCreate({
+        intent,
+        parentState,
+        state,
+      });
     } catch (error) {
       return recordContainerCreateFailure({
+        action: "Container create adoption verification failed",
         error,
         isCurrent: input.isCurrent,
         intent,
@@ -392,6 +400,7 @@ async function trySyncPendingContainerContentsContainerCreateIntent(
     }
     const marked =
       await markContainerContentsContainerCreateIntentAlreadySynced({
+        committedParentId,
         containerState,
         isCurrent: input.isCurrent,
         intent,

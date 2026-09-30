@@ -15,17 +15,20 @@ const LABEL = "Container create conflict";
 /**
  * A pending create whose container the listing already carries is adopted
  * only when the container's signed epoch-1 `container.create` is this user's,
- * in the intended organization, under the intended parent (#2365 finding 26).
- * Listing metadata is unsigned: a create by another writer that collides on
- * the pending id, or one a dishonest server invents, must not become this
- * device's container. Documents apply the same rule (`createAdoption.ts`).
+ * in the intended organization (#2365 finding 26). Listing metadata is
+ * unsigned: a create by another writer that collides on the pending id, or one
+ * a dishonest server invents, must not become this device's container.
+ * Documents apply the same rule (`workflows/documents/createAdoption.ts`).
+ *
+ * Returns the parent the create committed under. The user may have moved the
+ * pending container since, which rewrites its intent's parent; that is a move
+ * still owed, not a mismatch.
  */
 export async function assertContainerCreateAdoptable(input: {
   readonly containerId: string;
   readonly expectedOrganizationId: string;
-  readonly expectedParentContainerId: string;
   readonly state: ContainerCreateIntentSyncState;
-}): Promise<void> {
+}): Promise<string> {
   const { runtime } = input.state;
   const projection = await runtime.apiClient.getContainerWriterProjection(
     input.containerId,
@@ -56,27 +59,31 @@ export async function assertContainerCreateAdoptable(input: {
       `${LABEL} was signed by another user`,
     );
   }
+  const committedParentId = create.state.parentContainerId;
   if (
     create.state.organizationId !== input.expectedOrganizationId ||
-    create.state.parentContainerId !== input.expectedParentContainerId
+    committedParentId === null
   ) {
     throw new KeyingVerificationError(
       "object_mismatch",
-      `${LABEL} belongs to another organization or parent`,
+      `${LABEL} belongs to another organization`,
     );
   }
+  return committedParentId;
 }
 
-/** Checks a listed container before its pending create intent settles. */
+/**
+ * Checks a listed container before its pending create intent settles, and
+ * returns the parent its create committed under.
+ */
 export function verifyListedContainerCreate(input: {
   readonly intent: ContainerCreateIntentSyncInput["intent"];
   readonly parentState: ContainerState;
   readonly state: ContainerCreateIntentSyncState;
-}): Promise<void> {
+}): Promise<string> {
   const adoption = {
     containerId: input.intent.containerId,
     expectedOrganizationId: input.parentState.container.organizationId,
-    expectedParentContainerId: input.intent.parentContainerId,
   };
   return input.state.verifyCreateAdoption
     ? input.state.verifyCreateAdoption(adoption)
@@ -85,6 +92,7 @@ export function verifyListedContainerCreate(input: {
 
 /** Settles a verified adoption against the row hydration installed. */
 export async function markContainerContentsContainerCreateIntentAlreadySynced(input: {
+  committedParentId: string;
   containerState: ContainerState;
   isCurrent: () => boolean;
   intent: ContainerCreateIntentSyncInput["intent"];
@@ -104,6 +112,7 @@ export async function markContainerContentsContainerCreateIntentAlreadySynced(in
     remoteMetadataAccessStateHash,
     remoteMetadataDocumentId,
     state,
-    supersededMovePreviousParentId: intent.parentContainerId,
+    supersededMovePreviousParentId: input.committedParentId,
+    desiredParentContainerId: intent.parentContainerId,
   });
 }

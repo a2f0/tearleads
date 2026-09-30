@@ -84,8 +84,9 @@ DiscoverContainer(scope) ==
                   verifiedAdoption, acknowledged, identity, loginPending, loginIdentity,
                   loginUser, wrongHostRestore>>
 
-(* Adoption checks the signed epoch-1 create: this user, the intended       *)
-(* organization and the intended parent.                                   *)
+(* Adoption checks the signed epoch-1 create: this user and the intended   *)
+(* organization. A different committed parent is a move the user made      *)
+(* while the create was pending, queued rather than refused.               *)
 AdoptContainerCreate(scope) ==
   /\ pendingContainerCreate /\ scope = IntendedScope
   /\ pendingContainerCreate' = FALSE /\ containerScope' = scope

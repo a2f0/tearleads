@@ -104,7 +104,7 @@ test("a generation change while settling create intents cannot reach a replaceme
     resolveProjectionUserKey: async () => null,
     runtime,
     // Settlement is under test here; adoption verification has its own tests.
-    verifyCreateAdoption: async () => undefined,
+    verifyCreateAdoption: async () => "parent",
   };
   const sync = syncPendingContainerCreateIntents({
     host: { persistContainerState: async () => ({ status: "missing" }) },

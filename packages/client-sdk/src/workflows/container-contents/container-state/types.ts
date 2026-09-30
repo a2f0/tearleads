@@ -131,13 +131,13 @@ export interface ContainerIntentSyncState {
   runtime: ContainerWorkflowRuntime;
   /**
    * Verifies that a listed container is this device's pending create before it
-   * is adopted; `assertContainerCreateAdoptable` unless a test replaces it.
+   * is adopted and returns its committed parent; `assertContainerCreateAdoptable`
+   * unless a test replaces it.
    */
   verifyCreateAdoption?: (input: {
     readonly containerId: string;
     readonly expectedOrganizationId: string;
-    readonly expectedParentContainerId: string;
-  }) => Promise<void>;
+  }) => Promise<string>;
 }
 
 export type ContainerCreateIntentSyncState = ContainerIntentSyncState;

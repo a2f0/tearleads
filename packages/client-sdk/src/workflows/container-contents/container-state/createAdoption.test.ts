@@ -27,6 +27,8 @@ import type { ContainerCreateIntentSyncState } from "./types";
 
 async function adoptListedContainer(input: {
   readonly intendedParent?: "same" | "other";
+  readonly organization?: "same" | "other";
+  readonly projection?: "served" | "unavailable";
   readonly sessionUser?: "creator" | "another";
 }) {
   const parent = await createParentProjection();
@@ -49,7 +51,9 @@ async function adoptListedContainer(input: {
   const runtime = createContainerContentsWorkflowRuntime({
     apiClient: createMockApiClient({
       getContainerWriterProjection: async (containerId: string) =>
-        containerId === child.containerId ? child : null,
+        containerId === child.containerId && input.projection !== "unavailable"
+          ? child
+          : null,
     }),
     auth: {
       isAuthenticated: true,
@@ -101,7 +105,10 @@ async function adoptListedContainer(input: {
     parentId: "root",
     synced: true,
   });
-  parentState.container.organizationId = parent.projection.organizationId;
+  parentState.container.organizationId =
+    input.organization === "other"
+      ? crypto.randomUUID()
+      : parent.projection.organizationId;
   const intent: ContainerCreateIntentRecord = {
     containerId: child.containerId,
     createdAt: "2026-09-30T00:00:00.000Z",
@@ -118,6 +125,10 @@ async function adoptListedContainer(input: {
   };
   const recordedErrors: string[] = [];
   const syncedIntents: string[] = [];
+  const settlements: Array<{
+    readonly committedParent: string | null | undefined;
+    readonly desiredParent: string | undefined;
+  }> = [];
   const state: ContainerCreateIntentSyncState = {
     containersById: new Map([
       [child.containerId, childState],
@@ -131,6 +142,10 @@ async function adoptListedContainer(input: {
       },
       markCreateIntentRevisionSynced: async (_execSql, synced) => {
         syncedIntents.push(synced.containerId);
+        settlements.push({
+          committedParent: synced.supersededMovePreviousParentId,
+          desiredParent: synced.desiredParentContainerId,
+        });
         return true;
       },
     },
@@ -149,7 +164,15 @@ async function adoptListedContainer(input: {
       requestRemoteReconciliation: () => undefined,
       state,
     }).catch((error: unknown) => error);
-    return { created, incidents, recordedErrors, syncedIntents };
+    return {
+      committedParentId: parentContainerId,
+      created,
+      incidents,
+      intendedParentId,
+      recordedErrors,
+      settlements,
+      syncedIntents,
+    };
   } finally {
     close();
   }
@@ -172,10 +195,37 @@ test("a listed container another user created is refused as an incident", async 
   expect(result.syncedIntents).toEqual([]);
 });
 
-test("a listed container created under another parent is refused", async () => {
+test("a container moved while its create was pending is adopted with the move owed", async () => {
   const result = await adoptListedContainer({ intendedParent: "other" });
+
+  // The create committed under the original parent; settlement queues the
+  // move to where the user put it instead of reporting tampering.
+  expect(result.created).toBe(1);
+  expect(result.incidents).toEqual([]);
+  expect(result.settlements).toEqual([
+    {
+      committedParent: result.committedParentId,
+      desiredParent: result.intendedParentId,
+    },
+  ]);
+});
+
+test("a listed container in another organization is refused", async () => {
+  const result = await adoptListedContainer({ organization: "other" });
 
   expect(result.created).toBeInstanceOf(KeyingVerificationError);
   expect(result.created).toMatchObject({ code: "object_mismatch" });
+  expect(result.incidents).toEqual(["container.create.replay"]);
   expect(result.syncedIntents).toEqual([]);
+});
+
+test("an unavailable projection leaves the create unadopted without an incident", async () => {
+  const result = await adoptListedContainer({ projection: "unavailable" });
+
+  expect(result.created).toBe(0);
+  expect(result.incidents).toEqual([]);
+  expect(result.syncedIntents).toEqual([]);
+  expect(result.recordedErrors.join("\n")).toContain(
+    "Container create adoption verification failed",
+  );
 });
