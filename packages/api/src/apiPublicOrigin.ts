@@ -8,8 +8,10 @@ interface ApiPublicOriginEnv {
 /**
  * The origin login challenges must be signed for (#2365 finding 25).
  * Production names it, since behind the tunnel the request URL is a loopback
- * address; elsewhere null lets each request's own origin stand in, which an
- * in-process client that addressed this API shares.
+ * address. Elsewhere null lets each request's own origin stand in, which an
+ * in-process client that addressed this API shares. That fallback trusts the
+ * request's Host header, which a relaying API controls, so relay protection
+ * holds only where API_PUBLIC_ORIGIN is set.
  */
 export function readApiPublicOrigin(
   env: ApiPublicOriginEnv = process.env,

@@ -54,18 +54,19 @@ export class ApiRequestRuntime {
 
   /**
    * The bytes a login challenge is signed as, bound to the API this client
-   * addresses; a relative base URL addresses the page's own origin.
+   * addresses. A relative base URL resolves against the page, as its requests
+   * do; with neither, there is no API origin to sign for.
    */
   authChallengeBytes(challengeHex: string, fingerprint: string): Uint8Array {
-    const base = this.baseUrl || globalThis.location?.origin;
-    if (!base) {
+    let apiOrigin: string;
+    try {
+      apiOrigin = canonicalAuthOrigin(
+        new URL(this.baseUrl || "/", globalThis.location?.href).href,
+      );
+    } catch {
       throw new Error("The API origin is unavailable for authentication");
     }
-    return authChallengeSigningBytes({
-      apiOrigin: canonicalAuthOrigin(base),
-      challengeHex,
-      fingerprint,
-    });
+    return authChallengeSigningBytes({ apiOrigin, challengeHex, fingerprint });
   }
 
   setOnError(handler: ((message: string) => void) | null): void {
