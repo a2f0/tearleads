@@ -40,7 +40,11 @@ test("authenticates with a valid signature", async () => {
   invariant(typeof challenge === "string", "expected challenge string");
 
   const signature = sign(
-    authChallengeSigningBytes({ challengeHex: challenge, fingerprint }),
+    authChallengeSigningBytes({
+      apiOrigin: "http://localhost",
+      challengeHex: challenge,
+      fingerprint,
+    }),
     signingKeys.signingPrivateKey,
   );
 
@@ -68,7 +72,11 @@ test("returns 401 with wrong secret key", async () => {
 
   const wrongKeys = generateSigningSeedAndKeyPair();
   const signature = sign(
-    authChallengeSigningBytes({ challengeHex: challenge, fingerprint }),
+    authChallengeSigningBytes({
+      apiOrigin: "http://localhost",
+      challengeHex: challenge,
+      fingerprint,
+    }),
     wrongKeys.signingPrivateKey,
   );
 
@@ -78,12 +86,39 @@ test("returns 401 with wrong secret key", async () => {
   expect(body.authenticated).toBe(false);
 });
 
+test("a challenge relayed from another API was signed for its origin", async () => {
+  const challengeRes = await requestChallenge(fingerprint);
+  const { challenge } = await challengeRes.json();
+
+  // A malicious API relays this API's challenge; the client signs for the API
+  // it meant to reach, which is not this one.
+  const signature = sign(
+    authChallengeSigningBytes({
+      apiOrigin: "https://relaying-api.example",
+      challengeHex: challenge,
+      fingerprint,
+    }),
+    signingKeys.signingPrivateKey,
+  );
+
+  const res = await submitVerify(fingerprint, signature);
+  expect(res.status).toBe(401);
+  expect(await res.json()).toEqual({
+    authenticated: false,
+    error: "Invalid signature",
+  });
+});
+
 test("challenge is consumed after use", async () => {
   const challengeRes = await requestChallenge(fingerprint);
   const { challenge } = await challengeRes.json();
 
   const signature = sign(
-    authChallengeSigningBytes({ challengeHex: challenge, fingerprint }),
+    authChallengeSigningBytes({
+      apiOrigin: "http://localhost",
+      challengeHex: challenge,
+      fingerprint,
+    }),
     signingKeys.signingPrivateKey,
   );
 

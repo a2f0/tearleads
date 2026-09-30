@@ -5,6 +5,7 @@ import {
 } from "@tearleads/validators/operation";
 import { Hono, type MiddlewareHandler } from "hono";
 import { cors } from "hono/cors";
+import { readApiPublicOrigin } from "./apiPublicOrigin";
 import { type ApiCorsOrigins, readApiCorsOrigins } from "./corsOrigins";
 import { createApiErrorHandler } from "./diagnostics/errorHandler";
 import { reportBackgroundFailure } from "./diagnostics/reportBackgroundFailure";
@@ -34,6 +35,8 @@ import { collectOrganizationReadModelChanges } from "./workflows/organizations/r
 
 interface RouteAppOptions {
   readonly corsOrigins?: ApiCorsOrigins | undefined;
+  /** The origin login challenges must be signed for; see `apiPublicOrigin`. */
+  readonly publicOrigin?: string | null | undefined;
 }
 
 const API_CORS_ALLOW_HEADERS = [
@@ -151,10 +154,12 @@ function mountRouters(
   routeApp: Hono<SessionEnv>,
   deps: ResolvedRouteAppDeps,
   corsOrigins: ApiCorsOrigins,
+  publicOrigin: string | null,
 ): void {
   routeApp.route(
     "/",
     createAuthRouter({
+      publicOrigin,
       destroySession: deps.destroySession,
       destroyUserSession: deps.destroyUserSession,
       listUserSessions: deps.listUserSessions,
@@ -231,7 +236,14 @@ export function createRouteApp(
   routeApp.use("*", createApiCorsMiddleware(corsOrigins));
   routeApp.use("*", createReadModelHintMiddleware(deps.publish, deps.runtime));
 
-  mountRouters(routeApp, deps, corsOrigins);
+  mountRouters(
+    routeApp,
+    deps,
+    corsOrigins,
+    options.publicOrigin === undefined
+      ? readApiPublicOrigin()
+      : options.publicOrigin,
+  );
 
   routeApp.onError(createApiErrorHandler());
 
