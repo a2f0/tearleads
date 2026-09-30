@@ -11,6 +11,10 @@ import { defaultDocumentProjectorRegistry } from "../../../data/documents/docume
 import { createDomainScope } from "../../../data/domainScope";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import {
+  buildMaterializedContainerCreatePlan,
+  childContainerWriterProjectionFromCreatePlan,
+} from "../../containers/child/create";
+import {
   type ContainerCreateIntentRecord,
   defaultContainerContentsPersistence,
 } from "../containerPersistence";
@@ -141,7 +145,17 @@ test("stale container create identity failures do not report into a replacement"
 test("container create sync heals lost-response conflicts with revision settlement", async () => {
   const parent = await createParentProjection();
   const parentContainerId = parent.projection.containerId;
-  const childContainerId = "child-with-lost-create-response";
+  // The committed create this device signed; adoption verifies its lineage.
+  const childProjection = childContainerWriterProjectionFromCreatePlan({
+    materializedPlan: await buildMaterializedContainerCreatePlan({
+      author: parent.author,
+      parentProjection: parent.projection,
+      parentSecretKey: parent.secretKey,
+      trustedLocalProjection: true,
+    }),
+    parentProjection: parent.projection,
+  });
+  const childContainerId = childProjection.containerId;
   const { close, execSql } = await createTestExecSql(
     "container-create-intent-already-committed",
   );
@@ -168,7 +182,11 @@ test("container create sync heals lost-response conflicts with revision settleme
       };
     },
     getContainerWriterProjection: async (containerId: string) =>
-      containerId === parentContainerId ? parent.projection : null,
+      containerId === parentContainerId
+        ? parent.projection
+        : containerId === childContainerId
+          ? childProjection
+          : null,
   });
   const runtime = createContainerContentsWorkflowRuntime({
     apiClient,

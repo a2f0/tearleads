@@ -9,10 +9,13 @@ import {
 import type { ContainerState } from "../remoteHydration";
 import { hasRemoteContainerMetadataState } from "../remoteHydration/reconciliation";
 import {
+  markContainerContentsContainerCreateIntentAlreadySynced,
+  verifyListedContainerCreate,
+} from "./createAdoption";
+import {
   deferTooDeepCreate,
   recordRefusedTooDeepCreate,
 } from "./createIntentDepth";
-import { settleContainerCreateIntent } from "./createIntentSettlement";
 import { CONTAINER_ALREADY_COMMITTED } from "./createWithMetadata";
 import { createRemoteContainer, deleteRemoteContainer } from "./remote";
 import type {
@@ -80,30 +83,6 @@ async function recordContainerCreateFailure(input: {
     },
   );
   return currentCreateResult(input.isCurrent, "failed");
-}
-
-async function markContainerContentsContainerCreateIntentAlreadySynced(input: {
-  containerState: ContainerState;
-  isCurrent: () => boolean;
-  intent: ContainerCreateIntentSyncInput["intent"];
-  state: ContainerCreateIntentSyncState;
-}): Promise<boolean> {
-  const { containerState, intent, state } = input;
-  const remoteMetadataDocumentId = containerState.record.documentId;
-  const remoteMetadataAccessStateHash = containerState.record.accessStateHash;
-
-  if (!remoteMetadataDocumentId || !remoteMetadataAccessStateHash) {
-    return false;
-  }
-  return settleContainerCreateIntent({
-    intent,
-    isCurrent: input.isCurrent,
-    remoteContainerId: containerState.container.id,
-    remoteMetadataAccessStateHash,
-    remoteMetadataDocumentId,
-    state,
-    supersededMovePreviousParentId: intent.parentContainerId,
-  });
 }
 
 async function persistCreatedRemoteContainerStateFromIntent(input: {
@@ -400,6 +379,17 @@ async function trySyncPendingContainerContentsContainerCreateIntent(
   }
 
   if (hasRemoteContainerMetadataState(containerState)) {
+    try {
+      await verifyListedContainerCreate({ intent, parentState, state });
+    } catch (error) {
+      return recordContainerCreateFailure({
+        error,
+        isCurrent: input.isCurrent,
+        intent,
+        organizationId: parentState.container.organizationId,
+        state,
+      });
+    }
     const marked =
       await markContainerContentsContainerCreateIntentAlreadySynced({
         containerState,
