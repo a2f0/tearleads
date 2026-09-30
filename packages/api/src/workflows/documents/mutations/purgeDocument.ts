@@ -20,6 +20,7 @@ import {
   ContainerWriterProjectionError,
   resolveContainerAccessProjection,
 } from "../../containers/writerProjection";
+import { assertOrganizationProfileDocumentUnbound } from "../../organizations/organizationProfileBindingInvariant";
 import { lockOrganizationReadModelHeadForUpdateInTransaction } from "../../organizations/readModelChanges";
 import { assertRosterProfileDocumentUnbound } from "../../organizations/rosterProfileBindingInvariant";
 import { loadVerifiedPrincipalPolicySnapshotsForReferences } from "../../principals/principalPolicySnapshots";
@@ -315,6 +316,10 @@ async function purgeDocumentWithExecutor(input: {
     },
   );
   await assertRosterProfileDocumentUnbound({
+    documentId: input.documentId,
+    executor: input.executor,
+  });
+  await assertOrganizationProfileDocumentUnbound({
     documentId: input.documentId,
     executor: input.executor,
   });

@@ -11,6 +11,7 @@ import { storeDocumentContentKeyBundleInTransaction } from "../../../access/writ
 import { recordDocumentManifestObservationInTransaction } from "../../../access/write/documentManifestObservationStore";
 import { assertOrganizationCanSync } from "../../billing/organizationSyncEligibility";
 import { applyContainerRekeys } from "../../containers/mutations";
+import { assertOrganizationProfileBindingPreserved } from "../../organizations/organizationProfileBindingInvariant";
 import { appendOrganizationReadModelChangeInTransaction } from "../../organizations/readModelChanges";
 import {
   assertRosterProfileBindingPreserved,
@@ -237,6 +238,14 @@ async function appendMutationRotationBaseline(
   });
 }
 
+/** Bound organization and roster profiles keep their validated link shape. */
+async function assertProfileBindingsPreserved(
+  input: Parameters<typeof assertRosterProfileBindingPreserved>[0],
+): Promise<readonly RepairedRosterProfileBinding[]> {
+  await assertOrganizationProfileBindingPreserved(input);
+  return assertRosterProfileBindingPreserved(input);
+}
+
 async function mutateDocumentLinkSetWithExecutor(
   input: MutateDocumentLinkSetWithExecutorInput,
 ): Promise<DocumentLinkSetMutationWorkflowResult> {
@@ -289,11 +298,10 @@ async function mutateDocumentLinkSetWithExecutor(
     if (manifest.state.organizationId !== organizationId) {
       throw new DocumentMutationError("Document organization mismatch", 409);
     }
-    const repairedRosterProfileBindings =
-      await assertRosterProfileBindingPreserved({
-        executor: input.executor,
-        manifest,
-      });
+    const repairedRosterProfileBindings = await assertProfileBindingsPreserved({
+      executor: input.executor,
+      manifest,
+    });
     const blobRewraps = await prepareDocumentBlobRewraps(input, event.body);
     const rotationBaseline = requireMutationRotationBaseline(input);
     const contentKeyBundle = await advanceDocumentLinkSet({

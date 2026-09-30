@@ -1,7 +1,6 @@
 import { expect, test } from "bun:test";
 import { db } from "@tearleads/api-shared/postgres";
 import {
-  accessManifestHeads,
   groups as groupsTable,
   organizationRosterEntries,
   organizations,
@@ -22,6 +21,7 @@ import {
 import { and, eq } from "drizzle-orm";
 import invariant from "invariant";
 import { authenticate } from "../../../test/helpers/authenticate";
+import { createCurrentDocumentProjection } from "../../../test/helpers/currentProtocolProjection";
 import { addUserToAdminGroup } from "../../../test/helpers/organizationAdmin";
 import { seedOrganizationDataUsage } from "../../../test/helpers/organizationDataUsage";
 import {
@@ -29,6 +29,7 @@ import {
   deleteGroupRequest,
 } from "../../../test/helpers/organizationGroup";
 import { addMemberGroupUser } from "../../../test/helpers/organizationMember";
+import { loadOrganizationMetadataContainerId } from "../../../test/helpers/organizationMetadataContainer";
 import { registerUser } from "../../../test/helpers/registerUser";
 import { getCurrentPrincipalState } from "../../access/read/principalStateStore";
 import { routeApp } from "../../routeApp";
@@ -231,14 +232,10 @@ test("org manager routes let admins bind an encrypted roster profile document", 
 test("org manager routes let admins bind an encrypted organization profile document", async () => {
   const actor = createTestUser();
   const organizationId = await registerAndAuthenticate(actor);
-  const profileDocumentId = crypto.randomUUID();
-
-  await db.insert(accessManifestHeads).values({
-    objectKind: "document",
-    objectId: profileDocumentId,
+  const { id: profileDocumentId } = await createCurrentDocumentProjection({
+    containerIds: [await loadOrganizationMetadataContainerId(organizationId)],
+    createdByFingerprint: actor.fingerprint,
     organizationId,
-    epoch: 1,
-    manifestHash: `organization-profile-manifest:${crypto.randomUUID()}`,
   });
 
   const response = await routeApp.request(

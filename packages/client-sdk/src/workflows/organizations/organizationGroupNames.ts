@@ -33,11 +33,14 @@ export async function hydrateOrganizationGroupNames(
       },
       head,
     );
-    names.push({
-      groupId: group.groupId,
-      name: verified.name,
-      stateHash: head.stateHash,
-    });
+    // An undecryptable name stays blank for its group alone.
+    if (verified.name !== null) {
+      names.push({
+        groupId: group.groupId,
+        name: verified.name,
+        stateHash: head.stateHash,
+      });
+    }
     await retainVerifiedPrincipalPolicyBundle({
       ...input,
       bundle: verified.bundle,

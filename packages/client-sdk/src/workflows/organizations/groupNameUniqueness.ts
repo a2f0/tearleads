@@ -18,6 +18,7 @@ import {
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import type { TrustedUserIdentityResolver } from "../../data/trustedUserIdentity";
 import { collectPrincipalPolicySignerPublicKeys } from "../principals/policyVerification";
+import { GroupMetadataUnreadableError } from "./groupMetadataAccess";
 import { assertGroupMetadataBinding } from "./groupMetadataBinding";
 import {
   canonicalGroupNameKey,
@@ -44,8 +45,9 @@ type DirectoryGroupHead = OrganizationAuthorityDescriptor["groupHeads"][number];
 
 interface VerifiedDirectoryGroup {
   readonly bundle: PrincipalPolicyBundleResponse;
-  readonly name: string;
-  readonly nameKey: string;
+  /** Null when the signed name does not decrypt for any member. */
+  readonly name: string | null;
+  readonly nameKey: string | null;
   readonly policy: VerifiedPrincipalPolicy;
 }
 
@@ -132,16 +134,26 @@ export async function verifyDirectoryGroup(
     );
   }
   assertGroupMetadataBinding(bundle, input.descriptor);
-  const name = await readGroupPolicyPayloadName(
-    bundle,
-    input.readEncryptedName,
-  );
+  const name = await readDirectoryGroupName(bundle, input.readEncryptedName);
   return {
     bundle,
     name,
-    nameKey: canonicalGroupNameKey(name),
+    nameKey: name === null ? null : canonicalGroupNameKey(name),
     policy: verified.value,
   };
+}
+
+/** A verified group whose name no member can open has no name to select by. */
+async function readDirectoryGroupName(
+  bundle: PrincipalPolicyBundleResponse,
+  readEncryptedName: GroupPolicyNameReader | undefined,
+): Promise<string | null> {
+  try {
+    return await readGroupPolicyPayloadName(bundle, readEncryptedName);
+  } catch (error) {
+    if (error instanceof GroupMetadataUnreadableError) return null;
+    throw error;
+  }
 }
 
 /**
@@ -156,7 +168,9 @@ export async function verifyDirectoryGroup(
  * check refuses.
  *
  * The walk is fail-closed: one group that cannot be loaded or verified blocks
- * the creation, since an unverifiable group could carry any name. It runs the
+ * the creation, since an unverifiable group could carry any name. A verified
+ * group whose name does not decrypt is skipped: no member can open that name,
+ * so it cannot collide with one. It runs the
  * loads in parallel and retains every verified bundle, so a later creation
  * finds unchanged groups locally and fetches only those whose head moved.
  */

@@ -81,6 +81,8 @@ export async function createSignedPrincipalState(input: {
   keyEpoch?: number;
   grants?: readonly PrincipalContainerGrant[];
   members: Array<{ userId: string }>;
+  /** Overrides the group's encrypted metadata, e.g. to cite another key. */
+  payloadCiphertext?: string;
   prevStateHash?: string | null;
   principalKem?: ReturnType<typeof generateKemSeedAndKeyPair>;
   principalId: string;
@@ -118,7 +120,8 @@ export async function createSignedPrincipalState(input: {
     grants: [...(input.grants ?? [])],
     externalAuthority: input.externalAuthority ?? null,
     payloadCiphertext:
-      input.principalType === "group"
+      input.payloadCiphertext ??
+      (input.principalType === "group"
         ? await groupPolicyPayload(
             input.principalId,
             input.members,
@@ -126,7 +129,7 @@ export async function createSignedPrincipalState(input: {
           )
         : bytesToBase64(
             new TextEncoder().encode(JSON.stringify(input.members)),
-          ),
+          )),
     signedAt:
       input.signedAt ?? new Date("2026-04-08T16:00:00.000Z").toISOString(),
     signerUserId: input.signerUserId,

@@ -6,8 +6,8 @@ import { and, eq, isNotNull, isNull, ne, or } from "drizzle-orm";
 import { assertOrganizationCanSync } from "../billing/organizationSyncEligibility";
 import { OrganizationManagerError } from "./errors";
 import { requireSerializedOrganizationMutationAccess } from "./mutationAccess";
+import { isOrganizationProfileDocument } from "./profileDocumentValidity";
 import { appendOrganizationReadModelChangeInTransaction } from "./readModelChanges";
-import { isOrganizationProfileDocument } from "./roster";
 
 export async function runUpdateOrganizationProfileWorkflow(
   db: ApiDatabase,
