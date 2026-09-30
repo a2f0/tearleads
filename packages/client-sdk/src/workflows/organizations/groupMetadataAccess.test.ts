@@ -75,6 +75,7 @@ test("organization metadata readers decrypt a group with no group membership or 
       createGroupMetadataAccess({
         verifyMetadataContainer: async () => {},
         apiClient: {
+          evictContainerWriterProjection: () => {},
           getContainerWriterProjection: async () => metadata.projection,
         },
         execSql,
@@ -114,7 +115,10 @@ test("a fresh reader recovers existing group names after metadata key rotation",
     );
     const access = createGroupMetadataAccess({
       verifyMetadataContainer: async () => {},
-      apiClient: { getContainerWriterProjection: async () => rotated },
+      apiClient: {
+        evictContainerWriterProjection: () => {},
+        getContainerWriterProjection: async () => rotated,
+      },
       execSql,
       organizationId: parent.author.organizationId,
       resolveProjectionUserKey,
@@ -145,7 +149,10 @@ test("an unsigned projection change or a different signed system container canno
     for (const projection of [forged, parent.projection]) {
       const access = createGroupMetadataAccess({
         verifyMetadataContainer: async () => {},
-        apiClient: { getContainerWriterProjection: async () => projection },
+        apiClient: {
+          evictContainerWriterProjection: () => {},
+          getContainerWriterProjection: async () => projection,
+        },
         execSql,
         organizationId: parent.author.organizationId,
         resolveProjectionUserKey,
@@ -169,6 +176,7 @@ test("group creation discovers and verifies the organization metadata key", asyn
     const access = createGroupMetadataAccess({
       verifyMetadataContainer: async () => {},
       apiClient: {
+        evictContainerWriterProjection: () => {},
         getContainerWriterProjection: async () => metadata.projection,
       },
       execSql,
@@ -223,11 +231,12 @@ test("a metadata root behind the directory is evicted and reloaded once", async 
     };
     await expect(access(1).readName(bundle)).resolves.toBe("Confidential team");
     expect(evicted).toEqual([metadata.key.containerId]);
-    // Still behind after one reload: a plain miss, never an incident.
+    // Honest servers re-cite the reserved groups in the advancing commit, so
+    // a root still behind after a fresh read is an incident.
     evicted.length = 0;
-    await expect(access(2).readName(bundle)).rejects.toBeInstanceOf(
-      MetadataRootBehindDirectoryError,
-    );
+    await expect(access(2).readName(bundle)).rejects.toMatchObject({
+      code: "object_mismatch",
+    });
     expect(evicted).toEqual([metadata.key.containerId]);
   } finally {
     close();

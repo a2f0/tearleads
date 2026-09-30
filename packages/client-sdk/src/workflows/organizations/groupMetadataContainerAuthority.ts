@@ -1,12 +1,11 @@
 import {
   type ContainerAccessManifestState,
   KeyingVerificationError,
-  type ReferencedPrincipalHead,
 } from "@tearleads/crypto";
-import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
 import { assertProjectionVerificationCurrent } from "../../data/keyingProjectionVerification/types";
 import { loadPrincipalPolicyBundle } from "../../data/persistence/principalPolicyPersistence";
 import {
+  previousStatesIncludeHead,
   principalHeadMatchesReference,
   requireOrganizationGroupHead,
 } from "../../data/principals/organizationAuthorityDescriptor";
@@ -75,25 +74,6 @@ type DirectoryAuthority = NonNullable<
   Awaited<ReturnType<typeof loadGroupNameDirectoryAuthority>>
 >;
 
-function isVerifiedPredecessor(
-  bundle: PrincipalPolicyBundleResponse,
-  head: ReferencedPrincipalHead,
-): boolean {
-  return bundle.previousStates.some(({ state }) =>
-    principalHeadMatchesReference(
-      {
-        principalType: state.principalType,
-        principalId: state.principalId,
-        version: state.version,
-        keyEpoch: state.keyEpoch,
-        stateHash: state.stateHash,
-        keyFingerprint: state.keyFingerprint,
-      },
-      head,
-    ),
-  );
-}
-
 function assertMetadataRootBinding(input: {
   readonly authority: DirectoryAuthority;
   readonly members: Awaited<ReturnType<typeof verifyDirectoryGroup>>;
@@ -159,7 +139,9 @@ function assertMetadataRootBinding(input: {
   // A root read before a reserved-group commit cites a verified predecessor
   // of the directory's head; any other head is not an honest race.
   if (
-    superseded.every(({ bundle, head }) => isVerifiedPredecessor(bundle, head))
+    superseded.every(({ bundle, head }) =>
+      previousStatesIncludeHead(bundle, head),
+    )
   )
     throw new MetadataRootBehindDirectoryError();
   throw unbound;

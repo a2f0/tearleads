@@ -10,6 +10,7 @@ import { loadPrincipalPolicyCheckpoint } from "../../data/persistence/keyingChec
 import {
   type OrganizationAuthorityDescriptor,
   parseOrganizationAuthorityDescriptor,
+  previousStatesIncludeHead,
   principalHeadMatchesReference,
   requireOrganizationGroupHead,
 } from "../../data/principals/organizationAuthorityDescriptor";
@@ -145,25 +146,6 @@ function parseScopedAuthorityDescriptor(
  */
 class AdminsHeadAdvanced extends Error {}
 
-function servedChainClaimsToExtend(
-  bundle: PrincipalPolicyBundleResponse,
-  head: ReturnType<typeof requireOrganizationGroupHead>,
-): boolean {
-  return bundle.previousStates.some(({ state }) =>
-    principalHeadMatchesReference(
-      {
-        principalType: state.principalType,
-        principalId: state.principalId,
-        version: state.version,
-        keyEpoch: state.keyEpoch,
-        stateHash: state.stateHash,
-        keyFingerprint: state.keyFingerprint,
-      },
-      head,
-    ),
-  );
-}
-
 async function loadVerifiedAdminsPolicy(input: {
   readonly adminGroupId: string;
   readonly expectedHead: ReturnType<typeof requireOrganizationGroupHead>;
@@ -193,7 +175,7 @@ async function loadVerifiedAdminsPolicy(input: {
   ) {
     if (
       input.mayRefetchDirectory &&
-      servedChainClaimsToExtend(bundle, input.expectedHead)
+      previousStatesIncludeHead(bundle, input.expectedHead)
     ) {
       throw new AdminsHeadAdvanced();
     }

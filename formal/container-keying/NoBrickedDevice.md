@@ -176,6 +176,5 @@ hashes, the grant algebra, and the checkpoint persistence are outside the
 abstraction. The model serves a policy projection as one atomic tuple, where
 production makes separate reads (the organization, its Admins group, the
 metadata root). A commit between two reads serves a chain extending the head
-the other read cites; the client refetches once, then treats it as a cache
-miss, never as tampering (#2365 finding 22). This is exhaustive bounded model
-checking, not a proof.
+the other read cites; the client rereads once instead of reporting tampering
+(#2365 finding 22). This is exhaustive bounded model checking, not a proof.

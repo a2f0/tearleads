@@ -193,6 +193,7 @@ test("a group share does not acknowledge a policy after its generation expires d
       accessLevel: "read",
       apiClient: {
         reciteContainer: async () => null,
+        evictContainerWriterProjection: () => {},
         commitOrganizationGroupPolicy: async (
           _organizationId,
           _groupId,
@@ -319,6 +320,7 @@ test("a missing group grant returns null when projection verification expires", 
       accessLevel: "read",
       apiClient: {
         reciteContainer: async () => null,
+        evictContainerWriterProjection: () => {},
         commitOrganizationGroupPolicy: async () => {
           submissions += 1;
           throw new Error("Expired preparation must not be committed");

@@ -378,6 +378,9 @@ export class ApiRequestRuntime {
   private reportResponseRequestFailure(
     input: ResponseRequestValidationFailureInput,
   ): RequestFailure {
+    if (input.kind === "network") {
+      this.onNetworkError?.();
+    }
     return this.requestFailure({
       ...input,
       reportErrors: input.options?.reportErrors ?? true,

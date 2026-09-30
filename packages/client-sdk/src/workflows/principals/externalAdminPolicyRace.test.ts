@@ -111,8 +111,9 @@ test("an Admins head that does not extend the directory is still tampering", asy
   await expect(rolledBack).rejects.toMatchObject({ code: "hash_mismatch" });
 });
 
-test("a forged predecessor buys one refetch, then is an incident", async () => {
-  const { advancedAdmin, fixture } = await createAdminsRace();
+test("a forged predecessor fails verification after the refetch", async () => {
+  const { advancedAdmin, advancedDirectory, fixture } =
+    await createAdminsRace();
   // The public fields of the cited head are copied, but not its signature.
   const forged = {
     ...advancedAdmin,
@@ -121,11 +122,15 @@ test("a forged predecessor buys one refetch, then is an incident", async () => {
       state: { ...entry.state, signature: "forged-signature" },
     })),
   };
+  const organizations = [fixture.initial, advancedDirectory];
 
+  // The refetched directory cites the served head, so the second read reaches
+  // chain verification, which rejects the forged predecessor.
   await expect(
     loadWith(fixture, "external-admin-race-forged", {
       admins: () => forged,
-      organization: () => fixture.initial,
+      organization: () => organizations.shift() ?? advancedDirectory,
     }),
   ).rejects.toBeInstanceOf(KeyingVerificationError);
+  expect(organizations).toEqual([]);
 });

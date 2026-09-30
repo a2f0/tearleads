@@ -71,3 +71,34 @@ testApiClient(
     expect(networkErrors).toBe(1);
   },
 );
+
+testApiClient(
+  "a typed-operation body dropped mid-stream signals a network error",
+  async () => {
+    server.use(
+      http.get(
+        `${apiBaseUrl}/`,
+        () =>
+          new HttpResponse(
+            new ReadableStream<Uint8Array>({
+              start(controller) {
+                controller.enqueue(new TextEncoder().encode('{"status":'));
+                controller.error(
+                  new TypeError("The network connection was lost."),
+                );
+              },
+            }),
+            { headers: { "Content-Type": "application/json" } },
+          ),
+      ),
+    );
+
+    const client = new ApiClient(apiBaseUrl);
+    let networkErrors = 0;
+    client.setOnNetworkError(() => {
+      networkErrors += 1;
+    });
+    await expect(client.getHealth()).resolves.toBeNull();
+    expect(networkErrors).toBe(1);
+  },
+);

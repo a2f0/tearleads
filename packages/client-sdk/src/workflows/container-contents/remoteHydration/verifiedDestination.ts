@@ -20,6 +20,7 @@ import {
   runWithSecurityIncidentReporting,
 } from "../../../data/keyingProjectionVerification/error";
 import { createGroupMetadataContainerVerifier } from "../../organizations/groupMetadataContainerAuthority";
+import { withMetadataRootReload } from "../../organizations/groupMetadataErrors";
 import type { PrefetchedDestinationProjection } from "./destinationPrefetch";
 import {
   cachedDestinationRole,
@@ -313,14 +314,16 @@ export async function verifyRemoteContainerDestination(
       }
       if (input.refresh)
         runtime.apiClient.evictContainerWriterProjection(listed.id);
-      const resolved = await resolveDestinationRole(input).catch(
-        (error: unknown) => {
-          // Never re-serve a cached projection that failed verification.
-          if (isKeyingVerificationError(error))
-            runtime.apiClient.evictContainerWriterProjection(listed.id);
-          throw error;
-        },
-      );
+      // A metadata root read before a reserved-group commit is reloaded once.
+      const resolved = await withMetadataRootReload(
+        () => resolveDestinationRole(input),
+        () => runtime.apiClient.evictContainerWriterProjection(listed.id),
+      ).catch((error: unknown) => {
+        // Never re-serve a cached projection that failed verification.
+        if (isKeyingVerificationError(error))
+          runtime.apiClient.evictContainerWriterProjection(listed.id);
+        throw error;
+      });
       if (!resolved || isCurrent?.() === false) return null;
       const { role, parentId } = resolved;
       assertPermittedDestinationBinding({
