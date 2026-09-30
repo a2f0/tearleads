@@ -248,8 +248,12 @@ The negative-control check asserts this on every run. A link never carries a
 rotation baseline, so `LinkAdvancesEpoch` may advance the content-key epoch
 only over an empty uncovered frontier; `RequireBaselineOnEpochAdvance = FALSE`
 is the server before #2365 finding 28, and TLC reports the same violation.
-The bounds stay small (`MaxUpdates = 3`); the state space is tiny because the
-model tracks only the uncovered-update count and the unlink transaction phase.
+`CoveringUnlinkCoversFrontier` requires that, under the lock, the frontier a
+covering baseline was checked against is still the frontier at its commit. The
+link check and commit are one step because both run inside one locked
+transaction. The bounds stay small (`MaxUpdates = 3`); the state space is tiny
+because the model tracks only the uncovered-update count, the covered frontier,
+and the unlink transaction phase.
 
 ## Backup Restore Terminal Anchors
 

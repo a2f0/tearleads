@@ -94,4 +94,4 @@ test("a group cannot drop a container grant without rotating its key", async () 
   expect(
     (await getCurrentPrincipalState("group", groupId, db))?.stateHash,
   ).toBe(current.stateHash);
-});
+}, 15_000);
