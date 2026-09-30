@@ -4,10 +4,6 @@ import type {
   ContainerMutationResponse,
   ContainerRotationResponse,
 } from "@tearleads/validators/response";
-import {
-  MAX_INLINE_CONTAINER_REKEYS,
-  MAX_ROTATION_CONTAINER_REKEYS,
-} from "@tearleads/validators/util";
 import { readProjectionAccessEvent } from "../../../keyingProjectionRecords";
 import { assertOrganizationCanSync } from "../../billing/organizationSyncEligibility";
 import { createContainerWriterProjectionContext } from "../writerProjection";
@@ -94,10 +90,10 @@ export async function applyContainerRekeys(input: {
     );
     applied.push({ request, response });
   }
-  // An inline repair is a rotation like any other. The write that carries it
-  // holds a flat list, so the descendants it strands ride as further entries.
+  // An inline repair is a rotation like any other, held to the same carried-
+  // rekey cap. The write's flat list carries the descendants it strands; one
+  // that owes more than fits is refused, and the SDK commits them standalone.
   await assertGrantedPathsCurrentBelowRotations({
-    carriedLimit: MAX_INLINE_CONTAINER_REKEYS,
     executor: input.executor,
     rotated: applied.map(({ response }) => response),
   });
@@ -140,7 +136,6 @@ async function mutateContainerRotationInTransaction(
     });
     if (rotates) {
       await assertGrantedPathsCurrentBelowRotations({
-        carriedLimit: MAX_ROTATION_CONTAINER_REKEYS,
         executor: tx,
         rotated: [response],
       });
@@ -208,7 +203,6 @@ async function mutateContainerRotationInTransaction(
     );
   }
   await assertGrantedPathsCurrentBelowRotations({
-    carriedLimit: MAX_ROTATION_CONTAINER_REKEYS,
     executor: tx,
     rotated: [response, ...carriedResponses],
   });

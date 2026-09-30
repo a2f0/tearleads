@@ -486,9 +486,10 @@ document and blob payload records. Document and blob content-key wraps use
 explicit `tearleads.*.content-key-wrap.aes-256-gcm-container-kek` suites whose
 AES-GCM AAD binds the suite, document or blob id, content-key epoch and
 target, so a server cannot serve one document's or blob's wrap as another's,
-while container KEK wraps use ML-KEM-1024 plus AES-GCM for principals or
-AES-GCM under a parent or successor KEK. Rotations write two artifacts: a write-once
-predecessor bridge under the
+while container KEK wraps use ML-KEM-1024 plus AES-GCM, sealed to a
+principal's key or to the ML-KEM public key derived from the parent KEK
+(#2334); predecessor KEKs are sealed under AES-GCM by their successor.
+Rotations write two artifacts: a write-once predecessor bridge under the
 `tearleads.container-kek-wrap.aes-256-gcm-predecessor-kek` suite (the
 append-only log) and the complete predecessor key history sealed under the
 `tearleads.container-kek-keyring.aes-256-gcm-current-kek` suite (the snapshot
