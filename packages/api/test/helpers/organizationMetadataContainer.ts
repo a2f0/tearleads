@@ -1,5 +1,6 @@
 import { db } from "@tearleads/api-shared/postgres";
 import { containerKeyEpochs, containers } from "@tearleads/api-shared/schema";
+import type { GroupMetadataKey } from "@tearleads/crypto";
 import { deriveOrganizationMetadataContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
 import { and, desc, eq } from "drizzle-orm";
 import invariant from "invariant";
@@ -31,12 +32,7 @@ export async function loadOrganizationMetadataContainerId(
  */
 export async function loadOrganizationGroupMetadataKey(
   organizationId: string,
-): Promise<{
-  readonly containerId: string;
-  readonly containerKeyEpochId: string;
-  readonly keyMaterial: Uint8Array;
-  readonly organizationId: string;
-}> {
+): Promise<GroupMetadataKey> {
   const containerId = await loadOrganizationMetadataContainerId(organizationId);
   const [epoch] = await db
     .select({ id: containerKeyEpochs.id })

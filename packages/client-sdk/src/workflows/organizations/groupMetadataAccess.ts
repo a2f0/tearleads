@@ -40,10 +40,11 @@ export interface GroupMetadataAccessInput {
 }
 
 /**
- * A group's signed name does not open under the metadata key it cites. The API
- * checks the citation but can never check the ciphertext, so a dishonest admin
- * can sign such a name; directory walks isolate the group instead of failing
- * every name in the organization.
+ * A group's signed name does not open under the metadata key it cites, or opens
+ * to an invalid name. Every reader holding that key gets the same result. The
+ * API checks the citation but can never check the ciphertext, so a dishonest
+ * admin can sign such a name; directory walks isolate the group instead of
+ * failing every name in the organization.
  */
 export class GroupMetadataUnreadableError extends Error {
   constructor(groupId: string, cause: unknown) {

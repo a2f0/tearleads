@@ -6,6 +6,7 @@ import {
   users,
 } from "@tearleads/api-shared/schema";
 import { createTestUser, type TestUser } from "@tearleads/bob-and-alice";
+import { isOrganizationReadModelResponse } from "@tearleads/validators/response";
 import { eq } from "drizzle-orm";
 import invariant from "invariant";
 import { authenticate } from "../../../test/helpers/authenticate";
@@ -135,4 +136,41 @@ test("the profile pointer refuses the metadata container's own document", async 
   invariant(metadataDocument, "expected the container metadata document");
 
   await expectPointerRefused(admin, metadataDocument.documentId);
+});
+
+async function readDirectoryProfilePointer(
+  admin: RegisteredAdmin,
+): Promise<string | null> {
+  const response = await routeApp.request(
+    `/organizations/${admin.organizationId}/read-model`,
+    { headers: { Authorization: `Bearer ${admin.actor.token}` } },
+  );
+  expect(response.status).toBe(200);
+  const body = await response.json();
+  invariant(
+    isOrganizationReadModelResponse(body) && body.mode === "snapshot",
+    "expected organization read-model snapshot",
+  );
+  return body.lanes.directory.profileDocumentId;
+}
+
+test("the directory withholds a stored pointer that no longer validates", async () => {
+  const admin = await registerAdmin();
+  const profileDocumentId = await createOrganizationDocument(admin, [
+    admin.metadataContainerId,
+  ]);
+  expect((await putProfilePointer(admin, profileDocumentId)).status).toBe(200);
+  expect(await readDirectoryProfilePointer(admin)).toBe(profileDocumentId);
+
+  // An admin later links the profile document into a container others write.
+  const relinkedDocumentId = await createOrganizationDocument(admin, [
+    admin.metadataContainerId,
+    admin.actor.rootContainerId,
+  ]);
+  await db
+    .update(organizations)
+    .set({ profileDocumentId: relinkedDocumentId })
+    .where(eq(organizations.id, admin.organizationId));
+
+  expect(await readDirectoryProfilePointer(admin)).toBeNull();
 });
