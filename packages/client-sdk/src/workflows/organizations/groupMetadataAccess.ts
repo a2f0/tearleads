@@ -18,10 +18,13 @@ import type {
 import { assertProjectionVerificationCurrent } from "../../data/keyingProjectionVerification/types";
 import { loadContainers } from "../../data/persistence/containers/containerPersistence";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
+import { MetadataRootBehindDirectoryError } from "./groupMetadataErrors";
 import type { GroupPolicyNameReader } from "./principalPolicyRequest";
 
 export interface GroupMetadataAccessInput {
   readonly apiClient: {
+    /** Drops a cached root so a superseded one can be refetched. */
+    evictContainerWriterProjection?(containerId: string): void;
     getContainerWriterProjection(
       containerId: string,
     ): Promise<ContainerWriterProjectionResponse | null>;
@@ -39,7 +42,24 @@ export interface GroupMetadataAccessInput {
     | undefined;
 }
 
+/**
+ * A root read before a reserved-group commit the directory already reflects
+ * is reloaded once; a root still behind after that stays a plain miss.
+ */
 async function loadMetadataKeyring(
+  input: GroupMetadataAccessInput,
+  containerId: string,
+) {
+  try {
+    return await loadMetadataKeyringOnce(input, containerId);
+  } catch (error) {
+    if (!(error instanceof MetadataRootBehindDirectoryError)) throw error;
+    input.apiClient.evictContainerWriterProjection?.(containerId);
+    return loadMetadataKeyringOnce(input, containerId);
+  }
+}
+
+async function loadMetadataKeyringOnce(
   input: GroupMetadataAccessInput,
   containerId: string,
 ) {

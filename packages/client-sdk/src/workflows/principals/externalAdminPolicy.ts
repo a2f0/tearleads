@@ -136,6 +136,25 @@ function parseScopedAuthorityDescriptor(
   return descriptor;
 }
 
+/**
+ * The organization and its Admins group are separate reads, so an honest
+ * Admins commit between them serves a chain that extends the head the
+ * directory cites. That is a stale directory, not tampering (#2365 finding 22).
+ */
+class AdminsHeadAdvanced extends Error {}
+
+function servedChainExtends(
+  bundle: PrincipalPolicyBundleResponse,
+  head: ReturnType<typeof requireOrganizationGroupHead>,
+): boolean {
+  return bundle.previousStates.some(
+    (entry) =>
+      entry.state.principalId === head.principalId &&
+      entry.state.version === head.version &&
+      entry.state.stateHash === head.stateHash,
+  );
+}
+
 async function loadVerifiedAdminsPolicy(input: {
   readonly adminGroupId: string;
   readonly expectedHead: ReturnType<typeof requireOrganizationGroupHead>;
@@ -162,6 +181,9 @@ async function loadVerifiedAdminsPolicy(input: {
       input.expectedHead,
     )
   ) {
+    if (servedChainExtends(bundle, input.expectedHead)) {
+      throw new AdminsHeadAdvanced();
+    }
     throw new KeyingVerificationError(
       "hash_mismatch",
       "reserved Admins policy does not match the signed organization directory",
@@ -201,74 +223,92 @@ async function loadVerifiedAdminsPolicy(input: {
   return { bundle, policy: verified.value };
 }
 
-export async function loadOrganizationExternalAdminPolicy(input: {
+interface ExternalAdminPolicyInput {
   readonly execSql: ExecSql;
   readonly getCurrentPrincipalPolicy: (
     principalType: "group" | "organization",
     principalId: string,
   ) => Promise<PrincipalPolicyBundleResponse | null>;
   readonly organizationId: string | null | undefined;
-
   readonly resolveTrustedUserIdentity: TrustedUserIdentityResolver;
   readonly stillCurrent?: (() => boolean) | undefined;
-}): Promise<VerifiedExternalAdminPolicy | null> {
-  if (!input.organizationId) {
+}
+
+async function loadExternalAdminPolicyOnce(
+  input: ExternalAdminPolicyInput,
+  organizationId: string,
+): Promise<VerifiedExternalAdminPolicy | null> {
+  const bundle = await input.getCurrentPrincipalPolicy(
+    "organization",
+    organizationId,
+  );
+  if (!bundle) {
+    return null;
+  }
+  const policy = await verifyOrganizationPolicy({
+    bundle,
+    execSql: input.execSql,
+    organizationId,
+    resolveTrustedUserIdentity: input.resolveTrustedUserIdentity,
+  });
+  if (!policy) {
+    return null;
+  }
+  const descriptor = parseScopedAuthorityDescriptor(bundle, organizationId);
+  const admin = await loadVerifiedAdminsPolicy({
+    adminGroupId: descriptor.adminGroupId,
+    expectedHead: requireOrganizationGroupHead(
+      descriptor,
+      descriptor.adminGroupId,
+    ),
+    execSql: input.execSql,
+    getCurrentPrincipalPolicy: input.getCurrentPrincipalPolicy,
+    resolveTrustedUserIdentity: input.resolveTrustedUserIdentity,
+  });
+  if (!admin) {
+    return null;
+  }
+
+  const verified: VerifiedExternalAdminPolicy = {
+    adminBundle: admin.bundle,
+    adminGroupId: descriptor.adminGroupId,
+    adminPolicy: admin.policy,
+    bundle,
+    descriptor,
+    externalAuthority: organizationAdminExternalAuthority(admin.policy),
+    memberGroupId: descriptor.memberGroupId,
+    policy,
+    signerUserIds: organizationAdminSignerUserIds(admin.policy),
+  };
+  await persistVerifiedPrincipalPolicyBundlesAtomically({
+    entries: externalAdminPolicyPersistenceEntries(verified),
+    execSql: input.execSql,
+    organizationId,
+    stillCurrent: input.stillCurrent,
+    updatedAt: new Date().toISOString(),
+  });
+  return verified;
+}
+
+export async function loadOrganizationExternalAdminPolicy(
+  input: ExternalAdminPolicyInput,
+): Promise<VerifiedExternalAdminPolicy | null> {
+  const { organizationId } = input;
+  if (!organizationId) {
     return null;
   }
   try {
-    const bundle = await input.getCurrentPrincipalPolicy(
-      "organization",
-      input.organizationId,
-    );
-    if (!bundle) {
-      return null;
+    // An honest server serves Admins at or after the head the directory
+    // cites, so only an extending chain is a race: refetch once, then treat
+    // a second advance as a cache miss. Anything else stays an incident.
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        return await loadExternalAdminPolicyOnce(input, organizationId);
+      } catch (error) {
+        if (!(error instanceof AdminsHeadAdvanced)) throw error;
+      }
     }
-    const policy = await verifyOrganizationPolicy({
-      bundle,
-      execSql: input.execSql,
-      organizationId: input.organizationId,
-      resolveTrustedUserIdentity: input.resolveTrustedUserIdentity,
-    });
-    if (!policy) {
-      return null;
-    }
-    const descriptor = parseScopedAuthorityDescriptor(
-      bundle,
-      input.organizationId,
-    );
-    const admin = await loadVerifiedAdminsPolicy({
-      adminGroupId: descriptor.adminGroupId,
-      expectedHead: requireOrganizationGroupHead(
-        descriptor,
-        descriptor.adminGroupId,
-      ),
-      execSql: input.execSql,
-      getCurrentPrincipalPolicy: input.getCurrentPrincipalPolicy,
-      resolveTrustedUserIdentity: input.resolveTrustedUserIdentity,
-    });
-    if (!admin) {
-      return null;
-    }
-
-    const verified: VerifiedExternalAdminPolicy = {
-      adminBundle: admin.bundle,
-      adminGroupId: descriptor.adminGroupId,
-      adminPolicy: admin.policy,
-      bundle,
-      descriptor,
-      externalAuthority: organizationAdminExternalAuthority(admin.policy),
-      memberGroupId: descriptor.memberGroupId,
-      policy,
-      signerUserIds: organizationAdminSignerUserIds(admin.policy),
-    };
-    await persistVerifiedPrincipalPolicyBundlesAtomically({
-      entries: externalAdminPolicyPersistenceEntries(verified),
-      execSql: input.execSql,
-      organizationId: input.organizationId,
-      stillCurrent: input.stillCurrent,
-      updatedAt: new Date().toISOString(),
-    });
-    return verified;
+    return null;
   } catch (error) {
     if (error instanceof KeyingVerificationError) {
       throw error;

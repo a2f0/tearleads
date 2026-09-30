@@ -16,6 +16,7 @@ import {
 import { buildMaterializedContainerRekeyPlan } from "../containers/child/rekey";
 import { containerWriterProjectionFromRekeyPlan } from "../containers/child/rekeyProjection";
 import { createGroupMetadataAccess } from "./groupMetadataAccess";
+import { MetadataRootBehindDirectoryError } from "./groupMetadataErrors";
 import { buildInitialGroupPolicyRequest } from "./principalPolicyRequest";
 
 async function fixture() {
@@ -190,6 +191,44 @@ test("group creation discovers and verifies the organization metadata key", asyn
       icon: null,
     });
     await expect(access.loadEncryptionKey()).resolves.toEqual(metadata.key);
+  } finally {
+    close();
+  }
+});
+
+test("a metadata root behind the directory is evicted and reloaded once", async () => {
+  const { close, execSql } = await createTestExecSql("group-metadata-reload");
+  try {
+    const { parent, member, metadata, resolveProjectionUserKey, bundle } =
+      await fixture();
+    const evicted: string[] = [];
+    const access = (staleReads: number) => {
+      let reads = 0;
+      return createGroupMetadataAccess({
+        verifyMetadataContainer: async () => {
+          reads += 1;
+          if (reads <= staleReads) throw new MetadataRootBehindDirectoryError();
+        },
+        apiClient: {
+          evictContainerWriterProjection: (containerId) => {
+            evicted.push(containerId);
+          },
+          getContainerWriterProjection: async () => metadata.projection,
+        },
+        execSql,
+        organizationId: parent.author.organizationId,
+        resolveProjectionUserKey,
+        targetSecretKey: member.secretKey,
+      });
+    };
+    await expect(access(1).readName(bundle)).resolves.toBe("Confidential team");
+    expect(evicted).toEqual([metadata.key.containerId]);
+    // Still behind after one reload: a plain miss, never an incident.
+    evicted.length = 0;
+    await expect(access(2).readName(bundle)).rejects.toBeInstanceOf(
+      MetadataRootBehindDirectoryError,
+    );
+    expect(evicted).toEqual([metadata.key.containerId]);
   } finally {
     close();
   }

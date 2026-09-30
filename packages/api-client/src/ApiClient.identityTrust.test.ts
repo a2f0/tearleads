@@ -37,3 +37,32 @@ testApiClient(
     await expect(client.getUserIdentity("user-1")).rejects.toBe(mismatch);
   },
 );
+
+testApiClient(
+  "a user identity body dropped mid-stream is unavailable, not malformed",
+  async () => {
+    server.use(
+      http.get(
+        `${apiBaseUrl}/auth/user-identity/:userId`,
+        () =>
+          new HttpResponse(
+            new ReadableStream<Uint8Array>({
+              start(controller) {
+                controller.enqueue(new TextEncoder().encode('{"userId":'));
+                controller.error(
+                  new TypeError("The network connection was lost."),
+                );
+              },
+            }),
+            { headers: { "Content-Type": "application/json" } },
+          ),
+      ),
+    );
+
+    const client = new ApiClient(apiBaseUrl);
+    expect(await client.getUserIdentity("user-1")).toBeNull();
+    expect(client.getUserIdentityRequestFailure("user-1")).toMatchObject({
+      kind: "network",
+    });
+  },
+);
