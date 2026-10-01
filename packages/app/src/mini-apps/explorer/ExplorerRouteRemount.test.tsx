@@ -53,7 +53,7 @@ function navModeButton(view: ReturnType<typeof render>): HTMLButtonElement {
 async function openExplorerInPane(
   view: ReturnType<typeof render>,
   pane: HTMLElement,
-): Promise<HTMLDivElement> {
+): Promise<HTMLElement> {
   fireEvent.contextMenu(pane, { clientX: 120, clientY: 120 });
   clickPaneAppMenuItem(view, "Explorer");
 

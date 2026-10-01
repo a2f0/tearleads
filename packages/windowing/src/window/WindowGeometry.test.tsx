@@ -342,3 +342,25 @@ test("a size below the stylesheet minimum clamps at the size it renders", () => 
   // The window renders at its 200px minimum width, so x may be at most 600.
   expect(committedGeometry(view).position).toEqual({ x: 600, y: 0 });
 });
+
+test("moving a window while clearing its size clamps at the default size", () => {
+  const { view, windowRoot } = renderDesktop({
+    size: { height: 200, width: 600 },
+  });
+  // The stylesheet default renders the window at 400 x 300.
+  for (const [property, fallback, dimension] of [
+    ["offsetWidth", 400, "width"],
+    ["offsetHeight", 300, "height"],
+  ] as const) {
+    Object.defineProperty(windowRoot, property, {
+      configurable: true,
+      get: () => Number.parseFloat(windowRoot.style[dimension]) || fallback,
+    });
+  }
+
+  // x=300 fits at the 400px default, though not at the old 600px width.
+  fireEvent.click(view.getByRole("button", { name: "Move notes" }));
+
+  expect(committedGeometry(view)).toEqual({ position: { x: 300, y: 200 } });
+  expect(windowRoot.style.left).toBe("300px");
+});

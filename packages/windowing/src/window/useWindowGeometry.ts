@@ -375,6 +375,12 @@ function useWindowLayout({
     if (entry.minimized || entry.maximized || !element || !container) {
       return;
     }
+    if (!live.current.size) {
+      // A cleared size has not re-rendered yet; drop the old inline size so the
+      // window measures at the stylesheet default it is about to take.
+      element.style.removeProperty("width");
+      element.style.removeProperty("height");
+    }
     const containerRect = container.getBoundingClientRect();
     const start = entry.position ?? {
       x: entry.initialX - containerRect.left,
@@ -390,6 +396,7 @@ function useWindowLayout({
     entry.maximized,
     entry.minimized,
     entry.position,
+    live,
     setPosition,
     windowRef,
   ]);

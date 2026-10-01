@@ -24,7 +24,7 @@ afterEach(async () => {
 
 async function openExplorerWindow(
   view: ReturnType<typeof renderPane>,
-): Promise<HTMLDivElement> {
+): Promise<HTMLElement> {
   fireEvent.contextMenu(view.getByRole("application"), {
     clientX: 120,
     clientY: 120,
