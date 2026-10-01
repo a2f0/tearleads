@@ -125,7 +125,7 @@ test("clicking a background window brings it to the front", async () => {
   expect(windowA.style.zIndex).toBe("1");
   expect(windowB.style.zIndex).toBe("2");
 
-  fireEvent.mouseDown(windowA);
+  fireEvent.pointerDown(windowA);
 
   expect(windowA.style.zIndex).toBe("2");
   expect(windowB.style.zIndex).toBe("1");
@@ -174,7 +174,7 @@ test("right-clicking a rendered window title bar opens the window menu", async (
   const titleBar = view.getAllByRole("toolbar")[0];
   if (!titleBar) throw new Error("title bar not found");
 
-  fireEvent.mouseDown(titleBar, { button: 2 });
+  fireEvent.pointerDown(titleBar, { button: 2 });
   fireEvent.contextMenu(titleBar, { clientX: 100, clientY: 120 });
 
   expect(view.getByText("Move Forward")).toBeTruthy();

@@ -5,7 +5,7 @@ import type {
   SetStateAction,
 } from "react";
 import { useCallback, useMemo } from "react";
-import type { WindowCreateOptions, WindowEntry } from "./types";
+import type { WindowCreateOptions, WindowEntry, WindowGeometry } from "./types";
 import {
   bringWindowToFront,
   createWindowEntry,
@@ -26,6 +26,38 @@ function arePathSegmentsEqual(
   return (
     left.length === right.length &&
     left.every((segment, index) => segment === right[index])
+  );
+}
+
+function hasGeometry(entry: WindowEntry, geometry: WindowGeometry) {
+  return (
+    entry.position?.x === geometry.position.x &&
+    entry.position?.y === geometry.position.y &&
+    entry.size?.width === geometry.size?.width &&
+    entry.size?.height === geometry.size?.height
+  );
+}
+
+function useSetGeometryAction(
+  setWindows: Dispatch<SetStateAction<WindowEntry[]>>,
+) {
+  return useCallback(
+    (id: string, geometry: WindowGeometry) => {
+      setWindows((previousWindows) => {
+        const targetWindow = previousWindows.find(
+          (windowEntry) => windowEntry.id === id,
+        );
+        if (!targetWindow || hasGeometry(targetWindow, geometry)) {
+          return previousWindows;
+        }
+
+        return updateWindowFlag(previousWindows, id, {
+          position: { ...geometry.position },
+          size: geometry.size ? { ...geometry.size } : undefined,
+        });
+      });
+    },
+    [setWindows],
   );
 }
 
@@ -188,6 +220,23 @@ function useWindowZOrderActions(
   return { bringToFront, moveBackward, moveForward };
 }
 
+// Updates to a single window's own fields: its title and its geometry.
+function useWindowFieldActions(
+  setWindows: Dispatch<SetStateAction<WindowEntry[]>>,
+) {
+  const updateTitle = useCallback(
+    (id: string, title: string) => {
+      setWindows((previousWindows) =>
+        updateWindowFlag(previousWindows, id, { title }),
+      );
+    },
+    [setWindows],
+  );
+  const setGeometry = useSetGeometryAction(setWindows);
+
+  return { setGeometry, updateTitle };
+}
+
 export function useWindowStateActions({
   counter,
   setWindows,
@@ -239,14 +288,7 @@ export function useWindowStateActions({
   const updateRoute = useUpdateRouteAction(setWindows);
   const goBackRoute = useGoBackRouteAction(setWindows);
 
-  const updateTitle = useCallback(
-    (id: string, title: string) => {
-      setWindows((previousWindows) =>
-        updateWindowFlag(previousWindows, id, { title }),
-      );
-    },
-    [setWindows],
-  );
+  const { setGeometry, updateTitle } = useWindowFieldActions(setWindows);
 
   const { bringToFront, moveBackward, moveForward } =
     useWindowZOrderActions(setWindows);
@@ -262,6 +304,7 @@ export function useWindowStateActions({
       moveBackward,
       moveForward,
       restore,
+      setGeometry,
       toggleMaximize,
       updateRoute,
       updateTitle,
@@ -276,6 +319,7 @@ export function useWindowStateActions({
       moveBackward,
       moveForward,
       restore,
+      setGeometry,
       toggleMaximize,
       updateRoute,
       updateTitle,

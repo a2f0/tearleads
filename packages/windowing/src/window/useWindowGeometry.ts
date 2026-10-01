@@ -1,6 +1,6 @@
 import {
   type MutableRefObject,
-  type MouseEvent as ReactMouseEvent,
+  type PointerEvent as ReactPointerEvent,
   type RefObject,
   useCallback,
   useEffect,
@@ -8,20 +8,15 @@ import {
   useState,
 } from "react";
 import type { ResizeCorner } from "./WindowResizeHandle";
-import type { WindowEntry } from "./WindowStateProvider";
+import {
+  useWindowActions,
+  type WindowEntry,
+  type WindowPosition,
+  type WindowSize,
+} from "./WindowStateProvider";
 
 const MIN_WIDTH = 200;
 const MIN_HEIGHT = 100;
-
-export interface WindowPosition {
-  x: number;
-  y: number;
-}
-
-export interface WindowSize {
-  width: number;
-  height: number;
-}
 
 interface WindowDragState {
   offsetX: number;
@@ -38,6 +33,11 @@ interface WindowResizeState {
   startY: number;
   borderX: number;
   borderY: number;
+}
+
+interface LiveGeometry {
+  position: WindowPosition | null;
+  size: WindowSize | null;
 }
 
 function clampWindowPosition(
@@ -102,6 +102,9 @@ function resizeWindowWithinContainer(
   };
 }
 
+// Pointer events cover mouse, touch, and pen alike. The live geometry stays in
+// component state while a gesture runs, so only this window re-renders per
+// frame; the gesture's end commits it to the shared window state once.
 function useWindowPointerTracking(
   windowRef: RefObject<HTMLDivElement | null>,
   dragging: MutableRefObject<WindowDragState | null>,
@@ -109,9 +112,10 @@ function useWindowPointerTracking(
   clamp: (x: number, y: number) => WindowPosition,
   setPosition: (value: WindowPosition) => void,
   setSize: (value: WindowSize) => void,
+  commit: () => void,
 ) {
   useEffect(() => {
-    function handleMouseMove(event: MouseEvent) {
+    function handlePointerMove(event: PointerEvent) {
       if (resizing.current) {
         const nextFrame = resizeWindowWithinContainer(
           resizing.current,
@@ -134,18 +138,62 @@ function useWindowPointerTracking(
       }
     }
 
-    function handleMouseUp() {
+    function handlePointerEnd() {
+      if (!dragging.current && !resizing.current) {
+        return;
+      }
       dragging.current = null;
       resizing.current = null;
+      commit();
     }
 
-    document.addEventListener("mousemove", handleMouseMove);
-    document.addEventListener("mouseup", handleMouseUp);
+    document.addEventListener("pointermove", handlePointerMove);
+    document.addEventListener("pointerup", handlePointerEnd);
+    document.addEventListener("pointercancel", handlePointerEnd);
     return () => {
-      document.removeEventListener("mousemove", handleMouseMove);
-      document.removeEventListener("mouseup", handleMouseUp);
+      document.removeEventListener("pointermove", handlePointerMove);
+      document.removeEventListener("pointerup", handlePointerEnd);
+      document.removeEventListener("pointercancel", handlePointerEnd);
     };
-  }, [clamp, dragging, resizing, setPosition, setSize, windowRef]);
+  }, [clamp, commit, dragging, resizing, setPosition, setSize, windowRef]);
+}
+
+function useLiveGeometry(entry: WindowEntry) {
+  const { setGeometry } = useWindowActions();
+  const [position, setPositionState] = useState<WindowPosition | null>(null);
+  const [size, setSizeState] = useState<WindowSize | null>(entry.size ?? null);
+  // Mirrors the live state so a gesture's end commits the latest frame.
+  const live = useRef<LiveGeometry>({
+    position: null,
+    size: entry.size ?? null,
+  });
+
+  const setPosition = useCallback((value: WindowPosition) => {
+    live.current.position = value;
+    setPositionState(value);
+  }, []);
+  const setSize = useCallback((value: WindowSize) => {
+    live.current.size = value;
+    setSizeState(value);
+  }, []);
+  const commit = useCallback(() => {
+    const committedPosition = live.current.position;
+    if (committedPosition) {
+      setGeometry(entry.id, {
+        position: committedPosition,
+        size: live.current.size ?? undefined,
+      });
+    }
+  }, [entry.id, setGeometry]);
+
+  // A size committed elsewhere (a restored layout, a host call) wins.
+  useEffect(() => {
+    if (entry.size) {
+      setSize(entry.size);
+    }
+  }, [entry.size, setSize]);
+
+  return { commit, position, setPosition, setSize, size };
 }
 
 export function useWindowGeometry(
@@ -153,8 +201,8 @@ export function useWindowGeometry(
   maximized: boolean,
   windowRef: RefObject<HTMLDivElement | null>,
 ) {
-  const [position, setPosition] = useState<WindowPosition | null>(null);
-  const [size, setSize] = useState<WindowSize | null>(null);
+  const { commit, position, setPosition, setSize, size } =
+    useLiveGeometry(entry);
   const dragging = useRef<WindowDragState | null>(null);
   const resizing = useRef<WindowResizeState | null>(null);
   const clamp = useCallback(
@@ -162,6 +210,8 @@ export function useWindowGeometry(
     [windowRef],
   );
 
+  // Lay the window out from its committed position, or from its viewport
+  // starting point the first time, and commit where it actually landed.
   useEffect(() => {
     const element = windowRef.current;
     const container = element?.parentElement;
@@ -169,13 +219,21 @@ export function useWindowGeometry(
       return;
     }
     const containerRect = container.getBoundingClientRect();
-    setPosition(
-      clamp(
-        entry.initialX - containerRect.left,
-        entry.initialY - containerRect.top,
-      ),
-    );
-  }, [clamp, entry.initialX, entry.initialY, windowRef]);
+    const start = entry.position ?? {
+      x: entry.initialX - containerRect.left,
+      y: entry.initialY - containerRect.top,
+    };
+    setPosition(clamp(start.x, start.y));
+    commit();
+  }, [
+    clamp,
+    commit,
+    entry.initialX,
+    entry.initialY,
+    entry.position,
+    setPosition,
+    windowRef,
+  ]);
 
   useWindowPointerTracking(
     windowRef,
@@ -184,10 +242,11 @@ export function useWindowGeometry(
     clamp,
     setPosition,
     setSize,
+    commit,
   );
 
-  const handleMouseDown = useCallback(
-    (event: ReactMouseEvent) => {
+  const handlePointerDown = useCallback(
+    (event: ReactPointerEvent) => {
       if (!position || maximized) {
         return;
       }
@@ -199,8 +258,8 @@ export function useWindowGeometry(
     [dragging, maximized, position],
   );
 
-  const handleResizeMouseDown = useCallback(
-    (event: ReactMouseEvent, corner: ResizeCorner) => {
+  const handleResizePointerDown = useCallback(
+    (event: ReactPointerEvent, corner: ResizeCorner) => {
       if (maximized || !position || !windowRef.current) {
         return;
       }
@@ -224,8 +283,8 @@ export function useWindowGeometry(
   );
 
   return {
-    handleMouseDown,
-    handleResizeMouseDown,
+    handlePointerDown,
+    handleResizePointerDown,
     position,
     size,
   };

@@ -50,6 +50,20 @@ function OpenNotes() {
 Windows are absolutely positioned and clamp to their parent element, so the
 desktop surface must be a positioned container.
 
+## Geometry and input
+
+Windows move by their title bar and resize by their corners with pointer
+events, so mouse, touch, and pen all work. While a gesture runs the geometry
+stays local to that window; when it ends, the window commits its `position` and
+`size` (surface-relative) to its `WindowEntry`. The first layout commits too,
+so `position` always reflects where the window sits. Without `size` a window
+takes its stylesheet's default size.
+
+To save a layout, read `position` and `size` from `useWindowStateData()`. To
+restore one, pass them back as `create` options, which take precedence over
+`create`'s viewport `x`/`y`. `setGeometry(id, { position, size })` moves or
+resizes a window programmatically.
+
 ## Slots
 
 - **`ContentBoundary`** — `Window` renders a window's component inside this

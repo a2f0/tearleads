@@ -4,6 +4,7 @@ import {
   type HTMLAttributes,
   type PropsWithChildren,
   type MouseEvent as ReactMouseEvent,
+  type PointerEvent as ReactPointerEvent,
   useCallback,
   useEffect,
   useMemo,
@@ -12,11 +13,7 @@ import {
 } from "react";
 import "./Window.css";
 import { CurrentWindowProvider } from "./CurrentWindowContext";
-import {
-  useWindowGeometry,
-  type WindowPosition,
-  type WindowSize,
-} from "./useWindowGeometry";
+import { useWindowGeometry } from "./useWindowGeometry";
 import { WindowBody } from "./WindowBody";
 import { WindowMenuBar, type WindowMenuItem } from "./WindowMenuBar";
 import {
@@ -35,6 +32,8 @@ import {
   useWindowActions as useWindowStateActions,
   useWindowStateData,
   type WindowEntry,
+  type WindowPosition,
+  type WindowSize,
 } from "./WindowStateProvider";
 import { WindowStatusBar } from "./WindowStatusBar";
 import { WindowTitleBar } from "./WindowTitleBar";
@@ -163,7 +162,13 @@ function getWindowStyle(
     return { top: 0, left: 0, width: "100%", height: "100%", zIndex };
   }
   if (!position) {
-    return { visibility: "hidden", zIndex };
+    // Hidden until laid out; a requested size applies already so the first
+    // clamp measures the window at the size it will show.
+    return {
+      visibility: "hidden",
+      zIndex,
+      ...(size ? { width: size.width, height: size.height } : {}),
+    };
   }
 
   return {
@@ -212,16 +217,19 @@ function useWindowToolbarSuppression() {
 }
 
 function WindowResizeHandles({
-  handleResizeMouseDown,
+  handleResizePointerDown,
 }: {
-  handleResizeMouseDown: (event: ReactMouseEvent, corner: ResizeCorner) => void;
+  handleResizePointerDown: (
+    event: ReactPointerEvent,
+    corner: ResizeCorner,
+  ) => void;
 }) {
   return (
     <>
-      <WindowResizeHandle corner="se" onMouseDown={handleResizeMouseDown} />
-      <WindowResizeHandle corner="sw" onMouseDown={handleResizeMouseDown} />
-      <WindowResizeHandle corner="ne" onMouseDown={handleResizeMouseDown} />
-      <WindowResizeHandle corner="nw" onMouseDown={handleResizeMouseDown} />
+      <WindowResizeHandle corner="se" onPointerDown={handleResizePointerDown} />
+      <WindowResizeHandle corner="sw" onPointerDown={handleResizePointerDown} />
+      <WindowResizeHandle corner="ne" onPointerDown={handleResizePointerDown} />
+      <WindowResizeHandle corner="nw" onPointerDown={handleResizePointerDown} />
     </>
   );
 }
@@ -247,20 +255,20 @@ function WindowChrome({
   actions,
   entry,
   onGoBack,
-  onMouseDown,
+  onPointerDown,
   toolbarSuppressed,
 }: {
   actions: ReturnType<typeof useWindowActions>;
   entry: WindowEntry;
   onGoBack: () => void;
-  onMouseDown: (event: ReactMouseEvent) => void;
+  onPointerDown: (event: ReactPointerEvent) => void;
   toolbarSuppressed: boolean;
 }) {
   return (
     <>
       <WindowTitleBar
         title={entry.title}
-        onMouseDown={onMouseDown}
+        onPointerDown={onPointerDown}
         onMinimize={actions.handleMinimize}
         onMaximize={actions.handleMaximize}
         onClose={actions.handleClose}
@@ -293,7 +301,7 @@ function WindowInnerContent({ ContentBoundary, entry }: WindowInnerProps) {
     viewMenuItems,
     hasSidebar,
   );
-  const { handleMouseDown, handleResizeMouseDown, position, size } =
+  const { handlePointerDown, handleResizePointerDown, position, size } =
     useWindowGeometry(entry, maximized, windowRef);
   const { showStatusMessage, statusText } = useWindowStatusMessage();
   const { suppressToolbar, toolbarSuppressed } = useWindowToolbarSuppression();
@@ -303,7 +311,7 @@ function WindowInnerContent({ ContentBoundary, entry }: WindowInnerProps) {
   const handleGoBack = useCallback(() => {
     goBackRoute(entry.id);
   }, [entry.id, goBackRoute]);
-  const handleWindowMouseDown = useCallback(() => {
+  const handleWindowPointerDown = useCallback(() => {
     bringToFront(entry.id);
   }, [bringToFront, entry.id]);
   const handleWindowContextMenu = useCallback((event: ReactMouseEvent) => {
@@ -327,14 +335,14 @@ function WindowInnerContent({ ContentBoundary, entry }: WindowInnerProps) {
       ref={windowRef}
       className={maximized ? "window window--maximized" : "window"}
       {...windowContextMenuTrapProps}
-      onMouseDownCapture={handleWindowMouseDown}
+      onPointerDownCapture={handleWindowPointerDown}
       style={style}
     >
       <WindowChrome
         actions={actions}
         entry={entry}
         onGoBack={handleGoBack}
-        onMouseDown={handleMouseDown}
+        onPointerDown={handlePointerDown}
         toolbarSuppressed={toolbarSuppressed}
       />
       <CurrentWindowProvider
@@ -359,7 +367,9 @@ function WindowInnerContent({ ContentBoundary, entry }: WindowInnerProps) {
       </CurrentWindowProvider>
       {actions.showStatusBar && <WindowStatusBar text={statusText} />}
       {!maximized && (
-        <WindowResizeHandles handleResizeMouseDown={handleResizeMouseDown} />
+        <WindowResizeHandles
+          handleResizePointerDown={handleResizePointerDown}
+        />
       )}
     </div>
   );

@@ -20,6 +20,8 @@ export function createWindowEntry(
     title,
     initialX: x,
     initialY: y,
+    ...(options.position ? { position: { ...options.position } } : {}),
+    ...(options.size ? { size: { ...options.size } } : {}),
     maximized: false,
     minimized: false,
     zIndex,

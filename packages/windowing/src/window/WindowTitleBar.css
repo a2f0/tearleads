@@ -10,6 +10,8 @@
   line-height: var(--window-bar-line-height);
   cursor: grab;
   user-select: none;
+  /* Dragging is pointer-driven; keep a touch drag from scrolling the page. */
+  touch-action: none;
   border-radius: var(--app-radius-surface) var(--app-radius-surface) 0 0;
 }
 

@@ -5,14 +5,14 @@ import { WindowTitleBar } from "./WindowTitleBar";
 afterEach(() => cleanup());
 
 function renderTitleBar({
-  onMouseDown = () => {},
+  onPointerDown = () => {},
 }: {
-  onMouseDown?: () => void;
+  onPointerDown?: () => void;
 } = {}) {
   return render(
     <WindowTitleBar
       title="Notes"
-      onMouseDown={onMouseDown}
+      onPointerDown={onPointerDown}
       onMinimize={() => {}}
       onMaximize={() => {}}
       onClose={() => {}}
@@ -31,10 +31,10 @@ test("renders only the standard window controls", () => {
 });
 
 test("starts dragging only for left-clicks on the draggable title area", () => {
-  let mouseDownCalls = 0;
+  let pointerDownCalls = 0;
   const view = renderTitleBar({
-    onMouseDown: () => {
-      mouseDownCalls += 1;
+    onPointerDown: () => {
+      pointerDownCalls += 1;
     },
   });
 
@@ -45,27 +45,27 @@ test("starts dragging only for left-clicks on the draggable title area", () => {
 
   if (!closeButton) throw new Error("close button not found");
 
-  fireEvent.mouseDown(titleBar, { button: 2 });
-  fireEvent.mouseDown(closeButton, { button: 0 });
-  fireEvent.mouseDown(title, { button: 0 });
+  fireEvent.pointerDown(titleBar, { button: 2 });
+  fireEvent.pointerDown(closeButton, { button: 0 });
+  fireEvent.pointerDown(title, { button: 0 });
 
-  expect(mouseDownCalls).toBe(1);
+  expect(pointerDownCalls).toBe(1);
 });
 
 test("opens the title-bar context menu without starting a drag", () => {
-  let mouseDownCalls = 0;
+  let pointerDownCalls = 0;
   const view = renderTitleBar({
-    onMouseDown: () => {
-      mouseDownCalls += 1;
+    onPointerDown: () => {
+      pointerDownCalls += 1;
     },
   });
 
   const titleBar = view.getByRole("toolbar");
 
-  fireEvent.mouseDown(titleBar, { button: 2 });
+  fireEvent.pointerDown(titleBar, { button: 2 });
   fireEvent.contextMenu(titleBar, { clientX: 100, clientY: 120 });
 
-  expect(mouseDownCalls).toBe(0);
+  expect(pointerDownCalls).toBe(0);
   expect(view.getByText("Move Forward")).toBeTruthy();
   expect(view.getByText("Move Backward")).toBeTruthy();
 });

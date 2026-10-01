@@ -19,7 +19,7 @@ export interface WindowTitleBarAction {
 
 export function WindowTitleBar({
   title,
-  onMouseDown,
+  onPointerDown,
   onMinimize,
   onMaximize,
   onClose,
@@ -27,7 +27,7 @@ export function WindowTitleBar({
   onMoveBackward,
 }: {
   title: string;
-  onMouseDown: (e: React.MouseEvent) => void;
+  onPointerDown: (e: React.PointerEvent) => void;
   onMinimize: () => void;
   onMaximize: () => void;
   onClose: () => void;
@@ -37,14 +37,14 @@ export function WindowTitleBar({
   const { closeContextMenu, contextMenu, openContextMenuAt } =
     useContextMenuPositionState();
 
-  const handleMouseDown = useCallback(
-    (e: React.MouseEvent<HTMLDivElement>) => {
+  const handlePointerDown = useCallback(
+    (e: React.PointerEvent<HTMLDivElement>) => {
       const target = e.target;
       if (e.button !== 0) return;
       if (target instanceof HTMLElement && target.closest("button")) return;
-      onMouseDown(e);
+      onPointerDown(e);
     },
-    [onMouseDown],
+    [onPointerDown],
   );
 
   return (
@@ -52,7 +52,7 @@ export function WindowTitleBar({
       role="toolbar"
       aria-label="Window controls"
       className="window-titlebar"
-      onMouseDown={handleMouseDown}
+      onPointerDown={handlePointerDown}
       onContextMenu={(event) => {
         event.preventDefault();
         event.stopPropagation();
