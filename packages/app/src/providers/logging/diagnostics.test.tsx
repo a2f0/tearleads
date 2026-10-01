@@ -1,7 +1,7 @@
 import { afterEach, expect, test } from "bun:test";
 import { cleanup, fireEvent, render } from "@testing-library/react";
-import { PaneLog } from "../../components/pane/log/PaneLog";
 import type { DiagnosticBreadcrumb } from "../../host/AppDiagnostics";
+import { PaneLog } from "../../shell/pane/log/PaneLog";
 import {
   DiagnosticAreaContext,
   DiagnosticsProvider,

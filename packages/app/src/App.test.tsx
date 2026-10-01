@@ -15,14 +15,11 @@ import {
 import { MockWorker } from "../test/helpers/mockWorker";
 import { getAllPaneStatusTexts } from "../test/helpers/paneTestUtils";
 import { App } from "./App";
-import {
-  DualPaneProvider,
-  PaneSideProvider,
-} from "./components/pane/dual-pane";
-import { PaneProvider } from "./components/pane/runtime/PaneProvider";
-import { Pane } from "./components/pane/shell/Pane";
 import { SystemMonitorDeveloperModeProvider } from "./mini-apps/system-monitor/systemMonitorDeveloperMode";
 import type { AppNavigationMode } from "./navigation/AppNavigationMode";
+import { DualPaneProvider, PaneSideProvider } from "./shell/pane/dual-pane";
+import { PaneProvider } from "./shell/pane/runtime/PaneProvider";
+import { Pane } from "./shell/pane/shell/Pane";
 import { useDeviceFirstContainerContents } from "./stores/device-first/DeviceFirstProvider";
 
 interface DeviceFirstIdentitySnapshot {

@@ -1,4 +1,4 @@
-import type { PaneSide } from "../../components/pane/dual-pane/types";
+import type { PaneSide } from "../../shell/pane/dual-pane/types";
 import {
   loadStoredPreference,
   saveStoredPreference,

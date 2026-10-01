@@ -12,7 +12,6 @@ import {
   MiniAppRoot,
   MiniAppStatus,
 } from "../../components/mini-app/MiniAppLayout";
-import { usePeerUserId } from "../../components/pane/dual-pane";
 import { useMiniAppRouteSegments } from "../../navigation/AppNavigationProvider";
 import { useOrganizationBilling } from "../../providers/billing/BillingProvider";
 import { useDatabase } from "../../providers/db/DatabaseProvider";
@@ -22,6 +21,7 @@ import {
   type RuntimeSnapshot,
   useTearleadsRuntime,
 } from "../../providers/sdk/TearleadsProvider";
+import { usePeerUserId } from "../../shell/pane/dual-pane";
 import { useExplorer } from "../../stores/explorer/ExplorerProvider";
 import { useMiniAppBusActions } from "../bus";
 import { SystemBootstrapGate } from "../SystemBootstrapGate";

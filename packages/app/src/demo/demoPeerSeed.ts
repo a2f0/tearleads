@@ -1,9 +1,9 @@
+import type { ContactEntries } from "../mini-apps/contacts/types";
 import {
   type PaneSide,
   peerPaneLabel,
   selfPaneLabel,
-} from "../components/pane/dual-pane";
-import type { ContactEntries } from "../mini-apps/contacts/types";
+} from "../shell/pane/dual-pane";
 
 // A single friendly-seeding step for the demo. `set-nickname` renames an
 // existing contact; `import-peer` fetches the peer's key into a new contact and

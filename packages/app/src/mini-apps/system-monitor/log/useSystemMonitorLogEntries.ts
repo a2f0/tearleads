@@ -1,8 +1,8 @@
-import type { PaneLogEntry } from "../../../components/pane/log/PaneLog";
-import { useBootPaneLogEntries } from "../../../components/pane/log/useBootPaneLogEntries";
 import { useIdentity } from "../../../providers/identity/IdentityProvider";
 import { useLocalKeyringLock } from "../../../providers/local-keyring/LocalKeyringLockProvider";
 import { useLogEntries } from "../../../providers/logging/LogProvider";
+import type { PaneLogEntry } from "../../../shell/pane/log/PaneLog";
+import { useBootPaneLogEntries } from "../../../shell/pane/log/useBootPaneLogEntries";
 
 const BOOT_PANE_LOG_MESSAGE =
   "Generate a key pair from the pane menu to boot this pane.";

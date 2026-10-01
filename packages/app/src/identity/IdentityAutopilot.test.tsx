@@ -18,12 +18,6 @@ import {
   waitForPaneRuntimeToSettle,
   waitForPersistedPaneLocalIdentity,
 } from "../../test/helpers/paneTestUtils";
-import {
-  DualPaneProvider,
-  PaneSideProvider,
-} from "../components/pane/dual-pane";
-import { PaneProvider } from "../components/pane/runtime/PaneProvider";
-import { Pane } from "../components/pane/shell/Pane";
 import { DESTROY_KEY_PACKAGE_CONFIRMATION_PHRASE } from "../components/shared/DestroyKeyPackageConfirmationDialog";
 import type { AppHostConfig } from "../host/AppHostConfig";
 import { SystemMonitorDeveloperModeProvider } from "../mini-apps/system-monitor/systemMonitorDeveloperMode";
@@ -31,6 +25,9 @@ import {
   saveSystemMonitorMode,
   systemMonitorModeStorageKey,
 } from "../mini-apps/system-monitor/systemMonitorMode";
+import { DualPaneProvider, PaneSideProvider } from "../shell/pane/dual-pane";
+import { PaneProvider } from "../shell/pane/runtime/PaneProvider";
+import { Pane } from "../shell/pane/shell/Pane";
 
 afterEach(cleanupPaneTestEnvironment);
 

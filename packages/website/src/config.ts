@@ -9,7 +9,7 @@ export const appUrl = isStaging
  * The site's release notice, shown by StatusNotice.astro under the label
  * "Early testing." in the Home hero, the Pricing header, and the Linux install
  * header. It mirrors the app's unconditional TestSystemBanner
- * (packages/app/src/components/layout/TestSystemBanner.tsx: "Test system. You
+ * (packages/app/src/shell/layout/TestSystemBanner.tsx: "Test system. You
  * will lose data."). Set it to null in the same change that removes that
  * banner, then recapture the screenshots and recheck every figure's crops,
  * including the `phoneCrop` values on Home and Features, which are measured to

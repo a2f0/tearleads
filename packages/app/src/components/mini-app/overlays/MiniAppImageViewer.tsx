@@ -15,8 +15,8 @@ import {
   useRef,
 } from "react";
 import { createPortal } from "react-dom";
-import { useRoutedPaneOverlayHost } from "../../layout/routed/RoutedPaneOverlayHost";
 import { classNames } from "../../shared/classNames";
+import { useRoutedPaneOverlayHost } from "./RoutedPaneOverlayHost";
 import "./MiniAppImageViewer.css";
 import { useImageViewerState } from "./useImageViewerState";
 

@@ -5,12 +5,12 @@ import {
   subscribeToPersistedDocuments,
 } from "@tearleads/client-sdk";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { createPendingWriteWatcher } from "../../../components/pane/footer/sync-status/pendingWriteWatcher";
 import {
   useTearleads,
   useTearleadsRuntime,
 } from "../../../providers/sdk/TearleadsProvider";
 import { useTearleadsExternalValue } from "../../../providers/sdk/useTearleadsSubscription";
+import { createPendingWriteWatcher } from "../../../shell/pane/footer/sync-status/pendingWriteWatcher";
 import type { SystemMonitorWriteQueueReport } from "./systemMonitorReport";
 
 // `listPendingWrites()` is an identity-wide scan, so re-reads are throttled: a

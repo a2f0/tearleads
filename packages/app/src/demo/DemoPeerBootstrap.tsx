@@ -1,12 +1,12 @@
 import { useEffect, useRef } from "react";
+import { useCryptoSession } from "../providers/crypto/CryptoSessionProvider";
+import { useLog } from "../providers/logging/LogProvider";
+import { useTearleadsRuntime } from "../providers/sdk/TearleadsProvider";
 import {
   peerPaneLabel,
   usePaneSide,
   usePeerUserId,
-} from "../components/pane/dual-pane";
-import { useCryptoSession } from "../providers/crypto/CryptoSessionProvider";
-import { useLog } from "../providers/logging/LogProvider";
-import { useTearleadsRuntime } from "../providers/sdk/TearleadsProvider";
+} from "../shell/pane/dual-pane";
 import {
   ContactsProvider,
   useContacts,
