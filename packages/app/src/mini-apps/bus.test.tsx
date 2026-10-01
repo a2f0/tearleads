@@ -6,6 +6,10 @@ import {
 } from "@tearleads/windowing";
 import { cleanup, fireEvent, render, waitFor } from "@testing-library/react";
 import {
+  createMiniApps,
+  EmptyMiniApp,
+} from "../../test/helpers/miniAppBusFixtures";
+import {
   AppNavigationProvider,
   useAppNavigationState,
 } from "../navigation/AppNavigationProvider";
@@ -14,7 +18,6 @@ import {
   useMiniAppBusActions,
   useMiniAppMessage,
 } from "./bus";
-import { createMiniApps, EmptyMiniApp } from "./bus.testUtils";
 import { MiniAppWindow } from "./MiniAppWindow";
 
 afterEach(() => {

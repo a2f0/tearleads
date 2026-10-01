@@ -1,5 +1,5 @@
 import type { ComponentType } from "react";
-import type { MiniAppDefinition, MiniAppId } from "./types";
+import type { MiniAppDefinition, MiniAppId } from "../../src/mini-apps/types";
 
 export function EmptyMiniApp() {
   return null;

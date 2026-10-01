@@ -5,13 +5,16 @@ import {
   WindowStateProvider,
 } from "@tearleads/windowing";
 import { cleanup, fireEvent, render, waitFor } from "@testing-library/react";
+import {
+  createMiniApps,
+  EmptyMiniApp,
+} from "../../test/helpers/miniAppBusFixtures";
 import { AppNavigationProvider } from "../navigation/AppNavigationProvider";
 import {
   MiniAppBusProvider,
   useMiniAppBusActions,
   useMiniAppMessage,
 } from "./bus";
-import { createMiniApps, EmptyMiniApp } from "./bus.testUtils";
 import { MiniAppWindow } from "./MiniAppWindow";
 
 afterEach(() => {
