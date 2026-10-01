@@ -29,7 +29,7 @@ export function resolveActiveAppRoute(
   return topWindow && isMiniAppId(topWindow.appId)
     ? {
         appId: topWindow.appId,
-        pathSegments: topWindow.miniAppPathSegments ?? EMPTY_ROUTE_SEGMENTS,
+        pathSegments: topWindow.pathSegments ?? EMPTY_ROUTE_SEGMENTS,
       }
     : EMPTY_APP_ROUTE;
 }

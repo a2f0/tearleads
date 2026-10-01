@@ -6,7 +6,7 @@ import type {
 } from "@tearleads/client-sdk";
 import { useMemo } from "react";
 import { MiniAppPanel } from "../../../../components/mini-app/MiniAppLayout";
-import { useMiniAppDetailBackAction } from "../../../../components/window/useMiniAppDetailBackAction";
+import { useMiniAppDetailBackAction } from "../../../../components/mini-app/useMiniAppDetailBackAction";
 import type { ExplorerBlobInfoLoader } from "../../../../stores/explorer/blobInfo";
 import type { BlobPickTarget } from "../../../shared/blob-pick/BlobPickProvider";
 import {
