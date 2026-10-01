@@ -21,23 +21,28 @@ export function stubLayout(
 // Replaces ResizeObserver with one whose callbacks the test fires by hand, as
 // when a hidden surface is shown or the viewport resizes.
 export function captureResizeObservers() {
-  const callbacks: Array<() => void> = [];
+  const observers: CapturedResizeObserver[] = [];
   const original = globalThis.ResizeObserver;
-  globalThis.ResizeObserver = class {
-    readonly #callback: () => void;
-    constructor(callback: () => void) {
+
+  class CapturedResizeObserver implements ResizeObserver {
+    readonly #callback: ResizeObserverCallback;
+    constructor(callback: ResizeObserverCallback) {
       this.#callback = callback;
     }
     observe() {
-      callbacks.push(this.#callback);
+      observers.push(this);
     }
     unobserve() {}
     disconnect() {}
-  } as unknown as typeof ResizeObserver;
+    fire() {
+      this.#callback([], this);
+    }
+  }
+  globalThis.ResizeObserver = CapturedResizeObserver;
 
   return {
     fire: () => {
-      for (const callback of callbacks) callback();
+      for (const observer of observers) observer.fire();
     },
     restore: () => {
       globalThis.ResizeObserver = original;
