@@ -225,3 +225,14 @@ test("a pointer press ends a keyboard move and keeps it", () => {
   expect(committedGeometry(view).position).toEqual({ x: 10, y: 0 });
   expect(fireEvent.keyDown(document, { key: "ArrowRight" })).toBe(true);
 });
+
+test("keyboard move instructions are announced with the status bar hidden", () => {
+  const { dialog } = openNotes();
+
+  chooseViewMenuItem(dialog, "Hide Status Bar");
+  chooseViewMenuItem(dialog, "Move Window");
+
+  const region = within(dialog).getByRole("status");
+  expect(region.textContent).toContain("Moving window");
+  expect(region.querySelector(".window-statusbar--hidden")).not.toBeNull();
+});

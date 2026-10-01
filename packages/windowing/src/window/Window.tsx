@@ -402,7 +402,7 @@ function WindowInnerContent({ ContentBoundary, entry }: WindowInnerProps) {
           )}
         </WindowBodyWithSidebar>
       </CurrentWindowProvider>
-      {actions.showStatusBar && <WindowStatusBar text={statusText} />}
+      <WindowStatusBar text={statusText} visible={actions.showStatusBar} />
       {!maximized && (
         <WindowResizeHandles
           handleResizePointerDown={handleResizePointerDown}

@@ -54,8 +54,11 @@ function clampWindowPosition(
   if (!element || !container) {
     return { x, y };
   }
-  const width = size?.width ?? element.offsetWidth;
-  const height = size?.height ?? element.offsetHeight;
+  // A requested size renders no smaller than the stylesheet's minimums.
+  const width = size ? Math.max(MIN_WIDTH, size.width) : element.offsetWidth;
+  const height = size
+    ? Math.max(MIN_HEIGHT, size.height)
+    : element.offsetHeight;
 
   return {
     x: Math.max(0, Math.min(x, container.clientWidth - width)),
@@ -363,12 +366,13 @@ function useWindowLayout({
 }: WindowLayoutInput) {
   // Lay the window out from its committed position, or from its viewport
   // starting point the first time, and commit where it actually landed. A
-  // minimized window has no element to measure, so this runs again when it is
-  // restored and picks up any geometry committed in the meantime.
+  // minimized window has no element to measure, and a maximized one measures
+  // at full size, so this waits out both and runs again once the window shows
+  // at its normal geometry, picking up anything committed in the meantime.
   useEffect(() => {
     const element = windowRef.current;
     const container = element?.parentElement;
-    if (entry.minimized || !element || !container) {
+    if (entry.minimized || entry.maximized || !element || !container) {
       return;
     }
     const containerRect = container.getBoundingClientRect();
@@ -383,6 +387,7 @@ function useWindowLayout({
     commit,
     entry.initialX,
     entry.initialY,
+    entry.maximized,
     entry.minimized,
     entry.position,
     setPosition,
@@ -393,7 +398,7 @@ function useWindowLayout({
   // back to its stylesheet default, keep it inside the surface.
   useEffect(() => {
     const current = live.current.position;
-    if (!current || dragging.current || resizing.current) {
+    if (!current || entry.maximized || dragging.current || resizing.current) {
       return;
     }
     const clamped = clampWindowPosition(
@@ -406,7 +411,16 @@ function useWindowLayout({
       setPosition(clamped);
       commit();
     }
-  }, [commit, dragging, live, resizing, setPosition, size, windowRef]);
+  }, [
+    commit,
+    dragging,
+    entry.maximized,
+    live,
+    resizing,
+    setPosition,
+    size,
+    windowRef,
+  ]);
 }
 
 export function useWindowGeometry(

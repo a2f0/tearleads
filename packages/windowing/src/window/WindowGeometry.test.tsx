@@ -29,7 +29,8 @@ function NotesContent() {
 
 function DesktopHarness({ options }: { options: WindowCreateOptions }) {
   const { windows } = useWindowStateData();
-  const { create, minimize, restore, setGeometry } = useWindowActions();
+  const { create, minimize, restore, setGeometry, toggleMaximize } =
+    useWindowActions();
   const first = windows[0];
 
   return (
@@ -66,6 +67,9 @@ function DesktopHarness({ options }: { options: WindowCreateOptions }) {
       </button>
       <button type="button" onClick={() => first && restore(first.id)}>
         Restore notes
+      </button>
+      <button type="button" onClick={() => first && toggleMaximize(first.id)}>
+        Toggle maximize
       </button>
       <button
         type="button"
@@ -281,4 +285,60 @@ test("clearing a size near the edge keeps the default-size window inside", () =>
 
   expect(committedGeometry(view)).toEqual({ position: { x: 400, y: 300 } });
   expect(windowRoot.style.left).toBe("400px");
+});
+
+test("maximizing, minimizing, and restoring keeps the window's position", () => {
+  // Every window element measures at the surface's full size while maximized,
+  // including the fresh element a restore mounts.
+  const prototype = HTMLElement.prototype;
+  const originals = (["offsetWidth", "offsetHeight"] as const).map(
+    (property) =>
+      [property, Object.getOwnPropertyDescriptor(prototype, property)] as const,
+  );
+  const measure = (full: number, normal: number) =>
+    function (this: HTMLElement) {
+      if (!this.classList.contains("window")) return 0;
+      return this.classList.contains("window--maximized") ? full : normal;
+    };
+  Object.defineProperty(prototype, "offsetWidth", {
+    configurable: true,
+    get: measure(800, 200),
+  });
+  Object.defineProperty(prototype, "offsetHeight", {
+    configurable: true,
+    get: measure(600, 100),
+  });
+  try {
+    const { view } = renderDesktop({ position: { x: 300, y: 200 } });
+
+    fireEvent.click(view.getByRole("button", { name: "Toggle maximize" }));
+    fireEvent.click(view.getByRole("button", { name: "Minimize notes" }));
+    fireEvent.click(view.getByRole("button", { name: "Restore notes" }));
+    fireEvent.click(view.getByRole("button", { name: "Toggle maximize" }));
+
+    expect(committedGeometry(view).position).toEqual({ x: 300, y: 200 });
+    expect(
+      view.container.querySelector<HTMLDivElement>(".window")?.style.left,
+    ).toBe("300px");
+  } finally {
+    for (const [property, descriptor] of originals) {
+      if (descriptor) {
+        Object.defineProperty(prototype, property, descriptor);
+      } else {
+        delete (prototype as Partial<Record<typeof property, number>>)[
+          property
+        ];
+      }
+    }
+  }
+});
+
+test("a size below the stylesheet minimum clamps at the size it renders", () => {
+  const { view } = renderDesktop({
+    position: { x: 700, y: 0 },
+    size: { height: 100, width: 100 },
+  });
+
+  // The window renders at its 200px minimum width, so x may be at most 600.
+  expect(committedGeometry(view).position).toEqual({ x: 600, y: 0 });
 });
