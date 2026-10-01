@@ -524,6 +524,7 @@ export const subsystems: readonly Subsystem[] = [
       `${app}/mini-apps/LocalKeyringUnlockGate.tsx`,
       `${app}/mini-apps/miniAppLauncher.tsx`,
       `${app}/mini-apps/miniAppVisibility.ts`,
+      `${app}/mini-apps/MiniAppWindow.tsx`,
       `${app}/mini-apps/registry.ts`,
       `${app}/mini-apps/shared/`,
       `${app}/mini-apps/SystemBootstrapGate.tsx`,

@@ -3,6 +3,7 @@ import {
   MiniAppBusProvider,
   useMiniAppBusActions,
 } from "../../../mini-apps/bus";
+import { MiniAppWindow } from "../../../mini-apps/MiniAppWindow";
 import { useRegisterMiniAppLauncher } from "../../../mini-apps/miniAppLauncher";
 import { MINI_APPS } from "../../../mini-apps/registry";
 import { SystemMonitorLauncherButton } from "../../../mini-apps/system-monitor/SystemMonitorLauncherButton";
@@ -18,7 +19,6 @@ import { ThemeToggleButton } from "../../../theme/ThemeToggleButton";
 import { RoutedPane } from "../../layout/routed/RoutedPane";
 import { TestSystemBanner } from "../../layout/TestSystemBanner";
 import type { MenuPosition } from "../../shared/Menu";
-import { Window } from "../../window/Window";
 import {
   useWindowStateData,
   WindowStateProvider,
@@ -63,7 +63,7 @@ function PaneInner({
           )}
           <SystemMonitorPinned />
           {windows.map((w) => (
-            <Window key={w.id} windowId={w.id} />
+            <MiniAppWindow key={w.id} windowId={w.id} />
           ))}
         </div>
         <TestSystemBanner />

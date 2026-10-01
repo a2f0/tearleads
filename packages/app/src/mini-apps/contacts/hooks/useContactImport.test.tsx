@@ -14,13 +14,13 @@ import {
   useContext,
   useState,
 } from "react";
-import { Window } from "../../../components/window/Window";
 import {
   useWindowStateData,
   WindowStateProvider,
 } from "../../../components/window/WindowStateProvider";
 import { AppNavigationProvider } from "../../../navigation/AppNavigationProvider";
 import { MiniAppBusProvider, useMiniAppBusActions } from "../../bus";
+import { MiniAppWindow } from "../../MiniAppWindow";
 import type { MiniAppDefinition, MiniAppId } from "../../types";
 import { useImportContactMessage } from "./useContactImport";
 
@@ -120,7 +120,7 @@ function WindowLayer() {
   return (
     <>
       {windows.map((entry) => (
-        <Window key={entry.id} windowId={entry.id} />
+        <MiniAppWindow key={entry.id} windowId={entry.id} />
       ))}
     </>
   );

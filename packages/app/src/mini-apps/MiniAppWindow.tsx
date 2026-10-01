@@ -1,18 +1,21 @@
 import { type PropsWithChildren, useCallback } from "react";
-import { MiniAppRouteSegmentsProvider } from "../../navigation/MiniAppRouteSegmentsContext";
-import { MiniAppBoundary } from "../mini-app/MiniAppBoundary";
-import { useWindowActions, type WindowEntry } from "./WindowStateProvider";
-
-interface WindowMiniAppRouteBoundaryProps extends PropsWithChildren {
-  entry: WindowEntry;
-}
+import { MiniAppBoundary } from "../components/mini-app/MiniAppBoundary";
+import { Window } from "../components/window/Window";
+import {
+  useWindowActions,
+  type WindowEntry,
+} from "../components/window/WindowStateProvider";
+import { MiniAppRouteSegmentsProvider } from "../navigation/MiniAppRouteSegmentsContext";
+import { isMiniAppId } from "./types";
 
 const EMPTY_ROUTE_SEGMENTS: ReadonlyArray<string> = [];
 
-export function WindowMiniAppRouteBoundary({
+// Gives a mini-app window its route (backed by the window's own Back stack) and
+// the mini-app error boundary. Windows that no mini-app owns render bare.
+function MiniAppWindowBoundary({
   children,
   entry,
-}: WindowMiniAppRouteBoundaryProps) {
+}: PropsWithChildren<{ entry: WindowEntry }>) {
   const { goBackMiniAppRoute, updateMiniAppRoute } = useWindowActions();
   const setPathSegments = useCallback(
     (
@@ -30,7 +33,7 @@ export function WindowMiniAppRouteBoundary({
     goBackMiniAppRoute(entry.id);
   }, [entry.id, goBackMiniAppRoute]);
 
-  if (!entry.appId) {
+  if (!isMiniAppId(entry.appId)) {
     return children;
   }
 
@@ -45,4 +48,8 @@ export function WindowMiniAppRouteBoundary({
       <MiniAppBoundary appId={entry.appId}>{children}</MiniAppBoundary>
     </MiniAppRouteSegmentsProvider>
   );
+}
+
+export function MiniAppWindow({ windowId }: { windowId: string }) {
+  return <Window ContentBoundary={MiniAppWindowBoundary} windowId={windowId} />;
 }
