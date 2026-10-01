@@ -4,6 +4,7 @@ formal/container-keying/ContainerDeletion.tla|formal/container-keying/ContainerD
 formal/container-keying/ContainerDepth.tla|formal/container-keying/ContainerDepth.cfg
 formal/container-keying/ContainerGrantScope.tla|formal/container-keying/ContainerGrantScope.cfg
 formal/container-keying/ContainerTombstoneRecovery.tla|formal/container-keying/ContainerTombstoneRecovery.cfg
+formal/container-keying/GroupGrantRevocation.tla|formal/container-keying/GroupGrantRevocation.cfg
 formal/container-keying/InaccessibleIntermediateRepair.tla|formal/container-keying/InaccessibleIntermediateRepair.cfg
 formal/container-keying/KeyringReachability.tla|formal/container-keying/KeyringReachability.cfg
 formal/container-keying/ManifestHistory.tla|formal/container-keying/ManifestHistory.cfg

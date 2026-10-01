@@ -14,6 +14,7 @@ requires administrator authority, so an ordinary writer cannot create a decoy.
 | `MergeRoot` / `RequireSessionRoot` / `RequireRootScope` | `isSessionRootState` checks the session root identity and organization at the reconciliation boundary, after `verifyRemoteContainerDestination` checks its signed organization |
 | `MergeRoot` / `RequireRootCreator` | `assertRootCreatedBySessionUser` requires the acknowledged root's epoch-1 create, found by `verifiedContainerCreateManifest`, to be signed by the session user; `assertAcknowledgedRootSigner` applies it on hydration and `isVerifiedLocalRootReconciliationTarget` before every local root merge, using only the role remote hydration verified and cached (an uncached role leaves the merge pending) |
 | `Login` / `RefuseRootSwap` | `acknowledgeSessionRoot` refuses a different root id for an already acknowledged organization; `commitSessionRootAcknowledgment` decides and commits it against the live snapshot and records the incident |
+| `RestoreBackup` / `PreserveAcknowledgmentsOnRestore` | `prepareForRestoreReload` rewrites the session with `restoreReloadCryptoSessionContext`, signed out but keeping its acknowledgements, and `clearRestoredLocalCaches` no longer clears sessions |
 | `MoveDestination` / `PreserveDestinationIdentity` | `deriveContainerMoveManifestState` forbids moves of roots and system containers |
 | `UseSystem` / `RequireSystemScope` | `findSystemContainerStateForRoot` selects the authenticated slot in the active organization and acknowledged root |
 | `CreateSystem` / `RequireSystemAdministrator` / `RequireSystemTopology` | `assertContainerSystemTopology` permits only the organization-derived metadata slot at a root; `deriveContainerCreateManifestState` requires administrator authority and complete root parent paths for all other slots |
@@ -57,7 +58,10 @@ awaiting reconciliation. The first login for an organization records the
 acknowledgement; reconciliation updates the view after moving local document
 references. Local bootstrap and view selection cannot replace the
 acknowledgement. Encrypted session persistence retains the per-organization
-acknowledgements under the signing fingerprint. Registration and organization
+acknowledgements under the signing fingerprint, and a backup restore keeps
+them: it rewrites the session signed out, with no pinned root, before reloading
+(`RestoreBackup`; the negative control `restore-clears-root-acknowledgements`
+reproduces the restore that cleared them). Registration and organization
 creation also record server acknowledgements; organization switching selects
 among them without trusting listing roots.
 

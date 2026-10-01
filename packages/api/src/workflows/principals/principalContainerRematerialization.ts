@@ -23,6 +23,7 @@ import type {
   MutateContainerInput,
 } from "../containers/mutations/types";
 import { createContainerWriterProjectionContext } from "../containers/writerProjection";
+import { assertGrantRemovalRotatesKey } from "./grantShrinkRotation";
 import {
   listCurrentPrincipalContainerGrants,
   livePrincipalContainerGrants,
@@ -320,6 +321,12 @@ export async function applyPrincipalContainerRematerializations(input: {
   readonly requests?: readonly ContainerMutationRequest[] | undefined;
   readonly userId: string;
 }): Promise<ContainerMutationResponse[]> {
+  assertGrantRemovalRotatesKey({
+    nextGrants: input.nextGrants,
+    nextKeyEpoch: input.nextHead.keyEpoch,
+    previousGrants: input.previousGrants,
+    previousKeyEpoch: input.previousKeyEpoch,
+  });
   const required = await listRequiredContainerRematerializations({
     executor: input.executor,
     nextGrants: input.nextGrants,

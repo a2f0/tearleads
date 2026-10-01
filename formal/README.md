@@ -121,6 +121,12 @@ parent's retained history still covers, and the negative control
 `strict-parent-epoch-pin-strands-descendant` reproduces the pre-#2330 rule under
 which an ancestor rotation stranded the subtree.
 
+[`container-keying/GroupGrantRevocation.tla`](./container-keying/GroupGrantRevocation.tla)
+adds the group key as its own epoch dimension: container wraps sealed to a
+group key outlive a revoked grant, so a revocation must rotate the group key
+before an additive join hands that key out. See the
+[mapping and boundaries](./container-keying/GroupGrantRevocation.md).
+
 ## Manifest History Availability
 
 [`container-keying/ManifestHistory.tla`](./container-keying/ManifestHistory.tla)
@@ -227,7 +233,8 @@ The abstraction maps to production at these seams:
 | Model action or predicate | Production implementation |
 | --- | --- |
 | `BeginBaselinelessUnlink` / `CommitBaselinelessUnlink` | `assertBaselinelessUnlinkHasEmptyCommittedFrontier` inside `mutateDocumentLinkSetWithExecutor` |
-| `CommitCoveringUnlink` | `assertAtomicRotationBaselineCoversCommittedFrontier` + `appendAtomicRotationBaseline` |
+| `CheckCoveringUnlink` / `CommitCoveringUnlink` | `assertAtomicRotationBaselineCoversCommittedFrontier` + `appendAtomicRotationBaseline` |
+| `LinkAdvancesEpoch` | `assertLinkKeepsCommittedContentKeyEpoch` inside `advanceDocumentLinkSet` |
 | `WriterMayCommit` | the exclusive manifest-head locks in `lockDocumentLinkSetMutationFrontier` and `lockSyncDocumentWriteFrontier` |
 | the client never sending an empty baseline (boundary assumption) | `buildDocumentRotationBaseline` returning null for a zero-span snapshot |
 
@@ -237,9 +244,16 @@ update and that the emptiness observation stays true through the commit
 window. Setting `LockedUnlink = FALSE` (a writer allowed to commit between the
 emptiness proof and the unlink commit) makes TLC report the `NoDataLoss`
 violation immediately — the lock discipline is load-bearing, not incidental.
-The negative-control check asserts this on every run.
-The bounds stay small (`MaxUpdates = 3`); the state space is tiny because the
-model tracks only the uncovered-update count and the unlink transaction phase.
+The negative-control check asserts this on every run. A link never carries a
+rotation baseline, so `LinkAdvancesEpoch` may advance the content-key epoch
+only over an empty uncovered frontier; `RequireBaselineOnEpochAdvance = FALSE`
+is the server before #2365 finding 28, and TLC reports the same violation.
+`CoveringUnlinkCoversFrontier` requires that, under the lock, the frontier a
+covering baseline was checked against is still the frontier at its commit. The
+link check and commit are one step because both run inside one locked
+transaction. The bounds stay small (`MaxUpdates = 3`); the state space is tiny
+because the model tracks only the uncovered-update count, the covered frontier,
+and the unlink transaction phase.
 
 ## Backup Restore Terminal Anchors
 

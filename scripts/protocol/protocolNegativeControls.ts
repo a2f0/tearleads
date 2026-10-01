@@ -137,6 +137,14 @@ export const NEGATIVE_CONTROLS: readonly NegativeControl[] = [
     why: "Publishing a rejected incoming candidate exposes text whose history is absent from the next local edit's durable basis.",
   },
   {
+    id: "listing-adopts-container-create",
+    module: "formal/local-trust/UnacknowledgedInput.tla",
+    config: "formal/local-trust/UnacknowledgedInput.cfg",
+    constants: { VerifyContainerAdoption: "FALSE" },
+    expect: { kind: "invariant", name: "ContainerAdoptionHasVerifiedScope" },
+    why: "A listing row must not settle a pending container create without its signed epoch-1 create (#2365 finding 26).",
+  },
+  {
     id: "host-restore-binds-a-switched-identity",
     module: "formal/local-trust/UnacknowledgedInput.tla",
     config: "formal/local-trust/UnacknowledgedInput.cfg",
@@ -323,12 +331,28 @@ export const NEGATIVE_CONTROLS: readonly NegativeControl[] = [
     why: "A dishonest server can serve a signed successor that reintroduces an older group reference (#2266).",
   },
   {
+    id: "group-grant-shrink-keeps-key",
+    module: "formal/container-keying/GroupGrantRevocation.tla",
+    config: "formal/container-keying/GroupGrantRevocation.cfg",
+    constants: { RotateGroupOnGrantRemoval: "FALSE" },
+    expect: { kind: "invariant", name: "RevokedGrantUnreadableByLaterMembers" },
+    why: "A group that drops a container grant without rotating its key hands a later joiner the key its retained container wraps are sealed to (#2365 finding 20).",
+  },
+  {
     id: "empty-frontier-unlink-unlocked",
     module: "formal/document-sync/EmptyFrontierUnlink.tla",
     config: "formal/document-sync/EmptyFrontierUnlink.cfg",
     constants: { LockedUnlink: "FALSE" },
     expect: { kind: "invariant", name: "NoDataLoss" },
     why: "Without the manifest-head lock a writer commits between the emptiness proof and the unlink commit, and the rotation orphans its update.",
+  },
+  {
+    id: "empty-frontier-link-advances-epoch",
+    module: "formal/document-sync/EmptyFrontierUnlink.tla",
+    config: "formal/document-sync/EmptyFrontierUnlink.cfg",
+    constants: { RequireBaselineOnEpochAdvance: "FALSE" },
+    expect: { kind: "invariant", name: "NoDataLoss" },
+    why: "A link carries no rotation baseline, so accepting one that advances the content-key epoch strands committed updates from the new container's members (#2365 finding 28).",
   },
 ];
 
