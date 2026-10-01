@@ -236,3 +236,21 @@ test("keyboard move instructions are announced with the status bar hidden", () =
   expect(region.textContent).toContain("Moving window");
   expect(region.querySelector(".window-statusbar--hidden")).not.toBeNull();
 });
+
+test("a keyboard move ends when focus moves to another window", () => {
+  const { dialog, view } = openNotes();
+  stubLayout(dialog, { offsetHeight: 100, offsetWidth: 200 });
+  fireEvent.click(view.getByRole("button", { name: "Open notes" }));
+  const [first, second] = view.getAllByRole("dialog", { name: "Notes" });
+  if (!first || !second) throw new Error("two windows not rendered");
+
+  chooseViewMenuItem(first, "Move Window");
+  expect(document.activeElement === first).toBe(true);
+
+  act(() => {
+    second.focus();
+  });
+
+  expect(fireEvent.keyDown(document, { key: "ArrowRight" })).toBe(true);
+  expect(first.style.left).toBe("0px");
+});

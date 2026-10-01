@@ -343,7 +343,7 @@ function WindowInnerContent({ ContentBoundary, entry }: WindowInnerProps) {
   const { showStatusMessage, statusText } = useWindowStatusMessage();
   const geometryMenuItems = useWindowGeometryMenuItems(
     stepped,
-    { maximized, minimized },
+    { maximized, minimized, windowRef },
     showStatusMessage,
   );
   const actions = useWindowActions(
