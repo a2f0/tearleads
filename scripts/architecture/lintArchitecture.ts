@@ -33,6 +33,7 @@ const appPresentationEntryPoints = [
   `${appSrc}/components`,
   `${appSrc}/document-types`,
   `${appSrc}/mini-apps`,
+  `${appSrc}/shell`,
 ];
 const appDocumentProjectionSourcePaths = new Set([
   `${appSrc}/document-types/projectors.ts`,
