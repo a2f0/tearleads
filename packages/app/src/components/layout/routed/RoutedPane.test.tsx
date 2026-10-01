@@ -5,8 +5,8 @@ import {
   forceTabletRoutedTier,
   renderRoutedPane,
 } from "../../../../test/helpers/routedPaneTestUtils";
+import { ROUTED_MINI_APP_NAV_ITEMS } from "../../../mini-apps/catalog";
 import { filterVisibleMiniAppItems } from "../../../mini-apps/miniAppVisibility";
-import { ROUTED_MINI_APP_NAV_ITEMS } from "../../../mini-apps/registry";
 import {
   initialRoutedSidebarExpanded,
   resolveRoutedActiveMiniAppId,
