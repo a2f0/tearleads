@@ -119,13 +119,16 @@ extend it with child containers whose key epochs pin the parent epoch current
 when they were minted: a descendant verifies against any pinned epoch the
 parent's retained history still covers, and the negative control
 `strict-parent-epoch-pin-strands-descendant` reproduces the pre-#2330 rule under
-which an ancestor rotation stranded the subtree. A repair may also be offered a
-forged anchor: an invented epoch id over server-chosen material, which passes
-its material check. `RepairsSealOnlySignedLineage` requires that an honest
-repair never seals one. `AnchorToSignedLineage` models the rule that a rebuilt
-keyring override names exactly the epoch ids of the container's verified signed
-lineage (`assertOverrideInSignedLineage`), and the control
-`repair-seals-forged-anchor` removes it.
+which an ancestor rotation stranded the subtree. An honest rotation may also
+seal a forged entry, an invented epoch id over server-chosen material that
+passes its material check, whether rebuilt for a repair or carried in the
+served keyring. `RotationsSealOnlySignedLineage` requires that it never does.
+`AnchorToSignedLineage` models checking sealed entries against the verified
+signed lineage wherever the projection served it (`signedHistoryEpochIds`,
+`assertOverrideInSignedLineage`). The control
+`kek-history-anchor-seals-relocated-forgery` checks only each KEK's own served
+history, which fails once the server serves the real id's manifest under
+another KEK.
 
 [`container-keying/GroupGrantRevocation.tla`](./container-keying/GroupGrantRevocation.tla)
 adds the group key as its own epoch dimension: container wraps sealed to a

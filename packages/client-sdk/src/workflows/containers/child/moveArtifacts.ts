@@ -116,13 +116,18 @@ function buildMoveKeyEpoch(input: {
   });
 }
 
+/** The moved container, with the epoch ids its verified lineage names. */
+export type SignedRotationSource = ReturnType<
+  typeof getTargetContainerContext
+> & { readonly signedEpochIds: ReadonlySet<string> };
+
 export async function buildMoveRotationWithBody(input: {
   destinationParent: ReturnType<typeof getTargetContainerContext>;
   destinationState: ContainerAccessManifestState;
   override: string | undefined;
   predecessorContainerKey: Uint8Array;
   previousState: ContainerAccessManifestState;
-  source: ReturnType<typeof getTargetContainerContext>;
+  source: SignedRotationSource;
 }) {
   const rotation = await buildContainerRotationArtifacts({
     containerId: input.previousState.containerId,
@@ -130,6 +135,7 @@ export async function buildMoveRotationWithBody(input: {
     currentKeyMaterial: input.predecessorContainerKey,
     keyEpoch: input.source.kek.containerKeyEpoch + 1,
     override: input.override,
+    signedEpochIds: input.source.signedEpochIds,
   });
   const body = await buildContainerMoveEventBody({
     containerKeyPublicKey: await deriveContainerKekWrappingPublicKey({

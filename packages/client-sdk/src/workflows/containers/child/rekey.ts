@@ -72,6 +72,7 @@ async function buildRekeyRotationArtifacts(input: {
   nextContainerKeyEpoch: number;
   predecessorContainerKey: Uint8Array;
   previousContainerId: string;
+  signedEpochIds: ReadonlySet<string>;
   targetKek: ContainerKekResponse;
 }): Promise<{
   containerKeyEpochId: string;
@@ -99,6 +100,7 @@ async function buildRekeyRotationArtifacts(input: {
       input.previousContainerId,
       input.keyringEntriesOverride,
       input.targetKek,
+      input.signedEpochIds,
     );
   }
   const keyring: ContainerKekKeyring = input.keyringEntriesOverride
@@ -120,6 +122,7 @@ async function buildRekeyRotationArtifacts(input: {
         currentKek: input.targetKek,
         currentKeyMaterial: input.predecessorContainerKey,
         keyEpoch: input.nextContainerKeyEpoch,
+        signedEpochIds: input.signedEpochIds,
         successorContainerKey: input.containerKey,
         successorContainerKeyEpochId: containerKeyEpochId,
       });
@@ -271,6 +274,7 @@ export async function buildMaterializedContainerRekeyPlan(
     parentPublicKey,
     predecessorContainerKey,
     previousState,
+    signedEpochIds,
     target,
   } = await resolveRotationContext(planningInput, "rekey");
   const { containerKeyEpochId, keyring, predecessorBridge } =
@@ -280,6 +284,7 @@ export async function buildMaterializedContainerRekeyPlan(
       nextContainerKeyEpoch: target.kek.containerKeyEpoch + 1,
       predecessorContainerKey,
       previousContainerId: previousState.containerId,
+      signedEpochIds,
       targetKek: target.kek,
     });
   const principalPolicies = await collectRekeyPrincipalPolicies(

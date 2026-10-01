@@ -8,6 +8,7 @@ import type {
   ContainerKeyWrap,
   ContainerMoveAccessEventBody,
   ContainerUserRecipientKey,
+  VerifiedContainerAccessManifest,
   VerifiedPrincipalPolicy,
 } from "@tearleads/crypto";
 import type {
@@ -34,6 +35,7 @@ import type {
   ContainerMutationAuthor,
   MaterializedContainerMovePlan,
 } from "../../../data/containers/shared/types";
+import { signedHistoryEpochIds } from "../../../data/documents/shared/containerKekPathHistory";
 import { unwrapContainerKekPath } from "../../../data/documents/shared/projection";
 import { projectionVerificationOptions } from "../../../data/documents/shared/types";
 import { readCanonicalRecord } from "../../../data/keyingCanonicalJson";
@@ -48,6 +50,7 @@ import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import {
   buildMoveRotationWithBody,
   deriveMoveManifestArtifacts,
+  type SignedRotationSource,
 } from "./moveArtifacts";
 import {
   buildContainerMoveWraps,
@@ -112,12 +115,14 @@ async function unwrapMoveContainerKeys(input: {
 }): Promise<{
   containerKey: Uint8Array;
   destinationParent: ReturnType<typeof getTargetContainerContext>;
-  source: ReturnType<typeof getTargetContainerContext>;
+  source: SignedRotationSource;
 }> {
+  const verifiedByHash = new Map<string, VerifiedContainerAccessManifest>();
   const keksByEpochId = await unwrapContainerKekPath({
     execSql: input.execSql,
     projection: input.previousProjection,
     secretKey: input.targetSecretKey,
+    verifiedByHash,
     ...projectionVerificationOptions(input),
   });
   const source = getTargetContainerContext(input.previousProjection);
@@ -142,7 +147,16 @@ async function unwrapMoveContainerKeys(input: {
     "Container move destination parent",
   );
 
-  return { containerKey, destinationParent, source };
+  const signedEpochIds = signedHistoryEpochIds({
+    headManifestHash: source.manifest.manifestHash,
+    kek: source.kek,
+    verifiedByHash,
+  });
+  return {
+    containerKey,
+    destinationParent,
+    source: { ...source, signedEpochIds },
+  };
 }
 
 function assertContainerMoveOrganizations(input: {

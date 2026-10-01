@@ -183,6 +183,7 @@ export async function buildMaterializedContainerRevokePlan(input: {
     parentPublicKey,
     predecessorContainerKey,
     previousState,
+    signedEpochIds,
     target,
   } = await resolveRotationContext(input, "revoke");
   const principalPolicies = await collectContainerRevokePrincipalPolicies({
@@ -207,6 +208,7 @@ export async function buildMaterializedContainerRevokePlan(input: {
       currentKek: target.kek,
       currentKeyMaterial: predecessorContainerKey,
       keyEpoch: nextContainerKeyEpoch,
+      signedEpochIds,
     });
   const body: ContainerRevokeAccessEventBody = {
     eventType: "container.revoke",

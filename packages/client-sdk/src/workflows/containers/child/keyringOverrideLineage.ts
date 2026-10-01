@@ -56,14 +56,22 @@ export async function assertOverrideInSignedLineage(
       signedEpochIds.add(epochId);
     }
   }
-  const entryIds = entries.map((entry) => entry.containerKeyEpochId);
-  if (
-    entryIds.length !== signedEpochIds.size ||
-    entryIds.some((epochId) => !signedEpochIds.has(epochId))
-  ) {
-    throw new KeyingVerificationError(
-      "object_mismatch",
-      `${LABEL} names an epoch outside the container's signed lineage`,
-    );
+  const entryIds = new Set(entries.map((entry) => entry.containerKeyEpochId));
+  for (const epochId of entryIds) {
+    if (!signedEpochIds.has(epochId)) {
+      throw new KeyingVerificationError(
+        "object_mismatch",
+        `${LABEL} names an epoch outside the container's signed lineage`,
+      );
+    }
+  }
+  for (const epochId of signedEpochIds) {
+    if (!entryIds.has(epochId)) {
+      // Honest when the container rotated after the rebuild: rebuild again.
+      throw new KeyingVerificationError(
+        "missing_dependency",
+        `${LABEL} omits an epoch the container's signed lineage names`,
+      );
+    }
   }
 }

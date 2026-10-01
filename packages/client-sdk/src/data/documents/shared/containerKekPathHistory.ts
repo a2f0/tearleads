@@ -6,6 +6,7 @@ import {
   normalizeContainerAccessEventBody,
   normalizeContainerKekKeyring,
   openContainerKekKeyring,
+  type VerifiedContainerAccessManifest,
 } from "@tearleads/crypto";
 import type { ContainerWriterProjectionResponse } from "@tearleads/validators/response";
 import {
@@ -18,6 +19,7 @@ import { readManifestContainerId } from "./readers";
 import type { UnwrappedContainerKek } from "./types";
 
 type ProjectionKek = ContainerWriterProjectionResponse["containerKeks"][number];
+type VerifiedManifests = ReadonlyMap<string, VerifiedContainerAccessManifest>;
 
 /** The projection proves a predecessor existed, but no retained keyring can recover it. */
 export class ContainerKekHistoryUnavailableError extends Error {
@@ -115,6 +117,7 @@ async function openVerifiedKeyringEntries(input: {
   index: number;
   kek: ProjectionKek;
   successorKeyMaterial: Uint8Array;
+  verifiedByHash: VerifiedManifests | undefined;
   verifyKeyringCommitment: boolean;
 }): Promise<Awaited<ReturnType<typeof openContainerKekKeyring>>> {
   const { kek } = input;
@@ -167,7 +170,12 @@ async function openVerifiedKeyringEntries(input: {
   const entryEpochIds = new Set(
     entries.map((entry) => entry.containerKeyEpochId),
   );
-  for (const historicalEpochId of manifestHistoryEpochIds(kek)) {
+  const signedEpochIds = signedHistoryEpochIds({
+    headManifestHash: input.currentManifest.manifestHash,
+    kek,
+    verifiedByHash: input.verifiedByHash,
+  });
+  for (const historicalEpochId of signedEpochIds) {
     if (!entryEpochIds.has(historicalEpochId)) {
       throw new KeyingVerificationError(
         "missing_dependency",
@@ -198,6 +206,41 @@ export function manifestHistoryEpochIds(kek: ProjectionKek): Set<string> {
     ) {
       epochIds.add(containerKeyEpochId);
     }
+  }
+  return epochIds;
+}
+
+/**
+ * The epoch ids this KEK's own history names, plus every one its head's
+ * verified lineage names wherever the projection served it. Verification pools
+ * every KEK's history, so a server can serve a container's older manifests
+ * under another KEK; walking the lineage keeps a forged keyring id from passing
+ * because the real id it displaces moved (#2365 finding 32). The walk stops at
+ * the first manifest verification did not record, so it only ever adds ids.
+ */
+export function signedHistoryEpochIds(input: {
+  readonly headManifestHash: string;
+  readonly kek: ProjectionKek;
+  readonly verifiedByHash: VerifiedManifests | undefined;
+}): Set<string> {
+  const epochIds = manifestHistoryEpochIds(input.kek);
+  const visited = new Set<string>();
+  let current = input.verifiedByHash?.get(input.headManifestHash);
+  while (
+    current &&
+    current.state.containerId === input.kek.containerId &&
+    !visited.has(current.manifestHash)
+  ) {
+    visited.add(current.manifestHash);
+    const epochId = current.state.containerKeyEpochId;
+    if (epochId !== null && epochId !== input.kek.containerKeyEpochId) {
+      epochIds.add(epochId);
+    }
+    const previousHash = current.state.previousManifestHash;
+    current =
+      previousHash === null
+        ? undefined
+        : input.verifiedByHash?.get(previousHash);
   }
   return epochIds;
 }
@@ -242,6 +285,7 @@ export async function unwrapKeyringContainerKeksAtIndex(input: {
   kek: ProjectionKek;
   keksByEpochId: Map<string, UnwrappedContainerKek>;
   successorKeyMaterial: Uint8Array | null;
+  verifiedByHash?: VerifiedManifests | undefined;
   verifyKeyringCommitment: boolean;
 }): Promise<void> {
   const { kek, successorKeyMaterial } = input;
@@ -263,6 +307,7 @@ export async function unwrapKeyringContainerKeksAtIndex(input: {
     index: input.index,
     kek,
     successorKeyMaterial,
+    verifiedByHash: input.verifiedByHash,
     verifyKeyringCommitment: input.verifyKeyringCommitment,
   });
   for (const entry of entries) {

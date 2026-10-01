@@ -4,6 +4,7 @@ import {
   computeContainerKekMaterialId,
   normalizeContainerKekKeyring,
   openContainerKekKeyring,
+  sealContainerKekKeyring,
 } from "@tearleads/crypto";
 import { createTestExecSql } from "@tearleads/test-utils";
 import type { ContainerMutationRequest } from "@tearleads/validators/request";
@@ -14,7 +15,14 @@ import {
   createParentProjectionUserKeyResolver,
 } from "../../../../test/helpers/containerFixtures";
 import { createChildContainerProjection } from "../../../../test/helpers/projectionHierarchy";
+import {
+  manifestHistoryEpochIds,
+  unwrapKeyringContainerKeksAtIndex,
+} from "../../../data/documents/shared/containerKekPathHistory";
+import { verifyContainerDestinationProjection } from "../../../data/keyingProjectionVerification/containerDestinationVerification";
+import { verifyKeyringEntriesForSeal } from "./moveRotation";
 import { rekeyRemoteContainer } from "./rekeyRemote";
+import { resolveRotationContext } from "./rotationContext";
 
 const CHILD_ID = "lineage-child";
 
@@ -77,7 +85,27 @@ async function relocatedChildHistory() {
       },
     ],
   };
-  return { child, database, epoch1Id, epoch2Kek, parent, projection };
+  return {
+    child,
+    database,
+    epoch1Id,
+    epoch2Key: rekeyed.containerKey,
+    epoch2Kek,
+    parent,
+    projection,
+  };
+}
+
+async function forgedEpoch1Entry(): Promise<ContainerKekKeyringEntry> {
+  // Server-chosen material under an invented id: self-consistent, so the
+  // per-entry material check passes.
+  const keyMaterial = crypto.getRandomValues(new Uint8Array(32));
+  const containerKeyEpochId = await computeContainerKekMaterialId({
+    containerId: CHILD_ID,
+    keyEpoch: 1,
+    keyMaterial,
+  });
+  return { containerKeyEpochId, keyMaterial };
 }
 
 async function repairWithOverride(
@@ -112,16 +140,8 @@ async function repairWithOverride(
 
 test("a rebuilt override cannot seal an epoch id outside the signed lineage", async () => {
   const scenario = await relocatedChildHistory();
-  // Server-chosen material under an invented id: self-consistent, so the
-  // per-entry material check passes.
-  const forgedKey = crypto.getRandomValues(new Uint8Array(32));
-  const forgedId = await computeContainerKekMaterialId({
-    containerId: CHILD_ID,
-    keyEpoch: 1,
-    keyMaterial: forgedKey,
-  });
   const { repair, submitted } = await repairWithOverride(scenario, [
-    { containerKeyEpochId: forgedId, keyMaterial: forgedKey },
+    await forgedEpoch1Entry(),
   ]);
   await expect(repair).rejects.toMatchObject({
     code: "object_mismatch",
@@ -151,4 +171,74 @@ test("an honest rebuilt override seals across relocated history", async () => {
     scenario.epoch1Id,
     scenario.epoch2Kek.containerKeyEpochId,
   ]);
+});
+
+test("an override that omits a lineage epoch is refused as stale", async () => {
+  const scenario = await relocatedChildHistory();
+  const { repair, submitted } = await repairWithOverride(scenario, []);
+  await expect(repair).rejects.toMatchObject({
+    code: "missing_dependency",
+    message: expect.stringContaining("omits an epoch"),
+  });
+  expect(submitted).toEqual([]);
+});
+
+test("a reader rejects a keyring whose real epoch id was served elsewhere", async () => {
+  const scenario = await relocatedChildHistory();
+  const { verifiedByHash } = await verifyContainerDestinationProjection({
+    execSql: scenario.database.execSql,
+    projection: scenario.projection,
+    resolveUserKey: createParentProjectionUserKeyResolver(scenario.parent),
+  });
+  const kek = scenario.projection.containerKeks[1];
+  const currentManifest = scenario.projection.path[1];
+  if (!kek || !currentManifest) throw new Error("Expected the child KEK");
+  const forgedKeyring = await sealContainerKekKeyring({
+    containerId: CHILD_ID,
+    entries: [await forgedEpoch1Entry()],
+    keyEpoch: 2,
+    successorContainerKey: scenario.epoch2Key,
+    successorContainerKeyEpochId: kek.containerKeyEpochId,
+  });
+  const read = (verified: typeof verifiedByHash | undefined) =>
+    unwrapKeyringContainerKeksAtIndex({
+      currentManifest,
+      index: 1,
+      kek: { ...kek, keyring: forgedKeyring as unknown as typeof kek.keyring },
+      keksByEpochId: new Map(),
+      successorKeyMaterial: scenario.epoch2Key,
+      verifiedByHash: verified,
+      verifyKeyringCommitment: false,
+    });
+  // The KEK's own history alone no longer names the real epoch-1 id.
+  expect(manifestHistoryEpochIds(kek).has(scenario.epoch1Id)).toBe(false);
+  await expect(read(undefined)).resolves.toBeUndefined();
+  await expect(read(verifiedByHash)).rejects.toMatchObject({
+    code: "missing_dependency",
+  });
+});
+
+test("a rotation anchors its re-seal to the lineage served elsewhere", async () => {
+  const scenario = await relocatedChildHistory();
+  const context = await resolveRotationContext(
+    {
+      author: scenario.parent.author,
+      execSql: scenario.database.execSql,
+      previousProjection: scenario.projection,
+      resolveProjectionUserKey: createParentProjectionUserKeyResolver(
+        scenario.parent,
+      ),
+      targetSecretKey: scenario.parent.secretKey,
+    },
+    "rekey",
+  );
+  expect([...context.signedEpochIds]).toEqual([scenario.epoch1Id]);
+  await expect(
+    verifyKeyringEntriesForSeal(
+      CHILD_ID,
+      [await forgedEpoch1Entry()],
+      context.target.kek,
+      context.signedEpochIds,
+    ),
+  ).rejects.toThrow("omits an epoch its manifest history commits to");
 });

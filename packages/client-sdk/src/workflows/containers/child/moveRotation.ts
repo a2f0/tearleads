@@ -32,13 +32,19 @@ export async function verifyKeyringEntriesForSeal(
    * this, so an honest rotation never re-signs one.
    */
   currentKek?: ContainerKekResponse | undefined,
+  /**
+   * The ids the KEK's verified lineage names wherever the projection served
+   * it (`signedHistoryEpochIds`). Without them only the KEK's own served
+   * history anchors the entries, and a server can move that history aside.
+   */
+  signedEpochIds?: ReadonlySet<string> | undefined,
 ): Promise<void> {
   await verifyContainerKekEntries(containerId, entries);
-  if (!currentKek) {
-    return;
-  }
+  const historicalIds =
+    signedEpochIds ??
+    (currentKek ? manifestHistoryEpochIds(currentKek) : new Set<string>());
   const entryIds = new Set(entries.map((entry) => entry.containerKeyEpochId));
-  for (const historicalId of manifestHistoryEpochIds(currentKek)) {
+  for (const historicalId of historicalIds) {
     if (!entryIds.has(historicalId)) {
       throw new Error(
         "Container KEK keyring omits an epoch its manifest history commits to",
@@ -57,6 +63,7 @@ export async function sealRotationKeyring(input: {
   currentKek: ContainerKekResponse;
   currentKeyMaterial: Uint8Array;
   keyEpoch: number;
+  signedEpochIds?: ReadonlySet<string> | undefined;
   successorContainerKey: Uint8Array;
   successorContainerKeyEpochId: string;
 }): Promise<ContainerKekKeyring> {
@@ -71,6 +78,7 @@ export async function sealRotationKeyring(input: {
     input.containerId,
     previousEntries,
     input.currentKek,
+    input.signedEpochIds,
   );
   return sealContainerKekKeyring({
     containerId: input.containerId,
@@ -97,6 +105,7 @@ export async function buildContainerRotationArtifacts(input: {
   currentKeyMaterial: Uint8Array;
   keyEpoch: number;
   override?: string | undefined;
+  signedEpochIds?: ReadonlySet<string> | undefined;
 }): Promise<{
   containerKey: Uint8Array;
   containerKeyEpochId: string;
@@ -122,6 +131,7 @@ export async function buildContainerRotationArtifacts(input: {
     currentKek: input.currentKek,
     currentKeyMaterial: input.currentKeyMaterial,
     keyEpoch: input.keyEpoch,
+    signedEpochIds: input.signedEpochIds,
     successorContainerKey: containerKey,
     successorContainerKeyEpochId: containerKeyEpochId,
   });

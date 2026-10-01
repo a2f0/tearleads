@@ -26,14 +26,16 @@ EXTENDS FiniteSets, Naturals
 (* through `resolveContainerKekParentBinding`. Writes still demand current *)
 (* pins, and InaccessibleIntermediateRepair covers who restores them.      *)
 (*                                                                         *)
-(* A dishonest server may also offer a repair a forged anchor for a        *)
-(* retired epoch: an invented epoch id over server-chosen material, with a *)
-(* direct wrap of it to the repairer. Its material check passes, because   *)
-(* the id commits to that material, so only the signed manifest lineage,  *)
-(* which names every real epoch id, tells it apart. AnchorToSignedLineage  *)
-(* models the repair rule that a rebuilt keyring names exactly the         *)
-(* lineage's ids (#2365 finding 32); without it an honest repairer seals   *)
-(* the forgery in place of the real epoch.                                 *)
+(* An honest rotation also seals entries it did not mint: a repair         *)
+(* rebuilds them from the log and server-offered anchors, and every other  *)
+(* rotation re-seals the served keyring. Either may carry a forged entry,  *)
+(* an invented epoch id over server-chosen material whose material check  *)
+(* passes. The signed manifest lineage names every real epoch id, but      *)
+(* verification pools every KEK's served history, so the server may serve  *)
+(* the real id's manifest under another KEK. AnchorToSignedLineage checks  *)
+(* entries against the verified lineage wherever it was served (#2365      *)
+(* finding 32); without it they are checked only against the KEK's own     *)
+(* served history, which a relocation empties.                             *)
 
 CONSTANTS MaxEpoch, Members, Descendants, StrictParentEpochPin,
           AnchorToSignedLineage
@@ -56,10 +58,10 @@ VARIABLES epoch,          \* current key epoch
           membersAtEpoch, \* e -> membership when e was minted (history var)
           currentMembers, \* members with current access
           childPin,       \* child -> the parent epoch its key epoch pins
-          repairPoisoned  \* an honest repair sealed a keyring readers reject
+          sealedForgery   \* an honest rotation sealed a forged entry
 
 vars == << epoch, bridgeIntact, keyringHonest, wrapHolders, membersAtEpoch,
-           currentMembers, childPin, repairPoisoned >>
+           currentMembers, childPin, sealedForgery >>
 
 TypeOK ==
   /\ epoch \in Epochs
@@ -69,7 +71,7 @@ TypeOK ==
   /\ membersAtEpoch \in [Epochs -> SUBSET Members]
   /\ currentMembers \in (SUBSET Members) \ {{}}
   /\ childPin \in [Descendants -> Epochs]
-  /\ repairPoisoned \in BOOLEAN
+  /\ sealedForgery \in BOOLEAN
 
 (* Wraps address only the members present when their epoch was minted --   *)
 (* the write path derives recipient targets from the manifest.             *)
@@ -108,7 +110,7 @@ Init ==
   /\ currentMembers \in (SUBSET Members) \ {{}}
   /\ membersAtEpoch = [e \in Epochs |-> IF e = 1 THEN currentMembers ELSE {}]
   /\ childPin = [child \in Descendants |-> 1]
-  /\ repairPoisoned = FALSE
+  /\ sealedForgery = FALSE
   /\ \E holders \in SUBSET currentMembers :
        wrapHolders = [e \in Epochs |-> IF e = 1 THEN holders ELSE {}]
 
@@ -119,7 +121,7 @@ Init ==
 PinChild(child) ==
   /\ childPin' = [childPin EXCEPT ![child] = epoch]
   /\ UNCHANGED <<epoch, bridgeIntact, keyringHonest, wrapHolders,
-                 membersAtEpoch, currentMembers, repairPoisoned>>
+                 membersAtEpoch, currentMembers, sealedForgery>>
 
 (* A rotation appends immutable artifacts and may change membership        *)
 (* (revocations are rotations; additive grants fold in conservatively).    *)
@@ -144,25 +146,25 @@ Rotate(honestBridge, honestKeyring) ==
   /\ \E rotator \in currentMembers :
        honestKeyring => PersonalRecoverable(rotator) = FullHistory
   /\ RotateSealing(honestBridge, honestKeyring)
-  /\ UNCHANGED repairPoisoned
+  /\ UNCHANGED sealedForgery
 
-(* A repair is an honest rotation sealing a keyring rebuilt from the log   *)
-(* and anchors. Without a forgery it is Rotate(hb, TRUE); here the server  *)
-(* offers a forged anchor too. An unanchored rebuild takes the forged id   *)
-(* into the real epoch's position, so the sealed keyring is one readers    *)
-(* reject. An anchored rebuild refuses it and can seal only the full       *)
-(* history the repairer recovers personally.                               *)
-RepairWithForgedAnchor(honestBridge) ==
+(* An honest rotation whose sealed entries include a forged one while the  *)
+(* server serves the real id's manifest under another KEK. Served under    *)
+(* this KEK instead, both rules refuse the forgery and the step is         *)
+(* Rotate(hb, TRUE). A sealed forgery leaves a keyring readers reject;     *)
+(* refusing it leaves an honest seal of the full history the rotator       *)
+(* recovers.                                                               *)
+SealWithRelocatedForgery(honestBridge) ==
   LET sealsForgery == ~AnchorToSignedLineage
   IN /\ epoch > 1
      /\ \E rotator \in currentMembers :
           sealsForgery \/ PersonalRecoverable(rotator) = FullHistory
      /\ RotateSealing(honestBridge, ~sealsForgery)
-     /\ repairPoisoned' = (repairPoisoned \/ sealsForgery)
+     /\ sealedForgery' = (sealedForgery \/ sealsForgery)
 
 Next ==
   \/ \E hb \in BOOLEAN, hk \in BOOLEAN : Rotate(hb, hk)
-  \/ \E hb \in BOOLEAN : RepairWithForgedAnchor(hb)
+  \/ \E hb \in BOOLEAN : SealWithRelocatedForgery(hb)
   \/ \E child \in Descendants : PinChild(child)
   \/ UNCHANGED vars
 
@@ -224,9 +226,8 @@ HonestServesNeverStranded ==
   (\A e \in 2..epoch : bridgeIntact[e]) =>
     \A child \in Descendants : PinnedEpochVerifiable(child)
 
-(* An honest repairer never seals a keyring readers must reject, whatever  *)
-(* anchors the server offers: every id it seals is one the signed lineage  *)
-(* names.                                                                  *)
-RepairsSealOnlySignedLineage == ~repairPoisoned
+(* An honest rotation never seals a forged entry, wherever the server       *)
+(* served the lineage: every id it seals is one the signed lineage names.  *)
+RotationsSealOnlySignedLineage == ~sealedForgery
 
 =============================================================================
