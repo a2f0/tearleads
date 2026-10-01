@@ -1,20 +1,21 @@
 import { expect, test } from "bun:test";
 import {
   type ContainerKekKeyringEntry,
-  computeContainerKekMaterialId,
   normalizeContainerKekKeyring,
   openContainerKekKeyring,
   sealContainerKekKeyring,
 } from "@tearleads/crypto";
-import { createTestExecSql } from "@tearleads/test-utils";
 import type { ContainerMutationRequest } from "@tearleads/validators/request";
-import type { ContainerWriterProjectionResponse } from "@tearleads/validators/response";
 import {
   createMutationResponseFromRequest,
-  createParentProjection,
   createParentProjectionUserKeyResolver,
 } from "../../../../test/helpers/containerFixtures";
-import { createChildContainerProjection } from "../../../../test/helpers/projectionHierarchy";
+import {
+  CHILD_ID,
+  forgedEpoch1Entry,
+  type RelocatedChildHistory,
+  relocatedChildHistory,
+} from "../../../../test/helpers/relocatedLineage";
 import {
   manifestHistoryEpochIds,
   unwrapKeyringContainerKeksAtIndex,
@@ -24,92 +25,8 @@ import { verifyKeyringEntriesForSeal } from "./moveRotation";
 import { rekeyRemoteContainer } from "./rekeyRemote";
 import { resolveRotationContext } from "./rotationContext";
 
-const CHILD_ID = "lineage-child";
-
-/**
- * A child rotated once (epoch 1 -> 2), then served with its epoch-1 manifest
- * under the root's KEK instead of its own: the pooled lineage still verifies,
- * but the child KEK's history no longer names the epoch-1 id (#2365 finding
- * 32).
- */
-async function relocatedChildHistory() {
-  const parent = await createParentProjection();
-  const child = await createChildContainerProjection({
-    containerId: CHILD_ID,
-    parent,
-    parentProjection: parent.projection,
-  });
-  const database = await createTestExecSql("rekey-override-lineage");
-  const rekeyed = await rekeyRemoteContainer({
-    reportSecurityIncident: async () => {},
-    apiClient: {
-      reciteContainer: async () => null,
-      getContainerWriterProjection: async () => child.projection,
-      rekeyContainer: async (_containerId, request) =>
-        createMutationResponseFromRequest(
-          request,
-          child.projection.containerKeks.at(-1),
-        ),
-    },
-    author: parent.author,
-    containerId: CHILD_ID,
-    execSql: database.execSql,
-    resolveProjectionUserKey: createParentProjectionUserKeyResolver(parent),
-    targetSecretKey: parent.secretKey,
-  });
-  const rootKek = child.projection.containerKeks[0];
-  const epoch1Id = child.projection.containerKeks.at(-1)?.containerKeyEpochId;
-  if (!rekeyed || !rootKek || !epoch1Id) {
-    throw new Error("Expected a rotated child under a root KEK");
-  }
-  const epoch2Kek = rekeyed.response.containerKek;
-  const projection: ContainerWriterProjectionResponse = {
-    ...child.projection,
-    path: [
-      ...child.projection.path.slice(0, -1),
-      rekeyed.response.accessManifest,
-    ],
-    containerKeks: [
-      {
-        ...rootKek,
-        containerManifestHistory: [
-          ...rootKek.containerManifestHistory,
-          child.bundle,
-        ],
-      },
-      {
-        ...epoch2Kek,
-        containerManifestHistory: epoch2Kek.containerManifestHistory.filter(
-          (bundle) => bundle.manifestHash !== child.bundle.manifestHash,
-        ),
-      },
-    ],
-  };
-  return {
-    child,
-    database,
-    epoch1Id,
-    epoch2Key: rekeyed.containerKey,
-    epoch2Kek,
-    parent,
-    projection,
-  };
-}
-
-async function forgedEpoch1Entry(): Promise<ContainerKekKeyringEntry> {
-  // Server-chosen material under an invented id: self-consistent, so the
-  // per-entry material check passes.
-  const keyMaterial = crypto.getRandomValues(new Uint8Array(32));
-  const containerKeyEpochId = await computeContainerKekMaterialId({
-    containerId: CHILD_ID,
-    keyEpoch: 1,
-    keyMaterial,
-  });
-  return { containerKeyEpochId, keyMaterial };
-}
-
 async function repairWithOverride(
-  scenario: Awaited<ReturnType<typeof relocatedChildHistory>>,
+  scenario: RelocatedChildHistory,
   keyringEntriesOverride: readonly ContainerKekKeyringEntry[],
 ) {
   const submitted: ContainerMutationRequest[] = [];
@@ -204,7 +121,10 @@ test("a reader rejects a keyring whose real epoch id was served elsewhere", asyn
     unwrapKeyringContainerKeksAtIndex({
       currentManifest,
       index: 1,
-      kek: { ...kek, keyring: forgedKeyring as unknown as typeof kek.keyring },
+      kek: {
+        ...kek,
+        keyring: forgedKeyring,
+      },
       keksByEpochId: new Map(),
       successorKeyMaterial: scenario.epoch2Key,
       verifiedByHash: verified,
@@ -237,7 +157,6 @@ test("a rotation anchors its re-seal to the lineage served elsewhere", async () 
     verifyKeyringEntriesForSeal(
       CHILD_ID,
       [await forgedEpoch1Entry()],
-      context.target.kek,
       context.signedEpochIds,
     ),
   ).rejects.toThrow("omits an epoch its manifest history commits to");

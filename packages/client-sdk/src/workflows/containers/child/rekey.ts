@@ -99,7 +99,6 @@ async function buildRekeyRotationArtifacts(input: {
     await verifyKeyringEntriesForSeal(
       input.previousContainerId,
       input.keyringEntriesOverride,
-      input.targetKek,
       input.signedEpochIds,
     );
   }

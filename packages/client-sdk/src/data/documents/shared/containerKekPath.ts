@@ -347,12 +347,12 @@ function assertTargetKekUnwrapped(input: {
 }
 
 export async function unwrapContainerKekPathWithHistoryFailures(
-  unverifiedInput: UnwrapContainerKekPathInput,
+  rawInput: UnwrapContainerKekPathInput,
 ): Promise<UnwrappedContainerKekPathResult> {
   // Kept for the keyring checks, which anchor to the verified lineage.
   const input = {
-    ...unverifiedInput,
-    verifiedByHash: unverifiedInput.verifiedByHash ?? new Map(),
+    ...rawInput,
+    verifiedByHash: rawInput.verifiedByHash ?? new Map(),
   };
   await verifyContainerKekPathProjection(input);
 

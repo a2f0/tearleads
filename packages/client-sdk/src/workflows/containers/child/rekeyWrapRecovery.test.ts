@@ -12,6 +12,7 @@ import {
   createParentProjection,
   createParentProjectionUserKeyResolver,
 } from "../../../../test/helpers/containerFixtures";
+import { manifestHistoryEpochIds } from "../../../data/documents/shared/containerKekPathHistory";
 import {
   HistoricalWrapUnavailableError,
   recoverKeyringEntryFromWraps,
@@ -103,6 +104,7 @@ test("a rotation refuses to re-sign a poisoned but authenticated keyring", async
         containerKeyEpochId: currentEpochId,
         keyring: poisoned as unknown as (typeof epoch1Kek)["keyring"],
       },
+      signedEpochIds: new Set(),
       currentKeyMaterial: currentKey,
       keyEpoch: 3,
       successorContainerKey: crypto.getRandomValues(new Uint8Array(32)),
@@ -175,6 +177,11 @@ test("a keyring entry claiming an uncommitted epoch id is rejected", async () =>
         containerManifestHistory: parent.projection.path,
         keyring: forged as unknown as (typeof epoch2Kek)["keyring"],
       },
+      // The signed manifest history names epoch 1's real id.
+      signedEpochIds: manifestHistoryEpochIds({
+        ...epoch2Kek,
+        containerManifestHistory: parent.projection.path,
+      }),
       currentKeyMaterial: rekeyed.containerKey,
       keyEpoch: 3,
       successorContainerKey: crypto.getRandomValues(new Uint8Array(32)),

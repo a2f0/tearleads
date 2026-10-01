@@ -115,6 +115,7 @@ export function verifiedContainerCreateManifest(input: {
 }): VerifiedContainerAccessManifest {
   const lineage = verifiedContainerLineage(input);
   const create = lineage.at(-1);
+  // Unreachable, since a lineage always holds its head; it narrows the type.
   if (!create) {
     throw new KeyingVerificationError(
       "missing_dependency",
