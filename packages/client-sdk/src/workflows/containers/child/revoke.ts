@@ -207,6 +207,7 @@ export async function buildMaterializedContainerRevokePlan(input: {
       currentKek: target.kek,
       currentKeyMaterial: predecessorContainerKey,
       keyEpoch: nextContainerKeyEpoch,
+      signedEpochIds: target.signedEpochIds,
     });
   const body: ContainerRevokeAccessEventBody = {
     eventType: "container.revoke",
