@@ -24,7 +24,7 @@ const LABEL = "Container create conflict";
  * pending container since, which rewrites its intent's parent; that is a move
  * still owed, not a mismatch.
  */
-export async function assertContainerCreateAdoptable(input: {
+async function assertContainerCreateAdoptable(input: {
   readonly containerId: string;
   readonly expectedOrganizationId: string;
   readonly state: ContainerCreateIntentSyncState;
