@@ -55,6 +55,10 @@ following onto a database that predates it requires the greenfield reset above
   suite, object id, content-key epoch and target as AES-GCM associated data,
   under unchanged suite ids. A wrap stored before it no longer opens and reads
   as an integrity failure, not as an older format.
+- #2365 finding 25: login challenges are signed for the API origin
+  (`tearleads.auth.challenge.v2`), and production requires `API_PUBLIC_ORIGIN`.
+  A client built before it cannot log in, so the reset release ships every
+  client with the API; no v1 window, which would keep the relay open.
 
 Organization purge (`status = "purged"`) is terminal and not a reset: the
 organization row survives, but every container, document, and blob mutation in

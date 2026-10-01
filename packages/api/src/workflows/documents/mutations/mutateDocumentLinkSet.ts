@@ -24,6 +24,7 @@ import {
   assertBaselinelessUnlinkHasEmptyCommittedFrontier,
 } from "./atomicRotationBaseline";
 import { DocumentMutationError, toMutationError } from "./errors";
+import { assertLinkKeepsCommittedContentKeyEpoch } from "./linkContentKeyEpoch";
 import {
   applyDocumentLinkBlobRewraps,
   lockDocumentLinkBlobRewraps,
@@ -127,6 +128,12 @@ async function advanceDocumentLinkSet(input: {
   } else if (input.eventType === "document.unlink") {
     await assertBaselinelessUnlinkHasEmptyCommittedFrontier(input.executor, {
       documentId: input.documentId,
+    });
+  } else {
+    await assertLinkKeepsCommittedContentKeyEpoch({
+      contentKeyEpoch: input.request.contentKeyBundle.contentKeyEpoch,
+      documentId: input.documentId,
+      executor: input.executor,
     });
   }
   await replaceDocumentContainerLinks({

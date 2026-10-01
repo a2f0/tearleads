@@ -1,4 +1,4 @@
-import { authChallengeSigningBytes, sign } from "@tearleads/crypto";
+import { sign } from "@tearleads/crypto";
 import type { NativeSubscriptionStore } from "@tearleads/validators/billing";
 import {
   bindBlobAttachmentOperation,
@@ -514,7 +514,7 @@ export class ApiClient {
     challengeHex: string,
   ) {
     const signed = sign(
-      authChallengeSigningBytes({ challengeHex, fingerprint }),
+      this.requestRuntime.authChallengeBytes(challengeHex, fingerprint),
       secretKey,
     );
     const response = await this.transport.request(
