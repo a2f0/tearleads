@@ -44,6 +44,7 @@ import {
   requireProjectionUserKeyResolver,
 } from "../../../data/keyingProjectionVerification";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
+import { assertOverrideInSignedLineage } from "./keyringOverrideLineage";
 import {
   sealRotationKeyring,
   verifyKeyringEntriesForSeal,
@@ -247,13 +248,22 @@ async function collectRekeyPrincipalPolicies(
   return principalPolicies;
 }
 
-export async function buildMaterializedContainerRekeyPlan(
+/** The projection key resolver, once any keyring override is held to lineage. */
+async function requireRekeyUserKeyResolver(
   input: RekeyPlanInput,
-): Promise<MaterializedContainerRekeyPlan> {
+): Promise<ProjectionUserKeyResolver> {
   const resolveProjectionUserKey = requireProjectionUserKeyResolver(
     input.resolveProjectionUserKey,
     "Remote container rekey",
   );
+  await assertOverrideInSignedLineage(input, resolveProjectionUserKey);
+  return resolveProjectionUserKey;
+}
+
+export async function buildMaterializedContainerRekeyPlan(
+  input: RekeyPlanInput,
+): Promise<MaterializedContainerRekeyPlan> {
+  const resolveProjectionUserKey = await requireRekeyUserKeyResolver(input);
   const planningInput = speculativeSafeRekeyInput(input);
   const containerKey = crypto.getRandomValues(new Uint8Array(32));
   const {

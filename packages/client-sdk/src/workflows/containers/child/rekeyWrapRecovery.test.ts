@@ -398,7 +398,9 @@ test("a repair override inventing a predecessor epoch is rejected", async () => 
 
   // A "rebuilt" override whose entry is self-consistent — fresh material with
   // an id that commits to it — but claims a predecessor of epoch 1, which has
-  // none. The repair may not seal a history the container never had.
+  // none. The repair may not seal a history the container never had: the
+  // signed lineage names no predecessor, so the override is refused before
+  // the seal's own one-entry-per-epoch count would be.
   const forgedKey = crypto.getRandomValues(new Uint8Array(32));
   const forgedEntry = {
     containerKeyEpochId: await computeContainerKekMaterialId({
@@ -428,5 +430,5 @@ test("a repair override inventing a predecessor epoch is rejected", async () => 
       resolveProjectionUserKey: createParentProjectionUserKeyResolver(parent),
       targetSecretKey: parent.secretKey,
     }),
-  ).rejects.toThrow("exactly one entry per predecessor epoch");
+  ).rejects.toThrow("outside the container's signed lineage");
 });

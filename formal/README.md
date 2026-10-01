@@ -119,7 +119,13 @@ extend it with child containers whose key epochs pin the parent epoch current
 when they were minted: a descendant verifies against any pinned epoch the
 parent's retained history still covers, and the negative control
 `strict-parent-epoch-pin-strands-descendant` reproduces the pre-#2330 rule under
-which an ancestor rotation stranded the subtree.
+which an ancestor rotation stranded the subtree. A repair may also be offered a
+forged anchor: an invented epoch id over server-chosen material, which passes
+its material check. `RepairsSealOnlySignedLineage` requires that an honest
+repair never seals one. `AnchorToSignedLineage` models the rule that a rebuilt
+keyring override names exactly the epoch ids of the container's verified signed
+lineage (`assertOverrideInSignedLineage`), and the control
+`repair-seals-forged-anchor` removes it.
 
 ## Manifest History Availability
 

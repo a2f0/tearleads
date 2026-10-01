@@ -25,8 +25,18 @@ EXTENDS FiniteSets, Naturals
 (* earlier. Reads shipped that way until #2330; they now resolve the pin   *)
 (* through `resolveContainerKekParentBinding`. Writes still demand current *)
 (* pins, and InaccessibleIntermediateRepair covers who restores them.      *)
+(*                                                                         *)
+(* A dishonest server may also offer a repair a forged anchor for a        *)
+(* retired epoch: an invented epoch id over server-chosen material, with a *)
+(* direct wrap of it to the repairer. Its material check passes, because   *)
+(* the id commits to that material, so only the signed manifest lineage,  *)
+(* which names every real epoch id, tells it apart. AnchorToSignedLineage  *)
+(* models the repair rule that a rebuilt keyring names exactly the         *)
+(* lineage's ids (#2365 finding 32); without it an honest repairer seals   *)
+(* the forgery in place of the real epoch.                                 *)
 
-CONSTANTS MaxEpoch, Members, Descendants, StrictParentEpochPin
+CONSTANTS MaxEpoch, Members, Descendants, StrictParentEpochPin,
+          AnchorToSignedLineage
 
 ASSUME /\ MaxEpoch \in Nat \ {0, 1}
        /\ Members # {}
@@ -34,6 +44,7 @@ ASSUME /\ MaxEpoch \in Nat \ {0, 1}
        /\ IsFiniteSet(Members)
        /\ IsFiniteSet(Descendants)
        /\ StrictParentEpochPin \in BOOLEAN
+       /\ AnchorToSignedLineage \in BOOLEAN
 
 Epochs == 1..MaxEpoch
 RotatedEpochs == 2..MaxEpoch
@@ -44,10 +55,11 @@ VARIABLES epoch,          \* current key epoch
           wrapHolders,    \* e -> members whose retained wrap for e is usable
           membersAtEpoch, \* e -> membership when e was minted (history var)
           currentMembers, \* members with current access
-          childPin        \* child -> the parent epoch its key epoch pins
+          childPin,       \* child -> the parent epoch its key epoch pins
+          repairPoisoned  \* an honest repair sealed a keyring readers reject
 
 vars == << epoch, bridgeIntact, keyringHonest, wrapHolders, membersAtEpoch,
-           currentMembers, childPin >>
+           currentMembers, childPin, repairPoisoned >>
 
 TypeOK ==
   /\ epoch \in Epochs
@@ -57,6 +69,7 @@ TypeOK ==
   /\ membersAtEpoch \in [Epochs -> SUBSET Members]
   /\ currentMembers \in (SUBSET Members) \ {{}}
   /\ childPin \in [Descendants -> Epochs]
+  /\ repairPoisoned \in BOOLEAN
 
 (* Wraps address only the members present when their epoch was minted --   *)
 (* the write path derives recipient targets from the manifest.             *)
@@ -95,6 +108,7 @@ Init ==
   /\ currentMembers \in (SUBSET Members) \ {{}}
   /\ membersAtEpoch = [e \in Epochs |-> IF e = 1 THEN currentMembers ELSE {}]
   /\ childPin = [child \in Descendants |-> 1]
+  /\ repairPoisoned = FALSE
   /\ \E holders \in SUBSET currentMembers :
        wrapHolders = [e \in Epochs |-> IF e = 1 THEN holders ELSE {}]
 
@@ -105,7 +119,7 @@ Init ==
 PinChild(child) ==
   /\ childPin' = [childPin EXCEPT ![child] = epoch]
   /\ UNCHANGED <<epoch, bridgeIntact, keyringHonest, wrapHolders,
-                 membersAtEpoch, currentMembers>>
+                 membersAtEpoch, currentMembers, repairPoisoned>>
 
 (* A rotation appends immutable artifacts and may change membership        *)
 (* (revocations are rotations; additive grants fold in conservatively).    *)
@@ -114,10 +128,8 @@ PinChild(child) ==
 (* exactly when the ROTATOR -- a current member -- can personally recover  *)
 (* the complete history; a poisoned artifact models a buggy or malicious   *)
 (* rotator whose output is detected downstream.                            *)
-Rotate(honestBridge, honestKeyring) ==
+RotateSealing(honestBridge, honestKeyring) ==
   /\ epoch < MaxEpoch
-  /\ \E rotator \in currentMembers :
-       honestKeyring => PersonalRecoverable(rotator) = FullHistory
   /\ \E nextMembers \in (SUBSET Members) \ {{}} :
        \E holders \in SUBSET nextMembers :
          /\ currentMembers' = nextMembers
@@ -128,8 +140,29 @@ Rotate(honestBridge, honestKeyring) ==
   /\ keyringHonest' = [keyringHonest EXCEPT ![epoch + 1] = honestKeyring]
   /\ childPin' = childPin
 
+Rotate(honestBridge, honestKeyring) ==
+  /\ \E rotator \in currentMembers :
+       honestKeyring => PersonalRecoverable(rotator) = FullHistory
+  /\ RotateSealing(honestBridge, honestKeyring)
+  /\ UNCHANGED repairPoisoned
+
+(* A repair is an honest rotation sealing a keyring rebuilt from the log   *)
+(* and anchors. Without a forgery it is Rotate(hb, TRUE); here the server  *)
+(* offers a forged anchor too. An unanchored rebuild takes the forged id   *)
+(* into the real epoch's position, so the sealed keyring is one readers    *)
+(* reject. An anchored rebuild refuses it and can seal only the full       *)
+(* history the repairer recovers personally.                               *)
+RepairWithForgedAnchor(honestBridge) ==
+  LET sealsForgery == ~AnchorToSignedLineage
+  IN /\ epoch > 1
+     /\ \E rotator \in currentMembers :
+          sealsForgery \/ PersonalRecoverable(rotator) = FullHistory
+     /\ RotateSealing(honestBridge, ~sealsForgery)
+     /\ repairPoisoned' = (repairPoisoned \/ sealsForgery)
+
 Next ==
   \/ \E hb \in BOOLEAN, hk \in BOOLEAN : Rotate(hb, hk)
+  \/ \E hb \in BOOLEAN : RepairWithForgedAnchor(hb)
   \/ \E child \in Descendants : PinChild(child)
   \/ UNCHANGED vars
 
@@ -190,5 +223,10 @@ PinnedEpochVerifiable(child) ==
 HonestServesNeverStranded ==
   (\A e \in 2..epoch : bridgeIntact[e]) =>
     \A child \in Descendants : PinnedEpochVerifiable(child)
+
+(* An honest repairer never seals a keyring readers must reject, whatever  *)
+(* anchors the server offers: every id it seals is one the signed lineage  *)
+(* names.                                                                  *)
+RepairsSealOnlySignedLineage == ~repairPoisoned
 
 =============================================================================

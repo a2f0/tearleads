@@ -59,6 +59,14 @@ export const RECOVERY_NEGATIVE_CONTROLS: readonly NegativeControl[] = [
     why: "Verification requiring the child pin to equal the parent's CURRENT epoch strands every descendant after an ancestor rotation, even though the parent's retained history still covers the pinned epoch.",
   },
   {
+    id: "repair-seals-forged-anchor",
+    module: "formal/container-keying/KeyringReachability.tla",
+    config: "formal/container-keying/KeyringReachability.cfg",
+    constants: { AnchorToSignedLineage: "FALSE" },
+    expect: { kind: "invariant", name: "RepairsSealOnlySignedLineage" },
+    why: "A rebuilt keyring not anchored to the signed lineage lets a server-forged anchor, an invented id over server-chosen material, displace a real epoch under an honest repair signature (#2365 finding 32).",
+  },
+  {
     id: "own-edge-currency-writes-under-revoked-reach",
     module: "formal/container-keying/InaccessibleIntermediateRepair.tla",
     config: "formal/container-keying/InaccessibleIntermediateRepair.cfg",
