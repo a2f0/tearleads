@@ -1,4 +1,7 @@
-import type { ContainerKeyWrap } from "@tearleads/crypto";
+import type {
+  ContainerKeyWrap,
+  VerifiedContainerAccessManifest,
+} from "@tearleads/crypto";
 import { isPlainObject as isPlainRecord } from "@tearleads/validators/isPlainObject";
 import type { ContainerWriterProjectionResponse } from "@tearleads/validators/response";
 import { unwrapKeyEnvelopesWithPrincipalPolicies } from "../../principals/principalPolicyCrypto";
@@ -165,6 +168,7 @@ async function unwrapContainerKekAtIndex(input: {
   readonly keksByEpochId: Map<string, UnwrappedContainerKek>;
   readonly projection: ContainerWriterProjectionResponse;
   readonly secretKey: Uint8Array;
+  readonly verifiedByHash: ReadonlyMap<string, VerifiedContainerAccessManifest>;
   readonly verifyBridgeCommitment: boolean;
 }): Promise<{
   readonly containerId: string;
@@ -233,6 +237,7 @@ async function unwrapContainerKekAtIndex(input: {
         kek,
         unwrapped,
       ),
+      verifiedByHash: input.verifiedByHash,
       verifyKeyringCommitment: input.verifyBridgeCommitment,
     });
     return null;
@@ -345,8 +350,15 @@ function assertTargetKekUnwrapped(input: {
 }
 
 export async function unwrapContainerKekPathWithHistoryFailures(
-  input: UnwrapContainerKekPathInput,
+  rawInput: UnwrapContainerKekPathInput,
 ): Promise<UnwrappedContainerKekPathResult> {
+  // Kept for the keyring checks, which anchor to the verified lineage.
+  const input = {
+    ...rawInput,
+    verifiedByHash:
+      rawInput.verifiedByHash ??
+      new Map<string, VerifiedContainerAccessManifest>(),
+  };
   await verifyContainerKekPathProjection(input);
 
   const keksByEpochId = await seedKnownContainerKeks({
@@ -367,6 +379,7 @@ export async function unwrapContainerKekPathWithHistoryFailures(
       keksByEpochId,
       projection: input.projection,
       secretKey: input.secretKey,
+      verifiedByHash: input.verifiedByHash,
       verifyBridgeCommitment: input.trustedLocalProjection !== true,
     });
     if (currentFailure) {

@@ -59,6 +59,14 @@ export const RECOVERY_NEGATIVE_CONTROLS: readonly NegativeControl[] = [
     why: "Verification requiring the child pin to equal the parent's CURRENT epoch strands every descendant after an ancestor rotation, even though the parent's retained history still covers the pinned epoch.",
   },
   {
+    id: "kek-history-anchor-seals-relocated-forgery",
+    module: "formal/container-keying/KeyringReachability.tla",
+    config: "formal/container-keying/KeyringReachability.cfg",
+    constants: { AnchorToSignedLineage: "FALSE" },
+    expect: { kind: "invariant", name: "RotationsSealOnlySignedLineage" },
+    why: "Anchoring sealed entries only to the KEK's own served history lets a server relocate the real epoch's manifest under another KEK, so an honest rotation seals a forged id (#2365 finding 32).",
+  },
+  {
     id: "own-edge-currency-writes-under-revoked-reach",
     module: "formal/container-keying/InaccessibleIntermediateRepair.tla",
     config: "formal/container-keying/InaccessibleIntermediateRepair.cfg",

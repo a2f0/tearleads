@@ -1,3 +1,4 @@
+import type { VerifiedContainerAccessManifest } from "@tearleads/crypto";
 import type {
   ContainerKekResponse,
   ContainerWriterProjectionResponse,
@@ -10,6 +11,7 @@ import {
 } from "../../../data/containers/shared/projection";
 import type { ContainerMutationAuthor } from "../../../data/containers/shared/types";
 import { assertContainerKekPathCurrent } from "../../../data/documents/shared/containerKekCurrency";
+import { signedHistoryEpochIds } from "../../../data/documents/shared/containerKekPathHistory";
 import { unwrapContainerKekPath } from "../../../data/documents/shared/projection";
 import { projectionVerificationOptions } from "../../../data/documents/shared/types";
 import type {
@@ -18,6 +20,15 @@ import type {
   ReferencedPrincipalPolicyWarmer,
 } from "../../../data/keyingProjectionVerification";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
+
+/**
+ * A rotation's target container, with the epoch ids its verified lineage
+ * names wherever the projection served it; the re-sealed keyring is anchored
+ * to them (#2365 finding 32).
+ */
+export type SignedRotationTarget = ReturnType<
+  typeof getTargetContainerContext
+> & { readonly signedEpochIds: ReadonlySet<string> };
 
 export function requireUnwrappedKek(
   keksByEpochId: ReadonlyMap<string, Uint8Array>,
@@ -62,12 +73,13 @@ export async function resolveRotationContext(
   parentPublicKey: string | null;
   predecessorContainerKey: Uint8Array;
   previousState: ReturnType<typeof readContainerState>;
-  target: ReturnType<typeof getTargetContainerContext>;
+  target: SignedRotationTarget;
 }> {
   // The target may need repair, but wrapping its successor requires a current parent prefix.
   assertContainerKekPathCurrent(
     input.previousProjection.containerKeks.slice(0, -1),
   );
+  const verifiedByHash = new Map<string, VerifiedContainerAccessManifest>();
   const keksByEpochId = await unwrapContainerKekPath({
     execSql: input.execSql,
     knownContainerKeks: input.knownContainerKeks,
@@ -75,6 +87,7 @@ export async function resolveRotationContext(
     principalPolicyCache: input.principalPolicyCache,
     projection: input.previousProjection,
     secretKey: input.targetSecretKey,
+    verifiedByHash,
     ...projectionVerificationOptions(input),
   });
   const target = getTargetContainerContext(input.previousProjection);
@@ -95,6 +108,13 @@ export async function resolveRotationContext(
     parentPublicKey,
     predecessorContainerKey,
     previousState,
-    target,
+    target: {
+      ...target,
+      signedEpochIds: signedHistoryEpochIds({
+        headManifestHash: target.manifest.manifestHash,
+        kek: target.kek,
+        verifiedByHash,
+      }),
+    },
   };
 }

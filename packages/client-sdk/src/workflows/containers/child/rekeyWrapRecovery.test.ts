@@ -12,6 +12,7 @@ import {
   createParentProjection,
   createParentProjectionUserKeyResolver,
 } from "../../../../test/helpers/containerFixtures";
+import { manifestHistoryEpochIds } from "../../../data/documents/shared/containerKekPathHistory";
 import {
   HistoricalWrapUnavailableError,
   recoverKeyringEntryFromWraps,
@@ -103,6 +104,7 @@ test("a rotation refuses to re-sign a poisoned but authenticated keyring", async
         containerKeyEpochId: currentEpochId,
         keyring: poisoned as unknown as (typeof epoch1Kek)["keyring"],
       },
+      signedEpochIds: new Set(),
       currentKeyMaterial: currentKey,
       keyEpoch: 3,
       successorContainerKey: crypto.getRandomValues(new Uint8Array(32)),
@@ -175,6 +177,11 @@ test("a keyring entry claiming an uncommitted epoch id is rejected", async () =>
         containerManifestHistory: parent.projection.path,
         keyring: forged as unknown as (typeof epoch2Kek)["keyring"],
       },
+      // The signed manifest history names epoch 1's real id.
+      signedEpochIds: manifestHistoryEpochIds({
+        ...epoch2Kek,
+        containerManifestHistory: parent.projection.path,
+      }),
       currentKeyMaterial: rekeyed.containerKey,
       keyEpoch: 3,
       successorContainerKey: crypto.getRandomValues(new Uint8Array(32)),
@@ -398,7 +405,9 @@ test("a repair override inventing a predecessor epoch is rejected", async () => 
 
   // A "rebuilt" override whose entry is self-consistent — fresh material with
   // an id that commits to it — but claims a predecessor of epoch 1, which has
-  // none. The repair may not seal a history the container never had.
+  // none. The repair may not seal a history the container never had: the
+  // signed lineage names no predecessor, so the override is refused before
+  // the seal's own one-entry-per-epoch count would be.
   const forgedKey = crypto.getRandomValues(new Uint8Array(32));
   const forgedEntry = {
     containerKeyEpochId: await computeContainerKekMaterialId({
@@ -428,5 +437,5 @@ test("a repair override inventing a predecessor epoch is rejected", async () => 
       resolveProjectionUserKey: createParentProjectionUserKeyResolver(parent),
       targetSecretKey: parent.secretKey,
     }),
-  ).rejects.toThrow("exactly one entry per predecessor epoch");
+  ).rejects.toThrow("outside the container's signed lineage");
 });
