@@ -40,6 +40,7 @@ test("auth verify acknowledges a null root after organization data is purged", a
     user.fingerprint,
     sign(
       authChallengeSigningBytes({
+        apiOrigin: "http://localhost",
         challengeHex: challenge,
         fingerprint: user.fingerprint,
       }),

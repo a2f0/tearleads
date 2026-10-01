@@ -185,6 +185,7 @@ export async function createOrganizationHistoryFixture() {
     });
   };
   return {
+    admin,
     signingKeyPair,
     advanceGroup,
     advanceDirectory,

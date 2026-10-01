@@ -248,6 +248,7 @@ test("same-level Admins re-wrap survives a group rotation and cold root unwrap",
       accessLevel: "admin",
       apiClient: {
         reciteContainer: async () => null,
+        evictContainerWriterProjection: () => {},
         commitOrganizationGroupPolicy: async () => {
           throw new Error("Unexpected group policy commit");
         },
@@ -280,7 +281,6 @@ test("same-level Admins re-wrap survives a group rotation and cold root unwrap",
       signedAt: "2026-04-28T12:02:00.000Z",
       targetSecretKey: memberKem.secretKey,
     });
-
     expect(shared).not.toBeNull();
     expect(
       heldContainerSnapshot(execSql, ORGANIZATION_ID).policies,

@@ -1,4 +1,8 @@
 import {
+  authChallengeSigningBytes,
+  canonicalAuthOrigin,
+} from "@tearleads/crypto";
+import {
   bindPrototypeMethods,
   describeErrorResponse,
   type ErrorResponseDescription,
@@ -8,6 +12,7 @@ import {
   normalizeApiBaseUrl,
   requestFailureKey,
 } from "./requestInternals";
+import { responseBodyFailure } from "./responseBodyFailure";
 import { shouldRetryAfterSessionExpired } from "./sessionRefresh";
 import type {
   HttpMethod,
@@ -46,6 +51,23 @@ export class ApiRequestRuntime {
     this.responseRequest = Object.assign(this.makeResponseRequest, {
       reportFailure: this.reportResponseRequestFailure,
     });
+  }
+
+  /**
+   * The bytes a login challenge is signed as, bound to the API this client
+   * addresses. A relative base URL resolves against the page, as its requests
+   * do; with neither, there is no API origin to sign for.
+   */
+  authChallengeBytes(challengeHex: string, fingerprint: string): Uint8Array {
+    let apiOrigin: string;
+    try {
+      apiOrigin = canonicalAuthOrigin(
+        new URL(this.baseUrl || "/", globalThis.location?.href).href,
+      );
+    } catch {
+      throw new Error("The API origin is unavailable for authentication");
+    }
+    return authChallengeSigningBytes({ apiOrigin, challengeHex, fingerprint });
   }
 
   setOnError(handler: ((message: string) => void) | null): void {
@@ -184,9 +206,13 @@ export class ApiRequestRuntime {
     try {
       data = await response.json();
     } catch (error) {
+      const failure = responseBodyFailure(error, errorMessage(error));
+      if (failure.kind === "network") {
+        this.onNetworkError?.();
+      }
       return this.requestFailure({
-        kind: "json",
-        message: `${method} ${path}: failed to parse JSON: ${errorMessage(error)}`,
+        kind: failure.kind,
+        message: `${method} ${path}: ${failure.message}`,
         method,
         path,
         reportErrors,
@@ -373,6 +399,9 @@ export class ApiRequestRuntime {
   private reportResponseRequestFailure(
     input: ResponseRequestValidationFailureInput,
   ): RequestFailure {
+    if (input.kind === "network") {
+      this.onNetworkError?.();
+    }
     return this.requestFailure({
       ...input,
       reportErrors: input.options?.reportErrors ?? true,

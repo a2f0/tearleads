@@ -31,6 +31,7 @@ export {
   AUTH_CHALLENGE_HEX_LENGTH,
   authChallengeSigningBytes,
   CHALLENGE_TTL_SECONDS,
+  canonicalAuthOrigin,
   generateChallenge,
 } from "./challenge";
 export type {

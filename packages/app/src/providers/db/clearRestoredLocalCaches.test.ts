@@ -32,7 +32,7 @@ function createFakeStorage(
   };
 }
 
-test("removes the stale pre-restore caches but preserves the identity registry", () => {
+test("removes the stale pre-restore caches but keeps sessions and the identity registry", () => {
   const storage = createFakeStorage({
     "tearleads.local-session:sqlite:fingerprint": "session",
     "tearleads.documents.device-seed": "doc-seed",
@@ -44,7 +44,10 @@ test("removes the stale pre-restore caches but preserves the identity registry",
 
   clearRestoredLocalCaches(storage);
 
+  // Sessions hold root acknowledgements; the crypto provider rewrites the
+  // active one before this runs (#2365 finding 24).
   expect(storage.snapshot()).toEqual({
+    "tearleads.local-session:sqlite:fingerprint": "session",
     "tearleads.app.local-identity-registry": "keep-me",
     "tearleads.feature-flags:beta": "keep-me-too",
   });

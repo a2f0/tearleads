@@ -15,10 +15,33 @@ export function generateChallenge(length = AUTH_CHALLENGE_BYTES): Uint8Array {
   return randomBytes(length);
 }
 
+/**
+ * The canonical `scheme://host[:port]` a login challenge is signed for. Both
+ * sides derive it themselves: the client from the API it means to reach, the
+ * API from its own public origin, so a challenge relayed from another API was
+ * signed for the wrong origin and never verifies (#2365 finding 25).
+ */
+export function canonicalAuthOrigin(value: string): string {
+  let url: URL;
+  try {
+    url = new URL(value);
+  } catch {
+    throw new Error("Authentication origin must be an absolute URL");
+  }
+  if (url.protocol !== "https:" && url.protocol !== "http:") {
+    throw new Error("Authentication origin must use http or https");
+  }
+  return url.origin;
+}
+
 export function authChallengeSigningBytes(input: {
+  apiOrigin: string;
   challengeHex: string;
   fingerprint: string;
 }): Uint8Array {
+  if (canonicalAuthOrigin(input.apiOrigin) !== input.apiOrigin) {
+    throw new Error("Authentication origin must be canonical");
+  }
   if (!/^[0-9a-f]{64}$/.test(input.fingerprint)) {
     throw new Error("Authentication fingerprint must be a SHA-256 hex string");
   }
@@ -32,8 +55,9 @@ export function authChallengeSigningBytes(input: {
 
   return TEXT_ENCODER.encode(
     serializeKeyingCanonicalJson({
-      domain: "tearleads.auth.challenge.v1",
+      domain: "tearleads.auth.challenge.v2",
       payload: {
+        apiOrigin: input.apiOrigin,
         challenge: input.challengeHex,
         fingerprint: input.fingerprint,
       },
