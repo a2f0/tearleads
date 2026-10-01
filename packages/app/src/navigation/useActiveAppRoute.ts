@@ -4,6 +4,7 @@ import {
   useWindowStateData,
   type WindowEntry,
 } from "../components/window/WindowStateProvider";
+import { isMiniAppId } from "../mini-apps/types";
 import type { AppNavigationMode } from "./AppNavigationMode";
 import { useAppNavigationState } from "./AppNavigationProvider";
 import type { AppRouteState } from "./AppRoutePaths";
@@ -23,9 +24,9 @@ export function resolveActiveAppRoute(
   // Shell chrome follows the foremost visible mini-app; utility windows without
   // an app route do not change which mini-app the pane is presenting.
   const topWindow = findTopWindow(windows, (candidate) => {
-    return !candidate.minimized && candidate.appId !== undefined;
+    return !candidate.minimized && isMiniAppId(candidate.appId);
   });
-  return topWindow?.appId
+  return topWindow && isMiniAppId(topWindow.appId)
     ? {
         appId: topWindow.appId,
         pathSegments: topWindow.miniAppPathSegments ?? EMPTY_ROUTE_SEGMENTS,
