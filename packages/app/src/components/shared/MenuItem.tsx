@@ -1,31 +1,21 @@
 import type { Icon } from "@phosphor-icons/react";
 import type { MouseEventHandler } from "react";
-import type { DiagnosticAction } from "../../host/AppDiagnostics";
-import { useDiagnosticBreadcrumb } from "../../providers/logging/useDiagnosticBreadcrumb";
+
+export interface MenuItemProps {
+  icon?: Icon;
+  label: string;
+  disabled?: boolean;
+  onClick: MouseEventHandler<HTMLButtonElement>;
+}
 
 export function MenuItem({
   icon: IconComponent,
   label,
   disabled,
   onClick,
-  diagnosticAction,
-}: {
-  icon?: Icon;
-  label: string;
-  disabled?: boolean;
-  onClick: MouseEventHandler<HTMLButtonElement>;
-  diagnosticAction?: DiagnosticAction | undefined;
-}) {
-  const breadcrumb = useDiagnosticBreadcrumb();
+}: MenuItemProps) {
   return (
-    <button
-      type="button"
-      disabled={disabled}
-      onClick={(event) => {
-        if (diagnosticAction) breadcrumb(diagnosticAction);
-        onClick(event);
-      }}
-    >
+    <button type="button" disabled={disabled} onClick={onClick}>
       {IconComponent && (
         <IconComponent
           aria-hidden="true"

@@ -10,6 +10,7 @@ import { PencilSimpleIcon } from "@phosphor-icons/react/dist/csr/PencilSimple";
 import { TrashIcon } from "@phosphor-icons/react/dist/csr/Trash";
 import { UploadSimpleIcon } from "@phosphor-icons/react/dist/csr/UploadSimple";
 import { WarningCircleIcon } from "@phosphor-icons/react/dist/csr/WarningCircle";
+import { DiagnosticMenuItem } from "../../../components/shared/DiagnosticMenuItem";
 import { Menu } from "../../../components/shared/Menu";
 import { MenuItem } from "../../../components/shared/MenuItem";
 import type { DiagnosticAction } from "../../../host/AppDiagnostics";
@@ -202,7 +203,7 @@ function ExplorerContactsContainerContextMenu(
           openContainerInfoRoute(containerId);
         }}
       />
-      <MenuItem
+      <DiagnosticMenuItem
         icon={AddressBookIcon}
         label={EXPLORER_LABELS.newContactAction}
         diagnosticAction="create"
@@ -222,7 +223,7 @@ function ExplorerOptionalMenuItem(params: {
   icon: Icon;
   label: string;
   onSelect: () => void;
-  diagnosticAction?: DiagnosticAction | undefined;
+  diagnosticAction: DiagnosticAction;
 }) {
   const { closeContextMenu, disabled, icon, label, onSelect } = params;
   if (disabled) {
@@ -230,7 +231,7 @@ function ExplorerOptionalMenuItem(params: {
   }
 
   return (
-    <MenuItem
+    <DiagnosticMenuItem
       icon={icon}
       label={label}
       diagnosticAction={params.diagnosticAction}

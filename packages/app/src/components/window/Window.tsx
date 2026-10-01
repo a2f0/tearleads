@@ -270,7 +270,7 @@ function WindowChrome({
       <WindowMenuBar menus={actions.menus} />
       {!toolbarSuppressed && (
         <WindowToolBar
-          canGoBack={(entry.miniAppRouteHistory?.length ?? 0) > 0}
+          canGoBack={(entry.routeHistory?.length ?? 0) > 0}
           showHistoryBack={entry.appId !== undefined}
           onGoBack={onGoBack}
         />
@@ -299,10 +299,10 @@ function WindowInnerContent({ ContentBoundary, entry }: WindowInnerProps) {
   const { suppressToolbar, toolbarSuppressed } = useWindowToolbarSuppression();
   // The toolbar renders above the route boundary, so the window's own Back stack
   // is threaded in from here rather than read from context.
-  const { bringToFront, goBackMiniAppRoute } = useWindowStateActions();
+  const { bringToFront, goBackRoute } = useWindowStateActions();
   const handleGoBack = useCallback(() => {
-    goBackMiniAppRoute(entry.id);
-  }, [entry.id, goBackMiniAppRoute]);
+    goBackRoute(entry.id);
+  }, [entry.id, goBackRoute]);
   const handleWindowMouseDown = useCallback(() => {
     bringToFront(entry.id);
   }, [bringToFront, entry.id]);

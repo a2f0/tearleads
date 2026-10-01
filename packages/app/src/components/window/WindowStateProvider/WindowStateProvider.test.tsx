@@ -43,15 +43,15 @@ test("create stores optional app metadata", () => {
   act(() =>
     result.current.actions.create("Explorer", 0, 0, undefined, {
       appId: "explorer",
-      miniAppPathSegments: ["items", "container-1"],
+      pathSegments: ["items", "container-1"],
     }),
   );
 
   expect(at(result, 0).appId).toBe("explorer");
-  expect(at(result, 0).miniAppPathSegments).toEqual(["items", "container-1"]);
+  expect(at(result, 0).pathSegments).toEqual(["items", "container-1"]);
 });
 
-test("updateMiniAppRoute updates route metadata without mutating input", () => {
+test("updateRoute updates route metadata without mutating input", () => {
   const { result } = renderHook(useWindowStateTestHarness, { wrapper });
   const pathSegments = ["items", "container-1"];
 
@@ -62,48 +62,46 @@ test("updateMiniAppRoute updates route metadata without mutating input", () => {
   );
   const id = at(result, 0).id;
 
-  act(() => result.current.actions.updateMiniAppRoute(id, pathSegments));
+  act(() => result.current.actions.updateRoute(id, pathSegments));
   pathSegments.push("ignored");
 
-  expect(result.current.state.windowMap.get(id)?.miniAppPathSegments).toEqual([
+  expect(result.current.state.windowMap.get(id)?.pathSegments).toEqual([
     "items",
     "container-1",
   ]);
 });
 
-test("updateMiniAppRoute skips unchanged route metadata", () => {
+test("updateRoute skips unchanged route metadata", () => {
   const { result } = renderHook(useWindowStateTestHarness, { wrapper });
 
   act(() =>
     result.current.actions.create("Explorer", 0, 0, undefined, {
       appId: "explorer",
-      miniAppPathSegments: ["items", "container-1"],
+      pathSegments: ["items", "container-1"],
     }),
   );
   const id = at(result, 0).id;
   const windowsBeforeUpdate = result.current.state.windows;
 
-  act(() =>
-    result.current.actions.updateMiniAppRoute(id, ["items", "container-1"]),
-  );
+  act(() => result.current.actions.updateRoute(id, ["items", "container-1"]));
 
   expect(result.current.state.windows).toBe(windowsBeforeUpdate);
 });
 
 // A window is not backed by browser history, so its Back caret walks this stack.
-test("updateMiniAppRoute stacks visited routes and goBackMiniAppRoute pops them", () => {
+test("updateRoute stacks visited routes and goBackRoute pops them", () => {
   const { result } = renderHook(useWindowStateTestHarness, { wrapper });
 
   act(() =>
     result.current.actions.create("Explorer", 0, 0, undefined, {
       appId: "explorer",
-      miniAppPathSegments: ["items", "container-1"],
+      pathSegments: ["items", "container-1"],
     }),
   );
   const id = at(result, 0).id;
 
   act(() =>
-    result.current.actions.updateMiniAppRoute(id, [
+    result.current.actions.updateRoute(id, [
       "containers",
       "container-1",
       "documents",
@@ -111,7 +109,7 @@ test("updateMiniAppRoute stacks visited routes and goBackMiniAppRoute pops them"
     ]),
   );
   act(() =>
-    result.current.actions.updateMiniAppRoute(id, [
+    result.current.actions.updateRoute(id, [
       "containers",
       "container-1",
       "documents",
@@ -120,49 +118,47 @@ test("updateMiniAppRoute stacks visited routes and goBackMiniAppRoute pops them"
     ]),
   );
 
-  expect(result.current.state.windowMap.get(id)?.miniAppRouteHistory).toEqual([
+  expect(result.current.state.windowMap.get(id)?.routeHistory).toEqual([
     ["items", "container-1"],
     ["containers", "container-1", "documents", "doc-1"],
   ]);
 
   // Each Back unwinds exactly one entry — it never pushes a parent route back on
   // top, which is what made Back alternate between two panes forever.
-  act(() => result.current.actions.goBackMiniAppRoute(id));
+  act(() => result.current.actions.goBackRoute(id));
 
-  expect(result.current.state.windowMap.get(id)?.miniAppPathSegments).toEqual([
+  expect(result.current.state.windowMap.get(id)?.pathSegments).toEqual([
     "containers",
     "container-1",
     "documents",
     "doc-1",
   ]);
 
-  act(() => result.current.actions.goBackMiniAppRoute(id));
+  act(() => result.current.actions.goBackRoute(id));
 
-  expect(result.current.state.windowMap.get(id)?.miniAppPathSegments).toEqual([
+  expect(result.current.state.windowMap.get(id)?.pathSegments).toEqual([
     "items",
     "container-1",
   ]);
-  expect(result.current.state.windowMap.get(id)?.miniAppRouteHistory).toEqual(
-    [],
-  );
+  expect(result.current.state.windowMap.get(id)?.routeHistory).toEqual([]);
 });
 
-test("goBackMiniAppRoute is inert with an empty history", () => {
+test("goBackRoute is inert with an empty history", () => {
   const { result } = renderHook(useWindowStateTestHarness, { wrapper });
 
   act(() =>
     result.current.actions.create("Explorer", 0, 0, undefined, {
       appId: "explorer",
-      miniAppPathSegments: ["items", "container-1"],
+      pathSegments: ["items", "container-1"],
     }),
   );
   const id = at(result, 0).id;
   const windowsBeforeBack = result.current.state.windows;
 
-  act(() => result.current.actions.goBackMiniAppRoute(id));
+  act(() => result.current.actions.goBackRoute(id));
 
   expect(result.current.state.windows).toBe(windowsBeforeBack);
-  expect(result.current.state.windowMap.get(id)?.miniAppPathSegments).toEqual([
+  expect(result.current.state.windowMap.get(id)?.pathSegments).toEqual([
     "items",
     "container-1",
   ]);
@@ -170,41 +166,41 @@ test("goBackMiniAppRoute is inert with an empty history", () => {
 
 // A replacing navigation swaps the current entry, so the transient step it
 // replaced (e.g. the new-document type picker) never becomes a Back destination.
-test("a replacing updateMiniAppRoute does not stack a history entry", () => {
+test("a replacing updateRoute does not stack a history entry", () => {
   const { result } = renderHook(useWindowStateTestHarness, { wrapper });
 
   act(() =>
     result.current.actions.create("Explorer", 0, 0, undefined, {
       appId: "explorer",
-      miniAppPathSegments: ["items", "container-1"],
+      pathSegments: ["items", "container-1"],
     }),
   );
   const id = at(result, 0).id;
 
   act(() =>
-    result.current.actions.updateMiniAppRoute(id, [
+    result.current.actions.updateRoute(id, [
       "containers",
       "container-1",
       "new",
     ]),
   );
   act(() =>
-    result.current.actions.updateMiniAppRoute(id, ["items", "doc-1"], {
+    result.current.actions.updateRoute(id, ["items", "doc-1"], {
       replace: true,
     }),
   );
 
-  expect(result.current.state.windowMap.get(id)?.miniAppPathSegments).toEqual([
+  expect(result.current.state.windowMap.get(id)?.pathSegments).toEqual([
     "items",
     "doc-1",
   ]);
-  expect(result.current.state.windowMap.get(id)?.miniAppRouteHistory).toEqual([
+  expect(result.current.state.windowMap.get(id)?.routeHistory).toEqual([
     ["items", "container-1"],
   ]);
 
-  act(() => result.current.actions.goBackMiniAppRoute(id));
+  act(() => result.current.actions.goBackRoute(id));
 
-  expect(result.current.state.windowMap.get(id)?.miniAppPathSegments).toEqual([
+  expect(result.current.state.windowMap.get(id)?.pathSegments).toEqual([
     "items",
     "container-1",
   ]);

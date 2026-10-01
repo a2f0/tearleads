@@ -30,7 +30,7 @@ test("active app route uses the top visible mini-app window", () => {
       windowEntry({ zIndex: 8 }),
       windowEntry({
         appId: "org-manager",
-        miniAppPathSegments: ["billing"],
+        pathSegments: ["billing"],
         zIndex: 4,
       }),
     ],

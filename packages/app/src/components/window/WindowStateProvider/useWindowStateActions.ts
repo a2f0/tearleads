@@ -29,7 +29,7 @@ function arePathSegmentsEqual(
   );
 }
 
-function useUpdateMiniAppRouteAction(
+function useUpdateRouteAction(
   setWindows: Dispatch<SetStateAction<WindowEntry[]>>,
 ) {
   return useCallback(
@@ -46,7 +46,7 @@ function useUpdateMiniAppRouteAction(
           return previousWindows;
         }
 
-        const currentPathSegments = targetWindow.miniAppPathSegments ?? [];
+        const currentPathSegments = targetWindow.pathSegments ?? [];
         if (arePathSegmentsEqual(currentPathSegments, pathSegments)) {
           return previousWindows;
         }
@@ -55,15 +55,15 @@ function useUpdateMiniAppRouteAction(
         // it — the transient step it replaces (a type picker, an unavailable
         // route corrected to the default) must not become a Back destination.
         const nextHistory = options.replace
-          ? (targetWindow.miniAppRouteHistory ?? [])
-          : [...(targetWindow.miniAppRouteHistory ?? []), currentPathSegments];
+          ? (targetWindow.routeHistory ?? [])
+          : [...(targetWindow.routeHistory ?? []), currentPathSegments];
 
         return previousWindows.map((windowEntry) =>
           windowEntry.id === id
             ? {
                 ...windowEntry,
-                miniAppPathSegments: [...pathSegments],
-                miniAppRouteHistory: nextHistory,
+                pathSegments: [...pathSegments],
+                routeHistory: nextHistory,
               }
             : windowEntry,
         );
@@ -73,7 +73,7 @@ function useUpdateMiniAppRouteAction(
   );
 }
 
-function useGoBackMiniAppRouteAction(
+function useGoBackRouteAction(
   setWindows: Dispatch<SetStateAction<WindowEntry[]>>,
 ) {
   return useCallback(
@@ -82,7 +82,7 @@ function useGoBackMiniAppRouteAction(
         const targetWindow = previousWindows.find(
           (windowEntry) => windowEntry.id === id,
         );
-        const history = targetWindow?.miniAppRouteHistory ?? [];
+        const history = targetWindow?.routeHistory ?? [];
         const previousPathSegments = history[history.length - 1];
         if (!targetWindow || previousPathSegments === undefined) {
           return previousWindows;
@@ -92,8 +92,8 @@ function useGoBackMiniAppRouteAction(
           windowEntry.id === id
             ? {
                 ...windowEntry,
-                miniAppPathSegments: [...previousPathSegments],
-                miniAppRouteHistory: history.slice(0, -1),
+                pathSegments: [...previousPathSegments],
+                routeHistory: history.slice(0, -1),
               }
             : windowEntry,
         );
@@ -236,8 +236,8 @@ export function useWindowStateActions({
 
   const { maximize, toggleMaximize } = useWindowMaximizeActions(setWindows);
 
-  const updateMiniAppRoute = useUpdateMiniAppRouteAction(setWindows);
-  const goBackMiniAppRoute = useGoBackMiniAppRouteAction(setWindows);
+  const updateRoute = useUpdateRouteAction(setWindows);
+  const goBackRoute = useGoBackRouteAction(setWindows);
 
   const updateTitle = useCallback(
     (id: string, title: string) => {
@@ -256,28 +256,28 @@ export function useWindowStateActions({
       bringToFront,
       close,
       create,
-      goBackMiniAppRoute,
+      goBackRoute,
       maximize,
       minimize,
       moveBackward,
       moveForward,
       restore,
       toggleMaximize,
-      updateMiniAppRoute,
+      updateRoute,
       updateTitle,
     }),
     [
       bringToFront,
       close,
       create,
-      goBackMiniAppRoute,
+      goBackRoute,
       maximize,
       minimize,
       moveBackward,
       moveForward,
       restore,
       toggleMaximize,
-      updateMiniAppRoute,
+      updateRoute,
       updateTitle,
     ],
   );

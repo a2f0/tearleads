@@ -14,8 +14,8 @@ export function createWindowEntry(
     id,
     ...(options.appId ? { appId: options.appId } : {}),
     initialShowSidebar: options.initialShowSidebar,
-    ...(options.miniAppPathSegments
-      ? { miniAppPathSegments: [...options.miniAppPathSegments] }
+    ...(options.pathSegments
+      ? { pathSegments: [...options.pathSegments] }
       : {}),
     title,
     initialX: x,
