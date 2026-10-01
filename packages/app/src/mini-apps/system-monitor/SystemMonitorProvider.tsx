@@ -6,7 +6,7 @@ import {
   useMemo,
   useState,
 } from "react";
-import { usePaneSide } from "../../components/pane/dual-pane/usePaneSide";
+import { usePaneSide } from "../../shell/pane/dual-pane/usePaneSide";
 import { useSystemMonitorDeveloperMode } from "./systemMonitorDeveloperMode";
 import {
   DEFAULT_SYSTEM_MONITOR_MODE,

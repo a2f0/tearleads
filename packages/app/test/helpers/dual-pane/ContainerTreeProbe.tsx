@@ -1,9 +1,6 @@
 import type { ContainerContentsStore } from "@tearleads/client-sdk";
 import { useEffect } from "react";
-import {
-  type PaneSide,
-  usePaneSide,
-} from "../../../src/components/pane/dual-pane";
+import { type PaneSide, usePaneSide } from "../../../src/shell/pane/dual-pane";
 import { useDeviceFirstContainerContents } from "../../../src/stores/device-first/DeviceFirstProvider";
 
 export function ContainerTreeProbe({

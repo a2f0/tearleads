@@ -5,19 +5,19 @@ import type {
 } from "@tearleads/client-sdk";
 import { DOCUMENT_SYNC_TRACE_FRAGMENT } from "@tearleads/client-sdk";
 import {
-  formatPaneLogLine,
-  type PaneLogEntry,
-} from "../../../components/pane/log/PaneLog";
-import {
-  NO_STATUS_VALUE,
-  STATUS_LABELS,
-  type SystemStatusSnapshot,
-} from "../../../components/pane/status/useSystemStatusSnapshot";
-import {
   isDiagnosticAction,
   isDiagnosticArea,
 } from "../../../host/AppDiagnostics";
 import { IDENTITY_TRANSITION_TRACE_FRAGMENT } from "../../../providers/identity/identityTransitionTrace";
+import {
+  formatPaneLogLine,
+  type PaneLogEntry,
+} from "../../../shell/pane/log/PaneLog";
+import {
+  NO_STATUS_VALUE,
+  STATUS_LABELS,
+  type SystemStatusSnapshot,
+} from "../../../shell/pane/status/useSystemStatusSnapshot";
 import { BILLING_PURCHASE_TRACE_FRAGMENT } from "../../../utils/billingPurchaseTrace";
 import type { EnvironmentRow } from "../environment/useSystemEnvironment";
 

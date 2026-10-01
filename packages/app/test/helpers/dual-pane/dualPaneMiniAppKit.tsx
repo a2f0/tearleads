@@ -9,8 +9,8 @@ import {
 } from "@testing-library/react";
 import invariant from "invariant";
 import { useEffect } from "react";
-import { usePaneSide } from "../../../src/components/pane/dual-pane";
 import { useTearleads } from "../../../src/providers/sdk/TearleadsProvider";
+import { usePaneSide } from "../../../src/shell/pane/dual-pane";
 import { waitForAppTestRuntimeToSettle } from "../appRuntimeIdle";
 import { listProxiedApiRequests } from "../mswServer";
 import { waitForCondition } from "../waitForCondition";

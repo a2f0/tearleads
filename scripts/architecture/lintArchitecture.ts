@@ -33,12 +33,13 @@ const appPresentationEntryPoints = [
   `${appSrc}/components`,
   `${appSrc}/document-types`,
   `${appSrc}/mini-apps`,
+  `${appSrc}/shell`,
 ];
 const appDocumentProjectionSourcePaths = new Set([
   `${appSrc}/document-types/projectors.ts`,
 ]);
 const appMiniAppBusSourcePath = `${appSrc}/mini-apps/bus.tsx`;
-const appPaneProviderSourcePath = `${appSrc}/components/pane/runtime/PaneProvider.tsx`;
+const appPaneProviderSourcePath = `${appSrc}/shell/pane/runtime/PaneProvider.tsx`;
 const appTearleadsSubscriptionHelperPath = `${appSrc}/providers/sdk/useTearleadsSubscription.ts`;
 const appProductionSourceEntryPoints = [appSrc];
 const appTestSourceEntryPoints = [appSrc];

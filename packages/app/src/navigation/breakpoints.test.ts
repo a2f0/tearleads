@@ -3,7 +3,7 @@ import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { ROUTED_TABLET_BREAKPOINT_PX } from "./breakpoints";
 
-const routedDir = join(import.meta.dir, "../components/layout/routed");
+const routedDir = join(import.meta.dir, "../shell/layout/routed");
 
 /**
  * CSS media queries cannot read TS constants, so the routed shell stylesheets

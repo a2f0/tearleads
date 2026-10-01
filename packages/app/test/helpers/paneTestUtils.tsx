@@ -10,18 +10,18 @@ import {
   within,
 } from "@testing-library/react";
 import invariant from "invariant";
-import {
-  DualPaneProvider,
-  PaneSideProvider,
-} from "../../src/components/pane/dual-pane";
-import { PaneProvider } from "../../src/components/pane/runtime/PaneProvider";
-import { Pane } from "../../src/components/pane/shell/Pane";
 import type { AppHostConfig } from "../../src/host/AppHostConfig";
 import { SystemMonitorDeveloperModeProvider } from "../../src/mini-apps/system-monitor/systemMonitorDeveloperMode";
 import {
   saveSystemMonitorMode,
   systemMonitorModeStorageKey,
 } from "../../src/mini-apps/system-monitor/systemMonitorMode";
+import {
+  DualPaneProvider,
+  PaneSideProvider,
+} from "../../src/shell/pane/dual-pane";
+import { PaneProvider } from "../../src/shell/pane/runtime/PaneProvider";
+import { Pane } from "../../src/shell/pane/shell/Pane";
 import {
   AppTestRuntimeScopeProbe,
   waitForAppTestRuntimeToSettle,

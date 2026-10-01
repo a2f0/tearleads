@@ -14,6 +14,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { MiniAppBoundary } from "../../../components/mini-app/MiniAppBoundary";
 import { MINI_APPS } from "../../../mini-apps/registry";
 import { SystemMonitorPinned } from "../../../mini-apps/system-monitor/SystemMonitorPinned";
 import type { MiniAppId } from "../../../mini-apps/types";
@@ -25,11 +26,11 @@ import {
 } from "../../../navigation/useRoutedLayoutTier";
 import { useCryptoSession } from "../../../providers/crypto/CryptoSessionProvider";
 import { useAppHostConfig } from "../../../providers/host/AppHostConfigProvider";
-import { MiniAppBoundary } from "../../mini-app/MiniAppBoundary";
 import { useRegisterUserId } from "../../pane/dual-pane";
 import { SyncStatusIndicator } from "../../pane/footer/sync-status/SyncStatusIndicator";
 import { TestSystemBanner } from "../TestSystemBanner";
 import "./RoutedPane.css";
+import { RoutedPaneOverlayHostProvider } from "../../../components/mini-app/overlays/RoutedPaneOverlayHost";
 import {
   type LauncherPlacement,
   loadLauncherPlacement,
@@ -37,7 +38,6 @@ import {
 } from "./LauncherPlacement";
 import { RoutedPaneAppBar } from "./RoutedPaneAppBar";
 import { ROUTED_PANE_NAV_PANEL_ID, RoutedPaneNav } from "./RoutedPaneNav";
-import { RoutedPaneOverlayHostProvider } from "./RoutedPaneOverlayHost";
 import { RoutedPaneSidebar } from "./RoutedPaneSidebar";
 import { useMobileKeyboardVisible } from "./useMobileKeyboardVisible";
 
