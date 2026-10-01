@@ -129,6 +129,15 @@ export interface ContainerIntentSyncState {
   persistence: ContainerContentsPersistence;
   resolveProjectionUserKey: ProjectionUserKeyResolver;
   runtime: ContainerWorkflowRuntime;
+  /**
+   * Verifies that a listed container is this device's pending create before it
+   * is adopted and returns its committed parent; `assertContainerCreateAdoptable`
+   * unless a test replaces it.
+   */
+  verifyCreateAdoption?: (input: {
+    readonly containerId: string;
+    readonly expectedOrganizationId: string;
+  }) => Promise<string>;
 }
 
 export type ContainerCreateIntentSyncState = ContainerIntentSyncState;

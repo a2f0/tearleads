@@ -187,9 +187,30 @@ export async function settleContainerCreateIntentRevision(input: {
   remoteMetadataAccessStateHash: string;
   remoteMetadataDocumentId: string;
   supersededMovePreviousParentId?: string | null | undefined;
+  desiredParentContainerId?: string | undefined;
   tx: ClientSQLiteTransactionScope;
 }): Promise<"converted-to-move" | "superseded" | "synced"> {
-  if (await markContainerCreateIntentRevisionSynced(input)) return "synced";
+  if (await markContainerCreateIntentRevisionSynced(input)) {
+    // A create adopted after the container moved locally committed under its
+    // original parent; the move to the desired parent is still owed.
+    if (
+      input.supersededMovePreviousParentId === undefined ||
+      input.desiredParentContainerId === undefined ||
+      input.desiredParentContainerId === input.supersededMovePreviousParentId
+    ) {
+      return "synced";
+    }
+    await saveContainerMoveIntent({
+      containerId: input.containerId,
+      moveIntent: {
+        parentContainerId: input.desiredParentContainerId,
+        previousParentContainerId: input.supersededMovePreviousParentId,
+      },
+      tx: input.tx,
+      updatedAt: new Date().toISOString(),
+    });
+    return "converted-to-move";
+  }
   if (input.supersededMovePreviousParentId === undefined) {
     return "superseded";
   }
