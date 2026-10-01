@@ -196,12 +196,14 @@ export async function createNoteInContainer(
   title: string,
 ) {
   await selectContainerAndWaitForItemTable(pane, containerName);
+  // Mark the request log before creating the note: the create POST can land
+  // before the editor opens, and a mark taken after it would never see it.
+  const requestStartIndex = listProxiedApiRequests().length;
   await createExplorerNote(pane);
 
   const editor = await within(pane).findByRole("textbox", {
     name: /Notes editor/u,
   });
-  const requestStartIndex = listProxiedApiRequests().length;
   await interact(() => {
     fireEvent.change(editor, {
       target: { value: title },
