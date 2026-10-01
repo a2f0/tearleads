@@ -290,7 +290,9 @@ function useGestureStarts(
 ) {
   const handlePointerDown = useCallback(
     (event: ReactPointerEvent) => {
-      if (!position || maximized) {
+      // One gesture at a time: a second pointer pressing the title bar or a
+      // corner mid-gesture must not take it over.
+      if (!position || maximized || dragging.current || resizing.current) {
         return;
       }
       dragging.current = {
@@ -299,12 +301,18 @@ function useGestureStarts(
         pointerId: event.pointerId,
       };
     },
-    [dragging, maximized, position],
+    [dragging, maximized, position, resizing],
   );
 
   const handleResizePointerDown = useCallback(
     (event: ReactPointerEvent, corner: ResizeCorner) => {
-      if (maximized || !position || !windowRef.current) {
+      if (
+        maximized ||
+        !position ||
+        !windowRef.current ||
+        dragging.current ||
+        resizing.current
+      ) {
         return;
       }
       event.stopPropagation();
@@ -330,6 +338,77 @@ function useGestureStarts(
   return { handlePointerDown, handleResizePointerDown };
 }
 
+interface WindowLayoutInput {
+  clamp: (x: number, y: number) => WindowPosition;
+  commit: () => void;
+  dragging: MutableRefObject<WindowDragState | null>;
+  entry: WindowEntry;
+  live: MutableRefObject<LiveGeometry>;
+  resizing: MutableRefObject<WindowResizeState | null>;
+  setPosition: (value: WindowPosition) => void;
+  size: WindowSize | null;
+  windowRef: RefObject<HTMLDivElement | null>;
+}
+
+function useWindowLayout({
+  clamp,
+  commit,
+  dragging,
+  entry,
+  live,
+  resizing,
+  setPosition,
+  size,
+  windowRef,
+}: WindowLayoutInput) {
+  // Lay the window out from its committed position, or from its viewport
+  // starting point the first time, and commit where it actually landed. A
+  // minimized window has no element to measure, so this runs again when it is
+  // restored and picks up any geometry committed in the meantime.
+  useEffect(() => {
+    const element = windowRef.current;
+    const container = element?.parentElement;
+    if (entry.minimized || !element || !container) {
+      return;
+    }
+    const containerRect = container.getBoundingClientRect();
+    const start = entry.position ?? {
+      x: entry.initialX - containerRect.left,
+      y: entry.initialY - containerRect.top,
+    };
+    setPosition(clamp(start.x, start.y));
+    commit();
+  }, [
+    clamp,
+    commit,
+    entry.initialX,
+    entry.initialY,
+    entry.minimized,
+    entry.position,
+    setPosition,
+    windowRef,
+  ]);
+
+  // Once the window renders at a new size, including a cleared size falling
+  // back to its stylesheet default, keep it inside the surface.
+  useEffect(() => {
+    const current = live.current.position;
+    if (!current || dragging.current || resizing.current) {
+      return;
+    }
+    const clamped = clampWindowPosition(
+      windowRef.current,
+      current.x,
+      current.y,
+      size,
+    );
+    if (clamped.x !== current.x || clamped.y !== current.y) {
+      setPosition(clamped);
+      commit();
+    }
+  }, [commit, dragging, live, resizing, setPosition, size, windowRef]);
+}
+
 export function useWindowGeometry(
   entry: WindowEntry,
   maximized: boolean,
@@ -345,30 +424,17 @@ export function useWindowGeometry(
     [live, windowRef],
   );
 
-  // Lay the window out from its committed position, or from its viewport
-  // starting point the first time, and commit where it actually landed.
-  useEffect(() => {
-    const element = windowRef.current;
-    const container = element?.parentElement;
-    if (!element || !container) {
-      return;
-    }
-    const containerRect = container.getBoundingClientRect();
-    const start = entry.position ?? {
-      x: entry.initialX - containerRect.left,
-      y: entry.initialY - containerRect.top,
-    };
-    setPosition(clamp(start.x, start.y));
-    commit();
-  }, [
+  useWindowLayout({
     clamp,
     commit,
-    entry.initialX,
-    entry.initialY,
-    entry.position,
+    dragging,
+    entry,
+    live,
+    resizing,
     setPosition,
+    size,
     windowRef,
-  ]);
+  });
 
   useWindowPointerTracking(
     windowRef,

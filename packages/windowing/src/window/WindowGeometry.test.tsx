@@ -29,7 +29,7 @@ function NotesContent() {
 
 function DesktopHarness({ options }: { options: WindowCreateOptions }) {
   const { windows } = useWindowStateData();
-  const { create, setGeometry } = useWindowActions();
+  const { create, minimize, restore, setGeometry } = useWindowActions();
   const first = windows[0];
 
   return (
@@ -60,6 +60,20 @@ function DesktopHarness({ options }: { options: WindowCreateOptions }) {
         }
       >
         Clear size
+      </button>
+      <button type="button" onClick={() => first && minimize(first.id)}>
+        Minimize notes
+      </button>
+      <button type="button" onClick={() => first && restore(first.id)}>
+        Restore notes
+      </button>
+      <button
+        type="button"
+        onClick={() =>
+          first && setGeometry(first.id, { position: { x: 300, y: 200 } })
+        }
+      >
+        Move notes
       </button>
       <div data-testid="surface">
         {windows.map((entry) => (
@@ -208,4 +222,63 @@ test("a window created with a position and size opens there", () => {
     position: { x: 40, y: 30 },
     size: { height: 220, width: 320 },
   });
+});
+
+test("geometry committed while minimized shows when the window is restored", () => {
+  const { view, windowRoot } = renderDesktop();
+  stubLayout(windowRoot, { offsetHeight: 100, offsetWidth: 200 });
+
+  fireEvent.click(view.getByRole("button", { name: "Minimize notes" }));
+  fireEvent.click(view.getByRole("button", { name: "Move notes" }));
+  fireEvent.click(view.getByRole("button", { name: "Restore notes" }));
+
+  const restored = view.container.querySelector<HTMLDivElement>(".window");
+  expect(restored?.style.left).toBe("300px");
+  expect(restored?.style.top).toBe("200px");
+});
+
+test("a second pointer pressing the controls cannot take over a drag", () => {
+  const { view, windowRoot } = renderDesktop();
+  stubLayout(windowRoot, { offsetHeight: 100, offsetWidth: 200 });
+  const titleBar = view.getByRole("toolbar", { name: "Window controls" });
+  const corner = windowRoot.querySelector(".window-resize--se");
+  if (!corner) throw new Error("resize corner not rendered");
+
+  fireEvent.pointerDown(titleBar, { clientX: 10, clientY: 10, pointerId: 1 });
+  fireEvent.pointerDown(titleBar, { clientX: 400, clientY: 400, pointerId: 2 });
+  fireEvent.pointerDown(corner, { clientX: 200, clientY: 100, pointerId: 3 });
+  fireEvent.pointerMove(document, { clientX: 500, clientY: 500, pointerId: 2 });
+  fireEvent.pointerMove(document, { clientX: 260, clientY: 160, pointerId: 3 });
+  expect(windowRoot.style.left).toBe("0px");
+  expect(windowRoot.style.width).toBe("");
+
+  fireEvent.pointerMove(document, { clientX: 110, clientY: 60, pointerId: 1 });
+  act(() => {
+    fireEvent.pointerUp(document, { pointerId: 1 });
+  });
+
+  expect(committedGeometry(view).position).toEqual({ x: 100, y: 50 });
+});
+
+test("clearing a size near the edge keeps the default-size window inside", () => {
+  const { view, windowRoot } = renderDesktop({
+    position: { x: 500, y: 300 },
+    size: { height: 200, width: 300 },
+  });
+  // The stylesheet default renders the window at 400 x 300.
+  for (const [property, fallback, dimension] of [
+    ["offsetWidth", 400, "width"],
+    ["offsetHeight", 300, "height"],
+  ] as const) {
+    Object.defineProperty(windowRoot, property, {
+      configurable: true,
+      get: () => Number.parseFloat(windowRoot.style[dimension]) || fallback,
+    });
+  }
+  expect(committedGeometry(view).position).toEqual({ x: 500, y: 300 });
+
+  fireEvent.click(view.getByRole("button", { name: "Clear size" }));
+
+  expect(committedGeometry(view)).toEqual({ position: { x: 400, y: 300 } });
+  expect(windowRoot.style.left).toBe("400px");
 });
