@@ -43,7 +43,14 @@ if [ -n "${FAKE_JAVA_HANG:-}" ]; then
   exec sleep 60
 fi
 
+# Real TLC prints its search, any trace, then a verdict and summary lines.
+echo "fake-tlc trace line for $config_path"
 if [ "${FAKE_FAIL_CONFIG:-}" = "$config_path" ] ||
   [ "${FAKE_FAIL_MODEL:-}" = "$model_path" ]; then
+  echo "Error: Invariant FakeInvariant is violated."
   exit "${FAKE_FAIL_STATUS:-1}"
 fi
+echo "Model checking completed. No error has been found."
+echo "4 states generated, 3 distinct states found, 0 states left on queue."
+echo "The depth of the complete state graph search is 2."
+echo "Finished in 00s at (fake)"

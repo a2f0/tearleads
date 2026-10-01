@@ -250,7 +250,7 @@ report_finished_runs() {
       # log, thousands of trace lines for the trace-export model, overran a
       # non-blocking CI stdout; the failed write then aborted the check under
       # set -e with no model at fault.
-      grep -E 'No error has been found|distinct states found|Finished in' \
+      grep -E 'No error has been found|distinct states found|depth of the complete state graph|Finished in' \
         "$report_path.log" 2>/dev/null || :
       next_report=$((next_report + 1))
     fi
@@ -289,8 +289,8 @@ done
 exec 3>&-
 
 if [ -n "$failed_index" ]; then
-  echo "Error: TLC failed for $(cat "$CHECK_ROOT/model-$failed_index.label")." >&2
+  echo "Error: TLC failed for $(cat "$CHECK_ROOT/model-$failed_index.label")." >&2 || :
   exit "$failed_status"
 fi
 
-echo "Checked $model_count protocol model configuration(s)."
+echo "Checked $model_count protocol model configuration(s)." || :

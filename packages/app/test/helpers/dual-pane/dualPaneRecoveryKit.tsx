@@ -247,7 +247,8 @@ async function openPaneExplorerDocumentInfo(
         localId: localId ?? "",
       };
     },
-    { timeout: 10_000 },
+    // Outlasts the 20s Get Info navigation each poll may run.
+    { timeout: 30_000 },
   );
 }
 
