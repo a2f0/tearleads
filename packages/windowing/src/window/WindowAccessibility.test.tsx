@@ -6,7 +6,7 @@ import {
   render,
   within,
 } from "@testing-library/react";
-import { type ComponentType, useEffect, useRef } from "react";
+import { type ComponentType, useEffect, useRef, useState } from "react";
 import { stubLayout } from "./layout.testUtils";
 import { Window } from "./Window";
 import {
@@ -20,6 +20,10 @@ afterEach(cleanup);
 
 function PlainContent() {
   return <p>notes</p>;
+}
+
+function ContentWithControl() {
+  return <button type="button">Inside control</button>;
 }
 
 function SelfFocusingContent() {
@@ -38,7 +42,8 @@ function Desktop({
   options: WindowCreateOptions;
 }) {
   const { windows } = useWindowStateData();
-  const { create, minimize, restore } = useWindowActions();
+  const { create, minimize, restore, toggleMaximize } = useWindowActions();
+  const [desktopShown, setDesktopShown] = useState(true);
   const first = windows[0];
 
   return (
@@ -55,15 +60,20 @@ function Desktop({
       <button type="button" onClick={() => first && restore(first.id)}>
         Restore notes
       </button>
+      <button type="button" onClick={() => first && toggleMaximize(first.id)}>
+        Toggle maximize
+      </button>
+      <button type="button" onClick={() => setDesktopShown((shown) => !shown)}>
+        Toggle desktop
+      </button>
       <output aria-label="committed geometry">
         {first
           ? JSON.stringify({ position: first.position, size: first.size })
           : ""}
       </output>
       <div data-testid="surface">
-        {windows.map((entry) => (
-          <Window key={entry.id} windowId={entry.id} />
-        ))}
+        {desktopShown &&
+          windows.map((entry) => <Window key={entry.id} windowId={entry.id} />)}
       </div>
     </>
   );
@@ -253,4 +263,28 @@ test("a keyboard move ends when focus moves to another window", () => {
 
   expect(fireEvent.keyDown(document, { key: "ArrowRight" })).toBe(true);
   expect(first.style.left).toBe("0px");
+});
+
+test("focusing a control inside the window ends a keyboard move", () => {
+  const { region, view } = openNotes(ContentWithControl);
+
+  chooseViewMenuItem(region, "Move Window");
+  act(() => {
+    view.getByRole("button", { name: "Inside control" }).focus();
+  });
+
+  expect(fireEvent.keyDown(document, { key: "ArrowRight" })).toBe(true);
+});
+
+test("a window that mounts maximized takes focus", () => {
+  const { view } = openNotes();
+  fireEvent.click(view.getByRole("button", { name: "Toggle maximize" }));
+  fireEvent.click(view.getByRole("button", { name: "Toggle desktop" }));
+  view.getByRole("button", { name: "Open notes" }).focus();
+
+  fireEvent.click(view.getByRole("button", { name: "Toggle desktop" }));
+
+  expect(
+    document.activeElement === view.getByRole("region", { name: "Notes" }),
+  ).toBe(true);
 });

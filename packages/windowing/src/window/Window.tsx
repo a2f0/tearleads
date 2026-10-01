@@ -353,7 +353,11 @@ function WindowInnerContent({ ContentBoundary, entry }: WindowInnerProps) {
     geometryMenuItems,
     hasSidebar,
   );
-  useFocusWindowOnShow(windowRef, !minimized && position !== null);
+  // A maximized window fills its surface without a laid-out position.
+  useFocusWindowOnShow(
+    windowRef,
+    !minimized && (maximized || position !== null),
+  );
   const { suppressToolbar, toolbarSuppressed } = useWindowToolbarSuppression();
   const { handleGoBack, handleWindowPointerDown, windowContextMenuTrapProps } =
     useWindowRootHandlers(entry.id);

@@ -43,9 +43,10 @@ interface SteppedGeometry {
 // desktop system menu offers them. Arrow keys step the window, Enter keeps the
 // result, and Escape puts it back. Keys are captured only while a mode is
 // active, so no shortcut competes with text editing inside the window. The
-// mode focuses its window and ends, keeping the result, as soon as focus or a
-// pointer press goes anywhere else; minimizing or maximizing the window
-// cancels it, so its key capture never outlives the window it moves.
+// mode focuses its window and ends, keeping the result, as soon as focus moves
+// off the window itself (to a control inside it or anything else) or a pointer
+// presses anywhere; minimizing or maximizing the window cancels it, so its key
+// capture never outlives the window it moves.
 function useWindowKeyboardGeometry(
   { commit, grow, nudge, restore, snapshot }: SteppedGeometry,
   { available, windowRef }: KeyboardGeometryHost,
@@ -85,12 +86,7 @@ function useWindowKeyboardGeometry(
     }
 
     function handleFocusIn(event: FocusEvent) {
-      const root = windowRef.current;
-      if (
-        root &&
-        event.target instanceof Node &&
-        !root.contains(event.target)
-      ) {
+      if (event.target !== windowRef.current) {
         leave();
       }
     }
