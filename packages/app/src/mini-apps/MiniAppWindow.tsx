@@ -44,6 +44,7 @@ function MiniAppWindowBoundary({
       goBack={goBack}
       pathSegments={entry.pathSegments ?? EMPTY_ROUTE_SEGMENTS}
       setPathSegments={setPathSegments}
+      windowId={entry.id}
     >
       <MiniAppBoundary appId={entry.appId}>{children}</MiniAppBoundary>
     </MiniAppRouteSegmentsProvider>

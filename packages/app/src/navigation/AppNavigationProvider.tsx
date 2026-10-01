@@ -54,7 +54,9 @@ interface AppNavigationActions {
     replace?: boolean | undefined;
   }) => void;
   navigateHome: (input?: { replace?: boolean | undefined }) => void;
-  openMiniApp: (request: OpenMiniAppRequest) => void;
+  // Returns the window the app opened in or was raised to, or null when the
+  // routed shell shows it instead.
+  openMiniApp: (request: OpenMiniAppRequest) => string | null;
 }
 
 interface AppNavigationState {
@@ -272,7 +274,7 @@ function useAppNavigationActionValue(
 
       if (currentMode === "routed") {
         navigateMiniAppRoute({ appId, pathSegments });
-        return;
+        return null;
       }
 
       const existingWindow = reuseExisting
@@ -286,11 +288,11 @@ function useAppNavigationActionValue(
         if (pathSegments) {
           actions.updateRoute(existingWindow.id, pathSegments);
         }
-        return;
+        return existingWindow.id;
       }
 
       const definition = currentMiniApps[appId];
-      actions.create(
+      return actions.create(
         definition.title,
         position.x,
         position.y,
