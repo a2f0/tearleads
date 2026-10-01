@@ -343,7 +343,7 @@ function WindowInnerContent({ ContentBoundary, entry }: WindowInnerProps) {
   const { showStatusMessage, statusText } = useWindowStatusMessage();
   const geometryMenuItems = useWindowGeometryMenuItems(
     stepped,
-    maximized,
+    { maximized, minimized },
     showStatusMessage,
   );
   const actions = useWindowActions(
@@ -353,7 +353,7 @@ function WindowInnerContent({ ContentBoundary, entry }: WindowInnerProps) {
     geometryMenuItems,
     hasSidebar,
   );
-  useFocusWindowOnShow(windowRef, minimized);
+  useFocusWindowOnShow(windowRef, !minimized && position !== null);
   const { suppressToolbar, toolbarSuppressed } = useWindowToolbarSuppression();
   const { handleGoBack, handleWindowPointerDown, windowContextMenuTrapProps } =
     useWindowRootHandlers(entry.id);

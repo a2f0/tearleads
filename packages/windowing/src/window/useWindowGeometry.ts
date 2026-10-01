@@ -21,10 +21,12 @@ const MIN_HEIGHT = 100;
 interface WindowDragState {
   offsetX: number;
   offsetY: number;
+  pointerId: number;
 }
 
 interface WindowResizeState {
   corner: ResizeCorner;
+  pointerId: number;
   startHeight: number;
   startLeft: number;
   startTop: number;
@@ -40,19 +42,24 @@ export interface LiveGeometry {
   size: WindowSize | null;
 }
 
+// Clamps against the size the window is about to render at when it is known,
+// so a position committed with a new size is not measured at the old one.
 function clampWindowPosition(
   element: HTMLDivElement | null,
   x: number,
   y: number,
+  size: WindowSize | null,
 ): WindowPosition {
   const container = element?.parentElement;
   if (!element || !container) {
     return { x, y };
   }
+  const width = size?.width ?? element.offsetWidth;
+  const height = size?.height ?? element.offsetHeight;
 
   return {
-    x: Math.max(0, Math.min(x, container.clientWidth - element.offsetWidth)),
-    y: Math.max(0, Math.min(y, container.clientHeight - element.offsetHeight)),
+    x: Math.max(0, Math.min(x, container.clientWidth - width)),
+    y: Math.max(0, Math.min(y, container.clientHeight - height)),
   };
 }
 
@@ -115,7 +122,17 @@ function useWindowPointerTracking(
   commit: () => void,
 ) {
   useEffect(() => {
+    // Only the pointer that started a gesture drives it, so a second finger
+    // cannot move the window or end the drag.
+    function isGesturePointer(event: PointerEvent) {
+      const gesture = resizing.current ?? dragging.current;
+      return gesture !== null && gesture.pointerId === event.pointerId;
+    }
+
     function handlePointerMove(event: PointerEvent) {
+      if (!isGesturePointer(event)) {
+        return;
+      }
       if (resizing.current) {
         const nextFrame = resizeWindowWithinContainer(
           resizing.current,
@@ -138,8 +155,8 @@ function useWindowPointerTracking(
       }
     }
 
-    function handlePointerEnd() {
-      if (!dragging.current && !resizing.current) {
+    function handlePointerEnd(event: PointerEvent) {
+      if (!isGesturePointer(event)) {
         return;
       }
       dragging.current = null;
@@ -186,11 +203,10 @@ function useLiveGeometry(entry: WindowEntry) {
     }
   }, [entry.id, setGeometry]);
 
-  // A size committed elsewhere (a restored layout, a host call) wins.
+  // The committed size is the source of truth between gestures: a restored
+  // layout or host call applies it, and clearing it restores the default size.
   useEffect(() => {
-    if (entry.size) {
-      setSize(entry.size);
-    }
+    setSize(entry.size ?? null);
   }, [entry.size, setSize]);
 
   return { commit, live, position, setPosition, setSize, size };
@@ -280,6 +296,7 @@ function useGestureStarts(
       dragging.current = {
         offsetX: event.clientX - position.x,
         offsetY: event.clientY - position.y,
+        pointerId: event.pointerId,
       };
     },
     [dragging, maximized, position],
@@ -296,6 +313,7 @@ function useGestureStarts(
       const borderBox = computed.boxSizing === "border-box";
       resizing.current = {
         corner,
+        pointerId: event.pointerId,
         startX: event.clientX,
         startY: event.clientY,
         startLeft: position.x,
@@ -322,8 +340,9 @@ export function useWindowGeometry(
   const dragging = useRef<WindowDragState | null>(null);
   const resizing = useRef<WindowResizeState | null>(null);
   const clamp = useCallback(
-    (x: number, y: number) => clampWindowPosition(windowRef.current, x, y),
-    [windowRef],
+    (x: number, y: number) =>
+      clampWindowPosition(windowRef.current, x, y, live.current.size),
+    [live, windowRef],
   );
 
   // Lay the window out from its committed position, or from its viewport

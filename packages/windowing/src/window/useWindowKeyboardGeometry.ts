@@ -30,9 +30,12 @@ interface SteppedGeometry {
 // Keyboard move and resize, entered from the window's View menu the way a
 // desktop system menu offers them. Arrow keys step the window, Enter keeps the
 // result, and Escape puts it back. Keys are captured only while a mode is
-// active, so no shortcut competes with text editing inside the window.
+// active, so no shortcut competes with text editing inside the window. A
+// pointer press anywhere keeps the result, and minimizing or maximizing the
+// window cancels the mode so its key capture never outlives the window.
 function useWindowKeyboardGeometry(
   { commit, grow, nudge, restore, snapshot }: SteppedGeometry,
+  available: boolean,
   announce: (message: string) => void,
 ) {
   const [mode, setMode] = useState<WindowKeyboardMode | null>(null);
@@ -48,8 +51,23 @@ function useWindowKeyboardGeometry(
   );
 
   useEffect(() => {
+    if (available || !mode) {
+      return;
+    }
+    if (startGeometry.current) {
+      restore(startGeometry.current);
+    }
+    setMode(null);
+  }, [available, mode, restore]);
+
+  useEffect(() => {
     if (!mode) {
       return;
+    }
+
+    function handlePointerDown() {
+      commit();
+      setMode(null);
     }
 
     function finish(event: KeyboardEvent, keep: boolean) {
@@ -84,7 +102,11 @@ function useWindowKeyboardGeometry(
     }
 
     document.addEventListener("keydown", handleKeyDown, true);
-    return () => document.removeEventListener("keydown", handleKeyDown, true);
+    document.addEventListener("pointerdown", handlePointerDown, true);
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown, true);
+      document.removeEventListener("pointerdown", handlePointerDown, true);
+    };
   }, [commit, grow, mode, nudge, restore]);
 
   return startKeyboardMode;
@@ -93,10 +115,14 @@ function useWindowKeyboardGeometry(
 // The View menu entries that start keyboard move and resize.
 export function useWindowGeometryMenuItems(
   stepped: SteppedGeometry,
-  maximized: boolean,
+  { maximized, minimized }: { maximized: boolean; minimized: boolean },
   announce: (message: string) => void,
 ): WindowMenuItem[] {
-  const startKeyboardMode = useWindowKeyboardGeometry(stepped, announce);
+  const startKeyboardMode = useWindowKeyboardGeometry(
+    stepped,
+    !maximized && !minimized,
+    announce,
+  );
   return useMemo(
     () => [
       {
@@ -117,15 +143,17 @@ export function useWindowGeometryMenuItems(
 }
 
 // Moves focus into a window when it opens or comes back from minimized, unless
-// focus is already inside it, such as an autofocused field.
+// focus is already inside it, such as an autofocused field. `shown` must only
+// turn true once the window is laid out and visible: browsers ignore focus on
+// an element that is still `visibility: hidden`.
 export function useFocusWindowOnShow(
   windowRef: React.RefObject<HTMLDivElement | null>,
-  minimized: boolean,
+  shown: boolean,
 ) {
   const hidden = useRef(true);
 
   useEffect(() => {
-    if (minimized) {
+    if (!shown) {
       hidden.current = true;
       return;
     }
@@ -137,5 +165,5 @@ export function useFocusWindowOnShow(
     if (root && !root.contains(document.activeElement)) {
       root.focus({ preventScroll: true });
     }
-  }, [minimized, windowRef]);
+  }, [shown, windowRef]);
 }

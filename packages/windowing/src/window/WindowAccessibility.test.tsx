@@ -184,3 +184,44 @@ test("Escape cancels a keyboard resize", () => {
   expect(dialog.style.height).toBe("200px");
   expect(committedGeometry(view).size).toEqual({ height: 200, width: 300 });
 });
+
+test("focus waits until the window is laid out and visible", () => {
+  const focusedVisibilities: string[] = [];
+  const originalFocus = HTMLElement.prototype.focus;
+  HTMLElement.prototype.focus = function focusAndRecord(options) {
+    if (this.getAttribute("role") === "dialog") {
+      focusedVisibilities.push(this.style.visibility);
+    }
+    originalFocus.call(this, options);
+  };
+  try {
+    openNotes();
+  } finally {
+    HTMLElement.prototype.focus = originalFocus;
+  }
+
+  expect(focusedVisibilities).toEqual([""]);
+});
+
+test("minimizing during a keyboard move hands the arrow keys back", () => {
+  const { dialog, view } = openNotes();
+
+  chooseViewMenuItem(dialog, "Move Window");
+  fireEvent.click(view.getByRole("button", { name: "Minimize notes" }));
+
+  expect(fireEvent.keyDown(document, { key: "ArrowRight" })).toBe(true);
+});
+
+test("a pointer press ends a keyboard move and keeps it", () => {
+  const { dialog, view } = openNotes();
+  stubLayout(dialog, { offsetHeight: 100, offsetWidth: 200 });
+
+  chooseViewMenuItem(dialog, "Move Window");
+  fireEvent.keyDown(document, { key: "ArrowRight" });
+  act(() => {
+    fireEvent.pointerDown(document.body);
+  });
+
+  expect(committedGeometry(view).position).toEqual({ x: 10, y: 0 });
+  expect(fireEvent.keyDown(document, { key: "ArrowRight" })).toBe(true);
+});
