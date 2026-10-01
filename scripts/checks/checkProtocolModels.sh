@@ -234,16 +234,40 @@ next_report=1
 failed_index=
 stop_launching=
 
+# Reporting is best effort: CI's stdout can be non-blocking, and a failed write
+# must neither abort the check nor change its verdict. Lines go through an
+# external cat because a failed builtin write leaves its text buffered in this
+# shell, where the next command substitution picks it up, corrupting the status
+# it reads.
+report_line() {
+  printf '%s\n' "$*" | cat || :
+}
+
+# A run's recorded exit status; anything but a plain number counts as a failure.
+read_run_status() {
+  run_status_value=$(cat "$1" 2>/dev/null) || run_status_value=1
+  case $run_status_value in
+    '' | *[!0-9]*) run_status_value=1 ;;
+  esac
+}
+
 report_finished_runs() {
   while [ -z "$failed_index" ] && [ -e "$CHECK_ROOT/model-$next_report.done" ]; do
     report_path=$CHECK_ROOT/model-$next_report
-    echo "Checking $(cat "$report_path.label")..."
-    cat "$report_path.log" 2>/dev/null || :
-    report_status=$(cat "$report_path.status" 2>/dev/null) || report_status=1
+    report_line "Checking $(cat "$report_path.label")..."
+    read_run_status "$report_path.status"
+    report_status=$run_status_value
     if [ "$report_status" -ne 0 ]; then
+      # A failure replays its whole log; the counterexample is the evidence.
+      cat "$report_path.log" 2>/dev/null || :
       failed_index=$next_report
       failed_status=$report_status
     else
+      # A pass prints only TLC's verdict, warnings and summary. Replaying every
+      # log, thousands of trace lines for the trace-export model, overran a
+      # non-blocking CI stdout and aborted the check with no model at fault.
+      grep -E '^Warning|No error has been found|distinct states found|depth of the complete state graph|Finished in' \
+        "$report_path.log" 2>/dev/null || :
       next_report=$((next_report + 1))
     fi
   done
@@ -253,9 +277,8 @@ await_run() {
   read -r finished_index <&3
   running=$((running - 1))
   : >"$CHECK_ROOT/model-$finished_index.done"
-  finished_status=$(cat "$CHECK_ROOT/model-$finished_index.status" 2>/dev/null) ||
-    finished_status=1
-  [ "$finished_status" -eq 0 ] || stop_launching=1
+  read_run_status "$CHECK_ROOT/model-$finished_index.status"
+  [ "$run_status_value" -eq 0 ] || stop_launching=1
   report_finished_runs
 }
 
@@ -281,8 +304,8 @@ done
 exec 3>&-
 
 if [ -n "$failed_index" ]; then
-  echo "Error: TLC failed for $(cat "$CHECK_ROOT/model-$failed_index.label")." >&2
+  report_line "Error: TLC failed for $(cat "$CHECK_ROOT/model-$failed_index.label")." >&2
   exit "$failed_status"
 fi
 
-echo "Checked $model_count protocol model configuration(s)."
+report_line "Checked $model_count protocol model configuration(s)."

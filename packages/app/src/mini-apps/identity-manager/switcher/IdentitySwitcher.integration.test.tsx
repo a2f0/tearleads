@@ -17,6 +17,9 @@ import {
 } from "../../../../test/helpers/paneTestUtils";
 import { compactIdentifier } from "../sessions/IdentityManagerSessionDisplay";
 
+// A menu renders its options after the click; under CI load that can lag.
+const MENU_OPTION_TIMEOUT_MS = 10_000;
+
 const initializedDatabaseNames: string[] = [];
 const initializedBlobNamespaces: string[] = [];
 let workerConstructionCount = 0;
@@ -106,7 +109,13 @@ test(
     fireEvent.click(
       identityManager.getByRole("combobox", { name: "Identities" }),
     );
-    fireEvent.click(identityManager.getByText("New Identity"));
+    fireEvent.click(
+      await identityManager.findByText(
+        "New Identity",
+        {},
+        { timeout: MENU_OPTION_TIMEOUT_MS },
+      ),
+    );
 
     let identityB = "";
     await waitFor(
@@ -123,17 +132,12 @@ test(
     fireEvent.click(
       identityManager.getByRole("combobox", { name: "Identities" }),
     );
-    await waitFor(() => {
-      expect(
-        identityManager.getByRole("option", {
-          name: compactIdentifier(identityA),
-        }),
-      ).toBeTruthy();
-    });
     fireEvent.click(
-      identityManager.getByRole("option", {
-        name: compactIdentifier(identityA),
-      }),
+      await identityManager.findByRole(
+        "option",
+        { name: compactIdentifier(identityA) },
+        { timeout: MENU_OPTION_TIMEOUT_MS },
+      ),
     );
 
     await waitFor(
@@ -188,7 +192,13 @@ test(
     fireEvent.click(
       identityManager.getByRole("combobox", { name: "Identities" }),
     );
-    fireEvent.click(identityManager.getByText("New Identity"));
+    fireEvent.click(
+      await identityManager.findByText(
+        "New Identity",
+        {},
+        { timeout: MENU_OPTION_TIMEOUT_MS },
+      ),
+    );
 
     let identityB = "";
     await waitFor(

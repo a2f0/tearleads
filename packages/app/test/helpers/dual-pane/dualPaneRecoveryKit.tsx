@@ -165,31 +165,48 @@ function getInfoRowTitle(pane: HTMLElement, label: string): string | null {
   );
 }
 
+function menuGetInfoButtons(): HTMLElement[] {
+  return within(document.body)
+    .queryAllByRole("button", { name: "Get Info" })
+    .filter((button) => button.closest(".menu") !== null);
+}
+
 async function navigateToPaneExplorerDocumentInfo(
   pane: HTMLElement,
   itemLabel: string,
   containerName?: string,
 ): Promise<void> {
-  const itemRow = await waitForExplorerDocumentRow(
-    pane,
-    itemLabel,
-    containerName,
+  // Recovery can replace the folder between the row lookup and the right
+  // click, leaving the context menu on a detached row that never opens. Each
+  // poll reacquires the row and reopens the menu until Get Info appears. Only a
+  // menu that appears after this helper's own right click counts; another
+  // pane's may still be open.
+  let opened: HTMLElement | null = null;
+  const getInfoButton = await waitFor(
+    async () => {
+      if (opened?.isConnected) return opened;
+      const before = new Set(menuGetInfoButtons());
+      const itemRow = await waitForExplorerDocumentRow(
+        pane,
+        itemLabel,
+        containerName,
+      );
+      await interact(() => {
+        fireEvent.contextMenu(itemRow);
+      });
+      const fresh = menuGetInfoButtons().filter(
+        (button) => !before.has(button),
+      );
+      expect(fresh.length).toBeLessThanOrEqual(1);
+      opened = fresh[0] ?? null;
+      if (!opened) {
+        throw new Error("Expected the Explorer Get Info action.");
+      }
+      return opened;
+    },
+    // Longer than the row lookup's own 10s, so its error surfaces first.
+    { timeout: 20_000 },
   );
-  await interact(() => {
-    fireEvent.contextMenu(itemRow);
-  });
-
-  const getInfoButton = await waitFor(() => {
-    const buttons = within(document.body)
-      .getAllByRole("button", { name: "Get Info" })
-      .filter((button) => button.closest(".menu") !== null);
-    expect(buttons).toHaveLength(1);
-    const button = buttons[0];
-    if (!button) {
-      throw new Error("Expected the Explorer Get Info action.");
-    }
-    return button;
-  });
   await interact(() => {
     fireEvent.click(getInfoButton);
   });
@@ -232,7 +249,8 @@ async function openPaneExplorerDocumentInfo(
         localId: localId ?? "",
       };
     },
-    { timeout: 10_000 },
+    // Outlasts the 20s Get Info navigation each poll may run.
+    { timeout: 30_000 },
   );
 }
 

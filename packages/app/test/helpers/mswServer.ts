@@ -308,6 +308,13 @@ const server = setupServer(
       return HttpResponse.json({ error: "Not Found" }, { status: 404 });
     },
   ),
+  // A group policy read from background sync can outlive the test that proxied
+  // it to the API, landing after resetHandlers; it then failed the whole run as
+  // unhandled. 404 is a plain request failure to the client, with no session
+  // refresh, so the straggler reports and stops like the reads above.
+  http.get("http://localhost:3001/principals/group/:groupId/policy", () => {
+    return HttpResponse.json({ error: "Not Found" }, { status: 404 });
+  }),
   http.get<{ userId: string }>(
     "http://localhost:3001/auth/user-identity/:userId",
     async ({ params }) => {

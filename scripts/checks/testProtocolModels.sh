@@ -92,6 +92,12 @@ assert_validation_failure() {
 install_registry valid.txt
 valid_output=$(run_check)
 assert_contains "$valid_output" "Checked 3 protocol model configuration(s)."
+# A pass reports TLC's verdict and summary, never its whole log.
+assert_contains "$valid_output" "The depth of the complete state graph search is 2."
+assert_contains "$valid_output" "3 distinct states found"
+case "$valid_output" in
+  *"fake-tlc trace line"*) fail "a passing model replayed its whole log." ;;
+esac
 
 # Overlapping runs start in no fixed order, so the launch log is unordered; the
 # reported order must still follow the registry.
@@ -116,6 +122,21 @@ metadir_count=$(cut -d '|' -f 3 "$JAVA_LOG" | LC_ALL=C sort -u | wc -l | tr -d '
 tmpdir_count=$(cut -d '|' -f 4 "$JAVA_LOG" | LC_ALL=C sort -u | wc -l | tr -d '[:space:]')
 [ "$tmpdir_count" -eq 3 ] || fail "TLC runs did not receive distinct Java tmpdirs."
 
+# CI's stdout can be non-blocking, so a report write may fail. That must never
+# abort the check: a pass still exits 0 and a failure keeps TLC's status.
+install_registry valid.txt
+run_check >&- 2>/dev/null ||
+  fail "an unwritable stdout aborted a passing check."
+install_registry valid.txt
+if FAKE_FAIL_CONFIG=formal/alpha/AlphaBroad.cfg FAKE_FAIL_STATUS=17 \
+  run_check >&- 2>/dev/null; then
+  fail "a TLC failure was accepted with an unwritable stdout."
+else
+  closed_status=$?
+fi
+[ "$closed_status" -eq 17 ] ||
+  fail "TLC exit 17 was reported as $closed_status with an unwritable stdout."
+
 # One run at a time, a failure must stop the check before the next run starts.
 # With overlapping runs, which later runs had already started depends on
 # timing, so only the reported failure is asserted there.
@@ -135,6 +156,8 @@ for parallelism in 1 2; do
   [ "$failure_status" -eq 17 ] ||
     fail "TLC exit 17 was reported as $failure_status at parallelism $parallelism."
   assert_contains "$failure_output" "TLC failed for formal/alpha/Alpha.tla with formal/alpha/AlphaBroad.cfg."
+  # A failure replays its whole log: the counterexample is the evidence.
+  assert_contains "$failure_output" "fake-tlc trace line for formal/alpha/AlphaBroad.cfg"
   if [ "$parallelism" -eq 1 ]; then
     [ "$(wc -l <"$JAVA_LOG" | tr -d '[:space:]')" -eq 2 ] ||
       fail "the checker did not stop after the first TLC failure."
