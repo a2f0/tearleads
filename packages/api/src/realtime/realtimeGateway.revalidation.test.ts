@@ -6,6 +6,9 @@ import {
 } from "../../test/helpers/realtimeContainerAuthorization";
 import * as sentry from "../diagnostics/sentry";
 
+// Tests on real timers that are not about proof age disable it: by default it
+// lapses after three intervals of wall clock, a few milliseconds here, so a slow
+// CI runner could evict the subscription before the tick under test.
 function resyncFrames(sent: ReadonlyArray<Record<string, unknown>>) {
   return sent.filter(
     (frame) => Reflect.get(frame, "type") === "resync_required",
@@ -17,7 +20,7 @@ test("periodic revalidation evicts a subscription the workflow no longer grants"
   const revalidated = Promise.withResolvers<string[]>();
   let calls = 0;
   const f = fixture({
-    revalidation: { intervalMs: 4, random: () => 0 },
+    revalidation: { intervalMs: 4, maxProofAgeMs: 0, random: () => 0 },
     authorize: async (_user, ids) => {
       calls++;
       const granted = ids.filter((id) => readable.has(id));
@@ -47,7 +50,7 @@ test("revalidation leaves a still-authorized subscription silent and re-arms", a
   const ticks: number[] = [];
   const third = Promise.withResolvers<void>();
   const f = fixture({
-    revalidation: { intervalMs: 4, random: () => 0 },
+    revalidation: { intervalMs: 4, maxProofAgeMs: 0, random: () => 0 },
     authorize: async (_user, ids) => {
       ticks.push(Date.now());
       if (ticks.length === 3) third.resolve();
@@ -65,7 +68,7 @@ test("revalidation leaves a still-authorized subscription silent and re-arms", a
 test("closing a socket stops its revalidation", async () => {
   let calls = 0;
   const f = fixture({
-    revalidation: { intervalMs: 2, random: () => 0 },
+    revalidation: { intervalMs: 2, maxProofAgeMs: 0, random: () => 0 },
     authorize: async (_user, ids) => {
       calls++;
       return ids;
@@ -87,7 +90,7 @@ test("a revalidation failure keeps the socket and retries next interval", async 
   const retried = Promise.withResolvers<void>();
   let calls = 0;
   const f = fixture({
-    revalidation: { intervalMs: 4, random: () => 0 },
+    revalidation: { intervalMs: 4, maxProofAgeMs: 0, random: () => 0 },
     authorize: async (_user, ids) => {
       calls++;
       if (calls === 2) throw new Error("authorization database unavailable");
@@ -199,7 +202,7 @@ test("a failed reconnect verification holds the full resync until a pass succeed
   const recovered = Promise.withResolvers<void>();
   let calls = 0;
   const f = fixture({
-    revalidation: { intervalMs: 40, random: () => 0 },
+    revalidation: { intervalMs: 40, maxProofAgeMs: 0, random: () => 0 },
     authorize: async (_user, ids) => {
       calls++;
       if (calls === 2) throw new Error("authorization database unavailable");
