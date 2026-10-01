@@ -45,6 +45,7 @@ test("identity-manager route updates forward the replace option", () => {
         goBack: () => {},
         pathSegments: ["pin-lock"],
         setPathSegments,
+        windowId: "window-1",
       },
       children,
     );

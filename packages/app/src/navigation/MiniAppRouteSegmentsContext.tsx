@@ -15,6 +15,9 @@ interface MiniAppRouteSegmentsContextValue {
     pathSegments: ReadonlyArray<string>,
     options?: { replace?: boolean | undefined },
   ) => void;
+  // The window hosting this mini-app, so window-addressed bus messages reach
+  // the window they were opened into.
+  windowId: string;
 }
 
 type MiniAppRouteSegmentsProviderProps =
@@ -30,6 +33,7 @@ export function MiniAppRouteSegmentsProvider({
   goBack,
   pathSegments,
   setPathSegments,
+  windowId,
 }: MiniAppRouteSegmentsProviderProps) {
   const value = useMemo<MiniAppRouteSegmentsContextValue>(
     () => ({
@@ -38,8 +42,9 @@ export function MiniAppRouteSegmentsProvider({
       goBack,
       pathSegments,
       setPathSegments,
+      windowId,
     }),
-    [appId, canGoBack, goBack, pathSegments, setPathSegments],
+    [appId, canGoBack, goBack, pathSegments, setPathSegments, windowId],
   );
 
   return (

@@ -53,6 +53,7 @@ test("mini-app route state parses hosted segments and forwards replace", () => {
       goBack={() => {}}
       pathSegments={["detail"]}
       setPathSegments={setPathSegments}
+      windowId="window-1"
     >
       {children}
     </MiniAppRouteSegmentsProvider>
