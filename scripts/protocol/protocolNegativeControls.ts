@@ -65,6 +65,14 @@ export const NEGATIVE_CONTROLS: readonly NegativeControl[] = [
     why: "A write may cite a head committed after the reader fetched its projection; verify one fresh projection before refusing the frozen response.",
   },
   {
+    id: "ended-session-socket-survives-revalidation",
+    module: "formal/realtime/ContainerInterest.tla",
+    config: "formal/realtime/ContainerInterest.cfg",
+    constants: { CheckSessionLiveness: "FALSE" },
+    expect: { kind: "invariant", name: "EndedSessionsCloseByNextPass" },
+    why: "Revocation publishes at most once and expiry never, so revalidation must recheck the session and close an ended session's socket (#2365 finding 27).",
+  },
+  {
     id: "stale-reconnect-proof-handoff",
     module: "formal/realtime/ContainerInterest.tla",
     config: "formal/realtime/ContainerInterest.cfg",
