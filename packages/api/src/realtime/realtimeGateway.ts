@@ -21,7 +21,7 @@ import {
 } from "./containerInterestTypes";
 import { parsePublishedRealtimeEvent } from "./publishedRealtimeEvents";
 import { sendSafely } from "./wsConnection";
-import type { WebSocketTicketIdentity } from "./wsIdentity";
+import type { WebSocketTicketIdentity, WsSessionValidator } from "./wsIdentity";
 import { wsInterestStore } from "./wsInterestStore";
 import {
   type OrganizationInterestDeclaration,
@@ -29,6 +29,7 @@ import {
   readOrganizationReadModelAudienceMessage,
 } from "./wsOrganizationRouting";
 import { type AppliedInterest, WsEventRouter } from "./wsRouting";
+import { createWsSessionLivenessCheck } from "./wsSessionLiveness";
 
 type InterestStore = Pick<typeof wsInterestStore, "apply" | "load">;
 type Subscribe = typeof addListener;
@@ -50,6 +51,8 @@ interface RealtimeGatewayDeps {
   readonly router?: WsEventRouter;
   readonly subscribe?: Subscribe;
   readonly subscribeReconnect?: SubscribeReconnect;
+  /** Whether a socket's session is still live; defaults to the session store. */
+  readonly validateSession?: WsSessionValidator;
 }
 
 async function authorizeOrganizationAccessWithWorkflow(
@@ -383,10 +386,11 @@ export function createRealtimeGateway(deps: RealtimeGatewayDeps = {}) {
     router,
     resolveProofAgePolicy(deps.revalidation),
   );
-  const revalidation = new ContainerInterestRevalidationSchedule(
-    (ws) => containerInterest.revalidate(ws),
-    deps.revalidation,
-  );
+  const liveness = createWsSessionLivenessCheck(router, deps.validateSession);
+  const revalidation = new ContainerInterestRevalidationSchedule((ws) => {
+    void liveness.checkSocket(ws);
+    return containerInterest.revalidate(ws);
+  }, deps.revalidation);
   const websocket = createWebsocketHandler({
     containerInterest,
     organizationInterest,
@@ -444,6 +448,9 @@ export function createRealtimeGateway(deps: RealtimeGatewayDeps = {}) {
         .catch((error: unknown) => {
           reportBackgroundFailure(error, "websocket.revalidate");
         });
+      // Beside the pass, never ahead of it: a hung session read must not hold
+      // back marking the outage's queries stale.
+      void liveness.checkAll(router.openSockets());
     });
   }
 
