@@ -69,3 +69,25 @@ test("opens the title-bar context menu without starting a drag", () => {
   expect(view.getByText("Move Forward")).toBeTruthy();
   expect(view.getByText("Move Backward")).toBeTruthy();
 });
+
+test("pressing a context-menu icon does not start a drag", () => {
+  let pointerDownCalls = 0;
+  const view = renderTitleBar({
+    onPointerDown: () => {
+      pointerDownCalls += 1;
+    },
+  });
+
+  fireEvent.contextMenu(view.getByRole("toolbar"), {
+    clientX: 100,
+    clientY: 120,
+  });
+  const icon = view
+    .getByText("Move Forward")
+    .closest("button")
+    ?.querySelector("svg");
+  if (!icon) throw new Error("menu icon not rendered");
+  fireEvent.pointerDown(icon, { button: 0 });
+
+  expect(pointerDownCalls).toBe(0);
+});

@@ -43,7 +43,9 @@ export function WindowTitleBar({
     (e: React.PointerEvent<HTMLDivElement>) => {
       const target = e.target;
       if (e.button !== 0) return;
-      if (target instanceof HTMLElement && target.closest("button")) return;
+      // Element, not HTMLElement: an icon inside a button (including the
+      // portaled context menu, whose events bubble through React) is SVG.
+      if (target instanceof Element && target.closest("button")) return;
       onPointerDown(e);
     },
     [onPointerDown],

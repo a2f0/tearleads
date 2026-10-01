@@ -329,3 +329,24 @@ test("a surface resize during a keyboard resize commits nothing until it ends", 
     observers.restore();
   }
 });
+
+test("a surface resize during a keyboard move keeps the move on Enter", () => {
+  const observers = captureResizeObservers();
+  try {
+    const { region, view } = openNotes();
+    stubLayout(region, { offsetHeight: 100, offsetWidth: 200 });
+
+    chooseViewMenuItem(region, "Move Window");
+    fireEvent.keyDown(document, { key: "ArrowRight" });
+    fireEvent.keyDown(document, { key: "ArrowRight" });
+    act(() => observers.fire());
+    act(() => {
+      fireEvent.keyDown(document, { key: "Enter" });
+    });
+
+    expect(committedGeometry(view).position).toEqual({ x: 20, y: 0 });
+    expect(region.style.left).toBe("20px");
+  } finally {
+    observers.restore();
+  }
+});

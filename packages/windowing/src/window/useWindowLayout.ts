@@ -88,47 +88,53 @@ export function useWindowLayout({
   // workspace) measures at zero: the window takes its intended position
   // unclamped and nothing is committed until the surface has a size.
   const { deferred, held, isBusy } = useGestureHold(dragging, resizing);
-  const layout = useCallback(() => {
-    const element = windowRef.current;
-    const container = element?.parentElement;
-    if (entry.minimized || entry.maximized || !element || !container) {
-      return;
-    }
-    if (isBusy()) {
-      deferred.current = true;
-      return;
-    }
-    if (!live.current.size) {
-      // A cleared size has not re-rendered yet; drop the old inline size so the
-      // window measures at the stylesheet default it is about to take.
-      element.style.removeProperty("width");
-      element.style.removeProperty("height");
-    }
-    const containerRect = container.getBoundingClientRect();
-    const start = entry.position ?? {
-      x: entry.initialX - containerRect.left,
-      y: entry.initialY - containerRect.top,
-    };
-    if (isUnsized(container)) {
-      setPosition(start);
-      return;
-    }
-    setPosition(clamp(start.x, start.y));
-    commit();
-  }, [
-    clamp,
-    commit,
-    deferred,
-    entry.initialX,
-    entry.initialY,
-    entry.maximized,
-    entry.minimized,
-    entry.position,
-    isBusy,
-    live,
-    setPosition,
-    windowRef,
-  ]);
+  // `release` lays out from the live geometry a gesture just finished with,
+  // which the committed position does not reflect until it re-renders.
+  const layout = useCallback(
+    (release = false) => {
+      const element = windowRef.current;
+      const container = element?.parentElement;
+      if (entry.minimized || entry.maximized || !element || !container) {
+        return;
+      }
+      if (isBusy()) {
+        deferred.current = true;
+        return;
+      }
+      if (!live.current.size) {
+        // A cleared size has not re-rendered yet; drop the old inline size so the
+        // window measures at the stylesheet default it is about to take.
+        element.style.removeProperty("width");
+        element.style.removeProperty("height");
+      }
+      const containerRect = container.getBoundingClientRect();
+      const start = (release ? live.current.position : null) ??
+        entry.position ?? {
+          x: entry.initialX - containerRect.left,
+          y: entry.initialY - containerRect.top,
+        };
+      if (isUnsized(container)) {
+        setPosition(start);
+        return;
+      }
+      setPosition(clamp(start.x, start.y));
+      commit();
+    },
+    [
+      clamp,
+      commit,
+      deferred,
+      entry.initialX,
+      entry.initialY,
+      entry.maximized,
+      entry.minimized,
+      entry.position,
+      isBusy,
+      live,
+      setPosition,
+      windowRef,
+    ],
+  );
 
   useEffect(() => {
     layout();
@@ -169,7 +175,7 @@ export function useWindowLayout({
       held.current = holding;
       if (!holding && deferred.current) {
         deferred.current = false;
-        layout();
+        layout(true);
       }
     },
     [deferred, held, layout],
