@@ -364,3 +364,62 @@ test("moving a window while clearing its size clamps at the default size", () =>
   expect(committedGeometry(view)).toEqual({ position: { x: 300, y: 200 } });
   expect(windowRoot.style.left).toBe("300px");
 });
+
+test("a hidden surface keeps saved positions until it has a size", () => {
+  const observed: Array<() => void> = [];
+  const originalObserver = globalThis.ResizeObserver;
+  globalThis.ResizeObserver = class {
+    readonly #callback: () => void;
+    constructor(callback: () => void) {
+      this.#callback = callback;
+    }
+    observe() {
+      observed.push(this.#callback);
+    }
+    unobserve() {}
+    disconnect() {}
+  } as unknown as typeof ResizeObserver;
+  try {
+    // The surface is unsized, as in an inactive workspace.
+    const view = render(
+      <WindowStateProvider>
+        <DesktopHarness options={{ position: { x: 700, y: 550 } }} />
+        <GeometryProbe />
+      </WindowStateProvider>,
+    );
+    fireEvent.click(view.getByRole("button", { name: "Open notes" }));
+    const windowRoot = view.container.querySelector<HTMLElement>(".window");
+    if (!windowRoot) throw new Error("window not rendered");
+    stubLayout(windowRoot, { offsetHeight: 100, offsetWidth: 200 });
+
+    expect(committedGeometry(view).position).toEqual({ x: 700, y: 550 });
+
+    stubLayout(view.getByTestId("surface"), {
+      clientHeight: 600,
+      clientWidth: 800,
+    });
+    act(() => {
+      for (const callback of observed) callback();
+    });
+
+    expect(committedGeometry(view).position).toEqual({ x: 600, y: 500 });
+  } finally {
+    globalThis.ResizeObserver = originalObserver;
+  }
+});
+
+test("losing pointer capture ends a drag and commits it", () => {
+  const { view, windowRoot } = renderDesktop();
+  stubLayout(windowRoot, { offsetHeight: 100, offsetWidth: 200 });
+  const titleBar = view.getByRole("toolbar", { name: "Window controls" });
+
+  fireEvent.pointerDown(titleBar, { clientX: 10, clientY: 10, pointerId: 1 });
+  fireEvent.pointerMove(document, { clientX: 110, clientY: 60, pointerId: 1 });
+  act(() => {
+    document.dispatchEvent(
+      new PointerEvent("lostpointercapture", { bubbles: true, pointerId: 1 }),
+    );
+  });
+
+  expect(committedGeometry(view).position).toEqual({ x: 100, y: 50 });
+});

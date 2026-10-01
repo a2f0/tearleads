@@ -6,8 +6,8 @@ import {
   useRef,
   useState,
 } from "react";
-import type { LiveGeometry } from "./useWindowGeometry";
 import type { WindowMenuItem } from "./WindowMenuBar";
+import type { LiveGeometry } from "./windowGeometry";
 
 type WindowKeyboardMode = "move" | "resize";
 
