@@ -1,11 +1,11 @@
 import { afterEach, expect, test } from "bun:test";
 import type { BlobInfo, BlobStore } from "@tearleads/client-sdk";
-import { cleanup, fireEvent, render, waitFor } from "@testing-library/react";
-import type { ReactNode } from "react";
 import {
   useWindowBackActionValue,
   WindowMenuProvider,
-} from "../../components/window/WindowMenuContext";
+} from "@tearleads/windowing";
+import { cleanup, fireEvent, render, waitFor } from "@testing-library/react";
+import type { ReactNode } from "react";
 import { ExplorerBlobBrowserPanel } from "./detail/blob/ExplorerBlobBrowserPanel";
 import { useExplorerRoutedChromeActions } from "./ExplorerRoutedChrome";
 import type { useExplorerModel } from "./hooks/useExplorerModel";

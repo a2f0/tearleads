@@ -1,9 +1,9 @@
 import { afterEach, expect, test } from "bun:test";
-import { cleanup, fireEvent, render, waitFor } from "@testing-library/react";
 import {
   useWindowTitleBarActions,
   WindowMenuProvider,
-} from "../../components/window/WindowMenuContext";
+} from "@tearleads/windowing";
+import { cleanup, fireEvent, render, waitFor } from "@testing-library/react";
 import { createAppHostConfig } from "../../host/AppHostConfig";
 import { AppHostConfigProvider } from "../../providers/host/AppHostConfigProvider";
 import { ContactDocumentFields } from "./ContactDocument";

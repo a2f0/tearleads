@@ -1,6 +1,6 @@
 import type { BlobInfo, BlobStore, FileSaver } from "@tearleads/client-sdk";
+import { useContextMenuState } from "@tearleads/windowing";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useContextMenuState } from "../../../../components/shared/useContextMenuState";
 import { useFileSaver } from "../../../../providers/file-saver/FileSaverProvider";
 import { downloadBytesAsFile } from "../../../../utils/downloadFile";
 import { unknownErrorMessage } from "../../../../utils/unknownErrorMessage";

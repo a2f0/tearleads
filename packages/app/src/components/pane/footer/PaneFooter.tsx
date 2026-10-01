@@ -1,11 +1,11 @@
 import { TearleadsLogo } from "@tearleads/ui";
-import type { ReactNode } from "react";
-import { WorkspaceSwitcher } from "../../layout/workspace/WorkspaceSwitcher";
-import { useContextMenuPositionState } from "../../shared/useContextMenuState";
 import {
   findTopWindow,
+  useContextMenuPositionState,
   useWindowStateData,
-} from "../../window/WindowStateProvider";
+} from "@tearleads/windowing";
+import type { ReactNode } from "react";
+import { WorkspaceSwitcher } from "../../layout/workspace/WorkspaceSwitcher";
 import { PaneMenu } from "../shell/PaneMenu";
 import "./PaneFooter.css";
 import { PaneFooterWindowButton } from "./PaneFooterWindowButton";

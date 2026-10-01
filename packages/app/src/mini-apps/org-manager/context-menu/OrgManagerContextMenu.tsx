@@ -4,13 +4,13 @@ import { UserFocusIcon } from "@phosphor-icons/react/dist/csr/UserFocus";
 import { UserMinusIcon } from "@phosphor-icons/react/dist/csr/UserMinus";
 import { UserPlusIcon } from "@phosphor-icons/react/dist/csr/UserPlus";
 import { UsersThreeIcon } from "@phosphor-icons/react/dist/csr/UsersThree";
-import { type MouseEvent, useCallback } from "react";
-import { Menu } from "../../../components/shared/Menu";
-import { MenuItem } from "../../../components/shared/MenuItem";
 import {
   type ContextMenuState,
+  Menu,
+  MenuItem,
   useContextMenuState,
-} from "../../../components/shared/useContextMenuState";
+} from "@tearleads/windowing";
+import { type MouseEvent, useCallback } from "react";
 import { ORG_MANAGER_LABELS } from "../labels";
 import type { OrgManagerView } from "../routes";
 

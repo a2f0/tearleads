@@ -1,9 +1,9 @@
 import { NotePencilIcon } from "@phosphor-icons/react/dist/csr/NotePencil";
-import { useMemo } from "react";
 import {
   useWindowTitleBarAction,
   useWindowToolbarReservation,
-} from "../../components/window/WindowMenuContext";
+} from "@tearleads/windowing";
+import { useMemo } from "react";
 import { NOTES_LABELS } from "./labels";
 
 /**

@@ -9,7 +9,7 @@ and it receives concrete mini-app definitions from its caller. It should not
 import `@tearleads/*` packages, app runtime providers, app stores, document type
 registries, or concrete mini-app implementations.
 
-The window core (`components/window/`) is app-agnostic: it stores a window's
+The window core (`@tearleads/windowing`) is app-agnostic: it stores a window's
 `appId` as an opaque string and never imports mini-app code. `MiniAppWindow.tsx`
 fills its `ContentBoundary` slot with the mini-app route and error boundary, and
 `isMiniAppId` narrows a window's `appId` back to a `MiniAppId`.

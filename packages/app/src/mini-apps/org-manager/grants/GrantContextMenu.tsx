@@ -1,10 +1,13 @@
 import { EyeIcon } from "@phosphor-icons/react/dist/csr/Eye";
 import { TrashIcon } from "@phosphor-icons/react/dist/csr/Trash";
 import type { OrganizationContainerGrant } from "@tearleads/client-sdk";
+import {
+  Menu,
+  MenuItem,
+  type MenuPosition,
+  useContextMenuState,
+} from "@tearleads/windowing";
 import type { MouseEvent, ReactNode } from "react";
-import { Menu, type MenuPosition } from "../../../components/shared/Menu";
-import { MenuItem } from "../../../components/shared/MenuItem";
-import { useContextMenuState } from "../../../components/shared/useContextMenuState";
 import { ORG_MANAGER_LABELS } from "../labels";
 import type { OrgManagerGrantRouteRef } from "../routes";
 

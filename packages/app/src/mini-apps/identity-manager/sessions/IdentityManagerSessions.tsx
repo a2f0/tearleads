@@ -1,4 +1,5 @@
 import type { UserSession } from "@tearleads/client-sdk";
+import { useContextMenuState } from "@tearleads/windowing";
 import {
   MiniAppSection,
   MiniAppSectionHeading,
@@ -10,7 +11,6 @@ import {
   useMiniAppCompactTableFrame,
 } from "../../../components/mini-app/MiniAppTable";
 import { getMiniAppVirtualFrameStyle } from "../../../components/mini-app/virtual/MiniAppVirtual";
-import { useContextMenuState } from "../../../components/shared/useContextMenuState";
 import { useSessionTableColumns } from "./IdentityManagerSessionColumns";
 import { SessionContextMenu } from "./IdentityManagerSessionContextMenu";
 import { SessionTableBody } from "./IdentityManagerSessionTable";

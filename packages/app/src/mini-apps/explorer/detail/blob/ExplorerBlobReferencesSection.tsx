@@ -3,6 +3,12 @@ import type {
   BlobInfo,
   BlobInfoDocumentReference,
 } from "@tearleads/client-sdk";
+import {
+  type ContextMenuState,
+  Menu,
+  MenuItem,
+  useContextMenuState,
+} from "@tearleads/windowing";
 import { type MouseEvent, useMemo } from "react";
 import { MiniAppInfoSection } from "../../../../components/mini-app/MiniAppLayout";
 import {
@@ -20,12 +26,6 @@ import {
 } from "../../../../components/mini-app/MiniAppTable";
 import { getMiniAppVirtualFrameStyle } from "../../../../components/mini-app/virtual/MiniAppVirtual";
 import { classNames } from "../../../../components/shared/classNames";
-import { Menu } from "../../../../components/shared/Menu";
-import { MenuItem } from "../../../../components/shared/MenuItem";
-import {
-  type ContextMenuState,
-  useContextMenuState,
-} from "../../../../components/shared/useContextMenuState";
 import {
   EXPLORER_LABELS,
   getExplorerDocumentInfoAttachmentKindLabel,

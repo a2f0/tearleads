@@ -1,3 +1,4 @@
+import { useCurrentWindow } from "@tearleads/windowing";
 import {
   type FormEvent,
   type PropsWithChildren,
@@ -14,7 +15,6 @@ import {
   MiniAppStatus,
   MiniAppToolbar,
 } from "../components/mini-app/MiniAppLayout";
-import { useCurrentWindow } from "../components/window/CurrentWindowContext";
 import { useIdentity } from "../providers/identity/IdentityProvider";
 import { useLocalKeyringLock } from "../providers/local-keyring/LocalKeyringLockProvider";
 import "./LocalKeyringUnlockGate.css";

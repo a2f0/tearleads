@@ -20,6 +20,7 @@
     "@tearleads/encoding": "workspace:*",
     "@tearleads/ui": "workspace:*",
     "@tearleads/validators": "workspace:*",
+    "@tearleads/windowing": "workspace:*",
     "drizzle-orm": "0.45.2",
     "pdfjs-dist": "6.3.289",
     "qr": "0.7.0",

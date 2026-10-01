@@ -1,8 +1,8 @@
 import type { Icon } from "@phosphor-icons/react";
 import { CaretDownIcon } from "@phosphor-icons/react/dist/csr/CaretDown";
+import { Menu, type MenuPosition } from "@tearleads/windowing";
 import { type RefObject, useEffect, useRef } from "react";
 import { classNames } from "../../shared/classNames";
-import { Menu, type MenuPosition } from "../../shared/Menu";
 import { MiniAppButton } from "./MiniAppButton";
 import {
   getOptionElementId,

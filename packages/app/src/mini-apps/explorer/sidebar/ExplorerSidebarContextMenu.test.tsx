@@ -4,6 +4,7 @@ import type {
   ContainerNode,
 } from "@tearleads/client-sdk";
 import { syncedContainerDocumentObjectSyncState } from "@tearleads/client-sdk";
+import { WindowStateProvider } from "@tearleads/windowing";
 import { cleanup, fireEvent, render, waitFor } from "@testing-library/react";
 import {
   type MouseEvent as ReactMouseEvent,
@@ -12,7 +13,6 @@ import {
   useMemo,
   useState,
 } from "react";
-import { WindowStateProvider } from "../../../components/window/WindowStateProvider";
 import { AppNavigationProvider } from "../../../navigation/AppNavigationProvider";
 import type { MiniAppDefinition, MiniAppId } from "../../types";
 import { useExplorerSidebarPanel } from "./ExplorerTree";

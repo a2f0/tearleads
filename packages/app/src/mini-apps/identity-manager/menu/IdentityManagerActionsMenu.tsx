@@ -1,8 +1,7 @@
 import { SignOutIcon } from "@phosphor-icons/react/dist/csr/SignOut";
+import { Menu, MenuItem, type MenuPosition } from "@tearleads/windowing";
 import { type MouseEvent, useState } from "react";
 import { MiniAppRowActionsButton } from "../../../components/mini-app/MiniAppTable";
-import { Menu, type MenuPosition } from "../../../components/shared/Menu";
-import { MenuItem } from "../../../components/shared/MenuItem";
 
 /**
  * Overflow menu for the Identity section. Mirrors the kebab menu on the

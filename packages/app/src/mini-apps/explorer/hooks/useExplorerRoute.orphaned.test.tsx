@@ -1,9 +1,9 @@
 import { afterEach, expect, test } from "bun:test";
 import type { ContainerNode, DocumentSummary } from "@tearleads/client-sdk";
 import { syncedContainerDocumentObjectSyncState } from "@tearleads/client-sdk";
+import { WindowStateProvider } from "@tearleads/windowing";
 import { cleanup, renderHook, waitFor } from "@testing-library/react";
 import { type ReactNode, useCallback } from "react";
-import { WindowStateProvider } from "../../../components/window/WindowStateProvider";
 import { AppNavigationProvider } from "../../../navigation/AppNavigationProvider";
 import {
   createExplorerOrphanedDocumentsNode,

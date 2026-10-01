@@ -1,5 +1,5 @@
+import { createRequiredContext } from "@tearleads/ui";
 import { type PropsWithChildren, useCallback, useMemo, useState } from "react";
-import { createRequiredContext } from "../utils/createRequiredContext";
 import {
   loadStoredPreference,
   saveStoredPreference,

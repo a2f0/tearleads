@@ -4,6 +4,7 @@ import type {
   DocumentAttachmentStatus,
 } from "@tearleads/client-sdk";
 import { isDatabaseUnavailableError } from "@tearleads/client-sdk";
+import { useWindowTitleBarAction } from "@tearleads/windowing";
 import { useCallback, useEffect, useId, useMemo, useState } from "react";
 import {
   MiniAppInput,
@@ -14,7 +15,6 @@ import {
   MiniAppRowStack,
   MiniAppRowText,
 } from "../../components/mini-app/rows/MiniAppRow";
-import { useWindowTitleBarAction } from "../../components/window/WindowMenuContext";
 import { useFileSaver } from "../../providers/file-saver/FileSaverProvider";
 import { useFileViewer } from "../../providers/file-viewer/FileViewerProvider";
 import { useTearleadsRuntime } from "../../providers/sdk/TearleadsProvider";

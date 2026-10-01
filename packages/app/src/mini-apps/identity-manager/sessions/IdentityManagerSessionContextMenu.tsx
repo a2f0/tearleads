@@ -1,8 +1,7 @@
 import { InfoIcon } from "@phosphor-icons/react/dist/csr/Info";
 import { SignOutIcon } from "@phosphor-icons/react/dist/csr/SignOut";
 import type { UserSession } from "@tearleads/client-sdk";
-import { Menu, type MenuPosition } from "../../../components/shared/Menu";
-import { MenuItem } from "../../../components/shared/MenuItem";
+import { Menu, MenuItem, type MenuPosition } from "@tearleads/windowing";
 
 export function SessionContextMenu({
   closeContextMenu,

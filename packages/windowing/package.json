@@ -1,0 +1,26 @@
+{
+  "name": "@tearleads/windowing",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./*.css": "./src/*.css"
+  },
+  "scripts": {
+    "test": "bun test src"
+  },
+  "dependencies": {
+    "@phosphor-icons/react": "2.1.10",
+    "@tearleads/ui": "workspace:*",
+    "react": "catalog:react",
+    "react-dom": "catalog:react"
+  },
+  "devDependencies": {
+    "@happy-dom/global-registrator": "catalog:testing",
+    "@testing-library/react": "catalog:testing",
+    "@types/bun": "catalog:",
+    "@types/react": "catalog:react",
+    "@types/react-dom": "catalog:react"
+  }
+}

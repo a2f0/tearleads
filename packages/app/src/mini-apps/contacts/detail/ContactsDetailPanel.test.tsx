@@ -1,11 +1,11 @@
 import { afterEach, expect, test } from "bun:test";
 import type { BlobStore } from "@tearleads/client-sdk";
-import { cleanup, fireEvent, render, waitFor } from "@testing-library/react";
 import {
   useWindowBackActionValue,
   useWindowTitleBarActions,
   WindowMenuProvider,
-} from "../../../components/window/WindowMenuContext";
+} from "@tearleads/windowing";
+import { cleanup, fireEvent, render, waitFor } from "@testing-library/react";
 import type { ContactEntry } from "../../../document-types/contact/contactDocumentModel";
 import { createAppHostConfig } from "../../../host/AppHostConfig";
 import { AppHostConfigProvider } from "../../../providers/host/AppHostConfigProvider";

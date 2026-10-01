@@ -1,4 +1,5 @@
 import { afterEach, expect, test } from "bun:test";
+import { useWindowStateData, WindowStateProvider } from "@tearleads/windowing";
 import {
   act,
   cleanup,
@@ -6,10 +7,6 @@ import {
   render,
   waitFor,
 } from "@testing-library/react";
-import {
-  useWindowStateData,
-  WindowStateProvider,
-} from "../components/window/WindowStateProvider";
 import { MiniAppWindow } from "../mini-apps/MiniAppWindow";
 import type { MiniAppDefinition, MiniAppId } from "../mini-apps/types";
 import {

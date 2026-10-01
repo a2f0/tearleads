@@ -141,6 +141,12 @@ export const workspaceRegistry = [
     packageName: "website",
     role: "deployment-target",
   },
+  {
+    directory: "windowing",
+    key: "windowing",
+    packageName: "@tearleads/windowing",
+    role: "shared-library",
+  },
 ] as const satisfies readonly WorkspaceDefinition[];
 
 export type WorkspaceKey = (typeof workspaceRegistry)[number]["key"];

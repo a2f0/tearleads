@@ -10,7 +10,7 @@ relative to the repo root.
 The app renders one React tree with two interchangeable shells, selected by
 `packages/app/src/navigation/AppNavigationMode.ts`:
 
-- **windowed** — the desktop window-manager UI (`components/window/*`,
+- **windowed** — the desktop window-manager UI (`@tearleads/windowing`,
   `components/pane/*`). Available through the lower-right layout switch.
 - **routed** — the single-pane UI (`components/layout/routed/*`). The default
   on desktop, iPad, and phone. The two-peer demo keeps its windowed split on

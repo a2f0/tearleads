@@ -1,6 +1,7 @@
 import { afterEach, expect, test } from "bun:test";
 import type { ContainerNode } from "@tearleads/client-sdk";
 import { syncedContainerDocumentObjectSyncState } from "@tearleads/client-sdk";
+import { WindowStateProvider } from "@tearleads/windowing";
 import {
   act,
   cleanup,
@@ -8,7 +9,6 @@ import {
   render,
   waitFor,
 } from "@testing-library/react";
-import { WindowStateProvider } from "../../../components/window/WindowStateProvider";
 import {
   AppNavigationProvider,
   useMiniAppRouteSegments,

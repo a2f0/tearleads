@@ -1,10 +1,10 @@
-import { type PropsWithChildren, useCallback } from "react";
-import { MiniAppBoundary } from "../components/mini-app/MiniAppBoundary";
-import { Window } from "../components/window/Window";
 import {
   useWindowActions,
+  Window,
   type WindowEntry,
-} from "../components/window/WindowStateProvider";
+} from "@tearleads/windowing";
+import { type PropsWithChildren, useCallback } from "react";
+import { MiniAppBoundary } from "../components/mini-app/MiniAppBoundary";
 import { MiniAppRouteSegmentsProvider } from "../navigation/MiniAppRouteSegmentsContext";
 import { isMiniAppId } from "./types";
 

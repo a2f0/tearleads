@@ -1,4 +1,8 @@
 import {
+  useRegisteredWindowSidebar,
+  useWindowSidebar,
+} from "@tearleads/windowing";
+import {
   type PropsWithChildren,
   useLayoutEffect,
   useMemo,
@@ -9,10 +13,6 @@ import {
   MiniAppSidebar,
   MiniAppStatus,
 } from "../components/mini-app/MiniAppLayout";
-import {
-  useRegisteredWindowSidebar,
-  useWindowSidebar,
-} from "../components/window/WindowSidebarContext";
 import { useSystemBootstrap } from "../providers/system-bootstrap/SystemBootstrapProvider";
 
 /**

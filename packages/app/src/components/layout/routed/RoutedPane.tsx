@@ -1,5 +1,11 @@
 import { TearleadsLogo } from "@tearleads/ui";
 import {
+  hasWindowSidebar,
+  useWindowSidebar,
+  WindowMenuProvider,
+  WindowSidebarProvider,
+} from "@tearleads/windowing";
+import {
   type ComponentType,
   type RefObject,
   useCallback,
@@ -22,12 +28,6 @@ import { useAppHostConfig } from "../../../providers/host/AppHostConfigProvider"
 import { MiniAppBoundary } from "../../mini-app/MiniAppBoundary";
 import { useRegisterUserId } from "../../pane/dual-pane";
 import { SyncStatusIndicator } from "../../pane/footer/sync-status/SyncStatusIndicator";
-import { WindowMenuProvider } from "../../window/WindowMenuContext";
-import {
-  hasWindowSidebar,
-  useWindowSidebar,
-  WindowSidebarProvider,
-} from "../../window/WindowSidebarContext";
 import { TestSystemBanner } from "../TestSystemBanner";
 import "./RoutedPane.css";
 import {

@@ -1,11 +1,11 @@
 import type { UserSession } from "@tearleads/client-sdk";
+import { useWindowRefreshMenuItem } from "@tearleads/windowing";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   type LogoutOptions,
   runConfirmedLogout,
   useLogoutConfirmationDialogState,
 } from "../../components/shared/useLogoutConfirmation";
-import { useWindowRefreshMenuItem } from "../../components/window/WindowMenuContext";
 import {
   type RegisterCurrentIdentityResult,
   useRegisterCurrentIdentity,

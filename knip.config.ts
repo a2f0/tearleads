@@ -183,6 +183,10 @@ const baseConfig = {
       entry: ["src/pages/**/*.astro"],
       project: ["src/**/*.{astro,ts,tsx}"],
     },
+    "packages/windowing": {
+      entry: ["src/**/*.test.{ts,tsx}"],
+      project: ["src/**/*.{ts,tsx}"],
+    },
     "packages/sqlite-instance": {
       entry: [],
       project: ["src/**/*.ts"],
@@ -298,6 +302,7 @@ const productionConfig = {
     "packages/sqlite-instance": { project: productionProject },
     "packages/sqlite-worker": { project: productionProject },
     "packages/test-utils": { project: productionProject },
+    "packages/windowing": { project: productionProject },
   },
 } satisfies KnipConfig;
 

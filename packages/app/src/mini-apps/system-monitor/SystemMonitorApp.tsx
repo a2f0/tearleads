@@ -1,4 +1,9 @@
 import { PushPinIcon } from "@phosphor-icons/react/dist/csr/PushPin";
+import {
+  useCurrentWindow,
+  useWindowTitleBarAction,
+  useWindowViewMenuItem,
+} from "@tearleads/windowing";
 import { useCallback, useId, useMemo, useState } from "react";
 import {
   MiniAppRoot,
@@ -8,11 +13,6 @@ import {
 } from "../../components/mini-app/MiniAppLayout";
 import { PaneStatus } from "../../components/pane/status/PaneStatus";
 import { useNetworkModeContextMenu } from "../../components/shared/NetworkModeContextMenu";
-import { useCurrentWindow } from "../../components/window/CurrentWindowContext";
-import {
-  useWindowTitleBarAction,
-  useWindowViewMenuItem,
-} from "../../components/window/WindowMenuContext";
 import { useAppNavigationState } from "../../navigation/AppNavigationProvider";
 import { useMiniAppRouteState } from "../../navigation/useMiniAppRouteState";
 import { LocalKeyringUnlockGate } from "../LocalKeyringUnlockGate";

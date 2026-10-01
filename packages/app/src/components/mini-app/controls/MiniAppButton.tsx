@@ -1,5 +1,6 @@
 import { CheckIcon } from "@phosphor-icons/react/dist/csr/Check";
 import { ClipboardIcon } from "@phosphor-icons/react/dist/csr/Clipboard";
+import { useCurrentWindow } from "@tearleads/windowing";
 import {
   type ButtonHTMLAttributes,
   forwardRef,
@@ -8,7 +9,6 @@ import {
   useState,
 } from "react";
 import { classNames } from "../../shared/classNames";
-import { useCurrentWindow } from "../../window/CurrentWindowContext";
 import "./MiniAppButton.css";
 import type { DiagnosticAction } from "../../../host/AppDiagnostics";
 import { useDiagnosticBreadcrumb } from "../../../providers/logging/useDiagnosticBreadcrumb";

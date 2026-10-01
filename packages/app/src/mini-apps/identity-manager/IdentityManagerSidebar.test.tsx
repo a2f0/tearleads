@@ -1,9 +1,6 @@
 import { afterEach, expect, test } from "bun:test";
+import { useWindowSidebar, WindowSidebarProvider } from "@tearleads/windowing";
 import { cleanup, fireEvent, render, waitFor } from "@testing-library/react";
-import {
-  useWindowSidebar,
-  WindowSidebarProvider,
-} from "../../components/window/WindowSidebarContext";
 import { useIdentityManagerSidebarPanel } from "./IdentityManagerSidebar";
 import type { IdentityManagerView } from "./routes";
 

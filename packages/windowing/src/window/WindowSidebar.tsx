@@ -1,5 +1,8 @@
 import type { PropsWithChildren, Ref } from "react";
-import { SidebarResizeHandle, useSidebarResize } from "../shared/SidebarResize";
+import {
+  SidebarResizeHandle,
+  useSidebarResize,
+} from "../sidebar/SidebarResize";
 import "./WindowSidebar.css";
 
 const DEFAULT_WIDTH = 160;

@@ -1,6 +1,6 @@
 import { PlayIcon } from "@phosphor-icons/react/dist/csr/Play";
+import { useWindowTitleBarAction } from "@tearleads/windowing";
 import { useMemo } from "react";
-import { useWindowTitleBarAction } from "../../components/window/WindowMenuContext";
 import { useAppNavigationState } from "../../navigation/AppNavigationProvider";
 import { useDatabase } from "../../providers/db/DatabaseProvider";
 import { useIdentity } from "../../providers/identity/IdentityProvider";
