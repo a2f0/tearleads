@@ -7,7 +7,7 @@ import {
   useEffect,
   useRef,
 } from "react";
-import { ROUTED_MINI_APP_NAV_ITEMS } from "../../../mini-apps/registry";
+import { ROUTED_MINI_APP_NAV_ITEMS } from "../../../mini-apps/catalog";
 import type { MiniAppId } from "../../../mini-apps/types";
 import { useVisibleMiniAppItems } from "../../../mini-apps/useVisibleMiniAppItems";
 import { useAppNavigationActions } from "../../../navigation/AppNavigationProvider";

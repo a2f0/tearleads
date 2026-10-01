@@ -5,6 +5,31 @@ const appSourceRoot = packageSourceRoot.app;
 
 export const appDependencyRules = [
   {
+    name: "app-mini-app-catalog-imports-no-mini-app",
+    severity: "error",
+    comment:
+      "mini-apps/catalog.ts holds titles, icons, and menu order so chrome that only labels or lists apps does not load them. It may import an app's icon module, never its implementation; components belong in mini-apps/registry.ts.",
+    from: {
+      path: `${appSourceRoot}mini-apps/catalog\\.ts$`,
+    },
+    to: {
+      path: `${appSourceRoot}mini-apps/[^/]+/`,
+      pathNot: `${appSourceRoot}mini-apps/[^/]+/icon\\.tsx?$`,
+    },
+  },
+  {
+    name: "app-mini-app-messages-are-leaf-contracts",
+    severity: "error",
+    comment:
+      "Each mini-app's messages.ts declares the bus messages it accepts. mini-apps/types.ts unions them for the bus, so they must stay import-free type contracts rather than pull an app's implementation into the bus.",
+    from: {
+      path: `${appSourceRoot}mini-apps/[^/]+/messages\\.ts$`,
+    },
+    to: {
+      path: "^packages/",
+    },
+  },
+  {
     name: "app-document-types-do-not-import-mini-apps",
     severity: "error",
     comment:

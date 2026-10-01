@@ -1,9 +1,6 @@
 import { expect, test } from "bun:test";
-import {
-  MINI_APP_MENU_ITEMS,
-  MINI_APPS,
-  ROUTED_MINI_APP_NAV_ITEMS,
-} from "./registry";
+import { MINI_APP_MENU_ITEMS, ROUTED_MINI_APP_NAV_ITEMS } from "./catalog";
+import { MINI_APPS } from "./registry";
 import { isMiniAppId } from "./types";
 
 const appIds = (items: ReadonlyArray<{ appId: string }>) =>

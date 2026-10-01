@@ -1,4 +1,6 @@
 import type { ComponentType } from "react";
+import type { ContactsMiniAppMessage } from "./contacts/messages";
+import type { OrgManagerMiniAppMessage } from "./org-manager/messages";
 
 const MINI_APP_IDS = [
   "backup-restore",
@@ -29,24 +31,8 @@ export interface MiniAppWindowPosition {
   y: number;
 }
 
-export type MiniAppMessage =
-  | {
-      appId: "contacts";
-      type: "import-contact";
-      userId: string;
-    }
-  | {
-      appId: "org-manager";
-      groupId: string;
-      type: "open-group";
-    }
-  | {
-      appId: "org-manager";
-      containerId: string;
-      subjectId: string;
-      subjectType: "group" | "user";
-      type: "open-grant";
-    };
+// Each mini-app owns the messages it accepts; the bus carries their union.
+export type MiniAppMessage = ContactsMiniAppMessage | OrgManagerMiniAppMessage;
 
 export interface OpenMiniAppRequest {
   appId: MiniAppId;
