@@ -1,7 +1,7 @@
 import { UserPlusIcon } from "@phosphor-icons/react/dist/csr/UserPlus";
 import { UsersThreeIcon } from "@phosphor-icons/react/dist/csr/UsersThree";
 import { useMemo } from "react";
-import { useMiniAppDetailBackAction } from "../../components/window/useMiniAppDetailBackAction";
+import { useMiniAppDetailBackAction } from "../../components/mini-app/useMiniAppDetailBackAction";
 import {
   useWindowTitleBarAction,
   useWindowToolbarReservation,

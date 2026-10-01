@@ -1,4 +1,4 @@
-import { useWindowBackAction } from "./WindowMenuContext";
+import { useWindowBackAction } from "../window/WindowMenuContext";
 
 interface MiniAppDetailBackAction {
   disabled?: boolean | undefined;
