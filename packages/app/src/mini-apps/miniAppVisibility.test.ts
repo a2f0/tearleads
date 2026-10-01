@@ -1,9 +1,9 @@
 import { expect, test } from "bun:test";
+import { MINI_APP_MENU_ITEMS, ROUTED_MINI_APP_NAV_ITEMS } from "./catalog";
 import {
   filterVisibleMiniAppItems,
   isMiniAppVisible,
 } from "./miniAppVisibility";
-import { MINI_APP_MENU_ITEMS, ROUTED_MINI_APP_NAV_ITEMS } from "./registry";
 
 const appIds = (items: ReadonlyArray<{ appId: string }>) =>
   items.map((item) => item.appId);

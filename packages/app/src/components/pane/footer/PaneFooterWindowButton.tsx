@@ -10,7 +10,7 @@ import {
   type WindowEntry,
 } from "@tearleads/windowing";
 import { useCallback } from "react";
-import { MINI_APP_ICONS } from "../../../mini-apps/registry";
+import { MINI_APP_ICONS } from "../../../mini-apps/catalog";
 import { isMiniAppId } from "../../../mini-apps/types";
 
 // One taskbar entry. Left click activates the window (restoring it when
