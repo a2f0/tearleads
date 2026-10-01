@@ -220,7 +220,7 @@ test("renders the back control from a registered back action and invokes it", as
   expect(backs).toBe(1);
 });
 
-// Windows carry their own Back stack (WindowEntry.miniAppRouteHistory) because
+// Windows carry their own Back stack (WindowEntry.routeHistory) because
 // they are not backed by browser history. A window hosting a routed mini-app
 // shows the same Back affordance the routed app bar does.
 test("shows a history Back caret for a window hosting a routed mini-app", async () => {

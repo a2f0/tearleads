@@ -7,7 +7,7 @@ import {
   DiagnosticsProvider,
 } from "../../providers/logging/DiagnosticsProvider";
 import { MiniAppButton } from "../mini-app/controls/MiniAppButton";
-import { MenuItem } from "./MenuItem";
+import { DiagnosticMenuItem } from "./DiagnosticMenuItem";
 
 afterEach(cleanup);
 
@@ -28,7 +28,7 @@ test.each(["menu", "button"])(
     function View({ disabled = false }: { disabled?: boolean }) {
       const control =
         kind === "menu" ? (
-          <MenuItem
+          <DiagnosticMenuItem
             diagnosticAction="edit"
             label="Private document title"
             disabled={disabled}

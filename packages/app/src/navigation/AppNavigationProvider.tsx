@@ -71,7 +71,7 @@ interface AppNavigationProviderProps extends PropsWithChildren {
 interface AppNavigationRuntime {
   actions: Pick<
     WindowStateActions,
-    "bringToFront" | "create" | "restore" | "updateMiniAppRoute"
+    "bringToFront" | "create" | "restore" | "updateRoute"
   >;
   miniApps: Readonly<Record<MiniAppId, MiniAppDefinition>>;
   mode: AppNavigationMode;
@@ -117,13 +117,12 @@ function AppNavigationWindowRuntimeBridge({
   mode: AppNavigationMode;
   runtimeRef: MutableRefObject<AppNavigationRuntime>;
 }) {
-  const { bringToFront, create, restore, updateMiniAppRoute } =
-    useWindowActions();
+  const { bringToFront, create, restore, updateRoute } = useWindowActions();
   const { windows } = useWindowStateData();
 
   useEffect(() => {
     runtimeRef.current = {
-      actions: { bringToFront, create, restore, updateMiniAppRoute },
+      actions: { bringToFront, create, restore, updateRoute },
       miniApps,
       mode,
       windows,
@@ -135,7 +134,7 @@ function AppNavigationWindowRuntimeBridge({
     mode,
     restore,
     runtimeRef,
-    updateMiniAppRoute,
+    updateRoute,
     windows,
   ]);
 
@@ -285,7 +284,7 @@ function useAppNavigationActionValue(
         actions.restore(existingWindow.id);
         actions.bringToFront(existingWindow.id);
         if (pathSegments) {
-          actions.updateMiniAppRoute(existingWindow.id, pathSegments);
+          actions.updateRoute(existingWindow.id, pathSegments);
         }
         return;
       }
@@ -299,7 +298,7 @@ function useAppNavigationActionValue(
         {
           appId,
           initialShowSidebar: definition.initialShowSidebar,
-          ...(pathSegments ? { miniAppPathSegments: pathSegments } : {}),
+          ...(pathSegments ? { pathSegments } : {}),
         },
       );
     },
@@ -336,7 +335,7 @@ export function AppNavigationProvider({
       bringToFront: () => {},
       create: () => "",
       restore: () => {},
-      updateMiniAppRoute: () => {},
+      updateRoute: () => {},
     },
     miniApps,
     mode,

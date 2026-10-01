@@ -27,7 +27,7 @@
  * **This is deliberately not a question about navigation mode.** It used to be:
  * windowed chrome had no history of any kind, so "windowed" was a sound proxy
  * for "nothing to pop". Windows now carry their own Back stack
- * (`WindowEntry.miniAppRouteHistory`), so that proxy would put the alternating
+ * (`WindowEntry.routeHistory`), so that proxy would put the alternating
  * loop into windowed mode. Ask the host whether it can go back —
  * `useMiniAppRouteSegments().canGoBack` answers for both shells — and never
  * branch on the mode here.
