@@ -35,7 +35,7 @@ function useWindowPointerTracking(
   clamp: (x: number, y: number) => WindowPosition,
   setPosition: (value: WindowPosition) => void,
   setSize: (value: WindowSize | null) => void,
-  commit: () => void,
+  finish: () => void,
 ) {
   useEffect(() => {
     // Only the pointer that started a gesture drives it, so a second finger
@@ -77,7 +77,7 @@ function useWindowPointerTracking(
       }
       dragging.current = null;
       resizing.current = null;
-      commit();
+      finish();
     }
 
     document.addEventListener("pointermove", handlePointerMove);
@@ -90,7 +90,7 @@ function useWindowPointerTracking(
       document.removeEventListener("pointercancel", handlePointerEnd);
       document.removeEventListener("lostpointercapture", handlePointerEnd);
     };
-  }, [clamp, commit, dragging, resizing, setPosition, setSize, windowRef]);
+  }, [clamp, dragging, finish, resizing, setPosition, setSize, windowRef]);
 }
 
 function useLiveGeometry(entry: WindowEntry) {
@@ -296,6 +296,13 @@ export function useWindowGeometry(
     windowRef,
   });
 
+  // A finished gesture commits its geometry, then runs any layout it held
+  // off (a surface resize mid-gesture), even when the geometry did not change.
+  const finishGesture = useCallback(() => {
+    commit();
+    hold(false);
+  }, [commit, hold]);
+
   useWindowPointerTracking(
     windowRef,
     dragging,
@@ -303,7 +310,7 @@ export function useWindowGeometry(
     clamp,
     setPosition,
     setSize,
-    commit,
+    finishGesture,
   );
 
   const { handlePointerDown, handleResizePointerDown } = useGestureStarts(

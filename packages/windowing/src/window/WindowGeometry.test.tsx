@@ -409,3 +409,32 @@ test("losing pointer capture ends a drag and commits it", () => {
 
   expect(committedGeometry(view).position).toEqual({ x: 100, y: 50 });
 });
+
+test("a surface that shrinks during a still drag relays the window out on release", () => {
+  const observers = captureResizeObservers();
+  try {
+    const { view, windowRoot } = renderDesktop({
+      position: { x: 600, y: 500 },
+    });
+    stubLayout(windowRoot, { offsetHeight: 100, offsetWidth: 200 });
+    const titleBar = view.getByRole("toolbar", { name: "Window controls" });
+
+    fireEvent.pointerDown(titleBar, {
+      clientX: 610,
+      clientY: 510,
+      pointerId: 1,
+    });
+    stubLayout(view.getByTestId("surface"), {
+      clientHeight: 550,
+      clientWidth: 700,
+    });
+    act(() => observers.fire());
+    act(() => {
+      fireEvent.pointerUp(document, { pointerId: 1 });
+    });
+
+    expect(committedGeometry(view).position).toEqual({ x: 500, y: 450 });
+  } finally {
+    observers.restore();
+  }
+});
