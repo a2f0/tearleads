@@ -122,6 +122,21 @@ metadir_count=$(cut -d '|' -f 3 "$JAVA_LOG" | LC_ALL=C sort -u | wc -l | tr -d '
 tmpdir_count=$(cut -d '|' -f 4 "$JAVA_LOG" | LC_ALL=C sort -u | wc -l | tr -d '[:space:]')
 [ "$tmpdir_count" -eq 3 ] || fail "TLC runs did not receive distinct Java tmpdirs."
 
+# CI's stdout can be non-blocking, so a report write may fail. That must never
+# abort the check: a pass still exits 0 and a failure keeps TLC's status.
+install_registry valid.txt
+run_check >&- 2>/dev/null ||
+  fail "an unwritable stdout aborted a passing check."
+install_registry valid.txt
+if FAKE_FAIL_CONFIG=formal/alpha/AlphaBroad.cfg FAKE_FAIL_STATUS=17 \
+  run_check >&- 2>/dev/null; then
+  fail "a TLC failure was accepted with an unwritable stdout."
+else
+  closed_status=$?
+fi
+[ "$closed_status" -eq 17 ] ||
+  fail "TLC exit 17 was reported as $closed_status with an unwritable stdout."
+
 # One run at a time, a failure must stop the check before the next run starts.
 # With overlapping runs, which later runs had already started depends on
 # timing, so only the reported failure is asserted there.

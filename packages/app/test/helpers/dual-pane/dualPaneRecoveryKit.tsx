@@ -165,12 +165,10 @@ function getInfoRowTitle(pane: HTMLElement, label: string): string | null {
   );
 }
 
-function queryMenuGetInfoButton(): HTMLElement | null {
-  const buttons = within(document.body)
+function menuGetInfoButtons(): HTMLElement[] {
+  return within(document.body)
     .queryAllByRole("button", { name: "Get Info" })
     .filter((button) => button.closest(".menu") !== null);
-  expect(buttons.length).toBeLessThanOrEqual(1);
-  return buttons[0] ?? null;
 }
 
 async function navigateToPaneExplorerDocumentInfo(
@@ -180,13 +178,14 @@ async function navigateToPaneExplorerDocumentInfo(
 ): Promise<void> {
   // Recovery can replace the folder between the row lookup and the right
   // click, leaving the context menu on a detached row that never opens. Each
-  // poll reacquires the row and reopens the menu until Get Info appears. A
-  // menu is reused only once this helper opened one; another pane's stays.
-  let requested = false;
+  // poll reacquires the row and reopens the menu until Get Info appears. Only a
+  // menu that appears after this helper's own right click counts; another
+  // pane's may still be open.
+  let opened: HTMLElement | null = null;
   const getInfoButton = await waitFor(
     async () => {
-      const open = requested ? queryMenuGetInfoButton() : null;
-      if (open) return open;
+      if (opened?.isConnected) return opened;
+      const before = new Set(menuGetInfoButtons());
       const itemRow = await waitForExplorerDocumentRow(
         pane,
         itemLabel,
@@ -195,8 +194,11 @@ async function navigateToPaneExplorerDocumentInfo(
       await interact(() => {
         fireEvent.contextMenu(itemRow);
       });
-      requested = true;
-      const opened = queryMenuGetInfoButton();
+      const fresh = menuGetInfoButtons().filter(
+        (button) => !before.has(button),
+      );
+      expect(fresh.length).toBeLessThanOrEqual(1);
+      opened = fresh[0] ?? null;
       if (!opened) {
         throw new Error("Expected the Explorer Get Info action.");
       }
