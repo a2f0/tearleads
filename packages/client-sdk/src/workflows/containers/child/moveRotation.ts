@@ -5,6 +5,7 @@ import type {
 } from "@tearleads/crypto";
 import {
   createContainerKekPredecessorBridge,
+  KeyingVerificationError,
   normalizeContainerKekKeyring,
   openContainerKekKeyring,
   sealContainerKekKeyring,
@@ -12,7 +13,6 @@ import {
 import type { ContainerKekResponse } from "@tearleads/validators/response";
 import { resolveContainerKekEpochId } from "../../../data/containers/shared/events";
 import { verifyContainerKekEntries } from "../../../data/documents/shared/containerKekEntryVerification";
-import { manifestHistoryEpochIds } from "../../../data/documents/shared/containerKekPathHistory";
 
 /**
  * A rotation must never launder history it did not verify: an
@@ -26,21 +26,21 @@ export async function verifyKeyringEntriesForSeal(
   containerId: string,
   entries: readonly ContainerKekKeyringEntry[],
   /**
-   * The KEK the entries were opened from. When given, entries are also
-   * anchored to the epoch ids its signed history commits to — a
-   * self-consistent forgery passes the material check but cannot survive
-   * this, so an honest rotation never re-signs one.
+   * The epoch ids the KEK's signed history commits to, wherever the
+   * projection served it (`signedHistoryEpochIds`). A self-consistent forgery
+   * passes the material check but cannot also make a real id disappear, so an
+   * honest rotation never re-signs one. The KEK's own served history alone is
+   * not enough: a server can serve it under another KEK (#2365 finding 32).
    */
-  currentKek?: ContainerKekResponse | undefined,
+  signedEpochIds: ReadonlySet<string>,
 ): Promise<void> {
   await verifyContainerKekEntries(containerId, entries);
-  if (!currentKek) {
-    return;
-  }
   const entryIds = new Set(entries.map((entry) => entry.containerKeyEpochId));
-  for (const historicalId of manifestHistoryEpochIds(currentKek)) {
+  for (const historicalId of signedEpochIds) {
     if (!entryIds.has(historicalId)) {
-      throw new Error(
+      // Classified like the reader's and the override's refusal of it.
+      throw new KeyingVerificationError(
+        "missing_dependency",
         "Container KEK keyring omits an epoch its manifest history commits to",
       );
     }
@@ -57,6 +57,7 @@ export async function sealRotationKeyring(input: {
   currentKek: ContainerKekResponse;
   currentKeyMaterial: Uint8Array;
   keyEpoch: number;
+  signedEpochIds: ReadonlySet<string>;
   successorContainerKey: Uint8Array;
   successorContainerKeyEpochId: string;
 }): Promise<ContainerKekKeyring> {
@@ -70,7 +71,7 @@ export async function sealRotationKeyring(input: {
   await verifyKeyringEntriesForSeal(
     input.containerId,
     previousEntries,
-    input.currentKek,
+    input.signedEpochIds,
   );
   return sealContainerKekKeyring({
     containerId: input.containerId,
@@ -97,6 +98,7 @@ export async function buildContainerRotationArtifacts(input: {
   currentKeyMaterial: Uint8Array;
   keyEpoch: number;
   override?: string | undefined;
+  signedEpochIds: ReadonlySet<string>;
 }): Promise<{
   containerKey: Uint8Array;
   containerKeyEpochId: string;
@@ -122,6 +124,7 @@ export async function buildContainerRotationArtifacts(input: {
     currentKek: input.currentKek,
     currentKeyMaterial: input.currentKeyMaterial,
     keyEpoch: input.keyEpoch,
+    signedEpochIds: input.signedEpochIds,
     successorContainerKey: containerKey,
     successorContainerKeyEpochId: containerKeyEpochId,
   });

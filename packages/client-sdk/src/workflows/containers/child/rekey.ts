@@ -14,10 +14,7 @@ import {
   deriveContainerKekWrappingPublicKey,
   sealContainerKekKeyring,
 } from "@tearleads/crypto";
-import type {
-  ContainerKekResponse,
-  ContainerWriterProjectionResponse,
-} from "@tearleads/validators/response";
+import type { ContainerWriterProjectionResponse } from "@tearleads/validators/response";
 import { assertContainerAuthorAccess } from "../../../data/containers/shared/authorAccess";
 import {
   buildContainerCreateKeyEpoch,
@@ -44,6 +41,7 @@ import {
   requireProjectionUserKeyResolver,
 } from "../../../data/keyingProjectionVerification";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
+import { assertOverrideMatchesSignedLineage } from "./keyringOverrideLineage";
 import {
   sealRotationKeyring,
   verifyKeyringEntriesForSeal,
@@ -57,7 +55,10 @@ import {
   containerWriterProjectionFromRekeyPlan,
   isSpeculativeContainerWriterProjection,
 } from "./rekeyProjection";
-import { resolveRotationContext } from "./rotationContext";
+import {
+  resolveRotationContext,
+  type SignedRotationTarget,
+} from "./rotationContext";
 import { collectContainerRevokePrincipalPolicies } from "./rotationPrincipalPolicies";
 import { buildContainerRotationWraps } from "./rotationWraps";
 import {
@@ -71,7 +72,7 @@ async function buildRekeyRotationArtifacts(input: {
   nextContainerKeyEpoch: number;
   predecessorContainerKey: Uint8Array;
   previousContainerId: string;
-  targetKek: ContainerKekResponse;
+  target: SignedRotationTarget;
 }): Promise<{
   containerKeyEpochId: string;
   keyring: ContainerKekKeyring;
@@ -87,17 +88,23 @@ async function buildRekeyRotationArtifacts(input: {
   const predecessorBridge = await createContainerKekPredecessorBridge({
     containerId: input.previousContainerId,
     predecessorContainerKey: input.predecessorContainerKey,
-    predecessorContainerKeyEpochId: input.targetKek.containerKeyEpochId,
+    predecessorContainerKeyEpochId: input.target.kek.containerKeyEpochId,
     successorContainerKey: input.containerKey,
     successorContainerKeyEpochId: containerKeyEpochId,
   });
   if (input.keyringEntriesOverride) {
     // A rebuilt override still has to agree with the epochs the projection's
     // signed history commits to; otherwise a repair could seal a forgery.
+    // Exact match first, for distinct errors; the seal check below then adds
+    // only the per-entry material check for an override.
+    assertOverrideMatchesSignedLineage(
+      input.keyringEntriesOverride,
+      input.target.signedEpochIds,
+    );
     await verifyKeyringEntriesForSeal(
       input.previousContainerId,
       input.keyringEntriesOverride,
-      input.targetKek,
+      input.target.signedEpochIds,
     );
   }
   const keyring: ContainerKekKeyring = input.keyringEntriesOverride
@@ -106,7 +113,7 @@ async function buildRekeyRotationArtifacts(input: {
         entries: [
           ...input.keyringEntriesOverride,
           {
-            containerKeyEpochId: input.targetKek.containerKeyEpochId,
+            containerKeyEpochId: input.target.kek.containerKeyEpochId,
             keyMaterial: input.predecessorContainerKey,
           },
         ],
@@ -116,9 +123,10 @@ async function buildRekeyRotationArtifacts(input: {
       })
     : await sealRotationKeyring({
         containerId: input.previousContainerId,
-        currentKek: input.targetKek,
+        currentKek: input.target.kek,
         currentKeyMaterial: input.predecessorContainerKey,
         keyEpoch: input.nextContainerKeyEpoch,
+        signedEpochIds: input.target.signedEpochIds,
         successorContainerKey: input.containerKey,
         successorContainerKeyEpochId: containerKeyEpochId,
       });
@@ -270,7 +278,7 @@ export async function buildMaterializedContainerRekeyPlan(
       nextContainerKeyEpoch: target.kek.containerKeyEpoch + 1,
       predecessorContainerKey,
       previousContainerId: previousState.containerId,
-      targetKek: target.kek,
+      target,
     });
   const principalPolicies = await collectRekeyPrincipalPolicies(
     planningInput,
