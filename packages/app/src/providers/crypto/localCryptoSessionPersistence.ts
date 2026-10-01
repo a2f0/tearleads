@@ -19,6 +19,8 @@ const LOCAL_CRYPTO_SESSION_STORAGE_PREFIX = "tearleads.local-session:";
 
 interface CryptoSessionWriteState {
   generation: number;
+  /** A restore reload wrote this key's final record for the page. */
+  sealed: boolean;
   tail: Promise<void>;
 }
 
@@ -39,6 +41,28 @@ export interface PersistedCryptoSessionContext {
   readonly isRoot: boolean;
   readonly organizationId: string | null;
   readonly userId: string | null;
+}
+
+/**
+ * The record a backup restore leaves before reloading (#2365 finding 24). The
+ * restored database must re-derive its root, so the session is signed out and
+ * pins no container, but the identity's root acknowledgements stay: a restore
+ * is no reason to accept a different root for an organization this identity
+ * already acknowledged.
+ */
+export function restoreReloadCryptoSessionContext(
+  context: PersistedCryptoSessionContext,
+): PersistedCryptoSessionContext {
+  return {
+    authToken: null,
+    containerId: null,
+    defaultOrganizationId: null,
+    isAuthenticated: false,
+    isRoot: false,
+    organizationId: null,
+    rootAcknowledgments: context.rootAcknowledgments,
+    userId: context.userId,
+  };
 }
 
 /**
@@ -312,21 +336,25 @@ function cryptoSessionWriteState(storageKey: string): CryptoSessionWriteState {
   if (existing) {
     return existing;
   }
-  const created = { generation: 0, tail: Promise.resolve() };
+  const created = { generation: 0, sealed: false, tail: Promise.resolve() };
   cryptoSessionWrites.set(storageKey, created);
   return created;
 }
 
 /** Serialize writes so an identity transition can durably flush its session. */
 export function queueCryptoSessionPersistence(
-  input: Parameters<typeof persistCryptoSession>[0],
+  input: Parameters<typeof persistCryptoSession>[0] & {
+    /** Seal the key after this write, so nothing replaces it before reload. */
+    readonly final?: boolean | undefined;
+  },
 ): Promise<boolean> {
   const state = cryptoSessionWriteState(input.localPersistence.storageKey);
   const generation = state.generation;
   const operation = state.tail.then(async () => {
-    if (state.generation !== generation) {
+    if (state.generation !== generation || state.sealed) {
       return false;
     }
+    if (input.final) state.sealed = true;
     const persisted = await persistCryptoSession(input);
     if (state.generation !== generation) {
       input.localPersistence.storage.removeItem(
@@ -349,6 +377,17 @@ function clearPersistedCryptoSession(
 ): void {
   cryptoSessionWriteState(storageKey).generation += 1;
   storage.removeItem(storageKey);
+}
+
+/** Removes a session record and seals its key until the page reloads. */
+export function discardCryptoSessionForReload(
+  localPersistence: LocalCryptoSessionPersistence,
+): void {
+  cryptoSessionWriteState(localPersistence.storageKey).sealed = true;
+  clearPersistedCryptoSession(
+    localPersistence.storage,
+    localPersistence.storageKey,
+  );
 }
 
 export function clearPersistedCryptoSessionForIdentity(input: {

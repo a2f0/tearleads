@@ -48,6 +48,7 @@ beforeEach(() => {
     login,
     loginWithChallenge: async () => true,
     logout: () => undefined,
+    prepareForRestoreReload: async () => undefined,
     authToken: null,
     userId: null,
     organizationId: null,
