@@ -59,6 +59,20 @@ export function booleanExpression(expression: SQL): SQL<boolean> {
   return sql<boolean>`${expression}`.mapWith(readBooleanFromDriver);
 }
 
+// A uuid column compared with a uuid read from JSON text. Postgres must compare
+// in the column's own type to use its index; casting the column to text forces
+// a pass over every row. Only lowercase canonical text casts, so the match is
+// exactly the text equality it replaces, and malformed text matches nothing
+// instead of failing the statement. SQLite stores uuids as text already.
+export function uuidColumnEqualsJsonText(
+  column: SQL,
+  jsonText: SQL,
+): SQL<boolean> {
+  return isSqliteApiDatabase()
+    ? sql<boolean>`${column} = ${jsonText}`
+    : sql<boolean>`${column} = case when ${jsonText} ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' then (${jsonText})::uuid end`;
+}
+
 export function jsonTextProperty(expression: SQL, property: string): SQL {
   return isSqliteApiDatabase()
     ? sql`json_extract(${expression}, ${`$.${property}`})`

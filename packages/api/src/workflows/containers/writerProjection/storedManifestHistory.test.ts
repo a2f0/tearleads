@@ -1,11 +1,20 @@
-import { expect, spyOn, test } from "bun:test";
+import { beforeAll, beforeEach, expect, spyOn, test } from "bun:test";
 import * as crypto from "@tearleads/crypto";
 import { signedContainerHistory } from "../../../../test/helpers/storedManifestHistory";
 import { verifyStoredContainerManifest } from "./storedManifestVerification";
 
+// Signing dominates these tests, so both share one history; each starts from no
+// markers, as after a new deployment secret or verifier version.
+let history: Awaited<ReturnType<typeof signedContainerHistory>>;
+beforeAll(async () => {
+  history = await signedContainerHistory(4_098);
+}, 300_000);
+beforeEach(() => {
+  history.markers.clear();
+});
+
 test("a long container history verifies in full without any marker", async () => {
-  const { bundles, createContext, loadBundle, markers } =
-    await signedContainerHistory(4_098);
+  const { bundles, createContext, loadBundle, markers } = history;
   const head = bundles.at(-1);
   if (!head) throw new Error("Missing history head");
   // No markers at all: a new deployment secret or verifier version.
@@ -22,9 +31,8 @@ test("a long container history verifies in full without any marker", async () =>
 }, 300_000);
 
 test("a marked history is not walked or re-signed after a restart", async () => {
-  const { bundles, createContext, loadBundle } =
-    await signedContainerHistory(2_050);
-  const head = bundles.at(-1);
+  const { bundles, createContext, loadBundle } = history;
+  const head = bundles[2_049];
   const middle = bundles[1_024];
   if (!head || !middle) throw new Error("Missing history fixture");
   await verifyStoredContainerManifest({

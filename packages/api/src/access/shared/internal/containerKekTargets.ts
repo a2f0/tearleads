@@ -12,7 +12,7 @@ import {
   isSqlBooleanValue,
   jsonTextProperty,
   readSqlBoolean,
-  textExpression,
+  uuidColumnEqualsJsonText,
   uuidExpression,
   visitedPathAppend,
   visitedPathContains,
@@ -248,15 +248,16 @@ export async function loadCurrentContainerManifestTargetClosure(input: {
           sql`h.object_id`,
         )} as cycle_detected,
         ap.depth + 1
+      -- CROSS JOIN pins SQLite to one head lookup per level.
       from ancestor_path ap
-      inner join ${accessManifestHeads} h
-        on h.object_kind = 'container'
-        and ${textExpression(sql`h.object_id`)} = ${jsonTextProperty(
-          sql`ap.state`,
-          "parentContainerId",
-        )}
+      cross join ${accessManifestHeads} h
       inner join ${accessManifests} m on m.manifest_hash = h.manifest_hash
-      where not ap.cycle_detected
+      where h.object_kind = 'container'
+        and ${uuidColumnEqualsJsonText(
+          sql`h.object_id`,
+          jsonTextProperty(sql`ap.state`, "parentContainerId"),
+        )}
+        and not ap.cycle_detected
         and ap.depth < ${MAX_CONTAINER_PATH_LENGTH - 1}
         and ${jsonTextProperty(sql`ap.state`, "parentContainerId")} is not null
     )
