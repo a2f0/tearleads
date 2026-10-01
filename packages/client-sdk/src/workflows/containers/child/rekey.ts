@@ -95,6 +95,8 @@ async function buildRekeyRotationArtifacts(input: {
   if (input.keyringEntriesOverride) {
     // A rebuilt override still has to agree with the epochs the projection's
     // signed history commits to; otherwise a repair could seal a forgery.
+    // Exact match first, for distinct errors; the seal check below then adds
+    // only the per-entry material check for an override.
     assertOverrideMatchesSignedLineage(
       input.keyringEntriesOverride,
       input.target.signedEpochIds,

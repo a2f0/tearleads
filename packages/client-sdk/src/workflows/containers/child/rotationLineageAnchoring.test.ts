@@ -8,6 +8,7 @@ import {
 import { createChildContainerProjection } from "../../../../test/helpers/projectionHierarchy";
 import {
   CHILD_ID,
+  type RelocatedChildHistory,
   relocatedChildHistory,
   servingForgedKeyring,
 } from "../../../../test/helpers/relocatedLineage";
@@ -20,9 +21,13 @@ import { revokeRemoteContainer } from "./revoke";
 // verified lineage, threaded to the seal, refuses it (#2365 finding 32).
 const REFUSAL = "omits an epoch its manifest history commits to";
 
-async function forgedRotationScenario() {
+async function rotationScenario(
+  serve: (
+    scenario: RelocatedChildHistory,
+  ) => Promise<ContainerWriterProjectionResponse>,
+) {
   const scenario = await relocatedChildHistory();
-  const projection = await servingForgedKeyring(scenario);
+  const projection = await serve(scenario);
   const submitted: ContainerMutationRequest[] = [];
   const respond = async (request: ContainerMutationRequest) => {
     submitted.push(request);
@@ -51,7 +56,7 @@ async function forgedRotationScenario() {
 
 test("a rekey refuses to re-seal a forged keyring over relocated history", async () => {
   const { common, projection, respond, submitted } =
-    await forgedRotationScenario();
+    await rotationScenario(servingForgedKeyring);
   await expect(
     rekeyRemoteContainer({
       ...common,
@@ -67,7 +72,7 @@ test("a rekey refuses to re-seal a forged keyring over relocated history", async
 
 test("a revoke refuses to re-seal a forged keyring over relocated history", async () => {
   const { common, projection, respond, submitted } =
-    await forgedRotationScenario();
+    await rotationScenario(servingForgedKeyring);
   await expect(
     revokeRemoteContainer({
       ...common,
@@ -83,9 +88,10 @@ test("a revoke refuses to re-seal a forged keyring over relocated history", asyn
   expect(submitted).toEqual([]);
 });
 
-test("a move refuses to re-seal a forged keyring over relocated history", async () => {
-  const { common, projection, respond, scenario, submitted } =
-    await forgedRotationScenario();
+async function moveOverRelocatedHistory(
+  setup: Awaited<ReturnType<typeof rotationScenario>>,
+) {
+  const { common, projection, respond, scenario } = setup;
   const destination = await createChildContainerProjection({
     containerId: "lineage-destination",
     parent: scenario.parent,
@@ -95,17 +101,45 @@ test("a move refuses to re-seal a forged keyring over relocated history", async 
     [CHILD_ID, projection],
     [destination.projection.containerId, destination.projection],
   ]);
-  await expect(
-    moveRemoteContainer({
-      ...common,
-      apiClient: {
-        reciteContainer: async () => null,
-        getContainerWriterProjection: async (containerId) =>
-          projections.get(containerId) ?? null,
-        moveContainer: async (_containerId, request) => respond(request),
-      },
-      destinationParentContainerId: destination.projection.containerId,
-    }),
-  ).rejects.toThrow(REFUSAL);
-  expect(submitted).toEqual([]);
+  return moveRemoteContainer({
+    ...common,
+    apiClient: {
+      reciteContainer: async () => null,
+      getContainerWriterProjection: async (containerId) =>
+        projections.get(containerId) ?? null,
+      moveContainer: async (_containerId, request) => respond(request),
+    },
+    destinationParentContainerId: destination.projection.containerId,
+  });
+}
+
+test("a move refuses to re-seal a forged keyring over relocated history", async () => {
+  const setup = await rotationScenario(servingForgedKeyring);
+  await expect(moveOverRelocatedHistory(setup)).rejects.toThrow(REFUSAL);
+  expect(setup.submitted).toEqual([]);
+});
+
+// No-brick: the same relocation with the honest served keyring still rotates.
+const servingHonestKeyring = async (scenario: RelocatedChildHistory) =>
+  scenario.projection;
+
+test("an honest rekey over relocated history still re-seals", async () => {
+  const { common, projection, respond, submitted } =
+    await rotationScenario(servingHonestKeyring);
+  const rekeyed = await rekeyRemoteContainer({
+    ...common,
+    apiClient: {
+      reciteContainer: async () => null,
+      getContainerWriterProjection: async () => projection,
+      rekeyContainer: async (_containerId, request) => respond(request),
+    },
+  });
+  expect(rekeyed).not.toBeNull();
+  expect(submitted).toHaveLength(1);
+});
+
+test("an honest move over relocated history still re-seals", async () => {
+  const setup = await rotationScenario(servingHonestKeyring);
+  expect(await moveOverRelocatedHistory(setup)).not.toBeNull();
+  expect(setup.submitted).toHaveLength(1);
 });

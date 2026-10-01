@@ -5,6 +5,7 @@ import type {
 } from "@tearleads/crypto";
 import {
   createContainerKekPredecessorBridge,
+  KeyingVerificationError,
   normalizeContainerKekKeyring,
   openContainerKekKeyring,
   sealContainerKekKeyring,
@@ -37,7 +38,9 @@ export async function verifyKeyringEntriesForSeal(
   const entryIds = new Set(entries.map((entry) => entry.containerKeyEpochId));
   for (const historicalId of signedEpochIds) {
     if (!entryIds.has(historicalId)) {
-      throw new Error(
+      // Classified like the reader's and the override's refusal of it.
+      throw new KeyingVerificationError(
+        "missing_dependency",
         "Container KEK keyring omits an epoch its manifest history commits to",
       );
     }
