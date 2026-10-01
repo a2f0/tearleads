@@ -323,12 +323,28 @@ export const NEGATIVE_CONTROLS: readonly NegativeControl[] = [
     why: "A dishonest server can serve a signed successor that reintroduces an older group reference (#2266).",
   },
   {
+    id: "group-grant-shrink-keeps-key",
+    module: "formal/container-keying/GroupGrantRevocation.tla",
+    config: "formal/container-keying/GroupGrantRevocation.cfg",
+    constants: { RotateGroupOnGrantRemoval: "FALSE" },
+    expect: { kind: "invariant", name: "RevokedGrantUnreadableByLaterMembers" },
+    why: "A group that drops a container grant without rotating its key hands a later joiner the key its retained container wraps are sealed to (#2365 finding 20).",
+  },
+  {
     id: "empty-frontier-unlink-unlocked",
     module: "formal/document-sync/EmptyFrontierUnlink.tla",
     config: "formal/document-sync/EmptyFrontierUnlink.cfg",
     constants: { LockedUnlink: "FALSE" },
     expect: { kind: "invariant", name: "NoDataLoss" },
     why: "Without the manifest-head lock a writer commits between the emptiness proof and the unlink commit, and the rotation orphans its update.",
+  },
+  {
+    id: "empty-frontier-link-advances-epoch",
+    module: "formal/document-sync/EmptyFrontierUnlink.tla",
+    config: "formal/document-sync/EmptyFrontierUnlink.cfg",
+    constants: { RequireBaselineOnEpochAdvance: "FALSE" },
+    expect: { kind: "invariant", name: "NoDataLoss" },
+    why: "A link carries no rotation baseline, so accepting one that advances the content-key epoch strands committed updates from the new container's members (#2365 finding 28).",
   },
 ];
 

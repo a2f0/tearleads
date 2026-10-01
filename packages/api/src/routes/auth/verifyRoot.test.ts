@@ -16,6 +16,7 @@ async function verifyAndReadIsRoot(): Promise<boolean> {
   invariant(typeof challenge === "string", "expected challenge string");
   const signature = sign(
     authChallengeSigningBytes({
+      apiOrigin: "http://localhost",
       challengeHex: challenge,
       fingerprint: user.fingerprint,
     }),

@@ -1,4 +1,8 @@
 import {
+  authChallengeSigningBytes,
+  canonicalAuthOrigin,
+} from "@tearleads/crypto";
+import {
   bindPrototypeMethods,
   describeErrorResponse,
   type ErrorResponseDescription,
@@ -47,6 +51,23 @@ export class ApiRequestRuntime {
     this.responseRequest = Object.assign(this.makeResponseRequest, {
       reportFailure: this.reportResponseRequestFailure,
     });
+  }
+
+  /**
+   * The bytes a login challenge is signed as, bound to the API this client
+   * addresses. A relative base URL resolves against the page, as its requests
+   * do; with neither, there is no API origin to sign for.
+   */
+  authChallengeBytes(challengeHex: string, fingerprint: string): Uint8Array {
+    let apiOrigin: string;
+    try {
+      apiOrigin = canonicalAuthOrigin(
+        new URL(this.baseUrl || "/", globalThis.location?.href).href,
+      );
+    } catch {
+      throw new Error("The API origin is unavailable for authentication");
+    }
+    return authChallengeSigningBytes({ apiOrigin, challengeHex, fingerprint });
   }
 
   setOnError(handler: ((message: string) => void) | null): void {

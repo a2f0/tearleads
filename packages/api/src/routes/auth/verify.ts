@@ -13,7 +13,14 @@ import {
 import type { ApiServiceRuntime } from "../../services/runtime";
 import { jsonRequestValidator } from "../../validators/jsonRequest";
 
-export function createVerifyRoute(runtime: ApiServiceRuntime) {
+/**
+ * `publicOrigin` is the configured origin login challenges must be signed
+ * for; null lets each request's own origin stand in (development only).
+ */
+export function createVerifyRoute(
+  runtime: ApiServiceRuntime,
+  publicOrigin: string | null,
+) {
   const verifyRoute = new Hono<SessionEnv>();
 
   verifyRoute.on(
@@ -24,6 +31,7 @@ export function createVerifyRoute(runtime: ApiServiceRuntime) {
       try {
         const result = await verifyChallenge(runtime, {
           ...c.req.valid("json"),
+          apiOrigin: publicOrigin ?? new URL(c.req.url).origin,
           ipAddress: readRequestIpAddress(c),
         });
 

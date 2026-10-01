@@ -14,6 +14,7 @@ interface AuthRouterDeps {
   readonly destroySession: LogoutRouteDeps["destroySession"];
   readonly destroyUserSession: SessionsRouteDeps["destroyUserSession"];
   readonly listUserSessions: SessionsRouteDeps["listUserSessions"];
+  readonly publicOrigin: string | null;
   readonly requireAuth: MiddlewareHandler<SessionEnv>;
   readonly runtime: ApiServiceRuntime;
 }
@@ -22,6 +23,7 @@ export function createAuthRouter({
   destroySession,
   destroyUserSession,
   listUserSessions,
+  publicOrigin,
   requireAuth,
   runtime,
 }: AuthRouterDeps) {
@@ -30,7 +32,7 @@ export function createAuthRouter({
   auth.route("/", createChallengeRoute(runtime));
   auth.route("/", createUserIdentityRoute({ requireAuth, runtime }));
   auth.route("/", createRegisterRoute(runtime));
-  auth.route("/", createVerifyRoute(runtime));
+  auth.route("/", createVerifyRoute(runtime, publicOrigin));
   auth.route("/", createLogoutRoute({ destroySession, requireAuth }));
   auth.route("/", createWsTicketRoute({ requireAuth }));
   auth.route(
