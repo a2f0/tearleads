@@ -355,7 +355,9 @@ export async function unwrapContainerKekPathWithHistoryFailures(
   // Kept for the keyring checks, which anchor to the verified lineage.
   const input = {
     ...rawInput,
-    verifiedByHash: rawInput.verifiedByHash ?? new Map(),
+    verifiedByHash:
+      rawInput.verifiedByHash ??
+      new Map<string, VerifiedContainerAccessManifest>(),
   };
   await verifyContainerKekPathProjection(input);
 

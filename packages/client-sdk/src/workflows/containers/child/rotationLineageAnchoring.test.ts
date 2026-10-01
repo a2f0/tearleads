@@ -19,7 +19,9 @@ import { revokeRemoteContainer } from "./revoke";
 // Each rotation re-seals the served keyring. Served over relocated history,
 // a forged epoch-1 entry passes the KEK's own history check; only the
 // verified lineage, threaded to the seal, refuses it (#2365 finding 32).
-const REFUSAL = "omits an epoch its manifest history commits to";
+// The seal's own prefix: the reader's refusal ends the same way.
+const REFUSAL =
+  "Container KEK keyring omits an epoch its manifest history commits to";
 
 async function rotationScenario(
   serve: (
