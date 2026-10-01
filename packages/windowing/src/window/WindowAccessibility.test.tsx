@@ -42,7 +42,8 @@ function Desktop({
   options: WindowCreateOptions;
 }) {
   const { windows } = useWindowStateData();
-  const { create, minimize, restore, toggleMaximize } = useWindowActions();
+  const { bringToFront, create, minimize, restore, toggleMaximize } =
+    useWindowActions();
   const [desktopShown, setDesktopShown] = useState(true);
   const first = windows[0];
 
@@ -65,6 +66,9 @@ function Desktop({
       </button>
       <button type="button" onClick={() => setDesktopShown((shown) => !shown)}>
         Toggle desktop
+      </button>
+      <button type="button" onClick={() => first && bringToFront(first.id)}>
+        Raise first notes
       </button>
       <output aria-label="committed geometry">
         {first
@@ -287,4 +291,17 @@ test("a window that mounts maximized takes focus", () => {
   expect(
     document.activeElement === view.getByRole("region", { name: "Notes" }),
   ).toBe(true);
+});
+
+test("windows remounting together leave focus on the foremost one", () => {
+  const { view } = openNotes();
+  fireEvent.click(view.getByRole("button", { name: "Open notes" }));
+  fireEvent.click(view.getByRole("button", { name: "Raise first notes" }));
+  fireEvent.click(view.getByRole("button", { name: "Toggle desktop" }));
+  view.getByRole("button", { name: "Open notes" }).focus();
+
+  fireEvent.click(view.getByRole("button", { name: "Toggle desktop" }));
+
+  const [first] = view.getAllByRole("region", { name: "Notes" });
+  expect(document.activeElement === first).toBe(true);
 });

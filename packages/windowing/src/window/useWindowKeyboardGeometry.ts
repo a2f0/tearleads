@@ -176,10 +176,11 @@ export function useWindowGeometryMenuItems(
 // Moves focus into a window when it opens or comes back from minimized, unless
 // focus is already inside it, such as an autofocused field. `shown` must only
 // turn true once the window is laid out and visible: browsers ignore focus on
-// an element that is still `visibility: hidden`.
+// an element that is still `visibility: hidden`. Only the foremost window takes
+// focus, so windows remounting together leave it on the front one.
 export function useFocusWindowOnShow(
   windowRef: RefObject<HTMLElement | null>,
-  shown: boolean,
+  { isTop, shown }: { isTop: boolean; shown: boolean },
 ) {
   const hidden = useRef(true);
 
@@ -193,8 +194,8 @@ export function useFocusWindowOnShow(
     }
     hidden.current = false;
     const root = windowRef.current;
-    if (root && !root.contains(document.activeElement)) {
+    if (isTop && root && !root.contains(document.activeElement)) {
       root.focus({ preventScroll: true });
     }
-  }, [shown, windowRef]);
+  }, [isTop, shown, windowRef]);
 }

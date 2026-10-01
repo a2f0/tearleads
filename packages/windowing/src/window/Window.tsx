@@ -34,6 +34,7 @@ import {
   WindowSidebarProvider,
 } from "./WindowSidebarContext";
 import {
+  findTopWindow,
   useWindowActions as useWindowStateActions,
   useWindowStateData,
   type WindowEntry,
@@ -58,12 +59,21 @@ interface WindowProps {
 const WINDOW_STATUS_MESSAGE_DURATION_MS = 2500;
 
 export function Window({ ContentBoundary, windowId }: WindowProps) {
-  const { windowMap } = useWindowStateData();
+  const { windowMap, windows } = useWindowStateData();
   const entry = windowMap.get(windowId);
+  const isTop =
+    findTopWindow(windows, (candidate) => !candidate.minimized)?.id ===
+    windowId;
 
   if (!entry) return null;
 
-  return <WindowInner ContentBoundary={ContentBoundary} entry={entry} />;
+  return (
+    <WindowInner
+      ContentBoundary={ContentBoundary}
+      entry={entry}
+      isTop={isTop}
+    />
+  );
 }
 
 function useWindowActions(
@@ -245,13 +255,19 @@ function WindowResizeHandles({
 interface WindowInnerProps {
   ContentBoundary?: WindowContentBoundary | undefined;
   entry: WindowEntry;
+  // Whether this is the foremost visible window, the one that takes focus.
+  isTop: boolean;
 }
 
-function WindowInner({ ContentBoundary, entry }: WindowInnerProps) {
+function WindowInner({ ContentBoundary, entry, isTop }: WindowInnerProps) {
   return (
     <WindowMenuProvider>
       <WindowSidebarProvider>
-        <WindowInnerContent ContentBoundary={ContentBoundary} entry={entry} />
+        <WindowInnerContent
+          ContentBoundary={ContentBoundary}
+          entry={entry}
+          isTop={isTop}
+        />
       </WindowSidebarProvider>
     </WindowMenuProvider>
   );
@@ -324,7 +340,11 @@ function useWindowRootHandlers(windowId: string) {
   return { handleGoBack, handleWindowPointerDown, windowContextMenuTrapProps };
 }
 
-function WindowInnerContent({ ContentBoundary, entry }: WindowInnerProps) {
+function WindowInnerContent({
+  ContentBoundary,
+  entry,
+  isTop,
+}: WindowInnerProps) {
   const { maximized, minimized, zIndex, component: Component } = entry;
   const windowRef = useRef<HTMLElement>(null);
   const titleId = useId();
@@ -354,10 +374,10 @@ function WindowInnerContent({ ContentBoundary, entry }: WindowInnerProps) {
     hasSidebar,
   );
   // A maximized window fills its surface without a laid-out position.
-  useFocusWindowOnShow(
-    windowRef,
-    !minimized && (maximized || position !== null),
-  );
+  useFocusWindowOnShow(windowRef, {
+    isTop,
+    shown: !minimized && (maximized || position !== null),
+  });
   const { suppressToolbar, toolbarSuppressed } = useWindowToolbarSuppression();
   const { handleGoBack, handleWindowPointerDown, windowContextMenuTrapProps } =
     useWindowRootHandlers(entry.id);
