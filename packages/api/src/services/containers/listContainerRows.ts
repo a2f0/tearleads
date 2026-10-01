@@ -12,6 +12,7 @@ import {
   jsonTextProperty,
   readDateValue,
   textExpression,
+  uuidValue,
 } from "../../utils/sqlDialect";
 import { currentPrincipalStateHashSql } from "../../workflows/principals/currentPrincipalStateSql";
 import type { ApiServiceRuntime } from "../runtime";
@@ -118,6 +119,13 @@ export async function listAccessibleContainersForUser(input: {
           principalType: sql`pmp.principal_type`,
         })}
     ),
+    grant_subjects as (
+      select
+        ${"user"} as principal_type,
+        ${uuidValue(input.userId)} as principal_id
+      union all
+      select principal_type, principal_id from reachable_principals
+    ),
     target_parent_path as (
       select
         c.id,
@@ -151,29 +159,34 @@ export async function listAccessibleContainersForUser(input: {
         h.epoch,
         h.manifest_hash,
         m.state
-      from ${containers} parent
-      inner join target_parent_path child
-        on child.parent_id = parent.id
-      inner join ${accessManifestHeads} h
-        on h.object_kind = ${"container"}
+      -- CROSS JOIN keeps each step at one parent lookup; SQLite otherwise
+      -- starts from every container head.
+      from target_parent_path child
+      cross join ${containers} parent
+      cross join ${accessManifestHeads} h
+      cross join ${accessManifests} m
+      where parent.id = child.parent_id
+        and h.object_kind = ${"container"}
         and h.object_id = parent.id
-      inner join ${accessManifests} m
-        on m.manifest_hash = h.manifest_hash
+        and m.manifest_hash = h.manifest_hash
     ),
     authorized_parent as (
       select 1
+      -- From the parent path's own manifests, never every grant row.
       from target_parent_path parent
-      inner join ${accessManifestContainerGrantProjection} grant_projection
-        on grant_projection.manifest_hash = parent.manifest_hash
+      cross join ${accessManifestContainerGrantProjection} grant_projection
       left join reachable_principals rp
         on grant_projection.subject_type = rp.principal_type
         and grant_projection.subject_id = rp.principal_id
       where
-        (
-          grant_projection.subject_type = ${"user"}
-          and grant_projection.subject_id = ${input.userId}
+        grant_projection.manifest_hash = parent.manifest_hash
+        and (
+          (
+            grant_projection.subject_type = ${"user"}
+            and grant_projection.subject_id = ${input.userId}
+          )
+          or rp.principal_id is not null
         )
-        or rp.principal_id is not null
       limit 1
     ),
     parent_lane_candidate_containers as (
@@ -188,13 +201,20 @@ export async function listAccessibleContainersForUser(input: {
         h.epoch,
         h.manifest_hash,
         m.state
+      -- From the parent's children via its index; CROSS JOIN stops SQLite
+      -- from starting at every container head. A root listing shows only
+      -- directly granted containers, so it needs no parent lane at all.
       from ${containers} c
-      inner join ${accessManifestHeads} h
-        on h.object_kind = ${"container"}
+      cross join ${accessManifestHeads} h
+      cross join ${accessManifests} m
+      where ${
+        input.parentId === null
+          ? sql`false`
+          : parentIdPredicate(sql`c.parent_id`, input.parentId)
+      }
+        and h.object_kind = ${"container"}
         and h.object_id = c.id
-      inner join ${accessManifests} m
-        on m.manifest_hash = h.manifest_hash
-      where ${parentIdPredicate(sql`c.parent_id`, input.parentId)}
+        and m.manifest_hash = h.manifest_hash
     ),
     directly_granted_containers as (
       select
@@ -221,23 +241,21 @@ export async function listAccessibleContainersForUser(input: {
           h.manifest_hash,
           m.state,
           row_number() over (partition by c.id order by h.epoch desc) as rn
-        from ${containers} c
-        inner join ${accessManifestHeads} h
-          on h.object_kind = ${"container"}
-          and h.object_id = c.id
-        inner join ${accessManifests} m
-          on m.manifest_hash = h.manifest_hash
-        inner join ${accessManifestContainerGrantProjection} grant_projection
-          on grant_projection.manifest_hash = h.manifest_hash
-        left join reachable_principals rp
-          on grant_projection.subject_type = rp.principal_type
-          and grant_projection.subject_id = rp.principal_id
+        -- Driven from this user's grant subjects through the subject index.
+        -- CROSS JOIN fixes SQLite's join order; it otherwise starts from
+        -- every container or head. Postgres treats these as inner joins.
+        from grant_subjects subject
+        cross join ${accessManifestContainerGrantProjection} grant_projection
+        cross join ${accessManifestHeads} h
+        cross join ${containers} c
+        cross join ${accessManifests} m
         where
-          (
-            grant_projection.subject_type = ${"user"}
-            and grant_projection.subject_id = ${input.userId}
-          )
-          or rp.principal_id is not null
+          grant_projection.subject_type = subject.principal_type
+          and grant_projection.subject_id = subject.principal_id
+          and h.manifest_hash = grant_projection.manifest_hash
+          and h.object_kind = ${"container"}
+          and c.id = h.object_id
+          and m.manifest_hash = h.manifest_hash
       ) ranked_direct_grants
       where rn = 1
     ),
