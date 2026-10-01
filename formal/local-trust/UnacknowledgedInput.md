@@ -10,6 +10,8 @@ user ID for the same signing identity.
 | `Discover` | `upsertDiscoveredDocumentWithExec` returns `loadPendingCreateSummary` unchanged |
 | `DeferLinkDiscovery` / `linkedScope` | `withoutDeferredDocumentLinks` preserves pending link projections in single and batched discovery |
 | `VerifyCreate` | `adoptExistingRemoteDocument` checks `assertExpectedAdoptionScope` and verifies the projection |
+| `DiscoverContainer` / `VerifyContainerAdoption` | a listing with remote metadata reaches the adoption branch of `trySyncPendingContainerContentsContainerCreateIntent` |
+| `AdoptContainerCreate` | `assertContainerCreateAdoptable` walks the verified projection to its create with `verifiedContainerCreateManifest` and checks signer and organization; a different committed parent is queued as a move by `settleContainerCreateIntentRevision` |
 | `SwitchIdentity` | `IdentityService.setKeyPairs` changes the active signing identity |
 | `BeginLogin` / `FinishLogin` | `SessionService.login` captures and rechecks the identity snapshot |
 | `EnforceLoginBinding` | `SessionIdentityAcknowledgments.assertMatches` runs before pinning login's user ID |
@@ -22,7 +24,9 @@ establish its first binding. TLC explores repeated login attempts, switching
 identities while login is pending, unsigned discovery, and verified adoption.
 Failed create verification is modeled as taking no adoption step.
 It checks that adoption preserves the verified intended scope and that no
-existing acknowledgment changes. The four vulnerable rules have registered
+existing acknowledgment changes. A pending container create follows the same
+rule (#2365 finding 26): `ContainerAdoptionHasVerifiedScope` holds only when
+adoption verifies the signed create. The five vulnerable rules have registered
 negative controls.
 
 The identity abstraction is a signing-key fingerprint within one SDK client's

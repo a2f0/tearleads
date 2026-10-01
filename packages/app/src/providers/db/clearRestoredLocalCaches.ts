@@ -1,23 +1,22 @@
 // After a local backup is restored, the SQLite database and its root container
 // have been replaced, but browser-local caches written BEFORE the restore still
-// point at the pre-restore root:
-//   - tearleads.local-session:*  the persisted crypto session, which pins the
-//     active root container (see localCryptoSessionPersistence.ts);
-//   - tearleads.documents*, tearleads.container-metadata*  the per-scope CRDT
-//     peer seeds for the documents / container-metadata trees (see the
-//     DOCUMENTS_APP_KIND / CONTAINER_METADATA_APP_KIND scopes fed to
-//     getScopedPeerSeed in client-sdk's crdtPeerSeed.ts).
-// A plain reload re-bootstraps against those stale caches and surfaces an empty
-// root, so Explorer/Notes look empty even though the rows were restored. Clearing
-// them lets the next reload re-derive the root container and read models from the
-// restored database.
+// point at the pre-restore root: tearleads.documents* and
+// tearleads.container-metadata*, the per-scope CRDT peer seeds for the
+// documents / container-metadata trees (see the DOCUMENTS_APP_KIND /
+// CONTAINER_METADATA_APP_KIND scopes fed to getScopedPeerSeed in client-sdk's
+// crdtPeerSeed.ts). A plain reload re-bootstraps against those stale caches and
+// surfaces an empty root, so Explorer/Notes look empty even though the rows
+// were restored. Clearing them lets the next reload re-derive the root
+// container and read models from the restored database.
 //
-// The identity registry (tearleads.app.local-identity-*) is deliberately left
-// intact so the same per-identity database file is reopened. This mirrors the
-// screenshot pipeline's clearStaleLocalState (packages/app-web/screenshots/
-// appShell.ts) — keep the two prefix lists in sync.
+// The persisted crypto session (tearleads.local-session:*) is not cleared: it
+// holds the identity's root acknowledgements, which a restore must not discard
+// (#2365 finding 24). The crypto provider's prepareForRestoreReload rewrites the
+// active identity's record signed out, with no pinned root, before this runs;
+// other identities' databases were not replaced. The identity registry
+// (tearleads.app.local-identity-*) is also kept, so the same per-identity
+// database file is reopened.
 const STALE_RESTORE_CACHE_PREFIXES = [
-  "tearleads.local-session",
   "tearleads.documents",
   "tearleads.container-metadata",
 ] as const;

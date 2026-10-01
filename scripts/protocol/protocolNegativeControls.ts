@@ -129,6 +129,14 @@ export const NEGATIVE_CONTROLS: readonly NegativeControl[] = [
     why: "Publishing a rejected incoming candidate exposes text whose history is absent from the next local edit's durable basis.",
   },
   {
+    id: "listing-adopts-container-create",
+    module: "formal/local-trust/UnacknowledgedInput.tla",
+    config: "formal/local-trust/UnacknowledgedInput.cfg",
+    constants: { VerifyContainerAdoption: "FALSE" },
+    expect: { kind: "invariant", name: "ContainerAdoptionHasVerifiedScope" },
+    why: "A listing row must not settle a pending container create without its signed epoch-1 create (#2365 finding 26).",
+  },
+  {
     id: "host-restore-binds-a-switched-identity",
     module: "formal/local-trust/UnacknowledgedInput.tla",
     config: "formal/local-trust/UnacknowledgedInput.cfg",
