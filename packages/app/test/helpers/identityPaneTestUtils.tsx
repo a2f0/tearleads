@@ -13,26 +13,25 @@ const userIdStatusPattern =
 
 export async function openIdentityManagerFromPane(
   view: ReturnType<typeof renderPane>,
-): Promise<HTMLDivElement> {
+): Promise<HTMLElement> {
   const existingWindowCount =
-    view.container.querySelectorAll<HTMLDivElement>("div.window").length;
+    view.container.querySelectorAll<HTMLElement>(".window").length;
   fireEvent.click(view.getByRole("button", { name: "Menu" }));
   clickPaneAppMenuItem(view, "Identity Manager");
 
   await waitFor(() => {
-    const windows =
-      view.container.querySelectorAll<HTMLDivElement>("div.window");
+    const windows = view.container.querySelectorAll<HTMLElement>(".window");
     expect(windows.length).toBeGreaterThan(existingWindowCount);
     expect(
       view.container.querySelector(".identity-manager")?.closest(".window"),
-    ).toBeInstanceOf(HTMLDivElement);
+    ).toBeInstanceOf(HTMLElement);
   });
 
   const identityManagerWindow = view.container
     .querySelector(".identity-manager")
     ?.closest(".window");
   invariant(
-    identityManagerWindow instanceof HTMLDivElement,
+    identityManagerWindow instanceof HTMLElement,
     "identity manager window not found",
   );
   return identityManagerWindow;

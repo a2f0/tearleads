@@ -315,7 +315,7 @@ function useWindowRootHandlers(windowId: string) {
     event.stopPropagation();
   }, []);
   const windowContextMenuTrapProps: Pick<
-    HTMLAttributes<HTMLDivElement>,
+    HTMLAttributes<HTMLElement>,
     "onContextMenu"
   > = {
     onContextMenu: handleWindowContextMenu,
@@ -326,7 +326,7 @@ function useWindowRootHandlers(windowId: string) {
 
 function WindowInnerContent({ ContentBoundary, entry }: WindowInnerProps) {
   const { maximized, minimized, zIndex, component: Component } = entry;
-  const windowRef = useRef<HTMLDivElement>(null);
+  const windowRef = useRef<HTMLElement>(null);
   const titleId = useId();
   const [overlayHost, setOverlayHost] = useState<HTMLElement | null>(null);
   const fileMenuItems = useWindowFileMenuItems();
@@ -363,12 +363,14 @@ function WindowInnerContent({ ContentBoundary, entry }: WindowInnerProps) {
     return null;
   }
 
+  // A section labelled by its title is a region landmark. Windows are
+  // non-modal and freely arranged, so they are not dialogs; hosts keep that
+  // role for the modals they open inside a window.
   return (
-    <div
+    <section
       ref={windowRef}
       aria-labelledby={titleId}
       className={maximized ? "window window--maximized" : "window"}
-      role="dialog"
       tabIndex={-1}
       {...windowContextMenuTrapProps}
       onPointerDownCapture={handleWindowPointerDown}
@@ -408,7 +410,7 @@ function WindowInnerContent({ ContentBoundary, entry }: WindowInnerProps) {
           handleResizePointerDown={handleResizePointerDown}
         />
       )}
-    </div>
+    </section>
   );
 }
 

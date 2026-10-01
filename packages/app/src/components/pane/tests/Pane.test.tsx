@@ -187,7 +187,7 @@ test(
     invariant(firstContactsApp, "first contacts app not found");
     const firstContactsWindow = firstContactsApp.closest(".window");
     invariant(
-      firstContactsWindow instanceof HTMLDivElement,
+      firstContactsWindow instanceof HTMLElement,
       "first contacts window not found",
     );
 
@@ -231,7 +231,7 @@ test(
     const updatedFirstContactsWindow =
       updatedFirstContactsApp.closest(".window");
     invariant(
-      updatedFirstContactsWindow instanceof HTMLDivElement,
+      updatedFirstContactsWindow instanceof HTMLElement,
       "updated first contacts window not found",
     );
 

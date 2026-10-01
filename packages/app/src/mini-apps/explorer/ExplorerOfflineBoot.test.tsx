@@ -31,10 +31,9 @@ async function openExplorerWindow(
   });
   clickPaneAppMenuItem(view, "Explorer");
 
-  let explorerWindow: HTMLDivElement | null = null;
+  let explorerWindow: HTMLElement | null = null;
   await waitFor(() => {
-    const windows =
-      view.container.querySelectorAll<HTMLDivElement>("div.window");
+    const windows = view.container.querySelectorAll<HTMLElement>(".window");
     explorerWindow = windows[windows.length - 1] ?? null;
     expect(explorerWindow).toBeTruthy();
   });

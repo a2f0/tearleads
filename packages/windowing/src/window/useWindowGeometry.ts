@@ -45,7 +45,7 @@ export interface LiveGeometry {
 // Clamps against the size the window is about to render at when it is known,
 // so a position committed with a new size is not measured at the old one.
 function clampWindowPosition(
-  element: HTMLDivElement | null,
+  element: HTMLElement | null,
   x: number,
   y: number,
   size: WindowSize | null,
@@ -116,7 +116,7 @@ function resizeWindowWithinContainer(
 // component state while a gesture runs, so only this window re-renders per
 // frame; the gesture's end commits it to the shared window state once.
 function useWindowPointerTracking(
-  windowRef: RefObject<HTMLDivElement | null>,
+  windowRef: RefObject<HTMLElement | null>,
   dragging: MutableRefObject<WindowDragState | null>,
   resizing: MutableRefObject<WindowResizeState | null>,
   clamp: (x: number, y: number) => WindowPosition,
@@ -218,7 +218,7 @@ function useLiveGeometry(entry: WindowEntry) {
 // Stepwise geometry for keyboard move and resize. Steps stay local until the
 // caller commits, like a pointer gesture; restore puts a snapshot back.
 function useSteppedGeometry(
-  windowRef: RefObject<HTMLDivElement | null>,
+  windowRef: RefObject<HTMLElement | null>,
   maximized: boolean,
   live: MutableRefObject<LiveGeometry>,
   clamp: (x: number, y: number) => WindowPosition,
@@ -285,7 +285,7 @@ function useSteppedGeometry(
 // Starts a drag from the title bar or a resize from a corner. The gesture
 // itself is tracked on the document by useWindowPointerTracking.
 function useGestureStarts(
-  windowRef: RefObject<HTMLDivElement | null>,
+  windowRef: RefObject<HTMLElement | null>,
   maximized: boolean,
   position: WindowPosition | null,
   dragging: MutableRefObject<WindowDragState | null>,
@@ -350,7 +350,7 @@ interface WindowLayoutInput {
   resizing: MutableRefObject<WindowResizeState | null>;
   setPosition: (value: WindowPosition) => void;
   size: WindowSize | null;
-  windowRef: RefObject<HTMLDivElement | null>;
+  windowRef: RefObject<HTMLElement | null>;
 }
 
 function useWindowLayout({
@@ -426,7 +426,7 @@ function useWindowLayout({
 export function useWindowGeometry(
   entry: WindowEntry,
   maximized: boolean,
-  windowRef: RefObject<HTMLDivElement | null>,
+  windowRef: RefObject<HTMLElement | null>,
 ) {
   const { commit, live, position, setPosition, setSize, size } =
     useLiveGeometry(entry);

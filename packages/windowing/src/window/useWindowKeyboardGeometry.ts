@@ -28,7 +28,7 @@ const MODE_HINTS: Readonly<Record<WindowKeyboardMode, string>> = {
 
 interface KeyboardGeometryHost {
   available: boolean;
-  windowRef: RefObject<HTMLDivElement | null>;
+  windowRef: RefObject<HTMLElement | null>;
 }
 
 interface SteppedGeometry {
@@ -149,7 +149,7 @@ export function useWindowGeometryMenuItems(
   }: {
     maximized: boolean;
     minimized: boolean;
-    windowRef: RefObject<HTMLDivElement | null>;
+    windowRef: RefObject<HTMLElement | null>;
   },
   announce: (message: string) => void,
 ): WindowMenuItem[] {
@@ -182,7 +182,7 @@ export function useWindowGeometryMenuItems(
 // turn true once the window is laid out and visible: browsers ignore focus on
 // an element that is still `visibility: hidden`.
 export function useFocusWindowOnShow(
-  windowRef: RefObject<HTMLDivElement | null>,
+  windowRef: RefObject<HTMLElement | null>,
   shown: boolean,
 ) {
   const hidden = useRef(true);

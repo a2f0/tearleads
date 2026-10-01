@@ -83,8 +83,8 @@ function openNotes(
     clientWidth: 800,
   });
   fireEvent.click(view.getByRole("button", { name: "Open notes" }));
-  const dialog = view.getByRole("dialog", { name: "Notes" });
-  return { dialog, view };
+  const region = view.getByRole("region", { name: "Notes" });
+  return { region, view };
 }
 
 function committedGeometry(view: ReturnType<typeof render>) {
@@ -94,22 +94,22 @@ function committedGeometry(view: ReturnType<typeof render>) {
   ) as { position?: object; size?: object };
 }
 
-function chooseViewMenuItem(dialog: HTMLElement, label: string) {
-  fireEvent.click(within(dialog).getByRole("menuitem", { name: "View" }));
-  fireEvent.click(within(dialog).getByRole("menuitem", { name: label }));
+function chooseViewMenuItem(region: HTMLElement, label: string) {
+  fireEvent.click(within(region).getByRole("menuitem", { name: "View" }));
+  fireEvent.click(within(region).getByRole("menuitem", { name: label }));
 }
 
-test("each window is a dialog labelled by its title", () => {
-  const { dialog } = openNotes();
+test("each window is a region labelled by its title", () => {
+  const { region } = openNotes();
 
-  expect(dialog.getAttribute("aria-labelledby")).toBeTruthy();
-  expect(dialog.getAttribute("aria-modal")).toBeNull();
+  expect(region.getAttribute("aria-labelledby")).toBeTruthy();
+  expect(region.getAttribute("aria-modal")).toBeNull();
 });
 
 test("opening a window moves focus into it", () => {
-  const { dialog } = openNotes();
+  const { region } = openNotes();
 
-  expect(document.activeElement).toBe(dialog);
+  expect(document.activeElement).toBe(region);
 });
 
 test("a field the window focuses itself keeps focus", () => {
@@ -127,22 +127,22 @@ test("restoring a minimized window focuses it again", () => {
 
   minimizeButton.focus();
   fireEvent.click(minimizeButton);
-  expect(view.queryByRole("dialog", { name: "Notes" })).toBeNull();
+  expect(view.queryByRole("region", { name: "Notes" })).toBeNull();
 
   restoreButton.focus();
   fireEvent.click(restoreButton);
 
   expect(document.activeElement).toBe(
-    view.getByRole("dialog", { name: "Notes" }),
+    view.getByRole("region", { name: "Notes" }),
   );
 });
 
 test("View > Move Window moves with arrow keys and Enter keeps the move", () => {
-  const { dialog, view } = openNotes();
-  stubLayout(dialog, { offsetHeight: 100, offsetWidth: 200 });
+  const { region, view } = openNotes();
+  stubLayout(region, { offsetHeight: 100, offsetWidth: 200 });
 
-  chooseViewMenuItem(dialog, "Move Window");
-  expect(within(dialog).getByRole("status").textContent).toContain(
+  chooseViewMenuItem(region, "Move Window");
+  expect(within(region).getByRole("status").textContent).toContain(
     "Moving window",
   );
 
@@ -150,8 +150,8 @@ test("View > Move Window moves with arrow keys and Enter keeps the move", () => 
   fireEvent.keyDown(document, { key: "ArrowRight" });
   fireEvent.keyDown(document, { key: "ArrowDown" });
 
-  expect(dialog.style.left).toBe("20px");
-  expect(dialog.style.top).toBe("10px");
+  expect(region.style.left).toBe("20px");
+  expect(region.style.top).toBe("10px");
   expect(committedGeometry(view).position).toEqual({ x: 0, y: 0 });
 
   act(() => {
@@ -161,27 +161,27 @@ test("View > Move Window moves with arrow keys and Enter keeps the move", () => 
   expect(committedGeometry(view).position).toEqual({ x: 20, y: 10 });
 
   fireEvent.keyDown(document, { key: "ArrowRight" });
-  expect(dialog.style.left).toBe("20px");
+  expect(region.style.left).toBe("20px");
 });
 
 test("Escape cancels a keyboard resize", () => {
-  const { dialog, view } = openNotes(PlainContent, {
+  const { region, view } = openNotes(PlainContent, {
     size: { height: 200, width: 300 },
   });
 
-  chooseViewMenuItem(dialog, "Resize Window");
+  chooseViewMenuItem(region, "Resize Window");
   fireEvent.keyDown(document, { key: "ArrowRight" });
   fireEvent.keyDown(document, { key: "ArrowDown" });
 
-  expect(dialog.style.width).toBe("310px");
-  expect(dialog.style.height).toBe("210px");
+  expect(region.style.width).toBe("310px");
+  expect(region.style.height).toBe("210px");
 
   act(() => {
     fireEvent.keyDown(document, { key: "Escape" });
   });
 
-  expect(dialog.style.width).toBe("300px");
-  expect(dialog.style.height).toBe("200px");
+  expect(region.style.width).toBe("300px");
+  expect(region.style.height).toBe("200px");
   expect(committedGeometry(view).size).toEqual({ height: 200, width: 300 });
 });
 
@@ -189,7 +189,7 @@ test("focus waits until the window is laid out and visible", () => {
   const focusedVisibilities: string[] = [];
   const originalFocus = HTMLElement.prototype.focus;
   HTMLElement.prototype.focus = function focusAndRecord(options) {
-    if (this.getAttribute("role") === "dialog") {
+    if (this.classList.contains("window")) {
       focusedVisibilities.push(this.style.visibility);
     }
     originalFocus.call(this, options);
@@ -204,19 +204,19 @@ test("focus waits until the window is laid out and visible", () => {
 });
 
 test("minimizing during a keyboard move hands the arrow keys back", () => {
-  const { dialog, view } = openNotes();
+  const { region, view } = openNotes();
 
-  chooseViewMenuItem(dialog, "Move Window");
+  chooseViewMenuItem(region, "Move Window");
   fireEvent.click(view.getByRole("button", { name: "Minimize notes" }));
 
   expect(fireEvent.keyDown(document, { key: "ArrowRight" })).toBe(true);
 });
 
 test("a pointer press ends a keyboard move and keeps it", () => {
-  const { dialog, view } = openNotes();
-  stubLayout(dialog, { offsetHeight: 100, offsetWidth: 200 });
+  const { region, view } = openNotes();
+  stubLayout(region, { offsetHeight: 100, offsetWidth: 200 });
 
-  chooseViewMenuItem(dialog, "Move Window");
+  chooseViewMenuItem(region, "Move Window");
   fireEvent.keyDown(document, { key: "ArrowRight" });
   act(() => {
     fireEvent.pointerDown(document.body);
@@ -227,21 +227,21 @@ test("a pointer press ends a keyboard move and keeps it", () => {
 });
 
 test("keyboard move instructions are announced with the status bar hidden", () => {
-  const { dialog } = openNotes();
+  const { region } = openNotes();
 
-  chooseViewMenuItem(dialog, "Hide Status Bar");
-  chooseViewMenuItem(dialog, "Move Window");
+  chooseViewMenuItem(region, "Hide Status Bar");
+  chooseViewMenuItem(region, "Move Window");
 
-  const region = within(dialog).getByRole("status");
-  expect(region.textContent).toContain("Moving window");
-  expect(region.querySelector(".window-statusbar--hidden")).not.toBeNull();
+  const status = within(region).getByRole("status");
+  expect(status.textContent).toContain("Moving window");
+  expect(status.querySelector(".window-statusbar--hidden")).not.toBeNull();
 });
 
 test("a keyboard move ends when focus moves to another window", () => {
-  const { dialog, view } = openNotes();
-  stubLayout(dialog, { offsetHeight: 100, offsetWidth: 200 });
+  const { region, view } = openNotes();
+  stubLayout(region, { offsetHeight: 100, offsetWidth: 200 });
   fireEvent.click(view.getByRole("button", { name: "Open notes" }));
-  const [first, second] = view.getAllByRole("dialog", { name: "Notes" });
+  const [first, second] = view.getAllByRole("region", { name: "Notes" });
   if (!first || !second) throw new Error("two windows not rendered");
 
   chooseViewMenuItem(first, "Move Window");

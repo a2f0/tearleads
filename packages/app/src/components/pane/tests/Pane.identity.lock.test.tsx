@@ -106,16 +106,13 @@ test("locked browser-managed pane menu offers unlock instead of key generation",
 
     fireEvent.click(unlockDatabaseItem);
 
-    let unlockWindow: HTMLDivElement | null = null;
+    let unlockWindow: HTMLElement | null = null;
     await waitFor(() => {
       const closestWindow = view
         .getAllByText("Local keychain locked")
         .map((heading) => heading.closest(".window"))
-        .find(
-          (window): window is HTMLDivElement =>
-            window instanceof HTMLDivElement,
-        );
-      if (!(closestWindow instanceof HTMLDivElement)) {
+        .find((window): window is HTMLElement => window instanceof HTMLElement);
+      if (!(closestWindow instanceof HTMLElement)) {
         throw new Error("Expected unlock heading to be inside a window.");
       }
       unlockWindow = closestWindow;
@@ -180,16 +177,13 @@ test("unlock database floating window closes after successful unlock", async () 
       }),
     );
 
-    let unlockWindow: HTMLDivElement | null = null;
+    let unlockWindow: HTMLElement | null = null;
     await waitFor(() => {
       const closestWindow = view
         .getAllByText("Local keychain locked")
         .map((heading) => heading.closest(".window"))
-        .find(
-          (window): window is HTMLDivElement =>
-            window instanceof HTMLDivElement,
-        );
-      if (!(closestWindow instanceof HTMLDivElement)) {
+        .find((window): window is HTMLElement => window instanceof HTMLElement);
+      if (!(closestWindow instanceof HTMLElement)) {
         throw new Error("Expected unlock heading to be inside a window.");
       }
       unlockWindow = closestWindow;

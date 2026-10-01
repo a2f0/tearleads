@@ -57,13 +57,13 @@ async function openExplorerInPane(
   fireEvent.contextMenu(pane, { clientX: 120, clientY: 120 });
   clickPaneAppMenuItem(view, "Explorer");
 
-  let explorerWindow: HTMLDivElement | null = null;
+  let explorerWindow: HTMLElement | null = null;
   await waitFor(() => {
-    const windows = pane.querySelectorAll<HTMLDivElement>("div.window");
+    const windows = pane.querySelectorAll<HTMLElement>(".window");
     explorerWindow = windows[windows.length - 1] ?? null;
     expect(explorerWindow).toBeTruthy();
     expect(
-      within(explorerWindow as HTMLDivElement).getByRole("table", {
+      within(explorerWindow as HTMLElement).getByRole("table", {
         name: "Items in /",
       }),
     ).toBeTruthy();
@@ -141,17 +141,17 @@ test(
     // into windowed layout (remounts it) through the lower-right switches.
     fireEvent.click(navModeButton(view));
     await waitFor(() => {
-      expect(view.container.querySelector("div.window")).toBeNull();
+      expect(view.container.querySelector(".window")).toBeNull();
     });
     fireEvent.click(navModeButton(view));
 
     // Back in windowed layout the Explorer window remounts; the selected
     // document must be restored, not "Select a container."
-    let restoredExplorer: HTMLDivElement | null = null;
+    let restoredExplorer: HTMLElement | null = null;
     await waitFor(
       () => {
         const pane = visiblePane(view);
-        const windows = pane.querySelectorAll<HTMLDivElement>("div.window");
+        const windows = pane.querySelectorAll<HTMLElement>(".window");
         restoredExplorer = windows[windows.length - 1] ?? null;
         expect(restoredExplorer).toBeTruthy();
       },
@@ -162,11 +162,11 @@ test(
     await waitFor(
       () => {
         expect(
-          within(restoredExplorer as HTMLDivElement).queryByText(
+          within(restoredExplorer as HTMLElement).queryByText(
             "Select a container.",
           ),
         ).toBeNull();
-        const restored = within(restoredExplorer as HTMLDivElement).getByRole(
+        const restored = within(restoredExplorer as HTMLElement).getByRole(
           "textbox",
           { name: /Notes editor/ },
         );
