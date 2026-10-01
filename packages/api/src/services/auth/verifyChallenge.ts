@@ -9,6 +9,8 @@ import { and, eq, isNull } from "drizzle-orm";
 import type { ApiServiceRuntime } from "../runtime";
 
 interface VerifyChallengeInput {
+  /** The origin this API expects challenges to be signed for. */
+  apiOrigin: string;
   fingerprint: string;
   ipAddress?: string | null | undefined;
   signature: number[];
@@ -80,6 +82,7 @@ export async function verifyChallenge(
   }
 
   const challengeBytes = authChallengeSigningBytes({
+    apiOrigin: input.apiOrigin,
     challengeHex,
     fingerprint: input.fingerprint,
   });

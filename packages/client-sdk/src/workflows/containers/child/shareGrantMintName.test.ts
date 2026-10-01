@@ -64,6 +64,7 @@ test("minting a group grant without the chosen name fails closed", async () => {
         accessLevel: "read",
         apiClient: {
           reciteContainer: async () => null,
+          evictContainerWriterProjection: () => {},
           commitOrganizationGroupPolicy: async () => {
             policyCommits += 1;
             return null;

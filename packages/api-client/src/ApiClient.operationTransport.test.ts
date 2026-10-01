@@ -1,7 +1,9 @@
 import { expect } from "bun:test";
 import {
+  authChallengeSigningBytes,
   generateSigningKeyPair,
   ML_DSA87_SIGNATURE_BYTES,
+  verify,
 } from "@tearleads/crypto";
 import { BILLING_ERROR_CODES } from "@tearleads/validators/billing";
 import { DOCUMENT_NOT_FOUND_ERROR_CODE } from "@tearleads/validators/response";
@@ -47,7 +49,9 @@ testApiClient(
       }),
     );
     const client = new ApiClient(apiBaseUrl);
-    const { signingPrivateKey } = generateSigningKeyPair(new Uint8Array(32));
+    const { signingPrivateKey, signingPublicKey } = generateSigningKeyPair(
+      new Uint8Array(32),
+    );
 
     await expect(
       client.authenticate(fingerprint, signingPrivateKey),
@@ -86,6 +90,19 @@ testApiClient(
     const verifyBody = JSON.parse(calls[1]?.body ?? "null");
     expect(verifyBody).toMatchObject({ fingerprint });
     expect(verifyBody.signature).toHaveLength(ML_DSA87_SIGNATURE_BYTES);
+    // The client signs for the API it addressed, never a relaying one.
+    const signedFor = (apiOrigin: string) =>
+      verify(
+        new Uint8Array(verifyBody.signature),
+        authChallengeSigningBytes({
+          apiOrigin,
+          challengeHex: challenge,
+          fingerprint,
+        }),
+        signingPublicKey,
+      );
+    expect(signedFor(apiBaseUrl)).toBe(true);
+    expect(signedFor("https://relaying-api.example")).toBe(false);
   },
 );
 

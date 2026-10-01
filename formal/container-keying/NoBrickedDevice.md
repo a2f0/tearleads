@@ -173,4 +173,8 @@ tempting. A device that accepts such a head holds a branch the model does not
 track, so it takes no further step; detecting that split view needs the
 transparency witnessing of #2186 Part C, not a refusal rule. Signatures,
 hashes, the grant algebra, and the checkpoint persistence are outside the
-abstraction. This is exhaustive bounded model checking, not a proof.
+abstraction. The model serves a policy projection as one atomic tuple, where
+production makes separate reads (the organization, its Admins group, the
+metadata root). A commit between two reads serves a chain extending the head
+the other read cites; the client rereads once instead of reporting tampering
+(#2365 finding 22). This is exhaustive bounded model checking, not a proof.
