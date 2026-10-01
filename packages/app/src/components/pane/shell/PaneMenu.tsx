@@ -1,7 +1,7 @@
+import { Menu, type MenuPosition } from "@tearleads/windowing";
 import { useCallback } from "react";
 import { useIdentity } from "../../../providers/identity/IdentityProvider";
 import { useLocalKeyringLock } from "../../../providers/local-keyring/LocalKeyringLockProvider";
-import { Menu, type MenuPosition } from "../../shared/Menu";
 import { PaneContextMenuItems } from "./PaneContextMenuItems";
 
 export function PaneMenu({

@@ -1,10 +1,10 @@
 import { afterEach, expect, test } from "bun:test";
-import { cleanup, fireEvent, render } from "@testing-library/react";
 import {
   useWindowActions,
   useWindowStateData,
   WindowStateProvider,
-} from "../../window/WindowStateProvider";
+} from "@tearleads/windowing";
+import { cleanup, fireEvent, render } from "@testing-library/react";
 import { PaneFooter } from "./PaneFooter";
 
 afterEach(cleanup);

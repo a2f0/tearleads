@@ -1,4 +1,5 @@
 import { afterEach, expect, test } from "bun:test";
+import { useWindowStateData, WindowStateProvider } from "@tearleads/windowing";
 import {
   act,
   cleanup,
@@ -14,10 +15,6 @@ import {
   useContext,
   useState,
 } from "react";
-import {
-  useWindowStateData,
-  WindowStateProvider,
-} from "../../../components/window/WindowStateProvider";
 import { AppNavigationProvider } from "../../../navigation/AppNavigationProvider";
 import { MiniAppBusProvider, useMiniAppBusActions } from "../../bus";
 import { MiniAppWindow } from "../../MiniAppWindow";

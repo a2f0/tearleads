@@ -1,6 +1,6 @@
 import { afterEach, expect, test } from "bun:test";
+import { WindowMenuProvider } from "@tearleads/windowing";
 import { cleanup, render } from "@testing-library/react";
-import { WindowMenuProvider } from "../../components/window/WindowMenuContext";
 import {
   FILE_DOCUMENT_ATTACHMENT_DIFFERS_NOTICE,
   FileDocumentFields,

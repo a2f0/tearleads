@@ -1,6 +1,10 @@
 import { afterEach, expect, test } from "bun:test";
 import type { OrganizationUserDetail } from "@tearleads/client-sdk";
 import {
+  useWindowTitleBarActions,
+  WindowMenuProvider,
+} from "@tearleads/windowing";
+import {
   cleanup,
   fireEvent,
   render,
@@ -8,10 +12,6 @@ import {
   within,
 } from "@testing-library/react";
 import type { ContextType, PropsWithChildren } from "react";
-import {
-  useWindowTitleBarActions,
-  WindowMenuProvider,
-} from "../../../components/window/WindowMenuContext";
 import { OrgManagerContext } from "../../../stores/org-manager/OrgManagerProvider";
 import { formatMiniAppDate } from "../../../utils/formatMiniAppDate";
 import { ORG_MANAGER_LABELS } from "../labels";

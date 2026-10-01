@@ -5,6 +5,7 @@ import type {
   BlobStore,
   DocumentAttachmentUpload,
 } from "@tearleads/client-sdk";
+import { useWindowTitleBarAction } from "@tearleads/windowing";
 import { useEffect, useMemo, useState } from "react";
 import {
   MiniAppField,
@@ -16,7 +17,6 @@ import {
   MiniAppStatus,
 } from "../../../components/mini-app/MiniAppLayout";
 import { useMiniAppDetailBackAction } from "../../../components/mini-app/useMiniAppDetailBackAction";
-import { useWindowTitleBarAction } from "../../../components/window/WindowMenuContext";
 import { ContactFields } from "../../../document-types/contact/ContactFields";
 import type {
   ContactFieldKey,

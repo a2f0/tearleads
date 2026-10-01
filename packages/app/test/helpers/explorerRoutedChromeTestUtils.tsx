@@ -1,7 +1,7 @@
 import {
   useWindowBackActionValue,
   useWindowTitleBarActions,
-} from "../../src/components/window/WindowMenuContext";
+} from "@tearleads/windowing";
 import { useExplorerRoutedChromeActions } from "../../src/mini-apps/explorer/ExplorerRoutedChrome";
 import type { useExplorerModel } from "../../src/mini-apps/explorer/hooks/useExplorerModel";
 

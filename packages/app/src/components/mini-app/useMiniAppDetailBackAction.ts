@@ -1,4 +1,4 @@
-import { useWindowBackAction } from "../window/WindowMenuContext";
+import { useWindowBackAction } from "@tearleads/windowing";
 
 interface MiniAppDetailBackAction {
   disabled?: boolean | undefined;

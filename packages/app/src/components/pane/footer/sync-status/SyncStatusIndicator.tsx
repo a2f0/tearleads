@@ -1,6 +1,6 @@
+import { Menu, type MenuPosition } from "@tearleads/windowing";
 import { type MouseEvent, useCallback, useState } from "react";
 import { useMiniAppBusActions } from "../../../../mini-apps/bus";
-import { Menu, type MenuPosition } from "../../../shared/Menu";
 import { SyncGlyph } from "../../../shared/SyncGlyph";
 import type { SyncStatus } from "./syncStatusModel";
 import { useSyncStatus } from "./useSyncStatus";

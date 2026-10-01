@@ -1,14 +1,14 @@
 import { afterEach, expect, test } from "bun:test";
+import {
+  useWindowTitleBarAction,
+  WindowMenuProvider,
+} from "@tearleads/windowing";
 import { cleanup, render, waitFor } from "@testing-library/react";
 import { useMemo } from "react";
 import {
   createExplorerModel,
   ExplorerRoutedChromeHarness,
 } from "../../../test/helpers/explorerRoutedChromeTestUtils";
-import {
-  useWindowTitleBarAction,
-  WindowMenuProvider,
-} from "../../components/window/WindowMenuContext";
 import { EXPLORER_ORPHANED_DOCUMENTS_ID } from "../../stores/explorer/orphanedDocuments";
 import { EXPLORER_LABELS } from "./labels";
 

@@ -1,7 +1,6 @@
 import { afterEach, expect, test } from "bun:test";
+import { WindowMenuProvider, WindowToolBar } from "@tearleads/windowing";
 import { cleanup, fireEvent, render, waitFor } from "@testing-library/react";
-import { WindowMenuProvider } from "../../components/window/WindowMenuContext";
-import { WindowToolBar } from "../../components/window/WindowToolBar";
 import { ORG_MANAGER_LABELS } from "./labels";
 import { useOrgManagerRoutedChromeActions } from "./OrgManagerRoutedChrome";
 import type { OrgManagerView } from "./routes";

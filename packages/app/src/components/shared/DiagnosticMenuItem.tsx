@@ -1,6 +1,6 @@
+import { MenuItem, type MenuItemProps } from "@tearleads/windowing";
 import type { DiagnosticAction } from "../../host/AppDiagnostics";
 import { useDiagnosticBreadcrumb } from "../../providers/logging/useDiagnosticBreadcrumb";
-import { MenuItem, type MenuItemProps } from "./MenuItem";
 
 // A menu item that records its diagnostic action as an activity breadcrumb
 // before running its click handler. MenuItem itself stays diagnostics-free so

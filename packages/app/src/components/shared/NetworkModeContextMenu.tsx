@@ -1,7 +1,6 @@
+import { Menu, useContextMenuState } from "@tearleads/windowing";
 import { type MouseEvent, useCallback } from "react";
-import { Menu } from "./Menu";
 import { NetworkModeMenuItems } from "./NetworkModeMenuItems";
-import { useContextMenuState } from "./useContextMenuState";
 
 const NETWORK_CONTEXT_MENU_ID = "network";
 const BROWSER_CONTEXT_MENU_TARGET_SELECTOR =

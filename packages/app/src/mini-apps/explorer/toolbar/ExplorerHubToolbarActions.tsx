@@ -1,6 +1,6 @@
 import { HardDrivesIcon } from "@phosphor-icons/react/dist/csr/HardDrives";
 import { StackIcon } from "@phosphor-icons/react/dist/csr/Stack";
-import { useWindowTitleBarAction } from "../../../components/window/WindowMenuContext";
+import { useWindowTitleBarAction } from "@tearleads/windowing";
 import type { useExplorerModel } from "../hooks/useExplorerModel";
 import { EXPLORER_LABELS } from "../labels";
 

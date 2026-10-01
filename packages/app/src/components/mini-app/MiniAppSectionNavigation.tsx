@@ -1,10 +1,10 @@
 import type { Icon } from "@phosphor-icons/react";
 import { CaretRightIcon } from "@phosphor-icons/react/dist/csr/CaretRight";
-import { type MouseEvent, useMemo } from "react";
 import {
   useRegisteredWindowSidebar,
   useWindowSidebar,
-} from "../window/WindowSidebarContext";
+} from "@tearleads/windowing";
+import { type MouseEvent, useMemo } from "react";
 import { MiniAppSidebar } from "./MiniAppLayout";
 import { MiniAppRowButton, MiniAppRowText } from "./rows/MiniAppRow";
 import "./MiniAppSectionNavigation.css";

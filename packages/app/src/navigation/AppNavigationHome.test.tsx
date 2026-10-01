@@ -1,6 +1,6 @@
 import { afterEach, expect, test } from "bun:test";
+import { WindowStateProvider } from "@tearleads/windowing";
 import { cleanup, fireEvent, render, waitFor } from "@testing-library/react";
-import { WindowStateProvider } from "../components/window/WindowStateProvider";
 import type { MiniAppDefinition, MiniAppId } from "../mini-apps/types";
 import {
   AppNavigationProvider,

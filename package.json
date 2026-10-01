@@ -112,7 +112,8 @@
     "packages/test-utils",
     "packages/ui",
     "packages/validators",
-    "packages/website"
+    "packages/website",
+    "packages/windowing"
   ],
   "lint-staged": {
     "*.{css,html,js,json,jsonc,jsx,mjs,cjs,ts,tsx}": "biome check --fix --error-on-warnings",

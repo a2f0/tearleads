@@ -2,6 +2,7 @@ import type {
   ContainerDocumentQueries,
   ContainerNode,
 } from "@tearleads/client-sdk";
+import { useRegisteredWindowSidebar } from "@tearleads/windowing";
 import {
   type MouseEvent,
   type ReactNode,
@@ -13,7 +14,6 @@ import {
   MiniAppSidebar,
   MiniAppStatus,
 } from "../../../components/mini-app/MiniAppLayout";
-import { useRegisteredWindowSidebar } from "../../../components/window/WindowSidebarContext";
 import type { AvatarUrlByContactId } from "../../../document-types/contact/useContactAvatarUrls";
 import { isExplorerOrphanedDocumentsId } from "../../../stores/explorer/orphanedDocuments";
 import { ExplorerDatabaseErrorStatus } from "../shared/ExplorerDatabaseErrorStatus";

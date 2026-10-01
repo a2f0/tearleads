@@ -4,12 +4,12 @@ import type {
   OrganizationDirectoryUser,
   OrganizationUserDetail,
 } from "@tearleads/client-sdk";
-import { cleanup, fireEvent, render, waitFor } from "@testing-library/react";
-import type { ContextType, PropsWithChildren } from "react";
 import {
   useWindowTitleBarActions,
   WindowMenuProvider,
-} from "../../../components/window/WindowMenuContext";
+} from "@tearleads/windowing";
+import { cleanup, fireEvent, render, waitFor } from "@testing-library/react";
+import type { ContextType, PropsWithChildren } from "react";
 import { OrgManagerContext } from "../../../stores/org-manager/OrgManagerProvider";
 import { ORG_MANAGER_LABELS } from "../labels";
 import { DirectoryView } from "./DirectoryView";

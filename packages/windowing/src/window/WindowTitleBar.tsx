@@ -1,9 +1,9 @@
 import { ArrowDownIcon } from "@phosphor-icons/react/dist/csr/ArrowDown";
 import { ArrowUpIcon } from "@phosphor-icons/react/dist/csr/ArrowUp";
 import { type ReactNode, useCallback } from "react";
-import { Menu } from "../shared/Menu";
-import { MenuItem } from "../shared/MenuItem";
-import { useContextMenuPositionState } from "../shared/useContextMenuState";
+import { Menu } from "../menu/Menu";
+import { MenuItem } from "../menu/MenuItem";
+import { useContextMenuPositionState } from "../menu/useContextMenuState";
 import "./WindowTitleBar.css";
 import { WindowCloseButton } from "./WindowCloseButton";
 import { WindowMaximizeButton } from "./WindowMaximizeButton";

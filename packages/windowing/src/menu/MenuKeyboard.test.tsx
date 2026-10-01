@@ -1,7 +1,6 @@
 import { afterEach, expect, test } from "bun:test";
 import { cleanup, fireEvent, render } from "@testing-library/react";
 import { useState } from "react";
-import { MiniAppSelectMenu } from "../mini-app/controls/MiniAppSelectMenu";
 import { Menu } from "./Menu";
 import { MenuItem } from "./MenuItem";
 
@@ -109,35 +108,6 @@ test("dismissal preserves focus that moved outside the menu", () => {
   fireEvent.mouseDown(outside);
   expect(view.queryByRole("button", { name: "First" })).toBeNull();
   expect(document.activeElement).toBe(outside);
-});
-
-test("a portaled combobox retains its selected highlight and trigger focus", () => {
-  const view = render(
-    <MiniAppSelectMenu
-      ariaLabel="Pick a view"
-      onChange={() => {}}
-      portaled
-      options={[
-        { id: "first", label: "First option" },
-        { id: "last", label: "Last option" },
-      ]}
-      value="last"
-    />,
-  );
-  const trigger = view.getByRole("combobox", { name: "Pick a view" });
-  trigger.focus();
-  fireEvent.click(trigger);
-  expect(document.activeElement).toBe(trigger);
-  expect(trigger.getAttribute("aria-activedescendant")).toBe(
-    view.getByRole("option", { name: "Last option" }).id,
-  );
-  fireEvent.keyDown(trigger, { key: "ArrowUp" });
-  expect(trigger.getAttribute("aria-activedescendant")).toBe(
-    view.getByRole("option", { name: "First option" }).id,
-  );
-  fireEvent.keyDown(trigger, { key: "Escape" });
-  expect(view.queryByRole("listbox")).toBeNull();
-  expect(document.activeElement).toBe(trigger);
 });
 
 test("checkbox-only menus focus and navigate their controls without swallowing Space", () => {

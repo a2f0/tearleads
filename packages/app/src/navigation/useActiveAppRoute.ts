@@ -1,9 +1,9 @@
-import { useMemo } from "react";
 import {
   findTopWindow,
   useWindowStateData,
   type WindowEntry,
-} from "../components/window/WindowStateProvider";
+} from "@tearleads/windowing";
+import { useMemo } from "react";
 import { isMiniAppId } from "../mini-apps/types";
 import type { AppNavigationMode } from "./AppNavigationMode";
 import { useAppNavigationState } from "./AppNavigationProvider";

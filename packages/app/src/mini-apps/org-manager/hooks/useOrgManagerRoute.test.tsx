@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
+import { WindowStateProvider } from "@tearleads/windowing";
 import { act, renderHook } from "@testing-library/react";
 import type { ReactNode } from "react";
-import { WindowStateProvider } from "../../../components/window/WindowStateProvider";
 import { AppNavigationProvider } from "../../../navigation/AppNavigationProvider";
 import type { MiniAppDefinition, MiniAppId } from "../../types";
 import { useOrgManagerRoute } from "./useOrgManagerRoute";

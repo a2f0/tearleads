@@ -1,10 +1,10 @@
 import type { ContainerItemRow, ContainerNode } from "@tearleads/client-sdk";
 import type { ContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
-import { type MouseEvent, useCallback, useMemo } from "react";
 import {
   type ContextMenuState,
   useContextMenuState,
-} from "../../../components/shared/useContextMenuState";
+} from "@tearleads/windowing";
+import { type MouseEvent, useCallback, useMemo } from "react";
 import { isContainerUnderTrash } from "../../../stores/explorer/ExplorerSystemContainers";
 import {
   canCreateChildContainerByRules,

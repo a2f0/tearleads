@@ -1,11 +1,11 @@
 import { UserPlusIcon } from "@phosphor-icons/react/dist/csr/UserPlus";
 import { UsersThreeIcon } from "@phosphor-icons/react/dist/csr/UsersThree";
-import { useMemo } from "react";
-import { useMiniAppDetailBackAction } from "../../components/mini-app/useMiniAppDetailBackAction";
 import {
   useWindowTitleBarAction,
   useWindowToolbarReservation,
-} from "../../components/window/WindowMenuContext";
+} from "@tearleads/windowing";
+import { useMemo } from "react";
+import { useMiniAppDetailBackAction } from "../../components/mini-app/useMiniAppDetailBackAction";
 import { ORG_MANAGER_LABELS } from "./labels";
 import type { OrgManagerView } from "./routes";
 

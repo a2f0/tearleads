@@ -1,3 +1,8 @@
+import {
+  type MenuPosition,
+  useWindowStateData,
+  WindowStateProvider,
+} from "@tearleads/windowing";
 import { type MouseEvent, type ReactNode, useCallback, useState } from "react";
 import {
   MiniAppBusProvider,
@@ -18,11 +23,6 @@ import { AppFeatureFlagsProvider } from "../../../providers/feature-flags/AppFea
 import { ThemeToggleButton } from "../../../theme/ThemeToggleButton";
 import { RoutedPane } from "../../layout/routed/RoutedPane";
 import { TestSystemBanner } from "../../layout/TestSystemBanner";
-import type { MenuPosition } from "../../shared/Menu";
-import {
-  useWindowStateData,
-  WindowStateProvider,
-} from "../../window/WindowStateProvider";
 import { useRegisterUserId } from "../dual-pane";
 import { PaneFooter } from "../footer/PaneFooter";
 import { SyncStatusIndicator } from "../footer/sync-status/SyncStatusIndicator";

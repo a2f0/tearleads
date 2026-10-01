@@ -2,6 +2,11 @@ import { DownloadSimpleIcon } from "@phosphor-icons/react/dist/csr/DownloadSimpl
 import { TrashIcon } from "@phosphor-icons/react/dist/csr/Trash";
 import { XIcon } from "@phosphor-icons/react/dist/csr/X";
 import type { DocumentAttachment } from "@tearleads/client-sdk";
+// The windowed preview borrows the window manager's own close control and chrome
+// classes so it tracks any change to the floating windows; pull the title-bar /
+// toolbar stylesheets in directly rather than relying on a window happening to be
+// mounted alongside.
+import { WindowCloseButton } from "@tearleads/windowing";
 import { type ReactNode, type RefObject, useId, useRef } from "react";
 import { createPortal } from "react-dom";
 import { useRoutedPaneOverlayHost } from "../../components/layout/routed/RoutedPaneOverlayHost";
@@ -12,13 +17,8 @@ import {
   MiniAppModalPanel,
 } from "../../components/mini-app/MiniAppLayout";
 import { classNames } from "../../components/shared/classNames";
-// The windowed preview borrows the window manager's own close control and chrome
-// classes so it tracks any change to the floating windows; pull the title-bar /
-// toolbar stylesheets in directly rather than relying on a window happening to be
-// mounted alongside.
-import { WindowCloseButton } from "../../components/window/WindowCloseButton";
-import "../../components/window/WindowTitleBar.css";
-import "../../components/window/WindowToolBar.css";
+import "@tearleads/windowing/window/WindowTitleBar.css";
+import "@tearleads/windowing/window/WindowToolBar.css";
 import {
   useRoutedLayoutActive,
   useWindowedLayoutActive,

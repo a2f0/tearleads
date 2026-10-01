@@ -4,6 +4,7 @@ import {
   type DomainSyncSnapshot,
   requestAllDomainSyncLanes,
 } from "@tearleads/client-sdk";
+import { useWindowTitleBarAction } from "@tearleads/windowing";
 import { useCallback, useMemo, useState } from "react";
 import {
   MiniAppActions,
@@ -12,7 +13,6 @@ import {
   MiniAppHeaderCopy,
   MiniAppPanel,
 } from "../../../../components/mini-app/MiniAppLayout";
-import { useWindowTitleBarAction } from "../../../../components/window/WindowMenuContext";
 import { formatMiniAppDateTime } from "../../../../utils/formatMiniAppDate";
 import { EXPLORER_LABELS } from "../../labels";
 import { ExplorerSyncLaneDetail } from "./ExplorerSyncLaneDetail";

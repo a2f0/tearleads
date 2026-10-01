@@ -1,16 +1,16 @@
 import { afterEach, expect, test } from "bun:test";
 import type { DocumentAttachment } from "@tearleads/client-sdk";
 import {
+  useWindowTitleBarActions,
+  WindowMenuProvider,
+} from "@tearleads/windowing";
+import {
   cleanup,
   fireEvent,
   render,
   waitFor,
   within,
 } from "@testing-library/react";
-import {
-  useWindowTitleBarActions,
-  WindowMenuProvider,
-} from "../../components/window/WindowMenuContext";
 import { FileDocumentFields } from "./FileDocument";
 import { resolveFileDocumentPdfPreview } from "./FileDocumentPdfPreview";
 import {

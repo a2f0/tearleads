@@ -1,3 +1,4 @@
+import { useRegisteredWindowSidebar } from "@tearleads/windowing";
 import {
   type ComponentType,
   type MouseEvent,
@@ -6,7 +7,6 @@ import {
   useRef,
 } from "react";
 import { MiniAppRowActionsButton } from "../../../components/mini-app/MiniAppTable";
-import { useRegisteredWindowSidebar } from "../../../components/window/WindowSidebarContext";
 import { useRoutedLayoutActive } from "../../../navigation/useRoutedLayoutActive";
 
 /** Presentation switches shared by the mini-app list sidebars and list homes. */

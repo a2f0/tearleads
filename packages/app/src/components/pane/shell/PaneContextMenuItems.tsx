@@ -1,11 +1,9 @@
 import { KeyIcon } from "@phosphor-icons/react/dist/csr/Key";
 import { LockIcon } from "@phosphor-icons/react/dist/csr/Lock";
 import { LockOpenIcon } from "@phosphor-icons/react/dist/csr/LockOpen";
-
+import { MenuItem, type MenuPosition } from "@tearleads/windowing";
 import { MINI_APP_MENU_ITEMS } from "../../../mini-apps/registry";
 import { useVisibleMiniAppItems } from "../../../mini-apps/useVisibleMiniAppItems";
-import type { MenuPosition } from "../../shared/Menu";
-import { MenuItem } from "../../shared/MenuItem";
 
 import { usePaneLockMenuAction } from "./usePaneLockMenuAction";
 import { usePaneWindowMenuActions } from "./usePaneWindowMenuActions";
