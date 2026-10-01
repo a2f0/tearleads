@@ -4,6 +4,7 @@ import type {
   ContainerNode,
 } from "@tearleads/client-sdk";
 import { syncedContainerDocumentObjectSyncState as syncedState } from "@tearleads/client-sdk";
+import { WindowStateProvider } from "@tearleads/windowing";
 import {
   act,
   cleanup,
@@ -18,7 +19,6 @@ import {
   useMemo,
   useState,
 } from "react";
-import { WindowStateProvider } from "../../../components/window/WindowStateProvider";
 import { AppNavigationProvider } from "../../../navigation/AppNavigationProvider";
 import type { MiniAppDefinition, MiniAppId } from "../../types";
 import { useExplorerSidebarPanel } from "./ExplorerTree";

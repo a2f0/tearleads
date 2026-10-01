@@ -1,10 +1,8 @@
 import { AddressBookIcon } from "@phosphor-icons/react/dist/csr/AddressBook";
 import { ClipboardIcon } from "@phosphor-icons/react/dist/csr/Clipboard";
 import { UserMinusIcon } from "@phosphor-icons/react/dist/csr/UserMinus";
+import { type ContextMenuState, Menu, MenuItem } from "@tearleads/windowing";
 import { type MouseEvent, useCallback, useMemo } from "react";
-import { Menu } from "../../../components/shared/Menu";
-import { MenuItem } from "../../../components/shared/MenuItem";
-import type { ContextMenuState } from "../../../components/shared/useContextMenuState";
 import { useMiniAppListContextMenu } from "../../shared/list-panel/useMiniAppListContextMenu";
 import { NewContactIcon } from "../../shared/newContactIcon";
 import { CONTACTS_LABELS } from "../labels";

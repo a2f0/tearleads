@@ -1,8 +1,10 @@
 import { CheckIcon } from "@phosphor-icons/react/dist/csr/Check";
 import { ClipboardIcon } from "@phosphor-icons/react/dist/csr/Clipboard";
+import {
+  useCurrentWindow,
+  useWindowTitleBarAction,
+} from "@tearleads/windowing";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useCurrentWindow } from "../../../components/window/CurrentWindowContext";
-import { useWindowTitleBarAction } from "../../../components/window/WindowMenuContext";
 
 const COPY_REPORT_LABEL = "Copy report for support";
 const CLIPBOARD_COPIED_STATUS_TEXT = "Successfully copied to clipboard";

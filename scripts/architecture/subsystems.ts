@@ -553,7 +553,7 @@ export const subsystems: readonly Subsystem[] = [
     name: "App Shell & Components",
     package: "app",
     responsibility:
-      "Reusable presentation: layout, pane, window, mini-app chrome, and shared components.",
+      "Reusable presentation: layout, pane, mini-app chrome, and shared components.",
     seam: "components/*",
     paths: [`${app}/components/`],
   },

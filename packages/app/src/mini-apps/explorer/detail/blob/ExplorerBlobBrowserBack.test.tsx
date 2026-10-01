@@ -1,16 +1,16 @@
 import { afterEach, expect, test } from "bun:test";
 import type { BlobInfo, BlobStore } from "@tearleads/client-sdk";
 import {
+  useWindowBackActionValue,
+  WindowMenuProvider,
+} from "@tearleads/windowing";
+import {
   cleanup,
   fireEvent,
   render,
   waitFor,
   within,
 } from "@testing-library/react";
-import {
-  useWindowBackActionValue,
-  WindowMenuProvider,
-} from "../../../../components/window/WindowMenuContext";
 import { ExplorerBlobBrowserPanel } from "./ExplorerBlobBrowserPanel";
 
 const BLOB: BlobInfo = {

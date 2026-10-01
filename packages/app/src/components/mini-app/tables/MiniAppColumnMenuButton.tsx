@@ -1,8 +1,7 @@
 import { GearSixIcon } from "@phosphor-icons/react/dist/csr/GearSix";
+import { Menu, useContextMenuPositionState } from "@tearleads/windowing";
 import { type MouseEvent, useId } from "react";
 import { classNames } from "../../shared/classNames";
-import { Menu } from "../../shared/Menu";
-import { useContextMenuPositionState } from "../../shared/useContextMenuState";
 import { MiniAppCheckbox } from "../MiniAppLayout";
 import type { MiniAppColumnVisibility } from "./MiniAppColumnVisibility";
 import "./MiniAppColumnMenuButton.css";

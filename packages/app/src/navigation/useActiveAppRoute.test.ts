@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import type { WindowEntry } from "../components/window/WindowStateProvider";
+import type { WindowEntry } from "@tearleads/windowing";
 import { resolveActiveAppRoute } from "./useActiveAppRoute";
 
 function windowEntry(overrides: Partial<WindowEntry>): WindowEntry {

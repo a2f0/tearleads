@@ -1,11 +1,11 @@
 import { afterEach, expect, test } from "bun:test";
-import { cleanup, fireEvent, render, waitFor } from "@testing-library/react";
-import type { ComponentType } from "react";
 import {
   useWindowActions,
   useWindowStateData,
   WindowStateProvider,
-} from "../components/window/WindowStateProvider";
+} from "@tearleads/windowing";
+import { cleanup, fireEvent, render, waitFor } from "@testing-library/react";
+import type { ComponentType } from "react";
 import {
   AppNavigationProvider,
   useAppNavigationState,

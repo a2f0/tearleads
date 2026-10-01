@@ -1,4 +1,8 @@
 import type { OrganizationContainerGrant } from "@tearleads/client-sdk";
+import {
+  useWindowFileMenuItem,
+  useWindowRefreshMenuItem,
+} from "@tearleads/windowing";
 import { type MouseEvent, useCallback, useState } from "react";
 import {
   MiniAppButton,
@@ -6,10 +10,6 @@ import {
   MiniAppStatus,
   MiniAppToolbar,
 } from "../../components/mini-app/MiniAppLayout";
-import {
-  useWindowFileMenuItem,
-  useWindowRefreshMenuItem,
-} from "../../components/window/WindowMenuContext";
 import { useAuthenticateAction } from "../../identity/useAuthenticateAction";
 import { useMiniAppRouteSegments } from "../../navigation/AppNavigationProvider";
 import { useIdentity } from "../../providers/identity/IdentityProvider";

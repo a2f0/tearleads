@@ -5,6 +5,7 @@ import type {
   OrganizationGroupSummary,
   OrganizationUserDetail,
 } from "@tearleads/client-sdk";
+import { useWindowTitleBarAction } from "@tearleads/windowing";
 import { useEffect, useId, useMemo, useState } from "react";
 import {
   MiniAppActions,
@@ -29,7 +30,6 @@ import {
   MiniAppVirtualListRow,
   useMiniAppVirtualRows,
 } from "../../../components/mini-app/virtual/MiniAppVirtual";
-import { useWindowTitleBarAction } from "../../../components/window/WindowMenuContext";
 import { formatMiniAppDate } from "../../../utils/formatMiniAppDate";
 import { compactFingerprint } from "../display";
 import { GrantSections } from "../grants/GrantSections";

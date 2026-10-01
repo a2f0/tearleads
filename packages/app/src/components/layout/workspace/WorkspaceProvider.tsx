@@ -1,5 +1,5 @@
+import { createRequiredContext } from "@tearleads/ui";
 import { type PropsWithChildren, useEffect, useMemo, useState } from "react";
-import { createRequiredContext } from "../../../utils/createRequiredContext";
 
 export const WORKSPACE_IDS = [1, 2] as const;
 

@@ -6,7 +6,7 @@ import type {
   OrganizationGroupPolicyHistory,
   OrganizationGroupSummary,
 } from "@tearleads/client-sdk";
-import { useContextMenuState } from "../../../components/shared/useContextMenuState";
+import { useContextMenuState } from "@tearleads/windowing";
 import { CreateGroupDialog } from "./CreateGroupDialog";
 import { GroupContextMenu } from "./GroupContextMenu";
 import { GroupDetailSection } from "./GroupDetailSection";

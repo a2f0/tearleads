@@ -543,6 +543,23 @@ const uiRules = [
   },
 ] satisfies ForbiddenRules;
 
+const windowingRules = [
+  {
+    name: "windowing-depends-only-on-ui",
+    severity: "error",
+    comment:
+      "The windowing package is app-agnostic window state, chrome, and menus. It may import only itself and @tearleads/ui; app behavior reaches a window through slots such as Window's ContentBoundary.",
+    from: {
+      path: sourceRoot.windowing,
+      pathNot: testFilesPattern,
+    },
+    to: {
+      path: "^packages/",
+      pathNot: [sourceRoot.windowing, sourceRoot.ui],
+    },
+  },
+] satisfies ForbiddenRules;
+
 const websiteRules = [
   {
     name: "website-does-not-depend-on-app",
@@ -569,6 +586,7 @@ const dependencyCruiserConfig = {
     ...corePackageRules,
     ...dependencyCruiserDeploymentRules,
     ...uiRules,
+    ...windowingRules,
     ...websiteRules,
   ],
   options: {

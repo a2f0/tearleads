@@ -1,5 +1,5 @@
+import { MenuItem } from "@tearleads/windowing";
 import { useNetworkState } from "../../providers/api/useNetworkState";
-import { MenuItem } from "./MenuItem";
 
 export function NetworkModeMenuItems({ onClose }: { onClose: () => void }) {
   const { mode, setNetworkMode } = useNetworkState();

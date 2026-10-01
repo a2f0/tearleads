@@ -1,6 +1,6 @@
+import { useWindowRefreshMenuItem } from "@tearleads/windowing";
 import { useCallback } from "react";
 import { MiniAppRoot } from "../../components/mini-app/MiniAppLayout";
-import { useWindowRefreshMenuItem } from "../../components/window/WindowMenuContext";
 import { NoteEditorFields } from "../../document-types/note/NoteEditorFields";
 import { useNoteEditorFields } from "../../document-types/note/useNoteEditorFields";
 import { useDocument } from "../../stores/documents/DocumentsProvider";

@@ -10,12 +10,12 @@ import {
   requestAllDomainSyncLanes,
   waitForDomainSyncCoordinatorToSettle,
 } from "@tearleads/client-sdk";
-import { cleanup, fireEvent, render, waitFor } from "@testing-library/react";
-import { createElement } from "react";
 import {
   useWindowTitleBarActions,
   WindowMenuProvider,
-} from "../../../../components/window/WindowMenuContext";
+} from "@tearleads/windowing";
+import { cleanup, fireEvent, render, waitFor } from "@testing-library/react";
+import { createElement } from "react";
 import { EXPLORER_LABELS } from "../../labels";
 import {
   ExplorerSyncLanesPanel,

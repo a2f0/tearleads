@@ -1,3 +1,11 @@
+import { createRequiredContext } from "@tearleads/ui";
+import {
+  findTopWindow,
+  useWindowActions,
+  useWindowStateData,
+  type WindowStateActions,
+  type WindowStateData,
+} from "@tearleads/windowing";
 import {
   type MutableRefObject,
   type PropsWithChildren,
@@ -8,19 +16,11 @@ import {
   useState,
 } from "react";
 import {
-  findTopWindow,
-  useWindowActions,
-  useWindowStateData,
-  type WindowStateActions,
-  type WindowStateData,
-} from "../components/window/WindowStateProvider";
-import {
   DEFAULT_MINI_APP_POSITION,
   type MiniAppDefinition,
   type MiniAppId,
   type OpenMiniAppRequest,
 } from "../mini-apps/types";
-import { createRequiredContext } from "../utils/createRequiredContext";
 import {
   type AppNavigationHistoryAvailability,
   type AppNavigationHistoryCursor,

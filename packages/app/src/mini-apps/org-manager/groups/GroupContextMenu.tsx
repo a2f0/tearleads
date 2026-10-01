@@ -1,8 +1,7 @@
 import { TrashIcon } from "@phosphor-icons/react/dist/csr/Trash";
 import { UsersThreeIcon } from "@phosphor-icons/react/dist/csr/UsersThree";
 import type { OrganizationGroupSummary } from "@tearleads/client-sdk";
-import { Menu, type MenuPosition } from "../../../components/shared/Menu";
-import { MenuItem } from "../../../components/shared/MenuItem";
+import { Menu, MenuItem, type MenuPosition } from "@tearleads/windowing";
 import { ORG_MANAGER_LABELS } from "../labels";
 
 export function GroupContextMenu({

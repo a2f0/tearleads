@@ -1,5 +1,6 @@
 import { DownloadSimpleIcon } from "@phosphor-icons/react/dist/csr/DownloadSimple";
 import type { BlobInfo, BlobStore } from "@tearleads/client-sdk";
+import { Menu, MenuItem, type MenuPosition } from "@tearleads/windowing";
 import {
   MiniAppHeader,
   MiniAppHeaderCopy,
@@ -9,8 +10,6 @@ import {
   MiniAppStatus,
 } from "../../../../components/mini-app/MiniAppLayout";
 import { MiniAppInfoTable } from "../../../../components/mini-app/MiniAppTable";
-import { Menu, type MenuPosition } from "../../../../components/shared/Menu";
-import { MenuItem } from "../../../../components/shared/MenuItem";
 import {
   getMediaPreviewKind,
   MediaPreview,

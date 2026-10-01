@@ -1,8 +1,8 @@
-import type { ReactNode } from "react";
 import {
   useWindowTitleBarActions,
   WindowMenuProvider,
-} from "../../src/components/window/WindowMenuContext";
+} from "@tearleads/windowing";
+import type { ReactNode } from "react";
 
 /**
  * Stands in for the pane header's toolbar so a test can assert what a component

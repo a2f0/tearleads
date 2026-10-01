@@ -1,5 +1,6 @@
 import { CheckIcon } from "@phosphor-icons/react/dist/csr/Check";
 import { PencilSimpleIcon } from "@phosphor-icons/react/dist/csr/PencilSimple";
+import { useWindowTitleBarAction } from "@tearleads/windowing";
 import {
   type PropsWithChildren,
   type ReactNode,
@@ -13,7 +14,6 @@ import {
   MiniAppRowStack,
   MiniAppRowText,
 } from "../../components/mini-app/rows/MiniAppRow";
-import { useWindowTitleBarAction } from "../../components/window/WindowMenuContext";
 import { useDocumentReadOnly } from "../../stores/documents/DocumentsProvider";
 import "./StructuredDocument.css";
 

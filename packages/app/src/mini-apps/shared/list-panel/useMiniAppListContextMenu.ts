@@ -1,8 +1,8 @@
-import { type MouseEvent, useCallback } from "react";
 import {
   type ContextMenuState,
   useContextMenuState,
-} from "../../../components/shared/useContextMenuState";
+} from "@tearleads/windowing";
+import { type MouseEvent, useCallback } from "react";
 
 interface MiniAppListContextMenuModel<Target> {
   closeContextMenu: () => void;

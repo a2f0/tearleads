@@ -1,9 +1,6 @@
+import { SidebarResizeHandle, useSidebarResize } from "@tearleads/windowing";
 import type { ReactNode } from "react";
 import type { RoutedLayoutTier } from "../../../navigation/useRoutedLayoutTier";
-import {
-  SidebarResizeHandle,
-  useSidebarResize,
-} from "../../shared/SidebarResize";
 import "./RoutedPaneSidebar.css";
 
 const DEFAULT_WIDTH = 224;

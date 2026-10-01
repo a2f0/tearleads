@@ -1,10 +1,10 @@
 import { afterEach, expect, test } from "bun:test";
-import { cleanup, fireEvent, render, waitFor } from "@testing-library/react";
 import {
   useWindowTitleBarActions,
   WindowMenuProvider,
-} from "../../components/window/WindowMenuContext";
-import { WindowToolBar } from "../../components/window/WindowToolBar";
+  WindowToolBar,
+} from "@tearleads/windowing";
+import { cleanup, fireEvent, render, waitFor } from "@testing-library/react";
 import { useContactsRoutedChromeActions } from "./ContactsRoutedChrome";
 import { CONTACTS_LABELS } from "./labels";
 import type { ContactsRoute } from "./routes";

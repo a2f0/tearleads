@@ -3,10 +3,9 @@ import type {
   BlobInfoList,
   BlobStore,
 } from "@tearleads/client-sdk";
+import { useWindowFileMenuItem, useWindowSidebar } from "@tearleads/windowing";
 import { useCallback } from "react";
 import { MiniAppRoot } from "../../components/mini-app/MiniAppLayout";
-import { useWindowFileMenuItem } from "../../components/window/WindowMenuContext";
-import { useWindowSidebar } from "../../components/window/WindowSidebarContext";
 import {
   useTearleads,
   useTearleadsRuntime,

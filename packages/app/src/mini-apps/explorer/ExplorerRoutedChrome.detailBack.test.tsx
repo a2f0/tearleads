@@ -1,10 +1,10 @@
 import { afterEach, expect, test } from "bun:test";
+import { WindowMenuProvider } from "@tearleads/windowing";
 import { cleanup, fireEvent, render, waitFor } from "@testing-library/react";
 import {
   createExplorerModel,
   ExplorerRoutedChromeHarness,
 } from "../../../test/helpers/explorerRoutedChromeTestUtils";
-import { WindowMenuProvider } from "../../components/window/WindowMenuContext";
 import { EXPLORER_LABELS } from "./labels";
 import type { ExplorerRoute } from "./routes";
 

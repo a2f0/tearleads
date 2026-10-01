@@ -2,17 +2,17 @@ import type {
   DomainScope,
   OrganizationDirectoryAndGroups,
 } from "@tearleads/client-sdk";
+import {
+  useWindowFileMenuItem,
+  useWindowRefreshMenuItem,
+  useWindowSidebar,
+} from "@tearleads/windowing";
 import { useCallback, useEffect } from "react";
 import {
   MiniAppRoot,
   MiniAppStatus,
 } from "../../components/mini-app/MiniAppLayout";
 import { usePeerUserId } from "../../components/pane/dual-pane";
-import {
-  useWindowFileMenuItem,
-  useWindowRefreshMenuItem,
-} from "../../components/window/WindowMenuContext";
-import { useWindowSidebar } from "../../components/window/WindowSidebarContext";
 import { useMiniAppRouteSegments } from "../../navigation/AppNavigationProvider";
 import { useOrganizationBilling } from "../../providers/billing/BillingProvider";
 import { useDatabase } from "../../providers/db/DatabaseProvider";

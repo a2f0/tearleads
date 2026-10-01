@@ -2,6 +2,12 @@ import { ArrowsClockwiseIcon } from "@phosphor-icons/react/dist/csr/ArrowsClockw
 import { CaretLeftIcon } from "@phosphor-icons/react/dist/csr/CaretLeft";
 import { CaretRightIcon } from "@phosphor-icons/react/dist/csr/CaretRight";
 import { SidebarSimpleIcon } from "@phosphor-icons/react/dist/csr/SidebarSimple";
+import {
+  useWindowBackActionValue,
+  useWindowRefreshMenuItemValue,
+  useWindowTitleBarActions,
+  WindowTitleBarActionButtons,
+} from "@tearleads/windowing";
 import { MINI_APPS } from "../../../mini-apps/registry";
 import type { MiniAppId } from "../../../mini-apps/types";
 import {
@@ -9,12 +15,6 @@ import {
   useAppNavigationState,
 } from "../../../navigation/AppNavigationProvider";
 import type { RoutedLayoutTier } from "../../../navigation/useRoutedLayoutTier";
-import { WindowTitleBarActionButtons } from "../../window/WindowChromeActions";
-import {
-  useWindowBackActionValue,
-  useWindowRefreshMenuItemValue,
-  useWindowTitleBarActions,
-} from "../../window/WindowMenuContext";
 
 export function RoutedPaneAppBar({
   activeAppId,

@@ -1,6 +1,5 @@
+import { useWindowFileMenuItem, useWindowSidebar } from "@tearleads/windowing";
 import { MiniAppRoot } from "../../components/mini-app/MiniAppLayout";
-import { useWindowFileMenuItem } from "../../components/window/WindowMenuContext";
-import { useWindowSidebar } from "../../components/window/WindowSidebarContext";
 import { SystemBootstrapGate } from "../SystemBootstrapGate";
 import { ContactsContextMenuLayer } from "./context-menu/ContactsContextMenu";
 import "./Contacts.css";

@@ -1,9 +1,7 @@
 import { NotePencilIcon } from "@phosphor-icons/react/dist/csr/NotePencil";
 import { TrashIcon } from "@phosphor-icons/react/dist/csr/Trash";
+import { type ContextMenuState, Menu, MenuItem } from "@tearleads/windowing";
 import { type MouseEvent, useCallback } from "react";
-import { Menu } from "../../../components/shared/Menu";
-import { MenuItem } from "../../../components/shared/MenuItem";
-import type { ContextMenuState } from "../../../components/shared/useContextMenuState";
 import { useMiniAppListContextMenu } from "../../shared/list-panel/useMiniAppListContextMenu";
 import { NOTES_LABELS } from "../labels";
 

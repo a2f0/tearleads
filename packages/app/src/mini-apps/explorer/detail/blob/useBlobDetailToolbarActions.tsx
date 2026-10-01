@@ -1,8 +1,8 @@
 import { ArrowsOutIcon } from "@phosphor-icons/react/dist/csr/ArrowsOut";
 import { DownloadSimpleIcon } from "@phosphor-icons/react/dist/csr/DownloadSimple";
 import type { BlobInfo } from "@tearleads/client-sdk";
+import { useWindowTitleBarAction } from "@tearleads/windowing";
 import { useCallback, useMemo, useState } from "react";
-import { useWindowTitleBarAction } from "../../../../components/window/WindowMenuContext";
 import { getMediaPreviewKind } from "../../../../document-types/shared/MediaPreview";
 import type { BlobPreviewState } from "../../../shared/blob-pick/blob-list/blobPreview";
 import { EXPLORER_LABELS } from "../../labels";

@@ -1,12 +1,10 @@
+import { type MenuPosition, useWindowActions } from "@tearleads/windowing";
 import { useCallback } from "react";
-
 import { LocalKeyringUnlockWindow } from "../../../mini-apps/LocalKeyringUnlockGate";
 import { launchSystemMonitorWindow } from "../../../mini-apps/system-monitor/launchSystemMonitorWindow";
 import { useSystemMonitor } from "../../../mini-apps/system-monitor/SystemMonitorProvider";
 import type { MiniAppId } from "../../../mini-apps/types";
 import { useAppNavigationActions } from "../../../navigation/AppNavigationProvider";
-import type { MenuPosition } from "../../shared/Menu";
-import { useWindowActions } from "../../window/WindowStateProvider";
 
 interface PaneWindowMenuActionOptions {
   position: MenuPosition;

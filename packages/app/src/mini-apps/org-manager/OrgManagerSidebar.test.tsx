@@ -1,10 +1,7 @@
 import { afterEach, expect, test } from "bun:test";
+import { useWindowSidebar, WindowSidebarProvider } from "@tearleads/windowing";
 import { cleanup, fireEvent, render, waitFor } from "@testing-library/react";
 import type { MouseEvent } from "react";
-import {
-  useWindowSidebar,
-  WindowSidebarProvider,
-} from "../../components/window/WindowSidebarContext";
 import type { OrgManagerSidebarContextMenuTarget } from "./context-menu/OrgManagerContextMenu";
 import { ORG_MANAGER_LABELS } from "./labels";
 import {

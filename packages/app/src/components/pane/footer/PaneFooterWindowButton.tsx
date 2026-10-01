@@ -2,16 +2,16 @@ import { ArrowsOutSimpleIcon } from "@phosphor-icons/react/dist/csr/ArrowsOutSim
 import { CornersOutIcon } from "@phosphor-icons/react/dist/csr/CornersOut";
 import { MinusIcon } from "@phosphor-icons/react/dist/csr/Minus";
 import { XIcon } from "@phosphor-icons/react/dist/csr/X";
+import {
+  Menu,
+  MenuItem,
+  useContextMenuPositionState,
+  useWindowActions,
+  type WindowEntry,
+} from "@tearleads/windowing";
 import { useCallback } from "react";
 import { MINI_APP_ICONS } from "../../../mini-apps/registry";
 import { isMiniAppId } from "../../../mini-apps/types";
-import { Menu } from "../../shared/Menu";
-import { MenuItem } from "../../shared/MenuItem";
-import { useContextMenuPositionState } from "../../shared/useContextMenuState";
-import {
-  useWindowActions,
-  type WindowEntry,
-} from "../../window/WindowStateProvider";
 
 // One taskbar entry. Left click activates the window (restoring it when
 // minimized); right click opens the window's own menu, so a minimized window

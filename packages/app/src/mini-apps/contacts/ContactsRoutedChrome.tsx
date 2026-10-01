@@ -1,9 +1,9 @@
 import { AddressBookIcon } from "@phosphor-icons/react/dist/csr/AddressBook";
-import { useMemo } from "react";
 import {
   useWindowTitleBarAction,
   useWindowToolbarReservation,
-} from "../../components/window/WindowMenuContext";
+} from "@tearleads/windowing";
+import { useMemo } from "react";
 import { NewContactIcon } from "../shared/newContactIcon";
 import { CONTACTS_LABELS } from "./labels";
 import type { ContactsRoute } from "./routes";
