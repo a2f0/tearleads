@@ -1,5 +1,5 @@
 import { useCallback } from "react";
-import { useSystemStatusSnapshot } from "../../../components/pane/status/useSystemStatusSnapshot";
+import { useSystemStatusSnapshot } from "../../../shell/pane/status/useSystemStatusSnapshot";
 import { useSystemEnvironment } from "../environment/useSystemEnvironment";
 import { useSystemMonitorFeatureFlagRows } from "../feature-flags/useSystemMonitorFeatureFlagRows";
 import { useSystemMonitorLogEntries } from "../log/useSystemMonitorLogEntries";

@@ -117,10 +117,10 @@ Reproduce each scenario ten times from `packages/app`, after
 
 ```sh
 DUAL_PANE_REQUEST_PROFILE=1 DUAL_PANE_REQUEST_PROFILE_DETAIL=1 \
-  bun test src/components/pane/tests/DualPaneProvider.sharing.test.tsx \
+  bun test src/shell/pane/tests/DualPaneProvider.sharing.test.tsx \
   --test-name-pattern 'root grant after attachment writes'
 DUAL_PANE_REQUEST_PROFILE=1 DUAL_PANE_REQUEST_PROFILE_DETAIL=1 \
-  bun test src/components/pane/tests/DualPaneProvider.groupsRequestVolume.test.tsx
+  bun test src/shell/pane/tests/DualPaneProvider.groupsRequestVolume.test.tsx
 ```
 
 Each `[dual-pane-request-metrics]` JSON line contains the phase, total, body bytes,

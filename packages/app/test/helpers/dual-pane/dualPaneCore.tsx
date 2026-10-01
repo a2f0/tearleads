@@ -8,12 +8,6 @@ import {
 } from "@testing-library/react";
 import invariant from "invariant";
 import { type ReactNode, useEffect, useRef } from "react";
-import {
-  DualPaneProvider,
-  PaneSideProvider,
-} from "../../../src/components/pane/dual-pane";
-import { PaneProvider } from "../../../src/components/pane/runtime/PaneProvider";
-import { Pane } from "../../../src/components/pane/shell/Pane";
 import { APP_HOST_PROFILES } from "../../../src/host/AppHostConfig";
 import { useRegisterCurrentIdentity } from "../../../src/identity/useRegisterCurrentIdentity";
 import { RECOVERY_KEY_ACKNOWLEDGEMENT_PHRASE } from "../../../src/mini-apps/identity-manager/actions/recoveryKeyDisclosure";
@@ -27,6 +21,12 @@ import {
 import { useCryptoSession } from "../../../src/providers/crypto/CryptoSessionProvider";
 import { useDatabase } from "../../../src/providers/db/DatabaseProvider";
 import { useIdentity } from "../../../src/providers/identity/IdentityProvider";
+import {
+  DualPaneProvider,
+  PaneSideProvider,
+} from "../../../src/shell/pane/dual-pane";
+import { PaneProvider } from "../../../src/shell/pane/runtime/PaneProvider";
+import { Pane } from "../../../src/shell/pane/shell/Pane";
 import { AppTestRuntimeScopeProbe } from "../appRuntimeIdle";
 import { truncateText } from "../dualPaneRequestSummary";
 import { createTestHostConfig, flattenPaneStatusText } from "../paneTestUtils";

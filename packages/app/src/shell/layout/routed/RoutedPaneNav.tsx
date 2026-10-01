@@ -7,12 +7,12 @@ import {
   useEffect,
   useRef,
 } from "react";
+import { classNames } from "../../../components/shared/classNames";
 import { ROUTED_MINI_APP_NAV_ITEMS } from "../../../mini-apps/catalog";
 import type { MiniAppId } from "../../../mini-apps/types";
 import { useVisibleMiniAppItems } from "../../../mini-apps/useVisibleMiniAppItems";
 import { useAppNavigationActions } from "../../../navigation/AppNavigationProvider";
 import type { RoutedLayoutTier } from "../../../navigation/useRoutedLayoutTier";
-import { classNames } from "../../shared/classNames";
 import type { LauncherPlacement } from "./LauncherPlacement";
 import { RoutedPanePlacementButton } from "./RoutedPanePlacementButton";
 import { useMobileSheetDrag } from "./useMobileSheetDrag";

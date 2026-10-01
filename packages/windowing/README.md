@@ -90,7 +90,7 @@ The stylesheets read design tokens they do not define:
   `--window-bar-*` and `--tearleads-window-titlebar-*` chrome tokens);
 - `--app-radius-control`, `--app-radius-surface`, `--app-hover-surface`,
   `--app-shadow-surface`, and `--app-shadow-window`, which the host defines.
-  Tearleads sets them in `packages/app/src/components/layout/AppChrome.css`.
+  Tearleads sets them in `packages/app/src/shell/layout/AppChrome.css`.
 
 ## Status
 

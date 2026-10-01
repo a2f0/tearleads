@@ -1,7 +1,7 @@
-import { Layout } from "./components/layout/Layout";
 import { AppErrorBoundary } from "./components/shared/AppErrorBoundary";
 import type { AppHostConfig } from "./host/AppHostConfig";
 import { DiagnosticsProvider } from "./providers/logging/DiagnosticsProvider";
+import { Layout } from "./shell/layout/Layout";
 
 interface AppProps {
   hostConfig: AppHostConfig;

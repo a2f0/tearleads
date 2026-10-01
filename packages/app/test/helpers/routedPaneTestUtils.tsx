@@ -1,11 +1,11 @@
 import { type RenderResult, render } from "@testing-library/react";
+import { SystemMonitorDeveloperModeProvider } from "../../src/mini-apps/system-monitor/systemMonitorDeveloperMode";
 import {
   DualPaneProvider,
   PaneSideProvider,
-} from "../../src/components/pane/dual-pane";
-import { PaneProvider } from "../../src/components/pane/runtime/PaneProvider";
-import { Pane } from "../../src/components/pane/shell/Pane";
-import { SystemMonitorDeveloperModeProvider } from "../../src/mini-apps/system-monitor/systemMonitorDeveloperMode";
+} from "../../src/shell/pane/dual-pane";
+import { PaneProvider } from "../../src/shell/pane/runtime/PaneProvider";
+import { Pane } from "../../src/shell/pane/shell/Pane";
 import { createTestHostConfig } from "./paneTestUtils";
 
 export function renderRoutedPane(): RenderResult {

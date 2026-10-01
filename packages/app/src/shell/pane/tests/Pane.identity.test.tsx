@@ -20,7 +20,7 @@ import {
   waitForPersistedPaneLocalIdentity,
 } from "../../../../test/helpers/paneTestUtils";
 import { enableSystemMonitorDeveloperMode } from "../../../../test/helpers/systemMonitorTestPreferences";
-import { DESTROY_KEY_PACKAGE_CONFIRMATION_PHRASE } from "../../shared/DestroyKeyPackageConfirmationDialog";
+import { DESTROY_KEY_PACKAGE_CONFIRMATION_PHRASE } from "../../../components/shared/DestroyKeyPackageConfirmationDialog";
 
 afterEach(cleanupPaneTestEnvironment);
 

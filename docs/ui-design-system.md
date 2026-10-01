@@ -11,8 +11,8 @@ The app renders one React tree with two interchangeable shells, selected by
 `packages/app/src/navigation/AppNavigationMode.ts`:
 
 - **windowed** — the desktop window-manager UI (`@tearleads/windowing`,
-  `components/pane/*`). Available through the lower-right layout switch.
-- **routed** — the single-pane UI (`components/layout/routed/*`). The default
+  `shell/pane/*`). Available through the lower-right layout switch.
+- **routed** — the single-pane UI (`shell/layout/routed/*`). The default
   on desktop, iPad, and phone. The two-peer demo keeps its windowed split on
   wide desktop screens.
 
@@ -31,7 +31,7 @@ The tablet breakpoint lives in
 `packages/app/src/navigation/breakpoints.test.ts` fails if the two drift.
 
 The switch between shells never remounts the runtime-owning subtrees — see the
-comment in `components/layout/Layout.tsx`. A user can also switch between
+comment in `shell/layout/Layout.tsx`. A user can also switch between
 windowed and routed shells via the taskbar/footer control
 (`NavigationModeOverrideProvider`). The choice survives reloads; a saved
 windowed choice yields to routed mode on narrow or touch screens.
@@ -108,7 +108,7 @@ motion. Rules:
 - Each component ships a sibling `.css` file imported by its `.tsx`; class
   names are composed with `classNames` from `components/shared/classNames`.
 
-App-specific chrome refinements live in `components/layout/AppChrome.css`,
+App-specific chrome refinements live in `shell/layout/AppChrome.css`,
 scoped to the navigation attribute on the root so portaled menus inherit them
 without changing website chrome. The `--app-*` tokens define control/surface
 radii, hover fill, control borders, and overlay/window shadows. Table rules and
@@ -206,7 +206,7 @@ The de-facto component library is `packages/app/src/components`:
   their modules directly (`components/mini-app/rows/MiniAppRow`,
   `components/mini-app/virtual/MiniAppVirtual`). The old `components/shared/*`
   and `components/pane/*.tsx` re-export shims were removed — import `Pane`
-  family components from their subdirectories (`pane/shell/Pane`, etc.).
+  family components from their subdirectories (`shell/pane/shell/Pane`, etc.).
 
 ## Per-app chrome registration
 

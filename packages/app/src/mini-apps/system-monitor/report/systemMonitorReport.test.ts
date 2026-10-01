@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
-import type { PaneLogEntry } from "../../../components/pane/log/PaneLog";
-import type { SystemStatusSnapshot } from "../../../components/pane/status/useSystemStatusSnapshot";
+import type { PaneLogEntry } from "../../../shell/pane/log/PaneLog";
+import type { SystemStatusSnapshot } from "../../../shell/pane/status/useSystemStatusSnapshot";
 import {
   formatSystemMonitorReport,
   MAX_REPORT_LOG_ENTRIES,

@@ -5,7 +5,7 @@ import type {
   PendingWriteQueueOperation,
   SyncLaneSnapshot,
 } from "@tearleads/client-sdk";
-import type { SystemStatusSnapshot } from "../../../components/pane/status/useSystemStatusSnapshot";
+import type { SystemStatusSnapshot } from "../../../shell/pane/status/useSystemStatusSnapshot";
 import {
   formatSystemMonitorReport,
   MAX_REPORT_WRITE_QUEUE_ITEMS,

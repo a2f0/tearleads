@@ -11,10 +11,10 @@ import {
   MiniAppTabList,
   MiniAppTabPanel,
 } from "../../components/mini-app/MiniAppLayout";
-import { PaneStatus } from "../../components/pane/status/PaneStatus";
 import { useNetworkModeContextMenu } from "../../components/shared/NetworkModeContextMenu";
 import { useAppNavigationState } from "../../navigation/AppNavigationProvider";
 import { useMiniAppRouteState } from "../../navigation/useMiniAppRouteState";
+import { PaneStatus } from "../../shell/pane/status/PaneStatus";
 import { LocalKeyringUnlockGate } from "../LocalKeyringUnlockGate";
 import "./SystemMonitor.css";
 import { SystemMonitorEnvironment } from "./environment/SystemMonitorEnvironment";

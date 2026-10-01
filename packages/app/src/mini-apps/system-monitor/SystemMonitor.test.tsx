@@ -7,12 +7,9 @@ import {
   PANE_ASYNC_TEST_TIMEOUT_MS,
   renderPane,
 } from "../../../test/helpers/paneTestUtils";
-import {
-  DualPaneProvider,
-  PaneSideProvider,
-} from "../../components/pane/dual-pane";
-import { PaneProvider } from "../../components/pane/runtime/PaneProvider";
-import { Pane } from "../../components/pane/shell/Pane";
+import { DualPaneProvider, PaneSideProvider } from "../../shell/pane/dual-pane";
+import { PaneProvider } from "../../shell/pane/runtime/PaneProvider";
+import { Pane } from "../../shell/pane/shell/Pane";
 import { SystemMonitorDeveloperModeProvider } from "./systemMonitorDeveloperMode";
 import {
   systemMonitorDeveloperModeStorageKey,

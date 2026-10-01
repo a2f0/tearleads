@@ -9,13 +9,13 @@ import type { DocumentAttachment } from "@tearleads/client-sdk";
 import { WindowCloseButton } from "@tearleads/windowing";
 import { type ReactNode, type RefObject, useId, useRef } from "react";
 import { createPortal } from "react-dom";
-import { useRoutedPaneOverlayHost } from "../../components/layout/routed/RoutedPaneOverlayHost";
 import {
   MiniAppButton,
   MiniAppImageViewer,
   MiniAppModalBackdrop,
   MiniAppModalPanel,
 } from "../../components/mini-app/MiniAppLayout";
+import { useRoutedPaneOverlayHost } from "../../components/mini-app/overlays/RoutedPaneOverlayHost";
 import { classNames } from "../../components/shared/classNames";
 import "@tearleads/windowing/window/WindowTitleBar.css";
 import "@tearleads/windowing/window/WindowToolBar.css";

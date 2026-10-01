@@ -551,10 +551,18 @@ export const subsystems: readonly Subsystem[] = [
     paths: [`${app}/document-projectors/`],
   },
   {
-    name: "App Shell & Components",
+    name: "App Shell",
     package: "app",
     responsibility:
-      "Reusable presentation: layout, pane, mini-app chrome, and shared components.",
+      "The app's shells: layout and workspaces, the windowed pane that hosts mini-app windows and its footer taskbar, and the routed shell. Composes the runtime, navigation, and the mini-apps it renders.",
+    seam: "shell/layout/Layout; shell/pane/shell/Pane",
+    paths: [`${app}/shell/`],
+  },
+  {
+    name: "Shared Components",
+    package: "app",
+    responsibility:
+      "Reusable presentation below the shells: the mini-app UI kit (controls, tables, overlays, the error boundary) and shared components. Loads no mini-app.",
     seam: "components/*",
     paths: [`${app}/components/`],
   },

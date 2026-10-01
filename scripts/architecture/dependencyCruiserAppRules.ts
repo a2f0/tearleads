@@ -5,6 +5,33 @@ const appSourceRoot = packageSourceRoot.app;
 
 export const appDependencyRules = [
   {
+    name: "app-shared-components-stay-below-the-shell",
+    severity: "error",
+    comment:
+      "components/ is reusable presentation that the shells (shell/layout, shell/pane) compose. A component that needs something from a shell takes it through a context the shell provides, like components/mini-app/overlays/RoutedPaneOverlayHost.tsx.",
+    from: {
+      path: `${appSourceRoot}components/`,
+      pathNot: testFilePattern.source,
+    },
+    to: {
+      path: `${appSourceRoot}shell/`,
+    },
+  },
+  {
+    name: "app-shared-components-load-no-mini-app",
+    severity: "error",
+    comment:
+      "components/ sits below the mini-apps and may use only the platform's types (mini-apps/types.ts). Anything that names or loads a specific mini-app belongs in the shell or the app itself.",
+    from: {
+      path: `${appSourceRoot}components/`,
+      pathNot: testFilePattern.source,
+    },
+    to: {
+      path: `${appSourceRoot}mini-apps/`,
+      pathNot: `${appSourceRoot}mini-apps/types\\.ts$`,
+    },
+  },
+  {
     name: "app-mini-app-catalog-imports-no-mini-app",
     severity: "error",
     comment:

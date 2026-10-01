@@ -28,7 +28,7 @@ that larger organizations, pagination, attachments and outages cost the same.
 
 The new tests are `OrganizationBootstrapRequestVolume`,
 `GroupMutationRequestVolume` and `FolderMutationRequestVolume` in
-`packages/app/src/components/pane/tests`. Each phase pins successful mutation
+`packages/app/src/shell/pane/tests`. Each phase pins successful mutation
 counts as well as total and endpoint ceilings. Local-first moves must reach their
 remote commits before the helper checks idle: an optimistic row appearing in
 Trash alone does not prove that the move completed.

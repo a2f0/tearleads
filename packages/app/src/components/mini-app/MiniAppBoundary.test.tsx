@@ -4,7 +4,7 @@ import type { DiagnosticBreadcrumb } from "../../host/AppDiagnostics";
 import { MiniAppRouteSegmentsProvider } from "../../navigation/MiniAppRouteSegmentsContext";
 import { DiagnosticsProvider } from "../../providers/logging/DiagnosticsProvider";
 import { LogProvider } from "../../providers/logging/LogProvider";
-import { PaneLog } from "../pane/log/PaneLog";
+import { PaneLog } from "../../shell/pane/log/PaneLog";
 import { MiniAppBoundary } from "./MiniAppBoundary";
 
 afterEach(cleanup);
