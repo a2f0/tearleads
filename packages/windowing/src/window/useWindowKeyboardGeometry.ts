@@ -34,6 +34,8 @@ interface KeyboardGeometryHost {
 interface SteppedGeometry {
   commit: () => void;
   grow: (deltaWidth: number, deltaHeight: number) => void;
+  // Holds the window's layout while the mode owns its geometry.
+  hold: (holding: boolean) => void;
   nudge: (deltaX: number, deltaY: number) => void;
   restore: (saved: LiveGeometry) => void;
   snapshot: () => LiveGeometry;
@@ -48,7 +50,7 @@ interface SteppedGeometry {
 // presses anywhere; minimizing or maximizing the window cancels it, so its key
 // capture never outlives the window it moves.
 function useWindowKeyboardGeometry(
-  { commit, grow, nudge, restore, snapshot }: SteppedGeometry,
+  { commit, grow, hold, nudge, restore, snapshot }: SteppedGeometry,
   { available, windowRef }: KeyboardGeometryHost,
   announce: (message: string) => void,
 ) {
@@ -58,11 +60,12 @@ function useWindowKeyboardGeometry(
   const startKeyboardMode = useCallback(
     (nextMode: WindowKeyboardMode) => {
       startGeometry.current = snapshot();
+      hold(true);
       setMode(nextMode);
       announce(MODE_HINTS[nextMode]);
       windowRef.current?.focus({ preventScroll: true });
     },
-    [announce, snapshot, windowRef],
+    [announce, hold, snapshot, windowRef],
   );
 
   useEffect(() => {
@@ -72,8 +75,9 @@ function useWindowKeyboardGeometry(
     if (startGeometry.current) {
       restore(startGeometry.current);
     }
+    hold(false);
     setMode(null);
-  }, [available, mode, restore]);
+  }, [available, hold, mode, restore]);
 
   useEffect(() => {
     if (!mode) {
@@ -82,6 +86,7 @@ function useWindowKeyboardGeometry(
 
     function leave() {
       commit();
+      hold(false);
       setMode(null);
     }
 
@@ -99,6 +104,7 @@ function useWindowKeyboardGeometry(
       } else if (startGeometry.current) {
         restore(startGeometry.current);
       }
+      hold(false);
       setMode(null);
     }
 
@@ -130,7 +136,7 @@ function useWindowKeyboardGeometry(
       document.removeEventListener("pointerdown", leave, true);
       document.removeEventListener("focusin", handleFocusIn, true);
     };
-  }, [commit, grow, mode, nudge, restore, windowRef]);
+  }, [commit, grow, hold, mode, nudge, restore, windowRef]);
 
   return startKeyboardMode;
 }

@@ -7,7 +7,7 @@ import {
   within,
 } from "@testing-library/react";
 import { type ComponentType, useEffect, useRef, useState } from "react";
-import { stubLayout } from "./layout.testUtils";
+import { captureResizeObservers, stubLayout } from "./layout.testUtils";
 import { Window } from "./Window";
 import {
   useWindowActions,
@@ -304,4 +304,28 @@ test("windows remounting together leave focus on the foremost one", () => {
 
   const [first] = view.getAllByRole("region", { name: "Notes" });
   expect(document.activeElement === first).toBe(true);
+});
+
+test("a surface resize during a keyboard resize commits nothing until it ends", () => {
+  const observers = captureResizeObservers();
+  try {
+    const { region, view } = openNotes(PlainContent, {
+      size: { height: 200, width: 300 },
+    });
+
+    chooseViewMenuItem(region, "Resize Window");
+    fireEvent.keyDown(document, { key: "ArrowRight" });
+    act(() => observers.fire());
+
+    expect(committedGeometry(view).size).toEqual({ height: 200, width: 300 });
+
+    act(() => {
+      fireEvent.keyDown(document, { key: "Escape" });
+    });
+
+    expect(committedGeometry(view).size).toEqual({ height: 200, width: 300 });
+    expect(region.style.width).toBe("300px");
+  } finally {
+    observers.restore();
+  }
 });

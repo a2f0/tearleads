@@ -1,6 +1,6 @@
 import { afterEach, expect, test } from "bun:test";
 import { act, cleanup, fireEvent, render } from "@testing-library/react";
-import { stubLayout } from "./layout.testUtils";
+import { captureResizeObservers, stubLayout } from "./layout.testUtils";
 import { Window } from "./Window";
 import {
   useWindowActions,
@@ -366,19 +366,7 @@ test("moving a window while clearing its size clamps at the default size", () =>
 });
 
 test("a hidden surface keeps saved positions until it has a size", () => {
-  const observed: Array<() => void> = [];
-  const originalObserver = globalThis.ResizeObserver;
-  globalThis.ResizeObserver = class {
-    readonly #callback: () => void;
-    constructor(callback: () => void) {
-      this.#callback = callback;
-    }
-    observe() {
-      observed.push(this.#callback);
-    }
-    unobserve() {}
-    disconnect() {}
-  } as unknown as typeof ResizeObserver;
+  const observers = captureResizeObservers();
   try {
     // The surface is unsized, as in an inactive workspace.
     const view = render(
@@ -398,13 +386,11 @@ test("a hidden surface keeps saved positions until it has a size", () => {
       clientHeight: 600,
       clientWidth: 800,
     });
-    act(() => {
-      for (const callback of observed) callback();
-    });
+    act(() => observers.fire());
 
     expect(committedGeometry(view).position).toEqual({ x: 600, y: 500 });
   } finally {
-    globalThis.ResizeObserver = originalObserver;
+    observers.restore();
   }
 });
 

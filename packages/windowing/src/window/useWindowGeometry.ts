@@ -284,7 +284,7 @@ export function useWindowGeometry(
     [live, windowRef],
   );
 
-  useWindowLayout({
+  const { hold } = useWindowLayout({
     clamp,
     commit,
     dragging,
@@ -326,6 +326,7 @@ export function useWindowGeometry(
   return {
     ...stepped,
     commit,
+    hold,
     handlePointerDown,
     handleResizePointerDown,
     position,
