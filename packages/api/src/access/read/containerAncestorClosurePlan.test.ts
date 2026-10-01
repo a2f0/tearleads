@@ -1,14 +1,11 @@
 import { beforeAll, expect, test } from "bun:test";
-import {
-  type DatabaseSession,
-  db,
-  getDefaultApiDatabaseKind,
-} from "@tearleads/api-shared/postgres";
+import { type DatabaseSession, db } from "@tearleads/api-shared/postgres";
 import {
   accessManifestHeads,
   accessManifests,
 } from "@tearleads/api-shared/schema";
 import { type SQL, sql } from "drizzle-orm";
+import { isSqliteApiDatabase } from "../../utils/sqlDialect";
 import { listCurrentContainerKekTargetClosureIdsMapped } from "./containerKekTargets";
 
 const organizationId = crypto.randomUUID();
@@ -89,29 +86,55 @@ test.each([
   );
 });
 
+async function capturedClosureQuery(): Promise<SQL> {
+  let captured: SQL | undefined;
+  const recording = {
+    execute: (query: SQL) => {
+      captured = query;
+      return db.execute(query);
+    },
+  } as unknown as DatabaseSession;
+  await closure([childId], recording);
+  if (!captured) throw new Error("Expected the closure to run its query");
+  return captured;
+}
+
 // Each recursive level must be one index lookup. SQLite otherwise drove the step
 // from every container head, so the walk grew with the whole table: with 8,000
 // unrelated heads, closing 101 seeds took 23 s and stalled CI past its timeout.
-test.skipIf(getDefaultApiDatabaseKind() !== "sqlite")(
+test.skipIf(!isSqliteApiDatabase())(
   "each ancestor level is one head index lookup on SQLite",
   async () => {
-    let captured: SQL | undefined;
-    const recording = {
-      execute: (query: SQL) => {
-        captured = query;
-        return db.execute(query);
-      },
-    } as unknown as DatabaseSession;
-    await closure([childId], recording);
-    if (!captured) throw new Error("Expected the closure to run its query");
-    const plan = await db.execute(sql`explain query plan ${captured}`);
+    const plan = await db.execute(
+      sql`explain query plan ${await capturedClosureQuery()}`,
+    );
     const details = plan.rows.map(({ detail }) => String(detail));
-    const recursiveStep = details.slice(details.indexOf("RECURSIVE STEP"));
+    const stepStart = details.indexOf("RECURSIVE STEP");
+    expect(stepStart).toBeGreaterThan(0);
+    const recursiveStep = details.slice(stepStart);
     expect(recursiveStep).toContain(
       "SEARCH h USING INDEX access_manifest_heads_object_idx (object_kind=? AND object_id=?)",
     );
     expect(recursiveStep).not.toContain(
       "SEARCH h USING INDEX access_manifest_heads_object_idx (object_kind=?)",
     );
+  },
+);
+
+// Postgres can use the head index only while the recursive step compares the
+// uuid column in its own type; casting it to text, as before, rules the index
+// out. The planner's choice on these tiny tables says nothing at scale, so this
+// checks the comparison the query actually sends.
+test.skipIf(isSqliteApiDatabase())(
+  "each ancestor level compares the head id as a uuid on Postgres",
+  async () => {
+    const query = await capturedClosureQuery();
+    const { sql: text } = (
+      db as unknown as {
+        dialect: { sqlToQuery(query: SQL): { sql: string } };
+      }
+    ).dialect.sqlToQuery(query);
+    expect(text).toContain("h.object_id = case when");
+    expect(text).not.toContain("h.object_id::text = ");
   },
 );

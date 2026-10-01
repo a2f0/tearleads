@@ -228,8 +228,8 @@ export async function signTransparencyTreeHeadFixture(input: {
   };
 }
 
-// What verifySignedAccessEvent returns for an event the fixture just signed;
-// consumers under test verify it themselves, so a re-check only costs time.
+// What verifySignedAccessEvent returns for an event the fixture just signed. It
+// hashed this body and signed with this signer, so no check can fail.
 async function trustFixtureSignature(
   body: ContainerAccessEventBody | DocumentAccessEventBody,
   event: Awaited<ReturnType<typeof signAccessEvent>>,
