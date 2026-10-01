@@ -106,7 +106,14 @@ test(
     fireEvent.click(
       identityManager.getByRole("combobox", { name: "Identities" }),
     );
-    fireEvent.click(identityManager.getByText("New Identity"));
+    // The menu renders its options after the click; under load that can lag.
+    fireEvent.click(
+      await identityManager.findByText(
+        "New Identity",
+        {},
+        { timeout: PANE_LONG_ASYNC_TEST_TIMEOUT_MS },
+      ),
+    );
 
     let identityB = "";
     await waitFor(
@@ -188,7 +195,14 @@ test(
     fireEvent.click(
       identityManager.getByRole("combobox", { name: "Identities" }),
     );
-    fireEvent.click(identityManager.getByText("New Identity"));
+    // The menu renders its options after the click; under load that can lag.
+    fireEvent.click(
+      await identityManager.findByText(
+        "New Identity",
+        {},
+        { timeout: PANE_LONG_ASYNC_TEST_TIMEOUT_MS },
+      ),
+    );
 
     let identityB = "";
     await waitFor(
