@@ -110,6 +110,14 @@ export const SYSTEM_DESTINATION_NEGATIVE_CONTROLS: readonly NegativeControl[] =
       why: "A later unsigned login must not replace an acknowledged organization's root (#2278 M2).",
     },
     {
+      id: "restore-clears-root-acknowledgements",
+      module: "formal/local-trust/SystemDestination.tla",
+      config: "formal/local-trust/SystemDestination.cfg",
+      constants: { PreserveAcknowledgmentsOnRestore: "FALSE" },
+      expect: { kind: "invariant", name: "OnlyServerRootsAcknowledged" },
+      why: "A backup restore that discards root acknowledgements lets the next login acknowledge any root (#2365 finding 24).",
+    },
+    {
       id: "system-slot-created-by-writer",
       module: "formal/local-trust/SystemDestination.tla",
       config: "formal/local-trust/SystemDestination.cfg",

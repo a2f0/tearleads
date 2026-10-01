@@ -1,5 +1,6 @@
 import type { FileSaver } from "@tearleads/client-sdk";
 import { type ChangeEvent, useCallback, useRef, useState } from "react";
+import { useCryptoSession } from "../../providers/crypto/CryptoSessionProvider";
 import { BackupRestoreConflictError } from "../../providers/db/backupRestoreConflict";
 import { clearRestoredLocalCaches } from "../../providers/db/clearRestoredLocalCaches";
 import {
@@ -13,6 +14,7 @@ import { useLog } from "../../providers/logging/LogProvider";
 import { downloadTextAsFile } from "../../utils/downloadFile";
 import { unknownErrorMessage } from "../../utils/unknownErrorMessage";
 import { restoreFailureMessage } from "./restoreFailureMessage";
+import { reloadAfterRestore } from "./restoreReload";
 
 type BackupRestoreBusyState = "export" | "restore" | null;
 type ExportLocalBackup = ReturnType<
@@ -340,6 +342,7 @@ function useBackupRestoreState() {
 }
 
 export function useBackupRestore() {
+  const { prepareForRestoreReload } = useCryptoSession();
   const fileSaver = useFileSaver();
   const { log, logError } = useLog();
   const { exportLocalBackup, restoreLocalBackup } = useLocalBackupOperations();
@@ -372,9 +375,13 @@ export function useBackupRestore() {
   // reopened app re-derives the root container + read models from the restored
   // database instead of re-bootstrapping an empty root.
   const handleReload = useCallback(() => {
-    clearRestoredLocalCaches();
-    window.location.reload();
-  }, []);
+    void reloadAfterRestore({
+      clearCaches: clearRestoredLocalCaches,
+      logError,
+      prepare: prepareForRestoreReload,
+      reload: () => window.location.reload(),
+    });
+  }, [logError, prepareForRestoreReload]);
 
   return {
     backupPassword: state.backupPassword,
