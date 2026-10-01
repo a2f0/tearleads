@@ -5,7 +5,6 @@ import {
   WindowStateProvider,
 } from "@tearleads/windowing";
 import { cleanup, fireEvent, render, waitFor } from "@testing-library/react";
-import type { ComponentType } from "react";
 import {
   AppNavigationProvider,
   useAppNavigationState,
@@ -15,49 +14,8 @@ import {
   useMiniAppBusActions,
   useMiniAppMessage,
 } from "./bus";
+import { createMiniApps, EmptyMiniApp } from "./bus.testUtils";
 import { MiniAppWindow } from "./MiniAppWindow";
-import type { MiniAppDefinition, MiniAppId } from "./types";
-
-function EmptyMiniApp() {
-  return null;
-}
-
-function createMiniApps(
-  orgManagerComponent: ComponentType,
-  contactsComponent: ComponentType = EmptyMiniApp,
-): Readonly<Record<MiniAppId, MiniAppDefinition>> {
-  return {
-    "backup-restore": {
-      createComponent: () => EmptyMiniApp,
-      title: "Backup / Restore",
-    },
-    contacts: {
-      createComponent: () => contactsComponent,
-      title: "Contacts",
-    },
-    explorer: {
-      createComponent: () => EmptyMiniApp,
-      title: "Explorer",
-    },
-    "identity-manager": {
-      createComponent: () => EmptyMiniApp,
-      title: "Identity Manager",
-    },
-    notes: {
-      createComponent: () => EmptyMiniApp,
-      title: "Notes",
-    },
-    "org-manager": {
-      createComponent: () => orgManagerComponent,
-      title: "Org Manager",
-    },
-    root: { createComponent: () => () => null, title: "Root" },
-    "system-monitor": {
-      createComponent: () => EmptyMiniApp,
-      title: "System Monitor",
-    },
-  };
-}
 
 afterEach(() => {
   cleanup();
@@ -363,123 +321,4 @@ test("mini-app bus action consumers do not re-render on window state changes", (
 
   expect(view.getByTestId("window-count").textContent).toBe("1");
   expect(view.getByTestId("action-renders").textContent).toBe("1");
-});
-
-test("messages sent back to back are all delivered in send order", async () => {
-  const receivedUserIds: string[] = [];
-
-  function ContactsProbe() {
-    useMiniAppMessage("contacts", (message) => {
-      receivedUserIds.push(message.userId);
-    });
-
-    return <div>Contacts Ready</div>;
-  }
-
-  function ImportTwoButton() {
-    const { openMiniApp, sendMiniAppMessage } = useMiniAppBusActions();
-    return (
-      <button
-        type="button"
-        onClick={() => {
-          openMiniApp({
-            appId: "contacts",
-            message: {
-              appId: "contacts",
-              type: "import-contact",
-              userId: "user-1",
-            },
-          });
-          sendMiniAppMessage({
-            appId: "contacts",
-            type: "import-contact",
-            userId: "user-2",
-          });
-        }}
-      >
-        Import two contacts
-      </button>
-    );
-  }
-
-  function WindowLayer() {
-    const { windows } = useWindowStateData();
-    return windows.map((windowEntry) => (
-      <MiniAppWindow key={windowEntry.id} windowId={windowEntry.id} />
-    ));
-  }
-
-  const view = render(
-    <WindowStateProvider>
-      <AppNavigationProvider
-        mode="windowed"
-        miniApps={createMiniApps(EmptyMiniApp, ContactsProbe)}
-      >
-        <MiniAppBusProvider>
-          <ImportTwoButton />
-          <WindowLayer />
-        </MiniAppBusProvider>
-      </AppNavigationProvider>
-    </WindowStateProvider>,
-  );
-
-  fireEvent.click(view.getByRole("button", { name: "Import two contacts" }));
-
-  await waitFor(() => {
-    expect(view.getByText("Contacts Ready")).toBeTruthy();
-    expect(receivedUserIds).toEqual(["user-1", "user-2"]);
-  });
-});
-
-test("each message reaches exactly one subscriber of its app", async () => {
-  const deliveries: string[] = [];
-
-  function ContactsSubscriber({ name }: { name: string }) {
-    useMiniAppMessage("contacts", (message) => {
-      deliveries.push(`${name}:${message.userId}`);
-    });
-
-    return null;
-  }
-
-  function SendButton() {
-    const { sendMiniAppMessage } = useMiniAppBusActions();
-    return (
-      <button
-        type="button"
-        onClick={() =>
-          sendMiniAppMessage({
-            appId: "contacts",
-            type: "import-contact",
-            userId: "user-1",
-          })
-        }
-      >
-        Send import
-      </button>
-    );
-  }
-
-  const view = render(
-    <WindowStateProvider>
-      <AppNavigationProvider
-        mode="windowed"
-        miniApps={createMiniApps(EmptyMiniApp)}
-      >
-        <MiniAppBusProvider>
-          <ContactsSubscriber name="first" />
-          <ContactsSubscriber name="second" />
-          <SendButton />
-        </MiniAppBusProvider>
-      </AppNavigationProvider>
-    </WindowStateProvider>,
-  );
-
-  fireEvent.click(view.getByRole("button", { name: "Send import" }));
-
-  await waitFor(() => {
-    expect(deliveries).toEqual(["first:user-1"]);
-  });
-  await new Promise((resolve) => setTimeout(resolve, 20));
-  expect(deliveries).toEqual(["first:user-1"]);
 });

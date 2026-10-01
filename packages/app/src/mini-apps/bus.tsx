@@ -9,11 +9,15 @@ import {
   useState,
 } from "react";
 import { useAppNavigationActions } from "../navigation/AppNavigationProvider";
+import { useMiniAppWindowRouteSegments } from "../navigation/MiniAppRouteSegmentsContext";
 import type { MiniAppId, MiniAppMessage, OpenMiniAppRequest } from "./types";
 
 interface MiniAppMessageEnvelope {
   message: MiniAppMessage;
   sequence: number;
+  // The window openMiniApp opened or raised for this message. Only that
+  // window's subscriber takes it; null lets any subscriber of the app.
+  windowId: string | null;
 }
 
 interface MiniAppBusActions {
@@ -68,17 +72,19 @@ export function useMiniAppMessage<AppId extends MiniAppId>(
 ) {
   const { claimMiniAppMessage } = useMiniAppBusActions();
   const { pendingMessages } = useMiniAppBusMessages();
+  const hostWindowId = useMiniAppWindowRouteSegments(appId)?.windowId ?? null;
 
   useEffect(() => {
-    for (const { message, sequence } of pendingMessages) {
+    for (const { message, sequence, windowId } of pendingMessages) {
       if (
         isMiniAppMessageFor(message, appId) &&
+        (windowId === null || windowId === hostWindowId) &&
         claimMiniAppMessage(sequence)
       ) {
         onMessage(message);
       }
     }
-  }, [appId, claimMiniAppMessage, onMessage, pendingMessages]);
+  }, [appId, claimMiniAppMessage, hostWindowId, onMessage, pendingMessages]);
 }
 
 export function MiniAppBusProvider({ children }: PropsWithChildren) {
@@ -93,11 +99,21 @@ export function MiniAppBusProvider({ children }: PropsWithChildren) {
     ReadonlyArray<MiniAppMessageEnvelope>
   >([]);
 
-  const sendMiniAppMessage = useCallback((message: MiniAppMessage) => {
-    const sequence = sequenceRef.current + 1;
-    sequenceRef.current = sequence;
-    setPendingMessages((current) => [...current, { message, sequence }]);
-  }, []);
+  const enqueueMessage = useCallback(
+    (message: MiniAppMessage, windowId: string | null) => {
+      const sequence = sequenceRef.current + 1;
+      sequenceRef.current = sequence;
+      setPendingMessages((current) => [
+        ...current,
+        { message, sequence, windowId },
+      ]);
+    },
+    [],
+  );
+  const sendMiniAppMessage = useCallback(
+    (message: MiniAppMessage) => enqueueMessage(message, null),
+    [enqueueMessage],
+  );
 
   // Runs after every subscriber effect of the commit that rendered this
   // snapshot, so a sequence missing from it can no longer be offered.
@@ -131,7 +147,7 @@ export function MiniAppBusProvider({ children }: PropsWithChildren) {
       position,
       reuseExisting,
     }: OpenMiniAppRequest) => {
-      appNavigation.openMiniApp({
+      const windowId = appNavigation.openMiniApp({
         appId,
         ...(pathSegments ? { pathSegments } : {}),
         ...(position ? { position } : {}),
@@ -139,10 +155,10 @@ export function MiniAppBusProvider({ children }: PropsWithChildren) {
       });
 
       if (message) {
-        sendMiniAppMessage(message);
+        enqueueMessage(message, windowId);
       }
     },
-    [appNavigation, sendMiniAppMessage],
+    [appNavigation, enqueueMessage],
   );
 
   const actions = useMemo(
