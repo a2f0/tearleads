@@ -34,6 +34,7 @@ test.each([false, true])(
               goBack={() => {}}
               pathSegments={[]}
               setPathSegments={() => {}}
+              windowId="window-1"
             >
               <MiniAppBoundary appId="explorer">
                 <Failure />
@@ -69,6 +70,7 @@ test("mini-app navigation records activity without route values or rendered text
           goBack={() => {}}
           pathSegments={segments}
           setPathSegments={() => {}}
+          windowId="window-1"
         >
           <MiniAppBoundary appId="explorer">
             <p>Private document title</p>
