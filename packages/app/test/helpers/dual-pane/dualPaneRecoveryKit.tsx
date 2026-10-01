@@ -165,31 +165,42 @@ function getInfoRowTitle(pane: HTMLElement, label: string): string | null {
   );
 }
 
+function queryMenuGetInfoButton(): HTMLElement | null {
+  const buttons = within(document.body)
+    .queryAllByRole("button", { name: "Get Info" })
+    .filter((button) => button.closest(".menu") !== null);
+  expect(buttons.length).toBeLessThanOrEqual(1);
+  return buttons[0] ?? null;
+}
+
 async function navigateToPaneExplorerDocumentInfo(
   pane: HTMLElement,
   itemLabel: string,
   containerName?: string,
 ): Promise<void> {
-  const itemRow = await waitForExplorerDocumentRow(
-    pane,
-    itemLabel,
-    containerName,
+  // Recovery can replace the folder between the row lookup and the right
+  // click, leaving the context menu on a detached row that never opens. Each
+  // poll reacquires the row and reopens the menu until Get Info appears.
+  const getInfoButton = await waitFor(
+    async () => {
+      const open = queryMenuGetInfoButton();
+      if (open) return open;
+      const itemRow = await waitForExplorerDocumentRow(
+        pane,
+        itemLabel,
+        containerName,
+      );
+      await interact(() => {
+        fireEvent.contextMenu(itemRow);
+      });
+      const opened = queryMenuGetInfoButton();
+      if (!opened) {
+        throw new Error("Expected the Explorer Get Info action.");
+      }
+      return opened;
+    },
+    { timeout: 10_000 },
   );
-  await interact(() => {
-    fireEvent.contextMenu(itemRow);
-  });
-
-  const getInfoButton = await waitFor(() => {
-    const buttons = within(document.body)
-      .getAllByRole("button", { name: "Get Info" })
-      .filter((button) => button.closest(".menu") !== null);
-    expect(buttons).toHaveLength(1);
-    const button = buttons[0];
-    if (!button) {
-      throw new Error("Expected the Explorer Get Info action.");
-    }
-    return button;
-  });
   await interact(() => {
     fireEvent.click(getInfoButton);
   });
