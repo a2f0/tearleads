@@ -237,13 +237,21 @@ stop_launching=
 report_finished_runs() {
   while [ -z "$failed_index" ] && [ -e "$CHECK_ROOT/model-$next_report.done" ]; do
     report_path=$CHECK_ROOT/model-$next_report
-    echo "Checking $(cat "$report_path.label")..."
-    cat "$report_path.log" 2>/dev/null || :
+    # Reporting is best effort: a failed write must not abort the check.
+    echo "Checking $(cat "$report_path.label")..." || :
     report_status=$(cat "$report_path.status" 2>/dev/null) || report_status=1
     if [ "$report_status" -ne 0 ]; then
+      # A failure replays its whole log; the counterexample is the evidence.
+      cat "$report_path.log" 2>/dev/null || :
       failed_index=$next_report
       failed_status=$report_status
     else
+      # A pass prints only TLC's verdict and state counts. Replaying every
+      # log, thousands of trace lines for the trace-export model, overran a
+      # non-blocking CI stdout; the failed write then aborted the check under
+      # set -e with no model at fault.
+      grep -E 'No error has been found|distinct states found|Finished in' \
+        "$report_path.log" 2>/dev/null || :
       next_report=$((next_report + 1))
     fi
   done

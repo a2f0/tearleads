@@ -180,10 +180,12 @@ async function navigateToPaneExplorerDocumentInfo(
 ): Promise<void> {
   // Recovery can replace the folder between the row lookup and the right
   // click, leaving the context menu on a detached row that never opens. Each
-  // poll reacquires the row and reopens the menu until Get Info appears.
+  // poll reacquires the row and reopens the menu until Get Info appears. A
+  // menu is reused only once this helper opened one; another pane's stays.
+  let requested = false;
   const getInfoButton = await waitFor(
     async () => {
-      const open = queryMenuGetInfoButton();
+      const open = requested ? queryMenuGetInfoButton() : null;
       if (open) return open;
       const itemRow = await waitForExplorerDocumentRow(
         pane,
@@ -193,13 +195,15 @@ async function navigateToPaneExplorerDocumentInfo(
       await interact(() => {
         fireEvent.contextMenu(itemRow);
       });
+      requested = true;
       const opened = queryMenuGetInfoButton();
       if (!opened) {
         throw new Error("Expected the Explorer Get Info action.");
       }
       return opened;
     },
-    { timeout: 10_000 },
+    // Longer than the row lookup's own 10s, so its error surfaces first.
+    { timeout: 20_000 },
   );
   await interact(() => {
     fireEvent.click(getInfoButton);
