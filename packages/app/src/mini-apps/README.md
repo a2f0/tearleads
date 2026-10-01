@@ -14,6 +14,12 @@ The window core (`@tearleads/windowing`) is app-agnostic: it stores a window's
 fills its `ContentBoundary` slot with the mini-app route and error boundary, and
 `isMiniAppId` narrows a window's `appId` back to a `MiniAppId`.
 
+`catalog.ts` holds each app's title, icon, and menu order without importing
+any app, so chrome that only labels or lists apps stays light; `registry.ts`
+pairs those titles with the components and is imported only by the shells that
+render apps. Each app that accepts bus messages declares them in its own
+`messages.ts`, an import-free type contract; `types.ts` unions them for the bus.
+
 Mini-app implementations can use providers and stores at their own boundary.
 Keep SDK-backed data dependencies behind `packages/app/src/providers` and
 `packages/app/src/stores`; keep the bus a pure React/window messaging adapter.
@@ -32,6 +38,7 @@ The root holds, where the app has them:
 - `<Name>Sidebar.tsx` — the sidebar frame.
 - `routes.ts` — route codecs; `sections.ts` — the section/nav catalog.
 - `labels.ts` and its catalogs — user-facing strings.
+- `messages.ts` — the bus messages the app accepts from other mini-apps.
 - `types.ts` — cross-feature types.
 - Modules the host shell imports from outside the mini-app (for example
   system-monitor's provider, launcher button, and mode helpers) — these are the

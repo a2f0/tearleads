@@ -8,7 +8,7 @@ import {
   useWindowTitleBarActions,
   WindowTitleBarActionButtons,
 } from "@tearleads/windowing";
-import { MINI_APPS } from "../../../mini-apps/registry";
+import { MINI_APP_TITLES } from "../../../mini-apps/catalog";
 import type { MiniAppId } from "../../../mini-apps/types";
 import {
   useAppNavigationActions,
@@ -81,7 +81,7 @@ export function RoutedPaneAppBar({
         )}
         {tier !== "mobile" && (
           <div className="routed-pane-title">
-            {MINI_APPS[activeAppId].title}
+            {MINI_APP_TITLES[activeAppId]}
           </div>
         )}
       </div>

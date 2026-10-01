@@ -522,6 +522,7 @@ export const subsystems: readonly Subsystem[] = [
     paths: [
       `${app}/mini-apps/AppWindow.tsx`,
       `${app}/mini-apps/bus.tsx`,
+      `${app}/mini-apps/catalog.ts`,
       `${app}/mini-apps/LocalKeyringUnlockGate.tsx`,
       `${app}/mini-apps/miniAppLauncher.tsx`,
       `${app}/mini-apps/miniAppVisibility.ts`,
