@@ -4,6 +4,7 @@ import { MinusIcon } from "@phosphor-icons/react/dist/csr/Minus";
 import { XIcon } from "@phosphor-icons/react/dist/csr/X";
 import { useCallback } from "react";
 import { MINI_APP_ICONS } from "../../../mini-apps/registry";
+import { isMiniAppId } from "../../../mini-apps/types";
 import { Menu } from "../../shared/Menu";
 import { MenuItem } from "../../shared/MenuItem";
 import { useContextMenuPositionState } from "../../shared/useContextMenuState";
@@ -29,7 +30,9 @@ export function PaneFooterWindowButton({
     contextMenu,
     openContextMenuAt,
   } = useContextMenuPositionState();
-  const AppIcon = entry.appId ? MINI_APP_ICONS[entry.appId] : undefined;
+  const AppIcon = isMiniAppId(entry.appId)
+    ? MINI_APP_ICONS[entry.appId]
+    : undefined;
 
   const runAndCloseMenu = useCallback(
     (action: (id: string) => void) => () => {

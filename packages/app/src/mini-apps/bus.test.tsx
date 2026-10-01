@@ -1,7 +1,6 @@
 import { afterEach, expect, test } from "bun:test";
 import { cleanup, fireEvent, render, waitFor } from "@testing-library/react";
 import type { ComponentType } from "react";
-import { Window } from "../components/window/Window";
 import {
   useWindowActions,
   useWindowStateData,
@@ -16,6 +15,7 @@ import {
   useMiniAppBusActions,
   useMiniAppMessage,
 } from "./bus";
+import { MiniAppWindow } from "./MiniAppWindow";
 import type { MiniAppDefinition, MiniAppId } from "./types";
 
 function EmptyMiniApp() {
@@ -123,7 +123,7 @@ test("mini-app bus opens a target app and delivers route messages", async () => 
       <>
         <div data-testid="window-count">{windows.length}</div>
         {windows.map((windowEntry) => (
-          <Window key={windowEntry.id} windowId={windowEntry.id} />
+          <MiniAppWindow key={windowEntry.id} windowId={windowEntry.id} />
         ))}
       </>
     );
@@ -199,7 +199,7 @@ test("mini-app bus opens contacts and delivers import messages", async () => {
       <>
         <div data-testid="window-count">{windows.length}</div>
         {windows.map((windowEntry) => (
-          <Window key={windowEntry.id} windowId={windowEntry.id} />
+          <MiniAppWindow key={windowEntry.id} windowId={windowEntry.id} />
         ))}
       </>
     );

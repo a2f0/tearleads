@@ -1,4 +1,5 @@
 import type { IConfiguration } from "dependency-cruiser";
+import { appDependencyRules } from "./scripts/architecture/dependencyCruiserAppRules";
 import { dependencyCruiserDeploymentRules } from "./scripts/architecture/dependencyCruiserDeploymentRules";
 import { runtimeDependencyRule } from "./scripts/architecture/dependencyCruiserRuntimeRule";
 import {
@@ -558,46 +559,13 @@ const websiteRules = [
   },
 ] satisfies ForbiddenRules;
 
-const appRules = [
-  {
-    name: "app-document-types-do-not-import-mini-apps",
-    severity: "error",
-    comment:
-      "Document types are shared building blocks for mini-apps; mini-apps should import from document-types, not the reverse. Lift shared UI down into document-types/ and have the mini-app consume it.",
-    from: {
-      path: `${sourceRoot.app}document-types/`,
-      pathNot: testFilesPattern,
-    },
-    to: {
-      path: `${sourceRoot.app}mini-apps/`,
-    },
-  },
-  {
-    name: "app-mini-apps-do-not-cross-import",
-    severity: "error",
-    comment:
-      "A mini-app must not reach into another mini-app's internals. Lift the shared building block into mini-apps/shared/ or hand data across the mini-app bus. The `$1` back-reference allows same-app and mini-apps/shared/ imports; shared/ may only import shared/, never a product mini-app.",
-    from: {
-      path: `${sourceRoot.app}mini-apps/([^/]+)/`,
-      pathNot: testFilesPattern,
-    },
-    to: {
-      path: `${sourceRoot.app}mini-apps/[^/]+/`,
-      pathNot: [
-        `${sourceRoot.app}mini-apps/$1/`,
-        `${sourceRoot.app}mini-apps/shared/`,
-      ],
-    },
-  },
-] satisfies ForbiddenRules;
-
 const dependencyCruiserConfig = {
   forbidden: [
     ...standardRules,
     ...apiRules,
     ...apiPackageBoundaryRules,
     ...clientSdkRules,
-    ...appRules,
+    ...appDependencyRules,
     ...corePackageRules,
     ...dependencyCruiserDeploymentRules,
     ...uiRules,

@@ -1,4 +1,5 @@
 import {
+  type ComponentType,
   type CSSProperties,
   type HTMLAttributes,
   type PropsWithChildren,
@@ -23,7 +24,6 @@ import {
   useWindowViewMenuItems,
   WindowMenuProvider,
 } from "./WindowMenuContext";
-import { WindowMiniAppRouteBoundary } from "./WindowMiniAppRouteBoundary";
 import type { ResizeCorner } from "./WindowResizeHandle";
 import { WindowResizeHandle } from "./WindowResizeHandle";
 import {
@@ -40,19 +40,26 @@ import { WindowStatusBar } from "./WindowStatusBar";
 import { WindowTitleBar } from "./WindowTitleBar";
 import { WindowToolBar } from "./WindowToolBar";
 
+// Wraps a window's content so the host can give it app-specific context (a
+// route, an error boundary) without the window layer knowing about apps.
+export type WindowContentBoundary = ComponentType<
+  PropsWithChildren<{ entry: WindowEntry }>
+>;
+
 interface WindowProps {
+  ContentBoundary?: WindowContentBoundary | undefined;
   windowId: string;
 }
 
 const WINDOW_STATUS_MESSAGE_DURATION_MS = 2500;
 
-export function Window({ windowId }: WindowProps) {
+export function Window({ ContentBoundary, windowId }: WindowProps) {
   const { windowMap } = useWindowStateData();
   const entry = windowMap.get(windowId);
 
   if (!entry) return null;
 
-  return <WindowInner entry={entry} />;
+  return <WindowInner ContentBoundary={ContentBoundary} entry={entry} />;
 }
 
 function useWindowActions(
@@ -219,11 +226,16 @@ function WindowResizeHandles({
   );
 }
 
-function WindowInner({ entry }: { entry: WindowEntry }) {
+interface WindowInnerProps {
+  ContentBoundary?: WindowContentBoundary | undefined;
+  entry: WindowEntry;
+}
+
+function WindowInner({ ContentBoundary, entry }: WindowInnerProps) {
   return (
     <WindowMenuProvider>
       <WindowSidebarProvider>
-        <WindowInnerContent entry={entry} />
+        <WindowInnerContent ContentBoundary={ContentBoundary} entry={entry} />
       </WindowSidebarProvider>
     </WindowMenuProvider>
   );
@@ -267,7 +279,7 @@ function WindowChrome({
   );
 }
 
-function WindowInnerContent({ entry }: { entry: WindowEntry }) {
+function WindowInnerContent({ ContentBoundary, entry }: WindowInnerProps) {
   const { maximized, minimized, zIndex, component: Component } = entry;
   const windowRef = useRef<HTMLDivElement>(null);
   const [overlayHost, setOverlayHost] = useState<HTMLElement | null>(null);
@@ -336,9 +348,13 @@ function WindowInnerContent({ entry }: { entry: WindowEntry }) {
           overlayHostRef={setOverlayHost}
           showSidebar={actions.showSidebar}
         >
-          <WindowMiniAppRouteBoundary entry={entry}>
-            {Component && <Component />}
-          </WindowMiniAppRouteBoundary>
+          {ContentBoundary ? (
+            <ContentBoundary entry={entry}>
+              {Component && <Component />}
+            </ContentBoundary>
+          ) : (
+            Component && <Component />
+          )}
         </WindowBodyWithSidebar>
       </CurrentWindowProvider>
       {actions.showStatusBar && <WindowStatusBar text={statusText} />}

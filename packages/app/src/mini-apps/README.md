@@ -9,6 +9,11 @@ and it receives concrete mini-app definitions from its caller. It should not
 import `@tearleads/*` packages, app runtime providers, app stores, document type
 registries, or concrete mini-app implementations.
 
+The window core (`components/window/`) is app-agnostic: it stores a window's
+`appId` as an opaque string and never imports mini-app code. `MiniAppWindow.tsx`
+fills its `ContentBoundary` slot with the mini-app route and error boundary, and
+`isMiniAppId` narrows a window's `appId` back to a `MiniAppId`.
+
 Mini-app implementations can use providers and stores at their own boundary.
 Keep SDK-backed data dependencies behind `packages/app/src/providers` and
 `packages/app/src/stores`; keep the bus a pure React/window messaging adapter.
