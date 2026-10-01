@@ -7,6 +7,7 @@ import {
   type PointerEvent as ReactPointerEvent,
   useCallback,
   useEffect,
+  useId,
   useMemo,
   useRef,
   useState,
@@ -14,6 +15,10 @@ import {
 import "./Window.css";
 import { CurrentWindowProvider } from "./CurrentWindowContext";
 import { useWindowGeometry } from "./useWindowGeometry";
+import {
+  useFocusWindowOnShow,
+  useWindowGeometryMenuItems,
+} from "./useWindowKeyboardGeometry";
 import { WindowBody } from "./WindowBody";
 import { WindowMenuBar, type WindowMenuItem } from "./WindowMenuBar";
 import {
@@ -65,6 +70,7 @@ function useWindowActions(
   entry: WindowEntry,
   fileMenuItems: WindowMenuItem[],
   viewMenuItems: WindowMenuItem[],
+  geometryMenuItems: WindowMenuItem[],
   hasSidebar: boolean,
 ) {
   const { close, minimize, moveBackward, moveForward, toggleMaximize } =
@@ -111,6 +117,7 @@ function useWindowActions(
         label: "View",
         items: [
           ...viewMenuItems,
+          ...geometryMenuItems,
           {
             id: "toggle-status-bar",
             label: `${showStatusBar ? "Hide" : "Show"} Status Bar`,
@@ -129,6 +136,7 @@ function useWindowActions(
       },
     ],
     [
+      geometryMenuItems,
       hasSidebar,
       handleClose,
       fileMenuItems,
@@ -256,18 +264,21 @@ function WindowChrome({
   entry,
   onGoBack,
   onPointerDown,
+  titleId,
   toolbarSuppressed,
 }: {
   actions: ReturnType<typeof useWindowActions>;
   entry: WindowEntry;
   onGoBack: () => void;
   onPointerDown: (event: ReactPointerEvent) => void;
+  titleId: string;
   toolbarSuppressed: boolean;
 }) {
   return (
     <>
       <WindowTitleBar
         title={entry.title}
+        titleId={titleId}
         onPointerDown={onPointerDown}
         onMinimize={actions.handleMinimize}
         onMaximize={actions.handleMaximize}
@@ -287,33 +298,18 @@ function WindowChrome({
   );
 }
 
-function WindowInnerContent({ ContentBoundary, entry }: WindowInnerProps) {
-  const { maximized, minimized, zIndex, component: Component } = entry;
-  const windowRef = useRef<HTMLDivElement>(null);
-  const [overlayHost, setOverlayHost] = useState<HTMLElement | null>(null);
-  const fileMenuItems = useWindowFileMenuItems();
-  const viewMenuItems = useWindowViewMenuItems();
-  const { sidebar } = useWindowSidebar();
-  const hasSidebar = hasWindowSidebar(sidebar);
-  const actions = useWindowActions(
-    entry,
-    fileMenuItems,
-    viewMenuItems,
-    hasSidebar,
-  );
-  const { handlePointerDown, handleResizePointerDown, position, size } =
-    useWindowGeometry(entry, maximized, windowRef);
-  const { showStatusMessage, statusText } = useWindowStatusMessage();
-  const { suppressToolbar, toolbarSuppressed } = useWindowToolbarSuppression();
+// Handlers on the window root: its Back caret, raising it on any press inside,
+// and keeping background context menus from opening under window-local ones.
+function useWindowRootHandlers(windowId: string) {
   // The toolbar renders above the route boundary, so the window's own Back stack
   // is threaded in from here rather than read from context.
   const { bringToFront, goBackRoute } = useWindowStateActions();
   const handleGoBack = useCallback(() => {
-    goBackRoute(entry.id);
-  }, [entry.id, goBackRoute]);
+    goBackRoute(windowId);
+  }, [windowId, goBackRoute]);
   const handleWindowPointerDown = useCallback(() => {
-    bringToFront(entry.id);
-  }, [bringToFront, entry.id]);
+    bringToFront(windowId);
+  }, [bringToFront, windowId]);
   const handleWindowContextMenu = useCallback((event: ReactMouseEvent) => {
     // Keep background pane context menus from opening underneath window-local menus.
     event.stopPropagation();
@@ -324,6 +320,43 @@ function WindowInnerContent({ ContentBoundary, entry }: WindowInnerProps) {
   > = {
     onContextMenu: handleWindowContextMenu,
   };
+
+  return { handleGoBack, handleWindowPointerDown, windowContextMenuTrapProps };
+}
+
+function WindowInnerContent({ ContentBoundary, entry }: WindowInnerProps) {
+  const { maximized, minimized, zIndex, component: Component } = entry;
+  const windowRef = useRef<HTMLDivElement>(null);
+  const titleId = useId();
+  const [overlayHost, setOverlayHost] = useState<HTMLElement | null>(null);
+  const fileMenuItems = useWindowFileMenuItems();
+  const viewMenuItems = useWindowViewMenuItems();
+  const { sidebar } = useWindowSidebar();
+  const hasSidebar = hasWindowSidebar(sidebar);
+  const {
+    handlePointerDown,
+    handleResizePointerDown,
+    position,
+    size,
+    ...stepped
+  } = useWindowGeometry(entry, maximized, windowRef);
+  const { showStatusMessage, statusText } = useWindowStatusMessage();
+  const geometryMenuItems = useWindowGeometryMenuItems(
+    stepped,
+    maximized,
+    showStatusMessage,
+  );
+  const actions = useWindowActions(
+    entry,
+    fileMenuItems,
+    viewMenuItems,
+    geometryMenuItems,
+    hasSidebar,
+  );
+  useFocusWindowOnShow(windowRef, minimized);
+  const { suppressToolbar, toolbarSuppressed } = useWindowToolbarSuppression();
+  const { handleGoBack, handleWindowPointerDown, windowContextMenuTrapProps } =
+    useWindowRootHandlers(entry.id);
   const style = getWindowStyle(maximized, position, size, zIndex);
 
   if (minimized) {
@@ -333,7 +366,10 @@ function WindowInnerContent({ ContentBoundary, entry }: WindowInnerProps) {
   return (
     <div
       ref={windowRef}
+      aria-labelledby={titleId}
       className={maximized ? "window window--maximized" : "window"}
+      role="dialog"
+      tabIndex={-1}
       {...windowContextMenuTrapProps}
       onPointerDownCapture={handleWindowPointerDown}
       style={style}
@@ -343,6 +379,7 @@ function WindowInnerContent({ ContentBoundary, entry }: WindowInnerProps) {
         entry={entry}
         onGoBack={handleGoBack}
         onPointerDown={handlePointerDown}
+        titleId={titleId}
         toolbarSuppressed={toolbarSuppressed}
       />
       <CurrentWindowProvider

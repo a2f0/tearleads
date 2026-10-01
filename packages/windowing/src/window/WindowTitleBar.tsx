@@ -19,6 +19,7 @@ export interface WindowTitleBarAction {
 
 export function WindowTitleBar({
   title,
+  titleId,
   onPointerDown,
   onMinimize,
   onMaximize,
@@ -27,6 +28,7 @@ export function WindowTitleBar({
   onMoveBackward,
 }: {
   title: string;
+  titleId?: string | undefined;
   onPointerDown: (e: React.PointerEvent) => void;
   onMinimize: () => void;
   onMaximize: () => void;
@@ -59,7 +61,7 @@ export function WindowTitleBar({
         openContextMenuAt({ x: event.clientX, y: event.clientY });
       }}
     >
-      <span className="window-titlebar-title" title={title}>
+      <span className="window-titlebar-title" id={titleId} title={title}>
         {title}
       </span>
       <div className="window-titlebar-buttons">

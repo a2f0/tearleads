@@ -1,5 +1,6 @@
 import { afterEach, expect, test } from "bun:test";
 import { act, cleanup, fireEvent, render } from "@testing-library/react";
+import { stubLayout } from "./layout.testUtils";
 import { Window } from "./Window";
 import {
   useWindowActions,
@@ -9,25 +10,6 @@ import {
 } from "./WindowStateProvider";
 
 afterEach(cleanup);
-
-// happy-dom does no layout, so give the desktop surface and the window real
-// dimensions for the clamp and resize math.
-function stubLayout(
-  element: HTMLElement,
-  sizes: Partial<
-    Record<
-      "clientHeight" | "clientWidth" | "offsetHeight" | "offsetWidth",
-      number
-    >
-  >,
-) {
-  for (const [property, value] of Object.entries(sizes)) {
-    Object.defineProperty(element, property, {
-      configurable: true,
-      get: () => value,
-    });
-  }
-}
 
 function GeometryProbe() {
   const { windows } = useWindowStateData();

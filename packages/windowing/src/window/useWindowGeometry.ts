@@ -35,7 +35,7 @@ interface WindowResizeState {
   borderY: number;
 }
 
-interface LiveGeometry {
+export interface LiveGeometry {
   position: WindowPosition | null;
   size: WindowSize | null;
 }
@@ -111,7 +111,7 @@ function useWindowPointerTracking(
   resizing: MutableRefObject<WindowResizeState | null>,
   clamp: (x: number, y: number) => WindowPosition,
   setPosition: (value: WindowPosition) => void,
-  setSize: (value: WindowSize) => void,
+  setSize: (value: WindowSize | null) => void,
   commit: () => void,
 ) {
   useEffect(() => {
@@ -172,7 +172,7 @@ function useLiveGeometry(entry: WindowEntry) {
     live.current.position = value;
     setPositionState(value);
   }, []);
-  const setSize = useCallback((value: WindowSize) => {
+  const setSize = useCallback((value: WindowSize | null) => {
     live.current.size = value;
     setSizeState(value);
   }, []);
@@ -193,7 +193,123 @@ function useLiveGeometry(entry: WindowEntry) {
     }
   }, [entry.size, setSize]);
 
-  return { commit, position, setPosition, setSize, size };
+  return { commit, live, position, setPosition, setSize, size };
+}
+
+// Stepwise geometry for keyboard move and resize. Steps stay local until the
+// caller commits, like a pointer gesture; restore puts a snapshot back.
+function useSteppedGeometry(
+  windowRef: RefObject<HTMLDivElement | null>,
+  maximized: boolean,
+  live: MutableRefObject<LiveGeometry>,
+  clamp: (x: number, y: number) => WindowPosition,
+  setPosition: (value: WindowPosition) => void,
+  setSize: (value: WindowSize | null) => void,
+) {
+  const nudge = useCallback(
+    (deltaX: number, deltaY: number) => {
+      const current = live.current.position;
+      if (!current || maximized) {
+        return;
+      }
+      setPosition(clamp(current.x + deltaX, current.y + deltaY));
+    },
+    [clamp, live, maximized, setPosition],
+  );
+
+  const grow = useCallback(
+    (deltaWidth: number, deltaHeight: number) => {
+      const element = windowRef.current;
+      const current = live.current.position;
+      if (!element || !current || maximized) {
+        return;
+      }
+      const base = live.current.size ?? {
+        height: element.offsetHeight,
+        width: element.offsetWidth,
+      };
+      const container = element.parentElement;
+      const maxWidth = container
+        ? container.clientWidth - current.x
+        : Number.POSITIVE_INFINITY;
+      const maxHeight = container
+        ? container.clientHeight - current.y
+        : Number.POSITIVE_INFINITY;
+      setSize({
+        height: Math.max(
+          MIN_HEIGHT,
+          Math.min(base.height + deltaHeight, maxHeight),
+        ),
+        width: Math.max(MIN_WIDTH, Math.min(base.width + deltaWidth, maxWidth)),
+      });
+    },
+    [live, maximized, setSize, windowRef],
+  );
+
+  const snapshot = useCallback(
+    (): LiveGeometry => ({ ...live.current }),
+    [live],
+  );
+  const restore = useCallback(
+    (saved: LiveGeometry) => {
+      if (saved.position) {
+        setPosition(saved.position);
+      }
+      setSize(saved.size);
+    },
+    [setPosition, setSize],
+  );
+
+  return { grow, nudge, restore, snapshot };
+}
+
+// Starts a drag from the title bar or a resize from a corner. The gesture
+// itself is tracked on the document by useWindowPointerTracking.
+function useGestureStarts(
+  windowRef: RefObject<HTMLDivElement | null>,
+  maximized: boolean,
+  position: WindowPosition | null,
+  dragging: MutableRefObject<WindowDragState | null>,
+  resizing: MutableRefObject<WindowResizeState | null>,
+) {
+  const handlePointerDown = useCallback(
+    (event: ReactPointerEvent) => {
+      if (!position || maximized) {
+        return;
+      }
+      dragging.current = {
+        offsetX: event.clientX - position.x,
+        offsetY: event.clientY - position.y,
+      };
+    },
+    [dragging, maximized, position],
+  );
+
+  const handleResizePointerDown = useCallback(
+    (event: ReactPointerEvent, corner: ResizeCorner) => {
+      if (maximized || !position || !windowRef.current) {
+        return;
+      }
+      event.stopPropagation();
+      const el = windowRef.current;
+      const computed = getComputedStyle(el);
+      const borderBox = computed.boxSizing === "border-box";
+      resizing.current = {
+        corner,
+        startX: event.clientX,
+        startY: event.clientY,
+        startLeft: position.x,
+        startTop: position.y,
+        startWidth: parseFloat(computed.width),
+        startHeight: parseFloat(computed.height),
+        borderX: borderBox ? 0 : el.offsetWidth - el.clientWidth,
+        borderY: borderBox ? 0 : el.offsetHeight - el.clientHeight,
+      };
+    },
+    [maximized, position, resizing, windowRef],
+  );
+
+  return { handlePointerDown, handleResizePointerDown };
 }
 
 export function useWindowGeometry(
@@ -201,7 +317,7 @@ export function useWindowGeometry(
   maximized: boolean,
   windowRef: RefObject<HTMLDivElement | null>,
 ) {
-  const { commit, position, setPosition, setSize, size } =
+  const { commit, live, position, setPosition, setSize, size } =
     useLiveGeometry(entry);
   const dragging = useRef<WindowDragState | null>(null);
   const resizing = useRef<WindowResizeState | null>(null);
@@ -245,44 +361,26 @@ export function useWindowGeometry(
     commit,
   );
 
-  const handlePointerDown = useCallback(
-    (event: ReactPointerEvent) => {
-      if (!position || maximized) {
-        return;
-      }
-      dragging.current = {
-        offsetX: event.clientX - position.x,
-        offsetY: event.clientY - position.y,
-      };
-    },
-    [dragging, maximized, position],
+  const { handlePointerDown, handleResizePointerDown } = useGestureStarts(
+    windowRef,
+    maximized,
+    position,
+    dragging,
+    resizing,
   );
 
-  const handleResizePointerDown = useCallback(
-    (event: ReactPointerEvent, corner: ResizeCorner) => {
-      if (maximized || !position || !windowRef.current) {
-        return;
-      }
-      event.stopPropagation();
-      const el = windowRef.current;
-      const computed = getComputedStyle(el);
-      const borderBox = computed.boxSizing === "border-box";
-      resizing.current = {
-        corner,
-        startX: event.clientX,
-        startY: event.clientY,
-        startLeft: position.x,
-        startTop: position.y,
-        startWidth: parseFloat(computed.width),
-        startHeight: parseFloat(computed.height),
-        borderX: borderBox ? 0 : el.offsetWidth - el.clientWidth,
-        borderY: borderBox ? 0 : el.offsetHeight - el.clientHeight,
-      };
-    },
-    [maximized, position, resizing, windowRef],
+  const stepped = useSteppedGeometry(
+    windowRef,
+    maximized,
+    live,
+    clamp,
+    setPosition,
+    setSize,
   );
 
   return {
+    ...stepped,
+    commit,
     handlePointerDown,
     handleResizePointerDown,
     position,
