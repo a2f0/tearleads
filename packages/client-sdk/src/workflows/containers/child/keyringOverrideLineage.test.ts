@@ -117,7 +117,7 @@ test("a reader rejects a keyring whose real epoch id was served elsewhere", asyn
     successorContainerKey: scenario.epoch2Key,
     successorContainerKeyEpochId: kek.containerKeyEpochId,
   });
-  const read = (verified: typeof verifiedByHash | undefined) =>
+  const read = (verified: typeof verifiedByHash) =>
     unwrapKeyringContainerKeksAtIndex({
       currentManifest,
       index: 1,
@@ -132,7 +132,7 @@ test("a reader rejects a keyring whose real epoch id was served elsewhere", asyn
     });
   // The KEK's own history alone no longer names the real epoch-1 id.
   expect(manifestHistoryEpochIds(kek).has(scenario.epoch1Id)).toBe(false);
-  await expect(read(undefined)).resolves.toBeUndefined();
+  await expect(read(new Map())).resolves.toBeUndefined();
   await expect(read(verifiedByHash)).rejects.toMatchObject({
     code: "missing_dependency",
   });
@@ -152,12 +152,12 @@ test("a rotation anchors its re-seal to the lineage served elsewhere", async () 
     },
     "rekey",
   );
-  expect([...context.signedEpochIds]).toEqual([scenario.epoch1Id]);
+  expect([...context.target.signedEpochIds]).toEqual([scenario.epoch1Id]);
   await expect(
     verifyKeyringEntriesForSeal(
       CHILD_ID,
       [await forgedEpoch1Entry()],
-      context.signedEpochIds,
+      context.target.signedEpochIds,
     ),
   ).rejects.toThrow("omits an epoch its manifest history commits to");
 });

@@ -61,18 +61,16 @@ export async function verifyContainerDestinationProjection(input: {
 }
 
 /**
- * Walk a verified head back to its epoch-1 `container.create`, returning the
- * lineage head first. Head verification already verified every predecessor it
- * cites (a head is only accepted once its previous manifest verified), so the
- * lineage is present in `verifiedByHash`; a gap means the served projection
- * was incomplete.
+ * Walk a verified head back to its epoch-1 `container.create`. Head
+ * verification already verified every predecessor it cites (a head is only
+ * accepted once its previous manifest verified), so the lineage is present in
+ * `verifiedByHash`; a gap means the served projection was incomplete.
  */
-export function verifiedContainerLineage(input: {
+export function verifiedContainerCreateManifest(input: {
   readonly head: VerifiedContainerAccessManifest;
   readonly label: string;
   readonly verifiedByHash: ReadonlyMap<string, VerifiedContainerAccessManifest>;
-}): VerifiedContainerAccessManifest[] {
-  const lineage = [input.head];
+}): VerifiedContainerAccessManifest {
   let current = input.head;
   const visited = new Set<string>();
   while (current.state.previousManifestHash !== null) {
@@ -93,7 +91,6 @@ export function verifiedContainerLineage(input: {
       );
     }
     current = previous;
-    lineage.push(current);
   }
   if (
     current.state.epoch !== 1 ||
@@ -104,23 +101,5 @@ export function verifiedContainerLineage(input: {
       `${input.label} lineage does not start with container.create`,
     );
   }
-  return lineage;
-}
-
-/** The epoch-1 `container.create` a verified head descends from. */
-export function verifiedContainerCreateManifest(input: {
-  readonly head: VerifiedContainerAccessManifest;
-  readonly label: string;
-  readonly verifiedByHash: ReadonlyMap<string, VerifiedContainerAccessManifest>;
-}): VerifiedContainerAccessManifest {
-  const lineage = verifiedContainerLineage(input);
-  const create = lineage.at(-1);
-  // Unreachable, since a lineage always holds its head; it narrows the type.
-  if (!create) {
-    throw new KeyingVerificationError(
-      "missing_dependency",
-      `${input.label} lineage is empty`,
-    );
-  }
-  return create;
+  return current;
 }

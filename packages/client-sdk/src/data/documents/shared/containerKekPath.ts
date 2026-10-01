@@ -1,4 +1,7 @@
-import type { ContainerKeyWrap } from "@tearleads/crypto";
+import type {
+  ContainerKeyWrap,
+  VerifiedContainerAccessManifest,
+} from "@tearleads/crypto";
 import { isPlainObject as isPlainRecord } from "@tearleads/validators/isPlainObject";
 import type { ContainerWriterProjectionResponse } from "@tearleads/validators/response";
 import { unwrapKeyEnvelopesWithPrincipalPolicies } from "../../principals/principalPolicyCrypto";
@@ -165,7 +168,7 @@ async function unwrapContainerKekAtIndex(input: {
   readonly keksByEpochId: Map<string, UnwrappedContainerKek>;
   readonly projection: ContainerWriterProjectionResponse;
   readonly secretKey: Uint8Array;
-  readonly verifiedByHash: UnwrapContainerKekPathInput["verifiedByHash"];
+  readonly verifiedByHash: ReadonlyMap<string, VerifiedContainerAccessManifest>;
   readonly verifyBridgeCommitment: boolean;
 }): Promise<{
   readonly containerId: string;

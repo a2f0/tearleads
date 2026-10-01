@@ -21,6 +21,15 @@ import type {
 } from "../../../data/keyingProjectionVerification";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 
+/**
+ * A rotation's target container, with the epoch ids its verified lineage
+ * names wherever the projection served it; the re-sealed keyring is anchored
+ * to them (#2365 finding 32).
+ */
+export type SignedRotationTarget = ReturnType<
+  typeof getTargetContainerContext
+> & { readonly signedEpochIds: ReadonlySet<string> };
+
 export function requireUnwrappedKek(
   keksByEpochId: ReadonlyMap<string, Uint8Array>,
   kek: Pick<ContainerKekResponse, "containerKeyEpochId">,
@@ -64,9 +73,7 @@ export async function resolveRotationContext(
   parentPublicKey: string | null;
   predecessorContainerKey: Uint8Array;
   previousState: ReturnType<typeof readContainerState>;
-  /** Anchors the re-sealed keyring to the target's verified lineage. */
-  signedEpochIds: ReadonlySet<string>;
-  target: ReturnType<typeof getTargetContainerContext>;
+  target: SignedRotationTarget;
 }> {
   // The target may need repair, but wrapping its successor requires a current parent prefix.
   assertContainerKekPathCurrent(
@@ -101,11 +108,13 @@ export async function resolveRotationContext(
     parentPublicKey,
     predecessorContainerKey,
     previousState,
-    signedEpochIds: signedHistoryEpochIds({
-      headManifestHash: target.manifest.manifestHash,
-      kek: target.kek,
-      verifiedByHash,
-    }),
-    target,
+    target: {
+      ...target,
+      signedEpochIds: signedHistoryEpochIds({
+        headManifestHash: target.manifest.manifestHash,
+        kek: target.kek,
+        verifiedByHash,
+      }),
+    },
   };
 }

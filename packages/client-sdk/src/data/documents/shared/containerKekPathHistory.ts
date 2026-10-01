@@ -117,7 +117,7 @@ async function openVerifiedKeyringEntries(input: {
   index: number;
   kek: ProjectionKek;
   successorKeyMaterial: Uint8Array;
-  verifiedByHash: VerifiedManifests | undefined;
+  verifiedByHash: VerifiedManifests;
   verifyKeyringCommitment: boolean;
 }): Promise<Awaited<ReturnType<typeof openContainerKekKeyring>>> {
   const { kek } = input;
@@ -221,11 +221,11 @@ export function manifestHistoryEpochIds(kek: ProjectionKek): Set<string> {
 export function signedHistoryEpochIds(input: {
   readonly headManifestHash: string;
   readonly kek: ProjectionKek;
-  readonly verifiedByHash: VerifiedManifests | undefined;
+  readonly verifiedByHash: VerifiedManifests;
 }): Set<string> {
   const epochIds = manifestHistoryEpochIds(input.kek);
   const visited = new Set<string>();
-  let current = input.verifiedByHash?.get(input.headManifestHash);
+  let current = input.verifiedByHash.get(input.headManifestHash);
   while (
     current &&
     current.state.containerId === input.kek.containerId &&
@@ -240,7 +240,7 @@ export function signedHistoryEpochIds(input: {
     current =
       previousHash === null
         ? undefined
-        : input.verifiedByHash?.get(previousHash);
+        : input.verifiedByHash.get(previousHash);
   }
   return epochIds;
 }
@@ -285,7 +285,8 @@ export async function unwrapKeyringContainerKeksAtIndex(input: {
   kek: ProjectionKek;
   keksByEpochId: Map<string, UnwrappedContainerKek>;
   successorKeyMaterial: Uint8Array | null;
-  verifiedByHash?: VerifiedManifests | undefined;
+  /** Every manifest projection verification recorded; anchors the keyring. */
+  verifiedByHash: VerifiedManifests;
   verifyKeyringCommitment: boolean;
 }): Promise<void> {
   const { kek, successorKeyMaterial } = input;

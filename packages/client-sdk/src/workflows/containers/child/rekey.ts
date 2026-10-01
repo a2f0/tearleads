@@ -14,10 +14,7 @@ import {
   deriveContainerKekWrappingPublicKey,
   sealContainerKekKeyring,
 } from "@tearleads/crypto";
-import type {
-  ContainerKekResponse,
-  ContainerWriterProjectionResponse,
-} from "@tearleads/validators/response";
+import type { ContainerWriterProjectionResponse } from "@tearleads/validators/response";
 import { assertContainerAuthorAccess } from "../../../data/containers/shared/authorAccess";
 import {
   buildContainerCreateKeyEpoch,
@@ -44,7 +41,7 @@ import {
   requireProjectionUserKeyResolver,
 } from "../../../data/keyingProjectionVerification";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
-import { assertOverrideInSignedLineage } from "./keyringOverrideLineage";
+import { assertOverrideMatchesSignedLineage } from "./keyringOverrideLineage";
 import {
   sealRotationKeyring,
   verifyKeyringEntriesForSeal,
@@ -58,7 +55,10 @@ import {
   containerWriterProjectionFromRekeyPlan,
   isSpeculativeContainerWriterProjection,
 } from "./rekeyProjection";
-import { resolveRotationContext } from "./rotationContext";
+import {
+  resolveRotationContext,
+  type SignedRotationTarget,
+} from "./rotationContext";
 import { collectContainerRevokePrincipalPolicies } from "./rotationPrincipalPolicies";
 import { buildContainerRotationWraps } from "./rotationWraps";
 import {
@@ -72,8 +72,7 @@ async function buildRekeyRotationArtifacts(input: {
   nextContainerKeyEpoch: number;
   predecessorContainerKey: Uint8Array;
   previousContainerId: string;
-  signedEpochIds: ReadonlySet<string>;
-  targetKek: ContainerKekResponse;
+  target: SignedRotationTarget;
 }): Promise<{
   containerKeyEpochId: string;
   keyring: ContainerKekKeyring;
@@ -89,17 +88,21 @@ async function buildRekeyRotationArtifacts(input: {
   const predecessorBridge = await createContainerKekPredecessorBridge({
     containerId: input.previousContainerId,
     predecessorContainerKey: input.predecessorContainerKey,
-    predecessorContainerKeyEpochId: input.targetKek.containerKeyEpochId,
+    predecessorContainerKeyEpochId: input.target.kek.containerKeyEpochId,
     successorContainerKey: input.containerKey,
     successorContainerKeyEpochId: containerKeyEpochId,
   });
   if (input.keyringEntriesOverride) {
     // A rebuilt override still has to agree with the epochs the projection's
     // signed history commits to; otherwise a repair could seal a forgery.
+    assertOverrideMatchesSignedLineage(
+      input.keyringEntriesOverride,
+      input.target.signedEpochIds,
+    );
     await verifyKeyringEntriesForSeal(
       input.previousContainerId,
       input.keyringEntriesOverride,
-      input.signedEpochIds,
+      input.target.signedEpochIds,
     );
   }
   const keyring: ContainerKekKeyring = input.keyringEntriesOverride
@@ -108,7 +111,7 @@ async function buildRekeyRotationArtifacts(input: {
         entries: [
           ...input.keyringEntriesOverride,
           {
-            containerKeyEpochId: input.targetKek.containerKeyEpochId,
+            containerKeyEpochId: input.target.kek.containerKeyEpochId,
             keyMaterial: input.predecessorContainerKey,
           },
         ],
@@ -118,10 +121,10 @@ async function buildRekeyRotationArtifacts(input: {
       })
     : await sealRotationKeyring({
         containerId: input.previousContainerId,
-        currentKek: input.targetKek,
+        currentKek: input.target.kek,
         currentKeyMaterial: input.predecessorContainerKey,
         keyEpoch: input.nextContainerKeyEpoch,
-        signedEpochIds: input.signedEpochIds,
+        signedEpochIds: input.target.signedEpochIds,
         successorContainerKey: input.containerKey,
         successorContainerKeyEpochId: containerKeyEpochId,
       });
@@ -250,22 +253,13 @@ async function collectRekeyPrincipalPolicies(
   return principalPolicies;
 }
 
-/** The projection key resolver, once any keyring override is held to lineage. */
-async function requireRekeyUserKeyResolver(
+export async function buildMaterializedContainerRekeyPlan(
   input: RekeyPlanInput,
-): Promise<ProjectionUserKeyResolver> {
+): Promise<MaterializedContainerRekeyPlan> {
   const resolveProjectionUserKey = requireProjectionUserKeyResolver(
     input.resolveProjectionUserKey,
     "Remote container rekey",
   );
-  await assertOverrideInSignedLineage(input, resolveProjectionUserKey);
-  return resolveProjectionUserKey;
-}
-
-export async function buildMaterializedContainerRekeyPlan(
-  input: RekeyPlanInput,
-): Promise<MaterializedContainerRekeyPlan> {
-  const resolveProjectionUserKey = await requireRekeyUserKeyResolver(input);
   const planningInput = speculativeSafeRekeyInput(input);
   const containerKey = crypto.getRandomValues(new Uint8Array(32));
   const {
@@ -273,7 +267,6 @@ export async function buildMaterializedContainerRekeyPlan(
     parentPublicKey,
     predecessorContainerKey,
     previousState,
-    signedEpochIds,
     target,
   } = await resolveRotationContext(planningInput, "rekey");
   const { containerKeyEpochId, keyring, predecessorBridge } =
@@ -283,8 +276,7 @@ export async function buildMaterializedContainerRekeyPlan(
       nextContainerKeyEpoch: target.kek.containerKeyEpoch + 1,
       predecessorContainerKey,
       previousContainerId: previousState.containerId,
-      signedEpochIds,
-      targetKek: target.kek,
+      target,
     });
   const principalPolicies = await collectRekeyPrincipalPolicies(
     planningInput,

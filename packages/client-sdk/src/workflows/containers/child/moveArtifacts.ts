@@ -25,6 +25,7 @@ import type {
   ContainerMutationAuthor,
 } from "../../../data/containers/shared/types";
 import { buildContainerRotationArtifacts } from "./moveRotation";
+import type { SignedRotationTarget } from "./rotationContext";
 
 async function deriveContainerMoveManifest(input: {
   containerKeyEpochId: string;
@@ -116,18 +117,13 @@ function buildMoveKeyEpoch(input: {
   });
 }
 
-/** The moved container, with the epoch ids its verified lineage names. */
-export type SignedRotationSource = ReturnType<
-  typeof getTargetContainerContext
-> & { readonly signedEpochIds: ReadonlySet<string> };
-
 export async function buildMoveRotationWithBody(input: {
   destinationParent: ReturnType<typeof getTargetContainerContext>;
   destinationState: ContainerAccessManifestState;
   override: string | undefined;
   predecessorContainerKey: Uint8Array;
   previousState: ContainerAccessManifestState;
-  source: SignedRotationSource;
+  source: SignedRotationTarget;
 }) {
   const rotation = await buildContainerRotationArtifacts({
     containerId: input.previousState.containerId,

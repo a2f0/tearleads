@@ -123,13 +123,12 @@ which an ancestor rotation stranded the subtree. An honest rotation may also
 seal a forged entry, an invented epoch id over server-chosen material that
 passes its material check, whether rebuilt for a repair or carried in the
 served keyring. `RotationsSealOnlySignedLineage` requires that it never does.
-`AnchorToSignedLineage` is a fault-injection switch for that rule: the model
-does not represent where manifests are served or the lineage walk, so it checks
-how the rule composes with repairs and rotations, while SDK tests cover the walk
-itself (`signedHistoryEpochIds`, `assertOverrideInSignedLineage`). The control
-`kek-history-anchor-seals-relocated-forgery` stands for checking only each KEK's
-own served history, which fails once the server serves the real id's manifest
-under another KEK.
+`AnchorToSignedLineage` records that rule as a switch. The model does not
+represent where manifests are served or the lineage walk, so the invariant
+holds by construction and the control
+`kek-history-anchor-seals-relocated-forgery` only marks where the rule sits;
+the evidence that the walk refuses a relocated forgery is the SDK tests
+(`signedHistoryEpochIds`, `assertOverrideMatchesSignedLineage`).
 
 [`container-keying/GroupGrantRevocation.tla`](./container-keying/GroupGrantRevocation.tla)
 adds the group key as its own epoch dimension: container wraps sealed to a

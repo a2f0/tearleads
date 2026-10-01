@@ -50,7 +50,6 @@ import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import {
   buildMoveRotationWithBody,
   deriveMoveManifestArtifacts,
-  type SignedRotationSource,
 } from "./moveArtifacts";
 import {
   buildContainerMoveWraps,
@@ -65,7 +64,10 @@ import {
   submitContainerRotation,
 } from "./mutationSubmit";
 import { containerWriterProjectionFromRotationPlan } from "./rekeyProjection";
-import { requireUnwrappedKek } from "./rotationContext";
+import {
+  requireUnwrappedKek,
+  type SignedRotationTarget,
+} from "./rotationContext";
 
 function buildContainerMoveRequest(input: {
   body: ContainerMoveAccessEventBody;
@@ -115,7 +117,7 @@ async function unwrapMoveContainerKeys(input: {
 }): Promise<{
   containerKey: Uint8Array;
   destinationParent: ReturnType<typeof getTargetContainerContext>;
-  source: SignedRotationSource;
+  source: SignedRotationTarget;
 }> {
   const verifiedByHash = new Map<string, VerifiedContainerAccessManifest>();
   const keksByEpochId = await unwrapContainerKekPath({
