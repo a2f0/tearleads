@@ -103,8 +103,8 @@
       "bytes": 23585
     },
     "packages/api/src/access/shared/internal/containerKekTargets.ts": {
-      "lines": 636,
-      "bytes": 20007
+      "lines": 637,
+      "bytes": 20086
     },
     "packages/api/src/access/shared/internal/documentContentKeyStore.ts": {
       "lines": 770,
@@ -316,7 +316,7 @@
     },
     "packages/crypto/src/keying/testFixtures.ts": {
       "lines": 681,
-      "bytes": 22766
+      "bytes": 23033
     },
     "packages/crypto/src/keying/transparency.ts": {
       "lines": 511,

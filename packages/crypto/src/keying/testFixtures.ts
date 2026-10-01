@@ -1,6 +1,8 @@
 import { expect } from "bun:test";
 import { toFingerprint } from "../fingerprint";
 import { generateSigningSeedAndKeyPair } from "../signing/generateKeyPair";
+import { computeAccessEventHash } from "./accessEvent";
+import { normalizeCanonicalJsonValue } from "./canonical";
 import { containerWrappingPublicKeyForTest } from "./containerWrapping.testFixtures";
 import type {
   AccessManifest,
@@ -50,6 +52,7 @@ import {
   verifyContainerKekState,
   verifySignedAccessEvent,
 } from "./index";
+import { makeVerifiedAccessEvent } from "./types";
 
 export function expectVerificationError<T>(
   result: KeyingVerificationResult<T>,
@@ -225,6 +228,22 @@ export async function signTransparencyTreeHeadFixture(input: {
   };
 }
 
+// What verifySignedAccessEvent returns for an event the fixture just signed;
+// consumers under test verify it themselves, so a re-check only costs time.
+async function trustFixtureSignature(
+  body: ContainerAccessEventBody | DocumentAccessEventBody,
+  event: Awaited<ReturnType<typeof signAccessEvent>>,
+): Promise<VerifiedAccessEvent> {
+  return makeVerifiedAccessEvent({
+    body: normalizeCanonicalJsonValue(
+      body as unknown as KeyingCanonicalJson,
+      "access event body",
+    ),
+    event,
+    eventHash: await computeAccessEventHash(event),
+  });
+}
+
 export async function createVerifiedContainerAccessEvent(input: {
   readonly body: ContainerAccessEventBody;
   readonly dependencyManifestHashes?: readonly string[];
@@ -254,17 +273,7 @@ export async function createVerifiedContainerAccessEvent(input: {
     },
     input.signer.signingPrivateKey,
   );
-  const verifiedEvent = await verifySignedAccessEvent({
-    body: input.body as unknown as KeyingCanonicalJson,
-    event,
-    signerPublicKey: input.signer.signingPublicKey,
-  });
-
-  if (!verifiedEvent.ok) {
-    throw verifiedEvent.error;
-  }
-
-  return verifiedEvent.value;
+  return trustFixtureSignature(input.body, event);
 }
 
 export async function createVerifiedDocumentAccessEvent(input: {
@@ -296,17 +305,7 @@ export async function createVerifiedDocumentAccessEvent(input: {
     },
     input.signer.signingPrivateKey,
   );
-  const verifiedEvent = await verifySignedAccessEvent({
-    body: input.body as unknown as KeyingCanonicalJson,
-    event,
-    signerPublicKey: input.signer.signingPublicKey,
-  });
-
-  if (!verifiedEvent.ok) {
-    throw verifiedEvent.error;
-  }
-
-  return verifiedEvent.value;
+  return trustFixtureSignature(input.body, event);
 }
 
 export async function createSignedAttachmentEvent(input: {
