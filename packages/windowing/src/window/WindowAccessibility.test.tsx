@@ -350,3 +350,15 @@ test("a surface resize during a keyboard move keeps the move on Enter", () => {
     observers.restore();
   }
 });
+
+test("keyboard resize steps from the size on screen, not a smaller request", () => {
+  const { region } = openNotes(PlainContent, {
+    size: { height: 100, width: 100 },
+  });
+
+  chooseViewMenuItem(region, "Resize Window");
+  fireEvent.keyDown(document, { key: "ArrowRight" });
+
+  // The window renders at its 200px minimum width, so one step shows 210px.
+  expect(region.style.width).toBe("210px");
+});
