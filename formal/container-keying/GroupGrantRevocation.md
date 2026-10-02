@@ -9,7 +9,7 @@ did not rotate the group key could open the container history the group lost.
 | Model action or predicate | Production seam |
 | --- | --- |
 | `Grant` / `Rotate` | `listRequiredContainerRematerializations` requires a container mutation, sealed to the group's current key, for every added or changed grant |
-| `Revoke` | `assertGrantRemovalRotatesKey` inside `applyPrincipalContainerRematerializations`; honest clients sign `buildGroupAccessSetShrinkPolicyRequest` |
+| `Revoke` | `getPrincipalPolicyTransitionMismatch` (`grant_removal_without_key_rotation`), enforced by the API's `validatePrincipalPolicyTransition` and the client's `verifySuccessorPrincipalPolicyChainEntry`; honest clients sign `buildGroupAccessSetShrinkPolicyRequest` |
 | `AddMember` | `buildAddGroupUserPolicyRequest` keeps the group key and wraps it to the joiner |
 | `RemoveMember` | `buildRemoveGroupUserPolicyRequest` rotates through `buildRotatedKeyGroupPolicyRequest` |
 
