@@ -23,6 +23,7 @@ test("a listed container this user created is adopted", async () => {
   expect(result.created).toBe(1);
   expect(result.recordedErrors).toEqual([]);
   expect(result.evicted).toEqual([]);
+  expect(result.reconciled).toEqual([]);
   expect(result.settlements).toEqual([
     {
       containerId: child.containerId,
@@ -74,9 +75,11 @@ test("a container another writer moved settles from its verified head", async ()
   });
 
   // An owed move must cite where the folder is now, not where it was
-  // created, and the unchanged intent lets the remote move stand.
+  // created, and the unchanged intent lets the remote move stand: the folder
+  // is listed again where it now sits.
   expect(result.created).toBe(1);
   expect(result.incidents).toEqual([]);
+  expect(result.reconciled).toEqual([destination.containerId]);
   expect(result.settlements).toEqual([
     {
       containerId: child.containerId,
@@ -87,7 +90,7 @@ test("a container another writer moved settles from its verified head", async ()
   ]);
 });
 
-test("a projection served for another identity is refused before it is verified", async () => {
+test("a projection served for another identity is retried, not parked", async () => {
   const { listedChild, parent } = await createAdoptionScenario();
   const child = await listedChild();
 
@@ -99,10 +102,11 @@ test("a projection served for another identity is refused before it is verified"
 
   expect(result.created).toBe(0);
   expect(result.incidents).toEqual(["container.create.replay"]);
+  // Its envelope is unsigned, so a later read may be sound; the corrupt copy
+  // is never served from the cache again.
   expect(result.recordedErrors).toEqual([
-    "Container create adoption was refused: Container create conflict projection has the wrong identity",
+    "Container create adoption verification failed: Container create conflict projection has the wrong identity",
   ]);
-  // A refused projection is never served from the cache again.
   expect(result.evicted).toEqual([child.containerId]);
 });
 

@@ -7,17 +7,19 @@ EXTENDS FiniteSets
 
 CONSTANTS Parents, Scopes, CreatedParent, IntendedScope, NoMove,
           VerifyContainerAdoption, CiteVerifiedHead, KeepQueuedMove,
-          ParkForeignCreates
+          ParkForeignCreates, HoldPendingWrites
 ASSUME /\ CreatedParent \in Parents /\ IntendedScope \in Scopes
        /\ IsFiniteSet(Parents) /\ IsFiniteSet(Scopes)
        /\ NoMove \notin Parents \cup [to : Parents, from : Parents]
        /\ {VerifyContainerAdoption, CiteVerifiedHead, KeepQueuedMove,
-           ParkForeignCreates} \subseteq BOOLEAN
+           ParkForeignCreates, HoldPendingWrites} \subseteq BOOLEAN
 
 VARIABLES listedScope, hydrated, pending, adoptedScope, verified, desired,
-          queuedTo, queuedFrom, remoteParent, owedMove, parked, siblingSynced
+          queuedTo, queuedFrom, remoteParent, owedMove, parked, siblingSynced,
+          wroteUnadopted
 vars == <<listedScope, hydrated, pending, adoptedScope, verified, desired,
-          queuedTo, queuedFrom, remoteParent, owedMove, parked, siblingSynced>>
+          queuedTo, queuedFrom, remoteParent, owedMove, parked, siblingSynced,
+          wroteUnadopted>>
 
 Moves == [to : Parents, from : Parents] \cup {NoMove}
 
@@ -28,7 +30,7 @@ Init ==
   /\ pending = TRUE /\ adoptedScope = IntendedScope /\ verified = FALSE
   /\ desired = CreatedParent /\ queuedTo = NoMove /\ queuedFrom = CreatedParent
   /\ remoteParent = CreatedParent /\ owedMove = NoMove
-  /\ parked = FALSE /\ siblingSynced = FALSE
+  /\ parked = FALSE /\ siblingSynced = FALSE /\ wroteUnadopted = FALSE
 
 (* Hydration installs the listed container's metadata, which routes the     *)
 (* intent to adoption.                                                      *)
@@ -36,7 +38,7 @@ Hydrate ==
   /\ pending /\ ~hydrated /\ hydrated' = TRUE
   /\ UNCHANGED <<listedScope, pending, adoptedScope, verified, desired,
                   queuedTo, queuedFrom, remoteParent, owedMove, parked,
-                  siblingSynced>>
+                  siblingSynced, wroteUnadopted>>
 
 LocalParent == IF queuedTo = NoMove THEN desired ELSE queuedTo
 
@@ -51,21 +53,21 @@ LocalMove(p) ==
             /\ UNCHANGED desired
        ELSE /\ desired' = p /\ UNCHANGED <<queuedTo, queuedFrom>>
   /\ UNCHANGED <<listedScope, hydrated, pending, adoptedScope, verified,
-                  remoteParent, owedMove, parked, siblingSynced>>
+                  remoteParent, owedMove, parked, siblingSynced, wroteUnadopted>>
 
 RemoteMove(p) ==
   /\ pending /\ p # remoteParent
   /\ remoteParent' = p
   /\ UNCHANGED <<listedScope, hydrated, pending, adoptedScope, verified,
                   desired, queuedTo, queuedFrom, owedMove, parked,
-                  siblingSynced>>
+                  siblingSynced, wroteUnadopted>>
 
 (* Fault: the unsigned listing settles the intent unverified. *)
 DiscoverContainer ==
   /\ pending /\ hydrated /\ ~VerifyContainerAdoption
   /\ pending' = FALSE /\ adoptedScope' = listedScope
   /\ UNCHANGED <<listedScope, hydrated, verified, desired, queuedTo,
-                  queuedFrom, remoteParent, owedMove, parked, siblingSynced>>
+                  queuedFrom, remoteParent, owedMove, parked, siblingSynced, wroteUnadopted>>
 
 (* The create's own owed move cites the verified head's parent. A desired  *)
 (* parent equal to the created one means the user never moved the folder   *)
@@ -98,7 +100,7 @@ AdoptContainerCreate ==
   /\ pending' = FALSE /\ adoptedScope' = listedScope /\ verified' = TRUE
   /\ owedMove' = SettledMove
   /\ UNCHANGED <<listedScope, hydrated, desired, queuedTo, queuedFrom,
-                  remoteParent, parked, siblingSynced>>
+                  remoteParent, parked, siblingSynced, wroteUnadopted>>
 
 (* A foreign create is refused. Parked, the intent is never read again: its *)
 (* signed facts cannot change. Unparked, the refusal stops the lane's pass. *)
@@ -107,7 +109,7 @@ RefuseForeignCreate ==
   /\ parked' = ParkForeignCreates
   /\ UNCHANGED <<listedScope, hydrated, pending, adoptedScope, verified,
                   desired, queuedTo, queuedFrom, remoteParent, owedMove,
-                  siblingSynced>>
+                  siblingSynced, wroteUnadopted>>
 
 LaneHalted == pending /\ hydrated /\ listedScope # IntendedScope /\ ~parked
 
@@ -117,9 +119,19 @@ SiblingSync ==
   /\ siblingSynced' = TRUE
   /\ UNCHANGED <<listedScope, hydrated, pending, adoptedScope, verified,
                   desired, queuedTo, queuedFrom, remoteParent, owedMove,
-                  parked>>
+                  parked, wroteUnadopted>>
 
-Next == \/ Hydrate \/ \E p \in Parents : LocalMove(p) \/ RemoteMove(p)
+(* A move or metadata edit written into the folder itself. Held, a folder  *)
+(* whose create is pending takes none: its listed identity is unverified,  *)
+(* or refused.                                                             *)
+WriteIntoFolder ==
+  /\ hydrated /\ (HoldPendingWrites => ~pending)
+  /\ wroteUnadopted' = (wroteUnadopted \/ pending)
+  /\ UNCHANGED <<listedScope, hydrated, pending, adoptedScope, verified,
+                  desired, queuedTo, queuedFrom, remoteParent, owedMove,
+                  parked, siblingSynced>>
+
+Next == \/ Hydrate \/ WriteIntoFolder \/ \E p \in Parents : LocalMove(p) \/ RemoteMove(p)
         \/ DiscoverContainer \/ AdoptContainerCreate \/ RefuseForeignCreate
         \/ SiblingSync \/ UNCHANGED vars
 Spec == Init /\ [][Next]_vars
@@ -131,6 +143,7 @@ TypeOK ==
   /\ {listedScope, adoptedScope} \subseteq Scopes
   /\ {desired, queuedFrom, remoteParent} \subseteq Parents
   /\ queuedTo \in Parents \cup {NoMove} /\ owedMove \in Moves
+  /\ wroteUnadopted \in BOOLEAN
 ContainerAdoptionHasVerifiedScope ==
   ~pending => verified /\ adoptedScope = IntendedScope
 OwedMoveCitesCurrentParent == owedMove # NoMove => owedMove.from = remoteParent
@@ -141,5 +154,6 @@ SettledPlacementFollowsIntent ==
     (IF owedMove = NoMove THEN remoteParent ELSE owedMove.to) =
       (IF queuedTo # NoMove THEN queuedTo
        ELSE IF desired = CreatedParent THEN remoteParent ELSE desired)
+NoWriteIntoUnadoptedFolder == ~wroteUnadopted
 SiblingEventuallySyncs == <>siblingSynced
 =============================================================================

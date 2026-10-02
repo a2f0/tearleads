@@ -70,24 +70,37 @@ function owedCreateMove(input: {
  * A local move of a folder the listing already carried queues its own move
  * intent, which is newer than the create's parent: it keeps its destination,
  * and now cites where the folder sits remotely rather than the parent it was
- * queued from, which never committed.
+ * queued from, which never committed. One whose destination is already that
+ * parent is done and is dropped.
  */
 async function rebaseQueuedMove(input: {
   readonly containerId: string;
   readonly supersededMovePreviousParentId: string;
   readonly tx: ClientSQLiteTransactionScope;
-}): Promise<boolean> {
-  const rebased = await input.tx
-    .update(containerMoveIntents)
-    .set({ previousParentContainerId: input.supersededMovePreviousParentId })
+}): Promise<"converted-to-move" | "none" | "synced"> {
+  const queued = and(
+    eq(containerMoveIntents.containerId, input.containerId),
+    eq(containerMoveIntents.intentType, CONTAINER_MOVE_INTENT_TYPE),
+  );
+  const arrived = await input.tx
+    .delete(containerMoveIntents)
     .where(
       and(
-        eq(containerMoveIntents.containerId, input.containerId),
-        eq(containerMoveIntents.intentType, CONTAINER_MOVE_INTENT_TYPE),
+        queued,
+        eq(
+          containerMoveIntents.parentContainerId,
+          input.supersededMovePreviousParentId,
+        ),
       ),
     )
     .returning({ containerId: containerMoveIntents.containerId });
-  return rebased.length > 0;
+  if (arrived.length > 0) return "synced";
+  const rebased = await input.tx
+    .update(containerMoveIntents)
+    .set({ previousParentContainerId: input.supersededMovePreviousParentId })
+    .where(queued)
+    .returning({ containerId: containerMoveIntents.containerId });
+  return rebased.length > 0 ? "converted-to-move" : "none";
 }
 
 async function queueOwedCreateMove(input: {
@@ -97,7 +110,8 @@ async function queueOwedCreateMove(input: {
   readonly supersededMovePreviousParentId: string;
   readonly tx: ClientSQLiteTransactionScope;
 }): Promise<"converted-to-move" | "synced"> {
-  if (await rebaseQueuedMove(input)) return "converted-to-move";
+  const queued = await rebaseQueuedMove(input);
+  if (queued !== "none") return queued;
   const moveIntent = owedCreateMove(input);
   if (!moveIntent) return "synced";
   await saveContainerMoveIntent({

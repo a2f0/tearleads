@@ -19,23 +19,26 @@ lane's pass.
 | `SettledMove` / `KeepQueuedMove` | `rebaseQueuedMove` keeps a queued move's destination and cites `supersededMovePreviousParentId` |
 | `RefuseForeignCreate` / `ParkForeignCreates` / `parked` | `ForeignContainerCreateError` is recorded as `CONTAINER_CREATE_ADOPTION_REFUSED`, which `syncListedContainerCreate` leaves blocked without a read |
 | `SiblingSync` / `LaneHalted` | `syncPendingContainerCreateIntents` continues with the next intent |
+| `WriteIntoFolder` / `HoldPendingWrites` / `wroteUnadopted` | `runContainerContentsStoreSyncIteration` passes `isCreatePending` to container and document move replay and skips the folder's metadata sync |
 
 The configuration has three parents and two scopes: the device's own create
 and a foreign one. The create committed under the first parent. TLC explores
 hydration at any point, local moves before and after it, remote moves while
 the intent is pending, and both listings.
 
-It checks four properties:
+It checks five properties:
 
 - adoption preserves the verified intended scope;
 - the settled move cites the parent the folder sits under now;
 - settlement places the folder where the user last put it, or keeps a remote
   move when the user never moved it;
+- nothing is written into the folder while its create is pending;
 - a later intent in the same pass eventually syncs, under fairness for
   adoption, refusal and that intent.
 
-Four negative controls remove signed-create verification, current-parent
-citation, keeping a queued move, and parking. Without the queued-move rule,
+Five negative controls remove signed-create verification, current-parent
+citation, keeping a queued move, parking, and holding writes into a pending
+folder. Without the queued-move rule,
 the owed move both cites a parent that never committed and takes over the
 queued destination; TLC reports the stale citation first.
 

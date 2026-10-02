@@ -27,11 +27,11 @@ export const CONTAINER_CREATE_ADOPTION_REFUSED =
   "Container create adoption was refused";
 
 /**
- * The listed create's signed identity is not this device's pending create: it
- * names another container, another signer or organization, or a root. An
- * honest server never lists that under the id this device minted, and no later
- * read can change those signed facts, so the intent parks instead of
- * re-verifying.
+ * The listed create's signed identity is not this device's pending create: its
+ * verified head names another container, or its signed create another signer,
+ * another organization, or a root. An honest server never lists that under the
+ * id this device minted, and no later read can change those signed facts, so
+ * the intent parks instead of re-verifying.
  */
 class ForeignContainerCreateError extends KeyingVerificationError {}
 
@@ -54,7 +54,11 @@ async function verifyAdoptableProjection(input: {
     projection.containerId !== input.containerId ||
     projection.organizationId !== input.expectedOrganizationId
   ) {
-    throw foreignCreate("object_mismatch", "projection has the wrong identity");
+    // The envelope is unsigned: a corrupt read is retried, not parked.
+    throw new KeyingVerificationError(
+      "object_mismatch",
+      `${LABEL} projection has the wrong identity`,
+    );
   }
   const { path, verifiedByHash } = await verifyContainerDestinationProjection({
     execSql: input.state.runtime.infra.execSql,
@@ -244,6 +248,11 @@ export async function syncListedContainerCreate(input: {
     placement,
     syncInput,
   });
-  if (marked) return "created";
-  return isCurrent() ? "blocked" : "abandoned";
+  if (!marked) return isCurrent() ? "blocked" : "abandoned";
+  // The folder now sits elsewhere; list it there rather than waiting for the
+  // next poll to correct the local parent.
+  if (placement.currentParentId !== intent.parentContainerId) {
+    syncInput.requestRemoteReconciliation(placement.currentParentId);
+  }
+  return "created";
 }

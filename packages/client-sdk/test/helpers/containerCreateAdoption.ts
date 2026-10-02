@@ -194,6 +194,7 @@ export async function runListedCreateAdoption(input: {
   );
   const evicted: string[] = [];
   const incidents: string[] = [];
+  const reconciled: Array<string | null> = [];
   const reads: string[] = [];
   const recordedErrors: string[] = [];
   const settlements: Array<{
@@ -246,7 +247,9 @@ export async function runListedCreateAdoption(input: {
       },
       isCurrent: () => true,
       isRemoteSyncBlocked: () => input.blocked === true,
-      requestRemoteReconciliation: () => undefined,
+      requestRemoteReconciliation: (parentId) => {
+        reconciled.push(parentId);
+      },
       state,
     });
     return {
@@ -254,6 +257,7 @@ export async function runListedCreateAdoption(input: {
       evicted,
       incidents,
       reads,
+      reconciled,
       recordedErrors,
       settlements,
     };

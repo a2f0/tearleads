@@ -97,11 +97,6 @@ async function persistCreatedRemoteContainerStateFromIntent(input: {
   | "persisted"
 > {
   const { containerState, created, host, intent, state } = input;
-  // A queued create is a child; its acknowledgement echoed the signed parent.
-  const committedParentId = created.parentId;
-  if (committedParentId === null) {
-    throw new Error("A queued container create must commit under a parent");
-  }
   if (!input.isCurrent()) return "abandoned";
   const persistenceCandidate =
     await createDetachedContainerMetadataState(containerState);
@@ -145,7 +140,7 @@ async function persistCreatedRemoteContainerStateFromIntent(input: {
           remoteContainerId: created.containerId,
           remoteMetadataAccessStateHash: created.accessManifestHash,
           remoteMetadataDocumentId: created.metadataDocumentId,
-          supersededMovePreviousParentId: committedParentId,
+          supersededMovePreviousParentId: created.parentId,
         },
         expectedStateWhenMissing: containerState,
         isCurrent: input.isCurrent,

@@ -79,7 +79,8 @@ export interface CreatedRemoteContainerState {
   createdAt: string;
   metadataDocumentId: string;
   organizationId: string;
-  parentId: string | null;
+  /** A created container is a child; the acknowledgement echoed this parent. */
+  parentId: string;
   persistedMetadataState: Pick<
     DocumentRecord,
     | "documentId"
@@ -174,6 +175,8 @@ export type ContainerMoveIntentSyncHost = Pick<
 export interface ContainerMoveIntentSyncInput {
   host: ContainerMoveIntentSyncHost;
   isCurrent: () => boolean;
+  /** A folder whose create has not settled takes no structural writes. */
+  isCreatePending: (containerId: string) => boolean;
   isRemoteSyncBlocked: (organizationId: string) => boolean;
   intent: ContainerMoveIntentRecord;
   requestRemoteReconciliation: (parentContainerId: string | null) => void;

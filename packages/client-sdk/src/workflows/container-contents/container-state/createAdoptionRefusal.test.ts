@@ -25,7 +25,9 @@ test("a foreign create parks its intent without stopping its siblings", async ()
       { containerId: sibling.containerId },
     ],
     parent,
-    served: [foreign, sibling],
+    // The envelope repeats the local organization; the signed create names
+    // its own.
+    served: [{ ...foreign, organizationId: "another-organization" }, sibling],
   });
 
   expect(result.created).toBe(1);
@@ -34,7 +36,7 @@ test("a foreign create parks its intent without stopping its siblings", async ()
   ]);
   expect(result.incidents).toEqual(["container.create.replay"]);
   expect(result.recordedErrors).toEqual([
-    `${CONTAINER_CREATE_ADOPTION_REFUSED}: Container create conflict projection has the wrong identity`,
+    `${CONTAINER_CREATE_ADOPTION_REFUSED}: Container create conflict belongs to another organization`,
   ]);
 });
 

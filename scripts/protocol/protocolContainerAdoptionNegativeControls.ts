@@ -37,4 +37,12 @@ export const CONTAINER_ADOPTION_NEGATIVE_CONTROLS: readonly NegativeControl[] =
       expect: { kind: "liveness", name: "SiblingEventuallySyncs" },
       why: "A refused adoption that is re-verified and rethrown on every pass stops the lane's other intents for good (#2420).",
     },
+    {
+      id: "pending-container-create-takes-writes",
+      module: MODULE,
+      config: CONFIG,
+      constants: { HoldPendingWrites: "FALSE" },
+      expect: { kind: "invariant", name: "NoWriteIntoUnadoptedFolder" },
+      why: "A move or metadata edit replayed into a folder whose create is pending reaches a listed identity adoption has not verified, or has refused (#2420).",
+    },
   ];

@@ -170,3 +170,16 @@ test("a move queued after the listing arrived keeps its destination", async () =
     },
   ]);
 });
+
+test("a move queued to where the folder already sits is dropped", async () => {
+  const result = await settleAdoptedCreate({
+    createdParent: "created-parent",
+    currentParent: "remotely-moved-parent",
+    desiredParent: "locally-moved-parent",
+    queuedMove: { from: "locally-moved-parent", to: "remotely-moved-parent" },
+  });
+
+  expect(result.settled).toBe(true);
+  expect(result.pending).toEqual([]);
+  expect(result.moves).toEqual([]);
+});

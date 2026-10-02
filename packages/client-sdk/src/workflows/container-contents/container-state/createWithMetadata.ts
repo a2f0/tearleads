@@ -240,6 +240,11 @@ async function settleContainerWithMetadataCreate(input: {
   ) {
     throw new Error("Container metadata create response container mismatch");
   }
+  // The acknowledgement echoed the signed parent, which a child always names.
+  const parentId = input.containerPlan.plan.state.parentContainerId;
+  if (parentId === null) {
+    throw new Error("A container create must commit under a parent");
+  }
   const metadataDocumentId = readContainerMutationMetadataDocumentId({
     response: input.response.container,
   });
@@ -280,7 +285,7 @@ async function settleContainerWithMetadataCreate(input: {
       createdAt: input.response.container.createdAt,
       metadataDocumentId,
       organizationId: input.response.container.organizationId,
-      parentId: input.response.container.parentId,
+      parentId,
       persistedMetadataState,
       updatedAt: input.response.container.updatedAt,
     },
