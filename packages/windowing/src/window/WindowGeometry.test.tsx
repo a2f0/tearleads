@@ -1,6 +1,10 @@
 import { afterEach, expect, test } from "bun:test";
 import { act, cleanup, fireEvent, render } from "@testing-library/react";
-import { captureResizeObservers, stubLayout } from "./layout.testUtils";
+import {
+  captureResizeObservers,
+  stubLayout,
+  stubWindowSizes,
+} from "./layout.testUtils";
 import { Window } from "./Window";
 import {
   useWindowActions,
@@ -287,27 +291,13 @@ test("clearing a size near the edge keeps the default-size window inside", () =>
   expect(windowRoot.style.left).toBe("400px");
 });
 
+const WINDOW_SIZES = {
+  maximized: { height: 600, width: 800 },
+  normal: { height: 100, width: 200 },
+};
+
 test("maximizing, minimizing, and restoring keeps the window's position", () => {
-  // Every window element measures at the surface's full size while maximized,
-  // including the fresh element a restore mounts.
-  const prototype = HTMLElement.prototype;
-  const originals = (["offsetWidth", "offsetHeight"] as const).map(
-    (property) =>
-      [property, Object.getOwnPropertyDescriptor(prototype, property)] as const,
-  );
-  const measure = (full: number, normal: number) =>
-    function (this: HTMLElement) {
-      if (!this.classList.contains("window")) return 0;
-      return this.classList.contains("window--maximized") ? full : normal;
-    };
-  Object.defineProperty(prototype, "offsetWidth", {
-    configurable: true,
-    get: measure(800, 200),
-  });
-  Object.defineProperty(prototype, "offsetHeight", {
-    configurable: true,
-    get: measure(600, 100),
-  });
+  const restoreSizes = stubWindowSizes(WINDOW_SIZES);
   try {
     const { view } = renderDesktop({ position: { x: 300, y: 200 } });
 
@@ -318,18 +308,37 @@ test("maximizing, minimizing, and restoring keeps the window's position", () => 
 
     expect(committedGeometry(view).position).toEqual({ x: 300, y: 200 });
     expect(
-      view.container.querySelector<HTMLDivElement>(".window")?.style.left,
+      view.container.querySelector<HTMLElement>(".window")?.style.left,
     ).toBe("300px");
   } finally {
-    for (const [property, descriptor] of originals) {
-      if (descriptor) {
-        Object.defineProperty(prototype, property, descriptor);
-      } else {
-        delete (prototype as Partial<Record<typeof property, number>>)[
-          property
-        ];
-      }
-    }
+    restoreSizes();
+  }
+});
+
+test("maximizing mid-drag abandons the drag and keeps the saved position", () => {
+  const restoreSizes = stubWindowSizes(WINDOW_SIZES);
+  try {
+    const { view } = renderDesktop({ position: { x: 300, y: 200 } });
+    const titleBar = view.getByRole("toolbar", { name: "Window controls" });
+
+    fireEvent.pointerDown(titleBar, {
+      clientX: 310,
+      clientY: 210,
+      pointerId: 1,
+    });
+    fireEvent.click(view.getByRole("button", { name: "Toggle maximize" }));
+    fireEvent.pointerMove(document, { clientX: 20, clientY: 20, pointerId: 1 });
+    act(() => {
+      fireEvent.pointerUp(document, { pointerId: 1 });
+    });
+    fireEvent.click(view.getByRole("button", { name: "Toggle maximize" }));
+
+    expect(committedGeometry(view).position).toEqual({ x: 300, y: 200 });
+    expect(
+      view.container.querySelector<HTMLElement>(".window")?.style.left,
+    ).toBe("300px");
+  } finally {
+    restoreSizes();
   }
 });
 
