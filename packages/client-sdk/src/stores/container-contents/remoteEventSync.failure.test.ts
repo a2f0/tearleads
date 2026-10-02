@@ -12,7 +12,7 @@ test("a remote-event hydration refusal is reported without an unhandled rejectio
     execSql: mock(async () => []),
   });
   const reportSecurityIncident = mock(async () => {});
-  runtime.apiClient.clearWriterProjectionCaches = () => {};
+  runtime.apiClient.evictWriterProjectionsCiting = () => {};
   const logError = mock(() => {});
   const state = createContainerContentsStoreState(
     {

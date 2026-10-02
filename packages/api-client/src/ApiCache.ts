@@ -61,6 +61,10 @@ export class BoundedCache<V> {
     return this.entries.has(key);
   }
 
+  keys(): IterableIterator<string> {
+    return this.entries.keys();
+  }
+
   set(key: string, value: V): this {
     // Delete first so an overwrite refreshes recency rather than keeping the
     // original insertion position.
