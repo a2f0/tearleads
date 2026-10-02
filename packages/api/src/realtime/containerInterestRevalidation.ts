@@ -43,11 +43,16 @@ export interface ProofAgePolicy {
 export function resolveProofAgePolicy(
   options: RevalidationScheduleOptions = {},
 ): ProofAgePolicy {
+  const intervalMs = options.intervalMs ?? DEFAULT_REVALIDATION_INTERVAL_MS;
+  const maxProofAgeMs =
+    options.maxProofAgeMs ?? intervalMs * DEFAULT_MAX_PROOF_AGE_INTERVALS;
+  // A tick can come a whole interval after the last one, so a bound no longer
+  // than the interval would evict healthy proofs and close live sessions.
+  if (intervalMs > 0 && maxProofAgeMs > 0 && maxProofAgeMs <= intervalMs) {
+    throw new Error("maxProofAgeMs must exceed the revalidation interval");
+  }
   return {
-    maxProofAgeMs:
-      options.maxProofAgeMs ??
-      (options.intervalMs ?? DEFAULT_REVALIDATION_INTERVAL_MS) *
-        DEFAULT_MAX_PROOF_AGE_INTERVALS,
+    maxProofAgeMs,
     now: options.now ?? Date.now,
     schedule: options.schedule ?? scheduleUnrefTimeout,
   };

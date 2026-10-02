@@ -1,16 +1,17 @@
 import { afterEach, expect, mock, spyOn, test } from "bun:test";
 import {
   fixture,
+  recordingSocket,
   virtualClock,
 } from "../../test/helpers/realtimeContainerAuthorization";
 import * as background from "../diagnostics/reportBackgroundFailure";
+import { resolveProofAgePolicy } from "./containerInterestRevalidation";
 
 afterEach(() => {
   mock.restore();
 });
 
 const flush = () => new Promise((resolve) => setTimeout(resolve, 0));
-const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 function silenceReports() {
   spyOn(console, "error").mockImplementation(() => undefined);
@@ -19,7 +20,7 @@ function silenceReports() {
   );
 }
 
-/** Ticks every 50 ms; a session unconfirmed for 300 ms reaches its deadline. */
+/** Ticks every 50 ms, without jitter, on the virtual clock. */
 function ticking(
   clock: ReturnType<typeof virtualClock>,
   maxProofAgeMs: number,
@@ -95,6 +96,39 @@ test("a confirmed session outlives its deadline", async () => {
   }
 });
 
+test("a ticket upgrade confirms the session, and older reads never undo it", async () => {
+  silenceReports();
+  const clock = virtualClock();
+  let answer: (live: boolean) => void = () => undefined;
+  let reads = 0;
+  const f = fixture({
+    revalidation: ticking(clock, 300),
+    validateSession: () => {
+      if (++reads > 1) return Promise.reject(new Error("Store unavailable"));
+      return new Promise<boolean>((resolve) => {
+        answer = resolve;
+      });
+    },
+    authorize: async (_user, ids) => ids,
+  });
+  try {
+    await f.gateway.websocket.open(f.socket);
+    // The tick at 50 starts a read that answers only after the upgrade below.
+    await clock.advance(200);
+    await f.gateway.websocket.open(recordingSocket("user", "session").socket);
+    answer(true);
+    await flush();
+    // The upgrade at 200 confirmed the session; the read from 50 cannot move
+    // the deadline back to 350, and later reads all fail.
+    await clock.advance(299);
+    expect(f.closed).toEqual([]);
+    await clock.advance(1);
+    expect(f.closed).toEqual([1013]);
+  } finally {
+    f.gateway.stop();
+  }
+});
+
 test("a hung session read times out and the next tick joins it", async () => {
   const report = silenceReports();
   const clock = virtualClock();
@@ -110,12 +144,10 @@ test("a hung session read times out and the next tick joins it", async () => {
   });
   try {
     await f.gateway.websocket.open(f.socket);
-    await clock.advance(50);
-    await sleep(20);
+    await clock.advance(55);
     expect(report).toHaveBeenCalledTimes(1);
     expect(report).toHaveBeenCalledWith(expect.any(Error), "websocket.session");
     await clock.advance(50);
-    await sleep(20);
     expect(reads).toBe(1);
     expect(report).toHaveBeenCalledTimes(2);
     expect(f.closed).toEqual([]);
@@ -139,8 +171,7 @@ test("a read that answers after its timeout still closes an ended session", asyn
   });
   try {
     await f.gateway.websocket.open(f.socket);
-    await clock.advance(50);
-    await sleep(20);
+    await clock.advance(55);
     expect(report).toHaveBeenCalledTimes(1);
     answer(false);
     await flush();
@@ -148,6 +179,36 @@ test("a read that answers after its timeout still closes an ended session", asyn
   } finally {
     f.gateway.stop();
   }
+});
+
+test("a stopped gateway reports no session check still in flight", async () => {
+  const report = silenceReports();
+  const clock = virtualClock();
+  let fail: (error: Error) => void = () => undefined;
+  const f = fixture({
+    revalidation: ticking(clock, 0),
+    validateSession: () =>
+      new Promise<boolean>((_resolve, reject) => {
+        fail = reject;
+      }),
+    authorize: async (_user, ids) => ids,
+  });
+  await f.gateway.websocket.open(f.socket);
+  await clock.advance(50);
+  f.gateway.stop();
+  fail(new Error("Session store unavailable"));
+  await flush();
+  await flush();
+  expect(report).not.toHaveBeenCalled();
+});
+
+test("a proof-age bound no longer than the interval is refused", () => {
+  expect(() =>
+    resolveProofAgePolicy({ intervalMs: 100, maxProofAgeMs: 100 }),
+  ).toThrow("maxProofAgeMs must exceed the revalidation interval");
+  expect(
+    resolveProofAgePolicy({ intervalMs: 0, maxProofAgeMs: 30 }).maxProofAgeMs,
+  ).toBe(30);
 });
 
 test("a failure without a reason is still reported", async () => {

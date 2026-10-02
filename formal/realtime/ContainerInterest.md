@@ -15,7 +15,7 @@ closed socket.
 | `ChangeAccess` | Container mutation and principal policy routes publish invalidations; `ContainerInterestAuthorizer.invalidateAccess` and `WsEventRouter.routeServerEvent` observe them |
 | `CloseSocket` | `ContainerInterestAuthorizer.close` and `WsEventRouter.close` |
 | `EndSession` | `destroyUserSession` publishes `session_revoked` once through `createSessionRevocationNotifier`, and `WsEventRouter.closeSession` closes the session's sockets if it arrives; expiry publishes nothing |
-| `ReadSession` | Each session's own `RevalidationSchedule` tick in `WsSessionLiveness`, and every `addSubscriberReconnectListener` pass through `WsSessionLiveness.checkAll` (at most 16 reads in flight), reads `isLiveUserSession` once per session. A check joins a read already in flight and waits at most `sessionReadTimeoutMs`; only a live answer reaches `WsSessionLiveness.confirm` |
+| `ReadSession` | Each session's own `RevalidationSchedule` tick in `WsSessionLiveness`, and every `addSubscriberReconnectListener` pass through `WsSessionLiveness.checkAll` (16 sessions at a time), reads `isLiveUserSession` once per session. A check joins a read already in flight and waits at most `sessionReadTimeoutMs`; only a live answer reaches `WsSessionLiveness.confirm` |
 | `CompletePass` | The read's own continuation in `WsSessionLiveness.startRead` calls `WsEventRouter.closeSession` for an ended session, even when its check already timed out |
 | `Elapse` | Time as read by `ProofAgePolicy.now` |
 | `SessionDeadline` | `WsSessionLiveness.confirm` arms one deadline per session at the last confirmation plus `maxProofAgeMs`; when it fires, `WsEventRouter.closeSession` closes the session's sockets with `SESSION_UNVERIFIED_CLOSE` |
@@ -144,8 +144,8 @@ A socket's session is checked once, at upgrade. Revocation publishes
 `session_revoked` at most once, and expiry publishes nothing, so `EndSession`
 may leave the socket open and indexed. Each session therefore has its own
 jittered recheck, one store read per interval however many sockets it holds,
-and every subscriber reconnect rechecks each open session once, at most 16
-reads at a time. An ended session's sockets close. The model splits a pass into
+and every subscriber reconnect rechecks each open session once, 16 sessions
+at a time. An ended session's sockets close. The model splits a pass into
 the store read and the close: a session that ends between them is served until
 the next read the store answers, so `EndedSessionsCloseByNextPass` holds for
 every pass whose read follows the end. The recheck runs beside proof
@@ -157,12 +157,16 @@ stays the boundary assumption above.
 
 The session store may fail or hang through the same outage. A check waits at
 most `sessionReadTimeoutMs` (ten seconds) and reports once per pass under its
-own diagnostic label; a later check joins a read still in flight instead of
-adding another, so a hung store holds at most one read per session. A read that
+own diagnostic label. A read that times out stays outstanding, but a later
+check joins it instead of adding another, so a hung store holds at most one
+read per session. The deadline then closes the session even if that read never
+answers. A read that
 answers late still acts on its answer. A failure only delays the close, up to a
 deadline: like installed proofs, a session the store has not confirmed for
 `maxProofAgeMs` closes every socket with 1013, so the client reconnects through
-a fresh ticket once the store answers again. Only a live answer, or a ticket
+a fresh ticket once the store answers again. The bound must exceed the
+revalidation interval, since a tick can come a whole interval after the last
+one; a shorter bound is refused at startup. Only a live answer, or a ticket
 upgrade for another socket of the session, confirms it and re-arms the
 deadline. `Elapse` advances time while the socket is open, and
 `UnconfirmedSessionsLapse` checks that no socket is served once its session has

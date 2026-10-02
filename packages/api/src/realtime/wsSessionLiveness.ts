@@ -14,7 +14,11 @@ import {
   type WsEventRouter,
 } from "./wsRouting";
 
-/** Session reads a subscriber reconnect keeps in flight at once. */
+/**
+ * Sessions a subscriber reconnect checks at once. A read that times out stays
+ * outstanding, but later checks join it, so a hung store holds at most one
+ * read per session.
+ */
 const RECONNECT_CHECK_CONCURRENCY = 16;
 
 export interface WsSessionLivenessOptions {
@@ -44,26 +48,6 @@ class SessionReadTimeoutError extends Error {
   }
 }
 
-function withTimeout(read: Promise<void>, timeoutMs: number): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const timer = setTimeout(
-      () => reject(new SessionReadTimeoutError(timeoutMs)),
-      timeoutMs,
-    );
-    timer.unref();
-    read.then(
-      () => {
-        clearTimeout(timer);
-        resolve();
-      },
-      (error: unknown) => {
-        clearTimeout(timer);
-        reject(error);
-      },
-    );
-  });
-}
-
 /**
  * A socket's session is checked once at upgrade. Revocation is published at
  * most once and expiry not at all, so each session gets its own jittered
@@ -83,7 +67,9 @@ function withTimeout(read: Promise<void>, timeoutMs: number): Promise<void> {
 export class WsSessionLiveness {
   private readonly sessions = new Map<string, TrackedSession>();
   private readonly schedule: RevalidationSchedule<string>;
+  private readonly timeouts = new Set<() => void>();
   private readonly validateSession: WsSessionValidator;
+  private stopped = false;
 
   constructor(private readonly options: WsSessionLivenessOptions) {
     this.validateSession = options.validateSession ?? isLiveUserSession;
@@ -128,8 +114,12 @@ export class WsSessionLiveness {
     return this.checkSessions([...this.sessions.keys()]);
   }
 
+  /** Disarms every timer; checks still in flight neither close nor report. */
   stop(): void {
+    this.stopped = true;
     this.schedule.stop();
+    for (const cancel of this.timeouts) cancel();
+    this.timeouts.clear();
     for (const session of this.sessions.values()) session.cancelDeadline();
     this.sessions.clear();
   }
@@ -153,7 +143,32 @@ export class WsSessionLiveness {
     const session = this.sessions.get(key);
     if (!session) return Promise.resolve();
     session.read ??= this.startRead(key, session);
-    return withTimeout(session.read, this.options.readTimeoutMs);
+    return this.withTimeout(session.read);
+  }
+
+  private withTimeout(read: Promise<void>): Promise<void> {
+    const { readTimeoutMs } = this.options;
+    return new Promise((resolve, reject) => {
+      const cancel = this.options.policy.schedule(() => {
+        this.timeouts.delete(cancel);
+        reject(new SessionReadTimeoutError(readTimeoutMs));
+      }, readTimeoutMs);
+      this.timeouts.add(cancel);
+      const settle = () => {
+        this.timeouts.delete(cancel);
+        cancel();
+      };
+      read.then(
+        () => {
+          settle();
+          resolve();
+        },
+        (error: unknown) => {
+          settle();
+          reject(error);
+        },
+      );
+    });
   }
 
   private startRead(key: string, session: TrackedSession): Promise<void> {
@@ -200,7 +215,7 @@ export class WsSessionLiveness {
   }
 
   private report(failures: readonly unknown[]): void {
-    if (failures.length === 0) return;
+    if (this.stopped || failures.length === 0) return;
     const [first] = failures;
     console.error(
       `Failed to check ${failures.length} websocket session(s) for liveness:`,
