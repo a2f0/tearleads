@@ -116,6 +116,7 @@ export async function createReservedGroupAdvance(
       apiClient: { getCurrentPrincipalPolicy: currentPolicy },
       execSql,
       organizationId: artifacts.organizationId,
+      reportSecurityIncident: async () => {},
       stillCurrent: () => true,
       resolveTrustedUserIdentity,
     });

@@ -573,8 +573,15 @@ export async function storeVerifiedPrincipalStateInTransaction(
       });
   if (currentState && normalizedInput.state.version > currentState.version) {
     validatePrincipalPolicyTransition({
+      currentGrants: normalizedInput.grants,
       currentState: normalizedInput.state,
       currentProjection: normalizedInput.projection,
+      previousGrants: await listContainerGrantsForState(
+        currentState.principalType,
+        currentState.principalId,
+        currentState.stateHash,
+        executor,
+      ),
       previousProjection,
       previousState: currentState,
     });

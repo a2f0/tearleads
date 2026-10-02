@@ -82,9 +82,8 @@ models pending document-create adoption and fingerprint-bound login
 acknowledgments. See the [mapping and boundaries](./local-trust/UnacknowledgedInput.md).
 
 [`local-trust/ContainerCreateAdoption.tla`](./local-trust/ContainerCreateAdoption.tla)
-models adopting a pending container create that a listing already carries, the
-move it still owes, and parking a foreign create without stopping the lane.
-See the [mapping and boundaries](./local-trust/ContainerCreateAdoption.md).
+models adopting a listed pending container create and the move it owes. See
+the [mapping](./local-trust/ContainerCreateAdoption.md).
 
 [`local-trust/DurableIdentityBinding.tla`](./local-trust/DurableIdentityBinding.tla)
 checks that persistent fingerprint-to-user bindings survive session recreation
@@ -133,7 +132,9 @@ represent where manifests are served or the lineage walk, so the invariant
 holds by construction and the control
 `kek-history-anchor-seals-relocated-forgery` only marks where the rule sits;
 the evidence that the walk refuses a relocated forgery is the SDK tests
-(`signedHistoryEpochIds`, `assertOverrideMatchesSignedLineage`).
+(`signedHistoryEpochIds`, `assertOverrideMatchesSignedLineage`). Every
+re-sealing rotation takes its target from `signedRotationTarget`, so none can
+skip the walk.
 
 [`container-keying/GroupGrantRevocation.tla`](./container-keying/GroupGrantRevocation.tla)
 adds the group key as its own epoch dimension: container wraps sealed to a
@@ -230,17 +231,19 @@ body and attachment-slot state. Its bounded run explores 6,757 generated states,
 [production mapping and model boundary](./document-sync/RestartProbeConvergence.md)
 for the action seams, fairness assumptions, and excluded blob-hydration layer.
 
-## Empty-Frontier Baseline-less Unlink
+## Epoch Advances Without a Covering Baseline
 
 [`document-sync/EmptyFrontierUnlink.tla`](./document-sync/EmptyFrontierUnlink.tla)
-models the acceptance gate for a document unlink submitted without a rotation
-baseline. An unlink rotates the document content key, so a committed update no
-accepted baseline covers becomes unreadable under the new epoch. A document
-with an empty committed frontier cannot produce a baseline at all — a
-zero-span full-history snapshot encodes no replayable history — so the server
-accepts a baseline-less unlink only after proving the committed frontier is
-empty inside the mutation transaction, under the document manifest-head write
-lock that sync writers also take exclusively.
+models the acceptance gates for the two content-key epoch advances that carry
+no rotation baseline: a document unlink submitted without one, and a link
+that advances the epoch. A rotation strands every committed update that no
+baseline sealed to the new epoch covers. A document with an empty committed
+frontier cannot produce a baseline at all — a zero-span full-history snapshot
+encodes no replayable history — so the server accepts a baseline-less unlink
+only after proving the committed frontier is empty inside the mutation
+transaction, under the document manifest-head write lock that sync writers
+also take exclusively. A link never carries a baseline, so it may advance the
+epoch only under the same emptiness proof.
 
 The abstraction maps to production at these seams:
 
@@ -249,25 +252,34 @@ The abstraction maps to production at these seams:
 | `BeginBaselinelessUnlink` / `CommitBaselinelessUnlink` | `assertBaselinelessUnlinkHasEmptyCommittedFrontier` inside `mutateDocumentLinkSetWithExecutor` |
 | `CheckCoveringUnlink` / `CommitCoveringUnlink` | `assertAtomicRotationBaselineCoversCommittedFrontier` + `appendAtomicRotationBaseline` |
 | `LinkAdvancesEpoch` | `assertLinkKeepsCommittedContentKeyEpoch` inside `advanceDocumentLinkSet` |
+| `FrontierEmpty` | `hasCommittedDocumentUpdate`, the emptiness proof both gates share |
 | `WriterMayCommit` | the exclusive manifest-head locks in `lockDocumentLinkSetMutationFrontier` and `lockSyncDocumentWriteFrontier` |
 | the client never sending an empty baseline (boundary assumption) | `buildDocumentRotationBaseline` returning null for a zero-span snapshot |
 
 The checked configuration sets `LockedUnlink = TRUE`, matching production, and
-the invariants require that no rotation ever orphans an uncovered committed
-update and that the emptiness observation stays true through the commit
-window. Setting `LockedUnlink = FALSE` (a writer allowed to commit between the
-emptiness proof and the unlink commit) makes TLC report the `NoDataLoss`
-violation immediately — the lock discipline is load-bearing, not incidental.
-The negative-control check asserts this on every run. A link never carries a
-rotation baseline, so `LinkAdvancesEpoch` may advance the content-key epoch
-only over an empty uncovered frontier; `RequireBaselineOnEpochAdvance = FALSE`
-is the server before #2365 finding 28, and TLC reports the same violation.
+the invariants require that no rotation ever orphans a committed update and
+that the emptiness observation stays true through the commit window. Setting
+`LockedUnlink = FALSE` (a writer allowed to commit between the emptiness proof
+and the unlink commit) makes TLC report the `NoDataLoss` violation
+immediately — the lock discipline is load-bearing, not incidental. The
+negative-control check asserts this on every run.
+`RequireEmptyFrontierOnLinkAdvance = FALSE` is the server before #2365 finding
+28, which let a link advance the epoch over committed updates, and TLC reports
+the same violation.
+
+A rotation baseline covers history only under the epoch it is sealed to, and it
+is itself a committed update, so both gates ask whether any update is
+committed, not whether one is uncovered. `FrontierCheck = "uncovered"` is a
+server that checked only the uncovered frontier; after a covering unlink TLC
+finds a link advance that strands the baseline, and the negative control
+`empty-frontier-check-ignores-baselines` asserts it.
 `CoveringUnlinkCoversFrontier` requires that, under the lock, the frontier a
 covering baseline was checked against is still the frontier at its commit. The
 link check and commit are one step because both run inside one locked
-transaction. The bounds stay small (`MaxUpdates = 3`); the state space is tiny
-because the model tracks only the uncovered-update count, the covered frontier,
-and the unlink transaction phase.
+transaction. The bounds stay small (`MaxUpdates = 3`); the run explores 61
+distinct states because the model tracks only the uncovered-update count,
+whether any update is committed, the covered frontier, and the unlink
+transaction phase.
 
 ## Backup Restore Terminal Anchors
 
@@ -281,7 +293,8 @@ See the [mapping and boundaries](./backup-restore/TerminalAnchors.md).
 [`realtime/ContainerInterest.tla`](./realtime/ContainerInterest.tla) checks that
 container subscriptions require current read access before indexing and cannot
 be restored by an authorization result that outlived revocation or socket close,
-and that an ended session's socket never outlives a revalidation pass.
+that an ended session's socket never outlives the next session read the store
+answers, and that a session the store cannot confirm closes at its deadline.
 See the [production mapping and bounds](./realtime/ContainerInterest.md).
 
 ## Attachment Key Reachability

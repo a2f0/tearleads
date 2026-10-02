@@ -75,6 +75,22 @@ export const NEGATIVE_CONTROLS: readonly NegativeControl[] = [
     why: "Revocation publishes at most once and expiry never, so revalidation must recheck the session and close an ended session's socket (#2365 finding 27).",
   },
   {
+    id: "unconfirmed-session-outlives-deadline",
+    module: "formal/realtime/ContainerInterest.tla",
+    config: "formal/realtime/ContainerInterest.cfg",
+    constants: { EnforceSessionDeadline: "FALSE" },
+    expect: { kind: "invariant", name: "UnconfirmedSessionsLapse" },
+    why: "A session store that keeps failing would defer the close forever; like proofs, an unconfirmed session must lapse at its deadline (#2420).",
+  },
+  {
+    id: "failed-session-read-rearms-deadline",
+    module: "formal/realtime/ContainerInterest.tla",
+    config: "formal/realtime/ContainerInterest.cfg",
+    constants: { ConfirmOnlyLiveReads: "FALSE" },
+    expect: { kind: "invariant", name: "UnconfirmedSessionsLapse" },
+    why: "Only a live answer confirms a session; a failed or timed-out read that re-armed the deadline would extend it without limit (#2420).",
+  },
+  {
     id: "stale-reconnect-proof-handoff",
     module: "formal/realtime/ContainerInterest.tla",
     config: "formal/realtime/ContainerInterest.cfg",
@@ -344,9 +360,17 @@ export const NEGATIVE_CONTROLS: readonly NegativeControl[] = [
     id: "empty-frontier-link-advances-epoch",
     module: "formal/document-sync/EmptyFrontierUnlink.tla",
     config: "formal/document-sync/EmptyFrontierUnlink.cfg",
-    constants: { RequireBaselineOnEpochAdvance: "FALSE" },
+    constants: { RequireEmptyFrontierOnLinkAdvance: "FALSE" },
     expect: { kind: "invariant", name: "NoDataLoss" },
     why: "A link carries no rotation baseline, so accepting one that advances the content-key epoch strands committed updates from the new container's members (#2365 finding 28).",
+  },
+  {
+    id: "empty-frontier-check-ignores-baselines",
+    module: "formal/document-sync/EmptyFrontierUnlink.tla",
+    config: "formal/document-sync/EmptyFrontierUnlink.cfg",
+    constants: { FrontierCheck: '"uncovered"' },
+    expect: { kind: "invariant", name: "NoDataLoss" },
+    why: "A rotation baseline is itself a committed update sealed to its own epoch, so a later advance that checks only the uncovered frontier strands it.",
   },
 ];
 

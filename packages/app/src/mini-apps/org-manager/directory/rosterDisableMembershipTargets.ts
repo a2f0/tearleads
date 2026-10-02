@@ -1,7 +1,7 @@
 import type { OrganizationGroupSummary } from "@tearleads/client-sdk";
 import type { useOrgManagerActions } from "../../../stores/org-manager/OrgManagerProvider";
 import { RESERVED_ORGANIZATION_GROUP_NAMES } from "../../../utils/organizationGroupNames";
-import { ORG_MANAGER_LABELS } from "../labels";
+import { groupSignedName, ORG_MANAGER_LABELS } from "../labels";
 
 export interface RosterDisableMembershipTarget {
   readonly groupId: string;
@@ -26,6 +26,7 @@ export async function loadRosterDisableMembershipTargets(input: {
     {
       groupId: input.memberGroupId,
       name: RESERVED_ORGANIZATION_GROUP_NAMES.members,
+      nameUnreadable: false,
     },
   ];
   const targets: RosterDisableMembershipTarget[] = [];
@@ -40,7 +41,14 @@ export async function loadRosterDisableMembershipTargets(input: {
     }
     if (!members.members.some(({ userId }) => userId === input.disabledUserId))
       continue;
-    targets.push({ groupId: group.groupId, name: group.name });
+    // A removal binds to the group's signed name, so a membership in a group
+    // without a readable name refuses the disable before anything changes.
+    const name = groupSignedName(group);
+    if (name === null) {
+      input.setError(ORG_MANAGER_LABELS.groupNameUnavailable);
+      return null;
+    }
+    targets.push({ groupId: group.groupId, name });
   }
   if (targets.length === 0) {
     input.setError(ORG_MANAGER_LABELS.userNotFound);

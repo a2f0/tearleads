@@ -81,7 +81,7 @@ read, disables a member, or changes a member key in a way that shrinks future
 access must advance the principal key epoch. Clients
 and the API both reject shrinking policy transitions that reuse the old
 principal key epoch. Removing a container grant must advance it too, since
-wraps sealed to the old key are retained; the API enforces that (#2365).
+wraps sealed to the old key are retained; both enforce that (#2365).
 
 Second, user identity keys need an authority outside mutable API rows. Keying
 should support one of these trust roots:

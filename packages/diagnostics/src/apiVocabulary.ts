@@ -8,6 +8,7 @@ export const API_OPERATIONS = {
   "realtime.verify": "read-model notification verification",
   "websocket.hydrate": "WebSocket interest hydration",
   "websocket.revalidate": "WebSocket interest revalidation",
+  "websocket.session": "WebSocket session liveness check",
   "websocket.persist": "WebSocket interest persistence",
   "websocket.authorize": "WebSocket interest authorization",
   "websocket.event": "WebSocket event preparation",

@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import {
   type ContainerKekKeyringEntry,
+  KeyingVerificationError,
   normalizeContainerKekKeyring,
   openContainerKekKeyring,
   sealContainerKekKeyring,
@@ -21,6 +22,7 @@ import {
   unwrapKeyringContainerKeksAtIndex,
 } from "../../../data/documents/shared/containerKekPathHistory";
 import { verifyContainerDestinationProjection } from "../../../data/keyingProjectionVerification/containerDestinationVerification";
+import { ContainerKeyringOverrideStaleError } from "./keyringOverrideLineage";
 import { verifyKeyringEntriesForSeal } from "./moveRotation";
 import { rekeyRemoteContainer } from "./rekeyRemote";
 import { resolveRotationContext } from "./rotationContext";
@@ -93,10 +95,14 @@ test("an honest rebuilt override seals across relocated history", async () => {
 test("an override that omits a lineage epoch is refused as stale", async () => {
   const scenario = await relocatedChildHistory();
   const { repair, submitted } = await repairWithOverride(scenario, []);
-  await expect(repair).rejects.toMatchObject({
-    code: "missing_dependency",
-    message: expect.stringContaining("omits an epoch"),
-  });
+  // Not a keying verification error: a rebuild that raced a rotation is
+  // honest, so callers must not read it as tampering.
+  const refusal = await repair.then(
+    () => null,
+    (error: unknown) => error,
+  );
+  expect(refusal).toBeInstanceOf(ContainerKeyringOverrideStaleError);
+  expect(refusal).not.toBeInstanceOf(KeyingVerificationError);
   expect(submitted).toEqual([]);
 });
 

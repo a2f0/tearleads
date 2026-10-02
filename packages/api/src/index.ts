@@ -3,6 +3,7 @@ import {
   initializeApiDatabase,
 } from "@tearleads/api-shared/postgres";
 import { MAX_UPLOAD_PART_BYTES } from "./adapters/blobObjectStore";
+import { apiPublicOriginFallbackWarning } from "./apiPublicOrigin";
 import { captureApiError } from "./diagnostics/sentry";
 import type { RouteRequestBindings } from "./middleware/session";
 import { createRealtimeGateway } from "./realtime/realtimeGateway";
@@ -16,6 +17,11 @@ if (
   (defaultDatabaseKind === "sqlite" && process.env.NODE_ENV !== "production")
 ) {
   await initializeApiDatabase();
+}
+
+const publicOriginWarning = apiPublicOriginFallbackWarning();
+if (publicOriginWarning !== null) {
+  console.warn(publicOriginWarning);
 }
 
 // The realtime gateway is the second half of this composition root: build it

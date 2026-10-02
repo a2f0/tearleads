@@ -47,8 +47,8 @@
       "bytes": 18865
     },
     "docs/developer/client-sdk.md": {
-      "lines": 788,
-      "bytes": 41422
+      "lines": 789,
+      "bytes": 41461
     },
     "docs/developer/revenuecat-native-stores.md": {
       "lines": 364,
@@ -79,8 +79,8 @@
       "bytes": 33682
     },
     "docs/security-guarantees.md": {
-      "lines": 833,
-      "bytes": 48316
+      "lines": 843,
+      "bytes": 48870
     },
     "formal/document-sync/BaselineDominanceTraces.json": {
       "lines": 2059,
@@ -247,8 +247,8 @@
       "bytes": 16859
     },
     "packages/client-sdk/src/index.ts": {
-      "lines": 542,
-      "bytes": 15841
+      "lines": 543,
+      "bytes": 15879
     },
     "packages/client-sdk/src/stores/container-contents/containerContentsStore.rootRefresh.test.ts": {
       "lines": 592,
@@ -260,7 +260,7 @@
     },
     "packages/client-sdk/src/workflows/README.md": {
       "lines": 310,
-      "bytes": 23694
+      "bytes": 23797
     },
     "packages/client-sdk/src/workflows/blobs/hydrate.test.ts": {
       "lines": 572,

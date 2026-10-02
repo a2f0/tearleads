@@ -358,7 +358,6 @@
       "version": "0.1.0",
       "dependencies": {
         "@phosphor-icons/react": "2.1.10",
-        "@tearleads/ui": "workspace:*",
         "react": "catalog:react",
         "react-dom": "catalog:react",
       },
