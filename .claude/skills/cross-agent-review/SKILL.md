@@ -46,6 +46,13 @@ for a review that changes nothing — the base sync included.
   effort.
 - `--report-only` (optional flag, position-independent): surface findings
   without changing the branch, including base synchronization and repairs.
+- `--bump-versions` (optional flag, position-independent): after each base
+  sync, patch-bump every changed workspace package to one past its version on
+  that exact base. Packages are discovered from the committed root workspace
+  list, including private packages. Preserve deliberate major/minor releases
+  and new packages' initial versions. Resolve only version-field manifest
+  conflicts, refresh `bun.lock`, and commit the result before snapshotting.
+  `ship-pr` always passes this flag. Ignored under `--report-only`.
 
 `--passes` controls reviews of one unchanged commit. Repairs produce new
 commits to review and have no round limit.
@@ -176,28 +183,64 @@ checks. `--jq '… // ""'` yields an empty string only on a successful empty res
    ```
 
    Then **merge** the exact fetched OID rather than shared `FETCH_HEAD` or
-   `origin/$BASE_REF`; either can be changed independently of this review:
+   `origin/$BASE_REF`; either can be changed independently of this review.
+   Set `BUMP_VERSIONS=1` when `--bump-versions` was given (empty otherwise):
 
    ```bash
    PRE_SYNC_HEAD=$(git rev-parse HEAD)
-   git merge --no-edit "$BASE_OID" || {
-     git merge --abort
-     echo "Error: merging the latest $BASE_REF into $BRANCH conflicts — resolve it and re-run" >&2
-     exit 1
-   }
+   if ! git merge --no-edit "$BASE_OID"; then
+     if [ -n "$BUMP_VERSIONS" ] && bun "$AGENT_TOOL" resolveVersionConflicts && git commit --no-edit; then
+       echo "Resolved version-only conflicts with $BASE_REF"
+     else
+       git merge --abort
+       echo "Error: merging the latest $BASE_REF into $BRANCH conflicts — resolve it and re-run" >&2
+       exit 1
+     fi
+   fi
    ```
+
+   The conflict helper accepts only workspace manifests whose three-way merge
+   becomes clean after normalizing the version field. It preserves both sides'
+   other edits and touches nothing when any other conflict remains. A lockfile
+   conflict also stops for resolution; never discard unrelated lockfile edits.
+
+   **With `--bump-versions`**, recompute the versions against the synced base
+   before snapshotting or pushing. Start with a clean committed worktree. The
+   tool prints only rewritten manifest paths to stdout; diagnostics use stderr:
+
+   ```bash
+   if [ -n "$BUMP_VERSIONS" ]; then
+     BUMPED=$(bun "$AGENT_TOOL" bumpVersions "$BASE_OID") || exit 1
+     if [ -n "$BUMPED" ]; then
+       bun install --lockfile-only || exit 1
+       printf '%s\n' "$BUMPED" | while IFS= read -r MANIFEST; do
+         git add -- "$MANIFEST" || exit 1
+       done
+       git add -- bun.lock
+       bun run lint:source-shape -- --staged || exit 1
+       git commit -m 'chore: bump package versions' || exit 1
+     fi
+     bun "$AGENT_TOOL" checkVersions "$BASE_OID" || exit 1
+   fi
+   ```
+
+   Every workspace must declare a plain `major.minor.patch` version. Missing or
+   malformed versions fail instead of being silently skipped. Re-running against
+   the same base is a no-op. After repairs add a changed package, or the base
+   advances, this step computes the new required version before re-review.
 
    **Merge, not rebase, and never force.** Every branch mutation in these skills
    pushes without force, and a rebase would need a force push; the squash-merge
    flattens the merge commit anyway, so it costs nothing in the final history. **On
-   a conflict, abort and stop** — never auto-resolve, and never review a conflicted
-   tree.
+   a conflict, abort and stop** — auto-resolve only the version-field conflicts
+   above, and never review a conflicted tree.
 
    The merge moves `HEAD` only when the base actually advanced; on a branch
    already current, or a later repair round where nothing new landed, it is a
    no-op. **When a PR is open**, push the updated head without force so the
    pushed head still matches what is reviewed — but **only when the merge
-   actually moved `HEAD`**, so an already-current branch does not fire the
+   or version bump actually moved `HEAD`**, so an already-current branch does
+   not fire the
    (expensive) pre-push hook for nothing; **with no PR**, the merge stays local
    and `open-pr` pushes it later, so the flow's single push is preserved:
 
@@ -389,6 +432,8 @@ checks. `--jq '… // ""'` yields an empty string only on a successful empty res
    - **The final verdict** — clean, non-blocking nits only, unresolved blocking
      findings, or review-could-not-run
    - **Repair rounds performed**, and what was fixed in them
+   - **Version bumps** made under `--bump-versions` (package, old → new), or
+     that none were needed
 
    Callers gate on the last three. `ship-pr` binds its merge to the reported SHA
    and refuses to merge on an unresolved-blocking or could-not-run verdict unless
@@ -396,6 +441,10 @@ checks. `--jq '… // ""'` yields an empty string only on a successful empty res
 
 ## Notes
 
+- **Version bumps run before every snapshot under `--bump-versions`.** They
+  belong to the reviewed commit and are recomputed against the pinned base on
+  every repair or base refresh. Unchanged packages keep the base version;
+  intentional major/minor releases and new package versions are preserved.
 - **Repairs have no round limit.** Continue repairing actionable blocking
   findings and reviewing each changed head until the severity gate passes.
   Do not stop because a counter or a previous default budget was exhausted.
