@@ -2,6 +2,23 @@ import type { ComponentType } from "react";
 
 export type WindowMoveDirection = "forward" | "backward";
 
+// Window geometry is relative to the desktop surface a window is rendered in
+// (the window's offset parent), not to the viewport.
+export interface WindowPosition {
+  x: number;
+  y: number;
+}
+
+export interface WindowSize {
+  width: number;
+  height: number;
+}
+
+export interface WindowGeometry {
+  position: WindowPosition;
+  size?: WindowSize | undefined;
+}
+
 export interface WindowEntry {
   // An opaque key naming the app that owns this window. The window layer only
   // stores and compares it; the host interprets it (see Window's
@@ -16,8 +33,15 @@ export interface WindowEntry {
   // caret. Forward is deliberately not modelled — the toolbar offers Back only.
   routeHistory?: ReadonlyArray<ReadonlyArray<string>> | undefined;
   title: string;
+  // Where the window first appears, in viewport coordinates (for example the
+  // point a launcher was clicked). Ignored once position is known.
   initialX: number;
   initialY: number;
+  // The window's committed geometry. Set when the window is first laid out and
+  // whenever a drag or resize ends, so a host can save and restore a layout.
+  // Without size the window takes its stylesheet's default size.
+  position?: WindowPosition | undefined;
+  size?: WindowSize | undefined;
   // maximized and minimized live here rather than inside Window so the taskbar
   // can drive both without reaching into a window's local state.
   maximized: boolean;
@@ -30,6 +54,10 @@ export interface WindowCreateOptions {
   appId?: string;
   initialShowSidebar?: boolean | undefined;
   pathSegments?: ReadonlyArray<string> | undefined;
+  // Surface-relative geometry to open with, such as a restored layout. A
+  // position takes precedence over create's viewport x/y.
+  position?: WindowPosition | undefined;
+  size?: WindowSize | undefined;
 }
 
 export interface WindowStateData {
@@ -63,4 +91,5 @@ export interface WindowStateActions {
   moveForward: (id: string) => void;
   moveBackward: (id: string) => void;
   bringToFront: (id: string) => void;
+  setGeometry: (id: string, geometry: WindowGeometry) => void;
 }

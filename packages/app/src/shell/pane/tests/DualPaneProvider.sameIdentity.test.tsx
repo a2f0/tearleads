@@ -78,7 +78,7 @@ async function expectSingleYouContact(input: {
     .find((windowRoot) => windowRoot !== null);
   if (explorerWindow) {
     await interact(() => {
-      fireEvent.mouseDown(explorerWindow);
+      fireEvent.pointerDown(explorerWindow);
     });
   } else {
     await openExplorer(input.pane);

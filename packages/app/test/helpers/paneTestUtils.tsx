@@ -52,12 +52,12 @@ function createDeferred<T = void>() {
 
   return { promise, resolve };
 }
-function closestHtmlDivElement(
+function closestHtmlElement(
   element: Element | null | undefined,
   selector: string,
-): HTMLDivElement | null {
+): HTMLElement | null {
   const closestElement = element?.closest(selector);
-  return closestElement instanceof HTMLDivElement ? closestElement : null;
+  return closestElement instanceof HTMLElement ? closestElement : null;
 }
 export function createDelayedLoadLocalKeyringFactory(
   createBaseLocalKeyring: () => LocalKeyring,
@@ -136,10 +136,9 @@ export async function openExplorer(view: ReturnType<typeof renderPane>) {
   });
   clickPaneAppMenuItem(view, "Explorer");
 
-  let explorerWindow: HTMLDivElement | null = null;
+  let explorerWindow: HTMLElement | null = null;
   await waitFor(() => {
-    const windows =
-      view.container.querySelectorAll<HTMLDivElement>("div.window");
+    const windows = view.container.querySelectorAll<HTMLElement>(".window");
     explorerWindow = windows[windows.length - 1] ?? null;
     expect(explorerWindow).toBeTruthy();
   });
@@ -148,13 +147,13 @@ export async function openExplorer(view: ReturnType<typeof renderPane>) {
 
   await waitFor(() => {
     expect(
-      within(explorerWindow as HTMLDivElement).getByRole("table", {
+      within(explorerWindow as HTMLElement).getByRole("table", {
         name: "Items in /",
       }),
     ).toBeTruthy();
   });
 
-  return explorerWindow as HTMLDivElement;
+  return explorerWindow as HTMLElement;
 }
 
 export async function openExplorerNewStructuredDocumentRoute(
@@ -179,7 +178,7 @@ export async function openExplorerNewStructuredDocumentRoute(
 
 export async function openNotes(view: ReturnType<typeof renderPane>) {
   const existingWindowCount =
-    view.container.querySelectorAll<HTMLDivElement>("div.window").length;
+    view.container.querySelectorAll<HTMLElement>(".window").length;
 
   fireEvent.contextMenu(view.getByRole("application"), {
     clientX: 160,
@@ -187,10 +186,9 @@ export async function openNotes(view: ReturnType<typeof renderPane>) {
   });
   clickPaneAppMenuItem(view, "Notes");
 
-  let notesWindow: HTMLDivElement | null = null;
+  let notesWindow: HTMLElement | null = null;
   await waitFor(() => {
-    const windows =
-      view.container.querySelectorAll<HTMLDivElement>("div.window");
+    const windows = view.container.querySelectorAll<HTMLElement>(".window");
     expect(windows.length).toBeGreaterThan(existingWindowCount);
     notesWindow = windows[windows.length - 1] ?? null;
     expect(notesWindow).toBeTruthy();
@@ -200,18 +198,18 @@ export async function openNotes(view: ReturnType<typeof renderPane>) {
 
   await waitFor(() => {
     expect(
-      (notesWindow as HTMLDivElement).querySelector<HTMLTextAreaElement>(
+      (notesWindow as HTMLElement).querySelector<HTMLTextAreaElement>(
         "textarea.note-document-editor",
       ),
     ).toBeTruthy();
   });
 
-  return notesWindow as HTMLDivElement;
+  return notesWindow as HTMLElement;
 }
 
 export async function openContacts(view: ReturnType<typeof renderPane>) {
   const existingWindowCount =
-    view.container.querySelectorAll<HTMLDivElement>("div.window").length;
+    view.container.querySelectorAll<HTMLElement>(".window").length;
 
   fireEvent.contextMenu(view.getByRole("application"), {
     clientX: 120,
@@ -219,16 +217,15 @@ export async function openContacts(view: ReturnType<typeof renderPane>) {
   });
   clickPaneAppMenuItem(view, "Contacts");
 
-  let contactsWindow: HTMLDivElement | null = null;
+  let contactsWindow: HTMLElement | null = null;
   await waitFor(() => {
-    const windows =
-      view.container.querySelectorAll<HTMLDivElement>("div.window");
+    const windows = view.container.querySelectorAll<HTMLElement>(".window");
     expect(windows.length).toBeGreaterThan(existingWindowCount);
     const contactsApps =
       view.container.querySelectorAll<HTMLDivElement>(".contacts");
     const contactsApp = contactsApps[contactsApps.length - 1] ?? null;
     expect(contactsApp).toBeTruthy();
-    contactsWindow = closestHtmlDivElement(contactsApp, ".window");
+    contactsWindow = closestHtmlElement(contactsApp, ".window");
     expect(contactsWindow).toBeTruthy();
   });
 

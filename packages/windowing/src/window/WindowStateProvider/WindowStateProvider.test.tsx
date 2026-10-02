@@ -297,3 +297,28 @@ test("action-only consumers do not re-render when window state changes", () => {
   expect(actionRenderCount).toBe(1);
   expect(stateRenderCount).toBe(2);
 });
+
+test("setGeometry commits geometry and ignores an unchanged commit", () => {
+  const { result } = renderHook(useWindowStateTestHarness, { wrapper });
+
+  act(() => result.current.actions.create("Notes", 0, 0));
+  const id = at(result, 0).id;
+
+  act(() =>
+    result.current.actions.setGeometry(id, {
+      position: { x: 40, y: 30 },
+      size: { height: 200, width: 320 },
+    }),
+  );
+  expect(at(result, 0).position).toEqual({ x: 40, y: 30 });
+  expect(at(result, 0).size).toEqual({ height: 200, width: 320 });
+
+  const committedWindows = result.current.state.windows;
+  act(() =>
+    result.current.actions.setGeometry(id, {
+      position: { x: 40, y: 30 },
+      size: { height: 200, width: 320 },
+    }),
+  );
+  expect(result.current.state.windows).toBe(committedWindows);
+});

@@ -169,7 +169,7 @@ test("the image viewer stays in the right pane after restoring its window", asyn
   );
 
   const open = await view.findByRole("button", { name: "Open viewer" });
-  const firstHost = open.closest<HTMLDivElement>(".window");
+  const firstHost = open.closest<HTMLElement>(".window");
   if (!firstHost) throw new Error("viewer window not found");
 
   const minimize =
@@ -182,7 +182,7 @@ test("the image viewer stays in the right pane after restoring its window", asyn
   const restoredOpen = await view.findByRole("button", {
     name: "Open viewer",
   });
-  const restoredHost = restoredOpen.closest<HTMLDivElement>(".window");
+  const restoredHost = restoredOpen.closest<HTMLElement>(".window");
   if (!restoredHost) throw new Error("restored viewer window not found");
   expect(restoredHost).not.toBe(firstHost);
 
@@ -205,7 +205,7 @@ test("only the viewer's toolbar is left while it is open", async () => {
   );
 
   const open = await view.findByRole("button", { name: "Open viewer" });
-  const host = open.closest<HTMLDivElement>(".window");
+  const host = open.closest<HTMLElement>(".window");
   if (!host) throw new Error("viewer window not found");
   await waitFor(() => {
     expect(host.querySelector(".window-toolbar")).toBeTruthy();
@@ -232,7 +232,7 @@ test("closing a toolbar-opened viewer keeps focus inside the window", async () =
   );
 
   const open = await view.findByRole("button", { name: "Open viewer" });
-  const host = open.closest<HTMLDivElement>(".window");
+  const host = open.closest<HTMLElement>(".window");
   if (!host) throw new Error("viewer window not found");
   const toolbarOpen = await waitFor(() => {
     const button = host.querySelector<HTMLButtonElement>(

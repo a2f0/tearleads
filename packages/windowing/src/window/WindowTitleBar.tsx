@@ -19,7 +19,8 @@ export interface WindowTitleBarAction {
 
 export function WindowTitleBar({
   title,
-  onMouseDown,
+  titleId,
+  onPointerDown,
   onMinimize,
   onMaximize,
   onClose,
@@ -27,7 +28,8 @@ export function WindowTitleBar({
   onMoveBackward,
 }: {
   title: string;
-  onMouseDown: (e: React.MouseEvent) => void;
+  titleId?: string | undefined;
+  onPointerDown: (e: React.PointerEvent) => void;
   onMinimize: () => void;
   onMaximize: () => void;
   onClose: () => void;
@@ -37,14 +39,16 @@ export function WindowTitleBar({
   const { closeContextMenu, contextMenu, openContextMenuAt } =
     useContextMenuPositionState();
 
-  const handleMouseDown = useCallback(
-    (e: React.MouseEvent<HTMLDivElement>) => {
+  const handlePointerDown = useCallback(
+    (e: React.PointerEvent<HTMLDivElement>) => {
       const target = e.target;
       if (e.button !== 0) return;
-      if (target instanceof HTMLElement && target.closest("button")) return;
-      onMouseDown(e);
+      // Element, not HTMLElement: an icon inside a button (including the
+      // portaled context menu, whose events bubble through React) is SVG.
+      if (target instanceof Element && target.closest("button")) return;
+      onPointerDown(e);
     },
-    [onMouseDown],
+    [onPointerDown],
   );
 
   return (
@@ -52,14 +56,14 @@ export function WindowTitleBar({
       role="toolbar"
       aria-label="Window controls"
       className="window-titlebar"
-      onMouseDown={handleMouseDown}
+      onPointerDown={handlePointerDown}
       onContextMenu={(event) => {
         event.preventDefault();
         event.stopPropagation();
         openContextMenuAt({ x: event.clientX, y: event.clientY });
       }}
     >
-      <span className="window-titlebar-title" title={title}>
+      <span className="window-titlebar-title" id={titleId} title={title}>
         {title}
       </span>
       <div className="window-titlebar-buttons">

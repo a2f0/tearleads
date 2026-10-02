@@ -4,19 +4,21 @@ import {
   type HTMLAttributes,
   type PropsWithChildren,
   type MouseEvent as ReactMouseEvent,
+  type PointerEvent as ReactPointerEvent,
   useCallback,
   useEffect,
+  useId,
   useMemo,
   useRef,
   useState,
 } from "react";
 import "./Window.css";
 import { CurrentWindowProvider } from "./CurrentWindowContext";
+import { useWindowGeometry } from "./useWindowGeometry";
 import {
-  useWindowGeometry,
-  type WindowPosition,
-  type WindowSize,
-} from "./useWindowGeometry";
+  useFocusWindowOnShow,
+  useWindowGeometryMenuItems,
+} from "./useWindowKeyboardGeometry";
 import { WindowBody } from "./WindowBody";
 import { WindowMenuBar, type WindowMenuItem } from "./WindowMenuBar";
 import {
@@ -32,9 +34,12 @@ import {
   WindowSidebarProvider,
 } from "./WindowSidebarContext";
 import {
+  findTopWindow,
   useWindowActions as useWindowStateActions,
   useWindowStateData,
   type WindowEntry,
+  type WindowPosition,
+  type WindowSize,
 } from "./WindowStateProvider";
 import { WindowStatusBar } from "./WindowStatusBar";
 import { WindowTitleBar } from "./WindowTitleBar";
@@ -54,18 +59,28 @@ interface WindowProps {
 const WINDOW_STATUS_MESSAGE_DURATION_MS = 2500;
 
 export function Window({ ContentBoundary, windowId }: WindowProps) {
-  const { windowMap } = useWindowStateData();
+  const { windowMap, windows } = useWindowStateData();
   const entry = windowMap.get(windowId);
+  const isTop =
+    findTopWindow(windows, (candidate) => !candidate.minimized)?.id ===
+    windowId;
 
   if (!entry) return null;
 
-  return <WindowInner ContentBoundary={ContentBoundary} entry={entry} />;
+  return (
+    <WindowInner
+      ContentBoundary={ContentBoundary}
+      entry={entry}
+      isTop={isTop}
+    />
+  );
 }
 
 function useWindowActions(
   entry: WindowEntry,
   fileMenuItems: WindowMenuItem[],
   viewMenuItems: WindowMenuItem[],
+  geometryMenuItems: WindowMenuItem[],
   hasSidebar: boolean,
 ) {
   const { close, minimize, moveBackward, moveForward, toggleMaximize } =
@@ -112,6 +127,7 @@ function useWindowActions(
         label: "View",
         items: [
           ...viewMenuItems,
+          ...geometryMenuItems,
           {
             id: "toggle-status-bar",
             label: `${showStatusBar ? "Hide" : "Show"} Status Bar`,
@@ -130,6 +146,7 @@ function useWindowActions(
       },
     ],
     [
+      geometryMenuItems,
       hasSidebar,
       handleClose,
       fileMenuItems,
@@ -163,7 +180,13 @@ function getWindowStyle(
     return { top: 0, left: 0, width: "100%", height: "100%", zIndex };
   }
   if (!position) {
-    return { visibility: "hidden", zIndex };
+    // Hidden until laid out; a requested size applies already so the first
+    // clamp measures the window at the size it will show.
+    return {
+      visibility: "hidden",
+      zIndex,
+      ...(size ? { width: size.width, height: size.height } : {}),
+    };
   }
 
   return {
@@ -212,16 +235,19 @@ function useWindowToolbarSuppression() {
 }
 
 function WindowResizeHandles({
-  handleResizeMouseDown,
+  handleResizePointerDown,
 }: {
-  handleResizeMouseDown: (event: ReactMouseEvent, corner: ResizeCorner) => void;
+  handleResizePointerDown: (
+    event: ReactPointerEvent,
+    corner: ResizeCorner,
+  ) => void;
 }) {
   return (
     <>
-      <WindowResizeHandle corner="se" onMouseDown={handleResizeMouseDown} />
-      <WindowResizeHandle corner="sw" onMouseDown={handleResizeMouseDown} />
-      <WindowResizeHandle corner="ne" onMouseDown={handleResizeMouseDown} />
-      <WindowResizeHandle corner="nw" onMouseDown={handleResizeMouseDown} />
+      <WindowResizeHandle corner="se" onPointerDown={handleResizePointerDown} />
+      <WindowResizeHandle corner="sw" onPointerDown={handleResizePointerDown} />
+      <WindowResizeHandle corner="ne" onPointerDown={handleResizePointerDown} />
+      <WindowResizeHandle corner="nw" onPointerDown={handleResizePointerDown} />
     </>
   );
 }
@@ -229,13 +255,19 @@ function WindowResizeHandles({
 interface WindowInnerProps {
   ContentBoundary?: WindowContentBoundary | undefined;
   entry: WindowEntry;
+  // Whether this is the foremost visible window, the one that takes focus.
+  isTop: boolean;
 }
 
-function WindowInner({ ContentBoundary, entry }: WindowInnerProps) {
+function WindowInner({ ContentBoundary, entry, isTop }: WindowInnerProps) {
   return (
     <WindowMenuProvider>
       <WindowSidebarProvider>
-        <WindowInnerContent ContentBoundary={ContentBoundary} entry={entry} />
+        <WindowInnerContent
+          ContentBoundary={ContentBoundary}
+          entry={entry}
+          isTop={isTop}
+        />
       </WindowSidebarProvider>
     </WindowMenuProvider>
   );
@@ -247,20 +279,23 @@ function WindowChrome({
   actions,
   entry,
   onGoBack,
-  onMouseDown,
+  onPointerDown,
+  titleId,
   toolbarSuppressed,
 }: {
   actions: ReturnType<typeof useWindowActions>;
   entry: WindowEntry;
   onGoBack: () => void;
-  onMouseDown: (event: ReactMouseEvent) => void;
+  onPointerDown: (event: ReactPointerEvent) => void;
+  titleId: string;
   toolbarSuppressed: boolean;
 }) {
   return (
     <>
       <WindowTitleBar
         title={entry.title}
-        onMouseDown={onMouseDown}
+        titleId={titleId}
+        onPointerDown={onPointerDown}
         onMinimize={actions.handleMinimize}
         onMaximize={actions.handleMaximize}
         onClose={actions.handleClose}
@@ -279,62 +314,98 @@ function WindowChrome({
   );
 }
 
-function WindowInnerContent({ ContentBoundary, entry }: WindowInnerProps) {
-  const { maximized, minimized, zIndex, component: Component } = entry;
-  const windowRef = useRef<HTMLDivElement>(null);
-  const [overlayHost, setOverlayHost] = useState<HTMLElement | null>(null);
-  const fileMenuItems = useWindowFileMenuItems();
-  const viewMenuItems = useWindowViewMenuItems();
-  const { sidebar } = useWindowSidebar();
-  const hasSidebar = hasWindowSidebar(sidebar);
-  const actions = useWindowActions(
-    entry,
-    fileMenuItems,
-    viewMenuItems,
-    hasSidebar,
-  );
-  const { handleMouseDown, handleResizeMouseDown, position, size } =
-    useWindowGeometry(entry, maximized, windowRef);
-  const { showStatusMessage, statusText } = useWindowStatusMessage();
-  const { suppressToolbar, toolbarSuppressed } = useWindowToolbarSuppression();
+// Handlers on the window root: its Back caret, raising it on any press inside,
+// and keeping background context menus from opening under window-local ones.
+function useWindowRootHandlers(windowId: string) {
   // The toolbar renders above the route boundary, so the window's own Back stack
   // is threaded in from here rather than read from context.
   const { bringToFront, goBackRoute } = useWindowStateActions();
   const handleGoBack = useCallback(() => {
-    goBackRoute(entry.id);
-  }, [entry.id, goBackRoute]);
-  const handleWindowMouseDown = useCallback(() => {
-    bringToFront(entry.id);
-  }, [bringToFront, entry.id]);
+    goBackRoute(windowId);
+  }, [windowId, goBackRoute]);
+  const handleWindowPointerDown = useCallback(() => {
+    bringToFront(windowId);
+  }, [bringToFront, windowId]);
   const handleWindowContextMenu = useCallback((event: ReactMouseEvent) => {
     // Keep background pane context menus from opening underneath window-local menus.
     event.stopPropagation();
   }, []);
   const windowContextMenuTrapProps: Pick<
-    HTMLAttributes<HTMLDivElement>,
+    HTMLAttributes<HTMLElement>,
     "onContextMenu"
   > = {
     onContextMenu: handleWindowContextMenu,
   };
+
+  return { handleGoBack, handleWindowPointerDown, windowContextMenuTrapProps };
+}
+
+function WindowInnerContent({
+  ContentBoundary,
+  entry,
+  isTop,
+}: WindowInnerProps) {
+  const { maximized, minimized, zIndex, component: Component } = entry;
+  const windowRef = useRef<HTMLElement>(null);
+  const titleId = useId();
+  const [overlayHost, setOverlayHost] = useState<HTMLElement | null>(null);
+  const fileMenuItems = useWindowFileMenuItems();
+  const viewMenuItems = useWindowViewMenuItems();
+  const { sidebar } = useWindowSidebar();
+  const hasSidebar = hasWindowSidebar(sidebar);
+  const {
+    handlePointerDown,
+    handleResizePointerDown,
+    position,
+    size,
+    ...stepped
+  } = useWindowGeometry(entry, maximized, windowRef);
+  const { showStatusMessage, statusText } = useWindowStatusMessage();
+  const geometryMenuItems = useWindowGeometryMenuItems(
+    stepped,
+    { maximized, minimized, windowRef },
+    showStatusMessage,
+  );
+  const actions = useWindowActions(
+    entry,
+    fileMenuItems,
+    viewMenuItems,
+    geometryMenuItems,
+    hasSidebar,
+  );
+  // A maximized window fills its surface without a laid-out position.
+  useFocusWindowOnShow(windowRef, {
+    isTop,
+    shown: !minimized && (maximized || position !== null),
+  });
+  const { suppressToolbar, toolbarSuppressed } = useWindowToolbarSuppression();
+  const { handleGoBack, handleWindowPointerDown, windowContextMenuTrapProps } =
+    useWindowRootHandlers(entry.id);
   const style = getWindowStyle(maximized, position, size, zIndex);
 
   if (minimized) {
     return null;
   }
 
+  // A section labelled by its title is a region landmark. Windows are
+  // non-modal and freely arranged, so they are not dialogs; hosts keep that
+  // role for the modals they open inside a window.
   return (
-    <div
+    <section
       ref={windowRef}
+      aria-labelledby={titleId}
       className={maximized ? "window window--maximized" : "window"}
+      tabIndex={-1}
       {...windowContextMenuTrapProps}
-      onMouseDownCapture={handleWindowMouseDown}
+      onPointerDownCapture={handleWindowPointerDown}
       style={style}
     >
       <WindowChrome
         actions={actions}
         entry={entry}
         onGoBack={handleGoBack}
-        onMouseDown={handleMouseDown}
+        onPointerDown={handlePointerDown}
+        titleId={titleId}
         toolbarSuppressed={toolbarSuppressed}
       />
       <CurrentWindowProvider
@@ -357,11 +428,13 @@ function WindowInnerContent({ ContentBoundary, entry }: WindowInnerProps) {
           )}
         </WindowBodyWithSidebar>
       </CurrentWindowProvider>
-      {actions.showStatusBar && <WindowStatusBar text={statusText} />}
+      <WindowStatusBar text={statusText} visible={actions.showStatusBar} />
       {!maximized && (
-        <WindowResizeHandles handleResizeMouseDown={handleResizeMouseDown} />
+        <WindowResizeHandles
+          handleResizePointerDown={handleResizePointerDown}
+        />
       )}
-    </div>
+    </section>
   );
 }
 
