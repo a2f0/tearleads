@@ -8,11 +8,12 @@
     "./*.css": "./src/*.css"
   },
   "scripts": {
-    "test": "bun test src"
+    "test": "bun test src",
+    "package": "bun scripts/buildPackage.ts",
+    "package:smoke": "bun scripts/smokePackage.ts"
   },
   "dependencies": {
     "@phosphor-icons/react": "2.1.10",
-    "@tearleads/ui": "workspace:*",
     "react": "catalog:react",
     "react-dom": "catalog:react"
   },

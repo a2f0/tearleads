@@ -71,7 +71,17 @@ test("rewriteDistImports resolves dotted extensionless specifiers", () => {
 
     const result = spawnSync(
       "bun",
-      [join(packageRoot, "scripts", "rewriteDistImports.ts"), fixtureDir],
+      [
+        join(
+          packageRoot,
+          "..",
+          "..",
+          "scripts",
+          "lib",
+          "rewriteDistImports.ts",
+        ),
+        fixtureDir,
+      ],
       { encoding: "utf8" },
     );
     expect(result.status).toBe(0);
