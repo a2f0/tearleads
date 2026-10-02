@@ -92,6 +92,11 @@ window. That rule has zero specificity: any `:root` rule, theme, or scoped block
 the host writes overrides it. Tearleads overrides them with its own themes in
 `packages/ui/src/styles.css` and `packages/app/src/shell/layout/AppChrome.css`.
 
+Windows and menus lay out `border-box`, the box model their sizes assume. Since
+`box-sizing` does not inherit, a zero-specificity rule sets it on the window or
+menu and everything inside, including window content; any host rule overrides
+it.
+
 ## Publishing
 
 Inside this workspace the package exports its TypeScript source. The npm

@@ -1,7 +1,15 @@
+/*
+ * The chrome's sizes assume border-box (a maximized window fills its surface at
+ * 100%, border included), and box-sizing does not inherit, so the window sets
+ * it on everything it renders. At zero specificity, any host rule wins.
+ */
+:where(.window),
+:where(.window) :where(*) {
+  box-sizing: border-box;
+}
+
 .window {
   position: absolute;
-  /* A maximized window fills its surface at 100%, border included. */
-  box-sizing: border-box;
   display: flex;
   flex-direction: column;
   width: 900px;
