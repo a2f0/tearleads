@@ -63,9 +63,13 @@ interface WorkspaceManifest {
   version: string;
 }
 
-// React is the host's, so it is a peer dependency; everything else the
-// package imports at runtime is a dependency, with a caret range consumers can
-// dedupe against.
+// React is the host's, so it is a peer dependency, from 19.2 (the first with
+// useEffectEvent); everything else the package imports at runtime is a
+// dependency, with a caret range consumers can dedupe against.
+//
+// Stylesheets are side effects, and so is the entry: it exports only
+// re-exports, so a bundler that trusts sideEffects (webpack) would otherwise
+// route imports past it and drop its tokens.css import with it.
 async function publishManifest() {
   const manifest: WorkspaceManifest = JSON.parse(
     await readFile(join(packageRoot, "package.json"), "utf8"),
@@ -88,8 +92,8 @@ async function publishManifest() {
       ".": { types: "./index.d.ts", default: "./index.js" },
       "./*.css": "./*.css",
     },
-    sideEffects: ["*.css"],
-    peerDependencies: { react: "^19.0.0", "react-dom": "^19.0.0" },
+    sideEffects: ["*.css", "./index.js"],
+    peerDependencies: { react: "^19.2.0", "react-dom": "^19.2.0" },
     dependencies: { "@phosphor-icons/react": `^${phosphor}` },
   };
 }

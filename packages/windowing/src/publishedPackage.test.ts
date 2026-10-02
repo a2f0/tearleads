@@ -38,13 +38,42 @@ test("the published manifest is consumable outside the workspace", () => {
     types: "./index.d.ts",
   });
   expect(manifest.peerDependencies).toEqual({
-    react: "^19.0.0",
-    "react-dom": "^19.0.0",
+    react: "^19.2.0",
+    "react-dom": "^19.2.0",
   });
   for (const range of Object.values<string>(manifest.dependencies)) {
     expect(range).not.toMatch(/^(workspace|catalog):/);
   }
   expect(Object.keys(manifest.dependencies)).toEqual(["@phosphor-icons/react"]);
+});
+
+// A module made only of imports and re-exports: a bundler that trusts
+// sideEffects routes imports past it, dropping its own imports with it.
+function isBarrel(source: string) {
+  const statements = source
+    .replace(/\/\/.*$/gm, "")
+    .split(";")
+    .map((statement) => statement.trim())
+    .filter(Boolean);
+  return statements.every((statement) =>
+    /^(import\s+["']|export\s+\{[^}]*\}\s+from\s)/.test(statement),
+  );
+}
+
+test("a barrel that imports a stylesheet is declared a side effect", () => {
+  const { sideEffects } = JSON.parse(readOutput("package.json"));
+  const barrels = files.filter((file) => {
+    if (!file.endsWith(".js")) {
+      return false;
+    }
+    const source = readOutput(file);
+    return /^import\s+["'][^"']+\.css["'];/m.test(source) && isBarrel(source);
+  });
+
+  expect(barrels).toContain("index.js");
+  for (const file of barrels) {
+    expect(sideEffects).toContain(`./${file}`);
+  }
 });
 
 test("every module imports only React, Phosphor, or its own files", () => {
