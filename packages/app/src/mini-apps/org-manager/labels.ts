@@ -165,7 +165,7 @@ export const ORG_MANAGER_LABELS = {
   failedLoadGroupContainers: "Failed to load group container links.",
   failedLoadGroupMembers: "Failed to load group members.",
   groupNameUnavailable: "Group details are unavailable. Refresh and try again.",
-  unreadableGroupName: "Unreadable group name",
+  unreadableGroupName: "Group name unavailable",
   failedAddGroupAfterMemberAdd:
     "The user was added to Members but not to the requested group. They are an organization member and count toward billing. Retry the group add, or remove them from Members.",
   failedLoadOrganizations: "Failed to load organizations.",
@@ -442,14 +442,23 @@ export function getOrgManagerPolicyVersionLabel(version: number): string {
 }
 
 /**
- * A group whose signed name no member can open shows a placeholder rather than
- * a blank, so it is never mistaken for a group to choose by name.
+ * A group's signed name, or null when no member can open it or it is not yet
+ * hydrated. Anything that acts on a group by name must refuse a null name.
  */
+export function groupSignedName(
+  group:
+    | { readonly name: string; readonly nameUnreadable: boolean }
+    | undefined,
+): string | null {
+  return !group || group.nameUnreadable || group.name === ""
+    ? null
+    : group.name;
+}
+
+/** A group without a readable name shows a placeholder rather than a blank. */
 export function groupDisplayName(group: {
   readonly name: string;
   readonly nameUnreadable: boolean;
 }): string {
-  return group.nameUnreadable
-    ? ORG_MANAGER_LABELS.unreadableGroupName
-    : group.name;
+  return groupSignedName(group) ?? ORG_MANAGER_LABELS.unreadableGroupName;
 }

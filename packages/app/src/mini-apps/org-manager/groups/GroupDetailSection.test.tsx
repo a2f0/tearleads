@@ -4,7 +4,11 @@ import type {
   OrganizationGroupSummary,
 } from "@tearleads/client-sdk";
 import { cleanup, fireEvent, render, within } from "@testing-library/react";
-import { ORG_MANAGER_LABELS } from "../labels";
+import {
+  groupDisplayName,
+  groupSignedName,
+  ORG_MANAGER_LABELS,
+} from "../labels";
 import { GroupDetailSection } from "./GroupDetailSection";
 
 afterEach(cleanup);
@@ -121,6 +125,19 @@ test("a group whose signed name does not open shows a placeholder", () => {
     />,
   );
   expect(view.getByText(ORG_MANAGER_LABELS.unreadableGroupName)).toBeTruthy();
+});
+
+test("only a readable signed name can select a group by name", () => {
+  expect(groupSignedName({ name: "Operators", nameUnreadable: false })).toBe(
+    "Operators",
+  );
+  // Not hydrated yet, unreadable, or gone: membership changes refuse to run.
+  expect(groupSignedName({ name: "", nameUnreadable: false })).toBeNull();
+  expect(groupSignedName({ name: "", nameUnreadable: true })).toBeNull();
+  expect(groupSignedName(undefined)).toBeNull();
+  expect(groupDisplayName({ name: "", nameUnreadable: false })).toBe(
+    ORG_MANAGER_LABELS.unreadableGroupName,
+  );
 });
 
 test("group detail separates members, policy history, and links into tabs", () => {
