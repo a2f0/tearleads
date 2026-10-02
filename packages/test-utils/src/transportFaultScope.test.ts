@@ -44,6 +44,23 @@ test("request scripts match the complete URL including origin and query", async 
   }
 });
 
+test("swallowed request construction errors remain unexpected attempts", async () => {
+  for (const [resource, init] of [
+    ["invalid-url", undefined],
+    [url, { method: "GET", body: "invalid GET body" }],
+  ] as const) {
+    const harness = createTransportFaultHarness({ steps: [] });
+    await expect(
+      harness.run(async () => {
+        await fetch(resource, init).catch(() => undefined);
+      }),
+    ).rejects.toThrow("unexpected");
+    expect(harness.attempts).toHaveLength(1);
+    expect(harness.attempts[0]?.outcome).toBe("unexpected");
+    expect(harness.attempts[0]?.error).not.toBeNull();
+  }
+});
+
 test("aborting before a planned fault cannot satisfy the script", async () => {
   const harness = createTransportFaultHarness({
     steps: [{ ...responseStep, action: { kind: "network-error" } }],

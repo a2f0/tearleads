@@ -134,6 +134,27 @@ test("aborting a paused request prevents forwarding and records the abort", asyn
   expect(harness.attempts[0]?.outcome).toBe("aborted");
 });
 
+test("response loss settles while another cloned body branch remains unread", async () => {
+  const source = new Response(new ReadableStream());
+  const harness = createTransportFaultHarness({
+    steps: [
+      {
+        name: "cloned loss",
+        method: "GET",
+        url,
+        action: { kind: "lost-response" },
+      },
+    ],
+    delegate: () => source.clone(),
+  });
+  try {
+    await expect(harness.fetch(url)).rejects.toThrow("Scripted response loss");
+    harness.assertComplete();
+  } finally {
+    await source.body?.cancel();
+  }
+});
+
 test("pre-aborted requests do not run a scripted response or delegate", async () => {
   let responses = 0;
   const harness = createTransportFaultHarness({

@@ -27,24 +27,38 @@ export function createTransportFaultHarness(input: {
     resource: Parameters<typeof fetch>[0],
     init?: Parameters<typeof fetch>[1],
   ): Promise<Response> => {
-    const original = new Request(resource, init);
-    const request = scopeController
-      ? new Request(original, {
-          signal: AbortSignal.any([original.signal, scopeController.signal]),
-        })
-      : original;
     const step = steps[nextStep];
     const attempt: TransportAttempt = {
       sequence: attempts.length + 1,
       step: step?.name ?? null,
-      method: request.method,
-      url: request.url,
+      method: "<unparsed method>",
+      url: "<unparsed URL>",
       expectedOutcome: step?.expectedOutcome ?? null,
       outcome: "pending",
       status: null,
       error: null,
     };
     attempts.push(attempt);
+    let request: Request;
+    try {
+      attempt.method = String(
+        init?.method ?? (resource instanceof Request ? resource.method : "GET"),
+      ).toUpperCase();
+      attempt.url =
+        resource instanceof Request ? resource.url : String(resource);
+      const original = new Request(resource, init);
+      request = scopeController
+        ? new Request(original, {
+            signal: AbortSignal.any([original.signal, scopeController.signal]),
+          })
+        : original;
+    } catch (error) {
+      attempt.outcome = "unexpected";
+      attempt.error = String(error);
+      throw error;
+    }
+    attempt.method = request.method;
+    attempt.url = request.url;
     if (!step || step.method !== request.method || step.url !== request.url) {
       attempt.outcome = "unexpected";
       attempt.error = `Unexpected ${request.method} ${request.url}; expected ${step ? `${step.name}: ${step.method} ${step.url}` : "no more requests"}`;
@@ -69,7 +83,7 @@ export function createTransportFaultHarness(input: {
       attempt.status = response.status;
       request.signal.throwIfAborted();
       if (step.action.kind === "lost-response") {
-        await response.body?.cancel();
+        void response.body?.cancel().catch(() => {});
         attempt.outcome = "lost-response";
         throw new TypeError(step.action.message ?? "Scripted response loss");
       }
