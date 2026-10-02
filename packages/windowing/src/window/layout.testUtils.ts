@@ -50,8 +50,6 @@ export function captureResizeObservers() {
   };
 }
 
-type WindowSizeProperty = "offsetHeight" | "offsetWidth";
-
 // Gives every window element its normal size, or the surface's full size while
 // maximized, including the fresh element a restore mounts. Returns the undo.
 export function stubWindowSizes(sizes: {
@@ -83,9 +81,7 @@ export function stubWindowSizes(sizes: {
       if (descriptor) {
         Object.defineProperty(prototype, property, descriptor);
       } else {
-        delete (prototype as Partial<Record<WindowSizeProperty, number>>)[
-          property
-        ];
+        Reflect.deleteProperty(prototype, property);
       }
     }
   };
