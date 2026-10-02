@@ -36,6 +36,8 @@ export function virtualClock() {
   const timers = new Set<{ readonly at: number; readonly run: () => void }>();
   return {
     now: () => now,
+    /** Timers still armed, whether or not they are due yet. */
+    pending: () => timers.size,
     schedule: (run: () => void, delayMs: number) => {
       const timer = { at: now + delayMs, run };
       timers.add(timer);

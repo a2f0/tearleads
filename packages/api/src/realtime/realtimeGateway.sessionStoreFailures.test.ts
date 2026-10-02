@@ -202,13 +202,75 @@ test("a stopped gateway reports no session check still in flight", async () => {
   expect(report).not.toHaveBeenCalled();
 });
 
-test("a proof-age bound no longer than the interval is refused", () => {
+test("a proof-age bound under two intervals is refused", () => {
   expect(() =>
-    resolveProofAgePolicy({ intervalMs: 100, maxProofAgeMs: 100 }),
-  ).toThrow("maxProofAgeMs must exceed the revalidation interval");
+    resolveProofAgePolicy({ intervalMs: 100, maxProofAgeMs: 199 }),
+  ).toThrow("maxProofAgeMs must be at least twice the revalidation interval");
+  expect(
+    resolveProofAgePolicy({ intervalMs: 100, maxProofAgeMs: 200 })
+      .maxProofAgeMs,
+  ).toBe(200);
   expect(
     resolveProofAgePolicy({ intervalMs: 0, maxProofAgeMs: 30 }).maxProofAgeMs,
   ).toBe(30);
+});
+
+test("closing a session's last socket stops its rechecks and deadline", async () => {
+  const clock = virtualClock();
+  let reads = 0;
+  const f = fixture({
+    revalidation: ticking(clock, 300),
+    validateSession: async () => {
+      reads++;
+      return true;
+    },
+    authorize: async (_user, ids) => ids,
+  });
+  const second = recordingSocket("user", "session");
+  try {
+    await f.gateway.websocket.open(f.socket);
+    await f.gateway.websocket.open(second.socket);
+    // One of two sockets closing keeps the session tracked.
+    f.gateway.websocket.close(second.socket);
+    await clock.advance(50);
+    expect(reads).toBe(1);
+    f.gateway.websocket.close(f.socket);
+    expect(clock.pending()).toBe(0);
+    await clock.advance(1_000);
+    expect(reads).toBe(1);
+  } finally {
+    f.gateway.stop();
+  }
+});
+
+test("a hung store holds at most one read per session", async () => {
+  silenceReports();
+  const clock = virtualClock();
+  let reads = 0;
+  const f = fixture({
+    revalidation: ticking(clock, 0),
+    sessionReadTimeoutMs: 5,
+    validateSession: () => {
+      reads++;
+      return new Promise<boolean>(() => undefined);
+    },
+    authorize: async (_user, ids) => ids,
+  });
+  try {
+    for (let index = 0; index < 40; index++) {
+      await f.gateway.websocket.open(
+        recordingSocket("user", `session-${index}`).socket,
+      );
+    }
+    f.reconnect();
+    await clock.advance(25);
+    expect(reads).toBe(40);
+    f.reconnect();
+    await clock.advance(25);
+    expect(reads).toBe(40);
+  } finally {
+    f.gateway.stop();
+  }
 });
 
 test("a failure without a reason is still reported", async () => {

@@ -164,9 +164,10 @@ answers. A read that
 answers late still acts on its answer. A failure only delays the close, up to a
 deadline: like installed proofs, a session the store has not confirmed for
 `maxProofAgeMs` closes every socket with 1013, so the client reconnects through
-a fresh ticket once the store answers again. The bound must exceed the
-revalidation interval, since a tick can come a whole interval after the last
-one; a shorter bound is refused at startup. Only a live answer, or a ticket
+a fresh ticket once the store answers again. The bound must be at least twice
+the revalidation interval: a tick can come a whole interval after the last one,
+and a confirmation dates from when its read started. A shorter bound is refused
+at startup. Only a live answer, or a ticket
 upgrade for another socket of the session, confirms it and re-arms the
 deadline. `Elapse` advances time while the socket is open, and
 `UnconfirmedSessionsLapse` checks that no socket is served once its session has

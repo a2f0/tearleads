@@ -81,6 +81,7 @@ export class WsSessionLiveness {
 
   /** Tracks a socket whose ticket upgrade has just confirmed its session. */
   open(ws: WsConnection): void {
+    if (this.stopped) return;
     const key = socketSessionKey(ws);
     const now = this.options.policy.now();
     const tracked = this.sessions.get(key);
