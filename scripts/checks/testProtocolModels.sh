@@ -17,9 +17,9 @@ assert_contains() {
   esac
 }
 
-# The assertions below pick their own parallelism; a value exported by the
-# caller must not change them.
-unset PROTOCOL_TLC_PARALLELISM
+# The assertions below pick their own parallelism and failure-log directory;
+# values exported by the caller must not change them.
+unset PROTOCOL_TLC_PARALLELISM PROTOCOL_TLC_FAILURE_LOG_DIR
 
 SOURCE_ROOT=$(git rev-parse --show-toplevel)
 CHECK_SCRIPT=$SOURCE_ROOT/scripts/checks/checkProtocolModels.sh

@@ -1,7 +1,8 @@
 import { expect } from "bun:test";
 import { toFingerprint } from "../fingerprint";
 import { generateSigningSeedAndKeyPair } from "../signing/generateKeyPair";
-import { trustFixtureSignature } from "./accessEvent.testFixtures";
+import { computeAccessEventHash } from "./accessEvent";
+import { normalizeCanonicalJsonValue } from "./canonical";
 import { containerWrappingPublicKeyForTest } from "./containerWrapping.testFixtures";
 import type {
   AccessManifest,
@@ -51,6 +52,7 @@ import {
   verifyContainerKekState,
   verifySignedAccessEvent,
 } from "./index";
+import { makeVerifiedAccessEvent } from "./types";
 
 export function expectVerificationError<T>(
   result: KeyingVerificationResult<T>,
@@ -226,6 +228,22 @@ export async function signTransparencyTreeHeadFixture(input: {
   };
 }
 
+// verifySignedAccessEvent's result for an event just signed from this body and
+// signer (testFixtures.test.ts pins it); overrides must use the verifier.
+async function trustFixtureSignature(
+  body: ContainerAccessEventBody | DocumentAccessEventBody,
+  event: Awaited<ReturnType<typeof signAccessEvent>>,
+): Promise<VerifiedAccessEvent> {
+  return makeVerifiedAccessEvent({
+    body: normalizeCanonicalJsonValue(
+      body as unknown as KeyingCanonicalJson,
+      "access event body",
+    ),
+    event,
+    eventHash: await computeAccessEventHash(event),
+  });
+}
+
 export async function createVerifiedContainerAccessEvent(input: {
   readonly body: ContainerAccessEventBody;
   readonly dependencyManifestHashes?: readonly string[];
@@ -255,7 +273,7 @@ export async function createVerifiedContainerAccessEvent(input: {
     },
     input.signer.signingPrivateKey,
   );
-  return trustFixtureSignature(input.body, event, input.signer);
+  return trustFixtureSignature(input.body, event);
 }
 
 export async function createVerifiedDocumentAccessEvent(input: {
@@ -287,7 +305,7 @@ export async function createVerifiedDocumentAccessEvent(input: {
     },
     input.signer.signingPrivateKey,
   );
-  return trustFixtureSignature(input.body, event, input.signer);
+  return trustFixtureSignature(input.body, event);
 }
 
 export async function createSignedAttachmentEvent(input: {
