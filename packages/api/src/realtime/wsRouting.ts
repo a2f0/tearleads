@@ -28,9 +28,25 @@ import {
 
 export type { WsConnection } from "./wsConnection";
 
-const SESSION_ENDED_CLOSE_CODE = 1008;
-const SESSION_REVOKED_CLOSE_REASON = "Session revoked";
-const SESSION_ENDED_CLOSE_REASON = "Session ended";
+/** The close frame sent to every socket of a session the router closes. */
+export interface SessionClose {
+  readonly code: number;
+  readonly reason: string;
+}
+
+const SESSION_REVOKED_CLOSE: SessionClose = {
+  code: 1008,
+  reason: "Session revoked",
+};
+export const SESSION_ENDED_CLOSE: SessionClose = {
+  code: 1008,
+  reason: "Session ended",
+};
+/** The session store could not confirm the session in time; retry later. */
+export const SESSION_UNVERIFIED_CLOSE: SessionClose = {
+  code: 1013,
+  reason: "Session unverified",
+};
 
 /**
  * A requested interest change. The gateway authorizes it before indexing or
@@ -230,11 +246,7 @@ export class WsEventRouter {
     }
     switch (event.type) {
       case "session_revoked":
-        this.closeSession(
-          event.userId,
-          event.sessionId,
-          SESSION_REVOKED_CLOSE_REASON,
-        );
+        this.closeSession(event.userId, event.sessionId, SESSION_REVOKED_CLOSE);
         return [];
       case "access_changed":
         return this.handleAccessChanged(event.containerId);
@@ -346,11 +358,11 @@ export class WsEventRouter {
     return evictions;
   }
 
-  /** Closes every socket of a session that was revoked or found ended. */
+  /** Closes every socket of a session that was revoked, ended or lapsed. */
   closeSession(
     userId: string,
     sessionId: string,
-    reason = SESSION_ENDED_CLOSE_REASON,
+    close: SessionClose = SESSION_ENDED_CLOSE,
   ): void {
     const sockets = this.socketsBySessionKey.get(sessionKey(userId, sessionId));
     if (!sockets) {
@@ -358,7 +370,7 @@ export class WsEventRouter {
     }
 
     for (const ws of [...sockets]) {
-      closeSafely(ws, SESSION_ENDED_CLOSE_CODE, reason);
+      closeSafely(ws, close.code, close.reason);
       this.close(ws);
     }
   }
