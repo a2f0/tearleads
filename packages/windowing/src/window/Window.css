@@ -1,5 +1,7 @@
 .window {
   position: absolute;
+  /* A maximized window fills its surface at 100%, border included. */
+  box-sizing: border-box;
   display: flex;
   flex-direction: column;
   width: 900px;

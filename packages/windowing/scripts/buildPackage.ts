@@ -26,6 +26,7 @@ export async function buildPackage(outDir: string): Promise<void> {
     join(repoRoot, "scripts", "lib", "rewriteDistImports.ts"),
     outDir,
   ]);
+  await stripDeclarationStylesheets(outDir);
   await copyStylesheets(join(packageRoot, "src"), outDir);
   await cp(join(packageRoot, "README.md"), join(outDir, "README.md"));
   await writeFile(
@@ -46,6 +47,28 @@ function run(command: string[]) {
   if (result.status !== 0) {
     throw new Error(`${command.join(" ")} exited with ${result.status}`);
   }
+}
+
+// Declarations carry types only, but tsc keeps a module's stylesheet import in
+// its .d.ts, which a consumer's typecheck cannot resolve (TS2882 under
+// TypeScript 6's default noUncheckedSideEffectImports and skipLibCheck: false).
+async function stripDeclarationStylesheets(outDir: string) {
+  const entries = await readdir(outDir, { recursive: true });
+  await Promise.all(
+    entries
+      .filter((entry) => entry.endsWith(".d.ts"))
+      .map(async (entry) => {
+        const file = join(outDir, entry);
+        const source = await readFile(file, "utf8");
+        const stripped = source.replace(
+          /^import\s+["'][^"']+\.css["'];\n/gm,
+          "",
+        );
+        if (stripped !== source) {
+          await writeFile(file, stripped);
+        }
+      }),
+  );
 }
 
 async function copyStylesheets(sourceDir: string, outDir: string) {

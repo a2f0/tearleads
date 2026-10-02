@@ -99,7 +99,7 @@ package is built separately, into `dist/`, with its own generated manifest:
 
 ```sh
 bun run --cwd packages/windowing package        # build dist/
-bun run --cwd packages/windowing package:smoke  # pack, install, render, and bundle outside the workspace
+bun run --cwd packages/windowing package:smoke  # pack, install, render, typecheck, and bundle outside the workspace
 ```
 
 The built package is ES modules with declarations and source maps, plus every
@@ -109,8 +109,10 @@ stylesheets and the entry module (which imports `tokens.css`) are declared side
 effects, so bundlers that trust `sideEffects` keep the token defaults.
 `src/publishedPackage.test.ts` checks the built manifest and that no module
 reaches outside the package, so a new workspace import fails the package's tests
-rather than the publish. The smoke script installs the lowest React the peer
-range admits and bundles a named import with webpack.
+rather than the publish. The declarations drop the stylesheet imports tsc keeps
+in them, which a consumer's typecheck could not resolve. The smoke script
+installs the lowest React the peer range admits, typechecks against the
+declarations with TypeScript's defaults, and bundles a named import with webpack.
 
 Publishing is manual, from the built directory, by an account that owns the
 `@tearleads` npm scope:

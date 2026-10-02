@@ -13,14 +13,17 @@ import { buildPackage } from "./buildPackage";
 
 // Installs the packed package into a fresh project, outside this workspace,
 // renders a window from it, and bundles it: proof that what npm receives works
-// on its own (resolution, peer React, stylesheets) before anyone publishes it.
+// on its own (resolution, peer React, types, stylesheets) before anyone
+// publishes it.
 const workDir = mkdtempSync(join(tmpdir(), "windowing-smoke-"));
 
-// The consumer installs the same test libraries the workspace pins.
+// The consumer installs the same test libraries and TypeScript the workspace
+// pins.
 interface RootManifest {
   catalogs: Record<string, Record<string, string>>;
+  devDependencies: { typescript: string };
 }
-const { catalogs }: RootManifest = JSON.parse(
+const { catalogs, devDependencies }: RootManifest = JSON.parse(
   readFileSync(join(import.meta.dir, "..", "..", "..", "package.json"), "utf8"),
 );
 function catalogVersion(catalog: string, name: string) {
@@ -97,6 +100,31 @@ test("the published package renders a window", () => {
 });
 `;
 
+// TypeScript's defaults check declarations and side-effect imports, so a
+// consumer's typecheck reaches everything the package's .d.ts files import.
+const typecheckSource = `import { Window, WindowStateProvider } from "@tearleads/windowing";
+
+export const desktop = (
+  <WindowStateProvider>
+    <Window windowId="notes" />
+  </WindowStateProvider>
+);
+`;
+const consumerTsconfig = JSON.stringify({
+  compilerOptions: {
+    jsx: "react-jsx",
+    lib: ["ESNext", "DOM"],
+    module: "esnext",
+    moduleResolution: "bundler",
+    noEmit: true,
+    noUncheckedSideEffectImports: true,
+    skipLibCheck: false,
+    strict: true,
+    target: "es2022",
+  },
+  include: ["typecheck.tsx"],
+});
+
 // Webpack skips modules package.json declares free of side effects, so it is
 // the bundler that proves the token defaults survive a named import.
 const bundleScript = `import MiniCssExtractPlugin from "mini-css-extract-plugin";
@@ -138,8 +166,11 @@ function writeConsumer(projectDir: string, tarball: string, distDir: string) {
           "testing",
           "@testing-library/react",
         ),
+        "@types/react": catalogVersion("react", "@types/react"),
+        "@types/react-dom": catalogVersion("react", "@types/react-dom"),
         "css-loader": "7.1.5",
         "mini-css-extract-plugin": "2.10.2",
+        typescript: devDependencies.typescript,
         webpack: "5.111.1",
       },
       name: "windowing-smoke-consumer",
@@ -150,6 +181,8 @@ function writeConsumer(projectDir: string, tarball: string, distDir: string) {
     "happydom.ts":
       'import { GlobalRegistrator } from "@happy-dom/global-registrator";\nGlobalRegistrator.register();\nglobalThis.ResizeObserver ??= class { observe() {} unobserve() {} disconnect() {} };\n',
     "smoke.test.tsx": smokeTest,
+    "tsconfig.json": consumerTsconfig,
+    "typecheck.tsx": typecheckSource,
     "bundle.js": bundleScript,
     "bundleEntry.js":
       'import { Window } from "@tearleads/windowing";\nconsole.log(Window);\n',
@@ -172,13 +205,14 @@ try {
   writeConsumer(projectDir, join(workDir, tarball), distDir);
   run(["bun", "install"], projectDir);
   run(["bun", "test"], projectDir);
+  run(["bun", "x", "tsc", "-p", "."], projectDir);
   run(["node", "bundle.js"], projectDir);
   const css = readFileSync(join(projectDir, "bundle", "main.css"), "utf8");
   if (!css.includes("--color-dark:")) {
     throw new Error("the bundled stylesheet lost the token defaults");
   }
   console.log(
-    "Smoke test passed: the packed package installs, renders, and bundles.",
+    "Smoke test passed: the packed package installs, renders, typechecks, and bundles.",
   );
 } finally {
   rmSync(workDir, { force: true, recursive: true });

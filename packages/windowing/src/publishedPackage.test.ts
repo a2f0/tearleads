@@ -94,6 +94,18 @@ test("every module imports only React, Phosphor, or its own files", () => {
   }
 });
 
+test("declarations import no stylesheets", () => {
+  const declarations = files.filter((file) => file.endsWith(".d.ts"));
+  expect(declarations).toContain("index.d.ts");
+
+  for (const file of declarations) {
+    const stylesheets = moduleSpecifiers(readOutput(file)).filter((specifier) =>
+      specifier.endsWith(".css"),
+    );
+    expect({ file, stylesheets }).toEqual({ file, stylesheets: [] });
+  }
+});
+
 test("the build ships types and stylesheets, and no tests", () => {
   expect(files).toContain("index.d.ts");
   expect(files).toContain("tokens.css");
