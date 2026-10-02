@@ -1,11 +1,16 @@
 import type { ContainerNode, DocumentSummary } from "@tearleads/client-sdk";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   EXPLORER_ORPHANED_DOCUMENTS_ID,
   explorerDocumentRouteContainerId,
   isExplorerDocumentContainerSelection,
 } from "../../../stores/explorer/orphanedDocuments";
 import { getDocumentByLocalId } from "../model/documentSummaries";
+
+interface SelectedSystemContainer {
+  readonly id: string;
+  readonly systemSlot: string | null;
+}
 
 interface PendingSelectedDocument {
   containerId: string;
@@ -16,6 +21,24 @@ function getDefaultSelectedNode(
   nodes: ReadonlyArray<ContainerNode>,
 ): ContainerNode | undefined {
   return nodes.find((node) => node.parentId === null) ?? nodes[0];
+}
+
+/**
+ * The node that took over a vanished system container's slot, when exactly one
+ * did. A recovered device replaces its locally created Contacts or Trash with
+ * the identity's existing one under a new id (#2393); the selection follows it
+ * rather than falling back to the root.
+ */
+function getSystemSlotReplacement(
+  nodes: ReadonlyArray<ContainerNode>,
+  selectedId: string | null,
+  vanished: SelectedSystemContainer | null,
+): ContainerNode | undefined {
+  if (!vanished?.systemSlot || vanished.id !== selectedId) return undefined;
+  const candidates = nodes.filter(
+    (node) => node.systemSlot === vanished.systemSlot,
+  );
+  return candidates.length === 1 ? candidates[0] : undefined;
 }
 
 function getSelectedDocumentActiveContainerId(
@@ -38,6 +61,7 @@ function useExplorerSelectedId(
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [pendingSelectedDocument, setPendingSelectedDocument] =
     useState<PendingSelectedDocument | null>(null);
+  const selectedContainer = useRef<SelectedSystemContainer | null>(null);
 
   const selectItem = useCallback((id: string | null) => {
     setPendingSelectedDocument(null);
@@ -55,8 +79,13 @@ function useExplorerSelectedId(
       return;
     }
 
-    const selectedMatchesContainer =
-      selectedId !== null && nodes.some((node) => node.id === selectedId);
+    const selectedNode = nodes.find((node) => node.id === selectedId);
+    const selectedMatchesContainer = selectedNode !== undefined;
+    if (selectedNode)
+      selectedContainer.current = {
+        id: selectedNode.id,
+        systemSlot: selectedNode.systemSlot ?? null,
+      };
     const selectedDocument =
       selectedId !== null
         ? getDocumentByLocalId(documentSummaries, selectedId)
@@ -82,7 +111,13 @@ function useExplorerSelectedId(
         !selectedMatchesNote &&
         !selectedMatchesPendingDocument)
     ) {
-      selectItem(getDefaultSelectedNode(nodes)?.id ?? null);
+      const fallback =
+        getSystemSlotReplacement(
+          nodes,
+          selectedId,
+          selectedContainer.current,
+        ) ?? getDefaultSelectedNode(nodes);
+      selectItem(fallback?.id ?? null);
     }
   }, [
     documentSummaries,

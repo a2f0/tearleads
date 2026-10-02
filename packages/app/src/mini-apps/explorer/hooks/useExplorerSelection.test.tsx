@@ -165,3 +165,75 @@ test("a cached orphan does not activate a hidden recovery collection", async () 
     expect(view.result.current.activeContainerId).toBeNull();
   });
 });
+
+function containerNode(
+  id: string,
+  overrides: Partial<ContainerNode> = {},
+): ContainerNode {
+  return {
+    id,
+    kind: "container",
+    name: id,
+    organizationId: "org-1",
+    parentId: "root-container",
+    syncState: syncedContainerDocumentObjectSyncState,
+    ...overrides,
+  };
+}
+
+function renderSelection(initialNodes: ReadonlyArray<ContainerNode>) {
+  return renderHook(
+    ({ current }: { current: ReadonlyArray<ContainerNode> }) =>
+      useExplorerSelection(current, []),
+    { initialProps: { current: initialNodes } },
+  );
+}
+
+const replacedRoot = containerNode("replaced-root", {
+  organizationId: "org-2",
+  parentId: null,
+});
+
+// #2393: a recovered device replaces its locally created Contacts with the
+// identity's existing one under a new id; the selection follows it.
+test("a replaced system container keeps its selection", async () => {
+  const localContacts = containerNode("local-contacts", { systemSlot: "slot" });
+  const view = renderSelection([nodes[0] as ContainerNode, localContacts]);
+  act(() => view.result.current.setSelectedId("local-contacts"));
+
+  view.rerender({
+    current: [
+      replacedRoot,
+      containerNode("trash", { systemSlot: "trash-slot" }),
+      containerNode("contacts", { systemSlot: "slot" }),
+    ],
+  });
+
+  await waitFor(() => {
+    expect(view.result.current.selectedId).toBe("contacts");
+  });
+});
+
+test("a vanished ordinary container or ambiguous slot falls back to the root", async () => {
+  const folder = containerNode("folder");
+  const contacts = containerNode("contacts", { systemSlot: "slot" });
+  const view = renderSelection([nodes[0] as ContainerNode, folder, contacts]);
+  act(() => view.result.current.setSelectedId("folder"));
+
+  view.rerender({ current: [replacedRoot, contacts] });
+  await waitFor(() => {
+    expect(view.result.current.selectedId).toBe("replaced-root");
+  });
+
+  act(() => view.result.current.setSelectedId("contacts"));
+  view.rerender({
+    current: [
+      replacedRoot,
+      containerNode("contacts-a", { systemSlot: "slot" }),
+      containerNode("contacts-b", { systemSlot: "slot" }),
+    ],
+  });
+  await waitFor(() => {
+    expect(view.result.current.selectedId).toBe("replaced-root");
+  });
+});
