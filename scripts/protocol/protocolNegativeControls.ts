@@ -366,9 +366,17 @@ export const NEGATIVE_CONTROLS: readonly NegativeControl[] = [
     id: "empty-frontier-link-advances-epoch",
     module: "formal/document-sync/EmptyFrontierUnlink.tla",
     config: "formal/document-sync/EmptyFrontierUnlink.cfg",
-    constants: { RequireBaselineOnEpochAdvance: "FALSE" },
+    constants: { RequireEmptyFrontierOnLinkAdvance: "FALSE" },
     expect: { kind: "invariant", name: "NoDataLoss" },
     why: "A link carries no rotation baseline, so accepting one that advances the content-key epoch strands committed updates from the new container's members (#2365 finding 28).",
+  },
+  {
+    id: "empty-frontier-check-ignores-baselines",
+    module: "formal/document-sync/EmptyFrontierUnlink.tla",
+    config: "formal/document-sync/EmptyFrontierUnlink.cfg",
+    constants: { FrontierCheck: '"uncovered"' },
+    expect: { kind: "invariant", name: "NoDataLoss" },
+    why: "A rotation baseline is itself a committed update sealed to its own epoch, so a later advance that checks only the uncovered frontier strands it.",
   },
 ];
 
