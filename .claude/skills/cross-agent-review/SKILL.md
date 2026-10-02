@@ -206,21 +206,13 @@ checks. `--jq '… // ""'` yields an empty string only on a successful empty res
 
    **With `--bump-versions`**, recompute the versions against the synced base
    before snapshotting or pushing. Start with a clean committed worktree. The
-   tool prints only rewritten manifest paths to stdout; diagnostics use stderr:
+   `prepareVersions` command owns the bump, Bun lockfile refresh, staged
+   source-shape check, and commit. It emits a JSON receipt on stdout;
+   diagnostics on stderr:
 
    ```bash
    if [ -n "$BUMP_VERSIONS" ]; then
-     BUMPED=$(bun "$AGENT_TOOL" bumpVersions "$BASE_OID") || exit 1
-     if [ -n "$BUMPED" ]; then
-       bun install --lockfile-only || exit 1
-       printf '%s\n' "$BUMPED" | while IFS= read -r MANIFEST; do
-         git add -- "$MANIFEST" || exit 1
-       done
-       git add -- bun.lock
-       bun run lint:source-shape -- --staged || exit 1
-       git commit -m 'chore: bump package versions' || exit 1
-     fi
-     bun "$AGENT_TOOL" checkVersions "$BASE_OID" || exit 1
+     bun "$AGENT_TOOL" prepareVersions "$BASE_OID" || exit 1
    fi
    ```
 
@@ -228,6 +220,10 @@ checks. `--jq '… // ""'` yields an empty string only on a successful empty res
    malformed versions fail instead of being silently skipped. Re-running against
    the same base is a no-op. After repairs add a changed package, or the base
    advances, this step computes the new required version before re-review.
+   Preparation needs a tracked `bun.lock`, a clean committed worktree, and the
+   pinned base merged into HEAD. Install scripts stay disabled. On failure it
+   restores its paths and index if HEAD and other paths are unchanged; otherwise
+   it preserves intermediate state. Stop on failure before snapshotting or pushing.
 
    **Merge, not rebase, and never force.** Every branch mutation in these skills
    pushes without force, and a rebase would need a force push; the squash-merge

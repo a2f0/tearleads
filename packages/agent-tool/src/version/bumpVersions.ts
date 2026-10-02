@@ -139,10 +139,13 @@ function describePlan(plan: VersionPlan): string {
 }
 
 /**
- * Rewrite each versioned package.json whose HEAD version is not its target,
- * printing the rewritten paths on stdout for the caller to commit.
+ * Rewrite each package.json whose HEAD version is not its target and return
+ * the applied plans; diagnostics go to stderr.
  */
-export function bumpVersions(rootDir: string, baseOid?: string): number {
+export function rewriteVersions(
+  rootDir: string,
+  baseOid?: string,
+): VersionPlan[] {
   const pending = planVersions(rootDir, baseOid).filter(
     (plan) => plan.headVersion !== plan.targetVersion,
   );
@@ -167,6 +170,13 @@ export function bumpVersions(rootDir: string, baseOid?: string): number {
   for (const { file, plan, source } of rewrites) {
     writeFileSync(file, source);
     process.stderr.write(`${describePlan(plan)}\n`);
+  }
+  return pending;
+}
+
+/** Print rewritten manifest paths for callers that manage their own commit. */
+export function bumpVersions(rootDir: string, baseOid?: string): number {
+  for (const plan of rewriteVersions(rootDir, baseOid)) {
     process.stdout.write(`${plan.manifest}\n`);
   }
   return 0;

@@ -12,6 +12,15 @@ import path from "node:path";
 
 const repositories: string[] = [];
 
+// Nested repositories must not inherit the enclosing hook's Git checkout.
+export const fixtureGitEnv = {
+  ...Object.fromEntries(
+    Object.entries(process.env).filter(([key]) => !key.startsWith("GIT_")),
+  ),
+  GIT_CONFIG_GLOBAL: "/dev/null",
+  GIT_CONFIG_SYSTEM: "/dev/null",
+};
+
 // Explicit identity: CI runners have none, and git merge refuses to start
 // without one.
 const GIT_CONFIG = [
@@ -28,6 +37,7 @@ const GIT_CONFIG = [
 export function git(rootDir: string, args: string[]): string {
   return execFileSync("git", [...GIT_CONFIG, ...args], {
     cwd: rootDir,
+    env: fixtureGitEnv,
     encoding: "utf8",
     stdio: ["ignore", "pipe", "pipe"],
   }).trim();
@@ -37,6 +47,7 @@ export function git(rootDir: string, args: string[]): string {
 export function mergeMain(rootDir: string): number | null {
   return spawnSync("git", [...GIT_CONFIG, "merge", "--no-edit", "main"], {
     cwd: rootDir,
+    env: fixtureGitEnv,
     stdio: "ignore",
   }).status;
 }

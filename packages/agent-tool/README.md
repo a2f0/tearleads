@@ -156,6 +156,7 @@ including private packages. The agent-tool discovers packages from the committed
 root workspace list rather than a fixed allowlist:
 
 ```sh
+bun packages/agent-tool/src/index.ts prepareVersions "$BASE_OID"
 bun packages/agent-tool/src/index.ts bumpVersions "$BASE_OID"
 bun packages/agent-tool/src/index.ts checkVersions "$BASE_OID"
 bun packages/agent-tool/src/index.ts resolveVersionConflicts
@@ -166,11 +167,36 @@ past that base, unchanged packages retain its version, and intentional major or
 minor releases and new packages' initial versions are preserved. Every workspace
 must declare a plain `major.minor.patch` version. Bumping prints rewritten paths
 to stdout and refuses to overwrite staged or uncommitted manifest edits.
+`prepareVersions` owns the complete preparation sequence: rewrite the required
+versions, refresh `bun.lock` with install scripts disabled, stage only rewritten
+manifests and the lockfile, run the staged source-shape check, commit with
+`chore: bump package versions`, and check the committed versions. It requires
+a clean committed worktree, a tracked `bun.lock`, an attached branch, and the
+exact base already merged into HEAD. Run it with exclusive use of the checkout.
+It refreshes the lockfile even when versions already match, covering deliberate
+releases and new workspaces; an unchanged result creates no commit.
+
+Successful preparation writes one JSON receipt to stdout with `schemaVersion`,
+`baseOid`, `startHead`, `headOid`, `committed`, `lockfileChanged`, and `versions`
+(each rewritten manifest's `manifest`, `from`, and `to`). Diagnostics go to
+stderr. Before a commit lands, failure restores the command's manifests,
+lockfile, and index when HEAD and all other paths remain unchanged. If another
+path or HEAD changes, it preserves intermediate state and returns non-zero.
+A commit hook changing the prepared tree also fails, leaving the resulting
+commit available for inspection. Abrupt termination can leave partial state;
+inspect it before retrying. A non-zero result must never become a review snapshot.
+
 The conflict helper resolves only version-field conflicts and leaves other
 conflicts untouched. `ship-pr` passes `--bump-versions` to `cross-agent-review`,
-which refreshes `bun.lock`, commits the bump before review, and repeats against
+which calls `prepareVersions` before each review snapshot and repeats against
 the latest base after a base refresh. The merge gate checks those same versions
 on the exact reviewed head.
+
+The version preparation harness invokes the real agent-tool CLI in temporary
+Git repositories with real Bun lockfiles and no external dependencies. Run it
+with `bun test packages/agent-tool/src/version`; it covers retries, competing
+base bumps, conflict-helper integration, lockfile consistency, dirty worktrees,
+and failures during installation, validation, and commit hooks.
 
 The `ship-pr` skill commits the work on a feature branch, hands it to
 `cross-agent-review` — which reviews the local commits (or the pushed head when
