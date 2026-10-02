@@ -19,6 +19,7 @@ export async function hydrateOrganizationGroupNames(
   const authority = await loadGroupNameDirectoryAuthority(input);
   if (!authority) throw new Error("Group directory authority is unavailable");
   const names: { groupId: string; name: string; stateHash: string }[] = [];
+  const unreadableGroupIds = new Set<string>();
   for (const group of input.directory.groups) {
     const head = authority.descriptor.groupHeads.find(
       (head) => head.principalId === group.groupId,
@@ -33,8 +34,11 @@ export async function hydrateOrganizationGroupNames(
       },
       head,
     );
-    // An undecryptable name stays blank for its group alone.
-    if (verified.name !== null) {
+    // An undecryptable name stays blank for its group alone, and is flagged so
+    // the group is never offered for selection by name.
+    if (verified.name === null) {
+      unreadableGroupIds.add(group.groupId);
+    } else {
       names.push({
         groupId: group.groupId,
         name: verified.name,
@@ -56,6 +60,7 @@ export async function hydrateOrganizationGroupNames(
     groups: input.directory.groups.map((group) => ({
       ...group,
       name: byId.get(group.groupId) ?? "",
+      nameUnreadable: unreadableGroupIds.has(group.groupId),
     })),
   };
 }

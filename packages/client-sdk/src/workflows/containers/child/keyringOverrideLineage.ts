@@ -6,6 +6,23 @@ import {
 const LABEL = "Container rekey keyring override";
 
 /**
+ * A rebuilt keyring override that omits an epoch the container's signed
+ * lineage names. That is what a rebuild made before a concurrent rotation
+ * looks like, so it is not tampering: rebuild from the current log and retry.
+ * It is deliberately not a `KeyingVerificationError`, which callers may read
+ * as tampering, unlike an epoch outside the lineage, which no honest rebuild
+ * names.
+ */
+export class ContainerKeyringOverrideStaleError extends Error {
+  constructor() {
+    super(
+      `${LABEL} omits an epoch the container's signed lineage names; rebuild it from the current log`,
+    );
+    this.name = "ContainerKeyringOverrideStaleError";
+  }
+}
+
+/**
  * A rebuilt keyring override is sealed forward under this device's signature,
  * so it must name exactly the epochs the container's signed lineage commits to
  * (#2365 finding 32). `signedEpochIds` is that lineage as the rotation's own
@@ -29,11 +46,7 @@ export function assertOverrideMatchesSignedLineage(
   }
   for (const epochId of signedEpochIds) {
     if (!entryIds.has(epochId)) {
-      // Honest when the container rotated after the rebuild: rebuild again.
-      throw new KeyingVerificationError(
-        "missing_dependency",
-        `${LABEL} omits an epoch the container's signed lineage names`,
-      );
+      throw new ContainerKeyringOverrideStaleError();
     }
   }
 }

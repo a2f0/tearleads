@@ -193,6 +193,7 @@ test("group creation and deletion persist authenticated organization directory s
       execSql,
       name: " Operators ",
       organizationId,
+      reportSecurityIncident: async () => {},
       resolveTrustedUserIdentity: async (userId) =>
         userId === signerUserId
           ? createTestTrustedUserIdentity({

@@ -128,7 +128,9 @@ represent where manifests are served or the lineage walk, so the invariant
 holds by construction and the control
 `kek-history-anchor-seals-relocated-forgery` only marks where the rule sits;
 the evidence that the walk refuses a relocated forgery is the SDK tests
-(`signedHistoryEpochIds`, `assertOverrideMatchesSignedLineage`).
+(`signedHistoryEpochIds`, `assertOverrideMatchesSignedLineage`). Every
+re-sealing rotation takes its target from `signedRotationTarget`, so none can
+skip the walk.
 
 [`container-keying/GroupGrantRevocation.tla`](./container-keying/GroupGrantRevocation.tla)
 adds the group key as its own epoch dimension: container wraps sealed to a

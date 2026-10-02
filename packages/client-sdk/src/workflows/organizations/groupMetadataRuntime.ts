@@ -38,6 +38,7 @@ export function createRuntimeGroupMetadataAccess(
       apiClient: runtime.apiClient,
       execSql: runtime.infra.execSql,
       organizationId,
+      reportSecurityIncident: runtime.util.reportSecurityIncident,
       resolveTrustedUserIdentity: runtime.resolveTrustedUserIdentity,
       stillCurrent: stillCurrent ?? (() => true),
     }),
