@@ -27,8 +27,9 @@
   },
   "scripts": {
     "build:packages": "turbo run build --filter=@tearleads/sqlite-instance --filter=@tearleads/client-sdk && bun run --cwd packages/app-electrobun prepare:devkit",
-    "check": "bun run build:packages && bun tsc --build --pretty false && bun run check:fast && bun run test:turbo",
-    "check:affected": "bun run build:packages && bun tsc --build --pretty false && bun run check:fast && bun run test:turbo:affected",
+    "check": "bun scripts/testing/runVerification.ts full",
+    "check:affected": "bun scripts/testing/runVerification.ts affected",
+    "check:package": "bun scripts/testing/runVerification.ts package",
     "check:fast": "sh scripts/checks/checkFast.sh",
     "check:protocol-models": "sh scripts/checks/checkProtocolModels.sh",
     "check:protocol-traces": "bun scripts/protocol/generateBaselineDominanceTraces.ts --check",
