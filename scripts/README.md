@@ -11,6 +11,14 @@ For website-only deployments, run `./scripts/deployStagingWebsite.sh` or
 [website deployment guide](../packages/website/README.md) for credentials and
 dry-run options.
 
+For the standalone windowing npm release, run `bun run publish:npm:dry-run` to
+build and preview the package, then `bun run publish:npm` to publish it.
+`publishNpmModules.sh` invokes `publishWindowing.sh`; windowing has no workspace
+dependencies, so it is the only Tearleads module needed. Both accept `--dry-run`,
+`--tag <tag>`, and `--otp <code>`. See the
+[windowing publishing guide](../packages/windowing/README.md#publishing) for
+authentication, versioning, and consumer smoke checks.
+
 Automated checks and supporting code live in subfolders. Use the root
 `package.json` commands, such as `bun run check:fast`, `bun run lint:architecture`,
 or `bun run test:static-analysis`, to run checks and tooling tests.

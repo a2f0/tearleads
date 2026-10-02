@@ -3,11 +3,16 @@ import { squashMerge } from "./pr/squashMerge";
 import { solicitClaudeCodeReview } from "./review/solicitClaudeCodeReview";
 import { solicitCodexReview } from "./review/solicitCodexReview";
 import { solicitOpencodeReview } from "./review/solicitOpencodeReview";
+import { bumpVersions, checkVersions } from "./version/bumpVersions";
+import { resolveVersionConflicts } from "./version/resolveVersionConflicts";
 
 const AGENT_TOOL_USAGE =
-  "Usage: agent-tool <solicitClaudeCodeReview|solicitCodexReview|solicitOpencodeReview|openPr|squashMerge> [args]\n";
+  "Usage: agent-tool <solicitClaudeCodeReview|solicitCodexReview|solicitOpencodeReview|openPr|squashMerge|bumpVersions|checkVersions|resolveVersionConflicts> [args]\n";
 
 export interface AgentToolActions {
+  readonly bumpVersions: (rootDir: string, baseOid?: string) => number;
+  readonly checkVersions: (rootDir: string, baseOid?: string) => number;
+  readonly resolveVersionConflicts: (rootDir: string) => number;
   readonly openPr: (rootDir: string, title?: string) => number;
   readonly solicitClaudeCodeReview: (
     rootDir: string,
@@ -24,6 +29,9 @@ export interface AgentToolActions {
 }
 
 const defaultActions: AgentToolActions = {
+  bumpVersions,
+  checkVersions,
+  resolveVersionConflicts,
   openPr,
   solicitClaudeCodeReview,
   solicitCodexReview,
@@ -52,6 +60,18 @@ export function runAgentToolAction(
   const [action, ...positionals] = args;
   const [first, second, third] = positionals;
   switch (action) {
+    case "bumpVersions": {
+      assertMaximumPositionals(action, positionals, 1);
+      return actions.bumpVersions(rootDir, first);
+    }
+    case "checkVersions": {
+      assertMaximumPositionals(action, positionals, 1);
+      return actions.checkVersions(rootDir, first);
+    }
+    case "resolveVersionConflicts": {
+      assertMaximumPositionals(action, positionals, 0);
+      return actions.resolveVersionConflicts(rootDir);
+    }
     case "solicitClaudeCodeReview": {
       assertMaximumPositionals(action, positionals, 1);
       return actions.solicitClaudeCodeReview(rootDir, first);
