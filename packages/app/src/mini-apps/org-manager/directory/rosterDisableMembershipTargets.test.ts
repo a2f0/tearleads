@@ -88,3 +88,24 @@ test("changing organizations during lookup prevents roster removal", async () =>
   ).toBeNull();
   expect(input.setError).not.toHaveBeenCalled();
 });
+
+test("a membership in a group without a readable name refuses the disable", async () => {
+  const input = fixture();
+  for (const unnamed of [
+    { name: "", nameUnreadable: true },
+    { name: "", nameUnreadable: false },
+  ]) {
+    const setError = mock((_error: string) => undefined);
+    const result = await loadRosterDisableMembershipTargets({
+      ...input,
+      groups: input.groups.map((group) =>
+        group.groupId === "Ordinary" ? { ...group, ...unnamed } : group,
+      ),
+      setError,
+    });
+    expect(result).toBeNull();
+    expect(setError).toHaveBeenCalledWith(
+      ORG_MANAGER_LABELS.groupNameUnavailable,
+    );
+  }
+});
