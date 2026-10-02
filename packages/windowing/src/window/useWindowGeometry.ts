@@ -285,13 +285,28 @@ export function useWindowGeometry(
   const resizing = useRef<WindowResizeState | null>(null);
   // Maximizing or minimizing mid-gesture (a second touch on the title bar's
   // controls) abandons the gesture: its frames were measured at the normal
-  // size, and the committed geometry stays as it was.
+  // size, so the live geometry goes back to the committed geometry.
   useEffect(() => {
-    if (maximized || entry.minimized) {
-      dragging.current = null;
-      resizing.current = null;
+    if (!(maximized || entry.minimized)) {
+      return;
     }
-  }, [entry.minimized, maximized]);
+    if (!dragging.current && !resizing.current) {
+      return;
+    }
+    dragging.current = null;
+    resizing.current = null;
+    setSize(entry.size ?? null);
+    if (entry.position) {
+      setPosition(entry.position);
+    }
+  }, [
+    entry.minimized,
+    entry.position,
+    entry.size,
+    maximized,
+    setPosition,
+    setSize,
+  ]);
   const clamp = useCallback(
     (x: number, y: number) =>
       clampWindowPosition(windowRef.current, x, y, live.current.size),

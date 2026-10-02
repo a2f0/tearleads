@@ -342,6 +342,41 @@ test("maximizing mid-drag abandons the drag and keeps the saved position", () =>
   }
 });
 
+test("maximizing mid-resize abandons the resize and keeps the saved size", () => {
+  const restoreSizes = stubWindowSizes(WINDOW_SIZES);
+  try {
+    const { view, windowRoot } = renderDesktop({
+      position: { x: 100, y: 100 },
+      size: { height: 200, width: 300 },
+    });
+    const corner = windowRoot.querySelector(".window-resize--se");
+    if (!corner) throw new Error("resize corner not rendered");
+
+    fireEvent.pointerDown(corner, { clientX: 400, clientY: 300, pointerId: 1 });
+    fireEvent.pointerMove(document, {
+      clientX: 450,
+      clientY: 340,
+      pointerId: 1,
+    });
+    expect(windowRoot.style.width).toBe("350px");
+    fireEvent.click(view.getByRole("button", { name: "Toggle maximize" }));
+    act(() => {
+      fireEvent.pointerUp(document, { pointerId: 1 });
+    });
+    fireEvent.click(view.getByRole("button", { name: "Toggle maximize" }));
+
+    expect(committedGeometry(view)).toEqual({
+      position: { x: 100, y: 100 },
+      size: { height: 200, width: 300 },
+    });
+    expect(
+      view.container.querySelector<HTMLElement>(".window")?.style.width,
+    ).toBe("300px");
+  } finally {
+    restoreSizes();
+  }
+});
+
 test("a size below the stylesheet minimum clamps at the size it renders", () => {
   const { view } = renderDesktop({
     position: { x: 700, y: 0 },
