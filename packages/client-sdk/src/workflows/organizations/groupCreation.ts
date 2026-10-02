@@ -1,4 +1,5 @@
 import type { EncapsulationKeyPair, SigningKeyPair } from "@tearleads/crypto";
+import type { SecurityIncidentReporter } from "../../data/securityIncidents";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import type { TrustedUserIdentityResolver } from "../../data/trustedUserIdentity";
 import { loadOrganizationExternalAdminPolicy } from "../principals/externalAdminPolicy";
@@ -18,6 +19,7 @@ export async function createOrganizationGroup(input: {
   readonly execSql: ExecSql;
   readonly name: string;
   readonly organizationId: string;
+  readonly reportSecurityIncident: SecurityIncidentReporter;
   readonly resolveTrustedUserIdentity: TrustedUserIdentityResolver;
   readonly signerUserId: string;
   readonly signingFingerprint: string;
@@ -76,5 +78,5 @@ export async function createOrganizationGroup(input: {
     organizationId: input.organizationId,
     resolveTrustedUserIdentity: input.resolveTrustedUserIdentity,
   });
-  return { ...group, name: input.name.trim() };
+  return { ...group, name: input.name.trim(), nameUnreadable: false };
 }

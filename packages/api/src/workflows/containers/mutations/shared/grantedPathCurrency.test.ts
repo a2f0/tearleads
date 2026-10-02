@@ -1,17 +1,22 @@
 import { expect, test } from "bun:test";
 import {
+  MAX_INLINE_CONTAINER_REKEYS,
+  MAX_ROTATION_CONTAINER_REKEYS,
+} from "@tearleads/validators/util";
+import {
   owedLevelsOnChain,
   requiredCarriedRekeys,
 } from "./grantedPathCurrency";
 
 const closureIds = ["a", "b", "c", "d"];
+const levels = (count: number) =>
+  Array.from({ length: count }, (_, index) => `level-${index}`);
 
 test("a closure within the limit is owed in full, named whole", () => {
   // Only `a` is stale right now, but carrying it stales `b`, and so on down:
   // naming less would cost one refusal per level.
   expect(
     requiredCarriedRekeys({
-      carriedLimit: 64,
       closureIds,
       strandedIds: new Set(["a"]),
     }),
@@ -21,7 +26,6 @@ test("a closure within the limit is owed in full, named whole", () => {
 test("a fully current closure refuses nothing", () => {
   expect(
     requiredCarriedRekeys({
-      carriedLimit: 64,
       closureIds,
       strandedIds: new Set(),
     }),
@@ -32,20 +36,38 @@ test("a fully current closure refuses nothing", () => {
 // closure is owed only as its parent-first prefix.
 
 test("past the limit only the parent-first prefix is owed", () => {
+  const overflowing = levels(MAX_ROTATION_CONTAINER_REKEYS + 2);
+  const prefix = overflowing.slice(0, MAX_ROTATION_CONTAINER_REKEYS);
   expect(
     requiredCarriedRekeys({
-      carriedLimit: 2,
-      closureIds,
-      strandedIds: new Set(["c", "d"]),
+      closureIds: overflowing,
+      strandedIds: new Set(overflowing.slice(MAX_ROTATION_CONTAINER_REKEYS)),
     }),
   ).toBeNull();
   expect(
     requiredCarriedRekeys({
-      carriedLimit: 2,
-      closureIds,
-      strandedIds: new Set(["b", "c", "d"]),
+      closureIds: overflowing,
+      strandedIds: new Set(
+        overflowing.slice(MAX_ROTATION_CONTAINER_REKEYS - 1),
+      ),
     }),
-  ).toEqual(["a", "b"]);
+  ).toEqual(prefix);
+});
+
+// Unkeyed levels wrap nothing to their parent, so they are never stranded, but
+// they still count toward the prefix. Inline writes take the shared cap too
+// (#2365 finding 30): with sixteen or more unkeyed levels first, a stranded
+// level below them is still owed, where the old inline cap would have waived it.
+test("an inline write is held to the shared cap past sixteen unkeyed levels", () => {
+  const closure = levels(MAX_INLINE_CONTAINER_REKEYS + 4);
+  const strandedBelowUnkeyed = closure[MAX_INLINE_CONTAINER_REKEYS];
+  if (!strandedBelowUnkeyed) throw new Error("Expected a level below the cap");
+  expect(
+    requiredCarriedRekeys({
+      closureIds: closure,
+      strandedIds: new Set([strandedBelowUnkeyed]),
+    }),
+  ).toEqual(closure);
 });
 
 // The waiver reads the closure, never how many rekeys rode along, so padding a
@@ -54,7 +76,6 @@ test("past the limit only the parent-first prefix is owed", () => {
 test("the waiver cannot be bought by carrying more", () => {
   expect(
     requiredCarriedRekeys({
-      carriedLimit: 64,
       closureIds,
       strandedIds: new Set(["d"]),
     }),

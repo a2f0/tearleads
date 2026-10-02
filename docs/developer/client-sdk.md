@@ -603,8 +603,9 @@ reconstructs history from the `GET /containers/:id/kek-log` bridge log, and
 `recoverKeyringEntryFromWraps` recovers a bridge-severed epoch from the caller's
 retained recipient envelope. An override must name exactly the epoch ids of the
 container's verified signed lineage: a foreign id is refused as
-`object_mismatch`, and an omitted one as `missing_dependency`, which is also how
-a rebuild that predates a concurrent rotation fails, so rebuild and retry.
+`object_mismatch`. An omitted one throws `ContainerKeyringOverrideStaleError`,
+not a verification error, since that is how a rebuild that predates a
+concurrent rotation fails: rebuild and retry.
 
 Document sync automatically plans ancestor KEK repairs before a queued write.
 It repairs parent-first, shares repaired ancestors across linked paths, and

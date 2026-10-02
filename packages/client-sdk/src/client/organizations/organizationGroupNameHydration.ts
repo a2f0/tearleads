@@ -30,6 +30,7 @@ export async function hydrateOrganizationGroupNamesForRuntime(
         principalId: active.organizationId,
         principalType: "organization",
       }),
+      reportSecurityIncident: active.runtime.util.reportSecurityIncident,
       readEncryptedName: createRuntimeGroupMetadataAccess(
         active.runtime,
         active.organizationId,

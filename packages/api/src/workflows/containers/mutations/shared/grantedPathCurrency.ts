@@ -25,17 +25,18 @@ interface PathNode {
  * Whether a rotation that leaves `strandedIds` stale must be refused, and what
  * it must then carry. `closureIds` is every level it owes, parent-first.
  *
- * A closure within `carriedLimit` is owed in full. One that overflows it is
- * owed only as its parent-first prefix: a revocation must never be blockable by
- * the size of a tree, so the remainder repairs lazily. The waiver reads the
- * closure, never the carried count, so padding a batch cannot buy it.
+ * A closure within `MAX_ROTATION_CONTAINER_REKEYS` is owed in full. One that
+ * overflows it is owed only as its parent-first prefix: a revocation must
+ * never be blockable by the size of a tree, so the remainder repairs lazily.
+ * The waiver reads the closure, never the carried count, so padding a batch
+ * cannot buy it. Every rotation, inline repairs included, takes this one cap
+ * (#2365 finding 30), so no caller can choose another.
  */
 export function requiredCarriedRekeys(input: {
-  readonly carriedLimit: number;
   readonly closureIds: readonly string[];
   readonly strandedIds: ReadonlySet<string>;
 }): readonly string[] | null {
-  const owed = input.closureIds.slice(0, input.carriedLimit);
+  const owed = input.closureIds.slice(0, MAX_ROTATION_CONTAINER_REKEYS);
   return owed.some((containerId) => input.strandedIds.has(containerId))
     ? owed
     : null;
@@ -266,7 +267,6 @@ async function assertGrantedPathsCurrentBelow(input: {
   // did, and stays correct if the inline cap grows. A refused inline write is
   // repaired by the SDK as standalone rotations.
   const required = requiredCarriedRekeys({
-    carriedLimit: MAX_ROTATION_CONTAINER_REKEYS,
     closureIds: closure.map((node) => node.id),
     strandedIds,
   });

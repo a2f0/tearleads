@@ -339,9 +339,9 @@ export async function loadLocalOrganizationUserDetail(
         edges: projection.membershipEdges,
         userId: input.userId,
       });
-      const groups = projection.groups.groups.filter((group) =>
-        reachable.has(group.groupId),
-      );
+      const groups = projection.groups.groups
+        .filter((group) => reachable.has(group.groupId))
+        .map((group) => ({ ...group, nameUnreadable: false }));
       const relevantGrants = projection.grants.grants.filter(
         (grant) =>
           (grant.subjectType === "user" && grant.subjectId === input.userId) ||

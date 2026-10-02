@@ -77,9 +77,14 @@ export function getContainerInfoShareableGroups(
       grant.subjectType === "group" ? [grant.subjectId] : [],
     ),
   );
+  // A share binds to the signed name the user chose, so a group without a
+  // readable name cannot be a share target.
   return remoteInfo.groups.filter(
     (group) =>
-      group.currentState && !directlyGrantedGroupIds.has(group.groupId),
+      group.currentState &&
+      !group.nameUnreadable &&
+      group.name !== "" &&
+      !directlyGrantedGroupIds.has(group.groupId),
   );
 }
 

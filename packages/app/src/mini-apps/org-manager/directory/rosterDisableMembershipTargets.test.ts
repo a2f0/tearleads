@@ -7,6 +7,7 @@ function group(groupId: string): OrganizationGroupSummary {
   return {
     groupId,
     name: groupId,
+    nameUnreadable: false,
     organizationId: "org",
     createdAt: "2026-09-27T00:00:00.000Z",
     currentState: null,

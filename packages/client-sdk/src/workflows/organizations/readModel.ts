@@ -64,6 +64,12 @@ export type OrganizationGroupMember = OrganizationGroupMemberResponse;
 export type OrganizationGroupMembers = OrganizationGroupMembersResponse;
 export type OrganizationGroupSummary = OrganizationGroupSummaryResponse & {
   readonly name: string;
+  /**
+   * The group's signed name does not open under the metadata key this member
+   * holds; only a dishonest admin signs such a name. `name` is then empty, and
+   * the group must not be offered for selection by name.
+   */
+  readonly nameUnreadable: boolean;
 };
 export interface OrganizationDirectoryAndGroups {
   readonly directory: OrganizationDirectory;
