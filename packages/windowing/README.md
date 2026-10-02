@@ -6,7 +6,7 @@ bar, menu bar, toolbar, sidebar, status bar, resize handles), and the menu and
 sidebar primitives that chrome renders with.
 
 The package knows nothing about the applications that run inside its windows.
-It depends only on React, react-dom, Phosphor icons, and `@tearleads/ui`.
+It depends only on React, react-dom, and Phosphor icons.
 
 ## Composing a desktop
 
@@ -84,15 +84,38 @@ picks them up. Stylesheets are also exported by path (for example
 `@tearleads/windowing/window/WindowTitleBar.css`) for surfaces that reuse the
 chrome's look without rendering a window.
 
-The stylesheets read design tokens they do not define:
+The stylesheets read design tokens (colors, spacing, radii, shadows, and the
+`--window-bar-*` and `--tearleads-window-titlebar-*` chrome tokens). The package
+entry imports `tokens.css`, which defines every one of them under
+`:where(:root)`, so a page that defines none still renders a complete light
+window. That rule has zero specificity: any `:root` rule, theme, or scoped block
+the host writes overrides it. Tearleads overrides them with its own themes in
+`packages/ui/src/styles.css` and `packages/app/src/shell/layout/AppChrome.css`.
 
-- the shared tokens in `@tearleads/ui`'s `styles.css` (colors, spacing, and the
-  `--window-bar-*` and `--tearleads-window-titlebar-*` chrome tokens);
-- `--app-radius-control`, `--app-radius-surface`, `--app-hover-surface`,
-  `--app-shadow-surface`, and `--app-shadow-window`, which the host defines.
-  Tearleads sets them in `packages/app/src/shell/layout/AppChrome.css`.
+## Publishing
 
-## Status
+Inside this workspace the package exports its TypeScript source. The npm
+package is built separately, into `dist/`, with its own generated manifest:
 
-The package is private to this workspace and exports TypeScript source. It is a
-step toward publishing the windowing layer for use outside Tearleads.
+```sh
+bun run --cwd packages/windowing package        # build dist/
+bun run --cwd packages/windowing package:smoke  # pack, install outside the workspace, render a window
+```
+
+The built package is ES modules with declarations and source maps, plus every
+stylesheet. React and react-dom are peer dependencies (`^19`); Phosphor icons is
+its one dependency. `src/publishedPackage.test.ts` checks the built manifest and
+that no module reaches outside the package, so a new workspace import fails the
+package's tests rather than the publish.
+
+Publishing is manual, from the built directory, by an account that owns the
+`@tearleads` npm scope:
+
+```sh
+npm login
+bun run --cwd packages/windowing package
+cd packages/windowing/dist && npm publish --access public
+```
+
+Bump `version` in `package.json` first; the generated manifest copies it. The
+manifest declares `"license": "UNLICENSED"` until a license is chosen.

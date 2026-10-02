@@ -1,4 +1,7 @@
-import { createRequiredContext, type RequiredContext } from "@tearleads/ui";
+import {
+  createRequiredContext,
+  type RequiredContext,
+} from "@tearleads/windowing";
 import type { DualPaneContextValue, PaneSide } from "./types";
 
 export const dualPaneContext: RequiredContext<DualPaneContextValue> =

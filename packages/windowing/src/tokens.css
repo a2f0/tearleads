@@ -1,0 +1,63 @@
+/*
+ * Defaults for every design token the window chrome reads, at zero
+ * specificity: a host's own values (any :root rule, a theme, an app-scoped
+ * block) always win, and a page that defines none still gets a complete light
+ * window. The values match Tearleads' light theme.
+ */
+:where(:root) {
+  --color-dark: #333;
+  --color-light: #fff;
+  --color-muted: #eee;
+  --color-danger: #b00020;
+  --color-hairline: color-mix(in srgb, var(--color-dark) 18%, transparent);
+  --emphasis-surface: var(--color-dark);
+  --emphasis-text: var(--color-light);
+
+  --border-width: 1px;
+  --border-strong-color: var(--color-dark);
+  --border-strong: var(--border-width) solid var(--border-strong-color);
+
+  --space-2xs: 0.125rem;
+  --space-xs: 0.25rem;
+  --space-sm: 0.5rem;
+  --space-md: 1rem;
+  --font-size-sm: 0.9rem;
+  --control-height: 2rem;
+  --control-icon-size: 1rem;
+  --menu-item-padding: var(--space-sm) var(--space-md);
+
+  --opacity-disabled: 0.5;
+  --opacity-icon: 0.6;
+  --opacity-subtle: 0.85;
+  --scrollbar-gutter: auto;
+  --transition: 0.18s ease;
+
+  --window-bar-line-height: 1.25em;
+  --window-bar-block-padding: var(--space-xs);
+  --window-bar-inline-padding: var(--space-sm);
+  --window-bar-height: calc(
+    var(--window-bar-line-height) +
+    (var(--window-bar-block-padding) * 2)
+  );
+  --window-bar-padding: var(--window-bar-block-padding)
+    var(--window-bar-inline-padding);
+  --tearleads-window-titlebar-background: var(--color-dark);
+  --tearleads-window-titlebar-text: var(--color-light);
+
+  --app-radius-control: 0.375rem;
+  --app-radius-surface: 0.75rem;
+  --app-hover-surface: color-mix(
+    in srgb,
+    var(--color-dark) 8%,
+    var(--color-light)
+  );
+  --app-shadow-surface: 0 0.5rem 2rem rgb(0 0 0 / 14%);
+  --app-shadow-window:
+    0 1rem 3rem rgb(0 0 0 / 12%), 0 0.25rem 0.75rem rgb(0 0 0 / 8%);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :where(:root) {
+    --transition: 0s;
+  }
+}

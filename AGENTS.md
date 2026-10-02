@@ -132,9 +132,9 @@ deleted as soon as the default branch contains the new contract.
   Production source must not depend on them.
 - `packages/ui`: product-neutral shared UI used by the website and app.
 - `packages/windowing`: app-agnostic window state, window chrome, and the
-  menu and sidebar primitives it renders with. It may depend only on
-  `@tearleads/ui`; app behavior reaches a window through slots such as
-  `Window`'s `ContentBoundary`.
+  menu and sidebar primitives it renders with. It is published to npm on its
+  own, so it depends on no other workspace package; app behavior reaches a
+  window through slots such as `Window`'s `ContentBoundary`.
 - `packages/website`: marketing/docs site. It may share UI, but must not import
   application implementation code.
 
