@@ -262,10 +262,10 @@ async function assertGrantedPathsCurrentBelow(input: {
   // An inline batch of at most MAX_INLINE_CONTAINER_REKEYS rekeys can leave
   // at most one fewer owed level current: the topmost rotated container owes
   // nothing, and a level it or a carried rekey sits above is stranded unless
-  // carried too. Its first stranded level therefore always falls inside a
-  // prefix of that size, so the shared cap decides exactly as the inline one
-  // did, and stays correct if the inline cap grows. A refused inline write is
-  // repaired by the SDK as standalone rotations.
+  // carried too. Unkeyed levels are never stranded but still fill the prefix,
+  // so with that many of them first, the shared cap owes a stranded level the
+  // old inline cap waived. That is stricter and safe: a refused inline write
+  // is repaired by the SDK as standalone rotations.
   const required = requiredCarriedRekeys({
     closureIds: closure.map((node) => node.id),
     strandedIds,

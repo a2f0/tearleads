@@ -58,7 +58,7 @@ test("past the limit only the parent-first prefix is owed", () => {
 // they still count toward the prefix. Inline writes take the shared cap too
 // (#2365 finding 30): with sixteen or more unkeyed levels first, a stranded
 // level below them is still owed, where the old inline cap would have waived it.
-test("an inline write is held to the shared cap past sixteen unkeyed levels", () => {
+test("a stranded level below sixteen unkeyed ones is owed under the shared cap", () => {
   const closure = levels(MAX_INLINE_CONTAINER_REKEYS + 4);
   const strandedBelowUnkeyed = closure[MAX_INLINE_CONTAINER_REKEYS];
   if (!strandedBelowUnkeyed) throw new Error("Expected a level below the cap");
