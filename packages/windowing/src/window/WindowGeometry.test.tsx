@@ -1,122 +1,15 @@
 import { afterEach, expect, test } from "bun:test";
 import { act, cleanup, fireEvent, render } from "@testing-library/react";
 import {
-  captureResizeObservers,
-  stubLayout,
-  stubWindowSizes,
-} from "./layout.testUtils";
-import { Window } from "./Window";
-import {
-  useWindowActions,
-  useWindowStateData,
-  type WindowCreateOptions,
-  WindowStateProvider,
-} from "./WindowStateProvider";
+  committedGeometry,
+  DesktopHarness,
+  GeometryProbe,
+  renderDesktop,
+} from "./desktop.testUtils";
+import { captureResizeObservers, stubLayout } from "./layout.testUtils";
+import { WindowStateProvider } from "./WindowStateProvider";
 
 afterEach(cleanup);
-
-function GeometryProbe() {
-  const { windows } = useWindowStateData();
-  const entry = windows[0];
-  return (
-    <output aria-label="committed geometry">
-      {entry
-        ? JSON.stringify({ position: entry.position, size: entry.size })
-        : ""}
-    </output>
-  );
-}
-
-function NotesContent() {
-  return <p>notes</p>;
-}
-
-function DesktopHarness({ options }: { options: WindowCreateOptions }) {
-  const { windows } = useWindowStateData();
-  const { create, minimize, restore, setGeometry, toggleMaximize } =
-    useWindowActions();
-  const first = windows[0];
-
-  return (
-    <>
-      <button
-        type="button"
-        onClick={() => create("Notes", 0, 0, NotesContent, options)}
-      >
-        Open notes
-      </button>
-      <button
-        type="button"
-        onClick={() =>
-          first &&
-          setGeometry(first.id, {
-            position: { x: 500, y: 0 },
-            size: { height: 100, width: 200 },
-          })
-        }
-      >
-        Restore layout
-      </button>
-      <button
-        type="button"
-        onClick={() =>
-          first &&
-          setGeometry(first.id, { position: first.position ?? { x: 0, y: 0 } })
-        }
-      >
-        Clear size
-      </button>
-      <button type="button" onClick={() => first && minimize(first.id)}>
-        Minimize notes
-      </button>
-      <button type="button" onClick={() => first && restore(first.id)}>
-        Restore notes
-      </button>
-      <button type="button" onClick={() => first && toggleMaximize(first.id)}>
-        Toggle maximize
-      </button>
-      <button
-        type="button"
-        onClick={() =>
-          first && setGeometry(first.id, { position: { x: 300, y: 200 } })
-        }
-      >
-        Move notes
-      </button>
-      <div data-testid="surface">
-        {windows.map((entry) => (
-          <Window key={entry.id} windowId={entry.id} />
-        ))}
-      </div>
-    </>
-  );
-}
-
-// The surface gets its size before the window opens, so the window's first
-// layout clamps against it.
-function renderDesktop(options: WindowCreateOptions = {}) {
-  const view = render(
-    <WindowStateProvider>
-      <DesktopHarness options={options} />
-      <GeometryProbe />
-    </WindowStateProvider>,
-  );
-  stubLayout(view.getByTestId("surface"), {
-    clientHeight: 600,
-    clientWidth: 800,
-  });
-  fireEvent.click(view.getByRole("button", { name: "Open notes" }));
-  const windowRoot = view.container.querySelector<HTMLDivElement>(".window");
-  if (!windowRoot) throw new Error("window not rendered");
-  return { view, windowRoot };
-}
-
-function committedGeometry(view: ReturnType<typeof render>) {
-  return JSON.parse(
-    view.getByRole("status", { name: "committed geometry" }).textContent ??
-      "{}",
-  ) as { position?: { x: number; y: number }; size?: object };
-}
 
 test("a second pointer neither moves nor ends a drag", () => {
   const { view, windowRoot } = renderDesktop();
@@ -289,92 +182,6 @@ test("clearing a size near the edge keeps the default-size window inside", () =>
 
   expect(committedGeometry(view)).toEqual({ position: { x: 400, y: 300 } });
   expect(windowRoot.style.left).toBe("400px");
-});
-
-const WINDOW_SIZES = {
-  maximized: { height: 600, width: 800 },
-  normal: { height: 100, width: 200 },
-};
-
-test("maximizing, minimizing, and restoring keeps the window's position", () => {
-  const restoreSizes = stubWindowSizes(WINDOW_SIZES);
-  try {
-    const { view } = renderDesktop({ position: { x: 300, y: 200 } });
-
-    fireEvent.click(view.getByRole("button", { name: "Toggle maximize" }));
-    fireEvent.click(view.getByRole("button", { name: "Minimize notes" }));
-    fireEvent.click(view.getByRole("button", { name: "Restore notes" }));
-    fireEvent.click(view.getByRole("button", { name: "Toggle maximize" }));
-
-    expect(committedGeometry(view).position).toEqual({ x: 300, y: 200 });
-    expect(
-      view.container.querySelector<HTMLElement>(".window")?.style.left,
-    ).toBe("300px");
-  } finally {
-    restoreSizes();
-  }
-});
-
-test("maximizing mid-drag abandons the drag and keeps the saved position", () => {
-  const restoreSizes = stubWindowSizes(WINDOW_SIZES);
-  try {
-    const { view } = renderDesktop({ position: { x: 300, y: 200 } });
-    const titleBar = view.getByRole("toolbar", { name: "Window controls" });
-
-    fireEvent.pointerDown(titleBar, {
-      clientX: 310,
-      clientY: 210,
-      pointerId: 1,
-    });
-    fireEvent.click(view.getByRole("button", { name: "Toggle maximize" }));
-    fireEvent.pointerMove(document, { clientX: 20, clientY: 20, pointerId: 1 });
-    act(() => {
-      fireEvent.pointerUp(document, { pointerId: 1 });
-    });
-    fireEvent.click(view.getByRole("button", { name: "Toggle maximize" }));
-
-    expect(committedGeometry(view).position).toEqual({ x: 300, y: 200 });
-    expect(
-      view.container.querySelector<HTMLElement>(".window")?.style.left,
-    ).toBe("300px");
-  } finally {
-    restoreSizes();
-  }
-});
-
-test("maximizing mid-resize abandons the resize and keeps the saved size", () => {
-  const restoreSizes = stubWindowSizes(WINDOW_SIZES);
-  try {
-    const { view, windowRoot } = renderDesktop({
-      position: { x: 100, y: 100 },
-      size: { height: 200, width: 300 },
-    });
-    const corner = windowRoot.querySelector(".window-resize--se");
-    if (!corner) throw new Error("resize corner not rendered");
-
-    fireEvent.pointerDown(corner, { clientX: 400, clientY: 300, pointerId: 1 });
-    fireEvent.pointerMove(document, {
-      clientX: 450,
-      clientY: 340,
-      pointerId: 1,
-    });
-    expect(windowRoot.style.width).toBe("350px");
-    fireEvent.click(view.getByRole("button", { name: "Toggle maximize" }));
-    act(() => {
-      fireEvent.pointerUp(document, { pointerId: 1 });
-    });
-    fireEvent.click(view.getByRole("button", { name: "Toggle maximize" }));
-
-    expect(committedGeometry(view)).toEqual({
-      position: { x: 100, y: 100 },
-      size: { height: 200, width: 300 },
-    });
-    expect(
-      view.container.querySelector<HTMLElement>(".window")?.style.width,
-    ).toBe("300px");
-  } finally {
-    restoreSizes();
-  }
 });
 
 test("a size below the stylesheet minimum clamps at the size it renders", () => {
