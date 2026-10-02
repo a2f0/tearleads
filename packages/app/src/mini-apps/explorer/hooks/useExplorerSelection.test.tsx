@@ -194,18 +194,29 @@ const replacedRoot = containerNode("replaced-root", {
   parentId: null,
 });
 
-// #2393: a recovered device replaces its locally created Contacts with the
-// identity's existing one under a new id; the selection follows it.
-test("a replaced system container keeps its selection", async () => {
-  const localContacts = containerNode("local-contacts", { systemSlot: "slot" });
+function replacedChild(id: string, systemSlot: string): ContainerNode {
+  return containerNode(id, {
+    organizationId: "org-2",
+    parentId: "replaced-root",
+    systemSlot,
+  });
+}
+
+// #2393: a recovered device replaces its locally created Contacts, which has
+// no organization yet, with the identity's existing one under a new id.
+test("a replaced device-local system container keeps its selection", async () => {
+  const localContacts = containerNode("local-contacts", {
+    organizationId: "",
+    systemSlot: "slot",
+  });
   const view = renderSelection([nodes[0] as ContainerNode, localContacts]);
   act(() => view.result.current.setSelectedId("local-contacts"));
 
   view.rerender({
     current: [
       replacedRoot,
-      containerNode("trash", { systemSlot: "trash-slot" }),
-      containerNode("contacts", { systemSlot: "slot" }),
+      replacedChild("trash", "trash-slot"),
+      replacedChild("contacts", "slot"),
     ],
   });
 
@@ -214,26 +225,51 @@ test("a replaced system container keeps its selection", async () => {
   });
 });
 
-test("a vanished ordinary container or ambiguous slot falls back to the root", async () => {
-  const folder = containerNode("folder");
-  const contacts = containerNode("contacts", { systemSlot: "slot" });
-  const view = renderSelection([nodes[0] as ContainerNode, folder, contacts]);
-  act(() => view.result.current.setSelectedId("folder"));
+test("switching organizations with a system container selected resets to the root", async () => {
+  const trash = containerNode("org-1-trash", { systemSlot: "trash-slot" });
+  const view = renderSelection([nodes[0] as ContainerNode, trash]);
+  act(() => view.result.current.setSelectedId("org-1-trash"));
 
-  view.rerender({ current: [replacedRoot, contacts] });
+  view.rerender({
+    current: [replacedRoot, replacedChild("org-2-trash", "trash-slot")],
+  });
+
   await waitFor(() => {
     expect(view.result.current.selectedId).toBe("replaced-root");
   });
+});
 
-  act(() => view.result.current.setSelectedId("contacts"));
+test("an ambiguous slot falls back to the root", async () => {
+  const localContacts = containerNode("local-contacts", {
+    organizationId: "",
+    systemSlot: "slot",
+  });
+  const view = renderSelection([nodes[0] as ContainerNode, localContacts]);
+  act(() => view.result.current.setSelectedId("local-contacts"));
+
   view.rerender({
     current: [
       replacedRoot,
-      containerNode("contacts-a", { systemSlot: "slot" }),
-      containerNode("contacts-b", { systemSlot: "slot" }),
+      replacedChild("contacts-a", "slot"),
+      replacedChild("contacts-b", "slot"),
     ],
   });
+
   await waitFor(() => {
     expect(view.result.current.selectedId).toBe("replaced-root");
+  });
+});
+
+test("only the vanished selection follows its slot, not a later unknown id", async () => {
+  const localContacts = containerNode("local-contacts", {
+    organizationId: "",
+    systemSlot: "slot",
+  });
+  const view = renderSelection([nodes[0] as ContainerNode, localContacts]);
+  act(() => view.result.current.setSelectedId("local-contacts"));
+  act(() => view.result.current.setSelectedId("missing-item"));
+
+  await waitFor(() => {
+    expect(view.result.current.selectedId).toBe("root-container");
   });
 });

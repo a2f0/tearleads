@@ -7,8 +7,9 @@ import {
 } from "../../../stores/explorer/orphanedDocuments";
 import { getDocumentByLocalId } from "../model/documentSummaries";
 
-interface SelectedSystemContainer {
+interface LastSelectedContainer {
   readonly id: string;
+  readonly organizationId: string;
   readonly systemSlot: string | null;
 }
 
@@ -24,17 +25,24 @@ function getDefaultSelectedNode(
 }
 
 /**
- * The node that took over a vanished system container's slot, when exactly one
- * did. A recovered device replaces its locally created Contacts or Trash with
- * the identity's existing one under a new id (#2393); the selection follows it
- * rather than falling back to the root.
+ * The node that took over a vanished device-local system container, when
+ * exactly one has its slot. A recovered device replaces its locally created
+ * Contacts or Trash, which has no organization yet, with the identity's
+ * existing one under a new id (#2393); the selection follows it rather than
+ * falling back to the root. Switching organizations still resets to the root.
  */
-function getSystemSlotReplacement(
+function getLocalSystemContainerReplacement(
   nodes: ReadonlyArray<ContainerNode>,
   selectedId: string | null,
-  vanished: SelectedSystemContainer | null,
+  vanished: LastSelectedContainer | null,
 ): ContainerNode | undefined {
-  if (!vanished?.systemSlot || vanished.id !== selectedId) return undefined;
+  if (
+    !vanished?.systemSlot ||
+    vanished.organizationId !== "" ||
+    vanished.id !== selectedId
+  ) {
+    return undefined;
+  }
   const candidates = nodes.filter(
     (node) => node.systemSlot === vanished.systemSlot,
   );
@@ -61,7 +69,7 @@ function useExplorerSelectedId(
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [pendingSelectedDocument, setPendingSelectedDocument] =
     useState<PendingSelectedDocument | null>(null);
-  const selectedContainer = useRef<SelectedSystemContainer | null>(null);
+  const selectedContainer = useRef<LastSelectedContainer | null>(null);
 
   const selectItem = useCallback((id: string | null) => {
     setPendingSelectedDocument(null);
@@ -81,11 +89,13 @@ function useExplorerSelectedId(
 
     const selectedNode = nodes.find((node) => node.id === selectedId);
     const selectedMatchesContainer = selectedNode !== undefined;
-    if (selectedNode)
+    if (selectedNode) {
       selectedContainer.current = {
         id: selectedNode.id,
+        organizationId: selectedNode.organizationId,
         systemSlot: selectedNode.systemSlot ?? null,
       };
+    }
     const selectedDocument =
       selectedId !== null
         ? getDocumentByLocalId(documentSummaries, selectedId)
@@ -112,7 +122,7 @@ function useExplorerSelectedId(
         !selectedMatchesPendingDocument)
     ) {
       const fallback =
-        getSystemSlotReplacement(
+        getLocalSystemContainerReplacement(
           nodes,
           selectedId,
           selectedContainer.current,
