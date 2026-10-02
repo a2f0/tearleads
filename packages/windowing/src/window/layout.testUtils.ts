@@ -49,3 +49,40 @@ export function captureResizeObservers() {
     },
   };
 }
+
+// Gives every window element its normal size, or the surface's full size while
+// maximized, including the fresh element a restore mounts. Returns the undo.
+export function stubWindowSizes(sizes: {
+  maximized: { height: number; width: number };
+  normal: { height: number; width: number };
+}) {
+  const prototype = HTMLElement.prototype;
+  const dimensions = [
+    ["offsetWidth", "width"],
+    ["offsetHeight", "height"],
+  ] as const;
+  const originals = dimensions.map(
+    ([property]) =>
+      [property, Object.getOwnPropertyDescriptor(prototype, property)] as const,
+  );
+  for (const [property, dimension] of dimensions) {
+    Object.defineProperty(prototype, property, {
+      configurable: true,
+      get(this: HTMLElement) {
+        if (!this.classList.contains("window")) return 0;
+        const maximized = this.classList.contains("window--maximized");
+        return (maximized ? sizes.maximized : sizes.normal)[dimension];
+      },
+    });
+  }
+
+  return () => {
+    for (const [property, descriptor] of originals) {
+      if (descriptor) {
+        Object.defineProperty(prototype, property, descriptor);
+      } else {
+        Reflect.deleteProperty(prototype, property);
+      }
+    }
+  };
+}
