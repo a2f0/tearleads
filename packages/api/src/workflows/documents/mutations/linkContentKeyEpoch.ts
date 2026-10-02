@@ -1,7 +1,6 @@
 import type { DatabaseTransaction } from "@tearleads/api-shared/postgres";
-import { documentUpdates } from "@tearleads/api-shared/schema";
-import { eq } from "drizzle-orm";
 import { getLatestDocumentContentKeyEpoch } from "../../../access/read/documentContentKeyStore";
+import { hasCommittedDocumentUpdate } from "./committedDocumentUpdates";
 import { DocumentMutationError } from "./errors";
 
 /**
@@ -21,12 +20,7 @@ export async function assertLinkKeepsCommittedContentKeyEpoch(input: {
     input.executor,
   );
   if (latestEpoch === null || input.contentKeyEpoch <= latestEpoch) return;
-  const [committedUpdate] = await input.executor
-    .select({ id: documentUpdates.id })
-    .from(documentUpdates)
-    .where(eq(documentUpdates.documentId, input.documentId))
-    .limit(1);
-  if (committedUpdate) {
+  if (await hasCommittedDocumentUpdate(input.executor, input.documentId)) {
     throw new DocumentMutationError(
       "Document link cannot rotate the content key; committed updates need a rotation baseline",
       409,

@@ -158,10 +158,15 @@ function useSteppedGeometry(
       if (!element || !current || maximized) {
         return;
       }
-      const base = live.current.size ?? {
-        height: element.offsetHeight,
-        width: element.offsetWidth,
-      };
+      // Step from the size on screen: a requested size below the stylesheet
+      // minimums renders at the minimum, so growing from it would show nothing.
+      const requested = live.current.size;
+      const base = requested
+        ? {
+            height: Math.max(MIN_HEIGHT, requested.height),
+            width: Math.max(MIN_WIDTH, requested.width),
+          }
+        : { height: element.offsetHeight, width: element.offsetWidth };
       const container = element.parentElement;
       const maxWidth = container
         ? container.clientWidth - current.x
@@ -278,6 +283,30 @@ export function useWindowGeometry(
     useLiveGeometry(entry);
   const dragging = useRef<WindowDragState | null>(null);
   const resizing = useRef<WindowResizeState | null>(null);
+  // Maximizing or minimizing mid-gesture (a second touch on the title bar's
+  // controls) abandons the gesture: its frames were measured at the normal
+  // size, so the live geometry goes back to the committed geometry.
+  useEffect(() => {
+    if (!(maximized || entry.minimized)) {
+      return;
+    }
+    if (!dragging.current && !resizing.current) {
+      return;
+    }
+    dragging.current = null;
+    resizing.current = null;
+    setSize(entry.size ?? null);
+    if (entry.position) {
+      setPosition(entry.position);
+    }
+  }, [
+    entry.minimized,
+    entry.position,
+    entry.size,
+    maximized,
+    setPosition,
+    setSize,
+  ]);
   const clamp = useCallback(
     (x: number, y: number) =>
       clampWindowPosition(windowRef.current, x, y, live.current.size),
