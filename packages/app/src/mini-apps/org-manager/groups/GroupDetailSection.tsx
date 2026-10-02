@@ -20,7 +20,11 @@ import {
   MiniAppToolbar,
 } from "../../../components/mini-app/MiniAppLayout";
 import { compactFingerprint, EMPTY_PROFILE_DISPLAY_NAMES } from "../display";
-import { getOrgManagerEpochLabel, ORG_MANAGER_LABELS } from "../labels";
+import {
+  getOrgManagerEpochLabel,
+  groupDisplayName,
+  ORG_MANAGER_LABELS,
+} from "../labels";
 import { PolicyHistorySection } from "../policy-history/PolicyHistory";
 import { GroupContainers } from "./GroupContainers";
 import { GroupMembers } from "./GroupMembers";
@@ -52,7 +56,7 @@ function GroupDetailHeader({
       }
     >
       <MiniAppHeaderCopy>
-        <strong>{selectedGroup.name}</strong>
+        <strong>{groupDisplayName(selectedGroup)}</strong>
         <span title={selectedGroup.groupId}>
           {compactFingerprint(selectedGroup.groupId)}
         </span>

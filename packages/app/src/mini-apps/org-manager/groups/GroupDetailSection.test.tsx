@@ -4,7 +4,11 @@ import type {
   OrganizationGroupSummary,
 } from "@tearleads/client-sdk";
 import { cleanup, fireEvent, render, within } from "@testing-library/react";
-import { ORG_MANAGER_LABELS } from "../labels";
+import {
+  groupDisplayName,
+  groupSignedName,
+  ORG_MANAGER_LABELS,
+} from "../labels";
 import { GroupDetailSection } from "./GroupDetailSection";
 
 afterEach(cleanup);
@@ -21,6 +25,7 @@ const group: OrganizationGroupSummary = {
   groupId: "550e8400-e29b-41d4-a716-446655440010",
   isBuiltin: true,
   name: "Admins",
+  nameUnreadable: false,
   organizationId: "organization-1",
 };
 
@@ -94,6 +99,45 @@ test("the personal owner is protected in Admins but removable from an ordinary g
       .getAllByRole("button", { name: ORG_MANAGER_LABELS.remove })
       .filter((button) => !button.hasAttribute("disabled")),
   ).toHaveLength(1);
+});
+
+test("a group whose signed name does not open shows a placeholder", () => {
+  const view = render(
+    <GroupDetailSection
+      addUser={() => undefined}
+      addUserId=""
+      addUserListId="add-user-list"
+      addableUsers={[]}
+      canMutateSelectedGroup={false}
+      directory={null}
+      groupContainers={null}
+      groupPolicyHistory={null}
+      members={null}
+      memberUserIds={new Set()}
+      mutating={false}
+      openGroupContextMenu={() => undefined}
+      openRosterUser={() => undefined}
+      pending={false}
+      removeMember={() => undefined}
+      selectedGroup={{ ...group, name: "", nameUnreadable: true }}
+      setAddUserId={() => undefined}
+      userId="user-1"
+    />,
+  );
+  expect(view.getByText(ORG_MANAGER_LABELS.unreadableGroupName)).toBeTruthy();
+});
+
+test("only a readable signed name can select a group by name", () => {
+  expect(groupSignedName({ name: "Operators", nameUnreadable: false })).toBe(
+    "Operators",
+  );
+  // Not hydrated yet, unreadable, or gone: membership changes refuse to run.
+  expect(groupSignedName({ name: "", nameUnreadable: false })).toBeNull();
+  expect(groupSignedName({ name: "", nameUnreadable: true })).toBeNull();
+  expect(groupSignedName(undefined)).toBeNull();
+  expect(groupDisplayName({ name: "", nameUnreadable: false })).toBe(
+    ORG_MANAGER_LABELS.unreadableGroupName,
+  );
 });
 
 test("group detail separates members, policy history, and links into tabs", () => {

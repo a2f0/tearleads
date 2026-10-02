@@ -13,12 +13,55 @@ export const OTHER = "00000000-0000-4000-8000-000000000002";
 /** A second recording socket for tests that need distinct recipients. */
 export function recordingSocket(userId: string, sessionId: string) {
   const sent: Array<Record<string, unknown>> = [];
+  const closed: Array<{
+    code: number | undefined;
+    reason: string | undefined;
+  }> = [];
   const socket = {
     data: { userId, sessionId },
     send: (message: string) => sent.push(JSON.parse(message)),
-    close: () => undefined,
+    close: (code?: number, reason?: string) => closed.push({ code, reason }),
   } as unknown as ServerWebSocket<WebSocketTicketIdentity>;
-  return { sent, socket };
+  return { closed, sent, socket };
+}
+
+const flushTasks = () => new Promise((resolve) => setTimeout(resolve, 0));
+
+/**
+ * A clock and timer source for `RevalidationScheduleOptions`: `advance` runs
+ * every timer that falls due, in order, including ones armed along the way.
+ */
+export function virtualClock() {
+  let now = 0;
+  const timers = new Set<{ readonly at: number; readonly run: () => void }>();
+  return {
+    now: () => now,
+    /** Timers still armed, whether or not they are due yet. */
+    pending: () => timers.size,
+    schedule: (run: () => void, delayMs: number) => {
+      const timer = { at: now + delayMs, run };
+      timers.add(timer);
+      return () => {
+        timers.delete(timer);
+      };
+    },
+    async advance(ms: number): Promise<void> {
+      const until = now + ms;
+      for (;;) {
+        let due: { readonly at: number; readonly run: () => void } | undefined;
+        for (const timer of timers) {
+          if (timer.at <= until && (!due || timer.at < due.at)) due = timer;
+        }
+        if (!due) break;
+        timers.delete(due);
+        now = due.at;
+        due.run();
+        await flushTasks();
+        await flushTasks();
+      }
+      now = until;
+    },
+  };
 }
 
 export function fixture(input: {
@@ -31,8 +74,9 @@ export function fixture(input: {
   revalidation?: RevalidationScheduleOptions;
   /** Defaults to a live session; a test ends it to check the socket closes. */
   sessionLive?: () => boolean;
+  sessionReadTimeoutMs?: number;
   /** Replaces the session check outright, e.g. with a read that never ends. */
-  validateSession?: () => Promise<boolean>;
+  validateSession?: (identity: WebSocketTicketIdentity) => Promise<boolean>;
 }) {
   const sent: Array<Record<string, unknown>> = [];
   const closed: number[] = [];
@@ -76,6 +120,9 @@ export function fixture(input: {
         listener = undefined;
       };
     },
+    ...(input.sessionReadTimeoutMs === undefined
+      ? {}
+      : { sessionReadTimeoutMs: input.sessionReadTimeoutMs }),
     validateSession:
       input.validateSession ?? (async () => input.sessionLive?.() ?? true),
   });

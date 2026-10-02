@@ -30,6 +30,26 @@ export type SignedRotationTarget = ReturnType<
   typeof getTargetContainerContext
 > & { readonly signedEpochIds: ReadonlySet<string> };
 
+/**
+ * The projection's target with its signed lineage ids, read from the manifests
+ * this rotation's own verification recorded. Every rotation that re-seals a
+ * keyring builds its target here, so none can skip the anchor.
+ */
+export function signedRotationTarget(
+  projection: ContainerWriterProjectionResponse,
+  verifiedByHash: ReadonlyMap<string, VerifiedContainerAccessManifest>,
+): SignedRotationTarget {
+  const target = getTargetContainerContext(projection);
+  return {
+    ...target,
+    signedEpochIds: signedHistoryEpochIds({
+      headManifestHash: target.manifest.manifestHash,
+      kek: target.kek,
+      verifiedByHash,
+    }),
+  };
+}
+
 export function requireUnwrappedKek(
   keksByEpochId: ReadonlyMap<string, Uint8Array>,
   kek: Pick<ContainerKekResponse, "containerKeyEpochId">,
@@ -90,7 +110,7 @@ export async function resolveRotationContext(
     verifiedByHash,
     ...projectionVerificationOptions(input),
   });
-  const target = getTargetContainerContext(input.previousProjection);
+  const target = signedRotationTarget(input.previousProjection, verifiedByHash);
   const predecessorContainerKey = requireUnwrappedKek(
     keksByEpochId,
     target.kek,
@@ -108,13 +128,6 @@ export async function resolveRotationContext(
     parentPublicKey,
     predecessorContainerKey,
     previousState,
-    target: {
-      ...target,
-      signedEpochIds: signedHistoryEpochIds({
-        headManifestHash: target.manifest.manifestHash,
-        kek: target.kek,
-        verifiedByHash,
-      }),
-    },
+    target,
   };
 }

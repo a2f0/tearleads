@@ -30,6 +30,7 @@ function createGroup(input: { groupId: string; name: string }) {
     groupId: input.groupId,
     isBuiltin: input.name === "Admins",
     name: input.name,
+    nameUnreadable: false,
     organizationId: "org-1",
   };
 }

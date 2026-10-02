@@ -38,6 +38,7 @@ function createGroup(input: {
     groupId: input.groupId,
     isBuiltin: input.name === "Admins",
     name: input.name,
+    nameUnreadable: false,
     organizationId: "org-1",
   };
 }
@@ -146,6 +147,28 @@ test("getContainerInfoShareableGroups excludes stale and directly granted groups
 
   expect(
     getContainerInfoShareableGroups(remoteInfo).map((group) => group.groupId),
+  ).toEqual(["group-2"]);
+});
+
+test("getContainerInfoShareableGroups excludes groups without a readable name", () => {
+  const remoteInfo = createContainerInfo().remoteInfo;
+  if (!remoteInfo) throw new Error("Expected remote container info");
+  // A share binds to the signed name the user chose, so a group whose name
+  // does not open, or is not hydrated yet, cannot be chosen by name.
+  const unreadable = {
+    ...createGroup({ current: true, groupId: "group-3", name: "" }),
+    nameUnreadable: true,
+  };
+  const unhydrated = createGroup({
+    current: true,
+    groupId: "group-4",
+    name: "",
+  });
+  expect(
+    getContainerInfoShareableGroups({
+      ...remoteInfo,
+      groups: [...remoteInfo.groups, unreadable, unhydrated],
+    }).map((group) => group.groupId),
   ).toEqual(["group-2"]);
 });
 

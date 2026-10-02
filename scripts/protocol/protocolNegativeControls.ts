@@ -73,6 +73,22 @@ export const NEGATIVE_CONTROLS: readonly NegativeControl[] = [
     why: "Revocation publishes at most once and expiry never, so revalidation must recheck the session and close an ended session's socket (#2365 finding 27).",
   },
   {
+    id: "unconfirmed-session-outlives-deadline",
+    module: "formal/realtime/ContainerInterest.tla",
+    config: "formal/realtime/ContainerInterest.cfg",
+    constants: { EnforceSessionDeadline: "FALSE" },
+    expect: { kind: "invariant", name: "UnconfirmedSessionsLapse" },
+    why: "A session store that keeps failing would defer the close forever; like proofs, an unconfirmed session must lapse at its deadline (#2420).",
+  },
+  {
+    id: "failed-session-read-rearms-deadline",
+    module: "formal/realtime/ContainerInterest.tla",
+    config: "formal/realtime/ContainerInterest.cfg",
+    constants: { ConfirmOnlyLiveReads: "FALSE" },
+    expect: { kind: "invariant", name: "UnconfirmedSessionsLapse" },
+    why: "Only a live answer confirms a session; a failed or timed-out read that re-armed the deadline would extend it without limit (#2420).",
+  },
+  {
     id: "stale-reconnect-proof-handoff",
     module: "formal/realtime/ContainerInterest.tla",
     config: "formal/realtime/ContainerInterest.cfg",

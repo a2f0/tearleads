@@ -23,6 +23,7 @@ import {
   type OrganizationAuthorityDescriptor,
   type OrganizationGroupHead,
 } from "../../data/principals/organizationAuthorityDescriptor";
+import type { SecurityIncidentReporter } from "../../data/securityIncidents";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import type {
   TrustedUserIdentity,
@@ -159,6 +160,7 @@ export async function commitCreatedGroupToDirectory(input: {
     Awaited<ReturnType<typeof loadOrganizationExternalAdminPolicy>>
   >;
   readonly organizationId: string;
+  readonly reportSecurityIncident: SecurityIncidentReporter;
   readonly request: Awaited<ReturnType<typeof buildInitialGroupPolicyRequest>>;
   readonly resolveTrustedUserIdentity: TrustedUserIdentityResolver;
   readonly signerUserId: string;
@@ -178,6 +180,7 @@ export async function commitCreatedGroupToDirectory(input: {
     name: input.name,
     readEncryptedName: input.readEncryptedName,
     organizationId: input.organizationId,
+    reportSecurityIncident: input.reportSecurityIncident,
     resolveTrustedUserIdentity: input.resolveTrustedUserIdentity,
   });
   const expectedHead = await groupPolicyMutationHead(

@@ -21,7 +21,11 @@ import {
 import { useRoutedLayoutActive } from "../../../navigation/useRoutedLayoutActive";
 import { formatMiniAppDate } from "../../../utils/formatMiniAppDate";
 import { isKeyboardActivationKey } from "../../../utils/keyboardActivation";
-import { getOrgManagerMemberCountLabel, ORG_MANAGER_LABELS } from "../labels";
+import {
+  getOrgManagerMemberCountLabel,
+  groupDisplayName,
+  ORG_MANAGER_LABELS,
+} from "../labels";
 import { useOrgManagerTableColumns } from "../orgManagerTableColumns";
 
 type GroupTableColumnId = "group" | "members" | "status" | "created";
@@ -84,7 +88,7 @@ function renderGroupCell(
       return (
         <MiniAppTableCell key="group">
           <MiniAppTableText title={group.groupId}>
-            {group.name}
+            {groupDisplayName(group)}
           </MiniAppTableText>
         </MiniAppTableCell>
       );
@@ -126,7 +130,7 @@ function getGroupCompactField(
       return {
         id: columnId,
         label: GROUP_COLUMN_LABELS[columnId],
-        text: group.name,
+        text: groupDisplayName(group),
         title: group.groupId,
       };
     case "members":
@@ -255,7 +259,7 @@ function GroupTable({
               {showActions ? (
                 <MiniAppRowActionsCell
                   key="actions"
-                  label={`${ORG_MANAGER_LABELS.rowActionsButtonPrefix} ${group.name}`}
+                  label={`${ORG_MANAGER_LABELS.rowActionsButtonPrefix} ${groupDisplayName(group)}`}
                   onOpen={(event) => openGroupContextMenu(event, group.groupId)}
                 />
               ) : null}

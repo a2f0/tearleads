@@ -128,7 +128,9 @@ represent where manifests are served or the lineage walk, so the invariant
 holds by construction and the control
 `kek-history-anchor-seals-relocated-forgery` only marks where the rule sits;
 the evidence that the walk refuses a relocated forgery is the SDK tests
-(`signedHistoryEpochIds`, `assertOverrideMatchesSignedLineage`).
+(`signedHistoryEpochIds`, `assertOverrideMatchesSignedLineage`). Every
+re-sealing rotation takes its target from `signedRotationTarget`, so none can
+skip the walk.
 
 [`container-keying/GroupGrantRevocation.tla`](./container-keying/GroupGrantRevocation.tla)
 adds the group key as its own epoch dimension: container wraps sealed to a
@@ -287,7 +289,8 @@ See the [mapping and boundaries](./backup-restore/TerminalAnchors.md).
 [`realtime/ContainerInterest.tla`](./realtime/ContainerInterest.tla) checks that
 container subscriptions require current read access before indexing and cannot
 be restored by an authorization result that outlived revocation or socket close,
-and that an ended session's socket never outlives a revalidation pass.
+that an ended session's socket never outlives the next session read the store
+answers, and that a session the store cannot confirm closes at its deadline.
 See the [production mapping and bounds](./realtime/ContainerInterest.md).
 
 ## Attachment Key Reachability
