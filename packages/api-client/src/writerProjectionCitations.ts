@@ -43,6 +43,14 @@ export function writerProjectionCitedContainerIds(
   return cited;
 }
 
+function citesAny(
+  cited: ReadonlySet<string>,
+  containerIds: ReadonlySet<string>,
+): boolean {
+  for (const id of containerIds) if (cited.has(id)) return true;
+  return false;
+}
+
 /**
  * A writer projection cache that records which containers each resolved entry
  * cites, so a manifest change to some containers can evict exactly the
@@ -76,7 +84,7 @@ export class CitingProjectionCache<V> extends BoundedCache<Promise<V | null>> {
     for (const key of [...this.keys()]) {
       const entry = this.get(key);
       const cited = entry && this.citations.get(entry);
-      if (cited && ![...containerIds].some((id) => cited.has(id))) continue;
+      if (cited && !citesAny(cited, containerIds)) continue;
       this.delete(key);
       evicted.push(key);
     }

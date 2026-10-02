@@ -1,9 +1,10 @@
 /**
  * Bounded cache exposing the subset of the `Map` surface the request helpers
- * in `requestInternals` rely on (`get`, `has`, `set`, `delete`, `clear`). The
- * persistent request caches in `ApiClient` retain one entry per unique
- * container/document/user id read for the lifetime of the client; without a
- * bound a long-lived client accumulates unbounded entries.
+ * in `requestInternals` rely on (`get`, `has`, `set`, `delete`, `clear`), plus
+ * `keys` for targeted eviction. The persistent request caches in `ApiClient`
+ * retain one entry per unique container/document/user id read for the
+ * lifetime of the client; without a bound a long-lived client accumulates
+ * unbounded entries.
  *
  * Eviction is by insertion recency: (re)writing an entry marks it newest, and
  * inserting past `maxEntries` evicts the oldest-written entry. Crucially `get`
