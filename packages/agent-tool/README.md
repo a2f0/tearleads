@@ -151,6 +151,27 @@ before the merge mutation.
 
 ## Ship (commit → review → repair → open/resume → merge → reset)
 
+Every workspace package changed by a PR receives a patch bump before review,
+including private packages. The agent-tool discovers packages from the committed
+root workspace list rather than a fixed allowlist:
+
+```sh
+bun packages/agent-tool/src/index.ts bumpVersions "$BASE_OID"
+bun packages/agent-tool/src/index.ts checkVersions "$BASE_OID"
+bun packages/agent-tool/src/index.ts resolveVersionConflicts
+```
+
+The base argument must be a full Git commit OID. Changed packages go one patch
+past that base, unchanged packages retain its version, and intentional major or
+minor releases and new packages' initial versions are preserved. Every workspace
+must declare a plain `major.minor.patch` version. Bumping prints rewritten paths
+to stdout and refuses to overwrite staged or uncommitted manifest edits.
+The conflict helper resolves only version-field conflicts and leaves other
+conflicts untouched. `ship-pr` passes `--bump-versions` to `cross-agent-review`,
+which refreshes `bun.lock`, commits the bump before review, and repeats against
+the latest base after a base refresh. The merge gate checks those same versions
+on the exact reviewed head.
+
 The `ship-pr` skill commits the work on a feature branch, hands it to
 `cross-agent-review` — which reviews the local commits (or the pushed head when
 a PR is already open), repairs blocking findings until none remain,

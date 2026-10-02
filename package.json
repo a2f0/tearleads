@@ -66,6 +66,8 @@
     "lint:scripts": "bun scripts/checks/lintScripts.ts",
     "lint:skill-placeholders": "bun scripts/checks/lintSkillPlaceholders.ts",
     "lint:source-shape": "bun scripts/checks/lintSourceShape.ts",
+    "publish:npm": "bash scripts/publishNpmModules.sh",
+    "publish:npm:dry-run": "bash scripts/publishNpmModules.sh --dry-run",
     "report:dependencies": "bun scripts/architecture/reportDependencyGraph.ts",
     "report:dependencies:archi": "bun scripts/architecture/reportDependencyGraph.ts --format archi",
     "report:dependencies:json": "bun scripts/architecture/reportDependencyGraph.ts --format json",

@@ -23,7 +23,7 @@
     },
     "packages/agent-tool": {
       "name": "@tearleads/agent-tool",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "devDependencies": {
         "@types/bun": "catalog:",
       },
@@ -282,6 +282,7 @@
     },
     "packages/sqlite-instance": {
       "name": "@tearleads/sqlite-instance",
+      "version": "0.1.0",
       "devDependencies": {
         "@sqlite.org/sqlite-wasm": "3.53.0-build1",
         "@types/bun": "catalog:",
@@ -289,6 +290,7 @@
     },
     "packages/sqlite-worker": {
       "name": "@tearleads/sqlite-worker",
+      "version": "0.1.0",
       "dependencies": {
         "@tearleads/sqlite-instance": "workspace:*",
       },
@@ -355,7 +357,7 @@
     },
     "packages/windowing": {
       "name": "@tearleads/windowing",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "dependencies": {
         "@phosphor-icons/react": "2.1.10",
         "react": "catalog:react",
