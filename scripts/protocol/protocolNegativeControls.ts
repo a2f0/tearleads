@@ -1,4 +1,5 @@
 import { ATTACHMENT_NEGATIVE_CONTROLS } from "./protocolAttachmentNegativeControls";
+import { CONTAINER_ADOPTION_NEGATIVE_CONTROLS } from "./protocolContainerAdoptionNegativeControls";
 import { CONTAINER_DEPTH_NEGATIVE_CONTROLS } from "./protocolContainerDepthNegativeControls";
 import { DOCUMENT_MOVE_NEGATIVE_CONTROLS } from "./protocolDocumentMoveNegativeControls";
 import { HISTORICAL_POLICY_NEGATIVE_CONTROLS } from "./protocolHistoricalPolicyNegativeControls";
@@ -40,6 +41,7 @@ export const NEGATIVE_CONTROLS: readonly NegativeControl[] = [
   ...TOMBSTONE_NEGATIVE_CONTROLS,
   ...DOCUMENT_MOVE_NEGATIVE_CONTROLS,
   ...RECOVERY_NEGATIVE_CONTROLS,
+  ...CONTAINER_ADOPTION_NEGATIVE_CONTROLS,
   {
     id: "purged-queue-starts-remote-create",
     module: "formal/local-trust/QueuedDocumentCreate.tla",
@@ -135,14 +137,6 @@ export const NEGATIVE_CONTROLS: readonly NegativeControl[] = [
     constants: { RequireDurablePublication: "FALSE" },
     expect: { kind: "invariant", name: "PublishedHistoryIsDurable" },
     why: "Publishing a rejected incoming candidate exposes text whose history is absent from the next local edit's durable basis.",
-  },
-  {
-    id: "listing-adopts-container-create",
-    module: "formal/local-trust/UnacknowledgedInput.tla",
-    config: "formal/local-trust/UnacknowledgedInput.cfg",
-    constants: { VerifyContainerAdoption: "FALSE" },
-    expect: { kind: "invariant", name: "ContainerAdoptionHasVerifiedScope" },
-    why: "A listing row must not settle a pending container create without its signed epoch-1 create (#2365 finding 26).",
   },
   {
     id: "host-restore-binds-a-switched-identity",

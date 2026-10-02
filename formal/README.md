@@ -78,8 +78,13 @@ metadata document IDs. See the [mapping and boundaries](./container-keying/Conta
 ## Unacknowledged Server Input
 
 [`local-trust/UnacknowledgedInput.tla`](./local-trust/UnacknowledgedInput.tla)
-models pending-create adoption and fingerprint-bound login acknowledgments.
-See the [mapping and boundaries](./local-trust/UnacknowledgedInput.md).
+models pending document-create adoption and fingerprint-bound login
+acknowledgments. See the [mapping and boundaries](./local-trust/UnacknowledgedInput.md).
+
+[`local-trust/ContainerCreateAdoption.tla`](./local-trust/ContainerCreateAdoption.tla)
+models adopting a pending container create that a listing already carries, the
+move it still owes, and parking a foreign create without stopping the lane.
+See the [mapping and boundaries](./local-trust/ContainerCreateAdoption.md).
 
 [`local-trust/DurableIdentityBinding.tla`](./local-trust/DurableIdentityBinding.tla)
 checks that persistent fingerprint-to-user bindings survive session recreation

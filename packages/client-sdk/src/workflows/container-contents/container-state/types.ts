@@ -131,13 +131,21 @@ export interface ContainerIntentSyncState {
   runtime: ContainerWorkflowRuntime;
   /**
    * Verifies that a listed container is this device's pending create before it
-   * is adopted and returns its committed parent; `assertContainerCreateAdoptable`
+   * is adopted and returns where it sits; `assertContainerCreateAdoptable`
    * unless a test replaces it.
    */
   verifyCreateAdoption?: (input: {
     readonly containerId: string;
     readonly expectedOrganizationId: string;
-  }) => Promise<string>;
+  }) => Promise<AdoptedContainerPlacement>;
+}
+
+/** Where a verified listed create committed, and where its container is now. */
+export interface AdoptedContainerPlacement {
+  /** The parent its signed epoch-1 `container.create` named. */
+  readonly createdParentId: string;
+  /** The verified head's parent; another writer may have moved it since. */
+  readonly currentParentId: string;
 }
 
 export type ContainerCreateIntentSyncState = ContainerIntentSyncState;

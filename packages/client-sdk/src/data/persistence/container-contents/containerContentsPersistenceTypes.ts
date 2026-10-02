@@ -80,11 +80,15 @@ export interface ContainerCreateIntentRevisionInput
   remoteContainerId: string;
   remoteMetadataAccessStateHash: string;
   remoteMetadataDocumentId: string;
-  supersededMovePreviousParentId?: string | null | undefined;
+  /** The remote parent now; a move settlement queues cites it as previous. */
+  supersededMovePreviousParentId?: string | undefined;
   /**
-   * The parent the settled intent wants. When it differs from the remotely
-   * committed `supersededMovePreviousParentId`, settlement queues the move.
+   * The parent the create committed under. A desired parent equal to it, or
+   * to the current one, owes no move: the user never moved the folder away,
+   * and a later remote move by another writer stands.
    */
+  createdParentContainerId?: string | undefined;
+  /** The parent the settled intent wants. */
   desiredParentContainerId?: string | undefined;
 }
 
@@ -368,7 +372,7 @@ export interface ContainerContentsPersistence
              * desired local parent and converted to a move from this remotely
              * committed parent instead of rejecting the remote identity.
              */
-            supersededMovePreviousParentId?: string | null | undefined;
+            supersededMovePreviousParentId?: string | undefined;
           }
         | undefined;
       moveIntentSettlement?:

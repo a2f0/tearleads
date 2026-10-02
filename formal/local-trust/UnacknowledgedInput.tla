@@ -2,21 +2,16 @@
 EXTENDS FiniteSets
 
 CONSTANTS Identities, Users, Scopes, InitialIdentity, InitialUser,
-          IntendedScope, None, DeferDiscoveryAdoption, DeferLinkDiscovery, EnforceLoginBinding, CheckRestoreIdentity,
-          VerifyContainerAdoption
+          IntendedScope, None, DeferDiscoveryAdoption, DeferLinkDiscovery, EnforceLoginBinding, CheckRestoreIdentity
 ASSUME /\ InitialIdentity \in Identities /\ InitialUser \in Users
        /\ IntendedScope \in Scopes /\ None \notin Users
        /\ IsFiniteSet(Identities) /\ IsFiniteSet(Users) /\ IsFiniteSet(Scopes)
-       /\ {DeferDiscoveryAdoption, DeferLinkDiscovery, EnforceLoginBinding, CheckRestoreIdentity,
-           VerifyContainerAdoption} \subseteq BOOLEAN
+       /\ {DeferDiscoveryAdoption, DeferLinkDiscovery, EnforceLoginBinding, CheckRestoreIdentity} \subseteq BOOLEAN
 
 VARIABLES pendingCreate, documentScope, linkedScope, verifiedAdoption,
-          acknowledged, identity, loginPending, loginIdentity, loginUser, wrongHostRestore,
-          pendingContainerCreate, containerScope, verifiedContainerAdoption
+          acknowledged, identity, loginPending, loginIdentity, loginUser, wrongHostRestore
 vars == <<pendingCreate, documentScope, linkedScope, verifiedAdoption,
-          acknowledged, identity, loginPending, loginIdentity, loginUser, wrongHostRestore,
-          pendingContainerCreate, containerScope, verifiedContainerAdoption>>
-containerVars == <<pendingContainerCreate, containerScope, verifiedContainerAdoption>>
+          acknowledged, identity, loginPending, loginIdentity, loginUser, wrongHostRestore>>
 
 Init ==
   /\ pendingCreate = TRUE /\ documentScope = IntendedScope /\ linkedScope = IntendedScope
@@ -24,8 +19,6 @@ Init ==
   /\ acknowledged = [i \in Identities |-> IF i = InitialIdentity THEN InitialUser ELSE None]
   /\ identity = InitialIdentity /\ loginPending = FALSE
   /\ loginIdentity = InitialIdentity /\ loginUser = InitialUser /\ wrongHostRestore = FALSE
-  /\ pendingContainerCreate = TRUE /\ containerScope = IntendedScope
-  /\ verifiedContainerAdoption = FALSE
 
 (* The listing names the pending create's stable ID, but has no signed scope. *)
 Discover(scope) ==
@@ -35,25 +28,25 @@ Discover(scope) ==
        ELSE /\ pendingCreate' = FALSE /\ documentScope' = scope
   /\ IF DeferLinkDiscovery THEN UNCHANGED linkedScope ELSE linkedScope' = scope
   /\ UNCHANGED <<verifiedAdoption, acknowledged, identity,
-                  loginPending, loginIdentity, loginUser, wrongHostRestore, containerVars>>
+                  loginPending, loginIdentity, loginUser, wrongHostRestore>>
 
 (* A create retry verifies the signed scope before adopting and releasing edits. *)
 VerifyCreate(scope) ==
   /\ pendingCreate /\ scope = IntendedScope
   /\ pendingCreate' = FALSE /\ documentScope' = scope /\ linkedScope' = scope
   /\ verifiedAdoption' = TRUE
-  /\ UNCHANGED <<acknowledged, identity, loginPending, loginIdentity, loginUser, wrongHostRestore, containerVars>>
+  /\ UNCHANGED <<acknowledged, identity, loginPending, loginIdentity, loginUser, wrongHostRestore>>
 
 SwitchIdentity(i) ==
   /\ identity' = i
   /\ UNCHANGED <<pendingCreate, documentScope, linkedScope, verifiedAdoption,
-                  acknowledged, loginPending, loginIdentity, loginUser, wrongHostRestore, containerVars>>
+                  acknowledged, loginPending, loginIdentity, loginUser, wrongHostRestore>>
 
 BeginLogin(user) ==
   /\ ~loginPending /\ loginPending' = TRUE
   /\ loginIdentity' = identity /\ loginUser' = user
   /\ UNCHANGED <<pendingCreate, documentScope, linkedScope, verifiedAdoption,
-                  acknowledged, identity, wrongHostRestore, containerVars>>
+                  acknowledged, identity, wrongHostRestore>>
 
 FinishLogin ==
   /\ loginPending /\ loginPending' = FALSE
@@ -62,7 +55,7 @@ FinishLogin ==
        THEN acknowledged' = [acknowledged EXCEPT ![identity] = loginUser]
        ELSE UNCHANGED acknowledged
   /\ UNCHANGED <<pendingCreate, documentScope, linkedScope, verifiedAdoption,
-                  identity, loginIdentity, loginUser, wrongHostRestore, containerVars>>
+                  identity, loginIdentity, loginUser, wrongHostRestore>>
 
 (* A host restore carries the identity under which the trusted record was saved. *)
 HostRestore(savedIdentity, user) ==
@@ -72,45 +65,19 @@ HostRestore(savedIdentity, user) ==
             /\ wrongHostRestore' = (wrongHostRestore \/ identity # savedIdentity)
        ELSE UNCHANGED <<acknowledged, wrongHostRestore>>
   /\ UNCHANGED <<pendingCreate, documentScope, linkedScope, verifiedAdoption,
-                  identity, loginPending, loginIdentity, loginUser, containerVars>>
-
-(* A listing already carries a pending container create's id and metadata, *)
-(* which the server alone vouches for (#2365 finding 26). The fixed client *)
-(* adopts only through AdoptContainerCreate.                               *)
-DiscoverContainer(scope) ==
-  /\ pendingContainerCreate /\ ~VerifyContainerAdoption
-  /\ pendingContainerCreate' = FALSE /\ containerScope' = scope
-  /\ UNCHANGED <<verifiedContainerAdoption, pendingCreate, documentScope, linkedScope,
-                  verifiedAdoption, acknowledged, identity, loginPending, loginIdentity,
-                  loginUser, wrongHostRestore>>
-
-(* Adoption checks the signed epoch-1 create: this user and the intended   *)
-(* organization. A different committed parent is a move the user made      *)
-(* while the create was pending, queued rather than refused.               *)
-AdoptContainerCreate(scope) ==
-  /\ pendingContainerCreate /\ scope = IntendedScope
-  /\ pendingContainerCreate' = FALSE /\ containerScope' = scope
-  /\ verifiedContainerAdoption' = TRUE
-  /\ UNCHANGED <<pendingCreate, documentScope, linkedScope, verifiedAdoption,
-                  acknowledged, identity, loginPending, loginIdentity, loginUser,
-                  wrongHostRestore>>
+                  identity, loginPending, loginIdentity, loginUser>>
 
 Next == (\E s \in Scopes : Discover(s) \/ VerifyCreate(s))
-        \/ (\E s \in Scopes : DiscoverContainer(s) \/ AdoptContainerCreate(s))
         \/ (\E i \in Identities : SwitchIdentity(i))
         \/ (\E u \in Users : BeginLogin(u)) \/ FinishLogin
         \/ (\E i \in Identities, u \in Users : HostRestore(i, u))
 Spec == Init /\ [][Next]_vars
 
 TypeOK ==
-  /\ {pendingCreate, verifiedAdoption, loginPending, wrongHostRestore,
-      pendingContainerCreate, verifiedContainerAdoption} \subseteq BOOLEAN
-  /\ containerScope \in Scopes
+  /\ {pendingCreate, verifiedAdoption, loginPending, wrongHostRestore} \subseteq BOOLEAN
   /\ {documentScope, linkedScope} \subseteq Scopes /\ acknowledged \in [Identities -> Users \cup {None}]
   /\ {identity, loginIdentity} \subseteq Identities /\ loginUser \in Users
 AdoptionHasVerifiedScope == ~pendingCreate => verifiedAdoption /\ documentScope = IntendedScope
-ContainerAdoptionHasVerifiedScope ==
-  ~pendingContainerCreate => verifiedContainerAdoption /\ containerScope = IntendedScope
 HostRestoresKeepIdentity == ~wrongHostRestore
 PendingLinksKeepIntent == pendingCreate => linkedScope = IntendedScope
 AcknowledgmentsNeverChange ==

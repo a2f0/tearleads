@@ -8,10 +8,7 @@ import {
 } from "../metadataStateIsolation";
 import type { ContainerState } from "../remoteHydration";
 import { hasRemoteContainerMetadataState } from "../remoteHydration/reconciliation";
-import {
-  markContainerContentsContainerCreateIntentAlreadySynced,
-  verifyListedContainerCreate,
-} from "./createAdoption";
+import { syncListedContainerCreate } from "./createAdoption";
 import {
   deferTooDeepCreate,
   recordRefusedTooDeepCreate,
@@ -54,8 +51,6 @@ async function reportContainerCreateIntegrityFailure(input: {
 }
 
 async function recordContainerCreateFailure(input: {
-  /** What failed, when it was not the remote create itself. */
-  readonly action?: string | undefined;
   readonly error: unknown;
   readonly isCurrent: () => boolean;
   readonly intent: ContainerCreateIntentSyncInput["intent"];
@@ -80,7 +75,7 @@ async function recordContainerCreateFailure(input: {
       containerId: input.intent.containerId,
       expectedIntentId: input.intent.id,
       expectedUpdatedAt: input.intent.updatedAt,
-      message: `${input.action ?? (input.error instanceof IncompleteContainerCreateSettlementError ? "Container create persistence failed" : "Remote container create failed")}: ${errorMessage(input.error)}`,
+      message: `${input.error instanceof IncompleteContainerCreateSettlementError ? "Container create persistence failed" : "Remote container create failed"}: ${errorMessage(input.error)}`,
       stillCurrent: input.isCurrent,
     },
   );
@@ -102,6 +97,11 @@ async function persistCreatedRemoteContainerStateFromIntent(input: {
   | "persisted"
 > {
   const { containerState, created, host, intent, state } = input;
+  // A queued create is a child; its acknowledgement echoed the signed parent.
+  const committedParentId = created.parentId;
+  if (committedParentId === null) {
+    throw new Error("A queued container create must commit under a parent");
+  }
   if (!input.isCurrent()) return "abandoned";
   const persistenceCandidate =
     await createDetachedContainerMetadataState(containerState);
@@ -145,7 +145,7 @@ async function persistCreatedRemoteContainerStateFromIntent(input: {
           remoteContainerId: created.containerId,
           remoteMetadataAccessStateHash: created.accessManifestHash,
           remoteMetadataDocumentId: created.metadataDocumentId,
-          supersededMovePreviousParentId: created.parentId,
+          supersededMovePreviousParentId: committedParentId,
         },
         expectedStateWhenMissing: containerState,
         isCurrent: input.isCurrent,
@@ -380,37 +380,16 @@ async function trySyncPendingContainerContentsContainerCreateIntent(
     return currentCreateResult(input.isCurrent, "failed");
   }
 
-  if (hasRemoteContainerMetadataState(containerState)) {
-    let committedParentId: string;
-    try {
-      committedParentId = await verifyListedContainerCreate({
-        intent,
-        parentState,
-        state,
-      });
-    } catch (error) {
-      return recordContainerCreateFailure({
-        action: "Container create adoption verification failed",
-        error,
-        isCurrent: input.isCurrent,
-        intent,
-        organizationId: parentState.container.organizationId,
-        state,
-      });
-    }
-    const marked =
-      await markContainerContentsContainerCreateIntentAlreadySynced({
-        committedParentId,
-        containerState,
-        isCurrent: input.isCurrent,
-        intent,
-        state,
-      });
-    return marked ? "created" : currentCreateResult(input.isCurrent, "blocked");
-  }
-
   if (input.isRemoteSyncBlocked(parentState.container.organizationId)) {
     return "blocked";
+  }
+
+  if (hasRemoteContainerMetadataState(containerState)) {
+    return syncListedContainerCreate({
+      containerState,
+      parentState,
+      syncInput: input,
+    });
   }
 
   if (!hasRemoteContainerMetadataState(parentState)) {
