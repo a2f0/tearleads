@@ -225,17 +225,19 @@ body and attachment-slot state. Its bounded run explores 6,757 generated states,
 [production mapping and model boundary](./document-sync/RestartProbeConvergence.md)
 for the action seams, fairness assumptions, and excluded blob-hydration layer.
 
-## Empty-Frontier Baseline-less Unlink
+## Epoch Advances Without a Covering Baseline
 
 [`document-sync/EmptyFrontierUnlink.tla`](./document-sync/EmptyFrontierUnlink.tla)
-models the acceptance gate for a document unlink submitted without a rotation
-baseline. An unlink rotates the document content key, so a committed update no
-accepted baseline covers becomes unreadable under the new epoch. A document
-with an empty committed frontier cannot produce a baseline at all — a
-zero-span full-history snapshot encodes no replayable history — so the server
-accepts a baseline-less unlink only after proving the committed frontier is
-empty inside the mutation transaction, under the document manifest-head write
-lock that sync writers also take exclusively.
+models the acceptance gates for the two content-key epoch advances that carry
+no rotation baseline: a document unlink submitted without one, and a link
+that advances the epoch. A rotation strands every committed update that no
+baseline sealed to the new epoch covers. A document with an empty committed
+frontier cannot produce a baseline at all — a zero-span full-history snapshot
+encodes no replayable history — so the server accepts a baseline-less unlink
+only after proving the committed frontier is empty inside the mutation
+transaction, under the document manifest-head write lock that sync writers
+also take exclusively. A link never carries a baseline, so it may advance the
+epoch only under the same emptiness proof.
 
 The abstraction maps to production at these seams:
 
@@ -244,25 +246,34 @@ The abstraction maps to production at these seams:
 | `BeginBaselinelessUnlink` / `CommitBaselinelessUnlink` | `assertBaselinelessUnlinkHasEmptyCommittedFrontier` inside `mutateDocumentLinkSetWithExecutor` |
 | `CheckCoveringUnlink` / `CommitCoveringUnlink` | `assertAtomicRotationBaselineCoversCommittedFrontier` + `appendAtomicRotationBaseline` |
 | `LinkAdvancesEpoch` | `assertLinkKeepsCommittedContentKeyEpoch` inside `advanceDocumentLinkSet` |
+| `FrontierEmpty` | `hasCommittedDocumentUpdate`, the emptiness proof both gates share |
 | `WriterMayCommit` | the exclusive manifest-head locks in `lockDocumentLinkSetMutationFrontier` and `lockSyncDocumentWriteFrontier` |
 | the client never sending an empty baseline (boundary assumption) | `buildDocumentRotationBaseline` returning null for a zero-span snapshot |
 
 The checked configuration sets `LockedUnlink = TRUE`, matching production, and
-the invariants require that no rotation ever orphans an uncovered committed
-update and that the emptiness observation stays true through the commit
-window. Setting `LockedUnlink = FALSE` (a writer allowed to commit between the
-emptiness proof and the unlink commit) makes TLC report the `NoDataLoss`
-violation immediately — the lock discipline is load-bearing, not incidental.
-The negative-control check asserts this on every run. A link never carries a
-rotation baseline, so `LinkAdvancesEpoch` may advance the content-key epoch
-only over an empty uncovered frontier; `RequireBaselineOnEpochAdvance = FALSE`
-is the server before #2365 finding 28, and TLC reports the same violation.
+the invariants require that no rotation ever orphans a committed update and
+that the emptiness observation stays true through the commit window. Setting
+`LockedUnlink = FALSE` (a writer allowed to commit between the emptiness proof
+and the unlink commit) makes TLC report the `NoDataLoss` violation
+immediately — the lock discipline is load-bearing, not incidental. The
+negative-control check asserts this on every run.
+`RequireEmptyFrontierOnLinkAdvance = FALSE` is the server before #2365 finding
+28, which let a link advance the epoch over committed updates, and TLC reports
+the same violation.
+
+A rotation baseline covers history only under the epoch it is sealed to, and it
+is itself a committed update, so both gates ask whether any update is
+committed, not whether one is uncovered. `FrontierCheck = "uncovered"` is a
+server that checked only the uncovered frontier; after a covering unlink TLC
+finds a link advance that strands the baseline, and the negative control
+`empty-frontier-check-ignores-baselines` asserts it.
 `CoveringUnlinkCoversFrontier` requires that, under the lock, the frontier a
 covering baseline was checked against is still the frontier at its commit. The
 link check and commit are one step because both run inside one locked
-transaction. The bounds stay small (`MaxUpdates = 3`); the state space is tiny
-because the model tracks only the uncovered-update count, the covered frontier,
-and the unlink transaction phase.
+transaction. The bounds stay small (`MaxUpdates = 3`); the run explores 61
+distinct states because the model tracks only the uncovered-update count,
+whether any update is committed, the covered frontier, and the unlink
+transaction phase.
 
 ## Backup Restore Terminal Anchors
 

@@ -14,6 +14,7 @@ import { documentAuditAccessFromManifest } from "../../../documents/documentAudi
 import { isAuthenticatedReplayableBaseline } from "../../../documents/documentReplayableBaseline";
 import { loadSignerPublicKey } from "../../signerPublicKey";
 import { appendDocumentUpdates } from "./appendOutgoingUpdates";
+import { hasCommittedDocumentUpdate } from "./committedDocumentUpdates";
 import { DocumentMutationError } from "./errors";
 import { readWriteHeader } from "./shared/records";
 import type { DocumentWriteAuthorizationProof } from "./types";
@@ -105,12 +106,7 @@ export async function assertBaselinelessUnlinkHasEmptyCommittedFrontier(
   executor: DatabaseSession,
   input: { readonly documentId: string },
 ): Promise<void> {
-  const [committedUpdate] = await executor
-    .select({ id: documentUpdates.id })
-    .from(documentUpdates)
-    .where(eq(documentUpdates.documentId, input.documentId))
-    .limit(1);
-  if (committedUpdate) {
+  if (await hasCommittedDocumentUpdate(executor, input.documentId)) {
     throw new DocumentMutationError(
       "Document unlink requires a rotation baseline covering committed updates",
       409,

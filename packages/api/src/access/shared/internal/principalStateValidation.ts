@@ -5,6 +5,7 @@ import {
   computePrincipalProjectionRoot,
   computePrincipalStatePayloadCiphertextHash,
   getPrincipalPolicyTransitionMismatch,
+  type PrincipalContainerGrant,
   type PrincipalProjectionMember,
   type SignedPrincipalState,
   throwPrincipalPolicyValidationError,
@@ -25,8 +26,10 @@ export function projectionIncludesAdminUser(
 }
 
 export function validatePrincipalPolicyTransition(input: {
+  currentGrants: readonly PrincipalContainerGrant[];
   currentState: SignedPrincipalState;
   currentProjection: readonly PrincipalProjectionMember[];
+  previousGrants: readonly PrincipalContainerGrant[];
   previousProjection: readonly StoredPrincipalProjectionMember[] | null;
   previousState: StoredPrincipalState | null;
 }): void {
@@ -36,10 +39,12 @@ export function validatePrincipalPolicyTransition(input: {
 
   const mismatch = getPrincipalPolicyTransitionMismatch({
     current: {
+      grants: input.currentGrants,
       state: input.currentState,
       projection: input.currentProjection,
     },
     previous: {
+      grants: input.previousGrants,
       state: input.previousState,
       projection: input.previousProjection,
     },
