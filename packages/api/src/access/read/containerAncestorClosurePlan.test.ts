@@ -5,6 +5,7 @@ import {
   accessManifests,
 } from "@tearleads/api-shared/schema";
 import { type SQL, sql } from "drizzle-orm";
+import { PgDialect } from "drizzle-orm/pg-core";
 import { isSqliteApiDatabase } from "../../utils/sqlDialect";
 import { listCurrentContainerKekTargetClosureIdsMapped } from "./containerKekTargets";
 
@@ -129,11 +130,7 @@ test.skipIf(isSqliteApiDatabase())(
   "each ancestor level compares the head id as a uuid on Postgres",
   async () => {
     const query = await capturedClosureQuery();
-    const { sql: text } = (
-      db as unknown as {
-        dialect: { sqlToQuery(query: SQL): { sql: string } };
-      }
-    ).dialect.sqlToQuery(query);
+    const { sql: text } = new PgDialect().sqlToQuery(query);
     expect(text).toContain("h.object_id = case when");
     expect(text).not.toContain("h.object_id::text = ");
   },

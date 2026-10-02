@@ -53,9 +53,13 @@ else
   FIXTURE_JAR_SHA256=$(shasum -a 256 "$TEST_ROOT/tla-tools/tla2tools.jar" | cut -d ' ' -f 1)
 fi
 
+mkdir -p "$TEST_ROOT/tmp"
+
+# The check's own temp root, and any failure log it keeps, stay under TEST_ROOT.
 run_check() (
   cd "$TEST_ROOT"
-  PATH="$TEST_ROOT/bin:$PATH" \
+  TMPDIR="$TEST_ROOT/tmp" \
+    PATH="$TEST_ROOT/bin:$PATH" \
     FAKE_JAVA="$TEST_ROOT/bin/java" \
     FAKE_JAVA_LOG="$JAVA_LOG" \
     FAKE_TLA_TOOLS_ROOT="$TEST_ROOT/tla-tools" \
@@ -128,8 +132,10 @@ install_registry valid.txt
 run_check >&- 2>/dev/null ||
   fail "an unwritable stdout aborted a passing check."
 install_registry valid.txt
-if FAKE_FAIL_CONFIG=formal/alpha/AlphaBroad.cfg FAKE_FAIL_STATUS=17 \
-  run_check >&- 2>/dev/null; then
+# A subshell keeps the assignments from outliving the function call, which
+# POSIX shells (macOS /bin/sh among them) otherwise allow.
+if (FAKE_FAIL_CONFIG=formal/alpha/AlphaBroad.cfg FAKE_FAIL_STATUS=17 \
+  run_check >&- 2>/dev/null); then
   fail "a TLC failure was accepted with an unwritable stdout."
 else
   closed_status=$?
@@ -158,6 +164,13 @@ for parallelism in 1 2; do
   assert_contains "$failure_output" "TLC failed for formal/alpha/Alpha.tla with formal/alpha/AlphaBroad.cfg."
   # A failure replays its whole log: the counterexample is the evidence.
   assert_contains "$failure_output" "fake-tlc trace line for formal/alpha/AlphaBroad.cfg"
+  # The log also outlives the check, since its temp root is removed on exit.
+  kept_log=$(printf '%s\n' "$failure_output" | sed -n 's/^Full TLC log kept at \(.*\)\.$/\1/p')
+  if [ -z "$kept_log" ] ||
+    ! grep -q "fake-tlc trace line for formal/alpha/AlphaBroad.cfg" "$kept_log"; then
+    fail "a failing TLC log was not kept at parallelism $parallelism."
+  fi
+  rm -f "$kept_log"
   if [ "$parallelism" -eq 1 ]; then
     [ "$(wc -l <"$JAVA_LOG" | tr -d '[:space:]')" -eq 2 ] ||
       fail "the checker did not stop after the first TLC failure."
@@ -180,7 +193,7 @@ install_registry valid.txt
 ) >/dev/null 2>&1 &
 interrupted_check=$!
 hang_wait=0
-until [ "$(wc -l <"$JAVA_LOG" 2>/dev/null | tr -d '[:space:]')" = 2 ]; do
+until [ "$(wc -l 2>/dev/null <"$JAVA_LOG" | tr -d '[:space:]')" = 2 ]; do
   hang_wait=$((hang_wait + 1))
   if [ "$hang_wait" -gt 30 ]; then
     kill -TERM "$interrupted_check" 2>/dev/null || :
