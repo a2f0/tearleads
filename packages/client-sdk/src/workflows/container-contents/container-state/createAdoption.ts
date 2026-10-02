@@ -28,8 +28,7 @@ export const CONTAINER_CREATE_ADOPTION_REFUSED =
 
 /**
  * The listed create's signed identity is not this device's pending create: its
- * verified head names another container, or its signed create another signer,
- * another organization, or a root. An honest server never lists that under the
+ * signed create names another signer, another organization, or a root. An honest server never lists that under the
  * id this device minted, and no later read can change those signed facts, so
  * the intent parks instead of re-verifying.
  */
@@ -66,10 +65,11 @@ async function verifyAdoptableProjection(input: {
     resolveUserKey: input.state.resolveProjectionUserKey,
   });
   const head = path.at(-1);
+  // One read naming another container says nothing signed about this id.
   if (!head || head.state.containerId !== input.containerId) {
-    throw foreignCreate(
+    throw new KeyingVerificationError(
       "object_mismatch",
-      "projection names another container",
+      `${LABEL} projection names another container`,
     );
   }
   const create = verifiedContainerCreateManifest({

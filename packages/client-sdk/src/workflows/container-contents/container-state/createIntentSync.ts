@@ -387,7 +387,12 @@ async function trySyncPendingContainerContentsContainerCreateIntent(
     });
   }
 
-  if (!hasRemoteContainerMetadataState(parentState)) {
+  // A parent whose own create has not settled may carry a listed identity
+  // adoption has not verified, or has refused; nothing is created under it.
+  if (
+    !hasRemoteContainerMetadataState(parentState) ||
+    input.isCreatePending(parentState.container.id)
+  ) {
     return "blocked";
   }
 
@@ -423,6 +428,9 @@ export async function syncPendingContainerCreateIntents(input: {
   const remainingContainerIds = new Set(
     pendingIntents.map((intent) => intent.containerId),
   );
+  // Only a create that settles in this pass leaves the pending set; a failed
+  // or parked one stays pending even though this pass stops retrying it.
+  const unsettledContainerIds = new Set(remainingContainerIds);
   let createdCount = 0;
   let progressed = true;
 
@@ -437,6 +445,8 @@ export async function syncPendingContainerCreateIntents(input: {
       const result = await trySyncPendingContainerContentsContainerCreateIntent(
         {
           host,
+          isCreatePending: (containerId) =>
+            unsettledContainerIds.has(containerId),
           isCurrent: input.isCurrent,
           isRemoteSyncBlocked: input.isRemoteSyncBlocked,
           intent,
@@ -456,6 +466,7 @@ export async function syncPendingContainerCreateIntents(input: {
       progressed = result === "created" || progressed;
       if (result === "created") {
         createdCount += 1;
+        unsettledContainerIds.delete(intent.containerId);
       }
     }
   }

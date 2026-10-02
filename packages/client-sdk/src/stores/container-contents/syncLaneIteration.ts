@@ -206,7 +206,8 @@ async function syncSingleContainerMetadata(input: {
 
 /**
  * A folder whose create has not settled can carry a listed identity that
- * adoption has not verified, or has refused; nothing is written into it.
+ * adoption has not verified, or has refused. Folder moves, document moves and
+ * metadata edits wait for it; child creates wait inside create sync.
  */
 async function loadPendingCreatePredicate(
   state: ContainerContentsStoreSyncState,

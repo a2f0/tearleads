@@ -147,3 +147,23 @@ test("a listed root is refused as a root, not as another organization", async ()
     "Container create adoption was refused: Container create conflict is an organization root",
   ]);
 });
+
+test("a projection whose verified head names another container is retried", async () => {
+  const { listedChild, parent } = await createAdoptionScenario();
+  const child = await listedChild();
+  const other = await listedChild();
+
+  const result = await runListedCreateAdoption({
+    intents: [{ containerId: child.containerId }],
+    parent,
+    served: [{ ...other, containerId: child.containerId }],
+  });
+
+  // One read says nothing signed about this id, so the intent is not parked.
+  expect(result.created).toBe(0);
+  expect(result.incidents).toEqual(["container.create.replay"]);
+  expect(result.evicted).toEqual([child.containerId]);
+  expect(result.recordedErrors).toEqual([
+    "Container create adoption verification failed: Container create conflict projection names another container",
+  ]);
+});

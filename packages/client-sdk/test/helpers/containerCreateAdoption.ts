@@ -62,6 +62,8 @@ export interface ListedIntent {
   readonly lastError?: string;
   /** The organization the intended parent belongs to locally. */
   readonly organization?: "same" | "other";
+  /** No listing carries it yet, so the pass would create it remotely. */
+  readonly unlisted?: true;
 }
 
 function pendingIntent(
@@ -160,9 +162,11 @@ function localContainers(parent: Parent, intents: readonly ListedIntent[]) {
     const child = createTestContainerState({
       id: listed.containerId,
       parentId,
-      synced: true,
+      synced: listed.unlisted !== true,
     });
     containers.set(listed.containerId, child);
+    // A parent that is itself a listed intent keeps its own state.
+    if (containers.has(parentId)) continue;
     const parentState = createTestContainerState({
       id: parentId,
       organizationId:

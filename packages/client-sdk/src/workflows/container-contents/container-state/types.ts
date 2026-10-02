@@ -158,6 +158,8 @@ export type ContainerCreateIntentSyncHost = Pick<
 
 export interface ContainerCreateIntentSyncInput {
   host: ContainerCreateIntentSyncHost;
+  /** A parent whose own create has not settled takes no child create. */
+  isCreatePending: (containerId: string) => boolean;
   isCurrent: () => boolean;
   isRemoteSyncBlocked: (organizationId: string) => boolean;
   intent: ContainerCreateIntentRecord;

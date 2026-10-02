@@ -153,3 +153,46 @@ test("a blocked organization's listed create is not read", async () => {
   expect(result.reads).toEqual([]);
   expect(result.recordedErrors).toEqual([]);
 });
+
+test.each([
+  ["refused in this pass", undefined],
+  [
+    "parked earlier",
+    `${CONTAINER_CREATE_ADOPTION_REFUSED}: Container create conflict was signed by another user`,
+  ],
+] as const)(
+  "no folder is created under a parent whose create was %s",
+  async (_when, parentLastError) => {
+    const { listedChild, parent } = await createAdoptionScenario();
+    const foreign = await listedChild();
+    const child = crypto.randomUUID();
+
+    const result = await runListedCreateAdoption({
+      intents: [
+        {
+          containerId: foreign.containerId,
+          ...(parentLastError ? { lastError: parentLastError } : {}),
+        },
+        {
+          containerId: child,
+          desiredParentId: foreign.containerId,
+          unlisted: true,
+        },
+      ],
+      parent,
+      served: [foreign],
+      sessionUser: "another",
+    });
+
+    expect(result.created).toBe(0);
+    // Only the parent's own adoption may read; the child sends nothing.
+    expect(result.reads).toEqual(parentLastError ? [] : [foreign.containerId]);
+    expect(result.recordedErrors).toEqual(
+      parentLastError
+        ? []
+        : [
+            `${CONTAINER_CREATE_ADOPTION_REFUSED}: Container create conflict was signed by another user`,
+          ],
+    );
+  },
+);
