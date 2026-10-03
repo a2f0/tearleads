@@ -14,6 +14,7 @@ import type { useTearleadsRuntime } from "../../../providers/sdk/TearleadsProvid
 import type { useOrgManagerActions } from "../../../stores/org-manager/OrgManagerProvider";
 import { prepareRosterImport } from "../groups/orgManagerMutationOperations";
 import { useOrgManagerMembershipMutations } from "../groups/useOrgManagerMembershipMutations";
+import { groupSignedName } from "../labels";
 import type { useOrgManagerRefreshers } from "../refreshers/useOrgManagerRefreshers";
 import type { OrgManagerView } from "../routes";
 import { runScopedOrgMutation } from "./runScopedOrgMutation";
@@ -306,8 +307,10 @@ export function useOrgManagerMutations(params: OrgManagerMutationsParams) {
     refreshDirectoryAndGroups,
     refreshSelectedGroupDetails,
     selectedGroupId,
-    selectedGroupName:
-      groups.find((group) => group.groupId === selectedGroupId)?.name ?? null,
+    // A group without a readable signed name cannot be acted on by name.
+    selectedGroupName: groupSignedName(
+      groups.find((group) => group.groupId === selectedGroupId),
+    ),
     selectedGroupIsAdminsGroup,
     selectedGroupIsMembersGroup,
     setAddUserId,

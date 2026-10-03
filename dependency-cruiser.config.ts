@@ -545,17 +545,17 @@ const uiRules = [
 
 const windowingRules = [
   {
-    name: "windowing-depends-only-on-ui",
+    name: "windowing-depends-on-no-workspace-package",
     severity: "error",
     comment:
-      "The windowing package is app-agnostic window state, chrome, and menus. It may import only itself and @tearleads/ui; app behavior reaches a window through slots such as Window's ContentBoundary.",
+      "The windowing package is app-agnostic window state, chrome, and menus, published on its own, so it imports no other workspace package. App behavior reaches a window through slots such as Window's ContentBoundary.",
     from: {
       path: sourceRoot.windowing,
       pathNot: testFilesPattern,
     },
     to: {
       path: "^packages/",
-      pathNot: [sourceRoot.windowing, sourceRoot.ui],
+      pathNot: sourceRoot.windowing,
     },
   },
 ] satisfies ForbiddenRules;

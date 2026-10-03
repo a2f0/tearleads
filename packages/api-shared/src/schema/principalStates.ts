@@ -46,7 +46,8 @@ import {
  *   or `null` for the initial state.
  * - `keyEpoch`: Principal wrapping-key epoch referenced by this state. It may
  *   stay the same for additive policy changes, but cannot decrease; key
- *   material changes and membership shrink require a new epoch.
+ *   material changes, membership shrink and container grant removal require
+ *   a new epoch.
  * - `encapsulationPublicKey`: Public KEM key for the principal at `keyEpoch`.
  *   Members encrypt/rewrap principal key material to this public key.
  * - `keyFingerprint`: Fingerprint of `encapsulationPublicKey`; verified before
@@ -327,9 +328,9 @@ export const principalContainerGrantProjection = pgTable(
  * current principal epoch key.
  *
  * Key epochs are historical and monotonic. Additive policy changes may reuse an
- * existing epoch and key material; membership shrink or key material changes
- * require a new epoch. Replays for an existing epoch must provide matching key
- * material.
+ * existing epoch and key material; membership shrink, container grant removal
+ * or key material changes require a new epoch. Replays for an existing epoch
+ * must provide matching key material.
  *
  * Columns:
  * - `id`: Surrogate database primary key. Domain identity is

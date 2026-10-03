@@ -51,7 +51,10 @@ proves that emptiness inside the mutation transaction under the document
 manifest-head write lock. Sync writers hold the corresponding exclusive lock,
 so no update can commit between the emptiness proof and the unlink. A baseline-
 less unlink against a non-empty committed frontier is rejected as a conflict.
-A link must not carry a rotation baseline.
+A link must not carry a rotation baseline, so it may advance the content-key
+epoch only under the same emptiness proof; otherwise the link is rejected as a
+conflict. A stored rotation baseline counts as a committed update. Honest
+clients link at the current epoch.
 
 Encrypted Loro sync uses `POST /documents/{documentId}/sync`.
 `DocumentSyncRequest` carries:

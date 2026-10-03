@@ -66,9 +66,14 @@ async function rewriteStaticSpecifiers(filePath: string): Promise<void> {
   }
 }
 
-// An explicit argument retargets the rewrite so tests can run it against a
-// fixture directory; the build always runs it against dist.
-const distPath = process.argv[2] ?? join(import.meta.dir, "..", "dist");
+// Adds the explicit .js (or /index.js) suffix ESM needs to every relative
+// import in a compiled output directory. Packages that publish compiled output
+// (client-sdk, windowing) run it on their dist after tsc; tests run it on a
+// fixture directory.
+const distPath = process.argv[2];
+if (!distPath) {
+  throw new Error("usage: bun scripts/lib/rewriteDistImports.ts <dist-dir>");
+}
 const outputFiles = await listOutputFiles(distPath);
 
 await Promise.all(outputFiles.map(rewriteStaticSpecifiers));

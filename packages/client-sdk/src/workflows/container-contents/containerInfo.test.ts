@@ -69,6 +69,7 @@ test("loadContainerInfo reads direct grants, organization groups, and local sync
         }).lanes.groups.groups.map((group) => ({
           ...group,
           name: "Operators",
+          nameUnreadable: false,
         })),
       parentId: null,
     });

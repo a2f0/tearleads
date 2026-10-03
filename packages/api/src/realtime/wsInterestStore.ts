@@ -1,4 +1,5 @@
 import { del, expire, sadd, srem, sscanMembers } from "../adapters/redis";
+import { reportBackgroundFailure } from "../diagnostics/reportBackgroundFailure";
 import type { AppliedInterest } from "./wsRouting";
 
 // Per-session mirror of a socket's interested containers, so a reconnecting
@@ -100,3 +101,32 @@ export const wsInterestStore = createWsInterestStore({
   srem,
   sscanMembers,
 });
+
+/**
+ * Serializes interest writes per session, so a later declaration never lands
+ * before an earlier one; failures are logged and reported, never thrown.
+ */
+export function createOrderedInterestPersister(
+  interestStore: Pick<ReturnType<typeof createWsInterestStore>, "apply">,
+) {
+  const interestWriteChains = new Map<string, Promise<void>>();
+  return (
+    userId: string,
+    sessionId: string,
+    applied: AppliedInterest,
+  ): void => {
+    const sessionKey = `${userId}:${sessionId}`;
+    const chain = (interestWriteChains.get(sessionKey) ?? Promise.resolve())
+      .then(() => interestStore.apply(userId, sessionId, applied))
+      .catch((error: unknown) => {
+        console.error("Failed to persist websocket interest:", error);
+        reportBackgroundFailure(error, "websocket.persist");
+      });
+    interestWriteChains.set(sessionKey, chain);
+    void chain.finally(() => {
+      if (interestWriteChains.get(sessionKey) === chain) {
+        interestWriteChains.delete(sessionKey);
+      }
+    });
+  };
+}

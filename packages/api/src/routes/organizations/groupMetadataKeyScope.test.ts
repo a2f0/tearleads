@@ -172,3 +172,47 @@ test.each(citations)(
     await expectGroupAbsent(groupId);
   },
 );
+
+// A name sealed before the metadata container rotated keeps citing that epoch,
+// and members still open it through the keyring, so any epoch of the container
+// is accepted, not only the current one.
+test("group creation accepts a name citing a rotated-away metadata epoch", async () => {
+  const fixture = await loadCitationFixture();
+  const [current] = await db
+    .select({ keyEpoch: containerKeyEpochs.keyEpoch })
+    .from(containerKeyEpochs)
+    .where(eq(containerKeyEpochs.id, fixture.metadata.containerKeyEpochId));
+  invariant(current, "expected the current metadata epoch");
+  // The citation check reads only the epoch row, so a later epoch row is
+  // enough to retire the cited one.
+  await db.insert(containerKeyEpochs).values({
+    accessManifestHash: "rotated-metadata-manifest",
+    containerId: fixture.metadata.containerId,
+    createdByEventHash: "rotated-metadata-event",
+    createdByManifestHash: "rotated-metadata-manifest",
+    id: `rotated-metadata-epoch-${crypto.randomUUID()}`,
+    keyEpoch: current.keyEpoch + 1,
+  });
+  const groupId = crypto.randomUUID();
+  const request = await createGroupRequest({
+    actor: fixture.actor,
+    groupId,
+    metadataKey: citedKey(fixture, fixture.metadata),
+    name: "Operators",
+  });
+
+  const response = await routeApp.request(
+    `/organizations/${fixture.organizationId}/groups`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${fixture.actor.token}`,
+      },
+      body: JSON.stringify(request),
+    },
+  );
+
+  expect(response.status).toBe(200);
+  expect(await getCurrentPrincipalState("group", groupId, db)).not.toBeNull();
+});

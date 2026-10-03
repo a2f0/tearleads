@@ -164,6 +164,7 @@ export function createGroupForOrganization(input: {
           input.runtime,
           signingContext.organizationId,
         ),
+        reportSecurityIncident: input.runtime.util.reportSecurityIncident,
         resolveTrustedUserIdentity: input.runtime.resolveTrustedUserIdentity,
         ...signingContext,
       }),
