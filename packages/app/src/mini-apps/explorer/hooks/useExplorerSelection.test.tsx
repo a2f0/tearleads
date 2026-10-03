@@ -189,6 +189,8 @@ function renderSelection(initialNodes: ReadonlyArray<ContainerNode>) {
   );
 }
 
+const root = containerNode("root-container", { name: "Root", parentId: null });
+
 const replacedRoot = containerNode("replaced-root", {
   organizationId: "org-2",
   parentId: null,
@@ -209,7 +211,7 @@ test("a replaced device-local system container keeps its selection", async () =>
     organizationId: "",
     systemSlot: "slot",
   });
-  const view = renderSelection([nodes[0] as ContainerNode, localContacts]);
+  const view = renderSelection([root, localContacts]);
   act(() => view.result.current.setSelectedId("local-contacts"));
 
   view.rerender({
@@ -227,7 +229,7 @@ test("a replaced device-local system container keeps its selection", async () =>
 
 test("switching organizations with a system container selected resets to the root", async () => {
   const trash = containerNode("org-1-trash", { systemSlot: "trash-slot" });
-  const view = renderSelection([nodes[0] as ContainerNode, trash]);
+  const view = renderSelection([root, trash]);
   act(() => view.result.current.setSelectedId("org-1-trash"));
 
   view.rerender({
@@ -244,7 +246,7 @@ test("an ambiguous slot falls back to the root", async () => {
     organizationId: "",
     systemSlot: "slot",
   });
-  const view = renderSelection([nodes[0] as ContainerNode, localContacts]);
+  const view = renderSelection([root, localContacts]);
   act(() => view.result.current.setSelectedId("local-contacts"));
 
   view.rerender({
@@ -265,11 +267,35 @@ test("only the vanished selection follows its slot, not a later unknown id", asy
     organizationId: "",
     systemSlot: "slot",
   });
-  const view = renderSelection([nodes[0] as ContainerNode, localContacts]);
+  const view = renderSelection([root, localContacts]);
   act(() => view.result.current.setSelectedId("local-contacts"));
   act(() => view.result.current.setSelectedId("missing-item"));
 
   await waitFor(() => {
     expect(view.result.current.selectedId).toBe("root-container");
+  });
+});
+
+// The usual root-first order: reconciliation first moves the local Contacts
+// under the remote root, giving it the remote organization, and only a later
+// batch replaces it with the identity's own Contacts.
+test("a local system container moved under the remote root still follows its replacement", async () => {
+  const localContacts = containerNode("local-contacts", {
+    organizationId: "",
+    systemSlot: "slot",
+  });
+  const view = renderSelection([root, localContacts]);
+  act(() => view.result.current.setSelectedId("local-contacts"));
+
+  view.rerender({
+    current: [replacedRoot, { ...replacedChild("local-contacts", "slot") }],
+  });
+  await waitFor(() => {
+    expect(view.result.current.selectedId).toBe("local-contacts");
+  });
+
+  view.rerender({ current: [replacedRoot, replacedChild("contacts", "slot")] });
+  await waitFor(() => {
+    expect(view.result.current.selectedId).toBe("contacts");
   });
 });

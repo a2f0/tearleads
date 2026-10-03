@@ -8,9 +8,29 @@ import {
 import { getDocumentByLocalId } from "../model/documentSummaries";
 
 interface LastSelectedContainer {
+  /** Not yet on the server, as a recovered device's bootstrap copy is. */
+  readonly deviceLocal: boolean;
   readonly id: string;
-  readonly organizationId: string;
   readonly systemSlot: string | null;
+}
+
+/**
+ * Recovery may first move the device's local copy under the remote root, which
+ * gives it the remote organization, before the identity's own copy replaces
+ * it; so a container seen device-local stays device-local for its id.
+ */
+function lastSelectedContainer(
+  node: ContainerNode,
+  previous: LastSelectedContainer | null,
+): LastSelectedContainer {
+  return {
+    deviceLocal:
+      node.organizationId === "" ||
+      node.syncState.status === "local-only" ||
+      (previous?.id === node.id && previous.deviceLocal),
+    id: node.id,
+    systemSlot: node.systemSlot ?? null,
+  };
 }
 
 interface PendingSelectedDocument {
@@ -27,7 +47,7 @@ function getDefaultSelectedNode(
 /**
  * The node that took over a vanished device-local system container, when
  * exactly one has its slot. A recovered device replaces its locally created
- * Contacts or Trash, which has no organization yet, with the identity's
+ * Contacts or Trash, which is not yet on the server, with the identity's
  * existing one under a new id (#2393); the selection follows it rather than
  * falling back to the root. Switching organizations still resets to the root.
  */
@@ -38,7 +58,7 @@ function getLocalSystemContainerReplacement(
 ): ContainerNode | undefined {
   if (
     !vanished?.systemSlot ||
-    vanished.organizationId !== "" ||
+    !vanished.deviceLocal ||
     vanished.id !== selectedId
   ) {
     return undefined;
@@ -90,11 +110,10 @@ function useExplorerSelectedId(
     const selectedNode = nodes.find((node) => node.id === selectedId);
     const selectedMatchesContainer = selectedNode !== undefined;
     if (selectedNode) {
-      selectedContainer.current = {
-        id: selectedNode.id,
-        organizationId: selectedNode.organizationId,
-        systemSlot: selectedNode.systemSlot ?? null,
-      };
+      selectedContainer.current = lastSelectedContainer(
+        selectedNode,
+        selectedContainer.current,
+      );
     }
     const selectedDocument =
       selectedId !== null
