@@ -21,6 +21,7 @@ import {
   DOCUMENT_MUTATION_ERROR_CODES,
   type DocumentWriterProjectionResponse,
 } from "@tearleads/validators/response";
+import { eq } from "drizzle-orm";
 import {
   createAuthor,
   createResponseFromRequest,
@@ -33,6 +34,7 @@ import {
 } from "../../data/documents/shared/documentSyncUpdateIsolation";
 import {
   clientSqlTables,
+  containerCreateIntents,
   containers,
   documentHistoryCheckpoints,
   documentPendingUpdates,
@@ -128,6 +130,13 @@ async function resetClient(input: {
   );
   const [pending] = await db.select().from(documentPendingUpdates);
   if (!pending?.id) throw new Error("Expected reset to queue local history");
+  // Reset re-queues the folder's create; a document waits for it, so settle
+  // it as the structural lane would before the document create runs.
+  await db
+    .update(containerCreateIntents)
+    .set({ syncStatus: "synced" })
+    .where(eq(containerCreateIntents.containerId, OLD_CONTAINER_ID))
+    .run();
   return {
     close,
     execSql,

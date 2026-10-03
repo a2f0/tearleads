@@ -14,7 +14,7 @@ requires administrator authority, so an ordinary writer cannot create a decoy.
 | `MergeRoot` / `RequireSessionRoot` / `RequireRootScope` | `isSessionRootState` checks the session root identity and organization at the reconciliation boundary, after `verifyRemoteContainerDestination` checks its signed organization |
 | `MergeRoot` / `RequireRootCreator` | `assertRootCreatedBySessionUser` requires the acknowledged root's epoch-1 create, found by `verifiedContainerCreateManifest`, to be signed by the session user; `assertAcknowledgedRootSigner` applies it on hydration and `isVerifiedLocalRootReconciliationTarget` before every local root merge, using only the role remote hydration verified and cached (an uncached role leaves the merge pending) |
 | `Login` / `RefuseRootSwap` | `acknowledgeSessionRoot` refuses a different root id for an already acknowledged organization; `commitSessionRootAcknowledgment` decides and commits it against the live snapshot and records the incident |
-| `RestoreBackup` / `PreserveAcknowledgmentsOnRestore` | `prepareForRestoreReload` rewrites the session with `restoreReloadCryptoSessionContext`, signed out but keeping its acknowledgements, and `clearRestoredLocalCaches` no longer clears sessions |
+| `RestoreBackup` / `PreserveAcknowledgmentsOnRestore` | `prepareForRestoreReload` rewrites the session with `restoreReloadCryptoSessionContext`, signed out but keeping its acknowledgements (from the saved record when the live session has not loaded it), and `clearRestoredLocalCaches` no longer clears sessions |
 | `MoveDestination` / `PreserveDestinationIdentity` | `deriveContainerMoveManifestState` forbids moves of roots and system containers |
 | `UseSystem` / `RequireSystemScope` | `findSystemContainerStateForRoot` selects the authenticated slot in the active organization and acknowledged root |
 | `CreateSystem` / `RequireSystemAdministrator` / `RequireSystemTopology` | `assertContainerSystemTopology` permits only the organization-derived metadata slot at a root; `deriveContainerCreateManifestState` requires administrator authority and complete root parent paths for all other slots |
@@ -61,9 +61,13 @@ acknowledgement. Encrypted session persistence retains the per-organization
 acknowledgements under the signing fingerprint, and a backup restore keeps
 them: it rewrites the session signed out, with no pinned root, before reloading
 (`RestoreBackup`; the negative control `restore-clears-root-acknowledgements`
-reproduces the restore that cleared them). Registration and organization
-creation also record server acknowledgements; organization switching selects
-among them without trusting listing roots.
+reproduces the restore that cleared them). Before the live session has loaded
+the saved record, the rewrite reads that record instead. A rewrite that fails,
+or waits more than five seconds behind a stalled session write, drops the record
+and logs why. That failure path is the negative control's restore and is not
+part of the checked configuration. Registration and organization creation also
+record server acknowledgements; organization switching selects among them
+without trusting listing roots.
 
 The login response is unsigned, so two further rules bind the root it names.
 A later login may repeat an organization's acknowledged root or report it

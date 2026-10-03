@@ -58,6 +58,7 @@ test("a generation change while document move intents load abandons replacement 
     blockPendingList = true;
 
     const sync = syncPendingDocumentMoveIntents({
+      isCreatePending: () => false,
       host: {
         documentWorkflowRuntime: () => null,
         openDocumentStore: () => {
@@ -115,6 +116,7 @@ test("a replacement executor gets its own denied move replay", async () => {
   try {
     await defaultDocumentsPersistence.ensureSchema(replacementDatabase.execSql);
     await syncPendingDocumentMoveIntents({
+      isCreatePending: () => false,
       host,
       isCurrent: () => true,
       isRemoteSyncBlocked: () => false,
@@ -146,6 +148,7 @@ test("a replacement executor gets its own denied move replay", async () => {
     };
 
     await syncPendingDocumentMoveIntents({
+      isCreatePending: () => false,
       host,
       isCurrent: () => true,
       isRemoteSyncBlocked: () => false,
@@ -248,6 +251,7 @@ test("stale document move identity failures do not report into a replacement", a
     const incidents: unknown[] = [];
 
     const synced = await syncPendingDocumentMoveIntents({
+      isCreatePending: () => false,
       host: {
         documentWorkflowRuntime: () => null,
         openDocumentStore: () => ({

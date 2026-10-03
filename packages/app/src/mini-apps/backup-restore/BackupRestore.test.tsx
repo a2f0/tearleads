@@ -205,6 +205,36 @@ test("exports without a password despite stale mismatched fields and restores wi
   expect(view.queryByText(/This backup is not encrypted/)).toBeNull();
 });
 
+test("Reload App clears the stale caches, keeps session records and reloads", async () => {
+  const reload = spyOn(window.location, "reload").mockImplementation(
+    () => undefined,
+  );
+  try {
+    const view = renderBackupRestore();
+    const text = await exportBackup(view);
+    fireEvent.click(view.getByRole("tab", { name: "Restore" }));
+    await act(async () => chooseBackup(view, text));
+    fireEvent.click(
+      view.getByRole("button", { name: "Restore Unencrypted Backup" }),
+    );
+    await waitFor(() =>
+      expect(view.queryByText(/Backup restored:/)).toBeTruthy(),
+    );
+    localStorage.setItem("tearleads.documents.peer-seed", "pre-restore");
+    localStorage.setItem("tearleads.local-session:other:fingerprint", "kept");
+
+    fireEvent.click(view.getByRole("button", { name: "Reload App" }));
+
+    await waitFor(() => expect(reload).toHaveBeenCalledTimes(1));
+    expect(localStorage.getItem("tearleads.documents.peer-seed")).toBeNull();
+    expect(
+      localStorage.getItem("tearleads.local-session:other:fingerprint"),
+    ).toBe("kept");
+  } finally {
+    reload.mockRestore();
+  }
+});
+
 test("encrypted backups still require the correct password and can be retried", async () => {
   const view = renderBackupRestore();
   const text = await exportBackup(view, "test-password");

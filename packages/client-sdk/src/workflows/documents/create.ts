@@ -30,6 +30,7 @@ import {
   nullOnProjectionVerificationCancellation,
   requireProjectionUserKeyResolver,
 } from "../../data/keyingProjectionVerification";
+import { isContainerCreatePending } from "../../data/persistence/container-contents/pendingContainerCreate";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import { recordDocumentAuthorAccessFailure } from "./authorAccessFailure";
 import { adoptExistingRemoteDocument } from "./createAdoption";
@@ -353,6 +354,10 @@ async function submitPlannedDocumentCreate(
 export async function createRemoteDocument(
   input: RemoteDocumentCreateInput,
 ): Promise<CreateRemoteDocumentResult | null> {
+  // The store retries once the folder's own create settles.
+  if (await isContainerCreatePending(input.execSql, input.containerId)) {
+    return null;
+  }
   const resolveProjectionUserKey = requireProjectionUserKeyResolver(
     input.resolveProjectionUserKey,
     "Remote document create",

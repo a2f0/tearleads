@@ -324,6 +324,7 @@ test("a queued move the server refuses for path length is abandoned, not retried
   try {
     await expect(
       syncPendingContainerMoveIntents({
+        isCreatePending: () => false,
         host: noHost,
         isCurrent: () => true,
         isRemoteSyncBlocked: () => false,
