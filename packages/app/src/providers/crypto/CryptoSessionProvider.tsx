@@ -28,7 +28,10 @@ import {
 } from "./localCryptoSessionPersistence";
 import { useEnsureDatabaseForIdentity } from "./useEnsureDatabaseForIdentity";
 import { usePersistCryptoSession } from "./usePersistCryptoSession";
-import { usePrepareForRestoreReload } from "./usePrepareForRestoreReload";
+import {
+  type RestoreReloadDrop,
+  usePrepareForRestoreReload,
+} from "./usePrepareForRestoreReload";
 
 export interface CryptoSessionContextValue {
   userId: string | null;
@@ -57,9 +60,10 @@ export interface CryptoSessionContextValue {
   logout: () => void;
   /**
    * Leaves a signed-out record that keeps this identity's root
-   * acknowledgements, before a backup restore reloads the app.
+   * acknowledgements, before a backup restore reloads the app. Resolves with
+   * why the record was dropped instead, or null.
    */
-  prepareForRestoreReload: () => Promise<void>;
+  prepareForRestoreReload: () => Promise<RestoreReloadDrop>;
 }
 
 const CryptoSessionContext = createContext<CryptoSessionContextValue | null>(
@@ -315,7 +319,7 @@ function useCryptoSessionContextValue(
   sessionState: ReturnType<typeof useSdkBackedCryptoSessionState>,
   sessionRestoreSettled: boolean,
   actions: ReturnType<typeof useCryptoAuthActions>,
-  prepareForRestoreReload: () => Promise<void>,
+  prepareForRestoreReload: () => Promise<RestoreReloadDrop>,
 ) {
   const { login, loginWithChallenge, logout } = actions;
   return useMemo<CryptoSessionContextValue>(
