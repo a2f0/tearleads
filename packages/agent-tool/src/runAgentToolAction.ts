@@ -4,12 +4,14 @@ import { solicitClaudeCodeReview } from "./review/solicitClaudeCodeReview";
 import { solicitCodexReview } from "./review/solicitCodexReview";
 import { solicitOpencodeReview } from "./review/solicitOpencodeReview";
 import { bumpVersions, checkVersions } from "./version/bumpVersions";
+import { prepareVersions } from "./version/prepareVersions";
 import { resolveVersionConflicts } from "./version/resolveVersionConflicts";
 
 const AGENT_TOOL_USAGE =
-  "Usage: agent-tool <solicitClaudeCodeReview|solicitCodexReview|solicitOpencodeReview|openPr|squashMerge|bumpVersions|checkVersions|resolveVersionConflicts> [args]\n";
+  "Usage: agent-tool <solicitClaudeCodeReview|solicitCodexReview|solicitOpencodeReview|openPr|squashMerge|prepareVersions|bumpVersions|checkVersions|resolveVersionConflicts> [args]\n";
 
 export interface AgentToolActions {
+  readonly prepareVersions: (rootDir: string, baseOid?: string) => number;
   readonly bumpVersions: (rootDir: string, baseOid?: string) => number;
   readonly checkVersions: (rootDir: string, baseOid?: string) => number;
   readonly resolveVersionConflicts: (rootDir: string) => number;
@@ -29,6 +31,7 @@ export interface AgentToolActions {
 }
 
 const defaultActions: AgentToolActions = {
+  prepareVersions,
   bumpVersions,
   checkVersions,
   resolveVersionConflicts,
@@ -60,6 +63,10 @@ export function runAgentToolAction(
   const [action, ...positionals] = args;
   const [first, second, third] = positionals;
   switch (action) {
+    case "prepareVersions": {
+      assertMaximumPositionals(action, positionals, 1);
+      return actions.prepareVersions(rootDir, first);
+    }
     case "bumpVersions": {
       assertMaximumPositionals(action, positionals, 1);
       return actions.bumpVersions(rootDir, first);

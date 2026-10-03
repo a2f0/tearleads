@@ -7,6 +7,7 @@ import {
 
 function actionsWith(overrides: Partial<AgentToolActions>): AgentToolActions {
   return {
+    prepareVersions: () => 0,
     bumpVersions: () => 0,
     checkVersions: () => 0,
     resolveVersionConflicts: () => 0,
@@ -20,6 +21,22 @@ function actionsWith(overrides: Partial<AgentToolActions>): AgentToolActions {
 }
 
 describe("runAgentToolAction", () => {
+  test("dispatches version preparation and rejects extra arguments", () => {
+    const calls: unknown[] = [];
+    const actions = actionsWith({
+      prepareVersions: (root, base) => {
+        calls.push([root, base]);
+        return 17;
+      },
+    });
+    expect(
+      runAgentToolAction("/repo", ["prepareVersions", "abc"], actions),
+    ).toBe(17);
+    expect(calls).toEqual([["/repo", "abc"]]);
+    expect(() =>
+      runAgentToolAction("/repo", ["prepareVersions", "abc", "extra"], actions),
+    ).toThrow("at most 1");
+  });
   test("dispatches the version actions with the pinned base OID", () => {
     const calls: unknown[] = [];
     const actions = actionsWith({
