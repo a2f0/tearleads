@@ -251,6 +251,21 @@ read_run_status() {
   esac
 }
 
+# A failing log outlives the check: a long counterexample can be cut short on
+# a non-blocking CI stdout, and the EXIT trap removes everything under
+# CHECK_ROOT. CI points PROTOCOL_TLC_FAILURE_LOG_DIR at a directory it uploads;
+# locally the log stays in TMPDIR. Keeping it is best effort, like the report.
+keep_failure_log() {
+  failure_log_dir=${PROTOCOL_TLC_FAILURE_LOG_DIR:-${TMPDIR:-/tmp}}
+  mkdir -p "$failure_log_dir" 2>/dev/null || return 0
+  kept_log=$(mktemp "$failure_log_dir/tearleads-tlc-failure.XXXXXX") || return 0
+  if cp "$1" "$kept_log" 2>/dev/null; then
+    report_line "Full TLC log kept at $kept_log." >&2
+  else
+    rm -f "$kept_log"
+  fi
+}
+
 report_finished_runs() {
   while [ -z "$failed_index" ] && [ -e "$CHECK_ROOT/model-$next_report.done" ]; do
     report_path=$CHECK_ROOT/model-$next_report
@@ -260,6 +275,7 @@ report_finished_runs() {
     if [ "$report_status" -ne 0 ]; then
       # A failure replays its whole log; the counterexample is the evidence.
       cat "$report_path.log" 2>/dev/null || :
+      keep_failure_log "$report_path.log"
       failed_index=$next_report
       failed_status=$report_status
     else

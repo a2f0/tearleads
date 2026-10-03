@@ -17,9 +17,9 @@ assert_contains() {
   esac
 }
 
-# The assertions below pick their own parallelism; a value exported by the
-# caller must not change them.
-unset PROTOCOL_TLC_PARALLELISM
+# The assertions below pick their own parallelism and failure-log directory;
+# values exported by the caller must not change them.
+unset PROTOCOL_TLC_PARALLELISM PROTOCOL_TLC_FAILURE_LOG_DIR
 
 SOURCE_ROOT=$(git rev-parse --show-toplevel)
 CHECK_SCRIPT=$SOURCE_ROOT/scripts/checks/checkProtocolModels.sh
@@ -53,15 +53,20 @@ else
   FIXTURE_JAR_SHA256=$(shasum -a 256 "$TEST_ROOT/tla-tools/tla2tools.jar" | cut -d ' ' -f 1)
 fi
 
+mkdir -p "$TEST_ROOT/tmp"
+
+# The check's own temp root, and any failure log it keeps, stay under TEST_ROOT.
 run_check() (
   cd "$TEST_ROOT"
-  PATH="$TEST_ROOT/bin:$PATH" \
+  TMPDIR="$TEST_ROOT/tmp" \
+    PATH="$TEST_ROOT/bin:$PATH" \
     FAKE_JAVA="$TEST_ROOT/bin/java" \
     FAKE_JAVA_LOG="$JAVA_LOG" \
     FAKE_TLA_TOOLS_ROOT="$TEST_ROOT/tla-tools" \
     FAKE_FAIL_CONFIG="${FAKE_FAIL_CONFIG:-}" \
     FAKE_FAIL_MODEL="${FAKE_FAIL_MODEL:-}" \
     FAKE_FAIL_STATUS="${FAKE_FAIL_STATUS:-}" \
+    PROTOCOL_TLC_FAILURE_LOG_DIR="${PROTOCOL_TLC_FAILURE_LOG_DIR:-}" \
     PROTOCOL_TLC_PARALLELISM="${PROTOCOL_TLC_PARALLELISM:-}" \
     TLA_TOOLS_JAR_SHA256="${TLA_TOOLS_JAR_SHA256:-$FIXTURE_JAR_SHA256}" \
     "$CHECK_SCRIPT"
@@ -128,8 +133,10 @@ install_registry valid.txt
 run_check >&- 2>/dev/null ||
   fail "an unwritable stdout aborted a passing check."
 install_registry valid.txt
-if FAKE_FAIL_CONFIG=formal/alpha/AlphaBroad.cfg FAKE_FAIL_STATUS=17 \
-  run_check >&- 2>/dev/null; then
+# A subshell keeps the assignments from outliving the function call, which
+# POSIX shells (macOS /bin/sh among them) otherwise allow.
+if (FAKE_FAIL_CONFIG=formal/alpha/AlphaBroad.cfg FAKE_FAIL_STATUS=17 \
+  run_check >&- 2>/dev/null); then
   fail "a TLC failure was accepted with an unwritable stdout."
 else
   closed_status=$?
@@ -140,11 +147,15 @@ fi
 # One run at a time, a failure must stop the check before the next run starts.
 # With overlapping runs, which later runs had already started depends on
 # timing, so only the reported failure is asserted there.
+# The second run keeps its log where CI asks, in a directory not created yet.
 for parallelism in 1 2; do
   install_registry valid.txt
+  failure_log_dir=
+  [ "$parallelism" -eq 1 ] || failure_log_dir=$TEST_ROOT/failure-logs/nested
   if failure_output=$(
     FAKE_FAIL_CONFIG=formal/alpha/AlphaBroad.cfg \
       FAKE_FAIL_STATUS=17 \
+      PROTOCOL_TLC_FAILURE_LOG_DIR=$failure_log_dir \
       PROTOCOL_TLC_PARALLELISM=$parallelism \
       run_check 2>&1
   ); then
@@ -158,6 +169,17 @@ for parallelism in 1 2; do
   assert_contains "$failure_output" "TLC failed for formal/alpha/Alpha.tla with formal/alpha/AlphaBroad.cfg."
   # A failure replays its whole log: the counterexample is the evidence.
   assert_contains "$failure_output" "fake-tlc trace line for formal/alpha/AlphaBroad.cfg"
+  # The log also outlives the check, since its temp root is removed on exit.
+  kept_log=$(printf '%s\n' "$failure_output" | sed -n 's/^Full TLC log kept at \(.*\)\.$/\1/p')
+  if [ -z "$kept_log" ] ||
+    ! grep -q "fake-tlc trace line for formal/alpha/AlphaBroad.cfg" "$kept_log"; then
+    fail "a failing TLC log was not kept at parallelism $parallelism."
+  fi
+  case "$kept_log" in
+    "${failure_log_dir:-$TEST_ROOT/tmp}"/*) ;;
+    *) fail "a failing TLC log was kept outside its directory: $kept_log" ;;
+  esac
+  rm -f "$kept_log"
   if [ "$parallelism" -eq 1 ]; then
     [ "$(wc -l <"$JAVA_LOG" | tr -d '[:space:]')" -eq 2 ] ||
       fail "the checker did not stop after the first TLC failure."
@@ -180,7 +202,7 @@ install_registry valid.txt
 ) >/dev/null 2>&1 &
 interrupted_check=$!
 hang_wait=0
-until [ "$(wc -l <"$JAVA_LOG" 2>/dev/null | tr -d '[:space:]')" = 2 ]; do
+until [ "$(wc -l 2>/dev/null <"$JAVA_LOG" | tr -d '[:space:]')" = 2 ]; do
   hang_wait=$((hang_wait + 1))
   if [ "$hang_wait" -gt 30 ]; then
     kill -TERM "$interrupted_check" 2>/dev/null || :

@@ -96,7 +96,17 @@ jobs:
       - name: Run lint checks
         env:
           OPENAPI_BASE_REF: ${{ github.event.pull_request.base.sha || (github.event.before != '0000000000000000000000000000000000000000' && github.event.before) || '' }}
+          PROTOCOL_TLC_FAILURE_LOG_DIR: ${{ runner.temp }}/tlc-failures
         run: bun run check:fast
+
+      # A failing model's full TLC log, which the job's stdout can cut short.
+      - name: Upload failing TLC logs
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: tlc-failure-logs
+          path: ${{ runner.temp }}/tlc-failures
+          if-no-files-found: ignore
 
       - name: Run native release checks
         env:

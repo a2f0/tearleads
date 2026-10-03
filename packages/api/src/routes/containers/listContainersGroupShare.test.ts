@@ -1,10 +1,15 @@
 import { expect, test } from "bun:test";
 import { db } from "@tearleads/api-shared/postgres";
-import { containers, users } from "@tearleads/api-shared/schema";
+import {
+  accessManifestHeads,
+  containers,
+  users,
+} from "@tearleads/api-shared/schema";
 import { createTestUser } from "@tearleads/bob-and-alice";
 import { eq } from "drizzle-orm";
 import invariant from "invariant";
 import { authenticate } from "../../../test/helpers/authenticate";
+import { storeChildContainerAccessManifest } from "../../../test/helpers/containerManifests";
 import {
   readContainerParentLanePage,
   requestContainerParentLanes,
@@ -108,4 +113,65 @@ test("root parent lane resume sees admin-group rematerialization", async () => {
   expect(
     resumeBody.items.map((container: { id: string }) => container.id),
   ).toContain(owner.rootContainerId);
+});
+
+/** An owner child of the owner's root, granted to nobody directly. */
+async function addOwnerRootChild(owner: ReturnType<typeof createTestUser>) {
+  const [root] = await db
+    .select({ organizationId: containers.organizationId })
+    .from(containers)
+    .where(eq(containers.id, owner.rootContainerId))
+    .limit(1);
+  const [rootHead] = await db
+    .select({ manifestHash: accessManifestHeads.manifestHash })
+    .from(accessManifestHeads)
+    .where(eq(accessManifestHeads.objectId, owner.rootContainerId))
+    .limit(1);
+  invariant(root && rootHead, "expected the owner's registered root");
+  const childContainerId = crypto.randomUUID();
+  await db.insert(containers).values({
+    depth: 1,
+    id: childContainerId,
+    organizationId: root.organizationId,
+    parentId: owner.rootContainerId,
+  });
+  await storeChildContainerAccessManifest({
+    childContainerId,
+    dependencyManifestHashes: [rootHead.manifestHash],
+    metadataDocumentId: crypto.randomUUID(),
+    organizationId: root.organizationId,
+    owner,
+    parentContainerId: owner.rootContainerId,
+    parentManifestHash: rootHead.manifestHash,
+  });
+  return { childContainerId, organizationId: root.organizationId };
+}
+
+async function listChildIds(token: string, parentId: string) {
+  const response = await requestContainerParentLanes(token, [
+    { laneId: "children", parentId },
+  ]);
+  expect(response.status).toBe(200);
+  const page = await readContainerParentLanePage(response, "children");
+  return page.items.map((container: { id: string }) => container.id);
+}
+
+// The child lane authorizes its parent through every grant subject of the
+// caller, so a group grant on an ancestor is enough (#2415's grant_subjects).
+test("a child lane opens to a member whose only grant is through a group", async () => {
+  const owner = createTestUser();
+  const peer = createTestUser();
+  await registerUser(owner);
+  await authenticate(owner);
+  await registerUser(peer);
+  await authenticate(peer);
+  const { childContainerId, organizationId } = await addOwnerRootChild(owner);
+
+  expect(await listChildIds(peer.token, owner.rootContainerId)).toEqual([]);
+
+  await addUserToAdminGroup({ actor: owner, member: peer, organizationId });
+
+  expect(await listChildIds(peer.token, owner.rootContainerId)).toContain(
+    childContainerId,
+  );
 });

@@ -228,8 +228,8 @@ export async function signTransparencyTreeHeadFixture(input: {
   };
 }
 
-// What verifySignedAccessEvent returns for an event the fixture just signed. It
-// hashed this body and signed with this signer, so no check can fail.
+// verifySignedAccessEvent's result for an event just signed from this body and
+// signer (testFixtures.test.ts pins it); overrides must use the verifier.
 async function trustFixtureSignature(
   body: ContainerAccessEventBody | DocumentAccessEventBody,
   event: Awaited<ReturnType<typeof signAccessEvent>>,
