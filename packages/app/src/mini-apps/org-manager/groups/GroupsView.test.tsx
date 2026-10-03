@@ -47,6 +47,7 @@ const group: OrganizationGroupSummary = {
   groupId: "550e8400-e29b-41d4-a716-446655440010",
   isBuiltin: true,
   name: "Admins",
+  nameUnreadable: false,
   organizationId: "organization-1",
 };
 
@@ -55,6 +56,7 @@ const customGroup: OrganizationGroupSummary = {
   groupId: "550e8400-e29b-41d4-a716-446655440011",
   isBuiltin: false,
   name: "Operators",
+  nameUnreadable: false,
 };
 const rosterUser = {
   createdAt: "2026-05-20T12:00:00.000Z",

@@ -11,7 +11,8 @@ import { reportBackgroundFailure } from "../diagnostics/reportBackgroundFailure"
 import { authorizeContainerAccessWithWorkflow } from "./containerInterestAccess";
 import { ContainerInterestAuthorizer } from "./containerInterestAuthorization";
 import {
-  ContainerInterestRevalidationSchedule,
+  type ProofAgePolicy,
+  RevalidationSchedule,
   type RevalidationScheduleOptions,
   resolveProofAgePolicy,
 } from "./containerInterestRevalidation";
@@ -20,16 +21,19 @@ import {
   principalInterestKey,
 } from "./containerInterestTypes";
 import { parsePublishedRealtimeEvent } from "./publishedRealtimeEvents";
-import { sendSafely } from "./wsConnection";
+import { sendSafely, type WsConnection } from "./wsConnection";
 import type { WebSocketTicketIdentity, WsSessionValidator } from "./wsIdentity";
-import { wsInterestStore } from "./wsInterestStore";
+import {
+  createOrderedInterestPersister,
+  wsInterestStore,
+} from "./wsInterestStore";
 import {
   type OrganizationInterestDeclaration,
   type OrganizationReadModelAudience,
   readOrganizationReadModelAudienceMessage,
 } from "./wsOrganizationRouting";
-import { type AppliedInterest, WsEventRouter } from "./wsRouting";
-import { createWsSessionLivenessCheck } from "./wsSessionLiveness";
+import { WsEventRouter } from "./wsRouting";
+import { WsSessionLiveness } from "./wsSessionLiveness";
 
 type InterestStore = Pick<typeof wsInterestStore, "apply" | "load">;
 type Subscribe = typeof addListener;
@@ -40,6 +44,7 @@ type AuthorizeOrganizationAccess = (
 ) => Promise<boolean>;
 const CONTAINER_AUTHORIZATION_TIMEOUT_MS = 10_000;
 const ORGANIZATION_AUTHORIZATION_TIMEOUT_MS = 10_000;
+const SESSION_READ_TIMEOUT_MS = 10_000;
 
 interface RealtimeGatewayDeps {
   readonly authorizeContainerAccess?: AuthorizeContainerAccess;
@@ -49,6 +54,8 @@ interface RealtimeGatewayDeps {
   readonly organizationAuthorizationTimeoutMs?: number;
   readonly revalidation?: RevalidationScheduleOptions;
   readonly router?: WsEventRouter;
+  /** How long a session liveness check waits on the session store. */
+  readonly sessionReadTimeoutMs?: number;
   readonly subscribe?: Subscribe;
   readonly subscribeReconnect?: SubscribeReconnect;
   /** Whether a socket's session is still live; defaults to the session store. */
@@ -89,29 +96,6 @@ async function authorizeOrganizationAccessWithWorkflow(
 
 function messageToString(message: string | Buffer): string {
   return typeof message === "string" ? message : message.toString("utf8");
-}
-
-function createOrderedInterestPersister(interestStore: InterestStore) {
-  const interestWriteChains = new Map<string, Promise<void>>();
-  return (
-    userId: string,
-    sessionId: string,
-    applied: AppliedInterest,
-  ): void => {
-    const sessionKey = `${userId}:${sessionId}`;
-    const chain = (interestWriteChains.get(sessionKey) ?? Promise.resolve())
-      .then(() => interestStore.apply(userId, sessionId, applied))
-      .catch((error: unknown) => {
-        console.error("Failed to persist websocket interest:", error);
-        reportBackgroundFailure(error, "websocket.persist");
-      });
-    interestWriteChains.set(sessionKey, chain);
-    void chain.finally(() => {
-      if (interestWriteChains.get(sessionKey) === chain) {
-        interestWriteChains.delete(sessionKey);
-      }
-    });
-  };
 }
 
 type OrganizationSocket = ServerWebSocket<WebSocketTicketIdentity>;
@@ -316,8 +300,9 @@ class OrganizationInterestAuthorizer {
 
 function createWebsocketHandler(input: {
   readonly containerInterest: ContainerInterestAuthorizer;
+  readonly liveness: WsSessionLiveness;
   readonly organizationInterest: OrganizationInterestAuthorizer;
-  readonly revalidation: ContainerInterestRevalidationSchedule;
+  readonly revalidation: RevalidationSchedule<WsConnection>;
   readonly router: WsEventRouter;
 }) {
   return {
@@ -325,10 +310,12 @@ function createWebsocketHandler(input: {
     async open(ws: ServerWebSocket<WebSocketTicketIdentity>) {
       input.router.open(ws);
       input.revalidation.open(ws);
+      input.liveness.open(ws);
       await input.containerInterest.open(ws);
     },
     close(ws: ServerWebSocket<WebSocketTicketIdentity>) {
       input.revalidation.close(ws);
+      input.liveness.close(ws);
       input.containerInterest.close(ws);
       input.organizationInterest.close(ws);
       input.router.close(ws);
@@ -353,6 +340,47 @@ function createWebsocketHandler(input: {
   };
 }
 
+/** Per-socket proof re-verification, and per-session liveness rechecks. */
+function createRevalidationPasses(
+  deps: RealtimeGatewayDeps,
+  router: WsEventRouter,
+  containerInterest: ContainerInterestAuthorizer,
+  proofAge: ProofAgePolicy,
+) {
+  return {
+    liveness: new WsSessionLiveness({
+      policy: proofAge,
+      readTimeoutMs: deps.sessionReadTimeoutMs ?? SESSION_READ_TIMEOUT_MS,
+      revalidation: deps.revalidation,
+      router,
+      validateSession: deps.validateSession,
+    }),
+    revalidation: new RevalidationSchedule<WsConnection>(
+      (ws) => containerInterest.revalidate(ws),
+      deps.revalidation,
+    ),
+  };
+}
+
+/**
+ * Every invalidation published during a subscriber outage is lost, so a
+ * reconnect re-verifies each live socket's subscriptions server-side, asks
+ * every client to resync what it holds, and rechecks each open session.
+ */
+function revalidateAfterReconnect(
+  containerInterest: ContainerInterestAuthorizer,
+  liveness: WsSessionLiveness,
+): void {
+  void containerInterest
+    .revalidateAll({ resyncAll: true })
+    .catch((error: unknown) => {
+      reportBackgroundFailure(error, "websocket.revalidate");
+    });
+  // Beside the pass, never ahead of it: a hung session read must not hold back
+  // marking the outage's queries stale.
+  void liveness.checkAll();
+}
+
 /**
  * The realtime sync gateway owns the in-memory socket/interest router, the
  * per-session interest write serialization, and the Redis pub/sub subscription.
@@ -372,6 +400,7 @@ export function createRealtimeGateway(deps: RealtimeGatewayDeps = {}) {
   const authorizeOrganizationAccess =
     deps.authorizeOrganizationAccess ?? authorizeOrganizationAccessWithWorkflow;
   const persistInterest = createOrderedInterestPersister(interestStore);
+  const proofAge = resolveProofAgePolicy(deps.revalidation);
   const organizationInterest = new OrganizationInterestAuthorizer(
     authorizeOrganizationAccess,
     deps.organizationAuthorizationTimeoutMs ??
@@ -384,15 +413,17 @@ export function createRealtimeGateway(deps: RealtimeGatewayDeps = {}) {
     interestStore,
     persistInterest,
     router,
-    resolveProofAgePolicy(deps.revalidation),
+    proofAge,
   );
-  const liveness = createWsSessionLivenessCheck(router, deps.validateSession);
-  const revalidation = new ContainerInterestRevalidationSchedule((ws) => {
-    void liveness.checkSocket(ws);
-    return containerInterest.revalidate(ws);
-  }, deps.revalidation);
+  const { liveness, revalidation } = createRevalidationPasses(
+    deps,
+    router,
+    containerInterest,
+    proofAge,
+  );
   const websocket = createWebsocketHandler({
     containerInterest,
+    liveness,
     organizationInterest,
     revalidation,
     router,
@@ -439,23 +470,14 @@ export function createRealtimeGateway(deps: RealtimeGatewayDeps = {}) {
           routeMessage(message);
         });
     });
-    // Every invalidation published during a subscriber outage is lost, so a
-    // reconnect re-verifies each live socket's subscriptions server-side and
-    // asks every client to resync what it holds.
-    unsubscribeReconnect = subscribeReconnect(() => {
-      void containerInterest
-        .revalidateAll({ resyncAll: true })
-        .catch((error: unknown) => {
-          reportBackgroundFailure(error, "websocket.revalidate");
-        });
-      // Beside the pass, never ahead of it: a hung session read must not hold
-      // back marking the outage's queries stale.
-      void liveness.checkAll(router.openSockets());
-    });
+    unsubscribeReconnect = subscribeReconnect(() =>
+      revalidateAfterReconnect(containerInterest, liveness),
+    );
   }
 
   function stop(): void {
     revalidation.stop();
+    liveness.stop();
     containerInterest.stop();
     unsubscribe?.();
     unsubscribe = undefined;

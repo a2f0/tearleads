@@ -11,4 +11,4 @@ cd "$(dirname "$0")/.."
 rm -rf dist tsconfig.build.tsbuildinfo
 
 tsc -p tsconfig.build.json
-bun scripts/rewriteDistImports.ts
+bun ../../scripts/lib/rewriteDistImports.ts dist

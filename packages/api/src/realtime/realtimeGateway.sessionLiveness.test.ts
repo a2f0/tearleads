@@ -3,36 +3,16 @@ import {
   CONTAINER,
   fixture,
   recordingSocket,
+  virtualClock,
 } from "../../test/helpers/realtimeContainerAuthorization";
-import * as sentry from "../diagnostics/sentry";
-import { type WsConnection, WsEventRouter } from "./wsRouting";
+import * as background from "../diagnostics/reportBackgroundFailure";
+import { WsEventRouter } from "./wsRouting";
 
 afterEach(() => {
   mock.restore();
 });
 
 const flush = () => new Promise((resolve) => setTimeout(resolve, 0));
-
-/** Collects scheduled revalidation ticks so a test fires them by hand. */
-function manualTimers() {
-  const due: Array<() => void> = [];
-  return {
-    schedule: (run: () => void) => {
-      due.push(run);
-      return () => {
-        const index = due.indexOf(run);
-        if (index >= 0) due.splice(index, 1);
-      };
-    },
-    async fire(): Promise<void> {
-      const run = due.shift();
-      if (!run) throw new Error("No revalidation tick is scheduled");
-      run();
-      await flush();
-      await flush();
-    },
-  };
-}
 
 function resyncFrames(sent: ReadonlyArray<Record<string, unknown>>) {
   return sent.filter(
@@ -42,44 +22,52 @@ function resyncFrames(sent: ReadonlyArray<Record<string, unknown>>) {
 
 function silenceReports() {
   spyOn(console, "error").mockImplementation(() => undefined);
-  return spyOn(sentry, "captureApiError").mockImplementation(() => undefined);
+  return spyOn(background, "reportBackgroundFailure").mockImplementation(
+    () => undefined,
+  );
 }
 
-test("an ended session's sockets close with a neutral reason", () => {
+/** Ticks every 50 ms (half the interval, without jitter); proof age off. */
+function ticking(clock: ReturnType<typeof virtualClock>) {
+  return {
+    intervalMs: 100,
+    maxProofAgeMs: 0,
+    now: clock.now,
+    random: () => 0,
+    schedule: clock.schedule,
+  };
+}
+
+test("closing a session closes its sockets and spares other sessions", () => {
   const router = new WsEventRouter();
-  const closed: Array<[number | undefined, string | undefined]> = [];
-  const socket = {
-    data: { userId: "user", sessionId: "session" },
-    send: () => undefined,
-    close: (code?: number, reason?: string) => closed.push([code, reason]),
-  } as unknown as WsConnection;
-  router.open(socket);
+  const first = recordingSocket("user", "session");
+  const second = recordingSocket("user", "session");
+  const other = recordingSocket("user", "other-session");
+  for (const { socket } of [first, second, other]) router.open(socket);
   router.closeSession("user", "session");
-  expect(closed).toEqual([[1008, "Session ended"]]);
+  const ended = [{ code: 1008, reason: "Session ended" }];
+  expect(first.closed).toEqual(ended);
+  expect(second.closed).toEqual(ended);
+  expect(other.closed).toEqual([]);
+  expect(router.openSockets()).toEqual([other.socket]);
 });
 
-test("a revalidation tick closes the socket of an ended session", async () => {
-  const timers = manualTimers();
+test("a session tick closes the socket of an ended session", async () => {
+  const clock = virtualClock();
   let live = true;
   const f = fixture({
-    // Proof age off: only the manual tick may run, never a deadline eviction.
-    revalidation: {
-      intervalMs: 4,
-      maxProofAgeMs: 0,
-      random: () => 0,
-      schedule: timers.schedule,
-    },
+    revalidation: ticking(clock),
     sessionLive: () => live,
     authorize: async (_user, ids) => ids,
   });
   try {
     await f.gateway.websocket.open(f.socket);
     await f.declare();
-    await timers.fire();
+    await clock.advance(50);
     expect(f.closed).toEqual([]);
     // Expired, or revoked with the revocation publication lost.
     live = false;
-    await timers.fire();
+    await clock.advance(50);
     expect(f.closed).toEqual([1008]);
     expect(f.router.interestedSocketCount(CONTAINER)).toBe(0);
   } finally {
@@ -87,18 +75,35 @@ test("a revalidation tick closes the socket of an ended session", async () => {
   }
 });
 
+test("a session's sockets share one store read per tick", async () => {
+  const clock = virtualClock();
+  const reads: string[] = [];
+  const f = fixture({
+    revalidation: ticking(clock),
+    validateSession: async ({ sessionId }) => {
+      reads.push(sessionId);
+      return true;
+    },
+    authorize: async (_user, ids) => ids,
+  });
+  try {
+    await f.gateway.websocket.open(f.socket);
+    for (const sessionId of ["session", "session", "other-session"]) {
+      await f.gateway.websocket.open(recordingSocket("user", sessionId).socket);
+    }
+    await clock.advance(50);
+    expect(reads.sort()).toEqual(["other-session", "session"]);
+  } finally {
+    f.gateway.stop();
+  }
+});
+
 test("a tick still re-verifies proofs when the session store fails", async () => {
-  const capture = silenceReports();
-  const timers = manualTimers();
+  const report = silenceReports();
+  const clock = virtualClock();
   let calls = 0;
   const f = fixture({
-    // Proof age off: only the manual tick may run, never a deadline eviction.
-    revalidation: {
-      intervalMs: 4,
-      maxProofAgeMs: 0,
-      random: () => 0,
-      schedule: timers.schedule,
-    },
+    revalidation: ticking(clock),
     sessionLive: () => {
       throw new Error("Session store unavailable");
     },
@@ -111,10 +116,11 @@ test("a tick still re-verifies proofs when the session store fails", async () =>
     await f.gateway.websocket.open(f.socket);
     await f.declare();
     const before = calls;
-    await timers.fire();
+    await clock.advance(50);
     expect(calls).toBe(before + 1);
     expect(f.closed).toEqual([]);
-    expect(capture).toHaveBeenCalledTimes(1);
+    expect(report).toHaveBeenCalledTimes(1);
+    expect(report).toHaveBeenCalledWith(expect.any(Error), "websocket.session");
   } finally {
     f.gateway.stop();
   }
@@ -201,8 +207,49 @@ test("a reconnect checks each session once and reports one failure", async () =>
     await flush();
     expect(checks).toBe(2);
     expect(capture).toHaveBeenCalledTimes(1);
+    expect(capture).toHaveBeenCalledWith(
+      expect.any(Error),
+      "websocket.session",
+    );
     expect(resyncFrames(f.sent)).toHaveLength(1);
     expect(f.closed).toEqual([]);
+  } finally {
+    f.gateway.stop();
+  }
+});
+
+test("a reconnect keeps at most 16 session reads in flight", async () => {
+  let inFlight = 0;
+  let reads = 0;
+  const answers: Array<() => void> = [];
+  const f = fixture({
+    authorize: async (_user, ids) => ids,
+    validateSession: () => {
+      inFlight++;
+      reads++;
+      return new Promise<boolean>((resolve) => {
+        answers.push(() => {
+          inFlight--;
+          resolve(true);
+        });
+      });
+    },
+  });
+  try {
+    for (let index = 0; index < 40; index++) {
+      await f.gateway.websocket.open(
+        recordingSocket("user", `session-${index}`).socket,
+      );
+    }
+    f.reconnect();
+    await flush();
+    expect(inFlight).toBe(16);
+    for (let answer = answers.shift(); answer; answer = answers.shift()) {
+      answer();
+      await flush();
+      expect(inFlight).toBeLessThanOrEqual(16);
+    }
+    expect(reads).toBe(40);
   } finally {
     f.gateway.stop();
   }

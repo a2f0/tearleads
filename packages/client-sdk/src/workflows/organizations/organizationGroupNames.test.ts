@@ -24,6 +24,7 @@ test("directory labels are decrypted only at their authenticated group heads", a
         createdAt: bundle.currentState.createdAt,
         isBuiltin: bundle.currentState.principalId !== "group-1",
         name: "Untrusted feed label",
+        nameUnreadable: false,
         currentState: {
           ...bundle.currentState,
           memberCount: bundle.currentProjection.length,
@@ -38,6 +39,7 @@ test("directory labels are decrypted only at their authenticated group heads", a
       execSql,
       organizationId,
       readEncryptedName: readTestGroupName,
+      reportSecurityIncident: async () => {},
       stillCurrent: () => true,
     };
     const signature = fixture.operatorsPolicy.currentState.signature;
@@ -52,8 +54,12 @@ test("directory labels are decrypted only at their authenticated group heads", a
       "Operators",
     ]);
     // One group's undecryptable name blanks that group alone.
+    const reported: unknown[] = [];
     const isolated = await hydrateOrganizationGroupNames({
       ...input,
+      reportSecurityIncident: async (_error, context) => {
+        reported.push(context.objectId);
+      },
       readEncryptedName: (bundle) =>
         bundle.currentState.principalId === "group-1"
           ? Promise.reject(
@@ -62,12 +68,15 @@ test("directory labels are decrypted only at their authenticated group heads", a
           : readTestGroupName(bundle),
     });
     expect(
-      isolated.groups.map((group) => [group.groupId, group.name]).sort(),
+      isolated.groups
+        .map((group) => [group.groupId, group.name, group.nameUnreadable])
+        .sort(),
     ).toEqual([
-      ["admins-group", "Admins"],
-      ["group-1", ""],
-      ["members-group", "Members"],
+      ["admins-group", "Admins", false],
+      ["group-1", "", true],
+      ["members-group", "Members", false],
     ]);
+    expect(reported).toEqual(["group-1"]);
     await expect(
       hydrateOrganizationGroupNames({
         ...input,

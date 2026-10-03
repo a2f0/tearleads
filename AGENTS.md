@@ -16,6 +16,10 @@ Run the smallest command that matches the handoff risk:
   (both also inside `check:fast`; both need the mise-pinned Java/TLA+ tools).
 - `bun run check:affected`: `check:fast`, TypeScript, and affected Turbo tests.
 - `bun run check`: `check:fast`, TypeScript, and the full Turbo test suite.
+- `bun run check:package <workspace-name> [test arguments...]`: build SQLite,
+  the SDK, and the Electrobun devkit before running one workspace's test script.
+  For example, use `@tearleads/api`, `app`, or `@tearleads/client-sdk`.
+  This focused test command does not replace the static or TypeScript gates.
 - `bun run lint:biome:promises`: builds the SDK's public declarations, then
   checks production promises in API, SDK, app, and crypto. Included in
   `lint:biome`, `check:fast`, and pre-push; its separate `biome.promises.jsonc`
@@ -68,6 +72,13 @@ the previous build. The app test preload refuses to start on a stale dist;
 **`packages/api` has no such guard and simply passes against the old code.**
 Rebuild with `bun run --filter='@tearleads/client-sdk' build` between an SDK edit
 and any api test run, or treat the result as meaningless.
+
+Prefer `bun run check:package @tearleads/api` for a focused API test run with
+that build prerequisite handled automatically. It, `check`, and `check:affected`
+write per-run JSON reports under `git rev-parse --git-path verification`, with
+revision, working-tree fingerprints, step timings, and outcomes. A source or
+revision change during the run fails verification; see the
+[verification harness](scripts/README.md#verification-harness).
 
 The same holds for `packages/client-sdk`'s own tests: `distArtifacts.test.ts`
 inspects `dist`, and a few tests import `@tearleads/client-sdk`. `turbo run test`
@@ -132,9 +143,9 @@ deleted as soon as the default branch contains the new contract.
   Production source must not depend on them.
 - `packages/ui`: product-neutral shared UI used by the website and app.
 - `packages/windowing`: app-agnostic window state, window chrome, and the
-  menu and sidebar primitives it renders with. It may depend only on
-  `@tearleads/ui`; app behavior reaches a window through slots such as
-  `Window`'s `ContentBoundary`.
+  menu and sidebar primitives it renders with. It is published to npm on its
+  own, so it depends on no other workspace package; app behavior reaches a
+  window through slots such as `Window`'s `ContentBoundary`.
 - `packages/website`: marketing/docs site. It may share UI, but must not import
   application implementation code.
 
