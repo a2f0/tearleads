@@ -79,7 +79,8 @@ export interface CreatedRemoteContainerState {
   createdAt: string;
   metadataDocumentId: string;
   organizationId: string;
-  parentId: string | null;
+  /** A created container is a child; the acknowledgement echoed this parent. */
+  parentId: string;
   persistedMetadataState: Pick<
     DocumentRecord,
     | "documentId"
@@ -131,13 +132,21 @@ export interface ContainerIntentSyncState {
   runtime: ContainerWorkflowRuntime;
   /**
    * Verifies that a listed container is this device's pending create before it
-   * is adopted and returns its committed parent; `assertContainerCreateAdoptable`
+   * is adopted and returns where it sits; `assertContainerCreateAdoptable`
    * unless a test replaces it.
    */
   verifyCreateAdoption?: (input: {
     readonly containerId: string;
     readonly expectedOrganizationId: string;
-  }) => Promise<string>;
+  }) => Promise<AdoptedContainerPlacement>;
+}
+
+/** Where a verified listed create committed, and where its container is now. */
+export interface AdoptedContainerPlacement {
+  /** The parent its signed epoch-1 `container.create` named. */
+  readonly createdParentId: string;
+  /** The verified head's parent; another writer may have moved it since. */
+  readonly currentParentId: string;
 }
 
 export type ContainerCreateIntentSyncState = ContainerIntentSyncState;
@@ -149,6 +158,8 @@ export type ContainerCreateIntentSyncHost = Pick<
 
 export interface ContainerCreateIntentSyncInput {
   host: ContainerCreateIntentSyncHost;
+  /** A parent whose own create has not settled takes no child create. */
+  isCreatePending: (containerId: string) => boolean;
   isCurrent: () => boolean;
   isRemoteSyncBlocked: (organizationId: string) => boolean;
   intent: ContainerCreateIntentRecord;
@@ -166,6 +177,8 @@ export type ContainerMoveIntentSyncHost = Pick<
 export interface ContainerMoveIntentSyncInput {
   host: ContainerMoveIntentSyncHost;
   isCurrent: () => boolean;
+  /** A folder whose create has not settled takes no structural writes. */
+  isCreatePending: (containerId: string) => boolean;
   isRemoteSyncBlocked: (organizationId: string) => boolean;
   intent: ContainerMoveIntentRecord;
   requestRemoteReconciliation: (parentContainerId: string | null) => void;

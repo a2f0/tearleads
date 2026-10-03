@@ -28,6 +28,7 @@ formal/local-trust/DurableIdentityBinding.tla|formal/local-trust/DurableIdentity
 formal/local-trust/RootDocumentPriming.tla|formal/local-trust/RootDocumentPriming.cfg
 formal/local-trust/SystemDestination.tla|formal/local-trust/SystemDestination.cfg
 formal/local-trust/UnacknowledgedInput.tla|formal/local-trust/UnacknowledgedInput.cfg
+formal/local-trust/ContainerCreateAdoption.tla|formal/local-trust/ContainerCreateAdoption.cfg
 formal/local-trust/QueuedDocumentCreate.tla|formal/local-trust/QueuedDocumentCreate.cfg
 formal/realtime/ContainerInterest.tla|formal/realtime/ContainerInterest.cfg
 formal/document-sync/AttachmentContentIdentity.tla|formal/document-sync/AttachmentContentIdentity.cfg

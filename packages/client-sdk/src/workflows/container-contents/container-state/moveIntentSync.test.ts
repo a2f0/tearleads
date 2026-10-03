@@ -2,101 +2,22 @@ import { expect, test } from "bun:test";
 import { KeyingVerificationError } from "@tearleads/crypto";
 import { waitFor } from "../../../../test/helpers/waitFor";
 import { createContainerMetadataDocument } from "../../../data/containers/containerMetadataDocument";
-import { createDomainScope } from "../../../data/domainScope";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import {
   type ContainerMoveIntentRecord,
   defaultContainerContentsPersistence,
 } from "../containerPersistence";
-import type { ContainerState } from "../remoteHydration";
 import { createTestContainerState } from "./containerState.testFixtures";
 import {
   persistAcceptedMoveIntent,
   syncPendingContainerMoveIntents,
 } from "./moveIntentSync";
+import {
+  createMoveIntentSyncState,
+  type MoveIntentError,
+  moveIntentRecord,
+} from "./moveIntentSync.testFixtures";
 import type { ContainerMoveIntentSyncState } from "./types";
-
-type MoveIntentError = Parameters<
-  ContainerMoveIntentSyncState["persistence"]["recordMoveIntentError"]
->[1];
-
-function createMoveIntentSyncState(input: {
-  containersById: Map<string, ContainerState>;
-  incidents?: unknown[];
-  onProjectionRequest?: () => void;
-  persistence: ContainerMoveIntentSyncState["persistence"];
-  projectionError?: unknown;
-}): ContainerMoveIntentSyncState {
-  const execSql: ExecSql = async () => [];
-  return {
-    containersById: input.containersById,
-    persistence: input.persistence,
-    resolveProjectionUserKey: async () => null,
-    runtime: {
-      apiClient: {
-        getContainerWriterProjection: () => {
-          input.onProjectionRequest?.();
-          if (input.projectionError !== undefined) {
-            throw input.projectionError;
-          }
-          throw new Error("projection unavailable");
-        },
-      } as unknown as ContainerMoveIntentSyncState["runtime"]["apiClient"],
-      auth: {
-        isAuthenticated: true,
-        organizationId: "organization",
-        userId: "user",
-      },
-      crypto: {
-        encapsulationKeyPair: {
-          secretKey: new Uint8Array(32),
-        } as ContainerMoveIntentSyncState["runtime"]["crypto"]["encapsulationKeyPair"],
-        signingFingerprint: "signing-fingerprint",
-        signingKeyPair: {
-          signingPrivateKey: new Uint8Array(32),
-        } as ContainerMoveIntentSyncState["runtime"]["crypto"]["signingKeyPair"],
-      },
-      infra: {
-        blobStore:
-          {} as ContainerMoveIntentSyncState["runtime"]["infra"]["blobStore"],
-        dbStatus: "ready",
-        documentProjectors:
-          {} as ContainerMoveIntentSyncState["runtime"]["infra"]["documentProjectors"],
-        execSql,
-      },
-      resolveTrustedUserIdentity: async () => null,
-      state: {
-        containerId: "root",
-        domainScope: createDomainScope(),
-        events: [],
-        online: true,
-      },
-      util: {
-        log: () => {},
-        reportSecurityIncident: async (error) => {
-          input.incidents?.push(error);
-        },
-      },
-    },
-  };
-}
-
-function moveIntentRecord(
-  input: Partial<ContainerMoveIntentRecord> & { containerId: string },
-): ContainerMoveIntentRecord {
-  return {
-    createdAt: "2026-05-31T00:00:00.000Z",
-    id: `intent-${input.containerId}`,
-    intentType: "container.move",
-    lastAttemptedAt: null,
-    lastError: null,
-    parentContainerId: "parent",
-    previousParentContainerId: "root",
-    syncStatus: "pending",
-    updatedAt: "2026-05-31T00:00:00.000Z",
-    ...input,
-  };
-}
 
 test("pending container move sync records per-intent failures and continues", async () => {
   const errors: MoveIntentError[] = [];
@@ -134,6 +55,7 @@ test("pending container move sync records per-intent failures and continues", as
   };
 
   const movedCount = await syncPendingContainerMoveIntents({
+    isCreatePending: () => false,
     host: {
       persistContainerState: async () => {
         throw new Error("unexpected persist");
@@ -181,6 +103,7 @@ test("stale container move identity failures do not report into a replacement", 
 
   await expect(
     syncPendingContainerMoveIntents({
+      isCreatePending: () => false,
       host: {
         persistContainerState: async () => {
           throw new Error("unexpected persist");
@@ -260,6 +183,7 @@ test("a blocked organization does not prevent another organization's move from s
   const checkedOrganizations: string[] = [];
 
   const movedCount = await syncPendingContainerMoveIntents({
+    isCreatePending: () => false,
     host: {
       persistContainerState: async () => {
         throw new Error("unexpected persist");
@@ -310,6 +234,7 @@ test("a move whose source is not synced yet stays pending and retryable", async 
   };
 
   const movedCount = await syncPendingContainerMoveIntents({
+    isCreatePending: () => false,
     host: {
       persistContainerState: async () => {
         throw new Error("unexpected persist");
@@ -351,6 +276,7 @@ test("move replay does not require a standalone settlement adapter", async () =>
   } as unknown as ContainerMoveIntentSyncState["persistence"];
 
   const movedCount = await syncPendingContainerMoveIntents({
+    isCreatePending: () => false,
     host: {
       persistContainerState: async () => {
         throw new Error("unexpected local mutation");
