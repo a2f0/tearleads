@@ -65,28 +65,36 @@ testApiClient(
   },
 );
 
-testApiClient(
-  "a projection still in flight during the change is never cached",
-  async () => {
-    const requested: string[] = [];
-    const release = createDeferred<void>();
-    serveProjections(requested, async () => {
-      if (requested.length === 1) await release.promise;
-    });
-    const client = new ApiClient(apiBaseUrl);
-    const inFlight = client.getDocumentWriterProjectionResult("document-a", {
-      reportErrors: false,
-    });
-    while (requested.length === 0) await Bun.sleep(1);
+for (const read of ["result", "plain"] as const) {
+  testApiClient(
+    `a ${read} projection fetch in flight during the change is never cached`,
+    async () => {
+      const requested: string[] = [];
+      const started = createDeferred<void>();
+      const release = createDeferred<void>();
+      serveProjections(requested, async () => {
+        if (requested.length > 1) return;
+        started.resolve();
+        await release.promise;
+      });
+      const client = new ApiClient(apiBaseUrl);
+      const inFlight =
+        read === "result"
+          ? client.getDocumentWriterProjectionResult("document-a", {
+              reportErrors: false,
+            })
+          : client.getDocumentWriterProjection("document-a");
+      await started.promise;
 
-    client.evictWriterProjectionsCiting(["unrelated-container"]);
-    release.resolve();
-    await inFlight;
+      client.evictWriterProjectionsCiting(["unrelated-container"]);
+      release.resolve();
+      await inFlight;
 
-    await client.getDocumentWriterProjection("document-a");
-    expect(requested).toEqual(["document-a", "document-a"]);
-  },
-);
+      await client.getDocumentWriterProjection("document-a");
+      expect(requested).toEqual(["document-a", "document-a"]);
+    },
+  );
+}
 
 testApiClient(
   "an attachment list goes and stays with its document's projection",

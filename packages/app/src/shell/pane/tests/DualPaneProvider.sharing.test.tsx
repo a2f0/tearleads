@@ -65,7 +65,7 @@ const OWNER_GRANTED_ROOT_ATTACHMENT_REQUEST_BUDGET: ProxiedApiRequestBudget = {
   // container (#2395), so discovery no longer re-reads the shared note's
   // projection it has just verified (7 document projection reads, not 8).
   // Bytes and the route below keep headroom for two extra such reads.
-  bodyBytes: { request: 380_000, response: 2_300_000 },
+  bodyBytes: { request: 380_000, response: 2_400_000 },
   byRequest: {
     "GET /documents/:documentId/writer-projection": 9,
     "POST /documents/:documentId/sync": 18,

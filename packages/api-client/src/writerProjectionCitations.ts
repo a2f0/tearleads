@@ -78,17 +78,14 @@ export class CitingProjectionCache<V> extends BoundedCache<Promise<V | null>> {
     return super.set(key, value);
   }
 
-  /** Evicts the entries that cite any of the containers, returning their keys. */
-  evictCiting(containerIds: ReadonlySet<string>): string[] {
-    const evicted: string[] = [];
+  /** Evicts the entries that cite any of the containers or are unresolved. */
+  evictCiting(containerIds: ReadonlySet<string>): void {
     for (const key of [...this.keys()]) {
       const entry = this.get(key);
       const cited = entry && this.citations.get(entry);
       if (cited && !citesAny(cited, containerIds)) continue;
       this.delete(key);
-      evicted.push(key);
     }
-    return evicted;
   }
 }
 
@@ -100,11 +97,12 @@ interface CitingProjectionCacheWithFetches<V> {
 
 /**
  * Evicts what a manifest change to these containers makes stale: every
- * container or document writer projection citing one of them, every fetch
- * still in flight (it may predate the change), and each attachment list whose
- * document projection did not survive, since attachment envelopes are wrapped
- * to the same KEK targets. Deleting a key also stamps it, so a fetch already
- * running never publishes its result.
+ * container or document writer projection citing one of them or not yet
+ * resolved, and every fetch still in flight (it may predate the change), which
+ * the raised stamp floor keeps from publishing even when no cache slot tracks
+ * it. Attachment envelopes wrap to the same KEK targets, so an attachment list
+ * stays only while its document's projection does; a list whose document has
+ * no cached projection is evicted too.
  */
 export function evictWriterProjectionsCiting(
   containerIds: ReadonlySet<string>,
@@ -115,11 +113,9 @@ export function evictWriterProjectionsCiting(
   },
 ): void {
   for (const { cache, inFlight } of [caches.containers, caches.documents]) {
-    for (const key of cache.evictCiting(containerIds)) inFlight.delete(key);
-    for (const key of [...inFlight.keys()]) {
-      cache.delete(key);
-      inFlight.delete(key);
-    }
+    cache.evictCiting(containerIds);
+    cache.invalidateInFlight();
+    inFlight.clear();
   }
   for (const key of [...caches.attachmentLists.keys()]) {
     if (!caches.documents.cache.has(key)) caches.attachmentLists.delete(key);

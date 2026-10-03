@@ -86,6 +86,16 @@ export class BoundedCache<V> {
     return this.entries.delete(key);
   }
 
+  /**
+   * Invalidates every fetch in flight without dropping cached entries: every
+   * key's stamp rises, so a fetch that snapshotted one never publishes.
+   */
+  invalidateInFlight(): void {
+    this.invalidationTick += 1;
+    this.prunedInvalidationFloor = this.invalidationTick;
+    this.invalidationStampsByKey.clear();
+  }
+
   clear(): void {
     this.invalidationTick += 1;
     this.prunedInvalidationFloor = this.invalidationTick;
