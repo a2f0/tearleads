@@ -109,6 +109,7 @@ function createContainerContentsStoreDocumentMoveHost(
 }
 
 function syncPendingStoreDocumentMoves(input: {
+  isCreatePending: (containerId: string) => boolean;
   isCurrent: () => boolean;
   isRemoteSyncBlocked: (organizationId: string) => boolean;
   state: ContainerContentsStoreSyncState;
@@ -118,6 +119,7 @@ function syncPendingStoreDocumentMoves(input: {
       input.state,
       input.isCurrent,
     ),
+    isCreatePending: input.isCreatePending,
     isCurrent: input.isCurrent,
     isRemoteSyncBlocked: input.isRemoteSyncBlocked,
     state: input.state,
@@ -202,6 +204,22 @@ async function syncSingleContainerMetadata(input: {
   }
 }
 
+/**
+ * A folder whose create has not settled can carry a listed identity that
+ * adoption has not verified, or has refused. Folder moves, document moves and
+ * metadata edits wait for it; child and document creates wait in their own
+ * create paths.
+ */
+async function loadPendingCreatePredicate(
+  state: ContainerContentsStoreSyncState,
+): Promise<(containerId: string) => boolean> {
+  const pending = await state.persistence.listPendingCreateIntents(
+    state.runtime.infra.execSql,
+  );
+  const pendingIds = new Set(pending.map((intent) => intent.containerId));
+  return (containerId) => pendingIds.has(containerId);
+}
+
 interface ContainerContentsStoreSyncIterationInput {
   host: RemoteContainerHydrationHost;
   reconcileRestoredAccess: (isCurrent: () => boolean) => Promise<void>;
@@ -249,9 +267,14 @@ export async function runContainerContentsStoreSyncIteration(
     state.documentStoresNeedPriming = true;
     host.updateSnapshot();
   }
+  const isCreatePending = await loadPendingCreatePredicate(state);
+  if (!isCurrent()) {
+    return;
+  }
 
   const movedContainerCount = await syncPendingContainerMoveIntents({
     host,
+    isCreatePending,
     isCurrent,
     isRemoteSyncBlocked: isOrganizationBlocked,
     requestRemoteReconciliation,
@@ -268,6 +291,7 @@ export async function runContainerContentsStoreSyncIteration(
   }
 
   for (const containerState of Array.from(state.containersById.values())) {
+    if (isCreatePending(containerState.container.id)) continue;
     await syncSingleContainerMetadata({
       containerState,
       encapsulationKeyPair,
@@ -306,6 +330,7 @@ export async function runContainerContentsStoreSyncIteration(
     // pending, so replay follows recovery in this same pass.
     syncPendingDocumentMoves: () =>
       syncPendingStoreDocumentMoves({
+        isCreatePending,
         isCurrent,
         isRemoteSyncBlocked: isOrganizationBlocked,
         state,

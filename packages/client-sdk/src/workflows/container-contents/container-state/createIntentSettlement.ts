@@ -10,8 +10,9 @@ export async function settleContainerCreateIntent(input: {
   remoteMetadataAccessStateHash: string;
   remoteMetadataDocumentId: string;
   state: ContainerCreateIntentSyncState;
-  supersededMovePreviousParentId: string | null;
-  desiredParentContainerId?: string | undefined;
+  supersededMovePreviousParentId: string;
+  createdParentContainerId: string;
+  desiredParentContainerId: string;
 }): Promise<boolean> {
   if (!input.isCurrent()) return false;
   const settleRevision = input.state.persistence.markCreateIntentRevisionSynced;
@@ -25,9 +26,8 @@ export async function settleContainerCreateIntent(input: {
     remoteMetadataDocumentId: input.remoteMetadataDocumentId,
     stillCurrent: input.isCurrent,
     supersededMovePreviousParentId: input.supersededMovePreviousParentId,
-    ...(input.desiredParentContainerId === undefined
-      ? {}
-      : { desiredParentContainerId: input.desiredParentContainerId }),
+    createdParentContainerId: input.createdParentContainerId,
+    desiredParentContainerId: input.desiredParentContainerId,
   });
   return settled && input.isCurrent();
 }
