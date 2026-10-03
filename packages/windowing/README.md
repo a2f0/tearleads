@@ -119,14 +119,37 @@ in them, which a consumer's typecheck could not resolve. The smoke script
 installs the lowest React the peer range admits, typechecks against the
 declarations with TypeScript's defaults, and bundles a named import with webpack.
 
-Publishing is manual, from the built directory, by an account that owns the
-`@tearleads` npm scope:
+Publish from the repository root using an account that owns the `@tearleads`
+npm scope:
 
 ```sh
-npm login
-bun run --cwd packages/windowing package
-cd packages/windowing/dist && npm publish --access public
+npm login --registry https://registry.npmjs.org
+bun run publish:npm:dry-run
+bun run publish:npm
 ```
 
-Bump `version` in `package.json` first; the generated manifest copies it. The
+`scripts/publishNpmModules.sh` publishes every Tearleads module required for the
+standalone windowing extraction. That set is only `@tearleads/windowing`: it has
+no workspace dependencies, and its React peers and Phosphor dependency already
+exist on npm. `scripts/publishWindowing.sh` is the package-specific command,
+also available as `bun run --cwd packages/windowing publish:npm`.
+
+Both commands rebuild into a fresh temporary directory, publish its generated
+consumer manifest with public access to `https://registry.npmjs.org`, and remove
+the directory on success or failure. A temporary `.npmrc` overrides any
+scope-specific registry without changing your npm configuration. A dry run
+builds and previews the same package without uploading. They accept `--dry-run`,
+`--tag <tag>` (default `latest`), and `--otp <code>`; for example:
+
+```sh
+bun run publish:npm --dry-run --tag next
+bun run publish:npm --tag next --otp 123456
+```
+
+Run `package:smoke` separately before a release to verify the packed package in
+an external consumer. It needs the network to install the consumer dependencies.
+
+`ship-pr` bumps changed workspace packages before review and merge; the generated
+manifest copies `version` from `package.json`. For a release outside that flow,
+bump the version yourself before publishing. The
 manifest declares `"license": "UNLICENSED"` until a license is chosen.

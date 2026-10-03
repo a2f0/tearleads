@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { createTransportFaultHarness } from "@tearleads/test-utils";
 import { quietLogger } from "../../test/helpers/clientTestSupport";
 import { createBrowserNetworkStatusSource, Network } from "./network";
 import { Tearleads } from "./Tearleads";
@@ -51,17 +52,17 @@ describe("Network reachability", () => {
   });
 
   test("a thrown backend fetch is only a connectivity hint without an authoritative source", async () => {
-    const previousFetch = globalThis.fetch;
     // A WebView fetch rejected by CORS/ATS throws the same TypeError as a
     // genuine offline; the API client classifies both as kind:"network".
-    globalThis.fetch = (async (
-      _input: RequestInfo | URL,
-      _init?: RequestInit,
-    ): Promise<Response> => {
-      throw new TypeError("Load failed");
-    }) as typeof fetch;
-
-    try {
+    const harness = createTransportFaultHarness({
+      steps: ["headless", "native"].map((name) => ({
+        name,
+        method: "GET",
+        url: "https://api.example.test/auth/sessions",
+        action: { kind: "network-error", message: "Load failed" },
+      })),
+    });
+    await harness.run(async () => {
       // An unbound/headless SDK has no independent connectivity source, so the
       // thrown fetch remains a useful offline hint.
       const headlessSdk = new Tearleads({
@@ -82,8 +83,10 @@ describe("Network reachability", () => {
       nativeSdk.network.setConnectivityAuthoritative(true);
       await nativeSdk.session.listSessions().catch(() => undefined);
       expect(nativeSdk.network.online).toBe(true);
-    } finally {
-      globalThis.fetch = previousFetch;
-    }
+    });
+    expect(harness.attempts.map((attempt) => attempt.outcome)).toEqual([
+      "network-error",
+      "network-error",
+    ]);
   });
 });
