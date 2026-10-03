@@ -47,6 +47,7 @@ test("the metadata root must be committed by both reserved group grant indexes",
       },
       execSql,
       organizationId: artifacts.organizationId,
+      reportSecurityIncident: async () => {},
       stillCurrent: () => true,
       resolveTrustedUserIdentity: async (userId) =>
         userId === "founder"

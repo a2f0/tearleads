@@ -1,27 +1,99 @@
 import {
   type ContainerKekKeyringEntry,
   computeContainerKekMaterialId,
+  generateKemSeedAndKeyPair,
   sealContainerKekKeyring,
 } from "@tearleads/crypto";
 import { createTestExecSql } from "@tearleads/test-utils";
 import type { ContainerWriterProjectionResponse } from "@tearleads/validators/response";
+import type { ExecSql } from "../../src/data/sqlite/sqlSchema";
 import { rekeyRemoteContainer } from "../../src/workflows/containers/child/rekeyRemote";
+import { shareRemoteContainer } from "../../src/workflows/containers/child/share";
 import {
   createMutationResponseFromRequest,
   createParentProjection,
   createParentProjectionUserKeyResolver,
+  createRecipientIdentityResolver,
 } from "./containerFixtures";
 import { createChildContainerProjection } from "./projectionHierarchy";
 
 export const CHILD_ID = "lineage-child";
+export const GRANTEE_ID = "lineage-grantee";
+
+type ParentProjection = Awaited<ReturnType<typeof createParentProjection>>;
+type ChildProjection = Awaited<
+  ReturnType<typeof createChildContainerProjection>
+>;
 
 /**
- * A child rotated once (epoch 1 -> 2), then served with its epoch-1 manifest
+ * Grants the child to `GRANTEE_ID` at epoch 1, so a later revoke has a real
+ * subject. Returns the shared projection and a key resolver that knows the
+ * grantee as well as the parent.
+ */
+async function shareChildWithGrantee(input: {
+  readonly child: ChildProjection;
+  readonly execSql: ExecSql;
+  readonly parent: ParentProjection;
+}) {
+  const granteeKeyPair = generateKemSeedAndKeyPair();
+  const resolveGrantee = createRecipientIdentityResolver({
+    encapsulationPublicKey: granteeKeyPair.publicKey,
+    signingKeyFingerprint: input.parent.author.signerKeyFingerprint,
+    signingPublicKey: input.parent.signingPublicKey,
+  });
+  const resolveParent = createParentProjectionUserKeyResolver(input.parent);
+  const resolveProjectionUserKey = (userId: string) =>
+    userId === GRANTEE_ID ? resolveGrantee(userId) : resolveParent(userId);
+  const childKek = input.child.projection.containerKeks.at(-1);
+  if (!childKek) throw new Error("Expected the child KEK");
+  const shared = await shareRemoteContainer({
+    reportSecurityIncident: async () => {},
+    accessLevel: "read",
+    apiClient: {
+      reciteContainer: async () => null,
+      getContainerWriterProjection: async () => input.child.projection,
+      shareContainer: async (_containerId, request) =>
+        createMutationResponseFromRequest(request, childKek),
+    },
+    author: input.parent.author,
+    containerId: CHILD_ID,
+    execSql: input.execSql,
+    recipientUserId: GRANTEE_ID,
+    resolveProjectionUserKey,
+    resolveTrustedUserIdentity: resolveGrantee,
+    targetSecretKey: input.parent.secretKey,
+  });
+  if (!shared) throw new Error("Expected the child to be shared");
+  const projection: ContainerWriterProjectionResponse = {
+    ...input.child.projection,
+    path: [
+      ...input.child.projection.path.slice(0, -1),
+      shared.response.accessManifest,
+    ],
+    containerKeks: [
+      ...input.child.projection.containerKeks.slice(0, -1),
+      {
+        ...shared.response.containerKek,
+        containerManifestHistory: [
+          input.child.bundle,
+          ...childKek.containerManifestHistory,
+        ],
+      },
+    ],
+  };
+  return { projection, resolveProjectionUserKey };
+}
+
+/**
+ * A child rotated once (epoch 1 -> 2), then served with its epoch-1 manifests
  * under the root's KEK instead of its own: the pooled lineage still verifies,
  * but the child KEK's history no longer names the epoch-1 id (#2365 finding
- * 32).
+ * 32). With `shareWithGrantee`, the child is granted to `GRANTEE_ID` at epoch
+ * 1, so the relocated history carries a revocable subject.
  */
-export async function relocatedChildHistory() {
+export async function relocatedChildHistory(
+  options: { readonly shareWithGrantee?: boolean } = {},
+) {
   const parent = await createParentProjection();
   const child = await createChildContainerProjection({
     containerId: CHILD_ID,
@@ -29,33 +101,57 @@ export async function relocatedChildHistory() {
     parentProjection: parent.projection,
   });
   const database = await createTestExecSql("relocated-lineage");
+  const shared = options.shareWithGrantee
+    ? await shareChildWithGrantee({
+        child,
+        execSql: database.execSql,
+        parent,
+      })
+    : null;
+  const epoch1Projection = shared?.projection ?? child.projection;
+  const resolveProjectionUserKey =
+    shared?.resolveProjectionUserKey ??
+    createParentProjectionUserKeyResolver(parent);
   const rekeyed = await rekeyRemoteContainer({
     reportSecurityIncident: async () => {},
     apiClient: {
       reciteContainer: async () => null,
-      getContainerWriterProjection: async () => child.projection,
+      getContainerWriterProjection: async () => epoch1Projection,
       rekeyContainer: async (_containerId, request) =>
         createMutationResponseFromRequest(
           request,
-          child.projection.containerKeks.at(-1),
+          epoch1Projection.containerKeks.at(-1),
         ),
     },
     author: parent.author,
     containerId: CHILD_ID,
     execSql: database.execSql,
-    resolveProjectionUserKey: createParentProjectionUserKeyResolver(parent),
+    resolveProjectionUserKey,
     targetSecretKey: parent.secretKey,
   });
-  const rootKek = child.projection.containerKeks[0];
-  const epoch1Id = child.projection.containerKeks.at(-1)?.containerKeyEpochId;
-  if (!rekeyed || !rootKek || !epoch1Id) {
+  const rootKek = epoch1Projection.containerKeks[0];
+  const epoch1Kek = epoch1Projection.containerKeks.at(-1);
+  const epoch1Head = epoch1Projection.path.at(-1);
+  if (!rekeyed || !rootKek || !epoch1Kek || !epoch1Head) {
     throw new Error("Expected a rotated child under a root KEK");
   }
+  const epoch1Id = epoch1Kek.containerKeyEpochId;
+  // Every epoch-1 manifest moves under the root's KEK: the create, and the
+  // grant when the child was shared.
+  const epoch1Manifests = [
+    ...epoch1Kek.containerManifestHistory.filter(
+      (bundle) => bundle.manifestHash !== epoch1Head.manifestHash,
+    ),
+    epoch1Head,
+  ];
+  const relocatedHashes = new Set(
+    epoch1Manifests.map((bundle) => bundle.manifestHash),
+  );
   const epoch2Kek = rekeyed.response.containerKek;
   const projection: ContainerWriterProjectionResponse = {
-    ...child.projection,
+    ...epoch1Projection,
     path: [
-      ...child.projection.path.slice(0, -1),
+      ...epoch1Projection.path.slice(0, -1),
       rekeyed.response.accessManifest,
     ],
     containerKeks: [
@@ -63,13 +159,13 @@ export async function relocatedChildHistory() {
         ...rootKek,
         containerManifestHistory: [
           ...rootKek.containerManifestHistory,
-          child.bundle,
+          ...epoch1Manifests,
         ],
       },
       {
         ...epoch2Kek,
         containerManifestHistory: epoch2Kek.containerManifestHistory.filter(
-          (bundle) => bundle.manifestHash !== child.bundle.manifestHash,
+          (bundle) => !relocatedHashes.has(bundle.manifestHash),
         ),
       },
     ],
@@ -82,6 +178,7 @@ export async function relocatedChildHistory() {
     epoch2Kek,
     parent,
     projection,
+    resolveProjectionUserKey,
   };
 }
 

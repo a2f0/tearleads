@@ -16,6 +16,8 @@ export {
   initTestSqliteDatabase,
   type TestExecSql,
 } from "./createTestExecSql";
+export { createTransportFaultHarness } from "./createTransportFaultHarness";
+export { createTransportGate, type TransportGate } from "./createTransportGate";
 export {
   createNoBrickTraceRecorder,
   type NoBrickOutcome,
@@ -37,3 +39,10 @@ export {
   SIGNED_GROUP_INVALID_PAYLOADS,
   SIGNED_GROUP_NAME_CASES,
 } from "./signedGroupNameCases";
+export type {
+  TransportAttempt,
+  TransportExpectedOutcome,
+  TransportFaultAction,
+  TransportFaultHarness,
+  TransportFaultStep,
+} from "./transportFaultTypes";

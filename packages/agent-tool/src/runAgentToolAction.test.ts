@@ -7,6 +7,10 @@ import {
 
 function actionsWith(overrides: Partial<AgentToolActions>): AgentToolActions {
   return {
+    prepareVersions: () => 0,
+    bumpVersions: () => 0,
+    checkVersions: () => 0,
+    resolveVersionConflicts: () => 0,
     openPr: () => 0,
     solicitClaudeCodeReview: () => 0,
     solicitCodexReview: () => 0,
@@ -17,6 +21,59 @@ function actionsWith(overrides: Partial<AgentToolActions>): AgentToolActions {
 }
 
 describe("runAgentToolAction", () => {
+  test("dispatches version preparation and rejects extra arguments", () => {
+    const calls: unknown[] = [];
+    const actions = actionsWith({
+      prepareVersions: (root, base) => {
+        calls.push([root, base]);
+        return 17;
+      },
+    });
+    expect(
+      runAgentToolAction("/repo", ["prepareVersions", "abc"], actions),
+    ).toBe(17);
+    expect(calls).toEqual([["/repo", "abc"]]);
+    expect(() =>
+      runAgentToolAction("/repo", ["prepareVersions", "abc", "extra"], actions),
+    ).toThrow("at most 1");
+  });
+  test("dispatches the version actions with the pinned base OID", () => {
+    const calls: unknown[] = [];
+    const actions = actionsWith({
+      bumpVersions: (root, base) => {
+        calls.push([root, base]);
+        return 0;
+      },
+      checkVersions: (root, base) => {
+        calls.push([root, base]);
+        return 1;
+      },
+      resolveVersionConflicts: (root) => {
+        calls.push([root]);
+        return 0;
+      },
+    });
+    expect(runAgentToolAction("/repo", ["bumpVersions", "abc"], actions)).toBe(
+      0,
+    );
+    expect(runAgentToolAction("/repo", ["checkVersions", "abc"], actions)).toBe(
+      1,
+    );
+    expect(
+      runAgentToolAction("/repo", ["resolveVersionConflicts"], actions),
+    ).toBe(0);
+    expect(calls).toEqual([["/repo", "abc"], ["/repo", "abc"], ["/repo"]]);
+    expect(() =>
+      runAgentToolAction("/repo", ["bumpVersions", "abc", "extra"], actions),
+    ).toThrow("at most 1");
+    expect(() =>
+      runAgentToolAction(
+        "/repo",
+        ["resolveVersionConflicts", "extra"],
+        actions,
+      ),
+    ).toThrow("at most 0");
+  });
   test("exposes squashMerge with every reviewed-merge positional", () => {
     let received: readonly (string | undefined)[] = [];
     const actions = actionsWith({

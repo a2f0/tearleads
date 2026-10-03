@@ -1,4 +1,7 @@
-import { createRequiredContext, type RequiredContext } from "@tearleads/ui";
+import {
+  createRequiredContext,
+  type RequiredContext,
+} from "../../createRequiredContext";
 import type { WindowStateActions, WindowStateData } from "./types";
 
 // Keep state and actions in separate contexts so consumers that only need

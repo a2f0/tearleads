@@ -3,6 +3,7 @@ import { KeyingVerificationError } from "@tearleads/crypto";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { readTestGroupName } from "../../../test/helpers/groupMetadata";
 import { createGroupNameDirectory } from "../../../test/helpers/groupNameDirectory";
+import type { SecurityIncidentContext } from "../../data/securityIncidents";
 import { loadOrganizationExternalAdminPolicy } from "../principals/externalAdminPolicy";
 import { GroupMetadataUnreadableError } from "./groupMetadataAccess";
 import { assertGroupNameUniqueInDirectory } from "./groupNameUniqueness";
@@ -18,6 +19,7 @@ async function createUniquenessCheck(
 ) {
   const { close, execSql } = await createTestExecSql(testLabel);
   const directory = await createGroupNameDirectory();
+  const incidents: { error: unknown; context: SecurityIncidentContext }[] = [];
   const externalAdminPolicy = await loadOrganizationExternalAdminPolicy({
     execSql,
     getCurrentPrincipalPolicy: directory.apiClient.getCurrentPrincipalPolicy,
@@ -36,9 +38,12 @@ async function createUniquenessCheck(
       externalAuthority: externalAdminPolicy.externalAuthority,
       name,
       organizationId: directory.author.organizationId,
+      reportSecurityIncident: async (error, context) => {
+        incidents.push({ context, error });
+      },
       resolveTrustedUserIdentity: directory.resolveTrustedUserIdentity,
     });
-  return { assertUnique, close, directory };
+  return { assertUnique, close, directory, incidents };
 }
 
 const TAKEN = "Another signed group in this organization already carries";
@@ -146,8 +151,19 @@ test("a group whose name does not decrypt is skipped, while other failures block
   );
   try {
     // No member can open the poisoned name, so it neither blocks creation nor
-    // hides the names every other group still carries.
+    // hides the names every other group still carries. Only a dishonest admin
+    // signs such a name, so the walk records it rather than dropping it.
     await expect(unreadable.assertUnique("Operators")).resolves.toBeUndefined();
+    expect(unreadable.incidents).toEqual([
+      {
+        context: expect.objectContaining({
+          objectId: "group-1",
+          objectKind: "principal",
+          operation: "organization.groupName",
+        }),
+        error: expect.objectContaining({ code: "invalid_shape" }),
+      },
+    ]);
     await expect(unreadable.assertUnique("Members")).rejects.toThrow(TAKEN);
   } finally {
     unreadable.close();

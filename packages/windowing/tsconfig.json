@@ -5,6 +5,6 @@
     "lib": ["ESNext", "DOM"],
     "jsx": "react-jsx"
   },
-  "include": ["src", "happydom.ts"],
+  "include": ["src", "happydom.ts", "scripts"],
   "exclude": ["dist"]
 }

@@ -1,13 +1,15 @@
 import { expect, test } from "bun:test";
+import {
+  normalizeContainerKekKeyring,
+  openContainerKekKeyring,
+} from "@tearleads/crypto";
 import type { ContainerMutationRequest } from "@tearleads/validators/request";
 import type { ContainerWriterProjectionResponse } from "@tearleads/validators/response";
-import {
-  createMutationResponseFromRequest,
-  createParentProjectionUserKeyResolver,
-} from "../../../../test/helpers/containerFixtures";
+import { createMutationResponseFromRequest } from "../../../../test/helpers/containerFixtures";
 import { createChildContainerProjection } from "../../../../test/helpers/projectionHierarchy";
 import {
   CHILD_ID,
+  GRANTEE_ID,
   type RelocatedChildHistory,
   relocatedChildHistory,
   servingForgedKeyring,
@@ -27,8 +29,9 @@ async function rotationScenario(
   serve: (
     scenario: RelocatedChildHistory,
   ) => Promise<ContainerWriterProjectionResponse>,
+  options: Parameters<typeof relocatedChildHistory>[0] = {},
 ) {
-  const scenario = await relocatedChildHistory();
+  const scenario = await relocatedChildHistory(options);
   const projection = await serve(scenario);
   const submitted: ContainerMutationRequest[] = [];
   const respond = async (request: ContainerMutationRequest) => {
@@ -44,9 +47,7 @@ async function rotationScenario(
       containerId: CHILD_ID,
       execSql: scenario.database.execSql,
       reportSecurityIncident: async () => {},
-      resolveProjectionUserKey: createParentProjectionUserKeyResolver(
-        scenario.parent,
-      ),
+      resolveProjectionUserKey: scenario.resolveProjectionUserKey,
       targetSecretKey: scenario.parent.secretKey,
     },
     projection,
@@ -144,4 +145,30 @@ test("an honest move over relocated history still re-seals", async () => {
   const setup = await rotationScenario(servingHonestKeyring);
   expect(await moveOverRelocatedHistory(setup)).not.toBeNull();
   expect(setup.submitted).toHaveLength(1);
+});
+
+test("an honest revoke over relocated history still re-seals", async () => {
+  const { common, projection, respond, scenario, submitted } =
+    await rotationScenario(servingHonestKeyring, { shareWithGrantee: true });
+  const revoked = await revokeRemoteContainer({
+    ...common,
+    apiClient: {
+      reciteContainer: async () => null,
+      getContainerWriterProjection: async () => projection,
+      revokeContainer: async (_containerId, request) => respond(request),
+    },
+    revokedSubject: { subjectId: GRANTEE_ID, subjectType: "user" },
+  });
+  const keyring = revoked?.response.containerKek.keyring;
+  if (!revoked || !keyring) throw new Error("Expected a sealed revoke");
+  expect(submitted).toHaveLength(1);
+  const entries = await openContainerKekKeyring({
+    keyEpoch: 3,
+    keyring: normalizeContainerKekKeyring(keyring),
+    successorContainerKey: revoked.containerKey,
+  });
+  expect(entries.map((entry) => entry.containerKeyEpochId)).toEqual([
+    scenario.epoch1Id,
+    scenario.epoch2Kek.containerKeyEpochId,
+  ]);
 });

@@ -88,6 +88,7 @@ test("organization history shows group details and resolves current roster names
       groupId: "support-group",
       organizationId: "org-a",
       name: "Support",
+      nameUnreadable: false,
       createdAt: "2026-09-24T12:00:00Z",
       isBuiltin: false,
       currentState: null,

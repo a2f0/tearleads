@@ -88,8 +88,7 @@ test("a group cannot drop a container grant without rotating its key", async () 
 
   expect(response.status).toBe(409);
   expect(await response.json()).toEqual({
-    error:
-      "A group policy that removes a container grant must rotate the group key",
+    error: "Principal policy grant removal requires a new key epoch",
   });
   expect(
     (await getCurrentPrincipalState("group", groupId, db))?.stateHash,

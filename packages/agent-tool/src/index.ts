@@ -3,6 +3,10 @@
  * agent-tool - minimal CLI for cross-agent code review and PR workflows.
  *
  * Usage: bun packages/agent-tool/src/index.ts <action> [args]
+ *   prepareVersions <base-oid> Bump, refresh lockfile, validate, and commit
+ *   bumpVersions <base-oid>    Patch-bump every changed workspace package
+ *   checkVersions <base-oid>   Verify versions against the exact merge base
+ *   resolveVersionConflicts   Resolve version-only workspace manifest conflicts
  *   solicitClaudeCodeReview [effort]
  *                               Review the current branch's diff with the local
  *                               `claude` CLI — against the PR base, or the

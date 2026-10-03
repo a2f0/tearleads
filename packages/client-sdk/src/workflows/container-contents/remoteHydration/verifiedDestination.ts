@@ -204,6 +204,7 @@ async function verifyDestinationRole(input: {
       apiClient: runtime.apiClient,
       execSql: runtime.infra.execSql,
       organizationId: listed.organizationId,
+      reportSecurityIncident: runtime.util.reportSecurityIncident,
       resolveTrustedUserIdentity: runtime.resolveTrustedUserIdentity,
       stillCurrent: isCurrent ?? (() => true),
     })(head.state);

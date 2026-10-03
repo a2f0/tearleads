@@ -68,7 +68,12 @@ function toDirectoryAndGroups(
       ...projection.directory,
       currentUser: projection.requester,
     },
-    groups: projection.groups.groups,
+    // Hydration decides whether a name is unreadable; a stored blank name may
+    // only mean the group has not been hydrated yet.
+    groups: projection.groups.groups.map((group) => ({
+      ...group,
+      nameUnreadable: false,
+    })),
     memberGroupId: projection.groups.memberGroupId,
     readModelCursor: projection.cursor,
   };

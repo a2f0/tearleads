@@ -1,6 +1,7 @@
-import type {
-  PrincipalPolicyExternalAuthority,
-  VerifiedPrincipalPolicy,
+import {
+  KeyingVerificationError,
+  type PrincipalPolicyExternalAuthority,
+  type VerifiedPrincipalPolicy,
 } from "@tearleads/crypto";
 import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
 import { throwKeyingVerificationErrorWithContext } from "../../data/keyingProjectionVerification/error";
@@ -15,6 +16,7 @@ import {
   principalPolicyReferenceFromBundle,
   verifyPrincipalPolicyBundleWithExternalOrganizationAdmins,
 } from "../../data/principals/principalPolicyAdminSigners";
+import type { SecurityIncidentReporter } from "../../data/securityIncidents";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import type { TrustedUserIdentityResolver } from "../../data/trustedUserIdentity";
 import { collectPrincipalPolicySignerPublicKeys } from "../principals/policyVerification";
@@ -38,6 +40,7 @@ export interface DirectoryGroupWalkInput {
   readonly execSql: ExecSql;
   readonly externalAuthority: PrincipalPolicyExternalAuthority;
   readonly organizationId: string;
+  readonly reportSecurityIncident: SecurityIncidentReporter;
   readonly resolveTrustedUserIdentity: TrustedUserIdentityResolver;
 }
 
@@ -134,7 +137,7 @@ export async function verifyDirectoryGroup(
     );
   }
   assertGroupMetadataBinding(bundle, input.descriptor);
-  const name = await readDirectoryGroupName(bundle, input.readEncryptedName);
+  const name = await readDirectoryGroupName(input, bundle);
   return {
     bundle,
     name,
@@ -143,16 +146,33 @@ export async function verifyDirectoryGroup(
   };
 }
 
-/** A verified group whose name no member can open has no name to select by. */
+/**
+ * A verified group whose name no member can open has no name to select by. The
+ * walk isolates it rather than failing every name in the organization, but it
+ * still records the incident: only a dishonest admin signs such a name.
+ */
 async function readDirectoryGroupName(
+  input: DirectoryGroupWalkInput,
   bundle: PrincipalPolicyBundleResponse,
-  readEncryptedName: GroupPolicyNameReader | undefined,
 ): Promise<string | null> {
   try {
-    return await readGroupPolicyPayloadName(bundle, readEncryptedName);
+    return await readGroupPolicyPayloadName(bundle, input.readEncryptedName);
   } catch (error) {
-    if (error instanceof GroupMetadataUnreadableError) return null;
-    throw error;
+    if (!(error instanceof GroupMetadataUnreadableError)) throw error;
+    await input.reportSecurityIncident(
+      new KeyingVerificationError(
+        "invalid_shape",
+        "Signed group name does not open under the cited metadata key",
+      ),
+      {
+        evidenceHashes: { stateHash: bundle.currentState.stateHash },
+        objectId: bundle.currentState.principalId,
+        objectKind: "principal",
+        operation: "organization.groupName",
+        organizationId: input.organizationId,
+      },
+    );
+    return null;
   }
 }
 
