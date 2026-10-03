@@ -6,6 +6,7 @@ import {
   type LocalCryptoSessionPersistence,
   localCryptoSessionStorageKey,
   persistCryptoSession,
+  queueCryptoSessionPersistence,
   restorePersistedCryptoSession,
 } from "./localCryptoSessionPersistence";
 import { usePrepareForRestoreReload } from "./usePrepareForRestoreReload";
@@ -61,8 +62,12 @@ async function sessionFixture() {
 }
 
 function renderPrepare(
-  fixture: Awaited<ReturnType<typeof sessionFixture>>,
+  fixture: Pick<
+    Awaited<ReturnType<typeof sessionFixture>>,
+    "localPersistence" | "sessionState"
+  >,
   restoreSettled = true,
+  writeTimeoutMs?: number,
 ) {
   return renderHook(() =>
     usePrepareForRestoreReload({
@@ -70,17 +75,14 @@ function renderPrepare(
       restoreSettled,
       sessionState: fixture.sessionState,
       signingFingerprint,
+      writeTimeoutMs,
     }),
   ).result.current;
 }
 
-test("a repeated reload click keeps the signed-out record with its acknowledgements", async () => {
-  const fixture = await sessionFixture();
-  const prepare = renderPrepare(fixture);
-
-  await Promise.all([prepare(), prepare()]);
-  await prepare();
-
+async function expectSignedOutRecordKeepsAcknowledgements(
+  fixture: Awaited<ReturnType<typeof sessionFixture>>,
+) {
   const restored = await restorePersistedCryptoSession({
     localPersistence: fixture.localPersistence,
     signingFingerprint,
@@ -90,6 +92,16 @@ test("a repeated reload click keeps the signed-out record with its acknowledgeme
   expect(restored?.rootAcknowledgments).toEqual(
     fixture.sessionState.rootAcknowledgments,
   );
+}
+
+test("a repeated reload click keeps the signed-out record with its acknowledgements", async () => {
+  const fixture = await sessionFixture();
+  const prepare = renderPrepare(fixture);
+
+  expect(await Promise.all([prepare(), prepare()])).toEqual([null, null]);
+  expect(await prepare()).toBeNull();
+
+  await expectSignedOutRecordKeepsAcknowledgements(fixture);
 });
 
 test("a record that cannot be rewritten is dropped rather than pin the old root", async () => {
@@ -106,15 +118,57 @@ test("a record that cannot be rewritten is dropped rather than pin the old root"
     },
   };
 
-  await renderPrepare(locked)();
+  expect(await renderPrepare(locked)()).toBe("rewrite_failed");
 
   expect(fixture.values.has(fixture.localPersistence.storageKey)).toBe(false);
 });
 
-test("before the saved session loads, the record is dropped, not overwritten", async () => {
+test("before the saved session loads, the saved record is rewritten signed out", async () => {
   const fixture = await sessionFixture();
+  // The live state has not loaded the saved record yet, so it holds nothing.
+  const unloaded = {
+    ...fixture,
+    sessionState: { ...fixture.sessionState, rootAcknowledgments: [] },
+  };
 
-  await renderPrepare(fixture, false)();
+  expect(await renderPrepare(unloaded, false)()).toBeNull();
 
+  await expectSignedOutRecordKeepsAcknowledgements(fixture);
+});
+
+test("with no saved session there is nothing to keep or report", async () => {
+  const fixture = await sessionFixture();
+  fixture.values.clear();
+
+  expect(await renderPrepare(fixture, false)()).toBeNull();
+  expect(fixture.values.size).toBe(0);
+});
+
+test("a stalled earlier write cannot hold the reload, and cannot land after it", async () => {
+  const fixture = await sessionFixture();
+  const { keyring, scope } = fixture.localPersistence;
+  let release: (
+    session: Awaited<ReturnType<typeof keyring.loadSession>>,
+  ) => void = () => undefined;
+  const stalledWrite = queueCryptoSessionPersistence({
+    context: fixture.sessionState,
+    localPersistence: {
+      ...fixture.localPersistence,
+      keyring: {
+        ...keyring,
+        loadSession: () =>
+          new Promise((resolve) => {
+            release = resolve;
+          }),
+      },
+    },
+    signingFingerprint,
+  });
+
+  expect(await renderPrepare(fixture, true, 20)()).toBe("rewrite_timed_out");
+  expect(fixture.values.has(fixture.localPersistence.storageKey)).toBe(false);
+
+  release(await keyring.loadSession(scope));
+  expect(await stalledWrite).toBe(false);
   expect(fixture.values.has(fixture.localPersistence.storageKey)).toBe(false);
 });

@@ -8,11 +8,28 @@ test("the acknowledgements are kept before the caches clear and the app reloads"
     logError: () => steps.push("error"),
     prepare: async () => {
       steps.push("prepare");
+      return null;
     },
     reload: () => steps.push("reload"),
   });
 
   expect(steps).toEqual(["prepare", "clear", "reload"]);
+});
+
+test("a dropped record is logged with its reason and the app still reloads", async () => {
+  const steps: string[] = [];
+  await reloadAfterRestore({
+    clearCaches: () => steps.push("clear"),
+    logError: (message, error) => steps.push(`error: ${message} (${error})`),
+    prepare: async () => "rewrite_timed_out",
+    reload: () => steps.push("reload"),
+  });
+
+  expect(steps).toEqual([
+    "error: The session record was dropped across restore, losing its root acknowledgements (rewrite_timed_out)",
+    "clear",
+    "reload",
+  ]);
 });
 
 test("a failed preparation is logged and the app still reloads", async () => {
