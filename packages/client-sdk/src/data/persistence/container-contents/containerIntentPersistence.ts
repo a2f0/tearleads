@@ -1,4 +1,4 @@
-import { and, asc, eq, inArray, sql } from "drizzle-orm";
+import { and, asc, eq, inArray } from "drizzle-orm";
 import {
   containerCreateIntents,
   containerMoveIntents,
@@ -17,11 +17,11 @@ import {
   type ContainerCreateIntentRecord,
   type ContainerCreateIntentRevisionInput,
   type ContainerCreateIntentSyncStatus,
-  type ContainerMoveIntentInput,
   type ContainerMoveIntentRecord,
   type ContainerMoveIntentRevisionInput,
   type ContainerMoveIntentSyncStatus,
 } from "./containerContentsPersistenceTypes";
+import { settleContainerCreateIntentRevision } from "./containerCreateIntentSettlement";
 
 function parseCreateIntentSyncStatus(
   value: unknown,
@@ -145,152 +145,6 @@ export class ContainerCreateIntentSupersededError extends Error {
   constructor() {
     super("Container create intent was superseded before local settlement");
   }
-}
-
-async function markContainerCreateIntentRevisionSynced(input: {
-  containerId: string;
-  expectedIntentId: string;
-  expectedUpdatedAt: string;
-  remoteContainerId: string;
-  remoteMetadataAccessStateHash: string;
-  remoteMetadataDocumentId: string;
-  tx: ClientSQLiteTransactionScope;
-}): Promise<boolean> {
-  const updated = await input.tx
-    .update(containerCreateIntents)
-    .set({
-      syncStatus: "synced",
-      remoteContainerId: input.remoteContainerId,
-      remoteMetadataDocumentId: input.remoteMetadataDocumentId,
-      remoteMetadataAccessStateHash: input.remoteMetadataAccessStateHash,
-      lastError: null,
-      updatedAt: new Date().toISOString(),
-    })
-    .where(
-      and(
-        eq(containerCreateIntents.containerId, input.containerId),
-        eq(containerCreateIntents.intentType, CONTAINER_CREATE_INTENT_TYPE),
-        eq(containerCreateIntents.syncStatus, "pending"),
-        eq(containerCreateIntents.id, input.expectedIntentId),
-        eq(containerCreateIntents.updatedAt, input.expectedUpdatedAt),
-      ),
-    )
-    .returning({ containerId: containerCreateIntents.containerId });
-  return updated.length > 0;
-}
-
-export async function settleContainerCreateIntentRevision(input: {
-  containerId: string;
-  expectedIntentId: string;
-  expectedUpdatedAt: string;
-  remoteContainerId: string;
-  remoteMetadataAccessStateHash: string;
-  remoteMetadataDocumentId: string;
-  supersededMovePreviousParentId?: string | null | undefined;
-  desiredParentContainerId?: string | undefined;
-  tx: ClientSQLiteTransactionScope;
-}): Promise<"converted-to-move" | "superseded" | "synced"> {
-  if (await markContainerCreateIntentRevisionSynced(input)) {
-    // A create adopted after the container moved locally committed under its
-    // original parent; the move to the desired parent is still owed.
-    if (
-      input.supersededMovePreviousParentId === undefined ||
-      input.desiredParentContainerId === undefined ||
-      input.desiredParentContainerId === input.supersededMovePreviousParentId
-    ) {
-      return "synced";
-    }
-    await saveContainerMoveIntent({
-      containerId: input.containerId,
-      moveIntent: {
-        parentContainerId: input.desiredParentContainerId,
-        previousParentContainerId: input.supersededMovePreviousParentId,
-      },
-      tx: input.tx,
-      updatedAt: new Date().toISOString(),
-    });
-    return "converted-to-move";
-  }
-  if (input.supersededMovePreviousParentId === undefined) {
-    return "superseded";
-  }
-
-  const [currentIntent] = await input.tx
-    .select({
-      id: containerCreateIntents.id,
-      parentContainerId: containerCreateIntents.parentContainerId,
-      updatedAt: containerCreateIntents.updatedAt,
-    })
-    .from(containerCreateIntents)
-    .where(
-      and(
-        eq(containerCreateIntents.containerId, input.containerId),
-        eq(containerCreateIntents.intentType, CONTAINER_CREATE_INTENT_TYPE),
-        eq(containerCreateIntents.syncStatus, "pending"),
-      ),
-    )
-    .limit(1);
-  if (!currentIntent?.id) return "superseded";
-
-  const adopted = await markContainerCreateIntentRevisionSynced({
-    ...input,
-    expectedIntentId: currentIntent.id,
-    expectedUpdatedAt: currentIntent.updatedAt,
-  });
-  if (!adopted) return "superseded";
-  if (
-    currentIntent.parentContainerId !== input.supersededMovePreviousParentId
-  ) {
-    await saveContainerMoveIntent({
-      containerId: input.containerId,
-      moveIntent: {
-        parentContainerId: currentIntent.parentContainerId,
-        previousParentContainerId: input.supersededMovePreviousParentId,
-      },
-      tx: input.tx,
-      updatedAt: new Date().toISOString(),
-    });
-  }
-  return "converted-to-move";
-}
-
-export async function saveContainerMoveIntent(input: {
-  tx: ClientSQLiteTransactionScope;
-  containerId: string;
-  moveIntent: ContainerMoveIntentInput;
-  updatedAt: string;
-}) {
-  const { containerId, moveIntent, tx, updatedAt } = input;
-  const id = moveIntent.id ?? crypto.randomUUID();
-  await tx
-    .insert(containerMoveIntents)
-    .values({
-      id,
-      containerId,
-      parentContainerId: moveIntent.parentContainerId,
-      previousParentContainerId: moveIntent.previousParentContainerId ?? null,
-      intentType: CONTAINER_MOVE_INTENT_TYPE,
-      syncStatus: "pending",
-      lastError: null,
-      lastAttemptedAt: null,
-      createdAt: updatedAt,
-      updatedAt,
-    })
-    .onConflictDoUpdate({
-      target: containerMoveIntents.containerId,
-      set: {
-        // The timestamp can collide when two moves are queued in one clock
-        // tick, so every enqueue also owns a fresh revision token.
-        id,
-        parentContainerId: moveIntent.parentContainerId,
-        previousParentContainerId: sql`coalesce(${containerMoveIntents.previousParentContainerId}, ${moveIntent.previousParentContainerId ?? null})`,
-        intentType: CONTAINER_MOVE_INTENT_TYPE,
-        syncStatus: "pending",
-        lastError: null,
-        updatedAt,
-      },
-    })
-    .run();
 }
 
 export async function deleteContainerMoveIntentRevision(input: {

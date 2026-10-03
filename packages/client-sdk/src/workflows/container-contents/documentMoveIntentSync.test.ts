@@ -97,6 +97,7 @@ test("document move sync propagates identity failures without recording a retry"
 
     await expect(
       syncPendingDocumentMoveIntents({
+        isCreatePending: () => false,
         host: {
           documentWorkflowRuntime: () => null,
           openDocumentStore: () => ({
@@ -210,6 +211,7 @@ test("a blocked document move keeps replaying and re-records its reason", async 
 
     const runOnce = () =>
       syncPendingDocumentMoveIntents({
+        isCreatePending: () => false,
         host: {
           documentWorkflowRuntime: () => null,
           openDocumentStore: () => ({
@@ -333,6 +335,7 @@ test("denied moves replay once per launch, before the scan", async () => {
     // local document — the attempt is what matters).
     const firstLaunchState = makeState();
     await syncPendingDocumentMoveIntents({
+      isCreatePending: () => false,
       host,
       isCurrent: () => true,
       isRemoteSyncBlocked: () => false,
@@ -348,6 +351,7 @@ test("denied moves replay once per launch, before the scan", async () => {
       message: "denied again",
     });
     await syncPendingDocumentMoveIntents({
+      isCreatePending: () => false,
       host,
       isCurrent: () => true,
       isRemoteSyncBlocked: () => false,
@@ -357,6 +361,7 @@ test("denied moves replay once per launch, before the scan", async () => {
 
     // A fresh store state (relaunch) replays it again.
     await syncPendingDocumentMoveIntents({
+      isCreatePending: () => false,
       host,
       isCurrent: () => true,
       isRemoteSyncBlocked: () => false,
@@ -365,5 +370,74 @@ test("denied moves replay once per launch, before the scan", async () => {
     expect(await readStatuses()).toEqual(["blocked"]);
   } finally {
     await close();
+  }
+});
+
+// A destination whose create has not settled may carry a listed identity
+// adoption has not verified, or has refused; no document moves into it.
+test("a document move into a folder whose create is pending waits", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "containerContents-document-move-pending-create",
+  );
+  let opened = 0;
+  try {
+    await defaultDocumentsPersistence.ensureSchema(execSql);
+    await sqlDocumentMoveIntentPersistence.enqueueMoveIntent(execSql, {
+      documentId: "document",
+      localId: "local-document",
+      sourceContainerId: "source",
+      targetContainerId: "target",
+    });
+    await defaultDocumentsPersistence.saveDocument(execSql, {
+      accessEpoch: 1,
+      accessStateHash: "access-document",
+      containerId: "source",
+      contentKeyBundle: null,
+      documentId: "document",
+      documentKekTargets: null,
+      documentKind: "note",
+      documentManifestBundle: null,
+      id: "local-document",
+      lastCommitLsn: null,
+      snapshotEndVersion: "",
+      text: "",
+      title: "Document",
+    });
+
+    const moved = await syncPendingDocumentMoveIntents({
+      host: {
+        documentWorkflowRuntime: () => null,
+        openDocumentStore: () => {
+          opened += 1;
+          throw new Error("unexpected document store");
+        },
+      },
+      isCreatePending: (containerId) => containerId === "target",
+      isCurrent: () => true,
+      isRemoteSyncBlocked: () => false,
+      state: {
+        containersById: new Map([
+          [
+            "target",
+            createTestContainerState({ id: "target", parentId: "root" }),
+          ],
+        ]),
+        resolveProjectionUserKey: async () => null,
+        runtime: {
+          infra: { execSql },
+          util: { log: () => undefined },
+        } as unknown as ContainerContentsWorkflowRuntime,
+      },
+    });
+
+    expect(moved).toBe(0);
+    expect(opened).toBe(0);
+    const [pending] =
+      await sqlDocumentMoveIntentPersistence.listPendingMoveIntents(execSql);
+    expect(pending?.lastError).toBe(
+      "Document move destination container is not synced yet",
+    );
+  } finally {
+    close();
   }
 });

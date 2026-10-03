@@ -8,10 +8,7 @@ import {
 } from "../metadataStateIsolation";
 import type { ContainerState } from "../remoteHydration";
 import { hasRemoteContainerMetadataState } from "../remoteHydration/reconciliation";
-import {
-  markContainerContentsContainerCreateIntentAlreadySynced,
-  verifyListedContainerCreate,
-} from "./createAdoption";
+import { syncListedContainerCreate } from "./createAdoption";
 import {
   deferTooDeepCreate,
   recordRefusedTooDeepCreate,
@@ -54,8 +51,6 @@ async function reportContainerCreateIntegrityFailure(input: {
 }
 
 async function recordContainerCreateFailure(input: {
-  /** What failed, when it was not the remote create itself. */
-  readonly action?: string | undefined;
   readonly error: unknown;
   readonly isCurrent: () => boolean;
   readonly intent: ContainerCreateIntentSyncInput["intent"];
@@ -80,7 +75,7 @@ async function recordContainerCreateFailure(input: {
       containerId: input.intent.containerId,
       expectedIntentId: input.intent.id,
       expectedUpdatedAt: input.intent.updatedAt,
-      message: `${input.action ?? (input.error instanceof IncompleteContainerCreateSettlementError ? "Container create persistence failed" : "Remote container create failed")}: ${errorMessage(input.error)}`,
+      message: `${input.error instanceof IncompleteContainerCreateSettlementError ? "Container create persistence failed" : "Remote container create failed"}: ${errorMessage(input.error)}`,
       stillCurrent: input.isCurrent,
     },
   );
@@ -380,40 +375,24 @@ async function trySyncPendingContainerContentsContainerCreateIntent(
     return currentCreateResult(input.isCurrent, "failed");
   }
 
-  if (hasRemoteContainerMetadataState(containerState)) {
-    let committedParentId: string;
-    try {
-      committedParentId = await verifyListedContainerCreate({
-        intent,
-        parentState,
-        state,
-      });
-    } catch (error) {
-      return recordContainerCreateFailure({
-        action: "Container create adoption verification failed",
-        error,
-        isCurrent: input.isCurrent,
-        intent,
-        organizationId: parentState.container.organizationId,
-        state,
-      });
-    }
-    const marked =
-      await markContainerContentsContainerCreateIntentAlreadySynced({
-        committedParentId,
-        containerState,
-        isCurrent: input.isCurrent,
-        intent,
-        state,
-      });
-    return marked ? "created" : currentCreateResult(input.isCurrent, "blocked");
-  }
-
   if (input.isRemoteSyncBlocked(parentState.container.organizationId)) {
     return "blocked";
   }
 
-  if (!hasRemoteContainerMetadataState(parentState)) {
+  if (hasRemoteContainerMetadataState(containerState)) {
+    return syncListedContainerCreate({
+      containerState,
+      parentState,
+      syncInput: input,
+    });
+  }
+
+  // A parent whose own create has not settled may carry a listed identity
+  // adoption has not verified, or has refused; nothing is created under it.
+  if (
+    !hasRemoteContainerMetadataState(parentState) ||
+    input.isCreatePending(parentState.container.id)
+  ) {
     return "blocked";
   }
 
@@ -449,6 +428,9 @@ export async function syncPendingContainerCreateIntents(input: {
   const remainingContainerIds = new Set(
     pendingIntents.map((intent) => intent.containerId),
   );
+  // Only a create that settles in this pass leaves the pending set; a failed
+  // or parked one stays pending even though this pass stops retrying it.
+  const unsettledContainerIds = new Set(remainingContainerIds);
   let createdCount = 0;
   let progressed = true;
 
@@ -463,6 +445,8 @@ export async function syncPendingContainerCreateIntents(input: {
       const result = await trySyncPendingContainerContentsContainerCreateIntent(
         {
           host,
+          isCreatePending: (containerId) =>
+            unsettledContainerIds.has(containerId),
           isCurrent: input.isCurrent,
           isRemoteSyncBlocked: input.isRemoteSyncBlocked,
           intent,
@@ -482,6 +466,7 @@ export async function syncPendingContainerCreateIntents(input: {
       progressed = result === "created" || progressed;
       if (result === "created") {
         createdCount += 1;
+        unsettledContainerIds.delete(intent.containerId);
       }
     }
   }

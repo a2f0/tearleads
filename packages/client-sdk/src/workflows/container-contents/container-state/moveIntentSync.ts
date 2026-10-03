@@ -346,7 +346,10 @@ async function trySyncPendingContainerMoveIntent(
   if (input.isRemoteSyncBlocked(containerState.container.organizationId)) {
     return "blocked";
   }
-  if (!hasRemoteContainerMetadataState(containerState)) {
+  if (
+    !hasRemoteContainerMetadataState(containerState) ||
+    input.isCreatePending(intent.containerId)
+  ) {
     // Source not synced yet is TRANSIENT, exactly like the destination case
     // below: the source's own create intent syncs first (createIntentSync runs
     // before moveIntentSync in a pass), but if that create fails on this pass
@@ -364,7 +367,10 @@ async function trySyncPendingContainerMoveIntent(
     });
     return currentMoveResult(input.isCurrent, "blocked");
   }
-  if (!hasRemoteContainerMetadataState(parentState)) {
+  if (
+    !hasRemoteContainerMetadataState(parentState) ||
+    input.isCreatePending(intent.parentContainerId)
+  ) {
     await recordPendingMoveIntentError({
       containerId: intent.containerId,
       expectedIntentId: intent.id,
@@ -381,6 +387,7 @@ async function trySyncPendingContainerMoveIntent(
 
 export async function syncPendingContainerMoveIntents(input: {
   host: ContainerMoveIntentSyncHost;
+  isCreatePending: (containerId: string) => boolean;
   isCurrent: () => boolean;
   isRemoteSyncBlocked: (organizationId: string) => boolean;
   requestRemoteReconciliation: (parentContainerId: string | null) => void;
@@ -406,6 +413,7 @@ export async function syncPendingContainerMoveIntents(input: {
     const result = await trySyncPendingContainerMoveIntent({
       host,
       isCurrent: input.isCurrent,
+      isCreatePending: input.isCreatePending,
       isRemoteSyncBlocked: input.isRemoteSyncBlocked,
       intent,
       requestRemoteReconciliation: input.requestRemoteReconciliation,

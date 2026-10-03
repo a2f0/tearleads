@@ -441,6 +441,7 @@ export async function runQueuedDocumentMoveFixture(input: {
       const remoteRequestsBefore = remoteRequests.length;
       const submittedBefore = submittedOperations.length;
       const syncedCount = await syncPendingDocumentMoveIntents({
+        isCreatePending: () => false,
         host,
         isCurrent: () => true,
         isRemoteSyncBlocked: () => false,

@@ -196,6 +196,7 @@ async function movePendingDocumentIntent<TRuntime>(input: {
 }
 
 async function resolveMoveIntentPreflight(input: {
+  isCreatePending: (containerId: string) => boolean;
   isRemoteSyncBlocked: (organizationId: string) => boolean;
   isCurrent: () => boolean;
   intent: DocumentMoveIntentRecord;
@@ -245,7 +246,10 @@ async function resolveMoveIntentPreflight(input: {
     if (input.isRemoteSyncBlocked(targetState.container.organizationId)) {
       return { result: "blocked" };
     }
-    if (!hasRemoteContainerMetadataState(targetState)) {
+    if (
+      !hasRemoteContainerMetadataState(targetState) ||
+      input.isCreatePending(targetId)
+    ) {
       await recordPendingDocumentMoveIntentError({
         documentId: intent.documentId,
         expectedIntentId: intent.id,
@@ -351,6 +355,7 @@ async function settleMovedDocumentIntent<TRuntime>(input: {
 
 async function trySyncPendingDocumentMoveIntent<TRuntime>(input: {
   host: DocumentMoveIntentSyncHost<TRuntime>;
+  isCreatePending: (containerId: string) => boolean;
   isRemoteSyncBlocked: (organizationId: string) => boolean;
   isCurrent: () => boolean;
   intent: DocumentMoveIntentRecord;
@@ -435,6 +440,8 @@ async function trySyncPendingDocumentMoveIntent<TRuntime>(input: {
 
 export async function syncPendingDocumentMoveIntents<TRuntime>(input: {
   host: DocumentMoveIntentSyncHost<TRuntime>;
+  /** A destination whose create has not settled takes no document yet. */
+  isCreatePending: (containerId: string) => boolean;
   isCurrent: () => boolean;
   isRemoteSyncBlocked: (organizationId: string) => boolean;
   state: DocumentMoveIntentSyncState;
@@ -457,6 +464,7 @@ export async function syncPendingDocumentMoveIntents<TRuntime>(input: {
     if (!input.isCurrent()) return movedCount;
     const result = await trySyncPendingDocumentMoveIntent({
       host: input.host,
+      isCreatePending: input.isCreatePending,
       isCurrent: input.isCurrent,
       isRemoteSyncBlocked: input.isRemoteSyncBlocked,
       intent,

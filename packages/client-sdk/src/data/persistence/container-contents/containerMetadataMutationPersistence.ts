@@ -28,10 +28,10 @@ import type {
   ContainerMetadataRecord,
   StoredContainerState,
 } from "./containerContentsPersistenceTypes";
+import { settleContainerCreateIntentRevision } from "./containerCreateIntentSettlement";
 import {
   ContainerCreateIntentSupersededError,
   deleteContainerMoveIntentRevision,
-  settleContainerCreateIntentRevision,
 } from "./containerIntentPersistence";
 import {
   getContainerMetadataScope,

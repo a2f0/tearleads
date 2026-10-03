@@ -21,10 +21,8 @@ import type {
   ContainerMetadataRecord,
   ContainerMoveIntentInput,
 } from "./containerContentsPersistenceTypes";
-import {
-  saveContainerCreateIntent,
-  saveContainerMoveIntent,
-} from "./containerIntentPersistence";
+import { saveContainerCreateIntent } from "./containerIntentPersistence";
+import { saveContainerMoveIntent } from "./containerMoveIntentRows";
 import {
   CONTAINER_METADATA_APP_KIND,
   clearDormantContainerMetadataInTransaction,
