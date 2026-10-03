@@ -4,6 +4,7 @@ import { containerWrappingPublicKeyForTest } from "./containerWrapping.testFixtu
 import { verifySignedAccessEvent } from "./index";
 import {
   createVerifiedContainerAccessEvent,
+  createVerifiedDocumentAccessEvent,
   fixtureHash,
 } from "./testFixtures";
 
@@ -31,6 +32,36 @@ test("a fixture-verified access event equals the verifier's result", async () =>
       await fixtureHash("dependency-a"),
     ],
     objectId: "child-container",
+    organizationId: "organization-1",
+    previousManifestHash: null,
+    signer,
+    signerUserId: "user-1",
+  });
+
+  const result = await verifySignedAccessEvent({
+    body: verified.body,
+    event: verified.event,
+    signerPublicKey: signer.signingPublicKey,
+  });
+
+  expect(result.ok).toBe(true);
+  if (result.ok) {
+    expect(result.value).toEqual(verified);
+  }
+});
+
+test("a fixture-verified document access event equals the verifier's result", async () => {
+  const signer = generateSigningSeedAndKeyPair();
+  const containerManifestHash = await fixtureHash("container-manifest");
+  const verified = await createVerifiedDocumentAccessEvent({
+    body: {
+      blobRewraps: [],
+      containerId: "container-1",
+      containerManifestHash,
+      eventType: "document.link",
+    },
+    dependencyManifestHashes: [containerManifestHash],
+    objectId: "document-1",
     organizationId: "organization-1",
     previousManifestHash: null,
     signer,

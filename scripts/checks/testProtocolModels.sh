@@ -66,6 +66,7 @@ run_check() (
     FAKE_FAIL_CONFIG="${FAKE_FAIL_CONFIG:-}" \
     FAKE_FAIL_MODEL="${FAKE_FAIL_MODEL:-}" \
     FAKE_FAIL_STATUS="${FAKE_FAIL_STATUS:-}" \
+    PROTOCOL_TLC_FAILURE_LOG_DIR="${PROTOCOL_TLC_FAILURE_LOG_DIR:-}" \
     PROTOCOL_TLC_PARALLELISM="${PROTOCOL_TLC_PARALLELISM:-}" \
     TLA_TOOLS_JAR_SHA256="${TLA_TOOLS_JAR_SHA256:-$FIXTURE_JAR_SHA256}" \
     "$CHECK_SCRIPT"
@@ -146,11 +147,15 @@ fi
 # One run at a time, a failure must stop the check before the next run starts.
 # With overlapping runs, which later runs had already started depends on
 # timing, so only the reported failure is asserted there.
+# The second run keeps its log where CI asks, in a directory not created yet.
 for parallelism in 1 2; do
   install_registry valid.txt
+  failure_log_dir=
+  [ "$parallelism" -eq 1 ] || failure_log_dir=$TEST_ROOT/failure-logs/nested
   if failure_output=$(
     FAKE_FAIL_CONFIG=formal/alpha/AlphaBroad.cfg \
       FAKE_FAIL_STATUS=17 \
+      PROTOCOL_TLC_FAILURE_LOG_DIR=$failure_log_dir \
       PROTOCOL_TLC_PARALLELISM=$parallelism \
       run_check 2>&1
   ); then
@@ -170,6 +175,10 @@ for parallelism in 1 2; do
     ! grep -q "fake-tlc trace line for formal/alpha/AlphaBroad.cfg" "$kept_log"; then
     fail "a failing TLC log was not kept at parallelism $parallelism."
   fi
+  case "$kept_log" in
+    "${failure_log_dir:-$TEST_ROOT/tmp}"/*) ;;
+    *) fail "a failing TLC log was kept outside its directory: $kept_log" ;;
+  esac
   rm -f "$kept_log"
   if [ "$parallelism" -eq 1 ]; then
     [ "$(wc -l <"$JAVA_LOG" | tr -d '[:space:]')" -eq 2 ] ||
