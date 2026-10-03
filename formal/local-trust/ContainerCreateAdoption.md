@@ -19,7 +19,7 @@ lane's pass.
 | `SettledMove` / `KeepQueuedMove` | `rebaseQueuedMove` keeps a queued move's destination and cites `supersededMovePreviousParentId` |
 | `RefuseForeignCreate` / `ParkForeignCreates` / `parked` | `ForeignContainerCreateError` is recorded as `CONTAINER_CREATE_ADOPTION_REFUSED`, which `syncListedContainerCreate` leaves blocked without a read |
 | `SiblingSync` / `LaneHalted` | `syncPendingContainerCreateIntents` continues with the next intent |
-| `WriteIntoFolder` / `HoldPendingWrites` / `wroteUnadopted` | `runContainerContentsStoreSyncIteration` passes `isCreatePending` to container and document move replay and skips the folder's metadata sync; `syncPendingContainerCreateIntents` holds child creates |
+| `WriteIntoFolder` / `HoldPendingWrites` / `wroteUnadopted` | `runContainerContentsStoreSyncIteration` passes `isCreatePending` to container and document move replay and skips the folder's metadata sync; `syncPendingContainerCreateIntents` holds child creates and `isContainerCreatePending` holds document creates |
 
 The configuration has three parents and two scopes: the device's own create
 and a foreign one. The create committed under the first parent. TLC explores
@@ -32,8 +32,8 @@ It checks five properties:
 - the settled move cites the parent the folder sits under now;
 - settlement places the folder where the user last put it, or keeps a remote
   move when the user never moved it;
-- no folder move, document move, child create or metadata edit is written
-  into the folder while its create is pending;
+- no folder move, document move, child or document create, or metadata
+  edit is written into the folder while its create is pending;
 - a later intent in the same pass eventually syncs, under fairness for
   adoption, refusal and that intent.
 
@@ -43,11 +43,10 @@ folder. Without the queued-move rule,
 the owed move both cites a parent that never committed and takes over the
 queued destination; TLC reports the stale citation first.
 
-Document creates and remote deletes are not held, and the model has no
-write action for them. Settlement compares the desired parent with the created
-one, so a local move away and back while another writer moved the folder
-keeps the remote move. The model does not prove cryptography or the move
-replay itself. It also
-leaves out settlement's compare-and-set against a revision re-queued mid-pass,
-which persistence tests cover. A failed read that is not a foreign create is
-modeled as taking no step: it is recorded and retried on a later pass.
+Remote deletes are not held, and the model has no delete action. Settlement
+compares the desired parent with the created one, so a local move away and
+back while another writer moved the folder keeps the remote move. The model
+does not prove cryptography or the move replay itself. It also leaves out
+settlement's compare-and-set against a revision re-queued mid-pass, which
+persistence tests cover. A failed read that is not a foreign create is modeled
+as taking no step: it is recorded and retried on a later pass.
