@@ -10,6 +10,7 @@ import {
   requireOrganizationGroupHead,
 } from "../../data/principals/organizationAuthorityDescriptor";
 import { principalPolicyReferenceFromBundle } from "../../data/principals/principalPolicyAdminSigners";
+import type { SecurityIncidentReporter } from "../../data/securityIncidents";
 import { MetadataRootBehindDirectoryError } from "./groupMetadataErrors";
 import { verifyDirectoryGroup } from "./groupNameUniqueness";
 import { loadGroupNameDirectoryAuthority } from "./organizationGroupNamePolicies";
@@ -17,7 +18,7 @@ import { loadGroupNameDirectoryAuthority } from "./organizationGroupNamePolicies
 type Input = Omit<
   Parameters<typeof loadGroupNameDirectoryAuthority>[0],
   "organizationPolicyReference"
->;
+> & { readonly reportSecurityIncident: SecurityIncidentReporter };
 
 /** A public system slot alone cannot bind a self-authorized root to an organization. */
 export function createGroupMetadataContainerVerifier(input: Input) {

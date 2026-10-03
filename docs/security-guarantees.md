@@ -149,6 +149,16 @@ changing them without a matching signed state causes rejection. Every
 principal-state write, including group creation and provisioning, re-verifies
 the stored chain from rows inside the storing transaction before commit.
 
+### Login Challenges Name The API
+
+A login signature covers the challenge, the signing-key fingerprint, and the
+API's canonical origin. The API checks it against its configured
+`API_PUBLIC_ORIGIN`, which production requires as a bare https origin. A
+challenge that a malicious API relays from the real one was therefore signed for
+the relay's origin and never verifies. Outside production an unset origin falls
+back to each request's own origin, which comes from its Host header and which a
+relay controls. The API warns about that fallback at startup.
+
 ### Signed Timestamps
 
 Every signed `signedAt` is canonical `Date#toISOString()` form with a year in

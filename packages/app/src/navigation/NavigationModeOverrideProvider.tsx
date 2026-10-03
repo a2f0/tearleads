@@ -1,4 +1,4 @@
-import { createRequiredContext } from "@tearleads/ui";
+import { createRequiredContext } from "@tearleads/windowing";
 import { type PropsWithChildren, useCallback, useMemo, useState } from "react";
 import {
   loadStoredPreference,

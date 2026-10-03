@@ -108,6 +108,7 @@ async function createReservedGroupAdvance(advancing: "Admins" | "Members") {
       },
       execSql,
       organizationId: artifacts.organizationId,
+      reportSecurityIncident: async () => {},
       stillCurrent: () => true,
       resolveTrustedUserIdentity: async (userId) =>
         userId === "founder" ? founder : null,

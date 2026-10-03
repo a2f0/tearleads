@@ -20,6 +20,7 @@ function group(groupId: string, name: string): OrganizationGroupSummary {
     groupId,
     isBuiltin: name === "Admins",
     name,
+    nameUnreadable: false,
     organizationId: "org-1",
   };
 }

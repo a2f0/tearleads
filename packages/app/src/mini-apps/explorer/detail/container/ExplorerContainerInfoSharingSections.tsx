@@ -65,7 +65,7 @@ function principalLabel(
     const group = containerInfo.groups.find(
       (candidate) => candidate.groupId === subjectId,
     );
-    if (group) {
+    if (group && !group.nameUnreadable && group.name !== "") {
       return group.name;
     }
   }

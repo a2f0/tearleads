@@ -35,7 +35,6 @@ import type {
   ContainerMutationAuthor,
   MaterializedContainerMovePlan,
 } from "../../../data/containers/shared/types";
-import { signedHistoryEpochIds } from "../../../data/documents/shared/containerKekPathHistory";
 import { unwrapContainerKekPath } from "../../../data/documents/shared/projection";
 import { projectionVerificationOptions } from "../../../data/documents/shared/types";
 import { readCanonicalRecord } from "../../../data/keyingCanonicalJson";
@@ -67,6 +66,7 @@ import { containerWriterProjectionFromRotationPlan } from "./rekeyProjection";
 import {
   requireUnwrappedKek,
   type SignedRotationTarget,
+  signedRotationTarget,
 } from "./rotationContext";
 
 function buildContainerMoveRequest(input: {
@@ -127,7 +127,7 @@ async function unwrapMoveContainerKeys(input: {
     verifiedByHash,
     ...projectionVerificationOptions(input),
   });
-  const source = getTargetContainerContext(input.previousProjection);
+  const source = signedRotationTarget(input.previousProjection, verifiedByHash);
   const containerKey = requireUnwrappedKek(
     keksByEpochId,
     source.kek,
@@ -149,16 +149,7 @@ async function unwrapMoveContainerKeys(input: {
     "Container move destination parent",
   );
 
-  const signedEpochIds = signedHistoryEpochIds({
-    headManifestHash: source.manifest.manifestHash,
-    kek: source.kek,
-    verifiedByHash,
-  });
-  return {
-    containerKey,
-    destinationParent,
-    source: { ...source, signedEpochIds },
-  };
+  return { containerKey, destinationParent, source };
 }
 
 function assertContainerMoveOrganizations(input: {

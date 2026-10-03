@@ -22,6 +22,11 @@
   box-shadow: var(--app-shadow-surface);
 }
 
+/* Menu items size border-box, like the window chrome (see Window.css). */
+:where(.menu) :where(*) {
+  box-sizing: border-box;
+}
+
 .menu[data-scrollable] {
   touch-action: pan-y;
 }

@@ -33,7 +33,7 @@ import {
 import { formatMiniAppDate } from "../../../utils/formatMiniAppDate";
 import { compactFingerprint } from "../display";
 import { GrantSections } from "../grants/GrantSections";
-import { ORG_MANAGER_LABELS } from "../labels";
+import { groupDisplayName, ORG_MANAGER_LABELS } from "../labels";
 import type { OrgManagerGrantRouteRef } from "../routes";
 import { UserRosterMetadata } from "./RosterMetadata";
 import { RosterProfileEditor } from "./RosterProfileEditor";
@@ -155,7 +155,7 @@ function UserGroups({
               onClick={() => openGroupRoute(group.groupId)}
             >
               <MiniAppRowStack>
-                <strong>{group.name}</strong>
+                <strong>{groupDisplayName(group)}</strong>
                 <MiniAppRowText muted title={group.groupId}>
                   {compactFingerprint(group.groupId)}
                 </MiniAppRowText>

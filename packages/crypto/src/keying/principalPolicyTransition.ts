@@ -1,4 +1,5 @@
 import type {
+  PrincipalContainerGrant,
   PrincipalProjectionMember,
   SignedPrincipalState,
 } from "../principalState";
@@ -45,6 +46,22 @@ function hasPrincipalPolicyProjectionShrink(input: {
   });
 }
 
+/**
+ * Container KEK wraps sealed to a group's key stay stored after the group
+ * loses a grant, so a member added later at the same key epoch could still
+ * open them (#2365 finding 20). A grant may change its access level in place,
+ * but dropping a container needs a new key, exactly like a projection shrink.
+ */
+function hasPrincipalPolicyGrantRemoval(input: {
+  currentGrants: readonly PrincipalContainerGrant[];
+  previousGrants: readonly PrincipalContainerGrant[];
+}): boolean {
+  const retained = new Set(
+    input.currentGrants.map((grant) => grant.containerId),
+  );
+  return input.previousGrants.some((grant) => !retained.has(grant.containerId));
+}
+
 function principalPolicyKeyMaterialChanged(input: {
   currentState: SignedPrincipalState;
   previousState: SignedPrincipalState;
@@ -58,6 +75,7 @@ function principalPolicyKeyMaterialChanged(input: {
 
 export type PrincipalPolicyTransitionMismatchCode =
   | "epoch_advance_without_key_material"
+  | "grant_removal_without_key_rotation"
   | "key_change_without_epoch"
   | "key_epoch_decrease"
   | "previous_hash_mismatch"
@@ -79,10 +97,12 @@ function principalPolicyTransitionMismatch(
 
 export function getPrincipalPolicyTransitionMismatch(input: {
   readonly current: {
+    readonly grants: readonly PrincipalContainerGrant[];
     readonly projection: readonly PrincipalProjectionMember[];
     readonly state: SignedPrincipalState;
   };
   readonly previous: {
+    readonly grants: readonly PrincipalContainerGrant[];
     readonly projection: readonly PrincipalProjectionMember[];
     readonly state: PrincipalPolicySignedState;
   };
@@ -161,6 +181,19 @@ export function getPrincipalPolicyTransitionMismatch(input: {
     );
   }
 
+  if (
+    hasPrincipalPolicyGrantRemoval({
+      currentGrants: current.grants,
+      previousGrants: previous.grants,
+    }) &&
+    current.state.keyEpoch <= previous.state.keyEpoch
+  ) {
+    return principalPolicyTransitionMismatch(
+      "grant_removal_without_key_rotation",
+      "Principal policy grant removal requires a new key epoch",
+    );
+  }
+
   return null;
 }
 
@@ -175,6 +208,7 @@ export function throwPrincipalPolicyTransitionError(
 ): never {
   switch (mismatch.code) {
     case "epoch_advance_without_key_material":
+    case "grant_removal_without_key_rotation":
     case "key_change_without_epoch":
     case "key_epoch_decrease":
     case "shrink_without_key_rotation":
