@@ -1,0 +1,53 @@
+name: Windowing dist
+
+# Commits the built @tearleads/windowing package to the dist/windowing branch,
+# whose tree is that package alone, so another repository can depend on
+# github:a2f0/tearleads#<commit> without an npm release.
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - packages/windowing/**
+      - scripts/lib/rewriteDistImports.ts
+      - scripts/publishWindowingBranch.sh
+      - .github/workflows/windowing-dist.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# One publish at a time, in push order, so each commit's parent is the tip the
+# previous publish left.
+concurrency:
+  group: windowing-dist
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: Publish dist/windowing
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version: 1.4.2
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Publish the package branch
+        env:
+          GIT_AUTHOR_NAME: github-actions[bot]
+          GIT_AUTHOR_EMAIL: 41898282+github-actions[bot]@users.noreply.github.com
+          GIT_COMMITTER_NAME: github-actions[bot]
+          GIT_COMMITTER_EMAIL: 41898282+github-actions[bot]@users.noreply.github.com
+        run: bash scripts/publishWindowingBranch.sh

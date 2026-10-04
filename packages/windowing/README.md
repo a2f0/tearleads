@@ -191,3 +191,23 @@ an external consumer. It needs the network to install the consumer dependencies.
 manifest copies `version` from `package.json`. For a release outside that flow,
 bump the version yourself before publishing. The
 manifest declares `"license": "UNLICENSED"` until a license is chosen.
+
+### Publishing to a branch
+
+Between npm releases, consumers can depend on a commit of the `dist/windowing`
+branch, whose tree is the same built package and nothing else:
+
+```json
+"@tearleads/windowing": "github:a2f0/tearleads#<commit>"
+```
+
+The `Windowing dist` workflow publishes it whenever a push to `main` changes
+this package or its publishing scripts, and on manual dispatch. It runs
+`scripts/publishWindowingBranch.sh`, which builds the package as the npm
+publish does, commits the build with the previous tip as its parent (a
+fast-forward), and prints the commit to pin. A build identical to the tip
+publishes nothing. Each commit's subject names the version and the source
+commit it was built from.
+
+Locally, run the script with `--dry-run` to build the commit without pushing:
+a real push from a checkout goes through the repository's pre-push checks.
