@@ -8,7 +8,7 @@ import {
   useState,
 } from "react";
 import { useWindowLayout } from "./useWindowLayout";
-import type { ResizeCorner } from "./WindowResizeHandle";
+import type { ResizeEdge } from "./WindowResizeHandle";
 import {
   useWindowActions,
   type WindowEntry,
@@ -213,8 +213,8 @@ function capturePointer(event: ReactPointerEvent) {
   }
 }
 
-// Starts a drag from the title bar or a resize from a corner. The gesture
-// itself is tracked on the document by useWindowPointerTracking.
+// Starts a drag from the title bar or a resize from an edge or corner. The
+// gesture itself is tracked on the document by useWindowPointerTracking.
 function useGestureStarts(
   windowRef: RefObject<HTMLElement | null>,
   maximized: boolean,
@@ -225,7 +225,7 @@ function useGestureStarts(
   const handlePointerDown = useCallback(
     (event: ReactPointerEvent) => {
       // One gesture at a time: a second pointer pressing the title bar or a
-      // corner mid-gesture must not take it over.
+      // resize handle mid-gesture must not take it over.
       if (!position || maximized || dragging.current || resizing.current) {
         return;
       }
@@ -240,7 +240,7 @@ function useGestureStarts(
   );
 
   const handleResizePointerDown = useCallback(
-    (event: ReactPointerEvent, corner: ResizeCorner) => {
+    (event: ReactPointerEvent, edge: ResizeEdge) => {
       if (
         maximized ||
         !position ||
@@ -256,7 +256,7 @@ function useGestureStarts(
       const computed = getComputedStyle(el);
       const borderBox = computed.boxSizing === "border-box";
       resizing.current = {
-        corner,
+        edge,
         pointerId: event.pointerId,
         startX: event.clientX,
         startY: event.clientY,

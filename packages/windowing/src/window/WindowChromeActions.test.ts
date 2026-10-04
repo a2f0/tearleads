@@ -16,6 +16,7 @@ function action(
     label: id,
     onClick: () => undefined,
     placement,
+    pressed: null,
     priority,
   };
 }
@@ -52,4 +53,16 @@ test("the highest-priority placement request owns the penultimate slot", () => {
 
 test("a sole penultimate action remains the sole action", () => {
   expect(orderedIds([action("info", 300, "penultimate")])).toEqual(["info"]);
+});
+
+test("only toggle actions carry a pressed state", () => {
+  const [toggle, plain] = createTitleBarActions(
+    new Map([
+      [{}, { ...action("toggle", 200), pressed: false }],
+      [{}, action("plain", 100)],
+    ]),
+  );
+
+  expect(toggle?.pressed).toBe(false);
+  expect(plain && "pressed" in plain).toBe(false);
 });

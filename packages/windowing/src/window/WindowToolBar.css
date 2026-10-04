@@ -52,6 +52,12 @@
   cursor: pointer;
 }
 
+/* A toggle that is on. Hover and focus still take the emphasis colors over it,
+   so the pressed tint reads as state rather than as another hover. */
+.window-toolbar-button[aria-pressed="true"] {
+  background: color-mix(in srgb, currentColor 20%, transparent);
+}
+
 .window-toolbar-button:hover:not(:disabled),
 .window-toolbar-button:focus-visible:not(:disabled) {
   background: var(--emphasis-surface);
