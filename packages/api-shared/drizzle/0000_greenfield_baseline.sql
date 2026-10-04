@@ -64,11 +64,12 @@ CREATE TABLE "access_manifest_principal_head_projection" (
 	"object_id" uuid NOT NULL,
 	"principal_type" text NOT NULL,
 	"principal_id" uuid NOT NULL,
-	"version" integer NOT NULL,
+	"version" bigint NOT NULL,
 	"key_epoch" integer NOT NULL,
 	"state_hash" text NOT NULL,
 	"key_fingerprint" text NOT NULL,
-	"created_at" timestamp DEFAULT now() NOT NULL
+	"created_at" timestamp DEFAULT now() NOT NULL,
+	CONSTRAINT "access_manifest_principal_head_projection_version_range" CHECK ("access_manifest_principal_head_projection"."version" >= 1 AND "access_manifest_principal_head_projection"."version" <= 9007199254740991)
 );
 --> statement-breakpoint
 CREATE TABLE "access_manifest_verifications" (
@@ -674,7 +675,7 @@ CREATE TABLE "principal_states" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"principal_type" text NOT NULL,
 	"principal_id" uuid NOT NULL,
-	"version" integer NOT NULL,
+	"version" bigint NOT NULL,
 	"prev_state_hash" text,
 	"key_epoch" integer NOT NULL,
 	"encapsulation_public_key" text NOT NULL,
@@ -693,7 +694,8 @@ CREATE TABLE "principal_states" (
 	"signer_user_id" uuid NOT NULL,
 	"signer_user_key_fingerprint" text NOT NULL,
 	"signature" text NOT NULL,
-	"created_at" timestamp DEFAULT now() NOT NULL
+	"created_at" timestamp DEFAULT now() NOT NULL,
+	CONSTRAINT "principal_states_version_range" CHECK ("principal_states"."version" >= 1 AND "principal_states"."version" <= 9007199254740991)
 );
 --> statement-breakpoint
 CREATE TABLE "revenuecat_webhook_events" (

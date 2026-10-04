@@ -116,7 +116,7 @@ for the exact-length rule.
 
 | Limit | Value | Where enforced | Past the limit |
 | --- | --- | --- | --- |
-| Principal state version | 16,384 (`MAX_PRINCIPAL_STATE_VERSION`, `validators/src/util/principalStateWire.ts`) | Validators: `request/principal.ts`; crypto `principalState.ts`. | Refusal; revocation availability tracked in [#2442](https://github.com/a2f0/tearleads/issues/2442). |
+| Principal state version | Positive exact JavaScript integer, through `Number.MAX_SAFE_INTEGER` (9,007,199,254,740,991) | Request/response validators; crypto `principalState.ts`; PostgreSQL `bigint` and SQLite `INTEGER`, with range checks on state/head projection columns. | Representation/overflow refusal only; no 16,384-entry lifetime history budget. Cold verification still walks the complete chain. |
 
 ## Limits that trade write liveness
 

@@ -146,10 +146,22 @@ container rotations, deleted groups, wrong prefixes, forged successors, auth
 changes, and eviction. A signature-call probe verifies 64 entries once, reuses
 all 64 on a repeat pass, and makes only 64 further calls when extended to 128.
 
-The existing 16,384 principal-state version bound remains a separate refusal
-tracked in [#2442](https://github.com/a2f0/tearleads/issues/2442). Incremental
-transport does not remove that bound or resolve its revocation-availability
-consequence. No new lifetime history cap is introduced here.
+Principal versions have no artificial lifetime history budget. They remain
+positive exact JavaScript integers through `Number.MAX_SAFE_INTEGER`; PostgreSQL
+stores them as `bigint` and SQLite as `INTEGER`, with matching range checks on
+state and manifest-head projection columns. Overflow is rejected before hashing
+or signing. The greenfield schema baseline contains these column changes; no
+data migration or compatibility path is needed.
+
+The #2442 regression crosses the former 16,384 cutoff with complete signed group
+and organization histories, commits a membership revocation and key rotation,
+and cold-recovers an older encrypted document after losing verification markers
+and all local SDK state. The separate
+[principal-history model](../formal/container-keying/PrincipalHistory.md) checks
+revocation and cold recovery availability with negative controls for both kinds
+of cutoff. Neither the model nor the wider numeric domain promises bounded cold
+memory, transfer size, or verification time. Incremental transport remains a
+warm-cache optimization; paged cold proofs/checkpoints are separate work.
 
 Both API and SDK memoize verified snapshots by a SHA-256 digest of the actual
 source bytes, trusted signer keys, expected reference, and external authority.

@@ -1,6 +1,5 @@
 import { expect, test } from "bun:test";
 import { createTestUser } from "@tearleads/bob-and-alice";
-import { MAX_PRINCIPAL_STATE_VERSION } from "@tearleads/validators/util";
 import { authenticate } from "../../../test/helpers/authenticate";
 import { createSignedPrincipalState } from "../../../test/helpers/principalPolicy";
 import { registerUser } from "../../../test/helpers/registerUser";
@@ -19,7 +18,7 @@ test("the retired principal policy-history route returns 404", async () => {
   expect(response.status).toBe(404);
 });
 
-test("a policy write past the version ceiling is rejected, not a 500", async () => {
+test("a policy write with an unsafe integer version is rejected", async () => {
   const actor = createTestUser();
   await registerUser(actor);
   await authenticate(actor);
@@ -45,7 +44,7 @@ test("a policy write past the version ceiling is rejected, not a 500", async () 
       body: JSON.stringify({
         state: {
           ...signed.state,
-          version: MAX_PRINCIPAL_STATE_VERSION + 1,
+          version: Number.MAX_SAFE_INTEGER + 1,
         },
         encryptedPayload: signed.encryptedPayload,
         projection: signed.projection,
@@ -55,6 +54,5 @@ test("a policy write past the version ceiling is rejected, not a 500", async () 
     },
   );
 
-  expect(response.status).toBeGreaterThanOrEqual(400);
-  expect(response.status).toBeLessThan(500);
+  expect(response.status).toBe(400);
 }, 30_000);

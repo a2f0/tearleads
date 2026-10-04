@@ -1,5 +1,5 @@
 {
-  "id": "6a12896b-028b-497c-9d00-f22081f1320d",
+  "id": "13672e9d-6679-4f86-b992-d43afcd32989",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -781,7 +781,7 @@
         },
         "version": {
           "name": "version",
-          "type": "integer",
+          "type": "bigint",
           "primaryKey": false,
           "notNull": true
         },
@@ -880,7 +880,12 @@
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},
-      "checkConstraints": {},
+      "checkConstraints": {
+        "access_manifest_principal_head_projection_version_range": {
+          "name": "access_manifest_principal_head_projection_version_range",
+          "value": "\"access_manifest_principal_head_projection\".\"version\" >= 1 AND \"access_manifest_principal_head_projection\".\"version\" <= 9007199254740991"
+        }
+      },
       "isRLSEnabled": false
     },
     "public.access_manifest_verifications": {
@@ -6955,7 +6960,7 @@
         },
         "version": {
           "name": "version",
-          "type": "integer",
+          "type": "bigint",
           "primaryKey": false,
           "notNull": true
         },
@@ -7156,7 +7161,12 @@
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},
-      "checkConstraints": {},
+      "checkConstraints": {
+        "principal_states_version_range": {
+          "name": "principal_states_version_range",
+          "value": "\"principal_states\".\"version\" >= 1 AND \"principal_states\".\"version\" <= 9007199254740991"
+        }
+      },
       "isRLSEnabled": false
     },
     "public.revenuecat_webhook_events": {

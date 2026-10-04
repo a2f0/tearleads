@@ -4,7 +4,10 @@ import type {
   ManagedPrincipalKind,
   ReferencedPrincipalHead,
 } from "@tearleads/crypto";
+import { sql } from "drizzle-orm";
 import {
+  bigint,
+  check,
   index,
   integer,
   jsonb,
@@ -252,13 +255,17 @@ export const accessManifestPrincipalHeadProjection = pgTable(
       .$type<ManagedPrincipalKind>()
       .notNull(),
     principalId: uuid("principal_id").notNull(),
-    version: integer("version").notNull(),
+    version: bigint("version", { mode: "number" }).notNull(),
     keyEpoch: integer("key_epoch").notNull(),
     stateHash: text("state_hash").notNull(),
     keyFingerprint: text("key_fingerprint").notNull(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
   (table) => [
+    check(
+      "access_manifest_principal_head_projection_version_range",
+      sql`${table.version} >= 1 AND ${table.version} <= 9007199254740991`,
+    ),
     index("access_manifest_principal_projection_manifest_idx").on(
       table.manifestHash,
     ),

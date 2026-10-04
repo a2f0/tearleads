@@ -125,7 +125,7 @@ export async function listGroupHistoryThroughHeads(
         ),
       )
       .orderBy(asc(principalStates.principalId), asc(principalStates.version));
-    states.push(...rows.map(toStoredPrincipalState));
+    for (const row of rows) states.push(toStoredPrincipalState(row));
   }
   return loadHistoryArtifacts(executor, states);
 }

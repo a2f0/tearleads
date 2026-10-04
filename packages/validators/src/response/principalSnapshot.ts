@@ -1,6 +1,7 @@
 import { z } from "zod";
 import {
   arraySchema,
+  boundedPositiveIntegerSchema,
   loosePlainObject,
   nonNegativeIntegerSchema,
   positiveIntegerSchema,
@@ -41,7 +42,7 @@ export const PrincipalStateResponseSchema = loosePlainObject({
   signerUserId: z.string(),
   signerUserKeyFingerprint: z.string(),
   stateHash: z.string(),
-  version: z.number(),
+  version: boundedPositiveIntegerSchema(Number.MAX_SAFE_INTEGER),
 });
 
 export type PrincipalStateResponse = z.infer<

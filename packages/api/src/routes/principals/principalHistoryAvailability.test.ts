@@ -1,0 +1,193 @@
+import { expect, test } from "bun:test";
+import { db } from "@tearleads/api-shared/postgres";
+import {
+  accessManifestVerifications,
+  principalMemberEnvelopes,
+  principalMembershipProjection,
+  principalStates,
+} from "@tearleads/api-shared/schema";
+import { createTestUser } from "@tearleads/bob-and-alice";
+import { bytesToBase64 } from "@tearleads/encoding";
+import { PrincipalPolicyBundleResponseSchema } from "@tearleads/validators/response";
+import { MAX_MULTIPART_BLOB_PART_BYTES } from "@tearleads/validators/util";
+import { and, count, desc, eq } from "drizzle-orm";
+import {
+  COLD_DOCUMENT_TEXT,
+  coldRematerializeEncryptedDocument,
+  createEncryptedColdDocument,
+} from "../../../test/helpers/coldSdkRematerialization";
+import {
+  asVerifiedContainerManifest,
+  bootstrapRoot,
+} from "../../../test/helpers/keyingWriterProjectionKit";
+import { seedLongPrincipalHistory } from "../../../test/helpers/longPrincipalHistory";
+import {
+  getPolicy,
+  registerAndAuthenticate,
+} from "../../../test/helpers/principalPolicyReadFixtures";
+import { recoverRegisteredRootKek } from "../../../test/helpers/registeredRootKek";
+import {
+  grantRootThroughRotatedReadGroup,
+  rotateRootGroupMembership,
+} from "../../../test/helpers/rotatedReadGroupGrant";
+import { routeApp } from "../../routeApp";
+import { parseOrganizationAuthorityDescriptor } from "../../workflows/organizations/organizationAuthorityDescriptor";
+
+// Both chains really contain every version from genesis; no forged high head
+// or shortened prefix can stand in for the cold recovery availability claim.
+test("revocation and cold historical decryption survive 16,384 principal versions", async () => {
+  const started = performance.now();
+  const owner = createTestUser();
+  const removed = createTestUser();
+  await registerAndAuthenticate(owner, removed);
+  const root = await recoverRegisteredRootKek({
+    owner,
+    root: await bootstrapRoot(owner),
+  });
+  const organizationId = asVerifiedContainerManifest(root.bundle).state
+    .organizationId;
+  const document = await createEncryptedColdDocument({
+    containerId: root.kekState.containerId,
+    organizationId,
+    owner,
+  });
+  const granted = await grantRootThroughRotatedReadGroup({
+    actor: owner,
+    reader: removed,
+    root,
+  });
+  const group = PrincipalPolicyBundleResponseSchema.parse(
+    await (await getPolicy(owner, "group", granted.groupId)).json(),
+  );
+  const groupHead = await seedLongPrincipalHistory({
+    actor: owner,
+    policy: group,
+    throughVersion: 16_384,
+  });
+  const organization = PrincipalPolicyBundleResponseSchema.parse(
+    await (await getPolicy(owner, "organization", organizationId)).json(),
+  );
+  const directory = parseOrganizationAuthorityDescriptor(
+    organization.currentPayload.ciphertext,
+  );
+  if (!directory) throw new Error("Expected organization directory");
+  const groupHeads = directory.groupHeads.map((head) =>
+    head.principalId === granted.groupId
+      ? {
+          ...head,
+          version: groupHead.version,
+          stateHash: groupHead.stateHash,
+        }
+      : head,
+  );
+  await seedLongPrincipalHistory({
+    actor: owner,
+    policy: organization,
+    throughVersion: 16_384,
+    payloadCiphertext: bytesToBase64(
+      new TextEncoder().encode(JSON.stringify({ ...directory, groupHeads })),
+    ),
+  });
+  console.info(
+    "Principal history seeded",
+    Math.round(performance.now() - started),
+  );
+  const server = Bun.serve({
+    hostname: "127.0.0.1",
+    port: 0,
+    maxRequestBodySize: MAX_MULTIPART_BLOB_PART_BYTES,
+    fetch: (request) => routeApp.fetch(request),
+  });
+  let requestBytes = 0;
+  const transport = async (path: string, init: RequestInit) => {
+    if (typeof init.body !== "string")
+      throw new Error("Expected JSON policy commit");
+    requestBytes = new TextEncoder().encode(init.body).byteLength;
+    expect(requestBytes).toBeLessThan(200_000);
+    return fetch(new URL(path, server.url), init);
+  };
+  let rotated: Awaited<ReturnType<typeof rotateRootGroupMembership>>;
+  try {
+    rotated = await rotateRootGroupMembership({
+      actor: owner,
+      request: transport,
+      groupId: granted.groupId,
+      removedMemberUserId: removed.userId,
+      root: granted.root,
+    });
+  } finally {
+    await server.stop(true);
+  }
+  expect(requestBytes).toBeGreaterThan(0);
+  expect(rotated.plaintextKek).not.toEqual(granted.root.plaintextKek);
+  for (const [kind, id] of [
+    ["group", granted.groupId],
+    ["organization", organizationId],
+  ] as const) {
+    const scope = and(
+      eq(principalStates.principalType, kind),
+      eq(principalStates.principalId, id),
+    );
+    const [head] = await db
+      .select()
+      .from(principalStates)
+      .where(scope)
+      .orderBy(desc(principalStates.version))
+      .limit(1);
+    const [history] = await db
+      .select({ count: count() })
+      .from(principalStates)
+      .where(scope);
+    expect(head?.version).toBe(16_385);
+    expect(history?.count).toBe(16_385);
+    if (!head) throw new Error("Missing committed principal head");
+    if (kind === "group") {
+      expect(head.keyEpoch).toBe(group.currentState.keyEpoch + 1);
+      for (const table of [
+        principalMembershipProjection,
+        principalMemberEnvelopes,
+      ]) {
+        const removedRows = await db
+          .select({ userId: table.userId })
+          .from(table)
+          .where(
+            and(
+              eq(table.principalType, kind),
+              eq(table.principalId, id),
+              eq(table.stateHash, head.stateHash),
+              eq(table.userId, removed.userId),
+            ),
+          );
+        expect(removedRows).toEqual([]);
+      }
+    }
+  }
+  console.info(
+    "Principal history revocation committed",
+    Math.round(performance.now() - started),
+  );
+
+  const denied = await routeApp.request(
+    `/documents/${document.documentId}/writer-projection`,
+    {
+      headers: { Authorization: `Bearer ${removed.token}` },
+    },
+  );
+  expect(denied.status).toBe(403);
+  // Discard durable verification hints. The recovery helper creates an empty
+  // client database and fetches current policy/key material from the server.
+  await db.delete(accessManifestVerifications);
+  const recovered = await coldRematerializeEncryptedDocument({
+    documentId: document.documentId,
+    organizationId,
+    owner,
+    reader: owner,
+  });
+  expect(recovered.policyFetchCount).toBeGreaterThan(0);
+  expect(recovered.recoveredText).toBe(COLD_DOCUMENT_TEXT);
+  expect(recovered.updateIds).toContain(document.updateId);
+  console.info(
+    "Principal history cold recovery complete",
+    Math.round(performance.now() - started),
+  );
+}, 1_200_000);
