@@ -8,11 +8,11 @@ import type { ContainerContentsStoreSyncState } from "./syncAgentTypes";
  * manifests in their paths, so the locally known subtree under each invalidated
  * container is dropped too (an unhydrated subtree has nothing cached). Both
  * layers go: the in-memory copies on each container state, and the api-client's
- * bounded writer projection caches as a whole. Document writer projections cite
- * those paths as well, and the store cannot enumerate a container's linked
- * documents without a query (links live in SQLite), so the api-client caches are
- * cleared wholesale rather than per id; each open document store drops its own
- * in-memory copy on the same hint.
+ * cached writer projections that cite an invalidated container. Document
+ * projections cite their paths too, so they are found by citation rather than
+ * through the links, which live in SQLite; projections citing none of them stay
+ * cached (#2395). Each open document store drops its own in-memory copy on the
+ * same hint.
  */
 export function invalidateCachedProjections(
   state: Pick<ContainerContentsStoreSyncState, "containersById" | "runtime">,
@@ -37,5 +37,5 @@ export function invalidateCachedProjections(
     const containerState = state.containersById.get(id);
     if (containerState) invalidateContainerProjections(containerState);
   }
-  state.runtime.apiClient.clearWriterProjectionCaches();
+  state.runtime.apiClient.evictWriterProjectionsCiting(invalidated);
 }

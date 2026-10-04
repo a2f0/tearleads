@@ -10,7 +10,7 @@ test("a generic child hint schedules the affected parent listings", () => {
     domainScope: createDomainScope(),
     execSql: mock(async () => []),
   });
-  base.apiClient.clearWriterProjectionCaches = mock(() => {});
+  base.apiClient.evictWriterProjectionsCiting = mock(() => {});
   const state = createContainerContentsStoreState(
     {
       ...base,
