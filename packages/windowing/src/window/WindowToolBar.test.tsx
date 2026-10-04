@@ -199,6 +199,64 @@ test("honors the disabled flag on a registered action", async () => {
   });
 });
 
+function ToggleActionSource({
+  onToggle,
+  pressed,
+}: {
+  onToggle: () => void;
+  pressed: boolean;
+}) {
+  const action = useMemo(
+    () => ({
+      icon: <span aria-hidden>#</span>,
+      id: "ascii-view",
+      label: "ASCII View",
+      onClick: onToggle,
+      pressed,
+    }),
+    [onToggle, pressed],
+  );
+  useWindowTitleBarAction(action);
+  return null;
+}
+
+test("a toggle action announces and follows its pressed state", async () => {
+  const onToggle = () => undefined;
+  const view = renderToolBar(
+    <ToggleActionSource onToggle={onToggle} pressed={false} />,
+  );
+  const button = () => view.getByRole("button", { name: "ASCII View" });
+
+  await waitFor(() => {
+    expect(button().getAttribute("aria-pressed")).toBe("false");
+  });
+
+  view.rerender(
+    <WindowMenuProvider>
+      <ToggleActionSource onToggle={onToggle} pressed />
+      <WindowToolBar />
+    </WindowMenuProvider>,
+  );
+
+  await waitFor(() => {
+    expect(button().getAttribute("aria-pressed")).toBe("true");
+  });
+});
+
+test("an ordinary action is not a toggle button", async () => {
+  const view = renderToolBar(
+    <TitleBarActionSource onClick={() => undefined} />,
+  );
+
+  await waitFor(() => {
+    expect(
+      view
+        .getByRole("button", { name: "Get Info" })
+        .hasAttribute("aria-pressed"),
+    ).toBe(false);
+  });
+});
+
 test("renders the back control from a registered back action and invokes it", async () => {
   let backs = 0;
   const view = renderToolBar(

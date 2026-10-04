@@ -52,12 +52,16 @@ desktop surface must be a positioned container.
 
 ## Geometry and input
 
-Windows move by their title bar and resize by their corners with pointer
-events, so mouse, touch, and pen all work. While a gesture runs the geometry
-stays local to that window; when it ends, the window commits its `position` and
-`size` (surface-relative) to its `WindowEntry`. The first layout commits too,
-so `position` always reflects where the window sits. Without `size` a window
-takes its stylesheet's default size.
+Windows move by their title bar and resize by any side or corner with pointer
+events, so mouse, touch, and pen all work. The resize targets reach a few
+pixels past the window's border, so an edge can be taken from just outside the
+window, and a hovered corner lights up over the window's own rounded border.
+
+While a gesture runs the geometry stays local to that window; when it ends, the
+window commits its `position` and `size` (surface-relative) to its
+`WindowEntry`. The first layout commits too, so `position` always reflects
+where the window sits. Without `size` a window takes its stylesheet's default
+size.
 
 To save a layout, read `position` and `size` from `useWindowStateData()`. To
 restore one, pass them back as `create` options, which take precedence over
@@ -76,6 +80,28 @@ resizes a window programmatically.
 
 Windows register their own menu items, title-bar actions, a Back action, and a
 sidebar through the `useWindow*` hooks, from inside the window's content.
+
+## Toolbar
+
+The toolbar row sits between the menu bar and the body. Content registers icon
+buttons in it with `useWindowTitleBarAction`; give an action `pressed` to make
+it a toggle, announced as `aria-pressed` and drawn pressed while true:
+
+```tsx
+const icon = useMemo(() => <HashIcon aria-hidden size={18} />, []);
+useWindowTitleBarAction(
+  useMemo(
+    () => ({ icon, id: "ascii", label: "ASCII", onClick: toggle, pressed }),
+    [icon, pressed, toggle],
+  ),
+);
+```
+
+A window with an `appId` also offers Back through its own route history, so its
+row is reserved from the start. An app that never routes passes
+`historyBack={false}` to `Window`; its window then has no row until the app
+first registers toolbar actions. From then on the row stays, as in any window,
+so the body does not shift when actions come and go.
 
 ## Styles
 

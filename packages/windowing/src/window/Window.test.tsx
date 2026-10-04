@@ -180,3 +180,45 @@ test("right-clicking a rendered window title bar opens the window menu", async (
   expect(view.getByText("Move Forward")).toBeTruthy();
   expect(view.getByText("Move Backward")).toBeTruthy();
 });
+
+function ToolbarHarness({ historyBack }: { historyBack?: boolean }) {
+  const { windows } = useWindowStateData();
+  const { create } = useWindowActions();
+
+  useEffect(() => {
+    create("Routeless", 0, 0, undefined, { appId: "host-app" });
+  }, [create]);
+
+  return (
+    <div>
+      {windows.map((window) => (
+        <Window
+          key={window.id}
+          historyBack={historyBack}
+          windowId={window.id}
+        />
+      ))}
+    </div>
+  );
+}
+
+test("an app window reserves its toolbar row for history Back by default", async () => {
+  const view = render(
+    <WindowStateProvider>
+      <ToolbarHarness />
+    </WindowStateProvider>,
+  );
+
+  expect(await view.findByRole("toolbar", { name: "Toolbar" })).toBeTruthy();
+});
+
+test("an app window without history Back shows no empty toolbar row", async () => {
+  const view = render(
+    <WindowStateProvider>
+      <ToolbarHarness historyBack={false} />
+    </WindowStateProvider>,
+  );
+
+  await view.findByRole("toolbar", { name: "Window controls" });
+  expect(view.queryByRole("toolbar", { name: "Toolbar" })).toBeNull();
+});
