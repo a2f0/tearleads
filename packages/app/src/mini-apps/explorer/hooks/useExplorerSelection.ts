@@ -1,11 +1,37 @@
 import type { ContainerNode, DocumentSummary } from "@tearleads/client-sdk";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   EXPLORER_ORPHANED_DOCUMENTS_ID,
   explorerDocumentRouteContainerId,
   isExplorerDocumentContainerSelection,
 } from "../../../stores/explorer/orphanedDocuments";
 import { getDocumentByLocalId } from "../model/documentSummaries";
+
+interface LastSelectedContainer {
+  /** Not yet on the server, as a recovered device's bootstrap copy is. */
+  readonly deviceLocal: boolean;
+  readonly id: string;
+  readonly systemSlot: string | null;
+}
+
+/**
+ * Recovery may first move the device's local copy under the remote root, which
+ * gives it the remote organization, before the identity's own copy replaces
+ * it; so a container seen device-local stays device-local for its id.
+ */
+function lastSelectedContainer(
+  node: ContainerNode,
+  previous: LastSelectedContainer | null,
+): LastSelectedContainer {
+  return {
+    deviceLocal:
+      node.organizationId === "" ||
+      node.syncState.status === "local-only" ||
+      (previous?.id === node.id && previous.deviceLocal),
+    id: node.id,
+    systemSlot: node.systemSlot ?? null,
+  };
+}
 
 interface PendingSelectedDocument {
   containerId: string;
@@ -16,6 +42,31 @@ function getDefaultSelectedNode(
   nodes: ReadonlyArray<ContainerNode>,
 ): ContainerNode | undefined {
   return nodes.find((node) => node.parentId === null) ?? nodes[0];
+}
+
+/**
+ * The node that took over a vanished device-local system container, when
+ * exactly one has its slot. A recovered device replaces its locally created
+ * Contacts or Trash, which is not yet on the server, with the identity's
+ * existing one under a new id (#2393); the selection follows it rather than
+ * falling back to the root. Switching organizations still resets to the root.
+ */
+function getLocalSystemContainerReplacement(
+  nodes: ReadonlyArray<ContainerNode>,
+  selectedId: string | null,
+  vanished: LastSelectedContainer | null,
+): ContainerNode | undefined {
+  if (
+    !vanished?.systemSlot ||
+    !vanished.deviceLocal ||
+    vanished.id !== selectedId
+  ) {
+    return undefined;
+  }
+  const candidates = nodes.filter(
+    (node) => node.systemSlot === vanished.systemSlot,
+  );
+  return candidates.length === 1 ? candidates[0] : undefined;
 }
 
 function getSelectedDocumentActiveContainerId(
@@ -38,6 +89,7 @@ function useExplorerSelectedId(
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [pendingSelectedDocument, setPendingSelectedDocument] =
     useState<PendingSelectedDocument | null>(null);
+  const selectedContainer = useRef<LastSelectedContainer | null>(null);
 
   const selectItem = useCallback((id: string | null) => {
     setPendingSelectedDocument(null);
@@ -55,8 +107,14 @@ function useExplorerSelectedId(
       return;
     }
 
-    const selectedMatchesContainer =
-      selectedId !== null && nodes.some((node) => node.id === selectedId);
+    const selectedNode = nodes.find((node) => node.id === selectedId);
+    const selectedMatchesContainer = selectedNode !== undefined;
+    if (selectedNode) {
+      selectedContainer.current = lastSelectedContainer(
+        selectedNode,
+        selectedContainer.current,
+      );
+    }
     const selectedDocument =
       selectedId !== null
         ? getDocumentByLocalId(documentSummaries, selectedId)
@@ -82,7 +140,13 @@ function useExplorerSelectedId(
         !selectedMatchesNote &&
         !selectedMatchesPendingDocument)
     ) {
-      selectItem(getDefaultSelectedNode(nodes)?.id ?? null);
+      const fallback =
+        getLocalSystemContainerReplacement(
+          nodes,
+          selectedId,
+          selectedContainer.current,
+        ) ?? getDefaultSelectedNode(nodes);
+      selectItem(fallback?.id ?? null);
     }
   }, [
     documentSummaries,
