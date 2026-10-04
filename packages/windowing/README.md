@@ -157,8 +157,20 @@ in them, which a consumer's typecheck could not resolve. The smoke script
 installs the lowest React the peer range admits, typechecks against the
 declarations with TypeScript's defaults, and bundles a named import with webpack.
 
-Publish from the repository root using an account that owns the `@tearleads`
-npm scope:
+Merging to `main` publishes. When `packages/windowing` changes there,
+`.github/workflows/windowing-publish.yml` publishes the version in
+`package.json` if it is newer than npm's `latest`; a merge that leaves the
+version alone, a re-run, or a run that finishes after a newer release succeeds
+without publishing. The workflow authenticates with
+[npm trusted publishing](https://docs.npmjs.com/trusted-publishers): npm accepts
+the job's GitHub OIDC token instead of an npm token, and attaches provenance to
+each version. On npmjs.com the package's trusted publisher names the `a2f0`
+owner, the `tearleads` repository, the `windowing-publish.yml` workflow, and
+the `npm` environment, which the repository restricts to `main`. Renaming the
+workflow or the environment breaks publishing until that setting matches.
+
+To publish by hand instead, run from the repository root with an account that
+owns the `@tearleads` npm scope:
 
 ```sh
 npm login --registry https://registry.npmjs.org
@@ -170,7 +182,8 @@ bun run publish:npm
 standalone windowing extraction. That set is only `@tearleads/windowing`: it has
 no workspace dependencies, and its React peers and Phosphor dependency already
 exist on npm. `scripts/publishWindowing.sh` is the package-specific command,
-also available as `bun run --cwd packages/windowing publish:npm`.
+also available as `bun run --cwd packages/windowing publish:npm`; the workflow
+runs it too.
 
 Both commands rebuild into a fresh temporary directory, publish its generated
 consumer manifest with public access to `https://registry.npmjs.org`, and remove
@@ -189,5 +202,6 @@ an external consumer. It needs the network to install the consumer dependencies.
 
 `ship-pr` bumps changed workspace packages before review and merge; the generated
 manifest copies `version` from `package.json`. For a release outside that flow,
-bump the version yourself before publishing. The
-manifest declares `"license": "UNLICENSED"` until a license is chosen.
+bump the version yourself before publishing. The manifest names this repository,
+which npm requires of a version with provenance, and declares
+`"license": "UNLICENSED"` until a license is chosen.

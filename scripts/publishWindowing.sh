@@ -13,6 +13,8 @@ Usage: $(basename "$0") [--dry-run] [--tag <tag>] [--otp <code>]
 
 Build and publish @tearleads/windowing to https://registry.npmjs.org with
 public access. The build uses a temporary directory that is removed on exit.
+Merging a version bump to main publishes it from
+.github/workflows/windowing-publish.yml; use this command to publish by hand.
 ship-pr bumps changed package versions; for other releases, bump the version
 in packages/windowing/package.json before publishing. Then
 authenticate with npm login using an account that owns the @tearleads scope.

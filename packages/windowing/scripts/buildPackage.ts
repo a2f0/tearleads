@@ -108,6 +108,13 @@ async function publishManifest() {
     description:
       "App-agnostic window management for React: window state, window chrome, and the menu and sidebar primitives it renders with.",
     license: "UNLICENSED",
+    // npm rejects a provenance-signed publish unless this names the repository
+    // the publishing workflow ran in.
+    repository: {
+      type: "git",
+      url: "git+https://github.com/a2f0/tearleads.git",
+      directory: "packages/windowing",
+    },
     type: "module",
     main: "./index.js",
     types: "./index.d.ts",

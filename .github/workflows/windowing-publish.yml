@@ -1,0 +1,83 @@
+name: Publish windowing
+
+# Publishes @tearleads/windowing with npm trusted publishing: npm exchanges the
+# job's GitHub OIDC token for a short-lived publish token and attaches
+# provenance, so no npm token or one-time password is stored anywhere. The
+# trusted publisher on npmjs.com names this file and the `npm` environment.
+on:
+  push:
+    branches: [main]
+    paths:
+      - packages/windowing/**
+      - scripts/publishWindowing.sh
+      - .github/workflows/windowing-publish.yml
+  workflow_dispatch:
+
+permissions: {}
+
+# Publish one version at a time, and never cancel a publish in progress.
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: Publish @tearleads/windowing
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    # Restricted to main in the repository settings, so a workflow edited on
+    # another branch cannot obtain a token npm accepts.
+    environment: npm
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version: 1.4.2
+
+      # Trusted publishing needs npm 11.5.1 or later; Node 24.21.0 ships 11.19.0.
+      # No registry-url: its .npmrc would point npm at an empty NODE_AUTH_TOKEN.
+      - name: Set up Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24.21.0
+          package-manager-cache: false
+
+      # Publish only a version newer than npm's latest. Merges that do not bump
+      # the version, re-runs, and runs that finish after a newer release succeed
+      # without publishing, and never move the latest tag backwards.
+      - name: Decide whether to publish
+        id: decide
+        run: |
+          version="$(jq -r .version packages/windowing/package.json)"
+          registry="$(npm view @tearleads/windowing versions dist-tags --json \
+            --registry https://registry.npmjs.org)"
+          latest="$(jq -r '."dist-tags".latest' <<<"$registry")"
+          if jq -e --arg version "$version" \
+            '[.versions] | flatten | index($version)' <<<"$registry" >/dev/null; then
+            echo "::notice::@tearleads/windowing@$version is already on npm; nothing to publish."
+            echo "publish=false" >>"$GITHUB_OUTPUT"
+          elif ! VERSION="$version" LATEST="$latest" bun --eval \
+            'process.exit(Bun.semver.order(process.env.VERSION, process.env.LATEST) > 0 ? 0 : 1)'; then
+            echo "::notice::@tearleads/windowing@$version is older than npm's latest ($latest); nothing to publish."
+            echo "publish=false" >>"$GITHUB_OUTPUT"
+          else
+            echo "Publishing @tearleads/windowing@$version (npm latest: $latest)."
+            echo "publish=true" >>"$GITHUB_OUTPUT"
+          fi
+
+      - name: Install dependencies
+        if: steps.decide.outputs.publish == 'true'
+        run: bun install --frozen-lockfile
+
+      - name: Publish to npm
+        if: steps.decide.outputs.publish == 'true'
+        run: bash scripts/publishWindowing.sh
