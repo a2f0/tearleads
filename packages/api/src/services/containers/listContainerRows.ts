@@ -113,7 +113,7 @@ export async function listAccessibleContainersForUser(input: {
         pmp.principal_id
       from ${principalMembershipProjection} pmp
       where
-        pmp.user_id = ${input.userId}
+        pmp.user_id = ${uuidValue(input.userId)}
         and pmp.state_hash = ${currentPrincipalStateHashSql({
           principalId: sql`pmp.principal_id`,
           principalType: sql`pmp.principal_type`,
@@ -175,18 +175,11 @@ export async function listAccessibleContainersForUser(input: {
       -- From the parent path's own manifests, never every grant row.
       from target_parent_path parent
       cross join ${accessManifestContainerGrantProjection} grant_projection
-      left join reachable_principals rp
-        on grant_projection.subject_type = rp.principal_type
-        and grant_projection.subject_id = rp.principal_id
+      cross join grant_subjects subject
       where
         grant_projection.manifest_hash = parent.manifest_hash
-        and (
-          (
-            grant_projection.subject_type = ${"user"}
-            and grant_projection.subject_id = ${input.userId}
-          )
-          or rp.principal_id is not null
-        )
+        and grant_projection.subject_type = subject.principal_type
+        and grant_projection.subject_id = subject.principal_id
       limit 1
     ),
     parent_lane_candidate_containers as (
