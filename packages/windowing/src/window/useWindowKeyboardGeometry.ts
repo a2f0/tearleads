@@ -180,10 +180,12 @@ export function useWindowGeometryMenuItems(
 }
 
 // Browsers treat focus that script moves before any user input as keyboard
-// focus, so a window restored on page load showed a focus ring on every load.
-// Until the user has interacted with the page, the window takes focus without
-// one; after that the browser's own heuristic decides, so a window opened from
-// the keyboard still shows where focus went.
+// focus, so a window a host opens on page load showed a focus ring on every
+// load. Until the user has interacted with the page, the window takes focus
+// without one; after that the browser's own heuristic decides, so a window
+// opened from the keyboard still shows where focus went. Chrome, Chromium, and
+// WebKit (Safari 26) honor `focusVisible`; an engine that predates it ignores
+// the option and shows the ring as before.
 function showFocusOptions(): FocusOptions {
   const activation: UserActivation | undefined = navigator.userActivation;
   return activation && !activation.hasBeenActive
