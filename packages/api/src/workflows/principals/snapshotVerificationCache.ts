@@ -32,3 +32,8 @@ export async function verifyStoredPolicySnapshot(
   }
   return result;
 }
+
+/** Discard volatile hints when exercising cold verification after process loss. */
+export function clearStoredPolicySnapshotCache(): void {
+  snapshots.clear();
+}

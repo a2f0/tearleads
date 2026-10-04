@@ -6,6 +6,7 @@ import type { Context } from "hono";
  * tolerate its absence.
  */
 export interface RouteRequestBindings {
+  readonly beginAuthenticatedWork?: () => void;
   readonly directClientIp?: string | null | undefined;
 }
 

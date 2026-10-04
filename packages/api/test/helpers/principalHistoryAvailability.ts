@@ -12,8 +12,10 @@ import { bytesToBase64 } from "@tearleads/encoding";
 import { PrincipalPolicyBundleResponseSchema } from "@tearleads/validators/response";
 import { MAX_MULTIPART_BLOB_PART_BYTES } from "@tearleads/validators/util";
 import { and, count, desc, eq } from "drizzle-orm";
+import { createAuthenticatedRequestBindings } from "../../src/middleware/requestLifetime";
 import { routeApp } from "../../src/routeApp";
 import { parseOrganizationAuthorityDescriptor } from "../../src/workflows/organizations/organizationAuthorityDescriptor";
+import { clearStoredPolicySnapshotCache } from "../../src/workflows/principals/snapshotVerificationCache";
 import {
   COLD_DOCUMENT_TEXT,
   coldRematerializeEncryptedDocument,
@@ -99,7 +101,11 @@ export async function assertPrincipalHistoryAvailability(
     hostname: "127.0.0.1",
     port: 0,
     maxRequestBodySize: MAX_MULTIPART_BLOB_PART_BYTES,
-    fetch: (request) => routeApp.fetch(request),
+    fetch: (request, server) =>
+      routeApp.fetch(
+        request,
+        createAuthenticatedRequestBindings(request, server),
+      ),
   });
   let requestBytes = 0;
   const transport = async (path: string, init: RequestInit) => {
@@ -178,11 +184,16 @@ export async function assertPrincipalHistoryAvailability(
   // client database and fetches current policy/key material from the server.
   await clearAccessManifestVerificationMarkers();
   clearPrincipalPolicySignatureCaches();
+  clearStoredPolicySnapshotCache();
   const coldServer = Bun.serve({
     hostname: "127.0.0.1",
     port: 0,
     maxRequestBodySize: MAX_MULTIPART_BLOB_PART_BYTES,
-    fetch: (request) => routeApp.fetch(request),
+    fetch: (request, server) =>
+      routeApp.fetch(
+        request,
+        createAuthenticatedRequestBindings(request, server),
+      ),
   });
   const coldClient = new ApiClient(coldServer.url.origin);
   coldClient.setAuthToken(owner.token);

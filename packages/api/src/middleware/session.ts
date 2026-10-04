@@ -230,6 +230,10 @@ export function createRequireAuth(
         );
       }
 
+      // Cold cryptographic verification can be quiet for longer than Bun's
+      // socket-idle timer. Only an authenticated request receives this override;
+      // the loopback listener remains behind nginx's body and response limits.
+      c.env?.beginAuthenticatedWork?.();
       const ipAddress = readRequestIpAddress(c);
       const now = Date.now();
       const shouldUpdateActivity = shouldUpdateSessionActivity(

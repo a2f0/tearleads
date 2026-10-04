@@ -145,13 +145,14 @@ before an additive join hands that key out. See the
 ## Manifest History Availability
 
 [`container-keying/ManifestHistory.tla`](./container-keying/ManifestHistory.tla)
-models read acceptance after cache eviction and enabled revocation. Its positive
-configuration states the intended contract; two negative controls demonstrate
-why a cold-read history cap and a matching mutation cap are both invalid repairs.
-Both availability predicates are true by definition in the positive configuration;
-that run does not explore a verifier algorithm or establish a resource bound.
+models reads after cache loss and enabled revocation. Two negative controls show
+why cold-read and mutation caps fail. The positive predicates hold by definition;
+this model neither explores a verifier algorithm nor establishes resource bounds.
 Runtime regressions cover real signatures and long histories. See the
 [mapping and resource boundaries](./container-keying/ManifestHistory.md).
+Principal version counters use
+[`PrincipalHistory.tla`](./container-keying/PrincipalHistory.tla)
+([mapping](./container-keying/PrincipalHistory.md)).
 
 ## No Bricked Device
 

@@ -175,13 +175,23 @@ and all local SDK state. The opt-in command
 `bun run --cwd packages/api test:principal-history` runs that full scenario on
 both database backends sequentially. The default API suite runs the same scenario
 at 64 versions, alongside the exact numeric-boundary crypto and storage tests.
-The full test clears both durable/process manifest markers and signature caches.
+The full test clears durable/process manifest markers, signature caches, and
+stored snapshot verification results. Run it before shipping changes to principal
+history traversal, version bounds, signature caching, or cold recovery transport.
+
+Bun's socket-idle timer also counts time spent computing a response without
+sending bytes. After session authentication succeeds, the HTTP binding disables
+that timer for the active request so cold proof verification can complete.
+Unauthenticated requests retain Bun's default timeout; the loopback-only listener
+still relies on nginx's request-body limits and upstream response timeout. The
+regression uses this production binding and the real API client for cold reads.
 The separate
 [principal-history model](../formal/container-keying/PrincipalHistory.md) checks
 revocation and cold recovery availability with negative controls for both kinds
 of cutoff. Neither the model nor the wider numeric domain promises bounded cold
 memory, transfer size, or verification time. Incremental transport remains a
-warm-cache optimization; paged cold proofs/checkpoints are separate work.
+warm-cache optimization; [bounded cold recovery](https://github.com/a2f0/tearleads/issues/2448)
+tracks paged processing, resource scheduling, and any later checkpoint decisions.
 
 Both API and SDK memoize verified snapshots by a SHA-256 digest of the actual
 source bytes, trusted signer keys, expected reference, and external authority.

@@ -69,14 +69,21 @@ test("principal version columns round-trip positive safe integers beyond int32",
           .set({ version })
           .where(eq(principalStates.version, 16_385))
           .execute(),
-      ).rejects.toThrow();
+      ).rejects.toMatchObject({
+        cause: { code: "23514", constraint: "principal_states_version_range" },
+      });
       await expect(
         database
           .update(accessManifestPrincipalHeadProjection)
           .set({ version })
           .where(eq(accessManifestPrincipalHeadProjection.version, 16_385))
           .execute(),
-      ).rejects.toThrow();
+      ).rejects.toMatchObject({
+        cause: {
+          code: "23514",
+          constraint: "access_manifest_principal_head_projection_version_range",
+        },
+      });
     }
   } finally {
     await client.close();

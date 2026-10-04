@@ -16,6 +16,7 @@ test("the Bun fetch handler reports handshake failures and preserves expected up
     },
   );
   const socketServer = {
+    timeout: () => {},
     requestIP: () => null,
     upgrade: () => false,
   };
