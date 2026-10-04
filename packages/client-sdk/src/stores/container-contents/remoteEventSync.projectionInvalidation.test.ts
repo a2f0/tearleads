@@ -35,10 +35,12 @@ function projectionFor(
 test("a peer's grant hint drops the cached writer projection so the next write fetches afresh", async () => {
   const stale = projectionFor(CONTAINER, `access-${CONTAINER}`);
   const fresh = projectionFor(CONTAINER, `access-${CONTAINER}-rotated`);
-  const clearWriterProjectionCaches = mock(() => {});
+  const evictWriterProjectionsCiting = mock(
+    (_containerIds: readonly string[]) => {},
+  );
   const getContainerWriterProjection = mock(async () => fresh);
   const apiClient = {
-    clearWriterProjectionCaches,
+    evictWriterProjectionsCiting,
     getContainerWriterProjection,
   } as unknown as ContainerContentsWorkflowRuntimeInput["apiClient"];
   const baseRuntime = createContainerContentsTestRuntime({
@@ -82,9 +84,9 @@ test("a peer's grant hint drops the cached writer projection so the next write f
   });
 
   // Document projections (the metadata document's included) cite the same
-  // path; the store cannot list a container's documents locally, so the
-  // api-client's bounded caches go as a whole.
-  expect(clearWriterProjectionCaches).toHaveBeenCalledTimes(1);
+  // path, so the api-client evicts whatever cites the hinted container.
+  expect(evictWriterProjectionsCiting).toHaveBeenCalledTimes(1);
+  expect(evictWriterProjectionsCiting).toHaveBeenCalledWith([CONTAINER]);
   expect(getCachedContainerWriterProjection(containerState)).toBeNull();
   // The next share/move loads through the API instead of reusing the stale
   // manifest hash.
@@ -98,9 +100,11 @@ test("a peer's grant hint drops the cached writer projection so the next write f
 
 test("hints for other containers leave a cached projection in place", () => {
   const cached = projectionFor(CONTAINER, `access-${CONTAINER}`);
-  const clearWriterProjectionCaches = mock(() => {});
+  const evictWriterProjectionsCiting = mock(
+    (_containerIds: readonly string[]) => {},
+  );
   const apiClient = {
-    clearWriterProjectionCaches,
+    evictWriterProjectionsCiting,
   } as unknown as ContainerContentsWorkflowRuntimeInput["apiClient"];
   const baseRuntime = createContainerContentsTestRuntime({
     apiClient,
@@ -146,7 +150,7 @@ test("hints for other containers leave a cached projection in place", () => {
     state,
   });
 
-  expect(clearWriterProjectionCaches).toHaveBeenCalledTimes(1);
+  expect(evictWriterProjectionsCiting).toHaveBeenCalledTimes(1);
   expect(getCachedContainerWriterProjection(containerState)).toBe(cached);
 });
 
@@ -157,7 +161,7 @@ function treeState(
 ) {
   let clears = 0;
   const apiClient = {
-    clearWriterProjectionCaches: () => {
+    evictWriterProjectionsCiting: () => {
       clears++;
     },
   } as unknown as ContainerContentsWorkflowRuntimeInput["apiClient"];
@@ -272,9 +276,11 @@ test("an eviction resync drops the flagged subtree before parent hydration", () 
 });
 
 test("a batch without container hints leaves the document projection cache alone", () => {
-  const clearWriterProjectionCaches = mock(() => {});
+  const evictWriterProjectionsCiting = mock(
+    (_containerIds: readonly string[]) => {},
+  );
   const apiClient = {
-    clearWriterProjectionCaches,
+    evictWriterProjectionsCiting,
   } as unknown as ContainerContentsWorkflowRuntimeInput["apiClient"];
   const baseRuntime = createContainerContentsTestRuntime({
     apiClient,
@@ -304,7 +310,7 @@ test("a batch without container hints leaves the document projection cache alone
     scheduleSync: () => {},
     state,
   });
-  expect(clearWriterProjectionCaches).not.toHaveBeenCalled();
+  expect(evictWriterProjectionsCiting).not.toHaveBeenCalled();
 });
 
 test("a parent hint invalidates known children whose interest is still unconfirmed", () => {

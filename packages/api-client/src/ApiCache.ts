@@ -1,9 +1,10 @@
 /**
  * Bounded cache exposing the subset of the `Map` surface the request helpers
- * in `requestInternals` rely on (`get`, `has`, `set`, `delete`, `clear`). The
- * persistent request caches in `ApiClient` retain one entry per unique
- * container/document/user id read for the lifetime of the client; without a
- * bound a long-lived client accumulates unbounded entries.
+ * in `requestInternals` rely on (`get`, `has`, `set`, `delete`, `clear`), plus
+ * `keys` for targeted eviction. The persistent request caches in `ApiClient`
+ * retain one entry per unique container/document/user id read for the
+ * lifetime of the client; without a bound a long-lived client accumulates
+ * unbounded entries.
  *
  * Eviction is by insertion recency: (re)writing an entry marks it newest, and
  * inserting past `maxEntries` evicts the oldest-written entry. Crucially `get`
@@ -61,6 +62,10 @@ export class BoundedCache<V> {
     return this.entries.has(key);
   }
 
+  keys(): IterableIterator<string> {
+    return this.entries.keys();
+  }
+
   set(key: string, value: V): this {
     // Delete first so an overwrite refreshes recency rather than keeping the
     // original insertion position.
@@ -79,6 +84,16 @@ export class BoundedCache<V> {
     this.invalidationStampsByKey.set(key, this.invalidationTick);
     this.pruneInvalidationStamps();
     return this.entries.delete(key);
+  }
+
+  /**
+   * Invalidates every fetch in flight without dropping cached entries: every
+   * key's stamp rises, so a fetch that snapshotted one never publishes.
+   */
+  invalidateInFlight(): void {
+    this.invalidationTick += 1;
+    this.prunedInvalidationFloor = this.invalidationTick;
+    this.invalidationStampsByKey.clear();
   }
 
   clear(): void {

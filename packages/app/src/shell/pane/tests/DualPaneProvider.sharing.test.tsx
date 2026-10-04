@@ -60,13 +60,14 @@ const OWNER_GRANTED_ROOT_ATTACHMENT_REQUEST_BUDGET: ProxiedApiRequestBudget = {
   // and historical-path verification re-read a few more projections and
   // policies. Measured 71-73 on main at fe7f09962.
   total: 76,
-  // Responses measure 2.05-2.06 MB on main at 30b96c982. A discovery pass
-  // that re-syncs a shared document re-reads its ~200 KB writer projection
-  // (2.26 MB, about one run in three), so bytes keep headroom for the same
-  // three extra document projection reads the per-route budget below allows.
-  bodyBytes: { request: 380_000, response: 2_700_000 },
+  // Responses measure 1.95-1.96 MB on main at b130fe729 with this change. A
+  // peer's re-cite now evicts only the writer projections citing the re-cited
+  // container (#2395), so discovery no longer re-reads the shared note's
+  // projection it has just verified (7 document projection reads, not 8).
+  // Bytes and the route below keep headroom for two extra such reads.
+  bodyBytes: { request: 380_000, response: 2_400_000 },
   byRequest: {
-    "GET /documents/:documentId/writer-projection": 11,
+    "GET /documents/:documentId/writer-projection": 9,
     "POST /documents/:documentId/sync": 18,
     "GET /containers/:containerId/documents": 10,
     "GET /containers": 0,
