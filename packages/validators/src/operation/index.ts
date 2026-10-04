@@ -103,7 +103,6 @@ export {
   type ContainerReplacementAuthorizationsResponse,
   ContainerReplacementAuthorizationsResponseSchema,
   getContainerReplacementAuthorizationsOperation,
-  isContainerReplacementAuthorizationsResponse,
 } from "./containerReplacement";
 export {
   defineHttpOperation,

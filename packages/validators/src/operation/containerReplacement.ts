@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { ErrorResponseSchema, SessionFailureResponseSchema } from "../response";
+import { uuidV4StringSchema } from "../schema";
 import { OrganizationReplacementAuthorizationSchema } from "../util";
 import { defineJsonOperation } from "./definition";
 
@@ -9,12 +10,6 @@ export const ContainerReplacementAuthorizationsResponseSchema = z.object({
 export type ContainerReplacementAuthorizationsResponse = z.infer<
   typeof ContainerReplacementAuthorizationsResponseSchema
 >;
-export function isContainerReplacementAuthorizationsResponse(
-  value: unknown,
-): value is ContainerReplacementAuthorizationsResponse {
-  return ContainerReplacementAuthorizationsResponseSchema.safeParse(value)
-    .success;
-}
 export const getContainerReplacementAuthorizationsOperation =
   defineJsonOperation({
     auth: "session",
@@ -30,8 +25,8 @@ export const getContainerReplacementAuthorizationsOperation =
     id: "containers.replacementAuthorizations.get",
     method: "GET",
     params: z.strictObject({
-      containerId: z.string(),
-      replacesOrganizationId: z.string(),
+      containerId: uuidV4StringSchema,
+      replacesOrganizationId: uuidV4StringSchema,
     }),
     path: "/containers/{containerId}/replacement-authorizations/{replacesOrganizationId}",
     responses: { 200: ContainerReplacementAuthorizationsResponseSchema },

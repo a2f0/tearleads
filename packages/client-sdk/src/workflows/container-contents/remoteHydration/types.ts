@@ -1,3 +1,5 @@
+import type { RequestResult } from "@tearleads/api-client";
+import type { ContainerReplacementAuthorizationsResponse } from "@tearleads/validators/operation";
 import type { ListContainerParentLanesRequest } from "@tearleads/validators/request";
 import type {
   ContainerSummary,
@@ -73,10 +75,10 @@ export interface ContainerState {
 }
 
 interface RemoteContainerHydrationApi {
-  getContainerReplacementAuthorizations(
+  getContainerReplacementAuthorizationsResult(
     containerId: string,
     replacesOrganizationId: string,
-  ): Promise<ContainerReplacementAuthorizationsResponse | null>;
+  ): Promise<RequestResult<ContainerReplacementAuthorizationsResponse>>;
   evictContainerWriterProjection(containerId: string): void;
   getContainerWriterProjection(
     containerId: string,
@@ -163,5 +165,3 @@ export interface FetchedContainerParentLanePage {
   response: ListContainersResponse;
   syncLane: ReturnType<typeof createContainerParentSyncLane>;
 }
-
-import type { ContainerReplacementAuthorizationsResponse } from "@tearleads/validators/operation";

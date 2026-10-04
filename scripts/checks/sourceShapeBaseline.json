@@ -71,8 +71,8 @@
       "bytes": 23535
     },
     "docs/openapi.json": {
-      "lines": 71495,
-      "bytes": 3004925
+      "lines": 71497,
+      "bytes": 3005121
     },
     "docs/protocol-specification.md": {
       "lines": 658,
@@ -91,8 +91,8 @@
       "bytes": 23719
     },
     "packages/api-client/src/ApiClient.ts": {
-      "lines": 2040,
-      "bytes": 65897
+      "lines": 2036,
+      "bytes": 65733
     },
     "packages/api/src/access/read/documentKekTargets.test.ts": {
       "lines": 574,

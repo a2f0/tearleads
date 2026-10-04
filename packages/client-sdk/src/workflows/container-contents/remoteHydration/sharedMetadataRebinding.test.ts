@@ -1,5 +1,8 @@
 import { expect, test } from "bun:test";
-import { createNativeTestExecSql } from "@tearleads/test-utils";
+import {
+  createMockRequestFailure,
+  createNativeTestExecSql,
+} from "@tearleads/test-utils";
 import { createMetadataBindingFixture } from "../../../../test/helpers/containerMetadataBinding";
 import { sharedReplacementBindingFixture } from "../../../../test/helpers/sharedReplacementBinding";
 import { defaultContainerContentsPersistence as persistence } from "../containerPersistence";
@@ -33,8 +36,8 @@ test("a restarted member store preserves queued metadata through a proven shared
         userId: input.runtime.auth.userId,
       },
     });
-    fixture.state.runtime.apiClient.getContainerReplacementAuthorizations =
-      input.runtime.apiClient.getContainerReplacementAuthorizations;
+    fixture.state.runtime.apiClient.getContainerReplacementAuthorizationsResult =
+      input.runtime.apiClient.getContainerReplacementAuthorizationsResult;
     const original = await fixture.hydrate();
     if (!original) throw new Error("Expected held folder");
     const renamed = await renameContainerMetadataStateFromRuntime({
@@ -55,6 +58,20 @@ test("a restarted member store preserves queued metadata through a proven shared
     });
     rememberDestinationRole(execSql, fixture.listed, input.role);
 
+    const proofRead =
+      fixture.state.runtime.apiClient
+        .getContainerReplacementAuthorizationsResult;
+    fixture.state.runtime.apiClient.getContainerReplacementAuthorizationsResult =
+      async () => createMockRequestFailure({ message: "Network unavailable" });
+    await expect(fixture.hydrate()).rejects.toMatchObject({
+      name: "ProjectionDependencyUnavailableError",
+    });
+    expect(fixture.incidents).toHaveLength(0);
+    expect(
+      await persistence.loadHeldContainerBinding(execSql, fixture.listed.id),
+    ).toMatchObject(held);
+    fixture.state.runtime.apiClient.getContainerReplacementAuthorizationsResult =
+      proofRead;
     const rehomed = await fixture.hydrate();
     expect(fixture.incidents).toHaveLength(0);
     expect(rehomed?.container).toMatchObject({

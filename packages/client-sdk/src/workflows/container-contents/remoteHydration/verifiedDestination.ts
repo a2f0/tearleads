@@ -8,10 +8,8 @@ import {
   type HeldContainerBinding,
   listingRepeatsHeldOrdinaryBinding,
 } from "../../../data/containers/containerBinding";
-import {
-  verifiedContainerCreateManifest,
-  verifyContainerDestinationProjection,
-} from "../../../data/keyingProjectionVerification/containerDestinationVerification";
+import { verifiedContainerCreateManifest } from "../../../data/keyingProjectionVerification/containerCreateManifest";
+import { verifyContainerDestinationProjection } from "../../../data/keyingProjectionVerification/containerDestinationVerification";
 import { verifyContainerWriterProjection } from "../../../data/keyingProjectionVerification/containerProjectionVerification";
 import {
   isKeyingVerificationError,
@@ -138,7 +136,6 @@ function assertAcknowledgedRootSigner(input: {
  * Authenticate destination roles before admitting a binding or advancing any
  * placement pin. Shared rehomes additionally require signed replacement evidence.
  */
-
 async function verifyDestinationRole(input: {
   heldBinding: HeldContainerBinding | null;
   prefetched: PrefetchedDestinationProjection | undefined;

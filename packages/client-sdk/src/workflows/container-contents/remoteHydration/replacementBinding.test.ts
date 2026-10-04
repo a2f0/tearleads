@@ -6,7 +6,10 @@ import {
   signOrganizationReplacementAuthorization,
 } from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
-import { createNativeTestExecSql } from "@tearleads/test-utils";
+import {
+  createMockRequestFailure,
+  createNativeTestExecSql,
+} from "@tearleads/test-utils";
 import { sharedReplacementBindingFixture } from "../../../../test/helpers/sharedReplacementBinding";
 import {
   loadOrganizationFounder,
@@ -58,12 +61,13 @@ test("a re-shared member accepts only the held founder's signed replacement", as
       signedChanged({ organizationStateHash: "b".repeat(64) }),
       signedChanged({ userId: "different-owner" }),
     ]) {
-      input.runtime.apiClient.getContainerReplacementAuthorizations =
-        async () => ({ authorizations: [candidate] });
+      input.runtime.apiClient.getContainerReplacementAuthorizationsResult =
+        async () => ({ ok: true, data: { authorizations: [candidate] } });
       await expect(assertPermittedDestinationBinding(input)).rejects.toThrow();
     }
-    input.runtime.apiClient.getContainerReplacementAuthorizations = async () =>
-      null;
+    input.runtime.apiClient.getContainerReplacementAuthorizationsResult =
+      async () =>
+        createMockRequestFailure({ status: 404, message: "Missing proof" });
     await expect(
       assertPermittedDestinationBinding(input),
     ).rejects.toMatchObject({ code: "object_mismatch" });
@@ -140,8 +144,8 @@ test("a member can follow multiple replacements but cannot skip or replay a link
       },
       data.signingKeyPair,
     );
-    data.input.runtime.apiClient.getContainerReplacementAuthorizations =
-      async () => ({ authorizations: [first, second] });
+    data.input.runtime.apiClient.getContainerReplacementAuthorizationsResult =
+      async () => ({ ok: true, data: { authorizations: [first, second] } });
     await expect(
       assertPermittedDestinationBinding(data.input),
     ).resolves.toBeUndefined();
@@ -150,8 +154,8 @@ test("a member can follow multiple replacements but cannot skip or replay a link
       [first, first, second],
       [second, first],
     ]) {
-      data.input.runtime.apiClient.getContainerReplacementAuthorizations =
-        async () => ({ authorizations });
+      data.input.runtime.apiClient.getContainerReplacementAuthorizationsResult =
+        async () => ({ ok: true, data: { authorizations } });
       await expect(
         assertPermittedDestinationBinding(data.input),
       ).rejects.toMatchObject({ code: "object_mismatch" });

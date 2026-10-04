@@ -54,15 +54,10 @@ test("deleted group evidence verifies without advancing current-policy checkpoin
       "currentMemberEnvelopes",
     );
     expect(JSON.stringify(input.evidence)).not.toContain("currentPayload");
-    expect(await loadOrganizationFounder(execSql, data.organizationId)).toEqual(
-      {
-        organizationId: data.organizationId,
-        userId: data.initial.currentState.signerUserId,
-        signingKeyFingerprint:
-          data.initial.currentState.signerUserKeyFingerprint,
-        genesisStateHash: data.initial.currentState.stateHash,
-      },
-    );
+    // Directory signatures alone do not bind the founder to a held root.
+    expect(
+      await loadOrganizationFounder(execSql, data.organizationId),
+    ).toBeNull();
   } finally {
     close();
   }

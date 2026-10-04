@@ -6,6 +6,7 @@ import {
   assertHeldContainerBinding,
   type HeldContainerBinding,
 } from "../../../data/containers/containerBinding";
+import { ProjectionDependencyUnavailableError } from "../../../data/keyingProjectionVerification/dependencyUnavailable";
 import { loadOrganizationFounder } from "../../../data/persistence/organizationFounderPersistence";
 import { persistOrganizationReplacementCheckpoints } from "../../../data/persistence/organizationReplacementCheckpointPersistence";
 import type { DestinationRole } from "./destinationRoleCache";
@@ -39,13 +40,16 @@ async function acceptsSharedReplacement(
       "Replacement founder differs from the held organization's pinned identity",
     );
   const response =
-    await runtime.apiClient.getContainerReplacementAuthorizations(
+    await runtime.apiClient.getContainerReplacementAuthorizationsResult(
       listed.id,
       oldOrganizationId,
     );
-  if (!response) return false;
+  if (!response.ok) {
+    if (response.status === 404) return false;
+    throw new ProjectionDependencyUnavailableError(response.message);
+  }
   const last = verifyReplacementLineage(
-    response.authorizations,
+    response.data.authorizations,
     oldOrganizationId,
     founder.userId,
     identity.signingPublicKey,

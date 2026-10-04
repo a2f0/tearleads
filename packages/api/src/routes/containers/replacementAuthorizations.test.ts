@@ -20,23 +20,36 @@ test("replacement proofs are disclosed only to current readers of the re-shared 
   const tree = await createOwnedTree(1);
   const member = tree.members[0];
   if (!member) throw new Error("Expected former member");
-  await db
-    .update(organizationBilling)
-    .set({ status: "purged", purgedAt: new Date() })
-    .where(eq(organizationBilling.organizationId, tree.organizationId));
-  const request = await createOrganizationRequestBody(tree.owner, {
-    replacesOrganizationId: tree.organizationId,
-  });
+  const replace = async (organizationId: string) => {
+    await db
+      .update(organizationBilling)
+      .set({ status: "purged", purgedAt: new Date() })
+      .where(eq(organizationBilling.organizationId, organizationId));
+    const request = await createOrganizationRequestBody(tree.owner, {
+      replacesOrganizationId: organizationId,
+    });
+    expect((await submitCreateOrganization(tree.owner, request)).status).toBe(
+      200,
+    );
+    await runStartOrganizationTrialWorkflow(
+      db,
+      request.organizationId,
+      tree.owner.userId,
+    );
+    expect(
+      (
+        await submitCreateOrganization(tree.owner, {
+          ...request,
+          finalizeReplacement: true,
+        })
+      ).status,
+    ).toBe(200);
+    return request;
+  };
+  const intermediate = await replace(tree.organizationId);
+  const request = await replace(intermediate.organizationId);
   if (!request.replacementAuthorization)
     throw new Error("Expected replacement authorization");
-  expect((await submitCreateOrganization(tree.owner, request)).status).toBe(
-    200,
-  );
-  await runStartOrganizationTrialWorkflow(
-    db,
-    request.organizationId,
-    tree.owner.userId,
-  );
   await addOrganizationMember({
     actor: tree.owner,
     member,
@@ -91,9 +104,18 @@ test("replacement proofs are disclosed only to current readers of the re-shared 
     const response = await read(member.token);
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({
+      authorizations: [
+        intermediate.replacementAuthorization,
+        request.replacementAuthorization,
+      ],
+    });
+    const suffix = await read(member.token, intermediate.organizationId);
+    expect(suffix.status).toBe(200);
+    expect(await suffix.json()).toEqual({
       authorizations: [request.replacementAuthorization],
     });
     expect((await read(member.token, crypto.randomUUID())).status).toBe(404);
+    expect((await read(member.token, "invalid-organization")).status).toBe(400);
     expect((await read(member.token, request.organizationId)).status).toBe(404);
     expect((await read("invalid-session")).status).toBe(401);
   } finally {

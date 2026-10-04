@@ -71,9 +71,11 @@ pending.
 See [the bounded recovery model](../../formal/local-trust/PurgeRecovery.md).
 
 Re-shared folders also recover on other members' devices (#2389). The client
-pins the organization's verified genesis signer and key fingerprint when reading
-policy evidence, retaining that binding across cache eviction, logout, and backup
-restore. A replacement chain must be signed by that original founder, and the
+pins the organization's verified genesis signer and key fingerprint only after
+matching them to the verified personal root's creation signer. A separately
+signed directory citing genuine group policies cannot nominate a different
+founder. The pin survives cache eviction, logout, and backup restore.
+A replacement chain must be signed by that original founder, and the
 destination folder must be created by the same user. The verified destination's
 organization genesis and root genesis must match the proof. Its root and reserved
 group genesis checkpoints are pinned before adoption. The existing held-folder

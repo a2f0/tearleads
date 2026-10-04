@@ -77,8 +77,9 @@ export async function sharedReplacementBindingFixture(execSql: ExecSql) {
     },
     runtime: {
       apiClient: {
-        getContainerReplacementAuthorizations: async () => ({
-          authorizations: [proof],
+        getContainerReplacementAuthorizationsResult: async () => ({
+          ok: true,
+          data: { authorizations: [proof] },
         }),
       },
       auth: { userId: "reshared-member" },

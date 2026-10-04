@@ -5,7 +5,6 @@ import {
   type VerifiedPrincipalPolicySnapshot,
 } from "@tearleads/crypto";
 import type { ProjectionPolicyEvidenceResponse } from "@tearleads/validators/response";
-import { rememberOrganizationFounder } from "../persistence/organizationFounderPersistence";
 import {
   type OrganizationAuthorityDescriptor,
   parseOrganizationAuthorityDescriptor,
@@ -115,6 +114,5 @@ export async function verifyProjectionPolicyEvidence(input: {
     execSql: input.execSql,
     policies,
   });
-  await rememberOrganizationFounder({ execSql: input.execSql, organization });
   return policies;
 }

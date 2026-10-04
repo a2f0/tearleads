@@ -41,7 +41,6 @@ import {
   getRootOrganizationOperation,
   getStripeCheckoutOptionsOperation,
   initiateMultipartBlobStageOperation,
-  isContainerReplacementAuthorizationsResponse,
   linkDocumentOperation,
   listContainerDocumentsOperation,
   listContainerParentLanesOperation,
@@ -1088,17 +1087,14 @@ export class ApiClient {
     );
   }
 
-  getContainerReplacementAuthorizations(
+  getContainerReplacementAuthorizationsResult(
     containerId: string,
     replacesOrganizationId: string,
   ) {
-    return this.request(
-      `/containers/${encodeURIComponent(containerId)}/replacement-authorizations/${encodeURIComponent(replacesOrganizationId)}`,
-      isContainerReplacementAuthorizationsResponse,
-      "GET",
-      undefined,
-      undefined,
+    return this.transport.requestResult(
       getContainerReplacementAuthorizationsOperation,
+      { params: { containerId, replacesOrganizationId } },
+      { reportErrors: false },
     );
   }
 
