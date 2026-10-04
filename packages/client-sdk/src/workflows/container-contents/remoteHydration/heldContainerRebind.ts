@@ -10,9 +10,9 @@ import type {
 } from "./types";
 
 /**
- * Apply a verified re-home of a held folder, one its own user re-created under
- * another organization or metadata target, before hydration updates or inserts
- * it. Destination verification refused every other signer. Returns false when
+ * Apply a re-home verified from the session user's create or the pinned
+ * founder's replacement authorization before hydration updates or inserts
+ * the folder. Returns false when
  * the held binding changed underneath, leaving the listing unapplied.
  */
 export async function rebindReHomedContainer(input: {

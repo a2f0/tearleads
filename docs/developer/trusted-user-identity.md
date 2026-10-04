@@ -55,6 +55,13 @@ different user. Older backup formats are rejected. Deliberately purging
 or recreating the local database resets this security history and should be
 presented to users as a security reset.
 
+Local content backup restore does not establish a remote login (#2419). After
+restoring data, the user signs in with the matching identity to resume sync.
+Restored trust pins and checkpoints still constrain that login and subsequent
+projections. Keeping this explicit sign-in is intentional: restoring content
+must not silently select an account or resume a remote session. Identity recovery
+and data restoration remain separate user actions.
+
 Password-protected backups authenticate their contents with AES-GCM. Opting out
 of a password removes both encryption and integrity protection: anyone with the
 file can read or modify it. Restore still enforces the existing device's pin

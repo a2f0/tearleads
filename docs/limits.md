@@ -120,17 +120,24 @@ for the exact-length rule.
 
 The no-bricked-device invariant says no device may be unable to read or write
 because another device must write first. Reads are never affected by any limit
-above: a reader resolves a retired parent pin through retained history. The carried-rekey
-limit can leave a writer waiting on another device's write so that a
-revocation is never refused because of a tree's size:
+above: a reader resolves a retired parent pin through retained history. The
+following exceptions can leave a writer waiting on another authorized member:
 
 - **Carried descendant rekeys past 64.** Levels beyond the parent-first prefix
   stay stale after the rotation commits. A writer granted only below such a
   level cannot re-key it and must not be handed its key, so it parks under
   `document_ancestor_repair_inaccessible` until a member with access at that
   level writes there.
+- **Documents linked across access boundaries.** A writer through one link
+  cannot always repair a stale content-key bundle after another link rotates.
+  Repair needs every target's current wrapping key and may require write access
+  at a stale level. The writer waits under
+  `document_ancestor_repair_inaccessible` for an authorized member to repair
+  it; if no remaining member spans the required targets, writes stay blocked.
+  We retain this trade to avoid exposing inaccessible folders' grant lists.
+  Ordinary writes need only one writable link while the bundle is current.
 
-Within the carried-rekey bound, the model in
+For the single-path case within the carried-rekey bound, the model in
 [InaccessibleIntermediateRepair.md](../formal/container-keying/InaccessibleIntermediateRepair.md)
 proves the writer is eventually unblocked with fairness only on its own step.
 Outside it, that model's `rotation-without-descendant-repairs-bricks-leaf-writer`

@@ -30,6 +30,7 @@ import {
   documentMoveIntents,
 } from "./documentPlacementIntentSchema";
 import * as organizationDataUsage from "./organizationDataUsageSchema";
+import { organizationFounders } from "./organizationFounderSchema";
 import * as provisioningAttempt from "./organizationProvisioningAttemptSchema";
 import {
   organizationReadModelSQLiteSchema,
@@ -671,6 +672,7 @@ export const principalPolicyTables: ReadonlyArray<SqlTableSchema> = [
 ];
 
 export const keyingCheckpointTables: ReadonlyArray<SqlTableSchema> = [
+  defineSqlTableSchema(organizationFounders),
   defineSqlTableSchema(accessManifestCheckpoints),
   defineSqlTableSchema(principalGrantRetirements),
   defineSqlTableSchema(documentPurgeCheckpoints),
@@ -753,6 +755,7 @@ export const clientSqlTables: ReadonlyArray<SqlTableSchema> = [
 ];
 
 export const clientSQLiteSchema = {
+  organizationFounders,
   principalGrantRetirements,
   documents,
   documentPendingUpdates,
