@@ -34,14 +34,6 @@
     "packages/api-shared/src/schema.ts": ["./schema/index"]
   },
   "fileSizes": {
-    ".claude/skills/cross-agent-review/SKILL.md": {
-      "lines": 503,
-      "bytes": 27895
-    },
-    ".claude/skills/ship-pr/SKILL.md": {
-      "lines": 574,
-      "bytes": 34842
-    },
     "dependency-cruiser.config.ts": {
       "lines": 658,
       "bytes": 18865

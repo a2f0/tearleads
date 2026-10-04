@@ -24,11 +24,16 @@ checks from skipped workflows pending, while skipped jobs can count as passing.
 The aggregate checks the dependency results explicitly with `always()`.
 See [GitHub's required-check guidance](https://docs.github.com/en/pull-requests/how-tos/merge-and-close-pull-requests/troubleshooting-required-status-checks).
 
-The agent-tool squash merge helper independently requires successful core
-checks on the exact head it will merge and rejects any other reported failed or
-pending check. Missing checks and API errors stop the merge. This also protects
-standalone helper calls; waiting only for whichever checks a ruleset happens to
-require is insufficient.
+The shared `agent-tool pr merge` helper reads the core checks from
+`merge.requiredChecks` in `agent-tool.json`. It independently requires them to
+succeed in the CI workflow on the exact head it will merge, and rejects any
+other reported failed or pending check. Missing checks and API errors stop the
+merge. This also protects standalone helper calls; waiting only for whichever
+checks a ruleset happens to require is insufficient. With
+`merge.requireStrictBaseFreshness`, the helper also refuses to merge unless the
+base's effective rules include an active strict status rule that the
+authenticated actor cannot bypass. Update `agent-tool.json` together with the
+ruleset when a required check name changes.
 
 When introducing this gate, first verify a PR's Windows and aggregate results,
 then update the ruleset to require the new check names. Existing PRs must adopt

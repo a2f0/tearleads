@@ -47,7 +47,7 @@ test("argument placeholders in a skill document fail the check", () => {
   const repo = fixture({
     ".claude/skills/ship/SKILL.md":
       "Run:\n\n```bash\nOID=$(git ls-remote \"$URL\" | awk '{ print $1 }')\n```\n",
-    ".codex/skills/ship/SKILL.md": `Body: ${braced("2")} and $ARGUMENTS and ${braced("ARGUMENTS")}\n`,
+    ".agents/skills/ship/SKILL.md": `Body: ${braced("2")} and $ARGUMENTS and ${braced("ARGUMENTS")}\n`,
   });
   try {
     const result = repo.lint();
@@ -55,7 +55,7 @@ test("argument placeholders in a skill document fail the check", () => {
     expect(result.code).toBe(1);
     expect(result.output).toContain("error skill-placeholders:");
     expect(result.output).toContain(".claude/skills/ship/SKILL.md:4:");
-    expect(result.output).toContain(".codex/skills/ship/SKILL.md:1:");
+    expect(result.output).toContain(".agents/skills/ship/SKILL.md:1:");
     // Every token shape is reported, not just the first.
     for (const token of [
       "$1",

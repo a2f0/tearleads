@@ -27,15 +27,6 @@ const baseConfig = {
   ...strictConfigDefaults,
   workspaces: {
     ".": rootToolingWorkspace,
-    "packages/agent-tool": {
-      // `src/index.ts` is discovered as an entry via the package.json scripts.
-      // The reviewer CLIs are spawned by name from source; `opencode` is not in
-      // knip's built-in global-binary list (unlike `claude`), so it has to be
-      // declared here.
-      entry: ["src/**/*.test.ts"],
-      ignoreBinaries: ["opencode"],
-      project: ["src/**/*.ts"],
-    },
     "packages/diagnostics": {
       entry: ["src/**/*.test.ts"],
       project: ["src/**/*.ts"],
@@ -225,11 +216,6 @@ const productionConfig = {
   exclude: ["exports", "types", "enumMembers", "namespaceMembers"],
   workspaces: {
     ".": rootToolingWorkspace,
-    "packages/agent-tool": {
-      entry: ["src/index.ts!"],
-      ignoreBinaries: ["opencode"],
-      project: productionProject,
-    },
     "packages/api": {
       entry: [
         "src/index.ts!",
