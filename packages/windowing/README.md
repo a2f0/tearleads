@@ -99,8 +99,9 @@ useWindowTitleBarAction(
 
 A window with an `appId` also offers Back through its own route history, so its
 row is reserved from the start. An app that never routes passes
-`historyBack={false}` to `Window`; its window then shows the row only while the
-app registers toolbar actions.
+`historyBack={false}` to `Window`; its window then has no row until the app
+first registers toolbar actions. From then on the row stays, as in any window,
+so the body does not shift when actions come and go.
 
 ## Styles
 

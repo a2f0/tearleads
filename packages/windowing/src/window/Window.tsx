@@ -56,7 +56,7 @@ interface WindowProps {
    * Whether the toolbar offers Back through the window's own route history,
    * reserving its row from the start (see `WindowToolBar`). Defaults to whether
    * the window has an `appId`. Pass false for an app that never routes, so its
-   * window shows a toolbar only when the app registers toolbar actions.
+   * window has no toolbar row until the app first registers toolbar actions.
    */
   historyBack?: boolean | undefined;
   windowId: string;
