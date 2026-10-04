@@ -26,6 +26,9 @@
     }
   },
   "scripts": {
+    "agent-tool": "agent-tool",
+    "agents:check": "bun run agent-tool skills check",
+    "agents:sync": "bun run agent-tool skills install --apply",
     "build:packages": "turbo run build --filter=@tearleads/sqlite-instance --filter=@tearleads/client-sdk && bun run --cwd packages/app-electrobun prepare:devkit",
     "check": "bun scripts/testing/runVerification.ts full",
     "check:affected": "bun scripts/testing/runVerification.ts affected",
@@ -95,7 +98,6 @@
     "test:knip:production": "bun scripts/testing/testKnipProduction.ts"
   },
   "workspaces": [
-    "packages/agent-tool",
     "packages/api",
     "packages/api-client",
     "packages/api-cli",
@@ -130,6 +132,7 @@
     "@tsconfig/strictest": "2.0.8",
     "@types/bun": "1.4.1",
     "@types/invariant": "catalog:",
+    "agent-tool": "github:a2f0/agent-tool#1803c9541a53d2a8eca27035c788496dc6c91225",
     "dependency-cruiser": "18.2.0",
     "invariant": "catalog:",
     "knip": "6.34.0",

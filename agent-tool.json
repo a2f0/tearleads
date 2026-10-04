@@ -1,0 +1,34 @@
+{
+  "schemaVersion": 1,
+  "subject": {
+    "maxLength": 50,
+    "types": [
+      "build",
+      "chore",
+      "ci",
+      "cleanup",
+      "docs",
+      "feat",
+      "fix",
+      "perf",
+      "refactor",
+      "revert",
+      "style",
+      "test"
+    ]
+  },
+  "merge": {
+    "requiredChecks": [
+      { "name": "CI gate", "workflow": "CI" },
+      { "name": "Lint", "workflow": "CI" },
+      { "name": "Build and test", "workflow": "CI" },
+      { "name": "Postgres concurrency", "workflow": "CI" },
+      { "name": "windows / Windows CEF persistence", "workflow": "CI" }
+    ],
+    "requireStrictBaseFreshness": true
+  },
+  "versions": {
+    "validate": [["bun", "run", "lint:source-shape", "--", "--staged"]]
+  },
+  "pr": { "rejectClaudeBranding": true }
+}
