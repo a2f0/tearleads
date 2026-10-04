@@ -217,6 +217,48 @@ test("focus waits until the window is laid out and visible", () => {
   expect(focusedVisibilities).toEqual([""]);
 });
 
+// Opens a window with the page's user activation state stubbed, and returns
+// the options the window passed when it took focus.
+function windowFocusOptionsWith(hasBeenActive: boolean) {
+  const recorded: Array<FocusOptions | undefined> = [];
+  const originalFocus = HTMLElement.prototype.focus;
+  const activation = Object.getOwnPropertyDescriptor(
+    navigator,
+    "userActivation",
+  );
+  Object.defineProperty(navigator, "userActivation", {
+    configurable: true,
+    value: { hasBeenActive, isActive: hasBeenActive },
+  });
+  HTMLElement.prototype.focus = function focusAndRecord(options) {
+    if (this.classList.contains("window")) {
+      recorded.push(options);
+    }
+    originalFocus.call(this, options);
+  };
+  try {
+    openNotes();
+  } finally {
+    HTMLElement.prototype.focus = originalFocus;
+    if (activation) {
+      Object.defineProperty(navigator, "userActivation", activation);
+    } else {
+      Reflect.deleteProperty(navigator, "userActivation");
+    }
+  }
+  return recorded;
+}
+
+test("a window shown before any user input takes focus without a focus ring", () => {
+  expect(windowFocusOptionsWith(false)).toEqual([
+    { focusVisible: false, preventScroll: true },
+  ]);
+});
+
+test("after user input the browser decides whether focus shows a ring", () => {
+  expect(windowFocusOptionsWith(true)).toEqual([{ preventScroll: true }]);
+});
+
 test("minimizing during a keyboard move hands the arrow keys back", () => {
   const { region, view } = openNotes();
 
