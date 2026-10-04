@@ -1,6 +1,9 @@
 import { expect, test } from "bun:test";
 import { db } from "@tearleads/api-shared/postgres";
-import { organizationBilling } from "@tearleads/api-shared/schema";
+import {
+  accessManifestVerifications,
+  organizationBilling,
+} from "@tearleads/api-shared/schema";
 import {
   createRemoteContainer,
   shareRemoteContainer,
@@ -13,6 +16,7 @@ import {
 } from "../../../test/helpers/api";
 import { addOrganizationMember } from "../../../test/helpers/organizationMembership";
 import { createOwnedTree } from "../../../test/helpers/ownedContainerTree";
+import { clearAccessManifestVerificationMarkers } from "../../../test/helpers/verificationMarkers";
 import { routeApp } from "../../routeApp";
 import { runStartOrganizationTrialWorkflow } from "../../workflows/billing/organizationBilling";
 
@@ -101,6 +105,7 @@ test("replacement proofs are disclosed only to current readers of the re-shared 
         recipientUserId: member.userId,
       }),
     ).not.toBeNull();
+    await clearAccessManifestVerificationMarkers();
     const response = await read(member.token);
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({
@@ -109,6 +114,9 @@ test("replacement proofs are disclosed only to current readers of the re-shared 
         request.replacementAuthorization,
       ],
     });
+    expect(
+      (await db.select().from(accessManifestVerifications)).length,
+    ).toBeGreaterThan(0);
     const suffix = await read(member.token, intermediate.organizationId);
     expect(suffix.status).toBe(200);
     expect(await suffix.json()).toEqual({

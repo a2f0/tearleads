@@ -31,10 +31,11 @@ async function acceptsSharedReplacement(
   );
   if (!founder || role.createSignerUserId !== founder.userId) return false;
   const identity = await runtime.resolveTrustedUserIdentity(founder.userId);
-  if (
-    !identity ||
-    identity.signingKeyFingerprint !== founder.signingKeyFingerprint
-  )
+  if (!identity)
+    throw new ProjectionDependencyUnavailableError(
+      "Replacement founder identity is unavailable",
+    );
+  if (identity.signingKeyFingerprint !== founder.signingKeyFingerprint)
     throw new KeyingVerificationError(
       "signer_mismatch",
       "Replacement founder differs from the held organization's pinned identity",

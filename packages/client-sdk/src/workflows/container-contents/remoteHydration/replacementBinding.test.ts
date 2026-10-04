@@ -115,6 +115,24 @@ test("organization founder pins cannot be substituted or borrowed from another o
   }
 });
 
+test("an unavailable founder identity retries without alleging a signer mismatch", async () => {
+  const database = createNativeTestExecSql();
+  try {
+    const { input } = await sharedReplacementBindingFixture(database.execSql);
+    await expect(
+      assertPermittedDestinationBinding({
+        ...input,
+        runtime: {
+          ...input.runtime,
+          resolveTrustedUserIdentity: async () => null,
+        },
+      }),
+    ).rejects.toMatchObject({ name: "ProjectionDependencyUnavailableError" });
+  } finally {
+    database.close();
+  }
+});
+
 test("a member can follow multiple replacements but cannot skip or replay a link", async () => {
   const database = createNativeTestExecSql();
   try {

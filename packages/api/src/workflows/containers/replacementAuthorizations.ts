@@ -5,8 +5,10 @@ import { isCreateOrganizationResponse } from "@tearleads/validators/response";
 import { eq } from "drizzle-orm";
 import {
   ContainerWriterProjectionError,
+  createContainerWriterProjectionContext,
   resolveContainerAccessProjection,
 } from "./writerProjection";
+import { flushVerificationMarkersAfterRead } from "./writerProjection/verificationMarkers";
 
 /** Only a current reader of the re-shared destination may discover its lineage. */
 export async function runContainerReplacementAuthorizationsWorkflow(
@@ -17,9 +19,11 @@ export async function runContainerReplacementAuthorizationsWorkflow(
     readonly userId: string;
   },
 ): Promise<ContainerReplacementAuthorizationsResponse> {
-  return db.transaction(async (tx) => {
+  const { markers, authorizations } = await db.transaction(async (tx) => {
+    const context = createContainerWriterProjectionContext(tx);
     const access = await resolveContainerAccessProjection({
       containerId: input.containerId,
+      context,
       executor: tx,
       minimumAccessLevel: "read",
       userId: input.userId,
@@ -65,6 +69,8 @@ export async function runContainerReplacementAuthorizationsWorkflow(
         "Replacement authorization unavailable",
         404,
       );
-    return { authorizations };
+    return { authorizations, markers: context.verificationMarkers };
   });
+  await flushVerificationMarkersAfterRead(markers, db);
+  return { authorizations };
 }
