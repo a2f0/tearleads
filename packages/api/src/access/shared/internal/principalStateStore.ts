@@ -16,6 +16,7 @@ import {
 } from "@tearleads/crypto";
 import { and, asc, desc, eq, inArray, sql } from "drizzle-orm";
 import { firstPerKey, uniqueSortedStrings } from "../../../utils/array";
+import { beginPrincipalHistoryVerification } from "../../../utils/principalHistoryWork";
 import {
   listContainerGrantsForState,
   storePrincipalContainerGrantsForState,
@@ -677,6 +678,7 @@ export async function listPrincipalStateHistory(
   principalId: string,
   executor: DatabaseSession,
 ): Promise<StoredPrincipalStateChainEntry[]> {
+  beginPrincipalHistoryVerification();
   const rows = await executor
     .select(principalStateSelect)
     .from(principalStates)

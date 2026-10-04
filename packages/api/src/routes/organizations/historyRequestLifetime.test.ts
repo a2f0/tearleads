@@ -3,10 +3,12 @@ import { db } from "@tearleads/api-shared/postgres";
 import { users } from "@tearleads/api-shared/schema";
 import { createTestUser } from "@tearleads/bob-and-alice";
 import { eq } from "drizzle-orm";
+import { bootstrapRoot } from "../../../test/helpers/keyingWriterProjectionKit";
 import {
   loadOrganizationGroups,
   registerAndAuthenticate,
 } from "../../../test/helpers/principalPolicyReadFixtures";
+import { getCurrentPrincipalState } from "../../access/read/principalStateStore";
 import { createRequestLifetimeBindings } from "../../middleware/requestLifetime";
 import { routeApp } from "../../routeApp";
 
@@ -20,6 +22,13 @@ test("history verification opts in through shared workflows, including indirect 
   if (!user) throw new Error("Expected registered user");
   const organizationId = user.defaultOrganizationId;
   const { adminGroupId } = await loadOrganizationGroups(organizationId);
+  const organization = await getCurrentPrincipalState(
+    "organization",
+    organizationId,
+    db,
+  );
+  if (!organization) throw new Error("Expected organization policy");
+  const root = await bootstrapRoot(actor);
   for (const [path, status, overrides] of [
     [`/organizations/${organizationId}/data-usage`, 200, [0]],
     [
@@ -29,6 +38,12 @@ test("history verification opts in through shared workflows, including indirect 
     ],
     [`/organizations/${organizationId}/read-model`, 200, [0]],
     [`/principals/group/${adminGroupId}/policy`, 200, [0]],
+    [
+      `/organizations/${organizationId}/policy-history?stateHash=${organization.stateHash}`,
+      200,
+      [0],
+    ],
+    [`/containers/${root.kekState.containerId}/writer-projection`, 200, [0]],
     ["/organizations/invalid/data-usage", 400, []],
     ["/auth/sessions", 200, []],
   ] as const) {

@@ -4,6 +4,7 @@ import {
   principalStates,
 } from "@tearleads/api-shared/schema";
 import { and, asc, eq, lte, or } from "drizzle-orm";
+import { beginPrincipalHistoryVerification } from "../../../utils/principalHistoryWork";
 import {
   loadPrincipalHistoryArtifacts,
   PRINCIPAL_HISTORY_BATCH_SIZE,
@@ -20,6 +21,7 @@ export async function listOrganizationHistoryPayloads(
   organizationId: string,
   stateHash: string,
 ) {
+  beginPrincipalHistoryVerification();
   const scope = and(
     eq(principalStates.principalType, "organization"),
     eq(principalStates.principalId, organizationId),
@@ -55,6 +57,7 @@ export async function listGroupHistoryThroughHeads(
     start < heads.length;
     start += PRINCIPAL_HISTORY_BATCH_SIZE
   ) {
+    beginPrincipalHistoryVerification();
     const batch = heads.slice(start, start + PRINCIPAL_HISTORY_BATCH_SIZE);
     const rows = await executor
       .select(principalStateSelect)
