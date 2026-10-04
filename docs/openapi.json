@@ -17882,6 +17882,7 @@
                               "enum": [
                                 "container_ancestor_rekeys_required",
                                 "container_descendant_rekeys_required",
+                                "container_descendant_rekeys_inaccessible",
                                 "container_manifest_already_exists",
                                 "container_path_too_deep",
                                 "container_mutation_state_stale"
@@ -20652,6 +20653,7 @@
                               "enum": [
                                 "container_ancestor_rekeys_required",
                                 "container_descendant_rekeys_required",
+                                "container_descendant_rekeys_inaccessible",
                                 "container_manifest_already_exists",
                                 "container_path_too_deep",
                                 "container_mutation_state_stale"
@@ -21735,6 +21737,7 @@
                               "enum": [
                                 "container_ancestor_rekeys_required",
                                 "container_descendant_rekeys_required",
+                                "container_descendant_rekeys_inaccessible",
                                 "container_manifest_already_exists",
                                 "container_path_too_deep",
                                 "container_mutation_state_stale"
@@ -23810,6 +23813,7 @@
                               "enum": [
                                 "container_ancestor_rekeys_required",
                                 "container_descendant_rekeys_required",
+                                "container_descendant_rekeys_inaccessible",
                                 "container_manifest_already_exists",
                                 "container_path_too_deep",
                                 "container_mutation_state_stale"
@@ -25891,6 +25895,7 @@
                               "enum": [
                                 "container_ancestor_rekeys_required",
                                 "container_descendant_rekeys_required",
+                                "container_descendant_rekeys_inaccessible",
                                 "container_manifest_already_exists",
                                 "container_path_too_deep",
                                 "container_mutation_state_stale"
@@ -27340,6 +27345,7 @@
                               "enum": [
                                 "container_ancestor_rekeys_required",
                                 "container_descendant_rekeys_required",
+                                "container_descendant_rekeys_inaccessible",
                                 "container_manifest_already_exists",
                                 "container_path_too_deep",
                                 "container_mutation_state_stale"
@@ -29544,6 +29550,7 @@
                               "enum": [
                                 "container_ancestor_rekeys_required",
                                 "container_descendant_rekeys_required",
+                                "container_descendant_rekeys_inaccessible",
                                 "container_manifest_already_exists",
                                 "container_path_too_deep",
                                 "container_mutation_state_stale"
@@ -30976,6 +30983,7 @@
                               "enum": [
                                 "container_ancestor_rekeys_required",
                                 "container_descendant_rekeys_required",
+                                "container_descendant_rekeys_inaccessible",
                                 "container_manifest_already_exists",
                                 "container_path_too_deep",
                                 "container_mutation_state_stale"
