@@ -12,6 +12,7 @@ import { and, eq, gte, inArray, sql } from "drizzle-orm";
 import { getCurrentContainerKeyEpochPins } from "../../../../access/read/containerKekStore";
 import { uuidValue } from "../../../../utils/sqlDialect";
 import { ContainerMutationError, descendantRekeysRequired } from "../errors";
+import { assertDescendantRekeysWritable } from "./descendantRekeyAccess";
 
 const ANCESTRY_CHUNK_SIZE = 500;
 
@@ -215,8 +216,8 @@ async function listGrantedPathDescendants(
  * No-brick for writes (#2340): a committed rotation never leaves a level above
  * a directly granted container pinned to a retired parent epoch. The grantee
  * re-keys from its own container downward, so with these levels current its
- * writes never wait on another device's. The rotator can always comply:
- * access and keys inherit downward from the container it just rotated.
+ * writes never wait on another device's. A self-revoker may lose the authority
+ * to carry these rekeys; it must ask a member who retains write access.
  *
  * Call after the rotation and everything it carried are persisted, in the same
  * transaction. The refusal names the whole owed set, not just what is stale
@@ -225,6 +226,7 @@ async function listGrantedPathDescendants(
  */
 async function assertGrantedPathsCurrentBelow(input: {
   readonly executor: DatabaseTransaction;
+  readonly revokerUserId?: string | undefined;
   readonly organizationId: string;
   readonly rotatedContainerIds: readonly string[];
 }): Promise<void> {
@@ -270,7 +272,16 @@ async function assertGrantedPathsCurrentBelow(input: {
     closureIds: closure.map((node) => node.id),
     strandedIds,
   });
-  if (required) throw descendantRekeysRequired(required);
+  if (required) {
+    if (input.revokerUserId) {
+      await assertDescendantRekeysWritable({
+        executor: input.executor,
+        requiredContainerIds: required,
+        userId: input.revokerUserId,
+      });
+    }
+    throw descendantRekeysRequired(required);
+  }
 }
 
 /**
@@ -282,6 +293,7 @@ async function assertGrantedPathsCurrentBelow(input: {
  */
 export async function assertGrantedPathsCurrentBelowRotations(input: {
   readonly executor: DatabaseTransaction;
+  readonly revokerUserId?: string | undefined;
   readonly rotated: readonly {
     readonly containerId: string;
     readonly organizationId: string;
@@ -297,6 +309,7 @@ export async function assertGrantedPathsCurrentBelowRotations(input: {
   for (const organizationId of [...idsByOrganization.keys()].sort()) {
     await assertGrantedPathsCurrentBelow({
       executor: input.executor,
+      revokerUserId: input.revokerUserId,
       organizationId,
       rotatedContainerIds: idsByOrganization.get(organizationId) ?? [],
     });

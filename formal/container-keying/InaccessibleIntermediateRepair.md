@@ -23,12 +23,23 @@ its key is still reachable even though the root moved on.
 Fairness follows [`NoBrickedDevice`](./NoBrickedDevice.md): only the blocked
 writer's own step, `WriterRepairLeaf`, is fair. `OtherMemberRepairsMid` may
 happen but nothing may depend on it. `WriterEventuallyUnblocked` therefore holds
-only because `RotateRoot` re-keys `mid` in the same step, which the rotator can
-always do since access and keys inherit downward. `leaf` is never part of that
+only because `RotateRoot` re-keys `mid` in the same step. The rotator must retain
+write authority on `mid` after the rotation. `leaf` is never part of that
 step: it is the writer's own to repair. Setting `RotationCarriesRepairs = FALSE`
 is a rotation that commits alone, and the writer is parked for good on every
 behavior where no other member writes beneath `mid` again. A best-effort repair
 by the rotating device afterwards would not change that verdict.
+
+`RotatorRetainsAccess = FALSE` models a self-revoke that removes its signer's
+last write authority on `mid` (#2403). The self-revoke configuration verifies
+that the rotation is refused without changing the tree, and the leaf writer
+stays able to write. The API returns `container_descendant_rekeys_inaccessible`
+with the unwritable owed levels, so the SDK reports that another authorized
+member must complete the revoke. With retained access, fairness on the
+revoker's own action establishes `AuthorizedRevokeEventuallyCommits`; it adds
+no fairness assumption to the leaf writer's no-brick property. The route test
+`selfRevokeDescendants.test.ts` covers refusal, atomic rollback, completion by
+the owner, and a self-revoker retaining a separate grant on `mid`.
 
 With rotations carrying their repairs, `mid` is never stale, so the other two
 hazards are unreachable, and `GrantedPathNeverStranded` states that directly.

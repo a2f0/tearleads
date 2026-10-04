@@ -137,6 +137,10 @@ async function mutateContainerRotationInTransaction(
     if (rotates) {
       await assertGrantedPathsCurrentBelowRotations({
         executor: tx,
+        revokerUserId:
+          input.expectedEventType === "container.revoke"
+            ? input.userId
+            : undefined,
         rotated: [response],
       });
     }

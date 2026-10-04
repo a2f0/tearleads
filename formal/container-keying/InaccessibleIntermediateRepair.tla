@@ -20,12 +20,13 @@ EXTENDS Naturals
 (* are fair. Another member MAY repair the intermediate, but nothing may   *)
 (* depend on it. Signatures, ciphertext, and authorization are abstracted. *)
 CONSTANTS MaxEpoch, WholePathCurrency, RotationCarriesRepairs,
-          WriterGivenMidKey
+          WriterGivenMidKey, RotatorRetainsAccess
 
 ASSUME /\ MaxEpoch \in Nat \ {0, 1}
        /\ WholePathCurrency \in BOOLEAN
        /\ RotationCarriesRepairs \in BOOLEAN
        /\ WriterGivenMidKey \in BOOLEAN
+       /\ RotatorRetainsAccess \in BOOLEAN
 
 Epochs == 1..MaxEpoch
 
@@ -75,10 +76,12 @@ RevokedReachesLeaf ==
 
 (* A revocation by a member with access at the root. `mid` sits above the  *)
 (* granted leaf, so the rotation must carry its re-key in one transaction: *)
-(* the rotator holds every key beneath the root, so it always can. The     *)
+(* the rotator must retain signing authority on the owed levels. A self-  *)
+(* revoke losing that authority is explicitly refused, without mutation.  *)
 (* leaf is the writer's own to repair and is never part of the set.        *)
 RotateRoot ==
   /\ rootEpoch < MaxEpoch
+  /\ RotationCarriesRepairs => RotatorRetainsAccess
   /\ revokedThrough' = rootEpoch
   /\ rootEpoch' = rootEpoch + 1
   /\ IF RotationCarriesRepairs
@@ -139,6 +142,13 @@ Next ==
 Spec == Init /\ [][Next]_vars
 (* Only the blocked writer's own repair is fair.                           *)
 FairSpec == Spec /\ WF_vars(WriterRepairLeaf)
+
+(* A capable revoker completes its own action; an incapable self-revoker   *)
+(* is refused and needs an authorized member to perform the revoke.        *)
+AuthorizedRevokeEventuallyCommits ==
+  (RotatorRetainsAccess /\ WF_vars(RotateRoot)) => <>(revokedThrough > 0)
+IncapableRevokeNeverCommits ==
+  (RotationCarriesRepairs /\ ~RotatorRetainsAccess) => revokedThrough = 0
 
 (* Revocation is forward-only, and that is all it is: nothing written      *)
 (* after it may sit under a key the revoked member can still open.         *)
