@@ -118,6 +118,18 @@ window. That rule has zero specificity: any `:root` rule, theme, or scoped block
 the host writes overrides it. Tearleads overrides them with its own themes in
 `packages/ui/src/styles.css` and `packages/app/src/shell/layout/AppChrome.css`.
 
+Several defaults derive from `--color-dark`, the foreground: the window edge
+(`--border-strong-color`), the hover and selection chip (`--emphasis-surface`
+and `--emphasis-text`), and `--color-hairline`. A dark theme that sets only the
+`--color-*` primitives gets near-white edges and chips, so set these too, as
+Tearleads' dark theme does.
+
+The window rounds its corners but does not clip its content, since its resize
+handles and menus reach past its edges. While no visible status bar sits below
+it, the window body rounds its own bottom corners to the window's inner radius
+and clips its content there, so content painted edge to edge stays inside the
+border.
+
 Windows and menus lay out `border-box`, the box model their sizes assume. Since
 `box-sizing` does not inherit, a zero-specificity rule sets it on the window or
 menu and everything inside, including window content; any host rule overrides
