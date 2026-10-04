@@ -36,6 +36,7 @@ import {
   listContainerDocumentsOperation,
   listContainerParentLanesOperation,
 } from "./containerReads";
+import { getContainerReplacementAuthorizationsOperation } from "./containerReplacement";
 import {
   getDocumentAttributionOperation,
   listDocumentAttributionRangesOperation,
@@ -105,6 +106,7 @@ import {
 // Name each imported operation type instead of expanding every Zod schema in
 // the emitted declaration; the exact readonly tuple and runtime order stay intact.
 export const protocolOperations: readonly [
+  typeof getContainerReplacementAuthorizationsOperation,
   typeof getHealthOperation,
   typeof challengeOperation,
   typeof destroySessionOperation,
@@ -177,6 +179,7 @@ export const protocolOperations: readonly [
   typeof listRootIdentityOrganizationsOperation,
   typeof documentSyncOperation,
 ] = [
+  getContainerReplacementAuthorizationsOperation,
   getHealthOperation,
   challengeOperation,
   destroySessionOperation,

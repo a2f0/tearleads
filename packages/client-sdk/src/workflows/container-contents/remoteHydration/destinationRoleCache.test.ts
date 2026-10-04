@@ -13,6 +13,9 @@ test("metadata binding cache keeps organization and container identities distinc
       metadataDocumentId: "authenticated-metadata",
       systemSlot: null,
       createSignerUserId: "owner",
+      rootContainerId: "fixture-root",
+      rootCreateManifestHash: "fixture-root-genesis",
+      rootMetadataDocumentId: "fixture-root-metadata",
     };
     rememberDestinationRole(execSql, identity, role);
     expect(cachedDestinationRole(execSql, identity)).toEqual(role);
@@ -36,6 +39,9 @@ test("ordinary binding eviction preserves root and system reconciliation roles",
       metadataDocumentId: "metadata",
       systemSlot: null,
       createSignerUserId: "owner",
+      rootContainerId: "fixture-root",
+      rootCreateManifestHash: "fixture-root-genesis",
+      rootMetadataDocumentId: "fixture-root-metadata",
     };
     const rootRole = { ...ordinaryRole, parentId: null };
     const systemRole = {

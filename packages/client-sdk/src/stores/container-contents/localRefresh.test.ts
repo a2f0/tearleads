@@ -404,6 +404,9 @@ test("local refresh reconciles roots and system children loaded after remote sta
   // admits it as the merge target for the late-loaded local root.
   rememberDestinationRole(state.runtime.infra.execSql, remoteRoot.container, {
     createSignerUserId: "user-1",
+    rootContainerId: "fixture-root",
+    rootCreateManifestHash: "fixture-root-genesis",
+    rootMetadataDocumentId: "fixture-root-metadata",
     metadataDocumentId: "remote-root-metadata",
     parentId: null,
     systemSlot: null,

@@ -4,10 +4,8 @@ import {
 } from "@tearleads/crypto";
 import type { ContainerWriterProjectionResponse } from "@tearleads/validators/response";
 import { errorMessage } from "../../../data/errorMessage";
-import {
-  verifiedContainerCreateManifest,
-  verifyContainerDestinationProjection,
-} from "../../../data/keyingProjectionVerification/containerDestinationVerification";
+import { verifiedContainerCreateManifest } from "../../../data/keyingProjectionVerification/containerCreateManifest";
+import { verifyContainerDestinationProjection } from "../../../data/keyingProjectionVerification/containerDestinationVerification";
 import {
   isKeyingVerificationError,
   reportKeyingVerificationErrorInCauseChain,

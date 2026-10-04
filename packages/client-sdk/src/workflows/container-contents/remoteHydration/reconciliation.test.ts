@@ -119,6 +119,9 @@ async function reconciliationFixture() {
   // user, which is what lets it absorb pre-login local roots at all.
   rememberDestinationRole(state.runtime.infra.execSql, remoteRoot.container, {
     createSignerUserId: "user-1",
+    rootContainerId: "fixture-root",
+    rootCreateManifestHash: "fixture-root-genesis",
+    rootMetadataDocumentId: "fixture-root-metadata",
     metadataDocumentId: "remote-root-metadata",
     parentId: null,
     systemSlot: null,

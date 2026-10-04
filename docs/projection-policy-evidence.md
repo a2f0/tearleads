@@ -101,6 +101,26 @@ incremental delivery is tracked in
 [#2392](https://github.com/a2f0/tearleads/issues/2392). This
 tradeoff is accepted for this fix and measured by the load regression.
 
+The #2392 finding is a valid scaling follow-up, not evidence of an authorization
+bypass or a remaining 4,096-entry refusal. The selected direction is incremental
+delivery anchored in a prefix that this device has actually verified. The API
+may omit that exact prefix only when the client identifies it; cache loss or a
+missing prefix must fall back to complete signed evidence. New devices continue
+to verify from genesis. A server-supplied hash or verification marker never
+becomes a client trust anchor, and no history cap may block reading or revocation.
+
+That transport remains unimplemented. A future change must bind suffixes to the
+object, organization, prior head and trusted signer keys, retain checkpoint and
+equivocation checks on every use, and handle deleted-group references and cache
+eviction. Its tests must compare full and incremental verification, reject
+altered prefixes and wrong bases, exercise cold restart and missing-cache
+fallback, and measure transferred bytes and signature calls as history grows.
+Introducing a new compact checkpoint authority is outside this decision.
+The existing 16,384 principal-state version bound is a separate wire-contract
+refusal (see [limits.md](./limits.md#principals)); the follow-up must also
+reconcile that bound with its requirement that history growth never prevent
+revocation. Removing the manifest read cap did not remove that principal bound.
+
 Both API and SDK memoize verified snapshots by a SHA-256 digest of the actual
 source bytes, trusted signer keys, expected reference, and external authority.
 The SDK holds at most 16 snapshots; the API uses a 32 MiB estimated retained-byte
