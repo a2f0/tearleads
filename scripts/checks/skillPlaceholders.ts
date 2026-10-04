@@ -10,7 +10,7 @@ import { join, relative } from "node:path";
  * These skills take their arguments from the appended argument block instead,
  * so the tokens have no legitimate use here.
  */
-export const skillRoots = [".claude/skills", ".codex/skills"] as const;
+export const skillRoots = [".claude/skills", ".agents/skills"] as const;
 
 export interface SkillPlaceholderViolation {
   readonly column: number;

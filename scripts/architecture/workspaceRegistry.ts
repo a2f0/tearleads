@@ -4,8 +4,7 @@ export type WorkspaceRole =
   | "deployment-target"
   | "server"
   | "shared-library"
-  | "test-support"
-  | "tooling";
+  | "test-support";
 
 interface WorkspaceDefinition {
   readonly directory: string;
@@ -15,12 +14,6 @@ interface WorkspaceDefinition {
 }
 
 export const workspaceRegistry = [
-  {
-    directory: "agent-tool",
-    key: "agentTool",
-    packageName: "@tearleads/agent-tool",
-    role: "tooling",
-  },
   {
     directory: "api",
     key: "api",
