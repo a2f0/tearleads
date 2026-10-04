@@ -33,6 +33,11 @@ test("the published manifest is consumable outside the workspace", () => {
   const manifest = JSON.parse(readOutput("package.json"));
 
   expect(manifest.private).toBeUndefined();
+  expect(manifest.repository).toEqual({
+    type: "git",
+    url: "git+https://github.com/a2f0/tearleads.git",
+    directory: "packages/windowing",
+  });
   expect(manifest.exports["."]).toEqual({
     default: "./index.js",
     types: "./index.d.ts",
