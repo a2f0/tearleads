@@ -68,6 +68,7 @@ testApiClient(
     expect(wire.documentManifestHistory).toHaveLength(1);
     expect(wire.documentContainerManifestHistory).toHaveLength(1);
     expect(restoreProjectionHistory(wire, retained)).toBe(true);
+    expect(wire.documentManifestHistory).toEqual(full.documentManifestHistory);
     expect(
       new Map(
         wire.documentManifestHistory.map((entry) => [

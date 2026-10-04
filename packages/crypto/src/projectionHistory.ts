@@ -56,16 +56,22 @@ export function omitProjectionHistory<T extends HistoryProjection>(
   const requested = new Map(hints.map((hint) => [hint.key, hint]));
   const omitted: ProjectionHistoryPrefix[] = [];
   for (const array of projectionHistoryArrays(result)) {
-    const removed = new Set<unknown>();
+    const removed = new Map<unknown, number>();
     for (const chain of array.chains) {
       const hint = requested.get(chain.key);
       if (!hint || hint.count > chain.values.length) continue;
       const prefix = chain.values.slice(0, hint.count);
       if (historyDigest(chain.key, prefix) !== hint.digest) continue;
-      for (const item of prefix) removed.add(item);
+      for (const item of prefix)
+        removed.set(item, (removed.get(item) ?? 0) + 1);
       omitted.push(hint);
     }
-    const retained = array.values.filter((value) => !removed.has(value));
+    const retained = array.values.filter((value) => {
+      const remaining = removed.get(value) ?? 0;
+      if (remaining === 0) return true;
+      removed.set(value, remaining - 1);
+      return false;
+    });
     array.values.length = 0;
     for (const value of retained) array.values.push(value);
   }
@@ -79,10 +85,7 @@ export function restoreProjectionHistory(
   requested: readonly RetainedProjectionHistory[],
 ): boolean {
   const arrays = new Map(
-    projectionHistoryArrays(projection).map((array) => [
-      array.key,
-      array.values,
-    ]),
+    projectionHistoryArrays(projection).map((array) => [array.key, array]),
   );
   const available = new Map(
     requested.map((entry) => [entry.prefix.key, entry]),
@@ -98,10 +101,12 @@ export function restoreProjectionHistory(
     const target = arrays.get(entry.arrayKey);
     if (!target || historyDigest(prefix.key, entry.values) !== prefix.digest)
       return false;
-    const suffix = target.slice();
-    target.length = 0;
-    for (const value of structuredClone(entry.values)) target.push(value);
-    for (const value of suffix) target.push(value);
+    const suffix = target.values.slice();
+    target.values.length = 0;
+    for (const value of structuredClone(entry.values))
+      target.values.push(value);
+    for (const value of suffix) target.values.push(value);
+    target.restoreOrder?.();
     available.delete(prefix.key);
   }
   delete projection.historyPrefixes;

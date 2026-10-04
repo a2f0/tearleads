@@ -114,7 +114,8 @@ resolution, predecessor links, directory binding, and durable rollback and
 conflict checks still run. A server-supplied hash or verification marker never
 becomes a client trust anchor. Malformed, unsolicited, or altered prefix claims
 are rejected. Deleted-group citations retain their historical directory proofs.
-Ordered dependency paths and principal chains preserve their order. Manifest
+Dependency paths and principal chains preserve their order; document manifest
+history restores newest-first order for predecessor verification. Other manifest
 history collections are indexed by signed hash; reconstruction may regroup those
 unordered entries without changing their signed contents.
 

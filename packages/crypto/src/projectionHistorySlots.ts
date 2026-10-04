@@ -12,6 +12,7 @@ export type HistoryProjection =
 export interface ProjectionHistoryArray {
   readonly key: string;
   readonly values: unknown[];
+  readonly restoreOrder?: (() => void) | undefined;
   readonly chains: readonly {
     readonly key: string;
     readonly values: unknown[];
@@ -27,6 +28,52 @@ function isDocumentProjection(
   projection: HistoryProjection,
 ): projection is DocumentWriterProjectionResponse {
   return "documentId" in projection && "documentManifest" in projection;
+}
+
+function unambiguousArrays(
+  arrays: ProjectionHistoryArray[],
+): ProjectionHistoryArray[] {
+  const occurrences = new Map<string, number>();
+  for (const array of arrays)
+    occurrences.set(array.key, (occurrences.get(array.key) ?? 0) + 1);
+  // Ambiguous locations cannot safely negotiate an omission. Deliver them full.
+  return arrays.filter((array) => occurrences.get(array.key) === 1);
+}
+
+function manifestHistoryArray(
+  key: string,
+  values: AccessManifestBundleWireResponse[],
+  newestFirst: boolean,
+): ProjectionHistoryArray {
+  const groups = new Map<string, AccessManifestBundleWireResponse[]>();
+  for (const value of values) {
+    const chain = JSON.stringify([
+      key,
+      Reflect.get(value.manifest, "organizationId"),
+      Reflect.get(value.manifest, "objectKind"),
+      Reflect.get(value.manifest, "objectId"),
+    ]);
+    const entries = groups.get(chain) ?? [];
+    entries.push(value);
+    groups.set(chain, entries);
+  }
+  return {
+    key,
+    values,
+    restoreOrder: newestFirst
+      ? () => {
+          values.sort((a, b) => manifestEpoch(b) - manifestEpoch(a));
+        }
+      : undefined,
+    chains: [...groups].map(([chain, entries]) => ({
+      key: chain,
+      values: entries.sort(
+        (a, b) =>
+          manifestEpoch(a) - manifestEpoch(b) ||
+          compareCanonicalStrings(a.manifestHash, b.manifestHash),
+      ),
+    })),
+  };
 }
 
 /** Only these evidence arrays can be omitted. Current heads and keys always travel. */
@@ -48,32 +95,10 @@ export function projectionHistoryArrays(
   const manifests = (
     name: string,
     values: AccessManifestBundleWireResponse[],
+    newestFirst = false,
   ) => {
     const key = JSON.stringify([...identity, name]);
-    const groups = new Map<string, AccessManifestBundleWireResponse[]>();
-    for (const value of values) {
-      const chain = JSON.stringify([
-        key,
-        Reflect.get(value.manifest, "organizationId"),
-        Reflect.get(value.manifest, "objectKind"),
-        Reflect.get(value.manifest, "objectId"),
-      ]);
-      const entries = groups.get(chain) ?? [];
-      entries.push(value);
-      groups.set(chain, entries);
-    }
-    arrays.push({
-      key,
-      values,
-      chains: [...groups].map(([chain, entries]) => ({
-        key: chain,
-        values: entries.sort(
-          (a, b) =>
-            manifestEpoch(a) - manifestEpoch(b) ||
-            compareCanonicalStrings(a.manifestHash, b.manifestHash),
-        ),
-      })),
-    });
+    arrays.push(manifestHistoryArray(key, values, newestFirst));
   };
   const path = (name: string, value: ContainerKeyingPathResponse) => {
     for (const [index, kek] of value.containerKeks.entries())
@@ -105,11 +130,11 @@ export function projectionHistoryArrays(
       "documentContainerManifestHistory",
       projection.documentContainerManifestHistory,
     );
-    manifests("documentManifestHistory", projection.documentManifestHistory);
+    manifests(
+      "documentManifestHistory",
+      projection.documentManifestHistory,
+      true,
+    );
   }
-  const occurrences = new Map<string, number>();
-  for (const array of arrays)
-    occurrences.set(array.key, (occurrences.get(array.key) ?? 0) + 1);
-  // Ambiguous locations cannot safely negotiate an omission. Deliver them full.
-  return arrays.filter((array) => occurrences.get(array.key) === 1);
+  return unambiguousArrays(arrays);
 }
