@@ -161,7 +161,8 @@ Merging to `main` publishes. When `packages/windowing` changes there,
 `.github/workflows/windowing-publish.yml` publishes the version in
 `package.json` if it is newer than npm's `latest`; a merge that leaves the
 version alone, a re-run, or a run that finishes after a newer release succeeds
-without publishing. The workflow authenticates with
+without publishing (`scripts/publishDecision.ts` makes that call). The workflow
+authenticates with
 [npm trusted publishing](https://docs.npmjs.com/trusted-publishers): npm accepts
 the job's GitHub OIDC token instead of an npm token, and attaches provenance to
 each version. On npmjs.com the package's trusted publisher names the `a2f0`

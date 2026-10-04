@@ -51,28 +51,11 @@ jobs:
           node-version: 24.21.0
           package-manager-cache: false
 
-      # Publish only a version newer than npm's latest. Merges that do not bump
-      # the version, re-runs, and runs that finish after a newer release succeed
-      # without publishing, and never move the latest tag backwards.
+      # Publish only a version newer than npm's latest, so merges that keep the
+      # version, re-runs, and out-of-order runs succeed without publishing.
       - name: Decide whether to publish
         id: decide
-        run: |
-          version="$(jq -r .version packages/windowing/package.json)"
-          registry="$(npm view @tearleads/windowing versions dist-tags --json \
-            --registry https://registry.npmjs.org)"
-          latest="$(jq -r '."dist-tags".latest' <<<"$registry")"
-          if jq -e --arg version "$version" \
-            '[.versions] | flatten | index($version)' <<<"$registry" >/dev/null; then
-            echo "::notice::@tearleads/windowing@$version is already on npm; nothing to publish."
-            echo "publish=false" >>"$GITHUB_OUTPUT"
-          elif ! VERSION="$version" LATEST="$latest" bun --eval \
-            'process.exit(Bun.semver.order(process.env.VERSION, process.env.LATEST) > 0 ? 0 : 1)'; then
-            echo "::notice::@tearleads/windowing@$version is older than npm's latest ($latest); nothing to publish."
-            echo "publish=false" >>"$GITHUB_OUTPUT"
-          else
-            echo "Publishing @tearleads/windowing@$version (npm latest: $latest)."
-            echo "publish=true" >>"$GITHUB_OUTPUT"
-          fi
+        run: bun packages/windowing/scripts/publishDecision.ts
 
       - name: Install dependencies
         if: steps.decide.outputs.publish == 'true'
