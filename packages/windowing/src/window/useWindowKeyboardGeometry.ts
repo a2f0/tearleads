@@ -179,6 +179,18 @@ export function useWindowGeometryMenuItems(
   );
 }
 
+// Browsers treat focus that script moves before any user input as keyboard
+// focus, so a window restored on page load showed a focus ring on every load.
+// Until the user has interacted with the page, the window takes focus without
+// one; after that the browser's own heuristic decides, so a window opened from
+// the keyboard still shows where focus went.
+function showFocusOptions(): FocusOptions {
+  const activation: UserActivation | undefined = navigator.userActivation;
+  return activation && !activation.hasBeenActive
+    ? { focusVisible: false, preventScroll: true }
+    : { preventScroll: true };
+}
+
 // Moves focus into a window when it opens or comes back from minimized, unless
 // focus is already inside it, such as an autofocused field. `shown` must only
 // turn true once the window is laid out and visible: browsers ignore focus on
@@ -201,7 +213,7 @@ export function useFocusWindowOnShow(
     hidden.current = false;
     const root = windowRef.current;
     if (isTop && root && !root.contains(document.activeElement)) {
-      root.focus({ preventScroll: true });
+      root.focus(showFocusOptions());
     }
   }, [isTop, shown, windowRef]);
 }
