@@ -23,19 +23,24 @@ function manifestEpoch(bundle: AccessManifestBundleWireResponse): number {
   return typeof epoch === "number" && Number.isFinite(epoch) ? epoch : 0;
 }
 
+function isDocumentProjection(
+  projection: HistoryProjection,
+): projection is DocumentWriterProjectionResponse {
+  return "documentId" in projection && "documentManifest" in projection;
+}
+
 /** Only these evidence arrays can be omitted. Current heads and keys always travel. */
 export function projectionHistoryArrays(
   projection: HistoryProjection,
 ): ProjectionHistoryArray[] {
   const arrays: ProjectionHistoryArray[] = [];
-  const identity =
-    "containerId" in projection
-      ? ["container", projection.organizationId, projection.containerId]
-      : [
-          "document",
-          Reflect.get(projection.documentManifest.manifest, "organizationId"),
-          projection.documentId,
-        ];
+  const identity = isDocumentProjection(projection)
+    ? [
+        "document",
+        Reflect.get(projection.documentManifest.manifest, "organizationId"),
+        projection.documentId,
+      ]
+    : ["container", projection.organizationId, projection.containerId];
   const add = (name: string, values: unknown[]) => {
     const key = JSON.stringify([...identity, name]);
     arrays.push({ key, values, chains: [{ key, values }] });
@@ -86,7 +91,7 @@ export function projectionHistoryArrays(
   for (const group of evidence.groups)
     add(`group:${group.currentState.principalId}`, group.previousStates);
   add("organizationPayloads", evidence.organizationPayloads);
-  if ("containerId" in projection) path("container", projection);
+  if (!isDocumentProjection(projection)) path("container", projection);
   else {
     for (const [index, value] of projection.authorizingContainerPaths.entries())
       path(`path:${index}:${value.containerId}`, value);
@@ -102,5 +107,9 @@ export function projectionHistoryArrays(
     );
     manifests("documentManifestHistory", projection.documentManifestHistory);
   }
-  return arrays;
+  const occurrences = new Map<string, number>();
+  for (const array of arrays)
+    occurrences.set(array.key, (occurrences.get(array.key) ?? 0) + 1);
+  // Ambiguous locations cannot safely negotiate an omission. Deliver them full.
+  return arrays.filter((array) => occurrences.get(array.key) === 1);
 }

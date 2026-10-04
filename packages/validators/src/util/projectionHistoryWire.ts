@@ -13,7 +13,7 @@ import {
 
 /** Request budgets restrict cache hints, never the history a reader can recover. */
 export const PROJECTION_HISTORY_HINT_CHARACTERS = 4096;
-export const ProjectionHistoryPrefixSchema = z.strictObject({
+const ProjectionHistoryPrefixSchema = z.strictObject({
   key: boundedNonEmptyStringSchema(512),
   count: boundedPositiveIntegerSchema(Number.MAX_SAFE_INTEGER),
   digest: sha256HexStringSchema,

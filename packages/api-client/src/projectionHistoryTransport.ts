@@ -105,28 +105,26 @@ export class ProjectionHistoryTransport {
         )
           projection = value;
         else return false;
-        if (
-          projection.historyPrefixes?.length &&
-          generation !== this.generation
-        )
-          return false;
+        // A transparent token-refresh retry still holds its requested bytes.
+        // Restore them here; the admission guard below preserves auth clearing.
         if (
           !restoreProjectionHistory(projection, requested) ||
           !validator(value)
         )
           return false;
-        const captured = captureProjectionHistory(projection);
+        const captured = JSON.stringify(
+          captureProjectionHistory(projection).map((entry) => entry.prefix),
+        );
         registerProjectionHistoryAdmission(projection, () => {
           if (!mayRetain || generation !== this.generation) return;
           // A consumer may mutate a decoded object. Never retain bytes other
           // than the exact evidence that passed through the verification call.
           const observed = captureProjectionHistory(projection);
           if (
-            JSON.stringify(observed.map((entry) => entry.prefix)) !==
-            JSON.stringify(captured.map((entry) => entry.prefix))
+            JSON.stringify(observed.map((entry) => entry.prefix)) !== captured
           )
             return;
-          this.remember(path, captured);
+          this.remember(path, observed);
         });
         return true;
       },

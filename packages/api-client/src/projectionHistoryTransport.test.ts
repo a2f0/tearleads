@@ -2,7 +2,9 @@ import { expect } from "bun:test";
 import {
   captureProjectionHistory,
   omitProjectionHistory,
+  restoreProjectionHistory,
 } from "@tearleads/crypto";
+import { SESSION_ERROR_CODES } from "@tearleads/validators/response";
 import { parseProjectionHistoryHints } from "@tearleads/validators/util";
 import { HttpResponse, http } from "msw";
 import {
@@ -37,6 +39,161 @@ testApiClient("server prefix mismatch retains complete evidence", () => {
     ),
   ).toEqual(full);
 });
+
+testApiClient(
+  "unordered multi-chain manifest histories retain every signed entry",
+  () => {
+    const full = createDocumentWriterProjectionResponse();
+    const base = full.documentManifest;
+    const entries = (id: string, count: number) =>
+      Array.from({ length: count }, (_, index) => ({
+        ...base,
+        manifest: { ...base.manifest, objectId: id, epoch: count - index },
+        manifestHash: `${id}-${count - index}`,
+      }));
+    full.documentManifestHistory = entries("document", 3);
+    full.documentContainerManifestHistory = [
+      ...entries("parent", 3),
+      ...entries("child", 2),
+    ];
+    const retained = captureProjectionHistory(full);
+    full.documentManifestHistory.unshift(...entries("document", 4).slice(0, 1));
+    full.documentContainerManifestHistory.unshift(
+      ...entries("parent", 4).slice(0, 1),
+    );
+    const wire = omitProjectionHistory(
+      full,
+      retained.map((entry) => entry.prefix),
+    );
+    expect(wire.documentManifestHistory).toHaveLength(1);
+    expect(wire.documentContainerManifestHistory).toHaveLength(1);
+    expect(restoreProjectionHistory(wire, retained)).toBe(true);
+    expect(
+      new Map(
+        wire.documentManifestHistory.map((entry) => [
+          entry.manifestHash,
+          entry,
+        ]),
+      ),
+    ).toEqual(
+      new Map(
+        full.documentManifestHistory.map((entry) => [
+          entry.manifestHash,
+          entry,
+        ]),
+      ),
+    );
+    expect(
+      new Map(
+        wire.documentContainerManifestHistory.map((entry) => [
+          entry.manifestHash,
+          entry,
+        ]),
+      ),
+    ).toEqual(
+      new Map(
+        full.documentContainerManifestHistory.map((entry) => [
+          entry.manifestHash,
+          entry,
+        ]),
+      ),
+    );
+  },
+);
+
+testApiClient(
+  "hinted retries survive token refresh without restoring cleared cache entries",
+  async () => {
+    const full = fixture();
+    const hinted: boolean[] = [];
+    let expire = false;
+    server.use(
+      http.get(
+        `${apiBaseUrl}/containers/:id/writer-projection`,
+        ({ request }) => {
+          hinted.push(request.headers.has("x-projection-history"));
+          if (
+            expire &&
+            request.headers.get("authorization") === "Bearer old-token"
+          )
+            return HttpResponse.json(
+              {
+                code: SESSION_ERROR_CODES.refreshRequired,
+                error: "Session expired",
+              },
+              { status: 401 },
+            );
+          return HttpResponse.json(
+            omitProjectionHistory(
+              full,
+              parseProjectionHistoryHints(
+                request.headers.get("x-projection-history") ?? "[]",
+              ) ?? [],
+            ),
+          );
+        },
+      ),
+    );
+    const client = new ApiClient(apiBaseUrl);
+    client.setAuthToken("old-token");
+    let refreshes = 0;
+    client.setOnSessionExpired(() => {
+      refreshes++;
+      client.setAuthToken("fresh-token");
+      return true;
+    });
+    const first = await client.getContainerWriterProjection(full.containerId);
+    if (!first) throw new Error("Expected initial projection");
+    retainVerifiedProjectionHistory(first);
+    client.clearWriterProjectionCaches();
+    expire = true;
+    const refreshed = await client.getContainerWriterProjection(
+      full.containerId,
+    );
+    expect(refreshed).toEqual(full);
+    expect(refreshes).toBe(1);
+    expect(hinted).toEqual([false, true, true]);
+    if (!refreshed) throw new Error("Expected retried projection");
+    retainVerifiedProjectionHistory(refreshed);
+    client.clearWriterProjectionCaches();
+    await client.getContainerWriterProjection(full.containerId);
+    expect(hinted.at(-1)).toBe(false);
+  },
+);
+
+testApiClient(
+  "ambiguous duplicate history slots use complete evidence",
+  async () => {
+    const full = fixture();
+    const group = full.policyEvidence.groups[0];
+    if (!group) throw new Error("Expected group");
+    full.policyEvidence.groups.push(structuredClone(group));
+    server.use(
+      http.get(
+        `${apiBaseUrl}/containers/:id/writer-projection`,
+        ({ request }) => {
+          const hints = parseProjectionHistoryHints(
+            request.headers.get("x-projection-history") ?? "[]",
+          );
+          if (!hints)
+            return HttpResponse.json(
+              { error: "Invalid hints" },
+              { status: 400 },
+            );
+          return HttpResponse.json(omitProjectionHistory(full, hints));
+        },
+      ),
+    );
+    const client = new ApiClient(apiBaseUrl);
+    const first = await client.getContainerWriterProjection(full.containerId);
+    if (!first) throw new Error("Expected initial projection");
+    retainVerifiedProjectionHistory(first);
+    client.clearWriterProjectionCaches();
+    expect(await client.getContainerWriterProjection(full.containerId)).toEqual(
+      full,
+    );
+  },
+);
 
 testApiClient(
   "history cache eviction and late admission after logout fall back to full evidence",
@@ -275,6 +432,7 @@ testApiClient(
   "document projections reconstruct principal and manifest evidence",
   async () => {
     const full = createDocumentWriterProjectionResponse();
+    Reflect.set(full, "containerId", "unrelated-extra-field");
     const container = fixture();
     const { policyEvidence, ...path } = container;
     full.policyEvidence = policyEvidence;
