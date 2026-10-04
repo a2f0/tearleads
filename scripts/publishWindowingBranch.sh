@@ -17,8 +17,8 @@ Usage: $(basename "$0") [--dry-run] [--branch <name>] [--remote <name>]
 
 Build @tearleads/windowing and commit the built package to a branch whose tree
 is that package alone (default: $BRANCH on $REMOTE). Each commit's parent is the
-branch's previous tip, so the push is a fast-forward. A build identical to the
-tip, or of a source older than the tip's, publishes nothing. Only commits on
+branch's previous tip, so the push is a fast-forward. A rebuild of the tip's
+source, or a build of an older source, publishes nothing. Only commits on
 $SOURCE_BRANCH are published, and only the Windowing dist workflow pushes;
 elsewhere, pass --dry-run. Consumers pin the printed commit:
 
@@ -131,7 +131,11 @@ if git ls-remote --exit-code --heads "$REMOTE" "$BRANCH" >/dev/null; then
       exit 0
     fi
   fi
-  if [[ "$(git rev-parse "$PARENT^{tree}")" == "$TREE" ]]; then
+  # Only a rebuild of the tip's own source is skipped. A newer source whose
+  # build matches the tip still gets a commit, recording that source, so a
+  # late run of an intermediate source cannot publish over it.
+  if [[ "$(git rev-parse "$PARENT^{tree}")" == "$TREE" &&
+    (-z "$TIP_SOURCE" || "$TIP_SOURCE" == "$SOURCE_COMMIT") ]]; then
     echo "$BRANCH already holds this build at $PARENT."
     echo "Pin: github:a2f0/tearleads#$PARENT"
     exit 0

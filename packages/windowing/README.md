@@ -208,10 +208,11 @@ a squash merge never lands would leave a tip no later build includes. It runs
 `scripts/publishWindowingBranch.sh`, which builds the package as the npm
 publish does, commits the build with the previous tip as its parent (a
 fast-forward), and prints the commit to pin. Each commit's subject names the
-version and the source commit it was built from. A build identical to the tip
-publishes nothing, and so does a build of an older source than the tip's, as
-when runs finish out of order; the workflow checks out full history for that
-comparison.
+version and the source commit it was built from. A rebuild of the tip's own
+source publishes nothing, and so does a build of an older source than the
+tip's, as when runs finish out of order; the workflow checks out full history
+for that comparison. A newer source whose build matches the tip still gets a
+commit, so the tip always records the newest source published.
 
 Only the workflow pushes. A push from a checkout would run the repository's
 pre-push checks, which expect a source commit, so outside GitHub Actions the

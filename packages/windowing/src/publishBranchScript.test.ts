@@ -161,7 +161,28 @@ test("a new build fast-forwards the branch from its previous tip", () => {
   expect(tip?.split("|")[0]?.split(" ")[1]).toBe(firstCommit);
 });
 
-test("a build identical to the tip publishes nothing", () => {
+test("a newer source with an unchanged build still records that source", () => {
+  const repo = fixture();
+  expect(repo.run().exitCode).toBe(0);
+  // main moves A -> C -> B, where C changes the build and B restores it.
+  const intermediate = repo.advance();
+  const newest = repo.advance();
+
+  // B's run finishes first: its build matches the tip, but B is recorded.
+  expect(repo.run().exitCode).toBe(0);
+  const [tip] = repo.branchCommits();
+  expect(tip).toEndWith(`from ${newest}`);
+
+  // C's run finishes late and must not publish over B.
+  repo.checkout(intermediate);
+  const late = repo.run([], {
+    BUILD_CONTENT: "export const Window = () => 2;",
+  });
+  expect(late.stdout).toContain("not publishing an older build");
+  expect(repo.branchCommits()[0]).toBe(tip);
+});
+
+test("a rebuild of the tip's source publishes nothing", () => {
   const repo = fixture();
   expect(repo.run().exitCode).toBe(0);
   const again = repo.run();
