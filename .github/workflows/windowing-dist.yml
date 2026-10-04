@@ -13,6 +13,10 @@ on:
       - scripts/lib/rewriteDistImports.ts
       - scripts/publishWindowingBranch.sh
       - .github/workflows/windowing-dist.yml
+      # Root build inputs: the compiler, dependencies, and shared config.
+      - bun.lock
+      - package.json
+      - tsconfig.base.json
   workflow_dispatch:
 
 permissions:
@@ -28,6 +32,9 @@ concurrency:
 jobs:
   publish:
     name: Publish dist/windowing
+    # Only main is published, including on manual dispatch; the script checks
+    # the source commit is on main too.
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:

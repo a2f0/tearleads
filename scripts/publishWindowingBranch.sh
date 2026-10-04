@@ -8,6 +8,7 @@ SCRIPT_DIR="$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd -P)"
 REPO_ROOT="$(CDPATH='' cd -- "$SCRIPT_DIR/.." && pwd -P)"
 BRANCH="dist/windowing"
 REMOTE="origin"
+SOURCE_BRANCH="main"
 DRY_RUN=false
 
 usage() {
@@ -17,9 +18,9 @@ Usage: $(basename "$0") [--dry-run] [--branch <name>] [--remote <name>]
 Build @tearleads/windowing and commit the built package to a branch whose tree
 is that package alone (default: $BRANCH on $REMOTE). Each commit's parent is the
 branch's previous tip, so the push is a fast-forward. A build identical to the
-tip, or of a source older than the tip's, publishes nothing. Only the Windowing
-dist workflow pushes; elsewhere, pass --dry-run. Consumers pin the printed
-commit:
+tip, or of a source older than the tip's, publishes nothing. Only commits on
+$SOURCE_BRANCH are published, and only the Windowing dist workflow pushes;
+elsewhere, pass --dry-run. Consumers pin the printed commit:
 
   "@tearleads/windowing": "github:a2f0/tearleads#<commit>"
 
@@ -99,6 +100,17 @@ git -C "$BUILD_DIR" --git-dir="$GIT_DIR_PATH" --work-tree="$BUILD_DIR" \
   add --all --force .
 TREE="$(git write-tree)"
 unset GIT_INDEX_FILE
+
+# Only builds of $SOURCE_BRANCH are published. A branch commit that a squash
+# merge never lands on $SOURCE_BRANCH would leave a tip that no later
+# $SOURCE_BRANCH build includes, which would block every later publish.
+if [[ "$DRY_RUN" != true ]]; then
+  git fetch --quiet --no-tags "$REMOTE" "refs/heads/$SOURCE_BRANCH"
+  if ! git merge-base --is-ancestor "$SOURCE_COMMIT" FETCH_HEAD; then
+    echo "Error: $SOURCE_COMMIT is not on $SOURCE_BRANCH; only $SOURCE_BRANCH builds are published." >&2
+    exit 1
+  fi
+fi
 
 PARENT=""
 if git ls-remote --exit-code --heads "$REMOTE" "$BRANCH" >/dev/null; then

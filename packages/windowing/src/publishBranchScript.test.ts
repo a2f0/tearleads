@@ -87,13 +87,16 @@ function fixture() {
   git(repo, "add", ".");
   git(repo, "commit", "--quiet", "-m", "source");
   git(repo, "remote", "add", "origin", remote);
+  git(repo, "push", "--quiet", "origin", "HEAD:refs/heads/main");
   return {
     source: git(repo, "rev-parse", "HEAD"),
     git,
     remote,
-    // Commits a newer source revision and returns it.
-    advance() {
+    // Commits a newer source revision, lands it on main unless told it is
+    // a feature branch commit, and returns it.
+    advance({ land = true } = {}) {
       git(repo, "commit", "--quiet", "--allow-empty", "-m", "newer source");
+      if (land) git(repo, "push", "--quiet", "origin", "HEAD:refs/heads/main");
       return git(repo, "rev-parse", "HEAD");
     },
     checkout(revision: string) {
@@ -183,6 +186,16 @@ test("a build of an older source than the tip's publishes nothing", () => {
   const commits = repo.branchCommits();
   expect(commits).toHaveLength(1);
   expect(commits[0]).toEndWith(`from ${newer}`);
+});
+
+test("a commit that is not on main is not published", () => {
+  const repo = fixture();
+  repo.advance({ land: false });
+  const result = repo.run();
+
+  expect(result.exitCode).toBe(1);
+  expect(result.stderr).toContain("only main builds are published");
+  expect(repo.branchCommits()).toEqual([]);
 });
 
 test("outside GitHub Actions only a dry run is allowed", () => {

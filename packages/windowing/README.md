@@ -202,7 +202,9 @@ branch, whose tree is the same built package and nothing else:
 ```
 
 The `Windowing dist` workflow publishes it whenever a push to `main` changes
-this package or its publishing scripts, and on manual dispatch. It runs
+this package, its publishing scripts, or the root build inputs, and on manual
+dispatch from `main`. Only commits on `main` are published: a branch commit that
+a squash merge never lands would leave a tip no later build includes. It runs
 `scripts/publishWindowingBranch.sh`, which builds the package as the npm
 publish does, commits the build with the previous tip as its parent (a
 fast-forward), and prints the commit to pin. Each commit's subject names the
