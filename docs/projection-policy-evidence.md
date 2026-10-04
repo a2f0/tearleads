@@ -141,8 +141,11 @@ an identical previously verified prefix can skip repeated signature mathematics.
 An appended suffix is verified normally. A second pass checks that the source
 has not changed while the transcript was computed. Cache eviction repeats work;
 authorization, commitments, chain continuity, rotation and checkpoint checks
-still run on every verification. These local digests are never accepted from a
-server and are not protocol checkpoints. Full evidence
+still run on every verification. Shape, commitment, and chain authorization
+checks precede the signature pass; a proof with multiple defects reports the
+first of those structural/authorization failures. A structurally valid proof
+with a forged signature still reports `signature_mismatch`. These local digests
+are never accepted from a server and are not protocol checkpoints. Full evidence
 loading, hashing, reconstruction, and authorization checks remain proportional
 to history; this change does not promise constant-time reads or bounded cold
 responses. Future paged cold delivery and compact witnessed checkpoints are
@@ -160,7 +163,10 @@ positive exact JavaScript integers through `Number.MAX_SAFE_INTEGER`; PostgreSQL
 stores them as `bigint` and SQLite as `INTEGER`, with matching range checks on
 state and manifest-head projection columns. Overflow is rejected before hashing
 or signing. The greenfield schema baseline contains these column changes; no
-data migration or compatibility path is needed.
+data migration or compatibility path is needed. Policy-history artifact reads
+load membership and grants in batches of 100 states. Bulk current-head reads
+select the maximum version per principal in SQL and transfer only those rows,
+rather than fetching all historical signatures to choose heads in memory.
 
 The #2442 regression crosses the former 16,384 cutoff with complete signed group
 and organization histories, commits a membership revocation and key rotation,

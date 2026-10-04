@@ -14,13 +14,14 @@ import {
   throwPrincipalPolicyValidationError as rejectPrincipalPolicy,
   type SignedPrincipalState,
 } from "@tearleads/crypto";
-import { and, asc, desc, eq, inArray } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, sql } from "drizzle-orm";
 import { firstPerKey, uniqueSortedStrings } from "../../../utils/array";
 import {
   listContainerGrantsForState,
   storePrincipalContainerGrantsForState,
 } from "./principalContainerGrantStore";
 import { storePrincipalEpochKeyForState } from "./principalEpochKeyStore";
+import { loadPrincipalHistoryArtifacts } from "./principalHistoryArtifacts";
 import { listProjectionMembersForState } from "./principalProjectionStore";
 import {
   normalizePrincipalStateWriteInput,
@@ -639,8 +640,11 @@ export async function getCurrentPrincipalStates(
     return new Map();
   }
 
-  const rows = await executor
-    .select(principalStateSelect)
+  const heads = executor
+    .select({
+      principalId: principalStates.principalId,
+      version: sql<number>`max(${principalStates.version})`.as("head_version"),
+    })
     .from(principalStates)
     .where(
       and(
@@ -648,9 +652,24 @@ export async function getCurrentPrincipalStates(
         inArray(principalStates.principalId, uniquePrincipalIds),
       ),
     )
-    .orderBy(asc(principalStates.principalId), desc(principalStates.version));
+    .groupBy(principalStates.principalId)
+    .as("current_principal_heads");
+  const rows = await executor
+    .select(principalStateSelect)
+    .from(principalStates)
+    .innerJoin(
+      heads,
+      and(
+        eq(principalStates.principalId, heads.principalId),
+        eq(principalStates.version, heads.version),
+      ),
+    )
+    .where(eq(principalStates.principalType, principalType))
+    .orderBy(asc(principalStates.principalId));
 
-  return firstPerKey(rows, (row) => row.principalId, toStoredPrincipalState);
+  return new Map(
+    rows.map((row) => [row.principalId, toStoredPrincipalState(row)]),
+  );
 }
 
 export async function listPrincipalStateHistory(
@@ -669,28 +688,10 @@ export async function listPrincipalStateHistory(
     )
     .orderBy(asc(principalStates.version));
 
-  const history: StoredPrincipalStateChainEntry[] = [];
-
-  for (const row of rows) {
-    const state = toStoredPrincipalState(row);
-    history.push({
-      state,
-      grants: await listContainerGrantsForState(
-        principalType,
-        principalId,
-        state.stateHash,
-        executor,
-      ),
-      projection: await listProjectionMembersForState(
-        principalType,
-        principalId,
-        state.stateHash,
-        executor,
-      ),
-    });
-  }
-
-  return history;
+  return loadPrincipalHistoryArtifacts(
+    executor,
+    rows.map(toStoredPrincipalState),
+  );
 }
 
 export async function listCurrentPrincipalProjectionMembers(

@@ -2,12 +2,14 @@ import { expect, test } from "bun:test";
 import { bytesToBase64 } from "@tearleads/encoding";
 import { PutPrincipalPolicyRequestSchema } from "@tearleads/validators/request";
 import {
+  OrganizationGroupCurrentStateResponseSchema,
   PrincipalStateExternalAuthorityResponseSchema,
   PrincipalStateResponseSchema,
   ReferencedPrincipalStateResponseSchema,
 } from "@tearleads/validators/response";
 import { generateKemSeedAndKeyPair } from "./encapsulation/generateKeyPair";
 import { toFingerprint } from "./fingerprint";
+import { normalizeReferencedPrincipalHead } from "./keying/accessEvent";
 import {
   buildPrincipalStateSigningInput,
   computePrincipalStateHash,
@@ -112,6 +114,21 @@ test("principal authority and response references use the same exact version dom
       keyEpoch: 1,
       keyFingerprint: request.state.keyFingerprint,
     };
+    expect(
+      OrganizationGroupCurrentStateResponseSchema.safeParse({
+        ...externalAuthority,
+        memberCount: 1,
+      }).success,
+    ).toBe(valid);
+    if (valid) {
+      expect(normalizeReferencedPrincipalHead(externalAuthority).version).toBe(
+        version,
+      );
+    } else {
+      expect(() =>
+        normalizeReferencedPrincipalHead(externalAuthority),
+      ).toThrow();
+    }
     const state = { ...request.state, externalAuthority };
     expect(
       PutPrincipalPolicyRequestSchema.safeParse({ ...request, state }).success,

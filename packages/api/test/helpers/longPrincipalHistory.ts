@@ -23,12 +23,16 @@ function signBatch(
   signingPrivateKey: Uint8Array,
 ): Promise<SignedPrincipalState[]> {
   return new Promise((resolve, reject) => {
-    const fail = (error: Error) => reject(error);
-    worker.once("error", fail);
-    worker.once("message", (signed: SignedPrincipalState[]) => {
+    const fail = (error: Error) => {
+      worker.off("message", receive);
+      reject(error);
+    };
+    const receive = (signed: SignedPrincipalState[]) => {
       worker.off("error", fail);
       resolve(signed);
-    });
+    };
+    worker.once("error", fail);
+    worker.once("message", receive);
     worker.postMessage({ states, signingPrivateKey });
   });
 }

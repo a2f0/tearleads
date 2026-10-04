@@ -1,4 +1,5 @@
 import { expect } from "bun:test";
+import { ApiClient } from "@tearleads/api-client";
 import { db } from "@tearleads/api-shared/postgres";
 import {
   principalMemberEnvelopes,
@@ -177,14 +178,28 @@ export async function assertPrincipalHistoryAvailability(
   // client database and fetches current policy/key material from the server.
   await clearAccessManifestVerificationMarkers();
   clearPrincipalPolicySignatureCaches();
-  const recovered = await coldRematerializeEncryptedDocument({
-    documentId: document.documentId,
-    organizationId,
-    owner,
-    reader: owner,
+  const coldServer = Bun.serve({
+    hostname: "127.0.0.1",
+    port: 0,
+    maxRequestBodySize: MAX_MULTIPART_BLOB_PART_BYTES,
+    fetch: (request) => routeApp.fetch(request),
   });
-  expect(recovered.policyFetchCount).toBeGreaterThan(0);
-  expect(recovered.recoveredText).toBe(COLD_DOCUMENT_TEXT);
-  expect(recovered.updateIds).toContain(document.updateId);
-  onProgress("cold recovery complete");
+  const coldClient = new ApiClient(coldServer.url.origin);
+  coldClient.setAuthToken(owner.token);
+  try {
+    const recovered = await coldRematerializeEncryptedDocument({
+      apiClient: coldClient,
+      documentId: document.documentId,
+      organizationId,
+      owner,
+      reader: owner,
+    });
+    expect(recovered.policyFetchCount).toBeGreaterThan(0);
+    expect(recovered.recoveredText).toBe(COLD_DOCUMENT_TEXT);
+    expect(recovered.updateIds).toContain(document.updateId);
+    onProgress("cold recovery complete");
+  } finally {
+    coldClient.clearWriterProjectionCaches();
+    await coldServer.stop(true);
+  }
 }

@@ -1,25 +1,19 @@
 import type { DatabaseSession } from "@tearleads/api-shared/postgres";
 import {
-  principalContainerGrantProjection,
-  principalMembershipProjection,
   principalStatePayloads,
   principalStates,
 } from "@tearleads/api-shared/schema";
-import { and, asc, eq, inArray, lte, or } from "drizzle-orm";
+import { and, asc, eq, lte, or } from "drizzle-orm";
 import {
-  principalContainerGrantSelect,
-  principalProjectionMemberSelect,
+  loadPrincipalHistoryArtifacts,
+  PRINCIPAL_HISTORY_BATCH_SIZE,
+} from "../../shared/internal/principalHistoryArtifacts";
+import {
   principalStatePayloadSelect,
   principalStateSelect,
   type StoredPrincipalState,
-  type StoredPrincipalStateChainEntry,
-  toStoredPrincipalContainerGrant,
   toStoredPrincipalState,
-  toStoredProjectionMember,
 } from "../../shared/internal/principalStateRecords";
-
-// Bound SQL parameter counts without issuing a query for each policy version.
-const HISTORY_BATCH_SIZE = 100;
 
 export async function listOrganizationHistoryPayloads(
   executor: DatabaseSession,
@@ -51,63 +45,17 @@ export async function listOrganizationHistoryPayloads(
     .orderBy(asc(principalStates.version));
 }
 
-async function loadHistoryArtifacts(
-  executor: DatabaseSession,
-  states: readonly StoredPrincipalState[],
-) {
-  const history = new Map<string, StoredPrincipalStateChainEntry>(
-    states.map((state) => [
-      state.stateHash,
-      { state, projection: [], grants: [] },
-    ]),
-  );
-  for (let start = 0; start < states.length; start += HISTORY_BATCH_SIZE) {
-    const batch = states.slice(start, start + HISTORY_BATCH_SIZE);
-    const hashes = batch.map((state) => state.stateHash);
-    const principalIds = [...new Set(batch.map((state) => state.principalId))];
-    const members = await executor
-      .select(principalProjectionMemberSelect)
-      .from(principalMembershipProjection)
-      .where(
-        and(
-          eq(principalMembershipProjection.principalType, "group"),
-          inArray(principalMembershipProjection.principalId, principalIds),
-          inArray(principalMembershipProjection.stateHash, hashes),
-        ),
-      )
-      .orderBy(principalMembershipProjection.userId);
-    const grants = await executor
-      .select(principalContainerGrantSelect)
-      .from(principalContainerGrantProjection)
-      .where(
-        and(
-          eq(principalContainerGrantProjection.principalType, "group"),
-          inArray(principalContainerGrantProjection.principalId, principalIds),
-          inArray(principalContainerGrantProjection.stateHash, hashes),
-        ),
-      )
-      .orderBy(principalContainerGrantProjection.containerId);
-    for (const member of members) {
-      const entry = history.get(member.stateHash);
-      if (entry?.state.principalId === member.principalId)
-        entry.projection.push(toStoredProjectionMember(member));
-    }
-    for (const grant of grants) {
-      const entry = history.get(grant.stateHash);
-      if (entry?.state.principalId === grant.principalId)
-        entry.grants.push(toStoredPrincipalContainerGrant(grant));
-    }
-  }
-  return [...history.values()];
-}
-
 export async function listGroupHistoryThroughHeads(
   executor: DatabaseSession,
   heads: readonly { principalId: string; version: number }[],
 ) {
   const states: StoredPrincipalState[] = [];
-  for (let start = 0; start < heads.length; start += HISTORY_BATCH_SIZE) {
-    const batch = heads.slice(start, start + HISTORY_BATCH_SIZE);
+  for (
+    let start = 0;
+    start < heads.length;
+    start += PRINCIPAL_HISTORY_BATCH_SIZE
+  ) {
+    const batch = heads.slice(start, start + PRINCIPAL_HISTORY_BATCH_SIZE);
     const rows = await executor
       .select(principalStateSelect)
       .from(principalStates)
@@ -127,5 +75,5 @@ export async function listGroupHistoryThroughHeads(
       .orderBy(asc(principalStates.principalId), asc(principalStates.version));
     for (const row of rows) states.push(toStoredPrincipalState(row));
   }
-  return loadHistoryArtifacts(executor, states);
+  return loadPrincipalHistoryArtifacts(executor, states);
 }
