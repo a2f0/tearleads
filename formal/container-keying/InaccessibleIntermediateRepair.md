@@ -8,7 +8,7 @@ the writer's writes nevertheless never depend on another device.
 
 | Model action or predicate | Production seam |
 | --- | --- |
-| `RotateRoot` | `assertGrantedPathsCurrentBelow` refuses a rotation that leaves a level above a directly granted container stale; `planCarriedDescendantRekeys` signs the rekeys it must carry |
+| `RotateRoot`, `AuthorizedRotateRoot` | `assertGrantedPathsCurrentBelow` refuses stale granted paths; `assertDescendantRekeysWritable` checks a standalone revoker's retained authority; `planCarriedDescendantRekeys` signs the rekeys |
 | `WriteAccepts` | `assertContainerKekPathCurrent` in the SDK before any new ciphertext, and `assertContainerKekParentEdgesCurrent` in the API at commit |
 | `WriterRepairLeaf` | `buildAutomaticContainerRekeys` re-keys the writer's own container below a current parent, wrapping to the parent public key from `getParentWrappingPublicKey` |
 | `OtherMemberRepairsMid` | `prepareAutomaticContainerRekeys` on a device whose signer has write access at the stale level |
@@ -34,9 +34,11 @@ by the rotating device afterwards would not change that verdict.
 last write authority on `mid` (#2403). The self-revoke configuration verifies
 that the rotation is refused without changing the tree, and the leaf writer
 stays able to write. The API returns `container_descendant_rekeys_inaccessible`
-with the unwritable owed levels, so the SDK reports that another authorized
-member must complete the revoke. With retained access, fairness on the
-revoker's own action establishes `AuthorizedRevokeEventuallyCommits`; it adds
+with the unwritable owed levels; the SDK reports this terminal API refusal
+through the request error reporter and returns null. The separate
+`AuthorizedRotateRoot` action models another authorized member completing the
+revoke. Fairness on that member's own action establishes
+`AuthorizedRevokeEventuallyCommits`; it adds
 no fairness assumption to the leaf writer's no-brick property. The route test
 `selfRevokeDescendants.test.ts` covers refusal, atomic rollback, completion by
 the owner, and a self-revoker retaining a separate grant on `mid`.
@@ -59,7 +61,13 @@ lazily rather than refuse a revocation
 records that as a write-liveness trade). The matching precondition on a
 container's first direct grant, a current chain above it, is enforced by
 `assertParentKekStateCurrent` and is not modeled: the grant exists from `Init`.
-Group rematerialization is one more `RotateRoot`, checked by the same seam.
+Ordinary group rematerialization retains organization-admin access: the policy
+mutation boundary requires organization admin even for a group's own admin
+(`lockOrganizationReadModelForPolicyMutation`). Leaving an ordinary group does
+not remove that independent root grant. The lost-authority configuration models
+standalone user-grant self-revocation; it does not claim that leaving the reserved
+Admins group is supported. Supplied carried rekeys still pass their own signed
+authorization checks before the final currency check.
 The API test `inaccessibleIntermediateRepair.test.ts`
 and the SDK tests `carriedDescendantRekeys.test.ts` and
 `syncInaccessibleAncestorRepair.test.ts` exercise both sides with real keys.
