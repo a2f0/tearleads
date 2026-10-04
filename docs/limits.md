@@ -68,8 +68,10 @@ wherever the server verifies it; a rotated secret or new rule revision
 re-verifies each object's history once, on its next projection read or
 mutation. Serving a
 writer projection still loads every retained manifest its key history cites,
-in a few batched queries; incremental history delivery is tracked in
-[#2392](https://github.com/a2f0/tearleads/issues/2392). For N ancestor
+in a few batched queries. Writer-projection responses can omit exact prefixes
+retained after successful device verification; see
+[the incremental evidence contract](./projection-policy-evidence.md#cost-and-retained-history-tradeoff).
+For N ancestor
 manifests, the request-local lineage index uses O(N log N) work and space, with
 O(log N) per lineage query; see
 [the availability model](../formal/container-keying/ManifestHistory.md).
@@ -114,7 +116,7 @@ for the exact-length rule.
 
 | Limit | Value | Where enforced | Past the limit |
 | --- | --- | --- | --- |
-| Principal state version | 16,384 (`MAX_PRINCIPAL_STATE_VERSION`, `validators/src/util/principalStateWire.ts`) | Validators: `request/principal.ts`; crypto `principalState.ts`. | Refusal. |
+| Principal state version | 16,384 (`MAX_PRINCIPAL_STATE_VERSION`, `validators/src/util/principalStateWire.ts`) | Validators: `request/principal.ts`; crypto `principalState.ts`. | Refusal; revocation availability tracked in [#2442](https://github.com/a2f0/tearleads/issues/2442). |
 
 ## Limits that trade write liveness
 

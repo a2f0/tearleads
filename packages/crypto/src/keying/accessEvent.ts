@@ -1,7 +1,7 @@
 import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
 import { toFingerprint } from "../fingerprint";
 import { sign } from "../signing/sign";
-import { verify } from "../signing/verify";
+import { verifyHistorySignature as verify } from "../signing/verifiedHistorySignature";
 import {
   computeKeyingDomainHash,
   encodeDomainPayload,

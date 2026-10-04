@@ -12,7 +12,7 @@ import type {
   SignedPrincipalState,
   UnsignedPrincipalState,
 } from "./principalStateTypes";
-import { verify } from "./signing/verify";
+import { verifyHistorySignature as verify } from "./signing/verifiedHistorySignature";
 
 function signatureMismatch(): KeyingVerificationResult<UnsignedPrincipalState> {
   return {

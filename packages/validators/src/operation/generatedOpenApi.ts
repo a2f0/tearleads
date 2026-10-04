@@ -11274,7 +11274,9 @@ export interface operations {
     "containers.writerProjection.get": {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                "x-projection-history"?: string;
+            };
             path: {
                 containerId: string;
             };
@@ -11341,6 +11343,11 @@ export interface operations {
                         } & {
                             [key: string]: unknown;
                         })[];
+                        historyPrefixes?: {
+                            count: number;
+                            digest: string;
+                            key: string;
+                        }[];
                         organizationId: string;
                         path: ({
                             event: {
@@ -15459,7 +15466,9 @@ export interface operations {
     "documents.writerProjection.get": {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                "x-projection-history"?: string;
+            };
             path: {
                 documentId: string;
             };
@@ -15666,6 +15675,11 @@ export interface operations {
                         } & {
                             [key: string]: unknown;
                         })[];
+                        historyPrefixes?: {
+                            count: number;
+                            digest: string;
+                            key: string;
+                        }[];
                         policyEvidence: {
                             groups: ({
                                 currentGrants: ({

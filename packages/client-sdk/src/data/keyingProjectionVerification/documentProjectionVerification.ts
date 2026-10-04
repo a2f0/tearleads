@@ -1,3 +1,4 @@
+import { retainVerifiedProjectionHistory } from "@tearleads/api-client";
 import type {
   AnyVerifiedPrincipalPolicy,
   VerifiedContainerAccessManifest,
@@ -268,6 +269,7 @@ export async function verifyDocumentWriterProjection(
     checkpointContext,
   );
   await finalizeProjectionCheckpoints(checkpointContext, input);
+  retainVerifiedProjectionHistory(input.projection);
   return verified.headManifest;
 }
 
@@ -283,6 +285,7 @@ export async function verifyDocumentWriterProjectionAuthorization(
       checkpointContext,
     );
     await finalizeProjectionCheckpoints(checkpointContext, input);
+    retainVerifiedProjectionHistory(input.projection);
     return verified.authorization;
   } catch (error) {
     throwKeyingVerificationShapeFailure(error);

@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import Ajv2020 from "ajv/dist/2020";
+import { projectionHistoryHeaderRefinement } from "../projectionHistoryRefinements";
 import {
   CONTAINER_NOT_FOUND_ERROR_CODE,
   DOCUMENT_NOT_FOUND_ERROR_CODE,
@@ -21,20 +22,58 @@ import {
   isGetDocumentWriterProjectionOperationResponse,
 } from "./writerProjections";
 
+test("history negotiation accepts only bounded, uniquely keyed exact prefix hints", () => {
+  const prefix = {
+    key: "organization-history",
+    count: 12,
+    digest: "a".repeat(64),
+  };
+  const accepts = (value: unknown) =>
+    getContainerWriterProjectionOperation.headers.safeParse({
+      "x-projection-history": encodeURIComponent(JSON.stringify(value)),
+    }).success;
+  expect(accepts([prefix])).toBe(true);
+  expect(accepts([prefix, prefix])).toBe(false);
+  expect(accepts([{ ...prefix, count: 0 }])).toBe(false);
+  expect(accepts([{ ...prefix, count: Number.MAX_SAFE_INTEGER + 1 }])).toBe(
+    false,
+  );
+  expect(accepts([{ ...prefix, digest: "untrusted" }])).toBe(false);
+  expect(
+    accepts(
+      Array.from({ length: 33 }, (_, index) => ({
+        ...prefix,
+        key: `chain-${index}`,
+      })),
+    ),
+  ).toBe(false);
+  expect(
+    getContainerWriterProjectionOperation.headers.safeParse({
+      "x-projection-history": "%invalid",
+    }).success,
+  ).toBe(false);
+});
+
 test("writer projection operations own their complete wire metadata", () => {
   expect(getContainerWriterProjectionOperation).toMatchObject({
     auth: "session",
     failureStatuses: [400, 401, 403, 404, 409, 500, 503],
     method: "GET",
     path: "/containers/{containerId}/writer-projection",
-    runtimeRefinements: writerProjectionResponseRuntimeRefinements,
+    runtimeRefinements: [
+      ...writerProjectionResponseRuntimeRefinements,
+      projectionHistoryHeaderRefinement,
+    ],
   });
   expect(getDocumentWriterProjectionOperation).toMatchObject({
     auth: "session",
     failureStatuses: [400, 401, 403, 404, 409, 500, 503],
     method: "GET",
     path: "/documents/{documentId}/writer-projection",
-    runtimeRefinements: writerProjectionResponseRuntimeRefinements,
+    runtimeRefinements: [
+      ...writerProjectionResponseRuntimeRefinements,
+      projectionHistoryHeaderRefinement,
+    ],
   });
   expect(
     getContainerWriterProjectionOperation.failureResponses[404].safeParse({
@@ -107,9 +146,10 @@ test("OpenAPI declares the runtime-only path and KEK count invariant", () => {
     throw new Error("Container writer projection response schema is missing");
   }
 
-  expect(operation?.["x-tearleads-runtime-refinements"]).toEqual(
-    writerProjectionResponseRuntimeRefinements,
-  );
+  expect(operation?.["x-tearleads-runtime-refinements"]).toEqual([
+    ...writerProjectionResponseRuntimeRefinements,
+    projectionHistoryHeaderRefinement,
+  ]);
 
   const mismatched = jsonRoundTrip({
     ...createContainerWriterProjectionResponse(),
