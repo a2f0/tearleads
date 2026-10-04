@@ -22,6 +22,7 @@ import {
   detachBlobAttachmentOperation,
   documentSyncOperation,
   getContainerKekLogOperation,
+  getContainerReplacementAuthorizationsOperation,
   getContainerWriterProjectionOperation,
   getDocumentPurgeProofOperation,
   getDocumentWriterProjectionOperation,
@@ -40,6 +41,7 @@ import {
   getRootOrganizationOperation,
   getStripeCheckoutOptionsOperation,
   initiateMultipartBlobStageOperation,
+  isContainerReplacementAuthorizationsResponse,
   linkDocumentOperation,
   listContainerDocumentsOperation,
   listContainerParentLanesOperation,
@@ -1083,6 +1085,20 @@ export class ApiClient {
           undefined,
           getContainerWriterProjectionOperation,
         ),
+    );
+  }
+
+  getContainerReplacementAuthorizations(
+    containerId: string,
+    replacesOrganizationId: string,
+  ) {
+    return this.request(
+      `/containers/${encodeURIComponent(containerId)}/replacement-authorizations/${encodeURIComponent(replacesOrganizationId)}`,
+      isContainerReplacementAuthorizationsResponse,
+      "GET",
+      undefined,
+      undefined,
+      getContainerReplacementAuthorizationsOperation,
     );
   }
 

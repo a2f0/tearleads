@@ -70,6 +70,23 @@ reused local IDs after recovery. Missing organization scope leaves discovery
 pending.
 See [the bounded recovery model](../../formal/local-trust/PurgeRecovery.md).
 
+Re-shared folders also recover on other members' devices (#2389). The client
+pins the organization's verified genesis signer and key fingerprint when reading
+policy evidence, retaining that binding across cache eviction, logout, and backup
+restore. A replacement chain must be signed by that original founder, and the
+destination folder must be created by the same user. The verified destination's
+organization genesis and root genesis must match the proof. Its root and reserved
+group genesis checkpoints are pinned before adoption. The existing held-folder
+rebind keeps queued edits and resets the remote metadata stream.
+
+`GET /containers/:id/replacement-authorizations/:replacesOrganizationId` serves
+the chain only to a current reader of the destination container. Former members
+cannot discover replacement IDs merely through the old roster. A previously
+disabled member can follow when deliberately invited and granted access in the
+new organization; no old grant or roster status automatically grants new access.
+Missing authority or proof leaves the old binding and queued edits untouched.
+Multiple replacements use a continuous signed chain, without a lifetime cap.
+
 Normal clients should call `session.recoverPurgedOrganization(...)` only after
 the server reports `purged`. The session provisions a replacement personal
 organization in local-only billing state. Until that replacement has active

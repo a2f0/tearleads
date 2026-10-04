@@ -24,10 +24,13 @@ recovery additionally verifies current placement against durable checkpoints.
 A held folder keeps its organization and metadata document id. Hydration loads
 the held binding (in-memory state, else the durable row or retained dormant
 metadata). A listing that repeats a held ordinary binding needs no second proof.
-A conflicting proof is accepted only when the session user's own signed create
-re-homed the folder (purged-organization recovery reuses container ids); the
-rebind resets the metadata record's remote stream and keeps queued edits. Any
-other conflict is refused before placement pins advance or the role is cached.
+A conflicting proof requires the session user's own signed create, or a signed
+replacement chain from the held organization's durably pinned founder. For a
+shared rehome, the new folder must also be created by that founder. Proof reads
+require current access to the destination folder; former membership alone does
+not disclose replacement IDs. The rebind resets the metadata record's remote
+stream and keeps queued edits. Other conflicts are refused before placement pins
+advance or the role is cached.
 Metadata-mutation and hydration-commit transactions recheck the durable binding;
 a conflicting dormant record is refused, never purged. Page hydration prefetches
 newly discovered folders' projections four at a time; verification stays

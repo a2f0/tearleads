@@ -5,7 +5,6 @@ import {
 } from "@tearleads/crypto";
 import { deriveOrganizationMetadataContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
 import {
-  assertHeldContainerBinding,
   type HeldContainerBinding,
   listingRepeatsHeldOrdinaryBinding,
 } from "../../../data/containers/containerBinding";
@@ -27,6 +26,7 @@ import {
   rememberDestinationRole,
 } from "./destinationRoleCache";
 import { resolveWithMetadataRootReload } from "./destinationRootReload";
+import { assertPermittedDestinationBinding } from "./replacementBinding";
 import type {
   ContainerState,
   RemoteContainer,
@@ -72,10 +72,20 @@ async function destinationRoleFromPath(input: {
     label: "Container destination",
     verifiedByHash: input.verifiedByHash,
   });
+  const root = path[0];
+  if (!root) throw new Error("Destination root is unavailable");
+  const rootCreated = verifiedContainerCreateManifest({
+    head: root,
+    label: "Destination root",
+    verifiedByHash: input.verifiedByHash,
+  });
   return {
     parentId: head.state.parentContainerId,
     role: {
       createSignerUserId: created.event.event.signerUserId,
+      rootContainerId: rootCreated.state.containerId,
+      rootCreateManifestHash: rootCreated.manifestHash,
+      rootMetadataDocumentId: rootCreated.state.metadataDocumentId,
       metadataDocumentId: head.state.metadataDocumentId,
       ...(head.state.parentContainerId === null ||
       head.state.systemSlot !== null
@@ -125,31 +135,9 @@ function assertAcknowledgedRootSigner(input: {
 }
 
 /**
- * A held folder keeps its binding unless its new copy was created by this
- * session's own user: purged-organization recovery re-homes folders under their
- * existing ids. Any other signer cannot move a held folder, and an unbound one
- * (a pending create or reset) binds only to its own user's create.
+ * Authenticate destination roles before admitting a binding or advancing any
+ * placement pin. Shared rehomes additionally require signed replacement evidence.
  */
-function assertPermittedDestinationBinding(input: {
-  heldBinding: HeldContainerBinding | null;
-  listed: DestinationIdentity;
-  role: DestinationRole;
-  runtime: RemoteContainerHydrationState["runtime"];
-}): void {
-  const { heldBinding, listed, role, runtime } = input;
-  if (role.createSignerUserId === runtime.auth.userId) return;
-  // An unbound held folder awaits this device's own create.
-  if (heldBinding?.metadataDocumentId === null) {
-    throw new KeyingVerificationError(
-      "signer_mismatch",
-      "a local folder can bind only to its own signed create",
-    );
-  }
-  assertHeldContainerBinding(heldBinding, {
-    organizationId: listed.organizationId,
-    metadataDocumentIds: [role.metadataDocumentId],
-  });
-}
 
 async function verifyDestinationRole(input: {
   heldBinding: HeldContainerBinding | null;
@@ -191,12 +179,14 @@ async function verifyDestinationRole(input: {
   });
   const { role } = destination;
   // Refuse a rebinding before group checks or placement pins run for it.
-  assertPermittedDestinationBinding({
+  await assertPermittedDestinationBinding({
+    stillCurrent: isCurrent,
     heldBinding: input.heldBinding,
     listed,
     role,
     runtime,
   });
+  if (isCurrent?.() === false) return null;
   if (role.parentId === null && role.systemSlot !== null) {
     const head = path.at(-1);
     if (!head) throw new Error("Metadata root manifest is unavailable");
@@ -282,7 +272,8 @@ async function resolveDestinationRole(
 /**
  * Listing hints never establish a metadata target or a system/root role, and a
  * held folder keeps its organization and metadata target unless its own user
- * re-created it elsewhere. A conflicting proof is refused before placement pins
+ * re-created it or its pinned founder authorized a verified replacement.
+ * A conflicting proof is refused before placement pins
  * advance or its role is cached.
  */
 export async function verifyRemoteContainerDestination(
@@ -328,12 +319,17 @@ export async function verifyRemoteContainerDestination(
       });
       if (!resolved || isCurrent?.() === false) return null;
       const { role, parentId } = resolved;
-      assertPermittedDestinationBinding({
-        heldBinding: input.heldBinding,
-        listed,
-        role,
-        runtime,
-      });
+      // Fresh verification checked this binding before any placement pins.
+      // A cached role still needs the held binding and replacement proof checked.
+      if (!resolved.freshlyVerified)
+        await assertPermittedDestinationBinding({
+          stillCurrent: isCurrent,
+          heldBinding: input.heldBinding,
+          listed,
+          role,
+          runtime,
+        });
+      if (isCurrent?.() === false) return null;
       if (resolved.freshlyVerified)
         rememberDestinationRole(runtime.infra.execSql, listed, role);
       assertAcknowledgedRootSigner({ listed, role, runtime });

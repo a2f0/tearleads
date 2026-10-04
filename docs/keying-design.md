@@ -618,21 +618,24 @@ The API rejects writes when submitted targets do not exactly match current
 verified targets. Readers verify the signed write header before trusting target
 metadata.
 
-Read/key access to every linked container is not required for ordinary content
-writes. Verifying linked container manifests and deriving target ids uses signed
-server-visible metadata, not plaintext container KEKs. A writer needs a valid
-document content key from an authorized linked-container path and write
-authorization through at least one active linked container. The write still
-commits to the full target hash so all linked-container readers use the same
-document state.
+Write authorization requires one linked write path. Reusing a current content-key
+bundle needs its document key, not every linked container's KEK. Each write still
+commits to all targets so every linked reader observes the same document state.
 
-Creating or rotating a document content-key bundle is the separate operation
-that must produce wraps for every current linked container KEK target. The
-implementation may require the bundle materializer to have key access to all
-target container KEKs, or it may support a protocol for per-target envelope
-contribution. If the full target bundle cannot be materialized, the API should
-return `rekey_required` or a bundle-materialization conflict instead of making
-ordinary document writes require read access to every linked container.
+This is not an independent-progress guarantee across rotations (#2419). Creating
+or rotating the bundle requires wraps for every current target KEK. The current
+symmetric wrapping protocol needs those target keys. A writer with access to
+only some links can therefore wait for a member able to repair the other targets
+and materialize the complete bundle. Even a readable target can require another
+member's repair when its path is stale and the writer lacks write access there.
+The SDK keeps the queued edit and reports `document_ancestor_repair_inaccessible`
+when another verified linked path still grants write access; losing all linked
+write access remains an authorization refusal. A later sync can resume after repair.
+
+This design retains the privacy boundary on inaccessible linked paths. It does
+not disclose their current grants to enable public-key-only repair. Public target
+wrapping or envelope contributions would need a separate authenticated protocol;
+neither is assumed by the current write-liveness claim.
 
 ### Content Write Authorization
 
@@ -791,8 +794,9 @@ since a repair never strands anyone. A container that already carries a grant
 owes nothing more for a further one. Inline repairs inside document and blob
 writes are checked against the same rule, though under it a stale container is
 never above a granted one, so an honest inline repair cannot trip it. With
-those levels current, a grantee re-keys from its own container downward and
-its writes depend on nobody else.
+those levels current and within the carried-rekey bound, a grantee repairs its
+own subtree independently. A document linked outside that subtree can still
+wait on another member's repair, as described under content-key bundles above.
 
 Containers with no grant beneath them still repair lazily, first writer wins,
 which keeps a rotation's cost proportional to what is shared below it rather

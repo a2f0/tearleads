@@ -1,3 +1,4 @@
+import type { ApiClient } from "@tearleads/api-client";
 import type { TestUser } from "@tearleads/bob-and-alice";
 import {
   syncRemoteDocument,
@@ -23,6 +24,7 @@ import { writerResolver } from "./coldSdkRematerialization";
  * writer cannot perform, and a later one on the same device must succeed.
  */
 export async function createLeafWriterAncestorEdit(input: {
+  apiClient?: ApiClient;
   documentId: string;
   organizationId: string;
   /** Anyone else granted along the path, whose wraps the writer verifies. */
@@ -41,24 +43,22 @@ export async function createLeafWriterAncestorEdit(input: {
   const requests: DocumentSyncRequest[] = [];
   const standaloneRepairs: string[] = [];
   const terminalCodes: Array<string | undefined> = [];
+  const apiClient = input.apiClient ?? context.common.apiClient;
   // The SDK prefers the status-bearing rekey, so that is the call to observe.
-  const rekeyResult = context.common.apiClient.rekeyContainerResult?.bind(
-    context.common.apiClient,
-  );
+  const rekeyResult = apiClient.rekeyContainerResult?.bind(apiClient);
   if (!rekeyResult) throw new Error("Expected a status-bearing rekey");
-  context.common.apiClient.rekeyContainerResult = (id, request) => {
+  apiClient.rekeyContainerResult = (id, request) => {
     standaloneRepairs.push(id);
     return rekeyResult(id, request);
   };
-  const submit = context.common.apiClient.syncDocument.bind(
-    context.common.apiClient,
-  );
-  context.common.apiClient.syncDocument = (id, request) => {
+  const submit = apiClient.syncDocument.bind(apiClient);
+  apiClient.syncDocument = (id, request) => {
     requests.push(request);
     return submit(id, request);
   };
   const syncInput = {
     ...context.common,
+    apiClient,
     documentId: input.documentId,
     localVersionVector: null,
     onSyncAbandoned: (reason: string) => {

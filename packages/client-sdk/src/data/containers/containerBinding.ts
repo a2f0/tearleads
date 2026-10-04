@@ -3,9 +3,10 @@ import { KeyingVerificationError } from "@tearleads/crypto";
 /**
  * The identity this device holds for a folder: its organization and the
  * metadata document its signed `container.create` names. Both are immutable in
- * every signed successor. A container id recurs only when its own user re-homes
- * it, which purged-organization recovery does; any other presentation of a
- * held folder under another organization or metadata target is refused. An
+ * every signed successor. Purged-organization recovery may reuse a container
+ * id. Its owner follows their own signed create; a re-shared member additionally
+ * requires replacement authorization from the original organization's pinned
+ * founder. Other changes of organization or metadata target are refused. An
  * empty organization (a pre-login local folder) or a null metadata document (a
  * folder not yet created remotely) is not yet bound and accepts its first
  * binding.

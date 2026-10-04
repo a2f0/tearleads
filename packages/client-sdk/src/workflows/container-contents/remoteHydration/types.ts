@@ -73,6 +73,10 @@ export interface ContainerState {
 }
 
 interface RemoteContainerHydrationApi {
+  getContainerReplacementAuthorizations(
+    containerId: string,
+    replacesOrganizationId: string,
+  ): Promise<ContainerReplacementAuthorizationsResponse | null>;
   evictContainerWriterProjection(containerId: string): void;
   getContainerWriterProjection(
     containerId: string,
@@ -159,3 +163,5 @@ export interface FetchedContainerParentLanePage {
   response: ListContainersResponse;
   syncLane: ReturnType<typeof createContainerParentSyncLane>;
 }
+
+import type { ContainerReplacementAuthorizationsResponse } from "@tearleads/validators/operation";

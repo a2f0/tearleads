@@ -14,6 +14,7 @@ import { buildMaterializedContainerRekeyPlan } from "../containers/child/rekey";
 import type { SyncRemoteDocumentInput } from "./readOnlySync";
 import { applyContainerRekeyPlan } from "./syncContainerRekeyProjection";
 import { DocumentAncestorRepairAbandonedError } from "./syncRepairAbandon";
+import { hasOtherLinkedWriteAccess } from "./syncRepairAccess";
 
 interface StaleContainer {
   /** The stale container is the one the document itself is linked into. */
@@ -54,10 +55,9 @@ function firstStaleContainer(
  * held only further down never counts — exactly the API's `container.rekey`
  * rule. Anything else (keyring damage, a forged path) stays an error.
  *
- * On the document's OWN container neither is a repair to wait for. No other
- * member's repair would give this signer write access there, so that is a
- * refusal to record; and a signer who cannot open that container's key could
- * not have read the document either, so that stays an error.
+ * A target's write refusal is handled separately: another linked target may
+ * still authorize the document write. Key unwrap failures on a target stay
+ * errors, because this path's readable grant should open its own key.
  */
 function isRepairInaccessible(error: unknown, stale: StaleContainer): boolean {
   if (stale.isPathTarget) return false;
@@ -115,6 +115,17 @@ export async function buildAutomaticContainerRekeys(
       execSql: sync.execSql,
     }).catch(async (error: unknown) => {
       if (error instanceof ContainerAuthorAccessError && stale.isPathTarget) {
+        if (
+          await hasOtherLinkedWriteAccess(
+            sync,
+            initialProjection,
+            previousProjection.containerId,
+          )
+        ) {
+          throw new ContainerKekRepairInaccessibleError(
+            previousProjection.containerId,
+          );
+        }
         await sync.onTerminalSubmitFailure?.({
           code: error.code,
           message: error.message,

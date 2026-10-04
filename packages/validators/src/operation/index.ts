@@ -100,6 +100,12 @@ export {
   listContainerParentLanesOperation,
 } from "./containerReads";
 export {
+  type ContainerReplacementAuthorizationsResponse,
+  ContainerReplacementAuthorizationsResponseSchema,
+  getContainerReplacementAuthorizationsOperation,
+  isContainerReplacementAuthorizationsResponse,
+} from "./containerReplacement";
+export {
   defineHttpOperation,
   defineJsonOperation,
   type HttpOperation,
