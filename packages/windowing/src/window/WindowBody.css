@@ -5,6 +5,23 @@
   overflow: hidden;
 }
 
+/*
+ * The window rounds its corners but cannot clip what it holds: its resize
+ * handles and menus reach past its edges. So while no visible status bar sits
+ * below it, the body rounds its own bottom corners to the window's inner radius
+ * (the outer radius less the border) and, through its overflow, clips content
+ * painted edge to edge, such as a full-bleed canvas, inside the rounded border.
+ */
+.window:not(.window--maximized)
+> .window-body:not(
+  :has(
+    + .window-statusbar-live > .window-statusbar:not(.window-statusbar--hidden)
+  )
+) {
+  border-radius: 0 0 calc(var(--app-radius-surface) - var(--border-width))
+    calc(var(--app-radius-surface) - var(--border-width));
+}
+
 .window-body-content {
   position: relative;
   flex: 1;
