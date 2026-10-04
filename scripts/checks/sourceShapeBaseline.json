@@ -47,8 +47,8 @@
       "bytes": 18865
     },
     "docs/developer/client-sdk.md": {
-      "lines": 789,
-      "bytes": 41461
+      "lines": 794,
+      "bytes": 41778
     },
     "docs/developer/revenuecat-native-stores.md": {
       "lines": 364,
@@ -63,8 +63,8 @@
       "bytes": 19355
     },
     "docs/keying-design.md": {
-      "lines": 1208,
-      "bytes": 59090
+      "lines": 1209,
+      "bytes": 59185
     },
     "docs/loro-e2ee-sync-protocol.md": {
       "lines": 548,

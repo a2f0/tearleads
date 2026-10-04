@@ -1,20 +1,113 @@
 /*
- * Corner resize affordance. Each handle is an invisible hit target pinned to a
- * window corner; on hover it paints an L-shaped bracket that hugs that corner —
- * only the two outward-facing edges — so the corner itself lights up (not just
- * the cursor), signalling it can be dragged.
- * The bracket is drawn in --color-dark, the theme's foreground primitive, so it
- * reads as the window's own edge lit up and stays crisp in both themes (a
- * charcoal bracket on the light surface, a near-white one on the dark surface).
- * Each bracket follows the rounded window corner while its hit target stays
- * square, keeping the outermost corner easy to grab.
+ * Resize handles: invisible hit targets along the window's four sides and over
+ * its four corners. The corners render after the sides, so they paint above the
+ * sides and win where the two meet. Each target straddles the window's outer
+ * border edge, reaching --window-resize-outset past it so the pointer can take
+ * an edge from just outside the window, and a little way inside it.
+ *
+ * Every target stays square. border-radius clips hit testing as well as
+ * painting, so a rounded target would leave the outermost pixels of a corner,
+ * the ones a pointer aims for, falling through to whatever lies beneath.
  */
 .window-resize {
+  --window-resize-outset: 4px;
+  --window-resize-reach: calc(
+    var(--border-width) +
+    var(--window-resize-outset)
+  );
   position: absolute;
-  width: 14px;
-  height: 14px;
   touch-action: none;
+}
+
+.window-resize--n,
+.window-resize--s {
+  right: 0;
+  left: 0;
+  height: calc(var(--window-resize-outset) + 4px);
+  cursor: ns-resize;
+}
+
+.window-resize--e,
+.window-resize--w {
+  top: 0;
+  bottom: 0;
+  width: calc(var(--window-resize-outset) + 4px);
+  cursor: ew-resize;
+}
+
+.window-resize--n {
+  top: calc(-1 * var(--window-resize-reach));
+}
+
+.window-resize--s {
+  bottom: calc(-1 * var(--window-resize-reach));
+}
+
+.window-resize--e {
+  right: calc(-1 * var(--window-resize-reach));
+}
+
+.window-resize--w {
+  left: calc(-1 * var(--window-resize-reach));
+}
+
+.window-resize--ne,
+.window-resize--nw,
+.window-resize--se,
+.window-resize--sw {
+  width: calc(var(--window-resize-outset) + 16px);
+  height: calc(var(--window-resize-outset) + 16px);
+}
+
+.window-resize--ne,
+.window-resize--sw {
+  cursor: nesw-resize;
+}
+
+.window-resize--nw,
+.window-resize--se {
+  cursor: nwse-resize;
+}
+
+.window-resize--ne,
+.window-resize--nw {
+  top: calc(-1 * var(--window-resize-reach));
+}
+
+.window-resize--se,
+.window-resize--sw {
+  bottom: calc(-1 * var(--window-resize-reach));
+}
+
+.window-resize--ne,
+.window-resize--se {
+  right: calc(-1 * var(--window-resize-reach));
+}
+
+.window-resize--nw,
+.window-resize--sw {
+  left: calc(-1 * var(--window-resize-reach));
+}
+
+/*
+ * On hover a corner paints an L-shaped bracket over the window's own border:
+ * the two outward edges, with the window's corner radius, so the corner itself
+ * lights up rather than only the cursor changing. Its outer edge sits exactly
+ * on the window's outer border edge, so the bracket's curve traces the
+ * window's. It is drawn in --color-dark, the theme's foreground primitive, so
+ * it reads as the window's edge lit up and stays crisp in both themes. The
+ * bracket is a pseudo-element, so its radius never rounds the hit target.
+ */
+.window-resize--ne::before,
+.window-resize--nw::before,
+.window-resize--se::before,
+.window-resize--sw::before {
+  position: absolute;
+  width: calc(var(--app-radius-surface) + 6px);
+  height: calc(var(--app-radius-surface) + 6px);
   border: 0 solid transparent;
+  content: "";
+  pointer-events: none;
   transition: border-color var(--transition);
 }
 
@@ -23,43 +116,39 @@
    the rule to fine pointers means it simply never applies there. Corner-drag
    resize is a pointer affordance anyway, so touch loses nothing. */
 @media (hover: hover) {
-  .window-resize:hover {
+  .window-resize:hover::before {
     border-color: var(--color-dark);
   }
 }
 
-.window-resize--se {
+.window-resize--se::before {
+  right: var(--window-resize-outset);
+  bottom: var(--window-resize-outset);
+  border-right-width: 2px;
+  border-bottom-width: 2px;
   border-bottom-right-radius: var(--app-radius-surface);
-  right: 0;
-  bottom: 0;
-  cursor: se-resize;
-  border-right-width: 2px;
-  border-bottom-width: 2px;
 }
 
-.window-resize--sw {
+.window-resize--sw::before {
+  bottom: var(--window-resize-outset);
+  left: var(--window-resize-outset);
+  border-bottom-width: 2px;
+  border-left-width: 2px;
   border-bottom-left-radius: var(--app-radius-surface);
-  bottom: 0;
-  left: 0;
-  cursor: sw-resize;
-  border-bottom-width: 2px;
-  border-left-width: 2px;
 }
 
-.window-resize--ne {
-  border-top-right-radius: var(--app-radius-surface);
-  top: 0;
-  right: 0;
-  cursor: ne-resize;
+.window-resize--ne::before {
+  top: var(--window-resize-outset);
+  right: var(--window-resize-outset);
   border-top-width: 2px;
   border-right-width: 2px;
+  border-top-right-radius: var(--app-radius-surface);
 }
 
-.window-resize--nw {
-  border-top-left-radius: var(--app-radius-surface);
-  top: 0;
-  left: 0;
-  cursor: nw-resize;
+.window-resize--nw::before {
+  top: var(--window-resize-outset);
+  left: var(--window-resize-outset);
   border-top-width: 2px;
   border-left-width: 2px;
+  border-top-left-radius: var(--app-radius-surface);
 }

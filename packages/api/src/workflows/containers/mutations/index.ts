@@ -208,6 +208,8 @@ async function mutateContainerRotationInTransaction(
   }
   await assertGrantedPathsCurrentBelowRotations({
     executor: tx,
+    revokerUserId:
+      input.expectedEventType === "container.revoke" ? input.userId : undefined,
     rotated: [response, ...carriedResponses],
   });
   return { ...response, containerRekeys: carriedResponses };

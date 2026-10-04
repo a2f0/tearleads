@@ -1,4 +1,4 @@
-import type { ResizeCorner } from "./WindowResizeHandle";
+import type { ResizeEdge } from "./WindowResizeHandle";
 import type { WindowPosition, WindowSize } from "./WindowStateProvider";
 
 // Window geometry math shared by the pointer, keyboard, and layout hooks. All
@@ -14,7 +14,7 @@ export interface WindowDragState {
 }
 
 export interface WindowResizeState {
-  corner: ResizeCorner;
+  edge: ResizeEdge;
   pointerId: number;
   startHeight: number;
   startLeft: number;
@@ -63,15 +63,19 @@ export function resizeWindowWithinContainer(
 ) {
   const deltaX = clientX - resizeState.startX;
   const deltaY = clientY - resizeState.startY;
-  const movesLeft = resizeState.corner.includes("w");
-  const movesUp = resizeState.corner.includes("n");
+  const { edge } = resizeState;
+  const movesLeft = edge.includes("w");
+  const movesUp = edge.includes("n");
+  // A side handle drags one edge, so the other axis keeps its start size.
+  const resizesX = movesLeft || edge.includes("e");
+  const resizesY = movesUp || edge.includes("s");
   let width = Math.max(
     MIN_WIDTH,
-    resizeState.startWidth + deltaX * (movesLeft ? -1 : 1),
+    resizeState.startWidth + (resizesX ? deltaX * (movesLeft ? -1 : 1) : 0),
   );
   let height = Math.max(
     MIN_HEIGHT,
-    resizeState.startHeight + deltaY * (movesUp ? -1 : 1),
+    resizeState.startHeight + (resizesY ? deltaY * (movesUp ? -1 : 1) : 0),
   );
   let x = movesLeft
     ? resizeState.startLeft + resizeState.startWidth - width

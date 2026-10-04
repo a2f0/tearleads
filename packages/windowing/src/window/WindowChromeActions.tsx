@@ -13,6 +13,12 @@ export interface WindowTitleBarActionInput {
    * action id providing a deterministic tie-break. A sole action stays sole.
    */
   placement?: "penultimate";
+  /**
+   * Makes the action a toggle: the button announces this value as
+   * `aria-pressed` and the toolbar draws it pressed while true. Leave it unset
+   * for an action that is not a toggle.
+   */
+  pressed?: boolean;
   priority?: number;
 }
 
@@ -30,6 +36,7 @@ export interface RegisteredWindowTitleBarAction {
   label: string;
   onClick: () => unknown;
   placement: "penultimate" | null;
+  pressed: boolean | null;
   priority: number;
 }
 
@@ -64,6 +71,7 @@ export function WindowTitleBarActionButtons({
         <button
           aria-label={action.label}
           className={className}
+          aria-pressed={action.pressed}
           disabled={action.disabled}
           key={action.id}
           title={action.label}
@@ -103,6 +111,7 @@ export function createTitleBarActions(
     onClick: () => {
       void item.onClick();
     },
+    ...(item.pressed === null ? {} : { pressed: item.pressed }),
   }));
 }
 
@@ -117,6 +126,7 @@ export function createRegisteredTitleBarAction(
     label: item.label,
     onClick,
     placement: item.placement ?? null,
+    pressed: item.pressed ?? null,
     priority: item.priority ?? 0,
   };
 }

@@ -5,6 +5,14 @@ const RAW_HISTORY_CONFIG = "formal/document-sync/RawHistoryRecovery.cfg";
 
 export const RECOVERY_NEGATIVE_CONTROLS: readonly NegativeControl[] = [
   {
+    id: "self-revoke-without-repair-authority",
+    module: "formal/container-keying/InaccessibleIntermediateRepair.tla",
+    config: "formal/container-keying/InaccessibleIntermediateSelfRevoke.cfg",
+    constants: { RequireRepairAuthority: "FALSE" },
+    expect: { kind: "invariant", name: "GrantedPathNeverStranded" },
+    why: "A self-revoker cannot commit the carried repairs after losing authority on the owed levels.",
+  },
+  {
     id: "recovery-never-finishes-verified-install",
     module: RAW_HISTORY_MODULE,
     config: "formal/document-sync/RawHistoryRecoveryProgress.cfg",

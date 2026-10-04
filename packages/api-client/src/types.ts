@@ -63,9 +63,9 @@ export interface RequestFailure {
   readonly statusText: string;
   readonly stalePrincipalPolicies?: PrincipalPolicyBundleResponse[] | undefined;
   /**
-   * Set with `container_descendant_rekeys_required`: the descendant rekeys the
-   * refused rotation must carry, parent-first. A hint to plan from, never an
-   * authority; the caller verifies each container before signing for it.
+   * With `container_descendant_rekeys_required`, the full owed set, parent-first;
+   * with `container_descendant_rekeys_inaccessible`, its unwritable subset.
+   * A hint, never authority; verify each container before signing for it.
    */
   readonly requiredContainerIds?: readonly string[] | undefined;
 }

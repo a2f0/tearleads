@@ -786,8 +786,9 @@ No device may wait on another device's write, so that state is never committed.
 The invariant is that every proper ancestor of a directly granted container has
 a current parent edge. A rekey, revoke, or move must carry, in its own
 transaction, the rekeys of every descendant that sits above a directly granted
-container; the API refuses it otherwise and names them. The rotator can always
-comply, because access and keys inherit downward from the container it rotates.
+container; the API refuses it otherwise and names them. A self-revoker losing
+write access on owed levels is refused with `container_descendant_rekeys_inaccessible`;
+another authorized member must complete that revoke. Retained access inherits downward.
 A container's first direct grant requires the chain above it to be current, and
 the sharer repairs a lazily stale path first; those repairs need not be atomic,
 since a repair never strands anyone. A container that already carries a grant

@@ -7,7 +7,7 @@ EXTENDS Naturals
 (* minted so far, and through the parent wraps and sealed keyrings every   *)
 (* descendant key still pinned beneath them.                               *)
 (*                                                                         *)
-(* Three rules are modeled, each with a negative control:                  *)
+(* Four rules are modeled, each with a negative control:                   *)
 (*   WholePathCurrency      new ciphertext requires every pin on the path  *)
 (*                          to be current, not only the writer's own edge. *)
 (*   RotationCarriesRepairs a rotation atomically re-keys every descendant *)
@@ -15,18 +15,20 @@ EXTENDS Naturals
 (*                          writer ever waits on another device's write.   *)
 (*   WriterGivenMidKey      the rejected alternative: unblock the leaf     *)
 (*                          writer by handing it the intermediate's key.   *)
+(*   RequireRepairAuthority a self-revoker must retain repair authority.    *)
 (*                                                                         *)
 (* Fairness follows NoBrickedDevice: only the blocked device's own steps   *)
 (* are fair. Another member MAY repair the intermediate, but nothing may   *)
 (* depend on it. Signatures, ciphertext, and authorization are abstracted. *)
 CONSTANTS MaxEpoch, WholePathCurrency, RotationCarriesRepairs,
-          WriterGivenMidKey, RotatorRetainsAccess
+          WriterGivenMidKey, RotatorRetainsAccess, RequireRepairAuthority
 
 ASSUME /\ MaxEpoch \in Nat \ {0, 1}
        /\ WholePathCurrency \in BOOLEAN
        /\ RotationCarriesRepairs \in BOOLEAN
        /\ WriterGivenMidKey \in BOOLEAN
        /\ RotatorRetainsAccess \in BOOLEAN
+       /\ RequireRepairAuthority \in BOOLEAN
 
 Epochs == 1..MaxEpoch
 
@@ -37,10 +39,11 @@ VARIABLES rootEpoch,       \* current root key epoch
           leafPinOf,       \* leaf epoch -> mid epoch it was wrapped to (0 = unminted)
           revokedThrough,  \* the revoked member holds root epochs 1..this
           writerHoldsMid,  \* the leaf writer was given an intermediate key
+          incapableRevokeCommitted, \* a caller revoked without repair authority
           leakedWrite      \* content was encrypted under a key the revoked member reaches
 
 vars == <<rootEpoch, midEpoch, leafEpoch, midPinOf, leafPinOf,
-          revokedThrough, writerHoldsMid, leakedWrite>>
+          revokedThrough, writerHoldsMid, leakedWrite, incapableRevokeCommitted>>
 
 TypeOK ==
   /\ rootEpoch \in Epochs
@@ -51,6 +54,7 @@ TypeOK ==
   /\ revokedThrough \in 0..MaxEpoch
   /\ writerHoldsMid \in BOOLEAN
   /\ leakedWrite \in BOOLEAN
+  /\ incapableRevokeCommitted \in BOOLEAN
 
 Init ==
   /\ rootEpoch = 1
@@ -61,6 +65,7 @@ Init ==
   /\ revokedThrough = 0
   /\ writerHoldsMid = FALSE
   /\ leakedWrite = FALSE
+  /\ incapableRevokeCommitted = FALSE
 
 MidCurrent == midPinOf[midEpoch] = rootEpoch
 LeafCurrent == leafPinOf[leafEpoch] = midEpoch
@@ -78,17 +83,21 @@ RevokedReachesLeaf ==
 (* granted leaf, so the rotation must carry its re-key in one transaction: *)
 (* the rotator must retain signing authority on the owed levels. A self-  *)
 (* revoke losing that authority is explicitly refused, without mutation.  *)
-(* leaf is the writer's own to repair and is never part of the set.        *)
-RotateRoot ==
+(* The leaf is the writer's own to repair and is never part of the set.    *)
+RotateRootAs(retainsAccess) ==
   /\ rootEpoch < MaxEpoch
-  /\ RotationCarriesRepairs => RotatorRetainsAccess
+  /\ (RotationCarriesRepairs /\ RequireRepairAuthority) => retainsAccess
+  /\ incapableRevokeCommitted' = (incapableRevokeCommitted \/ ~retainsAccess)
   /\ revokedThrough' = rootEpoch
   /\ rootEpoch' = rootEpoch + 1
-  /\ IF RotationCarriesRepairs
+  /\ IF RotationCarriesRepairs /\ retainsAccess
        THEN /\ midEpoch' = midEpoch + 1
             /\ midPinOf' = [midPinOf EXCEPT ![midEpoch + 1] = rootEpoch + 1]
        ELSE UNCHANGED <<midEpoch, midPinOf>>
   /\ UNCHANGED <<leafEpoch, leafPinOf, writerHoldsMid, leakedWrite>>
+
+RotateRoot == RotateRootAs(RotatorRetainsAccess)
+AuthorizedRotateRoot == RotateRootAs(TRUE)
 
 MintMid ==
   /\ ~MidCurrent
@@ -101,14 +110,15 @@ MintMid ==
 OtherMemberRepairsMid ==
   /\ MintMid
   /\ UNCHANGED <<rootEpoch, leafEpoch, leafPinOf, revokedThrough,
-                 writerHoldsMid, leakedWrite>>
+                 writerHoldsMid, leakedWrite, incapableRevokeCommitted>>
 
 (* The rejected design: serve the leaf writer the stale intermediate key.  *)
 WriterRepairMid ==
   /\ WriterGivenMidKey
   /\ MintMid
   /\ writerHoldsMid' = TRUE
-  /\ UNCHANGED <<rootEpoch, leafEpoch, leafPinOf, revokedThrough, leakedWrite>>
+  /\ UNCHANGED <<rootEpoch, leafEpoch, leafPinOf, revokedThrough,
+                 leakedWrite, incapableRevokeCommitted>>
 
 (* Public parent wrapping: below a current parent the leaf writer re-keys  *)
 (* its own container with the parent's public key alone.                   *)
@@ -119,7 +129,7 @@ WriterRepairLeaf ==
   /\ leafEpoch' = leafEpoch + 1
   /\ leafPinOf' = [leafPinOf EXCEPT ![leafEpoch + 1] = midEpoch]
   /\ UNCHANGED <<rootEpoch, midEpoch, midPinOf, revokedThrough,
-                 writerHoldsMid, leakedWrite>>
+                 writerHoldsMid, leakedWrite, incapableRevokeCommitted>>
 
 WriteAccepts ==
   IF WholePathCurrency THEN MidCurrent /\ LeafCurrent ELSE LeafCurrent
@@ -129,10 +139,11 @@ WriterWrites ==
   /\ WriteAccepts
   /\ leakedWrite' = (leakedWrite \/ leafEpoch \in RevokedReachesLeaf)
   /\ UNCHANGED <<rootEpoch, midEpoch, leafEpoch, midPinOf, leafPinOf,
-                 revokedThrough, writerHoldsMid>>
+                 revokedThrough, writerHoldsMid, incapableRevokeCommitted>>
 
 Next ==
   \/ RotateRoot
+  \/ AuthorizedRotateRoot
   \/ OtherMemberRepairsMid
   \/ WriterRepairMid
   \/ WriterRepairLeaf
@@ -146,9 +157,9 @@ FairSpec == Spec /\ WF_vars(WriterRepairLeaf)
 (* A capable revoker completes its own action; an incapable self-revoker   *)
 (* is refused and needs an authorized member to perform the revoke.        *)
 AuthorizedRevokeEventuallyCommits ==
-  (RotatorRetainsAccess /\ WF_vars(RotateRoot)) => <>(revokedThrough > 0)
+  WF_vars(AuthorizedRotateRoot) => <>(revokedThrough > 0)
 IncapableRevokeNeverCommits ==
-  (RotationCarriesRepairs /\ ~RotatorRetainsAccess) => revokedThrough = 0
+  ~incapableRevokeCommitted
 
 (* Revocation is forward-only, and that is all it is: nothing written      *)
 (* after it may sit under a key the revoked member can still open.         *)
