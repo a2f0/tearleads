@@ -205,9 +205,13 @@ The `Windowing dist` workflow publishes it whenever a push to `main` changes
 this package or its publishing scripts, and on manual dispatch. It runs
 `scripts/publishWindowingBranch.sh`, which builds the package as the npm
 publish does, commits the build with the previous tip as its parent (a
-fast-forward), and prints the commit to pin. A build identical to the tip
-publishes nothing. Each commit's subject names the version and the source
-commit it was built from.
+fast-forward), and prints the commit to pin. Each commit's subject names the
+version and the source commit it was built from. A build identical to the tip
+publishes nothing, and so does a build of an older source than the tip's, as
+when runs finish out of order; the workflow checks out full history for that
+comparison.
 
-Locally, run the script with `--dry-run` to build the commit without pushing:
-a real push from a checkout goes through the repository's pre-push checks.
+Only the workflow pushes. A push from a checkout would run the repository's
+pre-push checks, which expect a source commit, so outside GitHub Actions the
+script requires `--dry-run`, which builds the commit without pushing it. To
+publish by hand, dispatch the workflow.

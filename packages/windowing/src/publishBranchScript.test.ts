@@ -70,6 +70,8 @@ function fixture() {
     GIT_COMMITTER_NAME: "Dist",
     GIT_CONFIG_GLOBAL: "/dev/null",
     GIT_CONFIG_NOSYSTEM: "1",
+    // The script publishes only from the workflow.
+    GITHUB_ACTIONS: "true",
     PATH: `${bin}:${PATH}`,
     TMPDIR: root,
   };
@@ -89,6 +91,14 @@ function fixture() {
     source: git(repo, "rev-parse", "HEAD"),
     git,
     remote,
+    // Commits a newer source revision and returns it.
+    advance() {
+      git(repo, "commit", "--quiet", "--allow-empty", "-m", "newer source");
+      return git(repo, "rev-parse", "HEAD");
+    },
+    checkout(revision: string) {
+      git(repo, "checkout", "--quiet", "--detach", revision);
+    },
     run(args: readonly string[] = [], overrides: Record<string, string> = {}) {
       const result = Bun.spawnSync(
         ["bash", join(repo, "scripts", "publishWindowingBranch.sh"), ...args],
@@ -156,6 +166,34 @@ test("a build identical to the tip publishes nothing", () => {
   expect(again.exitCode).toBe(0);
   expect(again.stdout).toContain("already holds this build");
   expect(repo.branchCommits()).toHaveLength(1);
+});
+
+test("a build of an older source than the tip's publishes nothing", () => {
+  const repo = fixture();
+  const newer = repo.advance();
+  expect(repo.run().exitCode).toBe(0);
+
+  repo.checkout(repo.source);
+  const stale = repo.run([], {
+    BUILD_CONTENT: "export const Window = () => 0;",
+  });
+
+  expect(stale.exitCode).toBe(0);
+  expect(stale.stdout).toContain("not publishing an older build");
+  const commits = repo.branchCommits();
+  expect(commits).toHaveLength(1);
+  expect(commits[0]).toEndWith(`from ${newer}`);
+});
+
+test("outside GitHub Actions only a dry run is allowed", () => {
+  const repo = fixture();
+  const push = repo.run([], { GITHUB_ACTIONS: "" });
+
+  expect(push.exitCode).toBe(1);
+  expect(push.stderr).toContain("only the Windowing dist workflow publishes");
+  expect(repo.builds()).toEqual([]);
+  expect(repo.run(["--dry-run"], { GITHUB_ACTIONS: "" }).exitCode).toBe(0);
+  expect(repo.branchCommits()).toEqual([]);
 });
 
 test("a dry run builds a commit but pushes nothing", () => {

@@ -16,8 +16,10 @@ Usage: $(basename "$0") [--dry-run] [--branch <name>] [--remote <name>]
 
 Build @tearleads/windowing and commit the built package to a branch whose tree
 is that package alone (default: $BRANCH on $REMOTE). Each commit's parent is the
-branch's previous tip, so the push is a fast-forward, and a build identical to
-the tip publishes nothing. Consumers pin the printed commit:
+branch's previous tip, so the push is a fast-forward. A build identical to the
+tip, or of a source older than the tip's, publishes nothing. Only the Windowing
+dist workflow pushes; elsewhere, pass --dry-run. Consumers pin the printed
+commit:
 
   "@tearleads/windowing": "github:a2f0/tearleads#<commit>"
 
@@ -59,6 +61,14 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
+# A push from a checkout runs that checkout's pre-push checks, which expect a
+# source commit rather than a package, so only the workflow publishes.
+if [[ "$DRY_RUN" != true && "${GITHUB_ACTIONS:-}" != true ]]; then
+  echo "Error: only the Windowing dist workflow publishes $BRANCH." >&2
+  echo "Run with --dry-run to build the commit, or dispatch the workflow." >&2
+  exit 1
+fi
+
 for tool in bun git; do
   if ! command -v "$tool" >/dev/null 2>&1; then
     echo "Error: $tool is required to publish @tearleads/windowing." >&2
@@ -94,6 +104,21 @@ PARENT=""
 if git ls-remote --exit-code --heads "$REMOTE" "$BRANCH" >/dev/null; then
   git fetch --quiet --no-tags "$REMOTE" "refs/heads/$BRANCH"
   PARENT="$(git rev-parse FETCH_HEAD)"
+  # Runs can finish out of order, so a build of an older source than the tip's
+  # must not land on top of it. That needs the source history (the workflow
+  # checks out with full depth).
+  TIP_SOURCE="$(git log -1 --format=%s "$PARENT" |
+    sed -n 's/^windowing .* from \([0-9a-f]\{40\}\)$/\1/p')"
+  if [[ -n "$TIP_SOURCE" ]]; then
+    if ! git cat-file -e "$TIP_SOURCE^{commit}" 2>/dev/null; then
+      echo "Error: $TIP_SOURCE, the source of $BRANCH's tip, is not in this checkout's history." >&2
+      exit 1
+    fi
+    if ! git merge-base --is-ancestor "$TIP_SOURCE" "$SOURCE_COMMIT"; then
+      echo "$BRANCH holds a build of $TIP_SOURCE, which $SOURCE_COMMIT does not include; not publishing an older build."
+      exit 0
+    fi
+  fi
   if [[ "$(git rev-parse "$PARENT^{tree}")" == "$TREE" ]]; then
     echo "$BRANCH already holds this build at $PARENT."
     echo "Pin: github:a2f0/tearleads#$PARENT"
