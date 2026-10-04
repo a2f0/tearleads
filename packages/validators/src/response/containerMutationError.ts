@@ -18,6 +18,9 @@ export const CONTAINER_MUTATION_ERROR_CODES = {
   // epoch. Not `stateStale`: refetching will not help, the client must sign and
   // carry the re-keys `requiredContainerIds` names.
   descendantRekeysRequired: CONTAINER_DESCENDANT_REKEYS_REQUIRED_ERROR_CODE,
+  // The revoke removes the caller's write access on owed descendants. Another
+  // authorized member must perform it; retrying with carried rekeys cannot help.
+  descendantRekeysInaccessible: "container_descendant_rekeys_inaccessible",
   manifestAlreadyExists: "container_manifest_already_exists",
   // A create or move would leave a path longer than readers accept. The same
   // request never succeeds: a queued move is abandoned, while a queued create
@@ -29,6 +32,7 @@ export const CONTAINER_MUTATION_ERROR_CODES = {
 export const ContainerMutationBehaviorErrorCodeSchema = z.literal([
   CONTAINER_MUTATION_ERROR_CODES.ancestorRekeysRequired,
   CONTAINER_MUTATION_ERROR_CODES.descendantRekeysRequired,
+  CONTAINER_MUTATION_ERROR_CODES.descendantRekeysInaccessible,
   CONTAINER_MUTATION_ERROR_CODES.manifestAlreadyExists,
   CONTAINER_MUTATION_ERROR_CODES.pathTooDeep,
   CONTAINER_MUTATION_ERROR_CODES.stateStale,
@@ -49,7 +53,7 @@ export const ContainerMutationFailureResponseSchema = z.union([
   z.looseObject({
     code: ContainerMutationErrorCodeSchema.optional(),
     error: z.string().min(1),
-    /** Parent-first; present with `descendantRekeysRequired`. */
+    /** Parent-first; owed levels, or the inaccessible subset on a refused revoke. */
     requiredContainerIds: arraySchema(
       nonEmptyStringSchema,
       MAX_ROTATION_CONTAINER_REKEYS,

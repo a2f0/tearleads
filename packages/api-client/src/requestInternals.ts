@@ -155,7 +155,8 @@ function parsedErrorResponseDescription(
           value.principalPolicies !== undefined
         ? { stalePrincipalPolicies: value.principalPolicies }
         : {}),
-    ...(code === CONTAINER_MUTATION_ERROR_CODES.descendantRekeysRequired &&
+    ...((code === CONTAINER_MUTATION_ERROR_CODES.descendantRekeysRequired ||
+      code === CONTAINER_MUTATION_ERROR_CODES.descendantRekeysInaccessible) &&
     "requiredContainerIds" in value &&
     Array.isArray(value.requiredContainerIds) &&
     value.requiredContainerIds.length <= MAX_ROTATION_CONTAINER_REKEYS &&

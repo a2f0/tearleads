@@ -39,8 +39,8 @@
       "bytes": 18865
     },
     "docs/developer/client-sdk.md": {
-      "lines": 789,
-      "bytes": 41461
+      "lines": 794,
+      "bytes": 41778
     },
     "docs/developer/revenuecat-native-stores.md": {
       "lines": 364,
@@ -55,16 +55,16 @@
       "bytes": 19355
     },
     "docs/keying-design.md": {
-      "lines": 1204,
-      "bytes": 58716
+      "lines": 1205,
+      "bytes": 58807
     },
     "docs/loro-e2ee-sync-protocol.md": {
       "lines": 548,
       "bytes": 23535
     },
     "docs/openapi.json": {
-      "lines": 71221,
-      "bytes": 2995377
+      "lines": 71229,
+      "bytes": 2995985
     },
     "docs/protocol-specification.md": {
       "lines": 658,
@@ -320,7 +320,7 @@
     },
     "packages/validators/src/operation/generatedOpenApi.ts": {
       "lines": 26376,
-      "bytes": 1107512
+      "bytes": 1107872
     },
     "packages/validators/src/response/index.ts": {
       "lines": 513,

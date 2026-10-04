@@ -213,10 +213,13 @@ test("describeErrorResponse preserves validated payment targets", async () => {
 // A rotation refused for stranding a level above a directly granted container
 // is answerable: the caller signs the named descendant rekeys and resubmits.
 
-test("describeErrorResponse lifts the descendant rekeys a rotation must carry", async () => {
+test.each([
+  "container_descendant_rekeys_required",
+  "container_descendant_rekeys_inaccessible",
+])("describeErrorResponse preserves descendant ids for %s", async (code) => {
   const response = Response.json(
     {
-      code: "container_descendant_rekeys_required",
+      code,
       error: "Container rotation must carry its descendant rekeys",
       requiredContainerIds: ["upper", "lower"],
     },
@@ -225,7 +228,7 @@ test("describeErrorResponse lifts the descendant rekeys a rotation must carry", 
   expect(
     await describeErrorResponse(response, rekeyContainerOperation),
   ).toMatchObject({
-    code: "container_descendant_rekeys_required",
+    code,
     requiredContainerIds: ["upper", "lower"],
   });
 });
