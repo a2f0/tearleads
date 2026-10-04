@@ -252,7 +252,7 @@ Do not edit generated or build output directly:
   `bun run report:dependencies:json` if the failure is not obvious.
 - When changing production dependencies, run both `bun run lint:knip:all` and
   `bun run lint:knip:production`.
-- Skill documents (the Markdown under `.claude/skills` and `.codex/skills`)
+- Skill documents (the Markdown under `.claude/skills` and `.agents/skills`)
   must not contain `$0` through `$9` or `$ARGUMENTS`, braced or not. Claude
   Code substitutes skill arguments into those tokens — `$0` is the first
   argument — so a snippet such as `awk '{ print $1 }'` reaches the agent
@@ -260,3 +260,49 @@ Do not edit generated or build output directly:
   still looks correct. Use `cut`, `sed`, or named variables instead; these
   skills read their arguments from the appended argument block. Enforced by
   `bun run lint:skill-placeholders` in `check:fast`.
+
+## Agent Tooling And Shipping
+
+Review, PR, merge, and version helpers come from the commit-pinned
+[`a2f0/agent-tool`](https://github.com/a2f0/agent-tool) dev dependency; run it
+with `bun run agent-tool`. Title, required-check, base-freshness, and version
+policy is in `agent-tool.json`. The shared `cross-agent-review`, `open-pr`,
+`squash-merge`, `ship-pr`, and `reset` skills are managed copies in
+`.agents/skills` and `.claude/skills`, tracked by `.agent-tool-skills.json`. Do
+not edit them; change the shared skill upstream instead. After changing the
+pin, run `bun run agents:sync` and commit the lockfile, skills, and manifest
+together. `bun run agents:check`, part of `check:fast`, fails on missing,
+outdated, or edited managed skills. Project skills keep a Claude copy in
+`.claude/skills` and a Codex copy in `.agents/skills`.
+
+Shipping rules on top of the shared skills:
+
+- **Reviewer**: prefer the other agent's CLI (Codex from Claude Code, Claude
+  from Codex), then the remaining CLIs, and report any fallback.
+- **Base integration**: merge the pinned base OID; never rebase or force-push.
+  Without a PR, integrate and repair locally so the branch is pushed once.
+- **Versions**: every changed workspace package ships one patch past its
+  version on the merge base. After each base integration or repair and before
+  each review, run `bun run agent-tool versions prepare "$BASE_OID"`, which
+  commits the manifests and refreshed `bun.lock`. Resolve a conflict confined
+  to version fields with `bun run agent-tool versions resolve-conflicts`, then
+  `git commit --no-edit`. Before merging, `versions check` must pass against the
+  live base.
+- **Titles**: PR titles and squash subjects follow `commitlint.config.mts`. The
+  helper checks type and length only, so also run
+  `printf '%s\n' "$TITLE" | bunx --no-install commitlint --config commitlint.config.mts`.
+  Check a new branch name with `bun run lint:branch-name <name>`.
+- **Push**: the pre-push gate takes over ten minutes, so run it in the
+  background. It rejects `Co-authored-by` trailers. A rewrite that only removes
+  them needs no re-review if the tree and the merge base with the PR base are
+  unchanged; re-pin the reviewed SHA to the rewritten head.
+- **Merge**: run
+  `node_modules/.bin/agent-tool pr merge '' "$REVIEWED_SHA" "$BASE_REF"`
+  directly, because `bun run` drops empty arguments. It requires the core
+  checks in the [merge gate policy](docs/developer/ci-merge-gate.md) and a
+  strict, non-bypassable `protect-main` ruleset. Never use `gh pr merge`.
+- **Reset**: after returning to `main`, run `sh scripts/git/install-hooks.sh`
+  so merged hook changes take effect. First require that `scripts/git/hooks`
+  has no untracked or ignored files, since the installer copies every file.
+- **Report** the push gate cost with
+  `scripts/git/showPushGateTimings.sh --head "$REVIEWED_SHA"` after the merge.
