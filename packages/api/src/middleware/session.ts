@@ -14,6 +14,7 @@ import {
 } from "../adapters/redis";
 import { reportBackgroundFailure } from "../diagnostics/reportBackgroundFailure";
 import { notifySessionRevoked } from "../realtime/sessionRevocation";
+import { withPrincipalHistoryRequest } from "../utils/principalHistoryWork";
 import type { SessionCreateInput, SessionData } from "../validators/session";
 import { isSessionData, isSessionId } from "../validators/session";
 import {
@@ -263,7 +264,10 @@ export function createRequireAuth(
       c.set("session", session);
       c.set("sessionToken", token);
 
-      return next();
+      return withPrincipalHistoryRequest(
+        c.env?.beginPrincipalHistoryVerification,
+        next,
+      );
     },
   );
 }

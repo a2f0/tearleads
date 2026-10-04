@@ -57,7 +57,6 @@ export function createDocumentWriterProjectionRoute({
     pathParamsValidator(getDocumentWriterProjectionOperation.params),
     headersValidator(getDocumentWriterProjectionOperation.headers),
     async (c) => {
-      c.env?.beginPrincipalHistoryVerification?.();
       const { documentId } = c.req.valid("param");
       const session = c.get("session");
 

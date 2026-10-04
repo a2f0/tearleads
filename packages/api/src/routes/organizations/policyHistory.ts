@@ -25,7 +25,6 @@ export function createOrganizationPolicyHistoryRoute({
     pathParamsValidator(operation.params, "Invalid organizationId"),
     queryParamsValidator(operation.query),
     async (c) => {
-      c.env?.beginPrincipalHistoryVerification?.();
       try {
         c.header("Cache-Control", "private, no-store");
         return c.json(

@@ -2,6 +2,7 @@ import type { DatabaseSession } from "@tearleads/api-shared/postgres";
 import type { VerifiedPrincipalPolicy } from "@tearleads/crypto";
 import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
 import type { StoredPrincipalState } from "../../access/read/principalStateStore";
+import { beginPrincipalHistoryVerification } from "../../utils/principalHistoryWork";
 import { StoredVerificationCache } from "../../utils/storedVerificationCache";
 import { buildPrincipalPolicyForStateWithExecutor } from "./principalPolicyBundleRecords";
 import { loadStoredPrincipalPolicyVerificationSource } from "./storedPrincipalPolicySource";
@@ -19,6 +20,7 @@ export async function getVerifiedPrincipalPolicyForStateWithExecutor(
   executor: DatabaseSession,
   currentState: StoredPrincipalState,
 ): Promise<VerifiedPrincipalPolicyBundle> {
+  beginPrincipalHistoryVerification();
   const bundle = await buildPrincipalPolicyForStateWithExecutor(
     executor,
     currentState,
@@ -52,6 +54,7 @@ export async function verifyStoredPrincipalPolicyForStateWithExecutor(
   executor: DatabaseSession,
   currentState: StoredPrincipalState,
 ): Promise<VerifiedPrincipalPolicy> {
+  beginPrincipalHistoryVerification();
   const bundle = await buildPrincipalPolicyForStateWithExecutor(
     executor,
     currentState,

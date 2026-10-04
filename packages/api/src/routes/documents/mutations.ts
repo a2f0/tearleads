@@ -400,15 +400,13 @@ export function createDocumentMutationsRoute({
       onTooLarge: (c) => c.json({ error: "Request body too large" }, 413),
     }),
     jsonRequestValidator(documentSyncOperation.body),
-    (c) => {
-      c.env?.beginPrincipalHistoryVerification?.();
-      return respondWithDocumentSync(c, {
+    (c) =>
+      respondWithDocumentSync(c, {
         documentId: c.req.valid("param").documentId,
         publish,
         request: c.req.valid("json"),
         runtime,
-      });
-    },
+      }),
   );
 
   registerDocumentPurgeRoutes(route, { publish, requireAuth, runtime });

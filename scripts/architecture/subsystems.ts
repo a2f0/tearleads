@@ -191,6 +191,7 @@ export const subsystems: readonly Subsystem[] = [
     paths: [
       `${api}/middleware/requestIp.ts`,
       `${api}/middleware/requestLifetime.ts`,
+      `${api}/utils/principalHistoryWork.ts`,
       `${api}/middleware/session.ts`,
       `${api}/middleware/userActivity.ts`,
       `${api}/realtime/sessionRevocation.ts`,

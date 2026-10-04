@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import { Hono } from "hono";
+import { beginPrincipalHistoryVerification } from "../utils/principalHistoryWork";
 import { createRequestLifetimeBindings } from "./requestLifetime";
 import { createRequireAuth, type SessionEnv } from "./session";
 
@@ -30,7 +31,7 @@ test("only an authenticated history route disables its request's idle timeout", 
   for (const stored of [null, "{}", "not-json", SESSION]) {
     const app = authenticatedApp(stored);
     app.get("/history", (c) => {
-      c.env?.beginPrincipalHistoryVerification?.();
+      beginPrincipalHistoryVerification();
       return c.text("verified");
     });
     app.get("/ordinary", (c) => c.text("verified"));
@@ -59,7 +60,8 @@ test("only an authenticated history route disables its request's idle timeout", 
 test("an authenticated history handler can finish silent verification beyond the socket idle deadline", async () => {
   const app = authenticatedApp(SESSION);
   app.get("/", async (c) => {
-    c.env?.beginPrincipalHistoryVerification?.();
+    beginPrincipalHistoryVerification();
+    // Bun checks idle expiry on a coarse timer; exceed one full timer cycle.
     await Bun.sleep(5_100);
     return c.text("verified");
   });

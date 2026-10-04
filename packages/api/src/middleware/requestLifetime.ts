@@ -2,7 +2,7 @@ export interface RequestLifetimeBindings {
   readonly beginPrincipalHistoryVerification?: () => void;
 }
 
-/** Opt in only after authentication and input validation on history routes. */
+/** Invoked by policy workflows inside an authenticated request scope. */
 export function createRequestLifetimeBindings(
   request: Request,
   server: { timeout(request: Request, seconds: number): void },

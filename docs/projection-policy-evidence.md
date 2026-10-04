@@ -175,15 +175,17 @@ and all local SDK state. The opt-in command
 `bun run --cwd packages/api test:principal-history` runs that full scenario on
 both database backends sequentially. The default API suite runs the same scenario
 at 64 versions, alongside the exact numeric-boundary crypto and storage tests.
-The full test clears durable/process manifest markers, signature caches, and
+The full test clears durable/process manifest markers, signature caches,
 stored policy/snapshot results, and directory bindings. Run it before changes to
 history traversal, version bounds, signature caching, or cold recovery transport.
 
 Bun's socket-idle timer also counts time spent computing a response without
-sending bytes. Principal policy reads/commits, writer projections, organization
-policy/history reads, and document sync opt out of that timer after authentication
-and input validation so cold proof verification can complete. Other routes keep
-the default deadline. The loopback-only listener sits behind nginx's request-body
+sending bytes. Authentication creates a request-local capability to opt out of
+that timer; the shared principal-policy workflows invoke it when they begin
+loading or verifying history. This covers indirect authorization reads as well
+as policy commits, without depending on a route allowlist. Requests that never
+reach policy verification keep the default deadline. The loopback-only listener
+sits behind nginx's request-body
 limits; its existing 24-hour proxy response timeout is not a short work budget.
 Bounded verification scheduling remains follow-up work. The regression uses this
 production binding and the real API client for cold reads.
