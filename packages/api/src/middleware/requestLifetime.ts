@@ -1,11 +1,13 @@
-import type { RouteRequestBindings } from "./requestIp";
+export interface RequestLifetimeBindings {
+  readonly beginPrincipalHistoryVerification?: () => void;
+}
 
-/** Keep active verification distinct from an idle connection waiting on a client. */
-export function createAuthenticatedRequestBindings(
+/** Opt in only after authentication and input validation on history routes. */
+export function createRequestLifetimeBindings(
   request: Request,
   server: { timeout(request: Request, seconds: number): void },
-): RouteRequestBindings {
+): RequestLifetimeBindings {
   return {
-    beginAuthenticatedWork: () => server.timeout(request, 0),
+    beginPrincipalHistoryVerification: () => server.timeout(request, 0),
   };
 }

@@ -33,6 +33,7 @@ export function createContainerWriterProjectionRoute({
     pathParamsValidator(getContainerWriterProjectionOperation.params),
     headersValidator(getContainerWriterProjectionOperation.headers),
     async (c) => {
+      c.env?.beginPrincipalHistoryVerification?.();
       const { containerId } = c.req.valid("param");
       const session = c.get("session");
 

@@ -21,6 +21,7 @@ import {
   type RouteRequestBindings,
   readRequestIpAddress,
 } from "./requestIp";
+import type { RequestLifetimeBindings } from "./requestLifetime";
 import {
   recordUserActivity as defaultRecordUserActivity,
   type UserActivityRecorder,
@@ -53,7 +54,7 @@ type SessionRevocationNotifier = (session: SessionData) => Promise<void>;
 export type { RouteRequestBindings } from "./requestIp";
 
 export interface SessionEnv {
-  Bindings: RouteRequestBindings;
+  Bindings: RouteRequestBindings & RequestLifetimeBindings;
   Variables: {
     session: SessionData;
     sessionToken: string;
@@ -230,10 +231,6 @@ export function createRequireAuth(
         );
       }
 
-      // Cold cryptographic verification can be quiet for longer than Bun's
-      // socket-idle timer. Only an authenticated request receives this override;
-      // the loopback listener remains behind nginx's body and response limits.
-      c.env?.beginAuthenticatedWork?.();
       const ipAddress = readRequestIpAddress(c);
       const now = Date.now();
       const shouldUpdateActivity = shouldUpdateSessionActivity(

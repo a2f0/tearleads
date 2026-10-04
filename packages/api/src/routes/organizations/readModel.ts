@@ -29,6 +29,7 @@ export function createOrganizationReadModelRoute({
     ),
     queryParamsValidator(getOrganizationReadModelOperation.query),
     async (c) => {
+      c.env?.beginPrincipalHistoryVerification?.();
       const { organizationId } = c.req.valid("param");
       const { cursor } = c.req.valid("query");
 

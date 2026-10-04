@@ -71,3 +71,8 @@ export async function getPrincipalPolicyForStateWithExecutor(
     await getVerifiedPrincipalPolicyForStateWithExecutor(executor, currentState)
   ).bundle;
 }
+
+/** Discard volatile full-policy verification results for process-loss tests. */
+export function clearStoredPrincipalPolicyCache(): void {
+  verifiedStoredPrincipalPolicies.clear();
+}

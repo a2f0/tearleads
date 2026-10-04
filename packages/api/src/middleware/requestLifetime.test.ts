@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { Hono } from "hono";
-import { createAuthenticatedRequestBindings } from "./requestLifetime";
+import { createRequestLifetimeBindings } from "./requestLifetime";
 import { createRequireAuth, type SessionEnv } from "./session";
 
 const TOKEN = "a".repeat(64);
@@ -26,31 +26,40 @@ function authenticatedApp(stored: string | null) {
   return app;
 }
 
-test("only a valid authenticated session disables its request's idle timeout", async () => {
+test("only an authenticated history route disables its request's idle timeout", async () => {
   for (const stored of [null, "{}", "not-json", SESSION]) {
     const app = authenticatedApp(stored);
-    app.get("/", (c) => c.text("verified"));
-    const request = new Request("http://localhost/", {
-      headers: { Authorization: `Bearer ${TOKEN}` },
+    app.get("/history", (c) => {
+      c.env?.beginPrincipalHistoryVerification?.();
+      return c.text("verified");
     });
-    const overrides: number[] = [];
-    const response = await app.fetch(
-      request,
-      createAuthenticatedRequestBindings(request, {
-        timeout(actual, seconds) {
-          expect(actual).toBe(request);
-          overrides.push(seconds);
-        },
-      }),
-    );
-    expect(response.status).toBe(stored === SESSION ? 200 : 401);
-    expect(overrides).toEqual(stored === SESSION ? [0] : []);
+    app.get("/ordinary", (c) => c.text("verified"));
+    for (const path of ["/ordinary", "/history"]) {
+      const request = new Request(`http://localhost${path}`, {
+        headers: { Authorization: `Bearer ${TOKEN}` },
+      });
+      const overrides: number[] = [];
+      const response = await app.fetch(
+        request,
+        createRequestLifetimeBindings(request, {
+          timeout(actual, seconds) {
+            expect(actual).toBe(request);
+            overrides.push(seconds);
+          },
+        }),
+      );
+      expect(response.status).toBe(stored === SESSION ? 200 : 401);
+      expect(overrides).toEqual(
+        stored === SESSION && path === "/history" ? [0] : [],
+      );
+    }
   }
 });
 
-test("an authenticated handler can finish silent verification beyond the socket idle deadline", async () => {
+test("an authenticated history handler can finish silent verification beyond the socket idle deadline", async () => {
   const app = authenticatedApp(SESSION);
   app.get("/", async (c) => {
+    c.env?.beginPrincipalHistoryVerification?.();
     await Bun.sleep(5_100);
     return c.text("verified");
   });
@@ -59,7 +68,7 @@ test("an authenticated handler can finish silent verification beyond the socket 
     port: 0,
     idleTimeout: 1,
     fetch: (request, listener) =>
-      app.fetch(request, createAuthenticatedRequestBindings(request, listener)),
+      app.fetch(request, createRequestLifetimeBindings(request, listener)),
   });
   try {
     const response = await fetch(server.url, {

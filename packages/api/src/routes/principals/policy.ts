@@ -126,6 +126,7 @@ export function createPrincipalPolicyRoute({
       "Invalid organization group policy route",
     ),
     async (c) => {
+      c.env?.beginPrincipalHistoryVerification?.();
       const { groupId, organizationId } = c.req.valid("param");
       try {
         const result = await commitOrganizationGroupPolicy(runtime, {
@@ -160,6 +161,7 @@ export function createPrincipalPolicyRoute({
       "Invalid principal route",
     ),
     async (c) => {
+      c.env?.beginPrincipalHistoryVerification?.();
       const { principalId, principalType } = c.req.valid("param");
 
       try {
@@ -202,6 +204,7 @@ function registerPolicyReadRoute(
       "Invalid principal route",
     ),
     async (c) => {
+      c.env?.beginPrincipalHistoryVerification?.();
       const { principalId, principalType } = c.req.valid("param");
 
       try {

@@ -12,9 +12,11 @@ import { bytesToBase64 } from "@tearleads/encoding";
 import { PrincipalPolicyBundleResponseSchema } from "@tearleads/validators/response";
 import { MAX_MULTIPART_BLOB_PART_BYTES } from "@tearleads/validators/util";
 import { and, count, desc, eq } from "drizzle-orm";
-import { createAuthenticatedRequestBindings } from "../../src/middleware/requestLifetime";
+import { createRequestLifetimeBindings } from "../../src/middleware/requestLifetime";
 import { routeApp } from "../../src/routeApp";
 import { parseOrganizationAuthorityDescriptor } from "../../src/workflows/organizations/organizationAuthorityDescriptor";
+import { clearStoredPrincipalPolicyCache } from "../../src/workflows/principals/getCurrentPrincipalPolicy";
+import { clearProjectionDirectoryBindingsCache } from "../../src/workflows/principals/projectionDirectoryBindings";
 import { clearStoredPolicySnapshotCache } from "../../src/workflows/principals/snapshotVerificationCache";
 import {
   COLD_DOCUMENT_TEXT,
@@ -102,10 +104,7 @@ export async function assertPrincipalHistoryAvailability(
     port: 0,
     maxRequestBodySize: MAX_MULTIPART_BLOB_PART_BYTES,
     fetch: (request, server) =>
-      routeApp.fetch(
-        request,
-        createAuthenticatedRequestBindings(request, server),
-      ),
+      routeApp.fetch(request, createRequestLifetimeBindings(request, server)),
   });
   let requestBytes = 0;
   const transport = async (path: string, init: RequestInit) => {
@@ -185,15 +184,14 @@ export async function assertPrincipalHistoryAvailability(
   await clearAccessManifestVerificationMarkers();
   clearPrincipalPolicySignatureCaches();
   clearStoredPolicySnapshotCache();
+  clearStoredPrincipalPolicyCache();
+  clearProjectionDirectoryBindingsCache();
   const coldServer = Bun.serve({
     hostname: "127.0.0.1",
     port: 0,
     maxRequestBodySize: MAX_MULTIPART_BLOB_PART_BYTES,
     fetch: (request, server) =>
-      routeApp.fetch(
-        request,
-        createAuthenticatedRequestBindings(request, server),
-      ),
+      routeApp.fetch(request, createRequestLifetimeBindings(request, server)),
   });
   const coldClient = new ApiClient(coldServer.url.origin);
   coldClient.setAuthToken(owner.token);

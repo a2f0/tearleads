@@ -5,7 +5,7 @@ import {
 import { MAX_UPLOAD_PART_BYTES } from "./adapters/blobObjectStore";
 import { apiPublicOriginFallbackWarning } from "./apiPublicOrigin";
 import { captureApiError } from "./diagnostics/sentry";
-import { createAuthenticatedRequestBindings } from "./middleware/requestLifetime";
+import { createRequestLifetimeBindings } from "./middleware/requestLifetime";
 import type { RouteRequestBindings } from "./middleware/session";
 import { createRealtimeGateway } from "./realtime/realtimeGateway";
 import type { WebSocketTicketIdentity } from "./realtime/wsIdentity";
@@ -122,7 +122,7 @@ const server = {
     }
     return routeApp.fetch(req, {
       ...createRouteRequestBindings(req, server),
-      ...createAuthenticatedRequestBindings(req, server),
+      ...createRequestLifetimeBindings(req, server),
     });
   },
   websocket: realtimeGateway.websocket,
