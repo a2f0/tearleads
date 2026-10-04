@@ -90,24 +90,13 @@ async function expectSingleYouContact(input: {
   );
   await selectContainerAndWaitForItemTable(input.pane, "Contacts");
   await waitForCondition(
-    async () => {
+    () => {
       const table = within(input.pane).queryByRole("table", {
         name: "Items in Contacts",
       });
-      if (!table) {
-        // Recovery can reset the Explorer to the root after Contacts was
-        // selected; select it again rather than wait on a table that is gone.
-        const contacts = getExplorerSidebarItemsByName(
-          input.pane,
-          "Contacts",
-        )[0];
-        if (contacts) {
-          await interact(() => {
-            fireEvent.click(contacts);
-          });
-        }
-        return false;
-      }
+      // A recovered device replaces its local Contacts with the identity's
+      // existing one, and the selection follows it (#2393), so the table stays.
+      if (!table) return false;
       const selfButtons = within(table).queryAllByRole("button", {
         name: "You",
       });
