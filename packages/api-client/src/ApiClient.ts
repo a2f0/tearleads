@@ -208,6 +208,10 @@ import type {
   RequestResult,
   RequestResultOptions,
 } from "./types";
+import {
+  CitingProjectionCache,
+  evictWriterProjectionsCiting,
+} from "./writerProjectionCitations";
 import { primeWriterProjectionSlot } from "./writerProjectionPrime";
 
 type ExpiredHandler = () => boolean | Promise<boolean>;
@@ -240,9 +244,9 @@ export class ApiClient {
     Promise<ListContainerParentLanesResponse | null>
   >();
   private readonly containerWriterProjectionRequestsByContainerId =
-    new BoundedCache<Promise<ContainerWriterProjectionResponse | null>>();
+    new CitingProjectionCache<ContainerWriterProjectionResponse>();
   private readonly documentWriterProjectionRequestsByDocumentId =
-    new BoundedCache<Promise<DocumentWriterProjectionResponse | null>>();
+    new CitingProjectionCache<DocumentWriterProjectionResponse>();
   private readonly containerWriterProjectionResultsInFlightByContainerId =
     new Map<
       string,
@@ -300,6 +304,21 @@ export class ApiClient {
     this.documentWriterProjectionRequestsByDocumentId.clear();
     this.containerWriterProjectionResultsInFlightByContainerId.clear();
     this.documentWriterProjectionResultsInFlightByDocumentId.clear();
+  }
+
+  /** After a peer changed these containers' manifests; see the helper. */
+  evictWriterProjectionsCiting(containerIds: readonly string[]): void {
+    evictWriterProjectionsCiting(new Set(containerIds), {
+      attachmentLists: this.documentAttachmentListRequestsByDocumentId,
+      containers: {
+        cache: this.containerWriterProjectionRequestsByContainerId,
+        inFlight: this.containerWriterProjectionResultsInFlightByContainerId,
+      },
+      documents: {
+        cache: this.documentWriterProjectionRequestsByDocumentId,
+        inFlight: this.documentWriterProjectionResultsInFlightByDocumentId,
+      },
+    });
   }
 
   evictUserIdentity(userId: string): void {
