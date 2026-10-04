@@ -9,7 +9,7 @@ export const RECOVERY_NEGATIVE_CONTROLS: readonly NegativeControl[] = [
     module: "formal/container-keying/InaccessibleIntermediateRepair.tla",
     config: "formal/container-keying/InaccessibleIntermediateSelfRevoke.cfg",
     constants: { RequireRepairAuthority: "FALSE" },
-    expect: { kind: "invariant", name: "IncapableRevokeNeverCommits" },
+    expect: { kind: "invariant", name: "GrantedPathNeverStranded" },
     why: "A self-revoker cannot commit the carried repairs after losing authority on the owed levels.",
   },
   {

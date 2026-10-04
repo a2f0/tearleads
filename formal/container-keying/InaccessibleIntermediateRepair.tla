@@ -90,7 +90,7 @@ RotateRootAs(retainsAccess) ==
   /\ incapableRevokeCommitted' = (incapableRevokeCommitted \/ ~retainsAccess)
   /\ revokedThrough' = rootEpoch
   /\ rootEpoch' = rootEpoch + 1
-  /\ IF RotationCarriesRepairs
+  /\ IF RotationCarriesRepairs /\ retainsAccess
        THEN /\ midEpoch' = midEpoch + 1
             /\ midPinOf' = [midPinOf EXCEPT ![midEpoch + 1] = rootEpoch + 1]
        ELSE UNCHANGED <<midEpoch, midPinOf>>

@@ -629,8 +629,13 @@ it must carry, parent-first. `rekeyRemoteContainer`, `revokeRemoteContainer`,
 `moveRemoteContainer`, and document sync's standalone repairs answer it
 themselves: they sign those rekeys against the path the batch will leave behind,
 resubmit once with `containerRekeys` carried, and pin the whole batch together.
-The rotator can always comply, because access and keys inherit downward. The set
-is empty for almost every rotation, since a child container carries no direct
+Access and keys inherit downward only while the rotator retains authority.
+A self-revoke that removes write access on an owed level is refused atomically
+with `container_descendant_rekeys_inaccessible`; another authorized member must
+complete it. The SDK reports the refusal and returns null. Proactively carried
+rekeys are also refused by the batch's signature/authorization verification.
+The set is empty for almost every rotation,
+since a child container carries no direct
 grant unless shared. At most 64 rekeys ride one rotation; beyond that the
 remainder repairs lazily rather than refuse a revocation. Custom adapters opt in
 by supplying the status-bearing `rekeyContainerResult`, `revokeContainerResult`,
