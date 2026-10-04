@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { loosePlainObject } from "../schema";
+import { boundedPositiveIntegerSchema, loosePlainObject } from "../schema";
 
 export const ReferencedPrincipalStateResponseShape = {
   keyEpoch: z.number(),
@@ -7,7 +7,7 @@ export const ReferencedPrincipalStateResponseShape = {
   principalId: z.string(),
   principalType: z.literal(["group", "organization"]),
   stateHash: z.string(),
-  version: z.number(),
+  version: boundedPositiveIntegerSchema(Number.MAX_SAFE_INTEGER),
 };
 
 export const ReferencedPrincipalStateResponseSchema = loosePlainObject(

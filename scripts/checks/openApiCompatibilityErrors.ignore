@@ -1,0 +1,14 @@
+# #2442: principal authority versions must remain exact JavaScript integers.
+# Remove these greenfield entries once main contains the safe-integer contract.
+POST /auth/register the `initialAdminGroup/initialGroupPolicy/state/externalAuthority/anyOf[subschema #1]/version` request property's max was decreased to `9007199254740991.00`
+POST /auth/register the `initialMemberGroup/initialGroupPolicy/state/externalAuthority/anyOf[subschema #1]/version` request property's max was decreased to `9007199254740991.00`
+POST /auth/register the `initialOrganizationPolicy/state/externalAuthority/anyOf[subschema #1]/version` request property's max was decreased to `9007199254740991.00`
+POST /organizations the `initialAdminGroup/initialGroupPolicy/state/externalAuthority/anyOf[subschema #1]/version` request property's max was decreased to `9007199254740991.00`
+POST /organizations the `initialMemberGroup/initialGroupPolicy/state/externalAuthority/anyOf[subschema #1]/version` request property's max was decreased to `9007199254740991.00`
+POST /organizations the `initialOrganizationPolicy/state/externalAuthority/anyOf[subschema #1]/version` request property's max was decreased to `9007199254740991.00`
+POST /organizations/{organizationId}/groups the `initialGroupPolicy/state/externalAuthority/anyOf[subschema #1]/version` request property's max was decreased to `9007199254740991.00`
+POST /organizations/{organizationId}/groups the `organizationPolicy/state/externalAuthority/anyOf[subschema #1]/version` request property's max was decreased to `9007199254740991.00`
+DELETE /organizations/{organizationId}/groups/{groupId} the `organizationPolicy/state/externalAuthority/anyOf[subschema #1]/version` request property's max was decreased to `9007199254740991.00`
+PUT /organizations/{organizationId}/groups/{groupId}/policy-commit the `groupPolicy/state/externalAuthority/anyOf[subschema #1]/version` request property's max was decreased to `9007199254740991.00`
+PUT /organizations/{organizationId}/groups/{groupId}/policy-commit the `organizationPolicy/state/externalAuthority/anyOf[subschema #1]/version` request property's max was decreased to `9007199254740991.00`
+PUT /principals/{principalType}/{principalId}/policy the `state/externalAuthority/anyOf[subschema #1]/version` request property's max was decreased to `9007199254740991.00`

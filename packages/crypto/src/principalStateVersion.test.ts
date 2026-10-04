@@ -1,6 +1,11 @@
 import { expect, test } from "bun:test";
 import { bytesToBase64 } from "@tearleads/encoding";
 import { PutPrincipalPolicyRequestSchema } from "@tearleads/validators/request";
+import {
+  PrincipalStateExternalAuthorityResponseSchema,
+  PrincipalStateResponseSchema,
+  ReferencedPrincipalStateResponseSchema,
+} from "@tearleads/validators/response";
 import { generateKemSeedAndKeyPair } from "./encapsulation/generateKeyPair";
 import { toFingerprint } from "./fingerprint";
 import {
@@ -87,3 +92,55 @@ for (const principalType of ["group", "organization"] as const) {
     }
   });
 }
+
+test("principal authority and response references use the same exact version domain", async () => {
+  const { request, signing } = await fixture("organization");
+  for (const version of [
+    16_385,
+    Number.MAX_SAFE_INTEGER,
+    0,
+    -1,
+    1.5,
+    Number.MAX_SAFE_INTEGER + 1,
+  ]) {
+    const valid = Number.isSafeInteger(version) && version > 0;
+    const externalAuthority = {
+      principalType: "group" as const,
+      principalId: crypto.randomUUID(),
+      stateHash: "a".repeat(64),
+      version,
+      keyEpoch: 1,
+      keyFingerprint: request.state.keyFingerprint,
+    };
+    const state = { ...request.state, externalAuthority };
+    expect(
+      PutPrincipalPolicyRequestSchema.safeParse({ ...request, state }).success,
+    ).toBe(valid);
+    expect(
+      PrincipalStateExternalAuthorityResponseSchema.safeParse(externalAuthority)
+        .success,
+    ).toBe(valid);
+    expect(
+      ReferencedPrincipalStateResponseSchema.safeParse(externalAuthority)
+        .success,
+    ).toBe(valid);
+    expect(
+      PrincipalStateResponseSchema.safeParse({
+        ...request.state,
+        version,
+        stateHash: "a".repeat(64),
+        createdAt: request.state.signedAt,
+      }).success,
+    ).toBe(valid);
+    if (valid) {
+      const signed = await signPrincipalState(state, signing.signingPrivateKey);
+      expect(
+        await verifySignedPrincipalState(signed, signing.signingPublicKey),
+      ).toBe(true);
+    } else {
+      await expect(
+        signPrincipalState(state, signing.signingPrivateKey),
+      ).rejects.toThrow();
+    }
+  }
+});

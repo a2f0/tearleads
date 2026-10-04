@@ -39,6 +39,7 @@ const baseConfig = {
       entry: [
         "src/appTestRuntime.ts",
         "src/**/*.test.ts",
+        "test/slow/**/*.test.ts",
         "scripts/blobGc.ts",
         "scripts/stripeSeatSync.ts",
       ],

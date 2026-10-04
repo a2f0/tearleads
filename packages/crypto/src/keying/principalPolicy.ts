@@ -1,14 +1,10 @@
 import { toFingerprint } from "../fingerprint";
-import type {
-  PrincipalProjectionMember,
-  SignedPrincipalState,
-} from "../principalState";
+import type { PrincipalProjectionMember } from "../principalState";
 import {
   computePrincipalStateHash,
   computePrincipalStatePayloadCiphertextHash,
   normalizePrincipalProjectionMembers,
 } from "../principalState";
-import { verifySignedPrincipalState } from "../principalStateVerification";
 import {
   verifyPrincipalPolicyGrantCommitments,
   verifyPrincipalPolicyProjectionCommitments,
@@ -20,6 +16,7 @@ import {
   verifyPrincipalPolicyExternalAuthorityProgress,
 } from "./principalPolicyExternalAuthority";
 import { verifyPrincipalPolicyMemberEnvelopes } from "./principalPolicyMemberEnvelopes";
+import { verifyPrincipalPolicyChainSignatures } from "./principalPolicySignatures";
 import {
   getPrincipalPolicyTransitionMismatch,
   throwPrincipalPolicyTransitionError,
@@ -107,24 +104,6 @@ async function buildPrincipalPolicySignerKeyMap(
   }
 
   return signerPublicKeyByUserAndFingerprint;
-}
-
-function getPrincipalPolicySignerPublicKey(input: {
-  readonly signerPublicKeyByUserAndFingerprint: ReadonlyMap<string, Uint8Array>;
-  readonly state: SignedPrincipalState;
-}): Uint8Array {
-  const signerPublicKey = input.signerPublicKeyByUserAndFingerprint.get(
-    `${input.state.signerUserId}:${input.state.signerUserKeyFingerprint}`,
-  );
-
-  if (!signerPublicKey) {
-    throwVerification(
-      "missing_dependency",
-      "principal policy signer public key is unavailable",
-    );
-  }
-
-  return signerPublicKey;
 }
 
 async function normalizePrincipalPolicyStateChainEntry(
@@ -427,29 +406,6 @@ function verifySuccessorPrincipalPolicyChainEntry(input: {
   }
 }
 
-async function verifyPrincipalPolicyChainEntrySignature(input: {
-  readonly normalizedEntry: NormalizedPrincipalPolicyStateChainEntry;
-  readonly signerPublicKeyByUserAndFingerprint: ReadonlyMap<string, Uint8Array>;
-}): Promise<void> {
-  const signerPublicKey = getPrincipalPolicySignerPublicKey({
-    signerPublicKeyByUserAndFingerprint:
-      input.signerPublicKeyByUserAndFingerprint,
-    state: input.normalizedEntry.state,
-  });
-
-  if (
-    !(await verifySignedPrincipalState(
-      input.normalizedEntry.state,
-      signerPublicKey,
-    ))
-  ) {
-    throwVerification(
-      "signature_mismatch",
-      "principal policy state signature verification failed",
-    );
-  }
-}
-
 async function verifyPrincipalPolicyChain(input: {
   readonly bundle: PrincipalPolicySnapshot;
   readonly externalAuthority: VerifyPrincipalPolicyBundleInput["externalAuthority"];
@@ -511,15 +467,14 @@ async function verifyPrincipalPolicyChain(input: {
       verifier: authorityVerifier,
     });
 
-    await verifyPrincipalPolicyChainEntrySignature({
-      normalizedEntry,
-      signerPublicKeyByUserAndFingerprint:
-        input.signerPublicKeyByUserAndFingerprint,
-    });
-
     normalizedChain.push(normalizedEntry);
   }
 
+  await verifyPrincipalPolicyChainSignatures({
+    chain: normalizedChain,
+    signerPublicKeyByUserAndFingerprint:
+      input.signerPublicKeyByUserAndFingerprint,
+  });
   return normalizedChain;
 }
 

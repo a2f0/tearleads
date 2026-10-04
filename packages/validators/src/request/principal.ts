@@ -38,7 +38,7 @@ const PrincipalStateExternalAuthorityRequestSchema = loosePlainObject({
   principalId: uuidV4StringSchema,
   principalType: z.literal("group"),
   stateHash: z.string(),
-  version: boundedPositiveIntegerSchema(Number.MAX_VALUE),
+  version: boundedPositiveIntegerSchema(Number.MAX_SAFE_INTEGER),
 });
 
 const PrincipalStateRequestSchema = loosePlainObject({

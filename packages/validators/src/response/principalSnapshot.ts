@@ -13,7 +13,7 @@ export const PrincipalStateExternalAuthorityResponseSchema = loosePlainObject({
   principalId: z.string(),
   principalType: z.literal("group"),
   stateHash: z.string(),
-  version: positiveIntegerSchema,
+  version: boundedPositiveIntegerSchema(Number.MAX_SAFE_INTEGER),
 });
 
 export type PrincipalStateExternalAuthorityResponse = z.infer<

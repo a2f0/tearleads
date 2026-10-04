@@ -133,7 +133,16 @@ Principal-state and access-event signature results are separately memoized by
 the exact signature, message bytes, and resolved public key. Only successful
 signature mathematics is reused; no authorization result is inferred from that
 cache. Its 8,192-entry budget evicts work, never refuses a chain. A larger chain
-or working set can still require signature verification again. Full evidence
+or working set can still require signature verification again. Principal chains
+also retain at most 128 successful signature-history digests: each binds the
+ordered transcript of exact signature bytes, canonical signed messages, and
+resolved public keys. Every replay hashes all supplied inputs again, and only
+an identical previously verified prefix can skip repeated signature mathematics.
+An appended suffix is verified normally. A second pass checks that the source
+has not changed while the transcript was computed. Cache eviction repeats work;
+authorization, commitments, chain continuity, rotation and checkpoint checks
+still run on every verification. These local digests are never accepted from a
+server and are not protocol checkpoints. Full evidence
 loading, hashing, reconstruction, and authorization checks remain proportional
 to history; this change does not promise constant-time reads or bounded cold
 responses. Future paged cold delivery and compact witnessed checkpoints are
@@ -156,7 +165,12 @@ data migration or compatibility path is needed.
 The #2442 regression crosses the former 16,384 cutoff with complete signed group
 and organization histories, commits a membership revocation and key rotation,
 and cold-recovers an older encrypted document after losing verification markers
-and all local SDK state. The separate
+and all local SDK state. The opt-in command
+`bun run --cwd packages/api test:principal-history` runs that full scenario on
+both database backends sequentially. The default API suite runs the same scenario
+at 64 versions, alongside the exact numeric-boundary crypto and storage tests.
+The full test clears both durable/process manifest markers and signature caches.
+The separate
 [principal-history model](../formal/container-keying/PrincipalHistory.md) checks
 revocation and cold recovery availability with negative controls for both kinds
 of cutoff. Neither the model nor the wider numeric domain promises bounded cold

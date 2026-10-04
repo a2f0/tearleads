@@ -222,7 +222,8 @@ function normalizeExternalAuthority(
   if (
     authority.principalType !== "group" ||
     authority.principalId.length === 0 ||
-    !isValidPositiveInteger(authority.version) ||
+    !Number.isSafeInteger(authority.version) ||
+    authority.version < 1 ||
     !isValidPositiveInteger(authority.keyEpoch) ||
     authority.stateHash.length === 0 ||
     authority.keyFingerprint.length === 0

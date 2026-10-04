@@ -150,9 +150,8 @@ configuration states the intended contract; two negative controls demonstrate
 why a cold-read history cap and a matching mutation cap are both invalid repairs.
 Both availability predicates are true by definition in the positive configuration;
 that run does not explore a verifier algorithm or establish a resource bound.
-See the [mapping and boundaries](./container-keying/ManifestHistory.md).
-Principal histories use
-[PrincipalHistory model](./container-keying/PrincipalHistory.md).
+Runtime regressions cover real signatures and long histories. See the
+[mapping and resource boundaries](./container-keying/ManifestHistory.md).
 
 ## No Bricked Device
 

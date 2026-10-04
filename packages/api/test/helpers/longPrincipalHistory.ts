@@ -72,6 +72,7 @@ export async function seedLongPrincipalHistory(input: {
       // then sign independent headers in parallel without weakening the proof.
       const unsigned: UnsignedPrincipalState[] = [];
       let previousHash = previous.stateHash;
+      const stateHashes = new Map<number, string>();
       for (
         let version = start;
         version <= Math.min(start + 399, input.throughVersion);
@@ -83,6 +84,7 @@ export async function seedLongPrincipalHistory(input: {
           prevStateHash: previousHash,
         };
         previousHash = await computePrincipalStateHash(state);
+        stateHashes.set(version, previousHash);
         unsigned.push(state);
       }
       const chunkSize = Math.ceil(unsigned.length / workers.length);
@@ -105,7 +107,8 @@ export async function seedLongPrincipalHistory(input: {
         const grants: (typeof principalContainerGrantProjection.$inferInsert)[] =
           [];
         for (const state of signed.slice(offset, offset + 100)) {
-          const stateHash = await computePrincipalStateHash(state);
+          const stateHash = stateHashes.get(state.version);
+          if (!stateHash) throw new Error("Missing fixture state hash");
           const identity = {
             principalType: state.principalType,
             principalId: state.principalId,
@@ -146,11 +149,6 @@ export async function seedLongPrincipalHistory(input: {
       },
       tx,
     ),
-  );
-  console.info(
-    "Signed principal history",
-    previous.principalType,
-    previous.version,
   );
   return previous;
 }
