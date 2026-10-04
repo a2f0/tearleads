@@ -119,11 +119,15 @@ test("SDK decrypts a historical binding after ancestor head changes and document
   try {
     const child = await createRemoteContainer({
       ...common,
+      // Keep the cached path first when the second path is linked. Both
+      // server paths then reuse ancestor history, but only one has a hint.
+      containerId: "00000000-0000-4000-8000-000000000001",
       parentContainerId: root.kekState.containerId,
       parentSecretKey: owner.kem.secretKey,
     });
     const other = await createRemoteContainer({
       ...common,
+      containerId: "00000000-0000-4000-8000-000000000002",
       parentContainerId: root.kekState.containerId,
       parentSecretKey: owner.kem.secretKey,
     });

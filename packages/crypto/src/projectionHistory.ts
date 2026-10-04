@@ -52,7 +52,9 @@ export function omitProjectionHistory<T extends HistoryProjection>(
   hints: readonly ProjectionHistoryPrefix[],
 ): T {
   if (hints.length === 0) return projection;
-  const result = structuredClone(projection);
+  // Server loaders may share arrays and objects between paths. JSON wire
+  // locations are independent: trimming one must not change another slot.
+  const result = JSON.parse(JSON.stringify(projection)) as T;
   const requested = new Map(hints.map((hint) => [hint.key, hint]));
   const omitted: ProjectionHistoryPrefix[] = [];
   for (const array of projectionHistoryArrays(result)) {
