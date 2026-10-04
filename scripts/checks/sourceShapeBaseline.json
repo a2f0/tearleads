@@ -63,16 +63,16 @@
       "bytes": 19355
     },
     "docs/keying-design.md": {
-      "lines": 1205,
-      "bytes": 58807
+      "lines": 1209,
+      "bytes": 59185
     },
     "docs/loro-e2ee-sync-protocol.md": {
       "lines": 548,
       "bytes": 23535
     },
     "docs/openapi.json": {
-      "lines": 71229,
-      "bytes": 2995985
+      "lines": 71497,
+      "bytes": 3005121
     },
     "docs/protocol-specification.md": {
       "lines": 658,
@@ -91,8 +91,8 @@
       "bytes": 23719
     },
     "packages/api-client/src/ApiClient.ts": {
-      "lines": 2024,
-      "bytes": 65372
+      "lines": 2036,
+      "bytes": 65733
     },
     "packages/api/src/access/read/documentKekTargets.test.ts": {
       "lines": 574,
@@ -327,8 +327,8 @@
       "bytes": 37744
     },
     "packages/validators/src/operation/generatedOpenApi.ts": {
-      "lines": 26376,
-      "bytes": 1107872
+      "lines": 26523,
+      "bytes": 1112621
     },
     "packages/validators/src/response/index.ts": {
       "lines": 513,

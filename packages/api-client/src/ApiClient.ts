@@ -22,6 +22,7 @@ import {
   detachBlobAttachmentOperation,
   documentSyncOperation,
   getContainerKekLogOperation,
+  getContainerReplacementAuthorizationsOperation,
   getContainerWriterProjectionOperation,
   getDocumentPurgeProofOperation,
   getDocumentWriterProjectionOperation,
@@ -1083,6 +1084,17 @@ export class ApiClient {
           undefined,
           getContainerWriterProjectionOperation,
         ),
+    );
+  }
+
+  getContainerReplacementAuthorizationsResult(
+    containerId: string,
+    replacesOrganizationId: string,
+  ) {
+    return this.transport.requestResult(
+      getContainerReplacementAuthorizationsOperation,
+      { params: { containerId, replacesOrganizationId } },
+      { reportErrors: false },
     );
   }
 

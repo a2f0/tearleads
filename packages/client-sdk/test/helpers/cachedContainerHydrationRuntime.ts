@@ -19,6 +19,9 @@ export function cachedContainerHydrationRuntime(
   for (const container of containers) {
     rememberDestinationRole(execSql, container, {
       createSignerUserId: "fixture-user",
+      rootContainerId: "fixture-root",
+      rootCreateManifestHash: "fixture-root-genesis",
+      rootMetadataDocumentId: "fixture-root-metadata",
       metadataDocumentId: container.metadataDocumentId,
       systemSlot: null,
     });

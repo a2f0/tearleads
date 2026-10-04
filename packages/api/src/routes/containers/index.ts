@@ -8,6 +8,7 @@ import { createListContainerDocumentsRoute } from "./listContainerDocuments";
 import { createListContainerParentLanesRoute } from "./listContainerParentLanes";
 import { createContainerMutationsRoute } from "./mutations";
 import { createContainerReciteRoute } from "./recite";
+import { createContainerReplacementAuthorizationsRoute } from "./replacementAuthorizations";
 import { createContainerWriterProjectionRoute } from "./writerProjection";
 
 interface ContainersRouterDeps {
@@ -23,6 +24,10 @@ export function createContainersRouter({
 }: ContainersRouterDeps) {
   const containersRouter = new Hono();
   const routeDeps = { publish, requireAuth, runtime };
+  containersRouter.route(
+    "/",
+    createContainerReplacementAuthorizationsRoute({ requireAuth, runtime }),
+  );
 
   containersRouter.route(
     "/",

@@ -62,6 +62,9 @@ test("a local refresh leaves the root merge pending until remote hydration has c
   // cached its role; the next local refresh reconciles from that cache.
   rememberDestinationRole(state.runtime.infra.execSql, root.container, {
     createSignerUserId: "user-1",
+    rootContainerId: "fixture-root",
+    rootCreateManifestHash: "fixture-root-genesis",
+    rootMetadataDocumentId: "fixture-root-metadata",
     metadataDocumentId: "remote-root-metadata",
     parentId: null,
     systemSlot: null,

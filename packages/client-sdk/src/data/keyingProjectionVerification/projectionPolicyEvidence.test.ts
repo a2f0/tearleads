@@ -6,6 +6,7 @@ import {
   policySnapshot,
 } from "../../../test/helpers/organizationPolicyHistory";
 import { loadPrincipalPolicyCheckpoint } from "../persistence/keyingCheckpointPersistence";
+import { loadOrganizationFounder } from "../persistence/organizationFounderPersistence";
 import {
   encodeOrganizationAuthorityDescriptor,
   parseOrganizationAuthorityDescriptor,
@@ -53,6 +54,10 @@ test("deleted group evidence verifies without advancing current-policy checkpoin
       "currentMemberEnvelopes",
     );
     expect(JSON.stringify(input.evidence)).not.toContain("currentPayload");
+    // Directory signatures alone do not bind the founder to a held root.
+    expect(
+      await loadOrganizationFounder(execSql, data.organizationId),
+    ).toBeNull();
   } finally {
     close();
   }

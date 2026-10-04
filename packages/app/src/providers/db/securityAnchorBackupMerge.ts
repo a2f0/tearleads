@@ -9,6 +9,11 @@ import {
 } from "./keyingCheckpointBackupMerge";
 import type { BackupIndex, BackupTable } from "./localBackupFormat";
 import {
+  mergeOrganizationFounderBackupTables,
+  ORGANIZATION_FOUNDER_COLUMNS,
+  ORGANIZATION_FOUNDER_TABLE_NAME,
+} from "./organizationFounderBackupMerge";
+import {
   mergePrincipalGrantRetirementBackupTables,
   PRINCIPAL_GRANT_RETIREMENT_COLUMNS,
   PRINCIPAL_GRANT_RETIREMENT_TABLE_NAME,
@@ -42,6 +47,7 @@ export const securityAnchorBackupColumns: ReadonlyMap<
   string,
   ReadonlyArray<string>
 > = new Map([
+  [ORGANIZATION_FOUNDER_TABLE_NAME, ORGANIZATION_FOUNDER_COLUMNS],
   [PRINCIPAL_GRANT_RETIREMENT_TABLE_NAME, PRINCIPAL_GRANT_RETIREMENT_COLUMNS],
   [ACCESS_MANIFEST_CHECKPOINT_TABLE_NAME, ACCESS_MANIFEST_CHECKPOINT_COLUMNS],
   [PRINCIPAL_POLICY_CHECKPOINT_TABLE_NAME, PRINCIPAL_POLICY_CHECKPOINT_COLUMNS],
@@ -103,6 +109,9 @@ export async function mergeSecurityAnchorBackupTables(input: {
   const mergedIdentityPins = mergeTrustedIdentityPinBackupTables(
     tableInput(TRUSTED_IDENTITY_PIN_TABLE_NAME),
   );
+  const mergedFounders = mergeOrganizationFounderBackupTables(
+    tableInput(ORGANIZATION_FOUNDER_TABLE_NAME),
+  );
 
   const mergedPurgeCheckpoints = mergeDocumentPurgeCheckpointBackupTables(
     tableInput(DOCUMENT_PURGE_CHECKPOINT_TABLE_NAME),
@@ -123,5 +132,6 @@ export async function mergeSecurityAnchorBackupTables(input: {
     ...(mergedPurgeCheckpoints ? [mergedPurgeCheckpoints] : []),
     ...(mergedRetirements ? [mergedRetirements] : []),
     ...(mergedIncidents ? [mergedIncidents] : []),
+    ...(mergedFounders ? [mergedFounders] : []),
   ];
 }

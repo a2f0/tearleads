@@ -7,6 +7,7 @@ import type { AccessManifestBundleWireResponse } from "@tearleads/validators/res
 import type { ProjectionCheckpointContext } from "./checkpointContext";
 import { assertServedAncestorsDescendFromCitations } from "./containerAncestorCitations";
 import { verifyContainerManifestBundle } from "./containerManifestVerification";
+import { rememberRootBoundOrganizationFounder } from "./organizationFounderBinding";
 import type {
   PrincipalPolicyCache,
   ProjectionUserKeyResolver,
@@ -73,5 +74,11 @@ export async function verifyContainerManifestPath(input: {
     verifiedPath.push(verified);
   }
 
+  await rememberRootBoundOrganizationFounder({
+    execSql: input.checkpointContext.execSql,
+    policies: input.authorizationEvidence,
+    root: verifiedPath[0],
+    verifiedByHash: input.verifiedByHash,
+  });
   return verifiedPath;
 }

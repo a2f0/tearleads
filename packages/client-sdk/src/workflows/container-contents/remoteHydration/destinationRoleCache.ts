@@ -7,6 +7,9 @@ export interface DestinationRole
   readonly parentId?: string | null;
   /** Signer of the epoch-1 `container.create`; immutable through successors. */
   readonly createSignerUserId: string;
+  readonly rootContainerId: string;
+  readonly rootCreateManifestHash: string;
+  readonly rootMetadataDocumentId: string;
 }
 /** Roles are verified and cached under the container's id and organization. */
 type DestinationIdentity = Pick<RemoteContainer, "id" | "organizationId">;
