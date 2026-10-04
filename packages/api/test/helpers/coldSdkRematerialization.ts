@@ -378,11 +378,12 @@ export async function coldRematerializeEncryptedDocument(input: {
   organizationId: string;
   owner: TestUser;
   reader: TestUser;
+  apiClient?: ReturnType<typeof createRouteSdkClient>;
 }) {
   const { close, execSql } = await createTestExecSql(
     `api-cold-reader-${crypto.randomUUID()}`,
   );
-  const apiClient = createRouteSdkClient(input.reader.token);
+  const apiClient = input.apiClient ?? createRouteSdkClient(input.reader.token);
   const resolveTrustedUserIdentity = trustedResolver(input.owner, input.reader);
   let policyFetchCount = 0;
   const warmReferencedPrincipalPolicies = async (request: {

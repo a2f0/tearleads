@@ -88,7 +88,8 @@ CREATE TABLE `access_manifest_principal_head_projection` (
 	`key_epoch` integer NOT NULL,
 	`state_hash` text NOT NULL,
 	`key_fingerprint` text NOT NULL,
-	`created_at` integer DEFAULT (cast((julianday('now') - 2440587.5)*86400000 as integer)) NOT NULL
+	`created_at` integer DEFAULT (cast((julianday('now') - 2440587.5)*86400000 as integer)) NOT NULL,
+	CONSTRAINT "access_manifest_principal_head_projection_version_range" CHECK("access_manifest_principal_head_projection"."version" >= 1 AND "access_manifest_principal_head_projection"."version" <= 9007199254740991)
 );
 --> statement-breakpoint
 CREATE INDEX `access_manifest_principal_projection_manifest_idx` ON `access_manifest_principal_head_projection` (`manifest_hash`);--> statement-breakpoint
@@ -836,7 +837,8 @@ CREATE TABLE `principal_states` (
 	`signer_user_id` text NOT NULL,
 	`signer_user_key_fingerprint` text NOT NULL,
 	`signature` text NOT NULL,
-	`created_at` integer DEFAULT (cast((julianday('now') - 2440587.5)*86400000 as integer)) NOT NULL
+	`created_at` integer DEFAULT (cast((julianday('now') - 2440587.5)*86400000 as integer)) NOT NULL,
+	CONSTRAINT "principal_states_version_range" CHECK("principal_states"."version" >= 1 AND "principal_states"."version" <= 9007199254740991)
 );
 --> statement-breakpoint
 CREATE INDEX `principal_states_principal_idx` ON `principal_states` (`principal_type`,`principal_id`);--> statement-breakpoint

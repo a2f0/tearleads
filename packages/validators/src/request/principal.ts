@@ -10,7 +10,6 @@ import {
 import {
   CANONICAL_SIGNED_AT_PATTERN,
   isCanonicalSignedAt,
-  MAX_PRINCIPAL_STATE_VERSION,
   SIGNED_AT_CONTRACT,
 } from "../util";
 import { ContainerMutationRequestSchema } from "./container";
@@ -39,7 +38,7 @@ const PrincipalStateExternalAuthorityRequestSchema = loosePlainObject({
   principalId: uuidV4StringSchema,
   principalType: z.literal("group"),
   stateHash: z.string(),
-  version: boundedPositiveIntegerSchema(Number.MAX_VALUE),
+  version: boundedPositiveIntegerSchema(Number.MAX_SAFE_INTEGER),
 });
 
 const PrincipalStateRequestSchema = loosePlainObject({
@@ -67,7 +66,7 @@ const PrincipalStateRequestSchema = loosePlainObject({
   ),
   signerUserId: uuidV4StringSchema,
   signerUserKeyFingerprint: z.string(),
-  version: boundedPositiveIntegerSchema(MAX_PRINCIPAL_STATE_VERSION),
+  version: boundedPositiveIntegerSchema(Number.MAX_SAFE_INTEGER),
 });
 
 export type PrincipalStateRequest = z.infer<typeof PrincipalStateRequestSchema>;

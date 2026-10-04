@@ -5,7 +5,10 @@ import * as crypto from "@tearleads/crypto";
 import { createSignedPrincipalState } from "../../../test/helpers/principalPolicy";
 import { registerAndAuthenticate } from "../../../test/helpers/principalPolicyReadFixtures";
 import { loadProjectionPolicyEvidence } from "./projectionPolicyEvidence";
-import { verifyStoredPolicySnapshot } from "./snapshotVerificationCache";
+import {
+  clearStoredPolicySnapshotCache,
+  verifyStoredPolicySnapshot,
+} from "./snapshotVerificationCache";
 
 test("stored snapshot memo binds the actual bytes, reference, and signer keys", async () => {
   const owner = createTestUser();
@@ -58,6 +61,10 @@ test("stored snapshot memo binds the actual bytes, reference, and signer keys", 
       crypto.generateSigningSeedAndKeyPair().signingPublicKey;
     expect((await verifyStoredPolicySnapshot(input)).ok).toBe(false);
     expect(verify).toHaveBeenCalledTimes(3);
+    signer.signingPublicKey = owner.signing.signingPublicKey;
+    clearStoredPolicySnapshotCache();
+    expect((await verifyStoredPolicySnapshot(input)).ok).toBe(true);
+    expect(verify).toHaveBeenCalledTimes(4);
   } finally {
     verify.mockRestore();
   }

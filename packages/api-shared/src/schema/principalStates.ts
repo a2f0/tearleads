@@ -6,7 +6,10 @@ import type {
   PrincipalStateMembershipMode,
   PrincipalStatePayloadCipherSuite,
 } from "@tearleads/crypto";
+import { sql } from "drizzle-orm";
 import {
+  bigint,
+  check,
   index,
   integer,
   jsonb,
@@ -20,10 +23,8 @@ import {
 /**
  * Signed state history for managed recipient principals.
  *
- * A managed recipient principal is currently either an `organization` or a
- * `group`. Users have their own key rows in `users`; this table is for
- * principals whose membership and encryption key material are themselves
- * managed by signed policy state.
+ * Organizations and groups have signed membership and encryption-key policy
+ * here. User keys live separately in `users`.
  *
  * Each row stores the signed, public header for one principal state version.
  * The encrypted policy payload is stored separately in
@@ -33,8 +34,7 @@ import {
  * same `(principalType, principalId, stateHash)` identity.
  *
  * Columns:
- * - `id`: Surrogate database primary key. Domain logic uses the principal
- *   identity and `stateHash`; this is only a row identifier.
+ * - `id`: Surrogate row id; domain identity is the principal and `stateHash`.
  * - `principalType`: Managed principal kind, currently `organization` or
  *   `group`.
  * - `principalId`: The stable id of the organization/group whose policy this
@@ -95,7 +95,7 @@ export const principalStates = pgTable(
       .$type<ManagedRecipientPrincipalType>()
       .notNull(),
     principalId: uuid("principal_id").notNull(),
-    version: integer("version").notNull(),
+    version: bigint("version", { mode: "number" }).notNull(),
     prevStateHash: text("prev_state_hash"),
     keyEpoch: integer("key_epoch").notNull(),
     encapsulationPublicKey: text("encapsulation_public_key").notNull(),
@@ -120,6 +120,10 @@ export const principalStates = pgTable(
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
   (table) => [
+    check(
+      "principal_states_version_range",
+      sql`${table.version} >= 1 AND ${table.version} <= 9007199254740991`,
+    ),
     index("principal_states_principal_idx").on(
       table.principalType,
       table.principalId,

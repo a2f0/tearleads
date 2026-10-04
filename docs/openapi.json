@@ -777,7 +777,7 @@
                                         "type": "string"
                                       },
                                       "version": {
-                                        "maximum": 1.7976931348623157e+308,
+                                        "maximum": 9007199254740991,
                                         "minimum": 1,
                                         "type": "integer"
                                       }
@@ -870,7 +870,7 @@
                                 "type": "string"
                               },
                               "version": {
-                                "maximum": 16384,
+                                "maximum": 9007199254740991,
                                 "minimum": 1,
                                 "type": "integer"
                               }
@@ -1359,7 +1359,7 @@
                                         "type": "string"
                                       },
                                       "version": {
-                                        "maximum": 1.7976931348623157e+308,
+                                        "maximum": 9007199254740991,
                                         "minimum": 1,
                                         "type": "integer"
                                       }
@@ -1452,7 +1452,7 @@
                                 "type": "string"
                               },
                               "version": {
-                                "maximum": 16384,
+                                "maximum": 9007199254740991,
                                 "minimum": 1,
                                 "type": "integer"
                               }
@@ -3274,7 +3274,7 @@
                                     "type": "string"
                                   },
                                   "version": {
-                                    "maximum": 1.7976931348623157e+308,
+                                    "maximum": 9007199254740991,
                                     "minimum": 1,
                                     "type": "integer"
                                   }
@@ -3367,7 +3367,7 @@
                             "type": "string"
                           },
                           "version": {
-                            "maximum": 16384,
+                            "maximum": 9007199254740991,
                             "minimum": 1,
                             "type": "integer"
                           }
@@ -9798,9 +9798,9 @@
                                     "type": "string"
                                   },
                                   "version": {
-                                    "type": "number",
-                                    "minimum": -1.7976931348623157e+308,
-                                    "maximum": 1.7976931348623157e+308
+                                    "maximum": 9007199254740991,
+                                    "minimum": 1,
+                                    "type": "integer"
                                   }
                                 },
                                 "required": [
@@ -10720,9 +10720,9 @@
                                     "type": "string"
                                   },
                                   "version": {
-                                    "type": "number",
-                                    "minimum": -1.7976931348623157e+308,
-                                    "maximum": 1.7976931348623157e+308
+                                    "maximum": 9007199254740991,
+                                    "minimum": 1,
+                                    "type": "integer"
                                   }
                                 },
                                 "required": [
@@ -11440,9 +11440,9 @@
                                       "type": "string"
                                     },
                                     "version": {
-                                      "type": "number",
-                                      "minimum": -1.7976931348623157e+308,
-                                      "maximum": 1.7976931348623157e+308
+                                      "maximum": 9007199254740991,
+                                      "minimum": 1,
+                                      "type": "integer"
                                     }
                                   },
                                   "required": [
@@ -16123,9 +16123,9 @@
                                             "type": "string"
                                           },
                                           "version": {
-                                            "type": "number",
-                                            "minimum": -1.7976931348623157e+308,
-                                            "maximum": 1.7976931348623157e+308
+                                            "maximum": 9007199254740991,
+                                            "minimum": 1,
+                                            "type": "integer"
                                           }
                                         },
                                         "required": [
@@ -17510,9 +17510,9 @@
                                 "type": "string"
                               },
                               "version": {
-                                "type": "number",
-                                "minimum": -1.7976931348623157e+308,
-                                "maximum": 1.7976931348623157e+308
+                                "maximum": 9007199254740991,
+                                "minimum": 1,
+                                "type": "integer"
                               }
                             },
                             "required": [
@@ -18129,8 +18129,8 @@
                                             "type": "string"
                                           },
                                           "version": {
-                                            "exclusiveMinimum": 0,
-                                            "maximum": 1.7976931348623157e+308,
+                                            "maximum": 9007199254740991,
+                                            "minimum": 1,
                                             "type": "integer"
                                           }
                                         },
@@ -18222,9 +18222,9 @@
                                     "type": "string"
                                   },
                                   "version": {
-                                    "type": "number",
-                                    "minimum": -1.7976931348623157e+308,
-                                    "maximum": 1.7976931348623157e+308
+                                    "maximum": 9007199254740991,
+                                    "minimum": 1,
+                                    "type": "integer"
                                   }
                                 },
                                 "required": [
@@ -18338,8 +18338,8 @@
                                                   "type": "string"
                                                 },
                                                 "version": {
-                                                  "exclusiveMinimum": 0,
-                                                  "maximum": 1.7976931348623157e+308,
+                                                  "maximum": 9007199254740991,
+                                                  "minimum": 1,
                                                   "type": "integer"
                                                 }
                                               },
@@ -18431,9 +18431,9 @@
                                           "type": "string"
                                         },
                                         "version": {
-                                          "type": "number",
-                                          "minimum": -1.7976931348623157e+308,
-                                          "maximum": 1.7976931348623157e+308
+                                          "maximum": 9007199254740991,
+                                          "minimum": 1,
+                                          "type": "integer"
                                         }
                                       },
                                       "required": [
@@ -18666,9 +18666,9 @@
                                   "type": "string"
                                 },
                                 "version": {
-                                  "type": "number",
-                                  "minimum": -1.7976931348623157e+308,
-                                  "maximum": 1.7976931348623157e+308
+                                  "maximum": 9007199254740991,
+                                  "minimum": 1,
+                                  "type": "integer"
                                 }
                               },
                               "required": [
@@ -20150,9 +20150,9 @@
                             "type": "string"
                           },
                           "version": {
-                            "type": "number",
-                            "minimum": -1.7976931348623157e+308,
-                            "maximum": 1.7976931348623157e+308
+                            "maximum": 9007199254740991,
+                            "minimum": 1,
+                            "type": "integer"
                           }
                         },
                         "required": [
@@ -20462,9 +20462,9 @@
                                   "type": "string"
                                 },
                                 "version": {
-                                  "type": "number",
-                                  "minimum": -1.7976931348623157e+308,
-                                  "maximum": 1.7976931348623157e+308
+                                  "maximum": 9007199254740991,
+                                  "minimum": 1,
+                                  "type": "integer"
                                 }
                               },
                               "required": [
@@ -20900,8 +20900,8 @@
                                             "type": "string"
                                           },
                                           "version": {
-                                            "exclusiveMinimum": 0,
-                                            "maximum": 1.7976931348623157e+308,
+                                            "maximum": 9007199254740991,
+                                            "minimum": 1,
                                             "type": "integer"
                                           }
                                         },
@@ -20993,9 +20993,9 @@
                                     "type": "string"
                                   },
                                   "version": {
-                                    "type": "number",
-                                    "minimum": -1.7976931348623157e+308,
-                                    "maximum": 1.7976931348623157e+308
+                                    "maximum": 9007199254740991,
+                                    "minimum": 1,
+                                    "type": "integer"
                                   }
                                 },
                                 "required": [
@@ -21109,8 +21109,8 @@
                                                   "type": "string"
                                                 },
                                                 "version": {
-                                                  "exclusiveMinimum": 0,
-                                                  "maximum": 1.7976931348623157e+308,
+                                                  "maximum": 9007199254740991,
+                                                  "minimum": 1,
                                                   "type": "integer"
                                                 }
                                               },
@@ -21202,9 +21202,9 @@
                                           "type": "string"
                                         },
                                         "version": {
-                                          "type": "number",
-                                          "minimum": -1.7976931348623157e+308,
-                                          "maximum": 1.7976931348623157e+308
+                                          "maximum": 9007199254740991,
+                                          "minimum": 1,
+                                          "type": "integer"
                                         }
                                       },
                                       "required": [
@@ -21562,9 +21562,9 @@
                             "type": "string"
                           },
                           "version": {
-                            "type": "number",
-                            "minimum": -1.7976931348623157e+308,
-                            "maximum": 1.7976931348623157e+308
+                            "maximum": 9007199254740991,
+                            "minimum": 1,
+                            "type": "integer"
                           }
                         },
                         "required": [
@@ -21984,8 +21984,8 @@
                                             "type": "string"
                                           },
                                           "version": {
-                                            "exclusiveMinimum": 0,
-                                            "maximum": 1.7976931348623157e+308,
+                                            "maximum": 9007199254740991,
+                                            "minimum": 1,
                                             "type": "integer"
                                           }
                                         },
@@ -22077,9 +22077,9 @@
                                     "type": "string"
                                   },
                                   "version": {
-                                    "type": "number",
-                                    "minimum": -1.7976931348623157e+308,
-                                    "maximum": 1.7976931348623157e+308
+                                    "maximum": 9007199254740991,
+                                    "minimum": 1,
+                                    "type": "integer"
                                   }
                                 },
                                 "required": [
@@ -22193,8 +22193,8 @@
                                                   "type": "string"
                                                 },
                                                 "version": {
-                                                  "exclusiveMinimum": 0,
-                                                  "maximum": 1.7976931348623157e+308,
+                                                  "maximum": 9007199254740991,
+                                                  "minimum": 1,
                                                   "type": "integer"
                                                 }
                                               },
@@ -22286,9 +22286,9 @@
                                           "type": "string"
                                         },
                                         "version": {
-                                          "type": "number",
-                                          "minimum": -1.7976931348623157e+308,
-                                          "maximum": 1.7976931348623157e+308
+                                          "maximum": 9007199254740991,
+                                          "minimum": 1,
+                                          "type": "integer"
                                         }
                                       },
                                       "required": [
@@ -23310,9 +23310,9 @@
                             "type": "string"
                           },
                           "version": {
-                            "type": "number",
-                            "minimum": -1.7976931348623157e+308,
-                            "maximum": 1.7976931348623157e+308
+                            "maximum": 9007199254740991,
+                            "minimum": 1,
+                            "type": "integer"
                           }
                         },
                         "required": [
@@ -23622,9 +23622,9 @@
                                   "type": "string"
                                 },
                                 "version": {
-                                  "type": "number",
-                                  "minimum": -1.7976931348623157e+308,
-                                  "maximum": 1.7976931348623157e+308
+                                  "maximum": 9007199254740991,
+                                  "minimum": 1,
+                                  "type": "integer"
                                 }
                               },
                               "required": [
@@ -24060,8 +24060,8 @@
                                             "type": "string"
                                           },
                                           "version": {
-                                            "exclusiveMinimum": 0,
-                                            "maximum": 1.7976931348623157e+308,
+                                            "maximum": 9007199254740991,
+                                            "minimum": 1,
                                             "type": "integer"
                                           }
                                         },
@@ -24153,9 +24153,9 @@
                                     "type": "string"
                                   },
                                   "version": {
-                                    "type": "number",
-                                    "minimum": -1.7976931348623157e+308,
-                                    "maximum": 1.7976931348623157e+308
+                                    "maximum": 9007199254740991,
+                                    "minimum": 1,
+                                    "type": "integer"
                                   }
                                 },
                                 "required": [
@@ -24269,8 +24269,8 @@
                                                   "type": "string"
                                                 },
                                                 "version": {
-                                                  "exclusiveMinimum": 0,
-                                                  "maximum": 1.7976931348623157e+308,
+                                                  "maximum": 9007199254740991,
+                                                  "minimum": 1,
                                                   "type": "integer"
                                                 }
                                               },
@@ -24362,9 +24362,9 @@
                                           "type": "string"
                                         },
                                         "version": {
-                                          "type": "number",
-                                          "minimum": -1.7976931348623157e+308,
-                                          "maximum": 1.7976931348623157e+308
+                                          "maximum": 9007199254740991,
+                                          "minimum": 1,
+                                          "type": "integer"
                                         }
                                       },
                                       "required": [
@@ -25660,9 +25660,9 @@
                             "type": "string"
                           },
                           "version": {
-                            "type": "number",
-                            "minimum": -1.7976931348623157e+308,
-                            "maximum": 1.7976931348623157e+308
+                            "maximum": 9007199254740991,
+                            "minimum": 1,
+                            "type": "integer"
                           }
                         },
                         "required": [
@@ -25972,9 +25972,9 @@
                                   "type": "string"
                                 },
                                 "version": {
-                                  "type": "number",
-                                  "minimum": -1.7976931348623157e+308,
-                                  "maximum": 1.7976931348623157e+308
+                                  "maximum": 9007199254740991,
+                                  "minimum": 1,
+                                  "type": "integer"
                                 }
                               },
                               "required": [
@@ -26410,8 +26410,8 @@
                                             "type": "string"
                                           },
                                           "version": {
-                                            "exclusiveMinimum": 0,
-                                            "maximum": 1.7976931348623157e+308,
+                                            "maximum": 9007199254740991,
+                                            "minimum": 1,
                                             "type": "integer"
                                           }
                                         },
@@ -26503,9 +26503,9 @@
                                     "type": "string"
                                   },
                                   "version": {
-                                    "type": "number",
-                                    "minimum": -1.7976931348623157e+308,
-                                    "maximum": 1.7976931348623157e+308
+                                    "maximum": 9007199254740991,
+                                    "minimum": 1,
+                                    "type": "integer"
                                   }
                                 },
                                 "required": [
@@ -26619,8 +26619,8 @@
                                                   "type": "string"
                                                 },
                                                 "version": {
-                                                  "exclusiveMinimum": 0,
-                                                  "maximum": 1.7976931348623157e+308,
+                                                  "maximum": 9007199254740991,
+                                                  "minimum": 1,
                                                   "type": "integer"
                                                 }
                                               },
@@ -26712,9 +26712,9 @@
                                           "type": "string"
                                         },
                                         "version": {
-                                          "type": "number",
-                                          "minimum": -1.7976931348623157e+308,
-                                          "maximum": 1.7976931348623157e+308
+                                          "maximum": 9007199254740991,
+                                          "minimum": 1,
+                                          "type": "integer"
                                         }
                                       },
                                       "required": [
@@ -27437,9 +27437,9 @@
                             "type": "string"
                           },
                           "version": {
-                            "type": "number",
-                            "minimum": -1.7976931348623157e+308,
-                            "maximum": 1.7976931348623157e+308
+                            "maximum": 9007199254740991,
+                            "minimum": 1,
+                            "type": "integer"
                           }
                         },
                         "required": [
@@ -27860,8 +27860,8 @@
                                             "type": "string"
                                           },
                                           "version": {
-                                            "exclusiveMinimum": 0,
-                                            "maximum": 1.7976931348623157e+308,
+                                            "maximum": 9007199254740991,
+                                            "minimum": 1,
                                             "type": "integer"
                                           }
                                         },
@@ -27953,9 +27953,9 @@
                                     "type": "string"
                                   },
                                   "version": {
-                                    "type": "number",
-                                    "minimum": -1.7976931348623157e+308,
-                                    "maximum": 1.7976931348623157e+308
+                                    "maximum": 9007199254740991,
+                                    "minimum": 1,
+                                    "type": "integer"
                                   }
                                 },
                                 "required": [
@@ -28069,8 +28069,8 @@
                                                   "type": "string"
                                                 },
                                                 "version": {
-                                                  "exclusiveMinimum": 0,
-                                                  "maximum": 1.7976931348623157e+308,
+                                                  "maximum": 9007199254740991,
+                                                  "minimum": 1,
                                                   "type": "integer"
                                                 }
                                               },
@@ -28162,9 +28162,9 @@
                                           "type": "string"
                                         },
                                         "version": {
-                                          "type": "number",
-                                          "minimum": -1.7976931348623157e+308,
-                                          "maximum": 1.7976931348623157e+308
+                                          "maximum": 9007199254740991,
+                                          "minimum": 1,
+                                          "type": "integer"
                                         }
                                       },
                                       "required": [
@@ -28631,8 +28631,8 @@
                                               "type": "string"
                                             },
                                             "version": {
-                                              "exclusiveMinimum": 0,
-                                              "maximum": 1.7976931348623157e+308,
+                                              "maximum": 9007199254740991,
+                                              "minimum": 1,
                                               "type": "integer"
                                             }
                                           },
@@ -28724,9 +28724,9 @@
                                       "type": "string"
                                     },
                                     "version": {
-                                      "type": "number",
-                                      "minimum": -1.7976931348623157e+308,
-                                      "maximum": 1.7976931348623157e+308
+                                      "maximum": 9007199254740991,
+                                      "minimum": 1,
+                                      "type": "integer"
                                     }
                                   },
                                   "required": [
@@ -28840,8 +28840,8 @@
                                                     "type": "string"
                                                   },
                                                   "version": {
-                                                    "exclusiveMinimum": 0,
-                                                    "maximum": 1.7976931348623157e+308,
+                                                    "maximum": 9007199254740991,
+                                                    "minimum": 1,
                                                     "type": "integer"
                                                   }
                                                 },
@@ -28933,9 +28933,9 @@
                                             "type": "string"
                                           },
                                           "version": {
-                                            "type": "number",
-                                            "minimum": -1.7976931348623157e+308,
-                                            "maximum": 1.7976931348623157e+308
+                                            "maximum": 9007199254740991,
+                                            "minimum": 1,
+                                            "type": "integer"
                                           }
                                         },
                                         "required": [
@@ -29116,8 +29116,8 @@
                                             "type": "string"
                                           },
                                           "version": {
-                                            "exclusiveMinimum": 0,
-                                            "maximum": 1.7976931348623157e+308,
+                                            "maximum": 9007199254740991,
+                                            "minimum": 1,
                                             "type": "integer"
                                           }
                                         },
@@ -29209,9 +29209,9 @@
                                     "type": "string"
                                   },
                                   "version": {
-                                    "type": "number",
-                                    "minimum": -1.7976931348623157e+308,
-                                    "maximum": 1.7976931348623157e+308
+                                    "maximum": 9007199254740991,
+                                    "minimum": 1,
+                                    "type": "integer"
                                   }
                                 },
                                 "required": [
@@ -29325,8 +29325,8 @@
                                                   "type": "string"
                                                 },
                                                 "version": {
-                                                  "exclusiveMinimum": 0,
-                                                  "maximum": 1.7976931348623157e+308,
+                                                  "maximum": 9007199254740991,
+                                                  "minimum": 1,
                                                   "type": "integer"
                                                 }
                                               },
@@ -29418,9 +29418,9 @@
                                           "type": "string"
                                         },
                                         "version": {
-                                          "type": "number",
-                                          "minimum": -1.7976931348623157e+308,
-                                          "maximum": 1.7976931348623157e+308
+                                          "maximum": 9007199254740991,
+                                          "minimum": 1,
+                                          "type": "integer"
                                         }
                                       },
                                       "required": [
@@ -30112,8 +30112,8 @@
                                             "type": "string"
                                           },
                                           "version": {
-                                            "exclusiveMinimum": 0,
-                                            "maximum": 1.7976931348623157e+308,
+                                            "maximum": 9007199254740991,
+                                            "minimum": 1,
                                             "type": "integer"
                                           }
                                         },
@@ -30205,9 +30205,9 @@
                                     "type": "string"
                                   },
                                   "version": {
-                                    "type": "number",
-                                    "minimum": -1.7976931348623157e+308,
-                                    "maximum": 1.7976931348623157e+308
+                                    "maximum": 9007199254740991,
+                                    "minimum": 1,
+                                    "type": "integer"
                                   }
                                 },
                                 "required": [
@@ -30321,8 +30321,8 @@
                                                   "type": "string"
                                                 },
                                                 "version": {
-                                                  "exclusiveMinimum": 0,
-                                                  "maximum": 1.7976931348623157e+308,
+                                                  "maximum": 9007199254740991,
+                                                  "minimum": 1,
                                                   "type": "integer"
                                                 }
                                               },
@@ -30414,9 +30414,9 @@
                                           "type": "string"
                                         },
                                         "version": {
-                                          "type": "number",
-                                          "minimum": -1.7976931348623157e+308,
-                                          "maximum": 1.7976931348623157e+308
+                                          "maximum": 9007199254740991,
+                                          "minimum": 1,
+                                          "type": "integer"
                                         }
                                       },
                                       "required": [
@@ -31122,9 +31122,9 @@
                             "type": "string"
                           },
                           "version": {
-                            "type": "number",
-                            "minimum": -1.7976931348623157e+308,
-                            "maximum": 1.7976931348623157e+308
+                            "maximum": 9007199254740991,
+                            "minimum": 1,
+                            "type": "integer"
                           }
                         },
                         "required": [
@@ -31545,8 +31545,8 @@
                                             "type": "string"
                                           },
                                           "version": {
-                                            "exclusiveMinimum": 0,
-                                            "maximum": 1.7976931348623157e+308,
+                                            "maximum": 9007199254740991,
+                                            "minimum": 1,
                                             "type": "integer"
                                           }
                                         },
@@ -31638,9 +31638,9 @@
                                     "type": "string"
                                   },
                                   "version": {
-                                    "type": "number",
-                                    "minimum": -1.7976931348623157e+308,
-                                    "maximum": 1.7976931348623157e+308
+                                    "maximum": 9007199254740991,
+                                    "minimum": 1,
+                                    "type": "integer"
                                   }
                                 },
                                 "required": [
@@ -31754,8 +31754,8 @@
                                                   "type": "string"
                                                 },
                                                 "version": {
-                                                  "exclusiveMinimum": 0,
-                                                  "maximum": 1.7976931348623157e+308,
+                                                  "maximum": 9007199254740991,
+                                                  "minimum": 1,
                                                   "type": "integer"
                                                 }
                                               },
@@ -31847,9 +31847,9 @@
                                           "type": "string"
                                         },
                                         "version": {
-                                          "type": "number",
-                                          "minimum": -1.7976931348623157e+308,
-                                          "maximum": 1.7976931348623157e+308
+                                          "maximum": 9007199254740991,
+                                          "minimum": 1,
+                                          "type": "integer"
                                         }
                                       },
                                       "required": [
@@ -34514,8 +34514,8 @@
                                         "type": "string"
                                       },
                                       "version": {
-                                        "exclusiveMinimum": 0,
-                                        "maximum": 1.7976931348623157e+308,
+                                        "maximum": 9007199254740991,
+                                        "minimum": 1,
                                         "type": "integer"
                                       }
                                     },
@@ -34607,9 +34607,9 @@
                                 "type": "string"
                               },
                               "version": {
-                                "type": "number",
-                                "minimum": -1.7976931348623157e+308,
-                                "maximum": 1.7976931348623157e+308
+                                "maximum": 9007199254740991,
+                                "minimum": 1,
+                                "type": "integer"
                               }
                             },
                             "required": [
@@ -34723,8 +34723,8 @@
                                               "type": "string"
                                             },
                                             "version": {
-                                              "exclusiveMinimum": 0,
-                                              "maximum": 1.7976931348623157e+308,
+                                              "maximum": 9007199254740991,
+                                              "minimum": 1,
                                               "type": "integer"
                                             }
                                           },
@@ -34816,9 +34816,9 @@
                                       "type": "string"
                                     },
                                     "version": {
-                                      "type": "number",
-                                      "minimum": -1.7976931348623157e+308,
-                                      "maximum": 1.7976931348623157e+308
+                                      "maximum": 9007199254740991,
+                                      "minimum": 1,
+                                      "type": "integer"
                                     }
                                   },
                                   "required": [
@@ -35548,8 +35548,8 @@
                                         "type": "string"
                                       },
                                       "version": {
-                                        "exclusiveMinimum": 0,
-                                        "maximum": 1.7976931348623157e+308,
+                                        "maximum": 9007199254740991,
+                                        "minimum": 1,
                                         "type": "integer"
                                       }
                                     },
@@ -35641,9 +35641,9 @@
                                 "type": "string"
                               },
                               "version": {
-                                "type": "number",
-                                "minimum": -1.7976931348623157e+308,
-                                "maximum": 1.7976931348623157e+308
+                                "maximum": 9007199254740991,
+                                "minimum": 1,
+                                "type": "integer"
                               }
                             },
                             "required": [
@@ -35757,8 +35757,8 @@
                                               "type": "string"
                                             },
                                             "version": {
-                                              "exclusiveMinimum": 0,
-                                              "maximum": 1.7976931348623157e+308,
+                                              "maximum": 9007199254740991,
+                                              "minimum": 1,
                                               "type": "integer"
                                             }
                                           },
@@ -35850,9 +35850,9 @@
                                       "type": "string"
                                     },
                                     "version": {
-                                      "type": "number",
-                                      "minimum": -1.7976931348623157e+308,
-                                      "maximum": 1.7976931348623157e+308
+                                      "maximum": 9007199254740991,
+                                      "minimum": 1,
+                                      "type": "integer"
                                     }
                                   },
                                   "required": [
@@ -37395,8 +37395,8 @@
                                         "type": "string"
                                       },
                                       "version": {
-                                        "exclusiveMinimum": 0,
-                                        "maximum": 1.7976931348623157e+308,
+                                        "maximum": 9007199254740991,
+                                        "minimum": 1,
                                         "type": "integer"
                                       }
                                     },
@@ -37488,9 +37488,9 @@
                                 "type": "string"
                               },
                               "version": {
-                                "type": "number",
-                                "minimum": -1.7976931348623157e+308,
-                                "maximum": 1.7976931348623157e+308
+                                "maximum": 9007199254740991,
+                                "minimum": 1,
+                                "type": "integer"
                               }
                             },
                             "required": [
@@ -37604,8 +37604,8 @@
                                               "type": "string"
                                             },
                                             "version": {
-                                              "exclusiveMinimum": 0,
-                                              "maximum": 1.7976931348623157e+308,
+                                              "maximum": 9007199254740991,
+                                              "minimum": 1,
                                               "type": "integer"
                                             }
                                           },
@@ -37697,9 +37697,9 @@
                                       "type": "string"
                                     },
                                     "version": {
-                                      "type": "number",
-                                      "minimum": -1.7976931348623157e+308,
-                                      "maximum": 1.7976931348623157e+308
+                                      "maximum": 9007199254740991,
+                                      "minimum": 1,
+                                      "type": "integer"
                                     }
                                   },
                                   "required": [
@@ -39007,8 +39007,8 @@
                                               "type": "string"
                                             },
                                             "version": {
-                                              "exclusiveMinimum": 0,
-                                              "maximum": 1.7976931348623157e+308,
+                                              "maximum": 9007199254740991,
+                                              "minimum": 1,
                                               "type": "integer"
                                             }
                                           },
@@ -39100,9 +39100,9 @@
                                       "type": "string"
                                     },
                                     "version": {
-                                      "type": "number",
-                                      "minimum": -1.7976931348623157e+308,
-                                      "maximum": 1.7976931348623157e+308
+                                      "maximum": 9007199254740991,
+                                      "minimum": 1,
+                                      "type": "integer"
                                     }
                                   },
                                   "required": [
@@ -39216,8 +39216,8 @@
                                                     "type": "string"
                                                   },
                                                   "version": {
-                                                    "exclusiveMinimum": 0,
-                                                    "maximum": 1.7976931348623157e+308,
+                                                    "maximum": 9007199254740991,
+                                                    "minimum": 1,
                                                     "type": "integer"
                                                   }
                                                 },
@@ -39309,9 +39309,9 @@
                                             "type": "string"
                                           },
                                           "version": {
-                                            "type": "number",
-                                            "minimum": -1.7976931348623157e+308,
-                                            "maximum": 1.7976931348623157e+308
+                                            "maximum": 9007199254740991,
+                                            "minimum": 1,
+                                            "type": "integer"
                                           }
                                         },
                                         "required": [
@@ -39492,8 +39492,8 @@
                                             "type": "string"
                                           },
                                           "version": {
-                                            "exclusiveMinimum": 0,
-                                            "maximum": 1.7976931348623157e+308,
+                                            "maximum": 9007199254740991,
+                                            "minimum": 1,
                                             "type": "integer"
                                           }
                                         },
@@ -39585,9 +39585,9 @@
                                     "type": "string"
                                   },
                                   "version": {
-                                    "type": "number",
-                                    "minimum": -1.7976931348623157e+308,
-                                    "maximum": 1.7976931348623157e+308
+                                    "maximum": 9007199254740991,
+                                    "minimum": 1,
+                                    "type": "integer"
                                   }
                                 },
                                 "required": [
@@ -39701,8 +39701,8 @@
                                                   "type": "string"
                                                 },
                                                 "version": {
-                                                  "exclusiveMinimum": 0,
-                                                  "maximum": 1.7976931348623157e+308,
+                                                  "maximum": 9007199254740991,
+                                                  "minimum": 1,
                                                   "type": "integer"
                                                 }
                                               },
@@ -39794,9 +39794,9 @@
                                           "type": "string"
                                         },
                                         "version": {
-                                          "type": "number",
-                                          "minimum": -1.7976931348623157e+308,
-                                          "maximum": 1.7976931348623157e+308
+                                          "maximum": 9007199254740991,
+                                          "minimum": 1,
+                                          "type": "integer"
                                         }
                                       },
                                       "required": [
@@ -45541,7 +45541,7 @@
                                     "type": "string"
                                   },
                                   "version": {
-                                    "maximum": 1.7976931348623157e+308,
+                                    "maximum": 9007199254740991,
                                     "minimum": 1,
                                     "type": "integer"
                                   }
@@ -45634,7 +45634,7 @@
                             "type": "string"
                           },
                           "version": {
-                            "maximum": 16384,
+                            "maximum": 9007199254740991,
                             "minimum": 1,
                             "type": "integer"
                           }
@@ -46110,7 +46110,7 @@
                                     "type": "string"
                                   },
                                   "version": {
-                                    "maximum": 1.7976931348623157e+308,
+                                    "maximum": 9007199254740991,
                                     "minimum": 1,
                                     "type": "integer"
                                   }
@@ -46203,7 +46203,7 @@
                             "type": "string"
                           },
                           "version": {
-                            "maximum": 16384,
+                            "maximum": 9007199254740991,
                             "minimum": 1,
                             "type": "integer"
                           }
@@ -46442,8 +46442,8 @@
                                       "type": "string"
                                     },
                                     "version": {
-                                      "exclusiveMinimum": 0,
-                                      "maximum": 1.7976931348623157e+308,
+                                      "maximum": 9007199254740991,
+                                      "minimum": 1,
                                       "type": "integer"
                                     }
                                   },
@@ -46535,9 +46535,9 @@
                               "type": "string"
                             },
                             "version": {
-                              "type": "number",
-                              "minimum": -1.7976931348623157e+308,
-                              "maximum": 1.7976931348623157e+308
+                              "maximum": 9007199254740991,
+                              "minimum": 1,
+                              "type": "integer"
                             }
                           },
                           "required": [
@@ -46651,8 +46651,8 @@
                                             "type": "string"
                                           },
                                           "version": {
-                                            "exclusiveMinimum": 0,
-                                            "maximum": 1.7976931348623157e+308,
+                                            "maximum": 9007199254740991,
+                                            "minimum": 1,
                                             "type": "integer"
                                           }
                                         },
@@ -46744,9 +46744,9 @@
                                     "type": "string"
                                   },
                                   "version": {
-                                    "type": "number",
-                                    "minimum": -1.7976931348623157e+308,
-                                    "maximum": 1.7976931348623157e+308
+                                    "maximum": 9007199254740991,
+                                    "minimum": 1,
+                                    "type": "integer"
                                   }
                                 },
                                 "required": [
@@ -47066,9 +47066,9 @@
                                       "type": "string"
                                     },
                                     "version": {
-                                      "type": "number",
-                                      "minimum": -1.7976931348623157e+308,
-                                      "maximum": 1.7976931348623157e+308
+                                      "maximum": 9007199254740991,
+                                      "minimum": 1,
+                                      "type": "integer"
                                     }
                                   },
                                   "required": [
@@ -47305,8 +47305,8 @@
                                       "type": "string"
                                     },
                                     "version": {
-                                      "exclusiveMinimum": 0,
-                                      "maximum": 1.7976931348623157e+308,
+                                      "maximum": 9007199254740991,
+                                      "minimum": 1,
                                       "type": "integer"
                                     }
                                   },
@@ -47398,9 +47398,9 @@
                               "type": "string"
                             },
                             "version": {
-                              "type": "number",
-                              "minimum": -1.7976931348623157e+308,
-                              "maximum": 1.7976931348623157e+308
+                              "maximum": 9007199254740991,
+                              "minimum": 1,
+                              "type": "integer"
                             }
                           },
                           "required": [
@@ -47514,8 +47514,8 @@
                                             "type": "string"
                                           },
                                           "version": {
-                                            "exclusiveMinimum": 0,
-                                            "maximum": 1.7976931348623157e+308,
+                                            "maximum": 9007199254740991,
+                                            "minimum": 1,
                                             "type": "integer"
                                           }
                                         },
@@ -47607,9 +47607,9 @@
                                     "type": "string"
                                   },
                                   "version": {
-                                    "type": "number",
-                                    "minimum": -1.7976931348623157e+308,
-                                    "maximum": 1.7976931348623157e+308
+                                    "maximum": 9007199254740991,
+                                    "minimum": 1,
+                                    "type": "integer"
                                   }
                                 },
                                 "required": [
@@ -47929,9 +47929,9 @@
                                       "type": "string"
                                     },
                                     "version": {
-                                      "type": "number",
-                                      "minimum": -1.7976931348623157e+308,
-                                      "maximum": 1.7976931348623157e+308
+                                      "maximum": 9007199254740991,
+                                      "minimum": 1,
+                                      "type": "integer"
                                     }
                                   },
                                   "required": [
@@ -48717,7 +48717,7 @@
                                     "type": "string"
                                   },
                                   "version": {
-                                    "maximum": 1.7976931348623157e+308,
+                                    "maximum": 9007199254740991,
                                     "minimum": 1,
                                     "type": "integer"
                                   }
@@ -48810,7 +48810,7 @@
                             "type": "string"
                           },
                           "version": {
-                            "maximum": 16384,
+                            "maximum": 9007199254740991,
                             "minimum": 1,
                             "type": "integer"
                           }
@@ -49055,8 +49055,8 @@
                                       "type": "string"
                                     },
                                     "version": {
-                                      "exclusiveMinimum": 0,
-                                      "maximum": 1.7976931348623157e+308,
+                                      "maximum": 9007199254740991,
+                                      "minimum": 1,
                                       "type": "integer"
                                     }
                                   },
@@ -49148,9 +49148,9 @@
                               "type": "string"
                             },
                             "version": {
-                              "type": "number",
-                              "minimum": -1.7976931348623157e+308,
-                              "maximum": 1.7976931348623157e+308
+                              "maximum": 9007199254740991,
+                              "minimum": 1,
+                              "type": "integer"
                             }
                           },
                           "required": [
@@ -49264,8 +49264,8 @@
                                             "type": "string"
                                           },
                                           "version": {
-                                            "exclusiveMinimum": 0,
-                                            "maximum": 1.7976931348623157e+308,
+                                            "maximum": 9007199254740991,
+                                            "minimum": 1,
                                             "type": "integer"
                                           }
                                         },
@@ -49357,9 +49357,9 @@
                                     "type": "string"
                                   },
                                   "version": {
-                                    "type": "number",
-                                    "minimum": -1.7976931348623157e+308,
-                                    "maximum": 1.7976931348623157e+308
+                                    "maximum": 9007199254740991,
+                                    "minimum": 1,
+                                    "type": "integer"
                                   }
                                 },
                                 "required": [
@@ -49679,9 +49679,9 @@
                                       "type": "string"
                                     },
                                     "version": {
-                                      "type": "number",
-                                      "minimum": -1.7976931348623157e+308,
-                                      "maximum": 1.7976931348623157e+308
+                                      "maximum": 9007199254740991,
+                                      "minimum": 1,
+                                      "type": "integer"
                                     }
                                   },
                                   "required": [
@@ -50398,7 +50398,7 @@
                                     "type": "string"
                                   },
                                   "version": {
-                                    "maximum": 1.7976931348623157e+308,
+                                    "maximum": 9007199254740991,
                                     "minimum": 1,
                                     "type": "integer"
                                   }
@@ -50491,7 +50491,7 @@
                             "type": "string"
                           },
                           "version": {
-                            "maximum": 16384,
+                            "maximum": 9007199254740991,
                             "minimum": 1,
                             "type": "integer"
                           }
@@ -50967,7 +50967,7 @@
                                     "type": "string"
                                   },
                                   "version": {
-                                    "maximum": 1.7976931348623157e+308,
+                                    "maximum": 9007199254740991,
                                     "minimum": 1,
                                     "type": "integer"
                                   }
@@ -51060,7 +51060,7 @@
                             "type": "string"
                           },
                           "version": {
-                            "maximum": 16384,
+                            "maximum": 9007199254740991,
                             "minimum": 1,
                             "type": "integer"
                           }
@@ -51147,8 +51147,8 @@
                                   "type": "string"
                                 },
                                 "version": {
-                                  "exclusiveMinimum": 0,
-                                  "maximum": 1.7976931348623157e+308,
+                                  "maximum": 9007199254740991,
+                                  "minimum": 1,
                                   "type": "integer"
                                 }
                               },
@@ -51367,8 +51367,8 @@
                                       "type": "string"
                                     },
                                     "version": {
-                                      "exclusiveMinimum": 0,
-                                      "maximum": 1.7976931348623157e+308,
+                                      "maximum": 9007199254740991,
+                                      "minimum": 1,
                                       "type": "integer"
                                     }
                                   },
@@ -51460,9 +51460,9 @@
                               "type": "string"
                             },
                             "version": {
-                              "type": "number",
-                              "minimum": -1.7976931348623157e+308,
-                              "maximum": 1.7976931348623157e+308
+                              "maximum": 9007199254740991,
+                              "minimum": 1,
+                              "type": "integer"
                             }
                           },
                           "required": [
@@ -51576,8 +51576,8 @@
                                             "type": "string"
                                           },
                                           "version": {
-                                            "exclusiveMinimum": 0,
-                                            "maximum": 1.7976931348623157e+308,
+                                            "maximum": 9007199254740991,
+                                            "minimum": 1,
                                             "type": "integer"
                                           }
                                         },
@@ -51669,9 +51669,9 @@
                                     "type": "string"
                                   },
                                   "version": {
-                                    "type": "number",
-                                    "minimum": -1.7976931348623157e+308,
-                                    "maximum": 1.7976931348623157e+308
+                                    "maximum": 9007199254740991,
+                                    "minimum": 1,
+                                    "type": "integer"
                                   }
                                 },
                                 "required": [
@@ -51991,9 +51991,9 @@
                                       "type": "string"
                                     },
                                     "version": {
-                                      "type": "number",
-                                      "minimum": -1.7976931348623157e+308,
-                                      "maximum": 1.7976931348623157e+308
+                                      "maximum": 9007199254740991,
+                                      "minimum": 1,
+                                      "type": "integer"
                                     }
                                   },
                                   "required": [
@@ -52414,8 +52414,8 @@
                                         "type": "string"
                                       },
                                       "version": {
-                                        "exclusiveMinimum": 0,
-                                        "maximum": 1.7976931348623157e+308,
+                                        "maximum": 9007199254740991,
+                                        "minimum": 1,
                                         "type": "integer"
                                       }
                                     },
@@ -52507,9 +52507,9 @@
                                 "type": "string"
                               },
                               "version": {
-                                "type": "number",
-                                "minimum": -1.7976931348623157e+308,
-                                "maximum": 1.7976931348623157e+308
+                                "maximum": 9007199254740991,
+                                "minimum": 1,
+                                "type": "integer"
                               }
                             },
                             "required": [
@@ -52623,8 +52623,8 @@
                                               "type": "string"
                                             },
                                             "version": {
-                                              "exclusiveMinimum": 0,
-                                              "maximum": 1.7976931348623157e+308,
+                                              "maximum": 9007199254740991,
+                                              "minimum": 1,
                                               "type": "integer"
                                             }
                                           },
@@ -52716,9 +52716,9 @@
                                       "type": "string"
                                     },
                                     "version": {
-                                      "type": "number",
-                                      "minimum": -1.7976931348623157e+308,
-                                      "maximum": 1.7976931348623157e+308
+                                      "maximum": 9007199254740991,
+                                      "minimum": 1,
+                                      "type": "integer"
                                     }
                                   },
                                   "required": [
@@ -53607,8 +53607,8 @@
                                                 "type": "string"
                                               },
                                               "version": {
-                                                "exclusiveMinimum": 0,
-                                                "maximum": 1.7976931348623157e+308,
+                                                "maximum": 9007199254740991,
+                                                "minimum": 1,
                                                 "type": "integer"
                                               }
                                             },
@@ -53685,8 +53685,8 @@
                                       "minLength": 1
                                     },
                                     "version": {
-                                      "exclusiveMinimum": 0,
-                                      "maximum": 1.7976931348623157e+308,
+                                      "maximum": 9007199254740991,
+                                      "minimum": 1,
                                       "type": "integer"
                                     }
                                   },
@@ -54153,8 +54153,8 @@
                                                 "type": "string"
                                               },
                                               "version": {
-                                                "exclusiveMinimum": 0,
-                                                "maximum": 1.7976931348623157e+308,
+                                                "maximum": 9007199254740991,
+                                                "minimum": 1,
                                                 "type": "integer"
                                               }
                                             },
@@ -54231,8 +54231,8 @@
                                       "minLength": 1
                                     },
                                     "version": {
-                                      "exclusiveMinimum": 0,
-                                      "maximum": 1.7976931348623157e+308,
+                                      "maximum": 9007199254740991,
+                                      "minimum": 1,
                                       "type": "integer"
                                     }
                                   },
@@ -55200,7 +55200,7 @@
                                         "type": "string"
                                       },
                                       "version": {
-                                        "maximum": 1.7976931348623157e+308,
+                                        "maximum": 9007199254740991,
                                         "minimum": 1,
                                         "type": "integer"
                                       }
@@ -55293,7 +55293,7 @@
                                 "type": "string"
                               },
                               "version": {
-                                "maximum": 16384,
+                                "maximum": 9007199254740991,
                                 "minimum": 1,
                                 "type": "integer"
                               }
@@ -55782,7 +55782,7 @@
                                         "type": "string"
                                       },
                                       "version": {
-                                        "maximum": 1.7976931348623157e+308,
+                                        "maximum": 9007199254740991,
                                         "minimum": 1,
                                         "type": "integer"
                                       }
@@ -55875,7 +55875,7 @@
                                 "type": "string"
                               },
                               "version": {
-                                "maximum": 16384,
+                                "maximum": 9007199254740991,
                                 "minimum": 1,
                                 "type": "integer"
                               }
@@ -57697,7 +57697,7 @@
                                     "type": "string"
                                   },
                                   "version": {
-                                    "maximum": 1.7976931348623157e+308,
+                                    "maximum": 9007199254740991,
                                     "minimum": 1,
                                     "type": "integer"
                                   }
@@ -57790,7 +57790,7 @@
                             "type": "string"
                           },
                           "version": {
-                            "maximum": 16384,
+                            "maximum": 9007199254740991,
                             "minimum": 1,
                             "type": "integer"
                           }
@@ -64286,9 +64286,9 @@
                                     "type": "string"
                                   },
                                   "version": {
-                                    "type": "number",
-                                    "minimum": -1.7976931348623157e+308,
-                                    "maximum": 1.7976931348623157e+308
+                                    "maximum": 9007199254740991,
+                                    "minimum": 1,
+                                    "type": "integer"
                                   }
                                 },
                                 "required": [
@@ -65208,9 +65208,9 @@
                                     "type": "string"
                                   },
                                   "version": {
-                                    "type": "number",
-                                    "minimum": -1.7976931348623157e+308,
-                                    "maximum": 1.7976931348623157e+308
+                                    "maximum": 9007199254740991,
+                                    "minimum": 1,
+                                    "type": "integer"
                                   }
                                 },
                                 "required": [
@@ -65928,9 +65928,9 @@
                                       "type": "string"
                                     },
                                     "version": {
-                                      "type": "number",
-                                      "minimum": -1.7976931348623157e+308,
-                                      "maximum": 1.7976931348623157e+308
+                                      "maximum": 9007199254740991,
+                                      "minimum": 1,
+                                      "type": "integer"
                                     }
                                   },
                                   "required": [
@@ -66689,8 +66689,8 @@
                                   "type": "string"
                                 },
                                 "version": {
-                                  "exclusiveMinimum": 0,
-                                  "maximum": 1.7976931348623157e+308,
+                                  "maximum": 9007199254740991,
+                                  "minimum": 1,
                                   "type": "integer"
                                 }
                               },
@@ -66782,9 +66782,9 @@
                           "type": "string"
                         },
                         "version": {
-                          "type": "number",
-                          "minimum": -1.7976931348623157e+308,
-                          "maximum": 1.7976931348623157e+308
+                          "maximum": 9007199254740991,
+                          "minimum": 1,
+                          "type": "integer"
                         }
                       },
                       "required": [
@@ -66898,8 +66898,8 @@
                                         "type": "string"
                                       },
                                       "version": {
-                                        "exclusiveMinimum": 0,
-                                        "maximum": 1.7976931348623157e+308,
+                                        "maximum": 9007199254740991,
+                                        "minimum": 1,
                                         "type": "integer"
                                       }
                                     },
@@ -66991,9 +66991,9 @@
                                 "type": "string"
                               },
                               "version": {
-                                "type": "number",
-                                "minimum": -1.7976931348623157e+308,
-                                "maximum": 1.7976931348623157e+308
+                                "maximum": 9007199254740991,
+                                "minimum": 1,
+                                "type": "integer"
                               }
                             },
                             "required": [
@@ -67622,7 +67622,7 @@
                                 "type": "string"
                               },
                               "version": {
-                                "maximum": 1.7976931348623157e+308,
+                                "maximum": 9007199254740991,
                                 "minimum": 1,
                                 "type": "integer"
                               }
@@ -67715,7 +67715,7 @@
                         "type": "string"
                       },
                       "version": {
-                        "maximum": 16384,
+                        "maximum": 9007199254740991,
                         "minimum": 1,
                         "type": "integer"
                       }
@@ -67944,8 +67944,8 @@
                                   "type": "string"
                                 },
                                 "version": {
-                                  "exclusiveMinimum": 0,
-                                  "maximum": 1.7976931348623157e+308,
+                                  "maximum": 9007199254740991,
+                                  "minimum": 1,
                                   "type": "integer"
                                 }
                               },
@@ -68037,9 +68037,9 @@
                           "type": "string"
                         },
                         "version": {
-                          "type": "number",
-                          "minimum": -1.7976931348623157e+308,
-                          "maximum": 1.7976931348623157e+308
+                          "maximum": 9007199254740991,
+                          "minimum": 1,
+                          "type": "integer"
                         }
                       },
                       "required": [
@@ -68153,8 +68153,8 @@
                                         "type": "string"
                                       },
                                       "version": {
-                                        "exclusiveMinimum": 0,
-                                        "maximum": 1.7976931348623157e+308,
+                                        "maximum": 9007199254740991,
+                                        "minimum": 1,
                                         "type": "integer"
                                       }
                                     },
@@ -68246,9 +68246,9 @@
                                 "type": "string"
                               },
                               "version": {
-                                "type": "number",
-                                "minimum": -1.7976931348623157e+308,
-                                "maximum": 1.7976931348623157e+308
+                                "maximum": 9007199254740991,
+                                "minimum": 1,
+                                "type": "integer"
                               }
                             },
                             "required": [
@@ -68568,9 +68568,9 @@
                                   "type": "string"
                                 },
                                 "version": {
-                                  "type": "number",
-                                  "minimum": -1.7976931348623157e+308,
-                                  "maximum": 1.7976931348623157e+308
+                                  "maximum": 9007199254740991,
+                                  "minimum": 1,
+                                  "type": "integer"
                                 }
                               },
                               "required": [

@@ -50,7 +50,6 @@ export {
   type OrganizationReplacementAuthorization,
   OrganizationReplacementAuthorizationSchema,
 } from "./organizationReplacement";
-export { MAX_PRINCIPAL_STATE_VERSION } from "./principalStateWire";
 export {
   PROJECTION_HISTORY_HINT_CHARACTERS,
   ProjectionHistoryHeadersSchema,

@@ -11,6 +11,7 @@ import {
   principalStateReferenceKey,
   type StoredPrincipalState,
 } from "../../access/read/principalStateStore";
+import { beginPrincipalHistoryVerification } from "../../utils/principalHistoryWork";
 import { buildPrincipalPolicySnapshotForStateWithExecutor } from "./principalPolicyBundleRecords";
 import { PrincipalPolicyError } from "./shared";
 import { verifyStoredPolicySnapshot } from "./snapshotVerificationCache";
@@ -235,6 +236,7 @@ export async function loadVerifiedPrincipalPolicySnapshotsForReferences(
 
   const verifiedSnapshots: VerifiedSnapshot[] = [];
   for (const reference of latestByPrincipal.values()) {
+    beginPrincipalHistoryVerification();
     const snapshot = await buildPrincipalPolicySnapshotForStateWithExecutor(
       executor,
       await loadExactState(executor, reference),

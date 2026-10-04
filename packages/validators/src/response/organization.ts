@@ -1,6 +1,7 @@
 import { z } from "zod";
 import {
   arraySchema,
+  boundedPositiveIntegerSchema,
   loosePlainObject,
   nonEmptyStringSchema,
   nonNegativeIntegerSchema,
@@ -89,7 +90,7 @@ export const OrganizationGroupCurrentStateResponseShape = {
   keyFingerprint: nonEmptyStringSchema,
   memberCount: nonNegativeIntegerSchema,
   stateHash: z.string(),
-  version: positiveIntegerSchema,
+  version: boundedPositiveIntegerSchema(Number.MAX_SAFE_INTEGER),
 };
 
 export const OrganizationGroupCurrentStateResponseSchema = loosePlainObject(

@@ -47,6 +47,11 @@ import {
 import { signPrincipalStateBundle } from "./principalState";
 import type { DecryptableStoredRootFixture } from "./registeredRootKek";
 
+type PolicyCommitTransport = (
+  path: string,
+  init: RequestInit,
+) => Response | Promise<Response>;
+
 export interface SignedGroupSuccessor {
   readonly policy: VerifiedPrincipalPolicy;
   readonly request: PutPrincipalPolicyRequest;
@@ -257,10 +262,12 @@ export async function submitSuccessor(input: {
   groupId: string;
   organizationId: string;
   successor: SignedGroupSuccessor;
+  request?: PolicyCommitTransport;
 }) {
   const response = await submitOrganizationGroupPolicyCommit({
     actor: input.actor,
     groupId: input.groupId,
+    ...(input.request ? { request: input.request } : {}),
     groupPolicy: {
       ...input.successor.request,
       containerMutations: [input.containerMutation],
@@ -284,6 +291,7 @@ async function rotateRootGroupPolicy(input: {
   readonly organizationId: string;
   readonly root: DecryptableStoredRootFixture;
   readonly successor: SignedGroupSuccessor;
+  readonly request?: PolicyCommitTransport;
 }): Promise<DecryptableStoredRootFixture> {
   const rekey = await buildRootContainerRekeyMutation({
     previous: input.root,
@@ -310,9 +318,15 @@ async function rotateRootGroupPolicy(input: {
       });
     }),
   )) as unknown as Record<string, unknown>[];
+  // Match SDK principalPolicyRequestRecord: the API reloads and verifies the
+  // stored chain, so mutation artifacts contain only the current policy fields.
+  rekey.request.principalPolicies = rekey.request.principalPolicies.map(
+    ({ history: _history, ...policy }) => policy,
+  );
   const mutation = await submitSuccessor({
     actor: input.actor,
     containerMutation: rekey.request,
+    ...(input.request ? { request: input.request } : {}),
     groupId: input.groupId,
     organizationId: input.organizationId,
     successor: input.successor,
@@ -417,6 +431,7 @@ export async function rotateRootGroupMembership(input: {
   readonly groupId: string;
   readonly removedMemberUserId: string;
   readonly root: DecryptableStoredRootFixture;
+  readonly request?: PolicyCommitTransport;
 }): Promise<DecryptableStoredRootFixture> {
   const current = await loadVerifiedPrincipalPolicy(db, "group", input.groupId);
   const successor = await signGroupSuccessor({
@@ -434,6 +449,7 @@ export async function rotateRootGroupMembership(input: {
       .organizationId,
     root: input.root,
     successor,
+    ...(input.request ? { request: input.request } : {}),
   });
 }
 

@@ -1,5 +1,6 @@
 import { verifyPrincipalPolicySnapshot } from "@tearleads/crypto";
 import { ByteBudgetCache } from "../../utils/byteBudgetCache";
+import { beginPrincipalHistoryVerification } from "../../utils/principalHistoryWork";
 import { sha256Hex } from "../../utils/sha256";
 
 type SnapshotResult = Awaited<ReturnType<typeof verifyPrincipalPolicySnapshot>>;
@@ -18,6 +19,7 @@ function freezeResult(value: object): void {
 export async function verifyStoredPolicySnapshot(
   input: Parameters<typeof verifyPrincipalPolicySnapshot>[0],
 ): ReturnType<typeof verifyPrincipalPolicySnapshot> {
+  beginPrincipalHistoryVerification();
   const source = JSON.stringify(input);
   if (source.length > MAX_CACHED_SOURCE_CHARACTERS)
     return verifyPrincipalPolicySnapshot(input);
@@ -31,4 +33,9 @@ export async function verifyStoredPolicySnapshot(
     snapshots.set(key, result, JSON.stringify(result).length * 4);
   }
   return result;
+}
+
+/** Discard volatile hints when exercising cold verification after process loss. */
+export function clearStoredPolicySnapshotCache(): void {
+  snapshots.clear();
 }

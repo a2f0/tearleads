@@ -285,17 +285,23 @@ export function normalizeReferencedPrincipalHead(
     "referenced principal head",
   );
 
+  const version = readPositiveInteger(
+    record,
+    "version",
+    "referenced principal head",
+  );
+  if (!Number.isSafeInteger(version))
+    throwVerification(
+      "invalid_shape",
+      "referenced principal head version must be a safe integer",
+    );
   return {
     principalType: normalizeManagedPrincipalKind(
       record.principalType,
       "referenced principal head",
     ),
     principalId: readString(record, "principalId", "referenced principal head"),
-    version: readPositiveInteger(
-      record,
-      "version",
-      "referenced principal head",
-    ),
+    version,
     keyEpoch: readPositiveInteger(
       record,
       "keyEpoch",

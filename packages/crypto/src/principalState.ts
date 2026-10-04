@@ -1,7 +1,6 @@
 import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
 import {
   isCanonicalSignedAt,
-  MAX_PRINCIPAL_STATE_VERSION,
   SIGNED_AT_CONTRACT,
 } from "@tearleads/validators/util";
 import { ML_KEM1024_PUBLIC_KEY_BYTES } from "./encapsulation/generateKeyPair";
@@ -146,18 +145,10 @@ function isMembershipMode(
 function validatePrincipalStateIdentityFields(
   state: UnsignedPrincipalState,
 ): void {
-  if (!isValidPositiveInteger(state.version)) {
-    throw new Error("Principal state version must be a positive integer");
-  }
-  // The chain length a recovery walk can traverse is bounded, so accepting a
-  // write past that ceiling would mint history no client could page back
-  // through — the key would still exist and still be unreachable. Rejecting at
-  // write time keeps the supported domain and the recoverable domain the same
-  // set.
-  if (state.version > MAX_PRINCIPAL_STATE_VERSION) {
-    throw new Error(
-      `Principal state version must not exceed ${MAX_PRINCIPAL_STATE_VERSION}`,
-    );
+  // Versions are counters, not a lifetime history budget. Keep every value
+  // exact across JSON, JavaScript arithmetic, and the database number mapping.
+  if (!Number.isSafeInteger(state.version) || state.version < 1) {
+    throw new Error("Principal state version must be a positive safe integer");
   }
 
   if (!isValidPositiveInteger(state.keyEpoch)) {
@@ -231,7 +222,8 @@ function normalizeExternalAuthority(
   if (
     authority.principalType !== "group" ||
     authority.principalId.length === 0 ||
-    !isValidPositiveInteger(authority.version) ||
+    !Number.isSafeInteger(authority.version) ||
+    authority.version < 1 ||
     !isValidPositiveInteger(authority.keyEpoch) ||
     authority.stateHash.length === 0 ||
     authority.keyFingerprint.length === 0

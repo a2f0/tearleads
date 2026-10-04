@@ -133,7 +133,19 @@ Principal-state and access-event signature results are separately memoized by
 the exact signature, message bytes, and resolved public key. Only successful
 signature mathematics is reused; no authorization result is inferred from that
 cache. Its 8,192-entry budget evicts work, never refuses a chain. A larger chain
-or working set can still require signature verification again. Full evidence
+or working set can still require signature verification again. Principal chains
+also retain at most 128 successful signature-history digests: each binds the
+ordered transcript of exact signature bytes, canonical signed messages, and
+resolved public keys. Every replay hashes all supplied inputs again, and only
+an identical previously verified prefix can skip repeated signature mathematics.
+An appended suffix is verified normally. A second pass checks that the source
+has not changed while the transcript was computed. Cache eviction repeats work;
+authorization, commitments, chain continuity, rotation and checkpoint checks
+still run on every verification. Shape, commitment, and chain authorization
+checks precede the signature pass; a proof with multiple defects reports the
+first of those structural/authorization failures. A structurally valid proof
+with a forged signature still reports `signature_mismatch`. These local digests
+are never accepted from a server and are not protocol checkpoints. Full evidence
 loading, hashing, reconstruction, and authorization checks remain proportional
 to history; this change does not promise constant-time reads or bounded cold
 responses. Future paged cold delivery and compact witnessed checkpoints are
@@ -146,10 +158,45 @@ container rotations, deleted groups, wrong prefixes, forged successors, auth
 changes, and eviction. A signature-call probe verifies 64 entries once, reuses
 all 64 on a repeat pass, and makes only 64 further calls when extended to 128.
 
-The existing 16,384 principal-state version bound remains a separate refusal
-tracked in [#2442](https://github.com/a2f0/tearleads/issues/2442). Incremental
-transport does not remove that bound or resolve its revocation-availability
-consequence. No new lifetime history cap is introduced here.
+Principal versions have no artificial lifetime history budget. They remain
+positive exact JavaScript integers through `Number.MAX_SAFE_INTEGER`; PostgreSQL
+stores them as `bigint` and SQLite as `INTEGER`, with matching range checks on
+state and manifest-head projection columns. Overflow is rejected before hashing
+or signing. The greenfield schema baseline contains these column changes; no
+data migration or compatibility path is added. Deployment requires the
+[fresh-database reset](developer/api-persistence.md#deployment-resets).
+Policy-history artifact reads load membership and grants in batches of 100 states.
+Bulk current-head reads select the maximum version per principal in SQL and
+transfer only those rows, rather than fetching all historical signatures to
+choose heads in memory.
+
+The #2442 regression crosses the former 16,384 cutoff with complete signed group
+and organization histories, commits a membership revocation and key rotation,
+and cold-recovers an older encrypted document after losing verification markers
+and all local SDK state. The opt-in command
+`bun run --cwd packages/api test:principal-history` runs that full scenario on
+both database backends sequentially. The default API suite runs the same scenario
+at 64 versions, alongside the exact numeric-boundary crypto and storage tests.
+The full test clears durable/process manifest markers, signature caches,
+stored policy/snapshot results, and directory bindings. Run it before changes to
+history traversal, version bounds, signature caching, or cold recovery transport.
+
+Bun's socket-idle timer also counts time spent computing a response without
+sending bytes. Authentication creates a request-local capability to opt out of
+that timer; the shared principal-policy workflows invoke it when they begin
+loading or verifying history. This covers indirect authorization reads as well
+as policy commits, without depending on a route allowlist. Requests that never
+reach policy verification keep the default deadline. The loopback-only listener
+sits behind nginx's request-body limits; its existing 24-hour proxy response
+timeout is not a short work budget.
+Bounded verification scheduling remains follow-up work. The regression uses this
+production binding and the real API client for cold reads.
+The [principal-history model](../formal/container-keying/PrincipalHistory.md) checks
+revocation and cold recovery availability with negative controls for both kinds
+of cutoff. Neither the model nor the wider numeric domain promises bounded cold
+memory, transfer size, or verification time. Incremental transport remains a
+warm-cache optimization; [bounded cold recovery](https://github.com/a2f0/tearleads/issues/2448)
+tracks paged processing, resource scheduling, and any later checkpoint decisions.
 
 Both API and SDK memoize verified snapshots by a SHA-256 digest of the actual
 source bytes, trusted signer keys, expected reference, and external authority.

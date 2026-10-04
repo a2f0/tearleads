@@ -1,6 +1,7 @@
 import { z } from "zod";
 import {
   arraySchema,
+  boundedPositiveIntegerSchema,
   loosePlainObject,
   nonNegativeIntegerSchema,
   positiveIntegerSchema,
@@ -12,7 +13,7 @@ export const PrincipalStateExternalAuthorityResponseSchema = loosePlainObject({
   principalId: z.string(),
   principalType: z.literal("group"),
   stateHash: z.string(),
-  version: positiveIntegerSchema,
+  version: boundedPositiveIntegerSchema(Number.MAX_SAFE_INTEGER),
 });
 
 export type PrincipalStateExternalAuthorityResponse = z.infer<
@@ -41,7 +42,7 @@ export const PrincipalStateResponseSchema = loosePlainObject({
   signerUserId: z.string(),
   signerUserKeyFingerprint: z.string(),
   stateHash: z.string(),
-  version: z.number(),
+  version: boundedPositiveIntegerSchema(Number.MAX_SAFE_INTEGER),
 });
 
 export type PrincipalStateResponse = z.infer<
