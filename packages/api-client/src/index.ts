@@ -12,3 +12,5 @@ export type {
   RequestResultOptions,
   RequestSuccess,
 } from "./types";
+
+export { retainVerifiedProjectionHistory } from "./verifiedProjectionHistory";

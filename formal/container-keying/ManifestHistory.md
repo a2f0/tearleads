@@ -39,11 +39,14 @@ wherever the server verifies it.
 Document ancestor queries share a request-local binary ancestor index: indexing
 N manifests uses O(N log N) time and space, and each indexed lineage query
 takes O(log N). The
-index expands only down to requested floors. Incremental proof delivery, so a
-writer projection need not ship a container's full key history, is tracked in
-[#2392](https://github.com/a2f0/tearleads/issues/2392). It must
-not become a permanent lifetime-history refusal or a cap that prevents
-revocation. No existing history is trusted merely because its depth is large.
+index expands only down to requested floors. Writer projections now omit exact
+historical prefixes only when requested from the device's verified evidence
+cache; the client reconstructs the proof before ordinary verification. Cache
+loss falls back to full evidence. These transport and signature-cache
+optimizations add no lifetime-history refusal or cap preventing revocation;
+see
+[the transport contract](../../docs/projection-policy-evidence.md#cost-and-retained-history-tradeoff).
+No existing history is trusted merely because its depth is large.
 Regressions cover a full 4,098-entry verification without markers, a marked
 history that is neither walked nor re-signed, edited rows, forged markers and a
 rotated secret. The model does not abstract markers.

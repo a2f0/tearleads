@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { projectionHistoryHeaderRefinement } from "../projectionHistoryRefinements";
 import {
   ContainerNotFoundErrorResponseSchema,
   ContainerWriterProjectionErrorResponseSchema,
@@ -11,6 +12,7 @@ import {
   isDocumentWriterProjectionResponse,
   SessionFailureResponseSchema,
 } from "../response";
+import { ProjectionHistoryHeadersSchema } from "../util/projectionHistoryWire";
 import { writerProjectionResponseRuntimeRefinements } from "../writerProjectionRefinements";
 import { defineJsonOperation } from "./definition";
 
@@ -42,10 +44,14 @@ export const getContainerWriterProjectionOperation = defineJsonOperation({
   failureStatuses: [400, 401, 403, 404, 409, 500],
   id: "containers.writerProjection.get",
   method: "GET",
+  headers: ProjectionHistoryHeadersSchema,
   params: ContainerWriterProjectionPathParamsSchema,
   path: "/containers/{containerId}/writer-projection",
   responses: { 200: ContainerWriterProjectionResponseSchema },
-  runtimeRefinements: writerProjectionResponseRuntimeRefinements,
+  runtimeRefinements: [
+    ...writerProjectionResponseRuntimeRefinements,
+    projectionHistoryHeaderRefinement,
+  ],
 });
 
 export const getDocumentWriterProjectionOperation = defineJsonOperation({
@@ -61,10 +67,14 @@ export const getDocumentWriterProjectionOperation = defineJsonOperation({
   failureStatuses: [400, 401, 403, 404, 409, 500],
   id: "documents.writerProjection.get",
   method: "GET",
+  headers: ProjectionHistoryHeadersSchema,
   params: DocumentWriterProjectionPathParamsSchema,
   path: "/documents/{documentId}/writer-projection",
   responses: { 200: DocumentWriterProjectionResponseSchema },
-  runtimeRefinements: writerProjectionResponseRuntimeRefinements,
+  runtimeRefinements: [
+    ...writerProjectionResponseRuntimeRefinements,
+    projectionHistoryHeaderRefinement,
+  ],
 });
 
 export const isGetContainerWriterProjectionOperationResponse =

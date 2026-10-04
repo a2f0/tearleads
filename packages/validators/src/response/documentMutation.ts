@@ -9,6 +9,7 @@ import {
   AccessEventBundleWireResponseSchema,
   AccessManifestBundleWireResponseSchema,
 } from "../util";
+import { ProjectionHistoryPrefixesSchema } from "../util/projectionHistoryWire";
 import { ContainerKeyingPathResponseSchema } from "./container";
 import {
   type DocumentContentKeyBundleResponse,
@@ -95,6 +96,7 @@ export const DocumentPurgeResponseSchema = loosePlainObject({
 export type DocumentPurgeResponse = z.infer<typeof DocumentPurgeResponseSchema>;
 
 export const DocumentWriterProjectionResponseSchema = loosePlainObject({
+  historyPrefixes: ProjectionHistoryPrefixesSchema.optional(),
   policyEvidence: ProjectionPolicyEvidenceResponseSchema,
   authorizingContainerPaths: nonEmptyArraySchema(
     ContainerKeyingPathResponseSchema,

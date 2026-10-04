@@ -28293,6 +28293,18 @@
               "type": "string"
             },
             "style": "simple"
+          },
+          {
+            "explode": false,
+            "in": "header",
+            "name": "x-projection-history",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 4096,
+              "description": "URI-encoded JSON array of exact device-verified history prefixes (key, count, digest); at most 32 unique keys"
+            },
+            "style": "simple"
           }
         ],
         "responses": {
@@ -29463,6 +29475,37 @@
                         "groups"
                       ],
                       "additionalProperties": {}
+                    },
+                    "historyPrefixes": {
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "key": {
+                            "maxLength": 512,
+                            "minLength": 1,
+                            "type": "string"
+                          },
+                          "count": {
+                            "maximum": 9007199254740991,
+                            "minimum": 1,
+                            "type": "integer"
+                          },
+                          "digest": {
+                            "maxLength": 64,
+                            "minLength": 64,
+                            "pattern": "^[0-9a-f]+$",
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "key",
+                          "count",
+                          "digest"
+                        ],
+                        "additionalProperties": false
+                      },
+                      "maxItems": 32,
+                      "type": "array"
                     }
                   },
                   "required": [
@@ -29641,6 +29684,10 @@
           {
             "description": "a container response keyring is null exactly for container key epoch 1",
             "id": "response.organization-provisioning-container-keyring"
+          },
+          {
+            "id": "request.projection-history-prefixes",
+            "description": "x-projection-history must decode to at most 32 prefixes with unique keys, positive safe integer counts, and lowercase SHA-256 digests"
           }
         ]
       }
@@ -38820,6 +38867,18 @@
               "type": "string"
             },
             "style": "simple"
+          },
+          {
+            "explode": false,
+            "in": "header",
+            "name": "x-projection-history",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 4096,
+              "description": "URI-encoded JSON array of exact device-verified history prefixes (key, count, digest); at most 32 unique keys"
+            },
+            "style": "simple"
           }
         ],
         "responses": {
@@ -38829,6 +38888,37 @@
                 "schema": {
                   "type": "object",
                   "properties": {
+                    "historyPrefixes": {
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "key": {
+                            "maxLength": 512,
+                            "minLength": 1,
+                            "type": "string"
+                          },
+                          "count": {
+                            "maximum": 9007199254740991,
+                            "minimum": 1,
+                            "type": "integer"
+                          },
+                          "digest": {
+                            "maxLength": 64,
+                            "minLength": 64,
+                            "pattern": "^[0-9a-f]+$",
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "key",
+                          "count",
+                          "digest"
+                        ],
+                        "additionalProperties": false
+                      },
+                      "maxItems": 32,
+                      "type": "array"
+                    },
                     "policyEvidence": {
                       "type": "object",
                       "properties": {
@@ -40538,6 +40628,10 @@
           {
             "description": "a container response keyring is null exactly for container key epoch 1",
             "id": "response.organization-provisioning-container-keyring"
+          },
+          {
+            "id": "request.projection-history-prefixes",
+            "description": "x-projection-history must decode to at most 32 prefixes with unique keys, positive safe integer counts, and lowercase SHA-256 digests"
           }
         ]
       }

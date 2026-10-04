@@ -1,3 +1,4 @@
+import { retainVerifiedProjectionHistory } from "@tearleads/api-client";
 import {
   type AnyVerifiedPrincipalPolicy,
   type ContainerUserRecipientKey,
@@ -321,6 +322,7 @@ export async function verifyContainerWriterProjection(
     assertProjectionVerificationCurrent(input.stillCurrent);
     await finalizeProjectionCheckpoints(checkpointContext, input);
     assertProjectionVerificationCurrent(input.stillCurrent);
+    retainVerifiedProjectionHistory(input.projection);
     return verifiedPath;
   } catch (error) {
     throwKeyingVerificationShapeFailure(error);
@@ -366,6 +368,7 @@ export async function collectContainerWriterProjectionPrincipalPolicies(
     assertProjectionVerificationCurrent(input.stillCurrent);
     await finalizeProjectionCheckpoints(checkpointContext, input);
     assertProjectionVerificationCurrent(input.stillCurrent);
+    retainVerifiedProjectionHistory(input.projection);
     return policies;
   } catch (error) {
     throwKeyingVerificationShapeFailure(error);

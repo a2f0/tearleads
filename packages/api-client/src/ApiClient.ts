@@ -130,6 +130,7 @@ import {
   createOperationTransport,
   type OperationTransport,
 } from "./operationTransportFactory";
+import { ProjectionHistoryTransport } from "./projectionHistoryTransport";
 import {
   bindPrototypeMethods,
   cachedRequest,
@@ -236,6 +237,7 @@ const CONTAINER_ROTATIONS = {
 
 export class ApiClient {
   private readonly requestRuntime: ApiRequestRuntime;
+  private readonly projectionHistory = new ProjectionHistoryTransport();
   private readonly containerDocumentListRequestsByKey = new Map<
     string,
     Promise<ListContainerDocumentsResponse | null>
@@ -273,8 +275,12 @@ export class ApiClient {
   constructor(baseUrl?: string | null) {
     bindPrototypeMethods(this, ApiClient.prototype);
     this.requestRuntime = new ApiRequestRuntime(baseUrl);
-    this.request = this.requestRuntime.request;
-    this.requestResult = this.requestRuntime.requestResult;
+    this.request = this.projectionHistory.wrapRequest(
+      this.requestRuntime.request,
+    );
+    this.requestResult = this.projectionHistory.wrapRequestResult(
+      this.requestRuntime.requestResult,
+    );
     this.transport = createOperationTransport(
       this.requestRuntime.responseRequest,
     );
@@ -283,6 +289,7 @@ export class ApiClient {
     );
   }
   private clearAuthScopedCaches(): void {
+    this.projectionHistory.clear();
     this.containerDocumentListRequestsByKey.clear();
     this.containerParentLaneRequestsByKey.clear();
     this.documentAttachmentListRequestsByDocumentId.clear();

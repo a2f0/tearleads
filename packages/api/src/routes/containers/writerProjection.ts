@@ -11,6 +11,7 @@ import {
   getContainerWriterProjection,
 } from "../../services/containers/writerProjection";
 import type { ApiServiceRuntime } from "../../services/runtime";
+import { headersValidator } from "../../validators/headers";
 import { pathParamsValidator } from "../../validators/pathParams";
 import { respondToStatusError } from "../errorResponse";
 
@@ -30,15 +31,18 @@ export function createContainerWriterProjectionRoute({
     operationRoutePath(getContainerWriterProjectionOperation),
     requireAuth,
     pathParamsValidator(getContainerWriterProjectionOperation.params),
+    headersValidator(getContainerWriterProjectionOperation.headers),
     async (c) => {
       const { containerId } = c.req.valid("param");
       const session = c.get("session");
 
+      c.header("Cache-Control", "no-store");
       try {
         return c.json<ContainerWriterProjectionResponse>(
           await getContainerWriterProjection(runtime, {
             containerId,
             userId: session.userId,
+            historyPrefixes: c.req.valid("header")["x-projection-history"],
           }),
         );
       } catch (error) {

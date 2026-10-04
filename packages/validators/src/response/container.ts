@@ -18,6 +18,7 @@ import {
   CONTAINER_KEK_WRAPS_PER_EPOCH_LIMIT,
   ContainerKekKeyringWireRecordSchema,
 } from "../util";
+import { ProjectionHistoryPrefixesSchema } from "../util/projectionHistoryWire";
 import { containerWriterProjectionPathKekCountRefinement } from "../writerProjectionRefinements";
 import { EffectiveAccessLevelSchema } from "./accessLevel";
 import {
@@ -247,6 +248,7 @@ export const ContainerWriterProjectionResponseSchema =
     loosePlainObject({
       ...containerKeyingPathShape,
       policyEvidence: ProjectionPolicyEvidenceResponseSchema,
+      historyPrefixes: ProjectionHistoryPrefixesSchema.optional(),
     }).superRefine(refineContainerKeyingPath),
     [containerWriterProjectionPathKekCountRefinement],
   );

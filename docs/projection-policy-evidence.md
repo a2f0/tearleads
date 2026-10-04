@@ -93,33 +93,63 @@ but delivers only the distinct directory payloads containing those bindings.
 A document shares one proof set across its paths, and locally composed proofs
 merge distinct bindings rather than dropping an older deleted group's evidence.
 
-Cold state-chain size and verification still grow with retained versions; this
-is not a constant-size proof. Truncating a chain would refuse valid old citations
-or a newer local checkpoint, so this change imposes no read or commit history
-cap. Compact signed chains require separate protocol work;
-incremental delivery is tracked in
-[#2392](https://github.com/a2f0/tearleads/issues/2392). This
-tradeoff is accepted for this fix and measured by the load regression.
+Cold state-chain size and verification still grow with retained versions.
+Incremental delivery for #2392 reduces repeat transfers without replacing history
+or introducing a checkpoint authority.
 
-The #2392 finding is a valid scaling follow-up, not evidence of an authorization
-bypass or a remaining 4,096-entry refusal. The selected direction is incremental
-delivery anchored in a prefix that this device has actually verified. The API
-may omit that exact prefix only when the client identifies it; cache loss or a
-missing prefix must fall back to complete signed evidence. New devices continue
-to verify from genesis. A server-supplied hash or verification marker never
-becomes a client trust anchor, and no history cap may block reading or revocation.
+After successful SDK verification, `ApiClient` retains an isolated copy of the
+projection's historical evidence. Its next writer-projection GET can send an
+`x-projection-history` header: a URI-encoded JSON array of exact prefixes, each
+with a scope key, count, and SHA-256 digest of the complete retained entries.
+Scope keys bind the requested object, organization, evidence location, and
+principal or manifest chain. The server first performs its ordinary authorization
+and stored-evidence checks, then omits only matching prefixes and identifies them
+in the response's `historyPrefixes`. Unknown or changed bases receive full
+history. The routes disable HTTP response caching.
 
-That transport remains unimplemented. A future change must bind suffixes to the
-object, organization, prior head and trusted signer keys, retain checkpoint and
-equivocation checks on every use, and handle deleted-group references and cache
-eviction. Its tests must compare full and incremental verification, reject
-altered prefixes and wrong bases, exercise cold restart and missing-cache
-fallback, and measure transferred bytes and signature calls as history grows.
-Introducing a new compact checkpoint authority is outside this decision.
-The existing 16,384 principal-state version bound is a separate wire-contract
-refusal (see [limits.md](./limits.md#principals)); the follow-up must also
-reconcile that bound with its requirement that history growth never prevent
-revocation. Removing the manifest read cap did not remove that principal bound.
+The client accepts omissions only from the exact prefixes it requested and still
+holds. It reconstructs the evidence before normal SDK verification. Current
+heads and key material still travel; authorization, policy commitments, signer
+resolution, predecessor links, directory binding, and durable rollback and
+conflict checks still run. A server-supplied hash or verification marker never
+becomes a client trust anchor. Malformed, unsolicited, or altered prefix claims
+are rejected. Deleted-group citations retain their historical directory proofs.
+Dependency paths and principal chains preserve their order; document manifest
+history restores newest-first order for predecessor verification. Other manifest
+history collections are indexed by signed hash; reconstruction may regroup those
+unordered entries without changing their signed contents.
+
+The session-scoped history cache keeps at most 16 projections and 16 million
+serialized characters. Headers contain at most 32 hints and 4,096 encoded
+characters; these bounds limit optimization, not accepted history. Eviction,
+auth changes, and cold restart fall back to complete evidence and verification
+from genesis, constrained by existing durable security checkpoints. In-flight
+requests hold their requested prefixes; late verification cannot repopulate a
+cleared auth scope. Custom request headers do not share this cache. Current-head
+eviction retains immutable evidence so a policy change can use incremental
+transport.
+
+Principal-state and access-event signature results are separately memoized by
+the exact signature, message bytes, and resolved public key. Only successful
+signature mathematics is reused; no authorization result is inferred from that
+cache. Its 8,192-entry budget evicts work, never refuses a chain. A larger chain
+or working set can still require signature verification again. Full evidence
+loading, hashing, reconstruction, and authorization checks remain proportional
+to history; this change does not promise constant-time reads or bounded cold
+responses. Future paged cold delivery and compact witnessed checkpoints are
+separate protocol work.
+
+The API/SDK regression measures a 32-successor projection at about 343 KB cold,
+38 KB on a repeat fetch, and 47 KB after another successor, with equivalent
+verified evidence on both database backends. Further regressions cover actual
+container rotations, deleted groups, wrong prefixes, forged successors, auth
+changes, and eviction. A signature-call probe verifies 64 entries once, reuses
+all 64 on a repeat pass, and makes only 64 further calls when extended to 128.
+
+The existing 16,384 principal-state version bound remains a separate refusal
+tracked in [#2442](https://github.com/a2f0/tearleads/issues/2442). Incremental
+transport does not remove that bound or resolve its revocation-availability
+consequence. No new lifetime history cap is introduced here.
 
 Both API and SDK memoize verified snapshots by a SHA-256 digest of the actual
 source bytes, trusted signer keys, expected reference, and external authority.

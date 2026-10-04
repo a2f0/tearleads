@@ -1,0 +1,5 @@
+# #2392: writer projections now validate the optional incremental-history header.
+# Existing clients omit it; malformed supplied hints intentionally receive 400.
+# Remove both entries once main contains this request contract.
+GET /containers/{containerId}/writer-projection: request refinement 'request.projection-history-prefixes' was added; existing clients were not rejected by it.
+GET /documents/{documentId}/writer-projection: request refinement 'request.projection-history-prefixes' was added; existing clients were not rejected by it.

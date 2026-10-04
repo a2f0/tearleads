@@ -13,6 +13,7 @@ import {
   getDocumentWriterProjection,
 } from "../../services/documents/writerProjection";
 import type { ApiServiceRuntime } from "../../services/runtime";
+import { headersValidator } from "../../validators/headers";
 import { pathParamsValidator } from "../../validators/pathParams";
 
 interface DocumentWriterProjectionRouteDeps {
@@ -54,15 +55,18 @@ export function createDocumentWriterProjectionRoute({
     operationRoutePath(getDocumentWriterProjectionOperation),
     requireAuth,
     pathParamsValidator(getDocumentWriterProjectionOperation.params),
+    headersValidator(getDocumentWriterProjectionOperation.headers),
     async (c) => {
       const { documentId } = c.req.valid("param");
       const session = c.get("session");
 
+      c.header("Cache-Control", "no-store");
       try {
         return c.json<DocumentWriterProjectionResponse>(
           await getDocumentWriterProjection(runtime, {
             documentId,
             userId: session.userId,
+            historyPrefixes: c.req.valid("header")["x-projection-history"],
           }),
         );
       } catch (error) {
