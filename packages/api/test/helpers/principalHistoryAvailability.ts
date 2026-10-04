@@ -70,7 +70,7 @@ export async function assertPrincipalHistoryAvailability(
   const groupHead = await seedLongPrincipalHistory({
     actor: owner,
     policy: group,
-    throughVersion: throughVersion,
+    throughVersion,
   });
   const organization = PrincipalPolicyBundleResponseSchema.parse(
     await (await getPolicy(owner, "organization", organizationId)).json(),
@@ -93,7 +93,7 @@ export async function assertPrincipalHistoryAvailability(
   await seedLongPrincipalHistory({
     actor: owner,
     policy: organization,
-    throughVersion: throughVersion,
+    throughVersion,
     payloadCiphertext: bytesToBase64(
       new TextEncoder().encode(JSON.stringify({ ...directory, groupHeads })),
     ),

@@ -38,6 +38,10 @@ outright (`assertExactKeys`), never migrated or dual-read. Deploying any of the
 following onto a database that predates it requires the greenfield reset above
 (every server database and every client database):
 
+- #2442: principal-state versions and manifest principal-head projections use
+  PostgreSQL `bigint` and exact positive JavaScript integer range constraints.
+  Both generated schema baselines were replaced; existing databases require
+  the coordinated server/client reset before this baseline is initialized.
 - #2268: signed artifacts (events, manifests, principal states) must carry a
   canonical millisecond ISO-8601 `signedAt`; any other encoding fails
   verification.

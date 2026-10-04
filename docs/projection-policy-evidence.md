@@ -163,10 +163,12 @@ positive exact JavaScript integers through `Number.MAX_SAFE_INTEGER`; PostgreSQL
 stores them as `bigint` and SQLite as `INTEGER`, with matching range checks on
 state and manifest-head projection columns. Overflow is rejected before hashing
 or signing. The greenfield schema baseline contains these column changes; no
-data migration or compatibility path is needed. Policy-history artifact reads
-load membership and grants in batches of 100 states. Bulk current-head reads
-select the maximum version per principal in SQL and transfer only those rows,
-rather than fetching all historical signatures to choose heads in memory.
+data migration or compatibility path is added. Deployment requires the
+[fresh-database reset](developer/api-persistence.md#deployment-resets).
+Policy-history artifact reads load membership and grants in batches of 100 states.
+Bulk current-head reads select the maximum version per principal in SQL and
+transfer only those rows, rather than fetching all historical signatures to
+choose heads in memory.
 
 The #2442 regression crosses the former 16,384 cutoff with complete signed group
 and organization histories, commits a membership revocation and key rotation,
@@ -185,12 +187,11 @@ that timer; the shared principal-policy workflows invoke it when they begin
 loading or verifying history. This covers indirect authorization reads as well
 as policy commits, without depending on a route allowlist. Requests that never
 reach policy verification keep the default deadline. The loopback-only listener
-sits behind nginx's request-body
-limits; its existing 24-hour proxy response timeout is not a short work budget.
+sits behind nginx's request-body limits; its existing 24-hour proxy response
+timeout is not a short work budget.
 Bounded verification scheduling remains follow-up work. The regression uses this
 production binding and the real API client for cold reads.
-The separate
-[principal-history model](../formal/container-keying/PrincipalHistory.md) checks
+The [principal-history model](../formal/container-keying/PrincipalHistory.md) checks
 revocation and cold recovery availability with negative controls for both kinds
 of cutoff. Neither the model nor the wider numeric domain promises bounded cold
 memory, transfer size, or verification time. Incremental transport remains a
