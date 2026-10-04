@@ -1,19 +1,57 @@
+import type { PointerEvent as ReactPointerEvent } from "react";
 import "./WindowResizeHandle.css";
 
-export type ResizeCorner = "se" | "sw" | "ne" | "nw";
+type ResizeCorner = "se" | "sw" | "ne" | "nw";
+type ResizeSide = "n" | "e" | "s" | "w";
 
-export function WindowResizeHandle({
-  corner,
+// The compass point a handle drags: a corner moves two edges, a side one.
+export type ResizeEdge = ResizeCorner | ResizeSide;
+
+type ResizePointerDown = (event: ReactPointerEvent, edge: ResizeEdge) => void;
+
+// Sides first, so the corners paint over the ends of the sides and win where
+// the two meet.
+const RESIZE_EDGES: ReadonlyArray<ResizeEdge> = [
+  "n",
+  "e",
+  "s",
+  "w",
+  "se",
+  "sw",
+  "ne",
+  "nw",
+];
+
+function WindowResizeHandle({
+  edge,
   onPointerDown,
 }: {
-  corner: ResizeCorner;
-  onPointerDown: (e: React.PointerEvent, corner: ResizeCorner) => void;
+  edge: ResizeEdge;
+  onPointerDown: ResizePointerDown;
 }) {
   return (
     <div
       role="none"
-      className={`window-resize window-resize--${corner}`}
-      onPointerDown={(e) => onPointerDown(e, corner)}
+      className={`window-resize window-resize--${edge}`}
+      onPointerDown={(event) => onPointerDown(event, edge)}
     />
+  );
+}
+
+export function WindowResizeHandles({
+  handleResizePointerDown,
+}: {
+  handleResizePointerDown: ResizePointerDown;
+}) {
+  return (
+    <>
+      {RESIZE_EDGES.map((edge) => (
+        <WindowResizeHandle
+          edge={edge}
+          key={edge}
+          onPointerDown={handleResizePointerDown}
+        />
+      ))}
+    </>
   );
 }

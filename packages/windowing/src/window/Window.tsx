@@ -26,8 +26,7 @@ import {
   useWindowViewMenuItems,
   WindowMenuProvider,
 } from "./WindowMenuContext";
-import type { ResizeCorner } from "./WindowResizeHandle";
-import { WindowResizeHandle } from "./WindowResizeHandle";
+import { WindowResizeHandles } from "./WindowResizeHandle";
 import {
   hasWindowSidebar,
   useWindowSidebar,
@@ -53,12 +52,23 @@ export type WindowContentBoundary = ComponentType<
 
 interface WindowProps {
   ContentBoundary?: WindowContentBoundary | undefined;
+  /**
+   * Whether the toolbar offers Back through the window's own route history,
+   * reserving its row from the start (see `WindowToolBar`). Defaults to whether
+   * the window has an `appId`. Pass false for an app that never routes, so its
+   * window shows a toolbar only when the app registers toolbar actions.
+   */
+  historyBack?: boolean | undefined;
   windowId: string;
 }
 
 const WINDOW_STATUS_MESSAGE_DURATION_MS = 2500;
 
-export function Window({ ContentBoundary, windowId }: WindowProps) {
+export function Window({
+  ContentBoundary,
+  historyBack,
+  windowId,
+}: WindowProps) {
   const { windowMap, windows } = useWindowStateData();
   const entry = windowMap.get(windowId);
   const isTop =
@@ -71,6 +81,7 @@ export function Window({ ContentBoundary, windowId }: WindowProps) {
     <WindowInner
       ContentBoundary={ContentBoundary}
       entry={entry}
+      historyBack={historyBack ?? entry.appId !== undefined}
       isTop={isTop}
     />
   );
@@ -234,38 +245,27 @@ function useWindowToolbarSuppression() {
   return { suppressToolbar, toolbarSuppressed: suppressionCount > 0 };
 }
 
-function WindowResizeHandles({
-  handleResizePointerDown,
-}: {
-  handleResizePointerDown: (
-    event: ReactPointerEvent,
-    corner: ResizeCorner,
-  ) => void;
-}) {
-  return (
-    <>
-      <WindowResizeHandle corner="se" onPointerDown={handleResizePointerDown} />
-      <WindowResizeHandle corner="sw" onPointerDown={handleResizePointerDown} />
-      <WindowResizeHandle corner="ne" onPointerDown={handleResizePointerDown} />
-      <WindowResizeHandle corner="nw" onPointerDown={handleResizePointerDown} />
-    </>
-  );
-}
-
 interface WindowInnerProps {
   ContentBoundary?: WindowContentBoundary | undefined;
   entry: WindowEntry;
+  historyBack: boolean;
   // Whether this is the foremost visible window, the one that takes focus.
   isTop: boolean;
 }
 
-function WindowInner({ ContentBoundary, entry, isTop }: WindowInnerProps) {
+function WindowInner({
+  ContentBoundary,
+  entry,
+  historyBack,
+  isTop,
+}: WindowInnerProps) {
   return (
     <WindowMenuProvider>
       <WindowSidebarProvider>
         <WindowInnerContent
           ContentBoundary={ContentBoundary}
           entry={entry}
+          historyBack={historyBack}
           isTop={isTop}
         />
       </WindowSidebarProvider>
@@ -278,6 +278,7 @@ function WindowInner({ ContentBoundary, entry, isTop }: WindowInnerProps) {
 function WindowChrome({
   actions,
   entry,
+  historyBack,
   onGoBack,
   onPointerDown,
   titleId,
@@ -285,6 +286,7 @@ function WindowChrome({
 }: {
   actions: ReturnType<typeof useWindowActions>;
   entry: WindowEntry;
+  historyBack: boolean;
   onGoBack: () => void;
   onPointerDown: (event: ReactPointerEvent) => void;
   titleId: string;
@@ -306,7 +308,7 @@ function WindowChrome({
       {!toolbarSuppressed && (
         <WindowToolBar
           canGoBack={(entry.routeHistory?.length ?? 0) > 0}
-          showHistoryBack={entry.appId !== undefined}
+          showHistoryBack={historyBack}
           onGoBack={onGoBack}
         />
       )}
@@ -343,6 +345,7 @@ function useWindowRootHandlers(windowId: string) {
 function WindowInnerContent({
   ContentBoundary,
   entry,
+  historyBack,
   isTop,
 }: WindowInnerProps) {
   const { maximized, minimized, zIndex, component: Component } = entry;
@@ -403,6 +406,7 @@ function WindowInnerContent({
       <WindowChrome
         actions={actions}
         entry={entry}
+        historyBack={historyBack}
         onGoBack={handleGoBack}
         onPointerDown={handlePointerDown}
         titleId={titleId}

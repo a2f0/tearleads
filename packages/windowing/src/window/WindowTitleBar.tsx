@@ -15,6 +15,7 @@ export interface WindowTitleBarAction {
   id: string;
   label: string;
   onClick: () => void;
+  pressed?: boolean;
 }
 
 export function WindowTitleBar({
