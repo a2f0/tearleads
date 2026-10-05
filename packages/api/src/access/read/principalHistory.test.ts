@@ -1,4 +1,4 @@
-import { expect, spyOn, test } from "bun:test";
+import { expect, test } from "bun:test";
 import { db } from "@tearleads/api-shared/postgres";
 import {
   principalContainerGrantProjection,
@@ -7,6 +7,7 @@ import {
 } from "@tearleads/api-shared/schema";
 import { createTestUser } from "@tearleads/bob-and-alice";
 import { eq } from "drizzle-orm";
+import { observeQueries } from "../../../test/helpers/observeDatabaseQueries";
 import { registerAndAuthenticate } from "../../../test/helpers/principalPolicyReadFixtures";
 import { listGroupHistoryThroughHeads } from "./principalHistory";
 
@@ -64,22 +65,21 @@ test("history reads batch over 100 heads and states without including successors
       accessLevel: "read" as const,
     })),
   );
-  const select = spyOn(db, "select");
-  try {
-    const history = await listGroupHistoryThroughHeads(db, rows);
-    expect(select).toHaveBeenCalledTimes(6);
-    expect(history.map((entry) => entry.state.stateHash).sort()).toEqual(
-      rows.map((row) => row.stateHash).sort(),
-    );
-    for (const entry of history) {
-      expect(entry.projection).toMatchObject([
-        { userId: user.userId, stateHash: entry.state.stateHash },
-      ]);
-      expect(entry.grants).toMatchObject([
-        { containerId, accessLevel: "read", stateHash: entry.state.stateHash },
-      ]);
-    }
-  } finally {
-    select.mockRestore();
+  const queries: unknown[][] = [];
+  const history = await listGroupHistoryThroughHeads(
+    observeQueries(db, queries),
+    rows,
+  );
+  expect(queries).toHaveLength(6);
+  expect(history.map((entry) => entry.state.stateHash).sort()).toEqual(
+    rows.map((row) => row.stateHash).sort(),
+  );
+  for (const entry of history) {
+    expect(entry.projection).toMatchObject([
+      { userId: user.userId, stateHash: entry.state.stateHash },
+    ]);
+    expect(entry.grants).toMatchObject([
+      { containerId, accessLevel: "read", stateHash: entry.state.stateHash },
+    ]);
   }
 });
