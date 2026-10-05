@@ -26,8 +26,7 @@ const loaders = [
       reference.stateHash,
     ),
   (executor: typeof db) => listGroupHistoryThroughHeads(executor, [reference]),
-  (executor: typeof db) =>
-    listPrincipalStateHistory("group", reference.principalId, executor),
+  (executor: typeof db) => listPrincipalStateHistory(reference, executor),
 ];
 
 for (const [index, load] of loaders.entries()) {
