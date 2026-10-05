@@ -22,6 +22,7 @@ export function createWindowEntry(
     initialY: y,
     ...(options.position ? { position: { ...options.position } } : {}),
     ...(options.size ? { size: { ...options.size } } : {}),
+    ...(options.fitToContent ? { fitToContent: true } : {}),
     maximized: false,
     minimized: false,
     zIndex,

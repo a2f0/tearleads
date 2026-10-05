@@ -382,7 +382,7 @@ function WindowInnerContent({
     ...stepped
   } = useWindowGeometry(entry, maximized, windowRef);
   const { showStatusMessage, statusText } = useWindowStatusMessage();
-  const { geometryMenuItems, setContentSize } = useWindowGeometryMenu(
+  const { contentFit, geometryMenuItems } = useWindowGeometryMenu(
     entry,
     stepped,
     { overlayHost, windowRef },
@@ -436,7 +436,7 @@ function WindowInnerContent({
         id={entry.id}
         overlayHost={overlayHost}
         setBackground={setBackground}
-        setContentSize={setContentSize}
+        {...contentFit}
         showStatusMessage={showStatusMessage}
         suppressToolbar={suppressToolbar}
       >

@@ -79,6 +79,14 @@ content keeps its width even when a status message briefly takes height from
 the body. Last, the window moves as far as it must to stay on the surface.
 `undefined` withdraws the item.
 
+To open a window already fitted, pass `fitToContent: true` to `create`. The
+window fits once, as Fit to Content would, when its content has loaded and
+reported its size. Content reports its load by calling
+`useCurrentWindow()?.markContentLoaded?.()`, for example once a page has
+rendered. A later call does nothing. A window that is maximized when its
+content loads, as a host might open it on a narrow screen, stays maximized,
+and a window on a hidden surface fits once the surface shows.
+
 ## Slots
 
 - **`ContentBoundary`** — `Window` renders a window's component inside this

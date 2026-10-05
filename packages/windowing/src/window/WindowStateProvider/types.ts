@@ -42,6 +42,9 @@ export interface WindowEntry {
   // Without size the window takes its stylesheet's default size.
   position?: WindowPosition | undefined;
   size?: WindowSize | undefined;
+  // Whether the window fits itself to its content once the content has loaded
+  // (see WindowCreateOptions).
+  fitToContent?: boolean | undefined;
   // maximized and minimized live here rather than inside Window so the taskbar
   // can drive both without reaching into a window's local state.
   maximized: boolean;
@@ -52,6 +55,10 @@ export interface WindowEntry {
 
 export interface WindowCreateOptions {
   appId?: string;
+  // Opens the window fitted to its content, as View > Fit to Content would fit
+  // it: once the content has marked itself loaded and reported its natural
+  // size. A window maximized by then stays maximized.
+  fitToContent?: boolean | undefined;
   initialShowSidebar?: boolean | undefined;
   pathSegments?: ReadonlyArray<string> | undefined;
   // Surface-relative geometry to open with, such as a restored layout. A
