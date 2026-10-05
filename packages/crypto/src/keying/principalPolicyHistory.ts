@@ -1,14 +1,32 @@
 import type { PrincipalStateExternalAuthority } from "../principalState";
 import { normalizeReferencedPrincipalHead } from "./accessEvent";
 import {
+  normalizeCanonicalJsonValue,
+  serializeKeyingCanonicalJson,
+} from "./canonical";
+import {
   normalizePrincipalHistoryInput,
   verifyPrincipalHistoryCheckpoint,
 } from "./principalPolicyHistoryChecks";
 import { verifyPrincipalHistoryPage } from "./principalPolicyHistoryPage";
 import {
+  normalizeAuthenticatedPrincipalHistoryProgress,
+  type PrincipalHistoryProgress,
+} from "./principalPolicyHistoryProgress";
+import {
+  capturePrincipalHistoryAuthority,
+  capturePrincipalHistoryProgressEntry,
+} from "./principalPolicyHistoryProgressEntry";
+import {
+  openPrincipalHistoryProgress,
+  ownPrincipalHistoryProgressProtection,
+  sealPrincipalHistoryProgress,
+} from "./principalPolicyHistoryProgressProtection";
+import {
   makeVerifiedPrincipalPolicyHistory,
   type PrincipalPolicyHistoryInput,
   type PrincipalPolicyHistoryPage,
+  type PrincipalPolicyHistoryProgressOptions,
   type PrincipalPolicyHistoryVerifier,
   type VerifiedPrincipalPolicyHistory,
 } from "./principalPolicyHistoryTypes";
@@ -33,8 +51,18 @@ class PrincipalPolicyHistoryVerifierImpl
   >();
   #appending = false;
 
-  constructor(input: PrincipalPolicyHistoryInput) {
+  constructor(
+    input: PrincipalPolicyHistoryInput,
+    progress?: PrincipalHistoryProgress,
+  ) {
     this.#input = normalizePrincipalHistoryInput(input);
+    if (progress) {
+      this.#previous = progress.previous ?? undefined;
+      this.#latestAuthority = progress.latestAuthority;
+      this.#checkpointHash = progress.checkpointHash ?? undefined;
+      for (const entry of progress.retained)
+        this.#retained.set(entry.state.version, entry);
+    }
   }
 
   append(page: PrincipalPolicyHistoryPage) {
@@ -77,6 +105,35 @@ class PrincipalPolicyHistoryVerifierImpl
         "invalid_shape",
         "principal history append in progress",
       );
+  }
+
+  exportProgress(options: PrincipalPolicyHistoryProgressOptions) {
+    return runVerifier(async () => {
+      this.#assertIdle();
+      // Capture a complete accepted prefix before the first yield. A later
+      // append cannot change this snapshot or publish a partial page into it.
+      const plaintext = serializeKeyingCanonicalJson(
+        normalizeCanonicalJsonValue(
+          {
+            previous: this.#previous
+              ? capturePrincipalHistoryProgressEntry(this.#previous)
+              : null,
+            latestAuthority: this.#latestAuthority
+              ? capturePrincipalHistoryAuthority(this.#latestAuthority)
+              : null,
+            checkpointHash: this.#checkpointHash ?? null,
+            retained: [...this.#retained.values()].map(
+              capturePrincipalHistoryProgressEntry,
+            ),
+          },
+          "principal history progress",
+        ),
+      );
+      return sealPrincipalHistoryProgress(
+        plaintext,
+        ownPrincipalHistoryProgressProtection(this.#input, options),
+      );
+    });
   }
 
   finish(
@@ -133,9 +190,45 @@ export function createPrincipalPolicyHistoryVerifier(
   input: PrincipalPolicyHistoryInput,
 ): PrincipalPolicyHistoryVerifier {
   const verifier = new PrincipalPolicyHistoryVerifierImpl(input);
+  return publicVerifier(verifier);
+}
+
+function publicVerifier(
+  verifier: PrincipalPolicyHistoryVerifierImpl,
+): PrincipalPolicyHistoryVerifier {
   return {
     append: (page: PrincipalPolicyHistoryPage) => verifier.append(page),
     finish: (expectedHead: ReferencedPrincipalHead) =>
       verifier.finish(expectedHead),
+    exportProgress: (options: PrincipalPolicyHistoryProgressOptions) =>
+      verifier.exportProgress(options),
   };
+}
+
+/** Restore only progress authenticated by this verifier's own local key. */
+export function restorePrincipalPolicyHistoryVerifier(
+  input: PrincipalPolicyHistoryInput,
+  progress: string,
+  protection: PrincipalPolicyHistoryProgressOptions,
+): Promise<KeyingVerificationResult<PrincipalPolicyHistoryVerifier>> {
+  return runVerifier(async () => {
+    const normalized = normalizePrincipalHistoryInput(input);
+    const ownedInput: PrincipalPolicyHistoryInput = {
+      principalId: normalized.principalId,
+      principalType: normalized.principalType,
+      localCheckpoint: normalized.checkpoint,
+      retainedReferences: normalized.references,
+    };
+    const decoded = await openPrincipalHistoryProgress(
+      progress,
+      ownPrincipalHistoryProgressProtection(normalized, protection),
+    );
+    const authenticated = await normalizeAuthenticatedPrincipalHistoryProgress(
+      decoded,
+      normalized,
+    );
+    return publicVerifier(
+      new PrincipalPolicyHistoryVerifierImpl(ownedInput, authenticated),
+    );
+  });
 }

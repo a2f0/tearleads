@@ -1,5 +1,12 @@
 import { generateKemSeedAndKeyPair } from "../encapsulation/generateKeyPair";
-import { createPrincipalPolicyHistoryVerifier } from "./principalPolicyHistory";
+import {
+  createPrincipalPolicyHistoryVerifier,
+  restorePrincipalPolicyHistoryVerifier,
+} from "./principalPolicyHistory";
+import type {
+  PrincipalPolicyHistoryInput,
+  PrincipalPolicyHistoryVerifier,
+} from "./principalPolicyHistoryTypes";
 import {
   createPolicySigner,
   signPolicyState,
@@ -51,4 +58,23 @@ export async function historyFixture() {
       principalType: "group",
     });
   return { shared, signer, first, second, third, create };
+}
+
+export async function roundTripHistoryVerifier(
+  verifier: PrincipalPolicyHistoryVerifier,
+  input: PrincipalPolicyHistoryInput,
+): Promise<PrincipalPolicyHistoryVerifier> {
+  const protection = {
+    localKey: crypto.getRandomValues(new Uint8Array(32)),
+    context: "history-test-restart",
+  };
+  const saved = await verifier.exportProgress(protection);
+  if (!saved.ok) throw saved.error;
+  const restored = await restorePrincipalPolicyHistoryVerifier(
+    input,
+    saved.value,
+    protection,
+  );
+  if (!restored.ok) throw restored.error;
+  return restored.value;
 }
