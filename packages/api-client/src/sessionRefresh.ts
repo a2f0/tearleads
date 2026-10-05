@@ -11,6 +11,7 @@ interface SessionRefreshInput {
   readonly body: RequestBody | undefined;
   readonly code: string | null;
   readonly getCurrentAuthToken: () => string | null;
+  readonly isKnownSessionRenewal: (from: string, to: string) => boolean;
   readonly options: RequestResultOptions;
   readonly refreshSession: () => boolean | Promise<boolean>;
   readonly reportError: (message: string) => void;
@@ -35,6 +36,8 @@ export async function shouldRetryAfterSessionExpired(
 
   const currentAuthToken = input.getCurrentAuthToken();
   if (currentAuthToken && currentAuthToken !== input.authToken) {
+    if (input.isKnownSessionRenewal(input.authToken, currentAuthToken))
+      input.options.onSessionRenewed?.();
     return true;
   }
 

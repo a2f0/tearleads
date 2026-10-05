@@ -313,7 +313,11 @@ async function submitGroupPolicyCommit(input: {
   );
   if (first.ok) return first.data;
   if (first.kind === "cancelled") return null;
-  if (first.kind === "outcome-unknown") throw new Error(first.message);
+  if (first.kind === "outcome-unknown")
+    throw new Error(
+      first.message ??
+        "Policy request may have committed; refresh before retrying",
+    );
   if (
     !input.carryDescendantRekeys ||
     first.code !== CONTAINER_MUTATION_ERROR_CODES.descendantRekeysRequired ||
@@ -348,7 +352,11 @@ async function submitGroupPolicyCommit(input: {
   );
   if (!second.ok) {
     if (second.kind === "cancelled") return null;
-    if (second.kind === "outcome-unknown") throw new Error(second.message);
+    if (second.kind === "outcome-unknown")
+      throw new Error(
+        second.message ??
+          "Policy request may have committed; refresh before retrying",
+      );
     second.report?.();
     return null;
   }

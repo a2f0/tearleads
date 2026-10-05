@@ -36,7 +36,7 @@ test("principal policy operations own their HTTP contracts", () => {
     400: ErrorResponseSchema,
     401: SessionFailureResponseSchema,
     403: ErrorResponseSchema,
-    409: PrincipalPolicyErrorResponseSchema,
+    409: ErrorResponseSchema,
     500: ErrorResponseSchema,
     503: ErrorResponseSchema,
   });

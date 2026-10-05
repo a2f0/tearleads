@@ -51,7 +51,7 @@ export const getPrincipalPolicyOperation = defineJsonOperation({
     400: ErrorResponseSchema,
     401: SessionFailureResponseSchema,
     403: ErrorResponseSchema,
-    409: PrincipalPolicyErrorResponseSchema,
+    409: ErrorResponseSchema,
     500: ErrorResponseSchema,
   },
   failureStatuses: [400, 401, 403, 409, 500],

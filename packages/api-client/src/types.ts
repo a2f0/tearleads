@@ -29,7 +29,7 @@ export interface RequestResultOptions {
   readonly expectedPaymentRequiredOrganizationId?: string | undefined;
   readonly headers?: Record<string, string> | undefined;
   readonly reportErrors?: boolean | undefined;
-  /** Called only after this request successfully renews its expired session. */
+  /** Called after this request or a concurrent request renews the same session. */
   readonly onSessionRenewed?: (() => void) | undefined;
   readonly retryOnSessionExpired?: boolean | "renew-only" | undefined;
 }

@@ -77,6 +77,10 @@ async function readResponse(
     [],
     input.operation,
   );
+  // Authentication rejection precedes the workflow, so renewal does not make
+  // this write's outcome uncertain. Reads may restart after a known renewal.
+  if (!response.ok && response.kind === "http" && response.status === 401)
+    return response;
   if (context.cancelled())
     return context.failure(response.ok ? response.data : undefined);
   if (!response.ok) return response;

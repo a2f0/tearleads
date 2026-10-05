@@ -250,8 +250,11 @@ Only this response permits an automatic retry of the same serialized request.
 The API client validates it, preserves the original request bytes, and stops on
 transport failure, cancellation, or an authentication-token change. A timeout
 does not establish whether a mutation committed.
-A GET can restart once after its own successful session renewal. Writes invoke
-renewal without replaying under a replacement token. A token change or abort after
+A GET can restart once after its own successful session renewal or a recorded
+renewal of the same session by another request. Unrelated token replacements
+cannot restart the read. Writes invoke renewal without replaying under a
+replacement token; an explicit 401 remains a definite, retryable HTTP rejection.
+A token change or abort after
 submitting a write returns `outcome-unknown`: the mutation may have committed,
 and the caller must refresh state before retrying. Late responses cannot be
 applied under another authentication context. Reads and writes accept abort

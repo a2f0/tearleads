@@ -67178,13 +67178,6 @@
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "code": {
-                      "type": "string",
-                      "enum": [
-                        "billing_checkout_no_active_members",
-                        "billing_roster_over_capacity"
-                      ]
-                    },
                     "error": {
                       "type": "string"
                     }
