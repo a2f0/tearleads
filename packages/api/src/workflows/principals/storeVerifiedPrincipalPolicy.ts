@@ -1,4 +1,5 @@
 import type { DatabaseTransaction } from "@tearleads/api-shared/postgres";
+import { getCurrentPrincipalState } from "../../access/read/principalStateStore";
 import { replaceCurrentPrincipalMemberEnvelopesInTransaction } from "../../access/write/principalMemberEnvelopes";
 import {
   type PrincipalStateBundleInput,
@@ -6,7 +7,11 @@ import {
   type StoreVerifiedPrincipalStateOptions,
   storeVerifiedPrincipalStateInTransaction,
 } from "../../access/write/principalStateStore";
-import { verifyStoredPrincipalPolicyForStateWithExecutor } from "./getCurrentPrincipalPolicy";
+import {
+  getVerifiedPrincipalPolicyForStateWithExecutor,
+  verifyStoredPrincipalPolicyForStateWithExecutor,
+} from "./getCurrentPrincipalPolicy";
+import { withPrincipalHistorySuccessorStep } from "./principalHistoryExecution";
 
 /**
  * Persist all artifacts, verify the stored state against authenticated history,
@@ -20,6 +25,13 @@ export async function storeVerifiedPrincipalPolicyInTransaction(
   tx: DatabaseTransaction,
   options?: StoreVerifiedPrincipalStateOptions,
 ): Promise<StoredPrincipalState> {
+  const previous = await getCurrentPrincipalState(
+    input.state.principalType,
+    input.state.principalId,
+    tx,
+  );
+  if (previous)
+    await getVerifiedPrincipalPolicyForStateWithExecutor(tx, previous);
   const state = await storeVerifiedPrincipalStateInTransaction(
     input,
     tx,
@@ -34,7 +46,9 @@ export async function storeVerifiedPrincipalPolicyInTransaction(
     },
     tx,
   );
-  await verifyStoredPrincipalPolicyForStateWithExecutor(tx, state);
+  await withPrincipalHistorySuccessorStep(() =>
+    verifyStoredPrincipalPolicyForStateWithExecutor(tx, state),
+  );
 
   return state;
 }

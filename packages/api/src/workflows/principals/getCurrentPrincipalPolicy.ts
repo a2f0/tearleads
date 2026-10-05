@@ -13,10 +13,11 @@ import {
   type StoredPrincipalState,
 } from "../../access/read/principalStateStore";
 import { beginPrincipalHistoryVerification } from "../../utils/principalHistoryWork";
+import { preparePrincipalHistory } from "./preparePrincipalHistory";
 import {
-  preparePrincipalHistory,
-  principalHistoryPreparationBudget,
-} from "./preparePrincipalHistory";
+  principalHistoryExecutionBudget,
+  requirePrincipalHistoryContinuation,
+} from "./principalHistoryExecution";
 import { principalHistoryError } from "./principalHistoryRecords";
 import {
   buildPrincipalPolicyCurrentForStateWithExecutor,
@@ -61,14 +62,15 @@ async function verifyCurrent(
     head: currentState,
     kind,
     retainedReferences,
-    budget: principalHistoryPreparationBudget(),
+    budget: principalHistoryExecutionBudget(),
   });
   while (!prepared.complete) {
+    requirePrincipalHistoryContinuation(prepared.request);
     prepared = await preparePrincipalHistory(executor, {
       head: currentState,
       kind,
       retainedReferences,
-      budget: principalHistoryPreparationBudget(),
+      budget: principalHistoryExecutionBudget(),
     });
   }
   const authority = currentState.externalAuthority;

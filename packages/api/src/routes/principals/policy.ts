@@ -18,7 +18,10 @@ import {
   commitOrganizationGroupPolicy,
   putPrincipalPolicy,
 } from "../../services/principals/putPrincipalPolicy";
-import { PrincipalPolicyError } from "../../services/principals/shared";
+import {
+  PrincipalHistoryContinuation,
+  PrincipalPolicyError,
+} from "../../services/principals/shared";
 import type { ApiServiceRuntime } from "../../services/runtime";
 import { publishBestEffort } from "../../utils/publishBestEffort";
 import { jsonRequestValidator } from "../../validators/jsonRequest";
@@ -89,6 +92,11 @@ async function publishPrincipalAccessChanges(
 }
 
 function toPrincipalPolicyErrorResponse(error: unknown): Response | null {
+  if (error instanceof PrincipalHistoryContinuation)
+    return Response.json(
+      { code: error.code, committed: false },
+      { status: 202, headers: { "Cache-Control": "no-store" } },
+    );
   if (error instanceof PrincipalPolicyError) {
     const body = {
       error: error.message,

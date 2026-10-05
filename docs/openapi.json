@@ -47997,6 +47997,31 @@
             },
             "description": "Successful JSON response"
           },
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string",
+                      "const": "principal_history_preparation_pending"
+                    },
+                    "committed": {
+                      "type": "boolean",
+                      "const": false
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "committed"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            },
+            "description": "The attempted operation rolled back. Retry the identical request to continue verification preparation."
+          },
           "400": {
             "content": {
               "application/json": {
@@ -67046,6 +67071,31 @@
             },
             "description": "Successful JSON response"
           },
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string",
+                      "const": "principal_history_preparation_pending"
+                    },
+                    "committed": {
+                      "type": "boolean",
+                      "const": false
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "committed"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            },
+            "description": "The attempted operation rolled back. Retry the identical request to continue verification preparation."
+          },
           "400": {
             "content": {
               "application/json": {
@@ -68628,6 +68678,31 @@
               }
             },
             "description": "Successful JSON response"
+          },
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string",
+                      "const": "principal_history_preparation_pending"
+                    },
+                    "committed": {
+                      "type": "boolean",
+                      "const": false
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "committed"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            },
+            "description": "The attempted operation rolled back. Retry the identical request to continue verification preparation."
           },
           "400": {
             "content": {

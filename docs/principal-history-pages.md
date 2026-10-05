@@ -220,3 +220,30 @@ history capability. This detects replaced historical signatures or projections
 after progress was saved, without replaying signatures. The complete response
 still requires linear hashing and retained memory until the wire contract is
 paged; the 128-state index batches do not impose a lifetime history limit.
+
+## Principal HTTP preparation
+
+The principal-policy read, organization-policy write, and compound group-policy
+commit share a preparation budget inside their operation transaction. Incomplete
+verification rolls back that entire transaction before a preparation batch runs
+outside it. The response then has status 202 and the strict JSON body
+`{"code":"principal_history_preparation_pending","committed":false}`.
+Only this response permits an automatic retry of the same serialized request.
+The API client validates it, preserves the original request bytes, and stops on
+transport failure, cancellation, or an authentication-token change. A timeout
+does not establish whether a mutation committed.
+These requests disable automatic session-refresh replay: authentication renewal
+requires a new caller attempt, and late responses cannot cross a token change.
+
+Dependency continuations identify the required policy or strict Admins history.
+When rollback removes a newly inserted successor, preparation uses its committed
+predecessor; future citations and the successor are checked again on the next
+attempt. Each final transaction repeats current authorization and head checks.
+Its newly inserted successor has a separate one-entry verification allowance.
+
+This is still a partial transport integration: other workflows can collect cold
+history within one request, the successful wire response still contains full
+history, and durable exact-replay acknowledgements remain required. The preferred
+entry/byte/time budgets do not bound a single large state's artifacts or all
+proof selection and cache publication work. Keep #2442 and #2448 open until paged
+SDK recovery, short acknowledgements, and the full resource-bound tests pass.

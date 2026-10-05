@@ -31,6 +31,7 @@ import {
 } from "./managedPrincipalRosterMembership";
 import { assertPrincipalOrganizationIsSyncEntitled } from "./organizationSync";
 import { applyPrincipalContainerRematerializations } from "./principalContainerRematerialization";
+import { runPrincipalHistoryTransaction } from "./principalHistoryTransaction";
 import { lockPrincipalMutationInTransaction } from "./principalMutationLock";
 import { assertPolicyAuthorityConstraints } from "./principalPolicyAuthorityConstraints";
 import {
@@ -415,7 +416,7 @@ export async function runPutPrincipalPolicyWorkflow(
   assertStandalonePrincipalPolicyWrite(input.expectedPrincipalType);
 
   try {
-    return await db.transaction((tx) =>
+    return await runPrincipalHistoryTransaction(db, (tx) =>
       putPrincipalPolicyInTransaction(tx, input),
     );
   } catch (error) {

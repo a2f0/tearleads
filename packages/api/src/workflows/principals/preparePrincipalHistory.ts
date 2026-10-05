@@ -14,6 +14,10 @@ import {
   resetBufferedPrincipalHistoryProgress,
   saveBufferedPrincipalHistoryNodes,
 } from "./principalHistoryCache";
+import type {
+  PrincipalHistoryPreparationPending,
+  PrincipalHistoryPreparationRequest,
+} from "./principalHistoryPreparationRequest";
 import { principalHistoryProtection } from "./principalHistoryProtection";
 import {
   principalHistoryError,
@@ -51,7 +55,7 @@ export type PrincipalHistoryPreparation =
       readonly complete: true;
       readonly history: VerifiedPrincipalPolicyHistory;
     }
-  | { readonly complete: false };
+  | PrincipalHistoryPreparationPending;
 
 function canPrepare(budget: PrincipalHistoryPreparationBudget): boolean {
   return (
@@ -66,7 +70,14 @@ async function prepareAuthority(
   executor: DatabaseSession,
   entry: PrincipalPolicyStateChainEntry,
   budget: PrincipalHistoryPreparationBudget,
-): Promise<PrincipalPolicyExternalAuthority | null> {
+): Promise<
+  | {
+      readonly complete: true;
+      readonly authority: PrincipalPolicyExternalAuthority;
+      readonly request: PrincipalHistoryPreparationRequest;
+    }
+  | PrincipalHistoryPreparationPending
+> {
   const reference = entry.state.externalAuthority;
   if (!reference)
     throw principalHistoryError("policy", "external authority is missing");
@@ -77,19 +88,26 @@ async function prepareAuthority(
   );
   if (!current)
     throw principalHistoryError("authority", "external authority is missing");
-  const prepared = await preparePrincipalHistory(executor, {
-    head: current,
+  const request: PrincipalHistoryPreparationRequest = {
+    head: principalHistoryHead(current),
     kind: "authority",
     retainedReferences: [reference],
+  };
+  const prepared = await preparePrincipalHistory(executor, {
+    ...request,
     budget,
   });
-  if (!prepared.complete) return null;
+  if (!prepared.complete) return prepared;
   return {
-    currentHead: { ...principalHistoryHead(current), principalType: "group" },
-    states: prepared.history.retainedEntries.map(({ state, projection }) => ({
-      head: { ...principalHistoryHead(state), principalType: "group" },
-      projection,
-    })),
+    complete: true,
+    request,
+    authority: {
+      currentHead: { ...principalHistoryHead(current), principalType: "group" },
+      states: prepared.history.retainedEntries.map(({ state, projection }) => ({
+        head: { ...principalHistoryHead(state), principalType: "group" },
+        projection,
+      })),
+    },
   };
 }
 
@@ -99,7 +117,7 @@ async function appendStoredEntry(input: {
   readonly entry: PrincipalPolicyStateChainEntry;
   readonly kind: PrincipalHistoryVerificationKind;
   readonly budget: PrincipalHistoryPreparationBudget;
-}): Promise<boolean> {
+}): Promise<{ readonly complete: true } | PrincipalHistoryPreparationPending> {
   const { entry, kind, budget, executor, verifier } = input;
   if (
     kind === "authority" &&
@@ -122,9 +140,14 @@ async function appendStoredEntry(input: {
     entry.state.externalAuthority &&
     entry.state.externalAuthority.principalId !== entry.state.principalId
   ) {
-    const externalAuthority = await prepareAuthority(executor, entry, budget);
-    if (!externalAuthority || !canPrepare(budget)) return false;
-    result = await verifier.append({ ...page, externalAuthority });
+    const authority = await prepareAuthority(executor, entry, budget);
+    if (!authority.complete) return authority;
+    if (!canPrepare(budget))
+      return { complete: false, request: authority.request };
+    result = await verifier.append({
+      ...page,
+      externalAuthority: authority.authority,
+    });
   }
   if (!result.ok) throw principalHistoryError(kind, result.error.message);
   await saveBufferedPrincipalHistoryNodes(executor, result.value.indexNodes);
@@ -137,7 +160,7 @@ async function appendStoredEntry(input: {
   budget.remainingBytes -=
     Buffer.byteLength(JSON.stringify(entry)) +
     Buffer.byteLength(JSON.stringify(result.value.indexNodes));
-  return true;
+  return { complete: true };
 }
 
 /**
@@ -170,6 +193,10 @@ export async function preparePrincipalHistory(
     principalId: head.principalId,
     retainedReferences: [],
   };
+  const pending: PrincipalHistoryPreparationPending = {
+    complete: false,
+    request: { head, kind, retainedReferences: references },
+  };
   const local = principalHistoryProtection(input, kind);
   try {
     const resumed = await resumeStoredPrincipalHistory(
@@ -180,9 +207,10 @@ export async function preparePrincipalHistory(
     );
     // Removing one unusable hint is bounded progress; the next request can
     // resume an earlier hint without repeatedly selecting this invalid row.
-    if (resumed.discarded) return { complete: false };
+    if (resumed.discarded) return pending;
     let version = resumed.throughVersion;
     let acceptedHead: ReferencedPrincipalHead | undefined;
+    let dependency: PrincipalHistoryPreparationPending | undefined;
     while (version < head.version && canPrepare(budget)) {
       const entry = await readPrincipalHistoryEntry(
         executor,
@@ -190,16 +218,17 @@ export async function preparePrincipalHistory(
         version + 1,
         kind,
       );
-      if (
-        !(await appendStoredEntry({
-          executor,
-          verifier: resumed.verifier,
-          entry,
-          kind,
-          budget,
-        }))
-      )
+      const appended = await appendStoredEntry({
+        executor,
+        verifier: resumed.verifier,
+        entry,
+        kind,
+        budget,
+      });
+      if (!appended.complete) {
+        dependency = appended;
         break;
+      }
       version = entry.state.version;
       acceptedHead = entry.state;
     }
@@ -210,7 +239,7 @@ export async function preparePrincipalHistory(
         acceptedHead,
         local,
       );
-    if (version !== head.version) return { complete: false };
+    if (version !== head.version) return dependency ?? pending;
     const finished = resumed.verifier.finish(head);
     if (!finished.ok) throw principalHistoryError(kind, finished.error.message);
     const selected = await selectStoredPrincipalHistoryReferences(
@@ -224,7 +253,7 @@ export async function preparePrincipalHistory(
         ...local.scope,
         throughVersion: head.version,
       });
-      return { complete: false };
+      return pending;
     }
     return { complete: true, history: selected };
   } finally {

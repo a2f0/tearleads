@@ -3,6 +3,7 @@ import type { ManagedRecipientPrincipalType } from "@tearleads/crypto";
 import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
 import { getCurrentPrincipalState } from "../../access/read/principalStateStore";
 import { getPrincipalPolicyForStateWithExecutor } from "./getCurrentPrincipalPolicy";
+import { runPrincipalHistoryTransaction } from "./principalHistoryTransaction";
 import { assertPrincipalPolicyReadable } from "./principalPolicyReadAuthorization";
 import { PrincipalPolicyError } from "./shared";
 
@@ -23,7 +24,7 @@ export async function runReadCurrentPrincipalPolicyWorkflow(
     readonly requesterUserId: string;
   },
 ): Promise<PrincipalPolicyBundleResponse> {
-  return db.transaction(async (tx) => {
+  return runPrincipalHistoryTransaction(db, async (tx) => {
     const currentState = await getCurrentPrincipalState(
       input.principalType,
       input.principalId,

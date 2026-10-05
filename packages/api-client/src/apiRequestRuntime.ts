@@ -331,6 +331,7 @@ export class ApiRequestRuntime {
     const init: RequestInit & { duplex?: "half" } = {
       method,
       headers: this.buildHeaders(body, options.headers, authToken),
+      ...(options.signal ? { signal: options.signal } : {}),
     };
     if (body !== undefined) {
       init.body = body;

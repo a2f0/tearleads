@@ -19,6 +19,7 @@ import {
   PrincipalPolicyMutationResponseSchema,
   SessionFailureResponseSchema,
 } from "../response";
+import { PrincipalHistoryPreparationResponseSchema } from "../response/principalHistoryPreparation";
 import { uuidV4StringSchema } from "../schema";
 import { defineJsonOperation } from "./definition";
 
@@ -40,6 +41,10 @@ export type OrganizationGroupPolicyPathParams = z.infer<
   typeof OrganizationGroupPolicyPathParamsSchema
 >;
 
+const preparationResponseDescriptions = {
+  202: "The attempted operation rolled back. Retry the identical request to continue verification preparation.",
+} as const;
+
 export const getPrincipalPolicyOperation = defineJsonOperation({
   auth: "session",
   failureResponses: {
@@ -53,8 +58,10 @@ export const getPrincipalPolicyOperation = defineJsonOperation({
   method: "GET",
   params: PrincipalPolicyPathParamsSchema,
   path: "/principals/{principalType}/{principalId}/policy",
+  responseDescriptions: preparationResponseDescriptions,
   responses: {
     200: PrincipalPolicyBundleResponseSchema,
+    202: PrincipalHistoryPreparationResponseSchema,
   },
 });
 
@@ -76,8 +83,10 @@ export const putPrincipalPolicyOperation = defineJsonOperation({
   method: "PUT",
   params: PrincipalPolicyPathParamsSchema,
   path: "/principals/{principalType}/{principalId}/policy",
+  responseDescriptions: preparationResponseDescriptions,
   responses: {
     200: PrincipalPolicyMutationResponseSchema,
+    202: PrincipalHistoryPreparationResponseSchema,
   },
   runtimeRefinements: [organizationProvisioningContainerKeyringRefinement],
 });
@@ -100,8 +109,10 @@ export const commitOrganizationGroupPolicyOperation = defineJsonOperation({
   method: "PUT",
   params: OrganizationGroupPolicyPathParamsSchema,
   path: "/organizations/{organizationId}/groups/{groupId}/policy-commit",
+  responseDescriptions: preparationResponseDescriptions,
   responses: {
     200: CommitOrganizationGroupPolicyResponseSchema,
+    202: PrincipalHistoryPreparationResponseSchema,
   },
   runtimeRefinements: [organizationProvisioningContainerKeyringRefinement],
 });

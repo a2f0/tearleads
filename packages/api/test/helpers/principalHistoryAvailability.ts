@@ -2,6 +2,7 @@ import { expect } from "bun:test";
 import { ApiClient } from "@tearleads/api-client";
 import { db } from "@tearleads/api-shared/postgres";
 import {
+  principalHistoryIndexNodes,
   principalHistoryProgress,
   principalMemberEnvelopes,
   principalMembershipProjection,
@@ -10,6 +11,7 @@ import {
 import { createTestUser } from "@tearleads/bob-and-alice";
 import { clearPrincipalPolicySignatureCaches } from "@tearleads/crypto/principal-policy-test-fixtures";
 import { bytesToBase64 } from "@tearleads/encoding";
+import { commitOrganizationGroupPolicyOperation } from "@tearleads/validators/operation";
 import { PrincipalPolicyBundleResponseSchema } from "@tearleads/validators/response";
 import { MAX_MULTIPART_BLOB_PART_BYTES } from "@tearleads/validators/util";
 import { and, count, desc, eq } from "drizzle-orm";
@@ -107,12 +109,43 @@ export async function assertPrincipalHistoryAvailability(
       routeApp.fetch(request, createRequestLifetimeBindings(request, server)),
   });
   let requestBytes = 0;
+  let preparationResponses = 0;
   const transport = async (path: string, init: RequestInit) => {
     if (typeof init.body !== "string")
       throw new Error("Expected JSON policy commit");
     requestBytes = new TextEncoder().encode(init.body).byteLength;
     expect(requestBytes).toBeLessThan(200_000);
-    return fetch(new URL(path, server.url), init);
+    // Request construction reads stored policy through test helpers. Discard
+    // the verification hints that setup warmed before exercising HTTP work.
+    await db.delete(principalHistoryProgress);
+    await db.delete(principalHistoryIndexNodes);
+    clearPrincipalPolicySignatureCaches();
+    clearStoredPolicySnapshotCache();
+    clearProjectionDirectoryBindingsCache();
+    while (true) {
+      const response = await fetch(new URL(path, server.url), {
+        ...init,
+        signal: AbortSignal.timeout(15_000),
+      });
+      if (response.status !== 202) return response;
+      expect(
+        commitOrganizationGroupPolicyOperation.responses[202].safeParse(
+          await response.json(),
+        ).success,
+      ).toBe(true);
+      preparationResponses += 1;
+      // This is a test's stuck-progress guard, not a protocol history ceiling.
+      expect(preparationResponses).toBeLessThan(throughVersion * 4);
+      for (const id of [granted.groupId, organizationId]) {
+        const [head] = await db
+          .select({ version: principalStates.version })
+          .from(principalStates)
+          .where(eq(principalStates.principalId, id))
+          .orderBy(desc(principalStates.version))
+          .limit(1);
+        expect(head?.version).toBe(throughVersion);
+      }
+    }
   };
   let rotated: Awaited<ReturnType<typeof rotateRootGroupMembership>>;
   try {
@@ -127,6 +160,7 @@ export async function assertPrincipalHistoryAvailability(
     await server.stop(true);
   }
   expect(requestBytes).toBeGreaterThan(0);
+  expect(preparationResponses).toBeGreaterThan(0);
   expect(rotated.plaintextKek).not.toEqual(granted.root.plaintextKek);
   for (const [kind, id] of [
     ["group", granted.groupId],
@@ -185,6 +219,7 @@ export async function assertPrincipalHistoryAvailability(
   clearPrincipalPolicySignatureCaches();
   clearStoredPolicySnapshotCache();
   await db.delete(principalHistoryProgress);
+  await db.delete(principalHistoryIndexNodes);
   clearProjectionDirectoryBindingsCache();
   const coldServer = Bun.serve({
     hostname: "127.0.0.1",

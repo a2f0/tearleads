@@ -24,6 +24,7 @@ export type ListDocumentEditAttributionRangesOptions = Omit<
 };
 
 export interface RequestResultOptions {
+  readonly signal?: AbortSignal | undefined;
   /** Expected target for a declared 402; mismatched response identities fail closed. */
   readonly expectedPaymentRequiredOrganizationId?: string | undefined;
   readonly headers?: Record<string, string> | undefined;

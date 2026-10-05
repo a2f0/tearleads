@@ -23745,6 +23745,20 @@ export interface operations {
                     };
                 };
             };
+            /** @description The attempted operation rolled back. Retry the identical request to continue verification preparation. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        code: "principal_history_preparation_pending";
+                        /** @constant */
+                        committed: false;
+                    };
+                };
+            };
             /** @description Failure JSON response */
             400: {
                 headers: {
@@ -24860,6 +24874,20 @@ export interface operations {
                     };
                 };
             };
+            /** @description The attempted operation rolled back. Retry the identical request to continue verification preparation. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        code: "principal_history_preparation_pending";
+                        /** @constant */
+                        committed: false;
+                    };
+                };
+            };
             /** @description Failure JSON response */
             400: {
                 headers: {
@@ -25370,6 +25398,20 @@ export interface operations {
                         })[];
                     } & {
                         [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description The attempted operation rolled back. Retry the identical request to continue verification preparation. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        code: "principal_history_preparation_pending";
+                        /** @constant */
+                        committed: false;
                     };
                 };
             };
