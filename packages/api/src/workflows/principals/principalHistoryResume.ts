@@ -6,11 +6,11 @@ import {
   type ReferencedPrincipalHead,
   restorePrincipalPolicyHistoryVerifier,
 } from "@tearleads/crypto";
-import { selectPrincipalHistoryProgress } from "../../access/read/principalHistoryProgress";
 import {
-  discardPrincipalHistoryProgress,
-  upsertPrincipalHistoryProgress,
-} from "../../access/write/principalHistoryProgress";
+  discardBufferedPrincipalHistoryProgress,
+  saveBufferedPrincipalHistoryProgress,
+  selectBufferedPrincipalHistoryProgress,
+} from "./principalHistoryCache";
 import type { principalHistoryProtection } from "./principalHistoryProtection";
 import {
   assertPrincipalHistoryEntryUnchanged,
@@ -32,7 +32,7 @@ export async function resumeStoredPrincipalHistory(
 }> {
   // Validate server-owned scope/reference input even if there is no saved row.
   const initial = createPrincipalPolicyHistoryVerifier(input);
-  const saved = await selectPrincipalHistoryProgress(executor, {
+  const saved = await selectBufferedPrincipalHistoryProgress(executor, {
     ...local.scope,
     throughVersion,
   });
@@ -59,7 +59,7 @@ export async function resumeStoredPrincipalHistory(
         };
       }
     }
-    await discardPrincipalHistoryProgress(executor, saved);
+    await discardBufferedPrincipalHistoryProgress(executor, saved);
   }
   return { verifier: initial, throughVersion: 0, discarded: saved !== null };
 }
@@ -82,7 +82,7 @@ export async function saveStoredPrincipalHistory(
       local.scope.verificationKind,
       exported.error.message,
     );
-  await upsertPrincipalHistoryProgress(executor, {
+  await saveBufferedPrincipalHistoryProgress(executor, {
     ...local.scope,
     principalType: head.principalType,
     principalId: head.principalId,

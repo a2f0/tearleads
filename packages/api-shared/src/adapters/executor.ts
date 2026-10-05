@@ -1,3 +1,4 @@
+import { databaseTransactionCompletion } from "./transactionCompletion";
 import type { DatabaseSession, DatabaseTransaction } from "./types";
 
 /**
@@ -6,16 +7,18 @@ import type { DatabaseSession, DatabaseTransaction } from "./types";
  * Drizzle pins a transaction to a single pooled connection, so every query it
  * issues multiplexes onto one `pg` client. The root database, by contrast,
  * hands each query its own pooled connection. We detect a transaction via
- * `rollback`, which drizzle exposes on transaction objects but never on the
- * root database surface.
+ * the managed adapter's completion scope, including SQLite's asynchronous
+ * bridge. For an unwrapped Drizzle transaction, `rollback` distinguishes it
+ * from the root database surface.
  */
-function isDatabaseTransaction(
+export function isDatabaseTransaction(
   executor: DatabaseSession,
 ): executor is DatabaseTransaction {
   return (
-    typeof executor === "object" &&
-    executor !== null &&
-    typeof Reflect.get(executor, "rollback") === "function"
+    databaseTransactionCompletion(executor) !== undefined ||
+    (typeof executor === "object" &&
+      executor !== null &&
+      typeof Reflect.get(executor, "rollback") === "function")
   );
 }
 

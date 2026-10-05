@@ -41,7 +41,8 @@ async function verifyCurrent(
   kind: PrincipalHistoryVerificationKind,
 ): Promise<VerifiedPrincipalPolicyCurrentBundle> {
   beginPrincipalHistoryVerification();
-  // Each preparation batch is durable in the caller's executor. HTTP
+  // Batches are reusable in the caller's scope; transaction-local hints are
+  // published after commit. Autocommit preparation saves each batch. HTTP
   // continuation must move these batches outside the final write transaction;
   // this collector by itself does not bound the duration of a cold request.
   let prepared = await preparePrincipalHistory(executor, {

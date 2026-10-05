@@ -9,6 +9,7 @@ import pg, { type PoolConfig } from "pg";
 import * as schema from "../schema";
 import { readApiDatabaseKind } from "../schema/dialect";
 import { createSqliteApiDatabase } from "./sqliteAdapter";
+import { withDatabaseTransactionCompletion } from "./transactionCompletion";
 import { createTursoApiDatabase } from "./tursoAdapter";
 import type {
   ApiDatabaseKind,
@@ -18,7 +19,8 @@ import type {
 
 const { Pool } = pg;
 
-export { gatherWithExecutor } from "./executor";
+export { gatherWithExecutor, isDatabaseTransaction } from "./executor";
+export { databaseTransactionCompletion } from "./transactionCompletion";
 
 export type {
   ApiDatabase,
@@ -291,7 +293,7 @@ function createMemoryApiDatabase(): ManagedApiDatabase {
   const db = drizzle({ client, schema });
 
   return {
-    db,
+    db: withDatabaseTransactionCompletion(db),
     kind: "memory",
     close: () => client.close(),
     migrate: (options) =>
@@ -306,7 +308,7 @@ function createPostgresApiDatabase(env: ApiDatabaseEnv): ManagedApiDatabase {
   const db = drizzleNodePostgres({ client: pool, schema });
 
   return {
-    db,
+    db: withDatabaseTransactionCompletion(db),
     kind: "postgres",
     close: () => pool.end(),
     migrate: (options) =>

@@ -135,7 +135,12 @@ The private server key, verification revision, policy/strict-Admins mode, scope,
 and retained citations bind each record. Lookup columns are untrusted hints;
 restoration authenticates the exact saved head and rechecks its final stored
 state, projection, grants, and signer identity. Changed rules or keys start
-verification again. Hints written inside a transaction roll back with it.
+verification again. Transactions buffer hints and publish each row in its own
+autocommit after success, so readers cannot deadlock by locking hint rows in
+opposite orders. Publication failures are reported without changing the
+transaction result. Rolled-back hints are discarded; conditional deletion of
+an invalid hint can run after rollback. Savepoint effects wait for the outer
+transaction to finish.
 
 Preparation shares a preferred 32-entry, 2 MiB, five-second budget across a
 policy and its authority dependency. At least one entry can advance even if it

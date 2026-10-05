@@ -7,6 +7,7 @@ import {
 import { migrate as migrateBunSqlite } from "drizzle-orm/bun-sqlite/migrator";
 import * as schema from "../schema";
 import { unsafeCoerce } from "../unsafeCoerce.js";
+import { withDatabaseTransactionCompletion } from "./transactionCompletion";
 import type {
   ApiDatabase,
   ApiDatabaseSurface,
@@ -238,7 +239,7 @@ export function createSqliteApiDatabase(
   const dbBridge = createSerializedSqliteBridge(client, sqliteDb);
 
   return {
-    db: unsafeCoerce<ApiDatabase>(dbBridge),
+    db: withDatabaseTransactionCompletion(unsafeCoerce<ApiDatabase>(dbBridge)),
     kind: "sqlite",
     close: async () => client.close(),
     migrate: async (migrateOptions) => {
