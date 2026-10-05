@@ -1,6 +1,10 @@
 import type { PrincipalStateExternalAuthority } from "../principalState";
 import { normalizeReferencedPrincipalHead } from "./accessEvent";
 import type { normalizePrincipalHistoryInput } from "./principalPolicyHistoryChecks";
+import {
+  normalizePrincipalHistoryIndexFrontier,
+  principalHistoryIndexRoot,
+} from "./principalPolicyHistoryIndex";
 import { normalizeAuthenticatedPrincipalHistoryEntry } from "./principalPolicyHistoryProgressEntry";
 import { PRINCIPAL_HISTORY_PAGE_ENTRY_LIMIT } from "./principalPolicyHistoryTypes";
 import { principalPolicyStateMatchesReference } from "./principalPolicyReference";
@@ -12,6 +16,8 @@ import {
 import type { NormalizedPrincipalPolicyStateChainEntry } from "./types";
 
 export interface PrincipalHistoryProgress {
+  readonly indexFrontier: readonly (string | null)[];
+  readonly indexRootHash: string | null;
   readonly previous: NormalizedPrincipalPolicyStateChainEntry | null;
   readonly latestAuthority: PrincipalStateExternalAuthority | null;
   readonly checkpointHash: string | null;
@@ -24,7 +30,13 @@ export async function normalizeAuthenticatedPrincipalHistoryProgress(
 ): Promise<PrincipalHistoryProgress> {
   const record = assertExactKeys(
     value,
-    ["previous", "latestAuthority", "checkpointHash", "retained"],
+    [
+      "previous",
+      "latestAuthority",
+      "checkpointHash",
+      "retained",
+      "indexFrontier",
+    ],
     "principal history progress",
   );
   if (
@@ -53,7 +65,18 @@ export async function normalizeAuthenticatedPrincipalHistoryProgress(
   const retained: NormalizedPrincipalPolicyStateChainEntry[] = [];
   for (const entry of record.retained)
     retained.push(await normalizeAuthenticatedPrincipalHistoryEntry(entry));
-  const progress = { previous, latestAuthority, checkpointHash, retained };
+  const indexFrontier = normalizePrincipalHistoryIndexFrontier(
+    record.indexFrontier,
+    previous?.state.version ?? 0,
+  );
+  const progress = {
+    previous,
+    latestAuthority,
+    checkpointHash,
+    retained,
+    indexFrontier,
+    indexRootHash: await principalHistoryIndexRoot(indexFrontier),
+  };
   assertProgressConsistency(progress, input);
   assertRetainedReferences(progress, input);
   return progress;

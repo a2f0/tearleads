@@ -50,6 +50,10 @@ export {
   createPrincipalPolicyHistoryVerifier,
   restorePrincipalPolicyHistoryVerifier,
 } from "./principalPolicyHistory";
+export type { PrincipalHistoryIndexNode } from "./principalPolicyHistoryIndex";
+export { createPrincipalHistoryIndexProof } from "./principalPolicyHistoryIndex";
+export type { PrincipalPolicyHistoryReferenceProof } from "./principalPolicyHistoryReferences";
+export { verifyPrincipalPolicyHistoryReferences } from "./principalPolicyHistoryReferences";
 export type {
   PrincipalPolicyHistoryInput,
   PrincipalPolicyHistoryPage,

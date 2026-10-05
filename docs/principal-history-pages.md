@@ -13,8 +13,9 @@ and finishing during an append fail closed with `invalid_shape`; that code can
 also describe malformed page data. Pages must be contiguous; duplicate, skipped,
 wrong-principal, and forked successors are rejected.
 
-Between pages it retains the latest checked entry, the most recent external
-admin citation, the observed local-checkpoint hash, and explicitly requested
+Between pages it retains an index frontier (at most 53 hashes), the latest
+checked entry, the most recent external admin citation, the observed
+local-checkpoint hash, and explicitly requested
 historical entries. A page conflicting with the local checkpoint is rejected
 after its signatures pass, before publishing its progress. Uncited states
 preserve the prior external-admin citation, so a later page cannot roll
@@ -35,6 +36,35 @@ The returned verifier has result-returning `append` and `finish` methods. These
 are batch/retention limits, not lifetime policy-version limits. A caller
 processing more historical references can consume successive verified prefixes
 in bounded batches.
+
+An accepted append also returns content-addressed `indexNodes`. These are
+untrusted proof material for a Merkle index whose leaves bind each accepted
+entry's six head fields and exact signature bytes. Only accepted pages advance
+the private root. The node-hashing and inclusion-proof routines are shared with
+the transparency tree; the principal-history leaf has a separate hash domain.
+This does not introduce a transparency authority, witness or gossip dependency.
+
+`createPrincipalHistoryIndexProof` reads at most one node per tree level from a
+caller-owned node store. It validates every node's hash while constructing a
+proof. `verifyPrincipalPolicyHistoryReferences({ history, references })` checks
+up to 128 requested entries against the private root of an issued history
+capability. It checks their head fields, signed-state hash, projection and grant
+commitments, and proof position/size; it does not repeat signature verification.
+An independently signed fork is insufficient: the exact entry must belong to
+this accepted prefix. Proof paths have at most 53 hashes.
+
+Successful selection returns a new capability containing only those references
+and the current entry. It does not grow the original selection or verifier.
+Changing selections therefore needs no genesis replay. Callers that need this
+reuse should export progress with a stable empty retained-reference selection,
+then select references after finishing. The progress input binding itself still
+requires exact normalized inputs on restoration.
+
+Callers persist returned nodes alongside accepted progress; missing nodes require
+rebuilding proof material from verified pages. Node rows cannot establish a
+trusted root, and public result-field edits cannot replace the private root.
+The frontier uses logarithmic verifier memory; retaining nodes for every observed
+prefix can use O(N log N) storage. This component does not prune that store.
 
 The entry budget bounds history depth per append, not the size of one signed
 projection or grant set. Transport code must bound serialized bytes, dependency
@@ -64,7 +94,9 @@ The implementation derives a key per normalized binding with HKDF-SHA-256 and
 encrypts the snapshot with AES-256-GCM and a fresh random nonce. Its authenticated
 data binds the verification revision, local operation context, principal scope,
 local checkpoint, and requested references. The snapshot preserves the predecessor,
-authority citation, checkpoint connection, and retained entries.
+authority citation, checkpoint connection, retained entries, and index frontier.
+The frontier's shape must match the accepted prefix length. The v3 format has no
+older-format reader; previously saved formats are discarded and reverified.
 
 `restorePrincipalPolicyHistoryVerifier(input, savedProgress, protection)`
 returns a verifier only after authenticating and checking the saved state.
