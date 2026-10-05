@@ -1,7 +1,8 @@
 {
   "name": "@tearleads/api",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "private": true,
+  "license": "UNLICENSED",
   "type": "module",
   "scripts": {
     "build": "bun scripts/buildApiExecutable.ts && bun scripts/buildBlobGcExecutable.ts && bun scripts/buildStripeSeatSyncExecutable.ts",
