@@ -181,6 +181,12 @@ function useWindowActions(
   };
 }
 
+// The window paints with `--window-background`, which a background its content
+// sets (see `useWindowBackground`) overrides inline.
+interface WindowStyle extends CSSProperties {
+  "--window-background"?: string | undefined;
+}
+
 function getWindowStyle(
   maximized: boolean,
   position: WindowPosition | null,
@@ -352,6 +358,7 @@ function WindowInnerContent({
   const windowRef = useRef<HTMLElement>(null);
   const titleId = useId();
   const [overlayHost, setOverlayHost] = useState<HTMLElement | null>(null);
+  const [background, setBackground] = useState<string | undefined>();
   const fileMenuItems = useWindowFileMenuItems();
   const viewMenuItems = useWindowViewMenuItems();
   const { sidebar } = useWindowSidebar();
@@ -384,7 +391,10 @@ function WindowInnerContent({
   const { suppressToolbar, toolbarSuppressed } = useWindowToolbarSuppression();
   const { handleGoBack, handleWindowPointerDown, windowContextMenuTrapProps } =
     useWindowRootHandlers(entry.id);
-  const style = getWindowStyle(maximized, position, size, zIndex);
+  const style: WindowStyle = {
+    ...getWindowStyle(maximized, position, size, zIndex),
+    "--window-background": background,
+  };
 
   if (minimized) {
     return null;
@@ -416,6 +426,7 @@ function WindowInnerContent({
         close={actions.handleClose}
         id={entry.id}
         overlayHost={overlayHost}
+        setBackground={setBackground}
         showStatusMessage={showStatusMessage}
         suppressToolbar={suppressToolbar}
       >

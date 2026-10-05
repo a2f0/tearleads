@@ -78,8 +78,9 @@ resizes a window programmatically.
 - **`appId`** — an opaque string a host attaches when creating a window. The
   window layer only stores and compares it; the host interprets it.
 
-Windows register their own menu items, title-bar actions, a Back action, and a
-sidebar through the `useWindow*` hooks, from inside the window's content.
+Windows register their own menu items, title-bar actions, a Back action, a
+sidebar, and a background through the `useWindow*` hooks, from inside the
+window's content.
 
 ## Toolbar
 
@@ -123,6 +124,17 @@ Several defaults derive from `--color-dark`, the foreground: the window edge
 and `--emphasis-text`), and `--color-hairline`. A dark theme that sets only the
 `--color-*` primitives gets near-white edges and chips, so set these too, as
 Tearleads' dark theme does.
+
+The window paints its background, behind its body and sidebar, with
+`--window-background`. `tokens.css` leaves it unset, so it falls back to
+`--color-light` wherever that is set, including a scoped theme. Content sets
+its own window's background with `useWindowBackground`, while it is mounted;
+`undefined` keeps the default. A document viewer can use it to set its page
+apart from the window around it:
+
+```tsx
+useWindowBackground(`color-mix(in srgb, ${foreground} 10%, ${page})`);
+```
 
 The window rounds its corners but does not clip its content, since its resize
 handles and menus reach past its edges. While no visible status bar sits below
