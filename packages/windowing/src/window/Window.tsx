@@ -14,11 +14,9 @@ import {
 } from "react";
 import "./Window.css";
 import { CurrentWindowProvider } from "./CurrentWindowContext";
+import { useWindowGeometryMenu } from "./useWindowFit";
 import { useWindowGeometry } from "./useWindowGeometry";
-import {
-  useFocusWindowOnShow,
-  useWindowGeometryMenuItems,
-} from "./useWindowKeyboardGeometry";
+import { useFocusWindowOnShow } from "./useWindowKeyboardGeometry";
 import { WindowBody } from "./WindowBody";
 import { WindowMenuBar, type WindowMenuItem } from "./WindowMenuBar";
 import {
@@ -187,12 +185,12 @@ interface WindowStyle extends CSSProperties {
   "--window-background"?: string | undefined;
 }
 
-function getWindowStyle(
+function getWindowFrameStyle(
   maximized: boolean,
   position: WindowPosition | null,
   size: WindowSize | null,
   zIndex: number,
-): CSSProperties | undefined {
+): CSSProperties {
   if (maximized) {
     return { top: 0, left: 0, width: "100%", height: "100%", zIndex };
   }
@@ -211,6 +209,19 @@ function getWindowStyle(
     top: position.y,
     zIndex,
     ...(size ? { width: size.width, height: size.height } : {}),
+  };
+}
+
+function getWindowStyle(
+  maximized: boolean,
+  position: WindowPosition | null,
+  size: WindowSize | null,
+  zIndex: number,
+  background: string | undefined,
+): WindowStyle {
+  return {
+    ...getWindowFrameStyle(maximized, position, size, zIndex),
+    "--window-background": background,
   };
 }
 
@@ -371,9 +382,10 @@ function WindowInnerContent({
     ...stepped
   } = useWindowGeometry(entry, maximized, windowRef);
   const { showStatusMessage, statusText } = useWindowStatusMessage();
-  const geometryMenuItems = useWindowGeometryMenuItems(
+  const { geometryMenuItems, setContentSize } = useWindowGeometryMenu(
+    entry,
     stepped,
-    { maximized, minimized, windowRef },
+    { overlayHost, windowRef },
     showStatusMessage,
   );
   const actions = useWindowActions(
@@ -391,10 +403,7 @@ function WindowInnerContent({
   const { suppressToolbar, toolbarSuppressed } = useWindowToolbarSuppression();
   const { handleGoBack, handleWindowPointerDown, windowContextMenuTrapProps } =
     useWindowRootHandlers(entry.id);
-  const style: WindowStyle = {
-    ...getWindowStyle(maximized, position, size, zIndex),
-    "--window-background": background,
-  };
+  const style = getWindowStyle(maximized, position, size, zIndex, background);
 
   if (minimized) {
     return null;
@@ -427,6 +436,7 @@ function WindowInnerContent({
         id={entry.id}
         overlayHost={overlayHost}
         setBackground={setBackground}
+        setContentSize={setContentSize}
         showStatusMessage={showStatusMessage}
         suppressToolbar={suppressToolbar}
       >

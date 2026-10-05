@@ -104,3 +104,50 @@ export function resizeWindowWithinContainer(
     size: { width, height },
   };
 }
+
+// What a window adds around its content's natural size, measured from the
+// rendered window (see `useWindowFit`): `scrollbar` is what the scroll pane's
+// scrollbars take on each axis, the vertical one's width and the horizontal
+// one's height.
+export interface WindowFitMetrics {
+  // The window's size less its scroll pane's, so borders, bars, and a sidebar.
+  chrome: WindowSize;
+  padding: WindowSize;
+  scrollbar: WindowSize;
+}
+
+// The geometry that shows `content` whole where the surface has room, then
+// moves the window as far as it must to stay on the surface. The width always
+// allows for a vertical scrollbar, even for content that fits: a status message
+// takes height from the body while it shows, and content that then scrolled
+// would lose width to the scrollbar, reflowing a layout that depends on it.
+// Content wider than the surface also scrolls sideways, so that scrollbar takes
+// height.
+export function fitWindowGeometry(
+  content: WindowSize,
+  { chrome, padding, scrollbar }: WindowFitMetrics,
+  surface: WindowSize,
+  position: WindowPosition,
+): { position: WindowPosition; size: WindowSize } {
+  const width = chrome.width + padding.width + content.width + scrollbar.width;
+  const scrollsAcross = width > surface.width;
+  const height =
+    chrome.height +
+    padding.height +
+    content.height +
+    (scrollsAcross ? scrollbar.height : 0);
+  const fit = (natural: number, available: number, minimum: number) =>
+    Math.max(minimum, Math.min(available, Math.ceil(natural)));
+  const size = {
+    width: fit(width, surface.width, MIN_WIDTH),
+    height: fit(height, surface.height, MIN_HEIGHT),
+  };
+
+  return {
+    position: {
+      x: Math.max(0, Math.min(position.x, surface.width - size.width)),
+      y: Math.max(0, Math.min(position.y, surface.height - size.height)),
+    },
+    size,
+  };
+}
