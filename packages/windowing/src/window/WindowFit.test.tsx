@@ -1,8 +1,14 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { cleanup, fireEvent, render, within } from "@testing-library/react";
+import {
+  act,
+  cleanup,
+  fireEvent,
+  render,
+  within,
+} from "@testing-library/react";
 import { useState } from "react";
 import { useCurrentWindow, useWindowContentSize } from "./CurrentWindowContext";
-import { stubLayout } from "./layout.testUtils";
+import { captureResizeObservers, stubLayout } from "./layout.testUtils";
 import { Window } from "./Window";
 import {
   useWindowActions,
@@ -107,7 +113,7 @@ function PageContent() {
 
 function Desktop({ options }: { options: WindowCreateOptions }) {
   const { windows } = useWindowStateData();
-  const { create, toggleMaximize } = useWindowActions();
+  const { create, maximize, toggleMaximize } = useWindowActions();
   const first = windows[0];
 
   return (
@@ -117,6 +123,12 @@ function Desktop({ options }: { options: WindowCreateOptions }) {
         onClick={() => create("Page", 0, 0, PageContent, options)}
       >
         Open page
+      </button>
+      <button
+        type="button"
+        onClick={() => maximize(create("Page", 0, 0, PageContent, options))}
+      >
+        Open page maximized
       </button>
       <button type="button" onClick={() => first && toggleMaximize(first.id)}>
         Toggle maximize
@@ -144,6 +156,7 @@ function stubRect(element: Element, size: WindowSize) {
 
 function openPage(
   options: WindowCreateOptions = { position: { x: 600, y: 500 } },
+  opener = "Open page",
 ) {
   const view = render(
     <WindowStateProvider>
@@ -151,7 +164,7 @@ function openPage(
     </WindowStateProvider>,
   );
   stubLayout(view.getByTestId("surface"), SURFACE_LAYOUT);
-  fireEvent.click(view.getByRole("button", { name: "Open page" }));
+  fireEvent.click(view.getByRole("button", { name: opener }));
   const region = view.getByRole("region", { name: "Page" });
   const pane = region.querySelector<HTMLElement>(".window-body-content-scroll");
   if (!pane) throw new Error("Missing scroll pane");
@@ -274,4 +287,35 @@ test("a window maximized when its content loads stays maximized", () => {
   click(view, "Toggle maximize");
   expect(region.classList.contains("window--maximized")).toBe(false);
   expect(committedGeometry(view).size).toBeUndefined();
+});
+
+test("a window maximized before it is ever laid out does not fit when restored", () => {
+  const { region, view } = openPage(
+    { fitToContent: true },
+    "Open page maximized",
+  );
+  expect(committedGeometry(view).position).toBeUndefined();
+
+  click(view, "Mark loaded");
+  click(view, "Toggle maximize");
+  expect(region.classList.contains("window--maximized")).toBe(false);
+  expect(committedGeometry(view).size).toBeUndefined();
+});
+
+test("content that loads on a hidden surface fits once the surface shows", () => {
+  const observers = captureResizeObservers();
+  try {
+    const { view } = openPage(FIT_ON_LOAD);
+    const surface = view.getByTestId("surface");
+    stubLayout(surface, { clientHeight: 0, clientWidth: 0 });
+
+    click(view, "Mark loaded");
+    expect(committedGeometry(view).size).toBeUndefined();
+
+    stubLayout(surface, SURFACE_LAYOUT);
+    act(() => observers.fire());
+    expect(committedGeometry(view)).toEqual(FITTED);
+  } finally {
+    observers.restore();
+  }
 });

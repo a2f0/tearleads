@@ -84,7 +84,8 @@ window fits once, as Fit to Content would, when its content has loaded and
 reported its size. Content reports its load by calling
 `useCurrentWindow()?.markContentLoaded?.()`, for example once a page has
 rendered. A later call does nothing. A window that is maximized when its
-content loads, as a host might open it on a narrow screen, stays maximized.
+content loads, as a host might open it on a narrow screen, stays maximized,
+and a window on a hidden surface fits once the surface shows.
 
 ## Slots
 

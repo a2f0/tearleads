@@ -60,12 +60,15 @@ interface WindowFitHost {
 
 // A window opened with `fitToContent` fits once, the first time its content
 // has both marked itself loaded and reported a size while the window shows. A
-// window maximized by then (as a host opens windows on narrow screens) stays
-// maximized and does not fit later.
+// window maximized by then (as a host opens windows on narrow screens, before
+// they are ever laid out) stays maximized and does not fit later. A hidden
+// surface (an inactive workspace) has no size to fit against, so the fit waits
+// until it has one.
 function useFitOnLoad(
   entry: WindowEntry,
   contentSize: WindowSize | undefined,
   fit: () => boolean,
+  windowRef: RefObject<HTMLElement | null>,
 ) {
   const [loaded, setLoaded] = useState(false);
   const pending = useRef(entry.fitToContent === true);
@@ -73,13 +76,34 @@ function useFitOnLoad(
   const { maximized, minimized, position } = entry;
 
   useEffect(() => {
-    if (!pending.current || !loaded || !contentSize || minimized || !position) {
+    if (!pending.current || !loaded || !contentSize || minimized) {
       return;
     }
-    if (maximized || fit()) {
+    if (maximized) {
       pending.current = false;
+      return;
     }
-  }, [contentSize, fit, loaded, maximized, minimized, position]);
+    const attempt = () => {
+      if (fit()) {
+        pending.current = false;
+      }
+      return !pending.current;
+    };
+    if (!position || attempt()) {
+      return;
+    }
+    const surface = windowRef.current?.parentElement;
+    if (!surface || typeof ResizeObserver === "undefined") {
+      return;
+    }
+    const observer = new ResizeObserver(() => {
+      if (attempt()) {
+        observer.disconnect();
+      }
+    });
+    observer.observe(surface);
+    return () => observer.disconnect();
+  }, [contentSize, fit, loaded, maximized, minimized, position, windowRef]);
 
   return markContentLoaded;
 }
@@ -96,12 +120,19 @@ function useWindowFit(
   const [contentSize, setContentSize] = useState<WindowSize | undefined>();
   const { id, maximized, position } = entry;
 
-  // Whether the window fitted: one that is not rendered has nothing to measure.
+  // Whether the window fitted: one that is not rendered, or whose surface is
+  // hidden, has nothing to measure.
   const fitToContent = useCallback(() => {
     const element = windowRef.current;
     const surface = element?.parentElement;
     const pane = overlayHost?.querySelector<HTMLElement>(SCROLL_PANE_SELECTOR);
-    if (!contentSize || !element || !surface || !pane) {
+    if (
+      !contentSize ||
+      !element ||
+      !surface ||
+      !pane ||
+      (surface.clientWidth === 0 && surface.clientHeight === 0)
+    ) {
       return false;
     }
     const geometry = fitWindowGeometry(
@@ -140,7 +171,12 @@ function useWindowFit(
     [contentSize, fitToContent],
   );
 
-  const markContentLoaded = useFitOnLoad(entry, contentSize, fitToContent);
+  const markContentLoaded = useFitOnLoad(
+    entry,
+    contentSize,
+    fitToContent,
+    windowRef,
+  );
 
   return { fitMenuItems, markContentLoaded, setContentSize };
 }
