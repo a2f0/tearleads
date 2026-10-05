@@ -206,39 +206,75 @@ test("per-page entry budgets reject overload without imposing a lifetime cutoff"
   ).toBe(true);
 });
 
-for (const kind of ["rollback", "equivocation", "stale_predecessor"] as const) {
-  test(`paged verification preserves ${kind} checks against a local checkpoint`, async () => {
-    const { shared, signer, first, second } = await historyFixture();
-    const version = kind === "rollback" ? 3 : kind === "equivocation" ? 2 : 1;
-    const verifier = createPrincipalPolicyHistoryVerifier({
+test("paged verification preserves rollback checks against a newer checkpoint", async () => {
+  const { shared, signer, first, second } = await historyFixture();
+  const verifier = createPrincipalPolicyHistoryVerifier({
+    principalId: shared.principalId,
+    principalType: "group",
+    localCheckpoint: {
       principalId: shared.principalId,
       principalType: "group",
-      localCheckpoint: {
-        principalId: shared.principalId,
-        principalType: "group",
-        version,
-        stateHash: "a".repeat(64),
-      },
-    });
-    expect(
-      (
-        await verifier.append({
-          entries: [first.entry],
-          signerPublicKeys: [signer],
-        })
-      ).ok,
-    ).toBe(true);
-    expect(
-      (
-        await verifier.append({
-          entries: [second.entry],
-          signerPublicKeys: [signer],
-        })
-      ).ok,
-    ).toBe(true);
-    expectVerificationError(verifier.finish(historyHead(second.state)), kind);
+      version: 3,
+      stateHash: "a".repeat(64),
+    },
   });
-}
+  expect(
+    (
+      await verifier.append({
+        entries: [first.entry, second.entry],
+        signerPublicKeys: [signer],
+      })
+    ).ok,
+  ).toBe(true);
+  expectVerificationError(
+    verifier.finish(historyHead(second.state)),
+    "rollback",
+  );
+});
+
+test("a checkpoint conflict rejects the page immediately and permits the correct retry", async () => {
+  const { shared, signer, first, second, third } = await historyFixture();
+  const alternate = await signPolicyState({
+    ...shared,
+    version: 2,
+    prevStateHash: first.state.stateHash,
+    signedAt: "2026-01-02T00:00:00.000Z",
+  });
+  const verifier = createPrincipalPolicyHistoryVerifier({
+    principalId: shared.principalId,
+    principalType: "group",
+    localCheckpoint: {
+      principalId: shared.principalId,
+      principalType: "group",
+      version: 2,
+      stateHash: alternate.state.stateHash,
+    },
+  });
+  expect(
+    (
+      await verifier.append({
+        entries: [first.entry],
+        signerPublicKeys: [signer],
+      })
+    ).ok,
+  ).toBe(true);
+  expectVerificationError(
+    await verifier.append({
+      entries: [second.entry, third.entry],
+      signerPublicKeys: [signer],
+    }),
+    "equivocation",
+  );
+  expect(
+    (
+      await verifier.append({
+        entries: [alternate.entry],
+        signerPublicKeys: [signer],
+      })
+    ).ok,
+  ).toBe(true);
+  expect(verifier.finish(historyHead(alternate.state)).ok).toBe(true);
+});
 
 test("a local checkpoint cannot replace an omitted verified prefix", async () => {
   const { shared, signer, first, second } = await historyFixture();

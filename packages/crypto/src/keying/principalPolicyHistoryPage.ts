@@ -9,16 +9,17 @@ import {
   createPrincipalPolicyExternalAuthorityVerifier,
   verifyPrincipalPolicyExternalAuthorityProgress,
 } from "./principalPolicyExternalAuthority";
-import { principalHistoryMatchesReference } from "./principalPolicyHistoryChecks";
 import {
   PRINCIPAL_HISTORY_PAGE_ENTRY_LIMIT,
   type PrincipalPolicyHistoryPage,
 } from "./principalPolicyHistoryTypes";
+import { principalPolicyStateMatchesReference } from "./principalPolicyReference";
 import { verifyPrincipalPolicyChainSignatures } from "./principalPolicySignatures";
 import { buildPrincipalPolicySignerKeyMap } from "./principalPolicySignerKeys";
 import { throwVerification } from "./shared";
 import type {
   NormalizedPrincipalPolicyStateChainEntry,
+  PrincipalPolicyCheckpoint,
   ReferencedPrincipalHead,
 } from "./types";
 
@@ -45,6 +46,7 @@ export async function verifyPrincipalHistoryPage(input: {
   readonly previous: NormalizedPrincipalPolicyStateChainEntry | undefined;
   readonly latestAuthority: PrincipalStateExternalAuthority | null;
   readonly references: readonly ReferencedPrincipalHead[];
+  readonly checkpoint: PrincipalPolicyCheckpoint | null;
 }) {
   const owned = ownPage(input.page);
   const signerKeys = await buildPrincipalPolicySignerKeyMap(
@@ -86,12 +88,20 @@ export async function verifyPrincipalHistoryPage(input: {
       input.references.some(
         (reference) =>
           reference.version === current.state.version &&
-          !principalHistoryMatchesReference(current.state, reference),
+          !principalPolicyStateMatchesReference(current.state, reference),
       )
     )
       throwVerification(
         "hash_mismatch",
         "principal history reference mismatch",
+      );
+    if (
+      current.state.version === input.checkpoint?.version &&
+      current.state.stateHash !== input.checkpoint.stateHash
+    )
+      throwVerification(
+        "equivocation",
+        "principal history conflicts with the local checkpoint",
       );
     entries.push(current);
     previous = current;

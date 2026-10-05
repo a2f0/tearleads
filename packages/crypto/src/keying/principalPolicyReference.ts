@@ -1,6 +1,7 @@
 import type {
   AnyVerifiedPrincipalPolicy,
   NormalizedPrincipalPolicyStateChainEntry,
+  PrincipalPolicySignedState,
   ReferencedPrincipalHead,
 } from "./types";
 
@@ -30,5 +31,19 @@ export function principalPolicyEntryForReference(input: {
       entry.state.keyEpoch === input.reference.keyEpoch &&
       entry.state.stateHash === input.reference.stateHash &&
       entry.state.keyFingerprint === input.reference.keyFingerprint,
+  );
+}
+
+export function principalPolicyStateMatchesReference(
+  state: PrincipalPolicySignedState,
+  reference: ReferencedPrincipalHead,
+): boolean {
+  return (
+    state.principalId === reference.principalId &&
+    state.principalType === reference.principalType &&
+    state.version === reference.version &&
+    state.stateHash === reference.stateHash &&
+    state.keyEpoch === reference.keyEpoch &&
+    state.keyFingerprint === reference.keyFingerprint
   );
 }

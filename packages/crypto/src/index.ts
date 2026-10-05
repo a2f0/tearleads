@@ -151,6 +151,7 @@ export type {
   PrincipalPolicyExternalAuthorityState,
   PrincipalPolicyHistoryInput,
   PrincipalPolicyHistoryPage,
+  PrincipalPolicyHistoryVerifier,
   PrincipalPolicyMemberEnvelopes,
   PrincipalPolicyPayload,
   PrincipalPolicySignedState,

@@ -11,22 +11,7 @@ import {
 import type {
   PrincipalPolicyCheckpoint,
   PrincipalPolicySignedState,
-  ReferencedPrincipalHead,
 } from "./types";
-
-export function principalHistoryMatchesReference(
-  state: PrincipalPolicySignedState,
-  reference: ReferencedPrincipalHead,
-): boolean {
-  return (
-    state.principalId === reference.principalId &&
-    state.principalType === reference.principalType &&
-    state.version === reference.version &&
-    state.stateHash === reference.stateHash &&
-    state.keyEpoch === reference.keyEpoch &&
-    state.keyFingerprint === reference.keyFingerprint
-  );
-}
 
 export function normalizePrincipalHistoryInput(
   input: PrincipalPolicyHistoryInput,
@@ -48,6 +33,14 @@ export function normalizePrincipalHistoryInput(
       "too many retained principal references",
     );
   const references = requested.map(normalizeReferencedPrincipalHead);
+  if (
+    new Set(references.map((reference) => reference.version)).size !==
+    references.length
+  )
+    throwVerification(
+      "duplicate_entry",
+      "principal history references contain a duplicate version",
+    );
   if (
     references.some(
       (reference) =>

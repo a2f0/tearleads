@@ -2,15 +2,17 @@ import type { PrincipalStateExternalAuthority } from "../principalState";
 import { normalizeReferencedPrincipalHead } from "./accessEvent";
 import {
   normalizePrincipalHistoryInput,
-  principalHistoryMatchesReference,
   verifyPrincipalHistoryCheckpoint,
 } from "./principalPolicyHistoryChecks";
 import { verifyPrincipalHistoryPage } from "./principalPolicyHistoryPage";
-import type {
-  PrincipalPolicyHistoryInput,
-  PrincipalPolicyHistoryPage,
-  VerifiedPrincipalPolicyHistory,
+import {
+  makeVerifiedPrincipalPolicyHistory,
+  type PrincipalPolicyHistoryInput,
+  type PrincipalPolicyHistoryPage,
+  type PrincipalPolicyHistoryVerifier,
+  type VerifiedPrincipalPolicyHistory,
 } from "./principalPolicyHistoryTypes";
+import { principalPolicyStateMatchesReference } from "./principalPolicyReference";
 import { runVerifier, throwVerification, toVerificationResult } from "./shared";
 import type {
   KeyingVerificationResult,
@@ -18,7 +20,9 @@ import type {
   ReferencedPrincipalHead,
 } from "./types";
 
-class PrincipalPolicyHistoryVerifier {
+class PrincipalPolicyHistoryVerifierImpl
+  implements PrincipalPolicyHistoryVerifier
+{
   readonly #input: ReturnType<typeof normalizePrincipalHistoryInput>;
   #previous: NormalizedPrincipalPolicyStateChainEntry | undefined;
   #latestAuthority: PrincipalStateExternalAuthority | null = null;
@@ -45,6 +49,7 @@ class PrincipalPolicyHistoryVerifier {
           previous: this.#previous,
           latestAuthority: this.#latestAuthority,
           references: this.#input.references,
+          checkpoint: this.#input.checkpoint,
         });
         // Publish only after every check, including the final signature, passes.
         for (const entry of verified.entries) {
@@ -83,7 +88,7 @@ class PrincipalPolicyHistoryVerifier {
       const previous = this.#previous;
       if (
         !previous ||
-        !principalHistoryMatchesReference(previous.state, reference)
+        !principalPolicyStateMatchesReference(previous.state, reference)
       )
         throwVerification(
           "missing_dependency",
@@ -110,7 +115,7 @@ class PrincipalPolicyHistoryVerifier {
           stateHash: state.stateHash,
         },
       });
-      return { ok: true, value: owned };
+      return { ok: true, value: makeVerifiedPrincipalPolicyHistory(owned) };
     } catch (error) {
       return toVerificationResult(error);
     }
@@ -122,11 +127,12 @@ class PrincipalPolicyHistoryVerifier {
  * advance authorization or continuity. Progress is local to this verifier;
  * a remote cursor/checkpoint is never accepted as verified history.
  * Callers bound serialized page bytes and authenticate external authority.
+ * Throws KeyingVerificationError for invalid local scope, checkpoint or references.
  */
 export function createPrincipalPolicyHistoryVerifier(
   input: PrincipalPolicyHistoryInput,
-) {
-  const verifier = new PrincipalPolicyHistoryVerifier(input);
+): PrincipalPolicyHistoryVerifier {
+  const verifier = new PrincipalPolicyHistoryVerifierImpl(input);
   return {
     append: (page: PrincipalPolicyHistoryPage) => verifier.append(page),
     finish: (expectedHead: ReferencedPrincipalHead) =>

@@ -10,6 +10,7 @@ import {
   verifyPrincipalPolicyExternalAuthorityProgress,
 } from "./principalPolicyExternalAuthority";
 import { verifyPrincipalPolicyMemberEnvelopes } from "./principalPolicyMemberEnvelopes";
+import { principalPolicyStateMatchesReference } from "./principalPolicyReference";
 import { verifyPrincipalPolicyChainSignatures } from "./principalPolicySignatures";
 import { buildPrincipalPolicySignerKeyMap } from "./principalPolicySignerKeys";
 import { runVerifier, throwVerification } from "./shared";
@@ -31,20 +32,6 @@ import {
   makeVerifiedPrincipalPolicy,
   makeVerifiedPrincipalPolicySnapshot,
 } from "./types";
-
-function principalPolicyStateMatchesReference(input: {
-  readonly reference: ReferencedPrincipalHead;
-  readonly state: PrincipalPolicySignedState;
-}): boolean {
-  return (
-    input.reference.principalType === input.state.principalType &&
-    input.reference.principalId === input.state.principalId &&
-    input.reference.version === input.state.version &&
-    input.reference.keyEpoch === input.state.keyEpoch &&
-    input.reference.stateHash === input.state.stateHash &&
-    input.reference.keyFingerprint === input.state.keyFingerprint
-  );
-}
 
 function verifyPrincipalPolicyReference(input: {
   readonly chain: readonly NormalizedPrincipalPolicyStateChainEntry[];
@@ -68,10 +55,7 @@ function verifyPrincipalPolicyReference(input: {
   }
 
   const matchingEntry = input.chain.find((entry) =>
-    principalPolicyStateMatchesReference({
-      reference: expectedReference,
-      state: entry.state,
-    }),
+    principalPolicyStateMatchesReference(entry.state, expectedReference),
   );
 
   if (!matchingEntry) {
