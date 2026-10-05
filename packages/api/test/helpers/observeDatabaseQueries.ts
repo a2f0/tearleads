@@ -27,3 +27,23 @@ export function observeQueries<T extends object>(
     },
   });
 }
+
+import type { ApiDatabase } from "@tearleads/api-shared/postgres";
+
+/** Observe selected fields through an injected database, including proxies. */
+export function observeDatabaseSelects(database: ApiDatabase) {
+  const selections: unknown[] = [];
+  return {
+    selections,
+    database: new Proxy(database, {
+      get(target, key, receiver) {
+        const member: unknown = Reflect.get(target, key, receiver);
+        if (key !== "select" || typeof member !== "function") return member;
+        return (...args: unknown[]) => {
+          selections.push(args[0]);
+          return Reflect.apply(member, target, args);
+        };
+      },
+    }),
+  };
+}
