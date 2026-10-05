@@ -19,6 +19,7 @@ export {
   useCurrentWindow,
   useSuppressWindowToolbar,
   useWindowBackground,
+  useWindowContentSize,
 } from "./window/CurrentWindowContext";
 export { Window, type WindowContentBoundary } from "./window/Window";
 export { WindowTitleBarActionButtons } from "./window/WindowChromeActions";

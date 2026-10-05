@@ -2,9 +2,11 @@ import {
   createContext,
   type PropsWithChildren,
   useContext,
+  useEffect,
   useLayoutEffect,
   useMemo,
 } from "react";
+import type { WindowSize } from "./WindowStateProvider";
 
 interface CurrentWindowContextValue {
   close: () => void;
@@ -16,6 +18,12 @@ interface CurrentWindowContextValue {
    * provider outside a `Window` may omit it.
    */
   setBackground?: ((background: string | undefined) => void) | undefined;
+  /**
+   * Record the content's natural size, which the window's Fit to Content sizes
+   * it to; `undefined` withdraws it. Hosts that render this provider outside a
+   * `Window` may omit it.
+   */
+  setContentSize?: ((size: WindowSize | undefined) => void) | undefined;
   showStatusMessage: (message: string) => void;
   /**
    * Hide the window's toolbar row until the returned release is called. Refcounted,
@@ -34,6 +42,7 @@ export function CurrentWindowProvider({
   id,
   overlayHost,
   setBackground,
+  setContentSize,
   showStatusMessage,
   suppressToolbar,
 }: PropsWithChildren<CurrentWindowContextValue>) {
@@ -43,10 +52,19 @@ export function CurrentWindowProvider({
       id,
       overlayHost,
       setBackground,
+      setContentSize,
       showStatusMessage,
       suppressToolbar,
     }),
-    [close, id, overlayHost, setBackground, showStatusMessage, suppressToolbar],
+    [
+      close,
+      id,
+      overlayHost,
+      setBackground,
+      setContentSize,
+      showStatusMessage,
+      suppressToolbar,
+    ],
   );
 
   return (
@@ -101,4 +119,25 @@ export function useWindowBackground(background: string | undefined) {
     setBackground(background);
     return () => setBackground(undefined);
   }, [background, setBackground]);
+}
+
+/**
+ * Offer Fit to Content in the host window's View menu while mounted. It sizes
+ * the window so its content area shows `size`, the content's natural size in
+ * CSS pixels, as far as the desktop surface allows; content that still scrolls
+ * gets room for its scrollbar. `undefined` withdraws the item. Outside a window
+ * this is inert.
+ */
+export function useWindowContentSize(size: WindowSize | undefined) {
+  const setContentSize = useCurrentWindow()?.setContentSize;
+  const width = size?.width;
+  const height = size?.height;
+
+  useEffect(() => {
+    if (width === undefined || height === undefined || !setContentSize) {
+      return;
+    }
+    setContentSize({ height, width });
+    return () => setContentSize(undefined);
+  }, [height, setContentSize, width]);
 }
