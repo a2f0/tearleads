@@ -12,6 +12,7 @@ formal/container-keying/ManifestHistory.tla|formal/container-keying/ManifestHist
 formal/container-keying/NoBrickedDevice.tla|formal/container-keying/NoBrickedDevice.cfg
 formal/container-keying/NoBrickedDevice.tla|formal/container-keying/NoBrickedDeviceAdversary.cfg
 formal/container-keying/PrincipalHistory.tla|formal/container-keying/PrincipalHistory.cfg
+formal/container-keying/PrincipalHistoryPages.tla|formal/container-keying/PrincipalHistoryPages.cfg
 formal/container-keying/PrincipalReferenceProgress.tla|formal/container-keying/PrincipalReferenceProgress.cfg
 formal/document-sync/AttachmentKeyReachability.tla|formal/document-sync/AttachmentKeyReachability.cfg
 formal/document-sync/BaselineDominance.tla|formal/document-sync/BaselineDominance.cfg

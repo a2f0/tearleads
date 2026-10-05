@@ -1,26 +1,17 @@
-import { toFingerprint } from "../fingerprint";
-import type { PrincipalProjectionMember } from "../principalState";
+import { computePrincipalStatePayloadCiphertextHash } from "../principalState";
 import {
-  computePrincipalStateHash,
-  computePrincipalStatePayloadCiphertextHash,
-  normalizePrincipalProjectionMembers,
-} from "../principalState";
-import {
-  verifyPrincipalPolicyGrantCommitments,
-  verifyPrincipalPolicyProjectionCommitments,
-} from "./principalPolicyCommitments";
+  normalizePrincipalPolicyStateChainEntry,
+  verifyInitialPrincipalPolicyChainEntry,
+  verifyPrincipalPolicyChainEntryIdentity,
+  verifySuccessorPrincipalPolicyChainEntry,
+} from "./principalPolicyChainEntry";
 import {
   createPrincipalPolicyExternalAuthorityVerifier,
-  externalAuthorityIncludesAdminSigner,
-  type PrincipalPolicyExternalAuthorityVerifier,
   verifyPrincipalPolicyExternalAuthorityProgress,
 } from "./principalPolicyExternalAuthority";
 import { verifyPrincipalPolicyMemberEnvelopes } from "./principalPolicyMemberEnvelopes";
 import { verifyPrincipalPolicyChainSignatures } from "./principalPolicySignatures";
-import {
-  getPrincipalPolicyTransitionMismatch,
-  throwPrincipalPolicyTransitionError,
-} from "./principalPolicyTransition";
+import { buildPrincipalPolicySignerKeyMap } from "./principalPolicySignerKeys";
 import { runVerifier, throwVerification } from "./shared";
 import type {
   KeyingVerificationResult,
@@ -30,7 +21,6 @@ import type {
   PrincipalPolicySignedState,
   PrincipalPolicySignerPublicKey,
   PrincipalPolicySnapshot,
-  PrincipalPolicyStateChainEntry,
   ReferencedPrincipalHead,
   VerifiedPrincipalPolicy,
   VerifiedPrincipalPolicySnapshot,
@@ -41,99 +31,6 @@ import {
   makeVerifiedPrincipalPolicy,
   makeVerifiedPrincipalPolicySnapshot,
 } from "./types";
-
-function projectionIncludesAdminUser(
-  projection: readonly PrincipalProjectionMember[],
-  userId: string,
-): boolean {
-  return projection.some(
-    (member) => member.userId === userId && member.role === "admin",
-  );
-}
-
-function normalizePrincipalPolicySignerKey(
-  signerKey: PrincipalPolicySignerPublicKey,
-): PrincipalPolicySignerPublicKey {
-  if (signerKey.userId.length === 0) {
-    throwVerification("invalid_shape", "principal policy signer user missing");
-  }
-
-  if (!/^[0-9a-f]{64}$/.test(signerKey.signingKeyFingerprint)) {
-    throwVerification(
-      "hash_mismatch",
-      "principal policy signer fingerprint must be a 64-character lowercase hex hash",
-    );
-  }
-
-  if (signerKey.signingPublicKey.length === 0) {
-    throwVerification(
-      "invalid_shape",
-      "principal policy signer public key missing",
-    );
-  }
-
-  return signerKey;
-}
-
-async function buildPrincipalPolicySignerKeyMap(
-  signerPublicKeys: readonly PrincipalPolicySignerPublicKey[],
-): Promise<Map<string, Uint8Array>> {
-  const signerPublicKeyByUserAndFingerprint = new Map<string, Uint8Array>();
-
-  for (const signerKey of signerPublicKeys.map(
-    normalizePrincipalPolicySignerKey,
-  )) {
-    const computedFingerprint = await toFingerprint(signerKey.signingPublicKey);
-
-    if (computedFingerprint !== signerKey.signingKeyFingerprint) {
-      throwVerification(
-        "signer_mismatch",
-        "principal policy signer key fingerprint does not match public key",
-      );
-    }
-
-    const key = `${signerKey.userId}:${signerKey.signingKeyFingerprint}`;
-    if (signerPublicKeyByUserAndFingerprint.has(key)) {
-      throwVerification(
-        "duplicate_entry",
-        "principal policy signer key list contains a duplicate",
-      );
-    }
-
-    signerPublicKeyByUserAndFingerprint.set(key, signerKey.signingPublicKey);
-  }
-
-  return signerPublicKeyByUserAndFingerprint;
-}
-
-async function normalizePrincipalPolicyStateChainEntry(
-  entry: PrincipalPolicyStateChainEntry,
-): Promise<NormalizedPrincipalPolicyStateChainEntry> {
-  const projection = normalizePrincipalProjectionMembers(entry.projection);
-  const computedStateHash = await computePrincipalStateHash(entry.state);
-
-  if (computedStateHash !== entry.state.stateHash) {
-    throwVerification(
-      "hash_mismatch",
-      "principal policy state hash does not match signed state",
-    );
-  }
-
-  await verifyPrincipalPolicyProjectionCommitments({
-    projection,
-    state: entry.state,
-  });
-  const grants = await verifyPrincipalPolicyGrantCommitments({
-    grants: entry.grants,
-    state: entry.state,
-  });
-
-  return {
-    state: entry.state,
-    projection,
-    grants,
-  };
-}
 
 function principalPolicyStateMatchesReference(input: {
   readonly reference: ReferencedPrincipalHead;
@@ -289,120 +186,6 @@ function verifyPrincipalPolicyChainShape(input: {
       "missing_dependency",
       "principal policy chain length does not match current state version",
     );
-  }
-}
-
-function verifyPrincipalPolicyChainEntryIdentity(input: {
-  readonly currentState: PrincipalPolicySignedState;
-  readonly expectedVersion: number;
-  readonly normalizedEntry: NormalizedPrincipalPolicyStateChainEntry;
-}): void {
-  if (
-    input.normalizedEntry.state.principalType !==
-      input.currentState.principalType ||
-    input.normalizedEntry.state.principalId !== input.currentState.principalId
-  ) {
-    throwVerification(
-      "object_mismatch",
-      "principal policy chain entry principal does not match current state",
-    );
-  }
-
-  if (input.normalizedEntry.state.version !== input.expectedVersion) {
-    throwVerification(
-      "stale_predecessor",
-      "principal policy chain entry version is not contiguous",
-    );
-  }
-}
-
-function verifyInitialPrincipalPolicyChainEntry(input: {
-  readonly authorityVerifier: PrincipalPolicyExternalAuthorityVerifier;
-  readonly normalizedEntry: NormalizedPrincipalPolicyStateChainEntry;
-}): void {
-  const { normalizedEntry } = input;
-
-  if (normalizedEntry.state.prevStateHash !== null) {
-    throwVerification(
-      "stale_predecessor",
-      "initial principal policy chain entry has a previous state hash",
-    );
-  }
-
-  if (
-    projectionIncludesAdminUser(
-      normalizedEntry.projection,
-      normalizedEntry.state.signerUserId,
-    )
-  ) {
-    if (normalizedEntry.state.externalAuthority) {
-      throwVerification(
-        "invalid_shape",
-        "directly authorized principal policy state cannot cite external authority",
-      );
-    }
-    return;
-  }
-
-  if (
-    normalizedEntry.projection.length === 0 &&
-    externalAuthorityIncludesAdminSigner({
-      entry: normalizedEntry,
-      verifier: input.authorityVerifier,
-    })
-  ) {
-    return;
-  }
-
-  throwVerification(
-    "unauthorized",
-    "initial principal policy state signer is not an admin",
-  );
-}
-
-function verifySuccessorPrincipalPolicyChainEntry(input: {
-  readonly authorityVerifier: PrincipalPolicyExternalAuthorityVerifier;
-  readonly normalizedEntry: NormalizedPrincipalPolicyStateChainEntry;
-  readonly previousEntry: NormalizedPrincipalPolicyStateChainEntry;
-}): void {
-  if (
-    input.normalizedEntry.state.prevStateHash !==
-    input.previousEntry.state.stateHash
-  ) {
-    throwVerification(
-      "stale_predecessor",
-      "principal policy chain entry previous hash mismatch",
-    );
-  }
-
-  const isDirectAdmin = projectionIncludesAdminUser(
-    input.previousEntry.projection,
-    input.normalizedEntry.state.signerUserId,
-  );
-  const isExternalAdmin = externalAuthorityIncludesAdminSigner({
-    entry: input.normalizedEntry,
-    verifier: input.authorityVerifier,
-  });
-  if (!isDirectAdmin && !isExternalAdmin) {
-    throwVerification(
-      "unauthorized",
-      "principal policy state signer is not an admin in previous projection",
-    );
-  }
-  if (isDirectAdmin && input.normalizedEntry.state.externalAuthority) {
-    throwVerification(
-      "invalid_shape",
-      "directly authorized principal policy state cannot cite external authority",
-    );
-  }
-
-  const transitionMismatch = getPrincipalPolicyTransitionMismatch({
-    current: input.normalizedEntry,
-    previous: input.previousEntry,
-  });
-
-  if (transitionMismatch) {
-    throwPrincipalPolicyTransitionError(transitionMismatch);
   }
 }
 

@@ -40,3 +40,7 @@ Run the full boundary scenario with
 the database backends because generating and cold-verifying 32,768 real signed
 states is expensive. The default API suite runs the same workflow at 64 versions;
 the default crypto and storage suites retain the numeric boundary regressions.
+
+The [principal page model](./PrincipalHistoryPages.md) separately checks
+publication of verified progress and retention of external-authority citations
+across page boundaries.

@@ -2,6 +2,22 @@ import type { NegativeControl } from "./protocolNegativeControls";
 
 export const HISTORY_NEGATIVE_CONTROLS: readonly NegativeControl[] = [
   {
+    id: "principal-page-publishes-unchecked-progress",
+    module: "formal/container-keying/PrincipalHistoryPages.tla",
+    config: "formal/container-keying/PrincipalHistoryPages.cfg",
+    constants: { PublishEarly: "TRUE" },
+    expect: { kind: "invariant", name: "OnlyCheckedPagesAdvance" },
+    why: "A rejected page must not advance locally verified history (#2448).",
+  },
+  {
+    id: "principal-page-forgets-external-authority",
+    module: "formal/container-keying/PrincipalHistoryPages.tla",
+    config: "formal/container-keying/PrincipalHistoryPages.cfg",
+    constants: { ForgetAuthority: "TRUE" },
+    expect: { kind: "invariant", name: "AuthorityProgress" },
+    why: "Uncited pages must preserve the last verified authority reference (#2448).",
+  },
+  {
     id: "principal-history-write-cap-blocks-revocation",
     module: "formal/container-keying/PrincipalHistory.tla",
     config: "formal/container-keying/PrincipalHistory.cfg",

@@ -302,10 +302,6 @@
       "lines": 908,
       "bytes": 26255
     },
-    "packages/crypto/src/keying/principalPolicy.ts": {
-      "lines": 719,
-      "bytes": 20630
-    },
     "packages/crypto/src/keying/testFixtures.ts": {
       "lines": 681,
       "bytes": 23033

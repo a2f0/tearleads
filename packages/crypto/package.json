@@ -9,7 +9,8 @@
     "./principal-policy-test-fixtures": "./src/keying/principalPolicyTestFixtures.ts"
   },
   "scripts": {
-    "test": "bun test src"
+    "test": "bun test src",
+    "test:principal-history": "PRINCIPAL_HISTORY_BOUNDARY_TEST=1 bun test src/keying/principalPolicyHistoryAvailability.test.ts"
   },
   "dependencies": {
     "@noble/hashes": "2.4.0",
