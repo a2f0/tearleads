@@ -1,7 +1,12 @@
 import { hkdf } from "@noble/hashes/hkdf.js";
 import { sha256 } from "@noble/hashes/sha2.js";
 import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
-import { decryptWithDek, encryptWithDek } from "../symmetric";
+import {
+  AES_GCM_IV_BYTES,
+  AES_GCM_TAG_BYTES,
+  decryptWithDek,
+  encryptWithDek,
+} from "../symmetric";
 import {
   normalizeCanonicalJsonValue,
   serializeKeyingCanonicalJson,
@@ -87,10 +92,19 @@ export async function openPrincipalHistoryProgress(
     const [version, iv, ciphertext, extra] = progress.split(".");
     if (version !== "v1" || !iv || !ciphertext || extra !== undefined)
       throwVerification("invalid_shape", "invalid principal history progress");
+    const encrypted = {
+      iv: canonicalBytes(iv),
+      ciphertext: canonicalBytes(ciphertext),
+    };
+    if (
+      encrypted.iv.length !== AES_GCM_IV_BYTES ||
+      encrypted.ciphertext.length < AES_GCM_TAG_BYTES
+    )
+      throwVerification("invalid_shape", "invalid principal progress framing");
     let plaintext: Uint8Array;
     try {
       plaintext = await decryptWithDek(
-        { iv: canonicalBytes(iv), ciphertext: canonicalBytes(ciphertext) },
+        encrypted,
         protection.key,
         protection.additionalData,
       );

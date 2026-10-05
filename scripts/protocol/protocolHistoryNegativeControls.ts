@@ -2,6 +2,22 @@ import type { NegativeControl } from "./protocolNegativeControls";
 
 export const HISTORY_NEGATIVE_CONTROLS: readonly NegativeControl[] = [
   {
+    id: "principal-resume-saves-unchecked-progress",
+    module: "formal/container-keying/PrincipalHistoryResume.tla",
+    config: "formal/container-keying/PrincipalHistoryResume.cfg",
+    constants: { InventSavedProgress: "TRUE" },
+    expect: { kind: "invariant", name: "NoInventedProgress" },
+    why: "Saved progress cannot attest a page the verifier never checked.",
+  },
+  {
+    id: "principal-resume-saves-forgotten-authority",
+    module: "formal/container-keying/PrincipalHistoryResume.tla",
+    config: "formal/container-keying/PrincipalHistoryResume.cfg",
+    constants: { ForgetSavedAuthority: "TRUE" },
+    expect: { kind: "invariant", name: "AuthorityProgress" },
+    why: "Saving must preserve authority independently of restoration.",
+  },
+  {
     id: "principal-resume-trusts-unsealed-progress",
     module: "formal/container-keying/PrincipalHistoryResume.tla",
     config: "formal/container-keying/PrincipalHistoryResume.cfg",

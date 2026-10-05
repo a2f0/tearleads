@@ -132,16 +132,28 @@ test("saved progress rejects ciphertext changes and malformed framing", async ()
   if (!ciphertext) throw new Error("missing progress ciphertext");
   const bytes = base64ToBytes(ciphertext);
   bytes[0] = (bytes[0] ?? 0) ^ 1;
-  for (const damaged of [
+  const changed = await restorePrincipalPolicyHistoryVerifier(
+    scope(),
     `${version}.${iv}.${bytesToBase64(bytes)}`,
+    key,
+  );
+  expect(changed.ok).toBe(false);
+  if (!changed.ok) expect(changed.error.code).toBe("hash_mismatch");
+  for (const damaged of [
     saved.replace(/^v1\./, "v2."),
     `${saved}.extra`,
     "v1.invalid.invalid",
+    `v1.${bytesToBase64(new Uint8Array(11))}.${ciphertext}`,
+    `v1.${iv}.${bytesToBase64(new Uint8Array(15))}`,
     JSON.stringify(fixture.first),
   ]) {
-    expect(
-      (await restorePrincipalPolicyHistoryVerifier(scope(), damaged, key)).ok,
-    ).toBe(false);
+    const result = await restorePrincipalPolicyHistoryVerifier(
+      scope(),
+      damaged,
+      key,
+    );
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error.code).toBe("invalid_shape");
   }
 });
 
