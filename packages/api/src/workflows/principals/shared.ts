@@ -28,6 +28,13 @@ export class PrincipalPolicyError extends Error {
   }
 }
 
+/** An untrusted requested citation differs from verified stored history. */
+export class PrincipalPolicyReferenceError extends PrincipalPolicyError {
+  constructor() {
+    super("Principal policy state is stale", 409);
+  }
+}
+
 /**
  * Re-wrap a container mutation failure as a policy failure without losing the
  * one answer a client can act on: a refused rotation names the descendant

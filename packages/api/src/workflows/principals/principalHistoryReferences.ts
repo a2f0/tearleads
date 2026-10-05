@@ -11,18 +11,19 @@ import {
   type VerifiedPrincipalPolicyHistory,
   verifyPrincipalPolicyHistoryReferences,
 } from "@tearleads/crypto";
+import { canonicalJsonEquals } from "../../utils/canonicalJson";
 import { readBufferedPrincipalHistoryNode } from "./principalHistoryCache";
 import {
   principalHistoryError,
   principalHistoryHead,
   readPrincipalHistoryEntry,
 } from "./principalHistoryRecords";
+import { PrincipalPolicyReferenceError } from "./shared";
 
 /** Validate the selection separately from the stable empty-selection prefix. */
 export function requestedPrincipalHistoryReferences(
   head: ReferencedPrincipalHead,
   references: readonly ReferencedPrincipalHead[],
-  kind: PrincipalHistoryVerificationKind,
 ): readonly ReferencedPrincipalHead[] {
   try {
     if (references.length > PRINCIPAL_HISTORY_PAGE_ENTRY_LIMIT)
@@ -39,11 +40,8 @@ export function requestedPrincipalHistoryReferences(
         "requested principal reference is newer than the pinned head",
       );
     return owned;
-  } catch (error) {
-    throw principalHistoryError(
-      kind,
-      error instanceof Error ? error.message : String(error),
-    );
+  } catch {
+    throw new PrincipalPolicyReferenceError();
   }
 }
 
@@ -76,12 +74,24 @@ export async function selectStoredPrincipalHistoryReferences(
       if (error instanceof KeyingVerificationError) return null;
       throw error;
     }
-    references.push({ reference, entry, proof });
+    // First authenticate the stored entry independently of the requested
+    // citation, so storage corruption keeps its integrity classification.
+    references.push({
+      reference: principalHistoryHead(entry.state),
+      entry,
+      proof,
+    });
   }
   const selected = await verifyPrincipalPolicyHistoryReferences({
     history,
     references,
   });
   if (!selected.ok) throw principalHistoryError(kind, selected.error.message);
+  if (
+    references.some(
+      (item, index) => !canonicalJsonEquals(item.reference, requested[index]),
+    )
+  )
+    throw new PrincipalPolicyReferenceError();
   return selected.value;
 }

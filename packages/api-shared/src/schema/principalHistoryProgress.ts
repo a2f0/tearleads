@@ -3,7 +3,6 @@ import { sql } from "drizzle-orm";
 import {
   bigint,
   check,
-  index,
   integer,
   pgTable,
   text,
@@ -50,14 +49,6 @@ export const principalHistoryProgress = pgTable(
       sql`${table.verificationKind} IN ('policy', 'authority')`,
     ),
     uniqueIndex("principal_history_progress_version_idx").on(
-      table.principalType,
-      table.principalId,
-      table.verificationKind,
-      table.inputHash,
-      table.protectionId,
-      table.version,
-    ),
-    index("principal_history_progress_lookup_idx").on(
       table.principalType,
       table.principalId,
       table.verificationKind,

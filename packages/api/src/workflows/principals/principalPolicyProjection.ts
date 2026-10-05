@@ -12,7 +12,7 @@ import {
 } from "../../access/read/principalStateStore";
 import { loadPrincipalPolicyReferenceBatches } from "./principalPolicyReferenceBatches";
 import { loadVerifiedPrincipalPolicySnapshotsForReferences } from "./principalPolicySnapshots";
-import { PrincipalPolicyError } from "./shared";
+import { PrincipalPolicyError, PrincipalPolicyReferenceError } from "./shared";
 
 export class PrincipalPolicyProjectionError extends Error {
   readonly status = 409;
@@ -177,6 +177,8 @@ async function loadPrincipalPoliciesForReferences(
           );
           return batches.map(({ policy }) => policy);
         } catch (error) {
+          if (error instanceof PrincipalPolicyReferenceError)
+            throw new PrincipalPolicyProjectionError(error.message);
           if (error instanceof PrincipalPolicyError) {
             throw new PrincipalPolicyProjectionError(
               `Principal policy failed integrity verification: ${error.message}`,

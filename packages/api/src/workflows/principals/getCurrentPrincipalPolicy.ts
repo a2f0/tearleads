@@ -100,7 +100,7 @@ async function verifyCurrent(
   return { bundle, policy: verified.value, history: prepared.history };
 }
 
-/** Progress and artifacts verified inside a transaction roll back together. */
+/** Verify using transaction-local progress; only committed progress is published. */
 export async function verifyStoredPrincipalPolicyForStateWithExecutor(
   executor: DatabaseSession,
   currentState: StoredPrincipalState,

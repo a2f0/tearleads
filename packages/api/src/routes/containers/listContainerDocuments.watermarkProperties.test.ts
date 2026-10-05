@@ -1,4 +1,4 @@
-import { expect, spyOn, test } from "bun:test";
+import { expect, test } from "bun:test";
 import { db } from "@tearleads/api-shared/postgres";
 import {
   accessManifestDocumentLinkProjection,
@@ -16,8 +16,10 @@ import {
   discoveryTimestamp,
   discoveryTimestampValue,
 } from "../../../test/helpers/discoveryTimestamp";
+import { observeDatabaseSelects } from "../../../test/helpers/observeDatabaseQueries";
 import { registerUser } from "../../../test/helpers/registerUser";
-import { routeApp } from "../../routeApp";
+import { createRouteApp, routeApp } from "../../routeApp";
+import { getDefaultApiServiceRuntime } from "../../services/runtime";
 
 type DocumentChangeFixture = {
   readonly id: string;
@@ -98,6 +100,7 @@ function pageChangeKeys(page: DocumentPage): string[] {
 }
 
 async function requestPage(input: {
+  readonly app?: typeof routeApp;
   readonly containerId: string;
   readonly limit: number;
   readonly token: string;
@@ -108,7 +111,7 @@ async function requestPage(input: {
     searchParams.set("watermarkId", input.watermark.id);
     searchParams.set("watermarkUpdatedAt", input.watermark.updatedAt);
   }
-  const response = await routeApp.request(
+  const response = await (input.app ?? routeApp).request(
     `/containers/${input.containerId}/documents?${searchParams}`,
     { headers: { Authorization: `Bearer ${input.token}` } },
   );
@@ -156,11 +159,15 @@ test("document discovery watermarks exhaust every mixed change exactly once", as
 
   // The first page contains only a tombstone. Its live lookahead must not
   // expand linked-container paths that will not be returned to this caller.
-  const selects = spyOn(db, "select");
+  const observed = observeDatabaseSelects(db);
+  const app = createRouteApp({
+    runtime: { ...getDefaultApiServiceRuntime(), db: observed.database },
+  });
   const countLinkExpansions = () =>
-    selects.mock.calls.filter(
-      ([fields]) =>
-        fields &&
+    observed.selections.filter(
+      (fields) =>
+        typeof fields === "object" &&
+        fields !== null &&
         Object.keys(fields).length === 2 &&
         Object.values(fields).includes(
           accessManifestDocumentLinkProjection.containerId,
@@ -169,42 +176,40 @@ test("document discovery watermarks exhaust every mixed change exactly once", as
           accessManifestDocumentLinkProjection.manifestHash,
         ),
     ).length;
-  try {
-    const first = await requestPage({
-      containerId: owner.rootContainerId,
-      limit: 1,
-      token: owner.token,
-      watermark: {
-        id: "00000000-0000-4000-8000-000000000001",
-        updatedAt: discoveryTimestamp("2026-08-31T12:00:00.000100Z"),
-      },
-    });
-    expect(first.items).toHaveLength(0);
-    expect(first.hasMore).toBe(true);
-    expect(selects).toHaveBeenCalled();
-    expect(first.tombstones).toHaveLength(1);
-    expect(countLinkExpansions()).toBe(0);
+  const first = await requestPage({
+    app,
+    containerId: owner.rootContainerId,
+    limit: 1,
+    token: owner.token,
+    watermark: {
+      id: "00000000-0000-4000-8000-000000000001",
+      updatedAt: discoveryTimestamp("2026-08-31T12:00:00.000100Z"),
+    },
+  });
+  expect(first.items).toHaveLength(0);
+  expect(first.hasMore).toBe(true);
+  expect(observed.selections.length).toBeGreaterThan(0);
+  expect(first.tombstones).toHaveLength(1);
+  expect(countLinkExpansions()).toBe(0);
 
-    selects.mockClear();
-    const next = await requestPage({
-      containerId: owner.rootContainerId,
-      limit: 1,
-      token: owner.token,
-      watermark: first.nextWatermark,
-    });
-    expect(next.items).toHaveLength(1);
-    expect(countLinkExpansions()).toBe(1);
-    const item = next.items[0];
-    if (!item) throw new Error("Expected the live item after the tombstone");
-    const [nativeRow] = await db
-      .select({ updatedAt: documents.updatedAt })
-      .from(documents)
-      .where(eq(documents.id, item.id));
-    if (!nativeRow) throw new Error("Expected the stored live document");
-    expect(item.updatedAt).toBe(nativeRow.updatedAt.toISOString());
-  } finally {
-    selects.mockRestore();
-  }
+  observed.selections.length = 0;
+  const next = await requestPage({
+    app,
+    containerId: owner.rootContainerId,
+    limit: 1,
+    token: owner.token,
+    watermark: first.nextWatermark,
+  });
+  expect(next.items).toHaveLength(1);
+  expect(countLinkExpansions()).toBe(1);
+  const item = next.items[0];
+  if (!item) throw new Error("Expected the live item after the tombstone");
+  const [nativeRow] = await db
+    .select({ updatedAt: documents.updatedAt })
+    .from(documents)
+    .where(eq(documents.id, item.id));
+  if (!nativeRow) throw new Error("Expected the stored live document");
+  expect(item.updatedAt).toBe(nativeRow.updatedAt.toISOString());
 
   const expectedChanges = CHANGES.toSorted((left, right) =>
     changeKey(left).localeCompare(changeKey(right)),
