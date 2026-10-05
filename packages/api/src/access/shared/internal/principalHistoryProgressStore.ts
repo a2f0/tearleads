@@ -4,7 +4,7 @@ import {
   principalHistoryProgress,
 } from "@tearleads/api-shared/schema";
 import type { ReferencedPrincipalHead } from "@tearleads/crypto";
-import { and, desc, eq, lte } from "drizzle-orm";
+import { and, asc, desc, eq, lte } from "drizzle-orm";
 
 export interface PrincipalHistoryProgressScope {
   readonly principalType: ReferencedPrincipalHead["principalType"];
@@ -24,7 +24,7 @@ function scopeFilter(input: PrincipalHistoryProgressScope) {
   );
 }
 
-/** Remove newest hints first so the next resume candidate advances each round. */
+/** Drain the oldest hints so a damaged subtree eventually rebuilds from genesis. */
 export async function selectPrincipalHistoryProgressForDiscard(
   executor: DatabaseSession,
   input: PrincipalHistoryProgressScope & { readonly throughVersion: number },
@@ -41,7 +41,7 @@ export async function selectPrincipalHistoryProgressForDiscard(
         lte(principalHistoryProgress.version, input.throughVersion),
       ),
     )
-    .orderBy(desc(principalHistoryProgress.version))
+    .orderBy(asc(principalHistoryProgress.version))
     .limit(32);
 }
 
@@ -62,6 +62,25 @@ export async function selectPrincipalHistoryProgress(
     .orderBy(desc(principalHistoryProgress.version))
     .limit(1);
   return row ?? null;
+}
+
+/** A bounded marker for progress while draining unusable cached prefixes. */
+export async function selectOldestPrincipalHistoryProgressId(
+  executor: DatabaseSession,
+  input: PrincipalHistoryProgressScope & { readonly throughVersion: number },
+): Promise<string | null> {
+  const [row] = await executor
+    .select({ id: principalHistoryProgress.id })
+    .from(principalHistoryProgress)
+    .where(
+      and(
+        scopeFilter(input),
+        lte(principalHistoryProgress.version, input.throughVersion),
+      ),
+    )
+    .orderBy(asc(principalHistoryProgress.version))
+    .limit(1);
+  return row?.id ?? null;
 }
 
 export async function upsertPrincipalHistoryProgress(

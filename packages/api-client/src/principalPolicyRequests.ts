@@ -34,16 +34,16 @@ export class PrincipalPolicyRequests {
     options: RequestResultOptions = {},
   ) {
     const request = () =>
-        principalHistoryRequest(this.runtime, {
-          path: getPrincipalPolicy.path(principalType, principalId),
-          validator: getPrincipalPolicy.isResponse,
-          method: getPrincipalPolicy.method,
-          operation: getPrincipalPolicyOperation,
-          options,
-        }).then((result) => (result.ok ? result.data : null)),
-      key = JSON.stringify([principalType, principalId]);
-    // A caller's abort signal must not cancel another caller's shared request.
-    return options.signal
+      principalHistoryRequest(this.runtime, {
+        path: getPrincipalPolicy.path(principalType, principalId),
+        validator: getPrincipalPolicy.isResponse,
+        method: getPrincipalPolicy.method,
+        operation: getPrincipalPolicyOperation,
+        options,
+      }).then((result) => (result.ok ? result.data : null));
+    const key = JSON.stringify([principalType, principalId]);
+    // Cancellation, reporting and renewal preferences belong to their caller.
+    return Object.keys(options).length > 0
       ? request()
       : dedupedRequest(this.cache, key, request);
   }

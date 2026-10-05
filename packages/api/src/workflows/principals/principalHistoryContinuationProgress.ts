@@ -1,5 +1,8 @@
 import type { DatabaseSession } from "@tearleads/api-shared/postgres";
-import { selectPrincipalHistoryProgress } from "../../access/read/principalHistoryProgress";
+import {
+  selectOldestPrincipalHistoryProgressId,
+  selectPrincipalHistoryProgress,
+} from "../../access/read/principalHistoryProgress";
 import { sha256Hex } from "../../utils/sha256";
 import type { PrincipalHistoryPreparationRequest } from "./principalHistoryPreparationRequest";
 import { principalHistoryProtection } from "./principalHistoryProtection";
@@ -22,11 +25,16 @@ export async function principalHistoryContinuationProgress(
       ...local.scope,
       throughVersion: request.head.version,
     });
+    const oldest = await selectOldestPrincipalHistoryProgressId(executor, {
+      ...local.scope,
+      throughVersion: request.head.version,
+    });
     return sha256Hex(
       JSON.stringify([
         local.scope,
         request.head.version,
         request.head.stateHash,
+        oldest,
         row
           ? [row.id, row.version, row.stateHash, sha256Hex(row.progress)]
           : null,

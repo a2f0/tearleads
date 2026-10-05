@@ -83,10 +83,15 @@ testApiClient(
         groupId,
         request(),
       ),
-    ).toMatchObject({ ok: false });
+    ).toMatchObject({
+      ok: false,
+      kind: "http",
+      status: 401,
+      code: SESSION_ERROR_CODES.refreshRequired,
+    });
     expect(renewals).toBe(1);
     expect(calls).toBe(1);
-    expect(failures).toBe(0);
+    expect(failures).toBe(1);
   },
 );
 const request = () => ({
@@ -217,7 +222,7 @@ for (const stop of ["abort", "identity"] as const) {
             signal: controller.signal,
           },
         ),
-      ).toMatchObject({ ok: false, kind: "cancelled", status: null });
+      ).toMatchObject({ ok: false, kind: "outcome-unknown", status: null });
       expect(calls).toBe(1);
       expect(networkFailures).toBe(0);
     },
@@ -277,7 +282,7 @@ testApiClient(
         request(),
         { reportErrors: false },
       ),
-    ).toMatchObject({ ok: false, kind: "cancelled" });
+    ).toMatchObject({ ok: false, kind: "outcome-unknown" });
   },
 );
 

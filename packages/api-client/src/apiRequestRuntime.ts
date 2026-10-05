@@ -32,6 +32,7 @@ type PaymentRequiredHandler = (organizationId: string | null) => void;
 
 export class ApiRequestRuntime {
   private authToken: string | null = null;
+  private sessionRenewal: { from: string; to: string } | null = null;
   private readonly baseUrl: string;
   private onError: ((message: string) => void) | null = null;
   private onNetworkError: (() => void) | null = null;
@@ -92,12 +93,22 @@ export class ApiRequestRuntime {
 
   setAuthToken(token: string | null): boolean {
     const changed = this.authToken !== token;
+    if (changed) this.sessionRenewal = null;
     this.authToken = token;
     return changed;
   }
 
   getAuthToken(): string | null {
     return this.authToken;
+  }
+
+  private async renewSession(): Promise<boolean> {
+    const from = this.authToken;
+    const renewed = await (this.onSessionExpired?.() ?? false);
+    const to = this.authToken;
+    if (renewed && from && to && from !== to)
+      this.sessionRenewal = { from, to };
+    return renewed;
   }
 
   getRequestFailure(input: { method: HttpMethod; path: string }) {
@@ -157,7 +168,7 @@ export class ApiRequestRuntime {
       ok: false,
       path: input.path,
       report: () => {
-        this.onError?.(input.message);
+        if (input.kind !== "cancelled") this.onError?.(input.message);
       },
       status: input.status,
       statusText: input.statusText,
@@ -274,8 +285,10 @@ export class ApiRequestRuntime {
         body,
         code: errorDescription.code,
         getCurrentAuthToken: () => this.authToken,
+        isKnownSessionRenewal: (from, to) =>
+          this.sessionRenewal?.from === from && this.sessionRenewal.to === to,
         options,
-        refreshSession: () => this.onSessionExpired?.() ?? false,
+        refreshSession: () => this.renewSession(),
         reportError: (message) => this.onError?.(message),
         responseStatus: response.status,
       })
@@ -285,7 +298,10 @@ export class ApiRequestRuntime {
           errorDescription,
           failureOperation,
           method,
-          options: { ...options, reportErrors: false },
+          options: {
+            ...options,
+            reportErrors: method === "GET" ? false : options.reportErrors,
+          },
           path,
           response,
         });

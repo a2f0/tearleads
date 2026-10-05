@@ -58,7 +58,7 @@ test.each(["missing", "corrupt"] as const)(
   },
 );
 
-test("cache loss discards a bounded newest chunk and resumes the surviving prefix", async () => {
+test("cache loss drains bounded oldest chunks before rebuilding from genesis", async () => {
   const { head, entries } = await principalHistoryPreparationFixture({
     versions: 65,
   });
@@ -99,8 +99,20 @@ test("cache loss discards a bounded newest chunk and resumes the surviving prefi
   expect(repair.acceptedEntries).toBe(0);
   const surviving = await hints();
   expect(surviving).toHaveLength(33);
-  expect(Math.max(...surviving.map((row) => row.version))).toBe(33);
-  for (let version = 34; version <= head.version; version += 1) {
+  expect(Math.min(...surviving.map((row) => row.version))).toBe(33);
+  for (const remaining of [1, 0]) {
+    expect(
+      (
+        await preparePrincipalHistory(db, {
+          head,
+          budget: oneEntry(),
+          retainedReferences: [first],
+        })
+      ).complete,
+    ).toBe(false);
+    expect(await hints()).toHaveLength(remaining);
+  }
+  for (let version = 1; version <= head.version; version += 1) {
     const budget = oneEntry();
     const result = await preparePrincipalHistory(db, {
       head,

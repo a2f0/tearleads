@@ -36,5 +36,5 @@ test("more retained citations than one batch still connect to the exact current 
     loadPrincipalPolicyReferenceBatches(db, stored, [
       { ...first, stateHash: head.stateHash },
     ]),
-  ).rejects.toThrow("integrity verification");
+  ).rejects.toThrow("Principal policy state is stale");
 }, 30_000);

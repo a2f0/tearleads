@@ -1,6 +1,7 @@
 import type { JsonOperation } from "@tearleads/validators/operation";
 import type { ApiRequestRuntime } from "./apiRequestRuntime";
 import { decodeJsonOperationResponse } from "./operationResponse";
+import { PrincipalHistoryRequestContext } from "./principalHistoryRequestContext";
 import type { HttpMethod, RequestResult, RequestResultOptions } from "./types";
 
 /** Retry only an explicit, validated response proving the operation rolled back. */
@@ -15,50 +16,23 @@ export async function principalHistoryRequest<T>(
     readonly operation: JsonOperation;
   },
 ): Promise<RequestResult<T>> {
-  const { path, method, body, operation } = input;
-  // A continuation belongs to this exact authentication context. Session
-  // renewal must not replay it invisibly under a replacement token.
-  const options = {
-    ...input.options,
-    retryOnSessionExpired: "renew-only" as const,
-  };
-  const authToken = runtime.getAuthToken();
+  const { path, method } = input;
+  const context = new PrincipalHistoryRequestContext(
+    runtime,
+    method,
+    path,
+    input.options,
+  );
+  const options = context.options;
   const progress: PreparationProgress = { previous: undefined, unchanged: 0 };
-  const cancelled = () =>
-    options.signal?.aborted || runtime.getAuthToken() !== authToken;
-  const cancellation = () =>
-    runtime.responseRequest.reportFailure({
-      code: "principal_history_context_changed",
-      kind: "cancelled",
-      message: "Principal history request was cancelled",
-      method,
-      options: { ...options, reportErrors: false },
-      path,
-      status: null,
-      statusText: "",
-    });
   while (true) {
-    if (cancelled()) return cancellation();
-    const response = await runtime.responseRequest(
-      path,
-      method,
-      body,
-      options,
-      [],
-      operation,
-    );
-    if (cancelled()) return cancellation();
-    if (!response.ok) return response;
-    const decoded = await decodeJsonOperationResponse(
-      runtime.responseRequest,
-      operation,
-      response.data,
-      path,
-      options,
-    );
-    if (cancelled()) return cancellation();
+    if (context.cancelled()) return context.failure();
+    context.beforeRequest();
+    const decoded = await readResponse(runtime, context, input);
+    if (!decoded.ok && context.restartReadAfterRenewal()) continue;
     if (!decoded.ok) return decoded;
     if (decoded.data.status === 202) {
+      context.afterPreparation();
       const failure = await continuePreparation(decoded.data.data, progress);
       if (failure)
         return runtime.responseRequest.reportFailure({
@@ -67,7 +41,7 @@ export async function principalHistoryRequest<T>(
           options,
           path,
           status: 202,
-          statusText: response.data.statusText,
+          statusText: decoded.data.statusText,
         });
       continue;
     }
@@ -78,11 +52,51 @@ export async function principalHistoryRequest<T>(
         method,
         options,
         path,
-        status: response.data.status,
-        statusText: response.data.statusText,
+        status: decoded.data.status,
+        statusText: decoded.data.statusText,
       });
     return { ok: true, data: decoded.data.data };
   }
+}
+
+async function readResponse(
+  runtime: ApiRequestRuntime,
+  context: PrincipalHistoryRequestContext,
+  input: {
+    readonly path: string;
+    readonly method: HttpMethod;
+    readonly body?: string;
+    readonly operation: JsonOperation;
+  },
+) {
+  const response = await runtime.responseRequest(
+    input.path,
+    input.method,
+    input.body,
+    context.options,
+    [],
+    input.operation,
+  );
+  // Authentication rejection precedes the workflow, so renewal does not make
+  // this write's outcome uncertain. Reads may restart after a known renewal.
+  if (!response.ok && response.kind === "http" && response.status === 401)
+    return response;
+  if (context.cancelled())
+    return context.failure(response.ok ? response.data : undefined);
+  if (!response.ok) return response;
+  const decoded = await decodeJsonOperationResponse(
+    runtime.responseRequest,
+    input.operation,
+    response.data,
+    input.path,
+    context.options,
+  );
+  if (context.cancelled()) return context.failure(response.data);
+  if (!decoded.ok) return decoded;
+  return {
+    ok: true as const,
+    data: { ...decoded.data, statusText: response.data.statusText },
+  };
 }
 
 interface PreparationProgress {

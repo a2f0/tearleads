@@ -87,3 +87,23 @@ test("a rolled-back successor prepares its committed prefix before rechecking fu
     message: "Principal history preparation made no progress",
   });
 });
+
+test.each(["missing", "changed"] as const)(
+  "a %s preparation target returns a declared conflict",
+  async (damage) => {
+    const { head } = await principalHistoryPreparationFixture({ versions: 1 });
+    const requested =
+      damage === "missing"
+        ? { ...head, principalId: crypto.randomUUID() }
+        : { ...head, stateHash: "f".repeat(64) };
+    await expect(
+      runPrincipalHistoryTransaction(db, async () => {
+        throw new PrincipalHistoryPreparationRequired({
+          head: requested,
+          kind: "policy",
+          retainedReferences: [],
+        });
+      }),
+    ).rejects.toMatchObject({ status: 409 });
+  },
+);

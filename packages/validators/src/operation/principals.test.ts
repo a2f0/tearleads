@@ -25,7 +25,7 @@ const principalId = "11111111-1111-4111-8111-111111111111";
 test("principal policy operations own their HTTP contracts", () => {
   expect(getPrincipalPolicyOperation).toMatchObject({
     auth: "session",
-    failureStatuses: [400, 401, 403, 500, 503],
+    failureStatuses: [400, 401, 403, 409, 500, 503],
     id: "principals.policy.get",
     method: "GET",
     params: PrincipalPolicyPathParamsSchema,
@@ -36,6 +36,7 @@ test("principal policy operations own their HTTP contracts", () => {
     400: ErrorResponseSchema,
     401: SessionFailureResponseSchema,
     403: ErrorResponseSchema,
+    409: ErrorResponseSchema,
     500: ErrorResponseSchema,
     503: ErrorResponseSchema,
   });
