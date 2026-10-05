@@ -145,14 +145,14 @@ before an additive join hands that key out. See the
 ## Manifest History Availability
 
 [`container-keying/ManifestHistory.tla`](./container-keying/ManifestHistory.tla)
-models reads after cache loss and enabled revocation. Two negative controls show
-why cold-read and mutation caps fail. The positive predicates hold by definition;
-this model neither explores a verifier algorithm nor establishes resource bounds.
-Runtime regressions cover real signatures and long histories. See the
-[mapping and resource boundaries](./container-keying/ManifestHistory.md).
+models cold reads and revocation. Negative controls show why lifetime caps fail.
+The positive predicates hold by definition; this model does not explore a verifier
+algorithm or establish resource bounds. See the
+[mapping and runtime regressions](./container-keying/ManifestHistory.md).
 Principal state models cover
 [version availability](./container-keying/PrincipalHistory.md)
-and [page verification](./container-keying/PrincipalHistoryPages.md).
+and [page verification](./container-keying/PrincipalHistoryPages.md), including
+[authenticated resumption](./container-keying/PrincipalHistoryResume.md).
 
 ## No Bricked Device
 

@@ -1,7 +1,6 @@
 import type {
   AnyVerifiedPrincipalPolicy,
   NormalizedPrincipalPolicyStateChainEntry,
-  PrincipalPolicySignedState,
   ReferencedPrincipalHead,
 } from "./types";
 
@@ -35,7 +34,7 @@ export function principalPolicyEntryForReference(input: {
 }
 
 export function principalPolicyStateMatchesReference(
-  state: PrincipalPolicySignedState,
+  state: ReferencedPrincipalHead,
   reference: ReferencedPrincipalHead,
 ): boolean {
   return (
