@@ -1,11 +1,11 @@
 import type {
   ManagedPrincipalKind,
   PrincipalContainerGrant,
+  PrincipalPolicyAuthorization,
   PrincipalPolicyCheckpoint,
   PrincipalPolicySignedState,
   PrincipalProjectionMember,
   PrincipalStateExternalAuthority,
-  VerifiedPrincipalPolicy,
 } from "@tearleads/crypto";
 import type { ContainerMutationRequest } from "@tearleads/validators/request";
 import {
@@ -235,12 +235,12 @@ function readPrincipalPolicyCheckpoint(
 }
 
 type PrincipalPolicyCommonFields = Pick<
-  VerifiedPrincipalPolicy,
+  PrincipalPolicyAuthorization,
   "principalId" | "principalType" | "stateHash" | "version"
 >;
 
 export type PrincipalPolicyRequestArtifact = Pick<
-  VerifiedPrincipalPolicy,
+  PrincipalPolicyAuthorization,
   | "checkpoint"
   | "grants"
   | "keyEpoch"

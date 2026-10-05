@@ -1,7 +1,7 @@
 import type {
+  PrincipalPolicyAuthorization,
   ReferencedPrincipalHead,
   VerifiedContainerAccessManifest,
-  VerifiedPrincipalPolicy,
 } from "@tearleads/crypto";
 import type { ContainerMutationResponse } from "@tearleads/validators/response";
 import {
@@ -119,7 +119,7 @@ interface VerifiedMutationArtifacts {
     | readonly VerifiedContainerAccessManifest[]
     | undefined;
   readonly previousManifest: VerifiedContainerAccessManifest | null;
-  readonly principalPolicies: readonly VerifiedPrincipalPolicy[];
+  readonly principalPolicies: readonly PrincipalPolicyAuthorization[];
 }
 
 async function assertGroupGrantSetChangesAreAtomic(

@@ -9,12 +9,10 @@ import {
 import { verifyStoredPrincipalPolicyForStateWithExecutor } from "./getCurrentPrincipalPolicy";
 
 /**
- * Persists every artifact committed by one signed principal-policy state and
- * then re-verifies the whole stored chain from rows, exactly as a reader will
- * (without caching the result: the rows are still uncommitted).
- * Callers own the surrounding transaction and must not publish the new head
- * unless this complete operation succeeds: a bundle that verified on submission
- * but not from storage never commits, so no head becomes unreadable.
+ * Persist all artifacts, verify the stored state against authenticated history,
+ * and bind current payload/envelopes before the caller can commit. Progress is
+ * written in the same transaction, so neither a new head nor its verification
+ * hint survives a rollback. Restored prefixes still recheck their final row.
  */
 export async function storeVerifiedPrincipalPolicyInTransaction(
   input: PrincipalStateBundleInput,

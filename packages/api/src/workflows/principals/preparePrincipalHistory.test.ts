@@ -103,7 +103,9 @@ test("a saved prefix still checks its last stored projection before extension", 
     );
   await expect(
     preparePrincipalHistory(db, { head, budget: oneEntry() }),
-  ).rejects.toThrow("saved principal history differs");
+  ).rejects.toThrow(
+    "principal policy projection root does not match projection",
+  );
 });
 
 test("a ready prefix still validates its current signer identity", async () => {

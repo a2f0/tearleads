@@ -2,9 +2,9 @@ import type { DatabaseTransaction } from "@tearleads/api-shared/postgres";
 import { blobAuditObjects, blobs } from "@tearleads/api-shared/schema";
 import type {
   AccessEvent,
+  PrincipalPolicyAuthorization,
   VerifiedContainerAccessManifest,
   VerifiedDocumentLinkSetManifest,
-  VerifiedPrincipalPolicy,
 } from "@tearleads/crypto";
 import type {
   BlobAttachmentBindRequest,
@@ -41,7 +41,7 @@ import {
 export interface AttachmentAuthorizationProof {
   readonly authorizingContainerPaths: readonly (readonly VerifiedContainerAccessManifest[])[];
   readonly documentManifest: VerifiedDocumentLinkSetManifest;
-  readonly principalPolicies: readonly VerifiedPrincipalPolicy[];
+  readonly principalPolicies: readonly PrincipalPolicyAuthorization[];
 }
 
 function assertAttachmentEventSession(input: {

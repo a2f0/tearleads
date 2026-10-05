@@ -1,81 +1,104 @@
 import type { DatabaseSession } from "@tearleads/api-shared/postgres";
-import type { VerifiedPrincipalPolicy } from "@tearleads/crypto";
+import type { PrincipalHistoryVerificationKind } from "@tearleads/api-shared/schema";
+import {
+  type ReferencedPrincipalHead,
+  type VerifiedPrincipalPolicyCurrent,
+  verifyPrincipalPolicyCurrent,
+} from "@tearleads/crypto";
 import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
-import type { StoredPrincipalState } from "../../access/read/principalStateStore";
+import {
+  getCurrentPrincipalState,
+  type StoredPrincipalState,
+} from "../../access/read/principalStateStore";
 import { beginPrincipalHistoryVerification } from "../../utils/principalHistoryWork";
-import { StoredVerificationCache } from "../../utils/storedVerificationCache";
-import { buildPrincipalPolicyForStateWithExecutor } from "./principalPolicyBundleRecords";
-import { loadStoredPrincipalPolicyVerificationSource } from "./storedPrincipalPolicySource";
-import { verifyStoredPrincipalPolicyBundle } from "./storedPrincipalPolicyVerification";
+import {
+  preparePrincipalHistory,
+  principalHistoryPreparationBudget,
+} from "./preparePrincipalHistory";
+import { principalHistoryError } from "./principalHistoryRecords";
+import {
+  buildPrincipalPolicyCurrentForStateWithExecutor,
+  buildPrincipalPolicyForStateWithExecutor,
+} from "./principalPolicyBundleRecords";
 
-interface VerifiedPrincipalPolicyBundle {
-  readonly bundle: PrincipalPolicyBundleResponse;
-  readonly policy: VerifiedPrincipalPolicy;
+export interface VerifiedPrincipalPolicyCurrentBundle {
+  readonly bundle: Omit<PrincipalPolicyBundleResponse, "previousStates">;
+  readonly policy: VerifiedPrincipalPolicyCurrent;
 }
-
-const verifiedStoredPrincipalPolicies =
-  new StoredVerificationCache<VerifiedPrincipalPolicy>(2_048);
 
 export async function getVerifiedPrincipalPolicyForStateWithExecutor(
   executor: DatabaseSession,
   currentState: StoredPrincipalState,
-): Promise<VerifiedPrincipalPolicyBundle> {
+  retainedReferences: readonly ReferencedPrincipalHead[] = [],
+): Promise<VerifiedPrincipalPolicyCurrentBundle> {
+  return verifyCurrent(executor, currentState, retainedReferences, "policy");
+}
+
+async function verifyCurrent(
+  executor: DatabaseSession,
+  currentState: StoredPrincipalState,
+  retainedReferences: readonly ReferencedPrincipalHead[],
+  kind: PrincipalHistoryVerificationKind,
+): Promise<VerifiedPrincipalPolicyCurrentBundle> {
   beginPrincipalHistoryVerification();
-  const bundle = await buildPrincipalPolicyForStateWithExecutor(
+  // Each preparation batch is durable in the caller's executor. HTTP
+  // continuation must move these batches outside the final write transaction;
+  // this collector by itself does not bound the duration of a cold request.
+  let prepared = await preparePrincipalHistory(executor, {
+    head: currentState,
+    kind,
+    retainedReferences,
+    budget: principalHistoryPreparationBudget(),
+  });
+  while (!prepared.complete) {
+    prepared = await preparePrincipalHistory(executor, {
+      head: currentState,
+      kind,
+      retainedReferences,
+      budget: principalHistoryPreparationBudget(),
+    });
+  }
+  const authority = currentState.externalAuthority;
+  if (
+    kind === "policy" &&
+    authority &&
+    authority.principalId !== currentState.principalId
+  ) {
+    const currentAuthority = await getCurrentPrincipalState(
+      "group",
+      authority.principalId,
+      executor,
+    );
+    if (!currentAuthority)
+      throw principalHistoryError("authority", "external authority is missing");
+    await verifyCurrent(executor, currentAuthority, [authority], "authority");
+  }
+  const bundle = await buildPrincipalPolicyCurrentForStateWithExecutor(
     executor,
     currentState,
   );
-  const source = await loadStoredPrincipalPolicyVerificationSource({
-    bundle,
-    executor,
+  const verified = await verifyPrincipalPolicyCurrent({
+    current: bundle,
+    history: prepared.history,
   });
-  const cached = verifiedStoredPrincipalPolicies.get(
-    currentState.stateHash,
-    source,
-  );
-  if (cached) {
-    return { bundle, policy: cached };
-  }
-  const policy = await verifyStoredPrincipalPolicyBundle({ source });
-  verifiedStoredPrincipalPolicies.set(currentState.stateHash, source, policy);
-  return {
-    bundle,
-    policy,
-  };
+  if (!verified.ok) throw principalHistoryError(kind, verified.error.message);
+  return { bundle, policy: verified.value };
 }
 
-/**
- * Re-verifies a just-stored state from its rows inside the caller's
- * transaction WITHOUT touching the process-wide verified cache: the rows are
- * not committed yet, so a cache entry minted here would let a concurrent
- * request treat an uncommitted (or later rolled back) chain as verified.
- */
+/** Progress and artifacts verified inside a transaction roll back together. */
 export async function verifyStoredPrincipalPolicyForStateWithExecutor(
   executor: DatabaseSession,
   currentState: StoredPrincipalState,
-): Promise<VerifiedPrincipalPolicy> {
-  beginPrincipalHistoryVerification();
-  const bundle = await buildPrincipalPolicyForStateWithExecutor(
-    executor,
-    currentState,
-  );
-  const source = await loadStoredPrincipalPolicyVerificationSource({
-    bundle,
-    executor,
-  });
-  return verifyStoredPrincipalPolicyBundle({ source });
+): Promise<VerifiedPrincipalPolicyCurrent> {
+  return (
+    await getVerifiedPrincipalPolicyForStateWithExecutor(executor, currentState)
+  ).policy;
 }
 
 export async function getPrincipalPolicyForStateWithExecutor(
   executor: DatabaseSession,
   currentState: StoredPrincipalState,
 ): Promise<PrincipalPolicyBundleResponse> {
-  return (
-    await getVerifiedPrincipalPolicyForStateWithExecutor(executor, currentState)
-  ).bundle;
-}
-
-/** Discard volatile full-policy verification results for process-loss tests. */
-export function clearStoredPrincipalPolicyCache(): void {
-  verifiedStoredPrincipalPolicies.clear();
+  await getVerifiedPrincipalPolicyForStateWithExecutor(executor, currentState);
+  return buildPrincipalPolicyForStateWithExecutor(executor, currentState);
 }

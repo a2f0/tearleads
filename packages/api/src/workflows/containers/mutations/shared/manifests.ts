@@ -1,7 +1,7 @@
 import type {
+  PrincipalPolicyAuthorization,
   VerifiedAccessEvent,
   VerifiedContainerAccessManifest,
-  VerifiedPrincipalPolicy,
 } from "@tearleads/crypto";
 import { verifyContainerAccessManifest } from "@tearleads/crypto";
 import type {
@@ -32,7 +32,7 @@ interface VerifyContainerManifestFromRequestArtifacts {
     | readonly VerifiedContainerAccessManifest[]
     | undefined;
   readonly previousManifest: VerifiedContainerAccessManifest | null;
-  readonly principalPolicies: readonly VerifiedPrincipalPolicy[];
+  readonly principalPolicies: readonly PrincipalPolicyAuthorization[];
 }
 
 async function getCachedCurrentAccessManifestHead(

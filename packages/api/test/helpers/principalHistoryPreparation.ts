@@ -1,6 +1,8 @@
 import { db } from "@tearleads/api-shared/postgres";
 import {
+  principalMemberEnvelopes,
   principalMembershipProjection,
+  principalStatePayloads,
   principalStates,
   users,
 } from "@tearleads/api-shared/schema";
@@ -18,6 +20,7 @@ import { bytesToBase64 } from "@tearleads/encoding";
 export async function principalHistoryPreparationFixture(
   options: {
     readonly versions?: number;
+    readonly currentArtifacts?: boolean;
     readonly signer?: Awaited<ReturnType<typeof createPolicySigner>>;
     readonly externalAuthority?: PrincipalStateExternalAuthority;
     readonly initiallyOrdinaryMember?: boolean;
@@ -63,6 +66,7 @@ export async function principalHistoryPreparationFixture(
       members: projection.map(({ userId }) => ({ userId })),
       projection,
       version,
+      signedAt: new Date(Date.UTC(2026, 8, 12) + version * 1000).toISOString(),
       prevStateHash: entries.at(-1)?.state.stateHash ?? null,
       externalAuthority: options.externalAuthority ?? null,
     });
@@ -82,5 +86,19 @@ export async function principalHistoryPreparationFixture(
   }
   const head = entries.at(-1)?.state;
   if (!head) throw new Error("Expected history fixture");
+  const current = entries.at(-1);
+  if (options.currentArtifacts && current) {
+    await db.insert(principalStatePayloads).values(current.payload);
+    if (current.memberEnvelopes.length)
+      await db.insert(principalMemberEnvelopes).values(
+        current.memberEnvelopes.map((envelope) => ({
+          ...envelope,
+          principalType: head.principalType,
+          principalId,
+          stateHash: head.stateHash,
+          epoch: head.keyEpoch,
+        })),
+      );
+  }
   return { entries, head, signer };
 }

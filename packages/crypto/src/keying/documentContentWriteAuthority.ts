@@ -6,7 +6,7 @@ import { resolveHistoricalContainerPathUserAccessLevel } from "./containerPathAc
 import { assertDocumentCitationScope } from "./documentCitationScope";
 import { throwVerification } from "./shared";
 import type {
-  AnyVerifiedPrincipalPolicy as Policy,
+  PrincipalPolicyAuthorization as Policy,
   VerifiedBlobKekTargets,
   VerifiedContainerAccessManifest,
   VerifiedDocumentKekTargets,

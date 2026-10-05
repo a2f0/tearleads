@@ -145,6 +145,7 @@ export type {
   KeyingVerificationCode,
   KeyingVerificationResult,
   ManagedPrincipalKind,
+  PrincipalPolicyAuthorization,
   PrincipalPolicyBundle,
   PrincipalPolicyCheckpoint,
   PrincipalPolicyCurrent,

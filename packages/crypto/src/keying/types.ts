@@ -1,11 +1,33 @@
 import type {
-  PrincipalContainerGrant,
-  PrincipalProjectionMember,
-  PrincipalStateMemberEnvelope,
-  PrincipalStatePayloadCipherSuite,
-  SignedPrincipalState,
-} from "../principalState";
-import type { PrincipalPolicyExternalAuthority } from "./principalPolicyExternalAuthorityTypes";
+  ManagedPrincipalKind,
+  PrincipalPolicyAuthorization,
+  PrincipalPolicyCheckpoint,
+  ReferencedPrincipalHead,
+} from "./principalPolicyTypes";
+
+export type {
+  AnyVerifiedPrincipalPolicy,
+  ManagedPrincipalKind,
+  NormalizedPrincipalPolicyStateChainEntry,
+  PrincipalPolicyAuthorization,
+  PrincipalPolicyBundle,
+  PrincipalPolicyCheckpoint,
+  PrincipalPolicyMemberEnvelopes,
+  PrincipalPolicyPayload,
+  PrincipalPolicySignedState,
+  PrincipalPolicySignerPublicKey,
+  PrincipalPolicySnapshot,
+  PrincipalPolicyStateChainEntry,
+  ReferencedPrincipalHead,
+  VerifiedPrincipalPolicy,
+  VerifiedPrincipalPolicySnapshot,
+  VerifyPrincipalPolicyBundleInput,
+  VerifyPrincipalPolicySnapshotInput,
+} from "./principalPolicyTypes";
+export {
+  makeVerifiedPrincipalPolicy,
+  makeVerifiedPrincipalPolicySnapshot,
+} from "./principalPolicyTypes";
 
 /** Security-boundary contracts for untrusted key data and verified outputs. */
 type CanonicalJsonPrimitive = boolean | number | string | null;
@@ -66,7 +88,6 @@ export type AccessEventType =
   | "document.unlink";
 
 export type AccessObjectKind = "blob" | "container" | "document";
-export type ManagedPrincipalKind = "group" | "organization";
 export type KekRecipientKind = "container" | "group" | "user";
 export type ContentObjectKind = "blob" | "document";
 export type ContainerAccessLevel = "admin" | "read" | "write";
@@ -114,15 +135,6 @@ export interface UnsignedAccessEvent {
 
 export interface AccessEvent extends UnsignedAccessEvent {
   signature: string;
-}
-
-export interface ReferencedPrincipalHead {
-  principalType: ManagedPrincipalKind;
-  principalId: string;
-  version: number;
-  keyEpoch: number;
-  stateHash: string;
-  keyFingerprint: string;
 }
 
 export type ContainerGrantPrincipalHead = ReferencedPrincipalHead & {
@@ -528,10 +540,6 @@ const verifiedBrandValue = true;
 const verifiedIdentityStateBrand: unique symbol = Symbol(
   "verifiedIdentityState",
 );
-const verifiedPrincipalPolicyBrand: unique symbol = Symbol(
-  "verifiedPrincipalPolicy",
-);
-const verifiedPrincipalPolicySnapshotBrand: unique symbol = Symbol();
 const verifiedAccessEventBrand: unique symbol = Symbol("verifiedAccessEvent");
 const verifiedAccessManifestBrand: unique symbol = Symbol(
   "verifiedAccessManifest",
@@ -571,38 +579,6 @@ export interface VerifiedIdentityState {
   readonly checkpoint: IdentityStateCheckpoint;
   readonly [verifiedIdentityStateBrand]: true;
 }
-
-export interface VerifiedPrincipalPolicy {
-  readonly principalType: ManagedPrincipalKind;
-  readonly principalId: string;
-  readonly version: number;
-  readonly keyEpoch: number;
-  readonly stateHash: string;
-  readonly state: PrincipalPolicySignedState;
-  readonly projection: PrincipalProjectionMember[];
-  readonly grants: PrincipalContainerGrant[];
-  readonly history?: readonly NormalizedPrincipalPolicyStateChainEntry[];
-  readonly checkpoint: PrincipalPolicyCheckpoint;
-  readonly [verifiedPrincipalPolicyBrand]: true;
-}
-
-export interface VerifiedPrincipalPolicySnapshot {
-  readonly principalType: ManagedPrincipalKind;
-  readonly principalId: string;
-  readonly version: number;
-  readonly keyEpoch: number;
-  readonly stateHash: string;
-  readonly state: PrincipalPolicySignedState;
-  readonly projection: PrincipalProjectionMember[];
-  readonly grants: PrincipalContainerGrant[];
-  readonly history: readonly NormalizedPrincipalPolicyStateChainEntry[];
-  readonly checkpoint: PrincipalPolicyCheckpoint;
-  readonly [verifiedPrincipalPolicySnapshotBrand]: true;
-}
-
-export type AnyVerifiedPrincipalPolicy =
-  | VerifiedPrincipalPolicy
-  | VerifiedPrincipalPolicySnapshot;
 
 export interface VerifiedAccessEvent {
   readonly event: AccessEvent;
@@ -740,27 +716,6 @@ export function makeVerifiedIdentityState(
   return {
     ...value,
     [verifiedIdentityStateBrand]: verifiedBrandValue,
-  };
-}
-
-export function makeVerifiedPrincipalPolicy(
-  value: Omit<VerifiedPrincipalPolicy, typeof verifiedPrincipalPolicyBrand>,
-): VerifiedPrincipalPolicy {
-  return {
-    ...value,
-    [verifiedPrincipalPolicyBrand]: verifiedBrandValue,
-  };
-}
-
-export function makeVerifiedPrincipalPolicySnapshot(
-  value: Omit<
-    VerifiedPrincipalPolicySnapshot,
-    typeof verifiedPrincipalPolicySnapshotBrand
-  >,
-): VerifiedPrincipalPolicySnapshot {
-  return {
-    ...value,
-    [verifiedPrincipalPolicySnapshotBrand]: verifiedBrandValue,
   };
 }
 
@@ -932,7 +887,7 @@ export interface VerifyAttachmentBindingEventInput
   readonly authorizationMembership?: "current" | "referenced";
   readonly documentManifest: VerifiedDocumentLinkSetManifest;
   readonly authorizingContainerPaths?: readonly (readonly VerifiedContainerAccessManifest[])[];
-  readonly principalPolicies?: readonly AnyVerifiedPrincipalPolicy[];
+  readonly principalPolicies?: readonly PrincipalPolicyAuthorization[];
   readonly expectedBindingId?: string;
   readonly expectedBlobId?: string;
   readonly expectedDocumentId?: string;
@@ -945,7 +900,7 @@ export interface VerifyAttachmentDetachEventInput
   readonly authorizationMembership?: "current" | "referenced";
   readonly documentManifest: VerifiedDocumentLinkSetManifest;
   readonly authorizingContainerPaths?: readonly (readonly VerifiedContainerAccessManifest[])[];
-  readonly principalPolicies?: readonly AnyVerifiedPrincipalPolicy[];
+  readonly principalPolicies?: readonly PrincipalPolicyAuthorization[];
   readonly expectedBindingId?: string;
   readonly expectedBlobId?: string;
   readonly expectedDocumentId?: string;
@@ -977,7 +932,7 @@ export interface VerifyContainerAccessManifestInput {
   readonly previousContainerPath?: readonly VerifiedContainerAccessManifest[];
   readonly parentContainerPath?: readonly VerifiedContainerAccessManifest[];
   readonly destinationParentContainerPath?: readonly VerifiedContainerAccessManifest[];
-  readonly principalPolicies?: readonly AnyVerifiedPrincipalPolicy[];
+  readonly principalPolicies?: readonly PrincipalPolicyAuthorization[];
 }
 
 export interface VerifyContainerParentEdgeInput {
@@ -997,13 +952,13 @@ export interface VerifyDocumentLinkSetManifestInput {
     | undefined;
   readonly targetContainerPath?: readonly VerifiedContainerAccessManifest[];
   readonly authorizingContainerPaths?: readonly VerifiedContainerAccessManifest[][];
-  readonly principalPolicies?: readonly AnyVerifiedPrincipalPolicy[];
+  readonly principalPolicies?: readonly PrincipalPolicyAuthorization[];
 }
 
 export interface DeriveContainerKekRecipientTargetsInput {
   readonly containerManifest: VerifiedContainerAccessManifest;
   readonly parentKekState?: VerifiedContainerKekState | null;
-  readonly principalPolicies?: readonly AnyVerifiedPrincipalPolicy[];
+  readonly principalPolicies?: readonly PrincipalPolicyAuthorization[];
   readonly userRecipientKeys?: readonly ContainerUserRecipientKey[];
 }
 
@@ -1043,20 +998,13 @@ export interface VerifyWriteHeaderInput {
     readonly documentManifest: VerifiedDocumentLinkSetManifest;
     readonly documentKekTargets: VerifiedDocumentKekTargets;
     readonly authorizingContainerPaths: readonly (readonly VerifiedContainerAccessManifest[])[];
-    readonly principalPolicies?: readonly AnyVerifiedPrincipalPolicy[];
+    readonly principalPolicies?: readonly PrincipalPolicyAuthorization[];
   };
   readonly blobAuthorization?: {
     readonly blobKekTargets: VerifiedBlobKekTargets;
     readonly authorizingContainerPaths: readonly (readonly VerifiedContainerAccessManifest[])[];
-    readonly principalPolicies?: readonly AnyVerifiedPrincipalPolicy[];
+    readonly principalPolicies?: readonly PrincipalPolicyAuthorization[];
   };
-}
-
-export interface PrincipalPolicyCheckpoint {
-  readonly principalType: ManagedPrincipalKind;
-  readonly principalId: string;
-  readonly version: number;
-  readonly stateHash: string;
 }
 
 export interface IdentityStateCheckpoint {
@@ -1114,74 +1062,4 @@ export interface VerifyTransparencyProofInput
   readonly inclusionProof: TransparencyInclusionProof;
   readonly previousTreeHead?: SignedTransparencyTreeHead | null | undefined;
   readonly consistencyProof?: TransparencyConsistencyProof | null | undefined;
-}
-
-export interface PrincipalPolicySignedState extends SignedPrincipalState {
-  readonly stateHash: string;
-}
-
-export interface PrincipalPolicyStateChainEntry {
-  readonly state: PrincipalPolicySignedState;
-  readonly projection: readonly PrincipalProjectionMember[];
-  readonly grants: readonly PrincipalContainerGrant[];
-}
-
-export interface PrincipalPolicyPayload {
-  readonly principalType: ManagedPrincipalKind;
-  readonly principalId: string;
-  readonly stateHash: string;
-  readonly cipherSuite: PrincipalStatePayloadCipherSuite;
-  readonly ciphertext: string;
-  readonly ciphertextHash: string;
-}
-
-export interface PrincipalPolicyMemberEnvelopes {
-  readonly principalType: ManagedPrincipalKind;
-  readonly principalId: string;
-  readonly stateHash: string;
-  readonly epoch: number;
-  readonly envelopes: readonly PrincipalStateMemberEnvelope[];
-}
-
-export interface PrincipalPolicyBundle {
-  readonly currentState: PrincipalPolicySignedState;
-  readonly currentPayload: PrincipalPolicyPayload;
-  readonly currentProjection: readonly PrincipalProjectionMember[];
-  readonly currentGrants: readonly PrincipalContainerGrant[];
-  readonly currentMemberEnvelopes: PrincipalPolicyMemberEnvelopes;
-  readonly previousStates: readonly PrincipalPolicyStateChainEntry[];
-}
-
-export interface PrincipalPolicySnapshot {
-  readonly currentState: PrincipalPolicySignedState;
-  readonly currentProjection: readonly PrincipalProjectionMember[];
-  readonly currentGrants: readonly PrincipalContainerGrant[];
-  readonly previousStates: readonly PrincipalPolicyStateChainEntry[];
-}
-
-export interface PrincipalPolicySignerPublicKey {
-  readonly userId: string;
-  readonly signingKeyFingerprint: string;
-  readonly signingPublicKey: Uint8Array;
-}
-
-export interface VerifyPrincipalPolicyBundleInput {
-  readonly bundle: PrincipalPolicyBundle;
-  readonly externalAuthority?: PrincipalPolicyExternalAuthority;
-  readonly expectedReference?: ReferencedPrincipalHead;
-  readonly localCheckpoint?: PrincipalPolicyCheckpoint | null;
-  readonly signerPublicKeys: readonly PrincipalPolicySignerPublicKey[];
-}
-
-export interface VerifyPrincipalPolicySnapshotInput {
-  readonly snapshot: PrincipalPolicySnapshot;
-  readonly externalAuthority?: PrincipalPolicyExternalAuthority;
-  readonly expectedReference?: ReferencedPrincipalHead;
-  readonly signerPublicKeys: readonly PrincipalPolicySignerPublicKey[];
-}
-
-export interface NormalizedPrincipalPolicyStateChainEntry {
-  readonly state: PrincipalPolicySignedState;
-  readonly projection: PrincipalProjectionMember[];
-  readonly grants: PrincipalContainerGrant[];
 }

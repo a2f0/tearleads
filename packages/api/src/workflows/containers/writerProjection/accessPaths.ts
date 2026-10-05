@@ -3,8 +3,8 @@ import { gatherWithExecutor } from "@tearleads/api-shared/postgres";
 import { containers } from "@tearleads/api-shared/schema";
 import type {
   ContainerAccessLevel,
+  PrincipalPolicyAuthorization,
   VerifiedContainerAccessManifest,
-  VerifiedPrincipalPolicy,
 } from "@tearleads/crypto";
 import { resolveContainerPathUserAccessLevel } from "@tearleads/crypto";
 import { CONTAINER_NOT_FOUND_ERROR_CODE } from "@tearleads/validators/response";
@@ -260,7 +260,7 @@ export async function loadContainerAccessPath(
 export function buildContainerAccessProjection(input: {
   readonly accessPath: ContainerAccessPath;
   readonly minimumAccessLevel: ContainerAccessLevel;
-  readonly principalPolicies: VerifiedPrincipalPolicy[];
+  readonly principalPolicies: PrincipalPolicyAuthorization[];
   readonly userId: string;
 }): ContainerAccessProjection {
   const accessLevel = resolveContainerPathUserAccessLevel({
@@ -288,10 +288,13 @@ export function asContainerWriterProjectionError(
 }
 
 export function principalPoliciesForAccessPath(
-  principalPoliciesByReference: ReadonlyMap<string, VerifiedPrincipalPolicy>,
+  principalPoliciesByReference: ReadonlyMap<
+    string,
+    PrincipalPolicyAuthorization
+  >,
   accessPath: ContainerAccessPath,
-): VerifiedPrincipalPolicy[] {
-  const policiesByReference = new Map<string, VerifiedPrincipalPolicy>();
+): PrincipalPolicyAuthorization[] {
+  const policiesByReference = new Map<string, PrincipalPolicyAuthorization>();
 
   for (const manifest of accessPath.verifiedPath) {
     for (const reference of manifest.state.referencedPrincipalHeads) {

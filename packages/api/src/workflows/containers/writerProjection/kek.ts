@@ -3,9 +3,9 @@ import { users } from "@tearleads/api-shared/schema";
 import type {
   ContainerKeyWrap,
   ContainerUserRecipientKey,
+  PrincipalPolicyAuthorization,
   VerifiedContainerAccessManifest,
   VerifiedContainerKekState,
-  VerifiedPrincipalPolicy,
 } from "@tearleads/crypto";
 import { verifyContainerKekState } from "@tearleads/crypto";
 import { inArray } from "drizzle-orm";
@@ -32,7 +32,7 @@ import {
 function containerKekStateCacheKey(input: {
   readonly manifest: VerifiedContainerAccessManifest;
   readonly parentKekState: VerifiedContainerKekState | null;
-  readonly principalPolicies: readonly VerifiedPrincipalPolicy[];
+  readonly principalPolicies: readonly PrincipalPolicyAuthorization[];
 }): string {
   // KEK verification depends on the signed manifest, the parent KEK edge, and
   // the exact referenced principal policy heads. Include all three so a cache
@@ -236,7 +236,7 @@ export async function loadContainerKekState(
   manifest: VerifiedContainerAccessManifest,
   input: {
     readonly parentKekState: VerifiedContainerKekState | null;
-    readonly principalPolicies: readonly VerifiedPrincipalPolicy[];
+    readonly principalPolicies: readonly PrincipalPolicyAuthorization[];
   },
 ): Promise<ContainerKekProjection> {
   return cachedProjectionValue(
@@ -259,7 +259,7 @@ async function loadUncachedContainerKekState(
   manifest: VerifiedContainerAccessManifest,
   input: {
     readonly parentKekState: VerifiedContainerKekState | null;
-    readonly principalPolicies: readonly VerifiedPrincipalPolicy[];
+    readonly principalPolicies: readonly PrincipalPolicyAuthorization[];
   },
 ): Promise<ContainerKekProjection> {
   const containerKeyEpochId = manifest.state.containerKeyEpochId;

@@ -47,7 +47,11 @@ key envelopes, and its result cannot stand in for a verified full keying bundle.
 member envelopes against a successfully finished history. It also checks the
 current projection, grants, header hash, and exact accepted signature bytes.
 The distinct result type, `VerifiedPrincipalPolicyCurrent`, exposes only
-`retainedHistory`. It cannot be passed to existing full-history policy consumers.
+`retainedHistory`. It cannot be passed to full-history policy consumers.
+Authorization helpers
+accept the separate `PrincipalPolicyAuthorization` union and resolve only exact
+current or explicitly retained citations. A historical membership citation does
+not restore current access after revocation.
 Consumers must request any checkpoint or historical references they need, and
 select retained entries by version. They must not infer invariants over omitted
 entries from this subset. The verifier uses a private snapshot of the issued
@@ -123,3 +127,26 @@ The [resumption model](../formal/container-keying/PrincipalHistoryResume.md)
 checks that an authenticated restore preserves the checked prefix, its binding,
 and the authority citation. It assumes the local key remains private and does
 not model database transactions or HTTP request deadlines.
+
+The API stores authenticated prefix progress in `principal_history_progress`.
+The private server key, verification revision, policy/strict-Admins mode, scope,
+and retained citations bind each record. Lookup columns are untrusted hints;
+restoration authenticates the exact saved head and rechecks its final stored
+state, projection, grants, and signer identity. Changed rules or keys start
+verification again. Hints written inside a transaction roll back with it.
+
+Preparation shares a preferred 32-entry, 2 MiB, five-second budget across a
+policy and its authority dependency. At least one entry can advance even if it
+exceeds the preferred byte/time budget; discovering an unresolved dependency
+can also inspect one parent entry. These are scheduling targets, not strict
+bounds on total request memory or elapsed time. The current API collector still
+loops through preparation batches, and full wire responses still collect arrays.
+Moving cold preparation outside the final transaction and across HTTP requests
+remains required before #2442/#2448 can close.
+
+Current authorization consumes `PrincipalPolicyAuthorization` and explicitly
+retained historical citations. More than 128 required citations are verified in
+separate batches, each ending at the same exact current head. Every batch proves
+its own ancestry. Current payloads, member envelopes, and applicable external
+Admins artifacts are checked from storage before use. Current membership still
+controls live access, even when a historical citation includes a removed member.

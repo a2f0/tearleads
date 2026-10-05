@@ -6,16 +6,14 @@ import {
 } from "./accessEvent";
 import { computeKeyingDomainHash } from "./canonical";
 import {
+  assertAttachmentDocumentAuthority,
   requireAnyDocumentLinkedContainerWriteAccess,
   requireDocumentContainerPathWriteAccess,
   requireEventDependency,
 } from "./documentAccessAuthorization";
 import { normalizeDocumentAccessEventBody } from "./documentAccessBody";
 import { assertDocumentBlobRewrapScope } from "./documentBlobRewraps";
-import {
-  assertDocumentCitationScope,
-  assertDocumentLinkSetCitationScope,
-} from "./documentCitationScope";
+import { assertDocumentLinkSetCitationScope } from "./documentCitationScope";
 import {
   assertExactKeys,
   normalizeUniqueSortedStrings,
@@ -44,7 +42,7 @@ import type {
   KeyingCanonicalJson,
   KeyingCanonicalPayload,
   KeyingVerificationResult,
-  AnyVerifiedPrincipalPolicy as Policy,
+  PrincipalPolicyAuthorization as Policy,
   VerifiedAccessEvent,
   VerifiedAttachmentBinding,
   VerifiedAttachmentDetach,
@@ -373,56 +371,6 @@ function assertExpectedAttachmentEventFields(input: {
       "attachment event document manifest hash does not match expected manifest",
     );
   }
-}
-
-function assertAttachmentDocumentAuthority(input: {
-  readonly authorizationMembership: "current" | "referenced";
-  readonly authorizingContainerPaths:
-    | readonly (readonly VerifiedContainerAccessManifest[])[]
-    | undefined;
-  readonly body: AttachmentAccessEventBody;
-  readonly documentManifest: VerifiedDocumentLinkSetManifest;
-  readonly event: VerifiedAccessEvent;
-  readonly principalPolicies: readonly Policy[];
-}): void {
-  if (
-    input.body.documentId !== input.documentManifest.state.documentId ||
-    input.body.documentManifestHash !== input.documentManifest.manifestHash
-  ) {
-    throwVerification(
-      "stale_predecessor",
-      "attachment event document manifest does not match body",
-    );
-  }
-
-  if (
-    input.event.event.organizationId !==
-    input.documentManifest.state.organizationId
-  ) {
-    throwVerification(
-      "object_mismatch",
-      "attachment event organization does not match document manifest",
-    );
-  }
-
-  assertDocumentCitationScope({
-    dependencyManifestHashes: input.event.event.dependencyManifestHashes,
-    additionalDependencyHashes: [input.documentManifest.manifestHash],
-    label: input.body.eventType,
-    linkedContainerIds: input.documentManifest.state.linkedContainerIds,
-    organizationId: input.documentManifest.state.organizationId,
-    paths: input.authorizingContainerPaths ?? [],
-  });
-
-  requireAnyDocumentLinkedContainerWriteAccess({
-    authorizationMembership: input.authorizationMembership,
-    event: input.event,
-    label: input.body.eventType,
-    linkedContainerIds: input.documentManifest.state.linkedContainerIds,
-    organizationId: input.documentManifest.state.organizationId,
-    paths: input.authorizingContainerPaths,
-    principalPolicies: input.principalPolicies,
-  });
 }
 
 async function verifyAttachmentAccessEvent(

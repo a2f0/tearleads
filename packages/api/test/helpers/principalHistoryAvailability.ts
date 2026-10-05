@@ -2,6 +2,7 @@ import { expect } from "bun:test";
 import { ApiClient } from "@tearleads/api-client";
 import { db } from "@tearleads/api-shared/postgres";
 import {
+  principalHistoryProgress,
   principalMemberEnvelopes,
   principalMembershipProjection,
   principalStates,
@@ -15,7 +16,6 @@ import { and, count, desc, eq } from "drizzle-orm";
 import { createRequestLifetimeBindings } from "../../src/middleware/requestLifetime";
 import { routeApp } from "../../src/routeApp";
 import { parseOrganizationAuthorityDescriptor } from "../../src/workflows/organizations/organizationAuthorityDescriptor";
-import { clearStoredPrincipalPolicyCache } from "../../src/workflows/principals/getCurrentPrincipalPolicy";
 import { clearProjectionDirectoryBindingsCache } from "../../src/workflows/principals/projectionDirectoryBindings";
 import { clearStoredPolicySnapshotCache } from "../../src/workflows/principals/snapshotVerificationCache";
 import {
@@ -184,7 +184,7 @@ export async function assertPrincipalHistoryAvailability(
   await clearAccessManifestVerificationMarkers();
   clearPrincipalPolicySignatureCaches();
   clearStoredPolicySnapshotCache();
-  clearStoredPrincipalPolicyCache();
+  await db.delete(principalHistoryProgress);
   clearProjectionDirectoryBindingsCache();
   const coldServer = Bun.serve({
     hostname: "127.0.0.1",

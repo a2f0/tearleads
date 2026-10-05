@@ -1,11 +1,11 @@
 import type {
-  AnyVerifiedPrincipalPolicy,
   NormalizedPrincipalPolicyStateChainEntry,
+  PrincipalPolicyAuthorization,
   ReferencedPrincipalHead,
 } from "./types";
 
 export function principalPolicyEntryForReference(input: {
-  readonly policy: AnyVerifiedPrincipalPolicy;
+  readonly policy: PrincipalPolicyAuthorization;
   readonly reference: ReferencedPrincipalHead;
 }): NormalizedPrincipalPolicyStateChainEntry | undefined {
   const currentMatches =
@@ -22,7 +22,11 @@ export function principalPolicyEntryForReference(input: {
       grants: input.policy.grants,
     };
   }
-  return input.policy.history?.find(
+  const history =
+    "retainedHistory" in input.policy
+      ? input.policy.retainedHistory
+      : input.policy.history;
+  return history?.find(
     (entry) =>
       entry.state.principalType === input.reference.principalType &&
       entry.state.principalId === input.reference.principalId &&

@@ -1,6 +1,8 @@
 import type { DatabaseSession } from "@tearleads/api-shared/postgres";
 import type { PrincipalHistoryVerificationKind } from "@tearleads/api-shared/schema";
 import {
+  computePrincipalContainerGrantRoot,
+  computePrincipalProjectionRoot,
   normalizePrincipalContainerGrants,
   normalizePrincipalProjectionMembers,
   type PrincipalPolicyStateChainEntry,
@@ -99,6 +101,22 @@ export async function assertPrincipalHistoryEntryUnchanged(
     expected.state.version,
     kind,
   );
+  if (
+    (await computePrincipalProjectionRoot(stored.projection)) !==
+    expected.state.projectionRoot
+  )
+    throw principalHistoryError(
+      kind,
+      "principal policy projection root does not match projection",
+    );
+  if (
+    (await computePrincipalContainerGrantRoot(stored.grants)) !==
+    expected.state.grantRoot
+  )
+    throw principalHistoryError(
+      kind,
+      "principal policy grant root does not match grants",
+    );
   if (
     stored.state.stateHash !== expected.state.stateHash ||
     stored.state.signature !== expected.state.signature ||

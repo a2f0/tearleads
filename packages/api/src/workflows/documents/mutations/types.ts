@@ -1,9 +1,9 @@
 import type { DatabaseTransaction } from "@tearleads/api-shared/postgres";
 import type {
+  PrincipalPolicyAuthorization,
   VerifiedContainerAccessManifest,
   VerifiedDocumentKekTargets,
   VerifiedDocumentLinkSetManifest,
-  VerifiedPrincipalPolicy,
 } from "@tearleads/crypto";
 import type {
   DocumentCreateRequest,
@@ -64,5 +64,5 @@ export interface DocumentWriteAuthorizationProof {
   readonly authorizingContainerPaths: readonly (readonly VerifiedContainerAccessManifest[])[];
   readonly documentKekTargets: VerifiedDocumentKekTargets;
   readonly documentManifest: VerifiedDocumentLinkSetManifest;
-  readonly principalPolicies: readonly VerifiedPrincipalPolicy[];
+  readonly principalPolicies: readonly PrincipalPolicyAuthorization[];
 }

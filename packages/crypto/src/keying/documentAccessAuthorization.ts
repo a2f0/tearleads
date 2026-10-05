@@ -5,11 +5,14 @@ import {
   resolveContainerPathUserAccessLevel,
   resolveHistoricalContainerPathUserAccessLevel,
 } from "./containerAccess";
+import { assertDocumentCitationScope } from "./documentCitationScope";
 import { throwVerification } from "./shared";
 import type {
-  AnyVerifiedPrincipalPolicy as Policy,
+  AttachmentAccessEventBody,
+  PrincipalPolicyAuthorization as Policy,
   VerifiedAccessEvent,
   VerifiedContainerAccessManifest,
+  VerifiedDocumentLinkSetManifest,
 } from "./types";
 
 export function requireEventDependency(input: {
@@ -133,4 +136,54 @@ export function requireAnyDocumentLinkedContainerWriteAccess(input: {
     "unauthorized",
     `${input.label} signer lacks write access through a signed linked container dependency`,
   );
+}
+
+export function assertAttachmentDocumentAuthority(input: {
+  readonly authorizationMembership: "current" | "referenced";
+  readonly authorizingContainerPaths:
+    | readonly (readonly VerifiedContainerAccessManifest[])[]
+    | undefined;
+  readonly body: AttachmentAccessEventBody;
+  readonly documentManifest: VerifiedDocumentLinkSetManifest;
+  readonly event: VerifiedAccessEvent;
+  readonly principalPolicies: readonly Policy[];
+}): void {
+  if (
+    input.body.documentId !== input.documentManifest.state.documentId ||
+    input.body.documentManifestHash !== input.documentManifest.manifestHash
+  ) {
+    throwVerification(
+      "stale_predecessor",
+      "attachment event document manifest does not match body",
+    );
+  }
+
+  if (
+    input.event.event.organizationId !==
+    input.documentManifest.state.organizationId
+  ) {
+    throwVerification(
+      "object_mismatch",
+      "attachment event organization does not match document manifest",
+    );
+  }
+
+  assertDocumentCitationScope({
+    dependencyManifestHashes: input.event.event.dependencyManifestHashes,
+    additionalDependencyHashes: [input.documentManifest.manifestHash],
+    label: input.body.eventType,
+    linkedContainerIds: input.documentManifest.state.linkedContainerIds,
+    organizationId: input.documentManifest.state.organizationId,
+    paths: input.authorizingContainerPaths ?? [],
+  });
+
+  requireAnyDocumentLinkedContainerWriteAccess({
+    authorizationMembership: input.authorizationMembership,
+    event: input.event,
+    label: input.body.eventType,
+    linkedContainerIds: input.documentManifest.state.linkedContainerIds,
+    organizationId: input.documentManifest.state.organizationId,
+    paths: input.authorizingContainerPaths,
+    principalPolicies: input.principalPolicies,
+  });
 }
