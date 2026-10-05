@@ -53,6 +53,9 @@ select retained entries by version. They must not infer invariants over omitted
 entries from this subset. The verifier uses a private snapshot of the issued
 history capability; serialized copies and edits to its public fields cannot
 substitute a different verified prefix.
+The live history capability belongs to one loaded copy of the crypto package;
+another bundled copy cannot consume it. Across runtimes or workers, export and
+authenticate progress through restore instead of passing a serialized result.
 
 The verifier can export its accepted private state with
 `exportProgress({ localKey, context })`. `localKey` must be a private 32-byte key

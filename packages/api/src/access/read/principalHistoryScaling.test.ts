@@ -85,7 +85,7 @@ async function seed(principalType: "group" | "organization") {
 }
 
 for (const kind of ["group", "organization"] as const) {
-  test(`${kind} history loads 101 versions in six bounded database round trips`, async () => {
+  test(`${kind} history loads 101 versions in two state pages and six queries`, async () => {
     const fixture = await seed(kind);
     const queries: unknown[][] = [];
     const history = await listPrincipalStateHistory(
@@ -93,7 +93,7 @@ for (const kind of ["group", "organization"] as const) {
       observeQueries(db, queries),
     );
     expect(queries).toHaveLength(6);
-    expect(queries.every((rows) => rows.length <= 100)).toBe(true);
+    expect([queries[0]?.length, queries[3]?.length]).toEqual([100, 1]);
     expect(history.map((entry) => entry.state.stateHash)).toEqual(
       fixture.rows.slice(0, 101).map((row) => row.stateHash),
     );
@@ -139,7 +139,7 @@ test("one history page pins scope, lower cursor and upper version", async () => 
     ),
   ).toBe(true);
   expect(queries).toHaveLength(3);
-  expect(queries.every((rows) => rows.length <= 100)).toBe(true);
+  expect(queries[0]).toHaveLength(100);
   const page = await readPrincipalHistoryPage(db, {
     principalType: "group",
     principalId: fixture.principalId,

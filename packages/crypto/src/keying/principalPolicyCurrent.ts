@@ -42,7 +42,8 @@ export interface VerifiedPrincipalPolicyCurrent
   readonly retainedHistory: NonNullable<VerifiedPrincipalPolicy["history"]>;
 }
 
-function ownEntry(entry: PrincipalPolicyStateChainEntry) {
+// Adapt owned readonly evidence to the mutable arrays in policy result types.
+function mutableEntry(entry: PrincipalPolicyStateChainEntry) {
   return {
     state: structuredClone(entry.state),
     projection: entry.projection.map((member) => ({ ...member })),
@@ -62,7 +63,7 @@ export function verifyPrincipalPolicyCurrent(input: {
     const current = structuredClone(input.current);
     const history = ownVerifiedPrincipalPolicyHistory(input.history);
     const expected = history.currentEntry;
-    const retained = history.retainedEntries.map(ownEntry);
+    const retained = history.retainedEntries.map(mutableEntry);
     const entry = await normalizePrincipalPolicyStateChainEntry({
       state: current.currentState,
       projection: current.currentProjection,
