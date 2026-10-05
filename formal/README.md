@@ -96,12 +96,6 @@ and stay unique within each trust domain. See the
 models current group references at commit and monotone references in signed
 container history. See the [mapping and boundaries](./container-keying/PrincipalReferenceProgress.md).
 
-## Principal History Pages
-
-[`PrincipalHistoryPages.tla`](./container-keying/PrincipalHistoryPages.tla)
-checks publication and authority continuity.
-[Mapping](./container-keying/PrincipalHistoryPages.md).
-
 ## Container Grant Scope
 
 [`container-keying/ContainerGrantScope.tla`](./container-keying/ContainerGrantScope.tla)
@@ -156,9 +150,9 @@ why cold-read and mutation caps fail. The positive predicates hold by definition
 this model neither explores a verifier algorithm nor establishes resource bounds.
 Runtime regressions cover real signatures and long histories. See the
 [mapping and resource boundaries](./container-keying/ManifestHistory.md).
-Principal version counters use
-[`PrincipalHistory.tla`](./container-keying/PrincipalHistory.tla)
-([mapping](./container-keying/PrincipalHistory.md)).
+Principal state models cover
+[version availability](./container-keying/PrincipalHistory.md)
+and [page verification](./container-keying/PrincipalHistoryPages.md).
 
 ## No Bricked Device
 

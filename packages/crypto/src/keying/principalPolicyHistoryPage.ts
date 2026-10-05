@@ -46,6 +46,21 @@ function ownPage(page: PrincipalPolicyHistoryPage): PrincipalPolicyHistoryPage {
   return owned;
 }
 
+function assertPageCheckpoint(
+  entries: readonly NormalizedPrincipalPolicyStateChainEntry[],
+  checkpoint: PrincipalPolicyCheckpoint | null,
+): void {
+  if (!checkpoint) return;
+  const entry = entries.find(
+    (candidate) => candidate.state.version === checkpoint.version,
+  );
+  if (entry && entry.state.stateHash !== checkpoint.stateHash)
+    throwVerification(
+      "equivocation",
+      "principal history conflicts with the local checkpoint",
+    );
+}
+
 export async function verifyPrincipalHistoryPage(input: {
   readonly page: PrincipalPolicyHistoryPage;
   readonly principalId: string;
@@ -69,7 +84,6 @@ export async function verifyPrincipalHistoryPage(input: {
     const current = await normalizePrincipalPolicyStateChainEntry(entry);
     verifyPrincipalPolicyChainEntryIdentity({
       currentState: {
-        ...current.state,
         principalId: input.principalId,
         principalType: input.principalType,
       },
@@ -102,14 +116,6 @@ export async function verifyPrincipalHistoryPage(input: {
         "hash_mismatch",
         "principal history reference mismatch",
       );
-    if (
-      current.state.version === input.checkpoint?.version &&
-      current.state.stateHash !== input.checkpoint.stateHash
-    )
-      throwVerification(
-        "equivocation",
-        "principal history conflicts with the local checkpoint",
-      );
     entries.push(current);
     previous = current;
   }
@@ -117,6 +123,7 @@ export async function verifyPrincipalHistoryPage(input: {
     chain: entries,
     signerPublicKeyByUserAndFingerprint: signerKeys,
   });
+  assertPageCheckpoint(entries, input.checkpoint);
   if (!previous)
     throwVerification("missing_dependency", "principal history page is empty");
   return {

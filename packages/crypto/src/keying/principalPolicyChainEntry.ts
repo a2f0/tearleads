@@ -61,7 +61,10 @@ export async function normalizePrincipalPolicyStateChainEntry(
 }
 
 export function verifyPrincipalPolicyChainEntryIdentity(input: {
-  readonly currentState: PrincipalPolicySignedState;
+  readonly currentState: Pick<
+    PrincipalPolicySignedState,
+    "principalId" | "principalType"
+  >;
   readonly expectedVersion: number;
   readonly normalizedEntry: NormalizedPrincipalPolicyStateChainEntry;
 }): void {

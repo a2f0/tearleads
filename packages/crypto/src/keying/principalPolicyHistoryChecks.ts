@@ -11,7 +11,30 @@ import {
 import type {
   PrincipalPolicyCheckpoint,
   PrincipalPolicySignedState,
+  ReferencedPrincipalHead,
 } from "./types";
+
+function assertReferenceBudget(count: number): void {
+  if (count > PRINCIPAL_HISTORY_PAGE_ENTRY_LIMIT)
+    throwVerification(
+      "invalid_shape",
+      "too many retained principal references",
+    );
+}
+
+function normalizeReferences(
+  requested: readonly ReferencedPrincipalHead[],
+): ReferencedPrincipalHead[] {
+  assertReferenceBudget(requested.length);
+  const references: ReferencedPrincipalHead[] = [];
+  for (const reference of requested) {
+    // Bind the limit to consumed entries even if the caller supplies a custom
+    // iterator. Use our own normalizer and array rather than a caller's map.
+    assertReferenceBudget(references.length + 1);
+    references.push(normalizeReferencedPrincipalHead(reference));
+  }
+  return references;
+}
 
 export function normalizePrincipalHistoryInput(
   input: PrincipalPolicyHistoryInput,
@@ -27,12 +50,7 @@ export function normalizePrincipalHistoryInput(
   );
   const checkpoint = structuredClone(input.localCheckpoint ?? null);
   const requested = input.retainedReferences ?? [];
-  if (requested.length > PRINCIPAL_HISTORY_PAGE_ENTRY_LIMIT)
-    throwVerification(
-      "invalid_shape",
-      "too many retained principal references",
-    );
-  const references = requested.map(normalizeReferencedPrincipalHead);
+  const references = normalizeReferences(requested);
   if (
     new Set(references.map((reference) => reference.version)).size !==
     references.length

@@ -9,9 +9,12 @@ import type {
 
 export const PRINCIPAL_HISTORY_PAGE_ENTRY_LIMIT = 128;
 
+/** A crypto verification batch, not a wire-response DTO. */
 export interface PrincipalPolicyHistoryPage {
   readonly entries: readonly PrincipalPolicyStateChainEntry[];
+  /** Keys resolved through the caller's trusted user-identity mechanism. */
   readonly signerPublicKeys: readonly PrincipalPolicySignerPublicKey[];
+  /** Already authenticated authority; never trust a server page directly. */
   readonly externalAuthority?: PrincipalPolicyExternalAuthority;
 }
 

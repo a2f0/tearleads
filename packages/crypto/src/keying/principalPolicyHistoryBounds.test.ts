@@ -196,3 +196,72 @@ test("page budgets bind to owned bytes when a getter changes its answer", async 
   );
   expect(reads).toBe(2);
 });
+
+for (const scope of [
+  { principalId: "another-principal", principalType: "group" as const },
+  { principalId: "paged-group", principalType: "organization" as const },
+]) {
+  test(`a first page must match the verifier scope ${scope.principalType}/${scope.principalId}`, async () => {
+    const { signer, first } = await historyFixture();
+    const verifier = createPrincipalPolicyHistoryVerifier(scope);
+    expectVerificationError(
+      await verifier.append({
+        entries: [first.entry],
+        signerPublicKeys: [signer],
+      }),
+      "object_mismatch",
+    );
+    expectVerificationError(
+      verifier.finish(historyHead(first.state)),
+      "missing_dependency",
+    );
+  });
+}
+
+test("finishing requires every exact-head field to match", async () => {
+  const { create, signer, first } = await historyFixture();
+  const verifier = create();
+  expect(
+    (
+      await verifier.append({
+        entries: [first.entry],
+        signerPublicKeys: [signer],
+      })
+    ).ok,
+  ).toBe(true);
+  const reference = historyHead(first.state);
+  const alterations = [
+    { principalId: "another-principal" },
+    { principalType: "organization" as const },
+    { version: 2 },
+    { keyEpoch: 2 },
+    { stateHash: "a".repeat(64) },
+    { keyFingerprint: "a".repeat(64) },
+  ];
+  for (const alteration of alterations)
+    expectVerificationError(
+      verifier.finish({ ...reference, ...alteration }),
+      "missing_dependency",
+    );
+  expect(verifier.finish(reference).ok).toBe(true);
+});
+
+test("the reference budget also covers the normalized array", async () => {
+  const { shared, first } = await historyFixture();
+  const reference = historyHead(first.state);
+  const requested = [reference];
+  Object.defineProperty(requested, Symbol.iterator, {
+    value: function* () {
+      for (let index = 0; index <= PRINCIPAL_HISTORY_PAGE_ENTRY_LIMIT; index++)
+        yield { ...reference, version: index + 1 };
+    },
+  });
+  rejectsInput(
+    {
+      principalId: shared.principalId,
+      principalType: "group",
+      retainedReferences: requested,
+    },
+    "invalid_shape",
+  );
+});

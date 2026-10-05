@@ -260,6 +260,18 @@ test("a checkpoint conflict rejects the page immediately and permits the correct
   ).toBe(true);
   expectVerificationError(
     await verifier.append({
+      entries: [
+        {
+          ...second.entry,
+          state: { ...second.state, signature: first.state.signature },
+        },
+      ],
+      signerPublicKeys: [signer],
+    }),
+    "signature_mismatch",
+  );
+  expectVerificationError(
+    await verifier.append({
       entries: [second.entry, third.entry],
       signerPublicKeys: [signer],
     }),
