@@ -1,3 +1,4 @@
+import type { RequestFailureKind } from "@tearleads/api-client";
 import type {
   PrincipalPolicyCheckpoint,
   PrincipalPolicyExternalAuthority,
@@ -77,6 +78,8 @@ export interface PrincipalPolicyReadWriteApi extends PrincipalPolicyReadApi {
       }
     | {
         readonly ok: false;
+        readonly kind?: RequestFailureKind | undefined;
+        readonly message?: string | undefined;
         readonly code?: string | undefined;
         readonly report?: (() => void) | undefined;
         readonly requiredContainerIds?: readonly string[] | undefined;
@@ -294,7 +297,7 @@ async function submitGroupPolicyCommit(input: {
     organizationPolicy: input.organizationRequest,
   });
   const { commitOrganizationGroupPolicyResult } = input.apiClient;
-  if (!commitOrganizationGroupPolicyResult || !input.carryDescendantRekeys) {
+  if (!commitOrganizationGroupPolicyResult) {
     return input.apiClient.commitOrganizationGroupPolicy(
       input.organizationId,
       input.groupId,
@@ -309,7 +312,10 @@ async function submitGroupPolicyCommit(input: {
     { reportErrors: false },
   );
   if (first.ok) return first.data;
+  if (first.kind === "cancelled") return null;
+  if (first.kind === "outcome-unknown") throw new Error(first.message);
   if (
+    !input.carryDescendantRekeys ||
     first.code !== CONTAINER_MUTATION_ERROR_CODES.descendantRekeysRequired ||
     !first.requiredContainerIds?.length
   ) {
@@ -341,6 +347,8 @@ async function submitGroupPolicyCommit(input: {
     { reportErrors: false },
   );
   if (!second.ok) {
+    if (second.kind === "cancelled") return null;
+    if (second.kind === "outcome-unknown") throw new Error(second.message);
     second.report?.();
     return null;
   }

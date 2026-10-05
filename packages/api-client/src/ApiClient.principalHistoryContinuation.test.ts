@@ -217,7 +217,7 @@ for (const stop of ["abort", "identity"] as const) {
             signal: controller.signal,
           },
         ),
-      ).toMatchObject({ ok: false, kind: "cancelled", status: null });
+      ).toMatchObject({ ok: false, kind: "outcome-unknown", status: null });
       expect(calls).toBe(1);
       expect(networkFailures).toBe(0);
     },
@@ -277,7 +277,7 @@ testApiClient(
         request(),
         { reportErrors: false },
       ),
-    ).toMatchObject({ ok: false, kind: "cancelled" });
+    ).toMatchObject({ ok: false, kind: "outcome-unknown" });
   },
 );
 

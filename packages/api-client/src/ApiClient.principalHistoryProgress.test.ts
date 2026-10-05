@@ -1,4 +1,5 @@
 import { expect } from "bun:test";
+import { SESSION_ERROR_CODES } from "@tearleads/validators/response";
 import { HttpResponse, http } from "msw";
 import {
   createPrincipalPolicyBundleResponse,
@@ -102,5 +103,94 @@ testApiClient(
       bundle,
     );
     expect(calls).toBe(4);
+  },
+);
+
+testApiClient(
+  "an expired policy read renews and restarts without failing its callers",
+  async () => {
+    const client = new ApiClient(apiBaseUrl);
+    client.setAuthToken("expired-session");
+    let renewals = 0;
+    let calls = 0;
+    let errors = 0;
+    client.setOnError(() => {
+      errors += 1;
+    });
+    client.setOnSessionExpired(() => {
+      renewals += 1;
+      client.setAuthToken("renewed-session");
+      return true;
+    });
+    const bundle = createPrincipalPolicyBundleResponse();
+    server.use(
+      http.get(path, ({ request }) => {
+        calls += 1;
+        if (calls === 1)
+          return HttpResponse.json(
+            {
+              code: SESSION_ERROR_CODES.refreshRequired,
+              error: "Expired session",
+            },
+            { status: 401 },
+          );
+        expect(request.headers.get("Authorization")).toBe(
+          "Bearer renewed-session",
+        );
+        return HttpResponse.json(bundle);
+      }),
+    );
+    const results = await Promise.all([
+      client.getCurrentPrincipalPolicy("organization", id),
+      client.getCurrentPrincipalPolicy("organization", id),
+    ]);
+    expect(results).toEqual([bundle, bundle]);
+    expect([calls, renewals, errors]).toEqual([2, 1, 0]);
+  },
+);
+
+testApiClient(
+  "aborting while reading a policy body does not report a network failure",
+  async () => {
+    const client = new ApiClient(apiBaseUrl);
+    const controller = new AbortController();
+    let failures = 0;
+    client.setOnError(() => {
+      failures += 1;
+    });
+    client.setOnNetworkError(() => {
+      failures += 1;
+    });
+    server.use(
+      http.get(
+        path,
+        () =>
+          new HttpResponse(
+            new ReadableStream({
+              start(stream) {
+                stream.enqueue(new TextEncoder().encode("{"));
+                setTimeout(() => {
+                  controller.abort();
+                  stream.error(
+                    new DOMException("Request was aborted", "AbortError"),
+                  );
+                }, 10);
+              },
+            }),
+            { status: 200, headers: { "Content-Type": "application/json" } },
+          ),
+      ),
+    );
+    expect(
+      await client.getCurrentPrincipalPolicy("organization", id, {
+        signal: controller.signal,
+      }),
+    ).toBeNull();
+    const failure = client.getRequestFailure({
+      method: "GET",
+      path: `/principals/organization/${id}/policy`,
+    });
+    failure?.report();
+    expect(failures).toBe(0);
   },
 );

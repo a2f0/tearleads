@@ -157,7 +157,7 @@ export class ApiRequestRuntime {
       ok: false,
       path: input.path,
       report: () => {
-        this.onError?.(input.message);
+        if (input.kind !== "cancelled") this.onError?.(input.message);
       },
       status: input.status,
       statusText: input.statusText,

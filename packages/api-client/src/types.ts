@@ -29,6 +29,8 @@ export interface RequestResultOptions {
   readonly expectedPaymentRequiredOrganizationId?: string | undefined;
   readonly headers?: Record<string, string> | undefined;
   readonly reportErrors?: boolean | undefined;
+  /** Called only after this request successfully renews its expired session. */
+  readonly onSessionRenewed?: (() => void) | undefined;
   readonly retryOnSessionExpired?: boolean | "renew-only" | undefined;
 }
 
@@ -55,7 +57,8 @@ export type RequestFailureKind =
   | "network"
   | "json"
   | "shape"
-  | "cancelled";
+  | "cancelled"
+  | "outcome-unknown";
 
 export interface RequestFailure {
   readonly code?: string | undefined;

@@ -50,9 +50,11 @@ export async function shouldRetryAfterSessionExpired(
     }
   }
 
-  return Boolean(
+  const renewed = Boolean(
     refreshed &&
       input.getCurrentAuthToken() &&
       input.getCurrentAuthToken() !== input.authToken,
   );
+  if (renewed) input.options.onSessionRenewed?.();
+  return renewed;
 }
