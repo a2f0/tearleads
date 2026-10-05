@@ -61,55 +61,60 @@ test("a later page still requires a predecessor admin and verifies grant commitm
   ).toBe(true);
 });
 
-test("a page boundary cannot bypass key rotation for member removal", async () => {
-  const { shared, signer } = await historyFixture();
-  const first = await signPolicyState({
-    ...shared,
-    members: [...shared.members, { userId: "removed" }],
-    version: 1,
-    prevStateHash: null,
-  });
-  const second = await signPolicyState({
-    ...shared,
-    version: 2,
-    prevStateHash: first.state.stateHash,
-  });
-  const verifier = createPrincipalPolicyHistoryVerifier({
-    principalId: shared.principalId,
-    principalType: "group",
-  });
-  expect(
-    (
+test.each([false, true])(
+  "a page boundary cannot bypass key rotation for member removal (restart=%s)",
+  async (restart) => {
+    const { shared, signer } = await historyFixture();
+    const first = await signPolicyState({
+      ...shared,
+      members: [...shared.members, { userId: "removed" }],
+      version: 1,
+      prevStateHash: null,
+    });
+    const second = await signPolicyState({
+      ...shared,
+      version: 2,
+      prevStateHash: first.state.stateHash,
+    });
+    const input = {
+      principalId: shared.principalId,
+      principalType: "group" as const,
+    };
+    let verifier = createPrincipalPolicyHistoryVerifier(input);
+    expect(
+      (
+        await verifier.append({
+          entries: [first.entry],
+          signerPublicKeys: [signer],
+        })
+      ).ok,
+    ).toBe(true);
+    if (restart) verifier = await roundTripHistoryVerifier(verifier, input);
+    expectVerificationError(
       await verifier.append({
-        entries: [first.entry],
+        entries: [second.entry],
         signerPublicKeys: [signer],
-      })
-    ).ok,
-  ).toBe(true);
-  expectVerificationError(
-    await verifier.append({
-      entries: [second.entry],
-      signerPublicKeys: [signer],
-    }),
-    "key_epoch_reuse",
-  );
-  const rotated = await signPolicyState({
-    ...shared,
-    version: 2,
-    prevStateHash: first.state.stateHash,
-    keyEpoch: 2,
-    principalKeyPair: generateKemSeedAndKeyPair(),
-  });
-  expect(
-    (
-      await verifier.append({
-        entries: [rotated.entry],
-        signerPublicKeys: [signer],
-      })
-    ).ok,
-  ).toBe(true);
-  expect(verifier.finish(historyHead(rotated.state)).ok).toBe(true);
-});
+      }),
+      "key_epoch_reuse",
+    );
+    const rotated = await signPolicyState({
+      ...shared,
+      version: 2,
+      prevStateHash: first.state.stateHash,
+      keyEpoch: 2,
+      principalKeyPair: generateKemSeedAndKeyPair(),
+    });
+    expect(
+      (
+        await verifier.append({
+          entries: [rotated.entry],
+          signerPublicKeys: [signer],
+        })
+      ).ok,
+    ).toBe(true);
+    expect(verifier.finish(historyHead(rotated.state)).ok).toBe(true);
+  },
+);
 
 test.each([false, true])(
   "external authority cannot regress across an uncited page (restart=%s)",

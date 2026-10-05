@@ -7,7 +7,10 @@ function memberKey(input: { readonly userId: string }): string {
 }
 
 export async function verifyPrincipalPolicyMemberEnvelopes(input: {
-  readonly bundle: PrincipalPolicyBundle;
+  readonly bundle: Pick<
+    PrincipalPolicyBundle,
+    "currentState" | "currentProjection" | "currentMemberEnvelopes"
+  >;
 }): Promise<void> {
   const { currentMemberEnvelopes, currentProjection, currentState } =
     input.bundle;

@@ -37,6 +37,10 @@ export {
   verifyDocumentPurgeEvent,
 } from "./documentPurge";
 export * from "./principalPolicy";
+export {
+  type PrincipalPolicyCurrent,
+  verifyPrincipalPolicyCurrent,
+} from "./principalPolicyCurrent";
 export type {
   PrincipalPolicyExternalAuthority,
   PrincipalPolicyExternalAuthorityState,

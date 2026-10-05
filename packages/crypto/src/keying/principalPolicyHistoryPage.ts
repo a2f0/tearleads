@@ -23,6 +23,10 @@ import type {
   ReferencedPrincipalHead,
 } from "./types";
 
+// Bump when page, chain, signer, or external-authority verification tightens.
+// Authenticated saved progress must then re-verify its omitted prefix.
+export const PRINCIPAL_HISTORY_VERIFICATION_REVISION = 1;
+
 function assertPageBudget(page: PrincipalPolicyHistoryPage): void {
   if (
     page.entries.length < 1 ||
