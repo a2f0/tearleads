@@ -20,7 +20,10 @@ import {
   prefetchContainerManifestHistory,
 } from "./accessPaths";
 import { cachedProjectionValue } from "./context";
-import { principalPolicyCacheKey } from "./principalPolicies";
+import {
+  loadPrincipalPoliciesForAccessPaths,
+  principalPolicyCacheKey,
+} from "./principalPolicies";
 import { verifyStoredContainerManifest } from "./storedManifestVerification";
 import {
   type ContainerKekManifestHistory,
@@ -302,6 +305,13 @@ async function loadUncachedContainerKekState(
     manifest,
     wraps,
   });
+  // A carried wrap may cite a manifest whose other grants still name older
+  // principal heads. Verify those citations against current signed history too.
+  const principalPolicies = await loadPrincipalPoliciesForAccessPaths(
+    context.executor,
+    [containerManifestHistory.verified],
+    input.principalPolicies,
+  );
   const verified = await verifyContainerKekState({
     allowHistoricalParentEpoch: true,
     containerManifest: manifest,
@@ -312,7 +322,7 @@ async function loadUncachedContainerKekState(
     parentManifestHistory: [...context.verifiedManifestByHash.values()],
     keyEpoch,
     parentKekState: input.parentKekState,
-    principalPolicies: input.principalPolicies,
+    principalPolicies,
     userRecipientKeys,
     wraps,
   });

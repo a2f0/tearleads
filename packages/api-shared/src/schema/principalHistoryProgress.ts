@@ -54,6 +54,7 @@ export const principalHistoryProgress = pgTable(
       table.principalId,
       table.verificationKind,
       table.inputHash,
+      table.protectionId,
       table.version,
     ),
     index("principal_history_progress_lookup_idx").on(

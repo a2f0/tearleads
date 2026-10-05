@@ -80,6 +80,7 @@ export async function upsertPrincipalHistoryProgress(
         principalHistoryProgress.principalId,
         principalHistoryProgress.verificationKind,
         principalHistoryProgress.inputHash,
+        principalHistoryProgress.protectionId,
         principalHistoryProgress.version,
       ],
       set: {

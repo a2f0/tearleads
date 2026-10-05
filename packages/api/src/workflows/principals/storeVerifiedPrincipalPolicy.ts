@@ -11,8 +11,9 @@ import { verifyStoredPrincipalPolicyForStateWithExecutor } from "./getCurrentPri
 /**
  * Persist all artifacts, verify the stored state against authenticated history,
  * and bind current payload/envelopes before the caller can commit. Progress is
- * written in the same transaction, so neither a new head nor its verification
- * hint survives a rollback. Restored prefixes still recheck their final row.
+ * buffered until the outer transaction commits, then published by autocommit.
+ * Rolled-back or unmanaged transactions never publish new hints. Restored
+ * prefixes still recheck their final row.
  */
 export async function storeVerifiedPrincipalPolicyInTransaction(
   input: PrincipalStateBundleInput,

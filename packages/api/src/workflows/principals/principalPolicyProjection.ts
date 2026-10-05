@@ -71,11 +71,18 @@ function dedupeReferencedPrincipalHeads(
 export async function loadPrincipalPoliciesForContainerPaths(
   executor: DatabaseSession,
   paths: readonly (readonly VerifiedContainerAccessManifest[])[],
+  evidence: readonly PrincipalPolicyAuthorization[] = [],
 ): Promise<PrincipalPolicyAuthorization[]> {
-  return loadPrincipalPoliciesForReferences(
-    executor,
-    collectReferencedPrincipalHeads(paths),
+  const missing = collectReferencedPrincipalHeads(paths).filter(
+    (reference) =>
+      !evidence.some((policy) =>
+        principalPolicyMatchesReference({ policy, reference }),
+      ),
   );
+  return [
+    ...evidence,
+    ...(await loadPrincipalPoliciesForReferences(executor, missing)),
+  ];
 }
 
 export async function loadPrincipalAuthorizationPoliciesForReferences(

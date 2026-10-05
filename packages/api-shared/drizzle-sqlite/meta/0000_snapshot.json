@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "205f72d8-7338-491a-8f1b-94031dfa42b1",
+  "id": "6ba6f8b2-9a31-4d43-9869-d5db1a94a679",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
     "access_event_dependency_projection": {
@@ -4781,6 +4781,7 @@
             "principal_id",
             "verification_kind",
             "input_hash",
+            "protection_id",
             "version"
           ],
           "isUnique": true

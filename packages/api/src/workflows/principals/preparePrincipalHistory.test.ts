@@ -184,6 +184,36 @@ test("rotating the local key starts bounded re-verification and recovers", async
   }
 });
 
+test("concurrent protection generations retain independent progress", async () => {
+  const secretName = "DOCUMENT_SYNC_CURSOR_HMAC_KEY";
+  const previous = process.env[secretName];
+  try {
+    const { head } = await principalHistoryPreparationFixture({ versions: 2 });
+    for (const secret of ["a", "b"]) {
+      process.env[secretName] = secret.repeat(32);
+      expect(
+        (
+          await preparePrincipalHistory(db, {
+            head,
+            budget: principalHistoryPreparationBudget(),
+          })
+        ).complete,
+      ).toBe(true);
+    }
+    for (const secret of ["a", "b"]) {
+      process.env[secretName] = secret.repeat(32);
+      const budget = principalHistoryPreparationBudget();
+      expect(
+        (await preparePrincipalHistory(db, { head, budget })).complete,
+      ).toBe(true);
+      expect(budget.acceptedEntries).toBe(0);
+    }
+  } finally {
+    if (previous === undefined) delete process.env[secretName];
+    else process.env[secretName] = previous;
+  }
+});
+
 test("untrusted locator columns cannot advance a valid saved prefix", async () => {
   const { head } = await principalHistoryPreparationFixture({ versions: 2 });
   await preparePrincipalHistory(db, {

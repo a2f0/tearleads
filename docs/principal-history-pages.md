@@ -169,12 +169,16 @@ so a different requested citation reuses the same verified prefix. Lookup column
 are untrusted hints;
 restoration authenticates the exact saved head and rechecks its final stored
 state, projection, grants, and signer identity. Changed rules or keys start
-verification again. Transactions buffer hints and publish each row in its own
+verification again. Different protection generations have separate unique rows,
+so processes using different keys do not overwrite each other's progress.
+Transactions buffer hints and publish each row in its own
 autocommit after success, so readers cannot deadlock by locking hint rows in
 opposite orders. Publication failures are reported without changing the
 transaction result. Rolled-back hints are discarded; conditional deletion of
 an invalid hint can run after rollback. Savepoint effects wait for the outer
 transaction to finish. Index nodes are published before progress that uses them.
+Publication is awaited after locks are released and adds storage latency to the
+transaction's response.
 
 The `principal_history_index_nodes` table stores untrusted proof material keyed
 by hash. Selecting an older citation reads its entry and a logarithmic inclusion
@@ -205,3 +209,6 @@ inclusion in that verified history without replaying its signatures. Current
 payloads, member envelopes, and applicable external
 Admins artifacts are checked from storage before use. Current membership still
 controls live access, even when a historical citation includes a removed member.
+Container KEK verification also retains citations from historical wrap manifests.
+A carried wrap can cite a manifest whose other grants name older principal heads,
+even when the current access path has already advanced those citations.

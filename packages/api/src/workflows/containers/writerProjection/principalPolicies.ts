@@ -90,9 +90,14 @@ export function principalPolicyCacheKey(input: {
 export async function loadPrincipalPoliciesForAccessPaths(
   executor: DatabaseSession,
   paths: readonly (readonly VerifiedContainerAccessManifest[])[],
+  evidence: readonly PrincipalPolicyAuthorization[] = [],
 ): Promise<PrincipalPolicyAuthorization[]> {
   try {
-    return await loadPrincipalPoliciesForContainerPaths(executor, paths);
+    return await loadPrincipalPoliciesForContainerPaths(
+      executor,
+      paths,
+      evidence,
+    );
   } catch (error) {
     if (error instanceof PrincipalPolicyProjectionError) {
       throw new ContainerWriterProjectionError(error.message, error.status);

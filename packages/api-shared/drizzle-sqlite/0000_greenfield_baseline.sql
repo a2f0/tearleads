@@ -779,7 +779,7 @@ CREATE TABLE `principal_history_progress` (
 	CONSTRAINT "principal_history_progress_kind" CHECK("principal_history_progress"."verification_kind" IN ('policy', 'authority'))
 );
 --> statement-breakpoint
-CREATE UNIQUE INDEX `principal_history_progress_version_idx` ON `principal_history_progress` (`principal_type`,`principal_id`,`verification_kind`,`input_hash`,`version`);--> statement-breakpoint
+CREATE UNIQUE INDEX `principal_history_progress_version_idx` ON `principal_history_progress` (`principal_type`,`principal_id`,`verification_kind`,`input_hash`,`protection_id`,`version`);--> statement-breakpoint
 CREATE INDEX `principal_history_progress_lookup_idx` ON `principal_history_progress` (`principal_type`,`principal_id`,`verification_kind`,`input_hash`,`protection_id`,`version`);--> statement-breakpoint
 CREATE TABLE `principal_member_envelopes` (
 	`id` text PRIMARY KEY NOT NULL,
