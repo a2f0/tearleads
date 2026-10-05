@@ -76,11 +76,14 @@ function useFitOnLoad(
   const { maximized, minimized, position } = entry;
 
   useEffect(() => {
-    if (!pending.current || !loaded || !contentSize || minimized) {
+    if (!pending.current || !loaded || minimized) {
       return;
     }
     if (maximized) {
       pending.current = false;
+      return;
+    }
+    if (!contentSize) {
       return;
     }
     const attempt = () => {

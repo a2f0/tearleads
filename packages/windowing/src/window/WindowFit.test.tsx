@@ -302,6 +302,17 @@ test("a window maximized before it is ever laid out does not fit when restored",
   expect(committedGeometry(view).size).toBeUndefined();
 });
 
+test("a window maximized when its content loads does not fit a size reported later", () => {
+  const { view } = openPage(FIT_ON_LOAD);
+
+  click(view, "Withdraw size");
+  click(view, "Toggle maximize");
+  click(view, "Mark loaded");
+  click(view, "Toggle maximize");
+  click(view, "Widen page");
+  expect(committedGeometry(view).size).toBeUndefined();
+});
+
 test("content that loads on a hidden surface fits once the surface shows", () => {
   const observers = captureResizeObservers();
   try {
