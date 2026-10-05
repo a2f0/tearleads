@@ -170,10 +170,10 @@ Bulk current-head reads select the maximum version per principal in SQL and
 transfer only those rows, rather than fetching all historical signatures to
 choose heads in memory.
 
-The #2442 regression crosses the former 16,384 cutoff with complete signed group
-and organization histories, commits a membership revocation and key rotation,
-and cold-recovers an older encrypted document after losing verification markers
-and all local SDK state. The opt-in command
+The direct HTTP #2442 regression crosses the former 16,384 cutoff with complete
+signed group and organization histories, commits a membership revocation and
+key rotation, and cold-recovers an older encrypted document after losing
+verification markers and all local SDK state. The opt-in command
 `bun run --cwd packages/api test:principal-history` runs that full scenario on
 both database backends sequentially. The default API suite runs the same scenario
 at 64 versions, alongside the exact numeric-boundary crypto and storage tests.
@@ -188,15 +188,32 @@ loading or verifying history. This covers indirect authorization reads as well
 as policy commits, without depending on a route allowlist. Requests that never
 reach policy verification keep the default deadline. The loopback-only listener
 sits behind nginx's request-body limits; its existing 24-hour proxy response
-timeout is not a short work budget.
-Bounded verification scheduling remains follow-up work. The regression uses this
-production binding and the real API client for cold reads.
+timeout is not a short work budget. Both deployment stacks also route the API
+through a proxied Cloudflare Tunnel. Cloudflare's
+[documented default proxy read timeout](https://developers.cloudflare.com/support/troubleshooting/http-status-codes/cloudflare-5xx-errors/error-524/)
+is 125 seconds; opting out of Bun's idle timer does not remove that external
+deadline. Live Cloudflare plan overrides are not established by this repository.
+
+A local diagnostic at `0600fdf8f8f3152e8d94575c865fcfec2fce0d42` applied a
+125-second time-to-response-headers deadline to each loopback HTTP request in the
+full PGlite scenario. Its policy-commit request exceeded the deadline (abort
+observed at 127,936 ms), before cold recovery began. The same diagnostic passed
+at 64 versions. This simulates the documented proxy budget; it is not an observed
+production 524. The complete direct HTTP scenarios pass on both database backends
+without that simulated deadline, but do not establish deployed-path availability.
+The regression uses the production Bun binding and real API client for cold
+reads. #2442 remains open until bounded continuation meets its transport-level
+availability requirement.
 The [principal-history model](../formal/container-keying/PrincipalHistory.md) checks
 revocation and cold recovery availability with negative controls for both kinds
 of cutoff. Neither the model nor the wider numeric domain promises bounded cold
 memory, transfer size, or verification time. Incremental transport remains a
 warm-cache optimization; [bounded cold recovery](https://github.com/a2f0/tearleads/issues/2448)
 tracks paged processing, resource scheduling, and any later checkpoint decisions.
+Continuation must cover server-side mutation authorization as well as response
+delivery: paging a response cannot repair a mutation that exceeds the proxy
+budget before sending headers. Each continuation must preserve signature,
+signer-authorization, continuity, key-rotation, rollback, and equivocation checks.
 
 Both API and SDK memoize verified snapshots by a SHA-256 digest of the actual
 source bytes, trusted signer keys, expected reference, and external authority.

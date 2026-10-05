@@ -118,6 +118,14 @@ for the exact-length rule.
 | --- | --- | --- | --- |
 | Principal state version | Positive exact JavaScript integer, through `Number.MAX_SAFE_INTEGER` (9,007,199,254,740,991) | Request/response validators; crypto `principalState.ts`; PostgreSQL `bigint` and SQLite `INTEGER`, with range checks on state/head projection columns. | Representation/overflow refusal only; no 16,384-entry lifetime history budget. Cold verification still walks the complete chain. |
 
+Removing the version cutoff does not bound verification time. A full-history
+policy commit exceeded a local simulation of Cloudflare's default 125-second
+proxy read timeout. The deployed API uses proxied Cloudflare Tunnels; the
+[transport findings](projection-policy-evidence.md) distinguish passing direct
+HTTP boundary tests from this remaining availability limit. Bounded continuation
+is tracked in [#2448](https://github.com/a2f0/tearleads/issues/2448), and #2442
+remains open for that end-to-end requirement.
+
 ## Limits that trade write liveness
 
 The no-bricked-device invariant says no device may be unable to read or write
