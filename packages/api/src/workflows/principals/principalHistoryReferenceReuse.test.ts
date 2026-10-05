@@ -56,11 +56,15 @@ test("the current-policy caller rejects future and conflicting references as sta
   ).toEqual([1, 3]);
   for (const references of [
     [{ ...first, version: 4 }],
+    [{ ...first, stateHash: "0".repeat(64) }],
     [first, { ...first, stateHash: "0".repeat(64) }],
   ])
     await expect(
       getVerifiedPrincipalPolicyForStateWithExecutor(db, stored, references),
-    ).rejects.toMatchObject({ status: 409 });
+    ).rejects.toMatchObject({
+      status: 409,
+      message: "Principal policy state is stale",
+    });
 });
 
 test("a cached prefix rejects a replaced historical signature during reference selection", async () => {

@@ -189,7 +189,10 @@ most 32 old progress hints from the matching scope and protection generation.
 Transaction-local resets can rebuild immediately, but publish rebuilt nodes and
 progress only after a successful outer commit. Cache loss costs verification
 work and never supplies authority or requires a principal repair write. These
-tables have no pruning policy yet.
+tables have no pruning policy yet. The remaining resource-bound work in
+[#2448](https://github.com/a2f0/tearleads/issues/2448) must cover reclaiming
+unreachable index nodes, superseded hints, and old protection generations in
+bounded batches, with concurrent readers and rebuilds remaining recoverable.
 
 Preparation shares a preferred 32-entry, 2 MiB, five-second budget across a
 policy and its authority dependency. At least one entry can advance even if it

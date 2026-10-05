@@ -780,7 +780,6 @@ CREATE TABLE `principal_history_progress` (
 );
 --> statement-breakpoint
 CREATE UNIQUE INDEX `principal_history_progress_version_idx` ON `principal_history_progress` (`principal_type`,`principal_id`,`verification_kind`,`input_hash`,`protection_id`,`version`);--> statement-breakpoint
-CREATE INDEX `principal_history_progress_lookup_idx` ON `principal_history_progress` (`principal_type`,`principal_id`,`verification_kind`,`input_hash`,`protection_id`,`version`);--> statement-breakpoint
 CREATE TABLE `principal_member_envelopes` (
 	`id` text PRIMARY KEY NOT NULL,
 	`principal_type` text NOT NULL,

@@ -163,7 +163,6 @@ export async function preparePrincipalHistory(
   const references = requestedPrincipalHistoryReferences(
     head,
     request.retainedReferences ?? [],
-    kind,
   );
   const input: PrincipalPolicyHistoryInput = {
     principalType: head.principalType,
