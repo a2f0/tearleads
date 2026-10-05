@@ -53,16 +53,40 @@ test("an independently valid fork cannot be attached to a different prefix", asy
     principalId: fixture.shared.principalId,
     principalType: "group",
   });
+  const successor = await signPolicyState({
+    ...fixture.shared,
+    version: 3,
+    prevStateHash: alternate.state.stateHash,
+    signedAt: "2026-01-03T00:00:00.000Z",
+  });
+  const append = await verifier.append({
+    entries: [fixture.first.entry, alternate.entry, successor.entry],
+    signerPublicKeys: [fixture.signer],
+  });
+  if (!append.ok) throw append.error;
+  const fork = verifier.finish(historyHead(successor.state));
+  if (!fork.ok) throw fork.error;
+  const nodes = new Map(
+    append.value.indexNodes.map((node) => [node.hash, node]),
+  );
+  const reference = {
+    reference: historyHead(alternate.state),
+    entry: alternate.entry,
+    proof: await createPrincipalHistoryIndexProof({
+      rootHash: fork.value.indexRootHash,
+      treeSize: 3,
+      version: 2,
+      readNode: async (hash) => nodes.get(hash) ?? null,
+    }),
+  };
   expect(
     (
-      await verifier.append({
-        entries: [fixture.first.entry, alternate.entry],
-        signerPublicKeys: [fixture.signer],
+      await verifyPrincipalPolicyHistoryReferences({
+        history: fork.value,
+        references: [reference],
       })
     ).ok,
   ).toBe(true);
-  expect(verifier.finish(historyHead(alternate.state)).ok).toBe(true);
-  const reference = await fixture.reference(alternate.entry);
   expectVerificationError(
     await verifyPrincipalPolicyHistoryReferences({
       history: fixture.history,

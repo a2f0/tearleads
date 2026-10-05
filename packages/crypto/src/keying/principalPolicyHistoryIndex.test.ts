@@ -15,7 +15,7 @@ test("incremental principal index agrees with complete trees across unbalanced p
   const { first } = await historyFixture();
   const nodes = new Map<string, PrincipalHistoryIndexNode>();
   const leaves: string[] = [];
-  let frontier: (string | null)[] = [];
+  let frontier: readonly (string | null)[] = [];
   for (let version = 1; version <= 67; version++) {
     // This differential test exercises index math, not signature verification.
     const state = { ...first.state, version };
@@ -25,9 +25,9 @@ test("incremental principal index agrees with complete trees across unbalanced p
     for (const node of next.nodes) nodes.set(node.hash, node);
     expect(next.rootHash).toBe(await computeTransparencyMerkleRoot(leaves));
     expect(await principalHistoryIndexRoot(frontier)).toBe(next.rootHash);
-    expect(normalizePrincipalHistoryIndexFrontier(frontier, version)).toEqual(
-      frontier,
-    );
+    expect(normalizePrincipalHistoryIndexFrontier(frontier, version)).toEqual([
+      ...frontier,
+    ]);
     if (!next.rootHash) throw new Error("Missing root");
     for (const position of new Set([1, Math.ceil(version / 2), version])) {
       let reads = 0;

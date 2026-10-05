@@ -57,4 +57,19 @@ test("authenticated progress rejects a frontier inconsistent with its prefix len
     await restorePrincipalPolicyHistoryVerifier(input, malformed, protection),
     "hash_mismatch",
   );
+  const wrongLastLeaf = await sealPrincipalHistoryProgress(
+    JSON.stringify({
+      ...decoded,
+      indexFrontier: ["a".repeat(64), "b".repeat(64)],
+    }),
+    ownPrincipalHistoryProgressProtection(normalized, protection),
+  );
+  expectVerificationError(
+    await restorePrincipalPolicyHistoryVerifier(
+      input,
+      wrongLastLeaf,
+      protection,
+    ),
+    "hash_mismatch",
+  );
 });

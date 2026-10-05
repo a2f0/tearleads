@@ -3,6 +3,7 @@ import { normalizeReferencedPrincipalHead } from "./accessEvent";
 import type { normalizePrincipalHistoryInput } from "./principalPolicyHistoryChecks";
 import {
   normalizePrincipalHistoryIndexFrontier,
+  principalHistoryIndexLeaf,
   principalHistoryIndexRoot,
 } from "./principalPolicyHistoryIndex";
 import { normalizeAuthenticatedPrincipalHistoryEntry } from "./principalPolicyHistoryProgressEntry";
@@ -79,6 +80,17 @@ export async function normalizeAuthenticatedPrincipalHistoryProgress(
   };
   assertProgressConsistency(progress, input);
   assertRetainedReferences(progress, input);
+  // Authentication binds the omitted prefix. An odd-sized frontier also
+  // exposes its last leaf, so check that local structural link explicitly.
+  if (
+    previous &&
+    previous.state.version % 2 === 1 &&
+    indexFrontier[0] !== (await principalHistoryIndexLeaf(previous.state))
+  )
+    throwVerification(
+      "hash_mismatch",
+      "saved principal frontier does not contain its last entry",
+    );
   return progress;
 }
 

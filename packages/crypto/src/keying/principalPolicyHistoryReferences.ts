@@ -14,6 +14,7 @@ import {
   normalizeTransparencyInclusionProof,
 } from "./transparencyProofs";
 import type {
+  KeyingVerificationResult,
   PrincipalPolicyStateChainEntry,
   ReferencedPrincipalHead,
   TransparencyInclusionProof,
@@ -54,7 +55,7 @@ function assertProofBudget(
 export function verifyPrincipalPolicyHistoryReferences(input: {
   readonly history: VerifiedPrincipalPolicyHistory;
   readonly references: readonly PrincipalPolicyHistoryReferenceProof[];
-}) {
+}): Promise<KeyingVerificationResult<VerifiedPrincipalPolicyHistory>> {
   return runVerifier(async () => {
     const history = ownVerifiedPrincipalPolicyHistory(input.history);
     const supplied = input.references;

@@ -84,42 +84,40 @@ async function join(
 
 export async function principalHistoryIndexRoot(
   frontier: PrincipalHistoryIndexFrontier,
+  nodes?: Map<string, PrincipalHistoryIndexNode>,
 ): Promise<string | null> {
   let root: string | null = null;
   for (const hash of frontier) {
-    if (hash !== null) root = root === null ? hash : await join(hash, root);
+    if (hash !== null)
+      root = root === null ? hash : await join(hash, root, nodes);
   }
   return root;
 }
 
 /** Build privately; the caller publishes this only with an accepted page. */
+interface AppendedPrincipalHistoryIndex {
+  readonly frontier: PrincipalHistoryIndexFrontier;
+  readonly rootHash: string | null;
+  readonly nodes: readonly PrincipalHistoryIndexNode[];
+}
+
 export async function appendPrincipalHistoryIndex(
   previous: PrincipalHistoryIndexFrontier,
   states: readonly PrincipalPolicySignedState[],
-) {
+): Promise<AppendedPrincipalHistoryIndex> {
   const frontier = [...previous];
   const nodes = new Map<string, PrincipalHistoryIndexNode>();
   for (const state of states) {
     let carry = await principalHistoryIndexLeaf(state);
     let height = 0;
-    while (frontier[height]) {
-      const left = frontier[height];
-      if (!left)
-        throwVerification(
-          "invalid_shape",
-          "principal history frontier changed",
-        );
+    for (let left = frontier[height]; left; left = frontier[height]) {
       carry = await join(left, carry, nodes);
       frontier[height] = null;
       height += 1;
     }
     frontier[height] = carry;
   }
-  let rootHash: string | null = null;
-  for (const hash of frontier) {
-    if (hash !== null)
-      rootHash = rootHash === null ? hash : await join(hash, rootHash, nodes);
-  }
+  const rootHash = await principalHistoryIndexRoot(frontier, nodes);
   return { frontier, rootHash, nodes: [...nodes.values()] };
 }
 
