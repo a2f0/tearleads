@@ -75,10 +75,14 @@ export async function listPrincipalStateHistory(
       afterVersion,
       throughVersion: head.version,
     });
-    const last = page.at(-1);
-    if (!last) break;
+    if (page.length === 0)
+      throw new Error("Stored principal history is incomplete");
+    for (const entry of page) {
+      if (entry.state.version !== afterVersion + 1)
+        throw new Error("Stored principal history is incomplete");
+      afterVersion = entry.state.version;
+    }
     history.push(...page);
-    afterVersion = last.state.version;
   }
   return history;
 }

@@ -6,7 +6,7 @@ import {
   principalStates,
 } from "@tearleads/api-shared/schema";
 import { createTestUser } from "@tearleads/bob-and-alice";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { registerAndAuthenticate } from "../../../test/helpers/principalPolicyReadFixtures";
 import { readPrincipalHistoryPage } from "../shared/internal/principalHistoryPage";
 import {
@@ -225,3 +225,28 @@ test("bulk current heads transfer one row per principal, not full histories", as
   expect(queries).toHaveLength(1);
   expect(queries[0]).toHaveLength(2);
 });
+
+test.each([50, 101])(
+  "a missing history version %s cannot produce a complete prefix",
+  async (missingVersion) => {
+    const fixture = await seed("group");
+    await db
+      .delete(principalStates)
+      .where(
+        and(
+          eq(principalStates.principalId, fixture.principalId),
+          eq(principalStates.version, missingVersion),
+        ),
+      );
+    await expect(
+      listPrincipalStateHistory(
+        {
+          principalType: "group",
+          principalId: fixture.principalId,
+          version: 101,
+        },
+        db,
+      ),
+    ).rejects.toThrow("Stored principal history is incomplete");
+  },
+);

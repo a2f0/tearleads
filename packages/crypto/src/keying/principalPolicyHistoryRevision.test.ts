@@ -16,13 +16,26 @@ test("progress from different verification rules cannot resume", async () => {
     localKey: crypto.getRandomValues(new Uint8Array(32)),
     context: "same-operation",
   };
+  const plaintext = JSON.stringify({
+    previous: null,
+    latestAuthority: null,
+    checkpointHash: null,
+    retained: [],
+  });
+  const current = await sealPrincipalHistoryProgress(
+    plaintext,
+    ownPrincipalHistoryProgressProtection(
+      normalizePrincipalHistoryInput(input),
+      protection,
+      PRINCIPAL_HISTORY_VERIFICATION_REVISION,
+    ),
+  );
+  expect(
+    (await restorePrincipalPolicyHistoryVerifier(input, current, protection))
+      .ok,
+  ).toBe(true);
   const saved = await sealPrincipalHistoryProgress(
-    JSON.stringify({
-      previous: null,
-      latestAuthority: null,
-      checkpointHash: null,
-      retained: [],
-    }),
+    plaintext,
     ownPrincipalHistoryProgressProtection(
       normalizePrincipalHistoryInput(input),
       protection,
