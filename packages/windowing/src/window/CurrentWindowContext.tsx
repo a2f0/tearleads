@@ -11,6 +11,13 @@ import type { WindowSize } from "./WindowStateProvider";
 interface CurrentWindowContextValue {
   close: () => void;
   id: string;
+  /**
+   * Tell the window its content has loaded. A window opened with
+   * `fitToContent` fits then, once the content has reported its size; later
+   * calls do nothing. Hosts that render this provider outside a `Window` may
+   * omit it.
+   */
+  markContentLoaded?: (() => void) | undefined;
   overlayHost: HTMLElement | null;
   /**
    * Paint the window's background with `background`, any CSS color, in place of
@@ -40,6 +47,7 @@ export function CurrentWindowProvider({
   children,
   close,
   id,
+  markContentLoaded,
   overlayHost,
   setBackground,
   setContentSize,
@@ -50,6 +58,7 @@ export function CurrentWindowProvider({
     () => ({
       close,
       id,
+      markContentLoaded,
       overlayHost,
       setBackground,
       setContentSize,
@@ -59,6 +68,7 @@ export function CurrentWindowProvider({
     [
       close,
       id,
+      markContentLoaded,
       overlayHost,
       setBackground,
       setContentSize,

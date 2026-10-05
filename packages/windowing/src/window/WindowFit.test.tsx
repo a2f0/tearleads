@@ -1,13 +1,13 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import { cleanup, fireEvent, render, within } from "@testing-library/react";
 import { useState } from "react";
-import { useWindowContentSize } from "./CurrentWindowContext";
+import { useCurrentWindow, useWindowContentSize } from "./CurrentWindowContext";
 import { stubLayout } from "./layout.testUtils";
 import { Window } from "./Window";
 import {
   useWindowActions,
   useWindowStateData,
-  type WindowPosition,
+  type WindowCreateOptions,
   type WindowSize,
   WindowStateProvider,
 } from "./WindowStateProvider";
@@ -86,14 +86,26 @@ function PageContent() {
     width: 500,
   });
   useWindowContentSize(size);
+  const markContentLoaded = useCurrentWindow()?.markContentLoaded;
   return (
-    <button type="button" onClick={() => setSize(undefined)}>
-      Withdraw size
-    </button>
+    <>
+      <button type="button" onClick={() => setSize(undefined)}>
+        Withdraw size
+      </button>
+      <button
+        type="button"
+        onClick={() => setSize({ height: 400, width: 600 })}
+      >
+        Widen page
+      </button>
+      <button type="button" onClick={() => markContentLoaded?.()}>
+        Mark loaded
+      </button>
+    </>
   );
 }
 
-function Desktop({ position }: { position: WindowPosition }) {
+function Desktop({ options }: { options: WindowCreateOptions }) {
   const { windows } = useWindowStateData();
   const { create, toggleMaximize } = useWindowActions();
   const first = windows[0];
@@ -102,7 +114,7 @@ function Desktop({ position }: { position: WindowPosition }) {
     <>
       <button
         type="button"
-        onClick={() => create("Page", 0, 0, PageContent, { position })}
+        onClick={() => create("Page", 0, 0, PageContent, options)}
       >
         Open page
       </button>
@@ -130,10 +142,12 @@ function stubRect(element: Element, size: WindowSize) {
   });
 }
 
-function openPage(position: WindowPosition = { x: 600, y: 500 }) {
+function openPage(
+  options: WindowCreateOptions = { position: { x: 600, y: 500 } },
+) {
   const view = render(
     <WindowStateProvider>
-      <Desktop position={position} />
+      <Desktop options={options} />
     </WindowStateProvider>,
   );
   stubLayout(view.getByTestId("surface"), SURFACE_LAYOUT);
@@ -182,7 +196,7 @@ test("Fit to Content sizes the window to its content and keeps it on the surface
 });
 
 test("Fit to Content restores a maximized window", () => {
-  const { region, view } = openPage({ x: 0, y: 0 });
+  const { region, view } = openPage({ position: { x: 0, y: 0 } });
   fireEvent.click(view.getByRole("button", { name: "Toggle maximize" }));
   expect(region.classList.contains("window--maximized")).toBe(true);
 
@@ -207,4 +221,57 @@ test("the View menu offers Fit to Content only while the content has a size", ()
   expect(
     within(region).getByRole("menuitem", { name: "Resize Window" }),
   ).toBeTruthy();
+});
+
+const FIT_ON_LOAD = { fitToContent: true, position: { x: 600, y: 500 } };
+const FITTED = {
+  position: { x: 433, y: 308 },
+  size: { height: 492, width: 567 },
+};
+
+function click(view: ReturnType<typeof render>, name: string) {
+  fireEvent.click(view.getByRole("button", { name }));
+}
+
+test("a window opened with fitToContent fits once its content has loaded", () => {
+  const { view } = openPage(FIT_ON_LOAD);
+  expect(committedGeometry(view).size).toBeUndefined();
+
+  click(view, "Mark loaded");
+  expect(committedGeometry(view)).toEqual(FITTED);
+
+  // Only the first load fits: a later size is the View menu's to apply.
+  click(view, "Widen page");
+  click(view, "Mark loaded");
+  expect(committedGeometry(view)).toEqual(FITTED);
+});
+
+test("a window opened with fitToContent waits for its content's size", () => {
+  const { view } = openPage(FIT_ON_LOAD);
+
+  click(view, "Withdraw size");
+  click(view, "Mark loaded");
+  expect(committedGeometry(view).size).toBeUndefined();
+
+  click(view, "Widen page");
+  expect(committedGeometry(view).size).toEqual({ height: 492, width: 667 });
+});
+
+test("loading does not fit a window opened without fitToContent", () => {
+  const { view } = openPage();
+
+  click(view, "Mark loaded");
+  expect(committedGeometry(view).size).toBeUndefined();
+});
+
+test("a window maximized when its content loads stays maximized", () => {
+  const { region, view } = openPage(FIT_ON_LOAD);
+
+  click(view, "Toggle maximize");
+  click(view, "Mark loaded");
+  expect(region.classList.contains("window--maximized")).toBe(true);
+
+  click(view, "Toggle maximize");
+  expect(region.classList.contains("window--maximized")).toBe(false);
+  expect(committedGeometry(view).size).toBeUndefined();
 });

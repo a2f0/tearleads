@@ -1,4 +1,11 @@
-import { type RefObject, useCallback, useMemo, useState } from "react";
+import {
+  type RefObject,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { useWindowGeometryMenuItems } from "./useWindowKeyboardGeometry";
 import type { WindowMenuItem } from "./WindowMenuBar";
 import {
@@ -51,6 +58,32 @@ interface WindowFitHost {
   windowRef: RefObject<HTMLElement | null>;
 }
 
+// A window opened with `fitToContent` fits once, the first time its content
+// has both marked itself loaded and reported a size while the window shows. A
+// window maximized by then (as a host opens windows on narrow screens) stays
+// maximized and does not fit later.
+function useFitOnLoad(
+  entry: WindowEntry,
+  contentSize: WindowSize | undefined,
+  fit: () => boolean,
+) {
+  const [loaded, setLoaded] = useState(false);
+  const pending = useRef(entry.fitToContent === true);
+  const markContentLoaded = useCallback(() => setLoaded(true), []);
+  const { maximized, minimized, position } = entry;
+
+  useEffect(() => {
+    if (!pending.current || !loaded || !contentSize || minimized || !position) {
+      return;
+    }
+    if (maximized || fit()) {
+      pending.current = false;
+    }
+  }, [contentSize, fit, loaded, maximized, minimized, position]);
+
+  return markContentLoaded;
+}
+
 // Fit to Content, offered in the View menu while the window's content has a
 // natural size (see `useWindowContentSize`). It measures the window's chrome
 // as rendered, so it allows for whichever bars and sidebar show, and restores
@@ -63,12 +96,13 @@ function useWindowFit(
   const [contentSize, setContentSize] = useState<WindowSize | undefined>();
   const { id, maximized, position } = entry;
 
+  // Whether the window fitted: one that is not rendered has nothing to measure.
   const fitToContent = useCallback(() => {
     const element = windowRef.current;
     const surface = element?.parentElement;
     const pane = overlayHost?.querySelector<HTMLElement>(SCROLL_PANE_SELECTOR);
     if (!contentSize || !element || !surface || !pane) {
-      return;
+      return false;
     }
     const geometry = fitWindowGeometry(
       contentSize,
@@ -80,6 +114,7 @@ function useWindowFit(
       toggleMaximize(id);
     }
     setGeometry(id, geometry);
+    return true;
   }, [
     contentSize,
     id,
@@ -105,11 +140,15 @@ function useWindowFit(
     [contentSize, fitToContent],
   );
 
-  return { fitMenuItems, setContentSize };
+  const markContentLoaded = useFitOnLoad(entry, contentSize, fitToContent);
+
+  return { fitMenuItems, markContentLoaded, setContentSize };
 }
 
 // The View menu's geometry entries: keyboard move and resize, then Fit to
-// Content while the content has a natural size.
+// Content while the content has a natural size. `contentFit` is the content's
+// side of fitting, `setContentSize` and `markContentLoaded`, which the window
+// passes to its content.
 export function useWindowGeometryMenu(
   entry: WindowEntry,
   stepped: Parameters<typeof useWindowGeometryMenuItems>[0],
@@ -125,11 +164,11 @@ export function useWindowGeometryMenu(
     },
     announce,
   );
-  const { fitMenuItems, setContentSize } = useWindowFit(entry, host);
+  const { fitMenuItems, ...contentFit } = useWindowFit(entry, host);
   const geometryMenuItems = useMemo(
     () => [...keyboardItems, ...fitMenuItems],
     [fitMenuItems, keyboardItems],
   );
 
-  return { geometryMenuItems, setContentSize };
+  return { contentFit, geometryMenuItems };
 }
