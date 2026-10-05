@@ -13,6 +13,7 @@ import {
   principalHistoryPreparationBudget,
 } from "./preparePrincipalHistory";
 import { principalHistoryProtection } from "./principalHistoryProtection";
+import { principalHistoryHead } from "./principalHistoryRecords";
 
 function oneEntry() {
   return { ...principalHistoryPreparationBudget(), remainingEntries: 1 };
@@ -264,7 +265,10 @@ test("a dependent policy cannot starve authority preparation with a tiny budget"
   const managed = await principalHistoryPreparationFixture({
     versions: 1,
     signer: admin.signer,
-    externalAuthority: { ...admin.head, principalType: "group" },
+    externalAuthority: {
+      ...principalHistoryHead(admin.head),
+      principalType: "group",
+    },
   });
   let completed = false;
   for (let attempt = 0; attempt < 5; attempt++) {
