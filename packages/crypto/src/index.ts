@@ -325,6 +325,7 @@ export {
   verifyDocumentPurgeEvent,
   verifyIdentityStateCheckpoint,
   verifyPrincipalPolicyBundle,
+  verifyPrincipalPolicyBundleAgainstHistory,
   verifyPrincipalPolicyCheckpoint,
   verifyPrincipalPolicyCurrent,
   verifyPrincipalPolicyHistoryReferences,

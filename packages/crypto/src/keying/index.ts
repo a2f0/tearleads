@@ -37,6 +37,7 @@ export {
   verifyDocumentPurgeEvent,
 } from "./documentPurge";
 export * from "./principalPolicy";
+export { verifyPrincipalPolicyBundleAgainstHistory } from "./principalPolicyBundleHistory";
 export {
   type PrincipalPolicyCurrent,
   type VerifiedPrincipalPolicyCurrent,

@@ -212,3 +212,11 @@ controls live access, even when a historical citation includes a removed member.
 Container KEK verification also retains citations from historical wrap manifests.
 A carried wrap can cite a manifest whose other grants name older principal heads,
 even when the current access path has already advanced those citations.
+
+Full-history responses use `verifyPrincipalPolicyBundleAgainstHistory` before
+serving reread rows. It owns the bundle, checks current artifacts, normalizes every
+historical entry, and recomputes the index root against the private verified
+history capability. This detects replaced historical signatures or projections
+after progress was saved, without replaying signatures. The complete response
+still requires linear hashing and retained memory until the wire contract is
+paged; the 128-state index batches do not impose a lifetime history limit.

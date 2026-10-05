@@ -3,6 +3,8 @@ import type { PrincipalHistoryVerificationKind } from "@tearleads/api-shared/sch
 import {
   type ReferencedPrincipalHead,
   type VerifiedPrincipalPolicyCurrent,
+  type VerifiedPrincipalPolicyHistory,
+  verifyPrincipalPolicyBundleAgainstHistory,
   verifyPrincipalPolicyCurrent,
 } from "@tearleads/crypto";
 import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
@@ -31,7 +33,13 @@ export async function getVerifiedPrincipalPolicyForStateWithExecutor(
   currentState: StoredPrincipalState,
   retainedReferences: readonly ReferencedPrincipalHead[] = [],
 ): Promise<VerifiedPrincipalPolicyCurrentBundle> {
-  return verifyCurrent(executor, currentState, retainedReferences, "policy");
+  const { bundle, policy } = await verifyCurrent(
+    executor,
+    currentState,
+    retainedReferences,
+    "policy",
+  );
+  return { bundle, policy };
 }
 
 async function verifyCurrent(
@@ -39,7 +47,11 @@ async function verifyCurrent(
   currentState: StoredPrincipalState,
   retainedReferences: readonly ReferencedPrincipalHead[],
   kind: PrincipalHistoryVerificationKind,
-): Promise<VerifiedPrincipalPolicyCurrentBundle> {
+): Promise<
+  VerifiedPrincipalPolicyCurrentBundle & {
+    readonly history: VerifiedPrincipalPolicyHistory;
+  }
+> {
   beginPrincipalHistoryVerification();
   // Batches are reusable in the caller's scope; transaction-local hints are
   // published after commit. Autocommit preparation saves each batch. HTTP
@@ -83,7 +95,7 @@ async function verifyCurrent(
     history: prepared.history,
   });
   if (!verified.ok) throw principalHistoryError(kind, verified.error.message);
-  return { bundle, policy: verified.value };
+  return { bundle, policy: verified.value, history: prepared.history };
 }
 
 /** Progress and artifacts verified inside a transaction roll back together. */
@@ -100,6 +112,16 @@ export async function getPrincipalPolicyForStateWithExecutor(
   executor: DatabaseSession,
   currentState: StoredPrincipalState,
 ): Promise<PrincipalPolicyBundleResponse> {
-  await getVerifiedPrincipalPolicyForStateWithExecutor(executor, currentState);
-  return buildPrincipalPolicyForStateWithExecutor(executor, currentState);
+  const { history } = await verifyCurrent(executor, currentState, [], "policy");
+  const bundle = await buildPrincipalPolicyForStateWithExecutor(
+    executor,
+    currentState,
+  );
+  const verified = await verifyPrincipalPolicyBundleAgainstHistory({
+    bundle,
+    history,
+  });
+  if (!verified.ok)
+    throw principalHistoryError("policy", verified.error.message);
+  return bundle;
 }
