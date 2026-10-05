@@ -150,9 +150,9 @@ why cold-read and mutation caps fail. The positive predicates hold by definition
 this model neither explores a verifier algorithm nor establishes resource bounds.
 Runtime regressions cover real signatures and long histories. See the
 [mapping and resource boundaries](./container-keying/ManifestHistory.md).
-Principal version counters use
-[`PrincipalHistory.tla`](./container-keying/PrincipalHistory.tla)
-([mapping](./container-keying/PrincipalHistory.md)).
+Principal state models cover
+[version availability](./container-keying/PrincipalHistory.md)
+and [page verification](./container-keying/PrincipalHistoryPages.md).
 
 ## No Bricked Device
 

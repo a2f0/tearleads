@@ -41,6 +41,14 @@ export type {
   PrincipalPolicyExternalAuthority,
   PrincipalPolicyExternalAuthorityState,
 } from "./principalPolicyExternalAuthorityTypes";
+export { createPrincipalPolicyHistoryVerifier } from "./principalPolicyHistory";
+export type {
+  PrincipalPolicyHistoryInput,
+  PrincipalPolicyHistoryPage,
+  PrincipalPolicyHistoryVerifier,
+  VerifiedPrincipalPolicyHistory,
+} from "./principalPolicyHistoryTypes";
+export { PRINCIPAL_HISTORY_PAGE_ENTRY_LIMIT } from "./principalPolicyHistoryTypes";
 export type {
   PrincipalPolicyTransitionMismatch,
   PrincipalPolicyTransitionMismatchCode,
