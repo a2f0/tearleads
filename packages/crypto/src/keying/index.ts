@@ -41,10 +41,14 @@ export type {
   PrincipalPolicyExternalAuthority,
   PrincipalPolicyExternalAuthorityState,
 } from "./principalPolicyExternalAuthorityTypes";
-export { createPrincipalPolicyHistoryVerifier } from "./principalPolicyHistory";
+export {
+  createPrincipalPolicyHistoryVerifier,
+  restorePrincipalPolicyHistoryVerifier,
+} from "./principalPolicyHistory";
 export type {
   PrincipalPolicyHistoryInput,
   PrincipalPolicyHistoryPage,
+  PrincipalPolicyHistoryProgressOptions,
   PrincipalPolicyHistoryVerifier,
   VerifiedPrincipalPolicyHistory,
 } from "./principalPolicyHistoryTypes";

@@ -3,6 +3,7 @@ import { generateKemSeedAndKeyPair } from "../encapsulation/generateKeyPair";
 import {
   createPrincipalPolicyHistoryVerifier,
   PRINCIPAL_HISTORY_PAGE_ENTRY_LIMIT,
+  restorePrincipalPolicyHistoryVerifier,
 } from "../index";
 import { historyHead } from "./principalPolicyHistoryTestFixtures";
 import {
@@ -15,7 +16,7 @@ const { PRINCIPAL_HISTORY_BOUNDARY_TEST } = process.env;
 const boundaryRun = PRINCIPAL_HISTORY_BOUNDARY_TEST === "1";
 
 test(
-  "principal verification advances across full pages without retaining the prefix",
+  "principal verification resumes across full pages without retaining the prefix",
   async () => {
     const signer = await createPolicySigner();
     const shared = {
@@ -24,10 +25,16 @@ test(
       principalKeyPair: generateKemSeedAndKeyPair(),
       members: [{ userId: signer.userId }],
     };
-    const verifier = createPrincipalPolicyHistoryVerifier({
+    const input = {
       principalId: shared.principalId,
-      principalType: "group",
-    });
+      principalType: "group" as const,
+    };
+    const protection = {
+      localKey: crypto.getRandomValues(new Uint8Array(32)),
+      context: "long-history-recovery",
+    };
+    let verifier = createPrincipalPolicyHistoryVerifier(input);
+    let initialProgressSize: number | undefined;
     const lastVersion = boundaryRun
       ? 16_385
       : PRINCIPAL_HISTORY_PAGE_ENTRY_LIMIT * 2 + 1;
@@ -53,6 +60,17 @@ test(
       });
       if (!append.ok) throw append.error;
       expect(append.value.throughVersion).toBe(version);
+      const saved = await verifier.exportProgress(protection);
+      if (!saved.ok) throw saved.error;
+      initialProgressSize ??= saved.value.length;
+      expect(saved.value.length).toBeLessThanOrEqual(initialProgressSize + 256);
+      const restored = await restorePrincipalPolicyHistoryVerifier(
+        input,
+        saved.value,
+        protection,
+      );
+      if (!restored.ok) throw restored.error;
+      verifier = restored.value;
       const result = verifier.finish(historyHead(next.state));
       if (!result.ok) throw result.error;
       expect(result.value.retainedEntries).toHaveLength(1);
