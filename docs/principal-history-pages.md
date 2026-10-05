@@ -54,7 +54,9 @@ authority citation, checkpoint connection, and retained entries.
 
 `restorePrincipalPolicyHistoryVerifier(input, savedProgress, protection)`
 returns a verifier only after authenticating and checking the saved state.
-It requires the same input and protection context used for export. A changed
+It requires the same normalized input and protection context used for export.
+Only protocol fields are saved; checkpoint metadata and reference ordering do
+not affect the binding. A changed
 checkpoint, scope, reference set, context, or key refuses resumption; callers
 can verify signed pages again from genesis. Losing or rotating the protection
 key has the same safe fallback. Changing accepted verification rules requires

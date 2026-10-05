@@ -6,7 +6,62 @@ import type {
 } from "../principalState";
 import { normalizePrincipalPolicyStateChainEntry } from "./principalPolicyChainEntry";
 import { assertExactKeys, throwVerification } from "./shared";
-import type { PrincipalPolicySignedState } from "./types";
+import type {
+  NormalizedPrincipalPolicyStateChainEntry,
+  PrincipalPolicySignedState,
+} from "./types";
+
+export function capturePrincipalHistoryAuthority(
+  authority: PrincipalStateExternalAuthority,
+) {
+  return {
+    principalType: authority.principalType,
+    principalId: authority.principalId,
+    version: authority.version,
+    keyEpoch: authority.keyEpoch,
+    stateHash: authority.stateHash,
+    keyFingerprint: authority.keyFingerprint,
+  };
+}
+
+/** Persist protocol fields only; caller metadata is not signed history. */
+export function capturePrincipalHistoryProgressEntry(
+  entry: NormalizedPrincipalPolicyStateChainEntry,
+) {
+  const { state } = entry;
+  return {
+    state: {
+      principalType: state.principalType,
+      principalId: state.principalId,
+      version: state.version,
+      prevStateHash: state.prevStateHash,
+      keyEpoch: state.keyEpoch,
+      encapsulationPublicKey: state.encapsulationPublicKey,
+      keyFingerprint: state.keyFingerprint,
+      membershipMode: state.membershipMode,
+      membershipRoot: state.membershipRoot,
+      memberEnvelopesRoot: state.memberEnvelopesRoot,
+      projectionRoot: state.projectionRoot,
+      grantRoot: state.grantRoot,
+      payloadCiphertextHash: state.payloadCiphertextHash,
+      memberCount: state.memberCount,
+      grantCount: state.grantCount,
+      externalAuthority: state.externalAuthority
+        ? capturePrincipalHistoryAuthority(state.externalAuthority)
+        : null,
+      signedAt: state.signedAt,
+      signerUserId: state.signerUserId,
+      signerUserKeyFingerprint: state.signerUserKeyFingerprint,
+      signature: state.signature,
+      stateHash: state.stateHash,
+    },
+    projection: entry.projection.map(({ userId, role }) => ({ userId, role })),
+    grants: entry.grants.map(({ containerId, accessLevel }) => ({
+      containerId,
+      accessLevel,
+    })),
+  };
+}
 
 function isAuthority(value: unknown): value is PrincipalStateExternalAuthority {
   if (!isPlainObject(value)) return false;

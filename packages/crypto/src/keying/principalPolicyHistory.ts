@@ -14,6 +14,10 @@ import {
   type PrincipalHistoryProgress,
 } from "./principalPolicyHistoryProgress";
 import {
+  capturePrincipalHistoryAuthority,
+  capturePrincipalHistoryProgressEntry,
+} from "./principalPolicyHistoryProgressEntry";
+import {
   openPrincipalHistoryProgress,
   ownPrincipalHistoryProgressProtection,
   sealPrincipalHistoryProgress,
@@ -111,10 +115,16 @@ class PrincipalPolicyHistoryVerifierImpl
       const plaintext = serializeKeyingCanonicalJson(
         normalizeCanonicalJsonValue(
           {
-            previous: this.#previous ?? null,
-            latestAuthority: this.#latestAuthority,
+            previous: this.#previous
+              ? capturePrincipalHistoryProgressEntry(this.#previous)
+              : null,
+            latestAuthority: this.#latestAuthority
+              ? capturePrincipalHistoryAuthority(this.#latestAuthority)
+              : null,
             checkpointHash: this.#checkpointHash ?? null,
-            retained: [...this.#retained.values()],
+            retained: [...this.#retained.values()].map(
+              capturePrincipalHistoryProgressEntry,
+            ),
           },
           "principal history progress",
         ),

@@ -15,9 +15,11 @@ confused with a monotonic application checkpoint or a completed operation.
 | `ProgressBinding` | `ownPrincipalHistoryProgressProtection` binds the local key, verification revision, operation context, scope, checkpoint, and requested references |
 | `AuthorityProgress` | Restoration preserves `latestAuthority`, including after an uncited page |
 
-Three negative controls accept unauthenticated state, ignore the verification
-binding, or forget the saved authority. They must violate `NoInventedProgress`,
-`ProgressBinding`, and `AuthorityProgress`, respectively.
+Ghost evidence records verified versions and their authorities independently of
+saved progress and survives `Crash`; `Restore` cannot rewrite that evidence.
+Five negative controls accept unauthenticated state, ignore the verification
+binding, forget authority during save or restore, or save an unchecked version.
+They must violate `NoInventedProgress`, `ProgressBinding`, or `AuthorityProgress`.
 
 The model assumes the local protection key is private and cryptographic
 verification of each page is correct. Equality of saved/offered data abstracts
