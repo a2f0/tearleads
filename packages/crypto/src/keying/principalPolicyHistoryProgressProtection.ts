@@ -12,17 +12,18 @@ import {
   serializeKeyingCanonicalJson,
 } from "./canonical";
 import type { normalizePrincipalHistoryInput } from "./principalPolicyHistoryChecks";
+import { PRINCIPAL_HISTORY_VERIFICATION_REVISION } from "./principalPolicyHistoryPage";
 import type { PrincipalPolicyHistoryProgressOptions } from "./principalPolicyHistoryTypes";
 import { throwVerification } from "./shared";
 
-// Changing accepted history rules must change this domain. Old progress then
-// fails authentication and callers recover by verifying signed pages again.
-const DOMAIN = "tearleads.principal-policy-history-progress.v1";
+// Format domain; accepted history rules carry the page verifier's revision.
+const DOMAIN = "tearleads.principal-policy-history-progress.v2";
 const utf8 = new TextEncoder();
 
 export function ownPrincipalHistoryProgressProtection(
   input: ReturnType<typeof normalizePrincipalHistoryInput>,
   options: PrincipalPolicyHistoryProgressOptions,
+  verificationRevision = PRINCIPAL_HISTORY_VERIFICATION_REVISION,
 ) {
   const { localKey, context } = options;
   if (
@@ -38,7 +39,7 @@ export function ownPrincipalHistoryProgressProtection(
   const additionalData = utf8.encode(
     serializeKeyingCanonicalJson(
       normalizeCanonicalJsonValue(
-        [DOMAIN, context, input],
+        [DOMAIN, verificationRevision, context, input],
         "principal progress protection",
       ),
     ),
@@ -50,7 +51,8 @@ export function ownPrincipalHistoryProgressProtection(
       sha256,
       ownedKey,
       utf8.encode(DOMAIN),
-      utf8.encode("local-verification-progress"),
+      // Separate each normalized operation/scope/revision into its own key.
+      sha256(additionalData),
       32,
     );
     return { key, additionalData };
@@ -71,7 +73,7 @@ export async function sealPrincipalHistoryProgress(
       protection.key,
       protection.additionalData,
     );
-    return `v1.${bytesToBase64(encrypted.iv)}.${bytesToBase64(encrypted.ciphertext)}`;
+    return `v2.${bytesToBase64(encrypted.iv)}.${bytesToBase64(encrypted.ciphertext)}`;
   } finally {
     protection.key.fill(0);
   }
@@ -90,7 +92,7 @@ export async function openPrincipalHistoryProgress(
 ): Promise<unknown> {
   try {
     const [version, iv, ciphertext, extra] = progress.split(".");
-    if (version !== "v1" || !iv || !ciphertext || extra !== undefined)
+    if (version !== "v2" || !iv || !ciphertext || extra !== undefined)
       throwVerification("invalid_shape", "invalid principal history progress");
     const encrypted = {
       iv: canonicalBytes(iv),

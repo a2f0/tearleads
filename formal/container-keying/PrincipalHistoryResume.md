@@ -27,6 +27,10 @@ unforgeable authenticated encryption; it is not a cryptographic proof. One
 opaque binding abstracts all input fields and the local operation context.
 Runtime tests exercise those fields and real encryption separately.
 
+`ProgressBinding` is definitional: its negative control proves the binding
+guard is present, rather than deriving a cryptographic consequence of a missing
+guard. The model does not establish the sufficiency of the production binding.
+
 Concurrent calls, byte limits, storage transactions, replay ordering, key
 custody, current authorization, and HTTP deadlines remain outside this model.
 In particular, it does not prove that a saved prefix is current, that a database

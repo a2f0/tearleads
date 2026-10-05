@@ -1,4 +1,3 @@
-import { computePrincipalStatePayloadCiphertextHash } from "../principalState";
 import {
   normalizePrincipalPolicyStateChainEntry,
   verifyInitialPrincipalPolicyChainEntry,
@@ -10,6 +9,7 @@ import {
   verifyPrincipalPolicyExternalAuthorityProgress,
 } from "./principalPolicyExternalAuthority";
 import { verifyPrincipalPolicyMemberEnvelopes } from "./principalPolicyMemberEnvelopes";
+import { verifyPrincipalPolicyPayload } from "./principalPolicyPayload";
 import { principalPolicyStateMatchesReference } from "./principalPolicyReference";
 import { verifyPrincipalPolicyChainSignatures } from "./principalPolicySignatures";
 import { buildPrincipalPolicySignerKeyMap } from "./principalPolicySignerKeys";
@@ -17,7 +17,6 @@ import { runVerifier, throwVerification } from "./shared";
 import type {
   KeyingVerificationResult,
   NormalizedPrincipalPolicyStateChainEntry,
-  PrincipalPolicyBundle,
   PrincipalPolicyCheckpoint,
   PrincipalPolicySignedState,
   PrincipalPolicySignerPublicKey,
@@ -66,47 +65,6 @@ function verifyPrincipalPolicyReference(input: {
   }
 }
 
-async function verifyPrincipalPolicyPayload(input: {
-  readonly bundle: PrincipalPolicyBundle;
-}): Promise<void> {
-  const { currentPayload, currentState } = input.bundle;
-
-  if (
-    currentPayload.principalType !== currentState.principalType ||
-    currentPayload.principalId !== currentState.principalId
-  ) {
-    throwVerification(
-      "object_mismatch",
-      "principal policy payload does not match current state principal",
-    );
-  }
-
-  if (currentPayload.stateHash !== currentState.stateHash) {
-    throwVerification(
-      "hash_mismatch",
-      "principal policy payload state hash does not match current state",
-    );
-  }
-
-  const computedPayloadHash = await computePrincipalStatePayloadCiphertextHash(
-    currentPayload.ciphertext,
-  );
-
-  if (computedPayloadHash !== currentPayload.ciphertextHash) {
-    throwVerification(
-      "hash_mismatch",
-      "principal policy payload hash does not match ciphertext",
-    );
-  }
-
-  if (computedPayloadHash !== currentState.payloadCiphertextHash) {
-    throwVerification(
-      "hash_mismatch",
-      "principal policy payload hash does not match current state",
-    );
-  }
-}
-
 export function verifyPrincipalPolicyCheckpoint(input: {
   readonly chain: readonly NormalizedPrincipalPolicyStateChainEntry[];
   readonly currentState: PrincipalPolicySignedState;
@@ -149,7 +107,9 @@ export function verifyPrincipalPolicyCheckpoint(input: {
     return;
   }
 
-  const checkpointEntry = input.chain[localCheckpoint.version - 1];
+  const checkpointEntry = input.chain.find(
+    (entry) => entry.state.version === localCheckpoint.version,
+  );
   if (
     !checkpointEntry ||
     checkpointEntry.state.stateHash !== localCheckpoint.stateHash

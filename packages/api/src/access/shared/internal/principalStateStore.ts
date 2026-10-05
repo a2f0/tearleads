@@ -16,13 +16,11 @@ import {
 } from "@tearleads/crypto";
 import { and, asc, desc, eq, inArray, sql } from "drizzle-orm";
 import { firstPerKey, uniqueSortedStrings } from "../../../utils/array";
-import { beginPrincipalHistoryVerification } from "../../../utils/principalHistoryWork";
 import {
   listContainerGrantsForState,
   storePrincipalContainerGrantsForState,
 } from "./principalContainerGrantStore";
 import { storePrincipalEpochKeyForState } from "./principalEpochKeyStore";
-import { loadPrincipalHistoryArtifacts } from "./principalHistoryArtifacts";
 import { listProjectionMembersForState } from "./principalProjectionStore";
 import {
   normalizePrincipalStateWriteInput,
@@ -39,7 +37,6 @@ import {
   type StoredPrincipalEpochKey,
   type StoredPrincipalProjectionMember,
   type StoredPrincipalState,
-  type StoredPrincipalStateChainEntry,
   type StoredPrincipalStatePayload,
   toStoredPrincipalState,
   toStoredProjectionMember,
@@ -56,6 +53,7 @@ import {
 } from "./principalStateValidation";
 
 export { listContainerGrantsForState } from "./principalContainerGrantStore";
+export { listPrincipalStateHistory } from "./principalHistoryPage";
 export { listProjectionMembersForState } from "./principalProjectionStore";
 export type {
   PrincipalStateBundleInput,
@@ -670,29 +668,6 @@ export async function getCurrentPrincipalStates(
 
   return new Map(
     rows.map((row) => [row.principalId, toStoredPrincipalState(row)]),
-  );
-}
-
-export async function listPrincipalStateHistory(
-  principalType: ManagedRecipientPrincipalType,
-  principalId: string,
-  executor: DatabaseSession,
-): Promise<StoredPrincipalStateChainEntry[]> {
-  beginPrincipalHistoryVerification();
-  const rows = await executor
-    .select(principalStateSelect)
-    .from(principalStates)
-    .where(
-      and(
-        eq(principalStates.principalType, principalType),
-        eq(principalStates.principalId, principalId),
-      ),
-    )
-    .orderBy(asc(principalStates.version));
-
-  return loadPrincipalHistoryArtifacts(
-    executor,
-    rows.map(toStoredPrincipalState),
   );
 }
 

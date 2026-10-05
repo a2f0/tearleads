@@ -1,4 +1,5 @@
 import type { PrincipalPolicyExternalAuthority } from "./principalPolicyExternalAuthorityTypes";
+import { throwVerification } from "./shared";
 import type {
   KeyingVerificationResult,
   PrincipalPolicyCheckpoint,
@@ -44,10 +45,39 @@ export interface VerifiedPrincipalPolicyHistory {
   readonly checkpoint: PrincipalPolicyCheckpoint;
 }
 
+type HistorySnapshot = Omit<
+  VerifiedPrincipalPolicyHistory,
+  typeof verifiedHistoryBrand
+>;
+
+// Public copies are useful for inspection, but their fields are not authority.
+// A later verifier consumes the privately held snapshot issued by finish().
+const issuedHistories = new WeakMap<
+  VerifiedPrincipalPolicyHistory,
+  HistorySnapshot
+>();
+
 export function makeVerifiedPrincipalPolicyHistory(
   value: Omit<VerifiedPrincipalPolicyHistory, typeof verifiedHistoryBrand>,
 ): VerifiedPrincipalPolicyHistory {
-  return { ...value, [verifiedHistoryBrand]: true };
+  const result: VerifiedPrincipalPolicyHistory = {
+    ...value,
+    [verifiedHistoryBrand]: true,
+  };
+  issuedHistories.set(result, structuredClone(value));
+  return result;
+}
+
+export function ownVerifiedPrincipalPolicyHistory(
+  history: VerifiedPrincipalPolicyHistory,
+): HistorySnapshot {
+  const snapshot = issuedHistories.get(history);
+  if (!snapshot)
+    throwVerification(
+      "invalid_shape",
+      "principal history must come from a local verifier",
+    );
+  return structuredClone(snapshot);
 }
 
 export interface PrincipalPolicyHistoryVerifier {
