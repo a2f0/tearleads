@@ -178,6 +178,21 @@ test("invalid principal history ranges are refused before database reads", async
   expect(queries).toHaveLength(0);
 });
 
+test("completed principal history cursors do not query storage", async () => {
+  const queries: unknown[][] = [];
+  for (const afterVersion of [10, 11]) {
+    expect(
+      await readPrincipalHistoryPage(observeQueries(db, queries), {
+        principalType: "group",
+        principalId: crypto.randomUUID(),
+        afterVersion,
+        throughVersion: 10,
+      }),
+    ).toEqual([]);
+  }
+  expect(queries).toHaveLength(0);
+});
+
 test("bulk current heads transfer one row per principal, not full histories", async () => {
   const fixture = await seed("group");
   const first = fixture.rows[0];

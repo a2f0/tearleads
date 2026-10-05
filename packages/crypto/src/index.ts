@@ -189,6 +189,7 @@ export type {
   VerifiedDocumentLinkSetStateEvidence,
   VerifiedIdentityState,
   VerifiedPrincipalPolicy,
+  VerifiedPrincipalPolicyCurrent,
   VerifiedPrincipalPolicyHistory,
   VerifiedPrincipalPolicySnapshot,
   VerifiedTransparencyProof,

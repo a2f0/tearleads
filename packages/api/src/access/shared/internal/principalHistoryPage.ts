@@ -17,6 +17,7 @@ import {
  * Read one range by version, with an inclusive head fixed by the caller.
  * These are unverified rows: callers must verify continuity and the exact head.
  * The row limit bounds history depth per read, not the size of one policy.
+ * A cursor at or beyond the head is complete and returns no rows.
  */
 export async function readPrincipalHistoryPage(
   executor: DatabaseSession,
@@ -34,6 +35,8 @@ export async function readPrincipalHistoryPage(
     input.throughVersion < 1
   )
     throw new Error("Invalid principal history range");
+  if (input.afterVersion >= input.throughVersion) return [];
+  beginPrincipalHistoryVerification();
   const rows = await executor
     .select(principalStateSelect)
     .from(principalStates)

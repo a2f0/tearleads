@@ -46,9 +46,13 @@ key envelopes, and its result cannot stand in for a verified full keying bundle.
 `verifyPrincipalPolicyCurrent({ current, history })` checks current payload and
 member envelopes against a successfully finished history. It also checks the
 current projection, grants, header hash, and exact accepted signature bytes.
-The resulting `VerifiedPrincipalPolicy.history` contains the retained entries;
-consumers must select them by version and retain any checkpoint or historical
-reference they need, rather than treating array position as a version number.
+The distinct result type, `VerifiedPrincipalPolicyCurrent`, exposes only
+`retainedHistory`. It cannot be passed to existing full-history policy consumers.
+Consumers must request any checkpoint or historical references they need, and
+select retained entries by version. They must not infer invariants over omitted
+entries from this subset. The verifier uses a private snapshot of the issued
+history capability; serialized copies and edits to its public fields cannot
+substitute a different verified prefix.
 
 The verifier can export its accepted private state with
 `exportProgress({ localKey, context })`. `localKey` must be a private 32-byte key
