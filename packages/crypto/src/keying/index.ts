@@ -39,6 +39,7 @@ export {
 export * from "./principalPolicy";
 export {
   type PrincipalPolicyCurrent,
+  type VerifiedPrincipalPolicyCurrent,
   verifyPrincipalPolicyCurrent,
 } from "./principalPolicyCurrent";
 export type {

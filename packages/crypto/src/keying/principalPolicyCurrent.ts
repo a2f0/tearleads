@@ -1,13 +1,17 @@
 import { normalizePrincipalPolicyStateChainEntry } from "./principalPolicyChainEntry";
-import type { VerifiedPrincipalPolicyHistory } from "./principalPolicyHistoryTypes";
+import {
+  ownVerifiedPrincipalPolicyHistory,
+  type VerifiedPrincipalPolicyHistory,
+} from "./principalPolicyHistoryTypes";
 import { verifyPrincipalPolicyMemberEnvelopes } from "./principalPolicyMemberEnvelopes";
 import { verifyPrincipalPolicyPayload } from "./principalPolicyPayload";
 import { principalPolicyStateMatchesReference } from "./principalPolicyReference";
 import { runVerifier, throwVerification } from "./shared";
-import {
-  makeVerifiedPrincipalPolicy,
-  type PrincipalPolicyBundle,
-  type PrincipalPolicyStateChainEntry,
+import type {
+  KeyingVerificationResult,
+  PrincipalPolicyBundle,
+  PrincipalPolicyStateChainEntry,
+  VerifiedPrincipalPolicy,
 } from "./types";
 
 /** Current artifacts whose authorization history is delivered separately. */
@@ -16,7 +20,30 @@ export type PrincipalPolicyCurrent = Omit<
   "previousStates"
 >;
 
-function ownEntry(entry: PrincipalPolicyStateChainEntry) {
+const verifiedCurrentBrand: unique symbol = Symbol(
+  "verifiedPrincipalPolicyCurrent",
+);
+
+/** Verified current artifacts and selected history, never a full-chain policy. */
+export interface VerifiedPrincipalPolicyCurrent
+  extends Pick<
+    VerifiedPrincipalPolicy,
+    | "principalType"
+    | "principalId"
+    | "version"
+    | "keyEpoch"
+    | "stateHash"
+    | "state"
+    | "projection"
+    | "grants"
+    | "checkpoint"
+  > {
+  readonly [verifiedCurrentBrand]: true;
+  readonly retainedHistory: NonNullable<VerifiedPrincipalPolicy["history"]>;
+}
+
+// Adapt owned readonly evidence to the mutable arrays in policy result types.
+function mutableEntry(entry: PrincipalPolicyStateChainEntry) {
   return {
     state: structuredClone(entry.state),
     projection: entry.projection.map((member) => ({ ...member })),
@@ -31,11 +58,12 @@ function ownEntry(entry: PrincipalPolicyStateChainEntry) {
 export function verifyPrincipalPolicyCurrent(input: {
   readonly current: PrincipalPolicyCurrent;
   readonly history: VerifiedPrincipalPolicyHistory;
-}) {
+}): Promise<KeyingVerificationResult<VerifiedPrincipalPolicyCurrent>> {
   return runVerifier(async () => {
     const current = structuredClone(input.current);
-    const expected = ownEntry(input.history.currentEntry);
-    const retained = input.history.retainedEntries.map(ownEntry);
+    const history = ownVerifiedPrincipalPolicyHistory(input.history);
+    const expected = history.currentEntry;
+    const retained = history.retainedEntries.map(mutableEntry);
     const entry = await normalizePrincipalPolicyStateChainEntry({
       state: current.currentState,
       projection: current.currentProjection,
@@ -53,7 +81,8 @@ export function verifyPrincipalPolicyCurrent(input: {
       );
     await verifyPrincipalPolicyPayload({ bundle: current });
     await verifyPrincipalPolicyMemberEnvelopes({ bundle: current });
-    return makeVerifiedPrincipalPolicy({
+    return {
+      [verifiedCurrentBrand]: true,
       principalType: entry.state.principalType,
       principalId: entry.state.principalId,
       version: entry.state.version,
@@ -62,13 +91,13 @@ export function verifyPrincipalPolicyCurrent(input: {
       state: entry.state,
       projection: entry.projection,
       grants: entry.grants,
-      history: retained,
+      retainedHistory: retained,
       checkpoint: {
         principalType: entry.state.principalType,
         principalId: entry.state.principalId,
         version: entry.state.version,
         stateHash: entry.state.stateHash,
       },
-    });
+    };
   });
 }

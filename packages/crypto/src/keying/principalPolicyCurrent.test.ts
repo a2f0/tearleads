@@ -134,7 +134,7 @@ test("current verification owns artifacts and retained history before yielding",
   });
   const policy = accepted(await pending);
   expect(policy.state.signature).not.toBe("changed after call");
-  expect(policy.history?.[0]?.state.signature).not.toBe(
+  expect(policy.retainedHistory[0]?.state.signature).not.toBe(
     "changed proof after call",
   );
 });
@@ -182,7 +182,7 @@ test("checkpoint connection selects a retained version rather than its array pos
   );
   expect(() =>
     verifyPrincipalPolicyCheckpoint({
-      chain: policy.history ?? [],
+      chain: policy.retainedHistory,
       currentState: policy.state,
       localCheckpoint,
     }),
