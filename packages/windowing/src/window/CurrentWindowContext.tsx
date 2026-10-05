@@ -10,6 +10,12 @@ interface CurrentWindowContextValue {
   close: () => void;
   id: string;
   overlayHost: HTMLElement | null;
+  /**
+   * Paint the window's background with `background`, any CSS color, in place of
+   * `--window-background`; `undefined` restores it. Hosts that render this
+   * provider outside a `Window` may omit it.
+   */
+  setBackground?: ((background: string | undefined) => void) | undefined;
   showStatusMessage: (message: string) => void;
   /**
    * Hide the window's toolbar row until the returned release is called. Refcounted,
@@ -27,12 +33,20 @@ export function CurrentWindowProvider({
   close,
   id,
   overlayHost,
+  setBackground,
   showStatusMessage,
   suppressToolbar,
 }: PropsWithChildren<CurrentWindowContextValue>) {
   const value = useMemo(
-    () => ({ close, id, overlayHost, showStatusMessage, suppressToolbar }),
-    [close, id, overlayHost, showStatusMessage, suppressToolbar],
+    () => ({
+      close,
+      id,
+      overlayHost,
+      setBackground,
+      showStatusMessage,
+      suppressToolbar,
+    }),
+    [close, id, overlayHost, setBackground, showStatusMessage, suppressToolbar],
   );
 
   return (
@@ -66,4 +80,25 @@ export function useSuppressWindowToolbar(active: boolean) {
     }
     return suppressToolbar();
   }, [active, suppressToolbar]);
+}
+
+/**
+ * Paint the host window's background, behind its body and sidebar, with
+ * `background` (any CSS color) while mounted; `undefined` keeps the default,
+ * `--window-background`. A document viewer uses it to set its page apart from
+ * the window around it. Outside a window this is inert.
+ *
+ * Applying it in a layout effect keeps the default from being painted for a
+ * frame before the content's own background.
+ */
+export function useWindowBackground(background: string | undefined) {
+  const setBackground = useCurrentWindow()?.setBackground;
+
+  useLayoutEffect(() => {
+    if (background === undefined || !setBackground) {
+      return;
+    }
+    setBackground(background);
+    return () => setBackground(undefined);
+  }, [background, setBackground]);
 }
