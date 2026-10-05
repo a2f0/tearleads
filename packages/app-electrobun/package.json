@@ -2,6 +2,7 @@
   "name": "app-electrobun",
   "version": "0.0.1",
   "private": true,
+  "license": "UNLICENSED",
   "scripts": {
     "dev": "sh scripts/runElectronbun.sh dev",
     "dev:reset": "sh scripts/runElectronbun.sh dev --reset",

@@ -2,6 +2,7 @@
   "name": "@tearleads/diagnostics",
   "version": "0.1.0",
   "private": true,
+  "license": "UNLICENSED",
   "type": "module",
   "exports": {
     "./activity": "./src/activity.ts",

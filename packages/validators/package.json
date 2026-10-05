@@ -2,6 +2,7 @@
   "name": "@tearleads/validators",
   "version": "0.1.4",
   "private": true,
+  "license": "UNLICENSED",
   "type": "module",
   "exports": {
     "./billing": "./src/billing.ts",

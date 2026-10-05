@@ -2,6 +2,7 @@
   "name": "app-capacitor",
   "version": "0.0.1",
   "private": true,
+  "license": "UNLICENSED",
   "type": "module",
   "scripts": {
     "predev": "bun run build:worker && bun run build:client-sdk",

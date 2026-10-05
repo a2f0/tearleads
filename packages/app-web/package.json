@@ -2,6 +2,7 @@
   "name": "app-web",
   "version": "0.1.1",
   "private": true,
+  "license": "UNLICENSED",
   "type": "module",
   "scripts": {
     "sentry:cli": "sentry-cli",

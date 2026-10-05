@@ -2,6 +2,7 @@
   "name": "@tearleads/test-utils",
   "version": "0.1.1",
   "private": true,
+  "license": "UNLICENSED",
   "type": "module",
   "scripts": {
     "test": "bun test src"

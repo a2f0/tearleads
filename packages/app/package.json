@@ -2,6 +2,7 @@
   "name": "app",
   "version": "0.1.4",
   "private": true,
+  "license": "UNLICENSED",
   "type": "module",
   "exports": {
     "./host/AppDiagnostics": "./src/host/AppDiagnostics.ts",
