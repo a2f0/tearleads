@@ -624,6 +624,12 @@ CREATE TABLE "principal_epoch_keys" (
 	"created_at" timestamp DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
+CREATE TABLE "principal_history_index_nodes" (
+	"hash" text PRIMARY KEY NOT NULL,
+	"left_hash" text NOT NULL,
+	"right_hash" text NOT NULL
+);
+--> statement-breakpoint
 CREATE TABLE "principal_history_progress" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"principal_type" text NOT NULL,

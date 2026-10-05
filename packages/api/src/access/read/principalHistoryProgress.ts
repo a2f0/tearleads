@@ -1,2 +1,5 @@
 export { readPrincipalHistoryPage } from "../shared/internal/principalHistoryPage";
-export { selectPrincipalHistoryProgress } from "../shared/internal/principalHistoryProgressStore";
+export {
+  selectPrincipalHistoryProgress,
+  selectPrincipalHistoryProgressForDiscard,
+} from "../shared/internal/principalHistoryProgressStore";

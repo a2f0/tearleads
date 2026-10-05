@@ -163,8 +163,10 @@ and the authority citation. It assumes the local key remains private and does
 not model database transactions or HTTP request deadlines.
 
 The API stores authenticated prefix progress in `principal_history_progress`.
-The private server key, verification revision, policy/strict-Admins mode, scope,
-and retained citations bind each record. Lookup columns are untrusted hints;
+The private server key, verification revision, policy/strict-Admins mode, and
+scope bind each record. API preparation uses an empty retained-reference selection
+so a different requested citation reuses the same verified prefix. Lookup columns
+are untrusted hints;
 restoration authenticates the exact saved head and rechecks its final stored
 state, projection, grants, and signer identity. Changed rules or keys start
 verification again. Transactions buffer hints and publish each row in its own
@@ -172,20 +174,34 @@ autocommit after success, so readers cannot deadlock by locking hint rows in
 opposite orders. Publication failures are reported without changing the
 transaction result. Rolled-back hints are discarded; conditional deletion of
 an invalid hint can run after rollback. Savepoint effects wait for the outer
-transaction to finish.
+transaction to finish. Index nodes are published before progress that uses them.
+
+The `principal_history_index_nodes` table stores untrusted proof material keyed
+by hash. Selecting an older citation reads its entry and a logarithmic inclusion
+proof, then checks both against the private root from the locally restored
+verifier. A changed entry or signature fails verification. Missing or corrupt
+nodes trigger a rebuild from signed history; each recovery attempt removes at
+most 32 old progress hints from the matching scope and protection generation.
+Transaction-local resets can rebuild immediately, but publish rebuilt nodes and
+progress only after a successful outer commit. Cache loss costs verification
+work and never supplies authority or requires a principal repair write. These
+tables have no pruning policy yet.
 
 Preparation shares a preferred 32-entry, 2 MiB, five-second budget across a
 policy and its authority dependency. At least one entry can advance even if it
 exceeds the preferred byte/time budget; discovering an unresolved dependency
 can also inspect one parent entry. These are scheduling targets, not strict
-bounds on total request memory or elapsed time. The current API collector still
-loops through preparation batches, and full wire responses still collect arrays.
+bounds on total request memory or elapsed time. Proof selection and cache
+maintenance add work outside that accepted-entry budget. The current API
+collector still loops through preparation batches, and full wire responses still
+collect arrays.
 Moving cold preparation outside the final transaction and across HTTP requests
 remains required before #2442/#2448 can close.
 
 Current authorization consumes `PrincipalPolicyAuthorization` and explicitly
 retained historical citations. More than 128 required citations are verified in
 separate batches, each ending at the same exact current head. Every batch proves
-its own ancestry. Current payloads, member envelopes, and applicable external
+inclusion in that verified history without replaying its signatures. Current
+payloads, member envelopes, and applicable external
 Admins artifacts are checked from storage before use. Current membership still
 controls live access, even when a historical citation includes a removed member.

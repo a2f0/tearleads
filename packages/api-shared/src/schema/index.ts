@@ -61,6 +61,7 @@ export {
   organizationRosterEntries,
   organizations,
 } from "./organizations";
+export { principalHistoryIndexNodes } from "./principalHistoryIndexNodes";
 export {
   type PrincipalHistoryVerificationKind,
   principalHistoryProgress,

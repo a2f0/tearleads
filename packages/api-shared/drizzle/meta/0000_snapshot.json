@@ -1,5 +1,5 @@
 {
-  "id": "28d051df-9e19-4dc6-890e-6f58d0669366",
+  "id": "a7116055-3856-4c4a-9feb-c4293f595bfe",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -6357,6 +6357,37 @@
           "with": {}
         }
       },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.principal_history_index_nodes": {
+      "name": "principal_history_index_nodes",
+      "schema": "",
+      "columns": {
+        "hash": {
+          "name": "hash",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "left_hash": {
+          "name": "left_hash",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "right_hash": {
+          "name": "right_hash",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
       "foreignKeys": {},
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},

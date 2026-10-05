@@ -3,7 +3,13 @@ import {
   databaseTransactionCompletion,
   isDatabaseTransaction,
 } from "@tearleads/api-shared/postgres";
-import { selectPrincipalHistoryProgress } from "../../access/read/principalHistoryProgress";
+import type { PrincipalHistoryIndexNode } from "@tearleads/crypto";
+import { selectPrincipalHistoryIndexNode } from "../../access/read/principalHistoryIndex";
+import {
+  selectPrincipalHistoryProgress,
+  selectPrincipalHistoryProgressForDiscard,
+} from "../../access/read/principalHistoryProgress";
+import { upsertPrincipalHistoryIndexNodes } from "../../access/write/principalHistoryIndex";
 import {
   discardPrincipalHistoryProgress,
   upsertPrincipalHistoryProgress,
@@ -16,6 +22,8 @@ type ProgressRow = NonNullable<
 type Selection = Parameters<typeof selectPrincipalHistoryProgress>[1];
 type ProgressInput = Parameters<typeof upsertPrincipalHistoryProgress>[1];
 interface ProgressBuffer {
+  readonly resets: Map<string, Selection>;
+  readonly nodes: Map<string, PrincipalHistoryIndexNode>;
   readonly saved: Map<string, ProgressRow>;
   readonly discarded: Map<string, string>;
 }
@@ -37,19 +45,49 @@ function transactionBuffer(
   if (!isDatabaseTransaction(executor)) return undefined;
   const previous = buffers.get(executor);
   if (previous) return previous;
-  const buffer: ProgressBuffer = { saved: new Map(), discarded: new Map() };
+  const buffer: ProgressBuffer = {
+    saved: new Map(),
+    discarded: new Map(),
+    nodes: new Map(),
+    resets: new Map(),
+  };
   buffers.set(executor, buffer);
   const completion = databaseTransactionCompletion(executor);
   // An unmanaged transaction can reuse its own hints but never publishes them.
   // Managed adapters supply completion only after the outer lock is released.
   completion?.defer(async (committed) => {
+    for (const input of buffer.resets.values())
+      await discardProgressChunk(completion.root, input);
     for (const [id, progress] of buffer.discarded)
       await discardPrincipalHistoryProgress(completion.root, { id, progress });
-    if (committed)
+    if (committed) {
+      await upsertPrincipalHistoryIndexNodes(completion.root, [
+        ...buffer.nodes.values(),
+      ]);
       for (const row of buffer.saved.values())
         await upsertPrincipalHistoryProgress(completion.root, row);
+    }
   }, reportBackgroundFailure);
   return buffer;
+}
+
+export async function readBufferedPrincipalHistoryNode(
+  executor: DatabaseSession,
+  hash: string,
+): Promise<PrincipalHistoryIndexNode | null> {
+  return (
+    transactionBuffer(executor)?.nodes.get(hash) ??
+    (await selectPrincipalHistoryIndexNode(executor, hash))
+  );
+}
+
+export async function saveBufferedPrincipalHistoryNodes(
+  executor: DatabaseSession,
+  nodes: readonly PrincipalHistoryIndexNode[],
+): Promise<void> {
+  const buffer = transactionBuffer(executor);
+  if (!buffer) return upsertPrincipalHistoryIndexNodes(executor, nodes);
+  for (const node of nodes) buffer.nodes.set(node.hash, { ...node });
 }
 
 export async function selectBufferedPrincipalHistoryProgress(
@@ -68,6 +106,7 @@ export async function selectBufferedPrincipalHistoryProgress(
     )
       latest = row;
   if (latest?.version === input.throughVersion) return latest;
+  if (buffer.resets.has(key)) return latest;
   const stored = await selectPrincipalHistoryProgress(executor, input);
   if (
     stored &&
@@ -76,6 +115,26 @@ export async function selectBufferedPrincipalHistoryProgress(
   )
     return stored;
   return latest;
+}
+
+async function discardProgressChunk(
+  executor: DatabaseSession,
+  input: Selection,
+): Promise<void> {
+  const rows = await selectPrincipalHistoryProgressForDiscard(executor, input);
+  for (const row of rows) await discardPrincipalHistoryProgress(executor, row);
+}
+
+export async function resetBufferedPrincipalHistoryProgress(
+  executor: DatabaseSession,
+  input: Selection,
+): Promise<void> {
+  const buffer = transactionBuffer(executor);
+  if (!buffer) return discardProgressChunk(executor, input);
+  const key = scopeKey(input);
+  buffer.resets.set(key, { ...input });
+  for (const [savedKey, row] of buffer.saved)
+    if (scopeKey(row) === key) buffer.saved.delete(savedKey);
 }
 
 export async function saveBufferedPrincipalHistoryProgress(

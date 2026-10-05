@@ -756,6 +756,12 @@ CREATE TABLE `principal_epoch_keys` (
 --> statement-breakpoint
 CREATE INDEX `principal_epoch_keys_principal_idx` ON `principal_epoch_keys` (`principal_type`,`principal_id`);--> statement-breakpoint
 CREATE UNIQUE INDEX `principal_epoch_keys_principal_epoch_idx` ON `principal_epoch_keys` (`principal_type`,`principal_id`,`epoch`);--> statement-breakpoint
+CREATE TABLE `principal_history_index_nodes` (
+	`hash` text PRIMARY KEY NOT NULL,
+	`left_hash` text NOT NULL,
+	`right_hash` text NOT NULL
+);
+--> statement-breakpoint
 CREATE TABLE `principal_history_progress` (
 	`id` text PRIMARY KEY NOT NULL,
 	`principal_type` text NOT NULL,

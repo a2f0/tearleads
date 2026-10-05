@@ -10,6 +10,10 @@ import type {
   VerifiedPrincipalPolicyHistory,
 } from "@tearleads/crypto";
 import { getCurrentPrincipalState } from "../../access/read/principalStateStore";
+import {
+  resetBufferedPrincipalHistoryProgress,
+  saveBufferedPrincipalHistoryNodes,
+} from "./principalHistoryCache";
 import { principalHistoryProtection } from "./principalHistoryProtection";
 import {
   principalHistoryError,
@@ -17,6 +21,10 @@ import {
   principalHistorySigner,
   readPrincipalHistoryEntry,
 } from "./principalHistoryRecords";
+import {
+  requestedPrincipalHistoryReferences,
+  selectStoredPrincipalHistoryReferences,
+} from "./principalHistoryReferences";
 import {
   resumeStoredPrincipalHistory,
   saveStoredPrincipalHistory,
@@ -119,13 +127,16 @@ async function appendStoredEntry(input: {
     result = await verifier.append({ ...page, externalAuthority });
   }
   if (!result.ok) throw principalHistoryError(kind, result.error.message);
+  await saveBufferedPrincipalHistoryNodes(executor, result.value.indexNodes);
   // Charge accepted work after dependencies can advance. Charging an
   // unresolved parent first could starve its authority on every retry.
   // One entry can exceed the preferred byte/time budget, and discovery can
   // inspect one unresolved parent in addition to the accepted batch.
   budget.acceptedEntries += 1;
   budget.remainingEntries -= 1;
-  budget.remainingBytes -= Buffer.byteLength(JSON.stringify(entry));
+  budget.remainingBytes -=
+    Buffer.byteLength(JSON.stringify(entry)) +
+    Buffer.byteLength(JSON.stringify(result.value.indexNodes));
   return true;
 }
 
@@ -149,12 +160,15 @@ export async function preparePrincipalHistory(
   const kind = request.kind ?? "policy";
   if (kind === "authority" && head.principalType !== "group")
     throw principalHistoryError(kind, "external authority is not a group");
+  const references = requestedPrincipalHistoryReferences(
+    head,
+    request.retainedReferences ?? [],
+    kind,
+  );
   const input: PrincipalPolicyHistoryInput = {
     principalType: head.principalType,
     principalId: head.principalId,
-    retainedReferences: (request.retainedReferences ?? []).map(
-      principalHistoryHead,
-    ),
+    retainedReferences: [],
   };
   const local = principalHistoryProtection(input, kind);
   try {
@@ -199,7 +213,20 @@ export async function preparePrincipalHistory(
     if (version !== head.version) return { complete: false };
     const finished = resumed.verifier.finish(head);
     if (!finished.ok) throw principalHistoryError(kind, finished.error.message);
-    return { complete: true, history: finished.value };
+    const selected = await selectStoredPrincipalHistoryReferences(
+      executor,
+      finished.value,
+      references,
+      kind,
+    );
+    if (!selected) {
+      await resetBufferedPrincipalHistoryProgress(executor, {
+        ...local.scope,
+        throughVersion: head.version,
+      });
+      return { complete: false };
+    }
+    return { complete: true, history: selected };
   } finally {
     local.protection.localKey.fill(0);
   }
