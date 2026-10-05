@@ -33,8 +33,8 @@ import { assertGroupMetadataBinding } from "./groupMetadataBinding";
 import { requireSignerCanManageGroup } from "./groupMutationAuthorization";
 import {
   acknowledgeGroupPolicyState,
-  assertGroupPolicyBundleMatchesAcknowledgement,
   assertGroupPolicyEnvelopesMatchAcknowledgement,
+  buildAcknowledgedGroupPolicyBundle,
 } from "./groupPolicyMutationAcknowledgement";
 import {
   assertPrincipalPolicyCurrentStateMatchesHead,
@@ -368,7 +368,7 @@ export async function commitGroupPolicyMutation(input: {
     | undefined;
   readonly request: PutPrincipalPolicyRequest;
   readonly stillCurrent?: (() => boolean) | undefined;
-}): Promise<PrincipalPolicyMutationResponse> {
+}): Promise<PrincipalPolicyBundleResponse & PrincipalPolicyMutationResponse> {
   const stored = await submitGroupPolicyCommit(input);
   if (!stored) {
     throw new Error("Group policy update failed");
@@ -380,7 +380,7 @@ export async function commitGroupPolicyMutation(input: {
     request: input.request,
     response: storedPolicy.currentState,
   });
-  assertGroupPolicyBundleMatchesAcknowledgement({
+  const groupBundle = buildAcknowledgedGroupPolicyBundle({
     currentPolicy: input.currentPolicy,
     expectedHead: input.expectedHead,
     request: input.request,
@@ -395,7 +395,7 @@ export async function commitGroupPolicyMutation(input: {
     request: input.organizationRequest,
     response: stored.organizationPolicy.currentState,
   });
-  assertGroupPolicyBundleMatchesAcknowledgement({
+  const organizationBundle = buildAcknowledgedGroupPolicyBundle({
     currentPolicy: input.organizationPolicy,
     expectedHead: organizationHead,
     request: input.organizationRequest,
@@ -408,9 +408,9 @@ export async function commitGroupPolicyMutation(input: {
       policy: acknowledgedPolicy,
     },
     entries: [
-      { bundle: storedPolicy, policy: acknowledgedPolicy },
+      { bundle: groupBundle, policy: acknowledgedPolicy },
       {
-        bundle: stored.organizationPolicy,
+        bundle: organizationBundle,
         policy: acknowledgedOrganization,
       },
     ],
@@ -419,5 +419,5 @@ export async function commitGroupPolicyMutation(input: {
     stillCurrent: input.stillCurrent,
     updatedAt: new Date().toISOString(),
   });
-  return storedPolicy;
+  return groupBundle;
 }

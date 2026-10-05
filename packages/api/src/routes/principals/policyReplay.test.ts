@@ -210,7 +210,8 @@ test("an exact policy replay succeeds after the signer removes themself", async 
   expect(replayBundle.groupPolicy.currentMemberEnvelopes).toEqual(
     successorBundle.groupPolicy.currentMemberEnvelopes,
   );
-  expect(replayBundle.groupPolicy.previousStates).toHaveLength(1);
+  expect(replayBundle.groupPolicy).not.toHaveProperty("previousStates");
+  expect(replayBundle.organizationPolicy).not.toHaveProperty("previousStates");
 }, 10_000);
 
 test("recipient-key rejection rolls back every policy artifact", async () => {

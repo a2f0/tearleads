@@ -131,7 +131,7 @@ async function prepareGroupContainerMutations(
 
 async function commitAndCacheGroupPolicyMutation(
   input: CommitAndCacheGroupPolicyMutationInput,
-): Promise<PrincipalPolicyMutationResponse> {
+): Promise<PrincipalPolicyBundleResponse & PrincipalPolicyMutationResponse> {
   const stillCurrent = createPolicyMutationCommitGuard(input.assertCanCommit);
   const expectedHead = await groupPolicyMutationHead(input.request);
   input.beforePolicyCommit?.(expectedHead);
@@ -231,7 +231,7 @@ export async function addOrganizationGroupUser(input: {
   readonly prepareContainerMutations?:
     | PrepareGroupContainerMutations
     | undefined;
-}): Promise<PrincipalPolicyMutationResponse> {
+}): Promise<PrincipalPolicyBundleResponse & PrincipalPolicyMutationResponse> {
   const policyContext = await loadGroupPolicyMutationContext(input);
   await assertGroupMembershipName(
     policyContext.currentPolicy,
@@ -305,7 +305,7 @@ export async function removeOrganizationGroupUser(input: {
   readonly prepareContainerMutations?:
     | PrepareGroupContainerMutations
     | undefined;
-}): Promise<PrincipalPolicyMutationResponse> {
+}): Promise<PrincipalPolicyBundleResponse & PrincipalPolicyMutationResponse> {
   const policyContext = await loadGroupPolicyMutationContext(input);
   await assertGroupMembershipName(
     policyContext.currentPolicy,
@@ -367,7 +367,7 @@ export async function setOrganizationGroupContainerGrant(input: {
   readonly signerUserId: string;
   readonly signingFingerprint: string;
   readonly signingKeyPair: SigningKeyPair;
-}): Promise<PrincipalPolicyMutationResponse> {
+}): Promise<PrincipalPolicyBundleResponse & PrincipalPolicyMutationResponse> {
   const policyContext = await loadGroupPolicyMutationContext({
     apiClient: input.apiClient,
     execSql: input.execSql,
@@ -415,7 +415,7 @@ export async function rotateOrganizationGroupForAccessSetShrink(input: {
   readonly signerUserId: string;
   readonly signingFingerprint: string;
   readonly signingKeyPair: SigningKeyPair;
-}): Promise<PrincipalPolicyMutationResponse> {
+}): Promise<PrincipalPolicyBundleResponse & PrincipalPolicyMutationResponse> {
   const policyContext = await loadGroupPolicyMutationContext({
     apiClient: input.apiClient,
     execSql: input.execSql,

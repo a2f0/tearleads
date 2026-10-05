@@ -91,10 +91,13 @@ for (const method of ["GET", "PUT"] as const) {
         continue;
       }
       expect(response.status, await response.clone().text()).toBe(200);
-      const result = PrincipalPolicyBundleResponseSchema.parse(
-        await response.json(),
-      );
+      const operation =
+        method === "GET"
+          ? getPrincipalPolicyOperation
+          : putPrincipalPolicyOperation;
+      const result = operation.responses[200].parse(await response.json());
       expect(result.currentState.version).toBe(method === "PUT" ? 66 : 65);
+      if (method === "PUT") expect(result).not.toHaveProperty("previousStates");
       expect(progress.size).toBeGreaterThan(0);
       return;
     }

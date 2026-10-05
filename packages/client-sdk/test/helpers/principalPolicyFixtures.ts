@@ -137,7 +137,7 @@ export async function signedPrincipalPolicyBundle(input: {
 export async function policyBundleAfterMutation(input: {
   readonly mutation: PutPrincipalPolicyRequest;
   readonly previous: PrincipalPolicyBundleResponse;
-}): Promise<PrincipalPolicyMutationResponse> {
+}): Promise<PrincipalPolicyBundleResponse & PrincipalPolicyMutationResponse> {
   return {
     ...(await principalPolicyBundleFromState({
       createdAt: input.mutation.state.signedAt,

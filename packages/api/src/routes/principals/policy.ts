@@ -186,7 +186,7 @@ export function createPrincipalPolicyRoute({
           [{ principalType, principalId }],
           result.sharedWithYouUserIds,
         );
-        return c.json<PrincipalPolicyBundleResponse>(result.policy);
+        return c.json(result.policy);
       } catch (error) {
         const response = toPrincipalPolicyErrorResponse(error);
         if (response) {

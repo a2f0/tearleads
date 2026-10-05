@@ -641,6 +641,12 @@ remainder repairs lazily rather than refuse a revocation. Custom adapters opt in
 by supplying the status-bearing `rekeyContainerResult`, `revokeContainerResult`,
 or `moveContainerResult`, and `getContainerWriterProjection`.
 
+Principal-policy writes acknowledge the exact submitted state and current
+artifacts without retransmitting `previousStates`. The SDK verifies that receipt
+against its authored request and constructs the persisted successor bundle from
+its verified local prefix. Container acknowledgements remain part of the same
+check; a missing or substituted result cannot advance the local checkpoint.
+
 A container's first direct grant has the matching precondition: the chain above
 it must be current, since its new grantee could not repair it; the API refuses
 one below a stale chain with `container_ancestor_rekeys_required`.

@@ -39,25 +39,25 @@ export {
   PrincipalStateResponseSchema,
 } from "./principalSnapshot";
 
-const principalPolicyBundleResponseShape = {
+const principalPolicyCurrentResponseShape = {
   currentGrants: arraySchema(PrincipalContainerGrantResponseSchema),
   currentMemberEnvelopes: CurrentPrincipalMemberEnvelopesResponseSchema,
   currentPayload: PrincipalStatePayloadResponseSchema,
   currentProjection: arraySchema(PrincipalProjectionMemberResponseSchema),
   currentState: PrincipalStateResponseSchema,
-  previousStates: arraySchema(PrincipalPolicyStateChainEntryResponseSchema),
 };
 
-export const PrincipalPolicyBundleResponseSchema = loosePlainObject(
-  principalPolicyBundleResponseShape,
-);
+export const PrincipalPolicyBundleResponseSchema = loosePlainObject({
+  ...principalPolicyCurrentResponseShape,
+  previousStates: arraySchema(PrincipalPolicyStateChainEntryResponseSchema),
+});
 
 export type PrincipalPolicyBundleResponse = z.infer<
   typeof PrincipalPolicyBundleResponseSchema
 >;
 
 export const PrincipalPolicyMutationResponseSchema = loosePlainObject({
-  ...principalPolicyBundleResponseShape,
+  ...principalPolicyCurrentResponseShape,
   containerMutations: arraySchema(ContainerMutationResponseSchema),
 });
 

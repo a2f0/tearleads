@@ -270,3 +270,22 @@ history, and durable exact-replay acknowledgements remain required. The preferre
 entry/byte/time budgets do not bound a single large state's artifacts or all
 proof selection and cache publication work. Keep #2442 and #2448 open until paged
 SDK recovery, short acknowledgements, and the full resource-bound tests pass.
+
+## Mutation acknowledgements
+
+Successful principal writes return the exact accepted state, its current signed
+artifacts, and the container mutation results. They do not return `previousStates`.
+The server verifies the current artifacts against its authenticated history
+progress, including on exact replay, without collecting or serializing the whole
+prefix inside the write transaction. Final authorization and head checks remain
+in that transaction. Response size therefore depends on the current policy and
+container batch, rather than the number of retained policy versions.
+
+The SDK compares the accepted state, payload, grants, membership, envelopes, and
+container results with the request it authored. After those checks, it appends
+the accepted state to its previously verified local history for persistence.
+A server-provided history array cannot replace that local prefix. This changes
+the greenfield wire contract for standalone policy writes, compound group and
+organization commits, and the organization receipt on group creation/deletion.
+Cold reads and local full-history persistence still need bounded paging; compact
+mutation receipts alone do not complete #2442 or #2448.
