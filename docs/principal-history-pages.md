@@ -43,23 +43,60 @@ caller; supplying a projection from an untrusted page does not establish that
 its signer is an admin. This API does not verify encrypted payloads or member
 key envelopes, and its result cannot stand in for a verified full keying bundle.
 
-Progress currently belongs to this in-memory verifier. It accepts no serialized
-progress or server-issued checkpoint as proof of an omitted prefix. Losing it
-requires walking signed pages from genesis again, while an independently trusted
-local checkpoint still detects rollback or an inconsistent history.
+The verifier can export its accepted private state with
+`exportProgress({ localKey, context })`. `localKey` must be a private 32-byte key
+controlled by the local verifier; a client must never obtain it from the API.
+The implementation derives a dedicated key with HKDF-SHA-256 and encrypts the
+snapshot with AES-256-GCM and a fresh random nonce. Its authenticated data binds
+the verification revision, local operation context, principal scope, local
+checkpoint, and requested references. The snapshot preserves the predecessor,
+authority citation, checkpoint connection, and retained entries.
 
-This is the crypto component of #2448. The existing API and SDK still use their
-full-history transport. Bounded HTTP delivery, authenticated durable progress,
-server-side preparation outside the mutation transaction, and short atomic
-commit/acknowledgement are separate integration work. This component alone does
-not fix the deployment's per-request proxy timeout or close #2442/#2448.
+`restorePrincipalPolicyHistoryVerifier(input, savedProgress, protection)`
+returns a verifier only after authenticating and checking the saved state.
+It requires the same normalized input and protection context used for export.
+Only protocol fields are saved; checkpoint metadata and reference ordering do
+not affect the binding. A changed
+checkpoint, scope, reference set, context, or key refuses resumption; callers
+can verify signed pages again from genesis. Losing or rotating the protection
+key has the same safe fallback. Changing accepted verification rules requires
+changing the progress-protection domain so earlier attestations are retired.
+This is the local verifier reusing its own checked history, not accepting a
+remote checkpoint as evidence of an omitted prefix.
+
+Export refuses an in-flight append. Once export captures an accepted prefix,
+later appends cannot change it while encryption is running. Partial progress
+can be saved before reaching an existing checkpoint, but `finish` continues to
+refuse a prefix below that checkpoint. Only successful `finish(expectedHead)`
+can establish the requested head; saving progress does not publish a new trusted
+application checkpoint or authorize a mutation.
+
+Authenticated progress does not by itself prevent replay of an older saved
+prefix under the same inputs. The caller owns durable key custody, byte limits,
+atomic storage of staged evidence and progress, and ordering concurrent writes.
+It must bind its local context to the intended operation and recheck the latest
+trusted checkpoint before publishing results. If that checkpoint changed during
+a suspended operation, the caller must resolve the new input before resuming.
+Persisted records and cryptographic progress must not be promoted independently.
+
+This component supports #2448. Existing API and SDK paths still use full-history
+transport. Remaining work includes bounded HTTP delivery, durable persistence
+and replay ordering, server-side preparation outside the mutation transaction,
+and a short atomic commit and acknowledgement. Issues #2442 and #2448 stay open
+until that integration meets the HTTP availability requirements.
 
 The crypto regressions exercise page failure, input ownership, signatures,
 predecessors, authorization, key rotation, grant commitments, external
 authority, and checkpoints. The [page
 model](../formal/container-keying/PrincipalHistoryPages.md) checks atomic
 progress publication and authority retention with negative controls. The default
-availability test crosses two full pages and retains only the current entry. Run
+availability test crosses two full pages, exports and restores between pages,
+and retains only the current entry. Run
 `bun run --cwd packages/crypto test:principal-history` for the same streaming
 check through version 16,385. This crypto-only check does not replace the API's
 full revocation/recovery scenario.
+
+The [resumption model](../formal/container-keying/PrincipalHistoryResume.md)
+checks that an authenticated restore preserves the checked prefix, its binding,
+and the authority citation. It assumes the local key remains private and does
+not model database transactions or HTTP request deadlines.

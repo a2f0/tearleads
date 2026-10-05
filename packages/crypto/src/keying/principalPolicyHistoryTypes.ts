@@ -25,6 +25,13 @@ export interface PrincipalPolicyHistoryInput {
   readonly retainedReferences?: readonly ReferencedPrincipalHead[];
 }
 
+/** Local verifier protection; never obtain this key from a remote API. */
+export interface PrincipalPolicyHistoryProgressOptions {
+  readonly localKey: Uint8Array;
+  /** Stable local operation identity, bound into authenticated progress. */
+  readonly context: string;
+}
+
 const verifiedHistoryBrand: unique symbol = Symbol(
   "verifiedPrincipalPolicyHistory",
 );
@@ -50,4 +57,7 @@ export interface PrincipalPolicyHistoryVerifier {
   finish(
     expectedHead: ReferencedPrincipalHead,
   ): KeyingVerificationResult<VerifiedPrincipalPolicyHistory>;
+  exportProgress(
+    options: PrincipalPolicyHistoryProgressOptions,
+  ): Promise<KeyingVerificationResult<string>>;
 }

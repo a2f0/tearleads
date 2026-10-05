@@ -2,6 +2,46 @@ import type { NegativeControl } from "./protocolNegativeControls";
 
 export const HISTORY_NEGATIVE_CONTROLS: readonly NegativeControl[] = [
   {
+    id: "principal-resume-saves-unchecked-progress",
+    module: "formal/container-keying/PrincipalHistoryResume.tla",
+    config: "formal/container-keying/PrincipalHistoryResume.cfg",
+    constants: { InventSavedProgress: "TRUE" },
+    expect: { kind: "invariant", name: "NoInventedProgress" },
+    why: "Saved progress cannot attest a page the verifier never checked.",
+  },
+  {
+    id: "principal-resume-saves-forgotten-authority",
+    module: "formal/container-keying/PrincipalHistoryResume.tla",
+    config: "formal/container-keying/PrincipalHistoryResume.cfg",
+    constants: { ForgetSavedAuthority: "TRUE" },
+    expect: { kind: "invariant", name: "AuthorityProgress" },
+    why: "Saving must preserve authority independently of restoration.",
+  },
+  {
+    id: "principal-resume-trusts-unsealed-progress",
+    module: "formal/container-keying/PrincipalHistoryResume.tla",
+    config: "formal/container-keying/PrincipalHistoryResume.cfg",
+    constants: { TrustUnsealed: "TRUE" },
+    expect: { kind: "invariant", name: "NoInventedProgress" },
+    why: "Untrusted serialized progress cannot stand in for locally checked history.",
+  },
+  {
+    id: "principal-resume-ignores-local-binding",
+    module: "formal/container-keying/PrincipalHistoryResume.tla",
+    config: "formal/container-keying/PrincipalHistoryResume.cfg",
+    constants: { IgnoreBinding: "TRUE" },
+    expect: { kind: "invariant", name: "ProgressBinding" },
+    why: "Saved progress must bind its local key, revision and verification inputs.",
+  },
+  {
+    id: "principal-resume-forgets-authority",
+    module: "formal/container-keying/PrincipalHistoryResume.tla",
+    config: "formal/container-keying/PrincipalHistoryResume.cfg",
+    constants: { ForgetAuthority: "TRUE" },
+    expect: { kind: "invariant", name: "AuthorityProgress" },
+    why: "Restarting must preserve external-authority continuity.",
+  },
+  {
     id: "principal-page-publishes-unchecked-progress",
     module: "formal/container-keying/PrincipalHistoryPages.tla",
     config: "formal/container-keying/PrincipalHistoryPages.cfg",

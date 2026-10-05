@@ -33,7 +33,7 @@ function normalizeReferences(
     assertReferenceBudget(references.length + 1);
     references.push(normalizeReferencedPrincipalHead(reference));
   }
-  return references;
+  return references.sort((a, b) => a.version - b.version);
 }
 
 export function normalizePrincipalHistoryInput(
@@ -48,7 +48,15 @@ export function normalizePrincipalHistoryInput(
     input.principalType,
     "principal history",
   );
-  const checkpoint = structuredClone(input.localCheckpoint ?? null);
+  const suppliedCheckpoint = input.localCheckpoint;
+  const checkpoint = suppliedCheckpoint
+    ? {
+        principalType: suppliedCheckpoint.principalType,
+        principalId: suppliedCheckpoint.principalId,
+        version: suppliedCheckpoint.version,
+        stateHash: suppliedCheckpoint.stateHash,
+      }
+    : null;
   const requested = input.retainedReferences ?? [];
   const references = normalizeReferences(requested);
   if (
