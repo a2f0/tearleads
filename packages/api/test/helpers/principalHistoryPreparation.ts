@@ -100,5 +100,5 @@ export async function principalHistoryPreparationFixture(
         })),
       );
   }
-  return { entries, head, signer };
+  return { entries, head, signer, principalKeyPair };
 }

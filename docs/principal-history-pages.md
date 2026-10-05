@@ -185,7 +185,7 @@ by hash. Selecting an older citation reads its entry and a logarithmic inclusion
 proof, then checks both against the private root from the locally restored
 verifier. A changed entry or signature fails verification. Missing or corrupt
 nodes trigger a rebuild from signed history; each recovery attempt removes at
-most 32 old progress hints from the matching scope and protection generation.
+most 32 newest progress hints from the matching scope and protection generation.
 Transaction-local resets can rebuild immediately, but publish rebuilt nodes and
 progress only after a successful outer commit. Cache loss costs verification
 work and never supplies authority or requires a principal repair write. These
@@ -224,22 +224,42 @@ paged; the 128-state index batches do not impose a lifetime history limit.
 ## Principal HTTP preparation
 
 The principal-policy read, organization-policy write, and compound group-policy
-commit share a preparation budget inside their operation transaction. Incomplete
-verification rolls back that entire transaction before a preparation batch runs
-outside it. The response then has status 202 and the strict JSON body
-`{"code":"principal_history_preparation_pending","committed":false}`.
+commit require durable preparation of committed heads before doing cold history
+work inside their operation transaction. Missing preparation rolls back that entire
+transaction before a shared batch runs outside it. The response then has status
+202 and the strict JSON body
+
+```json
+{
+  "code": "principal_history_preparation_pending",
+  "committed": false,
+  "progressToken": "<64 hex characters>"
+}
+```
+
+The opaque token identifies a change in preparation caches; it is never authorization
+evidence. An attempt that makes no durable progress returns a terminal 503.
 Only this response permits an automatic retry of the same serialized request.
 The API client validates it, preserves the original request bytes, and stops on
 transport failure, cancellation, or an authentication-token change. A timeout
 does not establish whether a mutation committed.
-These requests disable automatic session-refresh replay: authentication renewal
-requires a new caller attempt, and late responses cannot cross a token change.
+These requests still invoke session renewal but do not automatically replay after
+it: the caller starts a new attempt, and late responses cannot cross a token change.
+Reads and writes accept abort signals. Cancellation does not report a network
+failure. Three consecutive identical progress tokens stop the loop; unchanged
+progress delays the next attempt by 250 ms instead of 25 ms. Changing tokens do
+not consume a lifetime attempt allowance, so history length has no retry ceiling.
 
 Dependency continuations identify the required policy or strict Admins history.
 When rollback removes a newly inserted successor, preparation uses its committed
 predecessor; future citations and the successor are checked again on the next
 attempt. Each final transaction repeats current authorization and head checks.
-Its newly inserted successor has a separate one-entry verification allowance.
+Each newly inserted successor has a separate one-entry verification allowance,
+including later verification of that same head as a strict Admins authority.
+Uncommitted cache hints publish only after a successful outer commit.
+
+This changes the wire contract in one release; clients and server must be updated
+together. There is no compatibility capability negotiation.
 
 This is still a partial transport integration: other workflows can collect cold
 history within one request, the successful wire response still contains full

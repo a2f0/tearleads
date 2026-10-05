@@ -29,7 +29,7 @@ export interface RequestResultOptions {
   readonly expectedPaymentRequiredOrganizationId?: string | undefined;
   readonly headers?: Record<string, string> | undefined;
   readonly reportErrors?: boolean | undefined;
-  readonly retryOnSessionExpired?: boolean | undefined;
+  readonly retryOnSessionExpired?: boolean | "renew-only" | undefined;
 }
 
 export type OperationRequestFn = <T>(
@@ -50,7 +50,12 @@ export type OperationRequestResultFn = <T>(
   failureOperation: HttpOperation,
 ) => Promise<RequestResult<T>>;
 
-export type RequestFailureKind = "http" | "network" | "json" | "shape";
+export type RequestFailureKind =
+  | "http"
+  | "network"
+  | "json"
+  | "shape"
+  | "cancelled";
 
 export interface RequestFailure {
   readonly code?: string | undefined;
@@ -79,6 +84,7 @@ export interface RequestSuccess<T> {
 export type RequestResult<T> = RequestFailure | RequestSuccess<T>;
 
 export interface ResponseRequestValidationFailureInput {
+  readonly code?: string | undefined;
   readonly kind: RequestFailureKind;
   readonly message: string;
   readonly method: HttpMethod;

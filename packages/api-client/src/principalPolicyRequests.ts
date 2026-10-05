@@ -28,24 +28,31 @@ export class PrincipalPolicyRequests {
     private readonly clearWriterProjectionCaches: () => void,
   ) {}
 
-  get(principalType: "group" | "organization", principalId: string) {
-    return dedupedRequest(
-      this.cache,
-      JSON.stringify([principalType, principalId]),
-      () =>
+  get(
+    principalType: "group" | "organization",
+    principalId: string,
+    options: RequestResultOptions = {},
+  ) {
+    const request = () =>
         principalHistoryRequest(this.runtime, {
           path: getPrincipalPolicy.path(principalType, principalId),
           validator: getPrincipalPolicy.isResponse,
           method: getPrincipalPolicy.method,
           operation: getPrincipalPolicyOperation,
+          options,
         }).then((result) => (result.ok ? result.data : null)),
-    );
+      key = JSON.stringify([principalType, principalId]);
+    // A caller's abort signal must not cancel another caller's shared request.
+    return options.signal
+      ? request()
+      : dedupedRequest(this.cache, key, request);
   }
 
   put(
     principalType: "organization",
     principalId: string,
     input: OrganizationPrincipalPolicyRequest,
+    options: RequestResultOptions = {},
   ) {
     const key = JSON.stringify([principalType, principalId]);
     this.cache.delete(key);
@@ -54,7 +61,10 @@ export class PrincipalPolicyRequests {
       validator: putPrincipalPolicy.isResponse,
       method: putPrincipalPolicy.method,
       body: JSON.stringify(input),
-      options: { expectedPaymentRequiredOrganizationId: principalId },
+      options: {
+        expectedPaymentRequiredOrganizationId: principalId,
+        ...options,
+      },
       operation: putPrincipalPolicyOperation,
     })
       .then((result) => (result.ok ? result.data : null))

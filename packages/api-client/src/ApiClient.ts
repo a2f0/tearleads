@@ -611,16 +611,27 @@ export class ApiClient {
   getCurrentPrincipalPolicy(
     principalType: "group" | "organization",
     principalId: string,
+    options: RequestResultOptions = {},
   ) {
-    return this.principalPolicyRequests.get(principalType, principalId);
+    return this.principalPolicyRequests.get(
+      principalType,
+      principalId,
+      options,
+    );
   }
 
   putPrincipalPolicy(
     principalType: "organization",
     principalId: string,
     input: OrganizationPrincipalPolicyRequest,
+    options: RequestResultOptions = {},
   ) {
-    return this.principalPolicyRequests.put(principalType, principalId, input);
+    return this.principalPolicyRequests.put(
+      principalType,
+      principalId,
+      input,
+      options,
+    );
   }
 
   commitOrganizationGroupPolicy(

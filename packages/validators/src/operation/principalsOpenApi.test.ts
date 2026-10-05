@@ -1,5 +1,10 @@
 import { expect, test } from "bun:test";
 import { openApiDocument } from "./openApi";
+import {
+  commitOrganizationGroupPolicyOperation,
+  getPrincipalPolicyOperation,
+  putPrincipalPolicyOperation,
+} from "./principals";
 
 test("principal policy OpenAPI documents both shared operations", () => {
   const policyPath =
@@ -26,6 +31,7 @@ test("principal policy OpenAPI documents both shared operations", () => {
   });
   expect(Object.keys(getPolicy.responses)).toEqual([
     "200",
+    "202",
     "400",
     "401",
     "403",
@@ -34,6 +40,7 @@ test("principal policy OpenAPI documents both shared operations", () => {
   ]);
   expect(Object.keys(putPolicy.responses)).toEqual([
     "200",
+    "202",
     "400",
     "401",
     "402",
@@ -61,4 +68,27 @@ test("principal policy OpenAPI documents both shared operations", () => {
   ).toMatchObject({ maxItems: 0, type: "array" });
   expect(getPolicy.security).toEqual([{ bearerAuth: [] }]);
   expect(putPolicy.security).toEqual([{ bearerAuth: [] }]);
+});
+
+test("principal preparation contracts require rollback and changing progress", () => {
+  const pending = {
+    code: "principal_history_preparation_pending",
+    committed: false,
+    progressToken: "a".repeat(64),
+  };
+  for (const operation of [
+    getPrincipalPolicyOperation,
+    putPrincipalPolicyOperation,
+    commitOrganizationGroupPolicyOperation,
+  ]) {
+    const schema = operation.responses[202];
+    expect(schema.safeParse(pending).success).toBe(true);
+    for (const invalid of [
+      { ...pending, committed: true },
+      { ...pending, progressToken: undefined },
+      { ...pending, progressToken: "not-a-progress-token" },
+      { ...pending, unexpected: true },
+    ])
+      expect(schema.safeParse(invalid).success).toBe(false);
+  }
 });

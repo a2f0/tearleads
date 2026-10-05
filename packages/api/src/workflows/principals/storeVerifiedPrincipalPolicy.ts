@@ -46,7 +46,7 @@ export async function storeVerifiedPrincipalPolicyInTransaction(
     },
     tx,
   );
-  await withPrincipalHistorySuccessorStep(() =>
+  await withPrincipalHistorySuccessorStep(state, () =>
     verifyStoredPrincipalPolicyForStateWithExecutor(tx, state),
   );
 

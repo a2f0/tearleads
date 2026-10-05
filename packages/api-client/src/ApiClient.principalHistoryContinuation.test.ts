@@ -18,7 +18,77 @@ const path = `${apiBaseUrl}/organizations/:organizationId/groups/:groupId/policy
 const pending = {
   code: "principal_history_preparation_pending",
   committed: false,
+  progressToken: "a".repeat(64),
 };
+
+testApiClient(
+  "unchanged preparation progress stops without a lifetime attempt cap",
+  async () => {
+    let calls = 0;
+    server.use(
+      http.put(path, () => {
+        calls += 1;
+        return calls <= 3
+          ? HttpResponse.json(pending, { status: 202 })
+          : HttpResponse.json(response());
+      }),
+    );
+    const client = new ApiClient(apiBaseUrl);
+    expect(
+      await client.commitOrganizationGroupPolicyResult(
+        organizationId,
+        groupId,
+        request(),
+        { reportErrors: false },
+      ),
+    ).toMatchObject({
+      ok: false,
+      code: "principal_history_preparation_stalled",
+    });
+    expect(calls).toBe(3);
+  },
+);
+
+testApiClient(
+  "an expired preparation session renews without replaying its mutation",
+  async () => {
+    const client = new ApiClient(apiBaseUrl);
+    client.setAuthToken("expired-session");
+    let renewals = 0;
+    let calls = 0;
+    let failures = 0;
+    client.setOnError(() => {
+      failures += 1;
+    });
+    client.setOnSessionExpired(() => {
+      renewals += 1;
+      client.setAuthToken("renewed-session");
+      return true;
+    });
+    server.use(
+      http.put(path, () => {
+        calls += 1;
+        return HttpResponse.json(
+          {
+            code: SESSION_ERROR_CODES.refreshRequired,
+            error: "Expired session",
+          },
+          { status: 401 },
+        );
+      }),
+    );
+    expect(
+      await client.commitOrganizationGroupPolicyResult(
+        organizationId,
+        groupId,
+        request(),
+      ),
+    ).toMatchObject({ ok: false });
+    expect(renewals).toBe(1);
+    expect(calls).toBe(1);
+    expect(failures).toBe(0);
+  },
+);
 const request = () => ({
   groupPolicy: createPrincipalPolicyRequest(),
   organizationPolicy: createPrincipalPolicyRequest(),
@@ -124,6 +194,10 @@ for (const stop of ["abort", "identity"] as const) {
     async () => {
       const client = new ApiClient(apiBaseUrl);
       const controller = new AbortController();
+      let networkFailures = 0;
+      client.setOnNetworkError(() => {
+        networkFailures += 1;
+      });
       let calls = 0;
       server.use(
         http.put(path, () => {
@@ -143,8 +217,9 @@ for (const stop of ["abort", "identity"] as const) {
             signal: controller.signal,
           },
         ),
-      ).toMatchObject({ ok: false, kind: "network", status: null });
+      ).toMatchObject({ ok: false, kind: "cancelled", status: null });
       expect(calls).toBe(1);
+      expect(networkFailures).toBe(0);
     },
   );
 }
@@ -202,7 +277,7 @@ testApiClient(
         request(),
         { reportErrors: false },
       ),
-    ).toMatchObject({ ok: false, kind: "network" });
+    ).toMatchObject({ ok: false, kind: "cancelled" });
   },
 );
 

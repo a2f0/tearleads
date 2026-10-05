@@ -58,7 +58,7 @@ test.each(["missing", "corrupt"] as const)(
   },
 );
 
-test("cache loss clears a large hint set in bounded chunks before rebuilding", async () => {
+test("cache loss discards a bounded newest chunk and resumes the surviving prefix", async () => {
   const { head, entries } = await principalHistoryPreparationFixture({
     versions: 65,
   });
@@ -86,21 +86,21 @@ test("cache loss clears a large hint set in bounded chunks before rebuilding", a
       .from(principalHistoryProgress)
       .where(eq(principalHistoryProgress.principalId, head.principalId));
   expect(await hints()).toHaveLength(65);
-  for (const remaining of [33, 1, 0]) {
-    const budget = oneEntry();
-    expect(
-      (
-        await preparePrincipalHistory(db, {
-          head,
-          budget,
-          retainedReferences: [first],
-        })
-      ).complete,
-    ).toBe(false);
-    expect(budget.acceptedEntries).toBe(0);
-    expect(await hints()).toHaveLength(remaining);
-  }
-  for (let version = 1; version <= head.version; version += 1) {
+  const repair = oneEntry();
+  expect(
+    (
+      await preparePrincipalHistory(db, {
+        head,
+        budget: repair,
+        retainedReferences: [first],
+      })
+    ).complete,
+  ).toBe(false);
+  expect(repair.acceptedEntries).toBe(0);
+  const surviving = await hints();
+  expect(surviving).toHaveLength(33);
+  expect(Math.max(...surviving.map((row) => row.version))).toBe(33);
+  for (let version = 34; version <= head.version; version += 1) {
     const budget = oneEntry();
     const result = await preparePrincipalHistory(db, {
       head,

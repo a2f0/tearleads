@@ -23756,6 +23756,7 @@ export interface operations {
                         code: "principal_history_preparation_pending";
                         /** @constant */
                         committed: false;
+                        progressToken: string;
                     };
                 };
             };
@@ -24885,6 +24886,7 @@ export interface operations {
                         code: "principal_history_preparation_pending";
                         /** @constant */
                         committed: false;
+                        progressToken: string;
                     };
                 };
             };
@@ -25412,6 +25414,7 @@ export interface operations {
                         code: "principal_history_preparation_pending";
                         /** @constant */
                         committed: false;
+                        progressToken: string;
                     };
                 };
             };

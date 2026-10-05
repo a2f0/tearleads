@@ -280,6 +280,15 @@ export class ApiRequestRuntime {
         responseStatus: response.status,
       })
     ) {
+      if (options.retryOnSessionExpired === "renew-only")
+        return this.httpFailure({
+          errorDescription,
+          failureOperation,
+          method,
+          options: { ...options, reportErrors: false },
+          path,
+          response,
+        });
       const retryResult = await this.fetchResponseRequest(
         path,
         method,
@@ -344,13 +353,15 @@ export class ApiRequestRuntime {
     try {
       response = await fetch(`${this.baseUrl}${path}`, init);
     } catch (error) {
-      this.onNetworkError?.();
+      const cancelled = options.signal?.aborted === true;
+      if (!cancelled) this.onNetworkError?.();
       return this.requestFailure({
-        kind: "network",
+        ...(cancelled ? { code: "request_aborted" } : {}),
+        kind: cancelled ? "cancelled" : "network",
         message: `${method} ${path}: ${errorMessage(error)}`,
         method,
         path,
-        reportErrors,
+        reportErrors: cancelled ? false : reportErrors,
         stalePrincipalPolicies: undefined,
         status: null,
         statusText: "",

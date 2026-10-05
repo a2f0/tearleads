@@ -4,7 +4,7 @@ import {
   principalHistoryProgress,
 } from "@tearleads/api-shared/schema";
 import type { ReferencedPrincipalHead } from "@tearleads/crypto";
-import { and, asc, desc, eq, lte } from "drizzle-orm";
+import { and, desc, eq, lte } from "drizzle-orm";
 
 export interface PrincipalHistoryProgressScope {
   readonly principalType: ReferencedPrincipalHead["principalType"];
@@ -24,7 +24,7 @@ function scopeFilter(input: PrincipalHistoryProgressScope) {
   );
 }
 
-/** Cache repair advances through a bounded oldest-first chunk. */
+/** Remove newest hints first so the next resume candidate advances each round. */
 export async function selectPrincipalHistoryProgressForDiscard(
   executor: DatabaseSession,
   input: PrincipalHistoryProgressScope & { readonly throughVersion: number },
@@ -41,7 +41,7 @@ export async function selectPrincipalHistoryProgressForDiscard(
         lte(principalHistoryProgress.version, input.throughVersion),
       ),
     )
-    .orderBy(asc(principalHistoryProgress.version))
+    .orderBy(desc(principalHistoryProgress.version))
     .limit(32);
 }
 

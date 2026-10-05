@@ -62,7 +62,7 @@ async function verifyCurrent(
     head: currentState,
     kind,
     retainedReferences,
-    budget: principalHistoryExecutionBudget(),
+    budget: principalHistoryExecutionBudget(currentState),
   });
   while (!prepared.complete) {
     requirePrincipalHistoryContinuation(prepared.request);
@@ -70,7 +70,7 @@ async function verifyCurrent(
       head: currentState,
       kind,
       retainedReferences,
-      budget: principalHistoryExecutionBudget(),
+      budget: principalHistoryExecutionBudget(currentState),
     });
   }
   const authority = currentState.externalAuthority;

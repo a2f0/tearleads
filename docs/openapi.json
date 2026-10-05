@@ -48010,11 +48010,18 @@
                     "committed": {
                       "type": "boolean",
                       "const": false
+                    },
+                    "progressToken": {
+                      "maxLength": 64,
+                      "minLength": 64,
+                      "pattern": "^[0-9a-f]+$",
+                      "type": "string"
                     }
                   },
                   "required": [
                     "code",
-                    "committed"
+                    "committed",
+                    "progressToken"
                   ],
                   "additionalProperties": false
                 }
@@ -67084,11 +67091,18 @@
                     "committed": {
                       "type": "boolean",
                       "const": false
+                    },
+                    "progressToken": {
+                      "maxLength": 64,
+                      "minLength": 64,
+                      "pattern": "^[0-9a-f]+$",
+                      "type": "string"
                     }
                   },
                   "required": [
                     "code",
-                    "committed"
+                    "committed",
+                    "progressToken"
                   ],
                   "additionalProperties": false
                 }
@@ -68692,11 +68706,18 @@
                     "committed": {
                       "type": "boolean",
                       "const": false
+                    },
+                    "progressToken": {
+                      "maxLength": 64,
+                      "minLength": 64,
+                      "pattern": "^[0-9a-f]+$",
+                      "type": "string"
                     }
                   },
                   "required": [
                     "code",
-                    "committed"
+                    "committed",
+                    "progressToken"
                   ],
                   "additionalProperties": false
                 }

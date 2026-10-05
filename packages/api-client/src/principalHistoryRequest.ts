@@ -18,16 +18,21 @@ export async function principalHistoryRequest<T>(
   const { path, method, body, operation } = input;
   // A continuation belongs to this exact authentication context. Session
   // renewal must not replay it invisibly under a replacement token.
-  const options = { ...input.options, retryOnSessionExpired: false };
+  const options = {
+    ...input.options,
+    retryOnSessionExpired: "renew-only" as const,
+  };
   const authToken = runtime.getAuthToken();
+  const progress: PreparationProgress = { previous: undefined, unchanged: 0 };
   const cancelled = () =>
     options.signal?.aborted || runtime.getAuthToken() !== authToken;
   const cancellation = () =>
     runtime.responseRequest.reportFailure({
-      kind: "network",
+      code: "principal_history_context_changed",
+      kind: "cancelled",
       message: "Principal history request was cancelled",
       method,
-      options,
+      options: { ...options, reportErrors: false },
       path,
       status: null,
       statusText: "",
@@ -54,9 +59,16 @@ export async function principalHistoryRequest<T>(
     if (cancelled()) return cancellation();
     if (!decoded.ok) return decoded;
     if (decoded.data.status === 202) {
-      // Yield between independently bounded requests. Cancellation and identity
-      // changes stop before issuing another request; transport failures never retry.
-      await new Promise<void>((resolve) => setTimeout(resolve, 25));
+      const failure = await continuePreparation(decoded.data.data, progress);
+      if (failure)
+        return runtime.responseRequest.reportFailure({
+          ...failure,
+          method,
+          options,
+          path,
+          status: 202,
+          statusText: response.data.statusText,
+        });
       continue;
     }
     if (decoded.data.status !== 200 || !input.validator(decoded.data.data))
@@ -71,4 +83,44 @@ export async function principalHistoryRequest<T>(
       });
     return { ok: true, data: decoded.data.data };
   }
+}
+
+interface PreparationProgress {
+  previous: string | undefined;
+  unchanged: number;
+}
+
+async function continuePreparation(
+  data: unknown,
+  progress: PreparationProgress,
+): Promise<{
+  readonly kind: "shape" | "http";
+  readonly message: string;
+  readonly code?: string;
+} | null> {
+  const token =
+    typeof data === "object" &&
+    data !== null &&
+    "progressToken" in data &&
+    typeof data.progressToken === "string"
+      ? data.progressToken
+      : undefined;
+  if (token === undefined)
+    return {
+      kind: "shape",
+      message: "Principal preparation progress is missing",
+    };
+  progress.unchanged = token === progress.previous ? progress.unchanged + 1 : 0;
+  progress.previous = token;
+  if (progress.unchanged >= 2)
+    return {
+      code: "principal_history_preparation_stalled",
+      kind: "http",
+      message: "Principal history preparation did not advance; retry later",
+    };
+  // The next round checks cancellation and identity again before any request.
+  await new Promise<void>((resolve) =>
+    setTimeout(resolve, progress.unchanged ? 250 : 25),
+  );
+  return null;
 }

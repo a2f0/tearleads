@@ -94,7 +94,11 @@ async function publishPrincipalAccessChanges(
 function toPrincipalPolicyErrorResponse(error: unknown): Response | null {
   if (error instanceof PrincipalHistoryContinuation)
     return Response.json(
-      { code: error.code, committed: false },
+      {
+        code: error.code,
+        committed: false,
+        progressToken: error.progressToken,
+      },
       { status: 202, headers: { "Cache-Control": "no-store" } },
     );
   if (error instanceof PrincipalPolicyError) {

@@ -11,13 +11,14 @@ import {
   preparePrincipalHistory,
   principalHistoryPreparationBudget,
 } from "./preparePrincipalHistory";
+import { principalHistoryContinuationProgress } from "./principalHistoryContinuationProgress";
 import { withBoundedPrincipalHistory } from "./principalHistoryExecution";
 import { PrincipalHistoryPreparationRequired } from "./principalHistoryPreparationRequest";
 import { PrincipalPolicyError } from "./shared";
 
 export class PrincipalHistoryContinuation extends Error {
   readonly code = "principal_history_preparation_pending";
-  constructor() {
+  constructor(readonly progressToken: string) {
     super("Principal history preparation is pending; retry the same request");
     this.name = "PrincipalHistoryContinuation";
   }
@@ -58,14 +59,31 @@ export async function runPrincipalHistoryTransaction<T>(
         "Principal history preparation target changed",
         409,
       );
-    await preparePrincipalHistory(db, {
+    const targetRequest = {
       ...request,
       head: target,
       retainedReferences: request.retainedReferences.filter(
         (reference) => reference.version <= target.version,
       ),
-      budget: principalHistoryPreparationBudget(),
+    };
+    const before = await principalHistoryContinuationProgress(
+      db,
+      targetRequest,
+    );
+    const budget = principalHistoryPreparationBudget();
+    const prepared = await preparePrincipalHistory(db, {
+      ...targetRequest,
+      budget,
     });
-    throw new PrincipalHistoryContinuation();
+    const progressToken = await principalHistoryContinuationProgress(
+      db,
+      prepared.complete ? targetRequest : prepared.request,
+    );
+    if (progressToken === before)
+      throw new PrincipalPolicyError(
+        "Principal history preparation made no progress",
+        503,
+      );
+    throw new PrincipalHistoryContinuation(progressToken);
   }
 }

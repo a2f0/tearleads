@@ -30,7 +30,7 @@ test("continuations roll back operation writes while durable preparation advance
         .where(eq(users.id, signer.userId));
       return getVerifiedPrincipalPolicyForStateWithExecutor(tx, state);
     });
-  for (const version of [32, 64]) {
+  for (const version of [32, 64, 65]) {
     await expect(attempt()).rejects.toBeInstanceOf(
       PrincipalHistoryContinuation,
     );
@@ -74,4 +74,16 @@ test("a rolled-back successor prepares its committed prefix before rechecking fu
     .where(eq(principalHistoryProgress.principalId, head.principalId));
   expect(progress.map((row) => row.version)).toEqual([3]);
   expect(progress[0]?.stateHash).toBe(head.stateHash);
+  await expect(
+    runPrincipalHistoryTransaction(db, async () => {
+      throw new PrincipalHistoryPreparationRequired({
+        head: successor,
+        kind: "authority",
+        retainedReferences: [successor],
+      });
+    }),
+  ).rejects.toMatchObject({
+    status: 503,
+    message: "Principal history preparation made no progress",
+  });
 });
