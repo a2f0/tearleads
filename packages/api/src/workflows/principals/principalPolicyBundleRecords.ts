@@ -66,11 +66,7 @@ export async function buildPrincipalPolicyForStateWithExecutor(
     pinnedStateHash,
     executor,
   );
-  const stateHistory = await listPrincipalStateHistory(
-    principalType,
-    principalId,
-    executor,
-  );
+  const stateHistory = await listPrincipalStateHistory(currentState, executor);
   const currentMemberEnvelopes = await listPrincipalMemberEnvelopesForState(
     principalType,
     principalId,
@@ -117,11 +113,7 @@ export async function buildPrincipalPolicySnapshotForStateWithExecutor(
     currentState.stateHash,
     executor,
   );
-  const stateHistory = await listPrincipalStateHistory(
-    principalType,
-    principalId,
-    executor,
-  );
+  const stateHistory = await listPrincipalStateHistory(currentState, executor);
   return {
     currentState: toPrincipalStateResponse(currentState),
     currentProjection: toProjectionResponse(currentProjection),

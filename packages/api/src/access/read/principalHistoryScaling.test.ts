@@ -6,8 +6,9 @@ import {
   principalStates,
 } from "@tearleads/api-shared/schema";
 import { createTestUser } from "@tearleads/bob-and-alice";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { registerAndAuthenticate } from "../../../test/helpers/principalPolicyReadFixtures";
+import { readPrincipalHistoryPage } from "../shared/internal/principalHistoryPage";
 import {
   getCurrentPrincipalStates,
   listPrincipalStateHistory,
@@ -84,15 +85,15 @@ async function seed(principalType: "group" | "organization") {
 }
 
 for (const kind of ["group", "organization"] as const) {
-  test(`${kind} history loads 101 versions in five database round trips`, async () => {
+  test(`${kind} history loads 101 versions in two state pages and six queries`, async () => {
     const fixture = await seed(kind);
     const queries: unknown[][] = [];
     const history = await listPrincipalStateHistory(
-      kind,
-      fixture.principalId,
+      { principalType: kind, principalId: fixture.principalId, version: 101 },
       observeQueries(db, queries),
     );
-    expect(queries).toHaveLength(5);
+    expect(queries).toHaveLength(6);
+    expect([queries[0]?.length, queries[3]?.length]).toEqual([100, 1]);
     expect(history.map((entry) => entry.state.stateHash)).toEqual(
       fixture.rows.slice(0, 101).map((row) => row.stateHash),
     );
@@ -110,6 +111,87 @@ for (const kind of ["group", "organization"] as const) {
     }
   });
 }
+
+test("one history page pins scope, lower cursor and upper version", async () => {
+  const fixture = await seed("group");
+  const template = fixture.rows[0];
+  if (!template) throw new Error("Missing history fixture");
+  await db.insert(principalStates).values({
+    ...template,
+    id: crypto.randomUUID(),
+    principalType: "organization",
+    version: 99,
+    stateHash: crypto.randomUUID(),
+  });
+  const queries: unknown[][] = [];
+  const first = await readPrincipalHistoryPage(observeQueries(db, queries), {
+    principalType: "group",
+    principalId: fixture.principalId,
+    afterVersion: 0,
+    throughVersion: 101,
+  });
+  expect(first).toHaveLength(100);
+  expect(
+    first.every(
+      (entry) =>
+        entry.state.principalId === fixture.principalId &&
+        entry.state.principalType === "group",
+    ),
+  ).toBe(true);
+  expect(queries).toHaveLength(3);
+  expect(queries[0]).toHaveLength(100);
+  const page = await readPrincipalHistoryPage(db, {
+    principalType: "group",
+    principalId: fixture.principalId,
+    afterVersion: 98,
+    throughVersion: 100,
+  });
+  expect(page.map((entry) => entry.state.version)).toEqual([99, 100]);
+  expect(
+    page.every((entry) => entry.state.principalId === fixture.principalId),
+  ).toBe(true);
+  const complete = await listPrincipalStateHistory(
+    { principalType: "group", principalId: fixture.principalId, version: 100 },
+    db,
+  );
+  expect(complete.map((entry) => entry.state.stateHash)).toEqual(
+    fixture.rows.slice(0, 100).map((row) => row.stateHash),
+  );
+});
+
+test("invalid principal history ranges are refused before database reads", async () => {
+  const queries: unknown[][] = [];
+  for (const range of [
+    { afterVersion: -1, throughVersion: 1 },
+    { afterVersion: 0.5, throughVersion: 1 },
+    { afterVersion: 0, throughVersion: 0 },
+    { afterVersion: 0, throughVersion: Number.MAX_SAFE_INTEGER + 1 },
+  ]) {
+    await expect(
+      readPrincipalHistoryPage(observeQueries(db, queries), {
+        principalType: "group",
+        principalId: crypto.randomUUID(),
+        ...range,
+      }),
+    ).rejects.toThrow("Invalid principal history range");
+  }
+  expect(queries).toHaveLength(0);
+});
+
+test("completed principal history cursors do not query storage", async () => {
+  const queries: unknown[][] = [];
+  for (const afterVersion of [10, 11]) {
+    expect(
+      await readPrincipalHistoryPage(observeQueries(db, queries), {
+        principalType: "group",
+        principalId: crypto.randomUUID(),
+        afterVersion,
+        throughVersion: 10,
+      }),
+    ).toEqual([]);
+  }
+  expect(queries).toHaveLength(0);
+});
 
 test("bulk current heads transfer one row per principal, not full histories", async () => {
   const fixture = await seed("group");
@@ -143,3 +225,28 @@ test("bulk current heads transfer one row per principal, not full histories", as
   expect(queries).toHaveLength(1);
   expect(queries[0]).toHaveLength(2);
 });
+
+test.each([50, 101])(
+  "a missing history version %s cannot produce a complete prefix",
+  async (missingVersion) => {
+    const fixture = await seed("group");
+    await db
+      .delete(principalStates)
+      .where(
+        and(
+          eq(principalStates.principalId, fixture.principalId),
+          eq(principalStates.version, missingVersion),
+        ),
+      );
+    await expect(
+      listPrincipalStateHistory(
+        {
+          principalType: "group",
+          principalId: fixture.principalId,
+          version: 101,
+        },
+        db,
+      ),
+    ).rejects.toThrow("Stored principal history is incomplete");
+  },
+);

@@ -4,6 +4,10 @@ import type {
   PrincipalProjectionMember,
   PrincipalStateExternalAuthority,
 } from "../principalState";
+import {
+  isPrincipalProjectionRole,
+  toUnsignedPrincipalState,
+} from "../principalState";
 import { normalizePrincipalPolicyStateChainEntry } from "./principalPolicyChainEntry";
 import { assertExactKeys, throwVerification } from "./shared";
 import type {
@@ -31,27 +35,10 @@ export function capturePrincipalHistoryProgressEntry(
   const { state } = entry;
   return {
     state: {
-      principalType: state.principalType,
-      principalId: state.principalId,
-      version: state.version,
-      prevStateHash: state.prevStateHash,
-      keyEpoch: state.keyEpoch,
-      encapsulationPublicKey: state.encapsulationPublicKey,
-      keyFingerprint: state.keyFingerprint,
-      membershipMode: state.membershipMode,
-      membershipRoot: state.membershipRoot,
-      memberEnvelopesRoot: state.memberEnvelopesRoot,
-      projectionRoot: state.projectionRoot,
-      grantRoot: state.grantRoot,
-      payloadCiphertextHash: state.payloadCiphertextHash,
-      memberCount: state.memberCount,
-      grantCount: state.grantCount,
+      ...toUnsignedPrincipalState(state),
       externalAuthority: state.externalAuthority
         ? capturePrincipalHistoryAuthority(state.externalAuthority)
         : null,
-      signedAt: state.signedAt,
-      signerUserId: state.signerUserId,
-      signerUserKeyFingerprint: state.signerUserKeyFingerprint,
       signature: state.signature,
       stateHash: state.stateHash,
     },
@@ -116,7 +103,11 @@ function isSignedState(value: unknown): value is PrincipalPolicySignedState {
 function isMember(value: unknown): value is PrincipalProjectionMember {
   if (!isPlainObject(value)) return false;
   const { userId, role } = value;
-  return typeof userId === "string" && (role === "member" || role === "admin");
+  return (
+    typeof userId === "string" &&
+    typeof role === "string" &&
+    isPrincipalProjectionRole(role)
+  );
 }
 
 function isGrant(value: unknown): value is PrincipalContainerGrant {

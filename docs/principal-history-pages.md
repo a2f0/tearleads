@@ -43,13 +43,27 @@ caller; supplying a projection from an untrusted page does not establish that
 its signer is an admin. This API does not verify encrypted payloads or member
 key envelopes, and its result cannot stand in for a verified full keying bundle.
 
+`verifyPrincipalPolicyCurrent({ current, history })` checks current payload and
+member envelopes against a successfully finished history. It also checks the
+current projection, grants, header hash, and exact accepted signature bytes.
+The distinct result type, `VerifiedPrincipalPolicyCurrent`, exposes only
+`retainedHistory`. It cannot be passed to existing full-history policy consumers.
+Consumers must request any checkpoint or historical references they need, and
+select retained entries by version. They must not infer invariants over omitted
+entries from this subset. The verifier uses a private snapshot of the issued
+history capability; serialized copies and edits to its public fields cannot
+substitute a different verified prefix.
+The live history capability belongs to one loaded copy of the crypto package;
+another bundled copy cannot consume it. Across runtimes or workers, export and
+authenticate progress through restore instead of passing a serialized result.
+
 The verifier can export its accepted private state with
 `exportProgress({ localKey, context })`. `localKey` must be a private 32-byte key
 controlled by the local verifier; a client must never obtain it from the API.
-The implementation derives a dedicated key with HKDF-SHA-256 and encrypts the
-snapshot with AES-256-GCM and a fresh random nonce. Its authenticated data binds
-the verification revision, local operation context, principal scope, local
-checkpoint, and requested references. The snapshot preserves the predecessor,
+The implementation derives a key per normalized binding with HKDF-SHA-256 and
+encrypts the snapshot with AES-256-GCM and a fresh random nonce. Its authenticated
+data binds the verification revision, local operation context, principal scope,
+local checkpoint, and requested references. The snapshot preserves the predecessor,
 authority citation, checkpoint connection, and retained entries.
 
 `restorePrincipalPolicyHistoryVerifier(input, savedProgress, protection)`
@@ -60,7 +74,10 @@ not affect the binding. A changed
 checkpoint, scope, reference set, context, or key refuses resumption; callers
 can verify signed pages again from genesis. Losing or rotating the protection
 key has the same safe fallback. Changing accepted verification rules requires
-changing the progress-protection domain so earlier attestations are retired.
+bumping `PRINCIPAL_HISTORY_VERIFICATION_REVISION` next to the page verifier so
+earlier attestations are retired. A caller whose identity trust policy changes
+retrospectively must also change its context or key. Ordinary membership removal
+does not erase historical authorization; current authorization is checked anew.
 This is the local verifier reusing its own checked history, not accepting a
 remote checkpoint as evidence of an omitted prefix.
 
@@ -84,6 +101,14 @@ transport. Remaining work includes bounded HTTP delivery, durable persistence
 and replay ordering, server-side preparation outside the mutation transaction,
 and a short atomic commit and acknowledgement. Issues #2442 and #2448 stay open
 until that integration meets the HTTP availability requirements.
+
+The API `readPrincipalHistoryPage` reader selects at most 100 state rows per
+query, with explicit principal scope and lower/upper version bounds. Its
+`listPrincipalStateHistory` collector fixes the upper bound to the requested
+head, then reads successive pages and rejects a missing version. Other history
+readers have their own query bounds. The collector still returns the complete
+array; these query bounds alone
+do not bound response bytes, total retained memory, or work per HTTP request.
 
 The crypto regressions exercise page failure, input ownership, signatures,
 predecessors, authorization, key rotation, grant commitments, external
