@@ -756,6 +756,25 @@ CREATE TABLE `principal_epoch_keys` (
 --> statement-breakpoint
 CREATE INDEX `principal_epoch_keys_principal_idx` ON `principal_epoch_keys` (`principal_type`,`principal_id`);--> statement-breakpoint
 CREATE UNIQUE INDEX `principal_epoch_keys_principal_epoch_idx` ON `principal_epoch_keys` (`principal_type`,`principal_id`,`epoch`);--> statement-breakpoint
+CREATE TABLE `principal_history_progress` (
+	`id` text PRIMARY KEY NOT NULL,
+	`principal_type` text NOT NULL,
+	`principal_id` text NOT NULL,
+	`verification_kind` text NOT NULL,
+	`protection_id` text NOT NULL,
+	`input_hash` text NOT NULL,
+	`version` integer NOT NULL,
+	`state_hash` text NOT NULL,
+	`key_epoch` integer NOT NULL,
+	`key_fingerprint` text NOT NULL,
+	`progress` text NOT NULL,
+	`updated_at` integer DEFAULT (cast((julianday('now') - 2440587.5)*86400000 as integer)) NOT NULL,
+	CONSTRAINT "principal_history_progress_version_range" CHECK("principal_history_progress"."version" >= 1 AND "principal_history_progress"."version" <= 9007199254740991),
+	CONSTRAINT "principal_history_progress_kind" CHECK("principal_history_progress"."verification_kind" IN ('policy', 'authority'))
+);
+--> statement-breakpoint
+CREATE UNIQUE INDEX `principal_history_progress_version_idx` ON `principal_history_progress` (`principal_type`,`principal_id`,`verification_kind`,`input_hash`,`version`);--> statement-breakpoint
+CREATE INDEX `principal_history_progress_lookup_idx` ON `principal_history_progress` (`principal_type`,`principal_id`,`verification_kind`,`input_hash`,`protection_id`,`version`);--> statement-breakpoint
 CREATE TABLE `principal_member_envelopes` (
 	`id` text PRIMARY KEY NOT NULL,
 	`principal_type` text NOT NULL,

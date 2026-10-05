@@ -49,6 +49,7 @@ export {
   createPrincipalPolicyHistoryVerifier,
   restorePrincipalPolicyHistoryVerifier,
 } from "./principalPolicyHistory";
+export { PRINCIPAL_HISTORY_VERIFICATION_REVISION } from "./principalPolicyHistoryPage";
 export type {
   PrincipalPolicyHistoryInput,
   PrincipalPolicyHistoryPage,

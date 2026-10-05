@@ -292,6 +292,7 @@ export {
   normalizeDocumentPurgeAccessEventBody,
   openContainerKekKeyring,
   PRINCIPAL_HISTORY_PAGE_ENTRY_LIMIT,
+  PRINCIPAL_HISTORY_VERIFICATION_REVISION,
   principalPolicyMatchesReference,
   principalPolicyTransparencyLeaf,
   resolveContainerPathUserAccessLevel,

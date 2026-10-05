@@ -61,6 +61,10 @@ export {
   organizationRosterEntries,
   organizations,
 } from "./organizations";
+export {
+  type PrincipalHistoryVerificationKind,
+  principalHistoryProgress,
+} from "./principalHistoryProgress";
 export { principalPolicyMutationAcknowledgements } from "./principalPolicyMutationAcknowledgements";
 export {
   principalContainerGrantProjection,
