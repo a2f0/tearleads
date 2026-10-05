@@ -194,11 +194,14 @@ through a proxied Cloudflare Tunnel. Cloudflare's
 is 125 seconds; opting out of Bun's idle timer does not remove that external
 deadline. Live Cloudflare plan overrides are not established by this repository.
 
-A local diagnostic at `0600fdf8f8f3152e8d94575c865fcfec2fce0d42` applied a
+A local diagnostic of the implementation merged in
+[#2450](https://github.com/a2f0/tearleads/pull/2450) applied a
 125-second time-to-response-headers deadline to each loopback HTTP request in the
 full PGlite scenario. Its policy-commit request exceeded the deadline (abort
 observed at 127,936 ms), before cold recovery began. The same diagnostic passed
-at 64 versions. This simulates the documented proxy budget; it is not an observed
+at 64 versions. The exact preload, commands, and output are retained in the
+[reproduction steps](https://github.com/a2f0/tearleads/issues/2448#issuecomment-5985893123).
+This simulates the documented proxy budget; it is not an observed
 production 524. The complete direct HTTP scenarios pass on both database backends
 without that simulated deadline, but do not establish deployed-path availability.
 The regression uses the production Bun binding and real API client for cold
