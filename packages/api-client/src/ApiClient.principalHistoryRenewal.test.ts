@@ -42,7 +42,8 @@ testApiClient(
         calls += 1;
         if (request.headers.get("Authorization") === "Bearer renewed-session")
           return HttpResponse.json(bundle);
-        if (params.principalId === firstId) {
+        const { principalId } = params;
+        if (principalId === firstId) {
           started.resolve();
           await release.promise;
         }
