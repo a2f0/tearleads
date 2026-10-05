@@ -11,7 +11,8 @@ import {
 } from "./principalPolicyTestFixtures";
 import type { PrincipalPolicyStateChainEntry } from "./types";
 
-const boundaryRun = process.env.PRINCIPAL_HISTORY_BOUNDARY_TEST === "1";
+const { PRINCIPAL_HISTORY_BOUNDARY_TEST } = process.env;
+const boundaryRun = PRINCIPAL_HISTORY_BOUNDARY_TEST === "1";
 
 test(
   "principal verification advances across full pages without retaining the prefix",
