@@ -68,6 +68,17 @@ restore one, pass them back as `create` options, which take precedence over
 `create`'s viewport `x`/`y`. `setGeometry(id, { position, size })` moves or
 resizes a window programmatically.
 
+Content with a natural size, such as a document page, passes it in CSS pixels
+to `useWindowContentSize({ width, height })` while it is mounted. Its window
+then offers **Fit to Content** in the View menu, which restores the window if
+maximized and sizes it so the scroll pane's content area shows that size. The
+fit measures the chrome as rendered (bars, sidebar, the pane's padding and
+scrollbars) and stays within the surface. Content the surface cannot hold
+scrolls. The width always leaves room for a vertical scrollbar, so the
+content keeps its width even when a status message briefly takes height from
+the body. Last, the window moves as far as it must to stay on the surface.
+`undefined` withdraws the item.
+
 ## Slots
 
 - **`ContentBoundary`** — `Window` renders a window's component inside this
@@ -79,8 +90,8 @@ resizes a window programmatically.
   window layer only stores and compares it; the host interprets it.
 
 Windows register their own menu items, title-bar actions, a Back action, a
-sidebar, and a background through the `useWindow*` hooks, from inside the
-window's content.
+sidebar, a background, and a natural size through the `useWindow*` hooks, from
+inside the window's content.
 
 ## Toolbar
 

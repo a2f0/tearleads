@@ -45,34 +45,7 @@ export type KeyingCanonicalPayload<T> = T extends CanonicalJsonPrimitive
       ? { readonly [Key in keyof T]: KeyingCanonicalPayload<T[Key]> }
       : never;
 
-export type KeyingHashDomain =
-  | "tearleads.document.content-record-ciphertext"
-  | "tearleads.document.content-record-metadata"
-  | "tearleads.keying.access-event-body"
-  | "tearleads.keying.access-event-signing"
-  | "tearleads.keying.access-event"
-  | "tearleads.keying.access-manifest"
-  | "tearleads.keying.blob-access-manifest"
-  | "tearleads.keying.blob-content-key-targets"
-  | "tearleads.keying.content-record-nonce-domain"
-  | "tearleads.keying.container-access-direct-grants"
-  | "tearleads.keying.container-access-key-target"
-  | "tearleads.keying.container-access-structural"
-  | "tearleads.keying.container-key-epoch"
-  | "tearleads.keying.container-kek-public-commitment"
-  | "tearleads.keying.container-kek-keyring"
-  | "tearleads.keying.container-kek-predecessor-bridge"
-  | "tearleads.keying.container-kek-recipient-targets"
-  | "tearleads.keying.document-content-key-targets"
-  | "tearleads.keying.document-link-set-grants"
-  | "tearleads.keying.document-link-set-key-target"
-  | "tearleads.keying.document-link-set-structural"
-  | "tearleads.keying.transparency-empty-tree"
-  | "tearleads.keying.transparency-leaf"
-  | "tearleads.keying.transparency-node"
-  | "tearleads.keying.transparency-tree-head-signing"
-  | "tearleads.keying.write-header-signing"
-  | "tearleads.keying.write-header";
+export type { KeyingHashDomain } from "./keyingHashDomains";
 
 export type AccessEventType =
   | "attachment.bind"

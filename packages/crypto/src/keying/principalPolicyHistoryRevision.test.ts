@@ -18,6 +18,7 @@ test("progress from different verification rules cannot resume", async () => {
   };
   const plaintext = JSON.stringify({
     previous: null,
+    indexFrontier: [],
     latestAuthority: null,
     checkpointHash: null,
     retained: [],
@@ -51,7 +52,7 @@ test("progress from different verification rules cannot resume", async () => {
   if (!result.ok) expect(result.error.code).toBe("hash_mismatch");
   const stale = await restorePrincipalPolicyHistoryVerifier(
     input,
-    saved.replace(/^v2\./, "v1."),
+    saved.replace(/^v3\./, "v1."),
     protection,
   );
   expect(stale.ok).toBe(false);
