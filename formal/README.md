@@ -151,9 +151,11 @@ before an additive join hands that key out. See the
 ## Manifest History Availability
 
 [`container-keying/ManifestHistory.tla`](./container-keying/ManifestHistory.tla)
-models recovery after cache loss and enabled revocation. Its invariants
-hold by construction; negative controls restore caps. It establishes no resource
-bounds. [Mapping](./container-keying/ManifestHistory.md).
+models reads after cache loss and enabled revocation. Two negative controls show
+why cold-read and mutation caps fail. The positive predicates hold by definition;
+this model neither explores a verifier algorithm nor establishes resource bounds.
+Runtime regressions cover real signatures and long histories. See the
+[mapping and resource boundaries](./container-keying/ManifestHistory.md).
 Principal version counters use
 [`PrincipalHistory.tla`](./container-keying/PrincipalHistory.tla)
 ([mapping](./container-keying/PrincipalHistory.md)).

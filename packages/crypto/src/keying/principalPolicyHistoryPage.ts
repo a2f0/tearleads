@@ -23,7 +23,7 @@ import type {
   ReferencedPrincipalHead,
 } from "./types";
 
-function ownPage(page: PrincipalPolicyHistoryPage): PrincipalPolicyHistoryPage {
+function assertPageBudget(page: PrincipalPolicyHistoryPage): void {
   if (
     page.entries.length < 1 ||
     page.entries.length > PRINCIPAL_HISTORY_PAGE_ENTRY_LIMIT ||
@@ -35,8 +35,15 @@ function ownPage(page: PrincipalPolicyHistoryPage): PrincipalPolicyHistoryPage {
       "invalid_shape",
       "principal history page exceeds its entry budget",
     );
-  // Copy before the first await: caller edits cannot change verified progress.
-  return structuredClone(page);
+}
+
+function ownPage(page: PrincipalPolicyHistoryPage): PrincipalPolicyHistoryPage {
+  assertPageBudget(page);
+  // Own bytes before yielding, then bind the budget to those same bytes: a
+  // caller's getter may have returned different data during the first check.
+  const owned = structuredClone(page);
+  assertPageBudget(owned);
+  return owned;
 }
 
 export async function verifyPrincipalHistoryPage(input: {

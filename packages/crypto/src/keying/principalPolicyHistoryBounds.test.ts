@@ -175,3 +175,24 @@ test("the external-authority state budget rejects otherwise unused evidence", as
     ).ok,
   ).toBe(true);
 });
+
+test("page budgets bind to owned bytes when a getter changes its answer", async () => {
+  const { create, signer, first } = await historyFixture();
+  const unusedKeys = await Promise.all(
+    Array.from({ length: PRINCIPAL_HISTORY_PAGE_ENTRY_LIMIT }, (_, index) =>
+      createPolicySigner(`getter-${index}`),
+    ),
+  );
+  let reads = 0;
+  expectVerificationError(
+    await create().append({
+      entries: [first.entry],
+      get signerPublicKeys() {
+        reads++;
+        return reads === 1 ? [signer] : [signer, ...unusedKeys];
+      },
+    }),
+    "invalid_shape",
+  );
+  expect(reads).toBe(2);
+});

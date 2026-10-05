@@ -1,7 +1,6 @@
 import type { PrincipalPolicyExternalAuthority } from "./principalPolicyExternalAuthorityTypes";
 import type {
   KeyingVerificationResult,
-  NormalizedPrincipalPolicyStateChainEntry,
   PrincipalPolicyCheckpoint,
   PrincipalPolicySignerPublicKey,
   PrincipalPolicyStateChainEntry,
@@ -30,8 +29,8 @@ const verifiedHistoryBrand: unique symbol = Symbol(
 /** A verified prefix with explicitly retained references, not a full snapshot. */
 export interface VerifiedPrincipalPolicyHistory {
   readonly [verifiedHistoryBrand]: true;
-  readonly currentEntry: NormalizedPrincipalPolicyStateChainEntry;
-  readonly retainedEntries: readonly NormalizedPrincipalPolicyStateChainEntry[];
+  readonly currentEntry: PrincipalPolicyStateChainEntry;
+  readonly retainedEntries: readonly PrincipalPolicyStateChainEntry[];
   readonly checkpoint: PrincipalPolicyCheckpoint;
 }
 

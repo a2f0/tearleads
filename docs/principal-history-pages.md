@@ -9,7 +9,8 @@ already verified external authority for each page.
 An append contains one to 128 entries. The verifier owns its inputs before
 asynchronous work, stages all checks, and publishes progress only when the whole
 page succeeds. A rejected page can be corrected and retried. Concurrent appends
-and finishing during an append fail closed. Pages must be contiguous; duplicate,
+and finishing during an append fail closed with `invalid_shape`; that code can
+also describe malformed page data. Pages must be contiguous; duplicate,
 skipped, wrong-principal, and forked successors are rejected.
 
 Between pages it retains the latest checked entry, the most recent external
@@ -18,8 +19,10 @@ historical entries. A page conflicting with the local checkpoint is rejected
 immediately. Uncited states preserve the prior external-admin citation,
 so a later page cannot roll authority back. A successful `finish(expectedHead)`
 requires the exact current head, including its key epoch and fingerprint, and
-connection to the optional local checkpoint. Returned values are copies: editing
-them cannot change the verifier's progress. The verifier may continue after a
+connection to the optional local checkpoint. Returned entries are readonly views
+inside a copy. Deliberately mutating that
+copy at runtime cannot change the verifier's progress. The verifier may continue
+after a
 successful finish, allowing callers to observe exact verified intermediate
 heads.
 

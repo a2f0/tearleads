@@ -110,7 +110,7 @@ test("a page boundary cannot bypass key rotation for member removal", async () =
   expect(verifier.finish(historyHead(rotated.state)).ok).toBe(true);
 });
 
-test("external authority cannot regress across an uncited page or a failed page", async () => {
+test("external authority cannot regress across an uncited page", async () => {
   const { shared, signer, first } = await historyFixture();
   const external = await createPolicySigner("external");
   const authorityFirst = await signPolicyState({
@@ -211,4 +211,103 @@ test("external authority cannot regress across an uncited page or a failed page"
       })
     ).ok,
   ).toBe(true);
+});
+
+test("a failed page cannot advance the remembered external authority", async () => {
+  const { shared, signer, first } = await historyFixture();
+  const external = await createPolicySigner("external");
+  const authorityFirst = await signPolicyState({
+    principalId: "admins",
+    members: [{ userId: external.userId }],
+    signer: external,
+    version: 1,
+    prevStateHash: null,
+  });
+  const authoritySecond = await signPolicyState({
+    principalId: "admins",
+    members: [{ userId: external.userId }],
+    signer: external,
+    version: 2,
+    prevStateHash: authorityFirst.state.stateHash,
+    keyEpoch: 2,
+  });
+  const oldHead = {
+    ...historyHead(authorityFirst.state),
+    principalType: "group" as const,
+  };
+  const newHead = {
+    ...historyHead(authoritySecond.state),
+    principalType: "group" as const,
+  };
+  const oldAuthority = {
+    currentHead: oldHead,
+    states: [{ head: oldHead, projection: authorityFirst.entry.projection }],
+  };
+  const newAuthority = {
+    currentHead: newHead,
+    states: [
+      ...oldAuthority.states,
+      { head: newHead, projection: authoritySecond.entry.projection },
+    ],
+  };
+  const second = await signPolicyState({
+    ...shared,
+    projection: first.entry.projection,
+    version: 2,
+    prevStateHash: first.state.stateHash,
+    externalAuthority: oldHead,
+    signer: external,
+  });
+  const verifier = createPrincipalPolicyHistoryVerifier({
+    principalId: shared.principalId,
+    principalType: "group",
+  });
+  expect(
+    (
+      await verifier.append({
+        entries: [first.entry, second.entry],
+        signerPublicKeys: [signer, external],
+        externalAuthority: oldAuthority,
+      })
+    ).ok,
+  ).toBe(true);
+  const third = await signPolicyState({
+    ...shared,
+    projection: first.entry.projection,
+    version: 3,
+    prevStateHash: second.state.stateHash,
+    externalAuthority: newHead,
+    signer: external,
+  });
+  expectVerificationError(
+    await verifier.append({
+      entries: [
+        {
+          ...third.entry,
+          state: { ...third.state, signature: second.state.signature },
+        },
+      ],
+      signerPublicKeys: [external],
+      externalAuthority: newAuthority,
+    }),
+    "signature_mismatch",
+  );
+  const validThird = await signPolicyState({
+    ...shared,
+    projection: first.entry.projection,
+    version: 3,
+    prevStateHash: second.state.stateHash,
+    externalAuthority: oldHead,
+    signer: external,
+  });
+  expect(
+    (
+      await verifier.append({
+        entries: [validThird.entry],
+        signerPublicKeys: [external],
+        externalAuthority: newAuthority,
+      })
+    ).ok,
+  ).toBe(true);
+  expect(verifier.finish(historyHead(validThird.state)).ok).toBe(true);
 });
