@@ -13,7 +13,11 @@ import {
 } from "./preparePrincipalHistory";
 import { principalHistoryContinuationProgress } from "./principalHistoryContinuationProgress";
 import { withBoundedPrincipalHistory } from "./principalHistoryExecution";
-import { PrincipalHistoryPreparationRequired } from "./principalHistoryPreparationRequest";
+import {
+  type PrincipalHistoryPreparationRequest,
+  PrincipalHistoryPreparationRequired,
+} from "./principalHistoryPreparationRequest";
+import { schedulePrincipalHistoryPreparation } from "./principalHistoryScheduler";
 import { PrincipalPolicyError } from "./shared";
 
 export class PrincipalHistoryContinuation extends Error {
@@ -33,57 +37,62 @@ export async function runPrincipalHistoryTransaction<T>(
     return await withBoundedPrincipalHistory(() => db.transaction(work));
   } catch (error) {
     if (!(error instanceof PrincipalHistoryPreparationRequired)) throw error;
-    const request = error.request;
-    const committed = await getCurrentPrincipalState(
-      request.head.principalType,
-      request.head.principalId,
-      db,
+    return schedulePrincipalHistoryPreparation(db, error.request.head, () =>
+      prepareContinuation(db, error.request),
     );
-    if (!committed)
-      throw new PrincipalPolicyError(
-        "Principal history preparation target is missing",
-        409,
-      );
-    // A successor inserted in the rolled-back transaction does not exist here.
-    // Prepare its committed predecessor. Prefix progress has an empty retained
-    // selection; future citations are checked only when the retry recreates
-    // the successor and passes its normal authorization and CAS checks.
-    const target =
-      request.head.version > committed.version
-        ? committed
-        : (await getPrincipalStatesForReferences([request.head], db)).get(
-            principalStateReferenceKey(request.head),
-          );
-    if (!target)
-      throw new PrincipalPolicyError(
-        "Principal history preparation target changed",
-        409,
-      );
-    const targetRequest = {
-      ...request,
-      head: target,
-      retainedReferences: request.retainedReferences.filter(
-        (reference) => reference.version <= target.version,
-      ),
-    };
-    const before = await principalHistoryContinuationProgress(
-      db,
-      targetRequest,
-    );
-    const budget = principalHistoryPreparationBudget();
-    const prepared = await preparePrincipalHistory(db, {
-      ...targetRequest,
-      budget,
-    });
-    const progressToken = await principalHistoryContinuationProgress(
-      db,
-      prepared.complete ? targetRequest : prepared.request,
-    );
-    if (progressToken === before)
-      throw new PrincipalPolicyError(
-        "Principal history preparation made no progress",
-        503,
-      );
-    throw new PrincipalHistoryContinuation(progressToken);
   }
+}
+
+async function prepareContinuation(
+  db: ApiDatabase,
+  request: PrincipalHistoryPreparationRequest,
+): Promise<never> {
+  const committed = await getCurrentPrincipalState(
+    request.head.principalType,
+    request.head.principalId,
+    db,
+  );
+  if (!committed)
+    throw new PrincipalPolicyError(
+      "Principal history preparation target is missing",
+      409,
+    );
+  // A successor inserted in the rolled-back transaction does not exist here.
+  // Prepare its committed predecessor. Prefix progress has an empty retained
+  // selection; future citations are checked only when the retry recreates
+  // the successor and passes its normal authorization and CAS checks.
+  const target =
+    request.head.version > committed.version
+      ? committed
+      : (await getPrincipalStatesForReferences([request.head], db)).get(
+          principalStateReferenceKey(request.head),
+        );
+  if (!target)
+    throw new PrincipalPolicyError(
+      "Principal history preparation target changed",
+      409,
+    );
+  const targetRequest = {
+    ...request,
+    head: target,
+    retainedReferences: request.retainedReferences.filter(
+      (reference) => reference.version <= target.version,
+    ),
+  };
+  const before = await principalHistoryContinuationProgress(db, targetRequest);
+  const budget = principalHistoryPreparationBudget();
+  const prepared = await preparePrincipalHistory(db, {
+    ...targetRequest,
+    budget,
+  });
+  const progressToken = await principalHistoryContinuationProgress(
+    db,
+    prepared.complete ? targetRequest : prepared.request,
+  );
+  if (progressToken === before)
+    throw new PrincipalPolicyError(
+      "Principal history preparation made no progress",
+      503,
+    );
+  throw new PrincipalHistoryContinuation(progressToken);
 }

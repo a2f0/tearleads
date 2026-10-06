@@ -40,6 +40,16 @@ advance a trusted application checkpoint. See the
 [recovery contract](developer/principal-history-recovery.md) for key custody,
 lifetime guards, cache recovery, and remaining integration limits.
 
+Cold server preparation runs after the application transaction rolls back. Each
+database has two preparation workers per API process, with at most one active
+page per principal. Waiting principals take turns between pages; a principal may
+queue two requests, and the total queue holds at most 64. Waiting longer than two
+seconds, or reaching either queue bound, returns a temporary 503 before that
+preparation task runs. A later request can resume durable progress. This limits
+preparation work in each process, not aggregate concurrency across replicas or
+ordinary application transactions. Pages retain their existing entry, byte, and
+elapsed-work budgets; one large entry remains an indivisible verification step.
+
 Each principal-policy HTTP request has a 15-second response deadline, including
 reading and decoding the response body. A validated preparation continuation or
 history page starts a fresh deadline on the next request; the deadline is not a
