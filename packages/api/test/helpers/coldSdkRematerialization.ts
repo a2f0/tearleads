@@ -30,6 +30,7 @@ import {
   isPrincipalPolicyBundleResponse,
 } from "@tearleads/validators/response";
 import { routeApp } from "../../src/routeApp";
+import { createPagedColdPolicyWarmer } from "./pagedColdPolicyWarmer";
 import { getPolicy } from "./principalPolicyReadFixtures";
 
 export const COLD_DOCUMENT_TEXT = "cold login decrypts rotated group data";
@@ -377,6 +378,7 @@ export async function coldRematerializeEncryptedDocument(input: {
   owner: TestUser;
   reader: TestUser;
   apiClient?: ReturnType<typeof createRouteSdkClient>;
+  pagedPolicies?: boolean;
 }) {
   const { close, execSql } = await createTestExecSql(
     `api-cold-reader-${crypto.randomUUID()}`,
@@ -384,7 +386,7 @@ export async function coldRematerializeEncryptedDocument(input: {
   const apiClient = input.apiClient ?? createRouteSdkClient(input.reader.token);
   const resolveTrustedUserIdentity = trustedResolver(input.owner, input.reader);
   let policyFetchCount = 0;
-  const warmReferencedPrincipalPolicies = async (request: {
+  const fullBundleWarmer = async (request: {
     organizationId: string;
     references: Parameters<
       typeof cacheReferencedPrincipalPolicies
@@ -402,6 +404,17 @@ export async function coldRematerializeEncryptedDocument(input: {
       resolveTrustedUserIdentity,
     });
 
+  const paged = input.pagedPolicies
+    ? createPagedColdPolicyWarmer({
+        apiClient,
+        execSql,
+        resolveTrustedUserIdentity,
+        onResolve: () => {
+          policyFetchCount += 1;
+        },
+      })
+    : undefined;
+  const warmReferencedPrincipalPolicies = paged?.warmer ?? fullBundleWarmer;
   try {
     const recovered = await createLoroDocument(
       `cold-reader-${crypto.randomUUID()}`,
@@ -437,6 +450,7 @@ export async function coldRematerializeEncryptedDocument(input: {
       updateIds: synced.decryptedUpdates.map((update) => update.id),
     };
   } finally {
+    paged?.dispose();
     close();
   }
 }
