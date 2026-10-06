@@ -86,7 +86,11 @@ cannot establish this organization binding; scoped progress binds the Admins ID.
 
 The result contains the current policy plus verified `dependencies`. Submit all
 of these policies together when atomically admitting checkpoints. Recovery itself
-does not advance pins. If the requested group reference or an Admins citation is
+does not advance pins. If the requested reference or an Admins citation is
 newer than the directory, the helper discovers the directory once more; a repeated
 disagreement fails with `stale_predecessor`. Signature, scope, and current-artifact
 failures propagate. Built-in runtime callers still need to adopt this facade.
+The returned Admins dependency retains its head and local checkpoint; historical
+authority citations are checked page by page without accumulating every citation
+in the result. Each group page with external citations may perform another pinned
+Admins read while reusing its authenticated prefix and local index.

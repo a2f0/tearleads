@@ -28,6 +28,8 @@ export interface RecoveredPolicyDirectory
   readonly descriptor: OrganizationAuthorityDescriptor;
 }
 
+export class PrincipalRecoveryDirectoryAdvanced extends Error {}
+
 /** An unverified discovery read chooses a pin; recovery must authenticate it. */
 async function discoverDirectoryHead(
   input: PrincipalRecoveryContext,
@@ -65,6 +67,8 @@ export async function recoverPolicyDirectory(
   references: readonly ReferencedPrincipalHead[],
 ): Promise<RecoveredPolicyDirectory> {
   const expectedHead = await discoverDirectoryHead(input);
+  if (references.some((reference) => reference.version > expectedHead.version))
+    throw new PrincipalRecoveryDirectoryAdvanced();
   const recovered = await recoverPrincipalPolicyHistory({
     ...input,
     expectedHead,

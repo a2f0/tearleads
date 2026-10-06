@@ -12,6 +12,7 @@ import { ownPrincipalHistoryProtection } from "../../data/principals/principalHi
 import type { RecoveredPrincipalPolicyHistory } from "./principalHistoryRecoveryTypes";
 import {
   type PrincipalRecoveryContext,
+  PrincipalRecoveryDirectoryAdvanced,
   type RecoveredPolicyDirectory,
   recoverPolicyDirectory,
 } from "./principalRecoveryDirectory";
@@ -27,8 +28,6 @@ export interface RecoveredScopedPrincipalPolicyHistory
   /** Submit these with policy when atomically admitting its organization scope. */
   readonly dependencies: readonly VerifiedPrincipalPolicyCurrent[];
 }
-
-class PrincipalRecoveryDirectoryAdvanced extends Error {}
 
 function groupHead(directory: RecoveredPolicyDirectory, principalId: string) {
   const head = directory.descriptor.groupHeads.find(
@@ -127,7 +126,6 @@ async function recoverScopedPolicy(
       retainedReferences: [...references.values()],
       historyVerification: "direct-admins",
     });
-    admins = recovered.policy;
     return {
       currentHead: adminHead,
       states: recovered.policy.retainedHistory.map(({ state, projection }) => ({
@@ -162,11 +160,17 @@ export async function recoverScopedPrincipalPolicyHistory(
       "Principal recovery requires an organization scope",
     );
   const input = {
-    ...options,
+    apiClient: options.apiClient,
+    execSql: options.execSql,
+    organizationId: options.organizationId,
+    resolveTrustedUserIdentity: options.resolveTrustedUserIdentity,
+    signal: options.signal,
+    stillCurrent: options.stillCurrent,
     reference: structuredClone(options.reference),
     protection: ownPrincipalHistoryProtection(options.protection),
   };
   try {
+    // Reject malformed exact citations before any discovery or disposable writes.
     createPrincipalPolicyHistoryVerifier({
       principalId: input.reference.principalId,
       principalType: input.reference.principalType,
