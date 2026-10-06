@@ -91,7 +91,7 @@ async function readResponse(
     if (context.cancelled() || deadline.expired())
       return context.failure(
         response.ok ? response.data : undefined,
-        deadline.expired(),
+        deadline.expired() && !context.cancelled(),
       );
     if (!response.ok) return response;
     const decoded = await decodeJsonOperationResponse(
@@ -102,7 +102,10 @@ async function readResponse(
       deadline.options,
     );
     if (context.cancelled() || deadline.expired())
-      return context.failure(response.data, deadline.expired());
+      return context.failure(
+        response.data,
+        deadline.expired() && !context.cancelled(),
+      );
     if (!decoded.ok) return decoded;
     return {
       ok: true as const,
