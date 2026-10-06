@@ -22,6 +22,8 @@ export interface PublicPrincipalHistoryOptions {
   readonly stillCurrent: () => boolean;
   readonly signal?: AbortSignal | undefined;
   readonly offline?: boolean | undefined;
+  /** Retry disposable evidence loss once from signatures, without reusing hints. */
+  readonly replay?: boolean | undefined;
   readonly strictAdmins?: boolean | undefined;
   /** Already verified organization binding; included in the protected cache scope. */
   readonly authorityGroupId?: string | undefined;

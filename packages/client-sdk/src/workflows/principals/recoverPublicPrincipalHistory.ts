@@ -208,7 +208,7 @@ export async function recoverPublicPrincipalHistory(
     protection,
   };
   try {
-    return await recover(input);
+    return await recover(input, options.replay !== true);
   } finally {
     protection.localKey.fill(0);
   }

@@ -218,5 +218,13 @@ This primitive returns verified public history, not a current policy or an
 admitted application checkpoint. Its caller must bind the source heads and any
 external authority to verified organization directory payloads, select needed
 citations and genesis through inclusion proofs, and check durable local pins.
-Projection source issuance and runtime wiring remain tracked in
+The internal compact-projection recovery path performs these binding and
+selection checks: organization and genesis first, signed directory payloads,
+strict Admins histories, then dependent group histories. It selects citations
+in batches of at most 128 proofs with a separate checkpoint proof. It replays
+only the affected principal once when a selected disposable proof is lost.
+A source behind a newer durable pin needs a verified prefix extending that pin;
+otherwise recovery reports unavailable evidence and leaves the pin intact.
+
+Production projection responses and runtime wiring remain tracked in
 [#2448](https://github.com/a2f0/tearleads/issues/2448).
