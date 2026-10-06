@@ -39,8 +39,8 @@ projection checkpoint batch also carries every verified directory/Admins
 dependency. In-memory reuse preserves that organization binding and lifetime,
 rechecks all dependency pins, and refreshes missing evidence when a durable pin
 advances. Conflicting pins still fail. Runtime offline state selects local-only
-recovery. Explicit full-bundle cache operations and embedded projection evidence
-remain separate paths; this does not complete all runtime history adoption.
+recovery. Public projection evidence uses the separate paged path described
+below; explicit full-bundle operations still require further runtime adoption.
 
 The optional `retainedReferences` selection follows the crypto verifier's bounded
 retention contract. Supply already authenticated external authority through
@@ -179,9 +179,9 @@ fails strict Admins verification. The call remains unavailable or fails
 verification even if that older recovery path could succeed. This preserves
 bounded page reads and the scoped authority checks. A held full bundle is still
 usable through its existing verification path, and hosts without a paged resolver
-retain full-bundle warming. The authorized public-history projection work tracked
-in #2448 must address deleted and nonmember group citations without requiring
-current policy membership.
+retain full-bundle warming. Public projection-history grants separately cover
+deleted and nonmember group citations through current object access, without
+requiring current policy membership.
 
 Paged current envelopes also supply encrypted key candidates to container
 unwrapping; see [the key-candidate trust boundary](principal-key-envelope-candidates.md).

@@ -43,6 +43,8 @@ test("rematerialization re-cites in the signed plans' organization, not the call
       parentProjection,
       parentSecretKey: fixture.input.targetSecretKey,
       resolveProjectionUserKey: fixture.input.resolveTrustedUserIdentity,
+      warmReferencedPrincipalPolicies:
+        fixture.input.warmReferencedPrincipalPolicies,
     });
     await verifyContainerWriterProjection({
       execSql: fixture.database.execSql,
@@ -51,6 +53,8 @@ test("rematerialization re-cites in the signed plans' organization, not the call
         parentProjection,
       }),
       resolveUserKey: fixture.input.resolveTrustedUserIdentity,
+      warmReferencedPrincipalPolicies:
+        fixture.input.warmReferencedPrincipalPolicies,
     });
     const prepared = await preparePrincipalContainerRematerializationBatch({
       ...fixture.input,
@@ -308,6 +312,8 @@ test("a nested group grant is rekeyed against the epoch its ancestor mints in th
       parentProjection,
       parentSecretKey: fixture.input.targetSecretKey,
       resolveProjectionUserKey: fixture.input.resolveTrustedUserIdentity,
+      warmReferencedPrincipalPolicies:
+        fixture.input.warmReferencedPrincipalPolicies,
     });
     fixture.serveProjection(
       childContainerWriterProjectionFromCreatePlan({

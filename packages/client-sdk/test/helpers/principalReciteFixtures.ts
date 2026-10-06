@@ -180,6 +180,7 @@ export async function createPrincipalReciteFixture(input: {
 
   return {
     database,
+    projectionBundles,
     /** The group as it stands before this rotation, for grants created under it. */
     previousBundle,
     nextBundle,

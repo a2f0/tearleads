@@ -22,5 +22,5 @@ policy data, separate from disposable verification caches.
 
 The process memo keys organization head and requested group set, returns owned
 copies, and retains at most its 32 MiB budget. Clearing it changes only read
-cost. The index removes a lifetime-history payload scan; complete keyless
-snapshot delivery and verification remain separate work in #2442 and #2448.
+cost. Public signed history is delivered through `/principals/history` and
+verified by `recoverProjectionPolicyHistory`; the index binds its source heads.

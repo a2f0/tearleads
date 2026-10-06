@@ -43,6 +43,8 @@ async function serveChild(
     parentProjection: parent,
     parentSecretKey: fixture.input.targetSecretKey,
     resolveProjectionUserKey: fixture.input.resolveTrustedUserIdentity,
+    warmReferencedPrincipalPolicies:
+      fixture.input.warmReferencedPrincipalPolicies,
   });
   const projection = childContainerWriterProjectionFromCreatePlan({
     materializedPlan,

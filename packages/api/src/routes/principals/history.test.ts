@@ -68,8 +68,8 @@ test.each(["container", "document"] as const)(
       (await getPolicy(owner, "group", history.head.principalId)).status,
     ).toBe(403);
     // Exercise a server-issued public read scope with no live group, secret
-    // payload or member envelope. This fixture issues the scope directly;
-    // production projection-source issuance is a separate integration step.
+    // payload or member envelope. This fixture isolates grant enforcement;
+    // projectionPolicyEvidenceSources.test covers production source issuance.
     const scope: ProjectionPolicyHistoryGrant = {
       organizationId: await getDefaultOrganizationId(owner.userId),
       objectKind,

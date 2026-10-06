@@ -93,6 +93,7 @@ export async function loadProjectionDirectoryBindings(input: {
     bindingPayloadByGroupState: new Map(),
   };
   const needed = new Set([...input.groupIds, current.directory.adminGroupId]);
+  // Historical bindings may add an Admins group that this loop must also visit.
   for (const groupId of needed) {
     let source = current;
     let head = source.directory.groupHeads.find(
