@@ -1,16 +1,16 @@
 import { expect } from "bun:test";
 import { SESSION_ERROR_CODES } from "@tearleads/validators/response";
 import { HttpResponse, http } from "msw";
-import {
-  createPrincipalPolicyBundleResponse,
-  createPrincipalPolicyRequest,
-} from "../test/helpers/apiClientTestFactories";
+import { createPrincipalPolicyRequest } from "../test/helpers/apiClientTestFactories";
 import {
   apiBaseUrl,
   server,
   testApiClient,
 } from "../test/helpers/apiClientTestHarness";
-import { principalPolicyPageResponse } from "../test/helpers/principalPolicyPage";
+import {
+  principalPolicyBundleResponseFor,
+  principalPolicyPageResponse,
+} from "../test/helpers/principalPolicyPage";
 import { ApiClient } from "./ApiClient";
 
 const id = "11111111-1111-4111-8111-111111111111";
@@ -64,7 +64,7 @@ testApiClient(
   "changing progress permits more rounds than the page budget",
   async () => {
     const client = new ApiClient(apiBaseUrl);
-    const bundle = createPrincipalPolicyBundleResponse();
+    const bundle = principalPolicyBundleResponseFor("organization", id);
     let calls = 0;
     server.use(
       http.get(path, () => {
@@ -85,7 +85,7 @@ testApiClient(
   "a stalled policy read releases its shared request for a new attempt",
   async () => {
     const client = new ApiClient(apiBaseUrl);
-    const bundle = createPrincipalPolicyBundleResponse();
+    const bundle = principalPolicyBundleResponseFor("organization", id);
     let calls = 0;
     server.use(
       http.get(path, () => {
@@ -123,7 +123,7 @@ testApiClient(
       client.setAuthToken("renewed-session");
       return true;
     });
-    const bundle = createPrincipalPolicyBundleResponse();
+    const bundle = principalPolicyBundleResponseFor("organization", id);
     server.use(
       http.get(path, ({ request }) => {
         calls += 1;

@@ -36,9 +36,6 @@ import {
   documents,
   dormantContainerMetadata,
   dormantMetadataSweepRequests,
-  principalPolicies,
-  principalPolicyBundleHistory,
-  principalPolicyBundleReferences,
 } from "../../data/sqlite/schema";
 import {
   type ClientSQLiteTransactionScope,
@@ -55,6 +52,7 @@ import {
   type ResetAttachmentUpload,
   type ResetDocumentUpdate,
 } from "./remoteResetPlans";
+import { clearRemoteResetPrincipalRows } from "./remoteResetPrincipalScope";
 import {
   type RemoteResetInput,
   type RemoteSyncStateSnapshot,
@@ -110,36 +108,6 @@ interface ScopedRemoteRowsInput {
   organizationId: string;
   snapshot: RemoteSyncStateSnapshot;
   tx: ClientSQLiteTransactionScope;
-}
-
-// Trust checkpoints and their ownership survive reset. Clearing cached bundles
-// must not turn a previously observed principal or object into first sight.
-async function clearScopedPrincipalRows(
-  input: ScopedRemoteRowsInput,
-): Promise<void> {
-  for (const principalBatch of remoteResetBatches(
-    input.snapshot.principalKeys,
-  )) {
-    for (const table of [
-      principalPolicies,
-      principalPolicyBundleHistory,
-      principalPolicyBundleReferences,
-    ] as const) {
-      await input.tx
-        .delete(table)
-        .where(
-          or(
-            ...principalBatch.map((principal) =>
-              and(
-                eq(table.principalType, principal.principalType),
-                eq(table.principalId, principal.principalId),
-              ),
-            ),
-          ),
-        )
-        .run();
-    }
-  }
 }
 
 async function clearScopedContainerRows(
@@ -242,7 +210,7 @@ async function clearScopedRemoteRows(
     containerIds: input.snapshot.containerIds,
     documentIds: input.snapshot.oldDocumentIds,
   });
-  await clearScopedPrincipalRows(input);
+  await clearRemoteResetPrincipalRows(input);
   await clearScopedContainerRows(input);
   await clearScopedDocumentRows(input);
   await clearRemoteResetSyncCursors({

@@ -18,3 +18,21 @@ bounds history depth per HTTP response, but does not yet bound total client
 memory or provide durable client resume. SDK staging and other embedded-history
 responses remain separate work for #2442 / #2448. The generated OpenAPI artifacts
 and response-export barrel budgets include the new page and cursor contract.
+
+`ApiClient.getPrincipalPolicyPages` exposes the same validated transport as a
+pull-based async iterator. It can select an exact `stateHash` on its first request
+or resume with saved current artifacts and an `afterVersion`. Those inputs are
+transport hints; the API client does not authenticate the omitted prefix. It
+retains a private copy of the pin, does not prefetch while a consumer is working,
+and checks cancellation and identity changes after the consumer resumes.
+
+The SDK's `recoverPrincipalPolicyHistory` uses that iterator with the streaming
+crypto verifier and durable `principal_history_stages` rows. Each row contains
+checked progress, retained references, and its transport position. A caller-owned
+local key authenticates the row's head, current artifacts, cursor, completion
+state, organization, trust context, checkpoint, and reference selection. The
+transaction checks the prior progress before replacing it and gates commit on
+the caller's current operation. Invalid or missing progress is disposable and
+recovered from signed history. The returned sparse current-policy capability does
+not advance a trusted application checkpoint. Existing bundle-based consumers
+still need integration with this recovery path.
