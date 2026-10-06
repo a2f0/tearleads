@@ -99,3 +99,29 @@ carry these sources and the SDK resolves them through
 private history recovery. Resource scheduling, durable client mutation recovery
 and the full transport acceptance run remain tracked in
 [#2448](https://github.com/a2f0/tearleads/issues/2448).
+
+## Warm projection request cost
+
+A completed local prefix avoids replaying historical signatures, but online
+projection recovery still fetches the pinned head once per source. That read
+validates the returned public head artifacts and rechecks the grant's live
+object access. It does not download the completed prefix again. The fixed
+15-second response-body deadline also applies to document and container
+writer-projection GETs.
+
+This deliberately preserves those checks in the first compact-wire release.
+The app's single-file upload fixture grows from 10 to 28 requests (18 public
+history reads), personal-organization bootstrap from 30 to 64 (34 such reads),
+and additional-organization bootstrap from 9 to 12. Those are measured request
+counts, not latency benchmarks. Serial round trips can increase warm-operation
+latency, especially on mobile links; the change does not claim a warm-path
+performance improvement. In exchange, projection responses no longer embed
+complete principal histories, and cold verification progresses across bounded
+requests instead of one history-sized response.
+
+Reusing a head check for an entire runtime lifetime would also reuse an earlier
+access result and stop inspecting subsequent returned head artifacts. This
+release keeps the existing online refusal, artifact validation, and lifetime
+checks explicit. Batching exact source heads while reauthorizing their object
+scope is the intended follow-up for reducing these round trips; it remains part
+of #2448, alongside the remaining mutation-consumer and resource work.
