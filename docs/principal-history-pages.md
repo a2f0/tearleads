@@ -135,11 +135,12 @@ trusted checkpoint before publishing results. If that checkpoint changed during
 a suspended operation, the caller must resolve the new input before resuming.
 Persisted records and cryptographic progress must not be promoted independently.
 
-This component supports #2448. Existing API and SDK paths still use full-history
-transport. Remaining work includes bounded HTTP delivery, durable persistence
-and replay ordering, server-side preparation outside the mutation transaction,
-and a short atomic commit and acknowledgement. Issues #2442 and #2448 stay open
-until that integration meets the HTTP availability requirements.
+This component supports #2448. Principal HTTP endpoints use preparation
+continuations, paged reads, and compact mutation acknowledgements as described
+below. The SDK still collects and persists full histories. Durable client staging,
+other embedded-history responses, and commit-outcome recovery remain required.
+Issues #2442 and #2448 stay open until the complete integration meets the HTTP
+availability requirements.
 
 The API `readPrincipalHistoryPage` reader selects at most 100 state rows per
 query, with explicit principal scope and lower/upper version bounds. Its
@@ -202,11 +203,10 @@ policy and its authority dependency. At least one entry can advance even if it
 exceeds the preferred byte/time budget; discovering an unresolved dependency
 can also inspect one parent entry. These are scheduling targets, not strict
 bounds on total request memory or elapsed time. Proof selection and cache
-maintenance add work outside that accepted-entry budget. The current API
-collector still loops through preparation batches, and full wire responses still
-collect arrays.
-Moving cold preparation outside the final transaction and across HTTP requests
-remains required before #2442/#2448 can close.
+maintenance add work outside that accepted-entry budget. Principal HTTP handlers
+move cold preparation outside the final transaction and across requests. Internal
+collectors outside that bounded execution context can still loop through batches
+and retain complete arrays; those paths remain part of #2442/#2448.
 
 Current authorization consumes `PrincipalPolicyAuthorization` and explicitly
 retained historical citations. More than 128 required citations are verified in
@@ -229,8 +229,9 @@ serving reread rows. It owns the bundle, checks current artifacts, normalizes ev
 historical entry, and recomputes the index root against the private verified
 history capability. This detects replaced historical signatures or projections
 after progress was saved, without replaying signatures. The complete response
-still requires linear hashing and retained memory until the wire contract is
-paged; the 128-state index batches do not impose a lifetime history limit.
+still requires linear hashing and retained memory in internal bundle collectors.
+Principal GET instead uses verified page selections. The 128-state index batches
+do not impose a lifetime history limit.
 
 ## Principal HTTP preparation
 
@@ -284,11 +285,11 @@ This changes the wire contract in one release; clients and server must be update
 together. There is no compatibility capability negotiation.
 
 This is still a partial transport integration: other workflows can collect cold
-history within one request, the successful wire response still contains full
-history, and durable exact-replay acknowledgements remain required. The preferred
+history within one request, clients still collect GET pages into full bundles,
+and durable exact-replay acknowledgements remain required. The preferred
 entry/byte/time budgets do not bound a single large state's artifacts or all
-proof selection and cache publication work. Keep #2442 and #2448 open until paged
-SDK recovery, short acknowledgements, and the full resource-bound tests pass.
+proof selection and cache publication work. Keep #2442 and #2448 open until
+durable paged SDK recovery and the full resource-bound tests pass.
 
 ## Mutation acknowledgements
 
@@ -306,5 +307,5 @@ the accepted state to its previously verified local history for persistence.
 A server-provided history array cannot replace that local prefix. This changes
 the greenfield wire contract for standalone policy writes, compound group and
 organization commits, and the organization receipt on group creation/deletion.
-Cold reads and local full-history persistence still need bounded paging; compact
-mutation receipts alone do not complete #2442 or #2448.
+Other embedded-history reads and local full-history persistence still need
+bounded processing; compact mutation receipts alone do not complete #2442 or #2448.
