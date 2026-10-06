@@ -31,7 +31,10 @@ async function memoPrincipalRecovery<T>(
     pending = work().then((value) => ({ value, stillCurrent }));
     memo?.set(key, pending);
   }
-  const result = await pending;
+  const result = await pending.catch((error: unknown) => {
+    if (memo?.get(key) === pending) memo.delete(key);
+    throw error;
+  });
   assertProjectionVerificationCurrent(result.stillCurrent);
   assertProjectionVerificationCurrent(stillCurrent);
   return result.value;
