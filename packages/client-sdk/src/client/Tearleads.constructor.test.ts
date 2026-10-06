@@ -39,6 +39,12 @@ describe("Tearleads constructor", () => {
     expect("openView" in sdk.deviceFirst).toBe(false);
     expect("reconciler" in sdk.deviceFirst).toBe(false);
     expect(sdk.organizations.loadDirectoryAndGroups).toBeFunction();
+    expect(sdk.documents.workflowRuntime()).not.toHaveProperty(
+      "withPrincipalHistoryProtection",
+    );
+    expect(sdk.containerContents.workflowRuntime()).not.toHaveProperty(
+      "withPrincipalHistoryProtection",
+    );
     expect(sdk.runtime.input()).not.toHaveProperty(
       "withPrincipalHistoryProtection",
     );

@@ -5,6 +5,7 @@ import {
   assertProjectionVerificationCurrent,
   type ReferencedPrincipalPolicyWarmer,
 } from "../../data/keyingProjectionVerification/types";
+import { readPrincipalHistoryProtection } from "../../data/principals/principalHistoryRuntime";
 import { PrincipalPolicyHistoryReadError } from "./principalHistoryRecoveryTypes";
 import { isPrincipalRecoveryOutage } from "./principalRecoveryOutage";
 import { queuePrincipalRecovery } from "./principalRecoveryQueue";
@@ -29,7 +30,7 @@ async function recoverWithOutageFallback(
 export function createRuntimeProjectionPolicyResolver(
   runtime: PrincipalPolicyRecoveryRuntime,
 ): ReferencedPrincipalPolicyWarmer["resolveProjectionHistory"] {
-  const lease = runtime.withPrincipalHistoryProtection;
+  const lease = readPrincipalHistoryProtection(runtime);
   const readPages = runtime.apiClient.getProjectionPolicyHistoryPages?.bind(
     runtime.apiClient,
   );

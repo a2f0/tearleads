@@ -35,12 +35,15 @@ afterEach(async () => {
 // bytes upload -> attachment binding). Run with DUAL_PANE_REQUEST_PROFILE=1 to
 // print the observed volume when re-baselining.
 const EXPLORER_SINGLE_FILE_UPLOAD_REQUEST_BUDGET: ProxiedApiRequestBudget = {
-  // The profiled steady path currently uses nine requests, so the aggregate cap
-  // keeps one request of headroom. Per-route caps are independent maxima: the
+  // The steady path uses nine mutation/blob requests plus eighteen bounded
+  // public-history reads. Keep one request of aggregate headroom. Per-route
+  // caps are independent maxima: the
   // second attachment-list allowance and the optional writer/discovery reads
   // are scenario-specific headroom and do not occur in that steady path.
-  total: 10,
+  total: 28,
   byRequest: {
+    // Each projection verification rechecks its organization/Admins head page.
+    "GET /principals/history": 18,
     // Create the image document shell, upload + bind its attachment blob, and
     // probe the remote document before blob staging, then sync the document
     // content before and after the attachment bind. A small encrypted blob is

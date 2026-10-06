@@ -20,7 +20,9 @@ lifetimes before and after asynchronous work. Without a provider, a private
 ephemeral key permits same-runtime reuse; a restart safely requires replay.
 Refreshing a session token expires outstanding leases while retaining that key
 for the same database, signing identity and API trust domain.
-Provider failures propagate instead of silently changing keys.
+Provider failures propagate instead of silently changing keys. Container and
+document workflow adapters retain the same lease in a private weak registry;
+their public runtime views do not expose custody callbacks.
 
 The app derives a separate purpose from its existing protected SQLite keyring
 root, binding the API and identity. It releases keyring sessions after derivation.
