@@ -73,7 +73,7 @@ for (const method of ["GET", "PUT"] as const) {
   }
 }
 
-for (const status of [200, 401, 409, 502]) {
+for (const status of [200, 401, 408, 409, 499, 502]) {
   testApiClient(
     `compound write ${status} reports its final outcome exactly once`,
     async () => {
@@ -97,7 +97,7 @@ for (const status of [200, 401, 409, 502]) {
       expect(result.ok).toBe(false);
       if (result.ok) throw new Error("Expected failure");
       expect(result.kind).toBe(
-        status === 200 || status === 502 ? "outcome-unknown" : "http",
+        [200, 408, 499, 502].includes(status) ? "outcome-unknown" : "http",
       );
       expect(messages).toEqual([result.message]);
       expect(calls).toBe(1);

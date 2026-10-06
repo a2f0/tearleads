@@ -52,7 +52,8 @@ effect across all rounds. These timers bound the built-in fetch transport;
 custom host callbacks must also settle or honor their cancellation signal.
 
 A submitted write with a network failure, an unreadable or invalid acknowledgement,
-or a server/intermediary 5xx has an unknown commit outcome. None of these failures
+or a server/intermediary 5xx, 408, or 499 has an unknown commit outcome. None of
+these failures
 permits automatic replay or a claim that the operation rolled back. Only a valid
 202 preparation response proves rollback and permits the continuation loop.
 

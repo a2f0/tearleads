@@ -75,8 +75,13 @@ function preserveCommitUncertainty(
   if (method === "GET") return failure;
   // A network/decode failure or intermediary 5xx says nothing about commit.
   // Inner write errors are silent until this final classification is known.
+  const ambiguous =
+    failure.kind !== "http" ||
+    (failure.status ?? 0) >= 500 ||
+    failure.status === 408 ||
+    failure.status === 499;
   const result =
-    failure.kind !== "http" || (failure.status ?? 0) >= 500
+    ambiguous && failure.kind !== "outcome-unknown"
       ? context.failure()
       : failure;
   if (
