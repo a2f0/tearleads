@@ -1,5 +1,5 @@
-import { CaretLeftIcon } from "@phosphor-icons/react/dist/csr/CaretLeft";
 import { useState } from "react";
+import { useWindowingIcons } from "../icons/WindowingIcons";
 import "./WindowToolBar.css";
 import { WindowTitleBarActionButtons } from "./WindowChromeActions";
 import {
@@ -51,6 +51,7 @@ export function WindowToolBar({
   onGoBack?: (() => void) | undefined;
   showHistoryBack?: boolean;
 } = {}) {
+  const { back: BackIcon } = useWindowingIcons();
   const backAction = useWindowBackActionValue();
   const actions = useWindowTitleBarActions();
   const reserved = useWindowToolbarReserved();
@@ -91,7 +92,7 @@ export function WindowToolBar({
             type="button"
             onClick={backAction?.onClick ?? onGoBack}
           >
-            <CaretLeftIcon aria-hidden size={18} />
+            <BackIcon aria-hidden size={18} />
             <span className="window-toolbar-back-label">{backLabel}</span>
           </button>
         )}
