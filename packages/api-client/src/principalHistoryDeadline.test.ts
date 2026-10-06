@@ -49,7 +49,7 @@ for (const method of ["GET", "PUT"] as const) {
         });
         expect(result).toMatchObject({
           ok: false,
-          kind: method === "GET" ? "cancelled" : "outcome-unknown",
+          kind: method === "GET" ? "network" : "outcome-unknown",
           code:
             method === "GET"
               ? "principal_history_request_timed_out"
