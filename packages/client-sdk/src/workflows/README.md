@@ -319,4 +319,6 @@ and a lifetime predicate. Attach it through the policy warmer's
 `resolveProjectionHistory` capability and return the same lifetime predicate
 with the selections. Projection verification rechecks that lifetime and the
 latest local pins at final admission. Historical selections never advance
-current-policy checkpoints or become current key material.
+current-policy checkpoints or become current key material. Attachment detach,
+hydration, retained-wrap checks and relinking accept the same private policy
+warmer and operation-lifetime guard; the document store supplies both.

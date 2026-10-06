@@ -156,13 +156,28 @@ test("a lost compound commit response remains recoverable after a later policy u
         .from(principalPolicyCommits)
         .where(eq(principalPolicyCommits.groupId, groupId)),
     ).toHaveLength(2);
-    const [receipt] = await db
+    const receipts = await db
       .select()
       .from(principalPolicyCommits)
       .where(eq(principalPolicyCommits.groupId, groupId));
-    if (!receipt) throw new Error("Missing committed receipt");
+    const receipt = receipts.find((row) =>
+      row.responseJson.includes(first.groupPolicy.currentState.stateHash),
+    );
+    const laterReceipt = receipts.find((row) => row !== receipt);
+    if (!receipt || !laterReceipt)
+      throw new Error("Missing distinct committed receipts");
+    expect(receipt.responseJson.length).toBeLessThan(1_024);
+    expect(receipt.responseJson).not.toContain(
+      initial.encryptedPayload.ciphertext,
+    );
+    for (const envelope of initial.memberEnvelopes)
+      expect(receipt.responseJson).not.toContain(envelope.wrappedKey);
     // Corruption is never treated as a cache miss that reapplies an old write.
-    for (const responseJson of ["{", JSON.stringify({})]) {
+    for (const responseJson of [
+      "{",
+      JSON.stringify({}),
+      laterReceipt.responseJson,
+    ]) {
       await db
         .update(principalPolicyCommits)
         .set({ responseJson })

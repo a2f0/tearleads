@@ -6,7 +6,10 @@ import {
   computePrincipalStateHash,
   signPrincipalState,
 } from "@tearleads/crypto";
-import { PrincipalPolicyMutationResponseSchema } from "@tearleads/validators/response";
+import {
+  PrincipalPolicyMutationResponseSchema,
+  ReferencedPrincipalStateResponseSchema,
+} from "@tearleads/validators/response";
 import { and, eq, isNull } from "drizzle-orm";
 import { getDefaultOrganizationId } from "../../../test/helpers/organizationMembership";
 import { prepareOrganizationPolicyAdvance } from "../../../test/helpers/organizationPolicyOutcome";
@@ -130,13 +133,44 @@ test("a lost standalone directory acknowledgement survives a later directory hea
       .from(principalPolicyCommits)
       .where(receiptFilter);
     expect(receipts).toHaveLength(2);
+    for (const receipt of receipts) {
+      expect(receipt.responseJson.length).toBeLessThan(512);
+      expect(receipt.responseJson).not.toContain(
+        body.encryptedPayload.ciphertext,
+      );
+      for (const envelope of body.memberEnvelopes)
+        expect(receipt.responseJson).not.toContain(envelope.wrappedKey);
+    }
+    const references = receipts.map((receipt) =>
+      ReferencedPrincipalStateResponseSchema.parse(
+        JSON.parse(receipt.responseJson),
+      ),
+    );
+    const originalReference = references.find(
+      (reference) => reference.stateHash === first.currentState.stateHash,
+    );
+    const laterReference = references.find(
+      (reference) => reference.stateHash !== first.currentState.stateHash,
+    );
+    if (!originalReference || !laterReference)
+      throw new Error("Missing distinct acknowledgement references");
     try {
       for (const responseJson of [
         "{",
         "{}",
+        JSON.stringify(laterReference),
+        JSON.stringify({ ...originalReference, stateHash: "0".repeat(64) }),
         JSON.stringify({
-          ...first,
-          currentState: { ...first.currentState, stateHash: "wrong" },
+          ...originalReference,
+          version: originalReference.version + 1,
+        }),
+        JSON.stringify({
+          ...originalReference,
+          keyEpoch: originalReference.keyEpoch + 1,
+        }),
+        JSON.stringify({
+          ...originalReference,
+          keyFingerprint: "0".repeat(64),
         }),
       ]) {
         await db

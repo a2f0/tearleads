@@ -46,10 +46,8 @@ test("compound replay uses the original container acknowledgements without retai
     .from(principalPolicyCommits)
     .where(eq(principalPolicyCommits.groupId, groupId));
   if (!receipt) throw new Error("Missing stored compound receipt");
-  const stored: unknown = JSON.parse(receipt.responseJson);
-  if (!isCommitOrganizationGroupPolicyResponse(stored))
-    throw new Error("Invalid receipt");
-  expect(stored.groupPolicy.containerMutations).toEqual([]);
+  expect(receipt.responseJson.length).toBeLessThan(1_024);
+  expect(receipt.responseJson).not.toContain("containerMutations");
   await db
     .delete(principalPolicyMutationAcknowledgements)
     .where(

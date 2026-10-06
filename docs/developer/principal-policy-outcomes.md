@@ -13,7 +13,10 @@ notification.
 These receipts report historical outcomes; they do not establish current
 authority or authorize a newly constructed request. The authenticated requester
 must still be a current organization administrator to read a receipt; a revoked
-requester receives 403, not a claim that the commit rolled back. Invalid stored
+requester receives 403, not a claim that the commit rolled back. Reading an
+existing acknowledgement does not require current sync entitlement or rerun
+roster billing checks: it reports a past commit without authorizing another.
+Invalid stored
 receipts fail closed. Compound container results still require their original
 acknowledgement rows, so purging an organization cannot leave a response in an
 embedded copy. Group deletion removes that group's compound receipts;
@@ -28,6 +31,11 @@ do not complete #2442 or #2448.
 
 Receipts survive until their group or organization is deleted. Expiring them on
 a time limit would make an old unknown outcome indistinguishable from a failed
-commit. They store current policy acknowledgements, without history arrays or
-duplicated container results. Storage grows with accepted commits; receipt
-compaction and durable client outcome handling remain follow-up work.
+commit. Each receipt stores only one or two exact public state references. Replay
+loads the immutable state and its public artifacts and reconstructs retired member
+envelopes from the authenticated, hash-matched original request. The receipt keeps
+no payload, envelope, projection, grant or container-result copy. Rotation can
+therefore remove superseded envelope rows without losing the original
+acknowledgement. Reference substitution or missing immutable state fails closed.
+Storage still grows by a fixed-size record per accepted commit; durable client
+outcome handling remains follow-up work.

@@ -1,15 +1,13 @@
 import type { DatabaseTransaction } from "@tearleads/api-shared/postgres";
 import { principalPolicyCommits } from "@tearleads/api-shared/schema";
-import { computePrincipalStateHash } from "@tearleads/crypto";
 import type { CommitOrganizationGroupPolicyRequest } from "@tearleads/validators/request";
-import {
-  type CommitOrganizationGroupPolicyResponse,
-  isCommitOrganizationGroupPolicyResponse,
-} from "@tearleads/validators/response";
+import type { CommitOrganizationGroupPolicyResponse } from "@tearleads/validators/response";
 import { and, eq } from "drizzle-orm";
 import { requireDirectOrganizationAccess } from "../organizations/access";
+import { principalHistoryHead } from "./principalHistoryRecords";
 import { loadExactReplayMutationResponses } from "./principalPolicyMutationAcknowledgements";
 import { principalPolicyOutcomeHash } from "./principalPolicyOutcomeHash";
+import { loadPrincipalPolicyOutcomeReference } from "./principalPolicyOutcomeReference";
 import { PrincipalPolicyError } from "./shared";
 
 interface CommitOutcomeInput {
@@ -67,32 +65,36 @@ export async function principalPolicyCommitOutcome(
       );
     }
     if (
-      !isCommitOrganizationGroupPolicyResponse(stored) ||
-      stored.groupPolicy.currentState.principalType !== "group" ||
-      stored.groupPolicy.currentState.principalId !== input.groupId ||
-      stored.organizationPolicy.currentState.principalType !== "organization" ||
-      stored.organizationPolicy.currentState.principalId !==
-        input.organizationId ||
-      stored.groupPolicy.currentState.stateHash !==
-        (await computePrincipalStateHash(input.request.groupPolicy.state)) ||
-      stored.organizationPolicy.currentState.stateHash !==
-        (await computePrincipalStateHash(
-          input.request.organizationPolicy.state,
-        ))
+      !stored ||
+      typeof stored !== "object" ||
+      !("groupPolicy" in stored) ||
+      !("organizationPolicy" in stored)
     )
       throw new PrincipalPolicyError(
-        "Stored principal policy acknowledgement does not match its request",
+        "Stored principal policy acknowledgement is invalid",
         409,
       );
-    // Purging organization containers removes their acknowledgement rows. Never resurrect those
-    // responses from a second copy inside the compound receipt.
-    stored.groupPolicy.containerMutations =
-      await loadExactReplayMutationResponses({
-        executor,
-        nextHead: stored.groupPolicy.currentState,
-        requests: input.request.groupPolicy.containerMutations ?? [],
-      });
-    response = stored;
+    const groupPolicy = await loadPrincipalPolicyOutcomeReference({
+      executor,
+      reference: stored.groupPolicy,
+      request: input.request.groupPolicy,
+      principalType: "group",
+      principalId: input.groupId,
+    });
+    const organizationPolicy = await loadPrincipalPolicyOutcomeReference({
+      executor,
+      reference: stored.organizationPolicy,
+      request: input.request.organizationPolicy,
+      principalType: "organization",
+      principalId: input.organizationId,
+    });
+    // Purged container acknowledgements cannot be resurrected from a receipt.
+    groupPolicy.containerMutations = await loadExactReplayMutationResponses({
+      executor,
+      nextHead: groupPolicy.currentState,
+      requests: input.request.groupPolicy.containerMutations ?? [],
+    });
+    response = { groupPolicy, organizationPolicy };
   }
   return {
     response,
@@ -103,8 +105,10 @@ export async function principalPolicyCommitOutcome(
         groupId: input.groupId,
         requesterUserId: input.requesterUserId,
         responseJson: JSON.stringify({
-          ...policy,
-          groupPolicy: { ...policy.groupPolicy, containerMutations: [] },
+          groupPolicy: principalHistoryHead(policy.groupPolicy.currentState),
+          organizationPolicy: principalHistoryHead(
+            policy.organizationPolicy.currentState,
+          ),
         }),
       });
     },
