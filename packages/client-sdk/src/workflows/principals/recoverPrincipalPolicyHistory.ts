@@ -28,6 +28,7 @@ import {
   restorePrincipalHistoryRecoveryStage,
 } from "./principalHistoryRecoveryStage";
 import {
+  PrincipalHistoryRecoveryRaceError,
   PrincipalPolicyHistoryReadError,
   type RecoveredPrincipalPolicyHistory,
   type RecoverPrincipalPolicyHistoryOptions,
@@ -206,8 +207,7 @@ async function finishRecovery(
     latest?.version !== checkpoint?.version ||
     latest?.stateHash !== checkpoint?.stateHash
   )
-    throw new KeyingVerificationError(
-      "stale_predecessor",
+    throw new PrincipalHistoryRecoveryRaceError(
       "Local principal checkpoint changed during history recovery",
     );
   assertCurrent(input);
@@ -283,7 +283,7 @@ async function recover(
   );
   if (checkpoint && input.expectedHead.version < checkpoint.version)
     throw new KeyingVerificationError(
-      "rollback",
+      input.offline ? "missing_dependency" : "rollback",
       "Requested principal history predates the local checkpoint",
     );
   // Validate the requested pin/selection before creating any disposable caches.
@@ -329,6 +329,7 @@ async function recover(
  * Recover one exact head with bounded retained history and durable checked progress.
  * The result is a sparse current-policy capability; this does not advance app checkpoints.
  */
+/** Retain organization version 1 when the result will establish founder binding. */
 export async function recoverPrincipalPolicyHistory(
   options: RecoverPrincipalPolicyHistoryOptions,
 ): Promise<RecoveredPrincipalPolicyHistory> {

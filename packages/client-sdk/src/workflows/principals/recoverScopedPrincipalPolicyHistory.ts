@@ -9,7 +9,10 @@ import {
 } from "@tearleads/crypto";
 import { assertProjectionVerificationCurrent } from "../../data/keyingProjectionVerification/types";
 import { ownPrincipalHistoryProtection } from "../../data/principals/principalHistoryProtection";
-import type { RecoveredPrincipalPolicyHistory } from "./principalHistoryRecoveryTypes";
+import {
+  PrincipalHistoryRecoveryRaceError,
+  type RecoveredPrincipalPolicyHistory,
+} from "./principalHistoryRecoveryTypes";
 import {
   type PrincipalRecoveryContext,
   PrincipalRecoveryDirectoryAdvanced,
@@ -194,8 +197,7 @@ async function recoverScopedPrincipalPolicyHistoryInBatch(
           );
       }
     }
-    throw new KeyingVerificationError(
-      "stale_predecessor",
+    throw new PrincipalHistoryRecoveryRaceError(
       "Organization directory remains behind the requested policy evidence",
     );
   } finally {

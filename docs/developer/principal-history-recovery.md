@@ -104,6 +104,9 @@ verification. This cache never supplies an application trust pin.
 Interrupted stages intentionally remain separate by reference selection; a
 changed selection can reuse a completed prefix, but not another selection's
 unfinished stage.
+Runtime projection recovery now creates these stages during normal browsing.
+Distinct citation selections accumulate until organization reset; #2448 still
+tracks their reclamation.
 
 Reusable progress has no embedded checkpoint or reference selection. At finish,
 recovery obtains each requested entry and the latest local checkpoint through
@@ -139,6 +142,8 @@ cannot establish this organization binding; scoped progress binds the Admins ID.
 
 Directory recovery always selects verified genesis, so root-bound founder
 pinning also works with paged organization evidence.
+Callers of the lower-level `recoverPrincipalPolicyHistory` facade must retain
+organization version 1 when using its result to establish founder binding.
 
 The result contains the current policy plus verified `dependencies`. Submit all
 of these policies together when atomically admitting checkpoints. Recovery itself
@@ -158,6 +163,21 @@ and current lifetime guards, and is discarded before the next collection. A
 future citation clears it before the existing single directory refresh. The
 next collection discovers the directory again. A normal offline cache miss is
 reported as dependency unavailability, without recording a security incident.
+The same applies to incomplete online reads, the exhausted directory refresh,
+concurrent local checkpoint advancement, and an offline prefix behind a local
+pin. An online server head behind that pin remains a rollback incident. Invalid
+signed predecessors remain verification errors, distinct from local races.
+
+When the paged resolver is available, a paged failure does not fetch a full
+history bundle. This changes availability: an authorized full-bundle endpoint
+cannot rescue a paged 403/409, an exhausted directory refresh, or a group that
+fails strict Admins verification. The call remains unavailable or fails
+verification even if that older recovery path could succeed. This preserves
+bounded page reads and the scoped authority checks. A held full bundle is still
+usable through its existing verification path, and hosts without a paged resolver
+retain full-bundle warming. The authorized public-history projection work tracked
+in #2448 must address deleted and nonmember group citations without requiring
+current policy membership.
 
 Paged current envelopes also supply encrypted key candidates to container
 unwrapping; see [the key-candidate trust boundary](principal-key-envelope-candidates.md).
@@ -165,8 +185,7 @@ unwrapping; see [the key-candidate trust boundary](principal-key-envelope-candid
 Online recovery may reuse completed authenticated local evidence after a network
 failure, a server error, or a deadline reported by the transport. It keeps the
 same private key, organization, requested citation, and lifetime guard. It rechecks
-durable
-pins before admission. Authentication/authorization refusals, head conflicts,
+durable pins before admission. Authentication/authorization refusals, head conflicts,
 and malformed or invalid signed evidence never trigger this fallback. A missing
 local prefix remains a dependency-unavailable error. Offline reuse establishes
 previously verified state; it does not claim server currentness during an outage.
@@ -178,3 +197,8 @@ The completed prefix and provisional progress still require authentication under
 the current private key; an unreadable hint is discarded and signed history is
 replayed from genesis. A new key cannot use those hints offline. Public evidence
 rows are reused only through proofs against the newly authenticated root.
+Two headless instances sharing a database with different ephemeral keys can
+discard each other's unreadable hints, including during offline reads. They
+remain unable to admit unverified history, but may require repeated online
+genesis replay. Hosts that need shared or offline reuse must provide the same
+private protection key and trust context to those instances.
