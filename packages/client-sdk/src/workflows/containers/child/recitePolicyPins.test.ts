@@ -57,6 +57,8 @@ test.each(["before-pass", "in-flight"] as const)(
           parentProjection,
           parentSecretKey: fixture.input.targetSecretKey,
           resolveProjectionUserKey: fixture.input.resolveTrustedUserIdentity,
+          warmReferencedPrincipalPolicies:
+            fixture.input.warmReferencedPrincipalPolicies,
         });
         paths.set(
           containerId,
@@ -67,6 +69,8 @@ test.each(["before-pass", "in-flight"] as const)(
               parentProjection,
             }),
             resolveUserKey: fixture.input.resolveTrustedUserIdentity,
+            warmReferencedPrincipalPolicies:
+              fixture.input.warmReferencedPrincipalPolicies,
           }),
         );
       }
