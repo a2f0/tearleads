@@ -1,7 +1,7 @@
 import {
   type AccessManifestCheckpoint,
-  type AnyVerifiedPrincipalPolicy,
   KeyingVerificationError,
+  type PrincipalPolicyAuthorization,
   type VerifiedAccessManifestCheckpointEvidence,
   type VerifiedPrincipalPolicy,
   verifyAccessManifestLocalCheckpoint,
@@ -45,7 +45,7 @@ export interface AccessManifestCheckpointAdvance {
 interface KeyingCheckpointValidationInput {
   readonly access: readonly AccessManifestCheckpointAdvance[];
   readonly execSql: ExecSql;
-  readonly policies: readonly AnyVerifiedPrincipalPolicy[];
+  readonly policies: readonly PrincipalPolicyAuthorization[];
   readonly stillCurrent?: (() => boolean) | undefined;
 }
 
@@ -125,11 +125,28 @@ async function validateAccessAdvances(
   return pending;
 }
 
+function extendsObservedPolicy(
+  head: PrincipalPolicyAuthorization,
+  candidate: PrincipalPolicyAuthorization,
+): boolean {
+  const history =
+    "retainedHistory" in head ? head.retainedHistory : head.history;
+  return (
+    history?.some(
+      ({ state }) =>
+        state.principalType === candidate.principalType &&
+        state.principalId === candidate.principalId &&
+        state.version === candidate.version &&
+        state.stateHash === candidate.stateHash,
+    ) ?? false
+  );
+}
+
 async function validatePolicyAdvances(
   tx: ClientSQLiteTransactionScope,
-  policies: readonly AnyVerifiedPrincipalPolicy[],
-): Promise<Map<string, AnyVerifiedPrincipalPolicy>> {
-  const policiesByPrincipal = new Map<string, AnyVerifiedPrincipalPolicy[]>();
+  policies: readonly PrincipalPolicyAuthorization[],
+): Promise<Map<string, PrincipalPolicyAuthorization>> {
+  const policiesByPrincipal = new Map<string, PrincipalPolicyAuthorization[]>();
   for (const policy of policies) {
     const key = principalPolicyKey(policy);
     const candidates = policiesByPrincipal.get(key) ?? [];
@@ -137,7 +154,7 @@ async function validatePolicyAdvances(
     policiesByPrincipal.set(key, candidates);
   }
 
-  const pending = new Map<string, AnyVerifiedPrincipalPolicy>();
+  const pending = new Map<string, PrincipalPolicyAuthorization>();
   for (const key of [...policiesByPrincipal.keys()].sort()) {
     const candidates = policiesByPrincipal.get(key) ?? [];
     const maxVersion = Math.max(...candidates.map((policy) => policy.version));
@@ -156,14 +173,7 @@ async function validatePolicyAdvances(
       if (candidate.version === head.version) {
         continue;
       }
-      const extendsCandidate = head.history?.some(
-        (entry) =>
-          entry.state.principalType === candidate.principalType &&
-          entry.state.principalId === candidate.principalId &&
-          entry.state.version === candidate.version &&
-          entry.state.stateHash === candidate.stateHash,
-      );
-      if (!extendsCandidate) {
+      if (!extendsObservedPolicy(head, candidate)) {
         throw new KeyingVerificationError(
           "stale_predecessor",
           `principal policy head does not extend observed state for ${key}`,
@@ -173,7 +183,8 @@ async function validatePolicyAdvances(
 
     const localCheckpoint = await loadStoredPrincipalPolicyCheckpoint(tx, head);
     verifyPrincipalPolicyCheckpoint({
-      chain: head.history ?? [],
+      chain:
+        "retainedHistory" in head ? head.retainedHistory : (head.history ?? []),
       currentState: head.state,
       localCheckpoint,
     });
@@ -199,7 +210,7 @@ async function writeAccessCheckpoints(
 
 async function writePolicyCheckpoints(
   tx: ClientSQLiteTransactionScope,
-  pending: ReadonlyMap<string, AnyVerifiedPrincipalPolicy>,
+  pending: ReadonlyMap<string, PrincipalPolicyAuthorization>,
   updatedAt: string,
   organizationId?: string | undefined,
 ): Promise<void> {
@@ -254,7 +265,7 @@ export async function advanceKeyingCheckpointsAtomically(input: {
   readonly documentPurgeCheckpoint?: DocumentPurgeCheckpoint | undefined;
   readonly execSql: ExecSql;
   readonly organizationId?: string | undefined;
-  readonly policies: readonly AnyVerifiedPrincipalPolicy[];
+  readonly policies: readonly PrincipalPolicyAuthorization[];
   readonly stillCurrent?: (() => boolean) | undefined;
 }): Promise<void> {
   await ensureKeyingCheckpointValidationTables(input);

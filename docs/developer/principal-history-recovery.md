@@ -21,6 +21,15 @@ keying artifacts, and the latest local checkpoint. It returns a sparse
 policy bundle or advances application checkpoints on the caller's behalf.
 Organization-directory binding and atomic publication remain the caller's work.
 
+The verifier automatically retains the signed local checkpoint entry, adding at
+most one entry to the 128-reference budget plus the current entry. SDK atomic
+checkpoint admission uses this sparse evidence to recheck the latest durable pin
+inside its transaction. Every earlier head observed in the same batch must also
+be retained. If the durable pin changes to a version missing from the selection,
+admission fails with `stale_predecessor` and requires fresh evidence. Cancellation
+prevents the batch from advancing any checkpoint. Full-bundle persistence still
+requires complete history.
+
 An interrupted call leaves only provisional authenticated progress. A new call
 with the same inputs resumes at the last accepted page. Corrupt progress, a
 changed protection key, or changed verification inputs cause genesis replay.

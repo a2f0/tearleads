@@ -70,7 +70,7 @@ test("locally authenticated progress resumes the exact verified prefix and retai
   accepted(await restored.append(page(fixture.second, fixture.third)));
   const result = accepted(restored.finish(historyHead(fixture.third.state)));
   expect(result.retainedEntries.map((entry) => entry.state.version)).toEqual([
-    1, 3,
+    1, 2, 3,
   ]);
   const secondSaved = accepted(await restored.exportProgress(key));
   const secondRestore = accepted(

@@ -176,13 +176,34 @@ test("authenticated progress cannot omit an already reached checkpoint", async (
     },
   };
   const valid = await restore(
-    { ...progress(), checkpointHash: fixture.first.state.stateHash },
+    {
+      ...progress(),
+      checkpointHash: fixture.first.state.stateHash,
+      retained: [fixture.first.entry],
+    },
     input,
   );
   expect(valid.ok).toBe(true);
   const result = await restore(progress(), input);
   expect(result.ok).toBe(false);
   if (!result.ok) expect(result.error.code).toBe("stale_predecessor");
+});
+
+test("authenticated progress retains the signed checkpoint entry for atomic admission", async () => {
+  const input = {
+    ...scope(),
+    localCheckpoint: {
+      ...scope(),
+      version: 1,
+      stateHash: fixture.first.state.stateHash,
+    },
+  };
+  const result = await restore(
+    { ...progress(), checkpointHash: fixture.first.state.stateHash },
+    input,
+  );
+  expect(result.ok).toBe(false);
+  if (!result.ok) expect(result.error.code).toBe("missing_dependency");
 });
 
 test.each(["missing", "duplicate", "substituted"] as const)(
