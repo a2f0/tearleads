@@ -2,6 +2,7 @@ import type { ApiClient } from "@tearleads/api-client";
 import type { DocumentProjectorRegistry } from "../data/documents/documentKinds";
 import type { DomainScope } from "../data/domainScope";
 import { runWithSecurityIncidentReporting } from "../data/keyingProjectionVerification/error";
+import type { PrincipalHistoryProtectionLease } from "../data/principals/principalHistoryProtection";
 import type { SecurityIncidentReporter } from "../data/securityIncidents";
 import { unavailableExecSql } from "../data/sqlite/sqlSchema";
 import {
@@ -25,6 +26,10 @@ import type { Events } from "./events";
 import type { Identity } from "./identity";
 import { createListenerSet } from "./listenerSet";
 import type { Network } from "./network";
+import {
+  createPrincipalHistoryProtectionCustody,
+  type PrincipalHistoryKeyProvider,
+} from "./principalHistoryProtection";
 import { adoptSessionRootContainer } from "./rootContainerAdoption";
 import { acknowledgedSessionRoot } from "./session/sessionRootAuthority";
 import type { Session, SessionSnapshot } from "./session/sessionTypes";
@@ -51,9 +56,13 @@ export interface Runtime {
 export interface InternalWorkflowRuntimeInput extends WorkflowRuntimeGroups {
   readonly apiClient: ApiClient;
   readonly resolveTrustedUserIdentity: TrustedUserIdentityResolver;
+  readonly withPrincipalHistoryProtection?:
+    | PrincipalHistoryProtectionLease
+    | undefined;
 }
 
 export interface InternalRuntime {
+  retirePrincipalHistoryProtection(): void;
   readonly sessionGeneration: number;
   readonly adoptRootContainer: ContainerContentsRootAdopter;
   readonly publicRuntime: Runtime;
@@ -80,6 +89,7 @@ interface WorkflowRuntimeDependencies {
   logError: (message: string | Error, cause?: unknown) => void;
   network: Network;
   peerScope?: string | null;
+  principalHistoryKeyProvider?: PrincipalHistoryKeyProvider | undefined;
   reportSecurityIncident: SecurityIncidentReporter;
   session: Session;
   syncBillingGate?: SyncBillingGate | undefined;
@@ -121,12 +131,33 @@ export function createRuntime(
       () => trustedUserIdentityService.resolve(userId),
     );
   const runtimeSubscription = createRuntimeSubscription(dependencies);
+  const historyProtection = createPrincipalHistoryProtectionCustody({
+    keyProvider: dependencies.principalHistoryKeyProvider,
+    readScope: () => {
+      const signingFingerprint = dependencies.identity.signingFingerprint;
+      const identityTrustDomain = dependencies.identityTrustDomain;
+      if (
+        !signingFingerprint ||
+        !identityTrustDomain ||
+        dependencies.database.status !== "ready"
+      )
+        return null;
+      return {
+        signingFingerprint,
+        identityTrustDomain,
+        database: dependencies.getDomainScope(),
+        generation: runtimeSubscription.recoveryGeneration,
+      };
+    },
+  });
   const runtimeInput = createRuntimeInputFactory(
     dependencies,
     resolveTrustedUserIdentity,
+    historyProtection.bind,
   );
 
   return {
+    retirePrincipalHistoryProtection: historyProtection.retire,
     get sessionGeneration() {
       return runtimeSubscription.sessionGeneration;
     },
@@ -161,20 +192,26 @@ function createRuntimeSubscription(dependencies: WorkflowRuntimeDependencies) {
   const listeners = createListenerSet();
   let version = 0;
   let sessionGeneration = 0;
+  let recoveryGeneration = 0;
   let sessionSnapshot = dependencies.session.snapshot;
   const notifyListeners = () => {
     version += 1;
     listeners.notify();
   };
 
-  dependencies.database.subscribe(notifyListeners);
+  const notifyAuthority = () => {
+    recoveryGeneration += 1;
+    notifyListeners();
+  };
+  dependencies.database.subscribe(notifyAuthority);
   dependencies.events.subscribe(notifyListeners);
-  dependencies.identity.subscribe(notifyListeners);
+  dependencies.identity.subscribe(notifyAuthority);
   dependencies.network.subscribe(() => notifyListeners());
   dependencies.session.subscribe(() => {
     const next = dependencies.session.snapshot;
     if (sessionAuthorityChanged(sessionSnapshot, next)) {
       sessionGeneration += 1;
+      recoveryGeneration += 1;
     }
     sessionSnapshot = next;
     notifyListeners();
@@ -182,6 +219,9 @@ function createRuntimeSubscription(dependencies: WorkflowRuntimeDependencies) {
   dependencies.syncBillingGate?.subscribe(notifyListeners);
 
   return {
+    get recoveryGeneration() {
+      return recoveryGeneration;
+    },
     get sessionGeneration() {
       return sessionGeneration;
     },
@@ -233,6 +273,7 @@ function sessionAuthorityChanged(
 function createRuntimeInputFactory(
   dependencies: WorkflowRuntimeDependencies,
   resolveTrustedUserIdentity: TrustedUserIdentityResolver,
+  bindHistoryProtection: () => PrincipalHistoryProtectionLease | undefined,
 ): RuntimeInputFactory {
   let auth: WorkflowRuntimeAuthInput | undefined;
   let crypto: WorkflowRuntimeCryptoInput | undefined;
@@ -305,6 +346,7 @@ function createRuntimeInputFactory(
       state,
       util,
       resolveTrustedUserIdentity,
+      withPrincipalHistoryProtection: bindHistoryProtection(),
     };
   };
 
@@ -313,6 +355,7 @@ function createRuntimeInputFactory(
       const {
         apiClient: _apiClient,
         resolveTrustedUserIdentity: _resolveTrustedUserIdentity,
+        withPrincipalHistoryProtection: _withPrincipalHistoryProtection,
         util: workflowUtil,
         ...input
       } = workflowInput(containerId);

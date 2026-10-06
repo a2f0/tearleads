@@ -430,13 +430,14 @@ export const subsystems: readonly Subsystem[] = [
     name: "SDK Runtime & Composition Root",
     package: "client-sdk",
     responsibility:
-      "The Tearleads facade that wires every SDK subsystem object, the runtime-snapshot projector, the SQLite database handle, the events/network state, logging, the platform I/O capability contracts (NetworkStatusSource, FileSaver), and the package root entry point.",
+      "Tearleads facade that wires SDK subsystem objects, the runtime-snapshot projector, the SQLite database handle, the events/network state, logging, the platform I/O capability contracts (NetworkStatusSource, FileSaver), and the package root entry point.",
     seam: "new Tearleads(options); the package root index",
     paths: [
       `${sdk}/client/Tearleads.ts`,
       `${sdk}/client/index.ts`,
       `${sdk}/client/rootContainerAdoption.ts`,
       `${sdk}/client/workflowRuntime.ts`,
+      `${sdk}/client/principalHistoryProtection.ts`,
       `${sdk}/client/database.ts`,
       `${sdk}/client/events.ts`,
       `${sdk}/client/network.ts`,

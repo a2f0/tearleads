@@ -39,6 +39,9 @@ describe("Tearleads constructor", () => {
     expect("openView" in sdk.deviceFirst).toBe(false);
     expect("reconciler" in sdk.deviceFirst).toBe(false);
     expect(sdk.organizations.loadDirectoryAndGroups).toBeFunction();
+    expect(sdk.runtime.input()).not.toHaveProperty(
+      "withPrincipalHistoryProtection",
+    );
   });
 
   test("device-first reads, writes, and reconciler are shared across a domain scope", () => {

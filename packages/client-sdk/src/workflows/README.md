@@ -1,8 +1,8 @@
 # Client SDK Workflows
 
-Workflow facades are the SDK's public domain-operation boundary. They may
-compose API calls, local persistence, key/projection verification, and sync
-coordination, but they must stay React-free and product-UI-free.
+Workflow facades compose API, storage, verification and sync without React or UI.
+Private history-key leases stay out of public runtime snapshots; see
+[recovery](../../../../docs/developer/principal-history-recovery.md).
 
 ## Current Host Contract
 
