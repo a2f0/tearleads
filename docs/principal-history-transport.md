@@ -12,27 +12,30 @@ against the server's locally authenticated prefix and inclusion index.
 
 The API client rejects head/artifact changes, gaps, reordered entries, repeated
 cursors, and premature completion. Its authentication and cancellation context
-spans the entire download. It currently collects these wire pages into the SDK's
-existing full bundle, which the SDK still verifies cryptographically. This
-bounds history depth per HTTP response, but does not yet bound total client
-memory or provide durable client resume. SDK staging and other embedded-history
-responses remain separate work for #2442 / #2448. The generated OpenAPI artifacts
-and response-export barrel budgets include the new page and cursor contract.
+spans the entire download. The full-bundle adapter still collects all wire pages
+for existing SDK consumers. The incremental iterator supports durable recovery,
+but other embedded-history responses remain separate work for #2442 / #2448.
 
 `ApiClient.getPrincipalPolicyPages` exposes the same validated transport as a
 pull-based async iterator. It can select an exact `stateHash` on its first request
-or resume with saved current artifacts and an `afterVersion`. Those inputs are
+or resume with saved current artifacts and an `afterVersion`. An explicit initial
+`afterVersion` paired with an exact `stateHash` can extend a locally verified
+prefix without old target artifacts; it cannot be combined with `resume`. These
+inputs are
 transport hints; the API client does not authenticate the omitted prefix. It
 retains a private copy of the pin, does not prefetch while a consumer is working,
 and checks cancellation and identity changes after the consumer resumes.
 
 The SDK's `recoverPrincipalPolicyHistory` uses that iterator with the streaming
-crypto verifier and durable `principal_history_stages` rows. Each row contains
-checked progress, retained references, and its transport position. A caller-owned
-local key authenticates the row's head, current artifacts, cursor, completion
-state, organization, trust context, checkpoint, and reference selection. The
-transaction checks the prior progress before replacing it and gates commit on
-the caller's current operation. Invalid or missing progress is disposable and
-recovered from signed history. The returned sparse current-policy capability does
-not advance a trusted application checkpoint. Existing bundle-based consumers
-still need integration with this recovery path.
+crypto verifier and durable `principal_history_stages` rows. Page entries and
+index nodes are saved atomically with checked progress and its transport position.
+A caller-owned local key authenticates the row's head, current artifacts, cursor,
+completion state, organization, trust context, and reference selection. The
+transaction compares prior progress before replacing it and gates commit on the
+caller's current operation. A shared authenticated completed prefix can serve new
+heads and selections; proof lookups select historical entries and the current
+local checkpoint against its private verified root. Cache loss permits one
+bounded genesis rebuild. The returned sparse current-policy capability does not
+advance a trusted application checkpoint. See the
+[recovery contract](developer/principal-history-recovery.md) for key custody,
+lifetime guards, cache recovery, and remaining integration limits.

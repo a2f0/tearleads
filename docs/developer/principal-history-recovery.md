@@ -21,32 +21,52 @@ keying artifacts, and the latest local checkpoint. It returns a sparse
 policy bundle or advances application checkpoints on the caller's behalf.
 Organization-directory binding and atomic publication remain the caller's work.
 
-The verifier automatically retains the signed local checkpoint entry, adding at
-most one entry to the 128-reference budget plus the current entry. SDK atomic
-checkpoint admission uses this sparse evidence to recheck the latest durable pin
-inside its transaction. Every earlier head observed in the same batch must also
-be retained. If the durable pin changes to a version missing from the selection,
-admission fails with `stale_predecessor` and requires fresh evidence. Cancellation
-prevents the batch from advancing any checkpoint. Full-bundle persistence still
-requires complete history.
+Recovery selects the signed local checkpoint entry through the verified index,
+adding at most one entry to the 128-reference budget plus the current entry.
+SDK atomic checkpoint admission can use this sparse evidence to recheck the
+latest durable pin inside its transaction; callers must submit recovered
+policies. Every earlier head observed in the same batch must also be retained.
+If the durable pin changes to a version missing from the selection, admission
+fails with `stale_predecessor` and requires fresh evidence. Cancellation
+prevents the batch from advancing any checkpoint. Full-bundle persistence
+still requires complete history.
 
 An interrupted call leaves only provisional authenticated progress. A new call
-with the same inputs resumes at the last accepted page. Corrupt progress, a
-changed protection key, or changed verification inputs cause genesis replay.
+with the same inputs resumes at the last accepted page. Each accepted page saves
+its signed entries, index nodes, and authenticated progress in one transaction.
+Corrupt progress or a changed protection key or trust context causes replay.
 If the transport rejects a saved pin's shape, that operation's saved progress is
-discarded and the call fails; a subsequent call verifies from genesis.
+discarded and the call fails; a subsequent call starts from a valid completed
+prefix or genesis.
 Even a completed saved prefix must pass a pinned HTTP read before reuse. The
 reader throws `PrincipalPolicyHistoryReadError` with the underlying structured
 transport failure; a concurrent staged writer can raise
 `principal_history_stage_changed`, requiring a fresh recovery call. The stable
 `error.code` string is the supported way to recognize this retryable conflict.
-Organization remote reset deletes its provisional history stages while retaining
-existing trusted checkpoints. Existing full-bundle workflows remain separate consumers
-until they adopt this recovery interface.
+Organization remote reset deletes its stages, prefixes, signed entries, and index
+nodes while retaining existing trusted checkpoints. Existing full-bundle
+workflows remain separate consumers until they adopt this recovery interface.
 
 Saved stages are separate for each exact head, local trust context, and retained
 reference selection. Operations for different heads or selections do not discard
 each other's checked prefixes.
-Recovery of a new head currently verifies from genesis; reuse across changing
-heads and bounded reclamation of older completed stages remain part of #2448.
-Organization reset removes all of its staged heads.
+One completed prefix is shared across target heads and reference selections in a
+scope bound to organization, principal, key generation, and trust context. A new
+head extends an authenticated earlier prefix; a newer cached prefix is preserved
+when recovering an older target. Older completions cannot replace a newer prefix.
+A completed same-head prefix still needs a live pinned read and current-artifact
+verification. This cache never supplies an application trust pin.
+
+Reusable progress has no embedded checkpoint or reference selection. At finish,
+recovery obtains each requested entry and the latest local checkpoint through
+inclusion proofs against the private root of the locally restored verifier. Entry
+keys include signature bytes, so a different signature cannot replace the entry
+belonging to an accepted root. Each lookup reads at most one node per tree level
+and one entry row. Missing or corrupt proof material, or a disconnected cached
+prefix, permits one fresh genesis replay per recovery call. Persistent damage
+fails after that replay; durable checkpoint conflicts still fail closed.
+
+Older progress with checkpoint/reference input bindings is disposable and may
+require replay. Stage/index storage reclamation and total byte/work scheduling
+remain part of #2448. Page and proof-count bounds do not bound entry size or
+total cache growth. Organization reset removes all of its recovery material.

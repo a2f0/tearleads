@@ -24,9 +24,8 @@ after its signatures pass, before publishing its progress. Uncited states
 preserve the prior external-admin citation, so a later page cannot roll
 authority back. A successful `finish(expectedHead)` requires the exact current
 head, including its key epoch and fingerprint, and connection to the optional
-local checkpoint. Returned entries are readonly views inside a copy.
-Deliberately mutating that copy at runtime cannot change the verifier's
-progress. The verifier may continue after a successful finish, allowing callers
+local checkpoint. Returned entries are readonly copies; mutating them cannot
+change progress. The verifier may continue after a successful finish, allowing callers
 to observe exact verified intermediate heads.
 
 `VerifiedPrincipalPolicyHistory` is not a full snapshot. On `finish`, its
@@ -48,7 +47,8 @@ This does not introduce a transparency authority, witness or gossip dependency.
 
 `createPrincipalHistoryIndexProof` reads at most one node per tree level from a
 caller-owned node store. It validates every node's hash while constructing a
-proof. `verifyPrincipalPolicyHistoryReferences({ history, references })` checks
+proof. `resolvePrincipalHistoryIndexProof` also returns the signature-bound leaf
+hash for exact entry lookup. `verifyPrincipalPolicyHistoryReferences` checks
 up to 128 requested entries against the private root of an issued history
 capability. It checks their head fields, signed-state hash, projection and grant
 commitments, and proof position/size; it does not repeat signature verification.
@@ -56,8 +56,9 @@ An independently signed fork is insufficient: the exact entry must belong to
 this accepted prefix. Proof paths have at most 53 hashes.
 
 Successful selection returns a new capability containing only those references
-and the current entry. It does not grow the original selection or verifier.
-Changing selections therefore needs no genesis replay. Callers that need this
+and the current entry. Its optional `checkpointReference` verifies one additional
+checkpoint proof without consuming the 128-reference budget. Changing selections
+needs no genesis replay. Callers that need this
 reuse should export progress with a stable empty retained-reference selection,
 then select references after finishing. The progress input binding itself still
 requires exact normalized inputs on restoration.
@@ -136,8 +137,8 @@ Persisted records and cryptographic progress must not be promoted independently.
 
 This component supports #2448. Principal HTTP endpoints use preparation
 continuations, paged reads, and compact mutation acknowledgements as described
-below. The SDK still collects and persists full histories. Durable client staging,
-other embedded-history responses, and commit-outcome recovery remain required.
+below. The SDK offers durable prefix recovery; built-in full-bundle consumers,
+embedded-history responses, and commit-outcome recovery still need integration.
 Issues #2442 and #2448 stay open until the complete integration meets the HTTP
 availability requirements.
 
