@@ -47,6 +47,8 @@ test("a paged policy survives held-head cloning and signs a verifiable share pla
       execSql: fixture.database.execSql,
       projection: previousProjection,
       resolveUserKey: fixture.input.resolveTrustedUserIdentity,
+      warmReferencedPrincipalPolicies:
+        fixture.input.warmReferencedPrincipalPolicies,
     });
     const recovered = await recoverPrincipalPolicyHistory({
       apiClient: new ApiClient(server.url.origin),
@@ -89,6 +91,8 @@ test("a paged policy survives held-head cloning and signs a verifiable share pla
         principalPolicy: policy,
       },
       resolveProjectionUserKey: fixture.input.resolveTrustedUserIdentity,
+      warmReferencedPrincipalPolicies:
+        fixture.input.warmReferencedPrincipalPolicies,
       targetSecretKey: fixture.input.targetSecretKey,
     });
     const plan = materialized.plan;
