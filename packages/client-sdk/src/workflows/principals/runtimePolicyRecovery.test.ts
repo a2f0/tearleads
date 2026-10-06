@@ -305,3 +305,18 @@ test("a new stale caller cannot reuse a live caller's recovered evidence", async
     f.close();
   }
 });
+
+test("a cold offline cache miss is availability loss without a security incident", async () => {
+  const f = await fixture();
+  try {
+    f.state.online = false;
+    await expect(f.collect()).rejects.toMatchObject({
+      name: "ProjectionDependencyUnavailableError",
+    });
+    expect(f.incidents).toEqual([]);
+    expect(f.requests).toEqual([]);
+    expect(await f.db.select().from(principalPolicyCheckpoints)).toEqual([]);
+  } finally {
+    f.close();
+  }
+});

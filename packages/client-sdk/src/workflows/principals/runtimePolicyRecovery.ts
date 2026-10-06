@@ -1,4 +1,5 @@
 import type { ApiClient } from "@tearleads/api-client";
+import { KeyingVerificationError } from "@tearleads/crypto";
 import { ProjectionDependencyUnavailableError } from "../../data/keyingProjectionVerification/dependencyUnavailable";
 import { runWithSecurityIncidentReporting } from "../../data/keyingProjectionVerification/error";
 import {
@@ -67,7 +68,12 @@ export function createRuntimePrincipalPolicyResolver(
               };
             } catch (error) {
               assertProjectionVerificationCurrent(stillCurrent);
-              if (error instanceof PrincipalPolicyHistoryReadError)
+              if (
+                error instanceof PrincipalPolicyHistoryReadError ||
+                (runtime.state?.online === false &&
+                  error instanceof KeyingVerificationError &&
+                  error.code === "missing_dependency")
+              )
                 throw new ProjectionDependencyUnavailableError(error.message);
               throw error;
             }
