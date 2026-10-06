@@ -94,7 +94,8 @@ Saved stages are separate for each exact head, local trust context, and retained
 reference selection. Operations for different heads or selections do not discard
 each other's checked prefixes.
 One completed prefix is shared across target heads and reference selections in a
-scope bound to organization, principal, local protection key, and trust context.
+scope bound to organization, principal, and trust context. The private local key
+authenticates each reusable hint.
 A new head extends an authenticated earlier prefix; a newer cached prefix is
 preserved when recovering an older target. Older completions cannot replace a
 newer prefix.
@@ -163,9 +164,17 @@ unwrapping; see [the key-candidate trust boundary](principal-key-envelope-candid
 
 Online recovery may reuse completed authenticated local evidence after a network
 failure, a server error, or a deadline reported by the transport. It keeps the
-same private
-key, organization, requested citation, and lifetime guard, and rechecks durable
+same private key, organization, requested citation, and lifetime guard. It rechecks
+durable
 pins before admission. Authentication/authorization refusals, head conflicts,
 and malformed or invalid signed evidence never trigger this fallback. A missing
 local prefix remains a dependency-unavailable error. Offline reuse establishes
 previously verified state; it does not claim server currentness during an outage.
+
+Evidence row namespaces bind organization, principal, and verification/trust
+context independently of the local protection key. Replacing an ephemeral or
+host key cannot multiply copies of the same signed entries or index nodes.
+The completed prefix and provisional progress still require authentication under
+the current private key; an unreadable hint is discarded and signed history is
+replayed from genesis. A new key cannot use those hints offline. Public evidence
+rows are reused only through proofs against the newly authenticated root.

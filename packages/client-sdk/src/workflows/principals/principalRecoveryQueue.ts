@@ -3,6 +3,7 @@ import type { ExecSql } from "../../data/sqlite/sqlSchema";
 // Directory and Admins stages are shared by every reference in an organization.
 // Coordinate runtime callers across warmer instances; different databases and
 // organizations keep independent queues. Completed queues retain no work.
+// Queued work must not re-enter this queue for the same organization.
 const queues = new WeakMap<ExecSql, Map<string, Promise<void>>>();
 
 export function queuePrincipalRecovery<T>(

@@ -24,7 +24,7 @@ export async function loadPrincipalHistoryPrefix(
   return prefix ?? null;
 }
 
-/** Keep one completed prefix per key/trust scope; older readers cannot replace it. */
+/** Keep one completed prefix per principal/trust scope; older readers cannot replace it. */
 export async function savePrincipalHistoryPrefix(input: {
   readonly execSql: ExecSql;
   readonly prefix: PrincipalHistoryPrefix;

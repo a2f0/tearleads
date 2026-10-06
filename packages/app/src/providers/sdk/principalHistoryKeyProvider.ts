@@ -1,4 +1,4 @@
-import type { ClientOptions, LocalKeyring } from "@tearleads/client-sdk";
+import type { ClientOptions } from "@tearleads/client-sdk";
 import type { LocalKeyringFactory } from "../local-keyring/localKeyringLockSupport";
 import { LOCAL_SQLITE_SCOPE_NAMESPACE } from "../local-keyring/localKeyringScopes";
 
@@ -8,11 +8,10 @@ export function createPrincipalHistoryKeyProvider(
   timeoutMs = 15_000,
 ): NonNullable<ClientOptions["principalHistoryKeyProvider"]> {
   let queue: Promise<void> = Promise.resolve();
-  let keyring: LocalKeyring | null = null;
   return (scope) => {
     const operation = queue.then(async () => {
-      const activeKeyring = keyring ?? createLocalKeyring();
-      keyring = activeKeyring;
+      // The host factory enforces current lock state and backend invalidation.
+      const activeKeyring = createLocalKeyring();
       let expired = false;
       let timeoutId: ReturnType<typeof setTimeout> | undefined;
       const derive = async () => {
@@ -60,8 +59,7 @@ export function createPrincipalHistoryKeyProvider(
         ]);
       } finally {
         clearTimeout(timeoutId);
-        if (expired && keyring === activeKeyring) {
-          keyring = null;
+        if (expired) {
           try {
             // A hung shared backend must be recreated for all consumers, just
             // as in SQLite bootstrap. Successful derivations never retire it.
