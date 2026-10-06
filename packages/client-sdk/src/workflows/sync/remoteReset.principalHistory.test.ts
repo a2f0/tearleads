@@ -37,6 +37,7 @@ test("organization reset discards only its principal history stages and evidence
           ...scope,
           version: 66,
           headJson: "{}",
+          currentJson: "{}",
           progress: "opaque-prefix",
         })
         .run();

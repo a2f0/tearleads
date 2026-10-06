@@ -211,11 +211,13 @@ async function finishRecovery(
       "Local principal checkpoint changed during history recovery",
     );
   assertCurrent(input);
-  await publishReusablePrincipalHistoryPrefix(
-    input,
-    stage.scopeId,
-    stage.verifier,
-  );
+  if (!input.offline)
+    await publishReusablePrincipalHistoryPrefix(
+      input,
+      stage.scopeId,
+      stage.verifier,
+      stage.current,
+    );
   assertCurrent(input);
   return { current: stage.current, policy: current.value };
 }
@@ -224,6 +226,15 @@ async function readRecoveryPages(
   input: RecoverPrincipalPolicyHistoryOptions,
   stage: PrincipalHistoryRecoveryStage,
 ): Promise<void> {
+  if (input.offline) {
+    if (!stage.complete || !stage.current)
+      throw new KeyingVerificationError(
+        "missing_dependency",
+        "Completed principal history is unavailable offline",
+      );
+    assertExpectedHead(stage.current, input.expectedHead);
+    return;
+  }
   let receivedFinalPage = false;
   for await (const result of input.apiClient.getPrincipalPolicyPages(
     input.expectedHead.principalType,
@@ -304,7 +315,11 @@ async function recover(
       await discardPrincipalHistoryStage(input.execSql, stage.saved, () =>
         recoveryIsCurrent(input),
       );
-    if (allowEvidenceRebuild && (lostEvidence || stage.fromCache))
+    if (
+      !input.offline &&
+      allowEvidenceRebuild &&
+      (lostEvidence || stage.fromCache)
+    )
       return recover(input, false);
     throw lostEvidence || disconnected ? error.verificationError : error;
   }
@@ -317,6 +332,11 @@ async function recover(
 export async function recoverPrincipalPolicyHistory(
   options: RecoverPrincipalPolicyHistoryOptions,
 ): Promise<RecoveredPrincipalPolicyHistory> {
+  if (options.offline !== undefined && typeof options.offline !== "boolean")
+    throw new KeyingVerificationError(
+      "invalid_shape",
+      "Invalid principal history transport mode",
+    );
   if (
     !options.organizationId ||
     (options.expectedHead.principalType === "organization" &&

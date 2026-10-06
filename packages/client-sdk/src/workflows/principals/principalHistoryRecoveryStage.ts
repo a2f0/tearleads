@@ -88,7 +88,7 @@ export async function restorePrincipalHistoryRecoveryStage(
       id,
       scopeId,
       verifier: prefix.verifier,
-      current: null,
+      current: complete ? prefix.current : null,
       saved: null,
       complete,
       initialAfterVersion: prefix.version - (complete ? 1 : 0),

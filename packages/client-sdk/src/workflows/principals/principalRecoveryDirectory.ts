@@ -8,6 +8,8 @@ import {
   type OrganizationAuthorityDescriptor,
   parseOrganizationAuthorityDescriptor,
 } from "../../data/principals/organizationAuthorityDescriptor";
+import { principalHistoryEvidenceScopeId } from "../../data/principals/principalHistoryPrefixProtection";
+import { loadVerifiedPrincipalHistoryPrefix } from "./principalHistoryRecoveryPrefix";
 import {
   PrincipalPolicyHistoryReadError,
   type RecoveredPrincipalPolicyHistory,
@@ -37,6 +39,28 @@ async function discoverDirectoryHead(
   assertProjectionVerificationCurrent(
     () => !input.signal?.aborted && input.stillCurrent(),
   );
+  if (input.offline) {
+    const principal = {
+      principalType: "organization" as const,
+      principalId: input.organizationId,
+    };
+    const scopeId = await principalHistoryEvidenceScopeId({
+      organizationId: input.organizationId,
+      head: principal,
+      protection: input.protection,
+    });
+    const prefix = await loadVerifiedPrincipalHistoryPrefix(
+      input,
+      principal,
+      scopeId,
+    );
+    if (!prefix)
+      throw new KeyingVerificationError(
+        "missing_dependency",
+        "Organization directory is unavailable offline",
+      );
+    return prefix.head;
+  }
   for await (const result of input.apiClient.getPrincipalPolicyPages(
     "organization",
     input.organizationId,
@@ -66,13 +90,8 @@ export async function recoverPolicyDirectory(
   input: PrincipalRecoveryContext,
   references: readonly ReferencedPrincipalHead[],
 ): Promise<RecoveredPolicyDirectory> {
-  const expectedHead = await discoverDirectoryHead(input);
-  if (references.some((reference) => reference.version > expectedHead.version))
-    throw new PrincipalRecoveryDirectoryAdvanced();
-  const recovered = await recoverPrincipalPolicyHistory({
+  const scoped = {
     ...input,
-    expectedHead,
-    retainedReferences: references,
     protection: {
       localKey: input.protection.localKey,
       context: serializeKeyingCanonicalJson([
@@ -80,6 +99,14 @@ export async function recoverPolicyDirectory(
         input.protection.context,
       ]),
     },
+  };
+  const expectedHead = await discoverDirectoryHead(scoped);
+  if (references.some((reference) => reference.version > expectedHead.version))
+    throw new PrincipalRecoveryDirectoryAdvanced();
+  const recovered = await recoverPrincipalPolicyHistory({
+    ...scoped,
+    expectedHead,
+    retainedReferences: references,
   });
   let descriptor: OrganizationAuthorityDescriptor;
   try {

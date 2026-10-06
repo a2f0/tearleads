@@ -38,7 +38,7 @@ Corrupt progress or a changed protection key or trust context causes replay.
 If the transport rejects a saved pin's shape, that operation's saved progress is
 discarded and the call fails; a subsequent call starts from a valid completed
 prefix or genesis.
-Even a completed saved prefix must pass a pinned HTTP read before reuse. The
+Online recovery requires a pinned HTTP read even for a completed prefix. The
 reader throws `PrincipalPolicyHistoryReadError` with the underlying structured
 transport failure; a concurrent staged writer can raise
 `principal_history_stage_changed`, requiring a fresh recovery call. The stable
@@ -46,6 +46,17 @@ transport failure; a concurrent staged writer can raise
 Organization remote reset deletes its stages, prefixes, signed entries, and index
 nodes while retaining existing trusted checkpoints. Existing full-bundle
 workflows remain separate consumers until they adopt this recovery interface.
+
+Set `offline: true` explicitly to use only completed, locally authenticated
+stages or prefixes. Completed prefixes retain their current artifacts, bound to
+the protected progress; offline recovery rechecks those artifacts, selected
+history proofs, and durable checkpoints. Scoped recovery restores the verified
+directory, strict Admins and group evidence without HTTP. A new historical
+citation can be selected from the saved index without redownloading the chain.
+Missing keys, context, completed history or proofs fail with `missing_dependency`;
+offline recovery never falls back to the network. This establishes local
+consistency, not knowledge of newer server state. Cancellation still prevents
+returning a policy, and callers must atomically admit the complete dependency set.
 
 Saved stages are separate for each exact head, local trust context, and retained
 reference selection. Operations for different heads or selections do not discard

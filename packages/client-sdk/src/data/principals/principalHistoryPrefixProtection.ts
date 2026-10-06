@@ -31,7 +31,7 @@ async function principalHistoryKeyId(localKey: Uint8Array): Promise<string> {
 
 export async function principalHistoryEvidenceScopeId(input: {
   readonly organizationId: string;
-  readonly head: ReferencedPrincipalHead;
+  readonly head: Pick<ReferencedPrincipalHead, "principalType" | "principalId">;
   readonly protection: PrincipalPolicyHistoryProgressOptions;
 }): Promise<string> {
   return toFingerprint(
@@ -48,10 +48,10 @@ export async function principalHistoryEvidenceScopeId(input: {
   );
 }
 
-export function principalHistoryPrefixProtection(
+export async function principalHistoryPrefixProtection(
   protection: PrincipalPolicyHistoryProgressOptions,
   prefix: Omit<PrincipalHistoryPrefix, "progress">,
-): PrincipalPolicyHistoryProgressOptions {
+): Promise<PrincipalPolicyHistoryProgressOptions> {
   return {
     localKey: protection.localKey,
     context: serializeKeyingCanonicalJson({
@@ -61,6 +61,9 @@ export function principalHistoryPrefixProtection(
       organizationId: prefix.organizationId,
       version: prefix.version,
       headJson: prefix.headJson,
+      currentDigest: await toFingerprint(
+        new TextEncoder().encode(prefix.currentJson),
+      ),
     }),
   };
 }

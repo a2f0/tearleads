@@ -154,6 +154,11 @@ async function recoverScopedPolicy(
 export async function recoverScopedPrincipalPolicyHistory(
   options: RecoverScopedPrincipalPolicyHistoryOptions,
 ): Promise<RecoveredScopedPrincipalPolicyHistory> {
+  if (options.offline !== undefined && typeof options.offline !== "boolean")
+    throw new KeyingVerificationError(
+      "invalid_shape",
+      "Invalid principal history transport mode",
+    );
   if (!options.organizationId)
     throw new KeyingVerificationError(
       "object_mismatch",
@@ -163,6 +168,7 @@ export async function recoverScopedPrincipalPolicyHistory(
     apiClient: options.apiClient,
     execSql: options.execSql,
     organizationId: options.organizationId,
+    offline: options.offline,
     resolveTrustedUserIdentity: options.resolveTrustedUserIdentity,
     signal: options.signal,
     stillCurrent: options.stillCurrent,

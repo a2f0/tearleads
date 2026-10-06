@@ -15,6 +15,7 @@ export const principalHistoryPrefixes = sqliteTable(
     organizationId: text("organization_id").notNull(),
     version: integer("version").notNull(),
     headJson: text("head_json").notNull(),
+    currentJson: text("current_json").notNull(),
     progress: text("progress").notNull(),
   },
   (table) => [

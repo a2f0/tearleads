@@ -1,6 +1,8 @@
+import type { PrincipalPolicyPageCurrent } from "@tearleads/api-client";
 import {
   type PrincipalPolicyHistoryInput,
   type PrincipalPolicyHistoryVerifier,
+  type ReferencedPrincipalHead,
   restorePrincipalPolicyHistoryVerifier,
   serializeKeyingCanonicalJson,
 } from "@tearleads/crypto";
@@ -11,15 +13,17 @@ import {
   savePrincipalHistoryPrefix,
 } from "../../data/persistence/principalHistoryPrefixPersistence";
 import { principalHistoryPrefixProtection } from "../../data/principals/principalHistoryPrefixProtection";
+import { parsePrincipalHistoryStageCurrent } from "../../data/principals/principalHistoryStageProtection";
 import type { RecoverPrincipalPolicyHistoryOptions } from "./principalHistoryRecoveryTypes";
 
-export async function restoreReusablePrincipalHistoryPrefix(
-  options: RecoverPrincipalPolicyHistoryOptions,
+export async function loadVerifiedPrincipalHistoryPrefix(
+  options: Omit<RecoverPrincipalPolicyHistoryOptions, "expectedHead">,
   historyInput: PrincipalPolicyHistoryInput,
   scopeId: string,
 ): Promise<{
   verifier: PrincipalPolicyHistoryVerifier;
-  version: number;
+  head: ReferencedPrincipalHead;
+  current: PrincipalPolicyPageCurrent;
 } | null> {
   const saved = await loadPrincipalHistoryPrefix(options.execSql, scopeId);
   if (!saved) return null;
@@ -32,23 +36,21 @@ export async function restoreReusablePrincipalHistoryPrefix(
   if (
     saved.organizationId === options.organizationId &&
     isReferencedPrincipalStateResponse(head) &&
+    head.principalType === historyInput.principalType &&
+    head.principalId === historyInput.principalId &&
     head.version === saved.version
   ) {
     const restored = await restorePrincipalPolicyHistoryVerifier(
       historyInput,
       saved.progress,
-      principalHistoryPrefixProtection(options.protection, saved),
+      await principalHistoryPrefixProtection(options.protection, saved),
     );
-    if (restored.ok && restored.value.finish(head).ok) {
-      if (saved.version > options.expectedHead.version) return null;
-      if (
-        saved.version < options.expectedHead.version ||
-        restored.value.finish(options.expectedHead).ok
-      )
-        return { verifier: restored.value, version: saved.version };
-      // An incompatible target cannot erase an independently valid local hint.
-      return null;
-    }
+    const current = parsePrincipalHistoryStageCurrent({
+      currentJson: saved.currentJson,
+      afterVersion: saved.version - 1,
+    });
+    if (restored.ok && restored.value.finish(head).ok && current)
+      return { verifier: restored.value, head, current };
   }
   await discardPrincipalHistoryPrefix({
     execSql: options.execSql,
@@ -58,20 +60,43 @@ export async function restoreReusablePrincipalHistoryPrefix(
   return null;
 }
 
+export async function restoreReusablePrincipalHistoryPrefix(
+  options: RecoverPrincipalPolicyHistoryOptions,
+  historyInput: PrincipalPolicyHistoryInput,
+  scopeId: string,
+) {
+  const prefix = await loadVerifiedPrincipalHistoryPrefix(
+    options,
+    historyInput,
+    scopeId,
+  );
+  if (!prefix || prefix.head.version > options.expectedHead.version)
+    return null;
+  if (
+    prefix.head.version < options.expectedHead.version ||
+    prefix.verifier.finish(options.expectedHead).ok
+  )
+    return { ...prefix, version: prefix.head.version };
+  // An incompatible target cannot erase an independently valid local hint.
+  return null;
+}
+
 /** The verifier must use stable empty selection/checkpoint inputs. */
 export async function publishReusablePrincipalHistoryPrefix(
   options: RecoverPrincipalPolicyHistoryOptions,
   scopeId: string,
   verifier: PrincipalPolicyHistoryVerifier,
+  current: PrincipalPolicyPageCurrent,
 ): Promise<void> {
   const prefix = {
     scopeId,
     organizationId: options.organizationId,
     version: options.expectedHead.version,
     headJson: serializeKeyingCanonicalJson({ ...options.expectedHead }),
+    currentJson: JSON.stringify(current),
   };
   const sealed = await verifier.exportProgress(
-    principalHistoryPrefixProtection(options.protection, prefix),
+    await principalHistoryPrefixProtection(options.protection, prefix),
   );
   if (!sealed.ok) throw sealed.error;
   await savePrincipalHistoryPrefix({

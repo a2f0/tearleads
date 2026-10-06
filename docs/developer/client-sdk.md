@@ -801,5 +801,5 @@ local work from shared folders with inaccessible parents.
 
 ## Durable principal-history recovery
 
-`recoverScopedPrincipalPolicyHistory` verifies directory and Admins dependencies.
+Principal-history recovery verifies directory and Admins evidence online/offline.
 See [recovery](principal-history-recovery.md) for key custody and admission.

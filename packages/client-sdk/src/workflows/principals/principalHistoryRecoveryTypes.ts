@@ -18,6 +18,8 @@ export interface RecoverPrincipalPolicyHistoryOptions {
   readonly execSql: ExecSql;
   readonly organizationId: string;
   readonly expectedHead: ReferencedPrincipalHead;
+  /** Only use locally authenticated completed evidence; never perform HTTP. */
+  readonly offline?: boolean | undefined;
   /** Device-controlled key and stable identity/trust-policy context, never supplied by the API. */
   readonly protection: PrincipalPolicyHistoryProgressOptions;
   readonly retainedReferences?: readonly ReferencedPrincipalHead[] | undefined;

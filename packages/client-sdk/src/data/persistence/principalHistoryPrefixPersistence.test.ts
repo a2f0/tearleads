@@ -14,6 +14,7 @@ function prefix(version: number): PrincipalHistoryPrefix {
     organizationId: "org-1",
     version,
     headJson: JSON.stringify({ version }),
+    currentJson: "{}",
     progress: `authenticated-prefix-${version}`,
   };
 }
