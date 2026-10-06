@@ -2,7 +2,6 @@ import type { ApiDatabase } from "@tearleads/api-shared/postgres";
 import type { CommitOrganizationGroupPolicyRequest } from "@tearleads/validators/request";
 import type { CommitOrganizationGroupPolicyResponse } from "@tearleads/validators/response";
 import { toMutationError } from "../containers/mutations/errors";
-import { requireDirectOrganizationAccess } from "../organizations/access";
 import { OrganizationManagerError } from "../organizations/errors";
 import { runPrincipalHistoryTransaction } from "./principalHistoryTransaction";
 import { lockOrganizationGroupMutationInTransaction } from "./principalMutationLock";
@@ -60,12 +59,6 @@ export async function runCommitOrganizationGroupPolicyWorkflow(
       );
       const outcome = await principalPolicyCommitOutcome(tx, input);
       if (outcome.response) {
-        await requireDirectOrganizationAccess({
-          executor: tx,
-          organizationId: input.organizationId,
-          requireAdmin: true,
-          userId: input.requesterUserId,
-        });
         return {
           policy: outcome.response,
           sharedWithYouUserIds: [],

@@ -12,6 +12,7 @@ import {
 } from "@tearleads/validators/response";
 import { and, eq } from "drizzle-orm";
 import { readKeyingCanonicalJson } from "../../utils/canonicalJson";
+import { requireDirectOrganizationAccess } from "../organizations/access";
 import { loadExactReplayMutationResponses } from "./principalPolicyMutationAcknowledgements";
 import { PrincipalPolicyError } from "./shared";
 
@@ -22,6 +23,34 @@ interface CommitOutcomeInput {
   readonly request: CommitOrganizationGroupPolicyRequest;
 }
 
+function commitRequestHash(input: CommitOutcomeInput): string {
+  try {
+    return createHash("sha256")
+      .update(
+        serializeKeyingCanonicalJson(
+          readKeyingCanonicalJson(
+            JSON.parse(
+              JSON.stringify([
+                "tearleads.principal-policy.commit.v1",
+                input.organizationId,
+                input.groupId,
+                input.requesterUserId,
+                input.request,
+              ]),
+            ),
+            "Principal policy commit request",
+          ),
+        ),
+      )
+      .digest("hex");
+  } catch {
+    throw new PrincipalPolicyError(
+      "Principal policy commit request is not canonical",
+      400,
+    );
+  }
+}
+
 export async function principalPolicyCommitOutcome(
   executor: DatabaseTransaction,
   input: CommitOutcomeInput,
@@ -29,24 +58,7 @@ export async function principalPolicyCommitOutcome(
   response: CommitOrganizationGroupPolicyResponse | null;
   save(policy: CommitOrganizationGroupPolicyResponse): Promise<void>;
 }> {
-  const requestHash = createHash("sha256")
-    .update(
-      serializeKeyingCanonicalJson(
-        readKeyingCanonicalJson(
-          JSON.parse(
-            JSON.stringify([
-              "tearleads.principal-policy.commit.v1",
-              input.organizationId,
-              input.groupId,
-              input.requesterUserId,
-              input.request,
-            ]),
-          ),
-          "Principal policy commit request",
-        ),
-      ),
-    )
-    .digest("hex");
+  const requestHash = commitRequestHash(input);
   const [row] = await executor
     .select()
     .from(principalPolicyCommits)
@@ -61,6 +73,12 @@ export async function principalPolicyCommitOutcome(
     .limit(1);
   let response: CommitOrganizationGroupPolicyResponse | null = null;
   if (row) {
+    await requireDirectOrganizationAccess({
+      executor,
+      organizationId: input.organizationId,
+      requireAdmin: true,
+      userId: input.requesterUserId,
+    });
     let stored: unknown;
     try {
       stored = JSON.parse(row.responseJson);
@@ -88,7 +106,7 @@ export async function principalPolicyCommitOutcome(
         "Stored principal policy acknowledgement does not match its request",
         409,
       );
-    // Container purge removes its acknowledgement rows. Never resurrect those
+    // Purging organization containers removes their acknowledgement rows. Never resurrect those
     // responses from a second copy inside the compound receipt.
     stored.groupPolicy.containerMutations =
       await loadExactReplayMutationResponses({

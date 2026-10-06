@@ -14,7 +14,7 @@ must still be a current organization administrator to read the receipt; a
 subsequently revoked requester receives 403, not a claim that the commit rolled
 back. Invalid stored receipts
 fail closed. Container results still require their original acknowledgement
-rows, so container purge cannot resurrect a response from an embedded copy.
+rows, so purging an organization cannot leave a response in an embedded copy.
 Group deletion and organization purge remove their compound receipts.
 The schema change regenerates both greenfield baselines and requires fresh
 databases under the repository reset policy; there is no historical upgrade.

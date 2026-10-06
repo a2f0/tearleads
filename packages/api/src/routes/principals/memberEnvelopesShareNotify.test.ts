@@ -101,12 +101,16 @@ test("combined policy commit for an ungranted group does not publish shared_with
   const organizationId = await getDefaultOrganizationId(actor.userId);
   const signedState = await signSoloGroupState(actor, principalId);
 
+  let original: { path: string; init: RequestInit } | undefined;
   const putPolicyResponse = await submitOrganizationGroupPolicyCommit({
     actor,
     groupId: principalId,
     groupPolicy: signedState,
     organizationId,
-    request: (path, init) => app.request(path, init),
+    request: (path, init) => {
+      original = { path, init };
+      return app.request(path, init);
+    },
   });
   expect(putPolicyResponse.status).toBe(200);
 
@@ -123,6 +127,12 @@ test("combined policy commit for an ungranted group does not publish shared_with
     principalType: "organization",
     principalId: organizationId,
   });
+  if (!original) throw new Error("Missing original policy request");
+  const count = publishedEvents.length;
+  const replay = await app.request(original.path, original.init);
+  expect(replay.status).toBe(200);
+  expect(await replay.json()).toEqual(await putPolicyResponse.json());
+  expect(publishedEvents).toHaveLength(count);
 });
 
 test("combined policy commit for granted Admins access notifies only the newly reachable user", async () => {
