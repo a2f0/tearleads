@@ -1,3 +1,4 @@
+import { desc } from "drizzle-orm";
 import {
   index,
   integer,
@@ -5,6 +6,7 @@ import {
   sqliteTable,
   text,
 } from "drizzle-orm/sqlite-core";
+import { principalCurrentFingerprintJson } from "./principalKeyFingerprintJson";
 import { defineSqlTableSchema } from "./sqlTableSchema";
 
 /** A completed, locally authenticated prefix; never an application trust pin. */
@@ -19,6 +21,10 @@ export const principalHistoryPrefixes = sqliteTable(
     progress: text("progress").notNull(),
   },
   (table) => [
+    index("principal_history_prefixes_key_fingerprint_idx").on(
+      principalCurrentFingerprintJson(table.currentJson),
+      desc(table.version),
+    ),
     index("principal_history_prefixes_organization_idx").on(
       table.organizationId,
     ),
