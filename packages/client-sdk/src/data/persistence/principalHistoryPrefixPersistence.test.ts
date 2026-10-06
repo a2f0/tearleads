@@ -19,6 +19,29 @@ function prefix(version: number): PrincipalHistoryPrefix {
   };
 }
 
+test("obsolete prefix schemas require the repository's explicit database reset", async () => {
+  const sqlite = await createTestExecSql("obsolete-principal-prefix");
+  try {
+    await sqlite.execSql(`CREATE TABLE principal_history_prefixes (
+      scope_id TEXT PRIMARY KEY, organization_id TEXT NOT NULL,
+      version INTEGER NOT NULL, head_json TEXT NOT NULL, progress TEXT NOT NULL
+    )`);
+    await expect(
+      loadPrincipalHistoryPrefix(sqlite.execSql, "test-scope"),
+    ).rejects.toThrow(
+      "Local database schema for principal_history_prefixes is obsolete; reset the local database before continuing",
+    );
+    const columns = await sqlite.execSql(
+      "PRAGMA table_info(principal_history_prefixes)",
+    );
+    expect(
+      columns.some((column) => Reflect.get(column, "name") === "current_json"),
+    ).toBe(false);
+  } finally {
+    sqlite.close();
+  }
+});
+
 test("older completion and stale discard preserve the newest completed prefix", async () => {
   const sqlite = await createTestExecSql("principal-prefix-concurrency");
   const input = { execSql: sqlite.execSql, stillCurrent: () => true };

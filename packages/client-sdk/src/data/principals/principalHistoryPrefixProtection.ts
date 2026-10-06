@@ -55,7 +55,7 @@ export async function principalHistoryPrefixProtection(
   return {
     localKey: protection.localKey,
     context: serializeKeyingCanonicalJson({
-      domain: "tearleads.sdk.principal-history-prefix.v1",
+      domain: "tearleads.sdk.principal-history-prefix.v2",
       context: protection.context,
       scopeId: prefix.scopeId,
       organizationId: prefix.organizationId,
