@@ -82,6 +82,10 @@ Missing keys, context, completed history or proofs fail with `missing_dependency
 offline recovery never falls back to the network. This establishes local
 consistency, not knowledge of newer server state. Cancellation still prevents
 returning a policy, and callers must atomically admit the complete dependency set.
+The prefix schema requires `current_json`. Consistent with the repository's
+greenfield schema contract, obsolete local tables fail with an explicit reset
+error; this implementation does not migrate or automatically erase a database.
+The authenticated prefix format is v2.
 
 Saved stages are separate for each exact head, local trust context, and retained
 reference selection. Operations for different heads or selections do not discard

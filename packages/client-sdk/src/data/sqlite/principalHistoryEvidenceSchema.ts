@@ -59,7 +59,10 @@ export const principalHistoryNodes = sqliteTable(
 );
 
 export const principalHistoryEvidenceTables = [
-  defineSqlTableSchema(principalHistoryPrefixes),
+  {
+    ...defineSqlTableSchema(principalHistoryPrefixes),
+    requiredColumns: ["current_json"],
+  },
   defineSqlTableSchema(principalHistoryEntries),
   defineSqlTableSchema(principalHistoryNodes),
 ];

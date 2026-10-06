@@ -191,6 +191,11 @@ export async function recoverScopedPrincipalPolicyHistory(
         return recovered;
       } catch (error) {
         if (!(error instanceof PrincipalRecoveryDirectoryAdvanced)) throw error;
+        if (input.offline)
+          throw new KeyingVerificationError(
+            "missing_dependency",
+            "Requested principal evidence is newer than the offline directory",
+          );
       }
     }
     throw new KeyingVerificationError(

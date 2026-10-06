@@ -71,6 +71,22 @@ test("cold offline recovery fails without making a request", async () => {
   }
 });
 
+test("a citation newer than the offline directory reports unavailable evidence", async () => {
+  const fixture = await cachedFixture();
+  try {
+    await expect(
+      recoverScopedPrincipalPolicyHistory({
+        ...fixture.options,
+        offline: true,
+        reference: { ...fixture.options.reference, version: 67 },
+      }),
+    ).rejects.toMatchObject({ code: "missing_dependency" });
+    expect(fixture.requests).toEqual([]);
+  } finally {
+    fixture.close();
+  }
+});
+
 test.each(["key", "context", "current", "proof"] as const)(
   "offline recovery refuses unavailable %s evidence without a network fallback",
   async (damage) => {
