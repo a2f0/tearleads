@@ -70,6 +70,7 @@ export async function signedRecoveryHistory(version = 66) {
   if (!bundle) throw new Error("Empty recovery fixture");
   return {
     bundle,
+    signingPrivateKey: signer.signingPrivateKey,
     expectedHead: principalPolicyHead(bundle),
     resolveTrustedUserIdentity: createTestTrustedUserIdentityResolver({
       userId,

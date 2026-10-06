@@ -65,6 +65,11 @@ belonging to an accepted root. Each lookup reads at most one node per tree level
 and one entry row. Missing or corrupt proof material, or a disconnected cached
 prefix, permits one fresh genesis replay per recovery call. Persistent damage
 fails after that replay; durable checkpoint conflicts still fail closed.
+Proof loss can trigger that single replay even when this call began at genesis,
+so persistent damage can require two full downloads before failure. Checkpoint
+conflicts are checked after the pinned history completes; rejected histories may
+already have written provisional pages, but cannot publish a prefix or advance
+an application checkpoint.
 
 Older progress with checkpoint/reference input bindings is disposable and may
 require replay. Stage/index storage reclamation and total byte/work scheduling
