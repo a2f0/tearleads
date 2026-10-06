@@ -1,0 +1,26 @@
+/*
+ * The start menu button's default look: a square, borderless control the
+ * height of the bar's other controls, lit while hovered, focused, or open. A
+ * host that passes its own classes replaces this class, and with it these rules.
+ */
+.start-menu-button {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  width: var(--control-height);
+  height: var(--control-height);
+  padding: 0;
+  border: 0;
+  border-radius: var(--app-radius-control);
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+
+.start-menu-button:hover,
+.start-menu-button:focus-visible,
+.start-menu-button[aria-expanded="true"] {
+  background: var(--emphasis-surface);
+  color: var(--emphasis-text);
+}
