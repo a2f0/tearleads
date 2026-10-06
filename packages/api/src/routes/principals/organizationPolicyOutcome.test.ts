@@ -13,7 +13,7 @@ import { prepareOrganizationPolicyAdvance } from "../../../test/helpers/organiza
 import { registerAndAuthenticate } from "../../../test/helpers/principalPolicyReadFixtures";
 import { getCurrentPrincipalState } from "../../access/read/principalStateStore";
 import { createRequestLifetimeBindings } from "../../middleware/requestLifetime";
-import { routeApp } from "../../routeApp";
+import { createRouteApp } from "../../routeApp";
 
 test("a lost standalone directory acknowledgement survives a later directory head", async () => {
   const actor = createTestUser();
@@ -25,6 +25,12 @@ test("a lost standalone directory acknowledgement survives a later directory hea
   );
   const { body } = prepared;
   const { state } = body;
+  const published: Record<string, unknown>[] = [];
+  const routeApp = createRouteApp({
+    publish: async (event) => {
+      published.push(event);
+    },
+  });
   const committed = Promise.withResolvers<unknown>();
   const release = Promise.withResolvers<void>();
   let hold = true;
@@ -81,6 +87,15 @@ test("a lost standalone directory acknowledgement survives a later directory hea
     });
     expect(advanced.status).toBe(200);
     await advanced.arrayBuffer();
+    expect(
+      published.filter((event) => event.type === "principal_access_changed"),
+    ).toEqual([]);
+    expect(
+      published.filter(
+        (event) => event.type === "organization_read_model_changed",
+      ),
+    ).toHaveLength(2);
+    const publishedCount = published.length;
     const replays = await Promise.all(
       [0, 1].map(() => fetch(new URL(path, server.url), init)),
     );
@@ -88,6 +103,7 @@ test("a lost standalone directory acknowledgement survives a later directory hea
       expect(replay.status).toBe(200);
       expect(await replay.json()).toEqual(first);
     }
+    expect(published).toHaveLength(publishedCount);
     expect(
       (await getCurrentPrincipalState("organization", organizationId, db))
         ?.version,
