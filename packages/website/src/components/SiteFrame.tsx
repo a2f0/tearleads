@@ -44,7 +44,6 @@ function footerGroups(appUrl: string): readonly FooterGroup[] {
       links: [
         { href: appUrl, label: "Open web app" },
         { href: "/#download", label: "Downloads" },
-        { href: "/downloads/linux", label: "Install on Linux" },
       ],
     },
     {
