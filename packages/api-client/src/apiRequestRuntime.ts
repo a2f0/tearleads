@@ -396,8 +396,10 @@ export class ApiRequestRuntime {
     readonly path: string;
     readonly response: Response;
   }): RequestFailure {
+    const cancelled = input.options.signal?.aborted === true;
     const reportErrors = input.options.reportErrors ?? true;
     if (
+      !cancelled &&
       input.response.status === 402 &&
       input.failureOperation.failureResponses?.[402] &&
       input.errorDescription.paymentRequiredOrganizationId !== undefined &&
@@ -409,14 +411,16 @@ export class ApiRequestRuntime {
       );
     }
     return this.requestFailure({
-      ...(input.errorDescription.code === null
-        ? {}
-        : { code: input.errorDescription.code }),
-      kind: "http",
+      ...(cancelled
+        ? { code: "request_aborted" }
+        : input.errorDescription.code === null
+          ? {}
+          : { code: input.errorDescription.code }),
+      kind: cancelled ? "cancelled" : "http",
       message: `${input.method} ${input.path}: ${input.response.status} ${input.response.statusText}${input.errorDescription.detail}`,
       method: input.method,
       path: input.path,
-      reportErrors,
+      reportErrors: !cancelled && reportErrors,
       requiredContainerIds: input.errorDescription.requiredContainerIds,
       stalePrincipalPolicies: input.errorDescription.stalePrincipalPolicies,
       status: input.response.status,

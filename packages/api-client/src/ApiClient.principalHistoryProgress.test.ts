@@ -150,48 +150,51 @@ testApiClient(
   },
 );
 
-testApiClient(
-  "aborting while reading a policy body does not report a network failure",
-  async () => {
-    const client = new ApiClient(apiBaseUrl);
-    const controller = new AbortController();
-    let failures = 0;
-    client.setOnError(() => {
-      failures += 1;
-    });
-    client.setOnNetworkError(() => {
-      failures += 1;
-    });
-    server.use(
-      http.get(
-        path,
-        () =>
-          new HttpResponse(
-            new ReadableStream({
-              start(stream) {
-                stream.enqueue(new TextEncoder().encode("{"));
-                setTimeout(() => {
-                  controller.abort();
-                  stream.error(
-                    new DOMException("Request was aborted", "AbortError"),
-                  );
-                }, 10);
-              },
-            }),
-            { status: 200, headers: { "Content-Type": "application/json" } },
-          ),
-      ),
-    );
-    expect(
-      await client.getCurrentPrincipalPolicy("organization", id, {
-        signal: controller.signal,
-      }),
-    ).toBeNull();
-    const failure = client.getRequestFailure({
-      method: "GET",
-      path: `/principals/organization/${id}/policy`,
-    });
-    failure?.report();
-    expect(failures).toBe(0);
-  },
-);
+for (const status of [200, 400, 401, 403, 409, 500]) {
+  testApiClient(
+    `aborting while reading a ${status} policy body does not report a failure`,
+    async () => {
+      const client = new ApiClient(apiBaseUrl);
+      const controller = new AbortController();
+      let failures = 0;
+      client.setOnError(() => {
+        failures += 1;
+      });
+      client.setOnNetworkError(() => {
+        failures += 1;
+      });
+      server.use(
+        http.get(
+          path,
+          () =>
+            new HttpResponse(
+              new ReadableStream({
+                start(stream) {
+                  stream.enqueue(new TextEncoder().encode("{"));
+                  setTimeout(() => {
+                    controller.abort();
+                    stream.error(
+                      new DOMException("Request was aborted", "AbortError"),
+                    );
+                  }, 10);
+                },
+              }),
+              { status, headers: { "Content-Type": "application/json" } },
+            ),
+        ),
+      );
+      expect(
+        await client.getCurrentPrincipalPolicy("organization", id, {
+          signal: controller.signal,
+        }),
+      ).toBeNull();
+      expect(controller.signal.aborted).toBe(true);
+      const failure = client.getRequestFailure({
+        method: "GET",
+        path: `/principals/organization/${id}/policy`,
+      });
+      failure?.report();
+      expect(failures).toBe(0);
+    },
+  );
+}
