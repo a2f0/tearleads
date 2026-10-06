@@ -44,7 +44,11 @@ export function createPrincipalRecoveryReader(
   input: PrincipalRecoveryContext,
   memo?: PrincipalRecoveryMemo,
 ) {
-  const scope = [input.organizationId, input.protection.context];
+  const scope = [
+    input.organizationId,
+    input.protection.context,
+    input.offline === true,
+  ];
   const current = () => !input.signal?.aborted && input.stillCurrent();
   return {
     directory: (references: readonly ReferencedPrincipalHead[]) =>

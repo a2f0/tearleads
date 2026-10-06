@@ -162,7 +162,8 @@ Paged current envelopes also supply encrypted key candidates to container
 unwrapping; see [the key-candidate trust boundary](principal-key-envelope-candidates.md).
 
 Online recovery may reuse completed authenticated local evidence after a network
-failure, a server error, or the built-in read deadline. It keeps the same private
+failure, a server error, or a deadline reported by the transport. It keeps the
+same private
 key, organization, requested citation, and lifetime guard, and rechecks durable
 pins before admission. Authentication/authorization refusals, head conflicts,
 and malformed or invalid signed evidence never trigger this fallback. A missing
