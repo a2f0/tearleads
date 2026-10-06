@@ -16,6 +16,7 @@ import {
   organizationPolicyBundleFromInitialRequest,
   policyBundleAfterMutation,
   policyBundleFromInitialRequest,
+  policyReceiptFromBundle,
   principalPolicyHead,
 } from "../../../test/helpers/principalPolicyFixtures";
 import { createTestTrustedUserIdentity } from "../../../test/helpers/trustedUserIdentity";
@@ -160,7 +161,7 @@ test("group creation and deletion persist authenticated organization directory s
               memberCount: createdPolicyBundle.currentState.memberCount,
             },
           },
-          organizationPolicy: organizationMutation,
+          organizationPolicy: policyReceiptFromBundle(organizationMutation),
         };
       },
       getCurrentPrincipalPolicy: async (principalType, principalId) => {
@@ -270,7 +271,7 @@ test("group creation and deletion persist authenticated organization directory s
             deleted: true,
             groupId: nextGroupId,
             organizationId: nextOrganizationId,
-            organizationPolicy: mutation,
+            organizationPolicy: policyReceiptFromBundle(mutation),
           };
         },
       },

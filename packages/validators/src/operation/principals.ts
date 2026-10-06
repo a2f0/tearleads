@@ -11,17 +11,18 @@ import {
   CommitOrganizationGroupPolicyResponseSchema,
   ErrorResponseSchema,
   isCommitOrganizationGroupPolicyResponse,
-  isPrincipalPolicyBundleResponse,
   isPrincipalPolicyMutationResponse,
+  isPrincipalPolicyPageResponse,
   PaymentRequiredErrorResponseSchema,
-  PrincipalPolicyBundleResponseSchema,
   PrincipalPolicyErrorResponseSchema,
   PrincipalPolicyMutationResponseSchema,
+  PrincipalPolicyPageResponseSchema,
   SessionFailureResponseSchema,
 } from "../response";
 import { PrincipalHistoryPreparationResponseSchema } from "../response/principalHistoryPreparation";
 import { uuidV4StringSchema } from "../schema";
 import { defineJsonOperation } from "./definition";
+import { PrincipalPolicyPageQuerySchema } from "./principalPolicyPageQuery";
 
 export const PrincipalPolicyPathParamsSchema = z.strictObject({
   principalType: z.literal(["group", "organization"]),
@@ -59,9 +60,10 @@ export const getPrincipalPolicyOperation = defineJsonOperation({
   method: "GET",
   params: PrincipalPolicyPathParamsSchema,
   path: "/principals/{principalType}/{principalId}/policy",
+  query: PrincipalPolicyPageQuerySchema,
   responseDescriptions: preparationResponseDescriptions,
   responses: {
-    200: PrincipalPolicyBundleResponseSchema,
+    200: PrincipalPolicyPageResponseSchema,
     202: PrincipalHistoryPreparationResponseSchema,
   },
 });
@@ -124,7 +126,7 @@ export const isCommitOrganizationGroupPolicyOperationResponse =
   isCommitOrganizationGroupPolicyResponse;
 
 export const isGetPrincipalPolicyOperationResponse =
-  isPrincipalPolicyBundleResponse;
+  isPrincipalPolicyPageResponse;
 export const isPutPrincipalPolicyOperationRequest =
   isOrganizationPrincipalPolicyRequest;
 export const isPutPrincipalPolicyOperationResponse =

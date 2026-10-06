@@ -12,12 +12,7 @@ import {
   getCurrentPrincipalState,
   type StoredPrincipalState,
 } from "../../access/read/principalStateStore";
-import { beginPrincipalHistoryVerification } from "../../utils/principalHistoryWork";
-import { preparePrincipalHistory } from "./preparePrincipalHistory";
-import {
-  principalHistoryExecutionBudget,
-  requirePrincipalHistoryContinuation,
-} from "./principalHistoryExecution";
+import { getVerifiedPrincipalHistory } from "./getVerifiedPrincipalHistory";
 import { principalHistoryError } from "./principalHistoryRecords";
 import {
   buildPrincipalPolicyCurrentForStateWithExecutor,
@@ -53,26 +48,12 @@ async function verifyCurrent(
     readonly history: VerifiedPrincipalPolicyHistory;
   }
 > {
-  beginPrincipalHistoryVerification();
-  // Batches are reusable in the caller's scope; transaction-local hints are
-  // published after commit. Autocommit preparation saves each batch. HTTP
-  // continuation must move these batches outside the final write transaction;
-  // this collector by itself does not bound the duration of a cold request.
-  let prepared = await preparePrincipalHistory(executor, {
-    head: currentState,
-    kind,
+  const history = await getVerifiedPrincipalHistory(
+    executor,
+    currentState,
     retainedReferences,
-    budget: principalHistoryExecutionBudget(currentState),
-  });
-  while (!prepared.complete) {
-    requirePrincipalHistoryContinuation(prepared.request);
-    prepared = await preparePrincipalHistory(executor, {
-      head: currentState,
-      kind,
-      retainedReferences,
-      budget: principalHistoryExecutionBudget(currentState),
-    });
-  }
+    kind,
+  );
   const authority = currentState.externalAuthority;
   if (
     kind === "policy" &&
@@ -94,10 +75,10 @@ async function verifyCurrent(
   );
   const verified = await verifyPrincipalPolicyCurrent({
     current: bundle,
-    history: prepared.history,
+    history,
   });
   if (!verified.ok) throw principalHistoryError(kind, verified.error.message);
-  return { bundle, policy: verified.value, history: prepared.history };
+  return { bundle, policy: verified.value, history };
 }
 
 /** Verify using transaction-local progress; only committed progress is published. */

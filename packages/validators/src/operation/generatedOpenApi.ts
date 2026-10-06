@@ -24491,7 +24491,10 @@ export interface operations {
     };
     "principals.policy.get": {
         parameters: {
-            query?: never;
+            query?: {
+                afterVersion?: number;
+                stateHash?: string;
+            };
             header?: never;
             path: {
                 principalId: string;
@@ -24587,6 +24590,12 @@ export interface operations {
                             signerUserKeyFingerprint: string;
                             stateHash: string;
                             version: number;
+                        } & {
+                            [key: string]: unknown;
+                        };
+                        historyPage: {
+                            afterVersion: number;
+                            nextAfterVersion: number | null;
                         } & {
                             [key: string]: unknown;
                         };

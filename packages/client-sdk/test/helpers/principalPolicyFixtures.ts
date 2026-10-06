@@ -159,6 +159,14 @@ export async function policyBundleAfterMutation(input: {
   };
 }
 
+/** The wire receipt omits the prefix retained by the SDK's verified store. */
+export function policyReceiptFromBundle(
+  bundle: PrincipalPolicyBundleResponse & PrincipalPolicyMutationResponse,
+): PrincipalPolicyMutationResponse {
+  const { previousStates: _previousStates, ...receipt } = bundle;
+  return receipt;
+}
+
 export async function policyBundleFromInitialRequest(
   request: Awaited<ReturnType<typeof buildInitialGroupPolicyRequest>>,
 ): Promise<PrincipalPolicyBundleResponse> {

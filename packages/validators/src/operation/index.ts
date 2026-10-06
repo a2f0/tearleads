@@ -229,6 +229,10 @@ export {
   updateOrganizationRosterEntryOperation,
 } from "./organizations";
 export {
+  type PrincipalPolicyPageQuery,
+  PrincipalPolicyPageQuerySchema,
+} from "./principalPolicyPageQuery";
+export {
   commitOrganizationGroupPolicyOperation,
   getPrincipalPolicyOperation,
   isCommitOrganizationGroupPolicyOperationRequest,

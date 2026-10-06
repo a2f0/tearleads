@@ -39,7 +39,7 @@ export {
   PrincipalStateResponseSchema,
 } from "./principalSnapshot";
 
-const principalPolicyCurrentResponseShape = {
+export const principalPolicyCurrentResponseShape = {
   currentGrants: arraySchema(PrincipalContainerGrantResponseSchema),
   currentMemberEnvelopes: CurrentPrincipalMemberEnvelopesResponseSchema,
   currentPayload: PrincipalStatePayloadResponseSchema,

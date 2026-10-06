@@ -14,15 +14,13 @@ export async function principalHistoryRequest<T>(
     readonly body?: string;
     readonly options?: RequestResultOptions;
     readonly operation: JsonOperation;
+    readonly context?: PrincipalHistoryRequestContext;
   },
 ): Promise<RequestResult<T>> {
   const { path, method } = input;
-  const context = new PrincipalHistoryRequestContext(
-    runtime,
-    method,
-    path,
-    input.options,
-  );
+  const context =
+    input.context ??
+    new PrincipalHistoryRequestContext(runtime, method, path, input.options);
   const options = context.options;
   const progress: PreparationProgress = { previous: undefined, unchanged: 0 };
   while (true) {

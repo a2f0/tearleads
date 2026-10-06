@@ -64,6 +64,10 @@ export type {
   VerifiedPrincipalPolicyHistory,
 } from "./principalPolicyHistoryTypes";
 export { PRINCIPAL_HISTORY_PAGE_ENTRY_LIMIT } from "./principalPolicyHistoryTypes";
+export {
+  selectPrincipalPolicyAuthorization,
+  type VerifiedPrincipalPolicySelection,
+} from "./principalPolicySelection";
 export type {
   PrincipalPolicyTransitionMismatch,
   PrincipalPolicyTransitionMismatchCode,

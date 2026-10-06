@@ -53,6 +53,19 @@ export async function selectStoredPrincipalHistoryReferences(
 ): Promise<VerifiedPrincipalPolicyHistory | null> {
   if (requested.length === 0) return history;
   const references: PrincipalPolicyHistoryReferenceProof[] = [];
+  // One selection is bounded to 128 citations. Share repeated proof nodes
+  // within it; the crypto verifier still treats every node as untrusted.
+  const nodes = new Map<
+    string,
+    ReturnType<typeof readBufferedPrincipalHistoryNode>
+  >();
+  const readNode = (hash: string) => {
+    const cached = nodes.get(hash);
+    if (cached) return cached;
+    const pending = readBufferedPrincipalHistoryNode(executor, hash);
+    nodes.set(hash, pending);
+    return pending;
+  };
   for (const reference of requested) {
     const entry = await readPrincipalHistoryEntry(
       executor,
@@ -66,7 +79,7 @@ export async function selectStoredPrincipalHistoryReferences(
         rootHash: history.indexRootHash,
         treeSize: history.currentEntry.state.version,
         version: reference.version,
-        readNode: (hash) => readBufferedPrincipalHistoryNode(executor, hash),
+        readNode,
       });
     } catch (error) {
       // Scope, position and the root came from the locally finished prefix.

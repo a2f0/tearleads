@@ -65657,6 +65657,31 @@
               "type": "string"
             },
             "style": "simple"
+          },
+          {
+            "explode": true,
+            "in": "query",
+            "name": "afterVersion",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "style": "form"
+          },
+          {
+            "explode": true,
+            "in": "query",
+            "name": "stateHash",
+            "required": false,
+            "schema": {
+              "maxLength": 64,
+              "minLength": 64,
+              "pattern": "^[0-9a-f]+$",
+              "type": "string"
+            },
+            "style": "form"
           }
         ],
         "responses": {
@@ -65970,7 +65995,6 @@
                       "additionalProperties": {}
                     },
                     "previousStates": {
-                      "type": "array",
                       "items": {
                         "type": "object",
                         "properties": {
@@ -66185,7 +66209,36 @@
                           "state"
                         ],
                         "additionalProperties": {}
-                      }
+                      },
+                      "maxItems": 32,
+                      "type": "array"
+                    },
+                    "historyPage": {
+                      "type": "object",
+                      "properties": {
+                        "afterVersion": {
+                          "maximum": 9007199254740991,
+                          "minimum": 0,
+                          "type": "integer"
+                        },
+                        "nextAfterVersion": {
+                          "anyOf": [
+                            {
+                              "maximum": 9007199254740991,
+                              "minimum": 0,
+                              "type": "integer"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        }
+                      },
+                      "required": [
+                        "afterVersion",
+                        "nextAfterVersion"
+                      ],
+                      "additionalProperties": {}
                     }
                   },
                   "required": [
@@ -66194,7 +66247,8 @@
                     "currentPayload",
                     "currentProjection",
                     "currentState",
-                    "previousStates"
+                    "previousStates",
+                    "historyPage"
                   ],
                   "additionalProperties": {}
                 }

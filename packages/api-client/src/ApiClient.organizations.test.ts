@@ -14,6 +14,7 @@ import {
   server,
   testApiClient,
 } from "../test/helpers/apiClientTestHarness";
+import { principalPolicyPageResponse } from "../test/helpers/principalPolicyPage";
 import { ApiClient } from "./ApiClient";
 
 const dataUsageOrganizationId = "11111111-1111-4111-8111-111111111111";
@@ -228,7 +229,7 @@ testApiClient("coalesces only in-flight principal policy reads", async () => {
         firstRequestStarted.resolve();
         await finishFirstRequest.promise;
       }
-      return HttpResponse.json(bundle);
+      return HttpResponse.json(principalPolicyPageResponse(bundle));
     }),
   );
 
@@ -295,7 +296,9 @@ testApiClient(
         if (request.url.endsWith("/policy")) {
           return HttpResponse.json({
             ...createPrincipalPolicyBundleResponse(),
-            ...(request.method === "PUT" ? { containerMutations: [] } : {}),
+            ...(request.method === "PUT"
+              ? { containerMutations: [] }
+              : { historyPage: { afterVersion: 0, nextAfterVersion: null } }),
           });
         }
         if (request.method === "POST") {

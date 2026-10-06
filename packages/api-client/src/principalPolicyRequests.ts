@@ -1,6 +1,5 @@
 import {
   commitOrganizationGroupPolicyOperation,
-  getPrincipalPolicyOperation,
   putPrincipalPolicyOperation,
 } from "@tearleads/validators/operation";
 import type {
@@ -11,10 +10,10 @@ import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/respon
 import type { BoundedCache } from "./ApiCache";
 import type { ApiRequestRuntime } from "./apiRequestRuntime";
 import { principalHistoryRequest } from "./principalHistoryRequest";
+import { collectPrincipalPolicyPages } from "./principalPolicyPages";
 import { dedupedRequest } from "./requestInternals";
 import {
   commitOrganizationGroupPolicy,
-  getPrincipalPolicy,
   putPrincipalPolicy,
 } from "./routes/principals/policy";
 import type { RequestResultOptions } from "./types";
@@ -34,13 +33,12 @@ export class PrincipalPolicyRequests {
     options: RequestResultOptions = {},
   ) {
     const request = () =>
-      principalHistoryRequest(this.runtime, {
-        path: getPrincipalPolicy.path(principalType, principalId),
-        validator: getPrincipalPolicy.isResponse,
-        method: getPrincipalPolicy.method,
-        operation: getPrincipalPolicyOperation,
+      collectPrincipalPolicyPages(
+        this.runtime,
+        principalType,
+        principalId,
         options,
-      }).then((result) => (result.ok ? result.data : null));
+      );
     const key = JSON.stringify([principalType, principalId]);
     // Cancellation, reporting and renewal preferences belong to their caller.
     return Object.keys(options).length > 0

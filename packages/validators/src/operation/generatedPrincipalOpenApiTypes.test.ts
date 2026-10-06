@@ -1,9 +1,9 @@
 import { test } from "bun:test";
 import type { OrganizationPrincipalPolicyRequest } from "../request";
 import type {
-  PrincipalPolicyBundleResponse,
   PrincipalPolicyErrorResponse,
   PrincipalPolicyMutationResponse,
+  PrincipalPolicyPageResponse,
 } from "../response";
 import type { operations, paths } from "./generatedOpenApi";
 
@@ -73,7 +73,7 @@ test("generated OpenAPI types match principal policy contracts", () => {
   assertType<
     IsEqual<
       NormalizeWireType<GetPolicyResponse>,
-      NormalizeWireType<PrincipalPolicyBundleResponse>
+      NormalizeWireType<PrincipalPolicyPageResponse>
     >
   >();
   assertType<

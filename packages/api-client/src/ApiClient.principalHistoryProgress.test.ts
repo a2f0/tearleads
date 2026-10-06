@@ -10,6 +10,7 @@ import {
   server,
   testApiClient,
 } from "../test/helpers/apiClientTestHarness";
+import { principalPolicyPageResponse } from "../test/helpers/principalPolicyPage";
 import { ApiClient } from "./ApiClient";
 
 const id = "11111111-1111-4111-8111-111111111111";
@@ -70,7 +71,7 @@ testApiClient(
         calls += 1;
         return calls <= 40
           ? HttpResponse.json(pending(calls), { status: 202 })
-          : HttpResponse.json(bundle);
+          : HttpResponse.json(principalPolicyPageResponse(bundle));
       }),
     );
     expect(await client.getCurrentPrincipalPolicy("organization", id)).toEqual(
@@ -91,7 +92,7 @@ testApiClient(
         calls += 1;
         return calls <= 3
           ? HttpResponse.json(pending(1), { status: 202 })
-          : HttpResponse.json(bundle);
+          : HttpResponse.json(principalPolicyPageResponse(bundle));
       }),
     );
     expect(
@@ -137,7 +138,7 @@ testApiClient(
         expect(request.headers.get("Authorization")).toBe(
           "Bearer renewed-session",
         );
-        return HttpResponse.json(bundle);
+        return HttpResponse.json(principalPolicyPageResponse(bundle));
       }),
     );
     const results = await Promise.all([

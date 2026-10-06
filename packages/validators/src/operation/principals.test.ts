@@ -8,8 +8,9 @@ import {
   CommitOrganizationGroupPolicyResponseSchema,
   ErrorResponseSchema,
   PaymentRequiredErrorResponseSchema,
-  PrincipalPolicyBundleResponseSchema,
   PrincipalPolicyErrorResponseSchema,
+  PrincipalPolicyMutationResponseSchema,
+  PrincipalPolicyPageResponseSchema,
   SessionFailureResponseSchema,
 } from "../response";
 import { operationRequestPath, operationRoutePath } from "./definition";
@@ -30,7 +31,7 @@ test("principal policy operations own their HTTP contracts", () => {
     method: "GET",
     params: PrincipalPolicyPathParamsSchema,
     path: "/principals/{principalType}/{principalId}/policy",
-    responses: { 200: PrincipalPolicyBundleResponseSchema },
+    responses: { 200: PrincipalPolicyPageResponseSchema },
   });
   expect(getPrincipalPolicyOperation.failureResponses).toEqual({
     400: ErrorResponseSchema,
@@ -48,7 +49,7 @@ test("principal policy operations own their HTTP contracts", () => {
     method: "PUT",
     params: PrincipalPolicyPathParamsSchema,
     path: "/principals/{principalType}/{principalId}/policy",
-    responses: { 200: PrincipalPolicyBundleResponseSchema },
+    responses: { 200: PrincipalPolicyMutationResponseSchema },
   });
   expect(putPrincipalPolicyOperation.failureResponses).toEqual({
     400: PrincipalPolicyErrorResponseSchema,

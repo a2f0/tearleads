@@ -7,6 +7,7 @@ import { bytesToBase64 } from "@tearleads/encoding";
 import {
   isOrganizationReadModelResponse,
   isPrincipalPolicyBundleResponse,
+  isPrincipalPolicyMutationResponse,
 } from "@tearleads/validators/response";
 import { eq } from "drizzle-orm";
 import invariant from "invariant";
@@ -108,7 +109,7 @@ test("organization policy transitions publish strict policy-head deltas", async 
   expect(putResponse.status).toBe(200);
   const storedSuccessor = await putResponse.json();
   invariant(
-    isPrincipalPolicyBundleResponse(storedSuccessor),
+    isPrincipalPolicyMutationResponse(storedSuccessor),
     "expected stored organization policy successor",
   );
 

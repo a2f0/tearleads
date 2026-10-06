@@ -1,5 +1,8 @@
 # Incremental principal-policy verification
 
+See [principal-policy history transport](principal-history-transport.md) for
+the bounded GET wire contract and remaining client staging work.
+
 `createPrincipalPolicyHistoryVerifier` in `@tearleads/crypto` verifies a signed
 principal history from genesis in successive pages. It shares the existing
 full-history verifier's commitment, identity, signer-authorization, transition,
@@ -215,6 +218,11 @@ controls live access, even when a historical citation includes a removed member.
 Container KEK verification also retains citations from historical wrap manifests.
 A carried wrap can cite a manifest whose other grants name older principal heads,
 even when the current access path has already advanced those citations.
+Historical event and wrap authorization uses `VerifiedPrincipalPolicySelection`:
+public signed entries selected from a locally verified prefix, with proofs for
+every requested citation. It needs no payload, member envelopes, or live group
+record. Cold historical prefixes yield to the same preparation mechanism. This
+type cannot substitute for complete snapshots or current keying artifacts.
 
 Full-history responses use `verifyPrincipalPolicyBundleAgainstHistory` before
 serving reread rows. It owns the bundle, checks current artifacts, normalizes every

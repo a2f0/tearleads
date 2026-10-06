@@ -160,10 +160,33 @@ export interface VerifiedPrincipalPolicyCurrent
   readonly retainedHistory: NonNullable<VerifiedPrincipalPolicy["history"]>;
 }
 
-/** Exact current membership and explicitly retained citations for authorization. */
+const verifiedSelectionBrand: unique symbol = Symbol(
+  "verifiedPrincipalPolicySelection",
+);
+
+/** Public authorization only; neither full history nor current key material. */
+export interface VerifiedPrincipalPolicySelection
+  extends Pick<
+    VerifiedPrincipalPolicyCurrent,
+    | "principalType"
+    | "principalId"
+    | "version"
+    | "keyEpoch"
+    | "stateHash"
+    | "state"
+    | "projection"
+    | "grants"
+    | "checkpoint"
+    | "retainedHistory"
+  > {
+  readonly [verifiedSelectionBrand]: true;
+}
+
+/** Exact membership and explicitly retained citations for authorization. */
 export type PrincipalPolicyAuthorization =
   | AnyVerifiedPrincipalPolicy
-  | VerifiedPrincipalPolicyCurrent;
+  | VerifiedPrincipalPolicyCurrent
+  | VerifiedPrincipalPolicySelection;
 
 export function makeVerifiedPrincipalPolicy(
   value: Omit<VerifiedPrincipalPolicy, typeof verifiedPrincipalPolicyBrand>,
@@ -190,4 +213,10 @@ export function makeVerifiedPrincipalPolicyCurrent(
   value: Omit<VerifiedPrincipalPolicyCurrent, typeof verifiedCurrentBrand>,
 ): VerifiedPrincipalPolicyCurrent {
   return { ...value, [verifiedCurrentBrand]: true };
+}
+
+export function makeVerifiedPrincipalPolicySelection(
+  value: Omit<VerifiedPrincipalPolicySelection, typeof verifiedSelectionBrand>,
+): VerifiedPrincipalPolicySelection {
+  return { ...value, [verifiedSelectionBrand]: true };
 }

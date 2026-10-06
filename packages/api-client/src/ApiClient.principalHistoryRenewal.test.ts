@@ -7,6 +7,7 @@ import {
   server,
   testApiClient,
 } from "../test/helpers/apiClientTestHarness";
+import { principalPolicyPageResponse } from "../test/helpers/principalPolicyPage";
 import { ApiClient } from "./ApiClient";
 
 const firstId = "11111111-1111-4111-8111-111111111111";
@@ -41,7 +42,7 @@ testApiClient(
       http.get(path, async ({ request, params }) => {
         calls += 1;
         if (request.headers.get("Authorization") === "Bearer renewed-session")
-          return HttpResponse.json(bundle);
+          return HttpResponse.json(principalPolicyPageResponse(bundle));
         const { principalId } = params;
         if (principalId === firstId) {
           started.resolve();

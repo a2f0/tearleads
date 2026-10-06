@@ -10,6 +10,7 @@ import {
   server,
   testApiClient,
 } from "../test/helpers/apiClientTestHarness";
+import { principalPolicyPageResponse } from "../test/helpers/principalPolicyPage";
 import { ApiClient } from "./ApiClient";
 
 const organizationId = "11111111-1111-4111-8111-111111111111";
@@ -301,7 +302,7 @@ testApiClient(
           reads += 1;
           return reads === 1
             ? HttpResponse.json(pending, { status: 202 })
-            : HttpResponse.json(bundle);
+            : HttpResponse.json(principalPolicyPageResponse(bundle));
         },
       ),
       http.put(

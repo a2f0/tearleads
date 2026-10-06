@@ -116,6 +116,27 @@ test("group policy acknowledgements accept only the exact authored successor", a
   });
   expect(bundle).not.toHaveProperty("previousStates");
   expect(reconstructed.previousStates).toEqual(previousStates);
+  const substituted = {
+    ...bundle,
+    previousStates: [
+      {
+        state: {
+          ...fixture.currentPolicy.currentState,
+          stateHash: "0".repeat(64),
+        },
+        projection: [],
+        grants: [],
+      },
+    ],
+  };
+  expect(
+    buildAcknowledgedGroupPolicyBundle({
+      currentPolicy: fixture.currentPolicy,
+      expectedHead: fixture.expectedHead,
+      request: fixture.mutation,
+      response: substituted,
+    }).previousStates,
+  ).toEqual(previousStates);
 
   expect(policy.checkpoint).toEqual({
     principalType: "group",

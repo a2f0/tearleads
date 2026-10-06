@@ -44,6 +44,13 @@ export class PrincipalHistoryRequestContext {
     this.submitted = false;
   }
 
+  afterReadPage(): void {
+    // A completed page is forward progress. A later page may renew again,
+    // while repeated 401s within one page still cannot loop indefinitely.
+    this.renewedRead = false;
+    this.restartedRead = false;
+  }
+
   restartReadAfterRenewal(): boolean {
     if (!this.renewedRead || this.restartedRead || this.cancelled())
       return false;

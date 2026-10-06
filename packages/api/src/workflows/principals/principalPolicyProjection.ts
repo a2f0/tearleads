@@ -11,7 +11,7 @@ import {
   principalStateReferenceKey,
 } from "../../access/read/principalStateStore";
 import { loadPrincipalPolicyReferenceBatches } from "./principalPolicyReferenceBatches";
-import { loadVerifiedPrincipalPolicySnapshotsForReferences } from "./principalPolicySnapshots";
+import { loadPrincipalPolicySelections } from "./principalPolicySelections";
 import { PrincipalPolicyError, PrincipalPolicyReferenceError } from "./shared";
 
 export class PrincipalPolicyProjectionError extends Error {
@@ -98,11 +98,7 @@ export async function loadPrincipalAuthorizationPoliciesForReferences(
   );
   if (missing.length === 0) return [...evidence];
   try {
-    const { policies } =
-      await loadVerifiedPrincipalPolicySnapshotsForReferences(
-        executor,
-        missing,
-      );
+    const policies = await loadPrincipalPolicySelections(executor, missing);
     return [...evidence, ...policies];
   } catch (error) {
     if (error instanceof PrincipalPolicyError) {
