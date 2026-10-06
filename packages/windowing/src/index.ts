@@ -1,13 +1,24 @@
 import "./tokens.css";
 
 // The public windowing API: window state, window chrome and its registration
-// hooks, and the menu and sidebar primitives the chrome renders with.
+// hooks, the menu and sidebar primitives the chrome renders with, a taskbar's
+// start menu, and the icons the chrome draws.
 export {
   createRequiredContext,
   type RequiredContext,
 } from "./createRequiredContext";
+export {
+  type WindowingIcons,
+  WindowingIconsProvider,
+} from "./icons/WindowingIcons";
+export type { WindowingIcon, WindowingIconProps } from "./icons/windowingIcon";
 export { Menu, type MenuPosition } from "./menu/Menu";
 export { MenuItem, type MenuItemProps } from "./menu/MenuItem";
+export {
+  StartMenu,
+  type StartMenuItem,
+  type StartMenuProps,
+} from "./menu/StartMenu";
 export {
   type ContextMenuState,
   useContextMenuPositionState,

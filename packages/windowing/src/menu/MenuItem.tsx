@@ -1,10 +1,11 @@
-import type { Icon } from "@phosphor-icons/react";
 import type { MouseEventHandler } from "react";
+import type { WindowingIcon } from "../icons/windowingIcon";
 
 export interface MenuItemProps {
-  icon?: Icon;
+  /** Any icon component, such as a Phosphor or Lucide icon. */
+  icon?: WindowingIcon | undefined;
   label: string;
-  disabled?: boolean;
+  disabled?: boolean | undefined;
   onClick: MouseEventHandler<HTMLButtonElement>;
 }
 
@@ -22,7 +23,6 @@ export function MenuItem({
           className="menu-item-icon"
           focusable="false"
           size={16}
-          weight="regular"
         />
       )}
       <span className="menu-item-label">{label}</span>
