@@ -39,3 +39,14 @@ bounded genesis rebuild. The returned sparse current-policy capability does not
 advance a trusted application checkpoint. See the
 [recovery contract](developer/principal-history-recovery.md) for key custody,
 lifetime guards, cache recovery, and remaining integration limits.
+
+Each principal-policy HTTP request has a 15-second response deadline, including
+reading and decoding the response body. A validated preparation continuation or
+history page starts a fresh deadline on the next request; the deadline is not a
+lifetime limit on a history download. A stalled read returns
+`principal_history_request_timed_out` and releases its recovery operation. A
+submitted mutation that times out returns `principal_history_outcome_unknown`:
+abort does not prove rollback, and the client does not replay that write
+automatically. Caller cancellation and authentication identity checks remain in
+effect across all rounds. These timers bound the built-in fetch transport;
+custom host callbacks must also settle or honor their cancellation signal.

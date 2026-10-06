@@ -1,6 +1,7 @@
 import type { JsonOperation } from "@tearleads/validators/operation";
 import type { ApiRequestRuntime } from "./apiRequestRuntime";
 import { decodeJsonOperationResponse } from "./operationResponse";
+import { principalHistoryDeadline } from "./principalHistoryDeadline";
 import { PrincipalHistoryRequestContext } from "./principalHistoryRequestContext";
 import type { HttpMethod, RequestResult, RequestResultOptions } from "./types";
 
@@ -15,6 +16,7 @@ export async function principalHistoryRequest<T>(
     readonly options?: RequestResultOptions;
     readonly operation: JsonOperation;
     readonly context?: PrincipalHistoryRequestContext;
+    readonly requestTimeoutMs?: number;
   },
 ): Promise<RequestResult<T>> {
   const { path, method } = input;
@@ -65,36 +67,49 @@ async function readResponse(
     readonly method: HttpMethod;
     readonly body?: string;
     readonly operation: JsonOperation;
+    readonly requestTimeoutMs?: number;
   },
 ) {
-  const response = await runtime.responseRequest(
-    input.path,
-    input.method,
-    input.body,
+  const deadline = principalHistoryDeadline(
     context.options,
-    [],
-    input.operation,
+    input.requestTimeoutMs,
   );
-  // Authentication rejection precedes the workflow, so renewal does not make
-  // this write's outcome uncertain. Reads may restart after a known renewal.
-  if (!response.ok && response.kind === "http" && response.status === 401)
-    return response;
-  if (context.cancelled())
-    return context.failure(response.ok ? response.data : undefined);
-  if (!response.ok) return response;
-  const decoded = await decodeJsonOperationResponse(
-    runtime.responseRequest,
-    input.operation,
-    response.data,
-    input.path,
-    context.options,
-  );
-  if (context.cancelled()) return context.failure(response.data);
-  if (!decoded.ok) return decoded;
-  return {
-    ok: true as const,
-    data: { ...decoded.data, statusText: response.data.statusText },
-  };
+  try {
+    const response = await runtime.responseRequest(
+      input.path,
+      input.method,
+      input.body,
+      deadline.options,
+      [],
+      input.operation,
+    );
+    // Authentication rejection precedes the workflow, so renewal does not make
+    // this write's outcome uncertain. Reads may restart after a known renewal.
+    if (!response.ok && response.kind === "http" && response.status === 401)
+      return response;
+    if (context.cancelled() || deadline.expired())
+      return context.failure(
+        response.ok ? response.data : undefined,
+        deadline.expired(),
+      );
+    if (!response.ok) return response;
+    const decoded = await decodeJsonOperationResponse(
+      runtime.responseRequest,
+      input.operation,
+      response.data,
+      input.path,
+      deadline.options,
+    );
+    if (context.cancelled() || deadline.expired())
+      return context.failure(response.data, deadline.expired());
+    if (!decoded.ok) return decoded;
+    return {
+      ok: true as const,
+      data: { ...decoded.data, statusText: response.data.statusText },
+    };
+  } finally {
+    deadline.dispose();
+  }
 }
 
 interface PreparationProgress {
