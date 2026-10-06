@@ -63,7 +63,13 @@ export class PrincipalPolicyRequests {
       : dedupedRequest(this.cache, key, request);
   }
 
-  put(
+  put(...args: Parameters<PrincipalPolicyRequests["putResult"]>) {
+    return this.putResult(...args).then((result) =>
+      result.ok ? result.data : null,
+    );
+  }
+
+  putResult(
     principalType: "organization",
     principalId: string,
     input: OrganizationPrincipalPolicyRequest,
@@ -81,9 +87,7 @@ export class PrincipalPolicyRequests {
         ...options,
       },
       operation: putPrincipalPolicyOperation,
-    })
-      .then((result) => (result.ok ? result.data : null))
-      .finally(() => this.cache.delete(key));
+    }).finally(() => this.cache.delete(key));
   }
 
   async commitResult(

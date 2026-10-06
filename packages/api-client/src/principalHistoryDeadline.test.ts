@@ -75,7 +75,7 @@ testApiClient(
       port: 0,
       async fetch() {
         calls += 1;
-        await Bun.sleep(40);
+        await Bun.sleep(200);
         return calls <= 4
           ? Response.json(
               {
@@ -94,7 +94,7 @@ testApiClient(
         {
           method: "GET",
           path: "/principal",
-          requestTimeoutMs: 150,
+          requestTimeoutMs: 500,
           operation: getPrincipalPolicyOperation,
           validator: isGetPrincipalPolicyOperationResponse,
           options: { reportErrors: false },

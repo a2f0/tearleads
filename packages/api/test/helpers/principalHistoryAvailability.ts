@@ -152,8 +152,8 @@ export async function assertPrincipalHistoryAvailability(
   } finally {
     await server.stop();
     onProgress(`mutation HTTP metrics ${JSON.stringify(server.metrics)}`);
-    expect(server.metrics.deadlineFailures).toBe(0);
   }
+  expect(server.metrics.deadlineFailures).toBe(0);
   expect(requestBytes).toBeGreaterThan(0);
   expect(preparationResponses).toBeGreaterThan(0);
   expect(rotated.plaintextKek).not.toEqual(granted.root.plaintextKek);
@@ -236,6 +236,6 @@ export async function assertPrincipalHistoryAvailability(
     coldClient.clearWriterProjectionCaches();
     await coldServer.stop();
     onProgress(`cold HTTP metrics ${JSON.stringify(coldServer.metrics)}`);
-    expect(coldServer.metrics.deadlineFailures).toBe(0);
   }
+  expect(coldServer.metrics.deadlineFailures).toBe(0);
 }

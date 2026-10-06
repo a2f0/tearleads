@@ -166,7 +166,7 @@ for (const status of [200, 202]) {
           request(),
           { reportErrors: false },
         ),
-      ).toMatchObject({ ok: false, kind: "shape", status });
+      ).toMatchObject({ ok: false, kind: "outcome-unknown", status: null });
       expect(calls).toBe(1);
     },
   );
@@ -192,7 +192,7 @@ testApiClient(
         request(),
         { reportErrors: false },
       ),
-    ).toMatchObject({ ok: false, kind: "network", status: null });
+    ).toMatchObject({ ok: false, kind: "outcome-unknown", status: null });
     expect(calls).toBe(2);
   },
 );

@@ -3,7 +3,12 @@ import type { ApiRequestRuntime } from "./apiRequestRuntime";
 import { decodeJsonOperationResponse } from "./operationResponse";
 import { principalHistoryDeadline } from "./principalHistoryDeadline";
 import { PrincipalHistoryRequestContext } from "./principalHistoryRequestContext";
-import type { HttpMethod, RequestResult, RequestResultOptions } from "./types";
+import type {
+  HttpMethod,
+  RequestFailure,
+  RequestResult,
+  RequestResultOptions,
+} from "./types";
 
 /** Retry only an explicit, validated response proving the operation rolled back. */
 export async function principalHistoryRequest<T>(
@@ -30,7 +35,7 @@ export async function principalHistoryRequest<T>(
     context.beforeRequest();
     const decoded = await readResponse(runtime, context, input);
     if (!decoded.ok && context.restartReadAfterRenewal()) continue;
-    if (!decoded.ok) return decoded;
+    if (!decoded.ok) return preserveCommitUncertainty(method, context, decoded);
     if (decoded.data.status === 202) {
       context.afterPreparation();
       const failure = await continuePreparation(decoded.data.data, progress);
@@ -45,18 +50,46 @@ export async function principalHistoryRequest<T>(
         });
       continue;
     }
-    if (decoded.data.status !== 200 || !input.validator(decoded.data.data))
-      return runtime.responseRequest.reportFailure({
+    if (decoded.data.status !== 200 || !input.validator(decoded.data.data)) {
+      const failure = runtime.responseRequest.reportFailure({
         kind: "shape",
         message: `Invalid principal policy response for ${path}`,
         method,
-        options,
+        options:
+          method === "GET" ? options : { ...options, reportErrors: false },
         path,
         status: decoded.data.status,
         statusText: decoded.data.statusText,
       });
+      return preserveCommitUncertainty(method, context, failure);
+    }
     return { ok: true, data: decoded.data.data };
   }
+}
+
+function preserveCommitUncertainty(
+  method: HttpMethod,
+  context: PrincipalHistoryRequestContext,
+  failure: RequestFailure,
+): RequestFailure {
+  if (method === "GET") return failure;
+  // A network/decode failure or intermediary 5xx says nothing about commit.
+  // Inner write errors are silent until this final classification is known.
+  const ambiguous =
+    failure.kind !== "http" ||
+    (failure.status ?? 0) >= 500 ||
+    failure.status === 408 ||
+    failure.status === 499;
+  const result =
+    ambiguous && failure.kind !== "outcome-unknown"
+      ? context.failure()
+      : failure;
+  if (
+    context.options.reportErrors !== false &&
+    (result.kind === "http" || !context.cancelled())
+  )
+    result.report();
+  return result;
 }
 
 async function readResponse(
@@ -74,12 +107,16 @@ async function readResponse(
     context.options,
     input.requestTimeoutMs,
   );
+  const options =
+    input.method === "GET"
+      ? deadline.options
+      : { ...deadline.options, reportErrors: false };
   try {
     const response = await runtime.responseRequest(
       input.path,
       input.method,
       input.body,
-      deadline.options,
+      options,
       [],
       input.operation,
     );
@@ -91,7 +128,7 @@ async function readResponse(
     if (context.cancelled() || deadline.expired())
       return context.failure(
         response.ok ? response.data : undefined,
-        deadline.expired(),
+        deadline.expired() && !context.cancelled(),
       );
     if (!response.ok) return response;
     const decoded = await decodeJsonOperationResponse(
@@ -99,10 +136,13 @@ async function readResponse(
       input.operation,
       response.data,
       input.path,
-      deadline.options,
+      options,
     );
     if (context.cancelled() || deadline.expired())
-      return context.failure(response.data, deadline.expired());
+      return context.failure(
+        response.data,
+        deadline.expired() && !context.cancelled(),
+      );
     if (!decoded.ok) return decoded;
     return {
       ok: true as const,
