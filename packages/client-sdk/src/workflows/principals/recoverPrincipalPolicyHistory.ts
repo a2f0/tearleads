@@ -235,7 +235,8 @@ export async function recoverPrincipalPolicyHistory(
     options.protection.localKey.byteLength !== 32 ||
     !options.protection.context
   )
-    throw new Error(
+    throw new KeyingVerificationError(
+      "invalid_shape",
       "Principal history recovery requires a private 32-byte key and trust context",
     );
   const input = {

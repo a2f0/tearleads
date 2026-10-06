@@ -45,23 +45,10 @@ creation requires `metadataAccess`. See the [SDK guide](../../../../docs/develop
 | `documents` | Platform runtime | Document creation, persistence, sync (including the headless `syncRemoteDocument` boundary: require `validateIncomingUpdates`, normally backed by `validateDocumentSyncUpdateImports`, before durably applying a page; repair ancestor KEKs parent-first before writes, using `rekeyContainer` for bounded prefixes beyond the inline limit; abandon as `inaccessible`, keeping the writes queued, when the stale ancestor is one the writer cannot re-key; `buildContainerRekeys` can override this planning; stale-policy retries rebuild signed material; schedule another bounded pass for `hasDeferredPendingUpdates` or `hasIncompletePull`; and retain `readPullContinuation(result.response)` as the next input `pullContinuation`; built-in stores persist it in local SQLite), projection keys, document link-set helpers, local orphan/blob maintenance, and the discard-to-shell escape hatch for documents whose queued writes can no longer sync. |
 | `container-contents` | Platform query and runtime | Container tree projections, container metadata documents, document discovery, document links, identity-wide pending-write diagnostics, compact attribution diagnostics, lazy paginated attribution ranges, and sync-state helpers. Product UI routes, panels, menus, and selection state belong in `packages/app`. |
 | `organizations` | Platform organization administration | Transactional local directory, group-summary, group-membership, grant, policy-head, user-detail, and separately reconciled durable data-usage projections; opaque feed cursors; exact-head history from verified principal-policy storage; ID-only user membership mutations; verified principal-policy mutation helpers; organization-scoped system-container slot helpers; sync-billing reads; direct Stripe checkout; server-authoritative native-purchase eligibility; and verified, explicitly organization-scoped native-subscription claims chosen after receipt verification by the atomic `PurchasesCapability.moveNativeSubscription` flow. Its destination-preparation callback runs outside the bounded server-claim deadline and durably replays one fresh restore organization across reloads until completion. Org Manager screens and labels belong in `packages/app`. |
-| `principals` | Platform runtime | Principal-policy cache and verification support routed through the durable trusted-user-identity gateway. |
+| `principals` | Platform runtime | Principal-policy cache and verification through the durable trusted-user-identity gateway, and [durable exact-head history recovery](../../../../docs/developer/principal-history-recovery.md). |
 | `registration` | Platform runtime | Atomic bootstrap. `registerUser` requires metadata at argument 13; omitted roster arguments 11–12 are `undefined`. Profile bodies remain optional. |
 | `root` | Platform operator administration | Root-only identity lookups for internal staff: paged identity listing with fingerprint filter, identity detail with live sessions, per-identity organization membership, searchable organization pages, organization detail with persisted billing/provider state and the latest 50 billing events, paged organization rosters linking back to identities, and [synced data usage and organization usage reports](../../../../docs/developer/client-sdk.md#advanced-configuration). Locally gated on the session's server-reported root flag; the API enforces access. Root console screens belong in `packages/app`. |
 | `sync` | Platform runtime | Shared sync coordinator helpers and organization-scoped remote-state reset/recovery inputs. |
-
-The principals facade also exposes `recoverPrincipalPolicyHistory` for a known
-exact head. It consumes API pages individually, resolves trusted signer identities,
-and stores locally authenticated verifier progress after each accepted page.
-Callers provide a private 32-byte protection key, a stable identity/trust-policy
-context, the owning organization, and a live `stillCurrent` guard. External
-authority, when needed, must already have been authenticated by the caller.
-The result is `VerifiedPrincipalPolicyCurrent` with explicitly retained references,
-not a complete history. Staging does not advance application checkpoints; callers
-must still verify organization scope and atomically publish accepted evidence.
-Reopening an operation authenticates its saved cursor and artifacts. Changed keys,
-inputs, or corrupt progress restart from signed genesis. Completed progress still
-requires a successful pinned HTTP read and a fresh local-checkpoint comparison.
 
 Organization billing views expose subscription ownership and direct cancellation
 availability in the billing snapshot. Current clients use management URL reads

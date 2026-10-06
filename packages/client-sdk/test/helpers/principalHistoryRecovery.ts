@@ -76,7 +76,16 @@ export async function signedRecoveryHistory(version = 66) {
   };
 }
 
-export function serveRecoveryHistory(bundle: PrincipalPolicyBundleResponse) {
+export function serveRecoveryHistory(
+  bundle: PrincipalPolicyBundleResponse,
+  retained: readonly PrincipalPolicyBundleResponse[] = [],
+) {
+  const pins = new Map(
+    [bundle, ...retained].map((policy) => [
+      policy.currentState.stateHash,
+      policy,
+    ]),
+  );
   const requests: number[] = [];
   const controls: {
     failAfterVersion: number | null;
@@ -87,19 +96,20 @@ export function serveRecoveryHistory(bundle: PrincipalPolicyBundleResponse) {
     port: 0,
     fetch(request) {
       const query = new URL(request.url).searchParams;
+      const pinned = pins.get(query.get("stateHash") ?? "") ?? bundle;
       const after = Number(query.get("afterVersion") ?? 0);
       requests.push(after);
       if (controls.failAfterVersion === after)
         return new Response("Interrupted", { status: 503 });
-      const previousStates = bundle.previousStates.slice(after, after + 32);
+      const previousStates = pinned.previousStates.slice(after, after + 32);
       const next = after + previousStates.length;
       const page: PrincipalPolicyPageResponse = structuredClone({
-        ...bundle,
+        ...pinned,
         previousStates,
         historyPage: {
           afterVersion: after,
           nextAfterVersion:
-            next === bundle.currentState.version - 1 ? null : next,
+            next === pinned.currentState.version - 1 ? null : next,
         },
       });
       controls.mutate?.(page);

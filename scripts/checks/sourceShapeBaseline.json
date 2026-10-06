@@ -39,8 +39,8 @@
       "bytes": 18865
     },
     "docs/developer/client-sdk.md": {
-      "lines": 832,
-      "bytes": 44226
+      "lines": 805,
+      "bytes": 42373
     },
     "docs/developer/revenuecat-native-stores.md": {
       "lines": 364,
@@ -251,8 +251,8 @@
       "bytes": 18896
     },
     "packages/client-sdk/src/workflows/README.md": {
-      "lines": 326,
-      "bytes": 24994
+      "lines": 313,
+      "bytes": 24116
     },
     "packages/client-sdk/src/workflows/blobs/hydrate.test.ts": {
       "lines": 572,

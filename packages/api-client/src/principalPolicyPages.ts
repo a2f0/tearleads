@@ -54,6 +54,26 @@ function validResume(
   );
 }
 
+function readResume(input: PrincipalPolicyPageResume | undefined) {
+  if (input === undefined) return undefined;
+  try {
+    const page = {
+      ...input.current,
+      previousStates: [],
+      historyPage: { afterVersion: input.afterVersion, nextAfterVersion: null },
+    };
+    if (!getPrincipalPolicy.isResponse(page)) return undefined;
+    const current = structuredClone(currentArtifacts(page));
+    return {
+      current,
+      afterVersion: page.historyPage.afterVersion,
+      bytes: serializeKeyingCanonicalJson(current),
+    };
+  } catch {
+    return undefined;
+  }
+}
+
 function validPage(
   page: PrincipalPolicyPageResponse,
   expected: {
@@ -110,14 +130,14 @@ export async function* readPrincipalPolicyPages(
     firstPath,
     options,
   );
-  let pinned = options.resume
-    ? structuredClone(options.resume.current)
-    : undefined;
-  let pinnedBytes = pinned ? serializeKeyingCanonicalJson(pinned) : undefined;
-  let afterVersion = options.resume?.afterVersion ?? 0;
+  const resume = readResume(options.resume);
+  let pinned = resume?.current;
+  let pinnedBytes = resume?.bytes;
+  let afterVersion = resume?.afterVersion ?? 0;
   if (
-    options.resume &&
-    !validResume(principalType, principalId, options.resume, options.stateHash)
+    options.resume !== undefined &&
+    (!resume ||
+      !validResume(principalType, principalId, resume, options.stateHash))
   ) {
     yield pageFailure(
       runtime,

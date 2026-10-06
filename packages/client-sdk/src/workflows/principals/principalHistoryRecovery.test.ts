@@ -18,9 +18,11 @@ beforeAll(async () => {
   history = await signedRecoveryHistory();
 });
 
-async function recoveryFixture() {
+async function recoveryFixture(
+  retained: Parameters<typeof serveRecoveryHistory>[1] = [],
+) {
   const sqlite = await createTestExecSql("principal-history-recovery");
-  const http = serveRecoveryHistory(history.bundle);
+  const http = serveRecoveryHistory(history.bundle, retained);
   const options: RecoverPrincipalPolicyHistoryOptions = {
     apiClient: http.client(),
     execSql: sqlite.execSql,
@@ -351,6 +353,80 @@ test("does not return a partial selection for a reference beyond the requested h
       }),
     ).rejects.toMatchObject({ code: "missing_dependency" });
     expect(fixture.requests).toEqual([]);
+  } finally {
+    fixture.close();
+  }
+});
+
+test("recoveries of different pinned heads do not replace each other's saved work", async () => {
+  const state = history.bundle.previousStates[32]?.state;
+  if (!state) throw new Error("Missing historical head");
+  const older = {
+    ...history.bundle,
+    currentState: state,
+    currentPayload: {
+      ...history.bundle.currentPayload,
+      stateHash: state.stateHash,
+    },
+    currentMemberEnvelopes: {
+      ...history.bundle.currentMemberEnvelopes,
+      stateHash: state.stateHash,
+    },
+    previousStates: history.bundle.previousStates.slice(0, 32),
+  };
+  const fixture = await recoveryFixture([older]);
+  try {
+    let arrived = 0;
+    let release = () => {};
+    const bothReading = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const resolver: RecoverPrincipalPolicyHistoryOptions["resolveTrustedUserIdentity"] =
+      async (userId) => {
+        arrived += 1;
+        if (arrived === 2) release();
+        if (arrived <= 2) await bothReading;
+        return history.resolveTrustedUserIdentity(userId);
+      };
+    const results = await Promise.allSettled(
+      [history.expectedHead, principalPolicyHead(older)].map((expectedHead) =>
+        recoverPrincipalPolicyHistory({
+          ...fixture.options,
+          expectedHead,
+          apiClient: fixture.client(),
+          resolveTrustedUserIdentity: resolver,
+        }),
+      ),
+    );
+    expect(results.map((result) => result.status)).toEqual([
+      "fulfilled",
+      "fulfilled",
+    ]);
+    expect(
+      await fixture.db
+        .select({ complete: principalHistoryStages.complete })
+        .from(principalHistoryStages),
+    ).toEqual([{ complete: true }, { complete: true }]);
+  } finally {
+    fixture.close();
+  }
+});
+
+test("an AbortSignal during signer resolution does not save accepted progress", async () => {
+  const fixture = await recoveryFixture();
+  try {
+    const abort = new AbortController();
+    await expect(
+      recoverPrincipalPolicyHistory({
+        ...fixture.options,
+        signal: abort.signal,
+        resolveTrustedUserIdentity: async (userId) => {
+          abort.abort();
+          return history.resolveTrustedUserIdentity(userId);
+        },
+      }),
+    ).rejects.toMatchObject({ name: "ProjectionVerificationCancelledError" });
+    expect(await fixture.db.select().from(principalHistoryStages)).toEqual([]);
   } finally {
     fixture.close();
   }

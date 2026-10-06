@@ -8,6 +8,7 @@ import {
 } from "../test/helpers/apiClientTestHarness";
 import { principalPolicyPageResponse } from "../test/helpers/principalPolicyPage";
 import { ApiClient } from "./ApiClient";
+import type { PrincipalPolicyPageCurrent } from "./principalPolicyPages";
 
 const principalId = "11111111-1111-4111-8111-111111111111";
 const path = `${apiBaseUrl}/principals/group/${principalId}/policy`;
@@ -215,3 +216,66 @@ for (const field of ["principalId", "principalType"] as const) {
     },
   );
 }
+
+testApiClient(
+  "ignores extra fields on structurally compatible saved current artifacts",
+  async () => {
+    const { current } = installPages();
+    const saved = {
+      ...current,
+      historyPage: { afterVersion: 32, nextAfterVersion: 64 },
+    };
+    const pages = new ApiClient(apiBaseUrl).getPrincipalPolicyPages(
+      "group",
+      principalId,
+      {
+        resume: { current: saved, afterVersion: 32 },
+      },
+    );
+    expect((await pages.next()).value?.ok).toBeTrue();
+    await pages.return();
+  },
+);
+
+testApiClient(
+  "malformed saved current artifacts return a structured failure",
+  async () => {
+    const { requests } = installPages();
+    const malformed: unknown = { currentState: null };
+    const pages = new ApiClient(apiBaseUrl).getPrincipalPolicyPages(
+      "group",
+      principalId,
+      {
+        resume: {
+          current: malformed as PrincipalPolicyPageCurrent,
+          afterVersion: 32,
+        },
+      },
+    );
+    expect((await pages.next()).value).toMatchObject({
+      ok: false,
+      kind: "shape",
+    });
+    expect(requests).toHaveLength(0);
+  },
+);
+
+testApiClient(
+  "refuses a saved head that differs from the explicitly requested hash",
+  async () => {
+    const { current, requests } = installPages();
+    const pages = new ApiClient(apiBaseUrl).getPrincipalPolicyPages(
+      "group",
+      principalId,
+      {
+        stateHash: "b".repeat(64),
+        resume: { current, afterVersion: 32 },
+      },
+    );
+    expect((await pages.next()).value).toMatchObject({
+      ok: false,
+      kind: "shape",
+    });
+    expect(requests).toHaveLength(0);
+  },
+);
