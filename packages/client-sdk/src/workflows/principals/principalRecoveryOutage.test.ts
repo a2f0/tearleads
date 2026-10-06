@@ -12,7 +12,7 @@ import { recoverScopedPrincipalPolicyHistory } from "./recoverScopedPrincipalPol
 let history: Awaited<ReturnType<typeof signedAuthorityRecoveryHistory>>;
 beforeAll(async () => {
   history = await signedAuthorityRecoveryHistory();
-});
+}, 30_000);
 function failure(
   kind: RequestFailure["kind"],
   code?: string,

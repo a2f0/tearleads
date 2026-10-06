@@ -3,7 +3,12 @@ import type { ApiRequestRuntime } from "./apiRequestRuntime";
 import { decodeJsonOperationResponse } from "./operationResponse";
 import { principalHistoryDeadline } from "./principalHistoryDeadline";
 import { PrincipalHistoryRequestContext } from "./principalHistoryRequestContext";
-import type { HttpMethod, RequestResult, RequestResultOptions } from "./types";
+import type {
+  HttpMethod,
+  RequestFailure,
+  RequestResult,
+  RequestResultOptions,
+} from "./types";
 
 /** Retry only an explicit, validated response proving the operation rolled back. */
 export async function principalHistoryRequest<T>(
@@ -30,7 +35,7 @@ export async function principalHistoryRequest<T>(
     context.beforeRequest();
     const decoded = await readResponse(runtime, context, input);
     if (!decoded.ok && context.restartReadAfterRenewal()) continue;
-    if (!decoded.ok) return decoded;
+    if (!decoded.ok) return preserveCommitUncertainty(method, context, decoded);
     if (decoded.data.status === 202) {
       context.afterPreparation();
       const failure = await continuePreparation(decoded.data.data, progress);
@@ -45,8 +50,8 @@ export async function principalHistoryRequest<T>(
         });
       continue;
     }
-    if (decoded.data.status !== 200 || !input.validator(decoded.data.data))
-      return runtime.responseRequest.reportFailure({
+    if (decoded.data.status !== 200 || !input.validator(decoded.data.data)) {
+      const failure = runtime.responseRequest.reportFailure({
         kind: "shape",
         message: `Invalid principal policy response for ${path}`,
         method,
@@ -55,8 +60,25 @@ export async function principalHistoryRequest<T>(
         status: decoded.data.status,
         statusText: decoded.data.statusText,
       });
+      return preserveCommitUncertainty(method, context, failure);
+    }
     return { ok: true, data: decoded.data.data };
   }
+}
+
+function preserveCommitUncertainty(
+  method: HttpMethod,
+  context: PrincipalHistoryRequestContext,
+  failure: RequestFailure,
+): RequestFailure {
+  // A network/decode failure or intermediary 5xx says nothing about commit.
+  // Only a validated preparation response permits an automatic write retry.
+  if (
+    method !== "GET" &&
+    (failure.kind !== "http" || (failure.status ?? 0) >= 500)
+  )
+    return context.failure();
+  return failure;
 }
 
 async function readResponse(

@@ -50,3 +50,8 @@ abort does not prove rollback, and the client does not replay that write
 automatically. Caller cancellation and authentication identity checks remain in
 effect across all rounds. These timers bound the built-in fetch transport;
 custom host callbacks must also settle or honor their cancellation signal.
+
+A submitted write with a network failure, an unreadable or invalid acknowledgement,
+or a server/intermediary 5xx has an unknown commit outcome. None of these failures
+permits automatic replay or a claim that the operation rolled back. Only a valid
+202 preparation response proves rollback and permits the continuation loop.
