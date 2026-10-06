@@ -9,7 +9,7 @@ on:
     branches: [main]
     paths:
       - packages/windowing/**
-      - scripts/publishWindowing.sh
+      - scripts/publishNpmPackage.sh
       - .github/workflows/windowing-publish.yml
   workflow_dispatch:
 
@@ -63,4 +63,4 @@ jobs:
 
       - name: Publish to npm
         if: steps.decide.outputs.publish == 'true'
-        run: bash scripts/publishWindowing.sh
+        run: bash scripts/publishNpmPackage.sh windowing

@@ -1,6 +1,6 @@
 import { afterEach, expect, test } from "bun:test";
-import { persistentSahPoolStorageForDbName } from "../src/loadSqlite3";
 import { purgeOpfsSqliteDatabase } from "../src/purgeOpfsDatabase";
+import { persistentSahPoolStorageForDbName } from "../src/sahPoolStorage";
 
 class FakeDirectoryHandle {
   readonly directories = new Map<string, FakeDirectoryHandle>();
