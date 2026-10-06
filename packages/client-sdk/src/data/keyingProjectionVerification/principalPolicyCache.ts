@@ -1,12 +1,13 @@
-import type {
-  ReferencedPrincipalHead,
-  VerifiedPrincipalPolicy,
-} from "@tearleads/crypto";
+import type { ReferencedPrincipalHead } from "@tearleads/crypto";
 import { KeyingVerificationError } from "@tearleads/crypto";
 import { loadPrincipalPolicyCheckpoint } from "../persistence/keyingCheckpointPersistence";
 import { verifiedPrincipalPolicyMeetsCheckpoint } from "../persistence/principalPolicyCheckpointSelection";
 import { loadPrincipalPolicyBundleForReference } from "../persistence/principalPolicyReferencePersistence";
 import { principalStateMatchesReference } from "../principalPolicyStates";
+import {
+  type PrincipalPolicyCurrentEvidence,
+  principalPolicyEvidenceEntries,
+} from "../principals/principalPolicyEvidence";
 import type { ExecSql } from "../sqlite/sqlSchema";
 
 /**
@@ -45,13 +46,13 @@ export function dedupeReferencedPrincipalStates<
 }
 
 export function principalPolicyCacheForVerifiedPolicies(
-  policies: readonly VerifiedPrincipalPolicy[],
-): Map<string, VerifiedPrincipalPolicy> {
-  const cache = new Map<string, VerifiedPrincipalPolicy>();
+  policies: readonly PrincipalPolicyCurrentEvidence[],
+): Map<string, PrincipalPolicyCurrentEvidence> {
+  const cache = new Map<string, PrincipalPolicyCurrentEvidence>();
   for (const policy of policies) {
-    const states = policy.history?.map((entry) => entry.state) ?? [
-      policy.state,
-    ];
+    const states = principalPolicyEvidenceEntries(policy).map(
+      (entry) => entry.state,
+    );
     for (const state of states) {
       cache.set(
         referencedPrincipalPolicyKey({
@@ -70,10 +71,12 @@ export function principalPolicyCacheForVerifiedPolicies(
 }
 
 export function verifiedPrincipalPolicyContainsReference(
-  policy: VerifiedPrincipalPolicy,
+  policy: PrincipalPolicyCurrentEvidence,
   reference: ReferencedPrincipalHead,
 ): boolean {
-  const states = policy.history?.map(({ state }) => state) ?? [policy.state];
+  const states = principalPolicyEvidenceEntries(policy).map(
+    ({ state }) => state,
+  );
   return states.some((state) =>
     principalStateMatchesReference(state, reference),
   );
@@ -83,7 +86,7 @@ export function verifiedPrincipalPolicyContainsReference(
 // and local storage, so the warmer fetches only what is genuinely missing.
 export async function filterUncachedPrincipalPolicyReferences(input: {
   execSql: ExecSql;
-  principalPolicyCache: ReadonlyMap<string, VerifiedPrincipalPolicy>;
+  principalPolicyCache: ReadonlyMap<string, PrincipalPolicyCurrentEvidence>;
   references: readonly ReferencedPrincipalHead[];
 }): Promise<ReferencedPrincipalHead[]> {
   const results = await Promise.all(

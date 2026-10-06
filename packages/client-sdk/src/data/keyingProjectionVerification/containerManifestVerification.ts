@@ -1,5 +1,4 @@
 import {
-  type AnyVerifiedPrincipalPolicy,
   KeyingVerificationError,
   principalPolicyMatchesReference,
   type VerifiedContainerAccessManifest,
@@ -7,6 +6,7 @@ import {
 } from "@tearleads/crypto";
 import type { AccessManifestBundleWireResponse } from "@tearleads/validators/response";
 import { readCanonicalJson, readCanonicalRecord } from "../keyingCanonicalJson";
+import type { PrincipalPolicyCheckpointEvidence } from "../principals/principalPolicyEvidence";
 import {
   assertCanonicalEqual,
   verifyAccessEventBundle,
@@ -31,7 +31,7 @@ import type {
 } from "./types";
 
 async function collectManifestAuthorizationPolicies(input: {
-  readonly authorizationEvidence: readonly AnyVerifiedPrincipalPolicy[];
+  readonly authorizationEvidence: readonly PrincipalPolicyCheckpointEvidence[];
   readonly checkpointContext: ProjectionCheckpointContext;
   readonly organizationId: string;
   readonly principalPolicyCache: PrincipalPolicyCache;
@@ -74,7 +74,7 @@ async function collectManifestAuthorizationPolicies(input: {
 export async function verifyContainerManifestBundle(input: {
   readonly authorizationMembership?: "current" | "referenced" | undefined;
   readonly authorizationEvidence?:
-    | readonly AnyVerifiedPrincipalPolicy[]
+    | readonly PrincipalPolicyCheckpointEvidence[]
     | undefined;
   readonly bundle: AccessManifestBundleWireResponse;
   readonly bundlesByHash: ReadonlyMap<string, AccessManifestBundleWireResponse>;
@@ -383,7 +383,7 @@ function readContainerEventBodyParentReference(
 
 async function resolveContainerManifestVerificationParentPath(input: {
   readonly authorizationEvidence?:
-    | readonly AnyVerifiedPrincipalPolicy[]
+    | readonly PrincipalPolicyCheckpointEvidence[]
     | undefined;
   readonly bundle: AccessManifestBundleWireResponse;
   readonly bundlesByHash: ReadonlyMap<string, AccessManifestBundleWireResponse>;
@@ -445,7 +445,7 @@ async function resolveContainerManifestVerificationParentPath(input: {
 
 async function verifyPreviousContainerManifest(input: {
   readonly authorizationEvidence?:
-    | readonly AnyVerifiedPrincipalPolicy[]
+    | readonly PrincipalPolicyCheckpointEvidence[]
     | undefined;
   readonly bundlesByHash: ReadonlyMap<string, AccessManifestBundleWireResponse>;
   readonly checkpointContext: ProjectionCheckpointContext;

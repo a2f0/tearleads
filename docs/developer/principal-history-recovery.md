@@ -23,8 +23,19 @@ Provider failures propagate instead of silently changing keys.
 The app derives a separate purpose from its existing protected SQLite keyring
 root, binding the API and identity. It releases keyring sessions after derivation.
 Deleting that local root retires recovery keys too; no signing secret is used.
-No SDK workflow uses this private lease yet. Existing callers still consume
-full bundles until they explicitly adopt paged recovery.
+Recovery only loads the existing session, so a missing root cannot silently
+create a replacement. Derivation times out after 15 seconds, releases the queue,
+and clears any key bytes returned after that timeout.
+
+Built-in projection reference verification uses the runtime lease to recover
+scoped paged evidence. Container and document authorization and mutation planning
+accept the resulting current policy with selected historical citations. The
+projection checkpoint batch also carries every verified directory/Admins
+dependency. In-memory reuse preserves that organization binding and lifetime,
+rechecks all dependency pins, and refreshes missing evidence when a durable pin
+advances. Conflicting pins still fail. Runtime offline state selects local-only
+recovery. Explicit full-bundle cache operations and embedded projection evidence
+remain separate paths; this does not complete all runtime history adoption.
 
 The optional `retainedReferences` selection follows the crypto verifier's bounded
 retention contract. Supply already authenticated external authority through
@@ -123,7 +134,7 @@ of these policies together when atomically admitting checkpoints. Recovery itsel
 does not advance pins. If the requested reference or an Admins citation is
 newer than the directory, the helper discovers the directory once more; a repeated
 disagreement fails with `stale_predecessor`. Signature, scope, and current-artifact
-failures propagate. Built-in runtime callers still need to adopt this facade.
+failures propagate. The built-in projection reference resolver uses this facade.
 The returned Admins dependency retains its head and local checkpoint; historical
 authority citations are checked page by page without accumulating every citation
 in the result. Each group page with external citations may perform another pinned

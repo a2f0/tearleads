@@ -1,11 +1,12 @@
-import type {
-  AnyVerifiedPrincipalPolicy,
-  VerifiedPrincipalPolicy,
-} from "@tearleads/crypto";
+import type { VerifiedPrincipalPolicy } from "@tearleads/crypto";
 import { readCanonicalRecord } from "../../keyingCanonicalJson";
+import type {
+  PrincipalPolicyCheckpointEvidence,
+  PrincipalPolicyCurrentEvidence,
+} from "../../principals/principalPolicyEvidence";
 
 export function principalPolicyRequestRecord(
-  policy: AnyVerifiedPrincipalPolicy,
+  policy: PrincipalPolicyCheckpointEvidence,
   label = "Container principal policy",
 ): Record<string, unknown> {
   return readCanonicalRecord(
@@ -42,10 +43,10 @@ function principalPolicyKey(
   ].join(":");
 }
 
-export function uniquePrincipalPolicies(
-  policies: readonly VerifiedPrincipalPolicy[],
-): VerifiedPrincipalPolicy[] {
-  const policiesByKey = new Map<string, VerifiedPrincipalPolicy>();
+export function uniquePrincipalPolicies<
+  T extends PrincipalPolicyCurrentEvidence,
+>(policies: readonly T[]): T[] {
+  const policiesByKey = new Map<string, T>();
 
   for (const policy of policies) {
     policiesByKey.set(principalPolicyKey(policy), policy);

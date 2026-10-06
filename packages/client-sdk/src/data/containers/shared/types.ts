@@ -14,7 +14,6 @@ import type {
   ContainerRekeyAccessEventBody,
   ContainerRevokeAccessEventBody,
   ContainerUserRecipientKey,
-  VerifiedPrincipalPolicy,
 } from "@tearleads/crypto";
 import type {
   AccessManifestBundleWire,
@@ -30,6 +29,7 @@ import type {
   ContainerWriterProjectionResponse,
   PrincipalPolicyBundleResponse,
 } from "@tearleads/validators/response";
+import type { PrincipalPolicyCurrentEvidence } from "../../principals/principalPolicyEvidence";
 import type { ExecSql } from "../../sqlite/sqlSchema";
 import type { ContainerMutationRequestOptions } from "./mutationRequestOptions";
 import type { ContainerReciteApi } from "./reciteApi";
@@ -67,7 +67,7 @@ export interface BuildContainerCreatePlanInput {
   metadataDocumentId?: string | undefined;
   systemSlot?: string | null | undefined;
   parentProjection: ContainerWriterProjectionResponse;
-  principalPolicies?: readonly VerifiedPrincipalPolicy[] | undefined;
+  principalPolicies?: readonly PrincipalPolicyCurrentEvidence[] | undefined;
   signedAt?: string | undefined;
 }
 

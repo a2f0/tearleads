@@ -1,19 +1,21 @@
 import { retainVerifiedProjectionHistory } from "@tearleads/api-client";
 import {
-  type AnyVerifiedPrincipalPolicy,
   type ContainerUserRecipientKey,
   computeContainerKekRecipientTargetHash,
   computeContainerKeyEpochHash,
   toFingerprint,
   type VerifiedContainerAccessManifest,
   type VerifiedContainerKekState,
-  type VerifiedPrincipalPolicy,
   verifyContainerKekState,
 } from "@tearleads/crypto";
 import type {
   AccessManifestBundleWireResponse,
   ContainerWriterProjectionResponse,
 } from "@tearleads/validators/response";
+import type {
+  PrincipalPolicyCheckpointEvidence,
+  PrincipalPolicyCurrentEvidence,
+} from "../principals/principalPolicyEvidence";
 import type { ExecSql } from "../sqlite/sqlSchema";
 import { addBundleByHash } from "./bundleVerification";
 import {
@@ -96,7 +98,7 @@ function containerKekManifestHistory(input: {
 }
 
 async function verifyContainerKekProjection(input: {
-  readonly authorizationEvidence: readonly AnyVerifiedPrincipalPolicy[];
+  readonly authorizationEvidence: readonly PrincipalPolicyCheckpointEvidence[];
   readonly kek: ContainerWriterProjectionResponse["containerKeks"][number];
   readonly label: string;
   readonly parentKekState: VerifiedContainerKekState | null;
@@ -209,7 +211,7 @@ function collectContainerProjectionBundles(
 
 export async function verifyContainerWriterProjectionWithContext(
   input: Omit<ContainerWriterProjectionVerificationInput, "execSql"> & {
-    readonly authorizationEvidence?: readonly AnyVerifiedPrincipalPolicy[];
+    readonly authorizationEvidence?: readonly PrincipalPolicyCheckpointEvidence[];
   },
   checkpointContext: ProjectionCheckpointContext,
 ): Promise<VerifiedContainerAccessManifest[]> {
@@ -223,8 +225,8 @@ export async function verifyContainerWriterProjectionWithContext(
 
   const verifiedByHash =
     input.verifiedByHash ?? new Map<string, VerifiedContainerAccessManifest>();
-  const principalPolicyCache =
-    input.principalPolicyCache ?? new Map<string, VerifiedPrincipalPolicy>();
+  const principalPolicyCache: PrincipalPolicyCache =
+    input.principalPolicyCache ?? new Map();
   const authorizationEvidence =
     input.authorizationEvidence ??
     (await verifyProjectionAuthorizationEvidence({
@@ -331,7 +333,7 @@ export async function verifyContainerWriterProjection(
 
 export async function collectContainerWriterProjectionPrincipalPolicies(
   input: ContainerWriterProjectionVerificationInput,
-): Promise<VerifiedPrincipalPolicy[]> {
+): Promise<PrincipalPolicyCurrentEvidence[]> {
   try {
     assertProjectionVerificationCurrent(input.stillCurrent);
     const warmReferencedPrincipalPolicies =
@@ -339,8 +341,8 @@ export async function collectContainerWriterProjectionPrincipalPolicies(
         input.warmReferencedPrincipalPolicies,
         input.stillCurrent,
       );
-    const principalPolicyCache =
-      input.principalPolicyCache ?? new Map<string, VerifiedPrincipalPolicy>();
+    const principalPolicyCache: PrincipalPolicyCache =
+      input.principalPolicyCache ?? new Map();
     const checkpointContext = createProjectionCheckpointContext({
       execSql: input.execSql,
       organizationId: input.projection.organizationId,
@@ -404,7 +406,7 @@ async function collectPrincipalPoliciesForContainerPaths(input: {
   principalPolicyCache: PrincipalPolicyCache;
   resolveUserKey: ProjectionUserKeyResolver;
   warmReferencedPrincipalPolicies?: ReferencedPrincipalPolicyWarmer | undefined;
-}): Promise<VerifiedPrincipalPolicy[]> {
+}): Promise<PrincipalPolicyCurrentEvidence[]> {
   const referencedPrincipalHeads = input.paths.flatMap((path) =>
     (path ?? []).flatMap((manifest) => manifest.state.referencedPrincipalHeads),
   );

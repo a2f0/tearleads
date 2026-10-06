@@ -1,8 +1,9 @@
 import type {
   ReferencedPrincipalHead,
-  VerifiedPrincipalPolicy,
+  VerifiedPrincipalPolicyCurrent,
 } from "@tearleads/crypto";
 import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
+import type { PrincipalPolicyCurrentEvidence } from "../principals/principalPolicyEvidence";
 import type { TrustedUserIdentity } from "../trustedUserIdentity";
 
 export type ProjectionUserKey = TrustedUserIdentity;
@@ -11,7 +12,20 @@ export type ProjectionUserKeyResolver = (
   userId: string,
 ) => Promise<ProjectionUserKey | null>;
 
-export type PrincipalPolicyCache = Map<string, VerifiedPrincipalPolicy>;
+export type PrincipalPolicyCache = Map<string, PrincipalPolicyCurrentEvidence>;
+
+export interface PrincipalPolicyResolveRequest {
+  readonly organizationId: string;
+  readonly reference: ReferencedPrincipalHead;
+  readonly stillCurrent?: (() => boolean) | undefined;
+}
+
+export interface ResolvedPrincipalPolicyEvidence {
+  readonly stillCurrent: () => boolean;
+  readonly organizationId: string;
+  readonly policy: VerifiedPrincipalPolicyCurrent;
+  readonly dependencies: readonly VerifiedPrincipalPolicyCurrent[];
+}
 
 export interface ReferencedPrincipalPolicyWarmRequest {
   readonly organizationId: string;
@@ -33,6 +47,11 @@ export type ReferencedPrincipalPolicyWarmer = ((
   input: ReferencedPrincipalPolicyWarmRequest,
 ) => Promise<void>) & {
   readonly cacheBundles?: PrincipalPolicyBundleCacher | undefined;
+  readonly resolveReference?:
+    | ((
+        input: PrincipalPolicyResolveRequest,
+      ) => Promise<ResolvedPrincipalPolicyEvidence>)
+    | undefined;
 };
 
 export class ProjectionVerificationCancelledError extends Error {
@@ -90,7 +109,20 @@ export function generationGuardedPrincipalPolicyWarmer(
     operation: ReferencedPrincipalPolicyWarmer,
   ): ReferencedPrincipalPolicyWarmer => {
     const guarded = guard(operation);
+    const resolve = operation.resolveReference;
     return Object.assign(guarded, {
+      ...(resolve
+        ? {
+            resolveReference: async (input: PrincipalPolicyResolveRequest) => {
+              const current = () =>
+                stillCurrent() && input.stillCurrent?.() !== false;
+              assertProjectionVerificationCurrent(current);
+              const result = await resolve({ ...input, stillCurrent: current });
+              assertProjectionVerificationCurrent(current);
+              return result;
+            },
+          }
+        : {}),
       ...(operation.cacheBundles
         ? {
             cacheBundles: async (input: PrincipalPolicyBundleCacheRequest) => {

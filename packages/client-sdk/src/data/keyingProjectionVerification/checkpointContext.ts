@@ -1,12 +1,12 @@
 import {
   type AccessManifestCheckpoint,
-  type AnyVerifiedPrincipalPolicy,
   KeyingVerificationError,
   type VerifiedAccessManifestCheckpointEvidence,
   type VerifiedContainerAccessManifest,
 } from "@tearleads/crypto";
 import { rememberVerifiedContainerHeads } from "../containers/shared/heldContainerHeads";
 import type { DocumentPurgeCheckpoint } from "../persistence/documentPurgeCheckpointPersistence";
+import type { PrincipalPolicyCheckpointEvidence } from "../principals/principalPolicyEvidence";
 import type { ExecSql } from "../sqlite/sqlSchema";
 import {
   enforceAccessManifestCheckpoints,
@@ -20,7 +20,7 @@ export interface ProjectionCheckpointContext {
   // Local checkpoints read during this verification, one read per object.
   readonly localCheckpoints: Map<string, AccessManifestCheckpoint | null>;
   organizationId?: string | undefined;
-  readonly policies: AnyVerifiedPrincipalPolicy[];
+  readonly policies: PrincipalPolicyCheckpointEvidence[];
   readonly verifiedHeads: VerifiedAccessManifestCheckpointEvidence[];
   readonly verifiedManifests: VerifiedAccessManifestCheckpointEvidence[];
 }
@@ -60,7 +60,7 @@ export function observeAccessManifestCheckpoints(
 
 export function observePrincipalPolicy(
   context: ProjectionCheckpointContext,
-  policy: AnyVerifiedPrincipalPolicy,
+  policy: PrincipalPolicyCheckpointEvidence,
   organizationId?: string | undefined,
 ): void {
   if (

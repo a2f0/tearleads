@@ -8,7 +8,6 @@ import type {
   ContainerKeyWrap,
   ContainerRevokeAccessEventBody,
   ContainerUserRecipientKey,
-  VerifiedPrincipalPolicy,
 } from "@tearleads/crypto";
 import {
   computeContainerKekKeyringHash,
@@ -46,6 +45,7 @@ import {
   type ReferencedPrincipalPolicyWarmer,
   requireProjectionUserKeyResolver,
 } from "../../../data/keyingProjectionVerification";
+import type { PrincipalPolicyCurrentEvidence } from "../../../data/principals/principalPolicyEvidence";
 import type { SecurityIncidentReporter } from "../../../data/securityIncidents";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import { buildContainerRotationArtifacts } from "./moveRotation";
@@ -78,7 +78,7 @@ function buildContainerRevokeRequest(input: {
   predecessorBridge: ContainerKekPredecessorBridge;
   previousManifest: AccessManifestBundleWire;
   previousProjection: ContainerWriterProjectionResponse;
-  principalPolicies: readonly VerifiedPrincipalPolicy[];
+  principalPolicies: readonly PrincipalPolicyCurrentEvidence[];
   userRecipientKeys: readonly ContainerUserRecipientKey[];
   wraps: readonly ContainerKeyWrap[];
 }): ContainerMutationRequest {
@@ -115,7 +115,7 @@ function buildContainerRevokePlanResult(input: {
   predecessorBridge: ContainerKekPredecessorBridge;
   previousManifest: AccessManifestBundleWire;
   previousProjection: ContainerWriterProjectionResponse;
-  principalPolicies: readonly VerifiedPrincipalPolicy[];
+  principalPolicies: readonly PrincipalPolicyCurrentEvidence[];
   state: ContainerAccessManifestState;
   userRecipientKeys: ContainerUserRecipientKey[];
   wraps: ContainerKeyWrap[];
@@ -166,7 +166,7 @@ export async function buildMaterializedContainerRevokePlan(input: {
   previousProjection: ContainerWriterProjectionResponse;
   /** Verified policies the path may cite before they are stored locally. */
   principalPolicyCache?: PrincipalPolicyCache | undefined;
-  replacementPrincipalPolicy?: VerifiedPrincipalPolicy | undefined;
+  replacementPrincipalPolicy?: PrincipalPolicyCurrentEvidence | undefined;
   revokedSubject: ContainerRevokeSubject;
   resolveProjectionUserKey: ProjectionUserKeyResolver;
   signedAt?: string | undefined;
