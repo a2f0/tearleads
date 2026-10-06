@@ -15,6 +15,12 @@ import {
   ensurePrincipalPolicyTables,
   savePrincipalPolicyBundle,
 } from "../persistence/principalPolicyPersistence";
+import {
+  principalHistoryEvidenceTables,
+  principalHistoryPrefixes,
+} from "../sqlite/principalHistoryEvidenceSchema";
+import { getClientSQLitePersistenceRuntime } from "../sqlite/sqlitePersistenceRuntime";
+import { ensureSqlTables } from "../sqlite/sqlSchema";
 import { unwrapKeyEnvelopesWithPrincipalPolicies } from "./principalPolicyCrypto";
 
 async function createPrincipalPolicyBundle(input: {
@@ -177,6 +183,79 @@ test("principal policy crypto unwraps an object key addressed to a cached group 
         execSql,
         secretKey: aliceKem.secretKey,
       }),
+    ).resolves.toEqual(objectKey);
+  } finally {
+    close();
+  }
+});
+
+test("paged envelope candidates open only their actual recipient key", async () => {
+  const alice = generateKemSeedAndKeyPair();
+  const group = generateKemSeedAndKeyPair();
+  const wrongGroup = generateKemSeedAndKeyPair();
+  const objectKey = crypto.getRandomValues(new Uint8Array(32));
+  const { close, execSql } = await createTestExecSql(
+    "paged-principal-key-candidates",
+  );
+  try {
+    const bundle = await createPrincipalPolicyBundle({
+      members: [{ userId: "alice" }],
+      memberRecipientPublicKeys: [
+        { userId: "alice", publicKey: alice.publicKey },
+      ],
+      principalId: "paged-group",
+      principalKem: group,
+      signedAt: "2026-04-08T00:00:00.000Z",
+    });
+    const wrong = await createPrincipalPolicyBundle({
+      members: [{ userId: "alice" }],
+      memberRecipientPublicKeys: [
+        { userId: "alice", publicKey: alice.publicKey },
+      ],
+      principalId: "paged-group",
+      principalKem: wrongGroup,
+      signedAt: "2026-04-08T00:00:00.000Z",
+    });
+    const [wrapped] = await wrapDekForRecipients(objectKey, [group.publicKey]);
+    if (!wrapped) throw new Error("Missing object key wrap");
+    const input = {
+      execSql,
+      secretKey: alice.secretKey,
+      envelopes: [
+        {
+          keyFingerprint: wrapped.keyFingerprint,
+          kemCipherText: bytesToBase64(wrapped.kemCipherText),
+          wrappedKey: bytesToBase64(wrapped.wrappedKey),
+        },
+      ],
+    };
+    await ensureSqlTables(execSql, principalHistoryEvidenceTables);
+    const { db } = getClientSQLitePersistenceRuntime(execSql);
+    // Deliberately untrusted cache: this helper supplies keys, never authority.
+    // Claimed fingerprints cannot make a different private key open the wrap.
+    await db
+      .insert(principalHistoryPrefixes)
+      .values({
+        scopeId: "cache",
+        organizationId: "org",
+        version: 1,
+        headJson: "{}",
+        progress: "untrusted",
+        currentJson: JSON.stringify({
+          ...wrong,
+          currentState: bundle.currentState,
+        }),
+      })
+      .run();
+    await expect(
+      unwrapKeyEnvelopesWithPrincipalPolicies(input),
+    ).rejects.toThrow("No matching key envelope");
+    await db
+      .update(principalHistoryPrefixes)
+      .set({ currentJson: JSON.stringify(bundle) })
+      .run();
+    await expect(
+      unwrapKeyEnvelopesWithPrincipalPolicies(input),
     ).resolves.toEqual(objectKey);
   } finally {
     close();

@@ -1,17 +1,17 @@
 import { type RecipientEntry, unwrapDek } from "@tearleads/crypto";
 import { base64ToBytes } from "@tearleads/encoding";
-import type {
-  PrincipalMemberEnvelopeResponse,
-  PrincipalPolicyBundleResponse,
-} from "@tearleads/validators/response";
+import type { PrincipalMemberEnvelopeResponse } from "@tearleads/validators/response";
 import type { SerializedKeyEnvelope } from "@tearleads/validators/util";
-import { loadAllPrincipalPolicyBundles } from "../persistence/principalPolicyPersistence";
+import {
+  loadPrincipalKeyEnvelopeCandidates,
+  type PrincipalKeyEnvelopeCandidate,
+} from "../persistence/principalKeyEnvelopeCandidates";
 import type { ExecSql } from "../sqlite/sqlSchema";
 
 interface PrincipalPolicyResolutionContext {
   bundlesByKeyFingerprint: ReadonlyMap<
     string,
-    ReadonlyArray<PrincipalPolicyBundleResponse>
+    ReadonlyArray<PrincipalKeyEnvelopeCandidate>
   >;
   resolvedPrincipalSecretKeys: Map<string, Uint8Array>;
 }
@@ -38,7 +38,7 @@ function toMemberEnvelopeEntries(
 
 function principalBundleKey(
   bundle: Pick<
-    PrincipalPolicyBundleResponse["currentState"],
+    PrincipalKeyEnvelopeCandidate["currentState"],
     "principalType" | "principalId"
   >,
 ): string {
@@ -47,11 +47,15 @@ function principalBundleKey(
 
 async function createPrincipalPolicyResolutionContext(
   execSql: ExecSql,
+  fingerprints: readonly string[],
 ): Promise<PrincipalPolicyResolutionContext> {
-  const bundles = await loadAllPrincipalPolicyBundles(execSql);
+  const bundles = await loadPrincipalKeyEnvelopeCandidates(
+    execSql,
+    fingerprints,
+  );
   const bundlesByKeyFingerprint = new Map<
     string,
-    PrincipalPolicyBundleResponse[]
+    PrincipalKeyEnvelopeCandidate[]
   >();
 
   for (const bundle of bundles) {
@@ -71,7 +75,7 @@ async function createPrincipalPolicyResolutionContext(
 }
 
 async function unwrapPrincipalSecretKey(
-  bundle: PrincipalPolicyBundleResponse,
+  bundle: PrincipalKeyEnvelopeCandidate,
   secretKey: Uint8Array,
   context: PrincipalPolicyResolutionContext,
 ): Promise<Uint8Array> {
@@ -118,7 +122,10 @@ export async function unwrapKeyEnvelopesWithPrincipalPolicies(input: {
     }
   }
 
-  const context = await createPrincipalPolicyResolutionContext(input.execSql);
+  const context = await createPrincipalPolicyResolutionContext(
+    input.execSql,
+    input.envelopes.map((envelope) => envelope.keyFingerprint),
+  );
   const attemptedPrincipalKeys = new Set<string>();
 
   for (const envelope of input.envelopes) {
