@@ -13,6 +13,7 @@ import { DOCUMENT_SYNC_ERROR_CODES } from "@tearleads/validators/response";
 import { createAuthor } from "../../../test/helpers/documentFixturePrimitives";
 import { createResponseFromRequest } from "../../../test/helpers/documentResponseFixtures";
 import { createTestTrustedUserIdentityResolver } from "../../../test/helpers/trustedUserIdentity";
+import { ProjectionDependencyUnavailableError } from "../../data/keyingProjectionVerification/dependencyUnavailable";
 import {
   createRemoteDocument,
   isStaleDocumentCreateTargetConflict,
@@ -143,77 +144,84 @@ test("createRemoteDocument replans once when the target container head advances"
   }
 });
 
-test("createRemoteDocument refetches after a container projection rollback", async () => {
-  const { author, signingPublicKey } = await createAuthor();
-  const keyPair = generateKemSeedAndKeyPair();
-  const projection = await createContainerWriterProjectionFixture({
-    containerId: "rolled-back-create-container",
-    encapsulationPublicKey: keyPair.publicKey,
-    organizationId: author.organizationId,
-    signerKeyFingerprint: author.signerKeyFingerprint,
-    signerPrivateKey: author.signerPrivateKey,
-    userId: author.signerUserId,
-  });
-  const submittedRequests: DocumentCreateRequest[] = [];
-  let projectionReads = 0;
-  let evictions = 0;
-  let injectRollback = true;
-  const resolveTrustedIdentity = createTestTrustedUserIdentityResolver({
-    encapsulationPublicKey: keyPair.publicKey,
-    signingKeyFingerprint: author.signerKeyFingerprint,
-    signingPublicKey,
-    userId: author.signerUserId,
-  });
-  const { close, execSql } = await createTestExecSql(
-    "document-create-projection-rollback",
-  );
-
-  try {
-    const created = await createRemoteDocument({
-      apiClient: createMockApiClient({
-        createDocument: async (request) => {
-          submittedRequests.push(request);
-          return createResponseFromRequest(request);
-        },
-        evictContainerWriterProjection: () => {
-          evictions += 1;
-        },
-        getContainerWriterProjection: async () => {
-          projectionReads += 1;
-          return projection;
-        },
-        primeDocumentWriterProjection: () => undefined,
-      }),
-      author,
-      containerId: projection.containerId,
-      documentId: "rollback-retry-document",
-      eventId: "rollback-retry-event",
-      execSql,
-      resolveProjectionUserKey: async (userId) => {
-        if (injectRollback) {
-          injectRollback = false;
-          throw new KeyingVerificationError(
-            "rollback",
-            "container projection lost a local checkpoint race",
-          );
-        }
-        return resolveTrustedIdentity(userId);
-      },
-      signedAt: "2026-07-14T00:00:00.000Z",
-      targetSecretKey: keyPair.secretKey,
+test.each(["rollback", "unavailable"] as const)(
+  "createRemoteDocument refetches after a container projection %s",
+  async (kind) => {
+    const { author, signingPublicKey } = await createAuthor();
+    const keyPair = generateKemSeedAndKeyPair();
+    const projection = await createContainerWriterProjectionFixture({
+      containerId: "rolled-back-create-container",
+      encapsulationPublicKey: keyPair.publicKey,
+      organizationId: author.organizationId,
+      signerKeyFingerprint: author.signerKeyFingerprint,
+      signerPrivateKey: author.signerPrivateKey,
+      userId: author.signerUserId,
     });
-
-    expect(created?.documentId).toBe("rollback-retry-document");
-    expect(projectionReads).toBe(2);
-    expect(evictions).toBe(1);
-    expect(submittedRequests).toHaveLength(1);
-    expect(Reflect.get(submittedRequests[0]?.event ?? {}, "eventId")).toBe(
-      "rollback-retry-event",
+    const submittedRequests: DocumentCreateRequest[] = [];
+    let projectionReads = 0;
+    let evictions = 0;
+    let injectRollback = true;
+    const resolveTrustedIdentity = createTestTrustedUserIdentityResolver({
+      encapsulationPublicKey: keyPair.publicKey,
+      signingKeyFingerprint: author.signerKeyFingerprint,
+      signingPublicKey,
+      userId: author.signerUserId,
+    });
+    const { close, execSql } = await createTestExecSql(
+      "document-create-projection-rollback",
     );
-  } finally {
-    close();
-  }
-});
+
+    try {
+      const created = await createRemoteDocument({
+        apiClient: createMockApiClient({
+          createDocument: async (request) => {
+            submittedRequests.push(request);
+            return createResponseFromRequest(request);
+          },
+          evictContainerWriterProjection: () => {
+            evictions += 1;
+          },
+          getContainerWriterProjection: async () => {
+            projectionReads += 1;
+            return projection;
+          },
+          primeDocumentWriterProjection: () => undefined,
+        }),
+        author,
+        containerId: projection.containerId,
+        documentId: "rollback-retry-document",
+        eventId: "rollback-retry-event",
+        execSql,
+        resolveProjectionUserKey: async (userId) => {
+          if (injectRollback) {
+            injectRollback = false;
+            throw kind === "rollback"
+              ? new KeyingVerificationError(
+                  "rollback",
+                  "container projection lost a local checkpoint race",
+                )
+              : new ProjectionDependencyUnavailableError(
+                  "Newer principal checkpoint needs fresh evidence",
+                );
+          }
+          return resolveTrustedIdentity(userId);
+        },
+        signedAt: "2026-07-14T00:00:00.000Z",
+        targetSecretKey: keyPair.secretKey,
+      });
+
+      expect(created?.documentId).toBe("rollback-retry-document");
+      expect(projectionReads).toBe(2);
+      expect(evictions).toBe(1);
+      expect(submittedRequests).toHaveLength(1);
+      expect(Reflect.get(submittedRequests[0]?.event ?? {}, "eventId")).toBe(
+        "rollback-retry-event",
+      );
+    } finally {
+      close();
+    }
+  },
+);
 
 test("createRemoteDocument propagates rollback from the refetched projection", async () => {
   const { author } = await createAuthor();

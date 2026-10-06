@@ -3,16 +3,10 @@ import {
   type ContainerWriterProjectionResponse,
   DOCUMENT_SYNC_ERROR_CODES,
   type DocumentCreateResponse,
-  type DocumentWriterProjectionResponse,
 } from "@tearleads/validators/response";
 import { assertContainerAuthorAccess } from "../../data/containers/shared/authorAccess";
 import { buildDocumentCreatePlan } from "../../data/documents/shared/events";
-import { acknowledgeDocumentMutation } from "../../data/documents/shared/mutationAcknowledgement";
-import {
-  assertDocumentWriterProjectionConsistent,
-  wrapDocumentContentKeyForCreate,
-} from "../../data/documents/shared/projection";
-import { persistedDocumentCreateStateFromResponse } from "../../data/documents/shared/responses";
+import { wrapDocumentContentKeyForCreate } from "../../data/documents/shared/projection";
 import type {
   CreateRemoteDocumentResult,
   DocumentCreateApi,
@@ -36,6 +30,7 @@ import { recordDocumentAuthorAccessFailure } from "./authorAccessFailure";
 import { adoptExistingRemoteDocument } from "./createAdoption";
 import type { DocumentCreateTerminalFailureHandler } from "./createProjectionFetch";
 import { fetchContainerWriterProjectionForCreate } from "./createProjectionFetch";
+import { acknowledgeRemoteDocumentCreate } from "./createResponse";
 import {
   isDocumentManifestAlreadyExistsConflict,
   shouldRetryWithFreshProjection,
@@ -113,36 +108,7 @@ export async function buildMaterializedDocumentCreatePlan(
   };
 }
 
-/**
- * Build the writer projection a document-create response establishes, from the
- * container projection the create was authored against plus the manifest,
- * content-key bundle, and KEK targets the server just returned. This is the
- * same material a cold `GET /documents/:id/writer-projection` would yield, so
- * seeding it lets the first read after a create resolve locally. Shared by the
- * plain document-create path and the container-with-metadata-document path,
- * whose response carries an equivalent `DocumentCreateResponse`.
- */
-export function documentWriterProjectionFromCreateResponse(input: {
-  containerProjection: ContainerWriterProjectionResponse;
-  response: DocumentCreateResponse;
-}): DocumentWriterProjectionResponse {
-  return {
-    policyEvidence: input.containerProjection.policyEvidence,
-    authorizingContainerPaths: [input.containerProjection],
-    contentKeyBundle: input.response.contentKeyBundle,
-    documentContainerManifestHistory: [
-      ...input.containerProjection.path,
-      ...input.containerProjection.containerKeks.flatMap(
-        (kek) => kek.containerManifestHistory,
-      ),
-    ],
-    documentId: input.response.id,
-    documentKekTargets: input.response.documentKekTargets,
-    documentManifest: input.response.accessManifest,
-    documentManifestContainerPaths: [[...input.containerProjection.path]],
-    documentManifestHistory: [],
-  };
-}
+export { documentWriterProjectionFromCreateResponse } from "./createProjection";
 
 interface MaterializedDocumentCreatePlanWithProjection {
   readonly containerProjection: ContainerWriterProjectionResponse;
@@ -374,49 +340,13 @@ export async function createRemoteDocument(
   }
   const { createPlan, submission } = plannedSubmission;
   if (input.stillCurrent?.() === false) return null;
-  if (submission.ok) {
-    const response = submission.data;
-    const persistedState = persistedDocumentCreateStateFromResponse(
-      createPlan.materializedPlan.plan,
-      response,
-    );
-    await acknowledgeDocumentMutation({
-      execSql: input.execSql,
-      plan: createPlan.materializedPlan.plan,
-      stillCurrent: input.stillCurrent,
+  if (submission.ok)
+    return acknowledgeRemoteDocumentCreate({
+      ...input,
+      ...createPlan,
+      resolveProjectionUserKey,
+      response: submission.data,
     });
-    if (input.stillCurrent?.() === false) return null;
-    const writerProjection = documentWriterProjectionFromCreateResponse({
-      containerProjection: createPlan.containerProjection,
-      response,
-    });
-    const verifiedTargets = await nullOnProjectionVerificationCancellation(() =>
-      assertDocumentWriterProjectionConsistent(writerProjection, {
-        execSql: input.execSql,
-        resolveProjectionUserKey,
-        stillCurrent: input.stillCurrent,
-        warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
-      }),
-    );
-    if (!verifiedTargets) return null;
-    if (input.stillCurrent?.() === false) return null;
-    // Seed the projection the create response already gave us so the first read
-    // after create (sync, blob attach, container-contents hydration) resolves
-    // locally instead of a cold GET writer-projection.
-    input.apiClient.primeDocumentWriterProjection(
-      response.id,
-      writerProjection,
-    );
-
-    return {
-      contentKey: createPlan.materializedPlan.contentKey,
-      documentId: response.id,
-      persistedState,
-      plan: createPlan.materializedPlan.plan,
-      response,
-      writerProjection,
-    };
-  }
 
   // A stable documentId means a retry after a lost create response re-submits
   // the same id; the server then reports the manifest already exists. That is

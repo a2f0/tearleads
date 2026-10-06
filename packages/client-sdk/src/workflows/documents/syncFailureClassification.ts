@@ -9,6 +9,7 @@ import {
   isUpstreamDeletedDocumentSyncFailure,
 } from "../../data/documents/shared/responses";
 import type { DocumentSyncSubmitFailure } from "../../data/documents/shared/types";
+import { ProjectionDependencyUnavailableError } from "../../data/keyingProjectionVerification/dependencyUnavailable";
 import { isKeyingVerificationError } from "../../data/keyingProjectionVerification/error";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 
@@ -106,7 +107,11 @@ export function shouldRetryWithFreshProjection(
 ): boolean {
   // A peer may already have repaired the chain. Refetch once; the same guard
   // rejects a still-stale response before any new ciphertext is produced.
-  if (error instanceof ContainerKekRepairRequiredError) return true;
+  if (
+    error instanceof ContainerKekRepairRequiredError ||
+    error instanceof ProjectionDependencyUnavailableError
+  )
+    return true;
   const integrityErrorCode = projectionIntegrityErrorCode(error);
   if (integrityErrorCode) {
     return integrityErrorCode === "rollback";
