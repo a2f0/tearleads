@@ -78,8 +78,15 @@ export async function loadProjectionDirectoryBindings(input: {
   const current = await readDirectory({
     executor: input.executor,
     organizationId,
-    ...input.organization,
+    stateHash: input.organization.stateHash,
+    payloadCiphertextHash: input.organization.payloadCiphertextHash,
   });
+  const directories = new Map([
+    [
+      `${input.organization.stateHash}:${input.organization.payloadCiphertextHash}`,
+      current,
+    ],
+  ]);
   const bindings: DirectoryBindings = {
     latest: new Map(),
     adminGroupIds: new Set([current.directory.adminGroupId]),
@@ -103,12 +110,17 @@ export async function loadProjectionDirectoryBindings(input: {
           "Projection group directory binding missing",
           409,
         );
-      source = await readDirectory({
-        executor: input.executor,
-        organizationId,
-        stateHash: row.organizationStateHash,
-        payloadCiphertextHash: row.payloadCiphertextHash,
-      });
+      const directoryKey = `${row.organizationStateHash}:${row.payloadCiphertextHash}`;
+      const retained = directories.get(directoryKey);
+      source =
+        retained ??
+        (await readDirectory({
+          executor: input.executor,
+          organizationId,
+          stateHash: row.organizationStateHash,
+          payloadCiphertextHash: row.payloadCiphertextHash,
+        }));
+      directories.set(directoryKey, source);
       head = source.directory.groupHeads.find(
         (candidate) => candidate.principalId === groupId,
       );
@@ -127,14 +139,21 @@ export async function loadProjectionDirectoryBindings(input: {
     bindings.adminGroupIds.add(source.directory.adminGroupId);
     needed.add(source.directory.adminGroupId);
   }
-  const bytes =
+  bindingsByHead.set(key, structuredClone(bindings), bindingBytes(bindings));
+  return bindings;
+}
+
+function bindingBytes(bindings: DirectoryBindings): number {
+  return (
     JSON.stringify({
       heads: [...bindings.latest.values()],
       admins: [...bindings.adminGroupIds],
-      payloads: [...new Set(bindings.bindingPayloadByGroupState.values())],
     }).length *
       4 +
-    bindings.latest.size * 256;
-  bindingsByHead.set(key, structuredClone(bindings), bytes);
-  return bindings;
+    [...new Set(bindings.bindingPayloadByGroupState.values())].reduce(
+      (total, payload) => total + payload.ciphertext.length * 4 + 512,
+      0,
+    ) +
+    bindings.latest.size * 256
+  );
 }

@@ -1,6 +1,9 @@
 import { expect, spyOn, test } from "bun:test";
 import { db } from "@tearleads/api-shared/postgres";
-import { principalDirectoryBindings } from "@tearleads/api-shared/schema";
+import {
+  principalDirectoryBindings,
+  principalStatePayloads,
+} from "@tearleads/api-shared/schema";
 import { createTestUser } from "@tearleads/bob-and-alice";
 import {
   computePrincipalStateHash,
@@ -23,6 +26,7 @@ import {
   clearProjectionDirectoryBindingsCache,
   loadProjectionDirectoryBindings,
 } from "./projectionDirectoryBindings";
+import { storeVerifiedPrincipalDirectoryBindings } from "./storeVerifiedPrincipalDirectoryBindings";
 
 async function fixture() {
   const actor = createTestUser();
@@ -122,6 +126,26 @@ test("deleted group bindings remain scoped to their signed directory and pin", a
   });
   expect(successor.status).toBe(200);
   await successor.arrayBuffer();
+  const repeated = await getCurrentPrincipalState(
+    "organization",
+    f.organizationId,
+    db,
+  );
+  if (!repeated) throw new Error("Missing repeated directory");
+  const repeatedPayload = await stateStore.getPrincipalStatePayloadForState(
+    "organization",
+    f.organizationId,
+    repeated.stateHash,
+    db,
+  );
+  if (!repeatedPayload) throw new Error("Missing repeated directory payload");
+  await db.transaction((executor) =>
+    storeVerifiedPrincipalDirectoryBindings({
+      executor,
+      state: repeated,
+      ciphertext: repeatedPayload.ciphertext,
+    }),
+  );
   const deleted = await deleteGroupRequest({
     actor: f.actor,
     organizationId: f.organizationId,
@@ -190,4 +214,34 @@ test("deleted group bindings remain scoped to their signed directory and pin", a
   expect(
     (await loadProjectionDirectoryBindings(input)).latest.get(groupId)?.version,
   ).toBe(2);
+});
+
+test("a changed directory payload fails hash verification without poisoning the memo", async () => {
+  const f = await fixture();
+  const where = and(
+    eq(principalStatePayloads.principalId, f.organizationId),
+    eq(principalStatePayloads.stateHash, f.organization.stateHash),
+  );
+  const [payload] = await db.select().from(principalStatePayloads).where(where);
+  if (!payload) throw new Error("Missing directory payload");
+  const input = {
+    executor: db,
+    organization: f.organization,
+    groupIds: [f.directory.memberGroupId],
+  };
+  try {
+    await db
+      .update(principalStatePayloads)
+      .set({ ciphertext: "AAAA" })
+      .where(where);
+    await expect(loadProjectionDirectoryBindings(input)).rejects.toThrow(
+      "payload hash mismatch",
+    );
+  } finally {
+    await db
+      .update(principalStatePayloads)
+      .set({ ciphertext: payload.ciphertext })
+      .where(where);
+  }
+  expect((await loadProjectionDirectoryBindings(input)).latest.size).toBe(2);
 });

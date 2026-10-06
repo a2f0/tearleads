@@ -13,7 +13,6 @@ import {
   type StoreVerifiedPrincipalStateOptions,
   storeVerifiedPrincipalStateInTransaction,
 } from "../../src/access/write/principalStateStore";
-
 import { parseOrganizationAuthorityDescriptor } from "../../src/workflows/organizations/organizationAuthorityDescriptor";
 import { storeVerifiedPrincipalDirectoryBindings } from "../../src/workflows/principals/storeVerifiedPrincipalDirectoryBindings";
 
