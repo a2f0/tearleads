@@ -7,6 +7,7 @@ import {
 } from "../../access/read/principalStateStore";
 import { canonicalJsonEquals } from "../../utils/canonicalJson";
 import { ContainerWriterProjectionError } from "../containers/writerProjection";
+import { StoredDocumentManifestError } from "../documents/storedDocumentManifestVerification";
 import { DocumentWriterProjectionError } from "../documents/writerProjectionError";
 import { principalHistoryHead } from "./principalHistoryRecords";
 import { runPrincipalHistoryTransaction } from "./principalHistoryTransaction";
@@ -43,7 +44,8 @@ export async function runReadProjectionPolicyHistoryWorkflow(
   } catch (error) {
     if (
       error instanceof ContainerWriterProjectionError ||
-      error instanceof DocumentWriterProjectionError
+      error instanceof DocumentWriterProjectionError ||
+      error instanceof StoredDocumentManifestError
     )
       throw new PrincipalPolicyError(error.message, error.status);
     throw error;

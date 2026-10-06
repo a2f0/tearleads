@@ -1,11 +1,12 @@
 import type { DatabaseSession } from "@tearleads/api-shared/postgres";
 import {
+  ContainerWriterProjectionError,
   createContainerWriterProjectionContext,
   resolveContainerAccessProjection,
+  resolveContainerAccessProjectionBatch,
 } from "../containers/writerProjection";
 import { loadCurrentDocumentManifestBundle } from "../documents/documentManifestBundle";
 import { verifyStoredDocumentManifest } from "../documents/storedDocumentManifestVerification";
-import { resolveAuthorizingContainerPathCandidates } from "../documents/writerProjectionContainerPaths";
 import type { ProjectionPolicyHistoryScope } from "./projectionPolicyHistoryGrant";
 import { PrincipalPolicyError } from "./shared";
 
@@ -45,15 +46,29 @@ export async function assertProjectionPolicyHistoryAccess(
       "Projection policy history access denied",
       403,
     );
-  const candidates = await resolveAuthorizingContainerPathCandidates({
+  const candidates = await resolveContainerAccessProjectionBatch({
     executor,
     context,
     userId: scope.userId,
     containerIds: manifest.state.linkedContainerIds,
+    minimumAccessLevel: "read",
   });
+  for (const candidate of candidates.values()) {
+    if (
+      candidate.status === "rejected" &&
+      !(
+        candidate.reason instanceof ContainerWriterProjectionError &&
+        candidate.reason.status === 403
+      )
+    )
+      throw candidate.reason;
+  }
   if (
-    !candidates.paths.some(
-      (path) => path.organizationId === scope.organizationId,
+    ![...candidates.values()].some(
+      (candidate) =>
+        candidate.status === "fulfilled" &&
+        candidate.value.verifiedPath.at(-1)?.state.organizationId ===
+          scope.organizationId,
     )
   )
     throw new PrincipalPolicyError(

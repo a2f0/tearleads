@@ -1,4 +1,4 @@
-import { expect, test } from "bun:test";
+import { expect, spyOn, test } from "bun:test";
 import { createTestUser } from "@tearleads/bob-and-alice";
 import { PrincipalPolicySnapshotPageResponseSchema } from "@tearleads/validators/response";
 import {
@@ -12,11 +12,45 @@ import {
   getPolicy,
   registerAndAuthenticate,
 } from "../../../test/helpers/principalPolicyReadFixtures";
+import * as containerKeys from "../../access/read/containerKekStore";
 import { routeApp } from "../../routeApp";
 import {
   issueProjectionPolicyHistoryGrant,
   type ProjectionPolicyHistoryGrant,
 } from "../../workflows/principals/projectionPolicyHistoryGrant";
+
+test("document history access does not load container keys", async () => {
+  const owner = createTestUser();
+  await registerAndAuthenticate(owner);
+  const root = await bootstrapRoot(owner);
+  const document = await createDocument({ owner, root });
+  const history = await principalHistoryPreparationFixture({ versions: 1 });
+  const grant = issueProjectionPolicyHistoryGrant({
+    organizationId: await getDefaultOrganizationId(owner.userId),
+    objectKind: "document",
+    objectId: document.id,
+    userId: owner.userId,
+    head: history.head,
+  });
+  const keys = spyOn(
+    containerKeys,
+    "getContainerKeyEpochById",
+  ).mockImplementation(() => {
+    throw new Error(
+      "Public history authorization must not load container keys",
+    );
+  });
+  try {
+    const response = await requestPreparedPrincipalPolicy(
+      `/principals/history?${new URLSearchParams({ grant })}`,
+      { headers: { Authorization: `Bearer ${owner.token}` } },
+    );
+    expect(response.status, await response.clone().text()).toBe(200);
+    expect(keys).not.toHaveBeenCalled();
+  } finally {
+    keys.mockRestore();
+  }
+}, 15_000);
 
 test.each(["container", "document"] as const)(
   "%s-scoped public history checks the reader on every pinned page",
@@ -34,7 +68,8 @@ test.each(["container", "document"] as const)(
       (await getPolicy(owner, "group", history.head.principalId)).status,
     ).toBe(403);
     // Exercise a server-issued public read scope with no live group, secret
-    // payload or member envelope. Production issuance checks directory binding.
+    // payload or member envelope. This fixture issues the scope directly;
+    // production projection-source issuance is a separate integration step.
     const scope: ProjectionPolicyHistoryGrant = {
       organizationId: await getDefaultOrganizationId(owner.userId),
       objectKind,
