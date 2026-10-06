@@ -21,6 +21,7 @@ import {
 } from "../../services/principals/putPrincipalPolicy";
 import {
   PrincipalHistoryContinuation,
+  PrincipalHistoryPreparationUnavailable,
   PrincipalPolicyError,
 } from "../../services/principals/shared";
 import type { ApiServiceRuntime } from "../../services/runtime";
@@ -96,6 +97,15 @@ async function publishPrincipalAccessChanges(
 }
 
 function toPrincipalPolicyErrorResponse(error: unknown): Response | null {
+  if (error instanceof PrincipalHistoryPreparationUnavailable)
+    return Response.json(
+      {
+        error: error.message,
+        code: "principal_history_preparation_unavailable",
+        committed: false,
+      },
+      { status: 503, headers: { "Cache-Control": "no-store" } },
+    );
   if (error instanceof PrincipalHistoryContinuation)
     return Response.json(
       {

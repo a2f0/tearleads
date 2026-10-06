@@ -46455,15 +46455,19 @@
                 "schema": {
                   "type": "object",
                   "properties": {
+                    "error": {
+                      "type": "string"
+                    },
                     "code": {
                       "type": "string",
                       "enum": [
                         "billing_checkout_no_active_members",
-                        "billing_roster_over_capacity"
+                        "billing_roster_over_capacity",
+                        "principal_history_preparation_unavailable"
                       ]
                     },
-                    "error": {
-                      "type": "string"
+                    "committed": {
+                      "type": "boolean"
                     }
                   },
                   "required": [
@@ -46485,6 +46489,10 @@
           {
             "description": "a container response keyring is null exactly for container key epoch 1",
             "id": "response.organization-provisioning-container-keyring"
+          },
+          {
+            "id": "response.principal-history-preparation-rollback",
+            "description": "A 503 with code principal_history_preparation_unavailable requires committed:false; other 503 responses do not guarantee rollback."
           }
         ]
       }
@@ -67214,15 +67222,19 @@
                 "schema": {
                   "type": "object",
                   "properties": {
+                    "error": {
+                      "type": "string"
+                    },
                     "code": {
                       "type": "string",
                       "enum": [
                         "billing_checkout_no_active_members",
-                        "billing_roster_over_capacity"
+                        "billing_roster_over_capacity",
+                        "principal_history_preparation_unavailable"
                       ]
                     },
-                    "error": {
-                      "type": "string"
+                    "committed": {
+                      "type": "boolean"
                     }
                   },
                   "required": [
@@ -67244,6 +67256,10 @@
           {
             "description": "a container response keyring is null exactly for container key epoch 1",
             "id": "response.organization-provisioning-container-keyring"
+          },
+          {
+            "id": "response.principal-history-preparation-rollback",
+            "description": "A 503 with code principal_history_preparation_unavailable requires committed:false; other 503 responses do not guarantee rollback."
           }
         ]
       }

@@ -23347,7 +23347,8 @@ export interface operations {
                 content: {
                     "application/json": {
                         /** @enum {string} */
-                        code?: "billing_checkout_no_active_members" | "billing_roster_over_capacity";
+                        code?: "billing_checkout_no_active_members" | "billing_roster_over_capacity" | "principal_history_preparation_unavailable";
+                        committed?: boolean;
                         error: string;
                     } & {
                         [key: string]: unknown;
@@ -24964,7 +24965,8 @@ export interface operations {
                 content: {
                     "application/json": {
                         /** @enum {string} */
-                        code?: "billing_checkout_no_active_members" | "billing_roster_over_capacity";
+                        code?: "billing_checkout_no_active_members" | "billing_roster_over_capacity" | "principal_history_preparation_unavailable";
+                        committed?: boolean;
                         error: string;
                     } & {
                         [key: string]: unknown;

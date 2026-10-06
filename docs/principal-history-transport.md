@@ -100,6 +100,15 @@ private history recovery. Resource scheduling, durable client mutation recovery
 and the full transport acceptance run remain tracked in
 [#2448](https://github.com/a2f0/tearleads/issues/2448).
 
+When the preparation queue is full or its bounded attempt makes no progress,
+policy PUT routes return HTTP 503 with the exact
+`principal_history_preparation_unavailable` code and `committed: false`. This
+refusal is emitted only after the operation transaction has rolled back. The
+client validates that status-specific response before treating it as a known
+failure; it does not retry automatically. Generic, malformed or intermediary
+503 responses remain unknown outcomes, as do expired request lifetimes even
+when a rollback response arrives. A later user retry starts a fresh operation.
+
 ## Warm projection request cost
 
 A completed local prefix avoids replaying historical signatures, but online
