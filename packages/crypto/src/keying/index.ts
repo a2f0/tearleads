@@ -52,7 +52,11 @@ export {
   restorePrincipalPolicyHistoryVerifier,
 } from "./principalPolicyHistory";
 export type { PrincipalHistoryIndexNode } from "./principalPolicyHistoryIndex";
-export { createPrincipalHistoryIndexProof } from "./principalPolicyHistoryIndex";
+export {
+  createPrincipalHistoryIndexProof,
+  principalHistoryIndexLeaf,
+  resolvePrincipalHistoryIndexProof,
+} from "./principalPolicyHistoryIndex";
 export { PRINCIPAL_HISTORY_VERIFICATION_REVISION } from "./principalPolicyHistoryPage";
 export type { PrincipalPolicyHistoryReferenceProof } from "./principalPolicyHistoryReferences";
 export { verifyPrincipalPolicyHistoryReferences } from "./principalPolicyHistoryReferences";

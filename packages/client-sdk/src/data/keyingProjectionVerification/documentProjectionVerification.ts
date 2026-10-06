@@ -1,6 +1,5 @@
 import { retainVerifiedProjectionHistory } from "@tearleads/api-client";
 import type {
-  AnyVerifiedPrincipalPolicy,
   VerifiedContainerAccessManifest,
   VerifiedDocumentLinkSetManifest,
   VerifiedPrincipalPolicy,
@@ -9,6 +8,7 @@ import type {
   AccessManifestBundleWireResponse,
   DocumentWriterProjectionResponse,
 } from "@tearleads/validators/response";
+import type { PrincipalPolicyCheckpointEvidence } from "../principals/principalPolicyEvidence";
 import type { ExecSql } from "../sqlite/sqlSchema";
 import { addBundleByHash } from "./bundleVerification";
 import {
@@ -86,7 +86,7 @@ function collectDocumentProjectionContainerBundles(
 }
 
 async function verifyProjectionContainerPaths(input: {
-  readonly authorizationEvidence: readonly AnyVerifiedPrincipalPolicy[];
+  readonly authorizationEvidence: readonly PrincipalPolicyCheckpointEvidence[];
   readonly checkpointContext: ProjectionCheckpointContext;
   readonly principalPolicyCache: PrincipalPolicyCache;
   readonly projection: DocumentWriterProjectionResponse;
@@ -192,7 +192,7 @@ export interface DocumentWriterProjectionAuthorization {
     string,
     VerifiedDocumentLinkSetManifest
   >;
-  readonly principalPolicies: readonly AnyVerifiedPrincipalPolicy[];
+  readonly principalPolicies: readonly PrincipalPolicyCheckpointEvidence[];
 }
 
 interface VerifiedDocumentWriterProjectionResult {

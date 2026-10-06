@@ -197,10 +197,10 @@ export async function ensureSqlTables(
   await runSerializedSqlMutation(execSql, async (lockedExecSql) => {
     for (const table of pendingTables) {
       await lockedExecSql(table.createSql);
+      await assertRequiredColumns(lockedExecSql, table);
       for (const indexSql of table.indexes ?? []) {
         await lockedExecSql(indexSql);
       }
-      await assertRequiredColumns(lockedExecSql, table);
     }
   });
   for (const table of pendingTables) {

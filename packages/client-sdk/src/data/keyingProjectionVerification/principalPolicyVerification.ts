@@ -26,6 +26,7 @@ import {
   verifyOrganizationAdminPolicy,
   verifyPrincipalPolicyBundleWithExternalOrganizationAdmins,
 } from "../principals/principalPolicyAdminSigners";
+import type { PrincipalPolicyCurrentEvidence } from "../principals/principalPolicyEvidence";
 import {
   observePrincipalPolicy,
   type ProjectionCheckpointContext,
@@ -37,6 +38,7 @@ import {
   referencedPrincipalPolicyKey,
   verifiedPrincipalPolicyContainsReference,
 } from "./principalPolicyCache";
+import { resolveReferencedPrincipalPolicy } from "./resolvedPrincipalPolicy";
 import type {
   PrincipalPolicyCache,
   ProjectionUserKeyResolver,
@@ -306,13 +308,15 @@ async function loadOrganizationExternalAuthority(
 }
 
 async function verifyReferencedPrincipalPolicy(input: {
+  recoveryBatch: object;
   checkpointContext: ProjectionCheckpointContext;
   organizationId: string;
   principalPolicyCache: PrincipalPolicyCache;
   reference: ReferencedPrincipalHead;
+  stillCurrent?: (() => boolean) | undefined;
   resolveUserKey: ProjectionUserKeyResolver;
   warmReferencedPrincipalPolicies?: ReferencedPrincipalPolicyWarmer | undefined;
-}): Promise<VerifiedPrincipalPolicy> {
+}): Promise<PrincipalPolicyCurrentEvidence> {
   const cacheKey = referencedPrincipalPolicyKey(input.reference);
   const cachedPolicy = input.principalPolicyCache.get(cacheKey);
   const execSql = input.checkpointContext.execSql;
@@ -321,7 +325,7 @@ async function verifyReferencedPrincipalPolicy(input: {
     input.reference.principalType,
     input.reference.principalId,
   );
-  if (cachedPolicy) {
+  if (cachedPolicy && !("retainedHistory" in cachedPolicy)) {
     if (
       !verifiedPrincipalPolicyContainsReference(cachedPolicy, input.reference)
     ) {
@@ -346,6 +350,10 @@ async function verifyReferencedPrincipalPolicy(input: {
     input.reference,
     localCheckpoint,
   );
+  if (!bundle) {
+    const recovered = await resolveReferencedPrincipalPolicy(input);
+    if (recovered) return recovered;
+  }
   if (!bundle && input.warmReferencedPrincipalPolicies) {
     // The reference is not cached locally — the common case for a member who
     // gained access via another org's group grant and never hydrated that
@@ -405,7 +413,7 @@ export async function collectReferencedPrincipalPolicies(input: {
   resolveUserKey: ProjectionUserKeyResolver;
   stillCurrent?: (() => boolean) | undefined;
   warmReferencedPrincipalPolicies?: ReferencedPrincipalPolicyWarmer | undefined;
-}): Promise<VerifiedPrincipalPolicy[]> {
+}): Promise<PrincipalPolicyCurrentEvidence[]> {
   const warmReferencedPrincipalPolicies =
     generationGuardedPrincipalPolicyWarmer(
       input.warmReferencedPrincipalPolicies,
@@ -420,7 +428,10 @@ export async function collectReferencedPrincipalPolicies(input: {
   // Warm every missing reference in one batched fetch before verifying, so a
   // path that references several uncached policies makes a single round of
   // requests rather than one per reference.
-  if (warmReferencedPrincipalPolicies) {
+  if (
+    warmReferencedPrincipalPolicies &&
+    !warmReferencedPrincipalPolicies.resolveReference
+  ) {
     const uncached = await filterUncachedPrincipalPolicyReferences({
       execSql: input.checkpointContext.execSql,
       principalPolicyCache: input.principalPolicyCache,
@@ -436,13 +447,16 @@ export async function collectReferencedPrincipalPolicies(input: {
     }
   }
 
+  const recoveryBatch = {};
   return Promise.all(
     references.map((reference) =>
       verifyReferencedPrincipalPolicy({
+        recoveryBatch,
         checkpointContext: input.checkpointContext,
         organizationId: input.organizationId,
         principalPolicyCache: input.principalPolicyCache,
         reference,
+        stillCurrent: input.stillCurrent,
         resolveUserKey: input.resolveUserKey,
         warmReferencedPrincipalPolicies,
       }),

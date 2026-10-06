@@ -1,19 +1,18 @@
 import { type RecipientEntry, unwrapDek } from "@tearleads/crypto";
 import { base64ToBytes } from "@tearleads/encoding";
-import type {
-  PrincipalMemberEnvelopeResponse,
-  PrincipalPolicyBundleResponse,
-} from "@tearleads/validators/response";
+import type { PrincipalMemberEnvelopeResponse } from "@tearleads/validators/response";
 import type { SerializedKeyEnvelope } from "@tearleads/validators/util";
-import { loadAllPrincipalPolicyBundles } from "../persistence/principalPolicyPersistence";
+import {
+  loadPrincipalKeyEnvelopeCandidates,
+  type PrincipalKeyEnvelopeCandidate,
+} from "../persistence/principalKeyEnvelopeCandidates";
 import type { ExecSql } from "../sqlite/sqlSchema";
 
 interface PrincipalPolicyResolutionContext {
   bundlesByKeyFingerprint: ReadonlyMap<
     string,
-    ReadonlyArray<PrincipalPolicyBundleResponse>
+    ReadonlyArray<PrincipalKeyEnvelopeCandidate>
   >;
-  resolvedPrincipalSecretKeys: Map<string, Uint8Array>;
 }
 
 function toKeyEnvelopeEntries(
@@ -38,7 +37,7 @@ function toMemberEnvelopeEntries(
 
 function principalBundleKey(
   bundle: Pick<
-    PrincipalPolicyBundleResponse["currentState"],
+    PrincipalKeyEnvelopeCandidate["currentState"],
     "principalType" | "principalId"
   >,
 ): string {
@@ -47,11 +46,15 @@ function principalBundleKey(
 
 async function createPrincipalPolicyResolutionContext(
   execSql: ExecSql,
+  fingerprints: readonly string[],
 ): Promise<PrincipalPolicyResolutionContext> {
-  const bundles = await loadAllPrincipalPolicyBundles(execSql);
+  const bundles = await loadPrincipalKeyEnvelopeCandidates(
+    execSql,
+    fingerprints,
+  );
   const bundlesByKeyFingerprint = new Map<
     string,
-    PrincipalPolicyBundleResponse[]
+    PrincipalKeyEnvelopeCandidate[]
   >();
 
   for (const bundle of bundles) {
@@ -66,32 +69,20 @@ async function createPrincipalPolicyResolutionContext(
 
   return {
     bundlesByKeyFingerprint,
-    resolvedPrincipalSecretKeys: new Map(),
   };
 }
 
 async function unwrapPrincipalSecretKey(
-  bundle: PrincipalPolicyBundleResponse,
+  bundle: PrincipalKeyEnvelopeCandidate,
   secretKey: Uint8Array,
-  context: PrincipalPolicyResolutionContext,
 ): Promise<Uint8Array> {
   const principalKey = principalBundleKey(bundle.currentState);
-  const policyEpochKey = `${principalKey}:${bundle.currentState.stateHash}`;
-  const cachedSecretKey =
-    context.resolvedPrincipalSecretKeys.get(policyEpochKey) ?? null;
-
-  if (cachedSecretKey) {
-    return cachedSecretKey;
-  }
-
   const memberEnvelopeEntries = toMemberEnvelopeEntries(
     bundle.currentMemberEnvelopes.envelopes,
   );
 
   try {
-    const resolvedSecretKey = await unwrapDek(memberEnvelopeEntries, secretKey);
-    context.resolvedPrincipalSecretKeys.set(policyEpochKey, resolvedSecretKey);
-    return resolvedSecretKey;
+    return await unwrapDek(memberEnvelopeEntries, secretKey);
   } catch {
     // No transitive fallback: a principal's envelopes are all addressed to
     // users directly, so if this identity key opens none of them the requester
@@ -118,27 +109,23 @@ export async function unwrapKeyEnvelopesWithPrincipalPolicies(input: {
     }
   }
 
-  const context = await createPrincipalPolicyResolutionContext(input.execSql);
-  const attemptedPrincipalKeys = new Set<string>();
+  const context = await createPrincipalPolicyResolutionContext(
+    input.execSql,
+    input.envelopes.map((envelope) => envelope.keyFingerprint),
+  );
+  const attemptedFingerprints = new Set<string>();
 
   for (const envelope of input.envelopes) {
+    if (attemptedFingerprints.has(envelope.keyFingerprint)) continue;
+    attemptedFingerprints.add(envelope.keyFingerprint);
     const candidateBundles =
       context.bundlesByKeyFingerprint.get(envelope.keyFingerprint) ?? [];
 
     for (const bundle of candidateBundles) {
-      const principalKey = principalBundleKey(bundle.currentState);
-
-      if (attemptedPrincipalKeys.has(principalKey)) {
-        continue;
-      }
-
-      attemptedPrincipalKeys.add(principalKey);
-
       try {
         const principalSecretKey = await unwrapPrincipalSecretKey(
           bundle,
           input.secretKey,
-          context,
         );
 
         return await unwrapDek(keyEntries, principalSecretKey);

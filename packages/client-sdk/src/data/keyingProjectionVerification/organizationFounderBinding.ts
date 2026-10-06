@@ -1,9 +1,9 @@
 import {
-  type AnyVerifiedPrincipalPolicy,
   KeyingVerificationError,
   type VerifiedContainerAccessManifest,
 } from "@tearleads/crypto";
 import { rememberOrganizationFounder } from "../persistence/organizationFounderPersistence";
+import type { PrincipalPolicyCheckpointEvidence } from "../principals/principalPolicyEvidence";
 import type { ExecSql } from "../sqlite/sqlSchema";
 import { verifiedContainerCreateManifest } from "./containerCreateManifest";
 
@@ -16,7 +16,7 @@ import { verifiedContainerCreateManifest } from "./containerCreateManifest";
  */
 export async function rememberRootBoundOrganizationFounder(input: {
   readonly execSql: ExecSql;
-  readonly policies: readonly AnyVerifiedPrincipalPolicy[] | undefined;
+  readonly policies: readonly PrincipalPolicyCheckpointEvidence[] | undefined;
   readonly root: VerifiedContainerAccessManifest | undefined;
   readonly verifiedByHash: ReadonlyMap<string, VerifiedContainerAccessManifest>;
 }): Promise<void> {
@@ -27,12 +27,18 @@ export async function rememberRootBoundOrganizationFounder(input: {
       policy.principalType === "organization" &&
       policy.principalId === root.state.organizationId,
   );
-  // Trusted local plans can carry only a current policy; remote evidence has
-  // the complete signed chain needed to authenticate genesis.
-  if (!organization?.history) return;
-  const genesis = organization.history.find(
-    ({ state }) => state.version === 1,
-  )?.state;
+  if (!organization) return;
+  const entries =
+    "retainedHistory" in organization
+      ? organization.retainedHistory
+      : organization.history;
+  if (!entries) return;
+  const genesis = entries.find(({ state }) => state.version === 1)?.state;
+  if (!genesis)
+    throw new KeyingVerificationError(
+      "missing_dependency",
+      "Organization founder requires verified genesis",
+    );
   const created = verifiedContainerCreateManifest({
     head: root,
     label: "Organization founder root",

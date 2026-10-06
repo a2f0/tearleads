@@ -1,3 +1,4 @@
+import { desc } from "drizzle-orm";
 import {
   index,
   integer,
@@ -5,6 +6,8 @@ import {
   sqliteTable,
   text,
 } from "drizzle-orm/sqlite-core";
+
+import { principalStateFingerprintJson } from "./principalKeyFingerprintJson";
 
 /** Durable organization ownership for every managed-principal cache. */
 export const principalPolicyOrganizations = sqliteTable(
@@ -43,6 +46,10 @@ export const principalPolicies = sqliteTable(
   principalPolicyBundleColumns(),
   (table) => [
     primaryKey({ columns: [table.principalType, table.principalId] }),
+    index("principal_policies_key_fingerprint_idx").on(
+      principalStateFingerprintJson(table.currentStateJson),
+      desc(table.updatedAt),
+    ),
   ],
 );
 
@@ -54,6 +61,10 @@ export const principalPolicyBundleHistory = sqliteTable(
     primaryKey({
       columns: [table.principalType, table.principalId, table.stateHash],
     }),
+    index("principal_policy_history_key_fingerprint_idx").on(
+      principalStateFingerprintJson(table.currentStateJson),
+      desc(table.updatedAt),
+    ),
   ],
 );
 

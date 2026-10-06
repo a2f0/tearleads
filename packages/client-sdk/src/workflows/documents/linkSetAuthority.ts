@@ -1,4 +1,3 @@
-import type { AnyVerifiedPrincipalPolicy } from "@tearleads/crypto";
 import type {
   ContainerWriterProjectionResponse,
   DocumentWriterProjectionResponse,
@@ -19,12 +18,13 @@ import {
 } from "../../data/keyingProjectionVerification";
 import { documentContainerProjections } from "../../data/keyingProjectionVerification/documentContainerProjections";
 import { throwKeyingVerificationErrorWithContext } from "../../data/keyingProjectionVerification/error";
+import type { PrincipalPolicyCheckpointEvidence } from "../../data/principals/principalPolicyEvidence";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 
 /** Both paths have been verified; a readable proof does not authorize a link. */
 export function assertDocumentLinkAuthorAccess(input: {
   author: DocumentCreateAuthor;
-  principalPolicies: readonly AnyVerifiedPrincipalPolicy[];
+  principalPolicies: readonly PrincipalPolicyCheckpointEvidence[];
   targetContainerProjection: ContainerWriterProjectionResponse;
   writerProjection: DocumentWriterProjectionResponse;
 }): void {

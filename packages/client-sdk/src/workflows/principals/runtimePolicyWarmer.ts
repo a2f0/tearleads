@@ -10,9 +10,13 @@ import {
   cachePrincipalPolicyBundles,
   cacheReferencedPrincipalPolicies,
 } from "./policyCache";
+import {
+  createRuntimePrincipalPolicyResolver,
+  type PrincipalPolicyRecoveryRuntime,
+} from "./runtimePolicyRecovery";
 
-interface PrincipalPolicyWarmRuntime {
-  readonly apiClient: {
+interface PrincipalPolicyWarmRuntime extends PrincipalPolicyRecoveryRuntime {
+  readonly apiClient: PrincipalPolicyRecoveryRuntime["apiClient"] & {
     getCurrentPrincipalPolicy(
       principalType: "group" | "organization",
       principalId: string,
@@ -62,5 +66,8 @@ export function createRuntimePrincipalPolicyWarmer(
       resolveTrustedUserIdentity: runtime.resolveTrustedUserIdentity,
       stillCurrent: input.stillCurrent,
     });
-  return Object.assign(warmer, { cacheBundles });
+  return Object.assign(warmer, {
+    cacheBundles,
+    resolveReference: createRuntimePrincipalPolicyResolver(runtime),
+  });
 }

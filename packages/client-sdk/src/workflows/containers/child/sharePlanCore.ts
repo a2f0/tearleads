@@ -11,7 +11,6 @@ import {
   type ContainerUserRecipientKey,
   computeAccessManifestHash,
   deriveContainerAccessManifest,
-  type VerifiedPrincipalPolicy,
 } from "@tearleads/crypto";
 import type {
   AccessManifestBundleWire,
@@ -41,6 +40,7 @@ import {
   type ProjectionUserKeyResolver,
   type ReferencedPrincipalPolicyWarmer,
 } from "../../../data/keyingProjectionVerification";
+import type { PrincipalPolicyCurrentEvidence } from "../../../data/principals/principalPolicyEvidence";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import {
   containerMutationRequestCore,
@@ -55,7 +55,7 @@ export type ContainerShareRecipient =
       readonly subjectType: "user";
     }
   | {
-      readonly principalPolicy: VerifiedPrincipalPolicy;
+      readonly principalPolicy: PrincipalPolicyCurrentEvidence;
       readonly subjectId: string;
       readonly subjectType: "group";
     };
@@ -86,7 +86,7 @@ function referencedPrincipalKey(reference: {
 }
 
 export function referencedPrincipalHeadFromPolicy(
-  policy: VerifiedPrincipalPolicy,
+  policy: PrincipalPolicyCurrentEvidence,
 ): ContainerGrantPrincipalHead {
   if (policy.principalType !== "group") {
     throw new Error("Container grants can reference only group policies");
@@ -126,7 +126,9 @@ function upsertReferencedPrincipalHead(
  */
 export function refreshedPrincipalReferences(input: {
   readonly previousState: ContainerAccessManifestState;
-  readonly replacementPrincipalPolicy?: VerifiedPrincipalPolicy | undefined;
+  readonly replacementPrincipalPolicy?:
+    | PrincipalPolicyCurrentEvidence
+    | undefined;
 }): ContainerGrantPrincipalHead[] {
   const replacement = input.replacementPrincipalPolicy;
   if (
@@ -150,9 +152,11 @@ export function refreshedPrincipalReferences(input: {
  * existing policy of the same principal identity.
  */
 export function refreshedPrincipalPolicies(input: {
-  readonly previousPolicies: readonly VerifiedPrincipalPolicy[];
-  readonly replacementPrincipalPolicy?: VerifiedPrincipalPolicy | undefined;
-}): VerifiedPrincipalPolicy[] {
+  readonly previousPolicies: readonly PrincipalPolicyCurrentEvidence[];
+  readonly replacementPrincipalPolicy?:
+    | PrincipalPolicyCurrentEvidence
+    | undefined;
+}): PrincipalPolicyCurrentEvidence[] {
   const replacement = input.replacementPrincipalPolicy;
   if (!replacement) {
     return uniquePrincipalPolicies(input.previousPolicies);
@@ -206,7 +210,7 @@ function buildContainerShareRequest(input: {
   parentKek: ContainerKekResponse | null;
   previousManifest: AccessManifestBundleWire;
   previousProjection: ContainerWriterProjectionResponse;
-  principalPolicies: readonly VerifiedPrincipalPolicy[];
+  principalPolicies: readonly PrincipalPolicyCurrentEvidence[];
   userRecipientKeys: readonly ContainerUserRecipientKey[];
   wraps: readonly ContainerKeyWrap[];
 }): ContainerMutationRequest {
@@ -274,7 +278,7 @@ export function buildContainerSharePlanResult(input: {
   manifestHash: string;
   previousManifest: AccessManifestBundleWire;
   previousProjection: ContainerWriterProjectionResponse;
-  principalPolicies: readonly VerifiedPrincipalPolicy[];
+  principalPolicies: readonly PrincipalPolicyCurrentEvidence[];
   recipientTarget: ContainerKekRecipientTarget;
   state: ContainerAccessManifestState;
   targetKek: ContainerKekResponse;
@@ -377,11 +381,11 @@ export async function collectContainerSharePrincipalPolicies(input: {
   persistVerificationCheckpoints?: boolean | undefined;
   principalPolicyCache?: PrincipalPolicyCache | undefined;
   previousProjection: ContainerWriterProjectionResponse;
-  recipientPolicy?: VerifiedPrincipalPolicy | undefined;
+  recipientPolicy?: PrincipalPolicyCurrentEvidence | undefined;
   resolveUserKey: ProjectionUserKeyResolver;
   stillCurrent?: (() => boolean) | undefined;
   warmReferencedPrincipalPolicies?: ReferencedPrincipalPolicyWarmer | undefined;
-}): Promise<VerifiedPrincipalPolicy[]> {
+}): Promise<PrincipalPolicyCurrentEvidence[]> {
   const previousPolicies =
     await collectContainerWriterProjectionPrincipalPolicies({
       execSql: input.execSql,

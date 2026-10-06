@@ -32,9 +32,11 @@ export const USER_ID = "remaining-admin";
 export async function createPrincipalReciteFixture(input: {
   readonly containerIds?: readonly string[];
   readonly databaseName: string;
+  readonly groupId?: string;
   readonly rotateKey: boolean;
   readonly nextUserId?: string;
 }) {
+  const groupId = input.groupId ?? GROUP_ID;
   const { author, signingPublicKey } = await createAuthor({
     organizationId: ORGANIZATION_ID,
     userId: USER_ID,
@@ -48,7 +50,7 @@ export async function createPrincipalReciteFixture(input: {
   const initialGroup = await buildInitialGroupPolicyRequest({
     creatorEncapsulationKeyPair: memberKem,
     grants,
-    groupId: GROUP_ID,
+    groupId: groupId,
     name: "Admins",
     signerUserId: USER_ID,
     signingFingerprint: author.signerKeyFingerprint,
@@ -82,7 +84,7 @@ export async function createPrincipalReciteFixture(input: {
       };
   const nextBundle = await createSuccessorGroupPolicyBundle({
     author,
-    groupId: GROUP_ID,
+    groupId: groupId,
     groupKem: nextGroupKem,
     keyEpoch: input.rotateKey
       ? previousBundle.currentState.keyEpoch + 1
@@ -207,7 +209,7 @@ export async function createPrincipalReciteFixture(input: {
       author,
       execSql: database.execSql,
       grants,
-      groupId: GROUP_ID,
+      groupId: groupId,
       nextPolicy,
       resolveTrustedUserIdentity,
       targetSecretKey: memberKem.secretKey,

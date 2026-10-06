@@ -8,7 +8,6 @@ import {
   computeContainerKekRecipientTargetHash,
   computeContainerKeyEpochHash,
   deriveContainerKekWrappingPublicKey,
-  type VerifiedPrincipalPolicy,
 } from "@tearleads/crypto";
 import type { ContainerMutationRequest } from "@tearleads/validators/request";
 import type {
@@ -57,6 +56,7 @@ import {
   nullOnProjectionVerificationCancellation,
   requireProjectionUserKeyResolver,
 } from "../../../data/keyingProjectionVerification";
+import type { PrincipalPolicyCurrentEvidence } from "../../../data/principals/principalPolicyEvidence";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import { PrincipalPolicyRepairBudget } from "../../principals/policyRepairBudget";
 import {
@@ -88,7 +88,7 @@ function buildContainerCreateRequest(input: {
   manifestHash: string;
   parentKek: ContainerKekResponse;
   parentProjection: ContainerWriterProjectionResponse;
-  principalPolicies: readonly VerifiedPrincipalPolicy[];
+  principalPolicies: readonly PrincipalPolicyCurrentEvidence[];
   wraps: readonly ContainerKeyWrap[];
 }): ContainerMutationRequest {
   return {

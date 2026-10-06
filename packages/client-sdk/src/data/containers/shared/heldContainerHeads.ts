@@ -1,11 +1,11 @@
 import type {
-  AnyVerifiedPrincipalPolicy,
   ContainerAccessManifestState,
   VerifiedContainerAccessManifest,
 } from "@tearleads/crypto";
 import type { AccessManifestBundleWire } from "@tearleads/validators/request";
 import { MAX_CONTAINER_PATH_LENGTH } from "@tearleads/validators/util";
 import { readCanonicalRecord } from "../../keyingCanonicalJson";
+import type { PrincipalPolicyCheckpointEvidence } from "../../principals/principalPolicyEvidence";
 import { type ExecSql, resolveCanonicalExecSql } from "../../sqlite/sqlSchema";
 import type { AuthoredContainerMutationHead } from "./mutationAcknowledgement";
 
@@ -20,7 +20,7 @@ interface HeldContainers {
     string,
     {
       readonly organizationId: string;
-      readonly policy: AnyVerifiedPrincipalPolicy;
+      readonly policy: PrincipalPolicyCheckpointEvidence;
     }
   >;
 }
@@ -83,7 +83,7 @@ export function rememberVerifiedContainerHeads(input: {
   readonly organizationId: string;
   readonly execSql: ExecSql;
   readonly heads: readonly VerifiedContainerAccessManifest[];
-  readonly policies: readonly AnyVerifiedPrincipalPolicy[];
+  readonly policies: readonly PrincipalPolicyCheckpointEvidence[];
 }): void {
   for (const policy of input.policies) {
     if (

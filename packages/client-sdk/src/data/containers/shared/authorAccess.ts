@@ -1,9 +1,9 @@
 import {
-  type AnyVerifiedPrincipalPolicy,
   KeyingVerificationError,
   resolveContainerStatePathUserAccessLevel,
 } from "@tearleads/crypto";
 import type { ContainerWriterProjectionResponse } from "@tearleads/validators/response";
+import type { PrincipalPolicyCheckpointEvidence } from "../../principals/principalPolicyEvidence";
 import { readContainerState } from "./projection";
 import type { ContainerMutationAuthor } from "./types";
 
@@ -21,7 +21,7 @@ export class ContainerAuthorAccessError extends Error {
 export function assertContainerAuthorAccess(input: {
   author: ContainerMutationAuthor;
   minimumAccess: "write" | "admin";
-  principalPolicies: readonly AnyVerifiedPrincipalPolicy[];
+  principalPolicies: readonly PrincipalPolicyCheckpointEvidence[];
   projection: ContainerWriterProjectionResponse;
 }): void {
   const states = input.projection.path.map(readContainerState);

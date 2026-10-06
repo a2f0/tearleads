@@ -199,6 +199,8 @@ export {
   localKeyringScopeKey,
   Network,
   normalizeLocalKeyringScope,
+  type PrincipalHistoryKeyProvider,
+  type PrincipalHistoryKeyScope,
   PurchaseAbortedError,
   PurchaseAlreadyOwnedError,
   PurchaseCancelledError,
@@ -476,12 +478,15 @@ export {
 export type {
   CacheReferencedPrincipalPoliciesOptions,
   RecoveredPrincipalPolicyHistory,
+  RecoveredScopedPrincipalPolicyHistory,
   RecoverPrincipalPolicyHistoryOptions,
+  RecoverScopedPrincipalPolicyHistoryOptions,
 } from "./workflows/principals";
 export {
   cacheReferencedPrincipalPolicies,
   PrincipalPolicyHistoryReadError,
   recoverPrincipalPolicyHistory,
+  recoverScopedPrincipalPolicyHistory,
 } from "./workflows/principals";
 export type {
   InitialRootMetadataBootstrap,

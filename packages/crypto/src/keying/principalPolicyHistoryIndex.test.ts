@@ -6,6 +6,7 @@ import {
   type PrincipalHistoryIndexNode,
   principalHistoryIndexLeaf,
   principalHistoryIndexRoot,
+  resolvePrincipalHistoryIndexProof,
 } from "./principalPolicyHistoryIndex";
 import { historyFixture } from "./principalPolicyHistoryTestFixtures";
 import { assertTransparencyInclusion } from "./transparencyProofs";
@@ -31,7 +32,7 @@ test("incremental principal index agrees with complete trees across unbalanced p
     if (!next.rootHash) throw new Error("Missing root");
     for (const position of new Set([1, Math.ceil(version / 2), version])) {
       let reads = 0;
-      const proof = await createPrincipalHistoryIndexProof({
+      const resolved = await resolvePrincipalHistoryIndexProof({
         rootHash: next.rootHash,
         treeSize: version,
         version: position,
@@ -43,9 +44,10 @@ test("incremental principal index agrees with complete trees across unbalanced p
       expect(reads).toBeLessThanOrEqual(Math.ceil(Math.log2(version)));
       const leafHash = leaves[position - 1];
       if (!leafHash) throw new Error("Missing leaf");
+      expect(resolved.leafHash).toBe(leafHash);
       await assertTransparencyInclusion({
         leafHash,
-        proof,
+        proof: resolved.proof,
         checkpoint: {
           logId: "principal-history",
           treeSize: version,

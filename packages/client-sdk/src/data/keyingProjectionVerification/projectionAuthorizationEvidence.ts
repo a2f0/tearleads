@@ -1,5 +1,4 @@
 import {
-  type AnyVerifiedPrincipalPolicy,
   KeyingVerificationError,
   principalPolicyMatchesReference,
 } from "@tearleads/crypto";
@@ -7,6 +6,7 @@ import type {
   AccessManifestBundleWireResponse,
   ProjectionPolicyEvidenceResponse,
 } from "@tearleads/validators/response";
+import type { PrincipalPolicyCheckpointEvidence } from "../principals/principalPolicyEvidence";
 import type { ProjectionCheckpointContext } from "./checkpointContext";
 import { collectReferencedPrincipalPolicies } from "./principalPolicyVerification";
 import { verifyProjectionPolicyEvidence } from "./projectionPolicyEvidence";
@@ -17,11 +17,11 @@ import type { PrincipalPolicyCache, ProjectionUserKeyResolver } from "./types";
 async function resolveProjectionAuthorizationEvidence(input: {
   readonly bundles: readonly AccessManifestBundleWireResponse[];
   readonly checkpointContext: ProjectionCheckpointContext;
-  readonly evidence: readonly AnyVerifiedPrincipalPolicy[];
+  readonly evidence: readonly PrincipalPolicyCheckpointEvidence[];
   readonly organizationId: string;
   readonly principalPolicyCache: PrincipalPolicyCache;
   readonly resolveUserKey: ProjectionUserKeyResolver;
-}): Promise<AnyVerifiedPrincipalPolicy[]> {
+}): Promise<PrincipalPolicyCheckpointEvidence[]> {
   const references = input.bundles
     .flatMap(
       (bundle) =>

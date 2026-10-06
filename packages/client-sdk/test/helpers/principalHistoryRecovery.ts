@@ -10,6 +10,7 @@ import { createTestExecSql } from "@tearleads/test-utils";
 import type {
   PrincipalPolicyBundleResponse,
   PrincipalPolicyPageResponse,
+  PrincipalProjectionMemberResponse,
 } from "@tearleads/validators/response";
 import { getClientSQLitePersistenceRuntime } from "../../src/data/sqlite/sqlitePersistenceRuntime";
 import { createTestTrustedUserIdentityResolver } from "../../src/data/trustedUserIdentity/testFixtures";
@@ -19,18 +20,24 @@ import {
   signedPrincipalPolicyBundle,
 } from "./principalPolicyFixtures";
 
-export async function signedRecoveryHistory(version = 66) {
+export async function signedRecoveryHistory(
+  version = 66,
+  projectionAtVersion?: (
+    version: number,
+    userId: string,
+  ) => PrincipalProjectionMemberResponse[],
+) {
   const principalId = "11111111-1111-4111-8111-111111111111";
   const userId = "22222222-2222-4222-8222-222222222222";
   const signer = generateSigningSeedAndKeyPair();
   const signerFingerprint = await toFingerprint(signer.signingPublicKey);
-  const principalKey = generateKemSeedAndKeyPair();
+  let principalKey = generateKemSeedAndKeyPair();
   const memberKey = generateKemSeedAndKeyPair();
   const [envelope] = await wrapDekForRecipients(principalKey.secretKey, [
     memberKey.publicKey,
   ]);
   if (!envelope) throw new Error("Missing fixture envelope");
-  const memberEnvelopes = [
+  let memberEnvelopes = [
     {
       userId,
       memberKeyFingerprint: envelope.keyFingerprint,
@@ -38,9 +45,28 @@ export async function signedRecoveryHistory(version = 66) {
       wrappedKey: bytesToBase64(envelope.wrappedKey),
     },
   ];
-  const projection = [{ userId, role: "admin" as const }];
   let bundle: PrincipalPolicyBundleResponse | undefined;
   for (let nextVersion = 1; nextVersion <= version; nextVersion += 1) {
+    // Variable projections may revoke a member; rotate on every transition
+    // in those fixtures so the signed chain enforces real shrink semantics.
+    if (projectionAtVersion && nextVersion > 1) {
+      principalKey = generateKemSeedAndKeyPair();
+      const [rotated] = await wrapDekForRecipients(principalKey.secretKey, [
+        memberKey.publicKey,
+      ]);
+      if (!rotated) throw new Error("Missing rotated fixture envelope");
+      memberEnvelopes = [
+        {
+          userId,
+          memberKeyFingerprint: rotated.keyFingerprint,
+          kemCipherText: bytesToBase64(rotated.kemCipherText),
+          wrappedKey: bytesToBase64(rotated.wrappedKey),
+        },
+      ];
+    }
+    const projection = projectionAtVersion?.(nextVersion, userId) ?? [
+      { userId, role: "admin" as const },
+    ];
     bundle = await signedPrincipalPolicyBundle({
       memberEnvelopes,
       projection,
@@ -48,7 +74,11 @@ export async function signedRecoveryHistory(version = 66) {
       previousStates: bundle
         ? [
             ...bundle.previousStates,
-            { state: bundle.currentState, projection, grants: [] },
+            {
+              state: bundle.currentState,
+              projection: bundle.currentProjection,
+              grants: [],
+            },
           ]
         : [],
       signing: {
@@ -56,7 +86,7 @@ export async function signedRecoveryHistory(version = 66) {
         principalId,
         version: nextVersion,
         prevStateHash: bundle?.currentState.stateHash ?? null,
-        keyEpoch: 1,
+        keyEpoch: projectionAtVersion ? nextVersion : 1,
         encapsulationPublicKey: bytesToBase64(principalKey.publicKey),
         keyFingerprint: await toFingerprint(principalKey.publicKey),
         externalAuthority: null,
@@ -70,6 +100,7 @@ export async function signedRecoveryHistory(version = 66) {
   if (!bundle) throw new Error("Empty recovery fixture");
   return {
     bundle,
+    signingPrivateKey: signer.signingPrivateKey,
     expectedHead: principalPolicyHead(bundle),
     resolveTrustedUserIdentity: createTestTrustedUserIdentityResolver({
       userId,

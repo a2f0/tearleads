@@ -1,6 +1,11 @@
 import { beforeAll, expect, test } from "bun:test";
 import { createPrincipalPolicyHistoryVerifier } from "./principalPolicyHistory";
 import {
+  createPrincipalHistoryIndexProof,
+  type PrincipalHistoryIndexNode,
+} from "./principalPolicyHistoryIndex";
+import { verifyPrincipalPolicyHistoryReferences } from "./principalPolicyHistoryReferences";
+import {
   historyFixture,
   historyHead,
   roundTripHistoryVerifier,
@@ -51,6 +56,7 @@ test.each([64, PRINCIPAL_HISTORY_PAGE_ENTRY_LIMIT + 1])(
         .map(({ state }) => historyHead(state)),
     };
     let verifier = createPrincipalPolicyHistoryVerifier(input);
+    const nodes = new Map<string, PrincipalHistoryIndexNode>();
     for (
       let offset = 0;
       offset < signed.length;
@@ -63,6 +69,7 @@ test.each([64, PRINCIPAL_HISTORY_PAGE_ENTRY_LIMIT + 1])(
         signerPublicKeys: [fixture.signer],
       });
       if (!appended.ok) throw appended.error;
+      for (const node of appended.value.indexNodes) nodes.set(node.hash, node);
       verifier = await roundTripHistoryVerifier(verifier, input);
     }
     const result = verifier.finish(historyHead(head.state));
@@ -77,5 +84,26 @@ test.each([64, PRINCIPAL_HISTORY_PAGE_ENTRY_LIMIT + 1])(
         ({ state }) => state.version === checkpointVersion,
       )?.state,
     ).toEqual(checkpointEntry.state);
+    const proofFor = async (entry: (typeof signed)[number]) => ({
+      reference: historyHead(entry.state),
+      entry: entry.entry,
+      proof: await createPrincipalHistoryIndexProof({
+        rootHash: result.value.indexRootHash,
+        treeSize: head.state.version,
+        version: entry.state.version,
+        readNode: async (hash) => nodes.get(hash) ?? null,
+      }),
+    });
+    const selected = await verifyPrincipalPolicyHistoryReferences({
+      history: result.value,
+      references: await Promise.all(
+        signed.slice(0, PRINCIPAL_HISTORY_PAGE_ENTRY_LIMIT).map(proofFor),
+      ),
+      checkpointReference: await proofFor(checkpointEntry),
+    });
+    if (!selected.ok) throw selected.error;
+    expect(selected.value.retainedEntries).toEqual(
+      result.value.retainedEntries,
+    );
   },
 );

@@ -4,7 +4,6 @@ import type {
   ContainerKeyEpoch,
   ContainerKeyWrap,
   ContainerUserRecipientKey,
-  VerifiedPrincipalPolicy,
 } from "@tearleads/crypto";
 import type {
   AccessManifestBundleWire,
@@ -17,6 +16,7 @@ import {
   readCanonicalRecord,
   readCanonicalRecords,
 } from "../../../data/keyingCanonicalJson";
+import type { PrincipalPolicyCurrentEvidence } from "../../../data/principals/principalPolicyEvidence";
 
 export function readCanonicalRecordOrNull(
   value: unknown,
@@ -61,7 +61,7 @@ export function containerMutationRequestCore(
     keyEpoch: ContainerKeyEpoch;
     manifest: AccessManifest;
     manifestHash: string;
-    principalPolicies: readonly VerifiedPrincipalPolicy[];
+    principalPolicies: readonly PrincipalPolicyCurrentEvidence[];
     userRecipientKeys: readonly ContainerUserRecipientKey[];
     wraps: readonly ContainerKeyWrap[];
   },

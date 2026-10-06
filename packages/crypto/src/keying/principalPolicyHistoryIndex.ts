@@ -122,14 +122,17 @@ export async function appendPrincipalHistoryIndex(
 }
 
 /** Fetch at most one content-addressed node per level, never a history array. */
-export async function createPrincipalHistoryIndexProof(input: {
+export async function resolvePrincipalHistoryIndexProof(input: {
   readonly rootHash: string;
   readonly treeSize: number;
   readonly version: number;
   readonly readNode: (
     hash: string,
   ) => Promise<PrincipalHistoryIndexNode | null>;
-}): Promise<TransparencyInclusionProof> {
+}): Promise<{
+  readonly leafHash: string;
+  readonly proof: TransparencyInclusionProof;
+}> {
   const { treeSize, version } = input;
   if (
     !Number.isSafeInteger(treeSize) ||
@@ -181,9 +184,18 @@ export async function createPrincipalHistoryIndexProof(input: {
     }
   }
   return {
-    version: 1,
-    treeSize,
-    leafIndex: version - 1,
-    auditPath: siblings.reverse(),
+    leafHash: hash,
+    proof: {
+      version: 1,
+      treeSize,
+      leafIndex: version - 1,
+      auditPath: siblings.reverse(),
+    },
   };
+}
+
+export async function createPrincipalHistoryIndexProof(
+  input: Parameters<typeof resolvePrincipalHistoryIndexProof>[0],
+): Promise<TransparencyInclusionProof> {
+  return (await resolvePrincipalHistoryIndexProof(input)).proof;
 }

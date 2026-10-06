@@ -1,5 +1,4 @@
 import {
-  type AnyVerifiedPrincipalPolicy,
   KeyingVerificationError,
   type VerifiedAccessManifestCheckpointEvidence,
 } from "@tearleads/crypto";
@@ -9,6 +8,7 @@ import {
   advanceKeyingCheckpointsAtomically,
   validateKeyingCheckpointsAtomically,
 } from "../persistence/keyingCheckpointAdvancePersistence";
+import type { PrincipalPolicyCheckpointEvidence } from "../principals/principalPolicyEvidence";
 import type { ExecSql } from "../sqlite/sqlSchema";
 
 function objectKey(manifest: VerifiedAccessManifestCheckpointEvidence): string {
@@ -65,7 +65,7 @@ function accessManifestCheckpointAdvances(input: {
 
 export async function validateAccessManifestCheckpoints(input: {
   readonly execSql: ExecSql;
-  readonly policies: readonly AnyVerifiedPrincipalPolicy[];
+  readonly policies: readonly PrincipalPolicyCheckpointEvidence[];
   readonly stillCurrent?: (() => boolean) | undefined;
   readonly verifiedHeads: readonly VerifiedAccessManifestCheckpointEvidence[];
   readonly verifiedManifests: readonly VerifiedAccessManifestCheckpointEvidence[];
@@ -82,7 +82,7 @@ export async function enforceAccessManifestCheckpoints(input: {
   readonly execSql: ExecSql;
   readonly organizationId?: string | undefined;
   readonly documentPurgeCheckpoint?: DocumentPurgeCheckpoint | undefined;
-  readonly policies: readonly AnyVerifiedPrincipalPolicy[];
+  readonly policies: readonly PrincipalPolicyCheckpointEvidence[];
   readonly stillCurrent?: (() => boolean) | undefined;
   readonly verifiedHeads: readonly VerifiedAccessManifestCheckpointEvidence[];
   readonly verifiedManifests: readonly VerifiedAccessManifestCheckpointEvidence[];

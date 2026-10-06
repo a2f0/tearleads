@@ -51,25 +51,45 @@ function assertProofBudget(
  * checked against the private root owned by a local verifier, never a peer's
  * claimed root. Each leaf commits to the exact signed entry already accepted.
  * Replaces the retained selection; the current entry is always included.
+ * A separate checkpoint proof preserves the full 128-citation selection budget.
  */
 export function verifyPrincipalPolicyHistoryReferences(input: {
   readonly history: VerifiedPrincipalPolicyHistory;
   readonly references: readonly PrincipalPolicyHistoryReferenceProof[];
+  readonly checkpointReference?:
+    | PrincipalPolicyHistoryReferenceProof
+    | undefined;
 }): Promise<KeyingVerificationResult<VerifiedPrincipalPolicyHistory>> {
   return runVerifier(async () => {
     const history = ownVerifiedPrincipalPolicyHistory(input.history);
     const supplied = input.references;
+    const suppliedCheckpoint = input.checkpointReference;
     assertProofBudget(supplied);
+    if (suppliedCheckpoint !== undefined)
+      assertProofBudget([suppliedCheckpoint]);
     const references = structuredClone(supplied);
+    const checkpoint = structuredClone(suppliedCheckpoint);
     assertProofBudget(references);
-    normalizePrincipalHistoryInput({
+    const scope = {
       principalId: history.currentEntry.state.principalId,
       principalType: history.currentEntry.state.principalType,
+    };
+    normalizePrincipalHistoryInput({
+      ...scope,
       retainedReferences: references.map((item) => item.reference),
     });
+    const selected = [...references];
+    if (checkpoint !== undefined) {
+      assertProofBudget([checkpoint]);
+      normalizePrincipalHistoryInput({
+        ...scope,
+        retainedReferences: [checkpoint.reference],
+      });
+      selected.push(checkpoint);
+    }
     const entries = new Map<number, PrincipalPolicyStateChainEntry>();
     const treeSize = history.currentEntry.state.version;
-    for (const item of references) {
+    for (const item of selected) {
       const entry = await normalizePrincipalPolicyStateChainEntry(item.entry);
       const proof = normalizeTransparencyInclusionProof(item.proof);
       if (
