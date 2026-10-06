@@ -17,6 +17,7 @@ if (
 ) {
   throw new Error("Expected the registered probe identity");
 }
+// The parent initializes the shared database before starting this route process.
 const token = await createSession({
   createdAt: Date.now(),
   userId: identity.userId,
@@ -31,10 +32,16 @@ function send(message: PrincipalHistoryProbeMessage) {
 }
 send({ type: "ready", url: server.url.origin, token });
 
+let serverStop: Promise<void> | undefined;
+function stopServer() {
+  serverStop ??= server.stop();
+  return serverStop;
+}
+
 let shutdown: Promise<void> | undefined;
 function close() {
   shutdown ??= (async () => {
-    await server.stop();
+    await stopServer();
     await closeApiTestAdapters();
   })();
   return shutdown;
@@ -52,7 +59,7 @@ process.on("message", (message: unknown) => {
   if ((message !== "stop" && message !== "snapshot") || stopping) return;
   stopping = true;
   void (async () => {
-    if (message === "stop") await server.stop();
+    if (message === "stop") await stopServer();
     // Let completed HTTP callbacks release their temporary buffers before GC.
     await new Promise<void>((resolve) => setImmediate(resolve));
     const beforeGc = process.memoryUsage();
