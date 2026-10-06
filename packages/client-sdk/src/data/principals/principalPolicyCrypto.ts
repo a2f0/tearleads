@@ -13,7 +13,6 @@ interface PrincipalPolicyResolutionContext {
     string,
     ReadonlyArray<PrincipalKeyEnvelopeCandidate>
   >;
-  resolvedPrincipalSecretKeys: Map<string, Uint8Array>;
 }
 
 function toKeyEnvelopeEntries(
@@ -70,32 +69,20 @@ async function createPrincipalPolicyResolutionContext(
 
   return {
     bundlesByKeyFingerprint,
-    resolvedPrincipalSecretKeys: new Map(),
   };
 }
 
 async function unwrapPrincipalSecretKey(
   bundle: PrincipalKeyEnvelopeCandidate,
   secretKey: Uint8Array,
-  context: PrincipalPolicyResolutionContext,
 ): Promise<Uint8Array> {
   const principalKey = principalBundleKey(bundle.currentState);
-  const policyEpochKey = `${principalKey}:${bundle.currentState.stateHash}`;
-  const cachedSecretKey =
-    context.resolvedPrincipalSecretKeys.get(policyEpochKey) ?? null;
-
-  if (cachedSecretKey) {
-    return cachedSecretKey;
-  }
-
   const memberEnvelopeEntries = toMemberEnvelopeEntries(
     bundle.currentMemberEnvelopes.envelopes,
   );
 
   try {
-    const resolvedSecretKey = await unwrapDek(memberEnvelopeEntries, secretKey);
-    context.resolvedPrincipalSecretKeys.set(policyEpochKey, resolvedSecretKey);
-    return resolvedSecretKey;
+    return await unwrapDek(memberEnvelopeEntries, secretKey);
   } catch {
     // No transitive fallback: a principal's envelopes are all addressed to
     // users directly, so if this identity key opens none of them the requester
@@ -126,26 +113,19 @@ export async function unwrapKeyEnvelopesWithPrincipalPolicies(input: {
     input.execSql,
     input.envelopes.map((envelope) => envelope.keyFingerprint),
   );
-  const attemptedPrincipalKeys = new Set<string>();
+  const attemptedFingerprints = new Set<string>();
 
   for (const envelope of input.envelopes) {
+    if (attemptedFingerprints.has(envelope.keyFingerprint)) continue;
+    attemptedFingerprints.add(envelope.keyFingerprint);
     const candidateBundles =
       context.bundlesByKeyFingerprint.get(envelope.keyFingerprint) ?? [];
 
     for (const bundle of candidateBundles) {
-      const principalKey = principalBundleKey(bundle.currentState);
-
-      if (attemptedPrincipalKeys.has(principalKey)) {
-        continue;
-      }
-
-      attemptedPrincipalKeys.add(principalKey);
-
       try {
         const principalSecretKey = await unwrapPrincipalSecretKey(
           bundle,
           input.secretKey,
-          context,
         );
 
         return await unwrapDek(keyEntries, principalSecretKey);

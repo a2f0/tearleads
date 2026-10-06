@@ -254,6 +254,15 @@ test("paged envelope candidates open only their actual recipient key", async () 
       .update(principalHistoryPrefixes)
       .set({ currentJson: JSON.stringify(bundle) })
       .run();
+    await savePrincipalPolicyBundle(
+      execSql,
+      {
+        ...wrong,
+        currentState: bundle.currentState,
+      },
+      "2026-04-09T00:00:00.000Z",
+      "org",
+    );
     await expect(
       unwrapKeyEnvelopesWithPrincipalPolicies(input),
     ).resolves.toEqual(objectKey);
