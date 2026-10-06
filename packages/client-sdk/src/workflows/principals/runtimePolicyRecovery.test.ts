@@ -69,6 +69,7 @@ async function fixture() {
   const collect = async (
     cache: PrincipalPolicyCache = new Map(),
     selectedWarmer: ReferencedPrincipalPolicyWarmer = warmer,
+    stillCurrent: () => boolean = () => state.current,
   ) => {
     const context = createProjectionCheckpointContext(source.options);
     const policies = await collectReferencedPrincipalPolicies({
@@ -77,7 +78,7 @@ async function fixture() {
       principalPolicyCache: cache,
       references: [principalPolicyHead(history.created)],
       resolveUserKey: source.options.resolveTrustedUserIdentity,
-      stillCurrent: () => state.current,
+      stillCurrent,
       warmReferencedPrincipalPolicies: selectedWarmer,
     });
     return { context, policies };
@@ -283,6 +284,23 @@ test("concurrent runtime readers share the organization recovery writer", async 
     expect(first.context.policies).toHaveLength(3);
     expect(second.context.policies).toHaveLength(3);
     expect(f.state.fullReads).toBe(0);
+  } finally {
+    f.close();
+  }
+});
+
+test("a new stale caller cannot reuse a live caller's recovered evidence", async () => {
+  const f = await fixture();
+  try {
+    const cache: PrincipalPolicyCache = new Map();
+    await f.collect(cache);
+    const requests = f.requests.length;
+    const error = await f
+      .collect(cache, f.warmer, () => false)
+      .catch((error: unknown) => error);
+    expect(isProjectionVerificationCancelledError(error)).toBe(true);
+    expect(f.requests).toHaveLength(requests);
+    expect(await f.db.select().from(principalPolicyCheckpoints)).toEqual([]);
   } finally {
     f.close();
   }

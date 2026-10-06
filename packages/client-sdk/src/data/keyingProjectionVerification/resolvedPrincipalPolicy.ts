@@ -1,6 +1,7 @@
 import {
   KeyingVerificationError,
   type ReferencedPrincipalHead,
+  type VerifiedPrincipalPolicyCurrent,
 } from "@tearleads/crypto";
 import { loadPrincipalPolicyCheckpoint } from "../persistence/keyingCheckpointPersistence";
 import { verifiedPrincipalPolicyMeetsCheckpoint } from "../persistence/principalPolicyCheckpointSelection";
@@ -61,12 +62,14 @@ async function meetsCheckpoints(
 export async function resolveReferencedPrincipalPolicy(input: {
   readonly checkpointContext: ProjectionCheckpointContext;
   readonly organizationId: string;
+  readonly stillCurrent?: (() => boolean) | undefined;
   readonly principalPolicyCache: PrincipalPolicyCache;
   readonly reference: ReferencedPrincipalHead;
   readonly warmReferencedPrincipalPolicies?:
     | ReferencedPrincipalPolicyWarmer
     | undefined;
-}) {
+}): Promise<VerifiedPrincipalPolicyCurrent | null> {
+  assertProjectionVerificationCurrent(input.stillCurrent);
   const key = referencedPrincipalPolicyKey(input.reference);
   const remembered = recoveredByCache.get(input.principalPolicyCache)?.get(key);
   let result =
@@ -86,9 +89,11 @@ export async function resolveReferencedPrincipalPolicy(input: {
     result = await resolve({
       organizationId: input.organizationId,
       reference: input.reference,
+      stillCurrent: input.stillCurrent,
     });
     await meetsCheckpoints(input.checkpointContext, result, false);
   }
+  assertProjectionVerificationCurrent(input.stillCurrent);
   assertProjectionVerificationCurrent(result.stillCurrent);
   if (result.organizationId !== input.organizationId)
     throw new KeyingVerificationError(

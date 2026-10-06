@@ -312,6 +312,7 @@ async function verifyReferencedPrincipalPolicy(input: {
   organizationId: string;
   principalPolicyCache: PrincipalPolicyCache;
   reference: ReferencedPrincipalHead;
+  stillCurrent?: (() => boolean) | undefined;
   resolveUserKey: ProjectionUserKeyResolver;
   warmReferencedPrincipalPolicies?: ReferencedPrincipalPolicyWarmer | undefined;
 }): Promise<PrincipalPolicyCurrentEvidence> {
@@ -452,6 +453,7 @@ export async function collectReferencedPrincipalPolicies(input: {
         organizationId: input.organizationId,
         principalPolicyCache: input.principalPolicyCache,
         reference,
+        stillCurrent: input.stillCurrent,
         resolveUserKey: input.resolveUserKey,
         warmReferencedPrincipalPolicies,
       }),
