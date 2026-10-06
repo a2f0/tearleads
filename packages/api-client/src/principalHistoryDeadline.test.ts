@@ -153,3 +153,40 @@ testApiClient(
     }
   },
 );
+
+testApiClient(
+  "caller cancellation keeps its own reason under a request deadline",
+  async () => {
+    allowLoopback();
+    const controller = new AbortController();
+    const server = Bun.serve({
+      hostname: "127.0.0.1",
+      port: 0,
+      async fetch() {
+        controller.abort();
+        await Bun.sleep(350);
+        return Response.json({});
+      },
+    });
+    try {
+      const result = await principalHistoryRequest(
+        new ApiRequestRuntime(server.url.origin),
+        {
+          method: "GET",
+          path: "/principal",
+          requestTimeoutMs: 1_000,
+          operation: getPrincipalPolicyOperation,
+          validator: isGetPrincipalPolicyOperationResponse,
+          options: { signal: controller.signal, reportErrors: false },
+        },
+      );
+      expect(result).toMatchObject({
+        ok: false,
+        kind: "cancelled",
+        code: "principal_history_context_changed",
+      });
+    } finally {
+      await server.stop(true);
+    }
+  },
+);

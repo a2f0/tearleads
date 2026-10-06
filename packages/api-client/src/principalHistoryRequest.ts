@@ -87,6 +87,7 @@ async function readResponse(
     // this write's outcome uncertain. Reads may restart after a known renewal.
     if (!response.ok && response.kind === "http" && response.status === 401)
       return response;
+    // An expired write remains uncertain even if a failure status arrived.
     if (context.cancelled() || deadline.expired())
       return context.failure(
         response.ok ? response.data : undefined,

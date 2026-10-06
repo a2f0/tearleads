@@ -5,6 +5,10 @@ export function principalHistoryDeadline(
   options: RequestResultOptions,
   timeoutMs = 15_000,
 ) {
+  if (!Number.isFinite(timeoutMs) || timeoutMs <= 0)
+    throw new RangeError(
+      "Principal request timeout must be positive and finite",
+    );
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   return {
