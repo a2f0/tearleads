@@ -89,7 +89,14 @@ async function prepareContinuation(
     db,
     prepared.complete ? targetRequest : prepared.request,
   );
-  if (progressToken === before)
+  // Another request may finish this exact target between rollback and this
+  // worker starting. Its completed proof permits the original transaction to
+  // retry even though this worker did not change the shared progress stamp.
+  // An uncommitted successor or incomplete proof still needs actual progress.
+  if (
+    progressToken === before &&
+    (!prepared.complete || request.head.version > committed.version)
+  )
     throw new PrincipalPolicyError(
       "Principal history preparation made no progress",
       503,
