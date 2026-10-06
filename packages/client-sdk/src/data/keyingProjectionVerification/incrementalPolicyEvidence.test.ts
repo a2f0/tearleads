@@ -5,10 +5,9 @@ import {
   restoreProjectionHistory,
 } from "@tearleads/crypto";
 import { createNativeTestExecSql } from "@tearleads/test-utils";
-import {
-  createOrganizationHistoryFixture,
-  policySnapshot,
-} from "../../../test/helpers/organizationPolicyHistory";
+import { createOrganizationHistoryFixture } from "../../../test/helpers/organizationPolicyHistory";
+import { principalPolicyHead } from "../../../test/helpers/principalPolicyFixtures";
+import { projectionPolicyWarmer } from "../../../test/helpers/projectionPolicyHistory";
 import { verifyProjectionPolicyEvidence } from "./projectionPolicyEvidence";
 
 test("incremental evidence retains a deleted group's historical authorization and rejects modified cached prefixes", async () => {
@@ -19,18 +18,17 @@ test("incremental evidence retains a deleted group's historical authorization an
     containerId: "fixture-container",
     path: [],
     containerKeks: [],
-    policyEvidence: {
-      ...data.evidence(deleted),
-      organization: policySnapshot(
-        deleted ? data.afterDeletion : data.afterAddition,
-      ),
-    },
+    policyEvidence: data.projectionEvidence(deleted),
   });
   const verify = (value: ReturnType<typeof projection>) =>
     verifyProjectionPolicyEvidence({
       organizationId: data.organizationId,
-      execSql: database.execSql,
-      resolveUserKey: data.resolveTrustedUserIdentity,
+      references: [principalPolicyHead(data.created)],
+      warmReferencedPrincipalPolicies: projectionPolicyWarmer({
+        execSql: database.execSql,
+        bundles: data.projectionBundles,
+        resolveUserKey: data.resolveTrustedUserIdentity,
+      }),
       evidence: value.policyEvidence,
     });
   try {
@@ -46,8 +44,8 @@ test("incremental evidence retains a deleted group's historical authorization an
       JSON.stringify(full).length,
     );
     expect(restoreProjectionHistory(wire, retained)).toBe(true);
-    const expected = await verify(full);
-    const actual = await verify(wire);
+    const { policies: expected } = await verify(full);
+    const { policies: actual } = await verify(wire);
     expect(actual.map((policy) => policy.stateHash)).toEqual(
       expected.map((policy) => policy.stateHash),
     );

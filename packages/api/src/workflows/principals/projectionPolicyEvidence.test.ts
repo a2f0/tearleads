@@ -19,11 +19,20 @@ test("projection evidence rejects foreign manifests and missing group bindings",
   });
   if (!isAccessManifestBundleWireResponse(root.bundle))
     throw new Error("Invalid fixture bundle");
-  const input = { executor: db, organizationId, bundles: [root.bundle] };
+  const input = {
+    executor: db,
+    scope: {
+      organizationId,
+      objectKind: "container" as const,
+      objectId: root.kekState.containerId,
+      userId: owner.userId,
+    },
+    bundles: [root.bundle],
+  };
   await expect(
     loadProjectionPolicyEvidence({
       ...input,
-      organizationId: crypto.randomUUID(),
+      scope: { ...input.scope, organizationId: crypto.randomUUID() },
     }),
   ).rejects.toMatchObject({
     status: 409,

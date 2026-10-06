@@ -17,6 +17,7 @@ import {
   runWithSecurityIncidentReporting,
 } from "../../../data/keyingProjectionVerification/error";
 import { createGroupMetadataContainerVerifier } from "../../organizations/groupMetadataContainerAuthority";
+import { createRuntimePrincipalPolicyWarmer } from "../../principals/runtimePolicyWarmer";
 import type { PrefetchedDestinationProjection } from "./destinationPrefetch";
 import {
   cachedDestinationRole,
@@ -165,6 +166,9 @@ async function verifyDestinationRole(input: {
     execSql: runtime.infra.execSql,
     projection,
     resolveUserKey: runtime.resolveTrustedUserIdentity,
+    stillCurrent: isCurrent,
+    warmReferencedPrincipalPolicies:
+      createRuntimePrincipalPolicyWarmer(runtime),
   };
   const { path, verifiedByHash } =
     await verifyContainerDestinationProjection(verificationInput);

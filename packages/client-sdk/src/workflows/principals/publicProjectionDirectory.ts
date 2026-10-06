@@ -2,7 +2,7 @@ import {
   computePrincipalStatePayloadCiphertextHash,
   type ReferencedPrincipalHead,
 } from "@tearleads/crypto";
-import type { ProjectionPolicyHistoryEvidenceResponse } from "@tearleads/validators/response";
+import type { ProjectionPolicyEvidenceResponse } from "@tearleads/validators/response";
 import {
   parseOrganizationAuthorityDescriptor,
   principalHeadMatchesReference,
@@ -14,7 +14,7 @@ import {
 } from "./publicProjectionPrincipal";
 
 export async function publicProjectionDirectoryBindings(
-  evidence: ProjectionPolicyHistoryEvidenceResponse,
+  evidence: ProjectionPolicyEvidenceResponse,
   organization: PublicProjectionPrincipal,
 ) {
   const policies = await selectPublicProjectionPrincipal(organization);

@@ -11,13 +11,13 @@ Document paths carry no nested proof: the API loads one evidence set per documen
 response, and the SDK reuses its verified result across those paths.
 
 The API authorizes the container or document before loading this evidence. The
-response carries the complete signed organization state chain, the directory
-payloads that bind the supplied group heads, and public group snapshots with
-their predecessor chains and
-external Admins authority. For each required group it includes the chain through
-the last head bound by the directory, so a reader's newer durable checkpoint can
-connect to an older citation. Group payload ciphertexts and member key envelopes
-are excluded. Group deletion still erases those secret-bearing artifacts.
+response carries one organization history source, one source per required group,
+and the directory payloads that bind those heads. Each source contains an exact
+signed head reference and an object/user-scoped read grant. Each directory payload
+includes the signed state reference that authenticates it. Public history pages
+supply the complete signed predecessor chains without group payload ciphertexts
+or member key envelopes. Group deletion still erases those secret-bearing
+artifacts. Every page checks current access to the original object.
 
 The SDK verifies signatures and predecessor chains, hashes each directory payload
 against its signed organization state, and binds each supplied group head to a
@@ -28,8 +28,9 @@ bindings, duplicate payloads, foreign groups, and unsigned evidence are refused
 before manifest authorization. Unrelated directory payload bodies are omitted.
 
 Historical evidence does not become a current policy bundle or advance principal
-checkpoints. Current key unwrapping still requires the full policies and member
-envelopes for the current readable path. Current write authorization remains
+checkpoints. Current key unwrapping requires encrypted member envelopes and cryptographic
+unwrap under the requested signed key identity; public authorization supplies
+no private key material. Current write authorization remains
 subject to the server's existing policy and access checks. A verified policy
 already held by an SDK mutation plan can cover its uncommitted successor citation;
 this does not fetch or accept a missing old wire field.
@@ -70,8 +71,8 @@ Direct user grants independently require active same-organization membership
 A group's chain extends through its last directory-bound head, rather than
 stopping at the citation: a reader may already have checkpointed a later version
 without retaining a full policy bundle. Serving only the cited prefix would
-reintroduce the refusal this change fixes. Evidence is restricted to cited groups
-and their Admins authority; it does not include all directory groups' snapshots.
+reintroduce the refusal this change fixes. History sources cover cited groups
+and their Admins authority; unrelated group histories are not requested.
 Each supplied directory body is authenticated by its hash in the signed state
 chain. Only the bodies needed to bind the supplied heads are sent. Those bodies
 list every group ID and head at their respective versions.
@@ -87,22 +88,27 @@ those writes. There is no feature flag or compatibility path for that behavior.
 
 ## Cost and retained-history tradeoff
 
-This contract retains complete signed organization and cited-group state chains.
-The API reads directory history to find the last binding of each needed group,
-but delivers only the distinct directory payloads containing those bindings.
-A document shares one proof set across its paths, and locally composed proofs
-merge distinct bindings rather than dropping an older deleted group's evidence.
+The server retains complete signed organization and group histories. Projection
+responses do not embed them. The API reads the current directory and indexed
+last bindings for deleted groups, then delivers only the distinct payloads needed
+for those bindings. A document shares one source set across its paths; locally
+composed projections merge sources and retain older directory bindings.
 
-Cold state-chain size and verification still grow with retained versions.
-Incremental delivery for #2392 reduces repeat transfers without replacing history
-or introducing a checkpoint authority.
+Cold verification processes bounded history pages. Private authenticated progress
+allows restart and selected citations use proofs against that verified prefix.
+No server marker or public hash becomes a client trust anchor. Final projection
+admission rechecks historical capabilities against current durable pins without
+advancing principal checkpoints. See [principal-history recovery](developer/principal-history-recovery.md)
+for the private lease, checkpoint and availability contracts.
 
 After successful SDK verification, `ApiClient` retains an isolated copy of the
-projection's historical evidence. Its next writer-projection GET can send an
+projection's manifest histories and directory payloads. Its next projection GET
+can send an
 `x-projection-history` header: a URI-encoded JSON array of exact prefixes, each
 with a scope key, count, and SHA-256 digest of the complete retained entries.
 Scope keys bind the requested object, organization, evidence location, and
-principal or manifest chain. The server first performs its ordinary authorization
+manifest chain or directory payload array. The server performs its ordinary
+authorization
 and stored-evidence checks, then omits only matching prefixes and identifies them
 in the response's `historyPrefixes`. Unknown or changed bases receive full
 history. The routes disable HTTP response caching.
@@ -114,7 +120,7 @@ resolution, predecessor links, directory binding, and durable rollback and
 conflict checks still run. A server-supplied hash or verification marker never
 becomes a client trust anchor. Malformed, unsolicited, or altered prefix claims
 are rejected. Deleted-group citations retain their historical directory proofs.
-Dependency paths and principal chains preserve their order; document manifest
+Dependency paths preserve their order; document manifest
 history restores newest-first order for predecessor verification. Other manifest
 history collections are indexed by signed hash; reconstruction may regroup those
 unordered entries without changing their signed contents.
@@ -244,15 +250,16 @@ directory-history reads: the second pass repeats neither (previously 48 and 24).
 The API load regression seeds 64 additional signed groups (66 directory entries)
 and measures 64 and 128 signed directory successors through real API reads and
 cold SDK key recovery. It requires only one directory payload, only the cited
-Admins snapshot, successful recovery, less than 2.1 times byte growth when history
-doubles, and a 1.5 MB fixture budget. Wall-clock timings are diagnostic to avoid
+Admins source, successful recovery, a 40 kB projection limit and less than five
+percent projection growth when history doubles. Signed principal history travels
+through separate pages. Wall-clock timings are diagnostic to avoid
 machine-dependent CI failures. Full-directory delivery previously measured
 2.17/4.32 MB at those sizes; the narrowed delivery measurements are recorded in
 the test output.
 
 Each selected directory payload discloses all group IDs and heads at that
-version, although only cited groups and their Admins authority have snapshots
-attached. The organization's signed state chain also discloses its public Admins
-roster history. That public metadata is part of the historical-verification
+version, although only cited groups and their Admins authority have history
+sources attached. The organization's signed state chain also discloses its public
+Admins roster history. That public metadata is part of the historical-verification
 contract for current object readers; encrypted group metadata and key envelopes
 remain outside it.

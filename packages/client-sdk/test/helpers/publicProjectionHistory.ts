@@ -1,4 +1,4 @@
-import type { ProjectionPolicyHistoryEvidenceResponse } from "@tearleads/validators/response";
+import type { ProjectionPolicyEvidenceResponse } from "@tearleads/validators/response";
 import type { signedAuthorityRecoveryHistory } from "./principalAuthorityRecovery";
 import { principalPolicyHead } from "./principalPolicyFixtures";
 import { createPublicHistoryFixture } from "./publicPrincipalHistory";
@@ -11,7 +11,7 @@ export async function createPublicProjectionHistoryFixture(
     { ...history, bundle: history.group },
     [history.admin, history.directory, extra],
   );
-  const evidence: ProjectionPolicyHistoryEvidenceResponse = {
+  const evidence: ProjectionPolicyEvidenceResponse = {
     organization: f.source(history.directory),
     organizationPayloads: [
       {

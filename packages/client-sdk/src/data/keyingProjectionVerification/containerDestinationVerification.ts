@@ -8,13 +8,20 @@ import { createProjectionCheckpointContext } from "./checkpointContext";
 import { verifyContainerManifestPath } from "./containerPathVerification";
 import { addContainerWriterProjectionBundles } from "./containerProjectionVerification";
 import { verifyProjectionAuthorizationEvidence } from "./projectionAuthorizationEvidence";
-import type { ProjectionUserKeyResolver } from "./types";
+import type {
+  ProjectionUserKeyResolver,
+  ReferencedPrincipalPolicyWarmer,
+} from "./types";
 
 /** Authenticate immutable destination roles without advancing write-authority pins. */
 export async function verifyContainerDestinationProjection(input: {
   readonly execSql: ExecSql;
   readonly projection: ContainerWriterProjectionResponse;
   readonly resolveUserKey: ProjectionUserKeyResolver;
+  readonly stillCurrent?: (() => boolean) | undefined;
+  readonly warmReferencedPrincipalPolicies?:
+    | ReferencedPrincipalPolicyWarmer
+    | undefined;
 }): Promise<{
   readonly path: VerifiedContainerAccessManifest[];
   /** Every manifest verified on the way, including each head's lineage. */
@@ -39,6 +46,8 @@ export async function verifyContainerDestinationProjection(input: {
     organizationId: input.projection.organizationId,
     principalPolicyCache,
     resolveUserKey: input.resolveUserKey,
+    stillCurrent: input.stillCurrent,
+    warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
   });
   const path = await verifyContainerManifestPath({
     authorizationEvidence,

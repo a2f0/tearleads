@@ -33,6 +33,7 @@ import {
   trustedResolver,
   writerResolver,
 } from "./coldSdkRematerialization";
+import { withProjectionHistoryRecovery } from "./projectionHistoryRecovery";
 
 type AncestorSdkCommon = Pick<
   Parameters<typeof syncRemoteDocument>[0],
@@ -140,20 +141,25 @@ export async function createAncestorSdkContext(
     execSql: database.execSql,
     resolveProjectionUserKey: resolveTrustedUserIdentity,
     targetSecretKey: actor.kem.secretKey,
-    warmReferencedPrincipalPolicies: (request: {
-      organizationId: string;
-      references: Parameters<
-        typeof cacheReferencedPrincipalPolicies
-      >[0]["references"];
-    }) =>
-      cacheReferencedPrincipalPolicies({
-        execSql: database.execSql,
-        getCurrentPrincipalPolicy: apiClient.getCurrentPrincipalPolicy,
-        organizationId: request.organizationId,
-        references: request.references,
-        reportSecurityIncident: async () => undefined,
-        resolveTrustedUserIdentity,
-      }),
+    warmReferencedPrincipalPolicies: withProjectionHistoryRecovery({
+      apiClient,
+      execSql: database.execSql,
+      resolveTrustedUserIdentity,
+      warmer: (request: {
+        organizationId: string;
+        references: Parameters<
+          typeof cacheReferencedPrincipalPolicies
+        >[0]["references"];
+      }) =>
+        cacheReferencedPrincipalPolicies({
+          execSql: database.execSql,
+          getCurrentPrincipalPolicy: apiClient.getCurrentPrincipalPolicy,
+          organizationId: request.organizationId,
+          references: request.references,
+          reportSecurityIncident: async () => undefined,
+          resolveTrustedUserIdentity,
+        }),
+    }),
   };
   return { ...database, common, postMutation, resolveTrustedUserIdentity };
 }

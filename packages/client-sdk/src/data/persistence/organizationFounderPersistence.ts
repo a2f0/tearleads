@@ -1,9 +1,9 @@
-import { KeyingVerificationError } from "@tearleads/crypto";
-import { eq } from "drizzle-orm";
 import {
-  type PrincipalPolicyCheckpointEvidence,
-  principalPolicyEvidenceEntries,
-} from "../principals/principalPolicyEvidence";
+  KeyingVerificationError,
+  type PrincipalPolicyAuthorization,
+} from "@tearleads/crypto";
+import { eq } from "drizzle-orm";
+import { principalPolicyEvidenceEntries } from "../principals/principalPolicyEvidence";
 import { organizationFounders } from "../sqlite/organizationFounderSchema";
 import { keyingCheckpointTables } from "../sqlite/schema";
 import { getClientSQLitePersistenceRuntime } from "../sqlite/sqlitePersistenceRuntime";
@@ -41,7 +41,7 @@ export async function loadOrganizationFounder(
 /** Pin verified genesis, never a later administrator or a folder's creator. */
 export async function rememberOrganizationFounder(input: {
   readonly execSql: ExecSql;
-  readonly organization: PrincipalPolicyCheckpointEvidence;
+  readonly organization: PrincipalPolicyAuthorization;
 }): Promise<void> {
   const genesis = principalPolicyEvidenceEntries(input.organization).find(
     ({ state }) => state.version === 1,

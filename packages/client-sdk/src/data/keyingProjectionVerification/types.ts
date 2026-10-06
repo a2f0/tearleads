@@ -5,7 +5,7 @@ import type {
 } from "@tearleads/crypto";
 import type {
   PrincipalPolicyBundleResponse,
-  ProjectionPolicyHistoryEvidenceResponse,
+  ProjectionPolicyEvidenceResponse,
 } from "@tearleads/validators/response";
 import type { PrincipalPolicyCurrentEvidence } from "../principals/principalPolicyEvidence";
 import type { TrustedUserIdentity } from "../trustedUserIdentity";
@@ -47,7 +47,7 @@ export interface PrincipalPolicyBundleCacheRequest {
 
 export interface ProjectionPolicyHistoryResolveRequest {
   readonly organizationId: string;
-  readonly evidence: ProjectionPolicyHistoryEvidenceResponse;
+  readonly evidence: ProjectionPolicyEvidenceResponse;
   readonly references: readonly ReferencedPrincipalHead[];
   readonly stillCurrent?: (() => boolean) | undefined;
 }

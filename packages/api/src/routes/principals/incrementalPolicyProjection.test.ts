@@ -64,14 +64,16 @@ test("real SDK admits verified prefixes, verifies suffixes and recovers cold wit
   for (let index = 0; index < 32; index++) await advance();
   const samples: { bytes: number; hinted: boolean; omitted: number }[] = [];
   let tamper = false;
+  let preparations = 0;
   const server = Bun.serve({
     hostname: "127.0.0.1",
     port: 0,
     fetch: async (request) => {
       const response = await routeApp.fetch(request);
+      if (response.status === 202) preparations += 1;
       if (
         !new URL(request.url).pathname.endsWith("/writer-projection") ||
-        !response.ok
+        response.status !== 200
       )
         return response;
       const text = await response.clone().text();
@@ -86,7 +88,9 @@ test("real SDK admits verified prefixes, verifies suffixes and recovers cold wit
       if (tamper) {
         if (!value.policyEvidence.organization)
           throw new Error("Missing policy evidence");
-        value.policyEvidence.organization.currentState.signature = "forged";
+        const directory = value.policyEvidence.organizationPayloads[0];
+        if (!directory) throw new Error("Missing directory payload");
+        directory.payload.ciphertext += " ";
         return Response.json(value);
       }
       return response;
@@ -117,17 +121,18 @@ test("real SDK admits verified prefixes, verifies suffixes and recovers cold wit
     expect(samples[0]?.hinted).toBe(false);
     expect(samples[1]?.hinted).toBe(true);
     expect(samples[1]?.omitted).toBeGreaterThan(0);
-    expect(samples[1]?.bytes).toBeLessThan((samples[0]?.bytes ?? 0) / 2);
+    expect(samples[1]?.bytes).toBeLessThan(samples[0]?.bytes ?? 0);
     await advance();
     const next = await read(client);
-    expect(
-      next.projection.policyEvidence.organization?.currentState.version,
-    ).toBe(previous.version);
-    expect(
-      next.projection.policyEvidence.organization?.previousStates,
-    ).toHaveLength(previous.version - 1);
-    expect(samples[2]?.omitted).toBeGreaterThan(0);
-    expect(samples[2]?.bytes).toBeLessThan((samples[0]?.bytes ?? 0) / 2);
+    expect(next.projection.policyEvidence.organization?.head.version).toBe(
+      previous.version,
+    );
+    expect(next.projection.policyEvidence.organization).not.toHaveProperty(
+      "previousStates",
+    );
+    // The new head binds a different directory payload reference; it travels in full.
+    expect(samples[2]?.omitted).toBe(0);
+    expect(samples[2]?.bytes).toBeLessThan((samples[0]?.bytes ?? 0) * 1.1);
     const freshClient = new ApiClient(server.url.origin);
     freshClient.setAuthToken(owner.token);
     const recovered = await read(freshClient, cold);
@@ -137,14 +142,19 @@ test("real SDK admits verified prefixes, verifies suffixes and recovers cold wit
     expect(samples[3]?.hinted).toBe(false);
     expect(samples[3]?.omitted).toBe(0);
     // Warm signature caches must never make a tampered successor acceptable.
+    client.setAuthToken(null);
+    client.setAuthToken(owner.token);
     tamper = true;
-    await expect(read(client)).rejects.toThrow();
+    await expect(read(client)).rejects.toMatchObject({
+      code: "object_mismatch",
+    });
     tamper = false;
     // Clearing auth scope drops history hints, including old pending admissions.
     client.setAuthToken(null);
     client.setAuthToken(owner.token);
     await read(client);
     expect(samples.at(-1)?.hinted).toBe(false);
+    expect(preparations).toBeGreaterThan(0);
     console.info(
       "Incremental policy projection bytes",
       JSON.stringify(samples),

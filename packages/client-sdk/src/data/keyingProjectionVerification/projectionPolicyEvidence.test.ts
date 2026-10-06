@@ -1,10 +1,13 @@
 import { expect, test } from "bun:test";
 import { computePrincipalStatePayloadCiphertextHash } from "@tearleads/crypto";
 import { createNativeTestExecSql } from "@tearleads/test-utils";
+import { createOrganizationHistoryFixture } from "../../../test/helpers/organizationPolicyHistory";
+import { principalPolicyHead } from "../../../test/helpers/principalPolicyFixtures";
 import {
-  createOrganizationHistoryFixture,
-  policySnapshot,
-} from "../../../test/helpers/organizationPolicyHistory";
+  projectionDirectoryPayload,
+  projectionPolicySource,
+  projectionPolicyWarmer,
+} from "../../../test/helpers/projectionPolicyHistory";
 import { loadPrincipalPolicyCheckpoint } from "../persistence/keyingCheckpointPersistence";
 import { loadOrganizationFounder } from "../persistence/organizationFounderPersistence";
 import {
@@ -15,28 +18,35 @@ import { verifyProjectionPolicyEvidence } from "./projectionPolicyEvidence";
 
 async function fixture() {
   const data = await createOrganizationHistoryFixture();
-  const history = data.evidence(true);
+
   return {
+    warmer: (
+      execSql: Parameters<typeof projectionPolicyWarmer>[0]["execSql"],
+    ) =>
+      projectionPolicyWarmer({
+        execSql,
+        bundles: data.projectionBundles,
+        resolveUserKey: data.resolveTrustedUserIdentity,
+      }),
     data,
     input: {
       organizationId: data.organizationId,
-      resolveUserKey: data.resolveTrustedUserIdentity,
-      evidence: {
-        organization: policySnapshot(data.afterDeletion),
-        organizationPayloads: history.organizationPayloads,
-        groups: history.groups,
-      },
+      references: [
+        principalPolicyHead(data.created),
+        principalPolicyHead(data.added),
+      ],
+      evidence: data.projectionEvidence(true),
     },
   };
 }
 
 test("deleted group evidence verifies without advancing current-policy checkpoints", async () => {
-  const { data, input } = await fixture();
+  const { data, input, warmer } = await fixture();
   const { close, execSql } = createNativeTestExecSql();
   try {
-    const policies = await verifyProjectionPolicyEvidence({
+    const { policies } = await verifyProjectionPolicyEvidence({
       ...input,
-      execSql,
+      warmReferencedPrincipalPolicies: warmer(execSql),
     });
     expect(
       policies.some(
@@ -64,8 +74,8 @@ test("deleted group evidence verifies without advancing current-policy checkpoin
 });
 
 test("directory payload tampering is refused even with a recomputed advertised hash", async () => {
-  const { input } = await fixture();
-  const payload = input.evidence.organizationPayloads[1];
+  const { input, warmer } = await fixture();
+  const payload = input.evidence.organizationPayloads[1]?.payload;
   if (!payload) throw new Error("Expected historical directory");
   const descriptor = parseOrganizationAuthorityDescriptor(payload.ciphertext);
   payload.ciphertext = encodeOrganizationAuthorityDescriptor({
@@ -82,7 +92,10 @@ test("directory payload tampering is refused even with a recomputed advertised h
   const { close, execSql } = createNativeTestExecSql();
   try {
     await expect(
-      verifyProjectionPolicyEvidence({ ...input, execSql }),
+      verifyProjectionPolicyEvidence({
+        ...input,
+        warmReferencedPrincipalPolicies: warmer(execSql),
+      }),
     ).rejects.toThrow("signed hash");
   } finally {
     close();
@@ -90,31 +103,34 @@ test("directory payload tampering is refused even with a recomputed advertised h
 });
 
 test("a correctly signed group outside the organization directory is refused", async () => {
-  const { data, input } = await fixture();
-  input.evidence.groups.push(
-    policySnapshot(await data.createGroup("Unbound group")),
-  );
+  const { data, input, warmer } = await fixture();
+  const unbound = await data.createGroup("Unbound group");
+  data.projectionBundles.push(unbound);
+  input.evidence.groups.push(projectionPolicySource(unbound));
   const { close, execSql } = createNativeTestExecSql();
   try {
     await expect(
-      verifyProjectionPolicyEvidence({ ...input, execSql }),
-    ).rejects.toThrow("absent from signed directory");
+      verifyProjectionPolicyEvidence({
+        ...input,
+        warmReferencedPrincipalPolicies: warmer(execSql),
+      }),
+    ).rejects.toThrow("lacks its signed directory binding");
   } finally {
     close();
   }
 });
 
 test("a signed directory from another organization is refused", async () => {
-  const { input } = await fixture();
+  const { input, warmer } = await fixture();
   const { close, execSql } = createNativeTestExecSql();
   try {
     await expect(
       verifyProjectionPolicyEvidence({
         ...input,
-        execSql,
+        warmReferencedPrincipalPolicies: warmer(execSql),
         organizationId: "other",
       }),
-    ).rejects.toThrow("principal scope");
+    ).rejects.toThrow("outside its scope");
   } finally {
     close();
   }
@@ -122,22 +138,28 @@ test("a signed directory from another organization is refused", async () => {
 
 for (const malformed of ["missing", "duplicate"] as const) {
   test(`${malformed} signed directory payloads are refused`, async () => {
-    const { data, input } = await fixture();
+    const { data, input, warmer } = await fixture();
     const [first] = input.evidence.organizationPayloads;
     if (!first) throw new Error("Expected directory history");
     if (malformed === "missing")
       input.evidence.organizationPayloads =
         input.evidence.organizationPayloads.filter(
           (payload) =>
-            payload.stateHash !== data.afterAddition.currentState.stateHash,
+            payload.reference.stateHash !==
+            data.afterAddition.currentState.stateHash,
         );
     else input.evidence.organizationPayloads.push(first);
     const { close, execSql } = createNativeTestExecSql();
     try {
       await expect(
-        verifyProjectionPolicyEvidence({ ...input, execSql }),
+        verifyProjectionPolicyEvidence({
+          ...input,
+          warmReferencedPrincipalPolicies: warmer(execSql),
+        }),
       ).rejects.toThrow(
-        malformed === "missing" ? "absent from signed directory" : "scope",
+        malformed === "missing"
+          ? "lacks its signed directory binding"
+          : "scope",
       );
     } finally {
       close();
@@ -147,12 +169,15 @@ for (const malformed of ["missing", "duplicate"] as const) {
 
 for (const fork of [false, true]) {
   test(`historical proof ${fork ? "refuses a fork of" : "connects without advancing"} a durable group pin`, async () => {
-    const { data, input } = await fixture();
+    const { data, input, warmer } = await fixture();
     const state = data.created.currentState;
     const { close, execSql } = createNativeTestExecSql();
     try {
       // Reuse memoized signatures after the durable trust anchor changes.
-      await verifyProjectionPolicyEvidence({ ...input, execSql });
+      await verifyProjectionPolicyEvidence({
+        ...input,
+        warmReferencedPrincipalPolicies: warmer(execSql),
+      });
       await loadPrincipalPolicyCheckpoint(execSql, "group", state.principalId);
       const stateHash = fork ? "f".repeat(64) : state.stateHash;
       await execSql(
@@ -169,7 +194,7 @@ for (const fork of [false, true]) {
       );
       const verification = verifyProjectionPolicyEvidence({
         ...input,
-        execSql,
+        warmReferencedPrincipalPolicies: warmer(execSql),
       });
       if (fork)
         await expect(verification).rejects.toThrow(
@@ -177,7 +202,7 @@ for (const fork of [false, true]) {
         );
       else
         expect(
-          (await verification).some(
+          (await verification).policies.some(
             (policy) => policy.stateHash === data.added.currentState.stateHash,
           ),
         ).toBe(true);
@@ -195,34 +220,48 @@ for (const fork of [false, true]) {
 }
 
 test("a directory-bound group cannot use an authority other than the organization's Admins", async () => {
-  const { data, input } = await fixture();
+  const { data, input, warmer } = await fixture();
   const other = await data.createGroup("Other authority");
   const dependent = await data.createGroup("Wrong authority", false, other);
   const withOther = await data.advanceDirectory(data.afterDeletion, other);
   const withDependent = await data.advanceDirectory(withOther, dependent);
-  input.evidence.organization = policySnapshot(withDependent);
+  data.projectionBundles.push(other, dependent, withOther, withDependent);
+  input.evidence.organization = projectionPolicySource(withDependent);
   input.evidence.organizationPayloads.push(
-    withOther.currentPayload,
-    withDependent.currentPayload,
+    projectionDirectoryPayload(withOther),
+    projectionDirectoryPayload(withDependent),
   );
-  input.evidence.groups.push(policySnapshot(other), policySnapshot(dependent));
+  input.evidence.groups.push(
+    projectionPolicySource(other),
+    projectionPolicySource(dependent),
+  );
   const { close, execSql } = createNativeTestExecSql();
   try {
     await expect(
-      verifyProjectionPolicyEvidence({ ...input, execSql }),
-    ).rejects.toThrow("not the organization's Admins");
+      verifyProjectionPolicyEvidence({
+        ...input,
+        warmReferencedPrincipalPolicies: warmer(execSql),
+      }),
+    ).rejects.toThrow("authority outside its directory binding");
   } finally {
     close();
   }
 });
 
 test("unrelated directory payloads can be omitted while the signed chain remains complete", async () => {
-  const { data, input } = await fixture();
-  input.evidence.organizationPayloads = [data.afterAddition.currentPayload];
+  const { data, input, warmer } = await fixture();
+  input.evidence.organizationPayloads = [
+    projectionDirectoryPayload(data.afterAddition),
+  ];
   const { close, execSql } = createNativeTestExecSql();
   try {
     expect(
-      (await verifyProjectionPolicyEvidence({ ...input, execSql })).length,
+      (
+        await verifyProjectionPolicyEvidence({
+          ...input,
+          warmReferencedPrincipalPolicies: warmer(execSql),
+        })
+      ).policies.length,
     ).toBe(4);
   } finally {
     close();

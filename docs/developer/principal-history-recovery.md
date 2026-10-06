@@ -220,7 +220,7 @@ This primitive returns verified public history, not a current policy or an
 admitted application checkpoint. Its caller must bind the source heads and any
 external authority to verified organization directory payloads, select needed
 citations and genesis through inclusion proofs, and check durable local pins.
-The internal compact-projection recovery path performs these binding and
+The public `recoverProjectionPolicyHistory` workflow performs these binding and
 selection checks: organization and genesis first, signed directory payloads,
 strict Admins histories, then dependent group histories. It selects citations
 in batches of at most 128 proofs with a separate checkpoint proof. It replays
@@ -228,5 +228,26 @@ only the affected principal once when a selected disposable proof is lost.
 A source behind a newer durable pin needs a verified prefix extending that pin;
 otherwise recovery reports unavailable evidence and leaves the pin intact.
 
-Production projection responses and runtime wiring remain tracked in
+Container and document projection responses carry exact signed heads and scoped
+history grants, plus only the directory payloads needed to bind those heads.
+Public signed states travel separately in bounded pages. The projection GET
+and page routes can return a rolled-back preparation continuation; the API client
+retries validated progress with a fresh 15-second deadline for each response,
+including its body. History hints cover manifest and directory payload arrays;
+principal histories use the authenticated durable page cache instead.
+
+The runtime warmer supplies private public-history recovery. Standalone hosts
+provide its `resolveProjectionHistory` capability explicitly. Final projection
+admission rechecks the recovered lease and historical authorization against the
+latest durable pins in the same transaction as access checkpoint writes. A new
+pin without a retained proof defers admission; a conflicting retained hash is an
+integrity failure. Historical authorization never advances current-policy pins.
+
+A public prefix memo may outlive a projection rejected by later object-authority
+checks. When another online source has a different signed head, the SDK can
+verify that requested chain from genesis once; it still checks durable pins and
+object authority. Offline recovery cannot replace a conflicting prefix.
+
+Resource budgets, durable client mutation recovery and the beyond-16,384
+acceptance run remain tracked in
 [#2448](https://github.com/a2f0/tearleads/issues/2448).

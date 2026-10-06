@@ -311,3 +311,12 @@ discovery never calls it. `RecoveryFolder` is exported from the SDK root.
 `ContainerDocumentQueries.listRecoveryFolderMoveIds` lists queued folder moves
 whose local destination parent is unavailable. Recovery uses it to distinguish
 local work from shared folders with inaccessible parents.
+
+`recoverProjectionPolicyHistory` resolves compact projection sources into verified
+historical authorization selections. Standalone hosts provide private local
+protection, the projection's manifest references, trusted identity resolution,
+and a lifetime predicate. Attach it through the policy warmer's
+`resolveProjectionHistory` capability and return the same lifetime predicate
+with the selections. Projection verification rechecks that lifetime and the
+latest local pins at final admission. Historical selections never advance
+current-policy checkpoints or become current key material.

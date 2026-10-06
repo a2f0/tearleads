@@ -1,9 +1,9 @@
+import type { PrincipalPolicyAuthorization } from "@tearleads/crypto";
 import {
   KeyingVerificationError,
   type VerifiedContainerAccessManifest,
 } from "@tearleads/crypto";
 import { rememberOrganizationFounder } from "../persistence/organizationFounderPersistence";
-import type { PrincipalPolicyCheckpointEvidence } from "../principals/principalPolicyEvidence";
 import type { ExecSql } from "../sqlite/sqlSchema";
 import { verifiedContainerCreateManifest } from "./containerCreateManifest";
 
@@ -16,7 +16,7 @@ import { verifiedContainerCreateManifest } from "./containerCreateManifest";
  */
 export async function rememberRootBoundOrganizationFounder(input: {
   readonly execSql: ExecSql;
-  readonly policies: readonly PrincipalPolicyCheckpointEvidence[] | undefined;
+  readonly policies: readonly PrincipalPolicyAuthorization[] | undefined;
   readonly root: VerifiedContainerAccessManifest | undefined;
   readonly verifiedByHash: ReadonlyMap<string, VerifiedContainerAccessManifest>;
 }): Promise<void> {

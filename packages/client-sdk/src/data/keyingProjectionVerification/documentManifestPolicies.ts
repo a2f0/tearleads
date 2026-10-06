@@ -1,9 +1,9 @@
+import type { PrincipalPolicyAuthorization } from "@tearleads/crypto";
 import {
   KeyingVerificationError,
   principalPolicyMatchesReference,
   type VerifiedContainerAccessManifest,
 } from "@tearleads/crypto";
-import type { PrincipalPolicyCheckpointEvidence } from "../principals/principalPolicyEvidence";
 import type { ProjectionCheckpointContext } from "./checkpointContext";
 import { collectReferencedPrincipalPolicies } from "./principalPolicyVerification";
 import type {
@@ -19,7 +19,7 @@ export type UsedDocumentContainerManifests = Map<
 
 export async function collectDocumentManifestPrincipalPolicies(input: {
   readonly authorizationEvidence?:
-    | readonly PrincipalPolicyCheckpointEvidence[]
+    | readonly PrincipalPolicyAuthorization[]
     | undefined;
   readonly checkpointContext: ProjectionCheckpointContext;
   readonly organizationId: string;
@@ -33,7 +33,7 @@ export async function collectDocumentManifestPrincipalPolicies(input: {
   readonly warmReferencedPrincipalPolicies?:
     | ReferencedPrincipalPolicyWarmer
     | undefined;
-}): Promise<PrincipalPolicyCheckpointEvidence[]> {
+}): Promise<PrincipalPolicyAuthorization[]> {
   const authorizationEvidence = input.authorizationEvidence ?? [];
   const references = input.paths
     .flatMap((path) =>

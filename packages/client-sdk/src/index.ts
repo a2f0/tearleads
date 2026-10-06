@@ -477,6 +477,7 @@ export {
 } from "./workflows/organizations";
 export type {
   CacheReferencedPrincipalPoliciesOptions,
+  ProjectionPolicyHistoryRecoveryOptions,
   RecoveredPrincipalPolicyHistory,
   RecoveredScopedPrincipalPolicyHistory,
   RecoverPrincipalPolicyHistoryOptions,
@@ -486,6 +487,7 @@ export {
   cacheReferencedPrincipalPolicies,
   PrincipalPolicyHistoryReadError,
   recoverPrincipalPolicyHistory,
+  recoverProjectionPolicyHistory,
   recoverScopedPrincipalPolicyHistory,
 } from "./workflows/principals";
 export type {

@@ -5,12 +5,16 @@ import {
   toFingerprint,
 } from "@tearleads/crypto";
 import { createNativeTestExecSql } from "@tearleads/test-utils";
-import { policySnapshot } from "../../../test/helpers/organizationPolicyHistory";
 import {
   organizationPolicyBundleFromInitialRequest,
   policyBundleFromInitialRequest,
   principalPolicyHead,
 } from "../../../test/helpers/principalPolicyFixtures";
+import {
+  projectionDirectoryPayload,
+  projectionPolicySource,
+  projectionPolicyWarmer,
+} from "../../../test/helpers/projectionPolicyHistory";
 import { sharedReplacementBindingFixture } from "../../../test/helpers/sharedReplacementBinding";
 import { createTestTrustedUserIdentityResolver } from "../../../test/helpers/trustedUserIdentity";
 import { rootContainerWriterProjectionFromCreatePlan } from "../../workflows/containers/root/create";
@@ -57,14 +61,23 @@ test("a separately signed organization cannot nominate another founder for a gen
         artifacts.rootContainer.plan,
       ),
       policyEvidence: {
-        organization: policySnapshot(impostor),
-        organizationPayloads: [impostor.currentPayload],
-        groups: groups.map(policySnapshot),
+        organization: projectionPolicySource(impostor),
+        organizationPayloads: [projectionDirectoryPayload(impostor)],
+        groups: groups.map(projectionPolicySource),
       },
     };
+    const resolveUserKey = (userId: string) =>
+      userId === attackerUserId
+        ? attackerIdentity(userId)
+        : data.input.runtime.resolveTrustedUserIdentity(userId);
     await expect(
       verifyContainerDestinationProjection({
         execSql: cold.execSql,
+        warmReferencedPrincipalPolicies: projectionPolicyWarmer({
+          execSql: cold.execSql,
+          bundles: [impostor, ...groups],
+          resolveUserKey,
+        }),
         projection,
         resolveUserKey: (userId) =>
           userId === attackerUserId
@@ -81,12 +94,17 @@ test("a separately signed organization cannot nominate another founder for a gen
     );
     await verifyContainerDestinationProjection({
       execSql: cold.execSql,
+      warmReferencedPrincipalPolicies: projectionPolicyWarmer({
+        execSql: cold.execSql,
+        bundles: [genuine, ...groups],
+        resolveUserKey,
+      }),
       projection: {
         ...projection,
         policyEvidence: {
           ...projection.policyEvidence,
-          organization: policySnapshot(genuine),
-          organizationPayloads: [genuine.currentPayload],
+          organization: projectionPolicySource(genuine),
+          organizationPayloads: [projectionDirectoryPayload(genuine)],
         },
       },
       resolveUserKey: data.input.runtime.resolveTrustedUserIdentity,

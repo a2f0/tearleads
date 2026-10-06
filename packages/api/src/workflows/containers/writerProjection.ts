@@ -14,6 +14,7 @@ import {
   type ContainerWriterProjectionResponse,
 } from "@tearleads/validators/response";
 import { uniqueSortedStrings } from "../../utils/array";
+import { runPrincipalHistoryTransaction } from "../principals/principalHistoryTransaction";
 import { loadProjectionPolicyEvidence } from "../principals/projectionPolicyEvidence";
 import { PrincipalPolicyError } from "../principals/shared";
 import {
@@ -131,7 +132,12 @@ async function resolveContainerReaderProjection(
       ...path,
       policyEvidence: await loadProjectionPolicyEvidence({
         executor: input.executor,
-        organizationId: path.organizationId,
+        scope: {
+          organizationId: path.organizationId,
+          userId: input.userId,
+          objectKind: "container",
+          objectId: input.containerId,
+        },
         bundles: [
           ...path.path,
           ...path.containerKeks.flatMap((kek) => kek.containerManifestHistory),
@@ -280,18 +286,21 @@ export async function runContainerWriterProjectionWorkflow(
     readonly userId: string;
   },
 ): Promise<ContainerWriterProjectionResponse> {
-  const { markers, projection } = await db.transaction(async (tx) => {
-    const context = createContainerWriterProjectionContext(tx);
-    return {
-      markers: context.verificationMarkers,
-      projection: await resolveContainerReaderProjection({
-        containerId: input.containerId,
-        context,
-        executor: tx,
-        userId: input.userId,
-      }),
-    };
-  });
+  const { markers, projection } = await runPrincipalHistoryTransaction(
+    db,
+    async (tx) => {
+      const context = createContainerWriterProjectionContext(tx);
+      return {
+        markers: context.verificationMarkers,
+        projection: await resolveContainerReaderProjection({
+          containerId: input.containerId,
+          context,
+          executor: tx,
+          userId: input.userId,
+        }),
+      };
+    },
+  );
   await flushVerificationMarkersAfterRead(markers, db);
   return projection;
 }

@@ -208,6 +208,7 @@ import {
   evictWriterProjectionsCiting,
 } from "./writerProjectionCitations";
 import { primeWriterProjectionSlot } from "./writerProjectionPrime";
+import { writerProjectionRequests } from "./writerProjectionRequests";
 
 type ExpiredHandler = () => boolean | Promise<boolean>;
 type PaymentRequiredHandler = (organizationId: string | null) => void;
@@ -275,10 +276,10 @@ export class ApiClient {
       this.clearWriterProjectionCaches,
     );
     this.request = this.projectionHistory.wrapRequest(
-      this.requestRuntime.request,
+      writerProjectionRequests(this.requestRuntime).request,
     );
     this.requestResult = this.projectionHistory.wrapRequestResult(
-      this.requestRuntime.requestResult,
+      writerProjectionRequests(this.requestRuntime).requestResult,
     );
     this.transport = createOperationTransport(
       this.requestRuntime.responseRequest,

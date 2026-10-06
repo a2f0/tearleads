@@ -462,10 +462,6 @@ export {
   ProjectionPolicyEvidenceResponseSchema,
 } from "./projectionPolicyEvidence";
 export {
-  type ProjectionPolicyHistoryEvidenceResponse,
-  ProjectionPolicyHistoryEvidenceResponseSchema,
-} from "./projectionPolicyHistoryEvidence";
-export {
   isRegistrationResponse,
   type RegistrationResponse,
   RegistrationResponseSchema,

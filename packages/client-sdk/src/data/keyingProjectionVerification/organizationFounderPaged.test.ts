@@ -1,11 +1,15 @@
 import { expect, test } from "bun:test";
 import { createNativeTestExecSql } from "@tearleads/test-utils";
-import { policySnapshot } from "../../../test/helpers/organizationPolicyHistory";
 import {
   organizationPolicyBundleFromInitialRequest,
   policyBundleFromInitialRequest,
   principalPolicyHead,
 } from "../../../test/helpers/principalPolicyFixtures";
+import {
+  projectionDirectoryPayload,
+  projectionPolicySource,
+  projectionPolicyWarmer,
+} from "../../../test/helpers/projectionPolicyHistory";
 import { sharedReplacementBindingFixture } from "../../../test/helpers/sharedReplacementBinding";
 import { rootContainerWriterProjectionFromCreatePlan } from "../../workflows/containers/root/create";
 import { recoverPrincipalPolicyHistory } from "../../workflows/principals/recoverPrincipalPolicyHistory";
@@ -30,14 +34,19 @@ test("paged organization evidence pins the genuine root's founder", async () => 
     );
     const verified = await verifyContainerDestinationProjection({
       execSql: setup.execSql,
+      warmReferencedPrincipalPolicies: projectionPolicyWarmer({
+        execSql: setup.execSql,
+        bundles: [organization, ...groups],
+        resolveUserKey: data.input.runtime.resolveTrustedUserIdentity,
+      }),
       projection: {
         ...rootContainerWriterProjectionFromCreatePlan(
           artifacts.rootContainer.plan,
         ),
         policyEvidence: {
-          organization: policySnapshot(organization),
-          organizationPayloads: [organization.currentPayload],
-          groups: groups.map(policySnapshot),
+          organization: projectionPolicySource(organization),
+          organizationPayloads: [projectionDirectoryPayload(organization)],
+          groups: groups.map(projectionPolicySource),
         },
       },
       resolveUserKey: data.input.runtime.resolveTrustedUserIdentity,

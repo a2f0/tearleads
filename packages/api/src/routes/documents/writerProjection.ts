@@ -12,6 +12,7 @@ import {
   DocumentWriterProjectionError,
   getDocumentWriterProjection,
 } from "../../services/documents/writerProjection";
+import { PrincipalHistoryContinuation } from "../../services/principals/shared";
 import type { ApiServiceRuntime } from "../../services/runtime";
 import { headersValidator } from "../../validators/headers";
 import { pathParamsValidator } from "../../validators/pathParams";
@@ -70,6 +71,15 @@ export function createDocumentWriterProjectionRoute({
           }),
         );
       } catch (error) {
+        if (error instanceof PrincipalHistoryContinuation)
+          return c.json(
+            {
+              code: error.code,
+              committed: false,
+              progressToken: error.progressToken,
+            },
+            202,
+          );
         if (error instanceof DocumentWriterProjectionError) {
           return c.json(
             error.code === undefined

@@ -22,6 +22,10 @@ import {
   principalPolicyHead,
   signedPrincipalPolicyBundle,
 } from "./principalPolicyFixtures";
+import {
+  projectionDirectoryPayload,
+  projectionPolicySource,
+} from "./projectionPolicyHistory";
 import { createTestTrustedUserIdentity } from "./trustedUserIdentity";
 
 export function policySnapshot(
@@ -148,6 +152,28 @@ export async function createOrganizationHistoryFixture() {
     ].map((bundle) => bundle.currentPayload),
     groups: [admin, members, added].map(policySnapshot),
   });
+  const projectionBundles = [
+    initial,
+    afterCreation,
+    afterAddition,
+    afterDeletion,
+    admin,
+    members,
+    created,
+    added,
+  ];
+  const projectionEvidence = (deleted = false) => ({
+    organization: projectionPolicySource(
+      deleted ? afterDeletion : afterAddition,
+    ),
+    organizationPayloads: [
+      initial,
+      afterCreation,
+      afterAddition,
+      ...(deleted ? [afterDeletion] : []),
+    ].map(projectionDirectoryPayload),
+    groups: [admin, members, added].map(projectionPolicySource),
+  });
   const advanceGroup = async (
     previous: PrincipalPolicyBundleResponse,
     projection: PrincipalPolicyBundleResponse["currentProjection"],
@@ -200,6 +226,8 @@ export async function createOrganizationHistoryFixture() {
     afterAddition,
     afterDeletion,
     evidence,
+    projectionBundles,
+    projectionEvidence,
     resolveTrustedUserIdentity,
   };
 }

@@ -4,7 +4,7 @@ import { createTestUser } from "@tearleads/bob-and-alice";
 import {
   isAccessManifestBundleWireResponse,
   PrincipalPolicySnapshotPageResponseSchema,
-  ProjectionPolicyHistoryEvidenceResponseSchema,
+  ProjectionPolicyEvidenceResponseSchema,
 } from "@tearleads/validators/response";
 import { bootstrapRoot } from "../../../test/helpers/keyingWriterProjectionKit";
 import { getDefaultOrganizationId } from "../../../test/helpers/organizationMembership";
@@ -12,8 +12,8 @@ import { requestPreparedPrincipalPolicy } from "../../../test/helpers/principalH
 import { registerAndAuthenticate } from "../../../test/helpers/principalPolicyReadFixtures";
 import { readProjectionAccessManifest } from "../../keyingProjectionRecords";
 import * as snapshots from "./principalPolicySnapshots";
+import { loadProjectionPolicyEvidence } from "./projectionPolicyEvidence";
 import * as grants from "./projectionPolicyHistoryGrant";
-import { loadProjectionPolicySources } from "./projectionPolicySources";
 
 async function fixture() {
   const owner = createTestUser();
@@ -37,9 +37,9 @@ test("projection sources issue scoped exact-head grants without full snapshots",
     "loadVerifiedPrincipalPolicySnapshotsForReferences",
   );
   try {
-    const evidence = await loadProjectionPolicySources(f.input);
+    const evidence = await loadProjectionPolicyEvidence(f.input);
     expect(
-      ProjectionPolicyHistoryEvidenceResponseSchema.safeParse(evidence).success,
+      ProjectionPolicyEvidenceResponseSchema.safeParse(evidence).success,
     ).toBe(true);
     expect(evidence.organization).not.toBeNull();
     expect(evidence.groups.length).toBeGreaterThan(0);
@@ -79,7 +79,7 @@ test.each(["fingerprint", "version", "principal", "organization"] as const)(
   "projection source issuance rejects a substituted %s before issuing any grant",
   async (change) => {
     const f = await fixture();
-    await loadProjectionPolicySources(f.input);
+    await loadProjectionPolicyEvidence(f.input);
     const original = f.input.bundles[0];
     if (!original) throw new Error("Missing fixture manifest");
     const manifest = readProjectionAccessManifest(
@@ -113,7 +113,7 @@ test.each(["fingerprint", "version", "principal", "organization"] as const)(
     const issue = spyOn(grants, "issueProjectionPolicyHistoryGrant");
     try {
       await expect(
-        loadProjectionPolicySources({ ...f.input, bundles }),
+        loadProjectionPolicyEvidence({ ...f.input, bundles }),
       ).rejects.toMatchObject({ status: 409 });
       expect(issue).not.toHaveBeenCalled();
     } finally {

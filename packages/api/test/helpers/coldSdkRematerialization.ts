@@ -32,6 +32,11 @@ import {
 import { routeApp } from "../../src/routeApp";
 import { createPagedColdPolicyWarmer } from "./pagedColdPolicyWarmer";
 import { getPolicy } from "./principalPolicyReadFixtures";
+import { withProjectionHistoryRecovery } from "./projectionHistoryRecovery";
+import {
+  projectionRouteHistory,
+  projectionRouteRequest,
+} from "./projectionRouteHistory";
 
 export const COLD_DOCUMENT_TEXT = "cold login decrypts rotated group data";
 
@@ -56,6 +61,7 @@ export function createRouteSdkClient(token: string) {
   const primedDocumentProjections = new Map<string, unknown>();
 
   return createMockApiClient({
+    ...projectionRouteHistory(token),
     createDocument: async (request: DocumentCreateRequest) => {
       const value = await requireJson(
         await routeApp.request("/documents", {
@@ -72,9 +78,10 @@ export function createRouteSdkClient(token: string) {
     },
     getContainerWriterProjection: async (containerId: string) => {
       const value = await requireJson(
-        await routeApp.request(`/containers/${containerId}/writer-projection`, {
-          headers: authHeaders(token),
-        }),
+        await projectionRouteRequest(
+          `/containers/${containerId}/writer-projection`,
+          token,
+        ),
         "container writer projection",
       );
       if (!isContainerWriterProjectionResponse(value)) {
@@ -101,9 +108,10 @@ export function createRouteSdkClient(token: string) {
         return primed;
       }
       const value = await requireJson(
-        await routeApp.request(`/documents/${documentId}/writer-projection`, {
-          headers: authHeaders(token),
-        }),
+        await projectionRouteRequest(
+          `/documents/${documentId}/writer-projection`,
+          token,
+        ),
         "document writer projection",
       );
       if (!isDocumentWriterProjectionResponse(value)) {
@@ -187,20 +195,25 @@ export async function createEncryptedColdDocument(input: {
   );
   const apiClient = createRouteSdkClient(input.owner.token);
   const resolveTrustedUserIdentity = trustedResolver(input.owner);
-  const warmReferencedPrincipalPolicies = async (request: {
-    organizationId: string;
-    references: Parameters<
-      typeof cacheReferencedPrincipalPolicies
-    >[0]["references"];
-  }) =>
-    cacheReferencedPrincipalPolicies({
-      execSql,
-      getCurrentPrincipalPolicy: apiClient.getCurrentPrincipalPolicy,
-      organizationId: request.organizationId,
-      references: request.references,
-      reportSecurityIncident: async () => undefined,
-      resolveTrustedUserIdentity,
-    });
+  const warmReferencedPrincipalPolicies = withProjectionHistoryRecovery({
+    apiClient,
+    execSql,
+    resolveTrustedUserIdentity,
+    warmer: async (request: {
+      organizationId: string;
+      references: Parameters<
+        typeof cacheReferencedPrincipalPolicies
+      >[0]["references"];
+    }) =>
+      cacheReferencedPrincipalPolicies({
+        execSql,
+        getCurrentPrincipalPolicy: apiClient.getCurrentPrincipalPolicy,
+        organizationId: request.organizationId,
+        references: request.references,
+        reportSecurityIncident: async () => undefined,
+        resolveTrustedUserIdentity,
+      }),
+  });
 
   try {
     const created = await createRemoteDocument({
@@ -268,20 +281,25 @@ export async function syncDocumentWithInlineRootRekey(input: {
   );
   const apiClient = createRouteSdkClient(input.owner.token);
   const resolveTrustedUserIdentity = trustedResolver(input.owner);
-  const warmReferencedPrincipalPolicies = async (request: {
-    organizationId: string;
-    references: Parameters<
-      typeof cacheReferencedPrincipalPolicies
-    >[0]["references"];
-  }) =>
-    cacheReferencedPrincipalPolicies({
-      execSql,
-      getCurrentPrincipalPolicy: apiClient.getCurrentPrincipalPolicy,
-      organizationId: request.organizationId,
-      references: request.references,
-      reportSecurityIncident: async () => undefined,
-      resolveTrustedUserIdentity,
-    });
+  const warmReferencedPrincipalPolicies = withProjectionHistoryRecovery({
+    apiClient,
+    execSql,
+    resolveTrustedUserIdentity,
+    warmer: async (request: {
+      organizationId: string;
+      references: Parameters<
+        typeof cacheReferencedPrincipalPolicies
+      >[0]["references"];
+    }) =>
+      cacheReferencedPrincipalPolicies({
+        execSql,
+        getCurrentPrincipalPolicy: apiClient.getCurrentPrincipalPolicy,
+        organizationId: request.organizationId,
+        references: request.references,
+        reportSecurityIncident: async () => undefined,
+        resolveTrustedUserIdentity,
+      }),
+  });
 
   try {
     const author = documentAuthor(input.owner, input.organizationId);
@@ -414,7 +432,14 @@ export async function coldRematerializeEncryptedDocument(input: {
         },
       })
     : undefined;
-  const warmReferencedPrincipalPolicies = paged?.warmer ?? fullBundleWarmer;
+  const warmReferencedPrincipalPolicies =
+    paged?.warmer ??
+    withProjectionHistoryRecovery({
+      apiClient,
+      execSql,
+      resolveTrustedUserIdentity,
+      warmer: fullBundleWarmer,
+    });
   try {
     const recovered = await createLoroDocument(
       `cold-reader-${crypto.randomUUID()}`,

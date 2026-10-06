@@ -1,4 +1,5 @@
 import {
+  recoverProjectionPolicyHistory,
   recoverScopedPrincipalPolicyHistory,
   type syncRemoteDocument,
 } from "@tearleads/client-sdk";
@@ -9,7 +10,8 @@ type SyncInput = Parameters<typeof syncRemoteDocument>[0];
 export function createPagedColdPolicyWarmer(input: {
   apiClient: Parameters<
     typeof recoverScopedPrincipalPolicyHistory
-  >[0]["apiClient"];
+  >[0]["apiClient"] &
+    Parameters<typeof recoverProjectionPolicyHistory>[0]["apiClient"];
   execSql: SyncInput["execSql"];
   resolveTrustedUserIdentity: Parameters<
     typeof recoverScopedPrincipalPolicyHistory
@@ -30,6 +32,34 @@ export function createPagedColdPolicyWarmer(input: {
         throw new Error("Cold recovery requested a full policy bundle");
       },
       {
+        resolveProjectionHistory(
+          request: Parameters<
+            NonNullable<
+              NonNullable<
+                SyncInput["warmReferencedPrincipalPolicies"]
+              >["resolveProjectionHistory"]
+            >
+          >[0],
+        ) {
+          const operation = tail.then(async () => {
+            input.onResolve();
+            const stillCurrent = () => request.stillCurrent?.() !== false;
+            const policies = await recoverProjectionPolicyHistory({
+              ...request,
+              apiClient: input.apiClient,
+              execSql: input.execSql,
+              resolveTrustedUserIdentity: input.resolveTrustedUserIdentity,
+              protection,
+              stillCurrent,
+            });
+            return { policies, stillCurrent };
+          });
+          tail = operation.then(
+            () => undefined,
+            () => undefined,
+          );
+          return operation;
+        },
         resolveReference(
           request: Parameters<
             NonNullable<

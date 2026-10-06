@@ -1,5 +1,6 @@
 import { retainVerifiedProjectionHistory } from "@tearleads/api-client";
 import type {
+  PrincipalPolicyAuthorization,
   VerifiedContainerAccessManifest,
   VerifiedDocumentLinkSetManifest,
   VerifiedPrincipalPolicy,
@@ -8,7 +9,6 @@ import type {
   AccessManifestBundleWireResponse,
   DocumentWriterProjectionResponse,
 } from "@tearleads/validators/response";
-import type { PrincipalPolicyCheckpointEvidence } from "../principals/principalPolicyEvidence";
 import type { ExecSql } from "../sqlite/sqlSchema";
 import { addBundleByHash } from "./bundleVerification";
 import {
@@ -86,7 +86,7 @@ function collectDocumentProjectionContainerBundles(
 }
 
 async function verifyProjectionContainerPaths(input: {
-  readonly authorizationEvidence: readonly PrincipalPolicyCheckpointEvidence[];
+  readonly authorizationEvidence: readonly PrincipalPolicyAuthorization[];
   readonly checkpointContext: ProjectionCheckpointContext;
   readonly principalPolicyCache: PrincipalPolicyCache;
   readonly projection: DocumentWriterProjectionResponse;
@@ -192,7 +192,7 @@ export interface DocumentWriterProjectionAuthorization {
     string,
     VerifiedDocumentLinkSetManifest
   >;
-  readonly principalPolicies: readonly PrincipalPolicyCheckpointEvidence[];
+  readonly principalPolicies: readonly PrincipalPolicyAuthorization[];
 }
 
 interface VerifiedDocumentWriterProjectionResult {
@@ -208,6 +208,8 @@ async function verifyDocumentWriterProjectionWithContext(
     input.principalPolicyCache ?? new Map<string, VerifiedPrincipalPolicy>();
   const authorizationEvidence = await verifyProjectionAuthorizationEvidence({
     bundles: [
+      input.projection.documentManifest,
+      ...input.projection.documentManifestHistory,
       ...collectDocumentProjectionContainerBundles(input.projection).values(),
     ],
     checkpointContext,
@@ -218,6 +220,8 @@ async function verifyDocumentWriterProjectionWithContext(
     ).organizationId,
     principalPolicyCache,
     resolveUserKey: input.resolveUserKey,
+    stillCurrent: input.stillCurrent,
+    warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
   });
   const containerPathByManifestHash = await verifyProjectionContainerPaths({
     authorizationEvidence,

@@ -13,6 +13,10 @@ import {
   principalPolicyHead,
   signedPrincipalPolicyBundle,
 } from "./principalPolicyFixtures";
+import {
+  projectionDirectoryPayload,
+  projectionPolicySource,
+} from "./projectionPolicyHistory";
 
 /** Real signed group history, including a former administrator. */
 export async function historicalGroupPolicy(input: {
@@ -111,10 +115,11 @@ export async function historicalGroupPolicy(input: {
     currentHead,
     firstHead,
     policy,
+    projectionBundles: [organization, current],
     policyEvidence: {
-      organization: policySnapshot(organization),
-      organizationPayloads: [organization.currentPayload],
-      groups: [policySnapshot(current)],
+      organization: projectionPolicySource(organization),
+      organizationPayloads: [projectionDirectoryPayload(organization)],
+      groups: [projectionPolicySource(current)],
     },
   };
 }

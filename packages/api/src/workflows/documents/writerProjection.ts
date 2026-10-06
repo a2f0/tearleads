@@ -28,6 +28,7 @@ import {
   createContainerWriterProjectionContext,
 } from "../containers/writerProjection";
 import { flushVerificationMarkersAfterRead } from "../containers/writerProjection/verificationMarkers";
+import { runPrincipalHistoryTransaction } from "../principals/principalHistoryTransaction";
 import {
   loadCurrentDocumentManifestBundle,
   toAccessManifestBundleWireResponse,
@@ -564,6 +565,8 @@ async function resolveDocumentWriterProjection(input: {
     policyEvidence: await loadDocumentProjectionPolicyEvidence({
       executor: input.executor,
       organizationId: documentState.organizationId,
+      documentId: input.documentId,
+      userId: input.userId,
       documentManifest,
       ...verificationMaterial,
       authorizingContainerPaths,
@@ -578,25 +581,28 @@ export async function runDocumentWriterProjectionWorkflow(
     readonly userId: string;
   },
 ): Promise<DocumentWriterProjectionResponse> {
-  const { markers, projection } = await db.transaction(async (tx) => {
-    const containerProjectionContext =
-      createContainerWriterProjectionContext(tx);
-    const projection = await resolveDocumentWriterProjection({
-      containerProjectionContext,
-      documentId: input.documentId,
-      executor: tx,
-      userId: input.userId,
-    });
-    await recordDocumentManifestObservationInTransaction(tx, {
-      documentId: input.documentId,
-      manifestHash: projection.documentManifest.manifestHash,
-      userId: input.userId,
-    });
-    return {
-      markers: containerProjectionContext.verificationMarkers,
-      projection,
-    };
-  });
+  const { markers, projection } = await runPrincipalHistoryTransaction(
+    db,
+    async (tx) => {
+      const containerProjectionContext =
+        createContainerWriterProjectionContext(tx);
+      const projection = await resolveDocumentWriterProjection({
+        containerProjectionContext,
+        documentId: input.documentId,
+        executor: tx,
+        userId: input.userId,
+      });
+      await recordDocumentManifestObservationInTransaction(tx, {
+        documentId: input.documentId,
+        manifestHash: projection.documentManifest.manifestHash,
+        userId: input.userId,
+      });
+      return {
+        markers: containerProjectionContext.verificationMarkers,
+        projection,
+      };
+    },
+  );
   await flushVerificationMarkersAfterRead(markers, db);
   return projection;
 }

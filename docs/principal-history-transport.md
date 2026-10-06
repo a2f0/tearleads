@@ -82,6 +82,8 @@ head, public artifacts and cursor continuity, and checks identity changes
 after each consumer yield. The compact source builder checks every manifest
 citation against the signed directory head and verified chain before issuing
 any grant. It includes only the organization payloads needed for those bindings,
-with exact references for selective client verification. Production projection
-responses still embed snapshots until the SDK integration is complete; this
-remaining work is tracked in [#2448](https://github.com/a2f0/tearleads/issues/2448).
+with exact references for selective client verification. Production projections
+carry these sources and the SDK resolves them through
+private history recovery. Resource scheduling, durable client mutation recovery
+and the full transport acceptance run remain tracked in
+[#2448](https://github.com/a2f0/tearleads/issues/2448).

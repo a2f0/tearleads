@@ -10,6 +10,7 @@ import {
   ContainerWriterProjectionError,
   getContainerWriterProjection,
 } from "../../services/containers/writerProjection";
+import { PrincipalHistoryContinuation } from "../../services/principals/shared";
 import type { ApiServiceRuntime } from "../../services/runtime";
 import { headersValidator } from "../../validators/headers";
 import { pathParamsValidator } from "../../validators/pathParams";
@@ -46,6 +47,15 @@ export function createContainerWriterProjectionRoute({
           }),
         );
       } catch (error) {
+        if (error instanceof PrincipalHistoryContinuation)
+          return c.json(
+            {
+              code: error.code,
+              committed: false,
+              progressToken: error.progressToken,
+            },
+            202,
+          );
         return respondToStatusError(
           c,
           error,

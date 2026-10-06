@@ -1,9 +1,9 @@
+import type { PrincipalPolicyAuthorization } from "@tearleads/crypto";
 import {
   KeyingVerificationError,
   type VerifiedContainerAccessManifest,
 } from "@tearleads/crypto";
 import type { AccessManifestBundleWireResponse } from "@tearleads/validators/response";
-import type { PrincipalPolicyCheckpointEvidence } from "../principals/principalPolicyEvidence";
 import type { ProjectionCheckpointContext } from "./checkpointContext";
 import { assertServedAncestorsDescendFromCitations } from "./containerAncestorCitations";
 import { verifyContainerManifestBundle } from "./containerManifestVerification";
@@ -17,7 +17,7 @@ import type {
 export async function verifyContainerManifestPath(input: {
   readonly authorizationMembership?: "current" | "referenced" | undefined;
   readonly authorizationEvidence?:
-    | readonly PrincipalPolicyCheckpointEvidence[]
+    | readonly PrincipalPolicyAuthorization[]
     | undefined;
   readonly bundlesByHash: ReadonlyMap<string, AccessManifestBundleWireResponse>;
   readonly checkpointContext: ProjectionCheckpointContext;

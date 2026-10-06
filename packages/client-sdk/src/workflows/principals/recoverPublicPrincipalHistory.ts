@@ -135,13 +135,17 @@ async function recover(
       return recover(input, false);
     throw error;
   }
-  // Authenticate stored bytes before comparing a caller's pin. A bad citation
-  // or changed server artifact is terminal, never a reason to trust another head.
-  if (!principalHeadMatchesReference(proof.entry.state, input.source.head))
+  // Public prefixes memoize signatures; they are not admitted trust pins. A
+  // rejected projection may have left a valid but unrelated signed candidate.
+  // Rebuild the requested chain once online; callers still check durable pins
+  // and object authority before accepting it. Never reuse a mismatch offline.
+  if (!principalHeadMatchesReference(proof.entry.state, input.source.head)) {
+    if (allowReuse && !input.offline) return recover(input, false);
     throw new KeyingVerificationError(
       "object_mismatch",
       "Public history source differs from the verified prefix",
     );
+  }
   if (lastPage) {
     const currentProof = {
       ...proof,

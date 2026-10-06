@@ -4,7 +4,7 @@ import type {
   ReferencedPrincipalHead,
   VerifiedPrincipalPolicySelection,
 } from "@tearleads/crypto";
-import type { ProjectionPolicyHistoryEvidenceResponse } from "@tearleads/validators/response";
+import type { ProjectionPolicyEvidenceResponse } from "@tearleads/validators/response";
 import { assertProjectionVerificationCurrent } from "../../data/keyingProjectionVerification/types";
 import type { PublicPrincipalHistoryOptions } from "./publicPrincipalHistoryTypes";
 import { publicProjectionDirectoryBindings } from "./publicProjectionDirectory";
@@ -24,12 +24,12 @@ export interface ProjectionPolicyHistoryRecoveryOptions
     | "authorityGroupId"
     | "replay"
   > {
-  readonly evidence: ProjectionPolicyHistoryEvidenceResponse;
+  readonly evidence: ProjectionPolicyEvidenceResponse;
   readonly references: readonly ReferencedPrincipalHead[];
 }
 
 function assertSourceCoverage(
-  evidence: ProjectionPolicyHistoryEvidenceResponse,
+  evidence: ProjectionPolicyEvidenceResponse,
   references: readonly ReferencedPrincipalHead[],
 ): void {
   const sources = [evidence.organization, ...evidence.groups];

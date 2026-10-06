@@ -166,7 +166,7 @@ test("an organization member verifies a document's inaccessible sibling-containe
     expectPublicProjectionPolicyEvidence(projection.policyEvidence);
     expect(
       projection.policyEvidence.groups.some(
-        (group) => group.currentState.principalId === sibling.groupId,
+        (group) => group.head.principalId === sibling.groupId,
       ),
     ).toBe(true);
     for (const path of projection.authorizingContainerPaths)

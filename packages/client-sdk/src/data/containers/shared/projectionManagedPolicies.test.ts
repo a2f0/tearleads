@@ -28,6 +28,7 @@ import {
   SIGNED_AT,
 } from "../../../../test/helpers/containerFixtures";
 import { createProjectionPolicyEvidence } from "../../../../test/helpers/projectionPolicyEvidence";
+import { projectionPolicyWarmer } from "../../../../test/helpers/projectionPolicyHistory";
 import { unwrapContainerKekPath } from "../../documents/shared/containerKekPath";
 import {
   ensurePrincipalPolicyTables,
@@ -253,16 +254,17 @@ test("unwrapContainerKekPath verifies cached group policies before managed-princ
     createdByEventHash: manifest.event.eventHash,
     createdByManifestHash: manifest.manifestHash,
   };
+  const { policyEvidence, bundles } = await createProjectionPolicyEvidence({
+    author: parent.author,
+    group: groupBundle,
+    signingPublicKey: parent.signingPublicKey,
+    encapsulationKeyPair: {
+      publicKey: parent.encapsulationPublicKey,
+      secretKey: parent.secretKey,
+    },
+  });
   const projection: ContainerWriterProjectionResponse = {
-    policyEvidence: await createProjectionPolicyEvidence({
-      author: parent.author,
-      group: groupBundle,
-      signingPublicKey: parent.signingPublicKey,
-      encapsulationKeyPair: {
-        publicKey: parent.encapsulationPublicKey,
-        secretKey: parent.secretKey,
-      },
-    }),
+    policyEvidence,
     containerId,
     organizationId: parent.projection.organizationId,
     path: [
@@ -321,6 +323,11 @@ test("unwrapContainerKekPath verifies cached group policies before managed-princ
       projection,
       resolveProjectionUserKey,
       secretKey: groupMemberKem.secretKey,
+      warmReferencedPrincipalPolicies: projectionPolicyWarmer({
+        execSql,
+        bundles,
+        resolveUserKey: resolveProjectionUserKey,
+      }),
     });
 
     expect(Array.from(groupMemberKeks.get(containerKeyEpochId) ?? [])).toEqual(
