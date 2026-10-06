@@ -1,4 +1,4 @@
-import { persistentSahPoolStorageForDbName } from "./loadSqlite3";
+import { persistentSahPoolStorageForDbName } from "./sahPoolStorage";
 
 interface StorageDirectoryProvider {
   getDirectory: () => Promise<FileSystemDirectoryHandle>;

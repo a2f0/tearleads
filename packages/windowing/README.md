@@ -268,27 +268,26 @@ owns the `@tearleads` npm scope:
 
 ```sh
 npm login --registry https://registry.npmjs.org
-bun run publish:npm:dry-run
-bun run publish:npm
+bun run publish:npm:dry-run windowing
+bun run publish:npm windowing
 ```
 
-`scripts/publishNpmModules.sh` publishes every Tearleads module required for the
-standalone windowing extraction. That set is only `@tearleads/windowing`: it has
-no workspace dependencies, and its React peers and Phosphor dependency already
-exist on npm. `scripts/publishWindowing.sh` is the package-specific command,
-also available as `bun run --cwd packages/windowing publish:npm`; the workflow
-runs it too.
+Windowing has no workspace dependencies, and its React peers and Phosphor
+dependency already exist on npm, so it publishes on its own.
+`scripts/publishNpmPackage.sh` publishes each npm package by its directory name;
+`bun run --cwd packages/windowing publish:npm` runs it for windowing, and the
+workflow runs it too.
 
-Both commands rebuild into a fresh temporary directory, publish its generated
-consumer manifest with public access to `https://registry.npmjs.org`, and remove
-the directory on success or failure. A temporary `.npmrc` overrides any
+The command rebuilds into a fresh temporary directory, publishes its generated
+consumer manifest with public access to `https://registry.npmjs.org`, and
+removes the directory on success or failure. A temporary `.npmrc` overrides any
 scope-specific registry without changing your npm configuration. A dry run
-builds and previews the same package without uploading. They accept `--dry-run`,
-`--tag <tag>` (default `latest`), and `--otp <code>`; for example:
+builds and previews the same package without uploading. It accepts
+`--dry-run`, `--tag <tag>` (default `latest`), and `--otp <code>`; for example:
 
 ```sh
-bun run publish:npm --dry-run --tag next
-bun run publish:npm --tag next --otp 123456
+bun run publish:npm windowing --dry-run --tag next
+bun run publish:npm windowing --tag next --otp 123456
 ```
 
 Run `package:smoke` separately before a release to verify the packed package in

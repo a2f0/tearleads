@@ -30,8 +30,10 @@ async function resolveRelativeModuleSpecifier(
   }
 
   const absoluteTarget = join(dirname(filePath), specifier);
+  // "." and "../.." name directories: appending .js would name a sibling file.
+  const namesDirectory = /(^|\/)\.\.?$/.test(specifier);
 
-  if (await pathExists(`${absoluteTarget}.js`)) {
+  if (!namesDirectory && (await pathExists(`${absoluteTarget}.js`))) {
     return `${specifier}.js`;
   }
 
@@ -42,18 +44,21 @@ async function resolveRelativeModuleSpecifier(
   return specifier;
 }
 
+// Static imports and exports, and the import("./x") type references tsc
+// writes into declarations, which node16 resolution also requires to carry an
+// extension.
 async function rewriteStaticSpecifiers(filePath: string): Promise<void> {
   const content = await readFile(filePath, "utf8");
   const replacements = await Promise.all(
-    [...content.matchAll(/\b(from|import)\s+(["'])(\.[^"']+)\2/g)].map(
-      async (match) => ({
-        from: match[0],
-        to: `${match[1]} ${match[2]}${await resolveRelativeModuleSpecifier(
-          filePath,
-          match[3] ?? "",
-        )}${match[2]}`,
-      }),
-    ),
+    [
+      ...content.matchAll(/\b(from\s+|import\s+|import\()(["'])(\.[^"']*)\2/g),
+    ].map(async (match) => ({
+      from: match[0],
+      to: `${match[1]}${match[2]}${await resolveRelativeModuleSpecifier(
+        filePath,
+        match[3] ?? "",
+      )}${match[2]}`,
+    })),
   );
   const nextContent = replacements.reduce(
     (rewrittenContent, replacement) =>

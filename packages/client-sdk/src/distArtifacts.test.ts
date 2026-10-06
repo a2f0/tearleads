@@ -1,6 +1,12 @@
 import { expect, test } from "bun:test";
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import {
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { readdir } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, relative } from "node:path";
@@ -45,7 +51,7 @@ test("dist relative import specifiers all carry a .js extension", async () => {
     }
     const content = readFileSync(join(distPath, file), "utf8");
     for (const match of content.matchAll(
-      /\b(?:from|import)\s+(["'])(\.[^"']+)\1/g,
+      /\b(?:from\s+|import\s+|import\()(["'])(\.[^"']*)\1/g,
     )) {
       const specifier = match[2] ?? "";
       if (!specifier.endsWith(".js")) {
@@ -68,6 +74,15 @@ test("rewriteDistImports resolves dotted extensionless specifiers", () => {
       join(fixtureDir, "index.js"),
       'import "./service.testFixtures";\nimport "./plain";\nimport "./already.js";\n',
     );
+    // Declarations name types through import(); "." is the directory even
+    // when a sibling module shares its name.
+    mkdirSync(join(fixtureDir, "nested"));
+    writeFileSync(join(fixtureDir, "nested.js"), "export {};\n");
+    writeFileSync(join(fixtureDir, "nested", "index.js"), "export {};\n");
+    writeFileSync(
+      join(fixtureDir, "nested", "types.d.ts"),
+      'export type A = import("../plain").A;\nexport type B = import(".").B;\nexport type C = import("..").C;\n',
+    );
 
     const result = spawnSync(
       "bun",
@@ -88,6 +103,9 @@ test("rewriteDistImports resolves dotted extensionless specifiers", () => {
 
     expect(readFileSync(join(fixtureDir, "index.js"), "utf8")).toBe(
       'import "./service.testFixtures.js";\nimport "./plain.js";\nimport "./already.js";\n',
+    );
+    expect(readFileSync(join(fixtureDir, "nested", "types.d.ts"), "utf8")).toBe(
+      'export type A = import("../plain.js").A;\nexport type B = import("./index.js").B;\nexport type C = import("../index.js").C;\n',
     );
   } finally {
     rmSync(fixtureDir, { force: true, recursive: true });
