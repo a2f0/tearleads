@@ -99,6 +99,23 @@ testApiClient("pins the requested head on the first page", async () => {
 });
 
 testApiClient(
+  "does not replace an explicitly empty pin with the latest head",
+  async () => {
+    const { requests } = installPages();
+    const pages = new ApiClient(apiBaseUrl).getPrincipalPolicyPages(
+      "group",
+      principalId,
+      { stateHash: "" },
+    );
+    expect((await pages.next()).value).toMatchObject({
+      ok: false,
+      kind: "shape",
+    });
+    expect(requests).toEqual([]);
+  },
+);
+
+testApiClient(
   "consumer edits cannot replace the private head or cursor",
   async () => {
     const { current, requests } = installPages();

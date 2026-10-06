@@ -110,6 +110,37 @@ function validPage(
   );
 }
 
+function preparePrincipalPolicyRead(
+  runtime: ApiRequestRuntime,
+  principalType: "group" | "organization",
+  principalId: string,
+  options: PrincipalPolicyPageReadOptions,
+) {
+  const query =
+    options.stateHash === undefined
+      ? {}
+      : { afterVersion: 0, stateHash: options.stateHash };
+  const basePath = getPrincipalPolicy.path(principalType, principalId);
+  const failure = (message: string) => ({
+    ok: false as const,
+    failure: pageFailure(runtime, basePath, options, message, null),
+  });
+  if (!getPrincipalPolicyOperation.query.safeParse(query).success)
+    return failure("Invalid requested principal history head");
+  const resume = readResume(options.resume);
+  if (
+    options.resume !== undefined &&
+    (!resume ||
+      !validResume(principalType, principalId, resume, options.stateHash))
+  )
+    return failure("Invalid saved principal history position");
+  return {
+    ok: true as const,
+    firstPath: getPrincipalPolicy.path(principalType, principalId, query),
+    resume,
+  };
+}
+
 /** Pull one page at a time; the caller owns verification and durable admission. */
 export async function* readPrincipalPolicyPages(
   runtime: ApiRequestRuntime,
@@ -117,37 +148,26 @@ export async function* readPrincipalPolicyPages(
   principalId: string,
   options: PrincipalPolicyPageReadOptions,
 ): AsyncGenerator<RequestResult<PrincipalPolicyPageResponse>, void> {
-  const firstPath = getPrincipalPolicy.path(
+  const position = preparePrincipalPolicyRead(
+    runtime,
     principalType,
     principalId,
-    options.stateHash
-      ? { afterVersion: 0, stateHash: options.stateHash }
-      : undefined,
+    options,
   );
+  if (!position.ok) {
+    yield position.failure;
+    return;
+  }
+  const { firstPath, resume } = position;
   const context = new PrincipalHistoryRequestContext(
     runtime,
     "GET",
     firstPath,
     options,
   );
-  const resume = readResume(options.resume);
   let pinned = resume?.current;
   let pinnedBytes = resume?.bytes;
   let afterVersion = resume?.afterVersion ?? 0;
-  if (
-    options.resume !== undefined &&
-    (!resume ||
-      !validResume(principalType, principalId, resume, options.stateHash))
-  ) {
-    yield pageFailure(
-      runtime,
-      firstPath,
-      options,
-      "Invalid saved principal history position",
-      null,
-    );
-    return;
-  }
   while (true) {
     const path = pinned
       ? getPrincipalPolicy.path(principalType, principalId, {

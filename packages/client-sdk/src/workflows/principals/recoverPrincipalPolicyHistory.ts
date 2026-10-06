@@ -6,9 +6,12 @@ import {
   verifyPrincipalPolicyCurrent,
 } from "@tearleads/crypto";
 import type { PrincipalPolicyPageResponse } from "@tearleads/validators/response";
-import { ProjectionVerificationCancelledError } from "../../data/keyingProjectionVerification/types";
+import { assertProjectionVerificationCurrent } from "../../data/keyingProjectionVerification/types";
 import { loadPrincipalPolicyCheckpoint } from "../../data/persistence/keyingCheckpointPersistence";
-import { savePrincipalHistoryStage } from "../../data/persistence/principalHistoryStagePersistence";
+import {
+  discardPrincipalHistoryStage,
+  savePrincipalHistoryStage,
+} from "../../data/persistence/principalHistoryStagePersistence";
 import { principalHistoryStageProtection } from "../../data/principals/principalHistoryStageProtection";
 import { collectPrincipalPolicySignerPublicKeys } from "./policyVerification";
 import {
@@ -34,8 +37,9 @@ function currentArtifacts(
 }
 
 function assertCurrent(input: RecoverPrincipalPolicyHistoryOptions): void {
-  if (input.signal?.aborted || !input.stillCurrent())
-    throw new ProjectionVerificationCancelledError();
+  assertProjectionVerificationCurrent(
+    () => !input.signal?.aborted && input.stillCurrent(),
+  );
 }
 
 async function acceptPage(
@@ -193,7 +197,17 @@ async function recover(
         : {}),
     },
   )) {
-    if (!result.ok) throw new PrincipalPolicyHistoryReadError(result);
+    if (!result.ok) {
+      // A rejected transport pin cannot justify skipping history on retry.
+      // Discard only this operation's progress, then let a new call replay it.
+      if (result.kind === "shape" && stage.saved)
+        await discardPrincipalHistoryStage(
+          input.execSql,
+          stage.saved,
+          () => !input.signal?.aborted && input.stillCurrent(),
+        );
+      throw new PrincipalPolicyHistoryReadError(result);
+    }
     await acceptPage(input, stage, result.data);
     receivedFinalPage = result.data.historyPage.nextAfterVersion === null;
   }

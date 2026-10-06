@@ -1,15 +1,14 @@
 import { beforeAll, expect, test } from "bun:test";
-import { createTestExecSql } from "@tearleads/test-utils";
 import { eq } from "drizzle-orm";
 import {
-  serveRecoveryHistory,
+  createRecoveryFixture,
   signedRecoveryHistory,
 } from "../../../test/helpers/principalHistoryRecovery";
 import { principalPolicyHead } from "../../../test/helpers/principalPolicyFixtures";
+import { isProjectionVerificationCancelledError } from "../../data/keyingProjectionVerification/types";
 import { loadPrincipalPolicyCheckpoint } from "../../data/persistence/keyingCheckpointPersistence";
 import { principalHistoryStages } from "../../data/sqlite/principalHistoryStageSchema";
 import { principalPolicyCheckpoints } from "../../data/sqlite/principalPolicySchema";
-import { getClientSQLitePersistenceRuntime } from "../../data/sqlite/sqlitePersistenceRuntime";
 import type { RecoverPrincipalPolicyHistoryOptions } from "./principalHistoryRecoveryTypes";
 import { recoverPrincipalPolicyHistory } from "./recoverPrincipalPolicyHistory";
 
@@ -18,37 +17,8 @@ beforeAll(async () => {
   history = await signedRecoveryHistory();
 });
 
-async function recoveryFixture(
-  retained: Parameters<typeof serveRecoveryHistory>[1] = [],
-) {
-  const sqlite = await createTestExecSql("principal-history-recovery");
-  const http = serveRecoveryHistory(history.bundle, retained);
-  const options: RecoverPrincipalPolicyHistoryOptions = {
-    apiClient: http.client(),
-    execSql: sqlite.execSql,
-    organizationId: "org-1",
-    expectedHead: history.expectedHead,
-    protection: {
-      localKey: new Uint8Array(32).fill(7),
-      context: "device-and-trust-domain-1",
-    },
-    resolveTrustedUserIdentity: history.resolveTrustedUserIdentity,
-    stillCurrent: () => true,
-  };
-  const db = getClientSQLitePersistenceRuntime(sqlite.execSql).db;
-  return {
-    ...http,
-    options,
-    db,
-    close() {
-      http.close();
-      sqlite.close();
-    },
-  };
-}
-
 test("a fresh SDK operation resumes checked pages after an HTTP interruption", async () => {
-  const fixture = await recoveryFixture();
+  const fixture = await createRecoveryFixture(history);
   try {
     fixture.controls.failAfterVersion = 32;
     await expect(
@@ -80,7 +50,7 @@ test("a fresh SDK operation resumes checked pages after an HTTP interruption", a
 });
 
 test("finished progress still rechecks live HTTP access before reuse", async () => {
-  const fixture = await recoveryFixture();
+  const fixture = await createRecoveryFixture(history);
   try {
     await recoverPrincipalPolicyHistory(fixture.options);
     fixture.controls.failAfterVersion = 65;
@@ -98,7 +68,7 @@ test("finished progress still rechecks live HTTP access before reuse", async () 
 
 for (const tampering of ["cursor", "artifacts", "ciphertext", "key"] as const) {
   test(`saved ${tampering} cannot substitute for authenticated progress`, async () => {
-    const fixture = await recoveryFixture();
+    const fixture = await createRecoveryFixture(history);
     try {
       fixture.controls.failAfterVersion = 32;
       await expect(
@@ -144,7 +114,7 @@ for (const tampering of ["cursor", "artifacts", "ciphertext", "key"] as const) {
 }
 
 test("retains requested older evidence without retaining the entire chain", async () => {
-  const fixture = await recoveryFixture();
+  const fixture = await createRecoveryFixture(history);
   try {
     const first = history.bundle.previousStates[0];
     if (!first) throw new Error("Missing first state");
@@ -165,7 +135,7 @@ test("retains requested older evidence without retaining the entire chain", asyn
 });
 
 test("rejects a forged later page without publishing its progress", async () => {
-  const fixture = await recoveryFixture();
+  const fixture = await createRecoveryFixture(history);
   try {
     fixture.controls.mutate = (page) => {
       if (page.historyPage.afterVersion !== 32) return;
@@ -183,7 +153,7 @@ test("rejects a forged later page without publishing its progress", async () => 
 });
 
 test("cancellation during signer resolution rolls back staged progress", async () => {
-  const fixture = await recoveryFixture();
+  const fixture = await createRecoveryFixture(history);
   try {
     let current = true;
     await expect(
@@ -194,8 +164,8 @@ test("cancellation during signer resolution rolls back staged progress", async (
           current = false;
           return history.resolveTrustedUserIdentity(userId);
         },
-      }),
-    ).rejects.toMatchObject({ name: "ProjectionVerificationCancelledError" });
+      }).catch(isProjectionVerificationCancelledError),
+    ).resolves.toBe(true);
     expect(await fixture.db.select().from(principalHistoryStages)).toEqual([]);
   } finally {
     fixture.close();
@@ -203,7 +173,7 @@ test("cancellation during signer resolution rolls back staged progress", async (
 });
 
 test("concurrent recoveries cannot replace another operation's accepted progress", async () => {
-  const fixture = await recoveryFixture();
+  const fixture = await createRecoveryFixture(history);
   try {
     let arrived = 0;
     let release = () => {};
@@ -244,7 +214,7 @@ test("concurrent recoveries cannot replace another operation's accepted progress
 });
 
 test("resumes checked progress that has not yet reached the local checkpoint", async () => {
-  const fixture = await recoveryFixture();
+  const fixture = await createRecoveryFixture(history);
   try {
     await loadPrincipalPolicyCheckpoint(
       fixture.options.execSql,
@@ -280,7 +250,7 @@ test("resumes checked progress that has not yet reached the local checkpoint", a
 });
 
 test("a checkpoint change while consuming the final page prevents publication", async () => {
-  const fixture = await recoveryFixture();
+  const fixture = await createRecoveryFixture(history);
   try {
     const client = fixture.client();
     await expect(
@@ -309,7 +279,7 @@ test("a checkpoint change while consuming the final page prevents publication", 
 });
 
 test("a stale operation cannot delete another lifetime's saved progress", async () => {
-  const fixture = await recoveryFixture();
+  const fixture = await createRecoveryFixture(history);
   try {
     fixture.controls.failAfterVersion = 32;
     await expect(
@@ -328,8 +298,8 @@ test("a stale operation cannot delete another lifetime's saved progress", async 
           checks += 1;
           return checks === 1;
         },
-      }),
-    ).rejects.toMatchObject({ name: "ProjectionVerificationCancelledError" });
+      }).catch(isProjectionVerificationCancelledError),
+    ).resolves.toBe(true);
     expect(await fixture.db.select().from(principalHistoryStages)).toEqual(
       before,
     );
@@ -339,7 +309,7 @@ test("a stale operation cannot delete another lifetime's saved progress", async 
 });
 
 test("does not return a partial selection for a reference beyond the requested head", async () => {
-  const fixture = await recoveryFixture();
+  const fixture = await createRecoveryFixture(history);
   try {
     await expect(
       recoverPrincipalPolicyHistory({
@@ -374,7 +344,7 @@ test("recoveries of different pinned heads do not replace each other's saved wor
     },
     previousStates: history.bundle.previousStates.slice(0, 32),
   };
-  const fixture = await recoveryFixture([older]);
+  const fixture = await createRecoveryFixture(history, [older]);
   try {
     let arrived = 0;
     let release = () => {};
@@ -413,7 +383,7 @@ test("recoveries of different pinned heads do not replace each other's saved wor
 });
 
 test("an AbortSignal during signer resolution does not save accepted progress", async () => {
-  const fixture = await recoveryFixture();
+  const fixture = await createRecoveryFixture(history);
   try {
     const abort = new AbortController();
     await expect(
@@ -424,8 +394,8 @@ test("an AbortSignal during signer resolution does not save accepted progress", 
           abort.abort();
           return history.resolveTrustedUserIdentity(userId);
         },
-      }),
-    ).rejects.toMatchObject({ name: "ProjectionVerificationCancelledError" });
+      }).catch(isProjectionVerificationCancelledError),
+    ).resolves.toBe(true);
     expect(await fixture.db.select().from(principalHistoryStages)).toEqual([]);
   } finally {
     fixture.close();

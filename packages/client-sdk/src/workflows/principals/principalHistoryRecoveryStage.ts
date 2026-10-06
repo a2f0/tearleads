@@ -32,6 +32,7 @@ export async function restorePrincipalHistoryRecoveryStage(
     input.organizationId,
     input.expectedHead,
     input.protection.context,
+    input.retainedReferences ?? [],
   );
   const saved = await loadPrincipalHistoryStage(input.execSql, id);
   if (saved) {

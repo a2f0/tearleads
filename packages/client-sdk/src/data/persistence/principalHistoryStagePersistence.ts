@@ -1,5 +1,5 @@
 import { and, eq } from "drizzle-orm";
-import { ProjectionVerificationCancelledError } from "../keyingProjectionVerification/types";
+import { assertProjectionVerificationCurrent } from "../keyingProjectionVerification/types";
 import {
   principalHistoryStages,
   principalHistoryStageTables,
@@ -58,7 +58,7 @@ export async function savePrincipalHistoryStage(input: {
     input.stillCurrent,
     { behavior: "immediate" },
   );
-  if (!saved.committed) throw new ProjectionVerificationCancelledError();
+  assertProjectionVerificationCurrent(() => saved.committed);
 }
 
 export async function discardPrincipalHistoryStage(
@@ -82,5 +82,5 @@ export async function discardPrincipalHistoryStage(
     stillCurrent,
     { behavior: "immediate" },
   );
-  if (!discarded.committed) throw new ProjectionVerificationCancelledError();
+  assertProjectionVerificationCurrent(() => discarded.committed);
 }

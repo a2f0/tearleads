@@ -6,11 +6,14 @@ import {
   wrapDekForRecipients,
 } from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
+import { createTestExecSql } from "@tearleads/test-utils";
 import type {
   PrincipalPolicyBundleResponse,
   PrincipalPolicyPageResponse,
 } from "@tearleads/validators/response";
+import { getClientSQLitePersistenceRuntime } from "../../src/data/sqlite/sqlitePersistenceRuntime";
 import { createTestTrustedUserIdentityResolver } from "../../src/data/trustedUserIdentity/testFixtures";
+import type { RecoverPrincipalPolicyHistoryOptions } from "../../src/workflows/principals/principalHistoryRecoveryTypes";
 import {
   principalPolicyHead,
   signedPrincipalPolicyBundle,
@@ -121,5 +124,35 @@ export function serveRecoveryHistory(
     controls,
     client: () => new ApiClient(`http://127.0.0.1:${server.port}`),
     close: () => server.stop(true),
+  };
+}
+
+export async function createRecoveryFixture(
+  history: Awaited<ReturnType<typeof signedRecoveryHistory>>,
+  retained: Parameters<typeof serveRecoveryHistory>[1] = [],
+) {
+  const sqlite = await createTestExecSql("principal-history-recovery");
+  const http = serveRecoveryHistory(history.bundle, retained);
+  const options: RecoverPrincipalPolicyHistoryOptions = {
+    apiClient: http.client(),
+    execSql: sqlite.execSql,
+    organizationId: "org-1",
+    expectedHead: history.expectedHead,
+    protection: {
+      localKey: new Uint8Array(32).fill(7),
+      context: "device-and-trust-domain-1",
+    },
+    resolveTrustedUserIdentity: history.resolveTrustedUserIdentity,
+    stillCurrent: () => true,
+  };
+  const db = getClientSQLitePersistenceRuntime(sqlite.execSql).db;
+  return {
+    ...http,
+    options,
+    db,
+    close() {
+      http.close();
+      sqlite.close();
+    },
   };
 }
