@@ -10,7 +10,10 @@ import {
   ContainerWriterProjectionError,
   getContainerWriterProjection,
 } from "../../services/containers/writerProjection";
-import { PrincipalHistoryContinuation } from "../../services/principals/shared";
+import {
+  PrincipalHistoryContinuation,
+  PrincipalPolicyError,
+} from "../../services/principals/shared";
 import type { ApiServiceRuntime } from "../../services/runtime";
 import { headersValidator } from "../../validators/headers";
 import { pathParamsValidator } from "../../validators/pathParams";
@@ -55,6 +58,12 @@ export function createContainerWriterProjectionRoute({
               progressToken: error.progressToken,
             },
             202,
+          );
+        if (error instanceof PrincipalPolicyError && error.status !== 500)
+          // A missing principal dependency does not mean this object was deleted.
+          return c.json(
+            { error: error.message },
+            error.status === 404 ? 409 : error.status,
           );
         return respondToStatusError(
           c,

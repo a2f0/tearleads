@@ -4,7 +4,7 @@ import {
 } from "@tearleads/validators/operation";
 import type { DocumentWriterProjectionResponse } from "@tearleads/validators/response";
 import { DOCUMENT_PROJECTION_ERROR_CODES } from "@tearleads/validators/response";
-import type { MiddlewareHandler } from "hono";
+import type { Context, MiddlewareHandler } from "hono";
 import { Hono } from "hono";
 import type { SessionEnv } from "../../middleware/session";
 import { ContainerWriterProjectionError } from "../../services/containers/writerProjection";
@@ -12,7 +12,10 @@ import {
   DocumentWriterProjectionError,
   getDocumentWriterProjection,
 } from "../../services/documents/writerProjection";
-import { PrincipalHistoryContinuation } from "../../services/principals/shared";
+import {
+  PrincipalHistoryContinuation,
+  PrincipalPolicyError,
+} from "../../services/principals/shared";
 import type { ApiServiceRuntime } from "../../services/runtime";
 import { headersValidator } from "../../validators/headers";
 import { pathParamsValidator } from "../../validators/pathParams";
@@ -45,6 +48,43 @@ function containerProjectionErrorBody(error: ContainerWriterProjectionError): {
     : { code, error: error.message };
 }
 
+function respondToDocumentProjectionError(
+  c: Context<SessionEnv>,
+  error: unknown,
+): Response {
+  if (error instanceof PrincipalHistoryContinuation)
+    return c.json(
+      {
+        code: error.code,
+        committed: false,
+        progressToken: error.progressToken,
+      },
+      202,
+    );
+  if (error instanceof PrincipalPolicyError && error.status !== 500)
+    // A missing principal dependency does not mean this object was deleted.
+    return c.json(
+      { error: error.message },
+      error.status === 404 ? 409 : error.status,
+    );
+  if (error instanceof DocumentWriterProjectionError) {
+    return c.json(
+      error.code === undefined
+        ? { error: error.message }
+        : { code: error.code, error: error.message },
+      error.status,
+    );
+  }
+  if (error instanceof ContainerWriterProjectionError) {
+    return c.json(
+      containerProjectionErrorBody(error),
+      error.status === 404 ? 409 : error.status,
+    );
+  }
+
+  throw error;
+}
+
 export function createDocumentWriterProjectionRoute({
   requireAuth,
   runtime,
@@ -71,31 +111,7 @@ export function createDocumentWriterProjectionRoute({
           }),
         );
       } catch (error) {
-        if (error instanceof PrincipalHistoryContinuation)
-          return c.json(
-            {
-              code: error.code,
-              committed: false,
-              progressToken: error.progressToken,
-            },
-            202,
-          );
-        if (error instanceof DocumentWriterProjectionError) {
-          return c.json(
-            error.code === undefined
-              ? { error: error.message }
-              : { code: error.code, error: error.message },
-            error.status,
-          );
-        }
-        if (error instanceof ContainerWriterProjectionError) {
-          return c.json(
-            containerProjectionErrorBody(error),
-            error.status === 404 ? 409 : error.status,
-          );
-        }
-
-        throw error;
+        return respondToDocumentProjectionError(c, error);
       }
     },
   );
