@@ -6,26 +6,23 @@ export function createPrincipalHistoryKeyProvider(
   createLocalKeyring: () => LocalKeyring,
 ): NonNullable<ClientOptions["principalHistoryKeyProvider"]> {
   let queue: Promise<void> = Promise.resolve();
+  let keyring: LocalKeyring | null = null;
   return (scope) => {
     const operation = queue.then(async () => {
-      const keyring = createLocalKeyring();
+      keyring ??= createLocalKeyring();
+      const session = await keyring.getOrCreateSession({
+        namespace: LOCAL_SQLITE_SCOPE_NAMESPACE,
+      });
       try {
-        const session = await keyring.getOrCreateSession({
-          namespace: LOCAL_SQLITE_SCOPE_NAMESPACE,
-        });
-        try {
-          return await session.deriveKey(
-            JSON.stringify([
-              "tearleads.principal-history.key.v1",
-              scope.identityTrustDomain,
-              scope.signingFingerprint,
-            ]),
-          );
-        } finally {
-          session.dispose();
-        }
+        return await session.deriveKey(
+          JSON.stringify([
+            "tearleads.principal-history.key.v1",
+            scope.identityTrustDomain,
+            scope.signingFingerprint,
+          ]),
+        );
       } finally {
-        keyring.close?.();
+        session.dispose();
       }
     });
     queue = operation.then(

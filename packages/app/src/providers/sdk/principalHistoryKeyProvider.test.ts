@@ -54,6 +54,32 @@ test("local key retirement changes the recovery key", async () => {
   expect(await provider(scope)).not.toEqual(first);
 });
 
+test("derivation keeps the host's shared keyring open for other consumers", async () => {
+  const { create } = fixture();
+  const shared = create();
+  let closed = false;
+  let factoryCalls = 0;
+  const provider = createPrincipalHistoryKeyProvider(() => {
+    factoryCalls += 1;
+    return {
+      close: () => {
+        closed = true;
+      },
+      deleteSession: (scope) => shared.deleteSession(scope),
+      loadSession: (scope) => shared.loadSession(scope),
+      getOrCreateSession: (scope) => {
+        if (closed) throw new Error("Host keyring closed during shared use");
+        return shared.getOrCreateSession(scope);
+      },
+    };
+  });
+  await provider(scope);
+  expect(closed).toBe(false);
+  await provider(scope);
+  expect(factoryCalls).toBe(1);
+  expect(closed).toBe(false);
+});
+
 test("a locked provider fails without a fallback and can recover after unlock", async () => {
   const { create } = fixture();
   let locked = true;

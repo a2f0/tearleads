@@ -223,12 +223,12 @@ export function TearleadsProvider({ children }: PropsWithChildren) {
     const instance = new Tearleads({
       apiBaseUrl: hostConfig.apiBaseUrl,
       blobStoreFactory,
-      principalHistoryKeyProvider: localKeyringLock.createLocalKeyring
-        ? createPrincipalHistoryKeyProvider(localKeyringLock.createLocalKeyring)
-        : undefined,
       documentProjectors: APP_DOCUMENT_PROJECTOR_DEFINITIONS,
       logger: { log, logError },
       peerScope: hostConfig.localIdentityNamespace,
+      principalHistoryKeyProvider: localKeyringLock.createLocalKeyring
+        ? createPrincipalHistoryKeyProvider(localKeyringLock.createLocalKeyring)
+        : undefined,
       // Every new organization is born with the Explorer Trash bin in the same
       // provisioning transaction as the org itself.
       provisionedSystemContainers: PROVISIONED_SYSTEM_CONTAINER_SPECS,

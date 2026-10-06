@@ -23,8 +23,8 @@ Provider failures propagate instead of silently changing keys.
 The app derives a separate purpose from its existing protected SQLite keyring
 root, binding the API and identity. It releases keyring sessions after derivation.
 Deleting that local root retires recovery keys too; no signing secret is used.
-The private runtime capability prepares caller adoption; existing full-bundle
-consumers remain until they explicitly use paged recovery.
+No SDK workflow uses this private lease yet. Existing callers still consume
+full bundles until they explicitly adopt paged recovery.
 
 The optional `retainedReferences` selection follows the crypto verifier's bounded
 retention contract. Supply already authenticated external authority through

@@ -68,8 +68,6 @@ function createClientSecurityIncidentService(input: {
 export type ClientDatabaseOptions = Omit<DatabaseOptions, "status">;
 
 export interface ClientOptions {
-  /** Private host key for durable history progress; omitted uses disposable session keys. */
-  principalHistoryKeyProvider?: PrincipalHistoryKeyProvider | undefined;
   apiBaseUrl?: string | undefined;
   blobStore?: BlobStore | undefined;
   blobStoreFactory?: BlobStoreFactory | undefined;
@@ -92,6 +90,8 @@ export interface ClientOptions {
    * peer ids (e.g. the pane's local identity namespace). Omit for single-pane.
    */
   peerScope?: string | undefined;
+  /** Private host key for durable history progress; omitted uses disposable session keys. */
+  principalHistoryKeyProvider?: PrincipalHistoryKeyProvider | undefined;
   /**
    * App-owned system containers born with every new organization (both
    * registration and additional-org creation provision them atomically in the
