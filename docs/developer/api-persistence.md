@@ -219,3 +219,6 @@ To clear objects from the configured LocalStack bucket:
 ```sh
 sh scripts/localstack/reset.sh
 ```
+
+The [principal directory binding index](principal-directory-bindings.md) is
+also part of the greenfield baseline and requires a reset on existing databases.

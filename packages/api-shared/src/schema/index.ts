@@ -61,6 +61,7 @@ export {
   organizationRosterEntries,
   organizations,
 } from "./organizations";
+export { principalDirectoryBindings } from "./principalDirectoryBindings";
 export { principalHistoryIndexNodes } from "./principalHistoryIndexNodes";
 export {
   type PrincipalHistoryVerificationKind,

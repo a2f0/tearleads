@@ -613,6 +613,16 @@ CREATE TABLE "principal_container_grant_projection" (
 	"created_at" timestamp DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
+CREATE TABLE "principal_directory_bindings" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"organization_id" uuid NOT NULL,
+	"organization_version" bigint NOT NULL,
+	"organization_state_hash" text NOT NULL,
+	"group_id" uuid NOT NULL,
+	"group_version" bigint NOT NULL,
+	"group_state_hash" text NOT NULL
+);
+--> statement-breakpoint
 CREATE TABLE "principal_epoch_keys" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"principal_type" text NOT NULL,
@@ -897,6 +907,8 @@ CREATE INDEX "organizations_profile_document_idx" ON "organizations" USING btree
 CREATE INDEX "principal_container_grant_projection_principal_idx" ON "principal_container_grant_projection" USING btree ("principal_type","principal_id");--> statement-breakpoint
 CREATE INDEX "principal_container_grant_projection_container_idx" ON "principal_container_grant_projection" USING btree ("container_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "principal_container_grant_projection_state_container_idx" ON "principal_container_grant_projection" USING btree ("principal_type","principal_id","state_hash","container_id");--> statement-breakpoint
+CREATE UNIQUE INDEX "principal_directory_bindings_head_idx" ON "principal_directory_bindings" USING btree ("organization_id","group_id","group_state_hash");--> statement-breakpoint
+CREATE INDEX "principal_directory_bindings_lookup_idx" ON "principal_directory_bindings" USING btree ("organization_id","group_id","organization_version");--> statement-breakpoint
 CREATE INDEX "principal_epoch_keys_principal_idx" ON "principal_epoch_keys" USING btree ("principal_type","principal_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "principal_epoch_keys_principal_epoch_idx" ON "principal_epoch_keys" USING btree ("principal_type","principal_id","epoch");--> statement-breakpoint
 CREATE UNIQUE INDEX "principal_history_progress_version_idx" ON "principal_history_progress" USING btree ("principal_type","principal_id","verification_kind","input_hash","protection_id","version");--> statement-breakpoint

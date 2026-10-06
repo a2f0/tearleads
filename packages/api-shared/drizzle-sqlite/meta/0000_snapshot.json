@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "f483151e-acf1-4ad2-96de-0b2f06dc42a6",
+  "id": "b21079cf-2a74-4006-8bf1-64a789079e18",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
     "access_event_dependency_projection": {
@@ -4568,6 +4568,76 @@
             "container_id"
           ],
           "isUnique": true
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "principal_directory_bindings": {
+      "name": "principal_directory_bindings",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "organization_id": {
+          "name": "organization_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "organization_version": {
+          "name": "organization_version",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "organization_state_hash": {
+          "name": "organization_state_hash",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "group_id": {
+          "name": "group_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "group_version": {
+          "name": "group_version",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "group_state_hash": {
+          "name": "group_state_hash",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "principal_directory_bindings_head_idx": {
+          "name": "principal_directory_bindings_head_idx",
+          "columns": ["organization_id", "group_id", "group_state_hash"],
+          "isUnique": true
+        },
+        "principal_directory_bindings_lookup_idx": {
+          "name": "principal_directory_bindings_lookup_idx",
+          "columns": ["organization_id", "group_id", "organization_version"],
+          "isUnique": false
         }
       },
       "foreignKeys": {},

@@ -13,6 +13,8 @@ import {
 } from "./getCurrentPrincipalPolicy";
 import { withPrincipalHistorySuccessorStep } from "./principalHistoryExecution";
 
+import { storeVerifiedPrincipalDirectoryBindings } from "./storePrincipalDirectoryBindings";
+
 /**
  * Persist all artifacts, verify the stored state against authenticated history,
  * and bind current payload/envelopes before the caller can commit. Progress is
@@ -50,5 +52,10 @@ export async function storeVerifiedPrincipalPolicyInTransaction(
     verifyStoredPrincipalPolicyForStateWithExecutor(tx, state),
   );
 
+  await storeVerifiedPrincipalDirectoryBindings({
+    executor: tx,
+    state,
+    ciphertext: input.encryptedPayload.ciphertext,
+  });
   return state;
 }

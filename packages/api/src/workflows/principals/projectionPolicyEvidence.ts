@@ -58,17 +58,17 @@ export async function loadProjectionPolicyEvidence(input: {
       409,
     );
   references.push(organization);
-  const { latest, adminGroupIds, bindingPayloadByGroupState } =
-    await loadProjectionDirectoryBindings({
-      executor: input.executor,
-      organizationId: input.organizationId,
-      stateHash: organization.stateHash,
-    });
   const neededGroups = new Set(
     references
       .filter((reference) => reference.principalType === "group")
       .map((reference) => reference.principalId),
   );
+  const { latest, adminGroupIds, bindingPayloadByGroupState } =
+    await loadProjectionDirectoryBindings({
+      executor: input.executor,
+      organization,
+      groupIds: [...neededGroups],
+    });
   references.push(
     ...[...latest.values()].filter(
       (head) =>
