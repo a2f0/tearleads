@@ -148,11 +148,12 @@ export function createPrincipalPolicyRoute({
           request: c.req.valid("json"),
           requesterUserId: c.get("session").userId,
         });
-        await publishPrincipalAccessChanges(
-          publish,
-          [{ principalType: "group", principalId: groupId }],
-          result.sharedWithYouUserIds,
-        );
+        if (!result.replayed)
+          await publishPrincipalAccessChanges(
+            publish,
+            [{ principalType: "group", principalId: groupId }],
+            result.sharedWithYouUserIds,
+          );
         return c.json<CommitOrganizationGroupPolicyResponse>(result.policy);
       } catch (error) {
         const response = toPrincipalPolicyErrorResponse(error);

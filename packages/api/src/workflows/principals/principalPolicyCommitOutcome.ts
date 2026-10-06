@@ -25,7 +25,10 @@ interface CommitOutcomeInput {
 export async function principalPolicyCommitOutcome(
   executor: DatabaseTransaction,
   input: CommitOutcomeInput,
-) {
+): Promise<{
+  response: CommitOrganizationGroupPolicyResponse | null;
+  save(policy: CommitOrganizationGroupPolicyResponse): Promise<void>;
+}> {
   const requestHash = createHash("sha256")
     .update(
       serializeKeyingCanonicalJson(
