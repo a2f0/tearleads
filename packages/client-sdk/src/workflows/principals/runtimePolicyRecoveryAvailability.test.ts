@@ -34,6 +34,22 @@ test("a verification predecessor failure retains its security classification", a
   }
 });
 
+test("a held citation to a deleted group is unavailable without an incident", async () => {
+  const f = await fixture();
+  try {
+    const deleted = await history.advanceDirectory(history.directory, null);
+    f.policies.set(history.organizationId, deleted);
+    await expect(f.collect()).rejects.toMatchObject({
+      name: "ProjectionDependencyUnavailableError",
+    });
+    expect(f.incidents).toEqual([]);
+    expect(f.state.fullReads).toBe(0);
+    expect(await f.db.select().from(principalPolicyCheckpoints)).toEqual([]);
+  } finally {
+    f.close();
+  }
+});
+
 async function fixture() {
   const source = await createAuthorityRecoveryFixture(history);
   const state = { online: true, fullReads: 0 };

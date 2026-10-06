@@ -328,8 +328,8 @@ async function recover(
 /**
  * Recover one exact head with bounded retained history and durable checked progress.
  * The result is a sparse current-policy capability; this does not advance app checkpoints.
+ * Retain organization version 1 when the result will establish founder binding.
  */
-/** Retain organization version 1 when the result will establish founder binding. */
 export async function recoverPrincipalPolicyHistory(
   options: RecoverPrincipalPolicyHistoryOptions,
 ): Promise<RecoveredPrincipalPolicyHistory> {

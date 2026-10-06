@@ -156,17 +156,19 @@ authority citations are checked page by page without accumulating every citation
 in the result. Each group page with external citations may perform another pinned
 Admins read while reusing its authenticated prefix and local index.
 
-Within one projection collection, runtime recovery reuses the authenticated
-organization directory and identical Admins head/citation selections across
-referenced groups. This cache belongs to that collection, checks both the saved
-and current lifetime guards, and is discarded before the next collection. A
-future citation clears it before the existing single directory refresh. The
-next collection discovers the directory again. A normal offline cache miss is
-reported as dependency unavailability, without recording a security incident.
-The same applies to incomplete online reads, the exhausted directory refresh,
-concurrent local checkpoint advancement, and an offline prefix behind a local
-pin. An online server head behind that pin remains a rollback incident. Invalid
-signed predecessors remain verification errors, distinct from local races.
+Within one `collectReferencedPrincipalPolicies` call, runtime recovery reuses
+the authenticated organization directory and identical Admins head/citation
+selections across referenced groups. This cache belongs to that collection,
+checks both the saved and current lifetime guards, and is discarded before the
+next collection. A future citation clears it before the single directory
+refresh. The next collection discovers the directory again. A normal offline
+cache miss is reported as dependency unavailability, without recording a
+security incident. The same applies to incomplete online reads, the exhausted
+directory refresh, concurrent local checkpoint advancement, and an offline
+prefix behind a local pin. A held citation to a group absent from the current
+signed directory is also unavailable, including after group deletion. An
+online server head behind that pin remains a rollback incident. Invalid signed
+predecessors remain verification errors, distinct from local races.
 
 When the paged resolver is available, a paged failure does not fetch a full
 history bundle. This changes availability: an authorized full-bundle endpoint

@@ -41,7 +41,7 @@ function groupHead(directory: RecoveredPolicyDirectory, principalId: string) {
   );
   if (!head)
     throw new KeyingVerificationError(
-      "object_mismatch",
+      "missing_dependency",
       "Group is absent from the signed organization directory",
     );
   return head;
