@@ -2,11 +2,12 @@
 
 App-agnostic window management for React: window state (open, focus order,
 minimize/maximize, a per-window route and Back stack), window chrome (title
-bar, menu bar, toolbar, sidebar, status bar, resize handles), and the menu and
-sidebar primitives that chrome renders with.
+bar, menu bar, toolbar, sidebar, status bar, resize handles), the menu and
+sidebar primitives that chrome renders with, and a taskbar's start menu.
 
 The package knows nothing about the applications that run inside its windows.
-It depends only on React, react-dom, and Phosphor icons.
+It depends only on React, react-dom, and Phosphor icons, which draw the
+chrome's own icons unless a host passes its own (see [Icons](#icons)).
 
 ## Composing a desktop
 
@@ -122,6 +123,67 @@ row is reserved from the start. An app that never routes passes
 `historyBack={false}` to `Window`; its window then has no row until the app
 first registers toolbar actions. From then on the row stays, as in any window,
 so the body does not shift when actions come and go.
+
+## Icons
+
+Icons are components, from any icon set. `MenuItem`, `StartMenu` items, and the
+chrome take a `WindowingIcon`: a component that accepts `WindowingIconProps`
+(`aria-hidden`, `className`, `focusable`, and `size`), as Phosphor and Lucide
+icons do. A menu item renders its icon at 16 pixels:
+
+```tsx
+import { NotePencilIcon } from "@phosphor-icons/react";
+
+<MenuItem icon={NotePencilIcon} label="Notes" onClick={openNotes} />;
+```
+
+Toolbar actions take a rendered `icon` element instead, as shown above.
+
+The chrome draws three icons of its own, from Phosphor: the toolbar's Back
+caret and the title bar menu's Move Forward and Move Backward arrows.
+`WindowingIconsProvider` replaces them for the chrome inside it. An icon it
+leaves out keeps the one from the nearest provider above, or the default:
+
+```tsx
+import { ArrowDown, ArrowUp, ChevronLeft } from "lucide-react";
+
+<WindowingIconsProvider
+  icons={{ back: ChevronLeft, moveBackward: ArrowDown, moveForward: ArrowUp }}
+>
+  <Desktop />
+</WindowingIconsProvider>;
+```
+
+## Start menu
+
+`StartMenu` is a taskbar's start button: place it at the bar's leading edge,
+give it an `icon` to show (a logo or an icon element), and the menu opens above
+the button's top-left corner. Its `items` each take an `id`, `label`, optional
+`icon` and `disabled`, and `onSelect`, which runs after the menu closes and
+receives where the menu opened, for placing a new window near it:
+
+```tsx
+<StartMenu
+  icon={<Logo />}
+  items={[
+    {
+      icon: NotePencilIcon,
+      id: "notes",
+      label: "Notes",
+      onSelect: ({ x }) => create("Notes", x, 80, NotesApp),
+    },
+  ]}
+/>
+```
+
+The button is named "Menu" unless `label` says otherwise, and announces its
+menu with `aria-haspopup` and `aria-expanded`. By default it is a square,
+borderless control the height of the bar's controls, lit while hovered,
+focused, or open (`StartMenu.css`). A `className` replaces that styling, so a
+host's own button styles apply alone. A menu that needs more than a list passes
+`renderMenu`, which renders the open menu itself and receives its `position`
+and a `close` callback. Tearleads' footer does this in
+`packages/app/src/shell/pane/footer/PaneFooter.tsx`.
 
 ## Styles
 

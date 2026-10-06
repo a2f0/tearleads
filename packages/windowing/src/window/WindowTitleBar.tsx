@@ -1,6 +1,5 @@
-import { ArrowDownIcon } from "@phosphor-icons/react/dist/csr/ArrowDown";
-import { ArrowUpIcon } from "@phosphor-icons/react/dist/csr/ArrowUp";
 import { type ReactNode, useCallback } from "react";
+import { useWindowingIcons } from "../icons/WindowingIcons";
 import { Menu } from "../menu/Menu";
 import { MenuItem } from "../menu/MenuItem";
 import { useContextMenuPositionState } from "../menu/useContextMenuState";
@@ -39,6 +38,7 @@ export function WindowTitleBar({
 }) {
   const { closeContextMenu, contextMenu, openContextMenuAt } =
     useContextMenuPositionState();
+  const icons = useWindowingIcons();
 
   const handlePointerDown = useCallback(
     (e: React.PointerEvent<HTMLDivElement>) => {
@@ -79,7 +79,7 @@ export function WindowTitleBar({
           direction="down"
         >
           <MenuItem
-            icon={ArrowUpIcon}
+            icon={icons.moveForward}
             label="Move Forward"
             onClick={() => {
               onMoveForward();
@@ -87,7 +87,7 @@ export function WindowTitleBar({
             }}
           />
           <MenuItem
-            icon={ArrowDownIcon}
+            icon={icons.moveBackward}
             label="Move Backward"
             onClick={() => {
               onMoveBackward();
