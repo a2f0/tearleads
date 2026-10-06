@@ -3,6 +3,10 @@ import {
   canonicalAuthOrigin,
 } from "@tearleads/crypto";
 import {
+  apiVersionHeaderName,
+  parseApiVersion,
+} from "@tearleads/validators/operation";
+import {
   bindPrototypeMethods,
   describeErrorResponse,
   type ErrorResponseDescription,
@@ -37,6 +41,7 @@ export class ApiRequestRuntime {
   private onError: ((message: string) => void) | null = null;
   private onNetworkError: (() => void) | null = null;
   private onNetworkSuccess: (() => void) | null = null;
+  private onApiVersion: ((version: number) => void) | null = null;
   private onSessionExpired: ExpiredHandler | null = null;
   private onPaymentRequired: PaymentRequiredHandler | null = null;
   private readonly requestFailuresByKey = new Map<string, RequestFailure>();
@@ -81,6 +86,11 @@ export class ApiRequestRuntime {
 
   setOnNetworkSuccess(handler: (() => void) | null): void {
     this.onNetworkSuccess = handler;
+  }
+
+  /** Receives the build named by each response that carries one. */
+  setOnApiVersion(handler: ((version: number) => void) | null): void {
+    this.onApiVersion = handler;
   }
 
   setOnSessionExpired(handler: ExpiredHandler | null): void {
@@ -385,6 +395,10 @@ export class ApiRequestRuntime {
     }
 
     this.onNetworkSuccess?.();
+    const apiVersion = parseApiVersion(
+      response.headers.get(apiVersionHeaderName),
+    );
+    if (apiVersion !== null) this.onApiVersion?.(apiVersion);
     return { data: response, ok: true };
   }
 

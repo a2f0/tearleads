@@ -45,6 +45,8 @@ export interface AppDiagnostics {
   addBreadcrumb: (breadcrumb: DiagnosticBreadcrumb) => void;
   captureError: (error: unknown, context: DiagnosticErrorContext) => void;
   clearBreadcrumbs?: () => void;
+  /** Tag later reports with the API build the client last heard from. */
+  setApiVersion?: (version: number) => void;
 }
 
 export function isDiagnosticArea(value: unknown): value is DiagnosticArea {

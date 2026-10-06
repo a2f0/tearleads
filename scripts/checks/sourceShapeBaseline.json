@@ -39,8 +39,8 @@
       "bytes": 18865
     },
     "docs/developer/client-sdk.md": {
-      "lines": 805,
-      "bytes": 42373
+      "lines": 806,
+      "bytes": 42506
     },
     "docs/developer/revenuecat-native-stores.md": {
       "lines": 364,
@@ -327,8 +327,8 @@
       "bytes": 17549
     },
     "scripts/architecture/subsystems.ts": {
-      "lines": 783,
-      "bytes": 29560
+      "lines": 784,
+      "bytes": 29613
     }
   },
   "suppressions": {
