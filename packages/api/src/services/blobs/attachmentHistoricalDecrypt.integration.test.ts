@@ -22,6 +22,7 @@ import {
   kekStateFromContainerResponse,
 } from "../../../test/helpers/keyingWriterProjectionKit";
 import { addOrganizationMember } from "../../../test/helpers/organizationMembership";
+import { withProjectionHistoryRecovery } from "../../../test/helpers/projectionHistoryRecovery";
 import { registerUser } from "../../../test/helpers/registerUser";
 import { routeApp } from "../../routeApp";
 import { readKeyingCanonicalJson } from "../../utils/canonicalJson";
@@ -87,19 +88,19 @@ test("SDK decrypts a historical binding after ancestor head changes and document
     identities
       .find((identity) => identity.userId === userId)
       ?.resolve(userId) ?? null;
-  const warmReferencedPrincipalPolicies = async (input: {
-    organizationId: string;
-    references: Parameters<
-      typeof cacheReferencedPrincipalPolicies
-    >[0]["references"];
-  }) =>
-    cacheReferencedPrincipalPolicies({
-      ...input,
-      execSql,
-      getCurrentPrincipalPolicy: apiClient.getCurrentPrincipalPolicy,
-      reportSecurityIncident: async () => undefined,
-      resolveTrustedUserIdentity: resolveProjectionUserKey,
-    });
+  const warmReferencedPrincipalPolicies = withProjectionHistoryRecovery({
+    apiClient,
+    execSql,
+    resolveTrustedUserIdentity: resolveProjectionUserKey,
+    warmer: async (input) =>
+      cacheReferencedPrincipalPolicies({
+        ...input,
+        execSql,
+        getCurrentPrincipalPolicy: apiClient.getCurrentPrincipalPolicy,
+        reportSecurityIncident: async () => undefined,
+        resolveTrustedUserIdentity: resolveProjectionUserKey,
+      }),
+  });
   const common = {
     apiClient,
     author: {
@@ -279,6 +280,7 @@ test("SDK decrypts a historical binding after ancestor head changes and document
         resolveProjectionUserKey,
         targetSecretKey: owner.kem.secretKey,
         writerProjection: projection,
+        warmReferencedPrincipalPolicies,
       }),
     ).toEqual(plaintext);
   } finally {

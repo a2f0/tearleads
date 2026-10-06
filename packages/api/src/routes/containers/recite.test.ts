@@ -7,20 +7,15 @@ import {
   organizationBilling,
 } from "@tearleads/api-shared/schema";
 import { createTestUser } from "@tearleads/bob-and-alice";
-import {
-  buildMaterializedDocumentCreatePlan,
-  cacheReferencedPrincipalPolicies,
-} from "@tearleads/client-sdk";
-import { createTestTrustedUserIdentityResolver } from "@tearleads/client-sdk/testing";
-import { createTestExecSql } from "@tearleads/test-utils";
+import { buildMaterializedDocumentCreatePlan } from "@tearleads/client-sdk";
 import {
   isContainerMutationResponse,
   isContainerReciteResponse,
   isContainerWriterProjectionResponse,
   isOrganizationReadModelResponse,
-  isPrincipalPolicyBundleResponse,
 } from "@tearleads/validators/response";
 import { eq } from "drizzle-orm";
+import { createAncestorSdkContext } from "../../../test/helpers/ancestorSdkRepair";
 import { authenticate } from "../../../test/helpers/authenticate";
 import { buildRootGrantRequest } from "../../../test/helpers/containerGrantMutation";
 import {
@@ -280,53 +275,19 @@ test("the SDK verifies and unwraps an API recitation without new KEK material", 
   const projection: unknown = await projectionResponse.json();
   if (!isContainerWriterProjectionResponse(projection))
     throw new Error("Expected projection");
-  const database = await createTestExecSql("api-recited-projection-sdk");
+  const context = await createAncestorSdkContext(
+    owner,
+    projection.organizationId,
+  );
   try {
-    const resolveUser = createTestTrustedUserIdentityResolver({
-      encapsulationPublicKey: owner.kem.publicKey,
-      signingKeyFingerprint: owner.fingerprint,
-      signingPublicKey: owner.signing.signingPublicKey,
-      userId: owner.userId,
-    });
     const materialized = await buildMaterializedDocumentCreatePlan({
-      author: {
-        organizationId: projection.organizationId,
-        signerDeviceId: `signing-key:${owner.fingerprint}`,
-        signerKeyFingerprint: owner.fingerprint,
-        signerPrivateKey: owner.signing.signingPrivateKey,
-        signerUserId: owner.userId,
-      },
+      ...context.common,
       containerProjection: projection,
-      execSql: database.execSql,
-      resolveProjectionUserKey: resolveUser,
-      targetSecretKey: owner.kem.secretKey,
-      warmReferencedPrincipalPolicies: (input) =>
-        cacheReferencedPrincipalPolicies({
-          ...input,
-          execSql: database.execSql,
-          getCurrentPrincipalPolicy: async (type, id) => {
-            const response = await routeApp.request(
-              `/principals/${type}/${id}/policy`,
-              {
-                headers: { Authorization: `Bearer ${owner.token}` },
-              },
-            );
-            expect(response.status).toBe(200);
-            const bundle: unknown = await response.json();
-            if (!isPrincipalPolicyBundleResponse(bundle))
-              throw new Error("Expected policy bundle");
-            return bundle;
-          },
-          reportSecurityIncident: async (error) => {
-            throw error;
-          },
-          resolveTrustedUserIdentity: resolveUser,
-        }),
     });
     expect(
       materialized.plan.request.targetContainerPathRefs?.at(-1)?.manifestHash,
     ).toBe(signed.expectedManifestHash);
   } finally {
-    database.close();
+    context.close();
   }
 });
