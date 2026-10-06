@@ -18,8 +18,10 @@ Review committed changes with `agent-tool review claude`, `agent-tool review cod
 or `agent-tool review opencode`. Optional effort is `low`, `medium`, `high`,
 `xhigh`, or `max`. For a local or non-GitHub repository, add `--base <commit-or-ref>`.
 For a coordinated GitHub review, pin the fetched base using
-`AGENT_TOOL_REVIEW_BASE_REF` and `AGENT_TOOL_REVIEW_BASE_OID`; fetch from the
-repository that owns the PR, which can differ from the checkout's origin.
+`AGENT_TOOL_REVIEW_BASE_REF`, the base branch name such as `main` (not a
+remote-tracking ref like `origin/main`), and `AGENT_TOOL_REVIEW_BASE_OID`, its
+fetched commit. Fetch from the repository that owns the PR, which can differ
+from the checkout's origin.
 
 Record the exact base and HEAD before reviewing. The tool reviews raw committed
 files and excludes worktree edits. A zero exit means a complete review was

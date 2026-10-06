@@ -11,9 +11,11 @@ do not assume the branch is named main. Preserve unrelated work and finish
 requested changes and appropriate checks before publishing them.
 
 Ensure the intended commit is on a feature branch and push it through the
-repository's normal push workflow. Respect existing push authorization; do not
-bypass hooks. If the user only requested a draft description, prepare that text
-without publishing a PR.
+repository's normal push workflow, naming the PR repository's remote and branch
+explicitly, as in `git push -u origin HEAD`; a bare push follows whatever
+upstream the branch tracks, which may be a local branch. Respect existing push
+authorization; do not bypass hooks. If the user only requested a draft
+description, prepare that text without publishing a PR.
 
 Write a title that satisfies the data-only `agent-tool.json` subject policy.
 Describe the concrete resulting behavior and relevant validation. Put multiline

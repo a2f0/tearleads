@@ -74,7 +74,7 @@ function fixture() {
     mkdirSync(directory, { recursive: true });
   }
   cpSync(
-    resolve(import.meta.dir, "../../../scripts/publishNpmPackage.sh"),
+    resolve(import.meta.dir, "../publishNpmPackage.sh"),
     join(scripts, "publishNpmPackage.sh"),
   );
   for (const name of publishedPackages) {

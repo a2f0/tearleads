@@ -11,7 +11,7 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { decidePublish, parseRegistryState } from "../scripts/publishDecision";
+import { decidePublish, parseRegistryState } from "./npmPublishDecision";
 
 const fixtures: string[] = [];
 afterEach(() => {
@@ -89,17 +89,21 @@ test.each([
 });
 
 // Runs the script against a fixture package with a fake npm on the PATH.
-function run(npm: { exit: number; output: string }) {
+function run(
+  npm: { exit: number; output: string },
+  args: readonly string[] = ["windowing"],
+) {
   const root = realpathSync(mkdtempSync(join(tmpdir(), "publish-decision-")));
   fixtures.push(root);
-  mkdirSync(join(root, "scripts"));
+  mkdirSync(join(root, "scripts", "lib"), { recursive: true });
+  mkdirSync(join(root, "packages", "windowing"), { recursive: true });
   mkdirSync(join(root, "bin"));
   cpSync(
-    resolve(import.meta.dir, "../scripts/publishDecision.ts"),
-    join(root, "scripts", "publishDecision.ts"),
+    resolve(import.meta.dir, "npmPublishDecision.ts"),
+    join(root, "scripts", "lib", "npmPublishDecision.ts"),
   );
   writeFileSync(
-    join(root, "package.json"),
+    join(root, "packages", "windowing", "package.json"),
     JSON.stringify({ name: "@tearleads/windowing", version: "0.2.1" }),
   );
   writeFileSync(
@@ -116,7 +120,11 @@ process.exit(Number(process.env.NPM_EXIT));
   const npmArgs = join(root, "npm-args.json");
   const { PATH } = process.env;
   const result = Bun.spawnSync(
-    [process.execPath, join(root, "scripts", "publishDecision.ts")],
+    [
+      process.execPath,
+      join(root, "scripts", "lib", "npmPublishDecision.ts"),
+      ...args,
+    ],
     {
       env: {
         ...process.env,
@@ -133,7 +141,9 @@ process.exit(Number(process.env.NPM_EXIT));
   return {
     exitCode: result.exitCode,
     stdout: result.stdout.toString(),
-    npmArgs: JSON.parse(readFileSync(npmArgs, "utf8")),
+    npmArgs: existsSync(npmArgs)
+      ? JSON.parse(readFileSync(npmArgs, "utf8"))
+      : undefined,
     githubOutput: existsSync(output) ? readFileSync(output, "utf8") : undefined,
   };
 }
@@ -177,3 +187,13 @@ test.each([
   expect(result.exitCode).not.toBe(0);
   expect(result.githubOutput).toBeUndefined();
 });
+
+test.each([[], [""], ["../windowing"], ["Windowing"]])(
+  "arguments %j are rejected before asking npm",
+  (...args) => {
+    const result = run({ exit: 0, output: registryOutput }, args);
+    expect(result.exitCode).not.toBe(0);
+    expect(result.npmArgs).toBeUndefined();
+    expect(result.githubOutput).toBeUndefined();
+  },
+);

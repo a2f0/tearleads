@@ -1,17 +1,22 @@
-name: Publish windowing
+name: Publish client SDK
 
-# Publishes @tearleads/windowing with npm trusted publishing: npm exchanges the
+# Publishes @tearleads/client-sdk with npm trusted publishing: npm exchanges the
 # job's GitHub OIDC token for a short-lived publish token and attaches
 # provenance, so no npm token or one-time password is stored anywhere. The
 # trusted publisher on npmjs.com names this file and the `npm` environment.
+#
+# The package ships the workspace packages the SDK imports, compiled inside it.
+# agent-tool.json lists the SDK under versions.bundles, so a change to any of
+# them also bumps packages/client-sdk/package.json, which this filter covers.
 on:
   push:
     branches: [main]
     paths:
-      - packages/windowing/**
+      - packages/client-sdk/**
       - scripts/publishNpmPackage.sh
       - scripts/lib/npmPublishDecision.ts
-      - .github/workflows/windowing-publish.yml
+      - scripts/lib/rewriteDistImports.ts
+      - .github/workflows/client-sdk-publish.yml
   workflow_dispatch:
 
 permissions: {}
@@ -23,7 +28,7 @@ concurrency:
 
 jobs:
   publish:
-    name: Publish @tearleads/windowing
+    name: Publish @tearleads/client-sdk
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     # Restricted to main in the repository settings, so a workflow edited on
@@ -56,12 +61,18 @@ jobs:
       # version, re-runs, and out-of-order runs succeed without publishing.
       - name: Decide whether to publish
         id: decide
-        run: bun scripts/lib/npmPublishDecision.ts windowing
+        run: bun scripts/lib/npmPublishDecision.ts client-sdk
 
       - name: Install dependencies
         if: steps.decide.outputs.publish == 'true'
         run: bun install --frozen-lockfile
 
+      # Installs the packed package outside the workspace and imports,
+      # typechecks, and bundles it before anything reaches npm.
+      - name: Smoke test the package
+        if: steps.decide.outputs.publish == 'true'
+        run: bun run --cwd packages/client-sdk package:smoke
+
       - name: Publish to npm
         if: steps.decide.outputs.publish == 'true'
-        run: bash scripts/publishNpmPackage.sh windowing
+        run: bash scripts/publishNpmPackage.sh client-sdk
