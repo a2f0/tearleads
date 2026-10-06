@@ -799,3 +799,8 @@ without waiting for a timestamp change or an access-restoration event.
 `ContainerDocumentQueries.listRecoveryFolderMoveIds` lists queued folder moves
 whose local destination parent is unavailable. Recovery uses it to distinguish
 local work from shared folders with inaccessible parents.
+
+## Durable principal-history recovery
+
+See [principal-history recovery](principal-history-recovery.md) for the exact-head
+recovery facade, local key custody, durable staging, and caller responsibilities.

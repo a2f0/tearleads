@@ -14,7 +14,10 @@ import {
   server,
   testApiClient,
 } from "../test/helpers/apiClientTestHarness";
-import { principalPolicyPageResponse } from "../test/helpers/principalPolicyPage";
+import {
+  principalPolicyBundleResponseFor,
+  principalPolicyPageResponse,
+} from "../test/helpers/principalPolicyPage";
 import { ApiClient } from "./ApiClient";
 
 const dataUsageOrganizationId = "11111111-1111-4111-8111-111111111111";
@@ -221,7 +224,7 @@ testApiClient("coalesces only in-flight principal policy reads", async () => {
   let callCount = 0;
   const firstRequestStarted = createDeferred<void>();
   const finishFirstRequest = createDeferred<void>();
-  const bundle = createPrincipalPolicyBundleResponse();
+  const bundle = principalPolicyBundleResponseFor("group", principalPolicyId);
   server.use(
     http.get(`${apiBaseUrl}/principals/group/:groupId/policy`, async () => {
       callCount += 1;

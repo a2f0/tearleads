@@ -1,3 +1,5 @@
+import { and, eq, or } from "drizzle-orm";
+import { principalHistoryStages } from "../../data/sqlite/principalHistoryStageSchema";
 import {
   principalPolicies,
   principalPolicyBundleHistory,
@@ -6,6 +8,7 @@ import {
   principalPolicyOrganizations,
 } from "../../data/sqlite/schema";
 import type { ClientSQLiteTransactionScope } from "../../data/sqlite/sqlitePersistenceRuntime";
+import { remoteResetBatches } from "./remoteResetBatches";
 
 export interface RemoteResetPrincipalKey {
   readonly principalId: string;
@@ -100,4 +103,40 @@ export async function loadRemoteResetPrincipalScope(
     });
   }
   return { policyRows, principalKeys: [...keys.values()] };
+}
+
+// Trust checkpoints and their ownership survive reset. Clearing cached bundles
+// must not turn a previously observed principal or object into first sight.
+export async function clearRemoteResetPrincipalRows(input: {
+  organizationId: string;
+  snapshot: { principalKeys: readonly RemoteResetPrincipalKey[] };
+  tx: ClientSQLiteTransactionScope;
+}): Promise<void> {
+  await input.tx
+    .delete(principalHistoryStages)
+    .where(eq(principalHistoryStages.organizationId, input.organizationId))
+    .run();
+  for (const principalBatch of remoteResetBatches(
+    input.snapshot.principalKeys,
+  )) {
+    for (const table of [
+      principalPolicies,
+      principalPolicyBundleHistory,
+      principalPolicyBundleReferences,
+    ] as const) {
+      await input.tx
+        .delete(table)
+        .where(
+          or(
+            ...principalBatch.map((principal) =>
+              and(
+                eq(table.principalType, principal.principalType),
+                eq(table.principalId, principal.principalId),
+              ),
+            ),
+          ),
+        )
+        .run();
+    }
+  }
 }

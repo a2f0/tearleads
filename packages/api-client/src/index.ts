@@ -1,5 +1,10 @@
 export { ApiClient } from "./ApiClient";
 export type {
+  PrincipalPolicyPageCurrent,
+  PrincipalPolicyPageReadOptions,
+  PrincipalPolicyPageResume,
+} from "./principalPolicyPages";
+export type {
   BlobBytesResponse,
   UploadMultipartBlobPartBytesRequest,
 } from "./routes/blobs/get";

@@ -127,6 +127,7 @@ import {
   createOperationTransport,
   type OperationTransport,
 } from "./operationTransportFactory";
+import type { PrincipalPolicyPageReadOptions } from "./principalPolicyPages";
 import { PrincipalPolicyRequests } from "./principalPolicyRequests";
 import { ProjectionHistoryTransport } from "./projectionHistoryTransport";
 import {
@@ -609,6 +610,18 @@ export class ApiClient {
       undefined,
       { retryOnSessionExpired: false },
       logoutOperation,
+    );
+  }
+
+  getPrincipalPolicyPages(
+    principalType: "group" | "organization",
+    principalId: string,
+    options: PrincipalPolicyPageReadOptions = {},
+  ) {
+    return this.principalPolicyRequests.pages(
+      principalType,
+      principalId,
+      options,
     );
   }
 

@@ -473,8 +473,16 @@ export {
   updateOrganizationProfile,
   updateOrganizationRosterEntry,
 } from "./workflows/organizations";
-export type { CacheReferencedPrincipalPoliciesOptions } from "./workflows/principals";
-export { cacheReferencedPrincipalPolicies } from "./workflows/principals";
+export type {
+  CacheReferencedPrincipalPoliciesOptions,
+  RecoveredPrincipalPolicyHistory,
+  RecoverPrincipalPolicyHistoryOptions,
+} from "./workflows/principals";
+export {
+  cacheReferencedPrincipalPolicies,
+  PrincipalPolicyHistoryReadError,
+  recoverPrincipalPolicyHistory,
+} from "./workflows/principals";
 export type {
   InitialRootMetadataBootstrap,
   ProvisionedSystemContainerSpec,
