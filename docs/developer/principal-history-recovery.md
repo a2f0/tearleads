@@ -218,4 +218,5 @@ This primitive returns verified public history, not a current policy or an
 admitted application checkpoint. Its caller must bind the source heads and any
 external authority to verified organization directory payloads, select needed
 citations and genesis through inclusion proofs, and check durable local pins.
-Projection source issuance and runtime wiring are still being integrated.
+Projection source issuance and runtime wiring remain tracked in
+[#2448](https://github.com/a2f0/tearleads/issues/2448).

@@ -1,39 +1,17 @@
 import type { DatabaseSession } from "@tearleads/api-shared/postgres";
-import type { ReferencedPrincipalHead } from "@tearleads/crypto";
 import type {
   AccessManifestBundleWireResponse,
   PrincipalPolicySnapshotResponse,
   ProjectionPolicyEvidenceResponse,
 } from "@tearleads/validators/response";
 import { getCurrentPrincipalState } from "../../access/read/principalStateStore";
-import { readProjectionAccessManifest } from "../../keyingProjectionRecords";
 import { loadVerifiedPrincipalPolicySnapshotsForReferences } from "./principalPolicySnapshots";
 import { loadProjectionDirectoryBindings } from "./projectionDirectoryBindings";
+import { projectionPolicyReferences } from "./projectionPolicyReferences";
 import {
   PrincipalPolicyError,
   toPrincipalStatePayloadResponse,
 } from "./shared";
-
-function projectionPolicyReferences(
-  bundles: readonly AccessManifestBundleWireResponse[],
-  organizationId: string,
-): ReferencedPrincipalHead[] {
-  const references: ReferencedPrincipalHead[] = [];
-  for (const bundle of bundles) {
-    const manifest = readProjectionAccessManifest(
-      bundle.manifest,
-      "Projection policy evidence manifest",
-      (message) => new PrincipalPolicyError(message, 409),
-    );
-    if (manifest.organizationId !== organizationId)
-      throw new PrincipalPolicyError(
-        "Projection policy organization mismatch",
-        409,
-      );
-    references.push(...manifest.referencedPrincipalHeads);
-  }
-  return references;
-}
 
 /** Call only after authorizing the projection. This carries no group secrets. */
 export async function loadProjectionPolicyEvidence(input: {

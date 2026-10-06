@@ -79,6 +79,9 @@ client checkpoint or permits access after revocation.
 and `grant`, plus an optional caller-authenticated prefix offset. It shares
 the 15-second per-request deadline and preparation handling, validates exact
 head, public artifacts and cursor continuity, and checks identity changes
-after each consumer yield. Projection source issuance and SDK sparse
-authorization recovery are still being integrated; existing projection
-responses still embed snapshots.
+after each consumer yield. The compact source builder checks every manifest
+citation against the signed directory head and verified chain before issuing
+any grant. It includes only the organization payloads needed for those bindings,
+with exact references for selective client verification. Production projection
+responses still embed snapshots until the SDK integration is complete; this
+remaining work is tracked in [#2448](https://github.com/a2f0/tearleads/issues/2448).

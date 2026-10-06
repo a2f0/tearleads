@@ -319,8 +319,8 @@
       "bytes": 1110759
     },
     "packages/validators/src/response/index.ts": {
-      "lines": 526,
-      "bytes": 18428
+      "lines": 529,
+      "bytes": 18578
     },
     "packages/validators/src/response/response.test.ts": {
       "lines": 587,
