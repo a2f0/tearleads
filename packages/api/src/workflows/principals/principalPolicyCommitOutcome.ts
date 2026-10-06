@@ -1,0 +1,113 @@
+import { createHash } from "node:crypto";
+import type { DatabaseTransaction } from "@tearleads/api-shared/postgres";
+import { principalPolicyCommits } from "@tearleads/api-shared/schema";
+import {
+  computePrincipalStateHash,
+  serializeKeyingCanonicalJson,
+} from "@tearleads/crypto";
+import type { CommitOrganizationGroupPolicyRequest } from "@tearleads/validators/request";
+import {
+  type CommitOrganizationGroupPolicyResponse,
+  isCommitOrganizationGroupPolicyResponse,
+} from "@tearleads/validators/response";
+import { and, eq } from "drizzle-orm";
+import { readKeyingCanonicalJson } from "../../utils/canonicalJson";
+import { loadExactReplayMutationResponses } from "./principalPolicyMutationAcknowledgements";
+import { PrincipalPolicyError } from "./shared";
+
+interface CommitOutcomeInput {
+  readonly organizationId: string;
+  readonly groupId: string;
+  readonly requesterUserId: string;
+  readonly request: CommitOrganizationGroupPolicyRequest;
+}
+
+export async function principalPolicyCommitOutcome(
+  executor: DatabaseTransaction,
+  input: CommitOutcomeInput,
+) {
+  const requestHash = createHash("sha256")
+    .update(
+      serializeKeyingCanonicalJson(
+        readKeyingCanonicalJson(
+          JSON.parse(
+            JSON.stringify([
+              "tearleads.principal-policy.commit.v1",
+              input.organizationId,
+              input.groupId,
+              input.requesterUserId,
+              input.request,
+            ]),
+          ),
+          "Principal policy commit request",
+        ),
+      ),
+    )
+    .digest("hex");
+  const [row] = await executor
+    .select()
+    .from(principalPolicyCommits)
+    .where(
+      and(
+        eq(principalPolicyCommits.requestHash, requestHash),
+        eq(principalPolicyCommits.organizationId, input.organizationId),
+        eq(principalPolicyCommits.groupId, input.groupId),
+        eq(principalPolicyCommits.requesterUserId, input.requesterUserId),
+      ),
+    )
+    .limit(1);
+  let response: CommitOrganizationGroupPolicyResponse | null = null;
+  if (row) {
+    let stored: unknown;
+    try {
+      stored = JSON.parse(row.responseJson);
+    } catch {
+      throw new PrincipalPolicyError(
+        "Stored principal policy acknowledgement is invalid",
+        409,
+      );
+    }
+    if (
+      !isCommitOrganizationGroupPolicyResponse(stored) ||
+      stored.groupPolicy.currentState.principalType !== "group" ||
+      stored.groupPolicy.currentState.principalId !== input.groupId ||
+      stored.organizationPolicy.currentState.principalType !== "organization" ||
+      stored.organizationPolicy.currentState.principalId !==
+        input.organizationId ||
+      stored.groupPolicy.currentState.stateHash !==
+        (await computePrincipalStateHash(input.request.groupPolicy.state)) ||
+      stored.organizationPolicy.currentState.stateHash !==
+        (await computePrincipalStateHash(
+          input.request.organizationPolicy.state,
+        ))
+    )
+      throw new PrincipalPolicyError(
+        "Stored principal policy acknowledgement does not match its request",
+        409,
+      );
+    // Container purge removes its acknowledgement rows. Never resurrect those
+    // responses from a second copy inside the compound receipt.
+    stored.groupPolicy.containerMutations =
+      await loadExactReplayMutationResponses({
+        executor,
+        nextHead: stored.groupPolicy.currentState,
+        requests: input.request.groupPolicy.containerMutations ?? [],
+      });
+    response = stored;
+  }
+  return {
+    response,
+    async save(policy: CommitOrganizationGroupPolicyResponse): Promise<void> {
+      await executor.insert(principalPolicyCommits).values({
+        requestHash,
+        organizationId: input.organizationId,
+        groupId: input.groupId,
+        requesterUserId: input.requesterUserId,
+        responseJson: JSON.stringify({
+          ...policy,
+          groupPolicy: { ...policy.groupPolicy, containerMutations: [] },
+        }),
+      });
+    },
+  };
+}

@@ -307,3 +307,6 @@ the greenfield wire contract for standalone policy writes, compound group and
 organization commits, and the organization receipt on group creation/deletion.
 Other embedded-history reads and local full-history persistence still need
 bounded processing; compact mutation receipts alone do not complete #2442 or #2448.
+
+See [compound commit outcomes](developer/principal-policy-outcomes.md) for
+recovery after a committed response is lost.

@@ -670,6 +670,15 @@ CREATE TABLE "principal_membership_projection" (
 	"created_at" timestamp DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
+CREATE TABLE "principal_policy_commits" (
+	"request_hash" text PRIMARY KEY NOT NULL,
+	"organization_id" uuid NOT NULL,
+	"group_id" uuid NOT NULL,
+	"requester_user_id" uuid NOT NULL,
+	"response_json" text NOT NULL,
+	"created_at" timestamp DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
 CREATE TABLE "principal_policy_mutation_acknowledgements" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"principal_type" text NOT NULL,
@@ -897,6 +906,8 @@ CREATE INDEX "principal_membership_projection_principal_idx" ON "principal_membe
 CREATE INDEX "principal_membership_projection_member_idx" ON "principal_membership_projection" USING btree ("user_id");--> statement-breakpoint
 CREATE INDEX "principal_membership_projection_member_state_idx" ON "principal_membership_projection" USING btree ("user_id","principal_type","principal_id","state_hash");--> statement-breakpoint
 CREATE UNIQUE INDEX "principal_membership_projection_state_member_idx" ON "principal_membership_projection" USING btree ("principal_type","principal_id","state_hash","user_id");--> statement-breakpoint
+CREATE INDEX "principal_policy_commits_organization_idx" ON "principal_policy_commits" USING btree ("organization_id");--> statement-breakpoint
+CREATE INDEX "principal_policy_commits_group_idx" ON "principal_policy_commits" USING btree ("group_id");--> statement-breakpoint
 CREATE INDEX "principal_policy_mutation_acks_state_idx" ON "principal_policy_mutation_acknowledgements" USING btree ("principal_type","principal_id","state_hash");--> statement-breakpoint
 CREATE UNIQUE INDEX "principal_policy_mutation_acks_batch_idx" ON "principal_policy_mutation_acknowledgements" USING btree ("principal_type","principal_id","state_hash","batch_index");--> statement-breakpoint
 CREATE UNIQUE INDEX "principal_policy_mutation_acks_container_idx" ON "principal_policy_mutation_acknowledgements" USING btree ("principal_type","principal_id","state_hash","container_id");--> statement-breakpoint

@@ -38,6 +38,9 @@ outright (`assertExactKeys`), never migrated or dual-read. Deploying any of the
 following onto a database that predates it requires the greenfield reset above
 (every server database and every client database):
 
+- #2448: durable `principal_policy_commits` receipts bind exact compound
+  requests to their original results. Both generated baselines include the
+  table; databases that predate it require the coordinated reset.
 - #2442: principal-state versions and manifest principal-head projections use
   PostgreSQL `bigint` and exact positive JavaScript integer range constraints.
   Both generated schema baselines were replaced; existing databases require

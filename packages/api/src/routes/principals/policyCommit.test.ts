@@ -1,6 +1,11 @@
 import { expect, test } from "bun:test";
 import { db } from "@tearleads/api-shared/postgres";
-import { groups, organizations, users } from "@tearleads/api-shared/schema";
+import {
+  groups,
+  organizations,
+  principalPolicyCommits,
+  users,
+} from "@tearleads/api-shared/schema";
 import { createTestUser } from "@tearleads/bob-and-alice";
 import {
   computePrincipalStateHash,
@@ -290,6 +295,14 @@ test("a stale signed directory rejects and rolls back its paired group successor
     db,
   );
   expect(storedGroup?.stateHash).toBe(prepared.previousGroupStateHash);
+  expect(
+    await db
+      .select()
+      .from(principalPolicyCommits)
+      .where(
+        eq(principalPolicyCommits.groupId, prepared.organization.memberGroupId),
+      ),
+  ).toEqual([]);
 });
 
 test("compound commits reject organization policies signed by another user", async () => {
