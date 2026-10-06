@@ -1,7 +1,7 @@
 import { z } from "zod";
-import { BILLING_ERROR_CODES } from "../billing";
 import { registerJsonSchemaRuntimeRefinements } from "../jsonSchema";
 import { loosePlainObject, sha256HexStringSchema } from "../schema";
+import { BillingErrorCodeSchema } from "./organizationBilling";
 
 /** Sent only after the attempted operation has rolled back completely. */
 export const PrincipalHistoryPreparationResponseSchema = z.strictObject({
@@ -24,8 +24,7 @@ export const PrincipalHistoryPreparationFailureResponseSchema =
       error: z.string(),
       code: z
         .literal([
-          BILLING_ERROR_CODES.checkoutNoActiveMembers,
-          BILLING_ERROR_CODES.rosterOverCapacity,
+          ...BillingErrorCodeSchema.values,
           "principal_history_preparation_unavailable",
         ])
         .optional(),

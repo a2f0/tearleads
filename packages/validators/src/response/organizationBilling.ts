@@ -121,7 +121,7 @@ export function isOrganizationBillingResponse(
   return OrganizationBillingResponseSchema.safeParse(value).success;
 }
 
-const BillingErrorCodeSchema = z.literal([
+export const BillingErrorCodeSchema = z.literal([
   BILLING_ERROR_CODES.checkoutNoActiveMembers,
   BILLING_ERROR_CODES.rosterOverCapacity,
 ]);
