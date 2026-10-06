@@ -102,3 +102,24 @@ test("a directory payload substitution is rejected before any group is fetched",
     fixture.close();
   }
 });
+
+test("organization genesis citations recover online and from the protected offline prefix", async () => {
+  const fixture = await createAuthorityRecoveryFixture(history);
+  try {
+    const reference = principalPolicyHead(history.initial);
+    for (const offline of [false, true]) {
+      const requests = fixture.requests.length;
+      const recovered = await recoverScopedPrincipalPolicyHistory({
+        ...fixture.options,
+        reference,
+        offline,
+      });
+      expect(
+        recovered.policy.retainedHistory.map(({ state }) => state.version),
+      ).toEqual([1, 66]);
+      if (offline) expect(fixture.requests).toHaveLength(requests);
+    }
+  } finally {
+    fixture.close();
+  }
+});

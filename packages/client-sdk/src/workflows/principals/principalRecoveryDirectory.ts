@@ -142,7 +142,9 @@ export async function recoverPolicyDirectory(
   const recovered = await recoverPrincipalPolicyHistory({
     ...scoped,
     expectedHead,
-    retainedReferences: [genesis, ...references],
+    retainedReferences: references.some((reference) => reference.version === 1)
+      ? references
+      : [genesis, ...references],
   });
   let descriptor: OrganizationAuthorityDescriptor;
   try {
