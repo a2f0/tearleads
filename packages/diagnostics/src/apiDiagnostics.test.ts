@@ -206,7 +206,7 @@ test("HTTP capture sites retain the error handler and omit only reporter wrapper
   ]);
 });
 
-test("browser and desktop privacy stay on their original policy", () => {
+test("browser and desktop privacy exclude API diagnostic tags", () => {
   const { runtime: _runtime, ...browserConfig } = config;
   for (const runtime of [undefined, "electrobun-main"] as const) {
     const safe = sanitizeSentryEvent(
@@ -220,7 +220,7 @@ test("browser and desktop privacy stay on their original policy", () => {
       },
       { ...browserConfig, ...(runtime ? { runtime } : {}) },
     );
-    expect(safe?.tags).toMatchObject({ privacy: "allowlist-v1" });
+    expect(safe?.tags).toMatchObject({ privacy: "allowlist-v2" });
     expect(safe?.tags).not.toHaveProperty("api_error_code");
     expect(safe?.exception?.values?.[0]).toMatchObject({
       type: "Error",

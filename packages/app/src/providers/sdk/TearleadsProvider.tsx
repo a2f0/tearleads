@@ -25,6 +25,7 @@ import { LOCAL_BLOB_STORE_SCOPE_NAMESPACE } from "../local-keyring/localKeyringS
 import { useLog } from "../logging/LogProvider";
 import { useSyncMode } from "../sync-mode/SyncModeProvider";
 import { useServerEventsBinding } from "./serverEventsBinding";
+import { useApiVersionDiagnostics } from "./useApiVersionDiagnostics";
 import { useTearleadsExternalValue } from "./useTearleadsSubscription";
 
 const SdkContext = createContext<Tearleads | null>(null);
@@ -278,6 +279,7 @@ export function TearleadsProvider({ children }: PropsWithChildren) {
 
   useNetworkStatusBinding(tearleads, hostConfig.createNetworkStatus, log);
   useNetworkTransitionLog(tearleads);
+  useApiVersionDiagnostics(tearleads.apiVersion, hostConfig.diagnostics);
   useTearleadsDisposeOnUnmount(tearleads);
   useServerEventsBinding(
     tearleads,
