@@ -79,44 +79,51 @@ test("the executable builder's trailing-slash root preserves absolute and relati
   expect(JSON.stringify(event)).not.toContain(root);
 });
 
-test("the build version is HEAD's commit count", () => {
-  const root = fileURLToPath(new URL("../../../../", import.meta.url));
-  const count = Bun.spawnSync(["git", "rev-list", "--count", "HEAD"], {
-    cwd: root,
-  });
-  expect(apiBuildVersion(root)).toBe(Number(count.stdout.toString().trim()));
-});
+// CI checks out shallow history, which builds without a version, so version
+// tests count commits in a repository they create rather than in this one.
+function git(cwd: string, ...args: string[]): void {
+  const result = Bun.spawnSync(
+    [
+      "git",
+      "-c",
+      "commit.gpgsign=false",
+      "-c",
+      "user.name=Build Test",
+      "-c",
+      "user.email=build@example.test",
+      ...args,
+    ],
+    { cwd, stdout: "ignore", stderr: "pipe" },
+  );
+  if (result.exitCode !== 0) throw new Error(result.stderr.toString());
+}
 
-test("source archives and shallow clones build without a version", async () => {
+function createRepository(path: string, commits: number): string {
+  git(tmpdir(), "init", "--quiet", path);
+  for (let commit = 1; commit <= commits; commit += 1) {
+    git(path, "commit", "--quiet", "--allow-empty", "-m", `commit ${commit}`);
+  }
+  return path;
+}
+
+test("the build version is HEAD's commit count, absent without full history", async () => {
   const directory = await mkdtemp(join(tmpdir(), "api-build-version-"));
-  const git = (...args: string[]) => {
-    const result = Bun.spawnSync(
-      [
-        "git",
-        "-c",
-        "commit.gpgsign=false",
-        "-c",
-        "user.name=Build Test",
-        "-c",
-        "user.email=build@example.test",
-        ...args,
-      ],
-      { cwd: directory, stdout: "ignore", stderr: "pipe" },
-    );
-    if (result.exitCode !== 0) throw new Error(result.stderr.toString());
-  };
   try {
     expect(apiBuildVersion(directory)).toBeNull();
 
-    const source = join(directory, "source");
-    git("init", "--quiet", source);
-    for (const message of ["first", "second"]) {
-      git("-C", source, "commit", "--quiet", "--allow-empty", "-m", message);
-    }
+    const source = createRepository(join(directory, "source"), 2);
     expect(apiBuildVersion(source)).toBe(2);
 
     const shallow = join(directory, "shallow");
-    git("clone", "--quiet", "--depth", "1", `file://${source}`, shallow);
+    git(
+      directory,
+      "clone",
+      "--quiet",
+      "--depth",
+      "1",
+      `file://${source}`,
+      shallow,
+    );
     expect(apiBuildVersion(shallow)).toBeNull();
   } finally {
     await rm(directory, { recursive: true, force: true });
@@ -124,29 +131,27 @@ test("source archives and shallow clones build without a version", async () => {
 });
 
 test("the executable builder stamps its version into the API runtime", async () => {
-  const root = fileURLToPath(new URL("../../../../", import.meta.url));
   const directory = await mkdtemp(join(tmpdir(), "api-version-build-"));
   try {
+    const root = createRepository(join(directory, "source"), 3);
     const fixture = join(directory, "fixture.ts");
     await Bun.write(
       fixture,
       `import { readApiBuildVersion } from ${JSON.stringify(join(import.meta.dirname, "apiVersion.ts"))};
 console.log(JSON.stringify(readApiBuildVersion()));`,
     );
-    const { define } = apiDiagnosticsBuildOptions(root);
     const result = await Bun.build({
       entrypoints: [fixture],
       outdir: directory,
       target: "bun",
-      define,
+      define: apiDiagnosticsBuildOptions(root).define,
     });
     expect(result.success).toBe(true);
     const run = Bun.spawnSync([
       process.execPath,
       join(directory, "fixture.js"),
     ]);
-    expect(JSON.parse(run.stdout.toString())).toBe(apiBuildVersion(root));
-    expect(apiBuildVersion(root)).toBeGreaterThan(0);
+    expect(JSON.parse(run.stdout.toString())).toBe(3);
   } finally {
     await rm(directory, { recursive: true, force: true });
   }

@@ -241,7 +241,7 @@ export function createRouteApp(
   const routeApp = createApiRouteApp();
 
   const corsOrigins = options.corsOrigins ?? readApiCorsOrigins();
-  routeApp.use("*", createApiCorsMiddleware(corsOrigins));
+  // Ahead of CORS, which answers preflights without calling later middleware.
   const apiVersion =
     options.apiVersion === undefined
       ? readApiBuildVersion()
@@ -249,6 +249,7 @@ export function createRouteApp(
   if (apiVersion !== null) {
     routeApp.use("*", createApiVersionMiddleware(apiVersion));
   }
+  routeApp.use("*", createApiCorsMiddleware(corsOrigins));
   routeApp.use("*", createReadModelHintMiddleware(deps.publish, deps.runtime));
 
   mountRouters(

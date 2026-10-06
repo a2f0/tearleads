@@ -43,6 +43,17 @@ test("exposes the build header to cross-origin clients", async () => {
     response.headers.get("Access-Control-Expose-Headers")?.toLowerCase(),
   ).toContain(apiVersionHeaderName.toLowerCase());
   expect(response.headers.get(apiVersionHeaderName)).toBe("2461");
+
+  // CORS answers preflights itself; they carry the build too.
+  const preflight = await app.request("/", {
+    method: "OPTIONS",
+    headers: {
+      Origin: "https://app.example.test",
+      "Access-Control-Request-Method": "GET",
+    },
+  });
+  expect(preflight.status).toBe(204);
+  expect(preflight.headers.get(apiVersionHeaderName)).toBe("2461");
 });
 
 test("an API run from source or an unversioned build sends no build header", async () => {
