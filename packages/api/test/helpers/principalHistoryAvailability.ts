@@ -154,6 +154,11 @@ export async function assertPrincipalHistoryAvailability(
     onProgress(`mutation HTTP metrics ${JSON.stringify(server.metrics)}`);
   }
   expect(server.metrics.deadlineFailures).toBe(0);
+  expect(server.metrics.totalDatabaseStatements).toBeGreaterThan(0);
+  expect(server.metrics.maximumDatabaseStatementsPerRequest).toBeLessThan(
+    1_024,
+  );
+  expect(server.metrics.maximumResponseBytes).toBeLessThan(200_000);
   expect(requestBytes).toBeGreaterThan(0);
   expect(preparationResponses).toBeGreaterThan(0);
   expect(rotated.plaintextKek).not.toEqual(granted.root.plaintextKek);
@@ -238,4 +243,9 @@ export async function assertPrincipalHistoryAvailability(
     onProgress(`cold HTTP metrics ${JSON.stringify(coldServer.metrics)}`);
   }
   expect(coldServer.metrics.deadlineFailures).toBe(0);
+  expect(coldServer.metrics.totalDatabaseStatements).toBeGreaterThan(0);
+  expect(coldServer.metrics.maximumDatabaseStatementsPerRequest).toBeLessThan(
+    1_024,
+  );
+  expect(coldServer.metrics.maximumResponseBytes).toBeLessThan(400_000);
 }

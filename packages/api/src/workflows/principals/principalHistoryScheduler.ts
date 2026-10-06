@@ -1,3 +1,4 @@
+import { AsyncLocalStorage } from "node:async_hooks";
 import type { ApiDatabase } from "@tearleads/api-shared/postgres";
 import type { ReferencedPrincipalHead } from "@tearleads/crypto";
 import { PrincipalPolicyError } from "./shared";
@@ -51,13 +52,16 @@ export function createPrincipalHistoryScheduler(input: {
       tasks.length >= input.maximumQueuedPerPrincipal
     )
       return Promise.reject(unavailable());
+    // A worker may be released by a different request. Keep diagnostics and
+    // other async-local operation state attached to the request that queued it.
+    const runInScope = AsyncLocalStorage.snapshot();
     return new Promise<T>((resolve, reject) => {
       const task: ScheduledPreparation = {
         reject,
         timer: undefined,
         async run() {
           try {
-            resolve(await work());
+            resolve(await runInScope(work));
           } catch (error) {
             reject(error);
           }

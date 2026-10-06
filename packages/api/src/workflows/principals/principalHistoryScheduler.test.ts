@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+import { AsyncLocalStorage } from "node:async_hooks";
 import { createPrincipalHistoryScheduler } from "./principalHistoryScheduler";
 
 function scheduler(overrides = {}) {
@@ -109,4 +110,22 @@ test("a rejected page releases capacity and preserves its original error", async
   const next = schedule("b", async () => 42);
   await expect(failed).rejects.toBe(failure);
   expect(await next).toBe(42);
+});
+
+test("queued preparation keeps the requesting operation's async context", async () => {
+  const scope = new AsyncLocalStorage<string>();
+  const schedule = scheduler({ concurrency: 1 });
+  const gate = Promise.withResolvers<void>();
+  const held = scope.run("first request", () =>
+    schedule("a", async () => {
+      await gate.promise;
+      return scope.getStore();
+    }),
+  );
+  const next = scope.run("second request", () =>
+    schedule("b", async () => scope.getStore()),
+  );
+  gate.resolve();
+  expect(await held).toBe("first request");
+  expect(await next).toBe("second request");
 });
