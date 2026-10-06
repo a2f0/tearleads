@@ -61,6 +61,59 @@ test("scoped recovery ignores caller-supplied verification controls", async () =
   }
 });
 
+test("directory discovery cannot change the requested principal identity", async () => {
+  const fixture = await createAuthorityRecoveryFixture(history);
+  try {
+    const client = fixture.options.apiClient;
+    const recovered = await recoverScopedPrincipalPolicyHistory({
+      ...fixture.options,
+      reference: principalPolicyHead(history.directory),
+      apiClient: {
+        async *getPrincipalPolicyPages(...args) {
+          for await (const result of client.getPrincipalPolicyPages(...args)) {
+            if (result.ok && !args[2]?.stateHash) {
+              // Simulate a custom transport missing ApiClient's identity guard.
+              const data = structuredClone(result.data);
+              data.currentState.principalType = "group";
+              data.currentState.principalId =
+                history.group.currentState.principalId;
+              yield { ...result, data };
+            } else yield result;
+          }
+        },
+      },
+    });
+    expect(recovered.policy.stateHash).toBe(
+      history.directory.currentState.stateHash,
+    );
+    expect(
+      fixture.requests.every(
+        (request) => request.principalId === history.organizationId,
+      ),
+    ).toBe(true);
+  } finally {
+    fixture.close();
+  }
+});
+
+test("an organization reference outside the requested scope fails before discovery", async () => {
+  const fixture = await createAuthorityRecoveryFixture(history);
+  try {
+    await expect(
+      recoverScopedPrincipalPolicyHistory({
+        ...fixture.options,
+        reference: {
+          ...principalPolicyHead(history.directory),
+          principalId: crypto.randomUUID(),
+        },
+      }),
+    ).rejects.toMatchObject({ code: "object_mismatch" });
+    expect(fixture.requests).toEqual([]);
+  } finally {
+    fixture.close();
+  }
+});
+
 test("an organization citation beyond discovery gets one fresh directory read", async () => {
   const fixture = await createAuthorityRecoveryFixture(history);
   try {

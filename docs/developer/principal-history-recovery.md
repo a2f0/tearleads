@@ -65,11 +65,15 @@ Saved stages are separate for each exact head, local trust context, and retained
 reference selection. Operations for different heads or selections do not discard
 each other's checked prefixes.
 One completed prefix is shared across target heads and reference selections in a
-scope bound to organization, principal, key generation, and trust context. A new
-head extends an authenticated earlier prefix; a newer cached prefix is preserved
-when recovering an older target. Older completions cannot replace a newer prefix.
+scope bound to organization, principal, local protection key, and trust context.
+A new head extends an authenticated earlier prefix; a newer cached prefix is
+preserved when recovering an older target. Older completions cannot replace a
+newer prefix.
 A completed same-head prefix still needs a live pinned read and current-artifact
 verification. This cache never supplies an application trust pin.
+Interrupted stages intentionally remain separate by reference selection; a
+changed selection can reuse a completed prefix, but not another selection's
+unfinished stage.
 
 Reusable progress has no embedded checkpoint or reference selection. At finish,
 recovery obtains each requested entry and the latest local checkpoint through
@@ -79,6 +83,11 @@ belonging to an accepted root. Each lookup reads at most one node per tree level
 and one entry row. Missing or corrupt proof material, or a disconnected cached
 prefix, permits one fresh genesis replay per recovery call. Persistent damage
 fails after that replay; durable checkpoint conflicts still fail closed.
+Proof loss can trigger that single replay even when this call began at genesis,
+so persistent damage can require two full downloads before failure. Checkpoint
+conflicts are checked after the pinned history completes; rejected histories may
+already have written provisional pages, but cannot publish a prefix or advance
+an application checkpoint.
 
 Older progress with checkpoint/reference input bindings is disposable and may
 require replay. Stage/index storage reclamation and total byte/work scheduling
