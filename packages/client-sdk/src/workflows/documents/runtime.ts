@@ -3,6 +3,7 @@ import {
   type DocumentProjectorRegistryInput,
   resolveDocumentProjectorRegistry,
 } from "../../data/documents/documentKinds";
+import { inheritPrincipalHistoryProtection } from "../../data/principals/principalHistoryRuntime";
 import {
   requireTrustedUserIdentityResolver,
   type TrustedUserIdentityResolver,
@@ -70,7 +71,7 @@ export function createDocumentsWorkflowRuntime(
     documentProjectors,
   };
 
-  return {
+  return inheritPrincipalHistoryProtection(input, {
     apiClient: input.apiClient,
     auth: input.auth,
     crypto: input.crypto,
@@ -80,5 +81,5 @@ export function createDocumentsWorkflowRuntime(
     ),
     state: input.state,
     util: input.util,
-  };
+  });
 }
