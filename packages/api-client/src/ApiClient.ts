@@ -440,6 +440,10 @@ export class ApiClient {
     this.requestRuntime.setOnNetworkSuccess(handler);
   }
 
+  setOnApiVersion(handler: ((version: number) => void) | null): void {
+    this.requestRuntime.setOnApiVersion(handler);
+  }
+
   setOnSessionExpired(handler: ExpiredHandler | null): void {
     this.requestRuntime.setOnSessionExpired(handler);
   }
