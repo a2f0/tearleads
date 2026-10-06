@@ -1,19 +1,15 @@
-import { createHash } from "node:crypto";
 import type { DatabaseTransaction } from "@tearleads/api-shared/postgres";
 import { principalPolicyCommits } from "@tearleads/api-shared/schema";
-import {
-  computePrincipalStateHash,
-  serializeKeyingCanonicalJson,
-} from "@tearleads/crypto";
+import { computePrincipalStateHash } from "@tearleads/crypto";
 import type { CommitOrganizationGroupPolicyRequest } from "@tearleads/validators/request";
 import {
   type CommitOrganizationGroupPolicyResponse,
   isCommitOrganizationGroupPolicyResponse,
 } from "@tearleads/validators/response";
 import { and, eq } from "drizzle-orm";
-import { readKeyingCanonicalJson } from "../../utils/canonicalJson";
 import { requireDirectOrganizationAccess } from "../organizations/access";
 import { loadExactReplayMutationResponses } from "./principalPolicyMutationAcknowledgements";
+import { principalPolicyOutcomeHash } from "./principalPolicyOutcomeHash";
 import { PrincipalPolicyError } from "./shared";
 
 interface CommitOutcomeInput {
@@ -24,31 +20,13 @@ interface CommitOutcomeInput {
 }
 
 function commitRequestHash(input: CommitOutcomeInput): string {
-  try {
-    return createHash("sha256")
-      .update(
-        serializeKeyingCanonicalJson(
-          readKeyingCanonicalJson(
-            JSON.parse(
-              JSON.stringify([
-                "tearleads.principal-policy.commit.v1",
-                input.organizationId,
-                input.groupId,
-                input.requesterUserId,
-                input.request,
-              ]),
-            ),
-            "Principal policy commit request",
-          ),
-        ),
-      )
-      .digest("hex");
-  } catch {
-    throw new PrincipalPolicyError(
-      "Principal policy commit request is not canonical",
-      400,
-    );
-  }
+  return principalPolicyOutcomeHash([
+    "tearleads.principal-policy.commit.v1",
+    input.organizationId,
+    input.groupId,
+    input.requesterUserId,
+    input.request,
+  ]);
 }
 
 export async function principalPolicyCommitOutcome(
