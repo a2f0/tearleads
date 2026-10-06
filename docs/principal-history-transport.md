@@ -112,7 +112,9 @@ writer-projection GETs.
 This deliberately preserves those checks in the first compact-wire release.
 The app's single-file upload fixture grows from 10 to 28 requests (18 public
 history reads), personal-organization bootstrap from 30 to 64 (34 such reads),
-and additional-organization bootstrap from 9 to 12. Those are measured request
+and additional-organization bootstrap from 9 to 12. The Admins-group mutation
+fixture adds 78–84 public history reads, measuring 136–144 total requests against
+its prior 63-request allowance. Those are measured request
 counts, not latency benchmarks. Serial round trips can increase warm-operation
 latency, especially on mobile links; the change does not claim a warm-path
 performance improvement. In exchange, projection responses no longer embed

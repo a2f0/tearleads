@@ -26,6 +26,8 @@ export async function verifyRetainedAttachment(
     allowStaleContentKeyBundle: true,
     ...projectionVerificationOptions({
       execSql: input.execSql,
+      stillCurrent: input.stillCurrent,
+      warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
       resolveProjectionUserKey,
     }),
     onVerifiedAuthorization: (value) => {

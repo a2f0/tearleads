@@ -14,24 +14,30 @@ import {
   createContainerContentsStoreWorkflowRuntime,
 } from "../workflows/container-contents/runtime";
 import { createDocumentsWorkflowRuntime } from "../workflows/documents/runtime";
+import { createContainerContents } from "./containerContents";
 import { Tearleads } from "./Tearleads";
-import {
-  createRuntime,
-  type InternalWorkflowRuntimeInput,
-} from "./workflowRuntime";
+import { createRuntime, type InternalRuntime } from "./workflowRuntime";
 
-type Adapter = "direct" | "containers" | "documents" | "container-documents";
-function adaptedLease(input: InternalWorkflowRuntimeInput, adapter: Adapter) {
+type Adapter =
+  | "direct"
+  | "containers"
+  | "documents"
+  | "container-documents"
+  | "document-links";
+function adaptedLease(internalRuntime: InternalRuntime, adapter: Adapter) {
+  const input = internalRuntime.workflowInput();
   const containers = () =>
     createContainerContentsStoreWorkflowRuntime(input, () => false);
   const runtime =
-    adapter === "direct"
-      ? input
-      : adapter === "documents"
-        ? createDocumentsWorkflowRuntime(input)
-        : adapter === "containers"
-          ? containers()
-          : createContainerContentsDocumentsRuntime(containers(), null);
+    adapter === "document-links"
+      ? createContainerContents(internalRuntime).documentLinks()
+      : adapter === "direct"
+        ? input
+        : adapter === "documents"
+          ? createDocumentsWorkflowRuntime(input)
+          : adapter === "containers"
+            ? containers()
+            : createContainerContentsDocumentsRuntime(containers(), null);
   if (adapter !== "direct")
     expect(runtime).not.toHaveProperty("withPrincipalHistoryProtection");
   return readPrincipalHistoryProtection(runtime);
@@ -42,6 +48,7 @@ test.each([
   "containers",
   "documents",
   "container-documents",
+  "document-links",
 ] as const)(
   "%s token refresh expires recovery while retaining the headless key",
   async (adapter) => {
@@ -70,7 +77,7 @@ test.each([
         reportSecurityIncident: async () => {},
         session: sdk.session,
       });
-      const first = adaptedLease(runtime.workflowInput(), adapter);
+      const first = adaptedLease(runtime, adapter);
       if (!first) throw new Error("Missing initial lease");
       const key = await first(
         async ({ protection }) => new Uint8Array(protection.localKey),
@@ -80,7 +87,7 @@ test.each([
         (error: unknown) => error,
       );
       expect(isProjectionVerificationCancelledError(error)).toBe(true);
-      const second = adaptedLease(runtime.workflowInput(), adapter);
+      const second = adaptedLease(runtime, adapter);
       if (!second) throw new Error("Missing refreshed lease");
       expect(
         await second(

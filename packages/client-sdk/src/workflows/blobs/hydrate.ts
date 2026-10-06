@@ -9,7 +9,10 @@ import type { BlobBytes } from "../../data/blobContracts";
 import { attachmentContentSha256 } from "../../data/documents/attachmentContentIdentity";
 import type { DocumentAttachment } from "../../data/documents/documentContent";
 import { errorMessage } from "../../data/errorMessage";
-import type { ProjectionUserKeyResolver } from "../../data/keyingProjectionVerification";
+import type {
+  ProjectionUserKeyResolver,
+  ReferencedPrincipalPolicyWarmer,
+} from "../../data/keyingProjectionVerification";
 import type { SecurityIncidentReporter } from "../../data/securityIncidents";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import { createAttachmentDecryptor } from "./attachmentDecryptor";
@@ -63,6 +66,8 @@ interface DocumentAttachmentHydrationContext {
   resolveProjectionUserKey: ProjectionUserKeyResolver;
   reportSecurityIncident?: SecurityIncidentReporter | undefined;
   targetSecretKey: Uint8Array;
+  stillCurrent?: (() => boolean) | undefined;
+  warmReferencedPrincipalPolicies?: ReferencedPrincipalPolicyWarmer | undefined;
 }
 
 function servedBindingRejectionKey(
@@ -242,6 +247,8 @@ async function decryptLoadedDocumentAttachmentBlob(
     execSql: input.execSql,
     resolveProjectionUserKey: input.resolveProjectionUserKey,
     targetSecretKey: input.targetSecretKey,
+    stillCurrent: input.stillCurrent,
+    warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
     writerProjection: input.writerProjection,
   });
 

@@ -5,6 +5,7 @@ import {
   reclaimDocumentOrphanBlobs,
   resolveDocumentCreateAuthor,
 } from "../../../workflows/documents";
+import { createRuntimePrincipalPolicyWarmer } from "../../../workflows/principals/runtimePolicyWarmer";
 import { deleteLocalAttachmentRecord } from "./attachmentPersistence";
 import type {
   DocumentAttachmentBinding,
@@ -209,6 +210,10 @@ async function syncDetachedAttachmentBinding(input: {
     },
     resolveProjectionUserKey: generation.resolveProjectionUserKey,
     slotId: binding.slotId,
+    stillCurrent: contextIsCurrent,
+    warmReferencedPrincipalPolicies: createRuntimePrincipalPolicyWarmer(
+      state.runtime,
+    ),
   };
   let detached = await detachDocumentAttachment({
     ...baseDetachInput,

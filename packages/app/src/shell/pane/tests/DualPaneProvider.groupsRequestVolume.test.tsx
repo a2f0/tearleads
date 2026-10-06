@@ -62,10 +62,10 @@ const ADMIN_GROUP_OPEN_REQUEST_BUDGET: ProxiedApiRequestBudget = {
 // a separately committed repair would reintroduce the recovery gap this flow is
 // meant to close.
 const ADMIN_GROUP_MUTATION_REQUEST_BUDGET: ProxiedApiRequestBudget = {
-  // Two held descendants now re-cite the acknowledged root. The measured
-  // mutation has 63 requests, including four extra organization-policy reads
-  // that authenticate refreshed group heads before they enter the cache.
-  total: 63,
+  // Compact projections add 84 bounded public-history reads to the existing
+  // 63-request allowance; the observed mutation uses 136–144 total requests.
+  // Keep other route caps fixed. #2448 tracks batching these head reads.
+  total: 147,
   // Public parent keys measure 389.5 KB sent with one descendant recitation;
   // retain room for the second 60 KB recitation already allowed below.
   // Completing child hydration adds the peer's system-slot proofs and their
@@ -73,6 +73,7 @@ const ADMIN_GROUP_MUTATION_REQUEST_BUDGET: ProxiedApiRequestBudget = {
   // document carries one shared proof bundle for all of its authorizing paths.
   bodyBytes: { request: 450_000, response: 3_100_000 },
   byRequest: {
+    "GET /principals/history": 84,
     "GET /containers": 0,
     "POST /containers/parent-lanes/query": 8,
     "GET /principals/group/:groupId/policy": 9,

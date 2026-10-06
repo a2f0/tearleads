@@ -83,6 +83,8 @@ export async function prepareDocumentLinkBlobRewraps(
         "Attachment relink",
       ),
       targetSecretKey: input.targetSecretKey,
+      stillCurrent: input.stillCurrent,
+      warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
       writerProjection: input.writerProjection,
     };
     const needsKey = input.targets.some(

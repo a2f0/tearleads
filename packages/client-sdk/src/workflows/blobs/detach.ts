@@ -8,6 +8,7 @@ import type {
 import { authorizingContainerPathRefs } from "../../data/documents/shared/projection";
 import { readCanonicalRecord } from "../../data/keyingCanonicalJson";
 import { requireProjectionUserKeyResolver } from "../../data/keyingProjectionVerification";
+import { assertProjectionVerificationCurrent } from "../../data/keyingProjectionVerification/types";
 import { resolveBlobMutationWriterProjection } from "./writerProjection";
 
 export async function detachDocumentAttachment({
@@ -22,6 +23,8 @@ export async function detachDocumentAttachment({
   resolveProjectionUserKey,
   signedAt = new Date().toISOString(),
   slotId,
+  stillCurrent,
+  warmReferencedPrincipalPolicies,
   writerProjection,
 }: DetachDocumentAttachmentInput): Promise<DetachDocumentAttachmentResult | null> {
   const resolved = await resolveBlobMutationWriterProjection({
@@ -30,6 +33,8 @@ export async function detachDocumentAttachment({
     errorLabel: "Blob attachment detach",
     execSql,
     isRemoteSyncBlocked,
+    stillCurrent,
+    warmReferencedPrincipalPolicies,
     resolveProjectionUserKey: requireProjectionUserKeyResolver(
       resolveProjectionUserKey,
       "Document attachment detach",
@@ -59,6 +64,7 @@ export async function detachDocumentAttachment({
     body: readCanonicalRecord(body, "Blob attachment detach body"),
     authorizingContainerPathRefs: pathRefs,
   };
+  assertProjectionVerificationCurrent(stillCurrent);
   const response = await apiClient.detachBlobAttachment(
     blobId,
     bindingId,
@@ -70,6 +76,7 @@ export async function detachDocumentAttachment({
   if (!response) {
     return null;
   }
+  assertProjectionVerificationCurrent(stillCurrent);
 
   assertBlobAttachmentDetachResponse({
     bindingId,
