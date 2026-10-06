@@ -3,15 +3,23 @@ import type {
   PrincipalPolicyPageCurrent,
   RequestFailure,
 } from "@tearleads/api-client";
-import type {
-  PrincipalPolicyExternalAuthority,
-  PrincipalPolicyHistoryProgressOptions,
-  PrincipalPolicyStateChainEntry,
-  ReferencedPrincipalHead,
-  VerifiedPrincipalPolicyCurrent,
+import {
+  KeyingVerificationError,
+  type PrincipalPolicyExternalAuthority,
+  type PrincipalPolicyHistoryProgressOptions,
+  type PrincipalPolicyStateChainEntry,
+  type ReferencedPrincipalHead,
+  type VerifiedPrincipalPolicyCurrent,
 } from "@tearleads/crypto";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import type { TrustedUserIdentityResolver } from "../../data/trustedUserIdentity";
+
+/** A locally observed race, distinct from a rejected signed predecessor. */
+export class PrincipalHistoryRecoveryRaceError extends KeyingVerificationError {
+  constructor(message: string) {
+    super("stale_predecessor", message);
+  }
+}
 
 export interface RecoverPrincipalPolicyHistoryOptions {
   readonly apiClient: Pick<ApiClient, "getPrincipalPolicyPages">;

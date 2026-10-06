@@ -10,7 +10,10 @@ import type { PrincipalHistoryProtectionLease } from "../../data/principals/prin
 import type { SecurityIncidentReporter } from "../../data/securityIncidents";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import type { TrustedUserIdentityResolver } from "../../data/trustedUserIdentity";
-import { PrincipalPolicyHistoryReadError } from "./principalHistoryRecoveryTypes";
+import {
+  PrincipalHistoryRecoveryRaceError,
+  PrincipalPolicyHistoryReadError,
+} from "./principalHistoryRecoveryTypes";
 import { recoverWithPrincipalOutageFallback } from "./principalRecoveryOutage";
 import { queuePrincipalRecovery } from "./principalRecoveryQueue";
 import {
@@ -92,8 +95,8 @@ export function createRuntimePrincipalPolicyResolver(
               assertProjectionVerificationCurrent(stillCurrent);
               if (
                 error instanceof PrincipalPolicyHistoryReadError ||
-                (offline &&
-                  error instanceof KeyingVerificationError &&
+                error instanceof PrincipalHistoryRecoveryRaceError ||
+                (error instanceof KeyingVerificationError &&
                   error.code === "missing_dependency")
               )
                 throw new ProjectionDependencyUnavailableError(error.message);
