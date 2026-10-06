@@ -6,41 +6,21 @@ import {
 import { verifyPrincipalPolicyMemberEnvelopes } from "./principalPolicyMemberEnvelopes";
 import { verifyPrincipalPolicyPayload } from "./principalPolicyPayload";
 import { principalPolicyStateMatchesReference } from "./principalPolicyReference";
+import {
+  makeVerifiedPrincipalPolicyCurrent,
+  type PrincipalPolicyCurrent,
+  type VerifiedPrincipalPolicyCurrent,
+} from "./principalPolicyTypes";
 import { runVerifier, throwVerification } from "./shared";
 import type {
   KeyingVerificationResult,
-  PrincipalPolicyBundle,
   PrincipalPolicyStateChainEntry,
-  VerifiedPrincipalPolicy,
 } from "./types";
 
-/** Current artifacts whose authorization history is delivered separately. */
-export type PrincipalPolicyCurrent = Omit<
-  PrincipalPolicyBundle,
-  "previousStates"
->;
-
-const verifiedCurrentBrand: unique symbol = Symbol(
-  "verifiedPrincipalPolicyCurrent",
-);
-
-/** Verified current artifacts and selected history, never a full-chain policy. */
-export interface VerifiedPrincipalPolicyCurrent
-  extends Pick<
-    VerifiedPrincipalPolicy,
-    | "principalType"
-    | "principalId"
-    | "version"
-    | "keyEpoch"
-    | "stateHash"
-    | "state"
-    | "projection"
-    | "grants"
-    | "checkpoint"
-  > {
-  readonly [verifiedCurrentBrand]: true;
-  readonly retainedHistory: NonNullable<VerifiedPrincipalPolicy["history"]>;
-}
+export type {
+  PrincipalPolicyCurrent,
+  VerifiedPrincipalPolicyCurrent,
+} from "./principalPolicyTypes";
 
 // Adapt owned readonly evidence to the mutable arrays in policy result types.
 function mutableEntry(entry: PrincipalPolicyStateChainEntry) {
@@ -81,8 +61,7 @@ export function verifyPrincipalPolicyCurrent(input: {
       );
     await verifyPrincipalPolicyPayload({ bundle: current });
     await verifyPrincipalPolicyMemberEnvelopes({ bundle: current });
-    return {
-      [verifiedCurrentBrand]: true,
+    return makeVerifiedPrincipalPolicyCurrent({
       principalType: entry.state.principalType,
       principalId: entry.state.principalId,
       version: entry.state.version,
@@ -98,6 +77,6 @@ export function verifyPrincipalPolicyCurrent(input: {
         version: entry.state.version,
         stateHash: entry.state.stateHash,
       },
-    };
+    });
   });
 }

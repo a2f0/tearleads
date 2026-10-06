@@ -12,6 +12,7 @@ import {
   getCurrentOrganizationAdminAuthority,
 } from "../../../test/helpers/organizationAdmin";
 import { createGroupRequest } from "../../../test/helpers/organizationGroup";
+import { requestPreparedPrincipalPolicy } from "../../../test/helpers/principalHistoryRequest";
 import {
   createSignedPrincipalState,
   getDefaultOrganizationId,
@@ -51,7 +52,7 @@ test("an honest group history remains readable across an intervening Admins adva
   expect(created.status).toBe(200);
 
   async function fetchPolicy(principalId: string) {
-    const response = await routeApp.request(
+    const response = await requestPreparedPrincipalPolicy(
       `/principals/group/${principalId}/policy`,
       { headers: { Authorization: `Bearer ${actor.token}` } },
     );

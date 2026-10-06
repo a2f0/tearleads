@@ -1,5 +1,6 @@
 import { afterEach, expect, test } from "bun:test";
 import type { ContainerContentsStore } from "@tearleads/client-sdk";
+import { isDocumentSyncStateStaleErrorResponse } from "@tearleads/validators/response";
 import { act, cleanup } from "@testing-library/react";
 import { waitForAppTestRuntimeToSettle } from "../../../../test/helpers/appRuntimeIdle";
 import { ContainerTreeProbe } from "../../../../test/helpers/dual-pane/ContainerTreeProbe";
@@ -230,11 +231,18 @@ test(
       navigationRequests,
       ADMIN_GROUP_OPEN_REQUEST_BUDGET,
     );
-    expectProxiedApiRequestBudget(
-      "admin-group mutation",
-      mutationRequests,
-      ADMIN_GROUP_MUTATION_REQUEST_BUDGET,
-    );
+    expectProxiedApiRequestBudget("admin-group mutation", mutationRequests, {
+      ...ADMIN_GROUP_MUTATION_REQUEST_BUDGET,
+      byRequest: {
+        ...ADMIN_GROUP_MUTATION_REQUEST_BUDGET.byRequest,
+        // Either membership commit can advance root key targets while a
+        // peer's read-only sync is in flight. A real stale-target response
+        // requires one fresh projection; do not grant that allowance when
+        // no conflict occurred, or relax the total/byte budgets.
+        "GET /documents/:documentId/writer-projection":
+          9 + staleTargetRefreshCount(mutationRequests),
+      },
+    });
     // The extra settle rounds are read-only; a membership add still writes
     // nothing through the document sync lane, however many mutations it takes.
     expect(syncIntents.writeBearing).toBe(0);
@@ -242,3 +250,18 @@ test(
   },
   DUAL_PANE_ATTACHMENT_TEST_TIMEOUT_MS,
 );
+
+function staleTargetRefreshCount(
+  requests: ReturnType<typeof listProxiedApiRequests>,
+): number {
+  const stale = requests.filter(
+    (request) =>
+      request.method === "POST" &&
+      new URL(request.url).pathname.startsWith("/documents/") &&
+      new URL(request.url).pathname.endsWith("/sync") &&
+      request.status === 409 &&
+      isDocumentSyncStateStaleErrorResponse(JSON.parse(request.responseBody)),
+  ).length;
+  expect(stale).toBeLessThanOrEqual(1);
+  return stale;
+}

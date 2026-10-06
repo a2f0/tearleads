@@ -1,9 +1,9 @@
 import type { DatabaseTransaction } from "@tearleads/api-shared/postgres";
 import type {
+  PrincipalPolicyAuthorization,
   VerifiedAccessEvent,
   VerifiedContainerAccessManifest,
   VerifiedDocumentLinkSetManifest,
-  VerifiedPrincipalPolicy,
 } from "@tearleads/crypto";
 import { verifyDocumentPurgeEvent } from "@tearleads/crypto";
 import type { DocumentPurgeRequest } from "@tearleads/validators/request";
@@ -25,7 +25,7 @@ export async function verifyDocumentPurgeRequest(input: {
   readonly authorizingContainerPath: readonly VerifiedContainerAccessManifest[];
   readonly documentManifest: VerifiedDocumentLinkSetManifest;
   readonly event: VerifiedAccessEvent;
-  readonly principalPolicies: readonly VerifiedPrincipalPolicy[];
+  readonly principalPolicies: readonly PrincipalPolicyAuthorization[];
 }> {
   const event = await verifyDocumentEvent({
     body: input.request.body,

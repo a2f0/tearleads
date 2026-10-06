@@ -1,3 +1,4 @@
+import type { RequestFailureKind } from "@tearleads/api-client";
 import type {
   PrincipalPolicyCheckpoint,
   PrincipalPolicyExternalAuthority,
@@ -33,8 +34,8 @@ import { assertGroupMetadataBinding } from "./groupMetadataBinding";
 import { requireSignerCanManageGroup } from "./groupMutationAuthorization";
 import {
   acknowledgeGroupPolicyState,
-  assertGroupPolicyBundleMatchesAcknowledgement,
   assertGroupPolicyEnvelopesMatchAcknowledgement,
+  buildAcknowledgedGroupPolicyBundle,
 } from "./groupPolicyMutationAcknowledgement";
 import {
   assertPrincipalPolicyCurrentStateMatchesHead,
@@ -77,6 +78,8 @@ export interface PrincipalPolicyReadWriteApi extends PrincipalPolicyReadApi {
       }
     | {
         readonly ok: false;
+        readonly kind?: RequestFailureKind | undefined;
+        readonly message?: string | undefined;
         readonly code?: string | undefined;
         readonly report?: (() => void) | undefined;
         readonly requiredContainerIds?: readonly string[] | undefined;
@@ -294,7 +297,7 @@ async function submitGroupPolicyCommit(input: {
     organizationPolicy: input.organizationRequest,
   });
   const { commitOrganizationGroupPolicyResult } = input.apiClient;
-  if (!commitOrganizationGroupPolicyResult || !input.carryDescendantRekeys) {
+  if (!commitOrganizationGroupPolicyResult) {
     return input.apiClient.commitOrganizationGroupPolicy(
       input.organizationId,
       input.groupId,
@@ -309,7 +312,14 @@ async function submitGroupPolicyCommit(input: {
     { reportErrors: false },
   );
   if (first.ok) return first.data;
+  if (first.kind === "cancelled") return null;
+  if (first.kind === "outcome-unknown")
+    throw new Error(
+      first.message ??
+        "Policy request may have committed; refresh before retrying",
+    );
   if (
+    !input.carryDescendantRekeys ||
     first.code !== CONTAINER_MUTATION_ERROR_CODES.descendantRekeysRequired ||
     !first.requiredContainerIds?.length
   ) {
@@ -341,6 +351,12 @@ async function submitGroupPolicyCommit(input: {
     { reportErrors: false },
   );
   if (!second.ok) {
+    if (second.kind === "cancelled") return null;
+    if (second.kind === "outcome-unknown")
+      throw new Error(
+        second.message ??
+          "Policy request may have committed; refresh before retrying",
+      );
     second.report?.();
     return null;
   }
@@ -368,7 +384,7 @@ export async function commitGroupPolicyMutation(input: {
     | undefined;
   readonly request: PutPrincipalPolicyRequest;
   readonly stillCurrent?: (() => boolean) | undefined;
-}): Promise<PrincipalPolicyMutationResponse> {
+}): Promise<PrincipalPolicyBundleResponse & PrincipalPolicyMutationResponse> {
   const stored = await submitGroupPolicyCommit(input);
   if (!stored) {
     throw new Error("Group policy update failed");
@@ -380,7 +396,7 @@ export async function commitGroupPolicyMutation(input: {
     request: input.request,
     response: storedPolicy.currentState,
   });
-  assertGroupPolicyBundleMatchesAcknowledgement({
+  const groupBundle = buildAcknowledgedGroupPolicyBundle({
     currentPolicy: input.currentPolicy,
     expectedHead: input.expectedHead,
     request: input.request,
@@ -395,7 +411,7 @@ export async function commitGroupPolicyMutation(input: {
     request: input.organizationRequest,
     response: stored.organizationPolicy.currentState,
   });
-  assertGroupPolicyBundleMatchesAcknowledgement({
+  const organizationBundle = buildAcknowledgedGroupPolicyBundle({
     currentPolicy: input.organizationPolicy,
     expectedHead: organizationHead,
     request: input.organizationRequest,
@@ -408,9 +424,9 @@ export async function commitGroupPolicyMutation(input: {
       policy: acknowledgedPolicy,
     },
     entries: [
-      { bundle: storedPolicy, policy: acknowledgedPolicy },
+      { bundle: groupBundle, policy: acknowledgedPolicy },
       {
-        bundle: stored.organizationPolicy,
+        bundle: organizationBundle,
         policy: acknowledgedOrganization,
       },
     ],
@@ -419,5 +435,5 @@ export async function commitGroupPolicyMutation(input: {
     stillCurrent: input.stillCurrent,
     updatedAt: new Date().toISOString(),
   });
-  return storedPolicy;
+  return groupBundle;
 }

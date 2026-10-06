@@ -140,11 +140,11 @@ test("saved progress rejects ciphertext changes and malformed framing", async ()
   expect(changed.ok).toBe(false);
   if (!changed.ok) expect(changed.error.code).toBe("hash_mismatch");
   for (const damaged of [
-    saved.replace(/^v2\./, "v1."),
+    saved.replace(/^v3\./, "v1."),
     `${saved}.extra`,
-    "v2.invalid.invalid",
-    `v2.${bytesToBase64(new Uint8Array(11))}.${ciphertext}`,
-    `v2.${iv}.${bytesToBase64(new Uint8Array(15))}`,
+    "v3.invalid.invalid",
+    `v3.${bytesToBase64(new Uint8Array(11))}.${ciphertext}`,
+    `v3.${iv}.${bytesToBase64(new Uint8Array(15))}`,
     JSON.stringify(fixture.first),
   ]) {
     const result = await restorePrincipalPolicyHistoryVerifier(

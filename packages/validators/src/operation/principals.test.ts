@@ -8,8 +8,9 @@ import {
   CommitOrganizationGroupPolicyResponseSchema,
   ErrorResponseSchema,
   PaymentRequiredErrorResponseSchema,
-  PrincipalPolicyBundleResponseSchema,
   PrincipalPolicyErrorResponseSchema,
+  PrincipalPolicyMutationResponseSchema,
+  PrincipalPolicyPageResponseSchema,
   SessionFailureResponseSchema,
 } from "../response";
 import { operationRequestPath, operationRoutePath } from "./definition";
@@ -25,17 +26,18 @@ const principalId = "11111111-1111-4111-8111-111111111111";
 test("principal policy operations own their HTTP contracts", () => {
   expect(getPrincipalPolicyOperation).toMatchObject({
     auth: "session",
-    failureStatuses: [400, 401, 403, 500, 503],
+    failureStatuses: [400, 401, 403, 409, 500, 503],
     id: "principals.policy.get",
     method: "GET",
     params: PrincipalPolicyPathParamsSchema,
     path: "/principals/{principalType}/{principalId}/policy",
-    responses: { 200: PrincipalPolicyBundleResponseSchema },
+    responses: { 200: PrincipalPolicyPageResponseSchema },
   });
   expect(getPrincipalPolicyOperation.failureResponses).toEqual({
     400: ErrorResponseSchema,
     401: SessionFailureResponseSchema,
     403: ErrorResponseSchema,
+    409: ErrorResponseSchema,
     500: ErrorResponseSchema,
     503: ErrorResponseSchema,
   });
@@ -47,7 +49,7 @@ test("principal policy operations own their HTTP contracts", () => {
     method: "PUT",
     params: PrincipalPolicyPathParamsSchema,
     path: "/principals/{principalType}/{principalId}/policy",
-    responses: { 200: PrincipalPolicyBundleResponseSchema },
+    responses: { 200: PrincipalPolicyMutationResponseSchema },
   });
   expect(putPrincipalPolicyOperation.failureResponses).toEqual({
     400: PrincipalPolicyErrorResponseSchema,

@@ -1,20 +1,18 @@
 import type { DatabaseSession } from "@tearleads/api-shared/postgres";
 import { gatherWithExecutor } from "@tearleads/api-shared/postgres";
 import type {
-  AnyVerifiedPrincipalPolicy,
+  PrincipalPolicyAuthorization,
   ReferencedPrincipalHead,
   VerifiedContainerAccessManifest,
-  VerifiedPrincipalPolicy,
 } from "@tearleads/crypto";
 import { principalPolicyMatchesReference } from "@tearleads/crypto";
 import {
   getCurrentPrincipalStates,
-  type PrincipalStateReference,
   principalStateReferenceKey,
 } from "../../access/read/principalStateStore";
-import { getVerifiedPrincipalPolicyForStateWithExecutor } from "./getCurrentPrincipalPolicy";
-import { loadVerifiedPrincipalPolicySnapshotsForReferences } from "./principalPolicySnapshots";
-import { PrincipalPolicyError } from "./shared";
+import { loadPrincipalPolicyReferenceBatches } from "./principalPolicyReferenceBatches";
+import { loadPrincipalPolicySelections } from "./principalPolicySelections";
+import { PrincipalPolicyError, PrincipalPolicyReferenceError } from "./shared";
 
 export class PrincipalPolicyProjectionError extends Error {
   readonly status = 409;
@@ -70,35 +68,28 @@ function dedupeReferencedPrincipalHeads(
   );
 }
 
-function principalStateMatchesReference(
-  reference: PrincipalStateReference,
-  state: VerifiedPrincipalPolicy["state"],
-): boolean {
-  return (
-    state.principalType === reference.principalType &&
-    state.principalId === reference.principalId &&
-    state.version === reference.version &&
-    state.keyEpoch === reference.keyEpoch &&
-    state.stateHash === reference.stateHash &&
-    state.keyFingerprint === reference.keyFingerprint
-  );
-}
-
 export async function loadPrincipalPoliciesForContainerPaths(
   executor: DatabaseSession,
   paths: readonly (readonly VerifiedContainerAccessManifest[])[],
-): Promise<VerifiedPrincipalPolicy[]> {
-  return loadPrincipalPoliciesForReferences(
-    executor,
-    collectReferencedPrincipalHeads(paths),
+  evidence: readonly PrincipalPolicyAuthorization[] = [],
+): Promise<PrincipalPolicyAuthorization[]> {
+  const missing = collectReferencedPrincipalHeads(paths).filter(
+    (reference) =>
+      !evidence.some((policy) =>
+        principalPolicyMatchesReference({ policy, reference }),
+      ),
   );
+  return [
+    ...evidence,
+    ...(await loadPrincipalPoliciesForReferences(executor, missing)),
+  ];
 }
 
 export async function loadPrincipalAuthorizationPoliciesForReferences(
   executor: DatabaseSession,
   references: readonly ReferencedPrincipalHead[],
-  evidence: readonly AnyVerifiedPrincipalPolicy[],
-): Promise<AnyVerifiedPrincipalPolicy[]> {
+  evidence: readonly PrincipalPolicyAuthorization[],
+): Promise<PrincipalPolicyAuthorization[]> {
   const missing = references.filter(
     (reference) =>
       !evidence.some((policy) =>
@@ -107,11 +98,7 @@ export async function loadPrincipalAuthorizationPoliciesForReferences(
   );
   if (missing.length === 0) return [...evidence];
   try {
-    const { policies } =
-      await loadVerifiedPrincipalPolicySnapshotsForReferences(
-        executor,
-        missing,
-      );
+    const policies = await loadPrincipalPolicySelections(executor, missing);
     return [...evidence, ...policies];
   } catch (error) {
     if (error instanceof PrincipalPolicyError) {
@@ -126,8 +113,8 @@ export async function loadPrincipalAuthorizationPoliciesForReferences(
 export async function loadPrincipalAuthorizationPoliciesForContainerPaths(
   executor: DatabaseSession,
   paths: readonly (readonly VerifiedContainerAccessManifest[])[],
-  evidence: readonly AnyVerifiedPrincipalPolicy[],
-): Promise<AnyVerifiedPrincipalPolicy[]> {
+  evidence: readonly PrincipalPolicyAuthorization[],
+): Promise<PrincipalPolicyAuthorization[]> {
   return loadPrincipalAuthorizationPoliciesForReferences(
     executor,
     collectReferencedPrincipalHeads(paths),
@@ -138,14 +125,14 @@ export async function loadPrincipalAuthorizationPoliciesForContainerPaths(
 async function loadPrincipalPoliciesForReferences(
   executor: DatabaseSession,
   references: readonly ReferencedPrincipalHead[],
-): Promise<VerifiedPrincipalPolicy[]> {
+): Promise<PrincipalPolicyAuthorization[]> {
   const referencedPrincipalHeads = dedupeReferencedPrincipalHeads(references);
 
   if (referencedPrincipalHeads.length === 0) {
     return [];
   }
 
-  const policies: VerifiedPrincipalPolicy[] = [];
+  const policies: PrincipalPolicyAuthorization[] = [];
 
   for (const principalType of [
     ...new Set(
@@ -173,13 +160,21 @@ async function loadPrincipalPoliciesForReferences(
       executor,
       Array.from(currentStates.values()),
       async (currentState) => {
-        let policy: VerifiedPrincipalPolicy;
+        const referencesForPrincipal = referencesForType.filter(
+          (reference) =>
+            principalIdentityKey(reference) ===
+            principalIdentityKey(currentState),
+        );
         try {
-          ({ policy } = await getVerifiedPrincipalPolicyForStateWithExecutor(
+          const batches = await loadPrincipalPolicyReferenceBatches(
             executor,
             currentState,
-          ));
+            referencesForPrincipal,
+          );
+          return batches.map(({ policy }) => policy);
         } catch (error) {
+          if (error instanceof PrincipalPolicyReferenceError)
+            throw new PrincipalPolicyProjectionError(error.message);
           if (error instanceof PrincipalPolicyError) {
             throw new PrincipalPolicyProjectionError(
               `Principal policy failed integrity verification: ${error.message}`,
@@ -187,36 +182,10 @@ async function loadPrincipalPoliciesForReferences(
           }
           throw error;
         }
-        const history = policy.history ?? [
-          {
-            state: policy.state,
-            projection: policy.projection,
-            grants: policy.grants,
-          },
-        ];
-        const referencesForPrincipal = referencesForType.filter(
-          (reference) =>
-            principalIdentityKey(reference) ===
-            principalIdentityKey(currentState),
-        );
-
-        for (const reference of referencesForPrincipal) {
-          if (
-            !history.some((entry) =>
-              principalStateMatchesReference(reference, entry.state),
-            )
-          ) {
-            throw new PrincipalPolicyProjectionError(
-              "Principal policy state is stale",
-            );
-          }
-        }
-
-        return policy;
       },
     );
 
-    policies.push(...resolvedPolicies);
+    policies.push(...resolvedPolicies.flat());
   }
 
   return policies.sort((left, right) =>

@@ -8,6 +8,7 @@ import {
   normalizePrincipalHistoryInput,
   verifyPrincipalHistoryCheckpoint,
 } from "./principalPolicyHistoryChecks";
+import { appendPrincipalHistoryIndex } from "./principalPolicyHistoryIndex";
 import { verifyPrincipalHistoryPage } from "./principalPolicyHistoryPage";
 import {
   normalizeAuthenticatedPrincipalHistoryProgress,
@@ -45,6 +46,8 @@ class PrincipalPolicyHistoryVerifierImpl
   #previous: NormalizedPrincipalPolicyStateChainEntry | undefined;
   #latestAuthority: PrincipalStateExternalAuthority | null = null;
   #checkpointHash: string | undefined;
+  #indexFrontier: readonly (string | null)[] = [];
+  #indexRootHash: string | null = null;
   readonly #retained = new Map<
     number,
     NormalizedPrincipalPolicyStateChainEntry
@@ -60,6 +63,8 @@ class PrincipalPolicyHistoryVerifierImpl
       this.#previous = progress.previous ?? undefined;
       this.#latestAuthority = progress.latestAuthority;
       this.#checkpointHash = progress.checkpointHash ?? undefined;
+      this.#indexFrontier = progress.indexFrontier;
+      this.#indexRootHash = progress.indexRootHash;
       for (const entry of progress.retained)
         this.#retained.set(entry.state.version, entry);
     }
@@ -79,6 +84,10 @@ class PrincipalPolicyHistoryVerifierImpl
           references: this.#input.references,
           checkpoint: this.#input.checkpoint,
         });
+        const index = await appendPrincipalHistoryIndex(
+          this.#indexFrontier,
+          verified.entries.map((entry) => entry.state),
+        );
         // Publish only after every check, including the final signature, passes.
         for (const entry of verified.entries) {
           if (entry.state.version === this.#input.checkpoint?.version)
@@ -92,7 +101,12 @@ class PrincipalPolicyHistoryVerifierImpl
         }
         this.#previous = verified.last;
         this.#latestAuthority = verified.latestAuthority;
-        return { throughVersion: verified.last.state.version };
+        this.#indexFrontier = index.frontier;
+        this.#indexRootHash = index.rootHash;
+        return {
+          throughVersion: verified.last.state.version,
+          indexNodes: index.nodes,
+        };
       } finally {
         this.#appending = false;
       }
@@ -122,6 +136,7 @@ class PrincipalPolicyHistoryVerifierImpl
               ? capturePrincipalHistoryAuthority(this.#latestAuthority)
               : null,
             checkpointHash: this.#checkpointHash ?? null,
+            indexFrontier: this.#indexFrontier,
             retained: [...this.#retained.values()].map(
               capturePrincipalHistoryProgressEntry,
             ),
@@ -145,6 +160,7 @@ class PrincipalPolicyHistoryVerifierImpl
       const previous = this.#previous;
       if (
         !previous ||
+        !this.#indexRootHash ||
         !principalPolicyStateMatchesReference(previous.state, reference)
       )
         throwVerification(
@@ -161,6 +177,7 @@ class PrincipalPolicyHistoryVerifierImpl
       const { state, projection, grants } = previous;
       const { principalId, principalType } = this.#input;
       const owned = structuredClone({
+        indexRootHash: this.#indexRootHash,
         currentEntry: { state, projection, grants },
         retainedEntries: [...history.values()].sort(
           (left, right) => left.state.version - right.state.version,

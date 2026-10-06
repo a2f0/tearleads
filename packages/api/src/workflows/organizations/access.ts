@@ -1,6 +1,6 @@
 import type { DatabaseSession } from "@tearleads/api-shared/postgres";
 import { organizations } from "@tearleads/api-shared/schema";
-import type { VerifiedPrincipalPolicy } from "@tearleads/crypto";
+import type { PrincipalPolicyAuthorization } from "@tearleads/crypto";
 import { eq } from "drizzle-orm";
 import { getCurrentPrincipalState } from "../../access/read/principalStateStore";
 import { getVerifiedPrincipalPolicyForStateWithExecutor } from "../principals/getCurrentPrincipalPolicy";
@@ -56,8 +56,8 @@ async function loadVerifiedOrganizationAccessPolicies(input: {
   readonly memberGroupId: string;
   readonly organizationId: string;
 }): Promise<{
-  readonly adminPolicy: VerifiedPrincipalPolicy;
-  readonly memberPolicy: VerifiedPrincipalPolicy;
+  readonly adminPolicy: PrincipalPolicyAuthorization;
+  readonly memberPolicy: PrincipalPolicyAuthorization;
 }> {
   const adminState = await getCurrentPrincipalState(
     "group",

@@ -16,6 +16,7 @@ import {
   organizationPolicyBundleFromInitialRequest,
   policyBundleAfterMutation,
   policyBundleFromInitialRequest,
+  policyReceiptFromBundle,
   principalPolicyHead,
 } from "../../../test/helpers/principalPolicyFixtures";
 import { createTestTrustedUserIdentity } from "../../../test/helpers/trustedUserIdentity";
@@ -188,11 +189,14 @@ test("remove group user bridges committed policy writes before caching the rotat
         previous: organizationPolicy,
       });
       return {
-        groupPolicy: { ...currentPolicy, containerMutations: [] },
-        organizationPolicy: {
+        groupPolicy: policyReceiptFromBundle({
+          ...currentPolicy,
+          containerMutations: [],
+        }),
+        organizationPolicy: policyReceiptFromBundle({
           ...organizationPolicy,
           containerMutations: [],
-        },
+        }),
       };
     },
   };
@@ -256,6 +260,12 @@ test("remove group user bridges committed policy writes before caching the rotat
             currentPolicy.currentState.stateHash,
           ]),
         );
+        const retained = (await loadAllPrincipalPolicyBundles(execSql)).find(
+          (bundle) =>
+            bundle.currentState.stateHash ===
+            currentPolicy.currentState.stateHash,
+        );
+        expect(retained?.previousStates).toEqual(currentPolicy.previousStates);
       },
       apiClient,
       beforePolicyCommit: (head) => {

@@ -3,10 +3,10 @@ import type {
   DatabaseTransaction,
 } from "@tearleads/api-shared/postgres";
 import type {
+  PrincipalPolicyAuthorization,
   VerifiedAccessEvent,
   VerifiedContainerAccessManifest,
   VerifiedDocumentLinkSetManifest,
-  VerifiedPrincipalPolicy,
 } from "@tearleads/crypto";
 import {
   computeAccessManifestHash,
@@ -198,7 +198,7 @@ export async function verifyDocumentManifestFromRequest(input: {
 interface VerifiedDocumentLinkSetMutationAuthorization {
   readonly authorizingContainerPaths: readonly (readonly VerifiedContainerAccessManifest[])[];
   readonly manifest: VerifiedDocumentLinkSetManifest;
-  readonly principalPolicies: readonly VerifiedPrincipalPolicy[];
+  readonly principalPolicies: readonly PrincipalPolicyAuthorization[];
 }
 
 export async function verifyDocumentLinkSetMutationAuthorizationFromRequest(input: {

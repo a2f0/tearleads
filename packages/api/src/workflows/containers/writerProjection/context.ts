@@ -1,11 +1,11 @@
 import type { DatabaseSession } from "@tearleads/api-shared/postgres";
-import type { AnyVerifiedPrincipalPolicy } from "@tearleads/crypto";
+import type { PrincipalPolicyAuthorization } from "@tearleads/crypto";
 import type { ContainerWriterProjectionContext } from "./types";
 import { databaseVerificationMarkerStore } from "./verificationMarkers";
 
 export function createContainerWriterProjectionContext(
   executor: DatabaseSession,
-  principalPolicyAuthorizationEvidence: readonly AnyVerifiedPrincipalPolicy[] = [],
+  principalPolicyAuthorizationEvidence: readonly PrincipalPolicyAuthorization[] = [],
 ): ContainerWriterProjectionContext {
   return {
     containerKekStateByCacheKey: new Map(),

@@ -1,10 +1,10 @@
 import type { DatabaseTransaction } from "@tearleads/api-shared/postgres";
 import { gatherWithExecutor } from "@tearleads/api-shared/postgres";
 import type {
+  PrincipalPolicyAuthorization,
   PrincipalPolicySignedState,
   PrincipalProjectionMember,
   ReferencedPrincipalHead,
-  VerifiedPrincipalPolicy,
 } from "@tearleads/crypto";
 import {
   normalizePrincipalContainerGrants,
@@ -17,11 +17,9 @@ import {
   type StoredPrincipalState,
 } from "../../../../access/read/principalStateStore";
 import { canonicalJsonEquals } from "../../../../utils/canonicalJson";
-import {
-  getPrincipalPolicyForStateWithExecutor,
-  getVerifiedPrincipalPolicyForStateWithExecutor,
-} from "../../../principals/getCurrentPrincipalPolicy";
+import { getPrincipalPolicyForStateWithExecutor } from "../../../principals/getCurrentPrincipalPolicy";
 import { assertPrincipalPolicyReadable } from "../../../principals/principalPolicyReadAuthorization";
+import { loadPrincipalPolicyReferenceBatches } from "../../../principals/principalPolicyReferenceBatches";
 import { PrincipalPolicyError } from "../../../principals/shared";
 import { createContainerWriterProjectionContext } from "../../writerProjection";
 import { ContainerMutationError, mutationStateStale } from "../errors";
@@ -129,32 +127,6 @@ async function loadPrincipalPolicyArtifacts(
   return { currentStateByPolicyKey, projectionByPolicyKey };
 }
 
-function principalPolicyMatchesReference(
-  policy: PrincipalPolicyRequestArtifact,
-  reference: ReferencedPrincipalHead,
-): boolean {
-  return (
-    policy.principalType === reference.principalType &&
-    policy.principalId === reference.principalId &&
-    policy.version === reference.version &&
-    policy.keyEpoch === reference.keyEpoch &&
-    policy.stateHash === reference.stateHash &&
-    policy.state.keyFingerprint === reference.keyFingerprint
-  );
-}
-
-function principalPolicyNeedsStoredHistory(
-  policy: PrincipalPolicyRequestArtifact,
-  referencedPrincipalHeads: readonly ReferencedPrincipalHead[],
-): boolean {
-  return referencedPrincipalHeads.some(
-    (reference) =>
-      policy.principalType === reference.principalType &&
-      policy.principalId === reference.principalId &&
-      !principalPolicyMatchesReference(policy, reference),
-  );
-}
-
 function isPrincipalPolicyStateCurrent(
   policy: PrincipalPolicyRequestArtifact,
   currentState: StoredPrincipalState | undefined,
@@ -259,7 +231,7 @@ export async function assertPrincipalPoliciesCurrent(
     readonly referencedPrincipalHeads?: readonly ReferencedPrincipalHead[];
     readonly requesterUserId: string;
   },
-): Promise<VerifiedPrincipalPolicy[]> {
+): Promise<PrincipalPolicyAuthorization[]> {
   const artifacts = await loadPrincipalPolicyArtifacts(
     executor,
     principalPolicies,
@@ -297,40 +269,43 @@ export async function assertPrincipalPoliciesCurrent(
   }
 
   const referencedPrincipalHeads = options.referencedPrincipalHeads ?? [];
-  return gatherWithExecutor(executor, principalPolicies, async (policy) => {
-    const currentState = artifacts.currentStateByPolicyKey.get(
-      principalPolicyKey(policy),
-    );
-    if (!currentState) {
-      throw mutationStateStale("Principal policy is stale");
-    }
+  const batches = await gatherWithExecutor(
+    executor,
+    principalPolicies,
+    async (policy) => {
+      const currentState = artifacts.currentStateByPolicyKey.get(
+        principalPolicyKey(policy),
+      );
+      if (!currentState) {
+        throw mutationStateStale("Principal policy is stale");
+      }
 
-    const stored = await getVerifiedPrincipalPolicyForStateWithExecutor(
-      executor,
-      currentState,
-    );
-    const { createdAt: _createdAt, ...storedSignedState } =
-      stored.bundle.currentState;
-    if (
-      !canonicalJsonEquals(
-        principalPolicyArtifactRecord(policy),
-        principalPolicyArtifactRecord(stored.policy, storedSignedState),
-      )
-    ) {
-      throw new ContainerMutationError(
-        "Principal policy artifact does not match verified stored policy",
-        409,
+      const storedBatches = await loadPrincipalPolicyReferenceBatches(
+        executor,
+        currentState,
+        referencedPrincipalHeads.filter(
+          (reference) =>
+            reference.principalType === policy.principalType &&
+            reference.principalId === policy.principalId,
+        ),
       );
-    }
-    if (
-      principalPolicyNeedsStoredHistory(policy, referencedPrincipalHeads) &&
-      !stored.policy.history
-    ) {
-      throw new ContainerMutationError(
-        "Stored principal policy history is missing",
-        409,
-      );
-    }
-    return stored.policy;
-  });
+      for (const stored of storedBatches) {
+        const { createdAt: _createdAt, ...storedSignedState } =
+          stored.bundle.currentState;
+        if (
+          !canonicalJsonEquals(
+            principalPolicyArtifactRecord(policy),
+            principalPolicyArtifactRecord(stored.policy, storedSignedState),
+          )
+        ) {
+          throw new ContainerMutationError(
+            "Principal policy artifact does not match verified stored policy",
+            409,
+          );
+        }
+      }
+      return storedBatches.map(({ policy }) => policy);
+    },
+  );
+  return batches.flat();
 }

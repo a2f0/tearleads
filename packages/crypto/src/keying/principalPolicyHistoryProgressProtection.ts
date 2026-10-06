@@ -17,7 +17,7 @@ import type { PrincipalPolicyHistoryProgressOptions } from "./principalPolicyHis
 import { throwVerification } from "./shared";
 
 // Format domain; accepted history rules carry the page verifier's revision.
-const DOMAIN = "tearleads.principal-policy-history-progress.v2";
+const DOMAIN = "tearleads.principal-policy-history-progress.v3";
 const utf8 = new TextEncoder();
 
 export function ownPrincipalHistoryProgressProtection(
@@ -73,7 +73,7 @@ export async function sealPrincipalHistoryProgress(
       protection.key,
       protection.additionalData,
     );
-    return `v2.${bytesToBase64(encrypted.iv)}.${bytesToBase64(encrypted.ciphertext)}`;
+    return `v3.${bytesToBase64(encrypted.iv)}.${bytesToBase64(encrypted.ciphertext)}`;
   } finally {
     protection.key.fill(0);
   }
@@ -92,7 +92,7 @@ export async function openPrincipalHistoryProgress(
 ): Promise<unknown> {
   try {
     const [version, iv, ciphertext, extra] = progress.split(".");
-    if (version !== "v2" || !iv || !ciphertext || extra !== undefined)
+    if (version !== "v3" || !iv || !ciphertext || extra !== undefined)
       throwVerification("invalid_shape", "invalid principal history progress");
     const encrypted = {
       iv: canonicalBytes(iv),

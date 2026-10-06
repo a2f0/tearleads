@@ -7,7 +7,7 @@ import type { TrustedUserIdentityResolver } from "../../data/trustedUserIdentity
 import { loadOrganizationExternalAdminPolicy } from "../principals/externalAdminPolicy";
 import {
   acknowledgeGroupPolicyState,
-  assertGroupPolicyBundleMatchesAcknowledgement,
+  buildAcknowledgedGroupPolicyBundle,
 } from "./groupPolicyMutationAcknowledgement";
 import type { PrincipalPolicyReadApi } from "./groupPolicyMutationContext";
 import { groupPolicyMutationHead } from "./groupPolicyMutationHead";
@@ -86,16 +86,14 @@ export async function deleteOrganizationGroup(input: {
     request: organizationRequest,
     response: stored.organizationPolicy.currentState,
   });
-  assertGroupPolicyBundleMatchesAcknowledgement({
+  const organizationBundle = buildAcknowledgedGroupPolicyBundle({
     currentPolicy: externalAdminPolicy.bundle,
     expectedHead: organizationHead,
     request: organizationRequest,
     response: stored.organizationPolicy,
   });
   await persistLocallyAcknowledgedPrincipalPolicyBundles({
-    entries: [
-      { bundle: stored.organizationPolicy, policy: organizationPolicy },
-    ],
+    entries: [{ bundle: organizationBundle, policy: organizationPolicy }],
     execSql: input.execSql,
     organizationId: input.organizationId,
     updatedAt: new Date().toISOString(),

@@ -2,10 +2,10 @@ import { assertContainerPathIntegrity } from "./containerParentAuthority";
 import { principalPolicyEntryForReference } from "./principalPolicyReference";
 import { throwVerification } from "./shared";
 import type {
-  AnyVerifiedPrincipalPolicy,
   ContainerAccessLevel,
   ContainerAccessManifestState,
   ContainerDirectGrant,
+  PrincipalPolicyAuthorization,
   ReferencedPrincipalHead,
   VerifiedContainerAccessManifest,
 } from "./types";
@@ -39,7 +39,7 @@ export function mergeContainerAccessLevel(
 }
 
 export function principalPolicyMatchesReference(input: {
-  readonly policy: AnyVerifiedPrincipalPolicy;
+  readonly policy: PrincipalPolicyAuthorization;
   readonly reference: ReferencedPrincipalHead;
 }): boolean {
   return principalPolicyEntryForReference(input) !== undefined;
@@ -48,7 +48,7 @@ export function principalPolicyMatchesReference(input: {
 export function grantAccessLevelForUser(input: {
   readonly grant: ContainerDirectGrant;
   readonly membershipAt: "current" | "referenced";
-  readonly principalPolicies: readonly AnyVerifiedPrincipalPolicy[];
+  readonly principalPolicies: readonly PrincipalPolicyAuthorization[];
   readonly state: Pick<
     ContainerAccessManifestState,
     "referencedPrincipalHeads"
@@ -93,7 +93,7 @@ export function grantAccessLevelForUser(input: {
 function resolveContainerPathUserAccessLevelAt(input: {
   readonly membershipAt: "current" | "referenced";
   readonly path: readonly Pick<VerifiedContainerAccessManifest, "state">[];
-  readonly principalPolicies?: readonly AnyVerifiedPrincipalPolicy[];
+  readonly principalPolicies?: readonly PrincipalPolicyAuthorization[];
   readonly userId: string;
 }): ContainerAccessLevel | null {
   let accessLevel: ContainerAccessLevel | null = null;
@@ -151,7 +151,7 @@ export function requireContainerPathUserAccess(input: {
   readonly label: string;
   readonly minimumAccessLevel: ContainerAccessLevel;
   readonly path: readonly VerifiedContainerAccessManifest[] | undefined;
-  readonly principalPolicies: readonly AnyVerifiedPrincipalPolicy[];
+  readonly principalPolicies: readonly PrincipalPolicyAuthorization[];
   readonly userId: string;
 }): void {
   const path = input.path;
@@ -186,7 +186,7 @@ export function requireContainerPathUserAccess(input: {
  */
 export function resolveContainerStatePathUserAccessLevel(input: {
   readonly states: readonly ContainerAccessManifestState[];
-  readonly principalPolicies: readonly AnyVerifiedPrincipalPolicy[];
+  readonly principalPolicies: readonly PrincipalPolicyAuthorization[];
   readonly userId: string;
 }): ContainerAccessLevel | null {
   return resolveContainerPathUserAccessLevelAt({

@@ -1,9 +1,11 @@
 import { expect, test } from "bun:test";
 import { generateKemSeedAndKeyPair } from "../encapsulation/generateKeyPair";
 import {
+  createPrincipalHistoryIndexProof,
   createPrincipalPolicyHistoryVerifier,
   PRINCIPAL_HISTORY_PAGE_ENTRY_LIMIT,
   restorePrincipalPolicyHistoryVerifier,
+  verifyPrincipalPolicyHistoryReferences,
 } from "../index";
 import { historyHead } from "./principalPolicyHistoryTestFixtures";
 import {
@@ -60,10 +62,18 @@ test(
       });
       if (!append.ok) throw append.error;
       expect(append.value.throughVersion).toBe(version);
+      expect(append.value.indexNodes.length).toBeLessThanOrEqual(
+        page.length + 106,
+      );
       const saved = await verifier.exportProgress(protection);
       if (!saved.ok) throw saved.error;
       initialProgressSize ??= saved.value.length;
-      expect(saved.value.length).toBeLessThanOrEqual(initialProgressSize + 256);
+      // The index adds at most one 64-byte hash (plus JSON/base64 framing)
+      // per tree level; it must not retain the history itself.
+      const frontierBytes = (Math.floor(Math.log2(version)) + 1) * 67;
+      expect(saved.value.length).toBeLessThanOrEqual(
+        initialProgressSize + Math.ceil(frontierBytes / 3) * 4 + 256,
+      );
       const restored = await restorePrincipalPolicyHistoryVerifier(
         input,
         saved.value,
@@ -75,6 +85,22 @@ test(
       if (!result.ok) throw result.error;
       expect(result.value.retainedEntries).toHaveLength(1);
       expect(result.value.currentEntry.state.version).toBe(version);
+      const nodes = new Map(
+        append.value.indexNodes.map((node) => [node.hash, node]),
+      );
+      const proof = await createPrincipalHistoryIndexProof({
+        rootHash: result.value.indexRootHash,
+        treeSize: version,
+        version,
+        readNode: async (hash) => nodes.get(hash) ?? null,
+      });
+      const selected = await verifyPrincipalPolicyHistoryReferences({
+        history: result.value,
+        references: [
+          { reference: historyHead(next.state), entry: next.entry, proof },
+        ],
+      });
+      expect(selected.ok).toBe(true);
       page = [];
     }
   },

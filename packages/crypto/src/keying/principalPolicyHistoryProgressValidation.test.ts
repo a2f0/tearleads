@@ -1,6 +1,7 @@
 import { beforeAll, expect, test } from "bun:test";
 import { restorePrincipalPolicyHistoryVerifier } from "./principalPolicyHistory";
 import { normalizePrincipalHistoryInput } from "./principalPolicyHistoryChecks";
+import { appendPrincipalHistoryIndex } from "./principalPolicyHistoryIndex";
 import {
   ownPrincipalHistoryProgressProtection,
   sealPrincipalHistoryProgress,
@@ -13,10 +14,17 @@ import type { PrincipalPolicyHistoryInput } from "./principalPolicyHistoryTypes"
 import { signPolicyState } from "./principalPolicyTestFixtures";
 
 let fixture: Awaited<ReturnType<typeof historyFixture>>;
+let firstFrontier: readonly (string | null)[];
+let secondFrontier: readonly (string | null)[];
 let foreign: Awaited<ReturnType<typeof signPolicyState>>;
 let external: Awaited<ReturnType<typeof signPolicyState>>;
 beforeAll(async () => {
   fixture = await historyFixture();
+  firstFrontier = (await appendPrincipalHistoryIndex([], [fixture.first.state]))
+    .frontier;
+  secondFrontier = (
+    await appendPrincipalHistoryIndex(firstFrontier, [fixture.second.state])
+  ).frontier;
   foreign = await signPolicyState({
     ...fixture.shared,
     principalId: "different-principal",
@@ -45,6 +53,7 @@ function scope(): PrincipalPolicyHistoryInput {
 function progress() {
   return {
     previous: fixture.first.entry,
+    indexFrontier: firstFrontier,
     latestAuthority: null,
     checkpointHash: null,
     retained: [],
@@ -87,6 +96,7 @@ test.each([
     () => ({
       ...progress(),
       previous: null,
+      indexFrontier: [],
       latestAuthority: historyHead(foreign.state),
     }),
     "invalid_shape",
@@ -188,6 +198,7 @@ test.each(["missing", "duplicate", "substituted"] as const)(
     const valid = {
       ...progress(),
       previous: fixture.second.entry,
+      indexFrontier: secondFrontier,
       retained: [fixture.first.entry, fixture.second.entry],
     };
     expect((await restore(valid, input)).ok).toBe(true);

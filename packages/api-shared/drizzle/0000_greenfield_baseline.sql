@@ -624,6 +624,29 @@ CREATE TABLE "principal_epoch_keys" (
 	"created_at" timestamp DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
+CREATE TABLE "principal_history_index_nodes" (
+	"hash" text PRIMARY KEY NOT NULL,
+	"left_hash" text NOT NULL,
+	"right_hash" text NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "principal_history_progress" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"principal_type" text NOT NULL,
+	"principal_id" uuid NOT NULL,
+	"verification_kind" text NOT NULL,
+	"protection_id" text NOT NULL,
+	"input_hash" text NOT NULL,
+	"version" bigint NOT NULL,
+	"state_hash" text NOT NULL,
+	"key_epoch" integer NOT NULL,
+	"key_fingerprint" text NOT NULL,
+	"progress" text NOT NULL,
+	"updated_at" timestamp DEFAULT now() NOT NULL,
+	CONSTRAINT "principal_history_progress_version_range" CHECK ("principal_history_progress"."version" >= 1 AND "principal_history_progress"."version" <= 9007199254740991),
+	CONSTRAINT "principal_history_progress_kind" CHECK ("principal_history_progress"."verification_kind" IN ('policy', 'authority'))
+);
+--> statement-breakpoint
 CREATE TABLE "principal_member_envelopes" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"principal_type" text NOT NULL,
@@ -867,6 +890,7 @@ CREATE INDEX "principal_container_grant_projection_container_idx" ON "principal_
 CREATE UNIQUE INDEX "principal_container_grant_projection_state_container_idx" ON "principal_container_grant_projection" USING btree ("principal_type","principal_id","state_hash","container_id");--> statement-breakpoint
 CREATE INDEX "principal_epoch_keys_principal_idx" ON "principal_epoch_keys" USING btree ("principal_type","principal_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "principal_epoch_keys_principal_epoch_idx" ON "principal_epoch_keys" USING btree ("principal_type","principal_id","epoch");--> statement-breakpoint
+CREATE UNIQUE INDEX "principal_history_progress_version_idx" ON "principal_history_progress" USING btree ("principal_type","principal_id","verification_kind","input_hash","protection_id","version");--> statement-breakpoint
 CREATE INDEX "principal_member_envelopes_principal_idx" ON "principal_member_envelopes" USING btree ("principal_type","principal_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "principal_member_envelopes_state_member_idx" ON "principal_member_envelopes" USING btree ("principal_type","principal_id","state_hash","user_id");--> statement-breakpoint
 CREATE INDEX "principal_membership_projection_principal_idx" ON "principal_membership_projection" USING btree ("principal_type","principal_id");--> statement-breakpoint

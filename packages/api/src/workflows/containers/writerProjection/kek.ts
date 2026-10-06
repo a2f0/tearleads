@@ -3,9 +3,9 @@ import { users } from "@tearleads/api-shared/schema";
 import type {
   ContainerKeyWrap,
   ContainerUserRecipientKey,
+  PrincipalPolicyAuthorization,
   VerifiedContainerAccessManifest,
   VerifiedContainerKekState,
-  VerifiedPrincipalPolicy,
 } from "@tearleads/crypto";
 import { verifyContainerKekState } from "@tearleads/crypto";
 import { inArray } from "drizzle-orm";
@@ -20,7 +20,10 @@ import {
   prefetchContainerManifestHistory,
 } from "./accessPaths";
 import { cachedProjectionValue } from "./context";
-import { principalPolicyCacheKey } from "./principalPolicies";
+import {
+  loadHistoricalPrincipalPoliciesForAccessPaths,
+  principalPolicyCacheKey,
+} from "./principalPolicies";
 import { verifyStoredContainerManifest } from "./storedManifestVerification";
 import {
   type ContainerKekManifestHistory,
@@ -32,7 +35,7 @@ import {
 function containerKekStateCacheKey(input: {
   readonly manifest: VerifiedContainerAccessManifest;
   readonly parentKekState: VerifiedContainerKekState | null;
-  readonly principalPolicies: readonly VerifiedPrincipalPolicy[];
+  readonly principalPolicies: readonly PrincipalPolicyAuthorization[];
 }): string {
   // KEK verification depends on the signed manifest, the parent KEK edge, and
   // the exact referenced principal policy heads. Include all three so a cache
@@ -236,7 +239,7 @@ export async function loadContainerKekState(
   manifest: VerifiedContainerAccessManifest,
   input: {
     readonly parentKekState: VerifiedContainerKekState | null;
-    readonly principalPolicies: readonly VerifiedPrincipalPolicy[];
+    readonly principalPolicies: readonly PrincipalPolicyAuthorization[];
   },
 ): Promise<ContainerKekProjection> {
   return cachedProjectionValue(
@@ -259,7 +262,7 @@ async function loadUncachedContainerKekState(
   manifest: VerifiedContainerAccessManifest,
   input: {
     readonly parentKekState: VerifiedContainerKekState | null;
-    readonly principalPolicies: readonly VerifiedPrincipalPolicy[];
+    readonly principalPolicies: readonly PrincipalPolicyAuthorization[];
   },
 ): Promise<ContainerKekProjection> {
   const containerKeyEpochId = manifest.state.containerKeyEpochId;
@@ -302,6 +305,20 @@ async function loadUncachedContainerKekState(
     manifest,
     wraps,
   });
+  // Only retained wraps need these historical grants. A cited group may have
+  // been deleted since; its signed authorization evidence remains verifiable.
+  const wrapManifestHashes = new Set(
+    wraps.map((wrap) => wrap.wrapManifestHash),
+  );
+  const principalPolicies = await loadHistoricalPrincipalPoliciesForAccessPaths(
+    context.executor,
+    [
+      containerManifestHistory.verified.filter((entry) =>
+        wrapManifestHashes.has(entry.manifestHash),
+      ),
+    ],
+    input.principalPolicies,
+  );
   const verified = await verifyContainerKekState({
     allowHistoricalParentEpoch: true,
     containerManifest: manifest,
@@ -312,7 +329,7 @@ async function loadUncachedContainerKekState(
     parentManifestHistory: [...context.verifiedManifestByHash.values()],
     keyEpoch,
     parentKekState: input.parentKekState,
-    principalPolicies: input.principalPolicies,
+    principalPolicies,
     userRecipientKeys,
     wraps,
   });

@@ -2,8 +2,8 @@ import type { DatabaseSession } from "@tearleads/api-shared/postgres";
 import { attachmentBindings } from "@tearleads/api-shared/schema";
 import type {
   DocumentLinkSetManifestState,
+  PrincipalPolicyAuthorization,
   ReferencedPrincipalHead,
-  VerifiedPrincipalPolicy,
 } from "@tearleads/crypto";
 import type { ReferencedPrincipalStateResponse } from "@tearleads/validators/response";
 import { and, eq, isNull } from "drizzle-orm";
@@ -88,7 +88,7 @@ function toReferencedPrincipalStateResponse(
 }
 
 function principalPolicyToReferencedPrincipalStateResponse(
-  policy: VerifiedPrincipalPolicy,
+  policy: PrincipalPolicyAuthorization,
 ): ReferencedPrincipalStateResponse {
   return {
     principalType: policy.principalType,

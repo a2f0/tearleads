@@ -164,8 +164,11 @@ export async function decodeJsonOperationResponse(
     try {
       value = await response.json();
     } catch (error) {
-      const failure = responseBodyFailure(error, errorMessage(error));
+      const failure = options.signal?.aborted
+        ? { kind: "cancelled" as const, message: "Request was cancelled" }
+        : responseBodyFailure(error, errorMessage(error));
       return request.reportFailure({
+        ...(failure.kind === "cancelled" ? { code: "request_aborted" } : {}),
         kind: failure.kind,
         message: `${operation.method} ${path}: ${failure.message}`,
         method: operation.method,

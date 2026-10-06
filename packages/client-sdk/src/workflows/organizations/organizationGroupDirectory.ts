@@ -34,7 +34,7 @@ import { assertGroupNameUniqueInDirectory } from "./groupNameUniqueness";
 import {
   acknowledgeGroupPolicyState,
   acknowledgeInitialGroupPolicy,
-  assertGroupPolicyBundleMatchesAcknowledgement,
+  buildAcknowledgedGroupPolicyBundle,
 } from "./groupPolicyMutationAcknowledgement";
 import type { OrganizationPrincipalPolicyApi } from "./groupPolicyMutationContext";
 import { groupPolicyMutationHead } from "./groupPolicyMutationHead";
@@ -226,7 +226,7 @@ export async function commitCreatedGroupToDirectory(input: {
     request: organizationRequest,
     response: stored.organizationPolicy.currentState,
   });
-  assertGroupPolicyBundleMatchesAcknowledgement({
+  const organizationBundle = buildAcknowledgedGroupPolicyBundle({
     currentPolicy: input.externalAdminPolicy.bundle,
     expectedHead: organizationHead,
     request: organizationRequest,
@@ -235,7 +235,7 @@ export async function commitCreatedGroupToDirectory(input: {
   await persistLocallyAcknowledgedPrincipalPolicyBundles({
     entries: [
       { bundle: acknowledged.bundle, policy: acknowledged.policy },
-      { bundle: stored.organizationPolicy, policy: organizationPolicy },
+      { bundle: organizationBundle, policy: organizationPolicy },
     ],
     execSql: input.execSql,
     organizationId: input.organizationId,

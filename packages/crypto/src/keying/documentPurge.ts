@@ -12,9 +12,9 @@ import {
   throwVerification,
 } from "./shared";
 import type {
-  AnyVerifiedPrincipalPolicy,
   KeyingCanonicalJson,
   KeyingVerificationResult,
+  PrincipalPolicyAuthorization,
   VerifiedAccessEvent,
   VerifiedContainerAccessManifest,
   VerifiedDocumentLinkSetManifest,
@@ -35,7 +35,7 @@ export interface VerifyDocumentPurgeEventInput {
     | VerifiedDocumentLinkSetManifest
     | VerifiedDocumentLinkSetSnapshot;
   readonly authorizingContainerPath: readonly VerifiedContainerAccessManifest[];
-  readonly principalPolicies?: readonly AnyVerifiedPrincipalPolicy[];
+  readonly principalPolicies?: readonly PrincipalPolicyAuthorization[];
   readonly expectedDocumentId?: string;
 }
 

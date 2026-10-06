@@ -7,8 +7,8 @@ import {
 import type { TestUser } from "@tearleads/bob-and-alice";
 import { and, eq } from "drizzle-orm";
 import invariant from "invariant";
-import { routeApp } from "../../src/routeApp";
 import { authenticate } from "./authenticate";
+import { requestFullPrincipalPolicy } from "./principalHistoryRequest";
 import { registerUser } from "./registerUser";
 
 /**
@@ -60,11 +60,11 @@ export async function registerAndAuthenticate(
 }
 
 export async function getPolicy(
-  actor: TestUser,
+  actor: Pick<TestUser, "token">,
   principalType: "group" | "organization",
   principalId: string,
 ): Promise<Response> {
-  return routeApp.request(
+  return requestFullPrincipalPolicy(
     `/principals/${principalType}/${principalId}/policy`,
     { headers: { Authorization: `Bearer ${actor.token}` } },
   );

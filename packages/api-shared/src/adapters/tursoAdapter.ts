@@ -14,6 +14,7 @@ import { migrate as migrateLibsql } from "drizzle-orm/libsql/migrator";
 import { drizzle as drizzleLibsql } from "drizzle-orm/libsql/ws";
 import * as schema from "../schema";
 import { unsafeCoerce } from "../unsafeCoerce.js";
+import { withDatabaseTransactionCompletion } from "./transactionCompletion";
 import { isTursoReadStatement } from "./tursoStatementMode";
 import type {
   ApiDatabase,
@@ -425,7 +426,7 @@ export function createTursoApiDatabase(
   });
 
   return {
-    db: attachTursoDatabaseBridge(libsqlDb),
+    db: withDatabaseTransactionCompletion(attachTursoDatabaseBridge(libsqlDb)),
     kind: "turso",
     close: async () => client.close(),
     migrate: (options) =>

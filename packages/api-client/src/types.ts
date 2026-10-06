@@ -24,11 +24,14 @@ export type ListDocumentEditAttributionRangesOptions = Omit<
 };
 
 export interface RequestResultOptions {
+  readonly signal?: AbortSignal | undefined;
   /** Expected target for a declared 402; mismatched response identities fail closed. */
   readonly expectedPaymentRequiredOrganizationId?: string | undefined;
   readonly headers?: Record<string, string> | undefined;
   readonly reportErrors?: boolean | undefined;
-  readonly retryOnSessionExpired?: boolean | undefined;
+  /** Called after this request or a concurrent request renews the same session. */
+  readonly onSessionRenewed?: (() => void) | undefined;
+  readonly retryOnSessionExpired?: boolean | "renew-only" | undefined;
 }
 
 export type OperationRequestFn = <T>(
@@ -49,7 +52,13 @@ export type OperationRequestResultFn = <T>(
   failureOperation: HttpOperation,
 ) => Promise<RequestResult<T>>;
 
-export type RequestFailureKind = "http" | "network" | "json" | "shape";
+export type RequestFailureKind =
+  | "http"
+  | "network"
+  | "json"
+  | "shape"
+  | "cancelled"
+  | "outcome-unknown";
 
 export interface RequestFailure {
   readonly code?: string | undefined;
@@ -78,6 +87,7 @@ export interface RequestSuccess<T> {
 export type RequestResult<T> = RequestFailure | RequestSuccess<T>;
 
 export interface ResponseRequestValidationFailureInput {
+  readonly code?: string | undefined;
   readonly kind: RequestFailureKind;
   readonly message: string;
   readonly method: HttpMethod;

@@ -11,11 +11,11 @@ import {
 } from "./containerPathAccess";
 import { throwVerification } from "./shared";
 import type {
-  AnyVerifiedPrincipalPolicy,
   ContainerAccessEventBody,
   ContainerAccessLevel,
   ContainerAccessManifestState,
   ContainerCreateAccessEventBody,
+  PrincipalPolicyAuthorization,
   VerifiedAccessEvent,
   VerifiedContainerAccessManifest,
 } from "./types";
@@ -27,7 +27,7 @@ function requireRootCreateSignerAdmin(input: {
   readonly parentContainerPath:
     | readonly VerifiedContainerAccessManifest[]
     | undefined;
-  readonly principalPolicies: readonly AnyVerifiedPrincipalPolicy[];
+  readonly principalPolicies: readonly PrincipalPolicyAuthorization[];
 }): void {
   if (input.parentContainerPath && input.parentContainerPath.length > 0) {
     throwVerification(
@@ -81,7 +81,7 @@ export type ContainerAccessManifestDerivationInput = {
   readonly destinationParentContainerPath:
     | readonly VerifiedContainerAccessManifest[]
     | undefined;
-  readonly principalPolicies: readonly AnyVerifiedPrincipalPolicy[];
+  readonly principalPolicies: readonly PrincipalPolicyAuthorization[];
 };
 
 type ContainerAccessManifestTransitionBase = Omit<

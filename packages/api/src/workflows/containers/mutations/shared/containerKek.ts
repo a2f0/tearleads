@@ -6,9 +6,9 @@ import type {
   ContainerKeyEpoch,
   ContainerKeyWrap,
   ContainerUserRecipientKey,
+  PrincipalPolicyAuthorization,
   VerifiedContainerAccessManifest,
   VerifiedContainerKekState,
-  VerifiedPrincipalPolicy,
 } from "@tearleads/crypto";
 import {
   assertSealedContainerKekKeyringLength,
@@ -42,7 +42,7 @@ interface VerifyContainerKekFromRequestArtifacts {
     | undefined;
   /** The head this mutation extends; null for a create. */
   readonly previousManifest?: VerifiedContainerAccessManifest | null;
-  readonly principalPolicies: readonly VerifiedPrincipalPolicy[];
+  readonly principalPolicies: readonly PrincipalPolicyAuthorization[];
 }
 
 export interface VerifiedContainerKekMutationState {

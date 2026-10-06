@@ -1,6 +1,11 @@
 import type { PrincipalStateExternalAuthority } from "../principalState";
 import { normalizeReferencedPrincipalHead } from "./accessEvent";
 import type { normalizePrincipalHistoryInput } from "./principalPolicyHistoryChecks";
+import {
+  normalizePrincipalHistoryIndexFrontier,
+  principalHistoryIndexLeaf,
+  principalHistoryIndexRoot,
+} from "./principalPolicyHistoryIndex";
 import { normalizeAuthenticatedPrincipalHistoryEntry } from "./principalPolicyHistoryProgressEntry";
 import { PRINCIPAL_HISTORY_PAGE_ENTRY_LIMIT } from "./principalPolicyHistoryTypes";
 import { principalPolicyStateMatchesReference } from "./principalPolicyReference";
@@ -12,6 +17,8 @@ import {
 import type { NormalizedPrincipalPolicyStateChainEntry } from "./types";
 
 export interface PrincipalHistoryProgress {
+  readonly indexFrontier: readonly (string | null)[];
+  readonly indexRootHash: string | null;
   readonly previous: NormalizedPrincipalPolicyStateChainEntry | null;
   readonly latestAuthority: PrincipalStateExternalAuthority | null;
   readonly checkpointHash: string | null;
@@ -24,7 +31,13 @@ export async function normalizeAuthenticatedPrincipalHistoryProgress(
 ): Promise<PrincipalHistoryProgress> {
   const record = assertExactKeys(
     value,
-    ["previous", "latestAuthority", "checkpointHash", "retained"],
+    [
+      "previous",
+      "latestAuthority",
+      "checkpointHash",
+      "retained",
+      "indexFrontier",
+    ],
     "principal history progress",
   );
   if (
@@ -53,9 +66,31 @@ export async function normalizeAuthenticatedPrincipalHistoryProgress(
   const retained: NormalizedPrincipalPolicyStateChainEntry[] = [];
   for (const entry of record.retained)
     retained.push(await normalizeAuthenticatedPrincipalHistoryEntry(entry));
-  const progress = { previous, latestAuthority, checkpointHash, retained };
+  const indexFrontier = normalizePrincipalHistoryIndexFrontier(
+    record.indexFrontier,
+    previous?.state.version ?? 0,
+  );
+  const progress = {
+    previous,
+    latestAuthority,
+    checkpointHash,
+    retained,
+    indexFrontier,
+    indexRootHash: await principalHistoryIndexRoot(indexFrontier),
+  };
   assertProgressConsistency(progress, input);
   assertRetainedReferences(progress, input);
+  // Authentication binds the omitted prefix. An odd-sized frontier also
+  // exposes its last leaf, so check that local structural link explicitly.
+  if (
+    previous &&
+    previous.state.version % 2 === 1 &&
+    indexFrontier[0] !== (await principalHistoryIndexLeaf(previous.state))
+  )
+    throwVerification(
+      "hash_mismatch",
+      "saved principal frontier does not contain its last entry",
+    );
   return progress;
 }
 

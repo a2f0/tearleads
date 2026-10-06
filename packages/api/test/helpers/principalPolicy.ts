@@ -19,10 +19,10 @@ import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/respon
 import { eq } from "drizzle-orm";
 import invariant from "invariant";
 import { getCurrentPrincipalState } from "../../src/access/read/principalStateStore";
-import { routeApp } from "../../src/routeApp";
 import { parseOrganizationAuthorityDescriptor } from "../../src/workflows/organizations/organizationAuthorityDescriptor";
 import { getPrincipalPolicyForStateWithExecutor } from "../../src/workflows/principals/getCurrentPrincipalPolicy";
 import { groupPolicyPayload } from "./groupPolicyPayload";
+import { requestPreparedPrincipalPolicy } from "./principalHistoryRequest";
 import { createPrincipalMemberEnvelopes } from "./principalMemberEnvelopes";
 import {
   createProjectionWithAdminSigner,
@@ -314,9 +314,7 @@ export async function submitOrganizationGroupPolicyCommit(input: {
   organizationId: string;
   request?: (path: string, init: RequestInit) => Response | Promise<Response>;
 }): Promise<Response> {
-  const request =
-    input.request ??
-    ((path: string, init: RequestInit) => routeApp.request(path, init));
+  const request = input.request ?? requestPreparedPrincipalPolicy;
   return request(
     `/organizations/${input.organizationId}/groups/${input.groupId}/policy-commit`,
     {

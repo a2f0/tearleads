@@ -1,4 +1,5 @@
 import type { PrincipalPolicyExternalAuthority } from "./principalPolicyExternalAuthorityTypes";
+import type { PrincipalHistoryIndexNode } from "./principalPolicyHistoryIndex";
 import { throwVerification } from "./shared";
 import type {
   KeyingVerificationResult,
@@ -43,6 +44,8 @@ export interface VerifiedPrincipalPolicyHistory {
   readonly currentEntry: PrincipalPolicyStateChainEntry;
   readonly retainedEntries: readonly PrincipalPolicyStateChainEntry[];
   readonly checkpoint: PrincipalPolicyCheckpoint;
+  /** Computed only from locally accepted entries; never supplied by a peer. */
+  readonly indexRootHash: string;
 }
 
 type HistorySnapshot = Omit<
@@ -81,9 +84,12 @@ export function ownVerifiedPrincipalPolicyHistory(
 }
 
 export interface PrincipalPolicyHistoryVerifier {
-  append(
-    page: PrincipalPolicyHistoryPage,
-  ): Promise<KeyingVerificationResult<{ readonly throughVersion: number }>>;
+  append(page: PrincipalPolicyHistoryPage): Promise<
+    KeyingVerificationResult<{
+      readonly throughVersion: number;
+      readonly indexNodes: readonly PrincipalHistoryIndexNode[];
+    }>
+  >;
   finish(
     expectedHead: ReferencedPrincipalHead,
   ): KeyingVerificationResult<VerifiedPrincipalPolicyHistory>;

@@ -36,10 +36,10 @@ function toGrantResponse(grants: ReadonlyArray<StoredPrincipalContainerGrant>) {
   }));
 }
 
-export async function buildPrincipalPolicyForStateWithExecutor(
+export async function buildPrincipalPolicyCurrentForStateWithExecutor(
   executor: DatabaseSession,
   currentState: StoredPrincipalState,
-): Promise<PrincipalPolicyBundleResponse> {
+): Promise<Omit<PrincipalPolicyBundleResponse, "previousStates">> {
   const { principalId, principalType } = currentState;
   // Every dependent read is pinned to this exact accepted state. In particular,
   // a concurrent successor cannot change which head a successful PUT
@@ -66,7 +66,6 @@ export async function buildPrincipalPolicyForStateWithExecutor(
     pinnedStateHash,
     executor,
   );
-  const stateHistory = await listPrincipalStateHistory(currentState, executor);
   const currentMemberEnvelopes = await listPrincipalMemberEnvelopesForState(
     principalType,
     principalId,
@@ -86,6 +85,20 @@ export async function buildPrincipalPolicyForStateWithExecutor(
       epoch: currentState.keyEpoch,
       envelopes: currentMemberEnvelopes,
     }),
+  };
+}
+
+export async function buildPrincipalPolicyForStateWithExecutor(
+  executor: DatabaseSession,
+  currentState: StoredPrincipalState,
+): Promise<PrincipalPolicyBundleResponse> {
+  const current = await buildPrincipalPolicyCurrentForStateWithExecutor(
+    executor,
+    currentState,
+  );
+  const stateHistory = await listPrincipalStateHistory(currentState, executor);
+  return {
+    ...current,
     previousStates: stateHistory
       .filter((entry) => entry.state.version < currentState.version)
       .map((entry) => ({

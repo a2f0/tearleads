@@ -11,16 +11,18 @@ import {
   CommitOrganizationGroupPolicyResponseSchema,
   ErrorResponseSchema,
   isCommitOrganizationGroupPolicyResponse,
-  isPrincipalPolicyBundleResponse,
   isPrincipalPolicyMutationResponse,
+  isPrincipalPolicyPageResponse,
   PaymentRequiredErrorResponseSchema,
-  PrincipalPolicyBundleResponseSchema,
   PrincipalPolicyErrorResponseSchema,
   PrincipalPolicyMutationResponseSchema,
+  PrincipalPolicyPageResponseSchema,
   SessionFailureResponseSchema,
 } from "../response";
+import { PrincipalHistoryPreparationResponseSchema } from "../response/principalHistoryPreparation";
 import { uuidV4StringSchema } from "../schema";
 import { defineJsonOperation } from "./definition";
+import { PrincipalPolicyPageQuerySchema } from "./principalPolicyPageQuery";
 
 export const PrincipalPolicyPathParamsSchema = z.strictObject({
   principalType: z.literal(["group", "organization"]),
@@ -40,21 +42,29 @@ export type OrganizationGroupPolicyPathParams = z.infer<
   typeof OrganizationGroupPolicyPathParamsSchema
 >;
 
+const preparationResponseDescriptions = {
+  202: "The attempted operation rolled back. Retry the identical request to continue verification preparation.",
+} as const;
+
 export const getPrincipalPolicyOperation = defineJsonOperation({
   auth: "session",
   failureResponses: {
     400: ErrorResponseSchema,
     401: SessionFailureResponseSchema,
     403: ErrorResponseSchema,
+    409: ErrorResponseSchema,
     500: ErrorResponseSchema,
   },
-  failureStatuses: [400, 401, 403, 500],
+  failureStatuses: [400, 401, 403, 409, 500],
   id: "principals.policy.get",
   method: "GET",
   params: PrincipalPolicyPathParamsSchema,
   path: "/principals/{principalType}/{principalId}/policy",
+  query: PrincipalPolicyPageQuerySchema,
+  responseDescriptions: preparationResponseDescriptions,
   responses: {
-    200: PrincipalPolicyBundleResponseSchema,
+    200: PrincipalPolicyPageResponseSchema,
+    202: PrincipalHistoryPreparationResponseSchema,
   },
 });
 
@@ -76,8 +86,10 @@ export const putPrincipalPolicyOperation = defineJsonOperation({
   method: "PUT",
   params: PrincipalPolicyPathParamsSchema,
   path: "/principals/{principalType}/{principalId}/policy",
+  responseDescriptions: preparationResponseDescriptions,
   responses: {
     200: PrincipalPolicyMutationResponseSchema,
+    202: PrincipalHistoryPreparationResponseSchema,
   },
   runtimeRefinements: [organizationProvisioningContainerKeyringRefinement],
 });
@@ -100,8 +112,10 @@ export const commitOrganizationGroupPolicyOperation = defineJsonOperation({
   method: "PUT",
   params: OrganizationGroupPolicyPathParamsSchema,
   path: "/organizations/{organizationId}/groups/{groupId}/policy-commit",
+  responseDescriptions: preparationResponseDescriptions,
   responses: {
     200: CommitOrganizationGroupPolicyResponseSchema,
+    202: PrincipalHistoryPreparationResponseSchema,
   },
   runtimeRefinements: [organizationProvisioningContainerKeyringRefinement],
 });
@@ -112,7 +126,7 @@ export const isCommitOrganizationGroupPolicyOperationResponse =
   isCommitOrganizationGroupPolicyResponse;
 
 export const isGetPrincipalPolicyOperationResponse =
-  isPrincipalPolicyBundleResponse;
+  isPrincipalPolicyPageResponse;
 export const isPutPrincipalPolicyOperationRequest =
   isOrganizationPrincipalPolicyRequest;
 export const isPutPrincipalPolicyOperationResponse =

@@ -271,8 +271,8 @@ export function createPrincipalPolicyBundleResponse(): PrincipalPolicyBundleResp
     currentState: {
       principalType: "group",
       principalId: "group-1",
-      version: 2,
-      prevStateHash: "previous-state-hash",
+      version: 1,
+      prevStateHash: null,
       keyEpoch: 2,
       encapsulationPublicKey: "principal-public-key",
       keyFingerprint: "principal-key-fingerprint",

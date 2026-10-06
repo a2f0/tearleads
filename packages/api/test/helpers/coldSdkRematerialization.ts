@@ -30,6 +30,7 @@ import {
   isPrincipalPolicyBundleResponse,
 } from "@tearleads/validators/response";
 import { routeApp } from "../../src/routeApp";
+import { getPolicy } from "./principalPolicyReadFixtures";
 
 export const COLD_DOCUMENT_TEXT = "cold login decrypts rotated group data";
 
@@ -85,10 +86,7 @@ export function createRouteSdkClient(token: string) {
       principalId: string,
     ) => {
       const value = await requireJson(
-        await routeApp.request(
-          `/principals/${principalType}/${principalId}/policy`,
-          { headers: authHeaders(token) },
-        ),
+        await getPolicy({ token }, principalType, principalId),
         "principal policy",
       );
       if (!isPrincipalPolicyBundleResponse(value)) {

@@ -1,4 +1,7 @@
-import type { UploadMultipartBlobPartBytesRequest } from "@tearleads/api-client";
+import type {
+  RequestFailureKind,
+  UploadMultipartBlobPartBytesRequest,
+} from "@tearleads/api-client";
 import type {
   BlobContentKeyTarget,
   BlobEnvelopeHeaderRecord,
@@ -59,7 +62,7 @@ export interface BlobAttachmentApi {
     path: string;
   }): {
     readonly code?: string | undefined;
-    readonly kind: "http" | "json" | "network" | "shape";
+    readonly kind: RequestFailureKind;
     readonly message: string;
     readonly status: number | null;
   } | null;

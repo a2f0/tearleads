@@ -1,10 +1,9 @@
 import type { DatabaseSession } from "@tearleads/api-shared/postgres";
 import type {
-  AnyVerifiedPrincipalPolicy,
   ContainerAccessLevel,
+  PrincipalPolicyAuthorization,
   VerifiedContainerAccessManifest,
   VerifiedContainerKekState,
-  VerifiedPrincipalPolicy,
 } from "@tearleads/crypto";
 import {
   type AccessManifestBundleWireResponse,
@@ -38,7 +37,7 @@ export interface ContainerPathRow {
 export interface ContainerAccessProjection {
   readonly accessLevel: ContainerAccessLevel;
   readonly path: AccessManifestBundleWireResponse[];
-  readonly principalPolicies: VerifiedPrincipalPolicy[];
+  readonly principalPolicies: PrincipalPolicyAuthorization[];
   readonly verifiedPath: VerifiedContainerAccessManifest[];
 }
 
@@ -67,7 +66,7 @@ export interface ContainerWriterProjectionContext {
     string,
     Promise<AccessManifestBundleWireResponse>
   >;
-  readonly principalPolicyAuthorizationEvidence: readonly AnyVerifiedPrincipalPolicy[];
+  readonly principalPolicyAuthorizationEvidence: readonly PrincipalPolicyAuthorization[];
   readonly verifiedManifestByHash: Map<string, VerifiedContainerAccessManifest>;
   readonly verificationMarkers: AccessManifestVerificationMarkerStore;
   readonly signerByUserId: SignerCache;

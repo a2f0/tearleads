@@ -3,6 +3,7 @@ import type { CommitOrganizationGroupPolicyRequest } from "@tearleads/validators
 import type { CommitOrganizationGroupPolicyResponse } from "@tearleads/validators/response";
 import { toMutationError } from "../containers/mutations/errors";
 import { OrganizationManagerError } from "../organizations/errors";
+import { runPrincipalHistoryTransaction } from "./principalHistoryTransaction";
 import { lockOrganizationGroupMutationInTransaction } from "./principalMutationLock";
 import {
   loadRosterSyncTargetForPrincipal,
@@ -48,7 +49,7 @@ export async function runCommitOrganizationGroupPolicyWorkflow(
   assertPutPrincipalPolicyRouteBinding(organizationInput);
 
   try {
-    return await db.transaction(async (tx) => {
+    return await runPrincipalHistoryTransaction(db, async (tx) => {
       await lockOrganizationGroupMutationInTransaction(
         tx,
         input.organizationId,

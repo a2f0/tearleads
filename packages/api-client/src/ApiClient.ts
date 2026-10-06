@@ -6,7 +6,6 @@ import {
   cancelStripeSubscriptionOperation,
   challengeOperation,
   claimNativeOrganizationSubscriptionOperation,
-  commitOrganizationGroupPolicyOperation,
   completeMultipartBlobStageOperation,
   createContainerOperation,
   createContainerWithMetadataDocumentOperation,
@@ -35,7 +34,6 @@ import {
   getOrganizationNativePurchaseEligibilityOperation,
   getOrganizationPolicyHistoryOperation,
   getOrganizationReadModelOperation,
-  getPrincipalPolicyOperation,
   getRootIdentityOperation,
   getRootOrganizationDataUsageOperation,
   getRootOrganizationOperation,
@@ -55,7 +53,6 @@ import {
   logoutOperation,
   moveContainerOperation,
   purgeDocumentOperation,
-  putPrincipalPolicyOperation,
   type RootIdentitiesQuery,
   type RootOrganizationPageQuery,
   type RootOrganizationsQuery,
@@ -130,6 +127,7 @@ import {
   createOperationTransport,
   type OperationTransport,
 } from "./operationTransportFactory";
+import { PrincipalPolicyRequests } from "./principalPolicyRequests";
 import { ProjectionHistoryTransport } from "./projectionHistoryTransport";
 import {
   bindPrototypeMethods,
@@ -192,11 +190,6 @@ import { listOrganizationGroupMembers as groupMembers } from "./routes/organizat
 import { updateOrganizationProfile as profileUpdate } from "./routes/organizations/profile";
 import { updateOrganizationRosterEntry as rosterUpdate } from "./routes/organizations/roster";
 import { organizationStripeCheckout } from "./routes/organizations/stripeCheckout";
-import {
-  commitOrganizationGroupPolicy as organizationGroupPolicyCommit,
-  getPrincipalPolicy as principalPolicyGet,
-  putPrincipalPolicy as principalPolicyPut,
-} from "./routes/principals/policy";
 import {
   containerWriterProjection,
   documentWriterProjection,
@@ -269,12 +262,18 @@ export class ApiClient {
   private readonly principalPolicyRequestsByKey = new BoundedCache<
     Promise<PrincipalPolicyBundleResponse | null>
   >();
+  private readonly principalPolicyRequests: PrincipalPolicyRequests;
   private readonly transport: OperationTransport;
   private readonly request: OperationRequestFn;
   private readonly requestResult: OperationRequestResultFn;
   constructor(baseUrl?: string | null) {
     bindPrototypeMethods(this, ApiClient.prototype);
     this.requestRuntime = new ApiRequestRuntime(baseUrl);
+    this.principalPolicyRequests = new PrincipalPolicyRequests(
+      this.requestRuntime,
+      this.principalPolicyRequestsByKey,
+      this.clearWriterProjectionCaches,
+    );
     this.request = this.projectionHistory.wrapRequest(
       this.requestRuntime.request,
     );
@@ -612,19 +611,12 @@ export class ApiClient {
   getCurrentPrincipalPolicy(
     principalType: "group" | "organization",
     principalId: string,
+    options: RequestResultOptions = {},
   ) {
-    return dedupedRequest(
-      this.principalPolicyRequestsByKey,
-      JSON.stringify([principalType, principalId]),
-      () =>
-        this.request(
-          principalPolicyGet.path(principalType, principalId),
-          principalPolicyGet.isResponse,
-          principalPolicyGet.method,
-          undefined,
-          undefined,
-          getPrincipalPolicyOperation,
-        ),
+    return this.principalPolicyRequests.get(
+      principalType,
+      principalId,
+      options,
     );
   }
 
@@ -632,19 +624,14 @@ export class ApiClient {
     principalType: "organization",
     principalId: string,
     input: OrganizationPrincipalPolicyRequest,
+    options: RequestResultOptions = {},
   ) {
-    const requestKey = JSON.stringify([principalType, principalId]);
-    this.principalPolicyRequestsByKey.delete(requestKey);
-    return this.request(
-      principalPolicyPut.path(principalType, principalId),
-      principalPolicyPut.isResponse,
-      principalPolicyPut.method,
-      JSON.stringify(input),
-      { expectedPaymentRequiredOrganizationId: principalId },
-      putPrincipalPolicyOperation,
-    ).finally(() => {
-      this.principalPolicyRequestsByKey.delete(requestKey);
-    });
+    return this.principalPolicyRequests.put(
+      principalType,
+      principalId,
+      input,
+      options,
+    );
   }
 
   commitOrganizationGroupPolicy(
@@ -670,27 +657,12 @@ export class ApiClient {
     input: CommitOrganizationGroupPolicyRequest,
     options: RequestResultOptions = {},
   ): Promise<RequestResult<CommitOrganizationGroupPolicyResponse>> {
-    const groupRequestKey = JSON.stringify(["group", groupId]);
-    const organizationRequestKey = JSON.stringify([
-      "organization",
+    return this.principalPolicyRequests.commitResult(
       organizationId,
-    ]);
-    this.principalPolicyRequestsByKey.delete(groupRequestKey);
-    this.principalPolicyRequestsByKey.delete(organizationRequestKey);
-    try {
-      return await this.requestResult(
-        organizationGroupPolicyCommit.path(organizationId, groupId),
-        organizationGroupPolicyCommit.isResponse,
-        organizationGroupPolicyCommit.method,
-        JSON.stringify(input),
-        { expectedPaymentRequiredOrganizationId: organizationId, ...options },
-        commitOrganizationGroupPolicyOperation,
-      );
-    } finally {
-      this.principalPolicyRequestsByKey.delete(groupRequestKey);
-      this.principalPolicyRequestsByKey.delete(organizationRequestKey);
-      this.clearWriterProjectionCaches();
-    }
+      groupId,
+      input,
+      options,
+    );
   }
 
   getOrganizationPolicyHistoryResult(

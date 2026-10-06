@@ -5,7 +5,7 @@ import type {
 import { gatherWithExecutor } from "@tearleads/api-shared/postgres";
 import type {
   ContainerAccessLevel,
-  VerifiedPrincipalPolicy,
+  PrincipalPolicyAuthorization,
 } from "@tearleads/crypto";
 import {
   CONTAINER_NOT_FOUND_ERROR_CODE,
@@ -212,7 +212,7 @@ export async function resolveContainerAccessProjectionBatch(input: {
 
   let sharedPrincipalPoliciesByReference: Map<
     string,
-    VerifiedPrincipalPolicy
+    PrincipalPolicyAuthorization
   > | null = null;
   if (accessPaths.size > 0) {
     try {

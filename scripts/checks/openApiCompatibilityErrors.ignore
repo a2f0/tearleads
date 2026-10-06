@@ -1,0 +1,7 @@
+# #2442 / #2448: greenfield policy mutation receipts omit retransmitted history.
+# Remove these exact waivers once main contains the compact receipt contract.
+POST /organizations/{organizationId}/groups removed the required property `organizationPolicy/previousStates` from the response with the `200` status
+DELETE /organizations/{organizationId}/groups/{groupId} removed the required property `organizationPolicy/previousStates` from the response with the `200` status
+PUT /organizations/{organizationId}/groups/{groupId}/policy-commit removed the required property `groupPolicy/previousStates` from the response with the `200` status
+PUT /organizations/{organizationId}/groups/{groupId}/policy-commit removed the required property `organizationPolicy/previousStates` from the response with the `200` status
+PUT /principals/{principalType}/{principalId}/policy removed the required property `previousStates` from the response with the `200` status

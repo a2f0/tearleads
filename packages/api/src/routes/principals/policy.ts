@@ -6,7 +6,8 @@ import {
 } from "@tearleads/validators/operation";
 import type {
   CommitOrganizationGroupPolicyResponse,
-  PrincipalPolicyBundleResponse,
+  PrincipalPolicyMutationResponse,
+  PrincipalPolicyPageResponse,
 } from "@tearleads/validators/response";
 import { CONTAINER_MUTATION_ERROR_CODES } from "@tearleads/validators/response";
 import type { MiddlewareHandler } from "hono";
@@ -18,11 +19,15 @@ import {
   commitOrganizationGroupPolicy,
   putPrincipalPolicy,
 } from "../../services/principals/putPrincipalPolicy";
-import { PrincipalPolicyError } from "../../services/principals/shared";
+import {
+  PrincipalHistoryContinuation,
+  PrincipalPolicyError,
+} from "../../services/principals/shared";
 import type { ApiServiceRuntime } from "../../services/runtime";
 import { publishBestEffort } from "../../utils/publishBestEffort";
 import { jsonRequestValidator } from "../../validators/jsonRequest";
 import { pathParamsValidator } from "../../validators/pathParams";
+import { queryParamsValidator } from "../../validators/queryParams";
 
 interface PrincipalPolicyRouteDeps {
   readonly publish: (event: PublishedRealtimeEvent) => Promise<void>;
@@ -89,6 +94,15 @@ async function publishPrincipalAccessChanges(
 }
 
 function toPrincipalPolicyErrorResponse(error: unknown): Response | null {
+  if (error instanceof PrincipalHistoryContinuation)
+    return Response.json(
+      {
+        code: error.code,
+        committed: false,
+        progressToken: error.progressToken,
+      },
+      { status: 202, headers: { "Cache-Control": "no-store" } },
+    );
   if (error instanceof PrincipalPolicyError) {
     const body = {
       error: error.message,
@@ -174,7 +188,7 @@ export function createPrincipalPolicyRoute({
           [{ principalType, principalId }],
           result.sharedWithYouUserIds,
         );
-        return c.json<PrincipalPolicyBundleResponse>(result.policy);
+        return c.json<PrincipalPolicyMutationResponse>(result.policy);
       } catch (error) {
         const response = toPrincipalPolicyErrorResponse(error);
         if (response) {
@@ -197,6 +211,7 @@ function registerPolicyReadRoute(
     getPrincipalPolicyOperation.method,
     operationRoutePath(getPrincipalPolicyOperation),
     requireAuth,
+    queryParamsValidator(getPrincipalPolicyOperation.query),
     pathParamsValidator(
       getPrincipalPolicyOperation.params,
       "Invalid principal route",
@@ -205,13 +220,14 @@ function registerPolicyReadRoute(
       const { principalId, principalType } = c.req.valid("param");
 
       try {
-        return c.json<PrincipalPolicyBundleResponse>(
-          await getCurrentPrincipalPolicy(runtime, {
-            principalId,
-            principalType,
-            requesterUserId: c.get("session").userId,
-          }),
-        );
+        const result = await getCurrentPrincipalPolicy(runtime, {
+          ...c.req.valid("query"),
+          principalId,
+          principalType,
+          requesterUserId: c.get("session").userId,
+        });
+        c.header("Cache-Control", "private, no-store");
+        return c.json<PrincipalPolicyPageResponse>(result);
       } catch (error) {
         const response = toPrincipalPolicyErrorResponse(error);
         if (response) {

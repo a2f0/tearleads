@@ -37,6 +37,7 @@ export {
   verifyDocumentPurgeEvent,
 } from "./documentPurge";
 export * from "./principalPolicy";
+export { verifyPrincipalPolicyBundleAgainstHistory } from "./principalPolicyBundleHistory";
 export {
   type PrincipalPolicyCurrent,
   type VerifiedPrincipalPolicyCurrent,
@@ -50,6 +51,11 @@ export {
   createPrincipalPolicyHistoryVerifier,
   restorePrincipalPolicyHistoryVerifier,
 } from "./principalPolicyHistory";
+export type { PrincipalHistoryIndexNode } from "./principalPolicyHistoryIndex";
+export { createPrincipalHistoryIndexProof } from "./principalPolicyHistoryIndex";
+export { PRINCIPAL_HISTORY_VERIFICATION_REVISION } from "./principalPolicyHistoryPage";
+export type { PrincipalPolicyHistoryReferenceProof } from "./principalPolicyHistoryReferences";
+export { verifyPrincipalPolicyHistoryReferences } from "./principalPolicyHistoryReferences";
 export type {
   PrincipalPolicyHistoryInput,
   PrincipalPolicyHistoryPage,
@@ -58,6 +64,10 @@ export type {
   VerifiedPrincipalPolicyHistory,
 } from "./principalPolicyHistoryTypes";
 export { PRINCIPAL_HISTORY_PAGE_ENTRY_LIMIT } from "./principalPolicyHistoryTypes";
+export {
+  selectPrincipalPolicyAuthorization,
+  type VerifiedPrincipalPolicySelection,
+} from "./principalPolicySelection";
 export type {
   PrincipalPolicyTransitionMismatch,
   PrincipalPolicyTransitionMismatchCode,

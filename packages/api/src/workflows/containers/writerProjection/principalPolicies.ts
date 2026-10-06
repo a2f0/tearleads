@@ -1,10 +1,11 @@
 import type { DatabaseSession } from "@tearleads/api-shared/postgres";
 import type {
+  PrincipalPolicyAuthorization,
   ReferencedPrincipalHead,
   VerifiedContainerAccessManifest,
-  VerifiedPrincipalPolicy,
 } from "@tearleads/crypto";
 import {
+  loadPrincipalAuthorizationPoliciesForContainerPaths,
   loadPrincipalPoliciesForContainerPaths,
   PrincipalPolicyProjectionError,
 } from "../../principals/principalPolicyProjection";
@@ -23,8 +24,27 @@ export function principalPolicyReferenceCacheKey(
   ].join(":");
 }
 
+export async function loadHistoricalPrincipalPoliciesForAccessPaths(
+  executor: DatabaseSession,
+  paths: readonly (readonly VerifiedContainerAccessManifest[])[],
+  evidence: readonly PrincipalPolicyAuthorization[],
+): Promise<PrincipalPolicyAuthorization[]> {
+  try {
+    return await loadPrincipalAuthorizationPoliciesForContainerPaths(
+      executor,
+      paths,
+      evidence,
+    );
+  } catch (error) {
+    if (error instanceof PrincipalPolicyProjectionError) {
+      throw new ContainerWriterProjectionError(error.message, error.status);
+    }
+    throw error;
+  }
+}
+
 function verifiedPrincipalPolicyReferenceCacheKey(
-  policy: VerifiedPrincipalPolicy,
+  policy: PrincipalPolicyAuthorization,
 ): string {
   return [
     policy.principalType,
@@ -37,7 +57,7 @@ function verifiedPrincipalPolicyReferenceCacheKey(
 }
 
 function verifiedPrincipalPolicyStateReferenceCacheKey(
-  state: VerifiedPrincipalPolicy["state"],
+  state: PrincipalPolicyAuthorization["state"],
 ): string {
   return [
     state.principalType,
@@ -50,13 +70,15 @@ function verifiedPrincipalPolicyStateReferenceCacheKey(
 }
 
 export function verifiedPrincipalPolicyReferenceCacheKeys(
-  policy: VerifiedPrincipalPolicy,
+  policy: PrincipalPolicyAuthorization,
 ): string[] {
   const referenceKeys = new Set([
     verifiedPrincipalPolicyReferenceCacheKey(policy),
   ]);
 
-  for (const entry of policy.history ?? []) {
+  const history =
+    "retainedHistory" in policy ? policy.retainedHistory : policy.history;
+  for (const entry of history ?? []) {
     referenceKeys.add(
       verifiedPrincipalPolicyStateReferenceCacheKey(entry.state),
     );
@@ -67,7 +89,7 @@ export function verifiedPrincipalPolicyReferenceCacheKeys(
 
 export function principalPolicyCacheKey(input: {
   readonly manifest: VerifiedContainerAccessManifest;
-  readonly principalPolicies: readonly VerifiedPrincipalPolicy[];
+  readonly principalPolicies: readonly PrincipalPolicyAuthorization[];
 }): string {
   const policyKeys = new Set(
     input.principalPolicies.flatMap(verifiedPrincipalPolicyReferenceCacheKeys),
@@ -88,9 +110,14 @@ export function principalPolicyCacheKey(input: {
 export async function loadPrincipalPoliciesForAccessPaths(
   executor: DatabaseSession,
   paths: readonly (readonly VerifiedContainerAccessManifest[])[],
-): Promise<VerifiedPrincipalPolicy[]> {
+  evidence: readonly PrincipalPolicyAuthorization[] = [],
+): Promise<PrincipalPolicyAuthorization[]> {
   try {
-    return await loadPrincipalPoliciesForContainerPaths(executor, paths);
+    return await loadPrincipalPoliciesForContainerPaths(
+      executor,
+      paths,
+      evidence,
+    );
   } catch (error) {
     if (error instanceof PrincipalPolicyProjectionError) {
       throw new ContainerWriterProjectionError(error.message, error.status);

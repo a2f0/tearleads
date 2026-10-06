@@ -13,9 +13,9 @@ import type {
   ContainerKeyEpoch,
   ContainerKeyWrap,
   ContainerUserRecipientKey,
+  PrincipalPolicyAuthorization,
   VerifiedContainerAccessManifest,
   VerifiedContainerKekState,
-  VerifiedPrincipalPolicy,
 } from "@tearleads/crypto";
 import { verifyContainerKekState } from "@tearleads/crypto";
 import { asc, desc, eq, inArray } from "drizzle-orm";
@@ -54,7 +54,7 @@ interface ResolveStoredContainerKekStateInput {
   // manifests. Omitting them on a child is a missing dependency, not a pass.
   readonly parentManifestHistory?: readonly VerifiedContainerAccessManifest[];
   readonly parentKekState?: VerifiedContainerKekState | null;
-  readonly principalPolicies?: readonly VerifiedPrincipalPolicy[];
+  readonly principalPolicies?: readonly PrincipalPolicyAuthorization[];
   readonly userRecipientKeys?: readonly ContainerUserRecipientKey[];
 }
 

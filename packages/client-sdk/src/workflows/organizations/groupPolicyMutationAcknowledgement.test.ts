@@ -23,8 +23,8 @@ import {
 import { createTestTrustedUserIdentity } from "../../../test/helpers/trustedUserIdentity";
 import {
   acknowledgeGroupPolicyState,
-  assertGroupPolicyBundleMatchesAcknowledgement,
   assertGroupPolicyEnvelopesMatchAcknowledgement,
+  buildAcknowledgedGroupPolicyBundle,
 } from "./groupPolicyMutationAcknowledgement";
 import { buildAddGroupUserPolicyRequest } from "./groupPolicyRequests";
 
@@ -100,19 +100,43 @@ test("group policy acknowledgements accept only the exact authored successor", a
     request: fixture.mutation,
     response: fixture.state,
   });
+  const { previousStates, ...receipt } = await policyBundleAfterMutation({
+    mutation: fixture.mutation,
+    previous: fixture.currentPolicy,
+  });
   const bundle = {
-    ...(await policyBundleAfterMutation({
-      mutation: fixture.mutation,
-      previous: fixture.currentPolicy,
-    })),
+    ...receipt,
     currentMemberEnvelopes: fixture.envelopes,
   };
-  assertGroupPolicyBundleMatchesAcknowledgement({
+  const reconstructed = buildAcknowledgedGroupPolicyBundle({
     currentPolicy: fixture.currentPolicy,
     expectedHead: fixture.expectedHead,
     request: fixture.mutation,
     response: bundle,
   });
+  expect(bundle).not.toHaveProperty("previousStates");
+  expect(reconstructed.previousStates).toEqual(previousStates);
+  const substituted = {
+    ...bundle,
+    previousStates: [
+      {
+        state: {
+          ...fixture.currentPolicy.currentState,
+          stateHash: "0".repeat(64),
+        },
+        projection: [],
+        grants: [],
+      },
+    ],
+  };
+  expect(
+    buildAcknowledgedGroupPolicyBundle({
+      currentPolicy: fixture.currentPolicy,
+      expectedHead: fixture.expectedHead,
+      request: fixture.mutation,
+      response: substituted,
+    }).previousStates,
+  ).toEqual(previousStates);
 
   expect(policy.checkpoint).toEqual({
     principalType: "group",
@@ -181,7 +205,7 @@ test("group policy acknowledgements reject altered projection and envelopes", as
     previous: fixture.currentPolicy,
   });
   expect(() =>
-    assertGroupPolicyBundleMatchesAcknowledgement({
+    buildAcknowledgedGroupPolicyBundle({
       currentPolicy: fixture.currentPolicy,
       expectedHead: fixture.expectedHead,
       request: fixture.mutation,
@@ -214,7 +238,7 @@ test("group policy acknowledgements reject an omitted container result", async (
   };
 
   expect(() =>
-    assertGroupPolicyBundleMatchesAcknowledgement({
+    buildAcknowledgedGroupPolicyBundle({
       currentPolicy: fixture.currentPolicy,
       expectedHead: fixture.expectedHead,
       request,
@@ -262,7 +286,7 @@ test("group policy acknowledgements treat container wraps as an unordered set", 
   };
 
   expect(() =>
-    assertGroupPolicyBundleMatchesAcknowledgement({
+    buildAcknowledgedGroupPolicyBundle({
       currentPolicy: fixture.currentPolicy,
       expectedHead: fixture.expectedHead,
       request,
@@ -271,7 +295,7 @@ test("group policy acknowledgements treat container wraps as an unordered set", 
   ).not.toThrow();
 
   expect(() =>
-    assertGroupPolicyBundleMatchesAcknowledgement({
+    buildAcknowledgedGroupPolicyBundle({
       currentPolicy: fixture.currentPolicy,
       expectedHead: fixture.expectedHead,
       request,

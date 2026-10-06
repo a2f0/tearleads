@@ -57,11 +57,6 @@ export function assertGroupPolicyEnvelopesMatchAcknowledgement(
   }
 }
 
-function stateWithoutCreatedAt(state: PrincipalStateResponse) {
-  const { createdAt: _createdAt, ...signedState } = state;
-  return signedState;
-}
-
 function assertContainerMutationAcknowledgements(input: {
   readonly requests: readonly NonNullable<
     PutPrincipalPolicyRequest["containerMutations"]
@@ -151,25 +146,16 @@ function isAuthoredSuccessorConsistent(
   );
 }
 
-export function assertGroupPolicyBundleMatchesAcknowledgement(input: {
+export function buildAcknowledgedGroupPolicyBundle(input: {
   readonly currentPolicy: PrincipalPolicyBundleResponse;
   readonly expectedHead: ReferencedPrincipalHead;
   readonly request: PutPrincipalPolicyRequest;
   readonly response: PrincipalPolicyMutationResponse;
-}): void {
+}): PrincipalPolicyBundleResponse & PrincipalPolicyMutationResponse {
   assertContainerMutationAcknowledgements({
     requests: input.request.containerMutations ?? [],
     responses: input.response.containerMutations,
   });
-  const expectedPreviousStates = historyWithCurrent(input.currentPolicy);
-  const normalizedHistory = (
-    history: PrincipalPolicyBundleResponse["previousStates"],
-  ) =>
-    history.map((entry) => ({
-      state: stateWithoutCreatedAt(entry.state),
-      projection: normalizePrincipalProjectionMembers(entry.projection),
-      grants: normalizePrincipalContainerGrants(entry.grants),
-    }));
   const { createdAt: _payloadCreatedAt, ...observedPayload } =
     input.response.currentPayload;
   const expectedPayload = {
@@ -203,14 +189,6 @@ export function assertGroupPolicyBundleMatchesAcknowledgement(input: {
       canonicalKeyingJsonString(
         normalizePrincipalContainerGrants(input.request.grants),
         "authored group policy grants",
-      ) ||
-    canonicalKeyingJsonString(
-      normalizedHistory(input.response.previousStates),
-      "stored group policy history",
-    ) !==
-      canonicalKeyingJsonString(
-        normalizedHistory(expectedPreviousStates),
-        "expected group policy history",
       )
   ) {
     throw new Error("Group policy bundle acknowledgement mismatch");
@@ -226,6 +204,10 @@ export function assertGroupPolicyBundleMatchesAcknowledgement(input: {
     },
     input.response.currentMemberEnvelopes,
   );
+  return {
+    ...input.response,
+    previousStates: historyWithCurrent(input.currentPolicy),
+  };
 }
 
 async function assertPolicyRequestCommitments(
