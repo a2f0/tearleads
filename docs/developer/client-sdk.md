@@ -118,6 +118,7 @@ Client capabilities:
 | `tearleads.blobs` | local blob byte storage |
 | `tearleads.session` | registration, auth token, personal-org identity, and active context |
 | `tearleads.network` | online/offline state passed into sync workflows |
+| `tearleads.apiVersion` | in-memory build number from the latest API response's `X-Tearleads-Api-Version` header, for diagnostics |
 | `tearleads.events` | remote event list passed into sync workflows |
 | `tearleads.runtime` | workflow runtime input snapshots for host stores and providers |
 | `tearleads.documents` | document editing, lists, deletion, subscriptions, and runtime composition |

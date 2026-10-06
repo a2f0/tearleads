@@ -1,4 +1,5 @@
 import {
+  apiVersionHeaderName,
   operationRequestHeaderNames,
   operationResponseHeaderNames,
   protocolOperations,
@@ -7,6 +8,10 @@ import { Hono, type MiddlewareHandler } from "hono";
 import { cors } from "hono/cors";
 import { readApiPublicOrigin } from "./apiPublicOrigin";
 import { type ApiCorsOrigins, readApiCorsOrigins } from "./corsOrigins";
+import {
+  createApiVersionMiddleware,
+  readApiBuildVersion,
+} from "./diagnostics/apiVersion";
 import { createApiErrorHandler } from "./diagnostics/errorHandler";
 import { reportBackgroundFailure } from "./diagnostics/reportBackgroundFailure";
 import type { SessionEnv } from "./middleware/session";
@@ -34,6 +39,8 @@ import type { ApiServiceRuntime } from "./services/runtime";
 import { collectOrganizationReadModelChanges } from "./workflows/organizations/readModelChanges";
 
 interface RouteAppOptions {
+  /** The build stamped on every response; null omits the header. */
+  readonly apiVersion?: number | null | undefined;
   readonly corsOrigins?: ApiCorsOrigins | undefined;
   /** The origin login challenges must be signed for; see `apiPublicOrigin`. */
   readonly publicOrigin?: string | null | undefined;
@@ -45,6 +52,7 @@ const API_CORS_ALLOW_HEADERS = [
   ...new Set(protocolOperations.flatMap(operationRequestHeaderNames)),
 ];
 const API_CORS_EXPOSE_HEADERS = [
+  apiVersionHeaderName,
   ...new Set(
     protocolOperations.flatMap((operation) =>
       operationResponseHeaderNames(operation),
@@ -233,6 +241,14 @@ export function createRouteApp(
   const routeApp = createApiRouteApp();
 
   const corsOrigins = options.corsOrigins ?? readApiCorsOrigins();
+  // Ahead of CORS, which answers preflights without calling later middleware.
+  const apiVersion =
+    options.apiVersion === undefined
+      ? readApiBuildVersion()
+      : options.apiVersion;
+  if (apiVersion !== null) {
+    routeApp.use("*", createApiVersionMiddleware(apiVersion));
+  }
   routeApp.use("*", createApiCorsMiddleware(corsOrigins));
   routeApp.use("*", createReadModelHintMiddleware(deps.publish, deps.runtime));
 

@@ -47,9 +47,24 @@ The DSNs above are placeholders. The DSN is public; the upload token is private.
 `scripts/deployStaging.sh` and `scripts/deployProduction.sh` apply Ansible's API
 configuration and deploy the compiled API and web app. Ansible writes only
 `API_SENTRY_DSN` and `API_SENTRY_ENVIRONMENT` to the protected API environment
-file; the executable embeds its commit and exact source-path allowlist. Run the
-full scripts the first time so the server environment is updated. Subsequent
-`--skip-infra` deploys reuse that environment.
+file; the executable embeds its commit, exact source-path allowlist, and build
+number. Run the full scripts the first time so the server environment is
+updated. Subsequent `--skip-infra` deploys reuse that environment.
+
+The build number is `git rev-list --count HEAD` at build time. The default
+branch only gains squash-merged commits, so every deploy from it counts higher
+than the one before; nothing is persisted to track it. The API sends it on
+every response as `X-Tearleads-Api-Version` (exposed to cross-origin clients).
+A shallow clone or source archive builds without it, as does an API run from
+source, and those responses omit the header. A build from a branch counts its
+own commits on top of the merge base, so only default-branch deploys are
+comparable.
+
+Clients keep the number from the latest response in memory
+(`tearleads.apiVersion`), tag their Sentry reports with it as `api_version`,
+and show it as **API Version** in the System Monitor's Environment tab and
+support report. It is not persisted: it describes the server answering now,
+and a stored value would misattribute the first failures after a redeploy.
 
 Web deployment selects the tier DSN, builds, uploads maps, then publishes
 assets. Missing upload credentials or an upload failure stop a configured
@@ -90,6 +105,8 @@ Allowed:
   error HTTP statuses (400–599). API titles are constructed from this finite
   vocabulary; raw exception text is never sent. See API coverage below.
 - Git release, deployment environment, and target/build variant.
+- On clients, `api_version`: the build number from the API's
+  `X-Tearleads-Api-Version` response header (see above), as last heard from.
 - Up to 30 breadcrumbs containing an approved mini-app name and action, plus
   timestamps. These describe attempts/navigation, not successful server commits.
   The trail is cleared when the active identity changes or is locked.

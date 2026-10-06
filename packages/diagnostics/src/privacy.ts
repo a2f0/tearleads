@@ -59,6 +59,15 @@ function safeErrorType(
   return runtime === "api" && API_ERROR_TYPES.has(type) ? type : "Error";
 }
 
+// The API build a client last heard from: a bare commit count, which names a
+// deploy and nothing about the user or their data.
+function apiVersionTag(tags: Event["tags"]): { api_version?: string } {
+  const { api_version: version } = tags ?? {};
+  return typeof version === "string" && /^[1-9]\d{0,15}$/u.test(version)
+    ? { api_version: version }
+    : {};
+}
+
 function diagnosticPolicy(
   tags: Event["tags"],
   runtime: SentryPrivacyConfig["runtime"],
@@ -71,7 +80,7 @@ function diagnosticPolicy(
     };
   }
   return {
-    tags: { privacy: "allowlist-v1" },
+    tags: { ...apiVersionTag(tags), privacy: "allowlist-v2" },
     message: "Application error (message omitted)",
   };
 }

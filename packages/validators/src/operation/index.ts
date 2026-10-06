@@ -1,3 +1,4 @@
+export { apiVersionHeaderName, parseApiVersion } from "./apiVersion";
 export {
   type BlobAttachmentBindingPathParams,
   BlobAttachmentBindingPathParamsSchema,

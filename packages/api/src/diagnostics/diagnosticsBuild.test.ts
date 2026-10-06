@@ -4,7 +4,11 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { sanitizeSentryEvent } from "@tearleads/diagnostics/privacy";
-import { diagnosticsBuild } from "../../scripts/diagnosticsBuild";
+import {
+  apiBuildVersion,
+  apiDiagnosticsBuildOptions,
+  diagnosticsBuild,
+} from "../../scripts/diagnosticsBuild";
 import { resolveApiSentryConfig } from "./sentryConfig";
 
 test("source archives build without enabling API diagnostics", async () => {
@@ -73,4 +77,82 @@ test("the executable builder's trailing-slash root preserves absolute and relati
     })),
   );
   expect(JSON.stringify(event)).not.toContain(root);
+});
+
+// CI checks out shallow history, which builds without a version, so version
+// tests count commits in a repository they create rather than in this one.
+function git(cwd: string, ...args: string[]): void {
+  const result = Bun.spawnSync(
+    [
+      "git",
+      "-c",
+      "commit.gpgsign=false",
+      "-c",
+      "user.name=Build Test",
+      "-c",
+      "user.email=build@example.test",
+      ...args,
+    ],
+    { cwd, stdout: "ignore", stderr: "pipe" },
+  );
+  if (result.exitCode !== 0) throw new Error(result.stderr.toString());
+}
+
+function createRepository(path: string, commits: number): string {
+  git(tmpdir(), "init", "--quiet", path);
+  for (let commit = 1; commit <= commits; commit += 1) {
+    git(path, "commit", "--quiet", "--allow-empty", "-m", `commit ${commit}`);
+  }
+  return path;
+}
+
+test("the build version is HEAD's commit count, absent without full history", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "api-build-version-"));
+  try {
+    expect(apiBuildVersion(directory)).toBeNull();
+
+    const source = createRepository(join(directory, "source"), 2);
+    expect(apiBuildVersion(source)).toBe(2);
+
+    const shallow = join(directory, "shallow");
+    git(
+      directory,
+      "clone",
+      "--quiet",
+      "--depth",
+      "1",
+      `file://${source}`,
+      shallow,
+    );
+    expect(apiBuildVersion(shallow)).toBeNull();
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test("the executable builder stamps its version into the API runtime", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "api-version-build-"));
+  try {
+    const root = createRepository(join(directory, "source"), 3);
+    const fixture = join(directory, "fixture.ts");
+    await Bun.write(
+      fixture,
+      `import { readApiBuildVersion } from ${JSON.stringify(join(import.meta.dirname, "apiVersion.ts"))};
+console.log(JSON.stringify(readApiBuildVersion()));`,
+    );
+    const result = await Bun.build({
+      entrypoints: [fixture],
+      outdir: directory,
+      target: "bun",
+      define: apiDiagnosticsBuildOptions(root).define,
+    });
+    expect(result.success).toBe(true);
+    const run = Bun.spawnSync([
+      process.execPath,
+      join(directory, "fixture.js"),
+    ]);
+    expect(JSON.parse(run.stdout.toString())).toBe(3);
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
 });
