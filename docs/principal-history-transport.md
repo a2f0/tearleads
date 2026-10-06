@@ -121,6 +121,16 @@ performance improvement. In exchange, projection responses no longer embed
 complete principal histories, and cold verification progresses across bounded
 requests instead of one history-sized response.
 
+The settled folder workflow adds 8 history reads to create, 10 to link, 30 to
+unlink, 34 to move a document to Trash, 12 to move a folder to Trash, and 14 to
+restore it. Its prior non-history route budgets remain unchanged. Group creation
+adds 9 reads; adding the first roster peer to a custom group adds 42, and adding
+an existing peer adds 9. The first add also allows one fresh document projection
+when a concurrent policy advance invalidates the create-time proof. Mutation
+counts remain exact, including the single committed compound folder create.
+The root attachment-sharing fixture adds 70 public history reads (116–118 total
+requests); its existing mutation, projection and aggregate byte caps are retained.
+
 Reusing a head check for an entire runtime lifetime would also reuse an earlier
 access result and stop inspecting subsequent returned head artifacts. This
 release keeps the existing online refusal, artifact validation, and lifetime

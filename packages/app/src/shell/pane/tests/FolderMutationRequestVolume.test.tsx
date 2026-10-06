@@ -29,6 +29,8 @@ import { waitForPersonalBootstrap } from "../../../../test/helpers/waitForPerson
 import { measureWorkflowRequests } from "../../../../test/helpers/workflowRequestBudget";
 
 afterEach(cleanupPaneTestEnvironment);
+// Compact projections recheck their public history heads; keep those reads
+// separate from the existing mutation and projection-fetch budgets.
 const title = "Budget note";
 const folder = "Budget folder";
 
@@ -77,8 +79,9 @@ test("folder creation, document linking, unlinking and trash have separate reque
     label: "create child folder",
     operation: () => createChildContainer(pane, folder),
     budget: {
-      total: 3,
+      total: 11,
       byRequest: {
+        "GET /principals/history": 8,
         "GET /containers/:containerId/documents": 1,
         "POST /containers/with-metadata-document": 1,
         "POST /documents/:documentId/sync": 1,
@@ -129,8 +132,9 @@ test("folder creation, document linking, unlinking and trash have separate reque
     },
     // Link-set writes read the complete binding frontier before signing rewraps.
     budget: {
-      total: 2,
+      total: 12,
       byRequest: {
+        "GET /principals/history": 10,
         "GET /documents/:documentId/attachments": 1,
         "POST /documents/:documentId/link": 1,
       },
@@ -194,8 +198,9 @@ test("folder creation, document linking, unlinking and trash have separate reque
     budget: {
       // Validate history before accepting the local unlink, then obtain fresh
       // proof when its durable intent replays (potentially after a restart).
-      total: 5,
+      total: 35,
       byRequest: {
+        "GET /principals/history": 30,
         "GET /documents/:documentId/attachments": 1,
         "GET /documents/:documentId/writer-projection": 1,
         "POST /documents/:documentId/sync": 2,
@@ -221,8 +226,9 @@ test("folder creation, document linking, unlinking and trash have separate reque
       await expectNote(pane, "Trash", true);
     },
     budget: {
-      total: 7,
+      total: 41,
       byRequest: {
+        "GET /principals/history": 34,
         "GET /documents/:documentId/attachments": 2,
         "GET /containers/:containerId/writer-projection": 1,
         "GET /documents/:documentId/writer-projection": 1,
@@ -252,8 +258,9 @@ test("folder creation, document linking, unlinking and trash have separate reque
     },
     budget: {
       // A parent-only hint must refresh the root lane independently.
-      total: 7,
+      total: 19,
       byRequest: {
+        "GET /principals/history": 12,
         "GET /containers/:containerId/documents": 1,
         "GET /containers/:containerId/writer-projection": 0,
         "GET /documents/:documentId/writer-projection": 1,
@@ -281,8 +288,9 @@ test("folder creation, document linking, unlinking and trash have separate reque
     budget: {
       // Root reconciliation now completes and verifies the remaining system
       // slot, alongside the moved folder and destination root. No duplicate reads.
-      total: 9,
+      total: 23,
       byRequest: {
+        "GET /principals/history": 14,
         "GET /containers/:containerId/documents": 1,
         "GET /containers/:containerId/writer-projection": 3,
         "GET /documents/:documentId/writer-projection": 1,

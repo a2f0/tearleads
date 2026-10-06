@@ -19,20 +19,22 @@ import {
 } from "../../../data/persistence/locallyAcknowledgedCheckpointPersistence";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import {
-  buildMaterializedContainerCreatePlan,
-  childContainerWriterProjectionFromCreatePlan,
+  type buildMaterializedContainerCreatePlan,
   readContainerMutationMetadataDocumentId,
 } from "../../containers";
 import {
-  buildMaterializedDocumentCreatePlan,
+  type buildMaterializedDocumentCreatePlan,
   documentWriterProjectionFromCreateResponse,
   persistedDocumentCreateStateFromResponse,
   resolveDocumentCreateAuthor,
 } from "../../documents";
 import { cachePrincipalPolicyBundles } from "../../principals/policyCache";
 import { PrincipalPolicyRepairBudget } from "../../principals/policyRepairBudget";
-import { createRuntimePrincipalPolicyWarmer } from "../../principals/runtimePolicyWarmer";
 import { settleTerminalCreateFailure } from "./createTerminalFailure";
+import {
+  buildContainerWithMetadataPlans,
+  type ContainerWithMetadataPlanInput,
+} from "./createWithMetadataPlan";
 import type {
   ContainerWorkflowRuntime,
   CreatedRemoteContainerState,
@@ -292,22 +294,9 @@ async function settleContainerWithMetadataCreate(input: {
   };
 }
 
-async function createRemoteContainerWithMetadataDocumentAttempt(input: {
-  readonly author: NonNullable<ReturnType<typeof resolveDocumentCreateAuthor>>;
-  readonly containerEventId: string;
-  readonly containerId: string;
-  readonly containerKey: Uint8Array;
-  readonly containerSignedAt: string;
-  readonly metadataContentKey: Uint8Array;
-  readonly metadataEventId: string;
-  readonly metadataSignedAt: string;
-  readonly parentProjection: ContainerWriterProjectionResponse;
-  readonly parentSecretKey: Uint8Array;
-  readonly resolveProjectionUserKey: ProjectionUserKeyResolver;
-  readonly runtime: ContainerWorkflowRuntime;
-  readonly systemSlot?: ContainerSystemSlot | null | undefined;
-  readonly stillCurrent?: (() => boolean) | undefined;
-}): Promise<
+async function createRemoteContainerWithMetadataDocumentAttempt(
+  input: ContainerWithMetadataPlanInput,
+): Promise<
   | {
       readonly ok: true;
       readonly state: CreatedRemoteContainerState;
@@ -316,44 +305,9 @@ async function createRemoteContainerWithMetadataDocumentAttempt(input: {
   | null
 > {
   const execSql = input.runtime.infra.execSql;
-  // Rebuild parent- and policy-dependent hashes, signatures, and wraps on every
-  // attempt while retaining the logical mutation identities and key material.
-  const containerPlan = await buildMaterializedContainerCreatePlan({
-    author: input.author,
-    containerId: input.containerId,
-    containerKey: input.containerKey,
-    execSql,
-    eventId: input.containerEventId,
-    metadataDocumentId: input.containerId,
-    systemSlot: input.systemSlot,
-    parentProjection: input.parentProjection,
-    parentSecretKey: input.parentSecretKey,
-    resolveProjectionUserKey: input.resolveProjectionUserKey,
-    signedAt: input.containerSignedAt,
-    stillCurrent: input.stillCurrent,
-    warmReferencedPrincipalPolicies: createRuntimePrincipalPolicyWarmer(
-      input.runtime,
-    ),
-  });
-  const childProjection = childContainerWriterProjectionFromCreatePlan({
-    materializedPlan: containerPlan,
-    parentProjection: input.parentProjection,
-  });
-  const metadataDocumentPlan = await buildMaterializedDocumentCreatePlan({
-    author: input.author,
-    containerProjection: childProjection,
-    contentKey: input.metadataContentKey,
-    documentId: containerPlan.plan.metadataDocumentId,
-    eventId: input.metadataEventId,
-    execSql,
-    knownContainerKeks: new Map([
-      [containerPlan.plan.containerKeyEpochId, containerPlan.containerKey],
-    ]),
-    signedAt: input.metadataSignedAt,
-    stillCurrent: input.stillCurrent,
-    targetSecretKey: input.parentSecretKey,
-    trustedLocalProjection: true,
-  });
+  const plans = await buildContainerWithMetadataPlans(input);
+  if (!plans) return null;
+  const { containerPlan, childProjection, metadataDocumentPlan } = plans;
   const submitted = await submitContainerWithMetadataDocument({
     organizationId: containerPlan.plan.state.organizationId,
     request: {
