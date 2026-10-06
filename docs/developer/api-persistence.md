@@ -38,6 +38,8 @@ outright (`assertExactKeys`), never migrated or dual-read. Deploying any of the
 following onto a database that predates it requires the greenfield reset above
 (every server database and every client database):
 
+- #2448: the [principal directory binding index](principal-directory-bindings.md)
+  requires a reset on existing databases; both baselines include its table.
 - #2448: durable `principal_policy_commits` receipts bind exact compound
   requests to their original results. Both generated baselines include the
   table; databases that predate it require the coordinated reset.
@@ -219,6 +221,3 @@ To clear objects from the configured LocalStack bucket:
 ```sh
 sh scripts/localstack/reset.sh
 ```
-
-The [principal directory binding index](principal-directory-bindings.md) is
-also part of the greenfield baseline and requires a reset on existing databases.
