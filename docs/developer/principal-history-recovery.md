@@ -30,6 +30,9 @@ admission fails with `stale_predecessor` and requires fresh evidence. Cancellati
 prevents the batch from advancing any checkpoint. Full-bundle persistence still
 requires complete history.
 
+Older saved progress that omits the signed checkpoint entry is discarded and
+replayed from genesis when that checkpoint is required during restoration.
+
 An interrupted call leaves only provisional authenticated progress. A new call
 with the same inputs resumes at the last accepted page. Corrupt progress, a
 changed protection key, or changed verification inputs cause genesis replay.
