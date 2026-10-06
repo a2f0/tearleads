@@ -48,8 +48,8 @@ async function discoverDirectoryHead(
     );
     const state = result.data.currentState;
     return {
-      principalType: state.principalType,
-      principalId: state.principalId,
+      principalType: "organization",
+      principalId: input.organizationId,
       version: state.version,
       stateHash: state.stateHash,
       keyEpoch: state.keyEpoch,
