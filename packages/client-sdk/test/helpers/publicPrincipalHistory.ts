@@ -5,12 +5,15 @@ import type {
   PrincipalPolicySnapshotPageResponse,
 } from "@tearleads/validators/response";
 import { getClientSQLitePersistenceRuntime } from "../../src/data/sqlite/sqlitePersistenceRuntime";
+import type { TrustedUserIdentityResolver } from "../../src/data/trustedUserIdentity";
 import type { PublicPrincipalHistoryOptions } from "../../src/workflows/principals/publicPrincipalHistoryTypes";
-import type { signedRecoveryHistory } from "./principalHistoryRecovery";
 import { principalPolicyHead } from "./principalPolicyFixtures";
 
 export async function createPublicHistoryFixture(
-  history: Awaited<ReturnType<typeof signedRecoveryHistory>>,
+  history: {
+    bundle: PrincipalPolicyBundleResponse;
+    resolveTrustedUserIdentity: TrustedUserIdentityResolver;
+  },
   retained: readonly PrincipalPolicyBundleResponse[] = [],
 ) {
   const sqlite = await createTestExecSql("public-principal-history");

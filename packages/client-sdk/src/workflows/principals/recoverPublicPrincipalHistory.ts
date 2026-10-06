@@ -189,6 +189,7 @@ export async function recoverPublicPrincipalHistory(
       "object_mismatch",
       "Public organization history is outside its scope",
     );
+  // Validate the caller's pinned head before any cache or transport access.
   createPrincipalPolicyHistoryVerifier({
     principalType: options.source.head.principalType,
     principalId: options.source.head.principalId,

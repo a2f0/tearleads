@@ -68,6 +68,17 @@ export async function appendPublicPrincipalHistoryPage(
       "Public history signer identity is unavailable or mismatched",
     );
   const externalAuthority = await input.loadExternalAuthority?.(entries);
+  if (
+    externalAuthority &&
+    (externalAuthority.currentHead.principalId !== input.authorityGroupId ||
+      externalAuthority.states.some(
+        ({ head }) => head.principalId !== input.authorityGroupId,
+      ))
+  )
+    throw new KeyingVerificationError(
+      "object_mismatch",
+      "Authority callback differs from the directory binding",
+    );
   assertProjectionVerificationCurrent(stillCurrent);
   const appended = await progress.verifier.append({
     entries,

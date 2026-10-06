@@ -163,6 +163,9 @@ test("public recovery authenticates stored source proofs and replays lost eviden
     f.requests.length = 0;
     await recoverPublicPrincipalHistory(options);
     expect(f.requests).toEqual([65, 0, 32, 64]);
+    f.requests.length = 0;
+    await recoverPublicPrincipalHistory(options);
+    expect(f.requests).toEqual([65]);
   } finally {
     f.close();
   }
