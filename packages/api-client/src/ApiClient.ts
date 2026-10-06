@@ -275,11 +275,12 @@ export class ApiClient {
       this.principalPolicyRequestsByKey,
       this.clearWriterProjectionCaches,
     );
+    const projectionRequests = writerProjectionRequests(this.requestRuntime);
     this.request = this.projectionHistory.wrapRequest(
-      writerProjectionRequests(this.requestRuntime).request,
+      projectionRequests.request,
     );
     this.requestResult = this.projectionHistory.wrapRequestResult(
-      writerProjectionRequests(this.requestRuntime).requestResult,
+      projectionRequests.requestResult,
     );
     this.transport = createOperationTransport(
       this.requestRuntime.responseRequest,
