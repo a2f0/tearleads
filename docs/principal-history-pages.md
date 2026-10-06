@@ -18,27 +18,25 @@ wrong-principal, and forked successors are rejected.
 
 Between pages it retains an index frontier (at most 53 hashes), the latest
 checked entry, the most recent external admin citation, the observed
-local-checkpoint hash, and explicitly requested
+local-checkpoint hash and entry, and explicitly requested
 historical entries. A page conflicting with the local checkpoint is rejected
 after its signatures pass, before publishing its progress. Uncited states
 preserve the prior external-admin citation, so a later page cannot roll
 authority back. A successful `finish(expectedHead)` requires the exact current
 head, including its key epoch and fingerprint, and connection to the optional
-local checkpoint. Returned entries are readonly views inside a copy.
-Deliberately mutating that copy at runtime cannot change the verifier's
-progress. The verifier may continue after a successful finish, allowing callers
-to observe exact verified intermediate heads.
+local checkpoint. Returned entries are readonly copies; mutating them cannot
+change verifier progress. The verifier may continue after a successful finish
+to observe exact intermediate heads.
 
-`VerifiedPrincipalPolicyHistory` deliberately differs from a full policy
-snapshot. Its `retainedEntries` contains the requested entries encountered so
-far plus the current entry, ordered by version; callers must not index it by
-version or treat it as a complete history. At most 128 reference requests are
-accepted per verifier; duplicate versions are rejected. The factory throws
-`KeyingVerificationError` for invalid scope, checkpoints, or reference requests.
-The returned verifier has result-returning `append` and `finish` methods. These
-are batch/retention limits, not lifetime policy-version limits. A caller
-processing more historical references can consume successive verified prefixes
-in bounded batches.
+`VerifiedPrincipalPolicyHistory` is not a full snapshot. On `finish`, its
+`retainedEntries` contains reached requested entries, the reached local checkpoint,
+and the current entry, ordered by version. Do not index it by version or treat it
+as complete history. Each verifier accepts up to 128 distinct reference versions;
+checkpoint retention adds at most one entry. The factory throws
+`KeyingVerificationError` for invalid scope, checkpoints, or references. Its
+`append` and `finish` methods return results. These batch/retention limits impose
+no lifetime version limit; callers can process more references in successive
+batches.
 
 An accepted append also returns content-addressed `indexNodes`. These are
 untrusted proof material for a Merkle index whose leaves bind each accepted
@@ -57,9 +55,9 @@ An independently signed fork is insufficient: the exact entry must belong to
 this accepted prefix. Proof paths have at most 53 hashes.
 
 Successful selection returns a new capability containing only those references
-and the current entry. It does not grow the original selection or verifier.
-Changing selections therefore needs no genesis replay. Callers that need this
-reuse should export progress with a stable empty retained-reference selection,
+and the current entry, replacing any retained checkpoint. Include the checkpoint
+in the requested proofs if admission still needs it. Changing selections needs
+no genesis replay. For reuse, export progress with an empty reference selection,
 then select references after finishing. The progress input binding itself still
 requires exact normalized inputs on restoration.
 

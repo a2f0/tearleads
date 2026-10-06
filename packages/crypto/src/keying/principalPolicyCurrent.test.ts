@@ -150,7 +150,6 @@ test("checkpoint connection selects a retained version rather than its array pos
   const verifier = createPrincipalPolicyHistoryVerifier({
     ...localCheckpoint,
     localCheckpoint,
-    retainedReferences: [historyHead(second.state)],
   });
   accepted(
     await verifier.append({

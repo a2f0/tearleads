@@ -10,7 +10,7 @@ import {
   signPolicyState,
 } from "./principalPolicyTestFixtures";
 
-test("paged verification keeps only requested historical entries and the exact head", async () => {
+test("paged verification keeps requested entries, the checkpoint and exact head", async () => {
   const { shared, signer, first, second, third } = await historyFixture();
   const verifier = createPrincipalPolicyHistoryVerifier({
     principalId: shared.principalId,
@@ -47,7 +47,7 @@ test("paged verification keeps only requested historical entries and the exact h
   if (!result.ok) throw result.error;
   expect(
     result.value.retainedEntries.map((entry) => entry.state.version),
-  ).toEqual([1, 3]);
+  ).toEqual([1, 2, 3]);
   expect(result.value.currentEntry).toEqual({
     ...third.entry,
     projection: [...third.entry.projection],
