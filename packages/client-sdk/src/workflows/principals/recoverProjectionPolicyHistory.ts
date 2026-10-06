@@ -6,6 +6,7 @@ import type {
 } from "@tearleads/crypto";
 import type { ProjectionPolicyEvidenceResponse } from "@tearleads/validators/response";
 import { assertProjectionVerificationCurrent } from "../../data/keyingProjectionVerification/types";
+import { principalHeadMatchesReference } from "../../data/principals/organizationAuthorityDescriptor";
 import type { PublicPrincipalHistoryOptions } from "./publicPrincipalHistoryTypes";
 import { publicProjectionDirectoryBindings } from "./publicProjectionDirectory";
 import {
@@ -68,23 +69,31 @@ async function externalAuthority(
   const policies = await selectPublicProjectionPrincipal(admins, references);
   const states = new Map(
     policies.flatMap((policy) =>
-      policy.retainedHistory.map(
-        ({ state, projection }) =>
-          [
-            state.version,
-            {
-              head: {
-                principalType: "group" as const,
-                principalId: state.principalId,
-                version: state.version,
-                stateHash: state.stateHash,
-                keyEpoch: state.keyEpoch,
-                keyFingerprint: state.keyFingerprint,
+      // Only this page's citations and the bound source head are authority for
+      // this verification step. A retained newer prefix is not another citation.
+      policy.retainedHistory
+        .filter(({ state }) =>
+          [head, ...references].some((reference) =>
+            principalHeadMatchesReference(state, reference),
+          ),
+        )
+        .map(
+          ({ state, projection }) =>
+            [
+              state.version,
+              {
+                head: {
+                  principalType: "group" as const,
+                  principalId: state.principalId,
+                  version: state.version,
+                  stateHash: state.stateHash,
+                  keyEpoch: state.keyEpoch,
+                  keyFingerprint: state.keyFingerprint,
+                },
+                projection,
               },
-              projection,
-            },
-          ] as const,
-      ),
+            ] as const,
+        ),
     ),
   );
   return {

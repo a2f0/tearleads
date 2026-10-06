@@ -4,14 +4,19 @@ import type {
   ContainerWriterProjectionResponse,
 } from "@tearleads/validators/response";
 import type { ExecSql } from "../sqlite/sqlSchema";
-import { createProjectionCheckpointContext } from "./checkpointContext";
+import {
+  createProjectionCheckpointContext,
+  finalizeProjectionCheckpoints,
+} from "./checkpointContext";
 import { verifyContainerManifestPath } from "./containerPathVerification";
 import { addContainerWriterProjectionBundles } from "./containerProjectionVerification";
 import { verifyProjectionAuthorizationEvidence } from "./projectionAuthorizationEvidence";
+import { projectionLifetimeGuard } from "./projectionLifetimes";
 import type {
   ProjectionUserKeyResolver,
   ReferencedPrincipalPolicyWarmer,
 } from "./types";
+import { assertProjectionVerificationCurrent } from "./types";
 
 /** Authenticate immutable destination roles without advancing write-authority pins. */
 export async function verifyContainerDestinationProjection(input: {
@@ -63,5 +68,14 @@ export async function verifyContainerDestinationProjection(input: {
     resolveUserKey: input.resolveUserKey,
     verifiedByHash,
   });
+  const current = projectionLifetimeGuard(
+    checkpointContext,
+    input.stillCurrent,
+  );
+  await finalizeProjectionCheckpoints(checkpointContext, {
+    stillCurrent: current,
+    persistVerificationCheckpoints: false,
+  });
+  assertProjectionVerificationCurrent(current);
   return { path, verifiedByHash };
 }

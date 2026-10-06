@@ -22,7 +22,7 @@ export interface PublicProjectionPrincipal {
 /** The source head and every citation remain bound independently of a newer prefix. */
 export async function selectPublicProjectionPrincipal(
   principal: PublicProjectionPrincipal,
-  additional: readonly ReferencedPrincipalHead[] = [],
+  references: readonly ReferencedPrincipalHead[] = principal.references,
 ) {
   const { options } = principal;
   const current = () => !options.signal?.aborted && options.stillCurrent();
@@ -36,7 +36,7 @@ export async function selectPublicProjectionPrincipal(
     return await selectPublicPrincipalHistory({
       execSql: options.execSql,
       recovered: principal.recovered,
-      references: [options.source.head, ...principal.references, ...additional],
+      references: [options.source.head, ...references],
       checkpoint,
       includeGenesis: options.source.head.principalType === "organization",
       stillCurrent: current,
@@ -50,7 +50,7 @@ export async function selectPublicProjectionPrincipal(
       ...options,
       replay: true,
     });
-    return selectPublicProjectionPrincipal(principal, additional);
+    return selectPublicProjectionPrincipal(principal, references);
   }
 }
 
