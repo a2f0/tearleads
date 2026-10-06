@@ -1,13 +1,15 @@
 import { expect } from "bun:test";
 import { SESSION_ERROR_CODES } from "@tearleads/validators/response";
 import { HttpResponse, http } from "msw";
-import { createPrincipalPolicyBundleResponse } from "../test/helpers/apiClientTestFactories";
 import {
   apiBaseUrl,
   server,
   testApiClient,
 } from "../test/helpers/apiClientTestHarness";
-import { principalPolicyPageResponse } from "../test/helpers/principalPolicyPage";
+import {
+  principalPolicyBundleResponseFor,
+  principalPolicyPageResponse,
+} from "../test/helpers/principalPolicyPage";
 import { ApiClient } from "./ApiClient";
 
 const firstId = "11111111-1111-4111-8111-111111111111";
@@ -37,13 +39,24 @@ testApiClient(
     });
     const started = Promise.withResolvers<void>();
     const release = Promise.withResolvers<void>();
-    const bundle = createPrincipalPolicyBundleResponse();
+    const firstBundle = principalPolicyBundleResponseFor(
+      "organization",
+      firstId,
+    );
+    const secondBundle = principalPolicyBundleResponseFor(
+      "organization",
+      secondId,
+    );
     server.use(
       http.get(path, async ({ request, params }) => {
+        const { principalId } = params;
         calls += 1;
         if (request.headers.get("Authorization") === "Bearer renewed-session")
-          return HttpResponse.json(principalPolicyPageResponse(bundle));
-        const { principalId } = params;
+          return HttpResponse.json(
+            principalPolicyPageResponse(
+              principalId === firstId ? firstBundle : secondBundle,
+            ),
+          );
         if (principalId === firstId) {
           started.resolve();
           await release.promise;
@@ -56,11 +69,11 @@ testApiClient(
     try {
       expect(
         await client.getCurrentPrincipalPolicy("organization", secondId),
-      ).toEqual(bundle);
+      ).toEqual(secondBundle);
     } finally {
       release.resolve();
     }
-    expect(await first).toEqual(bundle);
+    expect(await first).toEqual(firstBundle);
     expect([calls, renewals, errors]).toEqual([4, 1, 0]);
   },
 );

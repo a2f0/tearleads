@@ -10,7 +10,10 @@ import {
   server,
   testApiClient,
 } from "../test/helpers/apiClientTestHarness";
-import { principalPolicyPageResponse } from "../test/helpers/principalPolicyPage";
+import {
+  principalPolicyBundleResponseFor,
+  principalPolicyPageResponse,
+} from "../test/helpers/principalPolicyPage";
 import { ApiClient } from "./ApiClient";
 
 const organizationId = "11111111-1111-4111-8111-111111111111";
@@ -293,7 +296,10 @@ testApiClient(
     const client = new ApiClient(apiBaseUrl);
     let reads = 0;
     let writes = 0;
-    const bundle = createPrincipalPolicyBundleResponse();
+    const bundle = principalPolicyBundleResponseFor(
+      "organization",
+      organizationId,
+    );
     const committed = { ...bundle, containerMutations: [] };
     server.use(
       http.get(

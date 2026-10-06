@@ -4,7 +4,6 @@ import {
   createContainerWriterProjectionResponse,
   createDocumentWriterProjectionResponse,
   createOrganizationGroupRequest,
-  createPrincipalPolicyBundleResponse,
   createPrincipalPolicyRequest,
 } from "../test/helpers/apiClientTestFactories";
 import {
@@ -13,22 +12,17 @@ import {
   server,
   testApiClient,
 } from "../test/helpers/apiClientTestHarness";
-import { principalPolicyPageResponse } from "../test/helpers/principalPolicyPage";
+import {
+  principalPolicyBundleResponseFor,
+  principalPolicyPageResponse,
+} from "../test/helpers/principalPolicyPage";
 import { ApiClient } from "./ApiClient";
 
 const organizationId = "11111111-1111-4111-8111-111111111111";
 
-function policyBundle(stateHash: string) {
-  const bundle = createPrincipalPolicyBundleResponse();
-  return {
-    ...bundle,
-    currentState: { ...bundle.currentState, stateHash },
-  };
-}
-
 function groupMutationResponse(
   groupId: string,
-  organizationPolicy: ReturnType<typeof policyBundle>,
+  organizationPolicy: ReturnType<typeof principalPolicyBundleResponseFor>,
 ) {
   return {
     group: {
@@ -55,8 +49,16 @@ async function assertMutationEvictsInFlightPolicyReads(
   const groupRequest = createOrganizationGroupRequest();
   const groupId = groupRequest.groupId;
   const policyRequest = createPrincipalPolicyRequest();
-  const stale = policyBundle("stale-state-hash");
-  const fresh = policyBundle("fresh-state-hash");
+  const policies = (hash: string) => ({
+    organization: principalPolicyBundleResponseFor(
+      "organization",
+      organizationId,
+      hash,
+    ),
+    group: principalPolicyBundleResponseFor("group", groupId, hash),
+  });
+  const stale = policies("stale-state-hash");
+  const fresh = policies("fresh-state-hash");
   const organizationReadStarted = createDeferred<void>();
   const groupReadStarted = createDeferred<void>();
   const releaseStaleReads = createDeferred<void>();
@@ -79,9 +81,19 @@ async function assertMutationEvictsInFlightPolicyReads(
             groupReadStarted.resolve();
           }
           await releaseStaleReads.promise;
-          return HttpResponse.json(principalPolicyPageResponse(stale));
+          return HttpResponse.json(
+            principalPolicyPageResponse(
+              principalType === "organization"
+                ? stale.organization
+                : stale.group,
+            ),
+          );
         }
-        return HttpResponse.json(principalPolicyPageResponse(fresh));
+        return HttpResponse.json(
+          principalPolicyPageResponse(
+            principalType === "organization" ? fresh.organization : fresh.group,
+          ),
+        );
       },
     ),
     http.get(`${apiBaseUrl}/containers/:containerId/writer-projection`, () => {
@@ -93,7 +105,7 @@ async function assertMutationEvictsInFlightPolicyReads(
       return HttpResponse.json(createDocumentWriterProjectionResponse());
     }),
     http.post(`${apiBaseUrl}/organizations/:organizationId/groups`, () =>
-      HttpResponse.json(groupMutationResponse(groupId, fresh)),
+      HttpResponse.json(groupMutationResponse(groupId, fresh.organization)),
     ),
     http.delete(
       `${apiBaseUrl}/organizations/:organizationId/groups/:groupId`,
@@ -102,15 +114,15 @@ async function assertMutationEvictsInFlightPolicyReads(
           deleted: true,
           groupId,
           organizationId,
-          organizationPolicy: { ...fresh, containerMutations: [] },
+          organizationPolicy: { ...fresh.organization, containerMutations: [] },
         }),
     ),
     http.put(
       `${apiBaseUrl}/organizations/:organizationId/groups/:groupId/policy-commit`,
       () =>
         HttpResponse.json({
-          groupPolicy: { ...fresh, containerMutations: [] },
-          organizationPolicy: { ...fresh, containerMutations: [] },
+          groupPolicy: { ...fresh.group, containerMutations: [] },
+          organizationPolicy: { ...fresh.organization, containerMutations: [] },
         }),
     ),
   );
@@ -155,10 +167,10 @@ async function assertMutationEvictsInFlightPolicyReads(
 
   await expect(
     Promise.all([freshOrganizationRead, freshGroupRead]),
-  ).resolves.toEqual([fresh, fresh]);
+  ).resolves.toEqual([fresh.organization, fresh.group]);
   await expect(
     Promise.all([staleOrganizationRead, staleGroupRead]),
-  ).resolves.toEqual([stale, stale]);
+  ).resolves.toEqual([stale.organization, stale.group]);
   expect(policyReadCounts).toEqual(
     new Map([
       [`organization:${organizationId}`, 2],
