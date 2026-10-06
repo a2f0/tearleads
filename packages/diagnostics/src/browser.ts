@@ -64,6 +64,7 @@ export function createBrowserDiagnostics(config: SentryConfig): WebDiagnostics {
         });
       }
     },
+    setApiVersion: (version) => scope.setTag("api_version", String(version)),
     flush: () => client.flush(2000),
     dispose() {
       window.removeEventListener("error", onError);

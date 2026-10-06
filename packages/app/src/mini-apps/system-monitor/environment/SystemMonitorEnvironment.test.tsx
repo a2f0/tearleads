@@ -105,6 +105,12 @@ test("environment tab reports the backend api and websocket urls", async () => {
   expect(view.getByText(ENVIRONMENT_LABELS.apiUrl)).toBeTruthy();
   expect(view.getByText(ENVIRONMENT_LABELS.wsUrl)).toBeTruthy();
   expect(view.getByText("http://localhost:3001")).toBeTruthy();
+  // No test response carries a build header, so the row holds its place as
+  // unknown rather than disappearing.
+  const apiVersionRow = view
+    .getByText(ENVIRONMENT_LABELS.apiVersion)
+    .closest("tr");
+  expect(apiVersionRow?.textContent).toContain("unknown");
 
   view.unmount();
 });

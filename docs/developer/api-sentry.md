@@ -26,8 +26,9 @@ allowlist. `api_stack=capture-site` distinguishes where the error was reported
 from the original throw site (`original`); `unavailable` means neither stack
 had an approved frame. Maintenance entrypoints are explicitly allowlisted too.
 This preserves diagnostic locations without enabling automatic integrations.
-The transport validates the vocabulary again. Client and desktop reporting
-retain `allowlist-v1`; the API additions do not expand their collection policy.
+The transport validates the vocabulary again. The API additions do not expand
+client and desktop collection, which uses `allowlist-v2`: `allowlist-v1` plus
+the API build number the client last heard from (`api_version`).
 
 The hourly deduplication includes these safe fields and locations, so unrelated
 operations or recognized error codes do not collapse into one frameless error.

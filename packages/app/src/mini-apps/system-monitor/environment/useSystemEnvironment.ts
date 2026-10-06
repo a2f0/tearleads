@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { useApiVersion } from "../../../providers/api/useApiVersion";
 import { useAppHostConfig } from "../../../providers/host/AppHostConfigProvider";
 import { useOptionalTheme } from "../../../theme/ThemeProvider";
 import {
@@ -39,6 +40,7 @@ export const ENVIRONMENT_LABELS = {
   buildCommit: "Build Commit",
   apiUrl: "API URL",
   wsUrl: "WebSocket URL",
+  apiVersion: "API Version",
   appTheme: "App Theme",
   osColorScheme: "OS Color Scheme",
   reducedMotion: "Reduced Motion",
@@ -70,6 +72,7 @@ export function useSystemEnvironment(): ReadonlyArray<EnvironmentRow> {
   const storage = useStorageEstimateLabel();
   const buildNumber = useNativeBuildNumber(hostConfig.readNativeBuildNumber);
   const highEntropyHints = useHighEntropyHints();
+  const apiVersion = useApiVersion();
 
   const buildInfo = hostConfig.buildInfo;
   const { apiBaseUrl, wsUrl } = hostConfig;
@@ -111,6 +114,14 @@ export function useSystemEnvironment(): ReadonlyArray<EnvironmentRow> {
       // from an invisible failure into a one-glance diagnosis.
       { label: ENVIRONMENT_LABELS.apiUrl, value: apiBaseUrl },
       { label: ENVIRONMENT_LABELS.wsUrl, value: wsUrl },
+      // The API build that answered most recently, from its version header: the
+      // commit count it was built from, so a higher number is a newer deploy.
+      // Unknown until the first response, and for an API run from source.
+      {
+        label: ENVIRONMENT_LABELS.apiVersion,
+        value:
+          apiVersion === null ? UNKNOWN_ENVIRONMENT_VALUE : String(apiVersion),
+      },
       // The app's own theme and the OS preference are reported separately
       // because they disagree routinely — the app theme is a stored user choice,
       // not a mirror of the OS — and "the app is dark but the OS is light" is
@@ -137,6 +148,7 @@ export function useSystemEnvironment(): ReadonlyArray<EnvironmentRow> {
   }, [
     activeTheme,
     apiBaseUrl,
+    apiVersion,
     buildInfo,
     buildNumber,
     osColorScheme,
