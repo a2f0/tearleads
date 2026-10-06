@@ -1,7 +1,7 @@
 import { AsyncLocalStorage } from "node:async_hooks";
 import type { ApiDatabase } from "@tearleads/api-shared/postgres";
 import type { ReferencedPrincipalHead } from "@tearleads/crypto";
-import { PrincipalPolicyError } from "./shared";
+import { PrincipalHistoryPreparationUnavailable } from "./principalHistoryPreparationUnavailable";
 
 interface ScheduledPreparation {
   readonly run: () => Promise<void>;
@@ -10,9 +10,8 @@ interface ScheduledPreparation {
 }
 
 const unavailable = () =>
-  new PrincipalPolicyError(
+  new PrincipalHistoryPreparationUnavailable(
     "Principal history preparation is busy; retry later",
-    503,
   );
 
 /** One active page per principal; waiting principals take turns between pages. */

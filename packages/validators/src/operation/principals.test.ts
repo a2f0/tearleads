@@ -13,6 +13,7 @@ import {
   PrincipalPolicyPageResponseSchema,
   SessionFailureResponseSchema,
 } from "../response";
+import { PrincipalHistoryPreparationFailureResponseSchema } from "../response/principalHistoryPreparation";
 import { operationRequestPath, operationRoutePath } from "./definition";
 import {
   commitOrganizationGroupPolicyOperation,
@@ -59,7 +60,7 @@ test("principal policy operations own their HTTP contracts", () => {
     404: PrincipalPolicyErrorResponseSchema,
     409: PrincipalPolicyErrorResponseSchema,
     500: ErrorResponseSchema,
-    503: PrincipalPolicyErrorResponseSchema,
+    503: PrincipalHistoryPreparationFailureResponseSchema,
   });
 });
 
@@ -80,7 +81,7 @@ test("compound organization group policy commits declare billing failures", () =
     404: PrincipalPolicyErrorResponseSchema,
     409: CommitOrganizationGroupPolicyConflictResponseSchema,
     500: ErrorResponseSchema,
-    503: PrincipalPolicyErrorResponseSchema,
+    503: PrincipalHistoryPreparationFailureResponseSchema,
   });
 });
 

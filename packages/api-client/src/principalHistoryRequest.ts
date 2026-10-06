@@ -77,7 +77,13 @@ function preserveCommitUncertainty(
   // Inner write errors are silent until this final classification is known.
   const ambiguous =
     failure.kind !== "http" ||
-    (failure.status ?? 0) >= 500 ||
+    ((failure.status ?? 0) >= 500 &&
+      // The declared 503 schema requires the exact code and committed:false.
+      // Unvalidated codes never reach RequestFailure.code.
+      !(
+        failure.status === 503 &&
+        failure.code === "principal_history_preparation_unavailable"
+      )) ||
     failure.status === 408 ||
     failure.status === 499;
   const result =

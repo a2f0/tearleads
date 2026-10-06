@@ -17,6 +17,7 @@ import {
   type PrincipalHistoryPreparationRequest,
   PrincipalHistoryPreparationRequired,
 } from "./principalHistoryPreparationRequest";
+import { PrincipalHistoryPreparationUnavailable } from "./principalHistoryPreparationUnavailable";
 import { schedulePrincipalHistoryPreparation } from "./principalHistoryScheduler";
 import { PrincipalPolicyError } from "./shared";
 
@@ -97,9 +98,8 @@ async function prepareContinuation(
     progressToken === before &&
     (!prepared.complete || request.head.version > committed.version)
   )
-    throw new PrincipalPolicyError(
+    throw new PrincipalHistoryPreparationUnavailable(
       "Principal history preparation made no progress",
-      503,
     );
   throw new PrincipalHistoryContinuation(progressToken);
 }

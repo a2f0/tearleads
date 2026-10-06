@@ -11,6 +11,7 @@ import {
 } from "./preparePrincipalHistory";
 import { withBoundedPrincipalHistory } from "./principalHistoryExecution";
 import { PrincipalHistoryPreparationRequired } from "./principalHistoryPreparationRequest";
+import { PrincipalHistoryPreparationUnavailable } from "./principalHistoryPreparationUnavailable";
 import {
   PrincipalHistoryContinuation,
   runPrincipalHistoryTransaction,
@@ -79,15 +80,17 @@ test("a rolled-back successor prepares its committed prefix before rechecking fu
     .where(eq(principalHistoryProgress.principalId, head.principalId));
   expect(progress.map((row) => row.version)).toEqual([3]);
   expect(progress[0]?.stateHash).toBe(head.stateHash);
-  await expect(
-    runPrincipalHistoryTransaction(db, async () => {
-      throw new PrincipalHistoryPreparationRequired({
-        head: successor,
-        kind: "authority",
-        retainedReferences: [successor],
-      });
-    }),
-  ).rejects.toMatchObject({
+  const attempt = runPrincipalHistoryTransaction(db, async () => {
+    throw new PrincipalHistoryPreparationRequired({
+      head: successor,
+      kind: "authority",
+      retainedReferences: [successor],
+    });
+  });
+  await expect(attempt).rejects.toBeInstanceOf(
+    PrincipalHistoryPreparationUnavailable,
+  );
+  await expect(attempt).rejects.toMatchObject({
     status: 503,
     message: "Principal history preparation made no progress",
   });
