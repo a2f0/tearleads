@@ -120,7 +120,7 @@ test.each(["key", "context", "current", "proof"] as const)(
   },
 );
 
-test("offline recovery still refuses a newer durable checkpoint", async () => {
+test("offline recovery reports an unavailable prefix behind a durable checkpoint", async () => {
   const fixture = await cachedFixture();
   try {
     await fixture.db
@@ -138,7 +138,7 @@ test("offline recovery still refuses a newer durable checkpoint", async () => {
         ...fixture.options,
         offline: true,
       }),
-    ).rejects.toMatchObject({ code: "rollback" });
+    ).rejects.toMatchObject({ code: "missing_dependency" });
     expect(fixture.requests).toEqual([]);
     expect(
       (await fixture.db.select().from(principalPolicyCheckpoints))[0]?.version,

@@ -18,6 +18,8 @@ The SDK clears each returned key after use, and never exposes its private lease
 through `runtime.input()`. Leases check database, identity, session and disposal
 lifetimes before and after asynchronous work. Without a provider, a private
 ephemeral key permits same-runtime reuse; a restart safely requires replay.
+Refreshing a session token expires outstanding leases while retaining that key
+for the same database, signing identity and API trust domain.
 Provider failures propagate instead of silently changing keys.
 
 The app derives a separate purpose from its existing protected SQLite keyring

@@ -17,13 +17,12 @@ interface RuntimeProtectionScope extends PrincipalHistoryKeyScope {
   readonly generation: number;
 }
 
-function sameScope(
+function sameKeyScope(
   a: RuntimeProtectionScope | null,
   b: RuntimeProtectionScope,
 ): boolean {
   return (
     a?.database === b.database &&
-    a.generation === b.generation &&
     a.identityTrustDomain === b.identityTrustDomain &&
     a.signingFingerprint === b.signingFingerprint
   );
@@ -51,10 +50,17 @@ export function createPrincipalHistoryProtectionCustody(input: {
         clearEphemeral();
         return undefined;
       }
-      if (ephemeral && !sameScope(ephemeral.scope, scope)) clearEphemeral();
+      if (ephemeral && !sameKeyScope(ephemeral.scope, scope)) clearEphemeral();
       const boundRetirement = retirement;
-      const stillCurrent = () =>
-        retirement === boundRetirement && sameScope(input.readScope(), scope);
+      const boundGeneration = scope.generation;
+      const stillCurrent = () => {
+        const current = input.readScope();
+        return (
+          retirement === boundRetirement &&
+          current?.generation === boundGeneration &&
+          sameKeyScope(current, scope)
+        );
+      };
       const context = JSON.stringify([
         "tearleads.sdk.principal-history.runtime.v1",
         scope.identityTrustDomain,
