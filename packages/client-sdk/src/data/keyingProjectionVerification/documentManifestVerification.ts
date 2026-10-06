@@ -1,5 +1,4 @@
 import {
-  type AnyVerifiedPrincipalPolicy,
   KeyingVerificationError,
   type VerifiedContainerAccessManifest,
   type VerifiedDocumentLinkSetManifest,
@@ -11,6 +10,7 @@ import type {
   DocumentWriterProjectionResponse,
 } from "@tearleads/validators/response";
 import { readCanonicalJson } from "../keyingCanonicalJson";
+import type { PrincipalPolicyCheckpointEvidence } from "../principals/principalPolicyEvidence";
 import {
   addBundleByHash,
   assertCanonicalEqual,
@@ -40,7 +40,7 @@ type PolicyWarmer = ReferencedPrincipalPolicyWarmer | undefined;
 export async function verifyDocumentManifestBundle(input: {
   readonly authorizationMembership?: "current" | "referenced" | undefined;
   readonly authorizationEvidence?:
-    | readonly AnyVerifiedPrincipalPolicy[]
+    | readonly PrincipalPolicyCheckpointEvidence[]
     | undefined;
   readonly bundle: AccessManifestBundleWireResponse;
   readonly bundlesByHash: ReadonlyMap<string, AccessManifestBundleWireResponse>;

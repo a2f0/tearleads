@@ -1,11 +1,16 @@
 import { and, eq } from "drizzle-orm";
 import { assertProjectionVerificationCurrent } from "../keyingProjectionVerification/types";
+import { principalHistoryEvidenceTables } from "../sqlite/principalHistoryEvidenceSchema";
 import {
   principalHistoryStages,
   principalHistoryStageTables,
 } from "../sqlite/principalHistoryStageSchema";
 import { getClientSQLitePersistenceRuntime } from "../sqlite/sqlitePersistenceRuntime";
 import { type ExecSql, ensureSqlTables } from "../sqlite/sqlSchema";
+import {
+  type PrincipalHistoryEvidencePage,
+  writePrincipalHistoryEvidencePage,
+} from "./principalHistoryEvidencePersistence";
 
 export type PrincipalHistoryStage = typeof principalHistoryStages.$inferSelect;
 
@@ -30,15 +35,20 @@ export async function loadPrincipalHistoryStage(execSql: ExecSql, id: string) {
   return row ?? null;
 }
 
-/** The checked evidence lives inside authenticated progress, in the same row. */
+/** Publish accepted entries and index nodes atomically with authenticated progress. */
 export async function savePrincipalHistoryStage(input: {
   readonly execSql: ExecSql;
   readonly stage: PrincipalHistoryStage;
+  readonly evidence: PrincipalHistoryEvidencePage;
   readonly previousProgress: string | null;
   readonly stillCurrent: () => boolean;
 }): Promise<void> {
   const stage = { ...input.stage };
-  await ensureSqlTables(input.execSql, principalHistoryStageTables);
+  const evidence = structuredClone(input.evidence);
+  await ensureSqlTables(input.execSql, [
+    ...principalHistoryStageTables,
+    ...principalHistoryEvidenceTables,
+  ]);
   const runtime = getClientSQLitePersistenceRuntime(input.execSql);
   const saved = await runtime.guardedTransaction(
     async (tx) => {
@@ -49,6 +59,7 @@ export async function savePrincipalHistoryStage(input: {
         .limit(1);
       if ((previous?.progress ?? null) !== input.previousProgress)
         throw new PrincipalHistoryStageChangedError();
+      await writePrincipalHistoryEvidencePage(tx, evidence);
       await tx
         .insert(principalHistoryStages)
         .values(stage)

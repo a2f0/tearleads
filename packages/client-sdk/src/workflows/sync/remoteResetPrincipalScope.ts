@@ -1,4 +1,9 @@
 import { and, eq, or } from "drizzle-orm";
+import {
+  principalHistoryEntries,
+  principalHistoryNodes,
+  principalHistoryPrefixes,
+} from "../../data/sqlite/principalHistoryEvidenceSchema";
 import { principalHistoryStages } from "../../data/sqlite/principalHistoryStageSchema";
 import {
   principalPolicies,
@@ -112,6 +117,15 @@ export async function clearRemoteResetPrincipalRows(input: {
   snapshot: { principalKeys: readonly RemoteResetPrincipalKey[] };
   tx: ClientSQLiteTransactionScope;
 }): Promise<void> {
+  for (const table of [
+    principalHistoryEntries,
+    principalHistoryNodes,
+    principalHistoryPrefixes,
+  ])
+    await input.tx
+      .delete(table)
+      .where(eq(table.organizationId, input.organizationId))
+      .run();
   await input.tx
     .delete(principalHistoryStages)
     .where(eq(principalHistoryStages.organizationId, input.organizationId))

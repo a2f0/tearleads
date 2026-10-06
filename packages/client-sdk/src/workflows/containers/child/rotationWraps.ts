@@ -5,7 +5,6 @@ import type {
   ContainerKeyWrap,
   ContainerUserRecipientKey,
   ReferencedPrincipalHead,
-  VerifiedPrincipalPolicy,
 } from "@tearleads/crypto";
 import type { ContainerKekResponse } from "@tearleads/validators/response";
 import {
@@ -14,12 +13,13 @@ import {
   wrapContainerKeyToRootUser,
 } from "../../../data/containers/shared/projection";
 import type { ProjectionUserKeyResolver } from "../../../data/keyingProjectionVerification";
+import type { PrincipalPolicyCurrentEvidence } from "../../../data/principals/principalPolicyEvidence";
 
 function findPrincipalPolicy(input: {
   operationLabel: string;
-  principalPolicies: readonly VerifiedPrincipalPolicy[];
+  principalPolicies: readonly PrincipalPolicyCurrentEvidence[];
   reference: ReferencedPrincipalHead;
-}): VerifiedPrincipalPolicy {
+}): PrincipalPolicyCurrentEvidence {
   const policy = input.principalPolicies.find(
     (candidate) =>
       candidate.principalType === input.reference.principalType &&
@@ -69,7 +69,7 @@ export async function buildContainerRotationWraps(input: {
   operationLabel: string;
   parentKek: ContainerKekResponse | null;
   parentPublicKey: string | null;
-  principalPolicies: readonly VerifiedPrincipalPolicy[];
+  principalPolicies: readonly PrincipalPolicyCurrentEvidence[];
   resolveUserKey: ProjectionUserKeyResolver;
   state: ContainerAccessManifestState;
 }): Promise<{

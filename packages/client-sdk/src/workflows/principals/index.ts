@@ -10,3 +10,8 @@ export {
   type RecoverPrincipalPolicyHistoryOptions,
 } from "./principalHistoryRecoveryTypes";
 export { recoverPrincipalPolicyHistory } from "./recoverPrincipalPolicyHistory";
+export {
+  type RecoveredScopedPrincipalPolicyHistory,
+  type RecoverScopedPrincipalPolicyHistoryOptions,
+  recoverScopedPrincipalPolicyHistory,
+} from "./recoverScopedPrincipalPolicyHistory";

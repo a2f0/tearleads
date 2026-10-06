@@ -1,4 +1,3 @@
-import type { VerifiedPrincipalPolicy } from "@tearleads/crypto";
 import type { ContainerWriterProjectionResponse } from "@tearleads/validators/response";
 import { uniquePrincipalPolicies } from "../../../data/containers/shared/principalPolicies";
 import {
@@ -7,6 +6,7 @@ import {
   type ProjectionUserKeyResolver,
   type ReferencedPrincipalPolicyWarmer,
 } from "../../../data/keyingProjectionVerification";
+import type { PrincipalPolicyCurrentEvidence } from "../../../data/principals/principalPolicyEvidence";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 
 /**
@@ -22,7 +22,7 @@ export async function collectContainerRevokePrincipalPolicies(input: {
   resolveUserKey: ProjectionUserKeyResolver;
   stillCurrent?: (() => boolean) | undefined;
   warmReferencedPrincipalPolicies?: ReferencedPrincipalPolicyWarmer | undefined;
-}): Promise<VerifiedPrincipalPolicy[]> {
+}): Promise<PrincipalPolicyCurrentEvidence[]> {
   return uniquePrincipalPolicies(
     await collectContainerWriterProjectionPrincipalPolicies({
       execSql: input.execSql,

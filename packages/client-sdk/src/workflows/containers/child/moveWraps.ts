@@ -1,7 +1,4 @@
-import type {
-  ContainerAccessManifestState,
-  VerifiedPrincipalPolicy,
-} from "@tearleads/crypto";
+import type { ContainerAccessManifestState } from "@tearleads/crypto";
 import type {
   ContainerKekResponse,
   ContainerWriterProjectionResponse,
@@ -14,6 +11,7 @@ import {
   type ProjectionUserKeyResolver,
   type ReferencedPrincipalPolicyWarmer,
 } from "../../../data/keyingProjectionVerification";
+import type { PrincipalPolicyCurrentEvidence } from "../../../data/principals/principalPolicyEvidence";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import { buildContainerRotationWraps } from "./rotationWraps";
 
@@ -24,7 +22,7 @@ export async function collectContainerMovePrincipalPolicies(input: {
   resolveUserKey: ProjectionUserKeyResolver;
   stillCurrent?: (() => boolean) | undefined;
   warmReferencedPrincipalPolicies?: ReferencedPrincipalPolicyWarmer | undefined;
-}): Promise<VerifiedPrincipalPolicy[]> {
+}): Promise<PrincipalPolicyCurrentEvidence[]> {
   const [sourcePolicies, destinationParentPolicies] = await Promise.all([
     collectContainerWriterProjectionPrincipalPolicies({
       execSql: input.execSql,
@@ -48,7 +46,7 @@ export async function collectContainerMovePrincipalPolicies(input: {
 }
 
 export async function buildContainerMoveWraps(input: {
-  principalPolicies: readonly VerifiedPrincipalPolicy[];
+  principalPolicies: readonly PrincipalPolicyCurrentEvidence[];
   containerKey: Uint8Array;
   containerKeyEpochId: string;
   destinationParentKek: ContainerKekResponse;

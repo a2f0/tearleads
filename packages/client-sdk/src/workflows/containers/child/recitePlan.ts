@@ -1,5 +1,4 @@
 import {
-  type AnyVerifiedPrincipalPolicy,
   computeAccessManifestHash,
   deriveContainerAccessManifest,
   KeyingVerificationError,
@@ -16,11 +15,12 @@ import {
   canonicalKeyingJsonString,
   readCanonicalRecord,
 } from "../../../data/keyingCanonicalJson";
+import type { PrincipalPolicyCheckpointEvidence } from "../../../data/principals/principalPolicyEvidence";
 
 export function referencedRecitationPolicies(
   path: readonly HeldContainerHead[],
-  policies: readonly AnyVerifiedPrincipalPolicy[],
-): readonly AnyVerifiedPrincipalPolicy[] {
+  policies: readonly PrincipalPolicyCheckpointEvidence[],
+): readonly PrincipalPolicyCheckpointEvidence[] {
   const referencedIds = new Set(
     path.flatMap((head) =>
       head.state.referencedPrincipalHeads.map(
@@ -36,7 +36,7 @@ export function referencedRecitationPolicies(
 export async function buildContainerRecitePlan(input: {
   readonly author: ContainerMutationAuthor;
   readonly path: readonly HeldContainerHead[];
-  readonly policies: readonly AnyVerifiedPrincipalPolicy[];
+  readonly policies: readonly PrincipalPolicyCheckpointEvidence[];
 }) {
   const previous = input.path.at(-1);
   if (!previous) throw new Error("Recitation requires a held container path");

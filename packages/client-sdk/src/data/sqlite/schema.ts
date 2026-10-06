@@ -38,6 +38,12 @@ import {
 } from "./organizationReadModelTableRegistry";
 import { principalGrantRetirements } from "./principalGrantRetirementSchema";
 import {
+  principalHistoryEntries,
+  principalHistoryEvidenceTables,
+  principalHistoryNodes,
+  principalHistoryPrefixes,
+} from "./principalHistoryEvidenceSchema";
+import {
   principalHistoryStages,
   principalHistoryStageTables,
 } from "./principalHistoryStageSchema";
@@ -674,6 +680,7 @@ export const principalPolicyTables: ReadonlyArray<SqlTableSchema> = [
   defineSqlTableSchema(principalPolicyBundleReferences),
   defineSqlTableSchema(principalPolicyOrganizations),
   ...principalHistoryStageTables,
+  ...principalHistoryEvidenceTables,
 ];
 
 export const keyingCheckpointTables: ReadonlyArray<SqlTableSchema> = [
@@ -760,6 +767,9 @@ export const clientSqlTables: ReadonlyArray<SqlTableSchema> = [
 ];
 
 export const clientSQLiteSchema = {
+  principalHistoryEntries,
+  principalHistoryNodes,
+  principalHistoryPrefixes,
   principalHistoryStages,
   organizationFounders,
   principalGrantRetirements,

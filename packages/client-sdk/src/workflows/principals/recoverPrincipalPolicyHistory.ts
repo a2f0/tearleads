@@ -1,28 +1,49 @@
 import type { PrincipalPolicyPageCurrent } from "@tearleads/api-client";
 import {
+  createPrincipalPolicyHistoryVerifier,
   KeyingVerificationError,
   type PrincipalPolicyCheckpoint,
   type PrincipalPolicyHistoryInput,
+  verifyPrincipalPolicyCheckpoint,
   verifyPrincipalPolicyCurrent,
 } from "@tearleads/crypto";
 import type { PrincipalPolicyPageResponse } from "@tearleads/validators/response";
 import { assertProjectionVerificationCurrent } from "../../data/keyingProjectionVerification/types";
 import { loadPrincipalPolicyCheckpoint } from "../../data/persistence/keyingCheckpointPersistence";
+import { preparePrincipalHistoryEvidencePage } from "../../data/persistence/principalHistoryEvidencePersistence";
 import {
   discardPrincipalHistoryStage,
   savePrincipalHistoryStage,
 } from "../../data/persistence/principalHistoryStagePersistence";
+import { ownPrincipalHistoryProtection } from "../../data/principals/principalHistoryProtection";
 import { principalHistoryStageProtection } from "../../data/principals/principalHistoryStageProtection";
 import { collectPrincipalPolicySignerPublicKeys } from "./policyVerification";
+import { publishReusablePrincipalHistoryPrefix } from "./principalHistoryRecoveryPrefix";
+import {
+  PrincipalHistoryEvidenceUnavailableError,
+  selectRecoveredPrincipalHistory,
+} from "./principalHistoryRecoveryReferences";
 import {
   type PrincipalHistoryRecoveryStage,
   restorePrincipalHistoryRecoveryStage,
 } from "./principalHistoryRecoveryStage";
 import {
+  PrincipalHistoryRecoveryRaceError,
   PrincipalPolicyHistoryReadError,
   type RecoveredPrincipalPolicyHistory,
   type RecoverPrincipalPolicyHistoryOptions,
 } from "./principalHistoryRecoveryTypes";
+import {
+  assertPrincipalHistoryVerificationMode,
+  principalHistoryVerificationContext,
+} from "./principalHistoryRecoveryVerification";
+
+class PrincipalHistoryPrefixDisconnectedError extends Error {
+  constructor(readonly verificationError: KeyingVerificationError) {
+    super(verificationError.message);
+    this.name = "PrincipalHistoryPrefixDisconnectedError";
+  }
+}
 
 function currentArtifacts(
   page: PrincipalPolicyPageResponse,
@@ -36,10 +57,34 @@ function currentArtifacts(
   };
 }
 
+function recoveryIsCurrent(
+  input: RecoverPrincipalPolicyHistoryOptions,
+): boolean {
+  return !input.signal?.aborted && input.stillCurrent();
+}
+
 function assertCurrent(input: RecoverPrincipalPolicyHistoryOptions): void {
-  assertProjectionVerificationCurrent(
-    () => !input.signal?.aborted && input.stillCurrent(),
-  );
+  assertProjectionVerificationCurrent(() => recoveryIsCurrent(input));
+}
+
+function assertExpectedHead(
+  current: PrincipalPolicyPageCurrent,
+  expectedHead: RecoverPrincipalPolicyHistoryOptions["expectedHead"],
+): void {
+  for (const field of [
+    "principalType",
+    "principalId",
+    "version",
+    "stateHash",
+    "keyEpoch",
+    "keyFingerprint",
+  ] as const) {
+    if (current.currentState[field] !== expectedHead[field])
+      throw new KeyingVerificationError(
+        "object_mismatch",
+        "Principal history page does not match its requested head",
+      );
+  }
 }
 
 async function acceptPage(
@@ -49,21 +94,8 @@ async function acceptPage(
 ): Promise<void> {
   const page = structuredClone(response);
   assertCurrent(input);
-  for (const field of [
-    "principalType",
-    "principalId",
-    "version",
-    "stateHash",
-    "keyEpoch",
-    "keyFingerprint",
-  ] as const) {
-    if (page.currentState[field] !== input.expectedHead[field])
-      throw new KeyingVerificationError(
-        "object_mismatch",
-        "Principal history page does not match its requested head",
-      );
-  }
-  if (stage.saved?.complete) {
+  assertExpectedHead(page, input.expectedHead);
+  if (stage.complete) {
     if (
       page.previousStates.length !== 0 ||
       page.historyPage.nextAfterVersion !== null
@@ -72,6 +104,7 @@ async function acceptPage(
         "invalid_shape",
         "Completed history returned additional entries",
       );
+    stage.current = currentArtifacts(page);
     return;
   }
   const complete = page.historyPage.nextAfterVersion === null;
@@ -83,6 +116,7 @@ async function acceptPage(
       projection: current.currentProjection,
       grants: current.currentGrants,
     });
+  assertPrincipalHistoryVerificationMode(input, entries);
   const keys = await collectPrincipalPolicySignerPublicKeys({
     bundle: { ...current, previousStates: page.previousStates },
     resolveTrustedUserIdentity: input.resolveTrustedUserIdentity,
@@ -98,7 +132,11 @@ async function acceptPage(
     signerPublicKeys: keys.signerPublicKeys,
     ...(externalAuthority ? { externalAuthority } : {}),
   });
-  if (!appended.ok) throw appended.error;
+  if (!appended.ok) {
+    if (appended.error.code === "stale_predecessor")
+      throw new PrincipalHistoryPrefixDisconnectedError(appended.error);
+    throw appended.error;
+  }
   const next = {
     id: stage.id,
     organizationId: input.organizationId,
@@ -118,11 +156,18 @@ async function acceptPage(
   await savePrincipalHistoryStage({
     execSql: input.execSql,
     stage: saved,
+    evidence: await preparePrincipalHistoryEvidencePage({
+      scopeId: stage.scopeId,
+      organizationId: input.organizationId,
+      entries,
+      nodes: appended.value.indexNodes,
+    }),
     previousProgress: stage.saved?.progress ?? null,
-    stillCurrent: () => !input.signal?.aborted && input.stillCurrent(),
+    stillCurrent: () => recoveryIsCurrent(input),
   });
   stage.current = current;
   stage.saved = saved;
+  stage.complete = complete;
 }
 
 async function finishRecovery(
@@ -130,18 +175,29 @@ async function finishRecovery(
   stage: PrincipalHistoryRecoveryStage,
   checkpoint: PrincipalPolicyCheckpoint | null,
 ): Promise<RecoveredPrincipalPolicyHistory> {
-  if (!stage.current || !stage.saved?.complete)
+  if (!stage.current || !stage.complete)
     throw new KeyingVerificationError(
       "missing_dependency",
       "Principal history ended before its pinned head",
     );
   const history = stage.verifier.finish(input.expectedHead);
   if (!history.ok) throw history.error;
+  const selected = await selectRecoveredPrincipalHistory({
+    options: input,
+    scopeId: stage.scopeId,
+    history: history.value,
+    checkpoint,
+  });
   const current = await verifyPrincipalPolicyCurrent({
     current: stage.current,
-    history: history.value,
+    history: selected,
   });
   if (!current.ok) throw current.error;
+  verifyPrincipalPolicyCheckpoint({
+    chain: current.value.retainedHistory,
+    currentState: current.value.state,
+    localCheckpoint: checkpoint,
+  });
   const latest = await loadPrincipalPolicyCheckpoint(
     input.execSql,
     input.expectedHead.principalType,
@@ -151,35 +207,34 @@ async function finishRecovery(
     latest?.version !== checkpoint?.version ||
     latest?.stateHash !== checkpoint?.stateHash
   )
-    throw new KeyingVerificationError(
-      "stale_predecessor",
+    throw new PrincipalHistoryRecoveryRaceError(
       "Local principal checkpoint changed during history recovery",
+    );
+  assertCurrent(input);
+  if (!input.offline)
+    await publishReusablePrincipalHistoryPrefix(
+      input,
+      stage.scopeId,
+      stage.verifier,
+      stage.current,
     );
   assertCurrent(input);
   return { current: stage.current, policy: current.value };
 }
 
-async function recover(
+async function readRecoveryPages(
   input: RecoverPrincipalPolicyHistoryOptions,
-): Promise<RecoveredPrincipalPolicyHistory> {
-  assertCurrent(input);
-  const checkpoint = await loadPrincipalPolicyCheckpoint(
-    input.execSql,
-    input.expectedHead.principalType,
-    input.expectedHead.principalId,
-  );
-  if (checkpoint && input.expectedHead.version < checkpoint.version)
-    throw new KeyingVerificationError(
-      "rollback",
-      "Requested principal history predates the local checkpoint",
-    );
-  const historyInput: PrincipalPolicyHistoryInput = {
-    principalType: input.expectedHead.principalType,
-    principalId: input.expectedHead.principalId,
-    localCheckpoint: checkpoint,
-    retainedReferences: input.retainedReferences ?? [],
-  };
-  const stage = await restorePrincipalHistoryRecoveryStage(input, historyInput);
+  stage: PrincipalHistoryRecoveryStage,
+): Promise<void> {
+  if (input.offline) {
+    if (!stage.complete || !stage.current)
+      throw new KeyingVerificationError(
+        "missing_dependency",
+        "Completed principal history is unavailable offline",
+      );
+    assertExpectedHead(stage.current, input.expectedHead);
+    return;
+  }
   let receivedFinalPage = false;
   for await (const result of input.apiClient.getPrincipalPolicyPages(
     input.expectedHead.principalType,
@@ -194,17 +249,15 @@ async function recover(
               afterVersion: stage.saved.afterVersion,
             },
           }
-        : {}),
+        : { afterVersion: stage.initialAfterVersion }),
     },
   )) {
     if (!result.ok) {
       // A rejected transport pin cannot justify skipping history on retry.
       // Discard only this operation's progress, then let a new call replay it.
       if (result.kind === "shape" && stage.saved)
-        await discardPrincipalHistoryStage(
-          input.execSql,
-          stage.saved,
-          () => !input.signal?.aborted && input.stillCurrent(),
+        await discardPrincipalHistoryStage(input.execSql, stage.saved, () =>
+          recoveryIsCurrent(input),
         );
       throw new PrincipalPolicyHistoryReadError(result);
     }
@@ -216,16 +269,75 @@ async function recover(
       "missing_dependency",
       "Principal history transport did not complete",
     );
-  return finishRecovery(input, stage, checkpoint);
+}
+
+async function recover(
+  input: RecoverPrincipalPolicyHistoryOptions,
+  allowEvidenceRebuild = true,
+): Promise<RecoveredPrincipalPolicyHistory> {
+  assertCurrent(input);
+  const checkpoint = await loadPrincipalPolicyCheckpoint(
+    input.execSql,
+    input.expectedHead.principalType,
+    input.expectedHead.principalId,
+  );
+  if (checkpoint && input.expectedHead.version < checkpoint.version)
+    throw new KeyingVerificationError(
+      input.offline ? "missing_dependency" : "rollback",
+      "Requested principal history predates the local checkpoint",
+    );
+  // Validate the requested pin/selection before creating any disposable caches.
+  createPrincipalPolicyHistoryVerifier({
+    principalType: input.expectedHead.principalType,
+    principalId: input.expectedHead.principalId,
+    localCheckpoint: checkpoint,
+    retainedReferences: input.retainedReferences ?? [],
+  });
+  const historyInput: PrincipalPolicyHistoryInput = {
+    principalType: input.expectedHead.principalType,
+    principalId: input.expectedHead.principalId,
+  };
+  const stage = await restorePrincipalHistoryRecoveryStage(
+    input,
+    historyInput,
+    allowEvidenceRebuild,
+  );
+  try {
+    await readRecoveryPages(input, stage);
+    return await finishRecovery(input, stage, checkpoint);
+  } catch (error) {
+    const lostEvidence =
+      error instanceof PrincipalHistoryEvidenceUnavailableError;
+    const disconnected =
+      error instanceof PrincipalHistoryPrefixDisconnectedError;
+    if (!lostEvidence && !disconnected) throw error;
+    if (stage.saved)
+      await discardPrincipalHistoryStage(input.execSql, stage.saved, () =>
+        recoveryIsCurrent(input),
+      );
+    if (
+      !input.offline &&
+      allowEvidenceRebuild &&
+      (lostEvidence || stage.fromCache)
+    )
+      return recover(input, false);
+    throw lostEvidence || disconnected ? error.verificationError : error;
+  }
 }
 
 /**
  * Recover one exact head with bounded retained history and durable checked progress.
  * The result is a sparse current-policy capability; this does not advance app checkpoints.
+ * Retain organization version 1 when the result will establish founder binding.
  */
 export async function recoverPrincipalPolicyHistory(
   options: RecoverPrincipalPolicyHistoryOptions,
 ): Promise<RecoveredPrincipalPolicyHistory> {
+  if (options.offline !== undefined && typeof options.offline !== "boolean")
+    throw new KeyingVerificationError(
+      "invalid_shape",
+      "Invalid principal history transport mode",
+    );
   if (
     !options.organizationId ||
     (options.expectedHead.principalType === "organization" &&
@@ -244,25 +356,15 @@ export async function recoverPrincipalPolicyHistory(
       "missing_dependency",
       "Requested history reference is beyond the recovery head",
     );
-  if (
-    !(options.protection.localKey instanceof Uint8Array) ||
-    options.protection.localKey.byteLength !== 32 ||
-    !options.protection.context
-  )
-    throw new KeyingVerificationError(
-      "invalid_shape",
-      "Principal history recovery requires a private 32-byte key and trust context",
-    );
   const input = {
     ...options,
+    historyVerification: options.historyVerification ?? "standard",
     expectedHead: structuredClone(options.expectedHead),
     retainedReferences: structuredClone(options.retainedReferences ?? []),
-    protection: {
-      context: options.protection.context,
-      localKey: new Uint8Array(options.protection.localKey),
-    },
+    protection: ownPrincipalHistoryProtection(options.protection),
   };
   try {
+    input.protection.context = principalHistoryVerificationContext(input);
     return await recover(input);
   } finally {
     input.protection.localKey.fill(0);

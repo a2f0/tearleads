@@ -239,8 +239,8 @@
       "bytes": 16859
     },
     "packages/client-sdk/src/index.ts": {
-      "lines": 551,
-      "bytes": 16028
+      "lines": 556,
+      "bytes": 16223
     },
     "packages/client-sdk/src/stores/container-contents/containerContentsStore.rootRefresh.test.ts": {
       "lines": 592,
@@ -327,8 +327,8 @@
       "bytes": 17549
     },
     "scripts/architecture/subsystems.ts": {
-      "lines": 783,
-      "bytes": 29560
+      "lines": 784,
+      "bytes": 29613
     }
   },
   "suppressions": {

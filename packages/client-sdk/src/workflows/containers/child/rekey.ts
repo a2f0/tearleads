@@ -3,7 +3,6 @@ import type {
   ContainerKekKeyring,
   ContainerKekKeyringEntry,
   ContainerRekeyAccessEventBody,
-  VerifiedPrincipalPolicy,
 } from "@tearleads/crypto";
 import {
   computeAccessManifestHash,
@@ -40,6 +39,7 @@ import {
   type ReferencedPrincipalPolicyWarmer,
   requireProjectionUserKeyResolver,
 } from "../../../data/keyingProjectionVerification";
+import type { PrincipalPolicyCurrentEvidence } from "../../../data/principals/principalPolicyEvidence";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import { assertOverrideMatchesSignedLineage } from "./keyringOverrideLineage";
 import {
@@ -215,7 +215,7 @@ interface RekeyPlanInput {
   previousProjection: ContainerWriterProjectionResponse;
   /** Verified policies the path may cite before they are stored locally. */
   principalPolicyCache?: PrincipalPolicyCache | undefined;
-  replacementPrincipalPolicy?: VerifiedPrincipalPolicy | undefined;
+  replacementPrincipalPolicy?: PrincipalPolicyCurrentEvidence | undefined;
   resolveProjectionUserKey: ProjectionUserKeyResolver;
   signedAt?: string | undefined;
   stillCurrent?: (() => boolean) | undefined;
@@ -232,7 +232,7 @@ function speculativeSafeRekeyInput(input: RekeyPlanInput): RekeyPlanInput {
 async function collectRekeyPrincipalPolicies(
   input: RekeyPlanInput,
   resolveUserKey: ProjectionUserKeyResolver,
-): Promise<VerifiedPrincipalPolicy[]> {
+): Promise<PrincipalPolicyCurrentEvidence[]> {
   const previousPolicies = await collectContainerRevokePrincipalPolicies({
     execSql: input.execSql,
     persistVerificationCheckpoints: input.persistVerificationCheckpoints,
@@ -361,7 +361,7 @@ function buildContainerRekeyPlan(input: {
   >;
   previousManifest: ContainerRekeyPlan["previousManifest"];
   previousProjection: ContainerWriterProjectionResponse;
-  principalPolicies: readonly VerifiedPrincipalPolicy[];
+  principalPolicies: readonly PrincipalPolicyCurrentEvidence[];
   state: ContainerRekeyPlan["state"];
   userRecipientKeys: ContainerRekeyPlan["userRecipientKeys"];
   wraps: ContainerRekeyPlan["wraps"];

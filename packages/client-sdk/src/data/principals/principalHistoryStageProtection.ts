@@ -64,7 +64,7 @@ export async function principalHistoryStageProtection(
 }
 
 export function parsePrincipalHistoryStageCurrent(
-  stage: PrincipalHistoryStage,
+  stage: Pick<PrincipalHistoryStage, "currentJson" | "afterVersion">,
 ): PrincipalPolicyPageCurrent | null {
   let current: unknown;
   try {

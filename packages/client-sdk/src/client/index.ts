@@ -222,6 +222,10 @@ export type {
   RemoveOrganizationGroupUserInput,
 } from "./organizations";
 export type {
+  PrincipalHistoryKeyProvider,
+  PrincipalHistoryKeyScope,
+} from "./principalHistoryProtection";
+export type {
   SecurityIncident,
   SecurityIncidentListener,
   SecurityIncidentObjectKind,

@@ -9,7 +9,6 @@ import type {
   ContainerMoveAccessEventBody,
   ContainerUserRecipientKey,
   VerifiedContainerAccessManifest,
-  VerifiedPrincipalPolicy,
 } from "@tearleads/crypto";
 import type {
   AccessManifestBundleWire,
@@ -44,6 +43,7 @@ import {
   type ReferencedPrincipalPolicyWarmer,
   requireProjectionUserKeyResolver,
 } from "../../../data/keyingProjectionVerification";
+import type { PrincipalPolicyCurrentEvidence } from "../../../data/principals/principalPolicyEvidence";
 import type { SecurityIncidentReporter } from "../../../data/securityIncidents";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import {
@@ -81,7 +81,7 @@ function buildContainerMoveRequest(input: {
   previousManifest: AccessManifestBundleWire;
   previousProjection: ContainerWriterProjectionResponse;
   predecessorBridge: ContainerKekPredecessorBridge;
-  principalPolicies: readonly VerifiedPrincipalPolicy[];
+  principalPolicies: readonly PrincipalPolicyCurrentEvidence[];
   userRecipientKeys: readonly ContainerUserRecipientKey[];
   wraps: readonly ContainerKeyWrap[];
 }): ContainerMutationRequest {
@@ -206,7 +206,7 @@ function buildContainerMovePlanResult(input: {
   previousManifest: AccessManifestBundleWire;
   previousProjection: ContainerWriterProjectionResponse;
   predecessorBridge: ContainerKekPredecessorBridge;
-  principalPolicies: readonly VerifiedPrincipalPolicy[];
+  principalPolicies: readonly PrincipalPolicyCurrentEvidence[];
   state: ContainerAccessManifestState;
   userRecipientKeys: ContainerUserRecipientKey[];
   wraps: ContainerKeyWrap[];

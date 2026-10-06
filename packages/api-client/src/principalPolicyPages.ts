@@ -24,6 +24,8 @@ export interface PrincipalPolicyPageResume {
 export interface PrincipalPolicyPageReadOptions extends RequestResultOptions {
   /** Select an exact signed head even before its first page has been read. */
   readonly stateHash?: string | undefined;
+  /** Transport offset for a caller-authenticated prefix; requires stateHash. */
+  readonly afterVersion?: number | undefined;
   readonly resume?: PrincipalPolicyPageResume | undefined;
 }
 
@@ -119,12 +121,22 @@ function preparePrincipalPolicyRead(
   const query =
     options.stateHash === undefined
       ? {}
-      : { afterVersion: 0, stateHash: options.stateHash };
+      : {
+          afterVersion: options.afterVersion ?? 0,
+          stateHash: options.stateHash,
+        };
   const basePath = getPrincipalPolicy.path(principalType, principalId);
   const failure = (message: string) => ({
     ok: false as const,
     failure: pageFailure(runtime, basePath, options, message, null),
   });
+  if (
+    options.afterVersion !== undefined &&
+    (options.stateHash === undefined ||
+      options.resume !== undefined ||
+      !Number.isSafeInteger(options.afterVersion))
+  )
+    return failure("Initial principal history cursor requires one exact head");
   if (!getPrincipalPolicyOperation.query.safeParse(query).success)
     return failure("Invalid requested principal history head");
   const resume = readResume(options.resume);
@@ -137,6 +149,7 @@ function preparePrincipalPolicyRead(
   return {
     ok: true as const,
     firstPath: getPrincipalPolicy.path(principalType, principalId, query),
+    afterVersion: options.afterVersion ?? 0,
     resume,
   };
 }
@@ -167,7 +180,7 @@ export async function* readPrincipalPolicyPages(
   );
   let pinned = resume?.current;
   let pinnedBytes = resume?.bytes;
-  let afterVersion = resume?.afterVersion ?? 0;
+  let afterVersion = resume?.afterVersion ?? position.afterVersion;
   while (true) {
     const path = pinned
       ? getPrincipalPolicy.path(principalType, principalId, {
