@@ -56,7 +56,6 @@ export { listProjectionMembersForState } from "./principalProjectionStore";
 export { getPrincipalStatesForReferences } from "./principalStateLookup";
 export type {
   PrincipalStateBundleInput,
-  PrincipalStateReference,
   StoredPrincipalContainerGrant,
   StoredPrincipalProjectionMember,
   StoredPrincipalState,

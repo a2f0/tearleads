@@ -22,7 +22,7 @@ import { createTestTrustedUserIdentityResolver } from "./trustedUserIdentity";
 export const ADMIN_GROUP_ID = "admins-group";
 export const ORGANIZATION_ID = "organization-1";
 export const ROOT_CONTAINER_ID = "root-container";
-export const USER_ID = "remaining-admin";
+const USER_ID = "remaining-admin";
 export async function setUpAdminGroupRoot() {
   const { author, signingPublicKey } = await createAuthor({
     organizationId: ORGANIZATION_ID,
