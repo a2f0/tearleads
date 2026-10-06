@@ -3,8 +3,10 @@ import type { RequestResultOptions } from "./types";
 /** A fresh timer for one response, including its body; continuations reset it. */
 export function principalHistoryDeadline(
   options: RequestResultOptions,
-  timeoutMs = 15_000,
+  timeoutMs: number | null = 15_000,
 ) {
+  if (timeoutMs === null)
+    return { options, expired: () => false, dispose: () => {} };
   if (!Number.isFinite(timeoutMs) || timeoutMs <= 0)
     throw new RangeError(
       "Principal request timeout must be positive and finite",

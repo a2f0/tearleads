@@ -50,18 +50,23 @@ preparation work in each process, not aggregate concurrency across replicas or
 ordinary application transactions. Pages retain their existing entry, byte, and
 elapsed-work budgets; one large entry remains an indivisible verification step.
 
-Each principal-policy HTTP request has a 15-second response deadline, including
-reading and decoding the response body. A validated preparation continuation or
-history page starts a fresh deadline on the next request; the deadline is not a
-lifetime limit on a history download. A stalled read returns
+Principal-policy reads have a 15-second response deadline, including reading and
+decoding the response body. A validated preparation continuation or history page
+starts a fresh read deadline on the next request; the deadline is not a lifetime
+limit on a history download. A stalled read returns
 `principal_history_request_timed_out` as a network failure, reports it once unless
 error reporting is disabled, and releases its recovery operation. Caller
-cancellation remains silent. A
-submitted mutation that times out returns `principal_history_outcome_unknown`:
-abort does not prove rollback, and the client does not replay that write
-automatically. Caller cancellation and authentication identity checks remain in
-effect across all rounds. These timers bound the built-in fetch transport;
-custom host callbacks must also settle or honor their cancellation signal.
+cancellation remains silent.
+
+Submitted writes await acknowledgement without an implicit client timer, since
+a large atomic commit may outlast the read budget. Caller cancellation and
+explicit deadlines remain effective; a write interrupted by either returns
+`principal_history_outcome_unknown`. Abort does not prove rollback, and the client
+does not replay that write automatically. Authentication identity checks remain
+in effect across all rounds. The real HTTP acceptance probe independently enforces
+a 15-second deadline on every request, including writes. Read timers bound the
+built-in fetch transport; custom host callbacks must also settle or honor their
+cancellation signal.
 
 A submitted write with a network failure, an unreadable or invalid acknowledgement,
 or a server/intermediary 5xx, 408, or 499 has an unknown commit outcome. None of

@@ -105,7 +105,9 @@ async function readResponse(
 ) {
   const deadline = principalHistoryDeadline(
     context.options,
-    input.requestTimeoutMs,
+    // Writes await acknowledgement unless the caller supplies a deadline.
+    // Aborting a committed write cannot be repaired by the continuation loop.
+    input.requestTimeoutMs ?? (input.method === "GET" ? undefined : null),
   );
   const options =
     input.method === "GET"
