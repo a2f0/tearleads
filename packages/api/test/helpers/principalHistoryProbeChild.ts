@@ -31,6 +31,22 @@ function send(message: PrincipalHistoryProbeMessage) {
 }
 send({ type: "ready", url: server.url.origin, token });
 
+let shutdown: Promise<void> | undefined;
+function close() {
+  shutdown ??= (async () => {
+    await server.stop();
+    await closeApiTestAdapters();
+  })();
+  return shutdown;
+}
+// A timed-out or terminated parent must not leave a listening fixture server.
+process.on("disconnect", () => {
+  void close().catch((error: unknown) => {
+    console.error(error);
+    process.exitCode = 1;
+  });
+});
+
 let stopping = false;
 process.on("message", (message: unknown) => {
   if ((message !== "stop" && message !== "snapshot") || stopping) return;
@@ -54,9 +70,10 @@ process.on("message", (message: unknown) => {
         retainedHeapUsedBytes: retained.heapUsed,
       },
     });
-    // The parent kills this process after the snapshot, without adapter shutdown.
+    // Snapshot is terminal too: the parent kills the process rather than sending
+    // another stop command, deliberately omitting graceful adapter shutdown.
     if (message === "snapshot") return;
-    await closeApiTestAdapters();
+    await close();
     process.disconnect?.();
   })().catch((error: unknown) => {
     console.error(error);

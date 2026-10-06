@@ -113,6 +113,8 @@ export async function assertPrincipalHistoryAvailability(
     expect(requestBytes).toBeLessThan(200_000);
     // Request construction reads stored policy through test helpers. Discard
     // the verification hints that setup warmed before exercising HTTP work.
+    // In isolated mode these cache clears affect only the fixture parent; its
+    // server starts with empty process caches and shares only the durable DB.
     await db.delete(principalHistoryProgress);
     await db.delete(principalHistoryIndexNodes);
     clearPrincipalPolicySignatureCaches();
@@ -147,12 +149,18 @@ export async function assertPrincipalHistoryAvailability(
       if (preparationResponses === 1 && server.restart) {
         // Preserve the exact authored request and database, but lose all
         // process-local verification caches after one durable preparation page.
-        const progress = await db.select().from(principalHistoryProgress);
+        const progress = await db
+          .select()
+          .from(principalHistoryProgress)
+          .orderBy(principalHistoryProgress.id);
         expect(progress.length).toBeGreaterThan(0);
         await server.restart();
-        expect(await db.select().from(principalHistoryProgress)).toEqual(
-          progress,
-        );
+        expect(
+          await db
+            .select()
+            .from(principalHistoryProgress)
+            .orderBy(principalHistoryProgress.id),
+        ).toEqual(progress);
         onProgress("server restarted after preparation");
       }
     }

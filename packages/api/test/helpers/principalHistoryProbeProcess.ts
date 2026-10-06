@@ -1,3 +1,4 @@
+import { isAbsolute } from "node:path";
 import { fileURLToPath } from "node:url";
 import { getDefaultApiDatabaseKind } from "@tearleads/api-shared/postgres";
 import type { TestUser } from "@tearleads/bob-and-alice";
@@ -20,13 +21,12 @@ export function requirePrincipalHistoryProbeDatabase(): void {
   const kind = getDefaultApiDatabaseKind();
   const sqlitePathKey = "API_SQLITE_PATH";
   const legacyPathKey = "SQLITE_PATH";
-  const path = process.env[sqlitePathKey] ?? process.env[legacyPathKey];
-  if (
-    kind !== "postgres" &&
-    !(kind === "sqlite" && path && path !== ":memory:")
-  ) {
+  const path = [process.env[sqlitePathKey], process.env[legacyPathKey]]
+    .map((value) => value?.trim())
+    .find(Boolean);
+  if (kind !== "postgres" && !(kind === "sqlite" && path && isAbsolute(path))) {
     throw new Error(
-      "Isolated history probes require PostgreSQL or file-backed SQLite",
+      "Isolated history probes require PostgreSQL or an absolute SQLite file path",
     );
   }
 }
@@ -111,6 +111,26 @@ async function startChild(
   }
 }
 
+const metricRules = {
+  requests: "sum",
+  totalDatabaseStatements: "sum",
+  maximumDatabaseStatementsPerRequest: "max",
+  deadlineFailures: "sum",
+  maximumRequestMs: "max",
+  maximumResponseBytes: "max",
+  totalResponseBytes: "sum",
+  processInitialRssBytes: "first",
+  processPeakRssBytes: "max",
+  processFinalRssBytes: "last",
+  processInitialHeapUsedBytes: "first",
+  processPeakHeapUsedBytes: "max",
+  processFinalHeapUsedBytes: "last",
+  processMaximumEventLoopDelayMs: "max",
+} satisfies Record<
+  keyof PrincipalHistoryHttpMetrics,
+  "sum" | "max" | "first" | "last"
+>;
+
 function addMetrics(
   total: PrincipalHistoryHttpMetrics,
   next: PrincipalHistoryHttpMetrics,
@@ -118,15 +138,11 @@ function addMetrics(
   for (const key of Object.keys(
     next,
   ) as (keyof PrincipalHistoryHttpMetrics)[]) {
-    if (
-      key === "requests" ||
-      key === "deadlineFailures" ||
-      key.startsWith("total")
-    ) {
+    if (metricRules[key] === "sum") {
       total[key] += next[key];
-    } else if (key.includes("Final")) {
+    } else if (metricRules[key] === "last") {
       total[key] = next[key];
-    } else if (!key.includes("Initial")) {
+    } else if (metricRules[key] === "max") {
       total[key] = Math.max(total[key], next[key]);
     }
   }
