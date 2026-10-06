@@ -330,7 +330,7 @@
     },
     "packages/website": {
       "name": "website",
-      "version": "0.1.1",
+      "version": "0.1.2",
       "dependencies": {
         "@astrojs/react": "6.0.5",
         "@phosphor-icons/react": "2.1.10",
