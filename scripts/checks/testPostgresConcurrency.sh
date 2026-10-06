@@ -69,4 +69,5 @@ exec bun test \
   src/workflows/organizations/organizationProfileUnlinkRace.pg.test.ts \
   src/workflows/organizations/rosterProfilePurgeRace.pg.test.ts \
   src/workflows/organizations/rosterProfileUnlinkRace.pg.test.ts \
+  src/workflows/principals/principalHistoryConcurrency.pg.test.ts \
   src/workflows/containers/deleteContainerTimestamp.pg.test.ts

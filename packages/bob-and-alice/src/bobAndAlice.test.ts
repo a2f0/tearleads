@@ -80,7 +80,10 @@ test("eve cannot tamper with bob's encrypted payload in transit", async () => {
     alice.kem.publicKey,
   ]);
   const tamperedCiphertext = envelope.ciphertext.slice();
-  invariant(tamperedCiphertext[0], "Ciphertext must not be empty");
+  invariant(
+    tamperedCiphertext[0] !== undefined,
+    "Ciphertext must not be empty",
+  );
   tamperedCiphertext[0] ^= 0x01;
 
   await expect(
