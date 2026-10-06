@@ -21,8 +21,8 @@ import {
   initDatabase,
   installSahPoolVfsWithRetry,
   loadSqlite3,
-  persistentSahPoolStorageForDbName,
 } from "../src/loadSqlite3";
+import { persistentSahPoolStorageForDbName } from "../src/sahPoolStorage";
 import {
   installOpfsMemoryShim,
   mountOpfsSnapshot,
