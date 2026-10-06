@@ -204,3 +204,18 @@ discard each other's unreadable hints, including during offline reads. They
 remain unable to admit unverified history, but may require repeated online
 genesis replay. Hosts that need shared or offline reuse must provide the same
 private protection key and trust context to those instances.
+
+The internal public-history recovery path stores no keying artifacts. It uses
+its own protected scope, including organization, strict Admins mode and the
+bound authority group. A completed prefix can prove an older source head through
+its private inclusion index, or extend to a newer source without replaying prior
+signatures. Each online read checks the returned public head artifacts against
+that same root. Offline reads require the local protection key; an unreadable
+offline hint is left intact for its owner. Completed public stages are removed
+after prefix publication, and reference selections do not create separate stages.
+
+This primitive returns verified public history, not a current policy or an
+admitted application checkpoint. Its caller must bind the source heads and any
+external authority to verified organization directory payloads, select needed
+citations and genesis through inclusion proofs, and check durable local pins.
+Projection source issuance and runtime wiring are still being integrated.

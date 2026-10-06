@@ -10,7 +10,10 @@ export type PrincipalPolicySignerPublicKeyLoadErrorCode =
   | "not-found";
 
 export function principalPolicyStates(
-  bundle: PrincipalPolicyBundleResponse,
+  bundle: Pick<
+    PrincipalPolicyBundleResponse,
+    "currentState" | "previousStates"
+  >,
 ): PrincipalPolicyBundleResponse["currentState"][] {
   return [
     ...bundle.previousStates.map((entry) => entry.state),
@@ -56,7 +59,10 @@ async function loadTrustedSignerPublicKey(input: {
 }
 
 export async function collectPrincipalPolicySignerPublicKeys(input: {
-  readonly bundle: PrincipalPolicyBundleResponse;
+  readonly bundle: Pick<
+    PrincipalPolicyBundleResponse,
+    "currentState" | "previousStates"
+  >;
   readonly resolveTrustedUserIdentity: TrustedUserIdentityResolver;
 }): Promise<
   | { readonly signerPublicKeys: PrincipalPolicySignerPublicKey[] }
