@@ -2,7 +2,7 @@ import { spawnSync } from "node:child_process";
 import { appendFileSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
-const packageRoot = join(import.meta.dir, "..");
+const repoRoot = join(import.meta.dir, "..", "..");
 const registry = "https://registry.npmjs.org";
 
 // Every version npm has for the package, and its latest tag.
@@ -87,10 +87,18 @@ function readRegistryState(name: string): RegistryState {
   return parseRegistryState(result.stdout);
 }
 
-// Prints the decision and, in GitHub Actions, sets the step's publish output.
+// Prints the decision for packages/<package> and, in GitHub Actions, sets the
+// step's publish output.
 if (import.meta.main) {
+  const packageDir = process.argv[2];
+  if (!packageDir || !/^[a-z][a-z0-9-]*$/.test(packageDir)) {
+    throw new Error("usage: bun scripts/lib/npmPublishDecision.ts <package>");
+  }
   const { name, version } = JSON.parse(
-    readFileSync(join(packageRoot, "package.json"), "utf8"),
+    readFileSync(
+      join(repoRoot, "packages", packageDir, "package.json"),
+      "utf8",
+    ),
   );
   const decision = decidePublish(version, readRegistryState(name));
   console.log(

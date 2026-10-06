@@ -12,7 +12,7 @@
         "@tsconfig/strictest": "2.0.8",
         "@types/bun": "1.4.1",
         "@types/invariant": "catalog:",
-        "agent-tool": "github:a2f0/agent-tool#1803c9541a53d2a8eca27035c788496dc6c91225",
+        "agent-tool": "github:a2f0/agent-tool#f2073356e3919197d6ee6fba1534b8c6177bb63c",
         "dependency-cruiser": "18.2.0",
         "invariant": "catalog:",
         "knip": "6.34.0",
@@ -214,7 +214,7 @@
     },
     "packages/client-sdk": {
       "name": "@tearleads/client-sdk",
-      "version": "0.1.12",
+      "version": "0.1.13",
       "dependencies": {
         "@tearleads/api-client": "workspace:*",
         "@tearleads/crypto": "workspace:*",
@@ -351,7 +351,7 @@
     },
     "packages/windowing": {
       "name": "@tearleads/windowing",
-      "version": "0.2.9",
+      "version": "0.2.10",
       "dependencies": {
         "@phosphor-icons/react": "2.1.10",
         "react": "catalog:react",
@@ -1237,7 +1237,7 @@
 
     "agent-base": ["agent-base@7.1.4", "", {}, "sha512-MnA+YT8fwfJPgBx3m60MNqakm30XOkyIoH1y6huTQvC0PwZG7ki8NacLBcrPbNoo8vEZy7Jpuk7+jMO+CUovTQ=="],
 
-    "agent-tool": ["agent-tool@github:a2f0/agent-tool#1803c95", { "bin": { "agent-tool": "src/index.ts" } }, "a2f0-agent-tool-1803c95", "sha512-lmbliUnrCIwLiiWTX2ODB0Res/ypp27wXdC7fligU8XjQ0XqClJcrQ9rSZpoDbiGmdlkypY9w1mA1JMUaPURsQ=="],
+    "agent-tool": ["@a2f0/agent-tool@github:a2f0/agent-tool#f207335", { "bin": { "agent-tool": "src/index.ts" } }, "a2f0-agent-tool-f207335", "sha512-HzyWaAT3keukjbdaDuGwZrHduasj+2Cq5B7u0IqQKqo5m/kwuWpJhuX7FdRntVpKjz5lC4Yoq/CrZne78/sy8w=="],
 
     "ajv": ["ajv@8.20.0", "", { "dependencies": { "fast-deep-equal": "^3.1.3", "fast-uri": "^3.0.1", "json-schema-traverse": "^1.0.0", "require-from-string": "^2.0.2" } }, "sha512-Thbli+OlOj+iMPYFBVBfJ3OmCAnaSyNn4M1vz9T6Gka5Jt9ba/HIR56joy65tY6kx/FCF5VXNB819Y7/GUrBGA=="],
 

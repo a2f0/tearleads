@@ -71,8 +71,24 @@ without it, failing on errors in the SDK's declarations and ignoring those in
 drizzle-orm's and loro-crdt's own. It needs the network to install the
 consumer's dependencies.
 
-To publish by hand, run from the repository root with an account that owns
-the `@tearleads` npm scope:
+Merging to `main` publishes. When `packages/client-sdk` changes there,
+`.github/workflows/client-sdk-publish.yml` publishes the version in
+`package.json` if it is newer than npm's `latest`, after running the smoke
+script; a merge that leaves the version alone, a re-run, or a run that finishes
+after a newer release succeeds without publishing
+(`scripts/lib/npmPublishDecision.ts` makes that call). Because the package
+ships the workspace packages above, `agent-tool.json` lists it under
+`versions.bundles`: a change to any of them also bumps the SDK's version, so it
+publishes too. The workflow authenticates with
+[npm trusted publishing](https://docs.npmjs.com/trusted-publishers) and
+attaches provenance to each version. On npmjs.com the package's trusted
+publisher names the `a2f0` owner, the `tearleads` repository, the
+`client-sdk-publish.yml` workflow, and the `npm` environment, which the
+repository restricts to `main`. Renaming the workflow or the environment breaks
+publishing until that setting matches.
+
+To publish by hand instead, run from the repository root with an account that
+owns the `@tearleads` npm scope:
 
 ```sh
 npm login --registry https://registry.npmjs.org

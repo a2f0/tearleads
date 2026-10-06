@@ -19,8 +19,8 @@ public access. <package> is its directory under packages/:
   client-sdk   @tearleads/client-sdk
 
 The build uses a temporary directory that is removed on exit. Merging a
-version bump to main publishes windowing from
-.github/workflows/windowing-publish.yml; use this command to publish by hand.
+version bump to main publishes each package from its workflow,
+.github/workflows/<package>-publish.yml; use this command to publish by hand.
 ship-pr bumps changed package versions; for other releases, bump the version
 in the package's package.json before publishing. Then authenticate with
 npm login using an account that owns the @tearleads scope.

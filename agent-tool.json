@@ -28,6 +28,7 @@
     "requireStrictBaseFreshness": true
   },
   "versions": {
+    "bundles": ["packages/client-sdk"],
     "validate": [["bun", "run", "lint:source-shape", "--", "--staged"]]
   },
   "pr": { "rejectClaudeBranding": true }
