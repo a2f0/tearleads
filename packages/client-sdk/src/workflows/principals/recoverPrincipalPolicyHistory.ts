@@ -37,6 +37,13 @@ import {
   principalHistoryVerificationContext,
 } from "./principalHistoryRecoveryVerification";
 
+class PrincipalHistoryPrefixDisconnectedError extends Error {
+  constructor(readonly verificationError: KeyingVerificationError) {
+    super(verificationError.message);
+    this.name = "PrincipalHistoryPrefixDisconnectedError";
+  }
+}
+
 function currentArtifacts(
   page: PrincipalPolicyPageResponse,
 ): PrincipalPolicyPageCurrent {
@@ -124,7 +131,11 @@ async function acceptPage(
     signerPublicKeys: keys.signerPublicKeys,
     ...(externalAuthority ? { externalAuthority } : {}),
   });
-  if (!appended.ok) throw appended.error;
+  if (!appended.ok) {
+    if (appended.error.code === "stale_predecessor")
+      throw new PrincipalHistoryPrefixDisconnectedError(appended.error);
+    throw appended.error;
+  }
   const next = {
     id: stage.id,
     organizationId: input.organizationId,
@@ -287,8 +298,7 @@ async function recover(
     const lostEvidence =
       error instanceof PrincipalHistoryEvidenceUnavailableError;
     const disconnected =
-      error instanceof KeyingVerificationError &&
-      error.code === "stale_predecessor";
+      error instanceof PrincipalHistoryPrefixDisconnectedError;
     if (!lostEvidence && !disconnected) throw error;
     if (stage.saved)
       await discardPrincipalHistoryStage(input.execSql, stage.saved, () =>
@@ -296,7 +306,7 @@ async function recover(
       );
     if (allowEvidenceRebuild && (lostEvidence || stage.fromCache))
       return recover(input, false);
-    throw lostEvidence ? error.verificationError : error;
+    throw lostEvidence || disconnected ? error.verificationError : error;
   }
 }
 

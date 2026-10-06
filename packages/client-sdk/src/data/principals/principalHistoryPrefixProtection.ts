@@ -6,6 +6,29 @@ import {
 } from "@tearleads/crypto";
 import type { PrincipalHistoryPrefix } from "../persistence/principalHistoryPrefixPersistence";
 
+async function principalHistoryKeyId(localKey: Uint8Array): Promise<string> {
+  const owned = new Uint8Array(localKey);
+  try {
+    const key = await crypto.subtle.importKey(
+      "raw",
+      owned,
+      { name: "HMAC", hash: "SHA-256" },
+      false,
+      ["sign"],
+    );
+    const id = await crypto.subtle.sign(
+      "HMAC",
+      key,
+      new TextEncoder().encode(
+        "tearleads.sdk.principal-history-evidence.key-id.v1",
+      ),
+    );
+    return toFingerprint(new Uint8Array(id));
+  } finally {
+    owned.fill(0);
+  }
+}
+
 export async function principalHistoryEvidenceScopeId(input: {
   readonly organizationId: string;
   readonly head: ReferencedPrincipalHead;
@@ -19,7 +42,7 @@ export async function principalHistoryEvidenceScopeId(input: {
         input.head.principalType,
         input.head.principalId,
         input.protection.context,
-        await toFingerprint(input.protection.localKey),
+        await principalHistoryKeyId(input.protection.localKey),
       ]),
     ),
   );

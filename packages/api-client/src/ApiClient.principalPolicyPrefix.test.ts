@@ -83,6 +83,26 @@ for (const afterVersion of [-1, 0.5, Number.MAX_SAFE_INTEGER + 1]) {
   );
 }
 
+for (const afterVersion of [66, 67]) {
+  testApiClient(
+    `refuses a prefix at or beyond the served head (${afterVersion})`,
+    async () => {
+      const { requests } = prefixFixture();
+      const pages = new ApiClient(apiBaseUrl).getPrincipalPolicyPages(
+        "group",
+        principalId,
+        { stateHash, afterVersion },
+      );
+      expect((await pages.next()).value).toMatchObject({
+        ok: false,
+        kind: "shape",
+      });
+      expect((await pages.next()).done).toBe(true);
+      expect(requests).toEqual([afterVersion]);
+    },
+  );
+}
+
 testApiClient(
   "requires an exact pin for an initial prefix cursor",
   async () => {
