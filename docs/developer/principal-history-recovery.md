@@ -51,11 +51,15 @@ Saved stages are separate for each exact head, local trust context, and retained
 reference selection. Operations for different heads or selections do not discard
 each other's checked prefixes.
 One completed prefix is shared across target heads and reference selections in a
-scope bound to organization, principal, key generation, and trust context. A new
-head extends an authenticated earlier prefix; a newer cached prefix is preserved
-when recovering an older target. Older completions cannot replace a newer prefix.
+scope bound to organization, principal, local protection key, and trust context.
+A new head extends an authenticated earlier prefix; a newer cached prefix is
+preserved when recovering an older target. Older completions cannot replace a
+newer prefix.
 A completed same-head prefix still needs a live pinned read and current-artifact
 verification. This cache never supplies an application trust pin.
+Interrupted stages intentionally remain separate by reference selection; a
+changed selection can reuse a completed prefix, but not another selection's
+unfinished stage.
 
 Reusable progress has no embedded checkpoint or reference selection. At finish,
 recovery obtains each requested entry and the latest local checkpoint through
