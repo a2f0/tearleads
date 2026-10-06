@@ -88,7 +88,6 @@ import type {
   DocumentSyncRequest,
   InitiateMultipartBlobStageRequest,
   ListContainerParentLanesRequest,
-  OrganizationPrincipalPolicyRequest,
   RegistrationRequest,
   UpdateOrganizationProfileRequest,
   UpdateOrganizationRosterEntryRequest,
@@ -633,18 +632,15 @@ export class ApiClient {
     );
   }
 
-  putPrincipalPolicy(
-    principalType: "organization",
-    principalId: string,
-    input: OrganizationPrincipalPolicyRequest,
-    options: RequestResultOptions = {},
+  putPrincipalPolicy(...args: Parameters<PrincipalPolicyRequests["put"]>) {
+    return this.principalPolicyRequests.put(...args);
+  }
+
+  /** Preserves unknown outcomes for authored organization directory writes. */
+  putPrincipalPolicyResult(
+    ...args: Parameters<PrincipalPolicyRequests["putResult"]>
   ) {
-    return this.principalPolicyRequests.put(
-      principalType,
-      principalId,
-      input,
-      options,
-    );
+    return this.principalPolicyRequests.putResult(...args);
   }
 
   commitOrganizationGroupPolicy(

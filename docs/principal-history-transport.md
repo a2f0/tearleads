@@ -55,3 +55,8 @@ A submitted write with a network failure, an unreadable or invalid acknowledgeme
 or a server/intermediary 5xx has an unknown commit outcome. None of these failures
 permits automatic replay or a claim that the operation rolled back. Only a valid
 202 preparation response proves rollback and permits the continuation loop.
+
+`ApiClient.putPrincipalPolicyResult` and `commitOrganizationGroupPolicyResult`
+retain that classification for callers preserving authored requests. Their
+convenience methods still return a value or null; default error callbacks report
+the final outcome classification once, after transport errors are classified.

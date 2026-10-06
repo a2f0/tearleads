@@ -55,7 +55,8 @@ export async function principalHistoryRequest<T>(
         kind: "shape",
         message: `Invalid principal policy response for ${path}`,
         method,
-        options,
+        options:
+          method === "GET" ? options : { ...options, reportErrors: false },
         path,
         status: decoded.data.status,
         statusText: decoded.data.statusText,
@@ -71,14 +72,19 @@ function preserveCommitUncertainty(
   context: PrincipalHistoryRequestContext,
   failure: RequestFailure,
 ): RequestFailure {
+  if (method === "GET") return failure;
   // A network/decode failure or intermediary 5xx says nothing about commit.
-  // Only a validated preparation response permits an automatic write retry.
+  // Inner write errors are silent until this final classification is known.
+  const result =
+    failure.kind !== "http" || (failure.status ?? 0) >= 500
+      ? context.failure()
+      : failure;
   if (
-    method !== "GET" &&
-    (failure.kind !== "http" || (failure.status ?? 0) >= 500)
+    context.options.reportErrors !== false &&
+    (result.kind === "http" || !context.cancelled())
   )
-    return context.failure();
-  return failure;
+    result.report();
+  return result;
 }
 
 async function readResponse(
@@ -96,12 +102,16 @@ async function readResponse(
     context.options,
     input.requestTimeoutMs,
   );
+  const options =
+    input.method === "GET"
+      ? deadline.options
+      : { ...deadline.options, reportErrors: false };
   try {
     const response = await runtime.responseRequest(
       input.path,
       input.method,
       input.body,
-      deadline.options,
+      options,
       [],
       input.operation,
     );
@@ -121,7 +131,7 @@ async function readResponse(
       input.operation,
       response.data,
       input.path,
-      deadline.options,
+      options,
     );
     if (context.cancelled() || deadline.expired())
       return context.failure(
