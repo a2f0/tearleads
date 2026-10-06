@@ -14,7 +14,6 @@ import { bytesToBase64 } from "@tearleads/encoding";
 import { commitOrganizationGroupPolicyOperation } from "@tearleads/validators/operation";
 import { PrincipalPolicyBundleResponseSchema } from "@tearleads/validators/response";
 import { and, count, desc, eq } from "drizzle-orm";
-import { routeApp } from "../../src/routeApp";
 import { parseOrganizationAuthorityDescriptor } from "../../src/workflows/organizations/organizationAuthorityDescriptor";
 import { clearProjectionDirectoryBindingsCache } from "../../src/workflows/principals/projectionDirectoryBindings";
 import { clearStoredPolicySnapshotCache } from "../../src/workflows/principals/snapshotVerificationCache";
@@ -28,7 +27,10 @@ import {
   bootstrapRoot,
 } from "./keyingWriterProjectionKit";
 import { seedLongPrincipalHistory } from "./longPrincipalHistory";
-import { startPrincipalHistoryHttpProbe } from "./principalHistoryHttpProbe";
+import {
+  requirePrincipalHistoryProbeDatabase,
+  startPrincipalHistoryProbe,
+} from "./principalHistoryProbeProcess";
 import {
   getPolicy,
   registerAndAuthenticate,
@@ -46,6 +48,7 @@ export async function assertPrincipalHistoryAvailability(
   throughVersion: number,
   onProgress: (stage: string) => void = () => {},
 ): Promise<void> {
+  requirePrincipalHistoryProbeDatabase();
   const owner = createTestUser();
   const removed = createTestUser();
   await registerAndAuthenticate(owner, removed);
@@ -100,7 +103,7 @@ export async function assertPrincipalHistoryAvailability(
     ),
   });
   onProgress("seeded");
-  const server = startPrincipalHistoryHttpProbe();
+  const server = await startPrincipalHistoryProbe(owner);
   let requestBytes = 0;
   let preparationResponses = 0;
   const transport = async (path: string, init: RequestInit) => {
@@ -116,8 +119,11 @@ export async function assertPrincipalHistoryAvailability(
     clearStoredPolicySnapshotCache();
     clearProjectionDirectoryBindingsCache();
     while (true) {
+      const headers = new Headers(init.headers);
+      headers.set("Authorization", `Bearer ${server.token}`);
       const response = await fetch(new URL(path, server.url), {
         ...init,
+        headers,
         signal: AbortSignal.timeout(15_000),
       });
       if (response.status !== 202) return response;
@@ -137,6 +143,17 @@ export async function assertPrincipalHistoryAvailability(
           .orderBy(desc(principalStates.version))
           .limit(1);
         expect(head?.version).toBe(throughVersion);
+      }
+      if (preparationResponses === 1 && server.restart) {
+        // Preserve the exact authored request and database, but lose all
+        // process-local verification caches after one durable preparation page.
+        const progress = await db.select().from(principalHistoryProgress);
+        expect(progress.length).toBeGreaterThan(0);
+        await server.restart();
+        expect(await db.select().from(principalHistoryProgress)).toEqual(
+          progress,
+        );
+        onProgress("server restarted after preparation");
       }
     }
   };
@@ -206,13 +223,24 @@ export async function assertPrincipalHistoryAvailability(
   }
   onProgress("revocation committed");
 
-  const denied = await routeApp.request(
-    `/documents/${document.documentId}/writer-projection`,
-    {
-      headers: { Authorization: `Bearer ${removed.token}` },
-    },
-  );
-  expect(denied.status).toBe(403);
+  const deniedServer = await startPrincipalHistoryProbe(removed);
+  const deniedClient = new ApiClient(deniedServer.url.origin);
+  deniedClient.setAuthToken(deniedServer.token);
+  try {
+    const denied = await deniedClient.getDocumentWriterProjectionResult(
+      document.documentId,
+      { reportErrors: false },
+    );
+    expect(denied.ok).toBe(false);
+    if (denied.ok) throw new Error("Revoked reader retained document access");
+    expect(denied.status).toBe(403);
+  } finally {
+    await deniedServer.stop();
+    onProgress(
+      `revoked reader HTTP metrics ${JSON.stringify(deniedServer.metrics)}`,
+    );
+  }
+  expect(deniedServer.metrics.deadlineFailures).toBe(0);
   // Discard durable verification hints. The recovery helper creates an empty
   // client database and fetches current policy/key material from the server.
   await clearAccessManifestVerificationMarkers();
@@ -221,9 +249,9 @@ export async function assertPrincipalHistoryAvailability(
   await db.delete(principalHistoryProgress);
   await db.delete(principalHistoryIndexNodes);
   clearProjectionDirectoryBindingsCache();
-  const coldServer = startPrincipalHistoryHttpProbe();
+  const coldServer = await startPrincipalHistoryProbe(owner);
   const coldClient = new ApiClient(coldServer.url.origin);
-  coldClient.setAuthToken(owner.token);
+  coldClient.setAuthToken(coldServer.token);
   try {
     const recovered = await coldRematerializeEncryptedDocument({
       apiClient: coldClient,

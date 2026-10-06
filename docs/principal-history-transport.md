@@ -148,3 +148,30 @@ initial, sampled peak, and final process RSS and JavaScript heap use, plus event
 loop delay. These include the test client and fixture objects; final heap use is
 not a post-GC retained-memory measurement and does not establish a server-only
 memory bound. A passed short diagnostic does not replace the 16,384-version run.
+
+Set `PRINCIPAL_HISTORY_ISOLATED_SERVER=1` to run the route and deadline proxy in
+separate Bun processes. This mode requires networked PostgreSQL or file-backed
+SQLite, shared only with the fixture process. It issues fixture sessions in each
+server process; fixture signing/KEM keys and generated history stay in the parent.
+After the first preparation response, it records memory, kills the server with
+SIGKILL and starts a fresh process using the same database and cursor secret. The
+prepared rows must survive unchanged, and the exact authored mutation must finish
+once. Revoked-reader denial and cold decryption use fresh server processes and
+real HTTP, with the same 15-second deadline.
+
+The isolated metrics include server-side caches, database adapters and the
+loopback deadline proxy, excluding the SDK client and fixture objects. They
+record sampled peaks and initial/final RSS and JavaScript heap after explicit GC
+for each server process. RSS includes native allocations and need not shrink
+after GC; neither a short run nor one allocator sample proves a universal memory
+bound. A diagnostic invocation from `packages/api` is:
+
+```sh
+API_DATABASE=sqlite API_SQLITE_PATH=/tmp/history-probe.sqlite \
+  PRINCIPAL_HISTORY_ISOLATED_SERVER=1 PRINCIPAL_HISTORY_THROUGH_VERSION=128 \
+  bun test test/slow/principalHistoryAvailability.test.ts
+```
+
+Use a dedicated fixture database. Omit `PRINCIPAL_HISTORY_THROUGH_VERSION` for the
+full 16,384-version case, or set `API_DATABASE=postgres` and `DATABASE_URL` to run
+against a dedicated networked PostgreSQL database.
