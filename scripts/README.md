@@ -12,7 +12,9 @@ For website-only deployments, run `./scripts/deployStagingWebsite.sh` or
 dry-run options.
 
 `publishNpmPackage.sh` publishes a package to npm by its directory name:
-`windowing` or `client-sdk`. Run `bun run publish:npm:dry-run <package>` to
+`windowing` or `client-sdk`. Each package's workflow runs it when a version
+bump merges, after `lib/npmPublishDecision.ts` checks the version is new. To
+publish by hand, run `bun run publish:npm:dry-run <package>` to
 build and preview it, then `bun run publish:npm <package>` to publish it; both
 also accept `--tag <tag>` and `--otp <code>`. See the
 [windowing](../packages/windowing/README.md#publishing) and

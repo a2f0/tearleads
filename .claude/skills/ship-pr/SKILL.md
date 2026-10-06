@@ -11,8 +11,11 @@ concerns. Shipping authorizes this workflow within the user's stated scope.
 Preserve unrelated edits and honor requested stopping points such as open-PR
 only, report-only review, or keeping the feature branch.
 
-1. Finish the requested change on a feature branch. Validate it with appropriate
-   project checks and commit only the intended files.
+1. Finish the requested change on a feature branch. Create it with
+   `git switch --no-track -c <branch>`; settings such as
+   `branch.autosetupmerge=always` otherwise make it track a local branch.
+   Validate it with appropriate project checks and commit only the intended
+   files.
 2. Determine the current PR's base repository and branch, or the repository's
    default branch when no PR exists. Fetch and pin its exact base. Integrate it
    using the repository's normal workflow, resolving conflicts without losing
