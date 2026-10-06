@@ -100,7 +100,6 @@ export async function restorePublicPrincipalHistoryProgress(
     input.organizationId,
     head,
     input.protection.context,
-    [],
   );
   const current = () => !input.signal?.aborted && input.stillCurrent();
   const saved = await loadPrincipalHistoryStage(input.execSql, id);

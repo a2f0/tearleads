@@ -92,9 +92,9 @@ greenfield schema contract, obsolete local tables fail with an explicit reset
 error; this implementation does not migrate or automatically erase a database.
 The authenticated prefix format is v2.
 
-Saved stages are separate for each exact head, local trust context, and retained
-reference selection. Operations for different heads or selections do not discard
-each other's checked prefixes.
+Saved stages are separate for each exact head and local trust context. Different
+citation selections reuse the same authenticated progress, then verify their own
+reference proofs and current checkpoints before returning a policy.
 One completed prefix is shared across target heads and reference selections in a
 scope bound to organization, principal, and trust context. The private local key
 authenticates each reusable hint.
@@ -103,12 +103,11 @@ preserved when recovering an older target. Older completions cannot replace a
 newer prefix.
 A completed same-head prefix still needs a live pinned read and current-artifact
 verification. This cache never supplies an application trust pin.
-Interrupted stages intentionally remain separate by reference selection; a
-changed selection can reuse a completed prefix, but not another selection's
-unfinished stage.
-Runtime projection recovery now creates these stages during normal browsing.
-Distinct citation selections accumulate until organization reset; #2448 still
-tracks their reclamation.
+An interrupted stage can resume for a different citation selection at the same
+head. Concurrent writers compare saved progress and a loser retries; no caller
+can publish over another accepted page. Normal browsing creates at most one
+stage per exact head and trust context. Older target heads and abandoned stages
+still accumulate until organization reset; #2448 tracks their reclamation.
 
 Reusable progress has no embedded checkpoint or reference selection. At finish,
 recovery obtains each requested entry and the latest local checkpoint through
