@@ -43,7 +43,9 @@ export function createPagedColdPolicyWarmer(input: {
             input.onResolve();
             const stillCurrent = () => request.stillCurrent?.() !== false;
             const result = await recoverScopedPrincipalPolicyHistory({
-              ...input,
+              apiClient: input.apiClient,
+              execSql: input.execSql,
+              resolveTrustedUserIdentity: input.resolveTrustedUserIdentity,
               protection,
               organizationId: request.organizationId,
               reference: request.reference,

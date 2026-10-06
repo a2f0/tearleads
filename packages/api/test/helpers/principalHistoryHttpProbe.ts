@@ -10,19 +10,19 @@ export function startPrincipalHistoryHttpProbe() {
     maximumRequestMs: 0,
     maximumResponseBytes: 0,
     totalResponseBytes: 0,
-    peakRssBytes: process.memoryUsage().rss,
-    maximumEventLoopDelayMs: 0,
+    processPeakRssBytes: process.memoryUsage().rss,
+    processMaximumEventLoopDelayMs: 0,
   };
   let previousTick = performance.now();
   const sampler = setInterval(() => {
     const now = performance.now();
-    metrics.maximumEventLoopDelayMs = Math.max(
-      metrics.maximumEventLoopDelayMs,
+    metrics.processMaximumEventLoopDelayMs = Math.max(
+      metrics.processMaximumEventLoopDelayMs,
       now - previousTick - 10,
     );
     previousTick = now;
-    metrics.peakRssBytes = Math.max(
-      metrics.peakRssBytes,
+    metrics.processPeakRssBytes = Math.max(
+      metrics.processPeakRssBytes,
       process.memoryUsage().rss,
     );
   }, 10);
@@ -40,7 +40,8 @@ export function startPrincipalHistoryHttpProbe() {
     async fetch(request) {
       const started = performance.now();
       metrics.requests += 1;
-      const signal = AbortSignal.timeout(15_000);
+      const deadline = AbortSignal.timeout(15_000);
+      const signal = AbortSignal.any([request.signal, deadline]);
       try {
         const url = new URL(request.url);
         const response = await fetch(
@@ -58,12 +59,12 @@ export function startPrincipalHistoryHttpProbe() {
           bytes.byteLength,
         );
         metrics.totalResponseBytes += bytes.byteLength;
-        return new Response(bytes, {
-          status: response.status,
-          headers: response.headers,
-        });
+        const headers = new Headers(response.headers);
+        headers.delete("Content-Encoding");
+        headers.delete("Content-Length");
+        return new Response(bytes, { status: response.status, headers });
       } catch (error) {
-        if (!signal.aborted) throw error;
+        if (!deadline.aborted) throw error;
         metrics.deadlineFailures += 1;
         return Response.json(
           { error: "Test proxy deadline exceeded" },
