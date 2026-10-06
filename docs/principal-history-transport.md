@@ -61,3 +61,24 @@ permits automatic replay or a claim that the operation rolled back. Only a valid
 retain that classification for callers preserving authored requests. Their
 convenience methods still return a value or null; default error callbacks report
 the final outcome classification once, after transport errors are classified.
+
+`GET /principals/history` delivers public signed policy snapshots in pages of
+at most 32 predecessor states, without payloads or member key envelopes. Its
+opaque `grant` binds a user, an authorized container or document, an
+organization, and an exact historical principal head. Each page rechecks
+current access to that object inside a bounded history transaction; deleted
+groups need no live group row. The server verifies each returned entry against
+its authenticated history index. Grants use a separate HMAC domain derived
+from the configured cursor secret, or a private random process key when no
+secret is configured. A process restart in the latter mode invalidates old
+grants. The public development cursor key cannot authorize these reads. A
+grant has no expiry because every read reauthorizes; it never establishes a
+client checkpoint or permits access after revocation.
+
+`ApiClient.getProjectionPolicyHistoryPages` accepts a source containing `head`
+and `grant`, plus an optional caller-authenticated prefix offset. It shares
+the 15-second per-request deadline and preparation handling, validates exact
+head, public artifacts and cursor continuity, and checks identity changes
+after each consumer yield. Projection source issuance and SDK sparse
+authorization recovery are still being integrated; existing projection
+responses still embed snapshots.

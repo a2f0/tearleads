@@ -29,6 +29,8 @@ import { jsonRequestValidator } from "../../validators/jsonRequest";
 import { pathParamsValidator } from "../../validators/pathParams";
 import { queryParamsValidator } from "../../validators/queryParams";
 
+import { registerProjectionPolicyHistoryRoute } from "./history";
+
 interface PrincipalPolicyRouteDeps {
   readonly publish: (event: PublishedRealtimeEvent) => Promise<void>;
   readonly requireAuth: MiddlewareHandler<SessionEnv>;
@@ -164,6 +166,10 @@ export function createPrincipalPolicyRoute({
   );
 
   registerPolicyReadRoute(principalPolicyRoute, { requireAuth, runtime });
+  registerProjectionPolicyHistoryRoute(principalPolicyRoute, {
+    requireAuth,
+    runtime,
+  });
 
   principalPolicyRoute.on(
     putPrincipalPolicyOperation.method,

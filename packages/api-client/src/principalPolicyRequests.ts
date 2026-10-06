@@ -15,6 +15,7 @@ import {
   type PrincipalPolicyPageReadOptions,
   readPrincipalPolicyPages,
 } from "./principalPolicyPages";
+import { readProjectionPolicyHistoryPages } from "./projectionPolicyHistoryPages";
 import { dedupedRequest } from "./requestInternals";
 import {
   commitOrganizationGroupPolicy,
@@ -30,6 +31,13 @@ export class PrincipalPolicyRequests {
     >,
     private readonly clearWriterProjectionCaches: () => void,
   ) {}
+
+  publicPages(
+    source: Parameters<typeof readProjectionPolicyHistoryPages>[1],
+    options: Parameters<typeof readProjectionPolicyHistoryPages>[2] = {},
+  ) {
+    return readProjectionPolicyHistoryPages(this.runtime, source, options);
+  }
 
   pages(
     principalType: "group" | "organization",

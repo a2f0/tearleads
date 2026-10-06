@@ -1,27 +1,18 @@
 import type { DatabaseSession } from "@tearleads/api-shared/postgres";
 import { selectPrincipalPolicyAuthorization } from "@tearleads/crypto";
-import type { PrincipalPolicyPageResponse } from "@tearleads/validators/response";
+import type { PrincipalPolicySnapshotPageResponse } from "@tearleads/validators/response";
 import { PRINCIPAL_POLICY_HISTORY_PAGE_LIMIT } from "@tearleads/validators/util";
 import { readPrincipalHistoryPage } from "../../access/read/principalHistoryProgress";
 import type { StoredPrincipalState } from "../../access/read/principalStateStore";
 import { getVerifiedPrincipalHistory } from "./getVerifiedPrincipalHistory";
 import { PrincipalPolicyError } from "./shared";
 
-export type PrincipalPolicySnapshotPage = Pick<
-  PrincipalPolicyPageResponse,
-  | "currentState"
-  | "currentProjection"
-  | "currentGrants"
-  | "previousStates"
-  | "historyPage"
->;
-
 /** Public signed history only. Callers must authorize its object or organization scope. */
 export async function buildPrincipalPolicySnapshotPage(
   executor: DatabaseSession,
   head: StoredPrincipalState,
   afterVersion: number,
-): Promise<PrincipalPolicySnapshotPage> {
+): Promise<PrincipalPolicySnapshotPageResponse> {
   if (
     !Number.isSafeInteger(afterVersion) ||
     afterVersion < 0 ||

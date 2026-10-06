@@ -624,16 +624,16 @@ export class ApiClient {
     );
   }
 
-  getCurrentPrincipalPolicy(
-    principalType: "group" | "organization",
-    principalId: string,
-    options: RequestResultOptions = {},
+  getProjectionPolicyHistoryPages(
+    ...args: Parameters<PrincipalPolicyRequests["publicPages"]>
   ) {
-    return this.principalPolicyRequests.get(
-      principalType,
-      principalId,
-      options,
-    );
+    return this.principalPolicyRequests.publicPages(...args);
+  }
+
+  getCurrentPrincipalPolicy(
+    ...args: Parameters<PrincipalPolicyRequests["get"]>
+  ) {
+    return this.principalPolicyRequests.get(...args);
   }
 
   putPrincipalPolicy(...args: Parameters<PrincipalPolicyRequests["put"]>) {

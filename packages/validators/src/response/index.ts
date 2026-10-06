@@ -446,6 +446,13 @@ export {
   PrincipalPolicyPageResponseSchema,
 } from "./principalPolicyPage";
 export {
+  isPrincipalPolicySnapshotPageResponse,
+  type PrincipalPolicyHistorySourceResponse,
+  PrincipalPolicyHistorySourceResponseSchema,
+  type PrincipalPolicySnapshotPageResponse,
+  PrincipalPolicySnapshotPageResponseSchema,
+} from "./principalPolicySnapshotPage";
+export {
   isReferencedPrincipalStateResponse,
   type ReferencedPrincipalStateResponse,
   ReferencedPrincipalStateResponseSchema,

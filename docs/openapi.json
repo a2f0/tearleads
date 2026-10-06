@@ -65629,6 +65629,684 @@
         ]
       }
     },
+    "/principals/history": {
+      "get": {
+        "operationId": "principals.history.get",
+        "parameters": [
+          {
+            "explode": true,
+            "in": "query",
+            "name": "grant",
+            "required": true,
+            "schema": {
+              "maxLength": 4096,
+              "minLength": 1,
+              "type": "string"
+            },
+            "style": "form"
+          },
+          {
+            "explode": true,
+            "in": "query",
+            "name": "afterVersion",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "style": "form"
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "currentGrants": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "accessLevel": {
+                            "type": "string",
+                            "enum": [
+                              "admin",
+                              "read",
+                              "write"
+                            ]
+                          },
+                          "containerId": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "accessLevel",
+                          "containerId"
+                        ],
+                        "additionalProperties": {}
+                      }
+                    },
+                    "currentProjection": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "role": {
+                            "type": "string",
+                            "enum": [
+                              "member",
+                              "admin"
+                            ]
+                          },
+                          "userId": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "role",
+                          "userId"
+                        ],
+                        "additionalProperties": {}
+                      }
+                    },
+                    "currentState": {
+                      "type": "object",
+                      "properties": {
+                        "createdAt": {
+                          "type": "string"
+                        },
+                        "encapsulationPublicKey": {
+                          "type": "string"
+                        },
+                        "externalAuthority": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "keyEpoch": {
+                                  "exclusiveMinimum": 0,
+                                  "maximum": 1.7976931348623157e+308,
+                                  "type": "integer"
+                                },
+                                "keyFingerprint": {
+                                  "type": "string"
+                                },
+                                "principalId": {
+                                  "type": "string"
+                                },
+                                "principalType": {
+                                  "type": "string",
+                                  "const": "group"
+                                },
+                                "stateHash": {
+                                  "type": "string"
+                                },
+                                "version": {
+                                  "maximum": 9007199254740991,
+                                  "minimum": 1,
+                                  "type": "integer"
+                                }
+                              },
+                              "required": [
+                                "keyEpoch",
+                                "keyFingerprint",
+                                "principalId",
+                                "principalType",
+                                "stateHash",
+                                "version"
+                              ],
+                              "additionalProperties": {}
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "grantCount": {
+                          "maximum": 1.7976931348623157e+308,
+                          "minimum": 0,
+                          "type": "integer"
+                        },
+                        "grantRoot": {
+                          "type": "string"
+                        },
+                        "keyEpoch": {
+                          "type": "number",
+                          "minimum": -1.7976931348623157e+308,
+                          "maximum": 1.7976931348623157e+308
+                        },
+                        "keyFingerprint": {
+                          "type": "string"
+                        },
+                        "memberCount": {
+                          "maximum": 1.7976931348623157e+308,
+                          "minimum": 0,
+                          "type": "integer"
+                        },
+                        "memberEnvelopesRoot": {
+                          "type": "string"
+                        },
+                        "membershipMode": {
+                          "type": "string",
+                          "const": "projection"
+                        },
+                        "membershipRoot": {
+                          "type": "string"
+                        },
+                        "payloadCiphertextHash": {
+                          "type": "string"
+                        },
+                        "prevStateHash": {
+                          "anyOf": [
+                            {
+                              "type": "string"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "principalId": {
+                          "type": "string"
+                        },
+                        "principalType": {
+                          "type": "string",
+                          "enum": [
+                            "group",
+                            "organization"
+                          ]
+                        },
+                        "projectionRoot": {
+                          "type": "string"
+                        },
+                        "signature": {
+                          "type": "string"
+                        },
+                        "signedAt": {
+                          "type": "string"
+                        },
+                        "signerUserId": {
+                          "type": "string"
+                        },
+                        "signerUserKeyFingerprint": {
+                          "type": "string"
+                        },
+                        "stateHash": {
+                          "type": "string"
+                        },
+                        "version": {
+                          "maximum": 9007199254740991,
+                          "minimum": 1,
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "createdAt",
+                        "encapsulationPublicKey",
+                        "externalAuthority",
+                        "grantCount",
+                        "grantRoot",
+                        "keyEpoch",
+                        "keyFingerprint",
+                        "memberCount",
+                        "memberEnvelopesRoot",
+                        "membershipMode",
+                        "membershipRoot",
+                        "payloadCiphertextHash",
+                        "prevStateHash",
+                        "principalId",
+                        "principalType",
+                        "projectionRoot",
+                        "signature",
+                        "signedAt",
+                        "signerUserId",
+                        "signerUserKeyFingerprint",
+                        "stateHash",
+                        "version"
+                      ],
+                      "additionalProperties": {}
+                    },
+                    "previousStates": {
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "grants": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "accessLevel": {
+                                  "type": "string",
+                                  "enum": [
+                                    "admin",
+                                    "read",
+                                    "write"
+                                  ]
+                                },
+                                "containerId": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "accessLevel",
+                                "containerId"
+                              ],
+                              "additionalProperties": {}
+                            }
+                          },
+                          "projection": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "role": {
+                                  "type": "string",
+                                  "enum": [
+                                    "member",
+                                    "admin"
+                                  ]
+                                },
+                                "userId": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "role",
+                                "userId"
+                              ],
+                              "additionalProperties": {}
+                            }
+                          },
+                          "state": {
+                            "type": "object",
+                            "properties": {
+                              "createdAt": {
+                                "type": "string"
+                              },
+                              "encapsulationPublicKey": {
+                                "type": "string"
+                              },
+                              "externalAuthority": {
+                                "anyOf": [
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "keyEpoch": {
+                                        "exclusiveMinimum": 0,
+                                        "maximum": 1.7976931348623157e+308,
+                                        "type": "integer"
+                                      },
+                                      "keyFingerprint": {
+                                        "type": "string"
+                                      },
+                                      "principalId": {
+                                        "type": "string"
+                                      },
+                                      "principalType": {
+                                        "type": "string",
+                                        "const": "group"
+                                      },
+                                      "stateHash": {
+                                        "type": "string"
+                                      },
+                                      "version": {
+                                        "maximum": 9007199254740991,
+                                        "minimum": 1,
+                                        "type": "integer"
+                                      }
+                                    },
+                                    "required": [
+                                      "keyEpoch",
+                                      "keyFingerprint",
+                                      "principalId",
+                                      "principalType",
+                                      "stateHash",
+                                      "version"
+                                    ],
+                                    "additionalProperties": {}
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "grantCount": {
+                                "maximum": 1.7976931348623157e+308,
+                                "minimum": 0,
+                                "type": "integer"
+                              },
+                              "grantRoot": {
+                                "type": "string"
+                              },
+                              "keyEpoch": {
+                                "type": "number",
+                                "minimum": -1.7976931348623157e+308,
+                                "maximum": 1.7976931348623157e+308
+                              },
+                              "keyFingerprint": {
+                                "type": "string"
+                              },
+                              "memberCount": {
+                                "maximum": 1.7976931348623157e+308,
+                                "minimum": 0,
+                                "type": "integer"
+                              },
+                              "memberEnvelopesRoot": {
+                                "type": "string"
+                              },
+                              "membershipMode": {
+                                "type": "string",
+                                "const": "projection"
+                              },
+                              "membershipRoot": {
+                                "type": "string"
+                              },
+                              "payloadCiphertextHash": {
+                                "type": "string"
+                              },
+                              "prevStateHash": {
+                                "anyOf": [
+                                  {
+                                    "type": "string"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "principalId": {
+                                "type": "string"
+                              },
+                              "principalType": {
+                                "type": "string",
+                                "enum": [
+                                  "group",
+                                  "organization"
+                                ]
+                              },
+                              "projectionRoot": {
+                                "type": "string"
+                              },
+                              "signature": {
+                                "type": "string"
+                              },
+                              "signedAt": {
+                                "type": "string"
+                              },
+                              "signerUserId": {
+                                "type": "string"
+                              },
+                              "signerUserKeyFingerprint": {
+                                "type": "string"
+                              },
+                              "stateHash": {
+                                "type": "string"
+                              },
+                              "version": {
+                                "maximum": 9007199254740991,
+                                "minimum": 1,
+                                "type": "integer"
+                              }
+                            },
+                            "required": [
+                              "createdAt",
+                              "encapsulationPublicKey",
+                              "externalAuthority",
+                              "grantCount",
+                              "grantRoot",
+                              "keyEpoch",
+                              "keyFingerprint",
+                              "memberCount",
+                              "memberEnvelopesRoot",
+                              "membershipMode",
+                              "membershipRoot",
+                              "payloadCiphertextHash",
+                              "prevStateHash",
+                              "principalId",
+                              "principalType",
+                              "projectionRoot",
+                              "signature",
+                              "signedAt",
+                              "signerUserId",
+                              "signerUserKeyFingerprint",
+                              "stateHash",
+                              "version"
+                            ],
+                            "additionalProperties": {}
+                          }
+                        },
+                        "required": [
+                          "grants",
+                          "projection",
+                          "state"
+                        ],
+                        "additionalProperties": {}
+                      },
+                      "maxItems": 32,
+                      "type": "array"
+                    },
+                    "historyPage": {
+                      "type": "object",
+                      "properties": {
+                        "afterVersion": {
+                          "maximum": 9007199254740991,
+                          "minimum": 0,
+                          "type": "integer"
+                        },
+                        "nextAfterVersion": {
+                          "anyOf": [
+                            {
+                              "maximum": 9007199254740991,
+                              "minimum": 0,
+                              "type": "integer"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        }
+                      },
+                      "required": [
+                        "afterVersion",
+                        "nextAfterVersion"
+                      ],
+                      "additionalProperties": {}
+                    }
+                  },
+                  "required": [
+                    "currentGrants",
+                    "currentProjection",
+                    "currentState",
+                    "previousStates",
+                    "historyPage"
+                  ],
+                  "additionalProperties": {}
+                }
+              }
+            },
+            "description": "Successful JSON response"
+          },
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string",
+                      "const": "principal_history_preparation_pending"
+                    },
+                    "committed": {
+                      "type": "boolean",
+                      "const": false
+                    },
+                    "progressToken": {
+                      "maxLength": 64,
+                      "minLength": 64,
+                      "pattern": "^[0-9a-f]+$",
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "committed",
+                    "progressToken"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            },
+            "description": "Verification preparation is pending. Retry the identical authorized read."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": {}
+                }
+              }
+            },
+            "description": "Failure JSON response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string",
+                      "const": "session_refresh_required"
+                    },
+                    "error": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": {}
+                }
+              }
+            },
+            "description": "Failure JSON response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": {}
+                }
+              }
+            },
+            "description": "Failure JSON response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": {}
+                }
+              }
+            },
+            "description": "Failure JSON response"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": {}
+                }
+              }
+            },
+            "description": "Failure JSON response"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": {}
+                }
+              }
+            },
+            "description": "Failure JSON response"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": {}
+                }
+              }
+            },
+            "description": "Failure JSON response"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
     "/principals/{principalType}/{principalId}/policy": {
       "get": {
         "operationId": "principals.policy.get",
