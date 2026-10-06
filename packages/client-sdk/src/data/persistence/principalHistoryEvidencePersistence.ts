@@ -1,6 +1,7 @@
 import {
   compareCanonicalStrings,
   KeyingVerificationError,
+  PRINCIPAL_HISTORY_PAGE_ENTRY_LIMIT,
   type PrincipalHistoryIndexNode,
   type PrincipalPolicyHistoryReferenceProof,
   principalHistoryIndexLeaf,
@@ -41,7 +42,10 @@ export async function preparePrincipalHistoryEvidencePage(input: {
   readonly entries: readonly PrincipalPolicyStateChainEntryResponse[];
   readonly nodes: readonly PrincipalHistoryIndexNode[];
 }): Promise<PrincipalHistoryEvidencePage> {
-  if (input.entries.length > 128 || input.nodes.length > 256)
+  if (
+    input.entries.length > PRINCIPAL_HISTORY_PAGE_ENTRY_LIMIT ||
+    input.nodes.length > 2 * PRINCIPAL_HISTORY_PAGE_ENTRY_LIMIT
+  )
     throw new KeyingVerificationError(
       "invalid_shape",
       "Principal evidence page exceeds its batch budget",

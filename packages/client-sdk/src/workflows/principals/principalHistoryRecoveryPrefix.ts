@@ -46,6 +46,8 @@ export async function restoreReusablePrincipalHistoryPrefix(
         restored.value.finish(options.expectedHead).ok
       )
         return { verifier: restored.value, version: saved.version };
+      // An incompatible target cannot erase an independently valid local hint.
+      return null;
     }
   }
   await discardPrincipalHistoryPrefix({

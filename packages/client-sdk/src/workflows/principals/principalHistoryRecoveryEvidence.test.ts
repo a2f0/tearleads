@@ -4,7 +4,10 @@ import {
   signedRecoveryHistory,
 } from "../../../test/helpers/principalHistoryRecovery";
 import { principalPolicyHead } from "../../../test/helpers/principalPolicyFixtures";
-import { principalHistoryNodes } from "../../data/sqlite/principalHistoryEvidenceSchema";
+import {
+  principalHistoryEntries,
+  principalHistoryNodes,
+} from "../../data/sqlite/principalHistoryEvidenceSchema";
 import { createExecSql } from "../../data/sqlite/sqlSchema";
 import { recoverPrincipalPolicyHistory } from "./recoverPrincipalPolicyHistory";
 
@@ -36,12 +39,23 @@ async function cachedFixture() {
   return { ...fixture, options };
 }
 
-for (const corruption of ["missing", "substituted"] as const) {
+for (const corruption of [
+  "missing",
+  "substituted",
+  "substituted-entry",
+] as const) {
   test(`recovery rebuilds ${corruption} proof material from signed pages`, async () => {
     const fixture = await cachedFixture();
     try {
       if (corruption === "missing")
         await fixture.db.delete(principalHistoryNodes).run();
+      else if (corruption === "substituted-entry")
+        await fixture.db
+          .update(principalHistoryEntries)
+          .set({
+            entryJson: JSON.stringify(history.bundle.previousStates[14]),
+          })
+          .run();
       else
         await fixture.db
           .update(principalHistoryNodes)
@@ -57,6 +71,23 @@ for (const corruption of ["missing", "substituted"] as const) {
     }
   });
 }
+
+test("a wrong caller citation does not discard evidence or replay signed history", async () => {
+  const fixture = await cachedFixture();
+  try {
+    const reference = fixture.options.retainedReferences[0];
+    if (!reference) throw new Error("Missing citation fixture");
+    await expect(
+      recoverPrincipalPolicyHistory({
+        ...fixture.options,
+        retainedReferences: [{ ...reference, stateHash: "f".repeat(64) }],
+      }),
+    ).rejects.toMatchObject({ code: "object_mismatch" });
+    expect(fixture.requests).toEqual([65]);
+  } finally {
+    fixture.close();
+  }
+});
 
 test("persistent proof loss permits only one rebuild attempt per recovery call", async () => {
   const fixture = await cachedFixture();

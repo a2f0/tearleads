@@ -100,3 +100,21 @@ test("a shared completed prefix still requires a successful pinned HTTP read", a
     fixture.close();
   }
 });
+
+test("a different same-version target cannot discard an authenticated completed prefix", async () => {
+  const fixture = await cachedFixture();
+  try {
+    const prefixes = await fixture.db.select().from(principalHistoryPrefixes);
+    await expect(
+      recoverPrincipalPolicyHistory({
+        ...fixture.options,
+        expectedHead: { ...history.expectedHead, stateHash: "f".repeat(64) },
+      }),
+    ).rejects.toMatchObject({ failure: { kind: "shape" } });
+    expect(await fixture.db.select().from(principalHistoryPrefixes)).toEqual(
+      prefixes,
+    );
+  } finally {
+    fixture.close();
+  }
+});
