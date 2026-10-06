@@ -1,6 +1,9 @@
 import { expect, test } from "bun:test";
 import { db } from "@tearleads/api-shared/postgres";
-import { principalPolicyCommits } from "@tearleads/api-shared/schema";
+import {
+  principalDirectoryBindings,
+  principalPolicyCommits,
+} from "@tearleads/api-shared/schema";
 import { eq } from "drizzle-orm";
 import { deleteOrganizationRemoteRows } from "./organizationPurgeRows";
 
@@ -16,6 +19,15 @@ test("organization purge removes only its own compound policy receipts", async (
       responseJson: "{}",
     });
   }
+  for (const id of [organizationId, otherOrganizationId])
+    await db.insert(principalDirectoryBindings).values({
+      organizationId: id,
+      organizationVersion: 1,
+      organizationStateHash: "test",
+      groupId: crypto.randomUUID(),
+      groupVersion: 1,
+      groupStateHash: "test",
+    });
   await db.transaction((executor) =>
     deleteOrganizationRemoteRows({
       executor,
@@ -24,6 +36,20 @@ test("organization purge removes only its own compound policy receipts", async (
       scope: { blobIds: [], containerIds: [], documentIds: [] },
     }),
   );
+  expect(
+    await db
+      .select()
+      .from(principalDirectoryBindings)
+      .where(eq(principalDirectoryBindings.organizationId, organizationId)),
+  ).toEqual([]);
+  expect(
+    await db
+      .select()
+      .from(principalDirectoryBindings)
+      .where(
+        eq(principalDirectoryBindings.organizationId, otherOrganizationId),
+      ),
+  ).toHaveLength(1);
   expect(
     await db
       .select()

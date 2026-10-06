@@ -12,8 +12,7 @@ import {
   verifyStoredPrincipalPolicyForStateWithExecutor,
 } from "./getCurrentPrincipalPolicy";
 import { withPrincipalHistorySuccessorStep } from "./principalHistoryExecution";
-
-import { storeVerifiedPrincipalDirectoryBindings } from "./storePrincipalDirectoryBindings";
+import { storeVerifiedPrincipalDirectoryBindings } from "./storeVerifiedPrincipalDirectoryBindings";
 
 /**
  * Persist all artifacts, verify the stored state against authenticated history,

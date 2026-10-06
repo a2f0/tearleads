@@ -5,7 +5,7 @@ import {
 } from "@tearleads/api-shared/schema";
 import { and, desc, eq, lte } from "drizzle-orm";
 
-/** One indexed candidate; the workflow rechecks its signed directory and head. */
+/** Keep the newest candidate even if its state is corrupt; never hide it behind an older join. */
 export async function readLatestPrincipalDirectoryBinding(input: {
   readonly executor: DatabaseSession;
   readonly organizationId: string;
@@ -21,7 +21,7 @@ export async function readLatestPrincipalDirectoryBinding(input: {
       payloadCiphertextHash: principalStates.payloadCiphertextHash,
     })
     .from(principalDirectoryBindings)
-    .innerJoin(
+    .leftJoin(
       principalStates,
       and(
         eq(principalStates.principalType, "organization"),

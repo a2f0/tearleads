@@ -2,12 +2,17 @@ import { expect, spyOn, test } from "bun:test";
 import { db } from "@tearleads/api-shared/postgres";
 import { principalDirectoryBindings } from "@tearleads/api-shared/schema";
 import { createTestUser } from "@tearleads/bob-and-alice";
-import { and, eq } from "drizzle-orm";
+import {
+  computePrincipalStateHash,
+  signPrincipalState,
+} from "@tearleads/crypto";
+import { and, desc, eq } from "drizzle-orm";
 import {
   createGroupRequest,
   deleteGroupRequest,
 } from "../../../test/helpers/organizationGroup";
 import { getDefaultOrganizationId } from "../../../test/helpers/organizationMembership";
+import { submitOrganizationGroupPolicyCommit } from "../../../test/helpers/principalPolicy";
 import { registerAndAuthenticate } from "../../../test/helpers/principalPolicyReadFixtures";
 import * as history from "../../access/read/principalHistory";
 import * as stateStore from "../../access/read/principalStateStore";
@@ -97,6 +102,26 @@ test("deleted group bindings remain scoped to their signed directory and pin", a
   );
   expect(created.status).toBe(200);
   await created.arrayBuffer();
+  const successor = await submitOrganizationGroupPolicyCommit({
+    actor: f.actor,
+    organizationId: f.organizationId,
+    groupId,
+    groupPolicy: {
+      ...body.initialGroupPolicy,
+      state: await signPrincipalState(
+        {
+          ...body.initialGroupPolicy.state,
+          version: 2,
+          prevStateHash: await computePrincipalStateHash(
+            body.initialGroupPolicy.state,
+          ),
+        },
+        f.actor.signing.signingPrivateKey,
+      ),
+    },
+  });
+  expect(successor.status).toBe(200);
+  await successor.arrayBuffer();
   const deleted = await deleteGroupRequest({
     actor: f.actor,
     organizationId: f.organizationId,
@@ -115,7 +140,7 @@ test("deleted group bindings remain scoped to their signed directory and pin", a
   const recovered = await loadProjectionDirectoryBindings(input);
   expect(recovered.latest.get(groupId)).toMatchObject({
     principalId: groupId,
-    version: 1,
+    version: 2,
   });
   const group = recovered.latest.get(groupId);
   expect(
@@ -129,15 +154,19 @@ test("deleted group bindings remain scoped to their signed directory and pin", a
     eq(principalDirectoryBindings.organizationId, f.organizationId),
     eq(principalDirectoryBindings.groupId, groupId),
   );
-  const [row] = await db.select().from(principalDirectoryBindings).where(where);
+  const [row] = await db
+    .select()
+    .from(principalDirectoryBindings)
+    .where(where)
+    .orderBy(desc(principalDirectoryBindings.organizationVersion));
   if (!row) throw new Error("Missing retained binding row");
   expect(
     await db.select().from(principalDirectoryBindings).where(where),
-  ).toHaveLength(1);
+  ).toHaveLength(2);
   await db
     .update(principalDirectoryBindings)
     .set({ groupStateHash: "f".repeat(64) })
-    .where(where);
+    .where(eq(principalDirectoryBindings.id, row.id));
   clearProjectionDirectoryBindingsCache();
   await expect(loadProjectionDirectoryBindings(input)).rejects.toThrow(
     "binding differs",
@@ -145,13 +174,20 @@ test("deleted group bindings remain scoped to their signed directory and pin", a
   await db
     .update(principalDirectoryBindings)
     .set({ groupStateHash: row.groupStateHash })
-    .where(where);
+    .where(eq(principalDirectoryBindings.id, row.id));
   const foreign = await fixture();
   await db
     .update(principalDirectoryBindings)
     .set({ organizationStateHash: foreign.organization.stateHash })
-    .where(where);
+    .where(eq(principalDirectoryBindings.id, row.id));
   await expect(loadProjectionDirectoryBindings(input)).rejects.toThrow(
     "binding missing",
   );
+  await db
+    .update(principalDirectoryBindings)
+    .set({ organizationStateHash: row.organizationStateHash })
+    .where(eq(principalDirectoryBindings.id, row.id));
+  expect(
+    (await loadProjectionDirectoryBindings(input)).latest.get(groupId)?.version,
+  ).toBe(2);
 });

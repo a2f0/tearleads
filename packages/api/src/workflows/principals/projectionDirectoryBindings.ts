@@ -21,8 +21,11 @@ interface DirectoryBindings {
   bindingPayloadByGroupState: Map<string, DirectoryPayload>;
 }
 
+// Immutable signed heads and the requested group set bind each memo entry.
+// Current object authorization always precedes this proof-only lookup.
 const bindingsByHead = new ByteBudgetCache<DirectoryBindings>(32 * 1024 * 1024);
 
+/** Drop only process-local derived state, including for cold-read probes. */
 export function clearProjectionDirectoryBindingsCache(): void {
   bindingsByHead.clear();
 }
@@ -95,7 +98,7 @@ export async function loadProjectionDirectoryBindings(input: {
         groupId,
         throughVersion: input.organization.version,
       });
-      if (!row)
+      if (!row?.payloadCiphertextHash)
         throw new PrincipalPolicyError(
           "Projection group directory binding missing",
           409,
