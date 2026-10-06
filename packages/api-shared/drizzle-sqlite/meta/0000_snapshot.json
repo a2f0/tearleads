@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "b21079cf-2a74-4006-8bf1-64a789079e18",
+  "id": "0822bb10-f821-4309-a3ad-5220ecabd794",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
     "access_event_dependency_projection": {
@@ -5080,7 +5080,7 @@
           "name": "group_id",
           "type": "text",
           "primaryKey": false,
-          "notNull": true,
+          "notNull": false,
           "autoincrement": false
         },
         "requester_user_id": {

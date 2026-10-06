@@ -33,6 +33,7 @@ import { assertPrincipalOrganizationIsSyncEntitled } from "./organizationSync";
 import { applyPrincipalContainerRematerializations } from "./principalContainerRematerialization";
 import { runPrincipalHistoryTransaction } from "./principalHistoryTransaction";
 import { lockPrincipalMutationInTransaction } from "./principalMutationLock";
+import { principalOrganizationPolicyOutcome } from "./principalOrganizationPolicyOutcome";
 import { assertPolicyAuthorityConstraints } from "./principalPolicyAuthorityConstraints";
 import {
   isOrgAdminAuthorizedPrincipalPolicySigner,
@@ -418,9 +419,14 @@ export async function runPutPrincipalPolicyWorkflow(
   assertStandalonePrincipalPolicyWrite(input.expectedPrincipalType);
 
   try {
-    return await runPrincipalHistoryTransaction(db, (tx) =>
-      putPrincipalPolicyInTransaction(tx, input),
-    );
+    return await runPrincipalHistoryTransaction(db, async (tx) => {
+      const outcome = await principalOrganizationPolicyOutcome(tx, input);
+      if (outcome.response)
+        return { policy: outcome.response, sharedWithYouUserIds: [] };
+      const result = await putPrincipalPolicyInTransaction(tx, input);
+      await outcome.save(result.policy);
+      return result;
+    });
   } catch (error) {
     const containerMutationError = toMutationError(error);
     if (containerMutationError) {

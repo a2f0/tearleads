@@ -683,7 +683,7 @@ CREATE TABLE "principal_membership_projection" (
 CREATE TABLE "principal_policy_commits" (
 	"request_hash" text PRIMARY KEY NOT NULL,
 	"organization_id" uuid NOT NULL,
-	"group_id" uuid NOT NULL,
+	"group_id" uuid,
 	"requester_user_id" uuid NOT NULL,
 	"response_json" text NOT NULL,
 	"created_at" timestamp DEFAULT now() NOT NULL

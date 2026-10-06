@@ -824,7 +824,7 @@ CREATE UNIQUE INDEX `principal_membership_projection_state_member_idx` ON `princ
 CREATE TABLE `principal_policy_commits` (
 	`request_hash` text PRIMARY KEY NOT NULL,
 	`organization_id` text NOT NULL,
-	`group_id` text NOT NULL,
+	`group_id` text,
 	`requester_user_id` text NOT NULL,
 	`response_json` text NOT NULL,
 	`created_at` integer DEFAULT (cast((julianday('now') - 2440587.5)*86400000 as integer)) NOT NULL

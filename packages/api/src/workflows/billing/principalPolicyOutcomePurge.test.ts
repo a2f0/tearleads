@@ -7,17 +7,18 @@ import {
 import { eq } from "drizzle-orm";
 import { deleteOrganizationRemoteRows } from "./organizationPurgeRows";
 
-test("organization purge removes only its own compound policy receipts", async () => {
+test("organization purge removes only its own compound and standalone policy receipts", async () => {
   const organizationId = crypto.randomUUID();
   const otherOrganizationId = crypto.randomUUID();
   for (const id of [organizationId, otherOrganizationId]) {
-    await db.insert(principalPolicyCommits).values({
-      requestHash: crypto.randomUUID(),
-      organizationId: id,
-      groupId: crypto.randomUUID(),
-      requesterUserId: crypto.randomUUID(),
-      responseJson: "{}",
-    });
+    for (const groupId of [null, crypto.randomUUID()])
+      await db.insert(principalPolicyCommits).values({
+        requestHash: crypto.randomUUID(),
+        organizationId: id,
+        groupId,
+        requesterUserId: crypto.randomUUID(),
+        responseJson: "{}",
+      });
   }
   for (const id of [organizationId, otherOrganizationId])
     await db.insert(principalDirectoryBindings).values({
@@ -61,5 +62,5 @@ test("organization purge removes only its own compound policy receipts", async (
       .select()
       .from(principalPolicyCommits)
       .where(eq(principalPolicyCommits.organizationId, otherOrganizationId)),
-  ).toHaveLength(1);
+  ).toHaveLength(2);
 });

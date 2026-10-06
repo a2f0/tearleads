@@ -1,5 +1,5 @@
 {
-  "id": "e0a939e7-89ff-4057-82c9-8724582a3882",
+  "id": "0ab51491-faac-48b2-babe-9e4b3880578d",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -6958,7 +6958,7 @@
           "name": "group_id",
           "type": "uuid",
           "primaryKey": false,
-          "notNull": true
+          "notNull": false
         },
         "requester_user_id": {
           "name": "requester_user_id",
