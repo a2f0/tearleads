@@ -320,3 +320,62 @@ test("a cold offline cache miss is availability loss without a security incident
     f.close();
   }
 });
+
+test("one projection batch reuses directory and Admins recovery for several groups", async () => {
+  const f = await fixture();
+  try {
+    const second = await history.createGroup("Second", false);
+    const directory = await history.advanceDirectory(history.directory, second);
+    f.policies.set(second.currentState.principalId, second);
+    f.policies.set(history.organizationId, directory);
+    const context = createProjectionCheckpointContext(f.options);
+    const policies = await collectReferencedPrincipalPolicies({
+      checkpointContext: context,
+      organizationId: history.organizationId,
+      principalPolicyCache: new Map(),
+      references: [
+        principalPolicyHead(history.created),
+        principalPolicyHead(second),
+      ],
+      resolveUserKey: f.options.resolveTrustedUserIdentity,
+      stillCurrent: () => f.state.current,
+      warmReferencedPrincipalPolicies: f.warmer,
+    });
+    expect(policies).toHaveLength(2);
+    expect(
+      f.requests.filter(
+        (r) => r.principalId === history.organizationId && r.afterVersion === 0,
+      ),
+    ).toHaveLength(2);
+    // One discovery plus one verification sequence; no second discovery/read.
+    expect(
+      f.requests
+        .filter((r) => r.principalId === history.organizationId)
+        .map((r) => r.afterVersion),
+    ).toEqual([0, 0, 32, 64]);
+    expect(
+      f.requests
+        .filter((r) => r.principalId === history.admin.currentState.principalId)
+        .map((r) => r.afterVersion),
+    ).toEqual([0, 32, 64, 65]);
+    await commitProjectionCheckpoints(context);
+    const laterDirectory = await history.advanceDirectory(directory, second);
+    f.policies.set(history.organizationId, laterDirectory);
+    const nextContext = createProjectionCheckpointContext(f.options);
+    await collectReferencedPrincipalPolicies({
+      checkpointContext: nextContext,
+      organizationId: history.organizationId,
+      principalPolicyCache: new Map(),
+      references: [principalPolicyHead(second)],
+      resolveUserKey: f.options.resolveTrustedUserIdentity,
+      warmReferencedPrincipalPolicies: f.warmer,
+    });
+    expect(
+      nextContext.policies.find(
+        (policy) => policy.principalType === "organization",
+      )?.stateHash,
+    ).toBe(laterDirectory.currentState.stateHash);
+  } finally {
+    f.close();
+  }
+});

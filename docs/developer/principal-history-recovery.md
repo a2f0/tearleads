@@ -149,3 +149,14 @@ The returned Admins dependency retains its head and local checkpoint; historical
 authority citations are checked page by page without accumulating every citation
 in the result. Each group page with external citations may perform another pinned
 Admins read while reusing its authenticated prefix and local index.
+
+Within one projection collection, runtime recovery reuses the authenticated
+organization directory and identical Admins head/citation selections across
+referenced groups. This cache belongs to that collection, checks both the saved
+and current lifetime guards, and is discarded before the next collection. A
+future citation clears it before the existing single directory refresh. The
+next collection discovers the directory again. A normal offline cache miss is
+reported as dependency unavailability, without recording a security incident.
+
+Paged current envelopes also supply encrypted key candidates to container
+unwrapping; see [the key-candidate trust boundary](principal-key-envelope-candidates.md).

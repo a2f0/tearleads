@@ -12,7 +12,10 @@ import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import type { TrustedUserIdentityResolver } from "../../data/trustedUserIdentity";
 import { PrincipalPolicyHistoryReadError } from "./principalHistoryRecoveryTypes";
 import { queuePrincipalRecovery } from "./principalRecoveryQueue";
-import { recoverScopedPrincipalPolicyHistory } from "./recoverScopedPrincipalPolicyHistory";
+import {
+  createScopedPrincipalPolicyHistoryBatch,
+  recoverScopedPrincipalPolicyHistory,
+} from "./recoverScopedPrincipalPolicyHistory";
 
 export interface PrincipalPolicyRecoveryRuntime {
   readonly apiClient: Partial<Pick<ApiClient, "getPrincipalPolicyPages">>;
@@ -34,6 +37,19 @@ export function createRuntimePrincipalPolicyResolver(
     runtime.apiClient,
   );
   if (!lease || !readPages) return undefined;
+  const batches = new WeakMap<
+    object,
+    typeof recoverScopedPrincipalPolicyHistory
+  >();
+  const recoverFor = (batch: object | undefined) => {
+    if (!batch) return recoverScopedPrincipalPolicyHistory;
+    let recover = batches.get(batch);
+    if (!recover) {
+      recover = createScopedPrincipalPolicyHistoryBatch();
+      batches.set(batch, recover);
+    }
+    return recover;
+  };
   return (input) =>
     queuePrincipalRecovery(runtime.infra.execSql, input.organizationId, () =>
       runWithSecurityIncidentReporting(
@@ -49,11 +65,12 @@ export function createRuntimePrincipalPolicyResolver(
             const stillCurrent = () =>
               leaseCurrent() && input.stillCurrent?.() !== false;
             assertProjectionVerificationCurrent(stillCurrent);
+            const offline = runtime.state?.online === false;
             try {
-              const result = await recoverScopedPrincipalPolicyHistory({
+              const result = await recoverFor(input.recoveryBatch)({
                 apiClient: { getPrincipalPolicyPages: readPages },
                 execSql: runtime.infra.execSql,
-                offline: runtime.state?.online === false,
+                offline,
                 organizationId: input.organizationId,
                 protection,
                 reference: input.reference,
@@ -70,7 +87,7 @@ export function createRuntimePrincipalPolicyResolver(
               assertProjectionVerificationCurrent(stillCurrent);
               if (
                 error instanceof PrincipalPolicyHistoryReadError ||
-                (runtime.state?.online === false &&
+                (offline &&
                   error instanceof KeyingVerificationError &&
                   error.code === "missing_dependency")
               )

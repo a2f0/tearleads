@@ -60,6 +60,7 @@ async function meetsCheckpoints(
 }
 
 export async function resolveReferencedPrincipalPolicy(input: {
+  readonly recoveryBatch?: object | undefined;
   readonly checkpointContext: ProjectionCheckpointContext;
   readonly organizationId: string;
   readonly stillCurrent?: (() => boolean) | undefined;
@@ -87,6 +88,7 @@ export async function resolveReferencedPrincipalPolicy(input: {
     const resolve = input.warmReferencedPrincipalPolicies?.resolveReference;
     if (!resolve) return null;
     result = await resolve({
+      recoveryBatch: input.recoveryBatch,
       organizationId: input.organizationId,
       reference: input.reference,
       stillCurrent: input.stillCurrent,
