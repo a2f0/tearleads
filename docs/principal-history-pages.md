@@ -24,10 +24,9 @@ after its signatures pass, before publishing its progress. Uncited states
 preserve the prior external-admin citation, so a later page cannot roll
 authority back. A successful `finish(expectedHead)` requires the exact current
 head, including its key epoch and fingerprint, and connection to the optional
-local checkpoint. Returned entries are readonly views inside a copy.
-Deliberately mutating that copy at runtime cannot change the verifier's
-progress. The verifier may continue after a successful finish, allowing callers
-to observe exact verified intermediate heads.
+local checkpoint. Returned entries are readonly copies; mutating them cannot
+change verifier progress. The verifier may continue after a successful finish
+to observe exact intermediate heads.
 
 `VerifiedPrincipalPolicyHistory` is not a full snapshot. On `finish`, its
 `retainedEntries` contains reached requested entries, the reached local checkpoint,
@@ -56,9 +55,9 @@ An independently signed fork is insufficient: the exact entry must belong to
 this accepted prefix. Proof paths have at most 53 hashes.
 
 Successful selection returns a new capability containing only those references
-and the current entry. It does not grow the original selection or verifier.
-Changing selections therefore needs no genesis replay. Callers that need this
-reuse should export progress with a stable empty retained-reference selection,
+and the current entry, replacing any retained checkpoint. Include the checkpoint
+in the requested proofs if admission still needs it. Changing selections needs
+no genesis replay. For reuse, export progress with an empty reference selection,
 then select references after finishing. The progress input binding itself still
 requires exact normalized inputs on restoration.
 

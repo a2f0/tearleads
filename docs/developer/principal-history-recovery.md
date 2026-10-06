@@ -23,8 +23,9 @@ Organization-directory binding and atomic publication remain the caller's work.
 
 The verifier automatically retains the signed local checkpoint entry, adding at
 most one entry to the 128-reference budget plus the current entry. SDK atomic
-checkpoint admission uses this sparse evidence to recheck the latest durable pin
-inside its transaction. Every earlier head observed in the same batch must also
+checkpoint admission can use this sparse evidence to recheck the latest durable
+pin inside its transaction; callers must explicitly submit recovered policies.
+Every earlier head observed in the same batch must also
 be retained. If the durable pin changes to a version missing from the selection,
 admission fails with `stale_predecessor` and requires fresh evidence. Cancellation
 prevents the batch from advancing any checkpoint. Full-bundle persistence still
