@@ -35,6 +35,9 @@ tearleads.database.configure({
 a module worker. The worker script is not part of this package: the host serves
 it, at `/worker.js` unless it passes another `workerUrl`.
 
+Typecheck with `skipLibCheck: true`: the declarations of drizzle-orm and
+loro-crdt, which the SDK's types reference, do not typecheck without it.
+
 The [developer guide](https://github.com/a2f0/tearleads/blob/main/docs/developer/client-sdk.md)
 covers constructor options, the host contract, the local keyring, and every
 public entry point.
@@ -62,9 +65,11 @@ their sources inline and name them by file name alone.
 `src/publishedPackage.test.ts` builds the package and checks its manifest, that
 every module imports only its own files or a declared dependency, and that no
 build path or test module ships. The smoke script imports every entry point
-under Bun and Node, typechecks against the declarations with TypeScript's
-defaults under both `bundler` and `nodenext` resolution, and bundles for the
-browser. It needs the network to install the consumer's dependencies.
+under Bun and Node and bundles them for the browser. It typechecks a consumer
+under `bundler` and `nodenext` resolution with `skipLibCheck: true`, then again
+without it, failing on errors in the SDK's declarations and ignoring those in
+drizzle-orm's and loro-crdt's own. It needs the network to install the
+consumer's dependencies.
 
 To publish by hand, run from the repository root with an account that owns
 the `@tearleads` npm scope:

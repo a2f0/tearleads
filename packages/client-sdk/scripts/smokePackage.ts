@@ -88,8 +88,11 @@ export const identity = createTestTrustedUserIdentity({
 });
 `;
 
-// TypeScript's defaults check every declaration a consumer's program reaches.
-function consumerTsconfig(module: string, moduleResolution: string) {
+function consumerTsconfig(
+  module: string,
+  moduleResolution: string,
+  skipLibCheck: boolean,
+) {
   return JSON.stringify({
     compilerOptions: {
       lib: ["ESNext", "DOM"],
@@ -97,7 +100,7 @@ function consumerTsconfig(module: string, moduleResolution: string) {
       moduleResolution,
       noEmit: true,
       noUncheckedSideEffectImports: true,
-      skipLibCheck: false,
+      skipLibCheck,
       strict: true,
       target: "es2022",
       types: [],
@@ -124,8 +127,18 @@ function writeConsumer(projectDir: string, tarball: string) {
     "smoke.test.js": smokeTest,
     "node-imports.mjs": nodeImports,
     "typecheck.ts": typecheckSource,
-    "tsconfig.bundler.json": consumerTsconfig("esnext", "bundler"),
-    "tsconfig.nodenext.json": consumerTsconfig("nodenext", "nodenext"),
+    "tsconfig.bundler.json": consumerTsconfig("esnext", "bundler", true),
+    "tsconfig.nodenext.json": consumerTsconfig("nodenext", "nodenext", true),
+    "tsconfig.bundler.strict.json": consumerTsconfig(
+      "esnext",
+      "bundler",
+      false,
+    ),
+    "tsconfig.nodenext.strict.json": consumerTsconfig(
+      "nodenext",
+      "nodenext",
+      false,
+    ),
     "bundle-entry.js": bundleEntry,
   };
   for (const [name, contents] of Object.entries(files)) {
@@ -133,10 +146,11 @@ function writeConsumer(projectDir: string, tarball: string) {
   }
 }
 
-// drizzle-orm's and loro-crdt's own declarations do not typecheck without
-// skipLibCheck, which would also skip the SDK's. Check everything, then fail
-// on errors in the consumer or the SDK and ignore the rest.
-function typecheck(projectDir: string, tsconfig: string) {
+// Consumers typecheck with skipLibCheck: drizzle-orm's and loro-crdt's own
+// declarations do not typecheck without it. That setting also skips the SDK's
+// declarations, so check them again under TypeScript's default, failing on
+// errors in the consumer or the SDK and ignoring the dependencies' own.
+function typecheckDeclarations(projectDir: string, tsconfig: string) {
   const result = spawnSync("bun", ["x", "tsc", "-p", tsconfig], {
     cwd: projectDir,
     encoding: "utf8",
@@ -174,8 +188,10 @@ try {
   run(["bun", "install"], projectDir);
   run(["bun", "test"], projectDir);
   run(["node", "node-imports.mjs"], projectDir);
-  typecheck(projectDir, "tsconfig.bundler.json");
-  typecheck(projectDir, "tsconfig.nodenext.json");
+  run(["bun", "x", "tsc", "-p", "tsconfig.bundler.json"], projectDir);
+  run(["bun", "x", "tsc", "-p", "tsconfig.nodenext.json"], projectDir);
+  typecheckDeclarations(projectDir, "tsconfig.bundler.strict.json");
+  typecheckDeclarations(projectDir, "tsconfig.nodenext.strict.json");
   run(
     [
       "bun",
