@@ -11,6 +11,7 @@ import type { SecurityIncidentReporter } from "../../data/securityIncidents";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import type { TrustedUserIdentityResolver } from "../../data/trustedUserIdentity";
 import { PrincipalPolicyHistoryReadError } from "./principalHistoryRecoveryTypes";
+import { recoverWithPrincipalOutageFallback } from "./principalRecoveryOutage";
 import { queuePrincipalRecovery } from "./principalRecoveryQueue";
 import {
   createScopedPrincipalPolicyHistoryBatch,
@@ -67,7 +68,7 @@ export function createRuntimePrincipalPolicyResolver(
             assertProjectionVerificationCurrent(stillCurrent);
             const offline = runtime.state?.online === false;
             try {
-              const result = await recoverFor(input.recoveryBatch)({
+              const options = {
                 apiClient: { getPrincipalPolicyPages: readPages },
                 execSql: runtime.infra.execSql,
                 offline,
@@ -76,7 +77,11 @@ export function createRuntimePrincipalPolicyResolver(
                 reference: input.reference,
                 resolveTrustedUserIdentity: runtime.resolveTrustedUserIdentity,
                 stillCurrent,
-              });
+              };
+              const result = await recoverWithPrincipalOutageFallback(
+                recoverFor(input.recoveryBatch),
+                options,
+              );
               return {
                 organizationId: input.organizationId,
                 policy: result.policy,
