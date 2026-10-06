@@ -342,15 +342,16 @@ async function verifyReferencedPrincipalPolicy(input: {
     }
   }
 
-  const recovered = await resolveReferencedPrincipalPolicy(input);
-  if (recovered) return recovered;
-
   const referenceLabel = principalPolicyReferenceLabel(input.reference);
   let bundle = await loadPrincipalPolicyBundleForReference(
     execSql,
     input.reference,
     localCheckpoint,
   );
+  if (!bundle) {
+    const recovered = await resolveReferencedPrincipalPolicy(input);
+    if (recovered) return recovered;
+  }
   if (!bundle && input.warmReferencedPrincipalPolicies) {
     // The reference is not cached locally — the common case for a member who
     // gained access via another org's group grant and never hydrated that

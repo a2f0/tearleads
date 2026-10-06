@@ -16,6 +16,8 @@ export function createPrincipalHistoryKeyProvider(
       let expired = false;
       let timeoutId: ReturnType<typeof setTimeout> | undefined;
       const derive = async () => {
+        // Runtime leases require a ready database; SQLite bootstrap has already
+        // created this root. Recovery must never create a different database key.
         const session = await activeKeyring.loadSession({
           namespace: LOCAL_SQLITE_SCOPE_NAMESPACE,
         });
@@ -61,6 +63,8 @@ export function createPrincipalHistoryKeyProvider(
         if (expired && keyring === activeKeyring) {
           keyring = null;
           try {
+            // A hung shared backend must be recreated for all consumers, just
+            // as in SQLite bootstrap. Successful derivations never retire it.
             createLocalKeyring.invalidateCachedKeyring?.();
           } catch {
             // Preserve the timeout while allowing another factory attempt.

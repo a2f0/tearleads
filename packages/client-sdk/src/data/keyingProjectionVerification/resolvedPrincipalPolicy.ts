@@ -21,6 +21,8 @@ import {
 
 // Sparse cache hits must carry the organization binding and every dependency
 // into each new admission batch; a bare current-policy capability is insufficient.
+// The caller owns this cache. Cross-generation reuse is deliberately disabled by
+// the saved guard; a new lifetime restores authenticated persistent evidence.
 const recoveredByCache = new WeakMap<
   PrincipalPolicyCache,
   Map<string, ResolvedPrincipalPolicyEvidence>

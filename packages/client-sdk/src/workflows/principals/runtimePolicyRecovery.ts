@@ -10,6 +10,7 @@ import type { SecurityIncidentReporter } from "../../data/securityIncidents";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import type { TrustedUserIdentityResolver } from "../../data/trustedUserIdentity";
 import { PrincipalPolicyHistoryReadError } from "./principalHistoryRecoveryTypes";
+import { queuePrincipalRecovery } from "./principalRecoveryQueue";
 import { recoverScopedPrincipalPolicyHistory } from "./recoverScopedPrincipalPolicyHistory";
 
 export interface PrincipalPolicyRecoveryRuntime {
@@ -33,42 +34,44 @@ export function createRuntimePrincipalPolicyResolver(
   );
   if (!lease || !readPages) return undefined;
   return (input) =>
-    runWithSecurityIncidentReporting(
-      runtime.util.reportSecurityIncident,
-      {
-        objectId: input.reference.principalId,
-        objectKind: "principal",
-        operation: "principal.policy.recover",
-        organizationId: input.organizationId,
-      },
-      () =>
-        lease(async ({ protection, stillCurrent: leaseCurrent }) => {
-          const stillCurrent = () =>
-            leaseCurrent() && input.stillCurrent?.() !== false;
-          assertProjectionVerificationCurrent(stillCurrent);
-          try {
-            const result = await recoverScopedPrincipalPolicyHistory({
-              apiClient: { getPrincipalPolicyPages: readPages },
-              execSql: runtime.infra.execSql,
-              offline: runtime.state?.online === false,
-              organizationId: input.organizationId,
-              protection,
-              reference: input.reference,
-              resolveTrustedUserIdentity: runtime.resolveTrustedUserIdentity,
-              stillCurrent,
-            });
-            return {
-              organizationId: input.organizationId,
-              policy: result.policy,
-              dependencies: result.dependencies,
-              stillCurrent,
-            };
-          } catch (error) {
+    queuePrincipalRecovery(runtime.infra.execSql, input.organizationId, () =>
+      runWithSecurityIncidentReporting(
+        runtime.util.reportSecurityIncident,
+        {
+          objectId: input.reference.principalId,
+          objectKind: "principal",
+          operation: "principal.policy.recover",
+          organizationId: input.organizationId,
+        },
+        () =>
+          lease(async ({ protection, stillCurrent: leaseCurrent }) => {
+            const stillCurrent = () =>
+              leaseCurrent() && input.stillCurrent?.() !== false;
             assertProjectionVerificationCurrent(stillCurrent);
-            if (error instanceof PrincipalPolicyHistoryReadError)
-              throw new ProjectionDependencyUnavailableError(error.message);
-            throw error;
-          }
-        }),
+            try {
+              const result = await recoverScopedPrincipalPolicyHistory({
+                apiClient: { getPrincipalPolicyPages: readPages },
+                execSql: runtime.infra.execSql,
+                offline: runtime.state?.online === false,
+                organizationId: input.organizationId,
+                protection,
+                reference: input.reference,
+                resolveTrustedUserIdentity: runtime.resolveTrustedUserIdentity,
+                stillCurrent,
+              });
+              return {
+                organizationId: input.organizationId,
+                policy: result.policy,
+                dependencies: result.dependencies,
+                stillCurrent,
+              };
+            } catch (error) {
+              assertProjectionVerificationCurrent(stillCurrent);
+              if (error instanceof PrincipalPolicyHistoryReadError)
+                throw new ProjectionDependencyUnavailableError(error.message);
+              throw error;
+            }
+          }),
+      ),
     );
 }

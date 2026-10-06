@@ -14,6 +14,10 @@ import {
   type PrincipalPolicyCache,
   type ReferencedPrincipalPolicyWarmer,
 } from "../../data/keyingProjectionVerification/types";
+import {
+  loadOrganizationFounder,
+  rememberOrganizationFounder,
+} from "../../data/persistence/organizationFounderPersistence";
 import type { PrincipalHistoryProtectionLease } from "../../data/principals/principalHistoryProtection";
 import { principalPolicyCheckpoints } from "../../data/sqlite/principalPolicySchema";
 import { createRuntimePrincipalPolicyWarmer } from "./runtimePolicyWarmer";
@@ -87,6 +91,18 @@ test("runtime projection recovery carries bounded history and dependencies throu
     const cache: PrincipalPolicyCache = new Map();
     const first = await f.collect(cache);
     expect(first.context.policies).toHaveLength(3);
+    const directory = first.context.policies[0];
+    if (!directory) throw new Error("Missing directory evidence");
+    await rememberOrganizationFounder({
+      execSql: f.options.execSql,
+      organization: directory,
+    });
+    expect(
+      await loadOrganizationFounder(f.options.execSql, history.organizationId),
+    ).toMatchObject({
+      userId: history.signerUserId,
+      genesisStateHash: history.initial.currentState.stateHash,
+    });
     expect(first.policies[0]).toMatchObject({ version: 66 });
     expect(first.policies[0]).not.toHaveProperty("history");
     expect(
@@ -254,6 +270,19 @@ test("a newly admitted intermediate dependency pin is retained on cache refresh"
     });
     await commitProjectionCheckpoints(result.context);
     expect(f.requests).toHaveLength(count);
+  } finally {
+    f.close();
+  }
+});
+
+test("concurrent runtime readers share the organization recovery writer", async () => {
+  const f = await fixture();
+  try {
+    const [first, second] = await Promise.all([f.collect(), f.collect()]);
+    expect(first.policies[0]?.stateHash).toBe(second.policies[0]?.stateHash);
+    expect(first.context.policies).toHaveLength(3);
+    expect(second.context.policies).toHaveLength(3);
+    expect(f.state.fullReads).toBe(0);
   } finally {
     f.close();
   }

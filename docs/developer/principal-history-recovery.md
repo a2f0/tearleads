@@ -28,7 +28,10 @@ create a replacement. Derivation times out after 15 seconds, releases the queue,
 and clears any key bytes returned after that timeout.
 
 Built-in projection reference verification uses the runtime lease to recover
-scoped paged evidence. Container and document authorization and mutation planning
+scoped paged evidence when no valid full bundle is held locally. Existing local
+bundles remain usable offline without a paged cache. Runtime recovery queues are
+shared per database and organization, avoiding concurrent writes to directory or
+Admins progress. Container and document authorization and mutation planning
 accept the resulting current policy with selected historical citations. The
 projection checkpoint batch also carries every verified directory/Admins
 dependency. In-memory reuse preserves that organization binding and lifetime,
@@ -132,6 +135,9 @@ head bound by that signed directory. An older requested citation is selected fro
 that verified head. Group recovery also verifies strict Admins history and obtains
 each page's cited authority states through the local index. General group caches
 cannot establish this organization binding; scoped progress binds the Admins ID.
+
+Directory recovery always selects verified genesis, so root-bound founder
+pinning also works with paged organization evidence.
 
 The result contains the current policy plus verified `dependencies`. Submit all
 of these policies together when atomically admitting checkpoints. Recovery itself

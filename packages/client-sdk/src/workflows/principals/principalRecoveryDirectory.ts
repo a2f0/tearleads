@@ -2,8 +2,10 @@ import {
   KeyingVerificationError,
   type ReferencedPrincipalHead,
   serializeKeyingCanonicalJson,
+  verifyPrincipalPolicyHistoryReferences,
 } from "@tearleads/crypto";
 import { assertProjectionVerificationCurrent } from "../../data/keyingProjectionVerification/types";
+import { loadPrincipalHistoryReference } from "../../data/persistence/principalHistoryEvidencePersistence";
 import {
   type OrganizationAuthorityDescriptor,
   parseOrganizationAuthorityDescriptor,
@@ -33,9 +35,10 @@ export interface RecoveredPolicyDirectory
 export class PrincipalRecoveryDirectoryAdvanced extends Error {}
 
 /** An unverified discovery read chooses a pin; recovery must authenticate it. */
-async function discoverDirectoryHead(
-  input: PrincipalRecoveryContext,
-): Promise<ReferencedPrincipalHead> {
+async function discoverDirectoryHead(input: PrincipalRecoveryContext): Promise<{
+  head: ReferencedPrincipalHead;
+  genesis: ReferencedPrincipalHead;
+}> {
   assertProjectionVerificationCurrent(
     () => !input.signal?.aborted && input.stillCurrent(),
   );
@@ -59,7 +62,20 @@ async function discoverDirectoryHead(
         "missing_dependency",
         "Organization directory is unavailable offline",
       );
-    return prefix.head;
+    const history = prefix.verifier.finish(prefix.head);
+    if (!history.ok) throw history.error;
+    const genesis = await loadPrincipalHistoryReference({
+      execSql: input.execSql,
+      scopeId,
+      history: history.value,
+      version: 1,
+    });
+    const selected = await verifyPrincipalPolicyHistoryReferences({
+      history: history.value,
+      references: [genesis],
+    });
+    if (!selected.ok) throw selected.error;
+    return { head: prefix.head, genesis: genesis.reference };
   }
   for await (const result of input.apiClient.getPrincipalPolicyPages(
     "organization",
@@ -71,13 +87,33 @@ async function discoverDirectoryHead(
       () => !input.signal?.aborted && input.stillCurrent(),
     );
     const state = result.data.currentState;
+    const first = result.data.previousStates[0]?.state ?? state;
+    if (
+      first.version !== 1 ||
+      first.principalType !== "organization" ||
+      first.principalId !== input.organizationId
+    )
+      throw new KeyingVerificationError(
+        "missing_dependency",
+        "Organization directory discovery requires genesis",
+      );
     return {
-      principalType: "organization",
-      principalId: input.organizationId,
-      version: state.version,
-      stateHash: state.stateHash,
-      keyEpoch: state.keyEpoch,
-      keyFingerprint: state.keyFingerprint,
+      genesis: {
+        principalType: first.principalType,
+        principalId: first.principalId,
+        version: first.version,
+        stateHash: first.stateHash,
+        keyEpoch: first.keyEpoch,
+        keyFingerprint: first.keyFingerprint,
+      },
+      head: {
+        principalType: "organization",
+        principalId: input.organizationId,
+        version: state.version,
+        stateHash: state.stateHash,
+        keyEpoch: state.keyEpoch,
+        keyFingerprint: state.keyFingerprint,
+      },
     };
   }
   throw new KeyingVerificationError(
@@ -100,13 +136,13 @@ export async function recoverPolicyDirectory(
       ]),
     },
   };
-  const expectedHead = await discoverDirectoryHead(scoped);
+  const { head: expectedHead, genesis } = await discoverDirectoryHead(scoped);
   if (references.some((reference) => reference.version > expectedHead.version))
     throw new PrincipalRecoveryDirectoryAdvanced();
   const recovered = await recoverPrincipalPolicyHistory({
     ...scoped,
     expectedHead,
-    retainedReferences: references,
+    retainedReferences: [genesis, ...references],
   });
   let descriptor: OrganizationAuthorityDescriptor;
   try {

@@ -27,17 +27,18 @@ export async function rememberRootBoundOrganizationFounder(input: {
       policy.principalType === "organization" &&
       policy.principalId === root.state.organizationId,
   );
-  // Only full-chain evidence establishes genesis here. Current-only evidence
-  // cannot establish a new founder pin for subsequent rehome authorization.
-  if (
-    !organization ||
-    "retainedHistory" in organization ||
-    !organization.history
-  )
-    return;
-  const genesis = organization.history.find(
-    ({ state }) => state.version === 1,
-  )?.state;
+  if (!organization) return;
+  const entries =
+    "retainedHistory" in organization
+      ? organization.retainedHistory
+      : organization.history;
+  if (!entries) return;
+  const genesis = entries.find(({ state }) => state.version === 1)?.state;
+  if (!genesis)
+    throw new KeyingVerificationError(
+      "missing_dependency",
+      "Organization founder requires verified genesis",
+    );
   const created = verifiedContainerCreateManifest({
     head: root,
     label: "Organization founder root",
