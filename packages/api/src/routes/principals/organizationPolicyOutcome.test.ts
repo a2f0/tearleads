@@ -88,11 +88,14 @@ test("a lost standalone directory acknowledgement survives a later directory hea
     expect(advanced.status).toBe(200);
     await advanced.arrayBuffer();
     expect(
-      published.filter((event) => event.type === "principal_access_changed"),
+      published.filter(
+        (event) => Reflect.get(event, "type") === "principal_access_changed",
+      ),
     ).toEqual([]);
     expect(
       published.filter(
-        (event) => event.type === "organization_read_model_changed",
+        (event) =>
+          Reflect.get(event, "type") === "organization_read_model_changed",
       ),
     ).toHaveLength(2);
     const publishedCount = published.length;

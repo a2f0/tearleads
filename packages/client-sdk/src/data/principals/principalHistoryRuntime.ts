@@ -3,11 +3,14 @@ import type { PrincipalHistoryProtectionLease } from "./principalHistoryProtecti
 const leases = new WeakMap<object, PrincipalHistoryProtectionLease>();
 
 /** Internal workflow adapters carry custody without exposing it on public views. */
-export function readPrincipalHistoryProtection(runtime: object) {
-  const internal = runtime as {
-    readonly withPrincipalHistoryProtection?: PrincipalHistoryProtectionLease;
-  };
-  return leases.get(runtime) ?? internal.withPrincipalHistoryProtection;
+export function readPrincipalHistoryProtection(
+  runtime: object & {
+    readonly withPrincipalHistoryProtection?:
+      | PrincipalHistoryProtectionLease
+      | undefined;
+  },
+) {
+  return leases.get(runtime) ?? runtime.withPrincipalHistoryProtection;
 }
 
 export function inheritPrincipalHistoryProtection<T extends object>(
