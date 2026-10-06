@@ -28,6 +28,9 @@
   "scripts": {
     "build": "sh scripts/build.sh",
     "check": "tsc -p tsconfig.json --noEmit",
+    "package": "bun scripts/buildPackage.ts",
+    "package:smoke": "bun scripts/smokePackage.ts",
+    "publish:npm": "bash ../../scripts/publishNpmPackage.sh client-sdk",
     "test": "bun test src --max-concurrency=4 --pass-with-no-tests"
   },
   "dependencies": {

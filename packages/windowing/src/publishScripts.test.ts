@@ -61,32 +61,35 @@ if (command === "bun") {
 process.exit(command === "npm" ? Number(process.env.PUBLISH_EXIT ?? 0) : 0);
 `;
 
+const publishedPackages = ["windowing", "client-sdk"];
+
 function fixture() {
   const root = realpathSync(
-    mkdtempSync(join(tmpdir(), "windowing publish scripts ")),
+    mkdtempSync(join(tmpdir(), "npm publish scripts ")),
   );
   fixtures.push(root);
   const bin = join(root, "bin");
   const scripts = join(root, "scripts");
-  const packageRoot = join(root, "packages", "windowing");
-  for (const directory of [bin, scripts, packageRoot]) {
+  for (const directory of [bin, scripts]) {
     mkdirSync(directory, { recursive: true });
   }
-  for (const script of ["publishNpmModules.sh", "publishWindowing.sh"]) {
-    cpSync(
-      resolve(import.meta.dir, "../../../scripts", script),
-      join(scripts, script),
+  cpSync(
+    resolve(import.meta.dir, "../../../scripts/publishNpmPackage.sh"),
+    join(scripts, "publishNpmPackage.sh"),
+  );
+  for (const name of publishedPackages) {
+    const packageRoot = join(root, "packages", name);
+    mkdirSync(packageRoot, { recursive: true });
+    writeFileSync(
+      join(packageRoot, "package.json"),
+      JSON.stringify({
+        name: `@tearleads/${name}`,
+        version: "1.2.3",
+        private: true,
+        exports: { ".": "./src/index.ts" },
+      }),
     );
   }
-  writeFileSync(
-    join(packageRoot, "package.json"),
-    JSON.stringify({
-      name: "@tearleads/windowing",
-      version: "1.2.3",
-      private: true,
-      exports: { ".": "./src/index.ts" },
-    }),
-  );
   for (const tool of ["bun", "npm"]) {
     writeFileSync(join(bin, tool), fakeTool, { mode: 0o755 });
   }
@@ -94,26 +97,27 @@ function fixture() {
   const { PATH } = process.env;
   return {
     root,
-    packageRoot,
-    run(
-      script: string,
-      args: readonly string[],
-      overrides: Record<string, string> = {},
-    ) {
-      return Bun.spawnSync(["bash", join(scripts, script), ...args], {
-        cwd: tmpdir(),
-        env: {
-          ...process.env,
-          PATH: `${bin}:${PATH}`,
-          TMPDIR: root,
-          PUBLISH_LOG: log,
-          BUILD_EXIT: "",
-          PUBLISH_EXIT: "0",
-          ...overrides,
+    packageRoot(name: string) {
+      return join(root, "packages", name);
+    },
+    run(args: readonly string[], overrides: Record<string, string> = {}) {
+      return Bun.spawnSync(
+        ["bash", join(scripts, "publishNpmPackage.sh"), ...args],
+        {
+          cwd: tmpdir(),
+          env: {
+            ...process.env,
+            PATH: `${bin}:${PATH}`,
+            TMPDIR: root,
+            PUBLISH_LOG: log,
+            BUILD_EXIT: "",
+            PUBLISH_EXIT: "0",
+            ...overrides,
+          },
+          stdout: "pipe",
+          stderr: "pipe",
         },
-        stdout: "pipe",
-        stderr: "pipe",
-      });
+      );
     },
     calls(): ToolCall[] {
       if (!existsSync(log)) return [];
@@ -123,18 +127,17 @@ function fixture() {
         .map((line) => JSON.parse(line));
     },
     remainingBuilds() {
-      return readdirSync(root).filter((name) =>
-        name.startsWith("tearleads-windowing-publish."),
-      );
+      return readdirSync(root).filter((name) => name.includes("-publish."));
     },
   };
 }
 
-test.each(["publishNpmModules.sh", "publishWindowing.sh"])(
-  "%s publishes the rebuilt consumer package and forwards release options",
-  (script) => {
+test.each(publishedPackages)(
+  "publishes the rebuilt %s consumer package and forwards release options",
+  (name) => {
     const repo = fixture();
-    const result = repo.run(script, [
+    const result = repo.run([
+      name,
       "--dry-run",
       "--tag",
       "next",
@@ -149,13 +152,13 @@ test.each(["publishNpmModules.sh", "publishWindowing.sh"])(
     expect(build?.args.slice(0, 4)).toEqual([
       "run",
       "--cwd",
-      repo.packageRoot,
+      repo.packageRoot(name),
       "package",
     ]);
     expect(build?.args[4]).toBe(publish?.cwd);
-    expect(publish?.cwd).not.toBe(repo.packageRoot);
+    expect(publish?.cwd).not.toBe(repo.packageRoot(name));
     expect(publish?.manifest).toEqual({
-      name: "@tearleads/windowing",
+      name: `@tearleads/${name}`,
       version: "1.2.3",
       main: "./index.js",
     });
@@ -179,9 +182,18 @@ test.each(["publishNpmModules.sh", "publishWindowing.sh"])(
   },
 );
 
+// The root publish:npm:dry-run script passes its own option first.
+test("the package may follow the options", () => {
+  const repo = fixture();
+  expect(repo.run(["--dry-run", "client-sdk"]).exitCode).toBe(0);
+  const [build, publish] = repo.calls();
+  expect(build?.args[2]).toBe(repo.packageRoot("client-sdk"));
+  expect(publish?.args).toContain("--dry-run");
+});
+
 test("a normal release uses the latest tag without a dry run", () => {
   const repo = fixture();
-  expect(repo.run("publishNpmModules.sh", []).exitCode).toBe(0);
+  expect(repo.run(["windowing"]).exitCode).toBe(0);
   const publish = repo.calls()[1];
   expect(publish?.args).toContain("latest");
   expect(publish?.args).not.toContain("--dry-run");
@@ -190,38 +202,39 @@ test("a normal release uses the latest tag without a dry run", () => {
 
 test("a failed build stops before npm and removes the temporary build", () => {
   const repo = fixture();
-  expect(
-    repo.run("publishNpmModules.sh", [], { BUILD_EXIT: "17" }).exitCode,
-  ).toBe(17);
+  expect(repo.run(["windowing"], { BUILD_EXIT: "17" }).exitCode).toBe(17);
   expect(repo.calls().map((call) => call.command)).toEqual(["bun"]);
   expect(repo.remainingBuilds()).toEqual([]);
 });
 
 test("a failed publish preserves its exit status and removes the temporary build", () => {
   const repo = fixture();
-  expect(
-    repo.run("publishNpmModules.sh", [], { PUBLISH_EXIT: "23" }).exitCode,
-  ).toBe(23);
+  expect(repo.run(["windowing"], { PUBLISH_EXIT: "23" }).exitCode).toBe(23);
   expect(repo.calls().map((call) => call.command)).toEqual(["bun", "npm"]);
   expect(repo.remainingBuilds()).toEqual([]);
 });
 
 test.each([
-  { args: ["--tag"] },
-  { args: ["--otp"] },
-  { args: ["--tag", "--dry-run"] },
-  { args: ["--unknown"] },
-])("invalid options %j fail before building or publishing", ({ args }) => {
+  { args: [] },
+  { args: ["crypto"] },
+  { args: ["windowing", "client-sdk"] },
+  { args: ["windowing", "--tag"] },
+  { args: ["windowing", "--otp"] },
+  { args: ["windowing", "--tag", "--dry-run"] },
+  { args: ["windowing", "--unknown"] },
+])("invalid arguments %j fail before building or publishing", ({ args }) => {
   const repo = fixture();
-  expect(repo.run("publishNpmModules.sh", args).exitCode).toBe(1);
+  expect(repo.run(args).exitCode).toBe(1);
   expect(repo.calls()).toEqual([]);
   expect(repo.remainingBuilds()).toEqual([]);
 });
 
-test("help describes the publish set without invoking external tools", () => {
+test("help lists the published packages without invoking external tools", () => {
   const repo = fixture();
-  const result = repo.run("publishNpmModules.sh", ["--help"]);
+  const result = repo.run(["--help"]);
   expect(result.exitCode).toBe(0);
-  expect(result.stdout.toString()).toContain("@tearleads/windowing");
+  for (const name of publishedPackages) {
+    expect(result.stdout.toString()).toContain(`@tearleads/${name}`);
+  }
   expect(repo.calls()).toEqual([]);
 });
