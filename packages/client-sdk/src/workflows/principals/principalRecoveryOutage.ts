@@ -5,7 +5,7 @@ import { PrincipalPolicyHistoryReadError } from "./principalHistoryRecoveryTypes
 import { recoverScopedPrincipalPolicyHistory } from "./recoverScopedPrincipalPolicyHistory";
 
 /** Refusals and invalid evidence must never silently select a cached policy. */
-function isPrincipalRecoveryOutage(error: unknown): boolean {
+export function isPrincipalRecoveryOutage(error: unknown): boolean {
   if (!(error instanceof PrincipalPolicyHistoryReadError)) return false;
   const { failure } = error;
   return (

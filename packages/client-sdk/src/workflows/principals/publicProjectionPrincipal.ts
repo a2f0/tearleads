@@ -61,9 +61,10 @@ export async function recoverPublicProjectionPrincipal(
   const selected = references.filter(
     (head) =>
       head.principalType === options.source.head.principalType &&
-      head.principalId === options.source.head.principalId &&
-      head.version <= options.source.head.version,
+      head.principalId === options.source.head.principalId,
   );
+  if (selected.some((head) => head.version > options.source.head.version))
+    rejectPublicProjection("citation exceeds its supplied source head");
   const principal = {
     options,
     references: structuredClone(selected),

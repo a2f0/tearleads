@@ -28,6 +28,24 @@ export interface ProjectionPolicyHistoryRecoveryOptions
   readonly references: readonly ReferencedPrincipalHead[];
 }
 
+function assertSourceCoverage(
+  evidence: ProjectionPolicyHistoryEvidenceResponse,
+  references: readonly ReferencedPrincipalHead[],
+): void {
+  const sources = [evidence.organization, ...evidence.groups];
+  for (const reference of references)
+    if (
+      !sources.some(
+        (source) =>
+          source &&
+          source.head.principalType === reference.principalType &&
+          source.head.principalId === reference.principalId &&
+          source.head.version >= reference.version,
+      )
+    )
+      rejectPublicProjection("required citation has no covering source");
+}
+
 async function externalAuthority(
   admins: PublicProjectionPrincipal,
   entries: readonly PrincipalPolicyStateChainEntry[],
@@ -84,6 +102,7 @@ export async function recoverProjectionPolicyHistory(
   );
   input = { ...input, references: structuredClone(input.references) };
   const evidence = structuredClone(input.evidence);
+  assertSourceCoverage(evidence, input.references);
   if (!evidence.organization) {
     if (evidence.groups.length || evidence.organizationPayloads.length)
       rejectPublicProjection("group evidence requires organization history");

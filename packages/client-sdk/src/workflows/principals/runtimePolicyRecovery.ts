@@ -22,7 +22,12 @@ import {
 } from "./recoverScopedPrincipalPolicyHistory";
 
 export interface PrincipalPolicyRecoveryRuntime {
-  readonly apiClient: Partial<Pick<ApiClient, "getPrincipalPolicyPages">>;
+  readonly apiClient: Partial<
+    Pick<
+      ApiClient,
+      "getPrincipalPolicyPages" | "getProjectionPolicyHistoryPages"
+    >
+  >;
   readonly infra: { readonly execSql: ExecSql };
   readonly state?: { readonly online: boolean } | undefined;
   readonly util: { readonly reportSecurityIncident: SecurityIncidentReporter };

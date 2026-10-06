@@ -1,10 +1,9 @@
 import { beforeAll, expect, test } from "bun:test";
 import { principalPolicyMatchesReference } from "@tearleads/crypto";
-import type { ProjectionPolicyHistoryEvidenceResponse } from "@tearleads/validators/response";
 import { eq } from "drizzle-orm";
 import { signedAuthorityRecoveryHistory } from "../../../test/helpers/principalAuthorityRecovery";
 import { principalPolicyHead } from "../../../test/helpers/principalPolicyFixtures";
-import { createPublicHistoryFixture } from "../../../test/helpers/publicPrincipalHistory";
+import { createPublicProjectionHistoryFixture } from "../../../test/helpers/publicProjectionHistory";
 import {
   principalHistoryEntries,
   principalHistoryPrefixes,
@@ -17,31 +16,8 @@ beforeAll(async () => {
   history = await signedAuthorityRecoveryHistory();
 }, 30_000);
 
-async function fixture(extra = history.admin) {
-  const f = await createPublicHistoryFixture(
-    { ...history, bundle: history.group },
-    [history.admin, history.directory, extra],
-  );
-  const evidence: ProjectionPolicyHistoryEvidenceResponse = {
-    organization: f.source(history.directory),
-    organizationPayloads: [
-      {
-        reference: principalPolicyHead(history.directory),
-        payload: history.directory.currentPayload,
-      },
-    ],
-    groups: [f.source(history.admin), f.source(history.group)],
-  };
-  return {
-    ...f,
-    options: {
-      ...f.options,
-      evidence,
-      organizationId: history.organizationId,
-      references: [principalPolicyHead(history.created)],
-    },
-  };
-}
+const fixture = (extra = history.admin) =>
+  createPublicProjectionHistoryFixture(history, extra);
 
 test("public projection recovery verifies directory, strict Admins and historical group citations over HTTP", async () => {
   const f = await fixture();
@@ -99,6 +75,26 @@ test("a valid foreign group cannot borrow this organization's directory", async 
     f.close();
   }
 });
+
+test.each(["missing-source", "newer-citation"] as const)(
+  "public projection recovery refuses an uncovered %s",
+  async (change) => {
+    const f = await fixture();
+    try {
+      const evidence = structuredClone(f.options.evidence);
+      const references = [...f.options.references];
+      if (change === "missing-source") evidence.groups.pop();
+      else
+        references[0] = { ...principalPolicyHead(history.group), version: 67 };
+      await expect(
+        recoverProjectionPolicyHistory({ ...f.options, evidence, references }),
+      ).rejects.toMatchObject({ code: "object_mismatch" });
+      expect(f.requests).toEqual([]);
+    } finally {
+      f.close();
+    }
+  },
+);
 
 test("lost selected evidence replays only that principal and cannot be used offline", async () => {
   const f = await fixture();

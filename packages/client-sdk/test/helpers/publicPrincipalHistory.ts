@@ -26,6 +26,7 @@ export async function createPublicHistoryFixture(
   const requests: number[] = [];
   const controls: {
     failAfter: number | null;
+    failureStatus?: number;
     mutate: ((page: PrincipalPolicySnapshotPageResponse) => void) | null;
   } = { failAfter: null, mutate: null };
   const server = Bun.serve({
@@ -38,7 +39,9 @@ export async function createPublicHistoryFixture(
       const afterVersion = Number(query.get("afterVersion") ?? 0);
       requests.push(afterVersion);
       if (controls.failAfter === afterVersion)
-        return new Response("Unavailable", { status: 503 });
+        return new Response("Unavailable", {
+          status: controls.failureStatus ?? 503,
+        });
       const previousStates = bundle.previousStates.slice(
         afterVersion,
         afterVersion + 32,

@@ -14,6 +14,7 @@ import {
   createRuntimePrincipalPolicyResolver,
   type PrincipalPolicyRecoveryRuntime,
 } from "./runtimePolicyRecovery";
+import { createRuntimeProjectionPolicyResolver } from "./runtimeProjectionPolicyRecovery";
 
 interface PrincipalPolicyWarmRuntime extends PrincipalPolicyRecoveryRuntime {
   readonly apiClient: PrincipalPolicyRecoveryRuntime["apiClient"] & {
@@ -69,5 +70,6 @@ export function createRuntimePrincipalPolicyWarmer(
   return Object.assign(warmer, {
     cacheBundles,
     resolveReference: createRuntimePrincipalPolicyResolver(runtime),
+    resolveProjectionHistory: createRuntimeProjectionPolicyResolver(runtime),
   });
 }
