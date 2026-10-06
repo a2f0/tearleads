@@ -10,6 +10,7 @@ import type { SecurityIncidentReporter } from "../data/securityIncidents";
 import { disposeDomainSyncCoordinator } from "../data/sync/syncCoordinator";
 import { resolveIdentityTrustDomain } from "../data/trustedUserIdentity";
 import type { ProvisionedSystemContainerSpec } from "../workflows/registration";
+import { ApiVersion } from "./apiVersion";
 import { type BlobStoreFactory, Blobs } from "./blobs";
 import {
   type ContainerContents,
@@ -101,6 +102,7 @@ export interface ClientOptions {
 }
 
 export class Tearleads {
+  readonly apiVersion = new ApiVersion();
   readonly blobs: Blobs;
   readonly database: Database;
   readonly deviceFirst: DeviceFirst;
@@ -249,6 +251,9 @@ export class Tearleads {
     );
     this.apiClient.setOnNetworkSuccess(() =>
       this.network.reportReachability(true),
+    );
+    this.apiClient.setOnApiVersion((version) =>
+      this.apiVersion.observe(version),
     );
     this.apiClient.setOnSessionExpired(() => this.loginAfterSessionExpired());
     this.apiClient.setOnPaymentRequired((organizationId) =>
