@@ -379,3 +379,26 @@ test("one projection batch reuses directory and Admins recovery for several grou
     f.close();
   }
 });
+
+test("an online transport outage reuses completed authenticated local evidence", async () => {
+  const f = await fixture();
+  try {
+    await commitProjectionCheckpoints((await f.collect()).context);
+    f.controls.failureStatus = 503;
+    const recovered = await f.collect();
+    expect(recovered.context.policies).toHaveLength(3);
+    expect(recovered.policies[0]).toMatchObject({ version: 66 });
+    await commitProjectionCheckpoints(recovered.context);
+    expect(f.state.online).toBe(true);
+    expect(f.incidents).toEqual([]);
+    for (const status of [403, 409]) {
+      f.controls.failureStatus = status;
+      await expect(f.collect()).rejects.toMatchObject({
+        name: "ProjectionDependencyUnavailableError",
+      });
+    }
+    expect(f.incidents).toEqual([]);
+  } finally {
+    f.close();
+  }
+});

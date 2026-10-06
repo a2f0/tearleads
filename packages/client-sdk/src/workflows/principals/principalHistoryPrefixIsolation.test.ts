@@ -78,7 +78,7 @@ test.each(["key", "context", "organization"] as const)(
       expect(fixture.requests).toEqual([0, 32, 64]);
       expect(
         await fixture.db.select().from(principalHistoryPrefixes),
-      ).toHaveLength(2);
+      ).toHaveLength(field === "key" ? 1 : 2);
     } finally {
       fixture.close();
     }

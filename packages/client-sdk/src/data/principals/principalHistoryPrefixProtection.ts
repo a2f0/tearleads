@@ -6,29 +6,10 @@ import {
 } from "@tearleads/crypto";
 import type { PrincipalHistoryPrefix } from "../persistence/principalHistoryPrefixPersistence";
 
-async function principalHistoryKeyId(localKey: Uint8Array): Promise<string> {
-  const owned = new Uint8Array(localKey);
-  try {
-    const key = await crypto.subtle.importKey(
-      "raw",
-      owned,
-      { name: "HMAC", hash: "SHA-256" },
-      false,
-      ["sign"],
-    );
-    const id = await crypto.subtle.sign(
-      "HMAC",
-      key,
-      new TextEncoder().encode(
-        "tearleads.sdk.principal-history-evidence.key-id.v1",
-      ),
-    );
-    return toFingerprint(new Uint8Array(id));
-  } finally {
-    owned.fill(0);
-  }
-}
-
+// Signed entries and index nodes are content-addressed public evidence. Keep
+// their storage namespace stable across local-key replacement; authenticating a
+// prefix still requires the current private key. An unreadable prefix is discarded
+// and rebuilt from signatures, reusing rows only after checking the new root.
 export async function principalHistoryEvidenceScopeId(input: {
   readonly organizationId: string;
   readonly head: Pick<ReferencedPrincipalHead, "principalType" | "principalId">;
@@ -37,12 +18,11 @@ export async function principalHistoryEvidenceScopeId(input: {
   return toFingerprint(
     new TextEncoder().encode(
       serializeKeyingCanonicalJson([
-        "tearleads.sdk.principal-history-evidence.v1",
+        "tearleads.sdk.principal-history-evidence.v2",
         input.organizationId,
         input.head.principalType,
         input.head.principalId,
         input.protection.context,
-        await principalHistoryKeyId(input.protection.localKey),
       ]),
     ),
   );

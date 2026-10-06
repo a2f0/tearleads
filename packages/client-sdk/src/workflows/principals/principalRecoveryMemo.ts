@@ -31,7 +31,10 @@ async function memoPrincipalRecovery<T>(
     pending = work().then((value) => ({ value, stillCurrent }));
     memo?.set(key, pending);
   }
-  const result = await pending;
+  const result = await pending.catch((error: unknown) => {
+    if (memo?.get(key) === pending) memo.delete(key);
+    throw error;
+  });
   assertProjectionVerificationCurrent(result.stillCurrent);
   assertProjectionVerificationCurrent(stillCurrent);
   return result.value;
@@ -41,7 +44,11 @@ export function createPrincipalRecoveryReader(
   input: PrincipalRecoveryContext,
   memo?: PrincipalRecoveryMemo,
 ) {
-  const scope = [input.organizationId, input.protection.context];
+  const scope = [
+    input.organizationId,
+    input.protection.context,
+    input.offline === true,
+  ];
   const current = () => !input.signal?.aborted && input.stillCurrent();
   return {
     directory: (references: readonly ReferencedPrincipalHead[]) =>

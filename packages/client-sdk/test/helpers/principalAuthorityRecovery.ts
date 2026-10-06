@@ -71,11 +71,17 @@ export async function createAuthorityRecoveryFixture(
   }[] = [];
   const controls: {
     mutate: ((page: PrincipalPolicyPageResponse) => void) | null;
+    failureStatus?: number;
   } = { mutate: null };
   const server = Bun.serve({
     hostname: "127.0.0.1",
     port: 0,
     fetch(request) {
+      if (controls.failureStatus)
+        return Response.json(
+          { error: "Unavailable" },
+          { status: controls.failureStatus },
+        );
       const url = new URL(request.url);
       const bundle = [...policies.values()].find((candidate) =>
         url.pathname.includes(candidate.currentState.principalId),

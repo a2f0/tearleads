@@ -84,7 +84,7 @@ test("derivation keeps the host's shared keyring open for other consumers", asyn
   await provider(scope);
   expect(closed).toBe(false);
   await provider(scope);
-  expect(factoryCalls).toBe(1);
+  expect(factoryCalls).toBe(2);
   expect(closed).toBe(false);
 });
 
@@ -154,4 +154,21 @@ test("a hung derivation releases the queue and wipes a late key", async () => {
   await new Promise((resolve) => setTimeout(resolve, 0));
   expect(lateKey.every((byte) => byte === 0)).toBe(true);
   expect(disposed).toBe(true);
+});
+
+test("a later host lock and keyring replacement are observed on every lease", async () => {
+  const { create } = await fixture();
+  let locked = false;
+  let factoryCalls = 0;
+  const provider = createPrincipalHistoryKeyProvider(() => {
+    factoryCalls += 1;
+    if (locked) throw new Error("Local keyring locked");
+    return create();
+  });
+  const first = await provider(scope);
+  locked = true;
+  await expect(provider(scope)).rejects.toThrow("Local keyring locked");
+  locked = false;
+  expect(await provider(scope)).toEqual(first);
+  expect(factoryCalls).toBe(3);
 });
