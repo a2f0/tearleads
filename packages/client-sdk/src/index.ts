@@ -199,6 +199,8 @@ export {
   localKeyringScopeKey,
   Network,
   normalizeLocalKeyringScope,
+  type PrincipalHistoryKeyProvider,
+  type PrincipalHistoryKeyScope,
   PurchaseAbortedError,
   PurchaseAlreadyOwnedError,
   PurchaseCancelledError,

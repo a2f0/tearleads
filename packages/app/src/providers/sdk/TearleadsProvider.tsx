@@ -24,6 +24,7 @@ import { useLocalKeyringLock } from "../local-keyring/LocalKeyringLockProvider";
 import { LOCAL_BLOB_STORE_SCOPE_NAMESPACE } from "../local-keyring/localKeyringScopes";
 import { useLog } from "../logging/LogProvider";
 import { useSyncMode } from "../sync-mode/SyncModeProvider";
+import { createPrincipalHistoryKeyProvider } from "./principalHistoryKeyProvider";
 import { useServerEventsBinding } from "./serverEventsBinding";
 import { useTearleadsExternalValue } from "./useTearleadsSubscription";
 
@@ -222,6 +223,9 @@ export function TearleadsProvider({ children }: PropsWithChildren) {
     const instance = new Tearleads({
       apiBaseUrl: hostConfig.apiBaseUrl,
       blobStoreFactory,
+      principalHistoryKeyProvider: localKeyringLock.createLocalKeyring
+        ? createPrincipalHistoryKeyProvider(localKeyringLock.createLocalKeyring)
+        : undefined,
       documentProjectors: APP_DOCUMENT_PROJECTOR_DEFINITIONS,
       logger: { log, logError },
       peerScope: hostConfig.localIdentityNamespace,

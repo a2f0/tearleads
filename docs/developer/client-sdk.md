@@ -802,4 +802,4 @@ local work from shared folders with inaccessible parents.
 ## Durable principal-history recovery
 
 `recoverScopedPrincipalPolicyHistory` verifies directory and Admins dependencies.
-See [recovery](principal-history-recovery.md) for key custody and admission.
+See [recovery](principal-history-recovery.md) for `principalHistoryKeyProvider`.

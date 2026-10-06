@@ -3,6 +3,13 @@ import {
   type PrincipalPolicyHistoryProgressOptions,
 } from "@tearleads/crypto";
 
+export type PrincipalHistoryProtectionLease = <T>(
+  operation: (input: {
+    readonly protection: PrincipalPolicyHistoryProgressOptions;
+    readonly stillCurrent: () => boolean;
+  }) => Promise<T>,
+) => Promise<T>;
+
 /** Own private key bytes before any asynchronous discovery or verification. */
 export function ownPrincipalHistoryProtection(
   protection: PrincipalPolicyHistoryProgressOptions,

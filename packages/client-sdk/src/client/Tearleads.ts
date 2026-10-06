@@ -27,6 +27,7 @@ import {
 import { type Logger, logErrorToConsole } from "./logger";
 import { Network } from "./network";
 import { createOrganizations, type Organizations } from "./organizations";
+import type { PrincipalHistoryKeyProvider } from "./principalHistoryProtection";
 import { createRoot, type Root, rootRuntimeOf } from "./root";
 import {
   createSecurityIncidentService,
@@ -67,6 +68,8 @@ function createClientSecurityIncidentService(input: {
 export type ClientDatabaseOptions = Omit<DatabaseOptions, "status">;
 
 export interface ClientOptions {
+  /** Private host key for durable history progress; omitted uses disposable session keys. */
+  principalHistoryKeyProvider?: PrincipalHistoryKeyProvider | undefined;
   apiBaseUrl?: string | undefined;
   blobStore?: BlobStore | undefined;
   blobStoreFactory?: BlobStoreFactory | undefined;
@@ -120,6 +123,7 @@ export class Tearleads {
   private readonly apiClient: ApiClient;
   private readonly documentProjectors: DocumentProjectorRegistry;
   private readonly disposeSecurityIncidents: () => void;
+  private retirePrincipalHistoryProtection = () => {};
   // Tracks the storage/identity pair that owns domain-scoped runtime state.
   private domainScopeKey: string | null = null;
   // Recreated when the storage database or signing identity changes.
@@ -233,6 +237,8 @@ export class Tearleads {
 
   /** Rebinds the session's trust callbacks once the runtime exists. */
   private bindTrustedIdentityRuntime(runtime: InternalRuntime): void {
+    this.retirePrincipalHistoryProtection =
+      runtime.retirePrincipalHistoryProtection;
     this.pinLocalUserIdentity = (userId, candidate) =>
       runtime.pinLocalUserIdentity(userId, candidate);
     this.boundUserId = (signingKeyFingerprint) =>
@@ -274,6 +280,7 @@ export class Tearleads {
       logError: this.logError,
       network: this.network,
       peerScope: options.peerScope ?? null,
+      principalHistoryKeyProvider: options.principalHistoryKeyProvider,
       reportSecurityIncident,
       session: this.session,
       syncBillingGate: this.syncBillingGate,
@@ -321,6 +328,7 @@ export class Tearleads {
   dispose(): void {
     const domainScope = this.domainScope;
     this.disposeSecurityIncidents();
+    this.retirePrincipalHistoryProtection();
     this.deviceFirst.dispose();
     disposeDomainSyncCoordinator(domainScope);
   }

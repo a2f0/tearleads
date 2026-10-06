@@ -12,6 +12,20 @@ policy revision consistently across restarts. Never obtain either trust decision
 from server-issued continuation data. Rotate the key or context when retiring
 prior verification decisions.
 
+`ClientOptions.principalHistoryKeyProvider` supplies an owned 32-byte key for a
+`PrincipalHistoryKeyScope` (signing fingerprint and API identity trust domain).
+The SDK clears each returned key after use, and never exposes its private lease
+through `runtime.input()`. Leases check database, identity, session and disposal
+lifetimes before and after asynchronous work. Without a provider, a private
+ephemeral key permits same-runtime reuse; a restart safely requires replay.
+Provider failures propagate instead of silently changing keys.
+
+The app derives a separate purpose from its existing protected SQLite keyring
+root, binding the API and identity. It releases keyring sessions after derivation.
+Deleting that local root retires recovery keys too; no signing secret is used.
+The private runtime capability prepares caller adoption; existing full-bundle
+consumers remain until they explicitly use paged recovery.
+
 The optional `retainedReferences` selection follows the crypto verifier's bounded
 retention contract. Supply already authenticated external authority through
 `loadExternalAuthority` when policy signatures cite another principal. The helper
