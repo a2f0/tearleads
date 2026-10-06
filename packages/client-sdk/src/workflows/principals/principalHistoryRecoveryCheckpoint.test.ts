@@ -3,6 +3,7 @@ import {
   createRecoveryFixture,
   signedRecoveryHistory,
 } from "../../../test/helpers/principalHistoryRecovery";
+import { principalPolicyHead } from "../../../test/helpers/principalPolicyFixtures";
 import { loadPrincipalPolicyCheckpoint } from "../../data/persistence/keyingCheckpointPersistence";
 import { principalHistoryStages } from "../../data/sqlite/principalHistoryStageSchema";
 import { principalPolicyCheckpoints } from "../../data/sqlite/principalPolicySchema";
@@ -16,6 +17,84 @@ beforeAll(async () => {
   // state hash at version 32; its previously admitted pin must survive.
   fork = await signedRecoveryHistory();
 });
+
+test.each(["reference", "checkpoint"] as const)(
+  "an above-head %s rejects cached recovery before any request or cache mutation",
+  async (kind) => {
+    const fixture = await createRecoveryFixture(history);
+    try {
+      await recoverPrincipalPolicyHistory(fixture.options);
+      const stages = await fixture.db.select().from(principalHistoryStages);
+      fixture.requests.length = 0;
+      if (kind === "checkpoint") {
+        await fixture.db
+          .insert(principalPolicyCheckpoints)
+          .values({
+            principalType: "group",
+            principalId: history.expectedHead.principalId,
+            version: 67,
+            stateHash: history.expectedHead.stateHash,
+            updatedAt: history.bundle.currentState.createdAt,
+          })
+          .run();
+      }
+      await expect(
+        recoverPrincipalPolicyHistory({
+          ...fixture.options,
+          ...(kind === "reference"
+            ? { retainedReferences: [{ ...history.expectedHead, version: 67 }] }
+            : {}),
+        }),
+      ).rejects.toMatchObject({
+        code: kind === "reference" ? "missing_dependency" : "rollback",
+      });
+      expect(fixture.requests).toEqual([]);
+      expect(await fixture.db.select().from(principalHistoryStages)).toEqual(
+        stages,
+      );
+    } finally {
+      fixture.close();
+    }
+  },
+);
+
+test.each([16, 66])(
+  "checkpoint %s may overlap the citation and the current leaf",
+  async (version) => {
+    const fixture = await createRecoveryFixture(history);
+    try {
+      await recoverPrincipalPolicyHistory(fixture.options);
+      fixture.requests.length = 0;
+      const state =
+        version === 66
+          ? history.bundle.currentState
+          : history.bundle.previousStates[version - 1]?.state;
+      if (!state) throw new Error("Missing checkpoint entry");
+      await fixture.db
+        .insert(principalPolicyCheckpoints)
+        .values({
+          principalType: "group",
+          principalId: state.principalId,
+          version,
+          stateHash: state.stateHash,
+          updatedAt: state.createdAt,
+        })
+        .run();
+      const result = await recoverPrincipalPolicyHistory({
+        ...fixture.options,
+        retainedReferences: [
+          principalPolicyHead({ ...history.bundle, currentState: state }),
+        ],
+      });
+      expect(
+        result.policy.retainedHistory.map((entry) => entry.state.version),
+      ).toEqual(version === 66 ? [66] : [16, 66]);
+      expect(fixture.requests).toEqual([65]);
+    } finally {
+      fixture.close();
+    }
+  },
+);
 
 test.each([false, true])(
   "a conflicting durable checkpoint rejects recovery (cached=%s)",
