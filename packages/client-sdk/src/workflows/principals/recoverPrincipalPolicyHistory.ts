@@ -15,6 +15,7 @@ import {
   discardPrincipalHistoryStage,
   savePrincipalHistoryStage,
 } from "../../data/persistence/principalHistoryStagePersistence";
+import { ownPrincipalHistoryProtection } from "../../data/principals/principalHistoryProtection";
 import { principalHistoryStageProtection } from "../../data/principals/principalHistoryStageProtection";
 import { collectPrincipalPolicySignerPublicKeys } from "./policyVerification";
 import { publishReusablePrincipalHistoryPrefix } from "./principalHistoryRecoveryPrefix";
@@ -31,6 +32,10 @@ import {
   type RecoveredPrincipalPolicyHistory,
   type RecoverPrincipalPolicyHistoryOptions,
 } from "./principalHistoryRecoveryTypes";
+import {
+  assertPrincipalHistoryVerificationMode,
+  principalHistoryVerificationContext,
+} from "./principalHistoryRecoveryVerification";
 
 function currentArtifacts(
   page: PrincipalPolicyPageResponse,
@@ -103,6 +108,7 @@ async function acceptPage(
       projection: current.currentProjection,
       grants: current.currentGrants,
     });
+  assertPrincipalHistoryVerificationMode(input, entries);
   const keys = await collectPrincipalPolicySignerPublicKeys({
     bundle: { ...current, previousStates: page.previousStates },
     resolveTrustedUserIdentity: input.resolveTrustedUserIdentity,
@@ -319,25 +325,15 @@ export async function recoverPrincipalPolicyHistory(
       "missing_dependency",
       "Requested history reference is beyond the recovery head",
     );
-  if (
-    !(options.protection.localKey instanceof Uint8Array) ||
-    options.protection.localKey.byteLength !== 32 ||
-    !options.protection.context
-  )
-    throw new KeyingVerificationError(
-      "invalid_shape",
-      "Principal history recovery requires a private 32-byte key and trust context",
-    );
   const input = {
     ...options,
+    historyVerification: options.historyVerification ?? "standard",
     expectedHead: structuredClone(options.expectedHead),
     retainedReferences: structuredClone(options.retainedReferences ?? []),
-    protection: {
-      context: options.protection.context,
-      localKey: new Uint8Array(options.protection.localKey),
-    },
+    protection: ownPrincipalHistoryProtection(options.protection),
   };
   try {
+    input.protection.context = principalHistoryVerificationContext(input);
     return await recover(input);
   } finally {
     input.protection.localKey.fill(0);

@@ -801,5 +801,5 @@ local work from shared folders with inaccessible parents.
 
 ## Durable principal-history recovery
 
-See [principal-history recovery](principal-history-recovery.md) for the exact-head
-recovery facade, local key custody, durable staging, and caller responsibilities.
+`recoverScopedPrincipalPolicyHistory` verifies directory and Admins dependencies.
+See [recovery](principal-history-recovery.md) for key custody and admission.

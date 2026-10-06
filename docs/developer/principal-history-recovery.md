@@ -70,3 +70,23 @@ Older progress with checkpoint/reference input bindings is disposable and may
 require replay. Stage/index storage reclamation and total byte/work scheduling
 remain part of #2448. Page and proof-count bounds do not bound entry size or
 total cache growth. Organization reset removes all of its recovery material.
+
+`historyVerification: "direct-admins"` checks every accepted historical projection
+for a nonempty set containing only direct admin users. It only accepts groups
+without an external-authority fallback. Its separate protected context prevents
+ordinary verified group progress from bypassing these stronger checks.
+
+`recoverScopedPrincipalPolicyHistory` accepts an exact `reference` and the same
+local protection, SQL, identity resolver, and lifetime inputs. It discovers and
+verifies the organization directory through pages, then recovers the exact group
+head bound by that signed directory. An older requested citation is selected from
+that verified head. Group recovery also verifies strict Admins history and obtains
+each page's cited authority states through the local index. General group caches
+cannot establish this organization binding; scoped progress binds the Admins ID.
+
+The result contains the current policy plus verified `dependencies`. Submit all
+of these policies together when atomically admitting checkpoints. Recovery itself
+does not advance pins. If the requested group reference or an Admins citation is
+newer than the directory, the helper discovers the directory once more; a repeated
+disagreement fails with `stale_predecessor`. Signature, scope, and current-artifact
+failures propagate. Built-in runtime callers still need to adopt this facade.

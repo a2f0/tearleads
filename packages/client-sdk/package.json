@@ -1,7 +1,7 @@
 {
   "name": "@tearleads/client-sdk",
   "version": "0.1.8",
-  "description": "React-free Tearleads runtime with atomic document/container writes, placement-aware persistence notifications, required revision-CAS host adapters, unified device-first handles, explicit retained-folder recovery, signed-name group mutations, verified organization policy history details without persisted names, verified keying, held-descendant re-citation, sync, encrypted blob storage, root operator identity/organization billing and data usage lookups, typed registration refusals, typed folder path-length refusals, typed stale keyring-override refusals, and teardown predicates for host diagnostics. Includes durable verification resumption for exact principal-history heads.",
+  "description": "React-free Tearleads runtime with atomic document/container writes, placement-aware persistence notifications, required revision-CAS host adapters, unified device-first handles, explicit retained-folder recovery, signed-name group mutations, verified organization policy history details without persisted names, verified keying, held-descendant re-citation, sync, encrypted blob storage, root operator identity/organization billing and data usage lookups, typed registration refusals, typed folder path-length refusals, typed stale keyring-override refusals, and teardown predicates for host diagnostics. Includes durable principal-history recovery with paged organization-directory and strict Admins verification.",
   "private": true,
   "license": "UNLICENSED",
   "sideEffects": false,

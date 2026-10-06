@@ -21,6 +21,8 @@ export interface RecoverPrincipalPolicyHistoryOptions {
   /** Device-controlled key and stable identity/trust-policy context, never supplied by the API. */
   readonly protection: PrincipalPolicyHistoryProgressOptions;
   readonly retainedReferences?: readonly ReferencedPrincipalHead[] | undefined;
+  /** Strict Admins mode checks every historical projection in a separate cache scope. */
+  readonly historyVerification?: "standard" | "direct-admins" | undefined;
   readonly resolveTrustedUserIdentity: TrustedUserIdentityResolver;
   /** Return only authority already authenticated by this client. */
   readonly loadExternalAuthority?:

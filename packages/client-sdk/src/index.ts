@@ -476,12 +476,15 @@ export {
 export type {
   CacheReferencedPrincipalPoliciesOptions,
   RecoveredPrincipalPolicyHistory,
+  RecoveredScopedPrincipalPolicyHistory,
   RecoverPrincipalPolicyHistoryOptions,
+  RecoverScopedPrincipalPolicyHistoryOptions,
 } from "./workflows/principals";
 export {
   cacheReferencedPrincipalPolicies,
   PrincipalPolicyHistoryReadError,
   recoverPrincipalPolicyHistory,
+  recoverScopedPrincipalPolicyHistory,
 } from "./workflows/principals";
 export type {
   InitialRootMetadataBootstrap,
