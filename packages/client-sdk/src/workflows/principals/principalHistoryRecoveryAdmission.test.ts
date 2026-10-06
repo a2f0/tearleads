@@ -19,6 +19,7 @@ async function storeCheckpoint(
   fixture: Awaited<ReturnType<typeof createRecoveryFixture>>,
   version: number,
 ) {
+  // Initialize the persistence tables before inserting the test checkpoint.
   await loadPrincipalPolicyCheckpoint(
     fixture.options.execSql,
     "group",

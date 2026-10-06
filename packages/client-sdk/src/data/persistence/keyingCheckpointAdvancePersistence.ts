@@ -1,9 +1,10 @@
 import {
   type AccessManifestCheckpoint,
+  type AnyVerifiedPrincipalPolicy,
   KeyingVerificationError,
-  type PrincipalPolicyAuthorization,
   type VerifiedAccessManifestCheckpointEvidence,
   type VerifiedPrincipalPolicy,
+  type VerifiedPrincipalPolicyCurrent,
   verifyAccessManifestLocalCheckpoint,
   verifyPrincipalPolicyCheckpoint,
 } from "@tearleads/crypto";
@@ -42,10 +43,14 @@ export interface AccessManifestCheckpointAdvance {
   readonly predecessors: readonly VerifiedAccessManifestCheckpointEvidence[];
 }
 
+type CheckpointPolicy =
+  | AnyVerifiedPrincipalPolicy
+  | VerifiedPrincipalPolicyCurrent;
+
 interface KeyingCheckpointValidationInput {
   readonly access: readonly AccessManifestCheckpointAdvance[];
   readonly execSql: ExecSql;
-  readonly policies: readonly PrincipalPolicyAuthorization[];
+  readonly policies: readonly CheckpointPolicy[];
   readonly stillCurrent?: (() => boolean) | undefined;
 }
 
@@ -126,8 +131,8 @@ async function validateAccessAdvances(
 }
 
 function extendsObservedPolicy(
-  head: PrincipalPolicyAuthorization,
-  candidate: PrincipalPolicyAuthorization,
+  head: CheckpointPolicy,
+  candidate: CheckpointPolicy,
 ): boolean {
   const history =
     "retainedHistory" in head ? head.retainedHistory : head.history;
@@ -144,9 +149,9 @@ function extendsObservedPolicy(
 
 async function validatePolicyAdvances(
   tx: ClientSQLiteTransactionScope,
-  policies: readonly PrincipalPolicyAuthorization[],
-): Promise<Map<string, PrincipalPolicyAuthorization>> {
-  const policiesByPrincipal = new Map<string, PrincipalPolicyAuthorization[]>();
+  policies: readonly CheckpointPolicy[],
+): Promise<Map<string, CheckpointPolicy>> {
+  const policiesByPrincipal = new Map<string, CheckpointPolicy[]>();
   for (const policy of policies) {
     const key = principalPolicyKey(policy);
     const candidates = policiesByPrincipal.get(key) ?? [];
@@ -154,7 +159,7 @@ async function validatePolicyAdvances(
     policiesByPrincipal.set(key, candidates);
   }
 
-  const pending = new Map<string, PrincipalPolicyAuthorization>();
+  const pending = new Map<string, CheckpointPolicy>();
   for (const key of [...policiesByPrincipal.keys()].sort()) {
     const candidates = policiesByPrincipal.get(key) ?? [];
     const maxVersion = Math.max(...candidates.map((policy) => policy.version));
@@ -210,7 +215,7 @@ async function writeAccessCheckpoints(
 
 async function writePolicyCheckpoints(
   tx: ClientSQLiteTransactionScope,
-  pending: ReadonlyMap<string, PrincipalPolicyAuthorization>,
+  pending: ReadonlyMap<string, CheckpointPolicy>,
   updatedAt: string,
   organizationId?: string | undefined,
 ): Promise<void> {
@@ -265,7 +270,7 @@ export async function advanceKeyingCheckpointsAtomically(input: {
   readonly documentPurgeCheckpoint?: DocumentPurgeCheckpoint | undefined;
   readonly execSql: ExecSql;
   readonly organizationId?: string | undefined;
-  readonly policies: readonly PrincipalPolicyAuthorization[];
+  readonly policies: readonly CheckpointPolicy[];
   readonly stillCurrent?: (() => boolean) | undefined;
 }): Promise<void> {
   await ensureKeyingCheckpointValidationTables(input);
