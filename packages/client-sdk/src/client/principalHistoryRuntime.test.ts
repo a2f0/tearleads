@@ -11,6 +11,56 @@ import { isProjectionVerificationCancelledError } from "../data/keyingProjection
 import { Tearleads } from "./Tearleads";
 import { createRuntime } from "./workflowRuntime";
 
+test("token refresh expires outstanding recovery while retaining the headless key", async () => {
+  const sqlite = await createTestExecSql("principal-runtime-refresh");
+  const sdk = new Tearleads({
+    apiBaseUrl: "https://api.example.test",
+    blobStoreFactory: () => createMemoryBlobStore(),
+    logger: quietLogger,
+  });
+  try {
+    sdk.database.configure({ execSql: sqlite.execSql, id: "test" });
+    await setGeneratedIdentity(sdk.identity);
+    sdk.session.setAuthToken("first-token");
+    const runtime = createRuntime({
+      api: new ApiClient("https://api.example.test"),
+      blobs: sdk.blobs,
+      database: sdk.database,
+      documentProjectors: defaultDocumentProjectorRegistry,
+      events: sdk.events,
+      getDomainScope: () => sdk.domainScope,
+      identity: sdk.identity,
+      identityTrustDomain: "https://api.example.test",
+      log: quietLogger.log,
+      logError: quietLogger.logError,
+      network: sdk.network,
+      reportSecurityIncident: async () => {},
+      session: sdk.session,
+    });
+    const first = runtime.workflowInput().withPrincipalHistoryProtection;
+    if (!first) throw new Error("Missing initial lease");
+    const key = await first(
+      async ({ protection }) => new Uint8Array(protection.localKey),
+    );
+    sdk.session.setAuthToken("refreshed-token");
+    const error = await first(async () => "stale").catch(
+      (error: unknown) => error,
+    );
+    expect(isProjectionVerificationCancelledError(error)).toBe(true);
+    const second = runtime.workflowInput().withPrincipalHistoryProtection;
+    if (!second) throw new Error("Missing refreshed lease");
+    expect(
+      await second(
+        async ({ protection }) => new Uint8Array(protection.localKey),
+      ),
+    ).toEqual(key);
+    runtime.retirePrincipalHistoryProtection();
+  } finally {
+    sdk.dispose();
+    sqlite.close();
+  }
+});
+
 test.each(["database", "identity", "session", "retirement"] as const)(
   "runtime protection observes %s changes while a host key is pending",
   async (change) => {
