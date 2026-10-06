@@ -93,6 +93,7 @@ class PrincipalPolicyHistoryVerifierImpl
           if (entry.state.version === this.#input.checkpoint?.version)
             this.#checkpointHash = entry.state.stateHash;
           if (
+            entry.state.version === this.#input.checkpoint?.version ||
             this.#input.references.some(
               (reference) => reference.version === entry.state.version,
             )

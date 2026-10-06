@@ -42,7 +42,8 @@ export async function normalizeAuthenticatedPrincipalHistoryProgress(
   );
   if (
     !Array.isArray(record.retained) ||
-    record.retained.length > PRINCIPAL_HISTORY_PAGE_ENTRY_LIMIT
+    record.retained.length >
+      PRINCIPAL_HISTORY_PAGE_ENTRY_LIMIT + (input.checkpoint ? 1 : 0)
   )
     throwVerification("invalid_shape", "invalid retained principal progress");
   const previous =
@@ -149,8 +150,23 @@ function assertRetainedReferences(
   const expectedReferences = input.references.filter(
     (reference) => reference.version <= (previous?.state.version ?? 0),
   );
+  const checkpoint =
+    input.checkpoint &&
+    input.checkpoint.version <= (previous?.state.version ?? 0)
+      ? input.checkpoint
+      : null;
+  const expectedVersions = new Set(
+    expectedReferences.map(({ version }) => version),
+  );
+  if (checkpoint) expectedVersions.add(checkpoint.version);
   if (
-    retained.length !== expectedReferences.length ||
+    retained.length !== expectedVersions.size ||
+    (checkpoint !== null &&
+      retained.filter(
+        ({ state }) =>
+          state.version === checkpoint.version &&
+          state.stateHash === checkpoint.stateHash,
+      ).length !== 1) ||
     expectedReferences.some(
       (reference) =>
         retained.filter((entry) =>

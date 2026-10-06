@@ -1,6 +1,6 @@
 import type {
+  PrincipalPolicyAuthorization,
   PrincipalPolicyCheckpoint,
-  VerifiedPrincipalPolicy,
 } from "@tearleads/crypto";
 import { verifyPrincipalPolicyCheckpoint } from "@tearleads/crypto";
 import { assertPrincipalPolicyCheckpointShape } from "./keyingCheckpointPersistence";
@@ -18,7 +18,7 @@ export function principalPolicyHeadMeetsCheckpoint(
 }
 
 export function verifiedPrincipalPolicyMeetsCheckpoint(
-  policy: VerifiedPrincipalPolicy,
+  policy: PrincipalPolicyAuthorization,
   checkpoint: PrincipalPolicyCheckpoint | null,
 ): boolean {
   if (!checkpoint) {
@@ -29,7 +29,10 @@ export function verifiedPrincipalPolicyMeetsCheckpoint(
     return false;
   }
   verifyPrincipalPolicyCheckpoint({
-    chain: policy.history ?? [],
+    chain:
+      "retainedHistory" in policy
+        ? policy.retainedHistory
+        : (policy.history ?? []),
     currentState: policy.state,
     localCheckpoint: checkpoint,
   });
