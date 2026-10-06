@@ -10,7 +10,11 @@ import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/respon
 import type { BoundedCache } from "./ApiCache";
 import type { ApiRequestRuntime } from "./apiRequestRuntime";
 import { principalHistoryRequest } from "./principalHistoryRequest";
-import { collectPrincipalPolicyPages } from "./principalPolicyPages";
+import {
+  collectPrincipalPolicyPages,
+  type PrincipalPolicyPageReadOptions,
+  readPrincipalPolicyPages,
+} from "./principalPolicyPages";
 import { dedupedRequest } from "./requestInternals";
 import {
   commitOrganizationGroupPolicy,
@@ -26,6 +30,19 @@ export class PrincipalPolicyRequests {
     >,
     private readonly clearWriterProjectionCaches: () => void,
   ) {}
+
+  pages(
+    principalType: "group" | "organization",
+    principalId: string,
+    options: PrincipalPolicyPageReadOptions = {},
+  ) {
+    return readPrincipalPolicyPages(
+      this.runtime,
+      principalType,
+      principalId,
+      options,
+    );
+  }
 
   get(
     principalType: "group" | "organization",

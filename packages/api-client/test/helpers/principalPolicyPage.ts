@@ -3,6 +3,25 @@ import type {
   PrincipalPolicyPageResponse,
 } from "@tearleads/validators/response";
 import { PRINCIPAL_POLICY_HISTORY_PAGE_LIMIT } from "@tearleads/validators/util";
+import { createPrincipalPolicyBundleResponse } from "./apiClientTestFactories";
+
+export function principalPolicyBundleResponseFor(
+  principalType: "group" | "organization",
+  principalId: string,
+  stateHash = "state-hash",
+): PrincipalPolicyBundleResponse {
+  const bundle = createPrincipalPolicyBundleResponse();
+  for (const artifact of [
+    bundle.currentState,
+    bundle.currentPayload,
+    bundle.currentMemberEnvelopes,
+  ]) {
+    artifact.principalType = principalType;
+    artifact.principalId = principalId;
+    artifact.stateHash = stateHash;
+  }
+  return bundle;
+}
 
 export function principalPolicyPageResponse(
   bundle: PrincipalPolicyBundleResponse,

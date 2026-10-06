@@ -50,6 +50,19 @@ creation requires `metadataAccess`. See the [SDK guide](../../../../docs/develop
 | `root` | Platform operator administration | Root-only identity lookups for internal staff: paged identity listing with fingerprint filter, identity detail with live sessions, per-identity organization membership, searchable organization pages, organization detail with persisted billing/provider state and the latest 50 billing events, paged organization rosters linking back to identities, and [synced data usage and organization usage reports](../../../../docs/developer/client-sdk.md#advanced-configuration). Locally gated on the session's server-reported root flag; the API enforces access. Root console screens belong in `packages/app`. |
 | `sync` | Platform runtime | Shared sync coordinator helpers and organization-scoped remote-state reset/recovery inputs. |
 
+The principals facade also exposes `recoverPrincipalPolicyHistory` for a known
+exact head. It consumes API pages individually, resolves trusted signer identities,
+and stores locally authenticated verifier progress after each accepted page.
+Callers provide a private 32-byte protection key, a stable identity/trust-policy
+context, the owning organization, and a live `stillCurrent` guard. External
+authority, when needed, must already have been authenticated by the caller.
+The result is `VerifiedPrincipalPolicyCurrent` with explicitly retained references,
+not a complete history. Staging does not advance application checkpoints; callers
+must still verify organization scope and atomically publish accepted evidence.
+Reopening an operation authenticates its saved cursor and artifacts. Changed keys,
+inputs, or corrupt progress restart from signed genesis. Completed progress still
+requires a successful pinned HTTP read and a fresh local-checkpoint comparison.
+
 Organization billing views expose subscription ownership and direct cancellation
 availability in the billing snapshot. Current clients use management URL reads
 only for the native store link; they do not gate inline Stripe cancellation.
