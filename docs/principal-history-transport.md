@@ -125,3 +125,24 @@ release keeps the existing online refusal, artifact validation, and lifetime
 checks explicit. Batching exact source heads while reauthorizing their object
 scope is the intended follow-up for reducing these round trips; it remains part
 of #2448, alongside the remaining mutation-consumer and resource work.
+
+## Measuring HTTP work
+
+The slow principal-history acceptance test uses a loopback HTTP proxy with a
+15-second deadline through each response body. It records the maximum response
+size and completed-request latency, and the total and maximum per-request SQL
+statement count. An async-local counter covers queries issued by the route and
+its preparation work, including transaction controls on SQLite and PostgreSQL.
+A PostgreSQL statement represents a driver query; connection setup and protocol
+messages are not counted. The logger retains neither SQL text nor parameters.
+PGlite's native transaction controls and Turso's transport setup are outside the
+ORM logger, so their counts cannot be used as PostgreSQL round-trip evidence.
+
+For this fixture's fixed member and grant cardinalities, each request must stay
+below 1,024 statements. Mutation responses must stay below 200,000 bytes and
+cold-recovery responses below 400,000 bytes. These are regression budgets for
+history growth, not bounds for arbitrary policy sizes. Each run also records
+initial, sampled peak, and final process RSS and JavaScript heap use, plus event
+loop delay. These include the test client and fixture objects; final heap use is
+not a post-GC retained-memory measurement and does not establish a server-only
+memory bound. A passed short diagnostic does not replace the 16,384-version run.

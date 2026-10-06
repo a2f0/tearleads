@@ -7,6 +7,7 @@ import {
 import { migrate as migrateBunSqlite } from "drizzle-orm/bun-sqlite/migrator";
 import * as schema from "../schema";
 import { unsafeCoerce } from "../unsafeCoerce.js";
+import { databaseStatementLogger } from "./databaseStatementCounter";
 import { withDatabaseTransactionCompletion } from "./transactionCompletion";
 import type {
   ApiDatabase,
@@ -169,6 +170,11 @@ function createSerializedSqliteBridge(
   let transactionQueue = Promise.resolve();
   let savepointCounter = 0;
 
+  const executeControl = (statement: string): void => {
+    databaseStatementLogger.logQuery();
+    client.exec(statement);
+  };
+
   const swallow = (): undefined => undefined;
   const serializer: SqliteSerializer = {
     inUnit: () => transactionContext.getStore() !== undefined,
@@ -184,7 +190,7 @@ function createSerializedSqliteBridge(
   // savepoints); never let a cleanup failure mask the original error.
   const safeExec = (statement: string): void => {
     try {
-      client.exec(statement);
+      executeControl(statement);
     } catch {
       // Preserve the root-cause error at the call site.
     }
@@ -195,13 +201,13 @@ function createSerializedSqliteBridge(
     const activeTransaction = transactionContext.getStore();
     if (activeTransaction) {
       const savepointName = `tearleads_sp_${++savepointCounter}`;
-      client.exec(`savepoint ${savepointName}`);
+      executeControl(`savepoint ${savepointName}`);
       try {
         const result = await transactionContext.run(
           { depth: activeTransaction.depth + 1 },
           () => callback(transactionDb),
         );
-        client.exec(`release savepoint ${savepointName}`);
+        executeControl(`release savepoint ${savepointName}`);
         return result;
       } catch (error) {
         safeExec(`rollback to savepoint ${savepointName}`);
@@ -212,10 +218,10 @@ function createSerializedSqliteBridge(
 
     return serializer.serialize(() =>
       transactionContext.run({ depth: 0 }, async () => {
-        client.exec("begin immediate");
+        executeControl("begin immediate");
         try {
           const result = await callback(transactionDb);
-          client.exec("commit");
+          executeControl("commit");
           return result;
         } catch (error) {
           safeExec("rollback");
@@ -235,7 +241,9 @@ export function createSqliteApiDatabase(
 ): ManagedApiDatabase {
   const client = new SqliteDatabase(options.sqlitePath, { create: true });
   client.exec("PRAGMA foreign_keys = ON");
-  const sqliteDb = attachSqliteExecute(drizzleBunSqlite({ client, schema }));
+  const sqliteDb = attachSqliteExecute(
+    drizzleBunSqlite({ client, schema, logger: databaseStatementLogger }),
+  );
   const dbBridge = createSerializedSqliteBridge(client, sqliteDb);
 
   return {
