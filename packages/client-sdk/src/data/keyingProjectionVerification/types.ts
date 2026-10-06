@@ -15,6 +15,8 @@ export type ProjectionUserKeyResolver = (
 export type PrincipalPolicyCache = Map<string, PrincipalPolicyCurrentEvidence>;
 
 export interface PrincipalPolicyResolveRequest {
+  /** Identity of one projection collection, never caller-supplied evidence. */
+  readonly recoveryBatch?: object | undefined;
   readonly organizationId: string;
   readonly reference: ReferencedPrincipalHead;
   readonly stillCurrent?: (() => boolean) | undefined;

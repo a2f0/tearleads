@@ -27,7 +27,7 @@ test.each(["organization", "admins"] as const)(
       expect(result.policy.stateHash).toBe(bundle.currentState.stateHash);
       expect(
         result.policy.retainedHistory.map(({ state }) => state.version),
-      ).toEqual([16, 66]);
+      ).toEqual(kind === "organization" ? [1, 16, 66] : [16, 66]);
       expect(result.dependencies.map((policy) => policy.principalId)).toEqual(
         kind === "organization" ? [] : [history.organizationId],
       );

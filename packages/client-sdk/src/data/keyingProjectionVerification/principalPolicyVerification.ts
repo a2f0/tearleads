@@ -308,6 +308,7 @@ async function loadOrganizationExternalAuthority(
 }
 
 async function verifyReferencedPrincipalPolicy(input: {
+  recoveryBatch: object;
   checkpointContext: ProjectionCheckpointContext;
   organizationId: string;
   principalPolicyCache: PrincipalPolicyCache;
@@ -446,9 +447,11 @@ export async function collectReferencedPrincipalPolicies(input: {
     }
   }
 
+  const recoveryBatch = {};
   return Promise.all(
     references.map((reference) =>
       verifyReferencedPrincipalPolicy({
+        recoveryBatch,
         checkpointContext: input.checkpointContext,
         organizationId: input.organizationId,
         principalPolicyCache: input.principalPolicyCache,
