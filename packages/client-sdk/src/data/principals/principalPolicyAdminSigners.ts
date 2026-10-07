@@ -24,7 +24,7 @@ export function principalPolicyReferenceFromBundle(
 }
 
 export function organizationAdminSignerUserIds(
-  policy: VerifiedPrincipalPolicy,
+  policy: Pick<VerifiedPrincipalPolicy, "projection">,
 ): string[] {
   return [
     ...new Set(
