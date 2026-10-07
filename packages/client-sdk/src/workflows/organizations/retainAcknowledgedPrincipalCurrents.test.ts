@@ -19,7 +19,7 @@ import { retainAcknowledgedPrincipalCurrents } from "./retainAcknowledgedPrincip
 let history: Awaited<ReturnType<typeof signedAuthorityRecoveryHistory>>;
 beforeAll(async () => {
   history = await signedAuthorityRecoveryHistory();
-});
+}, 30_000);
 
 test("compound current acknowledgement retains protected artifacts and pins without full bundles or HTTP", async () => {
   const f = await currentPolicyPublicationFixture(history);

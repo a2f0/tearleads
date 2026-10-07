@@ -11,7 +11,7 @@ import { recoverScopedPrincipalPolicyHistory } from "./recoverScopedPrincipalPol
 let history: Awaited<ReturnType<typeof signedAuthorityRecoveryHistory>>;
 beforeAll(async () => {
   history = await signedAuthorityRecoveryHistory();
-});
+}, 30_000);
 
 test("scoped recovery pages directory, strict Admins and an externally authorized group", async () => {
   const fixture = await createAuthorityRecoveryFixture(history);

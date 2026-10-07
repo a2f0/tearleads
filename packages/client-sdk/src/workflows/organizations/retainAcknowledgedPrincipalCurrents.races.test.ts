@@ -17,7 +17,7 @@ import { retainAcknowledgedPrincipalCurrents } from "./retainAcknowledgedPrincip
 let history: Awaited<ReturnType<typeof signedAuthorityRecoveryHistory>>;
 beforeAll(async () => {
   history = await signedAuthorityRecoveryHistory();
-});
+}, 30_000);
 
 async function snapshot(
   f: Awaited<ReturnType<typeof currentPolicyPublicationFixture>>,

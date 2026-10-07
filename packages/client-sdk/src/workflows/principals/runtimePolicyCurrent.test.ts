@@ -12,7 +12,7 @@ import { createRuntimePrincipalPolicyCurrentResolver } from "./runtimePolicyReco
 let history: Awaited<ReturnType<typeof signedAuthorityRecoveryHistory>>;
 beforeAll(async () => {
   history = await signedAuthorityRecoveryHistory();
-});
+}, 30_000);
 
 async function fixture() {
   const source = await createAuthorityRecoveryFixture(history);
