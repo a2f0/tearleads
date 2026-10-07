@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, ne } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, ne } from "drizzle-orm";
 import { principalHistoryStageScopes } from "../sqlite/principalHistoryRetentionSchema";
 import { principalHistoryStages } from "../sqlite/principalHistoryStageSchema";
 import type { ClientSQLiteTransactionScope } from "../sqlite/sqlitePersistenceRuntime";
@@ -40,14 +40,14 @@ export async function reclaimIncompletePrincipalHistoryStages(
     // The writer always keeps its own stage, even when recency hints tie.
     .offset(INCOMPLETE_STAGE_LIMIT - (current.complete ? 0 : 1))
     .limit(RECLAIM_BATCH_LIMIT);
-  for (const { id } of obsolete) {
-    await tx
-      .delete(principalHistoryStages)
-      .where(eq(principalHistoryStages.id, id))
-      .run();
-    await tx
-      .delete(principalHistoryStageScopes)
-      .where(eq(principalHistoryStageScopes.id, id))
-      .run();
-  }
+  const ids = obsolete.map(({ id }) => id);
+  if (ids.length === 0) return;
+  await tx
+    .delete(principalHistoryStages)
+    .where(inArray(principalHistoryStages.id, ids))
+    .run();
+  await tx
+    .delete(principalHistoryStageScopes)
+    .where(inArray(principalHistoryStageScopes.id, ids))
+    .run();
 }

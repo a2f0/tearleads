@@ -128,6 +128,22 @@ test("partial reclamation is bounded, scoped and preserves the current writer de
   }
 });
 
+test("a completed writer retains eight incomplete stages", async () => {
+  const f = await seededProgress(9);
+  try {
+    const stage = { ...f.input.stage, complete: true };
+    await savePrincipalHistoryStage({ ...f.input, stage });
+    const saved = await f.snapshot();
+    expect(saved.stages).toContainEqual(stage);
+    expect(saved.stages.filter((row) => !row.complete)).toHaveLength(8);
+    expect(saved.hints.map(({ id }) => id).sort()).toEqual(
+      saved.stages.map(({ id }) => id).sort(),
+    );
+  } finally {
+    f.close();
+  }
+});
+
 test("cancellation rolls back the accepted page and its incomplete-stage reclamation", async () => {
   const f = await seededProgress(8);
   let current = true;
@@ -154,7 +170,10 @@ test("cancellation rolls back the accepted page and its incomplete-stage reclama
         execSql,
         stillCurrent: () => current,
       }),
-    ).rejects.toThrow();
+    ).rejects.toMatchObject({
+      name: "ProjectionVerificationCancelledError",
+      message: "Projection verification generation expired",
+    });
     expect(deleted).toBe(1);
     expect(await f.snapshot()).toEqual(before);
   } finally {

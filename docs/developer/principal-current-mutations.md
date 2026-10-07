@@ -86,13 +86,14 @@ descriptor binds each group's exact acknowledged head.
 Completed exact-head stages retain earlier encrypted envelopes when the reusable
 prefix advances. If only a completed prefix survives for the predecessor, its
 authenticated artifacts are saved as a completed stage in the same transaction.
-Key lookup selects those candidates by an indexed fingerprint;
-they remain untrusted encrypted candidates, not authorization evidence. The
-store keeps one completed stage per exact head and verification context. There is
-no automatic pruning yet: retained artifacts grow with acknowledged heads until
-remote-reset cleanup. Equal principal-key fingerprints do not establish that older
-recipient envelopes are redundant. Reclamation remains tracked in #2448. The
-current wire artifacts never contain manufactured `previousStates`.
+Key lookup selects archived and held candidates by an indexed fingerprint;
+they remain untrusted encrypted candidates, not authorization evidence. Publication
+retains the current completed stage and its newest completed predecessor, pruning
+older stages in bounded transactions after archiving encrypted key candidates.
+The archive keeps the newest envelope set per principal-key fingerprint and
+preserves separate key epochs. See [cache retention](principal-history-cache.md)
+for incomplete-stage limits, offline availability and remaining reclamation work
+under #2448. Current wire artifacts never contain manufactured `previousStates`.
 
 `selectPrincipalPolicyCurrentPredecessorReferences` combines a privately verified
 successor with selected citations from its exact private predecessor. Scope,

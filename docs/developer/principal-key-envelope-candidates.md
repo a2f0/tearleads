@@ -3,9 +3,12 @@
 Paged principal recovery stores the current encrypted member envelopes with its
 completed prefix. Container key unwrapping can use those envelopes without
 materializing a full policy history. The local lookup selects only the requested
-recipient fingerprints from the current bundle, retained bundle, and completed
-prefix caches, with at most one candidate per cache and fingerprint. SQLite
-expression indexes cover the fingerprint and newest-candidate ordering.
+principal-key fingerprints from current bundles, retained bundles, completed
+prefixes and stages, and the encrypted envelope archive. It selects at most one
+candidate per source and fingerprint and removes duplicate encoded candidates.
+SQLite indexes cover the fingerprint and newest-candidate ordering. The archive
+preserves distinct key epochs while disposable stages are reclaimed; see
+[cache retention](principal-history-cache.md) for its limits.
 
 These are untrusted encrypted key candidates, not authorization evidence. A
 claimed fingerprint does not establish that a candidate private key is valid:

@@ -60,12 +60,20 @@ test("interrupted exact heads have bounded progress and evicted work can recover
     const versions = (await f.db.select().from(principalHistoryStages)).map(
       (stage) => JSON.parse(stage.currentJson).currentState.version,
     );
-    expect(versions).not.toContain(66);
     expect(versions).toContain(74);
+    const evicted = targets.filter(
+      (target) => !versions.includes(target.currentState.version),
+    );
+    expect(evicted).toHaveLength(1);
+    const target = evicted[0];
+    if (!target) throw new Error("Missing evicted recovery target");
     f.controls.failAfterVersion = null;
     f.requests.length = 0;
-    const recovered = await recoverPrincipalPolicyHistory(f.options);
-    expect(recovered.policy.version).toBe(66);
+    const recovered = await recoverPrincipalPolicyHistory({
+      ...f.options,
+      expectedHead: principalPolicyHead(target),
+    });
+    expect(recovered.policy.version).toBe(target.currentState.version);
     expect(f.requests).toEqual([0, 32, 64]);
   } finally {
     f.close();
