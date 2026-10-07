@@ -63,14 +63,17 @@ policy/read-model requests and no container or document fanout.
 
 With bounded creation, display pages and exact local metadata evidence, a
 completed group fixture measured first creation/addition at 17/70 requests and
-later creation/addition at 15/20. The whole pairs used 87/35 requests, including
-51/21 public history reads. These are local fixture measurements, not production
-benchmarks. Whole-pair limits are tightened from 114/48 on the base to 92/38;
-creation allows 20/18 and addition allows 75/23. Margins permit three boundary
-reads per phase, with five extra reads for first-enrollment proof discovery.
-The pair cap prevents those margins from accumulating. Combined history limits
-remain 54/21. Earlier intermediate limits of 118/49 were reduced after measuring
-local-evidence reuse.
+later creation/addition at 15/20. The whole pairs used 87/35 requests,
+including 51/21 public history reads. These are local fixture measurements,
+not production benchmarks. Whole-pair limits are tightened from 114/48 on the
+base to 92/38; creation allows 20/18 and addition allows 75/23. Margins permit
+three boundary reads per phase, with five extra reads for first-enrollment
+proof discovery. The pair cap prevents those margins from accumulating.
+Creation may additionally receive one validated rollback preparation response
+with identical request bytes; completed mutation counts and the raw whole-pair
+limit remain unchanged. Combined history limits remain 54/21. Earlier
+intermediate limits of 118/49 were reduced after measuring local-evidence
+reuse.
 
 Metadata-key unwrapping previously repeated directory/Admins/Members recovery
 after its metadata authority had already selected those policies. The new local
