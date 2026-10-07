@@ -1,7 +1,7 @@
 # Principal-history cache retention
 
-Completed-prefix publication and atomic
-current acknowledgements reclaim older completed stages in the same transaction.
+Completed-prefix publication and atomic current acknowledgements reclaim older
+completed stages in the same transaction.
 Each pass retains the two newest completed stages through the published head and
 deletes at most 16 older rows. It preserves newer, incomplete, other-scope and
 other-organization progress. The scope index bounds candidate selection without
@@ -39,6 +39,9 @@ The encrypted archive is key material, not an authorization cache. Its candidate
 can only open wraps addressed to the caller's private keys; projection and policy
 verification still establish authority independently. Duplicate encoded candidates
 from the archive, prefix and stage sources are tried only once.
+Archive persistence does not authenticate the old progress record. Corrupted local
+artifacts can replace useful candidates and make offline decryption unavailable;
+their consistency checks do not establish a new trust boundary.
 
 The archive and scope rows join the same guarded transaction as prefix publication
 or coupled receipt/checkpoint admission. Cancellation and transaction failure roll
