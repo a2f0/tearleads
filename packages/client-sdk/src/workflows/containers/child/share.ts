@@ -369,6 +369,10 @@ export async function shareRemoteContainerWithGroup(
   input: RemoteContainerGroupShareInput,
 ): Promise<RemoteContainerGroupShareResult | null> {
   if (input.stillCurrent?.() === false) return null;
+  await input.apiClient.recoverPendingPrincipalMutation?.(
+    input.author.organizationId,
+  );
+  if (input.stillCurrent?.() === false) return null;
   const resolveProjectionUserKey = requireProjectionUserKeyResolver(
     input.resolveProjectionUserKey,
     "Remote container share",

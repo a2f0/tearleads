@@ -5,14 +5,14 @@ import {
   generateSigningSeedAndKeyPair,
   toFingerprint,
 } from "@tearleads/crypto";
-import { loadVerifiedGroupSharePrincipalPolicy } from "../containers/child/sharePrincipalPolicy";
+import { shareRemoteContainerWithGroup } from "../containers/child/share";
 import { deleteOrganizationGroup } from "./deleteOrganizationGroup";
 import { createOrganizationGroup } from "./groupCreation";
 
 test.each([
   { name: "creation", run: createOrganizationGroup },
   { name: "deletion", run: deleteOrganizationGroup },
-  { name: "sharing", run: loadVerifiedGroupSharePrincipalPolicy },
+  { name: "sharing", run: shareRemoteContainerWithGroup },
 ])(
   "$name resolves pending work before reading or authoring",
   async ({ run }) => {
@@ -32,15 +32,33 @@ test.each([
       events.push("read");
       return null;
     };
+    api.getContainerWriterProjection = async () => {
+      events.push("projection");
+      return null;
+    };
     const signing = generateSigningSeedAndKeyPair();
+    const signingFingerprint = await toFingerprint(signing.signingPublicKey);
     const input = {
+      accessLevel: "read" as const,
+      author: {
+        organizationId: "organization",
+        signerDeviceId: "device",
+        signerKeyFingerprint: signingFingerprint,
+        signerPrivateKey: signing.signingPrivateKey,
+        signerUserId: "actor",
+      },
+      containerId: "container",
+      expectedGroupName: "Group",
+      recipientGroupId: "group",
+      resolveProjectionUserKey: async () => null,
+      targetSecretKey: new Uint8Array(32),
       apiClient: api,
       execSql: async () => [],
       organizationId: "organization",
       groupId: "group",
       name: "Group",
       signerUserId: "actor",
-      signingFingerprint: await toFingerprint(signing.signingPublicKey),
+      signingFingerprint,
       signingKeyPair: signing,
       creatorEncapsulationKeyPair: generateKemSeedAndKeyPair(),
       resolveTrustedUserIdentity: async () => null,

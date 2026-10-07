@@ -56,7 +56,8 @@ on the ephemeral history-cache key.
 One unresolved request owns each actor/organization lane. A concurrent author
 cannot replace it. Cache resets retain authored work. The runtime resolves it
 before reading the policies for another group change, creation, deletion or
-group share. Recovery resends only the authenticated saved body and verifies the
+group share. Read-only policy verification never triggers recovery or submits
+saved work. Recovery resends only the authenticated saved body and verifies the
 exact receipt artifacts. It neither reruns the original application callback
 nor invents a complete verified history from the receipt. Current checkpoints
 are left to ordinary verified recovery, so an older receipt cannot roll them back.

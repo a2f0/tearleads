@@ -274,7 +274,6 @@ export async function loadVerifiedGroupSharePrincipalPolicy(input: {
   resolveTrustedUserIdentity: TrustedUserIdentityResolver;
   stillCurrent?: (() => boolean) | undefined;
 }): Promise<VerifiedSharePrincipalPolicy> {
-  await input.apiClient.recoverPendingPrincipalMutation?.(input.organizationId);
   const organizationAdminPolicy = await loadOrganizationExternalAdminPolicy({
     execSql: input.execSql,
     getCurrentPrincipalPolicy: (principalType, principalId) =>
