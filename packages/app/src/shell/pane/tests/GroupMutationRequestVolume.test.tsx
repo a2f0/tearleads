@@ -44,16 +44,15 @@ test("group creation and adding a peer have separate request budgets", async () 
       label: `create ${group} organization group`,
       operation: () => createOrganizationGroup(pane, `Budget ${group} group`),
       budget: {
-        // Obtain the verified organization metadata key before encrypting the name.
-        // Current-only acknowledgements leave later creation to recover its
-        // own directory/Admins selection; allow three boundary reads here.
-        total: group === "first" ? 25 : 26,
+        // Measured 17/15 requests. Allow three directory/Admins reads to move
+        // across the phase boundary; metadata unwrap reuses exact local evidence.
+        total: group === "first" ? 20 : 18,
         byRequest: {
           "GET /principals/history": 9,
           "GET /containers/:containerId/writer-projection": 1,
           "GET /organizations/:organizationId/read-model": 2,
-          "GET /principals/group/:groupId/policy": group === "first" ? 7 : 8,
-          "GET /principals/organization/:organizationId/policy": 5,
+          "GET /principals/group/:groupId/policy": group === "first" ? 4 : 2,
+          "GET /principals/organization/:organizationId/policy": 3,
           "POST /organizations/:organizationId/groups": 1,
         },
       },
@@ -92,20 +91,19 @@ test("group creation and adding a peer have separate request budgets", async () 
         // The first add enrolls the peer in Members before the custom group,
         // including metadata discovery, read-only sync, and a billing refresh.
         // The second add reuses that roster membership and stays a single write.
-        // Both phases can independently reauthorize cached metadata histories.
-        // A current-only Members receipt leaves subsequent projection collections
-        // to recover directory/Admins/Members evidence (up to four extra reads).
-        total: group === "first" ? 93 : 27,
+        // Measured 70/20 requests. First enrollment gets five extra reads for
+        // concurrent post-create proof discovery; later adds get three.
+        total: group === "first" ? 75 : 23,
         byRequest: {
           "GET /principals/history": group === "first" ? 45 : 12,
           "GET /containers/:containerId/writer-projection":
             group === "first" ? 3 : 1,
           "GET /organizations/:organizationId/read-model":
             group === "first" ? 4 : 3,
-          "GET /principals/group/:groupId/policy": group === "first" ? 14 : 6,
+          "GET /principals/group/:groupId/policy": group === "first" ? 4 : 2,
           "GET /auth/user-identity/:userId": group === "first" ? 2 : 0,
           "GET /principals/organization/:organizationId/policy":
-            group === "first" ? 16 : 3,
+            group === "first" ? 6 : 3,
           "PUT /organizations/:organizationId/groups/:groupId/policy-commit":
             group === "first" ? 2 : 1,
           // A concurrent policy advance can require a fresh post-create proof.
@@ -128,14 +126,14 @@ test("group creation and adding a peer have separate request budgets", async () 
       ],
     });
     expect(documentSyncIntentCounts(membershipRequests).writeBearing).toBe(0);
-    // Three directory/Admins/Members reads can move across the phase boundary.
-    // Keep them in the pair limit even when both phases use their full allowance.
+    // Measured whole pairs are 87/35. Phase margins cannot accumulate: allow
+    // only five/three additional reads across the complete pair.
     const combined = listProxiedApiRequests().slice(pairStart);
     profileProxiedApiRequests(
       `create and add peer to ${group} group`,
       pairStart,
     );
-    expect(combined.length).toBeLessThanOrEqual(group === "first" ? 118 : 49);
+    expect(combined.length).toBeLessThanOrEqual(group === "first" ? 92 : 38);
     expect(
       combined.filter(
         (request) =>
