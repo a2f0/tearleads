@@ -11,28 +11,32 @@ import {
 } from "../../data/principals/principalHistoryStageProtection";
 import type { RecoverPrincipalPolicyHistoryOptions } from "../principals/principalHistoryRecoveryTypes";
 
-export async function sealPrincipalCurrentPublication(
+function exactHead(head: ReferencedPrincipalHead): ReferencedPrincipalHead {
+  return {
+    principalType: head.principalType,
+    principalId: head.principalId,
+    version: head.version,
+    keyEpoch: head.keyEpoch,
+    stateHash: head.stateHash,
+    keyFingerprint: head.keyFingerprint,
+  };
+}
+
+export async function sealPrincipalCurrentStage(
   options: RecoverPrincipalPolicyHistoryOptions,
-  scopeId: string,
   expectedHead: ReferencedPrincipalHead,
   verifier: PrincipalPolicyHistoryVerifier,
   response: PrincipalPolicyPageCurrent,
 ) {
-  const wireCurrent = {
+  // Authentication uses the reference contract, never extra signed-state fields.
+  expectedHead = exactHead(expectedHead);
+  const currentJson = JSON.stringify({
     currentState: response.currentState,
     currentProjection: response.currentProjection,
     currentGrants: response.currentGrants,
     currentPayload: response.currentPayload,
     currentMemberEnvelopes: response.currentMemberEnvelopes,
-  };
-  const currentJson = JSON.stringify(wireCurrent);
-  const prefix = {
-    scopeId,
-    organizationId: options.organizationId,
-    version: expectedHead.version,
-    headJson: serializeKeyingCanonicalJson({ ...expectedHead }),
-    currentJson,
-  };
+  });
   const stage = {
     id: await principalHistoryStageId(
       options.organizationId,
@@ -44,20 +48,41 @@ export async function sealPrincipalCurrentPublication(
     complete: true,
     currentJson,
   };
-  const prefixProgress = await verifier.exportProgress(
-    await principalHistoryPrefixProtection(options.protection, prefix),
-  );
-  if (!prefixProgress.ok) throw prefixProgress.error;
-  const stageProgress = await verifier.exportProgress(
+  const progress = await verifier.exportProgress(
     await principalHistoryStageProtection(
       options.protection,
       expectedHead,
       stage,
     ),
   );
-  if (!stageProgress.ok) throw stageProgress.error;
-  return {
-    prefix: { ...prefix, progress: prefixProgress.value },
-    stage: { ...stage, progress: stageProgress.value },
+  if (!progress.ok) throw progress.error;
+  return { ...stage, progress: progress.value };
+}
+
+export async function sealPrincipalCurrentPublication(
+  options: RecoverPrincipalPolicyHistoryOptions,
+  scopeId: string,
+  expectedHead: ReferencedPrincipalHead,
+  verifier: PrincipalPolicyHistoryVerifier,
+  response: PrincipalPolicyPageCurrent,
+) {
+  expectedHead = exactHead(expectedHead);
+  const stage = await sealPrincipalCurrentStage(
+    options,
+    expectedHead,
+    verifier,
+    response,
+  );
+  const prefix = {
+    scopeId,
+    organizationId: options.organizationId,
+    version: expectedHead.version,
+    headJson: serializeKeyingCanonicalJson({ ...expectedHead }),
+    currentJson: stage.currentJson,
   };
+  const progress = await verifier.exportProgress(
+    await principalHistoryPrefixProtection(options.protection, prefix),
+  );
+  if (!progress.ok) throw progress.error;
+  return { prefix: { ...prefix, progress: progress.value }, stage };
 }

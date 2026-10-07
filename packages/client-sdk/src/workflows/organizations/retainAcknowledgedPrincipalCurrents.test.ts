@@ -12,6 +12,7 @@ import {
   principalHistoryPrefixes,
 } from "../../data/sqlite/principalHistoryEvidenceSchema";
 import { principalHistoryStages } from "../../data/sqlite/principalHistoryStageSchema";
+import { restorePrincipalHistoryRecoveryStage } from "../principals/principalHistoryRecoveryStage";
 import { recoverPrincipalPolicyHistory } from "../principals/recoverPrincipalPolicyHistory";
 import { retainAcknowledgedPrincipalCurrents } from "./retainAcknowledgedPrincipalCurrents";
 
@@ -159,6 +160,41 @@ test("current publication captures the authored request and receipt before async
     first.response.currentState.signature = resigned.signature;
     const policies = await pending;
     expect(policies[0]?.state.signature).toBe(signature);
+  } finally {
+    f.close();
+  }
+});
+
+test("a retained prefix-only predecessor authenticates under the exact recovery-stage contract", async () => {
+  const f = await currentPolicyPublicationFixture(history);
+  try {
+    await f.db.delete(principalHistoryStages).run();
+    await retainAcknowledgedPrincipalCurrents(f.publication);
+    const stages = await f.db.select().from(principalHistoryStages);
+    const requests = f.requests.length;
+    const recovered = await restorePrincipalHistoryRecoveryStage(
+      {
+        ...f.organizationRecovery,
+        execSql: f.options.execSql,
+        organizationId: history.organizationId,
+        offline: true,
+        stillCurrent: () => true,
+      },
+      { principalType: "organization", principalId: history.organizationId },
+    );
+    expect(recovered.complete).toBe(true);
+    expect(
+      recovered.verifier.finish(f.organizationRecovery.expectedHead).ok,
+    ).toBe(true);
+    expect(f.requests).toHaveLength(requests);
+    expect(await f.db.select().from(principalHistoryStages)).toEqual(stages);
+    expect(
+      await loadPrincipalPolicyCheckpoint(
+        f.options.execSql,
+        "organization",
+        history.organizationId,
+      ),
+    ).toMatchObject({ version: 67 });
   } finally {
     f.close();
   }

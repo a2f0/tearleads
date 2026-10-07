@@ -30,7 +30,10 @@ import {
 import { assertAcknowledgedDirectoryBindings } from "./acknowledgedDirectoryBindings";
 import { acknowledgeGroupPolicyState } from "./groupPolicyMutationAcknowledgement";
 import { groupPolicyMutationHead } from "./groupPolicyMutationHead";
-import { sealPrincipalCurrentPublication } from "./principalCurrentPublicationSeal";
+import {
+  sealPrincipalCurrentPublication,
+  sealPrincipalCurrentStage,
+} from "./principalCurrentPublicationSeal";
 import { assertPrincipalPolicyReceiptArtifacts } from "./principalPolicyReceiptArtifacts";
 
 export type { AcknowledgedPrincipalCurrentRetirement } from "../../data/persistence/principalCurrentAcknowledgementPersistence";
@@ -140,9 +143,8 @@ async function preparePublication(
     grants: response.currentGrants,
   };
   assertPrincipalHistoryVerificationMode(options, [entry]);
-  const { stage: predecessorStage } = await sealPrincipalCurrentPublication(
+  const predecessorStage = await sealPrincipalCurrentStage(
     options,
-    scopeId,
     previous.state,
     verifier,
     artifacts,
