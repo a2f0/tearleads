@@ -439,7 +439,7 @@ test("verified policy retention rejects a mismatched proof", async () => {
         policy: verifiedPolicyForPersistence(differentVersion2),
         updatedAt: "2026-04-08T00:02:00Z",
       }),
-    ).rejects.toThrow("head mismatch");
+    ).rejects.toThrow("Verified principal policy bundle history mismatch");
     await expect(loadAllPrincipalPolicyBundles(execSql)).resolves.toEqual([]);
   } finally {
     close();

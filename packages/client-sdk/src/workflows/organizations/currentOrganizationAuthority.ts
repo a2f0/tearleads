@@ -91,24 +91,15 @@ export async function loadCurrentOrganizationAuthority(
       const head = requireOrganizationGroupHead(descriptor, groupId);
       const selected = reference ?? head;
       assertReferenceScope(selected, "group", groupId);
-      const result = await resolve(selected);
+      const result =
+        groupId === descriptor.adminGroupId &&
+        principalHeadMatchesReference(admins.policy.state, selected)
+          ? admins
+          : await resolve(selected);
       await assertExactCurrent(result, head);
       assertDirectoryDependency(result, directory);
-      if (groupId !== descriptor.adminGroupId) {
-        const authority = result.dependencies.find(
-          (policy) =>
-            policy.principalType === "group" &&
-            policy.principalId === descriptor.adminGroupId,
-        );
-        if (
-          !authority ||
-          !principalHeadMatchesReference(authority.state, adminHead)
-        )
-          throw new KeyingVerificationError(
-            "missing_dependency",
-            "Current group policy omits its exact Admins dependency",
-          );
-      }
+      if (groupId !== descriptor.adminGroupId)
+        assertAdminsDependency(result, adminHead);
       await validate(result);
       return result;
     },
@@ -158,5 +149,21 @@ function assertDirectoryDependency(
   )
     throw new Error(
       "Current policy belongs to a changed organization directory",
+    );
+}
+
+function assertAdminsDependency(
+  value: ResolvedPrincipalPolicyCurrent,
+  expected: ReferencedPrincipalHead,
+) {
+  const authority = value.dependencies.find(
+    (policy) =>
+      policy.principalType === "group" &&
+      policy.principalId === expected.principalId,
+  );
+  if (!authority || !principalHeadMatchesReference(authority.state, expected))
+    throw new KeyingVerificationError(
+      "missing_dependency",
+      "Current group policy omits its exact Admins dependency",
     );
 }

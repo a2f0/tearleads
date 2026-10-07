@@ -4,6 +4,7 @@ import {
   signedAuthorityRecoveryHistory,
 } from "../../../test/helpers/principalAuthorityRecovery";
 import { principalPolicyHead } from "../../../test/helpers/principalPolicyFixtures";
+import { ProjectionDependencyUnavailableError } from "../../data/keyingProjectionVerification/dependencyUnavailable";
 import { principalPolicyCheckpoints } from "../../data/sqlite/principalPolicySchema";
 import { createRuntimePrincipalPolicyCurrentResolver } from "../principals/runtimePolicyRecovery";
 import { loadCurrentOrganizationAuthority } from "./currentOrganizationAuthority";
@@ -61,7 +62,14 @@ test("one current authority retains selected group citations and exact directory
     expect(f.requests.every((request) => request.count <= 32)).toBe(true);
     expect(await f.db.select().from(principalPolicyCheckpoints)).toEqual([]);
     const count = f.requests.length;
-    await expect(authority.readGroup("foreign-group")).rejects.toThrow();
+    expect(
+      (await authority.readGroup(history.admin.currentState.principalId)).policy
+        .stateHash,
+    ).toBe(history.admin.currentState.stateHash);
+    expect(f.requests).toHaveLength(count);
+    await expect(authority.readGroup("foreign-group")).rejects.toThrow(
+      "Group is absent from the signed organization directory",
+    );
     await expect(
       authority.readGroup(
         history.group.currentState.principalId,
@@ -70,6 +78,9 @@ test("one current authority retains selected group citations and exact directory
     ).rejects.toMatchObject({ code: "object_mismatch" });
     expect(f.requests).toHaveLength(count);
     f.state.current = false;
+    await expect(
+      authority.readGroup(history.admin.currentState.principalId),
+    ).rejects.toThrow("generation expired");
     await expect(
       authority.readGroup(history.group.currentState.principalId),
     ).rejects.toThrow("generation expired");
@@ -89,7 +100,7 @@ test("a group advancing after directory selection requires a fresh authority", a
     f.policies.set(directory.currentState.principalId, directory);
     await expect(
       authority.readGroup(group.currentState.principalId),
-    ).rejects.toThrow();
+    ).rejects.toBeInstanceOf(ProjectionDependencyUnavailableError);
     expect(await f.db.select().from(principalPolicyCheckpoints)).toEqual([]);
     const fresh = await loadCurrentOrganizationAuthority({
       ...f.input,

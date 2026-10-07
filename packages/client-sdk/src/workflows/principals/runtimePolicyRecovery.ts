@@ -44,6 +44,7 @@ export interface PrincipalPolicyRecoveryRuntime {
     | undefined;
 }
 
+/** Keep the private recovery key inside its runtime lease while resolving cited evidence. */
 export function createRuntimePrincipalPolicyResolver(
   runtime: PrincipalPolicyRecoveryRuntime,
 ): ReferencedPrincipalPolicyWarmer["resolveReference"] {
