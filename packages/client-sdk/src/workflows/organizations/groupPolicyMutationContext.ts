@@ -2,7 +2,6 @@ import type { RequestFailureKind } from "@tearleads/api-client";
 import type {
   PrincipalPolicyCheckpoint,
   PrincipalPolicyExternalAuthority,
-  PrincipalPolicySignerPublicKey,
   ReferencedPrincipalHead,
   SigningKeyPair,
 } from "@tearleads/crypto";
@@ -37,6 +36,7 @@ import {
   assertGroupPolicyEnvelopesMatchAcknowledgement,
   buildAcknowledgedGroupPolicyBundle,
 } from "./groupPolicyMutationAcknowledgement";
+import type { FullGroupMembershipMutationInput } from "./groupPolicyMutationEvidence";
 import {
   assertPrincipalPolicyCurrentStateMatchesHead,
   groupPolicyMutationHead,
@@ -99,20 +99,8 @@ export interface OrganizationPrincipalPolicyApi extends PrincipalPolicyReadApi {
   ) => Promise<CreateOrganizationGroupResponse | null>;
 }
 
-export interface BuildGroupMembershipMutationInput {
-  readonly currentPolicy: PrincipalPolicyBundleResponse;
-  readonly currentPolicySignerPublicKeys: readonly PrincipalPolicySignerPublicKey[];
-  readonly currentOrgAdminUserIds?: readonly string[] | undefined;
-  readonly externalAuthority?: PrincipalPolicyExternalAuthority | undefined;
-  readonly isOrganizationAdminsGroup?: boolean | undefined;
-  readonly localPolicyCheckpoint?: PrincipalPolicyCheckpoint | null;
-  readonly signerUserId: string;
-  readonly signingFingerprint: string;
-  readonly signingKeyPair: SigningKeyPair;
-}
-
 interface LoadedGroupPolicyMutationContext
-  extends BuildGroupMembershipMutationInput {
+  extends FullGroupMembershipMutationInput {
   readonly adminGroupId: string;
   readonly adminPolicyBundle: PrincipalPolicyBundleResponse;
   readonly currentOrgAdminUserIds: readonly string[];

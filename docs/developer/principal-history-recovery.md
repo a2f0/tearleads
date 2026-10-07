@@ -57,6 +57,8 @@ below; explicit full-bundle operations still require further runtime adoption.
 Org Manager labels and metadata roots also consume verified current policies.
 See [current-policy consumers](current-principal-consumers.md) for exact-head
 local reuse, lifetime and checkpoint rules, request costs, and remaining adoption.
+[Current-policy mutation primitives](principal-current-mutations.md) cover bounded
+successor verification; orchestration and durable acknowledgement adoption remain.
 
 The optional `retainedReferences` selection follows the crypto verifier's bounded
 retention contract. Supply already authenticated external authority through

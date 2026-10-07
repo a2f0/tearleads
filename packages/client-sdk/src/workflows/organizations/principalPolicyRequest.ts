@@ -134,7 +134,7 @@ export async function groupPolicyNameMismatch(
 }
 
 export async function signedGroupPolicyRequest(input: {
-  readonly currentPolicy?: PrincipalPolicyBundleResponse;
+  readonly currentPolicy?: Pick<PrincipalPolicyBundleResponse, "currentState">;
   readonly encapsulationPublicKey: string;
   readonly externalAuthority:
     | PrincipalPolicyExternalAuthority["currentHead"]
