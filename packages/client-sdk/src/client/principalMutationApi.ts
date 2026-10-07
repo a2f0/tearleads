@@ -24,10 +24,11 @@ export interface PrincipalMutationRuntimeScope {
 
 function sameScope(
   current: PrincipalMutationRuntimeScope | null,
-  bound: PrincipalMutationRuntimeScope,
+  bound: PrincipalMutationRuntimeScope | null,
 ): boolean {
+  if (!current || !bound) return current === bound;
   return (
-    current?.database === bound.database &&
+    current.database === bound.database &&
     current.execSql === bound.execSql &&
     current.generation === bound.generation &&
     current.identityTrustDomain === bound.identityTrustDomain &&
@@ -76,13 +77,13 @@ export function createPrincipalMutationApiCustody(
   input: PrincipalMutationApiCustodyInput,
 ) {
   let cached: {
-    scope: PrincipalMutationRuntimeScope;
+    scope: PrincipalMutationRuntimeScope | null;
     api: PrincipalMutationApi;
   } | null = null;
   return {
     bind(): PrincipalMutationApi {
       const scope = input.readScope();
-      if (scope && cached && sameScope(scope, cached.scope)) return cached.api;
+      if (cached && sameScope(scope, cached.scope)) return cached.api;
       const context = (organizationId: string) =>
         mutationContext(input, scope, organizationId);
       const commit: ApiClient["commitOrganizationGroupPolicyResult"] = async (
@@ -146,7 +147,7 @@ export function createPrincipalMutationApiCustody(
         },
       } satisfies MutationOverrides;
       const api = bindMutationMethods(input.api, methods);
-      cached = scope ? { scope, api } : null;
+      cached = { scope, api };
       return api;
     },
   };
