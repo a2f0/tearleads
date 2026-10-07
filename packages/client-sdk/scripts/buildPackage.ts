@@ -3,6 +3,7 @@ import { existsSync } from "node:fs";
 import { cp, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { basename, dirname, join, relative } from "node:path";
+import { buildSqliteWorker } from "./buildSqliteWorker";
 import {
   listFiles,
   moduleSpecifierPattern,
@@ -30,8 +31,8 @@ function outputDirectory(outDir: string, workspace: Workspace) {
 }
 
 // Builds the package npm receives: the SDK and the workspace packages it
-// imports, compiled together with declarations and source maps, the README,
-// and a package.json written for consumers. The workspace keeps resolving
+// imports, compiled together with declarations and source maps, the SQLite
+// worker files, the README, and a package.json written for consumers. The workspace keeps resolving
 // dist/ from `bun run build`; nothing in the repo reads this output, so it can
 // never go stale under another package's tests.
 export async function buildPackage(outDir: string): Promise<void> {
@@ -56,6 +57,7 @@ export async function buildPackage(outDir: string): Promise<void> {
       outDir,
     ]);
     await pruneUnreachableDeclarations(outDir, entryDeclarations(workspaces));
+    await buildSqliteWorker(join(outDir, "sqlite"));
     await cp(join(packageRoot, "README.md"), join(outDir, "README.md"));
     const manifest = publishManifest(workspaces, await outputFiles(outDir));
     await writeFile(
@@ -95,13 +97,11 @@ function sdkWorkspace(workspaces: Map<string, Workspace>) {
   return sdk;
 }
 
+// The SDK's module entry points; its other exports name SQLite worker files.
 function conditionalExports(manifest: WorkspaceManifest) {
-  return Object.values(manifest.exports).map((target) => {
-    if (typeof target === "string") {
-      throw new Error(`expected a conditional export, not ${target}`);
-    }
-    return target;
-  });
+  return Object.values(manifest.exports).flatMap((target) =>
+    typeof target === "string" ? [] : [target],
+  );
 }
 
 // The SDK's own entry points, from the dist paths its manifest exports.

@@ -1,9 +1,5 @@
 import { copyFile, cp, mkdir, rm } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
-import {
-  getDefaultDatabaseWorkerEntrypointUrl,
-  getSqliteWasmAssetUrl,
-} from "@tearleads/sqlite-worker/assets";
 import { version as pdfjsVersion } from "pdfjs-dist/legacy/build/pdf.mjs";
 
 const publicDir = new URL("../public/", import.meta.url);
@@ -23,23 +19,13 @@ await mkdir(publicDir, { recursive: true });
 await rm(new URL("pdf.worker.js", publicDir), { force: true });
 await rm(new URL("pdfjs/", publicDir), { force: true, recursive: true });
 
-const workerBuild = await Bun.build({
-  entrypoints: [fileURLToPath(getDefaultDatabaseWorkerEntrypointUrl())],
-  format: "esm",
-  target: "browser",
-});
-
-const [workerArtifact] = workerBuild.outputs;
-if (!workerBuild.success || !workerArtifact) {
-  throw new Error("Failed to build database worker", {
-    cause: workerBuild.logs,
-  });
+// The SDK's SQLite worker files, at the root where createSQLiteRuntime looks.
+for (const asset of ["worker.js", "sqlite3.wasm", "sqlite3-licenses.md"]) {
+  await copyFile(
+    fileURLToPath(import.meta.resolve(`@tearleads/client-sdk/sqlite/${asset}`)),
+    fileURLToPath(new URL(asset, publicDir)),
+  );
 }
-
-await Bun.write(new URL("worker.js", publicDir), workerArtifact);
-
-const wasmSrc = fileURLToPath(getSqliteWasmAssetUrl());
-await copyFile(wasmSrc, fileURLToPath(new URL("sqlite3.wasm", publicDir)));
 await mkdir(new URL(`pdfjs/${pdfjsVersion}/`, publicDir), { recursive: true });
 await copyFile(
   fileURLToPath(pdfWorkerSource),

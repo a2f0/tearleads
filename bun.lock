@@ -121,7 +121,7 @@
     },
     "packages/app-capacitor": {
       "name": "app-capacitor",
-      "version": "0.0.2",
+      "version": "0.0.3",
       "dependencies": {
         "@capacitor-community/sqlite": "8.1.1",
         "@capacitor/app": "8.1.1",
@@ -150,7 +150,6 @@
         "@capacitor/cli": "8.5.1",
         "@capacitor/ios": "8.5.1",
         "@sentry/cli": "3.7.0",
-        "@tearleads/sqlite-worker": "workspace:*",
         "@types/bun": "catalog:",
         "@types/react": "catalog:react",
         "@types/react-dom": "catalog:react",
@@ -161,11 +160,10 @@
     },
     "packages/app-electrobun": {
       "name": "app-electrobun",
-      "version": "0.0.2",
+      "version": "0.0.3",
       "dependencies": {
         "@tearleads/client-sdk": "workspace:*",
         "@tearleads/diagnostics": "workspace:*",
-        "@tearleads/sqlite-worker": "workspace:*",
         "app": "workspace:*",
         "electrobun": "2.0.2-beta.35",
         "pdfjs-dist": "6.3.289",
@@ -183,12 +181,11 @@
     },
     "packages/app-web": {
       "name": "app-web",
-      "version": "0.1.2",
+      "version": "0.1.3",
       "dependencies": {
         "@stripe/stripe-js": "9.15.0",
         "@tearleads/client-sdk": "workspace:*",
         "@tearleads/diagnostics": "workspace:*",
-        "@tearleads/sqlite-worker": "workspace:*",
         "app": "workspace:*",
         "pdfjs-dist": "6.3.289",
         "react-dom": "catalog:react",
@@ -214,7 +211,7 @@
     },
     "packages/client-sdk": {
       "name": "@tearleads/client-sdk",
-      "version": "0.1.13",
+      "version": "0.1.14",
       "dependencies": {
         "@tearleads/api-client": "workspace:*",
         "@tearleads/crypto": "workspace:*",
@@ -276,7 +273,7 @@
     },
     "packages/sqlite-instance": {
       "name": "@tearleads/sqlite-instance",
-      "version": "0.1.1",
+      "version": "0.1.2",
       "devDependencies": {
         "@sqlite.org/sqlite-wasm": "3.53.0-build1",
         "@types/bun": "catalog:",
@@ -284,7 +281,7 @@
     },
     "packages/sqlite-worker": {
       "name": "@tearleads/sqlite-worker",
-      "version": "0.1.2",
+      "version": "0.1.3",
       "dependencies": {
         "@tearleads/sqlite-instance": "workspace:*",
       },

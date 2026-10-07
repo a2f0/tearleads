@@ -58,6 +58,12 @@ const clientSdkSupportedPackageExports = {
     types: "./dist/data/trustedUserIdentity/testFixtures.d.ts",
   },
 } as const;
+// The SQLite worker files a host serves, exported by path.
+const clientSdkSupportedAssetExports = {
+  "./sqlite/worker.js": "./dist/sqlite/worker.js",
+  "./sqlite/sqlite3.wasm": "./dist/sqlite/sqlite3.wasm",
+  "./sqlite/sqlite3-licenses.md": "./dist/sqlite/sqlite3-licenses.md",
+} as const;
 export const clientSdkRootWorkflowFacadeReExports = [
   "./workflows/blobs",
   "./workflows/container-contents",
@@ -208,14 +214,26 @@ export async function findClientSdkPackageExportContractViolations(): Promise<
       expectedTarget,
     ),
   );
+  const missingOrChangedAssetExports = Object.entries(
+    clientSdkSupportedAssetExports,
+  ).flatMap(([exportPath, expectedTarget]) =>
+    packageExports[exportPath] === expectedTarget
+      ? []
+      : [{ detail: `target should be ${expectedTarget}`, exportPath }],
+  );
   const unexpectedExports = Object.keys(packageExports)
     .filter(
       (exportPath) =>
-        !Object.hasOwn(clientSdkSupportedPackageExports, exportPath),
+        !Object.hasOwn(clientSdkSupportedPackageExports, exportPath) &&
+        !Object.hasOwn(clientSdkSupportedAssetExports, exportPath),
     )
     .map((exportPath) => ({ detail: "unexpected", exportPath }));
 
-  return [...missingOrChangedExports, ...unexpectedExports];
+  return [
+    ...missingOrChangedExports,
+    ...missingOrChangedAssetExports,
+    ...unexpectedExports,
+  ];
 }
 
 function expectedClientSdkExportViolations(
@@ -256,9 +274,10 @@ function clientSdkPackageEntryPoint(exportPath: string): string {
 }
 
 function expectedClientSdkPublicApiEntryPoints(): string[] {
-  return Object.keys(clientSdkSupportedPackageExports).map(
-    clientSdkPackageEntryPoint,
-  );
+  return [
+    ...Object.keys(clientSdkSupportedPackageExports),
+    ...Object.keys(clientSdkSupportedAssetExports),
+  ].map(clientSdkPackageEntryPoint);
 }
 
 function expectedClientSdkWorkflowFacadeNames(): string[] {

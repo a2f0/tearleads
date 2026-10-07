@@ -1,6 +1,6 @@
 {
   "name": "@tearleads/client-sdk",
-  "version": "0.1.13",
+  "version": "0.1.14",
   "description": "React-free Tearleads runtime with atomic document/container writes, placement-aware persistence notifications, required revision-CAS host adapters, unified device-first handles, explicit retained-folder recovery, signed-name group mutations, verified organization policy history details without persisted names, verified keying, held-descendant re-citation, sync, encrypted blob storage, root operator identity/organization billing and data usage lookups, typed registration refusals, typed folder path-length refusals, typed stale keyring-override refusals, and teardown predicates for host diagnostics. Includes paged principal-history recovery with offline evidence, strict Admins verification and private local key custody.",
   "private": true,
   "license": "UNLICENSED",
@@ -20,6 +20,9 @@
       "types": "./dist/sqlite.d.ts",
       "default": "./dist/sqlite.js"
     },
+    "./sqlite/worker.js": "./dist/sqlite/worker.js",
+    "./sqlite/sqlite3.wasm": "./dist/sqlite/sqlite3.wasm",
+    "./sqlite/sqlite3-licenses.md": "./dist/sqlite/sqlite3-licenses.md",
     "./testing": {
       "types": "./dist/data/trustedUserIdentity/testFixtures.d.ts",
       "default": "./dist/data/trustedUserIdentity/testFixtures.js"

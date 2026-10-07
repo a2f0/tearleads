@@ -65,10 +65,20 @@ test("the published testing entry decodes an identity response", () => {
 `;
 
 // Node resolves ES modules strictly: every relative import needs its
-// extension, and every bare one a declared dependency.
-const nodeImports = `await import("@tearleads/client-sdk");
+// extension, and every bare one a declared dependency. The SQLite worker files
+// must resolve through the export map, where a host's build finds them.
+const nodeImports = `import { existsSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+
+await import("@tearleads/client-sdk");
 await import("@tearleads/client-sdk/sqlite");
 await import("@tearleads/client-sdk/testing");
+for (const file of ["worker.js", "sqlite3.wasm", "sqlite3-licenses.md"]) {
+  const url = import.meta.resolve("@tearleads/client-sdk/sqlite/" + file);
+  if (!existsSync(fileURLToPath(url))) {
+    throw new Error(file + " does not resolve to a file");
+  }
+}
 `;
 
 const typecheckSource = `import { Tearleads } from "@tearleads/client-sdk";
@@ -188,6 +198,10 @@ try {
   run(["bun", "install"], projectDir);
   run(["bun", "test"], projectDir);
   run(["node", "node-imports.mjs"], projectDir);
+  run(
+    ["node", "--check", "node_modules/@tearleads/client-sdk/sqlite/worker.js"],
+    projectDir,
+  );
   run(["bun", "x", "tsc", "-p", "tsconfig.bundler.json"], projectDir);
   run(["bun", "x", "tsc", "-p", "tsconfig.nodenext.json"], projectDir);
   typecheckDeclarations(projectDir, "tsconfig.bundler.strict.json");
