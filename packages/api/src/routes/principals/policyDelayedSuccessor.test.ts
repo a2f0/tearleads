@@ -18,9 +18,9 @@ import {
   getDefaultOrganizationId,
   submitOrganizationGroupPolicyCommit,
 } from "../../../test/helpers/principalPolicy";
+import { requestAfterPrincipalPreparation } from "../../../test/helpers/principalPreparationRequest";
 import { toPrincipalStateExternalAuthority } from "../../../test/helpers/principalState";
 import { registerUser } from "../../../test/helpers/registerUser";
-import { routeApp } from "../../routeApp";
 
 // Real signed setup and protocol steps approach five seconds in PGlite CI.
 test("an honest group history remains readable across an intervening Admins advance", async () => {
@@ -31,7 +31,7 @@ test("an honest group history remains readable across an intervening Admins adva
   await registerUser(replacement);
   const organizationId = await getDefaultOrganizationId(actor.userId);
   const groupId = crypto.randomUUID();
-  const created = await routeApp.request(
+  const created = await requestAfterPrincipalPreparation(
     `/organizations/${organizationId}/groups`,
     {
       method: "POST",

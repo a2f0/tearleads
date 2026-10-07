@@ -20,14 +20,14 @@ import {
   submitOrganizationGroupPolicyCommit,
 } from "../../../test/helpers/principalPolicy";
 import { registerAndAuthenticate } from "../../../test/helpers/principalPolicyReadFixtures";
+import { requestAfterPrincipalPreparation } from "../../../test/helpers/principalPreparationRequest";
 import { signGroupSuccessor } from "../../../test/helpers/rotatedReadGroupGrant";
 import { getCurrentPrincipalState } from "../../access/read/principalStateStore";
-import { routeApp } from "../../routeApp";
 
 async function createGroup(owner: TestUser, additionalMembers: TestUser[]) {
   const organizationId = await getDefaultOrganizationId(owner.userId);
   const groupId = crypto.randomUUID();
-  const response = await routeApp.request(
+  const response = await requestAfterPrincipalPreparation(
     `/organizations/${organizationId}/groups`,
     {
       method: "POST",
@@ -123,6 +123,7 @@ test("group creation refuses another organization's user and rolls back", async 
   ).toEqual(before);
 });
 
+// Signed registration, roster admission, and two commits run in one test.
 test("group successors require active roster membership in the same organization", async () => {
   const owner = createTestUser();
   const outsider = createTestUser();
@@ -157,7 +158,7 @@ test("group successors require active roster membership in the same organization
     members: [outsider],
   });
   expect(accepted.status, await accepted.clone().text()).toBe(200);
-});
+}, 15_000);
 
 // Real signed setup and protocol steps approach five seconds in PGlite CI.
 test.each(["remove", "delete"] as const)(

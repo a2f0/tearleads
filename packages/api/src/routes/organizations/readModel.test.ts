@@ -19,6 +19,7 @@ import {
   addMemberGroupUser,
   removeMemberGroupUser,
 } from "../../../test/helpers/organizationMember";
+import { requestAfterPrincipalPreparation } from "../../../test/helpers/principalPreparationRequest";
 import { registerUser } from "../../../test/helpers/registerUser";
 import { getCurrentPrincipalState } from "../../access/read/principalStateStore";
 import { routeApp } from "../../routeApp";
@@ -111,7 +112,7 @@ test("organization read-model route snapshots and coalesces group changes", asyn
     groupId,
     name: "Operators",
   });
-  const createResponse = await routeApp.request(
+  const createResponse = await requestAfterPrincipalPreparation(
     `/organizations/${organizationId}/groups`,
     {
       method: "POST",
@@ -122,6 +123,7 @@ test("organization read-model route snapshots and coalesces group changes", asyn
       body: JSON.stringify(groupRequest),
     },
   );
+  expect(createResponse.status).toBe(200);
   const created = await createResponse.json();
   invariant(
     isCreateOrganizationGroupResponse(created),
@@ -152,7 +154,7 @@ test("organization read-model route snapshots and coalesces group changes", asyn
     expect.objectContaining({ userId: actor.userId, role: "admin" }),
   );
 
-  const rejectedReplay = await routeApp.request(
+  const completedReplay = await requestAfterPrincipalPreparation(
     `/organizations/${organizationId}/groups`,
     {
       method: "POST",
@@ -163,18 +165,20 @@ test("organization read-model route snapshots and coalesces group changes", asyn
       body: JSON.stringify(groupRequest),
     },
   );
-  expect(rejectedReplay.status).toBe(409);
-  const afterRejectedResponse = await routeApp.request(
+  expect(completedReplay.status).toBe(200);
+  expect(await completedReplay.json()).toEqual(created);
+  const afterCompletedReplayResponse = await routeApp.request(
     readModelPath(organizationId, changed.nextCursor),
     { headers: { Authorization: `Bearer ${actor.token}` } },
   );
-  const afterRejected = await afterRejectedResponse.json();
+  const afterCompletedReplay = await afterCompletedReplayResponse.json();
   invariant(
-    isOrganizationReadModelResponse(afterRejected) &&
-      afterRejected.mode === "delta",
-    "expected delta after rejected group replay",
+    isOrganizationReadModelResponse(afterCompletedReplay) &&
+      afterCompletedReplay.mode === "delta",
+    "expected delta after completed group replay",
   );
-  expect(afterRejected.lanes).toEqual({});
+  expect(afterCompletedReplay.lanes).toEqual({});
+  expect(afterCompletedReplay.nextCursor).toBe(changed.nextCursor);
 
   const exactPolicyReplayResponse = await routeApp.request(
     `/principals/group/${groupId}/policy`,
@@ -339,7 +343,7 @@ test("membership deltas coalesce transitions to final entity state", async () =>
   await removeMemberGroupUser(memberMutation);
 
   const deletedGroupId = crypto.randomUUID();
-  const createResponse = await routeApp.request(
+  const createResponse = await requestAfterPrincipalPreparation(
     `/organizations/${organizationId}/groups`,
     {
       method: "POST",
