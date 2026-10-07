@@ -30,7 +30,10 @@ import {
   createPrincipalHistoryProtectionCustody,
   type PrincipalHistoryKeyProvider,
 } from "./principalHistoryProtection";
-import { createPrincipalMutationApiCustody } from "./principalMutationApi";
+import {
+  createPrincipalMutationApiCustody,
+  type PrincipalMutationApi,
+} from "./principalMutationApi";
 import { adoptSessionRootContainer } from "./rootContainerAdoption";
 import { acknowledgedSessionRoot } from "./session/sessionRootAuthority";
 import type { Session, SessionSnapshot } from "./session/sessionTypes";
@@ -55,7 +58,7 @@ export interface Runtime {
 }
 
 export interface InternalWorkflowRuntimeInput extends WorkflowRuntimeGroups {
-  readonly apiClient: ApiClient;
+  readonly apiClient: PrincipalMutationApi;
   readonly resolveTrustedUserIdentity: TrustedUserIdentityResolver;
   readonly withPrincipalHistoryProtection?:
     | PrincipalHistoryProtectionLease
@@ -311,7 +314,7 @@ function createRuntimeInputFactory(
   dependencies: WorkflowRuntimeDependencies,
   resolveTrustedUserIdentity: TrustedUserIdentityResolver,
   bindHistoryProtection: () => PrincipalHistoryProtectionLease | undefined,
-  bindMutationApi: () => ApiClient,
+  bindMutationApi: () => PrincipalMutationApi,
 ): RuntimeInputFactory {
   let auth: WorkflowRuntimeAuthInput | undefined;
   let crypto: WorkflowRuntimeCryptoInput | undefined;

@@ -26,21 +26,7 @@ async function runRecovery<T>(
   assertProjectionVerificationCurrent(
     () => stillCurrent() && runtime.auth.organizationId === organizationId,
   );
-  const api: typeof runtime.apiClient & Partial<PrincipalMutationRecoveryApi> =
-    runtime.apiClient;
-  if (
-    !api.readPendingPrincipalMutation ||
-    !api.recoverPendingPrincipalMutation ||
-    !api.abandonPendingPrincipalMutation ||
-    !api.discardUnreadablePrincipalMutation
-  )
-    throw new Error("Principal mutation recovery is unavailable");
-  const result = await run({
-    readPendingPrincipalMutation: api.readPendingPrincipalMutation,
-    recoverPendingPrincipalMutation: api.recoverPendingPrincipalMutation,
-    abandonPendingPrincipalMutation: api.abandonPendingPrincipalMutation,
-    discardUnreadablePrincipalMutation: api.discardUnreadablePrincipalMutation,
-  });
+  const result = await run(runtime.apiClient);
   assertProjectionVerificationCurrent(stillCurrent);
   return result;
 }

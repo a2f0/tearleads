@@ -131,11 +131,8 @@ export async function discardUnreadableJournaledPrincipalMutation(
 export async function readJournaledPrincipalMutation(
   input: JournalIdentity,
 ): Promise<AuthoredPrincipalMutation | null> {
-  return runPrincipalMutationJournalOperation(
-    input.execSql,
-    input.scope,
-    async () => (await loadAuthenticatedMutation(input))?.mutation ?? null,
-  );
+  // Inspection may observe an owned dispatch; all mutations still use the lane.
+  return (await loadAuthenticatedMutation(input))?.mutation ?? null;
 }
 
 /**

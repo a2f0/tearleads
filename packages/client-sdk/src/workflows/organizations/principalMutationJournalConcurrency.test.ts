@@ -4,11 +4,49 @@ import { createTestExecSql } from "@tearleads/test-utils";
 import { principalMutationJournalFixture } from "../../../test/helpers/principalMutationJournalFixture";
 import { loadPrincipalMutationJournal } from "../../data/persistence/principalMutationJournalPersistence";
 import { principalMutationJournalScopeId } from "../../data/principals/principalMutationJournal";
+import { readJournaledPrincipalMutation } from "./principalMutationJournalManagement";
 import {
   type PrincipalMutationJournalContext,
   recoverJournaledPrincipalMutation,
   submitJournaledPrincipalMutation,
 } from "./principalMutationJournalSession";
+
+test("inspection does not wait for an owned request's acknowledgement", async () => {
+  const fixture = await principalMutationJournalFixture();
+  const sqlite = await createTestExecSql("journal-inspection-during-dispatch");
+  const started = Promise.withResolvers<void>();
+  const release = Promise.withResolvers<void>();
+  const context = {
+    ...fixture,
+    execSql: sqlite.execSql,
+    stillCurrent: () => true,
+  };
+  const initial = submitJournaledPrincipalMutation({
+    ...context,
+    submit: async () => {
+      started.resolve();
+      await release.promise;
+      return { ok: true, data: fixture.response };
+    },
+  });
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    await started.promise;
+    const read = readJournaledPrincipalMutation(context);
+    const inspected = await Promise.race([
+      read,
+      new Promise<null>((resolve) => {
+        timer = setTimeout(() => resolve(null), 500);
+      }),
+    ]);
+    expect(inspected).toEqual(fixture.mutation);
+  } finally {
+    clearTimeout(timer);
+    release.resolve();
+    await initial;
+    sqlite.close();
+  }
+});
 
 test("recovery waits for an owned dispatch instead of resubmitting it", async () => {
   const fixture = await principalMutationJournalFixture();

@@ -79,6 +79,8 @@ function readMutation(
 }
 
 function signedBytes(scope: PrincipalMutationJournalScope, request: string) {
+  // The domain-tagged scope and JSON tuple separate these identity-key
+  // signatures from policy state signatures and other authored formats.
   return encoder.encode(JSON.stringify([scopeJson(scope), request]));
 }
 

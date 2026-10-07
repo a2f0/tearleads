@@ -57,7 +57,7 @@ test("runtime API custody resumes saved bytes after generation replacement and c
     expect(custody.bind()).toBe(first);
     first.setAuthToken("fixture-token");
     await expect(
-      first.commitOrganizationGroupPolicyResult(
+      first.commitOrganizationGroupPolicy(
         fixture.scope.organizationId,
         fixture.mutation.groupId,
         fixture.mutation.request,
@@ -110,6 +110,9 @@ test("runtime policy writes fail before HTTP when their trusted journal scope is
     api,
     readScope: () => null,
   }).bind();
+  expect(
+    await bound.readPendingPrincipalMutation(fixture.scope.organizationId),
+  ).toBeNull();
   await expect(
     bound.commitOrganizationGroupPolicyResult(
       fixture.scope.organizationId,
@@ -118,4 +121,54 @@ test("runtime policy writes fail before HTTP when their trusted journal scope is
     ),
   ).rejects.toThrow("trusted API origin");
   expect(calls).toBe(0);
+});
+
+test("the nullable policy API returns known refusal or exact success for group sharing", async () => {
+  const fixture = await principalMutationJournalFixture();
+  const sqlite = await createTestExecSql("nullable-policy-journal");
+  const scope: PrincipalMutationRuntimeScope = {
+    ...fixture.scope,
+    database: {},
+    generation: 1,
+    execSql: sqlite.execSql,
+    signingKeyPair: fixture.signingKeyPair,
+  };
+  const api = new ApiClient(fixture.scope.identityTrustDomain);
+  let allowed = false;
+  api.commitOrganizationGroupPolicyResult = async () =>
+    allowed
+      ? { ok: true, data: fixture.response }
+      : {
+          ok: false,
+          kind: "http",
+          status: 403,
+          statusText: "Forbidden",
+          message: "Refused",
+          method: "POST",
+          path: "/fixture",
+          report() {},
+        };
+  const bound = createPrincipalMutationApiCustody({
+    api,
+    readScope: () => scope,
+  }).bind();
+  const commit = () =>
+    bound.commitOrganizationGroupPolicy(
+      fixture.scope.organizationId,
+      fixture.mutation.groupId,
+      fixture.mutation.request,
+    );
+  try {
+    expect(await commit()).toBeNull();
+    expect(
+      await bound.readPendingPrincipalMutation(fixture.scope.organizationId),
+    ).toBeNull();
+    allowed = true;
+    expect(await commit()).toEqual(fixture.response);
+    expect(
+      await bound.readPendingPrincipalMutation(fixture.scope.organizationId),
+    ).toBeNull();
+  } finally {
+    sqlite.close();
+  }
 });

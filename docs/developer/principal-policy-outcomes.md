@@ -66,6 +66,8 @@ abandonment. Recovery waits for an owned dispatch instead of sending it again.
 This in-memory wait does not span separate executors or tabs; durable claims and
 server transaction receipts still protect concurrent transport attempts.
 Runtime recovery has a 15-second request deadline; expiration retains the journal.
+Read-only inspection can observe an in-flight request without waiting for its
+acknowledgement. Retry, abandonment and discard still wait for an owned dispatch.
 
 A known first-attempt refusal or cancellation before dispatch retires the
 journal. A disconnected request, an
@@ -92,6 +94,10 @@ that a remote change is not undone. Success refreshes the current organization
 view. A changed identity or organization invalidates delayed reads and actions.
 Runtime policy writes require an authenticated signing identity, a trusted API
 origin and ready local storage; missing journal custody refuses before HTTP.
+Inspection without that scope reports no inspectable work. Hosts using a relative
+API base without a browser origin must supply an absolute trusted API URL.
+Unlisted failures, including HTTP 429, conservatively retain the request as
+uncertain; an intermediary's status alone does not prove server rollback.
 
 Unreadable records remain blocked from submission. Inspection reports an
 `UnreadablePrincipalMutationError` with an opaque identifier of the exact local
