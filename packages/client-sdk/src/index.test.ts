@@ -267,6 +267,7 @@ const EXPECTED_ROOT_VALUE_EXPORTS = [
   "requestDomainDocumentSync",
   "resolveOpIdAttribution",
   "resolveOrganizationBillingView",
+  "retainAcknowledgedPrincipalCurrents",
   "revokeOrganizationContainerGrant",
   "revokeRemoteContainer",
   "rootContainerWriterProjectionFromCreatePlan",

@@ -39,8 +39,8 @@
       "bytes": 18865
     },
     "docs/developer/client-sdk.md": {
-      "lines": 852,
-      "bytes": 45880
+      "lines": 856,
+      "bytes": 46141
     },
     "docs/developer/revenuecat-native-stores.md": {
       "lines": 364,
@@ -239,8 +239,8 @@
       "bytes": 16859
     },
     "packages/client-sdk/src/index.ts": {
-      "lines": 572,
-      "bytes": 16835
+      "lines": 574,
+      "bytes": 16911
     },
     "packages/client-sdk/src/stores/container-contents/containerContentsStore.rootRefresh.test.ts": {
       "lines": 592,
@@ -251,8 +251,8 @@
       "bytes": 18896
     },
     "packages/client-sdk/src/workflows/README.md": {
-      "lines": 346,
-      "bytes": 26431
+      "lines": 351,
+      "bytes": 26755
     },
     "packages/client-sdk/src/workflows/blobs/hydrate.test.ts": {
       "lines": 572,

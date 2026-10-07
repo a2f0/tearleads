@@ -344,3 +344,8 @@ latest local pins at final admission. Historical selections never advance
 current-policy checkpoints or become current key material. Attachment detach,
 hydration, retained-wrap checks and relinking accept the same private policy
 warmer and operation-lifetime guard; the document store supplies both.
+
+`retainAcknowledgedPrincipalCurrents` atomically retains exact policy receipts,
+authenticated resumable progress, checkpoints and signed-grant retirements.
+It requires the previously recovered prefix and durable predecessor pin; see
+[current mutation primitives](../../../../docs/developer/principal-current-mutations.md).

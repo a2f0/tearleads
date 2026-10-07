@@ -121,6 +121,10 @@ export {
   reconcileOrganizationDirectoryAndGroups,
 } from "./readModelProjection";
 export {
+  type AcknowledgedPrincipalCurrentInput,
+  retainAcknowledgedPrincipalCurrents,
+} from "./retainAcknowledgedPrincipalCurrents";
+export {
   buildRosterProfileDocumentPatch,
   createInitializedRosterProfileDocument,
   deriveOrganizationMetadataContainerSystemSlot,

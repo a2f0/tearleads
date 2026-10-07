@@ -55,3 +55,28 @@ artifact checks, atomic persistence of both policies with grant retirements, and
 publication of authenticated resumable progress remain requirements for runtime
 adoption. The built-in mutation workflow continues to use its full-bundle path
 until those requirements are met.
+
+`retainAcknowledgedPrincipalCurrents` provides the atomic retention primitive
+for advanced hosts. Each `AcknowledgedPrincipalCurrentInput` supplies the exact
+authored request and complete receipt, plus the same recovery scope, local key,
+verification mode and authenticated authority loader used for its predecessor.
+The predecessor must already have both a durable checkpoint and an authenticated
+completed prefix. This function does not fetch policy history or send a mutation;
+trusted signing identity or authority resolution may perform their own reads.
+
+It restores the authenticated verifier, checks the complete receipt and signed
+successor, then stores a single evidence entry and its index nodes. All supplied
+policies' artifacts, progress and checkpoints are published in one guarded SQLite
+transaction. The transaction rechecks the latest pins and compares the saved
+prefix with the one restored before verification. A changed prefix or a missing,
+newer or conflicting pin requires fresh recovery. Replaying a past receipt cannot
+move current pins backwards. Optional grant retirements must refer to an included
+policy's signed current or predecessor grants.
+
+Completed exact-head stages retain earlier encrypted envelopes when the reusable
+prefix advances. Key lookup selects those candidates by an indexed fingerprint;
+they remain untrusted encrypted candidates, not authorization evidence. The
+current wire artifacts never contain manufactured `previousStates`. Built-in
+mutation orchestration still uses its existing full-bundle path until its
+context loading, container rematerialization and result contract adopt these
+primitives together.

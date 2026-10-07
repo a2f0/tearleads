@@ -1,4 +1,6 @@
+import { desc } from "drizzle-orm";
 import { index, integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
+import { principalCurrentFingerprintJson } from "./principalKeyFingerprintJson";
 import { defineSqlTableSchema } from "./sqlTableSchema";
 
 /** Provisional, locally authenticated verification work; never an app checkpoint. */
@@ -13,6 +15,11 @@ export const principalHistoryStages = sqliteTable(
     progress: text("progress").notNull(),
   },
   (table) => [
+    index("principal_history_stages_key_fingerprint_idx").on(
+      principalCurrentFingerprintJson(table.currentJson),
+      table.complete,
+      desc(table.afterVersion),
+    ),
     index("principal_history_stages_organization_idx").on(table.organizationId),
   ],
 );

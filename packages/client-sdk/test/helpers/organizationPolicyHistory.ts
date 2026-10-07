@@ -212,6 +212,7 @@ export async function createOrganizationHistoryFixture() {
   };
   return {
     admin,
+    creatorEncapsulationKeyPair,
     signingKeyPair,
     advanceGroup,
     advanceDirectory,

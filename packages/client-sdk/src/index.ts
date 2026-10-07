@@ -432,6 +432,7 @@ export {
 // Nominal identity constructors are deliberately absent here. Integration
 // tests that compose low-level runtimes use the testing package subpath.
 export type {
+  AcknowledgedPrincipalCurrentInput,
   AuthoredPrincipalMutation,
   OrganizationGroupPolicyHistoryEntry,
   OrganizationNativePurchaseEligibility,
@@ -480,6 +481,7 @@ export {
   recoverJournaledPrincipalMutation,
   removeOrganizationGroupUser,
   resolveOrganizationBillingView,
+  retainAcknowledgedPrincipalCurrents,
   revokeOrganizationContainerGrant,
   startOrganizationTrial,
   submitJournaledPrincipalMutation,
