@@ -1,6 +1,6 @@
 {
   "name": "@tearleads/client-sdk",
-  "version": "0.1.19",
+  "version": "0.1.18",
   "description": "React-free Tearleads runtime with atomic document/container writes, placement-aware persistence notifications, required revision-CAS host adapters, unified device-first handles, explicit retained-folder recovery, signed-name group mutations, verified organization policy history details without persisted names, verified keying, held-descendant re-citation, sync, encrypted blob storage, root operator identity/organization billing and data usage lookups, typed registration refusals, typed folder path-length refusals, typed stale keyring-override refusals, and teardown predicates for host diagnostics. Includes compact public projection authorization and paged principal-history recovery with offline evidence, strict Admins verification, authority-bound cached progress and private local key custody, including typed standalone workflow leases. Principal mutation journals retain exact compound, organization, group creation and group deletion requests across disconnects and restart. Built-in group creation, membership, grant mutations, and directory deletion author bounded current policies, return exact receipts, and retain directory-bound artifacts, progress, and typed grant retirements atomically with checkpoints. Group history views load verified bounded pages.",
   "private": true,
   "license": "UNLICENSED",
