@@ -1,7 +1,6 @@
 import { stat } from "node:fs/promises";
 import { isAbsolute, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
-import { getSqliteWasmAssetUrl } from "@tearleads/sqlite-worker/assets";
 import { serve } from "bun";
 import { BrowserWindow, Utils } from "electrobun/bun";
 import pdfjsPackage from "pdfjs-dist/package.json" with { type: "json" };
@@ -69,21 +68,18 @@ function getPackageSourcePath(
   return fileURLToPath(new URL(moduleRelativeUrl, import.meta.url));
 }
 
-// Resolve the SQLite WASM binary's real path. getSqliteWasmAssetUrl() resolves
-// relative to @tearleads/sqlite-instance's module URL, which is correct from
-// source but breaks in the dev build: Electrobun inlines this file into the
-// app bundle, so the asset URL points at <bundle>/dist/jswasm/sqlite3.wasm,
-// which does not exist. Serving that missing file as a streaming Bun.file
-// response hangs the worker's WebAssembly.instantiateStreaming (and wedges the
-// dev server). In dev, resolve it from the workspace source like the renderer
-// and worker entrypoints; otherwise fall back to the packaged asset URL.
-function getSqliteWasmFilePath(): string {
+// Resolve one of the SDK's SQLite worker files. Electrobun inlines this file
+// into the app bundle, so in dev the SDK export cannot resolve from the bundle's
+// location; resolve it from the workspace like the renderer entrypoint instead.
+function getSqliteAssetPath(name: string): string {
   const packageDir = process.env[packageDirEnvName];
   if (packageDir) {
-    return resolve(packageDir, "../sqlite-instance/dist/jswasm/sqlite3.wasm");
+    return resolve(packageDir, "../client-sdk/dist/sqlite", name);
   }
 
-  return fileURLToPath(getSqliteWasmAssetUrl());
+  return fileURLToPath(
+    import.meta.resolve(`@tearleads/client-sdk/sqlite/${name}`),
+  );
 }
 
 async function isRegularFile(path: string) {
@@ -162,10 +158,6 @@ function createPackagedServerConfig() {
 }
 
 async function createDevServerConfig() {
-  const workerEntrypoint = getPackageSourcePath(
-    "src/renderer/databaseWorker.ts",
-    "../renderer/databaseWorker.ts",
-  );
   // Build the desktop renderer directly in dev. Reusing app-web's entrypoint
   // also reuses app-web's service-worker assumptions, which can affect the
   // desktop shell when stale :3000 browser state exists.
@@ -182,23 +174,16 @@ async function createDevServerConfig() {
     throw new Error("Web build failed", { cause: webBuild.logs });
   }
 
-  const workerBuild = await Bun.build({
-    entrypoints: [workerEntrypoint],
-    target: "browser",
-    format: "esm",
-  });
-
-  if (!workerBuild.success || workerBuild.outputs.length === 0) {
-    throw new Error("Worker build failed", { cause: workerBuild.logs });
-  }
-
-  const workerScript = workerBuild.outputs[0];
-
-  // Read the WASM into memory once. Beyond avoiding a per-request file open,
-  // this makes a missing/misresolved binary fail fast at startup rather than
-  // hanging every /sqlite3.wasm request (a streaming Bun.file of a nonexistent
-  // path never completes).
-  const sqliteWasm = await Bun.file(getSqliteWasmFilePath()).arrayBuffer();
+  // Read the SQLite worker files into memory once. Beyond avoiding a
+  // per-request file open, this makes a missing or misresolved file fail fast
+  // at startup rather than hanging every request for it (a streaming Bun.file
+  // of a nonexistent path never completes).
+  const workerScript = await Bun.file(
+    getSqliteAssetPath("worker.js"),
+  ).arrayBuffer();
+  const sqliteWasm = await Bun.file(
+    getSqliteAssetPath("sqlite3.wasm"),
+  ).arrayBuffer();
   const pdfPackageDir = process.env[packageDirEnvName];
   const pdfWorker = await Bun.file(
     resolvePdfAssetPath(

@@ -12,3 +12,6 @@ rm -rf dist tsconfig.build.tsbuildinfo
 
 tsc -p tsconfig.build.json
 bun ../../scripts/lib/rewriteDistImports.ts dist
+# The SQLite worker files hosts serve, exported under ./sqlite/. Built after the
+# rewrite: the worker is one bundled module.
+bun scripts/buildSqliteWorker.ts dist/sqlite

@@ -117,19 +117,14 @@ function externalDependencies(
 
 // The SDK's subpath exports, pointed at the package root instead of dist/.
 function publishedExports(manifest: WorkspaceManifest) {
+  const fromRoot = (path: string) => path.replace(/^\.\/dist\//, "./");
   return Object.fromEntries(
-    Object.entries(manifest.exports).map(([subpath, target]) => {
-      if (typeof target === "string") {
-        throw new Error(`expected a conditional export for ${subpath}`);
-      }
-      return [
-        subpath,
-        {
-          types: target.types.replace(/^\.\/dist\//, "./"),
-          default: target.default.replace(/^\.\/dist\//, "./"),
-        },
-      ];
-    }),
+    Object.entries(manifest.exports).map(([subpath, target]) => [
+      subpath,
+      typeof target === "string"
+        ? fromRoot(target)
+        : { types: fromRoot(target.types), default: fromRoot(target.default) },
+    ]),
   );
 }
 

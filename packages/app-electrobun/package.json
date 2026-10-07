@@ -35,7 +35,6 @@
   "dependencies": {
     "@tearleads/client-sdk": "workspace:*",
     "@tearleads/diagnostics": "workspace:*",
-    "@tearleads/sqlite-worker": "workspace:*",
     "app": "workspace:*",
     "electrobun": "2.0.2-beta.35",
     "pdfjs-dist": "6.3.289",

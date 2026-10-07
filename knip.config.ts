@@ -120,7 +120,6 @@ const baseConfig = {
         "scripts/withSentryReleaseEnv.ts",
         "src/bun/index.ts",
         "src/renderer/index.tsx",
-        "src/renderer/databaseWorker.ts",
       ],
       project: ["src/**/*.{ts,tsx}", "scripts/**/*.ts", "*.config.ts"],
       // scripts/sentryCliUpload.ts resolves the pinned platform binary through
@@ -257,7 +256,6 @@ const productionConfig = {
         "electrobun.config.ts!",
         "src/bun/index.ts!",
         "src/renderer/index.tsx!",
-        "src/renderer/databaseWorker.ts!",
       ],
       project: productionProject,
     },
