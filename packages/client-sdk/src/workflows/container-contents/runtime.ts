@@ -3,6 +3,7 @@ import {
   type DocumentProjectorRegistryInput,
   resolveDocumentProjectorRegistry,
 } from "../../data/documents/documentKinds";
+import type { PrincipalHistoryProtectionLease } from "../../data/principals/principalHistoryProtection";
 import { inheritPrincipalHistoryProtection } from "../../data/principals/principalHistoryRuntime";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import {
@@ -84,6 +85,10 @@ export interface ContainerContentsWorkflowRuntimeInputGroups {
 
 export interface ContainerContentsWorkflowRuntimeInput
   extends ContainerContentsWorkflowRuntimeInputGroups {
+  /** Private host custody, inherited by container and derived document runtimes. */
+  readonly withPrincipalHistoryProtection?:
+    | PrincipalHistoryProtectionLease
+    | undefined;
   readonly apiClient: ContainerContentsWorkflowApi;
   readonly resolveTrustedUserIdentity: TrustedUserIdentityResolver;
 }

@@ -327,6 +327,13 @@ discovery never calls it. `RecoveryFolder` is exported from the SDK root.
 whose local destination parent is unavailable. Recovery uses it to distinguish
 local work from shared folders with inaccessible parents.
 
+Standalone document and container runtime constructors accept a private
+`withPrincipalHistoryProtection: PrincipalHistoryProtectionLease` input. It enables
+their built-in history resolvers and passes through store/derived-document
+adapters without exposing the callback on returned runtime views. Hosts retain
+responsibility for key cleanup and invalidating the lease on authority/storage
+changes, as specified in the principal-history recovery guide.
+
 `recoverProjectionPolicyHistory` resolves compact projection sources into verified
 historical authorization selections. Standalone hosts provide private local
 protection, the projection's manifest references, trusted identity resolution,

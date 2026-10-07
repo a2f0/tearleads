@@ -1,3 +1,4 @@
+export type { PrincipalHistoryProtectionLease } from "../../data/principals/principalHistoryProtection";
 export {
   type CachePrincipalPolicyBundlesOptions,
   type CacheReferencedPrincipalPoliciesOptions,

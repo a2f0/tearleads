@@ -830,6 +830,13 @@ local work from shared folders with inaccessible parents.
 
 ## Durable principal-history recovery
 
+Standalone document and container workflow constructors accept
+`withPrincipalHistoryProtection: PrincipalHistoryProtectionLease`. This private
+input supplies the built-in bounded recovery resolvers and survives derived
+document/store adapters without appearing on their public runtime views. The
+host owns key cleanup and must invalidate the lease when its authority or local
+storage changes; see the custody contract in the recovery guide below.
+
 Authority loaders take exact heads, including cached citations. See
 [recovery](principal-history-recovery.md) for offline reads and key custody.
 
