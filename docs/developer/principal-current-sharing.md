@@ -42,7 +42,9 @@ and outcome recovery, including the optional pending-recovery callback, as on
 the complete-bundle path. Policy and container acknowledgements remain inside
 the lease; background descendant recitations use the caller's session
 lifetime. Hosts must support nested private custody leases during projection
-verification.
+verification. Without a caller predicate, background scheduling retains the
+legacy default of remaining active; hosts supply a predicate to cancel it when
+their session changes.
 
 The verifier tests use real signed histories and SQLite with in-process page
 transport, including encrypted-name recovery through the production metadata
@@ -53,3 +55,7 @@ container-only administrator, exact compound acknowledgement retention,
 expired callers, and substituted receipts. Removing fresh name verification
 permits the rename-race commit and fails its test; disabling Current routing
 fails the no-full-read grant-mint test.
+
+A held-child regression also checks that a successful share without a caller
+predicate still starts descendant recitation after the private lease ends.
+Using the expired lease as that background guard fails the regression.

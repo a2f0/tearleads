@@ -45,6 +45,7 @@ export function createRuntimeCurrentGroupShare(
   if (!mutate) throw new Error("Current group mutation custody is unavailable");
   return async (input) => {
     if (input.stillCurrent?.() === false) return null;
+    const recitationStillCurrent = input.stillCurrent ?? (() => true);
     return nullOnProjectionVerificationCancellation(() =>
       readCurrent(
         {
@@ -72,7 +73,7 @@ export function createRuntimeCurrentGroupShare(
               runtime,
               share,
               mutate,
-              recitationStillCurrent: input.stillCurrent,
+              recitationStillCurrent,
             });
           const materialized = await buildMaterializedContainerSharePlan({
             ...share,
@@ -89,7 +90,7 @@ export function createRuntimeCurrentGroupShare(
           return submitAcknowledgedContainerMutation({
             ...share,
             recitationPolicies: checkpointPolicies,
-            recitationStillCurrent: input.stillCurrent,
+            recitationStillCurrent,
             containerKey: materialized.containerKey,
             plan: materialized.plan,
             submit: () =>
