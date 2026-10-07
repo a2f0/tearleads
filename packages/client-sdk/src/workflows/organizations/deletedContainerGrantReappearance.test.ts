@@ -7,8 +7,13 @@ import {
   ROOT_CONTAINER_ID,
   SECOND_CONTAINER_ID,
 } from "../../../test/helpers/principalReciteFixtures";
+import {
+  projectionHistoryPages,
+  projectionPolicySource,
+} from "../../../test/helpers/projectionPolicyHistory";
 import { verifyContainerWriterProjection } from "../../data/keyingProjectionVerification";
 import { retainLocallyAcknowledgedPrincipalPolicyBundles } from "../../data/persistence/locallyAcknowledgedCheckpointPersistence";
+import { recoverPublicPrincipalHistory } from "../principals/recoverPublicPrincipalHistory";
 import { preparePrincipalContainerRematerializationBatch } from "./principalContainerRematerialization";
 
 test("a container skipped as deleted during rotation cannot reappear under its old group key", async () => {
@@ -27,6 +32,8 @@ test("a container skipped as deleted during rotation cannot reappear under its o
         execSql: fixture.database.execSql,
         projection: root,
         resolveUserKey: fixture.input.resolveTrustedUserIdentity,
+        warmReferencedPrincipalPolicies:
+          fixture.input.warmReferencedPrincipalPolicies,
       });
     await verify();
     const prepared = await preparePrincipalContainerRematerializationBatch({
@@ -102,6 +109,21 @@ test("a container skipped as deleted during rotation cannot reappear under its o
         ),
       ),
     );
+    // Authenticate the newer prefix so the independent pin-availability guard
+    // cannot mask the retirement check this test is exercising.
+    await recoverPublicPrincipalHistory({
+      apiClient: projectionHistoryPages([fixture.nextBundle]),
+      source: projectionPolicySource(fixture.nextBundle),
+      organizationId: ORGANIZATION_ID,
+      authorityGroupId: fixture.projectionBundles[1]?.currentState.principalId,
+      execSql: fixture.database.execSql,
+      resolveTrustedUserIdentity: fixture.input.resolveTrustedUserIdentity,
+      protection: {
+        localKey: new Uint8Array(32).fill(19),
+        context: "projection-history-test",
+      },
+      stillCurrent: () => true,
+    });
     // All signatures still verify. The API has contradicted the retirement on
     // which this device relied when acknowledging the group key rotation.
     await expect(verify()).rejects.toThrow("retired during principal rotation");

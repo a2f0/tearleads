@@ -74,7 +74,12 @@ test("a projection without principal citations needs no organization history", a
   expect(
     await loadProjectionPolicyEvidence({
       executor: db,
-      organizationId: globalThis.crypto.randomUUID(),
+      scope: {
+        organizationId: globalThis.crypto.randomUUID(),
+        objectKind: "container",
+        objectId: globalThis.crypto.randomUUID(),
+        userId: globalThis.crypto.randomUUID(),
+      },
       bundles: [],
     }),
   ).toEqual({ organization: null, organizationPayloads: [], groups: [] });

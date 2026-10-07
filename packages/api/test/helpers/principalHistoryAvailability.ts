@@ -13,10 +13,7 @@ import { clearPrincipalPolicySignatureCaches } from "@tearleads/crypto/principal
 import { bytesToBase64 } from "@tearleads/encoding";
 import { commitOrganizationGroupPolicyOperation } from "@tearleads/validators/operation";
 import { PrincipalPolicyBundleResponseSchema } from "@tearleads/validators/response";
-import { MAX_MULTIPART_BLOB_PART_BYTES } from "@tearleads/validators/util";
 import { and, count, desc, eq } from "drizzle-orm";
-import { createRequestLifetimeBindings } from "../../src/middleware/requestLifetime";
-import { routeApp } from "../../src/routeApp";
 import { parseOrganizationAuthorityDescriptor } from "../../src/workflows/organizations/organizationAuthorityDescriptor";
 import { clearProjectionDirectoryBindingsCache } from "../../src/workflows/principals/projectionDirectoryBindings";
 import { clearStoredPolicySnapshotCache } from "../../src/workflows/principals/snapshotVerificationCache";
@@ -30,6 +27,10 @@ import {
   bootstrapRoot,
 } from "./keyingWriterProjectionKit";
 import { seedLongPrincipalHistory } from "./longPrincipalHistory";
+import {
+  requirePrincipalHistoryProbeDatabase,
+  startPrincipalHistoryProbe,
+} from "./principalHistoryProbeProcess";
 import {
   getPolicy,
   registerAndAuthenticate,
@@ -47,6 +48,7 @@ export async function assertPrincipalHistoryAvailability(
   throughVersion: number,
   onProgress: (stage: string) => void = () => {},
 ): Promise<void> {
+  requirePrincipalHistoryProbeDatabase();
   const owner = createTestUser();
   const removed = createTestUser();
   await registerAndAuthenticate(owner, removed);
@@ -101,13 +103,7 @@ export async function assertPrincipalHistoryAvailability(
     ),
   });
   onProgress("seeded");
-  const server = Bun.serve({
-    hostname: "127.0.0.1",
-    port: 0,
-    maxRequestBodySize: MAX_MULTIPART_BLOB_PART_BYTES,
-    fetch: (request, server) =>
-      routeApp.fetch(request, createRequestLifetimeBindings(request, server)),
-  });
+  const server = await startPrincipalHistoryProbe(owner);
   let requestBytes = 0;
   let preparationResponses = 0;
   const transport = async (path: string, init: RequestInit) => {
@@ -117,14 +113,19 @@ export async function assertPrincipalHistoryAvailability(
     expect(requestBytes).toBeLessThan(200_000);
     // Request construction reads stored policy through test helpers. Discard
     // the verification hints that setup warmed before exercising HTTP work.
+    // These clears affect only the parent in isolated mode. A new server starts
+    // cold, then keeps process caches until the next explicit restart.
     await db.delete(principalHistoryProgress);
     await db.delete(principalHistoryIndexNodes);
     clearPrincipalPolicySignatureCaches();
     clearStoredPolicySnapshotCache();
     clearProjectionDirectoryBindingsCache();
     while (true) {
+      const headers = new Headers(init.headers);
+      headers.set("Authorization", `Bearer ${server.token}`);
       const response = await fetch(new URL(path, server.url), {
         ...init,
+        headers,
         signal: AbortSignal.timeout(15_000),
       });
       if (response.status !== 202) return response;
@@ -145,6 +146,23 @@ export async function assertPrincipalHistoryAvailability(
           .limit(1);
         expect(head?.version).toBe(throughVersion);
       }
+      if (preparationResponses === 1 && server.restart) {
+        // Preserve the exact authored request and database, but lose all
+        // process-local verification caches after one durable preparation page.
+        const progress = await db
+          .select()
+          .from(principalHistoryProgress)
+          .orderBy(principalHistoryProgress.id);
+        expect(progress.length).toBeGreaterThan(0);
+        await server.restart();
+        expect(
+          await db
+            .select()
+            .from(principalHistoryProgress)
+            .orderBy(principalHistoryProgress.id),
+        ).toEqual(progress);
+        onProgress("server restarted after preparation");
+      }
     }
   };
   let rotated: Awaited<ReturnType<typeof rotateRootGroupMembership>>;
@@ -157,8 +175,15 @@ export async function assertPrincipalHistoryAvailability(
       root: granted.root,
     });
   } finally {
-    await server.stop(true);
+    await server.stop();
+    onProgress(`mutation HTTP metrics ${JSON.stringify(server.metrics)}`);
   }
+  expect(server.metrics.deadlineFailures).toBe(0);
+  expect(server.metrics.totalDatabaseStatements).toBeGreaterThan(0);
+  expect(server.metrics.maximumDatabaseStatementsPerRequest).toBeLessThan(
+    1_024,
+  );
+  expect(server.metrics.maximumResponseBytes).toBeLessThan(200_000);
   expect(requestBytes).toBeGreaterThan(0);
   expect(preparationResponses).toBeGreaterThan(0);
   expect(rotated.plaintextKek).not.toEqual(granted.root.plaintextKek);
@@ -206,13 +231,24 @@ export async function assertPrincipalHistoryAvailability(
   }
   onProgress("revocation committed");
 
-  const denied = await routeApp.request(
-    `/documents/${document.documentId}/writer-projection`,
-    {
-      headers: { Authorization: `Bearer ${removed.token}` },
-    },
-  );
-  expect(denied.status).toBe(403);
+  const deniedServer = await startPrincipalHistoryProbe(removed);
+  const deniedClient = new ApiClient(deniedServer.url.origin);
+  deniedClient.setAuthToken(deniedServer.token);
+  try {
+    const denied = await deniedClient.getDocumentWriterProjectionResult(
+      document.documentId,
+      { reportErrors: false },
+    );
+    expect(denied.ok).toBe(false);
+    if (denied.ok) throw new Error("Revoked reader retained document access");
+    expect(denied.status).toBe(403);
+  } finally {
+    await deniedServer.stop();
+    onProgress(
+      `revoked reader HTTP metrics ${JSON.stringify(deniedServer.metrics)}`,
+    );
+  }
+  expect(deniedServer.metrics.deadlineFailures).toBe(0);
   // Discard durable verification hints. The recovery helper creates an empty
   // client database and fetches current policy/key material from the server.
   await clearAccessManifestVerificationMarkers();
@@ -221,15 +257,9 @@ export async function assertPrincipalHistoryAvailability(
   await db.delete(principalHistoryProgress);
   await db.delete(principalHistoryIndexNodes);
   clearProjectionDirectoryBindingsCache();
-  const coldServer = Bun.serve({
-    hostname: "127.0.0.1",
-    port: 0,
-    maxRequestBodySize: MAX_MULTIPART_BLOB_PART_BYTES,
-    fetch: (request, server) =>
-      routeApp.fetch(request, createRequestLifetimeBindings(request, server)),
-  });
+  const coldServer = await startPrincipalHistoryProbe(owner);
   const coldClient = new ApiClient(coldServer.url.origin);
-  coldClient.setAuthToken(owner.token);
+  coldClient.setAuthToken(coldServer.token);
   try {
     const recovered = await coldRematerializeEncryptedDocument({
       apiClient: coldClient,
@@ -237,6 +267,7 @@ export async function assertPrincipalHistoryAvailability(
       organizationId,
       owner,
       reader: owner,
+      pagedPolicies: true,
     });
     expect(recovered.policyFetchCount).toBeGreaterThan(0);
     expect(recovered.recoveredText).toBe(COLD_DOCUMENT_TEXT);
@@ -244,6 +275,13 @@ export async function assertPrincipalHistoryAvailability(
     onProgress("cold recovery complete");
   } finally {
     coldClient.clearWriterProjectionCaches();
-    await coldServer.stop(true);
+    await coldServer.stop();
+    onProgress(`cold HTTP metrics ${JSON.stringify(coldServer.metrics)}`);
   }
+  expect(coldServer.metrics.deadlineFailures).toBe(0);
+  expect(coldServer.metrics.totalDatabaseStatements).toBeGreaterThan(0);
+  expect(coldServer.metrics.maximumDatabaseStatementsPerRequest).toBeLessThan(
+    1_024,
+  );
+  expect(coldServer.metrics.maximumResponseBytes).toBeLessThan(400_000);
 }

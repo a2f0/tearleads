@@ -15,6 +15,7 @@ import {
 } from "@tearleads/crypto";
 import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
 import { replaceCurrentPrincipalMemberEnvelopesInTransaction } from "../../src/access/write/principalMemberEnvelopes";
+import { storeVerifiedPrincipalDirectoryBindings } from "../../src/workflows/principals/storeVerifiedPrincipalDirectoryBindings";
 import { signPrincipalStateBundle } from "./principalState";
 
 function signBatch(
@@ -133,6 +134,26 @@ export async function seedLongPrincipalHistory(input: {
         await db.transaction(async (tx) => {
           await tx.insert(principalStates).values(states);
           await tx.insert(principalStatePayloads).values(payloads);
+          // One template directory is reused throughout this seeded prefix.
+          for (const state of start === policy.currentState.version + 1 &&
+          offset === 0
+            ? states.slice(0, 1)
+            : []) {
+            const stateHash = state.stateHash;
+            if (!stateHash) throw new Error("Missing seeded directory hash");
+            await storeVerifiedPrincipalDirectoryBindings({
+              executor: tx,
+              state: {
+                principalType: state.principalType,
+                principalId: state.principalId,
+                version: state.version,
+                keyEpoch: state.keyEpoch,
+                keyFingerprint: state.keyFingerprint,
+                stateHash,
+              },
+              ciphertext: template.encryptedPayload.ciphertext,
+            });
+          }
           if (members.length)
             await tx.insert(principalMembershipProjection).values(members);
           if (grants.length)

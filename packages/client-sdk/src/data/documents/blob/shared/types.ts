@@ -236,6 +236,8 @@ export interface DetachDocumentAttachmentInput {
   resolveProjectionUserKey: ProjectionUserKeyResolver;
   signedAt?: string | undefined;
   slotId: string;
+  stillCurrent?: (() => boolean) | undefined;
+  warmReferencedPrincipalPolicies?: ReferencedPrincipalPolicyWarmer | undefined;
   writerProjection?: DocumentWriterProjectionResponse | undefined;
 }
 
@@ -253,5 +255,7 @@ export interface DecryptDocumentAttachmentBlobInput {
   execSql: ExecSql;
   resolveProjectionUserKey: ProjectionUserKeyResolver;
   targetSecretKey: Uint8Array;
+  stillCurrent?: (() => boolean) | undefined;
+  warmReferencedPrincipalPolicies?: ReferencedPrincipalPolicyWarmer | undefined;
   writerProjection: DocumentWriterProjectionResponse;
 }

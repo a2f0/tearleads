@@ -21,6 +21,7 @@ import { buildInitialGroupPolicyRequest } from "./groupMetadata";
 import { createSuccessorGroupPolicyBundle } from "./groupPolicyFixtures";
 import { policyBundleFromInitialRequest } from "./principalPolicyFixtures";
 import { createProjectionPolicyEvidence } from "./projectionPolicyEvidence";
+import { projectionPolicyWarmer } from "./projectionPolicyHistory";
 import { createTestTrustedUserIdentity } from "./trustedUserIdentity";
 
 export const GROUP_ID = "admins-group";
@@ -129,13 +130,14 @@ export async function createPrincipalReciteFixture(input: {
       stateHash: nextState.stateHash,
     },
   });
-  const policyEvidence = await createProjectionPolicyEvidence({
-    author,
-    group: previousBundle,
-    signingPublicKey,
-    encapsulationKeyPair: memberKem,
-  });
-  const projections = new Map(
+  const { policyEvidence, bundles: projectionBundles } =
+    await createProjectionPolicyEvidence({
+      author,
+      group: previousBundle,
+      signingPublicKey,
+      encapsulationKeyPair: memberKem,
+    });
+  const projections = new Map<string, ContainerWriterProjectionResponse>(
     await Promise.all(
       containerIds.map(async (containerId) => {
         const root = await buildRootContainerCreatePlan({
@@ -178,6 +180,7 @@ export async function createPrincipalReciteFixture(input: {
 
   return {
     database,
+    projectionBundles,
     /** The group as it stands before this rotation, for grants created under it. */
     previousBundle,
     nextBundle,
@@ -189,6 +192,11 @@ export async function createPrincipalReciteFixture(input: {
     grants,
     requestedContainerIds,
     input: {
+      warmReferencedPrincipalPolicies: projectionPolicyWarmer({
+        execSql: database.execSql,
+        bundles: projectionBundles,
+        resolveUserKey: resolveTrustedUserIdentity,
+      }),
       reportSecurityIncident: async () => {},
       apiClient: {
         reciteContainer: async () => null,

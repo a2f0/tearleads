@@ -12,6 +12,7 @@ import {
   isDocumentWriterProjectionResponse,
   SessionFailureResponseSchema,
 } from "../response";
+import { PrincipalHistoryPreparationResponseSchema } from "../response/principalHistoryPreparation";
 import { ProjectionHistoryHeadersSchema } from "../util/projectionHistoryWire";
 import { writerProjectionResponseRuntimeRefinements } from "../writerProjectionRefinements";
 import { defineJsonOperation } from "./definition";
@@ -47,7 +48,10 @@ export const getContainerWriterProjectionOperation = defineJsonOperation({
   headers: ProjectionHistoryHeadersSchema,
   params: ContainerWriterProjectionPathParamsSchema,
   path: "/containers/{containerId}/writer-projection",
-  responses: { 200: ContainerWriterProjectionResponseSchema },
+  responses: {
+    200: ContainerWriterProjectionResponseSchema,
+    202: PrincipalHistoryPreparationResponseSchema,
+  },
   runtimeRefinements: [
     ...writerProjectionResponseRuntimeRefinements,
     projectionHistoryHeaderRefinement,
@@ -70,7 +74,10 @@ export const getDocumentWriterProjectionOperation = defineJsonOperation({
   headers: ProjectionHistoryHeadersSchema,
   params: DocumentWriterProjectionPathParamsSchema,
   path: "/documents/{documentId}/writer-projection",
-  responses: { 200: DocumentWriterProjectionResponseSchema },
+  responses: {
+    200: DocumentWriterProjectionResponseSchema,
+    202: PrincipalHistoryPreparationResponseSchema,
+  },
   runtimeRefinements: [
     ...writerProjectionResponseRuntimeRefinements,
     projectionHistoryHeaderRefinement,

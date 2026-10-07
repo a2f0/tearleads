@@ -5,6 +5,7 @@ import {
   type VerifiedAccessManifestCheckpointEvidence,
   type VerifiedPrincipalPolicy,
   type VerifiedPrincipalPolicyCurrent,
+  type VerifiedPrincipalPolicySelection,
   verifyAccessManifestLocalCheckpoint,
   verifyPrincipalPolicyCheckpoint,
 } from "@tearleads/crypto";
@@ -31,6 +32,7 @@ import {
   upsertAccessManifestCheckpointInTransaction,
   upsertPrincipalPolicyCheckpointInTransaction,
 } from "./keyingCheckpointPersistence";
+import { validatePrincipalAuthorizationCheckpoints } from "./principalAuthorizationCheckpoints";
 import { assertContainerNotRetired } from "./principalGrantRetirementPersistence";
 import {
   assertPrincipalPolicyBundleStoredInTransaction,
@@ -51,6 +53,9 @@ interface KeyingCheckpointValidationInput {
   readonly access: readonly AccessManifestCheckpointAdvance[];
   readonly execSql: ExecSql;
   readonly policies: readonly CheckpointPolicy[];
+  readonly authorizationPolicies?:
+    | readonly VerifiedPrincipalPolicySelection[]
+    | undefined;
   readonly stillCurrent?: (() => boolean) | undefined;
 }
 
@@ -234,7 +239,7 @@ async function ensureKeyingCheckpointValidationTables(
 ): Promise<void> {
   await ensureSqlTables(
     input.execSql,
-    input.policies.length > 0
+    input.policies.length > 0 || (input.authorizationPolicies?.length ?? 0) > 0
       ? [...principalPolicyTables, ...keyingCheckpointTables]
       : keyingCheckpointTables,
   );
@@ -248,6 +253,10 @@ export async function validateKeyingCheckpointsAtomically(
   const validate = async (tx: ClientSQLiteTransactionScope) => {
     await validateAccessAdvances(tx, input.access);
     await validatePolicyAdvances(tx, input.policies);
+    await validatePrincipalAuthorizationCheckpoints(
+      tx,
+      input.authorizationPolicies ?? [],
+    );
   };
   const runtime = getClientSQLitePersistenceRuntime(input.execSql);
   if (input.stillCurrent) {
@@ -271,6 +280,9 @@ export async function advanceKeyingCheckpointsAtomically(input: {
   readonly execSql: ExecSql;
   readonly organizationId?: string | undefined;
   readonly policies: readonly CheckpointPolicy[];
+  readonly authorizationPolicies?:
+    | readonly VerifiedPrincipalPolicySelection[]
+    | undefined;
   readonly stillCurrent?: (() => boolean) | undefined;
 }): Promise<void> {
   await ensureKeyingCheckpointValidationTables(input);
@@ -280,6 +292,10 @@ export async function advanceKeyingCheckpointsAtomically(input: {
   const advance = async (tx: ClientSQLiteTransactionScope) => {
     const access = await validateAccessAdvances(tx, input.access);
     const policies = await validatePolicyAdvances(tx, input.policies);
+    await validatePrincipalAuthorizationCheckpoints(
+      tx,
+      input.authorizationPolicies ?? [],
+    );
 
     await writeAccessCheckpoints(tx, access, updatedAt);
     await writePolicyCheckpoints(tx, policies, updatedAt, input.organizationId);

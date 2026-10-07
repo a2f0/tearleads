@@ -1,6 +1,7 @@
 import {
   KeyingVerificationError,
   type VerifiedAccessManifestCheckpointEvidence,
+  type VerifiedPrincipalPolicySelection,
 } from "@tearleads/crypto";
 import type { DocumentPurgeCheckpoint } from "../persistence/documentPurgeCheckpointPersistence";
 import {
@@ -66,6 +67,9 @@ function accessManifestCheckpointAdvances(input: {
 export async function validateAccessManifestCheckpoints(input: {
   readonly execSql: ExecSql;
   readonly policies: readonly PrincipalPolicyCheckpointEvidence[];
+  readonly authorizationPolicies?:
+    | readonly VerifiedPrincipalPolicySelection[]
+    | undefined;
   readonly stillCurrent?: (() => boolean) | undefined;
   readonly verifiedHeads: readonly VerifiedAccessManifestCheckpointEvidence[];
   readonly verifiedManifests: readonly VerifiedAccessManifestCheckpointEvidence[];
@@ -74,6 +78,7 @@ export async function validateAccessManifestCheckpoints(input: {
     access: accessManifestCheckpointAdvances(input),
     execSql: input.execSql,
     policies: input.policies,
+    authorizationPolicies: input.authorizationPolicies,
     stillCurrent: input.stillCurrent,
   });
 }
@@ -83,6 +88,9 @@ export async function enforceAccessManifestCheckpoints(input: {
   readonly organizationId?: string | undefined;
   readonly documentPurgeCheckpoint?: DocumentPurgeCheckpoint | undefined;
   readonly policies: readonly PrincipalPolicyCheckpointEvidence[];
+  readonly authorizationPolicies?:
+    | readonly VerifiedPrincipalPolicySelection[]
+    | undefined;
   readonly stillCurrent?: (() => boolean) | undefined;
   readonly verifiedHeads: readonly VerifiedAccessManifestCheckpointEvidence[];
   readonly verifiedManifests: readonly VerifiedAccessManifestCheckpointEvidence[];
@@ -93,6 +101,7 @@ export async function enforceAccessManifestCheckpoints(input: {
     execSql: input.execSql,
     organizationId: input.organizationId,
     policies: input.policies,
+    authorizationPolicies: input.authorizationPolicies,
     stillCurrent: input.stillCurrent,
   });
 }

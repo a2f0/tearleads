@@ -4,17 +4,29 @@ import type {
   ContainerWriterProjectionResponse,
 } from "@tearleads/validators/response";
 import type { ExecSql } from "../sqlite/sqlSchema";
-import { createProjectionCheckpointContext } from "./checkpointContext";
+import {
+  createProjectionCheckpointContext,
+  finalizeProjectionCheckpoints,
+} from "./checkpointContext";
 import { verifyContainerManifestPath } from "./containerPathVerification";
 import { addContainerWriterProjectionBundles } from "./containerProjectionVerification";
 import { verifyProjectionAuthorizationEvidence } from "./projectionAuthorizationEvidence";
-import type { ProjectionUserKeyResolver } from "./types";
+import { projectionLifetimeGuard } from "./projectionLifetimes";
+import type {
+  ProjectionUserKeyResolver,
+  ReferencedPrincipalPolicyWarmer,
+} from "./types";
+import { assertProjectionVerificationCurrent } from "./types";
 
 /** Authenticate immutable destination roles without advancing write-authority pins. */
 export async function verifyContainerDestinationProjection(input: {
   readonly execSql: ExecSql;
   readonly projection: ContainerWriterProjectionResponse;
   readonly resolveUserKey: ProjectionUserKeyResolver;
+  readonly stillCurrent?: (() => boolean) | undefined;
+  readonly warmReferencedPrincipalPolicies?:
+    | ReferencedPrincipalPolicyWarmer
+    | undefined;
 }): Promise<{
   readonly path: VerifiedContainerAccessManifest[];
   /** Every manifest verified on the way, including each head's lineage. */
@@ -39,6 +51,8 @@ export async function verifyContainerDestinationProjection(input: {
     organizationId: input.projection.organizationId,
     principalPolicyCache,
     resolveUserKey: input.resolveUserKey,
+    stillCurrent: input.stillCurrent,
+    warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
   });
   const path = await verifyContainerManifestPath({
     authorizationEvidence,
@@ -54,5 +68,14 @@ export async function verifyContainerDestinationProjection(input: {
     resolveUserKey: input.resolveUserKey,
     verifiedByHash,
   });
+  const current = projectionLifetimeGuard(
+    checkpointContext,
+    input.stillCurrent,
+  );
+  await finalizeProjectionCheckpoints(checkpointContext, {
+    stillCurrent: current,
+    persistVerificationCheckpoints: false,
+  });
+  assertProjectionVerificationCurrent(current);
   return { path, verifiedByHash };
 }

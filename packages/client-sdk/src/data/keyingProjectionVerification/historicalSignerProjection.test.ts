@@ -8,6 +8,8 @@ import {
   type GroupHistoricalSignerScenario,
   linkDocument,
 } from "../../../test/helpers/groupHistoricalSignerScenario";
+import { projectionPolicyWarmer } from "../../../test/helpers/projectionPolicyHistory";
+import type { ExecSql } from "../sqlite/sqlSchema";
 import { verifyContainerWriterProjection } from "./containerProjectionVerification";
 import {
   verifyDocumentWriterProjection,
@@ -23,12 +25,20 @@ import { principalPolicyCacheForVerifiedPolicies } from "./principalPolicyCache"
  * the honest API on every fresh login and brick the object for that device.
  */
 
-function verificationInput(scenario: GroupHistoricalSignerScenario) {
+function verificationInput(
+  scenario: GroupHistoricalSignerScenario,
+  execSql: ExecSql,
+) {
   return {
     principalPolicyCache: principalPolicyCacheForVerifiedPolicies([
       scenario.policy,
     ]),
     resolveUserKey: scenario.resolveUserKey,
+    warmReferencedPrincipalPolicies: projectionPolicyWarmer({
+      execSql,
+      bundles: scenario.projectionBundles,
+      resolveUserKey: scenario.resolveUserKey,
+    }),
   };
 }
 
@@ -39,7 +49,7 @@ test("the container writer projection accepts a head signed by a since-removed g
   );
   try {
     const path = await verifyContainerWriterProjection({
-      ...verificationInput(scenario),
+      ...verificationInput(scenario, execSql),
       execSql,
       projection: await childWriterProjection(scenario),
     });
@@ -57,7 +67,7 @@ test("the container writer projection accepts a head signed by a since-removed g
     });
     await expect(
       verifyContainerWriterProjection({
-        ...verificationInput(scenario),
+        ...verificationInput(scenario, execSql),
         execSql,
         projection: await childWriterProjection(scenario, {
           head: forged,
@@ -84,13 +94,13 @@ test("a document head linked by a since-removed group admin verifies on a cold d
   );
   try {
     const head = await verifyDocumentWriterProjection({
-      ...verificationInput(scenario),
+      ...verificationInput(scenario, execSql),
       execSql,
       projection,
     });
     expect(head.manifestHash).toBe(link.manifestHash);
     const authorization = await verifyDocumentWriterProjectionAuthorization({
-      ...verificationInput(scenario),
+      ...verificationInput(scenario, execSql),
       execSql,
       projection,
     });
@@ -122,7 +132,7 @@ test("document history signed by a since-removed group admin verifies beneath a 
   const cold = await createTestExecSql("historical-signer-document-forgery");
   try {
     const head = await verifyDocumentWriterProjection({
-      ...verificationInput(scenario),
+      ...verificationInput(scenario, honest.execSql),
       execSql: honest.execSql,
       projection: await documentWriterProjection(scenario, [created, linked]),
     });
@@ -143,7 +153,7 @@ test("document history signed by a since-removed group admin verifies beneath a 
     });
     await expect(
       verifyDocumentWriterProjection({
-        ...verificationInput(scenario),
+        ...verificationInput(scenario, cold.execSql),
         execSql: cold.execSql,
         projection: await documentWriterProjection(scenario, [created, forged]),
       }),

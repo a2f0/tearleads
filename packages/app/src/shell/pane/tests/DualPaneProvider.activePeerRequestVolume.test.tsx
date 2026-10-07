@@ -291,6 +291,7 @@ test(
       // Encrypted labels require the new signed directory and group head.
       `GET /principals/organization/${founderSession.organizationId}/policy`,
       `GET /principals/group/${groupId}/policy`,
+      "GET /principals/history",
     ]);
     expect(peerReadModelRequests).toHaveLength(1);
     expect(

@@ -4,6 +4,7 @@ export type {
   PrincipalPolicyPageReadOptions,
   PrincipalPolicyPageResume,
 } from "./principalPolicyPages";
+export type { ProjectionPolicyHistoryReadOptions } from "./projectionPolicyHistoryPages";
 export type {
   BlobBytesResponse,
   UploadMultipartBlobPartBytesRequest,
@@ -17,5 +18,4 @@ export type {
   RequestResultOptions,
   RequestSuccess,
 } from "./types";
-
 export { retainVerifiedProjectionHistory } from "./verifiedProjectionHistory";

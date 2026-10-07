@@ -5,6 +5,7 @@ import { toMutationError } from "../containers/mutations/errors";
 import { OrganizationManagerError } from "../organizations/errors";
 import { runPrincipalHistoryTransaction } from "./principalHistoryTransaction";
 import { lockOrganizationGroupMutationInTransaction } from "./principalMutationLock";
+import { principalPolicyCommitOutcome } from "./principalPolicyCommitOutcome";
 import {
   loadRosterSyncTargetForPrincipal,
   type PutPrincipalPolicyInput,
@@ -21,6 +22,7 @@ import {
 
 export interface CommitOrganizationGroupPolicyResult {
   readonly policy: CommitOrganizationGroupPolicyResponse;
+  readonly replayed: boolean;
   readonly sharedWithYouUserIds: readonly string[];
 }
 
@@ -55,6 +57,14 @@ export async function runCommitOrganizationGroupPolicyWorkflow(
         input.organizationId,
         input.groupId,
       );
+      const outcome = await principalPolicyCommitOutcome(tx, input);
+      if (outcome.response) {
+        return {
+          policy: outcome.response,
+          sharedWithYouUserIds: [],
+          replayed: true,
+        };
+      }
       const target = await loadRosterSyncTargetForPrincipal({
         input: groupInput,
         tx,
@@ -70,11 +80,14 @@ export async function runCommitOrganizationGroupPolicyWorkflow(
         tx,
         organizationInput,
       );
+      const policy = {
+        groupPolicy: group.policy,
+        organizationPolicy: organization.policy,
+      };
+      await outcome.save(policy);
       return {
-        policy: {
-          groupPolicy: group.policy,
-          organizationPolicy: organization.policy,
-        },
+        policy,
+        replayed: false,
         sharedWithYouUserIds: [
           ...new Set([
             ...group.sharedWithYouUserIds,

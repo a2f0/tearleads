@@ -1,13 +1,15 @@
 import { expect, test } from "bun:test";
 import { createNativeTestExecSql } from "@tearleads/test-utils";
-import {
-  createOrganizationHistoryFixture,
-  policySnapshot,
-} from "../../../test/helpers/organizationPolicyHistory";
+import { createOrganizationHistoryFixture } from "../../../test/helpers/organizationPolicyHistory";
 import {
   principalPolicyHead,
   signedPrincipalPolicyBundle,
 } from "../../../test/helpers/principalPolicyFixtures";
+import {
+  projectionDirectoryPayload,
+  projectionPolicySource,
+  projectionPolicyWarmer,
+} from "../../../test/helpers/projectionPolicyHistory";
 import { loadPrincipalPolicyCheckpoint } from "../persistence/keyingCheckpointPersistence";
 import {
   encodeOrganizationAuthorityDescriptor,
@@ -61,14 +63,23 @@ for (const historical of [false, true]) {
       ? await owner.advanceDirectory(forged, null)
       : forged;
     const evidence = {
-      ...owner.evidence(true),
-      organization: policySnapshot(previous),
+      ...owner.projectionEvidence(true),
+      organization: projectionPolicySource(previous),
     };
     const { close, execSql } = createNativeTestExecSql();
     try {
+      const bundles = [...owner.projectionBundles, head, authority];
+      const resolveUserKey = async (userId: string) =>
+        (await owner.resolveTrustedUserIdentity(userId)) ??
+        attacker.resolveTrustedUserIdentity(userId);
       const input = {
         evidence,
-        execSql,
+        references: [],
+        warmReferencedPrincipalPolicies: projectionPolicyWarmer({
+          execSql,
+          bundles,
+          resolveUserKey,
+        }),
         organizationId: owner.organizationId,
         resolveUserKey: async (userId: string) =>
           (await owner.resolveTrustedUserIdentity(userId)) ??
@@ -92,12 +103,13 @@ for (const historical of [false, true]) {
           previous.currentState.signedAt,
         ],
       );
-      evidence.organization = policySnapshot(head);
-      evidence.organizationPayloads.push(forged.currentPayload);
-      if (historical) evidence.organizationPayloads.push(head.currentPayload);
-      evidence.groups.push(policySnapshot(authority));
+      evidence.organization = projectionPolicySource(head);
+      evidence.organizationPayloads.push(projectionDirectoryPayload(forged));
+      if (historical)
+        evidence.organizationPayloads.push(projectionDirectoryPayload(head));
+      evidence.groups.push(projectionPolicySource(authority));
       await expect(verifyProjectionPolicyEvidence(input)).rejects.toThrow(
-        "organization states cannot cite external authority",
+        "authority outside its directory binding",
       );
       expect(
         await loadPrincipalPolicyCheckpoint(

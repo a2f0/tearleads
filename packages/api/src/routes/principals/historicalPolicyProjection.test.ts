@@ -9,7 +9,6 @@ import {
 import {
   CONTAINER_PROJECTION_STATE_INVALID_ERROR_CODE,
   DOCUMENT_PROJECTION_ERROR_CODES,
-  PrincipalPolicyBundleResponseSchema,
 } from "@tearleads/validators/response";
 import { and, eq } from "drizzle-orm";
 import { createAncestorSdkContext } from "../../../test/helpers/ancestorSdkRepair";
@@ -114,6 +113,7 @@ test("a fresh SDK verifies container history after its group is deleted", async 
     },
   );
   expect(denied.status).toBe(403);
+  let historicalDirectoryHash: string | undefined;
   const cold = await createAncestorSdkContext(owner, organizationId, reader);
   try {
     const previousProjection =
@@ -122,9 +122,15 @@ test("a fresh SDK verifies container history after its group is deleted", async 
       );
     if (!previousProjection) throw new Error("Expected a readable projection");
     expectPublicProjectionPolicyEvidence(previousProjection.policyEvidence);
+    historicalDirectoryHash =
+      previousProjection.policyEvidence.organizationPayloads.find(
+        ({ reference }) =>
+          reference.stateHash !==
+          previousProjection.policyEvidence.organization?.head.stateHash,
+      )?.reference.stateHash;
     expect(
       previousProjection.policyEvidence.groups.some(
-        (group) => group.currentState.principalId === granted.groupId,
+        (group) => group.head.principalId === granted.groupId,
       ),
     ).toBe(true);
     const materialized = await buildMaterializedContainerRekeyPlan({
@@ -137,18 +143,15 @@ test("a fresh SDK verifies container history after its group is deleted", async 
   }
   // Only the historical directory is damaged. Current access still succeeds,
   // then the new evidence loader must map its failure to a coded conflict.
-  const organization = PrincipalPolicyBundleResponseSchema.parse(
-    await (await getPolicy(owner, "organization", organizationId)).json(),
-  );
-  const oldest = organization.previousStates[0];
-  if (!oldest) throw new Error("Expected retained directory history");
+  if (!historicalDirectoryHash)
+    throw new Error("Expected a bound historical directory");
   await db
     .update(principalStatePayloads)
     .set({ ciphertext: "invalid-directory" })
     .where(
       and(
         eq(principalStatePayloads.principalId, organizationId),
-        eq(principalStatePayloads.stateHash, oldest.state.stateHash),
+        eq(principalStatePayloads.stateHash, historicalDirectoryHash),
       ),
     );
   // Exercise a cold loader: the warm memo still holds valid immutable proofs.
@@ -169,7 +172,7 @@ test("a fresh SDK verifies container history after its group is deleted", async 
     expect(response.status, await response.clone().text()).toBe(409);
     expect(await response.json()).toMatchObject({
       code,
-      error: "Projection directory organization mismatch",
+      error: "Projection directory payload hash mismatch",
     });
   }
 }, 30_000);

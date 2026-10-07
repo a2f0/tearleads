@@ -62,12 +62,13 @@ export async function renderSeededDemo(): Promise<{
         ).length >= 2,
     "Demo peer roster seeding did not finish.",
   );
-  // The demo imports both peers before the user edits group membership.
+  // Both seeded rosters trigger document and policy recovery in both panes.
+  // At 150 ms per response these lanes take over 15 seconds to drain.
   await act(async () => {
     expect(
       await waitForAppTestRuntimeToSettle({
         apiQuietMs: 500,
-        timeoutMs: 15_000,
+        timeoutMs: 30_000,
       }),
     ).toBe(true);
   });

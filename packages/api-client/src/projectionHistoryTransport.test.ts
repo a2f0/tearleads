@@ -163,36 +163,23 @@ testApiClient(
 );
 
 testApiClient(
-  "ambiguous duplicate history slots use complete evidence",
+  "duplicate container appearances negotiate their independent history slots",
   async () => {
     const full = fixture();
-    const group = full.policyEvidence.groups[0];
-    if (!group) throw new Error("Expected group");
-    full.policyEvidence.groups.push(structuredClone(group));
-    server.use(
-      http.get(
-        `${apiBaseUrl}/containers/:id/writer-projection`,
-        ({ request }) => {
-          const hints = parseProjectionHistoryHints(
-            request.headers.get("x-projection-history") ?? "[]",
-          );
-          if (!hints)
-            return HttpResponse.json(
-              { error: "Invalid hints" },
-              { status: 400 },
-            );
-          return HttpResponse.json(omitProjectionHistory(full, hints));
-        },
-      ),
-    );
-    const client = new ApiClient(apiBaseUrl);
-    const first = await client.getContainerWriterProjection(full.containerId);
-    if (!first) throw new Error("Expected initial projection");
-    retainVerifiedProjectionHistory(first);
-    client.clearWriterProjectionCaches();
-    expect(await client.getContainerWriterProjection(full.containerId)).toEqual(
+    const first = full.containerKeks[0];
+    if (!first) throw new Error("Expected container history");
+    const retained = captureProjectionHistory(full);
+    full.containerKeks.push(structuredClone(first));
+    const wire = omitProjectionHistory(
       full,
+      retained.map(({ prefix }) => prefix),
     );
+    expect(wire.containerKeks[0]?.containerManifestHistory).toEqual([]);
+    expect(wire.containerKeks[1]?.containerManifestHistory).toEqual(
+      first.containerManifestHistory,
+    );
+    expect(restoreProjectionHistory(wire, retained)).toBe(true);
+    expect(wire.containerKeks).toEqual(full.containerKeks);
   },
 );
 
@@ -248,16 +235,26 @@ testApiClient(
 function fixture() {
   const projection = createContainerWriterProjectionResponse();
   const policy = createPrincipalPolicyBundleResponse();
-  policy.previousStates = Array.from({ length: 16 }, (_, index) => ({
-    state: {
-      ...policy.currentState,
-      version: index + 1,
-      signature: "s".repeat(6000),
-    },
-    grants: policy.currentGrants,
-    projection: policy.currentProjection,
-  }));
-  projection.policyEvidence.groups = [policy];
+  projection.policyEvidence.organizationPayloads = Array.from(
+    { length: 16 },
+    (_, index) => ({
+      reference: {
+        principalType: "organization",
+        principalId: projection.organizationId,
+        stateHash: index.toString(16).padStart(64, "0"),
+        version: index + 1,
+        keyEpoch: 1,
+        keyFingerprint: policy.currentState.keyFingerprint,
+      },
+      payload: {
+        ...policy.currentPayload,
+        principalType: "organization",
+        principalId: projection.organizationId,
+        stateHash: index.toString(16).padStart(64, "0"),
+        ciphertext: "s".repeat(6000),
+      },
+    }),
+  );
   const kek = projection.containerKeks[0];
   const manifest = projection.path[0];
   if (!kek || !manifest) throw new Error("Expected fixture path");
@@ -268,7 +265,7 @@ function fixture() {
 }
 
 testApiClient(
-  "only admitted evidence supplies hints; prefixes restore a growing policy and survive head eviction",
+  "only admitted evidence supplies hints; directory prefixes survive head eviction",
   async () => {
     const full = fixture();
     const hints: string[] = [];
@@ -295,12 +292,15 @@ testApiClient(
     await client.getContainerWriterProjection(full.containerId);
     expect(hints).toEqual(["[]", "[]"]);
     retainVerifiedProjectionHistory(first);
-    const group = full.policyEvidence.groups[0];
-    const previous = group?.previousStates.at(-1);
-    if (!group || !previous) throw new Error("Missing history");
-    group.previousStates.push({
-      ...previous,
-      state: { ...previous.state, version: 17 },
+    const previous = full.policyEvidence.organizationPayloads.at(-1);
+    if (!previous) throw new Error("Missing history");
+    full.policyEvidence.organizationPayloads.push({
+      reference: {
+        ...previous.reference,
+        version: 17,
+        stateHash: "f".repeat(64),
+      },
+      payload: { ...previous.payload, stateHash: "f".repeat(64) },
     });
     client.clearWriterProjectionCaches();
     const second = await client.getContainerWriterProjectionResult(
@@ -411,10 +411,9 @@ testApiClient(
     );
     const client = new ApiClient(apiBaseUrl);
     const first = await client.getContainerWriterProjection(full.containerId);
-    if (!first?.policyEvidence.groups[0]?.previousStates[0])
+    if (!first?.policyEvidence.organizationPayloads[0])
       throw new Error("Expected history");
-    first.policyEvidence.groups[0].previousStates[0].state.signature =
-      "altered";
+    first.policyEvidence.organizationPayloads[0].payload.ciphertext = "altered";
     retainVerifiedProjectionHistory(first);
     client.clearWriterProjectionCaches();
     const second = await client.getContainerWriterProjection(full.containerId);

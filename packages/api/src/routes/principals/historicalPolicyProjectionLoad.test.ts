@@ -18,6 +18,7 @@ import {
   signPrincipalStateBundle,
   storePrincipalState,
 } from "../../../test/helpers/principalState";
+import { withProjectionHistoryRecovery } from "../../../test/helpers/projectionHistoryRecovery";
 import { recoverRegisteredRootKek } from "../../../test/helpers/registeredRootKek";
 import { replaceCurrentPrincipalMemberEnvelopesInTransaction } from "../../access/write/principalMemberEnvelopes";
 import { parseOrganizationAuthorityDescriptor } from "../../workflows/organizations/organizationAuthorityDescriptor";
@@ -106,28 +107,33 @@ test("historical proofs scale across 64 groups and 128 directory successors", as
         JSON.stringify(projection.policyEvidence),
       ).byteLength;
       expect(projection.policyEvidence.organizationPayloads).toHaveLength(1);
-      expect(
-        projection.policyEvidence.organization?.previousStates,
-      ).toHaveLength(organization.currentState.version + index - 1);
+      expect(projection.policyEvidence.organization?.head.version).toBe(
+        organization.currentState.version + index,
+      );
       expect(projection.policyEvidence.groups).toHaveLength(1); // Only cited Admins, not all 66 groups.
-      expect(bytes).toBeLessThan(1_500_000);
+      expect(bytes).toBeLessThan(40_000);
       if (index === 64) halfBytes = bytes;
-      else expect(bytes).toBeLessThan(halfBytes * 2.1);
+      else expect(bytes).toBeLessThan(halfBytes * 1.05);
       await buildMaterializedContainerRekeyPlan({
         ...cold.common,
         previousProjection: projection,
-        warmReferencedPrincipalPolicies: (request) =>
-          cacheReferencedPrincipalPolicies({
-            ...request,
-            execSql: cold.execSql,
-            getCurrentPrincipalPolicy:
-              cold.common.apiClient.getCurrentPrincipalPolicy,
-            resolveTrustedUserIdentity: cold.resolveTrustedUserIdentity,
-            reportSecurityIncident: async () => undefined,
-            log: (message) => {
-              throw new Error(message);
-            },
-          }),
+        warmReferencedPrincipalPolicies: withProjectionHistoryRecovery({
+          apiClient: cold.common.apiClient,
+          execSql: cold.execSql,
+          resolveTrustedUserIdentity: cold.resolveTrustedUserIdentity,
+          warmer: (request) =>
+            cacheReferencedPrincipalPolicies({
+              ...request,
+              execSql: cold.execSql,
+              getCurrentPrincipalPolicy:
+                cold.common.apiClient.getCurrentPrincipalPolicy,
+              resolveTrustedUserIdentity: cold.resolveTrustedUserIdentity,
+              reportSecurityIncident: async () => undefined,
+              log: (message) => {
+                throw new Error(message);
+              },
+            }),
+        }),
       });
       const verifiedAt = performance.now();
       const repeated = await cold.common.apiClient.getContainerWriterProjection(

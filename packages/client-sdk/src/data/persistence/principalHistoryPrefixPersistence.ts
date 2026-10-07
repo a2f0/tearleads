@@ -24,13 +24,15 @@ export async function loadPrincipalHistoryPrefix(
   return prefix ?? null;
 }
 
-/** Keep one completed prefix per principal/trust scope; older readers cannot replace it. */
+/** Keep the newest prefix unless replay replaces the exact rejected candidate. */
 export async function savePrincipalHistoryPrefix(input: {
   readonly execSql: ExecSql;
   readonly prefix: PrincipalHistoryPrefix;
   readonly stillCurrent: () => boolean;
+  readonly rejectedPrefix?: PrincipalHistoryPrefix | null;
 }): Promise<void> {
   const prefix = { ...input.prefix };
+  const rejected = input.rejectedPrefix ? { ...input.rejectedPrefix } : null;
   await ensureSqlTables(input.execSql, principalHistoryEvidenceTables);
   const runtime = getClientSQLitePersistenceRuntime(input.execSql);
   const result = await runtime.guardedTransaction(
@@ -40,7 +42,15 @@ export async function savePrincipalHistoryPrefix(input: {
         .from(principalHistoryPrefixes)
         .where(eq(principalHistoryPrefixes.scopeId, prefix.scopeId))
         .limit(1);
-      if (previous && previous.version > prefix.version) return;
+      if (
+        previous &&
+        previous.version > prefix.version &&
+        !(
+          rejected?.scopeId === previous.scopeId &&
+          rejected.progress === previous.progress
+        )
+      )
+        return;
       await tx
         .insert(principalHistoryPrefixes)
         .values(prefix)

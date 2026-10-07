@@ -12,12 +12,22 @@ export async function loadDocumentProjectionPolicyEvidence(
     | "documentManifestContainerPaths"
     | "documentContainerManifestHistory"
     | "authorizingContainerPaths"
-  > & { executor: DatabaseSession; organizationId: string },
+  > & {
+    executor: DatabaseSession;
+    organizationId: string;
+    documentId: string;
+    userId: string;
+  },
 ) {
   try {
     return await loadProjectionPolicyEvidence({
       executor: input.executor,
-      organizationId: input.organizationId,
+      scope: {
+        organizationId: input.organizationId,
+        objectId: input.documentId,
+        objectKind: "document",
+        userId: input.userId,
+      },
       bundles: [
         input.documentManifest,
         ...input.documentManifestHistory,

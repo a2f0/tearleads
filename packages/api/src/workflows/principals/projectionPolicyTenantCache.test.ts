@@ -20,7 +20,12 @@ test("projection proofs reuse verified history across 24 organizations", async (
       throw new Error("Invalid fixture root bundle");
     organizations.push({
       executor: db,
-      organizationId: await getDefaultOrganizationId(owner.userId),
+      scope: {
+        organizationId: await getDefaultOrganizationId(owner.userId),
+        objectKind: "container",
+        objectId: root.kekState.containerId,
+        userId: owner.userId,
+      },
       bundles: [root.bundle],
     });
   }

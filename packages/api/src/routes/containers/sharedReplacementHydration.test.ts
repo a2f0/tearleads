@@ -1,5 +1,4 @@
 import { expect, test } from "bun:test";
-import { ApiClient } from "@tearleads/api-client";
 import { db } from "@tearleads/api-shared/postgres";
 import { organizationBilling } from "@tearleads/api-shared/schema";
 import {
@@ -33,12 +32,9 @@ test("fresh member hydration verifies a re-shared replacement and retains queued
     port: 0,
     fetch: (request) => routeApp.fetch(request),
   });
-  const apiClient = new ApiClient(server.url.origin);
-  apiClient.setAuthToken(member.token);
   const device = await createRehomeMemberStore({
-    apiClient,
+    apiBaseUrl: server.url.origin,
     member,
-    owner: tree.owner,
   });
   try {
     const containerId = await tree.createChild(tree.rootId);
@@ -138,7 +134,7 @@ test("fresh member hydration verifies a re-shared replacement and retains queued
           [request.organizationId],
         ),
       ).toEqual([]);
-      apiClient.evictContainerWriterProjection(containerId);
+      device.apiClient.evictContainerWriterProjection(containerId);
       expect(await device.store.refreshRootLane()).toBe(true);
       expect(device.incidents).toEqual([]);
       expect(device.errors).toEqual([]);

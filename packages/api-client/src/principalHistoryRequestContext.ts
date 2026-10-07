@@ -58,18 +58,32 @@ export class PrincipalHistoryRequestContext {
     return true;
   }
 
-  failure(response?: Response): RequestFailure {
+  failure(response?: Response, timedOut = false): RequestFailure {
     void response?.body?.cancel().catch(() => {});
     return this.runtime.responseRequest.reportFailure({
       code: this.submitted
         ? "principal_history_outcome_unknown"
-        : "principal_history_context_changed",
-      kind: this.submitted ? "outcome-unknown" : "cancelled",
+        : timedOut
+          ? "principal_history_request_timed_out"
+          : "principal_history_context_changed",
+      kind: this.submitted
+        ? "outcome-unknown"
+        : timedOut
+          ? "network"
+          : "cancelled",
       message: this.submitted
         ? "Policy request may have committed; refresh before retrying"
-        : "Principal history request was cancelled",
+        : timedOut
+          ? "Principal history request timed out"
+          : "Principal history request was cancelled",
       method: this.method,
-      options: { ...this.options, reportErrors: false },
+      options: {
+        ...this.options,
+        reportErrors:
+          timedOut &&
+          this.method === "GET" &&
+          this.options.reportErrors !== false,
+      },
       path: this.path,
       status: null,
       statusText: "",

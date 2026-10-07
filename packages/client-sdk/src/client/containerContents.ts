@@ -1,5 +1,6 @@
 import { DEFAULT_DOCUMENT_KIND } from "../data/documents/documentConstants";
 import type { DocumentSummary } from "../data/documents/documentSummary";
+import { inheritPrincipalHistoryProtection } from "../data/principals/principalHistoryRuntime";
 import {
   type ContainerContentsStore,
   type ContainerContentsStoreOptions,
@@ -331,7 +332,7 @@ class ContainerContentsService implements ContainerContents {
         }),
     };
 
-    return documentLinks;
+    return inheritPrincipalHistoryProtection(runtime, documentLinks);
   }
 
   discoverContainerDocuments(

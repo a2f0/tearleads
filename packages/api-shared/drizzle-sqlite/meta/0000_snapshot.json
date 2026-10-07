@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "62f3f8bd-97a1-46f1-b071-1ece31cfa23c",
+  "id": "0822bb10-f821-4309-a3ad-5220ecabd794",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
     "access_event_dependency_projection": {
@@ -4575,6 +4575,76 @@
       "uniqueConstraints": {},
       "checkConstraints": {}
     },
+    "principal_directory_bindings": {
+      "name": "principal_directory_bindings",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "organization_id": {
+          "name": "organization_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "organization_version": {
+          "name": "organization_version",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "organization_state_hash": {
+          "name": "organization_state_hash",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "group_id": {
+          "name": "group_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "group_version": {
+          "name": "group_version",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "group_state_hash": {
+          "name": "group_state_hash",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "principal_directory_bindings_head_idx": {
+          "name": "principal_directory_bindings_head_idx",
+          "columns": ["organization_id", "group_id", "group_state_hash"],
+          "isUnique": true
+        },
+        "principal_directory_bindings_lookup_idx": {
+          "name": "principal_directory_bindings_lookup_idx",
+          "columns": ["organization_id", "group_id", "organization_version"],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
     "principal_epoch_keys": {
       "name": "principal_epoch_keys",
       "columns": {
@@ -4982,6 +5052,70 @@
             "user_id"
           ],
           "isUnique": true
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "principal_policy_commits": {
+      "name": "principal_policy_commits",
+      "columns": {
+        "request_hash": {
+          "name": "request_hash",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "organization_id": {
+          "name": "organization_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "group_id": {
+          "name": "group_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "requester_user_id": {
+          "name": "requester_user_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "response_json": {
+          "name": "response_json",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "(cast((julianday('now') - 2440587.5)*86400000 as integer))"
+        }
+      },
+      "indexes": {
+        "principal_policy_commits_organization_idx": {
+          "name": "principal_policy_commits_organization_idx",
+          "columns": ["organization_id"],
+          "isUnique": false
+        },
+        "principal_policy_commits_group_idx": {
+          "name": "principal_policy_commits_group_idx",
+          "columns": ["group_id"],
+          "isUnique": false
         }
       },
       "foreignKeys": {},

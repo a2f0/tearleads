@@ -84,6 +84,8 @@ export function ownVerifiedPrincipalPolicyHistory(
 }
 
 export interface PrincipalPolicyHistoryVerifier {
+  /** Owned copy of the latest accepted citation, including across uncited pages. */
+  getExternalAuthorityReference(): ReferencedPrincipalHead | null;
   append(page: PrincipalPolicyHistoryPage): Promise<
     KeyingVerificationResult<{
       readonly throughVersion: number;

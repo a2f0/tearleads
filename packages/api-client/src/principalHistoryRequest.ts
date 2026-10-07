@@ -1,8 +1,14 @@
 import type { JsonOperation } from "@tearleads/validators/operation";
 import type { ApiRequestRuntime } from "./apiRequestRuntime";
 import { decodeJsonOperationResponse } from "./operationResponse";
+import { principalHistoryDeadline } from "./principalHistoryDeadline";
 import { PrincipalHistoryRequestContext } from "./principalHistoryRequestContext";
-import type { HttpMethod, RequestResult, RequestResultOptions } from "./types";
+import type {
+  HttpMethod,
+  RequestFailure,
+  RequestResult,
+  RequestResultOptions,
+} from "./types";
 
 /** Retry only an explicit, validated response proving the operation rolled back. */
 export async function principalHistoryRequest<T>(
@@ -15,6 +21,7 @@ export async function principalHistoryRequest<T>(
     readonly options?: RequestResultOptions;
     readonly operation: JsonOperation;
     readonly context?: PrincipalHistoryRequestContext;
+    readonly requestTimeoutMs?: number;
   },
 ): Promise<RequestResult<T>> {
   const { path, method } = input;
@@ -28,7 +35,7 @@ export async function principalHistoryRequest<T>(
     context.beforeRequest();
     const decoded = await readResponse(runtime, context, input);
     if (!decoded.ok && context.restartReadAfterRenewal()) continue;
-    if (!decoded.ok) return decoded;
+    if (!decoded.ok) return preserveCommitUncertainty(method, context, decoded);
     if (decoded.data.status === 202) {
       context.afterPreparation();
       const failure = await continuePreparation(decoded.data.data, progress);
@@ -43,18 +50,52 @@ export async function principalHistoryRequest<T>(
         });
       continue;
     }
-    if (decoded.data.status !== 200 || !input.validator(decoded.data.data))
-      return runtime.responseRequest.reportFailure({
+    if (decoded.data.status !== 200 || !input.validator(decoded.data.data)) {
+      const failure = runtime.responseRequest.reportFailure({
         kind: "shape",
         message: `Invalid principal policy response for ${path}`,
         method,
-        options,
+        options:
+          method === "GET" ? options : { ...options, reportErrors: false },
         path,
         status: decoded.data.status,
         statusText: decoded.data.statusText,
       });
+      return preserveCommitUncertainty(method, context, failure);
+    }
     return { ok: true, data: decoded.data.data };
   }
+}
+
+function preserveCommitUncertainty(
+  method: HttpMethod,
+  context: PrincipalHistoryRequestContext,
+  failure: RequestFailure,
+): RequestFailure {
+  if (method === "GET") return failure;
+  // A network/decode failure or intermediary 5xx says nothing about commit.
+  // Inner write errors are silent until this final classification is known.
+  const ambiguous =
+    failure.kind !== "http" ||
+    ((failure.status ?? 0) >= 500 &&
+      // The declared 503 schema requires the exact code and committed:false.
+      // Unvalidated codes never reach RequestFailure.code.
+      !(
+        failure.status === 503 &&
+        failure.code === "principal_history_preparation_unavailable"
+      )) ||
+    failure.status === 408 ||
+    failure.status === 499;
+  const result =
+    ambiguous && failure.kind !== "outcome-unknown"
+      ? context.failure()
+      : failure;
+  if (
+    context.options.reportErrors !== false &&
+    (result.kind === "http" || !context.cancelled())
+  )
+    result.report();
+  return result;
 }
 
 async function readResponse(
@@ -65,36 +106,59 @@ async function readResponse(
     readonly method: HttpMethod;
     readonly body?: string;
     readonly operation: JsonOperation;
+    readonly requestTimeoutMs?: number;
   },
 ) {
-  const response = await runtime.responseRequest(
-    input.path,
-    input.method,
-    input.body,
+  const deadline = principalHistoryDeadline(
     context.options,
-    [],
-    input.operation,
+    // Writes await acknowledgement unless the caller supplies a deadline.
+    // Aborting a committed write cannot be repaired by the continuation loop.
+    input.requestTimeoutMs ?? (input.method === "GET" ? undefined : null),
   );
-  // Authentication rejection precedes the workflow, so renewal does not make
-  // this write's outcome uncertain. Reads may restart after a known renewal.
-  if (!response.ok && response.kind === "http" && response.status === 401)
-    return response;
-  if (context.cancelled())
-    return context.failure(response.ok ? response.data : undefined);
-  if (!response.ok) return response;
-  const decoded = await decodeJsonOperationResponse(
-    runtime.responseRequest,
-    input.operation,
-    response.data,
-    input.path,
-    context.options,
-  );
-  if (context.cancelled()) return context.failure(response.data);
-  if (!decoded.ok) return decoded;
-  return {
-    ok: true as const,
-    data: { ...decoded.data, statusText: response.data.statusText },
-  };
+  const options =
+    input.method === "GET"
+      ? deadline.options
+      : { ...deadline.options, reportErrors: false };
+  try {
+    const response = await runtime.responseRequest(
+      input.path,
+      input.method,
+      input.body,
+      options,
+      [],
+      input.operation,
+    );
+    // Authentication rejection precedes the workflow, so renewal does not make
+    // this write's outcome uncertain. Reads may restart after a known renewal.
+    if (!response.ok && response.kind === "http" && response.status === 401)
+      return response;
+    // An expired write remains uncertain even if a failure status arrived.
+    if (context.cancelled() || deadline.expired())
+      return context.failure(
+        response.ok ? response.data : undefined,
+        deadline.expired() && !context.cancelled(),
+      );
+    if (!response.ok) return response;
+    const decoded = await decodeJsonOperationResponse(
+      runtime.responseRequest,
+      input.operation,
+      response.data,
+      input.path,
+      options,
+    );
+    if (context.cancelled() || deadline.expired())
+      return context.failure(
+        response.data,
+        deadline.expired() && !context.cancelled(),
+      );
+    if (!decoded.ok) return decoded;
+    return {
+      ok: true as const,
+      data: { ...decoded.data, statusText: response.data.statusText },
+    };
+  } finally {
+    deadline.dispose();
+  }
 }
 
 interface PreparationProgress {

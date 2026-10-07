@@ -743,6 +743,18 @@ CREATE TABLE `principal_container_grant_projection` (
 CREATE INDEX `principal_container_grant_projection_principal_idx` ON `principal_container_grant_projection` (`principal_type`,`principal_id`);--> statement-breakpoint
 CREATE INDEX `principal_container_grant_projection_container_idx` ON `principal_container_grant_projection` (`container_id`);--> statement-breakpoint
 CREATE UNIQUE INDEX `principal_container_grant_projection_state_container_idx` ON `principal_container_grant_projection` (`principal_type`,`principal_id`,`state_hash`,`container_id`);--> statement-breakpoint
+CREATE TABLE `principal_directory_bindings` (
+	`id` text PRIMARY KEY NOT NULL,
+	`organization_id` text NOT NULL,
+	`organization_version` integer NOT NULL,
+	`organization_state_hash` text NOT NULL,
+	`group_id` text NOT NULL,
+	`group_version` integer NOT NULL,
+	`group_state_hash` text NOT NULL
+);
+--> statement-breakpoint
+CREATE UNIQUE INDEX `principal_directory_bindings_head_idx` ON `principal_directory_bindings` (`organization_id`,`group_id`,`group_state_hash`);--> statement-breakpoint
+CREATE INDEX `principal_directory_bindings_lookup_idx` ON `principal_directory_bindings` (`organization_id`,`group_id`,`organization_version`);--> statement-breakpoint
 CREATE TABLE `principal_epoch_keys` (
 	`id` text PRIMARY KEY NOT NULL,
 	`principal_type` text NOT NULL,
@@ -809,6 +821,17 @@ CREATE INDEX `principal_membership_projection_principal_idx` ON `principal_membe
 CREATE INDEX `principal_membership_projection_member_idx` ON `principal_membership_projection` (`user_id`);--> statement-breakpoint
 CREATE INDEX `principal_membership_projection_member_state_idx` ON `principal_membership_projection` (`user_id`,`principal_type`,`principal_id`,`state_hash`);--> statement-breakpoint
 CREATE UNIQUE INDEX `principal_membership_projection_state_member_idx` ON `principal_membership_projection` (`principal_type`,`principal_id`,`state_hash`,`user_id`);--> statement-breakpoint
+CREATE TABLE `principal_policy_commits` (
+	`request_hash` text PRIMARY KEY NOT NULL,
+	`organization_id` text NOT NULL,
+	`group_id` text,
+	`requester_user_id` text NOT NULL,
+	`response_json` text NOT NULL,
+	`created_at` integer DEFAULT (cast((julianday('now') - 2440587.5)*86400000 as integer)) NOT NULL
+);
+--> statement-breakpoint
+CREATE INDEX `principal_policy_commits_organization_idx` ON `principal_policy_commits` (`organization_id`);--> statement-breakpoint
+CREATE INDEX `principal_policy_commits_group_idx` ON `principal_policy_commits` (`group_id`);--> statement-breakpoint
 CREATE TABLE `principal_policy_mutation_acknowledgements` (
 	`id` text PRIMARY KEY NOT NULL,
 	`principal_type` text NOT NULL,

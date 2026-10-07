@@ -39,8 +39,8 @@
       "bytes": 18865
     },
     "docs/developer/client-sdk.md": {
-      "lines": 811,
-      "bytes": 42915
+      "lines": 829,
+      "bytes": 44105
     },
     "docs/developer/revenuecat-native-stores.md": {
       "lines": 364,
@@ -63,8 +63,8 @@
       "bytes": 23535
     },
     "docs/openapi.json": {
-      "lines": 70665,
-      "bytes": 2959407
+      "lines": 71344,
+      "bytes": 2984719
     },
     "docs/protocol-specification.md": {
       "lines": 658,
@@ -239,8 +239,8 @@
       "bytes": 16859
     },
     "packages/client-sdk/src/index.ts": {
-      "lines": 556,
-      "bytes": 16223
+      "lines": 559,
+      "bytes": 16333
     },
     "packages/client-sdk/src/stores/container-contents/containerContentsStore.rootRefresh.test.ts": {
       "lines": 592,
@@ -251,8 +251,8 @@
       "bytes": 18896
     },
     "packages/client-sdk/src/workflows/README.md": {
-      "lines": 313,
-      "bytes": 24116
+      "lines": 331,
+      "bytes": 25281
     },
     "packages/client-sdk/src/workflows/blobs/hydrate.test.ts": {
       "lines": 572,
@@ -315,12 +315,12 @@
       "bytes": 37744
     },
     "packages/validators/src/operation/generatedOpenApi.ts": {
-      "lines": 26324,
-      "bytes": 1100546
+      "lines": 26589,
+      "bytes": 1110759
     },
     "packages/validators/src/response/index.ts": {
-      "lines": 518,
-      "bytes": 18158
+      "lines": 529,
+      "bytes": 18578
     },
     "packages/validators/src/response/response.test.ts": {
       "lines": 587,

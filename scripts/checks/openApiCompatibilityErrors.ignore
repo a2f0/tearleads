@@ -1,0 +1,96 @@
+# #2448: compact projection history flag-day wire replacement.
+# Remove this exact diagnostic once main contains the compact source contract.
+GET /containers/{containerId}/writer-projection removed the required property `policyEvidence/groups/items/currentGrants` from the response with the `200` status
+# #2448: compact projection history flag-day wire replacement.
+# Remove this exact diagnostic once main contains the compact source contract.
+GET /containers/{containerId}/writer-projection removed the required property `policyEvidence/groups/items/currentProjection` from the response with the `200` status
+# #2448: compact projection history flag-day wire replacement.
+# Remove this exact diagnostic once main contains the compact source contract.
+GET /containers/{containerId}/writer-projection removed the required property `policyEvidence/groups/items/currentState` from the response with the `200` status
+# #2448: compact projection history flag-day wire replacement.
+# Remove this exact diagnostic once main contains the compact source contract.
+GET /containers/{containerId}/writer-projection removed the required property `policyEvidence/groups/items/previousStates` from the response with the `200` status
+# #2448: compact projection history flag-day wire replacement.
+# Remove this exact diagnostic once main contains the compact source contract.
+GET /containers/{containerId}/writer-projection removed the required property `policyEvidence/organization/anyOf[subschema #1]/currentGrants` from the response with the `200` status
+# #2448: compact projection history flag-day wire replacement.
+# Remove this exact diagnostic once main contains the compact source contract.
+GET /containers/{containerId}/writer-projection removed the required property `policyEvidence/organization/anyOf[subschema #1]/currentProjection` from the response with the `200` status
+# #2448: compact projection history flag-day wire replacement.
+# Remove this exact diagnostic once main contains the compact source contract.
+GET /containers/{containerId}/writer-projection removed the required property `policyEvidence/organization/anyOf[subschema #1]/currentState` from the response with the `200` status
+# #2448: compact projection history flag-day wire replacement.
+# Remove this exact diagnostic once main contains the compact source contract.
+GET /containers/{containerId}/writer-projection removed the required property `policyEvidence/organization/anyOf[subschema #1]/previousStates` from the response with the `200` status
+# #2448: compact projection history flag-day wire replacement.
+# Remove this exact diagnostic once main contains the compact source contract.
+GET /containers/{containerId}/writer-projection removed the required property `policyEvidence/organizationPayloads/items/cipherSuite` from the response with the `200` status
+# #2448: compact projection history flag-day wire replacement.
+# Remove this exact diagnostic once main contains the compact source contract.
+GET /containers/{containerId}/writer-projection removed the required property `policyEvidence/organizationPayloads/items/ciphertext` from the response with the `200` status
+# #2448: compact projection history flag-day wire replacement.
+# Remove this exact diagnostic once main contains the compact source contract.
+GET /containers/{containerId}/writer-projection removed the required property `policyEvidence/organizationPayloads/items/ciphertextHash` from the response with the `200` status
+# #2448: compact projection history flag-day wire replacement.
+# Remove this exact diagnostic once main contains the compact source contract.
+GET /containers/{containerId}/writer-projection removed the required property `policyEvidence/organizationPayloads/items/createdAt` from the response with the `200` status
+# #2448: compact projection history flag-day wire replacement.
+# Remove this exact diagnostic once main contains the compact source contract.
+GET /containers/{containerId}/writer-projection removed the required property `policyEvidence/organizationPayloads/items/principalId` from the response with the `200` status
+# #2448: compact projection history flag-day wire replacement.
+# Remove this exact diagnostic once main contains the compact source contract.
+GET /containers/{containerId}/writer-projection removed the required property `policyEvidence/organizationPayloads/items/principalType` from the response with the `200` status
+# #2448: compact projection history flag-day wire replacement.
+# Remove this exact diagnostic once main contains the compact source contract.
+GET /containers/{containerId}/writer-projection removed the required property `policyEvidence/organizationPayloads/items/stateHash` from the response with the `200` status
+# #2448: compact projection history flag-day wire replacement.
+# Remove this exact diagnostic once main contains the compact source contract.
+GET /documents/{documentId}/writer-projection removed the required property `policyEvidence/groups/items/currentGrants` from the response with the `200` status
+# #2448: compact projection history flag-day wire replacement.
+# Remove this exact diagnostic once main contains the compact source contract.
+GET /documents/{documentId}/writer-projection removed the required property `policyEvidence/groups/items/currentProjection` from the response with the `200` status
+# #2448: compact projection history flag-day wire replacement.
+# Remove this exact diagnostic once main contains the compact source contract.
+GET /documents/{documentId}/writer-projection removed the required property `policyEvidence/groups/items/currentState` from the response with the `200` status
+# #2448: compact projection history flag-day wire replacement.
+# Remove this exact diagnostic once main contains the compact source contract.
+GET /documents/{documentId}/writer-projection removed the required property `policyEvidence/groups/items/previousStates` from the response with the `200` status
+# #2448: compact projection history flag-day wire replacement.
+# Remove this exact diagnostic once main contains the compact source contract.
+GET /documents/{documentId}/writer-projection removed the required property `policyEvidence/organization/anyOf[subschema #1]/currentGrants` from the response with the `200` status
+# #2448: compact projection history flag-day wire replacement.
+# Remove this exact diagnostic once main contains the compact source contract.
+GET /documents/{documentId}/writer-projection removed the required property `policyEvidence/organization/anyOf[subschema #1]/currentProjection` from the response with the `200` status
+# #2448: compact projection history flag-day wire replacement.
+# Remove this exact diagnostic once main contains the compact source contract.
+GET /documents/{documentId}/writer-projection removed the required property `policyEvidence/organization/anyOf[subschema #1]/currentState` from the response with the `200` status
+# #2448: compact projection history flag-day wire replacement.
+# Remove this exact diagnostic once main contains the compact source contract.
+GET /documents/{documentId}/writer-projection removed the required property `policyEvidence/organization/anyOf[subschema #1]/previousStates` from the response with the `200` status
+# #2448: compact projection history flag-day wire replacement.
+# Remove this exact diagnostic once main contains the compact source contract.
+GET /documents/{documentId}/writer-projection removed the required property `policyEvidence/organizationPayloads/items/cipherSuite` from the response with the `200` status
+# #2448: compact projection history flag-day wire replacement.
+# Remove this exact diagnostic once main contains the compact source contract.
+GET /documents/{documentId}/writer-projection removed the required property `policyEvidence/organizationPayloads/items/ciphertext` from the response with the `200` status
+# #2448: compact projection history flag-day wire replacement.
+# Remove this exact diagnostic once main contains the compact source contract.
+GET /documents/{documentId}/writer-projection removed the required property `policyEvidence/organizationPayloads/items/ciphertextHash` from the response with the `200` status
+# #2448: compact projection history flag-day wire replacement.
+# Remove this exact diagnostic once main contains the compact source contract.
+GET /documents/{documentId}/writer-projection removed the required property `policyEvidence/organizationPayloads/items/createdAt` from the response with the `200` status
+# #2448: compact projection history flag-day wire replacement.
+# Remove this exact diagnostic once main contains the compact source contract.
+GET /documents/{documentId}/writer-projection removed the required property `policyEvidence/organizationPayloads/items/principalId` from the response with the `200` status
+# #2448: compact projection history flag-day wire replacement.
+# Remove this exact diagnostic once main contains the compact source contract.
+GET /documents/{documentId}/writer-projection removed the required property `policyEvidence/organizationPayloads/items/principalType` from the response with the `200` status
+# #2448: compact projection history flag-day wire replacement.
+# Remove this exact diagnostic once main contains the compact source contract.
+GET /documents/{documentId}/writer-projection removed the required property `policyEvidence/organizationPayloads/items/stateHash` from the response with the `200` status
+# #2448: explicit preparation rollback outcome for policy writes.
+# Remove this exact diagnostic once main contains the coded 503 contract.
+PUT /organizations/{organizationId}/groups/{groupId}/policy-commit added the new `principal_history_preparation_unavailable` enum value to the `code` response property for the response status `503`
+# #2448: explicit preparation rollback outcome for policy writes.
+# Remove this exact diagnostic once main contains the coded 503 contract.
+PUT /principals/{principalType}/{principalId}/policy added the new `principal_history_preparation_unavailable` enum value to the `code` response property for the response status `503`

@@ -1,4 +1,5 @@
 import { retainVerifiedProjectionHistory } from "@tearleads/api-client";
+import type { PrincipalPolicyAuthorization } from "@tearleads/crypto";
 import {
   type ContainerUserRecipientKey,
   computeContainerKekRecipientTargetHash,
@@ -12,10 +13,7 @@ import type {
   AccessManifestBundleWireResponse,
   ContainerWriterProjectionResponse,
 } from "@tearleads/validators/response";
-import type {
-  PrincipalPolicyCheckpointEvidence,
-  PrincipalPolicyCurrentEvidence,
-} from "../principals/principalPolicyEvidence";
+import type { PrincipalPolicyCurrentEvidence } from "../principals/principalPolicyEvidence";
 import type { ExecSql } from "../sqlite/sqlSchema";
 import { addBundleByHash } from "./bundleVerification";
 import {
@@ -98,7 +96,7 @@ function containerKekManifestHistory(input: {
 }
 
 async function verifyContainerKekProjection(input: {
-  readonly authorizationEvidence: readonly PrincipalPolicyCheckpointEvidence[];
+  readonly authorizationEvidence: readonly PrincipalPolicyAuthorization[];
   readonly kek: ContainerWriterProjectionResponse["containerKeks"][number];
   readonly label: string;
   readonly parentKekState: VerifiedContainerKekState | null;
@@ -211,7 +209,7 @@ function collectContainerProjectionBundles(
 
 export async function verifyContainerWriterProjectionWithContext(
   input: Omit<ContainerWriterProjectionVerificationInput, "execSql"> & {
-    readonly authorizationEvidence?: readonly PrincipalPolicyCheckpointEvidence[];
+    readonly authorizationEvidence?: readonly PrincipalPolicyAuthorization[];
   },
   checkpointContext: ProjectionCheckpointContext,
 ): Promise<VerifiedContainerAccessManifest[]> {
@@ -227,29 +225,31 @@ export async function verifyContainerWriterProjectionWithContext(
     input.verifiedByHash ?? new Map<string, VerifiedContainerAccessManifest>();
   const principalPolicyCache: PrincipalPolicyCache =
     input.principalPolicyCache ?? new Map();
+  const verification = {
+    checkpointContext,
+    principalPolicyCache,
+    resolveUserKey: input.resolveUserKey,
+    warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
+  };
   const authorizationEvidence =
     input.authorizationEvidence ??
     (await verifyProjectionAuthorizationEvidence({
+      ...verification,
       bundles: [...bundlesByHash.values()],
-      checkpointContext,
       policyEvidence: input.projection.policyEvidence,
       organizationId: input.projection.organizationId,
-      principalPolicyCache,
-      resolveUserKey: input.resolveUserKey,
+      stillCurrent: input.stillCurrent,
     }));
   const verifiedPath = await verifyContainerManifestPath({
+    ...verification,
     authorizationEvidence,
     requireAuthorizationEvidence: true,
     servedAsCurrent: true,
     bundlesByHash,
-    checkpointContext,
     enforceLocalCheckpoints: true,
     label: "Container writer projection path",
     path: input.projection.path,
-    principalPolicyCache,
-    resolveUserKey: input.resolveUserKey,
     verifiedByHash,
-    warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
   });
 
   const verifiedKekStates: VerifiedContainerKekState[] = [];
@@ -265,19 +265,15 @@ export async function verifyContainerWriterProjectionWithContext(
     ] of kek.containerManifestHistory.entries()) {
       verifiedManifestHistory.push(
         await verifyContainerManifestBundle({
+          ...verification,
           authorizationEvidence,
           requireAuthorizationEvidence: true,
           bundle,
           bundlesByHash,
-          checkpointContext,
           enforceLocalCheckpoint: false,
           label: `Container writer projection KEK[${index}] history[${historyIndex}]`,
           parentPath: verifiedPath.slice(0, index),
-          principalPolicyCache,
-          resolveUserKey: input.resolveUserKey,
           verifiedByHash,
-          warmReferencedPrincipalPolicies:
-            input.warmReferencedPrincipalPolicies,
         }),
       );
     }

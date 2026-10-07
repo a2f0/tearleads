@@ -3,6 +3,8 @@ import {
   type DocumentProjectorRegistryInput,
   resolveDocumentProjectorRegistry,
 } from "../../data/documents/documentKinds";
+import type { PrincipalHistoryProtectionLease } from "../../data/principals/principalHistoryProtection";
+import { inheritPrincipalHistoryProtection } from "../../data/principals/principalHistoryRuntime";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import {
   requireTrustedUserIdentityResolver,
@@ -83,6 +85,10 @@ export interface ContainerContentsWorkflowRuntimeInputGroups {
 
 export interface ContainerContentsWorkflowRuntimeInput
   extends ContainerContentsWorkflowRuntimeInputGroups {
+  /** Private host custody, inherited by container and derived document runtimes. */
+  readonly withPrincipalHistoryProtection?:
+    | PrincipalHistoryProtectionLease
+    | undefined;
   readonly apiClient: ContainerContentsWorkflowApi;
   readonly resolveTrustedUserIdentity: TrustedUserIdentityResolver;
 }
@@ -112,7 +118,7 @@ function documentsRuntimeInput(
   runtime: ContainerContentsWorkflowRuntime,
   containerId: string | null,
 ): DocumentsWorkflowRuntimeInput {
-  return {
+  return inheritPrincipalHistoryProtection(runtime, {
     apiClient: runtime.apiClient,
     auth: runtime.auth,
     crypto: runtime.crypto,
@@ -120,7 +126,7 @@ function documentsRuntimeInput(
     resolveTrustedUserIdentity: runtime.resolveTrustedUserIdentity,
     state: { ...runtime.state, containerId },
     util: runtime.util,
-  };
+  });
 }
 
 export function createContainerContentsDocumentsRuntime(
@@ -144,7 +150,7 @@ function createContainerContentsWorkflowRuntimeWithRootAdopter(
     documentProjectors,
   };
 
-  return {
+  return inheritPrincipalHistoryProtection(input, {
     ...(adoptRootContainer ? { adoptRootContainer } : {}),
     apiClient: input.apiClient,
     auth: input.auth,
@@ -155,7 +161,7 @@ function createContainerContentsWorkflowRuntimeWithRootAdopter(
     ),
     state: input.state,
     util: input.util,
-  };
+  });
 }
 
 export function createContainerContentsWorkflowRuntime(
@@ -169,11 +175,11 @@ export function createContainerContentsStoreWorkflowRuntime(
   input: ContainerContentsWorkflowRuntimeInput,
   adoptRootContainer: ContainerContentsRootAdopter,
 ): ContainerContentsStoreWorkflowRuntime {
-  return {
+  return inheritPrincipalHistoryProtection(input, {
     ...createContainerContentsWorkflowRuntimeWithRootAdopter(
       input,
       adoptRootContainer,
     ),
     adoptRootContainer,
-  };
+  });
 }

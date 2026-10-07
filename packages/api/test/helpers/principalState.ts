@@ -13,15 +13,33 @@ import {
   type StoreVerifiedPrincipalStateOptions,
   storeVerifiedPrincipalStateInTransaction,
 } from "../../src/access/write/principalStateStore";
+import { parseOrganizationAuthorityDescriptor } from "../../src/workflows/organizations/organizationAuthorityDescriptor";
+import { storeVerifiedPrincipalDirectoryBindings } from "../../src/workflows/principals/storeVerifiedPrincipalDirectoryBindings";
 
 export function storePrincipalState(
   input: PrincipalStateBundleInput,
   database: ApiDatabase,
   options?: StoreVerifiedPrincipalStateOptions,
 ) {
-  return database.transaction((tx) =>
-    storeVerifiedPrincipalStateInTransaction(input, tx, options),
-  );
+  return database.transaction(async (tx) => {
+    const state = await storeVerifiedPrincipalStateInTransaction(
+      input,
+      tx,
+      options,
+    );
+    // Generic cryptographic fixtures may use an opaque organization payload.
+    // Real signed directories seed the same lookup projection as production.
+    if (
+      state.principalType === "organization" &&
+      parseOrganizationAuthorityDescriptor(input.encryptedPayload.ciphertext)
+    )
+      await storeVerifiedPrincipalDirectoryBindings({
+        executor: tx,
+        state,
+        ciphertext: input.encryptedPayload.ciphertext,
+      });
+    return state;
+  });
 }
 
 export function createProjectionWithAdminSigner(

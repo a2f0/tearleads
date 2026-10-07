@@ -247,6 +247,11 @@ export {
   PrincipalPolicyPathParamsSchema,
   putPrincipalPolicyOperation,
 } from "./principals";
+export {
+  getProjectionPolicyHistoryOperation,
+  type ProjectionPolicyHistoryQuery,
+  ProjectionPolicyHistoryQuerySchema,
+} from "./projectionPolicyHistory";
 export { protocolOperations } from "./registry";
 export {
   getRootIdentityOperation,

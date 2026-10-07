@@ -1,23 +1,27 @@
 import { expect, test } from "bun:test";
 import { createNativeTestExecSql } from "@tearleads/test-utils";
+import { createOrganizationHistoryFixture } from "../../../test/helpers/organizationPolicyHistory";
 import {
-  createOrganizationHistoryFixture,
-  policySnapshot,
-} from "../../../test/helpers/organizationPolicyHistory";
+  projectionDirectoryPayload,
+  projectionPolicySource,
+  projectionPolicyWarmer,
+} from "../../../test/helpers/projectionPolicyHistory";
 import { mergeProjectionPolicyEvidence } from "./mergeProjectionPolicyEvidence";
 import { verifyProjectionPolicyEvidence } from "./projectionPolicyEvidence";
 
 test("composed projections preserve older citations using the newer directory and group chains", async () => {
   const data = await createOrganizationHistoryFixture();
   const older = {
-    organization: policySnapshot(data.afterCreation),
-    organizationPayloads: data.evidence().organizationPayloads.slice(0, 2),
-    groups: [policySnapshot(data.created)],
+    organization: projectionPolicySource(data.afterCreation),
+    organizationPayloads: data
+      .projectionEvidence()
+      .organizationPayloads.slice(0, 2),
+    groups: [projectionPolicySource(data.created)],
   };
   const newer = {
-    organization: policySnapshot(data.afterDeletion),
-    organizationPayloads: data.evidence(true).organizationPayloads,
-    groups: data.evidence(true).groups,
+    organization: projectionPolicySource(data.afterDeletion),
+    organizationPayloads: data.projectionEvidence(true).organizationPayloads,
+    groups: data.projectionEvidence(true).groups,
   };
   const merged = mergeProjectionPolicyEvidence([newer, older]);
   expect(merged.organization).toBe(newer.organization);
@@ -25,29 +29,28 @@ test("composed projections preserve older citations using the newer directory an
   expect(
     merged.groups.find(
       (group) =>
-        group.currentState.principalId ===
-        data.created.currentState.principalId,
-    )?.currentState.stateHash,
+        group.head.principalId === data.created.currentState.principalId,
+    )?.head.stateHash,
   ).toBe(data.added.currentState.stateHash);
-  expect(older.groups[0]?.currentState.version).toBe(1);
+  expect(older.groups[0]?.head.version).toBe(1);
 });
 
 for (const conflict of ["organization", "group", "principal"] as const) {
   test(`composition refuses a conflicting ${conflict} before caching the projection`, async () => {
     const data = await createOrganizationHistoryFixture();
     const first = {
-      organization: policySnapshot(data.afterDeletion),
-      organizationPayloads: data.evidence(true).organizationPayloads,
-      groups: data.evidence(true).groups,
+      organization: projectionPolicySource(data.afterDeletion),
+      organizationPayloads: data.projectionEvidence(true).organizationPayloads,
+      groups: data.projectionEvidence(true).groups,
     };
     const second = structuredClone(first);
     if (conflict === "group") {
       const group = second.groups[0];
       if (!group) throw new Error("Expected group");
-      group.currentState.stateHash = "f".repeat(64);
+      group.head.stateHash = "f".repeat(64);
     } else if (conflict === "organization")
-      second.organization.currentState.stateHash = "f".repeat(64);
-    else second.organization.currentState.principalId = crypto.randomUUID();
+      second.organization.head.stateHash = "f".repeat(64);
+    else second.organization.head.principalId = crypto.randomUUID();
     expect(() => mergeProjectionPolicyEvidence([first, second])).toThrow(
       conflict === "principal" ? "crosses principals" : "conflicting heads",
     );
@@ -57,19 +60,18 @@ for (const conflict of ["organization", "group", "principal"] as const) {
 test("composition preserves distinct directory bindings for deleted and live groups", async () => {
   const data = await createOrganizationHistoryFixture();
   const older = {
-    organization: policySnapshot(data.afterAddition),
-    organizationPayloads: [data.afterAddition.currentPayload],
-    groups: data.evidence().groups,
+    organization: projectionPolicySource(data.afterAddition),
+    organizationPayloads: [projectionDirectoryPayload(data.afterAddition)],
+    groups: data.projectionEvidence().groups,
   };
   const newer = {
-    organization: policySnapshot(data.afterDeletion),
-    organizationPayloads: [data.afterDeletion.currentPayload],
+    organization: projectionPolicySource(data.afterDeletion),
+    organizationPayloads: [projectionDirectoryPayload(data.afterDeletion)],
     groups: data
-      .evidence()
+      .projectionEvidence()
       .groups.filter(
         (group) =>
-          group.currentState.principalId !==
-          data.created.currentState.principalId,
+          group.head.principalId !== data.created.currentState.principalId,
       ),
   };
   const merged = mergeProjectionPolicyEvidence([newer, older]);
@@ -80,11 +82,15 @@ test("composition preserves distinct directory bindings for deleted and live gro
       (
         await verifyProjectionPolicyEvidence({
           evidence: merged,
-          execSql: database.execSql,
+          references: merged.groups.map(({ head }) => head),
+          warmReferencedPrincipalPolicies: projectionPolicyWarmer({
+            execSql: database.execSql,
+            bundles: data.projectionBundles,
+            resolveUserKey: data.resolveTrustedUserIdentity,
+          }),
           organizationId: data.organizationId,
-          resolveUserKey: data.resolveTrustedUserIdentity,
         })
-      ).length,
+      ).policies.length,
     ).toBe(4);
   } finally {
     database.close();
@@ -92,7 +98,7 @@ test("composition preserves distinct directory bindings for deleted and live gro
   const conflicting = structuredClone(older);
   const payload = conflicting.organizationPayloads[0];
   if (!payload) throw new Error("Missing fixture binding");
-  payload.ciphertext = "tampered";
+  payload.payload.ciphertext = "tampered";
   expect(() => mergeProjectionPolicyEvidence([older, conflicting])).toThrow(
     "conflicting directory payloads",
   );

@@ -77,7 +77,7 @@ export async function createGroupHistoricalSignerScenario() {
   const mallory = participant("mallory");
   const reader = participant("reader");
   const peer = participant("peer");
-  const { currentHead, firstHead, policy, policyEvidence } =
+  const { currentHead, firstHead, policy, policyEvidence, projectionBundles } =
     await historicalGroupPolicy({
       organizationId: ORGANIZATION_ID,
       former: mallory,
@@ -185,6 +185,7 @@ export async function createGroupHistoricalSignerScenario() {
     reader,
     resolveUserKey,
     policyEvidence,
+    projectionBundles,
     root1,
     root2,
   };

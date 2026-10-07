@@ -1,10 +1,12 @@
 /** Hydrate only bytes matching the current document's authenticated attachment intent. */
+
 import { getDocumentAttachments } from "../../../data/documents/documentContent";
 import { hydrateDocumentAttachmentBlobs } from "../../../workflows/blobs";
 import {
   type DocumentRecord,
   reclaimDocumentOrphanBlobs,
 } from "../../../workflows/documents";
+import { createRuntimePrincipalPolicyWarmer } from "../../../workflows/principals/runtimePolicyWarmer";
 import { commitHydratedAttachment } from "./attachmentHydrationCommit";
 import type { DocumentState, DocumentStoreState } from "./state";
 import {
@@ -53,6 +55,9 @@ export async function hydrateAttachmentBlobs(
       expectedGeneration?.resolveProjectionUserKey ??
       state.resolveProjectionUserKey,
     targetSecretKey: encapsulationKeyPair.secretKey,
+    stillCurrent: generationIsCurrent,
+    warmReferencedPrincipalPolicies:
+      createRuntimePrincipalPolicyWarmer(runtime),
   });
   if (!generationIsCurrent()) return;
   if (!hydratedBlobs) {

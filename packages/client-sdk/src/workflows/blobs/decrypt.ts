@@ -106,6 +106,8 @@ export async function prepareDocumentAttachmentBlobDecryption({
   execSql,
   resolveProjectionUserKey,
   targetSecretKey,
+  stillCurrent,
+  warmReferencedPrincipalPolicies,
   writerProjection,
 }: AttachmentBlobDecryptionInput): Promise<{
   contentKey: Uint8Array;
@@ -118,6 +120,8 @@ export async function prepareDocumentAttachmentBlobDecryption({
   );
   const verificationOptions = projectionVerificationOptions({
     execSql,
+    stillCurrent,
+    warmReferencedPrincipalPolicies,
     resolveProjectionUserKey: requiredResolveProjectionUserKey,
   });
   let documentAuthorization: DocumentWriterProjectionAuthorization | undefined;

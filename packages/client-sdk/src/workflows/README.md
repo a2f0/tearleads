@@ -1,7 +1,7 @@
 # Client SDK Workflows
 
 Workflow facades compose API, storage, verification and sync without React or UI.
-Private history-key leases stay out of public runtime snapshots; see
+Private leases stay hidden; authority loaders take exact heads. See
 [recovery](../../../../docs/developer/principal-history-recovery.md).
 
 ## Current Host Contract
@@ -311,3 +311,21 @@ discovery never calls it. `RecoveryFolder` is exported from the SDK root.
 `ContainerDocumentQueries.listRecoveryFolderMoveIds` lists queued folder moves
 whose local destination parent is unavailable. Recovery uses it to distinguish
 local work from shared folders with inaccessible parents.
+
+Standalone document and container runtime constructors accept a private
+`withPrincipalHistoryProtection: PrincipalHistoryProtectionLease` input. It enables
+their built-in history resolvers and passes through store/derived-document
+adapters without exposing the callback on returned runtime views. Hosts retain
+responsibility for key cleanup and invalidating the lease on authority/storage
+changes, as specified in the principal-history recovery guide.
+
+`recoverProjectionPolicyHistory` resolves compact projection sources into verified
+historical authorization selections. Standalone hosts provide private local
+protection, the projection's manifest references, trusted identity resolution,
+and a lifetime predicate. Attach it through the policy warmer's
+`resolveProjectionHistory` capability and return the same lifetime predicate
+with the selections. Projection verification rechecks that lifetime and the
+latest local pins at final admission. Historical selections never advance
+current-policy checkpoints or become current key material. Attachment detach,
+hydration, retained-wrap checks and relinking accept the same private policy
+warmer and operation-lifetime guard; the document store supplies both.

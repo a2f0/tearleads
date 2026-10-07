@@ -79,6 +79,7 @@ import {
   getPrincipalPolicyOperation,
   putPrincipalPolicyOperation,
 } from "./principals";
+import { getProjectionPolicyHistoryOperation } from "./projectionPolicyHistory";
 import {
   getRootIdentityOperation,
   listRootIdentitiesOperation,
@@ -167,6 +168,7 @@ export const protocolOperations: readonly [
   typeof updateOrganizationProfileOperation,
   typeof updateOrganizationRosterEntryOperation,
   typeof getPrincipalPolicyOperation,
+  typeof getProjectionPolicyHistoryOperation,
   typeof commitOrganizationGroupPolicyOperation,
   typeof putPrincipalPolicyOperation,
   typeof listRootIdentitiesOperation,
@@ -240,6 +242,7 @@ export const protocolOperations: readonly [
   updateOrganizationProfileOperation,
   updateOrganizationRosterEntryOperation,
   getPrincipalPolicyOperation,
+  getProjectionPolicyHistoryOperation,
   commitOrganizationGroupPolicyOperation,
   putPrincipalPolicyOperation,
   listRootIdentitiesOperation,

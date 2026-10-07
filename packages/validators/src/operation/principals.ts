@@ -19,7 +19,11 @@ import {
   PrincipalPolicyPageResponseSchema,
   SessionFailureResponseSchema,
 } from "../response";
-import { PrincipalHistoryPreparationResponseSchema } from "../response/principalHistoryPreparation";
+import {
+  PrincipalHistoryPreparationFailureResponseSchema,
+  PrincipalHistoryPreparationResponseSchema,
+  principalHistoryRollbackRefinement,
+} from "../response/principalHistoryPreparation";
 import { uuidV4StringSchema } from "../schema";
 import { defineJsonOperation } from "./definition";
 import { PrincipalPolicyPageQuerySchema } from "./principalPolicyPageQuery";
@@ -79,7 +83,7 @@ export const putPrincipalPolicyOperation = defineJsonOperation({
     404: PrincipalPolicyErrorResponseSchema,
     409: PrincipalPolicyErrorResponseSchema,
     500: ErrorResponseSchema,
-    503: PrincipalPolicyErrorResponseSchema,
+    503: PrincipalHistoryPreparationFailureResponseSchema,
   },
   failureStatuses: [400, 401, 402, 403, 404, 409, 500, 503],
   id: "principals.policy.update",
@@ -91,7 +95,10 @@ export const putPrincipalPolicyOperation = defineJsonOperation({
     200: PrincipalPolicyMutationResponseSchema,
     202: PrincipalHistoryPreparationResponseSchema,
   },
-  runtimeRefinements: [organizationProvisioningContainerKeyringRefinement],
+  runtimeRefinements: [
+    organizationProvisioningContainerKeyringRefinement,
+    principalHistoryRollbackRefinement,
+  ],
 });
 
 export const commitOrganizationGroupPolicyOperation = defineJsonOperation({
@@ -105,7 +112,7 @@ export const commitOrganizationGroupPolicyOperation = defineJsonOperation({
     404: PrincipalPolicyErrorResponseSchema,
     409: CommitOrganizationGroupPolicyConflictResponseSchema,
     500: ErrorResponseSchema,
-    503: PrincipalPolicyErrorResponseSchema,
+    503: PrincipalHistoryPreparationFailureResponseSchema,
   },
   failureStatuses: [400, 401, 402, 403, 404, 409, 500, 503],
   id: "organizations.groups.policy.commit",
@@ -117,7 +124,10 @@ export const commitOrganizationGroupPolicyOperation = defineJsonOperation({
     200: CommitOrganizationGroupPolicyResponseSchema,
     202: PrincipalHistoryPreparationResponseSchema,
   },
-  runtimeRefinements: [organizationProvisioningContainerKeyringRefinement],
+  runtimeRefinements: [
+    organizationProvisioningContainerKeyringRefinement,
+    principalHistoryRollbackRefinement,
+  ],
 });
 
 export const isCommitOrganizationGroupPolicyOperationRequest =

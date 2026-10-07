@@ -24,9 +24,11 @@ import {
   organizationRosterEntries,
   organizations,
   principalContainerGrantProjection,
+  principalDirectoryBindings,
   principalEpochKeys,
   principalMemberEnvelopes,
   principalMembershipProjection,
+  principalPolicyCommits,
   principalPolicyMutationAcknowledgements,
   principalStatePayloads,
   principalStates,
@@ -202,6 +204,12 @@ export async function deleteOrganizationRemoteRows(input: {
   readonly organizationId: string;
   readonly scope: OrganizationRemotePurgeScope;
 }): Promise<void> {
+  await input.executor
+    .delete(principalDirectoryBindings)
+    .where(eq(principalDirectoryBindings.organizationId, input.organizationId));
+  await input.executor
+    .delete(principalPolicyCommits)
+    .where(eq(principalPolicyCommits.organizationId, input.organizationId));
   await input.executor
     .update(organizations)
     .set({ profileDocumentId: null })

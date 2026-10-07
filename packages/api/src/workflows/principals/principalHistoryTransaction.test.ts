@@ -5,7 +5,13 @@ import { eq } from "drizzle-orm";
 import { principalHistoryPreparationFixture } from "../../../test/helpers/principalHistoryPreparation";
 import { getCurrentPrincipalState } from "../../access/read/principalStateStore";
 import { getVerifiedPrincipalPolicyForStateWithExecutor } from "./getCurrentPrincipalPolicy";
+import {
+  preparePrincipalHistory,
+  principalHistoryPreparationBudget,
+} from "./preparePrincipalHistory";
+import { withBoundedPrincipalHistory } from "./principalHistoryExecution";
 import { PrincipalHistoryPreparationRequired } from "./principalHistoryPreparationRequest";
+import { PrincipalHistoryPreparationUnavailable } from "./principalHistoryPreparationUnavailable";
 import {
   PrincipalHistoryContinuation,
   runPrincipalHistoryTransaction,
@@ -74,15 +80,17 @@ test("a rolled-back successor prepares its committed prefix before rechecking fu
     .where(eq(principalHistoryProgress.principalId, head.principalId));
   expect(progress.map((row) => row.version)).toEqual([3]);
   expect(progress[0]?.stateHash).toBe(head.stateHash);
-  await expect(
-    runPrincipalHistoryTransaction(db, async () => {
-      throw new PrincipalHistoryPreparationRequired({
-        head: successor,
-        kind: "authority",
-        retainedReferences: [successor],
-      });
-    }),
-  ).rejects.toMatchObject({
+  const attempt = runPrincipalHistoryTransaction(db, async () => {
+    throw new PrincipalHistoryPreparationRequired({
+      head: successor,
+      kind: "authority",
+      retainedReferences: [successor],
+    });
+  });
+  await expect(attempt).rejects.toBeInstanceOf(
+    PrincipalHistoryPreparationUnavailable,
+  );
+  await expect(attempt).rejects.toMatchObject({
     status: 503,
     message: "Principal history preparation made no progress",
   });
@@ -107,3 +115,36 @@ test.each(["missing", "changed"] as const)(
     ).rejects.toMatchObject({ status: 409 });
   },
 );
+
+test("completed competing preparation lets the rolled-back operation retry", async () => {
+  const { head } = await principalHistoryPreparationFixture({
+    versions: 3,
+    currentArtifacts: true,
+  });
+  const state = await getCurrentPrincipalState("group", head.principalId, db);
+  if (!state) throw new Error("Missing current fixture");
+  const required = await withBoundedPrincipalHistory(() =>
+    db.transaction((tx) =>
+      getVerifiedPrincipalPolicyForStateWithExecutor(tx, state),
+    ),
+  ).catch((error: unknown) => error);
+  expect(required).toBeInstanceOf(PrincipalHistoryPreparationRequired);
+  // Another request completes this exact target after rollback, before this
+  // request's queued preparation starts. Its own progress stamp is unchanged.
+  const prepared = await preparePrincipalHistory(db, {
+    head,
+    budget: principalHistoryPreparationBudget(),
+  });
+  expect(prepared.complete).toBe(true);
+  let delayed = true;
+  const attempt = () =>
+    runPrincipalHistoryTransaction(db, async (tx) => {
+      if (delayed) {
+        delayed = false;
+        throw required;
+      }
+      return getVerifiedPrincipalPolicyForStateWithExecutor(tx, state);
+    });
+  await expect(attempt()).rejects.toBeInstanceOf(PrincipalHistoryContinuation);
+  expect((await attempt()).policy.stateHash).toBe(head.stateHash);
+});

@@ -1,8 +1,12 @@
 import type {
   ReferencedPrincipalHead,
   VerifiedPrincipalPolicyCurrent,
+  VerifiedPrincipalPolicySelection,
 } from "@tearleads/crypto";
-import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
+import type {
+  PrincipalPolicyBundleResponse,
+  ProjectionPolicyEvidenceResponse,
+} from "@tearleads/validators/response";
 import type { PrincipalPolicyCurrentEvidence } from "../principals/principalPolicyEvidence";
 import type { TrustedUserIdentity } from "../trustedUserIdentity";
 
@@ -41,6 +45,18 @@ export interface PrincipalPolicyBundleCacheRequest {
   readonly stillCurrent?: (() => boolean) | undefined;
 }
 
+export interface ProjectionPolicyHistoryResolveRequest {
+  readonly organizationId: string;
+  readonly evidence: ProjectionPolicyEvidenceResponse;
+  readonly references: readonly ReferencedPrincipalHead[];
+  readonly stillCurrent?: (() => boolean) | undefined;
+}
+
+export interface ResolvedProjectionPolicyHistory {
+  readonly policies: readonly VerifiedPrincipalPolicySelection[];
+  readonly stillCurrent: () => boolean;
+}
+
 export type PrincipalPolicyBundleCacher = (
   input: PrincipalPolicyBundleCacheRequest,
 ) => Promise<void>;
@@ -49,6 +65,11 @@ export type ReferencedPrincipalPolicyWarmer = ((
   input: ReferencedPrincipalPolicyWarmRequest,
 ) => Promise<void>) & {
   readonly cacheBundles?: PrincipalPolicyBundleCacher | undefined;
+  readonly resolveProjectionHistory?:
+    | ((
+        input: ProjectionPolicyHistoryResolveRequest,
+      ) => Promise<ResolvedProjectionPolicyHistory>)
+    | undefined;
   readonly resolveReference?:
     | ((
         input: PrincipalPolicyResolveRequest,
@@ -112,7 +133,25 @@ export function generationGuardedPrincipalPolicyWarmer(
   ): ReferencedPrincipalPolicyWarmer => {
     const guarded = guard(operation);
     const resolve = operation.resolveReference;
+    const resolveProjectionHistory = operation.resolveProjectionHistory;
     return Object.assign(guarded, {
+      ...(resolveProjectionHistory
+        ? {
+            resolveProjectionHistory: async (
+              input: ProjectionPolicyHistoryResolveRequest,
+            ) => {
+              const current = () =>
+                stillCurrent() && input.stillCurrent?.() !== false;
+              assertProjectionVerificationCurrent(current);
+              const result = await resolveProjectionHistory({
+                ...input,
+                stillCurrent: current,
+              });
+              assertProjectionVerificationCurrent(current);
+              return result;
+            },
+          }
+        : {}),
       ...(resolve
         ? {
             resolveReference: async (input: PrincipalPolicyResolveRequest) => {

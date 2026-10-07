@@ -3,15 +3,19 @@ import {
   KeyingVerificationError,
   type VerifiedAccessManifestCheckpointEvidence,
   type VerifiedContainerAccessManifest,
+  type VerifiedPrincipalPolicySelection,
 } from "@tearleads/crypto";
 import { rememberVerifiedContainerHeads } from "../containers/shared/heldContainerHeads";
 import type { DocumentPurgeCheckpoint } from "../persistence/documentPurgeCheckpointPersistence";
+import { PrincipalAuthorizationCheckpointUnavailableError } from "../persistence/principalAuthorizationCheckpoints";
 import type { PrincipalPolicyCheckpointEvidence } from "../principals/principalPolicyEvidence";
 import type { ExecSql } from "../sqlite/sqlSchema";
 import {
   enforceAccessManifestCheckpoints,
   validateAccessManifestCheckpoints,
 } from "./accessManifestCheckpointEnforcement";
+import { ProjectionDependencyUnavailableError } from "./dependencyUnavailable";
+import { projectionLifetimeGuard } from "./projectionLifetimes";
 import { assertProjectionVerificationCurrent } from "./types";
 
 export interface ProjectionCheckpointContext {
@@ -21,6 +25,7 @@ export interface ProjectionCheckpointContext {
   readonly localCheckpoints: Map<string, AccessManifestCheckpoint | null>;
   organizationId?: string | undefined;
   readonly policies: PrincipalPolicyCheckpointEvidence[];
+  readonly authorizationPolicies: VerifiedPrincipalPolicySelection[];
   readonly verifiedHeads: VerifiedAccessManifestCheckpointEvidence[];
   readonly verifiedManifests: VerifiedAccessManifestCheckpointEvidence[];
 }
@@ -42,6 +47,7 @@ export function createProjectionCheckpointContext(input: {
     localCheckpoints: new Map(),
     organizationId: input.organizationId,
     policies: [],
+    authorizationPolicies: [],
     verifiedHeads: [],
     verifiedManifests: [],
   };
@@ -85,15 +91,24 @@ export async function commitProjectionCheckpoints(
     readonly stillCurrent?: (() => boolean) | undefined;
   },
 ): Promise<void> {
+  input = {
+    ...input,
+    stillCurrent: projectionLifetimeGuard(context, input?.stillCurrent),
+  };
   assertProjectionVerificationCurrent(input?.stillCurrent);
   await enforceAccessManifestCheckpoints({
     documentPurgeCheckpoint: input?.documentPurgeCheckpoint,
     execSql: input?.execSql ?? context.execSql,
     organizationId: context.organizationId,
     policies: context.policies,
+    authorizationPolicies: context.authorizationPolicies,
     stillCurrent: input?.stillCurrent,
     verifiedHeads: context.verifiedHeads,
     verifiedManifests: context.verifiedManifests,
+  }).catch((error: unknown) => {
+    if (error instanceof PrincipalAuthorizationCheckpointUnavailableError)
+      throw new ProjectionDependencyUnavailableError(error.message);
+    throw error;
   });
   assertProjectionVerificationCurrent(input?.stillCurrent);
 }
@@ -106,13 +121,22 @@ async function validateProjectionCheckpoints(
     readonly stillCurrent?: (() => boolean) | undefined;
   },
 ): Promise<void> {
+  input = {
+    ...input,
+    stillCurrent: projectionLifetimeGuard(context, input?.stillCurrent),
+  };
   assertProjectionVerificationCurrent(input?.stillCurrent);
   await validateAccessManifestCheckpoints({
     execSql: input?.execSql ?? context.execSql,
     policies: context.policies,
+    authorizationPolicies: context.authorizationPolicies,
     stillCurrent: input?.stillCurrent,
     verifiedHeads: context.verifiedHeads,
     verifiedManifests: context.verifiedManifests,
+  }).catch((error: unknown) => {
+    if (error instanceof PrincipalAuthorizationCheckpointUnavailableError)
+      throw new ProjectionDependencyUnavailableError(error.message);
+    throw error;
   });
   assertProjectionVerificationCurrent(input?.stillCurrent);
 }

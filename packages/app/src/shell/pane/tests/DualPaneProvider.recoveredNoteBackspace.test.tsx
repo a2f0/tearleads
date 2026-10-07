@@ -77,7 +77,12 @@ for (const creator of apps) {
             title,
             attachmentName,
           );
-          await editSelectedNoteText(originalWindow, initialText);
+          // Recovery must start from an acknowledged source edit.
+          await editNoteAndWaitForUpload(
+            originalWindow,
+            getAttachedNoteDocumentId(),
+            initialText,
+          );
           const recoveryKey = await downloadPaneRecoveryKey(primary);
 
           // Keep Notes mounted across identity recovery.

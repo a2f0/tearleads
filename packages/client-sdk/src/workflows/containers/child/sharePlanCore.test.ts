@@ -51,6 +51,8 @@ test("a replacement policy refreshes only a principal the container grants", asy
         parentProjection: root,
         parentSecretKey: fixture.input.targetSecretKey,
         resolveProjectionUserKey: fixture.input.resolveTrustedUserIdentity,
+        warmReferencedPrincipalPolicies:
+          fixture.input.warmReferencedPrincipalPolicies,
       }),
       parentProjection: root,
     });

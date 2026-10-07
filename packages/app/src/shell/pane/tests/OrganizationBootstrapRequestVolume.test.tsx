@@ -52,8 +52,10 @@ test(
       budget: {
         // Root acknowledgement and verified adoption can each schedule a
         // root-lane pass; signed destination reads remain bounded at four.
-        total: 30,
+        total: 64,
         byRequest: {
+          // Compact projections move authorization history into bounded reads.
+          "GET /principals/history": 34,
           "GET /containers/:containerId/documents": 5,
           "POST /documents/:documentId/sync": 8,
           "POST /containers/parent-lanes/query": 5,
@@ -112,10 +114,11 @@ test(
       },
       mutations: [{ method: "POST", path: /^\/organizations$/u, count: 1 }],
       budget: {
-        total: 9,
+        total: 12,
         byRequest: {
           // The new organization metadata document needs signed discovery evidence.
           "GET /documents/:documentId/writer-projection": 1,
+          "GET /principals/history": 3,
           "GET /containers/:containerId/documents": 4,
           "GET /organizations/:organizationId/billing": 1,
           "GET /organizations/:organizationId/read-model": 1,

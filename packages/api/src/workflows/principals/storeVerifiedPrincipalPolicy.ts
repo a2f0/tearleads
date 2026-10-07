@@ -12,6 +12,7 @@ import {
   verifyStoredPrincipalPolicyForStateWithExecutor,
 } from "./getCurrentPrincipalPolicy";
 import { withPrincipalHistorySuccessorStep } from "./principalHistoryExecution";
+import { storeVerifiedPrincipalDirectoryBindings } from "./storeVerifiedPrincipalDirectoryBindings";
 
 /**
  * Persist all artifacts, verify the stored state against authenticated history,
@@ -50,5 +51,10 @@ export async function storeVerifiedPrincipalPolicyInTransaction(
     verifyStoredPrincipalPolicyForStateWithExecutor(tx, state),
   );
 
+  await storeVerifiedPrincipalDirectoryBindings({
+    executor: tx,
+    state,
+    ciphertext: input.encryptedPayload.ciphertext,
+  });
   return state;
 }

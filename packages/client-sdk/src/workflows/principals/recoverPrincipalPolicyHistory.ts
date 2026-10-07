@@ -18,6 +18,7 @@ import {
 import { ownPrincipalHistoryProtection } from "../../data/principals/principalHistoryProtection";
 import { principalHistoryStageProtection } from "../../data/principals/principalHistoryStageProtection";
 import { collectPrincipalPolicySignerPublicKeys } from "./policyVerification";
+import { validatePrincipalHistoryRecoveryAuthority } from "./principalHistoryRecoveryAuthority";
 import { publishReusablePrincipalHistoryPrefix } from "./principalHistoryRecoveryPrefix";
 import {
   PrincipalHistoryEvidenceUnavailableError,
@@ -126,7 +127,11 @@ async function acceptPage(
       keys.error === "not-found" ? "missing_dependency" : "signer_mismatch",
       "Principal history signer identity could not be authenticated",
     );
-  const externalAuthority = await input.loadExternalAuthority?.(entries);
+  const externalAuthority = await input.loadExternalAuthority?.(
+    entries.flatMap(({ state }) =>
+      state.externalAuthority ? [state.externalAuthority] : [],
+    ),
+  );
   const appended = await stage.verifier.append({
     entries,
     signerPublicKeys: keys.signerPublicKeys,
@@ -303,6 +308,8 @@ async function recover(
     allowEvidenceRebuild,
   );
   try {
+    if (stage.fromCache)
+      await validatePrincipalHistoryRecoveryAuthority(input, stage.verifier);
     await readRecoveryPages(input, stage);
     return await finishRecovery(input, stage, checkpoint);
   } catch (error) {

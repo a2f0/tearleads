@@ -20,7 +20,19 @@ lifetimes before and after asynchronous work. Without a provider, a private
 ephemeral key permits same-runtime reuse; a restart safely requires replay.
 Refreshing a session token expires outstanding leases while retaining that key
 for the same database, signing identity and API trust domain.
-Provider failures propagate instead of silently changing keys.
+Provider failures propagate instead of silently changing keys. Container and
+document workflow adapters retain the same lease in a private weak registry;
+their public runtime views do not expose custody callbacks.
+
+Standalone hosts can pass `withPrincipalHistoryProtection` to the public document
+or container workflow constructor, including the container store constructor.
+The exported `PrincipalHistoryProtectionLease` callback must supply a private
+32-byte key and trust context, keep them usable until its operation settles, then
+clear its owned key bytes. Its `stillCurrent` predicate must remain false after
+the owning database, identity, session authority or host lifetime changes.
+Derived document runtimes inherit this custody through the private registry.
+Omitting custody leaves compact projection recovery unavailable; hosts using
+these constructors against compact projections must supply it.
 
 The app derives a separate purpose from its existing protected SQLite keyring
 root, binding the API and identity. It releases keyring sessions after derivation.
@@ -39,12 +51,17 @@ projection checkpoint batch also carries every verified directory/Admins
 dependency. In-memory reuse preserves that organization binding and lifetime,
 rechecks all dependency pins, and refreshes missing evidence when a durable pin
 advances. Conflicting pins still fail. Runtime offline state selects local-only
-recovery. Explicit full-bundle cache operations and embedded projection evidence
-remain separate paths; this does not complete all runtime history adoption.
+recovery. Public projection evidence uses the separate paged path described
+below; explicit full-bundle operations still require further runtime adoption.
 
 The optional `retainedReferences` selection follows the crypto verifier's bounded
 retention contract. Supply already authenticated external authority through
-`loadExternalAuthority` when policy signatures cite another principal. The helper
+`loadExternalAuthority` when policy signatures cite another principal. This callback
+receives exact authority reference heads, including the latest citation retained
+in authenticated cached progress. It must resolve those heads through the client's
+verified authority lineage. Reusing a stage or prefix rechecks that citation even
+when later pages no longer cite external authority. The separate authority-bound
+verification context retires hints made before this check existed. The helper
 checks signatures, authorization, continuity, exact-head completion, current
 keying artifacts, and the latest local checkpoint. It returns a sparse
 `VerifiedPrincipalPolicyCurrent`; it never represents omitted entries as a full
@@ -92,9 +109,9 @@ greenfield schema contract, obsolete local tables fail with an explicit reset
 error; this implementation does not migrate or automatically erase a database.
 The authenticated prefix format is v2.
 
-Saved stages are separate for each exact head, local trust context, and retained
-reference selection. Operations for different heads or selections do not discard
-each other's checked prefixes.
+Saved stages are separate for each exact head and local trust context. Different
+citation selections reuse the same authenticated progress, then verify their own
+reference proofs and current checkpoints before returning a policy.
 One completed prefix is shared across target heads and reference selections in a
 scope bound to organization, principal, and trust context. The private local key
 authenticates each reusable hint.
@@ -103,12 +120,11 @@ preserved when recovering an older target. Older completions cannot replace a
 newer prefix.
 A completed same-head prefix still needs a live pinned read and current-artifact
 verification. This cache never supplies an application trust pin.
-Interrupted stages intentionally remain separate by reference selection; a
-changed selection can reuse a completed prefix, but not another selection's
-unfinished stage.
-Runtime projection recovery now creates these stages during normal browsing.
-Distinct citation selections accumulate until organization reset; #2448 still
-tracks their reclamation.
+An interrupted stage can resume for a different citation selection at the same
+head. Concurrent writers compare saved progress and a loser retries; no caller
+can publish over another accepted page. Normal browsing creates at most one
+stage per exact head and trust context. Older target heads and abandoned stages
+still accumulate until organization reset; #2448 tracks their reclamation.
 
 Reusable progress has no embedded checkpoint or reference selection. At finish,
 recovery obtains each requested entry and the latest local checkpoint through
@@ -179,17 +195,17 @@ fails strict Admins verification. The call remains unavailable or fails
 verification even if that older recovery path could succeed. This preserves
 bounded page reads and the scoped authority checks. A held full bundle is still
 usable through its existing verification path, and hosts without a paged resolver
-retain full-bundle warming. The authorized public-history projection work tracked
-in #2448 must address deleted and nonmember group citations without requiring
-current policy membership.
+retain full-bundle warming. Public projection-history grants separately cover
+deleted and nonmember group citations through current object access, without
+requiring current policy membership.
 
 Paged current envelopes also supply encrypted key candidates to container
 unwrapping; see [the key-candidate trust boundary](principal-key-envelope-candidates.md).
 
 Online recovery may reuse completed authenticated local evidence after a network
-failure, a server error, or a deadline reported by the transport. It keeps the
-same private key, organization, requested citation, and lifetime guard. It rechecks
-durable pins before admission. Authentication/authorization refusals, head conflicts,
+failure, a server error, or the built-in read deadline. It keeps the same private
+key, organization, requested citation, and lifetime guard, and rechecks durable
+pins before admission. Authentication/authorization refusals, head conflicts,
 and malformed or invalid signed evidence never trigger this fallback. A missing
 local prefix remains a dependency-unavailable error. Offline reuse establishes
 previously verified state; it does not claim server currentness during an outage.
@@ -206,3 +222,58 @@ discard each other's unreadable hints, including during offline reads. They
 remain unable to admit unverified history, but may require repeated online
 genesis replay. Hosts that need shared or offline reuse must provide the same
 private protection key and trust context to those instances.
+
+The internal public-history recovery path stores no keying artifacts. It uses
+its own protected scope, including organization, strict Admins mode and the
+bound authority group. A completed prefix can prove an older source head through
+its private inclusion index, or extend to a newer source without replaying prior
+signatures. Each online read checks the returned public head artifacts against
+that same root. Offline reads require the local protection key; an unreadable
+offline hint is left intact for its owner. Completed public stages are removed
+after prefix publication, and reference selections do not create separate stages.
+
+Public progress also authenticates the greatest cited Admins head. Before reusing
+an incomplete stage or completed group prefix, recovery proves that citation
+belongs to the supplied verified Admins lineage. A valid Admins successor can
+reuse the group prefix without replaying its signatures; a fork cannot. The v2
+public verification context discards hints made before this binding existed.
+If a newer cached group prefix cites Admins beyond an older supplied source,
+online recovery rebuilds the requested group history once. Offline recovery is
+unavailable unless the supplied authority covers the cached citation; a newer
+retained Admins root alone cannot extend the authority of an older source.
+
+This primitive returns verified public history, not a current policy or an
+admitted application checkpoint. Its caller must bind the source heads and any
+external authority to verified organization directory payloads, select needed
+citations and genesis through inclusion proofs, and check durable local pins.
+The public `recoverProjectionPolicyHistory` workflow performs these binding and
+selection checks: organization and genesis first, signed directory payloads,
+strict Admins histories, then dependent group histories. It selects citations
+in batches of at most 128 proofs with a separate checkpoint proof. It replays
+only the affected principal once when a selected disposable proof is lost.
+A source behind a newer durable pin needs a verified prefix extending that pin;
+otherwise recovery reports unavailable evidence and leaves the pin intact.
+
+Container and document projection responses carry exact signed heads and scoped
+history grants, plus only the directory payloads needed to bind those heads.
+Public signed states travel separately in bounded pages. The projection GET
+and page routes can return a rolled-back preparation continuation; the API client
+retries validated progress with a fresh 15-second deadline for each response,
+including its body. History hints cover manifest and directory payload arrays;
+principal histories use the authenticated durable page cache instead.
+
+The runtime warmer supplies private public-history recovery. Standalone hosts
+provide its `resolveProjectionHistory` capability explicitly. Final projection
+admission rechecks the recovered lease and historical authorization against the
+latest durable pins in the same transaction as access checkpoint writes. A new
+pin without a retained proof defers admission; a conflicting retained hash is an
+integrity failure. Historical authorization never advances current-policy pins.
+
+A public prefix memo may outlive a projection rejected by later object-authority
+checks. When another online source has a different signed head, the SDK can
+verify that requested chain from genesis once; it still checks durable pins and
+object authority. Offline recovery cannot replace a conflicting prefix.
+
+Resource budgets, durable client mutation recovery and the beyond-16,384
+acceptance run remain tracked in
+[#2448](https://github.com/a2f0/tearleads/issues/2448).

@@ -94,6 +94,32 @@ introduced.
 The live page also provides a positive control for the expansion-query assertion
 and compares its timestamp with the same row decoded by the native ORM mapping.
 
+## Compact principal-history projection costs
+
+The paged projection verifier reauthorizes exact directory, Admins and member
+heads even when their signatures have a local verified prefix. In the group
+mutation fixture, creating the second group and adding an already enrolled peer
+used up to 38 requests combined. Earlier profiles measured creation/add counts
+of 16/19 and 13/22, but both the full app suite and fresh-process profiles also
+reproduced 16/22. Their history counts were 9/12: each phase can independently
+reauthorize the organization, Admins and Members histories, including repeated
+reads of the same heads. The earlier assumption that the three requests only
+moved between phases was incorrect.
+
+The separate add allowance is 22 total and 12 history requests. The test also
+caps creation plus addition at 38 total and 21 history reads, including calls
+between the two measurements. This records the observed additional read cost;
+it does not establish the earlier 35-request total as an invariant.
+It retains one compound policy commit for the add, zero document writes, and
+the existing limits for every other route. First enrollment also reproduced
+three additional history reads (78 total, 45 history), with two compound commits
+and unchanged counts for all other routes. Its creation/add pair is capped at
+94 requests with 54 history reads, allowing both phases their observed maxima.
+
+These are request counts, not latency measurements. Deduplicating repeated
+exact-head checks remains part of #2448; this test correction is not a
+performance improvement or completion of that issue.
+
 ## Measurement method
 
 Ten independent processes per scenario use the real application, SDK and test API

@@ -108,13 +108,6 @@ export function projectionHistoryArrays(
       );
   };
   const evidence = projection.policyEvidence;
-  if (evidence.organization)
-    add(
-      `organization:${evidence.organization.currentState.principalId}`,
-      evidence.organization.previousStates,
-    );
-  for (const group of evidence.groups)
-    add(`group:${group.currentState.principalId}`, group.previousStates);
   add("organizationPayloads", evidence.organizationPayloads);
   if (!isDocumentProjection(projection)) path("container", projection);
   else {

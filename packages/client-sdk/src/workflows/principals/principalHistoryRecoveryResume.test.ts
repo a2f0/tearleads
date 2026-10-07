@@ -40,7 +40,7 @@ test("a rejected resumed pin is discarded before the next genesis replay", async
   }
 });
 
-test("different retained selections keep their own resumable prefixes", async () => {
+test("different retained selections share authenticated resumable progress", async () => {
   const fixture = await createRecoveryFixture(history);
   try {
     const first = history.bundle.previousStates[0]?.state;
@@ -59,7 +59,7 @@ test("different retained selections keep their own resumable prefixes", async ()
       { failure: { status: 503 } },
     );
     expect(await fixture.db.select().from(principalHistoryStages)).toHaveLength(
-      2,
+      1,
     );
     fixture.controls.failAfterVersion = null;
     const current = await recoverPrincipalPolicyHistory(fixture.options);
@@ -70,7 +70,7 @@ test("different retained selections keep their own resumable prefixes", async ()
     expect(
       retained.policy.retainedHistory.map(({ state }) => state.version),
     ).toEqual([1, 66]);
-    expect(fixture.requests).toEqual([0, 32, 0, 32, 32, 64, 32, 64]);
+    expect(fixture.requests).toEqual([0, 32, 32, 32, 64, 65]);
   } finally {
     fixture.close();
   }
@@ -86,6 +86,41 @@ test("an expired lifetime is recognized by SDK cancellation handling", async () 
       }).catch(isProjectionVerificationCancelledError),
     ).resolves.toBe(true);
     expect(fixture.requests).toEqual([]);
+  } finally {
+    fixture.close();
+  }
+});
+
+test("shared progress authenticates each new citation without multiplying stages", async () => {
+  const fixture = await createRecoveryFixture(history);
+  try {
+    await recoverPrincipalPolicyHistory(fixture.options);
+    const state = history.bundle.previousStates[15]?.state;
+    if (!state) throw new Error("Missing historical citation");
+    const reference = principalPolicyHead({
+      ...history.bundle,
+      currentState: state,
+    });
+    fixture.requests.length = 0;
+    await expect(
+      recoverPrincipalPolicyHistory({
+        ...fixture.options,
+        retainedReferences: [{ ...reference, stateHash: "f".repeat(64) }],
+        offline: true,
+      }),
+    ).rejects.toMatchObject({ code: "object_mismatch" });
+    const recovered = await recoverPrincipalPolicyHistory({
+      ...fixture.options,
+      retainedReferences: [reference],
+      offline: true,
+    });
+    expect(
+      recovered.policy.retainedHistory.map(({ state }) => state.version),
+    ).toEqual([16, 66]);
+    expect(fixture.requests).toEqual([]);
+    expect(await fixture.db.select().from(principalHistoryStages)).toHaveLength(
+      1,
+    );
   } finally {
     fixture.close();
   }

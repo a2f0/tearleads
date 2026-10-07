@@ -3,7 +3,11 @@ import { createTestExecSql } from "@tearleads/test-utils";
 import { deriveOrganizationMetadataContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
 import type { ContainerWriterProjectionResponse } from "@tearleads/validators/response";
 import { createMutationResponseFromRequest } from "../../../../test/helpers/containerFixtures";
-import { policySnapshot } from "../../../../test/helpers/organizationPolicyHistory";
+import {
+  projectionDirectoryPayload,
+  projectionHistoryPages,
+  projectionPolicySource,
+} from "../../../../test/helpers/projectionPolicyHistory";
 import { createReservedGroupAdvance } from "../../../../test/helpers/reservedGroupAdvance";
 import type { RemoteContainer, RemoteContainerHydrationState } from "./types";
 import { verifyRemoteContainerDestination } from "./verifiedDestination";
@@ -24,9 +28,11 @@ async function staleMetadataRoot() {
     organizationId: artifacts.organizationId,
     path: [created.accessManifest],
     policyEvidence: {
-      groups: [scenario.admin, scenario.advanced].map(policySnapshot),
-      organization: policySnapshot(scenario.advancedDirectory),
-      organizationPayloads: [scenario.advancedDirectory.currentPayload],
+      groups: [scenario.admin, scenario.advanced].map(projectionPolicySource),
+      organization: projectionPolicySource(scenario.advancedDirectory),
+      organizationPayloads: [
+        projectionDirectoryPayload(scenario.advancedDirectory),
+      ],
     },
   };
   const listed: RemoteContainer = {
@@ -59,7 +65,25 @@ test("a stale prefetched metadata root is read once more, then reported", async 
     const state = {
       containersById: new Map(),
       runtime: {
+        withPrincipalHistoryProtection: async (
+          operation: (lease: {
+            protection: { localKey: Uint8Array; context: string };
+            stillCurrent: () => boolean;
+          }) => Promise<unknown>,
+        ) =>
+          operation({
+            protection: {
+              localKey: new Uint8Array(32).fill(19),
+              context: "metadata-root-test",
+            },
+            stillCurrent: () => true,
+          }),
         apiClient: {
+          ...projectionHistoryPages([
+            scenario.admin,
+            scenario.advanced,
+            scenario.advancedDirectory,
+          ]),
           evictContainerWriterProjection: (containerId: string) => {
             evicted.push(containerId);
           },

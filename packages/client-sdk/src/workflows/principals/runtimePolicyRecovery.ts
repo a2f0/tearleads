@@ -7,6 +7,7 @@ import {
   type ReferencedPrincipalPolicyWarmer,
 } from "../../data/keyingProjectionVerification/types";
 import type { PrincipalHistoryProtectionLease } from "../../data/principals/principalHistoryProtection";
+import { readPrincipalHistoryProtection } from "../../data/principals/principalHistoryRuntime";
 import type { SecurityIncidentReporter } from "../../data/securityIncidents";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import type { TrustedUserIdentityResolver } from "../../data/trustedUserIdentity";
@@ -22,7 +23,12 @@ import {
 } from "./recoverScopedPrincipalPolicyHistory";
 
 export interface PrincipalPolicyRecoveryRuntime {
-  readonly apiClient: Partial<Pick<ApiClient, "getPrincipalPolicyPages">>;
+  readonly apiClient: Partial<
+    Pick<
+      ApiClient,
+      "getPrincipalPolicyPages" | "getProjectionPolicyHistoryPages"
+    >
+  >;
   readonly infra: { readonly execSql: ExecSql };
   readonly state?: { readonly online: boolean } | undefined;
   readonly util: { readonly reportSecurityIncident: SecurityIncidentReporter };
@@ -36,7 +42,7 @@ export interface PrincipalPolicyRecoveryRuntime {
 export function createRuntimePrincipalPolicyResolver(
   runtime: PrincipalPolicyRecoveryRuntime,
 ): ReferencedPrincipalPolicyWarmer["resolveReference"] {
-  const lease = runtime.withPrincipalHistoryProtection;
+  const lease = readPrincipalHistoryProtection(runtime);
   const readPages = runtime.apiClient.getPrincipalPolicyPages?.bind(
     runtime.apiClient,
   );

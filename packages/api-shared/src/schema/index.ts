@@ -61,11 +61,13 @@ export {
   organizationRosterEntries,
   organizations,
 } from "./organizations";
+export { principalDirectoryBindings } from "./principalDirectoryBindings";
 export { principalHistoryIndexNodes } from "./principalHistoryIndexNodes";
 export {
   type PrincipalHistoryVerificationKind,
   principalHistoryProgress,
 } from "./principalHistoryProgress";
+export { principalPolicyCommits } from "./principalPolicyCommits";
 export { principalPolicyMutationAcknowledgements } from "./principalPolicyMutationAcknowledgements";
 export {
   principalContainerGrantProjection,

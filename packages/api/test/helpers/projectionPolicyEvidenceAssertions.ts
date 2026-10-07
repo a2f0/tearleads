@@ -8,17 +8,8 @@ export function expectPublicProjectionPolicyEvidence(
   expect(evidence.organization).not.toBeNull();
   for (const group of [evidence.organization, ...evidence.groups]) {
     if (!group) throw new Error("Expected organization policy snapshot");
-    expect(Object.keys(group).sort()).toEqual([
-      "currentGrants",
-      "currentProjection",
-      "currentState",
-      "previousStates",
-    ]);
-    for (const predecessor of group.previousStates)
-      expect(Object.keys(predecessor).sort()).toEqual([
-        "grants",
-        "projection",
-        "state",
-      ]);
+    expect(Object.keys(group).sort()).toEqual(["grant", "head"]);
+    expect(group.grant.length).toBeGreaterThan(0);
+    expect(group.grant.length).toBeLessThanOrEqual(4096);
   }
 }

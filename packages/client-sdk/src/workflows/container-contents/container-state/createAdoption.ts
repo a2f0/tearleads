@@ -10,6 +10,7 @@ import {
   isKeyingVerificationError,
   reportKeyingVerificationErrorInCauseChain,
 } from "../../../data/keyingProjectionVerification/error";
+import { createRuntimePrincipalPolicyWarmer } from "../../principals/runtimePolicyWarmer";
 import type { ContainerState } from "../remoteHydration";
 import { settleContainerCreateIntent } from "./createIntentSettlement";
 import type {
@@ -61,6 +62,9 @@ async function verifyAdoptableProjection(input: {
     execSql: input.state.runtime.infra.execSql,
     projection,
     resolveUserKey: input.state.resolveProjectionUserKey,
+    warmReferencedPrincipalPolicies: createRuntimePrincipalPolicyWarmer(
+      input.state.runtime,
+    ),
   });
   const head = path.at(-1);
   // One read naming another container says nothing signed about this id.

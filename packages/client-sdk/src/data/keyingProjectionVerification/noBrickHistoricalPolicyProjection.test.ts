@@ -14,11 +14,9 @@ import {
   manifestBundle,
   successor,
 } from "../../../test/helpers/ancestorCitationScenario";
-import {
-  createOrganizationHistoryFixture,
-  policySnapshot,
-} from "../../../test/helpers/organizationPolicyHistory";
+import { createOrganizationHistoryFixture } from "../../../test/helpers/organizationPolicyHistory";
 import { principalPolicyHead } from "../../../test/helpers/principalPolicyFixtures";
+import { projectionPolicyWarmer } from "../../../test/helpers/projectionPolicyHistory";
 import { createProjectionCheckpointContext } from "./checkpointContext";
 import { verifyContainerManifestPath } from "./containerPathVerification";
 import { verifyProjectionPolicyEvidence } from "./projectionPolicyEvidence";
@@ -84,19 +82,17 @@ test("fresh devices receive verifiable authority after its citation becomes hist
   for (const deleted of [false, true]) {
     if (deleted) recorder.record({ action: "DeleteAuthority" });
     const database = createNativeTestExecSql();
-    const history = data.evidence(deleted);
+    const history = data.projectionEvidence(deleted);
     try {
-      const policies = await verifyProjectionPolicyEvidence({
-        execSql: database.execSql,
+      const { policies } = await verifyProjectionPolicyEvidence({
         organizationId: data.organizationId,
-        resolveUserKey: data.resolveTrustedUserIdentity,
-        evidence: {
-          organization: policySnapshot(
-            deleted ? data.afterDeletion : data.afterAddition,
-          ),
-          organizationPayloads: history.organizationPayloads,
-          groups: history.groups,
-        },
+        references: [principalPolicyHead(data.created)],
+        warmReferencedPrincipalPolicies: projectionPolicyWarmer({
+          execSql: database.execSql,
+          bundles: data.projectionBundles,
+          resolveUserKey: data.resolveTrustedUserIdentity,
+        }),
+        evidence: history,
       });
       // The dependent's frozen citation still names version 1. The group has
       // advanced to version 2; its old membership comes only from signed history.

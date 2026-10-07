@@ -12,6 +12,7 @@ import {
   getPaneRoot,
   getPaneUserId,
   interact,
+  provisionPaneFromMenu,
   readPaneRecoveryKey,
   renderDualPane,
   restorePaneFromRecoveryKey,
@@ -37,6 +38,7 @@ import {
   useTestApiAppHandlers,
 } from "../../../../test/helpers/mswServer";
 import { waitForCondition } from "../../../../test/helpers/waitForCondition";
+import { waitForPersonalBootstrap } from "../../../../test/helpers/waitForPersonalBootstrap";
 
 const ATTACHMENT_NAME = "peer-one.png";
 const LIVE_NOTE_TITLE = "Peer one note with attachment";
@@ -284,12 +286,17 @@ test(
   "same-identity sessions converge detach, move-to-Trash, and purge without post-commit Refresh",
   async () => {
     useTestApiAppHandlers();
-    const view = renderDualPane();
+    // Provision once: a background auto-register effect would race the explicit
+    // recovery action when it clears the secondary pane's previous identity.
+    const view = renderDualPane({ autoProvisionRight: false });
     const primaryPane = getPaneRoot(view, "left");
     const secondaryPane = getPaneRoot(view, "right");
 
+    await provisionPaneFromMenu(secondaryPane);
     await waitForDualPaneProvisioning(primaryPane, secondaryPane);
+    await waitForPersonalBootstrap(2);
     await restorePrimaryIdentityIntoSecondary(primaryPane, secondaryPane);
+    await waitForMutationRuntimesToSettle();
     await openExplorer(secondaryPane);
 
     // Seed both remote documents before opening the observing primary Explorer.

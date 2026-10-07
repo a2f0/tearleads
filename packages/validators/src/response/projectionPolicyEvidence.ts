@@ -1,15 +1,19 @@
 import type { z } from "zod";
 import { arraySchema, loosePlainObject } from "../schema";
-import {
-  PrincipalPolicySnapshotResponseSchema,
-  PrincipalStatePayloadResponseSchema,
-} from "./principalSnapshot";
+import { PrincipalPolicyHistorySourceResponseSchema } from "./principalPolicySnapshotPage";
+import { ReferencedPrincipalStateResponseSchema } from "./principalReference";
+import { PrincipalStatePayloadResponseSchema } from "./principalSnapshot";
 
-/** Public authorization history only; never group payloads or member envelopes. */
+/** Pinned public history sources plus the signed directory payloads they need. */
 export const ProjectionPolicyEvidenceResponseSchema = loosePlainObject({
-  organization: PrincipalPolicySnapshotResponseSchema.nullable(),
-  organizationPayloads: arraySchema(PrincipalStatePayloadResponseSchema),
-  groups: arraySchema(PrincipalPolicySnapshotResponseSchema),
+  organization: PrincipalPolicyHistorySourceResponseSchema.nullable(),
+  organizationPayloads: arraySchema(
+    loosePlainObject({
+      reference: ReferencedPrincipalStateResponseSchema,
+      payload: PrincipalStatePayloadResponseSchema,
+    }),
+  ),
+  groups: arraySchema(PrincipalPolicyHistorySourceResponseSchema),
 });
 
 export type ProjectionPolicyEvidenceResponse = z.infer<

@@ -284,12 +284,9 @@ Uncommitted cache hints publish only after a successful outer commit.
 This changes the wire contract in one release; clients and server must be updated
 together. There is no compatibility capability negotiation.
 
-This is still a partial transport integration: other workflows can collect cold
-history within one request, clients still collect GET pages into full bundles,
-and durable exact-replay acknowledgements remain required. The preferred
-entry/byte/time budgets do not bound a single large state's artifacts or all
-proof selection and cache publication work. Keep #2442 and #2448 open until
-durable paged SDK recovery and the full resource-bound tests pass.
+Transport integration remains partial: some workflows collect full histories.
+The preferred budgets do not bound a large state, proof selection, or cache
+publication. Keep #2442 and #2448 open until the full HTTP resource tests pass.
 
 ## Mutation acknowledgements
 
@@ -309,3 +306,6 @@ the greenfield wire contract for standalone policy writes, compound group and
 organization commits, and the organization receipt on group creation/deletion.
 Other embedded-history reads and local full-history persistence still need
 bounded processing; compact mutation receipts alone do not complete #2442 or #2448.
+
+See [compound commit outcomes](developer/principal-policy-outcomes.md) for
+recovery after a committed response is lost.

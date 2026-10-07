@@ -15,6 +15,7 @@ import {
   type PrincipalPolicyPageReadOptions,
   readPrincipalPolicyPages,
 } from "./principalPolicyPages";
+import { readProjectionPolicyHistoryPages } from "./projectionPolicyHistoryPages";
 import { dedupedRequest } from "./requestInternals";
 import {
   commitOrganizationGroupPolicy,
@@ -30,6 +31,13 @@ export class PrincipalPolicyRequests {
     >,
     private readonly clearWriterProjectionCaches: () => void,
   ) {}
+
+  publicPages(
+    source: Parameters<typeof readProjectionPolicyHistoryPages>[1],
+    options: Parameters<typeof readProjectionPolicyHistoryPages>[2] = {},
+  ) {
+    return readProjectionPolicyHistoryPages(this.runtime, source, options);
+  }
 
   pages(
     principalType: "group" | "organization",
@@ -63,7 +71,13 @@ export class PrincipalPolicyRequests {
       : dedupedRequest(this.cache, key, request);
   }
 
-  put(
+  put(...args: Parameters<PrincipalPolicyRequests["putResult"]>) {
+    return this.putResult(...args).then((result) =>
+      result.ok ? result.data : null,
+    );
+  }
+
+  putResult(
     principalType: "organization",
     principalId: string,
     input: OrganizationPrincipalPolicyRequest,
@@ -81,9 +95,7 @@ export class PrincipalPolicyRequests {
         ...options,
       },
       operation: putPrincipalPolicyOperation,
-    })
-      .then((result) => (result.ok ? result.data : null))
-      .finally(() => this.cache.delete(key));
+    }).finally(() => this.cache.delete(key));
   }
 
   async commitResult(

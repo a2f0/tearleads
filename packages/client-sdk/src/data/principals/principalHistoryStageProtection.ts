@@ -12,12 +12,11 @@ export function principalHistoryStageId(
   organizationId: string,
   head: ReferencedPrincipalHead,
   context: string,
-  retainedReferences: readonly ReferencedPrincipalHead[],
 ) {
   return toFingerprint(
     new TextEncoder().encode(
       serializeKeyingCanonicalJson([
-        "tearleads.sdk.principal-history-stage.v1",
+        "tearleads.sdk.principal-history-stage.v2",
         organizationId,
         head.principalType,
         head.principalId,
@@ -26,16 +25,6 @@ export function principalHistoryStageId(
         head.stateHash,
         head.keyFingerprint,
         context,
-        [...retainedReferences]
-          .sort((a, b) => a.version - b.version)
-          .map((reference) => [
-            reference.principalType,
-            reference.principalId,
-            reference.version,
-            reference.keyEpoch,
-            reference.stateHash,
-            reference.keyFingerprint,
-          ]),
       ]),
     ),
   );

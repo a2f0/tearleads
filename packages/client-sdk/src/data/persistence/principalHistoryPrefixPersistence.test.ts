@@ -84,6 +84,35 @@ test("a rebuilt root at the same version can repair a completed prefix", async (
   }
 });
 
+test.each([false, true])(
+  "a lower replay replaces only its rejected prefix: superseded=%s",
+  async (superseded) => {
+    const sqlite = await createTestExecSql("principal-prefix-lower-repair");
+    const input = { execSql: sqlite.execSql, stillCurrent: () => true };
+    try {
+      const rejected = prefix(66);
+      const replacement = prefix(32);
+      const concurrent = {
+        ...rejected,
+        progress: "concurrent-verified-prefix",
+      };
+      await savePrincipalHistoryPrefix({ ...input, prefix: rejected });
+      if (superseded)
+        await savePrincipalHistoryPrefix({ ...input, prefix: concurrent });
+      await savePrincipalHistoryPrefix({
+        ...input,
+        prefix: replacement,
+        rejectedPrefix: rejected,
+      });
+      expect(
+        await loadPrincipalHistoryPrefix(sqlite.execSql, rejected.scopeId),
+      ).toEqual(superseded ? concurrent : replacement);
+    } finally {
+      sqlite.close();
+    }
+  },
+);
+
 test.each(["save", "discard"] as const)(
   "a retired lifetime cannot %s a completed prefix",
   async (operation) => {

@@ -1,26 +1,23 @@
 import { expect, test } from "bun:test";
 import {
   computeContainerKekRecipientTargetHash,
-  generateKemSeedAndKeyPair,
   makeVerifiedPrincipalPolicy,
 } from "@tearleads/crypto";
 import { createTestExecSql } from "@tearleads/test-utils";
 import type { ContainerMutationRequest } from "@tearleads/validators/request";
 import type { ContainerWriterProjectionResponse } from "@tearleads/validators/response";
 import {
-  createAuthor,
-  createMutationResponseFromRequest,
-  SIGNED_AT,
-} from "../../../../test/helpers/containerFixtures";
-import { buildInitialGroupPolicyRequest } from "../../../../test/helpers/groupMetadata";
-import { createSuccessorGroupPolicyBundle } from "../../../../test/helpers/groupPolicyFixtures";
-import { policySnapshot } from "../../../../test/helpers/organizationPolicyHistory";
+  ADMIN_GROUP_ID,
+  ORGANIZATION_ID,
+  ROOT_CONTAINER_ID,
+  setUpAdminGroupRoot,
+} from "../../../../test/helpers/adminGroupRoot";
+import { createMutationResponseFromRequest } from "../../../../test/helpers/containerFixtures";
+import { principalPolicyHead } from "../../../../test/helpers/principalPolicyFixtures";
 import {
-  organizationPolicyBundleFromInitialRequest,
-  policyBundleFromInitialRequest,
-  principalPolicyHead,
-} from "../../../../test/helpers/principalPolicyFixtures";
-import { createTestTrustedUserIdentityResolver } from "../../../../test/helpers/trustedUserIdentity";
+  projectionHistoryPages,
+  projectionPolicyWarmer,
+} from "../../../../test/helpers/projectionPolicyHistory";
 import { heldContainerSnapshot } from "../../../data/containers/shared/heldContainerHeads";
 import { unwrapContainerKekPath } from "../../../data/documents/shared/containerKekPath";
 import {
@@ -32,122 +29,8 @@ import { containerStateHasCurrentGroupGrant } from "../../container-contents/con
 import type { ContainerWorkflowRuntime } from "../../container-contents/container-state/types";
 import type { ContainerState } from "../../container-contents/remoteHydration";
 
-import { buildInitialOrganizationPolicyRequest } from "../../registration/registerIdentity";
-import {
-  buildRootContainerCreatePlan,
-  rootContainerWriterProjectionFromCreatePlan,
-} from "../root/create";
 import { buildMaterializedContainerRekeyPlan } from "./rekey";
 import { shareRemoteContainerWithGroup } from "./share";
-
-const ADMIN_GROUP_ID = "admins-group";
-const ORGANIZATION_ID = "organization-1";
-const ROOT_CONTAINER_ID = "root-container";
-const USER_ID = "remaining-admin";
-async function setUpAdminGroupRoot() {
-  const { author, signingPublicKey } = await createAuthor({
-    organizationId: ORGANIZATION_ID,
-    userId: USER_ID,
-  });
-  const memberKem = generateKemSeedAndKeyPair();
-  const initialAdminGroup = await buildInitialGroupPolicyRequest({
-    creatorEncapsulationKeyPair: memberKem,
-    grants: [{ accessLevel: "admin", containerId: ROOT_CONTAINER_ID }],
-    groupId: ADMIN_GROUP_ID,
-    name: "Admins",
-    signerUserId: USER_ID,
-    signingFingerprint: author.signerKeyFingerprint,
-    signingKeyPair: {
-      signingPrivateKey: author.signerPrivateKey,
-      signingPublicKey,
-    },
-  });
-  const epochOnePolicy =
-    await policyBundleFromInitialRequest(initialAdminGroup);
-  const epochTwoPolicy = await createSuccessorGroupPolicyBundle({
-    author,
-    groupId: ADMIN_GROUP_ID,
-    groupKem: generateKemSeedAndKeyPair(),
-    memberPublicKey: memberKem.publicKey,
-    previousBundle: epochOnePolicy,
-    signedAt: new Date(
-      Date.parse(epochOnePolicy.currentState.signedAt) + 1_000,
-    ).toISOString(),
-    userId: USER_ID,
-  });
-  const initialMembersGroup = await buildInitialGroupPolicyRequest({
-    creatorEncapsulationKeyPair: memberKem,
-    groupId: "members-group",
-    name: "Members",
-    signerUserId: USER_ID,
-    signingFingerprint: author.signerKeyFingerprint,
-    signingKeyPair: {
-      signingPrivateKey: author.signerPrivateKey,
-      signingPublicKey,
-    },
-  });
-  const membersPolicy =
-    await policyBundleFromInitialRequest(initialMembersGroup);
-  const initialOrganizationPolicy = await buildInitialOrganizationPolicyRequest(
-    {
-      adminGroupId: ADMIN_GROUP_ID,
-      encapsulationPublicKey: memberKem.publicKey,
-      groupHeads: [
-        principalPolicyHead(epochTwoPolicy),
-        principalPolicyHead(membersPolicy),
-      ],
-      memberGroupId: "members-group",
-      organizationId: ORGANIZATION_ID,
-      signingKeyPair: {
-        signingPrivateKey: author.signerPrivateKey,
-        signingPublicKey,
-      },
-      userId: USER_ID,
-    },
-  );
-  const organizationPolicy = await organizationPolicyBundleFromInitialRequest(
-    ORGANIZATION_ID,
-    initialOrganizationPolicy,
-  );
-  const containerKey = crypto.getRandomValues(new Uint8Array(32));
-  const root = await buildRootContainerCreatePlan({
-    adminGroup: initialAdminGroup,
-    author,
-    containerId: ROOT_CONTAINER_ID,
-    containerKey,
-    metadataDocumentId: "root-metadata-document",
-    recipientEncapsulationPublicKey: memberKem.publicKey,
-    signedAt: SIGNED_AT,
-  });
-  expect(
-    Reflect.get(root.plan.request.principalPolicies[0] ?? {}, "grants"),
-  ).toEqual(initialAdminGroup.initialGroupPolicy.grants);
-  const initialProjection = rootContainerWriterProjectionFromCreatePlan(
-    root.plan,
-  );
-  initialProjection.policyEvidence = {
-    organization: policySnapshot(organizationPolicy),
-    organizationPayloads: [organizationPolicy.currentPayload],
-    groups: [policySnapshot(epochTwoPolicy)],
-  };
-  const resolveUserIdentity = createTestTrustedUserIdentityResolver({
-    encapsulationPublicKey: memberKem.publicKey,
-    signingKeyFingerprint: author.signerKeyFingerprint,
-    signingPublicKey,
-    userId: USER_ID,
-  });
-
-  return {
-    author,
-    containerKey,
-    epochOnePolicy,
-    epochTwoPolicy,
-    initialProjection,
-    memberKem,
-    organizationPolicy,
-    resolveUserIdentity,
-  };
-}
 
 test("current group grant verification returns false when projection verification expires", async () => {
   const {
@@ -155,6 +38,7 @@ test("current group grant verification returns false when projection verificatio
     initialProjection,
     organizationPolicy,
     resolveUserIdentity,
+    projectionBundles,
   } = await setUpAdminGroupRoot();
   const { close, execSql } = await createTestExecSql(
     "container-group-grant-verification-generation",
@@ -162,12 +46,26 @@ test("current group grant verification returns false when projection verificatio
   let current = true;
   const runtime = {
     apiClient: {
+      ...projectionHistoryPages(projectionBundles),
       getContainerWriterProjection: async () => initialProjection,
       getCurrentPrincipalPolicy: async (
         principalType: "group" | "organization",
       ) =>
         principalType === "organization" ? organizationPolicy : epochTwoPolicy,
     },
+    withPrincipalHistoryProtection: async (
+      operation: (lease: {
+        protection: { localKey: Uint8Array; context: string };
+        stillCurrent: () => boolean;
+      }) => Promise<unknown>,
+    ) =>
+      operation({
+        protection: {
+          localKey: new Uint8Array(32).fill(19),
+          context: "rotation-test",
+        },
+        stillCurrent: () => true,
+      }),
     infra: { execSql },
     resolveTrustedUserIdentity: resolveUserIdentity,
     util: {
@@ -223,6 +121,7 @@ test("same-level Admins re-wrap survives a group rotation and cold root unwrap",
     memberKem,
     organizationPolicy,
     resolveUserIdentity,
+    projectionBundles,
   } = await setUpAdminGroupRoot();
   const submittedRequests: ContainerMutationRequest[] = [];
   const { close, execSql } = await createTestExecSql(
@@ -239,6 +138,11 @@ test("same-level Admins re-wrap survives a group rotation and cold root unwrap",
     );
     await unwrapContainerKekPath({
       execSql,
+      warmReferencedPrincipalPolicies: projectionPolicyWarmer({
+        execSql,
+        bundles: projectionBundles,
+        resolveUserKey: resolveUserIdentity,
+      }),
       projection: initialProjection,
       resolveProjectionUserKey: resolveUserIdentity,
       secretKey: memberKem.secretKey,
@@ -273,6 +177,11 @@ test("same-level Admins re-wrap survives a group rotation and cold root unwrap",
       author,
       containerId: ROOT_CONTAINER_ID,
       execSql,
+      warmReferencedPrincipalPolicies: projectionPolicyWarmer({
+        execSql,
+        bundles: projectionBundles,
+        resolveUserKey: resolveUserIdentity,
+      }),
       expectedGroupName: "Admins",
       previousProjection: initialProjection,
       recipientGroupId: ADMIN_GROUP_ID,
@@ -360,6 +269,11 @@ test("same-level Admins re-wrap survives a group rotation and cold root unwrap",
     await expect(
       unwrapContainerKekPath({
         execSql,
+        warmReferencedPrincipalPolicies: projectionPolicyWarmer({
+          execSql,
+          bundles: projectionBundles,
+          resolveUserKey: resolveUserIdentity,
+        }),
         projection: initialProjection,
         resolveProjectionUserKey: resolveUserIdentity,
         secretKey: memberKem.secretKey,
@@ -367,6 +281,11 @@ test("same-level Admins re-wrap survives a group rotation and cold root unwrap",
     ).rejects.toMatchObject({ code: "rollback" });
     const coldKeks = await unwrapContainerKekPath({
       execSql,
+      warmReferencedPrincipalPolicies: projectionPolicyWarmer({
+        execSql,
+        bundles: projectionBundles,
+        resolveUserKey: resolveUserIdentity,
+      }),
       projection: rotatedProjection,
       resolveProjectionUserKey: resolveUserIdentity,
       secretKey: memberKem.secretKey,
@@ -389,6 +308,7 @@ test("Admins rotation rekeys the root and a fresh current member opens all epoch
     initialProjection,
     memberKem,
     resolveUserIdentity,
+    projectionBundles,
   } = await setUpAdminGroupRoot();
   const nextState = epochTwoPolicy.currentState;
   const nextPolicy = makeVerifiedPrincipalPolicy({
@@ -442,6 +362,11 @@ test("Admins rotation rekeys the root and a fresh current member opens all epoch
     const rekeyed = await buildMaterializedContainerRekeyPlan({
       author,
       execSql: warmDatabase.execSql,
+      warmReferencedPrincipalPolicies: projectionPolicyWarmer({
+        execSql: warmDatabase.execSql,
+        bundles: projectionBundles,
+        resolveUserKey: resolveUserIdentity,
+      }),
       previousProjection: initialProjection,
       replacementPrincipalPolicy: nextPolicy,
       resolveProjectionUserKey: resolveUserIdentity,
@@ -474,6 +399,11 @@ test("Admins rotation rekeys the root and a fresh current member opens all epoch
     );
     const coldKeks = await unwrapContainerKekPath({
       execSql: coldDatabase.execSql,
+      warmReferencedPrincipalPolicies: projectionPolicyWarmer({
+        execSql: coldDatabase.execSql,
+        bundles: projectionBundles,
+        resolveUserKey: resolveUserIdentity,
+      }),
       projection: coldProjection,
       resolveProjectionUserKey: resolveUserIdentity,
       secretKey: memberKem.secretKey,

@@ -1,5 +1,6 @@
 import type {
   AnyVerifiedPrincipalPolicy,
+  PrincipalPolicyAuthorization,
   VerifiedPrincipalPolicy,
   VerifiedPrincipalPolicyCurrent,
 } from "@tearleads/crypto";
@@ -12,7 +13,7 @@ export type PrincipalPolicyCheckpointEvidence =
   | VerifiedPrincipalPolicyCurrent;
 
 export function principalPolicyEvidenceEntries(
-  policy: PrincipalPolicyCheckpointEvidence,
+  policy: PrincipalPolicyAuthorization,
 ): NonNullable<VerifiedPrincipalPolicy["history"]> {
   return "retainedHistory" in policy
     ? policy.retainedHistory

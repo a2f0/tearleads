@@ -1,6 +1,6 @@
-// This is the current SDK contract: unified device-first handles and atomic,
-// revision-checked host adapters. Obsolete aliases and adapter fallbacks are not
-// part of this surface; see workflows/README.md for the required host contract.
+// Current SDK contract: unified device-first handles and atomic revision checks.
+// Authority loaders take exact heads, including cached citations. Obsolete
+// adapters and aliases are excluded; see workflows/README.md for host contracts.
 export type {
   AddOrganizationGroupUserInput,
   BlobInfo,
@@ -477,6 +477,8 @@ export {
 } from "./workflows/organizations";
 export type {
   CacheReferencedPrincipalPoliciesOptions,
+  PrincipalHistoryProtectionLease,
+  ProjectionPolicyHistoryRecoveryOptions,
   RecoveredPrincipalPolicyHistory,
   RecoveredScopedPrincipalPolicyHistory,
   RecoverPrincipalPolicyHistoryOptions,
@@ -486,6 +488,7 @@ export {
   cacheReferencedPrincipalPolicies,
   PrincipalPolicyHistoryReadError,
   recoverPrincipalPolicyHistory,
+  recoverProjectionPolicyHistory,
   recoverScopedPrincipalPolicyHistory,
 } from "./workflows/principals";
 export type {

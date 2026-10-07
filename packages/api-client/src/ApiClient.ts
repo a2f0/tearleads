@@ -88,7 +88,6 @@ import type {
   DocumentSyncRequest,
   InitiateMultipartBlobStageRequest,
   ListContainerParentLanesRequest,
-  OrganizationPrincipalPolicyRequest,
   RegistrationRequest,
   UpdateOrganizationProfileRequest,
   UpdateOrganizationRosterEntryRequest,
@@ -209,6 +208,7 @@ import {
   evictWriterProjectionsCiting,
 } from "./writerProjectionCitations";
 import { primeWriterProjectionSlot } from "./writerProjectionPrime";
+import { writerProjectionRequests } from "./writerProjectionRequests";
 
 type ExpiredHandler = () => boolean | Promise<boolean>;
 type PaymentRequiredHandler = (organizationId: string | null) => void;
@@ -275,11 +275,12 @@ export class ApiClient {
       this.principalPolicyRequestsByKey,
       this.clearWriterProjectionCaches,
     );
+    const projectionRequests = writerProjectionRequests(this.requestRuntime);
     this.request = this.projectionHistory.wrapRequest(
-      this.requestRuntime.request,
+      projectionRequests.request,
     );
     this.requestResult = this.projectionHistory.wrapRequestResult(
-      this.requestRuntime.requestResult,
+      projectionRequests.requestResult,
     );
     this.transport = createOperationTransport(
       this.requestRuntime.responseRequest,
@@ -625,30 +626,27 @@ export class ApiClient {
     );
   }
 
-  getCurrentPrincipalPolicy(
-    principalType: "group" | "organization",
-    principalId: string,
-    options: RequestResultOptions = {},
+  getProjectionPolicyHistoryPages(
+    ...args: Parameters<PrincipalPolicyRequests["publicPages"]>
   ) {
-    return this.principalPolicyRequests.get(
-      principalType,
-      principalId,
-      options,
-    );
+    return this.principalPolicyRequests.publicPages(...args);
   }
 
-  putPrincipalPolicy(
-    principalType: "organization",
-    principalId: string,
-    input: OrganizationPrincipalPolicyRequest,
-    options: RequestResultOptions = {},
+  getCurrentPrincipalPolicy(
+    ...args: Parameters<PrincipalPolicyRequests["get"]>
   ) {
-    return this.principalPolicyRequests.put(
-      principalType,
-      principalId,
-      input,
-      options,
-    );
+    return this.principalPolicyRequests.get(...args);
+  }
+
+  putPrincipalPolicy(...args: Parameters<PrincipalPolicyRequests["put"]>) {
+    return this.principalPolicyRequests.put(...args);
+  }
+
+  /** Preserves unknown outcomes for authored organization directory writes. */
+  putPrincipalPolicyResult(
+    ...args: Parameters<PrincipalPolicyRequests["putResult"]>
+  ) {
+    return this.principalPolicyRequests.putResult(...args);
   }
 
   commitOrganizationGroupPolicy(

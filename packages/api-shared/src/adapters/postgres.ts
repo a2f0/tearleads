@@ -8,6 +8,7 @@ import { migrate } from "drizzle-orm/pglite/migrator";
 import pg, { type PoolConfig } from "pg";
 import * as schema from "../schema";
 import { readApiDatabaseKind } from "../schema/dialect";
+import { databaseStatementLogger } from "./databaseStatementCounter";
 import { createSqliteApiDatabase } from "./sqliteAdapter";
 import { withDatabaseTransactionCompletion } from "./transactionCompletion";
 import { createTursoApiDatabase } from "./tursoAdapter";
@@ -19,6 +20,7 @@ import type {
 
 const { Pool } = pg;
 
+export { withDatabaseStatementCounter } from "./databaseStatementCounter";
 export { gatherWithExecutor, isDatabaseTransaction } from "./executor";
 export { databaseTransactionCompletion } from "./transactionCompletion";
 
@@ -290,7 +292,7 @@ export function createPostgresPoolConfig(
 
 function createMemoryApiDatabase(): ManagedApiDatabase {
   const client = new PGlite({ dataDir: "memory://", debug: 0 });
-  const db = drizzle({ client, schema });
+  const db = drizzle({ client, schema, logger: databaseStatementLogger });
 
   return {
     db: withDatabaseTransactionCompletion(db),
@@ -305,7 +307,11 @@ function createMemoryApiDatabase(): ManagedApiDatabase {
 
 function createPostgresApiDatabase(env: ApiDatabaseEnv): ManagedApiDatabase {
   const pool = new Pool(createPostgresPoolConfig(env));
-  const db = drizzleNodePostgres({ client: pool, schema });
+  const db = drizzleNodePostgres({
+    client: pool,
+    schema,
+    logger: databaseStatementLogger,
+  });
 
   return {
     db: withDatabaseTransactionCompletion(db),

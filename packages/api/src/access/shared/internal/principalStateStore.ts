@@ -26,12 +26,10 @@ import {
   normalizePrincipalStateWriteInput,
   type PrincipalStateBundleInput,
   type PrincipalStateExternalSignerAuthorizationInput,
-  type PrincipalStateReference,
   principalEpochKeySelect,
   principalProjectionMemberSelect,
   principalStatePayloadSelect,
   principalStateProjectionKey,
-  principalStateReferenceKey,
   principalStateSelect,
   projectionMemberKey,
   type StoredPrincipalEpochKey,
@@ -55,9 +53,9 @@ import {
 export { listContainerGrantsForState } from "./principalContainerGrantStore";
 export { listPrincipalStateHistory } from "./principalHistoryPage";
 export { listProjectionMembersForState } from "./principalProjectionStore";
+export { getPrincipalStatesForReferences } from "./principalStateLookup";
 export type {
   PrincipalStateBundleInput,
-  PrincipalStateReference,
   StoredPrincipalContainerGrant,
   StoredPrincipalProjectionMember,
   StoredPrincipalState,
@@ -114,65 +112,6 @@ export async function getPrincipalStatePayloadForState(
     .limit(1);
 
   return row ?? null;
-}
-
-export async function getPrincipalStatesForReferences(
-  references: readonly PrincipalStateReference[],
-  executor: DatabaseSession,
-): Promise<Map<string, StoredPrincipalState>> {
-  const statesByReference = new Map<string, StoredPrincipalState>();
-  const uniqueReferences = new Map(
-    references.map((reference) => [
-      principalStateReferenceKey(reference),
-      reference,
-    ]),
-  );
-
-  for (const principalType of [
-    ...new Set(
-      Array.from(uniqueReferences.values()).map(
-        (reference) => reference.principalType,
-      ),
-    ),
-  ]) {
-    const referencesForType = Array.from(uniqueReferences.values()).filter(
-      (reference) => reference.principalType === principalType,
-    );
-    const principalIds = uniqueSortedStrings(
-      referencesForType.map((reference) => reference.principalId),
-    );
-    const stateHashes = uniqueSortedStrings(
-      referencesForType.map((reference) => reference.stateHash),
-    );
-    const requestedKeys = new Set(
-      referencesForType.map(principalStateReferenceKey),
-    );
-
-    if (principalIds.length === 0 || stateHashes.length === 0) {
-      continue;
-    }
-
-    const rows = await executor
-      .select(principalStateSelect)
-      .from(principalStates)
-      .where(
-        and(
-          eq(principalStates.principalType, principalType),
-          inArray(principalStates.principalId, principalIds),
-          inArray(principalStates.stateHash, stateHashes),
-        ),
-      );
-
-    for (const row of rows) {
-      const state = toStoredPrincipalState(row);
-      const key = principalStateReferenceKey(state);
-      if (requestedKeys.has(key)) {
-        statesByReference.set(key, state);
-      }
-    }
-  }
-
-  return statesByReference;
 }
 
 export async function listPrincipalProjectionMembersForStates(

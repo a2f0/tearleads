@@ -21,6 +21,7 @@ import {
 } from "../../services/principals/putPrincipalPolicy";
 import {
   PrincipalHistoryContinuation,
+  PrincipalHistoryPreparationUnavailable,
   PrincipalPolicyError,
 } from "../../services/principals/shared";
 import type { ApiServiceRuntime } from "../../services/runtime";
@@ -28,6 +29,8 @@ import { publishBestEffort } from "../../utils/publishBestEffort";
 import { jsonRequestValidator } from "../../validators/jsonRequest";
 import { pathParamsValidator } from "../../validators/pathParams";
 import { queryParamsValidator } from "../../validators/queryParams";
+
+import { registerProjectionPolicyHistoryRoute } from "./history";
 
 interface PrincipalPolicyRouteDeps {
   readonly publish: (event: PublishedRealtimeEvent) => Promise<void>;
@@ -94,6 +97,15 @@ async function publishPrincipalAccessChanges(
 }
 
 function toPrincipalPolicyErrorResponse(error: unknown): Response | null {
+  if (error instanceof PrincipalHistoryPreparationUnavailable)
+    return Response.json(
+      {
+        error: error.message,
+        code: "principal_history_preparation_unavailable",
+        committed: false,
+      },
+      { status: 503, headers: { "Cache-Control": "no-store" } },
+    );
   if (error instanceof PrincipalHistoryContinuation)
     return Response.json(
       {
@@ -148,11 +160,12 @@ export function createPrincipalPolicyRoute({
           request: c.req.valid("json"),
           requesterUserId: c.get("session").userId,
         });
-        await publishPrincipalAccessChanges(
-          publish,
-          [{ principalType: "group", principalId: groupId }],
-          result.sharedWithYouUserIds,
-        );
+        if (!result.replayed)
+          await publishPrincipalAccessChanges(
+            publish,
+            [{ principalType: "group", principalId: groupId }],
+            result.sharedWithYouUserIds,
+          );
         return c.json<CommitOrganizationGroupPolicyResponse>(result.policy);
       } catch (error) {
         const response = toPrincipalPolicyErrorResponse(error);
@@ -163,6 +176,10 @@ export function createPrincipalPolicyRoute({
   );
 
   registerPolicyReadRoute(principalPolicyRoute, { requireAuth, runtime });
+  registerProjectionPolicyHistoryRoute(principalPolicyRoute, {
+    requireAuth,
+    runtime,
+  });
 
   principalPolicyRoute.on(
     putPrincipalPolicyOperation.method,

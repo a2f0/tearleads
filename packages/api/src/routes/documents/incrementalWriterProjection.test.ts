@@ -35,6 +35,11 @@ test("real document incremental projections verify linked histories, rotations a
     .organizationId;
   const device = await createAncestorSdkContext(owner, organizationId);
   const cold = await createAncestorSdkContext(owner, organizationId);
+  // Rotate from another device: the reader holds both children, so using it
+  // here schedules background re-citations that can advance its checkpoints
+  // during both the initial read and its one permitted projection refresh.
+  const rotator = await createAncestorSdkContext(owner, organizationId);
+  const recitedContainerIds: string[] = [];
   const samples: {
     hinted: boolean;
     omitted: number;
@@ -44,6 +49,9 @@ test("real document incremental projections verify linked histories, rotations a
     hostname: "127.0.0.1",
     port: 0,
     fetch: async (request) => {
+      if (/^\/containers\/[^/]+\/recite$/.test(new URL(request.url).pathname)) {
+        recitedContainerIds.push(new URL(request.url).pathname);
+      }
       const response = await routeApp.fetch(request);
       if (
         response.ok &&
@@ -171,7 +179,9 @@ test("real document incremental projections verify linked histories, rotations a
     expect(samples[2]?.documentHistory).toBe(1);
     expect(
       await rekeyRemoteContainer({
-        ...common,
+        ...rotator.common,
+        apiClient: client,
+        reportSecurityIncident: async () => undefined,
         containerId: root.kekState.containerId,
       }),
     ).not.toBeNull();
@@ -181,6 +191,8 @@ test("real document incremental projections verify linked histories, rotations a
     const fresh = new ApiClient(server.url.origin);
     fresh.setAuthToken(owner.token);
     const recovered = await read(fresh, cold);
+    expect(samples).toHaveLength(5);
+    expect(recitedContainerIds).toEqual([]);
     expect(samples.at(-1)?.hinted).toBe(false);
     expect(samples.at(-1)?.omitted).toBe(0);
     expect(recovered.projection.documentManifest).toEqual(
@@ -191,6 +203,7 @@ test("real document incremental projections verify linked histories, rotations a
     );
   } finally {
     server.stop(true);
+    rotator.close();
     cold.close();
     device.close();
   }

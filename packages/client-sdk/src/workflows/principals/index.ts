@@ -1,3 +1,4 @@
+export type { PrincipalHistoryProtectionLease } from "../../data/principals/principalHistoryProtection";
 export {
   type CachePrincipalPolicyBundlesOptions,
   type CacheReferencedPrincipalPoliciesOptions,
@@ -10,6 +11,10 @@ export {
   type RecoverPrincipalPolicyHistoryOptions,
 } from "./principalHistoryRecoveryTypes";
 export { recoverPrincipalPolicyHistory } from "./recoverPrincipalPolicyHistory";
+export {
+  type ProjectionPolicyHistoryRecoveryOptions,
+  recoverProjectionPolicyHistory,
+} from "./recoverProjectionPolicyHistory";
 export {
   type RecoveredScopedPrincipalPolicyHistory,
   type RecoverScopedPrincipalPolicyHistoryOptions,

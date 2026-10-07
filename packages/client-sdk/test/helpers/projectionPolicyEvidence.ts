@@ -1,16 +1,16 @@
-import type {
-  PrincipalPolicyBundleResponse,
-  ProjectionPolicyEvidenceResponse,
-} from "@tearleads/validators/response";
+import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
 import type { ContainerMutationAuthor } from "../../src/data/containers/shared/types";
 import { buildInitialOrganizationPolicyRequest } from "../../src/workflows/registration/registerIdentity";
 import { buildInitialGroupPolicyRequest } from "./groupMetadata";
-import { policySnapshot } from "./organizationPolicyHistory";
 import {
   organizationPolicyBundleFromInitialRequest,
   policyBundleFromInitialRequest,
   principalPolicyHead,
 } from "./principalPolicyFixtures";
+import {
+  projectionDirectoryPayload,
+  projectionPolicySource,
+} from "./projectionPolicyHistory";
 
 export async function createProjectionPolicyEvidence(input: {
   readonly author: ContainerMutationAuthor;
@@ -20,7 +20,7 @@ export async function createProjectionPolicyEvidence(input: {
     publicKey: Uint8Array;
     secretKey: Uint8Array;
   };
-}): Promise<ProjectionPolicyEvidenceResponse> {
+}) {
   const signingKeyPair = {
     signingPrivateKey: input.author.signerPrivateKey,
     signingPublicKey: input.signingPublicKey,
@@ -35,13 +35,24 @@ export async function createProjectionPolicyEvidence(input: {
       signingKeyPair,
     }),
   );
+  const admins = await policyBundleFromInitialRequest(
+    await buildInitialGroupPolicyRequest({
+      name: "Admins",
+      groupId: crypto.randomUUID(),
+      creatorEncapsulationKeyPair: input.encapsulationKeyPair,
+      signerUserId: input.author.signerUserId,
+      signingFingerprint: input.author.signerKeyFingerprint,
+      signingKeyPair,
+    }),
+  );
   const organization = await organizationPolicyBundleFromInitialRequest(
     input.author.organizationId,
     await buildInitialOrganizationPolicyRequest({
-      adminGroupId: input.group.currentState.principalId,
+      adminGroupId: admins.currentState.principalId,
       memberGroupId: members.currentState.principalId,
       groupHeads: [
         principalPolicyHead(input.group),
+        principalPolicyHead(admins),
         principalPolicyHead(members),
       ],
       organizationId: input.author.organizationId,
@@ -51,8 +62,14 @@ export async function createProjectionPolicyEvidence(input: {
     }),
   );
   return {
-    organization: policySnapshot(organization),
-    organizationPayloads: [organization.currentPayload],
-    groups: [policySnapshot(input.group)],
+    bundles: [organization, admins, input.group],
+    policyEvidence: {
+      organization: projectionPolicySource(organization),
+      organizationPayloads: [projectionDirectoryPayload(organization)],
+      groups: [
+        projectionPolicySource(admins),
+        projectionPolicySource(input.group),
+      ],
+    },
   };
 }

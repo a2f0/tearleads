@@ -2,7 +2,6 @@ import {
   createPrincipalPolicyHistoryVerifier,
   KeyingVerificationError,
   type PrincipalPolicyExternalAuthority,
-  type PrincipalPolicyStateChainEntry,
   type ReferencedPrincipalHead,
   serializeKeyingCanonicalJson,
   type VerifiedPrincipalPolicyCurrent,
@@ -105,12 +104,10 @@ async function recoverScopedPolicy(
     admins = (await read.admins(adminHead)).policy;
   }
   const loadExternalAuthority = async (
-    entries: readonly PrincipalPolicyStateChainEntry[],
+    citations: readonly ReferencedPrincipalHead[],
   ): Promise<PrincipalPolicyExternalAuthority | undefined> => {
     const references = new Map<string, ReferencedPrincipalHead>();
-    for (const { state } of entries) {
-      const citation = state.externalAuthority;
-      if (!citation) continue;
+    for (const citation of citations) {
       if (citation.principalId !== adminHead.principalId)
         throw new KeyingVerificationError(
           "object_mismatch",

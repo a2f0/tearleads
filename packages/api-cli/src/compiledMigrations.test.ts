@@ -43,7 +43,13 @@ test("the standalone CLI initializes its embedded baseline outside the checkout"
           "SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' AND name <> '__drizzle_migrations'",
         )
         .all();
-      expect(tables).toHaveLength(58);
+      expect(tables).toHaveLength(60);
+      expect(tables.map(({ name }) => name)).toEqual(
+        expect.arrayContaining([
+          "principal_directory_bindings",
+          "principal_policy_commits",
+        ]),
+      );
       expect(
         database.query("SELECT id FROM __drizzle_migrations").all(),
       ).toHaveLength(1);
