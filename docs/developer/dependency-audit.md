@@ -66,7 +66,7 @@ The Redocly YAML override was removed after openapi-typescript resolved
 @redocly/openapi-core 1.34.20 and naturally selected fixed js-yaml 4.3.2.
 The baseline Ruby audit also reports high-severity rubyzip 2.4.1
 [path traversal](https://github.com/advisories/GHSA-47m2-wp7j-p9vc); Fastlane
-2.240.1 naturally resolves the fixed rubyzip 3.4.0.
+2.240.1 naturally resolves the fixed rubyzip 3.7.0 (minimum 3.4.0).
 `bundle-audit check --update` reports no vulnerable gems against advisory database
 commit `0af3fe207c318a8a99ce522c8538103a13eb6c0b`.
 
