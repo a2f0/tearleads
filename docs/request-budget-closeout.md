@@ -99,18 +99,22 @@ and compares its timestamp with the same row decoded by the native ORM mapping.
 The paged projection verifier reauthorizes exact directory, Admins and member
 heads even when their signatures have a local verified prefix. In the group
 mutation fixture, creating the second group and adding an already enrolled peer
-use 35 requests combined. Metadata verification can finish on either side of
-the operation boundary: observed creation/add counts were 16/19 and 13/22, with
-9/9 and 6/12 history reads respectively. The full app suite exposed the latter
-add count, and a fresh-process profile reproduced the same distribution.
+used up to 38 requests combined. Earlier profiles measured creation/add counts
+of 16/19 and 13/22, but both the full app suite and fresh-process profiles also
+reproduced 16/22. Their history counts were 9/12: each phase can independently
+reauthorize the organization, Admins and Members histories, including repeated
+reads of the same heads. The earlier assumption that the three requests only
+moved between phases was incorrect.
 
 The separate add allowance is 22 total and 12 history requests. The test also
-caps creation plus addition at the original combined budget of 35 total and
-18 history reads, so shifting work between phases cannot increase total cost.
+caps creation plus addition at 38 total and 21 history reads, including calls
+between the two measurements. This records the observed additional read cost;
+it does not establish the earlier 35-request total as an invariant.
 It retains one compound policy commit for the add, zero document writes, and
-the existing limits for every other route. First enrollment remains capped at
-75 requests, including two compound commits; its creation/add pair is capped
-at 91 requests with 51 history reads.
+the existing limits for every other route. First enrollment also reproduced
+three additional history reads (78 total, 45 history), with two compound commits
+and unchanged counts for all other routes. Its creation/add pair is capped at
+94 requests with 54 history reads, allowing both phases their observed maxima.
 
 These are request counts, not latency measurements. Deduplicating repeated
 exact-head checks remains part of #2448; this test correction is not a

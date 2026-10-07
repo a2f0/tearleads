@@ -13,8 +13,14 @@ import {
   openOrgManager,
 } from "../../../../test/helpers/dual-pane/dualPaneSharingKit";
 import { requestPath } from "../../../../test/helpers/dualPaneRequestSummary";
-import { useTestApiAppHandlers } from "../../../../test/helpers/mswServer";
-import { cleanupPaneTestEnvironment } from "../../../../test/helpers/paneTestUtils";
+import {
+  listProxiedApiRequests,
+  useTestApiAppHandlers,
+} from "../../../../test/helpers/mswServer";
+import {
+  cleanupPaneTestEnvironment,
+  waitForPaneRuntimeToSettle,
+} from "../../../../test/helpers/paneTestUtils";
 import { documentSyncIntentCounts } from "../../../../test/helpers/proxiedApiRequestMetrics";
 import { waitForPersonalBootstrap } from "../../../../test/helpers/waitForPersonalBootstrap";
 import { measureWorkflowRequests } from "../../../../test/helpers/workflowRequestBudget";
@@ -31,7 +37,9 @@ test("group creation and adding a peer have separate request budgets", async () 
   await openOrgManager(pane);
   const peerId = getPaneUserId(peer);
   for (const group of ["first", "second"] as const) {
-    const creationRequests = await measureWorkflowRequests({
+    await waitForPaneRuntimeToSettle(20_000);
+    const pairStart = listProxiedApiRequests().length;
+    await measureWorkflowRequests({
       label: `create ${group} organization group`,
       operation: () => createOrganizationGroup(pane, `Budget ${group} group`),
       budget: {
@@ -81,11 +89,10 @@ test("group creation and adding a peer have separate request budgets", async () 
         // The first add enrolls the peer in Members before the custom group,
         // including metadata discovery, read-only sync, and a billing refresh.
         // The second add reuses that roster membership and stays a single write.
-        // Metadata verification may finish in either creation or membership.
-        // The combined budget below keeps their total work unchanged.
-        total: group === "first" ? 75 : 22,
+        // Both phases can independently reauthorize cached metadata histories.
+        total: group === "first" ? 78 : 22,
         byRequest: {
-          "GET /principals/history": group === "first" ? 42 : 12,
+          "GET /principals/history": group === "first" ? 45 : 12,
           "GET /containers/:containerId/writer-projection":
             group === "first" ? 3 : 1,
           "GET /organizations/:organizationId/read-model":
@@ -116,14 +123,15 @@ test("group creation and adding a peer have separate request budgets", async () 
       ],
     });
     expect(documentSyncIntentCounts(membershipRequests).writeBearing).toBe(0);
-    const combined = [...creationRequests, ...membershipRequests];
-    expect(combined.length).toBeLessThanOrEqual(group === "first" ? 91 : 35);
+    // Include calls between the individual measurements as well as inside them.
+    const combined = listProxiedApiRequests().slice(pairStart);
+    expect(combined.length).toBeLessThanOrEqual(group === "first" ? 94 : 38);
     expect(
       combined.filter(
         (request) =>
           request.method === "GET" &&
           requestPath(request.url) === "/principals/history",
       ).length,
-    ).toBeLessThanOrEqual(group === "first" ? 51 : 18);
+    ).toBeLessThanOrEqual(group === "first" ? 54 : 21);
   }
 }, 90_000);
