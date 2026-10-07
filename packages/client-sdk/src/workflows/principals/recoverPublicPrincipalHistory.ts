@@ -11,6 +11,7 @@ import {
 } from "@tearleads/validators/response";
 import { assertProjectionVerificationCurrent } from "../../data/keyingProjectionVerification/types";
 import { loadPrincipalHistoryReference } from "../../data/persistence/principalHistoryEvidencePersistence";
+import type { PrincipalHistoryPrefix } from "../../data/persistence/principalHistoryPrefixPersistence";
 import { principalHeadMatchesReference } from "../../data/principals/organizationAuthorityDescriptor";
 import { ownPrincipalHistoryProtection } from "../../data/principals/principalHistoryProtection";
 import { PrincipalPolicyHistoryReadError } from "./principalHistoryRecoveryTypes";
@@ -114,6 +115,7 @@ function finishPublicProgress(progress: PublicPrincipalHistoryProgress) {
 async function recoverAttempt(
   input: PublicPrincipalHistoryOptions,
   allowReuse = true,
+  rejectedPrefix: PrincipalHistoryPrefix | null = null,
 ): Promise<RecoveredPublicPrincipalHistory> {
   const current = () => !input.signal?.aborted && input.stillCurrent();
   assertProjectionVerificationCurrent(current);
@@ -130,7 +132,8 @@ async function recoverAttempt(
       throw error;
     // A signed cached candidate need not belong to this requested chain. Only
     // reused progress permits one replay; a fresh disconnected chain fails.
-    if (mayReplay && initial.afterVersion > 0) return recover(input, false);
+    if (mayReplay && initial.afterVersion > 0)
+      return recover(input, false, initial.cachedPrefix);
     throw error.verificationError;
   }
   const { progress, lastPage } = pages;
@@ -150,7 +153,7 @@ async function recoverAttempt(
     if (!selected.ok) throw selected.error;
   } catch (error) {
     if (error instanceof KeyingVerificationError && mayReplay)
-      return recover(input, false);
+      return recover(input, false, initial.cachedPrefix);
     throw error;
   }
   // Public prefixes memoize signatures; they are not admitted trust pins. A
@@ -158,7 +161,7 @@ async function recoverAttempt(
   // Rebuild the requested chain once online; callers still check durable pins
   // and object authority before accepting it. Never reuse a mismatch offline.
   if (!principalHeadMatchesReference(proof.entry.state, input.source.head)) {
-    if (mayReplay) return recover(input, false);
+    if (mayReplay) return recover(input, false, initial.cachedPrefix);
     throw new KeyingVerificationError(
       "object_mismatch",
       "Public history source differs from the verified prefix",
@@ -181,7 +184,12 @@ async function recoverAttempt(
   }
   assertProjectionVerificationCurrent(current);
   if (!input.offline)
-    await publishPublicPrincipalHistoryPrefix(input, progress, history);
+    await publishPublicPrincipalHistoryPrefix(
+      input,
+      progress,
+      history,
+      rejectedPrefix,
+    );
   assertProjectionVerificationCurrent(current);
   return { scopeId: progress.scopeId, history };
 }
@@ -189,12 +197,14 @@ async function recoverAttempt(
 async function recover(
   input: PublicPrincipalHistoryOptions,
   allowReuse = true,
+  rejectedPrefix: PrincipalHistoryPrefix | null = null,
 ): Promise<RecoveredPublicPrincipalHistory> {
   try {
-    return await recoverAttempt(input, allowReuse);
+    return await recoverAttempt(input, allowReuse, rejectedPrefix);
   } catch (error) {
     if (!(error instanceof PublicHistoryAuthorityUnavailableError)) throw error;
-    if (allowReuse && !input.offline) return recoverAttempt(input, false);
+    if (allowReuse && !input.offline)
+      return recoverAttempt(input, false, error.rejectedPrefix);
     throw error.verificationError;
   }
 }

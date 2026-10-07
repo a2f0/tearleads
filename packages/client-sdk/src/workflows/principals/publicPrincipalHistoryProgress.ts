@@ -1,19 +1,24 @@
 import {
   createPrincipalPolicyHistoryVerifier,
+  KeyingVerificationError,
   restorePrincipalPolicyHistoryVerifier,
   serializeKeyingCanonicalJson,
   type VerifiedPrincipalPolicyHistory,
+  verifyPrincipalPolicyHistoryReferences,
 } from "@tearleads/crypto";
 import { isReferencedPrincipalStateResponse } from "@tearleads/validators/response";
+import { loadPrincipalHistoryReference } from "../../data/persistence/principalHistoryEvidencePersistence";
 import {
   discardPrincipalHistoryPrefix,
   loadPrincipalHistoryPrefix,
+  type PrincipalHistoryPrefix,
   savePrincipalHistoryPrefix,
 } from "../../data/persistence/principalHistoryPrefixPersistence";
 import {
   discardPrincipalHistoryStage,
   loadPrincipalHistoryStage,
 } from "../../data/persistence/principalHistoryStagePersistence";
+import { principalHeadMatchesReference } from "../../data/principals/organizationAuthorityDescriptor";
 import {
   principalHistoryEvidenceScopeId,
   principalHistoryPrefixProtection,
@@ -23,6 +28,7 @@ import {
   principalHistoryStageProtection,
 } from "../../data/principals/principalHistoryStageProtection";
 import {
+  PublicHistoryAuthorityUnavailableError,
   parsePublicHistoryAuthority,
   publicHistoryAuthorityJson,
   validatePublicHistoryAuthority,
@@ -36,6 +42,7 @@ async function restorePublicPrefix(
   input: PublicPrincipalHistoryOptions,
   scopeId: string,
   id: string,
+  prefix: PrincipalHistoryPrefix | null,
 ): Promise<PublicPrincipalHistoryProgress | null> {
   const head = input.source.head;
   const historyInput = {
@@ -43,7 +50,6 @@ async function restorePublicPrefix(
     principalId: head.principalId,
   };
   const current = () => !input.signal?.aborted && input.stillCurrent();
-  const prefix = await loadPrincipalHistoryPrefix(input.execSql, scopeId);
   if (prefix) {
     const authorityReference = parsePublicHistoryAuthority(
       input,
@@ -69,7 +75,7 @@ async function restorePublicPrefix(
         await principalHistoryPrefixProtection(input.protection, prefix),
       );
       if (restored.ok && restored.value.finish(prefixHead).ok) {
-        await validatePublicHistoryAuthority(input, authorityReference);
+        await validatePublicHistoryAuthority(input, authorityReference, prefix);
         return {
           id,
           scopeId,
@@ -77,6 +83,7 @@ async function restorePublicPrefix(
           completedHead: prefixHead.version >= head.version ? prefixHead : null,
           afterVersion: Math.min(prefixHead.version, head.version - 1),
           saved: null,
+          cachedPrefix: prefix,
           authorityReference,
         };
       }
@@ -136,6 +143,7 @@ export async function restorePublicPrincipalHistoryProgress(
           completedHead: saved.complete ? head : null,
           afterVersion: saved.afterVersion,
           saved,
+          cachedPrefix: null,
           authorityReference,
         };
       }
@@ -144,7 +152,12 @@ export async function restorePublicPrincipalHistoryProgress(
       await discardPrincipalHistoryStage(input.execSql, saved, current);
   }
   if (allowReuse) {
-    const prefix = await restorePublicPrefix(input, scopeId, id);
+    const prefix = await restorePublicPrefix(
+      input,
+      scopeId,
+      id,
+      await loadPrincipalHistoryPrefix(input.execSql, scopeId),
+    );
     if (prefix) return prefix;
   }
   return {
@@ -154,14 +167,62 @@ export async function restorePublicPrincipalHistoryProgress(
     completedHead: null,
     afterVersion: 0,
     saved: null,
+    cachedPrefix: null,
     authorityReference: null,
   };
+}
+
+/** A resumed stage may finish after the reader that rejected the prefix exits. */
+async function rejectedCompletedPrefix(
+  input: PublicPrincipalHistoryOptions,
+  progress: PublicPrincipalHistoryProgress,
+  history: VerifiedPrincipalPolicyHistory,
+): Promise<PrincipalHistoryPrefix | null> {
+  const candidate = await loadPrincipalHistoryPrefix(
+    input.execSql,
+    progress.scopeId,
+  );
+  if (!candidate || candidate.version <= history.currentEntry.state.version)
+    return null;
+  try {
+    const cached = await restorePublicPrefix(
+      input,
+      progress.scopeId,
+      progress.id,
+      candidate,
+    );
+    if (!cached?.completedHead) return null;
+    const finished = cached.verifier.finish(cached.completedHead);
+    if (!finished.ok) throw finished.error;
+    const proof = await loadPrincipalHistoryReference({
+      execSql: input.execSql,
+      scopeId: progress.scopeId,
+      history: finished.value,
+      version: input.source.head.version,
+    });
+    const verified = await verifyPrincipalPolicyHistoryReferences({
+      history: finished.value,
+      references: [proof],
+    });
+    if (!verified.ok) throw verified.error;
+    return principalHeadMatchesReference(proof.entry.state, input.source.head)
+      ? null
+      : candidate;
+  } catch (error) {
+    if (
+      error instanceof KeyingVerificationError ||
+      error instanceof PublicHistoryAuthorityUnavailableError
+    )
+      return candidate;
+    throw error;
+  }
 }
 
 export async function publishPublicPrincipalHistoryPrefix(
   input: PublicPrincipalHistoryOptions,
   progress: PublicPrincipalHistoryProgress,
   history: VerifiedPrincipalPolicyHistory,
+  rejectedPrefix: PrincipalHistoryPrefix | null,
 ): Promise<void> {
   const state = history.currentEntry.state;
   const head = {
@@ -183,11 +244,17 @@ export async function publishPublicPrincipalHistoryPrefix(
     await principalHistoryPrefixProtection(input.protection, prefix),
   );
   if (!sealed.ok) throw sealed.error;
+  const rejected =
+    rejectedPrefix ??
+    (progress.cachedPrefix
+      ? null
+      : await rejectedCompletedPrefix(input, progress, history));
   const stillCurrent = () => !input.signal?.aborted && input.stillCurrent();
   await savePrincipalHistoryPrefix({
     execSql: input.execSql,
     prefix: { ...prefix, progress: sealed.value },
     stillCurrent,
+    rejectedPrefix: rejected,
   });
   if (progress.saved)
     await discardPrincipalHistoryStage(

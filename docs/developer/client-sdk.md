@@ -366,10 +366,11 @@ import { createSQLiteRuntime } from "@tearleads/client-sdk/sqlite";
 ```
 
 `SQLiteRuntime` is the host lifecycle object with `{ id, client,
-destroy() }`. The lower-level `@tearleads/sqlite-worker` package still owns the
-worker thread implementation, but host application code should prefer the SDK
-facade so database setup, executor contracts, and workflow runtime integration
-stay behind one developer-facing package.
+destroy() }`. The runtime starts its worker from `/worker.js` unless `workerUrl`
+names another URL. The host serves the SDK's `sqlite/worker.js` there, with
+`sqlite/sqlite3.wasm` beside it (the worker loads it from its own URL), and
+ships `sqlite/sqlite3-licenses.md` with both. Every Tearleads host copies these
+exports, so npm consumers run the same worker the apps do.
 
 The SQLite facade exposes lower-level database runtime capabilities through SDK
 SQLite vocabulary:
@@ -388,9 +389,9 @@ SQLite vocabulary:
 
 Host runtime code should use this facade instead of importing
 `createDatabaseRuntime`, `createModuleDatabaseRuntime`, `DatabaseRuntime`, or
-`DatabaseWorkerClient` from `@tearleads/sqlite-worker` directly. Worker-thread
-entry files and low-level SQLite tests may still import the underlying worker
-package when they are implementing or exercising the worker itself.
+`DatabaseWorkerClient` from `@tearleads/sqlite-worker` directly. Low-level
+SQLite tests may still import the underlying worker package to exercise the
+worker itself.
 
 Identity setup is asynchronous because the signing fingerprint is derived from
 the public key and local root setup requires SQLite. `generate()` requires a
@@ -578,10 +579,14 @@ Supported package entry points are:
 | --- | --- |
 | `@tearleads/client-sdk` | `Tearleads`, SDK service types, local keyring helpers, document contracts, sync diagnostics, stores, purchase capabilities, and public workflow symbols |
 | `@tearleads/client-sdk/sqlite` | SQLite worker runtime factory, executor contracts, and adapter helpers |
+| `@tearleads/client-sdk/sqlite/worker.js` | The SQLite worker module a host serves for `createSQLiteRuntime` |
+| `@tearleads/client-sdk/sqlite/sqlite3.wasm` | The SQLite WebAssembly the host serves beside `worker.js` |
+| `@tearleads/client-sdk/sqlite/sqlite3-licenses.md` | The licenses that ship with the two SQLite files |
 | `@tearleads/client-sdk/testing` | Nominal trusted-identity fixtures for lower-level repository integration tests; never production code |
 
-Each package export maps `types` to an emitted `.d.ts` file and `default` to an
-emitted ESM JavaScript file under `dist`. The export map is exact. Host code
+Each module export maps `types` to an emitted `.d.ts` file and `default` to an
+emitted ESM JavaScript file under `dist`; each `sqlite/` file export names the
+built file itself. The export map is exact. Host code
 reaches document contracts, store facades, and public workflow symbols through
 the root entry point; the SQLite entry point owns its runtime adapter boundary,
 and the testing entry point is forbidden from production source.

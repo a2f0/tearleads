@@ -1,6 +1,6 @@
 {
   "name": "app-web",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "private": true,
   "license": "UNLICENSED",
   "type": "module",
@@ -24,7 +24,6 @@
     "@stripe/stripe-js": "9.15.0",
     "@tearleads/client-sdk": "workspace:*",
     "@tearleads/diagnostics": "workspace:*",
-    "@tearleads/sqlite-worker": "workspace:*",
     "app": "workspace:*",
     "pdfjs-dist": "6.3.289",
     "react-dom": "catalog:react"

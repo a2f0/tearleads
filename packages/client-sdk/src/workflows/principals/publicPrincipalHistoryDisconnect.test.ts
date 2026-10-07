@@ -15,13 +15,13 @@ beforeAll(async () => {
   fork = await signedRecoveryHistory(32);
 });
 
-async function cachedFork() {
-  const f = await createPublicHistoryFixture(history, [fork.bundle]);
+async function cachedFork(genuine = history, cached = fork) {
+  const f = await createPublicHistoryFixture(genuine, [cached.bundle]);
   try {
     await recoverPublicPrincipalHistory({
       ...f.options,
-      source: f.source(fork.bundle),
-      resolveTrustedUserIdentity: fork.resolveTrustedUserIdentity,
+      source: f.source(cached.bundle),
+      resolveTrustedUserIdentity: cached.resolveTrustedUserIdentity,
     });
     f.requests.length = 0;
     return f;
@@ -30,6 +30,36 @@ async function cachedFork() {
     throw error;
   }
 }
+
+test("a lower genuine source replaces a higher disconnected prefix for warm and offline recovery", async () => {
+  const f = await cachedFork(fork, history);
+  try {
+    const recovered = await recoverPublicPrincipalHistory(f.options);
+    expect(recovered.history.currentEntry.state.stateHash).toBe(
+      fork.expectedHead.stateHash,
+    );
+    expect(f.requests).toEqual([31, 0]);
+    expect(
+      (await f.db.select().from(principalHistoryPrefixes)).map(
+        (row) => row.version,
+      ),
+    ).toEqual([32]);
+    f.requests.length = 0;
+    await recoverPublicPrincipalHistory(f.options);
+    expect(f.requests).toEqual([31]);
+    f.requests.length = 0;
+    const offline = await recoverPublicPrincipalHistory({
+      ...f.options,
+      offline: true,
+    });
+    expect(offline.history.currentEntry.state.stateHash).toBe(
+      fork.expectedHead.stateHash,
+    );
+    expect(f.requests).toEqual([]);
+  } finally {
+    f.close();
+  }
+});
 
 test("a disconnected public prefix replays once online and remains unavailable offline", async () => {
   const f = await cachedFork();
@@ -51,6 +81,50 @@ test("a disconnected public prefix replays once online and remains unavailable o
     f.requests.length = 0;
     await recoverPublicPrincipalHistory(f.options);
     expect(f.requests).toEqual([65]);
+  } finally {
+    f.close();
+  }
+});
+
+test("a failed lower-source replay preserves the cached candidate", async () => {
+  const f = await cachedFork(fork, history);
+  try {
+    const before = await f.db.select().from(principalHistoryPrefixes);
+    f.controls.mutate = (page) => {
+      if (page.historyPage.afterVersion === 0)
+        page.currentState.signature = history.bundle.currentState.signature;
+    };
+    await expect(recoverPublicPrincipalHistory(f.options)).rejects.toThrow();
+    expect(f.requests).toEqual([31, 0]);
+    expect(await f.db.select().from(principalHistoryPrefixes)).toEqual(before);
+  } finally {
+    f.close();
+  }
+});
+
+test("a resumed lower-source replay also replaces its rejected higher prefix", async () => {
+  const higherFork = await signedRecoveryHistory(99);
+  const f = await cachedFork(history, higherFork);
+  try {
+    f.controls.failAfter = 32;
+    await expect(
+      recoverPublicPrincipalHistory(f.options),
+    ).rejects.toMatchObject({
+      name: "PrincipalPolicyHistoryReadError",
+    });
+    expect(f.requests).toEqual([65, 0, 32]);
+    f.controls.failAfter = null;
+    f.requests.length = 0;
+    await recoverPublicPrincipalHistory(f.options);
+    expect(f.requests).toEqual([32, 64]);
+    expect(
+      (await f.db.select().from(principalHistoryPrefixes)).map(
+        (row) => row.version,
+      ),
+    ).toEqual([66]);
+    f.requests.length = 0;
+    await recoverPublicPrincipalHistory({ ...f.options, offline: true });
+    expect(f.requests).toEqual([]);
   } finally {
     f.close();
   }

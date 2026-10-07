@@ -4,6 +4,7 @@ import {
   serializeKeyingCanonicalJson,
 } from "@tearleads/crypto";
 import { isReferencedPrincipalStateResponse } from "@tearleads/validators/response";
+import type { PrincipalHistoryPrefix } from "../../data/persistence/principalHistoryPrefixPersistence";
 import { principalHeadMatchesReference } from "../../data/principals/organizationAuthorityDescriptor";
 import type { PublicPrincipalHistoryOptions } from "./publicPrincipalHistoryTypes";
 
@@ -83,19 +84,23 @@ export async function loadPublicHistoryAuthority(
 export async function validatePublicHistoryAuthority(
   input: PublicPrincipalHistoryOptions,
   reference: ReferencedPrincipalHead | null,
+  rejectedPrefix: PrincipalHistoryPrefix | null = null,
 ): Promise<void> {
   try {
     if (reference) await loadPublicHistoryAuthority(input, [reference], true);
   } catch (error) {
     if (error instanceof KeyingVerificationError)
-      throw new PublicHistoryAuthorityUnavailableError(error);
+      throw new PublicHistoryAuthorityUnavailableError(error, rejectedPrefix);
     throw error;
   }
 }
 
 /** Only cache restoration can request a replay after an authority mismatch. */
 export class PublicHistoryAuthorityUnavailableError extends Error {
-  constructor(readonly verificationError: KeyingVerificationError) {
+  constructor(
+    readonly verificationError: KeyingVerificationError,
+    readonly rejectedPrefix: PrincipalHistoryPrefix | null,
+  ) {
     super(verificationError.message);
     this.name = "PublicHistoryAuthorityUnavailableError";
   }

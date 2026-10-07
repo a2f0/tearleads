@@ -103,6 +103,34 @@ test("interrupted public recovery resumes verified progress with a new transport
   }
 });
 
+test("a resumed older stage preserves a compatible higher completed prefix", async () => {
+  const previous = earlier(66);
+  const f = await createPublicHistoryFixture(history, [previous]);
+  const older = { ...f.options, source: f.source(previous) };
+  try {
+    f.controls.failAfter = 32;
+    await expect(recoverPublicPrincipalHistory(older)).rejects.toMatchObject({
+      name: "PrincipalPolicyHistoryReadError",
+    });
+    f.controls.failAfter = null;
+    await recoverPublicPrincipalHistory(f.options);
+    const before = await f.db.select().from(principalHistoryPrefixes);
+    f.requests.length = 0;
+    await recoverPublicPrincipalHistory(older);
+    expect(f.requests).toEqual([32, 64]);
+    expect(await f.db.select().from(principalHistoryPrefixes)).toEqual(before);
+    f.requests.length = 0;
+    const offline = await recoverPublicPrincipalHistory({
+      ...f.options,
+      offline: true,
+    });
+    expect(offline.history.currentEntry.state.version).toBe(67);
+    expect(f.requests).toEqual([]);
+  } finally {
+    f.close();
+  }
+});
+
 test("offline public recovery requires the private key and rekeying reuses public rows", async () => {
   const f = await createPublicHistoryFixture(history);
   try {
