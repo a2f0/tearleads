@@ -1,6 +1,7 @@
 import { and, eq } from "drizzle-orm";
 import { assertProjectionVerificationCurrent } from "../keyingProjectionVerification/types";
 import { principalHistoryEvidenceTables } from "../sqlite/principalHistoryEvidenceSchema";
+import { principalHistoryStageScopes } from "../sqlite/principalHistoryRetentionSchema";
 import {
   principalHistoryStages,
   principalHistoryStageTables,
@@ -11,6 +12,7 @@ import {
   type PrincipalHistoryEvidencePage,
   writePrincipalHistoryEvidencePage,
 } from "./principalHistoryEvidencePersistence";
+import { recordPrincipalHistoryStageScope } from "./principalHistoryStageRetention";
 
 export type PrincipalHistoryStage = typeof principalHistoryStages.$inferSelect;
 
@@ -65,6 +67,13 @@ export async function savePrincipalHistoryStage(input: {
         .values(stage)
         .onConflictDoUpdate({ target: principalHistoryStages.id, set: stage })
         .run();
+      await recordPrincipalHistoryStageScope(tx, {
+        id: stage.id,
+        afterVersion: stage.afterVersion,
+        complete: stage.complete,
+        organizationId: stage.organizationId,
+        scopeId: evidence.scopeId,
+      });
     },
     input.stillCurrent,
     { behavior: "immediate" },
@@ -80,6 +89,12 @@ export async function discardPrincipalHistoryStage(
   const runtime = getClientSQLitePersistenceRuntime(execSql);
   const discarded = await runtime.guardedTransaction(
     async (db) => {
+      const [current] = await db
+        .select({ progress: principalHistoryStages.progress })
+        .from(principalHistoryStages)
+        .where(eq(principalHistoryStages.id, stage.id))
+        .limit(1);
+      if (current?.progress !== stage.progress) return;
       await db
         .delete(principalHistoryStages)
         .where(
@@ -88,6 +103,10 @@ export async function discardPrincipalHistoryStage(
             eq(principalHistoryStages.progress, stage.progress),
           ),
         )
+        .run();
+      await db
+        .delete(principalHistoryStageScopes)
+        .where(eq(principalHistoryStageScopes.id, stage.id))
         .run();
     },
     stillCurrent,

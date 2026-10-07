@@ -28,6 +28,11 @@ import {
 } from "./principalHistoryEvidencePersistence";
 import type { PrincipalHistoryPrefix } from "./principalHistoryPrefixPersistence";
 import type { PrincipalHistoryStage } from "./principalHistoryStagePersistence";
+import {
+  reclaimCompletedPrincipalHistoryStages,
+  recordPrincipalHistoryStageScope,
+} from "./principalHistoryStageRetention";
+import { archivePrincipalHistoryKeyEnvelopes } from "./principalKeyEnvelopeArchivePersistence";
 
 /** Owned output of authenticated prefix extension and exact receipt verification. */
 export interface AcknowledgedPrincipalCurrentPublication {
@@ -116,6 +121,26 @@ async function validatePublication(
     );
 }
 
+async function archiveAcknowledgedStageKeys(
+  tx: ClientSQLiteTransactionScope,
+  entry: AcknowledgedPrincipalCurrentPublication,
+) {
+  for (const stage of [entry.predecessorStage, entry.stage]) {
+    if (!stage) continue;
+    await recordPrincipalHistoryStageScope(tx, {
+      id: stage.id,
+      afterVersion: stage.afterVersion,
+      complete: stage.complete,
+      organizationId: entry.prefix.organizationId,
+      scopeId: entry.prefix.scopeId,
+    });
+    await archivePrincipalHistoryKeyEnvelopes(tx, {
+      ...stage,
+      version: stage.afterVersion + 1,
+    });
+  }
+}
+
 /** Store current artifacts and resumable progress in the same transaction as their pins. */
 export async function persistAcknowledgedPrincipalCurrents(input: {
   readonly execSql: ExecSql;
@@ -182,6 +207,7 @@ export async function persistAcknowledgedPrincipalCurrents(input: {
             set: entry.stage,
           })
           .run();
+        await archiveAcknowledgedStageKeys(tx, entry);
         await tx
           .insert(principalHistoryPrefixes)
           .values(entry.prefix)
@@ -190,6 +216,7 @@ export async function persistAcknowledgedPrincipalCurrents(input: {
             set: entry.prefix,
           })
           .run();
+        await reclaimCompletedPrincipalHistoryStages(tx, entry.prefix);
         await upsertPrincipalPolicyCheckpointInTransaction(
           tx,
           entry.policy.checkpoint,

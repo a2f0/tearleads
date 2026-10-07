@@ -4,8 +4,11 @@ import {
   principalHistoryEvidenceTables,
   principalHistoryPrefixes,
 } from "../sqlite/principalHistoryEvidenceSchema";
+import { principalHistoryStageTables } from "../sqlite/principalHistoryStageSchema";
 import { getClientSQLitePersistenceRuntime } from "../sqlite/sqlitePersistenceRuntime";
 import { type ExecSql, ensureSqlTables } from "../sqlite/sqlSchema";
+import { reclaimCompletedPrincipalHistoryStages } from "./principalHistoryStageRetention";
+import { archivePrincipalHistoryKeyEnvelopes } from "./principalKeyEnvelopeArchivePersistence";
 
 export type PrincipalHistoryPrefix =
   typeof principalHistoryPrefixes.$inferSelect;
@@ -33,7 +36,10 @@ export async function savePrincipalHistoryPrefix(input: {
 }): Promise<void> {
   const prefix = { ...input.prefix };
   const rejected = input.rejectedPrefix ? { ...input.rejectedPrefix } : null;
-  await ensureSqlTables(input.execSql, principalHistoryEvidenceTables);
+  await ensureSqlTables(input.execSql, [
+    ...principalHistoryEvidenceTables,
+    ...principalHistoryStageTables,
+  ]);
   const runtime = getClientSQLitePersistenceRuntime(input.execSql);
   const result = await runtime.guardedTransaction(
     async (tx) => {
@@ -51,6 +57,8 @@ export async function savePrincipalHistoryPrefix(input: {
         )
       )
         return;
+      if (previous) await archivePrincipalHistoryKeyEnvelopes(tx, previous);
+      await archivePrincipalHistoryKeyEnvelopes(tx, prefix);
       await tx
         .insert(principalHistoryPrefixes)
         .values(prefix)
@@ -59,6 +67,7 @@ export async function savePrincipalHistoryPrefix(input: {
           set: prefix,
         })
         .run();
+      await reclaimCompletedPrincipalHistoryStages(tx, prefix);
     },
     input.stillCurrent,
     { behavior: "immediate" },

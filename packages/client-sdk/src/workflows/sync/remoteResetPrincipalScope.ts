@@ -4,6 +4,10 @@ import {
   principalHistoryNodes,
   principalHistoryPrefixes,
 } from "../../data/sqlite/principalHistoryEvidenceSchema";
+import {
+  principalHistoryStageScopes,
+  principalKeyEnvelopeArchive,
+} from "../../data/sqlite/principalHistoryRetentionSchema";
 import { principalHistoryStages } from "../../data/sqlite/principalHistoryStageSchema";
 import {
   principalPolicies,
@@ -121,6 +125,8 @@ export async function clearRemoteResetPrincipalRows(input: {
     principalHistoryEntries,
     principalHistoryNodes,
     principalHistoryPrefixes,
+    principalHistoryStageScopes,
+    principalKeyEnvelopeArchive,
   ])
     await input.tx
       .delete(table)

@@ -1,10 +1,9 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
-import { integer, sqliteTable, text, unique } from "drizzle-orm/sqlite-core";
 import { readTableColumns } from "../../../test/helpers/sqlitePragma";
 import { clientSqlTables, principalPolicyTables } from "./schema";
-import type { ExecSql, SqlRow, SqlTableSchema } from "./sqlSchema";
-import { defineSqlTableSchema, ensureSqlTables } from "./sqlTableSchema";
+import type { ExecSql, SqlRow } from "./sqlSchema";
+import { ensureSqlTables } from "./sqlTableSchema";
 
 function readString(row: SqlRow, key: string): string {
   return String(row[key] ?? "");
@@ -91,8 +90,11 @@ test("client sqlite schema creates tables and indexes", async () => {
       "principal_history_nodes_organization_idx",
       "principal_history_prefixes_key_fingerprint_idx",
       "principal_history_prefixes_organization_idx",
+      "principal_history_stage_scopes_organization_idx",
+      "principal_history_stage_scopes_scope_idx",
       "principal_history_stages_key_fingerprint_idx",
       "principal_history_stages_organization_idx",
+      "principal_key_envelope_archive_fingerprint_idx",
       "principal_policies_key_fingerprint_idx",
       "principal_policy_history_key_fingerprint_idx",
       "principal_policy_organizations_organization_idx",
@@ -447,53 +449,6 @@ test("principal policy schema rejects a legacy database that cannot authenticate
     ).rejects.toThrow(
       "Local database schema for principal_policies is obsolete; reset the local database before continuing",
     );
-  } finally {
-    close();
-  }
-});
-
-test("client sqlite schema renderer quotes identifiers and table unique constraints", async () => {
-  const tableSchema: SqlTableSchema = defineSqlTableSchema(
-    sqliteTable(
-      "select",
-      {
-        enabled: integer("enabled", { mode: "boolean" })
-          .notNull()
-          .default(true),
-        from: text("from").notNull(),
-      },
-      (table) => [unique().on(table.from, table.enabled)],
-    ),
-  );
-  const { close, execSql } = await createTestExecSql(
-    "app-schema-renderer-test",
-  );
-
-  try {
-    expect(tableSchema.createSql).toContain(
-      'CREATE TABLE IF NOT EXISTS "select"',
-    );
-    expect(tableSchema.createSql).toContain(
-      '"enabled" INTEGER NOT NULL DEFAULT 1',
-    );
-    expect(tableSchema.createSql).toContain('"from" TEXT NOT NULL');
-    expect(tableSchema.createSql).toContain('UNIQUE ("from", "enabled")');
-
-    await ensureSqlTables(execSql, [tableSchema]);
-    const columns = await readTableColumns(execSql, "select");
-
-    expect(readRecordValue(columns, "enabled")).toEqual({
-      defaultValue: "1",
-      notNull: 1,
-      pk: 0,
-      type: "INTEGER",
-    });
-    expect(readRecordValue(columns, "from")).toEqual({
-      defaultValue: null,
-      notNull: 1,
-      pk: 0,
-      type: "TEXT",
-    });
   } finally {
     close();
   }

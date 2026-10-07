@@ -7,6 +7,7 @@ import {
   principalHistoryEvidenceTables,
   principalHistoryPrefixes,
 } from "../sqlite/principalHistoryEvidenceSchema";
+import { principalKeyEnvelopeArchive } from "../sqlite/principalHistoryRetentionSchema";
 import { principalHistoryStages } from "../sqlite/principalHistoryStageSchema";
 import {
   principalCurrentFingerprintJson,
@@ -48,6 +49,13 @@ export async function loadPrincipalKeyEnvelopeCandidates(
   const candidates: PrincipalKeyEnvelopeCandidate[] = [];
   for (const fingerprint of new Set(fingerprints)) {
     const encoded: string[] = [];
+    const [archived] = await db
+      .select({ envelopes: principalKeyEnvelopeArchive.envelopesJson })
+      .from(principalKeyEnvelopeArchive)
+      .where(eq(principalKeyEnvelopeArchive.keyFingerprint, fingerprint))
+      .orderBy(desc(principalKeyEnvelopeArchive.version))
+      .limit(1);
+    if (archived) encoded.push(archived.envelopes);
     for (const table of [principalPolicies, principalPolicyBundleHistory]) {
       const [row] = await db
         .select({ envelopes: table.currentMemberEnvelopesJson })
@@ -93,7 +101,7 @@ export async function loadPrincipalKeyEnvelopeCandidates(
       .orderBy(desc(principalHistoryStages.afterVersion))
       .limit(1);
     if (stage) encoded.push(stage.envelopes);
-    for (const json of encoded) {
+    for (const json of new Set(encoded)) {
       let envelopes: unknown;
       try {
         envelopes = JSON.parse(json);
