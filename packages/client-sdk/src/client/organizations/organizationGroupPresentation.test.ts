@@ -194,3 +194,31 @@ test("group presentation does not bypass verified storage failures", async () =>
   ).rejects.toBe(localError);
   expect(networkCalls).toEqual([]);
 });
+
+test("older history pages do not depend on an unrelated member read", async () => {
+  const calls: string[] = [];
+  const coordinator = coordinatorWithMembers(null, calls);
+  coordinator.loadLocalGroupMembers = async () => {
+    throw new Error("Unrelated member storage is unavailable");
+  };
+  coordinator.loadGroupPolicyHistory = async (
+    id,
+    organization,
+    beforeVersion,
+  ) => {
+    expect([id, organization, beforeVersion]).toEqual([
+      groupId,
+      organizationId,
+      3,
+    ]);
+    return projectedPolicyHistory;
+  };
+  await expect(
+    loadOrganizationGroupPresentationDetails({
+      groupId,
+      beforeVersion: 3,
+      readModelCoordinator: coordinator,
+      runtime: runtimeWith(createMockApiClient({})),
+    }),
+  ).resolves.toEqual({ members: null, policyHistory: projectedPolicyHistory });
+});

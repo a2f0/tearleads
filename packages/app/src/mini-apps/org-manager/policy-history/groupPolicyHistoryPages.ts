@@ -14,7 +14,15 @@ export function assertGroupPolicyHistoryPage(
     !page ||
     page.groupId !== requested.groupId ||
     page.organizationId !== requested.organizationId ||
-    page.entries[0]?.version !== requested.beforeVersion - 1
+    page.entries.length === 0 ||
+    page.entries.some(
+      ({ version }, index) =>
+        !Number.isSafeInteger(version) ||
+        version < 1 ||
+        version !== requested.beforeVersion - 1 - index,
+    ) ||
+    page.nextBeforeVersion !==
+      (page.entries.at(-1)?.version === 1 ? null : page.entries.at(-1)?.version)
   )
     throw new Error(ORG_MANAGER_LABELS.failedLoadOlderPolicyHistory);
 }

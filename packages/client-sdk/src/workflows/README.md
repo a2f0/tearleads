@@ -256,16 +256,18 @@ groups before filtering the displayed group catalog. Encrypted org/group labels
 use a separate root with Admins/admin and Members/read grants. Container names
 are joined from local encrypted metadata. `loadGroupPresentationDetails(groupId,
 beforeVersion?)` combines local members with up to 32 authenticated history
-entries. `policyHistory.nextBeforeVersion` is an exclusive cursor for older
+entries on the first page; older-page calls return `members: null` without a
+member read. `policyHistory.nextBeforeVersion` is an exclusive cursor for older
 entries, or null at genesis. Each page verifies index proofs against a privately
 authenticated prefix and retains its real predecessor for membership diffs.
 The projected head bounds the displayed history even when local recovery has
 already verified a newer head. Hosts without private paged recovery retain the
-complete-bundle path and omit the cursor; verification failures never downgrade
-to that path. Raw responses are never rendered. Group
-containers repaint independently from the local grants lane. State-hash and
-member-count checks prevent torn local views, but do not make presentation rows
-authoritative. `isSelf` is derived from the active user, while `isOrgAdmin` is
+complete-bundle path for cursor-free calls and reject explicit cursors;
+verification failures never downgrade to that path. Raw responses are never
+rendered. Group containers repaint independently from the local grants lane.
+State-hash and member-count checks prevent torn local views, but do not make
+presentation rows authoritative. `isSelf` is derived from the active user, while
+`isOrgAdmin` is
 requester-scoped and UI-only. Group mutations are authorized through the
 verified reserved `Admins` policy. Before committing a principal rotation, the
 client derives the complete container batch from verified writer projections;

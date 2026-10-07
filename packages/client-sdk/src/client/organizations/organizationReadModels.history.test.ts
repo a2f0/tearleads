@@ -8,7 +8,22 @@ import { createOrganizationHistoryFixture } from "../../../test/helpers/organiza
 import { organizationReadModelSnapshot } from "../../../test/helpers/organizationReadModelProjectionFixtures";
 import { applyOrganizationReadModelResponse } from "../../data/persistence/organizations/organizationReadModelPersistence";
 import { savePrincipalPolicyBundle } from "../../data/persistence/principalPolicyPersistence";
+import { unavailableExecSql } from "../../data/sqlite/sqlSchema";
 import { createOrganizationReadModelCoordinator } from "./organizationReadModels";
+
+test("a host without page custody refuses a cursor before reading local or remote history", async () => {
+  const input = createWorkflowInputFixture({
+    apiClient: createMockApiClient({}),
+    auth: { organizationId: "org-a", userId: "user-a" },
+    execSql: unavailableExecSql,
+  });
+  const coordinator = createOrganizationReadModelCoordinator(
+    createInternalRuntimeFixture(() => input),
+  );
+  await expect(
+    coordinator.loadGroupPolicyHistory("group-a", "org-a", 3),
+  ).rejects.toMatchObject({ code: "invalid_shape" });
+});
 
 test("organization history enriches online and preserves verified local entries offline", async () => {
   const data = await createOrganizationHistoryFixture();

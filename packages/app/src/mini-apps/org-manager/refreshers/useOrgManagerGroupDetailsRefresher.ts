@@ -9,14 +9,11 @@ import type { useOrgManagerActions } from "../../../stores/org-manager/OrgManage
 import type { useOrgManagerRequestGuard } from "../hooks/useOrgManagerRequestGuard";
 import { ORG_MANAGER_LABELS } from "../labels";
 import {
-  appendGroupPolicyHistoryPage,
-  assertGroupPolicyHistoryPage,
-} from "../policy-history/groupPolicyHistoryPages";
-import {
   type GroupDetailsRefreshOptions,
   runScopedRefresher,
   setUnknownError,
 } from "../refresh";
+import { useOrgManagerGroupHistoryRefresher } from "./useOrgManagerGroupHistoryRefresher";
 
 export function useOrgManagerGroupDetailsRefresher(input: {
   appData: ReturnType<typeof useTearleadsRuntime>;
@@ -40,86 +37,56 @@ export function useOrgManagerGroupDetailsRefresher(input: {
     setGroupPolicyHistory,
     setMembers,
   } = input;
-  const organizationId = appData.auth.organizationId;
+  const refreshHistoryPage = useOrgManagerGroupHistoryRefresher(input);
   return useCallback(
     (groupId: string | null, options: GroupDetailsRefreshOptions = {}) =>
-      runScopedRefresher({
-        apply: (details) => {
-          const errors: string[] = [];
-          if (options.beforeVersion === undefined) {
-            if (details.members === null) {
-              setMembers(null);
-              errors.push(ORG_MANAGER_LABELS.failedLoadGroupMembers);
-            } else {
-              setMembers(details.members);
-            }
-            setGroupPolicyHistory(details.policyHistory);
-          } else {
-            const beforeVersion = options.beforeVersion;
-            setGroupPolicyHistory((previous) =>
-              appendGroupPolicyHistoryPage(
-                previous,
-                details.policyHistory,
-                beforeVersion,
-              ),
-            );
-          }
-          if (errors.length > 0) {
-            setError(errors.join(" "));
-          }
-        },
-        beginRequest,
-        load:
-          organizationId && groupId && appData.auth.isAuthenticated
-            ? async () => {
-                const details =
-                  await orgManagerActions.loadGroupPresentationDetails(
-                    groupId,
-                    options.beforeVersion,
-                  );
-                if (options.beforeVersion !== undefined) {
-                  assertGroupPolicyHistoryPage(details.policyHistory, {
-                    groupId,
-                    organizationId,
-                    beforeVersion: options.beforeVersion,
-                  });
-                }
-                return details;
+      options.beforeVersion !== undefined
+        ? refreshHistoryPage(groupId, options.beforeVersion)
+        : runScopedRefresher({
+            apply: (details) => {
+              const errors: string[] = [];
+              if (details.members === null) {
+                setMembers(null);
+                errors.push(ORG_MANAGER_LABELS.failedLoadGroupMembers);
+              } else {
+                setMembers(details.members);
               }
-            : null,
-        onError: (error) => {
-          if (options.beforeVersion === undefined) {
-            setMembers(null);
-            setGroupPolicyHistory(null);
-          }
-          setUnknownError(setError, error);
-        },
-        onSettled: () => {
-          if (options.beforeVersion === undefined)
-            markGroupDetailsSettled(groupId);
-        },
-        onUnavailable: () => {
-          if (options.beforeVersion === undefined) {
-            setMembers(null);
-            setGroupPolicyHistory(null);
-          }
-        },
-        options,
-        requestKind:
-          options.beforeVersion === undefined
-            ? "groupDetails"
-            : "groupHistoryPage",
-        setError,
-      }),
+              setGroupPolicyHistory(details.policyHistory);
+              if (errors.length > 0) {
+                setError(errors.join(" "));
+              }
+            },
+            beginRequest,
+            load:
+              appData.auth.organizationId &&
+              groupId &&
+              appData.auth.isAuthenticated
+                ? () => orgManagerActions.loadGroupPresentationDetails(groupId)
+                : null,
+            onError: (error) => {
+              setMembers(null);
+              setGroupPolicyHistory(null);
+              setUnknownError(setError, error);
+            },
+            onSettled: () => markGroupDetailsSettled(groupId),
+            onUnavailable: () => {
+              setMembers(null);
+              setGroupPolicyHistory(null);
+            },
+            options,
+            requestKind: "groupDetails",
+            setError,
+          }),
     [
       appData.auth.isAuthenticated,
-      organizationId,
+      appData.auth.organizationId,
       beginRequest,
       markGroupDetailsSettled,
       orgManagerActions,
       setError,
       setGroupPolicyHistory,
       setMembers,
+      refreshHistoryPage,
     ],
   );
 }

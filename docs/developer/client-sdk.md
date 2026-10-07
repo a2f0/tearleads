@@ -874,4 +874,6 @@ genesis. A separately authenticated predecessor makes the oldest displayed row's
 membership diff accurate. Pages check private index roots, exact projected heads,
 durable pins and runtime lifetime, including offline reads. A newer verified
 local prefix can answer an older selected history view without a freshness read.
-Hosts lacking paged recovery keep complete legacy histories with no cursor.
+Older-page calls return `members: null` and do not reload the member list. Hosts
+lacking paged recovery keep complete histories for cursor-free calls and reject
+explicit cursors instead of silently ignoring them.

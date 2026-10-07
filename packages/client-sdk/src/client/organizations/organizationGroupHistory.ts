@@ -1,3 +1,4 @@
+import { KeyingVerificationError } from "@tearleads/crypto";
 import { assertProjectionVerificationCurrent } from "../../data/keyingProjectionVerification/types";
 import { loadLocalOrganizationPolicyReference } from "../../workflows/organizations";
 import { buildOrganizationGroupPolicyHistoryPage } from "../../workflows/organizations/groupPolicyHistoryPage";
@@ -13,7 +14,14 @@ export async function loadBoundedOrganizationGroupHistory(input: {
 }) {
   const { active } = input;
   const resolve = createRuntimePrincipalPolicyCurrentResolver(active.runtime);
-  if (!resolve) return undefined;
+  if (!resolve) {
+    if (input.beforeVersion !== undefined)
+      throw new KeyingVerificationError(
+        "invalid_shape",
+        "This host cannot resolve a group history page cursor",
+      );
+    return undefined;
+  }
   assertProjectionVerificationCurrent(input.stillCurrent);
   const reference = await loadLocalOrganizationPolicyReference({
     currentUserId: active.userId,

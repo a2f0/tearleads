@@ -47,13 +47,15 @@ function page(
 
 function PaginationProbe({
   load,
+  initialError = null,
 }: {
   load: ReturnType<typeof useOrgManagerActions>["loadGroupPresentationDetails"];
+  initialError?: string | null;
 }) {
   const [history, setHistory] = useState<OrganizationGroupPolicyHistory | null>(
     page([3], 3),
   );
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(initialError);
   const beginRequest = useOrgManagerRequestGuard("org-a");
   const refresh = useOrgManagerGroupDetailsRefresher({
     appData: {
@@ -145,11 +147,21 @@ test("a failed older-page read keeps the verified rows and permits retry", async
   expect(view.queryByRole("button", { name: "Load older changes" })).toBeNull();
 });
 
-test.each(["missing", "organization", "group", "cursor"] as const)(
+test.each([
+  "missing",
+  "organization",
+  "group",
+  "cursor",
+  "gap",
+  "next cursor",
+] as const)(
   "a malformed %s page reports an error without replacing the visible history",
   async (mode) => {
     const invalid = {
-      ...page([2, 1], null),
+      ...page(
+        mode === "gap" ? [2, 2] : [2, 1],
+        mode === "next cursor" ? 2 : null,
+      ),
       organizationId: mode === "organization" ? "org-b" : "org-a",
       groupId: mode === "group" ? "group-b" : "group-a",
     };
@@ -176,6 +188,20 @@ test.each(["missing", "organization", "group", "cursor"] as const)(
     expect(view.queryByText(getOrgManagerPolicyVersionLabel(1))).toBeNull();
   },
 );
+
+test("successful history pagination preserves an unrelated mutation error", async () => {
+  const view = render(
+    <PaginationProbe
+      initialError="The group mutation failed"
+      load={async () => ({ members: null, policyHistory: page([2, 1], null) })}
+    />,
+  );
+  fireEvent.click(view.getByRole("button", { name: "Load older changes" }));
+  await waitFor(() =>
+    expect(view.getByText(getOrgManagerPolicyVersionLabel(1))).toBeTruthy(),
+  );
+  expect(view.getByRole("alert").textContent).toBe("The group mutation failed");
+});
 
 test.each(["organization", "group", "cursor"] as const)(
   "a page validated for its original request leaves a changed %s view intact",

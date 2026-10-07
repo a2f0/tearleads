@@ -20,10 +20,12 @@ export async function loadOrganizationGroupPresentationDetails(input: {
   }
 
   const [members, policyHistory] = await Promise.all([
-    input.readModelCoordinator.loadLocalGroupMembers(
-      input.groupId,
-      organizationId,
-    ),
+    input.beforeVersion === undefined
+      ? input.readModelCoordinator.loadLocalGroupMembers(
+          input.groupId,
+          organizationId,
+        )
+      : Promise.resolve(null),
     input.readModelCoordinator.loadGroupPolicyHistory(
       input.groupId,
       organizationId,
