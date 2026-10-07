@@ -107,6 +107,7 @@ export interface Organizations {
   >;
   loadGroupPresentationDetails(
     groupId: string,
+    beforeVersion?: number,
   ): ReturnType<typeof loadOrganizationGroupPresentationDetails>;
   loadGroupContainers: (
     groupId: string,

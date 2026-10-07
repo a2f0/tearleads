@@ -109,7 +109,7 @@ same type. It includes exact current artifacts and container receipts, with no
 `previousStates` on the paged path. Hosts without custody may include that extra
 field; callers should use the common receipt contract. Standalone full-bundle
 workflows retain their existing return
-contracts. Group creation and group sharing still use those workflows;
+contracts. Group sharing still uses those workflows;
 this adoption does not yet eliminate every full-history mutation consumer.
 
 Mutation builders clear their owned signing-key copies on success and failure;
@@ -127,6 +127,23 @@ policy work blocks discovery. Hosts without private custody keep the standalone
 full-bundle deletion workflow with the same caller lifetime guard.
 Creation/deletion requests are not yet covered by the compound membership journal;
 lost acknowledgements still require reconciliation.
+
+## Group creation
+
+Built-in creation recovers current directory and strict Admins authority, checks
+the signing administrator, and compares decrypted signed names for every group
+in that directory. Name encryption reuses the selected authority's metadata-root
+verification. It authors a genuine version-one group and one directory successor,
+then checks the returned target, key fingerprint and exact acknowledgement.
+
+An `initialGroup: true` retention entry verifies the genesis signature and its
+Admins authority rather than inventing a predecessor. Its authenticated history
+index, private progress, current artifacts and first checkpoint publish in the
+same guarded transaction as the exactly binding directory receipt. An existing
+prefix or conflicting checkpoint is refused. Failure on either side rolls back
+both publications. Expiry during planning prevents dispatch; expiry after the
+response prevents local publication, including on the legacy full-bundle path.
+Creation's own unknown outcomes are not yet journaled.
 
 Membership and directory mutations share the private lease lifetime and the
 pending-work, directory and Admins authorization checks. Verified observed heads

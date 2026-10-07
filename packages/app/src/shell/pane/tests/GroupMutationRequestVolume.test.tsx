@@ -21,6 +21,7 @@ import {
   cleanupPaneTestEnvironment,
   waitForPaneRuntimeToSettle,
 } from "../../../../test/helpers/paneTestUtils";
+import { profileProxiedApiRequests } from "../../../../test/helpers/proxiedApiRequestBudget";
 import { documentSyncIntentCounts } from "../../../../test/helpers/proxiedApiRequestMetrics";
 import { waitForPersonalBootstrap } from "../../../../test/helpers/waitForPersonalBootstrap";
 import { measureWorkflowRequests } from "../../../../test/helpers/workflowRequestBudget";
@@ -130,6 +131,10 @@ test("group creation and adding a peer have separate request budgets", async () 
     // Three directory/Admins/Members reads can move across the phase boundary.
     // Keep them in the pair limit even when both phases use their full allowance.
     const combined = listProxiedApiRequests().slice(pairStart);
+    profileProxiedApiRequests(
+      `create and add peer to ${group} group`,
+      pairStart,
+    );
     expect(combined.length).toBeLessThanOrEqual(group === "first" ? 118 : 48);
     expect(
       combined.filter(

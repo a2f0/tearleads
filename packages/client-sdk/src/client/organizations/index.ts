@@ -156,7 +156,7 @@ class OrganizationsService implements Organizations {
   createGroup(name: string) {
     return createGroupForOrganization({
       name,
-      runtime: this.runtimeService.workflowInput(),
+      ...currentOrganizationMutation(this.runtimeService),
     });
   }
 
@@ -307,7 +307,7 @@ class OrganizationsService implements Organizations {
     );
   }
 
-  loadGroupPresentationDetails(groupId: string) {
+  loadGroupPresentationDetails(groupId: string, beforeVersion?: number) {
     const runtime = this.runtimeService.workflowInput();
     return runWithSecurityIncidentReporting(
       runtime.util.reportSecurityIncident,
@@ -320,6 +320,7 @@ class OrganizationsService implements Organizations {
       () =>
         loadOrganizationGroupPresentationDetails({
           groupId,
+          beforeVersion,
           readModelCoordinator: this.readModelCoordinator,
           runtime,
         }),

@@ -16,6 +16,7 @@ import { readPrincipalHistoryProtection } from "../../data/principals/principalH
 import type { SecurityIncidentReporter } from "../../data/securityIncidents";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import type { TrustedUserIdentityResolver } from "../../data/trustedUserIdentity";
+import type { RecoveredPrincipalHistoryPage } from "./loadRecoveredPrincipalHistoryPage";
 import {
   PrincipalHistoryRecoveryRaceError,
   PrincipalPolicyHistoryReadError,
@@ -24,7 +25,10 @@ import { createScopedPrincipalPolicyHistoryBatch } from "./principalRecoveryBatc
 import { recoverWithPrincipalLocalPreference } from "./principalRecoveryLocalPreference";
 import { queuePrincipalRecovery } from "./principalRecoveryQueue";
 import { recoverCurrentOrganizationPolicy } from "./recoverCurrentOrganizationPolicy";
-import { recoverScopedPrincipalPolicyHistory } from "./recoverScopedPrincipalPolicyHistory";
+import {
+  type RecoveredScopedPrincipalPolicyHistory,
+  recoverScopedPrincipalPolicyHistory,
+} from "./recoverScopedPrincipalPolicyHistory";
 
 export interface PrincipalPolicyRecoveryRuntime {
   readonly apiClient: Partial<
@@ -52,6 +56,7 @@ export function createRuntimePrincipalPolicyResolver(
 export interface ResolvedPrincipalPolicyCurrent
   extends ResolvedPrincipalPolicyEvidence {
   readonly current: PrincipalPolicyPageCurrent;
+  readonly historyPage?: RecoveredPrincipalHistoryPage | undefined;
 }
 
 interface PrincipalPolicyCurrentRequest
@@ -59,6 +64,7 @@ interface PrincipalPolicyCurrentRequest
   readonly reference?: PrincipalPolicyResolveRequest["reference"] | undefined;
   /** A read-model caller has selected this exact signed head; not a freshness read. */
   readonly preferLocalCurrent?: boolean | undefined;
+  readonly historyPage?: { readonly beforeVersion?: number } | undefined;
 }
 
 /** Keep current artifacts with their verified evidence and private runtime lifetime. */
@@ -106,6 +112,7 @@ export function createRuntimePrincipalPolicyCurrentResolver(
             const stillCurrent = () =>
               leaseCurrent() && input.stillCurrent?.() !== false;
             assertProjectionVerificationCurrent(stillCurrent);
+            assertHistoryPageRequest(input);
             const offline = runtime.state?.online === false;
             try {
               const options = {
@@ -118,18 +125,24 @@ export function createRuntimePrincipalPolicyCurrentResolver(
                 stillCurrent,
               };
               const batch = recoverFor(input.recoveryBatch);
-              const result = input.reference
-                ? await recoverWithPrincipalLocalPreference(
-                    batch.recover,
-                    { ...options, reference: input.reference },
-                    input.preferLocalCurrent === true,
-                  )
-                : await batch.currentOrganization(options);
+              const result: RecoveredScopedPrincipalPolicyHistory =
+                input.reference
+                  ? await recoverWithPrincipalLocalPreference(
+                      batch.recover,
+                      {
+                        ...options,
+                        reference: input.reference,
+                        historyPage: input.historyPage,
+                      },
+                      input.preferLocalCurrent === true,
+                    )
+                  : await batch.currentOrganization(options);
               return {
                 current: result.current,
                 organizationId: input.organizationId,
                 policy: result.policy,
                 dependencies: result.dependencies,
+                historyPage: result.historyPage,
                 stillCurrent,
               };
             } catch (error) {
@@ -145,5 +158,21 @@ export function createRuntimePrincipalPolicyCurrentResolver(
             }
           }),
       ),
+    );
+}
+
+function assertHistoryPageRequest(input: PrincipalPolicyCurrentRequest) {
+  if (!input.historyPage) return;
+  const before = input.historyPage.beforeVersion;
+  if (
+    !input.reference ||
+    (before !== undefined &&
+      (!Number.isSafeInteger(before) ||
+        before <= 1 ||
+        before > input.reference.version + 1))
+  )
+    throw new KeyingVerificationError(
+      "invalid_shape",
+      "History display requires a selected head and an in-range cursor",
     );
 }

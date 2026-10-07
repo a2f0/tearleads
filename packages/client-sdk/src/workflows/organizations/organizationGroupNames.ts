@@ -15,6 +15,9 @@ export async function hydrateOrganizationGroupNames(
     readonly directory: OrganizationDirectoryAndGroups;
     readonly organizationPolicyReference?: ReferencedPrincipalHead | null;
     readonly stillCurrent: () => boolean;
+    readonly createCurrentNameReader?: Parameters<
+      typeof hydrateCurrentOrganizationGroupNames
+    >[0]["createCurrentNameReader"];
     readonly resolveCurrentPolicy?:
       | Parameters<
           typeof hydrateCurrentOrganizationGroupNames

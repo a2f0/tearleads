@@ -8,6 +8,8 @@ import {
   revokeOrganizationContainerGrant,
   rotateOrganizationGroupForAccessSetShrink,
 } from "../../workflows/organizations";
+import { createCurrentOrganizationGroup } from "../../workflows/organizations/createCurrentOrganizationGroup";
+import { createSelectedCurrentGroupMetadataContainerVerifier } from "../../workflows/organizations/currentGroupMetadataAuthority";
 import { deleteCurrentOrganizationGroup } from "../../workflows/organizations/deleteCurrentOrganizationGroup";
 import { createRuntimeGroupMetadataAccess } from "../../workflows/organizations/groupMetadataRuntime";
 import { createRuntimeCurrentOrganizationMutation } from "../../workflows/organizations/runtimeCurrentOrganizationMutation";
@@ -162,8 +164,12 @@ export async function addUserToOrganizationGroup(
 export function createGroupForOrganization(input: {
   readonly name: string;
   readonly runtime: InternalWorkflowRuntimeInput;
+  readonly stillCurrent: () => boolean;
 }) {
   const signingContext = requireSigningContext(input.runtime);
+  const creatorEncapsulationKeyPair = requireEncapsulationKeyPair(
+    input.runtime,
+  );
   return runWithSecurityIncidentReporting(
     input.runtime.util.reportSecurityIncident,
     {
@@ -172,20 +178,50 @@ export function createGroupForOrganization(input: {
       operation: "group.create",
       organizationId: signingContext.organizationId,
     },
-    () =>
-      createOrganizationGroup({
+    () => {
+      const mutate = createRuntimeCurrentOrganizationMutation(input.runtime);
+      if (mutate)
+        return mutate(
+          { ...signingContext, stillCurrent: input.stillCurrent },
+          (context) =>
+            createCurrentOrganizationGroup({
+              ...signingContext,
+              context,
+              apiClient: input.runtime.apiClient,
+              creatorEncapsulationKeyPair,
+              execSql: input.runtime.infra.execSql,
+              name: input.name,
+              metadataAccess: createRuntimeGroupMetadataAccess(
+                input.runtime,
+                signingContext.organizationId,
+                context.stillCurrent,
+                createSelectedCurrentGroupMetadataContainerVerifier({
+                  authority: context,
+                  organizationId: signingContext.organizationId,
+                  stillCurrent: context.stillCurrent,
+                }),
+              ),
+              reportSecurityIncident: input.runtime.util.reportSecurityIncident,
+              resolveTrustedUserIdentity:
+                input.runtime.resolveTrustedUserIdentity,
+            }),
+        );
+      return createOrganizationGroup({
+        stillCurrent: input.stillCurrent,
         apiClient: input.runtime.apiClient,
-        creatorEncapsulationKeyPair: requireEncapsulationKeyPair(input.runtime),
+        creatorEncapsulationKeyPair,
         execSql: input.runtime.infra.execSql,
         name: input.name,
         metadataAccess: createRuntimeGroupMetadataAccess(
           input.runtime,
           signingContext.organizationId,
+          input.stillCurrent,
         ),
         reportSecurityIncident: input.runtime.util.reportSecurityIncident,
         resolveTrustedUserIdentity: input.runtime.resolveTrustedUserIdentity,
         ...signingContext,
-      }),
+      });
+    },
   );
 }
 

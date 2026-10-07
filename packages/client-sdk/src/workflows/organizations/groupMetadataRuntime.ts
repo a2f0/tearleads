@@ -43,6 +43,13 @@ export function createRuntimeGroupMetadataAccess(
   const warmer = createRuntimePrincipalPolicyWarmer(runtime);
   const resolveCurrentPolicy =
     createRuntimePrincipalPolicyCurrentResolver(runtime);
+  // The signed metadata projection selects exact citations. As with its
+  // authority check below, reuse matching private evidence before HTTP.
+  if (resolveCurrentPolicy)
+    Object.assign(warmer, {
+      resolveReference: (request: Parameters<typeof resolveCurrentPolicy>[0]) =>
+        resolveCurrentPolicy({ ...request, preferLocalCurrent: true }),
+    });
   const authorityInput = {
     apiClient: runtime.apiClient,
     execSql: runtime.infra.execSql,

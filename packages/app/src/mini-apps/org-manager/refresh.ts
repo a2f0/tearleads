@@ -43,6 +43,7 @@ export type DirectoryRefreshResult =
 
 export type GroupDetailsRefreshOptions = {
   clearError?: boolean;
+  beforeVersion?: number;
 };
 
 export type DataUsageRefreshOptions = {

@@ -23,6 +23,7 @@ import {
   getOrgManagerPolicyVersionLabel,
   ORG_MANAGER_LABELS,
 } from "../labels";
+import { LoadOlderHistoryButton } from "./LoadOlderHistoryButton";
 import { OrganizationPolicyChanges } from "./OrganizationPolicyChanges";
 import { getPolicyUserLabel, PolicyHistoryChange } from "./PolicyHistoryChange";
 
@@ -166,6 +167,7 @@ export function PolicyHistorySection({
   groups,
   heading,
   history,
+  loadMore,
   pending = false,
   profileDisplayNamesByUserId = EMPTY_PROFILE_DISPLAY_NAMES,
 }: {
@@ -173,6 +175,7 @@ export function PolicyHistorySection({
   groups?: readonly OrganizationGroupSummary[] | undefined;
   heading?: string | undefined;
   history: OrganizationGroupPolicyHistory | OrganizationPolicyHistory | null;
+  loadMore?: (() => Promise<void>) | undefined;
   // History arrives on its own refresh, well after the section first renders,
   // so an absent history is only reportable as unavailable once it has settled.
   pending?: boolean | undefined;
@@ -190,6 +193,12 @@ export function PolicyHistorySection({
         pending={pending}
         profileDisplayNamesByUserId={profileDisplayNamesByUserId}
       />
+      {history &&
+      "nextBeforeVersion" in history &&
+      history.nextBeforeVersion != null &&
+      loadMore ? (
+        <LoadOlderHistoryButton key={history.principalId} load={loadMore} />
+      ) : null}
     </MiniAppSection>
   );
 }

@@ -253,6 +253,7 @@ export async function acknowledgeInitialGroupPolicy(input: {
     input.response.currentState?.stateHash !== input.stateHash ||
     input.response.currentState.version !== state.version ||
     input.response.currentState.keyEpoch !== state.keyEpoch ||
+    input.response.currentState.keyFingerprint !== state.keyFingerprint ||
     input.response.currentState.memberCount !== state.memberCount ||
     state.principalType !== "group" ||
     state.principalId !== input.request.groupId ||

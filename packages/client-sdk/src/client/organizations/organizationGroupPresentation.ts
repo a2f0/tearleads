@@ -3,6 +3,7 @@ import type { OrganizationReadModelCoordinator } from "./organizationReadModels"
 
 export async function loadOrganizationGroupPresentationDetails(input: {
   readonly groupId: string;
+  readonly beforeVersion?: number | undefined;
   readonly readModelCoordinator: OrganizationReadModelCoordinator;
   readonly runtime: InternalWorkflowRuntimeInput;
 }) {
@@ -26,6 +27,7 @@ export async function loadOrganizationGroupPresentationDetails(input: {
     input.readModelCoordinator.loadGroupPolicyHistory(
       input.groupId,
       organizationId,
+      input.beforeVersion,
     ),
   ]);
   return { members, policyHistory };

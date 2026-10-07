@@ -7,10 +7,16 @@ import {
 } from "@tearleads/crypto";
 import { assertProjectionVerificationCurrent } from "../../data/keyingProjectionVerification/types";
 import { ownPrincipalHistoryProtection } from "../../data/principals/principalHistoryProtection";
-import { scopedGroupHistoryProtection } from "../../data/principals/principalHistoryScopeProtection";
+import {
+  directoryHistoryProtection,
+  scopedGroupHistoryProtection,
+} from "../../data/principals/principalHistoryScopeProtection";
+import { principalPolicyReferenceFromBundle } from "../../data/principals/principalPolicyAdminSigners";
+import type { RecoveredPrincipalHistoryPage } from "./loadRecoveredPrincipalHistoryPage";
 import {
   PrincipalHistoryRecoveryRaceError,
   type RecoveredPrincipalPolicyHistory,
+  type RecoverPrincipalPolicyHistoryOptions,
 } from "./principalHistoryRecoveryTypes";
 import {
   type PrincipalRecoveryContext,
@@ -21,17 +27,21 @@ import {
   createPrincipalRecoveryReader,
   type PrincipalRecoveryMemo,
 } from "./principalRecoveryMemo";
+import { recoverPrincipalHistoryPage } from "./recoverPrincipalHistoryPage";
 import { recoverPrincipalPolicyHistory } from "./recoverPrincipalPolicyHistory";
 
 export interface RecoverScopedPrincipalPolicyHistoryOptions
   extends PrincipalRecoveryContext {
   readonly reference: ReferencedPrincipalHead;
+  /** Optional bounded display history ending before this exclusive version. */
+  readonly historyPage?: { readonly beforeVersion?: number } | undefined;
 }
 
 export interface RecoveredScopedPrincipalPolicyHistory
   extends RecoveredPrincipalPolicyHistory {
   /** Submit these with policy when atomically admitting its organization scope. */
   readonly dependencies: readonly VerifiedPrincipalPolicyCurrent[];
+  readonly historyPage?: RecoveredPrincipalHistoryPage | undefined;
 }
 
 function groupHead(directory: RecoveredPolicyDirectory, principalId: string) {
@@ -78,6 +88,11 @@ async function recoverScopedPolicy(
       current: directory.current,
       policy: directory.policy,
       dependencies: [],
+      ...(await selectDisplayHistory(input, {
+        ...input,
+        expectedHead: principalPolicyReferenceFromBundle(directory.current),
+        protection: directoryHistoryProtection(input.protection),
+      })),
     };
   const expectedHead = groupHead(directory, input.reference.principalId);
   if (input.reference.version > expectedHead.version)
@@ -112,7 +127,7 @@ async function recoverScopedPolicy(
       })),
     };
   };
-  const recovered = await recoverPrincipalPolicyHistory({
+  const recoveryOptions: RecoverPrincipalPolicyHistoryOptions = {
     ...input,
     expectedHead,
     retainedReferences: [input.reference],
@@ -127,10 +142,12 @@ async function recoverScopedPolicy(
           ),
         }),
     ...(isAdmins ? {} : { loadExternalAuthority }),
-  });
+  };
+  const recovered = await recoverPrincipalPolicyHistory(recoveryOptions);
   return {
     ...recovered,
     dependencies: admins ? [directory.policy, admins] : [directory.policy],
+    ...(await selectDisplayHistory(input, recoveryOptions)),
   };
 }
 
@@ -158,6 +175,7 @@ export async function recoverScopedPrincipalPolicyHistoryInBatch(
     signal: options.signal,
     stillCurrent: options.stillCurrent,
     reference: structuredClone(options.reference),
+    historyPage: options.historyPage ? { ...options.historyPage } : undefined,
     protection: ownPrincipalHistoryProtection(options.protection),
   };
   try {
@@ -197,4 +215,17 @@ export function recoverScopedPrincipalPolicyHistory(
   options: RecoverScopedPrincipalPolicyHistoryOptions,
 ): Promise<RecoveredScopedPrincipalPolicyHistory> {
   return recoverScopedPrincipalPolicyHistoryInBatch(options);
+}
+
+async function selectDisplayHistory(
+  input: RecoverScopedPrincipalPolicyHistoryOptions,
+  options: RecoverPrincipalPolicyHistoryOptions,
+) {
+  if (!input.historyPage) return {};
+  return {
+    historyPage: await recoverPrincipalHistoryPage(
+      options,
+      input.historyPage.beforeVersion ?? input.reference.version + 1,
+    ),
+  };
 }

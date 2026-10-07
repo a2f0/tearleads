@@ -89,6 +89,23 @@ test("current group names hydrate without a full-policy read or fabricated bundl
     expect(await f.db.select().from(principalPolicyCheckpoints)).toHaveLength(
       2,
     );
+    let readerCreations = 0;
+    const reused = await hydrateOrganizationGroupNames({
+      ...input,
+      readEncryptedName: async () => {
+        throw new Error("Unexpected independent metadata authority");
+      },
+      createCurrentNameReader: (authority) => {
+        readerCreations += 1;
+        expect(authority.directory.policy.stateHash).toBe(
+          organization.currentState.stateHash,
+        );
+        expect(authority.stillCurrent()).toBe(true);
+        return readTestGroupName;
+      },
+    });
+    expect(readerCreations).toBe(1);
+    expect(reused.groups).toEqual(hydrated.groups);
     const isolated = await hydrateOrganizationGroupNames({
       ...input,
       readEncryptedName: async () => {

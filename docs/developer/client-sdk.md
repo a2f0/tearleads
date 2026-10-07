@@ -855,9 +855,23 @@ hydration, retained-wrap checks and relinking accept the same private policy
 warmer and operation-lifetime guard; the document store supplies both.
 
 `retainAcknowledgedPrincipalCurrents` retains exact acknowledged current policies
-and recovery progress atomically with their checkpoints. Its predecessor,
+and recovery progress atomically with their checkpoints. `initialGroup: true`
+permits an actual version-one group genesis with a null predecessor, only when
+the same transaction includes its exactly binding directory acknowledgement.
+The runtime verifies the signature, artifacts and strict Admins authority before
+publishing either policy; existing pins and prefix conflicts are preserved.
+Its predecessor,
 custody and receipt requirements are documented in [current mutations](principal-current-mutations.md).
 
 The public `AcknowledgedPrincipalCurrentInput` and
 `AcknowledgedPrincipalCurrentRetirement` types describe batch inputs and
 signed-grant retirements.
+
+`client.organizations.loadGroupPresentationDetails(groupId, beforeVersion?)`
+returns at most 32 group-history rows when private paged recovery is available.
+Pass `policyHistory.nextBeforeVersion` to load the next older page; null marks
+genesis. A separately authenticated predecessor makes the oldest displayed row's
+membership diff accurate. Pages check private index roots, exact projected heads,
+durable pins and runtime lifetime, including offline reads. A newer verified
+local prefix can answer an older selected history view without a freshness read.
+Hosts lacking paged recovery keep complete legacy histories with no cursor.

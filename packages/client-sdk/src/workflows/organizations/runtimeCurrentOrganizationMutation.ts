@@ -1,13 +1,11 @@
-import type { PutPrincipalPolicyRequest } from "@tearleads/validators/request";
-import type { PrincipalPolicyMutationResponse } from "@tearleads/validators/response";
 import { assertProjectionVerificationCurrent } from "../../data/keyingProjectionVerification/types";
 import { advanceKeyingCheckpointsAtomically } from "../../data/persistence/keyingCheckpointAdvancePersistence";
 import type { PrincipalPolicyRecoveryRuntime } from "../principals/runtimePolicyRecovery";
 import type { loadCurrentOrganizationAuthority } from "./currentOrganizationAuthority";
 import { loadCurrentOrganizationMutationAuthority } from "./currentOrganizationMutationAuthority";
+import { createCurrentOrganizationMutationRetention } from "./currentOrganizationMutationRetention";
 import { createCurrentPrincipalMutationLease } from "./currentPrincipalMutationLease";
 import type { PrincipalMutationRecoveryApi } from "./principalMutationJournalManagement";
-import { retainAcknowledgedPrincipalCurrents } from "./retainAcknowledgedPrincipalCurrents";
 
 type Runtime = PrincipalPolicyRecoveryRuntime & {
   readonly apiClient: PrincipalPolicyRecoveryRuntime["apiClient"] &
@@ -22,12 +20,8 @@ interface Input {
 
 type Authority = Awaited<ReturnType<typeof loadCurrentOrganizationAuthority>>;
 
-export interface CurrentOrganizationMutationContext extends Authority {
-  readonly retainDirectory: (
-    request: PutPrincipalPolicyRequest,
-    response: PrincipalPolicyMutationResponse,
-  ) => Promise<void>;
-}
+export type CurrentOrganizationMutationContext = Authority &
+  ReturnType<typeof createCurrentOrganizationMutationRetention>;
 
 /** Keep directory authoring and exact acknowledgement inside one private lease. */
 export function createRuntimeCurrentOrganizationMutation(runtime: Runtime) {
@@ -40,7 +34,13 @@ export function createRuntimeCurrentOrganizationMutation(runtime: Runtime) {
     const owned = { ...input };
     return lease(
       owned.stillCurrent,
-      async ({ stillCurrent, resolveCurrentPolicy, directoryRecovery }) => {
+      async ({
+        protection,
+        readPages,
+        stillCurrent,
+        resolveCurrentPolicy,
+        directoryRecovery,
+      }) => {
         const { authority } = await loadCurrentOrganizationMutationAuthority({
           execSql: runtime.infra.execSql,
           organizationId: owned.organizationId,
@@ -61,21 +61,15 @@ export function createRuntimeCurrentOrganizationMutation(runtime: Runtime) {
         const result = await work({
           ...authority,
           stillCurrent: current,
-          retainDirectory: async (request, response) => {
-            assertProjectionVerificationCurrent(current);
-            await retainAcknowledgedPrincipalCurrents({
-              execSql: runtime.infra.execSql,
-              organizationId: owned.organizationId,
-              entries: [
-                {
-                  request,
-                  response,
-                  recovery: directoryRecovery(authority.directory.current),
-                },
-              ],
-              stillCurrent: current,
-            });
-          },
+          ...createCurrentOrganizationMutationRetention({
+            runtime,
+            authority,
+            protection,
+            readPages,
+            organizationId: owned.organizationId,
+            directoryRecovery: directoryRecovery(authority.directory.current),
+            stillCurrent: current,
+          }),
         });
         assertProjectionVerificationCurrent(current);
         return result;
