@@ -182,28 +182,36 @@ export async function buildAddGroupUserPolicyRequest(
     currentUserSecretKey: input.currentUserSecretKey.slice(),
     targetUser: structuredClone(input.targetUser),
   };
-  return withVerifiedGroupMutation(input, async (input) => {
-    const targetKey = input.targetUser.userId;
-    const currentProjection = input.currentPolicy.currentProjection;
-    if (currentProjection.some((member) => member.userId === targetKey)) {
-      throw new Error("User is already a group member");
-    }
+  try {
+    return await withVerifiedGroupMutation(input, async (input) => {
+      const targetKey = input.targetUser.userId;
+      const currentProjection = input.currentPolicy.currentProjection;
+      if (currentProjection.some((member) => member.userId === targetKey)) {
+        throw new Error("User is already a group member");
+      }
 
-    const projection = [
-      ...currentProjection,
-      userProjectionMember(
-        input.targetUser.userId,
-        input.isOrganizationAdminsGroup ? "admin" : "member",
-      ),
-    ];
+      const projection = [
+        ...currentProjection,
+        userProjectionMember(
+          input.targetUser.userId,
+          input.isOrganizationAdminsGroup ? "admin" : "member",
+        ),
+      ];
 
-    return isDirectGroupAdmin(input.currentPolicy, input.signerUserId)
-      ? buildDirectAdminAddGroupUserPolicyRequest(input, projection, targetKey)
-      : buildRotatedKeyGroupPolicyRequest(input, projection, [
-          ...input.currentUsers,
-          input.targetUser,
-        ]);
-  });
+      return isDirectGroupAdmin(input.currentPolicy, input.signerUserId)
+        ? buildDirectAdminAddGroupUserPolicyRequest(
+            input,
+            projection,
+            targetKey,
+          )
+        : buildRotatedKeyGroupPolicyRequest(input, projection, [
+            ...input.currentUsers,
+            input.targetUser,
+          ]);
+    });
+  } finally {
+    input.currentUserSecretKey.fill(0);
+  }
 }
 
 export async function buildRemoveGroupUserPolicyRequest(

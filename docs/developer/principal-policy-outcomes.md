@@ -128,6 +128,9 @@ Supply a stable trusted scope, the actor's signing key pair, durable `ExecSql`,
 a lifetime guard, and a status-bearing API submission function. Resolve pending
 work before preparing a new request and keep API-client failure classifications
 intact. The helpers return ordinary receipts, not verified policy capabilities.
+If a submission adapter throws, the saved request remains unresolved and the
+helper throws `PrincipalMutationOutcomeUnknownError` with the original error as
+its cause. A thrown exception cannot establish that dispatch did not commit.
 They cover compound group policy writes; standalone organization writes and
 group creation/deletion requests still need their own authored-request recovery.
 

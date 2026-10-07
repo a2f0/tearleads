@@ -64,48 +64,52 @@ export async function withVerifiedGroupMutation<
     localPolicyCheckpoint: structuredClone(input.localPolicyCheckpoint),
     signingKeyPair: structuredClone(input.signingKeyPair),
   };
-  const current = () =>
-    !("verifiedCurrentPolicy" in input) || input.stillCurrent();
-  assertProjectionVerificationCurrent(current);
-  if ("verifiedCurrentPolicy" in input) {
-    await assertCurrentMatchesVerifiedPolicy({
-      current: input.currentPolicy,
-      policy: input.verifiedCurrentPolicy,
-    });
+  try {
+    const current = () =>
+      !("verifiedCurrentPolicy" in input) || input.stillCurrent();
+    assertProjectionVerificationCurrent(current);
+    if ("verifiedCurrentPolicy" in input) {
+      await assertCurrentMatchesVerifiedPolicy({
+        current: input.currentPolicy,
+        policy: input.verifiedCurrentPolicy,
+      });
+      requireSignerCanManageGroup(
+        input.currentPolicy,
+        input.currentOrgAdminUserIds ?? [],
+        input.signerUserId,
+      );
+      const verified = await verifyPrincipalPolicyCurrentMutation({
+        current: input.currentPolicy,
+        policy: input.verifiedCurrentPolicy,
+        signerUserId: input.signerUserId,
+        externalAuthority: input.externalAuthority,
+      });
+      if (!verified.ok) throw verified.error;
+      verifyPrincipalPolicyCheckpoint({
+        chain: verified.value.retainedHistory,
+        currentState: verified.value.state,
+        localCheckpoint: input.localPolicyCheckpoint,
+      });
+    } else {
+      await verifyGroupPolicy({
+        currentPolicy: input.currentPolicy,
+        ...(input.externalAuthority
+          ? { externalAuthority: input.externalAuthority }
+          : {}),
+        localPolicyCheckpoint: input.localPolicyCheckpoint ?? null,
+        signerPublicKeys: input.currentPolicySignerPublicKeys,
+      });
+    }
+    assertProjectionVerificationCurrent(current);
     requireSignerCanManageGroup(
       input.currentPolicy,
       input.currentOrgAdminUserIds ?? [],
       input.signerUserId,
     );
-    const verified = await verifyPrincipalPolicyCurrentMutation({
-      current: input.currentPolicy,
-      policy: input.verifiedCurrentPolicy,
-      signerUserId: input.signerUserId,
-      externalAuthority: input.externalAuthority,
-    });
-    if (!verified.ok) throw verified.error;
-    verifyPrincipalPolicyCheckpoint({
-      chain: verified.value.retainedHistory,
-      currentState: verified.value.state,
-      localCheckpoint: input.localPolicyCheckpoint,
-    });
-  } else {
-    await verifyGroupPolicy({
-      currentPolicy: input.currentPolicy,
-      ...(input.externalAuthority
-        ? { externalAuthority: input.externalAuthority }
-        : {}),
-      localPolicyCheckpoint: input.localPolicyCheckpoint ?? null,
-      signerPublicKeys: input.currentPolicySignerPublicKeys,
-    });
+    const result = await work(input);
+    assertProjectionVerificationCurrent(current);
+    return result;
+  } finally {
+    input.signingKeyPair.signingPrivateKey.fill(0);
   }
-  assertProjectionVerificationCurrent(current);
-  requireSignerCanManageGroup(
-    input.currentPolicy,
-    input.currentOrgAdminUserIds ?? [],
-    input.signerUserId,
-  );
-  const result = await work(input);
-  assertProjectionVerificationCurrent(current);
-  return result;
 }

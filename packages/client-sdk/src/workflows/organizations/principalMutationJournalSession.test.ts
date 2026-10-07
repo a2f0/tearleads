@@ -230,3 +230,41 @@ test("an unresolved request prevents another submission before HTTP", async () =
     sqlite.close();
   }
 });
+
+test.each([false, true])(
+  "a throwing transport preserves typed uncertain work (recovering=%s)",
+  async (recovering) => {
+    const fixture = await principalMutationJournalFixture();
+    const sqlite = await createTestExecSql("journal-thrown-transport");
+    const row = await sealPrincipalMutation(fixture);
+    const cause = new Error("transport threw after possible dispatch");
+    try {
+      if (recovering)
+        await claimPrincipalMutationJournal({
+          execSql: sqlite.execSql,
+          row,
+          stillCurrent: () => true,
+        });
+      const context = {
+        ...fixture,
+        execSql: sqlite.execSql,
+        stillCurrent: () => true,
+        submit: async () => {
+          throw cause;
+        },
+      };
+      const pending = recovering
+        ? recoverJournaledPrincipalMutation(context)
+        : submitJournaledPrincipalMutation(context);
+      await expect(pending).rejects.toBeInstanceOf(
+        PrincipalMutationOutcomeUnknownError,
+      );
+      await expect(pending).rejects.toMatchObject({ cause });
+      expect(
+        await loadPrincipalMutationJournal(sqlite.execSql, row.scopeId),
+      ).not.toBeNull();
+    } finally {
+      sqlite.close();
+    }
+  },
+);

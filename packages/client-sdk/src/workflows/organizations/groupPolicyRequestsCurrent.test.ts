@@ -10,6 +10,7 @@ import {
   signedPrincipalPolicyBundle,
 } from "../../../test/helpers/principalPolicyFixtures";
 import { recoverScopedPrincipalPolicyHistory } from "../principals/recoverScopedPrincipalPolicyHistory";
+import { withVerifiedGroupMutation } from "./groupPolicyMutationEvidence";
 import { buildSetGroupContainerGrantPolicyRequest } from "./groupPolicyRequests";
 
 let history: Awaited<ReturnType<typeof signedAuthorityRecoveryHistory>>;
@@ -247,3 +248,26 @@ test("organization admin labels cannot override the selected authority's signer 
     f.close();
   }
 });
+
+test.each([false, true])(
+  "owned mutation signing keys are wiped on completion (failure=%s)",
+  async (failure) => {
+    const f = await fixture();
+    const originalKey = f.input.signingKeyPair.signingPrivateKey.slice();
+    let ownedKey: Uint8Array | undefined;
+    try {
+      const pending = withVerifiedGroupMutation(f.input, async (owned) => {
+        ownedKey = owned.signingKeyPair.signingPrivateKey;
+        if (failure) throw new Error("authored mutation failed");
+        return buildSetGroupContainerGrantPolicyRequest(owned);
+      });
+      if (failure)
+        await expect(pending).rejects.toThrow("authored mutation failed");
+      else await pending;
+      expect(ownedKey?.every((byte) => byte === 0)).toBe(true);
+      expect(f.input.signingKeyPair.signingPrivateKey).toEqual(originalKey);
+    } finally {
+      f.close();
+    }
+  },
+);

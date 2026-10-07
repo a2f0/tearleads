@@ -32,9 +32,10 @@ export interface PrincipalMutationJournalContext {
 }
 
 export class PrincipalMutationOutcomeUnknownError extends Error {
-  constructor() {
+  constructor(options?: ErrorOptions) {
     super(
       "A saved policy request may have committed; resolve its outcome or explicitly abandon its retry before another mutation",
+      options,
     );
     this.name = "PrincipalMutationOutcomeUnknownError";
   }
@@ -65,7 +66,13 @@ async function submitSavedMutation(
   assertProjectionVerificationCurrent(input.stillCurrent);
   // Keep the authenticated copy for acknowledgement checks even if a transport
   // mutates its argument while preparing or retrying the HTTP request.
-  const result = await input.submit(structuredClone(mutation));
+  let result: MutationResult;
+  try {
+    result = await input.submit(structuredClone(mutation));
+  } catch (cause) {
+    assertProjectionVerificationCurrent(input.stillCurrent);
+    throw new PrincipalMutationOutcomeUnknownError({ cause });
+  }
   assertProjectionVerificationCurrent(input.stillCurrent);
   if (result.ok) {
     await assertAuthoredPrincipalMutationReceipt(mutation.request, result.data);

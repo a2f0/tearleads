@@ -91,3 +91,7 @@ current wire artifacts never contain manufactured `previousStates`. Built-in
 mutation orchestration still uses its existing full-bundle path until its
 context loading, container rematerialization and result contract adopt these
 primitives together.
+
+Mutation builders clear their owned signing-key copies on success and failure;
+member addition also clears its temporary encapsulation secret. Caller-owned
+key buffers remain unchanged.
