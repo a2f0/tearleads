@@ -37,6 +37,7 @@ export async function selectReplacementPrincipalPolicyReferences(input: {
     input.policy,
     references,
   );
+  // Planning is sequential: each path selects its own citations before use.
   // Only speculative successor citations use this cache entry. Served historical
   // references still resolve to acknowledged policies and cannot pin our new head.
   input.principalPolicyCache?.set(

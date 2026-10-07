@@ -269,8 +269,8 @@ the API atomically rejects any transition that leaves a stale principal pin.
 Policy mutation receipts omit the historical prefix. The client verifies the
 exact authored state and artifacts. Built-in member changes and group revocation
 use bounded current evidence and atomically retain authenticated progress. The
-public `OrganizationGroupMutationReceipt` omits `previousStates`; standalone
-full-bundle workflows preserve their return contracts. See
+public `OrganizationGroupMutationReceipt` does not require `previousStates`;
+full-bundle hosts and standalone workflows can still return it. See
 [current mutations](../../../../docs/developer/principal-current-mutations.md).
 Metadata profile upload remains a separate idempotent content sync and never
 changes grants.

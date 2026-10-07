@@ -651,7 +651,8 @@ Principal-policy writes acknowledge the exact submitted state and current
 artifacts without retransmitting `previousStates`. The SDK verifies that receipt
 against its authored request. Built-in membership changes and group revocation
 return `OrganizationGroupMutationReceipt` and atomically retain current artifacts
-and authenticated progress. Standalone full-bundle workflows keep their return
+and authenticated progress. Hosts without private custody may include history
+in the common receipt; standalone full-bundle workflows keep their return
 contracts; see [current mutations](principal-current-mutations.md). Missing or
 substituted receipts cannot advance the local checkpoint.
 The runtime journals compound policy requests before HTTP and resolves pending

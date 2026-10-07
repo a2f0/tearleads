@@ -1,6 +1,8 @@
-import type {
-  PrincipalPolicyExternalAuthority,
-  ReferencedPrincipalHead,
+import {
+  type PrincipalPolicyExternalAuthority,
+  type ReferencedPrincipalHead,
+  serializeKeyingCanonicalJson,
+  type VerifiedPrincipalPolicyCurrent,
 } from "@tearleads/crypto";
 import { assertProjectionVerificationCurrent } from "../../data/keyingProjectionVerification/types";
 import { advanceKeyingCheckpointsAtomically } from "../../data/persistence/keyingCheckpointAdvancePersistence";
@@ -65,6 +67,7 @@ export async function loadCurrentGroupPolicyMutationContext(input: {
       { head: adminHead, projection: authority.admins.policy.projection },
     ],
   };
+  const references = new Map<string, Promise<VerifiedPrincipalPolicyCurrent>>();
   return {
     adminGroupId: authority.descriptor.adminGroupId,
     adminCurrent: authority.admins,
@@ -86,9 +89,26 @@ export async function loadCurrentGroupPolicyMutationContext(input: {
     organizationCurrent: authority.directory,
     async readPredecessorReference(reference: ReferencedPrincipalHead) {
       assertProjectionVerificationCurrent(stillCurrent);
-      const selected = await authority.readGroup(input.groupId, reference);
+      const owned = structuredClone(reference);
+      const key = serializeKeyingCanonicalJson({ ...owned });
+      let pending = references.get(key);
+      if (!pending) {
+        // Keep at most one bounded selection's citations, even across many paths.
+        if (references.size === 128) {
+          const oldest = references.keys().next().value;
+          if (oldest !== undefined) references.delete(oldest);
+        }
+        pending = authority
+          .readGroup(input.groupId, owned)
+          .then((selected) => selected.policy);
+        references.set(key, pending);
+      }
+      const policy = await pending.catch((error: unknown) => {
+        if (references.get(key) === pending) references.delete(key);
+        throw error;
+      });
       assertProjectionVerificationCurrent(stillCurrent);
-      return selected.policy;
+      return policy;
     },
     stillCurrent,
   };

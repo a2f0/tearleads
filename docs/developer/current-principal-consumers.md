@@ -19,6 +19,9 @@ projection. Directory discovery and cited recovery share one caller's batch,
 keeping the original lease guard; expiry requires a new batch even if a later
 caller is
 still live. Local attempts share the caller batch under a separate offline key.
+An unrelated server directory advance does not replace that batch's selected
+view; every group dependency must still match it exactly. A new batch discovers
+the advance, and mutations remain subject to the server's exact predecessor CAS.
 Built-in member addition/removal and group-grant revocation also use current
 evidence and exact receipts; see [current
 mutations](principal-current-mutations.md).

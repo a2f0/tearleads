@@ -72,6 +72,11 @@ test("runtime mutation custody retains exact receipts and expires escaped acknow
           authored,
           [principalPolicyReferenceFromBundle({ currentState: old })],
         );
+        const afterSelection = f.requests.length;
+        await context.resolveAuthoredPolicyReferences(authored, [
+          principalPolicyReferenceFromBundle({ currentState: old }),
+        ]);
+        expect(f.requests).toHaveLength(afterSelection);
         expect(
           selected.retainedHistory.map(({ state }) => state.version),
         ).toEqual([1, 66, 67]);

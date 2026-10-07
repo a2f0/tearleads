@@ -129,25 +129,40 @@ test("current authority rejects an organization reference outside its scope befo
   }
 });
 
-test("directory discovery racing an unrelated directory advance is unavailable evidence", async () => {
+test("one authority retains its selected directory across an unrelated server advance", async () => {
   const f = await fixture();
   try {
     const advanced = await history.advanceDirectory(
       history.directory,
       history.group,
     );
-    await expect(
-      loadCurrentOrganizationAuthority({
-        ...f.input,
-        organizationReference: undefined,
-        resolveCurrentPolicy: async (request) => {
-          const result = await f.input.resolveCurrentPolicy(request);
-          if (!request.reference)
-            f.policies.set(advanced.currentState.principalId, advanced);
-          return result;
-        },
-      }),
-    ).rejects.toBeInstanceOf(ProjectionDependencyUnavailableError);
+    const selected = await loadCurrentOrganizationAuthority({
+      ...f.input,
+      organizationReference: undefined,
+      resolveCurrentPolicy: async (request) => {
+        const result = await f.input.resolveCurrentPolicy(request);
+        if (!request.reference)
+          f.policies.set(advanced.currentState.principalId, advanced);
+        return result;
+      },
+    });
+    // The batch remains internally consistent at its selected head. A later
+    // mutation still uses that head's server CAS; it cannot overwrite the advance.
+    expect(selected.directory.policy.stateHash).toBe(
+      history.directory.currentState.stateHash,
+    );
+    expect(
+      selected.admins.dependencies.find(
+        (policy) => policy.principalType === "organization",
+      )?.stateHash,
+    ).toBe(selected.directory.policy.stateHash);
+    const fresh = await loadCurrentOrganizationAuthority({
+      ...f.input,
+      organizationReference: undefined,
+    });
+    expect(fresh.directory.policy.stateHash).toBe(
+      advanced.currentState.stateHash,
+    );
     expect(await f.db.select().from(principalPolicyCheckpoints)).toEqual([]);
   } finally {
     f.close();

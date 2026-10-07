@@ -4,7 +4,8 @@ The mutation primitives accept current artifacts with their verified policy
 with no manufactured predecessors. Built-in member addition/removal and group
 grant revocation use paged current-policy recovery when the host provides private
 history custody. They retain the exact compound receipt before acknowledging
-container plans. Hosts without that capability retain the full-bundle path.
+container plans. Hosts without that capability retain the full-bundle path;
+their receipts may also include `previousStates`.
 
 `verifyPrincipalPolicyCurrentSuccessor` verifies exactly one signed successor of
 a `VerifiedPrincipalPolicyCurrent` issued by the local crypto verifier. It checks
@@ -105,7 +106,9 @@ successor; served historical references still resolve to acknowledged policies.
 `Organizations.addUserToGroup` and `removeUserFromGroup` return
 `OrganizationGroupMutationReceipt`; the group result of `revokeGrant` uses the
 same type. It includes exact current artifacts and container receipts, with no
-`previousStates`. Standalone full-bundle workflows retain their existing return
+`previousStates` on the paged path. Hosts without custody may include that extra
+field; callers should use the common receipt contract. Standalone full-bundle
+workflows retain their existing return
 contracts. Group creation, deletion and group sharing still use those workflows;
 this adoption does not yet eliminate every full-history mutation consumer.
 
