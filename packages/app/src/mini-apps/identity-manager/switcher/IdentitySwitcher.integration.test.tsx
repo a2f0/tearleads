@@ -56,6 +56,13 @@ async function registerCurrentIdentity(
     () => {
       userId = userIdPattern.exec(getPaneStatusText(view))?.[1] ?? "";
       expect(userId).not.toBe("");
+      // Session persistence precedes registration's remaining bootstrap work.
+      // Wait for its busy state to clear before clicking the identity menu.
+      expect(
+        identityManager
+          .getByRole("combobox", { name: "Identities" })
+          .hasAttribute("disabled"),
+      ).toBe(false);
     },
     { timeout: PANE_LONG_ASYNC_TEST_TIMEOUT_MS },
   );
