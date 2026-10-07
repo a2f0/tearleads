@@ -148,7 +148,8 @@ test("Org Manager exposes a saved change and retries it without abandoning it", 
   expect(f.retry).toHaveBeenCalledWith("org-a");
   expect(f.abandon).not.toHaveBeenCalled();
   expect(f.resolved).toHaveBeenCalledTimes(1);
-});
+}, // default under CI's parallel app/API load; keep every UI assertion intact. // Preparing signed work and the first provider render exceeded Bun's 5s
+15_000);
 
 test("an unreadable saved request offers an explicit discard action", async () => {
   const f = await fixture();
