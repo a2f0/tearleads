@@ -1,8 +1,14 @@
 ---
+import { AndroidLogoIcon } from "@phosphor-icons/react/dist/ssr/AndroidLogo";
 import { AppleLogoIcon } from "@phosphor-icons/react/dist/ssr/AppleLogo";
 import { LinuxLogoIcon } from "@phosphor-icons/react/dist/ssr/LinuxLogo";
 import { WindowsLogoIcon } from "@phosphor-icons/react/dist/ssr/WindowsLogo";
-import { appUrl, iosDownloadUrl, isStaging } from "../config";
+import {
+  androidDownloadUrl,
+  appUrl,
+  iosDownloadUrl,
+  isStaging,
+} from "../config";
 import { resolveLinuxDownloads } from "../linuxDownloads";
 import { resolveMacosDownloads } from "../macosDownloads";
 import { resolveWindowsDownloads } from "../windowsDownloads";
@@ -19,7 +25,8 @@ import SectionHeader from "./SectionHeader.astro";
  * both staging and production with a tier.
  *
  * The iOS row links the App Store in production and TestFlight on staging;
- * see iosDownloadUrl in src/config.ts.
+ * the Android row links each tier's Google Play internal testing opt-in. See
+ * iosDownloadUrl and androidDownloadUrl in src/config.ts.
  */
 const [macos, linux, windows] = await Promise.all([
   resolveMacosDownloads(isStaging),
@@ -119,6 +126,17 @@ const rows: readonly DownloadRow[] = [
     },
   },
   {
+    platform: "Android",
+    details: ["Phone and tablet", "Google Play internal testing"],
+    links: [],
+    action: {
+      href: androidDownloadUrl,
+      label: isStaging ? "Download Android preview" : "Download for Android",
+      variant: "primary",
+      icon: AndroidLogoIcon,
+    },
+  },
+  {
     platform: "Web",
     details: [new URL(appUrl).host],
     links: [],
@@ -132,7 +150,7 @@ const rows: readonly DownloadRow[] = [
   <SectionHeader
     titleId="download-title"
     title="Download"
-    lede="Install Tearleads on macOS, Linux, Windows, or iOS, or use it in your browser."
+    lede="Install Tearleads on macOS, Linux, Windows, iOS, or Android, or use it in your browser."
   />
   <ul class="site-downloads" role="list" aria-label="Downloads">
     {rows.map((row) => {
