@@ -1,5 +1,6 @@
 import { afterEach, expect, test } from "bun:test";
-import { cleanup, within } from "@testing-library/react";
+import { act, cleanup, within } from "@testing-library/react";
+import { waitForAppTestRuntimeToSettle } from "../../../../test/helpers/appRuntimeIdle";
 import {
   DUAL_PANE_ATTACHMENT_TEST_TIMEOUT_MS,
   generatePaneKeyPairFromMenu,
@@ -55,6 +56,17 @@ const BACKSPACE_COUNT = 51;
 // 60s budget. These waits are the assertions, so a short bound reports a
 // timeout rather than the mismatch it exists to catch.
 const RECOVERED_SYNC_TIMEOUT_MS = 30_000;
+
+async function waitForRecoveredRuntime() {
+  let settled = false;
+  await act(async () => {
+    settled = await waitForAppTestRuntimeToSettle({
+      timeoutMs: RECOVERED_SYNC_TIMEOUT_MS,
+    });
+  });
+  expect(settled).toBe(true);
+}
+
 const apps: readonly NoteEntryPoint[] = ["Notes", "Explorer"];
 for (const creator of apps) {
   for (const editor of apps) {
@@ -94,6 +106,8 @@ for (const creator of apps) {
             () => getPaneUserId(secondary) === getPaneUserId(primary),
             "Recovery did not restore the same user.",
           );
+          // Authentication precedes recovered directory and document hydration.
+          await waitForRecoveredRuntime();
           let recoveredWindow = recoveredNotes;
           if (editor === "Notes") {
             await selectMiniAppNote(recoveredNotes, title);
