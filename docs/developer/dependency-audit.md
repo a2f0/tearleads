@@ -76,19 +76,52 @@ Owner: repository maintainers. Review by **2026-11-07**, or when upgrading the
 named parent, whichever comes first. Remove each override once the parent
 resolves a patched version itself and a fresh audit confirms it.
 `bun run test:static-analysis` fails if an exact parent version named by an
-override disappears from `bun.lock`, requiring its removal or a reviewed update.
+override disappears or another version of that parent enters `bun.lock`,
+requiring its removal or a reviewed update.
 This checks configuration drift; a fresh audit still determines safety.
 Nested objects preserve npm consumer compatibility as well as Bun resolution.
+Fresh cached resolutions without existing lockfiles verified both exact parent
+selectors with Bun 1.4.2.
 
 | Parent/version | Override | Advisory rationale and validation |
 | --- | --- | --- |
-| `markdownlint-cli2@0.23.3` | `smol-toml: 1.9.0` | Fixes [malformed TOML exhaustion](https://github.com/advisories/GHSA-r4xh-jqrq-34v2); the repository's TOML-configured Markdown lint runs against the updated parser. |
-| `miniflare` | `sharp: 0.35.5` | Fixes [librsvg memory corruption](https://github.com/advisories/GHSA-wq5f-xc86-pv6w). Actual Wrangler-resolved Sharp reports librsvg 2.63.2; native SVG resize and the actual local Miniflare IMAGES binding convert a red SVG to a 12×8 PNG with decoded pixel checks. |
-| `miniflare` | `undici: 7.29.1` | Updates the pinned 7.29.0 copy to its security patch; local Miniflare requests and both Wrangler environment bundles exercise the retained HTTP API. |
+| `markdownlint-cli2@0.23.3` | `smol-toml: 1.9.0` | Fixes [malformed TOML exhaustion](https://github.com/advisories/GHSA-r4xh-jqrq-34v2); the actual Markdown lint runs against the updated parser; a focused TOML fixture validates its compatible API. |
+| `miniflare@5.20260811.1-alpha` | `sharp: 0.35.5` | Fixes [librsvg memory corruption](https://github.com/advisories/GHSA-wq5f-xc86-pv6w). Actual Wrangler-resolved Sharp reports librsvg 2.63.2; native SVG resize and the actual local Miniflare IMAGES binding convert a red SVG to a 12×8 PNG with decoded pixel checks. |
+| `miniflare@5.20260811.1-alpha` | `undici: 7.29.1` | Updates the pinned 7.29.0 copy to its security patch; local Miniflare requests and both Wrangler environment bundles exercise the retained HTTP API. |
 
 The Wrangler CLI remains at 4.123.0: a bundle dry run cannot prove live Worker
 resource safety without deployment credentials and account identity. The local
 Miniflare overrides do not change live bindings, routes, or migrations.
+
+Smol-TOML 1.9 returns null-prototype objects. Markdownlint 0.41.1 otherwise
+discards nested rule options, silently changing line-length limits and enabling
+disabled rules. `patches/markdownlint@0.41.1.patch` accepts those objects while
+preserving its previous handling of ordinary objects. The actual CLI regression
+in `scripts/checks/staticAnalysis/markdownlintToml.test.ts` failed without the
+patch and passes with it; it also checks glob ignores and malformed configuration.
+Remove the patch when upstream preserves null-prototype rule options and those
+regressions pass without it. Review it with the parser override by 2026-11-07.
+
+## Stripe.js 10 migration
+
+The [10.0 release](https://github.com/stripe/stripe-js/releases/tag/v10.0.0)
+loads Endive rather than Dahlia. Its removed Payment Request Button and Elements
+`paymentMethodTypes` option are absent from our checkout. `webDirectCheckout.ts`
+uses the pure loader, a Payment Element with a server-created client secret, and
+`confirmPayment`; it does not use Elements with Checkout Sessions. Email
+collection is disabled only when we supply that email in confirmation's
+`payment_method_data.billing_details`, covered by the existing checkout test.
+We reviewed the
+[Endive changes](https://docs.stripe.com/changelog/endive) against that flow.
+The actual checkout compiles with the new types; its existing injected-loader
+tests cover application lifecycle and error handling, not Stripe's remote SDK.
+Live payment validation remains unavailable without a test account.
+
+The server's explicit REST API version remains 2024-06-20. Stripe.js uses its own
+release's API version; Stripe's
+[versioning guidance](https://docs.stripe.com/sdks/stripejs-versioning) permits
+gradual server upgrades. A server API migration needs separate webhook, invoice,
+and subscription validation before changing that contract.
 
 ## Remaining exceptions
 

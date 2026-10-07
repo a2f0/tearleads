@@ -47,6 +47,6 @@
     "@types/react-dom": "catalog:react"
   },
   "peerDependencies": {
-    "typescript": "6.0.3"
+    "typescript": "^6.0.3"
   }
 }

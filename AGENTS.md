@@ -268,9 +268,9 @@ Review, PR, merge, and version helpers come from the commit-pinned
 with `bun run agent-tool`. Title, required-check, base-freshness, and version
 policy is in `agent-tool.json`. The shared `cross-agent-review`, `open-pr`,
 `squash-merge`, `ship-pr`, `reset`, and `update-dependencies` skills are managed
-copies in
-`.agents/skills` and `.claude/skills`, tracked by `.agent-tool-skills.json`. Do
-not edit them; change the shared skill upstream instead. After changing the
+copies in `.agents/skills` and `.claude/skills`, tracked by
+`.agent-tool-skills.json`. Do not edit them; change the shared skill upstream
+instead. After changing the
 pin, run `bun run agents:sync` and commit the lockfile, skills, and manifest
 together. The Markdown linter excludes exact managed skill paths; their
 upstream formatting is preserved while project skills still follow local rules.

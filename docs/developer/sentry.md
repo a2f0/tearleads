@@ -94,7 +94,9 @@ integrations**. Sentry 11 collection categories are explicitly disabled with
 parameters, database queries, AI inputs/outputs, queues, GraphQL, frame variables,
 and source context; its broader defaults must not widen this policy. It rebuilds
 each error from an allowlist before sending and
-repeats that validation at the transport boundary. Only error envelopes can
+repeats that validation at the transport boundary. Both clients select static
+trace lifecycle with a zero trace sampling rate, preventing Sentry 11 from
+adding its SpanStreaming integration. Only error envelopes can
 leave. Repeated sanitized error locations are reported once per page load, with
 limits of five distinct errors per minute and twenty per page load. The API
 resets its twenty-error budget and deduplication once per hour. Excess reports

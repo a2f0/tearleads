@@ -4,6 +4,7 @@ import {
   isDiagnosticAction,
   isDiagnosticArea,
 } from "./activity";
+import { privateDataCollection } from "./collectionPolicy";
 import type { SentryConfig } from "./config";
 import { sanitizeSentryEvent } from "./privacy";
 import { createPrivateSentryTransport } from "./transport";
@@ -24,21 +25,9 @@ export function createBrowserDiagnostics(config: SentryConfig): WebDiagnostics {
     // A private client/scope with no SDK integrations means no automatic DOM,
     // console, network, URL, user, session, performance, or replay collection.
     integrations: [],
-    // Sentry 11 collects these categories by default. Disable them before
-    // the event and transport allowlists enforce the application policy.
-    dataCollection: {
-      userInfo: false,
-      cookies: false,
-      httpHeaders: { request: false, response: false },
-      httpBodies: [],
-      urlQueryParams: false,
-      genAI: { inputs: false, outputs: false },
-      databaseQueryData: false,
-      queues: false,
-      graphQL: { document: false, variables: false },
-      stackFrameVariables: false,
-      frameContextLines: 0,
-    },
+    traceLifecycle: "static",
+    tracesSampleRate: 0,
+    dataCollection: privateDataCollection(),
     sendClientReports: false,
     maxBreadcrumbs: 30,
     beforeSend: (event) => sanitizeSentryEvent(event, config),

@@ -300,8 +300,8 @@ bump the version yourself before publishing. The manifest names this repository,
 which npm requires of a version with provenance, and declares
 `"license": "UNLICENSED"` until a license is chosen.
 
-## Dependency maintenance
+## Dependency compatibility
 
-The October 2026 dependency update validates the package against React 19.3,
-with npm packing and independent consumer installation. The published React
-peer range remains `^19.2.0`; the window API and CSS exports require no migration.
+React and react-dom are host peers with the range `^19.2.0`. Workspace tests
+use React 19.3; the tarball smoke test installs the minimum React 19.2, renders
+a window, typechecks a consumer, and bundles its JavaScript and CSS.

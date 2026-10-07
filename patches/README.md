@@ -24,3 +24,15 @@ The patch changes only production analysis. Remove it when an upstream release
 passes `bun run test:knip:production` without the patch. That regression also
 requires modules reachable only through tests to remain unused, and preserves
 public SDK source exports whose manifest targets generated `dist` files.
+
+## Markdownlint 0.41.1
+
+`markdownlint@0.41.1.patch` accepts null-prototype nested rule options produced
+by the security-fixed Smol-TOML 1.9 parser. Otherwise the normalizer silently
+discards those options, changing custom line-length limits and disabled rules.
+The patch preserves its existing ordinary-object behavior.
+
+Remove it when upstream accepts those options and
+`bun test scripts/checks/staticAnalysis/markdownlintToml.test.ts` passes without
+the patch. See the owner, review date, and parser override rationale in the
+[dependency audit policy](../docs/developer/dependency-audit.md).

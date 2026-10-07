@@ -181,6 +181,10 @@ without changing that sandbox setting. We accept the additional renderer startup
 cost so the exact published application can pass installation and persistence
 checks under QEMU; the application uses one main window.
 
+The development launcher runs Turbo explicitly with Bun, including when the
+Linux smoke test uses an isolated home directory. The container ships Bun and
+does not require a separate Node executable for this launcher.
+
 Only Git-tracked working files enter the Docker context; stage new source files
 before building. Host `node_modules`, ignored build output, `.git`, and
 `.secrets` are excluded. The host supplies the source commit and public desktop

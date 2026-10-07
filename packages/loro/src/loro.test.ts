@@ -213,6 +213,20 @@ test("listTextCharOpIds yields one op id per code point for astral characters", 
   expect(opIds).toEqual(
     [...value].map((_char, index) => ({ peerId, counter: index })),
   );
+
+  const bob = await createDocument("emoji-other-peer");
+  const bobPeer = await derivePeerId("emoji-other-peer");
+  importSnapshot(bob, exportFullHistorySnapshot(doc));
+  const bobVersion = encodeVersionVector(bob);
+  bob.getText("text").insert(2, "🚀");
+  importUpdates(doc, [exportUpdatesSince(bob, bobVersion)]);
+  expect(getTextValue(doc)).toBe("😀🚀a👨‍👧b👍🏽");
+  expect(listTextCharOpIds(doc)).toEqual([
+    { peerId, counter: 0 },
+    { peerId: bobPeer, counter: 0 },
+    ...opIds.slice(1),
+  ]);
+  expect(listTextCharOpIds(bob)).toEqual(listTextCharOpIds(doc));
 });
 
 test("listSnapshotCharOpIds reconstructs op ids from a persisted snapshot", async () => {

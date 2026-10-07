@@ -64,6 +64,9 @@ its installed `depcruise` command alias rather than an internal filename.
 Biome's official migration updates both configuration schemas and presets.
 Loro 1.16.4 cursor attribution uses each code point's first UTF-16 unit; the
 existing astral-character and snapshot tests preserve operation identity.
+Stripe.js 10 selects Endive; the removed APIs are absent from our Payment
+Element flow. The [audit notes](developer/dependency-audit.md#stripejs-10-migration)
+record its release review, confirmation behavior, and live-test limit.
 
 Capacitor 8.5.3 regenerates Android settings and Swift package references.
 RevenueCat 13.7.0 selects hybrid-common 19.5.0, Android SDK 10.24.0, and iOS SDK

@@ -13,7 +13,7 @@ mise install java github:tlaplus/tlaplus
 bun run check:protocol-models
 ```
 
-The repository pins Java 21 and the prebuilt TLA+ tools; TLC itself requires
+The repository pins Java 25 LTS and the prebuilt TLA+ tools; TLC itself requires
 Java 11 or newer. No generated state directory or tool binary is committed.
 
 [`protocol-models.txt`](./protocol-models.txt) is the pull-request model

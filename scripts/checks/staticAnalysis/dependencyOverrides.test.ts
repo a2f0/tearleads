@@ -23,7 +23,11 @@ function assertOverrideParents(selectors: readonly string[], source: string) {
   for (const selector of selectors) {
     // Only exact version-scoped overrides become stale on a parent upgrade.
     if (!/@\d+\.\d+\.\d+(?:[-+][\w.+-]+)?$/.test(selector)) continue;
-    if (!packages.has(selector)) {
+    const parent = selector.slice(0, selector.lastIndexOf("@"));
+    const identities = [...packages].filter((entry) =>
+      entry.startsWith(`${parent}@`),
+    );
+    if (identities.length !== 1 || identities[0] !== selector) {
       throw new Error(
         `Remove or update stale dependency override ${selector}; its parent is absent from bun.lock. Re-run the dependency audit.`,
       );
@@ -60,3 +64,10 @@ test.each(["upgrade", "removal"])(
     ).toThrow("Remove or update stale dependency override @scope/parent@1.2.3");
   },
 );
+
+test("an additional parent version requires a new compatibility review", () => {
+  const packages = { ...resolved, additional: ["@scope/parent@1.2.4"] };
+  expect(() =>
+    assertOverrideParents(selectors, JSON.stringify({ packages })),
+  ).toThrow("Remove or update stale dependency override @scope/parent@1.2.3");
+});

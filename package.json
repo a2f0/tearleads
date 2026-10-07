@@ -144,16 +144,17 @@
     "typescript": "6.0.3"
   },
   "overrides": {
-    "miniflare": {
-      "sharp": "0.35.5",
-      "undici": "7.29.1"
-    },
     "markdownlint-cli2@0.23.3": {
       "smol-toml": "1.9.0"
+    },
+    "miniflare@5.20260811.1-alpha": {
+      "sharp": "0.35.5",
+      "undici": "7.29.1"
     }
   },
   "patchedDependencies": {
     "knip@6.40.0": "patches/knip@6.40.0.patch",
-    "@capacitor/cli@8.5.3": "patches/@capacitor-cli-8.5.3-ios18.patch"
+    "@capacitor/cli@8.5.3": "patches/@capacitor-cli-8.5.3-ios18.patch",
+    "markdownlint@0.41.1": "patches/markdownlint@0.41.1.patch"
   }
 }
