@@ -167,9 +167,6 @@ export function createGroupForOrganization(input: {
   readonly stillCurrent: () => boolean;
 }) {
   const signingContext = requireSigningContext(input.runtime);
-  const creatorEncapsulationKeyPair = requireEncapsulationKeyPair(
-    input.runtime,
-  );
   return runWithSecurityIncidentReporting(
     input.runtime.util.reportSecurityIncident,
     {
@@ -179,6 +176,9 @@ export function createGroupForOrganization(input: {
       organizationId: signingContext.organizationId,
     },
     () => {
+      const creatorEncapsulationKeyPair = requireEncapsulationKeyPair(
+        input.runtime,
+      );
       const mutate = createRuntimeCurrentOrganizationMutation(input.runtime);
       if (mutate)
         return mutate(

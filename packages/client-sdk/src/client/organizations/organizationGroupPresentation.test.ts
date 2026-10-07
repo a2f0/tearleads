@@ -8,6 +8,7 @@ import {
   organizationId,
   principalPolicy,
 } from "../../../test/helpers/organizationReadModelFixtures";
+import { ProjectionDependencyUnavailableError } from "../../data/keyingProjectionVerification/dependencyUnavailable";
 import { unavailableExecSql } from "../../data/sqlite/sqlSchema";
 import {
   buildOrganizationGroupPolicyHistory,
@@ -221,4 +222,42 @@ test("older history pages do not depend on an unrelated member read", async () =
       runtime: runtimeWith(createMockApiClient({})),
     }),
   ).resolves.toEqual({ members: null, policyHistory: projectedPolicyHistory });
+});
+
+test("unavailable first-page history preserves members for the history-unavailable view", async () => {
+  const calls: string[] = [];
+  const unavailable = new ProjectionDependencyUnavailableError(
+    "History is not available offline",
+  );
+  const result = await loadOrganizationGroupPresentationDetails({
+    groupId,
+    readModelCoordinator: coordinatorWithMembers(
+      projectedMembers,
+      calls,
+      null,
+      unavailable,
+    ),
+    runtime: runtimeWith(createMockApiClient({})),
+  });
+  expect(result).toEqual({ members: projectedMembers, policyHistory: null });
+  expect(calls).toEqual(["members:org-1:group-1", "policy:org-1:group-1"]);
+});
+
+test("an unavailable older history page still rejects for an explicit retry", async () => {
+  const unavailable = new ProjectionDependencyUnavailableError(
+    "Older history is not available offline",
+  );
+  await expect(
+    loadOrganizationGroupPresentationDetails({
+      groupId,
+      beforeVersion: 3,
+      readModelCoordinator: coordinatorWithMembers(
+        projectedMembers,
+        [],
+        null,
+        unavailable,
+      ),
+      runtime: runtimeWith(createMockApiClient({})),
+    }),
+  ).rejects.toBe(unavailable);
 });

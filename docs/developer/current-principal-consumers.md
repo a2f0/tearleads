@@ -38,7 +38,10 @@ Rows end at the requested reference even when recovery reuses a newer local
 head. The internal recovery result keeps that head's current artifacts and policy.
 Missing or corrupted disposable page evidence can replay signed pages once
 online; offline reads fail without changing durable pins. A pin change while a
-page is being read invalidates the display result as a recovery race.
+page is being read invalidates the display result as a recovery race. An
+unavailable first history page preserves the independent local member list and
+shows the existing history-unavailable view. Older-page failures remain explicit
+for retry; integrity and storage failures still reject the details load.
 Creation/deletion outcome journaling, full organization-history views, direct
 share adapters and hosts without the paged resolver still require further adoption.
 
