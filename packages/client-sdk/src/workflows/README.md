@@ -352,7 +352,7 @@ Standalone document and container runtime constructors accept a private
 `withPrincipalHistoryProtection: PrincipalHistoryProtectionLease` input. It enables
 their built-in history resolvers and passes through store/derived-document
 adapters without exposing the callback on returned runtime views. This includes
-[current group-share reads](../../../../docs/developer/principal-current-sharing.md).
+[current group sharing](../../../../docs/developer/principal-current-sharing.md).
 Hosts own key cleanup and lease invalidation on authority/storage changes, as
 specified in the principal-history recovery guide.
 

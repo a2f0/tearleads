@@ -12,6 +12,7 @@ import {
   shareRemoteContainer as shareRemoteContainerMutation,
   shareRemoteContainerWithGroup as shareRemoteContainerWithGroupMutation,
 } from "../../containers";
+import { createRuntimeCurrentGroupShare } from "../../containers/child/runtimeCurrentGroupShare";
 import { resolveDocumentCreateAuthor } from "../../documents";
 import { createRuntimeGroupMetadataAccess } from "../../organizations/groupMetadataRuntime";
 import { createRuntimePrincipalPolicyWarmer } from "../../principals/runtimePolicyWarmer";
@@ -156,7 +157,10 @@ export async function shareRemoteContainerWithGroup(input: {
   }
   const { apiClient, author, execSql, secretKey: targetSecretKey } = writer;
 
-  const shared = await shareRemoteContainerWithGroupMutation({
+  const shareWithGroup =
+    createRuntimeCurrentGroupShare(input.runtime) ??
+    shareRemoteContainerWithGroupMutation;
+  const shared = await shareWithGroup({
     reportSecurityIncident: input.runtime.util.reportSecurityIncident,
     accessLevel: input.accessLevel,
     apiClient,

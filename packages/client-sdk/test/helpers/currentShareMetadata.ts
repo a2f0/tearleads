@@ -25,7 +25,9 @@ import {
 import { createTestTrustedUserIdentity } from "./trustedUserIdentity";
 
 /** Real encrypted group name and signed metadata root, with private page custody. */
-export async function createCurrentShareMetadataFixture() {
+export async function createCurrentShareMetadataFixture(
+  options: { grantedContainerId?: string } = {},
+) {
   const signingKeyPair = generateSigningSeedAndKeyPair();
   const keyPair = generateKemSeedAndKeyPair();
   const signingFingerprint = await toFingerprint(
@@ -51,18 +53,22 @@ export async function createCurrentShareMetadataFixture() {
     artifacts.initialOrganizationPolicy,
   );
   const name = "Research colleagues";
+  const metadataKey = {
+    organizationId,
+    containerId: metadata.containerId,
+    containerKeyEpochId: metadata.containerPlan.plan.containerKeyEpochId,
+    keyMaterial: metadata.containerPlan.containerKey,
+  };
   const group = await policyBundleFromInitialRequest(
     await buildInitialGroupPolicyRequest({
       ...signer,
       creatorEncapsulationKeyPair: keyPair,
       groupId: crypto.randomUUID(),
       name,
-      metadataKey: {
-        organizationId,
-        containerId: metadata.containerId,
-        containerKeyEpochId: metadata.containerPlan.plan.containerKeyEpochId,
-        keyMaterial: metadata.containerPlan.containerKey,
-      },
+      grants: options.grantedContainerId
+        ? [{ containerId: options.grantedContainerId, accessLevel: "read" }]
+        : [],
+      metadataKey,
     }),
   );
   const identity = createTestTrustedUserIdentity({
@@ -107,22 +113,39 @@ export async function createCurrentShareMetadataFixture() {
       organizationPayloads: [projectionDirectoryPayload(directory)],
     },
   };
+  const root = await createMutationResponseFromRequest(
+    artifacts.initialRootContainer,
+  );
+  const rootProjection = {
+    containerId: root.containerId,
+    containerKeks: [root.containerKek],
+    organizationId,
+    path: [root.accessManifest],
+    policyEvidence: {
+      groups: [admin].map(projectionPolicySource),
+      organization: projectionPolicySource(directory),
+      organizationPayloads: [projectionDirectoryPayload(directory)],
+    },
+  };
   let fullReads = 0;
   let metadataReads = 0;
   f.options.apiClient.getCurrentPrincipalPolicy = async () => {
     fullReads += 1;
     throw new Error("Unexpected Full fallback");
   };
-  f.options.apiClient.getContainerWriterProjection = async () => {
+  f.options.apiClient.getContainerWriterProjection = async (containerId) => {
+    if (containerId === rootProjection.containerId) return rootProjection;
     metadataReads += 1;
     return projection;
   };
-  f.options.apiClient.getProjectionPolicyHistoryPages = projectionHistoryPages([
-    directory,
-    admin,
-    members,
-    group,
-  ]).getProjectionPolicyHistoryPages;
+  f.options.apiClient.getProjectionPolicyHistoryPages = (source, options) =>
+    projectionHistoryPages([
+      directory,
+      group,
+      ...f.policies.values(),
+    ]).getProjectionPolicyHistoryPages(source, {
+      afterVersion: options?.afterVersion ?? 0,
+    });
   const runtime = inheritPrincipalHistoryProtection(
     {
       withPrincipalHistoryProtection: async <T>(
@@ -154,10 +177,14 @@ export async function createCurrentShareMetadataFixture() {
   );
   return {
     ...f,
+    metadataKey,
+    directory,
+    admin,
     group,
     name,
     organizationId,
     projection,
+    rootProjection,
     runtime,
     fullReads: () => fullReads,
     metadataReads: () => metadataReads,

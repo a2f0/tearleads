@@ -38,13 +38,13 @@ import {
   submitAcknowledgedContainerMutation,
   submitPlainContainerMutation,
 } from "./mutationSubmit";
-import { projectionWithCurrentAncestors } from "./shareAncestorRepair";
 import { buildMaterializedContainerSharePlan } from "./shareMaterialization";
 import {
   advanceVerifiedSharePolicies,
   type ContainerManagedPrincipalShareApi,
   loadVerifiedGroupSharePrincipalPolicy,
 } from "./sharePrincipalPolicy";
+import { resolveShareProjection } from "./shareProjection";
 
 class ContainerShareGenerationExpiredError extends Error {}
 
@@ -54,26 +54,6 @@ async function buildCurrentContainerSharePlan(
   return nullOnProjectionVerificationCancellation(() =>
     buildMaterializedContainerSharePlan(input),
   );
-}
-
-/** The container's projection, with any lazily stale chain above it repaired. */
-async function resolveShareProjection(
-  input: Omit<
-    Parameters<typeof projectionWithCurrentAncestors>[0],
-    "previousProjection" | "resolveProjectionUserKey"
-  > & { previousProjection?: ContainerWriterProjectionResponse | undefined },
-  resolveProjectionUserKey: ProjectionUserKeyResolver,
-): Promise<ContainerWriterProjectionResponse | null> {
-  const servedProjection =
-    input.previousProjection ??
-    (await input.apiClient.getContainerWriterProjection(input.containerId));
-  if (!servedProjection || input.stillCurrent?.() === false) return null;
-  const previousProjection = await projectionWithCurrentAncestors({
-    ...input,
-    previousProjection: servedProjection,
-    resolveProjectionUserKey,
-  });
-  return input.stillCurrent?.() === false ? null : previousProjection;
 }
 
 export async function shareRemoteContainer(input: {
