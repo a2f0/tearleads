@@ -1,6 +1,7 @@
 import type { ReferencedPrincipalHead } from "@tearleads/crypto";
 import { saveOrganizationGroupDisplayNames } from "../../data/persistence/organizations/organizationGroupNamePersistence";
 import { retainVerifiedPrincipalPolicyBundle } from "../../data/persistence/verifiedPrincipalPolicyRetentionPersistence";
+import { hydrateCurrentOrganizationGroupNames } from "./currentOrganizationGroupNames";
 import {
   type DirectoryGroupWalkInput,
   verifyDirectoryGroup,
@@ -14,8 +15,19 @@ export async function hydrateOrganizationGroupNames(
     readonly directory: OrganizationDirectoryAndGroups;
     readonly organizationPolicyReference?: ReferencedPrincipalHead | null;
     readonly stillCurrent: () => boolean;
+    readonly resolveCurrentPolicy?:
+      | Parameters<
+          typeof hydrateCurrentOrganizationGroupNames
+        >[0]["resolveCurrentPolicy"]
+      | undefined;
   },
 ): Promise<OrganizationDirectoryAndGroups> {
+  if (input.resolveCurrentPolicy)
+    return hydrateCurrentOrganizationGroupNames({
+      ...input,
+      organizationReference: input.organizationPolicyReference,
+      resolveCurrentPolicy: input.resolveCurrentPolicy,
+    });
   const authority = await loadGroupNameDirectoryAuthority(input);
   if (!authority) throw new Error("Group directory authority is unavailable");
   const names: { groupId: string; name: string; stateHash: string }[] = [];

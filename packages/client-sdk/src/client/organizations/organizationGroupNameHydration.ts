@@ -3,6 +3,7 @@ import { loadLocalOrganizationPolicyReference } from "../../workflows/organizati
 import { createRuntimeGroupMetadataAccess } from "../../workflows/organizations/groupMetadataRuntime";
 import { hydrateOrganizationGroupNames } from "../../workflows/organizations/organizationGroupNames";
 import type { OrganizationDirectoryAndGroups } from "../../workflows/organizations/readModel";
+import { createRuntimePrincipalPolicyCurrentResolver } from "../../workflows/principals/runtimePolicyRecovery";
 import type { InternalRuntime } from "../workflowRuntime";
 import {
   type ActiveOrganizationDataRuntime,
@@ -37,6 +38,9 @@ export async function hydrateOrganizationGroupNamesForRuntime(
         stillCurrent,
       ).readName,
       resolveTrustedUserIdentity: active.runtime.resolveTrustedUserIdentity,
+      resolveCurrentPolicy: createRuntimePrincipalPolicyCurrentResolver(
+        active.runtime,
+      ),
       stillCurrent,
     });
   }

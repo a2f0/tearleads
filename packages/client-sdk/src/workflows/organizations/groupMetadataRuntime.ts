@@ -3,7 +3,12 @@ import { createProjectionUserKeyResolver } from "../../data/keyingProjectionVeri
 import type { SecurityIncidentReporter } from "../../data/securityIncidents";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import type { TrustedUserIdentityResolver } from "../../data/trustedUserIdentity";
+import {
+  createRuntimePrincipalPolicyCurrentResolver,
+  type PrincipalPolicyRecoveryRuntime,
+} from "../principals/runtimePolicyRecovery";
 import { createRuntimePrincipalPolicyWarmer } from "../principals/runtimePolicyWarmer";
+import { createCurrentGroupMetadataContainerVerifier } from "./currentGroupMetadataAuthority";
 import {
   createGroupMetadataAccess,
   type GroupMetadataAccessInput,
@@ -13,7 +18,8 @@ import type { PrincipalPolicyReadApi } from "./groupPolicyMutationContext";
 
 interface GroupMetadataRuntime {
   readonly apiClient: GroupMetadataAccessInput["apiClient"] &
-    PrincipalPolicyReadApi;
+    PrincipalPolicyReadApi &
+    PrincipalPolicyRecoveryRuntime["apiClient"];
   readonly crypto: {
     readonly encapsulationKeyPair: EncapsulationKeyPair | null;
   };
@@ -33,15 +39,23 @@ export function createRuntimeGroupMetadataAccess(
   const targetSecretKey = runtime.crypto.encapsulationKeyPair?.secretKey;
   if (!targetSecretKey) throw new Error("Group metadata identity is locked");
   const warmer = createRuntimePrincipalPolicyWarmer(runtime);
+  const resolveCurrentPolicy =
+    createRuntimePrincipalPolicyCurrentResolver(runtime);
+  const authorityInput = {
+    apiClient: runtime.apiClient,
+    execSql: runtime.infra.execSql,
+    organizationId,
+    reportSecurityIncident: runtime.util.reportSecurityIncident,
+    resolveTrustedUserIdentity: runtime.resolveTrustedUserIdentity,
+    stillCurrent: stillCurrent ?? (() => true),
+  };
   return createGroupMetadataAccess({
-    verifyMetadataContainer: createGroupMetadataContainerVerifier({
-      apiClient: runtime.apiClient,
-      execSql: runtime.infra.execSql,
-      organizationId,
-      reportSecurityIncident: runtime.util.reportSecurityIncident,
-      resolveTrustedUserIdentity: runtime.resolveTrustedUserIdentity,
-      stillCurrent: stillCurrent ?? (() => true),
-    }),
+    verifyMetadataContainer: resolveCurrentPolicy
+      ? createCurrentGroupMetadataContainerVerifier({
+          ...authorityInput,
+          resolveCurrentPolicy,
+        })
+      : createGroupMetadataContainerVerifier(authorityInput),
     apiClient: runtime.apiClient,
     execSql: runtime.infra.execSql,
     organizationId,

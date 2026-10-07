@@ -91,13 +91,18 @@ export function canonicalGroupNameKey(name: string): string {
   );
 }
 
+type GroupPolicyNameInput = Pick<
+  PrincipalPolicyBundleResponse,
+  "currentState" | "currentPayload"
+>;
+
 export type GroupPolicyNameReader = (
-  bundle: PrincipalPolicyBundleResponse,
+  bundle: GroupPolicyNameInput,
 ) => Promise<string>;
 
 /** Read only after the policy and its organization-directory binding verify. */
 export async function readGroupPolicyPayloadName(
-  bundle: PrincipalPolicyBundleResponse,
+  bundle: GroupPolicyNameInput,
   readEncryptedName?: GroupPolicyNameReader,
 ): Promise<string> {
   const metadata = readGroupMetadata(bundle.currentPayload.ciphertext);
@@ -110,7 +115,7 @@ export async function readGroupPolicyPayloadName(
 
 /** One binding predicate for every operation selected by a read-model label. */
 export async function groupPolicyNameMismatch(
-  bundle: PrincipalPolicyBundleResponse,
+  bundle: GroupPolicyNameInput,
   expectedGroupName: string,
   readEncryptedName?: GroupPolicyNameReader,
 ): Promise<"forbidden_characters" | "name_mismatch" | null> {

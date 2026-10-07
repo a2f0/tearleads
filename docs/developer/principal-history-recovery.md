@@ -54,6 +54,17 @@ advances. Conflicting pins still fail. Runtime offline state selects local-only
 recovery. Public projection evidence uses the separate paged path described
 below; explicit full-bundle operations still require further runtime adoption.
 
+Org Manager label hydration and runtime metadata-root verification also use
+paged current policies when the runtime provides private history custody. Labels
+bind to the exact signed directory and group heads. Their current artifacts stay
+paired with verified policies; they are never stored as fabricated full bundles.
+Directory/Admins admission still checks durable pins, and name reads alone do not
+advance other group checkpoints. Metadata roots select their exact older Admins
+and Members citations, so an honest stale root remains distinguishable from a
+forged reference. These paths retain offline recovery and operation-lifetime
+checks. Mutation builders, full policy-history views, direct share adapters and
+hosts without the paged resolver still require further adoption.
+
 The optional `retainedReferences` selection follows the crypto verifier's bounded
 retention contract. Supply already authenticated external authority through
 `loadExternalAuthority` when policy signatures cite another principal. This callback
