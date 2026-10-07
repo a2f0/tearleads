@@ -2,7 +2,7 @@
 import { AppleLogoIcon } from "@phosphor-icons/react/dist/ssr/AppleLogo";
 import { LinuxLogoIcon } from "@phosphor-icons/react/dist/ssr/LinuxLogo";
 import { WindowsLogoIcon } from "@phosphor-icons/react/dist/ssr/WindowsLogo";
-import { appUrl, isStaging } from "../config";
+import { appStoreUrl, appUrl, isStaging, testFlightUrl } from "../config";
 import { resolveLinuxDownloads } from "../linuxDownloads";
 import { resolveMacosDownloads } from "../macosDownloads";
 import { resolveWindowsDownloads } from "../windowsDownloads";
@@ -17,6 +17,9 @@ import SectionHeader from "./SectionHeader.astro";
  * "Signed and notarized": packages/app-electrobun/electrobun.config.ts sets
  * codesign and notarize for every release tier, and releaseMacos.sh builds
  * both staging and production with a tier.
+ *
+ * The iOS row links each tier's App Store record and, on staging, the public
+ * TestFlight link; see appStoreUrl in src/config.ts.
  */
 const [macos, linux, windows] = await Promise.all([
   resolveMacosDownloads(isStaging),
@@ -105,6 +108,25 @@ const rows: readonly DownloadRow[] = [
       ]
     : []),
   {
+    platform: "iOS",
+    details: ["iPhone and iPad", "App Store"],
+    links: testFlightUrl
+      ? [
+          {
+            href: testFlightUrl,
+            label: "TestFlight beta",
+            ariaLabel: "TestFlight beta for iOS",
+          },
+        ]
+      : [],
+    action: {
+      href: appStoreUrl,
+      label: isStaging ? "Download iOS preview" : "Download for iOS",
+      variant: "primary",
+      icon: AppleLogoIcon,
+    },
+  },
+  {
     platform: "Web",
     details: [new URL(appUrl).host],
     links: [],
@@ -118,7 +140,7 @@ const rows: readonly DownloadRow[] = [
   <SectionHeader
     titleId="download-title"
     title="Download"
-    lede="Install Tearleads on macOS, Linux, or Windows, or use it in your browser."
+    lede="Install Tearleads on macOS, Linux, Windows, or iOS, or use it in your browser."
   />
   <ul class="site-downloads" role="list" aria-label="Downloads">
     {rows.map((row) => {
@@ -133,7 +155,7 @@ const rows: readonly DownloadRow[] = [
           </div>
           {row.remark ? (
             <p class="site-download-remark">{row.remark}</p>
-          ) : (
+          ) : row.links.length > 0 && (
             <ul class="site-download-links home-dot-list" role="list">
               {row.links.map((link) => (
                 <li>
@@ -154,7 +176,8 @@ const rows: readonly DownloadRow[] = [
     })}
   </ul>
   <p class="site-downloads-note">
-    Check each download against its SHA-256 checksum before you install. The <a
+    Check each desktop download against its SHA-256 checksum before you
+    install. The <a
       href="/downloads/linux">Linux install guide</a> shows the command.
   </p>
 </section>

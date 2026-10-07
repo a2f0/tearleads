@@ -6,6 +6,19 @@ export const appUrl = isStaging
   : "https://app.tearleads.com";
 
 /**
+ * App Store Connect records for com.tearleads.staging.app and
+ * com.tearleads.app. Each link 404s until Apple approves that app for sale.
+ */
+export const appStoreUrl = isStaging
+  ? "https://apps.apple.com/app/id6796261784"
+  : "https://apps.apple.com/app/id6793172063";
+
+/** The staging app's external TestFlight group public link. */
+export const testFlightUrl = isStaging
+  ? "https://testflight.apple.com/join/JGZxEWQD"
+  : null;
+
+/**
  * The site's release notice, shown by StatusNotice.astro under the label
  * "Early testing." in the Home hero, the Pricing header, and the Linux install
  * header. It mirrors the app's unconditional TestSystemBanner

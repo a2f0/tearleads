@@ -61,6 +61,13 @@ for (const environment of ["production", "staging", undefined]) {
         );
       }
       expect(index).toContain('href="/downloads/linux"');
+      const staging = environment === "staging";
+      expect(index).toContain(
+        `href="https://apps.apple.com/app/id${staging ? "6796261784" : "6793172063"}"`,
+      );
+      expect(index.includes("https://testflight.apple.com/join/")).toBe(
+        staging,
+      );
       // The nav, footer, and other pages link to these anchors.
       expect(index).toContain('id="download"');
       expect(index).toContain('id="security-summary"');
