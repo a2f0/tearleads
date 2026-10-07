@@ -160,8 +160,7 @@ function bindMutationMethods(
     PropertyKey,
     { source: unknown; bound: unknown }
   >();
-  // The reflective seam supplies every required method from the checked object.
-  return new Proxy(api, {
+  const bound = new Proxy(api, {
     get(target, property) {
       if (Object.hasOwn(methods, property))
         return Reflect.get(methods, property);
@@ -173,5 +172,19 @@ function bindMutationMethods(
       boundMethods.set(property, { source: value, bound });
       return bound;
     },
-  }) as PrincipalMutationApi;
+  });
+  // The checked overrides supply the signatures; verify their presence through
+  // the reflective boundary before exposing the extended API to callers.
+  if (!hasRecoveryMethods(bound))
+    throw new Error("Principal mutation recovery methods are unavailable");
+  return bound;
+}
+
+function hasRecoveryMethods(api: ApiClient): api is PrincipalMutationApi {
+  return (
+    typeof Reflect.get(api, "readPendingPrincipalMutation") === "function" &&
+    typeof Reflect.get(api, "recoverPendingPrincipalMutation") === "function" &&
+    typeof Reflect.get(api, "abandonPendingPrincipalMutation") === "function" &&
+    typeof Reflect.get(api, "discardUnreadablePrincipalMutation") === "function"
+  );
 }

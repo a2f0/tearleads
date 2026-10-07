@@ -33,6 +33,53 @@ function refusal(
   };
 }
 
+test.each([
+  { status: 400, code: undefined, retires: true },
+  { status: 401, code: undefined, retires: true },
+  { status: 402, code: undefined, retires: true },
+  { status: 403, code: undefined, retires: true },
+  { status: 404, code: undefined, retires: true },
+  { status: 409, code: undefined, retires: true },
+  { status: 413, code: undefined, retires: false },
+  { status: 422, code: undefined, retires: false },
+  { status: 429, code: undefined, retires: false },
+  { status: 503, code: undefined, retires: false },
+  {
+    status: 503,
+    code: "principal_history_preparation_unavailable",
+    retires: true,
+  },
+])(
+  "initial refusal preserves the documented outcome boundary: %j",
+  async ({ status, code, retires }) => {
+    const fixture = await principalMutationJournalFixture();
+    const sqlite = await createTestExecSql("journal-initial-refusal");
+    const scopeId = await principalMutationJournalScopeId(fixture.scope);
+    const response: RequestFailure = {
+      ...refusal("http", status),
+      ...(code ? { code } : {}),
+    };
+    try {
+      const pending = submitJournaledPrincipalMutation({
+        ...fixture,
+        execSql: sqlite.execSql,
+        stillCurrent: () => true,
+        submit: async () => response,
+      });
+      if (retires) expect(await pending).toEqual(response);
+      else
+        await expect(pending).rejects.toBeInstanceOf(
+          PrincipalMutationOutcomeUnknownError,
+        );
+      const row = await loadPrincipalMutationJournal(sqlite.execSql, scopeId);
+      if (retires) expect(row).toBeNull();
+      else expect(row).not.toBeNull();
+    } finally {
+      sqlite.close();
+    }
+  },
+);
+
 test("a lost acknowledgement retains the exact body for a fresh recovery context", async () => {
   const fixture = await principalMutationJournalFixture();
   const sqlite = await createTestExecSql("journal-restart");
