@@ -30,7 +30,7 @@ import {
   queryExplorerItemTable,
 } from "./dualPaneCore";
 
-const ORG_MANAGER_ADD_USER_TIMEOUT_MS = 10_000;
+const ORG_MANAGER_ADD_USER_TIMEOUT_MS = 20_000;
 
 async function openExplorerContextMenuInfo() {
   const getInfoMenu = document.querySelector<HTMLElement>(".menu");
