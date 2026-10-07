@@ -128,3 +128,28 @@ test("current authority rejects an organization reference outside its scope befo
     f.close();
   }
 });
+
+test("directory discovery racing an unrelated directory advance is unavailable evidence", async () => {
+  const f = await fixture();
+  try {
+    const advanced = await history.advanceDirectory(
+      history.directory,
+      history.group,
+    );
+    await expect(
+      loadCurrentOrganizationAuthority({
+        ...f.input,
+        organizationReference: undefined,
+        resolveCurrentPolicy: async (request) => {
+          const result = await f.input.resolveCurrentPolicy(request);
+          if (!request.reference)
+            f.policies.set(advanced.currentState.principalId, advanced);
+          return result;
+        },
+      }),
+    ).rejects.toBeInstanceOf(ProjectionDependencyUnavailableError);
+    expect(await f.db.select().from(principalPolicyCheckpoints)).toEqual([]);
+  } finally {
+    f.close();
+  }
+});

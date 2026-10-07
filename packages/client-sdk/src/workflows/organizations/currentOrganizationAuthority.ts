@@ -2,6 +2,7 @@ import {
   KeyingVerificationError,
   type ReferencedPrincipalHead,
 } from "@tearleads/crypto";
+import { ProjectionDependencyUnavailableError } from "../../data/keyingProjectionVerification/dependencyUnavailable";
 import { assertProjectionVerificationCurrent } from "../../data/keyingProjectionVerification/types";
 import { validateKeyingCheckpointsAtomically } from "../../data/persistence/keyingCheckpointAdvancePersistence";
 import { assertCurrentMatchesVerifiedPolicy } from "../../data/persistence/verifiedPrincipalPolicyCurrent";
@@ -128,7 +129,7 @@ async function assertExactCurrent(
   assertProjectionVerificationCurrent(value.stillCurrent);
   await assertCurrentMatchesVerifiedPolicy(value);
   if (!principalHeadMatchesReference(value.policy.state, expected))
-    throw new Error(
+    throw new ProjectionDependencyUnavailableError(
       "Current policy changed from the selected organization directory",
     );
   assertProjectionVerificationCurrent(value.stillCurrent);
@@ -147,7 +148,7 @@ function assertDirectoryDependency(
     !dependency ||
     !principalHeadMatchesReference(dependency.state, directory.policy.state)
   )
-    throw new Error(
+    throw new ProjectionDependencyUnavailableError(
       "Current policy belongs to a changed organization directory",
     );
 }
