@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import { db } from "@tearleads/api-shared/postgres";
+import { loadOrganizationHistoryWindow } from "../../access/read/principalHistory";
 import { listPrincipalStateHistory } from "../../access/read/principalStateStore";
 import { withPrincipalHistoryRequest } from "../../utils/principalHistoryWork";
 import { loadVerifiedPrincipalPolicySnapshotsForReferences } from "./principalPolicySnapshots";
@@ -13,6 +14,8 @@ const reference = {
   keyEpoch: 1,
 };
 const loaders = [
+  (executor: typeof db) =>
+    loadOrganizationHistoryWindow(executor, reference.principalId, 2),
   (executor: typeof db) =>
     loadVerifiedPrincipalPolicySnapshotsForReferences(executor, [reference]),
   (executor: typeof db) => listPrincipalStateHistory(reference, executor),

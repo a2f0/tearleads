@@ -50204,16 +50204,16 @@
                       "minLength": 1
                     },
                     "beforeVersion": {
-                      "exclusiveMinimum": 0,
-                      "maximum": 1.7976931348623157e+308,
-                      "type": "integer"
+                      "type": "integer",
+                      "minimum": 2,
+                      "maximum": 9007199254740991
                     },
                     "nextBeforeVersion": {
                       "anyOf": [
                         {
-                          "exclusiveMinimum": 0,
-                          "maximum": 1.7976931348623157e+308,
-                          "type": "integer"
+                          "type": "integer",
+                          "minimum": 2,
+                          "maximum": 9007199254740991
                         },
                         {
                           "type": "null"

@@ -103,6 +103,7 @@ import type {
   ListContainerParentLanesResponse,
   ListDocumentAttachmentsResponse,
   OrganizationDataUsageResponse,
+  OrganizationPolicyHistoryResponse,
   OrganizationReadModelResponse,
   PrincipalPolicyBundleResponse,
   RootDataUsageReportResponse,
@@ -677,7 +678,7 @@ export class ApiClient {
     organizationId: string,
     stateHash: string,
     options: Parameters<typeof organizationHistory>[3] = {},
-  ) {
+  ): Promise<RequestResult<OrganizationPolicyHistoryResponse>> {
     return organizationHistory(
       this.requestRuntime,
       organizationId,

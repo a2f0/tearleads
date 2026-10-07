@@ -38,6 +38,7 @@ export async function loadPolicyHistoryDetails(input: {
   online: boolean;
   olderPage: boolean;
   reportSecurityIncident?: SecurityIncidentReporter | undefined;
+  // Forwarded to denyPolicyHistoryAccess to report failed durable cleanup.
   logError: (message: string | Error, cause?: unknown) => void;
 }): Promise<OrganizationPolicyHistory | null> {
   const access = { ...input, requesterUserId: input.currentUserId };

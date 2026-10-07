@@ -10,6 +10,7 @@ import { createOrganizationHistoryFixture } from "../../../test/helpers/organiza
 import { organizationReadModelSnapshot } from "../../../test/helpers/organizationReadModelProjectionFixtures";
 import { createAuthorityRecoveryFixture } from "../../../test/helpers/principalAuthorityRecovery";
 import { projectionHistoryPages } from "../../../test/helpers/projectionPolicyHistory";
+import { ProjectionDependencyUnavailableError } from "../../data/keyingProjectionVerification/dependencyUnavailable";
 import { applyOrganizationReadModelResponse } from "../../data/persistence/organizations/organizationReadModelPersistence";
 import { savePrincipalPolicyBundle } from "../../data/persistence/principalPolicyPersistence";
 import { inheritPrincipalHistoryProtection } from "../../data/principals/principalHistoryRuntime";
@@ -176,3 +177,20 @@ test("organization history enriches online and preserves verified local entries 
     sql.close();
   }
 });
+
+test.each([undefined, 3])(
+  "organization history without private page custody rejects before any read: %s",
+  async (beforeVersion) => {
+    const input = createWorkflowInputFixture({
+      apiClient: createMockApiClient({}),
+      auth: { organizationId: "org-a", userId: "user-a" },
+      execSql: unavailableExecSql,
+    });
+    const coordinator = createOrganizationReadModelCoordinator(
+      createInternalRuntimeFixture(() => input),
+    );
+    await expect(
+      coordinator.loadOrganizationPolicyHistory(undefined, beforeVersion),
+    ).rejects.toBeInstanceOf(ProjectionDependencyUnavailableError);
+  },
+);

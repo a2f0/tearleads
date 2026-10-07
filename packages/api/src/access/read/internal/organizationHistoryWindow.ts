@@ -4,6 +4,7 @@ import {
   principalStates,
 } from "@tearleads/api-shared/schema";
 import { and, asc, eq, gte, lt } from "drizzle-orm";
+import { beginPrincipalHistoryVerification } from "../../../utils/principalHistoryWork";
 import {
   principalStatePayloadSelect,
   principalStateSelect,
@@ -16,6 +17,7 @@ export async function loadOrganizationHistoryWindow(
   organizationId: string,
   beforeVersion: number,
 ) {
+  beginPrincipalHistoryVerification();
   const firstVersion = Math.max(1, beforeVersion - 33);
   const rows = await executor
     .select({
