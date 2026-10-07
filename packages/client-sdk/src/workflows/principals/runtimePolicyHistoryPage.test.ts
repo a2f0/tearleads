@@ -119,59 +119,73 @@ test("runtime refuses an unselected or out-of-range history cursor before HTTP",
   }
 });
 
-test("missing historical display evidence fails offline and rebuilds signed pages online without moving pins", async () => {
-  const f = await fixture();
-  const reference = principalPolicyHead(history.group);
-  const request = {
-    organizationId: history.organizationId,
-    reference,
-    historyPage: {},
-    preferLocalCurrent: true,
-  };
-  try {
-    await f.resolve(request);
-    await f.db
-      .insert(principalPolicyCheckpoints)
-      .values({
-        principalType: reference.principalType,
-        principalId: reference.principalId,
-        version: reference.version,
-        stateHash: reference.stateHash,
-        updatedAt: history.group.currentState.createdAt,
-      })
-      .run();
-    const pins = await f.db.select().from(principalPolicyCheckpoints);
-    const rows = await f.db.select().from(principalHistoryEntries);
-    const lost = rows.find((row) => {
-      const entry = JSON.parse(row.entryJson);
-      return (
-        entry.state.principalId === reference.principalId &&
-        entry.state.version === 40
+test.each(["missing", "substituted"] as const)(
+  "%s historical display evidence fails offline and rebuilds signed pages online without moving pins",
+  async (damage) => {
+    const f = await fixture();
+    const reference = principalPolicyHead(history.group);
+    const request = {
+      organizationId: history.organizationId,
+      reference,
+      historyPage: {},
+      preferLocalCurrent: true,
+    };
+    try {
+      await f.resolve(request);
+      await f.db
+        .insert(principalPolicyCheckpoints)
+        .values({
+          principalType: reference.principalType,
+          principalId: reference.principalId,
+          version: reference.version,
+          stateHash: reference.stateHash,
+          updatedAt: history.group.currentState.createdAt,
+        })
+        .run();
+      const pins = await f.db.select().from(principalPolicyCheckpoints);
+      const rows = await f.db.select().from(principalHistoryEntries);
+      const lost = rows.find((row) => {
+        const entry = JSON.parse(row.entryJson);
+        return (
+          entry.state.principalId === reference.principalId &&
+          entry.state.version === 40
+        );
+      });
+      if (!lost) throw new Error("Missing historical fixture entry");
+      if (damage === "missing") {
+        await f.db
+          .delete(principalHistoryEntries)
+          .where(eq(principalHistoryEntries.leafHash, lost.leafHash))
+          .run();
+      } else {
+        await f.db
+          .update(principalHistoryEntries)
+          .set({ entryJson: JSON.stringify(history.group.previousStates[38]) })
+          .where(eq(principalHistoryEntries.leafHash, lost.leafHash))
+          .run();
+      }
+      f.state.online = false;
+      f.requests.length = 0;
+      await expect(f.resolve(request)).rejects.toMatchObject({
+        name: "ProjectionDependencyUnavailableError",
+      });
+      expect(f.requests).toEqual([]);
+      f.state.online = true;
+      const repaired = await f.resolve(request);
+      expect(repaired.historyPage?.entries).toHaveLength(32);
+      expect(
+        f.requests.some(
+          (read) =>
+            read.principalId === reference.principalId &&
+            read.afterVersion === 0,
+        ),
+      ).toBe(true);
+      expect(f.requests.every((read) => read.count <= 32)).toBe(true);
+      expect(await f.db.select().from(principalPolicyCheckpoints)).toEqual(
+        pins,
       );
-    });
-    if (!lost) throw new Error("Missing historical fixture entry");
-    await f.db
-      .delete(principalHistoryEntries)
-      .where(eq(principalHistoryEntries.leafHash, lost.leafHash))
-      .run();
-    f.state.online = false;
-    f.requests.length = 0;
-    await expect(f.resolve(request)).rejects.toMatchObject({
-      name: "ProjectionDependencyUnavailableError",
-    });
-    expect(f.requests).toEqual([]);
-    f.state.online = true;
-    const repaired = await f.resolve(request);
-    expect(repaired.historyPage?.entries).toHaveLength(32);
-    expect(
-      f.requests.some(
-        (read) =>
-          read.principalId === reference.principalId && read.afterVersion === 0,
-      ),
-    ).toBe(true);
-    expect(f.requests.every((read) => read.count <= 32)).toBe(true);
-    expect(await f.db.select().from(principalPolicyCheckpoints)).toEqual(pins);
-  } finally {
-    f.close();
-  }
-});
+    } finally {
+      f.close();
+    }
+  },
+);

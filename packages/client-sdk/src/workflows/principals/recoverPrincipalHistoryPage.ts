@@ -1,3 +1,4 @@
+import { KeyingVerificationError } from "@tearleads/crypto";
 import {
   loadRecoveredPrincipalHistoryPage,
   PRINCIPAL_DISPLAY_HISTORY_PAGE_SIZE,
@@ -16,7 +17,14 @@ export async function recoverPrincipalHistoryPage(
   } catch (error) {
     if (!(error instanceof PrincipalHistoryEvidenceUnavailableError))
       throw error;
-    if (options.offline) throw error.verificationError;
+    // A local-first display read must distinguish disposable proof damage
+    // from a durable fork or an invalid caller citation, which are not wrapped.
+    // Preserve that distinction so the online caller can replay signed pages.
+    if (options.offline)
+      throw new KeyingVerificationError(
+        "missing_dependency",
+        "Principal history display proof is unavailable",
+      );
   }
   const first = Math.max(
     1,
