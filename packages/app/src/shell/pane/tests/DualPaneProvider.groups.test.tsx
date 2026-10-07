@@ -65,6 +65,17 @@ afterEach(async () => {
   await resetMockServer();
 });
 
+async function waitForGroupTestRuntimeToSettle() {
+  await act(async () => {
+    expect(
+      await waitForAppTestRuntimeToSettle({
+        apiQuietMs: POST_SHARE_NETWORK_IDLE_QUIET_MS,
+        timeoutMs: POST_SHARE_SYNC_SETTLE_TIMEOUT_MS,
+      }),
+    ).toBe(true);
+  });
+}
+
 test(
   "dual pane explorer opens after org manager imports peer into Admins",
   async () => {
@@ -143,12 +154,7 @@ test(
     await openExplorer(rightPane);
     // Settle the peer's open catch-up first so the pre-add baseline is stable and
     // a still-in-flight sweep cannot pick up the membership after the add.
-    await act(async () => {
-      await waitForAppTestRuntimeToSettle({
-        apiQuietMs: POST_SHARE_NETWORK_IDLE_QUIET_MS,
-        timeoutMs: POST_SHARE_SYNC_SETTLE_TIMEOUT_MS,
-      });
-    });
+    await waitForGroupTestRuntimeToSettle();
     // The peer starts with only its own provisioned roots; access control keeps
     // the owner's Admins-granted root out of this list until the peer joins.
     const baselineRootCount = listExplorerContainerItems(rightPane).length;
@@ -459,12 +465,7 @@ test(
       "read",
     );
     await clickExplorerRefresh(leftPane);
-    await act(async () => {
-      await waitForAppTestRuntimeToSettle({
-        apiQuietMs: POST_SHARE_NETWORK_IDLE_QUIET_MS,
-        timeoutMs: POST_SHARE_SYNC_SETTLE_TIMEOUT_MS,
-      });
-    });
+    await waitForGroupTestRuntimeToSettle();
     await openExplorerContainerInfo(leftPane, "/");
     await openContainerInfoSharingTab(leftPane);
     const grantRow = await findExplorerInfoGrantRow(
@@ -473,6 +474,9 @@ test(
       groupName,
       "read",
     );
+    // Opening the sharing panel can finish background projection recovery.
+    // Measure the grant click only after that independent work has settled.
+    await waitForGroupTestRuntimeToSettle();
     const grantDetailRequestStartIndex = listProxiedApiRequests().length;
 
     await interact(() => {

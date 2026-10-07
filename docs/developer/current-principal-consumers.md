@@ -4,8 +4,8 @@ Org Manager label hydration and runtime metadata-root verification also use
 paged current policies when the runtime provides private history custody. Labels
 bind to the exact signed directory and group heads. Their current artifacts stay
 paired with verified policies; they are never stored as fabricated full bundles.
-Directory/Admins admission still checks durable pins, and name reads alone do
-not advance other group checkpoints. Metadata roots select their exact older Admins
+Directory/Admins admission still checks durable pins. Name reads alone leave
+other group checkpoints unchanged. Metadata roots select their exact older Admins
 and Members citations, so an honest stale root remains distinguishable from a
 forged reference. These paths retain offline recovery and operation-lifetime
 checks. A caller that selected an exact current head can first recover matching
@@ -16,8 +16,7 @@ does not discover newer server state or replace live object authorization.
 Metadata verification uses the organization head supplied by its live writer
 projection. Directory discovery and cited recovery share one caller's batch,
 keeping the original lease guard; expiry requires a new batch even if a later
-caller is still live. Local attempts share the caller batch under a separate
-offline key.
+caller is still live. Local attempts use a separate offline key in that batch.
 An unrelated server directory advance does not replace that batch's selected
 view; every group dependency must still match it exactly. A new batch discovers
 the advance, and mutations remain subject to the server's exact predecessor CAS.
@@ -27,8 +26,7 @@ an independent authority recovery for the name reader.
 Metadata-key unwrapping also tries exact authenticated local citations before
 online recovery, preserving checkpoint, dependency and caller-lifetime checks.
 Built-in member addition/removal and group-grant revocation also use current
-evidence and exact receipts; see [current
-mutations](principal-current-mutations.md).
+evidence and exact receipts; see [current mutations](principal-current-mutations.md).
 Built-in group creation walks signed directory names through current policies
 and publishes the authenticated group genesis and directory successor together.
 Group-history views select at most 32 rows from privately verified index proofs;

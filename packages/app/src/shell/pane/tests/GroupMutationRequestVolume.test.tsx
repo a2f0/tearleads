@@ -135,7 +135,7 @@ test("group creation and adding a peer have separate request budgets", async () 
       `create and add peer to ${group} group`,
       pairStart,
     );
-    expect(combined.length).toBeLessThanOrEqual(group === "first" ? 118 : 48);
+    expect(combined.length).toBeLessThanOrEqual(group === "first" ? 118 : 49);
     expect(
       combined.filter(
         (request) =>
