@@ -111,8 +111,13 @@ confirmation for this case. No previous schema is interpreted or migrated.
 Journal scope includes the API origin and signing fingerprint. A different origin
 or rotated identity does not inherit or replay the former scope's records; those
 rows remain until the former scope is restored or the database is explicitly reset.
-Auth-token renewal retires active custody without erasing a saved request. A fresh
-runtime can recover the same signed bytes in the same identity scope.
+Auth-token renewal within the same signed identity and organization preserves
+journal custody. A definite initial authentication refusal can therefore retire
+its request after renewal; a later operation must not replay that refused change.
+Identity, organization, authentication-state or database changes still expire
+custody, even if the original scope is restored before the response arrives.
+History verification retains its separate, stricter token lifetime. A fresh
+runtime can recover uncertain signed bytes in the same identity scope.
 
 Advanced hosts can call `submitJournaledPrincipalMutation` and
 `recoverJournaledPrincipalMutation` with an explicit `PrincipalMutationJournalContext`.

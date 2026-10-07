@@ -192,7 +192,7 @@ export function createRuntime(
     historyProtection.bind,
     createRuntimeMutationApi(
       dependencies,
-      () => runtimeSubscription.recoveryGeneration,
+      () => runtimeSubscription.mutationGeneration,
     ).bind,
   );
 
@@ -233,6 +233,7 @@ function createRuntimeSubscription(dependencies: WorkflowRuntimeDependencies) {
   let version = 0;
   let sessionGeneration = 0;
   let recoveryGeneration = 0;
+  let mutationGeneration = 0;
   let sessionSnapshot = dependencies.session.snapshot;
   const notifyListeners = () => {
     version += 1;
@@ -241,6 +242,7 @@ function createRuntimeSubscription(dependencies: WorkflowRuntimeDependencies) {
 
   const notifyAuthority = () => {
     recoveryGeneration += 1;
+    mutationGeneration += 1;
     notifyListeners();
   };
   dependencies.database.subscribe(notifyAuthority);
@@ -253,12 +255,16 @@ function createRuntimeSubscription(dependencies: WorkflowRuntimeDependencies) {
       sessionGeneration += 1;
       recoveryGeneration += 1;
     }
+    if (sessionScopeChanged(sessionSnapshot, next)) mutationGeneration += 1;
     sessionSnapshot = next;
     notifyListeners();
   });
   dependencies.syncBillingGate?.subscribe(notifyListeners);
 
   return {
+    get mutationGeneration() {
+      return mutationGeneration;
+    },
     get recoveryGeneration() {
       return recoveryGeneration;
     },
@@ -302,7 +308,17 @@ function sessionAuthorityChanged(
   next: SessionSnapshot,
 ): boolean {
   return (
-    next.authToken !== previous.authToken ||
+    next.authToken !== previous.authToken || sessionScopeChanged(previous, next)
+  );
+}
+
+// A transport token renewal cannot turn a definite write refusal into saved work.
+// Journal custody still expires on every change to its identity or storage scope.
+function sessionScopeChanged(
+  previous: SessionSnapshot,
+  next: SessionSnapshot,
+): boolean {
+  return (
     next.isAuthenticated !== previous.isAuthenticated ||
     next.isRoot !== previous.isRoot ||
     next.organizationId !== previous.organizationId ||

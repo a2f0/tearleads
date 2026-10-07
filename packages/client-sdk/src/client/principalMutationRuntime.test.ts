@@ -92,6 +92,9 @@ test("runtime resolves an uncertain authored mutation before reading for the nex
       organizations.readPendingPolicyMutation("other-organization"),
     ).rejects.toThrow("generation expired");
     sdk.session.setAuthToken("fixture-renewed-token");
+    expect(runtime.workflowInput().apiClient).toBe(oldApi);
+    sdk.session.setContext({ organizationId: "other-organization" });
+    sdk.session.setContext({ organizationId: fixture.scope.organizationId });
     await expect(
       oldApi.commitOrganizationGroupPolicyResult(
         fixture.scope.organizationId,
