@@ -134,7 +134,7 @@
     "@tsconfig/strictest": "2.0.8",
     "@types/bun": "1.4.2",
     "@types/invariant": "catalog:",
-    "agent-tool": "github:a2f0/agent-tool#a049a70f060ace0eb844647b19a25f3a5c171c91",
+    "agent-tool": "github:a2f0/agent-tool#1ddee340e4d6e9a62fed9e02580610439f9e88b1",
     "dependency-cruiser": "18.5.0",
     "invariant": "catalog:",
     "knip": "6.40.0",

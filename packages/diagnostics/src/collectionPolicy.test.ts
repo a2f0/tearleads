@@ -18,6 +18,7 @@ test("both private clients deny Sentry's expanded collection defaults", async ()
       original.call(this, client);
     },
   );
+  const hadWindow = Object.hasOwn(globalThis, "window");
   const previousWindow = globalThis.window;
   globalThis.window = Object.assign(Object.create(null), {
     addEventListener: () => {},
@@ -60,6 +61,7 @@ test("both private clients deny Sentry's expanded collection defaults", async ()
     await server.close();
     scopeSpy.mockRestore();
     fetchSpy.mockRestore();
-    globalThis.window = previousWindow;
+    if (hadWindow) globalThis.window = previousWindow;
+    else Reflect.deleteProperty(globalThis, "window");
   }
 });

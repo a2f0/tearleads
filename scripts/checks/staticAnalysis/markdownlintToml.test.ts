@@ -84,5 +84,7 @@ MD018 = true
 test("malformed TOML remains a configuration failure", () => {
   const result = lint("[tool.markdownlint-cli2]\nignores = [\n", "# Good\n");
   expect(result.code).not.toBe(0);
-  expect(result.output).toMatch(/Unable to parse|invalid|Invalid|Error/);
+  expect(result.output).toMatch(
+    /Unable to use configuration file.*Invalid TOML document: invalid value/,
+  );
 });

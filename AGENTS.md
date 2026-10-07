@@ -270,13 +270,12 @@ policy is in `agent-tool.json`. The shared `cross-agent-review`, `open-pr`,
 `squash-merge`, `ship-pr`, `reset`, and `update-dependencies` skills are managed
 copies in `.agents/skills` and `.claude/skills`, tracked by
 `.agent-tool-skills.json`. Do not edit them; change the shared skill upstream
-instead. After changing the
-pin, run `bun run agents:sync` and commit the lockfile, skills, and manifest
-together. The Markdown linter excludes exact managed skill paths; their
-upstream formatting is preserved while project skills still follow local rules.
-`bun run agents:check`, part of `check:fast`, fails on missing,
-outdated, or edited managed skills. Project skills keep a Claude copy in
-`.claude/skills` and a Codex copy in `.agents/skills`.
+instead. After changing the pin, run `bun run agents:sync` and commit the
+lockfile, skills, and manifest together. The Markdown linter excludes exact
+managed skill paths; their upstream formatting is preserved while project
+skills still follow local rules. `bun run agents:check`, part of `check:fast`,
+fails on missing, outdated, or edited managed skills. Project skills keep a
+Claude copy in `.claude/skills` and a Codex copy in `.agents/skills`.
 
 Shipping rules on top of the shared skills:
 
