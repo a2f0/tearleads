@@ -41,17 +41,17 @@ policy/read-model requests and no container or document fanout.
 
 With current membership orchestration and shared directory discovery, the group
 fixture measured first creation/addition at 22–25/86–93 requests and later
-creation/addition at 26/20. Three history reads can move across those
+creation/addition at 23–26/20–23. Three history reads can move across those
 measurement windows.
-Whole-pair limits are 118/48. Creation allows 25/26; addition allows 93/27.
+Whole-pair limits are 118/49. Creation allows 25/26; addition allows 93/27.
 The first add uses 39–42 history and 14–16 organization-policy reads, with its
 45-history allowance unchanged. Its completed-request cap rises by four because
 subsequent projection collections independently recover directory/Admins/Members
 evidence after the current-only Members acknowledgement. This remaining repeated
 recovery is not eliminated by sharing the mutation's own authority for name
 checks.
-Later creation recovers its own directory/Admins evidence after a current-only
-acknowledgement instead of reusing a full bundle. Combined history limits remain
+Later creation rediscovers directory/Admins after a current-only acknowledgement;
+the 23-create + 3-boundary + 23-add pair raises its cap by one. History limits remain
 54/21. These costs remain tracked for deduplication in #2448. Before local
 evidence reuse, first creation used 53 requests.
 

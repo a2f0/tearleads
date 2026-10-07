@@ -129,8 +129,10 @@ test("group creation and adding a peer have separate request budgets", async () 
     expect(documentSyncIntentCounts(membershipRequests).writeBearing).toBe(0);
     // Three directory/Admins/Members reads can move across the phase boundary.
     // Keep them in the pair limit even when both phases use their full allowance.
+    // Current-only retention makes legacy creation rediscover directory/Admins;
+    // the measured second pair is 23 create + 3 boundary + 23 membership reads.
     const combined = listProxiedApiRequests().slice(pairStart);
-    expect(combined.length).toBeLessThanOrEqual(group === "first" ? 118 : 48);
+    expect(combined.length).toBeLessThanOrEqual(group === "first" ? 118 : 49);
     expect(
       combined.filter(
         (request) =>
