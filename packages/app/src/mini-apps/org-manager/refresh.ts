@@ -14,7 +14,10 @@ export type OrgManagerResource =
   | "organizationPolicyHistory"
   | "userDetail";
 
-export type OrgManagerRequestKind = OrgManagerResource | "refresh";
+export type OrgManagerRequestKind =
+  | OrgManagerResource
+  | "groupHistoryPage"
+  | "refresh";
 
 export type DirectoryRefreshOptions = {
   afterMutation?: boolean;

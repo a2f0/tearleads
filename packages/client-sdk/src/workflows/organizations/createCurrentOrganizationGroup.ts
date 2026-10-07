@@ -58,6 +58,8 @@ export async function createCurrentOrganizationGroup(input: {
       { ...input, readEncryptedName: input.metadataAccess.readName },
       group.current,
     );
+    // Remember independently verified heads even if uniqueness or dispatch
+    // later fails; these are observed policies, never speculative successors.
     await advanceKeyingCheckpointsAtomically({
       execSql: input.execSql,
       organizationId: input.organizationId,

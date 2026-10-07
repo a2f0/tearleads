@@ -8,28 +8,20 @@ export function LoadOlderHistoryButton({
   load: () => Promise<void>;
 }) {
   const [loading, setLoading] = useState(false);
-  const [failed, setFailed] = useState(false);
   const loadOlder = async () => {
     setLoading(true);
-    setFailed(false);
     try {
+      // The scoped refresher reports failures through Org Manager's error state.
       await load();
-    } catch {
-      setFailed(true);
     } finally {
       setLoading(false);
     }
   };
   return (
-    <>
-      <MiniAppButton disabled={loading} onClick={() => void loadOlder()}>
-        {loading
-          ? ORG_MANAGER_LABELS.loadingOlderPolicyHistory
-          : ORG_MANAGER_LABELS.loadOlderPolicyHistory}
-      </MiniAppButton>
-      {failed ? (
-        <p role="alert">{ORG_MANAGER_LABELS.failedLoadOlderPolicyHistory}</p>
-      ) : null}
-    </>
+    <MiniAppButton disabled={loading} onClick={() => void loadOlder()}>
+      {loading
+        ? ORG_MANAGER_LABELS.loadingOlderPolicyHistory
+        : ORG_MANAGER_LABELS.loadOlderPolicyHistory}
+    </MiniAppButton>
   );
 }

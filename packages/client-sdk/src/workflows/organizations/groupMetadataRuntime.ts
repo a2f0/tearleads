@@ -40,16 +40,13 @@ export function createRuntimeGroupMetadataAccess(
 ) {
   const targetSecretKey = runtime.crypto.encapsulationKeyPair?.secretKey;
   if (!targetSecretKey) throw new Error("Group metadata identity is locked");
-  const warmer = createRuntimePrincipalPolicyWarmer(runtime);
+  // The signed metadata projection selects exact citations. Reuse matching
+  // private evidence with its dependencies and pins before bounded online reads.
+  const warmer = createRuntimePrincipalPolicyWarmer(runtime, {
+    preferLocalCurrent: true,
+  });
   const resolveCurrentPolicy =
     createRuntimePrincipalPolicyCurrentResolver(runtime);
-  // The signed metadata projection selects exact citations. As with its
-  // authority check below, reuse matching private evidence before HTTP.
-  if (resolveCurrentPolicy)
-    Object.assign(warmer, {
-      resolveReference: (request: Parameters<typeof resolveCurrentPolicy>[0]) =>
-        resolveCurrentPolicy({ ...request, preferLocalCurrent: true }),
-    });
   const authorityInput = {
     apiClient: runtime.apiClient,
     execSql: runtime.infra.execSql,

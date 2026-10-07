@@ -49,13 +49,19 @@ export interface PrincipalPolicyRecoveryRuntime {
 /** Keep the private recovery key inside its runtime lease while resolving cited evidence. */
 export function createRuntimePrincipalPolicyResolver(
   runtime: PrincipalPolicyRecoveryRuntime,
+  options: { readonly preferLocalCurrent?: boolean } = {},
 ): ReferencedPrincipalPolicyWarmer["resolveReference"] {
-  return createRuntimePrincipalPolicyCurrentResolver(runtime);
+  const resolve = createRuntimePrincipalPolicyCurrentResolver(runtime);
+  return resolve
+    ? (input) =>
+        resolve({ ...input, preferLocalCurrent: options.preferLocalCurrent })
+    : undefined;
 }
 
 export interface ResolvedPrincipalPolicyCurrent
   extends ResolvedPrincipalPolicyEvidence {
   readonly current: PrincipalPolicyPageCurrent;
+  /** Rows end at the selected reference; current/policy may describe a newer recovered head. */
   readonly historyPage?: RecoveredPrincipalHistoryPage | undefined;
 }
 

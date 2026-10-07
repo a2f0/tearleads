@@ -32,6 +32,8 @@ and publishes the authenticated group genesis and directory successor together.
 Group-history views select at most 32 rows from privately verified index proofs;
 Org Manager offers older pages without fetching a complete group bundle. The
 immediate predecessor remains verified for the boundary row's membership diff.
+Rows end at the requested reference even when recovery reuses a newer local
+head. The internal recovery result keeps that head's current artifacts and policy.
 Missing or corrupted disposable page evidence can replay signed pages once
 online; offline reads fail without changing durable pins. A pin change while a
 page is being read invalidates the display result as a recovery race.

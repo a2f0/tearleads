@@ -8,7 +8,10 @@ import type { useTearleadsRuntime } from "../../../providers/sdk/TearleadsProvid
 import type { useOrgManagerActions } from "../../../stores/org-manager/OrgManagerProvider";
 import type { useOrgManagerRequestGuard } from "../hooks/useOrgManagerRequestGuard";
 import { ORG_MANAGER_LABELS } from "../labels";
-import { appendGroupPolicyHistoryPage } from "../policy-history/groupPolicyHistoryPages";
+import {
+  appendGroupPolicyHistoryPage,
+  assertGroupPolicyHistoryPage,
+} from "../policy-history/groupPolicyHistoryPages";
 import {
   type GroupDetailsRefreshOptions,
   runScopedRefresher,
@@ -37,18 +40,19 @@ export function useOrgManagerGroupDetailsRefresher(input: {
     setGroupPolicyHistory,
     setMembers,
   } = input;
+  const organizationId = appData.auth.organizationId;
   return useCallback(
     (groupId: string | null, options: GroupDetailsRefreshOptions = {}) =>
       runScopedRefresher({
         apply: (details) => {
           const errors: string[] = [];
-          if (details.members === null) {
-            setMembers(null);
-            errors.push(ORG_MANAGER_LABELS.failedLoadGroupMembers);
-          } else {
-            setMembers(details.members);
-          }
           if (options.beforeVersion === undefined) {
+            if (details.members === null) {
+              setMembers(null);
+              errors.push(ORG_MANAGER_LABELS.failedLoadGroupMembers);
+            } else {
+              setMembers(details.members);
+            }
             setGroupPolicyHistory(details.policyHistory);
           } else {
             const beforeVersion = options.beforeVersion;
@@ -66,12 +70,22 @@ export function useOrgManagerGroupDetailsRefresher(input: {
         },
         beginRequest,
         load:
-          appData.auth.organizationId && groupId && appData.auth.isAuthenticated
-            ? () =>
-                orgManagerActions.loadGroupPresentationDetails(
-                  groupId,
-                  options.beforeVersion,
-                )
+          organizationId && groupId && appData.auth.isAuthenticated
+            ? async () => {
+                const details =
+                  await orgManagerActions.loadGroupPresentationDetails(
+                    groupId,
+                    options.beforeVersion,
+                  );
+                if (options.beforeVersion !== undefined) {
+                  assertGroupPolicyHistoryPage(details.policyHistory, {
+                    groupId,
+                    organizationId,
+                    beforeVersion: options.beforeVersion,
+                  });
+                }
+                return details;
+              }
             : null,
         onError: (error) => {
           if (options.beforeVersion === undefined) {
@@ -80,18 +94,26 @@ export function useOrgManagerGroupDetailsRefresher(input: {
           }
           setUnknownError(setError, error);
         },
-        onSettled: () => markGroupDetailsSettled(groupId),
+        onSettled: () => {
+          if (options.beforeVersion === undefined)
+            markGroupDetailsSettled(groupId);
+        },
         onUnavailable: () => {
-          setMembers(null);
-          setGroupPolicyHistory(null);
+          if (options.beforeVersion === undefined) {
+            setMembers(null);
+            setGroupPolicyHistory(null);
+          }
         },
         options,
-        requestKind: "groupDetails",
+        requestKind:
+          options.beforeVersion === undefined
+            ? "groupDetails"
+            : "groupHistoryPage",
         setError,
       }),
     [
       appData.auth.isAuthenticated,
-      appData.auth.organizationId,
+      organizationId,
       beginRequest,
       markGroupDetailsSettled,
       orgManagerActions,

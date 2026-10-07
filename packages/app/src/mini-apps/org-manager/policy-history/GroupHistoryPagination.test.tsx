@@ -11,9 +11,12 @@ import { useState } from "react";
 import type { useTearleadsRuntime } from "../../../providers/sdk/TearleadsProvider";
 import type { useOrgManagerActions } from "../../../stores/org-manager/OrgManagerProvider";
 import { useOrgManagerRequestGuard } from "../hooks/useOrgManagerRequestGuard";
-import { getOrgManagerPolicyVersionLabel } from "../labels";
+import { getOrgManagerPolicyVersionLabel, ORG_MANAGER_LABELS } from "../labels";
 import { useOrgManagerGroupDetailsRefresher } from "../refreshers/useOrgManagerGroupDetailsRefresher";
-import { loadOlderGroupPolicyHistory } from "./groupPolicyHistoryPages";
+import {
+  appendGroupPolicyHistoryPage,
+  loadOlderGroupPolicyHistory,
+} from "./groupPolicyHistoryPages";
 import { PolicyHistorySection } from "./PolicyHistory";
 
 afterEach(cleanup);
@@ -111,10 +114,13 @@ test("history pagination carries its exclusive cursor and preserves the visible 
 });
 
 test("a failed older-page read keeps the verified rows and permits retry", async () => {
+  let attempts = 0;
   const view = render(
     <PaginationProbe
       load={async () => {
-        throw new Error("History is offline");
+        attempts += 1;
+        if (attempts === 1) throw new Error("History is offline");
+        return { members: null, policyHistory: page([2, 1], null) };
       }}
     />,
   );
@@ -130,4 +136,57 @@ test("a failed older-page read keeps the verified rows and permits retry", async
         .hasAttribute("disabled"),
     ).toBe(false),
   );
+  fireEvent.click(view.getByRole("button", { name: "Load older changes" }));
+  await waitFor(() =>
+    expect(view.getByText(getOrgManagerPolicyVersionLabel(1))).toBeTruthy(),
+  );
+  expect(attempts).toBe(2);
+  expect(view.queryByRole("alert")).toBeNull();
+  expect(view.queryByRole("button", { name: "Load older changes" })).toBeNull();
 });
+
+test.each(["missing", "organization", "group", "cursor"] as const)(
+  "a malformed %s page reports an error without replacing the visible history",
+  async (mode) => {
+    const invalid = {
+      ...page([2, 1], null),
+      organizationId: mode === "organization" ? "org-b" : "org-a",
+      groupId: mode === "group" ? "group-b" : "group-a",
+    };
+    const view = render(
+      <PaginationProbe
+        load={async () => ({
+          members: null,
+          policyHistory:
+            mode === "missing"
+              ? null
+              : mode === "cursor"
+                ? page([1], null)
+                : invalid,
+        })}
+      />,
+    );
+    fireEvent.click(view.getByRole("button", { name: "Load older changes" }));
+    await waitFor(() =>
+      expect(view.getByRole("alert").textContent).toBe(
+        ORG_MANAGER_LABELS.failedLoadOlderPolicyHistory,
+      ),
+    );
+    expect(view.getByText(getOrgManagerPolicyVersionLabel(3))).toBeTruthy();
+    expect(view.queryByText(getOrgManagerPolicyVersionLabel(1))).toBeNull();
+  },
+);
+
+test.each(["organization", "group", "cursor"] as const)(
+  "a page validated for its original request leaves a changed %s view intact",
+  (mode) => {
+    const visible = {
+      ...page([3], mode === "cursor" ? 2 : 3),
+      organizationId: mode === "organization" ? "org-b" : "org-a",
+      groupId: mode === "group" ? "group-b" : "group-a",
+    };
+    expect(appendGroupPolicyHistoryPage(visible, page([2, 1], null), 3)).toBe(
+      visible,
+    );
+  },
+);
