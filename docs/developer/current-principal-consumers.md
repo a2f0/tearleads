@@ -42,8 +42,13 @@ page is being read invalidates the display result as a recovery race. An
 unavailable first history page preserves the independent local member list and
 shows the existing history-unavailable view. Older-page failures remain explicit
 for retry; integrity and storage failures still reject the details load.
-Creation/deletion outcome journaling, full organization-history views, direct
-share adapters and hosts without the paged resolver still require further adoption.
+Creation/deletion outcomes share the durable operation journal. Organization
+history now selects the same 32-entry windows and authenticates directory payloads
+against those exact private proofs. Roster-scoped public sources recover only the
+required group citations, including deleted groups. Each API page rechecks live
+roster access. One verified display page per organization is cached in memory;
+the UI retains older rows only as requested. Direct-share adapters still require
+further adoption. Organization history requires the host's private paged resolver.
 
 See [durable recovery](principal-history-recovery.md) for the underlying paging,
 private custody, and checkpoint contracts.

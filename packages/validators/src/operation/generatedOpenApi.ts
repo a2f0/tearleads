@@ -23396,6 +23396,7 @@ export interface operations {
     "organizations.policyHistory.get": {
         parameters: {
             query: {
+                beforeVersion?: number;
                 stateHash: string;
             };
             header?: never;
@@ -23413,107 +23414,60 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
-                        groups: ({
-                            currentGrants: ({
-                                /** @enum {string} */
-                                accessLevel: "admin" | "read" | "write";
-                                containerId: string;
-                            } & {
-                                [key: string]: unknown;
-                            })[];
-                            currentProjection: ({
-                                /** @enum {string} */
-                                role: "member" | "admin";
-                                userId: string;
-                            } & {
-                                [key: string]: unknown;
-                            })[];
-                            currentState: {
-                                createdAt: string;
-                                encapsulationPublicKey: string;
-                                externalAuthority: ({
+                        beforeVersion: number;
+                        evidence: {
+                            groups: ({
+                                grant: string;
+                                head: {
                                     keyEpoch: number;
                                     keyFingerprint: string;
                                     principalId: string;
-                                    /** @constant */
-                                    principalType: "group";
+                                    /** @enum {string} */
+                                    principalType: "group" | "organization";
                                     stateHash: string;
                                     version: number;
                                 } & {
                                     [key: string]: unknown;
-                                }) | null;
-                                grantCount: number;
-                                grantRoot: string;
-                                keyEpoch: number;
-                                keyFingerprint: string;
-                                memberCount: number;
-                                memberEnvelopesRoot: string;
-                                /** @constant */
-                                membershipMode: "projection";
-                                membershipRoot: string;
-                                payloadCiphertextHash: string;
-                                prevStateHash: string | null;
-                                principalId: string;
-                                /** @enum {string} */
-                                principalType: "group" | "organization";
-                                projectionRoot: string;
-                                signature: string;
-                                signedAt: string;
-                                signerUserId: string;
-                                signerUserKeyFingerprint: string;
-                                stateHash: string;
-                                version: number;
+                                };
                             } & {
                                 [key: string]: unknown;
-                            };
-                            previousStates: ({
-                                grants: ({
-                                    /** @enum {string} */
-                                    accessLevel: "admin" | "read" | "write";
-                                    containerId: string;
-                                } & {
-                                    [key: string]: unknown;
-                                })[];
-                                projection: ({
-                                    /** @enum {string} */
-                                    role: "member" | "admin";
-                                    userId: string;
-                                } & {
-                                    [key: string]: unknown;
-                                })[];
-                                state: {
-                                    createdAt: string;
-                                    encapsulationPublicKey: string;
-                                    externalAuthority: ({
-                                        keyEpoch: number;
-                                        keyFingerprint: string;
-                                        principalId: string;
-                                        /** @constant */
-                                        principalType: "group";
-                                        stateHash: string;
-                                        version: number;
-                                    } & {
-                                        [key: string]: unknown;
-                                    }) | null;
-                                    grantCount: number;
-                                    grantRoot: string;
+                            })[];
+                            organization: ({
+                                grant: string;
+                                head: {
                                     keyEpoch: number;
                                     keyFingerprint: string;
-                                    memberCount: number;
-                                    memberEnvelopesRoot: string;
-                                    /** @constant */
-                                    membershipMode: "projection";
-                                    membershipRoot: string;
-                                    payloadCiphertextHash: string;
-                                    prevStateHash: string | null;
                                     principalId: string;
                                     /** @enum {string} */
                                     principalType: "group" | "organization";
-                                    projectionRoot: string;
-                                    signature: string;
-                                    signedAt: string;
-                                    signerUserId: string;
-                                    signerUserKeyFingerprint: string;
+                                    stateHash: string;
+                                    version: number;
+                                } & {
+                                    [key: string]: unknown;
+                                };
+                            } & {
+                                [key: string]: unknown;
+                            }) | null;
+                            organizationPayloads: ({
+                                payload: {
+                                    /** @constant */
+                                    cipherSuite: "aes-256-gcm";
+                                    ciphertext: string;
+                                    ciphertextHash: string;
+                                    createdAt: string;
+                                    principalId: string;
+                                    /** @enum {string} */
+                                    principalType: "group" | "organization";
+                                    stateHash: string;
+                                } & {
+                                    [key: string]: unknown;
+                                };
+                                reference: {
+                                    keyEpoch: number;
+                                    keyFingerprint: string;
+                                    principalId: string;
+                                    /** @enum {string} */
+                                    principalType: "group" | "organization";
                                     stateHash: string;
                                     version: number;
                                 } & {
@@ -23524,24 +23478,27 @@ export interface operations {
                             })[];
                         } & {
                             [key: string]: unknown;
-                        })[];
+                        };
+                        nextBeforeVersion: number | null;
                         organizationId: string;
-                        organizationPayloads: ({
-                            /** @constant */
-                            cipherSuite: "aes-256-gcm";
-                            ciphertext: string;
-                            ciphertextHash: string;
-                            createdAt: string;
-                            principalId: string;
-                            /** @enum {string} */
-                            principalType: "group" | "organization";
-                            stateHash: string;
-                        } & {
-                            [key: string]: unknown;
-                        })[];
                         stateHash: string;
                     } & {
                         [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Successful JSON response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        code: "principal_history_preparation_pending";
+                        /** @constant */
+                        committed: false;
+                        progressToken: string;
                     };
                 };
             };
@@ -23604,6 +23561,19 @@ export interface operations {
                 };
             };
             /** @description Failure JSON response */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Failure JSON response */
             500: {
                 headers: {
                     [name: string]: unknown;
@@ -23623,6 +23593,9 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        /** @enum {string} */
+                        code?: "billing_checkout_no_active_members" | "billing_roster_over_capacity" | "principal_history_preparation_unavailable";
+                        committed?: boolean;
                         error: string;
                     } & {
                         [key: string]: unknown;

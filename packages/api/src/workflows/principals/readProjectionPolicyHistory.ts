@@ -9,6 +9,7 @@ import { canonicalJsonEquals } from "../../utils/canonicalJson";
 import { ContainerWriterProjectionError } from "../containers/writerProjection";
 import { StoredDocumentManifestError } from "../documents/storedDocumentManifestVerification";
 import { DocumentWriterProjectionError } from "../documents/writerProjectionError";
+import { OrganizationManagerError } from "../organizations/errors";
 import { principalHistoryHead } from "./principalHistoryRecords";
 import { runPrincipalHistoryTransaction } from "./principalHistoryTransaction";
 import { buildPrincipalPolicySnapshotPage } from "./principalPolicySnapshotPage";
@@ -45,7 +46,8 @@ export async function runReadProjectionPolicyHistoryWorkflow(
     if (
       error instanceof ContainerWriterProjectionError ||
       error instanceof DocumentWriterProjectionError ||
-      error instanceof StoredDocumentManifestError
+      error instanceof StoredDocumentManifestError ||
+      error instanceof OrganizationManagerError
     )
       throw new PrincipalPolicyError(error.message, error.status);
     throw error;

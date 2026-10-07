@@ -2,7 +2,11 @@ import { expect, spyOn, test } from "bun:test";
 import { type ApiDatabase, db } from "@tearleads/api-shared/postgres";
 import { principalStatePayloads } from "@tearleads/api-shared/schema";
 import { createTestUser, type TestUser } from "@tearleads/bob-and-alice";
-import { OrganizationPolicyHistoryResponseSchema } from "@tearleads/validators/response";
+import {
+  type OrganizationPolicyHistoryResponse,
+  OrganizationPolicyHistoryResponseSchema,
+  PrincipalPolicySnapshotPageResponseSchema,
+} from "@tearleads/validators/response";
 import { eq } from "drizzle-orm";
 import {
   createGroupRequest,
@@ -11,6 +15,7 @@ import {
 import { addMemberGroupUser } from "../../../test/helpers/organizationMember";
 import { getDefaultOrganizationId } from "../../../test/helpers/organizationMembership";
 import { registerAndAuthenticate } from "../../../test/helpers/principalPolicyReadFixtures";
+import { requestAfterPrincipalPreparation } from "../../../test/helpers/principalPreparationRequest";
 import { getCurrentPrincipalState } from "../../access/read/principalStateStore";
 import { routeApp } from "../../routeApp";
 import { requireDirectOrganizationAccess } from "../../workflows/organizations/access";
@@ -27,12 +32,31 @@ function getHistory(
   );
 }
 
+async function membersFromSources(
+  actor: TestUser,
+  history: OrganizationPolicyHistoryResponse,
+) {
+  const members = [];
+  for (const { grant } of history.evidence.groups) {
+    const response = await routeApp.request(
+      `/principals/history?${new URLSearchParams({ grant })}`,
+      { headers: { Authorization: `Bearer ${actor.token}` } },
+    );
+    expect(response.status, await response.clone().text()).toBe(200);
+    members.push(
+      ...PrincipalPolicySnapshotPageResponseSchema.parse(await response.json())
+        .currentProjection,
+    );
+  }
+  return members;
+}
+
 test("history returns exact existing evidence without plaintext names, including deleted groups", async () => {
   const owner = createTestUser();
   await registerAndAuthenticate(owner);
   const organizationId = await getDefaultOrganizationId(owner.userId);
   const groupId = crypto.randomUUID();
-  const creation = await routeApp.request(
+  const creation = await requestAfterPrincipalPreparation(
     `/organizations/${organizationId}/groups`,
     {
       method: "POST",
@@ -79,13 +103,13 @@ test("history returns exact existing evidence without plaintext names, including
   expect(raw).not.toContain("Confidential team name");
   const body = OrganizationPolicyHistoryResponseSchema.parse(JSON.parse(raw));
   expect(body.stateHash).toBe(target.stateHash);
-  expect(body.organizationPayloads).toHaveLength(2);
+  expect(body.evidence.organizationPayloads).toHaveLength(2);
   expect(
-    body.groups.find((group) => group.currentState.principalId === groupId)
-      ?.currentState.version,
+    body.evidence.groups.find((group) => group.head.principalId === groupId)
+      ?.head.version,
   ).toBe(1);
   expect(
-    body.groups.every(
+    body.evidence.groups.every(
       (group) =>
         !("currentPayload" in group) && !("currentMemberEnvelopes" in group),
     ),
@@ -190,9 +214,9 @@ test("a requested organization head excludes later group membership versions", a
   );
   expect(historical).toEqual(original);
   expect(
-    historical.groups
-      .flatMap((group) => group.currentProjection)
-      .some((member) => member.userId === laterMember.userId),
+    (await membersFromSources(owner, historical)).some(
+      (member) => member.userId === laterMember.userId,
+    ),
   ).toBe(false);
   const current = await getCurrentPrincipalState(
     "organization",
@@ -204,8 +228,8 @@ test("a requested organization head excludes later group membership versions", a
     await (await getHistory(owner, organizationId, current.stateHash)).json(),
   );
   expect(
-    latest.groups
-      .flatMap((group) => group.currentProjection)
-      .some((member) => member.userId === laterMember.userId),
+    (await membersFromSources(owner, latest)).some(
+      (member) => member.userId === laterMember.userId,
+    ),
   ).toBe(true);
 });

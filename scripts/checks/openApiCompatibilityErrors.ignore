@@ -1,0 +1,6 @@
+# #2448: replace full organization history with bounded pages and public sources.
+# Remove this exact diagnostic once main contains the paged history contract.
+GET /organizations/{organizationId}/policy-history removed the required property `groups` from the response with the `200` status
+# #2448: replace full organization history with bounded pages and public sources.
+# Remove this exact diagnostic once main contains the paged history contract.
+GET /organizations/{organizationId}/policy-history removed the required property `organizationPayloads` from the response with the `200` status

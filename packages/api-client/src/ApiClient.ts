@@ -30,7 +30,6 @@ import {
   getOrganizationBillingOperation,
   getOrganizationDataUsageOperation,
   getOrganizationNativePurchaseEligibilityOperation,
-  getOrganizationPolicyHistoryOperation,
   getOrganizationReadModelOperation,
   getRootIdentityOperation,
   getRootOrganizationDataUsageOperation,
@@ -104,7 +103,6 @@ import type {
   ListContainerParentLanesResponse,
   ListDocumentAttachmentsResponse,
   OrganizationDataUsageResponse,
-  OrganizationPolicyHistoryResponse,
   OrganizationReadModelResponse,
   PrincipalPolicyBundleResponse,
   RootDataUsageReportResponse,
@@ -122,6 +120,7 @@ import {
   createOperationTransport,
   type OperationTransport,
 } from "./operationTransportFactory";
+import { getOrganizationPolicyHistoryResult as organizationHistory } from "./organizationPolicyHistory";
 import type { PrincipalPolicyPageReadOptions } from "./principalPolicyPages";
 import { PrincipalPolicyRequests } from "./principalPolicyRequests";
 import { ProjectionHistoryTransport } from "./projectionHistoryTransport";
@@ -677,11 +676,12 @@ export class ApiClient {
   getOrganizationPolicyHistoryResult(
     organizationId: string,
     stateHash: string,
-    options: RequestResultOptions = {},
-  ): Promise<RequestResult<OrganizationPolicyHistoryResponse>> {
-    return this.transport.requestResult(
-      getOrganizationPolicyHistoryOperation,
-      { params: { organizationId }, query: { stateHash } },
+    options: Parameters<typeof organizationHistory>[3] = {},
+  ) {
+    return organizationHistory(
+      this.requestRuntime,
+      organizationId,
+      stateHash,
       options,
     );
   }

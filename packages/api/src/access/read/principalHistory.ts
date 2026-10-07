@@ -1,4 +1,1 @@
-export {
-  listGroupHistoryThroughHeads,
-  listOrganizationHistoryPayloads,
-} from "./internal/principalHistory";
+export { loadOrganizationHistoryWindow } from "./internal/organizationHistoryWindow";

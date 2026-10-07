@@ -116,6 +116,7 @@ export type {
   OrganizationGroupSummary,
   OrganizationPolicyGrantChange,
   OrganizationPolicyGroupChange,
+  /** Verified organization display page with an optional older-page cursor. */
   OrganizationPolicyHistory,
   OrganizationPolicyHistoryEntry,
   OrganizationProfile,

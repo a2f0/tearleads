@@ -22,20 +22,30 @@ test("history requests require an exact head and encode it as a query parameter"
   );
 });
 
-test("history evidence must contain payload and public group snapshot arrays", () => {
+test("history pages require compact evidence and bounded cursors", () => {
   const response = {
     organizationId: "11111111-1111-4111-8111-111111111111",
     stateHash: "head",
-    organizationPayloads: [],
-    groups: [],
+    beforeVersion: 2,
+    nextBeforeVersion: null,
+    evidence: { organization: null, organizationPayloads: [], groups: [] },
   };
   expect(
     OrganizationPolicyHistoryResponseSchema.safeParse(response).success,
   ).toBe(true);
   for (const invalid of [
-    { ...response, organizationPayloads: null },
-    { ...response, organizationPayloads: [{ stateHash: "head" }] },
-    { ...response, groups: [{ currentState: {} }] },
+    { ...response, evidence: null },
+    {
+      ...response,
+      evidence: {
+        ...response.evidence,
+        organizationPayloads: [{ stateHash: "head" }],
+      },
+    },
+    {
+      ...response,
+      evidence: { ...response.evidence, groups: [{ currentState: {} }] },
+    },
     { ...response, stateHash: "" },
   ]) {
     expect(

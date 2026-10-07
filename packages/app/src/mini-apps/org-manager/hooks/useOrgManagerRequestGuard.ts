@@ -42,6 +42,12 @@ export function useOrgManagerRequestGuard(scopeKey: string) {
         (scopeState.requestIds.get("groupHistoryPage") ?? 0) + 1,
       );
     }
+    if (kind === "organizationPolicyHistory") {
+      scopeState.requestIds.set(
+        "organizationHistoryPage",
+        (scopeState.requestIds.get("organizationHistoryPage") ?? 0) + 1,
+      );
+    }
     const requestId = (scopeState.requestIds.get(kind) ?? 0) + 1;
     scopeState.requestIds.set(kind, requestId);
 

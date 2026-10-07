@@ -270,7 +270,13 @@ The projected head bounds the displayed history even when local recovery has
 already verified a newer head. Hosts without private paged recovery retain the
 complete-bundle path for cursor-free calls and reject explicit cursors;
 verification failures never downgrade to that path. Raw responses are never
-rendered. Group containers repaint independently from the local grants lane.
+rendered. `Organizations.loadPolicyHistory(beforeVersion?)` also selects 32
+organization entries and an authenticated predecessor. Compact roster-scoped
+history sources prove the exact referenced group states, including deleted
+groups, without importing complete group snapshots or admitting their checkpoints.
+Its optional cursor is exclusive; older-page failures preserve the visible rows.
+This organization view requires private paged recovery from the host. Group
+containers repaint independently from the local grants lane.
 State-hash and member-count checks prevent torn local views, but do not make
 presentation rows authoritative. `isSelf` is derived from the active user, while
 `isOrgAdmin` is

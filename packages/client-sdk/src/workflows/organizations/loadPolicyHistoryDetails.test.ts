@@ -1,9 +1,13 @@
 import { expect, mock, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { ORGANIZATION_PRESENTATION_ERROR_CODES } from "@tearleads/validators/response";
-import { createOrganizationHistoryFixture } from "../../../test/helpers/organizationPolicyHistory";
+import {
+  createOrganizationHistoryPageFixture,
+  organizationHistoryPage,
+} from "../../../test/helpers/organizationHistoryPage";
 import { organizationReadModelSnapshot } from "../../../test/helpers/organizationReadModelProjectionFixtures";
 import { createDomainScope } from "../../data/domainScope";
+import { ProjectionDependencyUnavailableError } from "../../data/keyingProjectionVerification/dependencyUnavailable";
 import {
   applyOrganizationReadModelResponse,
   loadOrganizationReadModelProjection,
@@ -22,7 +26,8 @@ import {
 import { buildOrganizationPolicyHistory } from "./policyHistoryReadModel";
 
 async function fixture() {
-  const data = await createOrganizationHistoryFixture();
+  const fixture = await createOrganizationHistoryPageFixture();
+  const { data } = fixture;
   const sql = await createTestExecSql("organization-history-details");
   const common = {
     execSql: sql.execSql,
@@ -45,13 +50,23 @@ async function fixture() {
   );
   const input = {
     ...common,
+    ...fixture.input,
+    online: true,
+    olderPage: false,
     domainScope: createDomainScope(),
     history: buildOrganizationPolicyHistory(data.afterAddition),
     resolveTrustedUserIdentity: data.resolveTrustedUserIdentity,
     stillCurrent: () => true,
     logError: () => {},
   };
-  return { data, close: sql.close, input };
+  return {
+    data,
+    close() {
+      sql.close();
+      fixture.close();
+    },
+    input,
+  };
 }
 
 test("history enrichment is memory-only and leaves persisted policy records unchanged", async () => {
@@ -111,13 +126,13 @@ test("history evidence cannot restore a presentation after its runtime changes",
   }
 });
 
-test("malformed evidence reports an incident and retains only verified entries", async () => {
+test("malformed evidence reports an incident and rejects the page", async () => {
   const { data, input, close } = await fixture();
   try {
     const evidence = data.evidence();
-    evidence.organizationPayloads.pop();
+    evidence.evidence.organizationPayloads.pop();
     const reportSecurityIncident = mock(async () => {});
-    const result = await loadPolicyHistoryDetails({
+    const result = loadPolicyHistoryDetails({
       ...input,
       reportSecurityIncident,
       apiClient: {
@@ -127,7 +142,7 @@ test("malformed evidence reports an incident and retains only verified entries",
         }),
       },
     });
-    expect(result).toEqual(input.history);
+    await expect(result).rejects.toThrow("directory page is incomplete");
     expect(reportSecurityIncident).toHaveBeenCalledTimes(1);
   } finally {
     close();
@@ -174,7 +189,9 @@ test("an unavailable signer preserves verified entries without a tampering incid
   try {
     const result = await loadPolicyHistoryDetails({
       ...input,
-      resolveTrustedUserIdentity: async () => null,
+      resolveHistory: async () => {
+        throw new ProjectionDependencyUnavailableError("Signer unavailable");
+      },
       reportSecurityIncident,
       apiClient: {
         getOrganizationPolicyHistoryResult: async () => ({
@@ -260,6 +277,7 @@ test("a newer organization head fetches new evidence instead of reusing cached d
     const next = await loadPolicyHistoryDetails({
       ...input,
       apiClient,
+      ...organizationHistoryPage(data.afterDeletion),
       history: buildOrganizationPolicyHistory(data.afterDeletion),
     });
     expect(requests).toBe(2);

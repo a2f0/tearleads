@@ -7,6 +7,7 @@ import {
 } from "../containers/writerProjection";
 import { loadCurrentDocumentManifestBundle } from "../documents/documentManifestBundle";
 import { verifyStoredDocumentManifest } from "../documents/storedDocumentManifestVerification";
+import { requireDirectOrganizationAccess } from "../organizations/access";
 import type { ProjectionPolicyHistoryScope } from "./projectionPolicyHistoryGrant";
 import { PrincipalPolicyError } from "./shared";
 
@@ -15,6 +16,16 @@ export async function assertProjectionPolicyHistoryAccess(
   executor: DatabaseSession,
   scope: ProjectionPolicyHistoryScope,
 ): Promise<void> {
+  if (scope.objectKind === "organization") {
+    if (scope.objectId !== scope.organizationId)
+      throw new PrincipalPolicyError("Organization history scope differs", 403);
+    await requireDirectOrganizationAccess({
+      executor,
+      organizationId: scope.organizationId,
+      userId: scope.userId,
+    });
+    return;
+  }
   const context = createContainerWriterProjectionContext(executor);
   if (scope.objectKind === "container") {
     const access = await resolveContainerAccessProjection({

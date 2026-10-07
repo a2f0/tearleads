@@ -32,6 +32,7 @@ export function OrganizationView({
   pending,
   policyHistory,
   policyHistoryPending,
+  loadMoreHistory,
   profileDisplayNamesByUserId = EMPTY_PROFILE_DISPLAY_NAMES,
 }: {
   directory: OrganizationDirectory | null;
@@ -43,6 +44,7 @@ export function OrganizationView({
   policyHistory: OrganizationPolicyHistory | null;
   // Policy history runs its own refresh, so it settles separately.
   policyHistoryPending: boolean;
+  loadMoreHistory?: (() => Promise<void>) | undefined;
   profileDisplayNamesByUserId?: ReadonlyMap<string, string> | undefined;
 }) {
   const idPrefix = useId();
@@ -92,6 +94,7 @@ export function OrganizationView({
             directory={directory}
             groups={groups}
             history={policyHistory}
+            loadMore={loadMoreHistory}
             pending={policyHistoryPending}
             profileDisplayNamesByUserId={profileDisplayNamesByUserId}
           />

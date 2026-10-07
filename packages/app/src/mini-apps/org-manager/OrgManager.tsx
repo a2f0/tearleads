@@ -130,6 +130,7 @@ function OrgManagerContent({
         pending={model.dataPending}
         policyHistoryPending={model.organizationPolicyHistoryPending}
         policyHistory={model.organizationPolicyHistory}
+        loadMoreHistory={model.loadMoreOrganizationHistory}
         profileDisplayNamesByUserId={model.profileDisplayNamesByUserId}
       />
     );

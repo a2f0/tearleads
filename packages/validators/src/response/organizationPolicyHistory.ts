@@ -1,16 +1,18 @@
 import type { z } from "zod";
-import { arraySchema, loosePlainObject, nonEmptyStringSchema } from "../schema";
 import {
-  PrincipalPolicySnapshotResponseSchema,
-  PrincipalStatePayloadResponseSchema,
-} from "./principal";
+  loosePlainObject,
+  nonEmptyStringSchema,
+  positiveIntegerSchema,
+} from "../schema";
+import { ProjectionPolicyEvidenceResponseSchema } from "./projectionPolicyEvidence";
 
 /** Signed evidence only. Display names are resolved on the client. */
 export const OrganizationPolicyHistoryResponseSchema = loosePlainObject({
   organizationId: nonEmptyStringSchema,
   stateHash: nonEmptyStringSchema,
-  organizationPayloads: arraySchema(PrincipalStatePayloadResponseSchema),
-  groups: arraySchema(PrincipalPolicySnapshotResponseSchema),
+  beforeVersion: positiveIntegerSchema,
+  nextBeforeVersion: positiveIntegerSchema.nullable(),
+  evidence: ProjectionPolicyEvidenceResponseSchema,
 });
 
 export type OrganizationPolicyHistoryResponse = z.infer<

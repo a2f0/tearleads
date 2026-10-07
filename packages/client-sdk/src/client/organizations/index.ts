@@ -344,7 +344,7 @@ class OrganizationsService implements Organizations {
     return listLocalOrganizations({ execSql: runtime.infra.execSql });
   }
 
-  loadPolicyHistory() {
+  loadPolicyHistory(beforeVersion?: number) {
     const runtime = this.runtimeService.workflowInput();
     return runWithSecurityIncidentReporting(
       runtime.util.reportSecurityIncident,
@@ -354,7 +354,11 @@ class OrganizationsService implements Organizations {
         operation: "organization.policy_history.load",
         organizationId: runtime.auth.organizationId,
       },
-      () => this.readModelCoordinator.loadOrganizationPolicyHistory(),
+      () =>
+        this.readModelCoordinator.loadOrganizationPolicyHistory(
+          undefined,
+          beforeVersion,
+        ),
     );
   }
 

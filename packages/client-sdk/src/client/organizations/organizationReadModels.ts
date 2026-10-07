@@ -5,7 +5,6 @@ import {
   loadLocalOrganizationGroupContainers,
   loadLocalOrganizationGroupMembers,
   loadLocalOrganizationGroupPolicyHistory,
-  loadLocalOrganizationPolicyHistory,
   loadLocalOrganizationPolicyReference,
   loadLocalOrganizationUserDetail,
   type OrganizationContainerGrants,
@@ -17,7 +16,6 @@ import {
   type OrganizationUserDetail,
   reconcileOrganizationDirectoryAndGroups,
 } from "../../workflows/organizations";
-import { loadPolicyHistoryDetails } from "../../workflows/organizations/loadPolicyHistoryDetails";
 import {
   organizationAccessScopeKey,
   wasOrganizationPresentationAccessDeniedByServer,
@@ -27,6 +25,7 @@ import type { InternalRuntime } from "../workflowRuntime";
 import { recoverOrganizationAccess } from "./organizationAccessRestoration";
 import { loadBoundedOrganizationGroupHistory } from "./organizationGroupHistory";
 import { hydrateOrganizationGroupNamesForRuntime } from "./organizationGroupNameHydration";
+import { loadBoundedOrganizationHistory } from "./organizationHistory";
 import {
   type ActiveOrganizationDataRuntime,
   activeOrganizationDataRuntime,
@@ -53,6 +52,7 @@ export interface OrganizationReadModelCoordinator {
   ): Promise<OrganizationGroupPolicyHistory | null>;
   loadOrganizationPolicyHistory(
     organizationId?: string | undefined,
+    beforeVersion?: number | undefined,
   ): Promise<OrganizationPolicyHistory | null>;
   loadLocalGrants(
     organizationId?: string | undefined,
@@ -298,43 +298,25 @@ class OrganizationReadModelCoordinatorImpl
     });
   }
 
-  async loadOrganizationPolicyHistory(organizationId?: string) {
+  async loadOrganizationPolicyHistory(
+    organizationId?: string,
+    beforeVersion?: number,
+  ) {
     const active = activeOrganizationDataRuntime(
       this.runtimeService,
       organizationId,
     );
-    if (!active) {
-      return null;
-    }
-    const history = await this.loadPolicyHistoryAfterWarm({
-      active,
-      loadLocal: () =>
-        loadLocalOrganizationPolicyHistory({
-          currentUserId: active.userId,
-          execSql: active.runtime.infra.execSql,
-          organizationId: active.organizationId,
-        }),
-      principalId: active.organizationId,
-      principalType: "organization",
-    });
-    if (!history || !active.runtime.state.online) return history;
+    if (!active) return null;
     const domainScope = active.runtime.state.domainScope;
-    return loadPolicyHistoryDetails({
-      domainScope,
-      apiClient: active.runtime.apiClient,
-      currentUserId: active.userId,
-      execSql: active.runtime.infra.execSql,
-      organizationId: active.organizationId,
-      history,
-      resolveTrustedUserIdentity: active.runtime.resolveTrustedUserIdentity,
+    return loadBoundedOrganizationHistory({
+      active,
+      beforeVersion,
       stillCurrent: () =>
         isOrganizationDataRuntimeCurrent(
           this.runtimeService,
           active,
           domainScope,
         ),
-      logError: active.runtime.util.logError,
-      reportSecurityIncident: active.runtime.util.reportSecurityIncident,
     });
   }
 

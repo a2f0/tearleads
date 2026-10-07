@@ -1,32 +1,27 @@
-import { expect, test } from "bun:test";
+import { afterEach, expect, test } from "bun:test";
 import { computePrincipalStatePayloadCiphertextHash } from "@tearleads/crypto";
 import {
-  createOrganizationHistoryFixture,
-  policySnapshot,
-} from "../../../test/helpers/organizationPolicyHistory";
+  createOrganizationHistoryPageFixture,
+  organizationHistoryPage,
+} from "../../../test/helpers/organizationHistoryPage";
+import {
+  projectionDirectoryPayload,
+  projectionPolicySource,
+} from "../../../test/helpers/projectionPolicyHistory";
 import {
   encodeOrganizationAuthorityDescriptor,
   parseOrganizationAuthorityDescriptor,
 } from "../../data/principals/organizationAuthorityDescriptor";
 import { buildDetailedOrganizationPolicyHistory } from "./organizationPolicyHistoryDetails";
 
+const cleanups: (() => void)[] = [];
+afterEach(() => {
+  for (const close of cleanups.splice(0)) close();
+});
 async function fixture() {
-  const data = await createOrganizationHistoryFixture();
-  return {
-    data,
-    input: {
-      bundle: data.afterAddition,
-      evidence: data.evidence(),
-      organizationId: data.organizationId,
-      localCheckpoint: {
-        version: data.afterAddition.currentState.version,
-        stateHash: data.afterAddition.currentState.stateHash,
-        principalId: data.organizationId,
-        principalType: "organization" as const,
-      },
-      resolveTrustedUserIdentity: data.resolveTrustedUserIdentity,
-    },
-  };
+  const value = await createOrganizationHistoryPageFixture();
+  cleanups.push(value.close);
+  return value;
 }
 
 test("fresh organization history explains group creation and a later member addition without names", async () => {
@@ -61,7 +56,7 @@ test("deleted groups retain verifiable history without their encrypted name or k
   const { data, input } = await fixture();
   const result = await buildDetailedOrganizationPolicyHistory({
     ...input,
-    bundle: data.afterDeletion,
+    ...organizationHistoryPage(data.afterDeletion),
     evidence: data.evidence(true),
   });
   expect(result.entries[0]?.groupChanges).toMatchObject([
@@ -74,7 +69,7 @@ test("deleted groups retain verifiable history without their encrypted name or k
 
 test("rejects an altered directory payload even when its advertised ciphertext hash is recomputed", async () => {
   const { input } = await fixture();
-  const payload = input.evidence.organizationPayloads[1];
+  const payload = input.evidence.evidence.organizationPayloads[1]?.payload;
   if (!payload) throw new Error("Expected historical payload");
   const descriptor = parseOrganizationAuthorityDescriptor(payload.ciphertext);
   payload.ciphertext = encodeOrganizationAuthorityDescriptor({
@@ -92,18 +87,18 @@ test("rejects an altered directory payload even when its advertised ciphertext h
 
 test("rejects missing or duplicated directory history and wrong organization scope", async () => {
   const messages = [
-    "directory history is incomplete",
-    "directory payload scope is invalid",
-    "response does not match the requested organization head",
+    "directory page is incomplete",
+    "directory payload scope or order is invalid",
+    "response does not match the requested organization page",
   ];
   for (const [index, alter] of [
     (value: Awaited<ReturnType<typeof fixture>>["input"]) => {
-      value.evidence.organizationPayloads.pop();
+      value.evidence.evidence.organizationPayloads.pop();
     },
     (value: Awaited<ReturnType<typeof fixture>>["input"]) => {
-      const first = value.evidence.organizationPayloads[0];
+      const first = value.evidence.evidence.organizationPayloads[0];
       if (!first) throw new Error("Expected first payload");
-      value.evidence.organizationPayloads[1] = first;
+      value.evidence.evidence.organizationPayloads[1] = first;
     },
     (value: Awaited<ReturnType<typeof fixture>>["input"]) => {
       value.evidence.organizationId = crypto.randomUUID();
@@ -117,34 +112,32 @@ test("rejects missing or duplicated directory history and wrong organization sco
   }
 });
 
-test("rejects group membership tampering and a missing group snapshot", async () => {
-  const { input } = await fixture();
-  const group = input.evidence.groups.at(-1);
-  if (!group) throw new Error("Expected group snapshot");
-  const member = group.currentProjection[0];
-  if (!member) throw new Error("Expected member");
-  member.userId = crypto.randomUUID();
+test("rejects group membership tampering and a missing group source", async () => {
+  const { data, input, http } = await fixture();
+  http.controls.mutate = (page) => {
+    if (page.currentState.principalId === data.added.currentState.principalId) {
+      const member = page.currentProjection[0];
+      if (member) member.userId = crypto.randomUUID();
+    }
+  };
+  await expect(buildDetailedOrganizationPolicyHistory(input)).rejects.toThrow();
+  input.evidence.evidence.groups.pop();
   await expect(buildDetailedOrganizationPolicyHistory(input)).rejects.toThrow(
-    "principal policy projection root does not match projection",
-  );
-  input.evidence.groups.pop();
-  await expect(buildDetailedOrganizationPolicyHistory(input)).rejects.toThrow(
-    "group history does not match the signed directory",
+    "unexpected group source",
   );
 });
 
 test("rejects a valid older group policy substituted for the committed membership update", async () => {
   const { data, input } = await fixture();
-  input.evidence.groups[input.evidence.groups.length - 1] = policySnapshot(
-    data.created,
-  );
+  input.evidence.evidence.groups[input.evidence.evidence.groups.length - 1] =
+    projectionPolicySource(data.created);
   await expect(buildDetailedOrganizationPolicyHistory(input)).rejects.toThrow(
-    "group history does not match the signed directory",
+    "group source extends beyond the page's signed directory",
   );
 });
 
 test("history describes grants, permission and role changes, removals, and key rotation", async () => {
-  const { data, input } = await fixture();
+  const { data, input, http } = await fixture();
   const containerId = crypto.randomUUID();
   const granted = await data.advanceGroup(
     data.added,
@@ -160,20 +153,30 @@ test("history describes grants, permission and role changes, removals, and key r
   const afterUpgrade = await data.advanceDirectory(afterGrant, upgraded);
   const removed = await data.advanceGroup(upgraded, [], [], true);
   const afterRemoval = await data.advanceDirectory(afterUpgrade, removed);
-  const evidence = data.evidence();
+  for (const bundle of [afterRemoval, granted, upgraded, removed])
+    http.retain(bundle);
   const result = await buildDetailedOrganizationPolicyHistory({
     ...input,
-    bundle: afterRemoval,
+    ...organizationHistoryPage(afterRemoval),
     evidence: {
-      ...evidence,
+      organizationId: data.organizationId,
       stateHash: afterRemoval.currentState.stateHash,
-      organizationPayloads: [
-        ...evidence.organizationPayloads,
-        afterGrant.currentPayload,
-        afterUpgrade.currentPayload,
-        afterRemoval.currentPayload,
-      ],
-      groups: [...evidence.groups.slice(0, -1), policySnapshot(removed)],
+      beforeVersion: afterRemoval.currentState.version + 1,
+      nextBeforeVersion: null,
+      evidence: {
+        organization: projectionPolicySource(afterRemoval),
+        organizationPayloads: [
+          data.initial,
+          data.afterCreation,
+          data.afterAddition,
+          afterGrant,
+          afterUpgrade,
+          afterRemoval,
+        ].map(projectionDirectoryPayload),
+        groups: [data.admin, data.memberPolicy, removed].map(
+          projectionPolicySource,
+        ),
+      },
     },
   });
   expect(result.entries[2]?.groupChanges?.[0]?.grantChanges).toEqual([
@@ -211,11 +214,11 @@ test("history describes grants, permission and role changes, removals, and key r
 
 test("rejects an extra signed group not referenced by the organization directory", async () => {
   const { data, input } = await fixture();
-  input.evidence.groups.push(
-    policySnapshot(await data.createGroup("Unreferenced")),
+  input.evidence.evidence.groups.push(
+    projectionPolicySource(await data.createGroup("Unreferenced")),
   );
   await expect(buildDetailedOrganizationPolicyHistory(input)).rejects.toThrow(
-    "unexpected group history",
+    "unexpected group source",
   );
 });
 
@@ -226,9 +229,72 @@ test("rejects a newer signed group head beyond the selected organization version
     data.added.currentProjection,
     [],
   );
-  input.evidence.groups[input.evidence.groups.length - 1] =
-    policySnapshot(newer);
+  input.evidence.evidence.groups[input.evidence.evidence.groups.length - 1] =
+    projectionPolicySource(newer);
   await expect(buildDetailedOrganizationPolicyHistory(input)).rejects.toThrow(
-    "group history extends beyond the selected organization head",
+    "group source extends beyond the page's signed directory",
   );
 });
+
+test("a 32-entry organization page uses its actual boundary predecessor for group changes", async () => {
+  const { data, input, http } = await fixture();
+  const directories = [data.initial, data.afterCreation];
+  let directory = data.afterCreation;
+  while (directory.currentState.version < 65) {
+    directory = await data.advanceDirectory(
+      directory,
+      directory.currentState.version < 33 ? data.created : data.added,
+    );
+    directories.push(directory);
+  }
+  http.retain(directory);
+  const result = await buildDetailedOrganizationPolicyHistory({
+    ...input,
+    ...organizationHistoryPage(directory),
+    evidence: {
+      organizationId: data.organizationId,
+      stateHash: directory.currentState.stateHash,
+      beforeVersion: 66,
+      nextBeforeVersion: 34,
+      evidence: {
+        organization: projectionPolicySource(directory),
+        organizationPayloads: directories
+          .filter((bundle) => bundle.currentState.version >= 33)
+          .map(projectionDirectoryPayload),
+        groups: [data.admin, data.memberPolicy, data.added].map(
+          projectionPolicySource,
+        ),
+      },
+    },
+  });
+  expect(result.entries).toHaveLength(32);
+  expect(result.nextBeforeVersion).toBe(34);
+  expect(result.entries.at(-1)).toMatchObject({
+    version: 34,
+    groupChanges: [
+      {
+        changeType: "updated",
+        previousVersion: 1,
+        version: 2,
+        changes: [{ changeType: "added", userId: data.targetUserId }],
+      },
+    ],
+  });
+  expect(
+    result.entries
+      .slice(0, -1)
+      .every((entry) => entry.groupChanges?.length === 0),
+  ).toBe(true);
+}, 30_000);
+
+test.each(["beforeVersion", "nextBeforeVersion"] as const)(
+  "refuses a server-substituted %s cursor before loading group history",
+  async (field) => {
+    const { input, http } = await fixture();
+    input.evidence = { ...input.evidence, [field]: 99 };
+    await expect(buildDetailedOrganizationPolicyHistory(input)).rejects.toThrow(
+      "requested organization page",
+    );
+    expect(http.requests).toHaveLength(0);
+  },
+);

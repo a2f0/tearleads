@@ -1,9 +1,5 @@
 import { expect, test } from "bun:test";
 import { db } from "@tearleads/api-shared/postgres";
-import {
-  listGroupHistoryThroughHeads,
-  listOrganizationHistoryPayloads,
-} from "../../access/read/principalHistory";
 import { listPrincipalStateHistory } from "../../access/read/principalStateStore";
 import { withPrincipalHistoryRequest } from "../../utils/principalHistoryWork";
 import { loadVerifiedPrincipalPolicySnapshotsForReferences } from "./principalPolicySnapshots";
@@ -19,13 +15,6 @@ const reference = {
 const loaders = [
   (executor: typeof db) =>
     loadVerifiedPrincipalPolicySnapshotsForReferences(executor, [reference]),
-  (executor: typeof db) =>
-    listOrganizationHistoryPayloads(
-      executor,
-      reference.principalId,
-      reference.stateHash,
-    ),
-  (executor: typeof db) => listGroupHistoryThroughHeads(executor, [reference]),
   (executor: typeof db) => listPrincipalStateHistory(reference, executor),
 ];
 

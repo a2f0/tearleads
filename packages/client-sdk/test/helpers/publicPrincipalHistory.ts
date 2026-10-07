@@ -85,6 +85,9 @@ export async function createPublicHistoryFixture(
     source,
     requests,
     controls,
+    retain(bundle: PrincipalPolicyBundleResponse) {
+      policies.set(bundle.currentState.stateHash, bundle);
+    },
     db: getClientSQLitePersistenceRuntime(sqlite.execSql).db,
     close() {
       server.stop(true);

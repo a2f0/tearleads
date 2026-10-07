@@ -670,6 +670,11 @@ older SDKs cannot read newer operation kinds. Keep the pending bytes and resume
 with an SDK that understands them.
 An unknown result remains pending even if a later retry receives 403 or 409.
 A recovered receipt acknowledges a past request without advancing current pins.
+`Organizations.loadPolicyHistory(beforeVersion?)` displays verified organization
+history in pages of 32 entries. The API supplies only their directory payloads,
+one boundary predecessor and compact public group sources. Historical group
+proofs do not admit current checkpoints. Custom hosts need private paged recovery;
+older-page errors remain retryable without clearing visible entries.
 Both runtime policy API variants may throw `PendingPrincipalMutationError` or
 `PrincipalMutationOutcomeUnknownError`. `readJournaledPrincipalMutation` inspects
 saved work. `abandonJournaledPrincipalMutation` stops retries only after an explicit

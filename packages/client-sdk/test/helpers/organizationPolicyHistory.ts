@@ -145,17 +145,6 @@ export async function createOrganizationHistoryFixture() {
   const afterDeletion = await advanceDirectory(afterAddition, null);
   const resolveTrustedUserIdentity = async (userId: string) =>
     userId === signerUserId ? signerIdentity : null;
-  const evidence = (deleted = false) => ({
-    organizationId,
-    stateHash: (deleted ? afterDeletion : afterAddition).currentState.stateHash,
-    organizationPayloads: [
-      initial,
-      afterCreation,
-      afterAddition,
-      ...(deleted ? [afterDeletion] : []),
-    ].map((bundle) => bundle.currentPayload),
-    groups: [admin, members, added].map(policySnapshot),
-  });
   const projectionBundles = [
     initial,
     afterCreation,
@@ -177,6 +166,14 @@ export async function createOrganizationHistoryFixture() {
       ...(deleted ? [afterDeletion] : []),
     ].map(projectionDirectoryPayload),
     groups: [admin, members, added].map(projectionPolicySource),
+  });
+  const evidence = (deleted = false) => ({
+    organizationId,
+    stateHash: (deleted ? afterDeletion : afterAddition).currentState.stateHash,
+    beforeVersion:
+      (deleted ? afterDeletion : afterAddition).currentState.version + 1,
+    nextBeforeVersion: null,
+    evidence: projectionEvidence(deleted),
   });
   const advanceGroup = async (
     previous: PrincipalPolicyBundleResponse,
@@ -216,6 +213,7 @@ export async function createOrganizationHistoryFixture() {
   };
   return {
     admin,
+    memberPolicy: members,
     creatorEncapsulationKeyPair,
     signingKeyPair,
     advanceGroup,

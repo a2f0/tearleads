@@ -5,8 +5,10 @@ import {
 import { Hono } from "hono";
 import type { SessionEnv } from "../../middleware/session";
 import { getOrganizationPolicyHistory } from "../../services/organizations/policyHistory";
+import { PrincipalPolicyError } from "../../services/principals/shared";
 import { pathParamsValidator } from "../../validators/pathParams";
 import { queryParamsValidator } from "../../validators/queryParams";
+import { toPrincipalHistoryPreparationResponse } from "../principals/preparationResponse";
 import {
   type OrganizationsRouterDeps,
   toOrganizationPresentationErrorResponse,
@@ -30,11 +32,15 @@ export function createOrganizationPolicyHistoryRoute({
         return c.json(
           await getOrganizationPolicyHistory(runtime, {
             organizationId: c.req.valid("param").organizationId,
-            stateHash: c.req.valid("query").stateHash,
+            ...c.req.valid("query"),
             requesterUserId: c.get("session").userId,
           }),
         );
       } catch (error) {
+        const preparation = toPrincipalHistoryPreparationResponse(error);
+        if (preparation) return preparation;
+        if (error instanceof PrincipalPolicyError)
+          return c.json({ error: error.message }, error.status);
         const response = toOrganizationPresentationErrorResponse(error);
         if (response) return response;
         throw error;

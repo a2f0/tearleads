@@ -28,6 +28,7 @@ import { useOrgManagerViewRefreshEffects } from "../organization/useOrgManagerVi
 import { useOrgSwitcher } from "../organization/useOrgSwitcher";
 import { loadOlderGroupPolicyHistory } from "../policy-history/groupPolicyHistoryPages";
 import type { GroupDetailsEffectKey } from "../refresh";
+import { useOrgManagerOrganizationHistoryRefresher } from "../refreshers/useOrgManagerOrganizationHistoryRefresher";
 import { useOrgManagerRefreshers } from "../refreshers/useOrgManagerRefreshers";
 import type { OrgManagerView } from "../routes";
 import {
@@ -198,6 +199,15 @@ export function useOrgManagerModel() {
       tearleads,
     });
   useOrgManagerRouteMessages(openGroupRoute, openGrantRoute);
+  const loadMoreOrganizationHistory = useOrgManagerOrganizationHistoryRefresher(
+    {
+      beginRequest,
+      orgManagerActions,
+      history: activeOrganizationPolicyHistory,
+      setError,
+      setOrganizationPolicyHistory,
+    },
+  );
   const canDeleteGroup = useCallback(
     (group: OrganizationGroupSummary) => canCreateGroup && !group.isBuiltin,
     [canCreateGroup],
@@ -469,6 +479,7 @@ export function useOrgManagerModel() {
     groupContainers: activeGroupContainers,
     groupNameDraft,
     groupPolicyHistory: activeGroupPolicyHistory,
+    loadMoreOrganizationHistory,
     loadMoreGroupHistory: () =>
       loadOlderGroupPolicyHistory(
         activeGroupPolicyHistory,

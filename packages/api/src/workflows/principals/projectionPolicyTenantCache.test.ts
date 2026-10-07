@@ -6,7 +6,6 @@ import { isAccessManifestBundleWireResponse } from "@tearleads/validators/respon
 import { bootstrapRoot } from "../../../test/helpers/keyingWriterProjectionKit";
 import { getDefaultOrganizationId } from "../../../test/helpers/organizationMembership";
 import { registerAndAuthenticate } from "../../../test/helpers/principalPolicyReadFixtures";
-import * as history from "../../access/read/principalHistory";
 import { loadProjectionPolicyEvidence } from "./projectionPolicyEvidence";
 
 test("projection proofs reuse verified history across 24 organizations", async () => {
@@ -34,7 +33,6 @@ test("projection proofs reuse verified history across 24 organizations", async (
     expected.push(await loadProjectionPolicyEvidence(input));
   }
   const verify = spyOn(crypto, "verifyPrincipalPolicySnapshot");
-  const readHistory = spyOn(history, "listOrganizationHistoryPayloads");
   try {
     for (const [index, input] of organizations.entries()) {
       const previous = expected[index];
@@ -44,10 +42,8 @@ test("projection proofs reuse verified history across 24 organizations", async (
     // Count expensive work rather than asserting wall-clock timing under CI load.
     expect({
       signatureVerifications: verify.mock.calls.length,
-      directoryHistoryReads: readHistory.mock.calls.length,
-    }).toEqual({ signatureVerifications: 0, directoryHistoryReads: 0 });
+    }).toEqual({ signatureVerifications: 0 });
   } finally {
     verify.mockRestore();
-    readHistory.mockRestore();
   }
 }, 60_000);
