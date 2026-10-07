@@ -18,9 +18,22 @@ historical reference proofs and old key envelopes remain available. Organization
 reset removes the envelope archive and eviction hints along with its other cache
 material, preserving durable trust pins.
 
+Each accepted page also reclaims abandoned incomplete progress in its own scope.
+It keeps the current writer and the seven most recently touched other incomplete
+stages; a completed writer may keep eight incomplete stages. A pass removes at
+most 16 rows, so an existing excess converges over subsequent page writes. It
+never removes completed artifacts, other scopes or other organizations through
+this path. Recency hints do not authorize recovery.
+
+An evicted in-flight writer fails its progress compare-and-swap with
+`principal_history_stage_changed`. A fresh recovery can restart from a surviving
+authenticated prefix or genesis; eviction imposes no history-version cutoff.
+Cancellation rolls back both page acceptance and reclamation. The indexed
+selection reads only stage identifiers for the bounded deletion batch.
+
 Stages written before scope indexing remain untouched until rewritten or reset.
-Abandoned incomplete stages and obsolete proof-index nodes still require further
-reclamation work under #2448.
+Completed but unpublished stages and obsolete proof-index nodes still require
+further reclamation work under #2448.
 
 The encrypted archive is key material, not an authorization cache. Its candidates
 can only open wraps addressed to the caller's private keys; projection and policy
@@ -34,5 +47,5 @@ decryption after rotation, preservation of the immediate completed predecessor,
 transaction rollback, scope isolation, and the indexed SQLite query plan.
 
 This bounds completed-stage cleanup work, not total cache bytes. Retained key
-epochs and signed proof material still grow with history; incomplete progress and
-obsolete index nodes require further reclamation.
+epochs and signed proof material still grow with history; completed unpublished
+progress and obsolete index nodes require further reclamation.

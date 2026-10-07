@@ -12,6 +12,7 @@ import {
   type PrincipalHistoryEvidencePage,
   writePrincipalHistoryEvidencePage,
 } from "./principalHistoryEvidencePersistence";
+import { reclaimIncompletePrincipalHistoryStages } from "./principalHistoryIncompleteRetention";
 import { recordPrincipalHistoryStageScope } from "./principalHistoryStageRetention";
 
 export type PrincipalHistoryStage = typeof principalHistoryStages.$inferSelect;
@@ -72,6 +73,10 @@ export async function savePrincipalHistoryStage(input: {
         afterVersion: stage.afterVersion,
         complete: stage.complete,
         organizationId: stage.organizationId,
+        scopeId: evidence.scopeId,
+      });
+      await reclaimIncompletePrincipalHistoryStages(tx, {
+        ...stage,
         scopeId: evidence.scopeId,
       });
     },

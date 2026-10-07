@@ -58,6 +58,13 @@ export const principalHistoryStageScopes = sqliteTable(
     index("principal_history_stage_scopes_organization_idx").on(
       table.organizationId,
     ),
+    index("principal_history_stage_scopes_incomplete_idx").on(
+      table.scopeId,
+      table.organizationId,
+      table.complete,
+      desc(table.touchedAt),
+      table.id,
+    ),
   ],
 );
 
