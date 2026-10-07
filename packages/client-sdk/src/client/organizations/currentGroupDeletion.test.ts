@@ -210,7 +210,12 @@ test("current deletion rejects a non-admin and either built-in group before disp
     for (const groupId of [descriptor.adminGroupId, descriptor.memberGroupId])
       await expect(
         deleteGroupForOrganization({ ...f.input, groupId }),
-      ).rejects.toThrow("Built-in groups cannot be removed");
+      ).rejects.toThrow("Built-in groups cannot be removed from the directory");
+    await expect(
+      deleteGroupForOrganization({ ...f.input, groupId: "missing-group" }),
+    ).rejects.toThrow(
+      "Organization directory does not commit the deleted group",
+    );
     expect(f.state.writes).toBe(0);
   } finally {
     f.close();
@@ -249,15 +254,31 @@ test("fallback deletion refuses retention after its caller expires", async () =>
     );
     expect(f.state.writes).toBe(1);
     expect(
-      (
-        await loadPrincipalPolicyCheckpoint(
-          f.options.execSql,
-          "organization",
-          history.organizationId,
-        )
-      )?.version,
-    ).not.toBe(67);
+      await loadPrincipalPolicyCheckpoint(
+        f.options.execSql,
+        "organization",
+        history.organizationId,
+      ),
+    ).toMatchObject({ version: 66 });
   } finally {
     f.close();
   }
 });
+
+test.each(["current", "callerCurrent"] as const)(
+  "deletion refuses an expired %s lifetime before discovery or dispatch",
+  async (lifetime) => {
+    const f = await fixture();
+    f.state[lifetime] = false;
+    try {
+      await expect(deleteGroupForOrganization(f.input)).rejects.toThrow(
+        "generation expired",
+      );
+      expect(f.requests).toHaveLength(0);
+      expect(f.state.writes).toBe(0);
+      expect(f.state.recovered).toBe(false);
+    } finally {
+      f.close();
+    }
+  },
+);

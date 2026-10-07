@@ -10,7 +10,7 @@ import { requireOrganizationGroupHead } from "../../data/principals/organization
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import type { createRuntimePrincipalPolicyCurrentResolver } from "../principals/runtimePolicyRecovery";
 import { createSelectedCurrentGroupMetadataContainerVerifier } from "./currentGroupMetadataAuthority";
-import { loadCurrentOrganizationAuthority } from "./currentOrganizationAuthority";
+import { loadCurrentOrganizationMutationAuthority } from "./currentOrganizationMutationAuthority";
 import { assertGroupMetadataBinding } from "./groupMetadataBinding";
 import { requireSignerCanManageGroup } from "./groupMutationAuthorization";
 
@@ -29,16 +29,8 @@ export async function loadCurrentGroupPolicyMutationContext(input: {
   readonly stillCurrent: () => boolean;
 }) {
   input = { ...input };
-  assertProjectionVerificationCurrent(input.stillCurrent);
-  // Resolve uncertain prior writes before selecting the directory for a new one.
-  await input.recoverPendingPrincipalMutation(input.organizationId);
-  assertProjectionVerificationCurrent(input.stillCurrent);
-  const authority = await loadCurrentOrganizationAuthority(input);
-  const currentOrgAdminUserIds = authority.admins.policy.projection
-    .filter((member) => member.role === "admin")
-    .map((member) => member.userId);
-  if (!currentOrgAdminUserIds.includes(input.signerUserId))
-    throw new Error("Organization admin authority is required");
+  const { authority, currentOrgAdminUserIds } =
+    await loadCurrentOrganizationMutationAuthority(input);
   const group = await authority.readGroup(input.groupId);
   const stillCurrent = () =>
     input.stillCurrent() && authority.stillCurrent() && group.stillCurrent();

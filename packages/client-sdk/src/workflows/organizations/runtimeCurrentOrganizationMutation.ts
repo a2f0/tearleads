@@ -2,15 +2,10 @@ import type { PutPrincipalPolicyRequest } from "@tearleads/validators/request";
 import type { PrincipalPolicyMutationResponse } from "@tearleads/validators/response";
 import { assertProjectionVerificationCurrent } from "../../data/keyingProjectionVerification/types";
 import { advanceKeyingCheckpointsAtomically } from "../../data/persistence/keyingCheckpointAdvancePersistence";
-import { readPrincipalHistoryProtection } from "../../data/principals/principalHistoryRuntime";
-import { directoryHistoryProtection } from "../../data/principals/principalHistoryScopeProtection";
-import { principalPolicyReferenceFromBundle } from "../../data/principals/principalPolicyAdminSigners";
-import {
-  createRuntimePrincipalPolicyCurrentResolver,
-  type PrincipalPolicyRecoveryRuntime,
-} from "../principals/runtimePolicyRecovery";
-import { createSelectedCurrentGroupMetadataContainerVerifier } from "./currentGroupMetadataAuthority";
-import { loadCurrentOrganizationAuthority } from "./currentOrganizationAuthority";
+import type { PrincipalPolicyRecoveryRuntime } from "../principals/runtimePolicyRecovery";
+import type { loadCurrentOrganizationAuthority } from "./currentOrganizationAuthority";
+import { loadCurrentOrganizationMutationAuthority } from "./currentOrganizationMutationAuthority";
+import { createCurrentPrincipalMutationLease } from "./currentPrincipalMutationLease";
 import type { PrincipalMutationRecoveryApi } from "./principalMutationJournalManagement";
 import { retainAcknowledgedPrincipalCurrents } from "./retainAcknowledgedPrincipalCurrents";
 
@@ -28,9 +23,6 @@ interface Input {
 type Authority = Awaited<ReturnType<typeof loadCurrentOrganizationAuthority>>;
 
 export interface CurrentOrganizationMutationContext extends Authority {
-  readonly verifyMetadataContainer: ReturnType<
-    typeof createSelectedCurrentGroupMetadataContainerVerifier
-  >;
   readonly retainDirectory: (
     request: PutPrincipalPolicyRequest,
     response: PrincipalPolicyMutationResponse,
@@ -39,41 +31,25 @@ export interface CurrentOrganizationMutationContext extends Authority {
 
 /** Keep directory authoring and exact acknowledgement inside one private lease. */
 export function createRuntimeCurrentOrganizationMutation(runtime: Runtime) {
-  const lease = readPrincipalHistoryProtection(runtime);
-  const resolveCurrentPolicy =
-    createRuntimePrincipalPolicyCurrentResolver(runtime);
-  const readPages = runtime.apiClient.getPrincipalPolicyPages?.bind(
-    runtime.apiClient,
-  );
-  if (!lease || !resolveCurrentPolicy || !readPages) return undefined;
+  const lease = createCurrentPrincipalMutationLease(runtime);
+  if (!lease) return undefined;
   return async <T>(
     input: Input,
     work: (context: CurrentOrganizationMutationContext) => Promise<T>,
   ): Promise<T> => {
     const owned = { ...input };
-    return lease(async ({ protection, stillCurrent: leaseCurrent }) => {
-      let active = true;
-      const stillCurrent = () =>
-        active && leaseCurrent() && owned.stillCurrent();
-      try {
-        assertProjectionVerificationCurrent(stillCurrent);
-        await runtime.apiClient.recoverPendingPrincipalMutation(
-          owned.organizationId,
-        );
-        assertProjectionVerificationCurrent(stillCurrent);
-        const authority = await loadCurrentOrganizationAuthority({
+    return lease(
+      owned.stillCurrent,
+      async ({ stillCurrent, resolveCurrentPolicy, directoryRecovery }) => {
+        const { authority } = await loadCurrentOrganizationMutationAuthority({
           execSql: runtime.infra.execSql,
           organizationId: owned.organizationId,
+          signerUserId: owned.signerUserId,
+          recoverPendingPrincipalMutation: (organizationId) =>
+            runtime.apiClient.recoverPendingPrincipalMutation(organizationId),
           resolveCurrentPolicy,
           stillCurrent,
         });
-        if (
-          !authority.admins.policy.projection.some(
-            (member) =>
-              member.userId === owned.signerUserId && member.role === "admin",
-          )
-        )
-          throw new Error("Organization admin authority is required");
         const current = () => stillCurrent() && authority.stillCurrent();
         await advanceKeyingCheckpointsAtomically({
           access: [],
@@ -85,12 +61,6 @@ export function createRuntimeCurrentOrganizationMutation(runtime: Runtime) {
         const result = await work({
           ...authority,
           stillCurrent: current,
-          verifyMetadataContainer:
-            createSelectedCurrentGroupMetadataContainerVerifier({
-              authority,
-              organizationId: owned.organizationId,
-              stillCurrent: current,
-            }),
           retainDirectory: async (request, response) => {
             assertProjectionVerificationCurrent(current);
             await retainAcknowledgedPrincipalCurrents({
@@ -100,15 +70,7 @@ export function createRuntimeCurrentOrganizationMutation(runtime: Runtime) {
                 {
                   request,
                   response,
-                  recovery: {
-                    apiClient: { getPrincipalPolicyPages: readPages },
-                    expectedHead: principalPolicyReferenceFromBundle(
-                      authority.directory.current,
-                    ),
-                    protection: directoryHistoryProtection(protection),
-                    resolveTrustedUserIdentity:
-                      runtime.resolveTrustedUserIdentity,
-                  },
+                  recovery: directoryRecovery(authority.directory.current),
                 },
               ],
               stillCurrent: current,
@@ -117,9 +79,7 @@ export function createRuntimeCurrentOrganizationMutation(runtime: Runtime) {
         });
         assertProjectionVerificationCurrent(current);
         return result;
-      } finally {
-        active = false;
-      }
-    });
+      },
+    );
   };
 }

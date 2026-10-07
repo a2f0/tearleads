@@ -4,18 +4,12 @@ import type { PutPrincipalPolicyRequest } from "@tearleads/validators/request";
 import type { CommitOrganizationGroupPolicyResponse } from "@tearleads/validators/response";
 import { assertProjectionVerificationCurrent } from "../../data/keyingProjectionVerification/types";
 import type { CurrentPolicyReferenceResolver } from "../../data/principals/currentPolicyReferenceResolver";
-import { readPrincipalHistoryProtection } from "../../data/principals/principalHistoryRuntime";
-import {
-  directoryHistoryProtection,
-  scopedGroupHistoryProtection,
-} from "../../data/principals/principalHistoryScopeProtection";
+import { scopedGroupHistoryProtection } from "../../data/principals/principalHistoryScopeProtection";
 import { principalPolicyReferenceFromBundle } from "../../data/principals/principalPolicyAdminSigners";
-import {
-  createRuntimePrincipalPolicyCurrentResolver,
-  type PrincipalPolicyRecoveryRuntime,
-} from "../principals/runtimePolicyRecovery";
+import type { PrincipalPolicyRecoveryRuntime } from "../principals/runtimePolicyRecovery";
 import { resolveCurrentGroupMutationReferences } from "./currentGroupMutationReferences";
 import { loadCurrentGroupPolicyMutationContext } from "./currentGroupPolicyMutationContext";
+import { createCurrentPrincipalMutationLease } from "./currentPrincipalMutationLease";
 import type { PrincipalMutationRecoveryApi } from "./principalMutationJournalManagement";
 import {
   type AcknowledgedPrincipalCurrentInput,
@@ -54,23 +48,22 @@ interface MutationInput {
 
 /** Keep private prefix custody inside the entire mutation and its acknowledgement. */
 export function createRuntimeCurrentGroupMutation(runtime: MutationRuntime) {
-  const lease = readPrincipalHistoryProtection(runtime);
-  const resolveCurrentPolicy =
-    createRuntimePrincipalPolicyCurrentResolver(runtime);
-  const readPages = runtime.apiClient.getPrincipalPolicyPages?.bind(
-    runtime.apiClient,
-  );
-  if (!lease || !resolveCurrentPolicy || !readPages) return undefined;
+  const lease = createCurrentPrincipalMutationLease(runtime);
+  if (!lease) return undefined;
   return async <T>(
     input: MutationInput,
     work: (context: RuntimeCurrentGroupMutationContext) => Promise<T>,
   ): Promise<T> => {
     input = { ...input };
-    return lease(async ({ protection, stillCurrent: leaseCurrent }) => {
-      let active = true;
-      const stillCurrent = () =>
-        active && leaseCurrent() && input.stillCurrent();
-      try {
+    return lease(
+      input.stillCurrent,
+      async ({
+        protection,
+        stillCurrent,
+        resolveCurrentPolicy,
+        readPages,
+        directoryRecovery,
+      }) => {
         const context = await loadCurrentGroupPolicyMutationContext({
           ...input,
           execSql: runtime.infra.execSql,
@@ -95,14 +88,13 @@ export function createRuntimeCurrentGroupMutation(runtime: MutationRuntime) {
             context,
             protection,
             readPages,
+            directoryRecovery(context.organizationCurrent.current),
           ),
         });
         assertProjectionVerificationCurrent(context.stillCurrent);
         return result;
-      } finally {
-        active = false;
-      }
-    });
+      },
+    );
   };
 }
 
@@ -112,6 +104,7 @@ function createCurrentMutationRetention(
   context: CurrentMutationContext,
   protection: PrincipalPolicyHistoryProgressOptions,
   readPages: ApiClient["getPrincipalPolicyPages"],
+  directoryRecovery: AcknowledgedPrincipalCurrentInput["recovery"],
 ) {
   const common = {
     apiClient: { getPrincipalPolicyPages: readPages },
@@ -133,13 +126,6 @@ function createCurrentMutationRetention(
     ...(context.isOrganizationAdminsGroup
       ? {}
       : { loadExternalAuthority: async () => context.externalAuthority }),
-  };
-  const directoryRecovery: AcknowledgedPrincipalCurrentInput["recovery"] = {
-    ...common,
-    expectedHead: principalPolicyReferenceFromBundle(
-      context.organizationCurrent.current,
-    ),
-    protection: directoryHistoryProtection(protection),
   };
   return async (receipt: CurrentMutationReceipt): Promise<void> => {
     assertProjectionVerificationCurrent(context.stillCurrent);

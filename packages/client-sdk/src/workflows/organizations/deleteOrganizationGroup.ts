@@ -48,6 +48,7 @@ export async function deleteOrganizationGroup(input: {
       input.apiClient.getCurrentPrincipalPolicy(principalType, principalId),
     organizationId: input.organizationId,
     resolveTrustedUserIdentity: input.resolveTrustedUserIdentity,
+    stillCurrent,
   });
   assertProjectionVerificationCurrent(stillCurrent);
   if (!externalAdminPolicy?.signerUserIds.includes(input.signerUserId)) {

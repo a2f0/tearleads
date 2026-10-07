@@ -109,7 +109,7 @@ same type. It includes exact current artifacts and container receipts, with no
 `previousStates` on the paged path. Hosts without custody may include that extra
 field; callers should use the common receipt contract. Standalone full-bundle
 workflows retain their existing return
-contracts. Group creation, deletion and group sharing still use those workflows;
+contracts. Group creation and group sharing still use those workflows;
 this adoption does not yet eliminate every full-history mutation consumer.
 
 Mutation builders clear their owned signing-key copies on success and failure;
@@ -119,14 +119,19 @@ key buffers remain unchanged.
 ## Directory deletion
 
 Built-in group deletion recovers the current directory and strict Admins
-evidence,
-checks the signing administrator, and signs the directory successor without
+evidence, checks the signing administrator, and signs the directory successor without
 loading the deleted group's history. It refuses deletion of either reserved
 group, checks the exact response target and artifacts, and retains the directory
-successor under the original identity/database lease. Unresolved earlier
-compound
+successor under the original identity/database lease. Unresolved earlier compound
 policy work blocks discovery. Hosts without private custody keep the standalone
 full-bundle deletion workflow with the same caller lifetime guard.
-Creation/deletion requests are not yet covered by
-the compound membership journal; lost acknowledgements still require
-reconciliation.
+Creation/deletion requests are not yet covered by the compound membership journal;
+lost acknowledgements still require reconciliation.
+
+Membership and directory mutations share the private lease lifetime and the
+pending-work, directory and Admins authorization checks. Verified observed heads
+can advance local rollback checkpoints even when a requested deletion is refused.
+Deleting a group preserves its rollback checkpoints and historical encrypted
+artifacts; it does not erase local grants. Later access still requires a live
+directory citation and verified container authorization. Storage reclamation
+remains tracked in #2448.
