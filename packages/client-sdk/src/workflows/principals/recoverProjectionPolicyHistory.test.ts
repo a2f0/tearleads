@@ -44,10 +44,10 @@ test("public projection recovery verifies directory, strict Admins and historica
     expect(f.requests).toEqual([0, 32, 64, 0, 32, 64, 0, 32, 64]);
     expect(await f.db.select().from(principalPolicyCheckpoints)).toEqual([]);
     expect(
-      (await f.db.select().from(principalHistoryPrefixes)).map(
-        (row) => row.currentJson,
+      (await f.db.select().from(principalHistoryPrefixes)).map((row) =>
+        JSON.parse(row.currentJson),
       ),
-    ).toEqual(["null", "null", "null"]);
+    ).toEqual([null, null, history.created.currentState.externalAuthority]);
     f.requests.length = 0;
     const offline = await recoverProjectionPolicyHistory({
       ...f.options,

@@ -8,7 +8,11 @@ import { preparePrincipalHistoryEvidencePage } from "../../data/persistence/prin
 import { savePrincipalHistoryStage } from "../../data/persistence/principalHistoryStagePersistence";
 import { principalHistoryStageProtection } from "../../data/principals/principalHistoryStageProtection";
 import { collectPrincipalPolicySignerPublicKeys } from "./policyVerification";
-import { PUBLIC_HISTORY_CURRENT_JSON } from "./publicPrincipalHistoryProgress";
+import {
+  loadPublicHistoryAuthority,
+  publicHistoryAuthorityJson,
+  publicHistoryAuthorityReference,
+} from "./publicPrincipalHistoryAuthority";
 import type {
   PublicPrincipalHistoryOptions,
   PublicPrincipalHistoryProgress,
@@ -74,18 +78,10 @@ export async function appendPublicPrincipalHistoryPage(
       keys.error === "not-found" ? "missing_dependency" : "signer_mismatch",
       "Public history signer identity is unavailable or mismatched",
     );
-  const externalAuthority = await input.loadExternalAuthority?.(entries);
-  if (
-    externalAuthority &&
-    (externalAuthority.currentHead.principalId !== input.authorityGroupId ||
-      externalAuthority.states.some(
-        ({ head }) => head.principalId !== input.authorityGroupId,
-      ))
-  )
-    throw new KeyingVerificationError(
-      "object_mismatch",
-      "Authority callback differs from the directory binding",
-    );
+  const references = entries.flatMap(({ state }) =>
+    state.externalAuthority ? [state.externalAuthority] : [],
+  );
+  const externalAuthority = await loadPublicHistoryAuthority(input, references);
   assertProjectionVerificationCurrent(stillCurrent);
   const appended = await progress.verifier.append({
     entries,
@@ -100,7 +96,9 @@ export async function appendPublicPrincipalHistoryPage(
   const row = {
     id: progress.id,
     organizationId: input.organizationId,
-    currentJson: PUBLIC_HISTORY_CURRENT_JSON,
+    currentJson: publicHistoryAuthorityJson(
+      publicHistoryAuthorityReference(progress.authorityReference, references),
+    ),
     afterVersion: appended.value.throughVersion - (complete ? 1 : 0),
     complete,
   };
@@ -130,6 +128,10 @@ export async function appendPublicPrincipalHistoryPage(
     ...progress,
     afterVersion: row.afterVersion,
     saved,
+    authorityReference: publicHistoryAuthorityReference(
+      progress.authorityReference,
+      references,
+    ),
     completedHead: complete ? input.source.head : null,
   };
 }

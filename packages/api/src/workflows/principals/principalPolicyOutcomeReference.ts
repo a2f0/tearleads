@@ -2,6 +2,8 @@ import type { DatabaseTransaction } from "@tearleads/api-shared/postgres";
 import {
   compareCanonicalStrings,
   computePrincipalStateHash,
+  normalizePrincipalContainerGrants,
+  normalizePrincipalProjectionMembers,
 } from "@tearleads/crypto";
 import type { PutPrincipalPolicyRequest } from "@tearleads/validators/request";
 import {
@@ -58,6 +60,31 @@ export async function loadPrincipalPolicyOutcomeReference(input: {
     input.executor,
     state,
   );
+  // The receipt authenticates the entire original request, including signature
+  // bytes that the public state hash deliberately omits. Historical artifacts
+  // must still match it before they can reconstruct the acknowledgement.
+  try {
+    if (
+      current.currentState.signature !== request.state.signature ||
+      current.currentPayload.cipherSuite !==
+        request.encryptedPayload.cipherSuite ||
+      current.currentPayload.ciphertext !==
+        request.encryptedPayload.ciphertext ||
+      current.currentPayload.ciphertextHash !==
+        request.encryptedPayload.ciphertextHash ||
+      !canonicalJsonEquals(
+        normalizePrincipalProjectionMembers(current.currentProjection),
+        normalizePrincipalProjectionMembers(request.projection),
+      ) ||
+      !canonicalJsonEquals(
+        normalizePrincipalContainerGrants(current.currentGrants),
+        normalizePrincipalContainerGrants(request.grants),
+      )
+    )
+      throw invalid();
+  } catch {
+    throw invalid();
+  }
   return {
     ...current,
     // Rotation removes the old envelope rows. The authenticated exact request

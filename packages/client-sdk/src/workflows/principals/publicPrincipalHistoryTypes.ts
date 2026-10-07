@@ -3,7 +3,6 @@ import type {
   PrincipalPolicyExternalAuthority,
   PrincipalPolicyHistoryProgressOptions,
   PrincipalPolicyHistoryVerifier,
-  PrincipalPolicyStateChainEntry,
   ReferencedPrincipalHead,
   VerifiedPrincipalPolicyHistory,
 } from "@tearleads/crypto";
@@ -29,7 +28,8 @@ export interface PublicPrincipalHistoryOptions {
   readonly authorityGroupId?: string | undefined;
   readonly loadExternalAuthority?:
     | ((
-        entries: readonly PrincipalPolicyStateChainEntry[],
+        references: readonly ReferencedPrincipalHead[],
+        cachedPrefix?: boolean,
       ) => Promise<PrincipalPolicyExternalAuthority | undefined>)
     | undefined;
 }
@@ -41,6 +41,7 @@ export interface PublicPrincipalHistoryProgress {
   readonly completedHead: ReferencedPrincipalHead | null;
   readonly afterVersion: number;
   readonly saved: PrincipalHistoryStage | null;
+  readonly authorityReference: ReferencedPrincipalHead | null;
 }
 
 /** Public authorization only; caller must check directory binding and local pins. */

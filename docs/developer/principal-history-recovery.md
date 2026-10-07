@@ -217,6 +217,16 @@ that same root. Offline reads require the local protection key; an unreadable
 offline hint is left intact for its owner. Completed public stages are removed
 after prefix publication, and reference selections do not create separate stages.
 
+Public progress also authenticates the greatest cited Admins head. Before reusing
+an incomplete stage or completed group prefix, recovery proves that citation
+belongs to the supplied verified Admins lineage. A valid Admins successor can
+reuse the group prefix without replaying its signatures; a fork cannot. The v2
+public verification context discards hints made before this binding existed.
+If a newer cached group prefix cites Admins beyond an older supplied source,
+online recovery rebuilds the requested group history once. Offline recovery is
+unavailable unless the supplied authority covers the cached citation; a newer
+retained Admins root alone cannot extend the authority of an older source.
+
 This primitive returns verified public history, not a current policy or an
 admitted application checkpoint. Its caller must bind the source heads and any
 external authority to verified organization directory payloads, select needed

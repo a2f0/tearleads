@@ -37,5 +37,8 @@ envelopes from the authenticated, hash-matched original request. The receipt kee
 no payload, envelope, projection, grant or container-result copy. Rotation can
 therefore remove superseded envelope rows without losing the original
 acknowledgement. Reference substitution or missing immutable state fails closed.
+Reconstructed signature bytes, ciphertext, projection and grants must match the
+receipt-authenticated original request; the state hash alone cannot authenticate
+signature bytes. Altered retired artifacts cannot return a successful receipt.
 Storage still grows by a fixed-size record per accepted commit; durable client
 outcome handling remains follow-up work.

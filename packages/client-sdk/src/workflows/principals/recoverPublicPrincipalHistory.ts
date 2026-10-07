@@ -14,6 +14,7 @@ import { loadPrincipalHistoryReference } from "../../data/persistence/principalH
 import { principalHeadMatchesReference } from "../../data/principals/organizationAuthorityDescriptor";
 import { ownPrincipalHistoryProtection } from "../../data/principals/principalHistoryProtection";
 import { PrincipalPolicyHistoryReadError } from "./principalHistoryRecoveryTypes";
+import { PublicHistoryAuthorityUnavailableError } from "./publicPrincipalHistoryAuthority";
 import {
   appendPublicPrincipalHistoryPage,
   PublicPrincipalHistoryPrefixDisconnectedError,
@@ -110,7 +111,7 @@ function finishPublicProgress(progress: PublicPrincipalHistoryProgress) {
   return finished.value;
 }
 
-async function recover(
+async function recoverAttempt(
   input: PublicPrincipalHistoryOptions,
   allowReuse = true,
 ): Promise<RecoveredPublicPrincipalHistory> {
@@ -185,6 +186,19 @@ async function recover(
   return { scopeId: progress.scopeId, history };
 }
 
+async function recover(
+  input: PublicPrincipalHistoryOptions,
+  allowReuse = true,
+): Promise<RecoveredPublicPrincipalHistory> {
+  try {
+    return await recoverAttempt(input, allowReuse);
+  } catch (error) {
+    if (!(error instanceof PublicHistoryAuthorityUnavailableError)) throw error;
+    if (allowReuse && !input.offline) return recoverAttempt(input, false);
+    throw error.verificationError;
+  }
+}
+
 /** Private-key-backed public history recovery; never admits a current policy pin. */
 export async function recoverPublicPrincipalHistory(
   options: PublicPrincipalHistoryOptions,
@@ -218,7 +232,7 @@ export async function recoverPublicPrincipalHistory(
   });
   const protection = ownPrincipalHistoryProtection(options.protection);
   protection.context = serializeKeyingCanonicalJson([
-    "tearleads.sdk.public-principal-history.v1",
+    "tearleads.sdk.public-principal-history.v2",
     protection.context,
     options.strictAdmins === true,
     options.authorityGroupId ?? null,

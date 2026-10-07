@@ -1,8 +1,8 @@
-import type {
-  PrincipalPolicyExternalAuthority,
-  PrincipalPolicyStateChainEntry,
-  ReferencedPrincipalHead,
-  VerifiedPrincipalPolicySelection,
+import {
+  KeyingVerificationError,
+  type PrincipalPolicyExternalAuthority,
+  type ReferencedPrincipalHead,
+  type VerifiedPrincipalPolicySelection,
 } from "@tearleads/crypto";
 import type { ProjectionPolicyEvidenceResponse } from "@tearleads/validators/response";
 import { assertProjectionVerificationCurrent } from "../../data/keyingProjectionVerification/types";
@@ -49,13 +49,19 @@ function assertSourceCoverage(
 
 async function externalAuthority(
   admins: PublicProjectionPrincipal,
-  entries: readonly PrincipalPolicyStateChainEntry[],
+  references: readonly ReferencedPrincipalHead[],
+  cachedPrefix = false,
 ): Promise<PrincipalPolicyExternalAuthority | undefined> {
   const head = admins.options.source.head;
-  const references = entries.flatMap(({ state }) =>
-    state.externalAuthority ? [state.externalAuthority] : [],
-  );
   if (!references.length) return undefined;
+  if (
+    cachedPrefix &&
+    references.some((reference) => reference.version > head.version)
+  )
+    throw new KeyingVerificationError(
+      "missing_dependency",
+      "Cached group history requires a newer Admins source",
+    );
   if (
     references.some(
       (reference) =>
@@ -160,8 +166,8 @@ export async function recoverProjectionPolicyHistory(
           ...input,
           source,
           authorityGroupId: admins.options.source.head.principalId,
-          loadExternalAuthority: (entries) =>
-            externalAuthority(admins, entries),
+          loadExternalAuthority: (references, cachedPrefix) =>
+            externalAuthority(admins, references, cachedPrefix),
         },
         input.references,
       ),

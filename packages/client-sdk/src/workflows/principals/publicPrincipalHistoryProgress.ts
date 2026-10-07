@@ -22,13 +22,15 @@ import {
   principalHistoryStageId,
   principalHistoryStageProtection,
 } from "../../data/principals/principalHistoryStageProtection";
+import {
+  parsePublicHistoryAuthority,
+  publicHistoryAuthorityJson,
+  validatePublicHistoryAuthority,
+} from "./publicPrincipalHistoryAuthority";
 import type {
   PublicPrincipalHistoryOptions,
   PublicPrincipalHistoryProgress,
 } from "./publicPrincipalHistoryTypes";
-
-// Public recovery never stores or synthesizes current secret-bearing artifacts.
-export const PUBLIC_HISTORY_CURRENT_JSON = "null";
 
 async function restorePublicPrefix(
   input: PublicPrincipalHistoryOptions,
@@ -43,6 +45,10 @@ async function restorePublicPrefix(
   const current = () => !input.signal?.aborted && input.stillCurrent();
   const prefix = await loadPrincipalHistoryPrefix(input.execSql, scopeId);
   if (prefix) {
+    const authorityReference = parsePublicHistoryAuthority(
+      input,
+      prefix.currentJson,
+    );
     let prefixHead: unknown;
     try {
       prefixHead = JSON.parse(prefix.headJson);
@@ -51,7 +57,7 @@ async function restorePublicPrefix(
     }
     if (
       prefix.organizationId === input.organizationId &&
-      prefix.currentJson === PUBLIC_HISTORY_CURRENT_JSON &&
+      authorityReference !== undefined &&
       isReferencedPrincipalStateResponse(prefixHead) &&
       prefixHead.principalId === head.principalId &&
       prefixHead.principalType === head.principalType &&
@@ -62,7 +68,8 @@ async function restorePublicPrefix(
         prefix.progress,
         await principalHistoryPrefixProtection(input.protection, prefix),
       );
-      if (restored.ok && restored.value.finish(prefixHead).ok)
+      if (restored.ok && restored.value.finish(prefixHead).ok) {
+        await validatePublicHistoryAuthority(input, authorityReference);
         return {
           id,
           scopeId,
@@ -70,7 +77,9 @@ async function restorePublicPrefix(
           completedHead: prefixHead.version >= head.version ? prefixHead : null,
           afterVersion: Math.min(prefixHead.version, head.version - 1),
           saved: null,
+          authorityReference,
         };
+      }
     }
     if (!input.offline)
       await discardPrincipalHistoryPrefix({
@@ -104,17 +113,22 @@ export async function restorePublicPrincipalHistoryProgress(
   const current = () => !input.signal?.aborted && input.stillCurrent();
   const saved = await loadPrincipalHistoryStage(input.execSql, id);
   if (saved) {
+    const authorityReference = parsePublicHistoryAuthority(
+      input,
+      saved.currentJson,
+    );
     if (
       allowReuse &&
       saved.organizationId === input.organizationId &&
-      saved.currentJson === PUBLIC_HISTORY_CURRENT_JSON
+      authorityReference !== undefined
     ) {
       const restored = await restorePrincipalPolicyHistoryVerifier(
         historyInput,
         saved.progress,
         await principalHistoryStageProtection(input.protection, head, saved),
       );
-      if (restored.ok && (!saved.complete || restored.value.finish(head).ok))
+      if (restored.ok && (!saved.complete || restored.value.finish(head).ok)) {
+        await validatePublicHistoryAuthority(input, authorityReference);
         return {
           id,
           scopeId,
@@ -122,7 +136,9 @@ export async function restorePublicPrincipalHistoryProgress(
           completedHead: saved.complete ? head : null,
           afterVersion: saved.afterVersion,
           saved,
+          authorityReference,
         };
+      }
     }
     if (!input.offline)
       await discardPrincipalHistoryStage(input.execSql, saved, current);
@@ -138,6 +154,7 @@ export async function restorePublicPrincipalHistoryProgress(
     completedHead: null,
     afterVersion: 0,
     saved: null,
+    authorityReference: null,
   };
 }
 
@@ -160,7 +177,7 @@ export async function publishPublicPrincipalHistoryPrefix(
     organizationId: input.organizationId,
     version: head.version,
     headJson: serializeKeyingCanonicalJson(head),
-    currentJson: PUBLIC_HISTORY_CURRENT_JSON,
+    currentJson: publicHistoryAuthorityJson(progress.authorityReference),
   };
   const sealed = await progress.verifier.exportProgress(
     await principalHistoryPrefixProtection(input.protection, prefix),
