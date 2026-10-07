@@ -15,7 +15,7 @@
   },
   "dependencies": {
     "@tearleads/encoding": "workspace:*",
-    "drizzle-orm": "0.45.2",
+    "drizzle-orm": "0.45.3",
     "loro-crdt": "catalog:"
   },
   "devDependencies": {

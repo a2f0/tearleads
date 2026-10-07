@@ -18,7 +18,7 @@
     "check": "tsc -p tsconfig.json --noEmit"
   },
   "devDependencies": {
-    "@sqlite.org/sqlite-wasm": "3.53.0-build1",
+    "@sqlite.org/sqlite-wasm": "3.53.4-build2",
     "@types/bun": "catalog:"
   }
 }

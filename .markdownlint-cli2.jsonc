@@ -7,6 +7,22 @@
   // The lint command passes tracked Markdown files explicitly. Glob ignores
   // would traverse generated native symlink trees before matching those paths.
   "gitignore": false,
+  // Managed skill formatting is owned upstream and checked by agents:check.
+  // Exact paths avoid traversing generated native symlink directories.
+  "ignores": [
+    ".agents/skills/cross-agent-review/SKILL.md",
+    ".agents/skills/open-pr/SKILL.md",
+    ".agents/skills/reset/SKILL.md",
+    ".agents/skills/ship-pr/SKILL.md",
+    ".agents/skills/squash-merge/SKILL.md",
+    ".claude/skills/cross-agent-review/SKILL.md",
+    ".claude/skills/open-pr/SKILL.md",
+    ".claude/skills/reset/SKILL.md",
+    ".claude/skills/ship-pr/SKILL.md",
+    ".claude/skills/squash-merge/SKILL.md",
+    ".agents/skills/update-dependencies/SKILL.md",
+    ".claude/skills/update-dependencies/SKILL.md"
+  ],
   "config": {
     "default": true,
     // Prose wraps at 80 columns. Code samples, shell transcripts, and tables

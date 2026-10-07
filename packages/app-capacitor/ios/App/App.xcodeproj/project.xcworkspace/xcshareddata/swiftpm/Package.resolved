@@ -1,13 +1,13 @@
 {
-  "originHash" : "29e813b6609042ab02b2207c0f3f7dcae6686f8400dfde7eb63ad0656106a8af",
+  "originHash" : "61a0c9500d2d2ae7fd28924b124ad2c7817a803b12ca333a4dd32d0583859864",
   "pins" : [
     {
       "identity" : "capacitor-swift-pm",
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/ionic-team/capacitor-swift-pm.git",
       "state" : {
-        "revision" : "6afa7424fd2fcd8ca1e577478e8a00af284b7e82",
-        "version" : "8.5.1"
+        "revision" : "4c7f346d16196e21fbe23d4a7a6fc7af62af6742",
+        "version" : "8.5.3"
       }
     },
     {
@@ -24,8 +24,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/ionic-team/ion-ios-filesystem.git",
       "state" : {
-        "revision" : "56bd6f9e77cb4f2269c03f2d92a9fe58fe168a1c",
-        "version" : "1.1.4"
+        "revision" : "13848aab4f3447ff98dfdbe72ff8ef31bf333db0",
+        "version" : "2.0.0"
       }
     },
     {
@@ -33,8 +33,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/ionic-team/ion-ios-fileviewer.git",
       "state" : {
-        "revision" : "01697c1fcafd0b7667a48af78e73890f0b8c543a",
-        "version" : "1.0.4"
+        "revision" : "61c77a99659c53326993ddfa4c0e263aa124b9b8",
+        "version" : "2.0.0"
       }
     },
     {
@@ -42,8 +42,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/RevenueCat/purchases-hybrid-common.git",
       "state" : {
-        "revision" : "1ddfae809003768d49bbfd30b008b29181ce4cb1",
-        "version" : "18.33.1"
+        "revision" : "eee737f5d90ab332fed23104ea815466b2ecc290",
+        "version" : "19.5.0"
       }
     },
     {
@@ -51,8 +51,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/RevenueCat/purchases-ios-spm",
       "state" : {
-        "revision" : "b65cae4f227be800c57cb9700dbd94f2aa5409b2",
-        "version" : "5.87.1"
+        "revision" : "e45bb84b726885492ce4e7ee94ddb252d171a205",
+        "version" : "5.92.0"
       }
     },
     {

@@ -251,10 +251,8 @@ export function takePendingReconciliationEvents(input: {
             // Already present in this container's summaries, or — covering the
             // self-echo window where the summary's documentId still lags —
             // already linked to this container in the reverse index.
-            (
-              getDocumentIdSet(containerId).has(event.documentId) ||
-              isDocumentLinkedToContainer(event.documentId, containerId)
-            )
+            getDocumentIdSet(containerId).has(event.documentId) ||
+            isDocumentLinkedToContainer(event.documentId, containerId)
           );
         }),
       ),

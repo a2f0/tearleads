@@ -6,16 +6,16 @@ ext {
     androidxAppCompatVersion = '1.8.0'
     androidxCoordinatorLayoutVersion = '1.3.0'
     androidxCoreVersion = '1.18.0'
-    androidxFragmentVersion = '1.9.0'
+    androidxFragmentVersion = '1.9.1'
     coreSplashScreenVersion = '1.2.0'
-    androidxWebkitVersion = '1.17.0'
+    androidxWebkitVersion = '1.17.1'
     junitVersion = '4.13.2'
     androidxJunitVersion = '1.3.0'
     androidxEspressoCoreVersion = '3.7.0'
     // Upgrade procedure: bump the Capacitor plugin, copy its hybrid-common pin,
     // then align purchases to its requested native version and run
     // :app:dependencyInsight plus :app:assembleDebug before committing.
-    revenueCatHybridCommonVersion = '18.33.1'
-    revenueCatPurchasesVersion = '10.19.1'
+    revenueCatHybridCommonVersion = '19.5.0'
+    revenueCatPurchasesVersion = '10.24.0'
     cordovaAndroidVersion = '14.0.1'
 }

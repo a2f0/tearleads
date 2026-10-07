@@ -3,7 +3,7 @@ $ErrorActionPreference = "Stop"
 # Electrobun's native host transport starts its port search at 50000. Hold that
 # port exclusively so the real app must select another port before opening CEF.
 # The 2.0.1 core used SO_REUSEADDR and reported WSAEACCES as Unexpected.
-# Pinned search range: https://github.com/blackboardsh/electrobun/blob/v2.0.2-beta.35/package/src/core/main.zig#L119-L120
+# Pinned search range: https://github.com/blackboardsh/electrobun/blob/v2.0.2/package/src/core/main.zig#L119-L120
 # Old listener: https://github.com/blackboardsh/electrobun/blob/v2.0.1/package/src/core/main.zig#L1283
 $listener = [System.Net.Sockets.TcpListener]::new([System.Net.IPAddress]::Loopback, 50000)
 $listener.ExclusiveAddressUse = $true

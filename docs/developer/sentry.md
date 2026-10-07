@@ -89,7 +89,11 @@ Existing installed mobile apps need a new release to start reporting.
 ## Collection policy
 
 The adapter uses a private Sentry client and scope with **no automatic SDK
-integrations**. It rebuilds each error from an allowlist before sending and
+integrations**. Sentry 11 collection categories are explicitly disabled with
+`dataCollection`, including user information, cookies, headers, bodies, query
+parameters, database queries, AI inputs/outputs, queues, GraphQL, frame variables,
+and source context; its broader defaults must not widen this policy. It rebuilds
+each error from an allowlist before sending and
 repeats that validation at the transport boundary. Only error envelopes can
 leave. Repeated sanitized error locations are reported once per page load, with
 limits of five distinct errors per minute and twenty per page load. The API

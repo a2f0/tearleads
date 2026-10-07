@@ -17,11 +17,11 @@
     "destroy:assets": "wrangler delete"
   },
   "dependencies": {
-    "@astrojs/react": "6.0.5",
+    "@astrojs/react": "7.0.1",
     "@phosphor-icons/react": "2.1.10",
     "@tearleads/ui": "workspace:*",
     "@tearleads/validators": "workspace:*",
-    "astro": "7.3.1",
+    "astro": "7.3.6",
     "react": "catalog:react",
     "react-dom": "catalog:react"
   },

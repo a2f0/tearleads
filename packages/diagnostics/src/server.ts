@@ -1,9 +1,5 @@
-import {
-  createStackParser,
-  nodeStackLineParser,
-  Scope,
-  ServerRuntimeClient,
-} from "@sentry/core";
+import { createStackParser, Scope } from "@sentry/core";
+import { nodeStackLineParser, ServerRuntimeClient } from "@sentry/core/server";
 import { apiErrorTags } from "./apiDiagnostics";
 import type { ApiDiagnosticOperation } from "./apiVocabulary";
 import type { SentryConfig } from "./config";
@@ -44,9 +40,22 @@ export function createServerDiagnostics(config: SentryConfig) {
       serverSourceRoot: "app://",
     }),
     integrations: [],
-    sendDefaultPii: false,
+    // Sentry 11 collects these categories by default. Disable them before
+    // the event and transport allowlists enforce the application policy.
+    dataCollection: {
+      userInfo: false,
+      cookies: false,
+      httpHeaders: { request: false, response: false },
+      httpBodies: [],
+      urlQueryParams: false,
+      genAI: { inputs: false, outputs: false },
+      databaseQueryData: false,
+      queues: false,
+      graphQL: { document: false, variables: false },
+      stackFrameVariables: false,
+      frameContextLines: 0,
+    },
     sendClientReports: false,
-    enableLogs: false,
     maxBreadcrumbs: 0,
     beforeSend: (event, hint) =>
       sanitizeServerEvent(event, config, stackParser, hint.syntheticException),

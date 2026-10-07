@@ -19,12 +19,12 @@
     "@libsql/client": "0.18.0",
     "@tearleads/crypto": "workspace:*",
     "@tearleads/loro": "workspace:*",
-    "drizzle-orm": "0.45.2",
-    "pg": "8.23.0"
+    "drizzle-orm": "0.45.3",
+    "pg": "8.23.1"
   },
   "devDependencies": {
     "@types/bun": "catalog:",
     "@types/pg": "8.23.1",
-    "drizzle-kit": "0.31.10"
+    "drizzle-kit": "0.31.11"
   }
 }
