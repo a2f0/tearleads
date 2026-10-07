@@ -6,6 +6,7 @@ import { quietLogger } from "../../test/helpers/clientTestSupport";
 import { principalMutationJournalFixture } from "../../test/helpers/principalMutationJournalFixture";
 import { createMemoryBlobStore } from "../data/blobs/memoryBlobStore";
 import { defaultDocumentProjectorRegistry } from "../data/documents/documentKinds";
+import { UnreadablePrincipalMutationError } from "../data/principals/principalMutationJournalRecord";
 import { loadGroupPolicyMutationContext } from "../workflows/organizations/groupPolicyMutationContext";
 import { createOrganizations } from "./organizations";
 import { Tearleads } from "./Tearleads";
@@ -151,6 +152,29 @@ test("runtime resolves an uncertain authored mutation before reading for the nex
       "commit",
       "commit",
     ]);
+    await expect(submitAgain()).rejects.toThrow("may have committed");
+    await sqlite.execSql(
+      "UPDATE principal_mutation_journal SET signature = ?",
+      ["corrupt"],
+    );
+    const unreadable = await organizations
+      .readPendingPolicyMutation(fixture.scope.organizationId)
+      .catch((error: unknown) => error);
+    if (!(unreadable instanceof UnreadablePrincipalMutationError))
+      throw new Error("Missing unreadable journal report");
+    expect(
+      await organizations.discardUnreadablePolicyMutation({
+        organizationId: fixture.scope.organizationId,
+        recordId: unreadable.recordId,
+        acknowledgeUnknownOutcome: true,
+      }),
+    ).toBe(true);
+    expect(
+      await organizations.readPendingPolicyMutation(
+        fixture.scope.organizationId,
+      ),
+    ).toBeNull();
+    expect(events.filter((event) => event === "commit")).toHaveLength(6);
     runtime.retirePrincipalHistoryProtection();
   } finally {
     sdk.dispose();

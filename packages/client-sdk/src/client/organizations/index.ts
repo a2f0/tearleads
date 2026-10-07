@@ -35,6 +35,8 @@ import {
 import {
   type AbandonOrganizationPolicyMutationInput,
   abandonPendingOrganizationPolicyMutation,
+  type DiscardUnreadableOrganizationPolicyMutationInput,
+  discardUnreadableOrganizationPolicyMutation,
   readPendingOrganizationPolicyMutation,
   retryPendingOrganizationPolicyMutation,
 } from "./principalMutationRecovery";
@@ -79,7 +81,10 @@ export type {
   OrganizationUserDetail,
 } from "../../workflows/organizations";
 export type { Organizations } from "./organizationsTypes";
-export type { AbandonOrganizationPolicyMutationInput } from "./principalMutationRecovery";
+export type {
+  AbandonOrganizationPolicyMutationInput,
+  DiscardUnreadableOrganizationPolicyMutationInput,
+} from "./principalMutationRecovery";
 export type {
   AddOrganizationGroupUserInput,
   OrganizationGrantRef,
@@ -122,6 +127,15 @@ class OrganizationsService implements Organizations {
     return readPendingOrganizationPolicyMutation(
       this.runtimeService,
       organizationId,
+    );
+  }
+
+  discardUnreadablePolicyMutation(
+    input: DiscardUnreadableOrganizationPolicyMutationInput,
+  ) {
+    return discardUnreadableOrganizationPolicyMutation(
+      this.runtimeService,
+      input,
     );
   }
 

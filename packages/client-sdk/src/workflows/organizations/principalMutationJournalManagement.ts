@@ -1,3 +1,4 @@
+import { KeyingVerificationError } from "@tearleads/crypto";
 import { canonicalKeyingJsonString } from "../../data/keyingCanonicalJson";
 import { assertProjectionVerificationCurrent } from "../../data/keyingProjectionVerification/types";
 import {
@@ -9,6 +10,10 @@ import {
   openPrincipalMutation,
   principalMutationJournalScopeId,
 } from "../../data/principals/principalMutationJournal";
+import {
+  principalMutationJournalRecordId,
+  UnreadablePrincipalMutationError,
+} from "../../data/principals/principalMutationJournalRecord";
 import { runPrincipalMutationJournalOperation } from "./principalMutationJournalLane";
 import type { PrincipalMutationJournalContext } from "./principalMutationJournalSession";
 
@@ -22,6 +27,11 @@ export interface PrincipalMutationRecoveryApi {
   readonly abandonPendingPrincipalMutation: (
     organizationId: string,
     mutation: AuthoredPrincipalMutation,
+    acknowledgeUnknownOutcome: true,
+  ) => Promise<boolean>;
+  readonly discardUnreadablePrincipalMutation: (
+    organizationId: string,
+    recordId: string,
     acknowledgeUnknownOutcome: true,
   ) => Promise<boolean>;
 }
@@ -39,13 +49,82 @@ async function loadAuthenticatedMutation(input: JournalIdentity) {
   );
   assertProjectionVerificationCurrent(input.stillCurrent);
   if (!row) return null;
-  const mutation = await openPrincipalMutation({
-    scope: input.scope,
-    row,
-    signingPublicKey: input.signingKeyPair.signingPublicKey,
-  });
+  let mutation: AuthoredPrincipalMutation;
+  try {
+    mutation = await openPrincipalMutation({
+      scope: input.scope,
+      row,
+      signingPublicKey: input.signingKeyPair.signingPublicKey,
+    });
+  } catch (error) {
+    assertProjectionVerificationCurrent(input.stillCurrent);
+    if (!(error instanceof KeyingVerificationError)) throw error;
+    const recordId = await principalMutationJournalRecordId(row);
+    assertProjectionVerificationCurrent(input.stillCurrent);
+    throw new UnreadablePrincipalMutationError(
+      recordId,
+      error.code === "invalid_shape" ? "format" : "authentication",
+    );
+  }
   assertProjectionVerificationCurrent(input.stillCurrent);
   return { row, mutation };
+}
+
+/** Discard only the inspected unreadable bytes; never parse them for submission. */
+export async function discardUnreadableJournaledPrincipalMutation(
+  input: JournalIdentity & {
+    readonly recordId: string;
+    readonly acknowledgeUnknownOutcome: true;
+  },
+): Promise<boolean> {
+  if (input.acknowledgeUnknownOutcome !== true)
+    throw new Error(
+      "Discarding unreadable work requires acknowledging its unknown outcome",
+    );
+  const expected = input.recordId;
+  return runPrincipalMutationJournalOperation(
+    input.execSql,
+    input.scope,
+    async () => {
+      assertProjectionVerificationCurrent(input.stillCurrent);
+      const row = await loadPrincipalMutationJournal(
+        input.execSql,
+        await principalMutationJournalScopeId(input.scope),
+      );
+      assertProjectionVerificationCurrent(input.stillCurrent);
+      if (!row) return false;
+      if ((await principalMutationJournalRecordId(row)) !== expected)
+        throw new Error(
+          "The unreadable principal mutation changed after inspection",
+        );
+      let unreadable = false;
+      try {
+        await openPrincipalMutation({
+          scope: input.scope,
+          row,
+          signingPublicKey: input.signingKeyPair.signingPublicKey,
+        });
+      } catch (error) {
+        if (!(error instanceof KeyingVerificationError)) throw error;
+        unreadable = true;
+      }
+      if (!unreadable)
+        throw new Error(
+          "Readable principal mutations require ordinary abandonment",
+        );
+      const removed = await clearPrincipalMutationJournal({
+        execSql: input.execSql,
+        row,
+        stillCurrent: input.stillCurrent,
+      });
+      assertProjectionVerificationCurrent(input.stillCurrent);
+      if (!removed)
+        throw new Error(
+          "The unreadable principal mutation changed during discard",
+        );
+      return true;
+    },
+  );
 }
 
 /** Inspect authenticated authored work without retrying it or changing checkpoints. */

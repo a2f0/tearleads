@@ -93,6 +93,21 @@ view. A changed identity or organization invalidates delayed reads and actions.
 Runtime policy writes require an authenticated signing identity, a trusted API
 origin and ready local storage; missing journal custody refuses before HTTP.
 
+Unreadable records remain blocked from submission. Inspection reports an
+`UnreadablePrincipalMutationError` with an opaque identifier of the exact local
+bytes and distinguishes authentication failure from an authenticated unsupported
+format. `discardUnreadableJournaledPrincipalMutation` and the organization facade's
+`discardUnreadablePolicyMutation` require that identifier and explicit
+unknown-outcome acknowledgement. They discard only the unchanged, still-unreadable
+record and do not submit it or change policy pins. Org Manager exposes the same
+confirmation for this case. No previous schema is interpreted or migrated.
+
+Journal scope includes the API origin and signing fingerprint. A different origin
+or rotated identity does not inherit or replay the former scope's records; those
+rows remain until the former scope is restored or the database is explicitly reset.
+Auth-token renewal retires active custody without erasing a saved request. A fresh
+runtime can recover the same signed bytes in the same identity scope.
+
 Advanced hosts can call `submitJournaledPrincipalMutation` and
 `recoverJournaledPrincipalMutation` with an explicit `PrincipalMutationJournalContext`.
 Supply a stable trusted scope, the actor's signing key pair, durable `ExecSql`,

@@ -46,6 +46,10 @@ Both policy API variants may throw `PendingPrincipalMutationError` or
 `Tearleads.organizations` exposes `readPendingPolicyMutation`,
 `retryPendingPolicyMutation` and `abandonPendingPolicyMutation` for host controls;
 Org Manager provides retry and explicit stop-retrying actions.
+Unreadable inspection throws `UnreadablePrincipalMutationError` with an opaque
+record identifier. `discardUnreadableJournaledPrincipalMutation` and the facade's
+`discardUnreadablePolicyMutation` discard only those unchanged local bytes after
+explicit unknown-outcome acknowledgement; they never submit unreadable work.
 
 ## Facade Taxonomy
 

@@ -5,6 +5,7 @@ import {
   createDomainScope,
   type Organizations,
   PrincipalMutationOutcomeUnknownError,
+  UnreadablePrincipalMutationError,
 } from "@tearleads/client-sdk";
 import {
   generateKemSeedAndKeyPair,
@@ -71,12 +72,17 @@ async function fixture() {
     pending = null;
     return true;
   });
+  const discard = mock(async () => {
+    pending = null;
+    return true;
+  });
   const unused = async () => null;
   const organizations = new Proxy(
     {
       readPendingPolicyMutation: read,
       retryPendingPolicyMutation: retry,
       abandonPendingPolicyMutation: abandon,
+      discardUnreadablePolicyMutation: discard,
     },
     {
       get(target, key) {
@@ -106,6 +112,7 @@ async function fixture() {
   );
   return {
     abandon,
+    discard,
     mutation,
     read,
     resolved,
@@ -113,6 +120,9 @@ async function fixture() {
     ui,
     expire() {
       active = false;
+    },
+    renew() {
+      active = true;
     },
     get pending() {
       return pending;
@@ -135,6 +145,56 @@ test("Org Manager exposes a saved change and retries it without abandoning it", 
   expect(f.retry).toHaveBeenCalledWith("org-a");
   expect(f.abandon).not.toHaveBeenCalled();
   expect(f.resolved).toHaveBeenCalledTimes(1);
+});
+
+test("an unreadable saved request offers an explicit discard action", async () => {
+  const f = await fixture();
+  f.read.mockImplementation(async () => {
+    throw new UnreadablePrincipalMutationError(
+      "inspected-record",
+      "authentication",
+    );
+  });
+  const view = render(f.ui());
+  await view.findByText("Saved principal mutation could not be authenticated");
+  expect(view.queryByRole("button", { name: "Stop retrying…" })).not.toBeNull();
+  expect(view.queryByRole("button", { name: "Retry saved change" })).toBeNull();
+  fireEvent.click(view.getByRole("button", { name: "Stop retrying…" }));
+  expect(f.discard).not.toHaveBeenCalled();
+  expect(view.getByText(/will not undo a change/)).toBeDefined();
+  f.read.mockImplementation(async () => null);
+  fireEvent.click(
+    view.getByRole("button", { name: "Stop retrying this change" }),
+  );
+  await waitFor(() => expect(f.resolved).toHaveBeenCalledTimes(1));
+  expect(f.discard).toHaveBeenCalledWith({
+    organizationId: "org-a",
+    recordId: "inspected-record",
+    acknowledgeUnknownOutcome: true,
+  });
+  expect(f.retry).not.toHaveBeenCalled();
+  expect(f.abandon).not.toHaveBeenCalled();
+});
+
+test("a settled retry releases its busy state after the captured scope expires", async () => {
+  const f = await fixture();
+  const delayed = Promise.withResolvers<void>();
+  f.retry.mockImplementation(() => delayed.promise);
+  const view = render(f.ui());
+  fireEvent.click(
+    await view.findByRole("button", { name: "Retry saved change" }),
+  );
+  f.expire();
+  await act(async () => {
+    delayed.resolve();
+    await delayed.promise;
+  });
+  f.renew();
+  view.rerender(f.ui());
+  expect(
+    view.queryByRole("button", { name: "Retry saved change" }),
+  ).not.toBeNull();
+  expect(f.resolved).not.toHaveBeenCalled();
 });
 
 test("a refused recovery stays visible until the user explicitly stops retries", async () => {

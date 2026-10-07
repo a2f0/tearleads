@@ -10,6 +10,12 @@ export interface AbandonOrganizationPolicyMutationInput {
   readonly acknowledgeUnknownOutcome: true;
 }
 
+export interface DiscardUnreadableOrganizationPolicyMutationInput {
+  readonly organizationId: string;
+  readonly recordId: string;
+  readonly acknowledgeUnknownOutcome: true;
+}
+
 async function runRecovery<T>(
   service: InternalRuntime,
   organizationId: string,
@@ -25,16 +31,31 @@ async function runRecovery<T>(
   if (
     !api.readPendingPrincipalMutation ||
     !api.recoverPendingPrincipalMutation ||
-    !api.abandonPendingPrincipalMutation
+    !api.abandonPendingPrincipalMutation ||
+    !api.discardUnreadablePrincipalMutation
   )
     throw new Error("Principal mutation recovery is unavailable");
   const result = await run({
     readPendingPrincipalMutation: api.readPendingPrincipalMutation,
     recoverPendingPrincipalMutation: api.recoverPendingPrincipalMutation,
     abandonPendingPrincipalMutation: api.abandonPendingPrincipalMutation,
+    discardUnreadablePrincipalMutation: api.discardUnreadablePrincipalMutation,
   });
   assertProjectionVerificationCurrent(stillCurrent);
   return result;
+}
+
+export function discardUnreadableOrganizationPolicyMutation(
+  service: InternalRuntime,
+  input: DiscardUnreadableOrganizationPolicyMutationInput,
+) {
+  return runRecovery(service, input.organizationId, (api) =>
+    api.discardUnreadablePrincipalMutation(
+      input.organizationId,
+      input.recordId,
+      input.acknowledgeUnknownOutcome,
+    ),
+  );
 }
 
 export function readPendingOrganizationPolicyMutation(

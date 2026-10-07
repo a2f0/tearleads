@@ -1,4 +1,7 @@
-import type { AuthoredPrincipalMutation } from "@tearleads/client-sdk";
+import {
+  type AuthoredPrincipalMutation,
+  UnreadablePrincipalMutationError,
+} from "@tearleads/client-sdk";
 import {
   type Dispatch,
   type SetStateAction,
@@ -13,6 +16,7 @@ interface PendingPolicyMutationSnapshot {
   actions: ReturnType<typeof useOrgManagerActions>;
   error: string | null;
   pending: AuthoredPrincipalMutation | null;
+  unreadable: UnreadablePrincipalMutationError | null;
   refresh: () => Promise<void>;
   setError: Dispatch<SetStateAction<string | null>>;
 }
@@ -25,6 +29,7 @@ export function usePendingPolicyMutation(input: {
   const actions = useOrgManagerActions();
   const [saved, setSaved] = useState<{
     mutation: AuthoredPrincipalMutation | null;
+    unreadable: UnreadablePrincipalMutationError | null;
     scope: NonNullable<ReturnType<typeof actions.captureOperationScope>>;
   } | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -41,19 +46,22 @@ export function usePendingPolicyMutation(input: {
         request === generation.current &&
         actions.isOperationScopeActive(scope)
       ) {
-        setSaved({ mutation: saved, scope });
+        setSaved({ mutation: saved, unreadable: null, scope });
         setError(null);
       }
     } catch (error) {
       if (
         request === generation.current &&
         actions.isOperationScopeActive(scope)
-      )
+      ) {
+        if (error instanceof UnreadablePrincipalMutationError)
+          setSaved({ mutation: null, unreadable: error, scope });
         setError(
           error instanceof Error
             ? error.message
             : "Saved change could not be read",
         );
+      }
     }
   }, [actions, input.organizationId]);
   useEffect(() => {
@@ -66,7 +74,41 @@ export function usePendingPolicyMutation(input: {
     saved && actions.isOperationScopeActive(saved.scope)
       ? saved.mutation
       : null;
-  return { actions, error, pending, refresh, setError };
+  const unreadable =
+    saved && actions.isOperationScopeActive(saved.scope)
+      ? saved.unreadable
+      : null;
+  return { actions, error, pending, unreadable, refresh, setError };
+}
+
+async function performPendingAction(
+  snapshot: PendingPolicyMutationSnapshot,
+  organizationId: string,
+  abandon: boolean,
+) {
+  const { actions, pending, unreadable } = snapshot;
+  if (unreadable) {
+    if (!abandon) return;
+    await actions.discardUnreadablePolicyMutation({
+      organizationId: organizationId,
+      recordId: unreadable.recordId,
+      acknowledgeUnknownOutcome: true,
+    });
+  } else if (abandon && pending) {
+    await actions.abandonPendingPolicyMutation({
+      organizationId: organizationId,
+      mutation: pending,
+      acknowledgeUnknownOutcome: true,
+    });
+  } else {
+    await actions.retryPendingPolicyMutation(organizationId);
+  }
+}
+
+function pendingActionError(error: unknown): string {
+  return error instanceof Error
+    ? error.message
+    : "Saved change could not be resolved";
 }
 
 export function usePendingPolicyMutationAction(input: {
@@ -76,7 +118,7 @@ export function usePendingPolicyMutationAction(input: {
 }) {
   const [busy, setBusy] = useState(false);
   const generation = useRef(0);
-  const { actions, pending, refresh, setError } = input.snapshot;
+  const { actions, pending, unreadable, refresh, setError } = input.snapshot;
   useEffect(() => {
     setBusy(false);
     return () => {
@@ -85,7 +127,7 @@ export function usePendingPolicyMutationAction(input: {
   }, [input.organizationId, actions.captureOperationScope]);
   const run = useCallback(
     async (abandon: boolean) => {
-      if (!pending || busy) return;
+      if ((!pending && !unreadable) || busy) return;
       const scope = actions.captureOperationScope();
       if (!scope || scope.organizationId !== input.organizationId) return;
       const operation = ++generation.current;
@@ -95,35 +137,28 @@ export function usePendingPolicyMutationAction(input: {
       setBusy(true);
       setError(null);
       try {
-        if (abandon) {
-          await actions.abandonPendingPolicyMutation({
-            organizationId: input.organizationId,
-            mutation: pending,
-            acknowledgeUnknownOutcome: true,
-          });
-        } else {
-          await actions.retryPendingPolicyMutation(input.organizationId);
-        }
+        await performPendingAction(
+          input.snapshot,
+          input.organizationId,
+          abandon,
+        );
         if (!current()) return;
         await input.onResolved();
         if (current()) await refresh();
       } catch (error) {
-        if (current())
-          setError(
-            error instanceof Error
-              ? error.message
-              : "Saved change could not be resolved",
-          );
+        if (current()) setError(pendingActionError(error));
       } finally {
-        if (current()) setBusy(false);
+        if (operation === generation.current) setBusy(false);
       }
     },
     [
       actions,
       busy,
       input.onResolved,
+      input.snapshot,
       input.organizationId,
       pending,
+      unreadable,
       refresh,
       setError,
     ],

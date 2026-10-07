@@ -3,6 +3,7 @@ import type { SigningKeyPair } from "@tearleads/crypto";
 import type { ExecSql } from "../data/sqlite/sqlSchema";
 import {
   abandonJournaledPrincipalMutation,
+  discardUnreadableJournaledPrincipalMutation,
   type PrincipalMutationRecoveryApi,
   readJournaledPrincipalMutation,
 } from "../workflows/organizations/principalMutationJournalManagement";
@@ -36,34 +37,45 @@ function sameScope(
   );
 }
 
-/** Keep API methods bound to their real receiver and journal only policy writes. */
-export function createPrincipalMutationApiCustody(input: {
+interface PrincipalMutationApiCustodyInput {
   readonly api: ApiClient;
   readonly readScope: () => PrincipalMutationRuntimeScope | null;
-}) {
+}
+
+function mutationContext(
+  input: PrincipalMutationApiCustodyInput,
+  scope: PrincipalMutationRuntimeScope | null,
+  organizationId: string,
+) {
+  if (!scope)
+    throw new Error(
+      "Principal mutations require an authenticated signing identity, a trusted API origin and durable local storage",
+    );
+  return {
+    execSql: scope.execSql,
+    signingKeyPair: scope.signingKeyPair,
+    scope: {
+      identityTrustDomain: scope.identityTrustDomain,
+      organizationId,
+      signingFingerprint: scope.signingFingerprint,
+      userId: scope.userId,
+    },
+    stillCurrent: () => sameScope(input.readScope(), scope),
+  };
+}
+
+/** Keep API methods bound to their real receiver and journal only policy writes. */
+export function createPrincipalMutationApiCustody(
+  input: PrincipalMutationApiCustodyInput,
+) {
   let cached: { scope: PrincipalMutationRuntimeScope; api: ApiClient } | null =
     null;
   return {
     bind(): ApiClient {
       const scope = input.readScope();
       if (scope && cached && sameScope(scope, cached.scope)) return cached.api;
-      const context = (organizationId: string) => {
-        if (!scope)
-          throw new Error(
-            "Principal mutations require an authenticated signing identity, a trusted API origin and durable local storage",
-          );
-        return {
-          execSql: scope.execSql,
-          signingKeyPair: scope.signingKeyPair,
-          scope: {
-            identityTrustDomain: scope.identityTrustDomain,
-            organizationId,
-            signingFingerprint: scope.signingFingerprint,
-            userId: scope.userId,
-          },
-          stillCurrent: () => sameScope(input.readScope(), scope),
-        };
-      };
+      const context = (organizationId: string) =>
+        mutationContext(input, scope, organizationId);
       const commit: ApiClient["commitOrganizationGroupPolicyResult"] = async (
         organizationId,
         groupId,
@@ -92,6 +104,19 @@ export function createPrincipalMutationApiCustody(input: {
             acknowledgeUnknownOutcome,
           });
       const methods = new Map<PropertyKey, unknown>([
+        [
+          "discardUnreadablePrincipalMutation",
+          async (
+            organizationId: string,
+            recordId: string,
+            acknowledgeUnknownOutcome: true,
+          ) =>
+            discardUnreadableJournaledPrincipalMutation({
+              ...context(organizationId),
+              recordId,
+              acknowledgeUnknownOutcome,
+            }),
+        ],
         ["readPendingPrincipalMutation", read],
         ["abandonPendingPrincipalMutation", abandon],
         ["commitOrganizationGroupPolicyResult", commit],

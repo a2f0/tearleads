@@ -19,20 +19,28 @@ export function PendingPolicyMutation(props: {
 }) {
   const snapshot = usePendingPolicyMutation(props);
   const action = usePendingPolicyMutationAction({ ...props, snapshot });
-  const [confirmedRequest, setConfirmedRequest] =
-    useState<typeof snapshot.pending>(null);
+  const [confirmedRequest, setConfirmedRequest] = useState<
+    typeof snapshot.pending | typeof snapshot.unreadable
+  >(null);
   const pending = snapshot.pending;
-  const confirming = pending !== null && confirmedRequest === pending;
+  const selected = pending ?? snapshot.unreadable;
+  const confirming = selected !== null && confirmedRequest === selected;
   const group = props.groups.find(
     (group) => group.groupId === pending?.groupId,
   );
-  if (!pending)
+  if (!selected)
     return snapshot.error ? (
       <MiniAppStatus tone="error">{snapshot.error}</MiniAppStatus>
     ) : null;
   return (
     <section aria-label="Saved access change">
       <strong>Saved access change</strong>
+      {snapshot.unreadable && (
+        <p>
+          This saved request cannot be read or retried. You can explicitly
+          discard the local request to continue.
+        </p>
+      )}
       <p>
         An earlier change{" "}
         {group?.name ? `for ${group.name}` : "in this organization"} may already
@@ -66,17 +74,19 @@ export function PendingPolicyMutation(props: {
         </>
       ) : (
         <MiniAppActions>
+          {!snapshot.unreadable && (
+            <MiniAppButton
+              disabled={action.busy || props.mutating}
+              onClick={() => {
+                void action.run(false);
+              }}
+            >
+              {action.busy ? "Resolving…" : "Retry saved change"}
+            </MiniAppButton>
+          )}
           <MiniAppButton
             disabled={action.busy || props.mutating}
-            onClick={() => {
-              void action.run(false);
-            }}
-          >
-            {action.busy ? "Resolving…" : "Retry saved change"}
-          </MiniAppButton>
-          <MiniAppButton
-            disabled={action.busy || props.mutating}
-            onClick={() => setConfirmedRequest(pending)}
+            onClick={() => setConfirmedRequest(selected)}
           >
             Stop retrying…
           </MiniAppButton>

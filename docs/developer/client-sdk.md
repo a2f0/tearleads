@@ -667,6 +667,13 @@ The organization facade exposes `readPendingPolicyMutation(organizationId)`,
 `retryPendingPolicyMutation(organizationId)` and `abandonPendingPolicyMutation`,
 whose `AbandonOrganizationPolicyMutationInput` includes the inspected request.
 Org Manager shows saved work and requires confirmation before stopping retries.
+Unreadable inspection throws `UnreadablePrincipalMutationError`, distinguishing
+authentication and format failures. Advanced hosts can use
+`discardUnreadableJournaledPrincipalMutation`; the facade exposes
+`discardUnreadablePolicyMutation` with `DiscardUnreadableOrganizationPolicyMutationInput`.
+Both require the inspected opaque record identifier and explicit unknown-outcome
+acknowledgement. They clear only unchanged unreadable bytes, without HTTP or pin
+changes. Org Manager offers the same confirmed discard action.
 See [principal policy outcomes](principal-policy-outcomes.md) for scope and limits.
 
 A container's first direct grant has the matching precondition: the chain above

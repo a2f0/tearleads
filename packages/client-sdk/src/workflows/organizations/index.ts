@@ -7,6 +7,7 @@ export type {
   AuthoredPrincipalMutation,
   PrincipalMutationJournalScope,
 } from "../../data/principals/principalMutationJournal";
+export { UnreadablePrincipalMutationError } from "../../data/principals/principalMutationJournalRecord";
 export {
   cancelStripeSubscription,
   checkNativePurchaseEligibility,
@@ -68,6 +69,7 @@ export {
 } from "./organizationUserImport";
 export {
   abandonJournaledPrincipalMutation,
+  discardUnreadableJournaledPrincipalMutation,
   readJournaledPrincipalMutation,
 } from "./principalMutationJournalManagement";
 export {

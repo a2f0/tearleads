@@ -39,6 +39,7 @@ export type {
   DatabaseStatus,
   DeviceFirst,
   DeviceFirstContainerContents,
+  DiscardUnreadableOrganizationPolicyMutationInput,
   DocumentAttachmentStatus,
   DocumentAttachmentUpload,
   DocumentAttributionRangesInput,
@@ -456,6 +457,7 @@ export {
   DEFAULT_PERSONAL_ORGANIZATION_PROFILE_NAME,
   deriveOrganizationMetadataContainerSystemSlot,
   deriveOrganizationRosterProfileContainerSystemSlot,
+  discardUnreadableJournaledPrincipalMutation,
   GroupMembershipNameMismatchError,
   getOrganizationProfileDocumentLocalId,
   getRosterProfileDocumentLocalId,
@@ -482,6 +484,7 @@ export {
   startOrganizationTrial,
   submitJournaledPrincipalMutation,
   subscribeOrganizationReadModelInvalidation,
+  UnreadablePrincipalMutationError,
   updateOrganizationProfile,
   updateOrganizationRosterEntry,
 } from "./workflows/organizations";

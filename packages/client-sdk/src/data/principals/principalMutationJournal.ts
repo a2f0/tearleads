@@ -136,11 +136,18 @@ export async function openPrincipalMutation(input: {
       )
     )
       throw new Error("Principal mutation journal authentication failed");
-    return readMutation(JSON.parse(row.serializedRequest), scope);
   } catch {
     throw new KeyingVerificationError(
       "signature_mismatch",
       "Saved principal mutation could not be authenticated",
+    );
+  }
+  try {
+    return readMutation(JSON.parse(row.serializedRequest), scope);
+  } catch {
+    throw new KeyingVerificationError(
+      "invalid_shape",
+      "Authenticated principal mutation has an unsupported or invalid format",
     );
   }
 }

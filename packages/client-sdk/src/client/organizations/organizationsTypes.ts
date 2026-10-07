@@ -26,6 +26,7 @@ import type { loadOrganizationGroupPresentationDetails } from "./organizationGro
 import type { OrganizationReadModelCoordinator } from "./organizationReadModels";
 import type {
   AbandonOrganizationPolicyMutationInput,
+  DiscardUnreadableOrganizationPolicyMutationInput,
   readPendingOrganizationPolicyMutation,
 } from "./principalMutationRecovery";
 import type {
@@ -36,6 +37,9 @@ import type {
 } from "./principalMutations";
 
 export interface Organizations {
+  discardUnreadablePolicyMutation: (
+    input: DiscardUnreadableOrganizationPolicyMutationInput,
+  ) => Promise<boolean>;
   readPendingPolicyMutation: (
     organizationId: string,
   ) => ReturnType<typeof readPendingOrganizationPolicyMutation>;

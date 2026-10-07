@@ -192,6 +192,7 @@ export {
 export type {
   AbandonOrganizationPolicyMutationInput,
   AddOrganizationGroupUserInput,
+  DiscardUnreadableOrganizationPolicyMutationInput,
   ImportedOrganizationUser,
   LocalOrganizationSummary,
   OrganizationBilling,

@@ -51,6 +51,7 @@ type OrgManagerOrganizationActions = Pick<
   | "readPendingPolicyMutation"
   | "retryPendingPolicyMutation"
   | "abandonPendingPolicyMutation"
+  | "discardUnreadablePolicyMutation"
   | "createGroup"
   | "deleteGroup"
   | "importUserById"
@@ -96,6 +97,7 @@ const organizationActionKeys =
     "readPendingPolicyMutation",
     "retryPendingPolicyMutation",
     "abandonPendingPolicyMutation",
+    "discardUnreadablePolicyMutation",
     "createGroup",
     "deleteGroup",
     "importUserById",
