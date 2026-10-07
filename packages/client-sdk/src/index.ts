@@ -1,6 +1,6 @@
 // Current SDK contract: unified device-first handles and atomic revision checks.
 // Authority loaders take exact heads, including cached citations. Obsolete
-// adapters and aliases are excluded; see workflows/README.md for host contracts.
+// adapters are excluded; authored policy journals survive restart. See workflows/README.md.
 export type {
   AddOrganizationGroupUserInput,
   BlobInfo,
@@ -430,12 +430,15 @@ export {
 // Nominal identity constructors are deliberately absent here. Integration
 // tests that compose low-level runtimes use the testing package subpath.
 export type {
+  AuthoredPrincipalMutation,
   OrganizationGroupPolicyHistoryEntry,
   OrganizationNativePurchaseEligibility,
   OrganizationPrincipalMemberChange,
   OrganizationPrincipalMemberChangeType,
   OrganizationPrincipalPolicyHistory,
   OrganizationPrincipalPolicyHistoryEntry,
+  PrincipalMutationJournalContext,
+  PrincipalMutationJournalScope,
   ReconcileOrganizationDataUsageInput,
 } from "./workflows/organizations";
 export {
@@ -463,14 +466,18 @@ export {
   ORGANIZATION_METADATA_CONTAINER_NAME,
   ORGANIZATION_PROFILE_DOCUMENT_KIND,
   ORGANIZATION_ROSTER_PROFILE_CONTAINER_NAME,
+  PendingPrincipalMutationError,
+  PrincipalMutationOutcomeUnknownError,
   ROSTER_PROFILE_DOCUMENT_KIND,
   readOrganizationProfileName,
   reconcileOrganizationDataUsage,
   reconcileOrganizationDirectoryAndGroups,
+  recoverJournaledPrincipalMutation,
   removeOrganizationGroupUser,
   resolveOrganizationBillingView,
   revokeOrganizationContainerGrant,
   startOrganizationTrial,
+  submitJournaledPrincipalMutation,
   subscribeOrganizationReadModelInvalidation,
   updateOrganizationProfile,
   updateOrganizationRosterEntry,

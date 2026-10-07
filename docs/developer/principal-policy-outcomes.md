@@ -26,8 +26,8 @@ identifies the standalone organization request domain.
 The schema change regenerates both greenfield baselines and requires fresh
 databases under the repository reset policy; there is no historical upgrade.
 Clients must preserve the authored request while its outcome is unknown.
-Durable client retry orchestration remains separate work; these server receipts
-do not complete #2442 or #2448.
+The SDK's compound policy journal does this for group policy mutations; these
+receipts and the journal do not complete #2442 or #2448.
 
 Receipts survive until their group or organization is deleted. Expiring them on
 a time limit would make an old unknown outcome indistinguishable from a failed
@@ -40,5 +40,46 @@ acknowledgement. Reference substitution or missing immutable state fails closed.
 Reconstructed signature bytes, ciphertext, projection and grants must match the
 receipt-authenticated original request; the state hash alone cannot authenticate
 signature bytes. Altered retired artifacts cannot return a successful receipt.
-Storage still grows by a fixed-size record per accepted commit; durable client
-outcome handling remains follow-up work.
+Storage still grows by a fixed-size record per accepted commit.
+
+## Durable compound policy requests
+
+The `Tearleads` runtime saves the complete JSON request before submitting a
+compound group/directory policy mutation. A separate signature by the local
+actor authenticates the whole wire body, including ciphertext and envelopes
+outside individual state signatures. Its domain binds the API identity trust
+domain, organization, actor and signing fingerprint. The local SQLite executor
+owns the journal; a captured database/session generation guards every write and
+dispatch. It requires the same signing identity after restart and does not rely
+on the ephemeral history-cache key.
+
+One unresolved request owns each actor/organization lane. A concurrent author
+cannot replace it. Cache resets retain authored work. The runtime resolves it
+before reading the policies for another group change, creation, deletion or
+group share. Recovery resends only the authenticated saved body and verifies the
+exact receipt artifacts. It neither reruns the original application callback
+nor invents a complete verified history from the receipt. Current checkpoints
+are left to ordinary verified recovery, so an older receipt cannot roll them back.
+
+A known first-attempt refusal retires the journal. A disconnected request, an
+invalid acknowledgement or an expired lifetime leaves it pending. Once an
+outcome is uncertain, a later refusal, including 403, 409 or the coded rollback
+503, cannot prove the first attempt rolled back and does not clear its record.
+Corrupt authored work is retained and rejected before network submission.
+
+Advanced hosts can call `submitJournaledPrincipalMutation` and
+`recoverJournaledPrincipalMutation` with an explicit `PrincipalMutationJournalContext`.
+Supply a stable trusted scope, the actor's signing key pair, durable `ExecSql`,
+a lifetime guard, and a status-bearing API submission function. Resolve pending
+work before preparing a new request and keep API-client failure classifications
+intact. The helpers return ordinary receipts, not verified policy capabilities.
+They cover compound group policy writes; standalone organization writes and
+group creation/deletion requests still need their own authored-request recovery.
+
+Real HTTP tests with SQLite and PostgreSQL withhold a committed response, advance
+the policy from another client, and recover the first receipt without a duplicate
+commit. A second case kills the submitting SDK process and starts a fresh one
+with only its restored identity and SQLite file; removing the journal makes
+recovery fail. That process test uses native SQLite to exercise disk durability.
+The in-process test uses the production WASM SQLite engine; browser OPFS process
+recovery is not established by these tests.

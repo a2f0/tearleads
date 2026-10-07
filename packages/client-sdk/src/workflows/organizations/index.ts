@@ -2,6 +2,11 @@ export {
   type OrganizationReadModelInvalidationListener,
   subscribeOrganizationReadModelInvalidation,
 } from "../../data/persistence/organizations/organizationReadModelInvalidation";
+export { PendingPrincipalMutationError } from "../../data/persistence/principalMutationJournalPersistence";
+export type {
+  AuthoredPrincipalMutation,
+  PrincipalMutationJournalScope,
+} from "../../data/principals/principalMutationJournal";
 export {
   cancelStripeSubscription,
   checkNativePurchaseEligibility,
@@ -61,6 +66,12 @@ export {
   type ImportedOrganizationUser,
   importOrganizationUser,
 } from "./organizationUserImport";
+export {
+  type PrincipalMutationJournalContext,
+  PrincipalMutationOutcomeUnknownError,
+  recoverJournaledPrincipalMutation,
+  submitJournaledPrincipalMutation,
+} from "./principalMutationJournalSession";
 export {
   addOrganizationGroupUser,
   buildInitialGroupPolicyRequest,

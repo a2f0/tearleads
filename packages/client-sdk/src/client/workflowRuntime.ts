@@ -30,6 +30,7 @@ import {
   createPrincipalHistoryProtectionCustody,
   type PrincipalHistoryKeyProvider,
 } from "./principalHistoryProtection";
+import { createPrincipalMutationApiCustody } from "./principalMutationApi";
 import { adoptSessionRootContainer } from "./rootContainerAdoption";
 import { acknowledgedSessionRoot } from "./session/sessionRootAuthority";
 import type { Session, SessionSnapshot } from "./session/sessionTypes";
@@ -95,6 +96,38 @@ interface WorkflowRuntimeDependencies {
   syncBillingGate?: SyncBillingGate | undefined;
 }
 
+function createRuntimeMutationApi(
+  dependencies: WorkflowRuntimeDependencies,
+  readGeneration: () => number,
+) {
+  return createPrincipalMutationApiCustody({
+    api: dependencies.api,
+    readScope: () => {
+      const { signingKeyPair, signingFingerprint } = dependencies.identity;
+      const { userId, isAuthenticated } = dependencies.session;
+      const identityTrustDomain = dependencies.identityTrustDomain;
+      if (
+        !isAuthenticated ||
+        !userId ||
+        !signingKeyPair ||
+        !signingFingerprint ||
+        !identityTrustDomain ||
+        dependencies.database.status !== "ready"
+      )
+        return null;
+      return {
+        database: dependencies.getDomainScope(),
+        execSql: dependencies.database.requireExecSql("principal mutation"),
+        generation: readGeneration(),
+        identityTrustDomain,
+        signingFingerprint,
+        signingKeyPair,
+        userId,
+      };
+    },
+  });
+}
+
 export function createRuntime(
   dependencies: WorkflowRuntimeDependencies,
 ): InternalRuntime {
@@ -154,6 +187,10 @@ export function createRuntime(
     dependencies,
     resolveTrustedUserIdentity,
     historyProtection.bind,
+    createRuntimeMutationApi(
+      dependencies,
+      () => runtimeSubscription.recoveryGeneration,
+    ).bind,
   );
 
   return {
@@ -274,6 +311,7 @@ function createRuntimeInputFactory(
   dependencies: WorkflowRuntimeDependencies,
   resolveTrustedUserIdentity: TrustedUserIdentityResolver,
   bindHistoryProtection: () => PrincipalHistoryProtectionLease | undefined,
+  bindMutationApi: () => ApiClient,
 ): RuntimeInputFactory {
   let auth: WorkflowRuntimeAuthInput | undefined;
   let crypto: WorkflowRuntimeCryptoInput | undefined;
@@ -339,7 +377,7 @@ function createRuntimeInputFactory(
     }
 
     return {
-      apiClient: dependencies.api,
+      apiClient: bindMutationApi(),
       auth,
       crypto,
       infra,

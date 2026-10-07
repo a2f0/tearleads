@@ -647,6 +647,13 @@ artifacts without retransmitting `previousStates`. The SDK verifies that receipt
 against its authored request and constructs the persisted successor bundle from
 its verified local prefix. Container acknowledgements remain part of the same
 check; a missing or substituted result cannot advance the local checkpoint.
+The runtime journals compound policy requests before HTTP and resolves pending
+work before authoring another group change. Advanced hosts use
+`submitJournaledPrincipalMutation` and `recoverJournaledPrincipalMutation`
+with durable SQLite, the actor's signing key and a current-lifetime guard.
+An unknown result remains pending even if a later retry receives 403 or 409.
+A recovered receipt acknowledges a past request without advancing current pins.
+See [principal policy outcomes](principal-policy-outcomes.md) for scope and limits.
 
 A container's first direct grant has the matching precondition: the chain above
 it must be current, since its new grantee could not repair it; the API refuses

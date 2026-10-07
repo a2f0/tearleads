@@ -49,6 +49,10 @@ import {
 } from "./groupPolicyVerification";
 
 export interface PrincipalPolicyReadApi {
+  /** Resolve authored work before reading the state for a new mutation. */
+  readonly recoverPendingPrincipalMutation?:
+    | ((organizationId: string) => Promise<void>)
+    | undefined;
   getCurrentPrincipalPolicy: (
     principalType: "group" | "organization",
     principalId: string,
@@ -184,6 +188,7 @@ export async function loadGroupPolicyMutationContext(input: {
   readonly signingFingerprint: string;
   readonly signingKeyPair: SigningKeyPair;
 }): Promise<LoadedGroupPolicyMutationContext> {
+  await input.apiClient.recoverPendingPrincipalMutation?.(input.organizationId);
   const adminPolicy = await loadOrganizationExternalAdminPolicy({
     execSql: input.execSql,
     getCurrentPrincipalPolicy: (principalType, principalId) =>

@@ -2,7 +2,8 @@
 
 Workflow facades compose API, storage, verification and sync without React or UI.
 Private leases stay hidden; authority loaders take exact heads. See
-[recovery](../../../../docs/developer/principal-history-recovery.md).
+[history recovery](../../../../docs/developer/principal-history-recovery.md) and
+[authored mutation journals](../../../../docs/developer/principal-policy-outcomes.md).
 
 ## Current Host Contract
 
@@ -35,6 +36,9 @@ evidence, not compatibility formats.
 Membership writes bind `expectedGroupName` to decrypted group
 metadata before recipient key use. Custom names require `readEncryptedName`;
 creation requires `metadataAccess`. See the [SDK guide](../../../../docs/developer/client-sdk.md).
+`submitJournaledPrincipalMutation` saves exact compound policy requests before
+HTTP; `recoverJournaledPrincipalMutation` resolves saved work before authoring
+again. The `Tearleads` runtime supplies this for group policy mutations.
 
 ## Facade Taxonomy
 

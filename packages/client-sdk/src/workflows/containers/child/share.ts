@@ -241,6 +241,8 @@ async function commitMissingGroupGrantPolicy(
     );
   }
   const policyApi = {
+    recoverPendingPrincipalMutation:
+      input.apiClient.recoverPendingPrincipalMutation?.bind(input.apiClient),
     commitOrganizationGroupPolicy:
       input.apiClient.commitOrganizationGroupPolicy.bind(input.apiClient),
     getCurrentPrincipalPolicy: input.apiClient.getCurrentPrincipalPolicy.bind(
