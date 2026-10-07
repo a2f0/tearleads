@@ -1,8 +1,6 @@
 import { KeyingVerificationError } from "@tearleads/crypto";
-import {
-  loadRecoveredPrincipalHistoryPage,
-  PRINCIPAL_DISPLAY_HISTORY_PAGE_SIZE,
-} from "./loadRecoveredPrincipalHistoryPage";
+import { PRINCIPAL_DISPLAY_HISTORY_PAGE_SIZE } from "@tearleads/validators/response";
+import { loadRecoveredPrincipalHistoryPage } from "./loadRecoveredPrincipalHistoryPage";
 import { PrincipalHistoryEvidenceUnavailableError } from "./principalHistoryRecoveryReferences";
 import type { RecoverPrincipalPolicyHistoryOptions } from "./principalHistoryRecoveryTypes";
 import { recoverPrincipalPolicyHistoryWithVersions } from "./recoverPrincipalPolicyHistory";

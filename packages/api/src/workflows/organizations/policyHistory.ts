@@ -7,7 +7,10 @@ import {
   principalPolicyMatchesReference,
   type ReferencedPrincipalHead,
 } from "@tearleads/crypto";
-import type { OrganizationPolicyHistoryResponse } from "@tearleads/validators/response";
+import {
+  type OrganizationPolicyHistoryResponse,
+  PRINCIPAL_DISPLAY_HISTORY_PAGE_SIZE,
+} from "@tearleads/validators/response";
 import { loadOrganizationHistoryWindow } from "../../access/read/principalHistory";
 import {
   getPrincipalStatesForReferences,
@@ -107,7 +110,10 @@ export async function runGetOrganizationPolicyHistoryWorkflow(
       input.organizationId,
       beforeVersion,
     );
-    const firstVersion = Math.max(1, beforeVersion - 33);
+    const firstVersion = Math.max(
+      1,
+      beforeVersion - PRINCIPAL_DISPLAY_HISTORY_PAGE_SIZE - 1,
+    );
     if (rows.length !== beforeVersion - firstVersion)
       reject("directory window is incomplete");
     const groupHeads = await verifyWindow(tx, head, rows);
@@ -125,7 +131,10 @@ export async function runGetOrganizationPolicyHistoryWorkflow(
       organizationId: input.organizationId,
       stateHash: input.stateHash,
       beforeVersion,
-      nextBeforeVersion: beforeVersion > 33 ? beforeVersion - 32 : null,
+      nextBeforeVersion:
+        beforeVersion > PRINCIPAL_DISPLAY_HISTORY_PAGE_SIZE + 1
+          ? beforeVersion - PRINCIPAL_DISPLAY_HISTORY_PAGE_SIZE
+          : null,
       evidence: {
         organization: source(head),
         organizationPayloads: rows.map(({ state, payload }) => ({

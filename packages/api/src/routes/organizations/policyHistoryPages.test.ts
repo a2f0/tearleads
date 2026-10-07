@@ -133,3 +133,37 @@ test("cold organization display pages pin a head and carry only 32 directories p
     target.stateHash,
   );
 }, 30_000);
+
+test("organization history rejects a cursor beyond its pinned head and a foreign head", async () => {
+  const actor = createTestUser();
+  const other = createTestUser();
+  await registerAndAuthenticate(actor, other);
+  const organizationId = await getDefaultOrganizationId(actor.userId);
+  const otherOrganizationId = await getDefaultOrganizationId(other.userId);
+  const head = await getCurrentPrincipalState(
+    "organization",
+    organizationId,
+    db,
+  );
+  const foreign = await getCurrentPrincipalState(
+    "organization",
+    otherOrganizationId,
+    db,
+  );
+  if (!head || !foreign) throw new Error("Missing organization heads");
+  const valid = await page(actor, organizationId, head.stateHash);
+  expect(valid.body.evidence.organization?.head.principalId).toBe(
+    organizationId,
+  );
+  for (const query of [
+    { stateHash: head.stateHash, beforeVersion: String(head.version + 2) },
+    { stateHash: foreign.stateHash },
+  ]) {
+    const response = await routeApp.request(
+      `/organizations/${organizationId}/policy-history?${new URLSearchParams(query)}`,
+      { headers: { Authorization: `Bearer ${actor.token}` } },
+    );
+    expect(response.status).toBe(400);
+    expect(await response.json()).not.toHaveProperty("evidence");
+  }
+}, 15_000);

@@ -49,6 +49,9 @@ required group citations, including deleted groups. Each API page rechecks live
 roster access. One verified display page per organization is cached in memory;
 the UI retains older rows only as requested. Direct-share adapters still require
 further adoption. Organization history requires the host's private paged resolver.
+The 32-entry bound limits directory versions, not the number of groups cited by
+each directory. Evidence bytes and public recovery work also grow with distinct
+cited groups; the HTTP fixture exercises both one and eight ordinary groups.
 
 See [durable recovery](principal-history-recovery.md) for the underlying paging,
 private custody, and checkpoint contracts.

@@ -3,6 +3,7 @@ import {
   principalStatePayloads,
   principalStates,
 } from "@tearleads/api-shared/schema";
+import { PRINCIPAL_DISPLAY_HISTORY_PAGE_SIZE } from "@tearleads/validators/response";
 import { and, asc, eq, gte, lt } from "drizzle-orm";
 import { beginPrincipalHistoryVerification } from "../../../utils/principalHistoryWork";
 import {
@@ -18,7 +19,10 @@ export async function loadOrganizationHistoryWindow(
   beforeVersion: number,
 ) {
   beginPrincipalHistoryVerification();
-  const firstVersion = Math.max(1, beforeVersion - 33);
+  const firstVersion = Math.max(
+    1,
+    beforeVersion - PRINCIPAL_DISPLAY_HISTORY_PAGE_SIZE - 1,
+  );
   const rows = await executor
     .select({
       state: principalStateSelect,
@@ -42,7 +46,7 @@ export async function loadOrganizationHistoryWindow(
       ),
     )
     .orderBy(asc(principalStates.version))
-    .limit(33);
+    .limit(PRINCIPAL_DISPLAY_HISTORY_PAGE_SIZE + 1);
   return rows.map(({ state, payload }) => ({
     state: toStoredPrincipalState(state),
     payload,

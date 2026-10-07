@@ -6,6 +6,7 @@ import {
 } from "@tearleads/crypto";
 import {
   isPrincipalPolicyStateChainEntryResponse,
+  PRINCIPAL_DISPLAY_HISTORY_PAGE_SIZE,
   type PrincipalPolicyStateChainEntryResponse,
 } from "@tearleads/validators/response";
 import { assertProjectionVerificationCurrent } from "../../data/keyingProjectionVerification/types";
@@ -20,8 +21,6 @@ import {
   type RecoverPrincipalPolicyHistoryOptions,
 } from "./principalHistoryRecoveryTypes";
 import { principalHistoryVerificationContext } from "./principalHistoryRecoveryVerification";
-
-export const PRINCIPAL_DISPLAY_HISTORY_PAGE_SIZE = 32;
 
 export interface RecoveredPrincipalHistoryPage {
   /** Ascending entries, with the immediate predecessor kept separately for diffs. */

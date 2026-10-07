@@ -11,6 +11,9 @@ const cursorSchema = registerJsonSchemaFragment(
   { type: "integer", minimum: 2, maximum: Number.MAX_SAFE_INTEGER },
 );
 
+/** Display rows per private history page; the API also carries one predecessor. */
+export const PRINCIPAL_DISPLAY_HISTORY_PAGE_SIZE = 32;
+
 /** Signed evidence only. Display names are resolved on the client. */
 export const OrganizationPolicyHistoryResponseSchema = loosePlainObject({
   organizationId: nonEmptyStringSchema,

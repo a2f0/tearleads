@@ -1,4 +1,5 @@
 import type { OrganizationPolicyHistory } from "@tearleads/client-sdk";
+import { PRINCIPAL_DISPLAY_HISTORY_PAGE_SIZE } from "@tearleads/validators/response";
 import { ORG_MANAGER_LABELS } from "../labels";
 
 export function assertOrganizationPolicyHistoryPage(
@@ -12,7 +13,7 @@ export function assertOrganizationPolicyHistoryPage(
     page.principalId !== organizationId ||
     page.principalType !== "organization" ||
     page.entries.length === 0 ||
-    page.entries.length > 32 ||
+    page.entries.length > PRINCIPAL_DISPLAY_HISTORY_PAGE_SIZE ||
     page.entries.some(
       ({ version }, index) =>
         !Number.isSafeInteger(version) ||
