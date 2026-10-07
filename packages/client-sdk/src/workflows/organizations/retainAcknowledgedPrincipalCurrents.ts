@@ -33,9 +33,12 @@ import {
   assertPrincipalHistoryVerificationMode,
   principalHistoryVerificationContext,
 } from "../principals/principalHistoryRecoveryVerification";
+import { assertAcknowledgedDirectoryBindings } from "./acknowledgedDirectoryBindings";
 import { acknowledgeGroupPolicyState } from "./groupPolicyMutationAcknowledgement";
 import { groupPolicyMutationHead } from "./groupPolicyMutationHead";
 import { assertPrincipalPolicyReceiptArtifacts } from "./principalPolicyReceiptArtifacts";
+
+export type { AcknowledgedPrincipalCurrentRetirement } from "../../data/persistence/principalCurrentAcknowledgementPersistence";
 
 export interface AcknowledgedPrincipalCurrentInput {
   /** The same scoped protection and verification mode used to recover the predecessor. */
@@ -253,6 +256,10 @@ export async function retainAcknowledgedPrincipalCurrents(input: {
       publications.push(
         await preparePublication(entry.options, entry.request, entry.response),
       );
+    assertAcknowledgedDirectoryBindings(
+      organizationId,
+      entries.map(({ response }) => response),
+    );
     await persistAcknowledgedPrincipalCurrents({
       execSql,
       organizationId,

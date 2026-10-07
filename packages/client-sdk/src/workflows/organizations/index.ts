@@ -122,6 +122,7 @@ export {
 } from "./readModelProjection";
 export {
   type AcknowledgedPrincipalCurrentInput,
+  type AcknowledgedPrincipalCurrentRetirement,
   retainAcknowledgedPrincipalCurrents,
 } from "./retainAcknowledgedPrincipalCurrents";
 export {

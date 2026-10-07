@@ -70,12 +70,21 @@ policies' artifacts, progress and checkpoints are published in one guarded SQLit
 transaction. The transaction rechecks the latest pins and compares the saved
 prefix with the one restored before verification. A changed prefix or a missing,
 newer or conflicting pin requires fresh recovery. Replaying a past receipt cannot
-move current pins backwards. Optional grant retirements must refer to an included
-policy's signed current or predecessor grants.
+move current pins backwards. Sealed progress uses fresh encryption randomness,
+so overlapping identical acknowledgements also have one winner; the loser must
+recover the now-current head. Optional grant retirements must refer to an included
+policy's signed current or predecessor grants; the exported
+`AcknowledgedPrincipalCurrentRetirement` type describes those inputs. When a batch
+contains a directory and groups, its signed directory must bind each group's exact
+acknowledged head. Group-only batches leave directory pairing to the host.
 
 Completed exact-head stages retain earlier encrypted envelopes when the reusable
 prefix advances. Key lookup selects those candidates by an indexed fingerprint;
 they remain untrusted encrypted candidates, not authorization evidence. The
+store keeps one completed stage per exact head and verification context. There is
+no automatic pruning yet: retained artifacts grow with acknowledged heads until
+remote-reset cleanup. Equal principal-key fingerprints do not establish that older
+recipient envelopes are redundant. Reclamation remains tracked in #2448. The
 current wire artifacts never contain manufactured `previousStates`. Built-in
 mutation orchestration still uses its existing full-bundle path until its
 context loading, container rematerialization and result contract adopt these

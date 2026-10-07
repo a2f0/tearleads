@@ -349,3 +349,7 @@ warmer and operation-lifetime guard; the document store supplies both.
 authenticated resumable progress, checkpoints and signed-grant retirements.
 It requires the previously recovered prefix and durable predecessor pin; see
 [current mutation primitives](../../../../docs/developer/principal-current-mutations.md).
+
+The public `AcknowledgedPrincipalCurrentInput` and
+`AcknowledgedPrincipalCurrentRetirement` types describe batch inputs and
+signed-grant retirements.

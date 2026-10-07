@@ -433,6 +433,7 @@ export {
 // tests that compose low-level runtimes use the testing package subpath.
 export type {
   AcknowledgedPrincipalCurrentInput,
+  AcknowledgedPrincipalCurrentRetirement,
   AuthoredPrincipalMutation,
   OrganizationGroupPolicyHistoryEntry,
   OrganizationNativePurchaseEligibility,

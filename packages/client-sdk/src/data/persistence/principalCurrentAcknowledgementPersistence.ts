@@ -97,10 +97,7 @@ async function validatePublication(
     .from(principalHistoryPrefixes)
     .where(eq(principalHistoryPrefixes.scopeId, entry.prefix.scopeId))
     .limit(1);
-  if (
-    prefix?.progress !== entry.previousPrefixProgress &&
-    prefix?.progress !== entry.prefix.progress
-  )
+  if (prefix?.progress !== entry.previousPrefixProgress)
     throw new KeyingVerificationError(
       "stale_predecessor",
       "Authenticated principal prefix changed before acknowledgement",
@@ -151,6 +148,8 @@ export async function persistAcknowledgedPrincipalCurrents(input: {
       }
       for (const entry of entries) {
         await writePrincipalHistoryEvidencePage(tx, entry.evidence);
+        // A fully authenticated publication supersedes an in-flight stage for
+        // this exact head. Its other writer fails its progress CAS and resumes.
         await tx
           .insert(principalHistoryStages)
           .values(entry.stage)

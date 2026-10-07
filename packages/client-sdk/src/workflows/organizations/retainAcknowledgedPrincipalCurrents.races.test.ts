@@ -136,34 +136,51 @@ test("a concurrent prefix replacement survives a losing acknowledgement", async 
   }
 });
 
-test("expiry after the first current artifact write rolls back the whole transaction", async () => {
-  const f = await currentPolicyPublicationFixture(history);
-  try {
-    const before = await snapshot(f);
-    let wrote = false;
-    const execSql = createExecSql({
-      exec: async ({ sql, bind, rowMode }) => {
-        const rows = await f.options.execSql(
-          sql,
-          bind,
-          rowMode ? { rowMode } : undefined,
-        );
-        if (sql.startsWith('insert into "principal_history_prefixes"')) {
-          wrote = true;
-          f.lifetime.current = false;
-        }
-        return { rows };
-      },
-    });
-    await expect(
-      retainAcknowledgedPrincipalCurrents({ ...f.publication, execSql }),
-    ).rejects.toThrow("generation expired");
-    expect(wrote).toBe(true);
-    expect(await snapshot(f)).toBe(before);
-  } finally {
-    f.close();
-  }
-});
+test.each(["generation", "signal"] as const)(
+  "%s expiry after the first current artifact write rolls back the whole transaction",
+  async (kind) => {
+    const f = await currentPolicyPublicationFixture(history);
+    try {
+      const before = await snapshot(f);
+      let wrote = false;
+      const controller = new AbortController();
+      const entries = f.publication.entries.map((entry, index) =>
+        index === 0
+          ? {
+              ...entry,
+              recovery: { ...entry.recovery, signal: controller.signal },
+            }
+          : entry,
+      );
+      const execSql = createExecSql({
+        exec: async ({ sql, bind, rowMode }) => {
+          const rows = await f.options.execSql(
+            sql,
+            bind,
+            rowMode ? { rowMode } : undefined,
+          );
+          if (sql.startsWith('insert into "principal_history_prefixes"')) {
+            wrote = true;
+            if (kind === "signal") controller.abort();
+            else f.lifetime.current = false;
+          }
+          return { rows };
+        },
+      });
+      await expect(
+        retainAcknowledgedPrincipalCurrents({
+          ...f.publication,
+          entries,
+          execSql,
+        }),
+      ).rejects.toThrow("generation expired");
+      expect(wrote).toBe(true);
+      expect(await snapshot(f)).toBe(before);
+    } finally {
+      f.close();
+    }
+  },
+);
 
 test("duplicate policies and unsigned grant retirements cannot be published", async () => {
   const f = await currentPolicyPublicationFixture(history);

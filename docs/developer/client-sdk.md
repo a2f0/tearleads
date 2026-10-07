@@ -854,3 +854,7 @@ warmer and operation-lifetime guard; the document store supplies both.
 `retainAcknowledgedPrincipalCurrents` retains exact acknowledged current policies
 and recovery progress atomically with their checkpoints. Its predecessor,
 custody and receipt requirements are documented in [current mutations](principal-current-mutations.md).
+
+The public `AcknowledgedPrincipalCurrentInput` and
+`AcknowledgedPrincipalCurrentRetirement` types describe batch inputs and
+signed-grant retirements.
