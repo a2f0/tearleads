@@ -2,7 +2,7 @@
 import { AppleLogoIcon } from "@phosphor-icons/react/dist/ssr/AppleLogo";
 import { LinuxLogoIcon } from "@phosphor-icons/react/dist/ssr/LinuxLogo";
 import { WindowsLogoIcon } from "@phosphor-icons/react/dist/ssr/WindowsLogo";
-import { appStoreUrl, appUrl, isStaging, testFlightUrl } from "../config";
+import { appUrl, iosDownloadUrl, isStaging } from "../config";
 import { resolveLinuxDownloads } from "../linuxDownloads";
 import { resolveMacosDownloads } from "../macosDownloads";
 import { resolveWindowsDownloads } from "../windowsDownloads";
@@ -18,8 +18,8 @@ import SectionHeader from "./SectionHeader.astro";
  * codesign and notarize for every release tier, and releaseMacos.sh builds
  * both staging and production with a tier.
  *
- * The iOS row links each tier's App Store record and, on staging, the public
- * TestFlight link; see appStoreUrl in src/config.ts.
+ * The iOS row links the App Store in production and TestFlight on staging;
+ * see iosDownloadUrl in src/config.ts.
  */
 const [macos, linux, windows] = await Promise.all([
   resolveMacosDownloads(isStaging),
@@ -109,18 +109,10 @@ const rows: readonly DownloadRow[] = [
     : []),
   {
     platform: "iOS",
-    details: ["iPhone and iPad", "App Store"],
-    links: testFlightUrl
-      ? [
-          {
-            href: testFlightUrl,
-            label: "TestFlight beta",
-            ariaLabel: "TestFlight beta for iOS",
-          },
-        ]
-      : [],
+    details: ["iPhone and iPad", isStaging ? "TestFlight" : "App Store"],
+    links: [],
     action: {
-      href: appStoreUrl,
+      href: iosDownloadUrl,
       label: isStaging ? "Download iOS preview" : "Download for iOS",
       variant: "primary",
       icon: AppleLogoIcon,

@@ -6,17 +6,14 @@ export const appUrl = isStaging
   : "https://app.tearleads.com";
 
 /**
- * App Store Connect records for com.tearleads.staging.app and
- * com.tearleads.app. Each link 404s until Apple approves that app for sale.
+ * The staging iOS app (com.tearleads.staging.app) ships only through
+ * TestFlight, so staging links its external group's public join link.
+ * Production links the com.tearleads.app App Store record, which 404s until
+ * Apple approves the app for sale.
  */
-export const appStoreUrl = isStaging
-  ? "https://apps.apple.com/app/id6796261784"
-  : "https://apps.apple.com/app/id6793172063";
-
-/** The staging app's external TestFlight group public link. */
-export const testFlightUrl = isStaging
+export const iosDownloadUrl = isStaging
   ? "https://testflight.apple.com/join/JGZxEWQD"
-  : null;
+  : "https://apps.apple.com/app/id6793172063";
 
 /**
  * The site's release notice, shown by StatusNotice.astro under the label
