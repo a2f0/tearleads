@@ -131,6 +131,9 @@ intact. The helpers return ordinary receipts, not verified policy capabilities.
 If a submission adapter throws, the saved request remains unresolved and the
 helper throws `PrincipalMutationOutcomeUnknownError` with the original error as
 its cause. A thrown exception cannot establish that dispatch did not commit.
+Built-in interactive dispatch and recovery each have a 15-second deadline,
+combined with any caller cancellation signal. Expiry preserves uncertain work
+and releases the local lane so saved-change inspection and actions can proceed.
 They cover compound group policy writes; standalone organization writes and
 group creation/deletion requests still need their own authored-request recovery.
 

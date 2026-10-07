@@ -1,4 +1,4 @@
-import type { ApiClient } from "@tearleads/api-client";
+import type { ApiClient, RequestResultOptions } from "@tearleads/api-client";
 import type { SigningKeyPair } from "@tearleads/crypto";
 import type { ExecSql } from "../data/sqlite/sqlSchema";
 import {
@@ -48,6 +48,16 @@ type MutationOverrides = Pick<
 interface PrincipalMutationApiCustodyInput {
   readonly api: ApiClient;
   readonly readScope: () => PrincipalMutationRuntimeScope | null;
+}
+
+function mutationDispatchOptions(options: RequestResultOptions = {}) {
+  const deadline = AbortSignal.timeout(15_000);
+  return {
+    ...options,
+    signal: options.signal
+      ? AbortSignal.any([options.signal, deadline])
+      : deadline,
+  };
 }
 
 function mutationContext(
@@ -100,7 +110,7 @@ export function createPrincipalMutationApiCustody(
               organizationId,
               mutation.groupId,
               mutation.request,
-              options,
+              mutationDispatchOptions(options),
             ),
         });
       const read: PrincipalMutationRecoveryApi["readPendingPrincipalMutation"] =
@@ -141,7 +151,7 @@ export function createPrincipalMutationApiCustody(
                 organizationId,
                 mutation.groupId,
                 mutation.request,
-                { signal: AbortSignal.timeout(15_000), reportErrors: false },
+                mutationDispatchOptions({ reportErrors: false }),
               ),
           });
         },
