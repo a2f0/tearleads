@@ -1,6 +1,6 @@
 import type { NativeSubscriptionStore } from "@tearleads/validators/billing";
+import type { PrincipalPolicyMutationResponse } from "@tearleads/validators/response";
 import type {
-  addOrganizationGroupUser,
   cancelStripeSubscription,
   checkNativePurchaseEligibility,
   claimNativeOrganizationSubscription,
@@ -13,9 +13,7 @@ import type {
   loadOrganizationBillingHistory,
   loadOrganizationBillingManagementUrl,
   loadStripeCheckoutOptions,
-  removeOrganizationGroupUser,
   revokeOrganizationContainerGrant,
-  rotateOrganizationGroupForAccessSetShrink,
   startOrganizationTrial,
   updateOrganizationProfile,
   updateOrganizationRosterEntry,
@@ -36,6 +34,9 @@ import type {
   RemoveOrganizationGroupUserInput,
 } from "./principalMutations";
 
+/** Exact current artifacts and container receipts; no historical prefix. */
+export type OrganizationGroupMutationReceipt = PrincipalPolicyMutationResponse;
+
 export interface Organizations {
   discardUnreadablePolicyMutation: (
     input: DiscardUnreadableOrganizationPolicyMutationInput,
@@ -49,7 +50,7 @@ export interface Organizations {
   ) => Promise<boolean>;
   addUserToGroup: (
     input: AddOrganizationGroupUserInput,
-  ) => ReturnType<typeof addOrganizationGroupUser>;
+  ) => Promise<OrganizationGroupMutationReceipt>;
   createGroup: (name: string) => ReturnType<typeof createOrganizationGroup>;
   deleteGroup: (
     groupId: string,
@@ -129,12 +130,12 @@ export interface Organizations {
   ) => ReturnType<typeof updateOrganizationProfile>;
   removeUserFromGroup: (
     input: RemoveOrganizationGroupUserInput,
-  ) => ReturnType<typeof removeOrganizationGroupUser>;
+  ) => Promise<OrganizationGroupMutationReceipt>;
   revokeGrant: (
     grant: OrganizationGrantRef,
   ) => Promise<
     | Awaited<ReturnType<typeof revokeOrganizationContainerGrant>>
-    | Awaited<ReturnType<typeof rotateOrganizationGroupForAccessSetShrink>>
+    | OrganizationGroupMutationReceipt
   >;
   startTrial: (
     organizationId?: string,

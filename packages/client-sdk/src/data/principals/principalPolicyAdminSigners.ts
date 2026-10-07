@@ -11,7 +11,7 @@ import {
 import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
 
 export function principalPolicyReferenceFromBundle(
-  bundle: PrincipalPolicyBundleResponse,
+  bundle: Pick<PrincipalPolicyBundleResponse, "currentState">,
 ): ReferencedPrincipalHead {
   return {
     principalType: bundle.currentState.principalType,

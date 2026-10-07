@@ -267,8 +267,11 @@ verified reserved `Admins` policy. Before committing a principal rotation, the
 client derives the complete container batch from verified writer projections;
 the API atomically rejects any transition that leaves a stale principal pin.
 Policy mutation receipts omit the historical prefix. The client verifies the
-exact authored state and artifacts, then retains the successor with its locally
-verified history; it does not accept a replacement prefix from the receipt.
+exact authored state and artifacts. Built-in member changes and group revocation
+use bounded current evidence and atomically retain authenticated progress. The
+public `OrganizationGroupMutationReceipt` omits `previousStates`; standalone
+full-bundle workflows preserve their return contracts. See
+[current mutations](../../../../docs/developer/principal-current-mutations.md).
 Metadata profile upload remains a separate idempotent content sync and never
 changes grants.
 

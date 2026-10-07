@@ -1,7 +1,6 @@
 import {
   KeyingVerificationError,
   type ReferencedPrincipalHead,
-  serializeKeyingCanonicalJson,
   verifyPrincipalPolicyHistoryReferences,
 } from "@tearleads/crypto";
 import { assertProjectionVerificationCurrent } from "../../data/keyingProjectionVerification/types";
@@ -11,6 +10,7 @@ import {
   parseOrganizationAuthorityDescriptor,
 } from "../../data/principals/organizationAuthorityDescriptor";
 import { principalHistoryEvidenceScopeId } from "../../data/principals/principalHistoryPrefixProtection";
+import { directoryHistoryProtection } from "../../data/principals/principalHistoryScopeProtection";
 import { loadVerifiedPrincipalHistoryPrefix } from "./principalHistoryRecoveryPrefix";
 import {
   PrincipalPolicyHistoryReadError,
@@ -128,13 +128,7 @@ export async function recoverPolicyDirectory(
 ): Promise<RecoveredPolicyDirectory> {
   const scoped = {
     ...input,
-    protection: {
-      localKey: input.protection.localKey,
-      context: serializeKeyingCanonicalJson([
-        "tearleads.sdk.principal-history.directory.v1",
-        input.protection.context,
-      ]),
-    },
+    protection: directoryHistoryProtection(input.protection),
   };
   const { head: expectedHead, genesis } = await discoverDirectoryHead(scoped);
   if (references.some((reference) => reference.version > expectedHead.version))

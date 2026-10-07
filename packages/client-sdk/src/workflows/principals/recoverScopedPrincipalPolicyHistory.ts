@@ -3,11 +3,11 @@ import {
   KeyingVerificationError,
   type PrincipalPolicyExternalAuthority,
   type ReferencedPrincipalHead,
-  serializeKeyingCanonicalJson,
   type VerifiedPrincipalPolicyCurrent,
 } from "@tearleads/crypto";
 import { assertProjectionVerificationCurrent } from "../../data/keyingProjectionVerification/types";
 import { ownPrincipalHistoryProtection } from "../../data/principals/principalHistoryProtection";
+import { scopedGroupHistoryProtection } from "../../data/principals/principalHistoryScopeProtection";
 import {
   PrincipalHistoryRecoveryRaceError,
   type RecoveredPrincipalPolicyHistory,
@@ -54,21 +54,6 @@ function authorityHead(state: ReferencedPrincipalHead) {
     stateHash: state.stateHash,
     keyEpoch: state.keyEpoch,
     keyFingerprint: state.keyFingerprint,
-  };
-}
-
-function scopedGroupProtection(
-  input: RecoverScopedPrincipalPolicyHistoryOptions,
-  adminHead: ReferencedPrincipalHead,
-) {
-  return {
-    localKey: input.protection.localKey,
-    context: serializeKeyingCanonicalJson([
-      "tearleads.sdk.principal-history.scoped-group.v1",
-      input.protection.context,
-      input.organizationId,
-      adminHead.principalId,
-    ]),
   };
 }
 
@@ -134,7 +119,13 @@ async function recoverScopedPolicy(
     historyVerification: isAdmins ? "direct-admins" : "standard",
     ...(isAdmins
       ? {}
-      : { protection: scopedGroupProtection(input, adminHead) }),
+      : {
+          protection: scopedGroupHistoryProtection(
+            input.protection,
+            input.organizationId,
+            adminHead.principalId,
+          ),
+        }),
     ...(isAdmins ? {} : { loadExternalAuthority }),
   });
   return {
@@ -144,7 +135,7 @@ async function recoverScopedPolicy(
 }
 
 /** Recover signed directory and strict Admins dependencies without full histories. */
-async function recoverScopedPrincipalPolicyHistoryInBatch(
+export async function recoverScopedPrincipalPolicyHistoryInBatch(
   options: RecoverScopedPrincipalPolicyHistoryOptions,
   memo?: PrincipalRecoveryMemo,
 ): Promise<RecoveredScopedPrincipalPolicyHistory> {
@@ -206,13 +197,4 @@ export function recoverScopedPrincipalPolicyHistory(
   options: RecoverScopedPrincipalPolicyHistoryOptions,
 ): Promise<RecoveredScopedPrincipalPolicyHistory> {
   return recoverScopedPrincipalPolicyHistoryInBatch(options);
-}
-
-/** Internal runtime batch: shared results never outlive one caller's collection. */
-export function createScopedPrincipalPolicyHistoryBatch(): typeof recoverScopedPrincipalPolicyHistory {
-  const memo: PrincipalRecoveryMemo = {
-    directories: new Map(),
-    admins: new Map(),
-  };
-  return (options) => recoverScopedPrincipalPolicyHistoryInBatch(options, memo);
 }

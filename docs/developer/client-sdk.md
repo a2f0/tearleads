@@ -649,9 +649,11 @@ or `moveContainerResult`, and `getContainerWriterProjection`.
 
 Principal-policy writes acknowledge the exact submitted state and current
 artifacts without retransmitting `previousStates`. The SDK verifies that receipt
-against its authored request and constructs the persisted successor bundle from
-its verified local prefix. Container acknowledgements remain part of the same
-check; a missing or substituted result cannot advance the local checkpoint.
+against its authored request. Built-in membership changes and group revocation
+return `OrganizationGroupMutationReceipt` and atomically retain current artifacts
+and authenticated progress. Standalone full-bundle workflows keep their return
+contracts; see [current mutations](principal-current-mutations.md). Missing or
+substituted receipts cannot advance the local checkpoint.
 The runtime journals compound policy requests before HTTP and resolves pending
 work before authoring another group change. Advanced hosts use
 `submitJournaledPrincipalMutation` and `recoverJournaledPrincipalMutation`

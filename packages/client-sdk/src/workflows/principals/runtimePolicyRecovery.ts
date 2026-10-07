@@ -20,13 +20,11 @@ import {
   PrincipalHistoryRecoveryRaceError,
   PrincipalPolicyHistoryReadError,
 } from "./principalHistoryRecoveryTypes";
+import { createScopedPrincipalPolicyHistoryBatch } from "./principalRecoveryBatch";
 import { recoverWithPrincipalLocalPreference } from "./principalRecoveryLocalPreference";
 import { queuePrincipalRecovery } from "./principalRecoveryQueue";
 import { recoverCurrentOrganizationPolicy } from "./recoverCurrentOrganizationPolicy";
-import {
-  createScopedPrincipalPolicyHistoryBatch,
-  recoverScopedPrincipalPolicyHistory,
-} from "./recoverScopedPrincipalPolicyHistory";
+import { recoverScopedPrincipalPolicyHistory } from "./recoverScopedPrincipalPolicyHistory";
 
 export interface PrincipalPolicyRecoveryRuntime {
   readonly apiClient: Partial<
@@ -78,10 +76,14 @@ export function createRuntimePrincipalPolicyCurrentResolver(
   if (!lease || !readPages) return undefined;
   const batches = new WeakMap<
     object,
-    typeof recoverScopedPrincipalPolicyHistory
+    ReturnType<typeof createScopedPrincipalPolicyHistoryBatch>
   >();
   const recoverFor = (batch: object | undefined) => {
-    if (!batch) return recoverScopedPrincipalPolicyHistory;
+    if (!batch)
+      return {
+        recover: recoverScopedPrincipalPolicyHistory,
+        currentOrganization: recoverCurrentOrganizationPolicy,
+      };
     let recover = batches.get(batch);
     if (!recover) {
       recover = createScopedPrincipalPolicyHistoryBatch();
@@ -115,13 +117,14 @@ export function createRuntimePrincipalPolicyCurrentResolver(
                 resolveTrustedUserIdentity: runtime.resolveTrustedUserIdentity,
                 stillCurrent,
               };
+              const batch = recoverFor(input.recoveryBatch);
               const result = input.reference
                 ? await recoverWithPrincipalLocalPreference(
-                    recoverFor(input.recoveryBatch),
+                    batch.recover,
                     { ...options, reference: input.reference },
                     input.preferLocalCurrent === true,
                   )
-                : await recoverCurrentOrganizationPolicy(options);
+                : await batch.currentOrganization(options);
               return {
                 current: result.current,
                 organizationId: input.organizationId,

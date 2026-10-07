@@ -92,7 +92,7 @@ export function removeOrganizationGroupHead(input: {
 export async function buildOrganizationGroupDirectoryPolicyRequest(input: {
   readonly adminProjection: readonly PrincipalProjectionMemberRequest[];
   readonly adminUsers: readonly TrustedUserIdentity[];
-  readonly currentPolicy: PrincipalPolicyBundleResponse;
+  readonly currentPolicy: Pick<PrincipalPolicyBundleResponse, "currentState">;
   readonly descriptor: OrganizationAuthorityDescriptor;
   readonly groupHeads: readonly OrganizationGroupHead[];
   readonly signerUserId: string;

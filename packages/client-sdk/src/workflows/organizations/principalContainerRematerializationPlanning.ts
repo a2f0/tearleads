@@ -1,8 +1,5 @@
 import type { ApiClient } from "@tearleads/api-client";
-import type {
-  PrincipalContainerGrant,
-  VerifiedPrincipalPolicy,
-} from "@tearleads/crypto";
+import type { PrincipalContainerGrant } from "@tearleads/crypto";
 import type { ContainerWriterProjectionResponse } from "@tearleads/validators/response";
 import { MAX_ROTATION_CONTAINER_REKEYS } from "@tearleads/validators/util";
 import type { ContainerReciteApi } from "../../data/containers/shared/reciteApi";
@@ -12,6 +9,8 @@ import type {
   ReferencedPrincipalPolicyWarmer,
 } from "../../data/keyingProjectionVerification";
 import type { createProjectionUserKeyResolver } from "../../data/keyingProjectionVerification/userKeyResolver";
+import type { CurrentPolicyReferenceResolver } from "../../data/principals/currentPolicyReferenceResolver";
+import type { PrincipalPolicyCurrentEvidence } from "../../data/principals/principalPolicyEvidence";
 import type { SecurityIncidentReporter } from "../../data/securityIncidents";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import type { TrustedUserIdentityResolver } from "../../data/trustedUserIdentity";
@@ -36,10 +35,15 @@ export interface PrincipalContainerRematerializationInput {
   readonly execSql: ExecSql;
   readonly grants: readonly PrincipalContainerGrant[];
   readonly groupId: string;
-  readonly nextPolicy: VerifiedPrincipalPolicy;
+  readonly nextPolicy: PrincipalPolicyCurrentEvidence;
+  readonly resolveAuthoredPolicyReferences?:
+    | CurrentPolicyReferenceResolver
+    | undefined;
   readonly revokedContainerId?: string | undefined;
   readonly resolveTrustedUserIdentity: TrustedUserIdentityResolver;
   readonly stillCurrent?: (() => boolean) | undefined;
+  /** Session lifetime for best-effort work after durable acknowledgement. */
+  readonly recitationStillCurrent?: (() => boolean) | undefined;
   readonly targetSecretKey: Uint8Array;
   readonly warmReferencedPrincipalPolicies?:
     | ReferencedPrincipalPolicyWarmer
@@ -97,6 +101,8 @@ export async function carryLevel(
     // Its path cites the policy this batch commits, so like every
     // rematerialized rotation it must cite the successor.
     replacementPrincipalPolicy: rematerialization.nextPolicy,
+    resolveAuthoredPolicyReferences:
+      rematerialization.resolveAuthoredPolicyReferences,
     resolveProjectionUserKey: batch.resolveProjectionUserKey,
     rotated: batch.rotatedAbove,
     served,

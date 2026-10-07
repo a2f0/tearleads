@@ -80,7 +80,10 @@ export type {
   OrganizationProfile,
   OrganizationUserDetail,
 } from "../../workflows/organizations";
-export type { Organizations } from "./organizationsTypes";
+export type {
+  OrganizationGroupMutationReceipt,
+  Organizations,
+} from "./organizationsTypes";
 export type {
   AbandonOrganizationPolicyMutationInput,
   DiscardUnreadableOrganizationPolicyMutationInput,
