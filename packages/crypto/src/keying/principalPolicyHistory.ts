@@ -70,6 +70,10 @@ class PrincipalPolicyHistoryVerifierImpl
     }
   }
 
+  getExternalAuthorityReference(): ReferencedPrincipalHead | null {
+    return this.#latestAuthority ? { ...this.#latestAuthority } : null;
+  }
+
   append(page: PrincipalPolicyHistoryPage) {
     return runVerifier(async () => {
       this.#assertIdle();
@@ -215,6 +219,8 @@ function publicVerifier(
   verifier: PrincipalPolicyHistoryVerifierImpl,
 ): PrincipalPolicyHistoryVerifier {
   return {
+    getExternalAuthorityReference: () =>
+      verifier.getExternalAuthorityReference(),
     append: (page: PrincipalPolicyHistoryPage) => verifier.append(page),
     finish: (expectedHead: ReferencedPrincipalHead) =>
       verifier.finish(expectedHead),

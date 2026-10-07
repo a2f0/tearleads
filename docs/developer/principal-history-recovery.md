@@ -46,7 +46,12 @@ below; explicit full-bundle operations still require further runtime adoption.
 
 The optional `retainedReferences` selection follows the crypto verifier's bounded
 retention contract. Supply already authenticated external authority through
-`loadExternalAuthority` when policy signatures cite another principal. The helper
+`loadExternalAuthority` when policy signatures cite another principal. This callback
+receives exact authority reference heads, including the latest citation retained
+in authenticated cached progress. It must resolve those heads through the client's
+verified authority lineage. Reusing a stage or prefix rechecks that citation even
+when later pages no longer cite external authority. The separate authority-bound
+verification context retires hints made before this check existed. The helper
 checks signatures, authorization, continuity, exact-head completion, current
 keying artifacts, and the latest local checkpoint. It returns a sparse
 `VerifiedPrincipalPolicyCurrent`; it never represents omitted entries as a full

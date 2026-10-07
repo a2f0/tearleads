@@ -176,6 +176,7 @@ test.each([false, true])(
       principalId: shared.principalId,
       principalType: "group",
     });
+    expect(verifier.getExternalAuthorityReference()).toBeNull();
     expect(
       (
         await verifier.append({
@@ -198,6 +199,11 @@ test.each([false, true])(
         principalId: shared.principalId,
         principalType: "group",
       });
+    const citation = verifier.getExternalAuthorityReference();
+    expect(citation).toEqual(newHead);
+    if (!citation) throw new Error("Missing accepted authority citation");
+    Reflect.set(citation, "stateHash", "f".repeat(64));
+    expect(verifier.getExternalAuthorityReference()).toEqual(newHead);
     expectVerificationError(
       await verifier.append({
         entries: [fourth.entry],

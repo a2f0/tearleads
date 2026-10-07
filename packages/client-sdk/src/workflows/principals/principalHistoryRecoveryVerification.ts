@@ -14,7 +14,13 @@ export function principalHistoryVerificationContext(
       "invalid_shape",
       "Unknown principal history verification mode",
     );
-  if (mode === "standard") return input.protection.context;
+  if (mode === "standard")
+    return input.loadExternalAuthority
+      ? serializeKeyingCanonicalJson([
+          "tearleads.sdk.principal-history.external-authority.v1",
+          input.protection.context,
+        ])
+      : input.protection.context;
   if (
     input.expectedHead.principalType !== "group" ||
     input.loadExternalAuthority

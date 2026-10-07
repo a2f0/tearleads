@@ -7,7 +7,6 @@ import {
   KeyingVerificationError,
   type PrincipalPolicyExternalAuthority,
   type PrincipalPolicyHistoryProgressOptions,
-  type PrincipalPolicyStateChainEntry,
   type ReferencedPrincipalHead,
   type VerifiedPrincipalPolicyCurrent,
 } from "@tearleads/crypto";
@@ -34,10 +33,10 @@ export interface RecoverPrincipalPolicyHistoryOptions {
   /** Strict Admins mode checks every historical projection in a separate cache scope. */
   readonly historyVerification?: "standard" | "direct-admins" | undefined;
   readonly resolveTrustedUserIdentity: TrustedUserIdentityResolver;
-  /** Return only authority already authenticated by this client. */
+  /** Authenticate these exact authority references, including cached-prefix citations. */
   readonly loadExternalAuthority?:
     | ((
-        entries: readonly PrincipalPolicyStateChainEntry[],
+        references: readonly ReferencedPrincipalHead[],
       ) => Promise<PrincipalPolicyExternalAuthority | undefined>)
     | undefined;
   readonly stillCurrent: () => boolean;

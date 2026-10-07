@@ -802,8 +802,8 @@ local work from shared folders with inaccessible parents.
 
 ## Durable principal-history recovery
 
-`recoverScopedPrincipalPolicyHistory` verifies directory and Admins evidence.
-See [recovery](principal-history-recovery.md) for offline reads and key custody.
+Authority loaders take exact heads, including cached citations. See
+[recovery](principal-history-recovery.md) for offline reads and key custody.
 
 `recoverProjectionPolicyHistory` resolves compact projection sources into verified
 historical authorization selections. Standalone hosts provide private local

@@ -1,7 +1,7 @@
 # Client SDK Workflows
 
 Workflow facades compose API, storage, verification and sync without React or UI.
-Private history-key leases stay out of public runtime snapshots; see
+Private leases stay hidden; authority loaders take exact heads. See
 [recovery](../../../../docs/developer/principal-history-recovery.md).
 
 ## Current Host Contract
