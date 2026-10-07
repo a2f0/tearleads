@@ -36,8 +36,10 @@ authority and the chosen encrypted name again. A concurrent rename therefore
 refuses the mint. A new grant requires a chosen name; only an existing grant
 may omit it. The planner repairs stale ancestors, selects the historical
 citations needed by each container, and preserves retained recipient
-envelopes. The compound commit uses the host's durable mutation journal and
-exact receipt handling. Policy and container acknowledgements remain inside
+envelopes. Built-in clients submit the compound commit through their durable
+mutation journal and exact receipt handling. Standalone hosts own transport
+and outcome recovery, including the optional pending-recovery callback, as on
+the complete-bundle path. Policy and container acknowledgements remain inside
 the lease; background descendant recitations use the caller's session
 lifetime. Hosts must support nested private custody leases during projection
 verification.

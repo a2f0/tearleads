@@ -9,9 +9,11 @@ import { createCurrentShareMetadataFixture } from "../../../../test/helpers/curr
 import { createShareTestRuntime } from "../../../../test/helpers/groupShareScenario";
 import { createTestTrustedUserIdentity } from "../../../../test/helpers/trustedUserIdentity";
 import { inheritPrincipalHistoryProtection } from "../../../data/principals/principalHistoryRuntime";
+import { commitCurrentShareGrant } from "../../containers/child/currentShareGrantMutation";
+import { createRuntimeCurrentGroupMutation } from "../../organizations/runtimeCurrentGroupMutation";
 import { shareRemoteContainerWithGroup } from "./remote";
 
-test("a container admin outside the group and org Admins can wrap an existing signed grant", async () => {
+test("a container admin outside group authority can rewrap a grant but cannot mint a broader one", async () => {
   const containerId = crypto.randomUUID();
   const f = await createCurrentShareMetadataFixture({
     grantedContainerId: containerId,
@@ -88,6 +90,43 @@ test("a container admin outside the group and org Admins can wrap an existing si
     });
     expect(result).not.toBeNull();
     expect(shareCalls).toBe(1);
+    expect(compoundCalls).toBe(0);
+    expect(f.fullReads()).toBe(0);
+    const mutate = createRuntimeCurrentGroupMutation(
+      inheritPrincipalHistoryProtection(runtime, {
+        ...runtime,
+        apiClient: Object.assign(f.options.apiClient, {
+          recoverPendingPrincipalMutation: async () => {},
+        }),
+      }),
+    );
+    if (!mutate) throw new Error("Missing fixture Current mutation custody");
+    // Exercise the mint boundary with the same genuine container administrator.
+    // Authorization must fail before a fresh name read or any policy request.
+    await expect(
+      commitCurrentShareGrant({
+        runtime,
+        mutate,
+        share: {
+          accessLevel: "admin",
+          apiClient: f.options.apiClient,
+          author,
+          containerId,
+          execSql: f.options.execSql,
+          expectedGroupName: f.name,
+          previousProjection: projection,
+          recipientGroupId: f.group.currentState.principalId,
+          reportSecurityIncident: runtime.util.reportSecurityIncident,
+          resolveProjectionUserKey: resolveUser,
+          resolveTrustedUserIdentity: resolveUser,
+          signingKeyPair: {
+            signingPrivateKey: author.signerPrivateKey,
+            signingPublicKey,
+          },
+          targetSecretKey: keyPair.secretKey,
+        },
+      }),
+    ).rejects.toThrow("Organization admin authority is required");
     expect(compoundCalls).toBe(0);
     expect(f.fullReads()).toBe(0);
   } finally {

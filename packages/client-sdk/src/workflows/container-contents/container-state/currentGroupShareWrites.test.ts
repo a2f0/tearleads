@@ -111,9 +111,16 @@ test("runtime group share preserves an existing signed grant without minting pol
   }
 }, 15_000);
 
-test.each(["wrong name", "no chosen name", "page failure"] as const)(
+test.each([
+  [
+    "wrong name",
+    "Container share group name does not match the signed group policy",
+  ],
+  ["no chosen name", "Minting a group grant requires the chosen group name"],
+  ["page failure", "page unavailable"],
+] as const)(
   "runtime Current share rejects %s without a Full downgrade or commit",
-  async (mode) => {
+  async (mode, message) => {
     const f = await fixture();
     if (mode === "page failure")
       f.controls.error = new Error("page unavailable");
@@ -128,7 +135,7 @@ test.each(["wrong name", "no chosen name", "page failure"] as const)(
                 ? undefined
                 : f.name,
         }),
-      ).rejects.toThrow();
+      ).rejects.toThrow(message);
       expect(f.compoundCalls()).toBe(0);
       expect(f.shareCalls()).toBe(0);
       expect(f.fullReads()).toBe(0);
@@ -136,6 +143,7 @@ test.each(["wrong name", "no chosen name", "page failure"] as const)(
       f.close();
     }
   },
+  15_000,
 );
 
 test("Current share rejects a substituted policy receipt without advancing its group checkpoint", async () => {
@@ -150,7 +158,9 @@ test("Current share rejects a substituted policy receipt without advancing its g
     return response;
   };
   try {
-    await expect(shareRemoteContainerWithGroup(f.input)).rejects.toThrow();
+    await expect(shareRemoteContainerWithGroup(f.input)).rejects.toThrow(
+      "Group policy state acknowledgement mismatch",
+    );
     expect(f.compoundCalls()).toBe(1);
     expect(
       await loadPrincipalPolicyCheckpoint(
