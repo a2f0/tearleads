@@ -304,8 +304,7 @@ test(
       `GET /principals/group/${adminGroupId}/policy`,
       `GET /principals/group/${adminGroupId}/policy`,
       `GET /principals/group/${groupId}/policy`,
-      `GET /principals/organization/${founderSession.organizationId}/policy`,
-      `GET /principals/organization/${founderSession.organizationId}/policy`,
+      // Metadata unwrap reuses the already verified directory authority.
     ]);
     expect(peerReadModelRequests).toHaveLength(1);
     expect(

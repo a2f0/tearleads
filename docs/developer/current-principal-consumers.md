@@ -53,15 +53,19 @@ private custody, and checkpoint contracts.
 A cold Org Manager open now uses four requests: one read-model read, two
 organization-policy reads and one Admins-policy read. Creating and activating
 an additional organization uses 15 requests, including the same three cold
-policy reads. An active peer reconciles an ungranted group change with eight
+policy reads. An active peer reconciles an ungranted group change with six
 policy/read-model requests and no container or document fanout.
 
 With bounded creation, display pages and exact local metadata evidence, a
 completed group fixture measured first creation/addition at 17/70 requests and
 later creation/addition at 15/20. The whole pairs used 87/35 requests, including
 51/21 public history reads. These are local fixture measurements, not production
-benchmarks. Existing whole-pair limits remain 118/49; creation allows 25/26 and
-addition allows 93/27. Combined history limits remain 54/21.
+benchmarks. Whole-pair limits are tightened from 114/48 on the base to 92/38;
+creation allows 20/18 and addition allows 75/23. Margins permit three boundary
+reads per phase, with five extra reads for first-enrollment proof discovery.
+The pair cap prevents those margins from accumulating. Combined history limits
+remain 54/21. Earlier intermediate limits of 118/49 were reduced after measuring
+local-evidence reuse.
 
 Metadata-key unwrapping previously repeated directory/Admins/Members recovery
 after its metadata authority had already selected those policies. The new local
