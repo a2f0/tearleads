@@ -60,13 +60,14 @@ Creation receipts reconstruct the original group summary and directory outcome,
 even after later policies advance. Deletion receipts reconstruct the original
 directory outcome after the group is gone. Neither creates another read-model
 change on replay. Both require current administrator access under mutation locks.
-These transport capabilities do not yet add a durable SDK journal for group
-creation or deletion; only compound policy mutations have that runtime integration.
+The runtime journals these operations in the same durable organization lane as
+compound and standalone organization policy requests.
 
-## Durable compound policy requests
+## Durable principal requests
 
 The `Tearleads` runtime saves the complete JSON request before submitting a
-compound group/directory policy mutation. A separate signature by the local
+compound policy, standalone organization policy, group creation or group deletion
+mutation. A separate signature by the local
 actor authenticates the whole wire body, including ciphertext and envelopes
 outside individual state signatures. Its domain binds the API identity trust
 domain, organization, actor and signing fingerprint. The local SQLite executor
@@ -155,8 +156,13 @@ its cause. A thrown exception cannot establish that dispatch did not commit.
 Built-in interactive dispatch and recovery each have a 15-second deadline,
 combined with any caller cancellation signal. Expiry preserves uncertain work
 and releases the local lane so saved-change inspection and actions can proceed.
-They cover compound group policy writes; standalone organization writes and
-group creation/deletion requests still need their own authored-request recovery.
+All four operation kinds share the same lane. Existing signed compound rows
+remain recoverable under their original scope, without re-signing or hiding
+unknown work. New rows bind an explicit operation kind; standalone organization
+rows have no group target. Recovery dispatches only that authenticated route and
+checks the matching receipt before removing the journal row. Group creation also
+checks the exact authored genesis against the returned summary; deletion checks
+both organization and deleted group IDs.
 
 Real HTTP tests with SQLite and PostgreSQL withhold a committed response, advance
 the policy from another client, and recover the first receipt without a duplicate

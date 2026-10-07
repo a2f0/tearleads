@@ -1,6 +1,5 @@
 import type { RequestResult } from "@tearleads/api-client";
 import type { SigningKeyPair } from "@tearleads/crypto";
-import type { CommitOrganizationGroupPolicyResponse } from "@tearleads/validators/response";
 import { assertProjectionVerificationCurrent } from "../../data/keyingProjectionVerification/types";
 import {
   claimPrincipalMutationJournal,
@@ -17,9 +16,12 @@ import {
 } from "../../data/principals/principalMutationJournal";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import { runPrincipalMutationJournalOperation } from "./principalMutationJournalLane";
-import { assertAuthoredPrincipalMutationReceipt } from "./principalMutationReceipt";
+import {
+  assertAuthoredPrincipalOperationReceipt,
+  type PrincipalMutationResponse,
+} from "./principalOperationReceipt";
 
-type MutationResult = RequestResult<CommitOrganizationGroupPolicyResponse>;
+type MutationResult = RequestResult<PrincipalMutationResponse>;
 
 export interface PrincipalMutationJournalContext {
   readonly execSql: ExecSql;
@@ -75,7 +77,7 @@ async function submitSavedMutation(
   }
   assertProjectionVerificationCurrent(input.stillCurrent);
   if (result.ok) {
-    await assertAuthoredPrincipalMutationReceipt(mutation.request, result.data);
+    await assertAuthoredPrincipalOperationReceipt(mutation, result.data);
   } else if (recovering || !knownInitialRefusal(result)) {
     // A refusal today (including loss of admin access) cannot establish whether
     // an earlier disconnected attempt committed. Preserve the original intent.
@@ -117,7 +119,7 @@ export async function recoverJournaledPrincipalMutation(
   input: PrincipalMutationJournalContext,
 ): Promise<{
   readonly mutation: AuthoredPrincipalMutation;
-  readonly response: CommitOrganizationGroupPolicyResponse;
+  readonly response: PrincipalMutationResponse;
 } | null> {
   return runPrincipalMutationJournalOperation(
     input.execSql,

@@ -655,8 +655,11 @@ and authenticated progress. Hosts without private custody may include history
 in the common receipt; standalone full-bundle workflows keep their return
 contracts; see [current mutations](principal-current-mutations.md). Missing or
 substituted receipts cannot advance the local checkpoint.
-The runtime journals compound policy requests before HTTP and resolves pending
-work before authoring another group change. Advanced hosts use
+The runtime journals compound policies, standalone organization policies, group
+creation and group deletion before HTTP. Pending work shares one organization
+lane and blocks another mutation. `AuthoredPrincipalMutation` records the kind
+and route; `PrincipalMutationResponse` covers the exact receipt variants.
+Advanced hosts use
 `submitJournaledPrincipalMutation` and `recoverJournaledPrincipalMutation`
 with durable SQLite, the actor's signing key and a current-lifetime guard.
 An unknown result remains pending even if a later retry receives 403 or 409.

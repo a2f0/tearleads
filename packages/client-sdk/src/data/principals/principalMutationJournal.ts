@@ -6,12 +6,13 @@ import {
   verify,
 } from "@tearleads/crypto";
 import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
-import {
-  type CommitOrganizationGroupPolicyRequest,
-  CommitOrganizationGroupPolicyRequestSchema,
-} from "@tearleads/validators/request";
 import { canonicalKeyingJsonString } from "../keyingCanonicalJson";
 import type { PrincipalMutationJournalRow } from "../persistence/principalMutationJournalPersistence";
+
+import {
+  type AuthoredPrincipalMutation,
+  readPrincipalMutation,
+} from "./principalMutationJournalShape";
 
 export interface PrincipalMutationJournalScope {
   readonly identityTrustDomain: string;
@@ -20,10 +21,7 @@ export interface PrincipalMutationJournalScope {
   readonly signingFingerprint: string;
 }
 
-export interface AuthoredPrincipalMutation {
-  readonly groupId: string;
-  readonly request: CommitOrganizationGroupPolicyRequest;
-}
+export type { AuthoredPrincipalMutation } from "./principalMutationJournalShape";
 
 const journalDomain = "tearleads.sdk.principal-mutation.v1";
 const encoder = new TextEncoder();
@@ -50,34 +48,6 @@ export async function principalMutationJournalScopeId(
   );
 }
 
-function readMutation(
-  value: unknown,
-  scope: PrincipalMutationJournalScope,
-): AuthoredPrincipalMutation {
-  if (typeof value !== "object" || value === null)
-    throw new Error("Principal mutation journal payload is invalid");
-  const groupId: unknown = Reflect.get(value, "groupId");
-  const request = CommitOrganizationGroupPolicyRequestSchema.parse(
-    Reflect.get(value, "request"),
-  );
-  const group = request.groupPolicy.state;
-  const organization = request.organizationPolicy.state;
-  if (
-    typeof groupId !== "string" ||
-    group.principalType !== "group" ||
-    group.principalId !== groupId ||
-    organization.principalType !== "organization" ||
-    organization.principalId !== scope.organizationId ||
-    [group, organization].some(
-      (state) =>
-        state.signerUserId !== scope.userId ||
-        state.signerUserKeyFingerprint !== scope.signingFingerprint,
-    )
-  )
-    throw new Error("Principal mutation journal target or signer differs");
-  return { groupId, request };
-}
-
 function signedBytes(scope: PrincipalMutationJournalScope, request: string) {
   // The domain-tagged scope and JSON tuple separate these identity-key
   // signatures from policy state signatures and other authored formats.
@@ -91,7 +61,7 @@ export async function sealPrincipalMutation(input: {
   readonly signingKeyPair: SigningKeyPair;
 }): Promise<PrincipalMutationJournalRow> {
   const scope = { ...input.scope };
-  const mutation = readMutation(
+  const mutation = readPrincipalMutation(
     JSON.parse(JSON.stringify(input.mutation)),
     scope,
   );
@@ -145,7 +115,7 @@ export async function openPrincipalMutation(input: {
     );
   }
   try {
-    return readMutation(JSON.parse(row.serializedRequest), scope);
+    return readPrincipalMutation(JSON.parse(row.serializedRequest), scope);
   } catch {
     throw new KeyingVerificationError(
       "invalid_shape",

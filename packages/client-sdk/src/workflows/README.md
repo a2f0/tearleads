@@ -36,9 +36,11 @@ evidence, not compatibility formats.
 Membership writes bind `expectedGroupName` to decrypted group
 metadata before recipient key use. Custom names require `readEncryptedName`;
 creation requires `metadataAccess`. See the [SDK guide](../../../../docs/developer/client-sdk.md).
-`submitJournaledPrincipalMutation` saves exact compound policy requests before
-HTTP; `recoverJournaledPrincipalMutation` resolves saved work before authoring
-again. The `Tearleads` runtime supplies this for group policy mutations.
+`submitJournaledPrincipalMutation` saves exact principal requests before HTTP;
+`recoverJournaledPrincipalMutation` resolves saved work before authoring again.
+The `Tearleads` runtime supplies this for compound and standalone organization
+policies, group creation and group deletion. `AuthoredPrincipalMutation` binds
+each operation kind and route; `PrincipalMutationResponse` is the receipt union.
 Both policy API variants may throw `PendingPrincipalMutationError` or
 `PrincipalMutationOutcomeUnknownError`. Hosts can inspect saved work with
 `readJournaledPrincipalMutation` and explicitly stop its retries with
