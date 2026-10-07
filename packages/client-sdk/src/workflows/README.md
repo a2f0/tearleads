@@ -267,8 +267,8 @@ member read. `policyHistory.nextBeforeVersion` is an exclusive cursor for older
 entries, or null at genesis. Each page verifies index proofs against a privately
 authenticated prefix and retains its real predecessor for membership diffs.
 The projected head bounds the displayed history even when local recovery has
-already verified a newer head. Hosts without private paged recovery retain the
-complete-bundle path for cursor-free calls and reject explicit cursors;
+already verified a newer head. Group-history hosts without private paged recovery
+retain the complete-bundle path for cursor-free calls and reject explicit cursors;
 verification failures never downgrade to that path. Raw responses are never
 rendered. `Organizations.loadPolicyHistory(beforeVersion?)` also selects 32
 organization entries and an authenticated predecessor. Compact roster-scoped
@@ -351,9 +351,10 @@ local work from shared folders with inaccessible parents.
 Standalone document and container runtime constructors accept a private
 `withPrincipalHistoryProtection: PrincipalHistoryProtectionLease` input. It enables
 their built-in history resolvers and passes through store/derived-document
-adapters without exposing the callback on returned runtime views. Hosts retain
-responsibility for key cleanup and invalidating the lease on authority/storage
-changes, as specified in the principal-history recovery guide.
+adapters without exposing the callback on returned runtime views. This includes
+[current group-share reads](../../../../docs/developer/principal-current-sharing.md).
+Hosts own key cleanup and lease invalidation on authority/storage changes, as
+specified in the principal-history recovery guide.
 
 `recoverProjectionPolicyHistory` resolves compact projection sources into verified
 historical authorization selections. Standalone hosts provide private local

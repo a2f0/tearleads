@@ -16,6 +16,7 @@ import {
   loadVerifiedGroupSharePrincipalPolicy,
   referencedPrincipalHeadFromPolicy,
 } from "../../containers";
+import { createRuntimeCurrentSharePrincipalPolicy } from "../../containers/child/currentSharePrincipalPolicy";
 import { createRuntimePrincipalPolicyWarmer } from "../../principals/runtimePolicyWarmer";
 import type { ContainerState } from "../remoteHydration";
 import { loadContainerWriterProjectionForState } from "./projectionCache";
@@ -87,6 +88,47 @@ async function containerStateHasCurrentGroupGrantInternal(input: {
     return false;
   }
 
+  const readCurrent = createRuntimeCurrentSharePrincipalPolicy(input.runtime);
+  if (readCurrent)
+    return readCurrent(
+      {
+        expectedGroupHead: input.expectedGroupHead,
+        groupId: input.groupId,
+        organizationId: input.expectedOrganizationId,
+        stillCurrent: input.stillCurrent ?? (() => true),
+      },
+      async ({ checkpointPolicies, policy, stillCurrent }) => {
+        await verifyContainerWriterProjection({
+          execSql: input.runtime.infra.execSql,
+          principalPolicyCache:
+            principalPolicyCacheForVerifiedPolicies(checkpointPolicies),
+          projection,
+          resolveUserKey: input.resolveProjectionUserKey,
+          stillCurrent,
+          warmReferencedPrincipalPolicies: createRuntimePrincipalPolicyWarmer(
+            input.runtime,
+          ),
+        });
+        return projectionHasCurrentGroupGrant({
+          accessLevel: input.accessLevel,
+          currentHead: referencedPrincipalHeadFromPolicy(policy),
+          expectedContainerId: input.expectedContainerId,
+          expectedOrganizationId: input.expectedOrganizationId,
+          groupId: input.groupId,
+          projection,
+        });
+      },
+    );
+
+  return verifyLegacyCurrentGroupGrant(input, projection);
+}
+
+async function verifyLegacyCurrentGroupGrant(
+  input: Parameters<typeof containerStateHasCurrentGroupGrantInternal>[0],
+  projection: Parameters<
+    typeof projectionHasCurrentGroupGrant
+  >[0]["projection"],
+): Promise<boolean> {
   const { bundle, checkpointPolicies, dependencyBundles, policy } =
     await loadVerifiedGroupSharePrincipalPolicy({
       apiClient: input.runtime.apiClient,
