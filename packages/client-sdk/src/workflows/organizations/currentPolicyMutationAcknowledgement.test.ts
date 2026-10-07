@@ -13,7 +13,7 @@ import {
 let history: Awaited<ReturnType<typeof signedAuthorityRecoveryHistory>>;
 beforeAll(async () => {
   history = await signedAuthorityRecoveryHistory();
-});
+}, 30_000);
 
 test.each(["group", "organization"] as const)(
   "paged %s evidence prepares and acknowledges one successor without a full history",

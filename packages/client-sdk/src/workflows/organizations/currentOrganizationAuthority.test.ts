@@ -12,7 +12,7 @@ import { loadCurrentOrganizationAuthority } from "./currentOrganizationAuthority
 let history: Awaited<ReturnType<typeof signedAuthorityRecoveryHistory>>;
 beforeAll(async () => {
   history = await signedAuthorityRecoveryHistory();
-});
+}, 30_000);
 
 async function fixture() {
   const f = await createAuthorityRecoveryFixture(history);

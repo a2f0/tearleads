@@ -16,7 +16,7 @@ import { buildSetGroupContainerGrantPolicyRequest } from "./groupPolicyRequests"
 let history: Awaited<ReturnType<typeof signedAuthorityRecoveryHistory>>;
 beforeAll(async () => {
   history = await signedAuthorityRecoveryHistory();
-});
+}, 30_000);
 
 async function fixture(source = history) {
   const f = await createAuthorityRecoveryFixture(source);

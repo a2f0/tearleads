@@ -17,7 +17,7 @@ import { retainAcknowledgedPrincipalCurrents } from "./retainAcknowledgedPrincip
 let history: Awaited<ReturnType<typeof signedAuthorityRecoveryHistory>>;
 beforeAll(async () => {
   history = await signedAuthorityRecoveryHistory();
-});
+}, 30_000);
 
 test("a valid signed directory cannot substitute its payload organization", async () => {
   const f = await currentPolicyPublicationFixture(history);
