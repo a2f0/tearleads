@@ -153,7 +153,7 @@ test.each(["creation", "deletion"] as const)(
         body: JSON.stringify(substituted),
       });
       // A changed deletion request has no receipt and its target is gone.
-      expect([400, 404, 409]).toContain(altered.status);
+      expect(altered.status).toBe(operation === "creation" ? 409 : 404);
       await altered.arrayBuffer();
       const outsider = createTestUser();
       await registerAndAuthenticate(outsider);

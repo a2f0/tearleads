@@ -3,8 +3,8 @@
 A client may lose an HTTP response after a standalone organization policy, a
 compound group-and-organization policy request, or group creation/deletion
 commits. Retrying the exact request returns its original acknowledgement even
-after later policy versions
-commit. A durable receipt is written in the same transaction as the policies and
+after later policy versions commit. A durable receipt is written in the same
+transaction as the policies and
 binds the entire canonical request, authenticated requester, organization, and
 target group when applicable. Separate hash domains distinguish standalone,
 compound, creation and deletion requests. Existing mutation locks serialize
