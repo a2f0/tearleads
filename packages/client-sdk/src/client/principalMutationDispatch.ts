@@ -67,14 +67,20 @@ export function dispatchAuthoredPrincipalMutation(
         mutation.request,
         bounded,
       );
-    default:
+    case undefined:
       return api.commitOrganizationGroupPolicyResult(
         organizationId,
         mutation.groupId,
         mutation.request,
         bounded,
       );
+    default:
+      return unsupportedMutation(mutation);
   }
+}
+
+function unsupportedMutation(_mutation: never): never {
+  throw new Error("Unsupported principal mutation operation");
 }
 
 export function createJournaledPrincipalMutations(
@@ -96,6 +102,8 @@ export function createJournaledPrincipalMutations(
         dispatchAuthoredPrincipalMutation(api, organizationId, saved, options),
     });
     if (!result.ok) return result;
+    // The session already verified this operation before clearing its row.
+    // This check narrows the union for each existing public API signature.
     if (!validator(result.data))
       throw new Error("Unexpected principal receipt operation");
     return { ok: true, data: result.data };

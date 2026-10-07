@@ -52,6 +52,21 @@ for (const nullable of [false, true]) {
       if ("group" in invalid) invalid.group.groupId = crypto.randomUUID();
       else if ("groupId" in invalid) invalid.groupId = crypto.randomUUID();
       else invalid.currentState.stateHash = "substituted-state-hash";
+      const invalidReceipts = [invalid];
+      if ("group" in response) {
+        for (const field of ["memberCount", "keyEpoch"] as const) {
+          const changed = structuredClone(response);
+          changed.group.currentState[field] += 1;
+          invalidReceipts.push(changed);
+        }
+        const builtin = structuredClone(response);
+        builtin.group.isBuiltin = true;
+        invalidReceipts.push(builtin);
+      } else if ("groupId" in response) {
+        const changed = structuredClone(response);
+        changed.organizationId = crypto.randomUUID();
+        invalidReceipts.push(changed);
+      }
       const expectedBody = JSON.stringify(
         kind === "group-create"
           ? createRequest
@@ -66,7 +81,7 @@ for (const nullable of [false, true]) {
       const committed = Promise.withResolvers<void>();
       const release = Promise.withResolvers<void>();
       const bodies: string[] = [];
-      let rejectReceipt = true;
+      let observedReceipt = response;
       const server = Bun.serve({
         hostname: "127.0.0.1",
         port: 0,
@@ -78,7 +93,7 @@ for (const nullable of [false, true]) {
             await release.promise;
           }
           return Response.json(
-            bodies.length === 1 || !rejectReceipt ? response : invalid,
+            bodies.length === 1 ? response : observedReceipt,
           );
         },
       });
@@ -143,20 +158,24 @@ for (const nullable of [false, true]) {
           ),
         ).rejects.toThrow();
         expect(bodies).toHaveLength(1);
-        await expect(
-          fresh.recoverPendingPrincipalMutation(organizationId),
-        ).rejects.toThrow();
-        expect(
-          await fresh.readPendingPrincipalMutation(organizationId),
-        ).toEqual(saved);
-        rejectReceipt = false;
+        for (const invalidReceipt of invalidReceipts) {
+          observedReceipt = invalidReceipt;
+          await expect(
+            fresh.recoverPendingPrincipalMutation(organizationId),
+          ).rejects.toThrow();
+          expect(
+            await fresh.readPendingPrincipalMutation(organizationId),
+          ).toEqual(saved);
+        }
+        observedReceipt = response;
         await fresh.recoverPendingPrincipalMutation(organizationId);
         expect(
           await fresh.readPendingPrincipalMutation(organizationId),
         ).toBeNull();
-        expect(bodies).toHaveLength(3);
-        expect(bodies[1]).toBe(bodies[0]);
-        expect(bodies[2]).toBe(bodies[0]);
+        expect(bodies).toHaveLength(invalidReceipts.length + 2);
+        const firstBody = bodies[0];
+        if (firstBody === undefined) throw new Error("Expected submitted body");
+        for (const body of bodies) expect(body).toBe(firstBody);
         expect(JSON.parse(bodies[0] ?? "null")).toEqual(
           JSON.parse(expectedBody),
         );

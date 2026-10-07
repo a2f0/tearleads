@@ -8,7 +8,6 @@ import {
 import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
 import { canonicalKeyingJsonString } from "../keyingCanonicalJson";
 import type { PrincipalMutationJournalRow } from "../persistence/principalMutationJournalPersistence";
-
 import {
   type AuthoredPrincipalMutation,
   readPrincipalMutation,

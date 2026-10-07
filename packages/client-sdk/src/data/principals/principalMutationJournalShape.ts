@@ -40,7 +40,7 @@ interface SignerScope {
   readonly signingFingerprint: string;
 }
 
-/** Parse only after authentication when opening an existing journal row. */
+/** Validate authored inputs; opening an existing row authenticates it first. */
 export function readPrincipalMutation(
   value: unknown,
   scope: SignerScope,

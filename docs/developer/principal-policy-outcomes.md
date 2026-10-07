@@ -166,8 +166,11 @@ both organization and deleted group IDs.
 
 Real HTTP tests with SQLite and PostgreSQL withhold a committed response, advance
 the policy from another client, and recover the first receipt without a duplicate
-commit. A second case kills the submitting SDK process and starts a fresh one
-with only its restored identity and SQLite file; removing the journal makes
-recovery fail. That process test uses native SQLite to exercise disk durability.
+commit. Process cases cover compound, standalone organization, group creation
+and group deletion writes. They kill the submitting SDK process after commit but
+before acknowledgement, advance the directory, then start a fresh process with
+only its restored identity and SQLite file. Removing the journal makes recovery
+fail.
+These tests use native SQLite to exercise disk durability.
 The in-process test uses the production WASM SQLite engine; browser OPFS process
 recovery is not established by these tests.

@@ -8,7 +8,6 @@ import {
   readJournaledPrincipalMutation,
 } from "../workflows/organizations/principalMutationJournalManagement";
 import { recoverJournaledPrincipalMutation } from "../workflows/organizations/principalMutationJournalSession";
-
 import {
   createJournaledPrincipalMutations,
   dispatchAuthoredPrincipalMutation,
