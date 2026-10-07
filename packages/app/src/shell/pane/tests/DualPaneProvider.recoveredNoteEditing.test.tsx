@@ -17,7 +17,11 @@ import {
   selectExplorerNoteByName,
   waitForSelectedNoteText,
 } from "../../../../test/helpers/dual-pane/dualPaneExplorerKit";
-import { documentSyncBatchSizes } from "../../../../test/helpers/dual-pane/dualPaneNoteSyncKit";
+import {
+  documentSyncBatchSizes,
+  editNoteAndWaitForUpload,
+  getAttachedNoteDocumentId,
+} from "../../../../test/helpers/dual-pane/dualPaneNoteSyncKit";
 import {
   downloadPaneRecoveryKey,
   restorePaneRecoveryKey,
@@ -48,6 +52,7 @@ for (const delayed of [false, true]) {
       const primary = getPaneRoot(view, "left");
       const secondary = getPaneRoot(view, "right");
       const title = "Recovered editing";
+      const initialText = `${title}\nOriginal device text`;
       const attachmentName = "recovered-note.png";
 
       await waitForSinglePaneProvisioning(primary);
@@ -59,6 +64,12 @@ for (const delayed of [false, true]) {
         title,
       });
       await selectExplorerNoteByName(primary, title);
+      // The recovered client must start from an acknowledged source update.
+      await editNoteAndWaitForUpload(
+        primary,
+        getAttachedNoteDocumentId(),
+        initialText,
+      );
       const recoveryKey = await downloadPaneRecoveryKey(primary);
       await generatePaneKeyPairFromMenu(secondary);
       await restorePaneRecoveryKey(secondary, recoveryKey);
@@ -72,7 +83,7 @@ for (const delayed of [false, true]) {
       await selectExplorerNoteByName(secondary, title);
       await waitForSelectedNoteText(
         secondary,
-        title,
+        initialText,
         "Recovered device did not load the original note.",
       );
       await within(secondary).findByText(attachmentName);
@@ -102,7 +113,7 @@ for (const delayed of [false, true]) {
         ).toBeGreaterThan(0);
         await waitForSelectedNoteText(
           primary,
-          title,
+          initialText,
           "Original device received an edit before revalidation.",
         );
         await clickExplorerRefresh(primary);
