@@ -291,6 +291,7 @@ test(
       (request) => isContainerOrDocumentRequest(request.url),
     );
     expect(getDroppedShareNotificationCount()).toBe(0);
+    // #2448 tracks repeated directory/Admins reads during one reconciliation.
     expect(
       peerMutationRequests.map(
         (request) => `${request.method} ${requestPath(request.url)}`,

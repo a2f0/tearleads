@@ -3,7 +3,7 @@ import { assertProjectionVerificationCurrent } from "../../data/keyingProjection
 import { principalHeadMatchesReference } from "../../data/principals/organizationAuthorityDescriptor";
 import { PrincipalHistoryRecoveryRaceError } from "./principalHistoryRecoveryTypes";
 import { recoverWithPrincipalOutageFallback } from "./principalRecoveryOutage";
-import { recoverScopedPrincipalPolicyHistory } from "./recoverScopedPrincipalPolicyHistory";
+import type { recoverScopedPrincipalPolicyHistory } from "./recoverScopedPrincipalPolicyHistory";
 
 /** Reuse authenticated local artifacts only for the exact current head a caller selected. */
 export async function recoverWithPrincipalLocalPreference(
@@ -13,7 +13,7 @@ export async function recoverWithPrincipalLocalPreference(
 ) {
   if (preferLocalCurrent && !options.offline) {
     try {
-      const local = await recoverScopedPrincipalPolicyHistory({
+      const local = await recover({
         ...options,
         offline: true,
       });

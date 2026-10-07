@@ -73,7 +73,8 @@ export function createPrincipalRecoveryReader(
         references.length > 0 &&
         !memo.directories.has(unselectedKey)
       )
-        // Keep the original result's lease guard when sharing the promise.
+        // Keep the original lease: its expiry requires a new batch, even if
+        // a later caller still has a live lease of its own.
         memo.directories.set(unselectedKey, selected);
       return value;
     },

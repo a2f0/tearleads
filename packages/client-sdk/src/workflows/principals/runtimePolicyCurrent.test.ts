@@ -49,10 +49,14 @@ async function fixture() {
     },
   });
   if (!resolve) throw new Error("Expected current policy recovery");
-  const read = () =>
+  const read = (
+    preferLocalCurrent = false,
+    reference = principalPolicyHead(history.created),
+  ) =>
     resolve({
       organizationId: history.organizationId,
-      reference: principalPolicyHead(history.created),
+      reference,
+      preferLocalCurrent,
       stillCurrent: () => state.current,
     });
   return { ...source, state, keys, incidents, read };
@@ -119,6 +123,35 @@ test("expiry during a current-artifact response refuses the operation", async ()
     expect(await f.db.select().from(principalPolicyCheckpoints)).toEqual([]);
     expect(f.keys.every((key) => key.every((byte) => byte === 0))).toBe(true);
     expect(f.incidents).toEqual([]);
+  } finally {
+    f.close();
+  }
+});
+
+test("a conflicting durable pin blocks local current reuse without an online retry", async () => {
+  const f = await fixture();
+  try {
+    const reference = principalPolicyHead(history.group);
+    await f.read(true, reference);
+    const count = f.requests.length;
+    await f.db
+      .insert(principalPolicyCheckpoints)
+      .values({
+        principalType: reference.principalType,
+        principalId: reference.principalId,
+        version: reference.version,
+        stateHash: "f".repeat(64),
+        updatedAt: history.group.currentState.createdAt,
+      })
+      .run();
+    await expect(f.read(true, reference)).rejects.toMatchObject({
+      code: "equivocation",
+    });
+    expect(f.requests).toHaveLength(count);
+    expect(f.incidents).toHaveLength(1);
+    expect(
+      (await f.db.select().from(principalPolicyCheckpoints))[0]?.stateHash,
+    ).toBe("f".repeat(64));
   } finally {
     f.close();
   }

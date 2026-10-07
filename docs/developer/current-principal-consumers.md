@@ -15,7 +15,9 @@ the bounded online reader; other verification failures remain failures. This
 does not discover newer server state or replace live object authorization.
 Metadata verification uses the organization head supplied by its live writer
 projection. Directory recovery is shared within one caller's batch while keeping
-the original lease guard. Mutation builders, full policy-history views, direct
+the original lease guard; expiry requires a new batch even if a later caller is
+still live. Local attempts share the caller batch under a separate offline key.
+Mutation builders, full policy-history views, direct
 share adapters and hosts without the paged resolver still require further adoption.
 
 See [durable recovery](principal-history-recovery.md) for the underlying paging,
@@ -29,11 +31,12 @@ an additional organization uses 15 requests, including the same three cold
 policy reads. An active peer reconciles an ungranted group change with eight
 policy/read-model requests and no container or document fanout.
 
-The group fixture measured first creation/addition at 22/82 requests and later
+The group fixture measured first creation/addition at 22–25/82 requests and later
 creation/addition at 18/24–27. Three history reads can finish between those
 measurement windows, giving observed whole pairs of 107 and 45–48. The first
 add keeps its earlier 45-history and three-document-projection allowances,
-so its total allowance is 89; later addition is capped at 27. Whole pairs are
+so its total allowance is 89; later addition is capped at 27. Creation permits
+25/21 because the three history reads may fall inside that phase. Whole pairs are
 capped at 114 and 48, including the three intervening reads. The history limits
 remain 54 and 21. Before local evidence reuse, first creation used 53 requests.
 These profiles explain the cold policy-read cost, not an overall latency claim.

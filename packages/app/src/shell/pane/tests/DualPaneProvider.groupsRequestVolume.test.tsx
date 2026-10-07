@@ -62,7 +62,7 @@ const ADMIN_GROUP_OPEN_REQUEST_BUDGET: ProxiedApiRequestBudget = {
 // several cursor positions. Standalone share POSTs stay pinned at zero because
 // a separately committed repair would reintroduce the recovery gap this flow is
 // meant to close.
-const ADMIN_GROUP_MUTATION_REQUEST_BUDGET: ProxiedApiRequestBudget = {
+const ADMIN_GROUP_MUTATION_REQUEST_BUDGET = {
   // Compact projections add 84 bounded public-history reads to the existing
   // 63-request allowance. Bounded label hydration also reads current directory
   // pages; completed reads fit 147 calls plus one observed preparation response.
@@ -98,7 +98,7 @@ const ADMIN_GROUP_MUTATION_REQUEST_BUDGET: ProxiedApiRequestBudget = {
     "PUT /organizations/:organizationId/groups/:groupId/policy-commit": 2,
     "POST /containers/:containerId/recite": 2,
   },
-};
+} satisfies ProxiedApiRequestBudget;
 afterEach(async () => {
   cleanup();
   globalThis.localStorage.clear();
@@ -251,7 +251,10 @@ test(
       total: ADMIN_GROUP_MUTATION_REQUEST_BUDGET.total + pendingHistory.length,
       byRequest: {
         ...ADMIN_GROUP_MUTATION_REQUEST_BUDGET.byRequest,
-        "GET /principals/history": 84 + pendingHistory.length,
+        "GET /principals/history":
+          ADMIN_GROUP_MUTATION_REQUEST_BUDGET.byRequest[
+            "GET /principals/history"
+          ] + pendingHistory.length,
         // Either membership commit can advance root key targets while a
         // peer's read-only sync is in flight. A real stale-target response
         // requires one fresh projection; do not grant that allowance when

@@ -44,9 +44,9 @@ test("group creation and adding a peer have separate request budgets", async () 
       operation: () => createOrganizationGroup(pane, `Budget ${group} group`),
       budget: {
         // Obtain the verified organization metadata key before encrypting the name.
-        total: group === "first" ? 22 : 18,
+        total: group === "first" ? 25 : 21,
         byRequest: {
-          "GET /principals/history": 6,
+          "GET /principals/history": 9,
           "GET /containers/:containerId/writer-projection": 1,
           "GET /organizations/:organizationId/read-model": 2,
           "GET /principals/group/:groupId/policy": group === "first" ? 7 : 5,
@@ -124,7 +124,7 @@ test("group creation and adding a peer have separate request budgets", async () 
       ],
     });
     expect(documentSyncIntentCounts(membershipRequests).writeBearing).toBe(0);
-    // Three directory/Admins/Members history reads can complete between phases.
+    // Three directory/Admins/Members reads can move across the phase boundary.
     // Keep them in the pair limit even when both phases use their full allowance.
     const combined = listProxiedApiRequests().slice(pairStart);
     expect(combined.length).toBeLessThanOrEqual(group === "first" ? 114 : 48);
