@@ -91,12 +91,14 @@ export async function currentPolicyAcknowledgementFixture(
       previous,
       mutation: request,
     });
+    const { currentPolicy, ...evidence } = current;
     return {
       ...fixture,
+      currentPolicy,
       lifetime,
       response,
       input: {
-        ...current,
+        ...evidence,
         request,
         expectedHead: await groupPolicyMutationHead(request),
       },

@@ -14,6 +14,7 @@ import { assertProjectionVerificationCurrent } from "../../data/keyingProjection
 import { assertPrincipalPolicyCurrentStateMatchesHead } from "./groupPolicyMutationHead";
 
 export interface CurrentPolicyMutationInput {
+  readonly currentPolicy?: never;
   readonly verifiedCurrentPolicy: VerifiedPrincipalPolicyCurrent;
   readonly expectedHead: ReferencedPrincipalHead;
   readonly request: PutPrincipalPolicyRequest;

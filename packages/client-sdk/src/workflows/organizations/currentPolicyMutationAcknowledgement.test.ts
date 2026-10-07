@@ -21,7 +21,7 @@ test.each(["group", "organization"] as const)(
     const f = await currentPolicyAcknowledgementFixture(history, kind);
     try {
       const count = f.requests.length;
-      expect(f.input.currentPolicy).not.toHaveProperty("previousStates");
+      expect(f.currentPolicy).not.toHaveProperty("previousStates");
       for (const policy of [
         await prepareAuthoredGroupPolicy(f.input),
         await acknowledgeGroupPolicyState({
@@ -43,35 +43,38 @@ test.each(["group", "organization"] as const)(
   },
 );
 
-test("current acknowledgement requires the exact signed response, even with the same claimed hash", async () => {
-  const f = await currentPolicyAcknowledgementFixture(history, "group");
-  try {
-    const resigned = await signPrincipalState(
-      f.input.request.state,
-      history.signingKeyPair.signingPrivateKey,
-    );
-    expect(resigned.signature).not.toBe(f.input.request.state.signature);
-    const response = {
-      ...f.response.currentState,
-      signature: resigned.signature,
-    };
-    const checked = await verifyPrincipalPolicyCurrentSuccessor({
-      previous: f.input.verifiedCurrentPolicy,
-      current: { ...f.response, currentState: response },
-      signerPublicKeys: f.input.signerPublicKeys,
-      externalAuthority: f.input.externalAuthority,
-    });
-    expect(checked.ok).toBe(true);
-    await expect(
-      acknowledgeGroupPolicyState({
-        ...f.input,
-        response,
-      }),
-    ).rejects.toThrow("Group policy state acknowledgement mismatch");
-  } finally {
-    f.close();
-  }
-});
+test.each(["group", "organization"] as const)(
+  "current %s acknowledgement requires the exact signed response, even with the same claimed hash",
+  async (kind) => {
+    const f = await currentPolicyAcknowledgementFixture(history, kind);
+    try {
+      const resigned = await signPrincipalState(
+        f.input.request.state,
+        history.signingKeyPair.signingPrivateKey,
+      );
+      expect(resigned.signature).not.toBe(f.input.request.state.signature);
+      const response = {
+        ...f.response.currentState,
+        signature: resigned.signature,
+      };
+      const checked = await verifyPrincipalPolicyCurrentSuccessor({
+        previous: f.input.verifiedCurrentPolicy,
+        current: { ...f.response, currentState: response },
+        signerPublicKeys: f.input.signerPublicKeys,
+        externalAuthority: f.input.externalAuthority,
+      });
+      expect(checked.ok).toBe(true);
+      await expect(
+        acknowledgeGroupPolicyState({
+          ...f.input,
+          response,
+        }),
+      ).rejects.toThrow("Group policy state acknowledgement mismatch");
+    } finally {
+      f.close();
+    }
+  },
+);
 
 test("current preparation rejects copied proof and a conflicting local checkpoint", async () => {
   const f = await currentPolicyAcknowledgementFixture(history, "group");
@@ -166,24 +169,54 @@ test("current preparation uses its private predecessor and authenticates the suc
   }
 });
 
-test("current acknowledgement does not replace an older durable pin with its own checkpoint", async () => {
-  const f = await currentPolicyAcknowledgementFixture(history, "group");
-  try {
-    const earlier = history.group.previousStates.at(-1)?.state;
-    if (!earlier) throw new Error("Missing historical checkpoint fixture");
-    await expect(
-      acknowledgeGroupPolicyState({
+test.each(["group", "organization"] as const)(
+  "current %s acknowledgement does not replace an older durable pin with its own checkpoint",
+  async (kind) => {
+    const f = await currentPolicyAcknowledgementFixture(history, kind);
+    try {
+      const earlier = (
+        kind === "group" ? history.group : history.directory
+      ).previousStates.at(-1)?.state;
+      if (!earlier) throw new Error("Missing historical checkpoint fixture");
+      await expect(
+        acknowledgeGroupPolicyState({
+          ...f.input,
+          response: f.response.currentState,
+          localPolicyCheckpoint: {
+            principalType: earlier.principalType,
+            principalId: earlier.principalId,
+            version: earlier.version,
+            stateHash: earlier.stateHash,
+          },
+        }),
+      ).rejects.toMatchObject({ code: "stale_predecessor" });
+    } finally {
+      f.close();
+    }
+  },
+);
+
+test.each(["prepare", "acknowledge"] as const)(
+  "current %s rejects an operation already expired before verification",
+  async (operation) => {
+    const f = await currentPolicyAcknowledgementFixture(history, "group");
+    try {
+      f.lifetime.current = false;
+      // Invalid proof must not be reached when the entry guard has expired.
+      const input = {
         ...f.input,
-        response: f.response.currentState,
-        localPolicyCheckpoint: {
-          principalType: earlier.principalType,
-          principalId: earlier.principalId,
-          version: earlier.version,
-          stateHash: earlier.stateHash,
-        },
-      }),
-    ).rejects.toMatchObject({ code: "stale_predecessor" });
-  } finally {
-    f.close();
-  }
-});
+        verifiedCurrentPolicy: { ...f.input.verifiedCurrentPolicy },
+      };
+      await expect(
+        operation === "prepare"
+          ? prepareAuthoredGroupPolicy(input)
+          : acknowledgeGroupPolicyState({
+              ...input,
+              response: f.response.currentState,
+            }),
+      ).rejects.toThrow("generation expired");
+    } finally {
+      f.close();
+    }
+  },
+);

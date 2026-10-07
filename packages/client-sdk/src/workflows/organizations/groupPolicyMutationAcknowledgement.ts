@@ -151,6 +151,7 @@ function verifiedPolicy(input: {
 }
 
 interface FullPolicyMutationInput {
+  readonly verifiedCurrentPolicy?: never;
   readonly currentPolicy: PrincipalPolicyBundleResponse;
   readonly expectedHead: ReferencedPrincipalHead;
   readonly request: PutPrincipalPolicyRequest;
@@ -171,7 +172,7 @@ export async function acknowledgeGroupPolicyState(
     readonly response: PrincipalStateResponse;
   },
 ): Promise<VerifiedPrincipalPolicy | VerifiedPrincipalPolicyCurrent> {
-  if ("verifiedCurrentPolicy" in input)
+  if (input.verifiedCurrentPolicy !== undefined)
     return verifyCurrentPolicyMutation(input, input.response);
   await assertPolicyRequestCommitments(input.request);
   const { createdAt: _createdAt, stateHash, ...responseState } = input.response;
@@ -214,7 +215,7 @@ export function prepareAuthoredGroupPolicy(
 export async function prepareAuthoredGroupPolicy(
   input: FullPolicyMutationInput | CurrentPolicyMutationInput,
 ): Promise<VerifiedPrincipalPolicy | VerifiedPrincipalPolicyCurrent> {
-  if ("verifiedCurrentPolicy" in input)
+  if (input.verifiedCurrentPolicy !== undefined)
     return verifyCurrentPolicyMutation(input);
   await assertPolicyRequestCommitments(input.request);
   const previous = input.currentPolicy.currentState;
