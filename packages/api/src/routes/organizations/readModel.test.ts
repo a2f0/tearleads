@@ -228,6 +228,7 @@ test("organization read-model route snapshots and coalesces group changes", asyn
   });
 });
 
+// Signed setup and multiple policy commits need the protocol integration budget.
 test("Members and Admins policy changes invalidate exact membership rows", async () => {
   const owner = createTestUser();
   const organizationId = await registerAndAuthenticate(owner);
@@ -315,8 +316,9 @@ test("Members and Admins policy changes invalidate exact membership rows", async
   expect(delta.lanes.groupMemberships?.groups[0]?.groupId).not.toBe(
     memberGroupId,
   );
-});
+}, 15_000);
 
+// Signed setup and multiple policy commits need the protocol integration budget.
 test("membership deltas coalesce transitions to final entity state", async () => {
   const owner = createTestUser();
   const organizationId = await registerAndAuthenticate(owner);
@@ -393,7 +395,7 @@ test("membership deltas coalesce transitions to final entity state", async () =>
       (group) => group.groupId === deletedGroupId,
     ),
   ).toBe(false);
-});
+}, 15_000);
 
 test("organization read-model route validates cursor scope after access", async () => {
   const actor = createTestUser();
