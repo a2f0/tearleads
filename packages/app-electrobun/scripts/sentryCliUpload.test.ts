@@ -129,7 +129,7 @@ test("sentry-cli resolves to the pinned binary in the repository's dependencies"
       cwd: directory,
       env: { HOME: directory, SENTRY_DISABLE_UPDATE_CHECK: "1" },
     });
-    expect(version.stdout.toString().trim()).toBe("sentry-cli 3.7.0");
+    expect(version.stdout.toString().trim()).toBe("sentry-cli 3.8.0");
   } finally {
     await rm(directory, { recursive: true, force: true });
   }

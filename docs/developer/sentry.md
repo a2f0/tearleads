@@ -255,7 +255,7 @@ Mobile events use `tearleads-android@<git-sha>` or `tearleads-ios@<git-sha>` and
 `staging-app` / `production-app`. Vite emits hidden maps; uploads use
 `app:///assets/` URLs matching the packaged JavaScript frames. Maps are removed
 from `dist` after the upload attempt, including failures. The pinned CLI
-[associates matching JavaScript and hidden map filenames](https://github.com/getsentry/sentry-cli/blob/3.7.0/src/utils/sourcemaps.rs#L105)
+[associates matching JavaScript and hidden map filenames](https://github.com/getsentry/sentry-cli/blob/3.8.0/src/utils/sourcemaps.rs#L105)
 and adds references to uploaded artifacts; matching release, dist, and canonical
 URLs provide symbolication without transmitting debug metadata.
 
