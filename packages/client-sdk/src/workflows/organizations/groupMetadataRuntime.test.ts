@@ -41,6 +41,19 @@ test.each(["bounded", "no lease", "no pages"] as const)(
         ...f.runtime,
         apiClient: mode === "no pages" ? withoutPages : f.runtime.apiClient,
       });
+      if (mode === "bounded") {
+        const head = f.projection.policyEvidence.organization?.head;
+        if (!head) throw new Error("Missing projected directory head");
+        head.principalId = "foreign-organization";
+        await expect(
+          createRuntimeGroupMetadataAccess(
+            runtime,
+            organizationId,
+          ).loadEncryptionKey(),
+        ).rejects.toThrow("Current policy reference is outside its scope");
+        expect(f.requests).toHaveLength(0);
+        head.principalId = organizationId;
+      }
       const access = createRuntimeGroupMetadataAccess(runtime, organizationId);
       await expect(access.loadEncryptionKey()).rejects.toThrow(
         "Organization metadata root is still behind the signed directory after a reload",

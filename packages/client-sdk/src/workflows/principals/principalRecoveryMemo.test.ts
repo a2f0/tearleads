@@ -65,3 +65,35 @@ test("a failed batch recovery can retry after the transport recovers", async () 
     f.close();
   }
 });
+
+test("a directory batch shares selected evidence without dropping its original lease", async () => {
+  const f = await createAuthorityRecoveryFixture(history);
+  try {
+    const memo: PrincipalRecoveryMemo = {
+      directories: new Map(),
+      admins: new Map(),
+    };
+    let originalCurrent = true;
+    const original = createPrincipalRecoveryReader(
+      { ...f.options, stillCurrent: () => originalCurrent },
+      memo,
+    );
+    const first = await original.directory([
+      principalPolicyHead(history.directory),
+    ]);
+    const count = f.requests.length;
+    const later = createPrincipalRecoveryReader(
+      { ...f.options, stillCurrent: () => true },
+      memo,
+    );
+    expect((await later.directory([])).policy.stateHash).toBe(
+      first.policy.stateHash,
+    );
+    expect(f.requests).toHaveLength(count);
+    originalCurrent = false;
+    await expect(later.directory([])).rejects.toThrow("generation expired");
+    expect(f.requests).toHaveLength(count);
+  } finally {
+    f.close();
+  }
+});

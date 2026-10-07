@@ -1,4 +1,7 @@
-import type { ContainerAccessManifestState } from "@tearleads/crypto";
+import type {
+  ContainerAccessManifestState,
+  ReferencedPrincipalHead,
+} from "@tearleads/crypto";
 import { assertProjectionVerificationCurrent } from "../../data/keyingProjectionVerification/types";
 import { loadCurrentOrganizationAuthority } from "./currentOrganizationAuthority";
 import { assertMetadataRootBinding } from "./groupMetadataRootBinding";
@@ -10,9 +13,15 @@ export function createCurrentGroupMetadataContainerVerifier(
     "organizationReference"
   >,
 ) {
-  return async (state: ContainerAccessManifestState): Promise<void> => {
+  return async (
+    state: ContainerAccessManifestState,
+    organizationReference?: ReferencedPrincipalHead,
+  ): Promise<void> => {
     assertProjectionVerificationCurrent(input.stillCurrent);
-    const authority = await loadCurrentOrganizationAuthority(input);
+    const authority = await loadCurrentOrganizationAuthority({
+      ...input,
+      organizationReference,
+    });
     const { adminGroupId, memberGroupId } = authority.descriptor;
     const citation = (groupId: string) =>
       state.referencedPrincipalHeads.find(

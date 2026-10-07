@@ -20,7 +20,7 @@ import {
   PrincipalHistoryRecoveryRaceError,
   PrincipalPolicyHistoryReadError,
 } from "./principalHistoryRecoveryTypes";
-import { recoverWithPrincipalOutageFallback } from "./principalRecoveryOutage";
+import { recoverWithPrincipalLocalPreference } from "./principalRecoveryLocalPreference";
 import { queuePrincipalRecovery } from "./principalRecoveryQueue";
 import { recoverCurrentOrganizationPolicy } from "./recoverCurrentOrganizationPolicy";
 import {
@@ -59,6 +59,8 @@ export interface ResolvedPrincipalPolicyCurrent
 interface PrincipalPolicyCurrentRequest
   extends Omit<PrincipalPolicyResolveRequest, "reference"> {
   readonly reference?: PrincipalPolicyResolveRequest["reference"] | undefined;
+  /** A read-model caller has selected this exact signed head; not a freshness read. */
+  readonly preferLocalCurrent?: boolean | undefined;
 }
 
 /** Keep current artifacts with their verified evidence and private runtime lifetime. */
@@ -114,9 +116,10 @@ export function createRuntimePrincipalPolicyCurrentResolver(
                 stillCurrent,
               };
               const result = input.reference
-                ? await recoverWithPrincipalOutageFallback(
+                ? await recoverWithPrincipalLocalPreference(
                     recoverFor(input.recoveryBatch),
                     { ...options, reference: input.reference },
+                    input.preferLocalCurrent === true,
                   )
                 : await recoverCurrentOrganizationPolicy(options);
               return {

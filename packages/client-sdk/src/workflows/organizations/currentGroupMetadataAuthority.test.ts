@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import { KeyingVerificationError } from "@tearleads/crypto";
 import { createAuthorityRecoveryFixture } from "../../../test/helpers/principalAuthorityRecovery";
+import { principalPolicyHead } from "../../../test/helpers/principalPolicyFixtures";
 import { createReservedGroupAdvance } from "../../../test/helpers/reservedGroupAdvance";
 import { principalPolicyCheckpoints } from "../../data/sqlite/principalPolicySchema";
 import { createRuntimePrincipalPolicyCurrentResolver } from "../principals/runtimePolicyRecovery";
@@ -50,6 +51,16 @@ test.each(["Admins", "Members"] as const)(
       stillCurrent: () => state.current,
     });
     try {
+      await expect(
+        verify(signed.state, {
+          ...principalPolicyHead(signed.advancedDirectory),
+          principalId: "foreign-organization",
+        }),
+      ).rejects.toMatchObject({
+        code: "object_mismatch",
+        message: "Current policy reference is outside its scope",
+      });
+      expect(f.requests).toHaveLength(0);
       await expect(verify(signed.state)).rejects.toBeInstanceOf(
         MetadataRootBehindDirectoryError,
       );

@@ -54,16 +54,9 @@ advances. Conflicting pins still fail. Runtime offline state selects local-only
 recovery. Public projection evidence uses the separate paged path described
 below; explicit full-bundle operations still require further runtime adoption.
 
-Org Manager label hydration and runtime metadata-root verification also use
-paged current policies when the runtime provides private history custody. Labels
-bind to the exact signed directory and group heads. Their current artifacts stay
-paired with verified policies; they are never stored as fabricated full bundles.
-Directory/Admins admission still checks durable pins, and name reads alone do not
-advance other group checkpoints. Metadata roots select their exact older Admins
-and Members citations, so an honest stale root remains distinguishable from a
-forged reference. These paths retain offline recovery and operation-lifetime
-checks. Mutation builders, full policy-history views, direct share adapters and
-hosts without the paged resolver still require further adoption.
+Org Manager labels and metadata roots also consume verified current policies.
+See [current-policy consumers](current-principal-consumers.md) for exact-head
+local reuse, lifetime and checkpoint rules, request costs, and remaining adoption.
 
 The optional `retainedReferences` selection follows the crypto verifier's bounded
 retention contract. Supply already authenticated external authority through
@@ -129,8 +122,10 @@ authenticates each reusable hint.
 A new head extends an authenticated earlier prefix; a newer cached prefix is
 preserved when recovering an older target. Older completions cannot replace a
 newer prefix.
-A completed same-head prefix still needs a live pinned read and current-artifact
-verification. This cache never supplies an application trust pin.
+Default online recovery still obtains a live pinned read for a completed
+same-head prefix and verifies current artifacts. The exact-head read-model path
+explicitly opts into local recovery. Neither path treats the cache as an
+application trust pin.
 An interrupted stage can resume for a different citation selection at the same
 head. Concurrent writers compare saved progress and a loser retries; no caller
 can publish over another accepted page. Normal browsing creates at most one

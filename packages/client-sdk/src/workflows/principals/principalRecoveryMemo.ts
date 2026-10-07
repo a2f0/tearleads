@@ -50,17 +50,33 @@ export function createPrincipalRecoveryReader(
     input.offline === true,
   ];
   const current = () => !input.signal?.aborted && input.stillCurrent();
+  const directoryKey = (references: readonly ReferencedPrincipalHead[]) =>
+    serializeKeyingCanonicalJson([
+      ...scope,
+      references.map((reference) => ({ ...reference })),
+    ]);
   return {
-    directory: (references: readonly ReferencedPrincipalHead[]) =>
-      memoPrincipalRecovery(
+    directory: async (references: readonly ReferencedPrincipalHead[]) => {
+      const value = await memoPrincipalRecovery(
         memo?.directories,
-        serializeKeyingCanonicalJson([
-          ...scope,
-          references.map((reference) => ({ ...reference })),
-        ]),
+        directoryKey(references),
         current,
         () => recoverPolicyDirectory(input, references),
-      ),
+      );
+      // Retaining extra citations does not prevent this authenticated directory
+      // from satisfying a later read with no selected historical references.
+      const unselectedKey = directoryKey([]);
+      const selected = memo?.directories.get(directoryKey(references));
+      if (
+        memo &&
+        selected &&
+        references.length > 0 &&
+        !memo.directories.has(unselectedKey)
+      )
+        // Keep the original result's lease guard when sharing the promise.
+        memo.directories.set(unselectedKey, selected);
+      return value;
+    },
     admins: (
       expectedHead: ReferencedPrincipalHead,
       retainedReferences: readonly ReferencedPrincipalHead[] = [],

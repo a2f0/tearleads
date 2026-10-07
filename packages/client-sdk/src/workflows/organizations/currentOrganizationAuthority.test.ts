@@ -153,3 +153,21 @@ test("directory discovery racing an unrelated directory advance is unavailable e
     f.close();
   }
 });
+
+test("an exact projected directory reuses authenticated local current artifacts", async () => {
+  const f = await fixture();
+  try {
+    const first = await loadCurrentOrganizationAuthority(f.input);
+    await first.readGroup(history.group.currentState.principalId);
+    const count = f.requests.length;
+    const second = await loadCurrentOrganizationAuthority(f.input);
+    const group = await second.readGroup(
+      history.group.currentState.principalId,
+    );
+    expect(group.policy.stateHash).toBe(history.group.currentState.stateHash);
+    expect(f.requests).toHaveLength(count);
+    expect(await f.db.select().from(principalPolicyCheckpoints)).toEqual([]);
+  } finally {
+    f.close();
+  }
+});

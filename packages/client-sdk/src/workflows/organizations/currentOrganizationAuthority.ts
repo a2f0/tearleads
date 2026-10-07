@@ -44,6 +44,7 @@ export async function loadCurrentOrganizationAuthority(
     input.resolveCurrentPolicy({
       organizationId: input.organizationId,
       reference: reference ?? undefined,
+      preferLocalCurrent: true,
       recoveryBatch,
       stillCurrent: input.stillCurrent,
     });

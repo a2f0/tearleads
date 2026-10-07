@@ -17,6 +17,7 @@ import { createGroupMetadataContainerVerifier } from "./groupMetadataContainerAu
 import type { PrincipalPolicyReadApi } from "./groupPolicyMutationContext";
 
 interface GroupMetadataRuntime {
+  readonly state?: PrincipalPolicyRecoveryRuntime["state"];
   readonly apiClient: GroupMetadataAccessInput["apiClient"] &
     PrincipalPolicyReadApi &
     PrincipalPolicyRecoveryRuntime["apiClient"];
