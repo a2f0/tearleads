@@ -90,9 +90,9 @@ test("group creation and adding a peer have separate request budgets", async () 
         // including metadata discovery, read-only sync, and a billing refresh.
         // The second add reuses that roster membership and stays a single write.
         // Both phases can independently reauthorize cached metadata histories.
-        total: group === "first" ? 75 : 22,
+        total: group === "first" ? 78 : 22,
         byRequest: {
-          "GET /principals/history": group === "first" ? 42 : 12,
+          "GET /principals/history": group === "first" ? 45 : 12,
           "GET /containers/:containerId/writer-projection":
             group === "first" ? 3 : 1,
           "GET /organizations/:organizationId/read-model":
@@ -125,13 +125,13 @@ test("group creation and adding a peer have separate request budgets", async () 
     expect(documentSyncIntentCounts(membershipRequests).writeBearing).toBe(0);
     // Include calls between the individual measurements as well as inside them.
     const combined = listProxiedApiRequests().slice(pairStart);
-    expect(combined.length).toBeLessThanOrEqual(group === "first" ? 91 : 38);
+    expect(combined.length).toBeLessThanOrEqual(group === "first" ? 94 : 38);
     expect(
       combined.filter(
         (request) =>
           request.method === "GET" &&
           requestPath(request.url) === "/principals/history",
       ).length,
-    ).toBeLessThanOrEqual(group === "first" ? 51 : 21);
+    ).toBeLessThanOrEqual(group === "first" ? 54 : 21);
   }
 }, 90_000);

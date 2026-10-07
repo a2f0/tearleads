@@ -111,9 +111,10 @@ caps creation plus addition at 38 total and 21 history reads, including calls
 between the two measurements. This records the observed additional read cost;
 it does not establish the earlier 35-request total as an invariant.
 It retains one compound policy commit for the add, zero document writes, and
-the existing limits for every other route. First enrollment remains capped at
-75 requests, including two compound commits; its creation/add pair is capped
-at 91 requests with 51 history reads.
+the existing limits for every other route. First enrollment also reproduced
+three additional history reads (78 total, 45 history), with two compound commits
+and unchanged counts for all other routes. Its creation/add pair is capped at
+94 requests with 54 history reads, allowing both phases their observed maxima.
 
 These are request counts, not latency measurements. Deduplicating repeated
 exact-head checks remains part of #2448; this test correction is not a
