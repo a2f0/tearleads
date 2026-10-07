@@ -6,7 +6,9 @@ import {
   type SigningKeyPair,
   type VerifiedPrincipalPolicyCurrent,
   verifyPrincipalPolicyCheckpoint,
+  verifyPrincipalPolicyCurrentMutation,
 } from "@tearleads/crypto";
+import type { PutPrincipalPolicyRequest } from "@tearleads/validators/request";
 import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
 import { assertProjectionVerificationCurrent } from "../../data/keyingProjectionVerification/types";
 import { assertCurrentMatchesVerifiedPolicy } from "../../data/persistence/verifiedPrincipalPolicyCurrent";
@@ -41,10 +43,27 @@ export type BuildGroupMembershipMutationInput =
   | CurrentGroupMembershipMutationInput;
 
 /** Current artifacts require their verified evidence; omitted history is never a bundle. */
-export async function withVerifiedGroupMutation<T>(
-  input: BuildGroupMembershipMutationInput,
-  work: () => Promise<T>,
-): Promise<T> {
+export async function withVerifiedGroupMutation<
+  T extends BuildGroupMembershipMutationInput,
+>(
+  input: T,
+  work: (owned: T) => Promise<PutPrincipalPolicyRequest>,
+): Promise<PutPrincipalPolicyRequest> {
+  input = {
+    ...input,
+    currentPolicy: structuredClone(input.currentPolicy),
+    ...("currentPolicySignerPublicKeys" in input
+      ? {
+          currentPolicySignerPublicKeys: structuredClone(
+            input.currentPolicySignerPublicKeys,
+          ),
+        }
+      : {}),
+    currentOrgAdminUserIds: structuredClone(input.currentOrgAdminUserIds),
+    externalAuthority: structuredClone(input.externalAuthority),
+    localPolicyCheckpoint: structuredClone(input.localPolicyCheckpoint),
+    signingKeyPair: structuredClone(input.signingKeyPair),
+  };
   const current = () =>
     !("verifiedCurrentPolicy" in input) || input.stillCurrent();
   assertProjectionVerificationCurrent(current);
@@ -53,9 +72,21 @@ export async function withVerifiedGroupMutation<T>(
       current: input.currentPolicy,
       policy: input.verifiedCurrentPolicy,
     });
+    requireSignerCanManageGroup(
+      input.currentPolicy,
+      input.currentOrgAdminUserIds ?? [],
+      input.signerUserId,
+    );
+    const verified = await verifyPrincipalPolicyCurrentMutation({
+      current: input.currentPolicy,
+      policy: input.verifiedCurrentPolicy,
+      signerUserId: input.signerUserId,
+      externalAuthority: input.externalAuthority,
+    });
+    if (!verified.ok) throw verified.error;
     verifyPrincipalPolicyCheckpoint({
-      chain: input.verifiedCurrentPolicy.retainedHistory,
-      currentState: input.verifiedCurrentPolicy.state,
+      chain: verified.value.retainedHistory,
+      currentState: verified.value.state,
       localCheckpoint: input.localPolicyCheckpoint,
     });
   } else {
@@ -74,7 +105,7 @@ export async function withVerifiedGroupMutation<T>(
     input.currentOrgAdminUserIds ?? [],
     input.signerUserId,
   );
-  const result = await work();
+  const result = await work(input);
   assertProjectionVerificationCurrent(current);
   return result;
 }

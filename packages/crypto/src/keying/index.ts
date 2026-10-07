@@ -43,6 +43,7 @@ export {
   type VerifiedPrincipalPolicyCurrent,
   verifyPrincipalPolicyCurrent,
 } from "./principalPolicyCurrent";
+export { verifyPrincipalPolicyCurrentMutation } from "./principalPolicyCurrentMutation";
 export { verifyPrincipalPolicyCurrentSuccessor } from "./principalPolicyCurrentSuccessor";
 export type {
   PrincipalPolicyExternalAuthority,

@@ -176,7 +176,13 @@ async function buildDirectAdminAddGroupUserPolicyRequest(
 export async function buildAddGroupUserPolicyRequest(
   input: BuildAddGroupUserPolicyInput,
 ): Promise<PutPrincipalPolicyRequest> {
-  return withVerifiedGroupMutation(input, async () => {
+  input = {
+    ...input,
+    currentUsers: structuredClone(input.currentUsers),
+    currentUserSecretKey: input.currentUserSecretKey.slice(),
+    targetUser: structuredClone(input.targetUser),
+  };
+  return withVerifiedGroupMutation(input, async (input) => {
     const targetKey = input.targetUser.userId;
     const currentProjection = input.currentPolicy.currentProjection;
     if (currentProjection.some((member) => member.userId === targetKey)) {
@@ -206,7 +212,8 @@ export async function buildRemoveGroupUserPolicyRequest(
     readonly removedUserId: string;
   },
 ): Promise<PutPrincipalPolicyRequest> {
-  return withVerifiedGroupMutation(input, async () => {
+  input = { ...input, remainingUsers: structuredClone(input.remainingUsers) };
+  return withVerifiedGroupMutation(input, async (input) => {
     const key = input.removedUserId;
     const projection = input.currentPolicy.currentProjection.filter(
       (member) => member.userId !== key,
@@ -237,7 +244,8 @@ export async function buildGroupAccessSetShrinkPolicyRequest(
     readonly revokedContainerId: string;
   },
 ): Promise<PutPrincipalPolicyRequest> {
-  return withVerifiedGroupMutation(input, async () => {
+  input = { ...input, currentUsers: structuredClone(input.currentUsers) };
+  return withVerifiedGroupMutation(input, async (input) => {
     return buildRotatedKeyGroupPolicyRequest(
       input,
       [...input.currentPolicy.currentProjection],
@@ -256,7 +264,7 @@ export async function buildSetGroupContainerGrantPolicyRequest(
     readonly containerId: string;
   },
 ): Promise<PutPrincipalPolicyRequest> {
-  return withVerifiedGroupMutation(input, async () => {
+  return withVerifiedGroupMutation(input, async (input) => {
     const grants = [
       ...input.currentPolicy.currentGrants.filter(
         (grant) => grant.containerId !== input.containerId,

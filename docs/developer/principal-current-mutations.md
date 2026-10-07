@@ -25,10 +25,17 @@ A successful result retains only its direct predecessor and successor. Repeated
 calls do not accumulate complete history. This result does not advance durable
 checkpoints, publish a resumable prefix, or prove arbitrary older citations.
 Callers must retain or recover the evidence needed for those operations and
-apply the existing atomic checkpoint and acknowledgement rules.
+apply the existing atomic checkpoint and acknowledgement rules. In particular,
+admit the acknowledged successor before another mutation. A checkpoint older
+than the retained predecessor needs additional verified history; the two-entry
+result alone cannot advance it.
 
 The SDK request builders can accept this verified current evidence and a lifetime
-guard. They bind all current artifacts to the evidence, check the supplied local
+guard. `verifyPrincipalPolicyCurrentMutation` binds the group's artifacts to the
+crypto verifier's private snapshot and checks the next signer at the selected
+external authority, including its remembered authority floor. Copied public
+verification objects are refused. Builders own mutable inputs before yielding,
+check the supplied local
 checkpoint and signer authority, and refuse to return a signed request after
 expiry. The full-bundle variant still performs complete bundle verification.
 These checks authorize construction of a request; the API must independently
