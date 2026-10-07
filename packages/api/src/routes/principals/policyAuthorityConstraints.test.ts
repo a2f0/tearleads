@@ -290,6 +290,7 @@ test("PUT policy rejects projections that diverge from Admins and preserves its 
   ).toMatchObject({ stateHash: prepared.currentState.stateHash });
 });
 
+// Signed setup and multiple policy commits need the protocol integration budget.
 test("PUT policy rejects a stale signed Admins authority head", async () => {
   const actor = createTestUser();
   await registerUser(actor);
@@ -356,4 +357,4 @@ test("PUT policy rejects a stale signed Admins authority head", async () => {
   expect(
     (await getCurrentPrincipalState("group", groupId, db))?.stateHash,
   ).toBe(groupState.stateHash);
-});
+}, 15_000);
