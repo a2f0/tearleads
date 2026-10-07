@@ -2,10 +2,6 @@ import { copyFile, cp, mkdir, rm } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { loroWasmPlugin } from "@tearleads/loro/bun-plugin";
-import {
-  getDefaultDatabaseWorkerEntrypointUrl,
-  getSqliteWasmAssetUrl,
-} from "@tearleads/sqlite-worker/assets";
 import { version as pdfjsVersion } from "pdfjs-dist/legacy/build/pdf.mjs";
 import {
   createRendererBuildConfig,
@@ -55,24 +51,15 @@ async function buildRenderer(mainViewDir: string, sourceMapDir?: string) {
 async function packageMainView(mainViewDir: string, sourceMapDir?: string) {
   await buildRenderer(mainViewDir, sourceMapDir);
 
-  const workerBuild = await Bun.build({
-    entrypoints: [fileURLToPath(getDefaultDatabaseWorkerEntrypointUrl())],
-    format: "esm",
-    target: "browser",
-  });
-
-  const [workerArtifact] = workerBuild.outputs;
-  if (!workerBuild.success || !workerArtifact) {
-    throw new Error("Failed to build packaged database worker", {
-      cause: workerBuild.logs,
-    });
+  // The SDK's SQLite worker files, at the root where createSQLiteRuntime looks.
+  for (const asset of ["worker.js", "sqlite3.wasm", "sqlite3-licenses.md"]) {
+    await copyFile(
+      fileURLToPath(
+        import.meta.resolve(`@tearleads/client-sdk/sqlite/${asset}`),
+      ),
+      join(mainViewDir, asset),
+    );
   }
-
-  await Bun.write(join(mainViewDir, "worker.js"), workerArtifact);
-  await copyFile(
-    fileURLToPath(getSqliteWasmAssetUrl()),
-    join(mainViewDir, "sqlite3.wasm"),
-  );
   const pdfViewDir = join(mainViewDir, "pdfjs", pdfjsVersion);
   await mkdir(pdfViewDir, { recursive: true });
   await copyFile(

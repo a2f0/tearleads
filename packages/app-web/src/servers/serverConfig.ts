@@ -1,25 +1,15 @@
 import { readdirSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import {
-  getDefaultDatabaseWorkerEntrypointUrl,
-  getSqliteWasmAssetUrl,
-} from "@tearleads/sqlite-worker/assets";
 import { version as pdfjsVersion } from "pdfjs-dist/legacy/build/pdf.mjs";
 import index from "../index.html";
 
-const workerBuild = await Bun.build({
-  entrypoints: [fileURLToPath(getDefaultDatabaseWorkerEntrypointUrl())],
-  target: "browser",
-  format: "esm",
-});
-
-const workerScript = workerBuild.outputs[0];
-
-if (!workerBuild.success || !workerScript) {
-  throw new Error("Worker build failed", { cause: workerBuild.logs });
+// The SDK's SQLite worker files, built with the SDK.
+function sqliteAsset(name: string) {
+  return Bun.file(
+    fileURLToPath(import.meta.resolve(`@tearleads/client-sdk/sqlite/${name}`)),
+  );
 }
 
-const sqliteWasm = Bun.file(getSqliteWasmAssetUrl());
 const pdfWorker = Bun.file(
   new URL(
     "../../node_modules/pdfjs-dist/legacy/build/pdf.worker.min.mjs",
@@ -44,10 +34,10 @@ for (const directory of ["cmaps", "wasm", "standard_fonts"]) {
 
 export const coreRoutes = {
   ...pdfAssetRoutes,
-  "/worker.js": new Response(workerScript, {
+  "/worker.js": new Response(sqliteAsset("worker.js"), {
     headers: { "Content-Type": "application/javascript" },
   }),
-  "/sqlite3.wasm": new Response(sqliteWasm, {
+  "/sqlite3.wasm": new Response(sqliteAsset("sqlite3.wasm"), {
     headers: { "Content-Type": "application/wasm" },
   }),
   [`/pdfjs/${pdfjsVersion}/pdf.worker.js`]: new Response(pdfWorker, {

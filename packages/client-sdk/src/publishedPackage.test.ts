@@ -15,7 +15,7 @@ const outDir = mkdtempSync(join(tmpdir(), "client-sdk-package-"));
 let files: string[] = [];
 let manifest: {
   dependencies: Record<string, string>;
-  exports: Record<string, { default: string; types: string }>;
+  exports: Record<string, string | { default: string; types: string }>;
   private?: boolean;
   repository: unknown;
 };
@@ -44,6 +44,9 @@ test("the published manifest is consumable outside the workspace", () => {
   expect(manifest.exports).toEqual({
     ".": { types: "./index.d.ts", default: "./index.js" },
     "./sqlite": { types: "./sqlite.d.ts", default: "./sqlite.js" },
+    "./sqlite/worker.js": "./sqlite/worker.js",
+    "./sqlite/sqlite3.wasm": "./sqlite/sqlite3.wasm",
+    "./sqlite/sqlite3-licenses.md": "./sqlite/sqlite3-licenses.md",
     "./testing": {
       types: "./data/trustedUserIdentity/testFixtures.d.ts",
       default: "./data/trustedUserIdentity/testFixtures.js",
@@ -64,9 +67,25 @@ test("the published manifest is consumable outside the workspace", () => {
 
 test("every export target ships", () => {
   for (const target of Object.values(manifest.exports)) {
-    expect(files).toContain(target.default.slice(2));
-    expect(files).toContain(target.types.slice(2));
+    const paths =
+      typeof target === "string" ? [target] : [target.default, target.types];
+    for (const path of paths) {
+      expect(files).toContain(path.slice(2));
+    }
   }
+});
+
+// A host serves these files as they are, so the worker must load nothing but
+// the SQLite WebAssembly beside it.
+test("the SQLite worker ships as one self-contained module", () => {
+  const worker = readOutput("sqlite/worker.js");
+  expect(moduleSpecifiers(worker)).toEqual([]);
+  expect(worker).toMatch(
+    /new URL\(\s*["']sqlite3\.wasm["']\s*,\s*import\.meta\.url\s*\)/,
+  );
+  expect(readOutput("sqlite/sqlite3-licenses.md")).toContain(
+    "SQLite3 Multiple Ciphers",
+  );
 });
 
 // Workspace packages ship compiled under internal/, so a module reaches only
