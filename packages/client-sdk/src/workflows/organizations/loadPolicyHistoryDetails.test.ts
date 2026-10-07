@@ -286,3 +286,59 @@ test("a newer organization head fetches new evidence instead of reusing cached d
     close();
   }
 });
+
+test.each(["transport", "source"] as const)(
+  "an explicitly requested older page rejects a %s outage without caching partial details",
+  async (failure) => {
+    const { data, input, close } = await fixture();
+    const reportSecurityIncident = mock(async () => {});
+    let requests = 0;
+    let sourceReads = 0;
+    try {
+      const result = loadPolicyHistoryDetails({
+        ...input,
+        olderPage: true,
+        reportSecurityIncident,
+        resolveHistory: async () => {
+          sourceReads += 1;
+          throw new ProjectionDependencyUnavailableError("History unavailable");
+        },
+        apiClient: {
+          getOrganizationPolicyHistoryResult: async () => {
+            requests += 1;
+            if (failure === "transport")
+              return {
+                ok: false,
+                kind: "http",
+                status: 503,
+                message: "History unavailable",
+                method: "GET",
+                path: "/policy-history",
+                statusText: "Service Unavailable",
+                report: () => {},
+              };
+            return { ok: true, data: data.evidence() };
+          },
+        },
+      });
+      await expect(result).rejects.toThrow("History unavailable");
+      expect(requests).toBe(1);
+      expect(sourceReads).toBe(failure === "source" ? 1 : 0);
+      expect(reportSecurityIncident).not.toHaveBeenCalled();
+      const retried = await loadPolicyHistoryDetails({
+        ...input,
+        olderPage: true,
+        apiClient: {
+          getOrganizationPolicyHistoryResult: async () => {
+            requests += 1;
+            return { ok: true, data: data.evidence() };
+          },
+        },
+      });
+      expect(requests).toBe(2);
+      expect(retried?.entries[0]?.groupChanges?.[0]?.changes).toHaveLength(1);
+    } finally {
+      close();
+    }
+  },
+);
