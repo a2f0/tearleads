@@ -2,6 +2,11 @@ import type { ApiClient } from "@tearleads/api-client";
 import type { SigningKeyPair } from "@tearleads/crypto";
 import type { ExecSql } from "../data/sqlite/sqlSchema";
 import {
+  abandonJournaledPrincipalMutation,
+  type PrincipalMutationRecoveryApi,
+  readJournaledPrincipalMutation,
+} from "../workflows/organizations/principalMutationJournalManagement";
+import {
   recoverJournaledPrincipalMutation,
   submitJournaledPrincipalMutation,
 } from "../workflows/organizations/principalMutationJournalSession";
@@ -41,23 +46,25 @@ export function createPrincipalMutationApiCustody(input: {
   return {
     bind(): ApiClient {
       const scope = input.readScope();
-      if (!scope) {
-        cached = null;
-        return input.api;
-      }
-      if (cached && sameScope(scope, cached.scope)) return cached.api;
-      const context = (organizationId: string) => ({
-        execSql: scope.execSql,
-        signingKeyPair: scope.signingKeyPair,
-        scope: {
-          identityTrustDomain: scope.identityTrustDomain,
-          organizationId,
-          signingFingerprint: scope.signingFingerprint,
-          userId: scope.userId,
-        },
-        stillCurrent: () => sameScope(input.readScope(), scope),
-      });
-      const commit: ApiClient["commitOrganizationGroupPolicyResult"] = (
+      if (scope && cached && sameScope(scope, cached.scope)) return cached.api;
+      const context = (organizationId: string) => {
+        if (!scope)
+          throw new Error(
+            "Principal mutations require an authenticated signing identity, a trusted API origin and durable local storage",
+          );
+        return {
+          execSql: scope.execSql,
+          signingKeyPair: scope.signingKeyPair,
+          scope: {
+            identityTrustDomain: scope.identityTrustDomain,
+            organizationId,
+            signingFingerprint: scope.signingFingerprint,
+            userId: scope.userId,
+          },
+          stillCurrent: () => sameScope(input.readScope(), scope),
+        };
+      };
+      const commit: ApiClient["commitOrganizationGroupPolicyResult"] = async (
         organizationId,
         groupId,
         request,
@@ -74,7 +81,19 @@ export function createPrincipalMutationApiCustody(input: {
               options,
             ),
         });
+      const read: PrincipalMutationRecoveryApi["readPendingPrincipalMutation"] =
+        async (organizationId) =>
+          readJournaledPrincipalMutation(context(organizationId));
+      const abandon: PrincipalMutationRecoveryApi["abandonPendingPrincipalMutation"] =
+        async (organizationId, mutation, acknowledgeUnknownOutcome) =>
+          abandonJournaledPrincipalMutation({
+            ...context(organizationId),
+            mutation,
+            acknowledgeUnknownOutcome,
+          });
       const methods = new Map<PropertyKey, unknown>([
+        ["readPendingPrincipalMutation", read],
+        ["abandonPendingPrincipalMutation", abandon],
         ["commitOrganizationGroupPolicyResult", commit],
         [
           "commitOrganizationGroupPolicy",
@@ -101,24 +120,31 @@ export function createPrincipalMutationApiCustody(input: {
           },
         ],
       ]);
-      const boundMethods = new Map<
-        PropertyKey,
-        { source: unknown; bound: unknown }
-      >();
-      const api = new Proxy(input.api, {
-        get(target, property) {
-          if (methods.has(property)) return methods.get(property);
-          const value: unknown = Reflect.get(target, property, target);
-          if (typeof value !== "function") return value;
-          const previous = boundMethods.get(property);
-          if (previous?.source === value) return previous.bound;
-          const bound = value.bind(target);
-          boundMethods.set(property, { source: value, bound });
-          return bound;
-        },
-      });
-      cached = { scope, api };
+      const api = bindMutationMethods(input.api, methods);
+      cached = scope ? { scope, api } : null;
       return api;
     },
   };
+}
+
+function bindMutationMethods(
+  api: ApiClient,
+  methods: ReadonlyMap<PropertyKey, unknown>,
+): ApiClient {
+  const boundMethods = new Map<
+    PropertyKey,
+    { source: unknown; bound: unknown }
+  >();
+  return new Proxy(api, {
+    get(target, property) {
+      if (methods.has(property)) return methods.get(property);
+      const value: unknown = Reflect.get(target, property, target);
+      if (typeof value !== "function") return value;
+      const previous = boundMethods.get(property);
+      if (previous?.source === value) return previous.bound;
+      const bound = value.bind(target);
+      boundMethods.set(property, { source: value, bound });
+      return bound;
+    },
+  });
 }

@@ -190,6 +190,7 @@ export {
   type NetworkStatusSource,
 } from "./network";
 export type {
+  AbandonOrganizationPolicyMutationInput,
   AddOrganizationGroupUserInput,
   ImportedOrganizationUser,
   LocalOrganizationSummary,

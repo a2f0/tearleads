@@ -97,3 +97,25 @@ test("runtime API custody resumes saved bytes after generation replacement and c
     sqlite.close();
   }
 });
+
+test("runtime policy writes fail before HTTP when their trusted journal scope is unavailable", async () => {
+  const fixture = await principalMutationJournalFixture();
+  const api = new ApiClient(fixture.scope.identityTrustDomain);
+  let calls = 0;
+  api.commitOrganizationGroupPolicyResult = async () => {
+    calls += 1;
+    return { ok: true, data: fixture.response };
+  };
+  const bound = createPrincipalMutationApiCustody({
+    api,
+    readScope: () => null,
+  }).bind();
+  await expect(
+    bound.commitOrganizationGroupPolicyResult(
+      fixture.scope.organizationId,
+      fixture.mutation.groupId,
+      fixture.mutation.request,
+    ),
+  ).rejects.toThrow("trusted API origin");
+  expect(calls).toBe(0);
+});

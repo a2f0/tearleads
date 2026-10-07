@@ -658,6 +658,10 @@ Both runtime policy API variants may throw `PendingPrincipalMutationError` or
 saved work. `abandonJournaledPrincipalMutation` stops retries only after an explicit
 choice accepting its unknown outcome and matching that exact inspected request;
 it does not undo a remote commit. Later mutations still verify current policy.
+The organization facade exposes `readPendingPolicyMutation(organizationId)`,
+`retryPendingPolicyMutation(organizationId)` and `abandonPendingPolicyMutation`,
+whose `AbandonOrganizationPolicyMutationInput` includes the inspected request.
+Org Manager shows saved work and requires confirmation before stopping retries.
 See [principal policy outcomes](principal-policy-outcomes.md) for scope and limits.
 
 A container's first direct grant has the matching precondition: the chain above

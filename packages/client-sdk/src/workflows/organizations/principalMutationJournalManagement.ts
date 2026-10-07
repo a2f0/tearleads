@@ -12,6 +12,20 @@ import {
 import { runPrincipalMutationJournalOperation } from "./principalMutationJournalLane";
 import type { PrincipalMutationJournalContext } from "./principalMutationJournalSession";
 
+export interface PrincipalMutationRecoveryApi {
+  readonly readPendingPrincipalMutation: (
+    organizationId: string,
+  ) => Promise<AuthoredPrincipalMutation | null>;
+  readonly recoverPendingPrincipalMutation: (
+    organizationId: string,
+  ) => Promise<void>;
+  readonly abandonPendingPrincipalMutation: (
+    organizationId: string,
+    mutation: AuthoredPrincipalMutation,
+    acknowledgeUnknownOutcome: true,
+  ) => Promise<boolean>;
+}
+
 type JournalIdentity = Pick<
   PrincipalMutationJournalContext,
   "execSql" | "scope" | "signingKeyPair" | "stillCurrent"

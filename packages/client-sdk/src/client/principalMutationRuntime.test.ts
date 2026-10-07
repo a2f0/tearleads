@@ -7,6 +7,7 @@ import { principalMutationJournalFixture } from "../../test/helpers/principalMut
 import { createMemoryBlobStore } from "../data/blobs/memoryBlobStore";
 import { defaultDocumentProjectorRegistry } from "../data/documents/documentKinds";
 import { loadGroupPolicyMutationContext } from "../workflows/organizations/groupPolicyMutationContext";
+import { createOrganizations } from "./organizations";
 import { Tearleads } from "./Tearleads";
 import { createRuntime } from "./workflowRuntime";
 
@@ -80,6 +81,15 @@ test("runtime resolves an uncertain authored mutation before reading for the nex
         fixture.mutation.request,
       ),
     ).rejects.toThrow("may have committed");
+    const organizations = createOrganizations(runtime, sdk.containerContents);
+    expect(
+      await organizations.readPendingPolicyMutation(
+        fixture.scope.organizationId,
+      ),
+    ).toEqual(fixture.mutation);
+    await expect(
+      organizations.readPendingPolicyMutation("other-organization"),
+    ).rejects.toThrow("generation expired");
     sdk.session.setAuthToken("fixture-renewed-token");
     await expect(
       oldApi.commitOrganizationGroupPolicyResult(
@@ -102,6 +112,45 @@ test("runtime resolves an uncertain authored mutation before reading for the nex
       }),
     ).rejects.toThrow("Organization admin authority could not be verified");
     expect(events).toEqual(["commit", "commit", "organization"]);
+    const submitAgain = () =>
+      runtime
+        .workflowInput()
+        .apiClient.commitOrganizationGroupPolicyResult(
+          fixture.scope.organizationId,
+          fixture.mutation.groupId,
+          fixture.mutation.request,
+        );
+    lost = true;
+    await expect(submitAgain()).rejects.toThrow("may have committed");
+    lost = false;
+    await organizations.retryPendingPolicyMutation(
+      fixture.scope.organizationId,
+    );
+    expect(
+      await organizations.readPendingPolicyMutation(
+        fixture.scope.organizationId,
+      ),
+    ).toBeNull();
+    lost = true;
+    await expect(submitAgain()).rejects.toThrow("may have committed");
+    await organizations.abandonPendingPolicyMutation({
+      organizationId: fixture.scope.organizationId,
+      mutation: fixture.mutation,
+      acknowledgeUnknownOutcome: true,
+    });
+    expect(
+      await organizations.readPendingPolicyMutation(
+        fixture.scope.organizationId,
+      ),
+    ).toBeNull();
+    expect(events).toEqual([
+      "commit",
+      "commit",
+      "organization",
+      "commit",
+      "commit",
+      "commit",
+    ]);
     runtime.retirePrincipalHistoryProtection();
   } finally {
     sdk.dispose();

@@ -63,6 +63,8 @@ are left to ordinary verified recovery, so an older receipt cannot roll them bac
 
 Calls sharing an executor and scope serialize submission, recovery and explicit
 abandonment. Recovery waits for an owned dispatch instead of sending it again.
+This in-memory wait does not span separate executors or tabs; durable claims and
+server transaction receipts still protect concurrent transport attempts.
 Runtime recovery has a 15-second request deadline; expiration retains the journal.
 
 A known first-attempt refusal or cancellation before dispatch retires the
@@ -83,6 +85,13 @@ expired lifetimes cannot use this helper to erase the saved operation. The next
 mutation still reads and verifies current policies before authoring. Hosts should
 handle `PendingPrincipalMutationError` and `PrincipalMutationOutcomeUnknownError`
 from both runtime policy API variants, including the nullable convenience method.
+
+Org Manager inspects pending work through the organization facade. It offers a
+retry of the saved change and an explicit stop-retrying confirmation that explains
+that a remote change is not undone. Success refreshes the current organization
+view. A changed identity or organization invalidates delayed reads and actions.
+Runtime policy writes require an authenticated signing identity, a trusted API
+origin and ready local storage; missing journal custody refuses before HTTP.
 
 Advanced hosts can call `submitJournaledPrincipalMutation` and
 `recoverJournaledPrincipalMutation` with an explicit `PrincipalMutationJournalContext`.

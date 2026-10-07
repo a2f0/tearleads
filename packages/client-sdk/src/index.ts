@@ -2,6 +2,7 @@
 // Authority loaders take exact heads, including cached citations. Obsolete
 // adapters are excluded; authored policy journals survive restart. See workflows/README.md.
 export type {
+  AbandonOrganizationPolicyMutationInput,
   AddOrganizationGroupUserInput,
   BlobInfo,
   BlobInfoAttachmentKind,

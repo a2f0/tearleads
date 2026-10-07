@@ -22,6 +22,9 @@ class TestOrganizations {
 function organizationsFacade(): Organizations {
   const unused = async () => null as never;
   return Object.assign(new TestOrganizations("org"), {
+    readPendingPolicyMutation: unused,
+    retryPendingPolicyMutation: unused,
+    abandonPendingPolicyMutation: unused,
     deleteGroup: unused,
     importUserById: unused,
     loadBilling: unused,
@@ -67,6 +70,9 @@ test("Org Manager keeps its narrow bound surface and positional adapters", async
 
   expect(Object.keys(view.result.current).sort()).toEqual(
     [
+      "abandonPendingPolicyMutation",
+      "readPendingPolicyMutation",
+      "retryPendingPolicyMutation",
       "addUserToGroup",
       "captureOperationScope",
       "createGroup",

@@ -1,32 +1,23 @@
 import type { NativeSubscriptionStore } from "@tearleads/validators/billing";
 import { runWithSecurityIncidentReporting } from "../../data/keyingProjectionVerification/error";
 import {
-  type addOrganizationGroupUser,
   cancelStripeSubscription,
   checkNativePurchaseEligibility,
   claimNativeOrganizationSubscription,
-  type createOrganizationGroup,
   createStripeCheckout,
   createStripeCheckoutSession,
   importOrganizationUser,
-  type LocalOrganizationSummary,
   listLocalOrganizations,
   loadOrganizationBilling,
   loadOrganizationBillingHistory,
   loadOrganizationBillingManagementUrl,
   loadStripeCheckoutOptions,
-  type removeOrganizationGroupUser,
-  type revokeOrganizationContainerGrant,
-  type rotateOrganizationGroupForAccessSetShrink,
   startOrganizationTrial,
   updateOrganizationProfile,
   updateOrganizationRosterEntry,
 } from "../../workflows/organizations";
 import type { ContainerContents } from "../containerContents";
-import type {
-  InternalRuntime,
-  InternalWorkflowRuntimeInput,
-} from "../workflowRuntime";
+import type { InternalRuntime } from "../workflowRuntime";
 import {
   createOrganizationDataUsageCoordinator,
   type OrganizationDataUsageCoordinator,
@@ -36,10 +27,17 @@ import {
   createOrganizationReadModelCoordinator,
   type OrganizationReadModelCoordinator,
 } from "./organizationReadModels";
+import type { Organizations } from "./organizationsTypes";
 import {
   authenticatedOrganizationId,
   runForOrganization,
 } from "./organizationWorkflowRuntime";
+import {
+  type AbandonOrganizationPolicyMutationInput,
+  abandonPendingOrganizationPolicyMutation,
+  readPendingOrganizationPolicyMutation,
+  retryPendingOrganizationPolicyMutation,
+} from "./principalMutationRecovery";
 import { currentOrganizationMutation } from "./principalMutationScope";
 import {
   type AddOrganizationGroupUserInput,
@@ -80,107 +78,13 @@ export type {
   OrganizationProfile,
   OrganizationUserDetail,
 } from "../../workflows/organizations";
-
+export type { Organizations } from "./organizationsTypes";
+export type { AbandonOrganizationPolicyMutationInput } from "./principalMutationRecovery";
 export type {
   AddOrganizationGroupUserInput,
   OrganizationGrantRef,
   RemoveOrganizationGroupUserInput,
 } from "./principalMutations";
-
-export interface Organizations {
-  addUserToGroup: (
-    input: AddOrganizationGroupUserInput,
-  ) => ReturnType<typeof addOrganizationGroupUser>;
-  createGroup: (name: string) => ReturnType<typeof createOrganizationGroup>;
-  deleteGroup: (
-    groupId: string,
-  ) => ReturnType<typeof deleteGroupForOrganization>;
-  importUserById: (userId: string) => ReturnType<typeof importOrganizationUser>;
-  loadBilling: () => ReturnType<typeof loadOrganizationBilling>;
-  /** Billing for an organization the session is not currently switched to. */
-  loadBillingForOrganization: (
-    organizationId: string,
-  ) => ReturnType<typeof loadOrganizationBilling>;
-  loadBillingHistory: () => ReturnType<typeof loadOrganizationBillingHistory>;
-  loadBillingManagementUrl: () => ReturnType<
-    typeof loadOrganizationBillingManagementUrl
-  >;
-  /** Direct Stripe checkout (issue #1654): options, start, and cancel. */
-  loadStripeCheckoutOptions: (
-    organizationId?: string,
-  ) => ReturnType<typeof loadStripeCheckoutOptions>;
-  createStripeCheckout: (
-    organizationId?: string,
-  ) => ReturnType<typeof createStripeCheckout>;
-  createStripeCheckoutSession: (
-    returnUrl: string,
-    organizationId?: string,
-  ) => ReturnType<typeof createStripeCheckoutSession>;
-  cancelStripeSubscription: () => ReturnType<typeof cancelStripeSubscription>;
-  claimNativeSubscription: (
-    organizationId: string,
-    store: NativeSubscriptionStore,
-  ) => ReturnType<typeof claimNativeOrganizationSubscription>;
-  checkNativePurchaseEligibility: (
-    organizationId: string,
-    store: NativeSubscriptionStore,
-  ) => ReturnType<typeof checkNativePurchaseEligibility>;
-  loadDataUsage: () => ReturnType<
-    OrganizationDataUsageCoordinator["reconcile"]
-  >;
-  loadLocalDataUsage: () => ReturnType<
-    OrganizationDataUsageCoordinator["loadLocal"]
-  >;
-  loadDirectoryAndGroups: () => ReturnType<
-    OrganizationReadModelCoordinator["reconcile"]
-  >;
-  loadDirectoryAndGroupsAfterMutation: () => ReturnType<
-    OrganizationReadModelCoordinator["reconcileAfterMutation"]
-  >;
-  loadLocalDirectoryAndGroups: () => ReturnType<
-    OrganizationReadModelCoordinator["loadLocal"]
-  >;
-  loadGroupMembers: (
-    groupId: string,
-  ) => ReturnType<
-    InternalWorkflowRuntimeInput["apiClient"]["listOrganizationGroupMembers"]
-  >;
-  loadGroupPresentationDetails(
-    groupId: string,
-  ): ReturnType<typeof loadOrganizationGroupPresentationDetails>;
-  loadGroupContainers: (
-    groupId: string,
-  ) => ReturnType<OrganizationReadModelCoordinator["loadLocalGroupContainers"]>;
-  loadGrants: () => ReturnType<
-    OrganizationReadModelCoordinator["loadLocalGrants"]
-  >;
-  listLocalOrganizations: () => Promise<LocalOrganizationSummary[]>;
-  loadPolicyHistory: () => ReturnType<
-    OrganizationReadModelCoordinator["loadOrganizationPolicyHistory"]
-  >;
-  loadUserDetail: (
-    userId: string,
-  ) => ReturnType<OrganizationReadModelCoordinator["loadLocalUserDetail"]>;
-  updateRosterEntry: (
-    userId: string,
-    profileDocumentId: string | null,
-  ) => ReturnType<typeof updateOrganizationRosterEntry>;
-  updateProfile: (
-    profileDocumentId: string | null,
-  ) => ReturnType<typeof updateOrganizationProfile>;
-  removeUserFromGroup: (
-    input: RemoveOrganizationGroupUserInput,
-  ) => ReturnType<typeof removeOrganizationGroupUser>;
-  revokeGrant: (
-    grant: OrganizationGrantRef,
-  ) => Promise<
-    | Awaited<ReturnType<typeof revokeOrganizationContainerGrant>>
-    | Awaited<ReturnType<typeof rotateOrganizationGroupForAccessSetShrink>>
-  >;
-  startTrial: (
-    organizationId?: string,
-  ) => ReturnType<typeof startOrganizationTrial>;
-}
 
 export function createOrganizations(
   runtime: InternalRuntime,
@@ -212,6 +116,24 @@ class OrganizationsService implements Organizations {
       readModelCoordinator: this.readModelCoordinator,
       ...currentOrganizationMutation(this.runtimeService),
     });
+  }
+
+  readPendingPolicyMutation(organizationId: string) {
+    return readPendingOrganizationPolicyMutation(
+      this.runtimeService,
+      organizationId,
+    );
+  }
+
+  retryPendingPolicyMutation(organizationId: string) {
+    return retryPendingOrganizationPolicyMutation(
+      this.runtimeService,
+      organizationId,
+    );
+  }
+
+  abandonPendingPolicyMutation(input: AbandonOrganizationPolicyMutationInput) {
+    return abandonPendingOrganizationPolicyMutation(this.runtimeService, input);
   }
 
   createGroup(name: string) {

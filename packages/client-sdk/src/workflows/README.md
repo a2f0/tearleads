@@ -43,6 +43,9 @@ Both policy API variants may throw `PendingPrincipalMutationError` or
 `PrincipalMutationOutcomeUnknownError`. Hosts can inspect saved work with
 `readJournaledPrincipalMutation` and explicitly stop its retries with
 `abandonJournaledPrincipalMutation`, acknowledging that it may have committed.
+`Tearleads.organizations` exposes `readPendingPolicyMutation`,
+`retryPendingPolicyMutation` and `abandonPendingPolicyMutation` for host controls;
+Org Manager provides retry and explicit stop-retrying actions.
 
 ## Facade Taxonomy
 
