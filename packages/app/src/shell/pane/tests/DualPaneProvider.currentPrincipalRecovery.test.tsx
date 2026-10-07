@@ -257,6 +257,9 @@ test.each([false, true])(
       "Fresh pane did not restore the peer identity.",
       20_000,
     );
+    // Restoring the session precedes the new identity's bootstrap/discovery.
+    // Refresh only after those lanes settle, so it targets the recovered scope.
+    await waitForPrincipalRematerialization();
     await clickExplorerRefresh(ownerPane);
     await waitForExplorerNoteVisible(ownerPane, NOTE_TEXT, 20_000);
     await selectExplorerNoteByName(ownerPane, NOTE_TEXT);
