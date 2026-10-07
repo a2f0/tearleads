@@ -40,3 +40,18 @@ checkpoint and signer authority, and refuse to return a signed request after
 expiry. The full-bundle variant still performs complete bundle verification.
 These checks authorize construction of a request; the API must independently
 verify it and commit against its current policy heads.
+
+The internal preparation and state-acknowledgement helpers also accept verified
+current evidence. They verify a single group or organization successor with
+trusted signer keys and the selected external authority, retaining the direct
+predecessor and successor. An acknowledgement must match the exact authored
+signed state, including its signature; a claimed matching hash is insufficient.
+Mutable request and response inputs are copied before verification yields, and
+an expired operation cannot return accepted evidence. A supplied durable pin
+must be covered by this pair; an older pin requires additional verified history.
+
+These helpers neither store artifacts nor advance checkpoints. Full receipt
+artifact checks, atomic persistence of both policies with grant retirements, and
+publication of authenticated resumable progress remain requirements for runtime
+adoption. The built-in mutation workflow continues to use its full-bundle path
+until those requirements are met.

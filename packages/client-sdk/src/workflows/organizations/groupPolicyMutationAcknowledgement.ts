@@ -8,6 +8,7 @@ import {
   normalizePrincipalProjectionMembers,
   type ReferencedPrincipalHead,
   type VerifiedPrincipalPolicy,
+  type VerifiedPrincipalPolicyCurrent,
 } from "@tearleads/crypto";
 import type {
   CreateOrganizationGroupRequest,
@@ -20,6 +21,10 @@ import type {
   PrincipalStateResponse,
 } from "@tearleads/validators/response";
 import { canonicalKeyingJsonString } from "../../data/keyingCanonicalJson";
+import {
+  type CurrentPolicyMutationInput,
+  verifyCurrentPolicyMutation,
+} from "./currentPolicyMutationAcknowledgement";
 import { assertPrincipalPolicyReceiptArtifacts } from "./principalPolicyReceiptArtifacts";
 
 export { assertGroupPolicyEnvelopesMatchAcknowledgement } from "./principalPolicyReceiptArtifacts";
@@ -145,12 +150,29 @@ function verifiedPolicy(input: {
   });
 }
 
-export async function acknowledgeGroupPolicyState(input: {
+interface FullPolicyMutationInput {
   readonly currentPolicy: PrincipalPolicyBundleResponse;
   readonly expectedHead: ReferencedPrincipalHead;
   readonly request: PutPrincipalPolicyRequest;
-  readonly response: PrincipalStateResponse;
-}): Promise<VerifiedPrincipalPolicy> {
+}
+
+export function acknowledgeGroupPolicyState(
+  input: CurrentPolicyMutationInput & {
+    readonly response: PrincipalStateResponse;
+  },
+): Promise<VerifiedPrincipalPolicyCurrent>;
+export function acknowledgeGroupPolicyState(
+  input: FullPolicyMutationInput & {
+    readonly response: PrincipalStateResponse;
+  },
+): Promise<VerifiedPrincipalPolicy>;
+export async function acknowledgeGroupPolicyState(
+  input: (FullPolicyMutationInput | CurrentPolicyMutationInput) & {
+    readonly response: PrincipalStateResponse;
+  },
+): Promise<VerifiedPrincipalPolicy | VerifiedPrincipalPolicyCurrent> {
+  if ("verifiedCurrentPolicy" in input)
+    return verifyCurrentPolicyMutation(input, input.response);
   await assertPolicyRequestCommitments(input.request);
   const { createdAt: _createdAt, stateHash, ...responseState } = input.response;
   const previous = input.currentPolicy.currentState;
@@ -183,11 +205,17 @@ export async function acknowledgeGroupPolicyState(input: {
  * The server still performs the authoritative signature, transition, and
  * authorization checks inside the combined transaction.
  */
-export async function prepareAuthoredGroupPolicy(input: {
-  readonly currentPolicy: PrincipalPolicyBundleResponse;
-  readonly expectedHead: ReferencedPrincipalHead;
-  readonly request: PutPrincipalPolicyRequest;
-}): Promise<VerifiedPrincipalPolicy> {
+export function prepareAuthoredGroupPolicy(
+  input: CurrentPolicyMutationInput,
+): Promise<VerifiedPrincipalPolicyCurrent>;
+export function prepareAuthoredGroupPolicy(
+  input: FullPolicyMutationInput,
+): Promise<VerifiedPrincipalPolicy>;
+export async function prepareAuthoredGroupPolicy(
+  input: FullPolicyMutationInput | CurrentPolicyMutationInput,
+): Promise<VerifiedPrincipalPolicy | VerifiedPrincipalPolicyCurrent> {
+  if ("verifiedCurrentPolicy" in input)
+    return verifyCurrentPolicyMutation(input);
   await assertPolicyRequestCommitments(input.request);
   const previous = input.currentPolicy.currentState;
   const state = input.request.state;

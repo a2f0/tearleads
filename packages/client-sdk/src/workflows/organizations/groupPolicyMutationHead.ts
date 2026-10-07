@@ -3,7 +3,6 @@ import {
   type ReferencedPrincipalHead,
 } from "@tearleads/crypto";
 import type { PutPrincipalPolicyRequest } from "@tearleads/validators/request";
-import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
 
 export async function groupPolicyMutationHead(
   request: PutPrincipalPolicyRequest,
@@ -20,7 +19,7 @@ export async function groupPolicyMutationHead(
 }
 
 function principalPolicyCurrentStateMatchesHead(
-  state: PrincipalPolicyBundleResponse["currentState"],
+  state: ReferencedPrincipalHead,
   head: ReferencedPrincipalHead,
 ): boolean {
   return (
@@ -34,7 +33,7 @@ function principalPolicyCurrentStateMatchesHead(
 }
 
 export function assertPrincipalPolicyCurrentStateMatchesHead(
-  state: PrincipalPolicyBundleResponse["currentState"],
+  state: ReferencedPrincipalHead,
   head: ReferencedPrincipalHead,
 ): void {
   if (!principalPolicyCurrentStateMatchesHead(state, head)) {
