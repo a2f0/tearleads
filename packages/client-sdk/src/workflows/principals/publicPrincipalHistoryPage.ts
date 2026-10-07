@@ -14,6 +14,13 @@ import type {
   PublicPrincipalHistoryProgress,
 } from "./publicPrincipalHistoryTypes";
 
+export class PublicPrincipalHistoryPrefixDisconnectedError extends Error {
+  constructor(readonly verificationError: KeyingVerificationError) {
+    super(verificationError.message);
+    this.name = "PublicPrincipalHistoryPrefixDisconnectedError";
+  }
+}
+
 function assertPublicAuthorityScope(
   input: PublicPrincipalHistoryOptions,
   entries: readonly PrincipalPolicyStateChainEntry[],
@@ -85,7 +92,11 @@ export async function appendPublicPrincipalHistoryPage(
     signerPublicKeys: keys.signerPublicKeys,
     ...(externalAuthority ? { externalAuthority } : {}),
   });
-  if (!appended.ok) throw appended.error;
+  if (!appended.ok) {
+    if (appended.error.code === "stale_predecessor")
+      throw new PublicPrincipalHistoryPrefixDisconnectedError(appended.error);
+    throw appended.error;
+  }
   const row = {
     id: progress.id,
     organizationId: input.organizationId,

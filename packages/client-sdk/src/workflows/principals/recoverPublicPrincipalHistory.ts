@@ -14,7 +14,10 @@ import { loadPrincipalHistoryReference } from "../../data/persistence/principalH
 import { principalHeadMatchesReference } from "../../data/principals/organizationAuthorityDescriptor";
 import { ownPrincipalHistoryProtection } from "../../data/principals/principalHistoryProtection";
 import { PrincipalPolicyHistoryReadError } from "./principalHistoryRecoveryTypes";
-import { appendPublicPrincipalHistoryPage } from "./publicPrincipalHistoryPage";
+import {
+  appendPublicPrincipalHistoryPage,
+  PublicPrincipalHistoryPrefixDisconnectedError,
+} from "./publicPrincipalHistoryPage";
 import {
   publishPublicPrincipalHistoryPrefix,
   restorePublicPrincipalHistoryProgress,
@@ -96,16 +99,7 @@ async function readPublicPages(
   return { progress, lastPage };
 }
 
-async function recover(
-  input: PublicPrincipalHistoryOptions,
-  allowReuse = true,
-): Promise<RecoveredPublicPrincipalHistory> {
-  const current = () => !input.signal?.aborted && input.stillCurrent();
-  assertProjectionVerificationCurrent(current);
-  const { progress, lastPage } = await readPublicPages(
-    input,
-    await restorePublicPrincipalHistoryProgress(input, allowReuse),
-  );
+function finishPublicProgress(progress: PublicPrincipalHistoryProgress) {
   if (!progress.completedHead)
     throw new KeyingVerificationError(
       "missing_dependency",
@@ -113,25 +107,48 @@ async function recover(
     );
   const finished = progress.verifier.finish(progress.completedHead);
   if (!finished.ok) throw finished.error;
+  return finished.value;
+}
+
+async function recover(
+  input: PublicPrincipalHistoryOptions,
+  allowReuse = true,
+): Promise<RecoveredPublicPrincipalHistory> {
+  const current = () => !input.signal?.aborted && input.stillCurrent();
+  assertProjectionVerificationCurrent(current);
+  const mayReplay = allowReuse && !input.offline;
+  const initial = await restorePublicPrincipalHistoryProgress(
+    input,
+    allowReuse,
+  );
+  let pages: Awaited<ReturnType<typeof readPublicPages>>;
+  try {
+    pages = await readPublicPages(input, initial);
+  } catch (error) {
+    if (!(error instanceof PublicPrincipalHistoryPrefixDisconnectedError))
+      throw error;
+    // A signed cached candidate need not belong to this requested chain. Only
+    // reused progress permits one replay; a fresh disconnected chain fails.
+    if (mayReplay && initial.afterVersion > 0) return recover(input, false);
+    throw error.verificationError;
+  }
+  const { progress, lastPage } = pages;
+  const history = finishPublicProgress(progress);
   let proof: PrincipalPolicyHistoryReferenceProof;
   try {
     proof = await loadPrincipalHistoryReference({
       execSql: input.execSql,
       scopeId: progress.scopeId,
-      history: finished.value,
+      history,
       version: input.source.head.version,
     });
     const selected = await verifyPrincipalPolicyHistoryReferences({
-      history: finished.value,
+      history,
       references: [proof],
     });
     if (!selected.ok) throw selected.error;
   } catch (error) {
-    if (
-      error instanceof KeyingVerificationError &&
-      allowReuse &&
-      !input.offline
-    )
+    if (error instanceof KeyingVerificationError && mayReplay)
       return recover(input, false);
     throw error;
   }
@@ -140,7 +157,7 @@ async function recover(
   // Rebuild the requested chain once online; callers still check durable pins
   // and object authority before accepting it. Never reuse a mismatch offline.
   if (!principalHeadMatchesReference(proof.entry.state, input.source.head)) {
-    if (allowReuse && !input.offline) return recover(input, false);
+    if (mayReplay) return recover(input, false);
     throw new KeyingVerificationError(
       "object_mismatch",
       "Public history source differs from the verified prefix",
@@ -156,16 +173,16 @@ async function recover(
       },
     };
     const checked = await verifyPrincipalPolicyHistoryReferences({
-      history: finished.value,
+      history,
       references: [currentProof],
     });
     if (!checked.ok) throw checked.error;
   }
   assertProjectionVerificationCurrent(current);
   if (!input.offline)
-    await publishPublicPrincipalHistoryPrefix(input, progress, finished.value);
+    await publishPublicPrincipalHistoryPrefix(input, progress, history);
   assertProjectionVerificationCurrent(current);
-  return { scopeId: progress.scopeId, history: finished.value };
+  return { scopeId: progress.scopeId, history };
 }
 
 /** Private-key-backed public history recovery; never admits a current policy pin. */
