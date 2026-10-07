@@ -1,5 +1,7 @@
 import { expect, test } from "bun:test";
+import { KeyingVerificationError } from "@tearleads/crypto";
 import { createMockApiClient, createTestExecSql } from "@tearleads/test-utils";
+import { createCurrentOrganizationRuntimeFixture } from "../../../test/helpers/currentOrganizationRuntime";
 import {
   createInternalRuntimeFixture,
   createWorkflowInputFixture,
@@ -10,6 +12,69 @@ import { applyOrganizationReadModelResponse } from "../../data/persistence/organ
 import { savePrincipalPolicyBundle } from "../../data/persistence/principalPolicyPersistence";
 import { unavailableExecSql } from "../../data/sqlite/sqlSchema";
 import { createOrganizationReadModelCoordinator } from "./organizationReadModels";
+
+test("failed paged verification never falls back to an available full group history", async () => {
+  const f = await createCurrentOrganizationRuntimeFixture({ aligned: true });
+  try {
+    const group = f.signed.members;
+    const organizationId = f.signed.artifacts.organizationId;
+    const response = organizationReadModelSnapshot({
+      organizationId,
+      currentUserId: "founder",
+    });
+    response.lanes.groups.groups = [
+      {
+        groupId: group.currentState.principalId,
+        organizationId,
+        createdAt: group.currentState.createdAt,
+        isBuiltin: true,
+        currentState: {
+          ...group.currentState,
+          memberCount: group.currentProjection.length,
+        },
+      },
+    ];
+    response.lanes.groups.memberGroupId = group.currentState.principalId;
+    response.lanes.groupMemberships.groups =
+      response.lanes.groupMemberships.groups.slice(-1).map((membership) => ({
+        ...membership,
+        groupId: group.currentState.principalId,
+        stateHash: group.currentState.stateHash,
+      }));
+    response.lanes.grants.grants = [];
+    await applyOrganizationReadModelResponse({
+      currentUserId: "founder",
+      execSql: f.options.execSql,
+      requestedCursor: null,
+      response,
+    });
+    await savePrincipalPolicyBundle(
+      f.options.execSql,
+      group,
+      new Date().toISOString(),
+      organizationId,
+    );
+    const failure = new KeyingVerificationError(
+      "stale_predecessor",
+      "Paged verification rejected a disconnected chain",
+    );
+    let attempts = 0;
+    f.runtime.apiClient.getPrincipalPolicyPages = () => {
+      attempts += 1;
+      throw failure;
+    };
+    const coordinator = createOrganizationReadModelCoordinator(
+      createInternalRuntimeFixture(() => f.runtime),
+    );
+    await expect(
+      coordinator.loadGroupPolicyHistory(group.currentState.principalId),
+    ).rejects.toBe(failure);
+    expect(attempts).toBe(1);
+    expect(f.fullReads()).toBe(0);
+  } finally {
+    f.close();
+  }
+});
 
 test("a host without page custody refuses a cursor before reading local or remote history", async () => {
   const input = createWorkflowInputFixture({

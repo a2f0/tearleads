@@ -28,7 +28,9 @@ online recovery, preserving checkpoint, dependency and caller-lifetime checks.
 Built-in member addition/removal and group-grant revocation also use current
 evidence and exact receipts; see [current mutations](principal-current-mutations.md).
 Built-in group creation walks signed directory names through current policies
-and publishes the authenticated group genesis and directory successor together.
+one at a time and publishes the authenticated group genesis and directory
+successor together. Recovery already serializes each organization; the name walk
+keeps only one group current in flight, so its latency grows with group count.
 Group-history views select at most 32 rows from privately verified index proofs;
 Org Manager offers older pages without fetching a complete group bundle. The
 immediate predecessor remains verified for the boundary row's membership diff.
