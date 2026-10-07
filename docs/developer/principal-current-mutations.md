@@ -126,6 +126,7 @@ group, checks the exact response target and artifacts, and retains the directory
 successor under the original identity/database lease. Unresolved earlier
 compound
 policy work blocks discovery. Hosts without private custody keep the standalone
-full-bundle deletion workflow. Creation/deletion requests are not yet covered by
+full-bundle deletion workflow with the same caller lifetime guard.
+Creation/deletion requests are not yet covered by
 the compound membership journal; lost acknowledgements still require
 reconciliation.

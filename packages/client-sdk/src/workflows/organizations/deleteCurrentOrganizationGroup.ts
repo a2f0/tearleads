@@ -14,9 +14,10 @@ import {
 
 /** Delete against a verified directory without loading the removed group's history. */
 export async function deleteCurrentOrganizationGroup(input: {
-  readonly apiClient: Parameters<
-    typeof deleteOrganizationGroup
-  >[0]["apiClient"];
+  readonly apiClient: Pick<
+    Parameters<typeof deleteOrganizationGroup>[0]["apiClient"],
+    "deleteOrganizationGroup"
+  >;
   readonly context: CurrentOrganizationMutationContext;
   readonly groupId: string;
   readonly organizationId: string;

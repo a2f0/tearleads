@@ -19,8 +19,12 @@ async function fixture(custody = true) {
   const f = await createAuthorityRecoveryFixture(history);
   const state = {
     current: true,
+    callerCurrent: true,
     corrupt: false,
     expire: false,
+    expireCaller: false,
+    wrongGroup: false,
+    wrongOrganization: false,
     writes: 0,
     fullReads: 0,
     recovered: false,
@@ -44,7 +48,15 @@ async function fixture(custody = true) {
     const { previousStates: _previousStates, ...organizationPolicy } = bundle;
     if (state.corrupt) organizationPolicy.currentProjection = [];
     if (state.expire) state.current = false;
-    return { deleted: true, organizationId, groupId, organizationPolicy };
+    if (state.expireCaller) state.callerCurrent = false;
+    return {
+      deleted: true,
+      organizationId: state.wrongOrganization
+        ? "other-organization"
+        : organizationId,
+      groupId: state.wrongGroup ? "other-group" : groupId,
+      organizationPolicy,
+    };
   };
   const base = createWorkflowInputFixture({
     apiClient: f.options.apiClient,
@@ -91,7 +103,7 @@ async function fixture(custody = true) {
     input: {
       runtime,
       groupId: history.group.currentState.principalId,
-      stillCurrent: () => state.current,
+      stillCurrent: () => state.callerCurrent,
     },
   };
 }
@@ -134,13 +146,17 @@ test.each([true, false])(
   15_000,
 );
 
-test.each(["corrupt", "expire"] as const)(
+test.each(["corrupt", "expire", "expireCaller"] as const)(
   "current group deletion rejects %s receipt before successor admission",
   async (mode) => {
     const f = await fixture();
     f.state[mode] = true;
     try {
-      await expect(deleteGroupForOrganization(f.input)).rejects.toThrow();
+      await expect(deleteGroupForOrganization(f.input)).rejects.toThrow(
+        mode === "corrupt"
+          ? "bundle acknowledgement mismatch"
+          : "generation expired",
+      );
       expect(f.state.writes).toBe(1);
       expect(
         await loadPrincipalPolicyCheckpoint(
@@ -196,6 +212,51 @@ test("current deletion rejects a non-admin and either built-in group before disp
         deleteGroupForOrganization({ ...f.input, groupId }),
       ).rejects.toThrow("Built-in groups cannot be removed");
     expect(f.state.writes).toBe(0);
+  } finally {
+    f.close();
+  }
+});
+
+test.each(["wrongGroup", "wrongOrganization"] as const)(
+  "current deletion rejects %s response target",
+  async (mode) => {
+    const f = await fixture();
+    f.state[mode] = true;
+    try {
+      await expect(deleteGroupForOrganization(f.input)).rejects.toThrow(
+        "response target mismatch",
+      );
+      expect(f.state.writes).toBe(1);
+      expect(
+        await loadPrincipalPolicyCheckpoint(
+          f.options.execSql,
+          "organization",
+          history.organizationId,
+        ),
+      ).toMatchObject({ version: 66 });
+    } finally {
+      f.close();
+    }
+  },
+);
+
+test("fallback deletion refuses retention after its caller expires", async () => {
+  const f = await fixture(false);
+  f.state.expireCaller = true;
+  try {
+    await expect(deleteGroupForOrganization(f.input)).rejects.toThrow(
+      "generation expired",
+    );
+    expect(f.state.writes).toBe(1);
+    expect(
+      (
+        await loadPrincipalPolicyCheckpoint(
+          f.options.execSql,
+          "organization",
+          history.organizationId,
+        )
+      )?.version,
+    ).not.toBe(67);
   } finally {
     f.close();
   }

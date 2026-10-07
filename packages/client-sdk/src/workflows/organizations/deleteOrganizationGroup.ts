@@ -1,6 +1,7 @@
 import type { SigningKeyPair } from "@tearleads/crypto";
 import type { DeleteOrganizationGroupRequest } from "@tearleads/validators/request";
 import type { DeleteOrganizationGroupResponse } from "@tearleads/validators/response";
+import { assertProjectionVerificationCurrent } from "../../data/keyingProjectionVerification/types";
 import { persistLocallyAcknowledgedPrincipalPolicyBundles } from "../../data/persistence/locallyAcknowledgedCheckpointPersistence";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import type { TrustedUserIdentityResolver } from "../../data/trustedUserIdentity";
@@ -35,8 +36,12 @@ export async function deleteOrganizationGroup(input: {
   readonly signerUserId: string;
   readonly signingFingerprint: string;
   readonly signingKeyPair: SigningKeyPair;
+  readonly stillCurrent?: (() => boolean) | undefined;
 }): Promise<DeleteOrganizationGroupResponse> {
+  const stillCurrent = input.stillCurrent;
+  assertProjectionVerificationCurrent(stillCurrent);
   await input.apiClient.recoverPendingPrincipalMutation?.(input.organizationId);
+  assertProjectionVerificationCurrent(stillCurrent);
   const externalAdminPolicy = await loadOrganizationExternalAdminPolicy({
     execSql: input.execSql,
     getCurrentPrincipalPolicy: (principalType, principalId) =>
@@ -44,6 +49,7 @@ export async function deleteOrganizationGroup(input: {
     organizationId: input.organizationId,
     resolveTrustedUserIdentity: input.resolveTrustedUserIdentity,
   });
+  assertProjectionVerificationCurrent(stillCurrent);
   if (!externalAdminPolicy?.signerUserIds.includes(input.signerUserId)) {
     throw new Error("Organization admin authority could not be verified");
   }
@@ -66,11 +72,13 @@ export async function deleteOrganizationGroup(input: {
       signingFingerprint: input.signingFingerprint,
       signingKeyPair: input.signingKeyPair,
     });
+  assertProjectionVerificationCurrent(stillCurrent);
   const stored = await input.apiClient.deleteOrganizationGroup(
     input.organizationId,
     input.groupId,
     { organizationPolicy: organizationRequest },
   );
+  assertProjectionVerificationCurrent(stillCurrent);
   if (!stored) {
     throw new Error("Group could not be deleted");
   }
@@ -98,6 +106,8 @@ export async function deleteOrganizationGroup(input: {
     execSql: input.execSql,
     organizationId: input.organizationId,
     updatedAt: new Date().toISOString(),
+    stillCurrent,
   });
+  assertProjectionVerificationCurrent(stillCurrent);
   return stored;
 }

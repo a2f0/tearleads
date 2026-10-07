@@ -219,6 +219,7 @@ export function deleteGroupForOrganization(input: {
             }),
         );
       return deleteOrganizationGroup({
+        stillCurrent: input.stillCurrent,
         apiClient: input.runtime.apiClient,
         execSql: input.runtime.infra.execSql,
         groupId: input.groupId,
