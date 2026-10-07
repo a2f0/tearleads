@@ -12,7 +12,9 @@ export type PrincipalMutationJournalRow =
 
 export class PendingPrincipalMutationError extends Error {
   constructor() {
-    super("Resolve the pending principal mutation before submitting another");
+    super(
+      "Resolve the pending principal mutation or explicitly abandon its retry before submitting another",
+    );
     this.name = "PendingPrincipalMutationError";
   }
 }
@@ -61,12 +63,12 @@ export async function clearPrincipalMutationJournal(input: {
   readonly execSql: ExecSql;
   readonly row: PrincipalMutationJournalRow;
   readonly stillCurrent: () => boolean;
-}): Promise<void> {
+}): Promise<boolean> {
   const row = { ...input.row };
   const runtime = getClientSQLitePersistenceRuntime(input.execSql);
   const result = await runtime.guardedTransaction(
     async (tx) => {
-      await tx
+      const deleted = await tx
         .delete(principalMutationJournal)
         .where(
           and(
@@ -79,10 +81,12 @@ export async function clearPrincipalMutationJournal(input: {
             eq(principalMutationJournal.signature, row.signature),
           ),
         )
-        .run();
+        .returning({ scopeId: principalMutationJournal.scopeId });
+      return deleted.length > 0;
     },
     input.stillCurrent,
     { behavior: "immediate" },
   );
   assertProjectionVerificationCurrent(() => result.committed);
+  return result.result === true;
 }

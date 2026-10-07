@@ -67,6 +67,10 @@ export {
   importOrganizationUser,
 } from "./organizationUserImport";
 export {
+  abandonJournaledPrincipalMutation,
+  readJournaledPrincipalMutation,
+} from "./principalMutationJournalManagement";
+export {
   type PrincipalMutationJournalContext,
   PrincipalMutationOutcomeUnknownError,
   recoverJournaledPrincipalMutation,

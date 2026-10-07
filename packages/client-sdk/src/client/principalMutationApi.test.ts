@@ -28,10 +28,15 @@ test("runtime API custody resumes saved bytes after generation replacement and c
     organizationId,
     groupId,
     request,
+    options,
   ) {
     expect(this).toBe(api);
     calls.push({ organizationId, groupId, request: structuredClone(request) });
-    if (!interrupted) return { ok: true, data: fixture.response };
+    if (!interrupted) {
+      expect(options?.reportErrors).toBe(false);
+      expect(options?.signal).toBeInstanceOf(AbortSignal);
+      return { ok: true, data: fixture.response };
+    }
     return {
       ok: false,
       kind: "outcome-unknown",

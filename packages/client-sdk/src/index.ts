@@ -442,6 +442,7 @@ export type {
   ReconcileOrganizationDataUsageInput,
 } from "./workflows/organizations";
 export {
+  abandonJournaledPrincipalMutation,
   addOrganizationGroupUser,
   buildInitialGroupPolicyRequest,
   buildInitialMemberGroupPolicyRequest,
@@ -469,6 +470,7 @@ export {
   PendingPrincipalMutationError,
   PrincipalMutationOutcomeUnknownError,
   ROSTER_PROFILE_DOCUMENT_KIND,
+  readJournaledPrincipalMutation,
   readOrganizationProfileName,
   reconcileOrganizationDataUsage,
   reconcileOrganizationDirectoryAndGroups,

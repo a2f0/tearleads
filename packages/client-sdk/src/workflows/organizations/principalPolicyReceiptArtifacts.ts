@@ -1,4 +1,5 @@
 import {
+  compareCanonicalStrings,
   normalizePrincipalContainerGrants,
   normalizePrincipalProjectionMembers,
   type ReferencedPrincipalHead,
@@ -13,7 +14,8 @@ import { canonicalKeyingJsonString } from "../../data/keyingCanonicalJson";
 
 function sortedCanonicalValues<T>(values: readonly T[], label: string): T[] {
   return [...values].sort((left, right) =>
-    canonicalKeyingJsonString(left, label).localeCompare(
+    compareCanonicalStrings(
+      canonicalKeyingJsonString(left, label),
       canonicalKeyingJsonString(right, label),
     ),
   );

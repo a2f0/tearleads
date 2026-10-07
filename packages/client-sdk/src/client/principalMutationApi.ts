@@ -95,6 +95,7 @@ export function createPrincipalMutationApiCustody(input: {
                   organizationId,
                   mutation.groupId,
                   mutation.request,
+                  { signal: AbortSignal.timeout(15_000), reportErrors: false },
                 ),
             });
           },

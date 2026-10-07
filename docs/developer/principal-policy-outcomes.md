@@ -61,11 +61,28 @@ exact receipt artifacts. It neither reruns the original application callback
 nor invents a complete verified history from the receipt. Current checkpoints
 are left to ordinary verified recovery, so an older receipt cannot roll them back.
 
-A known first-attempt refusal retires the journal. A disconnected request, an
+Calls sharing an executor and scope serialize submission, recovery and explicit
+abandonment. Recovery waits for an owned dispatch instead of sending it again.
+Runtime recovery has a 15-second request deadline; expiration retains the journal.
+
+A known first-attempt refusal or cancellation before dispatch retires the
+journal. A disconnected request, an
 invalid acknowledgement or an expired lifetime leaves it pending. Once an
 outcome is uncertain, a later refusal, including 403, 409 or the coded rollback
 503, cannot prove the first attempt rolled back and does not clear its record.
 Corrupt authored work is retained and rejected before network submission.
+A lifetime change also preserves a definitive refusal whose old scope can no
+longer clear the record; a fresh scope must recover it or explicitly abandon it.
+
+Hosts can inspect authenticated work with `readJournaledPrincipalMutation`.
+After an explicit user or host decision, `abandonJournaledPrincipalMutation`
+requires that exact inspected request and `acknowledgeUnknownOutcome: true`. It
+stops local retries without asserting rollback or undoing a remote change.
+Automatic recovery never abandons work. Changed requests, corrupt records and
+expired lifetimes cannot use this helper to erase the saved operation. The next
+mutation still reads and verifies current policies before authoring. Hosts should
+handle `PendingPrincipalMutationError` and `PrincipalMutationOutcomeUnknownError`
+from both runtime policy API variants, including the nullable convenience method.
 
 Advanced hosts can call `submitJournaledPrincipalMutation` and
 `recoverJournaledPrincipalMutation` with an explicit `PrincipalMutationJournalContext`.

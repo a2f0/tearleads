@@ -60,11 +60,15 @@ test("a stale acknowledgement cannot clear a newer operation", async () => {
     await claimPrincipalMutationJournal({ ...shared, row: previous });
     await clearPrincipalMutationJournal({ ...shared, row: previous });
     await claimPrincipalMutationJournal({ ...shared, row: current });
-    await clearPrincipalMutationJournal({ ...shared, row: previous });
+    expect(
+      await clearPrincipalMutationJournal({ ...shared, row: previous }),
+    ).toBe(false);
     expect(await loadPrincipalMutationJournal(sqlite.execSql, "scope")).toEqual(
       current,
     );
-    await clearPrincipalMutationJournal({ ...shared, row: current });
+    expect(
+      await clearPrincipalMutationJournal({ ...shared, row: current }),
+    ).toBe(true);
     expect(
       await loadPrincipalMutationJournal(sqlite.execSql, "scope"),
     ).toBeNull();

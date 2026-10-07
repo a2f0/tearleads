@@ -653,6 +653,11 @@ work before authoring another group change. Advanced hosts use
 with durable SQLite, the actor's signing key and a current-lifetime guard.
 An unknown result remains pending even if a later retry receives 403 or 409.
 A recovered receipt acknowledges a past request without advancing current pins.
+Both runtime policy API variants may throw `PendingPrincipalMutationError` or
+`PrincipalMutationOutcomeUnknownError`. `readJournaledPrincipalMutation` inspects
+saved work. `abandonJournaledPrincipalMutation` stops retries only after an explicit
+choice accepting its unknown outcome and matching that exact inspected request;
+it does not undo a remote commit. Later mutations still verify current policy.
 See [principal policy outcomes](principal-policy-outcomes.md) for scope and limits.
 
 A container's first direct grant has the matching precondition: the chain above

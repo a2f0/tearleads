@@ -39,6 +39,10 @@ creation requires `metadataAccess`. See the [SDK guide](../../../../docs/develop
 `submitJournaledPrincipalMutation` saves exact compound policy requests before
 HTTP; `recoverJournaledPrincipalMutation` resolves saved work before authoring
 again. The `Tearleads` runtime supplies this for group policy mutations.
+Both policy API variants may throw `PendingPrincipalMutationError` or
+`PrincipalMutationOutcomeUnknownError`. Hosts can inspect saved work with
+`readJournaledPrincipalMutation` and explicitly stop its retries with
+`abandonJournaledPrincipalMutation`, acknowledging that it may have committed.
 
 ## Facade Taxonomy
 
