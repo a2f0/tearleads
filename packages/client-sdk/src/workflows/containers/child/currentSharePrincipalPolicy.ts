@@ -33,6 +33,7 @@ interface CurrentShareInput {
   readonly organizationId: string;
   readonly expectedGroupHead?: ReferencedPrincipalHead | undefined;
   readonly expectedGroupName?: string | undefined;
+  /** Trusted internal reader; it must authenticate the signed metadata container. */
   readonly readEncryptedName?: GroupPolicyNameReader | undefined;
   readonly stillCurrent: () => boolean;
 }
