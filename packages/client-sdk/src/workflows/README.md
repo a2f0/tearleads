@@ -41,8 +41,12 @@ creation requires `metadataAccess`. See the [SDK guide](../../../../docs/develop
 The `Tearleads` runtime supplies this for compound and standalone organization
 policies, group creation and group deletion. `AuthoredPrincipalMutation` binds
 each operation kind and route; `PrincipalMutationResponse` is the receipt union.
-Both policy API variants may throw `PendingPrincipalMutationError` or
-`PrincipalMutationOutcomeUnknownError`. Hosts can inspect saved work with
+Custom `submit` callbacks must dispatch every authenticated kind to its matching
+route, including absent kind for compound policies. SDK downgrades are unsupported
+while a request is pending; retain its bytes for recovery with a supported SDK.
+Both nullable and result methods for all four operations may throw
+`PendingPrincipalMutationError` or `PrincipalMutationOutcomeUnknownError`.
+Hosts can inspect saved work with
 `readJournaledPrincipalMutation` and explicitly stop its retries with
 `abandonJournaledPrincipalMutation`, acknowledging that it may have committed.
 `Tearleads.organizations` exposes `readPendingPolicyMutation`,
