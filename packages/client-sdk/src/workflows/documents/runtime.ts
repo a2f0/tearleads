@@ -3,6 +3,7 @@ import {
   type DocumentProjectorRegistryInput,
   resolveDocumentProjectorRegistry,
 } from "../../data/documents/documentKinds";
+import type { PrincipalHistoryProtectionLease } from "../../data/principals/principalHistoryProtection";
 import { inheritPrincipalHistoryProtection } from "../../data/principals/principalHistoryRuntime";
 import {
   requireTrustedUserIdentityResolver,
@@ -50,6 +51,10 @@ export interface DocumentsWorkflowRuntimeInputGroups {
 
 export interface DocumentsWorkflowRuntimeInput
   extends DocumentsWorkflowRuntimeInputGroups {
+  /** Private host custody, inherited without exposing it on runtime views. */
+  readonly withPrincipalHistoryProtection?:
+    | PrincipalHistoryProtectionLease
+    | undefined;
   readonly apiClient: ApiClient;
   readonly resolveTrustedUserIdentity: TrustedUserIdentityResolver;
 }

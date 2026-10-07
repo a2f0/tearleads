@@ -477,6 +477,7 @@ export {
 } from "./workflows/organizations";
 export type {
   CacheReferencedPrincipalPoliciesOptions,
+  PrincipalHistoryProtectionLease,
   ProjectionPolicyHistoryRecoveryOptions,
   RecoveredPrincipalPolicyHistory,
   RecoveredScopedPrincipalPolicyHistory,

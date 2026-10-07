@@ -24,6 +24,16 @@ Provider failures propagate instead of silently changing keys. Container and
 document workflow adapters retain the same lease in a private weak registry;
 their public runtime views do not expose custody callbacks.
 
+Standalone hosts can pass `withPrincipalHistoryProtection` to the public document
+or container workflow constructor, including the container store constructor.
+The exported `PrincipalHistoryProtectionLease` callback must supply a private
+32-byte key and trust context, keep them usable until its operation settles, then
+clear its owned key bytes. Its `stillCurrent` predicate must remain false after
+the owning database, identity, session authority or host lifetime changes.
+Derived document runtimes inherit this custody through the private registry.
+Omitting custody leaves compact projection recovery unavailable; hosts using
+these constructors against compact projections must supply it.
+
 The app derives a separate purpose from its existing protected SQLite keyring
 root, binding the API and identity. It releases keyring sessions after derivation.
 Deleting that local root retires recovery keys too; no signing secret is used.
