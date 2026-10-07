@@ -1,12 +1,14 @@
 # Principal policy commit outcomes
 
-A client may lose an HTTP response after a standalone organization policy or a
-compound group-and-organization policy request commits. Retrying the exact
-request returns its original acknowledgement even after later policy versions
+A client may lose an HTTP response after a standalone organization policy, a
+compound group-and-organization policy request, or group creation/deletion
+commits. Retrying the exact request returns its original acknowledgement even
+after later policy versions
 commit. A durable receipt is written in the same transaction as the policies and
 binds the entire canonical request, authenticated requester, organization, and
-compound group when applicable. Separate hash domains distinguish standalone and
-compound requests. Existing mutation locks serialize concurrent exact retries.
+target group when applicable. Separate hash domains distinguish standalone,
+compound, creation and deletion requests. Existing mutation locks serialize
+concurrent exact retries.
 A replay does not change current heads or publish another access or sharing
 notification.
 
@@ -19,9 +21,11 @@ roster billing checks: it reports a past commit without authorizing another.
 Invalid stored
 receipts fail closed. Compound container results still require their original
 acknowledgement rows, so purging an organization cannot leave a response in an
-embedded copy. Group deletion removes that group's compound receipts;
-organization purge also removes standalone receipts. A null receipt group ID
-identifies the standalone organization request domain.
+embedded copy. Group deletion removes that group's compound and creation
+receipts. Deletion receipts keep a null database group ID so removing the group
+cannot delete the acknowledgement; the hash still binds its exact target.
+Organization purge removes these receipts together with standalone receipts.
+A null database group ID therefore does not identify the operation domain.
 
 The schema change regenerates both greenfield baselines and requires fresh
 databases under the repository reset policy; there is no historical upgrade.
@@ -41,6 +45,23 @@ Reconstructed signature bytes, ciphertext, projection and grants must match the
 receipt-authenticated original request; the state hash alone cannot authenticate
 signature bytes. Altered retired artifacts cannot return a successful receipt.
 Storage still grows by a fixed-size record per accepted commit.
+
+## Group creation and deletion transport
+
+Creation and deletion use the bounded history transaction runner. A validated 202
+or coded 503 with `committed:false` is emitted only after rollback, including any
+new group, deletion, directory successor, read-model change and receipt. The API
+client retries only validated preparation continuations with the original request
+bytes and identity. Its `createOrganizationGroupResult` and
+`deleteOrganizationGroupResult` methods preserve unknown outcomes and accept
+cancellation options; the existing nullable methods delegate to those results.
+
+Creation receipts reconstruct the original group summary and directory outcome,
+even after later policies advance. Deletion receipts reconstruct the original
+directory outcome after the group is gone. Neither creates another read-model
+change on replay. Both require current administrator access under mutation locks.
+These transport capabilities do not yet add a durable SDK journal for group
+creation or deletion; only compound policy mutations have that runtime integration.
 
 ## Durable compound policy requests
 

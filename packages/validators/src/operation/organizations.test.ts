@@ -26,6 +26,11 @@ import {
   SessionFailureResponseSchema,
 } from "../response";
 import {
+  PrincipalHistoryPreparationFailureResponseSchema,
+  PrincipalHistoryPreparationResponseSchema,
+  principalHistoryRollbackRefinement,
+} from "../response/principalHistoryPreparation";
+import {
   operationRequestPath,
   operationRequestPathWithQuery,
   operationRoutePath,
@@ -187,8 +192,14 @@ test("organization management operations own their HTTP contracts", () => {
     id: "organizations.groups.create",
     method: "POST",
     params: OrganizationPathParamsSchema,
-    responses: { 200: CreateOrganizationGroupResponseSchema },
-    runtimeRefinements: [organizationProvisioningContainerKeyringRefinement],
+    responses: {
+      200: CreateOrganizationGroupResponseSchema,
+      202: PrincipalHistoryPreparationResponseSchema,
+    },
+    runtimeRefinements: [
+      organizationProvisioningContainerKeyringRefinement,
+      principalHistoryRollbackRefinement,
+    ],
   });
   expect(createOrganizationGroupOperation.failureResponses).toEqual({
     400: ErrorResponseSchema,
@@ -198,7 +209,7 @@ test("organization management operations own their HTTP contracts", () => {
     404: ErrorResponseSchema,
     409: ErrorResponseSchema,
     500: ErrorResponseSchema,
-    503: ErrorResponseSchema,
+    503: PrincipalHistoryPreparationFailureResponseSchema,
   });
   expect(deleteOrganizationGroupOperation).toMatchObject({
     auth: "session",
@@ -207,8 +218,14 @@ test("organization management operations own their HTTP contracts", () => {
     id: "organizations.groups.delete",
     method: "DELETE",
     params: OrganizationGroupPathParamsSchema,
-    responses: { 200: DeleteOrganizationGroupResponseSchema },
-    runtimeRefinements: [organizationProvisioningContainerKeyringRefinement],
+    responses: {
+      200: DeleteOrganizationGroupResponseSchema,
+      202: PrincipalHistoryPreparationResponseSchema,
+    },
+    runtimeRefinements: [
+      organizationProvisioningContainerKeyringRefinement,
+      principalHistoryRollbackRefinement,
+    ],
   });
   expect(deleteOrganizationGroupOperation.failureResponses).toEqual({
     400: ErrorResponseSchema,
@@ -218,7 +235,7 @@ test("organization management operations own their HTTP contracts", () => {
     404: ErrorResponseSchema,
     409: ErrorResponseSchema,
     500: ErrorResponseSchema,
-    503: ErrorResponseSchema,
+    503: PrincipalHistoryPreparationFailureResponseSchema,
   });
   expect(listOrganizationGroupMembersOperation).toMatchObject({
     auth: "session",

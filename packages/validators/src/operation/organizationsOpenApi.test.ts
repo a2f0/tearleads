@@ -150,6 +150,7 @@ test("organization management OpenAPI documents shared contracts", () => {
   expect(createGroup.operationId).toBe("organizations.groups.create");
   expect(Object.keys(createGroup.responses)).toEqual([
     "200",
+    "202",
     "400",
     "401",
     "402",

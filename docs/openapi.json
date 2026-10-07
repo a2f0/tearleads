@@ -47783,6 +47783,38 @@
             },
             "description": "Successful JSON response"
           },
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string",
+                      "const": "principal_history_preparation_pending"
+                    },
+                    "committed": {
+                      "type": "boolean",
+                      "const": false
+                    },
+                    "progressToken": {
+                      "maxLength": 64,
+                      "minLength": 64,
+                      "pattern": "^[0-9a-f]+$",
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "committed",
+                    "progressToken"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            },
+            "description": "The attempted operation rolled back. Retry the identical request to continue verification preparation."
+          },
           "400": {
             "content": {
               "application/json": {
@@ -47942,6 +47974,17 @@
                   "properties": {
                     "error": {
                       "type": "string"
+                    },
+                    "code": {
+                      "type": "string",
+                      "enum": [
+                        "billing_checkout_no_active_members",
+                        "billing_roster_over_capacity",
+                        "principal_history_preparation_unavailable"
+                      ]
+                    },
+                    "committed": {
+                      "type": "boolean"
                     }
                   },
                   "required": [
@@ -47963,6 +48006,10 @@
           {
             "description": "a container response keyring is null exactly for container key epoch 1",
             "id": "response.organization-provisioning-container-keyring"
+          },
+          {
+            "id": "response.principal-history-preparation-rollback",
+            "description": "A 503 with code principal_history_preparation_unavailable requires committed:false; other 503 responses do not guarantee rollback."
           }
         ]
       }
@@ -49871,6 +49918,38 @@
             },
             "description": "Successful JSON response"
           },
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string",
+                      "const": "principal_history_preparation_pending"
+                    },
+                    "committed": {
+                      "type": "boolean",
+                      "const": false
+                    },
+                    "progressToken": {
+                      "maxLength": 64,
+                      "minLength": 64,
+                      "pattern": "^[0-9a-f]+$",
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "committed",
+                    "progressToken"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            },
+            "description": "The attempted operation rolled back. Retry the identical request to continue verification preparation."
+          },
           "400": {
             "content": {
               "application/json": {
@@ -50030,6 +50109,17 @@
                   "properties": {
                     "error": {
                       "type": "string"
+                    },
+                    "code": {
+                      "type": "string",
+                      "enum": [
+                        "billing_checkout_no_active_members",
+                        "billing_roster_over_capacity",
+                        "principal_history_preparation_unavailable"
+                      ]
+                    },
+                    "committed": {
+                      "type": "boolean"
                     }
                   },
                   "required": [
@@ -50051,6 +50141,10 @@
           {
             "description": "a container response keyring is null exactly for container key epoch 1",
             "id": "response.organization-provisioning-container-keyring"
+          },
+          {
+            "id": "response.principal-history-preparation-rollback",
+            "description": "A 503 with code principal_history_preparation_unavailable requires committed:false; other 503 responses do not guarantee rollback."
           }
         ]
       }

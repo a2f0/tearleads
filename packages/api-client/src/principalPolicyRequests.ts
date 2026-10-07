@@ -1,9 +1,13 @@
 import {
   commitOrganizationGroupPolicyOperation,
+  createOrganizationGroupOperation,
+  deleteOrganizationGroupOperation,
   putPrincipalPolicyOperation,
 } from "@tearleads/validators/operation";
 import type {
   CommitOrganizationGroupPolicyRequest,
+  CreateOrganizationGroupWithPolicyRequest,
+  DeleteOrganizationGroupRequest,
   OrganizationPrincipalPolicyRequest,
 } from "@tearleads/validators/request";
 import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
@@ -17,6 +21,8 @@ import {
 } from "./principalPolicyPages";
 import { readProjectionPolicyHistoryPages } from "./projectionPolicyHistoryPages";
 import { dedupedRequest } from "./requestInternals";
+import { createOrganizationGroup } from "./routes/organizations/createGroup";
+import { deleteOrganizationGroup } from "./routes/organizations/deleteGroup";
 import {
   commitOrganizationGroupPolicy,
   putPrincipalPolicy,
@@ -96,6 +102,65 @@ export class PrincipalPolicyRequests {
       },
       operation: putPrincipalPolicyOperation,
     }).finally(() => this.cache.delete(key));
+  }
+
+  createResult(
+    organizationId: string,
+    input: CreateOrganizationGroupWithPolicyRequest,
+    options: RequestResultOptions = {},
+  ) {
+    return this.groupMutation(organizationId, input.groupId, () =>
+      principalHistoryRequest(this.runtime, {
+        path: createOrganizationGroup.path(organizationId),
+        validator: createOrganizationGroup.isResponse,
+        method: createOrganizationGroup.method,
+        body: JSON.stringify(input),
+        options: {
+          expectedPaymentRequiredOrganizationId: organizationId,
+          ...options,
+        },
+        operation: createOrganizationGroupOperation,
+      }),
+    );
+  }
+
+  deleteResult(
+    organizationId: string,
+    groupId: string,
+    input: DeleteOrganizationGroupRequest,
+    options: RequestResultOptions = {},
+  ) {
+    return this.groupMutation(organizationId, groupId, () =>
+      principalHistoryRequest(this.runtime, {
+        path: deleteOrganizationGroup.path(organizationId, groupId),
+        validator: deleteOrganizationGroup.isResponse,
+        method: deleteOrganizationGroup.method,
+        body: JSON.stringify(input),
+        options: {
+          expectedPaymentRequiredOrganizationId: organizationId,
+          ...options,
+        },
+        operation: deleteOrganizationGroupOperation,
+      }),
+    );
+  }
+
+  private async groupMutation<T>(
+    organizationId: string,
+    groupId: string,
+    request: () => Promise<T>,
+  ): Promise<T> {
+    const groupKey = JSON.stringify(["group", groupId]);
+    const organizationKey = JSON.stringify(["organization", organizationId]);
+    this.cache.delete(groupKey);
+    this.cache.delete(organizationKey);
+    try {
+      return await request();
+    } finally {
+      this.cache.delete(groupKey);
+      this.cache.delete(organizationKey);
+      this.clearWriterProjectionCaches();
+    }
   }
 
   async commitResult(

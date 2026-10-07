@@ -19,18 +19,14 @@ import {
   commitOrganizationGroupPolicy,
   putPrincipalPolicy,
 } from "../../services/principals/putPrincipalPolicy";
-import {
-  PrincipalHistoryContinuation,
-  PrincipalHistoryPreparationUnavailable,
-  PrincipalPolicyError,
-} from "../../services/principals/shared";
+import { PrincipalPolicyError } from "../../services/principals/shared";
 import type { ApiServiceRuntime } from "../../services/runtime";
 import { publishBestEffort } from "../../utils/publishBestEffort";
 import { jsonRequestValidator } from "../../validators/jsonRequest";
 import { pathParamsValidator } from "../../validators/pathParams";
 import { queryParamsValidator } from "../../validators/queryParams";
-
 import { registerProjectionPolicyHistoryRoute } from "./history";
+import { toPrincipalHistoryPreparationResponse } from "./preparationResponse";
 
 interface PrincipalPolicyRouteDeps {
   readonly publish: (event: PublishedRealtimeEvent) => Promise<void>;
@@ -97,24 +93,8 @@ async function publishPrincipalAccessChanges(
 }
 
 function toPrincipalPolicyErrorResponse(error: unknown): Response | null {
-  if (error instanceof PrincipalHistoryPreparationUnavailable)
-    return Response.json(
-      {
-        error: error.message,
-        code: "principal_history_preparation_unavailable",
-        committed: false,
-      },
-      { status: 503, headers: { "Cache-Control": "no-store" } },
-    );
-  if (error instanceof PrincipalHistoryContinuation)
-    return Response.json(
-      {
-        code: error.code,
-        committed: false,
-        progressToken: error.progressToken,
-      },
-      { status: 202, headers: { "Cache-Control": "no-store" } },
-    );
+  const preparation = toPrincipalHistoryPreparationResponse(error);
+  if (preparation) return preparation;
   if (error instanceof PrincipalPolicyError) {
     const body = {
       error: error.message,
