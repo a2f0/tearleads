@@ -163,7 +163,7 @@ class OrganizationsService implements Organizations {
   deleteGroup(groupId: string) {
     return deleteGroupForOrganization({
       groupId,
-      runtime: this.runtimeService.workflowInput(),
+      ...currentOrganizationMutation(this.runtimeService),
     });
   }
 

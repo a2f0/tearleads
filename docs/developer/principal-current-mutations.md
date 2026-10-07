@@ -115,3 +115,17 @@ this adoption does not yet eliminate every full-history mutation consumer.
 Mutation builders clear their owned signing-key copies on success and failure;
 member addition also clears its temporary encapsulation secret. Caller-owned
 key buffers remain unchanged.
+
+## Directory deletion
+
+Built-in group deletion recovers the current directory and strict Admins
+evidence,
+checks the signing administrator, and signs the directory successor without
+loading the deleted group's history. It refuses deletion of either reserved
+group, checks the exact response target and artifacts, and retains the directory
+successor under the original identity/database lease. Unresolved earlier
+compound
+policy work blocks discovery. Hosts without private custody keep the standalone
+full-bundle deletion workflow. Creation/deletion requests are not yet covered by
+the compound membership journal; lost acknowledgements still require
+reconciliation.

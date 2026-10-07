@@ -8,7 +8,9 @@ import {
   revokeOrganizationContainerGrant,
   rotateOrganizationGroupForAccessSetShrink,
 } from "../../workflows/organizations";
+import { deleteCurrentOrganizationGroup } from "../../workflows/organizations/deleteCurrentOrganizationGroup";
 import { createRuntimeGroupMetadataAccess } from "../../workflows/organizations/groupMetadataRuntime";
+import { createRuntimeCurrentOrganizationMutation } from "../../workflows/organizations/runtimeCurrentOrganizationMutation";
 import { createRuntimePrincipalPolicyWarmer } from "../../workflows/principals/runtimePolicyWarmer";
 import type { ContainerContents } from "../containerContents";
 import type { InternalWorkflowRuntimeInput } from "../workflowRuntime";
@@ -190,6 +192,7 @@ export function createGroupForOrganization(input: {
 export function deleteGroupForOrganization(input: {
   readonly groupId: string;
   readonly runtime: InternalWorkflowRuntimeInput;
+  readonly stillCurrent: () => boolean;
 }) {
   const signingContext = requireSigningContext(input.runtime);
   return runWithSecurityIncidentReporting(
@@ -200,14 +203,29 @@ export function deleteGroupForOrganization(input: {
       operation: "group.delete",
       organizationId: signingContext.organizationId,
     },
-    () =>
-      deleteOrganizationGroup({
+    () => {
+      const mutate = createRuntimeCurrentOrganizationMutation(input.runtime);
+      if (mutate)
+        return mutate(
+          { ...signingContext, stillCurrent: input.stillCurrent },
+          (context) =>
+            deleteCurrentOrganizationGroup({
+              ...signingContext,
+              context,
+              groupId: input.groupId,
+              apiClient: input.runtime.apiClient,
+              resolveTrustedUserIdentity:
+                input.runtime.resolveTrustedUserIdentity,
+            }),
+        );
+      return deleteOrganizationGroup({
         apiClient: input.runtime.apiClient,
         execSql: input.runtime.infra.execSql,
         groupId: input.groupId,
         resolveTrustedUserIdentity: input.runtime.resolveTrustedUserIdentity,
         ...signingContext,
-      }),
+      });
+    },
   );
 }
 

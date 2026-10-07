@@ -25,7 +25,7 @@ the advance, and mutations remain subject to the server's exact predecessor CAS.
 Built-in member addition/removal and group-grant revocation also use current
 evidence and exact receipts; see [current
 mutations](principal-current-mutations.md).
-Group creation/deletion, full policy-history views, direct share adapters and
+Group creation, full policy-history views, direct share adapters and
 hosts without the paged resolver still require further adoption.
 
 See [durable recovery](principal-history-recovery.md) for the underlying paging,
