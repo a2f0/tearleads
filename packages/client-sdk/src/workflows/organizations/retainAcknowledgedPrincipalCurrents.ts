@@ -1,9 +1,7 @@
 import {
   KeyingVerificationError,
-  type PrincipalPolicyHistoryVerifier,
-  type ReferencedPrincipalHead,
   restorePrincipalPolicyHistoryVerifier,
-  serializeKeyingCanonicalJson,
+  type VerifiedPrincipalPolicyCurrent,
   verifyPrincipalPolicyCurrent,
 } from "@tearleads/crypto";
 import type { PutPrincipalPolicyRequest } from "@tearleads/validators/request";
@@ -21,11 +19,7 @@ import {
   principalHistoryPrefixProtection,
 } from "../../data/principals/principalHistoryPrefixProtection";
 import { ownPrincipalHistoryProtection } from "../../data/principals/principalHistoryProtection";
-import {
-  parsePrincipalHistoryStageCurrent,
-  principalHistoryStageId,
-  principalHistoryStageProtection,
-} from "../../data/principals/principalHistoryStageProtection";
+import { parsePrincipalHistoryStageCurrent } from "../../data/principals/principalHistoryStageProtection";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import { collectPrincipalPolicySignerPublicKeys } from "../principals/policyVerification";
 import type { RecoverPrincipalPolicyHistoryOptions } from "../principals/principalHistoryRecoveryTypes";
@@ -36,6 +30,7 @@ import {
 import { assertAcknowledgedDirectoryBindings } from "./acknowledgedDirectoryBindings";
 import { acknowledgeGroupPolicyState } from "./groupPolicyMutationAcknowledgement";
 import { groupPolicyMutationHead } from "./groupPolicyMutationHead";
+import { sealPrincipalCurrentPublication } from "./principalCurrentPublicationSeal";
 import { assertPrincipalPolicyReceiptArtifacts } from "./principalPolicyReceiptArtifacts";
 
 export type { AcknowledgedPrincipalCurrentRetirement } from "../../data/persistence/principalCurrentAcknowledgementPersistence";
@@ -89,57 +84,12 @@ async function restorePredecessor(
     history: history.value,
   });
   if (!previous.ok) throw previous.error;
-  return { scopeId, saved, verifier: restored.value, previous: previous.value };
-}
-
-async function sealPublication(
-  options: RecoverPrincipalPolicyHistoryOptions,
-  scopeId: string,
-  expectedHead: ReferencedPrincipalHead,
-  verifier: PrincipalPolicyHistoryVerifier,
-  response: PrincipalPolicyMutationResponse,
-) {
-  const wireCurrent = {
-    currentState: response.currentState,
-    currentProjection: response.currentProjection,
-    currentGrants: response.currentGrants,
-    currentPayload: response.currentPayload,
-    currentMemberEnvelopes: response.currentMemberEnvelopes,
-  };
-  const currentJson = JSON.stringify(wireCurrent);
-  const prefix = {
-    scopeId,
-    organizationId: options.organizationId,
-    version: expectedHead.version,
-    headJson: serializeKeyingCanonicalJson({ ...expectedHead }),
-    currentJson,
-  };
-  const stage = {
-    id: await principalHistoryStageId(
-      options.organizationId,
-      expectedHead,
-      options.protection.context,
-    ),
-    organizationId: options.organizationId,
-    afterVersion: expectedHead.version - 1,
-    complete: true,
-    currentJson,
-  };
-  const prefixProgress = await verifier.exportProgress(
-    await principalHistoryPrefixProtection(options.protection, prefix),
-  );
-  if (!prefixProgress.ok) throw prefixProgress.error;
-  const stageProgress = await verifier.exportProgress(
-    await principalHistoryStageProtection(
-      options.protection,
-      expectedHead,
-      stage,
-    ),
-  );
-  if (!stageProgress.ok) throw stageProgress.error;
   return {
-    prefix: { ...prefix, progress: prefixProgress.value },
-    stage: { ...stage, progress: stageProgress.value },
+    scopeId,
+    saved,
+    artifacts,
+    verifier: restored.value,
+    previous: previous.value,
   };
 }
 
@@ -157,7 +107,7 @@ async function preparePublication(
   };
   const current = () => !options.signal?.aborted && options.stillCurrent();
   assertProjectionVerificationCurrent(current);
-  const { scopeId, saved, verifier, previous } =
+  const { scopeId, saved, artifacts, verifier, previous } =
     await restorePredecessor(options);
   const expectedHead = await groupPolicyMutationHead(request);
   assertPrincipalPolicyReceiptArtifacts({ expectedHead, request, response });
@@ -190,13 +140,20 @@ async function preparePublication(
     grants: response.currentGrants,
   };
   assertPrincipalHistoryVerificationMode(options, [entry]);
+  const { stage: predecessorStage } = await sealPrincipalCurrentPublication(
+    options,
+    scopeId,
+    previous.state,
+    verifier,
+    artifacts,
+  );
   const appended = await verifier.append({
     entries: [entry],
     signerPublicKeys: keys.signerPublicKeys,
     ...(externalAuthority ? { externalAuthority } : {}),
   });
   if (!appended.ok) throw appended.error;
-  const sealed = await sealPublication(
+  const sealed = await sealPrincipalCurrentPublication(
     options,
     scopeId,
     expectedHead,
@@ -207,6 +164,7 @@ async function preparePublication(
   return {
     policy,
     previousPrefixProgress: saved.progress,
+    predecessorStage,
     ...sealed,
     evidence: await preparePrincipalHistoryEvidencePage({
       scopeId,
@@ -226,7 +184,7 @@ export async function retainAcknowledgedPrincipalCurrents(input: {
     | readonly AcknowledgedPrincipalCurrentRetirement[]
     | undefined;
   readonly stillCurrent: () => boolean;
-}) {
+}): Promise<VerifiedPrincipalPolicyCurrent[]> {
   const execSql = input.execSql;
   const organizationId = input.organizationId;
   const stillCurrent = input.stillCurrent;

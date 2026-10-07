@@ -13,6 +13,14 @@ export function assertAcknowledgedDirectoryBindings(
   const directories = receipts.filter(
     (receipt) => receipt.currentState.principalType === "organization",
   );
+  if (
+    directories.length === 0 &&
+    receipts.some((receipt) => receipt.currentState.principalType === "group")
+  )
+    throw new KeyingVerificationError(
+      "missing_dependency",
+      "Acknowledged groups require their organization directory",
+    );
   for (const directory of directories) {
     const descriptor = parseOrganizationAuthorityDescriptor(
       directory.currentPayload.ciphertext,

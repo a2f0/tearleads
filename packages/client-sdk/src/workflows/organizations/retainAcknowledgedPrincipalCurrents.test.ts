@@ -114,31 +114,35 @@ test("a mismatched organization receipt cannot publish either half of a compound
   }
 });
 
-test("a rotated organization keeps its historical object key usable from completed current artifacts", async () => {
-  const f = await currentPolicyPublicationFixture(history);
-  try {
-    const key = crypto.getRandomValues(new Uint8Array(32));
-    const wrapped = await wrapDekForRecipients(key, [
-      base64ToBytes(history.directory.currentState.encapsulationPublicKey),
-    ]);
-    await retainAcknowledgedPrincipalCurrents(f.publication);
-    expect(f.publication.entries[1]?.response.currentState.keyEpoch).toBe(
-      history.directory.currentState.keyEpoch + 1,
-    );
-    const unwrapped = await unwrapKeyEnvelopesWithPrincipalPolicies({
-      execSql: f.options.execSql,
-      secretKey: history.creatorEncapsulationKeyPair.secretKey,
-      envelopes: wrapped.map((envelope) => ({
-        keyFingerprint: envelope.keyFingerprint,
-        kemCipherText: bytesToBase64(envelope.kemCipherText),
-        wrappedKey: bytesToBase64(envelope.wrappedKey),
-      })),
-    });
-    expect(unwrapped).toEqual(key);
-  } finally {
-    f.close();
-  }
-});
+test.each(["stage", "prefix"] as const)(
+  "a rotated organization keeps its historical object key usable from %s artifacts",
+  async (source) => {
+    const f = await currentPolicyPublicationFixture(history);
+    try {
+      if (source === "prefix") await f.db.delete(principalHistoryStages).run();
+      const key = crypto.getRandomValues(new Uint8Array(32));
+      const wrapped = await wrapDekForRecipients(key, [
+        base64ToBytes(history.directory.currentState.encapsulationPublicKey),
+      ]);
+      await retainAcknowledgedPrincipalCurrents(f.publication);
+      expect(f.publication.entries[1]?.response.currentState.keyEpoch).toBe(
+        history.directory.currentState.keyEpoch + 1,
+      );
+      const unwrapped = await unwrapKeyEnvelopesWithPrincipalPolicies({
+        execSql: f.options.execSql,
+        secretKey: history.creatorEncapsulationKeyPair.secretKey,
+        envelopes: wrapped.map((envelope) => ({
+          keyFingerprint: envelope.keyFingerprint,
+          kemCipherText: bytesToBase64(envelope.kemCipherText),
+          wrappedKey: bytesToBase64(envelope.wrappedKey),
+        })),
+      });
+      expect(unwrapped).toEqual(key);
+    } finally {
+      f.close();
+    }
+  },
+);
 
 test("current publication captures the authored request and receipt before asynchronous restoration", async () => {
   const f = await currentPolicyPublicationFixture(history);

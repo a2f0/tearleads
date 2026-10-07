@@ -35,6 +35,7 @@ export interface AcknowledgedPrincipalCurrentPublication {
   readonly prefix: PrincipalHistoryPrefix;
   readonly previousPrefixProgress: string;
   readonly stage: PrincipalHistoryStage;
+  readonly predecessorStage: PrincipalHistoryStage;
   readonly evidence: PrincipalHistoryEvidencePage;
 }
 
@@ -60,6 +61,9 @@ function assertPublicationScope(
     if (
       entry.prefix.organizationId !== organizationId ||
       entry.stage.organizationId !== organizationId ||
+      entry.predecessorStage.organizationId !== organizationId ||
+      !entry.predecessorStage.complete ||
+      entry.predecessorStage.afterVersion !== entry.policy.version - 2 ||
       entry.evidence.organizationId !== organizationId ||
       entry.prefix.scopeId !== entry.evidence.scopeId ||
       entry.prefix.version !== entry.policy.version ||
@@ -148,6 +152,17 @@ export async function persistAcknowledgedPrincipalCurrents(input: {
       }
       for (const entry of entries) {
         await writePrincipalHistoryEvidencePage(tx, entry.evidence);
+        // A prefix-only predecessor must keep its encrypted key envelopes
+        // before its reusable slot is replaced by the acknowledged successor.
+        await tx
+          .insert(principalHistoryStages)
+          .values(entry.predecessorStage)
+          .onConflictDoUpdate({
+            target: principalHistoryStages.id,
+            set: entry.predecessorStage,
+            setWhere: eq(principalHistoryStages.complete, false),
+          })
+          .run();
         // A fully authenticated publication supersedes an in-flight stage for
         // this exact head. Its other writer fails its progress CAS and resumes.
         await tx

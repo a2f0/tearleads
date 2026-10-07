@@ -75,11 +75,13 @@ so overlapping identical acknowledgements also have one winner; the loser must
 recover the now-current head. Optional grant retirements must refer to an included
 policy's signed current or predecessor grants; the exported
 `AcknowledgedPrincipalCurrentRetirement` type describes those inputs. When a batch
-contains a directory and groups, its signed directory must bind each group's exact
-acknowledged head. Group-only batches leave directory pairing to the host.
+contains groups, it must also contain their directory receipt, whose signed
+descriptor binds each group's exact acknowledged head.
 
 Completed exact-head stages retain earlier encrypted envelopes when the reusable
-prefix advances. Key lookup selects those candidates by an indexed fingerprint;
+prefix advances. If only a completed prefix survives for the predecessor, its
+authenticated artifacts are saved as a completed stage in the same transaction.
+Key lookup selects those candidates by an indexed fingerprint;
 they remain untrusted encrypted candidates, not authorization evidence. The
 store keeps one completed stage per exact head and verification context. There is
 no automatic pruning yet: retained artifacts grow with acknowledged heads until
