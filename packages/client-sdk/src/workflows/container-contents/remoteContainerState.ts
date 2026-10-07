@@ -7,6 +7,7 @@ import {
   isKeyingVerificationError,
   runWithSecurityIncidentReporting,
 } from "../../data/keyingProjectionVerification/error";
+import { isProjectionVerificationCancelledError } from "../../data/keyingProjectionVerification/types";
 import type { ContainerHydrationTombstone } from "./containerPersistence";
 import { installContainerMetadataRecord } from "./metadataPersistence";
 import { projectionGeneration } from "./projectionGeneration";
@@ -356,7 +357,11 @@ export async function upsertIsolatedRemoteContainerState(
   try {
     return await upsertRemoteContainerState(input);
   } catch (error) {
-    if (!isKeyingVerificationError(error)) throw error;
+    if (
+      !isKeyingVerificationError(error) &&
+      !isProjectionVerificationCancelledError(error)
+    )
+      throw error;
     return null;
   }
 }

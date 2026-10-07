@@ -3,6 +3,7 @@ import { createNativeTestExecSql } from "@tearleads/test-utils";
 import type { ListContainerParentLanesRequest } from "@tearleads/validators/request";
 import type { ListContainersResponse } from "@tearleads/validators/response";
 import { createSignedContainerDirectory } from "../../../test/helpers/signedContainerDirectory";
+import { assertProjectionVerificationCurrent } from "../../data/keyingProjectionVerification/types";
 import {
   createContainerParentSyncLane,
   loadContainerSyncWatermark,
@@ -32,11 +33,11 @@ function container(
   };
 }
 
-for (const failure of ["withheld", "tampered", "runtime"] as const) {
+for (const failure of ["withheld", "tampered", "expired", "runtime"] as const) {
   test(
     failure === "runtime"
       ? "unexpected projection defects still abort discovery"
-      : `a ${failure} ordinary child proof preserves independent discovery`,
+      : `${failure === "expired" ? "an" : "a"} ${failure} ordinary child proof preserves independent discovery`,
     async () => {
       const { close, execSql } = createNativeTestExecSql();
       const firstRoot = container("first-root");
@@ -83,6 +84,8 @@ for (const failure of ["withheld", "tampered", "runtime"] as const) {
                 badProofReads += 1;
                 if (failure === "withheld") return null;
                 if (failure === "runtime") throw unexpectedFailure;
+                if (failure === "expired")
+                  assertProjectionVerificationCurrent(() => false);
                 const projection = structuredClone(
                   await directory.getContainerWriterProjection(id),
                 );
@@ -154,7 +157,8 @@ for (const failure of ["withheld", "tampered", "runtime"] as const) {
           );
         }
         expect(requestedParents).not.toContain(bad.id);
-        expect(badProofReads).toBe(1);
+        // A rejected prefetch leaves no projection, so verification reads again.
+        expect(badProofReads).toBe(failure === "expired" ? 2 : 1);
         expect(
           await loadContainerSyncWatermark(
             execSql,
