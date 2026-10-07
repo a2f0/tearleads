@@ -56,6 +56,7 @@ export function usePendingPolicyMutation(input: {
       ) {
         if (error instanceof UnreadablePrincipalMutationError)
           setSaved({ mutation: null, unreadable: error, scope });
+        else setSaved(null);
         setError(
           error instanceof Error
             ? error.message

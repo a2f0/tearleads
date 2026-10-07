@@ -27,7 +27,12 @@ type JournalProcessMessage =
     }
   | { readonly ok: false; readonly error: string };
 
-/** A native on-disk SQLite adapter proves process durability, not WASM/OPFS behavior. */
+/**
+ * Native SQLite proves process durability, not WASM/OPFS behavior. This fixture
+ * accepts parameterized single statements and unbound journal schema DDL batches.
+ * Its batch detector assumes those generated statements contain no semicolons
+ * inside SQL string literals; it is not a general SQL parser or host adapter.
+ */
 function journalExecSql(
   database: Database,
 ): PrincipalMutationJournalContext["execSql"] {

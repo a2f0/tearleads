@@ -96,6 +96,8 @@ Runtime policy writes require an authenticated signing identity, a trusted API
 origin and ready local storage; missing journal custody refuses before HTTP.
 Inspection without that scope reports no inspectable work. Hosts using a relative
 API base without a browser origin must supply an absolute trusted API URL.
+Malformed or stalled preparation responses also retain the request conservatively;
+an invalid or incomplete 202 exchange is not a validated terminal rollback receipt.
 Unlisted failures, including HTTP 429, conservatively retain the request as
 uncertain; an intermediary's status alone does not prove server rollback.
 

@@ -99,12 +99,15 @@ async function fixture() {
     ensureRosterProfileDocument: unused,
   });
   const resolved = mock(async () => {});
-  const ui = (organizationId = "org-a") => (
+  const ui = (
+    organizationId = "org-a",
+    refreshSignal: string | null = null,
+  ) => (
     <OrgManagerContext.Provider value={value}>
       <PendingPolicyMutation
         organizationId={organizationId}
         groups={[]}
-        refreshSignal={null}
+        refreshSignal={refreshSignal}
         mutating={false}
         onResolved={resolved}
       />
@@ -175,6 +178,37 @@ test("an unreadable saved request offers an explicit discard action", async () =
   expect(f.retry).not.toHaveBeenCalled();
   expect(f.abandon).not.toHaveBeenCalled();
 });
+
+test.each(["readable", "unreadable"] as const)(
+  "a failed refresh removes stale %s journal actions until inspection succeeds",
+  async (kind) => {
+    const f = await fixture();
+    if (kind === "unreadable")
+      f.read.mockImplementation(async () => {
+        throw new UnreadablePrincipalMutationError(
+          "old-record",
+          "authentication",
+        );
+      });
+    const view = render(f.ui());
+    await view.findByRole("button", { name: "Stop retrying…" });
+    f.read.mockImplementation(async () => {
+      throw new Error("Storage temporarily unavailable");
+    });
+    view.rerender(f.ui("org-a", "failed refresh"));
+    await view.findByText("Storage temporarily unavailable");
+    expect(
+      view.queryByRole("button", { name: "Retry saved change" }),
+    ).toBeNull();
+    expect(view.queryByRole("button", { name: "Stop retrying…" })).toBeNull();
+    expect(f.retry).not.toHaveBeenCalled();
+    expect(f.abandon).not.toHaveBeenCalled();
+    expect(f.discard).not.toHaveBeenCalled();
+    f.read.mockImplementation(async () => f.mutation);
+    view.rerender(f.ui("org-a", "successful refresh"));
+    await view.findByRole("button", { name: "Retry saved change" });
+  },
+);
 
 test("a settled retry releases its busy state after the captured scope expires", async () => {
   const f = await fixture();
