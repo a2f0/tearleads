@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
+import { eq } from "drizzle-orm";
 import { principalHistoryStageScopes } from "../sqlite/principalHistoryRetentionSchema";
 import {
   principalHistoryStages,
@@ -139,6 +140,28 @@ test("a completed writer retains eight incomplete stages", async () => {
     expect(saved.hints.map(({ id }) => id).sort()).toEqual(
       saved.stages.map(({ id }) => id).sort(),
     );
+  } finally {
+    f.close();
+  }
+});
+
+test("a stale incomplete hint cannot evict an actually completed stage", async () => {
+  const f = await seededProgress(9);
+  try {
+    await f.db
+      .update(principalHistoryStages)
+      .set({ complete: true })
+      .where(eq(principalHistoryStages.id, "old-0"));
+    await savePrincipalHistoryStage(f.input);
+    const saved = await f.snapshot();
+    expect(saved.stages.find(({ id }) => id === "old-0")).toMatchObject({
+      complete: true,
+      progress: "progress-0",
+    });
+    expect(saved.hints.find(({ id }) => id === "old-0")).toMatchObject({
+      complete: false,
+    });
+    expect(saved.stages.filter((row) => !row.complete)).toHaveLength(8);
   } finally {
     f.close();
   }

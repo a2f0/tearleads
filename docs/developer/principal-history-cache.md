@@ -26,8 +26,10 @@ never removes completed artifacts, other scopes or other organizations through
 this path. Recency hints do not authorize recovery.
 
 An evicted in-flight writer fails its progress compare-and-swap with
-`principal_history_stage_changed`. A fresh recovery can restart from a surviving
-authenticated prefix or genesis; eviction imposes no history-version cutoff.
+`principal_history_stage_changed`; the caller must start another recovery, which
+can resume from a surviving authenticated prefix or genesis. The built-in runtime
+serializes recovery within an organization; custom hosts with overlapping calls
+must handle this retry. Eviction imposes no history-version cutoff.
 Cancellation rolls back both page acceptance and reclamation. The indexed
 selection reads only stage identifiers for the bounded deletion batch.
 
