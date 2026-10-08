@@ -55,10 +55,14 @@ test("older completion and stale discard preserve the newest completed prefix", 
     const previous = prefix(32);
     const latest = prefix(66);
     await savePrincipalHistoryPrefix({ ...input, prefix: previous });
-    await savePrincipalHistoryPrefix({ ...input, prefix: latest });
+    await savePrincipalHistoryPrefix({
+      ...input,
+      prefix: latest,
+      indexRootHash: "newer-index-root",
+    });
     const { db } = getClientSQLitePersistenceRuntime(sqlite.execSql);
     const owners = await db.select().from(principalHistoryRootOwners);
-    expect(owners).toHaveLength(1);
+    expect(owners).toMatchObject([{ rootHash: "newer-index-root" }]);
     await savePrincipalHistoryPrefix({ ...input, prefix: previous });
     expect(
       await loadPrincipalHistoryPrefix(sqlite.execSql, latest.scopeId),

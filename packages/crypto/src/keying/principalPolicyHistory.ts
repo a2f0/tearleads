@@ -92,6 +92,7 @@ class PrincipalPolicyHistoryVerifierImpl
           this.#indexFrontier,
           verified.entries.map((entry) => entry.state),
         );
+        // Verified pages are nonempty; narrow the general index result here.
         if (!index.rootHash)
           throwVerification(
             "invalid_shape",

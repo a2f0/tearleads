@@ -87,8 +87,9 @@ eight completed attempts, preserving the published prefix and predecessor
 offline, and decrypting an old object key after its unpublished stage is evicted.
 
 This bounds staged recovery attempts and cleanup batches, not total cache bytes.
-Retained key epochs, signed entries and the shared nodes needed to prove them
-still grow with history. In real HTTP tests, 128 successive private heads retain
-133 proof nodes for the current head and predecessor; public recovery retains
-127 nodes for its single published root. Both paths retained 448 nodes with
+Retained key epochs, signed entries, leaf-reference hints and the shared nodes
+needed to prove them still grow with history. In real HTTP tests, 128 successive
+private heads retain 133 proof nodes for the current head and predecessor; public
+recovery retains 127 nodes for its single published root. Both paths retained
+448 nodes with
 reclamation disabled. Every historical version remains provable offline.

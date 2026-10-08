@@ -6,6 +6,7 @@ import {
 import type { ClientSQLiteTransactionScope } from "../sqlite/sqlitePersistenceRuntime";
 
 export interface PrincipalHistoryNodeScope {
+  /** Evidence scope hashes include organizationId; one scope belongs to one organization. */
   readonly scopeId: string;
   readonly organizationId: string;
 }
