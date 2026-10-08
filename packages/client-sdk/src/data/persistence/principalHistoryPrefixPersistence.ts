@@ -72,6 +72,8 @@ export async function savePrincipalHistoryPrefix(input: {
         // Resealing an unchanged prefix would invalidate an acknowledgement's
         // progress CAS even though its authenticated predecessor is unchanged.
         // Still refresh authenticated root ownership and retention below.
+        // Reuse authenticates this opaque progress; rejected hints are removed
+        // or explicitly replaced before repair can rely on the new prefix.
         prefix.progress = previous.progress;
       }
       if (previous) await archivePrincipalHistoryKeyEnvelopes(tx, previous);

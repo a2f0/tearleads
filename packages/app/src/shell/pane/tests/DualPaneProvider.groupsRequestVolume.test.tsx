@@ -64,8 +64,8 @@ const ADMIN_GROUP_OPEN_REQUEST_BUDGET: ProxiedApiRequestBudget = {
 // meant to close.
 const ADMIN_GROUP_MUTATION_REQUEST_BUDGET = {
   // Private metadata-root authority adds bounded directory/Admins reads to
-  // compact projection recovery. Measured completed calls are 199–203; allow
-  // one extra destination check. Preparation continuations are counted below.
+  // compact projection recovery. Measured completed calls are 200–204; allow
+  // three more bounded reads. Preparation continuations are counted below.
   total: 207,
   // Public parent keys measure 389.5 KB sent with one descendant recitation;
   // retain room for the second 60 KB recitation already allowed below.

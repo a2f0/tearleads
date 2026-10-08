@@ -431,8 +431,8 @@ export {
   unwrapDocumentContentKeyTarget,
   validateDocumentSyncUpdateImports,
 } from "./workflows/documents";
-// Journal operations require kinds. Nominal identity constructors
-// are available only through the testing subpath for low-level runtime tests.
+// Nominal identity constructors are available only through the testing subpath
+// for low-level runtime tests.
 export type {
   AcknowledgedPrincipalCurrentInput,
   AcknowledgedPrincipalCurrentRetirement,

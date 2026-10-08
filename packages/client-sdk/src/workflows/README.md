@@ -361,10 +361,10 @@ discovery never calls it. `RecoveryFolder` is exported from the SDK root.
 whose local destination parent is unavailable. Recovery uses it to distinguish
 local work from shared folders with inaccessible parents.
 
-Standalone document and container runtime constructors accept a private
-`withPrincipalHistoryProtection: PrincipalHistoryProtectionLease` input. It enables
-their built-in history resolvers and passes through store/derived-document
-adapters without exposing the callback on returned runtime views. This includes
+Standalone document and container runtimes require private
+`withPrincipalHistoryProtection: PrincipalHistoryProtectionLease` for built-in
+history recovery. Store and derived-document adapters inherit custody without
+exposing the callback on returned runtime views. This includes
 [current group sharing](../../../../docs/developer/principal-current-sharing.md).
 Hosts own key cleanup and lease invalidation on authority/storage changes, as
 specified in the principal-history recovery guide.
