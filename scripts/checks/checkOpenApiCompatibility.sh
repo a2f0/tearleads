@@ -16,8 +16,20 @@ REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null) ||
 
 cd "$REPO_ROOT"
 
-command -v mise >/dev/null 2>&1 ||
-  fail "mise is unavailable. Install mise, then run 'mise install github:oasdiff/oasdiff'."
+if [ -n "${OASDIFF_BIN:-}" ]; then
+  [ -x "$OASDIFF_BIN" ] || fail "OASDIFF_BIN is not executable: $OASDIFF_BIN"
+else
+  command -v mise >/dev/null 2>&1 ||
+    fail "mise is unavailable. Install mise, then run 'mise install github:oasdiff/oasdiff'."
+fi
+
+run_oasdiff() {
+  if [ -n "${OASDIFF_BIN:-}" ]; then
+    "$OASDIFF_BIN" "$@"
+  else
+    mise exec github:oasdiff/oasdiff -- oasdiff "$@"
+  fi
+}
 
 [ -f "$OPENAPI_PATH" ] || fail "$OPENAPI_PATH does not exist."
 
@@ -92,7 +104,7 @@ if [ -f "$ERROR_IGNORE_PATH" ]; then
       { print }
     ' "$ERROR_IGNORE_PATH" >"$reduced_ignore"
     reduced_exit=0
-    mise exec github:oasdiff/oasdiff -- oasdiff "$@" \
+    run_oasdiff "$@" \
       --err-ignore "$reduced_ignore" \
       --warn-ignore "$reduced_ignore" \
       --format text --color never >"$reduced_output" 2>&1 ||
@@ -119,4 +131,4 @@ else
   set -- "$@" --format text --color never
 fi
 
-exec mise exec github:oasdiff/oasdiff -- oasdiff "$@"
+run_oasdiff "$@"
