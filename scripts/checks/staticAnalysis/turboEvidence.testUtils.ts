@@ -43,7 +43,7 @@ export function turboFixture(mode: "pass" | "fail" | "slow" = "pass") {
       ? 'await Bun.write("started", "yes"); await Bun.sleep(30000);\n'
       : mode === "fail"
         ? "process.exit(17);\n"
-        : 'console.log("fixture complete");\n',
+        : 'console.log("fixture complete", JSON.stringify(process.argv.slice(2)));\n',
   );
   repo.write(
     "node_modules/.bin/turbo",

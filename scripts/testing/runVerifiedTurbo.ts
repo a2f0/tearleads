@@ -6,11 +6,15 @@ async function run() {
   const [task, ...args] = process.argv.slice(2);
   if (task !== "test" && task !== "e2e")
     throw new Error("Expected a test or e2e task");
-  if (args.some((arg) => /^--(?:dry(?:-run)?|summarize|ui)(?:=|$)/.test(arg)))
+  const separator = args.indexOf("--");
+  const turboArgs = separator < 0 ? args : args.slice(0, separator);
+  if (
+    turboArgs.some((arg) => /^--(?:dry(?:-run)?|summarize|ui)(?:=|$)/.test(arg))
+  )
     throw new Error("Turbo evidence flags are managed by this runner");
   const cwd = process.cwd();
   const turbo = resolve(cwd, "node_modules/.bin/turbo");
-  const plan = Bun.spawn([turbo, "run", task, ...args, "--dry-run=json"], {
+  const plan = Bun.spawn([turbo, "run", task, "--dry-run=json", ...args], {
     cwd,
     stdout: "pipe",
     stderr: "inherit",
@@ -24,7 +28,7 @@ async function run() {
   const startedAt = Date.now();
   let summaryPath: string | undefined;
   const child = Bun.spawn(
-    [turbo, "run", task, ...args, "--summarize=true", "--ui=stream"],
+    [turbo, "run", task, "--summarize=true", "--ui=stream", ...args],
     {
       cwd,
       stdout: "pipe",

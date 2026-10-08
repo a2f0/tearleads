@@ -79,10 +79,17 @@ test.each([
 test("the real Turbo runner admits fresh, cached and empty successful plans", async () => {
   const f = turboFixture();
   try {
-    for (const args of [["test"], ["test"], ["e2e"]]) {
+    for (const args of [
+      ["test"],
+      ["test"],
+      ["e2e"],
+      ["test", "--filter=!//"],
+    ]) {
       const result = await completedTurboFixture(f.start(args));
       expect(result.output).not.toContain("[turbo-verification]");
       expect(result.code).toBe(0);
+      if (args.includes("--filter=!//"))
+        expect(result.output).toContain("0 successful, 0 total");
     }
   } finally {
     f.close();
@@ -93,6 +100,19 @@ test("a real task failure remains a failed verification", async () => {
   const f = turboFixture("fail");
   try {
     expect((await completedTurboFixture(f.start())).code).not.toBe(0);
+  } finally {
+    f.close();
+  }
+}, 20_000);
+
+test("task arguments after the separator reach the task unchanged", async () => {
+  const f = turboFixture();
+  try {
+    const result = await completedTurboFixture(
+      f.start(["test", "--", "--ui", "fixture-argument"]),
+    );
+    expect(result.code).toBe(0);
+    expect(result.output).toContain('["--ui","fixture-argument"]');
   } finally {
     f.close();
   }
