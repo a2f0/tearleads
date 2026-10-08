@@ -134,7 +134,7 @@ test("a group advancing during directory paging gets one fresh directory read", 
       fixture.requests
         .filter((request) => request.principalId === history.organizationId)
         .map((request) => request.afterVersion),
-    ).toEqual([0, 0, 32, 64, 0, 66]);
+    ).toEqual([0, 32, 64, 0, 66]);
   } finally {
     fixture.close();
   }

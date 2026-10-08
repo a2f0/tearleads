@@ -17,6 +17,7 @@ import {
   type RecoveredPrincipalPolicyHistory,
   type RecoverPrincipalPolicyHistoryOptions,
 } from "./principalHistoryRecoveryTypes";
+import { reusePrincipalDiscoveryPage } from "./principalRecoveryDiscoveryPage";
 import { recoverPrincipalPolicyHistory } from "./recoverPrincipalPolicyHistory";
 
 export type PrincipalRecoveryContext = Omit<
@@ -34,10 +35,22 @@ export interface RecoveredPolicyDirectory
 
 export class PrincipalRecoveryDirectoryAdvanced extends Error {}
 
+function exactHead(state: ReferencedPrincipalHead): ReferencedPrincipalHead {
+  return {
+    principalType: state.principalType,
+    principalId: state.principalId,
+    version: state.version,
+    stateHash: state.stateHash,
+    keyEpoch: state.keyEpoch,
+    keyFingerprint: state.keyFingerprint,
+  };
+}
+
 /** An unverified discovery read chooses a pin; recovery must authenticate it. */
 async function discoverDirectoryHead(input: PrincipalRecoveryContext): Promise<{
   head: ReferencedPrincipalHead;
   genesis: ReferencedPrincipalHead;
+  apiClient: PrincipalRecoveryContext["apiClient"];
 }> {
   assertProjectionVerificationCurrent(
     () => !input.signal?.aborted && input.stillCurrent(),
@@ -75,7 +88,11 @@ async function discoverDirectoryHead(input: PrincipalRecoveryContext): Promise<{
       references: [genesis],
     });
     if (!selected.ok) throw selected.error;
-    return { head: prefix.head, genesis: genesis.reference };
+    return {
+      head: prefix.head,
+      genesis: genesis.reference,
+      apiClient: input.apiClient,
+    };
   }
   for await (const result of input.apiClient.getPrincipalPolicyPages(
     "organization",
@@ -98,6 +115,7 @@ async function discoverDirectoryHead(input: PrincipalRecoveryContext): Promise<{
         "Organization directory discovery requires genesis",
       );
     return {
+      apiClient: reusePrincipalDiscoveryPage(input.apiClient, result),
       genesis: {
         principalType: first.principalType,
         principalId: first.principalId,
@@ -125,6 +143,7 @@ async function discoverDirectoryHead(input: PrincipalRecoveryContext): Promise<{
 export async function recoverPolicyDirectory(
   input: PrincipalRecoveryContext,
   references: readonly ReferencedPrincipalHead[],
+  selected?: RecoveredPolicyDirectory,
 ): Promise<RecoveredPolicyDirectory> {
   const scoped = {
     ...input,
@@ -136,15 +155,31 @@ export async function recoverPolicyDirectory(
       ]),
     },
   };
-  const { head: expectedHead, genesis } = await discoverDirectoryHead(scoped);
+  const {
+    head: expectedHead,
+    genesis,
+    apiClient,
+  } = selected
+    ? {
+        head: exactHead(selected.policy.state),
+        genesis: selected.policy.retainedHistory[0]?.state,
+        apiClient: input.apiClient,
+      }
+    : await discoverDirectoryHead(scoped);
+  if (genesis?.version !== 1)
+    throw new KeyingVerificationError(
+      "missing_dependency",
+      "Organization directory recovery requires verified genesis",
+    );
   if (references.some((reference) => reference.version > expectedHead.version))
     throw new PrincipalRecoveryDirectoryAdvanced();
   const recovered = await recoverPrincipalPolicyHistory({
     ...scoped,
+    apiClient,
     expectedHead,
     retainedReferences: references.some((reference) => reference.version === 1)
       ? references
-      : [genesis, ...references],
+      : [exactHead(genesis), ...references],
   });
   let descriptor: OrganizationAuthorityDescriptor;
   try {

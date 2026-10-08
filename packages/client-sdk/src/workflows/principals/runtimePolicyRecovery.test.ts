@@ -346,18 +346,18 @@ test("one projection batch reuses directory and Admins recovery for several grou
       f.requests.filter(
         (r) => r.principalId === history.organizationId && r.afterVersion === 0,
       ),
-    ).toHaveLength(2);
-    // One discovery plus one verification sequence; no second discovery/read.
+    ).toHaveLength(1);
+    // The discovery page enters the same verification sequence without a reread.
     expect(
       f.requests
         .filter((r) => r.principalId === history.organizationId)
         .map((r) => r.afterVersion),
-    ).toEqual([0, 0, 32, 64]);
+    ).toEqual([0, 32, 64]);
     expect(
       f.requests
         .filter((r) => r.principalId === history.admin.currentState.principalId)
         .map((r) => r.afterVersion),
-    ).toEqual([0, 32, 64, 65]);
+    ).toEqual([0, 32, 64]);
     await commitProjectionCheckpoints(context);
     const laterDirectory = await history.advanceDirectory(directory, second);
     f.policies.set(history.organizationId, laterDirectory);

@@ -16,17 +16,13 @@ import { readPrincipalHistoryProtection } from "../../data/principals/principalH
 import type { SecurityIncidentReporter } from "../../data/securityIncidents";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import type { TrustedUserIdentityResolver } from "../../data/trustedUserIdentity";
+import { createPrincipalCurrentRecoveryBatch } from "./principalCurrentRecoveryBatch";
 import {
   PrincipalHistoryRecoveryRaceError,
   PrincipalPolicyHistoryReadError,
 } from "./principalHistoryRecoveryTypes";
 import { recoverWithPrincipalLocalPreference } from "./principalRecoveryLocalPreference";
 import { queuePrincipalRecovery } from "./principalRecoveryQueue";
-import { recoverCurrentOrganizationPolicy } from "./recoverCurrentOrganizationPolicy";
-import {
-  createScopedPrincipalPolicyHistoryBatch,
-  recoverScopedPrincipalPolicyHistory,
-} from "./recoverScopedPrincipalPolicyHistory";
 
 export interface PrincipalPolicyRecoveryRuntime {
   readonly apiClient: Partial<
@@ -78,13 +74,13 @@ export function createRuntimePrincipalPolicyCurrentResolver(
   if (!lease || !readPages) return undefined;
   const batches = new WeakMap<
     object,
-    typeof recoverScopedPrincipalPolicyHistory
+    ReturnType<typeof createPrincipalCurrentRecoveryBatch>
   >();
   const recoverFor = (batch: object | undefined) => {
-    if (!batch) return recoverScopedPrincipalPolicyHistory;
+    if (!batch) return createPrincipalCurrentRecoveryBatch();
     let recover = batches.get(batch);
     if (!recover) {
-      recover = createScopedPrincipalPolicyHistoryBatch();
+      recover = createPrincipalCurrentRecoveryBatch();
       batches.set(batch, recover);
     }
     return recover;
@@ -117,11 +113,11 @@ export function createRuntimePrincipalPolicyCurrentResolver(
               };
               const result = input.reference
                 ? await recoverWithPrincipalLocalPreference(
-                    recoverFor(input.recoveryBatch),
+                    recoverFor(input.recoveryBatch).recover,
                     { ...options, reference: input.reference },
                     input.preferLocalCurrent === true,
                   )
-                : await recoverCurrentOrganizationPolicy(options);
+                : await recoverFor(input.recoveryBatch).discover(options);
               return {
                 current: result.current,
                 organizationId: input.organizationId,

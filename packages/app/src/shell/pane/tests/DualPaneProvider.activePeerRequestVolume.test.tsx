@@ -291,7 +291,7 @@ test(
       (request) => isContainerOrDocumentRequest(request.url),
     );
     expect(getDroppedShareNotificationCount()).toBe(0);
-    // #2448 tracks repeated directory/Admins reads during one reconciliation.
+    // Label and metadata-root verification share one signed directory view.
     expect(
       peerMutationRequests.map(
         (request) => `${request.method} ${requestPath(request.url)}`,
@@ -302,10 +302,7 @@ test(
       `GET /principals/organization/${founderSession.organizationId}/policy`,
       `GET /principals/organization/${founderSession.organizationId}/policy`,
       `GET /principals/group/${adminGroupId}/policy`,
-      `GET /principals/group/${adminGroupId}/policy`,
       `GET /principals/group/${groupId}/policy`,
-      `GET /principals/organization/${founderSession.organizationId}/policy`,
-      `GET /principals/organization/${founderSession.organizationId}/policy`,
     ]);
     expect(peerReadModelRequests).toHaveLength(1);
     expect(

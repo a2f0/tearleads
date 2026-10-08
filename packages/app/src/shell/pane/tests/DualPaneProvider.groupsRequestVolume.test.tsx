@@ -38,7 +38,7 @@ import type { PaneSide } from "../dual-pane";
 // Keep that correctness read; #1512's speculative protocol work is retired.
 const ADMIN_GROUP_OPEN_REQUEST_BUDGET: ProxiedApiRequestBudget = {
   // Cold bounded recovery discovers/verifies the directory and Admins head.
-  total: 4,
+  total: 3,
   byRequest: {
     "GET /organizations/:organizationId/read-model": 1,
     "GET /organizations/:organizationId/groups/:groupId/containers": 0,
@@ -48,7 +48,7 @@ const ADMIN_GROUP_OPEN_REQUEST_BUDGET: ProxiedApiRequestBudget = {
     "GET /organizations/:organizationId/data-usage": 0,
     "GET /organizations/:organizationId/grants": 0,
     "GET /organizations/:organizationId/groups": 0,
-    "GET /principals/organization/:organizationId/policy": 2,
+    "GET /principals/organization/:organizationId/policy": 1,
     "POST /containers/:containerId/share": 0,
     "PUT /organizations/:organizationId/groups/:groupId/policy-commit": 0,
   },

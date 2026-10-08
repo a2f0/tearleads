@@ -129,25 +129,38 @@ test("current authority rejects an organization reference outside its scope befo
   }
 });
 
-test("directory discovery racing an unrelated directory advance is unavailable evidence", async () => {
+test("a discovery batch keeps one signed directory view and the next batch sees its advance", async () => {
   const f = await fixture();
   try {
     const advanced = await history.advanceDirectory(
       history.directory,
       history.group,
     );
-    await expect(
-      loadCurrentOrganizationAuthority({
-        ...f.input,
-        organizationReference: undefined,
-        resolveCurrentPolicy: async (request) => {
-          const result = await f.input.resolveCurrentPolicy(request);
-          if (!request.reference)
-            f.policies.set(advanced.currentState.principalId, advanced);
-          return result;
-        },
-      }),
-    ).rejects.toBeInstanceOf(ProjectionDependencyUnavailableError);
+    const selected = await loadCurrentOrganizationAuthority({
+      ...f.input,
+      organizationReference: undefined,
+      resolveCurrentPolicy: async (request) => {
+        const result = await f.input.resolveCurrentPolicy(request);
+        if (!request.reference)
+          f.policies.set(advanced.currentState.principalId, advanced);
+        return result;
+      },
+    });
+    expect(selected.directory.policy.stateHash).toBe(
+      history.directory.currentState.stateHash,
+    );
+    expect(
+      selected.admins.dependencies.find(
+        (policy) => policy.principalType === "organization",
+      )?.stateHash,
+    ).toBe(history.directory.currentState.stateHash);
+    const next = await loadCurrentOrganizationAuthority({
+      ...f.input,
+      organizationReference: undefined,
+    });
+    expect(next.directory.policy.stateHash).toBe(
+      advanced.currentState.stateHash,
+    );
     expect(await f.db.select().from(principalPolicyCheckpoints)).toEqual([]);
   } finally {
     f.close();
@@ -166,6 +179,81 @@ test("an exact projected directory reuses authenticated local current artifacts"
     );
     expect(group.policy.stateHash).toBe(history.group.currentState.stateHash);
     expect(f.requests).toHaveLength(count);
+    expect(await f.db.select().from(principalPolicyCheckpoints)).toEqual([]);
+  } finally {
+    f.close();
+  }
+});
+
+test("discovery and group reads share one directory and Admins recovery", async () => {
+  const f = await fixture();
+  try {
+    const authority = await loadCurrentOrganizationAuthority({
+      ...f.input,
+      organizationReference: undefined,
+    });
+    await authority.readGroup(history.group.currentState.principalId);
+    const pages = (principalId: string) =>
+      f.requests
+        .filter((request) => request.principalId === principalId)
+        .map((request) => request.afterVersion);
+    expect({
+      directory: pages(history.organizationId),
+      admins: pages(history.admin.currentState.principalId),
+    }).toEqual({ directory: [0, 32, 64], admins: [0, 32, 64] });
+    expect(await f.db.select().from(principalPolicyCheckpoints)).toEqual([]);
+  } finally {
+    f.close();
+  }
+});
+
+test("the reused discovery page must pass signature verification", async () => {
+  const f = await fixture();
+  try {
+    let changed = false;
+    f.controls.mutate = (page) => {
+      const first = page.previousStates[0];
+      if (
+        !changed &&
+        page.currentState.principalId === history.organizationId &&
+        first
+      ) {
+        changed = true;
+        first.state.signature = history.admin.currentState.signature;
+      }
+    };
+    await expect(
+      loadCurrentOrganizationAuthority({
+        ...f.input,
+        organizationReference: undefined,
+      }),
+    ).rejects.toMatchObject({ code: "signature_mismatch" });
+    expect(changed).toBe(true);
+    expect(f.requests.map((request) => request.afterVersion)).toEqual([0]);
+    expect(await f.db.select().from(principalPolicyCheckpoints)).toEqual([]);
+  } finally {
+    f.close();
+  }
+});
+
+test("discovery continuation keeps the API client's exact artifact binding", async () => {
+  const f = await fixture();
+  try {
+    f.controls.mutate = (page) => {
+      if (
+        page.currentState.principalId === history.organizationId &&
+        page.historyPage.afterVersion === 32
+      ) {
+        page.currentPayload.ciphertext += "changed";
+      }
+    };
+    await expect(
+      loadCurrentOrganizationAuthority({
+        ...f.input,
+        organizationReference: undefined,
+      }),
+    ).rejects.toBeInstanceOf(ProjectionDependencyUnavailableError);
+    expect(f.requests.map((request) => request.afterVersion)).toEqual([0, 32]);
     expect(await f.db.select().from(principalPolicyCheckpoints)).toEqual([]);
   } finally {
     f.close();

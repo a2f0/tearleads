@@ -14,6 +14,7 @@ export async function hydrateOrganizationGroupNames(
   input: Omit<DirectoryGroupWalkInput, "descriptor" | "externalAuthority"> & {
     readonly directory: OrganizationDirectoryAndGroups;
     readonly organizationPolicyReference?: ReferencedPrincipalHead | null;
+    readonly recoveryBatch?: object | undefined;
     readonly stillCurrent: () => boolean;
     readonly resolveCurrentPolicy?:
       | Parameters<

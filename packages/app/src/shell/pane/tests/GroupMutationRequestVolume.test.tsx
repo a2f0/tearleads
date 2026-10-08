@@ -21,6 +21,7 @@ import {
   cleanupPaneTestEnvironment,
   waitForPaneRuntimeToSettle,
 } from "../../../../test/helpers/paneTestUtils";
+import { profileProxiedApiRequests } from "../../../../test/helpers/proxiedApiRequestBudget";
 import { documentSyncIntentCounts } from "../../../../test/helpers/proxiedApiRequestMetrics";
 import { waitForPersonalBootstrap } from "../../../../test/helpers/waitForPersonalBootstrap";
 import { measureWorkflowRequests } from "../../../../test/helpers/workflowRequestBudget";
@@ -44,12 +45,12 @@ test("group creation and adding a peer have separate request budgets", async () 
       operation: () => createOrganizationGroup(pane, `Budget ${group} group`),
       budget: {
         // Obtain the verified organization metadata key before encrypting the name.
-        total: group === "first" ? 25 : 21,
+        total: group === "first" ? 24 : 20,
         byRequest: {
           "GET /principals/history": 9,
           "GET /containers/:containerId/writer-projection": 1,
           "GET /organizations/:organizationId/read-model": 2,
-          "GET /principals/group/:groupId/policy": group === "first" ? 7 : 5,
+          "GET /principals/group/:groupId/policy": group === "first" ? 6 : 4,
           "GET /principals/organization/:organizationId/policy":
             group === "first" ? 5 : 3,
           "POST /organizations/:organizationId/groups": 1,
@@ -91,17 +92,17 @@ test("group creation and adding a peer have separate request budgets", async () 
         // including metadata discovery, read-only sync, and a billing refresh.
         // The second add reuses that roster membership and stays a single write.
         // Both phases can independently reauthorize cached metadata histories.
-        total: group === "first" ? 89 : 27,
+        total: group === "first" ? 86 : 26,
         byRequest: {
           "GET /principals/history": group === "first" ? 45 : 12,
           "GET /containers/:containerId/writer-projection":
             group === "first" ? 3 : 1,
           "GET /organizations/:organizationId/read-model":
             group === "first" ? 4 : 3,
-          "GET /principals/group/:groupId/policy": group === "first" ? 13 : 6,
+          "GET /principals/group/:groupId/policy": group === "first" ? 12 : 5,
           "GET /auth/user-identity/:userId": group === "first" ? 2 : 0,
           "GET /principals/organization/:organizationId/policy":
-            group === "first" ? 9 : 3,
+            group === "first" ? 7 : 3,
           "PUT /organizations/:organizationId/groups/:groupId/policy-commit":
             group === "first" ? 2 : 1,
           // A concurrent policy advance can require a fresh post-create proof.
@@ -127,7 +128,11 @@ test("group creation and adding a peer have separate request budgets", async () 
     // Three directory/Admins/Members reads can move across the phase boundary.
     // Keep them in the pair limit even when both phases use their full allowance.
     const combined = listProxiedApiRequests().slice(pairStart);
-    expect(combined.length).toBeLessThanOrEqual(group === "first" ? 114 : 48);
+    profileProxiedApiRequests(
+      `create and add peer to ${group} group`,
+      pairStart,
+    );
+    expect(combined.length).toBeLessThanOrEqual(group === "first" ? 110 : 46);
     expect(
       combined.filter(
         (request) =>
