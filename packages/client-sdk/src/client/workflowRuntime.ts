@@ -94,6 +94,7 @@ interface WorkflowRuntimeDependencies {
   network: Network;
   peerScope?: string | null;
   principalHistoryKeyProvider?: PrincipalHistoryKeyProvider | undefined;
+  principalMutationTimeoutMs?: number | undefined;
   reportSecurityIncident: SecurityIncidentReporter;
   session: Session;
   syncBillingGate?: SyncBillingGate | undefined;
@@ -105,6 +106,7 @@ function createRuntimeMutationApi(
 ) {
   return createPrincipalMutationApiCustody({
     api: dependencies.api,
+    principalMutationTimeoutMs: dependencies.principalMutationTimeoutMs,
     readScope: () => {
       const { signingKeyPair, signingFingerprint } = dependencies.identity;
       const { userId, isAuthenticated } = dependencies.session;

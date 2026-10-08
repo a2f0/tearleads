@@ -21,7 +21,7 @@ async function runRecovery<T>(
   organizationId: string,
   run: (api: PrincipalMutationRecoveryApi) => Promise<T>,
 ): Promise<T> {
-  const active = currentOrganizationMutation(service);
+  const active = currentOrganizationMutation(service, true);
   const { runtime, stillCurrent } = active;
   assertProjectionVerificationCurrent(
     () => stillCurrent() && runtime.auth.organizationId === organizationId,

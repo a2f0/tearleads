@@ -74,6 +74,8 @@ domain, organization, actor and signing fingerprint. The local SQLite executor
 owns the journal; a captured database/session generation guards every write and
 dispatch. It requires the same signing identity after restart and does not rely
 on the ephemeral history-cache key.
+Sealing verifies the new journal signature against the actor's public key before
+claiming its lane, so a mismatched signing key pair cannot create unreadable work.
 
 One unresolved request owns each actor/organization lane. A concurrent author
 cannot replace it. Cache resets retain authored work. The runtime resolves it
@@ -88,7 +90,8 @@ Calls sharing an executor and scope serialize submission, recovery and explicit
 abandonment. Recovery waits for an owned dispatch instead of sending it again.
 This in-memory wait does not span separate executors or tabs; durable claims and
 server transaction receipts still protect concurrent transport attempts.
-Runtime recovery has a 15-second request deadline; expiration retains the journal.
+Runtime recovery has a host-configurable request deadline; expiration retains
+the journal.
 Read-only inspection can observe an in-flight request without waiting for its
 acknowledgement. Retry, abandonment and discard still wait for an owned dispatch.
 
@@ -121,8 +124,8 @@ Inspection without that scope reports no inspectable work. Hosts using a relativ
 API base without a browser origin must supply an absolute trusted API URL.
 Malformed or stalled preparation responses also retain the request conservatively;
 an invalid or incomplete 202 exchange is not a validated terminal rollback receipt.
-Unlisted failures, including HTTP 429, conservatively retain the request as
-uncertain; an intermediary's status alone does not prove server rollback.
+Unlisted failures, including HTTP 404 and 429, conservatively retain the request
+as uncertain; an intermediary's status alone does not prove server rollback.
 
 Unreadable records remain blocked from submission. Inspection reports an
 `UnreadablePrincipalMutationError` with an opaque identifier of the exact local
@@ -137,7 +140,8 @@ Journal scope includes the API origin and signing fingerprint. A different origi
 or rotated identity does not inherit or replay the former scope's records; those
 rows remain until the former scope is restored or the database is explicitly reset.
 Auth-token renewal within the same signed identity and organization preserves
-journal custody. A definite initial authentication refusal can therefore retire
+journal custody and the pending-work facade's captured lifetime. A definite
+initial authentication refusal can therefore retire
 its request after renewal; a later operation must not replay that refused change.
 Identity, organization, authentication-state or database changes still expire
 custody, even if the original scope is restored before the response arrives.
@@ -153,9 +157,15 @@ intact. The helpers return ordinary receipts, not verified policy capabilities.
 If a submission adapter throws, the saved request remains unresolved and the
 helper throws `PrincipalMutationOutcomeUnknownError` with the original error as
 its cause. A thrown exception cannot establish that dispatch did not commit.
-Built-in interactive dispatch and recovery each have a 15-second deadline,
-combined with any caller cancellation signal. Expiry preserves uncertain work
-and releases the local lane so saved-change inspection and actions can proceed.
+Built-in interactive dispatch and recovery default to a 60-second deadline,
+combined with any caller cancellation signal. Set
+`new Tearleads({ principalMutationTimeoutMs: 120_000 })` for a larger budget.
+The value must be a positive integer at most 2,147,483,647 milliseconds. It covers
+the entire submission, including preparation continuations; it is not a claim
+that every healthy compound commit finishes within the default. Hosts with large
+rewraps or slow servers should configure their own budget. A fresh client with a
+longer deadline can retry the exact saved request after timeout. Expiry preserves
+uncertain work and releases the local lane so inspection and actions can proceed.
 All four operation kinds share the same lane. Existing signed compound rows
 remain recoverable under their original scope, without re-signing or hiding
 unknown work. New rows bind an explicit operation kind; standalone organization
