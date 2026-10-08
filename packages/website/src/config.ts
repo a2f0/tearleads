@@ -6,6 +6,24 @@ export const appUrl = isStaging
   : "https://app.tearleads.com";
 
 /**
+ * The staging iOS app (com.tearleads.staging.app) ships only through
+ * TestFlight, so staging links its external group's public join link.
+ * Production links the com.tearleads.app App Store record, which 404s until
+ * Apple approves the app for sale.
+ */
+export const iosDownloadUrl = isStaging
+  ? "https://testflight.apple.com/join/JGZxEWQD"
+  : "https://apps.apple.com/app/id6793172063";
+
+/**
+ * Each tier's Google Play internal testing opt-in link. Neither Android app is
+ * on a public track yet, so only testers added in Play Console can join.
+ */
+export const androidDownloadUrl = isStaging
+  ? "https://play.google.com/apps/internaltest/4700608793048750781"
+  : "https://play.google.com/apps/internaltest/4701368218502321967";
+
+/**
  * The site's release notice, shown by StatusNotice.astro under the label
  * "Early testing." in the Home hero, the Pricing header, and the Linux install
  * header. It mirrors the app's unconditional TestSystemBanner
