@@ -18,6 +18,13 @@ cd "$REPO_ROOT"
 
 if [ -n "${OASDIFF_BIN:-}" ]; then
   [ -x "$OASDIFF_BIN" ] || fail "OASDIFF_BIN is not executable: $OASDIFF_BIN"
+  script_dir=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)
+  oasdiff_pin=$(sed -n 's/^"github:oasdiff\/oasdiff" = "\([^"]*\)"$/\1/p' "$script_dir/../../.mise.toml")
+  [ -n "$oasdiff_pin" ] || fail "could not read the oasdiff pin from .mise.toml."
+  oasdiff_version=$("$OASDIFF_BIN" --version) ||
+    fail "OASDIFF_BIN could not report its version."
+  [ "$oasdiff_version" = "oasdiff version $oasdiff_pin" ] ||
+    fail "OASDIFF_BIN reports '$oasdiff_version'; expected oasdiff version $oasdiff_pin."
 else
   command -v mise >/dev/null 2>&1 ||
     fail "mise is unavailable. Install mise, then run 'mise install github:oasdiff/oasdiff'."

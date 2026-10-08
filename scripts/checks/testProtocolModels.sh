@@ -62,6 +62,7 @@ run_check() (
     PATH="$TEST_ROOT/bin:$PATH" \
     FAKE_JAVA="$TEST_ROOT/bin/java" \
     FAKE_JAVA_LOG="$JAVA_LOG" \
+    FAKE_JAVA_VERSION="${FAKE_JAVA_VERSION:-25.0.4.1}" \
     FAKE_TLA_TOOLS_ROOT="$TEST_ROOT/tla-tools" \
     JAVA_BIN="$TEST_ROOT/bin/java" \
     TLA_TOOLS_ROOT="$TEST_ROOT/tla-tools" \
@@ -81,6 +82,7 @@ run_check_with_mise() (
     PATH="$TEST_ROOT/bin:$PATH" \
     FAKE_JAVA="$TEST_ROOT/bin/java" \
     FAKE_JAVA_LOG="$JAVA_LOG" \
+    FAKE_JAVA_VERSION="${FAKE_JAVA_VERSION:-25.0.4.1}" \
     FAKE_TLA_TOOLS_ROOT="$TEST_ROOT/tla-tools" \
     TLA_TOOLS_JAR_SHA256="$FIXTURE_JAR_SHA256" \
     "$CHECK_SCRIPT"
@@ -111,6 +113,13 @@ assert_validation_failure() {
 install_registry valid.txt
 mise_output=$(run_check_with_mise)
 assert_contains "$mise_output" "Checked 3 protocol model configuration(s)."
+
+install_registry valid.txt
+if wrong_java_output=$(FAKE_JAVA_VERSION=11 run_check 2>&1); then
+  fail "an unpinned JAVA_BIN override was accepted."
+fi
+assert_contains "$wrong_java_output" "does not report the pinned Java"
+[ ! -e "$JAVA_LOG" ] || fail "an unpinned Java launched a protocol model."
 
 install_registry valid.txt
 valid_output=$(run_check)

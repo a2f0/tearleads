@@ -56,6 +56,16 @@ if override_output=$(
 fi
 assert_contains "$override_output" "OASDIFF_BIN is not executable"
 
+printf '#!/bin/sh\nprintf "oasdiff version 0.0.0\\n"\n' >"$TEST_ROOT/stale-oasdiff"
+chmod +x "$TEST_ROOT/stale-oasdiff"
+if stale_output=$(
+  cd "$TEST_ROOT"
+  OASDIFF_BIN="$TEST_ROOT/stale-oasdiff" "$CHECK_SCRIPT" 2>&1
+); then
+  fail "an unpinned OASDIFF_BIN override was accepted."
+fi
+assert_contains "$stale_output" "expected oasdiff version"
+
 # CI exports OPENAPI_BASE_REF/GITHUB_BASE_REF for the real repository check;
 # those refs cannot resolve inside the fixture repository, so clear them.
 fallback_output=$(

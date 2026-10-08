@@ -53,12 +53,28 @@ function pinnedJarSha256(root: string): string {
   return match[1];
 }
 
+function checkJavaVersion(root: string, javaBin: string): void {
+  const miseConfig = readFileSync(join(root, ".mise.toml"), "utf8");
+  const pin = miseConfig.match(/^java = "temurin-([^+]+)\+[^"]+"$/m)?.[1];
+  if (!pin) {
+    fail(".mise.toml does not declare the Temurin Java pin.");
+  }
+  const result = spawnSync(javaBin, ["-version"], { encoding: "utf8" });
+  if (
+    result.status !== 0 ||
+    !`${result.stdout}${result.stderr}`.includes(`version "${pin}`)
+  ) {
+    fail(`${javaBin} does not report the pinned Java ${pin} version.`);
+  }
+}
+
 export function resolveTlcTools(root: string): TlcTools {
   const { JAVA_BIN, TLA_TOOLS_ROOT } = process.env;
   const javaBin = JAVA_BIN || commandOutput("mise", ["which", "java"]);
   const tlaToolsRoot =
     TLA_TOOLS_ROOT ||
     commandOutput("mise", ["where", "github:tlaplus/tlaplus"]);
+  checkJavaVersion(root, javaBin);
   const jarPath = join(tlaToolsRoot, "tla2tools.jar");
   const jarSha256 = createHash("sha256")
     .update(readFileSync(jarPath))
