@@ -14,11 +14,11 @@ fail() {
 REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null) ||
   fail "OpenAPI compatibility must run inside a Git repository."
 
+script_dir=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)
 cd "$REPO_ROOT"
 
 if [ -n "${OASDIFF_BIN:-}" ]; then
   [ -x "$OASDIFF_BIN" ] || fail "OASDIFF_BIN is not executable: $OASDIFF_BIN"
-  script_dir=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)
   oasdiff_pin=$(sed -n 's/^"github:oasdiff\/oasdiff" = "\([^"]*\)"$/\1/p' "$script_dir/../../.mise.toml")
   [ -n "$oasdiff_pin" ] || fail "could not read the oasdiff pin from .mise.toml."
   oasdiff_version=$("$OASDIFF_BIN" --version) ||
@@ -73,7 +73,6 @@ command -v bun >/dev/null 2>&1 ||
 # including runtime-refinement direction and request maxItems tightening. The
 # helper lives next to this script, not in $REPO_ROOT, so fixture repositories
 # exercise the real implementation.
-script_dir=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)
 base_spec_file=$(mktemp "${TMPDIR:-/tmp}/openapi-base.XXXXXX")
 trap 'rm -f "$base_spec_file"' EXIT
 git cat-file blob "$base_spec" >"$base_spec_file"
