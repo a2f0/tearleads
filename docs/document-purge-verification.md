@@ -43,5 +43,5 @@ when the outer transaction performs local teardown after proof verification.
 Guard failure rolls back both trust records and document deletion and preserves
 the cancellation error identity. Rolling back a nested savepoint also releases
 its own guards while preserving the enclosing guards. Full snapshot helpers
-remain test utilities;
-production purge authorization and responses use bounded principal selections.
+remain test utilities; production purge authorization and responses use bounded
+principal selections.

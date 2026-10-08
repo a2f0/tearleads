@@ -34,6 +34,7 @@ Derived document runtimes inherit this custody through the private registry.
 Custody callbacks must support nested leases: sharing may verify a projection
 or enter a mutation context inside an existing read lease. Each lease owns its
 key buffer and keeps its lifetime valid until its callback settles.
+See [sharing custody](principal-current-sharing.md).
 Omitting custody leaves compact projection recovery unavailable; hosts using
 these constructors against compact projections must supply it.
 

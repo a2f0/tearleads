@@ -67,8 +67,9 @@ progress releases that ownership in the same guarded transaction. Shared child
 nodes remain live until all incoming references disappear. Each accepted page,
 prefix save and atomic acknowledgement reclaims at most 64 newly indexed,
 unreferenced nodes, including children made unreachable by the bounded cascade.
-An existing backlog converges over later writes. The
-scope, organization, managed-node flag and zero-reference index bound candidate
+Discard releases root ownership but defers graph cleanup to a later accepted
+write. An existing backlog converges over later writes. The scope,
+organization, managed-node flag and zero-reference index bound candidate
 selection. This removes obsolete intermediate roots without deleting signed
 history entries or key candidates.
 
