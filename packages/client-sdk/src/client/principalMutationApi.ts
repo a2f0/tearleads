@@ -7,11 +7,13 @@ import {
   type PrincipalMutationRecoveryApi,
   readJournaledPrincipalMutation,
 } from "../workflows/organizations/principalMutationJournalManagement";
-import {
-  recoverJournaledPrincipalMutation,
-  submitJournaledPrincipalMutation,
-} from "../workflows/organizations/principalMutationJournalSession";
+import { recoverJournaledPrincipalMutation } from "../workflows/organizations/principalMutationJournalSession";
 import { createPrincipalMutationDispatcher } from "./principalMutationDeadline";
+import {
+  createJournaledPrincipalMutations,
+  dispatchAuthoredPrincipalMutation,
+  type JournaledPrincipalMutationMethods,
+} from "./principalMutationDispatch";
 
 export interface PrincipalMutationRuntimeScope {
   readonly database: object;
@@ -40,10 +42,7 @@ function sameScope(
 }
 
 export type PrincipalMutationApi = ApiClient & PrincipalMutationRecoveryApi;
-type MutationOverrides = Pick<
-  ApiClient,
-  "commitOrganizationGroupPolicy" | "commitOrganizationGroupPolicyResult"
-> &
+type MutationOverrides = JournaledPrincipalMutationMethods &
   PrincipalMutationRecoveryApi;
 
 interface PrincipalMutationApiCustodyInput {
@@ -74,7 +73,7 @@ function mutationContext(
   };
 }
 
-/** Keep API methods bound to their real receiver and journal only policy writes. */
+/** Keep API methods bound to their real receiver and journal principal policy and group lifecycle writes. */
 export function createPrincipalMutationApiCustody(
   input: PrincipalMutationApiCustodyInput,
 ) {
@@ -91,25 +90,6 @@ export function createPrincipalMutationApiCustody(
       if (cached && sameScope(scope, cached.scope)) return cached.api;
       const context = (organizationId: string) =>
         mutationContext(input, scope, organizationId);
-      const commit: ApiClient["commitOrganizationGroupPolicyResult"] = async (
-        organizationId,
-        groupId,
-        request,
-        options,
-      ) =>
-        submitJournaledPrincipalMutation({
-          ...context(organizationId),
-          mutation: { groupId, request },
-          submit: (mutation) =>
-            dispatch(options, (dispatchOptions) =>
-              input.api.commitOrganizationGroupPolicyResult(
-                organizationId,
-                mutation.groupId,
-                mutation.request,
-                dispatchOptions,
-              ),
-            ),
-        });
       const read: PrincipalMutationRecoveryApi["readPendingPrincipalMutation"] =
         async (organizationId) =>
           scope
@@ -123,6 +103,7 @@ export function createPrincipalMutationApiCustody(
             acknowledgeUnknownOutcome,
           });
       const methods = {
+        ...createJournaledPrincipalMutations(input.api, context, dispatch),
         discardUnreadablePrincipalMutation: async (
           organizationId,
           recordId,
@@ -135,20 +116,15 @@ export function createPrincipalMutationApiCustody(
           }),
         readPendingPrincipalMutation: read,
         abandonPendingPrincipalMutation: abandon,
-        commitOrganizationGroupPolicyResult: commit,
-        commitOrganizationGroupPolicy: async (...args) => {
-          const result = await commit(...args);
-          return result.ok ? result.data : null;
-        },
         recoverPendingPrincipalMutation: async (organizationId) => {
           await recoverJournaledPrincipalMutation({
             ...context(organizationId),
             submit: (mutation) =>
               dispatch({ reportErrors: false }, (dispatchOptions) =>
-                input.api.commitOrganizationGroupPolicyResult(
+                dispatchAuthoredPrincipalMutation(
+                  input.api,
                   organizationId,
-                  mutation.groupId,
-                  mutation.request,
+                  mutation,
                   dispatchOptions,
                 ),
               ),

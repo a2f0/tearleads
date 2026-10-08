@@ -10,25 +10,26 @@ export async function assertAuthoredPrincipalMutationReceipt(
   response: CommitOrganizationGroupPolicyResponse,
 ): Promise<void> {
   for (const part of ["groupPolicy", "organizationPolicy"] as const) {
-    const expected = request[part];
-    const observed = response[part];
-    const {
-      stateHash,
-      createdAt: _createdAt,
-      ...state
-    } = observed.currentState;
-    if (
-      stateHash !== (await computePrincipalStateHash(expected.state)) ||
-      canonicalKeyingJsonString(state, "principal mutation receipt state") !==
-        canonicalKeyingJsonString(expected.state, "authored principal state")
-    )
-      throw new Error(
-        "Principal mutation receipt state differs from the authored request",
-      );
-    assertPrincipalPolicyReceiptArtifacts({
-      request: expected,
-      response: observed,
-      expectedHead: { ...observed.currentState, stateHash },
-    });
+    await assertAuthoredPrincipalPolicyReceipt(request[part], response[part]);
   }
+}
+
+export async function assertAuthoredPrincipalPolicyReceipt(
+  expected: CommitOrganizationGroupPolicyRequest["groupPolicy"],
+  observed: CommitOrganizationGroupPolicyResponse["groupPolicy"],
+): Promise<void> {
+  const { stateHash, createdAt: _createdAt, ...state } = observed.currentState;
+  if (
+    stateHash !== (await computePrincipalStateHash(expected.state)) ||
+    canonicalKeyingJsonString(state, "principal mutation receipt state") !==
+      canonicalKeyingJsonString(expected.state, "authored principal state")
+  )
+    throw new Error(
+      "Principal mutation receipt state differs from the authored request",
+    );
+  assertPrincipalPolicyReceiptArtifacts({
+    request: expected,
+    response: observed,
+    expectedHead: { ...observed.currentState, stateHash },
+  });
 }

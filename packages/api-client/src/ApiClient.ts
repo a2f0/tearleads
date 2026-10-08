@@ -10,13 +10,11 @@ import {
   createContainerOperation,
   createContainerWithMetadataDocumentOperation,
   createDocumentOperation,
-  createOrganizationGroupOperation,
   createOrganizationOperation,
   createStripeCheckoutOperation,
   createStripeCheckoutSessionOperation,
   createStripePortalOperation,
   deleteContainerOperation,
-  deleteOrganizationGroupOperation,
   destroySessionOperation,
   detachBlobAttachmentOperation,
   documentSyncOperation,
@@ -79,9 +77,7 @@ import type {
   ContainerMutationRequest,
   ContainerReciteRequest,
   ContainerRotationRequest,
-  CreateOrganizationGroupWithPolicyRequest,
   CreateOrganizationRequest,
-  DeleteOrganizationGroupRequest,
   DocumentCreateRequest,
   DocumentLinkSetMutationRequest,
   DocumentPurgeRequest,
@@ -183,9 +179,7 @@ import {
   documentUnlink,
 } from "./routes/documents/mutations";
 import { organizationBilling } from "./routes/organizations/billing";
-import { createOrganizationGroup as groupCreate } from "./routes/organizations/createGroup";
 import { getOrganizationDataUsage as organizationDataUsage } from "./routes/organizations/dataUsage";
-import { deleteOrganizationGroup as groupDelete } from "./routes/organizations/deleteGroup";
 import { listOrganizationGroupMembers as groupMembers } from "./routes/organizations/groupMembers";
 import { updateOrganizationProfile as profileUpdate } from "./routes/organizations/profile";
 import { updateOrganizationRosterEntry as rosterUpdate } from "./routes/organizations/roster";
@@ -976,54 +970,31 @@ export class ApiClient {
   }
 
   createOrganizationGroup(
-    organizationId: string,
-    input: CreateOrganizationGroupWithPolicyRequest,
+    ...args: Parameters<PrincipalPolicyRequests["createResult"]>
   ) {
-    const groupRequestKey = JSON.stringify(["group", input.groupId]);
-    const organizationRequestKey = JSON.stringify([
-      "organization",
-      organizationId,
-    ]);
-    this.principalPolicyRequestsByKey.delete(groupRequestKey);
-    this.principalPolicyRequestsByKey.delete(organizationRequestKey);
-    return this.request(
-      groupCreate.path(organizationId),
-      groupCreate.isResponse,
-      groupCreate.method,
-      JSON.stringify(input),
-      { expectedPaymentRequiredOrganizationId: organizationId },
-      createOrganizationGroupOperation,
-    ).finally(() => {
-      this.principalPolicyRequestsByKey.delete(groupRequestKey);
-      this.principalPolicyRequestsByKey.delete(organizationRequestKey);
-      this.clearWriterProjectionCaches();
-    });
+    return this.createOrganizationGroupResult(...args).then((result) =>
+      result.ok ? result.data : null,
+    );
+  }
+
+  createOrganizationGroupResult(
+    ...args: Parameters<PrincipalPolicyRequests["createResult"]>
+  ) {
+    return this.principalPolicyRequests.createResult(...args);
   }
 
   deleteOrganizationGroup(
-    organizationId: string,
-    groupId: string,
-    input: DeleteOrganizationGroupRequest,
+    ...args: Parameters<PrincipalPolicyRequests["deleteResult"]>
   ) {
-    const groupRequestKey = JSON.stringify(["group", groupId]);
-    const organizationRequestKey = JSON.stringify([
-      "organization",
-      organizationId,
-    ]);
-    this.principalPolicyRequestsByKey.delete(groupRequestKey);
-    this.principalPolicyRequestsByKey.delete(organizationRequestKey);
-    return this.request(
-      groupDelete.path(organizationId, groupId),
-      groupDelete.isResponse,
-      groupDelete.method,
-      JSON.stringify(input),
-      { expectedPaymentRequiredOrganizationId: organizationId },
-      deleteOrganizationGroupOperation,
-    ).finally(() => {
-      this.principalPolicyRequestsByKey.delete(groupRequestKey);
-      this.principalPolicyRequestsByKey.delete(organizationRequestKey);
-      this.clearWriterProjectionCaches();
-    });
+    return this.deleteOrganizationGroupResult(...args).then((result) =>
+      result.ok ? result.data : null,
+    );
+  }
+
+  deleteOrganizationGroupResult(
+    ...args: Parameters<PrincipalPolicyRequests["deleteResult"]>
+  ) {
+    return this.principalPolicyRequests.deleteResult(...args);
   }
 
   listOrganizationGroupMembers(organizationId: string, groupId: string) {

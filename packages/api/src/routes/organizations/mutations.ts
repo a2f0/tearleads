@@ -15,6 +15,7 @@ import {
 } from "../../services/organizations/orgManager";
 import { jsonRequestValidator } from "../../validators/jsonRequest";
 import { pathParamsValidator } from "../../validators/pathParams";
+import { toPrincipalHistoryPreparationResponse } from "../principals/preparationResponse";
 import {
   type OrganizationsRouterDeps,
   toOrganizationManagerErrorResponse,
@@ -48,7 +49,9 @@ export function createOrganizationMutationsRoute({
           ),
         );
       } catch (error) {
-        const response = toOrganizationManagerErrorResponse(error);
+        const response =
+          toPrincipalHistoryPreparationResponse(error) ??
+          toOrganizationManagerErrorResponse(error);
         if (response) {
           return response;
         }
@@ -81,7 +84,9 @@ export function createOrganizationMutationsRoute({
           ),
         );
       } catch (error) {
-        const response = toOrganizationManagerErrorResponse(error);
+        const response =
+          toPrincipalHistoryPreparationResponse(error) ??
+          toOrganizationManagerErrorResponse(error);
         if (response) {
           return response;
         }

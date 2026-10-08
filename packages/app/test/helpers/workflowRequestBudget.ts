@@ -3,6 +3,10 @@ import { requestPath } from "./dualPaneRequestSummary";
 import { listProxiedApiRequests } from "./mswServer";
 import { waitForPaneRuntimeToSettle } from "./paneTestUtils";
 import {
+  completedWorkflowRequests,
+  type ExpectedWorkflowMutation,
+} from "./principalPreparationRequests";
+import {
   expectProxiedApiRequestBudget,
   type ProxiedApiRequestBudget,
   profileProxiedApiRequests,
@@ -14,7 +18,7 @@ export async function measureWorkflowRequests(input: {
   label: string;
   operation: () => Promise<void>;
   budget: ProxiedApiRequestBudget;
-  mutations: ReadonlyArray<{ method: string; path: RegExp; count: number }>;
+  mutations: readonly ExpectedWorkflowMutation[];
 }) {
   await waitForPaneRuntimeToSettle(20_000);
   const start = listProxiedApiRequests().length;
@@ -40,9 +44,10 @@ export async function measureWorkflowRequests(input: {
   await waitForPaneRuntimeToSettle(20_000);
   const requests = listProxiedApiRequests().slice(start);
   profileProxiedApiRequests(input.label, start);
-  expectProxiedApiRequestBudget(input.label, requests, input.budget);
+  const completed = completedWorkflowRequests(requests, input.mutations);
+  expectProxiedApiRequestBudget(input.label, completed, input.budget);
   for (const mutation of input.mutations) {
-    const matches = requests.filter(
+    const matches = completed.filter(
       (request) =>
         request.method === mutation.method &&
         mutation.path.test(requestPath(request.url)),

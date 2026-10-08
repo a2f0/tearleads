@@ -95,13 +95,16 @@ test("an API-client cancellation before dispatch retires the never-submitted req
       ...fixture,
       execSql: sqlite.execSql,
       stillCurrent: () => true,
-      submit: (mutation) =>
-        api.commitOrganizationGroupPolicyResult(
+      submit: (mutation) => {
+        if (mutation.kind !== undefined)
+          throw new Error("Expected compound journal");
+        return api.commitOrganizationGroupPolicyResult(
           fixture.scope.organizationId,
           mutation.groupId,
           mutation.request,
           { signal: AbortSignal.abort(), reportErrors: false },
-        ),
+        );
+      },
     });
     expect(result).toMatchObject({ ok: false, kind: "cancelled" });
     expect(

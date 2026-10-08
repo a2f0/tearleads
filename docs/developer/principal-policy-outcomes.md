@@ -1,12 +1,14 @@
 # Principal policy commit outcomes
 
-A client may lose an HTTP response after a standalone organization policy or a
-compound group-and-organization policy request commits. Retrying the exact
-request returns its original acknowledgement even after later policy versions
-commit. A durable receipt is written in the same transaction as the policies and
+A client may lose an HTTP response after a standalone organization policy, a
+compound group-and-organization policy request, or group creation/deletion
+commits. Retrying the exact request returns its original acknowledgement even
+after later policy versions commit. A durable receipt is written in the same
+transaction as the policies and
 binds the entire canonical request, authenticated requester, organization, and
-compound group when applicable. Separate hash domains distinguish standalone and
-compound requests. Existing mutation locks serialize concurrent exact retries.
+target group when applicable. Separate hash domains distinguish standalone,
+compound, creation and deletion requests. Existing mutation locks serialize
+concurrent exact retries.
 A replay does not change current heads or publish another access or sharing
 notification.
 
@@ -19,9 +21,11 @@ roster billing checks: it reports a past commit without authorizing another.
 Invalid stored
 receipts fail closed. Compound container results still require their original
 acknowledgement rows, so purging an organization cannot leave a response in an
-embedded copy. Group deletion removes that group's compound receipts;
-organization purge also removes standalone receipts. A null receipt group ID
-identifies the standalone organization request domain.
+embedded copy. Group deletion removes that group's compound and creation
+receipts. Deletion receipts keep a null database group ID so removing the group
+cannot delete the acknowledgement; the hash still binds its exact target.
+Organization purge removes these receipts together with standalone receipts.
+A null database group ID therefore does not identify the operation domain.
 
 The schema change regenerates both greenfield baselines and requires fresh
 databases under the repository reset policy; there is no historical upgrade.
@@ -42,10 +46,28 @@ receipt-authenticated original request; the state hash alone cannot authenticate
 signature bytes. Altered retired artifacts cannot return a successful receipt.
 Storage still grows by a fixed-size record per accepted commit.
 
-## Durable compound policy requests
+## Group creation and deletion transport
+
+Creation and deletion use the bounded history transaction runner. A validated 202
+or coded 503 with `committed:false` is emitted only after rollback, including any
+new group, deletion, directory successor, read-model change and receipt. The API
+client retries only validated preparation continuations with the original request
+bytes and identity. Its `createOrganizationGroupResult` and
+`deleteOrganizationGroupResult` methods preserve unknown outcomes and accept
+cancellation options; the existing nullable methods delegate to those results.
+
+Creation receipts reconstruct the original group summary and directory outcome,
+even after later policies advance. Deletion receipts reconstruct the original
+directory outcome after the group is gone. Neither creates another read-model
+change on replay. Both require current administrator access under mutation locks.
+The runtime journals these operations in the same durable organization lane as
+compound and standalone organization policy requests.
+
+## Durable principal requests
 
 The `Tearleads` runtime saves the complete JSON request before submitting a
-compound group/directory policy mutation. A separate signature by the local
+compound policy, standalone organization policy, group creation or group deletion
+mutation. A separate signature by the local
 actor authenticates the whole wire body, including ciphertext and envelopes
 outside individual state signatures. Its domain binds the API identity trust
 domain, organization, actor and signing fingerprint. The local SQLite executor
@@ -144,13 +166,21 @@ that every healthy compound commit finishes within the default. Hosts with large
 rewraps or slow servers should configure their own budget. A fresh client with a
 longer deadline can retry the exact saved request after timeout. Expiry preserves
 uncertain work and releases the local lane so inspection and actions can proceed.
-They cover compound group policy writes; standalone organization writes and
-group creation/deletion requests still need their own authored-request recovery.
+All four operation kinds share the same lane. Existing signed compound rows
+remain recoverable under their original scope, without re-signing or hiding
+unknown work. New rows bind an explicit operation kind; standalone organization
+rows have no group target. Recovery dispatches only that authenticated route and
+checks the matching receipt before removing the journal row. Group creation also
+checks the exact authored genesis against the returned summary; deletion checks
+both organization and deleted group IDs.
 
 Real HTTP tests with SQLite and PostgreSQL withhold a committed response, advance
 the policy from another client, and recover the first receipt without a duplicate
-commit. A second case kills the submitting SDK process and starts a fresh one
-with only its restored identity and SQLite file; removing the journal makes
-recovery fail. That process test uses native SQLite to exercise disk durability.
+commit. Process cases cover compound, standalone organization, group creation
+and group deletion writes. They kill the submitting SDK process after commit but
+before acknowledgement, advance the directory, then start a fresh process with
+only its restored identity and SQLite file. Removing the journal makes recovery
+fail.
+These tests use native SQLite to exercise disk durability.
 The in-process test uses the production WASM SQLite engine; browser OPFS process
 recovery is not established by these tests.

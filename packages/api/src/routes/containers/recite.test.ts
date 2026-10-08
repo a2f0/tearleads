@@ -168,6 +168,7 @@ test("a signer without inherited admin authority cannot recite a child", async (
   expect(response.status, await response.clone().text()).toBe(403);
 });
 
+// Signed setup and multiple policy commits need the protocol integration budget.
 test("an inherited write grant does not authorize re-citation", async () => {
   const { owner, root, child } = await scenario();
   const writer = createTestUser();
@@ -205,7 +206,7 @@ test("an inherited write grant does not authorize re-citation", async () => {
   );
   expect(recited.status, await recited.clone().text()).toBe(403);
   expect(await recited.text()).toContain("admin");
-});
+}, 15_000);
 
 test("a child re-cites an advanced ancestor and rejects the old authorizing path", async () => {
   const { owner, root, child } = await scenario();
