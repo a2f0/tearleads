@@ -43,12 +43,12 @@ test("SQLite principal key epochs round-trip the safe range and reject overflow"
       ["principal_history_progress", "key_epoch"],
     ]) {
       const update = client.query(`UPDATE ${table} SET ${column} = ?`);
-      const read = client.query<{ version: number }, []>(
-        `SELECT ${column} AS version FROM ${table}`,
+      const read = client.query<{ key_epoch: number }, []>(
+        `SELECT ${column} AS key_epoch FROM ${table}`,
       );
       for (const version of [16_385, 2 ** 31, Number.MAX_SAFE_INTEGER]) {
         update.run(version);
-        expect(read.get()?.version).toBe(version);
+        expect(read.get()?.key_epoch).toBe(version);
       }
       for (const version of [0, -1, 1.5, Number.MAX_SAFE_INTEGER + 1]) {
         expect(() => update.run(version)).toThrow(`${table}_${column}_range`);

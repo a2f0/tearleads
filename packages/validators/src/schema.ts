@@ -87,12 +87,6 @@ export const positiveIntegerSchema = registerJsonSchemaFragment(
   },
 );
 
-/** Exact counters shared by principal states, references, and key envelopes. */
-export const safePositiveIntegerSchema = registerJsonSchemaFragment(
-  z.number().positive().refine(Number.isSafeInteger),
-  { exclusiveMinimum: 0, maximum: Number.MAX_SAFE_INTEGER, type: "integer" },
-);
-
 export const nonNegativeIntegerSchema = registerJsonSchemaFragment(
   z.custom<number>(
     (value) =>

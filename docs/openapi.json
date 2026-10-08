@@ -40300,8 +40300,8 @@
                                   "type": "object",
                                   "properties": {
                                     "keyEpoch": {
-                                      "exclusiveMinimum": 0,
                                       "maximum": 9007199254740991,
+                                      "minimum": 1,
                                       "type": "integer"
                                     },
                                     "keyFingerprint": {
@@ -40944,8 +40944,8 @@
                                   "type": "object",
                                   "properties": {
                                     "keyEpoch": {
-                                      "exclusiveMinimum": 0,
                                       "maximum": 9007199254740991,
+                                      "minimum": 1,
                                       "type": "integer"
                                     },
                                     "keyFingerprint": {
@@ -42515,8 +42515,8 @@
                                   "type": "object",
                                   "properties": {
                                     "keyEpoch": {
-                                      "exclusiveMinimum": 0,
                                       "maximum": 9007199254740991,
+                                      "minimum": 1,
                                       "type": "integer"
                                     },
                                     "keyFingerprint": {
@@ -44436,8 +44436,8 @@
                               "type": "object",
                               "properties": {
                                 "keyEpoch": {
-                                  "exclusiveMinimum": 0,
                                   "maximum": 9007199254740991,
+                                  "minimum": 1,
                                   "type": "integer"
                                 },
                                 "keyFingerprint": {
@@ -44655,8 +44655,8 @@
                                   "type": "object",
                                   "properties": {
                                     "keyEpoch": {
-                                      "exclusiveMinimum": 0,
                                       "maximum": 9007199254740991,
+                                      "minimum": 1,
                                       "type": "integer"
                                     },
                                     "keyFingerprint": {
@@ -46566,8 +46566,8 @@
                                             "type": "object",
                                             "properties": {
                                               "keyEpoch": {
-                                                "exclusiveMinimum": 0,
                                                 "maximum": 9007199254740991,
+                                                "minimum": 1,
                                                 "type": "integer"
                                               },
                                               "keyFingerprint": {
@@ -46643,8 +46643,8 @@
                                   "type": "object",
                                   "properties": {
                                     "keyEpoch": {
-                                      "exclusiveMinimum": 0,
                                       "maximum": 9007199254740991,
+                                      "minimum": 1,
                                       "type": "integer"
                                     },
                                     "keyFingerprint": {
@@ -47112,8 +47112,8 @@
                                             "type": "object",
                                             "properties": {
                                               "keyEpoch": {
-                                                "exclusiveMinimum": 0,
                                                 "maximum": 9007199254740991,
+                                                "minimum": 1,
                                                 "type": "integer"
                                               },
                                               "keyFingerprint": {
@@ -47189,8 +47189,8 @@
                                   "type": "object",
                                   "properties": {
                                     "keyEpoch": {
-                                      "exclusiveMinimum": 0,
                                       "maximum": 9007199254740991,
+                                      "minimum": 1,
                                       "type": "integer"
                                     },
                                     "keyFingerprint": {
@@ -59547,8 +59547,8 @@
                               "type": "object",
                               "properties": {
                                 "keyEpoch": {
-                                  "exclusiveMinimum": 0,
                                   "maximum": 9007199254740991,
+                                  "minimum": 1,
                                   "type": "integer"
                                 },
                                 "keyFingerprint": {
@@ -59755,8 +59755,8 @@
                                     "type": "object",
                                     "properties": {
                                       "keyEpoch": {
-                                        "exclusiveMinimum": 0,
                                         "maximum": 9007199254740991,
+                                        "minimum": 1,
                                         "type": "integer"
                                       },
                                       "keyFingerprint": {
@@ -60350,8 +60350,8 @@
                               "type": "object",
                               "properties": {
                                 "keyEpoch": {
-                                  "exclusiveMinimum": 0,
                                   "maximum": 9007199254740991,
+                                  "minimum": 1,
                                   "type": "integer"
                                 },
                                 "keyFingerprint": {
@@ -60558,8 +60558,8 @@
                                     "type": "object",
                                     "properties": {
                                       "keyEpoch": {
-                                        "exclusiveMinimum": 0,
                                         "maximum": 9007199254740991,
+                                        "minimum": 1,
                                         "type": "integer"
                                       },
                                       "keyFingerprint": {
@@ -61685,8 +61685,8 @@
                               "type": "object",
                               "properties": {
                                 "keyEpoch": {
-                                  "exclusiveMinimum": 0,
                                   "maximum": 9007199254740991,
+                                  "minimum": 1,
                                   "type": "integer"
                                 },
                                 "keyFingerprint": {
