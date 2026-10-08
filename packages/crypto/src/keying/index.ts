@@ -44,6 +44,7 @@ export {
   verifyPrincipalPolicyCurrent,
 } from "./principalPolicyCurrent";
 export { verifyPrincipalPolicyCurrentMutation } from "./principalPolicyCurrentMutation";
+export { selectPrincipalPolicyCurrentPredecessorReferences } from "./principalPolicyCurrentPredecessorReferences";
 export { verifyPrincipalPolicyCurrentSuccessor } from "./principalPolicyCurrentSuccessor";
 export type {
   PrincipalPolicyExternalAuthority,

@@ -10,6 +10,12 @@ import { loadPrincipalHistoryReference } from "../../data/persistence/principalH
 import { principalHeadMatchesReference } from "../../data/principals/organizationAuthorityDescriptor";
 import type { RecoverPrincipalPolicyHistoryOptions } from "./principalHistoryRecoveryTypes";
 
+export interface PrincipalHistorySelectionOptions
+  extends RecoverPrincipalPolicyHistoryOptions {
+  /** Internal page selection by version; every selected row still needs a private-root proof. */
+  readonly retainedVersions?: readonly number[] | undefined;
+}
+
 export class PrincipalHistoryEvidenceUnavailableError extends Error {
   constructor(readonly verificationError: KeyingVerificationError) {
     super(verificationError.message);
@@ -18,7 +24,7 @@ export class PrincipalHistoryEvidenceUnavailableError extends Error {
 }
 
 async function selectReferences(input: {
-  readonly options: RecoverPrincipalPolicyHistoryOptions;
+  readonly options: PrincipalHistorySelectionOptions;
   readonly scopeId: string;
   readonly history: VerifiedPrincipalPolicyHistory;
   readonly checkpoint: PrincipalPolicyCheckpoint | null;
@@ -35,6 +41,15 @@ async function selectReferences(input: {
         version: reference.version,
       }),
     );
+  }
+  const versions = new Set(
+    (options.retainedReferences ?? []).map((reference) => reference.version),
+  );
+  for (const version of options.retainedVersions ?? []) {
+    if (versions.has(version)) continue;
+    versions.add(version);
+    assertProjectionVerificationCurrent(current);
+    references.push(await loadPrincipalHistoryReference({ ...base, version }));
   }
   assertProjectionVerificationCurrent(current);
   const checkpointReference = input.checkpoint

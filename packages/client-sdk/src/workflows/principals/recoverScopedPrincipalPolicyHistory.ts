@@ -3,14 +3,20 @@ import {
   KeyingVerificationError,
   type PrincipalPolicyExternalAuthority,
   type ReferencedPrincipalHead,
-  serializeKeyingCanonicalJson,
   type VerifiedPrincipalPolicyCurrent,
 } from "@tearleads/crypto";
 import { assertProjectionVerificationCurrent } from "../../data/keyingProjectionVerification/types";
 import { ownPrincipalHistoryProtection } from "../../data/principals/principalHistoryProtection";
 import {
+  directoryHistoryProtection,
+  scopedGroupHistoryProtection,
+} from "../../data/principals/principalHistoryScopeProtection";
+import { principalPolicyReferenceFromBundle } from "../../data/principals/principalPolicyAdminSigners";
+import type { RecoveredPrincipalHistoryPage } from "./loadRecoveredPrincipalHistoryPage";
+import {
   PrincipalHistoryRecoveryRaceError,
   type RecoveredPrincipalPolicyHistory,
+  type RecoverPrincipalPolicyHistoryOptions,
 } from "./principalHistoryRecoveryTypes";
 import {
   type PrincipalRecoveryContext,
@@ -21,17 +27,21 @@ import {
   createPrincipalRecoveryReader,
   type PrincipalRecoveryMemo,
 } from "./principalRecoveryMemo";
+import { recoverPrincipalHistoryPage } from "./recoverPrincipalHistoryPage";
 import { recoverPrincipalPolicyHistory } from "./recoverPrincipalPolicyHistory";
 
 export interface RecoverScopedPrincipalPolicyHistoryOptions
   extends PrincipalRecoveryContext {
   readonly reference: ReferencedPrincipalHead;
+  /** Optional bounded display history ending before this exclusive version. */
+  readonly historyPage?: { readonly beforeVersion?: number } | undefined;
 }
 
 export interface RecoveredScopedPrincipalPolicyHistory
   extends RecoveredPrincipalPolicyHistory {
   /** Submit these with policy when atomically admitting its organization scope. */
   readonly dependencies: readonly VerifiedPrincipalPolicyCurrent[];
+  readonly historyPage?: RecoveredPrincipalHistoryPage | undefined;
 }
 
 function groupHead(directory: RecoveredPolicyDirectory, principalId: string) {
@@ -57,21 +67,6 @@ function authorityHead(state: ReferencedPrincipalHead) {
   };
 }
 
-function scopedGroupProtection(
-  input: RecoverScopedPrincipalPolicyHistoryOptions,
-  adminHead: ReferencedPrincipalHead,
-) {
-  return {
-    localKey: input.protection.localKey,
-    context: serializeKeyingCanonicalJson([
-      "tearleads.sdk.principal-history.scoped-group.v1",
-      input.protection.context,
-      input.organizationId,
-      adminHead.principalId,
-    ]),
-  };
-}
-
 async function recoverScopedPolicy(
   input: RecoverScopedPrincipalPolicyHistoryOptions,
   memo?: PrincipalRecoveryMemo,
@@ -93,6 +88,11 @@ async function recoverScopedPolicy(
       current: directory.current,
       policy: directory.policy,
       dependencies: [],
+      ...(await selectDisplayHistory(input, {
+        ...input,
+        expectedHead: principalPolicyReferenceFromBundle(directory.current),
+        protection: directoryHistoryProtection(input.protection),
+      })),
     };
   const expectedHead = groupHead(directory, input.reference.principalId);
   if (input.reference.version > expectedHead.version)
@@ -127,18 +127,29 @@ async function recoverScopedPolicy(
       })),
     };
   };
+  const recoveryOptions: RecoverPrincipalPolicyHistoryOptions = {
+    ...input,
+    expectedHead,
+    retainedReferences: [input.reference],
+    historyVerification: isAdmins ? "direct-admins" : "standard",
+    ...(isAdmins
+      ? {}
+      : {
+          protection: scopedGroupHistoryProtection(
+            input.protection,
+            input.organizationId,
+            adminHead.principalId,
+          ),
+        }),
+    ...(isAdmins ? {} : { loadExternalAuthority }),
+  };
   const recovered = isAdmins
     ? await read.admins(expectedHead, [input.reference])
-    : await recoverPrincipalPolicyHistory({
-        ...input,
-        expectedHead,
-        retainedReferences: [input.reference],
-        protection: scopedGroupProtection(input, adminHead),
-        loadExternalAuthority,
-      });
+    : await recoverPrincipalPolicyHistory(recoveryOptions);
   return {
     ...recovered,
     dependencies: admins ? [directory.policy, admins] : [directory.policy],
+    ...(await selectDisplayHistory(input, recoveryOptions)),
   };
 }
 
@@ -166,6 +177,7 @@ async function recoverScopedPrincipalPolicyHistoryInBatch(
     signal: options.signal,
     stillCurrent: options.stillCurrent,
     reference: structuredClone(options.reference),
+    historyPage: options.historyPage ? { ...options.historyPage } : undefined,
     protection: ownPrincipalHistoryProtection(options.protection),
   };
   try {
@@ -205,6 +217,19 @@ export function recoverScopedPrincipalPolicyHistory(
   options: RecoverScopedPrincipalPolicyHistoryOptions,
 ): Promise<RecoveredScopedPrincipalPolicyHistory> {
   return recoverScopedPrincipalPolicyHistoryInBatch(options);
+}
+
+async function selectDisplayHistory(
+  input: RecoverScopedPrincipalPolicyHistoryOptions,
+  options: RecoverPrincipalPolicyHistoryOptions,
+) {
+  if (!input.historyPage) return {};
+  return {
+    historyPage: await recoverPrincipalHistoryPage(
+      options,
+      input.historyPage.beforeVersion ?? input.reference.version + 1,
+    ),
+  };
 }
 
 /** Internal runtime batch: shared results never outlive one caller's collection. */

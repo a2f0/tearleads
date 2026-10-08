@@ -15,6 +15,11 @@ import type { OrganizationDirectoryAndGroups } from "./readModel";
 type Input = Parameters<typeof loadCurrentOrganizationAuthority>[0] & {
   readonly directory: OrganizationDirectoryAndGroups;
   readonly readEncryptedName?: GroupPolicyNameReader | undefined;
+  readonly createCurrentNameReader?:
+    | ((
+        authority: Awaited<ReturnType<typeof loadCurrentOrganizationAuthority>>,
+      ) => GroupPolicyNameReader)
+    | undefined;
   readonly reportSecurityIncident: SecurityIncidentReporter;
 };
 
@@ -23,6 +28,11 @@ export async function hydrateCurrentOrganizationGroupNames(
   input: Input,
 ): Promise<OrganizationDirectoryAndGroups> {
   const authority = await loadCurrentOrganizationAuthority(input);
+  const nameInput = {
+    ...input,
+    readEncryptedName:
+      input.createCurrentNameReader?.(authority) ?? input.readEncryptedName,
+  };
   const names: { groupId: string; name: string; stateHash: string }[] = [];
   const unreadable = new Set<string>();
   const lifetimes: (() => boolean)[] = [authority.stillCurrent];
@@ -35,7 +45,7 @@ export async function hydrateCurrentOrganizationGroupNames(
     const verified = await authority.readGroup(group.groupId);
     lifetimes.push(verified.stillCurrent);
     assertGroupMetadataBinding(verified.current, authority.descriptor);
-    const name = await readCurrentGroupName(input, verified.current);
+    const name = await readCurrentGroupName(nameInput, verified.current);
     if (name === null) unreadable.add(group.groupId);
     else
       names.push({ groupId: group.groupId, name, stateHash: head.stateHash });

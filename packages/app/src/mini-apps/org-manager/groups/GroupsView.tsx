@@ -28,6 +28,7 @@ interface GroupsViewProps {
   groupContainers: OrganizationGroupContainers | null;
   groupNameDraft: string;
   groupPolicyHistory: OrganizationGroupPolicyHistory | null;
+  loadMoreGroupHistory?: (() => Promise<void>) | undefined;
   groups: ReadonlyArray<OrganizationGroupSummary>;
   isCreateGroupDialogOpen: boolean;
   members: OrganizationGroupMembers | null;
@@ -62,6 +63,7 @@ export function GroupsView({
   groupContainers,
   groupNameDraft,
   groupPolicyHistory,
+  loadMoreGroupHistory,
   groups,
   isCreateGroupDialogOpen,
   members,
@@ -138,6 +140,7 @@ export function GroupsView({
         directory={directory}
         groupContainers={groupContainers}
         groupPolicyHistory={groupPolicyHistory}
+        loadMoreGroupHistory={loadMoreGroupHistory}
         members={members}
         memberUserIds={memberUserIds}
         mutating={mutating}

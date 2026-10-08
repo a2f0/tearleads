@@ -39,8 +39,8 @@
       "bytes": 18865
     },
     "docs/developer/client-sdk.md": {
-      "lines": 860,
-      "bytes": 46292
+      "lines": 879,
+      "bytes": 47613
     },
     "docs/developer/revenuecat-native-stores.md": {
       "lines": 364,
@@ -207,8 +207,8 @@
       "bytes": 18271
     },
     "packages/app/src/mini-apps/org-manager/hooks/useOrgManagerModel.ts": {
-      "lines": 523,
-      "bytes": 16822
+      "lines": 529,
+      "bytes": 17058
     },
     "packages/app/test/helpers/mswServer.ts": {
       "lines": 894,
@@ -239,8 +239,8 @@
       "bytes": 16859
     },
     "packages/client-sdk/src/index.ts": {
-      "lines": 575,
-      "bytes": 16953
+      "lines": 576,
+      "bytes": 16989
     },
     "packages/client-sdk/src/stores/container-contents/containerContentsStore.rootRefresh.test.ts": {
       "lines": 592,
@@ -251,8 +251,8 @@
       "bytes": 18896
     },
     "packages/client-sdk/src/workflows/README.md": {
-      "lines": 355,
-      "bytes": 26906
+      "lines": 367,
+      "bytes": 27782
     },
     "packages/client-sdk/src/workflows/blobs/hydrate.test.ts": {
       "lines": 572,

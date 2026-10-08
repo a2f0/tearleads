@@ -1,11 +1,12 @@
-import { generateKemSeedAndKeyPair } from "@tearleads/crypto";
 import type { ContainerWriterProjectionResponse } from "@tearleads/validators/response";
 import { inheritPrincipalHistoryProtection } from "../../src/data/principals/principalHistoryRuntime";
 import { createMutationResponseFromRequest } from "./containerFixtures";
 import { createWorkflowInputFixture } from "./internalRuntimeFixtures";
 import { createAuthorityRecoveryFixture } from "./principalAuthorityRecovery";
+import { organizationPolicyBundleFromInitialRequest } from "./principalPolicyFixtures";
 import {
   projectionDirectoryPayload,
+  projectionHistoryPages,
   projectionPolicySource,
 } from "./projectionPolicyHistory";
 import { createReservedGroupAdvance } from "./reservedGroupAdvance";
@@ -32,23 +33,46 @@ async function metadataProjection(
 }
 
 export async function createCurrentOrganizationRuntimeFixture(
-  options: { allowFullReads?: boolean; withLease?: boolean } = {},
+  options: {
+    allowFullReads?: boolean;
+    withLease?: boolean;
+    aligned?: boolean;
+  } = {},
 ) {
   const signed = await createReservedGroupAdvance("Members");
   const organizationId = signed.artifacts.organizationId;
+  const directory = options.aligned
+    ? await organizationPolicyBundleFromInitialRequest(
+        organizationId,
+        signed.artifacts.initialOrganizationPolicy,
+      )
+    : signed.advancedDirectory;
+  const members = options.aligned ? signed.members : signed.advanced;
   const f = await createAuthorityRecoveryFixture({
-    directory: signed.advancedDirectory,
+    directory,
     admin: signed.admin,
-    group: signed.advanced,
+    group: members,
     organizationId,
     resolveTrustedUserIdentity: signed.resolveTrustedUserIdentity,
   });
   const projection = await metadataProjection(signed);
+  if (options.aligned) {
+    projection.policyEvidence = {
+      groups: [signed.admin, members].map(projectionPolicySource),
+      organization: projectionPolicySource(directory),
+      organizationPayloads: [projectionDirectoryPayload(directory)],
+    };
+  }
+  f.options.apiClient.getProjectionPolicyHistoryPages = projectionHistoryPages([
+    directory,
+    signed.admin,
+    members,
+  ]).getProjectionPolicyHistoryPages;
   let fullReads = 0;
-  f.options.apiClient.getCurrentPrincipalPolicy = async (type, id) => {
+  f.options.apiClient.getCurrentPrincipalPolicy = async (_, id) => {
     fullReads += 1;
     if (!options.allowFullReads) throw new Error("Unexpected full-policy read");
-    return signed.currentPolicy(type, id);
+    return f.policies.get(id) ?? null;
   };
   f.options.apiClient.getContainerWriterProjection = async () => projection;
   const input = createWorkflowInputFixture({
@@ -76,7 +100,7 @@ export async function createCurrentOrganizationRuntimeFixture(
       ...input,
       crypto: {
         ...input.crypto,
-        encapsulationKeyPair: generateKemSeedAndKeyPair(),
+        encapsulationKeyPair: signed.identity,
       },
     },
   );

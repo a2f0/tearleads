@@ -34,6 +34,14 @@ export function useOrgManagerRequestGuard(scopeKey: string) {
 
   return useCallback((kind: OrgManagerRequestKind): (() => boolean) => {
     const scopeState = scopeStateRef.current;
+    // A refreshed selection or mutation supersedes its older-page reads.
+    // Loading a page must leave an in-flight member/detail refresh active.
+    if (kind === "groupDetails") {
+      scopeState.requestIds.set(
+        "groupHistoryPage",
+        (scopeState.requestIds.get("groupHistoryPage") ?? 0) + 1,
+      );
+    }
     const requestId = (scopeState.requestIds.get(kind) ?? 0) + 1;
     scopeState.requestIds.set(kind, requestId);
 

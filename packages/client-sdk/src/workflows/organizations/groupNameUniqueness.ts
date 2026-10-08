@@ -151,9 +151,12 @@ export async function verifyDirectoryGroup(
  * walk isolates it rather than failing every name in the organization, but it
  * still records the incident: only a dishonest admin signs such a name.
  */
-async function readDirectoryGroupName(
-  input: DirectoryGroupWalkInput,
-  bundle: PrincipalPolicyBundleResponse,
+export async function readDirectoryGroupName(
+  input: Pick<
+    DirectoryGroupWalkInput,
+    "readEncryptedName" | "reportSecurityIncident" | "organizationId"
+  >,
+  bundle: Parameters<typeof readGroupPolicyPayloadName>[0],
 ): Promise<string | null> {
   try {
     return await readGroupPolicyPayloadName(bundle, input.readEncryptedName);

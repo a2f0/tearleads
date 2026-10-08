@@ -24,6 +24,7 @@ import { rebaseOnDeepestAncestor } from "../containers/child/carriedDescendantRe
 import { scheduleHeldDescendantRecitations } from "../containers/child/recite";
 import { buildMaterializedContainerRekeyPlan } from "../containers/child/rekey";
 import { isSpeculativeContainerWriterProjection } from "../containers/child/rekeyProjection";
+import { selectReplacementPrincipalPolicyReferences } from "../containers/child/replacementPrincipalPolicyReferences";
 import { buildMaterializedContainerRevokePlan } from "../containers/child/revoke";
 import { buildMaterializedContainerSharePlan } from "../containers/child/shareMaterialization";
 import {
@@ -167,7 +168,17 @@ async function buildPrincipalContainerRematerializationPlan(input: {
     typeof createProjectionUserKeyResolver
   >;
 }): Promise<MaterializedPrincipalContainerMutationPlan> {
-  const { grantRow, rematerialization } = input;
+  const { grantRow } = input;
+  const rematerialization = {
+    ...input.rematerialization,
+    nextPolicy: await selectReplacementPrincipalPolicyReferences({
+      policy: input.rematerialization.nextPolicy,
+      projection: input.projection,
+      principalPolicyCache: input.principalPolicyCache,
+      resolveAuthoredPolicyReferences:
+        input.rematerialization.resolveAuthoredPolicyReferences,
+    }),
+  };
   const { grant, projection, referencedKeyEpoch } =
     await loadGrantedContainerContext(
       rematerialization,
@@ -430,7 +441,7 @@ export async function preparePrincipalContainerRematerializationBatch(
           author: { ...input.author, organizationId },
           execSql: input.execSql,
           plans: organizationPlans,
-          stillCurrent: isCurrent,
+          stillCurrent: input.recitationStillCurrent ?? isCurrent,
           reportSecurityIncident: input.reportSecurityIncident,
         });
       }

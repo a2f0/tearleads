@@ -1,8 +1,11 @@
-import type {
-  ContainerAccessManifestState,
-  ReferencedPrincipalHead,
+import {
+  type ContainerAccessManifestState,
+  KeyingVerificationError,
+  type ReferencedPrincipalHead,
 } from "@tearleads/crypto";
+import { ProjectionDependencyUnavailableError } from "../../data/keyingProjectionVerification/dependencyUnavailable";
 import { assertProjectionVerificationCurrent } from "../../data/keyingProjectionVerification/types";
+import { principalHeadMatchesReference } from "../../data/principals/organizationAuthorityDescriptor";
 import { loadCurrentOrganizationAuthority } from "./currentOrganizationAuthority";
 import { assertMetadataRootBinding } from "./groupMetadataRootBinding";
 
@@ -22,6 +25,48 @@ export function createCurrentGroupMetadataContainerVerifier(
       ...input,
       organizationReference,
     });
+    await createSelectedCurrentGroupMetadataContainerVerifier({
+      authority,
+      organizationId: input.organizationId,
+      stillCurrent: input.stillCurrent,
+    })(state, organizationReference);
+  };
+}
+
+/** Reuse one mutation's verified authority without broadening its lease or scope. */
+export function createSelectedCurrentGroupMetadataContainerVerifier(input: {
+  readonly authority: Awaited<
+    ReturnType<typeof loadCurrentOrganizationAuthority>
+  >;
+  readonly organizationId: string;
+  readonly stillCurrent: () => boolean;
+}) {
+  return async (
+    state: ContainerAccessManifestState,
+    organizationReference?: ReferencedPrincipalHead,
+  ): Promise<void> => {
+    const { authority } = input;
+    const stillCurrent = () => input.stillCurrent() && authority.stillCurrent();
+    assertProjectionVerificationCurrent(stillCurrent);
+    if (organizationReference) {
+      if (
+        organizationReference.principalType !== "organization" ||
+        organizationReference.principalId !== input.organizationId
+      )
+        throw new KeyingVerificationError(
+          "object_mismatch",
+          "Current policy reference is outside its scope",
+        );
+      if (
+        !principalHeadMatchesReference(
+          authority.directory.policy.state,
+          organizationReference,
+        )
+      )
+        throw new ProjectionDependencyUnavailableError(
+          "Metadata root belongs to a changed organization directory",
+        );
+    }
     const { adminGroupId, memberGroupId } = authority.descriptor;
     const citation = (groupId: string) =>
       state.referencedPrincipalHeads.find(
@@ -48,10 +93,7 @@ export function createCurrentGroupMetadataContainerVerifier(
       state,
     });
     assertProjectionVerificationCurrent(
-      () =>
-        authority.stillCurrent() &&
-        admins.stillCurrent() &&
-        members.stillCurrent(),
+      () => stillCurrent() && admins.stillCurrent() && members.stillCurrent(),
     );
   };
 }

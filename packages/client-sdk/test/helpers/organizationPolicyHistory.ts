@@ -14,7 +14,10 @@ import {
   replaceOrganizationGroupHead,
 } from "../../src/workflows/organizations/organizationGroupDirectory";
 import { buildInitialOrganizationPolicyRequest } from "../../src/workflows/registration/registerIdentity";
-import { buildInitialGroupPolicyRequest } from "./groupMetadata";
+import {
+  buildInitialGroupPolicyRequest,
+  testGroupMetadataKey,
+} from "./groupMetadata";
 import {
   organizationPolicyBundleFromInitialRequest,
   policyBundleAfterMutation,
@@ -66,6 +69,7 @@ export async function createOrganizationHistoryFixture() {
         creatorEncapsulationKeyPair,
         groupId: crypto.randomUUID(),
         name,
+        metadataKey: testGroupMetadataKey(organizationId),
         includeSignerAsAdmin,
         ...(includeSignerAsAdmin
           ? {}

@@ -9,6 +9,7 @@ import { useCallback, useEffect } from "react";
 import type { useTearleadsRuntime } from "../../../providers/sdk/TearleadsProvider";
 import type { useOrgManagerActions } from "../../../stores/org-manager/OrgManagerProvider";
 import { useOrgManagerRequestGuard } from "../hooks/useOrgManagerRequestGuard";
+import type { GroupDetailsRefreshOptions } from "../refresh";
 import { useOrgManagerGroupDetailsRefresher } from "./useOrgManagerGroupDetailsRefresher";
 
 afterEach(() => cleanup());
@@ -33,9 +34,33 @@ const staleMembers: OrganizationGroupMembers = {
   ],
 };
 
+const olderHistory: OrganizationGroupPolicyHistory = {
+  groupId: "group-a",
+  organizationId: "org-a",
+  principalType: "group",
+  principalId: "group-a",
+  nextBeforeVersion: 2,
+  entries: [
+    {
+      changes: [],
+      createdAt: "2026-10-07T00:00:00.000Z",
+      signedAt: "2026-10-07T00:00:00.000Z",
+      keyEpoch: 1,
+      memberCount: 1,
+      signerUserId: "user-a",
+      signerUserKeyFingerprint: "signer-key",
+      stateHash: "state-2",
+      version: 2,
+    },
+  ],
+};
+
 interface DetailActions {
   invalidateAndProject: () => void;
-  refresh: (groupId: string | null) => Promise<void>;
+  refresh: (
+    groupId: string | null,
+    options?: GroupDetailsRefreshOptions,
+  ) => Promise<void>;
 }
 
 function DetailProbe(input: {
@@ -44,6 +69,7 @@ function DetailProbe(input: {
     typeof useOrgManagerActions
   >["loadGroupPresentationDetails"];
   setMembers: Dispatch<SetStateAction<OrganizationGroupMembers | null>>;
+  markSettled?: (groupId: string | null) => void;
 }) {
   const beginRequest = useOrgManagerRequestGuard("org-a");
   const refresh = useOrgManagerGroupDetailsRefresher({
@@ -51,7 +77,7 @@ function DetailProbe(input: {
       auth: { isAuthenticated: true, organizationId: "org-a" },
     } as ReturnType<typeof useTearleadsRuntime>,
     beginRequest,
-    markGroupDetailsSettled: () => undefined,
+    markGroupDetailsSettled: input.markSettled ?? (() => undefined),
     orgManagerActions: {
       loadGroupPresentationDetails: input.loadDetails,
     } as ReturnType<typeof useOrgManagerActions>,
@@ -107,3 +133,44 @@ test("mutation projection invalidation rejects a deferred stale group detail", a
 
   expect(updates).toEqual([projectedMembers]);
 });
+
+test.each(["group-a", "group-b"])(
+  "an older page cannot cancel a full %s refresh or replace its members",
+  async (groupId) => {
+    const full = Promise.withResolvers<{
+      members: OrganizationGroupMembers | null;
+      policyHistory: OrganizationGroupPolicyHistory | null;
+    }>();
+    const updates: Array<OrganizationGroupMembers | null> = [];
+    const settled: Array<string | null> = [];
+    const captured: { actions: DetailActions | null } = { actions: null };
+    render(
+      <DetailProbe
+        capture={(next) => {
+          captured.actions = next;
+        }}
+        loadDetails={(_, beforeVersion) =>
+          beforeVersion === undefined
+            ? full.promise
+            : Promise.resolve({
+                members: staleMembers,
+                policyHistory: olderHistory,
+              })
+        }
+        markSettled={(id) => settled.push(id)}
+        setMembers={(next) => {
+          updates.push(typeof next === "function" ? next(null) : next);
+        }}
+      />,
+    );
+    const actions = captured.actions;
+    if (!actions) throw new Error("Expected group detail actions");
+    const freshRefresh = actions.refresh(groupId);
+    await actions.refresh("group-a", { beforeVersion: 3 });
+    const freshMembers = { ...projectedMembers, groupId };
+    full.resolve({ members: freshMembers, policyHistory: null });
+    await freshRefresh;
+    expect(updates).toEqual([freshMembers]);
+    expect(settled).toEqual([groupId]);
+  },
+);

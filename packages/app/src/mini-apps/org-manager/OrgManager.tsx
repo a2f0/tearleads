@@ -181,6 +181,7 @@ function OrgManagerGroupsContent({ model }: { model: OrgManagerModel }) {
       groupContainers={model.groupContainers}
       groupNameDraft={model.groupNameDraft}
       groupPolicyHistory={model.groupPolicyHistory}
+      loadMoreGroupHistory={model.loadMoreGroupHistory}
       groups={model.groups}
       error={model.error}
       isCreateGroupDialogOpen={model.isCreateGroupDialogOpen}

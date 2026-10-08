@@ -5,12 +5,21 @@ import { principalPolicyHead } from "../../../test/helpers/principalPolicyFixtur
 import { createReservedGroupAdvance } from "../../../test/helpers/reservedGroupAdvance";
 import { principalPolicyCheckpoints } from "../../data/sqlite/principalPolicySchema";
 import { createRuntimePrincipalPolicyCurrentResolver } from "../principals/runtimePolicyRecovery";
-import { createCurrentGroupMetadataContainerVerifier } from "./currentGroupMetadataAuthority";
+import {
+  createCurrentGroupMetadataContainerVerifier,
+  createSelectedCurrentGroupMetadataContainerVerifier,
+} from "./currentGroupMetadataAuthority";
+import { loadCurrentOrganizationAuthority } from "./currentOrganizationAuthority";
 import { MetadataRootBehindDirectoryError } from "./groupMetadataErrors";
 
-test.each(["Admins", "Members"] as const)(
-  "bounded metadata authority proves the old %s citation and rejects substitutions",
-  async (advancing) => {
+test.each([
+  ["Admins", false],
+  ["Members", false],
+  ["Admins", true],
+  ["Members", true],
+] as const)(
+  "bounded metadata authority proves the old %s citation (selected=%s)",
+  async (advancing, selected) => {
     const signed = await createReservedGroupAdvance(advancing);
     const f = await createAuthorityRecoveryFixture({
       directory: signed.advancedDirectory,
@@ -44,13 +53,25 @@ test.each(["Admins", "Members"] as const)(
         }),
     });
     if (!resolveCurrentPolicy) throw new Error("Missing current resolver");
-    const verify = createCurrentGroupMetadataContainerVerifier({
+    const input = {
       execSql: f.options.execSql,
       organizationId: signed.artifacts.organizationId,
       resolveCurrentPolicy,
       stillCurrent: () => state.current,
-    });
+    };
     try {
+      const verify = selected
+        ? createSelectedCurrentGroupMetadataContainerVerifier({
+            ...input,
+            authority: await loadCurrentOrganizationAuthority(input),
+          })
+        : createCurrentGroupMetadataContainerVerifier(input);
+      const initialRequests = f.requests.length;
+      const directoryReads = () =>
+        f.requests.filter(
+          (request) => request.principalId === signed.artifacts.organizationId,
+        ).length;
+      const initialDirectoryReads = directoryReads();
       await expect(
         verify(signed.state, {
           ...principalPolicyHead(signed.advancedDirectory),
@@ -60,7 +81,7 @@ test.each(["Admins", "Members"] as const)(
         code: "object_mismatch",
         message: "Current policy reference is outside its scope",
       });
-      expect(f.requests).toHaveLength(0);
+      expect(f.requests).toHaveLength(initialRequests);
       await expect(verify(signed.state)).rejects.toBeInstanceOf(
         MetadataRootBehindDirectoryError,
       );
@@ -78,11 +99,23 @@ test.each(["Admins", "Members"] as const)(
       await expect(
         verify({ ...signed.state, containerId: "unbound-root" }),
       ).rejects.toThrow("reserved group grants");
+      if (selected) {
+        await expect(
+          verify(signed.state, {
+            ...principalPolicyHead(signed.advancedDirectory),
+            stateHash: "0".repeat(64),
+          }),
+        ).rejects.toThrow("changed organization directory");
+        expect(directoryReads()).toBe(initialDirectoryReads);
+      }
       const count = f.requests.length;
       state.online = false;
       await expect(verify(signed.state)).rejects.toBeInstanceOf(
         MetadataRootBehindDirectoryError,
       );
+      expect(f.requests).toHaveLength(count);
+      state.current = false;
+      await expect(verify(signed.state)).rejects.toThrow("generation expired");
       expect(f.requests).toHaveLength(count);
       expect(fullReads).toBe(0);
       expect(await f.db.select().from(principalPolicyCheckpoints)).toEqual([]);

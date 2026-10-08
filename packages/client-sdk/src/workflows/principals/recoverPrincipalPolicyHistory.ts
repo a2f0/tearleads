@@ -2,6 +2,7 @@ import type { PrincipalPolicyPageCurrent } from "@tearleads/api-client";
 import {
   createPrincipalPolicyHistoryVerifier,
   KeyingVerificationError,
+  PRINCIPAL_HISTORY_PAGE_ENTRY_LIMIT,
   type PrincipalPolicyCheckpoint,
   type PrincipalPolicyHistoryInput,
   verifyPrincipalPolicyCheckpoint,
@@ -22,6 +23,7 @@ import { validatePrincipalHistoryRecoveryAuthority } from "./principalHistoryRec
 import { publishReusablePrincipalHistoryPrefix } from "./principalHistoryRecoveryPrefix";
 import {
   PrincipalHistoryEvidenceUnavailableError,
+  type PrincipalHistorySelectionOptions,
   selectRecoveredPrincipalHistory,
 } from "./principalHistoryRecoveryReferences";
 import {
@@ -176,7 +178,7 @@ async function acceptPage(
 }
 
 async function finishRecovery(
-  input: RecoverPrincipalPolicyHistoryOptions,
+  input: PrincipalHistorySelectionOptions,
   stage: PrincipalHistoryRecoveryStage,
   checkpoint: PrincipalPolicyCheckpoint | null,
 ): Promise<RecoveredPrincipalPolicyHistory> {
@@ -277,7 +279,7 @@ async function readRecoveryPages(
 }
 
 async function recover(
-  input: RecoverPrincipalPolicyHistoryOptions,
+  input: PrincipalHistorySelectionOptions,
   allowEvidenceRebuild = true,
 ): Promise<RecoveredPrincipalPolicyHistory> {
   assertCurrent(input);
@@ -337,9 +339,32 @@ async function recover(
  * The result is a sparse current-policy capability; this does not advance app checkpoints.
  * Retain organization version 1 when the result will establish founder binding.
  */
-export async function recoverPrincipalPolicyHistory(
+export function recoverPrincipalPolicyHistory(
   options: RecoverPrincipalPolicyHistoryOptions,
 ): Promise<RecoveredPrincipalPolicyHistory> {
+  return recoverPrincipalPolicyHistoryWithVersions(options, []);
+}
+
+/** Internal bounded display selection; missing proof rows use the normal single rebuild. */
+export async function recoverPrincipalPolicyHistoryWithVersions(
+  options: RecoverPrincipalPolicyHistoryOptions,
+  retainedVersions: readonly number[],
+): Promise<RecoveredPrincipalPolicyHistory> {
+  if (
+    !Array.isArray(retainedVersions) ||
+    retainedVersions.length + (options.retainedReferences?.length ?? 0) >
+      PRINCIPAL_HISTORY_PAGE_ENTRY_LIMIT ||
+    retainedVersions.some(
+      (version) =>
+        !Number.isSafeInteger(version) ||
+        version < 1 ||
+        version > options.expectedHead.version,
+    )
+  )
+    throw new KeyingVerificationError(
+      "invalid_shape",
+      "Principal display history selection exceeds its bounded range",
+    );
   if (options.offline !== undefined && typeof options.offline !== "boolean")
     throw new KeyingVerificationError(
       "invalid_shape",
@@ -368,6 +393,7 @@ export async function recoverPrincipalPolicyHistory(
     historyVerification: options.historyVerification ?? "standard",
     expectedHead: structuredClone(options.expectedHead),
     retainedReferences: structuredClone(options.retainedReferences ?? []),
+    retainedVersions: [...retainedVersions],
     protection: ownPrincipalHistoryProtection(options.protection),
   };
   try {

@@ -2,7 +2,7 @@ import { assertProjectionVerificationCurrent } from "../../data/keyingProjection
 import { ownPrincipalHistoryProtection } from "../../data/principals/principalHistoryProtection";
 import type {
   PrincipalRecoveryContext,
-  recoverPolicyDirectory,
+  RecoveredPolicyDirectory,
 } from "./principalRecoveryDirectory";
 import {
   createPrincipalRecoveryReader,
@@ -20,7 +20,7 @@ export async function recoverCurrentOrganizationPolicy(
     protection: ownPrincipalHistoryProtection(options.protection),
   };
   try {
-    let directory: Awaited<ReturnType<typeof recoverPolicyDirectory>>;
+    let directory: RecoveredPolicyDirectory;
     try {
       directory = await createPrincipalRecoveryReader(input, memo).directory(
         [],

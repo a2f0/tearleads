@@ -1,5 +1,7 @@
-import type { OrganizationDirectory } from "@tearleads/client-sdk";
-import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
+import type {
+  OrganizationDirectory,
+  OrganizationGroupMutationReceipt,
+} from "@tearleads/client-sdk";
 import type { Dispatch, SetStateAction } from "react";
 import type { useOrgManagerActions } from "../../../stores/org-manager/OrgManagerProvider";
 import { RESERVED_ORGANIZATION_GROUP_NAMES } from "../../../utils/organizationGroupNames";
@@ -143,7 +145,7 @@ export async function addRosterUserToGroup(input: {
   orgManagerActions: OrgManagerActions;
   setError: Dispatch<SetStateAction<string | null>>;
   targetUserId: string;
-}): Promise<PrincipalPolicyBundleResponse | null> {
+}): Promise<OrganizationGroupMutationReceipt | null> {
   const targetUser = await resolveRosterTargetUser(input);
   if (!targetUser) {
     return null;
