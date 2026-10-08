@@ -29,7 +29,7 @@ export function referencedPrincipalHeadsFromContainerMutationResponse(input: {
     if (
       !isReferencedPrincipalStateResponse(head) ||
       !Number.isInteger(head.version) ||
-      !Number.isInteger(head.keyEpoch)
+      !Number.isSafeInteger(head.keyEpoch)
     ) {
       return [];
     }

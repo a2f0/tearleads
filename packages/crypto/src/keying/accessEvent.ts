@@ -295,10 +295,10 @@ export function normalizeReferencedPrincipalHead(
     );
   return {
     principalType: normalizeManagedPrincipalKind(record.principalType, label),
-    principalId: readString(record, "principalId", "referenced principal head"),
+    principalId: readString(record, "principalId", label),
     version,
     keyEpoch,
-    stateHash: readHashString(record, "stateHash", "referenced principal head"),
+    stateHash: readHashString(record, "stateHash", label),
     keyFingerprint: readHashString(record, "keyFingerprint", label),
   };
 }

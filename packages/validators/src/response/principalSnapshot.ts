@@ -4,11 +4,10 @@ import {
   boundedPositiveIntegerSchema,
   loosePlainObject,
   nonNegativeIntegerSchema,
-  safePositiveIntegerSchema,
 } from "../schema";
 
 export const PrincipalStateExternalAuthorityResponseSchema = loosePlainObject({
-  keyEpoch: safePositiveIntegerSchema,
+  keyEpoch: boundedPositiveIntegerSchema(Number.MAX_SAFE_INTEGER),
   keyFingerprint: z.string(),
   principalId: z.string(),
   principalType: z.literal("group"),

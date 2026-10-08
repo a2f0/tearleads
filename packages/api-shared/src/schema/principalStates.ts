@@ -79,6 +79,7 @@ import {
  * - `(principalType, principalId, stateHash)` is unique because state hashes are
  *   the content-addressed references used by the rest of the access system.
  */
+// Epoch casts also reject fractional values in SQLite's dynamically typed INTEGERs.
 export const principalStates = pgTable(
   "principal_states",
   {
@@ -321,11 +322,7 @@ export const principalContainerGrantProjection = pgTable(
 /**
  * Recipient key material for managed principal key epochs.
  *
- * A principal state has a `keyEpoch`, `encapsulationPublicKey`, and
- * `keyFingerprint`. This table indexes that key material by principal and
- * epoch so other systems can encrypt to the principal as a recipient. For
- * example, a container key wrap can target a group by looking up that group's
- * current principal epoch key.
+ * Indexes the principal's signed KEM key and fingerprint by epoch for wrapping.
  *
  * Key epochs are historical and monotonic. Additive policy changes may reuse an
  * existing epoch and key material; membership shrink, container grant removal

@@ -211,6 +211,7 @@ export function getPrincipalPolicyTransitionMismatchReason(
   return getPrincipalPolicyTransitionMismatch(input)?.message ?? null;
 }
 
+/** key_epoch_reuse classifies all epoch/key-material continuity violations. */
 export function throwPrincipalPolicyTransitionError(
   mismatch: PrincipalPolicyTransitionMismatch,
 ): never {
