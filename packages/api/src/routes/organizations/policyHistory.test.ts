@@ -11,6 +11,7 @@ import {
 import { addMemberGroupUser } from "../../../test/helpers/organizationMember";
 import { getDefaultOrganizationId } from "../../../test/helpers/organizationMembership";
 import { registerAndAuthenticate } from "../../../test/helpers/principalPolicyReadFixtures";
+import { requestAfterPrincipalPreparation } from "../../../test/helpers/principalPreparationRequest";
 import { getCurrentPrincipalState } from "../../access/read/principalStateStore";
 import { routeApp } from "../../routeApp";
 import { requireDirectOrganizationAccess } from "../../workflows/organizations/access";
@@ -32,7 +33,7 @@ test("history returns exact existing evidence without plaintext names, including
   await registerAndAuthenticate(owner);
   const organizationId = await getDefaultOrganizationId(owner.userId);
   const groupId = crypto.randomUUID();
-  const creation = await routeApp.request(
+  const creation = await requestAfterPrincipalPreparation(
     `/organizations/${organizationId}/groups`,
     {
       method: "POST",

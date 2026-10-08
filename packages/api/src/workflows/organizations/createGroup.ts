@@ -8,6 +8,8 @@ import type { CreateOrganizationGroupResponse } from "@tearleads/validators/resp
 import { getCurrentPrincipalState } from "../../access/read/principalStateStore";
 import { assertOrganizationCanSync } from "../billing/organizationSyncEligibility";
 import { assertManagedPrincipalRosterMembership } from "../principals/managedPrincipalRosterMembership";
+import { PrincipalHistoryPreparationUnavailable } from "../principals/principalHistoryPreparationUnavailable";
+import { runPrincipalHistoryTransaction } from "../principals/principalHistoryTransaction";
 import { lockOrganizationGroupMutationInTransaction } from "../principals/principalMutationLock";
 import {
   assertPutPrincipalPolicyRouteBinding,
@@ -27,12 +29,14 @@ import {
 import { toGroupSummary } from "./groupSummary";
 import { wasOrganizationGroupDeleted } from "./groupTombstone";
 import { requireSerializedOrganizationMutationAccess } from "./mutationAccess";
+import { organizationGroupCreationOutcome } from "./organizationGroupOperationOutcome";
 import { isCurrentOrganizationAdminAuthority } from "./principalPolicyExternalAuthority";
 import { appendOrganizationReadModelChangeInTransaction } from "./readModelChanges";
 
 function toPrincipalWriteError(
   error: unknown,
 ): OrganizationManagerError | null {
+  if (error instanceof PrincipalHistoryPreparationUnavailable) return null;
   // `toPrincipalPolicyError` only recognises state and envelope failures, so a
   // PrincipalPolicyError raised directly — the roster rules below — would fall
   // through to a 500 without this.
@@ -69,7 +73,7 @@ async function prepareOrganizationGroupCreation(input: {
   readonly request: CreateOrganizationGroupWithPolicyRequest;
   readonly sessionUserId: string;
   readonly tx: DatabaseTransaction;
-}): Promise<void> {
+}) {
   await requireDirectOrganizationAccess({
     executor: input.tx,
     organizationId: input.organizationId,
@@ -87,6 +91,11 @@ async function prepareOrganizationGroupCreation(input: {
     tx: input.tx,
     userId: input.sessionUserId,
   });
+  const outcome = await organizationGroupCreationOutcome(input.tx, {
+    ...input,
+    groupId: input.request.groupId,
+  });
+  if (outcome.response) return outcome;
   await assertOrganizationCanSync(
     input.tx,
     input.organizationId,
@@ -108,6 +117,7 @@ async function prepareOrganizationGroupCreation(input: {
   ) {
     throw new OrganizationManagerError("Group principal already exists", 409);
   }
+  return outcome;
 }
 
 async function appendCreatedGroupReadModelChanges(input: {
@@ -181,13 +191,14 @@ export async function runCreateOrganizationGroupWorkflow(
 ): Promise<CreateOrganizationGroupResponse> {
   validateOrganizationGroupCreation(input);
 
-  return db.transaction(async (tx) => {
-    await prepareOrganizationGroupCreation({
+  return runPrincipalHistoryTransaction(db, async (tx) => {
+    const outcome = await prepareOrganizationGroupCreation({
       organizationId,
       request: input,
       sessionUserId,
       tx,
     });
+    if (outcome.response) return outcome.response;
     assertOrganizationPolicyRouteBinding({
       organizationId,
       policy: input.organizationPolicy,
@@ -216,70 +227,65 @@ export async function runCreateOrganizationGroupWorkflow(
       throw new OrganizationManagerError("Group already exists", 409);
     }
 
-    try {
-      const storedState = await storeVerifiedPrincipalPolicyInTransaction(
-        {
-          state: input.initialGroupPolicy.state,
-          encryptedPayload: input.initialGroupPolicy.encryptedPayload,
-          projection: input.initialGroupPolicy.projection,
-          grants: input.initialGroupPolicy.grants,
-          memberEnvelopes: input.initialGroupPolicy.memberEnvelopes,
-        },
-        tx,
-        {
-          authorizeExternalAdminSigner: (authorization) =>
-            authorization.signerUserId === sessionUserId
-              ? isCurrentOrganizationAdminAuthority({
-                  executor: tx,
-                  organizationId,
-                  signerUserId: authorization.signerUserId,
-                  submittedAuthority:
-                    authorization.normalizedInput.state.externalAuthority,
-                })
-              : Promise.resolve(false),
-        },
-      );
+    const storedState = await storeVerifiedPrincipalPolicyInTransaction(
+      {
+        state: input.initialGroupPolicy.state,
+        encryptedPayload: input.initialGroupPolicy.encryptedPayload,
+        projection: input.initialGroupPolicy.projection,
+        grants: input.initialGroupPolicy.grants,
+        memberEnvelopes: input.initialGroupPolicy.memberEnvelopes,
+      },
+      tx,
+      {
+        authorizeExternalAdminSigner: (authorization) =>
+          authorization.signerUserId === sessionUserId
+            ? isCurrentOrganizationAdminAuthority({
+                executor: tx,
+                organizationId,
+                signerUserId: authorization.signerUserId,
+                submittedAuthority:
+                  authorization.normalizedInput.state.externalAuthority,
+              })
+            : Promise.resolve(false),
+      },
+    );
 
-      // A brand-new group's initial policy goes through this route rather than
-      // the policy PUT, so it needs the same roster rule: a group must not be
-      // stood up naming someone outside the organization's active roster.
-      await assertManagedPrincipalRosterMembership({
-        organizationId,
-        principalId: input.groupId,
-        principalType: "group",
-        tx,
-      });
+    // A brand-new group's initial policy goes through this route rather than
+    // the policy PUT, so it needs the same roster rule: a group must not be
+    // stood up naming someone outside the organization's active roster.
+    await assertManagedPrincipalRosterMembership({
+      organizationId,
+      principalId: input.groupId,
+      principalType: "group",
+      tx,
+    });
 
-      await appendCreatedGroupReadModelChanges({
-        groupId: input.groupId,
-        organizationId,
-        tx,
-      });
+    await appendCreatedGroupReadModelChanges({
+      groupId: input.groupId,
+      organizationId,
+      tx,
+    });
 
-      const group = toGroupSummary({
-        createdAt: insertedGroup.createdAt,
-        groupId: insertedGroup.groupId,
-        isBuiltin: false,
-        organizationId,
-        state: storedState,
-      });
-      const organization = await putPrincipalPolicyInTransaction(tx, {
-        ...input.organizationPolicy,
-        expectedPrincipalId: organizationId,
-        expectedPrincipalType: "organization",
-        requesterUserId: sessionUserId,
-      });
-      return {
-        group,
-        organizationPolicy: organization.policy,
-      };
-    } catch (error) {
-      const organizationManagerError = toPrincipalWriteError(error);
-      if (organizationManagerError) {
-        throw organizationManagerError;
-      }
-
-      throw error;
-    }
+    const group = toGroupSummary({
+      createdAt: insertedGroup.createdAt,
+      groupId: insertedGroup.groupId,
+      isBuiltin: false,
+      organizationId,
+      state: storedState,
+    });
+    const organization = await putPrincipalPolicyInTransaction(tx, {
+      ...input.organizationPolicy,
+      expectedPrincipalId: organizationId,
+      expectedPrincipalType: "organization",
+      requesterUserId: sessionUserId,
+    });
+    const result = {
+      group,
+      organizationPolicy: organization.policy,
+    };
+    await outcome.save(result);
+    return result;
+  }).catch((error: unknown) => {
+    throw toPrincipalWriteError(error) ?? error;
   });
 }

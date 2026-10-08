@@ -16,6 +16,7 @@ import {
   getDefaultOrganizationId,
   submitOrganizationGroupPolicyCommit,
 } from "../../../test/helpers/principalPolicy";
+import { requestAfterPrincipalPreparation } from "../../../test/helpers/principalPreparationRequest";
 import { registerUser } from "../../../test/helpers/registerUser";
 import { routeApp } from "../../routeApp";
 
@@ -151,7 +152,7 @@ test("GET externally administered policy rejects an edited cached authority", as
   }
 
   const groupId = crypto.randomUUID();
-  const createResponse = await routeApp.request(
+  const createResponse = await requestAfterPrincipalPreparation(
     `/organizations/${user.organizationId}/groups`,
     {
       method: "POST",

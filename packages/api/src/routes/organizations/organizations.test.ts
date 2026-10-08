@@ -30,6 +30,7 @@ import {
 } from "../../../test/helpers/organizationGroup";
 import { addMemberGroupUser } from "../../../test/helpers/organizationMember";
 import { loadOrganizationMetadataContainerId } from "../../../test/helpers/organizationMetadataContainer";
+import { requestAfterPrincipalPreparation } from "../../../test/helpers/principalPreparationRequest";
 import { registerUser } from "../../../test/helpers/registerUser";
 import { getCurrentPrincipalState } from "../../access/read/principalStateStore";
 import { routeApp } from "../../routeApp";
@@ -388,7 +389,7 @@ test("org manager routes allow organization members to read but reserve mutation
     [actor.userId, member.userId].sort(),
   );
 
-  const createResponse = await routeApp.request(
+  const createResponse = await requestAfterPrincipalPreparation(
     `/organizations/${organizationId}/groups`,
     {
       method: "POST",
@@ -453,7 +454,7 @@ test("org manager routes let admins create empty externally-administered groups"
   const organizationId = await registerAndAuthenticate(actor);
   const groupId = crypto.randomUUID();
 
-  const createResponse = await routeApp.request(
+  const createResponse = await requestAfterPrincipalPreparation(
     `/organizations/${organizationId}/groups`,
     {
       method: "POST",
@@ -517,7 +518,7 @@ test("org manager group creation rejects a stale signed Admins authority head", 
     organizationId,
   });
 
-  const response = await routeApp.request(
+  const response = await requestAfterPrincipalPreparation(
     `/organizations/${organizationId}/groups`,
     {
       method: "POST",
@@ -553,7 +554,7 @@ test("org manager routes create and list groups with members", async () => {
   invariant(organization, "expected organization row");
   const groupId = crypto.randomUUID();
 
-  const createResponse = await routeApp.request(
+  const createResponse = await requestAfterPrincipalPreparation(
     `/organizations/${organizationId}/groups`,
     {
       method: "POST",

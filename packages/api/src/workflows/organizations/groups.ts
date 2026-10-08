@@ -22,6 +22,8 @@ import {
 } from "../../access/read/principalStateStore";
 import { assertOrganizationCanSync } from "../billing/organizationSyncEligibility";
 import { lockGroupReferenceExclusiveInTransaction } from "../principals/groupReferenceLock";
+import { PrincipalHistoryPreparationUnavailable } from "../principals/principalHistoryPreparationUnavailable";
+import { runPrincipalHistoryTransaction } from "../principals/principalHistoryTransaction";
 import { lockOrganizationGroupMutationInTransaction } from "../principals/principalMutationLock";
 import {
   assertPutPrincipalPolicyRouteBinding,
@@ -40,10 +42,8 @@ import {
 } from "./groupDeletion";
 import { toOrganizationGroupMemberResponse } from "./groupMemberships";
 import { toGroupSummary } from "./groupSummary";
-import {
-  requireSerializedOrganizationMutationAccess,
-  withOrganizationAdminTransaction,
-} from "./mutationAccess";
+import { requireSerializedOrganizationMutationAccess } from "./mutationAccess";
+import { organizationGroupDeletionOutcome } from "./organizationGroupOperationOutcome";
 import { appendOrganizationReadModelChangeInTransaction } from "./readModelChanges";
 import { loadUsersById } from "./users";
 
@@ -131,6 +131,8 @@ async function deleteOrganizationGroupInTransaction(input: {
     tx: input.tx,
     userId: input.sessionUserId,
   });
+  const outcome = await organizationGroupDeletionOutcome(input.tx, input);
+  if (outcome.response) return outcome.response;
   await assertOrganizationCanSync(
     input.tx,
     input.organizationId,
@@ -165,12 +167,14 @@ async function deleteOrganizationGroupInTransaction(input: {
       operation: "delete",
     });
   }
-  return {
+  const result: DeleteOrganizationGroupResponse = {
     deleted: true,
     groupId: input.groupId,
     organizationPolicy: organization.policy,
     organizationId: input.organizationId,
   };
+  await outcome.save(result);
+  return result;
 }
 
 export async function runDeleteOrganizationGroupWorkflow(
@@ -181,19 +185,23 @@ export async function runDeleteOrganizationGroupWorkflow(
   input: DeleteOrganizationGroupRequest,
 ): Promise<DeleteOrganizationGroupResponse> {
   try {
-    return await withOrganizationAdminTransaction(
-      db,
-      { organizationId, userId: sessionUserId },
-      (tx) =>
-        deleteOrganizationGroupInTransaction({
-          groupId,
-          organizationId,
-          request: input,
-          sessionUserId,
-          tx,
-        }),
-    );
+    return await runPrincipalHistoryTransaction(db, async (tx) => {
+      await requireDirectOrganizationAccess({
+        executor: tx,
+        organizationId,
+        requireAdmin: true,
+        userId: sessionUserId,
+      });
+      return deleteOrganizationGroupInTransaction({
+        groupId,
+        organizationId,
+        request: input,
+        sessionUserId,
+        tx,
+      });
+    });
   } catch (error) {
+    if (error instanceof PrincipalHistoryPreparationUnavailable) throw error;
     const policyError =
       error instanceof PrincipalPolicyError
         ? error
