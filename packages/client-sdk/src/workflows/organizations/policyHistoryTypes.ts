@@ -34,6 +34,8 @@ export interface OrganizationPrincipalPolicyHistory {
 }
 export interface OrganizationGroupPolicyHistory
   extends OrganizationPrincipalPolicyHistory {
+  /** Exclusive cursor for older entries; absent on a legacy complete history. */
+  readonly nextBeforeVersion?: number | null;
   readonly groupId: string;
   readonly organizationId: string;
   readonly principalType: "group";

@@ -111,6 +111,7 @@ export type {
   OrganizationGroupDetails,
   OrganizationGroupMember,
   OrganizationGroupMembers,
+  OrganizationGroupMutationReceipt,
   OrganizationGroupPolicyHistory,
   OrganizationGroupSummary,
   OrganizationPolicyGrantChange,

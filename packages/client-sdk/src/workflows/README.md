@@ -254,21 +254,30 @@ Grant lists, group containers, and user details are derived from this local
 projection. User-detail group reachability is cycle-safe and traverses hidden
 groups before filtering the displayed group catalog. Encrypted org/group labels
 use a separate root with Admins/admin and Members/read grants. Container names
-are joined from local encrypted metadata. `loadGroupPresentationDetails(...)`
-combines local members with policy history only after the separately verified
-policy bundle exactly matches the projected head. A missing bundle runs the
-canonical fetch, signature, trusted-identity, checkpoint, and persistence path
-before rereading local history; raw responses are never rendered. Group
-containers repaint independently from the local grants lane. State-hash and
-member-count checks prevent torn local views, but do not make presentation rows
-authoritative. `isSelf` is derived from the active user, while `isOrgAdmin` is
+are joined from local encrypted metadata. `loadGroupPresentationDetails(groupId,
+beforeVersion?)` combines local members with up to 32 authenticated history
+entries on the first page; older-page calls return `members: null` without a
+member read. `policyHistory.nextBeforeVersion` is an exclusive cursor for older
+entries, or null at genesis. Each page verifies index proofs against a privately
+authenticated prefix and retains its real predecessor for membership diffs.
+The projected head bounds the displayed history even when local recovery has
+already verified a newer head. Hosts without private paged recovery retain the
+complete-bundle path for cursor-free calls and reject explicit cursors;
+verification failures never downgrade to that path. Raw responses are never
+rendered. Group containers repaint independently from the local grants lane.
+State-hash and member-count checks prevent torn local views, but do not make
+presentation rows authoritative. `isSelf` is derived from the active user, while
+`isOrgAdmin` is
 requester-scoped and UI-only. Group mutations are authorized through the
 verified reserved `Admins` policy. Before committing a principal rotation, the
 client derives the complete container batch from verified writer projections;
 the API atomically rejects any transition that leaves a stale principal pin.
 Policy mutation receipts omit the historical prefix. The client verifies the
-exact authored state and artifacts, then retains the successor with its locally
-verified history; it does not accept a replacement prefix from the receipt.
+exact authored state and artifacts. Built-in member changes and group revocation
+use bounded current evidence and atomically retain authenticated progress. The
+public `OrganizationGroupMutationReceipt` does not require `previousStates`;
+full-bundle hosts and standalone workflows can still return it. See
+[current mutations](../../../../docs/developer/principal-current-mutations.md).
 Metadata profile upload remains a separate idempotent content sync and never
 changes grants.
 
@@ -347,7 +356,10 @@ warmer and operation-lifetime guard; the document store supplies both.
 
 `retainAcknowledgedPrincipalCurrents` atomically retains exact policy receipts,
 authenticated resumable progress, checkpoints and signed-grant retirements.
-It requires the previously recovered prefix and durable predecessor pin; see
+It requires the previously recovered prefix and durable predecessor pin. An
+`initialGroup: true` entry instead verifies a genuine group genesis with version
+one and no predecessor, paired with its exact signed directory successor. Both
+publish atomically, and existing checkpoint or prefix conflicts still fail; see
 [current mutation primitives](../../../../docs/developer/principal-current-mutations.md).
 
 The public `AcknowledgedPrincipalCurrentInput` and

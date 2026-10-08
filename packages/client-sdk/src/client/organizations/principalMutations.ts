@@ -8,10 +8,15 @@ import {
   revokeOrganizationContainerGrant,
   rotateOrganizationGroupForAccessSetShrink,
 } from "../../workflows/organizations";
+import { createCurrentOrganizationGroup } from "../../workflows/organizations/createCurrentOrganizationGroup";
+import { createSelectedCurrentGroupMetadataContainerVerifier } from "../../workflows/organizations/currentGroupMetadataAuthority";
+import { deleteCurrentOrganizationGroup } from "../../workflows/organizations/deleteCurrentOrganizationGroup";
 import { createRuntimeGroupMetadataAccess } from "../../workflows/organizations/groupMetadataRuntime";
+import { createRuntimeCurrentOrganizationMutation } from "../../workflows/organizations/runtimeCurrentOrganizationMutation";
 import { createRuntimePrincipalPolicyWarmer } from "../../workflows/principals/runtimePolicyWarmer";
 import type { ContainerContents } from "../containerContents";
 import type { InternalWorkflowRuntimeInput } from "../workflowRuntime";
+import { createCurrentPrincipalMutation } from "./currentPrincipalMutations";
 import { syncOrganizationMetadataProfile } from "./organizationMetadataProfileSync";
 import type { OrganizationReadModelCoordinator } from "./organizationReadModels";
 import { preparePrincipalContainerMutations } from "./principalContainerMutations";
@@ -97,35 +102,50 @@ export async function addUserToOrganizationGroup(
     },
     async () => {
       let memberGroupId: string | null = null;
-      const bundle = await addOrganizationGroupUser({
-        apiClient: input.runtime.apiClient,
-        beforePolicyCommit: (_head, authority) => {
-          memberGroupId = authority.memberGroupId;
-        },
-        currentUserSecretKey: requireEncapsulationKeyPair(input.runtime)
-          .secretKey,
-        execSql: input.runtime.infra.execSql,
-        expectedGroupName: input.expectedGroupName,
-        readEncryptedName: createRuntimeGroupMetadataAccess(
-          input.runtime,
-          signingContext.organizationId,
-          input.stillCurrent,
-        ).readName,
-        groupId: input.groupId,
-        prepareContainerMutations: ({ currentPolicy, nextPolicy }) =>
-          preparePrincipalContainerMutations({
-            currentPolicy,
-            groupId: input.groupId,
-            nextPolicy,
-            organizationId: signingContext.organizationId,
-            runtime: input.runtime,
-            stillCurrent: input.stillCurrent,
-          }),
-        reportSecurityIncident: input.runtime.util.reportSecurityIncident,
-        resolveTrustedUserIdentity: input.runtime.resolveTrustedUserIdentity,
-        targetUserId: input.targetUserId,
+      const mutateCurrent = createCurrentPrincipalMutation({
         ...signingContext,
+        runtime: input.runtime,
+        stillCurrent: input.stillCurrent,
       });
+      const current = mutateCurrent
+        ? await mutateCurrent(input.groupId, {
+            kind: "add",
+            expectedGroupName: input.expectedGroupName,
+            targetUserId: input.targetUserId,
+          })
+        : undefined;
+      memberGroupId = current?.memberGroupId ?? null;
+      const bundle =
+        current?.response ??
+        (await addOrganizationGroupUser({
+          apiClient: input.runtime.apiClient,
+          beforePolicyCommit: (_head, authority) => {
+            memberGroupId = authority.memberGroupId;
+          },
+          currentUserSecretKey: requireEncapsulationKeyPair(input.runtime)
+            .secretKey,
+          execSql: input.runtime.infra.execSql,
+          expectedGroupName: input.expectedGroupName,
+          readEncryptedName: createRuntimeGroupMetadataAccess(
+            input.runtime,
+            signingContext.organizationId,
+            input.stillCurrent,
+          ).readName,
+          groupId: input.groupId,
+          prepareContainerMutations: ({ currentPolicy, nextPolicy }) =>
+            preparePrincipalContainerMutations({
+              currentPolicy,
+              groupId: input.groupId,
+              nextPolicy,
+              organizationId: signingContext.organizationId,
+              runtime: input.runtime,
+              stillCurrent: input.stillCurrent,
+            }),
+          reportSecurityIncident: input.runtime.util.reportSecurityIncident,
+          resolveTrustedUserIdentity: input.runtime.resolveTrustedUserIdentity,
+          targetUserId: input.targetUserId,
+          ...signingContext,
+        }));
       if (input.groupId === memberGroupId) {
         await syncOrganizationMetadataProfile({
           containerContents: input.containerContents,
@@ -144,6 +164,7 @@ export async function addUserToOrganizationGroup(
 export function createGroupForOrganization(input: {
   readonly name: string;
   readonly runtime: InternalWorkflowRuntimeInput;
+  readonly stillCurrent: () => boolean;
 }) {
   const signingContext = requireSigningContext(input.runtime);
   return runWithSecurityIncidentReporting(
@@ -154,26 +175,60 @@ export function createGroupForOrganization(input: {
       operation: "group.create",
       organizationId: signingContext.organizationId,
     },
-    () =>
-      createOrganizationGroup({
+    () => {
+      const creatorEncapsulationKeyPair = requireEncapsulationKeyPair(
+        input.runtime,
+      );
+      const mutate = createRuntimeCurrentOrganizationMutation(input.runtime);
+      if (mutate)
+        return mutate(
+          { ...signingContext, stillCurrent: input.stillCurrent },
+          (context) =>
+            createCurrentOrganizationGroup({
+              ...signingContext,
+              context,
+              apiClient: input.runtime.apiClient,
+              creatorEncapsulationKeyPair,
+              execSql: input.runtime.infra.execSql,
+              name: input.name,
+              metadataAccess: createRuntimeGroupMetadataAccess(
+                input.runtime,
+                signingContext.organizationId,
+                context.stillCurrent,
+                createSelectedCurrentGroupMetadataContainerVerifier({
+                  authority: context,
+                  organizationId: signingContext.organizationId,
+                  stillCurrent: context.stillCurrent,
+                }),
+              ),
+              reportSecurityIncident: input.runtime.util.reportSecurityIncident,
+              resolveTrustedUserIdentity:
+                input.runtime.resolveTrustedUserIdentity,
+            }),
+        );
+      return createOrganizationGroup({
+        stillCurrent: input.stillCurrent,
         apiClient: input.runtime.apiClient,
-        creatorEncapsulationKeyPair: requireEncapsulationKeyPair(input.runtime),
+        creatorEncapsulationKeyPair,
         execSql: input.runtime.infra.execSql,
         name: input.name,
         metadataAccess: createRuntimeGroupMetadataAccess(
           input.runtime,
           signingContext.organizationId,
+          input.stillCurrent,
         ),
         reportSecurityIncident: input.runtime.util.reportSecurityIncident,
         resolveTrustedUserIdentity: input.runtime.resolveTrustedUserIdentity,
         ...signingContext,
-      }),
+      });
+    },
   );
 }
 
 export function deleteGroupForOrganization(input: {
   readonly groupId: string;
   readonly runtime: InternalWorkflowRuntimeInput;
+  readonly stillCurrent: () => boolean;
 }) {
   const signingContext = requireSigningContext(input.runtime);
   return runWithSecurityIncidentReporting(
@@ -184,14 +239,30 @@ export function deleteGroupForOrganization(input: {
       operation: "group.delete",
       organizationId: signingContext.organizationId,
     },
-    () =>
-      deleteOrganizationGroup({
+    () => {
+      const mutate = createRuntimeCurrentOrganizationMutation(input.runtime);
+      if (mutate)
+        return mutate(
+          { ...signingContext, stillCurrent: input.stillCurrent },
+          (context) =>
+            deleteCurrentOrganizationGroup({
+              ...signingContext,
+              context,
+              groupId: input.groupId,
+              apiClient: input.runtime.apiClient,
+              resolveTrustedUserIdentity:
+                input.runtime.resolveTrustedUserIdentity,
+            }),
+        );
+      return deleteOrganizationGroup({
+        stillCurrent: input.stillCurrent,
         apiClient: input.runtime.apiClient,
         execSql: input.runtime.infra.execSql,
         groupId: input.groupId,
         resolveTrustedUserIdentity: input.runtime.resolveTrustedUserIdentity,
         ...signingContext,
-      }),
+      });
+    },
   );
 }
 
@@ -209,32 +280,47 @@ export async function removeUserFromOrganizationGroup(
     },
     async () => {
       let memberGroupId: string | null = null;
-      const bundle = await removeOrganizationGroupUser({
-        apiClient: input.runtime.apiClient,
-        beforePolicyCommit: (_head, authority) => {
-          memberGroupId = authority.memberGroupId;
-        },
-        execSql: input.runtime.infra.execSql,
-        expectedGroupName: input.expectedGroupName,
-        readEncryptedName: createRuntimeGroupMetadataAccess(
-          input.runtime,
-          signingContext.organizationId,
-          input.stillCurrent,
-        ).readName,
-        groupId: input.groupId,
-        prepareContainerMutations: ({ currentPolicy, nextPolicy }) =>
-          preparePrincipalContainerMutations({
-            currentPolicy,
-            groupId: input.groupId,
-            nextPolicy,
-            organizationId: signingContext.organizationId,
-            runtime: input.runtime,
-            stillCurrent: input.stillCurrent,
-          }),
-        removedUserId: input.removedUserId,
-        resolveTrustedUserIdentity: input.runtime.resolveTrustedUserIdentity,
+      const mutateCurrent = createCurrentPrincipalMutation({
         ...signingContext,
+        runtime: input.runtime,
+        stillCurrent: input.stillCurrent,
       });
+      const current = mutateCurrent
+        ? await mutateCurrent(input.groupId, {
+            kind: "remove",
+            expectedGroupName: input.expectedGroupName,
+            removedUserId: input.removedUserId,
+          })
+        : undefined;
+      memberGroupId = current?.memberGroupId ?? null;
+      const bundle =
+        current?.response ??
+        (await removeOrganizationGroupUser({
+          apiClient: input.runtime.apiClient,
+          beforePolicyCommit: (_head, authority) => {
+            memberGroupId = authority.memberGroupId;
+          },
+          execSql: input.runtime.infra.execSql,
+          expectedGroupName: input.expectedGroupName,
+          readEncryptedName: createRuntimeGroupMetadataAccess(
+            input.runtime,
+            signingContext.organizationId,
+            input.stillCurrent,
+          ).readName,
+          groupId: input.groupId,
+          prepareContainerMutations: ({ currentPolicy, nextPolicy }) =>
+            preparePrincipalContainerMutations({
+              currentPolicy,
+              groupId: input.groupId,
+              nextPolicy,
+              organizationId: signingContext.organizationId,
+              runtime: input.runtime,
+              stillCurrent: input.stillCurrent,
+            }),
+          removedUserId: input.removedUserId,
+          resolveTrustedUserIdentity: input.runtime.resolveTrustedUserIdentity,
+          ...signingContext,
+        }));
       if (input.groupId === memberGroupId) {
         await syncOrganizationMetadataProfile({
           containerContents: input.containerContents,
@@ -268,8 +354,21 @@ export async function revokeOrganizationGrant(
       organizationId: signingContext.organizationId,
     },
     async () => {
+      const mutateCurrent = createCurrentPrincipalMutation({
+        ...signingContext,
+        runtime: input.runtime,
+        stillCurrent: input.stillCurrent,
+      });
+      const current =
+        input.subjectType === "group" && mutateCurrent
+          ? await mutateCurrent(input.subjectId, {
+              kind: "revoke",
+              revokedContainerId: input.containerId,
+            })
+          : undefined;
       const response =
-        input.subjectType === "group"
+        current?.response ??
+        (input.subjectType === "group"
           ? await rotateOrganizationGroupForAccessSetShrink({
               apiClient: input.runtime.apiClient,
               execSql: input.runtime.infra.execSql,
@@ -305,7 +404,7 @@ export async function revokeOrganizationGrant(
               warmReferencedPrincipalPolicies:
                 createRuntimePrincipalPolicyWarmer(input.runtime),
               ...signingContext,
-            });
+            }));
       await input.readModelCoordinator.reconcileAfterMutation(
         signingContext.organizationId,
       );

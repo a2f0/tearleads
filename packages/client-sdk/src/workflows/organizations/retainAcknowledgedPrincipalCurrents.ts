@@ -30,6 +30,7 @@ import {
 import { assertAcknowledgedDirectoryBindings } from "./acknowledgedDirectoryBindings";
 import { acknowledgeGroupPolicyState } from "./groupPolicyMutationAcknowledgement";
 import { groupPolicyMutationHead } from "./groupPolicyMutationHead";
+import { prepareInitialGroupCurrentPublication } from "./initialPrincipalCurrentPublication";
 import {
   sealPrincipalCurrentPublication,
   sealPrincipalCurrentStage,
@@ -39,6 +40,8 @@ import { assertPrincipalPolicyReceiptArtifacts } from "./principalPolicyReceiptA
 export type { AcknowledgedPrincipalCurrentRetirement } from "../../data/persistence/principalCurrentAcknowledgementPersistence";
 
 export interface AcknowledgedPrincipalCurrentInput {
+  /** Only a newly authored group at version one; never skips a predecessor. */
+  readonly initialGroup?: boolean | undefined;
   /** The same scoped protection and verification mode used to recover the predecessor. */
   readonly recovery: Omit<
     RecoverPrincipalPolicyHistoryOptions,
@@ -192,6 +195,7 @@ export async function retainAcknowledgedPrincipalCurrents(input: {
   const stillCurrent = input.stillCurrent;
   const retirements = structuredClone(input.retirements ?? []);
   const entries: {
+    initialGroup: boolean;
     request: PutPrincipalPolicyRequest;
     response: PrincipalPolicyMutationResponse;
     options: RecoverPrincipalPolicyHistoryOptions;
@@ -200,6 +204,7 @@ export async function retainAcknowledgedPrincipalCurrents(input: {
     assertProjectionVerificationCurrent(stillCurrent);
     for (const entry of input.entries)
       entries.push({
+        initialGroup: entry.initialGroup === true,
         request: structuredClone(entry.request),
         response: structuredClone(entry.response),
         options: {
@@ -214,7 +219,9 @@ export async function retainAcknowledgedPrincipalCurrents(input: {
     const publications: AcknowledgedPrincipalCurrentPublication[] = [];
     for (const entry of entries)
       publications.push(
-        await preparePublication(entry.options, entry.request, entry.response),
+        await (entry.initialGroup
+          ? prepareInitialGroupCurrentPublication
+          : preparePublication)(entry.options, entry.request, entry.response),
       );
     assertAcknowledgedDirectoryBindings(
       organizationId,

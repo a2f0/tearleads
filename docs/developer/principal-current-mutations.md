@@ -1,9 +1,11 @@
 # Authoring from current principal policies
 
 The mutation primitives accept current artifacts with their verified policy
-rather than reconstructing a full bundle with omitted predecessors. Built-in
-membership orchestration and acknowledgement persistence still need to adopt
-these primitives; their existing full-bundle path remains in use in this slice.
+with no manufactured predecessors. Built-in member addition/removal and group
+grant revocation use paged current-policy recovery when the host provides private
+history custody. They retain the exact compound receipt before acknowledging
+container plans. Hosts without that capability retain the full-bundle path;
+their receipts may also include `previousStates`.
 
 `verifyPrincipalPolicyCurrentSuccessor` verifies exactly one signed successor of
 a `VerifiedPrincipalPolicyCurrent` issued by the local crypto verifier. It checks
@@ -50,11 +52,14 @@ Mutable request and response inputs are copied before verification yields, and
 an expired operation cannot return accepted evidence. A supplied durable pin
 must be covered by this pair; an older pin requires additional verified history.
 
-These helpers neither store artifacts nor advance checkpoints. Full receipt
-artifact checks, atomic persistence of both policies with grant retirements, and
-publication of authenticated resumable progress remain requirements for runtime
-adoption. The built-in mutation workflow continues to use its full-bundle path
-until those requirements are met.
+These preparation helpers do not advance checkpoints. The built-in mutation
+context recovers pending journal work first, verifies the exact directory, strict
+Admins and group heads, and admits their checkpoints together. A private lease
+and generation guard enclose planning, dispatch and acknowledgement; escaped
+reference-selection or retention callbacks expire when the operation returns.
+Best-effort descendant recitations run only after exact durable acknowledgement
+and follow the session lifetime, so releasing private-key custody does not cancel
+that post-commit work. A session change still stops it.
 
 `retainAcknowledgedPrincipalCurrents` provides the atomic retention primitive
 for advanced hosts. Each `AcknowledgedPrincipalCurrentInput` supplies the exact
@@ -87,11 +92,63 @@ store keeps one completed stage per exact head and verification context. There i
 no automatic pruning yet: retained artifacts grow with acknowledged heads until
 remote-reset cleanup. Equal principal-key fingerprints do not establish that older
 recipient envelopes are redundant. Reclamation remains tracked in #2448. The
-current wire artifacts never contain manufactured `previousStates`. Built-in
-mutation orchestration still uses its existing full-bundle path until its
-context loading, container rematerialization and result contract adopt these
-primitives together.
+current wire artifacts never contain manufactured `previousStates`.
+
+`selectPrincipalPolicyCurrentPredecessorReferences` combines a privately verified
+successor with selected citations from its exact private predecessor. Scope,
+consecutive version and predecessor hash must match. It retains at most 128
+requested citations plus the predecessor/successor pair, preserving successor
+membership and its private authority cursor. Copies and mutated public artifacts
+cannot supply evidence. Container rematerialization selects only each path's
+citations, including carried descendant rekeys. Planning never admits a speculative
+successor; served historical references still resolve to acknowledged policies.
+
+`Organizations.addUserToGroup` and `removeUserFromGroup` return
+`OrganizationGroupMutationReceipt`; the group result of `revokeGrant` uses the
+same type. It includes exact current artifacts and container receipts, with no
+`previousStates` on the paged path. Hosts without custody may include that extra
+field; callers should use the common receipt contract. Standalone full-bundle
+workflows retain their existing return
+contracts. Group sharing still uses those workflows;
+this adoption does not yet eliminate every full-history mutation consumer.
 
 Mutation builders clear their owned signing-key copies on success and failure;
 member addition also clears its temporary encapsulation secret. Caller-owned
 key buffers remain unchanged.
+
+## Directory deletion
+
+Built-in group deletion recovers the current directory and strict Admins
+evidence, checks the signing administrator, and signs the directory successor without
+loading the deleted group's history. It refuses deletion of either reserved
+group, checks the exact response target and artifacts, and retains the directory
+successor under the original identity/database lease. Unresolved earlier compound
+policy work blocks discovery. Hosts without private custody keep the standalone
+full-bundle deletion workflow with the same caller lifetime guard.
+Creation/deletion requests are not yet covered by the compound membership journal;
+lost acknowledgements still require reconciliation.
+
+## Group creation
+
+Built-in creation recovers current directory and strict Admins authority, checks
+the signing administrator, and compares decrypted signed names for every group
+in that directory. Name encryption reuses the selected authority's metadata-root
+verification. It authors a genuine version-one group and one directory successor,
+then checks the returned target, key fingerprint and exact acknowledgement.
+
+An `initialGroup: true` retention entry verifies the genesis signature and its
+Admins authority rather than inventing a predecessor. Its authenticated history
+index, private progress, current artifacts and first checkpoint publish in the
+same guarded transaction as the exactly binding directory receipt. An existing
+prefix or conflicting checkpoint is refused. Failure on either side rolls back
+both publications. Expiry during planning prevents dispatch; expiry after the
+response prevents local publication, including on the legacy full-bundle path.
+Creation's own unknown outcomes are not yet journaled.
+
+Membership and directory mutations share the private lease lifetime and the
+pending-work, directory and Admins authorization checks. Verified observed heads
+can advance local rollback checkpoints even when a requested deletion is refused.
+Deleting a group preserves its rollback checkpoints and historical encrypted
+artifacts; it does not erase local grants. Later access still requires a live
+directory citation and verified container authorization. Storage reclamation
+remains tracked in #2448.

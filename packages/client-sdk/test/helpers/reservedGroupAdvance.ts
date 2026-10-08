@@ -122,6 +122,7 @@ export async function createReservedGroupAdvance(
     });
   return {
     admin,
+    identity,
     advanced,
     advancedDirectory,
     artifacts,

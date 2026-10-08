@@ -1,6 +1,7 @@
 import {
   createPrincipalPolicyHistoryVerifier,
   type PrincipalPolicySignerPublicKey,
+  type ReferencedPrincipalHead,
   verifyPrincipalPolicyCurrent,
 } from "@tearleads/crypto";
 import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
@@ -10,8 +11,10 @@ import { principalPolicyHead } from "./principalPolicyFixtures";
 export async function currentGroupMutationInput(
   bundle: PrincipalPolicyBundleResponse,
   signerPublicKeys: readonly PrincipalPolicySignerPublicKey[],
+  retainedReferences: readonly ReferencedPrincipalHead[] = [],
 ) {
   const verifier = createPrincipalPolicyHistoryVerifier({
+    retainedReferences,
     principalType: bundle.currentState.principalType,
     principalId: bundle.currentState.principalId,
   });

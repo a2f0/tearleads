@@ -16,6 +16,7 @@ import type {
   OrganizationGroupSummaryResponse,
   PrincipalPolicyBundleResponse,
 } from "@tearleads/validators/response";
+import { assertProjectionVerificationCurrent } from "../../data/keyingProjectionVerification/types";
 import { persistLocallyAcknowledgedPrincipalPolicyBundles } from "../../data/persistence/locallyAcknowledgedCheckpointPersistence";
 import {
   encodeOrganizationAuthorityDescriptor,
@@ -92,7 +93,7 @@ export function removeOrganizationGroupHead(input: {
 export async function buildOrganizationGroupDirectoryPolicyRequest(input: {
   readonly adminProjection: readonly PrincipalProjectionMemberRequest[];
   readonly adminUsers: readonly TrustedUserIdentity[];
-  readonly currentPolicy: PrincipalPolicyBundleResponse;
+  readonly currentPolicy: Pick<PrincipalPolicyBundleResponse, "currentState">;
   readonly descriptor: OrganizationAuthorityDescriptor;
   readonly groupHeads: readonly OrganizationGroupHead[];
   readonly signerUserId: string;
@@ -152,6 +153,7 @@ export async function buildOrganizationGroupDirectoryPolicyRequest(input: {
 }
 
 export async function commitCreatedGroupToDirectory(input: {
+  readonly stillCurrent?: (() => boolean) | undefined;
   readonly name: string;
   readonly readEncryptedName?: GroupPolicyNameReader;
   readonly apiClient: OrganizationPrincipalPolicyApi;
@@ -170,6 +172,7 @@ export async function commitCreatedGroupToDirectory(input: {
   readonly group: OrganizationGroupSummaryResponse;
   readonly head: ReferencedPrincipalHead;
 }> {
+  assertProjectionVerificationCurrent(input.stillCurrent);
   // Signed group names are unique per organization; refuse a collision before
   // anything reaches the server.
   await assertGroupNameUniqueInDirectory({
@@ -206,10 +209,12 @@ export async function commitCreatedGroupToDirectory(input: {
       signingFingerprint: input.signingFingerprint,
       signingKeyPair: input.signingKeyPair,
     });
+  assertProjectionVerificationCurrent(input.stillCurrent);
   const stored = await input.apiClient.createOrganizationGroup(
     input.organizationId,
     { ...input.request, organizationPolicy: organizationRequest },
   );
+  assertProjectionVerificationCurrent(input.stillCurrent);
   if (!stored) {
     throw new Error("Group could not be created");
   }
@@ -240,6 +245,8 @@ export async function commitCreatedGroupToDirectory(input: {
     execSql: input.execSql,
     organizationId: input.organizationId,
     updatedAt: new Date().toISOString(),
+    stillCurrent: input.stillCurrent,
   });
+  assertProjectionVerificationCurrent(input.stillCurrent);
   return { group: stored.group, head: expectedHead };
 }

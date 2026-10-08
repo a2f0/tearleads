@@ -36,6 +36,7 @@ export function createRuntimeGroupMetadataAccess(
   runtime: GroupMetadataRuntime,
   organizationId: string,
   stillCurrent?: () => boolean,
+  verifyMetadataContainer?: GroupMetadataAccessInput["verifyMetadataContainer"],
   currentRecovery?: {
     readonly resolveCurrentPolicy: ReturnType<
       typeof createRuntimePrincipalPolicyCurrentResolver
@@ -45,7 +46,11 @@ export function createRuntimeGroupMetadataAccess(
 ) {
   const targetSecretKey = runtime.crypto.encapsulationKeyPair?.secretKey;
   if (!targetSecretKey) throw new Error("Group metadata identity is locked");
-  const warmer = createRuntimePrincipalPolicyWarmer(runtime);
+  // The signed metadata projection selects exact citations. Reuse matching
+  // private evidence with its dependencies and pins before bounded online reads.
+  const warmer = createRuntimePrincipalPolicyWarmer(runtime, {
+    preferLocalCurrent: true,
+  });
   const resolveCurrentPolicy =
     currentRecovery?.resolveCurrentPolicy ??
     createRuntimePrincipalPolicyCurrentResolver(runtime);
@@ -58,13 +63,15 @@ export function createRuntimeGroupMetadataAccess(
     stillCurrent: stillCurrent ?? (() => true),
   };
   return createGroupMetadataAccess({
-    verifyMetadataContainer: resolveCurrentPolicy
-      ? createCurrentGroupMetadataContainerVerifier({
-          ...authorityInput,
-          resolveCurrentPolicy,
-          recoveryBatch: currentRecovery?.recoveryBatch,
-        })
-      : createGroupMetadataContainerVerifier(authorityInput),
+    verifyMetadataContainer:
+      verifyMetadataContainer ??
+      (resolveCurrentPolicy
+        ? createCurrentGroupMetadataContainerVerifier({
+            ...authorityInput,
+            resolveCurrentPolicy,
+            recoveryBatch: currentRecovery?.recoveryBatch,
+          })
+        : createGroupMetadataContainerVerifier(authorityInput)),
     apiClient: runtime.apiClient,
     execSql: runtime.infra.execSql,
     organizationId,

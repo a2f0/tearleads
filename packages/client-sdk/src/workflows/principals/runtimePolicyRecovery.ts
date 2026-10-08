@@ -16,6 +16,7 @@ import { readPrincipalHistoryProtection } from "../../data/principals/principalH
 import type { SecurityIncidentReporter } from "../../data/securityIncidents";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import type { TrustedUserIdentityResolver } from "../../data/trustedUserIdentity";
+import type { RecoveredPrincipalHistoryPage } from "./loadRecoveredPrincipalHistoryPage";
 import { createPrincipalCurrentRecoveryBatch } from "./principalCurrentRecoveryBatch";
 import {
   PrincipalHistoryRecoveryRaceError,
@@ -23,6 +24,7 @@ import {
 } from "./principalHistoryRecoveryTypes";
 import { recoverWithPrincipalLocalPreference } from "./principalRecoveryLocalPreference";
 import { queuePrincipalRecovery } from "./principalRecoveryQueue";
+import type { RecoveredScopedPrincipalPolicyHistory } from "./recoverScopedPrincipalPolicyHistory";
 
 export interface PrincipalPolicyRecoveryRuntime {
   readonly apiClient: Partial<
@@ -43,13 +45,20 @@ export interface PrincipalPolicyRecoveryRuntime {
 /** Keep the private recovery key inside its runtime lease while resolving cited evidence. */
 export function createRuntimePrincipalPolicyResolver(
   runtime: PrincipalPolicyRecoveryRuntime,
+  options: { readonly preferLocalCurrent?: boolean } = {},
 ): ReferencedPrincipalPolicyWarmer["resolveReference"] {
-  return createRuntimePrincipalPolicyCurrentResolver(runtime);
+  const resolve = createRuntimePrincipalPolicyCurrentResolver(runtime);
+  return resolve
+    ? (input) =>
+        resolve({ ...input, preferLocalCurrent: options.preferLocalCurrent })
+    : undefined;
 }
 
 export interface ResolvedPrincipalPolicyCurrent
   extends ResolvedPrincipalPolicyEvidence {
   readonly current: PrincipalPolicyPageCurrent;
+  /** Rows end at the selected reference; current/policy may describe a newer recovered head. */
+  readonly historyPage?: RecoveredPrincipalHistoryPage | undefined;
 }
 
 interface PrincipalPolicyCurrentRequest
@@ -57,6 +66,7 @@ interface PrincipalPolicyCurrentRequest
   readonly reference?: PrincipalPolicyResolveRequest["reference"] | undefined;
   /** A read-model caller has selected this exact signed head; not a freshness read. */
   readonly preferLocalCurrent?: boolean | undefined;
+  readonly historyPage?: { readonly beforeVersion?: number } | undefined;
 }
 
 /** Keep current artifacts with their verified evidence and private runtime lifetime. */
@@ -100,6 +110,7 @@ export function createRuntimePrincipalPolicyCurrentResolver(
             const stillCurrent = () =>
               leaseCurrent() && input.stillCurrent?.() !== false;
             assertProjectionVerificationCurrent(stillCurrent);
+            assertHistoryPageRequest(input);
             const offline = runtime.state?.online === false;
             try {
               const options = {
@@ -111,18 +122,25 @@ export function createRuntimePrincipalPolicyCurrentResolver(
                 resolveTrustedUserIdentity: runtime.resolveTrustedUserIdentity,
                 stillCurrent,
               };
-              const result = input.reference
-                ? await recoverWithPrincipalLocalPreference(
-                    recoverFor(input.recoveryBatch).recover,
-                    { ...options, reference: input.reference },
-                    input.preferLocalCurrent === true,
-                  )
-                : await recoverFor(input.recoveryBatch).discover(options);
+              const batch = recoverFor(input.recoveryBatch);
+              const result: RecoveredScopedPrincipalPolicyHistory =
+                input.reference
+                  ? await recoverWithPrincipalLocalPreference(
+                      batch.recover,
+                      {
+                        ...options,
+                        reference: input.reference,
+                        historyPage: input.historyPage,
+                      },
+                      input.preferLocalCurrent === true,
+                    )
+                  : await batch.discover(options);
               return {
                 current: result.current,
                 organizationId: input.organizationId,
                 policy: result.policy,
                 dependencies: result.dependencies,
+                historyPage: result.historyPage,
                 stillCurrent,
               };
             } catch (error) {
@@ -138,5 +156,21 @@ export function createRuntimePrincipalPolicyCurrentResolver(
             }
           }),
       ),
+    );
+}
+
+function assertHistoryPageRequest(input: PrincipalPolicyCurrentRequest) {
+  if (!input.historyPage) return;
+  const before = input.historyPage.beforeVersion;
+  if (
+    !input.reference ||
+    (before !== undefined &&
+      (!Number.isSafeInteger(before) ||
+        before <= 1 ||
+        before > input.reference.version + 1))
+  )
+    throw new KeyingVerificationError(
+      "invalid_shape",
+      "History display requires a selected head and an in-range cursor",
     );
 }

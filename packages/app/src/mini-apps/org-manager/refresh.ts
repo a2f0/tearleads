@@ -14,7 +14,10 @@ export type OrgManagerResource =
   | "organizationPolicyHistory"
   | "userDetail";
 
-export type OrgManagerRequestKind = OrgManagerResource | "refresh";
+export type OrgManagerRequestKind =
+  | OrgManagerResource
+  | "groupHistoryPage"
+  | "refresh";
 
 export type DirectoryRefreshOptions = {
   afterMutation?: boolean;
@@ -43,6 +46,7 @@ export type DirectoryRefreshResult =
 
 export type GroupDetailsRefreshOptions = {
   clearError?: boolean;
+  beforeVersion?: number;
 };
 
 export type DataUsageRefreshOptions = {

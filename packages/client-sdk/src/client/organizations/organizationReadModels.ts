@@ -25,6 +25,7 @@ import {
 import { createRuntimePrincipalPolicyWarmer } from "../../workflows/principals/runtimePolicyWarmer";
 import type { InternalRuntime } from "../workflowRuntime";
 import { recoverOrganizationAccess } from "./organizationAccessRestoration";
+import { loadBoundedOrganizationGroupHistory } from "./organizationGroupHistory";
 import { hydrateOrganizationGroupNamesForRuntime } from "./organizationGroupNameHydration";
 import {
   type ActiveOrganizationDataRuntime,
@@ -48,6 +49,7 @@ export interface OrganizationReadModelCoordinator {
   loadGroupPolicyHistory(
     groupId: string,
     organizationId?: string | undefined,
+    beforeVersion?: number | undefined,
   ): Promise<OrganizationGroupPolicyHistory | null>;
   loadOrganizationPolicyHistory(
     organizationId?: string | undefined,
@@ -257,7 +259,11 @@ class OrganizationReadModelCoordinatorImpl
     });
   }
 
-  async loadGroupPolicyHistory(groupId: string, organizationId?: string) {
+  async loadGroupPolicyHistory(
+    groupId: string,
+    organizationId?: string,
+    beforeVersion?: number,
+  ) {
     const active = activeOrganizationDataRuntime(
       this.runtimeService,
       organizationId,
@@ -265,6 +271,19 @@ class OrganizationReadModelCoordinatorImpl
     if (!active || groupId.length === 0) {
       return null;
     }
+    const domainScope = active.runtime.state.domainScope;
+    const bounded = await loadBoundedOrganizationGroupHistory({
+      active,
+      groupId,
+      beforeVersion,
+      stillCurrent: () =>
+        isOrganizationDataRuntimeCurrent(
+          this.runtimeService,
+          active,
+          domainScope,
+        ),
+    });
+    if (bounded !== undefined) return bounded;
     return this.loadPolicyHistoryAfterWarm({
       active,
       loadLocal: () =>

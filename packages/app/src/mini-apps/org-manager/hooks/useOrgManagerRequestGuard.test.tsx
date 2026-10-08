@@ -53,6 +53,27 @@ test("org-manager request guards keep only the latest request per resource", () 
   expect(secondDirectoryRequest()).toBe(true);
 });
 
+test("group refreshes invalidate older pages without letting a page cancel the refresh", () => {
+  const captured: {
+    current: ReturnType<typeof useOrgManagerRequestGuard> | null;
+  } = { current: null };
+  render(
+    <GuardProbe
+      capture={(next) => {
+        captured.current = next;
+      }}
+      scopeKey="org-a"
+    />,
+  );
+  const begin = requireBeginRequest(captured.current);
+  const page = begin("groupHistoryPage");
+  const full = begin("groupDetails");
+  expect(page()).toBe(false);
+  const nextPage = begin("groupHistoryPage");
+  expect(full()).toBe(true);
+  expect(nextPage()).toBe(true);
+});
+
 test("org-manager request guards invalidate all work when the org changes", () => {
   const captured: {
     current: ((kind: OrgManagerRequestKind) => () => boolean) | null;

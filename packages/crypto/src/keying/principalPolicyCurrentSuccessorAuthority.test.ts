@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import { verifyPrincipalPolicyCurrent } from "./principalPolicyCurrent";
+import { selectPrincipalPolicyCurrentPredecessorReferences } from "./principalPolicyCurrentPredecessorReferences";
 import { verifyPrincipalPolicyCurrentSuccessor } from "./principalPolicyCurrentSuccessor";
 import { verifyPrincipalPolicyHistoryReferences } from "./principalPolicyHistoryReferences";
 import {
@@ -95,32 +96,53 @@ test("current successors preserve authority monotonicity after an uncited and un
   expect(selected.retainedEntries.map(({ state }) => state.version)).toEqual([
     3,
   ]);
-  const previous = accepted(
+  const predecessor = accepted(
     await verifyPrincipalPolicyCurrent({
       current: artifacts(third),
       history: selected,
     }),
   );
-  expect(previous.state.externalAuthority).toBeNull();
-  for (const [reference, allowed] of [
-    [oldHead, false],
-    [newHead, true],
-  ] as const) {
-    const fourth = await signPolicyState({
-      ...f.shared,
-      version: 4,
-      prevStateHash: third.state.stateHash,
-      externalAuthority: reference,
-      projection: f.first.entry.projection,
-      signer: external,
-    });
-    const result = await verifyPrincipalPolicyCurrentSuccessor({
-      previous,
-      current: artifacts(fourth),
-      signerPublicKeys: [external],
-      externalAuthority: authority,
-    });
-    expect(result.ok).toBe(allowed);
-    if (!result.ok) expect(result.error.code).toBe("rollback");
+  expect(predecessor.state.externalAuthority).toBeNull();
+  const uncited = await signPolicyState({
+    ...f.shared,
+    version: 4,
+    prevStateHash: third.state.stateHash,
+  });
+  const current = accepted(
+    await verifyPrincipalPolicyCurrentSuccessor({
+      previous: predecessor,
+      current: artifacts(uncited),
+      signerPublicKeys: [f.signer],
+    }),
+  );
+  const selectedCurrent = accepted(
+    selectPrincipalPolicyCurrentPredecessorReferences({
+      current,
+      predecessor,
+      references: [],
+    }),
+  );
+  for (const previous of [predecessor, selectedCurrent]) {
+    for (const [reference, allowed] of [
+      [oldHead, false],
+      [newHead, true],
+    ] as const) {
+      const fourth = await signPolicyState({
+        ...f.shared,
+        version: previous.version + 1,
+        prevStateHash: previous.stateHash,
+        externalAuthority: reference,
+        projection: f.first.entry.projection,
+        signer: external,
+      });
+      const result = await verifyPrincipalPolicyCurrentSuccessor({
+        previous,
+        current: artifacts(fourth),
+        signerPublicKeys: [external],
+        externalAuthority: authority,
+      });
+      expect(result.ok).toBe(allowed);
+      if (!result.ok) expect(result.error.code).toBe("rollback");
+    }
   }
 });

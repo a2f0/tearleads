@@ -26,6 +26,7 @@ import { useOrgManagerDirectorySync } from "../organization/useOrgManagerDirecto
 import { useOrgManagerScopeReset } from "../organization/useOrgManagerScopeReset";
 import { useOrgManagerViewRefreshEffects } from "../organization/useOrgManagerViewRefreshEffects";
 import { useOrgSwitcher } from "../organization/useOrgSwitcher";
+import { loadOlderGroupPolicyHistory } from "../policy-history/groupPolicyHistoryPages";
 import type { GroupDetailsEffectKey } from "../refresh";
 import { useOrgManagerRefreshers } from "../refreshers/useOrgManagerRefreshers";
 import type { OrgManagerView } from "../routes";
@@ -468,6 +469,11 @@ export function useOrgManagerModel() {
     groupContainers: activeGroupContainers,
     groupNameDraft,
     groupPolicyHistory: activeGroupPolicyHistory,
+    loadMoreGroupHistory: () =>
+      loadOlderGroupPolicyHistory(
+        activeGroupPolicyHistory,
+        refreshSelectedGroupDetails,
+      ),
     groups: activeGroups,
     importRosterUserIntoContacts: rosterActions.importRosterUserIntoContacts,
     importRosterUser,

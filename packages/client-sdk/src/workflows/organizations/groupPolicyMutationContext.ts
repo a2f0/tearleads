@@ -272,7 +272,7 @@ export async function loadGroupPolicyMutationContext(input: {
  * once. A second refusal means the tree moved underneath, and the caller's own
  * retry starts from a fresh policy.
  */
-async function submitGroupPolicyCommit(input: {
+export async function submitGroupPolicyCommit(input: {
   readonly apiClient: PrincipalPolicyReadWriteApi;
   readonly carryDescendantRekeys?:
     | ((
