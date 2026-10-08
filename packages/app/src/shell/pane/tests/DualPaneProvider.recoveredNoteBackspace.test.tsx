@@ -1,7 +1,6 @@
 import { afterEach, expect, test } from "bun:test";
 import { cleanup, within } from "@testing-library/react";
 import {
-  DUAL_PANE_ATTACHMENT_TEST_TIMEOUT_MS,
   generatePaneKeyPairFromMenu,
   getExplorerWindowRoot,
   getPaneRoot,
@@ -56,6 +55,9 @@ const BACKSPACE_COUNT = 51;
 // assertions, so a short bound reports a timeout before the test reaches the
 // edit and convergence checks.
 const RECOVERED_SYNC_TIMEOUT_MS = 30_000;
+// Fifty-one acknowledged uploads plus recovery took nearly the original 60s
+// cap on the hosted graph; keep the same per-step and convergence assertions.
+const RECOVERED_BACKSPACE_TEST_TIMEOUT_MS = 120_000;
 const apps: readonly NoteEntryPoint[] = ["Notes", "Explorer"];
 for (const creator of apps) {
   for (const editor of apps) {
@@ -179,7 +181,7 @@ for (const creator of apps) {
           );
           await waitForNoPostShareSyncFailures([primary, secondary], baseline);
         },
-        DUAL_PANE_ATTACHMENT_TEST_TIMEOUT_MS,
+        RECOVERED_BACKSPACE_TEST_TIMEOUT_MS,
       );
     }
   }
