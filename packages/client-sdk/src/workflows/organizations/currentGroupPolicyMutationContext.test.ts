@@ -65,13 +65,13 @@ test("bounded mutation context resolves prior work before current reads and admi
     expect(context.currentOrgAdminUserIds).toContain(history.signerUserId);
     expect(context.isOrganizationAdminsGroup).toBe(false);
     expect(f.requests.every((request) => request.count <= 32)).toBe(true);
-    // One discovery plus the three bounded pages for this 66-state directory.
+    // Discovery supplies the first of three pages for this 66-state directory.
     // Resolving Admins/group in the same batch must reuse that verified view.
     expect(
-      f.requests.filter(
-        (request) => request.principalId === history.organizationId,
-      ),
-    ).toHaveLength(4);
+      f.requests
+        .filter((request) => request.principalId === history.organizationId)
+        .map((request) => request.afterVersion),
+    ).toEqual([0, 32, 64]);
     const pins = await f.db.select().from(principalPolicyCheckpoints);
     for (const policy of [
       context.verifiedCurrentPolicy,
