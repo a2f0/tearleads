@@ -54,6 +54,7 @@ async function seededProgress(count: number) {
       stage,
       previousProgress: null,
       evidence: {
+        indexRootHash: "opaque-index-root",
         scopeId: "scope-1",
         organizationId: "org-1",
         entries: [],

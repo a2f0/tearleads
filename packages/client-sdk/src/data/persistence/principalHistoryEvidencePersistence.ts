@@ -24,8 +24,10 @@ import {
   getClientSQLitePersistenceRuntime,
 } from "../sqlite/sqlitePersistenceRuntime";
 import { type ExecSql, ensureSqlTables } from "../sqlite/sqlSchema";
+import { recordPrincipalHistoryNodeEdges } from "./principalHistoryNodeRetention";
 
 export interface PrincipalHistoryEvidencePage {
+  readonly indexRootHash: string;
   readonly scopeId: string;
   readonly organizationId: string;
   readonly entries: readonly {
@@ -37,6 +39,7 @@ export interface PrincipalHistoryEvidencePage {
 
 /** Prepare only a page accepted by the signature/authorization verifier. */
 export async function preparePrincipalHistoryEvidencePage(input: {
+  readonly indexRootHash: string;
   readonly scopeId: string;
   readonly organizationId: string;
   readonly entries: readonly PrincipalPolicyStateChainEntryResponse[];
@@ -87,6 +90,7 @@ export async function writePrincipalHistoryEvidencePage(
   for (const node of [...page.nodes].sort((a, b) =>
     compareCanonicalStrings(a.hash, b.hash),
   )) {
+    await recordPrincipalHistoryNodeEdges(tx, scope, node);
     const row = { ...scope, ...node };
     await tx
       .insert(principalHistoryNodes)

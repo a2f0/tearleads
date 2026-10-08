@@ -64,6 +64,7 @@ export async function seededCompletedRetention(
       },
       previousProgress: null,
       evidence: {
+        indexRootHash: "opaque-index-root",
         scopeId: "scope-1",
         organizationId: "org-1",
         entries: [],

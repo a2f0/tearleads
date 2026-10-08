@@ -164,6 +164,7 @@ async function acceptPage(
     execSql: input.execSql,
     stage: saved,
     evidence: await preparePrincipalHistoryEvidencePage({
+      indexRootHash: appended.value.indexRootHash,
       scopeId: stage.scopeId,
       organizationId: input.organizationId,
       entries,

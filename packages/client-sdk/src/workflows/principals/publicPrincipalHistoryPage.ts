@@ -115,6 +115,7 @@ export async function appendPublicPrincipalHistoryPage(
     execSql: input.execSql,
     stage: saved,
     evidence: await preparePrincipalHistoryEvidencePage({
+      indexRootHash: appended.value.indexRootHash,
       scopeId: progress.scopeId,
       organizationId: input.organizationId,
       entries,

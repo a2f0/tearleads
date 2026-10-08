@@ -92,6 +92,11 @@ class PrincipalPolicyHistoryVerifierImpl
           this.#indexFrontier,
           verified.entries.map((entry) => entry.state),
         );
+        if (!index.rootHash)
+          throwVerification(
+            "invalid_shape",
+            "accepted principal history has no index root",
+          );
         // Publish only after every check, including the final signature, passes.
         for (const entry of verified.entries) {
           if (entry.state.version === this.#input.checkpoint?.version)
@@ -110,6 +115,7 @@ class PrincipalPolicyHistoryVerifierImpl
         this.#indexRootHash = index.rootHash;
         return {
           throughVersion: verified.last.state.version,
+          indexRootHash: index.rootHash,
           indexNodes: index.nodes,
         };
       } finally {

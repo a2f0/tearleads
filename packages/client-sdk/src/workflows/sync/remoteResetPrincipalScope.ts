@@ -5,6 +5,10 @@ import {
   principalHistoryPrefixes,
 } from "../../data/sqlite/principalHistoryEvidenceSchema";
 import {
+  principalHistoryNodeReferences,
+  principalHistoryRootOwners,
+} from "../../data/sqlite/principalHistoryNodeRetentionSchema";
+import {
   principalHistoryStageScopes,
   principalKeyEnvelopeArchive,
 } from "../../data/sqlite/principalHistoryRetentionSchema";
@@ -122,6 +126,8 @@ export async function clearRemoteResetPrincipalRows(input: {
   tx: ClientSQLiteTransactionScope;
 }): Promise<void> {
   for (const table of [
+    principalHistoryNodeReferences,
+    principalHistoryRootOwners,
     principalHistoryEntries,
     principalHistoryNodes,
     principalHistoryPrefixes,

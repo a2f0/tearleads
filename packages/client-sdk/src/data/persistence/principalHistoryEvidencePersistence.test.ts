@@ -59,6 +59,7 @@ async function evidenceFixture() {
     const finished = verifier.finish(expectedHead);
     if (!finished.ok) throw finished.error;
     const page = await preparePrincipalHistoryEvidencePage({
+      indexRootHash: finished.value.indexRootHash,
       scopeId: "scope-1",
       organizationId: "org-1",
       entries,

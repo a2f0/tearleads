@@ -20,6 +20,7 @@ test("stage reclamation selects its bounded batch through the scope index", asyn
   });
   try {
     await savePrincipalHistoryPrefix({
+      indexRootHash: "opaque-index-root",
       execSql,
       stillCurrent: () => true,
       prefix: {

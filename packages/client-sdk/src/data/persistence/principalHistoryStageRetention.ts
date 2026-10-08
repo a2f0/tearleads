@@ -2,6 +2,7 @@ import { and, asc, desc, eq, lt } from "drizzle-orm";
 import { principalHistoryStageScopes } from "../sqlite/principalHistoryRetentionSchema";
 import { principalHistoryStages } from "../sqlite/principalHistoryStageSchema";
 import type { ClientSQLiteTransactionScope } from "../sqlite/sqlitePersistenceRuntime";
+import { releasePrincipalHistoryRoot } from "./principalHistoryRootOwnership";
 import { archivePrincipalHistoryKeyEnvelopes } from "./principalKeyEnvelopeArchivePersistence";
 
 /** Each publication reclaims at most this many obsolete completed heads. */
@@ -62,6 +63,7 @@ export async function reclaimCompletedPrincipalHistoryStages(
     .offset(2)
     .limit(PRINCIPAL_HISTORY_STAGE_RECLAIM_LIMIT);
   for (const { stage } of obsolete) {
+    await releasePrincipalHistoryRoot(tx, `stage:${stage.id}`);
     await archivePrincipalHistoryKeyEnvelopes(tx, {
       ...stage,
       version: stage.afterVersion + 1,

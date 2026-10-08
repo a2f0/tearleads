@@ -44,6 +44,7 @@ test("completed-stage cleanup is bounded and preserves incomplete, newer and for
       })),
     );
     const input = {
+      indexRootHash: "opaque-index-root",
       execSql: f.execSql,
       stillCurrent: () => true,
       prefix: {

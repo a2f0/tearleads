@@ -1,6 +1,7 @@
 import { and, eq } from "drizzle-orm";
 import { assertProjectionVerificationCurrent } from "../keyingProjectionVerification/types";
 import { principalHistoryEvidenceTables } from "../sqlite/principalHistoryEvidenceSchema";
+import { principalHistoryNodeRetentionTables } from "../sqlite/principalHistoryNodeRetentionSchema";
 import { principalHistoryStageScopes } from "../sqlite/principalHistoryRetentionSchema";
 import {
   principalHistoryStages,
@@ -13,6 +14,11 @@ import {
   writePrincipalHistoryEvidencePage,
 } from "./principalHistoryEvidencePersistence";
 import { reclaimIncompletePrincipalHistoryStages } from "./principalHistoryIncompleteRetention";
+import { reclaimPrincipalHistoryNodes } from "./principalHistoryNodeRetention";
+import {
+  releasePrincipalHistoryRoot,
+  retainPrincipalHistoryRoot,
+} from "./principalHistoryRootOwnership";
 import { recordPrincipalHistoryStageScope } from "./principalHistoryStageRetention";
 import { reclaimUnpublishedPrincipalHistoryStages } from "./principalHistoryUnpublishedRetention";
 
@@ -76,6 +82,12 @@ export async function savePrincipalHistoryStage(input: {
         organizationId: stage.organizationId,
         scopeId: evidence.scopeId,
       });
+      await retainPrincipalHistoryRoot(tx, {
+        id: `stage:${stage.id}`,
+        scopeId: evidence.scopeId,
+        organizationId: stage.organizationId,
+        rootHash: evidence.indexRootHash,
+      });
       await reclaimIncompletePrincipalHistoryStages(tx, {
         ...stage,
         scopeId: evidence.scopeId,
@@ -84,6 +96,7 @@ export async function savePrincipalHistoryStage(input: {
         ...stage,
         scopeId: evidence.scopeId,
       });
+      await reclaimPrincipalHistoryNodes(tx, evidence);
     },
     input.stillCurrent,
     { behavior: "immediate" },
@@ -96,6 +109,7 @@ export async function discardPrincipalHistoryStage(
   stage: PrincipalHistoryStage,
   stillCurrent: () => boolean,
 ) {
+  await ensureSqlTables(execSql, principalHistoryNodeRetentionTables);
   const runtime = getClientSQLitePersistenceRuntime(execSql);
   const discarded = await runtime.guardedTransaction(
     async (db) => {
@@ -105,6 +119,7 @@ export async function discardPrincipalHistoryStage(
         .where(eq(principalHistoryStages.id, stage.id))
         .limit(1);
       if (current?.progress !== stage.progress) return;
+      await releasePrincipalHistoryRoot(db, `stage:${stage.id}`);
       await db
         .delete(principalHistoryStages)
         .where(

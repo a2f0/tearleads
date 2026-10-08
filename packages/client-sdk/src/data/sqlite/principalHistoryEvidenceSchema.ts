@@ -6,6 +6,7 @@ import {
   sqliteTable,
   text,
 } from "drizzle-orm/sqlite-core";
+import { principalHistoryNodeRetentionTables } from "./principalHistoryNodeRetentionSchema";
 import { principalCurrentFingerprintJson } from "./principalKeyFingerprintJson";
 import { defineSqlTableSchema } from "./sqlTableSchema";
 
@@ -65,6 +66,7 @@ export const principalHistoryNodes = sqliteTable(
 );
 
 export const principalHistoryEvidenceTables = [
+  ...principalHistoryNodeRetentionTables,
   {
     ...defineSqlTableSchema(principalHistoryPrefixes),
     requiredColumns: ["current_json"],

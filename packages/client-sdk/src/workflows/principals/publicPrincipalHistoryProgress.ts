@@ -251,6 +251,7 @@ export async function publishPublicPrincipalHistoryPrefix(
       : await rejectedCompletedPrefix(input, progress, history));
   const stillCurrent = () => !input.signal?.aborted && input.stillCurrent();
   await savePrincipalHistoryPrefix({
+    indexRootHash: history.indexRootHash,
     execSql: input.execSql,
     prefix: { ...prefix, progress: sealed.value },
     stillCurrent,

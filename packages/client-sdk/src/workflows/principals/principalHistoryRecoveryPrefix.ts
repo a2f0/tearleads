@@ -99,7 +99,10 @@ export async function publishReusablePrincipalHistoryPrefix(
     await principalHistoryPrefixProtection(options.protection, prefix),
   );
   if (!sealed.ok) throw sealed.error;
+  const history = verifier.finish(options.expectedHead);
+  if (!history.ok) throw history.error;
   await savePrincipalHistoryPrefix({
+    indexRootHash: history.value.indexRootHash,
     execSql: options.execSql,
     prefix: { ...prefix, progress: sealed.value },
     stillCurrent: () => !options.signal?.aborted && options.stillCurrent(),

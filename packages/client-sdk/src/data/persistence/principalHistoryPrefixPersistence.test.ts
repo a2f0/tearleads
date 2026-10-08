@@ -1,6 +1,8 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { isProjectionVerificationCancelledError } from "../keyingProjectionVerification/types";
+import { principalHistoryRootOwners } from "../sqlite/principalHistoryNodeRetentionSchema";
+import { getClientSQLitePersistenceRuntime } from "../sqlite/sqlitePersistenceRuntime";
 import {
   discardPrincipalHistoryPrefix,
   loadPrincipalHistoryPrefix,
@@ -44,21 +46,30 @@ test("obsolete prefix schemas require the repository's explicit database reset",
 
 test("older completion and stale discard preserve the newest completed prefix", async () => {
   const sqlite = await createTestExecSql("principal-prefix-concurrency");
-  const input = { execSql: sqlite.execSql, stillCurrent: () => true };
+  const input = {
+    indexRootHash: "opaque-index-root",
+    execSql: sqlite.execSql,
+    stillCurrent: () => true,
+  };
   try {
     const previous = prefix(32);
     const latest = prefix(66);
     await savePrincipalHistoryPrefix({ ...input, prefix: previous });
     await savePrincipalHistoryPrefix({ ...input, prefix: latest });
+    const { db } = getClientSQLitePersistenceRuntime(sqlite.execSql);
+    const owners = await db.select().from(principalHistoryRootOwners);
+    expect(owners).toHaveLength(1);
     await savePrincipalHistoryPrefix({ ...input, prefix: previous });
     expect(
       await loadPrincipalHistoryPrefix(sqlite.execSql, latest.scopeId),
     ).toEqual(latest);
     await discardPrincipalHistoryPrefix({ ...input, prefix: previous });
+    expect(await db.select().from(principalHistoryRootOwners)).toEqual(owners);
     expect(
       await loadPrincipalHistoryPrefix(sqlite.execSql, latest.scopeId),
     ).toEqual(latest);
     await discardPrincipalHistoryPrefix({ ...input, prefix: latest });
+    expect(await db.select().from(principalHistoryRootOwners)).toEqual([]);
     expect(
       await loadPrincipalHistoryPrefix(sqlite.execSql, latest.scopeId),
     ).toBeNull();
@@ -69,7 +80,11 @@ test("older completion and stale discard preserve the newest completed prefix", 
 
 test("a rebuilt root at the same version can repair a completed prefix", async () => {
   const sqlite = await createTestExecSql("principal-prefix-repair");
-  const input = { execSql: sqlite.execSql, stillCurrent: () => true };
+  const input = {
+    indexRootHash: "opaque-index-root",
+    execSql: sqlite.execSql,
+    stillCurrent: () => true,
+  };
   try {
     const previous = prefix(66);
     const repaired = { ...previous, progress: "repaired-authenticated-prefix" };
@@ -88,7 +103,11 @@ test.each([false, true])(
   "a lower replay replaces only its rejected prefix: superseded=%s",
   async (superseded) => {
     const sqlite = await createTestExecSql("principal-prefix-lower-repair");
-    const input = { execSql: sqlite.execSql, stillCurrent: () => true };
+    const input = {
+      indexRootHash: "opaque-index-root",
+      execSql: sqlite.execSql,
+      stillCurrent: () => true,
+    };
     try {
       const rejected = prefix(66);
       const replacement = prefix(32);
@@ -118,7 +137,11 @@ test.each(["save", "discard"] as const)(
   async (operation) => {
     const sqlite = await createTestExecSql("principal-prefix-lifetime");
     const previous = prefix(32);
-    const input = { execSql: sqlite.execSql, stillCurrent: () => false };
+    const input = {
+      indexRootHash: "opaque-index-root",
+      execSql: sqlite.execSql,
+      stillCurrent: () => false,
+    };
     try {
       await savePrincipalHistoryPrefix({
         ...input,

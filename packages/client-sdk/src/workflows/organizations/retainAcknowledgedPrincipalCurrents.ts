@@ -96,6 +96,7 @@ async function restorePredecessor(
     artifacts,
     verifier: restored.value,
     previous: previous.value,
+    predecessorIndexRootHash: history.value.indexRootHash,
   };
 }
 
@@ -113,8 +114,14 @@ async function preparePublication(
   };
   const current = () => !options.signal?.aborted && options.stillCurrent();
   assertProjectionVerificationCurrent(current);
-  const { scopeId, saved, artifacts, verifier, previous } =
-    await restorePredecessor(options);
+  const {
+    scopeId,
+    saved,
+    artifacts,
+    verifier,
+    previous,
+    predecessorIndexRootHash,
+  } = await restorePredecessor(options);
   const expectedHead = await groupPolicyMutationHead(request);
   assertPrincipalPolicyReceiptArtifacts({ expectedHead, request, response });
   const keys = await collectPrincipalPolicySignerPublicKeys({
@@ -170,8 +177,10 @@ async function preparePublication(
     policy,
     previousPrefixProgress: saved.progress,
     predecessorStage,
+    predecessorIndexRootHash,
     ...sealed,
     evidence: await preparePrincipalHistoryEvidencePage({
+      indexRootHash: appended.value.indexRootHash,
       scopeId,
       organizationId: options.organizationId,
       entries: [entry],

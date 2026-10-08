@@ -137,9 +137,9 @@ can publish over another accepted page. Normal browsing creates at most one
 stage per exact head and trust context. Completed-prefix publication and current
 acknowledgements retain two completed heads and reclaim older stages in bounded
 transactions, preserving historical key envelopes. See
-[cache retention](principal-history-cache.md) for indexing, atomicity and offline
-behavior, including bounded incomplete and completed-attempt retention. Obsolete
-proof-index reclamation remains pending in #2448.
+[cache retention](principal-history-cache.md) for indexing, atomicity, offline
+behavior and bounded stage and proof cleanup. Saved roots retain their shared
+proof nodes and signed entries.
 
 Reusable progress has no embedded checkpoint or reference selection. At finish,
 recovery obtains each requested entry and the latest local checkpoint through
@@ -156,8 +156,8 @@ already have written provisional pages, but cannot publish a prefix or advance
 an application checkpoint.
 
 Older progress with obsolete checkpoint/reference bindings may require replay.
-Page and proof counts do not bound entry size or total bytes. Further cache
-reclamation and byte/work scheduling remain tracked in #2448.
+Page and proof counts do not bound entry size or total bytes. Byte/work scheduling
+and broader resource acceptance remain tracked in #2448.
 
 `historyVerification: "direct-admins"` checks every accepted historical projection
 for a nonempty set containing only direct admin users. It only accepts groups
