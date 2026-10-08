@@ -56,17 +56,11 @@ const OWNER_GRANTED_ROOT_ATTACHMENT_REQUEST_BUDGET: ProxiedApiRequestBudget = {
   // Measure after provisioning/roster import, including background settlement.
   // Retain headroom for independently scheduled verification/recovery pulls.
   // See docs/request-budget-closeout.md for phase, byte and sync-intent data.
-  // Recalibrated after the #2266 audit fixes (#2275-#2277): signed-destination
-  // and historical-path verification re-read a few more projections and
-  // policies. Measured 71-73 on main at fe7f09962.
-  // Compact history adds 70 public-head reads in this measured workflow.
-  total: 146,
-  // Responses measure 1.95-1.96 MB on main at b130fe729 with this change. A
-  // peer's re-cite now evicts only the writer projections citing the re-cited
-  // container (#2395), so discovery no longer re-reads the shared note's
-  // projection it has just verified (7 document projection reads, not 8).
-  // Bytes and the route below keep headroom for two extra such reads.
-  bodyBytes: { request: 380_000, response: 2_400_000 },
+  // Private metadata-root authority now uses bounded directory/Admins reads.
+  // Measured 182 calls and 3.56 MB received; keep eight calls of scheduling room.
+  total: 190,
+  // Preserve the request-byte cap and room for two extra document projections.
+  bodyBytes: { request: 380_000, response: 3_900_000 },
   byRequest: {
     "GET /principals/history": 70,
     "GET /documents/:documentId/writer-projection": 9,
@@ -85,7 +79,8 @@ const OWNER_GRANTED_ROOT_ATTACHMENT_REQUEST_BUDGET: ProxiedApiRequestBudget = {
     "GET /documents/:documentId/attachments": 2,
     "GET /organizations/:organizationId/billing": 0,
     "GET /organizations/:organizationId/read-model": 6,
-    "GET /principals/group/:groupId/policy": 0,
+    "GET /principals/group/:groupId/policy": 25,
+    "GET /principals/organization/:organizationId/policy": 44,
     "GET /organizations/:organizationId/groups": 0,
     "POST /containers/with-metadata-document": 1,
     "POST /containers/:containerId/share": 1,

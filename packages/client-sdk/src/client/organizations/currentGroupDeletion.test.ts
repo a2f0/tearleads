@@ -6,6 +6,7 @@ import {
   signedAuthorityRecoveryHistory,
 } from "../../../test/helpers/principalAuthorityRecovery";
 import { policyBundleAfterMutation } from "../../../test/helpers/principalPolicyFixtures";
+import { ProjectionDependencyUnavailableError } from "../../data/keyingProjectionVerification/dependencyUnavailable";
 import { loadPrincipalPolicyCheckpoint } from "../../data/persistence/keyingCheckpointPersistence";
 import { parseOrganizationAuthorityDescriptor } from "../../data/principals/organizationAuthorityDescriptor";
 import { deleteGroupForOrganization } from "./principalMutations";
@@ -108,43 +109,34 @@ async function fixture(custody = true) {
   };
 }
 
-test.each([true, false])(
-  "group deletion uses bounded custody when available (custody=%s)",
-  async (custody) => {
-    const f = await fixture(custody);
-    try {
-      const result = await deleteGroupForOrganization(f.input);
-      expect(result.groupId).toBe(f.input.groupId);
-      expect(result.organizationPolicy.currentState.version).toBe(67);
-      expect(
-        parseOrganizationAuthorityDescriptor(
-          result.organizationPolicy.currentPayload.ciphertext,
-        ).groupHeads.some((head) => head.principalId === f.input.groupId),
-      ).toBe(false);
-      expect(f.state.writes).toBe(1);
-      if (custody) {
-        expect(f.state.fullReads).toBe(0);
-        expect(
-          f.requests.some((request) => request.principalId === f.input.groupId),
-        ).toBe(false);
-        expect(f.requests.every((request) => request.count <= 32)).toBe(true);
-      } else {
-        expect(f.state.fullReads).toBeGreaterThan(0);
-        expect(f.requests).toHaveLength(0);
-      }
-      expect(
-        await loadPrincipalPolicyCheckpoint(
-          f.options.execSql,
-          "organization",
-          history.organizationId,
-        ),
-      ).toMatchObject({ version: 67 });
-    } finally {
-      f.close();
-    }
-  },
-  15_000,
-);
+test("group deletion uses private bounded custody", async () => {
+  const f = await fixture();
+  try {
+    const result = await deleteGroupForOrganization(f.input);
+    expect(result.groupId).toBe(f.input.groupId);
+    expect(result.organizationPolicy.currentState.version).toBe(67);
+    expect(
+      parseOrganizationAuthorityDescriptor(
+        result.organizationPolicy.currentPayload.ciphertext,
+      ).groupHeads.some((head) => head.principalId === f.input.groupId),
+    ).toBe(false);
+    expect(f.state.writes).toBe(1);
+    expect(f.state.fullReads).toBe(0);
+    expect(
+      f.requests.some((request) => request.principalId === f.input.groupId),
+    ).toBe(false);
+    expect(f.requests.every((request) => request.count <= 32)).toBe(true);
+    expect(
+      await loadPrincipalPolicyCheckpoint(
+        f.options.execSql,
+        "organization",
+        history.organizationId,
+      ),
+    ).toMatchObject({ version: 67 });
+  } finally {
+    f.close();
+  }
+}, 15_000);
 
 test.each(["corrupt", "expire", "expireCaller"] as const)(
   "current group deletion rejects %s receipt before successor admission",
@@ -245,21 +237,15 @@ test.each(["wrongGroup", "wrongOrganization"] as const)(
   },
 );
 
-test("fallback deletion refuses retention after its caller expires", async () => {
+test("deletion without private custody refuses before reading or writing policy", async () => {
   const f = await fixture(false);
-  f.state.expireCaller = true;
   try {
-    await expect(deleteGroupForOrganization(f.input)).rejects.toThrow(
-      "generation expired",
+    await expect(deleteGroupForOrganization(f.input)).rejects.toBeInstanceOf(
+      ProjectionDependencyUnavailableError,
     );
-    expect(f.state.writes).toBe(1);
-    expect(
-      await loadPrincipalPolicyCheckpoint(
-        f.options.execSql,
-        "organization",
-        history.organizationId,
-      ),
-    ).toMatchObject({ version: 66 });
+    expect(f.state.writes).toBe(0);
+    expect(f.state.fullReads).toBe(0);
+    expect(f.requests).toHaveLength(0);
   } finally {
     f.close();
   }

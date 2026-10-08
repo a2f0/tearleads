@@ -11,7 +11,12 @@ import {
   createWorkflowInputFixture,
 } from "../../../test/helpers/internalRuntimeFixtures";
 import { organizationReadModelSnapshot } from "../../../test/helpers/organizationReadModelProjectionFixtures";
+import {
+  repairPolicyPages,
+  repairProtectionLease,
+} from "../../../test/helpers/principalPolicyRepair";
 import { sqlDocumentMoveIntentPersistence } from "../../data/persistence/container-contents/documentMoveIntentPersistence";
+import { inheritPrincipalHistoryProtection } from "../../data/principals/principalHistoryRuntime";
 import {
   ensureDocumentTables,
   recordDocumentSyncFailure,
@@ -144,30 +149,33 @@ test("name hydration failure cannot consume the denied-access write recovery edg
     organizationId: fixture.organizationId,
     requesterUserId: fixture.userId,
   };
+  const pages = repairPolicyPages([
+    fixture.organization,
+    ...Object.values(fixture.servedGroups),
+  ]);
   const input = createWorkflowInputFixture({
     apiClient: createMockApiClient({
       getOrganizationReadModelResult: async () => ({
         data: fixture.snapshot,
         ok: true,
       }),
-      getCurrentPrincipalPolicy: async (type, id) => {
-        if (type === "organization" && tamperSignature) {
-          rejectedPolicyReads += 1;
-          expect(
-            wasOrganizationPresentationAccessDeniedByServer(
-              access,
-              "readModel",
-            ),
-          ).toBe(false);
-          return {
-            ...fixture.organization,
-            currentState: {
-              ...fixture.organization.currentState,
-              signature: "tampered-signature",
-            },
-          };
+      getCurrentPrincipalPolicy: async () => {
+        throw new Error("Unexpected full principal history read");
+      },
+      getPrincipalPolicyPages: async function* (...args) {
+        for await (const page of pages.apply(this, args)) {
+          if (page.ok && args[0] === "organization" && tamperSignature) {
+            rejectedPolicyReads += 1;
+            expect(
+              wasOrganizationPresentationAccessDeniedByServer(
+                access,
+                "readModel",
+              ),
+            ).toBe(false);
+            page.data.currentState.signature = "tampered-signature";
+          }
+          yield page;
         }
-        return fixture.apiClient.getCurrentPrincipalPolicy(type, id);
       },
     }),
     auth: { organizationId: fixture.organizationId, userId: fixture.userId },
@@ -177,13 +185,16 @@ test("name hydration failure cannot consume the denied-access write recovery edg
       logs.push(args);
     },
   });
-  const workflowInput = {
-    ...input,
-    crypto: {
-      ...input.crypto,
-      encapsulationKeyPair: generateKemSeedAndKeyPair(),
+  const workflowInput = inheritPrincipalHistoryProtection(
+    { withPrincipalHistoryProtection: repairProtectionLease() },
+    {
+      ...input,
+      crypto: {
+        ...input.crypto,
+        encapsulationKeyPair: generateKemSeedAndKeyPair(),
+      },
     },
-  };
+  );
   const domainScope = workflowInput.state.domainScope;
   try {
     await parkDeniedWritesAndMoves(execSql, fixture.organizationId);

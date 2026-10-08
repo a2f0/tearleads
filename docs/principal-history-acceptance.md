@@ -72,6 +72,16 @@ The log records wall time, HTTP latency and bytes, SQL statements and isolated
 server memory samples. It reports retained heap after explicit GC separately
 from sampled RSS and heap peaks. See [measurement details](principal-history-transport.md#measuring-http-work).
 
+## Ordinary workflow cost
+
+Private metadata-root authority checks add bounded directory and group reads.
+The app's request-budget regressions measure 42 calls for one small Explorer
+upload, 93 for personal organization bootstrap, 200–204 for an Admins enrollment,
+and 182 for the attachment-sharing scenario. The last two workflows receive
+about 4.35 MB and 3.56 MB respectively across their requests. Their explicit
+per-route and aggregate budgets retain mutation-count and response-byte checks.
+These are fixed fixtures, not estimates for arbitrary policy sizes.
+
 ## Limits of the evidence
 
 These are local HTTP and network-database tests, not measurements of deployed

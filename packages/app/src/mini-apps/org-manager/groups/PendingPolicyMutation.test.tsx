@@ -41,6 +41,7 @@ async function fixture() {
   // The provider supplies already-authenticated authored work. This fixture tests
   // presentation and exact object forwarding; SDK/HTTP tests verify signatures.
   const mutation: AuthoredPrincipalMutation = {
+    kind: "compound",
     groupId: group.groupId,
     request: {
       groupPolicy: group.initialGroupPolicy,

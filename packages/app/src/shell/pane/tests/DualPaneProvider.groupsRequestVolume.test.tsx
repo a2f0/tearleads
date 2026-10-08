@@ -63,22 +63,21 @@ const ADMIN_GROUP_OPEN_REQUEST_BUDGET: ProxiedApiRequestBudget = {
 // a separately committed repair would reintroduce the recovery gap this flow is
 // meant to close.
 const ADMIN_GROUP_MUTATION_REQUEST_BUDGET = {
-  // Compact projections add 84 bounded public-history reads to the existing
-  // 63-request allowance. Bounded label hydration also reads current directory
-  // pages. Sharing verified directory discovery within the mutation batch
-  // keeps completed reads within 147 calls; preparation may add one 202.
-  total: 147,
+  // Private metadata-root authority adds bounded directory/Admins reads to
+  // compact projection recovery. Measured completed calls are 199–203; allow
+  // one extra destination check. Preparation continuations are counted below.
+  total: 207,
   // Public parent keys measure 389.5 KB sent with one descendant recitation;
   // retain room for the second 60 KB recitation already allowed below.
   // Completing child hydration adds the peer's system-slot proofs and their
-  // metadata paths and retained public policy proofs: 2.95 MB received. Each
+  // metadata paths and private current policy proofs: 4.35 MB received. Each
   // document carries one shared proof bundle for all of its authorizing paths.
-  bodyBytes: { request: 450_000, response: 3_100_000 },
+  bodyBytes: { request: 450_000, response: 4_500_000 },
   byRequest: {
     "GET /principals/history": 84,
     "GET /containers": 0,
     "POST /containers/parent-lanes/query": 8,
-    "GET /principals/group/:groupId/policy": 9,
+    "GET /principals/group/:groupId/policy": 33,
     "GET /containers/:containerId/documents": 6,
     "GET /documents/:documentId/writer-projection": 9,
     "POST /documents/:documentId/sync": 12,
@@ -94,7 +93,7 @@ const ADMIN_GROUP_MUTATION_REQUEST_BUDGET = {
     "GET /organizations/:organizationId/data-usage": 0,
     "GET /organizations/:organizationId/grants": 0,
     "GET /organizations/:organizationId/billing": 1,
-    "GET /principals/organization/:organizationId/policy": 9,
+    "GET /principals/organization/:organizationId/policy": 45,
     "POST /containers/:containerId/share": 0,
     "PUT /organizations/:organizationId/groups/:groupId/policy-commit": 2,
     "POST /containers/:containerId/recite": 2,
