@@ -80,19 +80,22 @@ test("failed paged verification never falls back to an available full group hist
   }
 });
 
-test("a host without page custody refuses a cursor before reading local or remote history", async () => {
-  const input = createWorkflowInputFixture({
-    apiClient: createMockApiClient({}),
-    auth: { organizationId: "org-a", userId: "user-a" },
-    execSql: unavailableExecSql,
-  });
-  const coordinator = createOrganizationReadModelCoordinator(
-    createInternalRuntimeFixture(() => input),
-  );
-  await expect(
-    coordinator.loadGroupPolicyHistory("group-a", "org-a", 3),
-  ).rejects.toMatchObject({ code: "invalid_shape" });
-});
+test.each([undefined, 3])(
+  "a host without page custody refuses group history before any read: %s",
+  async (beforeVersion) => {
+    const input = createWorkflowInputFixture({
+      apiClient: createMockApiClient({}),
+      auth: { organizationId: "org-a", userId: "user-a" },
+      execSql: unavailableExecSql,
+    });
+    const coordinator = createOrganizationReadModelCoordinator(
+      createInternalRuntimeFixture(() => input),
+    );
+    await expect(
+      coordinator.loadGroupPolicyHistory("group-a", "org-a", beforeVersion),
+    ).rejects.toBeInstanceOf(ProjectionDependencyUnavailableError);
+  },
+);
 
 test("organization history enriches online and preserves verified local entries offline", async () => {
   const data = await createOrganizationHistoryFixture();

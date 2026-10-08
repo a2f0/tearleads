@@ -29,6 +29,29 @@ It does not interpret older compound records with a missing kind. New regression
 also prove that an unprotected complete local bundle cannot replace private
 runtime recovery.
 
+## Measured boundary runs
+
+Both isolated runs passed 4,142 assertions and 4,631 HTTP requests with no
+15-second deadline failures. They used revision `dab40b58d629` on macOS with
+SQLite and a separate local PostgreSQL server. Later runtime prefetch and metadata
+repairs have separate focused regressions; these measurements describe that
+revision, fixture and machine.
+
+| Measurement | SQLite | Networked PostgreSQL |
+| --- | ---: | ---: |
+| Complete run, including signed fixture generation | 26m 29s | 32m 38s |
+| Slowest HTTP request | 1.10 s | 4.36 s |
+| Maximum SQL statements in one request | 413 | 423 |
+| Largest mutation response | 101,151 bytes | 101,151 bytes |
+| Largest cold recovery response | 325,825 bytes | 325,825 bytes |
+| Maximum sampled server RSS | 307,347,456 bytes | 307,134,464 bytes |
+| Maximum sampled server heap | 120,313,895 bytes | 133,499,904 bytes |
+| Maximum retained server heap after GC | 32,950,618 bytes | 34,656,881 bytes |
+
+The runs covered the mutation after API restart, revoked-reader denial, and cold
+historical decryption after cache loss. Independent process tests also passed
+for uncertain journal outcomes on both database backends.
+
 ## Reproduction
 
 Build the SDK before API tests. From `packages/api`, use a dedicated fixture
