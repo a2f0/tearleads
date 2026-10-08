@@ -26,6 +26,7 @@ interface CurrentOrganizationAuthorityInput {
   readonly organizationId: string;
   readonly organizationReference?: ReferencedPrincipalHead | null | undefined;
   readonly resolveCurrentPolicy: CurrentPolicyResolver;
+  readonly recoveryBatch?: object | undefined;
   readonly stillCurrent: () => boolean;
 }
 
@@ -39,7 +40,7 @@ export async function loadCurrentOrganizationAuthority(
       "organization",
       input.organizationId,
     );
-  const recoveryBatch = {};
+  const recoveryBatch = input.recoveryBatch ?? {};
   const resolve = (reference?: ReferencedPrincipalHead | null) =>
     input.resolveCurrentPolicy({
       organizationId: input.organizationId,
