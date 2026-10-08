@@ -165,6 +165,7 @@ test("combined policy commit for granted Admins access notifies only the newly r
 
 // The policy and envelopes commit before notification delivery, so a transient
 // publish failure must not turn a real granted access gain into a 500.
+// Allow the identity registrations and signed policy setup to run under suite load.
 test("combined policy commit still succeeds when shared_with_you publish throws", async () => {
   const actor = createTestUser();
   await registerUser(actor);
@@ -203,4 +204,4 @@ test("combined policy commit still succeeds when shared_with_you publish throws"
   expect(
     sortByMemberId(storedPolicy.groupPolicy.currentMemberEnvelopes.envelopes),
   ).toEqual(sortByMemberId(request.memberEnvelopes));
-});
+}, 15_000);

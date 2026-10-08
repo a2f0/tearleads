@@ -143,7 +143,9 @@ async function recoverScopedPolicy(
         }),
     ...(isAdmins ? {} : { loadExternalAuthority }),
   };
-  const recovered = await recoverPrincipalPolicyHistory(recoveryOptions);
+  const recovered = isAdmins
+    ? await read.admins(expectedHead, [input.reference])
+    : await recoverPrincipalPolicyHistory(recoveryOptions);
   return {
     ...recovered,
     dependencies: admins ? [directory.policy, admins] : [directory.policy],
@@ -152,7 +154,7 @@ async function recoverScopedPolicy(
 }
 
 /** Recover signed directory and strict Admins dependencies without full histories. */
-export async function recoverScopedPrincipalPolicyHistoryInBatch(
+async function recoverScopedPrincipalPolicyHistoryInBatch(
   options: RecoverScopedPrincipalPolicyHistoryOptions,
   memo?: PrincipalRecoveryMemo,
 ): Promise<RecoveredScopedPrincipalPolicyHistory> {
@@ -228,4 +230,14 @@ async function selectDisplayHistory(
       input.historyPage.beforeVersion ?? input.reference.version + 1,
     ),
   };
+}
+
+/** Internal runtime batch: shared results never outlive one caller's collection. */
+export function createScopedPrincipalPolicyHistoryBatch(
+  memo: PrincipalRecoveryMemo = {
+    directories: new Map(),
+    admins: new Map(),
+  },
+): typeof recoverScopedPrincipalPolicyHistory {
+  return (options) => recoverScopedPrincipalPolicyHistoryInBatch(options, memo);
 }

@@ -8,6 +8,7 @@ import {
   readJournaledPrincipalMutation,
 } from "../workflows/organizations/principalMutationJournalManagement";
 import { recoverJournaledPrincipalMutation } from "../workflows/organizations/principalMutationJournalSession";
+import { createPrincipalMutationDispatcher } from "./principalMutationDeadline";
 import {
   createJournaledPrincipalMutations,
   dispatchAuthoredPrincipalMutation,
@@ -47,6 +48,7 @@ type MutationOverrides = JournaledPrincipalMutationMethods &
 interface PrincipalMutationApiCustodyInput {
   readonly api: ApiClient;
   readonly readScope: () => PrincipalMutationRuntimeScope | null;
+  readonly principalMutationTimeoutMs?: number | undefined;
 }
 
 function mutationContext(
@@ -75,6 +77,9 @@ function mutationContext(
 export function createPrincipalMutationApiCustody(
   input: PrincipalMutationApiCustodyInput,
 ) {
+  const dispatch = createPrincipalMutationDispatcher(
+    input.principalMutationTimeoutMs,
+  );
   let cached: {
     scope: PrincipalMutationRuntimeScope | null;
     api: PrincipalMutationApi;
@@ -98,7 +103,7 @@ export function createPrincipalMutationApiCustody(
             acknowledgeUnknownOutcome,
           });
       const methods = {
-        ...createJournaledPrincipalMutations(input.api, context),
+        ...createJournaledPrincipalMutations(input.api, context, dispatch),
         discardUnreadablePrincipalMutation: async (
           organizationId,
           recordId,
@@ -115,11 +120,13 @@ export function createPrincipalMutationApiCustody(
           await recoverJournaledPrincipalMutation({
             ...context(organizationId),
             submit: (mutation) =>
-              dispatchAuthoredPrincipalMutation(
-                input.api,
-                organizationId,
-                mutation,
-                { reportErrors: false },
+              dispatch({ reportErrors: false }, (dispatchOptions) =>
+                dispatchAuthoredPrincipalMutation(
+                  input.api,
+                  organizationId,
+                  mutation,
+                  dispatchOptions,
+                ),
               ),
           });
         },

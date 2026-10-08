@@ -5,8 +5,15 @@ import {
   waitForDomainSyncCoordinatorToSettle,
 } from "@tearleads/client-sdk";
 import { useEffect } from "react";
-import { useTearleadsRuntime } from "../../src/providers/sdk/TearleadsProvider";
+import {
+  useTearleads,
+  useTearleadsRuntime,
+} from "../../src/providers/sdk/TearleadsProvider";
 import { getProxiedApiNetworkActivitySnapshot } from "./mswServer";
+import {
+  hasPendingOrganizationRuntimeWork,
+  observeOrganizationRuntime,
+} from "./organizationRuntimeIdle";
 
 interface AppTestRuntimeSettleOptions {
   apiQuietMs?: number;
@@ -146,7 +153,8 @@ async function waitForAppTestRuntimeFinalDrain(input: {
     if (
       activity.activeRequestCount === 0 &&
       activity.completedRequestCount === lastCompletedRequestCount &&
-      !hasObservedDomainSyncPendingWork()
+      !hasObservedDomainSyncPendingWork() &&
+      !hasPendingOrganizationRuntimeWork()
     ) {
       if (Date.now() - quietStartedAt >= quietMs) {
         return true;
@@ -163,9 +171,12 @@ async function waitForAppTestRuntimeFinalDrain(input: {
 }
 
 export function AppTestRuntimeScopeProbe() {
+  const tearleads = useTearleads();
   const {
     state: { domainScope },
   } = useTearleadsRuntime();
+
+  useEffect(() => observeOrganizationRuntime(tearleads), [tearleads]);
 
   useEffect(() => {
     activeDomainScopeMountCounts.set(

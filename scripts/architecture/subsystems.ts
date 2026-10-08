@@ -440,6 +440,7 @@ export const subsystems: readonly Subsystem[] = [
       `${sdk}/client/principalHistoryProtection.ts`,
       `${sdk}/client/principalMutationApi.ts`,
       `${sdk}/client/principalMutationDispatch.ts`,
+      `${sdk}/client/principalMutationDeadline.ts`,
       `${sdk}/client/database.ts`,
       `${sdk}/client/events.ts`,
       `${sdk}/client/network.ts`,

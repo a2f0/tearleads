@@ -1,5 +1,6 @@
 import { afterEach, expect, test } from "bun:test";
-import { cleanup, within } from "@testing-library/react";
+import { act, cleanup, within } from "@testing-library/react";
+import { waitForAppTestRuntimeToSettle } from "../../../../test/helpers/appRuntimeIdle";
 import {
   DUAL_PANE_ATTACHMENT_TEST_TIMEOUT_MS,
   generatePaneKeyPairFromMenu,
@@ -47,7 +48,8 @@ for (const delayed of [false, true]) {
   test(
     `a recovered identity edits an attached note with ${delayed ? "delayed" : "live"} sync`,
     async () => {
-      useTestApiAppHandlers();
+      // Keep authentication and recovered hydration observably separate.
+      useTestApiAppHandlers({ responseDelayMs: 100 });
       const view = renderDualPane({ autoProvisionRight: false });
       const primary = getPaneRoot(view, "left");
       const secondary = getPaneRoot(view, "right");
@@ -78,6 +80,12 @@ for (const delayed of [false, true]) {
         "Recovered device did not restore the same user.",
         20_000,
       );
+      // Authentication precedes recovered container and document hydration.
+      let recovered = false;
+      await act(async () => {
+        recovered = await waitForAppTestRuntimeToSettle({ timeoutMs: 30_000 });
+      });
+      expect(recovered).toBe(true);
       await openExplorer(secondary);
       await selectContainerAndWaitForItemTable(secondary, "/");
       await selectExplorerNoteByName(secondary, title);
