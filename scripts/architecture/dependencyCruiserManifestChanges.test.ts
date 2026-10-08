@@ -6,7 +6,7 @@ import { createDependencyCruiserOptions } from "./dependencyCruiserConfig";
 
 const cruiserBin = resolve(
   import.meta.dir,
-  "../../node_modules/dependency-cruiser/bin/dependency-cruise.mjs",
+  "../../node_modules/.bin/depcruise",
 );
 
 test("dependency scans observe manifest-only changes without source edits", async () => {

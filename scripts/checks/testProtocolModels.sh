@@ -62,13 +62,29 @@ run_check() (
     PATH="$TEST_ROOT/bin:$PATH" \
     FAKE_JAVA="$TEST_ROOT/bin/java" \
     FAKE_JAVA_LOG="$JAVA_LOG" \
+    FAKE_JAVA_VERSION="${FAKE_JAVA_VERSION:-25.0.4.1}" \
     FAKE_TLA_TOOLS_ROOT="$TEST_ROOT/tla-tools" \
+    JAVA_BIN="$TEST_ROOT/bin/java" \
+    TLA_TOOLS_ROOT="$TEST_ROOT/tla-tools" \
     FAKE_FAIL_CONFIG="${FAKE_FAIL_CONFIG:-}" \
     FAKE_FAIL_MODEL="${FAKE_FAIL_MODEL:-}" \
     FAKE_FAIL_STATUS="${FAKE_FAIL_STATUS:-}" \
     PROTOCOL_TLC_FAILURE_LOG_DIR="${PROTOCOL_TLC_FAILURE_LOG_DIR:-}" \
     PROTOCOL_TLC_PARALLELISM="${PROTOCOL_TLC_PARALLELISM:-}" \
     TLA_TOOLS_JAR_SHA256="${TLA_TOOLS_JAR_SHA256:-$FIXTURE_JAR_SHA256}" \
+    "$CHECK_SCRIPT"
+)
+
+run_check_with_mise() (
+  cd "$TEST_ROOT"
+  unset JAVA_BIN TLA_TOOLS_ROOT
+  TMPDIR="$TEST_ROOT/tmp" \
+    PATH="$TEST_ROOT/bin:$PATH" \
+    FAKE_JAVA="$TEST_ROOT/bin/java" \
+    FAKE_JAVA_LOG="$JAVA_LOG" \
+    FAKE_JAVA_VERSION="${FAKE_JAVA_VERSION:-25.0.4.1}" \
+    FAKE_TLA_TOOLS_ROOT="$TEST_ROOT/tla-tools" \
+    TLA_TOOLS_JAR_SHA256="$FIXTURE_JAR_SHA256" \
     "$CHECK_SCRIPT"
 )
 
@@ -93,6 +109,19 @@ assert_validation_failure() {
   assert_contains "$validation_output" "$expected"
   [ ! -e "$JAVA_LOG" ] || fail "$registry launched Java before validation finished."
 }
+
+install_registry valid.txt
+mise_output=$(run_check_with_mise)
+assert_contains "$mise_output" "Checked 3 protocol model configuration(s)."
+
+for wrong_java_version in 11 25.0.40; do
+  install_registry valid.txt
+  if wrong_java_output=$(FAKE_JAVA_VERSION=$wrong_java_version run_check 2>&1); then
+    fail "an unpinned JAVA_BIN override was accepted."
+  fi
+  assert_contains "$wrong_java_output" "does not report the pinned Java"
+  [ ! -e "$JAVA_LOG" ] || fail "an unpinned Java launched a protocol model."
+done
 
 install_registry valid.txt
 valid_output=$(run_check)
@@ -197,6 +226,8 @@ install_registry valid.txt
     FAKE_JAVA_LOG="$JAVA_LOG" \
     FAKE_JAVA_HANG=1 \
     FAKE_TLA_TOOLS_ROOT="$TEST_ROOT/tla-tools" \
+    JAVA_BIN="$TEST_ROOT/bin/java" \
+    TLA_TOOLS_ROOT="$TEST_ROOT/tla-tools" \
     TLA_TOOLS_JAR_SHA256="$FIXTURE_JAR_SHA256" \
     "$CHECK_SCRIPT"
 ) >/dev/null 2>&1 &

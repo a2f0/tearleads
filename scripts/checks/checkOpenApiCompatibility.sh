@@ -14,10 +14,29 @@ fail() {
 REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null) ||
   fail "OpenAPI compatibility must run inside a Git repository."
 
+script_dir=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)
 cd "$REPO_ROOT"
 
-command -v mise >/dev/null 2>&1 ||
-  fail "mise is unavailable. Install mise, then run 'mise install github:oasdiff/oasdiff'."
+if [ -n "${OASDIFF_BIN:-}" ]; then
+  [ -x "$OASDIFF_BIN" ] || fail "OASDIFF_BIN is not executable: $OASDIFF_BIN"
+  oasdiff_pin=$(sed -n 's/^"github:oasdiff\/oasdiff" = "\([^"]*\)"$/\1/p' "$script_dir/../../.mise.toml")
+  [ -n "$oasdiff_pin" ] || fail "could not read the oasdiff pin from .mise.toml."
+  oasdiff_version=$("$OASDIFF_BIN" --version) ||
+    fail "OASDIFF_BIN could not report its version."
+  [ "$oasdiff_version" = "oasdiff version $oasdiff_pin" ] ||
+    fail "OASDIFF_BIN reports '$oasdiff_version'; expected oasdiff version $oasdiff_pin."
+else
+  command -v mise >/dev/null 2>&1 ||
+    fail "mise is unavailable. Install mise, then run 'mise install github:oasdiff/oasdiff'."
+fi
+
+run_oasdiff() {
+  if [ -n "${OASDIFF_BIN:-}" ]; then
+    "$OASDIFF_BIN" "$@"
+  else
+    mise exec github:oasdiff/oasdiff -- oasdiff "$@"
+  fi
+}
 
 [ -f "$OPENAPI_PATH" ] || fail "$OPENAPI_PATH does not exist."
 
@@ -54,7 +73,6 @@ command -v bun >/dev/null 2>&1 ||
 # including runtime-refinement direction and request maxItems tightening. The
 # helper lives next to this script, not in $REPO_ROOT, so fixture repositories
 # exercise the real implementation.
-script_dir=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)
 base_spec_file=$(mktemp "${TMPDIR:-/tmp}/openapi-base.XXXXXX")
 trap 'rm -f "$base_spec_file"' EXIT
 git cat-file blob "$base_spec" >"$base_spec_file"
@@ -92,7 +110,7 @@ if [ -f "$ERROR_IGNORE_PATH" ]; then
       { print }
     ' "$ERROR_IGNORE_PATH" >"$reduced_ignore"
     reduced_exit=0
-    mise exec github:oasdiff/oasdiff -- oasdiff "$@" \
+    run_oasdiff "$@" \
       --err-ignore "$reduced_ignore" \
       --warn-ignore "$reduced_ignore" \
       --format text --color never >"$reduced_output" 2>&1 ||
@@ -119,4 +137,4 @@ else
   set -- "$@" --format text --color never
 fi
 
-exec mise exec github:oasdiff/oasdiff -- oasdiff "$@"
+run_oasdiff "$@"

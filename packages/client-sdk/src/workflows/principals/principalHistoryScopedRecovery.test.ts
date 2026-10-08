@@ -1,5 +1,6 @@
 import { beforeAll, expect, test } from "bun:test";
 import {
+  AUTHORITY_RECOVERY_SETUP_TIMEOUT_MS,
   createAuthorityRecoveryFixture,
   signedAuthorityRecoveryHistory,
 } from "../../../test/helpers/principalAuthorityRecovery";
@@ -11,7 +12,7 @@ import { recoverScopedPrincipalPolicyHistory } from "./recoverScopedPrincipalPol
 let history: Awaited<ReturnType<typeof signedAuthorityRecoveryHistory>>;
 beforeAll(async () => {
   history = await signedAuthorityRecoveryHistory();
-}, 30_000);
+}, AUTHORITY_RECOVERY_SETUP_TIMEOUT_MS);
 
 test("scoped recovery pages directory, strict Admins and an externally authorized group", async () => {
   const fixture = await createAuthorityRecoveryFixture(history);

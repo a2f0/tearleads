@@ -7,7 +7,7 @@ import { workspaceRegistry } from "./workspaceRegistry";
 
 const cruiserBin = resolve(
   import.meta.dir,
-  "../../node_modules/dependency-cruiser/bin/dependency-cruise.mjs",
+  "../../node_modules/.bin/depcruise",
 );
 
 test("runtime dependency policy covers every lane and preserves test/type imports", async () => {

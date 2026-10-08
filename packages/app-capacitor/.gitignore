@@ -16,6 +16,7 @@ ios/App/App/Assets.xcassets/**/*.png
 android/gradle/wrapper/gradle-wrapper.jar
 
 # Bundler cache
+.bundle/
 vendor/bundle/
 
 # fastlane output

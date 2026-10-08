@@ -11,7 +11,7 @@ import { dirname, join, resolve } from "node:path";
 import { isInside } from "./sentrySourceMaps";
 
 // The pinned sentry-cli binary is the only process that holds the upload token.
-// sentry-cli 3.7.0 also takes its URL, proxy, TLS and exit-status behaviour from
+// sentry-cli 3.8.0 also takes its URL, proxy, TLS and exit-status behaviour from
 // SENTRY_* and proxy variables, from dotenv files in its working directory and
 // every ancestor, from .sentryclirc in its working directory, every ancestor and
 // HOME, and from HOME's Library/Application Support/sentry/sentrycli.ini. A Bun

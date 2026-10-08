@@ -1,6 +1,6 @@
 {
   "name": "@tearleads/api",
-  "version": "0.1.13",
+  "version": "0.1.14",
   "private": true,
   "license": "UNLICENSED",
   "type": "module",
@@ -16,16 +16,16 @@
     "test:principal-history": "bun scripts/testPrincipalHistory.ts"
   },
   "dependencies": {
-    "@aws-sdk/client-s3": "3.1127.0",
+    "@aws-sdk/client-s3": "3.1147.0",
     "@tearleads/api-shared": "workspace:*",
     "@tearleads/crypto": "workspace:*",
     "@tearleads/diagnostics": "workspace:*",
     "@tearleads/encoding": "workspace:*",
     "@tearleads/loro": "workspace:*",
     "@tearleads/validators": "workspace:*",
-    "drizzle-orm": "0.45.2",
-    "hono": "4.13.7",
-    "redis": "6.2.1",
+    "drizzle-orm": "0.45.3",
+    "hono": "4.13.13",
+    "redis": "6.3.0",
     "zod": "catalog:"
   },
   "devDependencies": {

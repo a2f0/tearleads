@@ -48,6 +48,66 @@ git -C "$TEST_ROOT" add docs/openapi.json
 git -C "$TEST_ROOT" commit --quiet -m "add optional request property"
 revision_commit=$(git -C "$TEST_ROOT" rev-parse HEAD)
 
+if override_output=$(
+  cd "$TEST_ROOT"
+  OASDIFF_BIN="$TEST_ROOT/missing-oasdiff" "$CHECK_SCRIPT" 2>&1
+); then
+  fail "a missing OASDIFF_BIN override was accepted."
+fi
+assert_contains "$override_output" "OASDIFF_BIN is not executable"
+
+printf '#!/bin/sh\nprintf "oasdiff version 0.0.0\\n"\n' >"$TEST_ROOT/stale-oasdiff"
+chmod +x "$TEST_ROOT/stale-oasdiff"
+if stale_output=$(
+  cd "$TEST_ROOT"
+  OASDIFF_BIN="$TEST_ROOT/stale-oasdiff" "$CHECK_SCRIPT" 2>&1
+); then
+  fail "an unpinned OASDIFF_BIN override was accepted."
+fi
+assert_contains "$stale_output" "expected oasdiff version"
+
+oasdiff_pin=$(sed -n 's/^"github:oasdiff\/oasdiff" = "\([^"]*\)"$/\1/p' "$SOURCE_ROOT/.mise.toml")
+[ -n "$oasdiff_pin" ] || fail "could not read the oasdiff pin."
+cat >"$TEST_ROOT/pinned-oasdiff" <<'EOF'
+#!/bin/sh
+if [ "$1" = "--version" ]; then
+  printf 'oasdiff version %s\n' "$OASDIFF_TEST_PIN"
+else
+  printf '%s\n' "$*" >>"$OASDIFF_TEST_MARKER"
+  exec mise exec github:oasdiff/oasdiff -- oasdiff "$@"
+fi
+EOF
+chmod +x "$TEST_ROOT/pinned-oasdiff"
+override_output=$(
+  cd "$TEST_ROOT"
+  GITHUB_ACTIONS='' \
+    OPENAPI_BASE_REF="$revision_commit" \
+    OASDIFF_BIN="$TEST_ROOT/pinned-oasdiff" \
+    OASDIFF_TEST_PIN="$oasdiff_pin" \
+    OASDIFF_TEST_MARKER="$TEST_ROOT/oasdiff-invocations" \
+    MISE_CONFIG_FILE="$SOURCE_ROOT/.mise.toml" \
+    "$CHECK_SCRIPT"
+) || fail "a correctly pinned OASDIFF_BIN override should run the comparison."
+assert_contains "$override_output" "$revision_commit"
+[ -s "$TEST_ROOT/oasdiff-invocations" ] ||
+  fail "the pinned OASDIFF_BIN override did not run the comparison."
+
+# Keep the repository data isolated while resolving the real script from a
+# nested working directory. Real branches may carry temporary ignore entries.
+mkdir -p "$TEST_ROOT/nested"
+ln -s "$SOURCE_ROOT" "$TEST_ROOT/source"
+relative_output=$(
+  cd "$TEST_ROOT/nested"
+  GITHUB_ACTIONS='' \
+    OPENAPI_BASE_REF=HEAD \
+    OASDIFF_BIN="$TEST_ROOT/pinned-oasdiff" \
+    OASDIFF_TEST_PIN="$oasdiff_pin" \
+    OASDIFF_TEST_MARKER="$TEST_ROOT/oasdiff-invocations" \
+    MISE_CONFIG_FILE="$SOURCE_ROOT/.mise.toml" \
+    ../source/scripts/checks/checkOpenApiCompatibility.sh
+) || fail "a relative OpenAPI script path should resolve its own tool pin."
+assert_contains "$relative_output" "against HEAD"
+
 # CI exports OPENAPI_BASE_REF/GITHUB_BASE_REF for the real repository check;
 # those refs cannot resolve inside the fixture repository, so clear them.
 fallback_output=$(

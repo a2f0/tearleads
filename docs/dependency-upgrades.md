@@ -11,9 +11,9 @@ checksums are checked in with their owning packages.
   JavaScript compiler API.
 - Electrobun consumes its generated Hutch SDK and TypeScript configuration.
   `prepare:devkit` prepares the ignored SDK output before standalone checks.
-  Electrobun is pinned to 2.0.2-beta.35 (Hutch 0.27.0) for the upstream Windows
-  host-transport listener fix. Return to a stable release at or above 2.0.2
-  once published and validated on all three desktop platforms.
+  Electrobun 2.0.2 pairs with Hutch 0.27.1 and includes the Windows
+  host-transport listener fix. Validate macOS, Linux, and Windows when updating
+  this pair.
 - Redis uses RESP2, explicit keepalive settings, and disabled command timeouts
   for session and realtime connections.
 - Zod schemas define runtime validation; OpenAPI generation preserves the
@@ -39,8 +39,45 @@ checks and builds that consume the changed dependencies. Run both Knip modes
 when production dependencies change, and follow the
 [dependency audit policy](developer/dependency-audit.md) for advisories.
 
+Always run a complete preview before infrastructure apply or deployment; skip
+upgrades that destroy, replace, recreate, or cannot establish safety. The current
+state must own the live resources, and previews must use authenticated target
+accounts. If ownership or credentials are unavailable, hold the affected
+Terraform, Wrangler, and Ansible upgrades and record the reason in the PR.
+Bundle builds and mocked Terraform tests validate code only.
+
 Terraform provider updates require reviewed plans and lockfiles for Linux amd64
 and macOS arm64. SQLite archive updates require a verified checksum and a rebuilt
 wasm artifact. Native updates require their platform builds in addition to the
 workspace checks. Deployments use the reviewed source and lockfiles; dependency
 updates do not implicitly reset application databases.
+
+## October 2026 migrations
+
+Sentry 11 uses explicit `dataCollection` exclusions and server-only exports;
+retain the diagnostics allowlists and privacy regression tests. MSW stays on
+2.15.0: 3.0.2 bypasses request handlers under pinned Bun 1.4.2, although the
+same minimal request works under Node 24. Preserve strict unhandled-request
+rejection until upstream interception supports this Bun runtime.
+Dependency-cruiser tests use
+its installed `depcruise` command alias rather than an internal filename.
+Biome's official migration updates both configuration schemas and presets.
+The [mise-action v5.1.1 inputs](https://github.com/jdx/mise-action/blob/v5.1.1/action.yml)
+retain `version`, `install_args`, and `cache` for the existing CI setup.
+Loro 1.16.4 cursor attribution uses each code point's first UTF-16 unit; the
+existing astral-character and snapshot tests preserve operation identity.
+Stripe.js 10 selects Endive; the removed APIs are absent from our Payment
+Element flow. The [audit notes](developer/dependency-audit.md#stripejs-10-migration)
+record its release review, confirmation behavior, and live-test limit.
+
+Capacitor 8.5.3 regenerates Android settings and Swift package references.
+The resolved transitive `ion-ios-filesystem` and `ion-ios-fileviewer` Swift
+packages move from 1.1.4 and 1.0.4 to 2.0.0; native regeneration and simulator
+builds cover these pins.
+RevenueCat 13.7.0 selects hybrid-common 19.5.0, Android SDK 10.24.0, and iOS SDK
+5.92.0; keep the Xcode direct package pin aligned too. Java 25 LTS supports Gradle
+9.8.0, while Java 27 does not. Keep the Capacitor template's Cordova 14.0.1 and
+SDK 36; AndroidX Core 1.19 requires SDK 37. Ruby 4.0.7 and Bundler 4.0.22 produce
+the Fastlane 2.240.1 lockfile. Gradle scripts use explicit property assignment and
+project extension references; remaining AGP/Capacitor plugin deprecations are
+upstream warnings rather than suppressed repository errors.

@@ -1,11 +1,8 @@
-import {
-  createStackParser,
-  nodeStackLineParser,
-  Scope,
-  ServerRuntimeClient,
-} from "@sentry/core";
+import { createStackParser, Scope } from "@sentry/core";
+import { nodeStackLineParser, ServerRuntimeClient } from "@sentry/core/server";
 import { apiErrorTags } from "./apiDiagnostics";
 import type { ApiDiagnosticOperation } from "./apiVocabulary";
+import { privateDataCollection } from "./collectionPolicy";
 import type { SentryConfig } from "./config";
 import { sanitizeServerEvent } from "./serverEvent";
 import { createPrivateSentryTransport } from "./transport";
@@ -44,9 +41,10 @@ export function createServerDiagnostics(config: SentryConfig) {
       serverSourceRoot: "app://",
     }),
     integrations: [],
-    sendDefaultPii: false,
+    traceLifecycle: "static",
+    tracesSampleRate: 0,
+    dataCollection: privateDataCollection(),
     sendClientReports: false,
-    enableLogs: false,
     maxBreadcrumbs: 0,
     beforeSend: (event, hint) =>
       sanitizeServerEvent(event, config, stackParser, hint.syntheticException),

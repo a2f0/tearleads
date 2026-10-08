@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { basename } from "node:path";
 
-// sentry-cli 3.7.0 rewrites maps by default: for each source without embedded
+// sentry-cli 3.8.0 rewrites maps by default: for each source without embedded
 // content it opens the source as a file, whether absolute, a file: URL, below
 // the sourceRoot, relative to its own working directory, or in an indexed map's
 // sections, and uploads what it reads. The upload passes --no-rewrite, so it

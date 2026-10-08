@@ -89,8 +89,14 @@ Existing installed mobile apps need a new release to start reporting.
 ## Collection policy
 
 The adapter uses a private Sentry client and scope with **no automatic SDK
-integrations**. It rebuilds each error from an allowlist before sending and
-repeats that validation at the transport boundary. Only error envelopes can
+integrations**. Sentry 11 collection categories are explicitly disabled with
+`dataCollection`, including user information, cookies, headers, bodies, query
+parameters, database queries, AI inputs/outputs, queues, GraphQL, frame variables,
+and source context; its broader defaults must not widen this policy. It rebuilds
+each error from an allowlist before sending and
+repeats that validation at the transport boundary. Both clients select static
+trace lifecycle with a zero trace sampling rate, preventing Sentry 11 from
+adding its SpanStreaming integration. Only error envelopes can
 leave. Repeated sanitized error locations are reported once per page load, with
 limits of five distinct errors per minute and twenty per page load. The API
 resets its twenty-error budget and deduplication once per hour. Excess reports
@@ -249,7 +255,7 @@ Mobile events use `tearleads-android@<git-sha>` or `tearleads-ios@<git-sha>` and
 `staging-app` / `production-app`. Vite emits hidden maps; uploads use
 `app:///assets/` URLs matching the packaged JavaScript frames. Maps are removed
 from `dist` after the upload attempt, including failures. The pinned CLI
-[associates matching JavaScript and hidden map filenames](https://github.com/getsentry/sentry-cli/blob/3.7.0/src/utils/sourcemaps.rs#L105)
+[associates matching JavaScript and hidden map filenames](https://github.com/getsentry/sentry-cli/blob/3.8.0/src/utils/sourcemaps.rs#L105)
 and adds references to uploaded artifacts; matching release, dist, and canonical
 URLs provide symbolication without transmitting debug metadata.
 
