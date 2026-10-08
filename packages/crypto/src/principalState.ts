@@ -49,7 +49,7 @@ export type {
 } from "./principalStateTypes";
 
 function isValidPositiveInteger(value: number): boolean {
-  return Number.isInteger(value) && value > 0;
+  return Number.isSafeInteger(value) && value > 0;
 }
 
 function isValidNonNegativeInteger(value: number): boolean {
@@ -152,7 +152,9 @@ function validatePrincipalStateIdentityFields(
   }
 
   if (!isValidPositiveInteger(state.keyEpoch)) {
-    throw new Error("Principal state key epoch must be a positive integer");
+    throw new Error(
+      "Principal state key epoch must be a positive safe integer",
+    );
   }
 
   if (state.principalId.length === 0) {

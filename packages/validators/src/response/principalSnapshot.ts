@@ -4,11 +4,10 @@ import {
   boundedPositiveIntegerSchema,
   loosePlainObject,
   nonNegativeIntegerSchema,
-  positiveIntegerSchema,
 } from "../schema";
 
 export const PrincipalStateExternalAuthorityResponseSchema = loosePlainObject({
-  keyEpoch: positiveIntegerSchema,
+  keyEpoch: boundedPositiveIntegerSchema(Number.MAX_SAFE_INTEGER),
   keyFingerprint: z.string(),
   principalId: z.string(),
   principalType: z.literal("group"),
@@ -26,7 +25,7 @@ export const PrincipalStateResponseSchema = loosePlainObject({
   externalAuthority: PrincipalStateExternalAuthorityResponseSchema.nullable(),
   grantCount: nonNegativeIntegerSchema,
   grantRoot: z.string(),
-  keyEpoch: z.number(),
+  keyEpoch: boundedPositiveIntegerSchema(Number.MAX_SAFE_INTEGER),
   keyFingerprint: z.string(),
   memberCount: nonNegativeIntegerSchema,
   memberEnvelopesRoot: z.string(),
@@ -94,7 +93,7 @@ export type PrincipalMemberEnvelopeResponse = z.infer<
 
 export const CurrentPrincipalMemberEnvelopesResponseSchema = loosePlainObject({
   envelopes: arraySchema(PrincipalMemberEnvelopeResponseSchema),
-  epoch: z.number(),
+  epoch: boundedPositiveIntegerSchema(Number.MAX_SAFE_INTEGER),
   principalId: z.string(),
   principalType: z.literal(["group", "organization"]),
   stateHash: z.string(),

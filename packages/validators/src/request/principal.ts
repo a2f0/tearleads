@@ -33,7 +33,7 @@ export type PrincipalContainerGrantRequest = z.infer<
 >;
 
 const PrincipalStateExternalAuthorityRequestSchema = loosePlainObject({
-  keyEpoch: boundedPositiveIntegerSchema(Number.MAX_VALUE),
+  keyEpoch: boundedPositiveIntegerSchema(Number.MAX_SAFE_INTEGER),
   keyFingerprint: z.string(),
   principalId: uuidV4StringSchema,
   principalType: z.literal("group"),
@@ -46,7 +46,7 @@ const PrincipalStateRequestSchema = loosePlainObject({
   externalAuthority: PrincipalStateExternalAuthorityRequestSchema.nullable(),
   grantCount: nonNegativeIntegerSchema,
   grantRoot: z.string(),
-  keyEpoch: z.number(),
+  keyEpoch: boundedPositiveIntegerSchema(Number.MAX_SAFE_INTEGER),
   keyFingerprint: z.string(),
   memberCount: nonNegativeIntegerSchema,
   memberEnvelopesRoot: z.string(),

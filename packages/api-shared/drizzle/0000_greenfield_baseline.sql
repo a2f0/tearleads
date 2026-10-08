@@ -65,10 +65,11 @@ CREATE TABLE "access_manifest_principal_head_projection" (
 	"principal_type" text NOT NULL,
 	"principal_id" uuid NOT NULL,
 	"version" bigint NOT NULL,
-	"key_epoch" integer NOT NULL,
+	"key_epoch" bigint NOT NULL,
 	"state_hash" text NOT NULL,
 	"key_fingerprint" text NOT NULL,
 	"created_at" timestamp DEFAULT now() NOT NULL,
+	CONSTRAINT "access_manifest_principal_head_projection_key_epoch_range" CHECK ("access_manifest_principal_head_projection"."key_epoch" >= 1 AND "access_manifest_principal_head_projection"."key_epoch" <= 9007199254740991 AND "access_manifest_principal_head_projection"."key_epoch" = CAST("access_manifest_principal_head_projection"."key_epoch" AS BIGINT)),
 	CONSTRAINT "access_manifest_principal_head_projection_version_range" CHECK ("access_manifest_principal_head_projection"."version" >= 1 AND "access_manifest_principal_head_projection"."version" <= 9007199254740991)
 );
 --> statement-breakpoint
@@ -627,11 +628,12 @@ CREATE TABLE "principal_epoch_keys" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"principal_type" text NOT NULL,
 	"principal_id" uuid NOT NULL,
-	"epoch" integer NOT NULL,
+	"epoch" bigint NOT NULL,
 	"introduced_by_state_hash" text NOT NULL,
 	"encapsulation_public_key" text NOT NULL,
 	"key_fingerprint" text NOT NULL,
-	"created_at" timestamp DEFAULT now() NOT NULL
+	"created_at" timestamp DEFAULT now() NOT NULL,
+	CONSTRAINT "principal_epoch_keys_epoch_range" CHECK ("principal_epoch_keys"."epoch" >= 1 AND "principal_epoch_keys"."epoch" <= 9007199254740991 AND "principal_epoch_keys"."epoch" = CAST("principal_epoch_keys"."epoch" AS BIGINT))
 );
 --> statement-breakpoint
 CREATE TABLE "principal_history_index_nodes" (
@@ -649,10 +651,11 @@ CREATE TABLE "principal_history_progress" (
 	"input_hash" text NOT NULL,
 	"version" bigint NOT NULL,
 	"state_hash" text NOT NULL,
-	"key_epoch" integer NOT NULL,
+	"key_epoch" bigint NOT NULL,
 	"key_fingerprint" text NOT NULL,
 	"progress" text NOT NULL,
 	"updated_at" timestamp DEFAULT now() NOT NULL,
+	CONSTRAINT "principal_history_progress_key_epoch_range" CHECK ("principal_history_progress"."key_epoch" >= 1 AND "principal_history_progress"."key_epoch" <= 9007199254740991 AND "principal_history_progress"."key_epoch" = CAST("principal_history_progress"."key_epoch" AS BIGINT)),
 	CONSTRAINT "principal_history_progress_version_range" CHECK ("principal_history_progress"."version" >= 1 AND "principal_history_progress"."version" <= 9007199254740991),
 	CONSTRAINT "principal_history_progress_kind" CHECK ("principal_history_progress"."verification_kind" IN ('policy', 'authority'))
 );
@@ -662,12 +665,13 @@ CREATE TABLE "principal_member_envelopes" (
 	"principal_type" text NOT NULL,
 	"principal_id" uuid NOT NULL,
 	"state_hash" text NOT NULL,
-	"epoch" integer NOT NULL,
+	"epoch" bigint NOT NULL,
 	"user_id" uuid NOT NULL,
 	"member_key_fingerprint" text NOT NULL,
 	"kem_cipher_text" text NOT NULL,
 	"wrapped_key" text NOT NULL,
-	"created_at" timestamp DEFAULT now() NOT NULL
+	"created_at" timestamp DEFAULT now() NOT NULL,
+	CONSTRAINT "principal_member_envelopes_epoch_range" CHECK ("principal_member_envelopes"."epoch" >= 1 AND "principal_member_envelopes"."epoch" <= 9007199254740991 AND "principal_member_envelopes"."epoch" = CAST("principal_member_envelopes"."epoch" AS BIGINT))
 );
 --> statement-breakpoint
 CREATE TABLE "principal_membership_projection" (
@@ -719,7 +723,7 @@ CREATE TABLE "principal_states" (
 	"principal_id" uuid NOT NULL,
 	"version" bigint NOT NULL,
 	"prev_state_hash" text,
-	"key_epoch" integer NOT NULL,
+	"key_epoch" bigint NOT NULL,
 	"encapsulation_public_key" text NOT NULL,
 	"key_fingerprint" text NOT NULL,
 	"membership_mode" text NOT NULL,
@@ -737,6 +741,7 @@ CREATE TABLE "principal_states" (
 	"signer_user_key_fingerprint" text NOT NULL,
 	"signature" text NOT NULL,
 	"created_at" timestamp DEFAULT now() NOT NULL,
+	CONSTRAINT "principal_states_key_epoch_range" CHECK ("principal_states"."key_epoch" >= 1 AND "principal_states"."key_epoch" <= 9007199254740991 AND "principal_states"."key_epoch" = CAST("principal_states"."key_epoch" AS BIGINT)),
 	CONSTRAINT "principal_states_version_range" CHECK ("principal_states"."version" >= 1 AND "principal_states"."version" <= 9007199254740991)
 );
 --> statement-breakpoint

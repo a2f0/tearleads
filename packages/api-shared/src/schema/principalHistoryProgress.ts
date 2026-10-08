@@ -3,7 +3,6 @@ import { sql } from "drizzle-orm";
 import {
   bigint,
   check,
-  integer,
   pgTable,
   text,
   timestamp,
@@ -34,12 +33,16 @@ export const principalHistoryProgress = pgTable(
     inputHash: text("input_hash").notNull(),
     version: bigint("version", { mode: "number" }).notNull(),
     stateHash: text("state_hash").notNull(),
-    keyEpoch: integer("key_epoch").notNull(),
+    keyEpoch: bigint("key_epoch", { mode: "number" }).notNull(),
     keyFingerprint: text("key_fingerprint").notNull(),
     progress: text("progress").notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },
   (table) => [
+    check(
+      "principal_history_progress_key_epoch_range",
+      sql`${table.keyEpoch} >= 1 AND ${table.keyEpoch} <= 9007199254740991 AND ${table.keyEpoch} = CAST(${table.keyEpoch} AS BIGINT)`,
+    ),
     check(
       "principal_history_progress_version_range",
       sql`${table.version} >= 1 AND ${table.version} <= 9007199254740991`,
