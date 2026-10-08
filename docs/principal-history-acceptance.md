@@ -72,15 +72,42 @@ The log records wall time, HTTP latency and bytes, SQL statements and isolated
 server memory samples. It reports retained heap after explicit GC separately
 from sampled RSS and heap peaks. See [measurement details](principal-history-transport.md#measuring-http-work).
 
+## Concurrent prefix publication
+
+Repeated recovery of identical current artifacts preserves the completed
+prefix's sealed progress. A reader therefore cannot invalidate a pending
+acknowledgement merely by resealing its unchanged predecessor. The signed
+regression in `retainAcknowledgedPrincipalCurrents.recoveryRace.test.ts` fails
+without this fix. Explicit replacement of a rejected prefix still works;
+conflicting pins, changed prefixes and overlapping acknowledgements retain their
+atomic rejection checks.
+
 ## Ordinary workflow cost
 
-Private metadata-root authority checks add bounded directory and group reads.
+Private metadata-root authority and scoped projection recovery add bounded
+directory and group reads, including repeated reads of already signed policies.
 The app's request-budget regressions measure 42 calls for one small Explorer
 upload, 93 for personal organization bootstrap, 200–204 for an Admins enrollment,
 and 182 for the attachment-sharing scenario. The last two workflows receive
 about 4.35 MB and 3.56 MB respectively across their requests. Their explicit
 per-route and aggregate budgets retain mutation-count and response-byte checks.
-These are fixed fixtures, not estimates for arbitrary policy sizes.
+These are fixed fixtures measured after the runtime repairs in `c5cd337e6`,
+not estimates for arbitrary policy sizes or the earlier full-boundary runs.
+
+The counts combine metadata authority with scoped recovery; no isolated profile
+attributes every added read to one of them. `principalPolicyCacheForVerifiedPolicies`
+retains signatures and exact references but does not bind entries to an
+organization, dependency set or live recovery lease. Built-in verifiers therefore
+consult the scoped resolver first, even for entries produced earlier in the
+same caller. Current-only entries with `retainedHistory` were already excluded
+from the bare-cache fast path on base `461d5c324`; moving scoped resolution
+ahead of that cache removes the remaining complete-history bypass. This
+intentionally pays additional bounded authorization reads.
+`runtimePolicyRecoveryLocal.test.ts` proves that a held full bundle cannot replace
+protected evidence; recovery tests also reject expired lifetimes and changed or
+conflicting dependency pins. A future cache optimization needs explicit scope
+and lifetime evidence, with those checks preserved. The current work establishes
+bounded continuation and recoverability, not minimum request counts.
 
 ## Limits of the evidence
 

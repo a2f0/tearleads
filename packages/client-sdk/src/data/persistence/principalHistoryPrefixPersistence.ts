@@ -32,7 +32,7 @@ export async function loadPrincipalHistoryPrefix(
   return prefix ?? null;
 }
 
-/** Keep the newest prefix unless replay replaces the exact rejected candidate. */
+/** Preserve completed progress unless replay replaces the exact rejected candidate. */
 export async function savePrincipalHistoryPrefix(input: {
   readonly execSql: ExecSql;
   readonly prefix: PrincipalHistoryPrefix;
@@ -55,15 +55,25 @@ export async function savePrincipalHistoryPrefix(input: {
         .from(principalHistoryPrefixes)
         .where(eq(principalHistoryPrefixes.scopeId, prefix.scopeId))
         .limit(1);
+      const replacesRejected =
+        previous &&
+        rejected?.scopeId === previous.scopeId &&
+        rejected.progress === previous.progress;
+      if (previous && previous.version > prefix.version && !replacesRejected)
+        return;
       if (
         previous &&
-        previous.version > prefix.version &&
-        !(
-          rejected?.scopeId === previous.scopeId &&
-          rejected.progress === previous.progress
-        )
-      )
-        return;
+        previous.version === prefix.version &&
+        previous.organizationId === prefix.organizationId &&
+        previous.headJson === prefix.headJson &&
+        previous.currentJson === prefix.currentJson &&
+        !replacesRejected
+      ) {
+        // Resealing an unchanged prefix would invalidate an acknowledgement's
+        // progress CAS even though its authenticated predecessor is unchanged.
+        // Still refresh authenticated root ownership and retention below.
+        prefix.progress = previous.progress;
+      }
       if (previous) await archivePrincipalHistoryKeyEnvelopes(tx, previous);
       await archivePrincipalHistoryKeyEnvelopes(tx, prefix);
       await tx

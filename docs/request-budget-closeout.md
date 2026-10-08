@@ -6,6 +6,11 @@ It inspected `main` at `e06f90232` and the implementation below. This is a
 pre-deployment, greenfield system; retained endpoints are the chosen protocol,
 not compatibility fallbacks.
 
+The phase tables and ceilings below preserve this audit's historical snapshot.
+For current budgets after private paged recovery, use
+[current-policy request costs](developer/current-principal-consumers.md#request-costs)
+and [principal-history acceptance](principal-history-acceptance.md).
+
 ## Shipped progress and dispositions
 
 | Work | Evidence and disposition |
@@ -94,7 +99,7 @@ introduced.
 The live page also provides a positive control for the expansion-query assertion
 and compares its timestamp with the same row decoded by the native ORM mapping.
 
-## Compact principal-history projection costs
+## Historical compact principal-history projection costs
 
 The paged projection verifier reauthorizes exact directory, Admins and member
 heads even when their signatures have a local verified prefix. In the group
@@ -116,9 +121,9 @@ three additional history reads (78 total, 45 history), with two compound commits
 and unchanged counts for all other routes. Its creation/add pair is capped at
 94 requests with 54 history reads, allowing both phases their observed maxima.
 
-These are request counts, not latency measurements. Deduplicating repeated
-exact-head checks remains part of #2448; this test correction is not a
-performance improvement or completion of that issue.
+These are historical request counts, not latency measurements. Current private
+paged recovery supersedes these budgets; repeated authorization-read reduction
+is future optimization, separate from bounded-continuation acceptance.
 
 The follow-up migration of labels and metadata roots has additional cold policy
 reads and exact-head local reuse. Its [current-policy request costs](developer/current-principal-consumers.md#request-costs)
@@ -230,7 +235,7 @@ projection paths.
 | `POST /documents/:documentId/sync` | 11 / 11 / 11 | 3,345 / 3,345 / 3,345 | 59,342 / 59,342 / 59,342 |
 | `PUT /organizations/:organizationId/groups/:groupId/policy-commit` | 2 / 2 / 2 | 211,664 / 211,664 / 211,664 | 185,162 / 185,162 / 185,162 |
 
-## Budgets and validation coverage
+## Historical budgets and validation coverage
 
 The owner-root total ceiling is now **67**, down from the stale **105**, with
 18 sync POSTs, 10 document-list GETs, nine document writer-projection GETs and
