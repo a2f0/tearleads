@@ -1,5 +1,5 @@
 import { expect, spyOn, test } from "bun:test";
-import { type Client, Scope } from "@sentry/core";
+import { type Client, type LogEnvelope, Scope } from "@sentry/core";
 import { createBrowserDiagnostics } from "./browser";
 import type { SentryConfig } from "./config";
 import { createServerDiagnostics } from "./server";
@@ -56,6 +56,35 @@ test("both private clients deny Sentry's expanded collection defaults", async ()
       expect(client.getOptions().traceLifecycle).toBe("static");
       expect(client.getOptions().tracesSampleRate).toBe(0);
     }
+    await server.flush();
+    const requestsBeforeLog = fetchSpy.mock.calls.length;
+    const logEnvelope: LogEnvelope = [
+      { sent_at: new Date().toISOString() },
+      [
+        [
+          {
+            type: "log",
+            item_count: 1,
+            content_type: "application/vnd.sentry.items.log+json",
+          },
+          {
+            items: [
+              {
+                timestamp: Date.now() / 1000,
+                level: "info",
+                body: "SYNTHETIC_PRIVATE_LOG",
+              },
+            ],
+          },
+        ],
+      ],
+    ];
+    for (const client of clients) {
+      const transport = client.getTransport();
+      expect(transport).toBeDefined();
+      await transport?.send(logEnvelope);
+    }
+    expect(fetchSpy.mock.calls).toHaveLength(requestsBeforeLog);
   } finally {
     await browser.dispose();
     await server.close();
