@@ -57,7 +57,7 @@ process.exitCode = await child.exited;
   chmodSync(join(repo.cwd, "node_modules/.bin/turbo"), 0o755);
   const env = {
     ...repo.env,
-    PATH: `${dirname(process.execPath)}${delimiter}${process.env.PATH ?? ""}`,
+    PATH: `${dirname(process.execPath)}${delimiter}${Reflect.get(process.env, "PATH") ?? ""}`,
     TURBO_TELEMETRY_DISABLED: "1",
   };
   const install = Bun.spawnSync(

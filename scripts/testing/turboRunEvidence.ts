@@ -5,7 +5,7 @@ function record(value: unknown): Record<string, unknown> {
 }
 
 function tasks(value: unknown): Record<string, unknown>[] {
-  const rows = record(value).tasks;
+  const { tasks: rows } = record(value);
   if (!Array.isArray(rows))
     throw new Error("Turbo run evidence has no task list");
   return rows.map(record);
@@ -13,12 +13,13 @@ function tasks(value: unknown): Record<string, unknown>[] {
 
 export function plannedTurboTasks(value: unknown): Set<string> {
   const ids = new Set<string>();
-  for (const row of tasks(value)) {
-    if (typeof row.command !== "string" || typeof row.taskId !== "string")
+  // Turbo 2.10 omits graph placeholders from executed task evidence.
+  for (const { command, taskId } of tasks(value)) {
+    if (typeof command !== "string" || typeof taskId !== "string")
       throw new Error("Turbo plan has an invalid task");
-    if (row.command === "<NONEXISTENT>" || row.command.length === 0) continue;
-    if (ids.has(row.taskId)) throw new Error("Turbo plan repeats a task");
-    ids.add(row.taskId);
+    if (command === "<NONEXISTENT>" || command.length === 0) continue;
+    if (ids.has(taskId)) throw new Error("Turbo plan repeats a task");
+    ids.add(taskId);
   }
   return ids;
 }
@@ -29,37 +30,41 @@ export function assertCompletedTurboRun(input: {
   readonly startedAt: number;
 }) {
   const summary = record(input.summary);
-  const execution = record(summary.execution);
+  const { version, execution } = summary;
+  const { exitCode, failed, attempted, success, cached, startTime, endTime } =
+    record(execution);
+  // Turbo 2.10 counts cache hits separately from successful executions.
   if (
-    summary.version !== "1" ||
-    execution.exitCode !== 0 ||
-    execution.failed !== 0 ||
-    execution.attempted !== input.planned.size ||
-    typeof execution.success !== "number" ||
-    !Number.isSafeInteger(execution.success) ||
-    execution.success < 0 ||
-    typeof execution.cached !== "number" ||
-    !Number.isSafeInteger(execution.cached) ||
-    execution.cached < 0 ||
-    execution.success + execution.cached !== input.planned.size ||
-    typeof execution.startTime !== "number" ||
-    execution.startTime < input.startedAt ||
-    typeof execution.endTime !== "number" ||
-    execution.endTime < execution.startTime
+    version !== "1" ||
+    exitCode !== 0 ||
+    failed !== 0 ||
+    attempted !== input.planned.size ||
+    typeof success !== "number" ||
+    !Number.isSafeInteger(success) ||
+    success < 0 ||
+    typeof cached !== "number" ||
+    !Number.isSafeInteger(cached) ||
+    cached < 0 ||
+    success + cached !== input.planned.size ||
+    typeof startTime !== "number" ||
+    startTime < input.startedAt ||
+    typeof endTime !== "number" ||
+    endTime < startTime
   )
     throw new Error("Turbo did not complete every planned task successfully");
   const completed = new Set<string>();
-  for (const row of tasks(summary)) {
+  for (const { taskId, execution: taskExecution } of tasks(summary)) {
+    const { exitCode: taskExitCode } = record(taskExecution);
     if (
-      typeof row.taskId !== "string" ||
-      !input.planned.has(row.taskId) ||
-      completed.has(row.taskId) ||
-      record(row.execution).exitCode !== 0
+      typeof taskId !== "string" ||
+      !input.planned.has(taskId) ||
+      completed.has(taskId) ||
+      taskExitCode !== 0
     )
       throw new Error(
         "Turbo task completion evidence is missing or unsuccessful",
       );
-    completed.add(row.taskId);
+    completed.add(taskId);
   }
   if (completed.size !== input.planned.size)
     throw new Error("Turbo omitted planned tasks from its completion evidence");
