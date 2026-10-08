@@ -54,6 +54,12 @@ advances. Conflicting pins still fail. Runtime offline state selects local-only
 recovery. Public projection evidence uses the separate paged path described
 below; explicit full-bundle operations still require further runtime adoption.
 
+Org Manager labels and metadata roots also consume verified current policies.
+See [current-policy consumers](current-principal-consumers.md) for exact-head
+local reuse, lifetime and checkpoint rules, request costs, and remaining adoption.
+[Current-policy mutation primitives](principal-current-mutations.md) cover bounded
+successor verification; orchestration and durable acknowledgement adoption remain.
+
 The optional `retainedReferences` selection follows the crypto verifier's bounded
 retention contract. Supply already authenticated external authority through
 `loadExternalAuthority` when policy signatures cite another principal. This callback
@@ -118,8 +124,10 @@ authenticates each reusable hint.
 A new head extends an authenticated earlier prefix; a newer cached prefix is
 preserved when recovering an older target. Older completions cannot replace a
 newer prefix.
-A completed same-head prefix still needs a live pinned read and current-artifact
-verification. This cache never supplies an application trust pin.
+Default online recovery still obtains a live pinned read for a completed
+same-head prefix and verifies current artifacts. The exact-head read-model path
+explicitly opts into local recovery. Neither path treats the cache as an
+application trust pin.
 An interrupted stage can resume for a different citation selection at the same
 head. Concurrent writers compare saved progress and a loser retries; no caller
 can publish over another accepted page. Normal browsing creates at most one

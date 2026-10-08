@@ -30,7 +30,10 @@ export function buildInitialGroupPolicyRequest(
 }
 
 export async function readTestGroupName(
-  bundle: PrincipalPolicyBundleResponse,
+  bundle: Pick<
+    PrincipalPolicyBundleResponse,
+    "currentState" | "currentPayload"
+  >,
 ): Promise<string> {
   const metadata = readGroupMetadata(bundle.currentPayload.ciphertext);
   if ("role" in metadata)
@@ -46,9 +49,15 @@ export const testGroupMetadataAccess = (organizationId: string) => ({
   loadEncryptionKey: async () => testGroupMetadataKey(organizationId),
 });
 export const readGroupPolicyPayloadName = (
-  bundle: PrincipalPolicyBundleResponse,
+  bundle: Pick<
+    PrincipalPolicyBundleResponse,
+    "currentState" | "currentPayload"
+  >,
 ) => readName(bundle, readTestGroupName);
 export const groupPolicyNameMismatch = (
-  bundle: PrincipalPolicyBundleResponse,
+  bundle: Pick<
+    PrincipalPolicyBundleResponse,
+    "currentState" | "currentPayload"
+  >,
   expectedName: string,
 ) => mismatch(bundle, expectedName, readTestGroupName);

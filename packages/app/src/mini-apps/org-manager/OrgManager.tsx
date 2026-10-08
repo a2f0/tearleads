@@ -31,6 +31,7 @@ import { OrgManagerMenu } from "./OrgManagerMenu";
 import { useOrgManagerRoutedChromeActions } from "./OrgManagerRoutedChrome";
 import { CreateOrganizationDialog } from "./organization/CreateOrganizationDialog";
 import { OrganizationView } from "./organization/OrganizationView";
+import { OrgManagerFeedback } from "./organization/OrgManagerFeedback";
 import { OrgSwitcher } from "./organization/OrgSwitcher";
 import "./OrgManager.css";
 
@@ -420,16 +421,7 @@ export function OrgManager() {
     <MiniAppRoot>
       <OrgSwitcher switcher={model.orgSwitcher} />
       <main className="org-manager-main" onContextMenu={handleMainContextMenu}>
-        {!organizationId && (
-          <MiniAppStatus className="org-manager-hint">
-            {ORG_MANAGER_LABELS.selectOrganization}
-          </MiniAppStatus>
-        )}
-        {model.error && (
-          <MiniAppStatus className="org-manager-error" tone="error">
-            {model.error}
-          </MiniAppStatus>
-        )}
+        <OrgManagerFeedback model={model} />
         {organizationId && model.showCompactMenu ? (
           <OrgManagerMenu setView={model.openSection} />
         ) : organizationId ? (

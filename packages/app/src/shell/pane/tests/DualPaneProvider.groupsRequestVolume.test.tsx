@@ -37,17 +37,18 @@ import type { PaneSide } from "../dual-pane";
 // share this login session, so session origin alone cannot prove an own echo.
 // Keep that correctness read; #1512's speculative protocol work is retired.
 const ADMIN_GROUP_OPEN_REQUEST_BUDGET: ProxiedApiRequestBudget = {
-  total: 1,
+  // Cold bounded recovery discovers/verifies the directory and Admins head.
+  total: 3,
   byRequest: {
     "GET /organizations/:organizationId/read-model": 1,
     "GET /organizations/:organizationId/groups/:groupId/containers": 0,
     "GET /organizations/:organizationId/groups/:groupId/members": 0,
-    "GET /principals/group/:groupId/policy": 0,
+    "GET /principals/group/:groupId/policy": 1,
     "GET /organizations/:organizationId/directory": 0,
     "GET /organizations/:organizationId/data-usage": 0,
     "GET /organizations/:organizationId/grants": 0,
     "GET /organizations/:organizationId/groups": 0,
-    "GET /principals/organization/:organizationId/policy": 0,
+    "GET /principals/organization/:organizationId/policy": 1,
     "POST /containers/:containerId/share": 0,
     "PUT /organizations/:organizationId/groups/:groupId/policy-commit": 0,
   },
@@ -61,10 +62,10 @@ const ADMIN_GROUP_OPEN_REQUEST_BUDGET: ProxiedApiRequestBudget = {
 // several cursor positions. Standalone share POSTs stay pinned at zero because
 // a separately committed repair would reintroduce the recovery gap this flow is
 // meant to close.
-const ADMIN_GROUP_MUTATION_REQUEST_BUDGET: ProxiedApiRequestBudget = {
+const ADMIN_GROUP_MUTATION_REQUEST_BUDGET = {
   // Compact projections add 84 bounded public-history reads to the existing
-  // 63-request allowance; the observed mutation uses 136–144 total requests.
-  // Keep other route caps fixed. #2448 tracks batching these head reads.
+  // 63-request allowance. Bounded label hydration also reads current directory
+  // pages; completed reads fit 147 calls plus one observed preparation response.
   total: 147,
   // Public parent keys measure 389.5 KB sent with one descendant recitation;
   // retain room for the second 60 KB recitation already allowed below.
@@ -92,12 +93,12 @@ const ADMIN_GROUP_MUTATION_REQUEST_BUDGET: ProxiedApiRequestBudget = {
     "GET /organizations/:organizationId/data-usage": 0,
     "GET /organizations/:organizationId/grants": 0,
     "GET /organizations/:organizationId/billing": 1,
-    "GET /principals/organization/:organizationId/policy": 6,
+    "GET /principals/organization/:organizationId/policy": 8,
     "POST /containers/:containerId/share": 0,
     "PUT /organizations/:organizationId/groups/:groupId/policy-commit": 2,
     "POST /containers/:containerId/recite": 2,
   },
-};
+} satisfies ProxiedApiRequestBudget;
 afterEach(async () => {
   cleanup();
   globalThis.localStorage.clear();
@@ -232,10 +233,28 @@ test(
       navigationRequests,
       ADMIN_GROUP_OPEN_REQUEST_BUDGET,
     );
+    const pendingHistory = mutationRequests.filter(
+      (request) =>
+        request.method === "GET" &&
+        new URL(request.url).pathname === "/principals/history" &&
+        request.status === 202,
+    );
+    expect(pendingHistory.length).toBeLessThanOrEqual(1);
+    for (const request of pendingHistory)
+      expect(JSON.parse(request.responseBody)).toEqual({
+        code: "principal_history_preparation_pending",
+        committed: false,
+        progressToken: expect.stringMatching(/^[a-f0-9]{64}$/u),
+      });
     expectProxiedApiRequestBudget("admin-group mutation", mutationRequests, {
       ...ADMIN_GROUP_MUTATION_REQUEST_BUDGET,
+      total: ADMIN_GROUP_MUTATION_REQUEST_BUDGET.total + pendingHistory.length,
       byRequest: {
         ...ADMIN_GROUP_MUTATION_REQUEST_BUDGET.byRequest,
+        "GET /principals/history":
+          ADMIN_GROUP_MUTATION_REQUEST_BUDGET.byRequest[
+            "GET /principals/history"
+          ] + pendingHistory.length,
         // Either membership commit can advance root key targets while a
         // peer's read-only sync is in flight. A real stale-target response
         // requires one fresh projection; do not grant that allowance when

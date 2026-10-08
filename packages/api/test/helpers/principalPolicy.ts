@@ -292,7 +292,7 @@ export async function withOrganizationGroupDirectoryPolicy(input: {
   };
 }
 
-async function buildOrganizationGroupPolicyCommitRequest(input: {
+export async function buildOrganizationGroupPolicyCommitRequest(input: {
   actor: Parameters<typeof buildOrganizationPolicyForGroupCommit>[0]["actor"];
   groupPolicy: PutPrincipalPolicyRequest;
   organizationId: string;

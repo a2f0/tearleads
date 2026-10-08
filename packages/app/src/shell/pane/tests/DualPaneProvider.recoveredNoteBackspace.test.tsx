@@ -1,5 +1,6 @@
 import { afterEach, expect, test } from "bun:test";
-import { cleanup, within } from "@testing-library/react";
+import { act, cleanup, within } from "@testing-library/react";
+import { waitForAppTestRuntimeToSettle } from "../../../../test/helpers/appRuntimeIdle";
 import {
   generatePaneKeyPairFromMenu,
   getExplorerWindowRoot,
@@ -58,6 +59,16 @@ const RECOVERED_SYNC_TIMEOUT_MS = 30_000;
 // Fifty-one acknowledged uploads plus recovery took nearly the original 60s
 // cap on the hosted graph; keep the same per-step and convergence assertions.
 const RECOVERED_BACKSPACE_TEST_TIMEOUT_MS = 120_000;
+
+async function waitForRecoveredRuntime() {
+  let settled = false;
+  await act(async () => {
+    settled = await waitForAppTestRuntimeToSettle({
+      timeoutMs: RECOVERED_SYNC_TIMEOUT_MS,
+    });
+  });
+  expect(settled).toBe(true);
+}
 const apps: readonly NoteEntryPoint[] = ["Notes", "Explorer"];
 for (const creator of apps) {
   for (const editor of apps) {
@@ -97,6 +108,8 @@ for (const creator of apps) {
             () => getPaneUserId(secondary) === getPaneUserId(primary),
             "Recovery did not restore the same user.",
           );
+          // Authentication precedes recovered directory and document hydration.
+          await waitForRecoveredRuntime();
           let recoveredWindow = recoveredNotes;
           if (editor === "Notes") {
             await selectMiniAppNote(recoveredNotes, title);

@@ -1,4 +1,8 @@
 import { expect, mock, test } from "bun:test";
+import {
+  PendingPrincipalMutationError,
+  PrincipalMutationOutcomeUnknownError,
+} from "@tearleads/client-sdk";
 import { runScopedOrgMutation } from "./runScopedOrgMutation";
 
 test("scoped org mutation owns current-scope busy and error state", async () => {
@@ -90,3 +94,27 @@ test("scoped org mutation leaves stale or unavailable scopes untouched", async (
   expect(setError).not.toHaveBeenCalled();
   expect(setMutating).not.toHaveBeenCalled();
 });
+
+for (const error of [
+  new PendingPrincipalMutationError(),
+  new PrincipalMutationOutcomeUnknownError(),
+]) {
+  test(`Org Manager catches ${error.name} from a policy API wrapper`, async () => {
+    const setError = mock((_value: string | null) => {});
+    const setMutating = mock((_value: boolean) => {});
+    await expect(
+      runScopedOrgMutation({
+        isOperationActive: () => true,
+        operationOrganizationId: "org-a",
+        logError() {},
+        setError,
+        setMutating,
+        run: async () => {
+          throw error;
+        },
+      }),
+    ).resolves.toBeUndefined();
+    expect(setError).toHaveBeenLastCalledWith(error.message);
+    expect(setMutating).toHaveBeenLastCalledWith(false);
+  });
+}

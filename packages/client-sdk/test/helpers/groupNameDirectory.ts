@@ -2,7 +2,10 @@ import { generateKemSeedAndKeyPair } from "@tearleads/crypto";
 import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
 import { buildInitialOrganizationPolicyRequest } from "../../src/workflows/registration/registerIdentity";
 import { createAuthor } from "./containerFixtures";
-import { buildInitialGroupPolicyRequest } from "./groupMetadata";
+import {
+  buildInitialGroupPolicyRequest,
+  testGroupMetadataKey,
+} from "./groupMetadata";
 import {
   organizationPolicyBundleFromInitialRequest,
   policyBundleFromInitialRequest,
@@ -10,10 +13,21 @@ import {
 } from "./principalPolicyFixtures";
 import { createTestTrustedUserIdentity } from "./trustedUserIdentity";
 
-export async function createGroupNameDirectory() {
+export async function createGroupNameDirectory(
+  input: { readonly useUuidIds?: boolean } = {},
+) {
+  const organizationId = input.useUuidIds
+    ? crypto.randomUUID()
+    : "organization-1";
+  const userId = input.useUuidIds ? crypto.randomUUID() : "signer-user-1";
+  const adminGroupId = input.useUuidIds ? crypto.randomUUID() : "admins-group";
+  const memberGroupId = input.useUuidIds
+    ? crypto.randomUUID()
+    : "members-group";
+  const operatorsGroupId = input.useUuidIds ? crypto.randomUUID() : "group-1";
   const { author, signingPublicKey } = await createAuthor({
-    organizationId: "organization-1",
-    userId: "signer-user-1",
+    organizationId,
+    userId,
   });
   const memberKem = generateKemSeedAndKeyPair();
   const buildGroup = (groupId: string, name: string) =>
@@ -21,6 +35,7 @@ export async function createGroupNameDirectory() {
       creatorEncapsulationKeyPair: memberKem,
       groupId,
       name,
+      metadataKey: testGroupMetadataKey(organizationId),
       signerUserId: author.signerUserId,
       signingFingerprint: author.signerKeyFingerprint,
       signingKeyPair: {
@@ -29,25 +44,25 @@ export async function createGroupNameDirectory() {
       },
     });
   const adminPolicy = await policyBundleFromInitialRequest(
-    await buildGroup("admins-group", "Admins"),
+    await buildGroup(adminGroupId, "Admins"),
   );
   const memberPolicy = await policyBundleFromInitialRequest(
-    await buildGroup("members-group", "Members"),
+    await buildGroup(memberGroupId, "Members"),
   );
   const operatorsPolicy = await policyBundleFromInitialRequest(
-    await buildGroup("group-1", "Operators"),
+    await buildGroup(operatorsGroupId, "Operators"),
   );
   const organizationPolicy = await organizationPolicyBundleFromInitialRequest(
     author.organizationId,
     await buildInitialOrganizationPolicyRequest({
-      adminGroupId: "admins-group",
+      adminGroupId,
       encapsulationPublicKey: memberKem.publicKey,
       groupHeads: [
         principalPolicyHead(adminPolicy),
         principalPolicyHead(memberPolicy),
         principalPolicyHead(operatorsPolicy),
       ],
-      memberGroupId: "members-group",
+      memberGroupId,
       organizationId: author.organizationId,
       signingKeyPair: {
         signingPrivateKey: author.signerPrivateKey,
@@ -67,9 +82,9 @@ export async function createGroupNameDirectory() {
       : null;
   const fetched: string[] = [];
   const servedGroups: Record<string, PrincipalPolicyBundleResponse> = {
-    "admins-group": adminPolicy,
-    "group-1": operatorsPolicy,
-    "members-group": memberPolicy,
+    [adminGroupId]: adminPolicy,
+    [operatorsGroupId]: operatorsPolicy,
+    [memberGroupId]: memberPolicy,
   };
   const apiClient = {
     getCurrentPrincipalPolicy: async (
@@ -82,6 +97,7 @@ export async function createGroupNameDirectory() {
     },
   };
   return {
+    adminPolicy,
     apiClient,
     author,
     fetched,

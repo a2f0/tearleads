@@ -26,8 +26,8 @@ identifies the standalone organization request domain.
 The schema change regenerates both greenfield baselines and requires fresh
 databases under the repository reset policy; there is no historical upgrade.
 Clients must preserve the authored request while its outcome is unknown.
-Durable client retry orchestration remains separate work; these server receipts
-do not complete #2442 or #2448.
+The SDK's compound policy journal does this for group policy mutations; these
+receipts and the journal do not complete #2442 or #2448.
 
 Receipts survive until their group or organization is deleted. Expiring them on
 a time limit would make an old unknown outcome indistinguishable from a failed
@@ -40,5 +40,117 @@ acknowledgement. Reference substitution or missing immutable state fails closed.
 Reconstructed signature bytes, ciphertext, projection and grants must match the
 receipt-authenticated original request; the state hash alone cannot authenticate
 signature bytes. Altered retired artifacts cannot return a successful receipt.
-Storage still grows by a fixed-size record per accepted commit; durable client
-outcome handling remains follow-up work.
+Storage still grows by a fixed-size record per accepted commit.
+
+## Durable compound policy requests
+
+The `Tearleads` runtime saves the complete JSON request before submitting a
+compound group/directory policy mutation. A separate signature by the local
+actor authenticates the whole wire body, including ciphertext and envelopes
+outside individual state signatures. Its domain binds the API identity trust
+domain, organization, actor and signing fingerprint. The local SQLite executor
+owns the journal; a captured database/session generation guards every write and
+dispatch. It requires the same signing identity after restart and does not rely
+on the ephemeral history-cache key.
+Sealing verifies the new journal signature against the actor's public key before
+claiming its lane, so a mismatched signing key pair cannot create unreadable work.
+
+One unresolved request owns each actor/organization lane. A concurrent author
+cannot replace it. Cache resets retain authored work. The runtime resolves it
+before reading the policies for another group change, creation, deletion or
+group share. Read-only policy verification never triggers recovery or submits
+saved work. Recovery resends only the authenticated saved body and verifies the
+exact receipt artifacts. It neither reruns the original application callback
+nor invents a complete verified history from the receipt. Current checkpoints
+are left to ordinary verified recovery, so an older receipt cannot roll them back.
+
+Calls sharing an executor and scope serialize submission, recovery and explicit
+abandonment. Recovery waits for an owned dispatch instead of sending it again.
+This in-memory wait does not span separate executors or tabs; durable claims and
+server transaction receipts still protect concurrent transport attempts.
+Runtime recovery has a host-configurable request deadline; expiration retains
+the journal.
+Read-only inspection can observe an in-flight request without waiting for its
+acknowledgement. Retry, abandonment and discard still wait for an owned dispatch.
+
+A known first-attempt refusal or cancellation before dispatch retires the
+journal. A disconnected request, an
+invalid acknowledgement or an expired lifetime leaves it pending. Once an
+outcome is uncertain, a later refusal, including 403, 409 or the coded rollback
+503, cannot prove the first attempt rolled back and does not clear its record.
+Corrupt authored work is retained and rejected before network submission.
+A lifetime change also preserves a definitive refusal whose old scope can no
+longer clear the record; a fresh scope must recover it or explicitly abandon it.
+
+Hosts can inspect authenticated work with `readJournaledPrincipalMutation`.
+After an explicit user or host decision, `abandonJournaledPrincipalMutation`
+requires that exact inspected request and `acknowledgeUnknownOutcome: true`. It
+stops local retries without asserting rollback or undoing a remote change.
+Automatic recovery never abandons work. Changed requests, corrupt records and
+expired lifetimes cannot use this helper to erase the saved operation. The next
+mutation still reads and verifies current policies before authoring. Hosts should
+handle `PendingPrincipalMutationError` and `PrincipalMutationOutcomeUnknownError`
+from both runtime policy API variants, including the nullable convenience method.
+
+Org Manager inspects pending work through the organization facade. It offers a
+retry of the saved change and an explicit stop-retrying confirmation that explains
+that a remote change is not undone. Success refreshes the current organization
+view. A changed identity or organization invalidates delayed reads and actions.
+Runtime policy writes require an authenticated signing identity, a trusted API
+origin and ready local storage; missing journal custody refuses before HTTP.
+Inspection without that scope reports no inspectable work. Hosts using a relative
+API base without a browser origin must supply an absolute trusted API URL.
+Malformed or stalled preparation responses also retain the request conservatively;
+an invalid or incomplete 202 exchange is not a validated terminal rollback receipt.
+Unlisted failures, including HTTP 404 and 429, conservatively retain the request
+as uncertain; an intermediary's status alone does not prove server rollback.
+
+Unreadable records remain blocked from submission. Inspection reports an
+`UnreadablePrincipalMutationError` with an opaque identifier of the exact local
+bytes and distinguishes authentication failure from an authenticated unsupported
+format. `discardUnreadableJournaledPrincipalMutation` and the organization facade's
+`discardUnreadablePolicyMutation` require that identifier and explicit
+unknown-outcome acknowledgement. They discard only the unchanged, still-unreadable
+record and do not submit it or change policy pins. Org Manager exposes the same
+confirmation for this case. No previous schema is interpreted or migrated.
+
+Journal scope includes the API origin and signing fingerprint. A different origin
+or rotated identity does not inherit or replay the former scope's records; those
+rows remain until the former scope is restored or the database is explicitly reset.
+Auth-token renewal within the same signed identity and organization preserves
+journal custody and the pending-work facade's captured lifetime. A definite
+initial authentication refusal can therefore retire
+its request after renewal; a later operation must not replay that refused change.
+Identity, organization, authentication-state or database changes still expire
+custody, even if the original scope is restored before the response arrives.
+History verification retains its separate, stricter token lifetime. A fresh
+runtime can recover uncertain signed bytes in the same identity scope.
+
+Advanced hosts can call `submitJournaledPrincipalMutation` and
+`recoverJournaledPrincipalMutation` with an explicit `PrincipalMutationJournalContext`.
+Supply a stable trusted scope, the actor's signing key pair, durable `ExecSql`,
+a lifetime guard, and a status-bearing API submission function. Resolve pending
+work before preparing a new request and keep API-client failure classifications
+intact. The helpers return ordinary receipts, not verified policy capabilities.
+If a submission adapter throws, the saved request remains unresolved and the
+helper throws `PrincipalMutationOutcomeUnknownError` with the original error as
+its cause. A thrown exception cannot establish that dispatch did not commit.
+Built-in interactive dispatch and recovery default to a 60-second deadline,
+combined with any caller cancellation signal. Set
+`new Tearleads({ principalMutationTimeoutMs: 120_000 })` for a larger budget.
+The value must be a positive integer at most 2,147,483,647 milliseconds. It covers
+the entire submission, including preparation continuations; it is not a claim
+that every healthy compound commit finishes within the default. Hosts with large
+rewraps or slow servers should configure their own budget. A fresh client with a
+longer deadline can retry the exact saved request after timeout. Expiry preserves
+uncertain work and releases the local lane so inspection and actions can proceed.
+They cover compound group policy writes; standalone organization writes and
+group creation/deletion requests still need their own authored-request recovery.
+
+Real HTTP tests with SQLite and PostgreSQL withhold a committed response, advance
+the policy from another client, and recover the first receipt without a duplicate
+commit. A second case kills the submitting SDK process and starts a fresh one
+with only its restored identity and SQLite file; removing the journal makes
+recovery fail. That process test uses native SQLite to exercise disk durability.
+The in-process test uses the production WASM SQLite engine; browser OPFS process
+recovery is not established by these tests.

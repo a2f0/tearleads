@@ -44,6 +44,13 @@ They retain their existing build, TypeScript, static-check, and full or affected
 Turbo test steps. Builds finish before tests begin; `build:packages` prepares
 SQLite, the client SDK, and the Electrobun devkit.
 
+The Turbo test and E2E scripts first record the planned tasks, then require a
+fresh run summary proving that every planned task completed successfully, either
+by execution or from cache. Turbo can exit zero after interruption; an exit code
+alone is insufficient. Missing, incomplete or stale evidence fails verification.
+Run summaries accumulate under `.turbo/runs` for inspection; remove that ignored
+directory when the evidence is no longer needed.
+
 For focused tests, select the exact workspace name from its `package.json`:
 
 ```sh

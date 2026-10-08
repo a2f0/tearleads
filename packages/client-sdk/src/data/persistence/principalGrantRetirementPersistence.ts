@@ -2,6 +2,7 @@ import {
   type AccessManifestCheckpoint,
   KeyingVerificationError,
   type VerifiedPrincipalPolicy,
+  type VerifiedPrincipalPolicyCurrent,
 } from "@tearleads/crypto";
 import { and, eq } from "drizzle-orm";
 import { principalGrantRetirements } from "../sqlite/principalGrantRetirementSchema";
@@ -10,13 +11,16 @@ import type { ClientSQLiteTransactionScope } from "../sqlite/sqlitePersistenceRu
 export interface AcknowledgedPrincipalGrantRetirements {
   readonly containerIds: readonly string[];
   readonly organizationId: string;
-  readonly policy: VerifiedPrincipalPolicy;
+  readonly policy: VerifiedPrincipalPolicy | VerifiedPrincipalPolicyCurrent;
 }
 
 export async function storePrincipalGrantRetirements(
   tx: ClientSQLiteTransactionScope,
   retirement: AcknowledgedPrincipalGrantRetirements,
-  policies: readonly VerifiedPrincipalPolicy[],
+  policies: readonly (
+    | VerifiedPrincipalPolicy
+    | VerifiedPrincipalPolicyCurrent
+  )[],
   organizationId: string | undefined,
 ): Promise<void> {
   if (
@@ -32,7 +36,11 @@ export async function storePrincipalGrantRetirements(
       "Retirement must accompany its acknowledged policy",
     );
   }
-  const previous = retirement.policy.history?.find(
+  const history =
+    "retainedHistory" in retirement.policy
+      ? retirement.policy.retainedHistory
+      : retirement.policy.history;
+  const previous = history?.find(
     (entry) => entry.state.stateHash === retirement.policy.state.prevStateHash,
   );
   const granted = new Set(

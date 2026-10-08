@@ -194,7 +194,10 @@ class PrincipalPolicyHistoryVerifierImpl
           stateHash: state.stateHash,
         },
       });
-      return { ok: true, value: makeVerifiedPrincipalPolicyHistory(owned) };
+      return {
+        ok: true,
+        value: makeVerifiedPrincipalPolicyHistory(owned, this.#latestAuthority),
+      };
     } catch (error) {
       return toVerificationResult(error);
     }

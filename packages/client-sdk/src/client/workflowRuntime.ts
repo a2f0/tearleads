@@ -30,6 +30,10 @@ import {
   createPrincipalHistoryProtectionCustody,
   type PrincipalHistoryKeyProvider,
 } from "./principalHistoryProtection";
+import {
+  createPrincipalMutationApiCustody,
+  type PrincipalMutationApi,
+} from "./principalMutationApi";
 import { adoptSessionRootContainer } from "./rootContainerAdoption";
 import { acknowledgedSessionRoot } from "./session/sessionRootAuthority";
 import type { Session, SessionSnapshot } from "./session/sessionTypes";
@@ -54,7 +58,7 @@ export interface Runtime {
 }
 
 export interface InternalWorkflowRuntimeInput extends WorkflowRuntimeGroups {
-  readonly apiClient: ApiClient;
+  readonly apiClient: PrincipalMutationApi;
   readonly resolveTrustedUserIdentity: TrustedUserIdentityResolver;
   readonly withPrincipalHistoryProtection?:
     | PrincipalHistoryProtectionLease
@@ -90,9 +94,43 @@ interface WorkflowRuntimeDependencies {
   network: Network;
   peerScope?: string | null;
   principalHistoryKeyProvider?: PrincipalHistoryKeyProvider | undefined;
+  principalMutationTimeoutMs?: number | undefined;
   reportSecurityIncident: SecurityIncidentReporter;
   session: Session;
   syncBillingGate?: SyncBillingGate | undefined;
+}
+
+function createRuntimeMutationApi(
+  dependencies: WorkflowRuntimeDependencies,
+  readGeneration: () => number,
+) {
+  return createPrincipalMutationApiCustody({
+    api: dependencies.api,
+    principalMutationTimeoutMs: dependencies.principalMutationTimeoutMs,
+    readScope: () => {
+      const { signingKeyPair, signingFingerprint } = dependencies.identity;
+      const { userId, isAuthenticated } = dependencies.session;
+      const identityTrustDomain = dependencies.identityTrustDomain;
+      if (
+        !isAuthenticated ||
+        !userId ||
+        !signingKeyPair ||
+        !signingFingerprint ||
+        !identityTrustDomain ||
+        dependencies.database.status !== "ready"
+      )
+        return null;
+      return {
+        database: dependencies.getDomainScope(),
+        execSql: dependencies.database.requireExecSql("principal mutation"),
+        generation: readGeneration(),
+        identityTrustDomain,
+        signingFingerprint,
+        signingKeyPair,
+        userId,
+      };
+    },
+  });
 }
 
 export function createRuntime(
@@ -154,6 +192,10 @@ export function createRuntime(
     dependencies,
     resolveTrustedUserIdentity,
     historyProtection.bind,
+    createRuntimeMutationApi(
+      dependencies,
+      () => runtimeSubscription.mutationGeneration,
+    ).bind,
   );
 
   return {
@@ -193,6 +235,7 @@ function createRuntimeSubscription(dependencies: WorkflowRuntimeDependencies) {
   let version = 0;
   let sessionGeneration = 0;
   let recoveryGeneration = 0;
+  let mutationGeneration = 0;
   let sessionSnapshot = dependencies.session.snapshot;
   const notifyListeners = () => {
     version += 1;
@@ -201,6 +244,7 @@ function createRuntimeSubscription(dependencies: WorkflowRuntimeDependencies) {
 
   const notifyAuthority = () => {
     recoveryGeneration += 1;
+    mutationGeneration += 1;
     notifyListeners();
   };
   dependencies.database.subscribe(notifyAuthority);
@@ -213,12 +257,16 @@ function createRuntimeSubscription(dependencies: WorkflowRuntimeDependencies) {
       sessionGeneration += 1;
       recoveryGeneration += 1;
     }
+    if (sessionScopeChanged(sessionSnapshot, next)) mutationGeneration += 1;
     sessionSnapshot = next;
     notifyListeners();
   });
   dependencies.syncBillingGate?.subscribe(notifyListeners);
 
   return {
+    get mutationGeneration() {
+      return mutationGeneration;
+    },
     get recoveryGeneration() {
       return recoveryGeneration;
     },
@@ -262,7 +310,17 @@ function sessionAuthorityChanged(
   next: SessionSnapshot,
 ): boolean {
   return (
-    next.authToken !== previous.authToken ||
+    next.authToken !== previous.authToken || sessionScopeChanged(previous, next)
+  );
+}
+
+// A transport token renewal cannot turn a definite write refusal into saved work.
+// Journal custody still expires on every change to its identity or storage scope.
+function sessionScopeChanged(
+  previous: SessionSnapshot,
+  next: SessionSnapshot,
+): boolean {
+  return (
     next.isAuthenticated !== previous.isAuthenticated ||
     next.isRoot !== previous.isRoot ||
     next.organizationId !== previous.organizationId ||
@@ -274,6 +332,7 @@ function createRuntimeInputFactory(
   dependencies: WorkflowRuntimeDependencies,
   resolveTrustedUserIdentity: TrustedUserIdentityResolver,
   bindHistoryProtection: () => PrincipalHistoryProtectionLease | undefined,
+  bindMutationApi: () => PrincipalMutationApi,
 ): RuntimeInputFactory {
   let auth: WorkflowRuntimeAuthInput | undefined;
   let crypto: WorkflowRuntimeCryptoInput | undefined;
@@ -339,7 +398,7 @@ function createRuntimeInputFactory(
     }
 
     return {
-      apiClient: dependencies.api,
+      apiClient: bindMutationApi(),
       auth,
       crypto,
       infra,

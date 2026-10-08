@@ -4,7 +4,10 @@ import type { OrganizationAuthorityDescriptor } from "../../data/principals/orga
 
 /** Built-in labels derive from the role assigned by the signed organization. */
 export function assertGroupMetadataBinding(
-  bundle: PrincipalPolicyBundleResponse,
+  bundle: Pick<
+    PrincipalPolicyBundleResponse,
+    "currentState" | "currentPayload"
+  >,
   descriptor: OrganizationAuthorityDescriptor,
 ): void {
   const groupId = bundle.currentState.principalId;

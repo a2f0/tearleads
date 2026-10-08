@@ -5,107 +5,29 @@ import {
   computePrincipalProjectionRoot,
   computePrincipalStatePayloadCiphertextHash,
   makeVerifiedPrincipalPolicy,
-  normalizePrincipalContainerGrants,
   normalizePrincipalProjectionMembers,
   type ReferencedPrincipalHead,
   type VerifiedPrincipalPolicy,
+  type VerifiedPrincipalPolicyCurrent,
 } from "@tearleads/crypto";
 import type {
   CreateOrganizationGroupRequest,
   PutPrincipalPolicyRequest,
 } from "@tearleads/validators/request";
 import type {
-  ContainerMutationResponse,
-  CurrentPrincipalMemberEnvelopesResponse,
   OrganizationGroupSummaryResponse,
   PrincipalPolicyBundleResponse,
   PrincipalPolicyMutationResponse,
   PrincipalStateResponse,
 } from "@tearleads/validators/response";
 import { canonicalKeyingJsonString } from "../../data/keyingCanonicalJson";
+import {
+  type CurrentPolicyMutationInput,
+  verifyCurrentPolicyMutation,
+} from "./currentPolicyMutationAcknowledgement";
+import { assertPrincipalPolicyReceiptArtifacts } from "./principalPolicyReceiptArtifacts";
 
-function sortedCanonicalValues<T>(values: readonly T[], label: string): T[] {
-  return [...values].sort((left, right) =>
-    canonicalKeyingJsonString(left, label).localeCompare(
-      canonicalKeyingJsonString(right, label),
-    ),
-  );
-}
-
-export function assertGroupPolicyEnvelopesMatchAcknowledgement(
-  expected: CurrentPrincipalMemberEnvelopesResponse,
-  observed: CurrentPrincipalMemberEnvelopesResponse,
-): void {
-  const normalized = (value: CurrentPrincipalMemberEnvelopesResponse) => ({
-    ...value,
-    envelopes: sortedCanonicalValues(
-      value.envelopes,
-      "principal member envelope",
-    ),
-  });
-  if (
-    canonicalKeyingJsonString(
-      normalized(expected),
-      "acknowledged group member envelopes",
-    ) !==
-    canonicalKeyingJsonString(
-      normalized(observed),
-      "observed group member envelopes",
-    )
-  ) {
-    throw new Error("Group member envelopes changed after acknowledgement");
-  }
-}
-
-function assertContainerMutationAcknowledgements(input: {
-  readonly requests: readonly NonNullable<
-    PutPrincipalPolicyRequest["containerMutations"]
-  >[number][];
-  readonly responses: readonly ContainerMutationResponse[] | undefined;
-}): void {
-  if (!input.responses || input.responses.length !== input.requests.length) {
-    throw new Error(
-      "Group policy container acknowledgement batch is incomplete",
-    );
-  }
-  for (const [index, request] of input.requests.entries()) {
-    const response = input.responses[index];
-    if (!response) {
-      throw new Error(
-        "Group policy container acknowledgement batch is incomplete",
-      );
-    }
-    const expected = {
-      body: request.body,
-      event: request.event,
-      keyEpoch: request.keyEpoch,
-      manifest: request.manifest,
-      wraps: sortedCanonicalValues(request.wraps, "authored container wrap"),
-    };
-    const observed = {
-      body: response.accessManifest.event.body,
-      event: response.accessManifest.event.event,
-      keyEpoch: response.containerKek.keyEpoch,
-      manifest: response.accessManifest.manifest,
-      wraps: sortedCanonicalValues(
-        response.containerKek.wraps,
-        "stored container wrap",
-      ),
-    };
-    if (
-      canonicalKeyingJsonString(
-        observed,
-        "stored group policy container mutation",
-      ) !==
-      canonicalKeyingJsonString(
-        expected,
-        "authored group policy container mutation",
-      )
-    ) {
-      throw new Error("Group policy container acknowledgement mismatch");
-    }
-  }
-}
+export { assertGroupPolicyEnvelopesMatchAcknowledgement } from "./principalPolicyReceiptArtifacts";
 
 function historyWithCurrent(
   bundle: PrincipalPolicyBundleResponse,
@@ -152,58 +74,7 @@ export function buildAcknowledgedGroupPolicyBundle(input: {
   readonly request: PutPrincipalPolicyRequest;
   readonly response: PrincipalPolicyMutationResponse;
 }): PrincipalPolicyBundleResponse & PrincipalPolicyMutationResponse {
-  assertContainerMutationAcknowledgements({
-    requests: input.request.containerMutations ?? [],
-    responses: input.response.containerMutations,
-  });
-  const { createdAt: _payloadCreatedAt, ...observedPayload } =
-    input.response.currentPayload;
-  const expectedPayload = {
-    principalType: input.request.state.principalType,
-    principalId: input.request.state.principalId,
-    stateHash: input.expectedHead.stateHash,
-    ...input.request.encryptedPayload,
-  };
-
-  if (
-    canonicalKeyingJsonString(
-      observedPayload,
-      "stored group policy payload",
-    ) !==
-      canonicalKeyingJsonString(
-        expectedPayload,
-        "authored group policy payload",
-      ) ||
-    canonicalKeyingJsonString(
-      normalizePrincipalProjectionMembers(input.response.currentProjection),
-      "stored group policy projection",
-    ) !==
-      canonicalKeyingJsonString(
-        normalizePrincipalProjectionMembers(input.request.projection),
-        "authored group policy projection",
-      ) ||
-    canonicalKeyingJsonString(
-      normalizePrincipalContainerGrants(input.response.currentGrants),
-      "stored group policy grants",
-    ) !==
-      canonicalKeyingJsonString(
-        normalizePrincipalContainerGrants(input.request.grants),
-        "authored group policy grants",
-      )
-  ) {
-    throw new Error("Group policy bundle acknowledgement mismatch");
-  }
-
-  assertGroupPolicyEnvelopesMatchAcknowledgement(
-    {
-      principalType: input.request.state.principalType,
-      principalId: input.request.state.principalId,
-      stateHash: input.expectedHead.stateHash,
-      epoch: input.request.state.keyEpoch,
-      envelopes: input.request.memberEnvelopes,
-    },
-    input.response.currentMemberEnvelopes,
-  );
+  assertPrincipalPolicyReceiptArtifacts(input);
   return {
     ...input.response,
     previousStates: historyWithCurrent(input.currentPolicy),
@@ -279,12 +150,30 @@ function verifiedPolicy(input: {
   });
 }
 
-export async function acknowledgeGroupPolicyState(input: {
+interface FullPolicyMutationInput {
+  readonly verifiedCurrentPolicy?: never;
   readonly currentPolicy: PrincipalPolicyBundleResponse;
   readonly expectedHead: ReferencedPrincipalHead;
   readonly request: PutPrincipalPolicyRequest;
-  readonly response: PrincipalStateResponse;
-}): Promise<VerifiedPrincipalPolicy> {
+}
+
+export function acknowledgeGroupPolicyState(
+  input: CurrentPolicyMutationInput & {
+    readonly response: PrincipalStateResponse;
+  },
+): Promise<VerifiedPrincipalPolicyCurrent>;
+export function acknowledgeGroupPolicyState(
+  input: FullPolicyMutationInput & {
+    readonly response: PrincipalStateResponse;
+  },
+): Promise<VerifiedPrincipalPolicy>;
+export async function acknowledgeGroupPolicyState(
+  input: (FullPolicyMutationInput | CurrentPolicyMutationInput) & {
+    readonly response: PrincipalStateResponse;
+  },
+): Promise<VerifiedPrincipalPolicy | VerifiedPrincipalPolicyCurrent> {
+  if (input.verifiedCurrentPolicy !== undefined)
+    return verifyCurrentPolicyMutation(input, input.response);
   await assertPolicyRequestCommitments(input.request);
   const { createdAt: _createdAt, stateHash, ...responseState } = input.response;
   const previous = input.currentPolicy.currentState;
@@ -317,11 +206,17 @@ export async function acknowledgeGroupPolicyState(input: {
  * The server still performs the authoritative signature, transition, and
  * authorization checks inside the combined transaction.
  */
-export async function prepareAuthoredGroupPolicy(input: {
-  readonly currentPolicy: PrincipalPolicyBundleResponse;
-  readonly expectedHead: ReferencedPrincipalHead;
-  readonly request: PutPrincipalPolicyRequest;
-}): Promise<VerifiedPrincipalPolicy> {
+export function prepareAuthoredGroupPolicy(
+  input: CurrentPolicyMutationInput,
+): Promise<VerifiedPrincipalPolicyCurrent>;
+export function prepareAuthoredGroupPolicy(
+  input: FullPolicyMutationInput,
+): Promise<VerifiedPrincipalPolicy>;
+export async function prepareAuthoredGroupPolicy(
+  input: FullPolicyMutationInput | CurrentPolicyMutationInput,
+): Promise<VerifiedPrincipalPolicy | VerifiedPrincipalPolicyCurrent> {
+  if (input.verifiedCurrentPolicy !== undefined)
+    return verifyCurrentPolicyMutation(input);
   await assertPolicyRequestCommitments(input.request);
   const previous = input.currentPolicy.currentState;
   const state = input.request.state;

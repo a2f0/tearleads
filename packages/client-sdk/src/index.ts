@@ -1,7 +1,8 @@
 // Current SDK contract: unified device-first handles and atomic revision checks.
 // Authority loaders take exact heads, including cached citations. Obsolete
-// adapters and aliases are excluded; see workflows/README.md for host contracts.
+// adapters are excluded; authored policy journals survive restart. See workflows/README.md.
 export type {
+  AbandonOrganizationPolicyMutationInput,
   AddOrganizationGroupUserInput,
   BlobInfo,
   BlobInfoAttachmentKind,
@@ -38,6 +39,7 @@ export type {
   DatabaseStatus,
   DeviceFirst,
   DeviceFirstContainerContents,
+  DiscardUnreadableOrganizationPolicyMutationInput,
   DocumentAttachmentStatus,
   DocumentAttachmentUpload,
   DocumentAttributionRangesInput,
@@ -430,15 +432,21 @@ export {
 // Nominal identity constructors are deliberately absent here. Integration
 // tests that compose low-level runtimes use the testing package subpath.
 export type {
+  AcknowledgedPrincipalCurrentInput,
+  AcknowledgedPrincipalCurrentRetirement,
+  AuthoredPrincipalMutation,
   OrganizationGroupPolicyHistoryEntry,
   OrganizationNativePurchaseEligibility,
   OrganizationPrincipalMemberChange,
   OrganizationPrincipalMemberChangeType,
   OrganizationPrincipalPolicyHistory,
   OrganizationPrincipalPolicyHistoryEntry,
+  PrincipalMutationJournalContext,
+  PrincipalMutationJournalScope,
   ReconcileOrganizationDataUsageInput,
 } from "./workflows/organizations";
 export {
+  abandonJournaledPrincipalMutation,
   addOrganizationGroupUser,
   buildInitialGroupPolicyRequest,
   buildInitialMemberGroupPolicyRequest,
@@ -451,6 +459,7 @@ export {
   DEFAULT_PERSONAL_ORGANIZATION_PROFILE_NAME,
   deriveOrganizationMetadataContainerSystemSlot,
   deriveOrganizationRosterProfileContainerSystemSlot,
+  discardUnreadableJournaledPrincipalMutation,
   GroupMembershipNameMismatchError,
   getOrganizationProfileDocumentLocalId,
   getRosterProfileDocumentLocalId,
@@ -463,15 +472,22 @@ export {
   ORGANIZATION_METADATA_CONTAINER_NAME,
   ORGANIZATION_PROFILE_DOCUMENT_KIND,
   ORGANIZATION_ROSTER_PROFILE_CONTAINER_NAME,
+  PendingPrincipalMutationError,
+  PrincipalMutationOutcomeUnknownError,
   ROSTER_PROFILE_DOCUMENT_KIND,
+  readJournaledPrincipalMutation,
   readOrganizationProfileName,
   reconcileOrganizationDataUsage,
   reconcileOrganizationDirectoryAndGroups,
+  recoverJournaledPrincipalMutation,
   removeOrganizationGroupUser,
   resolveOrganizationBillingView,
+  retainAcknowledgedPrincipalCurrents,
   revokeOrganizationContainerGrant,
   startOrganizationTrial,
+  submitJournaledPrincipalMutation,
   subscribeOrganizationReadModelInvalidation,
+  UnreadablePrincipalMutationError,
   updateOrganizationProfile,
   updateOrganizationRosterEntry,
 } from "./workflows/organizations";

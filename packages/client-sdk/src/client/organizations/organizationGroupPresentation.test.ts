@@ -38,7 +38,7 @@ const projectedPolicyHistory = buildOrganizationGroupPolicyHistory(
 );
 
 function runtimeWith(
-  apiClient: InternalWorkflowRuntimeInput["apiClient"],
+  apiClient: Parameters<typeof createWorkflowInputFixture>[0]["apiClient"],
   logError: InternalWorkflowRuntimeInput["util"]["logError"] = () => {},
 ): InternalWorkflowRuntimeInput {
   return createWorkflowInputFixture({
