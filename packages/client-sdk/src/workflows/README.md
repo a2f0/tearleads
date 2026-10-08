@@ -42,8 +42,8 @@ The `Tearleads` runtime supplies this for compound and standalone organization
 policies, group creation and group deletion. `AuthoredPrincipalMutation` binds
 each operation kind and route; `PrincipalMutationResponse` is the receipt union.
 Custom `submit` callbacks must dispatch every authenticated kind to its matching
-route, including absent kind for compound policies. SDK downgrades are unsupported
-while a request is pending; retain its bytes for recovery with a supported SDK.
+route: `compound`, `organization`, `group-create`, or `group-delete`. Missing kinds
+are invalid. Preserve unreadable work until the host explicitly discards it.
 Both nullable and result methods for all four operations may throw
 `PendingPrincipalMutationError` or `PrincipalMutationOutcomeUnknownError`.
 Hosts can inspect saved work with

@@ -40,6 +40,7 @@ export async function principalMutationJournalFixture() {
     userId: scope.userId,
   });
   const mutation = {
+    kind: "compound" as const,
     groupId: group.groupId,
     request: { groupPolicy: group.initialGroupPolicy, organizationPolicy },
   };

@@ -32,7 +32,12 @@ async function purgeWithFailingProjectionFetch(
     resolveProjectionUserKey: async () => null,
     runtime: {
       apiClient: {
-        getCurrentPrincipalPolicy: async () => null,
+        getPrincipalPolicyPages: () => {
+          throw new Error("Unexpected principal page read");
+        },
+        getProjectionPolicyHistoryPages: () => {
+          throw new Error("Unexpected projection history read");
+        },
         getDocumentPurgeProof: async () => {
           throw new Error("Unexpected purge-proof fetch");
         },

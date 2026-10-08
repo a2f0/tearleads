@@ -36,7 +36,7 @@ export function createRuntimeCurrentGroupShare(
           : {}),
         recoverPendingPrincipalMutation: async (organizationId: string) => {
           // Built-in clients supply journal recovery; standalone hosts retain
-          // the same transport/recovery responsibility as the legacy adapter.
+          // responsibility for transport and exact-outcome recovery.
           await api.recoverPendingPrincipalMutation?.(organizationId);
         },
       },

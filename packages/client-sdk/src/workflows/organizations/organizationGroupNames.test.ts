@@ -3,6 +3,11 @@ import { createTestExecSql } from "@tearleads/test-utils";
 import { readTestGroupName } from "../../../test/helpers/groupMetadata";
 import { createGroupNameDirectory } from "../../../test/helpers/groupNameDirectory";
 import { principalPolicyHead } from "../../../test/helpers/principalPolicyFixtures";
+import {
+  repairPolicyPages,
+  repairProtectionLease,
+} from "../../../test/helpers/principalPolicyRepair";
+import { createRuntimePrincipalPolicyCurrentResolver } from "../principals/runtimePolicyRecovery";
 import { GroupMetadataUnreadableError } from "./groupMetadataAccess";
 import { hydrateOrganizationGroupNames } from "./organizationGroupNames";
 
@@ -33,7 +38,25 @@ test("directory labels are decrypted only at their authenticated group heads", a
       memberGroupId: "members-group",
       readModelCursor: "cursor-1",
     };
+    const organization = await fixture.apiClient.getCurrentPrincipalPolicy(
+      "organization",
+      organizationId,
+    );
+    if (!organization) throw new Error("Expected signed organization");
+    const resolveCurrentPolicy = createRuntimePrincipalPolicyCurrentResolver({
+      apiClient: {
+        getPrincipalPolicyPages: repairPolicyPages([
+          organization,
+          ...Object.values(fixture.servedGroups),
+        ]),
+      },
+      infra: { execSql },
+      resolveTrustedUserIdentity: fixture.resolveTrustedUserIdentity,
+      withPrincipalHistoryProtection: repairProtectionLease(),
+      util: { reportSecurityIncident: async () => {} },
+    });
     const input = {
+      resolveCurrentPolicy,
       ...fixture,
       directory,
       execSql,
@@ -92,11 +115,6 @@ test("directory labels are decrypted only at their authenticated group heads", a
     await expect(
       hydrateOrganizationGroupNames({ ...input, stillCurrent: () => false }),
     ).rejects.toThrow();
-    const organization = await fixture.apiClient.getCurrentPrincipalPolicy(
-      "organization",
-      organizationId,
-    );
-    if (!organization) throw new Error("Expected signed organization");
     const organizationPolicyReference = principalPolicyHead(organization);
     fixture.fetched.length = 0;
     await expect(

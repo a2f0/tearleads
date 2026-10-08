@@ -96,7 +96,7 @@ test("an API-client cancellation before dispatch retires the never-submitted req
       execSql: sqlite.execSql,
       stillCurrent: () => true,
       submit: (mutation) => {
-        if (mutation.kind !== undefined)
+        if (mutation.kind !== "compound")
           throw new Error("Expected compound journal");
         return api.commitOrganizationGroupPolicyResult(
           fixture.scope.organizationId,

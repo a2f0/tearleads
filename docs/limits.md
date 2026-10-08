@@ -121,13 +121,13 @@ for the exact-length rule.
 | Principal crypto history page | 128 entries, 128 signer keys, 129 external-authority states; 128 retained reference requests per verifier | `principalPolicyHistoryPage.ts`, `principalPolicyHistoryChecks.ts` | Split work across pages/verifiers. This component does not bound individual projection bytes; see [the verifier contract](principal-history-pages.md). |
 | Principal GET history page | 32 historical entries (`PRINCIPAL_POLICY_HISTORY_PAGE_LIMIT`) plus the pinned head's current artifacts | Response validators and API `principalPolicyPage.ts`. | Continue with the same head hash and returned cursor. This bounds history depth per response, not projection bytes or total SDK memory; see [the transport contract](principal-history-transport.md). |
 
-Removing the version cutoff does not bound verification time. A full-history
-policy commit exceeded a local simulation of Cloudflare's default 125-second
-proxy read timeout. The deployed API uses proxied Cloudflare Tunnels; the
-[transport findings](projection-policy-evidence.md) distinguish passing direct
-HTTP boundary tests from this remaining availability limit. Bounded continuation
-is tracked in [#2448](https://github.com/a2f0/tearleads/issues/2448), and #2442
-remains open for that end-to-end requirement.
+Cold verification still grows with total signed history, across resumable
+requests. Preparation runs outside the final mutation transaction; each final
+commit rechecks current authorization and exact heads. The
+[HTTP acceptance evidence](principal-history-acceptance.md) exercises revocation
+and cold historical decryption through version 16,385 with a 15-second deadline
+per response, on SQLite and networked PostgreSQL. Those fixed-cardinality tests
+do not bound arbitrary policy size or aggregate load across API replicas.
 
 ## Limits that trade write liveness
 

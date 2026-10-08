@@ -3,10 +3,7 @@ import type {
   VerifiedPrincipalPolicyCurrent,
   VerifiedPrincipalPolicySelection,
 } from "@tearleads/crypto";
-import type {
-  PrincipalPolicyBundleResponse,
-  ProjectionPolicyEvidenceResponse,
-} from "@tearleads/validators/response";
+import type { ProjectionPolicyEvidenceResponse } from "@tearleads/validators/response";
 import type { PrincipalPolicyCurrentEvidence } from "../principals/principalPolicyEvidence";
 import type { TrustedUserIdentity } from "../trustedUserIdentity";
 
@@ -41,12 +38,6 @@ export interface ReferencedPrincipalPolicyWarmRequest {
   readonly stillCurrent?: (() => boolean) | undefined;
 }
 
-export interface PrincipalPolicyBundleCacheRequest {
-  readonly bundles: readonly PrincipalPolicyBundleResponse[];
-  readonly organizationId: string;
-  readonly stillCurrent?: (() => boolean) | undefined;
-}
-
 export interface ProjectionPolicyHistoryResolveRequest {
   /** Authenticate terminal evidence first; its consumer must validate durable currency. */
   readonly historicalProof?: boolean | undefined;
@@ -61,14 +52,9 @@ export interface ResolvedProjectionPolicyHistory {
   readonly stillCurrent: () => boolean;
 }
 
-export type PrincipalPolicyBundleCacher = (
-  input: PrincipalPolicyBundleCacheRequest,
-) => Promise<void>;
-
 export type ReferencedPrincipalPolicyWarmer = ((
   input: ReferencedPrincipalPolicyWarmRequest,
 ) => Promise<void>) & {
-  readonly cacheBundles?: PrincipalPolicyBundleCacher | undefined;
   readonly resolveProjectionHistory?:
     | ((
         input: ProjectionPolicyHistoryResolveRequest,
@@ -165,15 +151,6 @@ export function generationGuardedPrincipalPolicyWarmer(
               const result = await resolve({ ...input, stillCurrent: current });
               assertProjectionVerificationCurrent(current);
               return result;
-            },
-          }
-        : {}),
-      ...(operation.cacheBundles
-        ? {
-            cacheBundles: async (input: PrincipalPolicyBundleCacheRequest) => {
-              assertProjectionVerificationCurrent(stillCurrent);
-              await operation.cacheBundles?.({ ...input, stillCurrent });
-              assertProjectionVerificationCurrent(stillCurrent);
             },
           }
         : {}),

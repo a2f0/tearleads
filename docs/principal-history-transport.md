@@ -12,9 +12,10 @@ against the server's locally authenticated prefix and inclusion index.
 
 The API client rejects head/artifact changes, gaps, reordered entries, repeated
 cursors, and premature completion. Its authentication and cancellation context
-spans the entire download. The full-bundle adapter still collects all wire pages
-for existing SDK consumers. The incremental iterator supports durable recovery,
-but other embedded-history responses remain separate work for #2442 / #2448.
+spans the entire download. The explicit full-bundle collector assembles wire
+pages for callers that request
+a complete bundle. Built-in runtime consumers require private paged recovery;
+they never select that collector when recovery is missing or fails.
 
 `ApiClient.getPrincipalPolicyPages` exposes the same validated transport as a
 pull-based async iterator. It can select an exact `stateHash` on its first request
@@ -101,9 +102,9 @@ citation against the signed directory head and verified chain before issuing
 any grant. It includes only the organization payloads needed for those bindings,
 with exact references for selective client verification. Production projections
 carry these sources and the SDK resolves them through
-private history recovery. Resource scheduling, durable client mutation recovery
-and the full transport acceptance run remain tracked in
-[#2448](https://github.com/a2f0/tearleads/issues/2448).
+private history recovery. Preparation workers have bounded queues, and built-in
+mutations retain exact authored requests in their durable journal. See the
+[acceptance evidence](principal-history-acceptance.md) for the complete HTTP run.
 
 When the preparation queue is full or its bounded attempt makes no progress,
 policy PUT routes return HTTP 503 with the exact
@@ -149,8 +150,8 @@ Reusing a head check for an entire runtime lifetime would also reuse an earlier
 access result and stop inspecting subsequent returned head artifacts. This
 release keeps the existing online refusal, artifact validation, and lifetime
 checks explicit. Batching exact source heads while reauthorizing their object
-scope is the intended follow-up for reducing these round trips; it remains part
-of #2448, alongside the remaining mutation-consumer and resource work.
+scope is a possible optimization for reducing these round trips. It must preserve
+current authorization and artifact validation; the present reads remain bounded.
 
 ## Measuring HTTP work
 

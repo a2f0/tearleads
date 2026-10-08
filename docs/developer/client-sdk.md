@@ -651,9 +651,9 @@ Principal-policy writes acknowledge the exact submitted state and current
 artifacts without retransmitting `previousStates`. The SDK verifies that receipt
 against its authored request. Built-in membership changes and group revocation
 return `OrganizationGroupMutationReceipt` and atomically retain current artifacts
-and authenticated progress. Hosts without private custody may include history
-in the common receipt; standalone full-bundle workflows keep their return
-contracts; see [current mutations](principal-current-mutations.md). Missing or
+and authenticated progress. Built-in workflows require private paged recovery;
+standalone full-bundle utilities keep their explicit complete-history contracts.
+See [current mutations](principal-current-mutations.md). Missing or
 substituted receipts cannot advance the local checkpoint.
 The runtime journals compound policies, standalone organization policies, group
 creation and group deletion before HTTP. Pending work shares one organization
@@ -663,11 +663,10 @@ Advanced hosts use
 `submitJournaledPrincipalMutation` and `recoverJournaledPrincipalMutation`
 with durable SQLite, the actor's signing key and a current-lifetime guard.
 Their `PrincipalMutationJournalContext.submit` callback must dispatch every
-`kind` to its matching API route: absent kind means compound, followed by
-`group-create`, `group-delete` and `organization`. A compound-only adapter cannot
-recover the other kinds. Do not downgrade the SDK while any request is pending;
-older SDKs cannot read newer operation kinds. Keep the pending bytes and resume
-with an SDK that understands them.
+`kind` to its matching API route: `compound`, `group-create`, `group-delete`, or
+`organization`. Missing or unsupported kinds are rejected. A compound-only
+adapter cannot recover the other kinds. Keep unreadable pending bytes until the
+host explicitly acknowledges the unknown outcome and discards that exact row.
 An unknown result remains pending even if a later retry receives 403 or 409.
 A recovered receipt acknowledges a past request without advancing current pins.
 `Organizations.loadPolicyHistory(beforeVersion?)` displays verified organization

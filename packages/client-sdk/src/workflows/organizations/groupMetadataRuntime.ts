@@ -13,7 +13,6 @@ import {
   createGroupMetadataAccess,
   type GroupMetadataAccessInput,
 } from "./groupMetadataAccess";
-import { createGroupMetadataContainerVerifier } from "./groupMetadataContainerAuthority";
 import type { PrincipalPolicyReadApi } from "./groupPolicyMutationContext";
 
 interface GroupMetadataRuntime {
@@ -65,13 +64,11 @@ export function createRuntimeGroupMetadataAccess(
   return createGroupMetadataAccess({
     verifyMetadataContainer:
       verifyMetadataContainer ??
-      (resolveCurrentPolicy
-        ? createCurrentGroupMetadataContainerVerifier({
-            ...authorityInput,
-            resolveCurrentPolicy,
-            recoveryBatch: currentRecovery?.recoveryBatch,
-          })
-        : createGroupMetadataContainerVerifier(authorityInput)),
+      createCurrentGroupMetadataContainerVerifier({
+        ...authorityInput,
+        resolveCurrentPolicy: requireCurrentResolver(resolveCurrentPolicy),
+        recoveryBatch: currentRecovery?.recoveryBatch,
+      }),
     apiClient: runtime.apiClient,
     execSql: runtime.infra.execSql,
     organizationId,
@@ -80,4 +77,12 @@ export function createRuntimeGroupMetadataAccess(
     stillCurrent,
     warmReferencedPrincipalPolicies: warmer,
   });
+}
+
+function requireCurrentResolver(
+  resolve: ReturnType<typeof createRuntimePrincipalPolicyCurrentResolver>,
+) {
+  if (!resolve)
+    throw new Error("Group metadata requires private paged recovery");
+  return resolve;
 }

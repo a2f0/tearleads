@@ -1,129 +1,97 @@
-import { expect, test } from "bun:test";
+import { beforeAll, expect, test } from "bun:test";
+import { createMockApiClient } from "@tearleads/test-utils";
 import {
-  generateKemSeedAndKeyPair,
-  type ReferencedPrincipalHead,
-} from "@tearleads/crypto";
-import { createTestExecSql } from "@tearleads/test-utils";
-import { createAuthor } from "../../../test/helpers/containerFixtures";
-import { buildInitialGroupPolicyRequest } from "../../../test/helpers/groupMetadata";
-import {
-  policyBundleFromInitialRequest,
-  principalPolicyHead,
-} from "../../../test/helpers/principalPolicyFixtures";
-import { createTestTrustedUserIdentity } from "../../../test/helpers/trustedUserIdentity";
+  createAuthorityRecoveryFixture,
+  signedAuthorityRecoveryHistory,
+} from "../../../test/helpers/principalAuthorityRecovery";
+import { principalPolicyHead } from "../../../test/helpers/principalPolicyFixtures";
+import { repairProtectionLease } from "../../../test/helpers/principalPolicyRepair";
+import { isProjectionVerificationCancelledError } from "../../data/keyingProjectionVerification/types";
 import { loadPrincipalPolicyCheckpoint } from "../../data/persistence/keyingCheckpointPersistence";
-import { loadPrincipalPolicyBundleForReference } from "../../data/persistence/principalPolicyReferencePersistence";
-
+import { principalPolicyCheckpoints } from "../../data/sqlite/principalPolicySchema";
 import { createRuntimePrincipalPolicyWarmer } from "./runtimePolicyWarmer";
 
-const REFERENCE: ReferencedPrincipalHead = {
-  keyEpoch: 1,
-  keyFingerprint: "group-key-fingerprint",
-  principalId: "group-1",
-  principalType: "group",
-  stateHash: "group-state-hash",
-  version: 1,
-};
+let history: Awaited<ReturnType<typeof signedAuthorityRecoveryHistory>>;
+beforeAll(async () => {
+  history = await signedAuthorityRecoveryHistory();
+}, 30_000);
 
-test("runtime policy warmer fetches policies for every requested organization", async () => {
-  const { close, execSql } = await createTestExecSql(
-    "runtime-principal-policy-warmer",
+async function fixture(protectedRecovery = true) {
+  const source = await createAuthorityRecoveryFixture(history);
+  await loadPrincipalPolicyCheckpoint(
+    source.options.execSql,
+    "group",
+    history.group.currentState.principalId,
   );
-  const requestedPolicies: string[] = [];
+  let fullReads = 0;
+  const state = { current: true };
   const warmer = createRuntimePrincipalPolicyWarmer({
-    apiClient: {
-      getCurrentPrincipalPolicy: async (principalType, principalId) => {
-        requestedPolicies.push(`${principalType}:${principalId}`);
-        return null;
+    apiClient: createMockApiClient({
+      getPrincipalPolicyPages:
+        source.options.apiClient.getPrincipalPolicyPages.bind(
+          source.options.apiClient,
+        ),
+      getCurrentPrincipalPolicy: async () => {
+        fullReads += 1;
+        return history.group;
       },
-    },
-    infra: { execSql },
-    resolveTrustedUserIdentity: async () => null,
-    util: {
-      log: () => undefined,
-      reportSecurityIncident: async () => undefined,
-    },
+    }),
+    infra: { execSql: source.options.execSql },
+    resolveTrustedUserIdentity: source.options.resolveTrustedUserIdentity,
+    ...(protectedRecovery
+      ? {
+          withPrincipalHistoryProtection: repairProtectionLease(
+            () => state.current,
+          ),
+        }
+      : {}),
+    util: { reportSecurityIncident: async () => undefined },
   });
+  const warm = () =>
+    warmer({
+      organizationId: history.organizationId,
+      references: [principalPolicyHead(history.created)],
+      stillCurrent: () => state.current,
+    });
+  return { ...source, state, warm, fullReads: () => fullReads };
+}
 
+test("runtime warming refuses to collect full histories without private recovery", async () => {
+  const f = await fixture(false);
   try {
-    await warmer({
-      organizationId: "home-organization",
-      references: [REFERENCE],
+    await expect(f.warm()).rejects.toMatchObject({
+      name: "ProjectionDependencyUnavailableError",
     });
-    await warmer({
-      organizationId: "foreign-organization",
-      references: [REFERENCE],
-    });
-
-    expect(requestedPolicies).toEqual(["group:group-1", "group:group-1"]);
+    expect(f.fullReads()).toBe(0);
+    expect(f.requests).toEqual([]);
+    expect(await f.db.select().from(principalPolicyCheckpoints)).toEqual([]);
   } finally {
-    await close();
+    f.close();
   }
 });
 
-test("bundle repair caching rolls back after generation expiry", async () => {
-  const database = await createTestExecSql(
-    "runtime-principal-policy-warmer-generation",
-  );
-  const { author, signingPublicKey } = await createAuthor({
-    organizationId: "organization-1",
-    userId: "signer-user-1",
-  });
-  const memberKem = generateKemSeedAndKeyPair();
-  const request = await buildInitialGroupPolicyRequest({
-    creatorEncapsulationKeyPair: memberKem,
-    groupId: "group-1",
-    name: "Group 1",
-    signerUserId: author.signerUserId,
-    signingFingerprint: author.signerKeyFingerprint,
-    signingKeyPair: {
-      signingPrivateKey: author.signerPrivateKey,
-      signingPublicKey,
-    },
-  });
-  const bundle = await policyBundleFromInitialRequest(request);
-  const reference = principalPolicyHead(bundle);
-  let current = true;
-  const warmer = createRuntimePrincipalPolicyWarmer({
-    apiClient: {
-      getCurrentPrincipalPolicy: async () => null,
-    },
-    infra: { execSql: database.execSql },
-    resolveTrustedUserIdentity: async (userId) => {
-      if (userId !== author.signerUserId) return null;
-      current = false;
-      return createTestTrustedUserIdentity({
-        encapsulationPublicKey: memberKem.publicKey,
-        signingKeyFingerprint: author.signerKeyFingerprint,
-        signingPublicKey,
-        userId,
-      });
-    },
-    util: {
-      log: () => undefined,
-      reportSecurityIncident: async () => undefined,
-    },
-  });
-
+test("runtime warming stops when the caller's generation expires", async () => {
+  const f = await fixture();
   try {
-    await warmer.cacheBundles?.({
-      bundles: [bundle],
-      organizationId: author.organizationId,
-      stillCurrent: () => current,
-    });
-
-    expect(current).toBe(false);
-    expect(
-      await loadPrincipalPolicyCheckpoint(database.execSql, "group", "group-1"),
-    ).toBeNull();
-    expect(
-      await loadPrincipalPolicyBundleForReference(
-        database.execSql,
-        reference,
-        null,
-      ),
-    ).toBeNull();
+    f.state.current = false;
+    const error = await f.warm().catch((error: unknown) => error);
+    expect(isProjectionVerificationCancelledError(error)).toBe(true);
+    expect(f.fullReads()).toBe(0);
+    expect(f.requests).toEqual([]);
+    expect(await f.db.select().from(principalPolicyCheckpoints)).toEqual([]);
   } finally {
-    database.close();
+    f.close();
+  }
+});
+
+test("runtime warming streams exact references without admitting standalone checkpoints", async () => {
+  const f = await fixture();
+  try {
+    await f.warm();
+    expect(f.requests.length).toBeGreaterThan(0);
+    expect(f.fullReads()).toBe(0);
+    expect(await f.db.select().from(principalPolicyCheckpoints)).toEqual([]);
+  } finally {
+    f.close();
   }
 });

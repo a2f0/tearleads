@@ -1,7 +1,7 @@
 # Current principal-policy consumers
 
 Org Manager label hydration and runtime metadata-root verification also use
-paged current policies when the runtime provides private history custody. Labels
+paged current policies and require private history custody. Labels
 bind to the exact signed directory and group heads. Their current artifacts stay
 paired with verified policies; they are never stored as fabricated full bundles.
 Directory/Admins admission still checks durable pins. Name reads alone leave
@@ -132,7 +132,7 @@ after its metadata authority had already selected those policies. The new local
 preference eliminates those online repeats when exact private evidence is
 available. Separate projection collections still recover public history, and
 each mutation discovers a fresh directory before authoring its successor. This
-remaining work stays tracked in #2448. Before local evidence reuse, first
+work is bounded but adds round trips. Before local evidence reuse, first
 creation used 53 requests.
 
 The Admins mutation retains its 147 completed-request allowance, 84 completed
@@ -141,5 +141,6 @@ additional request is allowed only for a validated `202` history preparation
 response, still capped at one. Without sharing directory discovery within the
 mutation batch, this flow needed two extra completed requests.
 
-Folder mutation limits remain unchanged. Full-bundle mutation consumers and
-repeated discovery reads still need migration and deduplication under #2448.
+Folder mutation limits remain unchanged. Built-in mutations require current
+paged evidence. Deduplicating discovery reads is a future latency optimization
+and must preserve each operation's authorization and lifetime checks.

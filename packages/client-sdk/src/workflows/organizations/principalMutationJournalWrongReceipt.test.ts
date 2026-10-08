@@ -11,7 +11,12 @@ import {
   submitJournaledPrincipalMutation,
 } from "./principalMutationJournalSession";
 
-test.each([undefined, "group-create", "group-delete", "organization"] as const)(
+test.each([
+  "compound",
+  "group-create",
+  "group-delete",
+  "organization",
+] as const)(
   "a custom transport's wrong receipt kind preserves the %s journal",
   async (kind) => {
     const fixture = await principalMutationJournalFixture();
@@ -45,7 +50,7 @@ test.each([undefined, "group-create", "group-delete", "organization"] as const)(
       submit: async () => ({
         ok: true as const,
         data:
-          kind === undefined
+          kind === "compound"
             ? fixture.response.organizationPolicy
             : fixture.response,
       }),

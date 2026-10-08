@@ -100,6 +100,14 @@ test.each(["bounded", "no lease", "no pages"] as const)(
         ...f.runtime,
         apiClient: mode === "no pages" ? withoutPages : f.runtime.apiClient,
       });
+      if (mode !== "bounded") {
+        expect(() =>
+          createRuntimeGroupMetadataAccess(runtime, organizationId),
+        ).toThrow("Group metadata requires private paged recovery");
+        expect(f.fullReads()).toBe(0);
+        expect(f.requests).toHaveLength(0);
+        return;
+      }
       if (mode === "bounded") {
         const head = f.projection.policyEvidence.organization?.head;
         if (!head) throw new Error("Missing projected directory head");
@@ -120,9 +128,6 @@ test.each(["bounded", "no lease", "no pages"] as const)(
       if (mode === "bounded") {
         expect(f.fullReads()).toBe(0);
         expect(f.requests.length).toBeGreaterThan(0);
-      } else {
-        expect(f.fullReads()).toBeGreaterThan(0);
-        expect(f.requests).toHaveLength(0);
       }
     } finally {
       f.close();

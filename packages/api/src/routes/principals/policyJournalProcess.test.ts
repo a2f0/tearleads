@@ -76,7 +76,7 @@ test("a restarted SDK process recovers its exact disk journal after acknowledgem
   };
   const initial = startPrincipalMutationJournalProcess({
     ...input,
-    mutation: { groupId, request },
+    mutation: { kind: "compound", groupId, request },
   });
   let recovery:
     | ReturnType<typeof startPrincipalMutationJournalProcess>

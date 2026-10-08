@@ -18,7 +18,8 @@ import type { ContainerContentsWorkflowRuntime } from "./runtime";
 
 type ContainerDocumentPurgeApi = Pick<
   ContainerContentsWorkflowRuntime["apiClient"],
-  | "getCurrentPrincipalPolicy"
+  | "getPrincipalPolicyPages"
+  | "getProjectionPolicyHistoryPages"
   | "getDocumentPurgeProof"
   | "getDocumentWriterProjectionResult"
   | "purgeDocument"

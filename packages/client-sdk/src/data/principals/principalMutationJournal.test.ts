@@ -6,6 +6,7 @@ import {
   principalMutationJournalScopeId,
   sealPrincipalMutation,
 } from "./principalMutationJournal";
+import { readPrincipalMutation } from "./principalMutationJournalShape";
 
 test("journal authenticates an owned complete request after identity reload", async () => {
   const input = await fixture();
@@ -22,7 +23,7 @@ test("journal authenticates an owned complete request after identity reload", as
   expect(await openPrincipalMutation(reload)).toEqual(authored);
   expect(input.signingKeyPair.signingPrivateKey).toEqual(privateKey);
   const opened = await openPrincipalMutation(reload);
-  if (opened.kind !== undefined) throw new Error("Expected compound journal");
+  if (opened.kind !== "compound") throw new Error("Expected compound journal");
   opened.request.groupPolicy.memberEnvelopes.length = 0;
   expect(await openPrincipalMutation(reload)).toEqual(authored);
 });
@@ -92,4 +93,14 @@ test("journal sealing rejects a mismatched signing key pair before persistence",
     sealPrincipalMutation({ ...input, signingKeyPair }),
   ).rejects.toThrow("signing key pair differs");
   expect(signingKeyPair.signingPrivateKey).toEqual(original);
+});
+
+test("journal requires an explicit compound operation kind", async () => {
+  const input = await fixture();
+  expect(() =>
+    readPrincipalMutation({ ...input.mutation, kind: undefined }, input.scope),
+  ).toThrow("operation is unsupported");
+  expect(readPrincipalMutation(input.mutation, input.scope).kind).toBe(
+    "compound",
+  );
 });

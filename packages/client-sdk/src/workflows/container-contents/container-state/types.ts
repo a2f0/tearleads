@@ -1,3 +1,4 @@
+import type { ApiClient } from "@tearleads/api-client";
 import type { ContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
 import type {
   ContainerDeleteResponse,
@@ -33,7 +34,13 @@ export type ContainerWorkflowApi = Parameters<
   Parameters<typeof shareRemoteContainer>[0]["apiClient"] &
   Parameters<typeof shareRemoteContainerWithGroup>[0]["apiClient"] &
   Parameters<typeof moveRemoteContainer>[0]["apiClient"] &
-  Parameters<typeof createRemoteDocument>[0]["apiClient"] & {
+  Parameters<typeof createRemoteDocument>[0]["apiClient"] &
+  Partial<
+    Pick<
+      ApiClient,
+      "getPrincipalPolicyPages" | "getProjectionPolicyHistoryPages"
+    >
+  > & {
     deleteContainerResult(
       containerId: string,
       options?: {

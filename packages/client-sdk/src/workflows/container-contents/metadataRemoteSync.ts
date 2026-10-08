@@ -23,7 +23,7 @@ type ContainerMetadataSyncApi = Parameters<
 >[0]["apiClient"] &
   Pick<
     ContainerContentsWorkflowRuntime["apiClient"],
-    "getCurrentPrincipalPolicy"
+    "getPrincipalPolicyPages" | "getProjectionPolicyHistoryPages"
   >;
 
 export interface ContainerMetadataSyncRuntime

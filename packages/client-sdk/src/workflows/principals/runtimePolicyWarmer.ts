@@ -1,76 +1,46 @@
-import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
-import type {
-  PrincipalPolicyBundleCacheRequest,
-  ReferencedPrincipalPolicyWarmer,
-} from "../../data/keyingProjectionVerification";
-import type { SecurityIncidentReporter } from "../../data/securityIncidents";
-import type { ExecSql } from "../../data/sqlite/sqlSchema";
-import type { TrustedUserIdentityResolver } from "../../data/trustedUserIdentity";
+import { ProjectionDependencyUnavailableError } from "../../data/keyingProjectionVerification/dependencyUnavailable";
 import {
-  cachePrincipalPolicyBundles,
-  cacheReferencedPrincipalPolicies,
-} from "./policyCache";
+  assertProjectionVerificationCurrent,
+  type ReferencedPrincipalPolicyWarmer,
+} from "../../data/keyingProjectionVerification/types";
 import {
   createRuntimePrincipalPolicyResolver,
   type PrincipalPolicyRecoveryRuntime,
 } from "./runtimePolicyRecovery";
 import { createRuntimeProjectionPolicyResolver } from "./runtimeProjectionPolicyRecovery";
 
-interface PrincipalPolicyWarmRuntime extends PrincipalPolicyRecoveryRuntime {
-  readonly apiClient: PrincipalPolicyRecoveryRuntime["apiClient"] & {
-    getCurrentPrincipalPolicy(
-      principalType: "group" | "organization",
-      principalId: string,
-    ): Promise<PrincipalPolicyBundleResponse | null>;
-  };
-  readonly infra: { readonly execSql: ExecSql };
-  readonly util: {
-    readonly log: (message: string) => void;
-    readonly reportSecurityIncident: SecurityIncidentReporter;
-  };
-  readonly resolveTrustedUserIdentity: TrustedUserIdentityResolver;
-}
-
+/** Warm exact references through durable paged recovery within the caller's lifetime. */
 export function createRuntimePrincipalPolicyWarmer(
-  runtime: PrincipalPolicyWarmRuntime,
+  runtime: PrincipalPolicyRecoveryRuntime,
   options: { readonly preferLocalCurrent?: boolean } = {},
 ): ReferencedPrincipalPolicyWarmer {
-  const policyInput = ({
-    organizationId,
-    references,
-    stillCurrent,
-  }: Parameters<ReferencedPrincipalPolicyWarmer>[0]) => {
-    const input: Parameters<typeof cacheReferencedPrincipalPolicies>[0] = {
-      execSql: runtime.infra.execSql,
-      getCurrentPrincipalPolicy: (principalType, principalId) =>
-        runtime.apiClient.getCurrentPrincipalPolicy(principalType, principalId),
-      log: runtime.util.log,
-      organizationId,
-      reportSecurityIncident: runtime.util.reportSecurityIncident,
-      references,
-      resolveTrustedUserIdentity: runtime.resolveTrustedUserIdentity,
-      stillCurrent,
-    };
-    return input;
+  const resolve = createRuntimePrincipalPolicyResolver(runtime, options);
+  const resolveReference: NonNullable<
+    ReferencedPrincipalPolicyWarmer["resolveReference"]
+  > = (input) => {
+    if (!resolve)
+      throw new ProjectionDependencyUnavailableError(
+        "Principal policies require private paged recovery",
+      );
+    return resolve(input);
   };
   const warmer = async (
     input: Parameters<ReferencedPrincipalPolicyWarmer>[0],
-  ) => cacheReferencedPrincipalPolicies(policyInput(input));
-  const cacheBundles = (input: PrincipalPolicyBundleCacheRequest) =>
-    cachePrincipalPolicyBundles({
-      bundles: input.bundles,
-      execSql: runtime.infra.execSql,
-      getCurrentPrincipalPolicy: (principalType, principalId) =>
-        runtime.apiClient.getCurrentPrincipalPolicy(principalType, principalId),
-      log: runtime.util.log,
-      organizationId: input.organizationId,
-      reportSecurityIncident: runtime.util.reportSecurityIncident,
-      resolveTrustedUserIdentity: runtime.resolveTrustedUserIdentity,
-      stillCurrent: input.stillCurrent,
-    });
+  ) => {
+    const recoveryBatch = {};
+    for (const reference of input.references) {
+      assertProjectionVerificationCurrent(input.stillCurrent);
+      const resolved = await resolveReference({
+        ...input,
+        reference,
+        recoveryBatch,
+      });
+      assertProjectionVerificationCurrent(resolved.stillCurrent);
+    }
+    assertProjectionVerificationCurrent(input.stillCurrent);
+  };
   return Object.assign(warmer, {
-    cacheBundles,
-    resolveReference: createRuntimePrincipalPolicyResolver(runtime, options),
+    resolveReference,
     resolveProjectionHistory: createRuntimeProjectionPolicyResolver(runtime),
   });
 }

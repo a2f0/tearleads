@@ -9,7 +9,6 @@ export {
 } from "./keyingProjectionVerification/readers";
 
 export type {
-  PrincipalPolicyBundleCacheRequest,
   PrincipalPolicyCache,
   ProjectionUserKey,
   ProjectionUserKeyResolver,

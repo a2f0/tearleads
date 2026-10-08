@@ -93,7 +93,6 @@ test("expired document create does not fetch or cache a refreshed group policy",
     infra: { execSql },
     resolveTrustedUserIdentity,
     util: {
-      log: () => undefined,
       reportSecurityIncident: async () => undefined,
     },
   });

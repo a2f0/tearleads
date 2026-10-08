@@ -1,11 +1,11 @@
-import { KeyingVerificationError } from "@tearleads/crypto";
+import { ProjectionDependencyUnavailableError } from "../../data/keyingProjectionVerification/dependencyUnavailable";
 import { assertProjectionVerificationCurrent } from "../../data/keyingProjectionVerification/types";
 import { loadLocalOrganizationPolicyReference } from "../../workflows/organizations";
 import { buildOrganizationGroupPolicyHistoryPage } from "../../workflows/organizations/groupPolicyHistoryPage";
 import { createRuntimePrincipalPolicyCurrentResolver } from "../../workflows/principals/runtimePolicyRecovery";
 import type { ActiveOrganizationDataRuntime } from "./organizationWorkflowRuntime";
 
-/** Undefined means the host lacks paged recovery; a failed capability never downgrades. */
+/** All group history reads use the private paged verifier. */
 export async function loadBoundedOrganizationGroupHistory(input: {
   readonly active: ActiveOrganizationDataRuntime;
   readonly groupId: string;
@@ -14,14 +14,10 @@ export async function loadBoundedOrganizationGroupHistory(input: {
 }) {
   const { active } = input;
   const resolve = createRuntimePrincipalPolicyCurrentResolver(active.runtime);
-  if (!resolve) {
-    if (input.beforeVersion !== undefined)
-      throw new KeyingVerificationError(
-        "invalid_shape",
-        "This host cannot resolve a group history page cursor",
-      );
-    return undefined;
-  }
+  if (!resolve)
+    throw new ProjectionDependencyUnavailableError(
+      "Group history requires private paged recovery",
+    );
   assertProjectionVerificationCurrent(input.stillCurrent);
   const reference = await loadLocalOrganizationPolicyReference({
     currentUserId: active.userId,

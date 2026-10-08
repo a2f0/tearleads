@@ -1,6 +1,7 @@
 import { beforeAll, expect, test } from "bun:test";
 import type { ApiClient } from "@tearleads/api-client";
 import { KeyingVerificationError } from "@tearleads/crypto";
+import { createMockApiClient } from "@tearleads/test-utils";
 import {
   createAuthorityRecoveryFixture,
   signedAuthorityRecoveryHistory,
@@ -8,6 +9,7 @@ import {
 import { principalPolicyHead } from "../../../test/helpers/principalPolicyFixtures";
 import { createProjectionCheckpointContext } from "../../data/keyingProjectionVerification/checkpointContext";
 import { collectReferencedPrincipalPolicies } from "../../data/keyingProjectionVerification/principalPolicyVerification";
+import { loadPrincipalPolicyCheckpoint } from "../../data/persistence/keyingCheckpointPersistence";
 import { principalPolicyCheckpoints } from "../../data/sqlite/principalPolicySchema";
 import { createRuntimePrincipalPolicyWarmer } from "./runtimePolicyWarmer";
 
@@ -52,6 +54,11 @@ test("a held citation to a deleted group is unavailable without an incident", as
 
 async function fixture() {
   const source = await createAuthorityRecoveryFixture(history);
+  await loadPrincipalPolicyCheckpoint(
+    source.options.execSql,
+    "group",
+    history.group.currentState.principalId,
+  );
   const state = { online: true, fullReads: 0 };
   const incidents: unknown[] = [];
   const pages = source.options.apiClient.getPrincipalPolicyPages.bind(
@@ -61,14 +68,14 @@ async function fixture() {
     getPrincipalPolicyPages: pages,
   };
   const warmer = createRuntimePrincipalPolicyWarmer({
-    apiClient: {
+    apiClient: createMockApiClient({
       getPrincipalPolicyPages: (...args) =>
         transport.getPrincipalPolicyPages(...args),
       getCurrentPrincipalPolicy: async (_kind, id) => {
         state.fullReads += 1;
         return source.policies.get(id) ?? null;
       },
-    },
+    }),
     infra: { execSql: source.options.execSql },
     state,
     withPrincipalHistoryProtection: (operation) =>
@@ -78,7 +85,6 @@ async function fixture() {
       }),
     resolveTrustedUserIdentity: source.options.resolveTrustedUserIdentity,
     util: {
-      log: () => undefined,
       reportSecurityIncident: async (error) => {
         incidents.push(error);
       },

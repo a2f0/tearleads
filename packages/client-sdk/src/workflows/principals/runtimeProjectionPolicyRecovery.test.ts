@@ -1,4 +1,5 @@
 import { beforeAll, expect, test } from "bun:test";
+import { createMockApiClient } from "@tearleads/test-utils";
 import { signedAuthorityRecoveryHistory } from "../../../test/helpers/principalAuthorityRecovery";
 import { createPublicProjectionHistoryFixture } from "../../../test/helpers/publicProjectionHistory";
 import {
@@ -18,7 +19,7 @@ async function fixture() {
   const state = { online: true, current: true, fullReads: 0 };
   const incidents: unknown[] = [];
   const warmer = createRuntimePrincipalPolicyWarmer({
-    apiClient: {
+    apiClient: createMockApiClient({
       getProjectionPolicyHistoryPages:
         f.options.apiClient.getProjectionPolicyHistoryPages.bind(
           f.options.apiClient,
@@ -27,11 +28,10 @@ async function fixture() {
         state.fullReads += 1;
         return null;
       },
-    },
+    }),
     infra: { execSql: f.options.execSql },
     state,
     util: {
-      log: () => {},
       reportSecurityIncident: async (error) => {
         incidents.push(error);
       },

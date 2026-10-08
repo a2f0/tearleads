@@ -90,7 +90,7 @@ export function createRepairWarmer(input: {
     infra: { execSql: input.execSql },
     resolveTrustedUserIdentity: input.resolveTrustedUserIdentity,
     withPrincipalHistoryProtection: repairProtectionLease(input.stillCurrent),
-    util: { log: () => {}, reportSecurityIncident: async () => {} },
+    util: { reportSecurityIncident: async () => {} },
   });
   return { warmer, apiClient, requests };
 }
