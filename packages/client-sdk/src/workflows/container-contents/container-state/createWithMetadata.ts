@@ -9,7 +9,6 @@ import type {
   ContainerWriterProjectionResponse,
 } from "@tearleads/validators/response";
 import { locallyAcknowledgedContainerMutationHead } from "../../../data/containers/shared/mutationAcknowledgement";
-import { isStaleParentContainerPathFailure } from "../../../data/containers/shared/mutationFailures";
 import type { ContainerMutationSubmitFailure } from "../../../data/containers/shared/types";
 import { assertDocumentWriterProjectionConsistent } from "../../../data/documents/shared/projection";
 import type { ProjectionUserKeyResolver } from "../../../data/keyingProjectionVerification";
@@ -22,13 +21,13 @@ import {
   type buildMaterializedContainerCreatePlan,
   readContainerMutationMetadataDocumentId,
 } from "../../containers";
+import { repairContainerCreateFailure } from "../../containers/child/createSubmission";
 import {
   type buildMaterializedDocumentCreatePlan,
   documentWriterProjectionFromCreateResponse,
   persistedDocumentCreateStateFromResponse,
   resolveDocumentCreateAuthor,
 } from "../../documents";
-import { recoverPrincipalPolicyRepair } from "../../principals/policyRepair";
 import { PrincipalPolicyRepairBudget } from "../../principals/policyRepairBudget";
 import { createRuntimePrincipalPolicyWarmer } from "../../principals/runtimePolicyWarmer";
 import { settleTerminalCreateFailure } from "./createTerminalFailure";
@@ -312,8 +311,10 @@ async function createContainerWithMetadataWithRepairs(
 ): Promise<CreatedRemoteContainerState | ContainerAlreadyCommitted | null> {
   const { apiClient } = input.runtime;
   let parentProjection = input.parentProjection;
-  let didRepairStaleParent = false;
-  const policyRepairs = new PrincipalPolicyRepairBudget();
+  const repairState = {
+    didRepairStaleParent: false,
+    policyRepairs: new PrincipalPolicyRepairBudget(),
+  };
   for (;;) {
     const submitted = await createRemoteContainerWithMetadataDocumentAttempt({
       ...input,
@@ -325,37 +326,22 @@ async function createContainerWithMetadataWithRepairs(
     if (submitted.ok) {
       return submitted.state;
     }
-    if (
-      policyRepairs.take(submitted.stalePrincipalHeads) &&
-      (await recoverPrincipalPolicyRepair({
-        heads: submitted.stalePrincipalHeads,
-        organizationId: parentProjection.organizationId,
-        warmReferencedPrincipalPolicies: createRuntimePrincipalPolicyWarmer(
-          input.runtime,
-        ),
-        stillCurrent: input.stillCurrent,
-      }))
-    ) {
+    const repair = await repairContainerCreateFailure({
+      apiClient,
+      failure: submitted,
+      parentContainerId: input.parentContainerId,
+      parentProjection,
+      state: repairState,
+      warmReferencedPrincipalPolicies: createRuntimePrincipalPolicyWarmer(
+        input.runtime,
+      ),
+      stillCurrent: input.stillCurrent,
+    });
+    if (repair.kind === "retry") {
+      parentProjection = repair.parentProjection;
       continue;
     }
-    if (
-      !didRepairStaleParent &&
-      isStaleParentContainerPathFailure(submitted) &&
-      apiClient.evictContainerWriterProjection &&
-      input.stillCurrent?.() !== false
-    ) {
-      didRepairStaleParent = true;
-      apiClient.evictContainerWriterProjection(input.parentContainerId);
-      const refreshedProjection = await apiClient.getContainerWriterProjection(
-        input.parentContainerId,
-      );
-      if (!refreshedProjection) {
-        return null;
-      }
-      if (input.stillCurrent?.() === false) return null;
-      parentProjection = refreshedProjection;
-      continue;
-    }
+    if (repair.kind === "unavailable") return null;
     return settleTerminalCreateFailure(submitted, input.stillCurrent) ===
       "committed"
       ? CONTAINER_ALREADY_COMMITTED

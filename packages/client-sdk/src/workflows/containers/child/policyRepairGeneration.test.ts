@@ -143,6 +143,14 @@ test("container creation consumes a sixteen-bundle page and its remainder, then 
             })
           : null,
     });
+    const parentProjection = {
+      organizationId: author.organizationId,
+    } as ContainerWriterProjectionResponse;
+    let refreshes = 0;
+    apiClient.getContainerWriterProjection = async () => {
+      refreshes++;
+      return parentProjection;
+    };
     const state = {
       didRepairStaleParent: false,
       policyRepairs: new PrincipalPolicyRepairBudget(),
@@ -166,14 +174,13 @@ test("container creation consumes a sixteen-bundle page and its remainder, then 
             ),
           },
           parentContainerId: "parent",
-          parentProjection: {
-            organizationId: author.organizationId,
-          } as ContainerWriterProjectionResponse,
+          parentProjection,
           warmReferencedPrincipalPolicies: warmer,
           state,
         }),
       );
     }
+    expect(refreshes).toBe(2);
     expect(results.map((result) => result.kind)).toEqual([
       "retry",
       "retry",

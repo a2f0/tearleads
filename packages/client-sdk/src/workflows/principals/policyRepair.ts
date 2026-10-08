@@ -17,6 +17,7 @@ export async function recoverPrincipalPolicyRepair(input: {
     | undefined;
   readonly stillCurrent?: (() => boolean) | undefined;
 }): Promise<boolean> {
+  // Keep the requested organization and lifetime stable across host callbacks.
   input = { ...input };
   const resolve = input.warmReferencedPrincipalPolicies?.resolveReference;
   if (!input.heads?.length || !resolve || input.stillCurrent?.() === false)

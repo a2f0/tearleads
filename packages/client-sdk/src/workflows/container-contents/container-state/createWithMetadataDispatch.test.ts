@@ -282,8 +282,13 @@ test("compound create consumes successive policy pages and stops a repeated page
       }),
     );
     let calls = 0;
+    let refreshes = 0;
     const apiClient = createMockApiClient({
       getPrincipalPolicyPages: repairPolicyPages([directory, ...bundles]),
+      getContainerWriterProjection: async () => {
+        refreshes++;
+        return parent.projection;
+      },
       getCurrentPrincipalPolicy: async () => {
         throw new Error("Full policy reads are forbidden");
       },
@@ -313,6 +318,7 @@ test("compound create consumes successive policy pages and stops a repeated page
     });
     expect(result).toBeNull();
     expect(calls).toBe(3);
+    expect(refreshes).toBe(2);
     expect(
       await loadPrincipalPolicyCheckpoint(
         database.execSql,

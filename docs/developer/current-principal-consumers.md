@@ -62,7 +62,9 @@ Stale container and inline document-rekey errors return at most 16 compact
 principal heads. The API verifies current state with bounded history preparation
 and discloses heads only for principals the requester may read. Built-in create
 and sync workflows recover the signed evidence with the private paged resolver,
-then rebuild the mutation under its original lifetime. The hints themselves do
+then refresh the parent projection before rebuilding a container create under
+its original lifetime. This keeps public evidence sources current when the retry
+admits newer policies. The hints themselves do
 not advance trust checkpoints. Hosts without a paged resolver cannot consume
 these hints through a full-history fallback. The wire field is `principalHeads`;
 API-client failures expose `stalePrincipalHeads`, replacing `stalePrincipalPolicies`.

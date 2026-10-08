@@ -89,27 +89,27 @@ export async function repairContainerCreateFailure(input: {
   if (input.stillCurrent?.() === false) {
     return { kind: "unavailable" };
   }
-  if (
+  const repairedPolicy =
     input.state.policyRepairs.take(input.failure.stalePrincipalHeads) &&
     (await recoverPrincipalPolicyRepair({
       heads: input.failure.stalePrincipalHeads,
       organizationId: input.parentProjection.organizationId,
       warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
       stillCurrent: input.stillCurrent,
-    }))
-  ) {
-    return { kind: "retry", parentProjection: input.parentProjection };
-  }
+    }));
   if (input.stillCurrent?.() === false) {
     return { kind: "unavailable" };
   }
-  if (
-    input.state.didRepairStaleParent ||
-    !isStaleParentContainerPathFailure(input.failure)
-  ) {
-    return { kind: "none" };
+  if (!repairedPolicy) {
+    if (
+      input.state.didRepairStaleParent ||
+      !isStaleParentContainerPathFailure(input.failure)
+    )
+      return { kind: "none" };
+    input.state.didRepairStaleParent = true;
   }
-  input.state.didRepairStaleParent = true;
+  // Recovery may select newer policies. Rebuild against a fresh public evidence
+  // source so the old projection cannot conflict with newly admitted pins.
   input.apiClient.evictContainerWriterProjection(input.parentContainerId);
   const parentProjection = await input.apiClient.getContainerWriterProjection(
     input.parentContainerId,
