@@ -2,7 +2,7 @@ export {
   createDocumentWithExecutor,
   runCreateDocumentWorkflow,
 } from "./createDocument";
-export { loadDocumentPurgeProof } from "./documentPurgeProof";
+export { runDocumentPurgeProofWorkflow } from "./documentPurgeProof";
 export { DocumentMutationError, toMutationError } from "./errors";
 export {
   type DocumentLinkSetMutationWorkflowResult,

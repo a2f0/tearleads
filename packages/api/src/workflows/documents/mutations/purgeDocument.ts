@@ -23,6 +23,7 @@ import {
 import { assertOrganizationProfileDocumentUnbound } from "../../organizations/organizationProfileBindingInvariant";
 import { lockOrganizationReadModelHeadForUpdateInTransaction } from "../../organizations/readModelChanges";
 import { assertRosterProfileDocumentUnbound } from "../../organizations/rosterProfileBindingInvariant";
+import { runPrincipalHistoryTransaction } from "../../principals/principalHistoryTransaction";
 import { loadPurgePolicyEvidence } from "../../principals/purgePolicyEvidence";
 import { loadDocumentContainerDependencyMaterial } from "../writerProjection";
 import { loadDocumentPurgeProofMaterial } from "../writerProjectionPurgeProof";
@@ -419,7 +420,7 @@ export async function runPurgeDocumentWorkflow(
   input: PurgeDocumentInput,
 ): Promise<PurgeDocumentWorkflowResult> {
   try {
-    return await db.transaction((tx) =>
+    return await runPrincipalHistoryTransaction(db, (tx) =>
       purgeDocumentWithExecutor({
         documentId: input.documentId,
         executor: tx,

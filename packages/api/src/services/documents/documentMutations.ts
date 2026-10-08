@@ -3,16 +3,15 @@ import {
   type CreateDocumentInput,
   type DocumentLinkSetMutationWorkflowResult,
   type DocumentSyncWorkflowResult,
-  loadDocumentPurgeProof,
   type MutateDocumentLinkSetInput,
   type PurgeDocumentInput,
   type PurgeDocumentWorkflowResult,
   runCreateDocumentWorkflow,
   runDocumentLinkSetMutationWorkflow,
+  runDocumentPurgeProofWorkflow,
   runDocumentSyncWorkflow,
   runPurgeDocumentWorkflow,
   type SyncDocumentInput,
-  toMutationError,
 } from "../../workflows/documents/mutations";
 import { createDatabaseWorkflowService } from "../databaseWorkflowService";
 import type { ApiServiceRuntime } from "../runtime";
@@ -72,11 +71,6 @@ export function getDocumentPurgeProof(
     readonly documentId: string;
     readonly userId: string;
   },
-): Promise<Awaited<ReturnType<typeof loadDocumentPurgeProof>>> {
-  return runtime.db
-    .transaction((tx) => loadDocumentPurgeProof({ ...input, executor: tx }))
-    .catch((error: unknown) => {
-      const mutationError = toMutationError(error);
-      throw mutationError ?? error;
-    });
+): Promise<Awaited<ReturnType<typeof runDocumentPurgeProofWorkflow>>> {
+  return runDocumentPurgeProofWorkflow(runtime.db, input);
 }
