@@ -24,7 +24,7 @@
     },
     "packages/api": {
       "name": "@tearleads/api",
-      "version": "0.1.15",
+      "version": "0.1.16",
       "dependencies": {
         "@aws-sdk/client-s3": "3.1147.0",
         "@tearleads/api-shared": "workspace:*",
@@ -211,7 +211,7 @@
     },
     "packages/client-sdk": {
       "name": "@tearleads/client-sdk",
-      "version": "0.1.21",
+      "version": "0.1.22",
       "dependencies": {
         "@tearleads/api-client": "workspace:*",
         "@tearleads/crypto": "workspace:*",
