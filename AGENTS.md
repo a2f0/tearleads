@@ -111,6 +111,13 @@ tooling. After cloning, run:
 mise install java github:oasdiff/oasdiff github:tlaplus/tlaplus pipx:ansible-core
 ```
 
+When local mise configuration cannot be trusted, the check scripts accept
+`OASDIFF_BIN`, `JAVA_BIN`, and `TLA_TOOLS_ROOT` as explicit paths. Point them
+to the versions installed under mise's `.mise.toml` pins. The TLA+ jar digest
+is checked against `scripts/checks/tlaToolsPin.sh` in both paths; CI uses mise
+when the overrides are unset. Turbo hashes the protocol tool paths so changing
+an override invalidates cached test results.
+
 Fetch `origin/main` or set `OPENAPI_BASE_REF` when checking OpenAPI against another
 base commit.
 

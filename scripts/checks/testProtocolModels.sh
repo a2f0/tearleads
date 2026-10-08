@@ -74,6 +74,18 @@ run_check() (
     "$CHECK_SCRIPT"
 )
 
+run_check_with_mise() (
+  cd "$TEST_ROOT"
+  unset JAVA_BIN TLA_TOOLS_ROOT
+  TMPDIR="$TEST_ROOT/tmp" \
+    PATH="$TEST_ROOT/bin:$PATH" \
+    FAKE_JAVA="$TEST_ROOT/bin/java" \
+    FAKE_JAVA_LOG="$JAVA_LOG" \
+    FAKE_TLA_TOOLS_ROOT="$TEST_ROOT/tla-tools" \
+    TLA_TOOLS_JAR_SHA256="$FIXTURE_JAR_SHA256" \
+    "$CHECK_SCRIPT"
+)
+
 install_registry() {
   cp "$FIXTURE_ROOT/$1" "$TEST_ROOT/formal/protocol-models.txt"
   rm -f "$JAVA_LOG"
@@ -95,6 +107,10 @@ assert_validation_failure() {
   assert_contains "$validation_output" "$expected"
   [ ! -e "$JAVA_LOG" ] || fail "$registry launched Java before validation finished."
 }
+
+install_registry valid.txt
+mise_output=$(run_check_with_mise)
+assert_contains "$mise_output" "Checked 3 protocol model configuration(s)."
 
 install_registry valid.txt
 valid_output=$(run_check)

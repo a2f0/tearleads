@@ -48,6 +48,14 @@ git -C "$TEST_ROOT" add docs/openapi.json
 git -C "$TEST_ROOT" commit --quiet -m "add optional request property"
 revision_commit=$(git -C "$TEST_ROOT" rev-parse HEAD)
 
+if override_output=$(
+  cd "$TEST_ROOT"
+  OASDIFF_BIN="$TEST_ROOT/missing-oasdiff" "$CHECK_SCRIPT" 2>&1
+); then
+  fail "a missing OASDIFF_BIN override was accepted."
+fi
+assert_contains "$override_output" "OASDIFF_BIN is not executable"
+
 # CI exports OPENAPI_BASE_REF/GITHUB_BASE_REF for the real repository check;
 # those refs cannot resolve inside the fixture repository, so clear them.
 fallback_output=$(

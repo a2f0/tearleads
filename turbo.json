@@ -1,7 +1,7 @@
 {
   "$schema": "https://turborepo.com/schema.json",
   "concurrency": "2",
-  "globalPassThroughEnv": ["JAVA_BIN", "TLA_TOOLS_ROOT"],
+  "globalEnv": ["JAVA_BIN", "TLA_TOOLS_ROOT"],
   "tasks": {
     "//#test:architecture": {
       "outputs": []
