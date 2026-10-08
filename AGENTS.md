@@ -115,8 +115,10 @@ When local mise configuration cannot be trusted, the check scripts accept
 `OASDIFF_BIN`, `JAVA_BIN`, and `TLA_TOOLS_ROOT` as explicit paths. Point them
 to the versions installed under mise's `.mise.toml` pins. The TLA+ jar digest
 is checked against `scripts/checks/tlaToolsPin.sh` in both paths; CI uses mise
-when the overrides are unset. Turbo hashes the protocol tool paths so changing
-an override invalidates cached test results.
+when the overrides are unset. The protocol-model check validates the pinned
+Java version and TLA+ jar digest on every run. The OpenAPI check validates the
+reported oasdiff version for `OASDIFF_BIN`; use only a trusted binary at that
+path. These direct checks do not depend on Turbo's task cache.
 
 Fetch `origin/main` or set `OPENAPI_BASE_REF` when checking OpenAPI against another
 base commit.
