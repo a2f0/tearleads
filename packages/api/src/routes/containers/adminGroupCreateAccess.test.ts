@@ -415,11 +415,9 @@ test("POST /containers returns current Admins policy when submitted policy is st
     "expected stale principal policy response",
   );
   expect(body.error).toBe("Principal policy is stale");
-  expect(body.principalPolicies).toHaveLength(1);
-  expect(body.principalPolicies[0]?.currentState.principalId).toBe(
+  expect(body.principalHeads).toHaveLength(1);
+  expect(body.principalHeads[0]?.principalId).toBe(
     staleRoot.adminPolicy.principalId,
   );
-  expect(body.principalPolicies[0]?.currentState.version).toBe(
-    currentRoot.adminPolicy.version,
-  );
+  expect(body.principalHeads[0]?.version).toBe(currentRoot.adminPolicy.version);
 }, 10_000);

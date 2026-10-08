@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { arraySchema } from "../schema";
-import { PrincipalPolicyBundleResponseSchema } from "./principal";
+import { PRINCIPAL_POLICY_REPAIR_HEAD_LIMIT } from "../util/principalHistoryWire";
+import { ReferencedPrincipalStateResponseSchema } from "./principalReference";
 
 export const DOCUMENT_SYNC_ERROR_CODES = {
   checkpointCoverageConflict: "document_sync_checkpoint_coverage_conflict",
@@ -32,16 +33,18 @@ export function isDocumentSyncErrorCode(
 export const DocumentSyncStateStaleErrorResponseSchema = z.looseObject({
   code: z.literal(DOCUMENT_SYNC_ERROR_CODES.stateStale),
   error: z.string().min(1),
-  principalPolicies: arraySchema(
-    PrincipalPolicyBundleResponseSchema,
+  principalHeads: arraySchema(
+    ReferencedPrincipalStateResponseSchema,
+    PRINCIPAL_POLICY_REPAIR_HEAD_LIMIT,
   ).optional(),
 });
 
 export const DocumentSyncErrorResponseSchema = z.looseObject({
   code: DocumentSyncErrorCodeSchema,
   error: z.string().min(1),
-  principalPolicies: arraySchema(
-    PrincipalPolicyBundleResponseSchema,
+  principalHeads: arraySchema(
+    ReferencedPrincipalStateResponseSchema,
+    PRINCIPAL_POLICY_REPAIR_HEAD_LIMIT,
   ).optional(),
 });
 

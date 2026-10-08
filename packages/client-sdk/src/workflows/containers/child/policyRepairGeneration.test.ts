@@ -1,89 +1,53 @@
 import { expect, test } from "bun:test";
 import { generateKemSeedAndKeyPair } from "@tearleads/crypto";
-import { createMockApiClient, createTestExecSql } from "@tearleads/test-utils";
+import { createTestExecSql } from "@tearleads/test-utils";
 import type {
   ContainerWriterProjectionResponse,
   PrincipalPolicyBundleResponse,
 } from "@tearleads/validators/response";
 import { createAuthor } from "../../../../test/helpers/containerFixtures";
 import { buildInitialGroupPolicyRequest } from "../../../../test/helpers/groupMetadata";
+import { createOrganizationHistoryFixture } from "../../../../test/helpers/organizationPolicyHistory";
 import {
   organizationPolicyBundleFromInitialRequest,
   policyBundleFromInitialRequest,
   principalPolicyHead,
 } from "../../../../test/helpers/principalPolicyFixtures";
+import { createRepairWarmer } from "../../../../test/helpers/principalPolicyRepair";
 import { createTestTrustedUserIdentity } from "../../../../test/helpers/trustedUserIdentity";
 import { loadPrincipalPolicyCheckpoint } from "../../../data/persistence/keyingCheckpointPersistence";
-import { loadPrincipalPolicyBundleForReference } from "../../../data/persistence/principalPolicyReferencePersistence";
+import { recoverPrincipalPolicyRepair } from "../../principals/policyRepair";
 import { PrincipalPolicyRepairBudget } from "../../principals/policyRepairBudget";
 import { buildInitialOrganizationPolicyRequest } from "../../registration/registerIdentity";
 import { repairContainerCreateFailure } from "./createSubmission";
-import { cacheRemoteContainerCreatePolicyRepair } from "./policyRepair";
 
-test("stale-policy repair rolls back when its generation expires during verification", async () => {
-  const database = await createTestExecSql(
-    "container-create-policy-repair-generation",
-  );
-  const { author, signingPublicKey } = await createAuthor({
-    organizationId: "organization-1",
-    userId: "signer-user-1",
-  });
-  const memberKem = generateKemSeedAndKeyPair();
-  const request = await buildInitialGroupPolicyRequest({
-    creatorEncapsulationKeyPair: memberKem,
-    groupId: "group-1",
-    name: "Group 1",
-    signerUserId: author.signerUserId,
-    signingFingerprint: author.signerKeyFingerprint,
-    signingKeyPair: {
-      signingPrivateKey: author.signerPrivateKey,
-      signingPublicKey,
+test("stale-policy repair refuses expired verification without admitting a pin", async () => {
+  const history = await createOrganizationHistoryFixture();
+  const database = await createTestExecSql("repair-generation");
+  let current = true;
+  const { warmer } = createRepairWarmer({
+    execSql: database.execSql,
+    bundles: [history.afterCreation, history.admin, history.created],
+    stillCurrent: () => current,
+    resolveTrustedUserIdentity: async (userId) => {
+      current = false;
+      return history.resolveTrustedUserIdentity(userId);
     },
   });
-  const bundle = await policyBundleFromInitialRequest(request);
-  const reference = principalPolicyHead(bundle);
-  let current = true;
-  let reportedIncident = false;
-
   try {
-    const repaired = await cacheRemoteContainerCreatePolicyRepair({
-      apiClient: createMockApiClient(),
-      execSql: database.execSql,
-      failure: {
-        message: "stale principal policy",
-        ok: false,
-        report: () => undefined,
-        stalePrincipalPolicies: [bundle],
-        status: 409,
-      },
-      organizationId: author.organizationId,
-      reportSecurityIncident: async () => {
-        reportedIncident = true;
-      },
-      resolveTrustedUserIdentity: async (userId) => {
-        current = false;
-        return userId === author.signerUserId
-          ? createTestTrustedUserIdentity({
-              encapsulationPublicKey: memberKem.publicKey,
-              signingKeyFingerprint: author.signerKeyFingerprint,
-              signingPublicKey,
-              userId,
-            })
-          : null;
-      },
-      stillCurrent: () => current,
-    });
-
-    expect(repaired).toBe(false);
-    expect(reportedIncident).toBe(false);
+    await expect(
+      recoverPrincipalPolicyRepair({
+        heads: [principalPolicyHead(history.created)],
+        organizationId: history.organizationId,
+        warmReferencedPrincipalPolicies: warmer,
+        stillCurrent: () => current,
+      }),
+    ).rejects.toThrow("generation expired");
     expect(
-      await loadPrincipalPolicyCheckpoint(database.execSql, "group", "group-1"),
-    ).toBeNull();
-    expect(
-      await loadPrincipalPolicyBundleForReference(
+      await loadPrincipalPolicyCheckpoint(
         database.execSql,
-        reference,
-        null,
+        "group",
+        history.created.currentState.principalId,
       ),
     ).toBeNull();
   } finally {
@@ -91,78 +55,35 @@ test("stale-policy repair rolls back when its generation expires during verifica
   }
 });
 
-test("stale-policy repair preserves the API client receiver", async () => {
-  const database = await createTestExecSql(
-    "container-create-policy-repair-receiver",
-  );
-  const { author, signingPublicKey } = await createAuthor({
-    organizationId: "organization-1",
-    userId: "signer-user-1",
+test("stale-policy recovery preserves the paged API receiver and admits no hint checkpoint", async () => {
+  const history = await createOrganizationHistoryFixture();
+  const database = await createTestExecSql("repair-receiver");
+  const { warmer, requests } = createRepairWarmer({
+    execSql: database.execSql,
+    bundles: [history.afterCreation, history.admin, history.created],
+    resolveTrustedUserIdentity: history.resolveTrustedUserIdentity,
   });
-  const memberKem = generateKemSeedAndKeyPair();
-  const signingKeyPair = {
-    signingPrivateKey: author.signerPrivateKey,
-    signingPublicKey,
-  };
-  const adminBundle = await policyBundleFromInitialRequest(
-    await buildInitialGroupPolicyRequest({
-      creatorEncapsulationKeyPair: memberKem,
-      groupId: "admins-group-1",
-      name: "Admins",
-      signerUserId: author.signerUserId,
-      signingFingerprint: author.signerKeyFingerprint,
-      signingKeyPair,
-    }),
-  );
-  const adminHead = principalPolicyHead(adminBundle);
-  if (adminHead.principalType !== "group") {
-    throw new Error("Expected a group policy authority");
-  }
-  const staleBundle = await policyBundleFromInitialRequest(
-    await buildInitialGroupPolicyRequest({
-      creatorEncapsulationKeyPair: memberKem,
-      externalAuthority: { ...adminHead, principalType: "group" },
-      groupId: "subject-group-1",
-      includeSignerAsAdmin: false,
-      name: "Subject",
-      signerUserId: author.signerUserId,
-      signingFingerprint: author.signerKeyFingerprint,
-      signingKeyPair,
-    }),
-  );
-  const apiClient = createMockApiClient();
-  let policyReceiver: unknown;
-  apiClient.getCurrentPrincipalPolicy = async function () {
-    policyReceiver = this;
-    return null;
-  };
-
   try {
-    await expect(
-      cacheRemoteContainerCreatePolicyRepair({
-        apiClient,
-        execSql: database.execSql,
-        failure: {
-          message: "stale principal policy",
-          ok: false,
-          report: () => undefined,
-          stalePrincipalPolicies: [staleBundle],
-          status: 409,
-        },
-        organizationId: author.organizationId,
-        reportSecurityIncident: async () => undefined,
-        resolveTrustedUserIdentity: async (userId) =>
-          userId === author.signerUserId
-            ? createTestTrustedUserIdentity({
-                encapsulationPublicKey: memberKem.publicKey,
-                signingKeyFingerprint: author.signerKeyFingerprint,
-                signingPublicKey,
-                userId,
-              })
-            : null,
+    expect(
+      await recoverPrincipalPolicyRepair({
+        heads: [principalPolicyHead(history.created)],
+        organizationId: history.organizationId,
+        warmReferencedPrincipalPolicies: warmer,
       }),
-    ).rejects.toMatchObject({ name: "KeyingVerificationError" });
-    expect(policyReceiver).toBe(apiClient);
+    ).toBe(true);
+    expect(
+      requests.some(
+        (request) =>
+          request.principalId === history.created.currentState.principalId,
+      ),
+    ).toBe(true);
+    expect(
+      await loadPrincipalPolicyCheckpoint(
+        database.execSql,
+        "group",
+        history.created.currentState.principalId,
+      ),
+    ).toBeNull();
   } finally {
     database.close();
   }
@@ -209,12 +130,19 @@ test("container creation consumes a sixteen-bundle page and its remainder, then 
         userId: author.signerUserId,
       }),
     );
-    const apiClient = createMockApiClient();
-    apiClient.getCurrentPrincipalPolicy = async (type, id) =>
-      type === "organization"
-        ? organizationBundle
-        : (bundles.find((bundle) => bundle.currentState.principalId === id) ??
-          null);
+    const { apiClient, warmer, requests } = createRepairWarmer({
+      execSql: database.execSql,
+      bundles: [organizationBundle, ...bundles],
+      resolveTrustedUserIdentity: async (userId) =>
+        userId === author.signerUserId
+          ? createTestTrustedUserIdentity({
+              encapsulationPublicKey: memberKem.publicKey,
+              signingKeyFingerprint: author.signerKeyFingerprint,
+              signingPublicKey,
+              userId,
+            })
+          : null,
+    });
     const state = {
       didRepairStaleParent: false,
       policyRepairs: new PrincipalPolicyRepairBudget(),
@@ -228,28 +156,20 @@ test("container creation consumes a sixteen-bundle page and its remainder, then 
       results.push(
         await repairContainerCreateFailure({
           apiClient,
-          execSql: database.execSql,
           failure: {
             ok: false,
             status: 409,
             message: "stale principal policy",
             report: () => {},
-            stalePrincipalPolicies: page,
+            stalePrincipalHeads: page.map((bundle) =>
+              principalPolicyHead(bundle),
+            ),
           },
           parentContainerId: "parent",
           parentProjection: {
             organizationId: author.organizationId,
           } as ContainerWriterProjectionResponse,
-          reportSecurityIncident: async () => {},
-          resolveTrustedUserIdentity: async (userId) =>
-            userId === author.signerUserId
-              ? createTestTrustedUserIdentity({
-                  encapsulationPublicKey: memberKem.publicKey,
-                  signingKeyFingerprint: author.signerKeyFingerprint,
-                  signingPublicKey,
-                  userId,
-                })
-              : null,
+          warmReferencedPrincipalPolicies: warmer,
           state,
         }),
       );
@@ -265,7 +185,10 @@ test("container creation consumes a sixteen-bundle page and its remainder, then 
         "group",
         "group-16",
       ),
-    ).not.toBeNull();
+    ).toBeNull();
+    expect(requests.some((request) => request.principalId === "group-16")).toBe(
+      true,
+    );
   } finally {
     database.close();
   }

@@ -10,6 +10,7 @@ import {
   normalizePrincipalContainerGrants,
   normalizePrincipalProjectionMembers,
 } from "@tearleads/crypto";
+import { PRINCIPAL_POLICY_REPAIR_HEAD_LIMIT } from "@tearleads/validators/util";
 import {
   getCurrentPrincipalStates,
   listPrincipalProjectionMembersForStates,
@@ -17,7 +18,7 @@ import {
   type StoredPrincipalState,
 } from "../../../../access/read/principalStateStore";
 import { canonicalJsonEquals } from "../../../../utils/canonicalJson";
-import { getPrincipalPolicyForStateWithExecutor } from "../../../principals/getCurrentPrincipalPolicy";
+import { getVerifiedPrincipalPolicyForStateWithExecutor } from "../../../principals/getCurrentPrincipalPolicy";
 import { assertPrincipalPolicyReadable } from "../../../principals/principalPolicyReadAuthorization";
 import { loadPrincipalPolicyReferenceBatches } from "../../../principals/principalPolicyReferenceBatches";
 import { PrincipalPolicyError } from "../../../principals/shared";
@@ -169,14 +170,9 @@ async function stalePrincipalPolicyError(input: {
 }): Promise<ContainerMutationError> {
   const seenPrincipalPolicyKeys = new Set<string>();
   const statesToFetch: StoredPrincipalState[] = [];
-  // A repair carries at most this many bundles; the rest are re-requested
-  // on the retry. This also bounds the read-authorization work a request
-  // with an unbounded `principalPolicies` array can demand.
-  const MAX_STALE_POLICY_REPAIRS = 16;
-
-  // Stale-policy rejects are repairable: return the server's current signed
-  // bundles so the client can verify, cache, rebuild the mutation, and retry.
-  // Only bundles the requester may read are returned: this reject runs before
+  // Return a bounded set of advisory heads. Clients recover their signed
+  // evidence through ordinary pages before rebuilding a mutation.
+  // Only principals the requester may read are returned: this reject runs before
   // the mutation's own authorization, so a fabricated stale entry naming any
   // principal must not turn it into an unauthorized policy read.
   for (const policy of input.policies) {
@@ -187,13 +183,13 @@ async function stalePrincipalPolicyError(input: {
     }
 
     seenPrincipalPolicyKeys.add(key);
-    if (statesToFetch.length < MAX_STALE_POLICY_REPAIRS) {
+    if (statesToFetch.length < PRINCIPAL_POLICY_REPAIR_HEAD_LIMIT) {
       statesToFetch.push(currentState);
     }
   }
 
   const context = createContainerWriterProjectionContext(input.executor);
-  const principalPolicies = (
+  const principalHeads = (
     await gatherWithExecutor(
       input.executor,
       statesToFetch,
@@ -209,18 +205,26 @@ async function stalePrincipalPolicyError(input: {
           if (error instanceof PrincipalPolicyError) return null;
           throw error;
         }
-        return getPrincipalPolicyForStateWithExecutor(
+        const { bundle } = await getVerifiedPrincipalPolicyForStateWithExecutor(
           input.executor,
           currentState,
         );
+        return {
+          principalType: bundle.currentState.principalType,
+          principalId: bundle.currentState.principalId,
+          version: bundle.currentState.version,
+          stateHash: bundle.currentState.stateHash,
+          keyEpoch: bundle.currentState.keyEpoch,
+          keyFingerprint: bundle.currentState.keyFingerprint,
+        };
       },
     )
-  ).filter((bundle) => bundle !== null);
+  ).filter((head) => head !== null);
 
   return mutationStateStale(input.message, {
     code: "principal_policy_stale",
     error: input.message,
-    principalPolicies,
+    principalHeads,
   });
 }
 

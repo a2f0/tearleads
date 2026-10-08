@@ -28,8 +28,9 @@ import {
   persistedDocumentCreateStateFromResponse,
   resolveDocumentCreateAuthor,
 } from "../../documents";
-import { cachePrincipalPolicyBundles } from "../../principals/policyCache";
+import { recoverPrincipalPolicyRepair } from "../../principals/policyRepair";
 import { PrincipalPolicyRepairBudget } from "../../principals/policyRepairBudget";
+import { createRuntimePrincipalPolicyWarmer } from "../../principals/runtimePolicyWarmer";
 import { settleTerminalCreateFailure } from "./createTerminalFailure";
 import {
   buildContainerWithMetadataPlans,
@@ -70,36 +71,6 @@ async function submitContainerWithMetadataDocument(input: {
     },
   );
   return result.ok ? { ok: true, response: result.data } : result;
-}
-
-async function cacheStalePrincipalPolicyBundles(input: {
-  readonly failure: ContainerMutationSubmitFailure;
-  readonly organizationId: string;
-  readonly runtime: ContainerWorkflowRuntime;
-  readonly stillCurrent?: (() => boolean) | undefined;
-}): Promise<boolean> {
-  const bundles = input.failure.stalePrincipalPolicies;
-  const apiClient = input.runtime.apiClient;
-  const getCurrentPrincipalPolicy =
-    apiClient.getCurrentPrincipalPolicy.bind(apiClient);
-  if (input.stillCurrent?.() === false) return false;
-  if (!bundles || bundles.length === 0) {
-    return false;
-  }
-
-  // A stale-policy failure is actionable only after the supplied bundles have
-  // been verified and cached; the next attempt will rebuild from that cache.
-  await cachePrincipalPolicyBundles({
-    bundles,
-    execSql: input.runtime.infra.execSql,
-    getCurrentPrincipalPolicy,
-    log: input.runtime.util.log,
-    organizationId: input.organizationId,
-    reportSecurityIncident: input.runtime.util.reportSecurityIncident,
-    resolveTrustedUserIdentity: input.runtime.resolveTrustedUserIdentity,
-    stillCurrent: input.stillCurrent,
-  });
-  return input.stillCurrent?.() !== false;
 }
 
 /**
@@ -355,11 +326,13 @@ async function createContainerWithMetadataWithRepairs(
       return submitted.state;
     }
     if (
-      policyRepairs.take(submitted.stalePrincipalPolicies) &&
-      (await cacheStalePrincipalPolicyBundles({
-        failure: submitted,
+      policyRepairs.take(submitted.stalePrincipalHeads) &&
+      (await recoverPrincipalPolicyRepair({
+        heads: submitted.stalePrincipalHeads,
         organizationId: parentProjection.organizationId,
-        runtime: input.runtime,
+        warmReferencedPrincipalPolicies: createRuntimePrincipalPolicyWarmer(
+          input.runtime,
+        ),
         stillCurrent: input.stillCurrent,
       }))
     ) {

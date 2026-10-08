@@ -50,7 +50,10 @@ export {
   type OrganizationReplacementAuthorization,
   OrganizationReplacementAuthorizationSchema,
 } from "./organizationReplacement";
-export { PRINCIPAL_POLICY_HISTORY_PAGE_LIMIT } from "./principalHistoryWire";
+export {
+  PRINCIPAL_POLICY_HISTORY_PAGE_LIMIT,
+  PRINCIPAL_POLICY_REPAIR_HEAD_LIMIT,
+} from "./principalHistoryWire";
 export {
   PROJECTION_HISTORY_HINT_CHARACTERS,
   ProjectionHistoryHeadersSchema,

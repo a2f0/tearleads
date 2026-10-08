@@ -4,7 +4,7 @@ import type {
   HttpOperationMethod,
 } from "@tearleads/validators/operation";
 import type {
-  PrincipalPolicyBundleResponse,
+  ReferencedPrincipalStateResponse,
   SyncWatermark,
 } from "@tearleads/validators/response";
 
@@ -70,7 +70,7 @@ export interface RequestFailure {
   readonly report: () => void;
   readonly status: number | null;
   readonly statusText: string;
-  readonly stalePrincipalPolicies?: PrincipalPolicyBundleResponse[] | undefined;
+  readonly stalePrincipalHeads?: ReferencedPrincipalStateResponse[] | undefined;
   /**
    * With `container_descendant_rekeys_required`, the full owed set, parent-first;
    * with `container_descendant_rekeys_inaccessible`, its unwritable subset.

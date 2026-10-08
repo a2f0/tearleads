@@ -96,7 +96,7 @@ test("behavior-bearing failure schemas accept every registered code", () => {
     ContainerMutationFailureResponseSchema.safeParse({
       code: "principal_policy_stale",
       error: "Diagnostic",
-      principalPolicies: [],
+      principalHeads: [],
     }).success,
   ).toBe(true);
 
@@ -133,12 +133,12 @@ test("terminal uncoded failures remain valid but carry no behavior", () => {
 });
 
 test("container stale-policy failures require repair evidence at the operation boundary", () => {
-  for (const principalPolicies of [undefined, null, {}, [null]]) {
+  for (const principalHeads of [undefined, null, {}, [null]]) {
     expect(
       ContainerMutationFailureResponseSchema.safeParse({
         code: "principal_policy_stale",
         error: "Refresh the policy",
-        principalPolicies,
+        principalHeads,
       }).success,
     ).toBe(false);
   }
@@ -146,7 +146,7 @@ test("container stale-policy failures require repair evidence at the operation b
     ContainerMutationFailureResponseSchema.safeParse({
       code: "principal_policy_stale",
       error: "Refresh the policy",
-      principalPolicies: [],
+      principalHeads: [],
     }).success,
   ).toBe(true);
 });

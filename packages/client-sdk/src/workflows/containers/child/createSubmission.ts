@@ -16,8 +16,8 @@ import type {
 import type { SecurityIncidentReporter } from "../../../data/securityIncidents";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import type { TrustedUserIdentityResolver } from "../../../data/trustedUserIdentity";
+import { recoverPrincipalPolicyRepair } from "../../principals/policyRepair";
 import type { PrincipalPolicyRepairBudget } from "../../principals/policyRepairBudget";
-import { cacheRemoteContainerCreatePolicyRepair } from "./policyRepair";
 
 export interface ContainerCreateRepairState {
   didRepairStaleParent: boolean;
@@ -77,27 +77,24 @@ export async function submitRemoteContainerCreate(input: {
 
 export async function repairContainerCreateFailure(input: {
   readonly apiClient: ContainerCreateApi;
-  readonly execSql: ExecSql;
   readonly failure: ContainerMutationSubmitFailure;
   readonly parentContainerId: string;
   readonly parentProjection: ContainerWriterProjectionResponse;
-  readonly reportSecurityIncident: SecurityIncidentReporter;
-  readonly resolveTrustedUserIdentity: TrustedUserIdentityResolver;
   readonly state: ContainerCreateRepairState;
+  readonly warmReferencedPrincipalPolicies?:
+    | ReferencedPrincipalPolicyWarmer
+    | undefined;
   readonly stillCurrent?: (() => boolean) | undefined;
 }): Promise<ContainerCreateFailureRepair> {
   if (input.stillCurrent?.() === false) {
     return { kind: "unavailable" };
   }
   if (
-    input.state.policyRepairs.take(input.failure.stalePrincipalPolicies) &&
-    (await cacheRemoteContainerCreatePolicyRepair({
-      apiClient: input.apiClient,
-      execSql: input.execSql,
-      failure: input.failure,
+    input.state.policyRepairs.take(input.failure.stalePrincipalHeads) &&
+    (await recoverPrincipalPolicyRepair({
+      heads: input.failure.stalePrincipalHeads,
       organizationId: input.parentProjection.organizationId,
-      reportSecurityIncident: input.reportSecurityIncident,
-      resolveTrustedUserIdentity: input.resolveTrustedUserIdentity,
+      warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
       stillCurrent: input.stillCurrent,
     }))
   ) {

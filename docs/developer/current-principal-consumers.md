@@ -58,6 +58,15 @@ The 32-entry bound limits directory versions, not the number of groups cited by
 each directory. Evidence bytes and public recovery work also grow with distinct
 cited groups; the HTTP fixture exercises both one and eight ordinary groups.
 
+Stale container and inline document-rekey errors return at most 16 compact
+principal heads. The API verifies current state with bounded history preparation
+and discloses heads only for principals the requester may read. Built-in create
+and sync workflows recover the signed evidence with the private paged resolver,
+then rebuild the mutation under its original lifetime. The hints themselves do
+not advance trust checkpoints. Hosts without a paged resolver cannot consume
+these hints through a full-history fallback. The wire field is `principalHeads`;
+API-client failures expose `stalePrincipalHeads`, replacing `stalePrincipalPolicies`.
+
 See [durable recovery](principal-history-recovery.md) for the underlying paging,
 private custody, and checkpoint contracts.
 

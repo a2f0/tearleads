@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import { ContainerMutationFailureResponseSchema } from "./containerMutationError";
 
-test.each([{}, { code: "principal_policy_stale", principalPolicies: [] }])(
+test.each([{}, { code: "principal_policy_stale", principalHeads: [] }])(
   "every container failure branch requires a non-empty message (%j)",
   (fields) => {
     expect(

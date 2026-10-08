@@ -129,7 +129,7 @@ testApiClient("rejects malformed coded document sync failures", async () => {
         {
           code: "document_sync_state_stale",
           error: "Untrusted stale state",
-          principalPolicies: [{}],
+          principalHeads: [{}],
         },
         { status: 409, statusText: "Conflict" },
       ),
@@ -149,7 +149,7 @@ testApiClient("rejects malformed coded document sync failures", async () => {
   expect(result.kind).toBe("http");
   expect(result.status).toBe(409);
   expect(result.code).toBeUndefined();
-  expect(result.stalePrincipalPolicies).toBeUndefined();
+  expect(result.stalePrincipalHeads).toBeUndefined();
   expect(result.message).toContain("Invalid failure response body");
   expect(result.message.includes("Untrusted stale state")).toBe(false);
 });

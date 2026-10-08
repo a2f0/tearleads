@@ -169,7 +169,11 @@ A stable-id document-create retry adopts the committed remote document only on
 for other callers; diagnostic `error` text never selects the adoption path.
 
 When an inline `containerRekeys[]` mutation encounters a stale principal-policy
-projection, `document_sync_state_stale` may also carry signed
-`principalPolicies[]`. A client verifies and caches those bundles before it
-refetches the writer projection and replans; the retry remains bounded by the
-normal stale-state budget. Other conflict codes must ignore repair bundles.
+projection, `document_sync_state_stale` may carry at most 16 advisory
+`principalHeads[]`. Each head contains the principal identity, version, state
+hash, key epoch and key fingerprint. The client recovers signed evidence through
+the paged history resolver, restricted to principals named by its submitted
+rekeys, before it refetches the writer projection and replans. Error hints alone
+never admit checkpoints. Exact scoped references and the original runtime
+lifetime must remain valid throughout recovery. The retry remains bounded by
+the normal stale-state budget. Other conflict codes ignore repair heads.

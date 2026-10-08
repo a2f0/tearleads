@@ -1,84 +1,82 @@
 import { expect, test } from "bun:test";
-import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
+import type { ReferencedPrincipalStateResponse } from "@tearleads/validators/response";
 import { DOCUMENT_SYNC_ERROR_CODES } from "@tearleads/validators/response";
+import { createAuthor } from "../../../test/helpers/containerFixtures";
+import { principalRepairEvidence } from "../../../test/helpers/principalRepairEvidence";
 import type { DocumentSyncPlan } from "../../data/documents/shared/types";
-import type { ReferencedPrincipalPolicyWarmer } from "../../data/keyingProjectionVerification";
-import { cacheDocumentSyncPolicyRepair } from "./syncPolicyRepair";
+import type {
+  PrincipalPolicyResolveRequest,
+  ReferencedPrincipalPolicyWarmer,
+} from "../../data/keyingProjectionVerification/types";
+import { recoverDocumentSyncPolicyRepair } from "./syncPolicyRepair";
 
-function policyBundle(
-  principalType: "group" | "organization",
+function repairPlan(
+  organizationId: string,
   principalId: string,
-): PrincipalPolicyBundleResponse {
+): DocumentSyncPlan {
   return {
-    currentState: { principalId, principalType },
-  } as PrincipalPolicyBundleResponse;
-}
-
-function repairPlan(): DocumentSyncPlan {
-  return {
-    organizationId: "organization-1",
+    organizationId,
     request: {
       containerRekeys: [
-        {
-          principalPolicies: [
-            { principalId: "group-1", principalType: "group" },
-          ],
-        },
+        { principalPolicies: [{ principalId, principalType: "group" }] },
       ],
     },
   } as unknown as DocumentSyncPlan;
 }
-
-function staleFailure(bundles: readonly PrincipalPolicyBundleResponse[]) {
+function staleFailure(heads: readonly ReferencedPrincipalStateResponse[]) {
   return {
     code: DOCUMENT_SYNC_ERROR_CODES.stateStale,
     message: "Principal policy is stale",
     ok: false as const,
     report: () => undefined,
-    stalePrincipalPolicies: bundles,
+    stalePrincipalHeads: heads,
     status: 409,
   };
 }
 
-test("document sync caches only requested stale-policy repair identities", async () => {
-  const requested = policyBundle("group", "group-1");
-  let cachedBundles: readonly PrincipalPolicyBundleResponse[] = [];
+test("document sync recovers only requested stale-policy heads", async () => {
+  const { head, evidence } = await principalRepairEvidence(
+    await createAuthor(),
+  );
+  const resolved: PrincipalPolicyResolveRequest[] = [];
   const warmer = Object.assign(async () => undefined, {
-    cacheBundles: async (input: {
-      bundles: readonly PrincipalPolicyBundleResponse[];
-    }) => {
-      cachedBundles = input.bundles;
+    resolveReference: async (input: PrincipalPolicyResolveRequest) => {
+      resolved.push(input);
+      return evidence;
     },
   }) satisfies ReferencedPrincipalPolicyWarmer;
-
-  await cacheDocumentSyncPolicyRepair({
-    failure: staleFailure([requested]),
-    plan: repairPlan(),
+  await recoverDocumentSyncPolicyRepair({
+    failure: staleFailure([head]),
+    plan: repairPlan(evidence.organizationId, head.principalId),
     warmReferencedPrincipalPolicies: warmer,
   });
-
-  expect(cachedBundles).toEqual([requested]);
+  expect(resolved).toHaveLength(1);
+  expect(resolved[0]).toMatchObject({
+    organizationId: evidence.organizationId,
+    reference: head,
+  });
 });
 
-test("document sync rejects an unrequested policy bundle before caching", async () => {
-  const requested = policyBundle("group", "group-1");
-  const unrequested = policyBundle("group", "group-from-other-organization");
-  let cacheCalled = false;
+test("document sync rejects an unrequested policy head before recovery", async () => {
+  const { head, evidence } = await principalRepairEvidence(
+    await createAuthor(),
+  );
+  let resolveCalled = false;
   const warmer = Object.assign(async () => undefined, {
-    cacheBundles: async () => {
-      cacheCalled = true;
+    resolveReference: async () => {
+      resolveCalled = true;
+      return evidence;
     },
   }) satisfies ReferencedPrincipalPolicyWarmer;
-
   await expect(
-    cacheDocumentSyncPolicyRepair({
-      failure: staleFailure([requested, unrequested]),
-      plan: repairPlan(),
+    recoverDocumentSyncPolicyRepair({
+      failure: staleFailure([head, { ...head, principalId: "other-group" }]),
+      plan: repairPlan(evidence.organizationId, head.principalId),
       warmReferencedPrincipalPolicies: warmer,
     }),
   ).rejects.toMatchObject({
     code: "object_mismatch",
-    message: "Document sync policy repair bundle principal was not requested",
+    message: "Document sync policy repair head principal was not requested",
   });
-  expect(cacheCalled).toBe(false);
+  expect(resolveCalled).toBe(false);
 });

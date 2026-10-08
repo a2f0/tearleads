@@ -100,18 +100,18 @@ test("container state conflicts become coded document-sync retries", () => {
   });
 });
 
-test("container stale-policy repair bundles survive document error mapping", () => {
+test("container stale-policy repair heads survive document error mapping", () => {
   const converted = toMutationError(
     mutationStateStale("Principal policy is stale", {
       code: "principal_policy_stale",
       error: "Principal policy is stale",
-      principalPolicies: [],
+      principalHeads: [],
     }),
   );
 
   expect(converted).toMatchObject({
     code: DOCUMENT_SYNC_ERROR_CODES.stateStale,
-    details: { principalPolicies: [] },
+    details: { principalHeads: [] },
     status: 409,
   });
 });

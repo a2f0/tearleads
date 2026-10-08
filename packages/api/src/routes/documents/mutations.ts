@@ -93,8 +93,8 @@ export function documentSyncErrorBody(
     return {
       code,
       error: error.error,
-      ...(error.details?.principalPolicies
-        ? { principalPolicies: [...error.details.principalPolicies] }
+      ...(error.details?.principalHeads
+        ? { principalHeads: [...error.details.principalHeads] }
         : {}),
     };
   }
