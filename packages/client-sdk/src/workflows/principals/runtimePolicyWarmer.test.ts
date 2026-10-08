@@ -25,7 +25,7 @@ async function fixture(protectedRecovery = true) {
     history.group.currentState.principalId,
   );
   let fullReads = 0;
-  const state = { current: true };
+  const state = { current: true, online: true };
   const warmer = createRuntimePrincipalPolicyWarmer({
     apiClient: createMockApiClient({
       getPrincipalPolicyPages:
@@ -38,6 +38,7 @@ async function fixture(protectedRecovery = true) {
       },
     }),
     infra: { execSql: source.options.execSql },
+    state,
     resolveTrustedUserIdentity: source.options.resolveTrustedUserIdentity,
     ...(protectedRecovery
       ? {
@@ -48,21 +49,27 @@ async function fixture(protectedRecovery = true) {
       : {}),
     util: { reportSecurityIncident: async () => undefined },
   });
-  const warm = () =>
+  const warm = (references = [principalPolicyHead(history.created)]) =>
     warmer({
       organizationId: history.organizationId,
-      references: [principalPolicyHead(history.created)],
+      references,
       stillCurrent: () => state.current,
     });
-  return { ...source, state, warm, fullReads: () => fullReads };
+  return { ...source, state, warm, warmer, fullReads: () => fullReads };
 }
 
 test("runtime warming refuses to collect full histories without private recovery", async () => {
   const f = await fixture(false);
   try {
-    await expect(f.warm()).rejects.toMatchObject({
-      name: "ProjectionDependencyUnavailableError",
-    });
+    await expect(f.warm()).resolves.toBeUndefined();
+    const resolve = f.warmer.resolveReference;
+    if (!resolve) throw new Error("Missing runtime resolver");
+    await expect(
+      resolve({
+        organizationId: history.organizationId,
+        reference: principalPolicyHead(history.created),
+      }),
+    ).rejects.toMatchObject({ name: "ProjectionDependencyUnavailableError" });
     expect(f.fullReads()).toBe(0);
     expect(f.requests).toEqual([]);
     expect(await f.db.select().from(principalPolicyCheckpoints)).toEqual([]);
@@ -75,7 +82,13 @@ test("runtime warming stops when the caller's generation expires", async () => {
   const f = await fixture();
   try {
     f.state.current = false;
-    const error = await f.warm().catch((error: unknown) => error);
+    await expect(f.warm()).resolves.toBeUndefined();
+    const resolve = f.warmer.resolveReference;
+    if (!resolve) throw new Error("Missing runtime resolver");
+    const error = await resolve({
+      organizationId: history.organizationId,
+      reference: principalPolicyHead(history.created),
+    }).catch((error: unknown) => error);
     expect(isProjectionVerificationCancelledError(error)).toBe(true);
     expect(f.fullReads()).toBe(0);
     expect(f.requests).toEqual([]);
@@ -90,6 +103,48 @@ test("runtime warming streams exact references without admitting standalone chec
   try {
     await f.warm();
     expect(f.requests.length).toBeGreaterThan(0);
+    expect(f.fullReads()).toBe(0);
+    expect(await f.db.select().from(principalPolicyCheckpoints)).toEqual([]);
+  } finally {
+    f.close();
+  }
+});
+
+test("unavailable prefetch evidence does not block another cited group", async () => {
+  const f = await fixture();
+  try {
+    const reference = principalPolicyHead(history.created);
+    await expect(
+      f.warm([{ ...reference, principalId: "missing-group" }, reference]),
+    ).resolves.toBeUndefined();
+    const requests = f.requests.length;
+    f.state.online = false;
+    const resolve = f.warmer.resolveReference;
+    if (!resolve) throw new Error("Missing runtime recovery");
+    const recovered = await resolve({
+      organizationId: history.organizationId,
+      reference,
+    });
+    expect(recovered.policy.version).toBe(66);
+    expect(f.requests).toHaveLength(requests);
+    expect(f.fullReads()).toBe(0);
+    expect(await f.db.select().from(principalPolicyCheckpoints)).toEqual([]);
+  } finally {
+    f.close();
+  }
+});
+
+test("policy prefetch still rejects invalid signed evidence", async () => {
+  const f = await fixture();
+  try {
+    f.controls.mutate = (page) => {
+      const first = page.previousStates[0];
+      const second = page.previousStates[1];
+      if (first && second) first.state.signature = second.state.signature;
+    };
+    await expect(f.warm()).rejects.toMatchObject({
+      name: "KeyingVerificationError",
+    });
     expect(f.fullReads()).toBe(0);
     expect(await f.db.select().from(principalPolicyCheckpoints)).toEqual([]);
   } finally {

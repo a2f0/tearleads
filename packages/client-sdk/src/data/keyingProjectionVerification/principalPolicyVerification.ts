@@ -317,6 +317,8 @@ async function verifyReferencedPrincipalPolicy(input: {
   resolveUserKey: ProjectionUserKeyResolver;
   warmReferencedPrincipalPolicies?: ReferencedPrincipalPolicyWarmer | undefined;
 }): Promise<PrincipalPolicyCurrentEvidence> {
+  // Scoped recovery carries organization, dependency and lifetime bindings.
+  // A bare policy cache entry cannot replace those bindings.
   const recovered = await resolveReferencedPrincipalPolicy(input);
   if (recovered) return recovered;
   const cacheKey = referencedPrincipalPolicyKey(input.reference);

@@ -211,14 +211,15 @@ This simulates the documented proxy budget; it is not an observed
 production 524. The complete direct HTTP scenarios pass on both database backends
 without that simulated deadline, but do not establish deployed-path availability.
 The regression uses the production Bun binding and real API client for cold
-reads. #2442 remains open until bounded continuation meets its transport-level
-availability requirement.
+reads. The subsequent bounded implementation is exercised by the
+[isolated HTTP acceptance scenario](principal-history-acceptance.md), with a
+15-second deadline per response on SQLite and networked PostgreSQL.
 The [principal-history model](../formal/container-keying/PrincipalHistory.md) checks
 revocation and cold recovery availability with negative controls for both kinds
 of cutoff. Neither the model nor the wider numeric domain promises bounded cold
-memory, transfer size, or verification time. Incremental transport remains a
-warm-cache optimization; [bounded cold recovery](https://github.com/a2f0/tearleads/issues/2448)
-tracks paged processing, resource scheduling, and any later checkpoint decisions.
+memory, transfer size, or verification time. The bounded implementation uses
+paged processing, authenticated durable progress and preparation scheduling.
+It verifies the entire signed history without introducing trusted server heads.
 Continuation must cover server-side mutation authorization as well as response
 delivery: paging a response cannot repair a mutation that exceeds the proxy
 budget before sending headers. Each continuation must preserve signature,

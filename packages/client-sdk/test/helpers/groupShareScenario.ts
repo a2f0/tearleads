@@ -215,9 +215,8 @@ interface GroupShareScenarioInput {
         runtimeInput: ContainerContentsWorkflowRuntimeInput;
       }) => Promise<void>)
     | undefined;
-  // Gives the runtime the author's keys so the share reaches the steps that
-  // need a writer context (the name binding, the mutation) instead of logging
-  // that the context is unavailable.
+  // Supplies signing credentials so the share can reach a mutation. Metadata
+  // reads always have the encapsulation key; they do not require a signer.
   writerContext?: boolean | undefined;
 }
 

@@ -6,6 +6,11 @@ and recovery availability. History length no longer imposes a 16,384-state
 refusal. Cold verification still checks every signed transition, across bounded
 HTTP requests and authenticated durable progress.
 
+Runtime prefetch skips individually unavailable references and stops quietly on
+cancellation, so one missing citation does not block unrelated containers. Signed
+integrity failures still reject the batch. Exact resolution always rejects missing
+custody or unavailable evidence; prefetch success never authorizes an object.
+
 ## Integration coverage
 
 | Requirement | Production behavior and regression |
