@@ -49,11 +49,12 @@ afterEach(async () => {
 
 // Reproduce the reported batch while staying within one sync response page.
 const BACKSPACE_COUNT = 51;
-// Every propagation here queues behind BACKSPACE_COUNT sequential round trips,
-// so the shared 15s default — calibrated for a test that syncs once — has no
-// headroom left on a loaded machine and times out well inside this test's own
-// 60s budget. These waits are the assertions, so a short bound reports a
-// timeout rather than the mismatch it exists to catch.
+// Recovery discovery and later propagation compete with the other test lanes;
+// propagation also queues behind BACKSPACE_COUNT sequential round trips. The
+// shared 10s discovery and 15s sync waits, calibrated for a single sync, can
+// expire well inside this test's 60s budget on a loaded runner. These waits are
+// assertions, so a short bound reports a timeout before the test reaches the
+// edit and convergence checks.
 const RECOVERED_SYNC_TIMEOUT_MS = 30_000;
 const apps: readonly NoteEntryPoint[] = ["Notes", "Explorer"];
 for (const creator of apps) {
@@ -101,7 +102,11 @@ for (const creator of apps) {
             await openExplorer(secondary);
             await selectContainerAndWaitForItemTable(secondary, "/");
             recoveredWindow = getExplorerWindowRoot(secondary);
-            await selectExplorerNoteByName(recoveredWindow, title);
+            await selectExplorerNoteByName(
+              recoveredWindow,
+              title,
+              RECOVERED_SYNC_TIMEOUT_MS,
+            );
           }
           await waitForSelectedNoteText(
             recoveredWindow,
