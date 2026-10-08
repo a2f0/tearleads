@@ -154,7 +154,6 @@ esac
 [ "$TLC_PARALLELISM" -ge 1 ] ||
   fail "PROTOCOL_TLC_PARALLELISM must be a positive integer."
 
-JAVA_BIN_OVERRIDE=${JAVA_BIN:-}
 if [ -z "${JAVA_BIN:-}" ] || [ -z "${TLA_TOOLS_ROOT:-}" ]; then
   command -v mise >/dev/null 2>&1 ||
     fail "mise is unavailable. Install mise, then run 'mise install github:tlaplus/tlaplus'."
@@ -165,16 +164,14 @@ if [ -z "${JAVA_BIN:-}" ]; then
     fail "Java is unavailable. Run 'mise install java'."
 fi
 [ -x "$JAVA_BIN" ] || fail "$JAVA_BIN is not executable."
-if [ -n "${JAVA_BIN_OVERRIDE:-}" ]; then
-  java_pin=$(sed -n 's/^java = "temurin-\([^+]*\)+.*"$/\1/p' "$SCRIPT_DIR/../../.mise.toml")
-  [ -n "$java_pin" ] || fail "could not read the Java pin from .mise.toml."
-  java_version=$("$JAVA_BIN" -version 2>&1) ||
-    fail "$JAVA_BIN could not report its version."
-  case "$java_version" in
-    *"version \"$java_pin"*) ;;
-    *) fail "$JAVA_BIN does not report the pinned Java $java_pin version." ;;
-  esac
-fi
+java_pin=$(sed -n 's/^java = "temurin-\([^+]*\)+.*"$/\1/p' "$SCRIPT_DIR/../../.mise.toml")
+[ -n "$java_pin" ] || fail "could not read the Java pin from .mise.toml."
+java_version=$("$JAVA_BIN" -version 2>&1) ||
+  fail "$JAVA_BIN could not report its version."
+case "$java_version" in
+  *"version \"$java_pin\""*|*"version \"$java_pin."*) ;;
+  *) fail "$JAVA_BIN does not report the pinned Java $java_pin version." ;;
+esac
 
 if [ -z "${TLA_TOOLS_ROOT:-}" ]; then
   TLA_TOOLS_ROOT=$(mise where github:tlaplus/tlaplus 2>/dev/null) ||

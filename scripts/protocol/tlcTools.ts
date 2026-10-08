@@ -60,9 +60,11 @@ function checkJavaVersion(root: string, javaBin: string): void {
     fail(".mise.toml does not declare the Temurin Java pin.");
   }
   const result = spawnSync(javaBin, ["-version"], { encoding: "utf8" });
+  const versionOutput = `${result.stdout}${result.stderr}`;
   if (
     result.status !== 0 ||
-    !`${result.stdout}${result.stderr}`.includes(`version "${pin}`)
+    (!versionOutput.includes(`version "${pin}.`) &&
+      !versionOutput.includes(`version "${pin}"`))
   ) {
     fail(`${javaBin} does not report the pinned Java ${pin} version.`);
   }
