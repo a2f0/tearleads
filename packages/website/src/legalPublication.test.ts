@@ -61,6 +61,16 @@ for (const environment of ["production", "staging", undefined]) {
         );
       }
       expect(index).toContain('href="/downloads/linux"');
+      const staging = environment === "staging";
+      expect(index).toContain(
+        staging
+          ? 'href="https://testflight.apple.com/join/JGZxEWQD"'
+          : 'href="https://apps.apple.com/app/id6793172063"',
+      );
+      expect(index.includes("https://apps.apple.com/app/")).toBe(!staging);
+      expect(index).toContain(
+        `href="https://play.google.com/apps/internaltest/${staging ? "4700608793048750781" : "4701368218502321967"}"`,
+      );
       // The nav, footer, and other pages link to these anchors.
       expect(index).toContain('id="download"');
       expect(index).toContain('id="security-summary"');
