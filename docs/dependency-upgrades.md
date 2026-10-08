@@ -41,10 +41,10 @@ when production dependencies change, and follow the
 
 Always run a complete preview before infrastructure apply or deployment; skip
 upgrades that destroy, replace, recreate, or cannot establish safety. The current
-production server state is empty while live resources remain owned by the old
-Symcrypt state, so it cannot establish a safe production preview. Missing live
-credentials also hold Wrangler and Ansible deployment upgrades. Bundle builds
-and mocked Terraform tests validate code only.
+state must own the live resources, and previews must use authenticated target
+accounts. If ownership or credentials are unavailable, hold the affected
+Terraform, Wrangler, and Ansible upgrades and record the reason in the PR.
+Bundle builds and mocked Terraform tests validate code only.
 
 Terraform provider updates require reviewed plans and lockfiles for Linux amd64
 and macOS arm64. SQLite archive updates require a verified checksum and a rebuilt
