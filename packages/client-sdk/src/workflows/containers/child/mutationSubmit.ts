@@ -1,4 +1,3 @@
-import type { AnyVerifiedPrincipalPolicy } from "@tearleads/crypto";
 import type { ContainerMutationRequest } from "@tearleads/validators/request";
 import {
   CONTAINER_MUTATION_ERROR_CODES,
@@ -17,6 +16,7 @@ import type {
   ContainerRotationResult,
   MaterializedContainerRekeyPlan,
 } from "../../../data/containers/shared/types";
+import type { PrincipalPolicyCheckpointEvidence } from "../../../data/principals/principalPolicyEvidence";
 import type { SecurityIncidentReporter } from "../../../data/securityIncidents";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import {
@@ -126,7 +126,9 @@ export async function submitAcknowledgedContainerMutation<
   containerKey: Uint8Array;
   execSql: ExecSql;
   plan: TPlan;
-  recitationPolicies: readonly AnyVerifiedPrincipalPolicy[];
+  recitationPolicies: readonly PrincipalPolicyCheckpointEvidence[];
+  /** Session lifetime for best-effort work after durable acknowledgement. */
+  recitationStillCurrent?: (() => boolean) | undefined;
   reportSecurityIncident: SecurityIncidentReporter;
   stillCurrent?: (() => boolean) | undefined;
   submit: (
@@ -182,7 +184,7 @@ export async function submitAcknowledgedContainerMutation<
       // path, so listing it here spares its recitation budget.
       plans: [input.plan, ...carriedPlans.map(({ plan }) => plan)],
       reportSecurityIncident: input.reportSecurityIncident,
-      stillCurrent: input.stillCurrent,
+      stillCurrent: input.recitationStillCurrent ?? input.stillCurrent,
     });
   } catch {
     // Optional cache population cannot change an acknowledged mutation result.

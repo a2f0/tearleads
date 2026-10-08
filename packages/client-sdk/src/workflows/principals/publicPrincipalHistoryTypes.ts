@@ -14,6 +14,8 @@ import type { TrustedUserIdentityResolver } from "../../data/trustedUserIdentity
 
 export interface PublicPrincipalHistoryOptions {
   readonly apiClient: Pick<ApiClient, "getProjectionPolicyHistoryPages">;
+  /** Terminal proof verification defers durable currency until all artifacts authenticate. */
+  readonly historicalProof?: boolean | undefined;
   readonly source: PrincipalPolicyHistorySourceResponse;
   readonly organizationId: string;
   readonly execSql: ExecSql;

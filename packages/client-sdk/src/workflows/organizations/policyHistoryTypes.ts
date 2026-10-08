@@ -42,6 +42,7 @@ export interface OrganizationGroupPolicyHistory
 }
 export interface OrganizationPolicyHistory
   extends OrganizationPrincipalPolicyHistory {
+  readonly nextBeforeVersion?: number | null;
   readonly entries: OrganizationPolicyHistoryEntry[];
   readonly organizationId: string;
   readonly principalType: "organization";

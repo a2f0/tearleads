@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import { KeyingVerificationError } from "@tearleads/crypto";
 import type { DocumentWriterProjectionResponse } from "@tearleads/validators/response";
+import { ProjectionDependencyUnavailableError } from "../../data/keyingProjectionVerification/dependencyUnavailable";
 import type { SecurityIncidentContext } from "../../data/securityIncidents";
 import {
   createContainerDocumentTombstoneVerifier,
@@ -17,21 +18,25 @@ const projection = {
 
 function createRuntime(input: {
   fetch?: { ok: true } | { ok: false; status: number | null; code?: string };
+  projection?: () => DocumentWriterProjectionResponse;
+  onEvict?: () => void;
 }) {
   const calls = {
     evicted: [] as string[],
     incidents: [] as SecurityIncidentContext[],
     logs: [] as string[],
+    errors: [] as unknown[],
   };
   const runtime = {
     apiClient: {
       evictDocumentWriterProjection: (documentId: string) => {
         calls.evicted.push(documentId);
+        input.onEvict?.();
       },
       getDocumentWriterProjectionResult: async () => {
         const fetch = input.fetch ?? { ok: true };
         return fetch.ok
-          ? { data: projection, ok: true as const }
+          ? { data: input.projection?.() ?? projection, ok: true as const }
           : {
               message: "denied",
               code: fetch.code,
@@ -47,7 +52,9 @@ function createRuntime(input: {
       log: (message: string) => {
         calls.logs.push(message);
       },
-      logError: () => {},
+      logError: (_message: string, error: unknown) => {
+        calls.errors.push(error);
+      },
       reportSecurityIncident: async (
         _error: unknown,
         context: SecurityIncidentContext,
@@ -155,6 +162,37 @@ test("a failed fetch yields no evidence", async () => {
   ]);
 });
 
+test("unavailable policy ancestry evicts a cached projection and keeps the head unverified until a fresh retry", async () => {
+  const fresh = structuredClone(projection);
+  let evicted = false;
+  const { calls, runtime } = createRuntime({
+    projection: () => (evicted ? fresh : projection),
+    onEvict: () => {
+      evicted = true;
+    },
+  });
+  const load = createDocumentHeadLinkSetLoader(
+    runtime,
+    deps(async (response, options) => {
+      if (response === projection)
+        throw new ProjectionDependencyUnavailableError("newer policy pin");
+      return verifiedHead("doc", ["folder"])(response, options);
+    }),
+  );
+
+  // The document hash did not change when the principal policy advanced, so
+  // ordinary matching-head cache reuse cannot repair this dependency race.
+  expect(await load("doc", "head-hash")).toBeNull();
+  expect(await load("doc", "head-hash")).toMatchObject({
+    accessEpoch: 7,
+    linkedContainerIds: ["folder"],
+  });
+  expect(calls.evicted).toEqual(["doc"]);
+  expect(calls.incidents).toEqual([]);
+  expect(calls.errors).toEqual([]);
+  expect(calls.logs).toHaveLength(1);
+});
+
 test("a verification failure yields no evidence and reports a security incident", async () => {
   const { calls, runtime } = createRuntime({});
   const load = createDocumentHeadLinkSetLoader(
@@ -172,6 +210,23 @@ test("a verification failure yields no evidence and reports a security incident"
       operation: "document.tombstone-evidence",
     },
   ]);
+});
+
+test("an availability wrapper cannot silence an integrity failure in its cause", async () => {
+  const { calls, runtime } = createRuntime({});
+  const error = new ProjectionDependencyUnavailableError("wrapped failure");
+  error.cause = new KeyingVerificationError("invalid_shape", "tampered");
+  const load = createDocumentHeadLinkSetLoader(
+    runtime,
+    deps(async () => {
+      throw error;
+    }),
+  );
+
+  expect(await load("doc", "head-hash")).toBeNull();
+  expect(calls.incidents).toHaveLength(1);
+  expect(calls.errors).toEqual([error]);
+  expect(calls.logs).toEqual([]);
 });
 
 test("a verification that never yields the document's own head is no evidence", async () => {

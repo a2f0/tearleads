@@ -5,6 +5,13 @@ import type {
 import { drizzle } from "drizzle-orm/sqlite-proxy";
 import { clientSQLiteSchema } from "./schema";
 import {
+  assertClientSQLiteCommitAllowed,
+  beginClientSQLiteCommitGuards,
+  captureClientSQLiteCommitGuards,
+  clearClientSQLiteCommitGuards,
+  rethrowClientSQLiteCommitGuardFailure,
+} from "./sqliteCommitGuards";
+import {
   createExecSql,
   type ExecSql,
   type ExecSqlClientLike,
@@ -128,7 +135,10 @@ function createRemoteCallback(getExecSql: () => ExecSql): RemoteCallback {
   }
 
   return async (sql, params, method) => {
-    const rows = await getExecSql()(sql, params.map(toSqlRowValue), {
+    const execSql = getExecSql();
+    if (sql.trim().toLowerCase() === "commit")
+      assertClientSQLiteCommitAllowed(execSql);
+    const rows = await execSql(sql, params.map(toSqlRowValue), {
       rowMode: "array",
     });
 
@@ -171,13 +181,15 @@ async function runNestedSavepointScope<T>(
       const depth = transactionDepthByCanonicalExecSql.get(canonical) ?? 0;
       transactionDepthByCanonicalExecSql.set(canonical, depth + 1);
       const savepoint = `runtime_transaction_sp_${depth}`;
+      const discardNestedGuards = captureClientSQLiteCommitGuards(canonical);
       try {
         await lockedExecSql(`SAVEPOINT ${savepoint}`);
         const result = await operation();
         await lockedExecSql(`RELEASE SAVEPOINT ${savepoint}`);
         return result;
       } catch (error: unknown) {
-        await lockedExecSql(`ROLLBACK TO SAVEPOINT ${savepoint}`).catch(
+        await lockedExecSql(`ROLLBACK TO SAVEPOINT ${savepoint}`).then(
+          discardNestedGuards,
           () => undefined,
         );
         await lockedExecSql(`RELEASE SAVEPOINT ${savepoint}`).catch(
@@ -242,6 +254,7 @@ function createRuntimeForExecSql(
           }
 
           transactionDepthByCanonicalExecSql.set(canonical, 1);
+          beginClientSQLiteCommitGuards(canonical);
           try {
             return await db.transaction(operation, config);
           } catch (error: unknown) {
@@ -250,8 +263,10 @@ function createRuntimeForExecSql(
             // so later operations re-ensure instead of hitting missing
             // tables.
             resetConnectionSchemaMemo(canonical);
+            rethrowClientSQLiteCommitGuardFailure(canonical);
             throw error;
           } finally {
+            clearClientSQLiteCommitGuards(canonical);
             transactionDepthByCanonicalExecSql.delete(canonical);
           }
         }),
@@ -268,6 +283,7 @@ function createRuntimeForExecSql(
           }
 
           transactionDepthByCanonicalExecSql.set(canonical, 1);
+          beginClientSQLiteCommitGuards(canonical);
           try {
             await lockedExecSql(transactionBeginStatement(config));
             const result = await operation(db);
@@ -281,14 +297,17 @@ function createRuntimeForExecSql(
             // the two, so the decision cannot go stale before dispatch. (A
             // host tearing the connection down concurrently is resolved by
             // SQLite's own commit atomicity, not by anything client-side.)
+            assertClientSQLiteCommitAllowed(lockedExecSql);
             const commit = lockedExecSql("COMMIT");
             await commit;
             return { committed: true, result };
           } catch (error: unknown) {
             await lockedExecSql("ROLLBACK").catch(() => undefined);
             resetConnectionSchemaMemo(canonical);
+            rethrowClientSQLiteCommitGuardFailure(canonical);
             throw error;
           } finally {
+            clearClientSQLiteCommitGuards(canonical);
             transactionDepthByCanonicalExecSql.delete(canonical);
           }
         }),

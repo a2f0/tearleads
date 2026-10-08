@@ -366,6 +366,7 @@ export {
 export {
   type OrganizationPolicyHistoryResponse,
   OrganizationPolicyHistoryResponseSchema,
+  PRINCIPAL_DISPLAY_HISTORY_PAGE_SIZE,
 } from "./organizationPolicyHistory";
 export {
   ORGANIZATION_PRESENTATION_ERROR_CODES,

@@ -17,6 +17,7 @@ export type OrgManagerResource =
 export type OrgManagerRequestKind =
   | OrgManagerResource
   | "groupHistoryPage"
+  | "organizationHistoryPage"
   | "refresh";
 
 export type DirectoryRefreshOptions = {

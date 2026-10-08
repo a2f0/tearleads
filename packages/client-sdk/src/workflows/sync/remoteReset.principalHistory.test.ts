@@ -5,6 +5,14 @@ import {
   principalHistoryNodes,
   principalHistoryPrefixes,
 } from "../../data/sqlite/principalHistoryEvidenceSchema";
+import {
+  principalHistoryNodeReferences,
+  principalHistoryRootOwners,
+} from "../../data/sqlite/principalHistoryNodeRetentionSchema";
+import {
+  principalHistoryStageScopes,
+  principalKeyEnvelopeArchive,
+} from "../../data/sqlite/principalHistoryRetentionSchema";
 import { principalHistoryStages } from "../../data/sqlite/principalHistoryStageSchema";
 import { clientSqlTables } from "../../data/sqlite/schema";
 import { getClientSQLitePersistenceRuntime } from "../../data/sqlite/sqlitePersistenceRuntime";
@@ -31,6 +39,40 @@ test("organization reset discards only its principal history stages and evidence
       .run();
     for (const organizationId of ["org-1", "org-2"]) {
       const scope = { organizationId, scopeId: `scope-${organizationId}` };
+      await db.insert(principalHistoryRootOwners).values({
+        ...scope,
+        id: `stage:${organizationId}`,
+        rootHash: "node-hash",
+      });
+      await db.insert(principalHistoryNodeReferences).values({
+        ...scope,
+        hash: "node-hash",
+        referenceCount: 1,
+        managed: true,
+        leftHash: "left",
+        rightHash: "right",
+      });
+      await db
+        .insert(principalHistoryStageScopes)
+        .values({
+          ...scope,
+          id: `stage-${organizationId}`,
+          afterVersion: 32,
+          complete: false,
+          touchedAt: 1,
+        })
+        .run();
+      await db
+        .insert(principalKeyEnvelopeArchive)
+        .values({
+          organizationId,
+          principalType: "group",
+          principalId: `group-${organizationId}`,
+          keyFingerprint: "historical-key",
+          version: 1,
+          envelopesJson: "{}",
+        })
+        .run();
       await db
         .insert(principalHistoryPrefixes)
         .values({
@@ -62,9 +104,13 @@ test("organization reset discards only its principal history stages and evidence
         .from(principalHistoryStages),
     ).toEqual([{ organizationId: "org-2" }]);
     for (const table of [
+      principalHistoryRootOwners,
+      principalHistoryNodeReferences,
       principalHistoryPrefixes,
       principalHistoryEntries,
       principalHistoryNodes,
+      principalHistoryStageScopes,
+      principalKeyEnvelopeArchive,
     ])
       expect(
         await db.select({ organizationId: table.organizationId }).from(table),

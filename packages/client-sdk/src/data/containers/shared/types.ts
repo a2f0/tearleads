@@ -28,6 +28,7 @@ import type {
   ContainerRotationResponse,
   ContainerWriterProjectionResponse,
   PrincipalPolicyBundleResponse,
+  ReferencedPrincipalStateResponse,
 } from "@tearleads/validators/response";
 import type { PrincipalPolicyCurrentEvidence } from "../../principals/principalPolicyEvidence";
 import type { ExecSql } from "../../sqlite/sqlSchema";
@@ -112,8 +113,8 @@ export interface ContainerMutationSubmitFailure {
   readonly message: string;
   readonly ok: false;
   readonly report: () => void;
-  readonly stalePrincipalPolicies?:
-    | readonly PrincipalPolicyBundleResponse[]
+  readonly stalePrincipalHeads?:
+    | readonly ReferencedPrincipalStateResponse[]
     | undefined;
   readonly status: number | null;
 }

@@ -4,6 +4,7 @@ import {
 } from "@tearleads/validators/response";
 import { assertDocumentWriterProjectionConsistent } from "../../data/documents/shared/projection";
 import { uniqueSortedStrings } from "../../data/documents/shared/readers";
+import { ProjectionDependencyUnavailableError } from "../../data/keyingProjectionVerification/dependencyUnavailable";
 import { reportKeyingVerificationErrorInCauseChain } from "../../data/keyingProjectionVerification/error";
 import { createProjectionUserKeyResolver } from "../../data/keyingProjectionVerification/userKeyResolver";
 import { loadDocumentPurgeCheckpoint } from "../../data/persistence/documentPurgeCheckpointPersistence";
@@ -89,6 +90,42 @@ async function verifiedHeadLinkSet(
   return verified.value;
 }
 
+async function reportUnavailableHead(
+  runtime: ContainerContentsWorkflowRuntime,
+  documentId: string,
+  error: unknown,
+): Promise<void> {
+  const integrityFailure = await reportKeyingVerificationErrorInCauseChain(
+    error,
+    runtime.util.reportSecurityIncident,
+    {
+      objectId: documentId,
+      objectKind: "document",
+      operation: "document.tombstone-evidence",
+    },
+  );
+  try {
+    if (
+      !integrityFailure &&
+      error instanceof ProjectionDependencyUnavailableError
+    ) {
+      // A policy can advance without changing this document's hash. Drop its
+      // cached evidence so the held head can recover on the next run.
+      runtime.apiClient.evictDocumentWriterProjection(documentId);
+      runtime.util.log(
+        `Container contents: tombstone evidence for document ${documentId} is awaiting current policy history`,
+      );
+      return;
+    }
+    runtime.util.logError?.(
+      "Container contents: tombstone evidence is unavailable",
+      error,
+    );
+  } catch {
+    // A host logger that throws must not fail the discovery pass.
+  }
+}
+
 export function createDocumentHeadLinkSetLoader(
   runtime: ContainerContentsWorkflowRuntime,
   deps: DocumentHeadLinkSetLoaderDeps = {
@@ -146,24 +183,7 @@ export function createDocumentHeadLinkSetLoader(
     } catch (error) {
       // Any failure leaves the tombstone unverified (held and retried); a
       // thrown error here must not fail the whole discovery pass.
-      await reportKeyingVerificationErrorInCauseChain(
-        error,
-        runtime.util.reportSecurityIncident,
-        {
-          objectId: documentId,
-          objectKind: "document",
-          operation: "document.tombstone-evidence",
-        },
-      );
-      try {
-        // A host logger that throws must not fail the discovery pass.
-        runtime.util.logError?.(
-          "Container contents: tombstone evidence is unavailable",
-          error,
-        );
-      } catch {
-        // Hosts may throw synchronously.
-      }
+      await reportUnavailableHead(runtime, documentId, error);
       return null;
     }
   };

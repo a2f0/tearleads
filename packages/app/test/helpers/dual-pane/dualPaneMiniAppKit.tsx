@@ -50,7 +50,8 @@ export async function renderSeededDemo(): Promise<{
   const leftPane = getPaneRoot(view, "left");
   const rightPane = getPaneRoot(view, "right");
   await waitForDualPaneProvisioning(leftPane, rightPane);
-  // Seeded policy commits share the same delayed API lane as pane recovery.
+  // Both panes recover paged policies before writing their peer memberships.
+  // Give this multi-request setup the same budget as the subsequent sync drain.
   await waitForCondition(
     () =>
       listProxiedApiRequests()

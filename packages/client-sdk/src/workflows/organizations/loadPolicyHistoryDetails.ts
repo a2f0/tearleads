@@ -1,12 +1,13 @@
 import type { ApiClient } from "@tearleads/api-client";
+import type { ReferencedPrincipalHead } from "@tearleads/crypto";
 import type { DomainScope } from "../../data/domainScope";
+import { ProjectionDependencyUnavailableError } from "../../data/keyingProjectionVerification/dependencyUnavailable";
 import { reportKeyingVerificationErrorInCauseChain } from "../../data/keyingProjectionVerification/error";
-import { loadPrincipalPolicyCheckpoint } from "../../data/persistence/keyingCheckpointPersistence";
-import { loadPrincipalPolicyBundle } from "../../data/persistence/principalPolicyPersistence";
+import type { ReferencedPrincipalPolicyWarmer } from "../../data/keyingProjectionVerification/types";
 import type { SecurityIncidentReporter } from "../../data/securityIncidents";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
-import type { TrustedUserIdentityResolver } from "../../data/trustedUserIdentity";
-import { loadLocalOrganizationPolicyHistory } from "./localReadModelDetails";
+import type { RecoveredPrincipalHistoryPage } from "../principals/loadRecoveredPrincipalHistoryPage";
+import { loadLocalOrganizationPolicyReference } from "./localReadModelDetails";
 import { buildDetailedOrganizationPolicyHistory } from "./organizationPolicyHistoryDetails";
 import {
   captureOrganizationPresentationAccessAttempt,
@@ -27,10 +28,17 @@ export async function loadPolicyHistoryDetails(input: {
   domainScope: DomainScope;
   execSql: ExecSql;
   organizationId: string;
+  head: ReferencedPrincipalHead;
+  page: RecoveredPrincipalHistoryPage;
   history: OrganizationPolicyHistory;
-  resolveTrustedUserIdentity: TrustedUserIdentityResolver;
+  resolveHistory: NonNullable<
+    ReferencedPrincipalPolicyWarmer["resolveProjectionHistory"]
+  >;
   stillCurrent: () => boolean;
+  online: boolean;
+  olderPage: boolean;
   reportSecurityIncident?: SecurityIncidentReporter | undefined;
+  // Forwarded to denyPolicyHistoryAccess to report failed durable cleanup.
   logError: (message: string | Error, cause?: unknown) => void;
 }): Promise<OrganizationPolicyHistory | null> {
   const access = { ...input, requesterUserId: input.currentUserId };
@@ -42,37 +50,32 @@ export async function loadPolicyHistoryDetails(input: {
     input.stillCurrent() &&
     isOrganizationPresentationAccessAttemptCurrent(access, attempt) &&
     isOrganizationPresentationAccessReadable(access, "readModel");
-  const bundle = await loadPrincipalPolicyBundle(
-    input.execSql,
-    "organization",
-    input.organizationId,
-  );
   if (!current()) return null;
-  if (
-    !bundle ||
-    bundle.currentState.stateHash !== input.history.entries[0]?.stateHash
-  ) {
-    const latest = await loadLocalOrganizationPolicyHistory(input);
-    return current() ? latest : null;
-  }
-  const retain = async (history: OrganizationPolicyHistory) => {
-    const latest = await loadLocalOrganizationPolicyHistory(input);
-    if (!current()) return null;
-    return latest?.entries[0]?.stateHash === bundle.currentState.stateHash
-      ? history
-      : latest;
-  };
-  const cached = loadCachedPolicyHistory({
+  const beforeVersion = (input.page.entries.at(-1)?.state.version ?? 0) + 1;
+  const cache = {
     domainScope: input.domainScope,
     access,
-    stateHash: bundle.currentState.stateHash,
-  });
+    stateHash: input.head.stateHash,
+    beforeVersion,
+  };
+  const retain = async (history: OrganizationPolicyHistory) => {
+    const latest = await loadLocalOrganizationPolicyReference({
+      ...input,
+      principalType: "organization",
+      principalId: input.organizationId,
+    });
+    return current() && latest?.stateHash === input.head.stateHash
+      ? history
+      : null;
+  };
+  const cached = loadCachedPolicyHistory(cache);
   if (cached) return retain(cached);
+  if (!input.online) return retain(input.history);
   try {
     const response = await input.apiClient.getOrganizationPolicyHistoryResult(
       input.organizationId,
-      bundle.currentState.stateHash,
-      { reportErrors: false },
+      input.head.stateHash,
+      { beforeVersion, reportErrors: false },
     );
     if (!input.stillCurrent()) return null;
     if (!response.ok) {
@@ -81,29 +84,26 @@ export async function loadPolicyHistoryDetails(input: {
         return null;
       }
       response.report();
+      if (input.olderPage) throw new Error(response.message);
       return retain(input.history);
     }
     const history = await buildDetailedOrganizationPolicyHistory({
-      bundle,
+      head: input.head,
+      page: input.page,
       evidence: response.data,
-      organizationId: input.organizationId,
-      localCheckpoint: await loadPrincipalPolicyCheckpoint(
-        input.execSql,
-        "organization",
-        input.organizationId,
-      ),
-      resolveTrustedUserIdentity: input.resolveTrustedUserIdentity,
+      resolveHistory: input.resolveHistory,
+      stillCurrent: current,
     });
     const retained = await retain(history);
     if (retained === history)
-      cachePolicyHistory({
-        domainScope: input.domainScope,
-        access,
-        attempt,
-        history,
-      });
+      cachePolicyHistory({ ...cache, attempt, history });
     return retained;
   } catch (error) {
+    if (
+      !input.olderPage &&
+      error instanceof ProjectionDependencyUnavailableError
+    )
+      return retain(input.history);
     await reportKeyingVerificationErrorInCauseChain(
       error,
       input.reportSecurityIncident,
@@ -114,10 +114,6 @@ export async function loadPolicyHistoryDetails(input: {
         organizationId: input.organizationId,
       },
     );
-    input.logError(
-      "Failed to load verified organization policy history details",
-      error,
-    );
-    return retain(input.history);
+    throw error;
   }
 }

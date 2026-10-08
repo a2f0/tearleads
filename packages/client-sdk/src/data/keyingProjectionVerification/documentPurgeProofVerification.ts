@@ -1,7 +1,7 @@
 import {
   type AccessManifestCheckpoint,
-  type AnyVerifiedPrincipalPolicy,
   KeyingVerificationError,
+  type PrincipalPolicyAuthorization,
   type VerifiedContainerAccessManifest,
   type VerifiedPrincipalPolicy,
 } from "@tearleads/crypto";
@@ -22,11 +22,23 @@ import {
   commitDocumentPurgeCheckpoints,
   validateDocumentPurgeCheckpoints,
 } from "./documentPurgeCheckpointCurrency";
+import { recoverDocumentPurgePolicyCurrency } from "./documentPurgePolicyCurrency";
 import { authenticateDocumentPurgeArtifacts } from "./documentPurgePrincipalEvidence";
-import { verifyPrincipalPolicySnapshots } from "./principalPolicySnapshotVerification";
-import type { PrincipalPolicyCache, ProjectionUserKeyResolver } from "./types";
+import { observeProjectionLifetime } from "./projectionLifetimes";
+import { verifyProjectionPolicyEvidence } from "./projectionPolicyEvidence";
+import { readAccessManifest } from "./readers";
+import {
+  assertProjectionVerificationCurrent,
+  type PrincipalPolicyCache,
+  type ProjectionUserKeyResolver,
+  type ReferencedPrincipalPolicyWarmer,
+} from "./types";
 
 interface VerifyDocumentPurgeProofInput {
+  readonly stillCurrent?: (() => boolean) | undefined;
+  readonly warmReferencedPrincipalPolicies?:
+    | ReferencedPrincipalPolicyWarmer
+    | undefined;
   readonly execSql: ExecSql;
   readonly expectedDocumentId: string;
   readonly expectedOrganizationId: string;
@@ -84,7 +96,7 @@ function collectContainerBundles(
 }
 
 export async function verifyPurgeContainerPaths(input: {
-  readonly authorizationEvidence: readonly AnyVerifiedPrincipalPolicy[];
+  readonly authorizationEvidence: readonly PrincipalPolicyAuthorization[];
   readonly checkpointContext: ReturnType<
     typeof createProjectionCheckpointContext
   >;
@@ -179,11 +191,55 @@ function requirePurgeProofShape(
   }
 }
 
+function requirePurgeOrganization(actual: string, expected: string): void {
+  if (actual !== expected)
+    throw new KeyingVerificationError(
+      "object_mismatch",
+      "Document purge proof belongs to another organization",
+    );
+}
+
+async function recoverPurgePolicyEvidence(
+  input: VerifyDocumentPurgeProofInput,
+) {
+  const references = [...collectContainerBundles(input.proof).values()].flatMap(
+    (bundle) =>
+      readAccessManifest(bundle.manifest, "Purge container manifest")
+        .referencedPrincipalHeads,
+  );
+  if (
+    !references.length &&
+    (input.proof.policyEvidence.organization ||
+      input.proof.policyEvidence.groups.length ||
+      input.proof.policyEvidence.organizationPayloads.length)
+  )
+    throw new KeyingVerificationError(
+      "invalid_shape",
+      "Document purge proof includes unrelated principal policy evidence",
+    );
+  return verifyProjectionPolicyEvidence({
+    evidence: input.proof.policyEvidence,
+    organizationId: input.expectedOrganizationId,
+    references,
+    historicalProof: true,
+    stillCurrent: input.stillCurrent,
+    warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
+  });
+}
+
+function purgePrincipalSourceHeads(proof: DocumentPurgeProofResponse) {
+  return [
+    proof.policyEvidence.organization,
+    ...proof.policyEvidence.groups,
+  ].flatMap((source) => (source ? [source.head] : []));
+}
+
 async function verifyDocumentPurgeProofWithMode(
   input: VerifyDocumentPurgeProofInput,
   enforceLocalCheckpoints: boolean,
 ): Promise<VerifiedDocumentPurgeProofCommit> {
   requirePurgeProofShape(input.proof);
+  input = { ...input, proof: structuredClone(input.proof) };
   if (
     input.proof.documentId !== input.expectedDocumentId ||
     input.proof.documentManifest.manifestHash.length === 0
@@ -199,10 +255,9 @@ async function verifyDocumentPurgeProofWithMode(
   });
   const principalPolicyCache =
     input.principalPolicyCache ?? new Map<string, VerifiedPrincipalPolicy>();
-  const authorizationEvidence = await verifyPrincipalPolicySnapshots({
-    resolveUserKey: input.resolveUserKey,
-    snapshots: input.proof.principalPolicySnapshots,
-  });
+  const recovered = await recoverPurgePolicyEvidence(input);
+  observeProjectionLifetime(checkpointContext, recovered.stillCurrent);
+  const authorizationEvidence = recovered.policies;
   const {
     authorizingContainerPath,
     containerPathByManifestHash,
@@ -227,17 +282,28 @@ async function verifyDocumentPurgeProofWithMode(
       resolveUserKey: input.resolveUserKey,
       verifiedContainerManifests,
     });
-  if (documentManifest.state.organizationId !== input.expectedOrganizationId) {
-    throw new KeyingVerificationError(
-      "object_mismatch",
-      "Document purge proof belongs to another organization",
-    );
-  }
+  requirePurgeOrganization(
+    documentManifest.state.organizationId,
+    input.expectedOrganizationId,
+  );
+  const observedPrincipalHeads = purgePrincipalSourceHeads(input.proof);
+  assertProjectionVerificationCurrent(recovered.stillCurrent);
+  const currencyPolicies = enforceLocalCheckpoints
+    ? await recoverDocumentPurgePolicyCurrency({
+        context: checkpointContext,
+        organizationId: input.expectedOrganizationId,
+        policies: principalPolicies,
+        warmer: input.warmReferencedPrincipalPolicies,
+        stillCurrent: recovered.stillCurrent,
+      })
+    : principalPolicies;
   if (enforceLocalCheckpoints) {
     await validateDocumentPurgeCheckpoints({
       context: checkpointContext,
       execSql: input.execSql,
       principalPolicies,
+      currencyPolicies,
+      observedPrincipalHeads,
     });
   }
   const documentPurgeCheckpoint = {
@@ -253,6 +319,8 @@ async function verifyDocumentPurgeProofWithMode(
         documentPurgeCheckpoint,
         execSql,
         principalPolicies,
+        currencyPolicies,
+        observedPrincipalHeads,
       }),
     documentCheckpoint: documentManifest.checkpoint,
   };

@@ -9,7 +9,6 @@ import type {
   ContainerWriterProjectionResponse,
 } from "@tearleads/validators/response";
 import { locallyAcknowledgedContainerMutationHead } from "../../../data/containers/shared/mutationAcknowledgement";
-import { isStaleParentContainerPathFailure } from "../../../data/containers/shared/mutationFailures";
 import type { ContainerMutationSubmitFailure } from "../../../data/containers/shared/types";
 import { assertDocumentWriterProjectionConsistent } from "../../../data/documents/shared/projection";
 import type { ProjectionUserKeyResolver } from "../../../data/keyingProjectionVerification";
@@ -22,14 +21,15 @@ import {
   type buildMaterializedContainerCreatePlan,
   readContainerMutationMetadataDocumentId,
 } from "../../containers";
+import { repairContainerCreateFailure } from "../../containers/child/createSubmission";
 import {
   type buildMaterializedDocumentCreatePlan,
   documentWriterProjectionFromCreateResponse,
   persistedDocumentCreateStateFromResponse,
   resolveDocumentCreateAuthor,
 } from "../../documents";
-import { cachePrincipalPolicyBundles } from "../../principals/policyCache";
 import { PrincipalPolicyRepairBudget } from "../../principals/policyRepairBudget";
+import { createRuntimePrincipalPolicyWarmer } from "../../principals/runtimePolicyWarmer";
 import { settleTerminalCreateFailure } from "./createTerminalFailure";
 import {
   buildContainerWithMetadataPlans,
@@ -70,36 +70,6 @@ async function submitContainerWithMetadataDocument(input: {
     },
   );
   return result.ok ? { ok: true, response: result.data } : result;
-}
-
-async function cacheStalePrincipalPolicyBundles(input: {
-  readonly failure: ContainerMutationSubmitFailure;
-  readonly organizationId: string;
-  readonly runtime: ContainerWorkflowRuntime;
-  readonly stillCurrent?: (() => boolean) | undefined;
-}): Promise<boolean> {
-  const bundles = input.failure.stalePrincipalPolicies;
-  const apiClient = input.runtime.apiClient;
-  const getCurrentPrincipalPolicy =
-    apiClient.getCurrentPrincipalPolicy.bind(apiClient);
-  if (input.stillCurrent?.() === false) return false;
-  if (!bundles || bundles.length === 0) {
-    return false;
-  }
-
-  // A stale-policy failure is actionable only after the supplied bundles have
-  // been verified and cached; the next attempt will rebuild from that cache.
-  await cachePrincipalPolicyBundles({
-    bundles,
-    execSql: input.runtime.infra.execSql,
-    getCurrentPrincipalPolicy,
-    log: input.runtime.util.log,
-    organizationId: input.organizationId,
-    reportSecurityIncident: input.runtime.util.reportSecurityIncident,
-    resolveTrustedUserIdentity: input.runtime.resolveTrustedUserIdentity,
-    stillCurrent: input.stillCurrent,
-  });
-  return input.stillCurrent?.() !== false;
 }
 
 /**
@@ -341,8 +311,10 @@ async function createContainerWithMetadataWithRepairs(
 ): Promise<CreatedRemoteContainerState | ContainerAlreadyCommitted | null> {
   const { apiClient } = input.runtime;
   let parentProjection = input.parentProjection;
-  let didRepairStaleParent = false;
-  const policyRepairs = new PrincipalPolicyRepairBudget();
+  const repairState = {
+    didRepairStaleParent: false,
+    policyRepairs: new PrincipalPolicyRepairBudget(),
+  };
   for (;;) {
     const submitted = await createRemoteContainerWithMetadataDocumentAttempt({
       ...input,
@@ -354,35 +326,22 @@ async function createContainerWithMetadataWithRepairs(
     if (submitted.ok) {
       return submitted.state;
     }
-    if (
-      policyRepairs.take(submitted.stalePrincipalPolicies) &&
-      (await cacheStalePrincipalPolicyBundles({
-        failure: submitted,
-        organizationId: parentProjection.organizationId,
-        runtime: input.runtime,
-        stillCurrent: input.stillCurrent,
-      }))
-    ) {
+    const repair = await repairContainerCreateFailure({
+      apiClient,
+      failure: submitted,
+      parentContainerId: input.parentContainerId,
+      parentProjection,
+      state: repairState,
+      warmReferencedPrincipalPolicies: createRuntimePrincipalPolicyWarmer(
+        input.runtime,
+      ),
+      stillCurrent: input.stillCurrent,
+    });
+    if (repair.kind === "retry") {
+      parentProjection = repair.parentProjection;
       continue;
     }
-    if (
-      !didRepairStaleParent &&
-      isStaleParentContainerPathFailure(submitted) &&
-      apiClient.evictContainerWriterProjection &&
-      input.stillCurrent?.() !== false
-    ) {
-      didRepairStaleParent = true;
-      apiClient.evictContainerWriterProjection(input.parentContainerId);
-      const refreshedProjection = await apiClient.getContainerWriterProjection(
-        input.parentContainerId,
-      );
-      if (!refreshedProjection) {
-        return null;
-      }
-      if (input.stillCurrent?.() === false) return null;
-      parentProjection = refreshedProjection;
-      continue;
-    }
+    if (repair.kind === "unavailable") return null;
     return settleTerminalCreateFailure(submitted, input.stillCurrent) ===
       "committed"
       ? CONTAINER_ALREADY_COMMITTED

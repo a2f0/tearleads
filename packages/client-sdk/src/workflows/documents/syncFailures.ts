@@ -29,7 +29,7 @@ import {
   shouldRetrySyncWithFreshWriterProjection,
   type TerminalSubmitFailureHandler,
 } from "./syncFailureClassification";
-import { cacheDocumentSyncPolicyRepair } from "./syncPolicyRepair";
+import { recoverDocumentSyncPolicyRepair } from "./syncPolicyRepair";
 import {
   type DocumentSyncTraceEmitter,
   traceProjectionFailed,
@@ -206,7 +206,7 @@ async function submitDocumentSyncAttempt(input: {
     };
   }
 
-  await cacheDocumentSyncPolicyRepair({
+  await recoverDocumentSyncPolicyRepair({
     failure: submitted,
     plan: input.plan,
     stillCurrent: input.stillCurrent,

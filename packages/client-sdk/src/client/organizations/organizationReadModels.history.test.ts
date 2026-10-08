@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { KeyingVerificationError } from "@tearleads/crypto";
-import { createMockApiClient, createTestExecSql } from "@tearleads/test-utils";
+import { createMockApiClient } from "@tearleads/test-utils";
 import { createCurrentOrganizationRuntimeFixture } from "../../../test/helpers/currentOrganizationRuntime";
 import {
   createInternalRuntimeFixture,
@@ -8,8 +8,12 @@ import {
 } from "../../../test/helpers/internalRuntimeFixtures";
 import { createOrganizationHistoryFixture } from "../../../test/helpers/organizationPolicyHistory";
 import { organizationReadModelSnapshot } from "../../../test/helpers/organizationReadModelProjectionFixtures";
+import { createAuthorityRecoveryFixture } from "../../../test/helpers/principalAuthorityRecovery";
+import { projectionHistoryPages } from "../../../test/helpers/projectionPolicyHistory";
+import { ProjectionDependencyUnavailableError } from "../../data/keyingProjectionVerification/dependencyUnavailable";
 import { applyOrganizationReadModelResponse } from "../../data/persistence/organizations/organizationReadModelPersistence";
 import { savePrincipalPolicyBundle } from "../../data/persistence/principalPolicyPersistence";
+import { inheritPrincipalHistoryProtection } from "../../data/principals/principalHistoryRuntime";
 import { unavailableExecSql } from "../../data/sqlite/sqlSchema";
 import { createOrganizationReadModelCoordinator } from "./organizationReadModels";
 
@@ -92,22 +96,48 @@ test("a host without page custody refuses a cursor before reading local or remot
 
 test("organization history enriches online and preserves verified local entries offline", async () => {
   const data = await createOrganizationHistoryFixture();
-  const sql = await createTestExecSql("organization-coordinator-history");
-  let requests = 0;
-  const apiClient = createMockApiClient({
-    async getOrganizationPolicyHistoryResult(organizationId, stateHash) {
-      requests += 1;
-      expect(organizationId).toBe(data.organizationId);
-      expect(stateHash).toBe(data.afterAddition.currentState.stateHash);
-      return { ok: true, data: data.evidence() };
-    },
-  });
-  let input = createWorkflowInputFixture({
-    apiClient,
-    auth: { organizationId: data.organizationId, userId: data.signerUserId },
-    execSql: sql.execSql,
+  const f = await createAuthorityRecoveryFixture({
+    directory: data.afterAddition,
+    admin: data.admin,
+    group: data.added,
+    organizationId: data.organizationId,
     resolveTrustedUserIdentity: data.resolveTrustedUserIdentity,
   });
+  const sql = { execSql: f.options.execSql, close: f.close };
+  let requests = 0;
+  const apiClient = f.options.apiClient;
+  apiClient.getOrganizationPolicyHistoryResult = async (
+    organizationId,
+    stateHash,
+  ) => {
+    requests += 1;
+    expect(organizationId).toBe(data.organizationId);
+    expect(stateHash).toBe(data.afterAddition.currentState.stateHash);
+    return { ok: true, data: data.evidence() };
+  };
+  apiClient.getProjectionPolicyHistoryPages = projectionHistoryPages(
+    data.projectionBundles,
+  ).getProjectionPolicyHistoryPages;
+  apiClient.getCurrentPrincipalPolicy = async () => {
+    throw new Error("Unexpected full history read");
+  };
+  const lease = {
+    withPrincipalHistoryProtection: async <T>(
+      work: (value: {
+        protection: typeof f.options.protection;
+        stillCurrent: () => boolean;
+      }) => Promise<T>,
+    ) => work({ protection: f.options.protection, stillCurrent: () => true }),
+  };
+  let input = inheritPrincipalHistoryProtection(
+    lease,
+    createWorkflowInputFixture({
+      apiClient,
+      auth: { organizationId: data.organizationId, userId: data.signerUserId },
+      execSql: sql.execSql,
+      resolveTrustedUserIdentity: data.resolveTrustedUserIdentity,
+    }),
+  );
   const runtime = createInternalRuntimeFixture(() => input);
   const coordinator = createOrganizationReadModelCoordinator(runtime);
   try {
@@ -135,12 +165,32 @@ test("organization history enriches online and preserves verified local entries 
     ]);
     expect(await coordinator.loadOrganizationPolicyHistory()).toEqual(online);
     expect(requests).toBe(1);
-    input = { ...input, state: { ...input.state, online: false } };
+    input = inheritPrincipalHistoryProtection(input, {
+      ...input,
+      state: { ...input.state, online: false },
+    });
     const offline = await coordinator.loadOrganizationPolicyHistory();
     expect(offline?.entries[0]?.stateHash).toBe(online?.entries[0]?.stateHash);
-    expect(offline?.entries[0]?.groupChanges).toBeNull();
+    expect(offline).toEqual(online);
     expect(requests).toBe(1);
   } finally {
     sql.close();
   }
 });
+
+test.each([undefined, 3])(
+  "organization history without private page custody rejects before any read: %s",
+  async (beforeVersion) => {
+    const input = createWorkflowInputFixture({
+      apiClient: createMockApiClient({}),
+      auth: { organizationId: "org-a", userId: "user-a" },
+      execSql: unavailableExecSql,
+    });
+    const coordinator = createOrganizationReadModelCoordinator(
+      createInternalRuntimeFixture(() => input),
+    );
+    await expect(
+      coordinator.loadOrganizationPolicyHistory(undefined, beforeVersion),
+    ).rejects.toBeInstanceOf(ProjectionDependencyUnavailableError);
+  },
+);

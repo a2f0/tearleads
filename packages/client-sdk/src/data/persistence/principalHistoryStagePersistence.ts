@@ -1,6 +1,8 @@
 import { and, eq } from "drizzle-orm";
 import { assertProjectionVerificationCurrent } from "../keyingProjectionVerification/types";
 import { principalHistoryEvidenceTables } from "../sqlite/principalHistoryEvidenceSchema";
+import { principalHistoryNodeRetentionTables } from "../sqlite/principalHistoryNodeRetentionSchema";
+import { principalHistoryStageScopes } from "../sqlite/principalHistoryRetentionSchema";
 import {
   principalHistoryStages,
   principalHistoryStageTables,
@@ -11,6 +13,14 @@ import {
   type PrincipalHistoryEvidencePage,
   writePrincipalHistoryEvidencePage,
 } from "./principalHistoryEvidencePersistence";
+import { reclaimIncompletePrincipalHistoryStages } from "./principalHistoryIncompleteRetention";
+import { reclaimPrincipalHistoryNodes } from "./principalHistoryNodeRetention";
+import {
+  releasePrincipalHistoryRoot,
+  retainPrincipalHistoryRoot,
+} from "./principalHistoryRootOwnership";
+import { recordPrincipalHistoryStageScope } from "./principalHistoryStageRetention";
+import { reclaimUnpublishedPrincipalHistoryStages } from "./principalHistoryUnpublishedRetention";
 
 export type PrincipalHistoryStage = typeof principalHistoryStages.$inferSelect;
 
@@ -65,6 +75,28 @@ export async function savePrincipalHistoryStage(input: {
         .values(stage)
         .onConflictDoUpdate({ target: principalHistoryStages.id, set: stage })
         .run();
+      await recordPrincipalHistoryStageScope(tx, {
+        id: stage.id,
+        afterVersion: stage.afterVersion,
+        complete: stage.complete,
+        organizationId: stage.organizationId,
+        scopeId: evidence.scopeId,
+      });
+      await retainPrincipalHistoryRoot(tx, {
+        id: `stage:${stage.id}`,
+        scopeId: evidence.scopeId,
+        organizationId: stage.organizationId,
+        rootHash: evidence.indexRootHash,
+      });
+      await reclaimIncompletePrincipalHistoryStages(tx, {
+        ...stage,
+        scopeId: evidence.scopeId,
+      });
+      await reclaimUnpublishedPrincipalHistoryStages(tx, {
+        ...stage,
+        scopeId: evidence.scopeId,
+      });
+      await reclaimPrincipalHistoryNodes(tx, evidence);
     },
     input.stillCurrent,
     { behavior: "immediate" },
@@ -77,9 +109,20 @@ export async function discardPrincipalHistoryStage(
   stage: PrincipalHistoryStage,
   stillCurrent: () => boolean,
 ) {
+  await ensureSqlTables(execSql, [
+    ...principalHistoryStageTables,
+    ...principalHistoryNodeRetentionTables,
+  ]);
   const runtime = getClientSQLitePersistenceRuntime(execSql);
   const discarded = await runtime.guardedTransaction(
     async (db) => {
+      const [current] = await db
+        .select({ progress: principalHistoryStages.progress })
+        .from(principalHistoryStages)
+        .where(eq(principalHistoryStages.id, stage.id))
+        .limit(1);
+      if (current?.progress !== stage.progress) return;
+      await releasePrincipalHistoryRoot(db, `stage:${stage.id}`);
       await db
         .delete(principalHistoryStages)
         .where(
@@ -88,6 +131,10 @@ export async function discardPrincipalHistoryStage(
             eq(principalHistoryStages.progress, stage.progress),
           ),
         )
+        .run();
+      await db
+        .delete(principalHistoryStageScopes)
+        .where(eq(principalHistoryStageScopes.id, stage.id))
         .run();
     },
     stillCurrent,

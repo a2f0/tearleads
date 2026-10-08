@@ -16,7 +16,6 @@ import { PrincipalPolicyBundleResponseSchema } from "@tearleads/validators/respo
 import { and, count, desc, eq } from "drizzle-orm";
 import { parseOrganizationAuthorityDescriptor } from "../../src/workflows/organizations/organizationAuthorityDescriptor";
 import { clearProjectionDirectoryBindingsCache } from "../../src/workflows/principals/projectionDirectoryBindings";
-import { clearStoredPolicySnapshotCache } from "../../src/workflows/principals/snapshotVerificationCache";
 import {
   COLD_DOCUMENT_TEXT,
   coldRematerializeEncryptedDocument,
@@ -35,6 +34,7 @@ import {
   getPolicy,
   registerAndAuthenticate,
 } from "./principalPolicyReadFixtures";
+import { clearStoredPolicySnapshotCache } from "./principalSnapshotVerificationCache";
 import { recoverRegisteredRootKek } from "./registeredRootKek";
 import {
   grantRootThroughRotatedReadGroup,

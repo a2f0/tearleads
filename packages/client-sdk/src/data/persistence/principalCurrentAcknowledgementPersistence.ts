@@ -26,8 +26,15 @@ import {
   type PrincipalHistoryEvidencePage,
   writePrincipalHistoryEvidencePage,
 } from "./principalHistoryEvidencePersistence";
+import { reclaimPrincipalHistoryNodes } from "./principalHistoryNodeRetention";
 import type { PrincipalHistoryPrefix } from "./principalHistoryPrefixPersistence";
+import { retainPrincipalHistoryRoot } from "./principalHistoryRootOwnership";
 import type { PrincipalHistoryStage } from "./principalHistoryStagePersistence";
+import {
+  reclaimCompletedPrincipalHistoryStages,
+  recordPrincipalHistoryStageScope,
+} from "./principalHistoryStageRetention";
+import { archivePrincipalHistoryKeyEnvelopes } from "./principalKeyEnvelopeArchivePersistence";
 
 /** Owned output of authenticated prefix extension and exact receipt verification. */
 export interface AcknowledgedPrincipalCurrentPublication {
@@ -36,6 +43,7 @@ export interface AcknowledgedPrincipalCurrentPublication {
   readonly previousPrefixProgress: string | null;
   readonly stage: PrincipalHistoryStage;
   readonly predecessorStage: PrincipalHistoryStage | null;
+  readonly predecessorIndexRootHash: string | null;
   readonly evidence: PrincipalHistoryEvidencePage;
 }
 
@@ -60,6 +68,8 @@ function assertPublicationScope(
     seen.add(key);
     if (
       entry.prefix.organizationId !== organizationId ||
+      (entry.predecessorStage === null) !==
+        (entry.predecessorIndexRootHash === null) ||
       entry.stage.organizationId !== organizationId ||
       (entry.predecessorStage
         ? entry.predecessorStage.organizationId !== organizationId ||
@@ -116,6 +126,50 @@ async function validatePublication(
     );
 }
 
+async function archiveAcknowledgedStageKeys(
+  tx: ClientSQLiteTransactionScope,
+  entry: AcknowledgedPrincipalCurrentPublication,
+) {
+  for (const stage of [entry.predecessorStage, entry.stage]) {
+    if (!stage) continue;
+    await recordPrincipalHistoryStageScope(tx, {
+      id: stage.id,
+      afterVersion: stage.afterVersion,
+      complete: stage.complete,
+      organizationId: entry.prefix.organizationId,
+      scopeId: entry.prefix.scopeId,
+    });
+    await archivePrincipalHistoryKeyEnvelopes(tx, {
+      ...stage,
+      version: stage.afterVersion + 1,
+    });
+  }
+}
+
+async function retainPredecessorStage(
+  tx: ClientSQLiteTransactionScope,
+  entry: AcknowledgedPrincipalCurrentPublication,
+) {
+  // Preserve a prefix-only predecessor without replacing an existing completion.
+  if (!entry.predecessorStage || !entry.predecessorIndexRootHash) return;
+  const inserted = await tx
+    .insert(principalHistoryStages)
+    .values(entry.predecessorStage)
+    .onConflictDoUpdate({
+      target: principalHistoryStages.id,
+      set: entry.predecessorStage,
+      setWhere: eq(principalHistoryStages.complete, false),
+    })
+    .returning({ id: principalHistoryStages.id });
+  if (inserted.length > 0)
+    await retainPrincipalHistoryRoot(tx, {
+      id: `stage:${entry.predecessorStage.id}`,
+      scopeId: entry.prefix.scopeId,
+      organizationId: entry.prefix.organizationId,
+      rootHash: entry.predecessorIndexRootHash,
+    });
+}
+
 /** Store current artifacts and resumable progress in the same transaction as their pins. */
 export async function persistAcknowledgedPrincipalCurrents(input: {
   readonly execSql: ExecSql;
@@ -160,18 +214,7 @@ export async function persistAcknowledgedPrincipalCurrents(input: {
       }
       for (const entry of entries) {
         await writePrincipalHistoryEvidencePage(tx, entry.evidence);
-        // A prefix-only predecessor must keep its encrypted key envelopes
-        // before its reusable slot is replaced by the acknowledged successor.
-        if (entry.predecessorStage)
-          await tx
-            .insert(principalHistoryStages)
-            .values(entry.predecessorStage)
-            .onConflictDoUpdate({
-              target: principalHistoryStages.id,
-              set: entry.predecessorStage,
-              setWhere: eq(principalHistoryStages.complete, false),
-            })
-            .run();
+        await retainPredecessorStage(tx, entry);
         // A fully authenticated publication supersedes an in-flight stage for
         // this exact head. Its other writer fails its progress CAS and resumes.
         await tx
@@ -182,6 +225,7 @@ export async function persistAcknowledgedPrincipalCurrents(input: {
             set: entry.stage,
           })
           .run();
+        await archiveAcknowledgedStageKeys(tx, entry);
         await tx
           .insert(principalHistoryPrefixes)
           .values(entry.prefix)
@@ -190,6 +234,18 @@ export async function persistAcknowledgedPrincipalCurrents(input: {
             set: entry.prefix,
           })
           .run();
+        await reclaimCompletedPrincipalHistoryStages(tx, entry.prefix);
+        for (const id of [
+          `stage:${entry.stage.id}`,
+          `prefix:${entry.prefix.scopeId}`,
+        ])
+          await retainPrincipalHistoryRoot(tx, {
+            id,
+            scopeId: entry.prefix.scopeId,
+            organizationId,
+            rootHash: entry.evidence.indexRootHash,
+          });
+        await reclaimPrincipalHistoryNodes(tx, entry.prefix);
         await upsertPrincipalPolicyCheckpointInTransaction(
           tx,
           entry.policy.checkpoint,

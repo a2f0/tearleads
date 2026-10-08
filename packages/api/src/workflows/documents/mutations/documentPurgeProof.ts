@@ -1,20 +1,16 @@
 import {
+  type ApiDatabase,
   type DatabaseSession,
   gatherWithExecutor,
 } from "@tearleads/api-shared/postgres";
 import { containerDocumentSyncTombstones } from "@tearleads/api-shared/schema";
 import type { VerifiedAccessEvent } from "@tearleads/crypto";
 import {
-  normalizeDocumentPurgeAccessEventBody,
+  type normalizeDocumentPurgeAccessEventBody,
   verifyDocumentPurgeEvent,
-  verifySignedAccessEvent,
 } from "@tearleads/crypto";
-import type {
-  AccessManifestBundleWireResponse,
-  DocumentPurgeProofResponse,
-} from "@tearleads/validators/response";
+import type { DocumentPurgeProofResponse } from "@tearleads/validators/response";
 import { and, eq } from "drizzle-orm";
-import { getStoredAccessEventByObjectType } from "../../../access/read/accessManifestStore";
 import { hasAnyDocumentManifestObservation } from "../../../access/read/documentManifestObservationStore";
 import {
   keyingVerificationHttpStatus,
@@ -24,8 +20,9 @@ import {
   ContainerWriterProjectionError,
   createContainerWriterProjectionContext,
 } from "../../containers/writerProjection";
-import { loadVerifiedPrincipalPolicySnapshotsForReferences } from "../../principals/principalPolicySnapshots";
-import { loadSignerPublicKey } from "../../signerPublicKey";
+import { runPrincipalHistoryTransaction } from "../../principals/principalHistoryTransaction";
+import { loadPrincipalPolicySelections } from "../../principals/principalPolicySelections";
+import { loadPurgePolicyEvidence } from "../../principals/purgePolicyEvidence";
 import {
   StoredDocumentManifestError,
   verifyStoredDocumentManifest,
@@ -36,8 +33,8 @@ import {
   type DocumentPurgeAuthorizationMaterial,
   loadDocumentPurgeProofMaterial,
 } from "../writerProjectionPurgeProof";
+import { loadAuthorizedDocumentPurgeEvent } from "./documentPurgeEventAccess";
 import {
-  authorizeDocumentPurgeProof,
   type ContainerProjectionContext,
   verifyStoredContainerPath,
 } from "./documentPurgeProofAuthorization";
@@ -45,41 +42,7 @@ import {
   selectDocumentManifestPredecessors,
   uniquePurgeProofBundles,
 } from "./documentPurgeProofHistory";
-import { DocumentMutationError } from "./errors";
-
-async function verifyStoredPurgeEvent(input: {
-  readonly documentId: string;
-  readonly event: VerifiedAccessEvent;
-  readonly executor: DatabaseSession;
-}): Promise<VerifiedAccessEvent> {
-  const signerPublicKey = await loadSignerPublicKey(input.executor, {
-    error: (message, status) => new DocumentMutationError(message, status),
-    fingerprint: input.event.event.signerKeyFingerprint,
-    userId: input.event.event.signerUserId,
-  });
-  const verified = await verifySignedAccessEvent({
-    body: input.event.body,
-    event: input.event.event,
-    signerPublicKey,
-  });
-  if (!verified.ok) {
-    throw new DocumentMutationError(
-      verified.error.message,
-      keyingVerificationHttpStatus(verified.error),
-    );
-  }
-  if (
-    verified.value.eventHash !== input.event.eventHash ||
-    verified.value.event.objectId !== input.documentId ||
-    verified.value.event.eventType !== "document.purge"
-  ) {
-    throw new DocumentMutationError(
-      "Stored document purge event is inconsistent",
-      409,
-    );
-  }
-  return verified.value;
-}
+import { DocumentMutationError, toMutationError } from "./errors";
 
 async function verifyRetainedPurgeManifests(input: {
   readonly context: ContainerProjectionContext;
@@ -123,12 +86,6 @@ function internalPurgePrincipalReferences(
   ]);
 }
 
-function responsePurgePrincipalReferences(input: {
-  readonly bundles: readonly AccessManifestBundleWireResponse[];
-}) {
-  return collectPurgeProofPrincipalReferences(input.bundles);
-}
-
 async function verifyProofMaterial(input: {
   readonly authorizationMaterial: DocumentPurgeAuthorizationMaterial;
   readonly body: ReturnType<typeof normalizeDocumentPurgeAccessEventBody>;
@@ -144,18 +101,17 @@ async function verifyProofMaterial(input: {
     documentManifestHash: input.documentManifestHash,
     executor: input.executor,
   });
-  const internalEvidence =
-    await loadVerifiedPrincipalPolicySnapshotsForReferences(
-      input.executor,
-      internalPurgePrincipalReferences(material),
-    );
+  const internalEvidence = await loadPrincipalPolicySelections(
+    input.executor,
+    internalPurgePrincipalReferences(material),
+  );
   const context = createContainerWriterProjectionContext(
     input.executor,
-    internalEvidence.policies,
+    internalEvidence,
   );
   const { authorizingContainerPath, documentManifest } =
     await verifyRetainedPurgeManifests({ context, material });
-  const principalPolicies = internalEvidence.policies;
+  const principalPolicies = internalEvidence;
   const verified = await verifyDocumentPurgeEvent({
     authorizingContainerPath,
     documentManifest,
@@ -170,21 +126,6 @@ async function verifyProofMaterial(input: {
     );
   }
   return material;
-}
-
-function readStoredPurgeReference(event: VerifiedAccessEvent) {
-  const body = normalizeDocumentPurgeAccessEventBody(event.body);
-  const documentManifestHash = event.event.previousManifestHash;
-  if (
-    documentManifestHash === null ||
-    documentManifestHash !== body.documentManifestHash
-  ) {
-    throw new DocumentMutationError(
-      "Stored document purge predecessor is inconsistent",
-      409,
-    );
-  }
-  return { body, documentManifestHash };
 }
 
 async function loadPurgeTombstoneTime(input: {
@@ -214,28 +155,8 @@ export async function loadDocumentPurgeProof(input: {
   readonly executor: DatabaseSession;
   readonly userId: string;
 }): Promise<DocumentPurgeProofResponse> {
-  const storedEvent = await getStoredAccessEventByObjectType({
-    eventType: "document.purge",
-    executor: input.executor,
-    objectId: input.documentId,
-    objectKind: "document",
-  });
-  if (!storedEvent) {
-    throw new DocumentMutationError("Document purge proof not found", 404);
-  }
-  const event = await verifyStoredPurgeEvent({
-    documentId: input.documentId,
-    event: storedEvent,
-    executor: input.executor,
-  });
-  const { body, documentManifestHash } = readStoredPurgeReference(event);
-  const authorizationMaterial = await authorizeDocumentPurgeProof({
-    body,
-    checkpointManifestHash: input.documentCheckpointManifestHash,
-    documentId: input.documentId,
-    executor: input.executor,
-    userId: input.userId,
-  });
+  const { event, body, documentManifestHash, authorizationMaterial } =
+    await loadAuthorizedDocumentPurgeEvent(input);
   const material = await verifyProofMaterial({
     authorizationMaterial,
     body,
@@ -271,11 +192,16 @@ export async function loadDocumentPurgeProof(input: {
     ...documentDependencies.documentManifestContainerPaths.flat(),
     ...documentDependencies.documentContainerManifestHistory,
   ]);
-  const responseEvidence =
-    await loadVerifiedPrincipalPolicySnapshotsForReferences(
-      input.executor,
-      responsePurgePrincipalReferences({ bundles: responseContainerBundles }),
-    );
+  const policyEvidence = await loadPurgePolicyEvidence({
+    executor: input.executor,
+    bundles: responseContainerBundles,
+    scope: {
+      objectKind: "document-purge",
+      objectId: input.documentId,
+      organizationId: event.event.organizationId,
+      userId: input.userId,
+    },
+  });
 
   const purgedAt = await loadPurgeTombstoneTime({
     containerId: body.containerId,
@@ -294,8 +220,19 @@ export async function loadDocumentPurgeProof(input: {
     documentManifestContainerPaths:
       documentDependencies.documentManifestContainerPaths,
     documentManifestPredecessors: documentManifestPredecessorBundles,
-    principalPolicySnapshots: responseEvidence.snapshots,
+    policyEvidence,
     purgeEvent: projectionVerifiedAccessEventRecord(event),
     purgedAt,
   };
+}
+
+export function runDocumentPurgeProofWorkflow(
+  db: ApiDatabase,
+  input: Omit<Parameters<typeof loadDocumentPurgeProof>[0], "executor">,
+): Promise<DocumentPurgeProofResponse> {
+  return runPrincipalHistoryTransaction(db, (tx) =>
+    loadDocumentPurgeProof({ ...input, executor: tx }),
+  ).catch((error: unknown) => {
+    throw toMutationError(error) ?? error;
+  });
 }

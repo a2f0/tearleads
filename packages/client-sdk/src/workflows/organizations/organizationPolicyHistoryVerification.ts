@@ -1,137 +1,102 @@
 import {
   computePrincipalStatePayloadCiphertextHash,
-  type KeyingVerificationCode,
   KeyingVerificationError,
-  type PrincipalPolicyCheckpoint,
-  principalPolicyMatchesReference,
+  type ReferencedPrincipalHead,
 } from "@tearleads/crypto";
-import type {
-  OrganizationPolicyHistoryResponse,
-  PrincipalPolicyBundleResponse,
-} from "@tearleads/validators/response";
-import { ProjectionDependencyUnavailableError } from "../../data/keyingProjectionVerification/dependencyUnavailable";
-import { verifyPrincipalPolicySnapshots } from "../../data/keyingProjectionVerification/principalPolicySnapshotVerification";
+import type { OrganizationPolicyHistoryResponse } from "@tearleads/validators/response";
 import {
   type OrganizationAuthorityDescriptor,
   parseOrganizationAuthorityDescriptor,
+  principalHeadMatchesReference,
 } from "../../data/principals/organizationAuthorityDescriptor";
-import { verifyOrganizationAdminPolicy } from "../../data/principals/principalPolicyAdminSigners";
-import type { TrustedUserIdentityResolver } from "../../data/trustedUserIdentity";
-import { collectPrincipalPolicySignerPublicKeys } from "../principals/policyVerification";
+import type { RecoveredPrincipalHistoryPage } from "../principals/loadRecoveredPrincipalHistoryPage";
 
-function reject(
-  message: string,
-  code: KeyingVerificationCode = "hash_mismatch",
-): never {
+function reject(message: string): never {
   throw new KeyingVerificationError(
-    code,
+    "hash_mismatch",
     `Organization policy history: ${message}`,
   );
 }
 
-async function verifyDirectoryPayloads(
-  bundle: PrincipalPolicyBundleResponse,
-  evidence: OrganizationPolicyHistoryResponse,
-  organizationId: string,
-) {
-  const states = [
-    ...bundle.previousStates.map((entry) => entry.state),
-    bundle.currentState,
-  ];
-  if (evidence.organizationPayloads.length !== states.length)
-    reject("directory history is incomplete", "invalid_shape");
+/** Bind every display payload and public source to the privately verified page. */
+export async function verifyOrganizationPolicyHistory(input: {
+  readonly head: ReferencedPrincipalHead;
+  readonly page: RecoveredPrincipalHistoryPage;
+  readonly evidence: OrganizationPolicyHistoryResponse;
+}) {
+  const { head, page, evidence } = input;
+  const beforeVersion = (page.entries.at(-1)?.state.version ?? 0) + 1;
+  if (
+    head.principalType !== "organization" ||
+    evidence.organizationId !== head.principalId ||
+    evidence.stateHash !== head.stateHash ||
+    evidence.beforeVersion !== beforeVersion ||
+    evidence.nextBeforeVersion !== page.nextBeforeVersion ||
+    !evidence.evidence.organization ||
+    !principalHeadMatchesReference(evidence.evidence.organization.head, head)
+  )
+    reject("response does not match the requested organization page");
+  const entries = page.predecessor
+    ? [page.predecessor, ...page.entries]
+    : page.entries;
+  if (evidence.evidence.organizationPayloads.length !== entries.length)
+    reject("directory page is incomplete");
   const descriptors = new Map<string, OrganizationAuthorityDescriptor>();
-  for (const payload of evidence.organizationPayloads) {
-    const state = states.find(
-      (candidate) => candidate.stateHash === payload.stateHash,
-    );
+  const references: ReferencedPrincipalHead[] = [head];
+  const groups = new Map<string, ReferencedPrincipalHead>();
+  for (const [
+    index,
+    item,
+  ] of evidence.evidence.organizationPayloads.entries()) {
+    const { reference, payload } = item;
+    const entry = entries[index];
     if (
-      !state ||
-      descriptors.has(payload.stateHash) ||
+      !entry ||
+      !principalHeadMatchesReference(entry.state, reference) ||
       payload.principalType !== "organization" ||
-      payload.principalId !== organizationId
+      payload.principalId !== head.principalId ||
+      payload.stateHash !== reference.stateHash ||
+      descriptors.has(reference.stateHash)
     )
-      reject("directory payload scope is invalid", "object_mismatch");
+      reject("directory payload scope or order is invalid");
     const hash = await computePrincipalStatePayloadCiphertextHash(
       payload.ciphertext,
     );
-    if (hash !== state.payloadCiphertextHash || hash !== payload.ciphertextHash)
+    if (
+      hash !== entry.state.payloadCiphertextHash ||
+      hash !== payload.ciphertextHash
+    )
       reject("directory payload does not match its signed hash");
     const descriptor = parseOrganizationAuthorityDescriptor(payload.ciphertext);
-    if (descriptor.organizationId !== organizationId)
-      reject("directory belongs to another organization", "object_mismatch");
-    descriptors.set(state.stateHash, descriptor);
-  }
-  return descriptors;
-}
-
-/** All returned data is authenticated against the already selected organization head. */
-export async function verifyOrganizationPolicyHistory(input: {
-  bundle: PrincipalPolicyBundleResponse;
-  evidence: OrganizationPolicyHistoryResponse;
-  organizationId: string;
-  localCheckpoint: PrincipalPolicyCheckpoint | null;
-  resolveTrustedUserIdentity: TrustedUserIdentityResolver;
-}) {
-  const { bundle, evidence, organizationId } = input;
-  if (
-    evidence.organizationId !== organizationId ||
-    evidence.stateHash !== bundle.currentState.stateHash
-  )
-    reject(
-      "response does not match the requested organization head",
-      "object_mismatch",
-    );
-  const keys = await collectPrincipalPolicySignerPublicKeys(input);
-  if ("error" in keys) {
-    if (keys.error === "not-found")
-      throw new ProjectionDependencyUnavailableError(
-        "Organization policy history signer identity is unavailable",
-      );
-    reject("signer fingerprint does not match", "signer_mismatch");
-  }
-  const verified = await verifyOrganizationAdminPolicy({
-    ...input,
-    signerPublicKeys: keys.signerPublicKeys,
-  });
-  if (!verified.ok) throw verified.error;
-  const descriptors = await verifyDirectoryPayloads(
-    bundle,
-    evidence,
-    organizationId,
-  );
-  // These are historical display proofs, authenticated by the selected
-  // organization chain. They never advance a group's current-policy checkpoint.
-  const groups = await verifyPrincipalPolicySnapshots({
-    resolveUserKey: input.resolveTrustedUserIdentity,
-    snapshots: evidence.groups,
-  });
-  const expectedGroups = new Set<string>();
-  for (const descriptor of descriptors.values()) {
-    for (const reference of descriptor.groupHeads) {
-      expectedGroups.add(reference.principalId);
-      const policy = groups.find(
-        (group) =>
-          group.principalType === "group" &&
-          group.principalId === reference.principalId,
-      );
-      if (!policy || !principalPolicyMatchesReference({ policy, reference }))
-        reject("group history does not match the signed directory");
+    if (descriptor.organizationId !== head.principalId)
+      reject("directory belongs to another organization");
+    descriptors.set(reference.stateHash, descriptor);
+    references.push(reference, ...descriptor.groupHeads);
+    for (const group of descriptor.groupHeads) {
+      const previous = groups.get(group.principalId);
+      if (!previous || group.version > previous.version)
+        groups.set(group.principalId, group);
     }
   }
-  if (groups.length !== expectedGroups.size)
-    reject("unexpected group history", "invalid_shape");
-  for (const group of groups) {
-    const heads = [...descriptors.values()].flatMap((descriptor) =>
-      descriptor.groupHeads.filter(
-        (head) => head.principalId === group.principalId,
-      ),
-    );
-    const latest = heads.reduce((left, right) =>
-      left.version > right.version ? left : right,
-    );
-    if (group.stateHash !== latest.stateHash)
-      reject("group history extends beyond the selected organization head");
+  verifyGroupSources(evidence, groups);
+  return { descriptors, references };
+}
+
+function verifyGroupSources(
+  evidence: OrganizationPolicyHistoryResponse,
+  groups: Map<string, ReferencedPrincipalHead>,
+) {
+  if (evidence.evidence.groups.length !== groups.size)
+    reject("unexpected group source");
+  const seen = new Set<string>();
+  for (const source of evidence.evidence.groups) {
+    const expected = groups.get(source.head.principalId);
+    if (
+      !expected ||
+      seen.has(source.head.principalId) ||
+      !principalHeadMatchesReference(source.head, expected)
+    )
+      reject("group source extends beyond the page's signed directory");
+    seen.add(source.head.principalId);
   }
-  return { descriptors, groups };
 }

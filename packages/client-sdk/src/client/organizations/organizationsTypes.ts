@@ -116,7 +116,9 @@ export interface Organizations {
     OrganizationReadModelCoordinator["loadLocalGrants"]
   >;
   listLocalOrganizations: () => Promise<LocalOrganizationSummary[]>;
-  loadPolicyHistory: () => ReturnType<
+  loadPolicyHistory: (
+    beforeVersion?: number,
+  ) => ReturnType<
     OrganizationReadModelCoordinator["loadOrganizationPolicyHistory"]
   >;
   loadUserDetail: (

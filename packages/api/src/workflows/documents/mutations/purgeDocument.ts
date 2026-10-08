@@ -23,12 +23,10 @@ import {
 import { assertOrganizationProfileDocumentUnbound } from "../../organizations/organizationProfileBindingInvariant";
 import { lockOrganizationReadModelHeadForUpdateInTransaction } from "../../organizations/readModelChanges";
 import { assertRosterProfileDocumentUnbound } from "../../organizations/rosterProfileBindingInvariant";
-import { loadVerifiedPrincipalPolicySnapshotsForReferences } from "../../principals/principalPolicySnapshots";
+import { runPrincipalHistoryTransaction } from "../../principals/principalHistoryTransaction";
+import { loadPurgePolicyEvidence } from "../../principals/purgePolicyEvidence";
 import { loadDocumentContainerDependencyMaterial } from "../writerProjection";
-import {
-  collectPurgeProofPrincipalReferences,
-  loadDocumentPurgeProofMaterial,
-} from "../writerProjectionPurgeProof";
+import { loadDocumentPurgeProofMaterial } from "../writerProjectionPurgeProof";
 import { lockDocumentLifecycleInTransaction } from "./documentLifecycleLock";
 import { DocumentMutationError, toMutationError } from "./errors";
 import { deleteDocumentRows } from "./purgeDocumentRows";
@@ -81,6 +79,9 @@ async function resolveSolePurgeContainerId(input: {
 }
 
 async function loadInitialPurgeResponseMaterial(input: {
+  readonly documentId: string;
+  readonly organizationId: string;
+  readonly userId: string;
   readonly authorizingContainerManifestHashes: readonly string[];
   readonly documentManifestHash: string;
   readonly executor: DatabaseTransaction;
@@ -97,18 +98,22 @@ async function loadInitialPurgeResponseMaterial(input: {
     executor: input.executor,
     manifestCache: new Map(),
   });
-  const principalPolicySnapshots = (
-    await loadVerifiedPrincipalPolicySnapshotsForReferences(
-      input.executor,
-      collectPurgeProofPrincipalReferences([
-        ...proofMaterial.authorizingContainerPath,
-        ...proofMaterial.authorizingContainerManifestHistory,
-        ...documentDependencies.documentManifestContainerPaths.flat(),
-        ...documentDependencies.documentContainerManifestHistory,
-      ]),
-    )
-  ).snapshots;
-  return { documentDependencies, principalPolicySnapshots, proofMaterial };
+  const policyEvidence = await loadPurgePolicyEvidence({
+    executor: input.executor,
+    scope: {
+      objectKind: "document-purge",
+      objectId: input.documentId,
+      organizationId: input.organizationId,
+      userId: input.userId,
+    },
+    bundles: [
+      ...proofMaterial.authorizingContainerPath,
+      ...proofMaterial.authorizingContainerManifestHistory,
+      ...documentDependencies.documentManifestContainerPaths.flat(),
+      ...documentDependencies.documentContainerManifestHistory,
+    ],
+  });
+  return { documentDependencies, policyEvidence, proofMaterial };
 }
 
 async function assertDocumentIsPurgeable(input: {
@@ -342,8 +347,11 @@ async function purgeDocumentWithExecutor(input: {
       409,
     );
   }
-  const { documentDependencies, principalPolicySnapshots, proofMaterial } =
+  const { documentDependencies, policyEvidence, proofMaterial } =
     await loadInitialPurgeResponseMaterial({
+      documentId: input.documentId,
+      organizationId,
+      userId: input.userId,
       authorizingContainerManifestHashes,
       documentManifestHash: verifiedPurge.documentManifest.manifestHash,
       executor: input.executor,
@@ -394,7 +402,7 @@ async function purgeDocumentWithExecutor(input: {
       documentManifestPredecessors: [],
       purgeEvent: projectionVerifiedAccessEventRecord(verifiedPurge.event),
       purgedAt: purgedAt.toISOString(),
-      principalPolicySnapshots,
+      policyEvidence,
       reclaimedBlobStorageKeys: [],
     },
   };
@@ -412,7 +420,7 @@ export async function runPurgeDocumentWorkflow(
   input: PurgeDocumentInput,
 ): Promise<PurgeDocumentWorkflowResult> {
   try {
-    return await db.transaction((tx) =>
+    return await runPrincipalHistoryTransaction(db, (tx) =>
       purgeDocumentWithExecutor({
         documentId: input.documentId,
         executor: tx,

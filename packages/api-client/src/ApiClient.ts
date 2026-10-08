@@ -21,7 +21,6 @@ import {
   getContainerKekLogOperation,
   getContainerReplacementAuthorizationsOperation,
   getContainerWriterProjectionOperation,
-  getDocumentPurgeProofOperation,
   getDocumentWriterProjectionOperation,
   getHealthOperation,
   getMultipartBlobStageOperation,
@@ -30,7 +29,6 @@ import {
   getOrganizationBillingOperation,
   getOrganizationDataUsageOperation,
   getOrganizationNativePurchaseEligibilityOperation,
-  getOrganizationPolicyHistoryOperation,
   getOrganizationReadModelOperation,
   getRootIdentityOperation,
   getRootOrganizationDataUsageOperation,
@@ -50,7 +48,6 @@ import {
   listSessionsOperation,
   logoutOperation,
   moveContainerOperation,
-  purgeDocumentOperation,
   type RootIdentitiesQuery,
   type RootOrganizationPageQuery,
   type RootOrganizationsQuery,
@@ -119,9 +116,14 @@ import type {
 import { BoundedCache } from "./ApiCache";
 import { ApiRequestRuntime } from "./apiRequestRuntime";
 import {
+  getDocumentPurgeProof as readPurgeProof,
+  purgeDocument as submitDocumentPurge,
+} from "./documentPurge";
+import {
   createOperationTransport,
   type OperationTransport,
 } from "./operationTransportFactory";
+import { getOrganizationPolicyHistoryResult as organizationHistory } from "./organizationPolicyHistory";
 import type { PrincipalPolicyPageReadOptions } from "./principalPolicyPages";
 import { PrincipalPolicyRequests } from "./principalPolicyRequests";
 import { ProjectionHistoryTransport } from "./projectionHistoryTransport";
@@ -174,8 +176,6 @@ import {
   type DocumentPurgeProofOptions,
   documentCreate,
   documentLink,
-  documentPurge,
-  documentPurgeProof,
   documentUnlink,
 } from "./routes/documents/mutations";
 import { organizationBilling } from "./routes/organizations/billing";
@@ -677,11 +677,12 @@ export class ApiClient {
   getOrganizationPolicyHistoryResult(
     organizationId: string,
     stateHash: string,
-    options: RequestResultOptions = {},
+    options: Parameters<typeof organizationHistory>[3] = {},
   ): Promise<RequestResult<OrganizationPolicyHistoryResponse>> {
-    return this.transport.requestResult(
-      getOrganizationPolicyHistoryOperation,
-      { params: { organizationId }, query: { stateHash } },
+    return organizationHistory(
+      this.requestRuntime,
+      organizationId,
+      stateHash,
       options,
     );
   }
@@ -1710,13 +1711,11 @@ export class ApiClient {
     options: RequestResultOptions = {},
   ) {
     this.invalidateDocumentAttribution(documentId);
-    return this.request(
-      documentPurge.path(documentId),
-      documentPurge.isResponse,
-      documentPurge.method,
-      JSON.stringify(input),
+    return submitDocumentPurge(
+      this.requestRuntime,
+      documentId,
+      input,
       options,
-      purgeDocumentOperation,
     ).finally(() => {
       this.invalidateDocumentAttribution(documentId);
       this.evictDocumentWriterProjection(documentId);
@@ -1728,13 +1727,11 @@ export class ApiClient {
     options?: DocumentPurgeProofOptions,
     requestOptions: RequestResultOptions = {},
   ) {
-    return this.request(
-      documentPurgeProof.path(documentId, options),
-      documentPurgeProof.isResponse,
-      documentPurgeProof.method,
-      undefined,
+    return readPurgeProof(
+      this.requestRuntime,
+      documentId,
+      options,
       requestOptions,
-      getDocumentPurgeProofOperation,
     );
   }
 

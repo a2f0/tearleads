@@ -4,13 +4,13 @@ import {
   signOrganizationReplacementAuthorization,
   toFingerprint,
 } from "@tearleads/crypto";
-import { verifyPrincipalPolicySnapshots } from "../../src/data/keyingProjectionVerification/principalPolicySnapshotVerification";
 import { rememberOrganizationFounder } from "../../src/data/persistence/organizationFounderPersistence";
 import type { ExecSql } from "../../src/data/sqlite/sqlSchema";
 import type { assertPermittedDestinationBinding } from "../../src/workflows/container-contents/remoteHydration/replacementBinding";
 import { buildOrganizationProvisioningArtifacts } from "../../src/workflows/registration/registerIdentity";
 import { policySnapshot } from "./organizationPolicyHistory";
 import { organizationPolicyBundleFromInitialRequest } from "./principalPolicyFixtures";
+import { verifyPrincipalPolicySnapshots } from "./principalPolicySnapshotVerification";
 import { createTestTrustedUserIdentityResolver } from "./trustedUserIdentity";
 
 export async function sharedReplacementBindingFixture(execSql: ExecSql) {

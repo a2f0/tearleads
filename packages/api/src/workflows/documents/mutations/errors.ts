@@ -7,7 +7,7 @@ import {
   DOCUMENT_SYNC_ERROR_CODES,
   type DocumentMutationErrorCode,
   isPrincipalPolicyStaleErrorResponse,
-  type PrincipalPolicyBundleResponse,
+  type ReferencedPrincipalStateResponse,
 } from "@tearleads/validators/response";
 import { DocumentKekTargetError } from "../../../access/read/documentKekTargets";
 import { DocumentContentKeyBundleError } from "../../../access/write/documentContentKeyStore";
@@ -32,8 +32,8 @@ export class DocumentMutationError extends Error {
     readonly code?: DocumentMutationErrorCode | undefined,
     readonly details?:
       | {
-          readonly principalPolicies?:
-            | readonly PrincipalPolicyBundleResponse[]
+          readonly principalHeads?:
+            | readonly ReferencedPrincipalStateResponse[]
             | undefined;
         }
       | undefined,
@@ -166,7 +166,7 @@ export function toMutationError(error: unknown): DocumentMutationError | null {
       nonWipeStatus(error.status),
       containerMutationErrorCode(error),
       stalePolicyBody
-        ? { principalPolicies: stalePolicyBody.principalPolicies }
+        ? { principalHeads: stalePolicyBody.principalHeads }
         : undefined,
     );
   }

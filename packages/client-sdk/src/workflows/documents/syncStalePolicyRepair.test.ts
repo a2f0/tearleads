@@ -8,10 +8,7 @@ import type {
   ContainerMutationRequest,
   DocumentSyncRequest,
 } from "@tearleads/validators/request";
-import {
-  DOCUMENT_SYNC_ERROR_CODES,
-  type PrincipalPolicyBundleResponse,
-} from "@tearleads/validators/response";
+import { DOCUMENT_SYNC_ERROR_CODES } from "@tearleads/validators/response";
 import {
   createMaterializedSyncFixture,
   createPendingUpdateRecord,
@@ -19,13 +16,14 @@ import {
   writerKeyResolver,
 } from "../../../test/helpers/documentFixtures";
 import { syncRemoteDocumentWithoutImportValidationForTest as syncRemoteDocument } from "../../../test/helpers/documentSync";
+import { principalRepairEvidence } from "../../../test/helpers/principalRepairEvidence";
 import { createFullHistoryRotationSnapshot } from "../../../test/helpers/staleBundleSyncFixture";
 import type { DocumentSyncPlan } from "../../data/documents/shared/types";
-import type {
-  PrincipalPolicyBundleCacheRequest,
-  ReferencedPrincipalPolicyWarmer,
-} from "../../data/keyingProjectionVerification";
 import { documentContainerProjections } from "../../data/keyingProjectionVerification/documentContainerProjections";
+import type {
+  PrincipalPolicyResolveRequest,
+  ReferencedPrincipalPolicyWarmer,
+} from "../../data/keyingProjectionVerification/types";
 import { ensureDocumentTables } from "../../data/sqlite/documentPersistence";
 import { buildMaterializedContainerRekeyPlan } from "../containers/child/rekey";
 import { buildMaterializedDocumentSyncPlan } from "./syncPlanMaterial";
@@ -50,26 +48,7 @@ function containerRekey(policyGeneration: number): ContainerMutationRequest {
   };
 }
 
-function repairBundleForRequest(
-  request: DocumentSyncRequest,
-): PrincipalPolicyBundleResponse {
-  const policy = request.containerRekeys?.flatMap(
-    (rekey) => rekey.principalPolicies,
-  )[0];
-  const principalId = policy && Reflect.get(policy, "principalId");
-  const principalType = policy && Reflect.get(policy, "principalType");
-  if (
-    typeof principalId !== "string" ||
-    (principalType !== "group" && principalType !== "organization")
-  ) {
-    throw new Error("Expected inline rekey principal policy identity");
-  }
-  return {
-    currentState: { principalId, principalType },
-  } as PrincipalPolicyBundleResponse;
-}
-
-test("syncRemoteDocument retries failed chained rekeys after caching stale policies", async () => {
+test("syncRemoteDocument retries failed chained rekeys after recovering stale policy heads", async () => {
   const {
     author,
     resolveProjectionUserKey,
@@ -81,7 +60,7 @@ test("syncRemoteDocument retries failed chained rekeys after caching stale polic
   const submittedRequests: DocumentSyncRequest[] = [];
   const events: string[] = [];
   let policiesCached = false;
-  let repairBundle: PrincipalPolicyBundleResponse | undefined;
+  const repair = await principalRepairEvidence({ author, signingPublicKey });
   let projectionRequestCount = 0;
   let rekeyBuildCount = 0;
   const rekeyManifestHashes: string[] = [];
@@ -97,17 +76,14 @@ test("syncRemoteDocument retries failed chained rekeys after caching stale polic
     `sync-stale-policy-repair-${crypto.randomUUID()}`,
   );
   const warmer = Object.assign(async () => undefined, {
-    cacheBundles: async (input: PrincipalPolicyBundleCacheRequest) => {
-      events.push("cache-policies");
-      if (!repairBundle) {
-        throw new Error("Expected a stale policy repair bundle");
-      }
-      expect(input).toEqual({
-        bundles: [repairBundle],
+    resolveReference: async (input: PrincipalPolicyResolveRequest) => {
+      events.push("recover-policies");
+      expect(input).toMatchObject({
+        reference: repair.head,
         organizationId: author.organizationId,
-        stillCurrent: undefined,
       });
       policiesCached = true;
+      return repair.evidence;
     },
   }) satisfies ReferencedPrincipalPolicyWarmer;
 
@@ -132,11 +108,10 @@ test("syncRemoteDocument retries failed chained rekeys after caching stale polic
           submittedRequests.push(request);
           events.push(`submit-${submittedRequests.length}`);
           if (submittedRequests.length === 1) {
-            repairBundle = repairBundleForRequest(request);
             return createMockRequestFailure({
               code: DOCUMENT_SYNC_ERROR_CODES.stateStale,
               message: "Principal policy is stale",
-              stalePrincipalPolicies: [repairBundle],
+              stalePrincipalHeads: [repair.head],
               status: 409,
             });
           }
@@ -224,7 +199,7 @@ test("syncRemoteDocument retries failed chained rekeys after caching stale polic
               principalPolicies: [
                 {
                   policyGeneration: rekeyBuildCount,
-                  principalId: "stale-policy-principal",
+                  principalId: repair.head.principalId,
                   principalType: "group",
                 },
               ],
@@ -251,7 +226,7 @@ test("syncRemoteDocument retries failed chained rekeys after caching stale polic
       "get-projection-1",
       "build-rekey-1",
       "submit-1",
-      "cache-policies",
+      "recover-policies",
       "evict-projection",
       "get-projection-2",
       "build-rekey-2",

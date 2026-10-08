@@ -16,9 +16,9 @@ import {
 } from "../../../test/helpers/principalPolicyReadFixtures";
 import { routeApp } from "../../routeApp";
 
-// A stale-policy 409 returns the current bundles so the client can repair its
+// A stale-policy 409 returns the current heads so the client can repair its
 // mutation. That reject runs before the mutation's own authorization, so it
-// must serve only bundles the requester could read through GET; otherwise a
+// must serve only heads the requester could read through GET; otherwise a
 // fabricated stale entry naming any principal is an unauthorized read.
 
 /** A well-formed artifact for the group that names a superseded state. */
@@ -76,7 +76,7 @@ async function shareOwnRootCiting(
   });
 }
 
-test("a stale-policy reject returns only bundles the requester may read", async () => {
+test("a stale-policy reject returns only heads the requester may read", async () => {
   const victim = createTestUser();
   const attacker = createTestUser();
   const bystander = createTestUser();
@@ -94,12 +94,10 @@ test("a stale-policy reject returns only bundles the requester may read", async 
   expect(response.status, await response.clone().text()).toBe(409);
   const body: unknown = await response.json();
   invariant(isPrincipalPolicyStaleErrorResponse(body), "expected stale reject");
-  expect(
-    body.principalPolicies.map((bundle) => bundle.currentState.principalId),
-  ).toEqual([]);
+  expect(body.principalHeads.map((head) => head.principalId)).toEqual([]);
 });
 
-test("a stale-policy reject still repairs a bundle the requester may read", async () => {
+test("a stale-policy reject still repairs a head the requester may read", async () => {
   const owner = createTestUser();
   const peer = createTestUser();
   await registerAndAuthenticate(owner, peer);
@@ -112,12 +110,12 @@ test("a stale-policy reject still repairs a bundle the requester may read", asyn
   expect(response.status, await response.clone().text()).toBe(409);
   const body: unknown = await response.json();
   invariant(isPrincipalPolicyStaleErrorResponse(body), "expected stale reject");
-  expect(
-    body.principalPolicies.map((bundle) => bundle.currentState.principalId),
-  ).toEqual([adminGroupId]);
+  expect(body.principalHeads.map((head) => head.principalId)).toEqual([
+    adminGroupId,
+  ]);
 });
 
-test("stale-policy replies cap distinct readable bundles at sixteen", async () => {
+test("stale-policy replies cap distinct readable heads at sixteen", async () => {
   const owner = createTestUser();
   const peer = createTestUser();
   await registerAndAuthenticate(owner, peer);
@@ -149,18 +147,16 @@ test("stale-policy replies cap distinct readable bundles at sixteen", async () =
   expect(response.status).toBe(409);
   const body: unknown = await response.json();
   invariant(isPrincipalPolicyStaleErrorResponse(body), "expected stale reject");
-  expect(
-    body.principalPolicies.map((bundle) => bundle.currentState.principalId),
-  ).toEqual(groupIds.slice(0, 16));
+  expect(body.principalHeads.map((head) => head.principalId)).toEqual(
+    groupIds.slice(0, 16),
+  );
   const remainder = await shareOwnRootCiting(owner, peer, groupIds.slice(16));
   const remainderBody: unknown = await remainder.json();
   invariant(
     isPrincipalPolicyStaleErrorResponse(remainderBody),
     "expected remaining repair",
   );
-  expect(
-    remainderBody.principalPolicies.map(
-      (bundle) => bundle.currentState.principalId,
-    ),
-  ).toEqual(groupIds.slice(16));
+  expect(remainderBody.principalHeads.map((head) => head.principalId)).toEqual(
+    groupIds.slice(16),
+  );
 }, 30_000);

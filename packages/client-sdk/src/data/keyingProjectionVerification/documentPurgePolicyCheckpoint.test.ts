@@ -14,6 +14,9 @@ import {
 } from "../../../test/helpers/documentFixtures";
 import { createDocumentPurgeProof } from "../../../test/helpers/documentPurge";
 import { createExternallyAuthorizedPrincipalPolicySnapshots } from "../../../test/helpers/principalPolicySnapshots";
+import { verifyPrincipalPolicySnapshots } from "../../../test/helpers/principalPolicySnapshotVerification";
+import { createProjectionPolicyEvidence } from "../../../test/helpers/projectionPolicyEvidence";
+import { projectionPolicyWarmer } from "../../../test/helpers/projectionPolicyHistory";
 import { buildMaterializedContainerSharePlan } from "../../workflows/containers/child/shareMaterialization";
 import {
   buildMaterializedDocumentCreatePlan,
@@ -23,7 +26,6 @@ import { loadDocumentPurgeCheckpoint } from "../persistence/documentPurgeCheckpo
 import { loadPrincipalPolicyCheckpoint } from "../persistence/keyingCheckpointPersistence";
 import type { ExecSql } from "../sqlite/sqlSchema";
 import { verifyDocumentPurgeProof } from "./documentPurgeProofVerification";
-import { verifyPrincipalPolicySnapshots } from "./principalPolicySnapshotVerification";
 
 function projectionAfterShare(
   previous: ContainerWriterProjectionResponse,
@@ -93,12 +95,27 @@ async function createGroupAuthorizedPurge(input: { execSql: ExecSql }) {
     fixture.author,
     writerProjection,
   );
+  const evidence = await createProjectionPolicyEvidence({
+    author: fixture.author,
+    group: policyFixture.subjectBundle,
+    admins: policyFixture.adminBundle,
+    signingPublicKey: fixture.signingPublicKey,
+    encapsulationKeyPair: {
+      publicKey: fixture.publicKey,
+      secretKey: fixture.secretKey,
+    },
+  });
   return {
+    warmer: projectionPolicyWarmer({
+      bundles: evidence.bundles,
+      execSql: input.execSql,
+      resolveUserKey,
+    }),
     organizationId: fixture.author.organizationId,
     policies,
     proof: {
       ...proof,
-      principalPolicySnapshots: [policyFixture.subject, policyFixture.admin],
+      policyEvidence: evidence.policyEvidence,
     },
     resolveUserKey,
     writerProjection,
@@ -117,6 +134,7 @@ test("purge commit atomically pins first-seen policy snapshots", async () => {
       expectedOrganizationId: fixture.organizationId,
       proof: fixture.proof,
       resolveUserKey: fixture.resolveUserKey,
+      warmReferencedPrincipalPolicies: fixture.warmer,
     });
     await verified.commitCheckpoints(execSql);
 
@@ -150,6 +168,7 @@ for (const supersededPath of [false, true]) {
         expectedOrganizationId: fixture.organizationId,
         proof: fixture.proof,
         resolveUserKey: fixture.resolveUserKey,
+        warmReferencedPrincipalPolicies: fixture.warmer,
       };
       const verified = await verifyDocumentPurgeProof(verification);
       const raced = fixture.policies[0];

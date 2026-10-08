@@ -140,12 +140,12 @@ test("undeclared statuses do not wait for a cloned response body", async () => {
   }
 });
 
-test("describeErrorResponse preserves sync stale-policy repair bundles", async () => {
+test("describeErrorResponse preserves sync stale-policy repair heads", async () => {
   const response = Response.json(
     {
       code: "document_sync_state_stale",
       error: "Principal policy is stale",
-      principalPolicies: [],
+      principalHeads: [],
     },
     { status: 409 },
   );
@@ -154,7 +154,7 @@ test("describeErrorResponse preserves sync stale-policy repair bundles", async (
     await describeErrorResponse(response, documentSyncOperation),
   ).toMatchObject({
     code: "document_sync_state_stale",
-    stalePrincipalPolicies: [],
+    stalePrincipalHeads: [],
   });
 });
 
@@ -163,14 +163,14 @@ test("describeErrorResponse ignores policy bundles on terminal sync conflicts", 
     {
       code: "document_sync_conflict",
       error: "Terminal conflict",
-      principalPolicies: [],
+      principalHeads: [],
     },
     { status: 409 },
   );
 
   expect(
     await describeErrorResponse(response, documentSyncOperation),
-  ).not.toHaveProperty("stalePrincipalPolicies");
+  ).not.toHaveProperty("stalePrincipalHeads");
 });
 
 test("describeErrorResponse ignores stale-policy bundles at generic statuses", async () => {
@@ -178,14 +178,14 @@ test("describeErrorResponse ignores stale-policy bundles at generic statuses", a
     {
       code: "principal_policy_stale",
       error: "Injected repair metadata",
-      principalPolicies: [],
+      principalHeads: [],
     },
     { status: 400 },
   );
 
   expect(
     await describeErrorResponse(response, createContainerOperation),
-  ).not.toHaveProperty("stalePrincipalPolicies");
+  ).not.toHaveProperty("stalePrincipalHeads");
 });
 
 test("describeErrorResponse preserves validated payment targets", async () => {

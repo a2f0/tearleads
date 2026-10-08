@@ -1,9 +1,11 @@
 import { z } from "zod";
 import { arraySchema, loosePlainObject, nonEmptyStringSchema } from "../schema";
 import { MAX_ROTATION_CONTAINER_REKEYS } from "../util";
+import { PRINCIPAL_POLICY_REPAIR_HEAD_LIMIT } from "../util/principalHistoryWire";
 import { ContainerMutationResponseSchema } from "./container";
 import { CONTAINER_DESCENDANT_REKEYS_REQUIRED_ERROR_CODE } from "./descendantRekeysRequiredError";
 import { BillingErrorResponseSchema } from "./organizationBilling";
+import { ReferencedPrincipalStateResponseSchema } from "./principalReference";
 
 import {
   CurrentPrincipalMemberEnvelopesResponseSchema,
@@ -108,7 +110,10 @@ export const CommitOrganizationGroupPolicyConflictResponseSchema = z.union([
 export const PrincipalPolicyStaleErrorResponseSchema = loosePlainObject({
   code: z.literal("principal_policy_stale"),
   error: z.string().min(1),
-  principalPolicies: arraySchema(PrincipalPolicyBundleResponseSchema),
+  principalHeads: arraySchema(
+    ReferencedPrincipalStateResponseSchema,
+    PRINCIPAL_POLICY_REPAIR_HEAD_LIMIT,
+  ),
 });
 
 export type PrincipalPolicyStaleErrorResponse = z.infer<

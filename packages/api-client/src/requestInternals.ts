@@ -3,7 +3,7 @@ import type { ListContainerParentLanesRequest } from "@tearleads/validators/requ
 import type {
   DocumentSyncResponse,
   DocumentWriterProjectionResponse,
-  PrincipalPolicyBundleResponse,
+  ReferencedPrincipalStateResponse,
   SyncWatermark,
 } from "@tearleads/validators/response";
 import {
@@ -82,7 +82,7 @@ export interface ErrorResponseDescription {
   readonly code: string | null;
   readonly detail: string;
   readonly error: string | null;
-  readonly stalePrincipalPolicies?: PrincipalPolicyBundleResponse[] | undefined;
+  readonly stalePrincipalHeads?: ReferencedPrincipalStateResponse[] | undefined;
   /** Descendant rekeys a refused rotation must carry, parent-first. */
   readonly requiredContainerIds?: readonly string[] | undefined;
   /** Set on a 402 body — the organization whose billing blocked the sync write. */
@@ -146,14 +146,14 @@ function parsedErrorResponseDescription(
     detail: error.length === 0 ? "" : `: ${error}`,
     error: error.length === 0 ? null : error,
     // Container mutations and document sync with inline container rekeys can
-    // carry signed policy bundles that make the failed write repairable.
+    // carry advisory heads whose signed evidence can be recovered in pages.
     ...(schema === ContainerMutationFailureResponseSchema &&
     isPrincipalPolicyStaleErrorResponse(value)
-      ? { stalePrincipalPolicies: value.principalPolicies }
+      ? { stalePrincipalHeads: value.principalHeads }
       : schema === DocumentSyncErrorResponseSchema &&
           isDocumentSyncStateStaleErrorResponse(value) &&
-          value.principalPolicies !== undefined
-        ? { stalePrincipalPolicies: value.principalPolicies }
+          value.principalHeads !== undefined
+        ? { stalePrincipalHeads: value.principalHeads }
         : {}),
     ...((code === CONTAINER_MUTATION_ERROR_CODES.descendantRekeysRequired ||
       code === CONTAINER_MUTATION_ERROR_CODES.descendantRekeysInaccessible) &&

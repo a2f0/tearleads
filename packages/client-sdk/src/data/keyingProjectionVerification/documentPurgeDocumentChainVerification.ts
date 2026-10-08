@@ -1,6 +1,6 @@
 import {
-  type AnyVerifiedPrincipalPolicy,
   KeyingVerificationError,
+  type PrincipalPolicyAuthorization,
   type VerifiedAccessManifestSnapshot,
   type VerifiedContainerAccessManifest,
   type VerifiedDocumentLinkSetManifest,
@@ -156,7 +156,7 @@ async function verifyPurgeChainEndpoint(
 }
 
 async function verifySignedPurgeDocumentManifestChain(input: {
-  readonly authorizationEvidence: readonly AnyVerifiedPrincipalPolicy[];
+  readonly authorizationEvidence: readonly PrincipalPolicyAuthorization[];
   readonly checkpointContext: ProjectionCheckpointContext;
   readonly containerPathByManifestHash: ReadonlyMap<
     string,
@@ -249,7 +249,7 @@ async function verifySignedPurgeDocumentManifestChain(input: {
 }
 
 export async function verifyPurgeDocumentManifest(input: {
-  readonly authorizationEvidence: readonly AnyVerifiedPrincipalPolicy[];
+  readonly authorizationEvidence: readonly PrincipalPolicyAuthorization[];
   readonly checkpointContext: ProjectionCheckpointContext;
   readonly containerPathByManifestHash: ReadonlyMap<
     string,

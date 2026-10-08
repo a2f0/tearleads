@@ -26,6 +26,7 @@ import {
   createDocument,
   kekStateFromContainerResponse,
 } from "../../../test/helpers/keyingWriterProjectionKit";
+import { createPagedColdPolicyWarmer } from "../../../test/helpers/pagedColdPolicyWarmer";
 import { registerAndAuthenticate } from "../../../test/helpers/principalPolicyReadFixtures";
 import { recoverRegisteredRootKek } from "../../../test/helpers/registeredRootKek";
 import { routeApp } from "../../routeApp";
@@ -131,14 +132,20 @@ test("a fresh and then pinned SDK accepts API purge history with an old group-on
   const fetchMock = spyOn(globalThis, "fetch").mockImplementation(
     Object.assign(fetchHandler, { preconnect: originalFetch.preconnect }),
   );
+  const recovery = createPagedColdPolicyWarmer({
+    apiClient,
+    execSql: database.execSql,
+    resolveTrustedUserIdentity: trustedResolver(owner),
+    onResolve: () => {},
+  });
   try {
     const proof = await apiClient.getDocumentPurgeProof(created.id);
     if (!isDocumentPurgeProofResponse(proof))
       throw new Error("Expected API purge proof");
     expect(proof.documentManifestPredecessors).toHaveLength(4);
     expect(
-      proof.principalPolicySnapshots.some(
-        (policy) => policy.currentState.principalId === grouped.groupId,
+      proof.policyEvidence.groups.some(
+        (policy) => policy.head.principalId === grouped.groupId,
       ),
     ).toBe(true);
     const terminalCitations = Reflect.get(
@@ -157,6 +164,7 @@ test("a fresh and then pinned SDK accepts API purge history with an old group-on
         documentId: created.id,
         execSql: database.execSql,
         resolveProjectionUserKey: trustedResolver(owner),
+        warmReferencedPrincipalPolicies: recovery.warmer,
         localVersionVector: null,
         pendingUpdates: [],
         targetSecretKey: owner.kem.secretKey,
@@ -175,6 +183,7 @@ test("a fresh and then pinned SDK accepts API purge history with an old group-on
       expect(deletions).toBe(expectedDeletions);
     }
   } finally {
+    recovery.dispose();
     fetchMock.mockRestore();
     database.close();
   }

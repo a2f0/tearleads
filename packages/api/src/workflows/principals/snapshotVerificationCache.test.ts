@@ -4,11 +4,11 @@ import { createTestUser } from "@tearleads/bob-and-alice";
 import * as crypto from "@tearleads/crypto";
 import { createSignedPrincipalState } from "../../../test/helpers/principalPolicy";
 import { registerAndAuthenticate } from "../../../test/helpers/principalPolicyReadFixtures";
-import { loadProjectionPolicyEvidence } from "./projectionPolicyEvidence";
 import {
   clearStoredPolicySnapshotCache,
   verifyStoredPolicySnapshot,
-} from "./snapshotVerificationCache";
+} from "../../../test/helpers/principalSnapshotVerificationCache";
+import { loadProjectionPolicyEvidence } from "./projectionPolicyEvidence";
 
 test("stored snapshot memo binds the actual bytes, reference, and signer keys", async () => {
   const owner = createTestUser();

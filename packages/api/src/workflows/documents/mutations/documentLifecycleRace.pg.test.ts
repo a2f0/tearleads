@@ -98,12 +98,12 @@ test.skipIf(getDefaultApiDatabaseKind() !== "postgres")(
       },
       kind: "rejected",
     });
-    await expect(
-      db
+    expect(
+      await db
         .select({ id: documents.id })
         .from(documents)
         .where(eq(documents.id, created.id)),
-    ).resolves.toEqual([]);
+    ).toEqual([]);
   },
   30_000,
 );

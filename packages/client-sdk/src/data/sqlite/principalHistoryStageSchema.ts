@@ -1,5 +1,6 @@
 import { desc } from "drizzle-orm";
 import { index, integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
+import { principalHistoryRetentionTables } from "./principalHistoryRetentionSchema";
 import { principalCurrentFingerprintJson } from "./principalKeyFingerprintJson";
 import { defineSqlTableSchema } from "./sqlTableSchema";
 
@@ -26,4 +27,5 @@ export const principalHistoryStages = sqliteTable(
 
 export const principalHistoryStageTables = [
   defineSqlTableSchema(principalHistoryStages),
+  ...principalHistoryRetentionTables,
 ];

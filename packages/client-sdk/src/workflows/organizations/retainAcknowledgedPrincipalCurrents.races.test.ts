@@ -9,6 +9,10 @@ import {
   principalHistoryNodes,
   principalHistoryPrefixes,
 } from "../../data/sqlite/principalHistoryEvidenceSchema";
+import {
+  principalHistoryStageScopes,
+  principalKeyEnvelopeArchive,
+} from "../../data/sqlite/principalHistoryRetentionSchema";
 import { principalHistoryStages } from "../../data/sqlite/principalHistoryStageSchema";
 import { principalPolicyCheckpoints } from "../../data/sqlite/principalPolicySchema";
 import { createExecSql } from "../../data/sqlite/sqlSchema";
@@ -25,6 +29,8 @@ async function snapshot(
   const rows = await Promise.all([
     f.db.select().from(principalHistoryPrefixes),
     f.db.select().from(principalHistoryStages),
+    f.db.select().from(principalHistoryStageScopes),
+    f.db.select().from(principalKeyEnvelopeArchive),
     f.db.select().from(principalHistoryEntries),
     f.db.select().from(principalHistoryNodes),
     f.db.select().from(principalPolicyCheckpoints),

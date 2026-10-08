@@ -3,6 +3,7 @@ import { createTestExecSql } from "@tearleads/test-utils";
 import { createMaterializedSyncFixture } from "../../../test/helpers/documentFixtures";
 import { createDocumentPurgeProof } from "../../../test/helpers/documentPurge";
 import { createExternallyAuthorizedPrincipalPolicySnapshots } from "../../../test/helpers/principalPolicySnapshots";
+import { projectionPolicySource } from "../../../test/helpers/projectionPolicyHistory";
 import { loadPrincipalPolicyCheckpoint } from "../persistence/keyingCheckpointPersistence";
 import { verifyDocumentPurgeProof } from "./documentPurgeProofVerification";
 
@@ -44,7 +45,11 @@ test("purge rejects unrelated policy evidence before consulting its checkpoint",
         expectedOrganizationId: fixture.author.organizationId,
         proof: {
           ...proof,
-          principalPolicySnapshots: [policyFixture.admin],
+          policyEvidence: {
+            organization: null,
+            organizationPayloads: [],
+            groups: [projectionPolicySource(policyFixture.adminBundle)],
+          },
         },
         resolveUserKey: async (userId) =>
           (await fixture.resolveProjectionUserKey(userId)) ??

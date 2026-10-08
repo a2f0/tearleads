@@ -21,11 +21,11 @@ import {
   getPolicy,
   registerAndAuthenticate,
 } from "../../../test/helpers/principalPolicyReadFixtures";
+import { clearStoredPolicySnapshotCache } from "../../../test/helpers/principalSnapshotVerificationCache";
 import { getCurrentPrincipalState } from "../../access/read/principalStateStore";
 import { routeApp } from "../../routeApp";
 import { schedulePrincipalHistoryPreparation } from "../../workflows/principals/principalHistoryScheduler";
 import { clearProjectionDirectoryBindingsCache } from "../../workflows/principals/projectionDirectoryBindings";
-import { clearStoredPolicySnapshotCache } from "../../workflows/principals/snapshotVerificationCache";
 
 test.each(["creation", "deletion"] as const)(
   "group %s rolls back while preparing a cold long directory",

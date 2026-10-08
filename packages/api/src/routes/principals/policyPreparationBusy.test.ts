@@ -13,10 +13,10 @@ import {
   submitOrganizationGroupPolicyCommit,
 } from "../../../test/helpers/principalPolicy";
 import { registerAndAuthenticate } from "../../../test/helpers/principalPolicyReadFixtures";
+import { clearStoredPolicySnapshotCache } from "../../../test/helpers/principalSnapshotVerificationCache";
 import { getCurrentPrincipalState } from "../../access/read/principalStateStore";
 import { routeApp } from "../../routeApp";
 import { schedulePrincipalHistoryPreparation } from "../../workflows/principals/principalHistoryScheduler";
-import { clearStoredPolicySnapshotCache } from "../../workflows/principals/snapshotVerificationCache";
 
 for (const compound of [false, true]) {
   test(`${compound ? "compound" : "standalone"} policy preparation saturation explicitly reports rollback`, async () => {

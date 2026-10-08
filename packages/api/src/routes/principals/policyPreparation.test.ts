@@ -20,11 +20,11 @@ import {
   getPolicy,
   registerAndAuthenticate,
 } from "../../../test/helpers/principalPolicyReadFixtures";
+import { clearStoredPolicySnapshotCache } from "../../../test/helpers/principalSnapshotVerificationCache";
 import { signPrincipalStateBundle } from "../../../test/helpers/principalState";
 import { getCurrentPrincipalState } from "../../access/read/principalStateStore";
 import { routeApp } from "../../routeApp";
 import { clearProjectionDirectoryBindingsCache } from "../../workflows/principals/projectionDirectoryBindings";
-import { clearStoredPolicySnapshotCache } from "../../workflows/principals/snapshotVerificationCache";
 
 for (const method of ["GET", "PUT"] as const) {
   test(`${method} policy prepares outside the transaction and eventually succeeds`, async () => {

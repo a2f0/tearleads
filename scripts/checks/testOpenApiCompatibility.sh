@@ -92,15 +92,19 @@ assert_contains "$override_output" "$revision_commit"
 [ -s "$TEST_ROOT/oasdiff-invocations" ] ||
   fail "the pinned OASDIFF_BIN override did not run the comparison."
 
+# Keep the repository data isolated while resolving the real script from a
+# nested working directory. Real branches may carry temporary ignore entries.
+mkdir -p "$TEST_ROOT/nested"
+ln -s "$SOURCE_ROOT" "$TEST_ROOT/source"
 relative_output=$(
-  cd "$SOURCE_ROOT/packages/app"
+  cd "$TEST_ROOT/nested"
   GITHUB_ACTIONS='' \
     OPENAPI_BASE_REF=HEAD \
     OASDIFF_BIN="$TEST_ROOT/pinned-oasdiff" \
     OASDIFF_TEST_PIN="$oasdiff_pin" \
     OASDIFF_TEST_MARKER="$TEST_ROOT/oasdiff-invocations" \
     MISE_CONFIG_FILE="$SOURCE_ROOT/.mise.toml" \
-    ../../scripts/checks/checkOpenApiCompatibility.sh
+    ../source/scripts/checks/checkOpenApiCompatibility.sh
 ) || fail "a relative OpenAPI script path should resolve its own tool pin."
 assert_contains "$relative_output" "against HEAD"
 

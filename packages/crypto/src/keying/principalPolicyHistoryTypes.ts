@@ -94,6 +94,8 @@ export interface PrincipalPolicyHistoryVerifier {
   append(page: PrincipalPolicyHistoryPage): Promise<
     KeyingVerificationResult<{
       readonly throughVersion: number;
+      /** Retention hint computed from this accepted prefix, not verification authority. */
+      readonly indexRootHash: string;
       readonly indexNodes: readonly PrincipalHistoryIndexNode[];
     }>
   >;

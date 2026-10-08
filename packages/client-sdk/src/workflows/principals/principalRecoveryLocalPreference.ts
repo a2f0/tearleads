@@ -10,6 +10,7 @@ export async function recoverWithPrincipalLocalPreference(
   recover: typeof recoverScopedPrincipalPolicyHistory,
   options: Parameters<typeof recoverScopedPrincipalPolicyHistory>[0],
   preferLocalCurrent: boolean,
+  allowHistoricalReference = false,
 ) {
   if (preferLocalCurrent && !options.offline) {
     try {
@@ -19,6 +20,7 @@ export async function recoverWithPrincipalLocalPreference(
       });
       assertProjectionVerificationCurrent(options.stillCurrent);
       if (
+        allowHistoricalReference ||
         options.historyPage ||
         principalHeadMatchesReference(local.policy.state, options.reference)
       )

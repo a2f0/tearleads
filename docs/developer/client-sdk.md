@@ -670,6 +670,11 @@ older SDKs cannot read newer operation kinds. Keep the pending bytes and resume
 with an SDK that understands them.
 An unknown result remains pending even if a later retry receives 403 or 409.
 A recovered receipt acknowledges a past request without advancing current pins.
+`Organizations.loadPolicyHistory(beforeVersion?)` displays verified organization
+history in pages of 32 entries. The API supplies only their directory payloads,
+one boundary predecessor and compact public group sources. Historical group
+proofs do not admit current checkpoints. Custom hosts need private paged recovery;
+older-page errors remain retryable without clearing visible entries.
 Both runtime policy API variants may throw `PendingPrincipalMutationError` or
 `PrincipalMutationOutcomeUnknownError`. `readJournaledPrincipalMutation` inspects
 saved work. `abandonJournaledPrincipalMutation` stops retries only after an explicit
@@ -858,10 +863,22 @@ protection, the projection's manifest references, trusted identity resolution,
 and a lifetime predicate. Attach it through the policy warmer's
 `resolveProjectionHistory` capability and return the same lifetime predicate
 with the selections. Projection verification rechecks that lifetime and the
-latest local pins at final admission. Historical selections never advance
-current-policy checkpoints or become current key material. Attachment detach,
-hydration, retained-wrap checks and relinking accept the same private policy
-warmer and operation-lifetime guard; the document store supplies both.
+latest local pins at final admission. Recovery never advances current-policy
+checkpoints or creates current key material. Terminal purge verification uses
+`historicalProof: true` to defer currency enforcement until all signed artifacts
+have authenticated; this option alone is not permission to admit a selection.
+Only the complete purge commit admits its public observations together with
+local document teardown, under the original lifetime guard. Standalone
+`purgeRemoteDocument` and deletion handlers accept
+`warmReferencedPrincipalPolicies` and `stillCurrent` for that purpose.
+For a newer local policy pin, purge also calls `resolveReference` with
+`preferLocalHistory: true`: reuse authenticated local ancestry, then recover
+through ordinary authorized pages if needed. This connection never advances
+the recovered newer head or extends the purge grant. Standalone hosts should
+honor that preference so retained evidence works after current access is lost.
+Attachment detach, hydration, retained-wrap checks and relinking accept the same
+private policy warmer and operation-lifetime guard; the document store supplies
+both.
 
 `retainAcknowledgedPrincipalCurrents` retains exact acknowledged current policies
 and recovery progress atomically with their checkpoints. `initialGroup: true`

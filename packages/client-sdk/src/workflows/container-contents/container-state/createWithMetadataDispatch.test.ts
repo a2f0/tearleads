@@ -1,5 +1,9 @@
 import { expect, test } from "bun:test";
-import { createMockApiClient, createTestExecSql } from "@tearleads/test-utils";
+import {
+  createMockApiClient,
+  createMockRequestFailure,
+  createTestExecSql,
+} from "@tearleads/test-utils";
 import {
   createMutationResponseFromRequest,
   createParentProjection,
@@ -12,6 +16,10 @@ import {
   policyBundleFromInitialRequest,
   principalPolicyHead,
 } from "../../../../test/helpers/principalPolicyFixtures";
+import {
+  repairPolicyPages,
+  repairProtectionLease,
+} from "../../../../test/helpers/principalPolicyRepair";
 import { createMemoryBlobStore } from "../../../data/blobs/memoryBlobStore";
 import { defaultDocumentProjectorRegistry } from "../../../data/documents/documentKinds";
 import { createDomainScope } from "../../../data/domainScope";
@@ -37,6 +45,7 @@ function createRuntime(input: {
 }) {
   return createContainerContentsWorkflowRuntime({
     apiClient: input.apiClient,
+    withPrincipalHistoryProtection: repairProtectionLease(),
     auth: {
       isAuthenticated: true,
       organizationId: input.parent.projection.organizationId,
@@ -203,15 +212,15 @@ test("stale-policy repair preserves the policy API receiver", async () => {
       ok: false,
       path: "/containers/with-metadata-document",
       report: () => undefined,
-      stalePrincipalPolicies: [staleBundle],
+      stalePrincipalHeads: [principalPolicyHead(staleBundle)],
       status: 409,
       statusText: "Conflict",
     }),
   });
   let policyReceiver: unknown;
-  apiClient.getCurrentPrincipalPolicy = async function () {
+  apiClient.getPrincipalPolicyPages = async function* () {
     policyReceiver = this;
-    return null;
+    yield createMockRequestFailure({ message: "Missing page", status: 404 });
   };
   const runtime = createRuntime({
     apiClient,
@@ -228,7 +237,7 @@ test("stale-policy repair preserves the policy API receiver", async () => {
         resolveProjectionUserKey: createParentProjectionUserKeyResolver(parent),
         runtime,
       }),
-    ).rejects.toMatchObject({ name: "KeyingVerificationError" });
+    ).rejects.toMatchObject({ name: "ProjectionDependencyUnavailableError" });
     expect(policyReceiver).toBe(apiClient);
   } finally {
     database.close();
@@ -273,12 +282,16 @@ test("compound create consumes successive policy pages and stops a repeated page
       }),
     );
     let calls = 0;
+    let refreshes = 0;
     const apiClient = createMockApiClient({
-      getCurrentPrincipalPolicy: async (type, id) =>
-        type === "organization"
-          ? directory
-          : (bundles.find((bundle) => bundle.currentState.principalId === id) ??
-            null),
+      getPrincipalPolicyPages: repairPolicyPages([directory, ...bundles]),
+      getContainerWriterProjection: async () => {
+        refreshes++;
+        return parent.projection;
+      },
+      getCurrentPrincipalPolicy: async () => {
+        throw new Error("Full policy reads are forbidden");
+      },
       createContainerWithMetadataDocumentResult: async () => {
         const page = bundles.slice(calls++ === 0 ? 0 : 1, calls === 1 ? 1 : 2);
         return {
@@ -290,7 +303,9 @@ test("compound create consumes successive policy pages and stops a repeated page
           status: 409,
           statusText: "Conflict",
           report: () => {},
-          stalePrincipalPolicies: page,
+          stalePrincipalHeads: page.map((bundle) =>
+            principalPolicyHead(bundle),
+          ),
         };
       },
     });
@@ -303,13 +318,14 @@ test("compound create consumes successive policy pages and stops a repeated page
     });
     expect(result).toBeNull();
     expect(calls).toBe(3);
+    expect(refreshes).toBe(2);
     expect(
       await loadPrincipalPolicyCheckpoint(
         database.execSql,
         "group",
         "policy-b",
       ),
-    ).not.toBeNull();
+    ).toBeNull();
   } finally {
     database.close();
   }

@@ -12,15 +12,11 @@ import {
   type ProjectionUserKeyResolver,
   verifyContainerWriterProjection,
 } from "../../../data/keyingProjectionVerification";
-import {
-  advanceVerifiedSharePolicies,
-  loadVerifiedGroupSharePrincipalPolicy,
-} from "../../containers";
-import { createRuntimeGroupMetadataAccess } from "../../organizations/groupMetadataRuntime";
 import { createRuntimePrincipalPolicyWarmer } from "../../principals/runtimePolicyWarmer";
 import type { ContainerContentsPersistence } from "../containerPersistence";
 import { projectionGeneration } from "../projectionGeneration";
 import type { ContainerState } from "../remoteHydration";
+import { resolveCurrentGroupKeyEpoch } from "./groupShareEpoch";
 import { loadContainerWriterProjectionForState } from "./projectionCache";
 import { shareRemoteContainer, shareRemoteContainerWithGroup } from "./remote";
 import {
@@ -49,43 +45,6 @@ function readOptionalProjectionString(
   return typeof value === "string" && value.length > 0 ? value : null;
 }
 
-async function resolveCurrentGroupKeyEpoch(input: {
-  // Bound here, in the one verified load a duplicate share performs, so a
-  // duplicate never reports success for a group the user did not choose.
-  expectedGroupName?: string | undefined;
-  groupId: string;
-  organizationId: string;
-  runtime: ContainerWorkflowRuntime;
-  stillCurrent?: (() => boolean) | undefined;
-}): Promise<number | null> {
-  if (input.stillCurrent?.() === false) return null;
-  const verified = await loadVerifiedGroupSharePrincipalPolicy({
-    apiClient: input.runtime.apiClient,
-    execSql: input.runtime.infra.execSql,
-    expectedGroupName: input.expectedGroupName,
-    readEncryptedName: (bundle) =>
-      createRuntimeGroupMetadataAccess(
-        input.runtime,
-        input.organizationId,
-        input.stillCurrent,
-      ).readName(bundle),
-    groupId: input.groupId,
-    organizationId: input.organizationId,
-    resolveTrustedUserIdentity: input.runtime.resolveTrustedUserIdentity,
-    stillCurrent: input.stillCurrent,
-  });
-  if (input.stillCurrent?.() === false) return null;
-  // Commit the verification immediately: this read stands alone (no enclosing
-  // mutation advances it later), and an unadvanced checkpoint would let a
-  // newer same-epoch policy be rolled back on the next fetch.
-  await advanceVerifiedSharePolicies(
-    input.runtime.infra.execSql,
-    verified,
-    input.stillCurrent,
-  );
-  return input.stillCurrent?.() === false ? null : verified.policy.keyEpoch;
-}
-
 // A container's KEK is wrapped to a group's encapsulation key at a specific key
 // epoch, pinned into the manifest as a referenced principal head. When the group
 // rotates (org-admin add or any removal bumps the epoch and mints a fresh KEM
@@ -93,7 +52,7 @@ async function resolveCurrentGroupKeyEpoch(input: {
 // no longer unwrap it. A re-share to the same group at the same access level is
 // therefore NOT redundant when the pinned epoch trails the group's current head,
 // so it must not be deduped away. The current epoch comes from a network-fresh,
-// fully verified policy bundle guarded by any durable local checkpoint.
+// fully verified current policy guarded by durable local checkpoints.
 function groupGrantIsStale(input: {
   currentKeyEpoch: number;
   referencedPrincipalHeads: ReadonlyArray<ReferencedPrincipalStateResponse>;

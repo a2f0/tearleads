@@ -19,7 +19,6 @@ import {
   type DocumentSyncResponse,
   DocumentSyncResponseSchema,
 } from "./documentSyncSchema";
-import { PrincipalPolicySnapshotResponseSchema } from "./principal";
 import { ProjectionPolicyEvidenceResponseSchema } from "./projectionPolicyEvidence";
 
 export {
@@ -77,7 +76,7 @@ const documentPurgeProofShape = {
   ),
   purgeEvent: AccessEventBundleWireResponseSchema,
   purgedAt: nonEmptyStringSchema,
-  principalPolicySnapshots: arraySchema(PrincipalPolicySnapshotResponseSchema),
+  policyEvidence: ProjectionPolicyEvidenceResponseSchema,
 } as const;
 
 export const DocumentPurgeProofResponseSchema = loosePlainObject(

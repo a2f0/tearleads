@@ -1,15 +1,16 @@
 import {
-  type AnyVerifiedPrincipalPolicy,
   KeyingVerificationError,
+  type PrincipalPolicyAuthorization,
   principalPolicyMatchesReference,
   type ReferencedPrincipalHead,
   type VerifiedContainerAccessManifest,
   type VerifiedDocumentLinkSetManifest,
   type VerifiedDocumentLinkSetSnapshot,
-  type VerifiedPrincipalPolicySnapshot,
+  type VerifiedPrincipalPolicySelection,
   verifyDocumentPurgeEvent,
 } from "@tearleads/crypto";
 import type { DocumentPurgeProofResponse } from "@tearleads/validators/response";
+import { parseOrganizationAuthorityDescriptor } from "../principals/organizationAuthorityDescriptor";
 import { verifyStandaloneAccessEventBundle } from "./bundleVerification";
 import type { ProjectionCheckpointContext } from "./checkpointContext";
 import { verifyPurgeDocumentManifest } from "./documentPurgeDocumentChainVerification";
@@ -45,20 +46,19 @@ function collectEvidenceContainerManifests(input: {
 }
 
 function requireExactPurgePrincipalEvidence<
-  TPolicy extends AnyVerifiedPrincipalPolicy,
+  TPolicy extends PrincipalPolicyAuthorization,
 >(input: {
   readonly authorizationEvidence: readonly TPolicy[];
   readonly verifiedContainerManifests: readonly VerifiedContainerAccessManifest[];
+  readonly policyEvidence: DocumentPurgeProofResponse["policyEvidence"];
 }): TPolicy[] {
-  const pendingReferences: ReferencedPrincipalHead[] =
+  const references: ReferencedPrincipalHead[] =
     input.verifiedContainerManifests.flatMap(
       (manifest) => manifest.state.referencedPrincipalHeads,
     );
-  const requiredByPrincipal = new Map<string, TPolicy>();
+  const requiredByPrincipal = new Set<string>();
 
-  while (pendingReferences.length > 0) {
-    const reference = pendingReferences.shift();
-    if (!reference) break;
+  for (const reference of references) {
     const policy = input.authorizationEvidence.find((candidate) =>
       principalPolicyMatchesReference({ policy: candidate, reference }),
     );
@@ -69,34 +69,47 @@ function requireExactPurgePrincipalEvidence<
       );
     }
     const identity = principalIdentity(policy);
-    if (requiredByPrincipal.has(identity)) continue;
-    requiredByPrincipal.set(identity, policy);
-    pendingReferences.push(
-      ...(policy.history ?? []).flatMap((entry) =>
-        entry.state.externalAuthority ? [entry.state.externalAuthority] : [],
-      ),
-    );
+    requiredByPrincipal.add(identity);
+    // External authority is verified incrementally by paged recovery. Its
+    // historical entries need not be copied into this returned selection.
   }
 
-  if (requiredByPrincipal.size !== input.authorizationEvidence.length) {
+  const allowed = new Set(requiredByPrincipal);
+  // Paged recovery has authenticated these payloads against their signed
+  // organization states and verified their exact group-head bindings. This
+  // identity allow-list cannot authenticate an unverified directory payload.
+  for (const { payload } of input.policyEvidence.organizationPayloads) {
+    const directory = parseOrganizationAuthorityDescriptor(payload.ciphertext);
+    if (
+      directory.groupHeads.some((head) => allowed.has(principalIdentity(head)))
+    ) {
+      allowed.add(`group:${directory.adminGroupId}`);
+      allowed.add(`organization:${directory.organizationId}`);
+    }
+  }
+  if (
+    input.authorizationEvidence.some(
+      (policy) => !allowed.has(principalIdentity(policy)),
+    )
+  )
     throw new KeyingVerificationError(
       "invalid_shape",
       "Document purge proof includes unrelated principal policy evidence",
     );
-  }
   return input.authorizationEvidence.filter((policy) =>
     requiredByPrincipal.has(principalIdentity(policy)),
   );
 }
 
 async function authenticateDocumentPurgeEvent(input: {
-  readonly authorizationEvidence: readonly VerifiedPrincipalPolicySnapshot[];
+  readonly authorizationEvidence: readonly VerifiedPrincipalPolicySelection[];
   readonly authorizingContainerPath: readonly VerifiedContainerAccessManifest[];
   readonly documentManifest:
     | VerifiedDocumentLinkSetManifest
     | VerifiedDocumentLinkSetSnapshot;
   readonly expectedDocumentId: string;
   readonly purgeEvent: DocumentPurgeProofResponse["purgeEvent"];
+  readonly policyEvidence: DocumentPurgeProofResponse["policyEvidence"];
   readonly resolveUserKey: ProjectionUserKeyResolver;
   readonly rootContainerManifests: readonly VerifiedContainerAccessManifest[];
   readonly verifiedContainerManifests: ReadonlyMap<
@@ -104,7 +117,7 @@ async function authenticateDocumentPurgeEvent(input: {
     VerifiedContainerAccessManifest
   >;
 }): Promise<{
-  readonly principalPolicies: VerifiedPrincipalPolicySnapshot[];
+  readonly principalPolicies: VerifiedPrincipalPolicySelection[];
   readonly purgeEventHash: string;
 }> {
   const event = await verifyStandaloneAccessEventBundle({
@@ -119,6 +132,7 @@ async function authenticateDocumentPurgeEvent(input: {
   const principalPolicies = requireExactPurgePrincipalEvidence({
     authorizationEvidence: input.authorizationEvidence,
     verifiedContainerManifests: evidenceContainerManifests,
+    policyEvidence: input.policyEvidence,
   });
   const verified = await verifyDocumentPurgeEvent({
     authorizingContainerPath: input.authorizingContainerPath,
@@ -128,11 +142,14 @@ async function authenticateDocumentPurgeEvent(input: {
     principalPolicies,
   });
   if (!verified.ok) throw verified.error;
-  return { principalPolicies, purgeEventHash: verified.value.eventHash };
+  return {
+    principalPolicies: [...input.authorizationEvidence],
+    purgeEventHash: verified.value.eventHash,
+  };
 }
 
 export async function authenticateDocumentPurgeArtifacts(input: {
-  readonly authorizationEvidence: readonly VerifiedPrincipalPolicySnapshot[];
+  readonly authorizationEvidence: readonly VerifiedPrincipalPolicySelection[];
   readonly authorizingContainerPath: readonly VerifiedContainerAccessManifest[];
   readonly checkpointContext: ProjectionCheckpointContext;
   readonly containerPathByManifestHash: ReadonlyMap<
@@ -171,6 +188,7 @@ export async function authenticateDocumentPurgeArtifacts(input: {
       documentManifest,
       expectedDocumentId: input.expectedDocumentId,
       purgeEvent: input.proof.purgeEvent,
+      policyEvidence: input.proof.policyEvidence,
       resolveUserKey: input.resolveUserKey,
       rootContainerManifests: [
         ...input.authorizingContainerPath,

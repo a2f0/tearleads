@@ -2,8 +2,8 @@ export {
   createDocumentWithExecutor,
   runCreateDocumentWorkflow,
 } from "./createDocument";
-export { loadDocumentPurgeProof } from "./documentPurgeProof";
-export { DocumentMutationError, toMutationError } from "./errors";
+export { runDocumentPurgeProofWorkflow } from "./documentPurgeProof";
+export { DocumentMutationError } from "./errors";
 export {
   type DocumentLinkSetMutationWorkflowResult,
   runDocumentLinkSetMutationWorkflow,

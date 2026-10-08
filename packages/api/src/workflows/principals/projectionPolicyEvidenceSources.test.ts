@@ -10,8 +10,8 @@ import { bootstrapRoot } from "../../../test/helpers/keyingWriterProjectionKit";
 import { getDefaultOrganizationId } from "../../../test/helpers/organizationMembership";
 import { requestPreparedPrincipalPolicy } from "../../../test/helpers/principalHistoryRequest";
 import { registerAndAuthenticate } from "../../../test/helpers/principalPolicyReadFixtures";
+import * as snapshots from "../../access/read/principalStateStore";
 import { readProjectionAccessManifest } from "../../keyingProjectionRecords";
-import * as snapshots from "./principalPolicySnapshots";
 import { loadProjectionPolicyEvidence } from "./projectionPolicyEvidence";
 import * as grants from "./projectionPolicyHistoryGrant";
 
@@ -32,10 +32,7 @@ async function fixture() {
 
 test("projection sources issue scoped exact-head grants without full snapshots", async () => {
   const f = await fixture();
-  const full = spyOn(
-    snapshots,
-    "loadVerifiedPrincipalPolicySnapshotsForReferences",
-  );
+  const full = spyOn(snapshots, "listPrincipalStateHistory");
   try {
     const evidence = await loadProjectionPolicyEvidence(f.input);
     expect(

@@ -44,6 +44,14 @@ import {
   principalHistoryPrefixes,
 } from "./principalHistoryEvidenceSchema";
 import {
+  principalHistoryNodeReferences,
+  principalHistoryRootOwners,
+} from "./principalHistoryNodeRetentionSchema";
+import {
+  principalHistoryStageScopes,
+  principalKeyEnvelopeArchive,
+} from "./principalHistoryRetentionSchema";
+import {
   principalHistoryStages,
   principalHistoryStageTables,
 } from "./principalHistoryStageSchema";
@@ -772,6 +780,10 @@ export const clientSqlTables: ReadonlyArray<SqlTableSchema> = [
 ];
 
 export const clientSQLiteSchema = {
+  principalHistoryNodeReferences,
+  principalHistoryRootOwners,
+  principalHistoryStageScopes,
+  principalKeyEnvelopeArchive,
   principalMutationJournal,
   principalHistoryEntries,
   principalHistoryNodes,

@@ -17,7 +17,6 @@ import {
 import { getDefaultOrganizationId } from "../../../test/helpers/organizationMembership";
 import { submitOrganizationGroupPolicyCommit } from "../../../test/helpers/principalPolicy";
 import { registerAndAuthenticate } from "../../../test/helpers/principalPolicyReadFixtures";
-import * as history from "../../access/read/principalHistory";
 import * as stateStore from "../../access/read/principalStateStore";
 import { getCurrentPrincipalState } from "../../access/read/principalStateStore";
 import { routeApp } from "../../routeApp";
@@ -57,12 +56,6 @@ test("directory bindings read only requested groups and isolate memo callers", a
     organization: f.organization,
     groupIds: [f.directory.memberGroupId],
   };
-  const scan = spyOn(
-    history,
-    "listOrganizationHistoryPayloads",
-  ).mockImplementation(() => {
-    throw new Error("Full directory history must not be collected");
-  });
   const read = spyOn(stateStore, "getPrincipalStatePayloadForState");
   try {
     const first = await loadProjectionDirectoryBindings(input);
@@ -73,7 +66,6 @@ test("directory bindings read only requested groups and isolate memo callers", a
     expect(again.latest.size).toBe(2);
     expect(again.bindingPayloadByGroupState.size).toBe(2);
     expect(read).toHaveBeenCalledTimes(1);
-    expect(scan).not.toHaveBeenCalled();
     const smaller = await loadProjectionDirectoryBindings({
       ...input,
       groupIds: [],
@@ -81,7 +73,6 @@ test("directory bindings read only requested groups and isolate memo callers", a
     expect([...smaller.latest.keys()]).toEqual([f.directory.adminGroupId]);
   } finally {
     read.mockRestore();
-    scan.mockRestore();
   }
 });
 

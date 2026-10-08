@@ -22,24 +22,62 @@ test("history requests require an exact head and encode it as a query parameter"
   );
 });
 
-test("history evidence must contain payload and public group snapshot arrays", () => {
+test("history pages require compact evidence and bounded cursors", () => {
   const response = {
     organizationId: "11111111-1111-4111-8111-111111111111",
     stateHash: "head",
-    organizationPayloads: [],
-    groups: [],
+    beforeVersion: 2,
+    nextBeforeVersion: null,
+    evidence: { organization: null, organizationPayloads: [], groups: [] },
   };
   expect(
     OrganizationPolicyHistoryResponseSchema.safeParse(response).success,
   ).toBe(true);
   for (const invalid of [
-    { ...response, organizationPayloads: null },
-    { ...response, organizationPayloads: [{ stateHash: "head" }] },
-    { ...response, groups: [{ currentState: {} }] },
+    { ...response, evidence: null },
+    {
+      ...response,
+      evidence: {
+        ...response.evidence,
+        organizationPayloads: [{ stateHash: "head" }],
+      },
+    },
+    {
+      ...response,
+      evidence: { ...response.evidence, groups: [{ currentState: {} }] },
+    },
     { ...response, stateHash: "" },
   ]) {
     expect(
       OrganizationPolicyHistoryResponseSchema.safeParse(invalid).success,
     ).toBe(false);
+  }
+});
+
+test("history response cursors reject unsafe, fractional, and exhausted boundaries", () => {
+  const response = {
+    organizationId: "11111111-1111-4111-8111-111111111111",
+    stateHash: "head",
+    beforeVersion: 2,
+    nextBeforeVersion: null,
+    evidence: { organization: null, organizationPayloads: [], groups: [] },
+  };
+  for (const field of ["beforeVersion", "nextBeforeVersion"]) {
+    for (const cursor of [1, Number.MAX_SAFE_INTEGER + 1, 0, 2.5]) {
+      expect(
+        OrganizationPolicyHistoryResponseSchema.safeParse({
+          ...response,
+          [field]: cursor,
+        }).success,
+      ).toBe(false);
+    }
+    for (const cursor of [2, Number.MAX_SAFE_INTEGER]) {
+      expect(
+        OrganizationPolicyHistoryResponseSchema.safeParse({
+          ...response,
+          [field]: cursor,
+        }).success,
+      ).toBe(true);
+    }
   }
 });

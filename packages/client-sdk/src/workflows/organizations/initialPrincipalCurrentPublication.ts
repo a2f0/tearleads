@@ -100,8 +100,10 @@ export async function prepareInitialGroupCurrentPublication(
     ...sealed,
     policy: policy.value,
     predecessorStage: null,
+    predecessorIndexRootHash: null,
     previousPrefixProgress: null,
     evidence: await preparePrincipalHistoryEvidencePage({
+      indexRootHash: appended.value.indexRootHash,
       scopeId,
       organizationId: input.organizationId,
       entries: [entry],

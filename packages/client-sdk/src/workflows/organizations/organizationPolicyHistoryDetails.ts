@@ -1,11 +1,16 @@
-import type {
-  PrincipalContainerGrant,
-  PrincipalPolicyStateChainEntry,
+import {
+  type PrincipalContainerGrant,
+  type PrincipalPolicyStateChainEntry,
+  principalPolicyMatchesReference,
 } from "@tearleads/crypto";
+import {
+  assertProjectionVerificationCurrent,
+  type ReferencedPrincipalPolicyWarmer,
+} from "../../data/keyingProjectionVerification/types";
 import type { OrganizationGroupHead } from "../../data/principals/organizationAuthorityDescriptor";
+import { buildOrganizationGroupPolicyHistoryPage } from "./groupPolicyHistoryPage";
 import { verifyOrganizationPolicyHistory } from "./organizationPolicyHistoryVerification";
 import {
-  buildOrganizationPolicyHistory,
   diffPrincipalProjectionMembers,
   type OrganizationPolicyHistory,
 } from "./policyHistoryReadModel";
@@ -82,36 +87,67 @@ function diffGroups(
   return changes;
 }
 
-/** Derived in memory; names remain in their existing encrypted sources. */
+/** Display only: historical group selections never advance current checkpoints. */
 export async function buildDetailedOrganizationPolicyHistory(
-  input: Parameters<typeof verifyOrganizationPolicyHistory>[0],
+  input: Parameters<typeof verifyOrganizationPolicyHistory>[0] & {
+    readonly resolveHistory: NonNullable<
+      ReferencedPrincipalPolicyWarmer["resolveProjectionHistory"]
+    >;
+    readonly stillCurrent: () => boolean;
+  },
 ): Promise<OrganizationPolicyHistory> {
-  const { descriptors, groups } = await verifyOrganizationPolicyHistory(input);
-  const states = [
-    ...input.bundle.previousStates.map((entry) => entry.state),
-    input.bundle.currentState,
-  ].sort((a, b) => a.version - b.version);
+  input = {
+    ...input,
+    head: structuredClone(input.head),
+    page: structuredClone(input.page),
+    evidence: structuredClone(input.evidence),
+  };
+  const { descriptors, references } =
+    await verifyOrganizationPolicyHistory(input);
+  assertProjectionVerificationCurrent(input.stillCurrent);
+  const resolved = await input.resolveHistory({
+    organizationId: input.head.principalId,
+    evidence: input.evidence.evidence,
+    references,
+    stillCurrent: input.stillCurrent,
+  });
+  assertProjectionVerificationCurrent(
+    () => input.stillCurrent() && resolved.stillCurrent(),
+  );
   const groupState = (
     head: OrganizationGroupHead,
   ): PrincipalPolicyStateChainEntry => {
-    const entry = groups
-      .find((group) => group.principalId === head.principalId)
-      ?.history.find((entry) => entry.state.stateHash === head.stateHash);
+    const policy = resolved.policies.find((policy) =>
+      principalPolicyMatchesReference({ policy, reference: head }),
+    );
+    const entry = policy?.retainedHistory.find(
+      (entry) => entry.state.stateHash === head.stateHash,
+    );
     if (!entry) throw new Error("Verified group history state is missing");
     return entry;
   };
+  const basic = buildOrganizationGroupPolicyHistoryPage({
+    page: input.page,
+    groupId: input.head.principalId,
+    organizationId: input.head.principalId,
+  });
   const byState = new Map<string, OrganizationPolicyGroupChange[]>();
-  let previousHeads: readonly OrganizationGroupHead[] = [];
-  for (const state of states) {
+  let previousHeads: readonly OrganizationGroupHead[] = input.page.predecessor
+    ? (descriptors.get(input.page.predecessor.state.stateHash)?.groupHeads ??
+      [])
+    : [];
+  for (const { state } of input.page.entries) {
     const heads = descriptors.get(state.stateHash)?.groupHeads;
     if (!heads) throw new Error("Verified organization directory is missing");
     byState.set(state.stateHash, diffGroups(previousHeads, heads, groupState));
     previousHeads = heads;
   }
-  const history = buildOrganizationPolicyHistory(input.bundle);
   return {
-    ...history,
-    entries: history.entries.map((entry) => ({
+    principalId: input.head.principalId,
+    principalType: "organization",
+    organizationId: input.head.principalId,
+    nextBeforeVersion: input.page.nextBeforeVersion,
+    entries: basic.entries.map((entry) => ({
       ...entry,
       groupChanges: byState.get(entry.stateHash) ?? [],
     })),

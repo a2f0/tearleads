@@ -3,13 +3,13 @@ import { makeVerifiedContainerAccessManifest } from "@tearleads/crypto";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { createPurgeChainFixture } from "../../../test/helpers/documentPurgeChain";
 import { createExternallyAuthorizedPrincipalPolicySnapshots } from "../../../test/helpers/principalPolicySnapshots";
+import { verifyPrincipalPolicySnapshots } from "../../../test/helpers/principalPolicySnapshotVerification";
 import { createProjectionCheckpointContext } from "./checkpointContext";
 import { verifyContainerWriterProjection } from "./containerProjectionVerification";
 import { verifyDocumentWriterProjection } from "./documentProjectionVerification";
 import { verifyPurgeDocumentManifest } from "./documentPurgeDocumentChainVerification";
 import { verifyDocumentPurgeProof } from "./documentPurgeProofVerification";
 import { runWithSecurityIncidentReporting } from "./error";
-import { verifyPrincipalPolicySnapshots } from "./principalPolicySnapshotVerification";
 
 test("a compact purge proof verifies transitions from a non-genesis pin", async () => {
   const fixture = await createPurgeChainFixture();

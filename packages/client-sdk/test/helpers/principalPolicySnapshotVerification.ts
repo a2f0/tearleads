@@ -11,12 +11,12 @@ import {
   verifyPrincipalPolicyCheckpoint,
 } from "@tearleads/crypto";
 import type { PrincipalPolicySnapshotResponse } from "@tearleads/validators/response";
-import { loadPrincipalPolicyCheckpoint } from "../persistence/keyingCheckpointPersistence";
-import { loadPrincipalPolicyBundleForReference } from "../persistence/principalPolicyReferencePersistence";
-import type { ExecSql } from "../sqlite/sqlSchema";
-import { ProjectionDependencyUnavailableError } from "./dependencyUnavailable";
-import { verifyReceivedPolicySnapshot } from "./snapshotVerificationCache";
-import type { ProjectionUserKeyResolver } from "./types";
+import { ProjectionDependencyUnavailableError } from "../../src/data/keyingProjectionVerification/dependencyUnavailable";
+import type { ProjectionUserKeyResolver } from "../../src/data/keyingProjectionVerification/types";
+import { loadPrincipalPolicyCheckpoint } from "../../src/data/persistence/keyingCheckpointPersistence";
+import { loadPrincipalPolicyBundleForReference } from "../../src/data/persistence/principalPolicyReferencePersistence";
+import type { ExecSql } from "../../src/data/sqlite/sqlSchema";
+import { verifyReceivedPolicySnapshot } from "./principalSnapshotVerificationCache";
 
 function identityKey(input: {
   readonly principalId: string;

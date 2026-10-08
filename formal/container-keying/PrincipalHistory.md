@@ -10,7 +10,7 @@ batches from walking the accepted history again.
 | Model action or predicate | Production seam |
 | --- | --- |
 | `Commit` / `Revoke` | `storeVerifiedPrincipalStateInTransaction` validates the authorized successor and rotation commitments |
-| `Recover` | `listGroupHistoryThroughHeads` batches history artifacts; `verifyPrincipalPolicySnapshot` walks the full signed chain |
+| `Recover` | `resumeStoredPrincipalHistory` resumes bounded verification; `verifyPrincipalPolicySnapshot` verifies the requested signed chain |
 | `LoseCaches` | `clearProcessVerificationMarkers` discards volatile manifest hints; `accessManifestVerifications` may be lost, and fresh SDK storage contains no recovered keys |
 | `WriteAllowed` | `validatePrincipalStateIdentityFields` enforces exact representation without an artificial lifetime history budget |
 

@@ -1,6 +1,7 @@
 import type {
+  ReferencedPrincipalHead,
   VerifiedAccessManifestCheckpointEvidence,
-  VerifiedPrincipalPolicySnapshot,
+  VerifiedPrincipalPolicySelection,
 } from "@tearleads/crypto";
 import type { DocumentPurgeCheckpoint } from "../persistence/documentPurgeCheckpointPersistence";
 import { validateAccessManifestCheckpointEvidence } from "../persistence/keyingCheckpointEvidence";
@@ -8,6 +9,12 @@ import {
   accessManifestObjectKey,
   loadAccessManifestCheckpoint,
 } from "../persistence/keyingCheckpointPersistence";
+import {
+  PrincipalAuthorizationCheckpointUnavailableError,
+  validatePrincipalAuthorizationCheckpoints,
+} from "../persistence/principalAuthorizationCheckpoints";
+import { ensurePrincipalPolicyTables } from "../persistence/principalPolicyPersistence";
+import { registerClientSQLiteCommitGuard } from "../sqlite/sqliteCommitGuards";
 import { getClientSQLitePersistenceRuntime } from "../sqlite/sqlitePersistenceRuntime";
 import { type ExecSql, runSerializedSqlMutation } from "../sqlite/sqlSchema";
 import { validateAccessManifestCheckpoints } from "./accessManifestCheckpointEnforcement";
@@ -16,12 +23,17 @@ import {
   type ProjectionCheckpointContext,
 } from "./checkpointContext";
 import { ProjectionDependencyUnavailableError } from "./dependencyUnavailable";
-import { enforcePrincipalPolicySnapshotCheckpoints } from "./principalPolicySnapshotVerification";
+import { admitDocumentPurgePolicyCheckpoints } from "./documentPurgePolicyCheckpoints";
+import type { PurgePolicyCurrencyEvidence } from "./documentPurgePolicyCurrency";
+import { projectionLifetimeGuard } from "./projectionLifetimes";
+import { assertProjectionVerificationCurrent } from "./types";
 
 interface PurgeCheckpointInput {
   readonly context: ProjectionCheckpointContext;
   readonly execSql: ExecSql;
-  readonly principalPolicies: readonly VerifiedPrincipalPolicySnapshot[];
+  readonly principalPolicies: readonly VerifiedPrincipalPolicySelection[];
+  readonly currencyPolicies: readonly PurgePolicyCurrencyEvidence[];
+  readonly observedPrincipalHeads: readonly ReferencedPrincipalHead[];
 }
 
 /** All artifacts must already be authenticated before currency is considered. */
@@ -68,11 +80,11 @@ async function checkPurgeCheckpointCurrency(
   // Pass the locked executor through nested readers and checkpoint commits.
   await runSerializedSqlMutation(input.execSql, async (execSql) => {
     await getClientSQLitePersistenceRuntime(execSql).transaction(
-      async () => {
-        const policies = await enforcePrincipalPolicySnapshotCheckpoints({
-          execSql,
-          policies: input.principalPolicies,
-        });
+      async (transaction) => {
+        const stillCurrent = projectionLifetimeGuard(input.context);
+        registerClientSQLiteCommitGuard(execSql, () =>
+          assertProjectionVerificationCurrent(stillCurrent),
+        );
         const { current, superseded } = await currentContainerHeads({
           ...input,
           execSql,
@@ -81,18 +93,40 @@ async function checkPurgeCheckpointCurrency(
         // conflicting current evidence for another container in the same proof.
         await validateAccessManifestCheckpoints({
           execSql,
-          policies,
+          policies: [],
           verifiedHeads: current,
           verifiedManifests: input.context.verifiedManifests,
         });
+        if (input.currencyPolicies.length) {
+          await ensurePrincipalPolicyTables(execSql);
+          await validatePrincipalAuthorizationCheckpoints(
+            transaction,
+            input.currencyPolicies,
+          );
+        }
         if (superseded) {
           throw new ProjectionDependencyUnavailableError(
             "Document purge cannot be ordered against a newer container checkpoint",
           );
         }
         if (documentPurgeCheckpoint) {
+          // Only the complete authenticated terminal proof admits these public
+          // observations. Page recovery and baseline verification never pin.
+          await admitDocumentPurgePolicyCheckpoints({
+            transaction,
+            organizationId: input.context.organizationId,
+            policies: input.principalPolicies,
+            heads: input.observedPrincipalHeads,
+          });
+          assertProjectionVerificationCurrent(stillCurrent);
           await commitProjectionCheckpoints(
-            { ...input.context, policies },
+            {
+              ...input.context,
+              policies: [],
+              // Currency was rechecked above in this same transaction. Private
+              // ancestry bridges must never become newly admitted purge heads.
+              authorizationPolicies: [],
+            },
             {
               documentPurgeCheckpoint,
               execSql,
@@ -102,6 +136,10 @@ async function checkPurgeCheckpointCurrency(
       },
       { behavior: "immediate" },
     );
+  }).catch((error: unknown) => {
+    if (error instanceof PrincipalAuthorizationCheckpointUnavailableError)
+      throw new ProjectionDependencyUnavailableError(error.message);
+    throw error;
   });
 }
 

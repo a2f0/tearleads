@@ -5,8 +5,8 @@ import {
   policySnapshot,
 } from "../../../test/helpers/organizationPolicyHistory";
 import { organizationPolicyBundleFromInitialRequest } from "../../../test/helpers/principalPolicyFixtures";
+import { verifyPrincipalPolicySnapshots } from "../../../test/helpers/principalPolicySnapshotVerification";
 import { buildInitialOrganizationPolicyRequest } from "../../workflows/registration/registerIdentity";
-import { verifyPrincipalPolicySnapshots } from "../keyingProjectionVerification/principalPolicySnapshotVerification";
 import { parseOrganizationAuthorityDescriptor } from "../principals/organizationAuthorityDescriptor";
 import {
   loadOrganizationFounder,

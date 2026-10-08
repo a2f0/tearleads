@@ -14,11 +14,11 @@ test("document sync error schema accepts stable codes and extensions", () => {
   }
 });
 
-test("state-stale sync errors may carry signed policy repair bundles", () => {
+test("state-stale sync errors may carry signed policy repair heads", () => {
   const response = {
     code: DOCUMENT_SYNC_ERROR_CODES.stateStale,
     error: "Principal policy is stale",
-    principalPolicies: [],
+    principalHeads: [],
   };
 
   expect(isDocumentSyncStateStaleErrorResponse(response)).toBe(true);

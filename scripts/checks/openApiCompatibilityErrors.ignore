@@ -1,0 +1,46 @@
+# #2448: replace full organization history with bounded pages and public sources.
+# Remove this exact diagnostic once main contains the paged history contract.
+GET /organizations/{organizationId}/policy-history removed the required property `groups` from the response with the `200` status
+# #2448: replace full organization history with bounded pages and public sources.
+# Remove this exact diagnostic once main contains the paged history contract.
+GET /organizations/{organizationId}/policy-history removed the required property `organizationPayloads` from the response with the `200` status
+
+# #2448: stale-policy repair returns bounded heads and recovers signed pages.
+# Remove this exact diagnostic once main contains the compact repair contract.
+POST /containers removed the required property `anyOf[subschema #2]/principalPolicies` from the response with the `409` status
+
+# #2448: stale-policy repair returns bounded heads and recovers signed pages.
+# Remove this exact diagnostic once main contains the compact repair contract.
+POST /containers/with-metadata-document removed the required property `anyOf[subschema #2]/principalPolicies` from the response with the `409` status
+
+# #2448: stale-policy repair returns bounded heads and recovers signed pages.
+# Remove this exact diagnostic once main contains the compact repair contract.
+DELETE /containers/{containerId} removed the required property `anyOf[subschema #2]/principalPolicies` from the response with the `409` status
+
+# #2448: stale-policy repair returns bounded heads and recovers signed pages.
+# Remove this exact diagnostic once main contains the compact repair contract.
+POST /containers/{containerId}/move removed the required property `anyOf[subschema #2]/principalPolicies` from the response with the `409` status
+
+# #2448: stale-policy repair returns bounded heads and recovers signed pages.
+# Remove this exact diagnostic once main contains the compact repair contract.
+POST /containers/{containerId}/recite removed the required property `anyOf[subschema #2]/principalPolicies` from the response with the `409` status
+
+# #2448: stale-policy repair returns bounded heads and recovers signed pages.
+# Remove this exact diagnostic once main contains the compact repair contract.
+POST /containers/{containerId}/rekey removed the required property `anyOf[subschema #2]/principalPolicies` from the response with the `409` status
+
+# #2448: stale-policy repair returns bounded heads and recovers signed pages.
+# Remove this exact diagnostic once main contains the compact repair contract.
+POST /containers/{containerId}/revoke removed the required property `anyOf[subschema #2]/principalPolicies` from the response with the `409` status
+
+# #2448: stale-policy repair returns bounded heads and recovers signed pages.
+# Remove this exact diagnostic once main contains the compact repair contract.
+POST /containers/{containerId}/share removed the required property `anyOf[subschema #2]/principalPolicies` from the response with the `409` status
+
+# #2448: terminal purge proofs recover principal history through bounded sources.
+# Remove this exact diagnostic once main contains the paged purge-proof contract.
+GET /documents/{documentId}/purge removed the required property `principalPolicySnapshots` from the response with the `200` status
+
+# #2448: terminal purge proofs recover principal history through bounded sources.
+# Remove this exact diagnostic once main contains the paged purge-proof contract.
+POST /documents/{documentId}/purge removed the required property `principalPolicySnapshots` from the response with the `200` status

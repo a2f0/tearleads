@@ -231,12 +231,25 @@ recursive container purge unlinks any additional in-subtree links before
 calling it. `null` means the purge was refused or could not be verified, and
 callers must retain the local document. Recorded readers get signed genesis
 history and its container/policy dependencies; purge-path access alone reveals
-a terminal snapshot. The SDK authenticates before reading local pins, then
+a terminal snapshot. The SDK authenticates before enforcing local pins, then
 reuses the proof without a checkpoint-floor retry. Deletion requires an exact
 pin or signed transitions from a pin or genesis. Missing history without a pin
 defers deletion without an incident; snapshots cannot advance existing pins.
 Later container pins fail closed because ancestry cannot order the separate
 purge signature. Lost-response purge retries use this same flow.
+Principal dependencies arrive as `policyEvidence` sources and signed directory
+bindings, replacing inline `principalPolicySnapshots`. Built-in purge and remote
+deletion handlers use the private paged resolver. Baseline recovery can retain
+checkpoint inclusion proofs but does not compare or advance trust until the
+complete terminal proof authenticates. The final transaction pins those verified
+observations and registers the identity/database lease through the outer commit,
+including when a caller performs document teardown after the nested proof commit.
+Hosts supplying standalone purge handlers must forward the same resolver and
+`stillCurrent` predicate used by their sync workflows.
+When local policy pins are newer than the purge sources, the resolver's
+`resolveReference` capability connects their ancestry with `preferLocalHistory`.
+It reuses private local proofs before authorized online paging. Those recovered
+heads are checked for currency and never admitted by the purge.
 
 Organization directory, group-summary, state-hash-bound membership, grant, and
 policy-head rows are presentation projections. The SDK reconciles them through
@@ -267,10 +280,16 @@ member read. `policyHistory.nextBeforeVersion` is an exclusive cursor for older
 entries, or null at genesis. Each page verifies index proofs against a privately
 authenticated prefix and retains its real predecessor for membership diffs.
 The projected head bounds the displayed history even when local recovery has
-already verified a newer head. Hosts without private paged recovery retain the
-complete-bundle path for cursor-free calls and reject explicit cursors;
+already verified a newer head. Group-history hosts without private paged recovery
+retain the complete-bundle path for cursor-free calls and reject explicit cursors;
 verification failures never downgrade to that path. Raw responses are never
-rendered. Group containers repaint independently from the local grants lane.
+rendered. `Organizations.loadPolicyHistory(beforeVersion?)` also selects 32
+organization entries and an authenticated predecessor. Compact roster-scoped
+history sources prove the exact referenced group states, including deleted
+groups, without importing complete group snapshots or admitting their checkpoints.
+Its optional cursor is exclusive; older-page failures preserve the visible rows.
+This organization view requires private paged recovery from the host. Group
+containers repaint independently from the local grants lane.
 State-hash and member-count checks prevent torn local views, but do not make
 presentation rows authoritative. `isSelf` is derived from the active user, while
 `isOrgAdmin` is
@@ -345,9 +364,10 @@ local work from shared folders with inaccessible parents.
 Standalone document and container runtime constructors accept a private
 `withPrincipalHistoryProtection: PrincipalHistoryProtectionLease` input. It enables
 their built-in history resolvers and passes through store/derived-document
-adapters without exposing the callback on returned runtime views. Hosts retain
-responsibility for key cleanup and invalidating the lease on authority/storage
-changes, as specified in the principal-history recovery guide.
+adapters without exposing the callback on returned runtime views. This includes
+[current group sharing](../../../../docs/developer/principal-current-sharing.md).
+Hosts own key cleanup and lease invalidation on authority/storage changes, as
+specified in the principal-history recovery guide.
 
 `recoverProjectionPolicyHistory` resolves compact projection sources into verified
 historical authorization selections. Standalone hosts provide private local

@@ -46,8 +46,61 @@ page is being read invalidates the display result as a recovery race. An
 unavailable first history page preserves the independent local member list and
 shows the existing history-unavailable view. Older-page failures remain explicit
 for retry; integrity and storage failures still reject the details load.
-Creation/deletion outcome journaling, full organization-history views, direct
-share adapters and hosts without the paged resolver still require further adoption.
+Creation/deletion outcomes share the durable operation journal. Organization
+history now selects the same 32-entry windows and authenticates directory payloads
+against those exact private proofs. Roster-scoped public sources recover only the
+required group citations, including deleted groups. Each API page rechecks live
+roster access. One verified display page per organization is cached in memory;
+the UI retains older rows only as requested. Built-in group shares use Current
+evidence for planning and grant minting; see [sharing](principal-current-sharing.md).
+Organization history requires the host's private paged resolver.
+The 32-entry bound limits directory versions, not the number of groups cited by
+each directory. Evidence bytes and public recovery work also grow with distinct
+cited groups; the HTTP fixture exercises both one and eight ordinary groups.
+
+Stale container and inline document-rekey errors return at most 16 compact
+principal heads. The API verifies current state with bounded history preparation
+and discloses heads only for principals the requester may read. Built-in create
+and sync workflows recover the signed evidence with the private paged resolver,
+then refresh the parent projection before rebuilding a container create under
+its original lifetime. This keeps public evidence sources current when the retry
+admits newer policies. The hints themselves do
+not advance trust checkpoints. Hosts without a paged resolver cannot consume
+these hints through a full-history fallback. The wire field is `principalHeads`;
+API-client failures expose `stalePrincipalHeads`, replacing `stalePrincipalPolicies`.
+
+Terminal document purge responses also use `policyEvidence`, replacing
+`principalPolicySnapshots`. Each source ends at the cited group head or the first
+signed directory binding needed to authenticate it. Recovery never selects the
+latest directory merely because it exists. Every page reauthorizes the signed
+purge path and binds the original reader, document and organization; a reader
+who had access at purge time may recover the proof after later revocation or
+group/container deletion. No later membership is disclosed through that grant.
+
+Both purge endpoints use bounded server preparation. A cold POST or proof GET
+returns a validated `202` only after its transaction rolls back; durable
+verification then advances by at most 32 signed entries per response. The client
+repeats the identical request until it receives the terminal proof. It does not
+retry network failures, ambiguous acknowledgements or `503` refusals as though
+they were successful preparation. A coded preparation-unavailable `503` with
+`committed: false` certifies rollback. Real HTTP tests clear all verification
+hints at 64 and 128 versions, require preparation responses for both endpoints,
+and check that each POST continuation leaves the document and purge event
+unmodified.
+
+The SDK authenticates paged public history and all terminal artifacts before
+checking their currency. Baseline verification and page recovery do not advance
+pins. The final purge commit admits the authenticated observations atomically
+with document teardown, rechecks forks and local currency, and keeps its private
+lease guard active through the outer SQLite commit. Unavailable proof connections
+to newer durable pins trigger bounded private ancestry recovery: reuse authenticated
+local history first, then use the ordinary authorized page endpoint when needed.
+This cannot extend a terminal grant or admit the recovered newer heads. If neither
+source is available, deletion is deferred. The 64/128-version HTTP fixtures enforce
+responses below 90 KB, with no inline policy chains and no Full-history reads;
+response size can still grow with distinct cited groups and container or
+document evidence. Standalone purge/sync hosts must provide the private paged
+resolver; there is no full-history wire fallback.
 
 See [durable recovery](principal-history-recovery.md) for the underlying paging,
 private custody, and checkpoint contracts.

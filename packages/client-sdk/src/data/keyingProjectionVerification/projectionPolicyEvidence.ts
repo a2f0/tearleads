@@ -12,6 +12,7 @@ import {
 
 /** Recover public authorization without admitting historical heads as current policy. */
 export async function verifyProjectionPolicyEvidence(input: {
+  readonly historicalProof?: boolean | undefined;
   readonly evidence: ProjectionPolicyEvidenceResponse;
   readonly organizationId: string;
   readonly references: readonly ReferencedPrincipalHead[];

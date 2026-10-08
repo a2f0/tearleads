@@ -166,7 +166,7 @@ export class ApiRequestRuntime {
     path: string;
     reportErrors: boolean;
     requiredContainerIds?: RequestFailure["requiredContainerIds"];
-    stalePrincipalPolicies: RequestFailure["stalePrincipalPolicies"];
+    stalePrincipalHeads: RequestFailure["stalePrincipalHeads"];
     status: number | null;
     statusText: string;
   }): RequestFailure {
@@ -182,8 +182,8 @@ export class ApiRequestRuntime {
       },
       status: input.status,
       statusText: input.statusText,
-      ...(input.stalePrincipalPolicies
-        ? { stalePrincipalPolicies: input.stalePrincipalPolicies }
+      ...(input.stalePrincipalHeads
+        ? { stalePrincipalHeads: input.stalePrincipalHeads }
         : {}),
       ...(input.requiredContainerIds
         ? { requiredContainerIds: input.requiredContainerIds }
@@ -237,7 +237,7 @@ export class ApiRequestRuntime {
         method,
         path,
         reportErrors,
-        stalePrincipalPolicies: undefined,
+        stalePrincipalHeads: undefined,
         status: response.status,
         statusText: response.statusText,
       });
@@ -250,7 +250,7 @@ export class ApiRequestRuntime {
         method,
         path,
         reportErrors,
-        stalePrincipalPolicies: undefined,
+        stalePrincipalHeads: undefined,
         status: response.status,
         statusText: response.statusText,
       });
@@ -388,7 +388,7 @@ export class ApiRequestRuntime {
         method,
         path,
         reportErrors: cancelled ? false : reportErrors,
-        stalePrincipalPolicies: undefined,
+        stalePrincipalHeads: undefined,
         status: null,
         statusText: "",
       });
@@ -436,7 +436,7 @@ export class ApiRequestRuntime {
       path: input.path,
       reportErrors: !cancelled && reportErrors,
       requiredContainerIds: input.errorDescription.requiredContainerIds,
-      stalePrincipalPolicies: input.errorDescription.stalePrincipalPolicies,
+      stalePrincipalHeads: input.errorDescription.stalePrincipalHeads,
       status: input.response.status,
       statusText: input.response.statusText,
     });
@@ -451,7 +451,7 @@ export class ApiRequestRuntime {
     return this.requestFailure({
       ...input,
       reportErrors: input.options?.reportErrors ?? true,
-      stalePrincipalPolicies: undefined,
+      stalePrincipalHeads: undefined,
     });
   }
 }

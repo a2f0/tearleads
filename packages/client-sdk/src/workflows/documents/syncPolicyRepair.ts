@@ -1,11 +1,13 @@
 import { KeyingVerificationError } from "@tearleads/crypto";
-import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
+import type { ReferencedPrincipalStateResponse } from "@tearleads/validators/response";
 import { isRetryableDocumentSyncConflict } from "../../data/documents/shared/responses";
 import type {
   DocumentSyncPlan,
   DocumentSyncSubmitFailure,
 } from "../../data/documents/shared/types";
 import type { ReferencedPrincipalPolicyWarmer } from "../../data/keyingProjectionVerification";
+
+import { recoverPrincipalPolicyRepair } from "../principals/policyRepair";
 
 type ManagedPrincipalType = "group" | "organization";
 
@@ -36,44 +38,45 @@ function requestedRepairPrincipalIdentities(
   return identities;
 }
 
-function assertDocumentSyncPolicyRepairBundlesRequested(input: {
-  readonly bundles: readonly PrincipalPolicyBundleResponse[];
+function assertDocumentSyncPolicyRepairHeadsRequested(input: {
+  readonly heads: readonly ReferencedPrincipalStateResponse[];
   readonly plan: DocumentSyncPlan;
 }): void {
   const requested = requestedRepairPrincipalIdentities(input.plan);
-  for (const bundle of input.bundles) {
-    const { principalId, principalType } = bundle.currentState;
+  for (const head of input.heads) {
+    const { principalId, principalType } = head;
     if (!requested.has(principalIdentityKey(principalType, principalId))) {
       throw new KeyingVerificationError(
         "object_mismatch",
-        "Document sync policy repair bundle principal was not requested",
+        "Document sync policy repair head principal was not requested",
       );
     }
   }
 }
 
-export async function cacheDocumentSyncPolicyRepair(input: {
+export async function recoverDocumentSyncPolicyRepair(input: {
   failure: DocumentSyncSubmitFailure;
   plan: DocumentSyncPlan;
   stillCurrent?: (() => boolean) | undefined;
   warmReferencedPrincipalPolicies?: ReferencedPrincipalPolicyWarmer | undefined;
 }): Promise<void> {
-  const bundles = input.failure.stalePrincipalPolicies;
-  const cacheBundles = input.warmReferencedPrincipalPolicies?.cacheBundles;
+  const heads = input.failure.stalePrincipalHeads;
+  const resolve = input.warmReferencedPrincipalPolicies?.resolveReference;
   if (
     !isRetryableDocumentSyncConflict(input.failure) ||
     (input.plan.request.containerRekeys?.length ?? 0) === 0 ||
-    !bundles ||
-    bundles.length === 0 ||
-    !cacheBundles ||
+    !heads ||
+    heads.length === 0 ||
+    !resolve ||
     input.stillCurrent?.() === false
   ) {
     return;
   }
 
-  assertDocumentSyncPolicyRepairBundlesRequested({ bundles, plan: input.plan });
-  await cacheBundles({
-    bundles,
+  assertDocumentSyncPolicyRepairHeadsRequested({ heads, plan: input.plan });
+  await recoverPrincipalPolicyRepair({
+    heads,
+    warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
     organizationId: input.plan.organizationId,
     stillCurrent: input.stillCurrent,
   });

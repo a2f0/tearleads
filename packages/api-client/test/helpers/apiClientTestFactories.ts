@@ -166,7 +166,11 @@ export function createDocumentPurgeResponse(): DocumentPurgeResponse {
     },
     documentManifestContainerPaths: [],
     documentManifestPredecessors: [],
-    principalPolicySnapshots: [],
+    policyEvidence: {
+      organization: null,
+      organizationPayloads: [],
+      groups: [],
+    },
     purgeEvent: {
       body: { eventType: "document.purge" },
       event: { eventType: "document.purge" },

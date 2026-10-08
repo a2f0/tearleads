@@ -12,9 +12,11 @@ interface CachedHistory {
   readonly access: OrganizationPresentationAccessInput;
   readonly attempt: OrganizationPresentationAccessAttempt;
   readonly history: OrganizationPolicyHistory;
+  readonly stateHash: string;
+  readonly beforeVersion: number;
 }
 
-// Only the latest verified head per account/org is retained. Names and wire
+// Only one verified page per account/org is retained. Names and wire
 // evidence never enter this cache, and nothing here is written to a database.
 const histories = new WeakMap<DomainScope, Map<string, CachedHistory>>();
 
@@ -22,6 +24,7 @@ export function loadCachedPolicyHistory(input: {
   domainScope: DomainScope;
   access: OrganizationPresentationAccessInput;
   stateHash: string;
+  beforeVersion: number;
 }): OrganizationPolicyHistory | null {
   const byKey = histories.get(input.domainScope);
   const key = organizationAccessScopeKey(
@@ -32,7 +35,8 @@ export function loadCachedPolicyHistory(input: {
   if (!cached) return null;
   if (
     cached.access.execSql !== input.access.execSql ||
-    cached.history.entries[0]?.stateHash !== input.stateHash ||
+    cached.stateHash !== input.stateHash ||
+    cached.beforeVersion !== input.beforeVersion ||
     !isOrganizationPresentationAccessAttemptCurrent(
       input.access,
       cached.attempt,
@@ -50,6 +54,8 @@ export function cachePolicyHistory(input: {
   access: OrganizationPresentationAccessInput;
   attempt: OrganizationPresentationAccessAttempt;
   history: OrganizationPolicyHistory;
+  stateHash: string;
+  beforeVersion: number;
 }): void {
   if (
     !isOrganizationPresentationAccessAttemptCurrent(
@@ -77,6 +83,8 @@ export function cachePolicyHistory(input: {
       },
       attempt: input.attempt,
       history: structuredClone(input.history),
+      stateHash: input.stateHash,
+      beforeVersion: input.beforeVersion,
     },
   );
 }

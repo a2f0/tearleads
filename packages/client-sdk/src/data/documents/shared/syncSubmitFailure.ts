@@ -1,12 +1,12 @@
-import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
+import type { ReferencedPrincipalStateResponse } from "@tearleads/validators/response";
 
 export interface DocumentSyncSubmitFailure {
   readonly code?: string | undefined;
   readonly message: string;
   readonly ok: false;
   readonly report: () => void;
-  readonly stalePrincipalPolicies?:
-    | readonly PrincipalPolicyBundleResponse[]
+  readonly stalePrincipalHeads?:
+    | readonly ReferencedPrincipalStateResponse[]
     | undefined;
   readonly status: number | null;
 }

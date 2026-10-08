@@ -31,6 +31,10 @@ The exported `PrincipalHistoryProtectionLease` callback must supply a private
 clear its owned key bytes. Its `stillCurrent` predicate must remain false after
 the owning database, identity, session authority or host lifetime changes.
 Derived document runtimes inherit this custody through the private registry.
+Custody callbacks must support nested leases: sharing may verify a projection
+or enter a mutation context inside an existing read lease. Each lease owns its
+key buffer and keeps its lifetime valid until its callback settles.
+See [sharing custody](principal-current-sharing.md).
 Omitting custody leaves compact projection recovery unavailable; hosts using
 these constructors against compact projections must supply it.
 
@@ -131,8 +135,12 @@ application trust pin.
 An interrupted stage can resume for a different citation selection at the same
 head. Concurrent writers compare saved progress and a loser retries; no caller
 can publish over another accepted page. Normal browsing creates at most one
-stage per exact head and trust context. Older target heads and abandoned stages
-still accumulate until organization reset; #2448 tracks their reclamation.
+stage per exact head and trust context. Completed-prefix publication and current
+acknowledgements retain two completed heads and reclaim older stages in bounded
+transactions, preserving historical key envelopes. See
+[cache retention](principal-history-cache.md) for indexing, atomicity, offline
+behavior and bounded stage and proof cleanup. Saved roots retain their shared
+proof nodes and signed entries.
 
 Reusable progress has no embedded checkpoint or reference selection. At finish,
 recovery obtains each requested entry and the latest local checkpoint through
@@ -148,10 +156,9 @@ conflicts are checked after the pinned history completes; rejected histories may
 already have written provisional pages, but cannot publish a prefix or advance
 an application checkpoint.
 
-Older progress with checkpoint/reference input bindings is disposable and may
-require replay. Stage/index storage reclamation and total byte/work scheduling
-remain part of #2448. Page and proof-count bounds do not bound entry size or
-total cache growth. Organization reset removes all of its recovery material.
+Older progress with obsolete checkpoint/reference bindings may require replay.
+Page and proof counts do not bound entry size or total bytes. Byte/work scheduling
+and broader resource acceptance remain tracked in #2448.
 
 `historyVerification: "direct-admins"` checks every accepted historical projection
 for a nonempty set containing only direct admin users. It only accepts groups

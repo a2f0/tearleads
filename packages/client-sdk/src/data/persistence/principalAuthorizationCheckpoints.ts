@@ -1,5 +1,6 @@
 import {
   KeyingVerificationError,
+  type VerifiedPrincipalPolicyCurrent,
   type VerifiedPrincipalPolicySelection,
   verifyPrincipalPolicyCheckpoint,
 } from "@tearleads/crypto";
@@ -15,10 +16,13 @@ export class PrincipalAuthorizationCheckpointUnavailableError extends KeyingVeri
   }
 }
 
-/** Historical capabilities validate trust but never advance current-policy pins. */
+/** Validate public evidence or a verified private ancestry bridge without admitting pins. */
 export async function validatePrincipalAuthorizationCheckpoints(
   tx: ClientSQLiteTransactionScope,
-  policies: readonly VerifiedPrincipalPolicySelection[],
+  policies: readonly (
+    | VerifiedPrincipalPolicySelection
+    | VerifiedPrincipalPolicyCurrent
+  )[],
 ): Promise<void> {
   for (const policy of policies) {
     const checkpoint = await loadStoredPrincipalPolicyCheckpoint(tx, policy);

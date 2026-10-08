@@ -11,12 +11,12 @@ import {
   createDocument,
 } from "../../../test/helpers/keyingWriterProjectionKit";
 import { registerAndAuthenticate } from "../../../test/helpers/principalPolicyReadFixtures";
+import { clearStoredPolicySnapshotCache } from "../../../test/helpers/principalSnapshotVerificationCache";
 import { clearAccessManifestVerificationMarkers } from "../../../test/helpers/verificationMarkers";
 import { createApiErrorHandler } from "../../diagnostics/errorHandler";
 import { createRouteApp } from "../../routeApp";
 import { schedulePrincipalHistoryPreparation } from "../../workflows/principals/principalHistoryScheduler";
 import { clearProjectionDirectoryBindingsCache } from "../../workflows/principals/projectionDirectoryBindings";
-import { clearStoredPolicySnapshotCache } from "../../workflows/principals/snapshotVerificationCache";
 
 test.each(["container", "document"] as const)(
   "%s projection preserves preparation saturation as 503 without an error capture",

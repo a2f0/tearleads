@@ -124,16 +124,31 @@ testApiClient(
 );
 
 testApiClient(
-  "returns stale principal policy bundles from container create failures",
+  "returns stale principal policy heads from container create failures",
   async () => {
-    const principalPolicy = createPrincipalPolicyBundleResponse();
+    const {
+      principalType,
+      principalId,
+      version,
+      stateHash,
+      keyEpoch,
+      keyFingerprint,
+    } = createPrincipalPolicyBundleResponse().currentState;
+    const principalHead = {
+      principalType,
+      principalId,
+      version,
+      stateHash,
+      keyEpoch,
+      keyFingerprint,
+    };
     server.use(
       http.post(`${apiBaseUrl}/containers/with-metadata-document`, () => {
         return HttpResponse.json(
           {
             error: "Principal policy is stale",
             code: "principal_policy_stale",
-            principalPolicies: [principalPolicy],
+            principalHeads: [principalHead],
           },
           { status: 409, statusText: "Conflict" },
         );
@@ -151,7 +166,7 @@ testApiClient(
       throw new Error("expected create failure");
     }
     expect(result.status).toBe(409);
-    expect(result.stalePrincipalPolicies).toEqual([principalPolicy]);
+    expect(result.stalePrincipalHeads).toEqual([principalHead]);
   },
 );
 
