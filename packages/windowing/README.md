@@ -229,9 +229,10 @@ or `useMiniAppRouteState` for a parsed route: the browser route in the routed
 shell, its window's own route and Back stack in a window. It registers its
 sidebar and toolbar actions with the window hooks, and both shells show them.
 
-`useNavigationMode` picks the mode: a host's `forcedMode` first, then the
-user's choice from `NavigationModeOverrideProvider` (which persists it under a
-`storageKey`), then `preferredMode`, which defaults to `routed`.
+`useNavigationMode` picks the mode: the user's choice from
+`NavigationModeOverrideProvider` (which persists it under a `storageKey`)
+first, while that choice suits the screen; then a host's `forcedMode`; then
+`preferredMode`, which defaults to `routed`.
 `NavigationModeSwitch`, for a taskbar's corner, records that choice: given the
 layout showing it, it offers the other ("Switch to iPad / mobile layout"). Windowed
 applies only where windows suit the screen: at least 1024px wide, with a fine

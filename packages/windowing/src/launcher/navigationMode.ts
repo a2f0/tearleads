@@ -16,7 +16,7 @@ export interface NavigationEnvironment {
 
 interface ResolveNavigationModeInput {
   environment?: NavigationEnvironment | undefined;
-  /** A mode that wins over everything else, such as a host's fixed layout. */
+  /** A mode that wins over `preferredMode`, such as a host's fixed layout. */
   forcedMode?: NavigationMode | undefined;
   /**
    * The mode to use when nothing forces one. `windowed` applies only while the

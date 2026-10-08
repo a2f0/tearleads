@@ -11,7 +11,10 @@ import {
 const COARSE_POINTER_QUERY = "(pointer: coarse)";
 
 interface UseNavigationModeInput {
-  /** A mode that wins over everything, such as a host's fixed layout. */
+  /**
+   * A host's fixed layout. It wins over `preferredMode`, and yields only to
+   * the user's `override`.
+   */
   forcedMode?: NavigationMode | undefined;
   /**
    * The user's manual choice (see {@link NavigationModeOverrideProvider}). It
