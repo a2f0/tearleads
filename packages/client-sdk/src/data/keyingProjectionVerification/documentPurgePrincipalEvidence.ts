@@ -75,6 +75,9 @@ function requireExactPurgePrincipalEvidence<
   }
 
   const allowed = new Set(requiredByPrincipal);
+  // Paged recovery has authenticated these payloads against their signed
+  // organization states and verified their exact group-head bindings. This
+  // identity allow-list cannot authenticate an unverified directory payload.
   for (const { payload } of input.policyEvidence.organizationPayloads) {
     const directory = parseOrganizationAuthorityDescriptor(payload.ciphertext);
     if (

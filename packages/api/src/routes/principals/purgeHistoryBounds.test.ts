@@ -27,7 +27,10 @@ for (const versions of [64, 128]) {
           },
         );
         const text = await response.text();
-        if (response.status === 202) continue;
+        if (response.status === 202) {
+          await Bun.sleep(10);
+          continue;
+        }
         expect(response.status, text).toBe(200);
         expect(text).not.toContain("previousStates");
         const proof = DocumentPurgeProofResponseSchema.parse(JSON.parse(text));
@@ -75,14 +78,6 @@ for (const versions of [64, 128]) {
         expect(
           server.metrics.maximumDatabaseStatementsPerRequest,
         ).toBeLessThanOrEqual(350);
-        console.info(
-          "PURGE_HISTORY_BOUND",
-          JSON.stringify({
-            versions,
-            bytes,
-            maxStatements: server.metrics.maximumDatabaseStatementsPerRequest,
-          }),
-        );
         return;
       }
       throw new Error("Purge preparation did not finish");

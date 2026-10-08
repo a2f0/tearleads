@@ -7,6 +7,7 @@ import { clientSQLiteSchema } from "./schema";
 import {
   assertClientSQLiteCommitAllowed,
   beginClientSQLiteCommitGuards,
+  captureClientSQLiteCommitGuards,
   clearClientSQLiteCommitGuards,
   rethrowClientSQLiteCommitGuardFailure,
 } from "./sqliteCommitGuards";
@@ -180,13 +181,15 @@ async function runNestedSavepointScope<T>(
       const depth = transactionDepthByCanonicalExecSql.get(canonical) ?? 0;
       transactionDepthByCanonicalExecSql.set(canonical, depth + 1);
       const savepoint = `runtime_transaction_sp_${depth}`;
+      const discardNestedGuards = captureClientSQLiteCommitGuards(canonical);
       try {
         await lockedExecSql(`SAVEPOINT ${savepoint}`);
         const result = await operation();
         await lockedExecSql(`RELEASE SAVEPOINT ${savepoint}`);
         return result;
       } catch (error: unknown) {
-        await lockedExecSql(`ROLLBACK TO SAVEPOINT ${savepoint}`).catch(
+        await lockedExecSql(`ROLLBACK TO SAVEPOINT ${savepoint}`).then(
+          discardNestedGuards,
           () => undefined,
         );
         await lockedExecSql(`RELEASE SAVEPOINT ${savepoint}`).catch(

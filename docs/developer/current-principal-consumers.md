@@ -82,9 +82,9 @@ checking their currency. Baseline verification and page recovery do not advance
 pins. The final purge commit admits the authenticated observations atomically
 with document teardown, rechecks forks and local currency, and keeps its private
 lease guard active through the outer SQLite commit. Unavailable proof connections
-to newer durable pins defer deletion. The 64/128-version HTTP fixtures measure
-74,141/74,152 response bytes, with no inline policy chains and no Full-history
-reads; response size can still grow with distinct cited groups and container or
+to newer durable pins defer deletion. The 64/128-version HTTP fixtures enforce
+responses below 90 KB, with no inline policy chains and no Full-history reads;
+response size can still grow with distinct cited groups and container or
 document evidence. Standalone purge/sync hosts must provide the private paged
 resolver; there is no full-history wire fallback.
 

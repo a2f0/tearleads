@@ -18,6 +18,17 @@ export function clearClientSQLiteCommitGuards(execSql: ExecSql): void {
   guardsByConnection.delete(resolveCanonicalExecSql(execSql));
 }
 
+/** Restore the enclosing guards only after a nested SQL savepoint rolls back. */
+export function captureClientSQLiteCommitGuards(execSql: ExecSql): () => void {
+  const scope = guardsByConnection.get(resolveCanonicalExecSql(execSql));
+  if (!scope)
+    throw new Error("Commit guard requires an active runtime transaction");
+  const enclosing = new Set(scope.guards);
+  return () => {
+    scope.guards = enclosing;
+  };
+}
+
 /** A nested operation's lifetime must remain valid through its outer commit. */
 export function registerClientSQLiteCommitGuard(
   execSql: ExecSql,

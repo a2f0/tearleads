@@ -5,7 +5,6 @@ import {
 } from "@tearleads/api-shared/schema";
 import { and, desc, eq, lte } from "drizzle-orm";
 
-/** Keep the newest candidate even if its state is corrupt; never hide it behind an older join. */
 async function readBinding(input: {
   readonly executor: DatabaseSession;
   readonly organizationId: string;
@@ -60,6 +59,7 @@ async function readBinding(input: {
   return row ?? null;
 }
 
+/** Keep the newest candidate even if its state is corrupt; never hide it behind an older join. */
 export function readLatestPrincipalDirectoryBinding(input: {
   readonly executor: DatabaseSession;
   readonly organizationId: string;
