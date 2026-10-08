@@ -3,7 +3,7 @@ export {
   runCreateDocumentWorkflow,
 } from "./createDocument";
 export { runDocumentPurgeProofWorkflow } from "./documentPurgeProof";
-export { DocumentMutationError, toMutationError } from "./errors";
+export { DocumentMutationError } from "./errors";
 export {
   type DocumentLinkSetMutationWorkflowResult,
   runDocumentLinkSetMutationWorkflow,
