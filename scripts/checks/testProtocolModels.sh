@@ -63,6 +63,8 @@ run_check() (
     FAKE_JAVA="$TEST_ROOT/bin/java" \
     FAKE_JAVA_LOG="$JAVA_LOG" \
     FAKE_TLA_TOOLS_ROOT="$TEST_ROOT/tla-tools" \
+    JAVA_BIN="$TEST_ROOT/bin/java" \
+    TLA_TOOLS_ROOT="$TEST_ROOT/tla-tools" \
     FAKE_FAIL_CONFIG="${FAKE_FAIL_CONFIG:-}" \
     FAKE_FAIL_MODEL="${FAKE_FAIL_MODEL:-}" \
     FAKE_FAIL_STATUS="${FAKE_FAIL_STATUS:-}" \
@@ -197,6 +199,8 @@ install_registry valid.txt
     FAKE_JAVA_LOG="$JAVA_LOG" \
     FAKE_JAVA_HANG=1 \
     FAKE_TLA_TOOLS_ROOT="$TEST_ROOT/tla-tools" \
+    JAVA_BIN="$TEST_ROOT/bin/java" \
+    TLA_TOOLS_ROOT="$TEST_ROOT/tla-tools" \
     TLA_TOOLS_JAR_SHA256="$FIXTURE_JAR_SHA256" \
     "$CHECK_SCRIPT"
 ) >/dev/null 2>&1 &

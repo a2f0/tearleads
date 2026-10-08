@@ -154,15 +154,21 @@ esac
 [ "$TLC_PARALLELISM" -ge 1 ] ||
   fail "PROTOCOL_TLC_PARALLELISM must be a positive integer."
 
-command -v mise >/dev/null 2>&1 ||
-  fail "mise is unavailable. Install mise, then run 'mise install github:tlaplus/tlaplus'."
+if [ -z "${JAVA_BIN:-}" ] || [ -z "${TLA_TOOLS_ROOT:-}" ]; then
+  command -v mise >/dev/null 2>&1 ||
+    fail "mise is unavailable. Install mise, then run 'mise install github:tlaplus/tlaplus'."
+fi
 
-JAVA_BIN=$(mise which java 2>/dev/null) ||
-  fail "Java is unavailable. Run 'mise install java'."
+if [ -z "${JAVA_BIN:-}" ]; then
+  JAVA_BIN=$(mise which java 2>/dev/null) ||
+    fail "Java is unavailable. Run 'mise install java'."
+fi
 [ -x "$JAVA_BIN" ] || fail "$JAVA_BIN is not executable."
 
-TLA_TOOLS_ROOT=$(mise where github:tlaplus/tlaplus 2>/dev/null) ||
-  fail "TLA+ tools are unavailable. Run 'mise install github:tlaplus/tlaplus'."
+if [ -z "${TLA_TOOLS_ROOT:-}" ]; then
+  TLA_TOOLS_ROOT=$(mise where github:tlaplus/tlaplus 2>/dev/null) ||
+    fail "TLA+ tools are unavailable. Run 'mise install github:tlaplus/tlaplus'."
+fi
 TLA_TOOLS_JAR=$TLA_TOOLS_ROOT/tla2tools.jar
 [ -f "$TLA_TOOLS_JAR" ] || fail "$TLA_TOOLS_JAR does not exist."
 
