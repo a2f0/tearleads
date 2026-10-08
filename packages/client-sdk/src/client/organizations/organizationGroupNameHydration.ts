@@ -20,6 +20,13 @@ export async function hydrateOrganizationGroupNamesForRuntime(
   if (directoryAndGroups && active.runtime.crypto.encapsulationKeyPair) {
     const stillCurrent = () =>
       isOrganizationDataRuntimeCurrent(runtimeService, active, domainScope);
+    // Labels and their metadata root belong to this one reconciliation view.
+    const currentRecovery = {
+      resolveCurrentPolicy: createRuntimePrincipalPolicyCurrentResolver(
+        active.runtime,
+      ),
+      recoveryBatch: {},
+    };
     return hydrateOrganizationGroupNames({
       apiClient: active.runtime.apiClient,
       directory: directoryAndGroups,
@@ -48,11 +55,11 @@ export async function hydrateOrganizationGroupNamesForRuntime(
         active.runtime,
         active.organizationId,
         stillCurrent,
+        undefined,
+        currentRecovery,
       ).readName,
       resolveTrustedUserIdentity: active.runtime.resolveTrustedUserIdentity,
-      resolveCurrentPolicy: createRuntimePrincipalPolicyCurrentResolver(
-        active.runtime,
-      ),
+      ...currentRecovery,
       stillCurrent,
     });
   }

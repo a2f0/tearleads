@@ -17,6 +17,10 @@ Metadata verification uses the organization head supplied by its live writer
 projection. Directory discovery and cited recovery share one caller's batch,
 keeping the original lease guard; expiry requires a new batch even if a later
 caller is still live. Local attempts use a separate offline key in that batch.
+The discovery page passes through ordinary signature verification; continuation
+reads remain bound to its exact current artifacts. Additional historical
+directory or Admins citations use local proofs for the selected head, retaining
+the source lifetime even when another batch advances the private prefix.
 An unrelated server directory advance does not replace that batch's selected
 view; every group dependency must still match it exactly. A new batch discovers
 the advance, and mutations remain subject to the server's exact predecessor CAS.
@@ -50,17 +54,17 @@ private custody, and checkpoint contracts.
 
 ## Request costs
 
-A cold Org Manager open now uses four requests: one read-model read, two
-organization-policy reads and one Admins-policy read. Creating and activating
-an additional organization uses 15 requests, including the same three cold
-policy reads. An active peer reconciles an ungranted group change with six
+A cold Org Manager open uses three requests: one read-model read, one
+organization-policy read and one Admins-policy read. Creating and activating
+an additional organization uses 14 requests, including the same two cold
+policy reads. An active peer reconciles an ungranted group change with five
 policy/read-model requests and no container or document fanout.
 
 With bounded creation, display pages and exact local metadata evidence, a
 completed group fixture measured first creation/addition at 17/70 requests and
 later creation/addition at 15/20. The whole pairs used 87/35 requests,
 including 51/21 public history reads. These are local fixture measurements,
-not production benchmarks. Whole-pair limits are tightened from 114/48 on the
+not production benchmarks. Whole-pair limits are tightened from 110/46 on the
 base to 92/38; creation allows 20/18 and addition allows 75/23. Margins permit
 three boundary reads per phase, with five extra reads for first-enrollment
 proof discovery. The pair cap prevents those margins from accumulating.

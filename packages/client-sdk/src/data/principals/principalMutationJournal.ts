@@ -73,13 +73,18 @@ export async function sealPrincipalMutation(input: {
   try {
     if ((await toFingerprint(publicKey)) !== scope.signingFingerprint)
       throw new Error("Principal mutation journal signing key differs");
+    const bytes = signedBytes(scope, serializedRequest);
+    const signature = sign(bytes, privateKey);
+    if (!verify(signature, bytes, publicKey))
+      throw new KeyingVerificationError(
+        "signer_mismatch",
+        "Principal mutation journal signing key pair differs",
+      );
     return {
       scopeId: await principalMutationJournalScopeId(scope),
       organizationId: scope.organizationId,
       serializedRequest,
-      signature: bytesToBase64(
-        sign(signedBytes(scope, serializedRequest), privateKey),
-      ),
+      signature: bytesToBase64(signature),
     };
   } finally {
     privateKey.fill(0);
