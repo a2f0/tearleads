@@ -55,9 +55,10 @@ owners cannot be reconstructed from unauthenticated metadata alone.
 Accepted pages record their computed proof root and each new node's outgoing
 edges. Saved stages and prefixes own roots; replacing or removing their exact
 progress releases that ownership in the same guarded transaction. Shared child
-nodes remain live until all incoming references disappear. A publication reclaims
-at most 64 newly indexed, unreferenced nodes, including children made unreachable
-by the bounded cascade. An existing backlog converges over later writes. The
+nodes remain live until all incoming references disappear. Each accepted page,
+prefix save and atomic acknowledgement reclaims at most 64 newly indexed,
+unreferenced nodes, including children made unreachable by the bounded cascade.
+An existing backlog converges over later writes. The
 scope, organization, managed-node flag and zero-reference index bound candidate
 selection. This removes obsolete intermediate roots without deleting signed
 history entries or key candidates.
@@ -91,5 +92,5 @@ Retained key epochs, signed entries, leaf-reference hints and the shared nodes
 needed to prove them still grow with history. In real HTTP tests, 128 successive
 private heads retain 133 proof nodes for the current head and predecessor; public
 recovery retains 127 nodes for its single published root. Both paths retained
-448 nodes with
-reclamation disabled. Every historical version remains provable offline.
+448 nodes with reclamation disabled. Every historical version remains provable
+offline.
