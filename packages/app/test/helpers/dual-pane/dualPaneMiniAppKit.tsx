@@ -50,6 +50,7 @@ export async function renderSeededDemo(): Promise<{
   const leftPane = getPaneRoot(view, "left");
   const rightPane = getPaneRoot(view, "right");
   await waitForDualPaneProvisioning(leftPane, rightPane);
+  // Seeded policy commits share the same delayed API lane as pane recovery.
   await waitForCondition(
     () =>
       listProxiedApiRequests()
@@ -61,6 +62,7 @@ export async function renderSeededDemo(): Promise<{
             request.url.endsWith("/policy-commit"),
         ).length >= 2,
     "Demo peer roster seeding did not finish.",
+    30_000,
   );
   // Both seeded rosters trigger document and policy recovery in both panes.
   // At 150 ms per response these lanes take over 15 seconds to drain.

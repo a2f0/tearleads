@@ -1,0 +1,26 @@
+diff --git a/dist/ios/update.js b/dist/ios/update.js
+index 8f1eccdce4452701e14b54a0f97f788f98bcd019..7eed6579eec0ef7ef86a6e046e3a285704eae0f3 100644
+--- a/dist/ios/update.js
++++ b/dist/ios/update.js
+@@ -236,7 +236,7 @@ import PackageDescription
+ 
+ let package = Package(
+     name: "${p.name}",
+-    platforms: [.iOS(.v${iosVersion})],
++    platforms: [.iOS("${iosVersion}.0")],
+     products: [
+         .library(
+             name: "${p.name}",${libraryTypeText}
+diff --git a/dist/util/spm.js b/dist/util/spm.js
+index c276eb1c45ad1f4aa512311fbf2f30de588d22ef..ec1687707ddf3e47b7d4ec58f4f5aed3203cd990 100644
+--- a/dist/util/spm.js
++++ b/dist/util/spm.js
+@@ -97,7 +97,7 @@ import PackageDescription
+ // DO NOT MODIFY THIS FILE - managed by Capacitor CLI commands
+ let package = Package(
+     name: "CapApp-SPM",
+-    platforms: [.iOS(.v${iosVersion})],
++    platforms: [.iOS("${iosVersion}.0")],
+     products: [
+         .library(
+             name: "CapApp-SPM",

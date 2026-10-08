@@ -2,6 +2,11 @@
 
 set -eu
 
+if [ "${1:-}" = -version ]; then
+  printf 'openjdk version "%s"\n' "${FAKE_JAVA_VERSION:-25.0.4.1}" >&2
+  exit 0
+fi
+
 : "${FAKE_JAVA_LOG:?}"
 
 model_path=

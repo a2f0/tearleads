@@ -1,5 +1,6 @@
 import { afterEach, expect, spyOn, test } from "bun:test";
-import { createStackParser, nodeStackLineParser } from "@sentry/core";
+import { createStackParser } from "@sentry/core";
+import { nodeStackLineParser } from "@sentry/core/server";
 import { apiErrorTags } from "./apiDiagnostics";
 import type { SentryConfig } from "./config";
 import { sanitizeSentryEvent } from "./privacy";

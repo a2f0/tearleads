@@ -99,7 +99,7 @@ jobs:
           bash packages/app-electrobun/scripts/buildWindowsNative.sh "$RELEASE_TIER"
 
       - name: Save installer and update artifacts
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: tearleads-windows-${{ matrix.tier }}-${{ github.sha }}
           path: ${{ runner.temp }}/windows-release/packages/app-electrobun/build/artifacts/
@@ -108,7 +108,7 @@ jobs:
           retention-days: 14
 
       - name: Save source maps for local Sentry upload
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: tearleads-windows-maps-${{ matrix.tier }}-${{ github.sha }}
           path: ${{ runner.temp }}/windows-release/packages/app-electrobun/build/sentry-sourcemaps/

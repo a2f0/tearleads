@@ -85,7 +85,7 @@ reset_app_data() {
 }
 
 build_workspace_deps() {
-  (cd "$REPO_ROOT" && bunx turbo run build --filter=app-electrobun^...)
+  (cd "$REPO_ROOT" && bun --bun run turbo run build --filter=app-electrobun^...)
 }
 
 # Pull a position-independent --reset out of the args before the command parse,

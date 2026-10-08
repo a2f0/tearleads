@@ -1,5 +1,7 @@
 {
-  "$schema": "https://biomejs.dev/schemas/2.5.12/schema.json",
+  // Biome's 2.5.15 migration added this to the explicit promises config.
+  "root": false,
+  "$schema": "https://biomejs.dev/schemas/2.5.15/schema.json",
   "vcs": {
     "enabled": true,
     "clientKind": "git",
@@ -23,7 +25,7 @@
   },
   "linter": {
     "rules": {
-      "recommended": false,
+      "preset": "none",
       "nursery": {
         "noFloatingPromises": "error"
       }

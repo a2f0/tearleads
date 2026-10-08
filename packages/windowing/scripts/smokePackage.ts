@@ -18,7 +18,7 @@ import { buildPackage } from "./buildPackage";
 const workDir = mkdtempSync(join(tmpdir(), "windowing-smoke-"));
 
 // The consumer installs the same test libraries and TypeScript the workspace
-// pins.
+// pins, with React runtime and types at the published peer floor.
 interface RootManifest {
   catalogs: Record<string, Record<string, string>>;
   devDependencies: { typescript: string };
@@ -166,8 +166,8 @@ function writeConsumer(projectDir: string, tarball: string, distDir: string) {
           "testing",
           "@testing-library/react",
         ),
-        "@types/react": catalogVersion("react", "@types/react"),
-        "@types/react-dom": catalogVersion("react", "@types/react-dom"),
+        "@types/react": peerFloor(distDir, "react"),
+        "@types/react-dom": peerFloor(distDir, "react-dom"),
         "css-loader": "7.1.5",
         "mini-css-extract-plugin": "2.10.2",
         typescript: devDependencies.typescript,

@@ -111,6 +111,15 @@ tooling. After cloning, run:
 mise install java github:oasdiff/oasdiff github:tlaplus/tlaplus pipx:ansible-core
 ```
 
+When local mise configuration cannot be trusted, the check scripts accept
+`OASDIFF_BIN`, `JAVA_BIN`, and `TLA_TOOLS_ROOT` as explicit paths. Point them
+to the versions installed under mise's `.mise.toml` pins. The TLA+ jar digest
+is checked against `scripts/checks/tlaToolsPin.sh` in both paths; CI uses mise
+when the overrides are unset. The protocol-model check validates the pinned
+Java version and TLA+ jar digest on every run. The OpenAPI check validates the
+reported oasdiff version for `OASDIFF_BIN`; use only a trusted binary at that
+path. These direct checks do not depend on Turbo's task cache.
+
 Fetch `origin/main` or set `OPENAPI_BASE_REF` when checking OpenAPI against another
 base commit.
 
@@ -267,13 +276,15 @@ Review, PR, merge, and version helpers come from the commit-pinned
 [`a2f0/agent-tool`](https://github.com/a2f0/agent-tool) dev dependency; run it
 with `bun run agent-tool`. Title, required-check, base-freshness, and version
 policy is in `agent-tool.json`. The shared `cross-agent-review`, `open-pr`,
-`squash-merge`, `ship-pr`, and `reset` skills are managed copies in
-`.agents/skills` and `.claude/skills`, tracked by `.agent-tool-skills.json`. Do
-not edit them; change the shared skill upstream instead. After changing the
-pin, run `bun run agents:sync` and commit the lockfile, skills, and manifest
-together. `bun run agents:check`, part of `check:fast`, fails on missing,
-outdated, or edited managed skills. Project skills keep a Claude copy in
-`.claude/skills` and a Codex copy in `.agents/skills`.
+`squash-merge`, `ship-pr`, `reset`, and `update-dependencies` skills are managed
+copies in `.agents/skills` and `.claude/skills`, tracked by
+`.agent-tool-skills.json`. Do not edit them; change the shared skill upstream
+instead. After changing the pin, run `bun run agents:sync` and commit the
+lockfile, skills, and manifest together. The Markdown linter excludes exact
+managed skill paths; their upstream formatting is preserved while project
+skills still follow local rules. `bun run agents:check`, part of `check:fast`,
+fails on missing, outdated, or edited managed skills. Project skills keep a
+Claude copy in `.claude/skills` and a Codex copy in `.agents/skills`.
 
 Shipping rules on top of the shared skills:
 

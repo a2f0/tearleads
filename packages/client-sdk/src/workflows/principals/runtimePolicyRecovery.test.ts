@@ -1,5 +1,6 @@
 import { beforeAll, expect, test } from "bun:test";
 import {
+  AUTHORITY_RECOVERY_SETUP_TIMEOUT_MS,
   createAuthorityRecoveryFixture,
   signedAuthorityRecoveryHistory,
 } from "../../../test/helpers/principalAuthorityRecovery";
@@ -25,7 +26,7 @@ import { createRuntimePrincipalPolicyWarmer } from "./runtimePolicyWarmer";
 let history: Awaited<ReturnType<typeof signedAuthorityRecoveryHistory>>;
 beforeAll(async () => {
   history = await signedAuthorityRecoveryHistory();
-}, 30_000);
+}, AUTHORITY_RECOVERY_SETUP_TIMEOUT_MS);
 
 async function fixture() {
   const source = await createAuthorityRecoveryFixture(history);

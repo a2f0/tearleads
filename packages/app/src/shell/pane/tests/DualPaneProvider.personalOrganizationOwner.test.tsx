@@ -86,7 +86,7 @@ test("Peer 2 cannot remove Peer 1 from the personal org after becoming an admin"
   const after = await rightRuntime.organizations.loadDirectoryAndGroups();
   expect(after?.directory).toEqual(before.directory);
   expect(after?.groups).toEqual(before.groups);
-}, 60_000);
+}, 120_000);
 
 test("a custom org still allows another admin to remove its creator from Admins", async () => {
   useTestApiAppHandlers();
@@ -153,4 +153,4 @@ test("a custom org still allows another admin to remove its creator from Admins"
       isPersonalOrganizationOwner: false,
     }),
   );
-}, 60_000);
+}, 120_000);

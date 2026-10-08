@@ -184,6 +184,8 @@ async function runScript(options: {
   }
 }
 
+// The script waits two seconds for SpringBoard before capture; allow its
+// mocked subprocesses to finish when Turbo runs another package concurrently.
 test("creates and targets a dedicated iPhone 16 simulator", async () => {
   const result = await runScript({});
 
@@ -199,7 +201,7 @@ test("creates and targets a dedicated iPhone 16 simulator", async () => {
     `maestro:--platform ios --device ${dedicatedUdid} test --test-output-dir ${resolve(result.outputDirectory, "maestro")} ${verificationFlow}`,
   ]);
   expect(result.screenshots).toEqual([true, true, true]);
-});
+}, 15_000);
 
 test("reuses the existing dedicated simulator", async () => {
   const result = await runScript({ initialDevices: [dedicatedDevice] });

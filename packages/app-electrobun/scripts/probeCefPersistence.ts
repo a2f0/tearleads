@@ -37,7 +37,7 @@ const storageSnapshotExpression = [
   "    body,",
   "    databaseName: databaseMatch?.[1] ?? null,",
   // Injected by the pinned native core; fail closed if an upgrade removes it.
-  // https://github.com/blackboardsh/electrobun/blob/v2.0.2-beta.35/package/src/core/main.zig#L1622
+  // https://github.com/blackboardsh/electrobun/blob/v2.0.2/package/src/core/main.zig#L1622
   "    hostTransportPort: window.__electrobunHostSocketPort,",
   "    registry: registryKey ? localStorage.getItem(registryKey) : null,",
   "    rootChildren: document.getElementById('root')?.children.length ?? 0,",

@@ -299,3 +299,9 @@ manifest copies `version` from `package.json`. For a release outside that flow,
 bump the version yourself before publishing. The manifest names this repository,
 which npm requires of a version with provenance, and declares
 `"license": "UNLICENSED"` until a license is chosen.
+
+## Dependency compatibility
+
+React and react-dom are host peers with the range `^19.2.0`. Workspace tests
+use React 19.3; the tarball smoke test installs the minimum React 19.2, renders
+a window, typechecks a consumer, and bundles its JavaScript and CSS.

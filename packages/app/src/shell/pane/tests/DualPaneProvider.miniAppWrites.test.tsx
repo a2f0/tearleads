@@ -90,6 +90,8 @@ async function receiveSharedDocuments(
 }
 
 for (const app of ["Notes", "Contacts"] as const) {
+  // These end-to-end writers do two account provisions and then cross-device
+  // sync. On the hosted test graph they can take about 3x their isolated time.
   test(`${app} writes and shares after clearing browser cache and adding an Admin`, async () => {
     useTestApiAppHandlers();
     const previous = await renderSeededDemo();
@@ -139,8 +141,12 @@ for (const app of ["Notes", "Contacts"] as const) {
       await editMiniAppContact(window, `${title} new edited`);
     }
     await waitForNoPostShareSyncFailures([leftPane, rightPane], baseline);
+    await waitFor(
+      () =>
+        expect(createdDocumentIds(baseline.requestStartIndex)).toHaveLength(2),
+      { timeout: 30_000 },
+    );
     const ids = createdDocumentIds(baseline.requestStartIndex);
-    expect(ids).toHaveLength(2);
     const [firstId, secondId] = ids;
     invariant(firstId && secondId, "Expected two persisted documents.");
     expect(firstId).not.toBe(secondId);
@@ -152,5 +158,5 @@ for (const app of ["Notes", "Contacts"] as const) {
       },
     ]);
     await waitForNoPostShareSyncFailures([leftPane, rightPane], baseline);
-  }, 90_000);
+  }, 150_000);
 }

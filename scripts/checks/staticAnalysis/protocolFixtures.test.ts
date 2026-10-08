@@ -8,6 +8,7 @@ test("protocol fixtures leave a linked hook's repository untouched", () => {
   try {
     const source = resolve(import.meta.dir, "../../..");
     for (const path of [
+      ".mise.toml",
       "scripts/checks/checkProtocolModels.sh",
       "scripts/checks/testProtocolModels.sh",
       "scripts/checks/tlaToolsPin.sh",

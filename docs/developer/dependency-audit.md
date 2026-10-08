@@ -24,7 +24,7 @@ The audit remains a manual review step, without a new CI or branch-protection
 gate. `bun audit` intentionally continues to report documented exceptions and
 exit nonzero; that output must be compared with this record, not ignored.
 
-## Triage on 2026-09-10
+## Historical triage on 2026-09-10
 
 Issue: [#1441](https://github.com/a2f0/tearleads/issues/1441).
 The starting lockfile at `1fc32412687dabbb33c153d2f99d3032199256cf` produced
@@ -32,7 +32,7 @@ The starting lockfile at `1fc32412687dabbb33c153d2f99d3032199256cf` produced
 These counts include multiple affected-version records for one advisory and
 do not represent 47 demonstrated application vulnerabilities.
 
-After the updates below, the full audit reports **two moderate records**,
+At that time, the full audit reported **two moderate records**,
 documented below, and **zero high or critical records**. The records describe
 this lockfile and advisory database snapshot, not a guarantee against future
 advisories.
@@ -56,47 +56,109 @@ lockfile. The three parent/version-scoped overrides require lockfile format 3,
 supported by the pinned Bun 1.4.2; keep developer and CI Bun versions aligned.
 See [Bun's override semantics](https://bun.com/docs/pm/overrides#nested-overrides).
 
+## Triage on 2026-10-07
+
+The baseline at `8c8616054c269b7f78b44d4793df326b79c95104` reports
+34 advisory records across 14 packages. The updated lockfile reports **four
+records: one high, two moderate, and one low**, with the call paths below.
+Latest direct releases do not remove all vulnerable transitive pins.
+The Redocly YAML override was removed after openapi-typescript resolved
+@redocly/openapi-core 1.34.20 and naturally selected fixed js-yaml 4.3.2.
+The baseline Ruby audit also reports high-severity rubyzip 2.4.1
+[path traversal](https://github.com/advisories/GHSA-47m2-wp7j-p9vc); Fastlane
+2.240.1 naturally resolves the fixed rubyzip 3.7.0 (minimum 3.4.0).
+`bundle-audit check --update` reports no vulnerable gems against advisory database
+commit `0af3fe207c318a8a99ce522c8538103a13eb6c0b`.
+
 ## Temporary overrides
 
-Owner: repository maintainers. Review by **2026-10-10**, or when upgrading the
+Owner: repository maintainers. Review by **2026-11-07**, or when upgrading the
 named parent, whichever comes first. Remove each override once the parent
 resolves a patched version itself and a fresh audit confirms it.
 `bun run test:static-analysis` fails if an exact parent version named by an
-override disappears from `bun.lock`, requiring its removal or a reviewed update.
-This checks configuration drift; a fresh audit still determines whether the
-replacement dependency is safe.
+override disappears or another version of that parent enters `bun.lock`,
+requiring its removal or a reviewed update.
+This checks configuration drift; a fresh audit still determines safety.
+Nested objects preserve npm consumer compatibility as well as Bun resolution.
+Fresh cached resolutions without existing lockfiles verified both exact parent
+selectors with Bun 1.4.2.
 
-| Parent/version | Override | Advisory rationale |
+| Parent/version | Override | Advisory rationale and validation |
 | --- | --- | --- |
-| `@redocly/openapi-core@1.34.17` | `js-yaml: 4.3.2` | Fixes [merge-key CPU exhaustion](https://github.com/advisories/GHSA-52cp-r559-cp3m), [ordered-map CPU exhaustion](https://github.com/advisories/GHSA-5p4m-2wfm-xmqj), and [empty-merge-source bypass](https://github.com/advisories/GHSA-2883-xcg3-v3hh) while retaining the 4.x API. |
-| `markdownlint-cli2@0.23.2` | `smol-toml: 1.8.0` | Fixes [malformed-TOML denial of service](https://github.com/advisories/GHSA-7w5x-hrqm-74c2). |
-| `miniflare@5.20260811.1-alpha` | `sharp: 0.35.4` | Fixes [bundled libheif vulnerabilities](https://github.com/advisories/GHSA-rgj7-g3m4-5g8c) in Wrangler's local image processing. |
+| `markdownlint-cli2@0.23.3` | `smol-toml: 1.9.0` | Fixes [malformed TOML exhaustion](https://github.com/advisories/GHSA-r4xh-jqrq-34v2); the actual Markdown lint runs against the updated parser; a focused TOML fixture validates its compatible API. |
+| `miniflare@5.20260811.1-alpha` | `sharp: 0.35.5` | Fixes [librsvg memory corruption](https://github.com/advisories/GHSA-wq5f-xc86-pv6w). A one-off smoke with this lockfile confirmed Wrangler-resolved Sharp reports librsvg 2.63.2; native SVG resize and the local Miniflare IMAGES binding converted a red SVG to a 12×8 PNG with decoded pixel checks. |
+| `miniflare@5.20260811.1-alpha` | `undici: 7.29.1` | Updates the pinned 7.29.0 copy for [unbounded decompression](https://github.com/nodejs/undici/security/advisories/GHSA-3xpg-4rpp-hhhm) and [WebSocket subprotocol denial of service](https://github.com/nodejs/undici/security/advisories/GHSA-rfgv-xxqx-mfg5); a one-off smoke with this lockfile exercised local Miniflare requests and both Wrangler environment bundles against the retained HTTP API. |
+
+The Wrangler CLI remains at 4.123.0: a bundle dry run cannot prove live Worker
+resource safety without deployment credentials and account identity. The local
+Miniflare overrides do not change live bindings, routes, or migrations.
+
+Smol-TOML 1.9 returns null-prototype objects. Markdownlint 0.41.1 otherwise
+discards nested rule options, silently changing line-length limits and enabling
+disabled rules. `patches/markdownlint@0.41.1.patch` accepts those objects while
+preserving its previous handling of ordinary objects. The actual CLI regression
+in `scripts/checks/staticAnalysis/markdownlintToml.test.ts` failed without the
+patch and passes with it; it also checks glob ignores and malformed configuration.
+Remove the patch when upstream preserves null-prototype rule options and those
+regressions pass without it. Review it with the parser override by 2026-11-07.
+
+## Stripe.js 10 migration
+
+The [10.0 release](https://github.com/stripe/stripe-js/releases/tag/v10.0.0)
+loads Endive rather than Dahlia. Its removed Payment Request Button and Elements
+`paymentMethodTypes` option are absent from our checkout. `webDirectCheckout.ts`
+uses the pure loader, a Payment Element with a server-created client secret, and
+`confirmPayment`; it does not use Elements with Checkout Sessions. Email
+collection is disabled only when we supply that email in confirmation's
+`payment_method_data.billing_details`, covered by the existing checkout test.
+We reviewed the
+[Endive changes](https://docs.stripe.com/changelog/endive) against that flow.
+The actual checkout compiles with the new types; its existing injected-loader
+tests cover application lifecycle and error handling, not Stripe's remote SDK.
+Live payment validation remains unavailable without a test account.
+
+The server's explicit REST API version remains 2024-06-20. Stripe.js uses its own
+release's API version; Stripe's
+[versioning guidance](https://docs.stripe.com/sdks/stripejs-versioning) permits
+gradual server upgrades. A server API migration needs separate webhook, invoice,
+and subscription validation before changing that contract.
 
 ## Remaining exceptions
 
-Owner: repository maintainers. Review by **2026-10-10**, or immediately if the
-consumer/version or usage changes. Neither exception covers new runtime imports,
-new input paths, or other advisories against the same package.
+Owner: repository maintainers. Review by **2026-11-07**, or immediately if the
+consumer/version or usage changes. These exceptions cover only the observed
+call paths and advisories. Do not accept external input through these paths
+without re-triage.
 
+- **`braces@3.0.3`, high,
+  [GHSA-vfj7-8cjw-p6xm](https://github.com/advisories/GHSA-vfj7-8cjw-p6xm).**
+  No patched release exists. Markdownlint tooling
+  reaches it through micromatch/fast-glob. Patterns come from repository-owned
+  configuration and CLI arguments, not application requests or uploaded data.
+  Accept the unresolved tooling finding with that trusted-pattern boundary;
+  re-triage immediately if micromatch/fast-glob enters runtime code or accepts
+  untrusted patterns, including application requests or uploaded data;
+  update promptly when an owning dependency resolves a fixed release.
 - **`esbuild@0.18.20`, moderate,
   [GHSA-67mh-4wv8-2f99](https://github.com/advisories/GHSA-67mh-4wv8-2f99).**
-  Path: `@tearleads/api-shared` development dependency `drizzle-kit@0.31.10` →
-  `@esbuild-kit/esm-loader@2.6.5` → `@esbuild-kit/core-utils@3.3.2` → esbuild.
-  Repository scripts use Drizzle Kit for migration generation; the installed
-  core-utils code calls esbuild's `transform` API, not its HTTP server. The
-  advisory requires esbuild's `serve` feature. Accept this unused vulnerable
-  feature instead of forcing the loader across its `~0.18.20` constraint.
-  Remove the exception when Drizzle replaces the loader or resolves esbuild
-  >=0.25.0. Re-triage before enabling an esbuild server through this dependency.
+  Path: development `drizzle-kit@0.31.11` → `@esbuild-kit/esm-loader@2.6.5` →
+  `@esbuild-kit/core-utils@3.3.2`. The installed loader calls `transform`, not
+  the vulnerable HTTP `serve` API. Keep its `~0.18.20` constraint; remove this
+  exception when Drizzle replaces the loader or resolves esbuild >=0.25.0.
 - **`uuid@7.0.3`, moderate,
   [GHSA-w5hq-g745-h8pq](https://github.com/advisories/GHSA-w5hq-g745-h8pq).**
-  Path: `app-capacitor` development dependency `@capacitor/cli@8.5.1` →
-  `xcode@3.0.1` → uuid. Inspection of `xcode/lib/pbxProject.js` finds only
-  `uuid.v4()` with no output buffer in `generateUuid`. The advisory concerns
-  `v3`/`v5`/`v6` with caller-supplied output buffers; that call path is absent.
-  Accept the current upstream pin instead of forcing a multi-major upgrade.
-  Remove the exception when Xcode tooling adopts uuid >=11.1.1 or removes it.
+  Path: `@capacitor/cli@8.5.3` → `xcode@3.0.1`. `pbxProject.generateUuid`
+  uses only `uuid.v4()` without an output buffer; the affected `v3`/`v5`/`v6`
+  buffer APIs are absent. Remove when Xcode tooling adopts uuid >=11.1.1 or
+  removes this dependency. Native regeneration and simulator builds pass.
+- **`katex@0.16.47`, low,
+  [GHSA-238p-pmpm-9mq7](https://github.com/advisories/GHSA-238p-pmpm-9mq7).**
+  Path: `markdownlint@0.41.1` → `micromark-extension-math@3.1.0`. Lint reads
+  repository Markdown; application rendering does not import this dependency.
+  The advisory requires existing prototype pollution. Keep the owner's 0.16
+  API constraint; remove when it supports KaTeX >=0.18.2 or drops the renderer.
 
-Reproduce the dependency paths with `bun pm why esbuild` and `bun pm why uuid`.
-Inspect the resolved packages in `node_modules/.bun/` after installation. These
-exceptions are based on the observed APIs, not merely their dev-dependency labels.
+Reproduce paths with `bun pm why <package>` and inspect the resolved packages
+in `node_modules/.bun/`. Audit coverage is the locked npm and Ruby graphs;
+platform native binaries additionally rely on their official advisories and
+release notes, rather than a claim that Bun audits every bundled system library.
