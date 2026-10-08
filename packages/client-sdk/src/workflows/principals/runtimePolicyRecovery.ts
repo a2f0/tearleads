@@ -132,7 +132,9 @@ export function createRuntimePrincipalPolicyCurrentResolver(
                         reference: input.reference,
                         historyPage: input.historyPage,
                       },
-                      input.preferLocalCurrent === true,
+                      input.preferLocalCurrent === true ||
+                        input.preferLocalHistory === true,
+                      input.preferLocalHistory === true,
                     )
                   : await batch.discover(options);
               return {

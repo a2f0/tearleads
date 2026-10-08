@@ -246,6 +246,10 @@ observations and registers the identity/database lease through the outer commit,
 including when a caller performs document teardown after the nested proof commit.
 Hosts supplying standalone purge handlers must forward the same resolver and
 `stillCurrent` predicate used by their sync workflows.
+When local policy pins are newer than the purge sources, the resolver's
+`resolveReference` capability connects their ancestry with `preferLocalHistory`.
+It reuses private local proofs before authorized online paging. Those recovered
+heads are checked for currency and never admitted by the purge.
 
 Organization directory, group-summary, state-hash-bound membership, grant, and
 policy-head rows are presentation projections. The SDK reconciles them through

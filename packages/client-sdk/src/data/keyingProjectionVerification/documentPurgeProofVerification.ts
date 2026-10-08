@@ -22,6 +22,7 @@ import {
   commitDocumentPurgeCheckpoints,
   validateDocumentPurgeCheckpoints,
 } from "./documentPurgeCheckpointCurrency";
+import { recoverDocumentPurgePolicyCurrency } from "./documentPurgePolicyCurrency";
 import { authenticateDocumentPurgeArtifacts } from "./documentPurgePrincipalEvidence";
 import { observeProjectionLifetime } from "./projectionLifetimes";
 import { verifyProjectionPolicyEvidence } from "./projectionPolicyEvidence";
@@ -190,6 +191,14 @@ function requirePurgeProofShape(
   }
 }
 
+function requirePurgeOrganization(actual: string, expected: string): void {
+  if (actual !== expected)
+    throw new KeyingVerificationError(
+      "object_mismatch",
+      "Document purge proof belongs to another organization",
+    );
+}
+
 async function recoverPurgePolicyEvidence(
   input: VerifyDocumentPurgeProofInput,
 ) {
@@ -216,6 +225,13 @@ async function recoverPurgePolicyEvidence(
     stillCurrent: input.stillCurrent,
     warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
   });
+}
+
+function purgePrincipalSourceHeads(proof: DocumentPurgeProofResponse) {
+  return [
+    proof.policyEvidence.organization,
+    ...proof.policyEvidence.groups,
+  ].flatMap((source) => (source ? [source.head] : []));
 }
 
 async function verifyDocumentPurgeProofWithMode(
@@ -266,22 +282,27 @@ async function verifyDocumentPurgeProofWithMode(
       resolveUserKey: input.resolveUserKey,
       verifiedContainerManifests,
     });
-  if (documentManifest.state.organizationId !== input.expectedOrganizationId) {
-    throw new KeyingVerificationError(
-      "object_mismatch",
-      "Document purge proof belongs to another organization",
-    );
-  }
-  const observedPrincipalHeads = [
-    input.proof.policyEvidence.organization,
-    ...input.proof.policyEvidence.groups,
-  ].flatMap((source) => (source ? [source.head] : []));
+  requirePurgeOrganization(
+    documentManifest.state.organizationId,
+    input.expectedOrganizationId,
+  );
+  const observedPrincipalHeads = purgePrincipalSourceHeads(input.proof);
   assertProjectionVerificationCurrent(recovered.stillCurrent);
+  const currencyPolicies = enforceLocalCheckpoints
+    ? await recoverDocumentPurgePolicyCurrency({
+        context: checkpointContext,
+        organizationId: input.expectedOrganizationId,
+        policies: principalPolicies,
+        warmer: input.warmReferencedPrincipalPolicies,
+        stillCurrent: recovered.stillCurrent,
+      })
+    : principalPolicies;
   if (enforceLocalCheckpoints) {
     await validateDocumentPurgeCheckpoints({
       context: checkpointContext,
       execSql: input.execSql,
       principalPolicies,
+      currencyPolicies,
       observedPrincipalHeads,
     });
   }
@@ -298,6 +319,7 @@ async function verifyDocumentPurgeProofWithMode(
         documentPurgeCheckpoint,
         execSql,
         principalPolicies,
+        currencyPolicies,
         observedPrincipalHeads,
       }),
     documentCheckpoint: documentManifest.checkpoint,

@@ -19,6 +19,8 @@ export type ProjectionUserKeyResolver = (
 export type PrincipalPolicyCache = Map<string, PrincipalPolicyCurrentEvidence>;
 
 export interface PrincipalPolicyResolveRequest {
+  /** Reuse authenticated local ancestry before an authorized online recovery. */
+  readonly preferLocalHistory?: boolean | undefined;
   /** Identity of one projection collection, never caller-supplied evidence. */
   readonly recoveryBatch?: object | undefined;
   readonly organizationId: string;

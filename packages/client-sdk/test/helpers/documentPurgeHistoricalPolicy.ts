@@ -37,6 +37,7 @@ function wire(
 async function documentHistory(
   policies: Policies,
   containers: readonly VerifiedContainerAccessManifest[],
+  organizationId: string,
 ) {
   const [home, oldGroup, later] = containers;
   if (!home || !oldGroup || !later)
@@ -62,7 +63,7 @@ async function documentHistory(
         ...new Set([...linked, target].map((value) => value.manifestHash)),
       ],
       objectId: "historical-policy-document",
-      organizationId: "organization-1",
+      organizationId,
       previousManifestHash,
       signer: policies.signingKeyPair,
       signerUserId: policies.signerUserId,
@@ -76,7 +77,7 @@ async function documentHistory(
         documentId: "historical-policy-document",
         event,
         linkedContainerIds: linked.map((value) => value.state.containerId),
-        organizationId: "organization-1",
+        organizationId,
         previousManifestHash,
         epoch: history.length + 1,
       }),
@@ -124,7 +125,10 @@ async function purgeEvent(
   };
 }
 
-export async function createHistoricalPolicyPurgeFixture(newerAdmins = false) {
+export async function createHistoricalPolicyPurgeFixture(
+  newerAdmins = false,
+  organizationId = "organization-1",
+) {
   const policies = await createExternallyAuthorizedPrincipalPolicySnapshots();
   const head = principalPolicyHead(policies.subjectBundle);
   if (head.principalType !== "group") throw new Error("Expected group policy");
@@ -133,7 +137,7 @@ export async function createHistoricalPolicyPurgeFixture(newerAdmins = false) {
     ["home", "old-group", "later"].map((containerId) =>
       createContainerManifestFixture({
         containerId,
-        organizationId: "organization-1",
+        organizationId,
         signer: policies.signingKeyPair,
         signerUserId: policies.signerUserId,
         directGrants: [
@@ -157,7 +161,7 @@ export async function createHistoricalPolicyPurgeFixture(newerAdmins = false) {
       }),
     ),
   );
-  const history = await documentHistory(policies, containers);
+  const history = await documentHistory(policies, containers, organizationId);
   const home = containers[0];
   const documentHead = history.at(-1);
   if (!home || !documentHead) throw new Error("Missing purge fixture head");
@@ -186,7 +190,7 @@ export async function createHistoricalPolicyPurgeFixture(newerAdmins = false) {
     : initialAdmins;
   const evidence = await createProjectionPolicyEvidence({
     author: {
-      organizationId: "organization-1",
+      organizationId,
       signerUserId: policies.signerUserId,
       signerDeviceId: "device-1",
       signerKeyFingerprint: await toFingerprint(
@@ -212,6 +216,8 @@ export async function createHistoricalPolicyPurgeFixture(newerAdmins = false) {
   };
   return {
     proof,
+    bundles: evidence.bundles,
+    signingPrivateKey: policies.signingKeyPair.signingPrivateKey,
     resolveUserKey: policies.resolveUserKey,
     warmer: (execSql: ExecSql) =>
       projectionPolicyWarmer({

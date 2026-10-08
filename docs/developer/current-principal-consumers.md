@@ -82,7 +82,10 @@ checking their currency. Baseline verification and page recovery do not advance
 pins. The final purge commit admits the authenticated observations atomically
 with document teardown, rechecks forks and local currency, and keeps its private
 lease guard active through the outer SQLite commit. Unavailable proof connections
-to newer durable pins defer deletion. The 64/128-version HTTP fixtures enforce
+to newer durable pins trigger bounded private ancestry recovery: reuse authenticated
+local history first, then use the ordinary authorized page endpoint when needed.
+This cannot extend a terminal grant or admit the recovered newer heads. If neither
+source is available, deletion is deferred. The 64/128-version HTTP fixtures enforce
 responses below 90 KB, with no inline policy chains and no Full-history reads;
 response size can still grow with distinct cited groups and container or
 document evidence. Standalone purge/sync hosts must provide the private paged

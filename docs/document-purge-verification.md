@@ -30,11 +30,18 @@ that comparison until every purge artifact has authenticated. Baseline recovery
 never advances trust. The complete terminal commit can admit its exact bound
 sources; a newer cached prefix can prove ancestry but cannot make the purge pin
 that newer head. Existing newer pins are preserved only with a verified
-connection. Without that connection, deletion remains pending.
+connection. When a local pin is newer, the SDK requests a bounded ancestry
+connection through `resolveReference` with `preferLocalHistory: true`. It first
+uses privately authenticated local history, including after current membership
+is revoked. If that evidence was lost, the ordinary authorized page endpoint
+can rebuild it. These connections never extend terminal grants or advance pins.
+Without an available verified connection, deletion remains pending.
 
 Nested purge commits register their identity/database lifetime with the outer
 SQLite transaction. The guard runs synchronously at COMMIT dispatch, including
 when the outer transaction performs local teardown after proof verification.
 Guard failure rolls back both trust records and document deletion and preserves
-the cancellation error identity. Full snapshot helpers remain test utilities;
+the cancellation error identity. Rolling back a nested savepoint also releases
+its own guards while preserving the enclosing guards. Full snapshot helpers
+remain test utilities;
 production purge authorization and responses use bounded principal selections.

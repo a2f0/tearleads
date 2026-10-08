@@ -9,7 +9,11 @@ import {
   accessManifestObjectKey,
   loadAccessManifestCheckpoint,
 } from "../persistence/keyingCheckpointPersistence";
-import { PrincipalAuthorizationCheckpointUnavailableError } from "../persistence/principalAuthorizationCheckpoints";
+import {
+  PrincipalAuthorizationCheckpointUnavailableError,
+  validatePrincipalAuthorizationCheckpoints,
+} from "../persistence/principalAuthorizationCheckpoints";
+import { ensurePrincipalPolicyTables } from "../persistence/principalPolicyPersistence";
 import { registerClientSQLiteCommitGuard } from "../sqlite/sqliteCommitGuards";
 import { getClientSQLitePersistenceRuntime } from "../sqlite/sqlitePersistenceRuntime";
 import { type ExecSql, runSerializedSqlMutation } from "../sqlite/sqlSchema";
@@ -20,6 +24,7 @@ import {
 } from "./checkpointContext";
 import { ProjectionDependencyUnavailableError } from "./dependencyUnavailable";
 import { admitDocumentPurgePolicyCheckpoints } from "./documentPurgePolicyCheckpoints";
+import type { PurgePolicyCurrencyEvidence } from "./documentPurgePolicyCurrency";
 import { projectionLifetimeGuard } from "./projectionLifetimes";
 import { assertProjectionVerificationCurrent } from "./types";
 
@@ -27,6 +32,7 @@ interface PurgeCheckpointInput {
   readonly context: ProjectionCheckpointContext;
   readonly execSql: ExecSql;
   readonly principalPolicies: readonly VerifiedPrincipalPolicySelection[];
+  readonly currencyPolicies: readonly PurgePolicyCurrencyEvidence[];
   readonly observedPrincipalHeads: readonly ReferencedPrincipalHead[];
 }
 
@@ -88,10 +94,16 @@ async function checkPurgeCheckpointCurrency(
         await validateAccessManifestCheckpoints({
           execSql,
           policies: [],
-          authorizationPolicies: input.principalPolicies,
           verifiedHeads: current,
           verifiedManifests: input.context.verifiedManifests,
         });
+        if (input.currencyPolicies.length) {
+          await ensurePrincipalPolicyTables(execSql);
+          await validatePrincipalAuthorizationCheckpoints(
+            transaction,
+            input.currencyPolicies,
+          );
+        }
         if (superseded) {
           throw new ProjectionDependencyUnavailableError(
             "Document purge cannot be ordered against a newer container checkpoint",
@@ -111,7 +123,9 @@ async function checkPurgeCheckpointCurrency(
             {
               ...input.context,
               policies: [],
-              authorizationPolicies: [...input.principalPolicies],
+              // Currency was rechecked above in this same transaction. Private
+              // ancestry bridges must never become newly admitted purge heads.
+              authorizationPolicies: [],
             },
             {
               documentPurgeCheckpoint,

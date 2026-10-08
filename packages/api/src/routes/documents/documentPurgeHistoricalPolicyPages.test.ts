@@ -2,10 +2,7 @@ import { expect, test } from "bun:test";
 import { createTestUser, type TestUser } from "@tearleads/bob-and-alice";
 import type { VerifiedContainerKekState } from "@tearleads/crypto";
 import type { AccessManifestBundleWire } from "@tearleads/validators/request";
-import {
-  isContainerMutationResponse,
-  isDocumentPurgeProofResponse,
-} from "@tearleads/validators/response";
+import { isContainerMutationResponse } from "@tearleads/validators/response";
 import { authenticate } from "../../../test/helpers/authenticate";
 import { buildContainerGrantRequest } from "../../../test/helpers/containerGrantMutation";
 import { buildRevokeRequest } from "../../../test/helpers/containerMutationRotations";
@@ -172,15 +169,13 @@ test("purge proof remains available to a later-revoked replica", async () => {
   );
   expect(proofResponse.status).toBe(200);
   const proof = await assertPurgePolicyPages(proofResponse, replicaOwner);
-  if (isDocumentPurgeProofResponse(proof)) {
-    expect(
-      proof.documentContainerManifestHistory.some(
-        (bundle) =>
-          bundle.manifestHash ===
-          accessManifestFromContainerResponse(revoked).manifestHash,
-      ),
-    ).toBe(false);
-  }
+  expect(
+    proof.documentContainerManifestHistory.some(
+      (bundle) =>
+        bundle.manifestHash ===
+        accessManifestFromContainerResponse(revoked).manifestHash,
+    ),
+  ).toBe(false);
 });
 
 // Real identity registration, group rotations, and cold proof verification
