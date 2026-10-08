@@ -136,6 +136,8 @@ without re-triage.
   reaches it through micromatch/fast-glob. Patterns come from repository-owned
   configuration and CLI arguments, not application requests or uploaded data.
   Accept the unresolved tooling finding with that trusted-pattern boundary;
+  re-triage immediately if micromatch/fast-glob enters runtime code or accepts
+  untrusted patterns, including application requests or uploaded data;
   update promptly when an owning dependency resolves a fixed release.
 - **`esbuild@0.18.20`, moderate,
   [GHSA-67mh-4wv8-2f99](https://github.com/advisories/GHSA-67mh-4wv8-2f99).**

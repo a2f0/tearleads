@@ -52,6 +52,7 @@ test("both private clients deny Sentry's expanded collection defaults", async ()
         frameContextLines: 0,
       });
       expect(client.getOptions().integrations).toEqual([]);
+      expect(client.getIntegrationByName("SpanStreaming")).toBeUndefined();
       expect(client.getOptions().sendClientReports).toBe(false);
       expect(client.getOptions().traceLifecycle).toBe("static");
       expect(client.getOptions().tracesSampleRate).toBe(0);
