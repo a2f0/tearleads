@@ -38,7 +38,7 @@ test.each([
   { status: 401, code: undefined, retires: true },
   { status: 402, code: undefined, retires: true },
   { status: 403, code: undefined, retires: true },
-  { status: 404, code: undefined, retires: true },
+  { status: 404, code: undefined, retires: false },
   { status: 409, code: undefined, retires: true },
   { status: 413, code: undefined, retires: false },
   { status: 422, code: undefined, retires: false },

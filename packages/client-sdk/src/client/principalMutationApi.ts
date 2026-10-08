@@ -1,4 +1,4 @@
-import type { ApiClient, RequestResultOptions } from "@tearleads/api-client";
+import type { ApiClient } from "@tearleads/api-client";
 import type { SigningKeyPair } from "@tearleads/crypto";
 import type { ExecSql } from "../data/sqlite/sqlSchema";
 import {
@@ -11,6 +11,7 @@ import {
   recoverJournaledPrincipalMutation,
   submitJournaledPrincipalMutation,
 } from "../workflows/organizations/principalMutationJournalSession";
+import { createPrincipalMutationDispatcher } from "./principalMutationDeadline";
 
 export interface PrincipalMutationRuntimeScope {
   readonly database: object;
@@ -48,16 +49,7 @@ type MutationOverrides = Pick<
 interface PrincipalMutationApiCustodyInput {
   readonly api: ApiClient;
   readonly readScope: () => PrincipalMutationRuntimeScope | null;
-}
-
-function mutationDispatchOptions(options: RequestResultOptions = {}) {
-  const deadline = AbortSignal.timeout(15_000);
-  return {
-    ...options,
-    signal: options.signal
-      ? AbortSignal.any([options.signal, deadline])
-      : deadline,
-  };
+  readonly principalMutationTimeoutMs?: number | undefined;
 }
 
 function mutationContext(
@@ -86,6 +78,9 @@ function mutationContext(
 export function createPrincipalMutationApiCustody(
   input: PrincipalMutationApiCustodyInput,
 ) {
+  const dispatch = createPrincipalMutationDispatcher(
+    input.principalMutationTimeoutMs,
+  );
   let cached: {
     scope: PrincipalMutationRuntimeScope | null;
     api: PrincipalMutationApi;
@@ -106,11 +101,13 @@ export function createPrincipalMutationApiCustody(
           ...context(organizationId),
           mutation: { groupId, request },
           submit: (mutation) =>
-            input.api.commitOrganizationGroupPolicyResult(
-              organizationId,
-              mutation.groupId,
-              mutation.request,
-              mutationDispatchOptions(options),
+            dispatch(options, (dispatchOptions) =>
+              input.api.commitOrganizationGroupPolicyResult(
+                organizationId,
+                mutation.groupId,
+                mutation.request,
+                dispatchOptions,
+              ),
             ),
         });
       const read: PrincipalMutationRecoveryApi["readPendingPrincipalMutation"] =
@@ -147,11 +144,13 @@ export function createPrincipalMutationApiCustody(
           await recoverJournaledPrincipalMutation({
             ...context(organizationId),
             submit: (mutation) =>
-              input.api.commitOrganizationGroupPolicyResult(
-                organizationId,
-                mutation.groupId,
-                mutation.request,
-                mutationDispatchOptions({ reportErrors: false }),
+              dispatch({ reportErrors: false }, (dispatchOptions) =>
+                input.api.commitOrganizationGroupPolicyResult(
+                  organizationId,
+                  mutation.groupId,
+                  mutation.request,
+                  dispatchOptions,
+                ),
               ),
           });
         },

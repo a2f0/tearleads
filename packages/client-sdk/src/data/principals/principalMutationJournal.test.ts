@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+import { generateSigningSeedAndKeyPair } from "@tearleads/crypto";
 import { principalMutationJournalFixture as fixture } from "../../../test/helpers/principalMutationJournalFixture";
 import {
   openPrincipalMutation,
@@ -77,3 +78,17 @@ test.each([
     ).rejects.toThrow("Saved principal mutation could not be authenticated");
   },
 );
+
+test("journal sealing rejects a mismatched signing key pair before persistence", async () => {
+  const input = await fixture();
+  const other = generateSigningSeedAndKeyPair();
+  const signingKeyPair = {
+    ...input.signingKeyPair,
+    signingPrivateKey: other.signingPrivateKey,
+  };
+  const original = new Uint8Array(signingKeyPair.signingPrivateKey);
+  await expect(
+    sealPrincipalMutation({ ...input, signingKeyPair }),
+  ).rejects.toThrow("signing key pair differs");
+  expect(signingKeyPair.signingPrivateKey).toEqual(original);
+});
