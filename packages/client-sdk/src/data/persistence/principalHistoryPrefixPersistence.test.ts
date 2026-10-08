@@ -21,6 +21,24 @@ function prefix(version: number): PrincipalHistoryPrefix {
   };
 }
 
+test("discarding a missing prefix initializes its tables on a fresh database", async () => {
+  const sqlite = await createTestExecSql("principal-prefix-cold-discard");
+  try {
+    await discardPrincipalHistoryPrefix({
+      execSql: sqlite.execSql,
+      prefix: prefix(1),
+      stillCurrent: () => true,
+    });
+    const { db } = getClientSQLitePersistenceRuntime(sqlite.execSql);
+    expect(await db.select().from(principalHistoryRootOwners)).toEqual([]);
+    expect(
+      await loadPrincipalHistoryPrefix(sqlite.execSql, "test-scope"),
+    ).toBeNull();
+  } finally {
+    sqlite.close();
+  }
+});
+
 test("obsolete prefix schemas require the repository's explicit database reset", async () => {
   const sqlite = await createTestExecSql("obsolete-principal-prefix");
   try {

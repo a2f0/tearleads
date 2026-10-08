@@ -18,6 +18,15 @@ historical reference proofs and old key envelopes remain available. Organization
 reset removes the envelope archive and eviction hints along with its other cache
 material, preserving durable trust pins.
 
+Keeping the newest envelope set for a principal key relies on the existing
+protocol: removing or demoting a member requires new principal key material,
+and a remaining user's signing and encapsulation keys cannot change within its
+[identity trust domain](trusted-user-identity.md). Valid same-key updates retain
+the existing members and their recipient identities. Missing member envelopes
+fail projection verification. A future user-key rotation protocol would need
+to revisit this retention rule. Matching fingerprints alone do not authenticate
+arbitrary archived candidates or guarantee availability after local corruption.
+
 Each accepted page also reclaims abandoned incomplete progress in its own scope.
 It keeps the current writer and the seven most recently touched other incomplete
 stages; a completed writer may keep eight incomplete stages. A pass removes at
@@ -55,9 +64,10 @@ owners cannot be reconstructed from unauthenticated metadata alone.
 Accepted pages record their computed proof root and each new node's outgoing
 edges. Saved stages and prefixes own roots; replacing or removing their exact
 progress releases that ownership in the same guarded transaction. Shared child
-nodes remain live until all incoming references disappear. A publication reclaims
-at most 64 newly indexed, unreferenced nodes, including children made unreachable
-by the bounded cascade. An existing backlog converges over later writes. The
+nodes remain live until all incoming references disappear. Each accepted page,
+prefix save and atomic acknowledgement reclaims at most 64 newly indexed,
+unreferenced nodes, including children made unreachable by the bounded cascade.
+An existing backlog converges over later writes. The
 scope, organization, managed-node flag and zero-reference index bound candidate
 selection. This removes obsolete intermediate roots without deleting signed
 history entries or key candidates.
@@ -91,5 +101,5 @@ Retained key epochs, signed entries, leaf-reference hints and the shared nodes
 needed to prove them still grow with history. In real HTTP tests, 128 successive
 private heads retain 133 proof nodes for the current head and predecessor; public
 recovery retains 127 nodes for its single published root. Both paths retained
-448 nodes with
-reclamation disabled. Every historical version remains provable offline.
+448 nodes with reclamation disabled. Every historical version remains provable
+offline.

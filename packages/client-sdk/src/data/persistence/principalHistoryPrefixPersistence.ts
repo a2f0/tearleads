@@ -96,6 +96,7 @@ export async function discardPrincipalHistoryPrefix(input: {
   readonly stillCurrent: () => boolean;
 }): Promise<void> {
   const prefix = { ...input.prefix };
+  await ensureSqlTables(input.execSql, principalHistoryEvidenceTables);
   const runtime = getClientSQLitePersistenceRuntime(input.execSql);
   const result = await runtime.guardedTransaction(
     async (tx) => {
