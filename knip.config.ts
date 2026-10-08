@@ -72,6 +72,7 @@ const baseConfig = {
         "scripts/buildApp.ts",
         "src/index.tsx",
         "src/servers/devServer.ts",
+        // Knip 6.40 finds e2eServer.ts through Playwright's webServer.command.
         "e2e/**/*.spec.ts",
         // Bundled by the diagnostics browser test through a runtime path.
         "e2e/fixtures/diagnostics.ts",
