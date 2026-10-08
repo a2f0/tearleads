@@ -58,7 +58,7 @@ function assertUnambiguousBundleChain(
     if (
       !Number.isInteger(state.version) ||
       state.version !== index + 1 ||
-      !Number.isInteger(state.keyEpoch) ||
+      !Number.isSafeInteger(state.keyEpoch) ||
       state.keyEpoch < 1 ||
       state.principalId.length === 0 ||
       state.stateHash.length === 0 ||
@@ -226,7 +226,7 @@ function assertReferenceShape(reference: ReferencedPrincipalHead): void {
   if (
     !Number.isInteger(reference.version) ||
     reference.version < 1 ||
-    !Number.isInteger(reference.keyEpoch) ||
+    !Number.isSafeInteger(reference.keyEpoch) ||
     reference.keyEpoch < 1 ||
     reference.principalId.length === 0 ||
     reference.stateHash.length === 0 ||

@@ -1,0 +1,195 @@
+# #2449: principal key epochs are positive safe integers in the greenfield contract.
+# Remove this exact diagnostic once main contains the epoch contract.
+POST /auth/register the `initialAdminGroup/initialGroupPolicy/state/externalAuthority/anyOf[subschema #1]/keyEpoch` request property's max was decreased to `9007199254740991.00`
+
+# #2449: principal key epochs are positive safe integers in the greenfield contract.
+# Remove this exact diagnostic once main contains the epoch contract.
+POST /auth/register the `initialAdminGroup/initialGroupPolicy/state/keyEpoch` request property's max was decreased to `9007199254740991.00`
+
+# #2449: principal key epochs are positive safe integers in the greenfield contract.
+# Remove this exact diagnostic once main contains the epoch contract.
+POST /auth/register the `initialMemberGroup/initialGroupPolicy/state/externalAuthority/anyOf[subschema #1]/keyEpoch` request property's max was decreased to `9007199254740991.00`
+
+# #2449: principal key epochs are positive safe integers in the greenfield contract.
+# Remove this exact diagnostic once main contains the epoch contract.
+POST /auth/register the `initialMemberGroup/initialGroupPolicy/state/keyEpoch` request property's max was decreased to `9007199254740991.00`
+
+# #2449: principal key epochs are positive safe integers in the greenfield contract.
+# Remove this exact diagnostic once main contains the epoch contract.
+POST /auth/register the `initialOrganizationPolicy/state/externalAuthority/anyOf[subschema #1]/keyEpoch` request property's max was decreased to `9007199254740991.00`
+
+# #2449: principal key epochs are positive safe integers in the greenfield contract.
+# Remove this exact diagnostic once main contains the epoch contract.
+POST /auth/register the `initialOrganizationPolicy/state/keyEpoch` request property's max was decreased to `9007199254740991.00`
+
+# #2449: principal key epochs are positive safe integers in the greenfield contract.
+# Remove this exact diagnostic once main contains the epoch contract.
+POST /auth/register the `initialAdminGroup/initialGroupPolicy/state/keyEpoch` request property's min was increased to `1.00`
+
+# #2449: principal key epochs are positive safe integers in the greenfield contract.
+# Remove this exact diagnostic once main contains the epoch contract.
+POST /auth/register the `initialMemberGroup/initialGroupPolicy/state/keyEpoch` request property's min was increased to `1.00`
+
+# #2449: principal key epochs are positive safe integers in the greenfield contract.
+# Remove this exact diagnostic once main contains the epoch contract.
+POST /auth/register the `initialOrganizationPolicy/state/keyEpoch` request property's min was increased to `1.00`
+
+# #2449: principal key epochs are positive safe integers in the greenfield contract.
+# Remove this exact diagnostic once main contains the epoch contract.
+POST /auth/register the `initialAdminGroup/initialGroupPolicy/state/keyEpoch` request property `type` changed from `number` to `integer`
+
+# #2449: principal key epochs are positive safe integers in the greenfield contract.
+# Remove this exact diagnostic once main contains the epoch contract.
+POST /auth/register the `initialMemberGroup/initialGroupPolicy/state/keyEpoch` request property `type` changed from `number` to `integer`
+
+# #2449: principal key epochs are positive safe integers in the greenfield contract.
+# Remove this exact diagnostic once main contains the epoch contract.
+POST /auth/register the `initialOrganizationPolicy/state/keyEpoch` request property `type` changed from `number` to `integer`
+
+# #2449: principal key epochs are positive safe integers in the greenfield contract.
+# Remove this exact diagnostic once main contains the epoch contract.
+POST /organizations the `initialAdminGroup/initialGroupPolicy/state/externalAuthority/anyOf[subschema #1]/keyEpoch` request property's max was decreased to `9007199254740991.00`
+
+# #2449: principal key epochs are positive safe integers in the greenfield contract.
+# Remove this exact diagnostic once main contains the epoch contract.
+POST /organizations the `initialAdminGroup/initialGroupPolicy/state/keyEpoch` request property's max was decreased to `9007199254740991.00`
+
+# #2449: principal key epochs are positive safe integers in the greenfield contract.
+# Remove this exact diagnostic once main contains the epoch contract.
+POST /organizations the `initialMemberGroup/initialGroupPolicy/state/externalAuthority/anyOf[subschema #1]/keyEpoch` request property's max was decreased to `9007199254740991.00`
+
+# #2449: principal key epochs are positive safe integers in the greenfield contract.
+# Remove this exact diagnostic once main contains the epoch contract.
+POST /organizations the `initialMemberGroup/initialGroupPolicy/state/keyEpoch` request property's max was decreased to `9007199254740991.00`
+
+# #2449: principal key epochs are positive safe integers in the greenfield contract.
+# Remove this exact diagnostic once main contains the epoch contract.
+POST /organizations the `initialOrganizationPolicy/state/externalAuthority/anyOf[subschema #1]/keyEpoch` request property's max was decreased to `9007199254740991.00`
+
+# #2449: principal key epochs are positive safe integers in the greenfield contract.
+# Remove this exact diagnostic once main contains the epoch contract.
+POST /organizations the `initialOrganizationPolicy/state/keyEpoch` request property's max was decreased to `9007199254740991.00`
+
+# #2449: principal key epochs are positive safe integers in the greenfield contract.
+# Remove this exact diagnostic once main contains the epoch contract.
+POST /organizations the `initialAdminGroup/initialGroupPolicy/state/keyEpoch` request property's min was increased to `1.00`
+
+# #2449: principal key epochs are positive safe integers in the greenfield contract.
+# Remove this exact diagnostic once main contains the epoch contract.
+POST /organizations the `initialMemberGroup/initialGroupPolicy/state/keyEpoch` request property's min was increased to `1.00`
+
+# #2449: principal key epochs are positive safe integers in the greenfield contract.
+# Remove this exact diagnostic once main contains the epoch contract.
+POST /organizations the `initialOrganizationPolicy/state/keyEpoch` request property's min was increased to `1.00`
+
+# #2449: principal key epochs are positive safe integers in the greenfield contract.
+# Remove this exact diagnostic once main contains the epoch contract.
+POST /organizations the `initialAdminGroup/initialGroupPolicy/state/keyEpoch` request property `type` changed from `number` to `integer`
+
+# #2449: principal key epochs are positive safe integers in the greenfield contract.
+# Remove this exact diagnostic once main contains the epoch contract.
+POST /organizations the `initialMemberGroup/initialGroupPolicy/state/keyEpoch` request property `type` changed from `number` to `integer`
+
+# #2449: principal key epochs are positive safe integers in the greenfield contract.
+# Remove this exact diagnostic once main contains the epoch contract.
+POST /organizations the `initialOrganizationPolicy/state/keyEpoch` request property `type` changed from `number` to `integer`
+
+# #2449: principal key epochs are positive safe integers in the greenfield contract.
+# Remove this exact diagnostic once main contains the epoch contract.
+POST /organizations/{organizationId}/groups the `initialGroupPolicy/state/externalAuthority/anyOf[subschema #1]/keyEpoch` request property's max was decreased to `9007199254740991.00`
+
+# #2449: principal key epochs are positive safe integers in the greenfield contract.
+# Remove this exact diagnostic once main contains the epoch contract.
+POST /organizations/{organizationId}/groups the `initialGroupPolicy/state/keyEpoch` request property's max was decreased to `9007199254740991.00`
+
+# #2449: principal key epochs are positive safe integers in the greenfield contract.
+# Remove this exact diagnostic once main contains the epoch contract.
+POST /organizations/{organizationId}/groups the `organizationPolicy/state/externalAuthority/anyOf[subschema #1]/keyEpoch` request property's max was decreased to `9007199254740991.00`
+
+# #2449: principal key epochs are positive safe integers in the greenfield contract.
+# Remove this exact diagnostic once main contains the epoch contract.
+POST /organizations/{organizationId}/groups the `organizationPolicy/state/keyEpoch` request property's max was decreased to `9007199254740991.00`
+
+# #2449: principal key epochs are positive safe integers in the greenfield contract.
+# Remove this exact diagnostic once main contains the epoch contract.
+POST /organizations/{organizationId}/groups the `initialGroupPolicy/state/keyEpoch` request property's min was increased to `1.00`
+
+# #2449: principal key epochs are positive safe integers in the greenfield contract.
+# Remove this exact diagnostic once main contains the epoch contract.
+POST /organizations/{organizationId}/groups the `organizationPolicy/state/keyEpoch` request property's min was increased to `1.00`
+
+# #2449: principal key epochs are positive safe integers in the greenfield contract.
+# Remove this exact diagnostic once main contains the epoch contract.
+POST /organizations/{organizationId}/groups the `initialGroupPolicy/state/keyEpoch` request property `type` changed from `number` to `integer`
+
+# #2449: principal key epochs are positive safe integers in the greenfield contract.
+# Remove this exact diagnostic once main contains the epoch contract.
+POST /organizations/{organizationId}/groups the `organizationPolicy/state/keyEpoch` request property `type` changed from `number` to `integer`
+
+# #2449: principal key epochs are positive safe integers in the greenfield contract.
+# Remove this exact diagnostic once main contains the epoch contract.
+DELETE /organizations/{organizationId}/groups/{groupId} the `organizationPolicy/state/externalAuthority/anyOf[subschema #1]/keyEpoch` request property's max was decreased to `9007199254740991.00`
+
+# #2449: principal key epochs are positive safe integers in the greenfield contract.
+# Remove this exact diagnostic once main contains the epoch contract.
+DELETE /organizations/{organizationId}/groups/{groupId} the `organizationPolicy/state/keyEpoch` request property's max was decreased to `9007199254740991.00`
+
+# #2449: principal key epochs are positive safe integers in the greenfield contract.
+# Remove this exact diagnostic once main contains the epoch contract.
+DELETE /organizations/{organizationId}/groups/{groupId} the `organizationPolicy/state/keyEpoch` request property's min was increased to `1.00`
+
+# #2449: principal key epochs are positive safe integers in the greenfield contract.
+# Remove this exact diagnostic once main contains the epoch contract.
+DELETE /organizations/{organizationId}/groups/{groupId} the `organizationPolicy/state/keyEpoch` request property `type` changed from `number` to `integer`
+
+# #2449: principal key epochs are positive safe integers in the greenfield contract.
+# Remove this exact diagnostic once main contains the epoch contract.
+PUT /organizations/{organizationId}/groups/{groupId}/policy-commit the `groupPolicy/state/externalAuthority/anyOf[subschema #1]/keyEpoch` request property's max was decreased to `9007199254740991.00`
+
+# #2449: principal key epochs are positive safe integers in the greenfield contract.
+# Remove this exact diagnostic once main contains the epoch contract.
+PUT /organizations/{organizationId}/groups/{groupId}/policy-commit the `groupPolicy/state/keyEpoch` request property's max was decreased to `9007199254740991.00`
+
+# #2449: principal key epochs are positive safe integers in the greenfield contract.
+# Remove this exact diagnostic once main contains the epoch contract.
+PUT /organizations/{organizationId}/groups/{groupId}/policy-commit the `organizationPolicy/state/externalAuthority/anyOf[subschema #1]/keyEpoch` request property's max was decreased to `9007199254740991.00`
+
+# #2449: principal key epochs are positive safe integers in the greenfield contract.
+# Remove this exact diagnostic once main contains the epoch contract.
+PUT /organizations/{organizationId}/groups/{groupId}/policy-commit the `organizationPolicy/state/keyEpoch` request property's max was decreased to `9007199254740991.00`
+
+# #2449: principal key epochs are positive safe integers in the greenfield contract.
+# Remove this exact diagnostic once main contains the epoch contract.
+PUT /organizations/{organizationId}/groups/{groupId}/policy-commit the `groupPolicy/state/keyEpoch` request property's min was increased to `1.00`
+
+# #2449: principal key epochs are positive safe integers in the greenfield contract.
+# Remove this exact diagnostic once main contains the epoch contract.
+PUT /organizations/{organizationId}/groups/{groupId}/policy-commit the `organizationPolicy/state/keyEpoch` request property's min was increased to `1.00`
+
+# #2449: principal key epochs are positive safe integers in the greenfield contract.
+# Remove this exact diagnostic once main contains the epoch contract.
+PUT /organizations/{organizationId}/groups/{groupId}/policy-commit the `groupPolicy/state/keyEpoch` request property `type` changed from `number` to `integer`
+
+# #2449: principal key epochs are positive safe integers in the greenfield contract.
+# Remove this exact diagnostic once main contains the epoch contract.
+PUT /organizations/{organizationId}/groups/{groupId}/policy-commit the `organizationPolicy/state/keyEpoch` request property `type` changed from `number` to `integer`
+
+# #2449: principal key epochs are positive safe integers in the greenfield contract.
+# Remove this exact diagnostic once main contains the epoch contract.
+GET /organizations/{organizationId}/read-model added `subschema #1, subschema #2` to the response body `oneOf` list for the response status `200`
+
+# #2449: principal key epochs are positive safe integers in the greenfield contract.
+# Remove this exact diagnostic once main contains the epoch contract.
+PUT /principals/{principalType}/{principalId}/policy the `state/externalAuthority/anyOf[subschema #1]/keyEpoch` request property's max was decreased to `9007199254740991.00`
+
+# #2449: principal key epochs are positive safe integers in the greenfield contract.
+# Remove this exact diagnostic once main contains the epoch contract.
+PUT /principals/{principalType}/{principalId}/policy the `state/keyEpoch` request property's max was decreased to `9007199254740991.00`
+
+# #2449: principal key epochs are positive safe integers in the greenfield contract.
+# Remove this exact diagnostic once main contains the epoch contract.
+PUT /principals/{principalType}/{principalId}/policy the `state/keyEpoch` request property's min was increased to `1.00`
+
+# #2449: principal key epochs are positive safe integers in the greenfield contract.
+# Remove this exact diagnostic once main contains the epoch contract.
+PUT /principals/{principalType}/{principalId}/policy the `state/keyEpoch` request property `type` changed from `number` to `integer`

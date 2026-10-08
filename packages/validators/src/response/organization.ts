@@ -6,6 +6,7 @@ import {
   nonEmptyStringSchema,
   nonNegativeIntegerSchema,
   positiveIntegerSchema,
+  safePositiveIntegerSchema,
 } from "../schema";
 import { PrincipalPolicyMutationResponseSchema } from "./principal";
 
@@ -86,7 +87,7 @@ export type OrganizationProfileResponse = z.infer<
 >;
 
 export const OrganizationGroupCurrentStateResponseShape = {
-  keyEpoch: positiveIntegerSchema,
+  keyEpoch: safePositiveIntegerSchema,
   keyFingerprint: nonEmptyStringSchema,
   memberCount: nonNegativeIntegerSchema,
   stateHash: z.string(),

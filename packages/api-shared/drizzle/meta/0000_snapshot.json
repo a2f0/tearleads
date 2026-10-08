@@ -1,5 +1,5 @@
 {
-  "id": "0ab51491-faac-48b2-babe-9e4b3880578d",
+  "id": "0360655f-eedc-4ab6-be2d-92782c60e436",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -787,7 +787,7 @@
         },
         "key_epoch": {
           "name": "key_epoch",
-          "type": "integer",
+          "type": "bigint",
           "primaryKey": false,
           "notNull": true
         },
@@ -881,6 +881,10 @@
       "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {
+        "access_manifest_principal_head_projection_key_epoch_range": {
+          "name": "access_manifest_principal_head_projection_key_epoch_range",
+          "value": "\"access_manifest_principal_head_projection\".\"key_epoch\" >= 1 AND \"access_manifest_principal_head_projection\".\"key_epoch\" <= 9007199254740991 AND \"access_manifest_principal_head_projection\".\"key_epoch\" = CAST(\"access_manifest_principal_head_projection\".\"key_epoch\" AS BIGINT)"
+        },
         "access_manifest_principal_head_projection_version_range": {
           "name": "access_manifest_principal_head_projection_version_range",
           "value": "\"access_manifest_principal_head_projection\".\"version\" >= 1 AND \"access_manifest_principal_head_projection\".\"version\" <= 9007199254740991"
@@ -6388,7 +6392,7 @@
         },
         "epoch": {
           "name": "epoch",
-          "type": "integer",
+          "type": "bigint",
           "primaryKey": false,
           "notNull": true
         },
@@ -6472,7 +6476,12 @@
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},
-      "checkConstraints": {},
+      "checkConstraints": {
+        "principal_epoch_keys_epoch_range": {
+          "name": "principal_epoch_keys_epoch_range",
+          "value": "\"principal_epoch_keys\".\"epoch\" >= 1 AND \"principal_epoch_keys\".\"epoch\" <= 9007199254740991 AND \"principal_epoch_keys\".\"epoch\" = CAST(\"principal_epoch_keys\".\"epoch\" AS BIGINT)"
+        }
+      },
       "isRLSEnabled": false
     },
     "public.principal_history_index_nodes": {
@@ -6561,7 +6570,7 @@
         },
         "key_epoch": {
           "name": "key_epoch",
-          "type": "integer",
+          "type": "bigint",
           "primaryKey": false,
           "notNull": true
         },
@@ -6637,6 +6646,10 @@
       "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {
+        "principal_history_progress_key_epoch_range": {
+          "name": "principal_history_progress_key_epoch_range",
+          "value": "\"principal_history_progress\".\"key_epoch\" >= 1 AND \"principal_history_progress\".\"key_epoch\" <= 9007199254740991 AND \"principal_history_progress\".\"key_epoch\" = CAST(\"principal_history_progress\".\"key_epoch\" AS BIGINT)"
+        },
         "principal_history_progress_version_range": {
           "name": "principal_history_progress_version_range",
           "value": "\"principal_history_progress\".\"version\" >= 1 AND \"principal_history_progress\".\"version\" <= 9007199254740991"
@@ -6679,7 +6692,7 @@
         },
         "epoch": {
           "name": "epoch",
-          "type": "integer",
+          "type": "bigint",
           "primaryKey": false,
           "notNull": true
         },
@@ -6775,7 +6788,12 @@
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},
-      "checkConstraints": {},
+      "checkConstraints": {
+        "principal_member_envelopes_epoch_range": {
+          "name": "principal_member_envelopes_epoch_range",
+          "value": "\"principal_member_envelopes\".\"epoch\" >= 1 AND \"principal_member_envelopes\".\"epoch\" <= 9007199254740991 AND \"principal_member_envelopes\".\"epoch\" = CAST(\"principal_member_envelopes\".\"epoch\" AS BIGINT)"
+        }
+      },
       "isRLSEnabled": false
     },
     "public.principal_membership_projection": {
@@ -7337,7 +7355,7 @@
         },
         "key_epoch": {
           "name": "key_epoch",
-          "type": "integer",
+          "type": "bigint",
           "primaryKey": false,
           "notNull": true
         },
@@ -7527,6 +7545,10 @@
       "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {
+        "principal_states_key_epoch_range": {
+          "name": "principal_states_key_epoch_range",
+          "value": "\"principal_states\".\"key_epoch\" >= 1 AND \"principal_states\".\"key_epoch\" <= 9007199254740991 AND \"principal_states\".\"key_epoch\" = CAST(\"principal_states\".\"key_epoch\" AS BIGINT)"
+        },
         "principal_states_version_range": {
           "name": "principal_states_version_range",
           "value": "\"principal_states\".\"version\" >= 1 AND \"principal_states\".\"version\" <= 9007199254740991"

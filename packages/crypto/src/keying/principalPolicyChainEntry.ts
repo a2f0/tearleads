@@ -93,6 +93,13 @@ export function verifyInitialPrincipalPolicyChainEntry(input: {
 }): void {
   const { normalizedEntry } = input;
 
+  if (normalizedEntry.state.keyEpoch !== 1) {
+    throwVerification(
+      "key_epoch_reuse",
+      "initial principal policy key epoch must be 1",
+    );
+  }
+
   if (normalizedEntry.state.prevStateHash !== null) {
     throwVerification(
       "stale_predecessor",

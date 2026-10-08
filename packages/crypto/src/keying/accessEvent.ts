@@ -272,6 +272,7 @@ export async function verifySignedAccessEvent({
 export function normalizeReferencedPrincipalHead(
   value: unknown,
 ): ReferencedPrincipalHead {
+  const label = "referenced principal head";
   const record = assertExactKeys(
     value,
     [
@@ -282,37 +283,23 @@ export function normalizeReferencedPrincipalHead(
       "stateHash",
       "version",
     ],
-    "referenced principal head",
+    label,
   );
 
-  const version = readPositiveInteger(
-    record,
-    "version",
-    "referenced principal head",
-  );
-  if (!Number.isSafeInteger(version))
+  const version = readPositiveInteger(record, "version", label);
+  const keyEpoch = readPositiveInteger(record, "keyEpoch", label);
+  if (![version, keyEpoch].every(Number.isSafeInteger))
     throwVerification(
       "invalid_shape",
-      "referenced principal head version must be a safe integer",
+      "referenced principal head counters must be safe integers",
     );
   return {
-    principalType: normalizeManagedPrincipalKind(
-      record.principalType,
-      "referenced principal head",
-    ),
+    principalType: normalizeManagedPrincipalKind(record.principalType, label),
     principalId: readString(record, "principalId", "referenced principal head"),
     version,
-    keyEpoch: readPositiveInteger(
-      record,
-      "keyEpoch",
-      "referenced principal head",
-    ),
+    keyEpoch,
     stateHash: readHashString(record, "stateHash", "referenced principal head"),
-    keyFingerprint: readHashString(
-      record,
-      "keyFingerprint",
-      "referenced principal head",
-    ),
+    keyFingerprint: readHashString(record, "keyFingerprint", label),
   };
 }
 

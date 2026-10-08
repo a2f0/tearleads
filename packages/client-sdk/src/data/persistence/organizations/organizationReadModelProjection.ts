@@ -158,7 +158,7 @@ function toGroupCurrentState(
     row.stateHash.length === 0 ||
     !Number.isInteger(row.stateVersion) ||
     row.stateVersion <= 0 ||
-    !Number.isInteger(row.keyEpoch) ||
+    !Number.isSafeInteger(row.keyEpoch) ||
     row.keyEpoch <= 0 ||
     !Number.isInteger(row.memberCount) ||
     row.memberCount < 0 ||
@@ -191,7 +191,7 @@ function toPolicyHead(
     row.stateHash.length === 0 ||
     !Number.isInteger(row.stateVersion) ||
     row.stateVersion <= 0 ||
-    !Number.isInteger(row.keyEpoch) ||
+    !Number.isSafeInteger(row.keyEpoch) ||
     row.keyEpoch <= 0 ||
     row.keyFingerprint.length === 0 ||
     !Number.isInteger(row.memberCount) ||

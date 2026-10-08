@@ -43,6 +43,12 @@ following onto a database that predates it requires the greenfield reset above
 - #2448: durable `principal_policy_commits` receipts bind exact compound
   requests to their original results. Both generated baselines include the
   table; databases that predate it require the coordinated reset.
+- #2449: principal wrapping-key epochs use positive safe integers in signed
+  states, references, wire validation, SDK records and persistence. PostgreSQL
+  uses `bigint`; both regenerated baselines constrain all five epoch columns.
+  Genesis starts at epoch 1 and rotations advance exactly one epoch. Deploy
+  with fresh server and client databases and coordinated client releases;
+  existing signed jump histories are not upgraded or accepted.
 - #2442: principal-state versions and manifest principal-head projections use
   PostgreSQL `bigint` and exact positive JavaScript integer range constraints.
   Both generated schema baselines were replaced; existing databases require

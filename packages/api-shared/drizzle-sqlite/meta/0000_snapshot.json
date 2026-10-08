@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "0822bb10-f821-4309-a3ad-5220ecabd794",
+  "id": "de1ccbe6-f11f-452a-9057-4858a2cb4758",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
     "access_event_dependency_projection": {
@@ -585,6 +585,10 @@
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "checkConstraints": {
+        "access_manifest_principal_head_projection_key_epoch_range": {
+          "name": "access_manifest_principal_head_projection_key_epoch_range",
+          "value": "\"access_manifest_principal_head_projection\".\"key_epoch\" >= 1 AND \"access_manifest_principal_head_projection\".\"key_epoch\" <= 9007199254740991 AND \"access_manifest_principal_head_projection\".\"key_epoch\" = CAST(\"access_manifest_principal_head_projection\".\"key_epoch\" AS BIGINT)"
+        },
         "access_manifest_principal_head_projection_version_range": {
           "name": "access_manifest_principal_head_projection_version_range",
           "value": "\"access_manifest_principal_head_projection\".\"version\" >= 1 AND \"access_manifest_principal_head_projection\".\"version\" <= 9007199254740991"
@@ -4721,7 +4725,12 @@
       "foreignKeys": {},
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
-      "checkConstraints": {}
+      "checkConstraints": {
+        "principal_epoch_keys_epoch_range": {
+          "name": "principal_epoch_keys_epoch_range",
+          "value": "\"principal_epoch_keys\".\"epoch\" >= 1 AND \"principal_epoch_keys\".\"epoch\" <= 9007199254740991 AND \"principal_epoch_keys\".\"epoch\" = CAST(\"principal_epoch_keys\".\"epoch\" AS BIGINT)"
+        }
+      }
     },
     "principal_history_index_nodes": {
       "name": "principal_history_index_nodes",
@@ -4861,6 +4870,10 @@
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "checkConstraints": {
+        "principal_history_progress_key_epoch_range": {
+          "name": "principal_history_progress_key_epoch_range",
+          "value": "\"principal_history_progress\".\"key_epoch\" >= 1 AND \"principal_history_progress\".\"key_epoch\" <= 9007199254740991 AND \"principal_history_progress\".\"key_epoch\" = CAST(\"principal_history_progress\".\"key_epoch\" AS BIGINT)"
+        },
         "principal_history_progress_version_range": {
           "name": "principal_history_progress_version_range",
           "value": "\"principal_history_progress\".\"version\" >= 1 AND \"principal_history_progress\".\"version\" <= 9007199254740991"
@@ -4966,7 +4979,12 @@
       "foreignKeys": {},
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
-      "checkConstraints": {}
+      "checkConstraints": {
+        "principal_member_envelopes_epoch_range": {
+          "name": "principal_member_envelopes_epoch_range",
+          "value": "\"principal_member_envelopes\".\"epoch\" >= 1 AND \"principal_member_envelopes\".\"epoch\" <= 9007199254740991 AND \"principal_member_envelopes\".\"epoch\" = CAST(\"principal_member_envelopes\".\"epoch\" AS BIGINT)"
+        }
+      }
     },
     "principal_membership_projection": {
       "name": "principal_membership_projection",
@@ -5495,6 +5513,10 @@
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "checkConstraints": {
+        "principal_states_key_epoch_range": {
+          "name": "principal_states_key_epoch_range",
+          "value": "\"principal_states\".\"key_epoch\" >= 1 AND \"principal_states\".\"key_epoch\" <= 9007199254740991 AND \"principal_states\".\"key_epoch\" = CAST(\"principal_states\".\"key_epoch\" AS BIGINT)"
+        },
         "principal_states_version_range": {
           "name": "principal_states_version_range",
           "value": "\"principal_states\".\"version\" >= 1 AND \"principal_states\".\"version\" <= 9007199254740991"
