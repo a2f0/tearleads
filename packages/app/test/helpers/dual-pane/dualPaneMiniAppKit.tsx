@@ -50,6 +50,8 @@ export async function renderSeededDemo(): Promise<{
   const leftPane = getPaneRoot(view, "left");
   const rightPane = getPaneRoot(view, "right");
   await waitForDualPaneProvisioning(leftPane, rightPane);
+  // Both panes recover paged policies before writing their peer memberships.
+  // Give this multi-request setup the same budget as the subsequent sync drain.
   await waitForCondition(
     () =>
       listProxiedApiRequests()
@@ -61,6 +63,7 @@ export async function renderSeededDemo(): Promise<{
             request.url.endsWith("/policy-commit"),
         ).length >= 2,
     "Demo peer roster seeding did not finish.",
+    30_000,
   );
   // Both seeded rosters trigger document and policy recovery in both panes.
   // At 150 ms per response these lanes take over 15 seconds to drain.
