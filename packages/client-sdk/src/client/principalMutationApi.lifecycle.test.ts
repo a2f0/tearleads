@@ -5,9 +5,14 @@ import { principalMutationJournalFixture } from "../../test/helpers/principalMut
 import { clearRemoteSyncState } from "../workflows/sync/remoteReset";
 import { createPrincipalMutationApiCustody } from "./principalMutationApi";
 
-for (const nullable of [false, true]) {
+for (const [nullable, interruption] of [
+  [false, "caller"],
+  [true, "caller"],
+  [false, "deadline"],
+  [true, "deadline"],
+] as const) {
   test.each(["group-create", "group-delete", "organization"] as const)(
-    `runtime ${nullable ? "nullable" : "result"} %s replays saved HTTP bytes after interruption and generation replacement`,
+    `runtime ${nullable ? "nullable" : "result"} %s replays saved HTTP bytes after interruption and generation replacement (${interruption})`,
     async (kind) => {
       const fixture = await principalMutationJournalFixture();
       const sqlite = await createTestExecSql("principal-lifecycle-journal");
@@ -109,6 +114,8 @@ for (const nullable of [false, true]) {
       const custody = createPrincipalMutationApiCustody({
         api,
         readScope: () => scope,
+        principalMutationTimeoutMs:
+          interruption === "deadline" ? 500 : undefined,
       });
       const first = custody.bind();
       const controller = new AbortController();
@@ -122,6 +129,7 @@ for (const nullable of [false, true]) {
       const put = nullable
         ? first.putPrincipalPolicy
         : first.putPrincipalPolicyResult;
+      let watchdog: ReturnType<typeof setTimeout> | undefined;
       const sent =
         kind === "group-create"
           ? create(organizationId, createRequest, options)
@@ -137,11 +145,14 @@ for (const nullable of [false, true]) {
       const outcome = sent.catch((error: unknown) => error);
       try {
         await committed.promise;
+        // A missing deadline must resolve successfully, failing the rejection assertion.
+        watchdog = setTimeout(() => release.resolve(), 1_500);
         expect(
           await first.readPendingPrincipalMutation(organizationId),
         ).toMatchObject({ kind });
-        controller.abort();
+        if (interruption === "caller") controller.abort();
         expect(await outcome).toBeInstanceOf(Error);
+        clearTimeout(watchdog);
         release.resolve();
         const saved = await first.readPendingPrincipalMutation(organizationId);
         await clearRemoteSyncState(sqlite.execSql, { organizationId });
@@ -180,6 +191,7 @@ for (const nullable of [false, true]) {
           JSON.parse(expectedBody),
         );
       } finally {
+        clearTimeout(watchdog);
         controller.abort();
         release.resolve();
         await outcome;

@@ -224,6 +224,8 @@ test(
     );
     await waitForPrincipalRematerialization();
     await openOrgManager(peerPane);
+    // Opening Org Manager starts its own verified directory catch-up.
+    await waitForPrincipalRematerialization();
     const ownerWindow = peerPane
       .querySelector<HTMLElement>(".org-manager-main")
       ?.closest<HTMLElement>(".window");

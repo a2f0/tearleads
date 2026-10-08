@@ -16,6 +16,8 @@ import {
 } from "../workflows/organizations/principalMutationJournalSession";
 import type { PrincipalMutationResponse } from "../workflows/organizations/principalOperationReceipt";
 
+import type { createPrincipalMutationDispatcher } from "./principalMutationDeadline";
+
 export type JournaledPrincipalMutationMethods = Pick<
   ApiClient,
   | "commitOrganizationGroupPolicy"
@@ -28,16 +30,6 @@ export type JournaledPrincipalMutationMethods = Pick<
   | "putPrincipalPolicyResult"
 >;
 
-function mutationDispatchOptions(options: RequestResultOptions) {
-  const deadline = AbortSignal.timeout(15_000);
-  return {
-    ...options,
-    signal: options.signal
-      ? AbortSignal.any([options.signal, deadline])
-      : deadline,
-  };
-}
-
 /** Dispatch the authenticated operation, with no application planning callback. */
 export function dispatchAuthoredPrincipalMutation(
   api: ApiClient,
@@ -45,34 +37,33 @@ export function dispatchAuthoredPrincipalMutation(
   mutation: AuthoredPrincipalMutation,
   options: RequestResultOptions = {},
 ): Promise<RequestResult<PrincipalMutationResponse>> {
-  const bounded = mutationDispatchOptions(options);
   switch (mutation.kind) {
     case "organization":
       return api.putPrincipalPolicyResult(
         "organization",
         organizationId,
         mutation.request,
-        bounded,
+        options,
       );
     case "group-create":
       return api.createOrganizationGroupResult(
         organizationId,
         mutation.request,
-        bounded,
+        options,
       );
     case "group-delete":
       return api.deleteOrganizationGroupResult(
         organizationId,
         mutation.groupId,
         mutation.request,
-        bounded,
+        options,
       );
     case undefined:
       return api.commitOrganizationGroupPolicyResult(
         organizationId,
         mutation.groupId,
         mutation.request,
-        bounded,
+        options,
       );
     default:
       return unsupportedMutation(mutation);
@@ -88,6 +79,7 @@ export function createJournaledPrincipalMutations(
   context: (
     organizationId: string,
   ) => Omit<PrincipalMutationJournalContext, "submit">,
+  dispatch: ReturnType<typeof createPrincipalMutationDispatcher>,
 ): JournaledPrincipalMutationMethods {
   async function submit<T extends PrincipalMutationResponse>(
     organizationId: string,
@@ -99,7 +91,14 @@ export function createJournaledPrincipalMutations(
       ...context(organizationId),
       mutation,
       submit: (saved) =>
-        dispatchAuthoredPrincipalMutation(api, organizationId, saved, options),
+        dispatch(options, (dispatchOptions) =>
+          dispatchAuthoredPrincipalMutation(
+            api,
+            organizationId,
+            saved,
+            dispatchOptions,
+          ),
+        ),
     });
     if (!result.ok) return result;
     // The session already verified this operation before clearing its row.

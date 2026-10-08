@@ -17,18 +17,14 @@ import type { SecurityIncidentReporter } from "../../data/securityIncidents";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import type { TrustedUserIdentityResolver } from "../../data/trustedUserIdentity";
 import type { RecoveredPrincipalHistoryPage } from "./loadRecoveredPrincipalHistoryPage";
+import { createPrincipalCurrentRecoveryBatch } from "./principalCurrentRecoveryBatch";
 import {
   PrincipalHistoryRecoveryRaceError,
   PrincipalPolicyHistoryReadError,
 } from "./principalHistoryRecoveryTypes";
-import { createScopedPrincipalPolicyHistoryBatch } from "./principalRecoveryBatch";
 import { recoverWithPrincipalLocalPreference } from "./principalRecoveryLocalPreference";
 import { queuePrincipalRecovery } from "./principalRecoveryQueue";
-import { recoverCurrentOrganizationPolicy } from "./recoverCurrentOrganizationPolicy";
-import {
-  type RecoveredScopedPrincipalPolicyHistory,
-  recoverScopedPrincipalPolicyHistory,
-} from "./recoverScopedPrincipalPolicyHistory";
+import type { RecoveredScopedPrincipalPolicyHistory } from "./recoverScopedPrincipalPolicyHistory";
 
 export interface PrincipalPolicyRecoveryRuntime {
   readonly apiClient: Partial<
@@ -88,17 +84,13 @@ export function createRuntimePrincipalPolicyCurrentResolver(
   if (!lease || !readPages) return undefined;
   const batches = new WeakMap<
     object,
-    ReturnType<typeof createScopedPrincipalPolicyHistoryBatch>
+    ReturnType<typeof createPrincipalCurrentRecoveryBatch>
   >();
   const recoverFor = (batch: object | undefined) => {
-    if (!batch)
-      return {
-        recover: recoverScopedPrincipalPolicyHistory,
-        currentOrganization: recoverCurrentOrganizationPolicy,
-      };
+    if (!batch) return createPrincipalCurrentRecoveryBatch();
     let recover = batches.get(batch);
     if (!recover) {
-      recover = createScopedPrincipalPolicyHistoryBatch();
+      recover = createPrincipalCurrentRecoveryBatch();
       batches.set(batch, recover);
     }
     return recover;
@@ -142,7 +134,7 @@ export function createRuntimePrincipalPolicyCurrentResolver(
                       },
                       input.preferLocalCurrent === true,
                     )
-                  : await batch.currentOrganization(options);
+                  : await batch.discover(options);
               return {
                 current: result.current,
                 organizationId: input.organizationId,

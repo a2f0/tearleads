@@ -5,6 +5,19 @@ import { principalMutationJournalFixture } from "../../test/helpers/principalMut
 import { PrincipalMutationOutcomeUnknownError } from "../workflows/organizations/principalMutationJournalSession";
 import { createPrincipalMutationApiCustody } from "./principalMutationApi";
 
+test.each([0, -1, 1.5, Number.NaN, Number.POSITIVE_INFINITY, 2_147_483_648])(
+  "invalid mutation deadline %s is rejected before journal custody is created",
+  (principalMutationTimeoutMs) => {
+    expect(() =>
+      createPrincipalMutationApiCustody({
+        api: new ApiClient("https://deadline.example.test"),
+        readScope: () => null,
+        principalMutationTimeoutMs,
+      }),
+    ).toThrow(RangeError);
+  },
+);
+
 test("a stalled interactive commit releases its journal lane with the exact request still recoverable", async () => {
   const fixture = await principalMutationJournalFixture();
   const sqlite = await createTestExecSql("interactive-policy-deadline");
@@ -31,12 +44,13 @@ test("a stalled interactive commit releases its journal lane with the exact requ
   const bound = createPrincipalMutationApiCustody({
     api,
     readScope: () => scope,
+    principalMutationTimeoutMs: 500,
   }).bind();
   // Without a dispatch deadline the request reaches this late success, so the
   // rejection assertion fails and cleanup still finishes normally.
   const watchdog = setTimeout(
     () => response.resolve(Response.json(fixture.response)),
-    18_000,
+    1_500,
   );
   const pending = bound.commitOrganizationGroupPolicyResult(
     fixture.scope.organizationId,
@@ -71,4 +85,4 @@ test("a stalled interactive commit releases its journal lane with the exact requ
     server.stop(true);
     sqlite.close();
   }
-}, 25_000);
+}, 5_000);
