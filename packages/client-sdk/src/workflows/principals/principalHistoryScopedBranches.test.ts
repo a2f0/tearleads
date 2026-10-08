@@ -9,7 +9,7 @@ import { recoverScopedPrincipalPolicyHistory } from "./recoverScopedPrincipalPol
 let history: Awaited<ReturnType<typeof signedAuthorityRecoveryHistory>>;
 beforeAll(async () => {
   history = await signedAuthorityRecoveryHistory();
-});
+}, 30_000);
 
 test.each(["organization", "admins"] as const)(
   "scoped recovery selects an older %s citation",

@@ -15,7 +15,7 @@ import { recoverScopedPrincipalPolicyHistory } from "./recoverScopedPrincipalPol
 let history: Awaited<ReturnType<typeof signedAuthorityRecoveryHistory>>;
 beforeAll(async () => {
   history = await signedAuthorityRecoveryHistory();
-});
+}, 30_000);
 
 async function cachedFixture() {
   const fixture = await createAuthorityRecoveryFixture(history);

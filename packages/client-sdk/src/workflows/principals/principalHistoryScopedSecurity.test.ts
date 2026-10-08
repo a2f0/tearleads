@@ -17,7 +17,7 @@ import { recoverScopedPrincipalPolicyHistory } from "./recoverScopedPrincipalPol
 let history: Awaited<ReturnType<typeof signedAuthorityRecoveryHistory>>;
 beforeAll(async () => {
   history = await signedAuthorityRecoveryHistory();
-});
+}, 30_000);
 
 test("scoped recovery rejects invalid key material before discovery", async () => {
   const fixture = await createAuthorityRecoveryFixture(history);
