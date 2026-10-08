@@ -33,6 +33,7 @@ interface PrincipalPolicyWarmRuntime extends PrincipalPolicyRecoveryRuntime {
 
 export function createRuntimePrincipalPolicyWarmer(
   runtime: PrincipalPolicyWarmRuntime,
+  options: { readonly preferLocalCurrent?: boolean } = {},
 ): ReferencedPrincipalPolicyWarmer {
   const policyInput = ({
     organizationId,
@@ -69,7 +70,7 @@ export function createRuntimePrincipalPolicyWarmer(
     });
   return Object.assign(warmer, {
     cacheBundles,
-    resolveReference: createRuntimePrincipalPolicyResolver(runtime),
+    resolveReference: createRuntimePrincipalPolicyResolver(runtime, options),
     resolveProjectionHistory: createRuntimeProjectionPolicyResolver(runtime),
   });
 }

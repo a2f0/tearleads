@@ -65,7 +65,8 @@ const ADMIN_GROUP_OPEN_REQUEST_BUDGET: ProxiedApiRequestBudget = {
 const ADMIN_GROUP_MUTATION_REQUEST_BUDGET = {
   // Compact projections add 84 bounded public-history reads to the existing
   // 63-request allowance. Bounded label hydration also reads current directory
-  // pages; completed reads fit 147 calls plus one observed preparation response.
+  // pages. Sharing verified directory discovery within the mutation batch
+  // keeps completed reads within 147 calls; preparation may add one 202.
   total: 147,
   // Public parent keys measure 389.5 KB sent with one descendant recitation;
   // retain room for the second 60 KB recitation already allowed below.
@@ -93,7 +94,7 @@ const ADMIN_GROUP_MUTATION_REQUEST_BUDGET = {
     "GET /organizations/:organizationId/data-usage": 0,
     "GET /organizations/:organizationId/grants": 0,
     "GET /organizations/:organizationId/billing": 1,
-    "GET /principals/organization/:organizationId/policy": 8,
+    "GET /principals/organization/:organizationId/policy": 9,
     "POST /containers/:containerId/share": 0,
     "PUT /organizations/:organizationId/groups/:groupId/policy-commit": 2,
     "POST /containers/:containerId/recite": 2,

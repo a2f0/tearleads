@@ -22,97 +22,107 @@ function eventType(request: { readonly event: Record<string, unknown> }) {
   return Reflect.get(request.event, "eventType");
 }
 
-test("rematerialization re-cites in the signed plans' organization, not the caller's current one", async () => {
-  const fixture = await createFixture({
-    databaseName: "principal-recite-plan-organization",
-    rotateKey: false,
-  });
-  let active = true;
-  const recited = Promise.withResolvers<Record<string, unknown>>();
-  let timeout: ReturnType<typeof setTimeout> | undefined;
-  try {
-    const parentProjection =
-      await fixture.input.apiClient.getContainerWriterProjection(
-        ROOT_CONTAINER_ID,
-      );
-    if (!parentProjection) throw new Error("Expected parent projection");
-    const materializedPlan = await buildMaterializedContainerCreatePlan({
-      author: fixture.input.author,
-      containerId: "held-rematerialized-child",
-      execSql: fixture.database.execSql,
-      parentProjection,
-      parentSecretKey: fixture.input.targetSecretKey,
-      resolveProjectionUserKey: fixture.input.resolveTrustedUserIdentity,
-      warmReferencedPrincipalPolicies:
-        fixture.input.warmReferencedPrincipalPolicies,
+test.each([false, true])(
+  "rematerialization re-cites in the signed plans' organization after private lease expiry=%s",
+  async (expirePrivateLease) => {
+    const fixture = await createFixture({
+      databaseName: "principal-recite-plan-organization",
+      rotateKey: false,
     });
-    await verifyContainerWriterProjection({
-      execSql: fixture.database.execSql,
-      projection: childContainerWriterProjectionFromCreatePlan({
-        materializedPlan,
+    let active = true;
+    let leaseActive = true;
+    const recited = Promise.withResolvers<Record<string, unknown>>();
+    let timeout: ReturnType<typeof setTimeout> | undefined;
+    try {
+      const parentProjection =
+        await fixture.input.apiClient.getContainerWriterProjection(
+          ROOT_CONTAINER_ID,
+        );
+      if (!parentProjection) throw new Error("Expected parent projection");
+      const materializedPlan = await buildMaterializedContainerCreatePlan({
+        author: fixture.input.author,
+        containerId: "held-rematerialized-child",
+        execSql: fixture.database.execSql,
         parentProjection,
-      }),
-      resolveUserKey: fixture.input.resolveTrustedUserIdentity,
-      warmReferencedPrincipalPolicies:
-        fixture.input.warmReferencedPrincipalPolicies,
-    });
-    const prepared = await preparePrincipalContainerRematerializationBatch({
-      ...fixture.input,
-      author: { ...fixture.input.author, organizationId: "caller's-other-org" },
-      stillCurrent: () => active,
-      apiClient: {
-        ...fixture.input.apiClient,
-        reciteContainer: async (_id, request) => {
-          recited.resolve(request.event);
-          return null;
+        parentSecretKey: fixture.input.targetSecretKey,
+        resolveProjectionUserKey: fixture.input.resolveTrustedUserIdentity,
+        warmReferencedPrincipalPolicies:
+          fixture.input.warmReferencedPrincipalPolicies,
+      });
+      await verifyContainerWriterProjection({
+        execSql: fixture.database.execSql,
+        projection: childContainerWriterProjectionFromCreatePlan({
+          materializedPlan,
+          parentProjection,
+        }),
+        resolveUserKey: fixture.input.resolveTrustedUserIdentity,
+        warmReferencedPrincipalPolicies:
+          fixture.input.warmReferencedPrincipalPolicies,
+      });
+      const prepared = await preparePrincipalContainerRematerializationBatch({
+        ...fixture.input,
+        author: {
+          ...fixture.input.author,
+          organizationId: "caller's-other-org",
         },
-      },
-    });
-    // The real group-policy commit pins its acknowledged policy before this
-    // container acknowledgement schedules optional descendant work.
-    await advanceKeyingCheckpointsAtomically({
-      access: [],
-      execSql: fixture.database.execSql,
-      organizationId: ORGANIZATION_ID,
-      policies: [fixture.input.nextPolicy],
-    });
-    await prepared.acknowledge(
-      await Promise.all(
-        prepared.requests.map((request) =>
-          createMutationResponseFromRequest(
-            request,
-            parentProjection.containerKeks.at(-1),
+        stillCurrent: () => active && leaseActive,
+        recitationStillCurrent: () => active,
+        apiClient: {
+          ...fixture.input.apiClient,
+          reciteContainer: async (_id, request) => {
+            recited.resolve(request.event);
+            return null;
+          },
+        },
+      });
+      // The real group-policy commit pins its acknowledged policy before this
+      // container acknowledgement schedules optional descendant work.
+      await advanceKeyingCheckpointsAtomically({
+        access: [],
+        execSql: fixture.database.execSql,
+        organizationId: ORGANIZATION_ID,
+        policies: [fixture.input.nextPolicy],
+      });
+      await prepared.acknowledge(
+        await Promise.all(
+          prepared.requests.map((request) =>
+            createMutationResponseFromRequest(
+              request,
+              parentProjection.containerKeks.at(-1),
+            ),
           ),
         ),
-      ),
-    );
-    timeout = setTimeout(
-      () => recited.reject(new Error("Expected a held descendant re-citation")),
-      2_000,
-    );
-    expect(await recited.promise).toMatchObject({
-      organizationId: ORGANIZATION_ID,
-      objectId: "held-rematerialized-child",
-      eventType: "container.recite",
-    });
-    const snapshot = heldContainerSnapshot(
-      fixture.database.execSql,
-      ORGANIZATION_ID,
-    );
-    expect(
-      snapshot.policies.find((policy) => policy.principalId === GROUP_ID)
-        ?.stateHash,
-    ).toBe(fixture.input.nextPolicy.stateHash);
-    expect(
-      heldContainerSnapshot(fixture.database.execSql, "caller's-other-org")
-        .policies,
-    ).toEqual([]);
-  } finally {
-    active = false;
-    clearTimeout(timeout);
-    fixture.database.close();
-  }
-});
+      );
+      leaseActive = !expirePrivateLease;
+      timeout = setTimeout(
+        () =>
+          recited.reject(new Error("Expected a held descendant re-citation")),
+        2_000,
+      );
+      expect(await recited.promise).toMatchObject({
+        organizationId: ORGANIZATION_ID,
+        objectId: "held-rematerialized-child",
+        eventType: "container.recite",
+      });
+      const snapshot = heldContainerSnapshot(
+        fixture.database.execSql,
+        ORGANIZATION_ID,
+      );
+      expect(
+        snapshot.policies.find((policy) => policy.principalId === GROUP_ID)
+          ?.stateHash,
+      ).toBe(fixture.input.nextPolicy.stateHash);
+      expect(
+        heldContainerSnapshot(fixture.database.execSql, "caller's-other-org")
+          .policies,
+      ).toEqual([]);
+    } finally {
+      active = false;
+      clearTimeout(timeout);
+      fixture.database.close();
+    }
+  },
+);
 
 test("a refused rematerialization acknowledgement cannot cache a head when its guard revives", async () => {
   const fixture = await createFixture({

@@ -649,9 +649,12 @@ or `moveContainerResult`, and `getContainerWriterProjection`.
 
 Principal-policy writes acknowledge the exact submitted state and current
 artifacts without retransmitting `previousStates`. The SDK verifies that receipt
-against its authored request and constructs the persisted successor bundle from
-its verified local prefix. Container acknowledgements remain part of the same
-check; a missing or substituted result cannot advance the local checkpoint.
+against its authored request. Built-in membership changes and group revocation
+return `OrganizationGroupMutationReceipt` and atomically retain current artifacts
+and authenticated progress. Hosts without private custody may include history
+in the common receipt; standalone full-bundle workflows keep their return
+contracts; see [current mutations](principal-current-mutations.md). Missing or
+substituted receipts cannot advance the local checkpoint.
 The runtime journals compound policy requests before HTTP and resolves pending
 work before authoring another group change. Advanced hosts use
 `submitJournaledPrincipalMutation` and `recoverJournaledPrincipalMutation`
@@ -852,9 +855,25 @@ hydration, retained-wrap checks and relinking accept the same private policy
 warmer and operation-lifetime guard; the document store supplies both.
 
 `retainAcknowledgedPrincipalCurrents` retains exact acknowledged current policies
-and recovery progress atomically with their checkpoints. Its predecessor,
+and recovery progress atomically with their checkpoints. `initialGroup: true`
+permits an actual version-one group genesis with a null predecessor, only when
+the same transaction includes its exactly binding directory acknowledgement.
+The runtime verifies the signature, artifacts and strict Admins authority before
+publishing either policy; existing pins and prefix conflicts are preserved.
+Its predecessor,
 custody and receipt requirements are documented in [current mutations](principal-current-mutations.md).
 
 The public `AcknowledgedPrincipalCurrentInput` and
 `AcknowledgedPrincipalCurrentRetirement` types describe batch inputs and
 signed-grant retirements.
+
+`client.organizations.loadGroupPresentationDetails(groupId, beforeVersion?)`
+returns at most 32 group-history rows when private paged recovery is available.
+Pass `policyHistory.nextBeforeVersion` to load the next older page; null marks
+genesis. A separately authenticated predecessor makes the oldest displayed row's
+membership diff accurate. Pages check private index roots, exact projected heads,
+durable pins and runtime lifetime, including offline reads. A newer verified
+local prefix can answer an older selected history view without a freshness read.
+Older-page calls return `members: null` and do not reload the member list. Hosts
+lacking paged recovery keep complete histories for cursor-free calls and reject
+explicit cursors instead of silently ignoring them.

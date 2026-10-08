@@ -1,5 +1,6 @@
 import type { DomainScope } from "../../data/domainScope";
 import { loadLocalOrganizationPolicyReference } from "../../workflows/organizations";
+import { createSelectedCurrentGroupMetadataContainerVerifier } from "../../workflows/organizations/currentGroupMetadataAuthority";
 import { createRuntimeGroupMetadataAccess } from "../../workflows/organizations/groupMetadataRuntime";
 import { hydrateOrganizationGroupNames } from "../../workflows/organizations/organizationGroupNames";
 import type { OrganizationDirectoryAndGroups } from "../../workflows/organizations/readModel";
@@ -39,10 +40,22 @@ export async function hydrateOrganizationGroupNamesForRuntime(
         principalType: "organization",
       }),
       reportSecurityIncident: active.runtime.util.reportSecurityIncident,
+      createCurrentNameReader: (authority) =>
+        createRuntimeGroupMetadataAccess(
+          active.runtime,
+          active.organizationId,
+          stillCurrent,
+          createSelectedCurrentGroupMetadataContainerVerifier({
+            authority,
+            organizationId: active.organizationId,
+            stillCurrent,
+          }),
+        ).readName,
       readEncryptedName: createRuntimeGroupMetadataAccess(
         active.runtime,
         active.organizationId,
         stillCurrent,
+        undefined,
         currentRecovery,
       ).readName,
       resolveTrustedUserIdentity: active.runtime.resolveTrustedUserIdentity,

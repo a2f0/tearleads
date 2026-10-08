@@ -1,4 +1,3 @@
-import type { VerifiedPrincipalPolicy } from "@tearleads/crypto";
 import type { ContainerWriterProjectionResponse } from "@tearleads/validators/response";
 import { MAX_ROTATION_CONTAINER_REKEYS } from "@tearleads/validators/util";
 import type {
@@ -12,9 +11,12 @@ import {
   type ReferencedPrincipalPolicyWarmer,
   verifyContainerWriterProjection,
 } from "../../../data/keyingProjectionVerification";
+import type { CurrentPolicyReferenceResolver } from "../../../data/principals/currentPolicyReferenceResolver";
+import type { PrincipalPolicyCurrentEvidence } from "../../../data/principals/principalPolicyEvidence";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import { buildMaterializedContainerRekeyPlan } from "./rekey";
 import { rebaseContainerWriterProjection } from "./rekeyProjection";
+import { selectReplacementPrincipalPolicyReferences } from "./replacementPrincipalPolicyReferences";
 
 /** What a rotation needs in hand to sign the descendant rekeys it must carry. */
 export interface CarriedRekeyPlanningInput {
@@ -33,7 +35,12 @@ export interface CarriedRekeyPlanningInput {
    * before any store holds them; and the one each carried rekey cites anew.
    */
   readonly principalPolicyCache?: PrincipalPolicyCache | undefined;
-  readonly replacementPrincipalPolicy?: VerifiedPrincipalPolicy | undefined;
+  readonly replacementPrincipalPolicy?:
+    | PrincipalPolicyCurrentEvidence
+    | undefined;
+  readonly resolveAuthoredPolicyReferences?:
+    | CurrentPolicyReferenceResolver
+    | undefined;
   readonly resolveProjectionUserKey: ProjectionUserKeyResolver;
   readonly stillCurrent?: (() => boolean) | undefined;
   readonly targetSecretKey: Uint8Array;
@@ -129,7 +136,15 @@ export async function planCarriedDescendantRekey(
     persistVerificationCheckpoints: false,
     previousProjection: rebased.projection,
     principalPolicyCache: input.principalPolicyCache,
-    replacementPrincipalPolicy: input.replacementPrincipalPolicy,
+    replacementPrincipalPolicy: input.replacementPrincipalPolicy
+      ? await selectReplacementPrincipalPolicyReferences({
+          policy: input.replacementPrincipalPolicy,
+          projection: rebased.projection,
+          principalPolicyCache: input.principalPolicyCache,
+          resolveAuthoredPolicyReferences:
+            input.resolveAuthoredPolicyReferences,
+        })
+      : undefined,
     resolveProjectionUserKey: input.resolveProjectionUserKey,
     stillCurrent: input.stillCurrent,
     targetSecretKey: input.targetSecretKey,

@@ -1,4 +1,5 @@
 import type { EncapsulationKeyPair, SigningKeyPair } from "@tearleads/crypto";
+import { assertProjectionVerificationCurrent } from "../../data/keyingProjectionVerification/types";
 import type { SecurityIncidentReporter } from "../../data/securityIncidents";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import type { TrustedUserIdentityResolver } from "../../data/trustedUserIdentity";
@@ -24,15 +25,20 @@ export async function createOrganizationGroup(input: {
   readonly signerUserId: string;
   readonly signingFingerprint: string;
   readonly signingKeyPair: SigningKeyPair;
+  readonly stillCurrent?: (() => boolean) | undefined;
 }): Promise<OrganizationGroupSummary> {
+  assertProjectionVerificationCurrent(input.stillCurrent);
   await input.apiClient.recoverPendingPrincipalMutation?.(input.organizationId);
+  assertProjectionVerificationCurrent(input.stillCurrent);
   const externalAdminPolicy = await loadOrganizationExternalAdminPolicy({
     execSql: input.execSql,
     getCurrentPrincipalPolicy: (principalType, principalId) =>
       input.apiClient.getCurrentPrincipalPolicy(principalType, principalId),
     organizationId: input.organizationId,
     resolveTrustedUserIdentity: input.resolveTrustedUserIdentity,
+    stillCurrent: input.stillCurrent,
   });
+  assertProjectionVerificationCurrent(input.stillCurrent);
   if (!externalAdminPolicy) {
     throw new Error("Organization admin authority could not be verified");
   }
@@ -56,7 +62,7 @@ export async function createOrganizationGroup(input: {
     readEncryptedName: input.metadataAccess.readName,
     request,
   });
-
+  assertProjectionVerificationCurrent(input.stillCurrent);
   await cacheGroupPolicy({
     acknowledgedMemberEnvelopes: {
       envelopes: request.initialGroupPolicy.memberEnvelopes,
@@ -78,6 +84,8 @@ export async function createOrganizationGroup(input: {
     },
     organizationId: input.organizationId,
     resolveTrustedUserIdentity: input.resolveTrustedUserIdentity,
+    stillCurrent: input.stillCurrent,
   });
+  assertProjectionVerificationCurrent(input.stillCurrent);
   return { ...group, name: input.name.trim(), nameUnreadable: false };
 }

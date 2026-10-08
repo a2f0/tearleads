@@ -5,7 +5,7 @@ import { PrincipalHistoryRecoveryRaceError } from "./principalHistoryRecoveryTyp
 import { recoverWithPrincipalOutageFallback } from "./principalRecoveryOutage";
 import type { recoverScopedPrincipalPolicyHistory } from "./recoverScopedPrincipalPolicyHistory";
 
-/** Reuse authenticated local artifacts only for the exact current head a caller selected. */
+/** Reuse exact current artifacts, or a proved historical page within a newer prefix. */
 export async function recoverWithPrincipalLocalPreference(
   recover: typeof recoverScopedPrincipalPolicyHistory,
   options: Parameters<typeof recoverScopedPrincipalPolicyHistory>[0],
@@ -18,7 +18,10 @@ export async function recoverWithPrincipalLocalPreference(
         offline: true,
       });
       assertProjectionVerificationCurrent(options.stillCurrent);
-      if (principalHeadMatchesReference(local.policy.state, options.reference))
+      if (
+        options.historyPage ||
+        principalHeadMatchesReference(local.policy.state, options.reference)
+      )
         return local;
     } catch (error) {
       assertProjectionVerificationCurrent(options.stillCurrent);

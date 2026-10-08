@@ -19,7 +19,10 @@ export class GroupMembershipNameMismatchError extends KeyingVerificationError {
 
 /** Check the selected label only after verifying the signed policy bundle. */
 export async function assertGroupMembershipName(
-  verifiedBundle: PrincipalPolicyBundleResponse,
+  verifiedBundle: Pick<
+    PrincipalPolicyBundleResponse,
+    "currentState" | "currentPayload"
+  >,
   expectedGroupName: string,
   readEncryptedName?: GroupPolicyNameReader,
 ): Promise<void> {

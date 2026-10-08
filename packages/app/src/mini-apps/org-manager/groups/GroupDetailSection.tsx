@@ -79,6 +79,7 @@ export function GroupDetailSection({
   directory,
   groupContainers,
   groupPolicyHistory,
+  loadMoreGroupHistory,
   members,
   memberUserIds,
   mutating,
@@ -99,6 +100,7 @@ export function GroupDetailSection({
   directory: OrganizationDirectory | null;
   groupContainers: OrganizationGroupContainers | null;
   groupPolicyHistory: OrganizationGroupPolicyHistory | null;
+  loadMoreGroupHistory?: (() => Promise<void>) | undefined;
   members: OrganizationGroupMembers | null;
   memberUserIds: ReadonlySet<string>;
   mutating: boolean;
@@ -194,6 +196,7 @@ export function GroupDetailSection({
           <PolicyHistorySection
             directory={directory}
             history={groupPolicyHistory}
+            loadMore={loadMoreGroupHistory}
             pending={pending}
             profileDisplayNamesByUserId={profileDisplayNamesByUserId}
           />

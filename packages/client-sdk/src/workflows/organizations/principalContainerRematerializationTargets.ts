@@ -1,8 +1,5 @@
 import type { ApiClient } from "@tearleads/api-client";
-import type {
-  PrincipalContainerGrant,
-  VerifiedPrincipalPolicy,
-} from "@tearleads/crypto";
+import type { PrincipalContainerGrant } from "@tearleads/crypto";
 import type { ContainerWriterProjectionResponse } from "@tearleads/validators/response";
 import { MAX_ROTATION_CONTAINER_REKEYS } from "@tearleads/validators/util";
 import { isContainerNotFoundFailure } from "../../data/containers/shared/mutationFailures";
@@ -13,6 +10,7 @@ import type {
 } from "../../data/containers/shared/types";
 import type { PrincipalPolicyCache } from "../../data/keyingProjectionVerification";
 import { referencedPrincipalPolicyKey } from "../../data/keyingProjectionVerification/principalPolicyCache";
+import type { PrincipalPolicyCurrentEvidence } from "../../data/principals/principalPolicyEvidence";
 import type { SpeculativePath } from "../containers/child/carriedDescendantRekeys";
 import { containerWriterProjectionFromRotationPlan } from "../containers/child/rekeyProjection";
 
@@ -141,7 +139,7 @@ export async function loadRematerializationTargets(input: {
 
 /** An in-memory cache holding only the policy this batch is about to commit. */
 export function seededPrincipalPolicyCache(
-  nextPolicy: VerifiedPrincipalPolicy,
+  nextPolicy: PrincipalPolicyCurrentEvidence,
 ): PrincipalPolicyCache {
   return new Map([
     [

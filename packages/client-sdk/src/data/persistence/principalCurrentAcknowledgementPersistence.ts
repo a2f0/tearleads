@@ -33,9 +33,9 @@ import type { PrincipalHistoryStage } from "./principalHistoryStagePersistence";
 export interface AcknowledgedPrincipalCurrentPublication {
   readonly policy: VerifiedPrincipalPolicyCurrent;
   readonly prefix: PrincipalHistoryPrefix;
-  readonly previousPrefixProgress: string;
+  readonly previousPrefixProgress: string | null;
   readonly stage: PrincipalHistoryStage;
-  readonly predecessorStage: PrincipalHistoryStage;
+  readonly predecessorStage: PrincipalHistoryStage | null;
   readonly evidence: PrincipalHistoryEvidencePage;
 }
 
@@ -61,9 +61,14 @@ function assertPublicationScope(
     if (
       entry.prefix.organizationId !== organizationId ||
       entry.stage.organizationId !== organizationId ||
-      entry.predecessorStage.organizationId !== organizationId ||
-      !entry.predecessorStage.complete ||
-      entry.predecessorStage.afterVersion !== entry.policy.version - 2 ||
+      (entry.predecessorStage
+        ? entry.predecessorStage.organizationId !== organizationId ||
+          !entry.predecessorStage.complete ||
+          entry.predecessorStage.afterVersion !== entry.policy.version - 2
+        : entry.policy.principalType !== "group" ||
+          entry.policy.version !== 1 ||
+          entry.policy.state.prevStateHash !== null ||
+          entry.previousPrefixProgress !== null) ||
       entry.evidence.organizationId !== organizationId ||
       entry.prefix.scopeId !== entry.evidence.scopeId ||
       entry.prefix.version !== entry.policy.version ||
@@ -91,7 +96,10 @@ async function validatePublication(
     currentState: entry.policy.state,
     localCheckpoint: checkpoint,
   });
-  if (!checkpoint || entry.policy.version > checkpoint.version + 1)
+  if (
+    (!checkpoint && entry.policy.version !== 1) ||
+    (checkpoint && entry.policy.version > checkpoint.version + 1)
+  )
     throw new KeyingVerificationError(
       "stale_predecessor",
       "Acknowledged current policy must directly extend its durable checkpoint",
@@ -101,7 +109,7 @@ async function validatePublication(
     .from(principalHistoryPrefixes)
     .where(eq(principalHistoryPrefixes.scopeId, entry.prefix.scopeId))
     .limit(1);
-  if (prefix?.progress !== entry.previousPrefixProgress)
+  if ((prefix?.progress ?? null) !== entry.previousPrefixProgress)
     throw new KeyingVerificationError(
       "stale_predecessor",
       "Authenticated principal prefix changed before acknowledgement",
@@ -154,15 +162,16 @@ export async function persistAcknowledgedPrincipalCurrents(input: {
         await writePrincipalHistoryEvidencePage(tx, entry.evidence);
         // A prefix-only predecessor must keep its encrypted key envelopes
         // before its reusable slot is replaced by the acknowledged successor.
-        await tx
-          .insert(principalHistoryStages)
-          .values(entry.predecessorStage)
-          .onConflictDoUpdate({
-            target: principalHistoryStages.id,
-            set: entry.predecessorStage,
-            setWhere: eq(principalHistoryStages.complete, false),
-          })
-          .run();
+        if (entry.predecessorStage)
+          await tx
+            .insert(principalHistoryStages)
+            .values(entry.predecessorStage)
+            .onConflictDoUpdate({
+              target: principalHistoryStages.id,
+              set: entry.predecessorStage,
+              setWhere: eq(principalHistoryStages.complete, false),
+            })
+            .run();
         // A fully authenticated publication supersedes an in-flight stage for
         // this exact head. Its other writer fails its progress CAS and resumes.
         await tx

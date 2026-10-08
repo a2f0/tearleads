@@ -13,6 +13,7 @@ import {
   runScopedRefresher,
   setUnknownError,
 } from "../refresh";
+import { useOrgManagerGroupHistoryRefresher } from "./useOrgManagerGroupHistoryRefresher";
 
 export function useOrgManagerGroupDetailsRefresher(input: {
   appData: ReturnType<typeof useTearleadsRuntime>;
@@ -36,41 +37,46 @@ export function useOrgManagerGroupDetailsRefresher(input: {
     setGroupPolicyHistory,
     setMembers,
   } = input;
+  const refreshHistoryPage = useOrgManagerGroupHistoryRefresher(input);
   return useCallback(
     (groupId: string | null, options: GroupDetailsRefreshOptions = {}) =>
-      runScopedRefresher({
-        apply: (details) => {
-          const errors: string[] = [];
-          if (details.members === null) {
-            setMembers(null);
-            errors.push(ORG_MANAGER_LABELS.failedLoadGroupMembers);
-          } else {
-            setMembers(details.members);
-          }
-          setGroupPolicyHistory(details.policyHistory);
-          if (errors.length > 0) {
-            setError(errors.join(" "));
-          }
-        },
-        beginRequest,
-        load:
-          appData.auth.organizationId && groupId && appData.auth.isAuthenticated
-            ? () => orgManagerActions.loadGroupPresentationDetails(groupId)
-            : null,
-        onError: (error) => {
-          setMembers(null);
-          setGroupPolicyHistory(null);
-          setUnknownError(setError, error);
-        },
-        onSettled: () => markGroupDetailsSettled(groupId),
-        onUnavailable: () => {
-          setMembers(null);
-          setGroupPolicyHistory(null);
-        },
-        options,
-        requestKind: "groupDetails",
-        setError,
-      }),
+      options.beforeVersion !== undefined
+        ? refreshHistoryPage(groupId, options.beforeVersion)
+        : runScopedRefresher({
+            apply: (details) => {
+              const errors: string[] = [];
+              if (details.members === null) {
+                setMembers(null);
+                errors.push(ORG_MANAGER_LABELS.failedLoadGroupMembers);
+              } else {
+                setMembers(details.members);
+              }
+              setGroupPolicyHistory(details.policyHistory);
+              if (errors.length > 0) {
+                setError(errors.join(" "));
+              }
+            },
+            beginRequest,
+            load:
+              appData.auth.organizationId &&
+              groupId &&
+              appData.auth.isAuthenticated
+                ? () => orgManagerActions.loadGroupPresentationDetails(groupId)
+                : null,
+            onError: (error) => {
+              setMembers(null);
+              setGroupPolicyHistory(null);
+              setUnknownError(setError, error);
+            },
+            onSettled: () => markGroupDetailsSettled(groupId),
+            onUnavailable: () => {
+              setMembers(null);
+              setGroupPolicyHistory(null);
+            },
+            options,
+            requestKind: "groupDetails",
+            setError,
+          }),
     [
       appData.auth.isAuthenticated,
       appData.auth.organizationId,
@@ -80,6 +86,7 @@ export function useOrgManagerGroupDetailsRefresher(input: {
       setError,
       setGroupPolicyHistory,
       setMembers,
+      refreshHistoryPage,
     ],
   );
 }

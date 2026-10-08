@@ -309,6 +309,7 @@ export {
   restorePrincipalPolicyHistoryVerifier,
   sealContainerKekKeyring,
   selectPrincipalPolicyAuthorization,
+  selectPrincipalPolicyCurrentPredecessorReferences,
   serializeKeyingCanonicalJson,
   signAccessEvent,
   signTransparencyTreeHead,
