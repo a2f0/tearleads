@@ -15,6 +15,10 @@ import {
 import { createMutationResponseFromRequest } from "../../../../test/helpers/containerFixtures";
 import { principalPolicyHead } from "../../../../test/helpers/principalPolicyFixtures";
 import {
+  repairPolicyPages,
+  repairProtectionLease,
+} from "../../../../test/helpers/principalPolicyRepair";
+import {
   projectionHistoryPages,
   projectionPolicyWarmer,
 } from "../../../../test/helpers/projectionPolicyHistory";
@@ -36,7 +40,6 @@ test("current group grant verification returns false when projection verificatio
   const {
     epochTwoPolicy,
     initialProjection,
-    organizationPolicy,
     resolveUserIdentity,
     projectionBundles,
   } = await setUpAdminGroupRoot();
@@ -47,25 +50,13 @@ test("current group grant verification returns false when projection verificatio
   const runtime = {
     apiClient: {
       ...projectionHistoryPages(projectionBundles),
+      getPrincipalPolicyPages: repairPolicyPages(projectionBundles),
       getContainerWriterProjection: async () => initialProjection,
-      getCurrentPrincipalPolicy: async (
-        principalType: "group" | "organization",
-      ) =>
-        principalType === "organization" ? organizationPolicy : epochTwoPolicy,
+      getCurrentPrincipalPolicy: async () => {
+        throw new Error("Full policy reads are forbidden");
+      },
     },
-    withPrincipalHistoryProtection: async (
-      operation: (lease: {
-        protection: { localKey: Uint8Array; context: string };
-        stillCurrent: () => boolean;
-      }) => Promise<unknown>,
-    ) =>
-      operation({
-        protection: {
-          localKey: new Uint8Array(32).fill(19),
-          context: "rotation-test",
-        },
-        stillCurrent: () => true,
-      }),
+    withPrincipalHistoryProtection: repairProtectionLease(),
     infra: { execSql },
     resolveTrustedUserIdentity: resolveUserIdentity,
     util: {
