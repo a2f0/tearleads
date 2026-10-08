@@ -241,6 +241,8 @@ async function commitMissingGroupGrantPolicy(
     );
   }
   const policyApi = {
+    recoverPendingPrincipalMutation:
+      input.apiClient.recoverPendingPrincipalMutation?.bind(input.apiClient),
     commitOrganizationGroupPolicy:
       input.apiClient.commitOrganizationGroupPolicy.bind(input.apiClient),
     getCurrentPrincipalPolicy: input.apiClient.getCurrentPrincipalPolicy.bind(
@@ -366,6 +368,10 @@ function loadShareGroupPolicy(input: RemoteContainerGroupShareInput) {
 export async function shareRemoteContainerWithGroup(
   input: RemoteContainerGroupShareInput,
 ): Promise<RemoteContainerGroupShareResult | null> {
+  if (input.stillCurrent?.() === false) return null;
+  await input.apiClient.recoverPendingPrincipalMutation?.(
+    input.author.organizationId,
+  );
   if (input.stillCurrent?.() === false) return null;
   const resolveProjectionUserKey = requireProjectionUserKeyResolver(
     input.resolveProjectionUserKey,

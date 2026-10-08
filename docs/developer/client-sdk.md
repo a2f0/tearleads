@@ -652,6 +652,29 @@ artifacts without retransmitting `previousStates`. The SDK verifies that receipt
 against its authored request and constructs the persisted successor bundle from
 its verified local prefix. Container acknowledgements remain part of the same
 check; a missing or substituted result cannot advance the local checkpoint.
+The runtime journals compound policy requests before HTTP and resolves pending
+work before authoring another group change. Advanced hosts use
+`submitJournaledPrincipalMutation` and `recoverJournaledPrincipalMutation`
+with durable SQLite, the actor's signing key and a current-lifetime guard.
+An unknown result remains pending even if a later retry receives 403 or 409.
+A recovered receipt acknowledges a past request without advancing current pins.
+Both runtime policy API variants may throw `PendingPrincipalMutationError` or
+`PrincipalMutationOutcomeUnknownError`. `readJournaledPrincipalMutation` inspects
+saved work. `abandonJournaledPrincipalMutation` stops retries only after an explicit
+choice accepting its unknown outcome and matching that exact inspected request;
+it does not undo a remote commit. Later mutations still verify current policy.
+The organization facade exposes `readPendingPolicyMutation(organizationId)`,
+`retryPendingPolicyMutation(organizationId)` and `abandonPendingPolicyMutation`,
+whose `AbandonOrganizationPolicyMutationInput` includes the inspected request.
+Org Manager shows saved work and requires confirmation before stopping retries.
+Unreadable inspection throws `UnreadablePrincipalMutationError`, distinguishing
+authentication and format failures. Advanced hosts can use
+`discardUnreadableJournaledPrincipalMutation`; the facade exposes
+`discardUnreadablePolicyMutation` with `DiscardUnreadableOrganizationPolicyMutationInput`.
+Both require the inspected opaque record identifier and explicit unknown-outcome
+acknowledgement. They clear only unchanged unreadable bytes, without HTTP or pin
+changes. Org Manager offers the same confirmed discard action.
+See [principal policy outcomes](principal-policy-outcomes.md) for scope and limits.
 
 A container's first direct grant has the matching precondition: the chain above
 it must be current, since its new grantee could not repair it; the API refuses
@@ -827,3 +850,11 @@ latest local pins at final admission. Historical selections never advance
 current-policy checkpoints or become current key material. Attachment detach,
 hydration, retained-wrap checks and relinking accept the same private policy
 warmer and operation-lifetime guard; the document store supplies both.
+
+`retainAcknowledgedPrincipalCurrents` retains exact acknowledged current policies
+and recovery progress atomically with their checkpoints. Its predecessor,
+custody and receipt requirements are documented in [current mutations](principal-current-mutations.md).
+
+The public `AcknowledgedPrincipalCurrentInput` and
+`AcknowledgedPrincipalCurrentRetirement` types describe batch inputs and
+signed-grant retirements.

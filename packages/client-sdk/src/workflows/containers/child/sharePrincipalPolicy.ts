@@ -49,6 +49,9 @@ export interface ContainerManagedPrincipalShareApi
       ApiClient,
       "evictContainerWriterProjection" | "getContainerWriterProjectionResult"
     > {
+  readonly recoverPendingPrincipalMutation?:
+    | ((organizationId: string) => Promise<void>)
+    | undefined;
   commitOrganizationGroupPolicy: (
     organizationId: string,
     groupId: string,

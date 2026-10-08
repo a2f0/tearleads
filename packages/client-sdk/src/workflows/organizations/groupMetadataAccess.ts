@@ -2,6 +2,7 @@ import {
   type ContainerAccessManifestState,
   decryptGroupMetadata,
   type GroupMetadataKey,
+  type ReferencedPrincipalHead,
   readGroupMetadata,
 } from "@tearleads/crypto";
 import { deriveOrganizationMetadataContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
@@ -30,6 +31,7 @@ export interface GroupMetadataAccessInput {
   };
   readonly verifyMetadataContainer: (
     state: ContainerAccessManifestState,
+    organizationReference?: ReferencedPrincipalHead | undefined,
   ) => Promise<void>;
   readonly execSql: ExecSql;
   readonly organizationId: string;
@@ -90,7 +92,10 @@ async function loadMetadataKeyringOnce(
     throw new Error(
       "Group metadata requires the signed organization metadata container",
     );
-  await input.verifyMetadataContainer(state);
+  await input.verifyMetadataContainer(
+    state,
+    projection.policyEvidence.organization?.head,
+  );
   assertProjectionVerificationCurrent(input.stillCurrent);
   const keys = await unwrapContainerKekPath({
     ...input,

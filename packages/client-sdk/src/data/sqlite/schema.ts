@@ -48,6 +48,10 @@ import {
   principalHistoryStageTables,
 } from "./principalHistoryStageSchema";
 import {
+  principalMutationJournal,
+  principalMutationJournalTables,
+} from "./principalMutationJournalSchema";
+import {
   principalPolicies,
   principalPolicyBundleHistory,
   principalPolicyBundleReferences,
@@ -749,6 +753,7 @@ export const containerSyncWatermarkTables: ReadonlyArray<SqlTableSchema> = [
 ];
 
 export const clientSqlTables: ReadonlyArray<SqlTableSchema> = [
+  ...principalMutationJournalTables,
   ...documentTables,
   ...principalPolicyTables,
   ...keyingCheckpointTables,
@@ -767,6 +772,7 @@ export const clientSqlTables: ReadonlyArray<SqlTableSchema> = [
 ];
 
 export const clientSQLiteSchema = {
+  principalMutationJournal,
   principalHistoryEntries,
   principalHistoryNodes,
   principalHistoryPrefixes,

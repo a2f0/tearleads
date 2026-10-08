@@ -1,3 +1,4 @@
+import type { ApiClient } from "@tearleads/api-client";
 import type {
   InternalRuntime,
   InternalWorkflowRuntimeInput,
@@ -5,9 +6,11 @@ import type {
 import type { BlobStore } from "../../src/data/blobContracts";
 import { defaultDocumentProjectorRegistry } from "../../src/data/documents/documentKinds";
 import { createDomainScope } from "../../src/data/domainScope";
+import type { PrincipalMutationRecoveryApi } from "../../src/workflows/organizations/principalMutationJournalManagement";
+import { principalMutationApiFixture } from "./principalMutationApiFixture";
 
 interface WorkflowInputFixtureOptions {
-  readonly apiClient: InternalWorkflowRuntimeInput["apiClient"];
+  readonly apiClient: ApiClient;
   readonly auth?: Partial<InternalWorkflowRuntimeInput["auth"]> | undefined;
   readonly blobStore?:
     | InternalWorkflowRuntimeInput["infra"]["blobStore"]
@@ -33,8 +36,21 @@ interface WorkflowInputFixtureOptions {
 export function createWorkflowInputFixture(
   options: WorkflowInputFixtureOptions,
 ): InternalWorkflowRuntimeInput {
+  const api: ApiClient & Partial<PrincipalMutationRecoveryApi> =
+    options.apiClient;
+  // Coordinator fixtures have no saved mutations unless a test supplies them.
+  const recovery = {
+    readPendingPrincipalMutation:
+      api.readPendingPrincipalMutation ?? (async () => null),
+    recoverPendingPrincipalMutation:
+      api.recoverPendingPrincipalMutation ?? (async () => {}),
+    abandonPendingPrincipalMutation:
+      api.abandonPendingPrincipalMutation ?? (async () => false),
+    discardUnreadablePrincipalMutation:
+      api.discardUnreadablePrincipalMutation ?? (async () => false),
+  } satisfies PrincipalMutationRecoveryApi;
   return {
-    apiClient: options.apiClient,
+    apiClient: principalMutationApiFixture(api, recovery),
     resolveTrustedUserIdentity:
       options.resolveTrustedUserIdentity ?? (async () => null),
     auth: {

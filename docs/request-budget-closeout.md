@@ -120,6 +120,10 @@ These are request counts, not latency measurements. Deduplicating repeated
 exact-head checks remains part of #2448; this test correction is not a
 performance improvement or completion of that issue.
 
+The follow-up migration of labels and metadata roots has additional cold policy
+reads and exact-head local reuse. Its [current-policy request costs](developer/current-principal-consumers.md#request-costs)
+record the measured phases and whole-operation limits separately from this slice.
+
 ## Measurement method
 
 Ten independent processes per scenario use the real application, SDK and test API

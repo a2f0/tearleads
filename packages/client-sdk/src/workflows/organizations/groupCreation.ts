@@ -25,6 +25,7 @@ export async function createOrganizationGroup(input: {
   readonly signingFingerprint: string;
   readonly signingKeyPair: SigningKeyPair;
 }): Promise<OrganizationGroupSummary> {
+  await input.apiClient.recoverPendingPrincipalMutation?.(input.organizationId);
   const externalAdminPolicy = await loadOrganizationExternalAdminPolicy({
     execSql: input.execSql,
     getCurrentPrincipalPolicy: (principalType, principalId) =>

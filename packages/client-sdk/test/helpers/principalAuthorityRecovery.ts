@@ -55,7 +55,10 @@ export async function signedAuthorityRecoveryHistory() {
 }
 
 export async function createAuthorityRecoveryFixture(
-  history: Awaited<ReturnType<typeof signedAuthorityRecoveryHistory>>,
+  history: Pick<
+    Awaited<ReturnType<typeof signedAuthorityRecoveryHistory>>,
+    "directory" | "admin" | "group" | "resolveTrustedUserIdentity"
+  > & { readonly organizationId: string },
 ) {
   const sqlite = await createTestExecSql("principal-authority-recovery");
   const policies = new Map(

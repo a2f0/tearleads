@@ -17,7 +17,7 @@ import { recoverScopedPrincipalPolicyHistory } from "./recoverScopedPrincipalPol
 let history: Awaited<ReturnType<typeof signedAuthorityRecoveryHistory>>;
 beforeAll(async () => {
   history = await signedAuthorityRecoveryHistory();
-});
+}, 30_000);
 
 test("scoped recovery rejects invalid key material before discovery", async () => {
   const fixture = await createAuthorityRecoveryFixture(history);
@@ -134,7 +134,7 @@ test("a group advancing during directory paging gets one fresh directory read", 
       fixture.requests
         .filter((request) => request.principalId === history.organizationId)
         .map((request) => request.afterVersion),
-    ).toEqual([0, 0, 32, 64, 0, 66]);
+    ).toEqual([0, 32, 64, 0, 66]);
   } finally {
     fixture.close();
   }

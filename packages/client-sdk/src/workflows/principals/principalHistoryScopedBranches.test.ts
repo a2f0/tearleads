@@ -9,7 +9,7 @@ import { recoverScopedPrincipalPolicyHistory } from "./recoverScopedPrincipalPol
 let history: Awaited<ReturnType<typeof signedAuthorityRecoveryHistory>>;
 beforeAll(async () => {
   history = await signedAuthorityRecoveryHistory();
-});
+}, 30_000);
 
 test.each(["organization", "admins"] as const)(
   "scoped recovery selects an older %s citation",
@@ -128,7 +128,7 @@ test("an organization citation beyond discovery gets one fresh directory read", 
     });
     expect(result.policy.stateHash).toBe(directory.currentState.stateHash);
     expect(fixture.requests.map((request) => request.afterVersion)).toEqual([
-      0, 0, 0, 32, 64,
+      0, 0, 32, 64,
     ]);
   } finally {
     fixture.close();
@@ -146,7 +146,7 @@ test("a directory remaining behind the reference stops after one refresh", async
       }),
     ).rejects.toMatchObject({ code: "stale_predecessor" });
     expect(fixture.requests.map((request) => request.afterVersion)).toEqual([
-      0, 0, 32, 64, 0, 65,
+      0, 32, 64, 0, 65,
     ]);
     expect(
       fixture.requests.every(

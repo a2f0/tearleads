@@ -1,4 +1,5 @@
 import { normalizePrincipalPolicyStateChainEntry } from "./principalPolicyChainEntry";
+import { issueVerifiedPrincipalPolicyCurrent } from "./principalPolicyCurrentEvidence";
 import {
   ownVerifiedPrincipalPolicyHistory,
   type VerifiedPrincipalPolicyHistory,
@@ -6,10 +7,9 @@ import {
 import { verifyPrincipalPolicyMemberEnvelopes } from "./principalPolicyMemberEnvelopes";
 import { verifyPrincipalPolicyPayload } from "./principalPolicyPayload";
 import { principalPolicyStateMatchesReference } from "./principalPolicyReference";
-import {
-  makeVerifiedPrincipalPolicyCurrent,
-  type PrincipalPolicyCurrent,
-  type VerifiedPrincipalPolicyCurrent,
+import type {
+  PrincipalPolicyCurrent,
+  VerifiedPrincipalPolicyCurrent,
 } from "./principalPolicyTypes";
 import { runVerifier, throwVerification } from "./shared";
 import type {
@@ -61,22 +61,25 @@ export function verifyPrincipalPolicyCurrent(input: {
       );
     await verifyPrincipalPolicyPayload({ bundle: current });
     await verifyPrincipalPolicyMemberEnvelopes({ bundle: current });
-    return makeVerifiedPrincipalPolicyCurrent({
-      principalType: entry.state.principalType,
-      principalId: entry.state.principalId,
-      version: entry.state.version,
-      keyEpoch: entry.state.keyEpoch,
-      stateHash: entry.state.stateHash,
-      state: entry.state,
-      projection: entry.projection,
-      grants: entry.grants,
-      retainedHistory: retained,
-      checkpoint: {
+    return issueVerifiedPrincipalPolicyCurrent(
+      {
         principalType: entry.state.principalType,
         principalId: entry.state.principalId,
         version: entry.state.version,
+        keyEpoch: entry.state.keyEpoch,
         stateHash: entry.state.stateHash,
+        state: entry.state,
+        projection: entry.projection,
+        grants: entry.grants,
+        retainedHistory: retained,
+        checkpoint: {
+          principalType: entry.state.principalType,
+          principalId: entry.state.principalId,
+          version: entry.state.version,
+          stateHash: entry.state.stateHash,
+        },
       },
-    });
+      history.latestAuthority,
+    );
   });
 }

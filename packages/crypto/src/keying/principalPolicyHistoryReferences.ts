@@ -113,11 +113,14 @@ export function verifyPrincipalPolicyHistoryReferences(input: {
       entries.set(entry.state.version, entry);
     }
     entries.set(treeSize, history.currentEntry);
-    return makeVerifiedPrincipalPolicyHistory({
-      ...history,
-      retainedEntries: [...entries.values()].sort(
-        (left, right) => left.state.version - right.state.version,
-      ),
-    });
+    return makeVerifiedPrincipalPolicyHistory(
+      {
+        ...history,
+        retainedEntries: [...entries.values()].sort(
+          (left, right) => left.state.version - right.state.version,
+        ),
+      },
+      history.latestAuthority,
+    );
   });
 }

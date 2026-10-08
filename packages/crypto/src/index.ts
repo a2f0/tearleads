@@ -332,6 +332,8 @@ export {
   verifyPrincipalPolicyBundleAgainstHistory,
   verifyPrincipalPolicyCheckpoint,
   verifyPrincipalPolicyCurrent,
+  verifyPrincipalPolicyCurrentMutation,
+  verifyPrincipalPolicyCurrentSuccessor,
   verifyPrincipalPolicyHistoryReferences,
   verifyPrincipalPolicySnapshot,
   verifySignedAccessEvent,

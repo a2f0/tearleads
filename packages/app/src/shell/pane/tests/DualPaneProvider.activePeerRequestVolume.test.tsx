@@ -1,5 +1,6 @@
 import { afterEach, expect, test } from "bun:test";
 import type { ContainerContentsStore } from "@tearleads/client-sdk";
+import { isCommitOrganizationGroupPolicyResponse } from "@tearleads/validators/response";
 import {
   act,
   cleanup,
@@ -272,6 +273,14 @@ test(
     const groupId =
       committedGroupPath && requestPath(committedGroupPath.url).split("/")[4];
     invariant(groupId, "Expected the committed custom group id.");
+    const receipt: unknown = JSON.parse(committedGroupPath.responseBody);
+    invariant(
+      isCommitOrganizationGroupPolicyResponse(receipt),
+      "Expected the group receipt.",
+    );
+    const adminGroupId =
+      receipt.groupPolicy.currentState.externalAuthority?.principalId;
+    invariant(adminGroupId, "Expected the signed Admins authority citation.");
     const peerReadModelRequests = peerMutationRequests.filter(
       (request) =>
         request.method === "GET" &&
@@ -282,6 +291,7 @@ test(
       (request) => isContainerOrDocumentRequest(request.url),
     );
     expect(getDroppedShareNotificationCount()).toBe(0);
+    // Label and metadata-root verification share one signed directory view.
     expect(
       peerMutationRequests.map(
         (request) => `${request.method} ${requestPath(request.url)}`,
@@ -290,8 +300,9 @@ test(
       `GET /organizations/${founderSession.organizationId}/read-model`,
       // Encrypted labels require the new signed directory and group head.
       `GET /principals/organization/${founderSession.organizationId}/policy`,
+      `GET /principals/organization/${founderSession.organizationId}/policy`,
+      `GET /principals/group/${adminGroupId}/policy`,
       `GET /principals/group/${groupId}/policy`,
-      "GET /principals/history",
     ]);
     expect(peerReadModelRequests).toHaveLength(1);
     expect(

@@ -114,8 +114,10 @@ test(
       },
       mutations: [{ method: "POST", path: /^\/organizations$/u, count: 1 }],
       budget: {
-        total: 12,
+        total: 14,
         byRequest: {
+          "GET /principals/organization/:organizationId/policy": 1,
+          "GET /principals/group/:groupId/policy": 1,
           // The new organization metadata document needs signed discovery evidence.
           "GET /documents/:documentId/writer-projection": 1,
           "GET /principals/history": 3,

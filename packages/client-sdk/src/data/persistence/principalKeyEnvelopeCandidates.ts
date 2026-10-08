@@ -2,11 +2,12 @@ import {
   type CurrentPrincipalMemberEnvelopesResponse,
   isCurrentPrincipalMemberEnvelopesResponse,
 } from "@tearleads/validators/response";
-import { desc, eq, sql } from "drizzle-orm";
+import { and, desc, eq, sql } from "drizzle-orm";
 import {
   principalHistoryEvidenceTables,
   principalHistoryPrefixes,
 } from "../sqlite/principalHistoryEvidenceSchema";
+import { principalHistoryStages } from "../sqlite/principalHistoryStageSchema";
 import {
   principalCurrentFingerprintJson,
   principalStateFingerprintJson,
@@ -75,6 +76,23 @@ export async function loadPrincipalKeyEnvelopeCandidates(
       .orderBy(desc(principalHistoryPrefixes.version))
       .limit(1);
     if (prefix) encoded.push(prefix.envelopes);
+    const [stage] = await db
+      .select({
+        envelopes: sql<string>`json_extract(${principalHistoryStages.currentJson}, '$.currentMemberEnvelopes')`,
+      })
+      .from(principalHistoryStages)
+      .where(
+        and(
+          eq(
+            principalCurrentFingerprintJson(principalHistoryStages.currentJson),
+            fingerprint,
+          ),
+          eq(principalHistoryStages.complete, true),
+        ),
+      )
+      .orderBy(desc(principalHistoryStages.afterVersion))
+      .limit(1);
+    if (stage) encoded.push(stage.envelopes);
     for (const json of encoded) {
       let envelopes: unknown;
       try {
