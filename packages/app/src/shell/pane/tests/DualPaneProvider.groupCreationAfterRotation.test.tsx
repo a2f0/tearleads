@@ -226,6 +226,8 @@ test(
     await openOrgManager(peerPane);
     // Opening Org Manager starts its own verified directory catch-up.
     await waitForPrincipalRematerialization();
+    // Creation belongs to Groups; mounted navigation alone does not mean the
+    // recovered owner's verified admin permissions are ready.
     await interact(() => {
       fireEvent.click(within(peerPane).getByRole("button", { name: "Groups" }));
     });
