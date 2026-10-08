@@ -82,7 +82,7 @@ test.each([false, true])(
 );
 
 test("stale completion and version hints cannot evict a different actual stage", async () => {
-  const f = await seededCompletedRetention(9, 2);
+  const f = await seededCompletedRetention(10, 2);
   try {
     await f.db
       .update(principalHistoryStages)
@@ -101,6 +101,7 @@ test("stale completion and version hints cannot evict a different actual stage",
       afterVersion: 200,
     });
     expect(saved.stages).toHaveLength(10);
+    expect(saved.stages.some((row) => row.id === "old-4")).toBe(false);
   } finally {
     f.close();
   }

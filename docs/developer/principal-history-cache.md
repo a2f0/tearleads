@@ -35,6 +35,9 @@ the last good prefix remains unchanged. Published offline evidence, incomplete
 work, other scopes and other organizations remain protected. Stale completion
 or version hints are skipped rather than used to evict a different actual row.
 Encrypted key candidates are archived before the bounded batch is deleted.
+The same cap applies to completed public-history attempts interrupted before
+prefix publication. Public progress contains no private key candidates;
+successful public recovery publishes its prefix and removes its own stage.
 
 An evicted in-flight writer fails its progress compare-and-swap with
 `principal_history_stage_changed`; the caller must start another recovery, which

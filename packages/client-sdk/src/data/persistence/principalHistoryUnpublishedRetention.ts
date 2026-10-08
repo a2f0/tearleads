@@ -76,7 +76,14 @@ export async function reclaimUnpublishedPrincipalHistoryStages(
     ...new Set([current.id, ...published.map(({ id }) => id)]),
   ];
   const obsolete = await tx
-    .select({ stage: principalHistoryStages })
+    .select({
+      stage: {
+        id: principalHistoryStages.id,
+        organizationId: principalHistoryStages.organizationId,
+        currentJson: principalHistoryStages.currentJson,
+        afterVersion: principalHistoryStages.afterVersion,
+      },
+    })
     .from(principalHistoryStageScopes)
     .innerJoin(
       principalHistoryStages,
@@ -88,6 +95,7 @@ export async function reclaimUnpublishedPrincipalHistoryStages(
         notInArray(principalHistoryStages.id, protectedIds),
       ),
     )
+    // The existing "incomplete" index also covers completed scoped recency.
     .orderBy(
       desc(principalHistoryStageScopes.touchedAt),
       asc(principalHistoryStageScopes.id),
