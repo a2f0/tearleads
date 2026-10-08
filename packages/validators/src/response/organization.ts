@@ -86,7 +86,7 @@ export type OrganizationProfileResponse = z.infer<
 >;
 
 export const OrganizationGroupCurrentStateResponseShape = {
-  keyEpoch: positiveIntegerSchema,
+  keyEpoch: boundedPositiveIntegerSchema(Number.MAX_SAFE_INTEGER),
   keyFingerprint: nonEmptyStringSchema,
   memberCount: nonNegativeIntegerSchema,
   stateHash: z.string(),

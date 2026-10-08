@@ -256,12 +256,16 @@ export const accessManifestPrincipalHeadProjection = pgTable(
       .notNull(),
     principalId: uuid("principal_id").notNull(),
     version: bigint("version", { mode: "number" }).notNull(),
-    keyEpoch: integer("key_epoch").notNull(),
+    keyEpoch: bigint("key_epoch", { mode: "number" }).notNull(),
     stateHash: text("state_hash").notNull(),
     keyFingerprint: text("key_fingerprint").notNull(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
   (table) => [
+    check(
+      "access_manifest_principal_head_projection_key_epoch_range",
+      sql`${table.keyEpoch} >= 1 AND ${table.keyEpoch} <= 9007199254740991 AND ${table.keyEpoch} = CAST(${table.keyEpoch} AS BIGINT)`,
+    ),
     check(
       "access_manifest_principal_head_projection_version_range",
       sql`${table.version} >= 1 AND ${table.version} <= 9007199254740991`,

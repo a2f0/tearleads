@@ -178,6 +178,12 @@ async function validatePrincipalStateChain(
   );
 
   if (!currentState) {
+    if (state.keyEpoch !== 1) {
+      rejectPrincipalPolicy(
+        "state_conflict",
+        "Initial principal policy key epoch must be 1",
+      );
+    }
     if (state.prevStateHash !== null || state.version !== 1) {
       rejectPrincipalPolicy(
         "state_conflict",

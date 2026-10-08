@@ -30,7 +30,7 @@ async function grantTransition(input: {
   const members = [{ userId: signer.userId }];
   const first = await signPolicyState({
     grants: input.previousGrants,
-    keyEpoch: 2,
+    keyEpoch: 1,
     members,
     prevStateHash: null,
     principalId,
@@ -45,7 +45,7 @@ async function grantTransition(input: {
     prevStateHash: first.state.stateHash,
     principalId,
     principalKeyPair:
-      input.nextKeyEpoch > 2 ? generateKemSeedAndKeyPair() : principalKeyPair,
+      input.nextKeyEpoch > 1 ? generateKemSeedAndKeyPair() : principalKeyPair,
     signer,
     version: 2,
   });
@@ -65,7 +65,7 @@ test("a same-epoch policy may change a grant's level or add a container", async 
   for (const nextGrants of [[write], [read, other]]) {
     const { mismatch, result } = await grantTransition({
       nextGrants,
-      nextKeyEpoch: 2,
+      nextKeyEpoch: 1,
       previousGrants: [read],
     });
     expect(mismatch).toBeNull();
@@ -76,7 +76,7 @@ test("a same-epoch policy may change a grant's level or add a container", async 
 test("a rotated key may drop any grant", async () => {
   const { mismatch, result } = await grantTransition({
     nextGrants: [],
-    nextKeyEpoch: 3,
+    nextKeyEpoch: 2,
     previousGrants: [read, other],
   });
   expect(mismatch).toBeNull();
@@ -86,7 +86,7 @@ test("a rotated key may drop any grant", async () => {
 test("a same-epoch policy that drops a container is refused", async () => {
   const { mismatch, result } = await grantTransition({
     nextGrants: [other],
-    nextKeyEpoch: 2,
+    nextKeyEpoch: 1,
     previousGrants: [read, other],
   });
   expect(mismatch).toEqual({

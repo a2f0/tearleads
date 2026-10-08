@@ -78,6 +78,7 @@ export type PrincipalPolicyTransitionMismatchCode =
   | "grant_removal_without_key_rotation"
   | "key_change_without_epoch"
   | "key_epoch_decrease"
+  | "key_epoch_jump"
   | "previous_hash_mismatch"
   | "principal_mismatch"
   | "shrink_without_key_rotation"
@@ -137,6 +138,13 @@ export function getPrincipalPolicyTransitionMismatch(input: {
     return principalPolicyTransitionMismatch(
       "key_epoch_decrease",
       "Principal policy key epoch cannot decrease",
+    );
+  }
+
+  if (current.state.keyEpoch > previous.state.keyEpoch + 1) {
+    return principalPolicyTransitionMismatch(
+      "key_epoch_jump",
+      "Principal policy key epoch must advance by exactly one",
     );
   }
 
@@ -203,6 +211,7 @@ export function getPrincipalPolicyTransitionMismatchReason(
   return getPrincipalPolicyTransitionMismatch(input)?.message ?? null;
 }
 
+/** key_epoch_reuse classifies all epoch/key-material continuity violations. */
 export function throwPrincipalPolicyTransitionError(
   mismatch: PrincipalPolicyTransitionMismatch,
 ): never {
@@ -211,6 +220,7 @@ export function throwPrincipalPolicyTransitionError(
     case "grant_removal_without_key_rotation":
     case "key_change_without_epoch":
     case "key_epoch_decrease":
+    case "key_epoch_jump":
     case "shrink_without_key_rotation":
       return throwVerification("key_epoch_reuse", mismatch.message);
     case "previous_hash_mismatch":

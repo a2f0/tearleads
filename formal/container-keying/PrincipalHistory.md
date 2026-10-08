@@ -32,7 +32,14 @@ organization chains through 16,384, submits the membership revocation through th
 real compound endpoint, loses durable verification markers, and recovers an older
 encrypted document with a fresh SDK database. `principalStateVersion.test.ts`
 and `principalVersionStorage.test.ts` cover the wire/crypto and PostgreSQL
-representation boundaries. Cold history cost remains linear; this model makes
+representation boundaries. Principal key epochs are a separate counter: genesis
+uses 1 and each rotation advances exactly one with fresh key material. Unchanged
+keys retain their epoch; membership shrink and grant removal require rotation.
+`principalPolicyEpoch.test.ts` covers full-chain and paged verification, and
+`policyEpochHttp.test.ts` checks atomic refusal and subsequent revocation over
+HTTP. Epochs use positive safe integers across wire, crypto, SDK and storage.
+This model assumes valid rotations rather than modeling epoch arithmetic.
+Cold history cost remains linear; this model makes
 no performance guarantee for arbitrarily large histories.
 
 Run the full boundary scenario with

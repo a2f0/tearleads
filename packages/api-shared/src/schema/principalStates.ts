@@ -23,15 +23,8 @@ import {
 /**
  * Signed state history for managed recipient principals.
  *
- * Organizations and groups have signed membership and encryption-key policy
- * here. User keys live separately in `users`.
- *
- * Each row stores the signed, public header for one principal state version.
- * The encrypted policy payload is stored separately in
- * `principalStatePayloads`, the queryable membership/role projection is stored
- * in `principalMembershipProjection`, and the active recipient key material is
- * indexed in `principalEpochKeys`. Those companion tables are addressed by the
- * same `(principalType, principalId, stateHash)` identity.
+ * Public headers are joined to payloads, membership, and epoch-key rows by
+ * `(principalType, principalId, stateHash)`. User keys live in `users`.
  *
  * Columns:
  * - `id`: Surrogate row id; domain identity is the principal and `stateHash`.
@@ -45,9 +38,8 @@ import {
  * - `prevStateHash`: Hash-chain pointer to the previous signed state header,
  *   or `null` for the initial state.
  * - `keyEpoch`: Principal wrapping-key epoch referenced by this state. It may
- *   stay the same for additive policy changes, but cannot decrease; key
- *   material changes, membership shrink and container grant removal require
- *   a new epoch.
+ *   stay unchanged with the same key material. Genesis uses 1; rotation,
+ *   membership shrink and grant removal require exactly one new epoch.
  * - `encapsulationPublicKey`: Public KEM key for the principal at `keyEpoch`.
  *   Members encrypt/rewrap principal key material to this public key.
  * - `keyFingerprint`: Fingerprint of `encapsulationPublicKey`; verified before
@@ -87,6 +79,7 @@ import {
  * - `(principalType, principalId, stateHash)` is unique because state hashes are
  *   the content-addressed references used by the rest of the access system.
  */
+// Epoch casts also reject fractional values in SQLite's dynamically typed INTEGERs.
 export const principalStates = pgTable(
   "principal_states",
   {
@@ -97,7 +90,7 @@ export const principalStates = pgTable(
     principalId: uuid("principal_id").notNull(),
     version: bigint("version", { mode: "number" }).notNull(),
     prevStateHash: text("prev_state_hash"),
-    keyEpoch: integer("key_epoch").notNull(),
+    keyEpoch: bigint("key_epoch", { mode: "number" }).notNull(),
     encapsulationPublicKey: text("encapsulation_public_key").notNull(),
     keyFingerprint: text("key_fingerprint").notNull(),
     membershipMode: text("membership_mode")
@@ -120,6 +113,10 @@ export const principalStates = pgTable(
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
   (table) => [
+    check(
+      "principal_states_key_epoch_range",
+      sql`${table.keyEpoch} >= 1 AND ${table.keyEpoch} <= 9007199254740991 AND ${table.keyEpoch} = CAST(${table.keyEpoch} AS BIGINT)`,
+    ),
     check(
       "principal_states_version_range",
       sql`${table.version} >= 1 AND ${table.version} <= 9007199254740991`,
@@ -325,11 +322,7 @@ export const principalContainerGrantProjection = pgTable(
 /**
  * Recipient key material for managed principal key epochs.
  *
- * A principal state has a `keyEpoch`, `encapsulationPublicKey`, and
- * `keyFingerprint`. This table indexes that key material by principal and
- * epoch so other systems can encrypt to the principal as a recipient. For
- * example, a container key wrap can target a group by looking up that group's
- * current principal epoch key.
+ * Indexes the principal's signed KEM key and fingerprint by epoch for wrapping.
  *
  * Key epochs are historical and monotonic. Additive policy changes may reuse an
  * existing epoch and key material; membership shrink, container grant removal
@@ -369,13 +362,17 @@ export const principalEpochKeys = pgTable(
       .$type<ManagedRecipientPrincipalType>()
       .notNull(),
     principalId: uuid("principal_id").notNull(),
-    epoch: integer("epoch").notNull(),
+    epoch: bigint("epoch", { mode: "number" }).notNull(),
     introducedByStateHash: text("introduced_by_state_hash").notNull(),
     encapsulationPublicKey: text("encapsulation_public_key").notNull(),
     keyFingerprint: text("key_fingerprint").notNull(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
   (table) => [
+    check(
+      "principal_epoch_keys_epoch_range",
+      sql`${table.epoch} >= 1 AND ${table.epoch} <= 9007199254740991 AND ${table.epoch} = CAST(${table.epoch} AS BIGINT)`,
+    ),
     index("principal_epoch_keys_principal_idx").on(
       table.principalType,
       table.principalId,
@@ -415,9 +412,7 @@ export const principalEpochKeys = pgTable(
  * - `epoch`: Principal key epoch being wrapped. This is the owning principal's
  *   epoch, not the member recipient's epoch.
  * - `userId`: Stable id of the direct member recipient, always a user.
- * - `memberKeyFingerprint`: Recipient key fingerprint used for this envelope.
- *   For users this is `users.encapsulationKeyFingerprint`; for groups this is
- *   the group's current `principalEpochKeys.keyFingerprint`.
+ * - `memberKeyFingerprint`: The user's `encapsulationKeyFingerprint`.
  * - `kemCipherText`: KEM ciphertext/capsule produced while encrypting to the
  *   member recipient key.
  * - `wrappedKey`: Encrypted principal key material for the member recipient.
@@ -440,7 +435,7 @@ export const principalMemberEnvelopes = pgTable(
       .notNull(),
     principalId: uuid("principal_id").notNull(),
     stateHash: text("state_hash").notNull(),
-    epoch: integer("epoch").notNull(),
+    epoch: bigint("epoch", { mode: "number" }).notNull(),
     userId: uuid("user_id").notNull(),
     memberKeyFingerprint: text("member_key_fingerprint").notNull(),
     kemCipherText: text("kem_cipher_text").notNull(),
@@ -448,6 +443,10 @@ export const principalMemberEnvelopes = pgTable(
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
   (table) => [
+    check(
+      "principal_member_envelopes_epoch_range",
+      sql`${table.epoch} >= 1 AND ${table.epoch} <= 9007199254740991 AND ${table.epoch} = CAST(${table.epoch} AS BIGINT)`,
+    ),
     index("principal_member_envelopes_principal_idx").on(
       table.principalType,
       table.principalId,
