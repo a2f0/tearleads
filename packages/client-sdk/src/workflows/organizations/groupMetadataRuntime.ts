@@ -1,4 +1,5 @@
 import type { EncapsulationKeyPair } from "@tearleads/crypto";
+import { ProjectionDependencyUnavailableError } from "../../data/keyingProjectionVerification/dependencyUnavailable";
 import { createProjectionUserKeyResolver } from "../../data/keyingProjectionVerification/userKeyResolver";
 import type { SecurityIncidentReporter } from "../../data/securityIncidents";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
@@ -83,6 +84,8 @@ function requireCurrentResolver(
   resolve: ReturnType<typeof createRuntimePrincipalPolicyCurrentResolver>,
 ) {
   if (!resolve)
-    throw new Error("Group metadata requires private paged recovery");
+    throw new ProjectionDependencyUnavailableError(
+      "Group metadata requires private paged recovery",
+    );
   return resolve;
 }

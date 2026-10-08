@@ -8,6 +8,7 @@ import {
   type ProjectionUserKeyResolver,
   verifyContainerWriterProjection,
 } from "../../../data/keyingProjectionVerification";
+import { ProjectionDependencyUnavailableError } from "../../../data/keyingProjectionVerification/dependencyUnavailable";
 import { principalPolicyCacheForVerifiedPolicies } from "../../../data/keyingProjectionVerification/principalPolicyCache";
 import { referencedPrincipalHeadFromPolicy } from "../../containers";
 import { createRuntimeCurrentSharePrincipalPolicy } from "../../containers/child/currentSharePrincipalPolicy";
@@ -84,7 +85,9 @@ async function containerStateHasCurrentGroupGrantInternal(input: {
 
   const readCurrent = createRuntimeCurrentSharePrincipalPolicy(input.runtime);
   if (!readCurrent)
-    throw new Error("Group sharing requires private paged recovery");
+    throw new ProjectionDependencyUnavailableError(
+      "Group sharing requires private paged recovery",
+    );
   return readCurrent(
     {
       expectedGroupHead: input.expectedGroupHead,

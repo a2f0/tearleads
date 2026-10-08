@@ -3,6 +3,7 @@ import { createTestExecSql } from "@tearleads/test-utils";
 import { deriveOrganizationMetadataContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
 import type { ContainerWriterProjectionResponse } from "@tearleads/validators/response";
 import { createMutationResponseFromRequest } from "../../../../test/helpers/containerFixtures";
+import { repairPolicyPages } from "../../../../test/helpers/principalPolicyRepair";
 import {
   projectionDirectoryPayload,
   projectionHistoryPages,
@@ -91,7 +92,14 @@ test("a stale prefetched metadata root is read once more, then reported", async 
             reads += 1;
             return projection;
           },
-          getCurrentPrincipalPolicy: scenario.currentPolicy,
+          getPrincipalPolicyPages: repairPolicyPages([
+            scenario.admin,
+            scenario.advanced,
+            scenario.advancedDirectory,
+          ]),
+          getCurrentPrincipalPolicy: async () => {
+            throw new Error("Unexpected full history read");
+          },
         },
         auth: {
           organizationId: listed.organizationId,

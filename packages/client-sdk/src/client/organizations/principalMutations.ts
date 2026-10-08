@@ -1,4 +1,5 @@
 import type { ContainerGrantSubjectType } from "@tearleads/crypto";
+import { ProjectionDependencyUnavailableError } from "../../data/keyingProjectionVerification/dependencyUnavailable";
 import { runWithSecurityIncidentReporting } from "../../data/keyingProjectionVerification/error";
 import { revokeOrganizationContainerGrant } from "../../workflows/organizations";
 import { createCurrentOrganizationGroup } from "../../workflows/organizations/createCurrentOrganizationGroup";
@@ -99,7 +100,9 @@ export async function addUserToOrganizationGroup(
         stillCurrent: input.stillCurrent,
       });
       if (!mutateCurrent)
-        throw new Error("Principal history recovery is unavailable");
+        throw new ProjectionDependencyUnavailableError(
+          "Principal history recovery is unavailable",
+        );
       const { memberGroupId, response: bundle } = await mutateCurrent(
         input.groupId,
         {
@@ -142,7 +145,10 @@ export function createGroupForOrganization(input: {
         input.runtime,
       );
       const mutate = createRuntimeCurrentOrganizationMutation(input.runtime);
-      if (!mutate) throw new Error("Principal history recovery is unavailable");
+      if (!mutate)
+        throw new ProjectionDependencyUnavailableError(
+          "Principal history recovery is unavailable",
+        );
       return mutate(
         { ...signingContext, stillCurrent: input.stillCurrent },
         (context) =>
@@ -188,7 +194,10 @@ export function deleteGroupForOrganization(input: {
     },
     () => {
       const mutate = createRuntimeCurrentOrganizationMutation(input.runtime);
-      if (!mutate) throw new Error("Principal history recovery is unavailable");
+      if (!mutate)
+        throw new ProjectionDependencyUnavailableError(
+          "Principal history recovery is unavailable",
+        );
       return mutate(
         { ...signingContext, stillCurrent: input.stillCurrent },
         (context) =>
@@ -224,7 +233,9 @@ export async function removeUserFromOrganizationGroup(
         stillCurrent: input.stillCurrent,
       });
       if (!mutateCurrent)
-        throw new Error("Principal history recovery is unavailable");
+        throw new ProjectionDependencyUnavailableError(
+          "Principal history recovery is unavailable",
+        );
       const { memberGroupId, response: bundle } = await mutateCurrent(
         input.groupId,
         {
@@ -274,7 +285,9 @@ export async function revokeOrganizationGrant(
             stillCurrent: input.stillCurrent,
           });
           if (!mutateCurrent)
-            throw new Error("Principal history recovery is unavailable");
+            throw new ProjectionDependencyUnavailableError(
+              "Principal history recovery is unavailable",
+            );
           return (
             await mutateCurrent(input.subjectId, {
               kind: "revoke",

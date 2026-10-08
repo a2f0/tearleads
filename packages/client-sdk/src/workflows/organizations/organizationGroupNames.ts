@@ -1,4 +1,5 @@
 import type { ReferencedPrincipalHead } from "@tearleads/crypto";
+import { ProjectionDependencyUnavailableError } from "../../data/keyingProjectionVerification/dependencyUnavailable";
 import { hydrateCurrentOrganizationGroupNames } from "./currentOrganizationGroupNames";
 import type { DirectoryGroupWalkInput } from "./groupNameUniqueness";
 import type { OrganizationDirectoryAndGroups } from "./readModel";
@@ -21,7 +22,9 @@ export async function hydrateOrganizationGroupNames(
   },
 ): Promise<OrganizationDirectoryAndGroups> {
   if (!input.resolveCurrentPolicy)
-    throw new Error("Group names require private paged recovery");
+    throw new ProjectionDependencyUnavailableError(
+      "Group names require private paged recovery",
+    );
   return hydrateCurrentOrganizationGroupNames({
     ...input,
     organizationReference: input.organizationPolicyReference,

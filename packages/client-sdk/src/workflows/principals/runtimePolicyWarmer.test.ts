@@ -18,6 +18,7 @@ beforeAll(async () => {
 
 async function fixture(protectedRecovery = true) {
   const source = await createAuthorityRecoveryFixture(history);
+  // Initialize checkpoint tables even when recovery refuses before any local read.
   await loadPrincipalPolicyCheckpoint(
     source.options.execSql,
     "group",

@@ -1,3 +1,4 @@
+import { ProjectionDependencyUnavailableError } from "../../../data/keyingProjectionVerification/dependencyUnavailable";
 import { createRuntimeCurrentSharePrincipalPolicy } from "../../containers/child/currentSharePrincipalPolicy";
 import type { ContainerWorkflowRuntime } from "./types";
 
@@ -13,7 +14,9 @@ export async function resolveCurrentGroupKeyEpoch(input: {
   if (input.stillCurrent?.() === false) return null;
   const readCurrent = createRuntimeCurrentSharePrincipalPolicy(input.runtime);
   if (!readCurrent)
-    throw new Error("Group sharing requires private paged recovery");
+    throw new ProjectionDependencyUnavailableError(
+      "Group sharing requires private paged recovery",
+    );
   return readCurrent(
     {
       expectedGroupName: input.expectedGroupName,
