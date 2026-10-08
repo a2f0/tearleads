@@ -444,6 +444,7 @@ export type {
   OrganizationPrincipalPolicyHistoryEntry,
   PrincipalMutationJournalContext,
   PrincipalMutationJournalScope,
+  PrincipalMutationResponse,
   ReconcileOrganizationDataUsageInput,
 } from "./workflows/organizations";
 export {

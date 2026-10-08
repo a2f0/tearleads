@@ -4,11 +4,11 @@ import { ApiClient } from "@tearleads/api-client";
 import {
   type AuthoredPrincipalMutation,
   type PrincipalMutationJournalContext,
+  type PrincipalMutationResponse,
   recoverJournaledPrincipalMutation,
   submitJournaledPrincipalMutation,
 } from "@tearleads/client-sdk";
 import { base64ToBytes } from "@tearleads/encoding";
-import type { CommitOrganizationGroupPolicyResponse } from "@tearleads/validators/response";
 
 interface JournalProcessInput {
   readonly url: string;
@@ -23,7 +23,7 @@ interface JournalProcessInput {
 type JournalProcessMessage =
   | {
       readonly ok: true;
-      readonly response: CommitOrganizationGroupPolicyResponse;
+      readonly response: PrincipalMutationResponse;
     }
   | { readonly ok: false; readonly error: string };
 
@@ -66,8 +66,7 @@ function journalExecSql(
 export function startPrincipalMutationJournalProcess(
   input: JournalProcessInput,
 ) {
-  const completed =
-    Promise.withResolvers<CommitOrganizationGroupPolicyResponse>();
+  const completed = Promise.withResolvers<PrincipalMutationResponse>();
   void completed.promise.catch(() => {});
   const child = Bun.spawn({
     cmd: [process.execPath, fileURLToPath(import.meta.url)],
@@ -100,6 +99,43 @@ async function sendResult(message: JournalProcessMessage): Promise<void> {
   });
 }
 
+function submitOperation(
+  api: ApiClient,
+  organizationId: string,
+  mutation: AuthoredPrincipalMutation,
+) {
+  const options = { signal: AbortSignal.timeout(15_000), reportErrors: false };
+  switch (mutation.kind) {
+    case "group-create":
+      return api.createOrganizationGroupResult(
+        organizationId,
+        mutation.request,
+        options,
+      );
+    case "group-delete":
+      return api.deleteOrganizationGroupResult(
+        organizationId,
+        mutation.groupId,
+        mutation.request,
+        options,
+      );
+    case "organization":
+      return api.putPrincipalPolicyResult(
+        "organization",
+        organizationId,
+        mutation.request,
+        options,
+      );
+    case undefined:
+      return api.commitOrganizationGroupPolicyResult(
+        organizationId,
+        mutation.groupId,
+        mutation.request,
+        options,
+      );
+  }
+}
+
 async function runJournalProcess() {
   const input = JSON.parse(await Bun.stdin.text()) as JournalProcessInput;
   const database = new Database(input.databasePath);
@@ -115,12 +151,7 @@ async function runJournalProcess() {
     stillCurrent: () => true,
     execSql: journalExecSql(database),
     submit: (mutation) =>
-      api.commitOrganizationGroupPolicyResult(
-        input.scope.organizationId,
-        mutation.groupId,
-        mutation.request,
-        { signal: AbortSignal.timeout(15_000), reportErrors: false },
-      ),
+      submitOperation(api, input.scope.organizationId, mutation),
   };
   try {
     if (input.mutation) {

@@ -42,6 +42,11 @@ import {
   PaymentRequiredErrorResponseSchema,
   SessionFailureResponseSchema,
 } from "../response";
+import {
+  PrincipalHistoryPreparationFailureResponseSchema,
+  PrincipalHistoryPreparationResponseSchema,
+  principalHistoryRollbackRefinement,
+} from "../response/principalHistoryPreparation";
 import { uuidV4StringSchema } from "../schema";
 import { defineJsonOperation } from "./definition";
 
@@ -147,17 +152,24 @@ export const createOrganizationGroupOperation = defineJsonOperation({
     404: ErrorResponseSchema,
     409: ErrorResponseSchema,
     500: ErrorResponseSchema,
-    503: ErrorResponseSchema,
+    503: PrincipalHistoryPreparationFailureResponseSchema,
   },
   failureStatuses: [400, 401, 402, 403, 404, 409, 500, 503],
   id: "organizations.groups.create",
   method: "POST",
   params: OrganizationPathParamsSchema,
   path: "/organizations/{organizationId}/groups",
+  responseDescriptions: {
+    202: "The attempted operation rolled back. Retry the identical request to continue verification preparation.",
+  },
   responses: {
+    202: PrincipalHistoryPreparationResponseSchema,
     200: CreateOrganizationGroupResponseSchema,
   },
-  runtimeRefinements: [organizationProvisioningContainerKeyringRefinement],
+  runtimeRefinements: [
+    organizationProvisioningContainerKeyringRefinement,
+    principalHistoryRollbackRefinement,
+  ],
 });
 
 export const deleteOrganizationGroupOperation = defineJsonOperation({
@@ -171,17 +183,24 @@ export const deleteOrganizationGroupOperation = defineJsonOperation({
     404: ErrorResponseSchema,
     409: ErrorResponseSchema,
     500: ErrorResponseSchema,
-    503: ErrorResponseSchema,
+    503: PrincipalHistoryPreparationFailureResponseSchema,
   },
   failureStatuses: [400, 401, 402, 403, 404, 409, 500, 503],
   id: "organizations.groups.delete",
   method: "DELETE",
   params: OrganizationGroupPathParamsSchema,
   path: "/organizations/{organizationId}/groups/{groupId}",
+  responseDescriptions: {
+    202: "The attempted operation rolled back. Retry the identical request to continue verification preparation.",
+  },
   responses: {
+    202: PrincipalHistoryPreparationResponseSchema,
     200: DeleteOrganizationGroupResponseSchema,
   },
-  runtimeRefinements: [organizationProvisioningContainerKeyringRefinement],
+  runtimeRefinements: [
+    organizationProvisioningContainerKeyringRefinement,
+    principalHistoryRollbackRefinement,
+  ],
 });
 
 export const listOrganizationGroupMembersOperation = defineJsonOperation({

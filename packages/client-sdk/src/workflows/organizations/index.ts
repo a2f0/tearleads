@@ -78,6 +78,7 @@ export {
   recoverJournaledPrincipalMutation,
   submitJournaledPrincipalMutation,
 } from "./principalMutationJournalSession";
+export type { PrincipalMutationResponse } from "./principalOperationReceipt";
 export {
   addOrganizationGroupUser,
   buildInitialGroupPolicyRequest,

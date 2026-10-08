@@ -22,6 +22,7 @@ test("journal authenticates an owned complete request after identity reload", as
   expect(await openPrincipalMutation(reload)).toEqual(authored);
   expect(input.signingKeyPair.signingPrivateKey).toEqual(privateKey);
   const opened = await openPrincipalMutation(reload);
+  if (opened.kind !== undefined) throw new Error("Expected compound journal");
   opened.request.groupPolicy.memberEnvelopes.length = 0;
   expect(await openPrincipalMutation(reload)).toEqual(authored);
 });

@@ -17,6 +17,7 @@ import { addUserToAdminGroup } from "../../../test/helpers/organizationAdmin";
 import { createGroupRequest } from "../../../test/helpers/organizationGroup";
 import { createPrincipalMemberEnvelopes } from "../../../test/helpers/principalMemberEnvelopes";
 import { submitOrganizationGroupPolicyCommit } from "../../../test/helpers/principalPolicy";
+import { requestAfterPrincipalPreparation } from "../../../test/helpers/principalPreparationRequest";
 import { signPrincipalStateBundle } from "../../../test/helpers/principalState";
 import { registerUser } from "../../../test/helpers/registerUser";
 import {
@@ -133,14 +134,17 @@ async function postGroup(
   organizationId: string,
   body: unknown,
 ): Promise<Response> {
-  return routeApp.request(`/organizations/${organizationId}/groups`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${actor.token}`,
+  return requestAfterPrincipalPreparation(
+    `/organizations/${organizationId}/groups`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${actor.token}`,
+      },
+      body: JSON.stringify(body),
     },
-    body: JSON.stringify(body),
-  });
+  );
 }
 
 test("PUT policy rejects non-admin roles in the reserved Admins group", async () => {
@@ -286,6 +290,7 @@ test("PUT policy rejects projections that diverge from Admins and preserves its 
   ).toMatchObject({ stateHash: prepared.currentState.stateHash });
 });
 
+// Signed setup and multiple policy commits need the protocol integration budget.
 test("PUT policy rejects a stale signed Admins authority head", async () => {
   const actor = createTestUser();
   await registerUser(actor);
@@ -352,4 +357,4 @@ test("PUT policy rejects a stale signed Admins authority head", async () => {
   expect(
     (await getCurrentPrincipalState("group", groupId, db))?.stateHash,
   ).toBe(groupState.stateHash);
-});
+}, 15_000);

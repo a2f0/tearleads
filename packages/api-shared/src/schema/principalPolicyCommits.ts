@@ -1,11 +1,12 @@
 import { index, pgTable, text, timestamp, uuid } from "./columns";
 
-/** Exact compound and standalone organization acknowledgements survive later principal heads. */
+/** Exact policy and group lifecycle acknowledgements survive later principal heads. */
 export const principalPolicyCommits = pgTable(
   "principal_policy_commits",
   {
     requestHash: text("request_hash").primaryKey(),
     organizationId: uuid("organization_id").notNull(),
+    // Null for standalone writes and deletions, whose target group is already gone.
     groupId: uuid("group_id"),
     requesterUserId: uuid("requester_user_id").notNull(),
     responseJson: text("response_json").notNull(),

@@ -57,7 +57,12 @@ test("group creation and adding a peer have separate request budgets", async () 
         },
       },
       mutations: [
-        { method: "POST", path: /^\/organizations\/[^/]+\/groups$/u, count: 1 },
+        {
+          method: "POST",
+          path: /^\/organizations\/[^/]+\/groups$/u,
+          count: 1,
+          maxPreparations: 1,
+        },
       ],
     });
     const membershipRequests = await measureWorkflowRequests({
