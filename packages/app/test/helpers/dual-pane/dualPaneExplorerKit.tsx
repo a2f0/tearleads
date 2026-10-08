@@ -318,8 +318,9 @@ function getNoteEditor(pane: HTMLElement): HTMLTextAreaElement {
 export async function selectExplorerNoteByName(
   pane: HTMLElement,
   title: string,
+  timeoutMs?: number,
 ) {
-  await waitForExplorerNoteVisible(pane, title);
+  await waitForExplorerNoteVisible(pane, title, timeoutMs);
   const noteItem = getExplorerSidebarItemsByName(pane, title).find((button) =>
     button.classList.contains("explorer-sidebar-item--note"),
   );

@@ -329,33 +329,30 @@ export interface TextCharBlameSource {
  * index, so callers can both blame and re-render the prose (the per-range view)
  * from a single pass.
  *
- * One Loro op (one counter) is one code point, but an astral character (emoji,
- * etc.) spans two UTF-16 units. We therefore iterate code points and index
- * `getCursor` by each code point's LAST UTF-16 unit: a leading high-surrogate
- * position yields no cursor (so iterating raw UTF-16 units would throw on prose
- * that opens with an emoji), but the low/last unit always resolves to the
- * inserting op — and using one position per code point avoids double-counting
- * the two halves of a surrogate pair.
+ * One Loro op (one counter) is one code point, but an astral character spans
+ * two UTF-16 units. Loro 1.16.4 resolves the cursor at the first unit and rejects
+ * the interior low-surrogate position. Iterate code points and advance by their
+ * UTF-16 length so attribution neither splits nor double-counts a character.
  */
 function collectTextCharBlame(doc: LoroDoc, key: string): TextCharBlameSource {
   const text = doc.getText(key);
   const codePoints: string[] = [];
   const opIds: TextCharOpId[] = [];
-  let utf16End = 0;
+  let utf16Start = 0;
   for (const char of text.toString()) {
-    utf16End += char.length;
     // getCursor mints a WASM-backed Cursor each call; free it immediately after
     // reading its op id so a long document does not pile up cursors on the heap.
-    const cursor = text.getCursor(utf16End - 1, 1);
+    const cursor = text.getCursor(utf16Start, 1);
     const opId = cursor?.pos();
     cursor?.free();
     if (opId === undefined) {
       throw new Error(
-        `LoroText "${key}" code point ending at UTF-16 index ${utf16End - 1} has no op id.`,
+        `LoroText "${key}" code point starting at UTF-16 index ${utf16Start} has no op id.`,
       );
     }
     codePoints.push(char);
     opIds.push({ peerId: opId.peer, counter: opId.counter });
+    utf16Start += char.length;
   }
   return { codePoints, opIds };
 }

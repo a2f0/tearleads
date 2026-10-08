@@ -85,7 +85,7 @@ test("production promise checks resolve SDK calls through ignored build output",
       new Response(child.stderr).text(),
     ]);
     expect(exitCode, stderr).toBe(1);
-    // Biome 2.5.12's JSON reporter uses string location paths.
+    // Biome 2.5.15's JSON reporter uses string location paths.
     const report = JSON.parse(stdout) as {
       diagnostics: { category: string; location: { path: string } }[];
       summary: { errors: number; warnings: number };

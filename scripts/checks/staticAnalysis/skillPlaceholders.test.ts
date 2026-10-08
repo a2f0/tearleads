@@ -86,3 +86,25 @@ test("placeholders outside the skill roots are ignored", () => {
     rmSync(repo.cwd, { recursive: true, force: true });
   }
 });
+
+test("Markdown exclusions match managed skill ownership", async () => {
+  const ownership = await Bun.file(
+    join(repoRoot, ".agent-tool-skills.json"),
+  ).json();
+  const config = Bun.JSONC.parse(
+    await Bun.file(join(repoRoot, ".markdownlint-cli2.jsonc")).text(),
+  );
+  if (
+    typeof config !== "object" ||
+    config === null ||
+    !("ignores" in config) ||
+    !Array.isArray(config.ignores)
+  ) {
+    throw new Error(
+      "Markdown config must declare exact managed-file exclusions.",
+    );
+  }
+  expect(config.ignores.toSorted()).toEqual(
+    Object.keys(ownership.files).sort(),
+  );
+});

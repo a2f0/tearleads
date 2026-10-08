@@ -226,10 +226,29 @@ test(
     await openOrgManager(peerPane);
     // Opening Org Manager starts its own verified directory catch-up.
     await waitForPrincipalRematerialization();
-    const ownerWindow = peerPane
-      .querySelector<HTMLElement>(".org-manager-main")
-      ?.closest<HTMLElement>(".window");
-    invariant(ownerWindow, "Expected organization manager window");
+    // Creation belongs to Groups; mounted navigation alone does not mean the
+    // recovered owner's verified admin permissions are ready.
+    await interact(() => {
+      fireEvent.click(within(peerPane).getByRole("button", { name: "Groups" }));
+    });
+    const ownerWindow = await waitFor(
+      () => {
+        const window = peerPane
+          .querySelector<HTMLElement>(".org-manager-main")
+          ?.closest<HTMLElement>(".window");
+        invariant(window, "Expected organization manager window");
+        const newGroupAction = within(window).queryByRole("button", {
+          name: "New Group",
+        });
+        invariant(
+          newGroupAction instanceof HTMLButtonElement &&
+            !newGroupAction.disabled,
+          "New Group action is not ready after recovery",
+        );
+        return window;
+      },
+      { timeout: 30_000 },
+    );
     const newGroupDialog = await openWindowMenuDialog({
       dialogName: "New Group",
       itemName: "New Group",

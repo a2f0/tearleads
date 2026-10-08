@@ -137,7 +137,9 @@ function namedBraceBlock(source: string, name: string) {
 }
 
 function quotedGradleSetting(block: string, name: string) {
-  const value = block.match(new RegExp(`\\b${name}\\s+"([^"]+)"`))?.[1];
+  const value = block.match(
+    new RegExp(`\\b${name}\\s*(?:=\\s*)?"([^"]+)"`),
+  )?.[1];
   if (value === undefined) {
     throw new Error(`Could not find Gradle setting ${name}`);
   }
@@ -156,7 +158,9 @@ function effectiveAndroidApplicationId(gradle: string, buildType: string) {
   const suffix = quotedGradleSetting(buildTypeBlock, "applicationIdSuffix");
   const inheritedBuildType = buildTypeBlock.match(/\binitWith\s+(\w+)/)?.[1];
   const initWithIndex = buildTypeBlock.search(/\binitWith\s+\w+/);
-  const suffixIndex = buildTypeBlock.search(/\bapplicationIdSuffix\s+"/);
+  const suffixIndex = buildTypeBlock.search(
+    /\bapplicationIdSuffix\s*(?:=\s*)?"/,
+  );
   if (inheritedBuildType !== undefined && initWithIndex > suffixIndex) {
     return effectiveAndroidApplicationId(gradle, inheritedBuildType);
   }
@@ -222,7 +226,7 @@ test("Android staging inherits the production release signing variant", async ()
   ]);
 
   expect(gradle).toMatch(
-    /release\s*\{[\s\S]*?signingConfig hasReleaseKeystore\(\) \? signingConfigs\.release : signingConfigs\.debug/,
+    /release\s*\{[\s\S]*?signingConfig = hasReleaseKeystore\(\) \? signingConfigs\.release : signingConfigs\.debug/,
   );
   expect(gradle).toMatch(/staging\s*\{[\s\S]*?initWith release/);
   expect(effectiveAndroidApplicationId(gradle, "debug")).toBe(

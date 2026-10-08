@@ -1,8 +1,8 @@
 /**
  * Shared TLC invocation for the protocol trace tooling: resolves the
- * mise-pinned Java and TLA+ tools, verifies the jar against the pin in
- * scripts/checks/tlaToolsPin.sh, and runs one bounded TLC check with an
- * isolated state directory.
+ * mise-pinned or explicitly installed Java and TLA+ tools, verifies the jar
+ * against the pin in scripts/checks/tlaToolsPin.sh, and runs one bounded TLC
+ * check with an isolated state directory.
  */
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
@@ -53,12 +53,30 @@ function pinnedJarSha256(root: string): string {
   return match[1];
 }
 
+function checkJavaVersion(root: string, javaBin: string): void {
+  const miseConfig = readFileSync(join(root, ".mise.toml"), "utf8");
+  const pin = miseConfig.match(/^java = "temurin-([^+]+)\+[^"]+"$/m)?.[1];
+  if (!pin) {
+    fail(".mise.toml does not declare the Temurin Java pin.");
+  }
+  const result = spawnSync(javaBin, ["-version"], { encoding: "utf8" });
+  const versionOutput = `${result.stdout}${result.stderr}`;
+  if (
+    result.status !== 0 ||
+    (!versionOutput.includes(`version "${pin}.`) &&
+      !versionOutput.includes(`version "${pin}"`))
+  ) {
+    fail(`${javaBin} does not report the pinned Java ${pin} version.`);
+  }
+}
+
 export function resolveTlcTools(root: string): TlcTools {
-  const javaBin = commandOutput("mise", ["which", "java"]);
-  const tlaToolsRoot = commandOutput("mise", [
-    "where",
-    "github:tlaplus/tlaplus",
-  ]);
+  const { JAVA_BIN, TLA_TOOLS_ROOT } = process.env;
+  const javaBin = JAVA_BIN || commandOutput("mise", ["which", "java"]);
+  const tlaToolsRoot =
+    TLA_TOOLS_ROOT ||
+    commandOutput("mise", ["where", "github:tlaplus/tlaplus"]);
+  checkJavaVersion(root, javaBin);
   const jarPath = join(tlaToolsRoot, "tla2tools.jar");
   const jarSha256 = createHash("sha256")
     .update(readFileSync(jarPath))

@@ -23,9 +23,19 @@ function assertOverrideParents(selectors: readonly string[], source: string) {
   for (const selector of selectors) {
     // Only exact version-scoped overrides become stale on a parent upgrade.
     if (!/@\d+\.\d+\.\d+(?:[-+][\w.+-]+)?$/.test(selector)) continue;
-    if (!packages.has(selector)) {
+    const parent = selector.slice(0, selector.lastIndexOf("@"));
+    const identities = [...packages].filter((entry) =>
+      entry.startsWith(`${parent}@`),
+    );
+    if (identities.length !== 1 || identities[0] !== selector) {
+      const reason =
+        identities.length === 0
+          ? "the parent is absent"
+          : identities.includes(selector)
+            ? "an additional parent version is present"
+            : "the parent version changed";
       throw new Error(
-        `Remove or update stale dependency override ${selector}; its parent is absent from bun.lock. Re-run the dependency audit.`,
+        `Remove or update stale dependency override ${selector}; ${reason} in bun.lock. Re-run the dependency audit.`,
       );
     }
   }
@@ -48,15 +58,22 @@ test("parent matching uses resolved identities, including nested packages", () =
   assertOverrideParents(selectors, JSON.stringify({ packages: resolved }));
 });
 
-test.each(["upgrade", "removal"])(
-  "a parent %s requires explicit override maintenance",
-  (change) => {
-    const packages = {
-      ...resolved,
-      nested: change === "upgrade" ? ["@scope/parent@1.2.4"] : undefined,
-    };
-    expect(() =>
-      assertOverrideParents(selectors, JSON.stringify({ packages })),
-    ).toThrow("Remove or update stale dependency override @scope/parent@1.2.3");
-  },
-);
+test.each([
+  ["upgrade", "the parent version changed"],
+  ["removal", "the parent is absent"],
+])("a parent %s requires explicit override maintenance", (change, reason) => {
+  const packages = {
+    ...resolved,
+    nested: change === "upgrade" ? ["@scope/parent@1.2.4"] : undefined,
+  };
+  expect(() =>
+    assertOverrideParents(selectors, JSON.stringify({ packages })),
+  ).toThrow(reason);
+});
+
+test("an additional parent version requires a new compatibility review", () => {
+  const packages = { ...resolved, additional: ["@scope/parent@1.2.4"] };
+  expect(() =>
+    assertOverrideParents(selectors, JSON.stringify({ packages })),
+  ).toThrow("an additional parent version is present");
+});
