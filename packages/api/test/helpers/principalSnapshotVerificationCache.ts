@@ -1,7 +1,7 @@
 import { verifyPrincipalPolicySnapshot } from "@tearleads/crypto";
-import { ByteBudgetCache } from "../../utils/byteBudgetCache";
-import { beginPrincipalHistoryVerification } from "../../utils/principalHistoryWork";
-import { sha256Hex } from "../../utils/sha256";
+import { ByteBudgetCache } from "../../src/utils/byteBudgetCache";
+import { beginPrincipalHistoryVerification } from "../../src/utils/principalHistoryWork";
+import { sha256Hex } from "../../src/utils/sha256";
 
 type SnapshotResult = Awaited<ReturnType<typeof verifyPrincipalPolicySnapshot>>;
 const snapshots = new ByteBudgetCache<SnapshotResult>(32 * 1024 * 1024);

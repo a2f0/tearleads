@@ -863,8 +863,15 @@ protection, the projection's manifest references, trusted identity resolution,
 and a lifetime predicate. Attach it through the policy warmer's
 `resolveProjectionHistory` capability and return the same lifetime predicate
 with the selections. Projection verification rechecks that lifetime and the
-latest local pins at final admission. Historical selections never advance
-current-policy checkpoints or become current key material. Attachment detach,
+latest local pins at final admission. Recovery never advances current-policy
+checkpoints or creates current key material. Terminal purge verification uses
+`historicalProof: true` to defer currency enforcement until all signed artifacts
+have authenticated; this option alone is not permission to admit a selection.
+Only the complete purge commit admits its public observations together with
+local document teardown, under the original lifetime guard. Standalone
+`purgeRemoteDocument` and deletion handlers accept
+`warmReferencedPrincipalPolicies` and `stillCurrent` for that purpose.
+Attachment detach,
 hydration, retained-wrap checks and relinking accept the same private policy
 warmer and operation-lifetime guard; the document store supplies both.
 

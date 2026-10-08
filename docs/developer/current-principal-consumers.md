@@ -69,6 +69,25 @@ not advance trust checkpoints. Hosts without a paged resolver cannot consume
 these hints through a full-history fallback. The wire field is `principalHeads`;
 API-client failures expose `stalePrincipalHeads`, replacing `stalePrincipalPolicies`.
 
+Terminal document purge responses also use `policyEvidence`, replacing
+`principalPolicySnapshots`. Each source ends at the cited group head or the first
+signed directory binding needed to authenticate it. Recovery never selects the
+latest directory merely because it exists. Every page reauthorizes the signed
+purge path and binds the original reader, document and organization; a reader
+who had access at purge time may recover the proof after later revocation or
+group/container deletion. No later membership is disclosed through that grant.
+
+The SDK authenticates paged public history and all terminal artifacts before
+checking their currency. Baseline verification and page recovery do not advance
+pins. The final purge commit admits the authenticated observations atomically
+with document teardown, rechecks forks and local currency, and keeps its private
+lease guard active through the outer SQLite commit. Unavailable proof connections
+to newer durable pins defer deletion. The 64/128-version HTTP fixtures measure
+74,141/74,152 response bytes, with no inline policy chains and no Full-history
+reads; response size can still grow with distinct cited groups and container or
+document evidence. Standalone purge/sync hosts must provide the private paged
+resolver; there is no full-history wire fallback.
+
 See [durable recovery](principal-history-recovery.md) for the underlying paging,
 private custody, and checkpoint contracts.
 

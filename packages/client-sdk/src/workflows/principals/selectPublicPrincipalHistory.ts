@@ -21,6 +21,7 @@ interface PublicHistorySelectionInput {
   readonly recovered: RecoveredPublicPrincipalHistory;
   readonly references: readonly ReferencedPrincipalHead[];
   readonly checkpoint: PrincipalPolicyCheckpoint | null;
+  readonly deferCheckpointCheck?: boolean | undefined;
   readonly includeGenesis?: boolean;
   readonly stillCurrent: () => boolean;
 }
@@ -70,6 +71,38 @@ async function loadCheckpointProof(
   return checkpointReference;
 }
 
+function checkSelectedReferences(
+  input: PublicHistorySelectionInput,
+  references: readonly ReferencedPrincipalHead[],
+  batch: readonly number[],
+  selected: Awaited<ReturnType<typeof selectBatch>>,
+  checkpoint: PrincipalPolicyCheckpoint | null,
+) {
+  // Authenticate the disposable proof before comparing caller citations or pins.
+  for (const reference of references.filter(({ version }) =>
+    batch.includes(version),
+  ))
+    if (
+      !selected.retainedEntries.some(({ state }) =>
+        principalHeadMatchesReference(state, reference),
+      )
+    )
+      throw new KeyingVerificationError(
+        "object_mismatch",
+        "Public history citation differs from its verified entry",
+      );
+  if (!input.deferCheckpointCheck)
+    verifyPrincipalPolicyCheckpoint({
+      chain: selected.retainedEntries.map((entry) => ({
+        ...entry,
+        projection: [...entry.projection],
+        grants: [...entry.grants],
+      })),
+      currentState: selected.currentEntry.state,
+      localCheckpoint: checkpoint,
+    });
+}
+
 /** Select bounded proof batches without admitting or advancing durable pins. */
 export async function selectPublicPrincipalHistory(
   input: PublicHistorySelectionInput,
@@ -77,7 +110,11 @@ export async function selectPublicPrincipalHistory(
   const references = structuredClone(input.references);
   const checkpoint = input.checkpoint && { ...input.checkpoint };
   const head = input.recovered.history.currentEntry.state;
-  if (checkpoint && checkpoint.version > head.version)
+  if (
+    !input.deferCheckpointCheck &&
+    checkpoint &&
+    checkpoint.version > head.version
+  )
     throw new KeyingVerificationError(
       "missing_dependency",
       "Public history cannot connect to the newer durable checkpoint",
@@ -102,7 +139,10 @@ export async function selectPublicPrincipalHistory(
     ]),
   ];
   const policies: VerifiedPrincipalPolicySelection[] = [];
-  const checkpointReference = await loadCheckpointProof(input, checkpoint);
+  const checkpointReference = await loadCheckpointProof(
+    input,
+    checkpoint && checkpoint.version <= head.version ? checkpoint : null,
+  );
   for (
     let offset = 0;
     offset < versions.length;
@@ -119,28 +159,7 @@ export async function selectPublicPrincipalHistory(
         throw error;
       },
     );
-    // Authenticate the disposable proof before comparing caller citations or pins.
-    for (const reference of references.filter(({ version }) =>
-      batch.includes(version),
-    ))
-      if (
-        !selected.retainedEntries.some(({ state }) =>
-          principalHeadMatchesReference(state, reference),
-        )
-      )
-        throw new KeyingVerificationError(
-          "object_mismatch",
-          "Public history citation differs from its verified entry",
-        );
-    verifyPrincipalPolicyCheckpoint({
-      chain: selected.retainedEntries.map((entry) => ({
-        ...entry,
-        projection: [...entry.projection],
-        grants: [...entry.grants],
-      })),
-      currentState: selected.currentEntry.state,
-      localCheckpoint: checkpoint,
-    });
+    checkSelectedReferences(input, references, batch, selected, checkpoint);
     const policy = await selectPrincipalPolicyAuthorization(selected);
     if (!policy.ok) throw policy.error;
     policies.push(policy.value);

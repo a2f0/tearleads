@@ -1,9 +1,9 @@
 import { expect, test } from "bun:test";
 import { db } from "@tearleads/api-shared/postgres";
+import { loadVerifiedPrincipalPolicySnapshotsForReferences } from "../../../test/helpers/principalPolicySnapshots";
 import { loadOrganizationHistoryWindow } from "../../access/read/principalHistory";
 import { listPrincipalStateHistory } from "../../access/read/principalStateStore";
 import { withPrincipalHistoryRequest } from "../../utils/principalHistoryWork";
-import { loadVerifiedPrincipalPolicySnapshotsForReferences } from "./principalPolicySnapshots";
 
 const reference = {
   principalType: "group" as const,

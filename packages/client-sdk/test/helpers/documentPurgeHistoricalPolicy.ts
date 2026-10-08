@@ -15,8 +15,14 @@ import type {
   AccessManifestBundleWireResponse,
   DocumentPurgeProofResponse,
 } from "@tearleads/validators/response";
-import { principalPolicyHead } from "./principalPolicyFixtures";
+import type { ExecSql } from "../../src/data/sqlite/sqlSchema";
+import {
+  principalPolicyHead,
+  signedPrincipalPolicyBundle,
+} from "./principalPolicyFixtures";
 import { createExternallyAuthorizedPrincipalPolicySnapshots } from "./principalPolicySnapshots";
+import { createProjectionPolicyEvidence } from "./projectionPolicyEvidence";
+import { projectionPolicyWarmer } from "./projectionPolicyHistory";
 
 type Policies = Awaited<
   ReturnType<typeof createExternallyAuthorizedPrincipalPolicySnapshots>
@@ -118,7 +124,7 @@ async function purgeEvent(
   };
 }
 
-export async function createHistoricalPolicyPurgeFixture() {
+export async function createHistoricalPolicyPurgeFixture(newerAdmins = false) {
   const policies = await createExternallyAuthorizedPrincipalPolicySnapshots();
   const head = principalPolicyHead(policies.subjectBundle);
   if (head.principalType !== "group") throw new Error("Expected group policy");
@@ -155,6 +161,44 @@ export async function createHistoricalPolicyPurgeFixture() {
   const home = containers[0];
   const documentHead = history.at(-1);
   if (!home || !documentHead) throw new Error("Missing purge fixture head");
+  const initialAdmins = policies.adminBundle;
+  const admins = newerAdmins
+    ? await signedPrincipalPolicyBundle({
+        signing: {
+          ...initialAdmins.currentState,
+          version: 2,
+          prevStateHash: initialAdmins.currentState.stateHash,
+          signedAt: "2026-09-27T00:00:00.000Z",
+          grants: initialAdmins.currentGrants,
+        },
+        signingPrivateKey: policies.signingKeyPair.signingPrivateKey,
+        payloadCiphertext: initialAdmins.currentPayload.ciphertext,
+        memberEnvelopes: initialAdmins.currentMemberEnvelopes.envelopes,
+        projection: initialAdmins.currentProjection,
+        previousStates: [
+          {
+            state: initialAdmins.currentState,
+            projection: initialAdmins.currentProjection,
+            grants: initialAdmins.currentGrants,
+          },
+        ],
+      })
+    : initialAdmins;
+  const evidence = await createProjectionPolicyEvidence({
+    author: {
+      organizationId: "organization-1",
+      signerUserId: policies.signerUserId,
+      signerDeviceId: "device-1",
+      signerKeyFingerprint: await toFingerprint(
+        policies.signingKeyPair.signingPublicKey,
+      ),
+      signerPrivateKey: policies.signingKeyPair.signingPrivateKey,
+    },
+    group: policies.subjectBundle,
+    admins,
+    signingPublicKey: policies.signingKeyPair.signingPublicKey,
+    encapsulationKeyPair: policies.encapsulationKeyPair,
+  });
   const proof: DocumentPurgeProofResponse = {
     authorizingContainerPath: [wire(home)],
     documentContainerManifestHistory: [],
@@ -162,9 +206,18 @@ export async function createHistoricalPolicyPurgeFixture() {
     documentManifest: wire(documentHead),
     documentManifestContainerPaths: containers.map((value) => [wire(value)]),
     documentManifestPredecessors: history.slice(0, -1).reverse().map(wire),
-    principalPolicySnapshots: [policies.subject, policies.admin],
+    policyEvidence: evidence.policyEvidence,
     purgeEvent: await purgeEvent(policies, home, documentHead),
     purgedAt: "2026-09-28T00:00:00.000Z",
   };
-  return { proof, resolveUserKey: policies.resolveUserKey };
+  return {
+    proof,
+    resolveUserKey: policies.resolveUserKey,
+    warmer: (execSql: ExecSql) =>
+      projectionPolicyWarmer({
+        execSql,
+        bundles: evidence.bundles,
+        resolveUserKey: policies.resolveUserKey,
+      }),
+  };
 }

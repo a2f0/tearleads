@@ -46,6 +46,8 @@ export interface PrincipalPolicyBundleCacheRequest {
 }
 
 export interface ProjectionPolicyHistoryResolveRequest {
+  /** Authenticate terminal evidence first; its consumer must validate durable currency. */
+  readonly historicalProof?: boolean | undefined;
   readonly organizationId: string;
   readonly evidence: ProjectionPolicyEvidenceResponse;
   readonly references: readonly ReferencedPrincipalHead[];

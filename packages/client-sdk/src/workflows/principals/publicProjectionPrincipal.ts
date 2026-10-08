@@ -38,6 +38,7 @@ export async function selectPublicProjectionPrincipal(
       recovered: principal.recovered,
       references: [options.source.head, ...references],
       checkpoint,
+      deferCheckpointCheck: options.historicalProof,
       includeGenesis: options.source.head.principalType === "organization",
       stillCurrent: current,
     });

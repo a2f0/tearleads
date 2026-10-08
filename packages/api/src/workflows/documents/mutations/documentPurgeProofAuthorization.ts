@@ -12,7 +12,7 @@ import {
 } from "../../containers/writerProjection";
 import { loadContainerManifestBundleByHash } from "../../containers/writerProjection/accessPaths";
 import { verifyStoredContainerManifest } from "../../containers/writerProjection/storedManifestVerification";
-import { loadVerifiedPrincipalPolicySnapshotsForReferences } from "../../principals/principalPolicySnapshots";
+import { loadPrincipalPolicySelections } from "../../principals/principalPolicySelections";
 import {
   collectPurgeProofPrincipalReferences,
   type DocumentPurgeAuthorizationMaterial,
@@ -55,7 +55,7 @@ export async function authorizeDocumentPurgeProof(input: {
         input.body.authorizingContainerManifestHashes,
       executor: input.executor,
     });
-    const evidence = await loadVerifiedPrincipalPolicySnapshotsForReferences(
+    const evidence = await loadPrincipalPolicySelections(
       input.executor,
       collectPurgeProofPrincipalReferences([
         ...material.authorizingContainerPath,
@@ -64,7 +64,7 @@ export async function authorizeDocumentPurgeProof(input: {
     );
     const context = createContainerWriterProjectionContext(
       input.executor,
-      evidence.policies,
+      evidence,
     );
     const path = await verifyStoredContainerPath({
       bundles: material.authorizingContainerPath,
@@ -75,7 +75,7 @@ export async function authorizeDocumentPurgeProof(input: {
     const hadPurgePathAccess =
       resolveHistoricalContainerPathUserAccessLevel({
         path,
-        principalPolicies: evidence.policies,
+        principalPolicies: evidence,
         userId: input.userId,
       }) !== null;
     if (!hadPurgePathAccess) {

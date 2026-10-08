@@ -215,6 +215,8 @@ export async function recoverPublicPrincipalHistory(
 ): Promise<RecoveredPublicPrincipalHistory> {
   if (
     !options.organizationId ||
+    (options.historicalProof !== undefined &&
+      typeof options.historicalProof !== "boolean") ||
     (options.offline !== undefined && typeof options.offline !== "boolean") ||
     (options.strictAdmins !== undefined &&
       typeof options.strictAdmins !== "boolean") ||

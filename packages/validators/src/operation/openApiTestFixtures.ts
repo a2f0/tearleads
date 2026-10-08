@@ -186,7 +186,11 @@ export function createDocumentPurgeProofResponse() {
       eventHash: "purge-event-hash",
     },
     purgedAt: "2026-08-06T00:00:00.000Z",
-    principalPolicySnapshots: [],
+    policyEvidence: {
+      organization: null,
+      organizationPayloads: [],
+      groups: [],
+    },
   };
 }
 

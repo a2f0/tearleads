@@ -3,6 +3,10 @@ import { generateSigningSeedAndKeyPair } from "@tearleads/crypto";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { principalPolicyHead } from "../../../test/helpers/principalPolicyFixtures";
 import { createExternallyAuthorizedPrincipalPolicySnapshots } from "../../../test/helpers/principalPolicySnapshots";
+import {
+  enforcePrincipalPolicySnapshotCheckpoints,
+  verifyPrincipalPolicySnapshots,
+} from "../../../test/helpers/principalPolicySnapshotVerification";
 import { loadPrincipalPolicyCheckpoint } from "../persistence/keyingCheckpointPersistence";
 import { savePrincipalPolicyBundle } from "../persistence/principalPolicyPersistence";
 import {
@@ -10,10 +14,6 @@ import {
   createProjectionCheckpointContext,
   observePrincipalPolicy,
 } from "./checkpointContext";
-import {
-  enforcePrincipalPolicySnapshotCheckpoints,
-  verifyPrincipalPolicySnapshots,
-} from "./principalPolicySnapshotVerification";
 import { collectReferencedPrincipalPolicies } from "./principalPolicyVerification";
 
 test("snapshot signer fingerprint mismatch is typed integrity evidence", async () => {

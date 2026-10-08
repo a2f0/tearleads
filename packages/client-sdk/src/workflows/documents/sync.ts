@@ -387,6 +387,8 @@ export async function syncRemoteDocument(
           });
         },
         resolveProjectionUserKey: input.resolveProjectionUserKey,
+        stillCurrent: input.stillCurrent,
+        warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
       }),
     });
   } catch (error) {

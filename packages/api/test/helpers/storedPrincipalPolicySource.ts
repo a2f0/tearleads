@@ -1,8 +1,8 @@
 import type { DatabaseSession } from "@tearleads/api-shared/postgres";
 import type { PrincipalPolicySignerPublicKey } from "@tearleads/crypto";
 import type { PrincipalPolicySnapshotResponse } from "@tearleads/validators/response";
-import { loadSignerPublicKey } from "../signerPublicKey";
-import { PrincipalPolicyError } from "./shared";
+import { PrincipalPolicyError } from "../../src/workflows/principals/shared";
+import { loadSignerPublicKey } from "../../src/workflows/signerPublicKey";
 
 function principalPolicyStates(
   bundle: PrincipalPolicySnapshotResponse,

@@ -231,12 +231,21 @@ recursive container purge unlinks any additional in-subtree links before
 calling it. `null` means the purge was refused or could not be verified, and
 callers must retain the local document. Recorded readers get signed genesis
 history and its container/policy dependencies; purge-path access alone reveals
-a terminal snapshot. The SDK authenticates before reading local pins, then
+a terminal snapshot. The SDK authenticates before enforcing local pins, then
 reuses the proof without a checkpoint-floor retry. Deletion requires an exact
 pin or signed transitions from a pin or genesis. Missing history without a pin
 defers deletion without an incident; snapshots cannot advance existing pins.
 Later container pins fail closed because ancestry cannot order the separate
 purge signature. Lost-response purge retries use this same flow.
+Principal dependencies arrive as `policyEvidence` sources and signed directory
+bindings, replacing inline `principalPolicySnapshots`. Built-in purge and remote
+deletion handlers use the private paged resolver. Baseline recovery can retain
+checkpoint inclusion proofs but does not compare or advance trust until the
+complete terminal proof authenticates. The final transaction pins those verified
+observations and registers the identity/database lease through the outer commit,
+including when a caller performs document teardown after the nested proof commit.
+Hosts supplying standalone purge handlers must forward the same resolver and
+`stillCurrent` predicate used by their sync workflows.
 
 Organization directory, group-summary, state-hash-bound membership, grant, and
 policy-head rows are presentation projections. The SDK reconciles them through

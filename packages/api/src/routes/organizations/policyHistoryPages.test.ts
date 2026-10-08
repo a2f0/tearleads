@@ -20,9 +20,9 @@ import {
   getPolicy,
   registerAndAuthenticate,
 } from "../../../test/helpers/principalPolicyReadFixtures";
+import { clearStoredPolicySnapshotCache } from "../../../test/helpers/principalSnapshotVerificationCache";
 import { getCurrentPrincipalState } from "../../access/read/principalStateStore";
 import { routeApp } from "../../routeApp";
-import { clearStoredPolicySnapshotCache } from "../../workflows/principals/snapshotVerificationCache";
 
 async function page(
   actor: TestUser,

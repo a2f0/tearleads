@@ -34,6 +34,6 @@ export async function createDocumentPurgeProof(
       eventHash: await computeAccessEventHash(event),
     },
     purgedAt: "2026-08-26T12:00:00.000Z",
-    principalPolicySnapshots: [],
+    policyEvidence: writerProjection.policyEvidence,
   };
 }

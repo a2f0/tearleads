@@ -16,3 +16,25 @@ inside the atomic local-deletion transaction, so a racing checkpoint advance
 rolls back teardown. Actual invalid signatures and conflicting checkpoints remain
 integrity errors. The retained purge-time proof alone cannot resolve this ordering
 ambiguity; eventual deletion after a later path checkpoint is not guaranteed.
+
+Principal dependencies use compact `policyEvidence` sources and signed directory
+payloads. A source is capped at the exact historical citation and its first
+signed directory binding, including the required Admins head. Every page checks
+the original purge path, organization, document and reader. A reader authorized
+at purge time can recover after later revocation or deletion of the group or
+container; later directory heads do not enlarge that terminal grant.
+
+The SDK authenticates each history page using private local recovery custody.
+`historicalProof` recovery retains evidence for checkpoint comparison but defers
+that comparison until every purge artifact has authenticated. Baseline recovery
+never advances trust. The complete terminal commit can admit its exact bound
+sources; a newer cached prefix can prove ancestry but cannot make the purge pin
+that newer head. Existing newer pins are preserved only with a verified
+connection. Without that connection, deletion remains pending.
+
+Nested purge commits register their identity/database lifetime with the outer
+SQLite transaction. The guard runs synchronously at COMMIT dispatch, including
+when the outer transaction performs local teardown after proof verification.
+Guard failure rolls back both trust records and document deletion and preserves
+the cancellation error identity. Full snapshot helpers remain test utilities;
+production purge authorization and responses use bounded principal selections.

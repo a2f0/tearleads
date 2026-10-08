@@ -71,6 +71,10 @@ async function loadAuthenticatedDocumentPurgeProof(input: {
   readonly execSql: ExecSql;
   readonly expectedOrganizationId: string;
   readonly resolveProjectionUserKey: ProjectionUserKeyResolver;
+  readonly stillCurrent?: (() => boolean) | undefined;
+  readonly warmReferencedPrincipalPolicies?:
+    | ReferencedPrincipalPolicyWarmer
+    | undefined;
 }): Promise<DocumentPurgeProofResponse | null> {
   if (!input.apiClient.getDocumentPurgeProof) {
     throw new ProjectionDependencyUnavailableError(
@@ -96,6 +100,8 @@ async function loadAuthenticatedDocumentPurgeProof(input: {
     expectedOrganizationId: input.expectedOrganizationId,
     proof: initialProof,
     resolveUserKey: input.resolveProjectionUserKey,
+    stillCurrent: input.stillCurrent,
+    warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
   });
   // The current API returns complete history to recorded readers. Otherwise
   // its terminal snapshot needs an exact local pin; a floor refetch cannot
@@ -210,6 +216,10 @@ export function createVerifiedRemoteDocumentDeletionHandler(input: {
     readonly documentId: string;
   }) => Promise<void> | void;
   readonly resolveProjectionUserKey: ProjectionUserKeyResolver;
+  readonly stillCurrent?: (() => boolean) | undefined;
+  readonly warmReferencedPrincipalPolicies?:
+    | ReferencedPrincipalPolicyWarmer
+    | undefined;
 }): (deleted: { readonly documentId: string }) => Promise<void> {
   return async ({ documentId }) => {
     const proof = await loadAuthenticatedDocumentPurgeProof({
@@ -218,6 +228,8 @@ export function createVerifiedRemoteDocumentDeletionHandler(input: {
       execSql: input.execSql,
       expectedOrganizationId: input.expectedOrganizationId,
       resolveProjectionUserKey: input.resolveProjectionUserKey,
+      stillCurrent: input.stillCurrent,
+      warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
     });
     if (!proof) {
       throw new ProjectionDependencyUnavailableError(
@@ -230,6 +242,8 @@ export function createVerifiedRemoteDocumentDeletionHandler(input: {
       expectedOrganizationId: input.expectedOrganizationId,
       proof,
       resolveUserKey: input.resolveProjectionUserKey,
+      stillCurrent: input.stillCurrent,
+      warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
     });
     await input.onVerifiedDeletion({
       commitPurgeProof: verified.commitCheckpoints,
@@ -247,6 +261,7 @@ export async function purgeRemoteDocument(input: {
     readonly commitPurgeProof: (transactionExecSql: ExecSql) => Promise<void>;
   }) => Promise<void> | void;
   readonly resolveProjectionUserKey: ProjectionUserKeyResolver;
+  readonly stillCurrent?: (() => boolean) | undefined;
   readonly warmReferencedPrincipalPolicies?:
     | ReferencedPrincipalPolicyWarmer
     | undefined;
@@ -265,6 +280,8 @@ export async function purgeRemoteDocument(input: {
       execSql: input.execSql,
       expectedOrganizationId: input.author.organizationId,
       resolveProjectionUserKey: input.resolveProjectionUserKey,
+      stillCurrent: input.stillCurrent,
+      warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
     });
     if (!proof) {
       throw new ProjectionDependencyUnavailableError(
@@ -277,6 +294,8 @@ export async function purgeRemoteDocument(input: {
       expectedOrganizationId: input.author.organizationId,
       proof,
       resolveUserKey: input.resolveProjectionUserKey,
+      stillCurrent: input.stillCurrent,
+      warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
     });
     await input.onVerifiedPurge({
       commitPurgeProof: verified.commitCheckpoints,
@@ -287,6 +306,7 @@ export async function purgeRemoteDocument(input: {
     execSql: input.execSql,
     projection: writerProjection,
     resolveUserKey: input.resolveProjectionUserKey,
+    stillCurrent: input.stillCurrent,
     warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
   });
   const request = await buildDocumentPurgeRequest({
@@ -309,6 +329,8 @@ export async function purgeRemoteDocument(input: {
     expectedOrganizationId: input.author.organizationId,
     proof: response,
     resolveUserKey: input.resolveProjectionUserKey,
+    stillCurrent: input.stillCurrent,
+    warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
   });
   await input.onVerifiedPurge({
     commitPurgeProof: verified.commitCheckpoints,

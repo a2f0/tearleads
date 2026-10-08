@@ -15,6 +15,7 @@ import {
 export async function createProjectionPolicyEvidence(input: {
   readonly author: ContainerMutationAuthor;
   readonly group: PrincipalPolicyBundleResponse;
+  readonly admins?: PrincipalPolicyBundleResponse;
   readonly signingPublicKey: Uint8Array;
   readonly encapsulationKeyPair: {
     publicKey: Uint8Array;
@@ -35,16 +36,18 @@ export async function createProjectionPolicyEvidence(input: {
       signingKeyPair,
     }),
   );
-  const admins = await policyBundleFromInitialRequest(
-    await buildInitialGroupPolicyRequest({
-      name: "Admins",
-      groupId: crypto.randomUUID(),
-      creatorEncapsulationKeyPair: input.encapsulationKeyPair,
-      signerUserId: input.author.signerUserId,
-      signingFingerprint: input.author.signerKeyFingerprint,
-      signingKeyPair,
-    }),
-  );
+  const admins =
+    input.admins ??
+    (await policyBundleFromInitialRequest(
+      await buildInitialGroupPolicyRequest({
+        name: "Admins",
+        groupId: crypto.randomUUID(),
+        creatorEncapsulationKeyPair: input.encapsulationKeyPair,
+        signerUserId: input.author.signerUserId,
+        signingFingerprint: input.author.signerKeyFingerprint,
+        signingKeyPair,
+      }),
+    ));
   const organization = await organizationPolicyBundleFromInitialRequest(
     input.author.organizationId,
     await buildInitialOrganizationPolicyRequest({

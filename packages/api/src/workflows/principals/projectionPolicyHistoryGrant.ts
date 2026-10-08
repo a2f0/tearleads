@@ -16,7 +16,11 @@ const processKey = randomBytes(32);
 
 export interface ProjectionPolicyHistoryScope {
   readonly organizationId: string;
-  readonly objectKind: "container" | "document" | "organization";
+  readonly objectKind:
+    | "container"
+    | "document"
+    | "organization"
+    | "document-purge";
   readonly objectId: string;
   readonly userId: string;
 }
@@ -97,6 +101,7 @@ export function readProjectionPolicyHistoryGrant(
     !("objectKind" in value) ||
     (value.objectKind !== "container" &&
       value.objectKind !== "document" &&
+      value.objectKind !== "document-purge" &&
       value.objectKind !== "organization") ||
     !("objectId" in value) ||
     typeof value.objectId !== "string" ||

@@ -5,7 +5,7 @@ import {
   policySnapshot,
 } from "../../../test/helpers/organizationPolicyHistory";
 import { principalPolicyHead } from "../../../test/helpers/principalPolicyFixtures";
-import { verifyReceivedPolicySnapshot } from "./snapshotVerificationCache";
+import { verifyReceivedPolicySnapshot } from "../../../test/helpers/principalSnapshotVerificationCache";
 
 test("reused proof bytes skip signatures while changed bytes and trusted keys still fail", async () => {
   const data = await createOrganizationHistoryFixture();

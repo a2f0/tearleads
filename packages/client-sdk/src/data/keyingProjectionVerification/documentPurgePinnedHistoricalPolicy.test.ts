@@ -14,11 +14,11 @@ test("a pinned purge head still verifies policy evidence used only by earlier li
   const database = await createTestExecSql("purge-pinned-historical-policy");
   try {
     // Validate all real signatures and authorization before seeding a device's
-    // existing document pin. Baseline verification must not read local pins.
+    // existing document pin. Page recovery may persist disposable history, but
+    // baseline verification does not admit document or policy checkpoints.
     const baseline = await verifyDocumentPurgeProofBaseline({
-      execSql: async () => {
-        throw new Error("Unexpected baseline checkpoint read");
-      },
+      execSql: database.execSql,
+      warmReferencedPrincipalPolicies: fixture.warmer(database.execSql),
       expectedDocumentId: fixture.proof.documentId,
       expectedOrganizationId: "organization-1",
       proof: fixture.proof,
@@ -48,6 +48,7 @@ test("a pinned purge head still verifies policy evidence used only by earlier li
       execSql: database.execSql,
       expectedOrganizationId: pin.organizationId,
       resolveProjectionUserKey: fixture.resolveUserKey,
+      warmReferencedPrincipalPolicies: fixture.warmer(database.execSql),
       onVerifiedDeletion: async ({ commitPurgeProof }) => {
         await commitPurgeProof(database.execSql);
         deletions += 1;

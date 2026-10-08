@@ -23,8 +23,8 @@ import {
   getPolicy,
   registerAndAuthenticate,
 } from "../../../test/helpers/principalPolicyReadFixtures";
+import { clearStoredPolicySnapshotCache } from "../../../test/helpers/principalSnapshotVerificationCache";
 import { getCurrentPrincipalState } from "../../access/read/principalStateStore";
-import { clearStoredPolicySnapshotCache } from "../../workflows/principals/snapshotVerificationCache";
 
 test.each([1, 8])(
   "a fresh SDK recovers deleted-group display sources over real HTTP with %i groups",

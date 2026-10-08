@@ -3,7 +3,6 @@ import { createTestExecSql } from "@tearleads/test-utils";
 import type { DocumentPurgeProofResponse } from "@tearleads/validators/response";
 import { createMaterializedSyncFixture } from "../../../test/helpers/documentFixtures";
 import { createDocumentPurgeProof } from "../../../test/helpers/documentPurge";
-import { createExternallyAuthorizedPrincipalPolicySnapshots } from "../../../test/helpers/principalPolicySnapshots";
 import { createVerifiedRemoteDocumentDeletionHandler } from "../../workflows/documents/purge";
 import { verifyDocumentPurgeProof } from "./documentPurgeProofVerification";
 import { runWithSecurityIncidentReporting } from "./error";
@@ -79,7 +78,6 @@ for (const failure of [
 
 test("an unavailable purge signer is retryable", async () => {
   const fixture = await createMaterializedSyncFixture();
-  const snapshots = await createExternallyAuthorizedPrincipalPolicySnapshots();
   const proof = await createDocumentPurgeProof(
     fixture.author,
     fixture.writerProjection,
@@ -98,7 +96,7 @@ test("an unavailable purge signer is retryable", async () => {
             execSql: database.execSql,
             expectedDocumentId: proof.documentId,
             expectedOrganizationId: fixture.author.organizationId,
-            proof: { ...proof, principalPolicySnapshots: [snapshots.admin] },
+            proof,
             resolveUserKey: async () => null,
           }),
       ),

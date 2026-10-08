@@ -10,11 +10,11 @@ import {
   getPrincipalStatesForReferences,
   principalStateReferenceKey,
   type StoredPrincipalState,
-} from "../../access/read/principalStateStore";
-import { beginPrincipalHistoryVerification } from "../../utils/principalHistoryWork";
-import { buildPrincipalPolicySnapshotForStateWithExecutor } from "./principalPolicyBundleRecords";
-import { PrincipalPolicyError } from "./shared";
-import { verifyStoredPolicySnapshot } from "./snapshotVerificationCache";
+} from "../../src/access/read/principalStateStore";
+import { beginPrincipalHistoryVerification } from "../../src/utils/principalHistoryWork";
+import { buildPrincipalPolicySnapshotForStateWithExecutor } from "../../src/workflows/principals/principalPolicyBundleRecords";
+import { PrincipalPolicyError } from "../../src/workflows/principals/shared";
+import { verifyStoredPolicySnapshot } from "./principalSnapshotVerificationCache";
 import { loadPolicySignerPublicKeys } from "./storedPrincipalPolicySource";
 
 interface VerifiedSnapshot {
