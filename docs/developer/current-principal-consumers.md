@@ -77,6 +77,17 @@ purge path and binds the original reader, document and organization; a reader
 who had access at purge time may recover the proof after later revocation or
 group/container deletion. No later membership is disclosed through that grant.
 
+Both purge endpoints use bounded server preparation. A cold POST or proof GET
+returns a validated `202` only after its transaction rolls back; durable
+verification then advances by at most 32 signed entries per response. The client
+repeats the identical request until it receives the terminal proof. It does not
+retry network failures, ambiguous acknowledgements or `503` refusals as though
+they were successful preparation. A coded preparation-unavailable `503` with
+`committed: false` certifies rollback. Real HTTP tests clear all verification
+hints at 64 and 128 versions, require preparation responses for both endpoints,
+and check that each POST continuation leaves the document and purge event
+unmodified.
+
 The SDK authenticates paged public history and all terminal artifacts before
 checking their currency. Baseline verification and page recovery do not advance
 pins. The final purge commit admits the authenticated observations atomically

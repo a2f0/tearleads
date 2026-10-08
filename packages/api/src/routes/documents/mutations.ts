@@ -46,6 +46,7 @@ import {
 } from "../../validators/jsonRequest";
 import { pathParamsValidator } from "../../validators/pathParams";
 import { queryParamsValidator } from "../../validators/queryParams";
+import { toPrincipalHistoryPreparationResponse } from "../principals/preparationResponse";
 import {
   publishDocumentMutationCreatedEvent,
   publishDocumentPurgeEvent,
@@ -274,6 +275,8 @@ async function respondWithDocumentPurge(
     });
     return c.json<DocumentPurgeResponse>(response);
   } catch (error) {
+    const preparation = toPrincipalHistoryPreparationResponse(error);
+    if (preparation) return preparation;
     const result = handleDocumentMutationError(error);
     return c.json<DocumentMutationFailureResponse>(
       documentMutationErrorBody(result),
@@ -301,6 +304,8 @@ async function respondWithDocumentPurgeProof(
       }),
     );
   } catch (error) {
+    const preparation = toPrincipalHistoryPreparationResponse(error);
+    if (preparation) return preparation;
     const result = handleDocumentMutationError(error);
     return c.json<DocumentMutationFailureResponse>(
       documentMutationErrorBody(result),

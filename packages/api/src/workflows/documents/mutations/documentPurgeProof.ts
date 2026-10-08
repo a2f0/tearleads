@@ -1,4 +1,5 @@
 import {
+  type ApiDatabase,
   type DatabaseSession,
   gatherWithExecutor,
 } from "@tearleads/api-shared/postgres";
@@ -19,6 +20,7 @@ import {
   ContainerWriterProjectionError,
   createContainerWriterProjectionContext,
 } from "../../containers/writerProjection";
+import { runPrincipalHistoryTransaction } from "../../principals/principalHistoryTransaction";
 import { loadPrincipalPolicySelections } from "../../principals/principalPolicySelections";
 import { loadPurgePolicyEvidence } from "../../principals/purgePolicyEvidence";
 import {
@@ -40,7 +42,7 @@ import {
   selectDocumentManifestPredecessors,
   uniquePurgeProofBundles,
 } from "./documentPurgeProofHistory";
-import { DocumentMutationError } from "./errors";
+import { DocumentMutationError, toMutationError } from "./errors";
 
 async function verifyRetainedPurgeManifests(input: {
   readonly context: ContainerProjectionContext;
@@ -222,4 +224,15 @@ export async function loadDocumentPurgeProof(input: {
     purgeEvent: projectionVerifiedAccessEventRecord(event),
     purgedAt,
   };
+}
+
+export function runDocumentPurgeProofWorkflow(
+  db: ApiDatabase,
+  input: Omit<Parameters<typeof loadDocumentPurgeProof>[0], "executor">,
+): Promise<DocumentPurgeProofResponse> {
+  return runPrincipalHistoryTransaction(db, (tx) =>
+    loadDocumentPurgeProof({ ...input, executor: tx }),
+  ).catch((error: unknown) => {
+    throw toMutationError(error) ?? error;
+  });
 }

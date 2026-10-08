@@ -26,6 +26,11 @@ import {
   PaymentRequiredErrorResponseSchema,
   SessionFailureResponseSchema,
 } from "../response";
+import {
+  PrincipalHistoryPreparationFailureResponseSchema,
+  PrincipalHistoryPreparationResponseSchema,
+  principalHistoryRollbackRefinement,
+} from "../response/principalHistoryPreparation";
 import { defineJsonOperation } from "./definition";
 import { DocumentSyncPathParamsSchema } from "./documentSync";
 
@@ -108,28 +113,47 @@ export const unlinkDocumentOperation = defineDocumentLinkSetMutationOperation({
   path: "/documents/{documentId}/unlink",
 });
 
+const documentPurgeFailureResponses = {
+  ...documentMutationFailureResponses,
+  503: PrincipalHistoryPreparationFailureResponseSchema,
+} as const;
+
+const preparationResponseDescriptions = {
+  202: "The attempted operation rolled back. Retry the identical request to continue verification preparation.",
+} as const;
+
 export const purgeDocumentOperation = defineJsonOperation({
   auth: "session",
   body: DocumentPurgeRequestSchema,
-  failureResponses: documentMutationFailureResponses,
+  failureResponses: documentPurgeFailureResponses,
   failureStatuses: documentMutationFailureStatuses,
   id: "documents.purge",
   method: "POST",
   params: DocumentMutationPathParamsSchema,
   path: "/documents/{documentId}/purge",
-  responses: { 200: DocumentPurgeResponseSchema },
+  responseDescriptions: preparationResponseDescriptions,
+  responses: {
+    200: DocumentPurgeResponseSchema,
+    202: PrincipalHistoryPreparationResponseSchema,
+  },
+  runtimeRefinements: [principalHistoryRollbackRefinement],
 });
 
 export const getDocumentPurgeProofOperation = defineJsonOperation({
   auth: "session",
-  failureResponses: documentMutationFailureResponses,
+  failureResponses: documentPurgeFailureResponses,
   failureStatuses: documentMutationFailureStatuses,
   id: "documents.purgeProof",
   method: "GET",
   params: DocumentMutationPathParamsSchema,
   path: "/documents/{documentId}/purge",
   query: DocumentPurgeProofQuerySchema,
-  responses: { 200: DocumentPurgeProofResponseSchema },
+  responseDescriptions: preparationResponseDescriptions,
+  responses: {
+    200: DocumentPurgeProofResponseSchema,
+    202: PrincipalHistoryPreparationResponseSchema,
+  },
+  runtimeRefinements: [principalHistoryRollbackRefinement],
 });
 
 export const isCreateDocumentOperationRequest = isDocumentCreateRequest;
