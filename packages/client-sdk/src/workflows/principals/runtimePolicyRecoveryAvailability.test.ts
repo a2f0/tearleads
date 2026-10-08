@@ -148,7 +148,7 @@ test("a directory still behind a new citation is unavailable after one refresh",
           request.principalId === history.organizationId &&
           request.afterVersion === 0,
       ),
-    ).toHaveLength(3);
+    ).toHaveLength(2);
     expect(f.incidents).toEqual([]);
     expect(f.state.fullReads).toBe(0);
     expect(await f.db.select().from(principalPolicyCheckpoints)).toEqual([]);
