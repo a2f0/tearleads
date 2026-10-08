@@ -117,8 +117,8 @@ jobs:
   build:
     name: Build and test
     runs-on: ubuntu-latest
-    # A full uncached run takes about 30 minutes on hosted runners.
-    timeout-minutes: 45
+    # Leave room for uncached signing and recovery suites on hosted runners.
+    timeout-minutes: 75
 
     steps:
       - name: Checkout
