@@ -25,17 +25,28 @@ most 16 rows, so an existing excess converges over subsequent page writes. It
 never removes completed artifacts, other scopes or other organizations through
 this path. Recency hints do not authorize recovery.
 
+Completed acceptance also targets eight indexed completed stages per scope.
+It always protects the current writer and the two newest completed heads through
+the published prefix, then fills the remaining slots by recency. At most 16
+excess stages are removed per pass, so an existing backlog converges over later
+completed writes. This runs before current-artifact verification can fail;
+invalid current payloads cannot accumulate unlimited completed attempts while
+the last good prefix remains unchanged. Published offline evidence, incomplete
+work, other scopes and other organizations remain protected. Stale completion
+or version hints are skipped rather than used to evict a different actual row.
+Encrypted key candidates are archived before the bounded batch is deleted.
+
 An evicted in-flight writer fails its progress compare-and-swap with
 `principal_history_stage_changed`; the caller must start another recovery, which
 can resume from a surviving authenticated prefix or genesis. The built-in runtime
 serializes recovery within an organization; custom hosts with overlapping calls
 must handle this retry. Eviction imposes no history-version cutoff.
-Cancellation rolls back both page acceptance and reclamation. The indexed
-selection reads only stage identifiers for the bounded deletion batch.
+Cancellation rolls back page acceptance, key archival and reclamation. Incomplete
+cleanup reads only stage identifiers; completed cleanup reads current artifacts
+only for its bounded archival/deletion batch. Both use the scoped recency index.
 
 Stages written before scope indexing remain untouched until rewritten or reset.
-Completed but unpublished stages and obsolete proof-index nodes still require
-further reclamation work under #2448.
+Obsolete proof-index nodes still require reclamation work under #2448.
 
 The encrypted archive is key material, not an authorization cache. Its candidates
 can only open wraps addressed to the caller's private keys; projection and policy
@@ -49,8 +60,11 @@ The archive and scope rows join the same guarded transaction as prefix publicati
 or coupled receipt/checkpoint admission. Cancellation and transaction failure roll
 back reclamation as well as the new artifacts. The tests cover old object-key
 decryption after rotation, preservation of the immediate completed predecessor,
-transaction rollback, scope isolation, and the indexed SQLite query plan.
+transaction rollback, scope isolation, and the indexed SQLite query plan. Real
+HTTP tests reject a sequence of malformed current payloads while retaining only
+eight completed attempts, preserving the published prefix and predecessor
+offline, and decrypting an old object key after its unpublished stage is evicted.
 
-This bounds completed-stage cleanup work, not total cache bytes. Retained key
-epochs and signed proof material still grow with history; completed unpublished
-progress and obsolete index nodes require further reclamation.
+This bounds staged recovery attempts and cleanup batches, not total cache bytes.
+Retained key epochs and signed proof material still grow with history; obsolete
+index nodes require further reclamation.

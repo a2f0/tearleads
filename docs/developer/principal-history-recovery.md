@@ -138,8 +138,8 @@ stage per exact head and trust context. Completed-prefix publication and current
 acknowledgements retain two completed heads and reclaim older stages in bounded
 transactions, preserving historical key envelopes. See
 [cache retention](principal-history-cache.md) for indexing, atomicity and offline
-behavior, including bounded incomplete-stage retention. Unpublished completed
-stages and proof-index reclamation remain pending in #2448.
+behavior, including bounded incomplete and completed-attempt retention. Obsolete
+proof-index reclamation remains pending in #2448.
 
 Reusable progress has no embedded checkpoint or reference selection. At finish,
 recovery obtains each requested entry and the latest local checkpoint through

@@ -14,6 +14,7 @@ import {
 } from "./principalHistoryEvidencePersistence";
 import { reclaimIncompletePrincipalHistoryStages } from "./principalHistoryIncompleteRetention";
 import { recordPrincipalHistoryStageScope } from "./principalHistoryStageRetention";
+import { reclaimUnpublishedPrincipalHistoryStages } from "./principalHistoryUnpublishedRetention";
 
 export type PrincipalHistoryStage = typeof principalHistoryStages.$inferSelect;
 
@@ -76,6 +77,10 @@ export async function savePrincipalHistoryStage(input: {
         scopeId: evidence.scopeId,
       });
       await reclaimIncompletePrincipalHistoryStages(tx, {
+        ...stage,
+        scopeId: evidence.scopeId,
+      });
+      await reclaimUnpublishedPrincipalHistoryStages(tx, {
         ...stage,
         scopeId: evidence.scopeId,
       });
