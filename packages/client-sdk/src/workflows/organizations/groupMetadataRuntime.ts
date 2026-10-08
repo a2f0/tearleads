@@ -37,6 +37,12 @@ export function createRuntimeGroupMetadataAccess(
   organizationId: string,
   stillCurrent?: () => boolean,
   verifyMetadataContainer?: GroupMetadataAccessInput["verifyMetadataContainer"],
+  currentRecovery?: {
+    readonly resolveCurrentPolicy: ReturnType<
+      typeof createRuntimePrincipalPolicyCurrentResolver
+    >;
+    readonly recoveryBatch: object;
+  },
 ) {
   const targetSecretKey = runtime.crypto.encapsulationKeyPair?.secretKey;
   if (!targetSecretKey) throw new Error("Group metadata identity is locked");
@@ -46,6 +52,7 @@ export function createRuntimeGroupMetadataAccess(
     preferLocalCurrent: true,
   });
   const resolveCurrentPolicy =
+    currentRecovery?.resolveCurrentPolicy ??
     createRuntimePrincipalPolicyCurrentResolver(runtime);
   const authorityInput = {
     apiClient: runtime.apiClient,
@@ -62,6 +69,7 @@ export function createRuntimeGroupMetadataAccess(
         ? createCurrentGroupMetadataContainerVerifier({
             ...authorityInput,
             resolveCurrentPolicy,
+            recoveryBatch: currentRecovery?.recoveryBatch,
           })
         : createGroupMetadataContainerVerifier(authorityInput)),
     apiClient: runtime.apiClient,

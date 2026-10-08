@@ -147,6 +147,8 @@ test("pruned lane pages stop serving the stale tombstone", async () => {
   );
 });
 
+// Registration and the compound policy update share CPU with both API backends
+// and app integration tests in the push gate.
 test("policy access gain prunes tombstones through the route", async () => {
   const actor = createTestUser();
   await registerUser(actor);
@@ -233,7 +235,7 @@ test("policy access gain prunes tombstones through the route", async () => {
     .from(containerSyncTombstones)
     .where(eq(containerSyncTombstones.userId, member.userId));
   expect(remaining).toEqual([]);
-});
+}, 15_000);
 
 test("prune tolerates user sets beyond a single chunk", async () => {
   const { close } = { close: async () => {} };

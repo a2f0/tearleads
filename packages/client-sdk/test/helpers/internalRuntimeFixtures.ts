@@ -7,6 +7,7 @@ import type { BlobStore } from "../../src/data/blobContracts";
 import { defaultDocumentProjectorRegistry } from "../../src/data/documents/documentKinds";
 import { createDomainScope } from "../../src/data/domainScope";
 import type { PrincipalMutationRecoveryApi } from "../../src/workflows/organizations/principalMutationJournalManagement";
+import { principalMutationApiFixture } from "./principalMutationApiFixture";
 
 interface WorkflowInputFixtureOptions {
   readonly apiClient: ApiClient;
@@ -49,7 +50,7 @@ export function createWorkflowInputFixture(
       api.discardUnreadablePrincipalMutation ?? (async () => false),
   } satisfies PrincipalMutationRecoveryApi;
   return {
-    apiClient: Object.assign(api, recovery),
+    apiClient: principalMutationApiFixture(api, recovery),
     resolveTrustedUserIdentity:
       options.resolveTrustedUserIdentity ?? (async () => null),
     auth: {
