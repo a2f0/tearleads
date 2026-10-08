@@ -86,8 +86,8 @@ selectors with Bun 1.4.2.
 | Parent/version | Override | Advisory rationale and validation |
 | --- | --- | --- |
 | `markdownlint-cli2@0.23.3` | `smol-toml: 1.9.0` | Fixes [malformed TOML exhaustion](https://github.com/advisories/GHSA-r4xh-jqrq-34v2); the actual Markdown lint runs against the updated parser; a focused TOML fixture validates its compatible API. |
-| `miniflare@5.20260811.1-alpha` | `sharp: 0.35.5` | Fixes [librsvg memory corruption](https://github.com/advisories/GHSA-wq5f-xc86-pv6w). Actual Wrangler-resolved Sharp reports librsvg 2.63.2; native SVG resize and the actual local Miniflare IMAGES binding convert a red SVG to a 12×8 PNG with decoded pixel checks. |
-| `miniflare@5.20260811.1-alpha` | `undici: 7.29.1` | Updates the pinned 7.29.0 copy to its security patch; local Miniflare requests and both Wrangler environment bundles exercise the retained HTTP API. |
+| `miniflare@5.20260811.1-alpha` | `sharp: 0.35.5` | Fixes [librsvg memory corruption](https://github.com/advisories/GHSA-wq5f-xc86-pv6w). A one-off smoke with this lockfile confirmed Wrangler-resolved Sharp reports librsvg 2.63.2; native SVG resize and the local Miniflare IMAGES binding converted a red SVG to a 12×8 PNG with decoded pixel checks. |
+| `miniflare@5.20260811.1-alpha` | `undici: 7.29.1` | Updates the pinned 7.29.0 copy to its security patch; a one-off smoke with this lockfile exercised local Miniflare requests and both Wrangler environment bundles against the retained HTTP API. |
 
 The Wrangler CLI remains at 4.123.0: a bundle dry run cannot prove live Worker
 resource safety without deployment credentials and account identity. The local
