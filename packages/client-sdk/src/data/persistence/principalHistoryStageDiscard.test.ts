@@ -9,6 +9,29 @@ import {
   savePrincipalHistoryStage,
 } from "./principalHistoryStagePersistence";
 
+test("discarding a missing stage initializes its tables on a fresh database", async () => {
+  const f = await createTestExecSql("principal-stage-cold-discard");
+  try {
+    await discardPrincipalHistoryStage(
+      f.execSql,
+      {
+        id: "absent-stage",
+        organizationId: "org-1",
+        currentJson: "{}",
+        afterVersion: 0,
+        complete: false,
+        progress: "absent-progress",
+      },
+      () => true,
+    );
+    const { db } = getClientSQLitePersistenceRuntime(f.execSql);
+    expect(await db.select().from(principalHistoryStages)).toEqual([]);
+    expect(await db.select().from(principalHistoryStageScopes)).toEqual([]);
+  } finally {
+    f.close();
+  }
+});
+
 test("a stale discard preserves newer stage progress and its scope hint", async () => {
   const f = await createTestExecSql("principal-stage-stale-discard");
   try {

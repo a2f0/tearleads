@@ -18,6 +18,15 @@ historical reference proofs and old key envelopes remain available. Organization
 reset removes the envelope archive and eviction hints along with its other cache
 material, preserving durable trust pins.
 
+Keeping the newest envelope set for a principal key relies on the existing
+protocol: removing or demoting a member requires new principal key material,
+and a remaining user's signing and encapsulation keys cannot change within its
+[identity trust domain](trusted-user-identity.md). Valid same-key updates retain
+the existing members and their recipient identities. Missing member envelopes
+fail projection verification. A future user-key rotation protocol would need
+to revisit this retention rule. Matching fingerprints alone do not authenticate
+arbitrary archived candidates or guarantee availability after local corruption.
+
 Each accepted page also reclaims abandoned incomplete progress in its own scope.
 It keeps the current writer and the seven most recently touched other incomplete
 stages; a completed writer may keep eight incomplete stages. A pass removes at

@@ -109,7 +109,10 @@ export async function discardPrincipalHistoryStage(
   stage: PrincipalHistoryStage,
   stillCurrent: () => boolean,
 ) {
-  await ensureSqlTables(execSql, principalHistoryNodeRetentionTables);
+  await ensureSqlTables(execSql, [
+    ...principalHistoryStageTables,
+    ...principalHistoryNodeRetentionTables,
+  ]);
   const runtime = getClientSQLitePersistenceRuntime(execSql);
   const discarded = await runtime.guardedTransaction(
     async (db) => {
