@@ -32,7 +32,11 @@ export async function loadPrincipalHistoryPrefix(
   return prefix ?? null;
 }
 
-/** Preserve completed progress unless replay replaces the exact rejected candidate. */
+/**
+ * Preserve identical completed progress; this sink does not authenticate hints.
+ * Callers must discard an unreadable prefix or identify it with rejectedPrefix
+ * before publishing a repair of the same head and current artifacts.
+ */
 export async function savePrincipalHistoryPrefix(input: {
   readonly execSql: ExecSql;
   readonly prefix: PrincipalHistoryPrefix;

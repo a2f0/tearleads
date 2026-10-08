@@ -7,6 +7,7 @@ import {
   repairPolicyPages,
   repairProtectionLease,
 } from "../../../test/helpers/principalPolicyRepair";
+import { ProjectionDependencyUnavailableError } from "../../data/keyingProjectionVerification/dependencyUnavailable";
 import { createRuntimePrincipalPolicyCurrentResolver } from "../principals/runtimePolicyRecovery";
 import { GroupMetadataUnreadableError } from "./groupMetadataAccess";
 import { hydrateOrganizationGroupNames } from "./organizationGroupNames";
@@ -65,6 +66,21 @@ test("directory labels are decrypted only at their authenticated group heads", a
       reportSecurityIncident: async () => {},
       stillCurrent: () => true,
     };
+    fixture.fetched.length = 0;
+    let nameReads = 0;
+    const missingRecovery = await hydrateOrganizationGroupNames({
+      ...input,
+      resolveCurrentPolicy: undefined,
+      readEncryptedName: async (bundle) => {
+        nameReads += 1;
+        return readTestGroupName(bundle);
+      },
+    }).catch((error: unknown) => error);
+    expect(fixture.fetched).toEqual([]);
+    expect(nameReads).toBe(0);
+    expect(missingRecovery).toBeInstanceOf(
+      ProjectionDependencyUnavailableError,
+    );
     const signature = fixture.operatorsPolicy.currentState.signature;
     fixture.operatorsPolicy.currentState.signature =
       fixture.memberPolicy.currentState.signature;
