@@ -22,6 +22,7 @@ test("runtime resolves an uncertain authored mutation before reading for the nex
   });
   const events: string[] = [];
   let lost = true;
+  let renewDuringRecovery = false;
   const api = new ApiClient(fixture.scope.identityTrustDomain);
   api.commitOrganizationGroupPolicyResult = async (
     _organization,
@@ -30,6 +31,10 @@ test("runtime resolves an uncertain authored mutation before reading for the nex
   ) => {
     expect(request).toEqual(fixture.mutation.request);
     events.push("commit");
+    if (renewDuringRecovery) {
+      sdk.session.setAuthToken("fixture-token-renewed-during-recovery");
+      renewDuringRecovery = false;
+    }
     return lost
       ? {
           ok: false,
@@ -127,6 +132,7 @@ test("runtime resolves an uncertain authored mutation before reading for the nex
     lost = true;
     await expect(submitAgain()).rejects.toThrow("may have committed");
     lost = false;
+    renewDuringRecovery = true;
     await organizations.retryPendingPolicyMutation(
       fixture.scope.organizationId,
     );

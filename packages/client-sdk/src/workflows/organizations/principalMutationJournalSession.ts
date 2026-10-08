@@ -47,7 +47,7 @@ function knownInitialRefusal(result: MutationResult): boolean {
   if (result.kind === "cancelled") return true;
   if (result.kind !== "http") return false;
   return (
-    [400, 401, 402, 403, 404, 409].includes(result.status ?? 0) ||
+    [400, 401, 402, 403, 409].includes(result.status ?? 0) ||
     (result.status === 503 &&
       result.code === "principal_history_preparation_unavailable")
   );
