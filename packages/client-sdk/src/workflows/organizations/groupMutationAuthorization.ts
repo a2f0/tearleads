@@ -1,7 +1,7 @@
 import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
 
 export function isDirectGroupAdmin(
-  policy: PrincipalPolicyBundleResponse,
+  policy: Pick<PrincipalPolicyBundleResponse, "currentProjection">,
   userId: string,
 ): boolean {
   return policy.currentProjection.some(
@@ -10,7 +10,7 @@ export function isDirectGroupAdmin(
 }
 
 export function requireSignerCanManageGroup(
-  policy: PrincipalPolicyBundleResponse,
+  policy: Pick<PrincipalPolicyBundleResponse, "currentProjection">,
   organizationAdminUserIds: readonly string[],
   signerUserId: string,
 ): void {

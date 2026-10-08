@@ -2,6 +2,12 @@ export {
   type OrganizationReadModelInvalidationListener,
   subscribeOrganizationReadModelInvalidation,
 } from "../../data/persistence/organizations/organizationReadModelInvalidation";
+export { PendingPrincipalMutationError } from "../../data/persistence/principalMutationJournalPersistence";
+export type {
+  AuthoredPrincipalMutation,
+  PrincipalMutationJournalScope,
+} from "../../data/principals/principalMutationJournal";
+export { UnreadablePrincipalMutationError } from "../../data/principals/principalMutationJournalRecord";
 export {
   cancelStripeSubscription,
   checkNativePurchaseEligibility,
@@ -62,6 +68,17 @@ export {
   importOrganizationUser,
 } from "./organizationUserImport";
 export {
+  abandonJournaledPrincipalMutation,
+  discardUnreadableJournaledPrincipalMutation,
+  readJournaledPrincipalMutation,
+} from "./principalMutationJournalManagement";
+export {
+  type PrincipalMutationJournalContext,
+  PrincipalMutationOutcomeUnknownError,
+  recoverJournaledPrincipalMutation,
+  submitJournaledPrincipalMutation,
+} from "./principalMutationJournalSession";
+export {
   addOrganizationGroupUser,
   buildInitialGroupPolicyRequest,
   buildInitialMemberGroupPolicyRequest,
@@ -103,6 +120,11 @@ export {
   type ReconcileOrganizationDirectoryAndGroupsInput,
   reconcileOrganizationDirectoryAndGroups,
 } from "./readModelProjection";
+export {
+  type AcknowledgedPrincipalCurrentInput,
+  type AcknowledgedPrincipalCurrentRetirement,
+  retainAcknowledgedPrincipalCurrents,
+} from "./retainAcknowledgedPrincipalCurrents";
 export {
   buildRosterProfileDocumentPatch,
   createInitializedRosterProfileDocument,

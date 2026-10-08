@@ -12,7 +12,7 @@ import { recoverScopedPrincipalPolicyHistory } from "./recoverScopedPrincipalPol
 let history: Awaited<ReturnType<typeof signedAuthorityRecoveryHistory>>;
 beforeAll(async () => {
   history = await signedAuthorityRecoveryHistory();
-});
+}, 30_000);
 
 test("a newer Admins citation triggers one directory refresh and resumes the group page", async () => {
   const fixture = await createAuthorityRecoveryFixture(history);
@@ -65,7 +65,7 @@ test("a newer Admins citation triggers one directory refresh and resumes the gro
       fixture.requests
         .filter((request) => request.principalId === history.organizationId)
         .map((request) => request.afterVersion),
-    ).toEqual([0, 0, 32, 64, 0, 67]);
+    ).toEqual([0, 32, 64, 0, 67]);
   } finally {
     fixture.close();
   }

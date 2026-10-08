@@ -1,26 +1,28 @@
-import type { ApiClient } from "@tearleads/api-client";
+import type {
+  ApiClient,
+  PrincipalPolicyPageCurrent,
+} from "@tearleads/api-client";
 import { KeyingVerificationError } from "@tearleads/crypto";
 import { ProjectionDependencyUnavailableError } from "../../data/keyingProjectionVerification/dependencyUnavailable";
 import { runWithSecurityIncidentReporting } from "../../data/keyingProjectionVerification/error";
 import {
   assertProjectionVerificationCurrent,
+  type PrincipalPolicyResolveRequest,
   type ReferencedPrincipalPolicyWarmer,
+  type ResolvedPrincipalPolicyEvidence,
 } from "../../data/keyingProjectionVerification/types";
 import type { PrincipalHistoryProtectionLease } from "../../data/principals/principalHistoryProtection";
 import { readPrincipalHistoryProtection } from "../../data/principals/principalHistoryRuntime";
 import type { SecurityIncidentReporter } from "../../data/securityIncidents";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import type { TrustedUserIdentityResolver } from "../../data/trustedUserIdentity";
+import { createPrincipalCurrentRecoveryBatch } from "./principalCurrentRecoveryBatch";
 import {
   PrincipalHistoryRecoveryRaceError,
   PrincipalPolicyHistoryReadError,
 } from "./principalHistoryRecoveryTypes";
-import { recoverWithPrincipalOutageFallback } from "./principalRecoveryOutage";
+import { recoverWithPrincipalLocalPreference } from "./principalRecoveryLocalPreference";
 import { queuePrincipalRecovery } from "./principalRecoveryQueue";
-import {
-  createScopedPrincipalPolicyHistoryBatch,
-  recoverScopedPrincipalPolicyHistory,
-} from "./recoverScopedPrincipalPolicyHistory";
 
 export interface PrincipalPolicyRecoveryRuntime {
   readonly apiClient: Partial<
@@ -38,10 +40,33 @@ export interface PrincipalPolicyRecoveryRuntime {
     | undefined;
 }
 
-/** Keep the private recovery key inside its runtime lease throughout verification. */
+/** Keep the private recovery key inside its runtime lease while resolving cited evidence. */
 export function createRuntimePrincipalPolicyResolver(
   runtime: PrincipalPolicyRecoveryRuntime,
 ): ReferencedPrincipalPolicyWarmer["resolveReference"] {
+  return createRuntimePrincipalPolicyCurrentResolver(runtime);
+}
+
+export interface ResolvedPrincipalPolicyCurrent
+  extends ResolvedPrincipalPolicyEvidence {
+  readonly current: PrincipalPolicyPageCurrent;
+}
+
+interface PrincipalPolicyCurrentRequest
+  extends Omit<PrincipalPolicyResolveRequest, "reference"> {
+  readonly reference?: PrincipalPolicyResolveRequest["reference"] | undefined;
+  /** A read-model caller has selected this exact signed head; not a freshness read. */
+  readonly preferLocalCurrent?: boolean | undefined;
+}
+
+/** Keep current artifacts with their verified evidence and private runtime lifetime. */
+export function createRuntimePrincipalPolicyCurrentResolver(
+  runtime: PrincipalPolicyRecoveryRuntime,
+):
+  | ((
+      input: PrincipalPolicyCurrentRequest,
+    ) => Promise<ResolvedPrincipalPolicyCurrent>)
+  | undefined {
   const lease = readPrincipalHistoryProtection(runtime);
   const readPages = runtime.apiClient.getPrincipalPolicyPages?.bind(
     runtime.apiClient,
@@ -49,13 +74,13 @@ export function createRuntimePrincipalPolicyResolver(
   if (!lease || !readPages) return undefined;
   const batches = new WeakMap<
     object,
-    typeof recoverScopedPrincipalPolicyHistory
+    ReturnType<typeof createPrincipalCurrentRecoveryBatch>
   >();
   const recoverFor = (batch: object | undefined) => {
-    if (!batch) return recoverScopedPrincipalPolicyHistory;
+    if (!batch) return createPrincipalCurrentRecoveryBatch();
     let recover = batches.get(batch);
     if (!recover) {
-      recover = createScopedPrincipalPolicyHistoryBatch();
+      recover = createPrincipalCurrentRecoveryBatch();
       batches.set(batch, recover);
     }
     return recover;
@@ -65,7 +90,7 @@ export function createRuntimePrincipalPolicyResolver(
       runWithSecurityIncidentReporting(
         runtime.util.reportSecurityIncident,
         {
-          objectId: input.reference.principalId,
+          objectId: input.reference?.principalId ?? input.organizationId,
           objectKind: "principal",
           operation: "principal.policy.recover",
           organizationId: input.organizationId,
@@ -83,15 +108,18 @@ export function createRuntimePrincipalPolicyResolver(
                 offline,
                 organizationId: input.organizationId,
                 protection,
-                reference: input.reference,
                 resolveTrustedUserIdentity: runtime.resolveTrustedUserIdentity,
                 stillCurrent,
               };
-              const result = await recoverWithPrincipalOutageFallback(
-                recoverFor(input.recoveryBatch),
-                options,
-              );
+              const result = input.reference
+                ? await recoverWithPrincipalLocalPreference(
+                    recoverFor(input.recoveryBatch).recover,
+                    { ...options, reference: input.reference },
+                    input.preferLocalCurrent === true,
+                  )
+                : await recoverFor(input.recoveryBatch).discover(options);
               return {
+                current: result.current,
                 organizationId: input.organizationId,
                 policy: result.policy,
                 dependencies: result.dependencies,

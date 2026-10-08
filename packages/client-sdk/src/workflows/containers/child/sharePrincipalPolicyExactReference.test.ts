@@ -118,6 +118,37 @@ async function createDirectoryFixture(
   };
 }
 
+test("reading a verified group share policy never replays a saved mutation", async () => {
+  const sqlite = await createTestExecSql("group-share-read-only");
+  const fixture = await createDirectoryFixture();
+  let replays = 0;
+  const apiClient = Object.assign(
+    createMockApiClient({
+      getCurrentPrincipalPolicy: (kind, id) => fixture.load(kind, id, () => {}),
+    }),
+    {
+      recoverPendingPrincipalMutation: async () => {
+        replays += 1;
+        throw new Error("Reading policy must not submit a saved write");
+      },
+    },
+  );
+  try {
+    const policy = await loadVerifiedGroupSharePrincipalPolicy({
+      apiClient,
+      execSql: sqlite.execSql,
+      readEncryptedName: readTestGroupName,
+      groupId: fixture.targetPolicy.currentState.principalId,
+      organizationId: fixture.organizationId,
+      resolveTrustedUserIdentity: fixture.resolveTrustedUserIdentity,
+    });
+    expect(policy.bundle).toEqual(fixture.targetPolicy);
+    expect(replays).toBe(0);
+  } finally {
+    sqlite.close();
+  }
+});
+
 test("expected group-head verification reuses an exact local bundle without a policy GET", async () => {
   const { close, execSql } = await createTestExecSql(
     "group-share-policy-exact-local",

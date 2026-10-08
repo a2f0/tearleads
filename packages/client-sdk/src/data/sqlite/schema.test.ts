@@ -91,6 +91,7 @@ test("client sqlite schema creates tables and indexes", async () => {
       "principal_history_nodes_organization_idx",
       "principal_history_prefixes_key_fingerprint_idx",
       "principal_history_prefixes_organization_idx",
+      "principal_history_stages_key_fingerprint_idx",
       "principal_history_stages_organization_idx",
       "principal_policies_key_fingerprint_idx",
       "principal_policy_history_key_fingerprint_idx",

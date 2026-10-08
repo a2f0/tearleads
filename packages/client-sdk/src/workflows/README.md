@@ -2,7 +2,8 @@
 
 Workflow facades compose API, storage, verification and sync without React or UI.
 Private leases stay hidden; authority loaders take exact heads. See
-[recovery](../../../../docs/developer/principal-history-recovery.md).
+[history recovery](../../../../docs/developer/principal-history-recovery.md) and
+[authored mutation journals](../../../../docs/developer/principal-policy-outcomes.md).
 
 ## Current Host Contract
 
@@ -35,6 +36,20 @@ evidence, not compatibility formats.
 Membership writes bind `expectedGroupName` to decrypted group
 metadata before recipient key use. Custom names require `readEncryptedName`;
 creation requires `metadataAccess`. See the [SDK guide](../../../../docs/developer/client-sdk.md).
+`submitJournaledPrincipalMutation` saves exact compound policy requests before
+HTTP; `recoverJournaledPrincipalMutation` resolves saved work before authoring
+again. The `Tearleads` runtime supplies this for group policy mutations.
+Both policy API variants may throw `PendingPrincipalMutationError` or
+`PrincipalMutationOutcomeUnknownError`. Hosts can inspect saved work with
+`readJournaledPrincipalMutation` and explicitly stop its retries with
+`abandonJournaledPrincipalMutation`, acknowledging that it may have committed.
+`Tearleads.organizations` exposes `readPendingPolicyMutation`,
+`retryPendingPolicyMutation` and `abandonPendingPolicyMutation` for host controls;
+Org Manager provides retry and explicit stop-retrying actions.
+Unreadable inspection throws `UnreadablePrincipalMutationError` with an opaque
+record identifier. `discardUnreadableJournaledPrincipalMutation` and the facade's
+`discardUnreadablePolicyMutation` discard only those unchanged local bytes after
+explicit unknown-outcome acknowledgement; they never submit unreadable work.
 
 ## Facade Taxonomy
 
@@ -329,3 +344,12 @@ latest local pins at final admission. Historical selections never advance
 current-policy checkpoints or become current key material. Attachment detach,
 hydration, retained-wrap checks and relinking accept the same private policy
 warmer and operation-lifetime guard; the document store supplies both.
+
+`retainAcknowledgedPrincipalCurrents` atomically retains exact policy receipts,
+authenticated resumable progress, checkpoints and signed-grant retirements.
+It requires the previously recovered prefix and durable predecessor pin; see
+[current mutation primitives](../../../../docs/developer/principal-current-mutations.md).
+
+The public `AcknowledgedPrincipalCurrentInput` and
+`AcknowledgedPrincipalCurrentRetirement` types describe batch inputs and
+signed-grant retirements.

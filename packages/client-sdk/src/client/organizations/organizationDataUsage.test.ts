@@ -26,7 +26,9 @@ interface DataUsageTestRuntime {
 }
 
 function createDataUsageTestRuntime(input: {
-  readonly apiClient: InternalWorkflowRuntimeInput["apiClient"];
+  readonly apiClient: Parameters<
+    typeof createWorkflowInputFixture
+  >[0]["apiClient"];
   readonly execSql: InternalWorkflowRuntimeInput["infra"]["execSql"];
 }): DataUsageTestRuntime {
   const domainScope = createDomainScope();

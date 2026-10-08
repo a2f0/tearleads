@@ -48,6 +48,10 @@ interface OrgManagerBehavior {
 
 type OrgManagerOrganizationActions = Pick<
   Organizations,
+  | "readPendingPolicyMutation"
+  | "retryPendingPolicyMutation"
+  | "abandonPendingPolicyMutation"
+  | "discardUnreadablePolicyMutation"
   | "createGroup"
   | "deleteGroup"
   | "importUserById"
@@ -90,6 +94,10 @@ export const OrgManagerContext = createContext<OrgManagerContextValue | null>(
 
 const organizationActionKeys =
   defineFacadeKeys<OrgManagerOrganizationActions>()([
+    "readPendingPolicyMutation",
+    "retryPendingPolicyMutation",
+    "abandonPendingPolicyMutation",
+    "discardUnreadablePolicyMutation",
     "createGroup",
     "deleteGroup",
     "importUserById",

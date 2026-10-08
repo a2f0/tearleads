@@ -127,16 +127,15 @@ async function recoverScopedPolicy(
       })),
     };
   };
-  const recovered = await recoverPrincipalPolicyHistory({
-    ...input,
-    expectedHead,
-    retainedReferences: [input.reference],
-    historyVerification: isAdmins ? "direct-admins" : "standard",
-    ...(isAdmins
-      ? {}
-      : { protection: scopedGroupProtection(input, adminHead) }),
-    ...(isAdmins ? {} : { loadExternalAuthority }),
-  });
+  const recovered = isAdmins
+    ? await read.admins(expectedHead, [input.reference])
+    : await recoverPrincipalPolicyHistory({
+        ...input,
+        expectedHead,
+        retainedReferences: [input.reference],
+        protection: scopedGroupProtection(input, adminHead),
+        loadExternalAuthority,
+      });
   return {
     ...recovered,
     dependencies: admins ? [directory.policy, admins] : [directory.policy],
@@ -209,10 +208,11 @@ export function recoverScopedPrincipalPolicyHistory(
 }
 
 /** Internal runtime batch: shared results never outlive one caller's collection. */
-export function createScopedPrincipalPolicyHistoryBatch(): typeof recoverScopedPrincipalPolicyHistory {
-  const memo: PrincipalRecoveryMemo = {
+export function createScopedPrincipalPolicyHistoryBatch(
+  memo: PrincipalRecoveryMemo = {
     directories: new Map(),
     admins: new Map(),
-  };
+  },
+): typeof recoverScopedPrincipalPolicyHistory {
   return (options) => recoverScopedPrincipalPolicyHistoryInBatch(options, memo);
 }

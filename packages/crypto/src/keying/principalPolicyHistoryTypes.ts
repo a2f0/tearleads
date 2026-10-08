@@ -1,3 +1,4 @@
+import type { PrincipalStateExternalAuthority } from "../principalState";
 import type { PrincipalPolicyExternalAuthority } from "./principalPolicyExternalAuthorityTypes";
 import type { PrincipalHistoryIndexNode } from "./principalPolicyHistoryIndex";
 import { throwVerification } from "./shared";
@@ -51,7 +52,7 @@ export interface VerifiedPrincipalPolicyHistory {
 type HistorySnapshot = Omit<
   VerifiedPrincipalPolicyHistory,
   typeof verifiedHistoryBrand
->;
+> & { readonly latestAuthority: PrincipalStateExternalAuthority | null };
 
 // Public copies are useful for inspection, but their fields are not authority.
 // A later verifier consumes the privately held snapshot issued by finish().
@@ -62,12 +63,16 @@ const issuedHistories = new WeakMap<
 
 export function makeVerifiedPrincipalPolicyHistory(
   value: Omit<VerifiedPrincipalPolicyHistory, typeof verifiedHistoryBrand>,
+  latestAuthority: PrincipalStateExternalAuthority | null,
 ): VerifiedPrincipalPolicyHistory {
   const result: VerifiedPrincipalPolicyHistory = {
-    ...value,
+    currentEntry: value.currentEntry,
+    retainedEntries: value.retainedEntries,
+    checkpoint: value.checkpoint,
+    indexRootHash: value.indexRootHash,
     [verifiedHistoryBrand]: true,
   };
-  issuedHistories.set(result, structuredClone(value));
+  issuedHistories.set(result, structuredClone({ ...value, latestAuthority }));
   return result;
 }
 

@@ -36,6 +36,7 @@ export async function deleteOrganizationGroup(input: {
   readonly signingFingerprint: string;
   readonly signingKeyPair: SigningKeyPair;
 }): Promise<DeleteOrganizationGroupResponse> {
+  await input.apiClient.recoverPendingPrincipalMutation?.(input.organizationId);
   const externalAdminPolicy = await loadOrganizationExternalAdminPolicy({
     execSql: input.execSql,
     getCurrentPrincipalPolicy: (principalType, principalId) =>
