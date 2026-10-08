@@ -21,6 +21,14 @@
  * and taskbar.
  */
 
+/* The shell's sizes assume border-box, like the window chrome (see
+   Window.css), and box-sizing does not inherit, so the shell sets it on
+   everything it renders. At zero specificity, any host rule wins. */
+:where(.routed-pane),
+:where(.routed-pane) :where(*) {
+  box-sizing: border-box;
+}
+
 .routed-pane {
   position: relative;
   min-height: 0;
