@@ -93,6 +93,8 @@ export interface ClientOptions {
   peerScope?: string | undefined;
   /** Private host key for durable history progress; omitted uses disposable session keys. */
   principalHistoryKeyProvider?: PrincipalHistoryKeyProvider | undefined;
+  /** Compound policy dispatch/recovery deadline in milliseconds; defaults to 60 seconds. */
+  principalMutationTimeoutMs?: number | undefined;
   /**
    * App-owned system containers born with every new organization (both
    * registration and additional-org creation provision them atomically in the
@@ -286,6 +288,7 @@ export class Tearleads {
       network: this.network,
       peerScope: options.peerScope ?? null,
       principalHistoryKeyProvider: options.principalHistoryKeyProvider,
+      principalMutationTimeoutMs: options.principalMutationTimeoutMs,
       reportSecurityIncident,
       session: this.session,
       syncBillingGate: this.syncBillingGate,
