@@ -62,6 +62,8 @@ rejection until upstream interception supports this Bun runtime.
 Dependency-cruiser tests use
 its installed `depcruise` command alias rather than an internal filename.
 Biome's official migration updates both configuration schemas and presets.
+The [mise-action v5.1.1 inputs](https://github.com/jdx/mise-action/blob/v5.1.1/action.yml)
+retain `version`, `install_args`, and `cache` for the existing CI setup.
 Loro 1.16.4 cursor attribution uses each code point's first UTF-16 unit; the
 existing astral-character and snapshot tests preserve operation identity.
 Stripe.js 10 selects Endive; the removed APIs are absent from our Payment
@@ -69,6 +71,9 @@ Element flow. The [audit notes](developer/dependency-audit.md#stripejs-10-migrat
 record its release review, confirmation behavior, and live-test limit.
 
 Capacitor 8.5.3 regenerates Android settings and Swift package references.
+The resolved transitive `ion-ios-filesystem` and `ion-ios-fileviewer` Swift
+packages move from 1.1.4 and 1.0.4 to 2.0.0; native regeneration and simulator
+builds cover these pins.
 RevenueCat 13.7.0 selects hybrid-common 19.5.0, Android SDK 10.24.0, and iOS SDK
 5.92.0; keep the Xcode direct package pin aligned too. Java 25 LTS supports Gradle
 9.8.0, while Java 27 does not. Keep the Capacitor template's Cordova 14.0.1 and
