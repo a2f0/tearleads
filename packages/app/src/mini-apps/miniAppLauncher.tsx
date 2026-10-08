@@ -1,3 +1,4 @@
+import type { LauncherRoute } from "@tearleads/windowing";
 import {
   createContext,
   type PropsWithChildren,
@@ -8,8 +9,9 @@ import {
   useRef,
   useState,
 } from "react";
-import type { AppRouteState } from "../navigation/AppRoutePaths";
-import type { OpenMiniAppRequest } from "./types";
+import type { MiniAppId, OpenMiniAppRequest } from "./types";
+
+type AppRouteState = LauncherRoute<MiniAppId>;
 
 type LaunchMiniApp = (request: OpenMiniAppRequest) => void;
 

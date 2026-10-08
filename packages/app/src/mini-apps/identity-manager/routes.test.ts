@@ -1,8 +1,10 @@
 import { expect, test } from "bun:test";
+import {
+  MiniAppRouteSegmentsProvider,
+  type MiniAppRouteSetOptions,
+} from "@tearleads/windowing";
 import { act, renderHook } from "@testing-library/react";
 import { createElement, type ReactNode } from "react";
-import { MiniAppRouteSegmentsProvider } from "../../navigation/MiniAppRouteSegmentsContext";
-import type { MiniAppRouteSetOptions } from "../../navigation/useMiniAppRouteState";
 import {
   formatIdentityManagerRouteSegments,
   parseIdentityManagerRouteSegments,

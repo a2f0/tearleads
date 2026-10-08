@@ -133,7 +133,10 @@ type ExplorerSidebarHarnessParams = Parameters<
 function explorerSidebarElement(params: ExplorerSidebarHarnessParams) {
   return (
     <WindowStateProvider>
-      <AppNavigationProvider mode="windowed" miniApps={TEST_MINI_APPS}>
+      <AppNavigationProvider
+        mode="windowed"
+        launcher={{ apps: TEST_MINI_APPS }}
+      >
         <ExplorerSidebarHarness {...params} />
       </AppNavigationProvider>
     </WindowStateProvider>

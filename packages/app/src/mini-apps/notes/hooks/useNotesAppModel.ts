@@ -1,6 +1,8 @@
 import type { DocumentSummary } from "@tearleads/client-sdk";
-import { useCompactRoutedMode } from "../../../navigation/useCompactRoutedMode";
-import { useMiniAppRouteState } from "../../../navigation/useMiniAppRouteState";
+import {
+  useCompactRoutedMode,
+  useMiniAppRouteState,
+} from "@tearleads/windowing";
 import { useDocumentSummaryPrimer } from "../../../stores/documents/useDocumentSummaryPrimer";
 import {
   type NotesContextMenuModel,

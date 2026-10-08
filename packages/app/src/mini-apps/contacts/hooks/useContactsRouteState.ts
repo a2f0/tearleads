@@ -1,5 +1,5 @@
+import { useMiniAppRouteState } from "@tearleads/windowing";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useMiniAppRouteState } from "../../../navigation/useMiniAppRouteState";
 import {
   type ContactsRouteSnapshot,
   createContactsSelectionRouteSnapshot,

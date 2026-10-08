@@ -1,14 +1,14 @@
 import { TearleadsFrame } from "@tearleads/ui";
+import {
+  NavigationModeOverrideProvider,
+  useNavigationMode,
+  useNavigationModeDocumentAttribute,
+  useNavigationModeOverride,
+} from "@tearleads/windowing";
 import { type PropsWithChildren, useMemo } from "react";
 import type { AppHostConfig } from "../../host/AppHostConfig";
 import { MiniAppLauncherProvider } from "../../mini-apps/miniAppLauncher";
 import { SystemMonitorDeveloperModeProvider } from "../../mini-apps/system-monitor/systemMonitorDeveloperMode";
-import {
-  NavigationModeOverrideProvider,
-  useNavigationModeOverride,
-} from "../../navigation/NavigationModeOverrideProvider";
-import { useAppNavigationMode } from "../../navigation/useAppNavigationMode";
-import { useNavigationModeDocumentAttribute } from "../../navigation/useNavigationModeDocumentAttribute";
 import { AppRuntimeProvider } from "../../providers/AppRuntimeProvider";
 import {
   AppFeatureFlagsProvider,
@@ -34,6 +34,9 @@ interface LayoutProps {
 // workspace and pane reuses the one hoisted runtime, so its persisted identity
 // (and SQLite db) live under one stable namespace rather than a per-pane one.
 const SHARED_RUNTIME_LOCAL_IDENTITY_NAMESPACE = "tearleads.app";
+
+// Where the lower-right windowed/routed switch persists the user's choice.
+const NAVIGATION_MODE_STORAGE_KEY = "tearleads.navigation.mode";
 
 // The shared policy mounts ONE runtime (identity + SQLite db) above every
 // workspace, so all workspaces are the same user on the same local database and
@@ -83,14 +86,11 @@ function LayoutInner({ hostConfig }: LayoutProps) {
   // The override is driven by the footer/taskbar mode switch. It defaults to
   // null (host/default mode) until the user flips that lower-right control.
   const { override } = useNavigationModeOverride();
-  const navigationMode = useAppNavigationMode(
-    hostConfig.navigationMode,
+  const navigationMode = useNavigationMode({
+    forcedMode: hostConfig.navigationMode,
     override,
-    Boolean(
-      hostConfig.profile.defaultSplit &&
-        hostConfig.profile.features.panePeerUserIds,
-    ),
-  );
+    preferredMode: hostConfig.profile.preferredNavigationMode,
+  });
   const split = hostConfig.profile.defaultSplit;
   const { activeWorkspace, workspaceIds } = useWorkspace();
 
@@ -155,7 +155,7 @@ function FeatureFlaggedWorkspaceLayout({ hostConfig }: LayoutProps) {
 export function Layout({ hostConfig }: LayoutProps) {
   return (
     <ThemeProvider>
-      <NavigationModeOverrideProvider>
+      <NavigationModeOverrideProvider storageKey={NAVIGATION_MODE_STORAGE_KEY}>
         <SystemMonitorDeveloperModeProvider>
           <AppFeatureFlagsProvider>
             <FeatureFlaggedWorkspaceLayout hostConfig={hostConfig} />

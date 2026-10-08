@@ -1,7 +1,10 @@
 import { afterEach, expect, test } from "bun:test";
 import type { ContainerNode } from "@tearleads/client-sdk";
 import { syncedContainerDocumentObjectSyncState } from "@tearleads/client-sdk";
-import { WindowStateProvider } from "@tearleads/windowing";
+import {
+  useMiniAppRouteSegments,
+  WindowStateProvider,
+} from "@tearleads/windowing";
 import {
   act,
   cleanup,
@@ -9,10 +12,7 @@ import {
   render,
   waitFor,
 } from "@testing-library/react";
-import {
-  AppNavigationProvider,
-  useMiniAppRouteSegments,
-} from "../../../navigation/AppNavigationProvider";
+import { AppNavigationProvider } from "../../../navigation/AppNavigationProvider";
 import type { MiniAppDefinition, MiniAppId } from "../../types";
 import { useExplorerRoute } from "./useExplorerRoute";
 import { useExplorerSelection } from "./useExplorerSelection";
@@ -190,7 +190,7 @@ function renderExplorerRouteSelectionHarness(
   window.history.replaceState(null, "", path);
   return render(
     <WindowStateProvider>
-      <AppNavigationProvider mode={mode} miniApps={TEST_MINI_APPS}>
+      <AppNavigationProvider mode={mode} launcher={{ apps: TEST_MINI_APPS }}>
         <ExplorerRouteSelectionHarness />
       </AppNavigationProvider>
     </WindowStateProvider>,

@@ -1,3 +1,4 @@
+import { useMiniAppWindowRouteSegments } from "@tearleads/windowing";
 import {
   createContext,
   type PropsWithChildren,
@@ -9,7 +10,6 @@ import {
   useState,
 } from "react";
 import { useAppNavigationActions } from "../navigation/AppNavigationProvider";
-import { useMiniAppWindowRouteSegments } from "../navigation/MiniAppRouteSegmentsContext";
 import type { MiniAppId, MiniAppMessage, OpenMiniAppRequest } from "./types";
 
 interface MiniAppMessageEnvelope {

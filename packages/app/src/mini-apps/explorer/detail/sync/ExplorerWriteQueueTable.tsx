@@ -6,7 +6,12 @@ import type {
   PendingWriteQueueItem,
   PendingWriteQueueOperation,
 } from "@tearleads/client-sdk";
-import { Menu, MenuItem, type MenuPosition } from "@tearleads/windowing";
+import {
+  Menu,
+  MenuItem,
+  type MenuPosition,
+  useRoutedLayoutTier,
+} from "@tearleads/windowing";
 import {
   type MouseEvent,
   useCallback,
@@ -26,7 +31,6 @@ import {
   MiniAppTableText,
   miniAppRowActionsColumn,
 } from "../../../../components/mini-app/MiniAppTable";
-import { useRoutedLayoutTier } from "../../../../navigation/useRoutedLayoutTier";
 import { formatMiniAppDateTime } from "../../../../utils/formatMiniAppDate";
 import {
   EXPLORER_LABELS,

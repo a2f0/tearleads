@@ -1,4 +1,5 @@
 import type { SyncLaneSnapshot } from "@tearleads/client-sdk";
+import { useRoutedLayoutTier } from "@tearleads/windowing";
 import { useMemo } from "react";
 import {
   addMiniAppTableHeaderAction,
@@ -15,7 +16,6 @@ import {
   MiniAppTableText,
   useMiniAppColumnVisibility,
 } from "../../../../components/mini-app/MiniAppTable";
-import { useRoutedLayoutTier } from "../../../../navigation/useRoutedLayoutTier";
 import { EXPLORER_LABELS, getExplorerSyncLaneCountLabel } from "../../labels";
 import {
   ExplorerSyncLaneLastAction,

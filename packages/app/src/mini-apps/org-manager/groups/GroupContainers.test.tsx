@@ -1,7 +1,7 @@
 import { afterEach, expect, test } from "bun:test";
 import type { OrganizationGroupContainer } from "@tearleads/client-sdk";
+import { ROUTED_TABLET_QUERY } from "@tearleads/windowing";
 import { cleanup, render, within } from "@testing-library/react";
-import { ROUTED_TABLET_QUERY } from "../../../navigation/breakpoints";
 import { formatMiniAppDate } from "../../../utils/formatMiniAppDate";
 import { ORG_MANAGER_LABELS } from "../labels";
 import { GroupContainers } from "./GroupContainers";

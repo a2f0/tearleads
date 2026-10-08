@@ -1,4 +1,4 @@
-import { useRoutedLayoutActive } from "./useRoutedLayoutActive";
+import { useRoutedLayoutActive } from "@tearleads/windowing";
 
 /**
  * The touch-target floor (Apple HIG) applied to virtualized row pitch when the

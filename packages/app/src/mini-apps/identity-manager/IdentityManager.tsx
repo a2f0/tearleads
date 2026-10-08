@@ -1,3 +1,4 @@
+import { useCompactRoutedMode } from "@tearleads/windowing";
 import { useEffect, useState } from "react";
 import {
   MiniAppButton,
@@ -9,7 +10,6 @@ import {
 } from "../../components/mini-app/MiniAppLayout";
 import { DestroyKeyPackageConfirmationDialog } from "../../components/shared/DestroyKeyPackageConfirmationDialog";
 import { LogoutConfirmationDialog } from "../../components/shared/LogoutConfirmationDialog";
-import { useCompactRoutedMode } from "../../navigation/useCompactRoutedMode";
 import "./IdentityManager.css";
 import { useIdentityManager } from "./IdentityManagerController";
 import { useIdentityManagerSidebarPanel } from "./IdentityManagerSidebar";

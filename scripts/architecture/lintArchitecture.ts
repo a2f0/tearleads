@@ -136,9 +136,12 @@ const appMiniAppSiblingImportPattern = new RegExp(
   `^\\./(?:${miniAppNames.join("|")})(?:/|$)`,
 );
 
+// The bus coordinates windows through @tearleads/windowing, the app-agnostic
+// window and launcher package; every other workspace package is off limits.
 function isAppMiniAppBusBoundaryImport(specifier: string): boolean {
   return (
-    specifier.startsWith("@tearleads/") ||
+    (specifier.startsWith("@tearleads/") &&
+      specifier !== "@tearleads/windowing") ||
     /^\.\.\/(?:providers|stores|document-types)(?:\/|$)/.test(specifier) ||
     appMiniAppSiblingImportPattern.test(specifier)
   );
