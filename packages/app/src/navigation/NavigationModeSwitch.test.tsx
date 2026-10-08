@@ -1,44 +1,30 @@
 import { afterEach, expect, test } from "bun:test";
-import { cleanup, fireEvent, render } from "@testing-library/react";
-import {
-  NavigationModeOverrideProvider,
-  useNavigationModeOverride,
-} from "./NavigationModeOverrideProvider";
+import { NavigationModeOverrideProvider } from "@tearleads/windowing";
+import { cleanup, render } from "@testing-library/react";
 import { NavigationModeSwitch } from "./NavigationModeSwitch";
+
+// The windowing package's own tests cover the switch; these cover the app's
+// dressing of it.
+
+const STORAGE_KEY = "tearleads.navigation.mode";
 
 afterEach(() => {
   cleanup();
   delete window.Capacitor;
-  globalThis.localStorage.removeItem("tearleads.navigation.mode");
+  globalThis.localStorage.removeItem(STORAGE_KEY);
 });
 
-// Surfaces the current override alongside the switch so a test can read what the
-// click set on the shared override.
-function OverrideReadout() {
-  const { override } = useNavigationModeOverride();
-  return <output>{override ?? "auto"}</output>;
-}
-
-test("renders nothing without a provider, mirroring the theme toggle", () => {
-  const view = render(<NavigationModeSwitch mode="windowed" />);
-  expect(view.container.querySelector("button")).toBeNull();
-  view.unmount();
-});
-
-test("the windowed switch offers (and selects) the iPad/mobile layout", () => {
+test("docks in the tray as a theme-toggle style action button", () => {
   const view = render(
-    <NavigationModeOverrideProvider>
+    <NavigationModeOverrideProvider storageKey={STORAGE_KEY}>
       <NavigationModeSwitch mode="windowed" />
-      <OverrideReadout />
     </NavigationModeOverrideProvider>,
   );
 
-  const button = view.getByRole("button", {
-    name: "Switch to iPad / mobile layout",
-  });
-  fireEvent.click(button);
-
-  expect(view.getByText("routed")).toBeTruthy();
+  expect(
+    view.getByRole("button", { name: "Switch to iPad / mobile layout" })
+      .className,
+  ).toBe("tearleads-action-button tearleads-action-button--icon");
   view.unmount();
 });
 
@@ -46,63 +32,11 @@ test("hides itself in the native capacitor app", () => {
   window.Capacitor = { isNativePlatform: () => true };
 
   const view = render(
-    <NavigationModeOverrideProvider>
+    <NavigationModeOverrideProvider storageKey={STORAGE_KEY}>
       <NavigationModeSwitch mode="routed" />
     </NavigationModeOverrideProvider>,
   );
 
   expect(view.container.querySelector("button")).toBeNull();
   view.unmount();
-});
-
-test("the routed switch offers (and selects) the windowed layout", () => {
-  const view = render(
-    <NavigationModeOverrideProvider>
-      <NavigationModeSwitch mode="routed" />
-      <OverrideReadout />
-    </NavigationModeOverrideProvider>,
-  );
-
-  const button = view.getByRole("button", {
-    name: "Switch to windowed layout",
-  });
-  fireEvent.click(button);
-
-  expect(view.getByText("windowed")).toBeTruthy();
-  view.unmount();
-
-  const reloaded = render(
-    <NavigationModeOverrideProvider>
-      <OverrideReadout />
-    </NavigationModeOverrideProvider>,
-  );
-  expect(reloaded.getByText("windowed")).toBeTruthy();
-  reloaded.unmount();
-});
-
-test("narrow screens hide the windowed switch unless the host forces windows", () => {
-  const originalWidth = Object.getOwnPropertyDescriptor(window, "innerWidth");
-  Object.defineProperty(window, "innerWidth", {
-    configurable: true,
-    value: 900,
-  });
-
-  try {
-    const view = render(
-      <NavigationModeOverrideProvider>
-        <NavigationModeSwitch mode="routed" />
-        <NavigationModeSwitch allowWindowed mode="routed" />
-      </NavigationModeOverrideProvider>,
-    );
-    expect(
-      view.getAllByRole("button", { name: "Switch to windowed layout" }),
-    ).toHaveLength(1);
-    view.unmount();
-  } finally {
-    if (originalWidth) {
-      Object.defineProperty(window, "innerWidth", originalWidth);
-    } else {
-      Reflect.deleteProperty(window, "innerWidth");
-    }
-  }
 });

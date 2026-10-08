@@ -3,8 +3,8 @@ import type {
   OrganizationDirectory,
   OrganizationDirectoryUser,
 } from "@tearleads/client-sdk";
+import { ROUTED_TABLET_QUERY } from "@tearleads/windowing";
 import { cleanup, fireEvent, render } from "@testing-library/react";
-import { ROUTED_TABLET_QUERY } from "../../../navigation/breakpoints";
 import { formatMiniAppDate } from "../../../utils/formatMiniAppDate";
 import { compactFingerprint } from "../display";
 import { ORG_MANAGER_LABELS } from "../labels";

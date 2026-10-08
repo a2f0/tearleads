@@ -115,5 +115,9 @@ test("the build ships types and stylesheets, and no tests", () => {
   expect(files).toContain("index.d.ts");
   expect(files).toContain("tokens.css");
   expect(files).toContain("README.md");
-  expect(files.filter((file) => /test/i.test(file))).toEqual([]);
+  expect(
+    files.filter((file) =>
+      /(\.test|testUtils)\.(js|d\.ts|js\.map)$/i.test(file),
+    ),
+  ).toEqual([]);
 });

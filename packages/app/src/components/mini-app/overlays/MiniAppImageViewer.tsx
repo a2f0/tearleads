@@ -5,6 +5,7 @@ import { MagnifyingGlassPlusIcon } from "@phosphor-icons/react/dist/csr/Magnifyi
 import { XIcon } from "@phosphor-icons/react/dist/csr/X";
 import {
   useCurrentWindow,
+  useRoutedPaneOverlayHost,
   useSuppressWindowToolbar,
 } from "@tearleads/windowing";
 import {
@@ -16,7 +17,6 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 import { classNames } from "../../shared/classNames";
-import { useRoutedPaneOverlayHost } from "./RoutedPaneOverlayHost";
 import "./MiniAppImageViewer.css";
 import { useImageViewerState } from "./useImageViewerState";
 

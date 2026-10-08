@@ -1,6 +1,6 @@
 import type { ContainerNode } from "@tearleads/client-sdk";
+import { useMiniAppRouteSegments } from "@tearleads/windowing";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useMiniAppRouteSegments } from "../../../navigation/AppNavigationProvider";
 import { isIgnorableDatabaseWorkerError } from "../../../stores/explorer/documentRuntime";
 import { isExplorerOrphanedDocumentsId } from "../../../stores/explorer/orphanedDocuments";
 import type { ExplorerRouteDocumentSummaryResult } from "../../../stores/explorer/useExplorerDocumentSummaryState";

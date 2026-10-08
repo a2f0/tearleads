@@ -1,11 +1,12 @@
 import { afterEach, expect, test } from "bun:test";
 import type { OrganizationBillingView } from "@tearleads/client-sdk";
+import type { LauncherRoute } from "@tearleads/windowing";
 import { cleanup, render } from "@testing-library/react";
 import {
   MiniAppLauncherProvider,
   useRegisterMiniAppLauncher,
 } from "../../mini-apps/miniAppLauncher";
-import type { AppRouteState } from "../../navigation/AppRoutePaths";
+import type { MiniAppId } from "../../mini-apps/types";
 import { BillingBannerView } from "./BillingBanner";
 
 afterEach(() => cleanup());
@@ -78,7 +79,7 @@ test("renders no promotional chrome while trialing", () => {
   expect(container.firstChild).toBe(null);
 });
 
-function BannerAtRoute({ route }: { route: AppRouteState }) {
+function BannerAtRoute({ route }: { route: LauncherRoute<MiniAppId> }) {
   useRegisterMiniAppLauncher(noop, true, route);
   return (
     <BillingBannerView

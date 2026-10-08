@@ -1,6 +1,6 @@
+import { useMiniAppRouteSegments } from "@tearleads/windowing";
 import { type PropsWithChildren, useEffect, useRef } from "react";
-import type { MiniAppId } from "../../mini-apps/types";
-import { useMiniAppRouteSegments } from "../../navigation/AppNavigationProvider";
+import { isMiniAppId, type MiniAppId } from "../../mini-apps/types";
 import {
   DiagnosticAreaContext,
   useDiagnostics,
@@ -44,5 +44,20 @@ export function MiniAppBoundary({
         {children}
       </AppErrorBoundary>
     </DiagnosticAreaContext.Provider>
+  );
+}
+
+/**
+ * {@link MiniAppBoundary} for the windowing launcher, which names apps by their
+ * string ids: anything that is not one of the app's mini-apps renders bare.
+ */
+export function LauncherMiniAppBoundary({
+  appId,
+  children,
+}: PropsWithChildren<{ appId: string }>) {
+  return isMiniAppId(appId) ? (
+    <MiniAppBoundary appId={appId}>{children}</MiniAppBoundary>
+  ) : (
+    children
   );
 }

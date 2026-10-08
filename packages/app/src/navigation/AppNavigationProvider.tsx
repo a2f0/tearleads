@@ -1,452 +1,52 @@
 import {
-  createRequiredContext,
-  findTopWindow,
-  useWindowActions,
-  useWindowStateData,
-  type WindowStateActions,
-  type WindowStateData,
+  type LauncherDefinition,
+  type LauncherNavigationActions,
+  LauncherNavigationProvider,
+  type LauncherNavigationState,
+  type LauncherRoute,
+  type NavigationMode,
+  useLauncherNavigationActions,
+  useLauncherNavigationState,
 } from "@tearleads/windowing";
-import {
-  type MutableRefObject,
-  type PropsWithChildren,
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
-import {
-  DEFAULT_MINI_APP_POSITION,
-  type MiniAppDefinition,
-  type MiniAppId,
-  type OpenMiniAppRequest,
-} from "../mini-apps/types";
-import {
-  type AppNavigationHistoryAvailability,
-  type AppNavigationHistoryCursor,
-  DEFAULT_APP_NAVIGATION_HISTORY_CURSOR,
-  getAppNavigationHistoryAvailability,
-  readAppNavigationHistoryCursor,
-} from "./AppNavigationHistory";
-import type { AppNavigationMode } from "./AppNavigationMode";
-import {
-  replaceWindowHistoryCursor,
-  useRoutedPathNavigator,
-} from "./AppRoutedPathNavigator";
-import {
-  APP_HOME_PATH,
-  type AppRouteState,
-  buildMiniAppPath,
-  parseAppRoute,
-} from "./AppRoutePaths";
-import { useMiniAppWindowRouteSegments } from "./MiniAppRouteSegmentsContext";
+import { type PropsWithChildren, useMemo } from "react";
+import { isMiniAppId, type MiniAppId } from "../mini-apps/types";
 
-interface AppNavigationActions {
-  getMiniAppHref: (
-    appId: MiniAppId,
-    pathSegments?: ReadonlyArray<string> | undefined,
-  ) => string;
-  goBack: () => void;
-  goForward: () => void;
-  navigateMiniAppRoute: (input: {
-    appId: MiniAppId;
-    pathSegments?: ReadonlyArray<string> | undefined;
-    replace?: boolean | undefined;
-  }) => void;
-  navigateHome: (input?: { replace?: boolean | undefined }) => void;
-  // Returns the window the app opened in or was raised to, or null when the
-  // routed shell shows it instead.
-  openMiniApp: (request: OpenMiniAppRequest) => string | null;
-}
-
-interface AppNavigationState {
-  history: AppNavigationHistoryAvailability;
-  mode: AppNavigationMode;
-  route: AppRouteState;
-}
+// The windowing launcher's navigation, bound to the app's mini-app ids.
 
 interface AppNavigationProviderProps extends PropsWithChildren {
-  miniApps: Readonly<Record<MiniAppId, MiniAppDefinition>>;
-  mode: AppNavigationMode;
-}
-
-interface AppNavigationRuntime {
-  actions: Pick<
-    WindowStateActions,
-    "bringToFront" | "create" | "restore" | "updateRoute"
-  >;
-  miniApps: Readonly<Record<MiniAppId, MiniAppDefinition>>;
-  mode: AppNavigationMode;
-  windows: WindowStateData["windows"];
-}
-
-const appNavigationActionsContext = createRequiredContext<AppNavigationActions>(
-  "useAppNavigationActions requires AppNavigationProvider.",
-);
-const appNavigationStateContext = createRequiredContext<AppNavigationState>(
-  "useAppNavigationState requires AppNavigationProvider.",
-);
-const EMPTY_ROUTE_SEGMENTS: ReadonlyArray<string> = [];
-
-function readCurrentRoute(
-  miniApps: Readonly<Record<MiniAppId, MiniAppDefinition>>,
-): AppRouteState {
-  return parseAppRoute(window.location.pathname, miniApps);
-}
-
-function readWindowHistoryCursor(): AppNavigationHistoryCursor {
-  return (
-    readAppNavigationHistoryCursor(window.history.state) ??
-    DEFAULT_APP_NAVIGATION_HISTORY_CURSOR
-  );
-}
-
-function ensureWindowHistoryCursor(): AppNavigationHistoryCursor {
-  const cursor = readWindowHistoryCursor();
-  if (readAppNavigationHistoryCursor(window.history.state) === null) {
-    replaceWindowHistoryCursor(cursor);
-  }
-
-  return cursor;
-}
-
-function AppNavigationWindowRuntimeBridge({
-  miniApps,
-  mode,
-  runtimeRef,
-}: {
-  miniApps: Readonly<Record<MiniAppId, MiniAppDefinition>>;
-  mode: AppNavigationMode;
-  runtimeRef: MutableRefObject<AppNavigationRuntime>;
-}) {
-  const { bringToFront, create, restore, updateRoute } = useWindowActions();
-  const { windows } = useWindowStateData();
-
-  useEffect(() => {
-    runtimeRef.current = {
-      actions: { bringToFront, create, restore, updateRoute },
-      miniApps,
-      mode,
-      windows,
-    };
-  }, [
-    bringToFront,
-    create,
-    miniApps,
-    mode,
-    restore,
-    runtimeRef,
-    updateRoute,
-    windows,
-  ]);
-
-  return null;
-}
-
-function useAppRouteController({
-  miniApps,
-  mode,
-  runtimeRef,
-}: {
-  miniApps: Readonly<Record<MiniAppId, MiniAppDefinition>>;
-  mode: AppNavigationMode;
-  runtimeRef: MutableRefObject<AppNavigationRuntime>;
-}) {
-  const [route, setRoute] = useState<AppRouteState>(() =>
-    readCurrentRoute(miniApps),
-  );
-  const [historyCursor, setHistoryCursorState] =
-    useState<AppNavigationHistoryCursor>(readWindowHistoryCursor);
-  const historyCursorRef = useRef(historyCursor);
-  const setHistoryCursor = useCallback((cursor: AppNavigationHistoryCursor) => {
-    historyCursorRef.current = cursor;
-    setHistoryCursorState(cursor);
-  }, []);
-  const navigateRoutedPath = useRoutedPathNavigator({
-    historyCursorRef,
-    runtimeRef,
-    setHistoryCursor,
-    setRoute,
-  });
-
-  useEffect(() => {
-    if (mode !== "routed") {
-      return;
-    }
-
-    const handlePopState = (event: PopStateEvent) => {
-      setHistoryCursor(
-        readAppNavigationHistoryCursor(event.state) ??
-          DEFAULT_APP_NAVIGATION_HISTORY_CURSOR,
-      );
-      setRoute(readCurrentRoute(runtimeRef.current.miniApps));
-    };
-
-    setHistoryCursor(ensureWindowHistoryCursor());
-    setRoute(readCurrentRoute(runtimeRef.current.miniApps));
-    window.addEventListener("popstate", handlePopState);
-    return () => window.removeEventListener("popstate", handlePopState);
-  }, [mode, runtimeRef, setHistoryCursor]);
-
-  const navigateMiniAppRoute = useCallback(
-    ({
-      appId,
-      pathSegments = [],
-      replace = false,
-    }: {
-      appId: MiniAppId;
-      pathSegments?: ReadonlyArray<string> | undefined;
-      replace?: boolean | undefined;
-    }) => {
-      navigateRoutedPath({
-        path: buildMiniAppPath(appId, pathSegments),
-        replace,
-        route: { appId, pathSegments: [...pathSegments] },
-      });
-    },
-    [navigateRoutedPath],
-  );
-  const navigateHome = useCallback(
-    ({ replace = false }: { replace?: boolean | undefined } = {}) => {
-      navigateRoutedPath({
-        path: APP_HOME_PATH,
-        replace,
-        route: { appId: null, pathSegments: [] },
-      });
-    },
-    [navigateRoutedPath],
-  );
-
-  const goBack = useCallback(() => {
-    if (historyCursorRef.current.index > 0) {
-      setHistoryCursor({
-        ...historyCursorRef.current,
-        index: historyCursorRef.current.index - 1,
-      });
-      window.history.back();
-    }
-  }, [setHistoryCursor]);
-  const goForward = useCallback(() => {
-    const { entries, index } = historyCursorRef.current;
-    if (index < entries - 1) {
-      setHistoryCursor({
-        ...historyCursorRef.current,
-        index: index + 1,
-      });
-      window.history.forward();
-    }
-  }, [setHistoryCursor]);
-  const history = useMemo(
-    () => getAppNavigationHistoryAvailability(historyCursor),
-    [historyCursor],
-  );
-
-  return {
-    goBack,
-    goForward,
-    history,
-    navigateHome,
-    navigateMiniAppRoute,
-    route,
-  };
-}
-
-function useAppNavigationActionValue(
-  runtimeRef: MutableRefObject<AppNavigationRuntime>,
-  goBack: AppNavigationActions["goBack"],
-  goForward: AppNavigationActions["goForward"],
-  navigateHome: AppNavigationActions["navigateHome"],
-  navigateMiniAppRoute: AppNavigationActions["navigateMiniAppRoute"],
-): AppNavigationActions {
-  const openMiniApp = useCallback(
-    ({
-      appId,
-      pathSegments,
-      position = DEFAULT_MINI_APP_POSITION,
-      reuseExisting = true,
-    }: OpenMiniAppRequest) => {
-      const {
-        actions,
-        miniApps: currentMiniApps,
-        mode: currentMode,
-        windows: currentWindows,
-      } = runtimeRef.current;
-
-      if (currentMode === "routed") {
-        navigateMiniAppRoute({ appId, pathSegments });
-        return null;
-      }
-
-      const existingWindow = reuseExisting
-        ? findTopWindow(currentWindows, (windowEntry) => {
-            return windowEntry.appId === appId;
-          })
-        : null;
-      if (existingWindow) {
-        actions.restore(existingWindow.id);
-        actions.bringToFront(existingWindow.id);
-        if (pathSegments) {
-          actions.updateRoute(existingWindow.id, pathSegments);
-        }
-        return existingWindow.id;
-      }
-
-      const definition = currentMiniApps[appId];
-      return actions.create(
-        definition.title,
-        position.x,
-        position.y,
-        definition.createComponent(),
-        {
-          appId,
-          initialShowSidebar: definition.initialShowSidebar,
-          ...(pathSegments ? { pathSegments } : {}),
-        },
-      );
-    },
-    [navigateMiniAppRoute],
-  );
-  const getMiniAppHref = useCallback(buildMiniAppPath, []);
-  return useMemo<AppNavigationActions>(
-    () => ({
-      getMiniAppHref,
-      goBack,
-      goForward,
-      navigateHome,
-      navigateMiniAppRoute,
-      openMiniApp,
-    }),
-    [
-      getMiniAppHref,
-      goBack,
-      goForward,
-      navigateHome,
-      navigateMiniAppRoute,
-      openMiniApp,
-    ],
-  );
+  launcher: LauncherDefinition<MiniAppId>;
+  mode: NavigationMode;
 }
 
 export function AppNavigationProvider({
   children,
-  miniApps,
+  launcher,
   mode,
 }: AppNavigationProviderProps) {
-  const runtimeRef = useRef<AppNavigationRuntime>({
-    actions: {
-      bringToFront: () => {},
-      create: () => "",
-      restore: () => {},
-      updateRoute: () => {},
-    },
-    miniApps,
-    mode,
-    windows: [],
-  });
-  const {
-    goBack,
-    goForward,
-    history,
-    navigateHome,
-    navigateMiniAppRoute,
-    route,
-  } = useAppRouteController({
-    miniApps,
-    mode,
-    runtimeRef,
-  });
-  const actions = useAppNavigationActionValue(
-    runtimeRef,
-    goBack,
-    goForward,
-    navigateHome,
-    navigateMiniAppRoute,
-  );
-  const state = useMemo<AppNavigationState>(
-    () => ({ history, mode, route }),
-    [history, mode, route],
-  );
-
   return (
-    <appNavigationActionsContext.context.Provider value={actions}>
-      <appNavigationStateContext.context.Provider value={state}>
-        <AppNavigationWindowRuntimeBridge
-          miniApps={miniApps}
-          mode={mode}
-          runtimeRef={runtimeRef}
-        />
-        {children}
-      </appNavigationStateContext.context.Provider>
-    </appNavigationActionsContext.context.Provider>
+    <LauncherNavigationProvider definition={launcher} mode={mode}>
+      {children}
+    </LauncherNavigationProvider>
   );
 }
 
-export const useAppNavigationActions = appNavigationActionsContext.useRequired;
-
-export const useAppNavigationState = appNavigationStateContext.useRequired;
-
-export const useOptionalAppNavigationState =
-  appNavigationStateContext.useOptional;
-
-export function useMiniAppRouteSegments(appId: MiniAppId) {
-  const actions = appNavigationActionsContext.useOptional();
-  const state = appNavigationStateContext.useOptional();
-  const windowRoute = useMiniAppWindowRouteSegments(appId);
-  const isGlobalRouted = actions !== null && state?.mode === "routed";
-  const isRouted = isGlobalRouted || windowRoute !== null;
-  const pathSegments =
-    isGlobalRouted && state.route.appId === appId
-      ? state.route.pathSegments
-      : (windowRoute?.pathSegments ?? EMPTY_ROUTE_SEGMENTS);
-  const windowSetPathSegments = windowRoute?.setPathSegments;
-  const setPathSegments = useCallback(
-    (
-      nextPathSegments: ReadonlyArray<string>,
-      options: { replace?: boolean | undefined } = {},
-    ) => {
-      if (isGlobalRouted) {
-        actions?.navigateMiniAppRoute({
-          appId,
-          pathSegments: nextPathSegments,
-          ...(options.replace === undefined
-            ? {}
-            : { replace: options.replace }),
-        });
-        return;
-      }
-
-      windowSetPathSegments?.(nextPathSegments, options);
-    },
-    [actions, appId, isGlobalRouted, windowSetPathSegments],
-  );
-  // "Can this mini-app step back where it is hosted?" — browser history in the
-  // routed shell, the window's own Back stack in a window. Mini-apps read this
-  // rather than branching on navigation mode, so a detail surface that must
-  // yield to a real Back affordance (see explorerChromeOwnsDetailBack) asks one
-  // question and gets the right answer in both shells.
-  const windowGoBack = windowRoute?.goBack;
-  const canGoBack = isGlobalRouted
-    ? state.history.canGoBack
-    : (windowRoute?.canGoBack ?? false);
-  const goBack = useCallback(() => {
-    if (isGlobalRouted) {
-      actions?.goBack();
-      return;
-    }
-
-    windowGoBack?.();
-  }, [actions, isGlobalRouted, windowGoBack]);
-
-  return useMemo(
-    () => ({
-      canGoBack,
-      goBack,
-      isRouted,
-      pathSegments,
-      setPathSegments,
-    }),
-    [canGoBack, goBack, isRouted, pathSegments, setPathSegments],
-  );
+export function useAppNavigationActions(): LauncherNavigationActions<MiniAppId> {
+  return useLauncherNavigationActions();
 }
 
-export { parseAppRoute } from "./AppRoutePaths";
+interface AppNavigationState extends Omit<LauncherNavigationState, "route"> {
+  route: LauncherRoute<MiniAppId>;
+}
+
+export function useAppNavigationState(): AppNavigationState {
+  const state = useLauncherNavigationState();
+  return useMemo(() => {
+    const { appId, pathSegments } = state.route;
+    return {
+      ...state,
+      route: isMiniAppId(appId)
+        ? { appId, pathSegments }
+        : { appId: null, pathSegments },
+    };
+  }, [state]);
+}

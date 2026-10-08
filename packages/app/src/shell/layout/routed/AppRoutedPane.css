@@ -1,0 +1,37 @@
+/*
+ * The app's dressing for the windowing package's routed shell (its own
+ * stylesheet, RoutedPane.css, owns the shell): where the shell sits in the
+ * layout, and how the app's chrome inside it looks.
+ */
+
+.routed-pane {
+  grid-area: left;
+}
+
+.routed-pane-sidebar .mini-app-sidebar {
+  min-height: 100%;
+}
+
+/* Resting logo tones, theme-adaptive. Key both off the foreground role —
+   mirroring the .tearleads-header remap — so the mark stays legible on the
+   taskbar in either theme: the "T" (secondary) is the full foreground glyph,
+   the "L:" (primary) a dimmer tone mixed toward the bar. */
+.routed-pane-taskbar-menu-button {
+  --tearleads-logo-secondary: var(--color-dark);
+  --tearleads-logo-primary: color-mix(
+    in srgb,
+    var(--color-dark) 62%,
+    var(--color-muted)
+  );
+}
+
+.routed-pane-taskbar-menu-button:hover,
+.routed-pane-taskbar-menu-button:focus-visible,
+.routed-pane-taskbar-menu-button[aria-expanded="true"] {
+  --tearleads-logo-primary: color-mix(
+    in srgb,
+    var(--emphasis-text) 62%,
+    var(--emphasis-surface)
+  );
+  --tearleads-logo-secondary: var(--emphasis-text);
+}

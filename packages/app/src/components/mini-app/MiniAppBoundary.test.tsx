@@ -1,7 +1,7 @@
 import { afterEach, expect, spyOn, test } from "bun:test";
+import { MiniAppRouteSegmentsProvider } from "@tearleads/windowing";
 import { cleanup, render } from "@testing-library/react";
 import type { DiagnosticBreadcrumb } from "../../host/AppDiagnostics";
-import { MiniAppRouteSegmentsProvider } from "../../navigation/MiniAppRouteSegmentsContext";
 import { DiagnosticsProvider } from "../../providers/logging/DiagnosticsProvider";
 import { LogProvider } from "../../providers/logging/LogProvider";
 import { PaneLog } from "../../shell/pane/log/PaneLog";

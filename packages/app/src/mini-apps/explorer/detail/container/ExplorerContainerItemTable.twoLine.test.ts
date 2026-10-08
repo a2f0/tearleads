@@ -5,9 +5,9 @@ import {
   type ContainerNode,
   syncedContainerDocumentObjectSyncState,
 } from "@tearleads/client-sdk";
+import { ROUTED_TABLET_QUERY } from "@tearleads/windowing";
 import { cleanup, fireEvent, render } from "@testing-library/react";
 import { type ComponentProps, createElement } from "react";
-import { ROUTED_TABLET_QUERY } from "../../../../navigation/breakpoints";
 import { EXPLORER_LABELS } from "../../labels";
 import { ExplorerContainerItemTable } from "./ExplorerContainerItemTable";
 import type { ExplorerItemColumnId } from "./explorerItemColumnIds";

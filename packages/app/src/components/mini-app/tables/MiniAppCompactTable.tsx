@@ -1,6 +1,8 @@
+import {
+  useRoutedLayoutActive,
+  useRoutedLayoutTier,
+} from "@tearleads/windowing";
 import { type ReactNode, useEffect, useState } from "react";
-import { useRoutedLayoutActive } from "../../../navigation/useRoutedLayoutActive";
-import { useRoutedLayoutTier } from "../../../navigation/useRoutedLayoutTier";
 import {
   MINI_APP_VIRTUAL_COMPACT_TABLE_ROW_HEIGHT,
   useMiniAppFrameBox,

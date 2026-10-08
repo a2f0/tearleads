@@ -3,8 +3,8 @@ import type {
   BlobInfo,
   BlobInfoDocumentReference,
 } from "@tearleads/client-sdk";
+import { ROUTED_TABLET_QUERY } from "@tearleads/windowing";
 import { cleanup, render, within } from "@testing-library/react";
-import { ROUTED_TABLET_QUERY } from "../../../../navigation/breakpoints";
 import { EXPLORER_LABELS } from "../../labels";
 import { compactId } from "../compactId";
 import { BlobReferencesSection } from "./ExplorerBlobReferencesSection";

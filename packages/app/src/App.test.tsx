@@ -1,5 +1,6 @@
 import { afterEach, expect, test } from "bun:test";
 import { createSQLiteRuntime } from "@tearleads/client-sdk/sqlite";
+import type { NavigationMode } from "@tearleads/windowing";
 import {
   cleanup,
   fireEvent,
@@ -16,7 +17,6 @@ import { MockWorker } from "../test/helpers/mockWorker";
 import { getAllPaneStatusTexts } from "../test/helpers/paneTestUtils";
 import { App } from "./App";
 import { SystemMonitorDeveloperModeProvider } from "./mini-apps/system-monitor/systemMonitorDeveloperMode";
-import type { AppNavigationMode } from "./navigation/AppNavigationMode";
 import { DualPaneProvider, PaneSideProvider } from "./shell/pane/dual-pane";
 import { PaneProvider } from "./shell/pane/runtime/PaneProvider";
 import { Pane } from "./shell/pane/shell/Pane";
@@ -54,7 +54,7 @@ function PaneNavigationHarness({
   onDeviceFirstUnmount,
 }: {
   hostConfig: ReturnType<typeof createTestAppHostConfig>;
-  navigationMode: AppNavigationMode;
+  navigationMode: NavigationMode;
   onDeviceFirstSnapshot: (snapshot: DeviceFirstIdentitySnapshot) => void;
   onDeviceFirstUnmount: () => void;
 }) {

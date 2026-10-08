@@ -89,7 +89,7 @@ function renderContactsRouteStateHarness(path = "/app/contacts") {
   window.history.replaceState(null, "", path);
   return render(
     <WindowStateProvider>
-      <AppNavigationProvider mode="routed" miniApps={TEST_MINI_APPS}>
+      <AppNavigationProvider mode="routed" launcher={{ apps: TEST_MINI_APPS }}>
         <ContactsRouteStateHarness />
       </AppNavigationProvider>
     </WindowStateProvider>,

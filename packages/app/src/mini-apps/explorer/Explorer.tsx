@@ -3,6 +3,7 @@ import type {
   OrganizationDirectoryAndGroups,
 } from "@tearleads/client-sdk";
 import {
+  useMiniAppRouteSegments,
   useWindowFileMenuItem,
   useWindowRefreshMenuItem,
   useWindowSidebar,
@@ -12,7 +13,6 @@ import {
   MiniAppRoot,
   MiniAppStatus,
 } from "../../components/mini-app/MiniAppLayout";
-import { useMiniAppRouteSegments } from "../../navigation/AppNavigationProvider";
 import { useOrganizationBilling } from "../../providers/billing/BillingProvider";
 import { useDatabase } from "../../providers/db/DatabaseProvider";
 import { useAppFeatureFlags } from "../../providers/feature-flags/AppFeatureFlagsProvider";

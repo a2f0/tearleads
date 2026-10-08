@@ -1,3 +1,7 @@
+import {
+  type MiniAppRouteSetOptions,
+  useCompactRoutedMode,
+} from "@tearleads/windowing";
 import { useCallback } from "react";
 import {
   MiniAppButton,
@@ -8,8 +12,6 @@ import {
   MiniAppToolbar,
 } from "../../components/mini-app/MiniAppLayout";
 import { useAuthenticateAction } from "../../identity/useAuthenticateAction";
-import { useCompactRoutedMode } from "../../navigation/useCompactRoutedMode";
-import type { MiniAppRouteSetOptions } from "../../navigation/useMiniAppRouteState";
 import { useCryptoSession } from "../../providers/crypto/CryptoSessionProvider";
 import "./Root.css";
 import { IdentitiesView } from "./identities/IdentitiesView";

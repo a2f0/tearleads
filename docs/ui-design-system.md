@@ -8,13 +8,17 @@ relative to the repo root.
 ## Two shells, three tiers
 
 The app renders one React tree with two interchangeable shells, selected by
-`packages/app/src/navigation/AppNavigationMode.ts`:
+`@tearleads/windowing`'s navigation mode
+(`packages/windowing/src/launcher/navigationMode.ts`) from the host profile's
+`preferredNavigationMode`:
 
 - **windowed** — the desktop window-manager UI (`@tearleads/windowing`,
   `shell/pane/*`). Available through the lower-right layout switch.
-- **routed** — the single-pane UI (`shell/layout/routed/*`). The default
-  on desktop, iPad, and phone. The two-peer demo keeps its windowed split on
-  wide desktop screens.
+- **routed** — the single-pane UI: `@tearleads/windowing`'s routed shell
+  (`packages/windowing/src/routed/*`) dressed with the app's chrome in
+  `shell/layout/routed/AppRoutedPane.tsx`. The default on desktop, iPad, and
+  phone. The two-peer demo prefers windowed, keeping its split on wide desktop
+  screens.
 
 Inside the routed shell there are two tiers, split at 760px:
 
@@ -25,10 +29,10 @@ Inside the routed shell there are two tiers, split at 760px:
   bottom sheet, freeing the rail's width for content.
 
 The tablet breakpoint lives in
-`packages/app/src/navigation/breakpoints.ts`
+`packages/windowing/src/launcher/breakpoints.ts`
 (`ROUTED_TABLET_BREAKPOINT_PX = 760`). CSS cannot read TS constants, so
 `RoutedPane.css` mirrors the 760px line in a media query;
-`packages/app/src/navigation/breakpoints.test.ts` fails if the two drift.
+`packages/windowing/src/routed/breakpoints.test.ts` fails if the two drift.
 
 The switch between shells never remounts the runtime-owning subtrees — see the
 comment in `shell/layout/Layout.tsx`. A user can also switch between
@@ -39,7 +43,8 @@ windowed choice yields to routed mode on narrow or touch screens.
 ## Touch sizing keys off an attribute, not a media query
 
 `Layout` stamps `<html data-navigation-mode="routed">` whenever the routed
-shell is active (`navigation/useNavigationModeDocumentAttribute.ts`). All touch
+shell is active (`useNavigationModeDocumentAttribute` from
+`@tearleads/windowing`). All touch
 sizing hangs off that attribute — deliberately NOT `@media (pointer: coarse)`,
 because an iPad with a mouse reports a fine pointer but still renders the touch
 shell. The routed shell is also the desktop default, so mouse users get these

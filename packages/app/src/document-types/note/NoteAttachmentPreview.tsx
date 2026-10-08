@@ -6,7 +6,12 @@ import type { DocumentAttachment } from "@tearleads/client-sdk";
 // classes so it tracks any change to the floating windows; pull the title-bar /
 // toolbar stylesheets in directly rather than relying on a window happening to be
 // mounted alongside.
-import { WindowCloseButton } from "@tearleads/windowing";
+import {
+  useRoutedLayoutActive,
+  useRoutedPaneOverlayHost,
+  useWindowedLayoutActive,
+  WindowCloseButton,
+} from "@tearleads/windowing";
 import { type ReactNode, type RefObject, useId, useRef } from "react";
 import { createPortal } from "react-dom";
 import {
@@ -15,14 +20,9 @@ import {
   MiniAppModalBackdrop,
   MiniAppModalPanel,
 } from "../../components/mini-app/MiniAppLayout";
-import { useRoutedPaneOverlayHost } from "../../components/mini-app/overlays/RoutedPaneOverlayHost";
 import { classNames } from "../../components/shared/classNames";
 import "@tearleads/windowing/window/WindowTitleBar.css";
 import "@tearleads/windowing/window/WindowToolBar.css";
-import {
-  useRoutedLayoutActive,
-  useWindowedLayoutActive,
-} from "../../navigation/useRoutedLayoutActive";
 import { getAttachmentFileType } from "../shared/attachmentFileType";
 import { isPdfMimeType } from "../shared/FileDocumentPdfPreview";
 import { useModalEscapeAndFocusRestore } from "../shared/useModalEscapeAndFocusRestore";
