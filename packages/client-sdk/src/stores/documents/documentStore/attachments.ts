@@ -259,6 +259,9 @@ function installCommittedAttachmentRemoval(input: {
     (attachment) =>
       attachment.slotId !== slotId || attachment.storageKey !== storageKey,
   );
+  // The committed removal queued this key. A reset can leave another document
+  // uploading from the same copy, even though this document is local-only.
+  if (!input.syncedAttachment) void runDocumentOrphanMaintenance(state);
   if (
     input.syncedAttachment ||
     state.attachmentStorageKeyBySlotId[slotId] !== storageKey
@@ -273,9 +276,6 @@ function installCommittedAttachmentRemoval(input: {
     state.snapshot.text,
     state.snapshot.structuredFields,
   );
-  // The committed removal queued this key. A reset can leave another document
-  // uploading from the same copy, even though this document is local-only.
-  void runDocumentOrphanMaintenance(state);
 }
 
 async function persistRemovedAttachment(

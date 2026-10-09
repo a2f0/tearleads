@@ -77,6 +77,7 @@ FinishReclaim ==
 
 (* After reset and final removal the copy's lifecycle can finish. *)
 Reclaimed == /\ Unheld /\ ~bytes /\ ~queued /\ ~reclaiming
+             /\ \A s \in Slots : ~remote[s]
              /\ UNCHANGED vars
 
 Next == (\E s \in Slots : Hydrate(s) \/ Drop(s)

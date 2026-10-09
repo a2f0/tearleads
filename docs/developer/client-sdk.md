@@ -165,6 +165,10 @@ Attachment methods persist required `contentSha256` digests in encrypted documen
 content and pending-upload rows. Recovery restores slots without reading bytes.
 Hydration replaces a held copy only with bytes matching the document intent; a
 valid served binding the document has not recorded fills only an empty slot.
+Removal queues local bytes for reference-aware reclamation, including copies
+shared by pending uploads after reset. Custom `DocumentsPersistence` adapters
+provide the required `orphanBlobs` queue and reference methods described in
+[custom persistence](./custom-document-persistence.md).
 
 For bounded UI hydration, resolve `localId` with
 `tearleads.documents.findLocalIdByDocumentId(documentId)`, open with

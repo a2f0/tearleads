@@ -46,7 +46,7 @@ async function seedSharedAttachment(execSql: ExecSql, localId: string) {
   const contentSha256 = await attachmentContentSha256(BYTES);
   addDocumentAttachments(doc, [
     {
-      slotId: "slot",
+      slotId: SLOT_ID,
       name: "shared.bin",
       byteLength: BYTES.length,
       mimeType: "application/octet-stream",
@@ -83,7 +83,7 @@ async function seedSharedAttachment(execSql: ExecSql, localId: string) {
   });
   await db.insert(documentAttachmentBlobProjection).values({
     localId,
-    slotId: "slot",
+    slotId: SLOT_ID,
     blobId: "shared-reset",
     storageKey: STORAGE_KEY,
     mimeType: "application/octet-stream",
@@ -159,7 +159,7 @@ test.each([false, true])(
         }
       }
 
-      await removeAttachmentFromDocumentStore(first, () => undefined, "slot");
+      await removeAttachmentFromDocumentStore(first, () => undefined, SLOT_ID);
       await reclaimDocumentOrphanBlobs(runtime);
       const { db } = getClientSQLitePersistenceRuntime(execSql);
       const references = reset
@@ -177,7 +177,7 @@ test.each([false, true])(
         await removeAttachmentFromDocumentStore(
           second,
           () => undefined,
-          "slot",
+          SLOT_ID,
         );
         await reclaimDocumentOrphanBlobs(runtime);
         expect(await db.select().from(documentPendingAttachments)).toEqual([]);

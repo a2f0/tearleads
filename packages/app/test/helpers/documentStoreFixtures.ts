@@ -21,6 +21,7 @@ import {
   type StoredHistoryState,
 } from "./document-store/documentStoreWritePersistence";
 import { createMemoryHydratedAttachmentPersistence } from "./document-store/memoryHydratedAttachmentPersistence";
+import { withMemoryOrphanBlobReclaims } from "./document-store/memoryOrphanBlobReclaims";
 import { createFixtureBlobStore } from "./documentStoreBlobStore";
 
 type RuntimeInput = Parameters<typeof createDocumentsWorkflowRuntime>[0];
@@ -371,7 +372,7 @@ export function createDocumentStorePersistence(): DocumentsPersistence & {
   const historyByLocalId: HistoryByLocalId = new Map();
   const historyPersistence = createHistoryPersistence(state, historyByLocalId);
 
-  return {
+  return withMemoryOrphanBlobReclaims({
     getState: () => state,
     supportsAtomicRecoveryHistoryPruning: true,
     ...createDocumentReadPersistence(state),
@@ -398,7 +399,7 @@ export function createDocumentStorePersistence(): DocumentsPersistence & {
         ),
       };
     },
-  };
+  });
 }
 
 export function createDocumentStoreRuntime(
