@@ -596,7 +596,7 @@ export const subsystems: readonly Subsystem[] = [
     name: "Theming",
     package: "app",
     responsibility:
-      "Color themes: the theme registry, persisted selection, the `<html data-theme>` attribute stamp, and the footer theme toggle. The per-theme design-token blocks themselves live in @tearleads/ui's styles.css.",
+      "Color themes: the app's theme list for windowing's ThemeProvider (persisted selection, the `<html data-theme>` stamp) and the footer toggle. The per-theme token blocks live in @tearleads/ui's styles.css.",
     seam: "theme/ThemeProvider; theme/themes",
     paths: [`${app}/theme/`],
   },

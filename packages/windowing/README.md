@@ -3,9 +3,9 @@
 App-agnostic window management for React: window state (open, focus order,
 minimize/maximize, a per-window route and Back stack), window chrome (title
 bar, menu bar, toolbar, sidebar, status bar, resize handles), the menu and
-sidebar primitives that chrome renders with, a taskbar's start menu, and a
-launcher that runs a set of mini-apps in windows or in the routed (iPad /
-phone) shell.
+sidebar primitives that chrome renders with, a taskbar's start menu and theme
+switch, and a launcher that runs a set of mini-apps in windows or in the routed
+(iPad / phone) shell.
 
 The package knows nothing about the applications that run inside its windows.
 It depends only on React, react-dom, and Phosphor icons, which draw the
@@ -273,6 +273,53 @@ Overlays that should fill the content pane rather than the screen portal into
 `useRoutedPaneOverlayHost().host`. The shell sizes to the box its host gives
 `.routed-pane`, as a grid item or a block with a height. Tearleads dresses it in
 `packages/app/src/shell/layout/routed/AppRoutedPane.tsx`.
+
+## Themes
+
+A host offers its own color themes. `ThemeProvider` takes them as a list of
+`{ id, label, scheme }`, the scheme `light` or `dark`, and stamps the active one
+as `<html data-theme>` and `<html data-theme-scheme>`. The host styles each
+theme with a block of the design tokens (see [Styles](#styles)):
+
+```tsx
+const THEMES: readonly ThemeDefinition<"paper" | "ink">[] = [
+  { id: "paper", label: "Paper", scheme: "light" },
+  { id: "ink", label: "Ink", scheme: "dark" },
+];
+
+<ThemeProvider
+  defaultTheme={{ dark: "ink", light: "paper" }}
+  storageKey="notes.theme"
+  themes={THEMES}
+>
+  <Desktop />
+  <ThemeSwitch />
+</ThemeProvider>;
+```
+
+```css
+:root[data-theme="ink"] {
+  --color-dark: #e5e5e5;
+  --color-light: #161616;
+}
+```
+
+`defaultTheme`, the theme until the user picks one, is an id or an id per OS
+color scheme, followed live. The choice persists under `storageKey`; a stored
+id the host no longer offers counts as none, and a default it does not offer
+falls back to its first theme. Define the list once, outside render.
+
+`ThemeSwitch`, for a taskbar's corner, moves to the next theme in order,
+wrapping, and names it ("Switch to Ink theme"). It renders nothing outside a
+provider or for a single theme. It draws a half-filled square unless given an
+`icon`, and is styled as `NavigationModeSwitch` unless given a `className`.
+`useTheme` reads the active and next themes and the list, and sets a theme by
+id; `useOptionalTheme` returns `null` outside a provider.
+
+Mount one provider above everything themed. It stamps the attributes before
+the browser paints and removes them on unmount; under a dark scheme,
+`tokens.css` sets `color-scheme: dark`. Tearleads sets its themes per host
+profile in `packages/app/src/host/AppHostConfig.ts`.
 
 ## Styles
 

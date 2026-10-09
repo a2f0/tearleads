@@ -11,7 +11,8 @@ import type {
   SQLiteRuntime,
   StoragePersistencePolicy,
 } from "@tearleads/client-sdk/sqlite";
-import type { NavigationMode } from "@tearleads/windowing";
+import type { NavigationMode, ThemeDefinition } from "@tearleads/windowing";
+import { APP_THEMES, type ThemeId } from "../theme/themes";
 import type { AppBuildInfo } from "./AppBuildInfo";
 import type { AppDiagnostics } from "./AppDiagnostics";
 import type { CreateFileViewerFn } from "./FileViewer";
@@ -126,6 +127,11 @@ export interface AppHostProfile {
    * show them; the regular app opens in the routed (iPad / phone) shell.
    */
   readonly preferredNavigationMode: NavigationMode;
+  /**
+   * The color themes the footer switch cycles, in order. Each needs a token
+   * block in @tearleads/ui (see theme/themes.ts).
+   */
+  readonly themes: readonly ThemeDefinition<ThemeId>[];
 }
 
 // Registry of named host profiles. The registry key IS the variant id, so
@@ -143,6 +149,7 @@ export const APP_HOST_PROFILES = {
     },
     paneRuntimePolicy: "shared",
     preferredNavigationMode: "routed",
+    themes: APP_THEMES,
   },
   demo: {
     defaultSplit: true,
@@ -155,6 +162,7 @@ export const APP_HOST_PROFILES = {
     },
     paneRuntimePolicy: "isolated",
     preferredNavigationMode: "windowed",
+    themes: APP_THEMES,
   },
   // Screenshot fixture setup imports a fixed identity and restores its database
   // before registering. Suppress only the automatic registration step so it
@@ -171,6 +179,7 @@ export const APP_HOST_PROFILES = {
     },
     paneRuntimePolicy: "shared",
     preferredNavigationMode: "routed",
+    themes: APP_THEMES,
   },
 } satisfies Record<string, AppHostProfile>;
 
