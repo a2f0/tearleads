@@ -82,6 +82,14 @@ without this fix. Explicit replacement of a rejected prefix still works;
 conflicting pins, changed prefixes and overlapping acknowledgements retain their
 atomic rejection checks.
 
+If a durable principal checkpoint advances after scoped recovery completes,
+projection admission obtains one fresh recovery batch and checks the latest pins
+again. It never admits the older result. Conflicting checkpoints and confirmed
+server rollback remain terminal. The signed regressions in
+`runtimePolicyRecoveryCheckpointRace.test.ts` reproduce the race for both the
+target and its dependency, fail without the refresh, and preserve rollback
+rejection.
+
 ## Ordinary workflow cost
 
 Private metadata-root authority and scoped projection recovery add bounded

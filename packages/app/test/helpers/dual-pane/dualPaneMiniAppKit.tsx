@@ -17,6 +17,7 @@ import { waitForCondition } from "../waitForCondition";
 import {
   getPaneRoot,
   interact,
+  PRINCIPAL_RECOVERY_SETTLE_TIMEOUT_MS,
   renderDualPane,
   waitForDualPaneProvisioning,
 } from "./dualPaneCore";
@@ -51,7 +52,7 @@ export async function renderSeededDemo(): Promise<{
   const rightPane = getPaneRoot(view, "right");
   await waitForDualPaneProvisioning(leftPane, rightPane);
   // Both panes recover paged policies before writing their peer memberships.
-  // Give this multi-request setup the same budget as the subsequent sync drain.
+  // Wait for both membership commits before draining their follow-up sync.
   await waitForCondition(
     () =>
       listProxiedApiRequests()
@@ -66,12 +67,12 @@ export async function renderSeededDemo(): Promise<{
     30_000,
   );
   // Both seeded rosters trigger document and policy recovery in both panes.
-  // At 150 ms per response these lanes take over 15 seconds to drain.
+  // Their paged authorization can exceed 30 seconds on a contended runner.
   await act(async () => {
     expect(
       await waitForAppTestRuntimeToSettle({
         apiQuietMs: 500,
-        timeoutMs: 30_000,
+        timeoutMs: PRINCIPAL_RECOVERY_SETTLE_TIMEOUT_MS,
       }),
     ).toBe(true);
   });
