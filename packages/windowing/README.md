@@ -298,6 +298,17 @@ and `--emphasis-text`), and `--color-hairline`. A dark theme that sets only the
 `--color-*` primitives gets near-white edges and chips, so set these too, as
 Tearleads' dark theme does.
 
+The window, menus, and routed shell draw thin scrollbars in `--scrollbar-thumb`
+over `--scrollbar-track`. `tokens.css` leaves both unset, so the thumb falls
+back to `--color-dark` at 32%, mixed on each surface so it follows the theme
+there, including a scoped one, and the track to transparent. They use the
+standard `scrollbar-width` and
+`scrollbar-color` properties, which Firefox, Chromium 121, and Safari 26.2
+read; older Safari keeps its own scrollbars. Content in a window or the shell
+scrolls the same way: `scrollbar-color` inherits from the surface, and
+`scrollbar-width` is set on every element in it. Both rules have zero
+specificity, so any host rule wins.
+
 The window paints its background, behind its body and sidebar, with
 `--window-background`. `tokens.css` leaves it unset, so it falls back to
 `--color-light` wherever that is set, including a scoped theme. Content sets

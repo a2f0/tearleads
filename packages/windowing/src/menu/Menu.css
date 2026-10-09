@@ -27,6 +27,21 @@
   box-sizing: border-box;
 }
 
+/* A menu portals to <body>, outside any window, so it sets the window's thin,
+   themed scrollbars itself (see Window.css). */
+:where(.menu) {
+  scrollbar-color: var(
+      --scrollbar-thumb,
+      color-mix(in srgb, var(--color-dark) 32%, transparent)
+    )
+    var(--scrollbar-track, transparent);
+}
+
+:where(.menu),
+:where(.menu) :where(*) {
+  scrollbar-width: thin;
+}
+
 .menu[data-scrollable] {
   touch-action: pan-y;
 }

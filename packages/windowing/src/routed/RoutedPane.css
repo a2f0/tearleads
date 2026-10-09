@@ -29,6 +29,21 @@
   box-sizing: border-box;
 }
 
+/* The window's thin, themed scrollbars (see Window.css), for the shell's
+   panes and the app content they hold. */
+:where(.routed-pane) {
+  scrollbar-color: var(
+      --scrollbar-thumb,
+      color-mix(in srgb, var(--color-dark) 32%, transparent)
+    )
+    var(--scrollbar-track, transparent);
+}
+
+:where(.routed-pane),
+:where(.routed-pane) :where(*) {
+  scrollbar-width: thin;
+}
+
 .routed-pane {
   position: relative;
   min-height: 0;
