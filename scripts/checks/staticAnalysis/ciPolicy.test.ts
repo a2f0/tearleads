@@ -8,6 +8,7 @@ const successful = () => ({
   },
   lint: { result: "success" },
   build: { result: "success" },
+  test: { result: "success" },
   "postgres-concurrency": { result: "success" },
   windows: { result: "success" },
   native: { result: "skipped" },
@@ -63,6 +64,7 @@ test("requires every applicable check and permits only explicitly irrelevant ski
     "changes",
     "lint",
     "build",
+    "test",
     "postgres-concurrency",
     "windows",
   ]) {
@@ -105,6 +107,31 @@ test("selects native and infrastructure checks without skipping their dependenci
   }
 });
 
+test("each long suite runs in exactly one CI job", async () => {
+  const root = `${import.meta.dir}/../../..`;
+  const ci = Bun.YAML.parse(
+    await Bun.file(`${root}/.github/workflows/ci.yml`).text(),
+  ) as {
+    jobs: Record<
+      string,
+      {
+        steps?: { name?: string; run?: string }[];
+        strategy?: { matrix?: { include?: { filter?: string }[] } };
+      }
+    >;
+  };
+  const { build, test: matrix } = ci.jobs;
+  const suites = (matrix?.strategy?.matrix?.include ?? []).map(
+    ({ filter }) => filter,
+  );
+  const run = build?.steps?.find(({ name }) => name === "Run tests")?.run;
+  const excluded = [...(run ?? "").matchAll(/--filter='!([^']+)'/g)].map(
+    ([, name]) => name,
+  );
+  expect(suites.length).toBeGreaterThan(0);
+  expect(excluded.toSorted()).toEqual(suites.toSorted());
+});
+
 test("the required gate always evaluates all jobs and platform workflows are callable", async () => {
   const root = `${import.meta.dir}/../../..`;
   const ci = Bun.YAML.parse(
@@ -114,10 +141,11 @@ test("the required gate always evaluates all jobs and platform workflows are cal
     jobs: Record<string, { if?: string; needs?: string[]; uses?: string }>;
   };
   expect(ci.on).toHaveProperty("pull_request");
-  const { gate, build, windows } = ci.jobs;
+  const { gate, build, test: suites, windows } = ci.jobs;
   expect(gate?.if).toBe("always()");
   expect(gate?.needs?.toSorted()).toEqual(Object.keys(successful()).toSorted());
   expect(build?.if).toBeUndefined();
+  expect(suites?.if).toBeUndefined();
   expect(windows?.if).toBeUndefined();
   for (const job of ["windows", "native"]) {
     const path = ci.jobs[job]?.uses;

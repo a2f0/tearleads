@@ -2,6 +2,12 @@
   "$schema": "https://turborepo.com/schema.json",
   "extends": ["//"],
   "tasks": {
+    "build": {
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/scripts/lib/rewriteDistImports.ts"
+      ]
+    },
     "test": {
       "dependsOn": ["$TURBO_EXTENDS$", "build"]
     }

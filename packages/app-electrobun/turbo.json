@@ -3,18 +3,14 @@
   "extends": ["//"],
   "tasks": {
     "test": {
+      "description": "Release suites read repository scripts and the downloads Terraform stacks by path. Explicit globs bypass .gitignore, so the negations keep local state out of the hash.",
       "inputs": [
         "$TURBO_EXTENDS$",
-        "$TURBO_ROOT$/scripts/buildLinuxRelease.sh",
-        "$TURBO_ROOT$/scripts/buildLinuxStagingRelease.sh",
-        "$TURBO_ROOT$/scripts/buildMacosRelease.sh",
-        "$TURBO_ROOT$/scripts/buildMacosStagingRelease.sh",
-        "$TURBO_ROOT$/scripts/lib/desktopRelease.sh",
-        "$TURBO_ROOT$/scripts/uploadLinuxRelease.sh",
-        "$TURBO_ROOT$/scripts/uploadLinuxStagingRelease.sh",
-        "$TURBO_ROOT$/scripts/uploadMacosRelease.sh",
-        "$TURBO_ROOT$/scripts/uploadMacosStagingRelease.sh",
-        "$TURBO_ROOT$/scripts/windowsRelease.sh"
+        "$TURBO_ROOT$/scripts/**",
+        "!$TURBO_ROOT$/scripts/localstack/data/**",
+        "$TURBO_ROOT$/terraform/scripts/**",
+        "$TURBO_ROOT$/terraform/stacks/**/*.tf",
+        "!$TURBO_ROOT$/terraform/**/.terraform/**"
       ]
     }
   }
