@@ -104,10 +104,11 @@ motion. Rules:
   zones, each with a comment.)
 - Themes override only the color tokens, under `:root[data-theme="<id>"]`.
   The registry is `packages/app/src/theme/themes.ts` (Light, Dark, and
-  Dusk, whose block lives in the companion `styles.dusk.css`);
-  `ThemeProvider` stamps `<html data-theme>` and `<html data-theme-scheme>`
-  (`light` | `dark`). A rule that only cares whether surfaces are dark keys off
-  the scheme, never a theme id. Structural tokens are theme-independent by
+  Dusk, whose block lives in the companion `styles.dusk.css`), which each host
+  profile offers; the windowing package's `ThemeProvider` stamps
+  `<html data-theme>` and `<html data-theme-scheme>` (`light` | `dark`). A
+  rule that only cares whether surfaces are dark keys off the scheme, never a
+  theme id. Structural tokens are theme-independent by
   design. Dusk uses slate-blue surfaces, ivory text, and muted blue emphasis;
   it has no decorative text effects.
 - Each component ships a sibling `.css` file imported by its `.tsx`; class

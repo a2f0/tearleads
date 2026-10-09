@@ -1,7 +1,7 @@
+import { useOptionalTheme } from "@tearleads/windowing";
 import { useMemo } from "react";
 import { useApiVersion } from "../../../providers/api/useApiVersion";
 import { useAppHostConfig } from "../../../providers/host/AppHostConfigProvider";
-import { useOptionalTheme } from "../../../theme/ThemeProvider";
 import {
   applyHighEntropyHints,
   formatIdentity,
@@ -76,7 +76,7 @@ export function useSystemEnvironment(): ReadonlyArray<EnvironmentRow> {
 
   const buildInfo = hostConfig.buildInfo;
   const { apiBaseUrl, wsUrl } = hostConfig;
-  const activeTheme = theme?.activeTheme;
+  const activeTheme = theme?.activeTheme.id;
   const { platformVersion } = highEntropyHints;
 
   return useMemo(() => {

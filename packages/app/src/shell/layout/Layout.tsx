@@ -154,7 +154,7 @@ function FeatureFlaggedWorkspaceLayout({ hostConfig }: LayoutProps) {
 
 export function Layout({ hostConfig }: LayoutProps) {
   return (
-    <ThemeProvider>
+    <ThemeProvider themes={hostConfig.profile.themes}>
       <NavigationModeOverrideProvider storageKey={NAVIGATION_MODE_STORAGE_KEY}>
         <SystemMonitorDeveloperModeProvider>
           <AppFeatureFlagsProvider>
