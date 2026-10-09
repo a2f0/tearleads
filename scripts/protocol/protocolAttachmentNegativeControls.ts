@@ -130,6 +130,22 @@ export const ATTACHMENT_NEGATIVE_CONTROLS: readonly NegativeControl[] = [
     why: "A slot re-hydrated between the reclaim's reference check and its delete must keep its bytes.",
   },
   {
+    id: "local-removal-deletes-reset-shared-copy",
+    module: "formal/document-sync/SharedCopyReclaim.tla",
+    config: "formal/document-sync/SharedCopyReclaim.cfg",
+    constants: { QueueLocalRemoval: "FALSE" },
+    expect: { kind: "invariant", name: "HeldCopyPresent" },
+    why: "An open store can remove a shared reset upload source in local-only mode while another document still references it (#2485 finding 2).",
+  },
+  {
+    id: "reclaim-ignores-pending-shared-copy",
+    module: "formal/document-sync/SharedCopyReclaim.tla",
+    config: "formal/document-sync/SharedCopyReclaim.cfg",
+    constants: { CheckPendingReferences: "FALSE" },
+    expect: { kind: "invariant", name: "HeldCopyPresent" },
+    why: "Reset pending uploads retain the same storage key and must prevent reclamation after the held row is removed.",
+  },
+  {
     id: "blob-bind-without-source-authority",
     module: "formal/blob-attachments/BlobSourceAuthority.tla",
     config: "formal/blob-attachments/BlobSourceAuthority.cfg",

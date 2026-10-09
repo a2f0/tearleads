@@ -32,6 +32,7 @@ import {
   shouldAbortAttachmentPersistFollowup,
 } from "./attachmentWriteGeneration";
 import { ensureDocumentStoreReady } from "./initialization";
+import { runDocumentOrphanMaintenance } from "./orphanMaintenance";
 import {
   advancePendingBaseVersion,
   pendingDeltaSinceBase,
@@ -245,13 +246,13 @@ async function persistSlotAttachmentFile(
   requestDocumentStoreSync(state);
 }
 
-async function installCommittedAttachmentRemoval(input: {
+function installCommittedAttachmentRemoval(input: {
   currentDoc: NonNullable<DocumentStoreState["doc"]>;
   slotId: string;
   state: DocumentStoreState;
   storageKey: string | undefined;
   syncedAttachment: boolean;
-}): Promise<void> {
+}): void {
   const { slotId, state, storageKey } = input;
   if (!storageKey) return;
   state.pendingAttachments = state.pendingAttachments.filter(
@@ -265,13 +266,6 @@ async function installCommittedAttachmentRemoval(input: {
     return;
   }
   removeLocalAttachmentSlot(state, slotId);
-  await state.runtime.infra.blobStore
-    .deleteBytes(storageKey)
-    .catch(() =>
-      state.runtime.util.log(
-        `Documents: failed to delete detached attachment bytes for ${slotId}.`,
-      ),
-    );
   setReadySnapshot(
     state,
     input.currentDoc,
@@ -279,6 +273,9 @@ async function installCommittedAttachmentRemoval(input: {
     state.snapshot.text,
     state.snapshot.structuredFields,
   );
+  // The committed removal queued this key. A reset can leave another document
+  // uploading from the same copy, even though this document is local-only.
+  void runDocumentOrphanMaintenance(state);
 }
 
 async function persistRemovedAttachment(
@@ -361,7 +358,7 @@ async function persistRemovedAttachment(
     // See persistAttachedFiles: only durable same-identity work re-arms sync.
     return;
   }
-  await installCommittedAttachmentRemoval({
+  installCommittedAttachmentRemoval({
     currentDoc,
     slotId,
     state,
