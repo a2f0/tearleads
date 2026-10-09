@@ -1,0 +1,10 @@
+{
+  "$schema": "https://turborepo.com/schema.json",
+  "extends": ["//"],
+  "tasks": {
+    "test": {
+      "description": "The suite boots the API in-process from its source (test/helpers/mswServer.ts), so an API change must miss this cache.",
+      "dependsOn": ["$TURBO_EXTENDS$", "@tearleads/api#sources"]
+    }
+  }
+}

@@ -86,6 +86,16 @@ builds the SDK first; a bare `bun run test` in the package does not, because a
 test script that rebuilt `dist` would delete it under other packages' tests
 running alongside it in turbo.
 
+### Declare what a Turbo task reads
+
+CI shares Turbo's cache through the GitHub Actions cache, and a hit replays a
+pass without running the task. A hash covers the package's files, its
+`dependsOn` tasks, the lockfile, `globalDependencies`, and `CI_TOOLCHAIN`. A
+task reading anything else must say so in its package `turbo.json`: a
+`$TURBO_ROOT$` input for a repository file, or `<package>#sources` in
+`dependsOn` for another workspace's source. The nightly `Uncached tests`
+workflow catches a missed input.
+
 ### Prove a security test fails without its fix
 
 A test written alongside a verifier change can pass for the wrong reason — the

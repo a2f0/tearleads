@@ -84,8 +84,10 @@ Workspace packages reference those versions with `catalog:` and
 ## Turborepo
 
 [`turbo.json`](./turbo.json) adds dependency-aware task orchestration and
-local caching on top of the Bun workspace. The `test` task depends on each
+caching on top of the Bun workspace. The `test` task depends on each
 package's `build` task, so generated artifacts are refreshed before tests run.
+CI shares the cache through the GitHub Actions cache; a task that reads files
+outside its package declares them in that package's `turbo.json`.
 
 ## Developer Docs
 

@@ -13,6 +13,13 @@ native purchase bridge compiles and Terraform checks whenever their paths change
 The platform workflows are reusable and retain their standalone manual dispatch
 entry points.
 
+The API, app, and client SDK suites each run in a `Test (...)` job of their own,
+and `Build and test` runs the remaining package tests. The gate requires both
+jobs, so the suites need no ruleset entries of their own. Turbo serves cached
+results from the GitHub Actions cache: a pull request reads entries written on
+its own ref or on `main`, while `main` never reads an entry a pull request wrote.
+The nightly `Uncached tests` workflow reruns every suite without the cache.
+
 `scripts/checks/ciPolicy.ts` owns the path selection and gate verdict. A platform
 job may be skipped only when successful change detection explicitly marked it
 irrelevant. A failed, cancelled, missing, or unexpectedly skipped job fails the
