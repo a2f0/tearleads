@@ -1,0 +1,22 @@
+/* The theme switch: a square, borderless control the height of the bar's
+   controls, lit while hovered or focused, as the start menu's button. */
+.theme-switch {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  width: var(--control-height);
+  height: var(--control-height);
+  padding: 0;
+  border: 0;
+  border-radius: var(--app-radius-control);
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+
+.theme-switch:hover,
+.theme-switch:focus-visible {
+  background: var(--emphasis-surface);
+  color: var(--emphasis-text);
+}

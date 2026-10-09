@@ -80,6 +80,14 @@
   --control-icon-size: 24px;
 }
 
+/*
+ * A dark theme (see ThemeProvider) darkens the browser's own controls, such as
+ * form fields. Zero specificity, so a theme that sets its own wins.
+ */
+:where(:root[data-theme-scheme="dark"]) {
+  color-scheme: dark;
+}
+
 @media (prefers-reduced-motion: reduce) {
   :where(:root) {
     --transition: 0s;

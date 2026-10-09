@@ -2,6 +2,7 @@ import { afterEach, expect, test } from "bun:test";
 import { act, cleanup, fireEvent, render } from "@testing-library/react";
 import { ThemeProvider } from "./ThemeProvider";
 import { ThemeToggleButton } from "./ThemeToggleButton";
+import { APP_THEMES } from "./themes";
 
 const CHOICE_KEY = "tearleads.theme.choice";
 const DARK_QUERY = "(prefers-color-scheme: dark)";
@@ -49,7 +50,7 @@ afterEach(() => {
 
 function renderToggle() {
   return render(
-    <ThemeProvider>
+    <ThemeProvider themes={APP_THEMES}>
       <ThemeToggleButton />
     </ThemeProvider>,
   );
