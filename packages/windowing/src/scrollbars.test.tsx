@@ -78,8 +78,12 @@ function styleOf(selector: string): CSSStyleDeclaration {
   return getComputedStyle(element);
 }
 
+// happy-dom keeps the declaration's line breaks, which a browser drops when it
+// computes the colors.
 function scrollbarColors(): string[] {
-  return SURFACES.map((selector) => styleOf(selector).scrollbarColor);
+  return SURFACES.map((selector) =>
+    styleOf(selector).scrollbarColor.replace(/\s+/g, " "),
+  );
 }
 
 function scrollbarWidths(): string[] {
@@ -112,10 +116,33 @@ describe("scrollbars", () => {
     );
   });
 
+  // A theme scoped below the root, as a host may give one part of its page,
+  // recolors the thumb on the surfaces inside it.
+  test("follow a theme scoped below the root", () => {
+    addStyles(stylesheets, "body { --color-dark: #e5e5e5; }");
+    renderChrome();
+    expect(scrollbarColors()).toEqual(
+      Array(SURFACES.length).fill(
+        "color-mix(in srgb, #e5e5e5 32%, transparent) transparent",
+      ),
+    );
+  });
+
   // A universal rule has no specificity either, so it wins by coming later.
   test("yield to a host's own scrollbar rules", () => {
     addStyles(stylesheets, "* { scrollbar-width: auto; }");
     renderChrome();
     expect(scrollbarWidths()).toEqual(THIN.map(() => "auto"));
+  });
+
+  test("take a host's scrollbar colors", () => {
+    addStyles(
+      stylesheets,
+      ":root { --scrollbar-thumb: #808080; --scrollbar-track: #202020; }",
+    );
+    renderChrome();
+    expect(scrollbarColors()).toEqual(
+      Array(SURFACES.length).fill("#808080 #202020"),
+    );
   });
 });

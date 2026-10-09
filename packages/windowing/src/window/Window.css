@@ -9,17 +9,22 @@
 }
 
 /*
- * Thin scrollbars in the theme's colors (--scrollbar-thumb and
- * --scrollbar-track) for every scroll container in the window, its content's
+ * Thin scrollbars for every scroll container in the window, its content's
  * included. scrollbar-color inherits, so the window sets it once;
  * scrollbar-width does not, so the window sets it on everything, like
- * box-sizing. Both are the standard properties Firefox, Chromium, and Safari
- * 26.2 read; no ::-webkit-scrollbar rules, which would turn overlay scrollbars
- * into classic ones that always take room. At zero specificity, any host rule
- * wins.
+ * box-sizing. The colors are --scrollbar-thumb over --scrollbar-track, which
+ * tokens.css leaves unset: the thumb falls back to the window's foreground at
+ * 32%, mixed here so a scoped theme recolors it, over no track. Both are the
+ * standard properties Firefox, Chromium, and Safari 26.2 read; no
+ * ::-webkit-scrollbar rules, which would turn overlay scrollbars into classic
+ * ones that always take room. At zero specificity, any host rule wins.
  */
 :where(.window) {
-  scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
+  scrollbar-color: var(
+      --scrollbar-thumb,
+      color-mix(in srgb, var(--color-dark) 32%, transparent)
+    )
+    var(--scrollbar-track, transparent);
 }
 
 :where(.window),

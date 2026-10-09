@@ -29,10 +29,6 @@
   --opacity-disabled: 0.5;
   --opacity-icon: 0.6;
   --opacity-subtle: 0.85;
-  /* The thin scrollbars the window, menus, and routed shell draw: a thumb
-     mixed from the foreground, so it follows the theme, over the surface. */
-  --scrollbar-thumb: color-mix(in srgb, var(--color-dark) 32%, transparent);
-  --scrollbar-track: transparent;
   --scrollbar-gutter: auto;
   --transition: 0.18s ease;
 
