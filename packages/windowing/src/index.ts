@@ -2,8 +2,8 @@ import "./tokens.css";
 
 // The public windowing API: window state, window chrome and its registration
 // hooks, the menu and sidebar primitives the chrome renders with, a taskbar's
-// start menu, the icons the chrome draws, and a launcher of mini-apps that
-// shows them in windows or in the routed (iPad / phone) shell.
+// start menu and theme switch, the icons the chrome draws, and a launcher of
+// mini-apps that shows them in windows or in the routed (iPad / phone) shell.
 export {
   createRequiredContext,
   type RequiredContext,
@@ -98,6 +98,17 @@ export {
 } from "./routed/RoutedPaneOverlayHost";
 export type { SubscribeKeyboardVisibility } from "./routed/useMobileKeyboardVisible";
 export { SidebarResizeHandle, useSidebarResize } from "./sidebar/SidebarResize";
+export {
+  ThemeProvider,
+  useOptionalTheme,
+  useTheme,
+} from "./theme/ThemeProvider";
+export { ThemeSwitch } from "./theme/ThemeSwitch";
+export type {
+  DefaultTheme,
+  ThemeDefinition,
+  ThemeScheme,
+} from "./theme/themes";
 export {
   CurrentWindowProvider,
   useCurrentWindow,

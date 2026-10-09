@@ -79,7 +79,7 @@ export async function openWindowedApp(
 }
 
 // The localStorage key the ThemeProvider reads on boot to restore an explicit
-// theme choice (see packages/app/src/theme/themeStorage.ts). Writing it before a
+// theme choice (see packages/app/src/theme/ThemeProvider.tsx). Writing it before a
 // reload pins the app to that theme deterministically — an explicit choice wins
 // over the OS preference — so the screenshot run can capture a known theme rather
 // than whatever `prefers-color-scheme` happens to emulate. clearStaleLocalState
