@@ -1,8 +1,8 @@
 import { afterEach, expect, test } from "bun:test";
 import type { DocumentAttachment } from "@tearleads/client-sdk";
+import { RoutedPaneOverlayHostProvider } from "@tearleads/windowing";
 import { cleanup, fireEvent, render, within } from "@testing-library/react";
 import { createRef } from "react";
-import { RoutedPaneOverlayHostProvider } from "../../components/mini-app/overlays/RoutedPaneOverlayHost";
 import { NoteEditorFields } from "./NoteEditorFields";
 
 // The preview is opened from a tile inside NoteEditorFields, so it is exercised

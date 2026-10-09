@@ -1,6 +1,6 @@
 import { afterEach, expect, test } from "bun:test";
+import { ROUTED_TABLET_QUERY } from "@tearleads/windowing";
 import { cleanup, fireEvent, render } from "@testing-library/react";
-import { ROUTED_TABLET_QUERY } from "../../navigation/breakpoints";
 import { WeightReadTable } from "../weight/WeightReadTable";
 import type { WeightEntryRow } from "../weight/weightEntries";
 

@@ -1,3 +1,4 @@
+import { useCompactRoutedMode } from "@tearleads/windowing";
 import {
   type Dispatch,
   type ReactNode,
@@ -7,7 +8,6 @@ import {
   useRef,
   useState,
 } from "react";
-import { useCompactRoutedMode } from "../../../navigation/useCompactRoutedMode";
 import { useCryptoSession } from "../../../providers/crypto/CryptoSessionProvider";
 import { useLog } from "../../../providers/logging/LogProvider";
 import { useTearleadsRuntime } from "../../../providers/sdk/TearleadsProvider";

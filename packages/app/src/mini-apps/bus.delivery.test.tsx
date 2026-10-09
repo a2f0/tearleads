@@ -1,5 +1,6 @@
 import { afterEach, expect, test } from "bun:test";
 import {
+  MiniAppWindow,
   useCurrentWindow,
   useWindowStateData,
   WindowStateProvider,
@@ -15,7 +16,6 @@ import {
   useMiniAppBusActions,
   useMiniAppMessage,
 } from "./bus";
-import { MiniAppWindow } from "./MiniAppWindow";
 
 afterEach(() => {
   cleanup();
@@ -70,7 +70,7 @@ test("messages sent back to back are all delivered in send order", async () => {
     <WindowStateProvider>
       <AppNavigationProvider
         mode="windowed"
-        miniApps={createMiniApps(EmptyMiniApp, ContactsProbe)}
+        launcher={{ apps: createMiniApps(EmptyMiniApp, ContactsProbe) }}
       >
         <MiniAppBusProvider>
           <ImportTwoButton />
@@ -121,7 +121,7 @@ test("each message reaches exactly one subscriber of its app", async () => {
     <WindowStateProvider>
       <AppNavigationProvider
         mode="windowed"
-        miniApps={createMiniApps(EmptyMiniApp)}
+        launcher={{ apps: createMiniApps(EmptyMiniApp) }}
       >
         <MiniAppBusProvider>
           <ContactsSubscriber name="first" />
@@ -195,7 +195,7 @@ test("a message opened into a window reaches that window, not another of the sam
     <WindowStateProvider>
       <AppNavigationProvider
         mode="windowed"
-        miniApps={createMiniApps(EmptyMiniApp, ContactsProbe)}
+        launcher={{ apps: createMiniApps(EmptyMiniApp, ContactsProbe) }}
       >
         <MiniAppBusProvider>
           <Controls />

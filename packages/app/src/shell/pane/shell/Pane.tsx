@@ -1,27 +1,28 @@
 import {
   type MenuPosition,
+  MiniAppWindow,
+  type NavigationMode,
+  useActiveLauncherRoute,
   useWindowStateData,
   WindowStateProvider,
 } from "@tearleads/windowing";
 import { type MouseEvent, type ReactNode, useCallback, useState } from "react";
+import { LauncherMiniAppBoundary } from "../../../components/mini-app/MiniAppBoundary";
 import {
   MiniAppBusProvider,
   useMiniAppBusActions,
 } from "../../../mini-apps/bus";
-import { MiniAppWindow } from "../../../mini-apps/MiniAppWindow";
 import { useRegisterMiniAppLauncher } from "../../../mini-apps/miniAppLauncher";
-import { MINI_APPS } from "../../../mini-apps/registry";
+import { MINI_APP_LAUNCHER } from "../../../mini-apps/registry";
 import { SystemMonitorLauncherButton } from "../../../mini-apps/system-monitor/SystemMonitorLauncherButton";
 import { SystemMonitorPinned } from "../../../mini-apps/system-monitor/SystemMonitorPinned";
 import { SystemMonitorProvider } from "../../../mini-apps/system-monitor/SystemMonitorProvider";
-import type { AppNavigationMode } from "../../../navigation/AppNavigationMode";
 import { AppNavigationProvider } from "../../../navigation/AppNavigationProvider";
 import { NavigationModeSwitch } from "../../../navigation/NavigationModeSwitch";
-import { useActiveAppRoute } from "../../../navigation/useActiveAppRoute";
 import { useCryptoSession } from "../../../providers/crypto/CryptoSessionProvider";
 import { AppFeatureFlagsProvider } from "../../../providers/feature-flags/AppFeatureFlagsProvider";
 import { ThemeToggleButton } from "../../../theme/ThemeToggleButton";
-import { RoutedPane } from "../../layout/routed/RoutedPane";
+import { AppRoutedPane } from "../../layout/routed/AppRoutedPane";
 import { TestSystemBanner } from "../../layout/TestSystemBanner";
 import { useRegisterUserId } from "../dual-pane";
 import { PaneFooter } from "../footer/PaneFooter";
@@ -63,7 +64,11 @@ function PaneInner({
           )}
           <SystemMonitorPinned />
           {windows.map((w) => (
-            <MiniAppWindow key={w.id} windowId={w.id} />
+            <MiniAppWindow
+              key={w.id}
+              AppBoundary={LauncherMiniAppBoundary}
+              windowId={w.id}
+            />
           ))}
         </div>
         <TestSystemBanner />
@@ -91,7 +96,7 @@ function PaneInner({
 // read the bus; renders nothing.
 function PaneMiniAppLauncherBridge({ active }: { active: boolean }) {
   const { openMiniApp } = useMiniAppBusActions();
-  const activeRoute = useActiveAppRoute();
+  const activeRoute = useActiveLauncherRoute(MINI_APP_LAUNCHER);
   useRegisterMiniAppLauncher(openMiniApp, active, activeRoute);
   return null;
 }
@@ -106,7 +111,7 @@ export function Pane({
   active?: boolean | undefined;
   className: string;
   desktopLabel?: string | undefined;
-  navigationMode?: AppNavigationMode | undefined;
+  navigationMode?: NavigationMode | undefined;
   // In routed mode only the single active pane shows the routed shell; the
   // other (always-mounted, runtime-bearing) panes render no surface.
   routedVisible?: boolean | undefined;
@@ -119,7 +124,7 @@ export function Pane({
   if (navigationMode === "routed") {
     surface = routedVisible ? (
       <SystemMonitorProvider>
-        <RoutedPane />
+        <AppRoutedPane />
       </SystemMonitorProvider>
     ) : null;
   }
@@ -127,7 +132,10 @@ export function Pane({
   return (
     <AppFeatureFlagsProvider>
       <WindowStateProvider>
-        <AppNavigationProvider mode={navigationMode} miniApps={MINI_APPS}>
+        <AppNavigationProvider
+          mode={navigationMode}
+          launcher={MINI_APP_LAUNCHER}
+        >
           <MiniAppBusProvider>
             <PaneMiniAppLauncherBridge active={active} />
             {surface}

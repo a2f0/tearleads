@@ -1,5 +1,6 @@
 import { afterEach, expect, test } from "bun:test";
 import {
+  MiniAppWindow,
   useWindowActions,
   useWindowStateData,
   WindowStateProvider,
@@ -18,7 +19,6 @@ import {
   useMiniAppBusActions,
   useMiniAppMessage,
 } from "./bus";
-import { MiniAppWindow } from "./MiniAppWindow";
 
 afterEach(() => {
   cleanup();
@@ -94,7 +94,7 @@ test("mini-app bus opens a target app and delivers route messages", async () => 
     <WindowStateProvider>
       <AppNavigationProvider
         mode="windowed"
-        miniApps={createMiniApps(OrgManagerProbe)}
+        launcher={{ apps: createMiniApps(OrgManagerProbe) }}
       >
         <MiniAppBusProvider>
           <OpenButtons />
@@ -170,7 +170,7 @@ test("mini-app bus opens contacts and delivers import messages", async () => {
     <WindowStateProvider>
       <AppNavigationProvider
         mode="windowed"
-        miniApps={createMiniApps(EmptyMiniApp, ContactsProbe)}
+        launcher={{ apps: createMiniApps(EmptyMiniApp, ContactsProbe) }}
       >
         <MiniAppBusProvider>
           <OpenButton />
@@ -253,7 +253,7 @@ test("mini-app bus routes target apps without windows in routed mode", async () 
       <WindowStateProvider>
         <AppNavigationProvider
           mode="routed"
-          miniApps={createMiniApps(OrgManagerProbe)}
+          launcher={{ apps: createMiniApps(OrgManagerProbe) }}
         >
           <MiniAppBusProvider>
             <OpenButton />
@@ -306,7 +306,7 @@ test("mini-app bus action consumers do not re-render on window state changes", (
     <WindowStateProvider>
       <AppNavigationProvider
         mode="windowed"
-        miniApps={createMiniApps(EmptyMiniApp)}
+        launcher={{ apps: createMiniApps(EmptyMiniApp) }}
       >
         <MiniAppBusProvider>
           <ActionConsumer />

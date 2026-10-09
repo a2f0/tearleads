@@ -4,15 +4,22 @@ The mini-app layer owns app-local window composition and route-style messages
 between mini-app windows.
 
 `bus.tsx` is intentionally SDK-independent infrastructure. It coordinates
-window open, restore, focus, and message delivery through `WindowStateProvider`,
-and it receives concrete mini-app definitions from its caller. It should not
-import `@tearleads/*` packages, app runtime providers, app stores, document type
-registries, or concrete mini-app implementations.
+window open, restore, focus, and message delivery through `@tearleads/windowing`
+(window state and the launcher's navigation), and it receives concrete mini-app
+definitions from its caller. It should not import the SDK or other
+`@tearleads/*` packages beyond `@tearleads/windowing`, app runtime providers,
+app stores, document type registries, or concrete mini-app implementations.
 
 The window core (`@tearleads/windowing`) is app-agnostic: it stores a window's
-`appId` as an opaque string and never imports mini-app code. `MiniAppWindow.tsx`
-fills its `ContentBoundary` slot with the mini-app route and error boundary, and
-`isMiniAppId` narrows a window's `appId` back to a `MiniAppId`.
+`appId` as an opaque string and never imports mini-app code. Its launcher runs
+the mini-apps from a definition: `registry.ts` gives it `MINI_APP_LAUNCHER`,
+every mini-app's definition (title, icon, component, sidebar default) with the
+menu order and Explorer as the routed shell's home. The package opens them in
+windows (`MiniAppWindow`, whose boundary slot takes the app's
+`MiniAppBoundary`) or shows one at a time in its routed shell. Both the regular
+app and the demo run this one launcher; their host profiles differ in the
+layout they prefer. `isMiniAppId` narrows a window's `appId` back to a
+`MiniAppId`.
 
 `catalog.ts` holds each app's title, icon, and menu order without importing
 any app, so chrome that only labels or lists apps stays light; `registry.ts`

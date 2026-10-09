@@ -45,7 +45,7 @@ interface MiniAppMenuItem {
   label: string;
 }
 
-const MENU_ORDER = [
+export const MINI_APP_ORDER = [
   "explorer",
   "contacts",
   "org-manager",
@@ -56,8 +56,11 @@ const MENU_ORDER = [
   "root",
 ] as const satisfies ReadonlyArray<MiniAppId>;
 
+// The routed shell shows Explorer at the root route.
+export const HOME_MINI_APP_ID: MiniAppId = "explorer";
+
 export const MINI_APP_MENU_ITEMS: ReadonlyArray<MiniAppMenuItem> =
-  MENU_ORDER.map((appId) => ({
+  MINI_APP_ORDER.map((appId) => ({
     appId,
     icon: MINI_APP_ICONS[appId],
     label: MINI_APP_TITLES[appId],

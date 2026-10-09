@@ -1,9 +1,11 @@
 import { afterEach, expect, test } from "bun:test";
-import { CurrentWindowProvider } from "@tearleads/windowing";
+import {
+  CurrentWindowProvider,
+  type RoutedLayoutTier,
+  RoutedPaneOverlayHostProvider,
+} from "@tearleads/windowing";
 import { cleanup, fireEvent, render } from "@testing-library/react";
-import type { RoutedLayoutTier } from "../../../navigation/useRoutedLayoutTier";
 import { MiniAppImageViewer } from "./MiniAppImageViewer";
-import { RoutedPaneOverlayHostProvider } from "./RoutedPaneOverlayHost";
 
 afterEach(cleanup);
 

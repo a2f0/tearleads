@@ -1,5 +1,5 @@
+import type { MiniAppRouteSetOptions } from "@tearleads/windowing";
 import { useCallback } from "react";
-import type { MiniAppRouteSetOptions } from "../../navigation/useMiniAppRouteState";
 import {
   IDENTITIES_ROOT_ROUTE,
   ORGANIZATIONS_ROOT_ROUTE,

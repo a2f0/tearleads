@@ -123,7 +123,10 @@ test("explorer sidebar opens the root context menu from blank space", async () =
   const containerIds: string[] = [];
   const view = render(
     <WindowStateProvider>
-      <AppNavigationProvider mode="windowed" miniApps={TEST_MINI_APPS}>
+      <AppNavigationProvider
+        mode="windowed"
+        launcher={{ apps: TEST_MINI_APPS }}
+      >
         <SidebarContextMenuHarness
           onContainerContextMenu={(containerId) => {
             containerIds.push(containerId);

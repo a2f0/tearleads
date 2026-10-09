@@ -1,5 +1,5 @@
+import { useMiniAppRouteState } from "@tearleads/windowing";
 import { useState } from "react";
-import { useMiniAppRouteState } from "../../navigation/useMiniAppRouteState";
 import {
   formatIdentityManagerRouteSegments,
   type IdentityManagerView,

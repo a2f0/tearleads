@@ -1,21 +1,21 @@
 import { afterEach, expect, mock, test } from "bun:test";
+import type { LauncherRoute } from "@tearleads/windowing";
 import { cleanup, fireEvent, render } from "@testing-library/react";
-import type { AppRouteState } from "../navigation/AppRoutePaths";
 import {
   MiniAppLauncherProvider,
   useActiveMiniAppRoute,
   useMiniAppLauncher,
   useRegisterMiniAppLauncher,
 } from "./miniAppLauncher";
-import type { OpenMiniAppRequest } from "./types";
+import type { MiniAppId, OpenMiniAppRequest } from "./types";
 
 afterEach(() => cleanup());
 
 const BILLING_REQUEST = {
   appId: "org-manager",
   pathSegments: ["billing"],
-} as const satisfies AppRouteState;
-const EMPTY_ROUTE: AppRouteState = { appId: null, pathSegments: [] };
+} as const satisfies LauncherRoute<MiniAppId>;
+const EMPTY_ROUTE: LauncherRoute<MiniAppId> = { appId: null, pathSegments: [] };
 
 function Registrar({
   active,
@@ -24,7 +24,7 @@ function Registrar({
 }: {
   active: boolean;
   launch: (request: OpenMiniAppRequest) => void;
-  route?: AppRouteState | undefined;
+  route?: LauncherRoute<MiniAppId> | undefined;
 }) {
   useRegisterMiniAppLauncher(launch, active, route);
   return null;
@@ -114,7 +114,10 @@ test("the active pane publishes its current mini-app route", () => {
 test("a stale pane cannot replace the active pane route", () => {
   const staleLaunch = mock((_request: OpenMiniAppRequest) => {});
   const activeLaunch = mock((_request: OpenMiniAppRequest) => {});
-  const activeRoute: AppRouteState = { appId: "explorer", pathSegments: [] };
+  const activeRoute: LauncherRoute<MiniAppId> = {
+    appId: "explorer",
+    pathSegments: [],
+  };
   const rendered = render(
     <MiniAppLauncherProvider>
       <Registrar active={true} launch={staleLaunch} route={BILLING_REQUEST} />

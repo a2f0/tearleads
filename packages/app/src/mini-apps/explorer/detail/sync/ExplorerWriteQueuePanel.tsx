@@ -10,7 +10,7 @@ import {
   requestAllDomainSyncLanes,
   requestContainerContentsDocumentPriming,
 } from "@tearleads/client-sdk";
-import { useCurrentWindow } from "@tearleads/windowing";
+import { useCurrentWindow, useRoutedLayoutTier } from "@tearleads/windowing";
 import { useCallback, useMemo, useState } from "react";
 import {
   MiniAppActions,
@@ -28,7 +28,6 @@ import {
   MiniAppTableEmptyRow,
   MiniAppTableFrame,
 } from "../../../../components/mini-app/MiniAppTable";
-import { useRoutedLayoutTier } from "../../../../navigation/useRoutedLayoutTier";
 import {
   EXPLORER_LABELS,
   getExplorerWriteQueueSummaryLabel,

@@ -3,7 +3,9 @@
 App-agnostic window management for React: window state (open, focus order,
 minimize/maximize, a per-window route and Back stack), window chrome (title
 bar, menu bar, toolbar, sidebar, status bar, resize handles), the menu and
-sidebar primitives that chrome renders with, and a taskbar's start menu.
+sidebar primitives that chrome renders with, a taskbar's start menu, and a
+launcher that runs a set of mini-apps in windows or in the routed (iPad /
+phone) shell.
 
 The package knows nothing about the applications that run inside its windows.
 It depends only on React, react-dom, and Phosphor icons, which draw the
@@ -185,6 +187,93 @@ host's own button styles apply alone. A menu that needs more than a list passes
 and a `close` callback. Tearleads' footer does this in
 `packages/app/src/shell/pane/footer/PaneFooter.tsx`.
 
+## Launching mini-apps
+
+A launcher application is a set of mini-apps, defined once and shown either in
+windows on a desktop or one at a time in the routed shell. A
+`LauncherDefinition` lists the apps by id, the order the launchers show them in,
+and the app the routed shell shows at the root route:
+
+```tsx
+import type { LauncherDefinition } from "@tearleads/windowing";
+
+const LAUNCHER: LauncherDefinition<"notes" | "contacts"> = {
+  apps: {
+    contacts: {
+      createComponent: () => ContactsApp,
+      icon: AddressBookIcon,
+      title: "Contacts",
+    },
+    notes: {
+      createComponent: () => NotesApp,
+      icon: NoteIcon,
+      initialShowSidebar: false,
+      title: "Notes",
+    },
+  },
+  homeAppId: "notes",
+  order: ["notes", "contacts"],
+};
+```
+
+`LauncherNavigationProvider` takes the definition and a `NavigationMode`, and
+goes inside a `WindowStateProvider`. In `windowed` mode
+`useLauncherNavigationActions().openMiniApp({ appId })` opens the app's window,
+or raises the one already open; in `routed` mode it pushes the app's route,
+`/app/<app id>/…`, onto browser history, and Back and Forward walk it. Render
+each window with `MiniAppWindow`, whose `AppBoundary` slot wraps the app (for
+example in an error boundary).
+
+A mini-app reads and sets its own route with `useMiniAppRouteSegments(appId)`,
+or `useMiniAppRouteState` for a parsed route: the browser route in the routed
+shell, its window's own route and Back stack in a window. It registers its
+sidebar and toolbar actions with the window hooks, and both shells show them.
+
+`useNavigationMode` picks the mode: the user's choice from
+`NavigationModeOverrideProvider` (which persists it under a `storageKey`)
+first, while that choice suits the screen; then a host's `forcedMode`; then
+`preferredMode`, which defaults to `routed`.
+`NavigationModeSwitch`, for a taskbar's corner, records that choice: given the
+layout showing it, it offers the other ("Switch to iPad / mobile layout"). Windowed
+applies only where windows suit the screen: at least 1024px wide, with a fine
+pointer, and not an iPad. Pass the mode to
+`useNavigationModeDocumentAttribute`, which stamps
+`<html data-navigation-mode>`; the routed touch sizes key off it (see
+[Styles](#styles)), and `useRoutedLayoutActive` reads it back.
+
+## Routed shell
+
+`RoutedPane` is the routed shell, the iPad / phone layout: one mini-app at a
+time, chosen by the route, under an app bar with Back, Forward, the app's
+sidebar toggle, its title, and its toolbar actions, above a taskbar. Below 760px
+(`ROUTED_TABLET_BREAKPOINT_PX`) it is a phone layout whose launcher is a bottom
+sheet of app tiles; at or above it, a tablet layout whose launcher is a left
+rail or, at the user's choice, the same sheet. Mini-apps put their actions in
+the toolbar: the routed shell has no menu bar.
+
+```tsx
+<WindowStateProvider>
+  <LauncherNavigationProvider definition={LAUNCHER} mode="routed">
+    <RoutedPane
+      AppBoundary={AppErrorBoundary}
+      menuIcon={<Logo />}
+      taskbarTray={<ModeSwitch />}
+    />
+  </LauncherNavigationProvider>
+</WindowStateProvider>
+```
+
+The host fills its chrome: `menuIcon` is the taskbar's centered launcher
+button, `taskbarTray` its end-aligned tray, `contentTop` rides above the active
+app, and `renderAboveTaskbar` draws a strip above the taskbar, told whether the
+phone's software keyboard is open. `appIds` narrows the apps the launcher
+offers, such as to those the session may see, and
+`subscribeKeyboardVisibility` reports a native keyboard a WebView hides.
+Overlays that should fill the content pane rather than the screen portal into
+`useRoutedPaneOverlayHost().host`. The shell sizes to the box its host gives
+`.routed-pane`, as a grid item or a block with a height. Tearleads dresses it in
+`packages/app/src/shell/layout/routed/AppRoutedPane.tsx`.
+
 ## Styles
 
 Each component imports its own stylesheet, so a bundler that handles CSS imports
@@ -199,12 +288,26 @@ entry imports `tokens.css`, which defines every one of them under
 window. That rule has zero specificity: any `:root` rule, theme, or scoped block
 the host writes overrides it. Tearleads overrides them with its own themes in
 `packages/ui/src/styles.css` and `packages/app/src/shell/layout/AppChrome.css`.
+The routed shell also reads the screen's safe areas (`--safe-area-*`) and, under
+`:root[data-navigation-mode="routed"]`, a 44px `--control-height` and 24px
+`--control-icon-size`, which `tokens.css` defines the same way.
 
 Several defaults derive from `--color-dark`, the foreground: the window edge
 (`--border-strong-color`), the hover and selection chip (`--emphasis-surface`
 and `--emphasis-text`), and `--color-hairline`. A dark theme that sets only the
 `--color-*` primitives gets near-white edges and chips, so set these too, as
 Tearleads' dark theme does.
+
+The window, menus, and routed shell draw thin scrollbars in `--scrollbar-thumb`
+over `--scrollbar-track`. `tokens.css` leaves both unset, so the thumb falls
+back to `--color-dark` at 32%, mixed on each surface so it follows the theme
+there, including a scoped one, and the track to transparent. They use the
+standard `scrollbar-width` and
+`scrollbar-color` properties, which Firefox, Chromium 121, and Safari 26.2
+read; older Safari keeps its own scrollbars. Content in a window or the shell
+scrolls the same way: `scrollbar-color` inherits from the surface, and
+`scrollbar-width` is set on every element in it. Both rules have zero
+specificity, so any host rule wins.
 
 The window paints its background, behind its body and sidebar, with
 `--window-background`. `tokens.css` leaves it unset, so it falls back to

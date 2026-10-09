@@ -1,4 +1,5 @@
 import type { OrganizationContainerGrant } from "@tearleads/client-sdk";
+import { useRoutedLayoutActive } from "@tearleads/windowing";
 import type { KeyboardEvent, MouseEvent, ReactNode } from "react";
 import {
   MiniAppButton,
@@ -21,7 +22,6 @@ import {
   getMiniAppVirtualFrameStyle,
   MiniAppVirtualTableSpacerRow,
 } from "../../../components/mini-app/virtual/MiniAppVirtual";
-import { useRoutedLayoutActive } from "../../../navigation/useRoutedLayoutActive";
 import { formatMiniAppDate } from "../../../utils/formatMiniAppDate";
 import { isKeyboardActivationKey } from "../../../utils/keyboardActivation";
 import {

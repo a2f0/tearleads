@@ -523,7 +523,7 @@ export const subsystems: readonly Subsystem[] = [
     name: "Mini-App Platform",
     package: "app",
     responsibility:
-      "The window/mini-app host: app windows, the SDK-independent message bus, the app-shell-to-pane launcher bridge, the mini-app registry, the bootstrap/unlock gates, and shared cross-mini-app building blocks (e.g. the blob-pick host).",
+      "The window/mini-app host: the mini-app registry and its windowing launcher definition, the SDK-independent message bus, the app-shell-to-pane launcher bridge, the bootstrap/unlock gates, and shared cross-mini-app building blocks (e.g. the blob-pick host).",
     seam: "mini-apps/registry; mini-apps/bus; mini-apps/shared",
     paths: [
       `${app}/mini-apps/AppWindow.tsx`,
@@ -532,7 +532,6 @@ export const subsystems: readonly Subsystem[] = [
       `${app}/mini-apps/LocalKeyringUnlockGate.tsx`,
       `${app}/mini-apps/miniAppLauncher.tsx`,
       `${app}/mini-apps/miniAppVisibility.ts`,
-      `${app}/mini-apps/MiniAppWindow.tsx`,
       `${app}/mini-apps/registry.ts`,
       `${app}/mini-apps/shared/`,
       `${app}/mini-apps/SystemBootstrapGate.tsx`,
@@ -560,7 +559,7 @@ export const subsystems: readonly Subsystem[] = [
     name: "App Shell",
     package: "app",
     responsibility:
-      "The app's shells: layout and workspaces, the windowed pane that hosts mini-app windows and its footer taskbar, and the routed shell. Composes the runtime, navigation, and the mini-apps it renders.",
+      "The app's shells: layout and workspaces, the windowed pane that hosts mini-app windows and its footer taskbar, and the routed shell's chrome. Composes the runtime, navigation, and the mini-apps it renders.",
     seam: "shell/layout/Layout; shell/pane/shell/Pane",
     paths: [`${app}/shell/`],
   },
@@ -589,7 +588,7 @@ export const subsystems: readonly Subsystem[] = [
     name: "Navigation",
     package: "app",
     responsibility:
-      "App navigation: routed path navigation, history, mode/breakpoints, and mini-app route segments.",
+      "App navigation: windowing's launcher navigation for mini-app ids, the mode switch, and touch row sizing.",
     seam: "navigation/AppNavigationProvider",
     paths: [`${app}/navigation/`],
   },

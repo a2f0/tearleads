@@ -1,6 +1,6 @@
+import type { NavigationMode } from "@tearleads/windowing";
 import { useMemo } from "react";
 import type { AppHostConfig } from "../../../host/AppHostConfig";
-import type { AppNavigationMode } from "../../../navigation/AppNavigationMode";
 import {
   DualPaneProvider,
   PaneSideProvider,
@@ -16,7 +16,7 @@ import {
 interface WorkspaceProps {
   hostConfig: AppHostConfig;
   active: boolean;
-  navigationMode: AppNavigationMode;
+  navigationMode: NavigationMode;
   split: boolean;
   workspaceId: (typeof WORKSPACE_IDS)[number];
 }
@@ -24,7 +24,7 @@ interface WorkspaceProps {
 interface WorkspacePaneProps {
   active: boolean;
   desktopLabel?: string | undefined;
-  navigationMode: AppNavigationMode;
+  navigationMode: NavigationMode;
   side: "left" | "right";
   split: boolean;
 }
@@ -32,7 +32,7 @@ interface WorkspacePaneProps {
 interface WorkspacePanesProps {
   active: boolean;
   hostConfig: AppHostConfig;
-  navigationMode: AppNavigationMode;
+  navigationMode: NavigationMode;
   split: boolean;
 }
 
@@ -109,7 +109,7 @@ function IsolatedWorkspacePanes(props: WorkspacePanesProps) {
 // which view is visible. Per-pane view state (open windows, route) lives in Pane.
 function SharedWorkspaceView(props: {
   active: boolean;
-  navigationMode: AppNavigationMode;
+  navigationMode: NavigationMode;
 }) {
   const { active, navigationMode } = props;
 

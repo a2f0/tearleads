@@ -8,8 +8,8 @@ import type {
   OrganizationPolicyHistory,
   OrganizationUserDetail,
 } from "@tearleads/client-sdk";
+import { useCompactRoutedMode } from "@tearleads/windowing";
 import { useCallback, useId, useMemo, useRef, useState } from "react";
-import { useCompactRoutedMode } from "../../../navigation/useCompactRoutedMode";
 import {
   useTearleads,
   useTearleadsRuntime,

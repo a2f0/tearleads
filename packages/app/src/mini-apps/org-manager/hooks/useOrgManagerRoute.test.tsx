@@ -27,7 +27,7 @@ const TEST_MINI_APPS: Readonly<Record<MiniAppId, MiniAppDefinition>> = {
 function RoutedWrapper({ children }: { children: ReactNode }) {
   return (
     <WindowStateProvider>
-      <AppNavigationProvider mode="routed" miniApps={TEST_MINI_APPS}>
+      <AppNavigationProvider mode="routed" launcher={{ apps: TEST_MINI_APPS }}>
         {children}
       </AppNavigationProvider>
     </WindowStateProvider>

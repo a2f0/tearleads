@@ -11,7 +11,7 @@ import type {
   SQLiteRuntime,
   StoragePersistencePolicy,
 } from "@tearleads/client-sdk/sqlite";
-import type { AppNavigationMode } from "../navigation/AppNavigationMode";
+import type { NavigationMode } from "@tearleads/windowing";
 import type { AppBuildInfo } from "./AppBuildInfo";
 import type { AppDiagnostics } from "./AppDiagnostics";
 import type { CreateFileViewerFn } from "./FileViewer";
@@ -120,6 +120,12 @@ export interface AppHostProfile {
   readonly defaultSplit: boolean;
   readonly features: AppHostFeatureFlags;
   readonly paneRuntimePolicy: PaneRuntimePolicy;
+  /**
+   * The layout when neither the host nor the user's switch forces one. The
+   * demo prefers windows, for its side-by-side peers, wherever the screen can
+   * show them; the regular app opens in the routed (iPad / phone) shell.
+   */
+  readonly preferredNavigationMode: NavigationMode;
 }
 
 // Registry of named host profiles. The registry key IS the variant id, so
@@ -136,6 +142,7 @@ export const APP_HOST_PROFILES = {
       seedPeerIdentities: false,
     },
     paneRuntimePolicy: "shared",
+    preferredNavigationMode: "routed",
   },
   demo: {
     defaultSplit: true,
@@ -147,6 +154,7 @@ export const APP_HOST_PROFILES = {
       seedPeerIdentities: true,
     },
     paneRuntimePolicy: "isolated",
+    preferredNavigationMode: "windowed",
   },
   // Screenshot fixture setup imports a fixed identity and restores its database
   // before registering. Suppress only the automatic registration step so it
@@ -162,6 +170,7 @@ export const APP_HOST_PROFILES = {
       seedPeerIdentities: false,
     },
     paneRuntimePolicy: "shared",
+    preferredNavigationMode: "routed",
   },
 } satisfies Record<string, AppHostProfile>;
 
@@ -240,7 +249,7 @@ export interface AppHostConfigOptions {
   readonly localKeyringKeyMaterialStorage?:
     | WrappingKeyMaterialStorage
     | undefined;
-  readonly navigationMode?: AppNavigationMode | undefined;
+  readonly navigationMode?: NavigationMode | undefined;
   readonly openSubscriptionManagement?:
     | OpenSubscriptionManagementFn
     | undefined;

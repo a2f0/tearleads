@@ -1,5 +1,9 @@
 import { afterEach, expect, test } from "bun:test";
-import { useWindowStateData, WindowStateProvider } from "@tearleads/windowing";
+import {
+  MiniAppWindow,
+  useWindowStateData,
+  WindowStateProvider,
+} from "@tearleads/windowing";
 import {
   act,
   cleanup,
@@ -17,7 +21,6 @@ import {
 } from "react";
 import { AppNavigationProvider } from "../../../navigation/AppNavigationProvider";
 import { MiniAppBusProvider, useMiniAppBusActions } from "../../bus";
-import { MiniAppWindow } from "../../MiniAppWindow";
 import type { MiniAppDefinition, MiniAppId } from "../../types";
 import { useImportContactMessage } from "./useContactImport";
 
@@ -135,7 +138,7 @@ test("a message arriving mid-import is processed once the import completes", asy
     <WindowStateProvider>
       <AppNavigationProvider
         mode="windowed"
-        miniApps={createMiniApps(ContactsProbe)}
+        launcher={{ apps: createMiniApps(ContactsProbe) }}
       >
         <MiniAppBusProvider>
           <ImportButtons />
@@ -166,7 +169,7 @@ test("multiple messages queued during an import are all processed in order", asy
     <WindowStateProvider>
       <AppNavigationProvider
         mode="windowed"
-        miniApps={createMiniApps(ContactsProbe)}
+        launcher={{ apps: createMiniApps(ContactsProbe) }}
       >
         <MiniAppBusProvider>
           <ImportButtons />
@@ -202,7 +205,7 @@ test("a message waits while a manual import holds the shared submit flag", async
       <WindowStateProvider>
         <AppNavigationProvider
           mode="windowed"
-          miniApps={createMiniApps(ContactsProbe)}
+          launcher={{ apps: createMiniApps(ContactsProbe) }}
         >
           <MiniAppBusProvider>
             <ImportButtons />
@@ -232,7 +235,7 @@ test("consecutive duplicate user ids both import", async () => {
     <WindowStateProvider>
       <AppNavigationProvider
         mode="windowed"
-        miniApps={createMiniApps(ContactsProbe)}
+        launcher={{ apps: createMiniApps(ContactsProbe) }}
       >
         <MiniAppBusProvider>
           <ImportButtons />

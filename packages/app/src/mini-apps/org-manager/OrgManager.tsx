@@ -1,5 +1,6 @@
 import type { OrganizationContainerGrant } from "@tearleads/client-sdk";
 import {
+  useMiniAppRouteSegments,
   useWindowFileMenuItem,
   useWindowRefreshMenuItem,
 } from "@tearleads/windowing";
@@ -11,7 +12,6 @@ import {
   MiniAppToolbar,
 } from "../../components/mini-app/MiniAppLayout";
 import { useAuthenticateAction } from "../../identity/useAuthenticateAction";
-import { useMiniAppRouteSegments } from "../../navigation/AppNavigationProvider";
 import { useIdentity } from "../../providers/identity/IdentityProvider";
 import { DataUsageView } from "../shared/DataUsageView";
 import { BillingPanel } from "./billing/BillingPanel";

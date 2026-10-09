@@ -5,7 +5,10 @@ import type {
   BlobStore,
   DocumentAttachmentUpload,
 } from "@tearleads/client-sdk";
-import { useWindowTitleBarAction } from "@tearleads/windowing";
+import {
+  useMiniAppRouteSegments,
+  useWindowTitleBarAction,
+} from "@tearleads/windowing";
 import { useEffect, useMemo, useState } from "react";
 import {
   MiniAppField,
@@ -22,7 +25,6 @@ import type {
   ContactFieldKey,
   ContactFieldValues,
 } from "../../../document-types/contact/contactFieldDescriptors";
-import { useMiniAppRouteSegments } from "../../../navigation/AppNavigationProvider";
 import { chromeOwnsRouteBackedDetailBack } from "../../../navigation/routeBackedDetailBack";
 import { CONTACTS_LABELS } from "../labels";
 import type { ContactsRoute } from "../routes";
