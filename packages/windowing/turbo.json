@@ -1,0 +1,13 @@
+{
+  "$schema": "https://turborepo.com/schema.json",
+  "extends": ["//"],
+  "tasks": {
+    "test": {
+      "description": "publishedPackage.test.ts builds the package through scripts/buildPackage.ts, which runs the repository's dist import rewriter.",
+      "inputs": [
+        "$TURBO_EXTENDS$",
+        "$TURBO_ROOT$/scripts/lib/rewriteDistImports.ts"
+      ]
+    }
+  }
+}

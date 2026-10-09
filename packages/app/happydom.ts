@@ -69,7 +69,9 @@ function failStaleDep(name: string, reason: string): never {
 
 // turbo's `test` task depends on `^build`, so the canonical paths — `turbo run
 // test`, the pre-push hook, dev servers — always rebuild dist first and this is
-// a ~no-op stat walk. A raw `bun test` (especially a single-file run) bypasses
+// a ~no-op stat walk. A cache hit counts too: turbo restores each output by
+// writing a new file (archives carry no mtimes), so a CI checkout's sources are
+// always older than dist restored after them. A raw `bun test` (especially a single-file run) bypasses
 // turbo and does not, so fail fast with an actionable message instead of a
 // baffling missing-export error mid-suite.
 function assertBuiltWorkspaceDepsFresh(): void {

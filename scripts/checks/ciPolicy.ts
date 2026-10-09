@@ -41,6 +41,7 @@ export function assertCiSuccess(needs: Readonly<Record<string, JobResult>>) {
     "changes",
     "lint",
     "build",
+    "test",
     "postgres-concurrency",
     "windows",
   ]) {

@@ -1,6 +1,12 @@
 {
   "$schema": "https://turborepo.com/schema.json",
+  "agentGuidance": false,
   "concurrency": "2",
+  "futureFlags": {
+    "affectedUsingTaskInputs": true
+  },
+  "globalDependencies": ["tsconfig.base.json", "patches/**"],
+  "globalEnv": ["CI_TOOLCHAIN"],
   "tasks": {
     "//#test:architecture": {
       "outputs": []
@@ -12,8 +18,13 @@
     "check": {
       "outputs": []
     },
+    "sources": {
+      "description": "Hash-only: no package defines this script. Depend on <package>#sources to key a task on that package's files and its workspace dependencies without building them.",
+      "dependsOn": ["^sources"],
+      "outputs": []
+    },
     "test": {
-      "dependsOn": ["^build", "//#test:architecture"],
+      "dependsOn": ["^build"],
       "outputs": [],
       "inputs": [
         "$TURBO_DEFAULT$",
