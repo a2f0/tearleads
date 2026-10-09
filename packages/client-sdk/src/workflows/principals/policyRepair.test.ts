@@ -99,9 +99,6 @@ test("repair refuses an oversized page before recovery and never falls back to F
       calls++;
     },
     {
-      cacheBundles: async () => {
-        calls++;
-      },
       resolveReference: async () => {
         calls++;
         return evidence;
@@ -119,16 +116,9 @@ test("repair refuses an oversized page before recovery and never falls back to F
     await recoverPrincipalPolicyRepair({
       heads: [head],
       organizationId: evidence.organizationId,
-      warmReferencedPrincipalPolicies: Object.assign(
-        async () => {
-          calls++;
-        },
-        {
-          cacheBundles: async () => {
-            calls++;
-          },
-        },
-      ),
+      warmReferencedPrincipalPolicies: Object.assign(async () => {
+        calls++;
+      }, {}),
     }),
   ).toBe(false);
   expect(calls).toBe(0);

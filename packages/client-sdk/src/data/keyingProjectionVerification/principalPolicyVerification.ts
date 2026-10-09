@@ -317,6 +317,10 @@ async function verifyReferencedPrincipalPolicy(input: {
   resolveUserKey: ProjectionUserKeyResolver;
   warmReferencedPrincipalPolicies?: ReferencedPrincipalPolicyWarmer | undefined;
 }): Promise<PrincipalPolicyCurrentEvidence> {
+  // Scoped recovery carries organization, dependency and lifetime bindings.
+  // A bare policy cache entry cannot replace those bindings.
+  const recovered = await resolveReferencedPrincipalPolicy(input);
+  if (recovered) return recovered;
   const cacheKey = referencedPrincipalPolicyKey(input.reference);
   const cachedPolicy = input.principalPolicyCache.get(cacheKey);
   const execSql = input.checkpointContext.execSql;
@@ -350,10 +354,6 @@ async function verifyReferencedPrincipalPolicy(input: {
     input.reference,
     localCheckpoint,
   );
-  if (!bundle) {
-    const recovered = await resolveReferencedPrincipalPolicy(input);
-    if (recovered) return recovered;
-  }
   if (!bundle && input.warmReferencedPrincipalPolicies) {
     // The reference is not cached locally — the common case for a member who
     // gained access via another org's group grant and never hydrated that

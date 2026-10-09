@@ -22,12 +22,11 @@ completion, and an escaped lifetime predicate becomes false when the callback
 ends. Pending principal mutations are recovered before directory discovery
 when the host supplies the recovery capability. Verified current artifacts and
 authenticated history progress stay in private storage; these reads do not
-manufacture or persist full bundles. A later legacy consumer can therefore
-need a network read for its full bundle.
+manufacture or persist full bundles.
 
-Hosts that provide private custody and paged reads use this path. A failure
-after selecting it propagates without retrying through the complete-bundle
-reader. Hosts without the capability retain the existing complete-bundle path.
+Runtime sharing requires private custody and paged reads. Missing custody or
+pages refuses the operation; a recovery failure propagates without selecting a
+complete-bundle reader.
 
 An existing signed grant can be wrapped by a container administrator without
 group or organization administration rights. A missing or changed grant enters
@@ -38,12 +37,12 @@ may omit it. The planner repairs stale ancestors, selects the historical
 citations needed by each container, and preserves retained recipient
 envelopes. Built-in clients submit the compound commit through their durable
 mutation journal and exact receipt handling. Standalone hosts own transport
-and outcome recovery, including the optional pending-recovery callback, as on
-the complete-bundle path. Policy and container acknowledgements remain inside
+and outcome recovery, including the optional pending-recovery callback. Policy
+and container acknowledgements remain inside
 the lease; background descendant recitations use the caller's session
 lifetime. Hosts must support nested private custody leases during projection
 verification. Without a caller predicate, background scheduling retains the
-legacy default of remaining active; hosts supply a predicate to cancel it when
+default of remaining active; hosts supply a predicate to cancel it when
 their session changes.
 
 The verifier tests use real signed histories and SQLite with in-process page

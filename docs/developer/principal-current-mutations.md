@@ -2,10 +2,9 @@
 
 The mutation primitives accept current artifacts with their verified policy
 with no manufactured predecessors. Built-in member addition/removal and group
-grant revocation use paged current-policy recovery when the host provides private
-history custody. They retain the exact compound receipt before acknowledging
-container plans. Hosts without that capability retain the full-bundle path;
-their receipts may also include `previousStates`.
+grant revocation require paged current-policy recovery and private history
+custody. They retain the exact compound receipt before acknowledging container
+plans. Missing custody refuses the operation before dispatch.
 
 `verifyPrincipalPolicyCurrentSuccessor` verifies exactly one signed successor of
 a `VerifiedPrincipalPolicyCurrent` issued by the local crypto verifier. It checks
@@ -107,11 +106,9 @@ successor; served historical references still resolve to acknowledged policies.
 `Organizations.addUserToGroup` and `removeUserFromGroup` return
 `OrganizationGroupMutationReceipt`; the group result of `revokeGrant` uses the
 same type. It includes exact current artifacts and container receipts, with no
-`previousStates` on the paged path. Hosts without custody may include that extra
-field; callers should use the common receipt contract. Standalone full-bundle
-workflows retain their existing return
-contracts. Group sharing still uses those workflows;
-this adoption does not yet eliminate every full-history mutation consumer.
+`previousStates`. Built-in group sharing uses the same verified-current and
+durable-receipt flow. Explicit standalone full-bundle utilities retain their
+complete-bundle contracts; the runtime never selects them as a fallback.
 
 Mutation builders clear their owned signing-key copies on success and failure;
 member addition also clears its temporary encapsulation secret. Caller-owned
@@ -124,10 +121,9 @@ evidence, checks the signing administrator, and signs the directory successor wi
 loading the deleted group's history. It refuses deletion of either reserved
 group, checks the exact response target and artifacts, and retains the directory
 successor under the original identity/database lease. Unresolved earlier compound
-policy work blocks discovery. Hosts without private custody keep the standalone
-full-bundle deletion workflow with the same caller lifetime guard.
-Creation/deletion requests are not yet covered by the compound membership journal;
-lost acknowledgements still require reconciliation.
+policy work blocks discovery. Private custody is required. Creation and deletion
+share the durable organization mutation lane with membership changes; a lost
+acknowledgement is recovered using the exact authenticated authored request.
 
 ## Group creation
 
@@ -143,8 +139,9 @@ index, private progress, current artifacts and first checkpoint publish in the
 same guarded transaction as the exactly binding directory receipt. An existing
 prefix or conflicting checkpoint is refused. Failure on either side rolls back
 both publications. Expiry during planning prevents dispatch; expiry after the
-response prevents local publication, including on the legacy full-bundle path.
-Creation's own unknown outcomes are not yet journaled.
+response prevents local publication. Unknown creation outcomes retain their
+authenticated journal entry until an exact acknowledgement is verified or the
+host explicitly stops retrying.
 
 Membership and directory mutations share the private lease lifetime and the
 pending-work, directory and Admins authorization checks. Verified observed heads
@@ -152,4 +149,4 @@ can advance local rollback checkpoints even when a requested deletion is refused
 Deleting a group preserves its rollback checkpoints and historical encrypted
 artifacts; it does not erase local grants. Later access still requires a live
 directory citation and verified container authorization. Storage reclamation
-remains tracked in #2448.
+is separate from request-level continuation and remains a future optimization.

@@ -3,6 +3,12 @@ import { createTestExecSql } from "@tearleads/test-utils";
 import { readTestGroupName } from "../../../test/helpers/groupMetadata";
 import { createGroupNameDirectory } from "../../../test/helpers/groupNameDirectory";
 import { principalPolicyHead } from "../../../test/helpers/principalPolicyFixtures";
+import {
+  repairPolicyPages,
+  repairProtectionLease,
+} from "../../../test/helpers/principalPolicyRepair";
+import { ProjectionDependencyUnavailableError } from "../../data/keyingProjectionVerification/dependencyUnavailable";
+import { createRuntimePrincipalPolicyCurrentResolver } from "../principals/runtimePolicyRecovery";
 import { GroupMetadataUnreadableError } from "./groupMetadataAccess";
 import { hydrateOrganizationGroupNames } from "./organizationGroupNames";
 
@@ -33,7 +39,25 @@ test("directory labels are decrypted only at their authenticated group heads", a
       memberGroupId: "members-group",
       readModelCursor: "cursor-1",
     };
+    const organization = await fixture.apiClient.getCurrentPrincipalPolicy(
+      "organization",
+      organizationId,
+    );
+    if (!organization) throw new Error("Expected signed organization");
+    const resolveCurrentPolicy = createRuntimePrincipalPolicyCurrentResolver({
+      apiClient: {
+        getPrincipalPolicyPages: repairPolicyPages([
+          organization,
+          ...Object.values(fixture.servedGroups),
+        ]),
+      },
+      infra: { execSql },
+      resolveTrustedUserIdentity: fixture.resolveTrustedUserIdentity,
+      withPrincipalHistoryProtection: repairProtectionLease(),
+      util: { reportSecurityIncident: async () => {} },
+    });
     const input = {
+      resolveCurrentPolicy,
       ...fixture,
       directory,
       execSql,
@@ -42,6 +66,21 @@ test("directory labels are decrypted only at their authenticated group heads", a
       reportSecurityIncident: async () => {},
       stillCurrent: () => true,
     };
+    fixture.fetched.length = 0;
+    let nameReads = 0;
+    const missingRecovery = await hydrateOrganizationGroupNames({
+      ...input,
+      resolveCurrentPolicy: undefined,
+      readEncryptedName: async (bundle) => {
+        nameReads += 1;
+        return readTestGroupName(bundle);
+      },
+    }).catch((error: unknown) => error);
+    expect(fixture.fetched).toEqual([]);
+    expect(nameReads).toBe(0);
+    expect(missingRecovery).toBeInstanceOf(
+      ProjectionDependencyUnavailableError,
+    );
     const signature = fixture.operatorsPolicy.currentState.signature;
     fixture.operatorsPolicy.currentState.signature =
       fixture.memberPolicy.currentState.signature;
@@ -92,11 +131,6 @@ test("directory labels are decrypted only at their authenticated group heads", a
     await expect(
       hydrateOrganizationGroupNames({ ...input, stillCurrent: () => false }),
     ).rejects.toThrow();
-    const organization = await fixture.apiClient.getCurrentPrincipalPolicy(
-      "organization",
-      organizationId,
-    );
-    if (!organization) throw new Error("Expected signed organization");
     const organizationPolicyReference = principalPolicyHead(organization);
     fixture.fetched.length = 0;
     await expect(

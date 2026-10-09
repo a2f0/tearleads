@@ -127,7 +127,8 @@ test("explorer store creates a child under a writable shared root through the pa
         documentId: childNode.id,
       },
     ]);
-    expect(requestedPrincipalPolicies).toContain("group:group-1");
+    // Parent KEK access does not require a full-history prefetch without custody.
+    expect(requestedPrincipalPolicies).toEqual([]);
   } finally {
     runtime.close();
   }

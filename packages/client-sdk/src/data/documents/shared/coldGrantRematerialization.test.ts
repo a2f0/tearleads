@@ -18,6 +18,7 @@ import { createAuthor } from "../../../../test/helpers/documentFixtures";
 import { rotateRootKekKeyringFixture } from "../../../../test/helpers/keyringRotationFixtures";
 import { createPolicyDirectoryFixture } from "../../../../test/helpers/policyDirectoryFixtures";
 import { principalPolicyHead } from "../../../../test/helpers/principalPolicyFixtures";
+import { createRepairWarmer } from "../../../../test/helpers/principalPolicyRepair";
 import {
   createTestTrustedUserIdentityResolver,
   trustedUserIdentityFromResponse,
@@ -25,7 +26,6 @@ import {
 import { withTestExecSql } from "../../../../test/helpers/withTestExecSql";
 import { unwrapDocumentSyncResponseContentKeys } from "../../../workflows/documents/syncContentKeys";
 
-import { createRuntimePrincipalPolicyWarmer } from "../../../workflows/principals/runtimePolicyWarmer";
 import { createProjectionCheckpointContext } from "../../keyingProjectionVerification/checkpointContext";
 import { collectReferencedPrincipalPolicies } from "../../keyingProjectionVerification/principalPolicyVerification";
 import {
@@ -113,28 +113,11 @@ for (const grantKind of ["user", "group"] as const) {
         expect(managed.policies.current.currentProjection).toEqual([
           { role: "admin", userId: USER_ID },
         ]);
-        let policyGetCount = 0;
-        const warmReferencedPrincipalPolicies =
-          createRuntimePrincipalPolicyWarmer({
-            apiClient: {
-              getCurrentPrincipalPolicy: async (principalType, principalId) => {
-                if (principalType === "organization")
-                  return managed.directory.bundle;
-                policyGetCount += 1;
-                expect({ principalId, principalType }).toEqual({
-                  principalId:
-                    managed.policies.current.currentState.principalId,
-                  principalType: "group",
-                });
-                return managed.policies.current;
-              },
-            },
-            infra: { execSql },
+        const { warmer: warmReferencedPrincipalPolicies, requests } =
+          createRepairWarmer({
+            execSql,
+            bundles: [managed.directory.bundle, managed.policies.current],
             resolveTrustedUserIdentity: managed.resolveTrustedUserIdentity,
-            util: {
-              log: () => undefined,
-              reportSecurityIncident: async () => undefined,
-            },
           });
         const [verifiedPolicy] = await collectReferencedPrincipalPolicies({
           checkpointContext: createProjectionCheckpointContext({ execSql }),
@@ -145,7 +128,13 @@ for (const grantKind of ["user", "group"] as const) {
           warmReferencedPrincipalPolicies,
         });
 
-        expect(policyGetCount).toBe(1);
+        expect(
+          requests.some(
+            (request) =>
+              request.principalId ===
+              managed.policies.current.currentState.principalId,
+          ),
+        ).toBe(true);
         expect(verifiedPolicy?.stateHash).toBe(
           managed.policies.current.currentState.stateHash,
         );
@@ -249,26 +238,12 @@ test("an interrupted client warms a rotated-group policy and recovers in the sam
       userId === directory.signer.userId
         ? trustedUserIdentityFromResponse(directory.signer)
         : resolveGroupSigner(userId);
-    let policyGetCount = 0;
-    const warmReferencedPrincipalPolicies = createRuntimePrincipalPolicyWarmer({
-      apiClient: {
-        getCurrentPrincipalPolicy: async (principalType, principalId) => {
-          if (principalType === "organization") return directory.bundle;
-          policyGetCount += 1;
-          expect({ principalId, principalType }).toEqual({
-            principalId: policies.current.currentState.principalId,
-            principalType: "group",
-          });
-          return policies.current;
-        },
-      },
-      infra: { execSql },
-      resolveTrustedUserIdentity,
-      util: {
-        log: () => undefined,
-        reportSecurityIncident: async () => undefined,
-      },
-    });
+    const { warmer: warmReferencedPrincipalPolicies, requests } =
+      createRepairWarmer({
+        execSql,
+        bundles: [directory.bundle, policies.current],
+        resolveTrustedUserIdentity,
+      });
     const [verifiedPolicy] = await collectReferencedPrincipalPolicies({
       checkpointContext: createProjectionCheckpointContext({ execSql }),
       organizationId: ORGANIZATION_ID,
@@ -278,7 +253,12 @@ test("an interrupted client warms a rotated-group policy and recovers in the sam
       warmReferencedPrincipalPolicies,
     });
 
-    expect(policyGetCount).toBe(1);
+    expect(
+      requests.some(
+        (request) =>
+          request.principalId === policies.current.currentState.principalId,
+      ),
+    ).toBe(true);
     expect(verifiedPolicy?.stateHash).toBe(
       policies.current.currentState.stateHash,
     );

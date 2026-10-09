@@ -42,8 +42,8 @@ The `Tearleads` runtime supplies this for compound and standalone organization
 policies, group creation and group deletion. `AuthoredPrincipalMutation` binds
 each operation kind and route; `PrincipalMutationResponse` is the receipt union.
 Custom `submit` callbacks must dispatch every authenticated kind to its matching
-route, including absent kind for compound policies. SDK downgrades are unsupported
-while a request is pending; retain its bytes for recovery with a supported SDK.
+route: `compound`, `organization`, `group-create`, or `group-delete`. Missing kinds
+are invalid. Preserve unreadable work until the host explicitly discards it.
 Both nullable and result methods for all four operations may throw
 `PendingPrincipalMutationError` or `PrincipalMutationOutcomeUnknownError`.
 Hosts can inspect saved work with
@@ -280,10 +280,10 @@ member read. `policyHistory.nextBeforeVersion` is an exclusive cursor for older
 entries, or null at genesis. Each page verifies index proofs against a privately
 authenticated prefix and retains its real predecessor for membership diffs.
 The projected head bounds the displayed history even when local recovery has
-already verified a newer head. Group-history hosts without private paged recovery
-retain the complete-bundle path for cursor-free calls and reject explicit cursors;
-verification failures never downgrade to that path. Raw responses are never
-rendered. `Organizations.loadPolicyHistory(beforeVersion?)` also selects 32
+already verified a newer head. Group history requires private paged recovery;
+missing custody is unavailable, with no complete-bundle fallback. Raw responses
+are never rendered. `Organizations.loadPolicyHistory(beforeVersion?)` also
+selects 32
 organization entries and an authenticated predecessor. Compact roster-scoped
 history sources prove the exact referenced group states, including deleted
 groups, without importing complete group snapshots or admitting their checkpoints.
@@ -300,8 +300,8 @@ the API atomically rejects any transition that leaves a stale principal pin.
 Policy mutation receipts omit the historical prefix. The client verifies the
 exact authored state and artifacts. Built-in member changes and group revocation
 use bounded current evidence and atomically retain authenticated progress. The
-public `OrganizationGroupMutationReceipt` does not require `previousStates`;
-full-bundle hosts and standalone workflows can still return it. See
+public `OrganizationGroupMutationReceipt` omits `previousStates`; explicit
+standalone complete-bundle utilities retain their own contracts. See
 [current mutations](../../../../docs/developer/principal-current-mutations.md).
 Metadata profile upload remains a separate idempotent content sync and never
 changes grants.
@@ -361,10 +361,10 @@ discovery never calls it. `RecoveryFolder` is exported from the SDK root.
 whose local destination parent is unavailable. Recovery uses it to distinguish
 local work from shared folders with inaccessible parents.
 
-Standalone document and container runtime constructors accept a private
-`withPrincipalHistoryProtection: PrincipalHistoryProtectionLease` input. It enables
-their built-in history resolvers and passes through store/derived-document
-adapters without exposing the callback on returned runtime views. This includes
+Standalone document and container runtimes require private
+`withPrincipalHistoryProtection: PrincipalHistoryProtectionLease` for built-in
+history recovery. Store and derived-document adapters inherit custody without
+exposing the callback on returned runtime views. This includes
 [current group sharing](../../../../docs/developer/principal-current-sharing.md).
 Hosts own key cleanup and lease invalidation on authority/storage changes, as
 specified in the principal-history recovery guide.

@@ -51,7 +51,12 @@ test("purge retry refuses a document recreated before the absence transaction", 
         resolveProjectionUserKey,
         runtime: {
           apiClient: {
-            getCurrentPrincipalPolicy: async () => null,
+            getPrincipalPolicyPages: () => {
+              throw new Error("Unexpected principal page read");
+            },
+            getProjectionPolicyHistoryPages: () => {
+              throw new Error("Unexpected projection history read");
+            },
             getDocumentPurgeProof: async () => {
               throw new Error("Unexpected purge-proof fetch");
             },
@@ -166,7 +171,12 @@ test("purge retry deletes an absent custom document projection with its proof", 
         resolveProjectionUserKey: fixture.resolveProjectionUserKey,
         runtime: {
           apiClient: {
-            getCurrentPrincipalPolicy: async () => null,
+            getPrincipalPolicyPages: () => {
+              throw new Error("Unexpected principal page read");
+            },
+            getProjectionPolicyHistoryPages: () => {
+              throw new Error("Unexpected projection history read");
+            },
             getDocumentPurgeProof: async () => {
               throw new Error("Unexpected purge-proof fetch");
             },

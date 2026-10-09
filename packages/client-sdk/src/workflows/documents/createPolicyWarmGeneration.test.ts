@@ -9,6 +9,10 @@ import {
 import { createResponseFromRequest } from "../../../test/helpers/documentFixtures";
 import { buildInitialGroupPolicyRequest } from "../../../test/helpers/groupMetadata";
 import { policyBundleFromInitialRequest } from "../../../test/helpers/principalPolicyFixtures";
+import {
+  repairPolicyPages,
+  repairProtectionLease,
+} from "../../../test/helpers/principalPolicyRepair";
 import { createTestTrustedUserIdentityResolver } from "../../../test/helpers/trustedUserIdentity";
 import { loadPrincipalPolicyCheckpoint } from "../../data/persistence/keyingCheckpointPersistence";
 import { loadPrincipalPolicyBundle } from "../../data/persistence/principalPolicyPersistence";
@@ -81,19 +85,18 @@ test("expired document create does not fetch or cache a refreshed group policy",
   let current = true;
   const warmReferencedPrincipalPolicies = createRuntimePrincipalPolicyWarmer({
     apiClient: createMockApiClient({
-      getCurrentPrincipalPolicy: async (principalType, principalId) => {
+      getPrincipalPolicyPages: async function* (...args) {
         policyGets += 1;
-        expect({ principalId, principalType }).toEqual({
-          principalId: groupId,
-          principalType: "group",
-        });
-        return groupPolicy;
+        yield* repairPolicyPages([groupPolicy])(...args);
+      },
+      getCurrentPrincipalPolicy: async () => {
+        throw new Error("Unexpected full history read");
       },
     }),
     infra: { execSql },
+    withPrincipalHistoryProtection: repairProtectionLease(),
     resolveTrustedUserIdentity,
     util: {
-      log: () => undefined,
       reportSecurityIncident: async () => undefined,
     },
   });

@@ -1,76 +1,67 @@
-import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
-import type {
-  PrincipalPolicyBundleCacheRequest,
-  ReferencedPrincipalPolicyWarmer,
-} from "../../data/keyingProjectionVerification";
-import type { SecurityIncidentReporter } from "../../data/securityIncidents";
-import type { ExecSql } from "../../data/sqlite/sqlSchema";
-import type { TrustedUserIdentityResolver } from "../../data/trustedUserIdentity";
+import { errorMessage } from "../../data/errorMessage";
+import { ProjectionDependencyUnavailableError } from "../../data/keyingProjectionVerification/dependencyUnavailable";
+import { rethrowKeyingVerificationError } from "../../data/keyingProjectionVerification/error";
 import {
-  cachePrincipalPolicyBundles,
-  cacheReferencedPrincipalPolicies,
-} from "./policyCache";
+  assertProjectionVerificationCurrent,
+  isProjectionVerificationCancelledError,
+  type ReferencedPrincipalPolicyWarmer,
+} from "../../data/keyingProjectionVerification/types";
 import {
   createRuntimePrincipalPolicyResolver,
   type PrincipalPolicyRecoveryRuntime,
 } from "./runtimePolicyRecovery";
 import { createRuntimeProjectionPolicyResolver } from "./runtimeProjectionPolicyRecovery";
 
+type PolicyResolver = NonNullable<
+  ReferencedPrincipalPolicyWarmer["resolveReference"]
+>;
 interface PrincipalPolicyWarmRuntime extends PrincipalPolicyRecoveryRuntime {
-  readonly apiClient: PrincipalPolicyRecoveryRuntime["apiClient"] & {
-    getCurrentPrincipalPolicy(
-      principalType: "group" | "organization",
-      principalId: string,
-    ): Promise<PrincipalPolicyBundleResponse | null>;
+  readonly util: PrincipalPolicyRecoveryRuntime["util"] & {
+    readonly log?: ((message: string) => void) | undefined;
   };
-  readonly infra: { readonly execSql: ExecSql };
-  readonly util: {
-    readonly log: (message: string) => void;
-    readonly reportSecurityIncident: SecurityIncidentReporter;
-  };
-  readonly resolveTrustedUserIdentity: TrustedUserIdentityResolver;
 }
 
+/** Prefetch is best-effort; exact resolution still rejects unavailable evidence. */
 export function createRuntimePrincipalPolicyWarmer(
   runtime: PrincipalPolicyWarmRuntime,
   options: { readonly preferLocalCurrent?: boolean } = {},
 ): ReferencedPrincipalPolicyWarmer {
-  const policyInput = ({
-    organizationId,
-    references,
-    stillCurrent,
-  }: Parameters<ReferencedPrincipalPolicyWarmer>[0]) => {
-    const input: Parameters<typeof cacheReferencedPrincipalPolicies>[0] = {
-      execSql: runtime.infra.execSql,
-      getCurrentPrincipalPolicy: (principalType, principalId) =>
-        runtime.apiClient.getCurrentPrincipalPolicy(principalType, principalId),
-      log: runtime.util.log,
-      organizationId,
-      reportSecurityIncident: runtime.util.reportSecurityIncident,
-      references,
-      resolveTrustedUserIdentity: runtime.resolveTrustedUserIdentity,
-      stillCurrent,
-    };
-    return input;
+  const resolve = createRuntimePrincipalPolicyResolver(runtime, options);
+  const resolveReference: PolicyResolver = async (input) => {
+    if (!resolve)
+      throw new ProjectionDependencyUnavailableError(
+        "Principal policies require private paged recovery",
+      );
+    return resolve(input);
   };
-  const warmer = async (
-    input: Parameters<ReferencedPrincipalPolicyWarmer>[0],
-  ) => cacheReferencedPrincipalPolicies(policyInput(input));
-  const cacheBundles = (input: PrincipalPolicyBundleCacheRequest) =>
-    cachePrincipalPolicyBundles({
-      bundles: input.bundles,
-      execSql: runtime.infra.execSql,
-      getCurrentPrincipalPolicy: (principalType, principalId) =>
-        runtime.apiClient.getCurrentPrincipalPolicy(principalType, principalId),
-      log: runtime.util.log,
-      organizationId: input.organizationId,
-      reportSecurityIncident: runtime.util.reportSecurityIncident,
-      resolveTrustedUserIdentity: runtime.resolveTrustedUserIdentity,
-      stillCurrent: input.stillCurrent,
-    });
-  return Object.assign(warmer, {
-    cacheBundles,
-    resolveReference: createRuntimePrincipalPolicyResolver(runtime, options),
-    resolveProjectionHistory: createRuntimeProjectionPolicyResolver(runtime),
-  });
+  return Object.assign(
+    (input: Parameters<ReferencedPrincipalPolicyWarmer>[0]) =>
+      prefetchReferences(runtime, resolveReference, input),
+    {
+      resolveReference,
+      resolveProjectionHistory: createRuntimeProjectionPolicyResolver(runtime),
+    },
+  );
+}
+
+async function prefetchReferences(
+  runtime: PrincipalPolicyWarmRuntime,
+  resolve: PolicyResolver,
+  input: Parameters<ReferencedPrincipalPolicyWarmer>[0],
+): Promise<void> {
+  const recoveryBatch = {};
+  for (const reference of input.references) {
+    try {
+      assertProjectionVerificationCurrent(input.stillCurrent);
+      const resolved = await resolve({ ...input, reference, recoveryBatch });
+      assertProjectionVerificationCurrent(resolved.stillCurrent);
+    } catch (error) {
+      if (isProjectionVerificationCancelledError(error)) return;
+      // Recovery already reports signature/authority failures. Keep them fatal.
+      rethrowKeyingVerificationError(error);
+      runtime.util.log?.(
+        `Principal policy prefetch: ${reference.principalId}: ${errorMessage(error)}`,
+      );
+    }
+  }
 }

@@ -27,6 +27,10 @@ import {
   policyBundleFromInitialRequest,
   principalPolicyHead,
 } from "./principalPolicyFixtures";
+import {
+  repairPolicyPages,
+  repairProtectionLease,
+} from "./principalPolicyRepair";
 import { createTestTrustedUserIdentity } from "./trustedUserIdentity";
 
 type ShareAuthor = Awaited<ReturnType<typeof createAuthor>>;
@@ -60,6 +64,7 @@ function createShareTestRuntimeInput(
   input: ShareTestRuntimeInput,
 ): ContainerContentsWorkflowRuntimeInput {
   return {
+    withPrincipalHistoryProtection: repairProtectionLease(),
     apiClient: input.apiClient,
     auth: {
       isAuthenticated: true,
@@ -210,9 +215,8 @@ interface GroupShareScenarioInput {
         runtimeInput: ContainerContentsWorkflowRuntimeInput;
       }) => Promise<void>)
     | undefined;
-  // Gives the runtime the author's keys so the share reaches the steps that
-  // need a writer context (the name binding, the mutation) instead of logging
-  // that the context is unavailable.
+  // Supplies signing credentials so the share can reach a mutation. Metadata
+  // reads always have the encapsulation key; they do not require a signer.
   writerContext?: boolean | undefined;
 }
 
@@ -246,21 +250,27 @@ function createGroupShareScenarioRuntimeInput(input: {
   return createShareTestRuntimeInput({
     apiClient: createMockApiClient({
       getContainerWriterProjection: async () => input.remoteProjection,
-      getCurrentPrincipalPolicy: async (principalType, principalId) => {
-        if (principalType === "organization") {
-          return policies.organizationPolicy;
-        }
-        if (principalId === ADMIN_GROUP_ID) {
-          return policies.adminPolicy;
-        }
-        recorder.currentPolicyCalls.push({ principalId, principalType });
-        if (scenario.currentPolicyError) {
-          if (scenario.currentPolicyError instanceof Error) {
-            throw scenario.currentPolicyError;
+      getCurrentPrincipalPolicy: async () => {
+        throw new Error("Unexpected full history read");
+      },
+      getPrincipalPolicyPages: async function* (
+        principalType,
+        principalId,
+        options,
+      ) {
+        if (principalType === "group" && principalId !== ADMIN_GROUP_ID) {
+          recorder.currentPolicyCalls.push({ principalId, principalType });
+          if (scenario.currentPolicyError) {
+            if (scenario.currentPolicyError instanceof Error)
+              throw scenario.currentPolicyError;
+            throw new Error("current principal policy unavailable");
           }
-          throw new Error("current principal policy unavailable");
         }
-        return policies.currentGroupPolicy;
+        yield* repairPolicyPages([
+          policies.organizationPolicy,
+          policies.adminPolicy,
+          policies.currentGroupPolicy,
+        ])(principalType, principalId, options);
       },
       shareContainer: async () => {
         recorder.shareCallCount += 1;
@@ -278,7 +288,11 @@ function createGroupShareScenarioRuntimeInput(input: {
             signingPublicKey,
           },
         }
-      : undefined,
+      : {
+          encapsulationKeyPair: keyPair,
+          signingFingerprint: null,
+          signingKeyPair: null,
+        },
     execSql: input.execSql,
     logs: recorder.logs,
     resolveTrustedUserIdentity: async (userId) =>

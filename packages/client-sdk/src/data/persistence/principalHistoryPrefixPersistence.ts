@@ -32,7 +32,11 @@ export async function loadPrincipalHistoryPrefix(
   return prefix ?? null;
 }
 
-/** Keep the newest prefix unless replay replaces the exact rejected candidate. */
+/**
+ * Preserve identical completed progress; this sink does not authenticate hints.
+ * Callers must discard an unreadable prefix or identify it with rejectedPrefix
+ * before publishing a repair of the same head and current artifacts.
+ */
 export async function savePrincipalHistoryPrefix(input: {
   readonly execSql: ExecSql;
   readonly prefix: PrincipalHistoryPrefix;
@@ -55,15 +59,27 @@ export async function savePrincipalHistoryPrefix(input: {
         .from(principalHistoryPrefixes)
         .where(eq(principalHistoryPrefixes.scopeId, prefix.scopeId))
         .limit(1);
+      const replacesRejected =
+        previous &&
+        rejected?.scopeId === previous.scopeId &&
+        rejected.progress === previous.progress;
+      if (previous && previous.version > prefix.version && !replacesRejected)
+        return;
       if (
         previous &&
-        previous.version > prefix.version &&
-        !(
-          rejected?.scopeId === previous.scopeId &&
-          rejected.progress === previous.progress
-        )
-      )
-        return;
+        previous.version === prefix.version &&
+        previous.organizationId === prefix.organizationId &&
+        previous.headJson === prefix.headJson &&
+        previous.currentJson === prefix.currentJson &&
+        !replacesRejected
+      ) {
+        // Resealing an unchanged prefix would invalidate an acknowledgement's
+        // progress CAS even though its authenticated predecessor is unchanged.
+        // Still refresh authenticated root ownership and retention below.
+        // Reuse authenticates this opaque progress; rejected hints are removed
+        // or explicitly replaced before repair can rely on the new prefix.
+        prefix.progress = previous.progress;
+      }
       if (previous) await archivePrincipalHistoryKeyEnvelopes(tx, previous);
       await archivePrincipalHistoryKeyEnvelopes(tx, prefix);
       await tx

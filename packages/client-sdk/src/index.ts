@@ -431,8 +431,8 @@ export {
   unwrapDocumentContentKeyTarget,
   validateDocumentSyncUpdateImports,
 } from "./workflows/documents";
-// Nominal identity constructors are deliberately absent here. Integration
-// tests that compose low-level runtimes use the testing package subpath.
+// Nominal identity constructors are available only through the testing subpath
+// for low-level runtime tests.
 export type {
   AcknowledgedPrincipalCurrentInput,
   AcknowledgedPrincipalCurrentRetirement,

@@ -4,6 +4,7 @@ import { act, cleanup, fireEvent, within } from "@testing-library/react";
 import { waitForAppTestRuntimeToSettle } from "../../../../test/helpers/appRuntimeIdle";
 import {
   DUAL_PANE_ATTACHMENT_TEST_TIMEOUT_MS,
+  DUAL_PANE_TEST_TIMEOUT_MS,
   generatePaneKeyPairFromMenu,
   getPaneRoot,
   getPaneUserId,
@@ -52,7 +53,9 @@ afterEach(async () => {
 async function expectAppRuntimeSettled() {
   let settled = false;
   await act(async () => {
-    settled = await waitForAppTestRuntimeToSettle({ timeoutMs: 6_000 });
+    settled = await waitForAppTestRuntimeToSettle({
+      timeoutMs: DUAL_PANE_TEST_TIMEOUT_MS,
+    });
   });
   expect(settled).toBe(true);
 }

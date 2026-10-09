@@ -109,6 +109,21 @@ function hasObservedDomainSyncPendingWork(): boolean {
   return false;
 }
 
+function reportSettleTimeout(phase: string): false {
+  console.error(
+    "App runtime settle timed out",
+    JSON.stringify({
+      phase,
+      network: getProxiedApiNetworkActivitySnapshot(),
+      organizationPending: hasPendingOrganizationRuntimeWork(),
+      scopes: [...activeDomainScopeMountCounts.keys()].map((scope) =>
+        getDomainSyncCoordinatorSnapshot(scope),
+      ),
+    }),
+  );
+  return false;
+}
+
 async function waitForObservedDomainSyncScopesToSettle(
   deadline: number,
   options: Required<
@@ -210,12 +225,13 @@ export async function waitForAppTestRuntimeToSettle(
   const syncOptions = { intervalMs, syncQuietMs };
 
   if (!(await waitForObservedDomainSyncScopesToSettle(deadline, syncOptions))) {
-    return false;
+    return reportSettleTimeout("sync");
   }
 
-  return waitForAppTestRuntimeFinalDrain({
+  const settled = await waitForAppTestRuntimeFinalDrain({
     deadline,
     intervalMs,
     quietMs: apiQuietMs,
   });
+  return settled || reportSettleTimeout("final drain");
 }

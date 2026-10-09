@@ -87,13 +87,27 @@ export async function resolveReferencedPrincipalPolicy(input: {
   if (!result) {
     const resolve = input.warmReferencedPrincipalPolicies?.resolveReference;
     if (!resolve) return null;
-    result = await resolve({
-      recoveryBatch: input.recoveryBatch,
-      organizationId: input.organizationId,
-      reference: input.reference,
-      stillCurrent: input.stillCurrent,
-    });
-    await meetsCheckpoints(input.checkpointContext, result, false);
+    const read = async (recoveryBatch: object | undefined) => {
+      assertProjectionVerificationCurrent(input.stillCurrent);
+      const recovered = await resolve({
+        recoveryBatch,
+        organizationId: input.organizationId,
+        reference: input.reference,
+        stillCurrent: input.stillCurrent,
+      });
+      assertProjectionVerificationCurrent(input.stillCurrent);
+      assertProjectionVerificationCurrent(recovered.stillCurrent);
+      return recovered;
+    };
+    result = await read(input.recoveryBatch);
+    // A concurrent admission may advance a pin after recovery verified it.
+    // Refresh once outside the old batch's pinned directory view; the fresh
+    // recovery and final checkpoint check still reject rollback/equivocation.
+    if (!(await meetsCheckpoints(input.checkpointContext, result, true))) {
+      assertProjectionVerificationCurrent(result.stillCurrent);
+      result = await read({});
+      await meetsCheckpoints(input.checkpointContext, result, false);
+    }
   }
   assertProjectionVerificationCurrent(input.stillCurrent);
   assertProjectionVerificationCurrent(result.stillCurrent);

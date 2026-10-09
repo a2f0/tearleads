@@ -100,7 +100,7 @@ test("older completion and stale discard preserve the newest completed prefix", 
   }
 });
 
-test("a rebuilt root at the same version can repair a completed prefix", async () => {
+test("a rebuilt root at the same version can repair its rejected completed prefix", async () => {
   const sqlite = await createTestExecSql("principal-prefix-repair");
   const input = {
     indexRootHash: "opaque-index-root",
@@ -111,11 +111,45 @@ test("a rebuilt root at the same version can repair a completed prefix", async (
     const previous = prefix(66);
     const repaired = { ...previous, progress: "repaired-authenticated-prefix" };
     await savePrincipalHistoryPrefix({ ...input, prefix: previous });
-    await savePrincipalHistoryPrefix({ ...input, prefix: repaired });
+    await savePrincipalHistoryPrefix({
+      ...input,
+      prefix: repaired,
+      rejectedPrefix: previous,
+    });
     await discardPrincipalHistoryPrefix({ ...input, prefix: previous });
     expect(
       await loadPrincipalHistoryPrefix(sqlite.execSql, previous.scopeId),
     ).toEqual(repaired);
+  } finally {
+    sqlite.close();
+  }
+});
+
+test("identical completion preserves progress while repairing root ownership", async () => {
+  const sqlite = await createTestExecSql("principal-prefix-identical");
+  const input = {
+    indexRootHash: "verified-index-root",
+    execSql: sqlite.execSql,
+    stillCurrent: () => true,
+  };
+  try {
+    const previous = prefix(66);
+    await savePrincipalHistoryPrefix({ ...input, prefix: previous });
+    const { db } = getClientSQLitePersistenceRuntime(sqlite.execSql);
+    await db
+      .update(principalHistoryRootOwners)
+      .set({ rootHash: "corrupt-root-hint" })
+      .run();
+    await savePrincipalHistoryPrefix({
+      ...input,
+      prefix: { ...previous, progress: "resealed-identical-prefix" },
+    });
+    expect(
+      await loadPrincipalHistoryPrefix(sqlite.execSql, previous.scopeId),
+    ).toEqual(previous);
+    expect(await db.select().from(principalHistoryRootOwners)).toMatchObject([
+      { rootHash: input.indexRootHash },
+    ]);
   } finally {
     sqlite.close();
   }
@@ -139,7 +173,11 @@ test.each([false, true])(
       };
       await savePrincipalHistoryPrefix({ ...input, prefix: rejected });
       if (superseded)
-        await savePrincipalHistoryPrefix({ ...input, prefix: concurrent });
+        await savePrincipalHistoryPrefix({
+          ...input,
+          prefix: concurrent,
+          rejectedPrefix: rejected,
+        });
       await savePrincipalHistoryPrefix({
         ...input,
         prefix: replacement,

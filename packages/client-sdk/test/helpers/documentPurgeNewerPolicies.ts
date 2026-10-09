@@ -1,3 +1,4 @@
+import { createMockApiClient } from "@tearleads/test-utils";
 import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
 import {
   commitProjectionCheckpoints,
@@ -78,7 +79,7 @@ export async function createNewerPolicyPurgeFixture() {
   });
   const incidents: unknown[] = [];
   const warmer = createRuntimePrincipalPolicyWarmer({
-    apiClient: {
+    apiClient: createMockApiClient({
       getPrincipalPolicyPages: f.options.apiClient.getPrincipalPolicyPages.bind(
         f.options.apiClient,
       ),
@@ -86,12 +87,11 @@ export async function createNewerPolicyPurgeFixture() {
       getCurrentPrincipalPolicy: async () => {
         throw new Error("Full policy read");
       },
-    },
+    }),
     infra: { execSql: f.options.execSql },
     state: { online: true },
     resolveTrustedUserIdentity: fixture.resolveUserKey,
     util: {
-      log: () => {},
       reportSecurityIncident: async (error) => {
         incidents.push(error);
       },

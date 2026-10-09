@@ -28,7 +28,7 @@ export async function assertAuthoredPrincipalOperationReceipt(
   response: PrincipalMutationResponse,
 ): Promise<void> {
   switch (mutation.kind) {
-    case undefined:
+    case "compound":
       if (!isCommitOrganizationGroupPolicyResponse(response)) break;
       return assertAuthoredPrincipalMutationReceipt(mutation.request, response);
     case "organization":

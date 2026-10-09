@@ -351,7 +351,8 @@ test(
       [leftPane, rightPane],
       postShareBaseline,
     );
-    await waitForExplorerNoteVisible(rightPane, noteText);
+    const discoveryTimeoutMs = POST_SHARE_SYNC_SETTLE_TIMEOUT_MS;
+    await waitForExplorerNoteVisible(rightPane, noteText, discoveryTimeoutMs);
     await selectExplorerNoteByName(rightPane, noteText);
     await waitForSelectedNoteText(
       rightPane,

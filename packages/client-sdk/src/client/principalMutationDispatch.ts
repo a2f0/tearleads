@@ -58,7 +58,7 @@ export function dispatchAuthoredPrincipalMutation(
         mutation.request,
         options,
       );
-    case undefined:
+    case "compound":
       return api.commitOrganizationGroupPolicyResult(
         organizationId,
         mutation.groupId,
@@ -115,7 +115,7 @@ export function createJournaledPrincipalMutations(
   ) =>
     submit(
       organizationId,
-      { groupId, request },
+      { kind: "compound", groupId, request },
       isCommitOrganizationGroupPolicyResponse,
       options,
     );

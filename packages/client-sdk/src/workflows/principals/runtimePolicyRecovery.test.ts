@@ -1,4 +1,5 @@
 import { beforeAll, expect, test } from "bun:test";
+import { createMockApiClient } from "@tearleads/test-utils";
 import {
   AUTHORITY_RECOVERY_SETUP_TIMEOUT_MS,
   createAuthorityRecoveryFixture,
@@ -15,6 +16,7 @@ import {
   type PrincipalPolicyCache,
   type ReferencedPrincipalPolicyWarmer,
 } from "../../data/keyingProjectionVerification/types";
+import { loadPrincipalPolicyCheckpoint } from "../../data/persistence/keyingCheckpointPersistence";
 import {
   loadOrganizationFounder,
   rememberOrganizationFounder,
@@ -30,6 +32,12 @@ beforeAll(async () => {
 
 async function fixture() {
   const source = await createAuthorityRecoveryFixture(history);
+  // Initialize checkpoint tables even when recovery refuses before any local read.
+  await loadPrincipalPolicyCheckpoint(
+    source.options.execSql,
+    "group",
+    history.group.currentState.principalId,
+  );
   const state = { online: true, current: true, fullReads: 0 };
   const ownedKeys: Uint8Array[] = [];
   const incidents: unknown[] = [];
@@ -46,7 +54,7 @@ async function fixture() {
     }
   };
   const warmer = createRuntimePrincipalPolicyWarmer({
-    apiClient: {
+    apiClient: createMockApiClient({
       getPrincipalPolicyPages:
         source.options.apiClient.getPrincipalPolicyPages.bind(
           source.options.apiClient,
@@ -55,13 +63,12 @@ async function fixture() {
         state.fullReads += 1;
         throw new Error("Full history is unavailable");
       },
-    },
+    }),
     infra: { execSql: source.options.execSql },
     state,
     withPrincipalHistoryProtection: lease,
     resolveTrustedUserIdentity: source.options.resolveTrustedUserIdentity,
     util: {
-      log: () => undefined,
       reportSecurityIncident: async (error) => {
         incidents.push(error);
       },

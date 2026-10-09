@@ -66,7 +66,7 @@ interface ContainerDocumentLinkRuntime
   apiClient: ContainerDocumentLinkApi &
     Pick<
       ContainerContentsWorkflowRuntime["apiClient"],
-      "getCurrentPrincipalPolicy"
+      "getPrincipalPolicyPages" | "getProjectionPolicyHistoryPages"
     >;
 }
 

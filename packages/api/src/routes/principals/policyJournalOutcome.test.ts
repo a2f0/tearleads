@@ -80,7 +80,7 @@ test("SDK journal recovers a lost HTTP acknowledgement after a later policy comm
     signingKeyPair: actor.signing,
     stillCurrent: () => true,
     submit: (mutation) => {
-      if (mutation.kind !== undefined)
+      if (mutation.kind !== "compound")
         throw new Error("Expected compound journal");
       return firstClient.commitOrganizationGroupPolicyResult(
         organizationId,
@@ -93,7 +93,7 @@ test("SDK journal recovers a lost HTTP acknowledgement after a later policy comm
   try {
     const interrupted = submitJournaledPrincipalMutation({
       ...context,
-      mutation: { groupId, request: firstRequest },
+      mutation: { kind: "compound", groupId, request: firstRequest },
     }).then(
       () => null,
       (error: unknown) => error,
@@ -142,7 +142,7 @@ test("SDK journal recovers a lost HTTP acknowledgement after a later policy comm
       scope: { ...context.scope },
       signingKeyPair: structuredClone(actor.signing),
       submit: (mutation) => {
-        if (mutation.kind !== undefined)
+        if (mutation.kind !== "compound")
           throw new Error("Expected compound journal");
         expect(mutation.request).toEqual(firstRequest);
         return freshClient.commitOrganizationGroupPolicyResult(

@@ -96,19 +96,19 @@ test("group creation and adding a peer have separate request budgets", async () 
         // The first add enrolls the peer in Members before the custom group,
         // including metadata discovery, read-only sync, and a billing refresh.
         // The second add reuses that roster membership and stays a single write.
-        // Measured 70/20 requests. First enrollment gets five extra reads for
-        // concurrent post-create proof discovery; later adds get three.
-        total: group === "first" ? 75 : 23,
+        // First enrollment now measures 90 calls with private metadata-root
+        // authority. Keep five reads of phase headroom; later adds get three.
+        total: group === "first" ? 95 : 23,
         byRequest: {
           "GET /principals/history": group === "first" ? 45 : 12,
           "GET /containers/:containerId/writer-projection":
             group === "first" ? 3 : 1,
           "GET /organizations/:organizationId/read-model":
             group === "first" ? 4 : 3,
-          "GET /principals/group/:groupId/policy": group === "first" ? 4 : 2,
+          "GET /principals/group/:groupId/policy": group === "first" ? 14 : 2,
           "GET /auth/user-identity/:userId": group === "first" ? 2 : 0,
           "GET /principals/organization/:organizationId/policy":
-            group === "first" ? 6 : 3,
+            group === "first" ? 17 : 3,
           "PUT /organizations/:organizationId/groups/:groupId/policy-commit":
             group === "first" ? 2 : 1,
           // A concurrent policy advance can require a fresh post-create proof.
@@ -131,14 +131,14 @@ test("group creation and adding a peer have separate request budgets", async () 
       ],
     });
     expect(documentSyncIntentCounts(membershipRequests).writeBearing).toBe(0);
-    // Measured whole pairs are 87/35. Phase margins cannot accumulate: allow
-    // only five/three additional reads across the complete pair.
+    // The first pair adds private metadata-root authority reads. Phase margins
+    // cannot accumulate across creation and membership changes.
     const combined = listProxiedApiRequests().slice(pairStart);
     profileProxiedApiRequests(
       `create and add peer to ${group} group`,
       pairStart,
     );
-    expect(combined.length).toBeLessThanOrEqual(group === "first" ? 92 : 38);
+    expect(combined.length).toBeLessThanOrEqual(group === "first" ? 112 : 38);
     expect(
       combined.filter(
         (request) =>

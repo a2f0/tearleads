@@ -1,7 +1,7 @@
 # Current principal-policy consumers
 
 Org Manager label hydration and runtime metadata-root verification also use
-paged current policies when the runtime provides private history custody. Labels
+paged current policies and require private history custody. Labels
 bind to the exact signed directory and group heads. Their current artifacts stay
 paired with verified policies; they are never stored as fabricated full bundles.
 Directory/Admins admission still checks durable pins. Name reads alone leave
@@ -107,39 +107,48 @@ private custody, and checkpoint contracts.
 
 ## Request costs
 
+The private paged runtime adds directory and group reads for metadata authority
+and scoped projection recovery. Signed entries in a bare policy cache do not
+carry organization, dependency and operation-lifetime bindings; they cannot
+replace that recovery. Counts below include repeated authorization reads and
+are not attributed solely to metadata-root verification. See the
+[acceptance evidence](../principal-history-acceptance.md#ordinary-workflow-cost)
+for the security tradeoff and measured byte costs.
+
+The current app fixtures measure 93 requests for personal bootstrap and 18 for
+creating and activating another organization, with ceilings of 95 and 18.
 A cold Org Manager open uses three requests: one read-model read, one
-organization-policy read and one Admins-policy read. Creating and activating
-an additional organization uses 14 requests, including the same two cold
-policy reads. An active peer reconciles an ungranted group change with five
-policy/read-model requests and no container or document fanout.
+organization-policy read and one Admins-policy read. An active peer reconciles
+an ungranted group change with five policy/read-model requests and no container
+or document fanout.
 
-With bounded creation, display pages and exact local metadata evidence, a
-completed group fixture measured first creation/addition at 17/70 requests and
-later creation/addition at 15/20. The whole pairs used 87/35 requests,
-including 51/21 public history reads. These are local fixture measurements,
-not production benchmarks. Whole-pair limits are tightened from 110/46 on the
-base to 92/38; creation allows 20/18 and addition allows 75/23. Margins permit
-three boundary reads per phase, with five extra reads for first-enrollment
-proof discovery. The pair cap prevents those margins from accumulating.
-Creation may additionally receive one validated rollback preparation response
-with identical request bytes; completed mutation counts and the raw whole-pair
-limit remain unchanged. Combined history limits remain 54/21. Earlier
-intermediate limits of 118/49 were reduced after measuring local-evidence
-reuse.
+Group creation/addition measured 16/90 requests for first enrollment and 15/20
+for a later group. Creation ceilings are 20/18, addition ceilings 95/23, and
+whole-pair ceilings 112/38. Public history reads remain capped at 54/21 for the
+pairs. First addition permits 17 organization-policy and 14 group-policy reads.
+Completed mutation counts are unchanged; creation may also receive one validated
+rollback preparation response with identical request bytes. These are local
+fixed-cardinality measurements, not production benchmarks.
 
-Metadata-key unwrapping previously repeated directory/Admins/Members recovery
-after its metadata authority had already selected those policies. The new local
-preference eliminates those online repeats when exact private evidence is
-available. Separate projection collections still recover public history, and
-each mutation discovers a fresh directory before authoring its successor. This
-remaining work stays tracked in #2448. Before local evidence reuse, first
-creation used 53 requests.
+The Admins enrollment fixture measured 200–204 requests; its completed-request
+ceiling is 207, plus explicitly counted validated preparation continuations.
+It caps organization-policy reads at 45, group-policy reads at 33 and public
+history reads at 84. Body ceilings are 450,000 request bytes and 4,500,000 response
+bytes. The root attachment-sharing fixture measured 182 requests and permits
+190, with body ceilings of 380,000 request bytes and 3,900,000 response bytes.
+The small Explorer upload fixture measured 42 calls and permits 43.
 
-The Admins mutation retains its 147 completed-request allowance, 84 completed
-history reads and byte limits. One directory read replaces one group read. One
-additional request is allowed only for a validated `202` history preparation
-response, still capped at one. Without sharing directory discovery within the
-mutation batch, this flow needed two extra completed requests.
+Folder mutation ceilings also include private current-policy reads:
 
-Folder mutation limits remain unchanged. Full-bundle mutation consumers and
-repeated discovery reads still need migration and deduplication under #2448.
+| Operation | Request ceiling |
+| --- | ---: |
+| Create folder | 20 |
+| Link document | 21 |
+| Unlink document | 56 |
+| Trash document | 71 |
+| Trash folder | 45 |
+| Restore folder | 45 |
+
+The tests retain per-route limits and mutation-count assertions. Deduplicating
+repeated authorization reads is future latency work; reuse must carry the same
+organization, dependency, checkpoint and lifetime checks as scoped recovery.

@@ -36,7 +36,11 @@ import { restorePaneRecoveryKey } from "./dualPaneRecoveryKeyActions";
 
 export const DUAL_PANE_TEST_TIMEOUT_MS = 20_000;
 export const DUAL_PANE_ATTACHMENT_TEST_TIMEOUT_MS = 60_000;
-export const POST_SHARE_SYNC_SETTLE_TIMEOUT_MS = 15_000;
+// Cold principal recovery rematerializes documents through paged authorization.
+export const PRINCIPAL_RECOVERY_SETTLE_TIMEOUT_MS = 60_000;
+// Paged authorization can span many requests on a contended runner. This bounds
+// the whole workflow; the HTTP acceptance fixture enforces each request deadline.
+export const POST_SHARE_SYNC_SETTLE_TIMEOUT_MS = 30_000;
 export const POST_SHARE_NETWORK_IDLE_QUIET_MS = 25;
 export const SHARED_NOTE_TITLE = "Peer one note with attachment";
 

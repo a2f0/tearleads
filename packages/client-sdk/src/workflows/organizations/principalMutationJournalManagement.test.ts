@@ -45,7 +45,7 @@ test.each([403, 409, 503])(
       ).rejects.toThrow("may have committed");
       const mutation = await readJournaledPrincipalMutation(context);
       expect(mutation).toEqual(fixture.mutation);
-      if (!mutation || mutation.kind !== undefined)
+      if (mutation?.kind !== "compound")
         throw new Error("Missing compound authored work");
       expect(
         await abandonJournaledPrincipalMutation({
@@ -84,7 +84,7 @@ test.each(["changed", "corrupt", "expired"] as const)(
     try {
       await claimPrincipalMutationJournal({ ...context, row });
       const mutation = await readJournaledPrincipalMutation(context);
-      if (!mutation || mutation.kind !== undefined)
+      if (mutation?.kind !== "compound")
         throw new Error("Missing compound authored work");
       if (failure === "changed")
         mutation.request.groupPolicy.encryptedPayload.ciphertext += "changed";

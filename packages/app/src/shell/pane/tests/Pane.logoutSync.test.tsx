@@ -42,7 +42,9 @@ afterEach(async () => {
 async function expectAppRuntimeSettled(): Promise<void> {
   let settled = false;
   await act(async () => {
-    settled = await waitForAppTestRuntimeToSettle({ timeoutMs: 6_000 });
+    settled = await waitForAppTestRuntimeToSettle({
+      timeoutMs: DUAL_PANE_TEST_TIMEOUT_MS,
+    });
   });
   expect(settled).toBe(true);
 }

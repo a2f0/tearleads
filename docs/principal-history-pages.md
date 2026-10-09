@@ -1,7 +1,7 @@
 # Incremental principal-policy verification
 
 See [principal-policy history transport](principal-history-transport.md) for
-the bounded GET wire contract and remaining client staging work.
+the bounded GET wire contract and durable client recovery.
 
 `createPrincipalPolicyHistoryVerifier` in `@tearleads/crypto` verifies a signed
 principal history from genesis in successive pages. It shares the existing
@@ -135,12 +135,11 @@ trusted checkpoint before publishing results. If that checkpoint changed during
 a suspended operation, the caller must resolve the new input before resuming.
 Persisted records and cryptographic progress must not be promoted independently.
 
-This component supports #2448. Principal HTTP endpoints use preparation
-continuations, paged reads, and compact mutation acknowledgements as described
-below. The SDK offers durable prefix recovery; built-in full-bundle consumers,
-embedded-history responses, and commit-outcome recovery still need integration.
-Issues #2442 and #2448 stay open until the complete integration meets the HTTP
-availability requirements.
+Principal HTTP endpoints use preparation continuations, paged reads and compact
+mutation acknowledgements. Built-in SDK consumers require durable private prefix
+recovery; submitted requests use a signed operation journal and exact receipts.
+See [HTTP acceptance evidence](principal-history-acceptance.md) for the complete
+revocation and cold-decryption scenario beyond the former version cutoff.
 
 The API `readPrincipalHistoryPage` reader selects at most 100 state rows per
 query, with explicit principal scope and lower/upper version bounds. Its
@@ -193,10 +192,10 @@ most 32 oldest progress hints from the matching scope and protection generation.
 Transaction-local resets can rebuild immediately, but publish rebuilt nodes and
 progress only after a successful outer commit. Cache loss costs verification
 work and never supplies authority or requires a principal repair write. These
-tables have no pruning policy yet. The remaining resource-bound work in
-[#2448](https://github.com/a2f0/tearleads/issues/2448) must cover reclaiming
-unreachable index nodes, superseded hints, and old protection generations in
-bounded batches, with concurrent readers and rebuilds remaining recoverable.
+tables have no automatic pruning policy. Storage grows with retained evidence;
+unreachable nodes, superseded hints and old protection generations may also
+remain. Future reclamation must use bounded batches and preserve recovery for
+concurrent readers. Request-level continuation does not establish a disk quota.
 
 Preparation shares a preferred 32-entry, 2 MiB, five-second budget across a
 policy and its authority dependency. At least one entry can advance even if it
@@ -205,8 +204,9 @@ can also inspect one parent entry. These are scheduling targets, not strict
 bounds on total request memory or elapsed time. Proof selection and cache
 maintenance add work outside that accepted-entry budget. Principal HTTP handlers
 move cold preparation outside the final transaction and across requests. Internal
-collectors outside that bounded execution context can still loop through batches
-and retain complete arrays; those paths remain part of #2442/#2448.
+collectors used explicitly outside that bounded execution context can still
+return complete arrays. They are not used to deliver HTTP policy history or
+by built-in runtime recovery.
 
 Current authorization consumes `PrincipalPolicyAuthorization` and explicitly
 retained historical citations. More than 128 required citations are verified in
@@ -284,9 +284,10 @@ Uncommitted cache hints publish only after a successful outer commit.
 This changes the wire contract in one release; clients and server must be updated
 together. There is no compatibility capability negotiation.
 
-Transport integration remains partial: some workflows collect full histories.
-The preferred budgets do not bound a large state, proof selection, or cache
-publication. Keep #2442 and #2448 open until the full HTTP resource tests pass.
+The preferred budgets do not strictly bound a single large state, proof selection
+or cache publication. The HTTP acceptance fixture measures complete requests
+with fixed policy cardinalities; its resource budgets and results are documented
+in [acceptance evidence](principal-history-acceptance.md).
 
 ## Mutation acknowledgements
 
@@ -300,12 +301,11 @@ container batch, rather than the number of retained policy versions.
 
 The SDK compares the accepted state, payload, grants, membership, envelopes, and
 container results with the request it authored. After those checks, it appends
-the accepted state to its previously verified local history for persistence.
-A server-provided history array cannot replace that local prefix. This changes
-the greenfield wire contract for standalone policy writes, compound group and
-organization commits, and the organization receipt on group creation/deletion.
-Other embedded-history reads and local full-history persistence still need
-bounded processing; compact mutation receipts alone do not complete #2442 or #2448.
+one accepted state to its authenticated durable prefix and index, without
+rebuilding a complete bundle. A server-provided history array cannot replace
+that prefix. This greenfield contract covers standalone policy writes, compound
+group and organization commits, and group creation/deletion. Container and
+document projections carry scoped paged public-history sources.
 
 See [compound commit outcomes](developer/principal-policy-outcomes.md) for
 recovery after a committed response is lost.

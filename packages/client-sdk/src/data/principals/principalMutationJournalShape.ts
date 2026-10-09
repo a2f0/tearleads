@@ -12,9 +12,7 @@ import { isUuidV4String } from "@tearleads/validators/util";
 
 export type AuthoredPrincipalMutation =
   | {
-      // Existing signed pending requests have no kind. Keep them in the same
-      // scope and recovery lane so an upgrade cannot hide uncertain work.
-      readonly kind?: undefined;
+      readonly kind: "compound";
       readonly groupId: string;
       readonly request: CommitOrganizationGroupPolicyRequest;
     }
@@ -87,7 +85,7 @@ export function readPrincipalMutation(
     );
     return { kind, groupId, request };
   }
-  if (kind !== undefined)
+  if (kind !== "compound")
     throw new Error("Principal mutation journal operation is unsupported");
   const request = CommitOrganizationGroupPolicyRequestSchema.parse(body);
   assertStateScope(request.groupPolicy.state, "group", groupId, scope);
@@ -97,7 +95,7 @@ export function readPrincipalMutation(
     scope.organizationId,
     scope,
   );
-  return { groupId, request };
+  return { kind, groupId, request };
 }
 
 function assertStateScope(

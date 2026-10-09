@@ -1,4 +1,4 @@
-import type { RequestResult } from "@tearleads/api-client";
+import type { ApiClient, RequestResult } from "@tearleads/api-client";
 import type { ContainerReplacementAuthorizationsResponse } from "@tearleads/validators/operation";
 import type { ListContainerParentLanesRequest } from "@tearleads/validators/request";
 import type {
@@ -74,7 +74,13 @@ export interface ContainerState {
   record: ContainerDocumentRecord;
 }
 
-interface RemoteContainerHydrationApi {
+interface RemoteContainerHydrationApi
+  extends Partial<
+    Pick<
+      ApiClient,
+      "getPrincipalPolicyPages" | "getProjectionPolicyHistoryPages"
+    >
+  > {
   getContainerReplacementAuthorizationsResult(
     containerId: string,
     replacesOrganizationId: string,

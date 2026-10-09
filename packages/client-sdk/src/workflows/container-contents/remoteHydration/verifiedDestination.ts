@@ -16,7 +16,7 @@ import {
   reportKeyingVerificationErrorInCauseChain,
   runWithSecurityIncidentReporting,
 } from "../../../data/keyingProjectionVerification/error";
-import { createGroupMetadataContainerVerifier } from "../../organizations/groupMetadataContainerAuthority";
+import { verifyRuntimeGroupMetadataAuthority } from "../../organizations/runtimeGroupMetadataAuthority";
 import { createRuntimePrincipalPolicyWarmer } from "../../principals/runtimePolicyWarmer";
 import type { PrefetchedDestinationProjection } from "./destinationPrefetch";
 import {
@@ -191,14 +191,13 @@ async function verifyDestinationRole(input: {
   if (role.parentId === null && role.systemSlot !== null) {
     const head = path.at(-1);
     if (!head) throw new Error("Metadata root manifest is unavailable");
-    await createGroupMetadataContainerVerifier({
-      apiClient: runtime.apiClient,
-      execSql: runtime.infra.execSql,
+    await verifyRuntimeGroupMetadataAuthority({
+      runtime,
       organizationId: listed.organizationId,
-      reportSecurityIncident: runtime.util.reportSecurityIncident,
-      resolveTrustedUserIdentity: runtime.resolveTrustedUserIdentity,
+      organizationReference: projection.policyEvidence.organization?.head,
+      state: head.state,
       stillCurrent: isCurrent ?? (() => true),
-    })(head.state);
+    });
   }
   if (isCurrent?.() === false) return null;
   if (input.verifyCurrentPlacement) {

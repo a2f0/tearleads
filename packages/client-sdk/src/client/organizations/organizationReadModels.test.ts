@@ -1,11 +1,8 @@
 import { expect, test } from "bun:test";
 import type { RequestResult } from "@tearleads/api-client";
 import { createMockApiClient, createTestExecSql } from "@tearleads/test-utils";
-import type {
-  OrganizationGroupMemberResponse,
-  OrganizationReadModelResponse,
-  PrincipalPolicyBundleResponse,
-} from "@tearleads/validators/response";
+import type { OrganizationReadModelResponse } from "@tearleads/validators/response";
+import { createCurrentOrganizationRuntimeFixture } from "../../../test/helpers/currentOrganizationRuntime";
 import {
   createInternalRuntimeFixture,
   createWorkflowInputFixture,
@@ -16,26 +13,9 @@ import {
   organizationReadModelSnapshot,
   organizationReadModelUserId,
 } from "../../../test/helpers/organizationReadModelProjectionFixtures";
-import { createPrincipalPolicyBundle } from "../../../test/helpers/policyCacheFixtures";
-import { createPolicyDirectoryFixture } from "../../../test/helpers/policyDirectoryFixtures";
-import { trustedUserIdentityFromResponse } from "../../../test/helpers/trustedUserIdentity";
 import { applyOrganizationReadModelResponse } from "../../data/persistence/organizations/organizationReadModelPersistence";
 import type { InternalWorkflowRuntimeInput } from "../workflowRuntime";
 import { createOrganizationReadModelCoordinator } from "./organizationReadModels";
-
-function projectedPolicyMember(
-  member: PrincipalPolicyBundleResponse["currentProjection"][number],
-): OrganizationGroupMemberResponse {
-  // Every projected member is a user, so there is no group branch to take.
-  return {
-    userId: member.userId,
-    role: member.role,
-    signingKeyFingerprint: `signing-fingerprint-${member.userId}`,
-    signingPublicKey: `signing-public-key-${member.userId}`,
-    encapsulationPublicKey: `encapsulation-public-key-${member.userId}`,
-    encapsulationKeyFingerprint: `encapsulation-fingerprint-${member.userId}`,
-  };
-}
 
 test("concurrent read-model reconciliation is single-flight", async () => {
   const { close, execSql } = await createTestExecSql(
@@ -218,100 +198,62 @@ test("post-mutation reconciliation waits for an older request and coalesces one 
   }
 });
 
-test("policy history cold misses single-flight through verified persistence", async () => {
-  const { close, execSql } = await createTestExecSql(
-    "organization-policy-history-verified-warm-test",
-  );
-  const { bundle, signerKeyResponse } = await createPrincipalPolicyBundle();
-  const organizationId = "1";
-  const directory = await createPolicyDirectoryFixture({
+test("policy history cold misses single-flight through private paged persistence", async () => {
+  const f = await createCurrentOrganizationRuntimeFixture({ aligned: true });
+  const group = f.signed.members;
+  const groupId = group.currentState.principalId;
+  const organizationId = f.signed.artifacts.organizationId;
+  const response = organizationReadModelSnapshot({
     organizationId,
-    group: bundle,
+    currentUserId: "founder",
   });
-  const groupId = bundle.currentState.principalId;
-  const response = organizationReadModelSnapshot({ organizationId });
-  const visibleMembership = response.lanes.groupMemberships.groups.find(
-    (group) => group.groupId === groupId,
-  );
-  if (!visibleMembership) {
-    throw new Error("Expected visible group membership fixture");
-  }
-  const policyResponse: OrganizationReadModelResponse = {
-    ...response,
-    lanes: {
-      ...response.lanes,
-      groups: {
-        ...response.lanes.groups,
-        groups: response.lanes.groups.groups.map((group) =>
-          group.groupId === groupId
-            ? {
-                ...group,
-                currentState: {
-                  stateHash: bundle.currentState.stateHash,
-                  version: bundle.currentState.version,
-                  keyEpoch: bundle.currentState.keyEpoch,
-                  keyFingerprint: bundle.currentState.keyFingerprint,
-                  memberCount: bundle.currentState.memberCount,
-                },
-              }
-            : group,
-        ),
-      },
-      groupMemberships: {
-        ...response.lanes.groupMemberships,
-        groups: response.lanes.groupMemberships.groups.map((group) =>
-          group.groupId === groupId
-            ? {
-                ...group,
-                stateHash: bundle.currentState.stateHash,
-                members: bundle.currentProjection.map(projectedPolicyMember),
-              }
-            : group,
-        ),
+  response.lanes.groups.groups = [
+    {
+      groupId,
+      organizationId,
+      createdAt: group.currentState.createdAt,
+      isBuiltin: true,
+      currentState: {
+        ...group.currentState,
+        memberCount: group.currentProjection.length,
       },
     },
-  };
-
+  ];
+  response.lanes.groups.memberGroupId = groupId;
+  response.lanes.groupMemberships.groups =
+    response.lanes.groupMemberships.groups.slice(-1).map((membership) => ({
+      ...membership,
+      groupId,
+      stateHash: group.currentState.stateHash,
+    }));
+  response.lanes.grants.grants = [];
   let policyRequests = 0;
-  let resolvePolicyRequest: (
-    value: PrincipalPolicyBundleResponse | null,
-  ) => void = () => {};
-  const policyRequest = new Promise<PrincipalPolicyBundleResponse | null>(
-    (resolve) => {
-      resolvePolicyRequest = resolve;
-    },
-  );
-  const apiClient = createMockApiClient({
-    async getCurrentPrincipalPolicy(kind) {
-      if (kind === "organization") return directory.bundle;
+  let releasePolicyRequest: () => void = () => {};
+  const pendingPolicyRequest = new Promise<void>((resolve) => {
+    releasePolicyRequest = resolve;
+  });
+  const pages = f.runtime.apiClient.getPrincipalPolicyPages;
+  f.runtime.apiClient.getPrincipalPolicyPages = async function* (...args) {
+    if (args[1] === groupId) {
       policyRequests += 1;
-      return policyRequest;
-    },
-  });
-  const workflowInput = createWorkflowInputFixture({
-    apiClient,
-    auth: { organizationId, userId: organizationReadModelUserId },
-    execSql,
-    resolveTrustedUserIdentity: async (userId: string) =>
-      userId === signerKeyResponse.userId
-        ? trustedUserIdentityFromResponse(signerKeyResponse)
-        : userId === directory.signer.userId
-          ? trustedUserIdentityFromResponse(directory.signer)
-          : null,
-  });
-  const runtime = createInternalRuntimeFixture(() => workflowInput);
+      await pendingPolicyRequest;
+    }
+    yield* pages.apply(this, args);
+  };
 
   try {
     await applyOrganizationReadModelResponse({
-      currentUserId: organizationReadModelUserId,
-      execSql,
+      currentUserId: "founder",
+      execSql: f.options.execSql,
       requestedCursor: null,
-      response: policyResponse,
+      response,
     });
-    const coordinator = createOrganizationReadModelCoordinator(runtime);
+    const coordinator = createOrganizationReadModelCoordinator(
+      createInternalRuntimeFixture(() => f.runtime),
+    );
     const first = coordinator.loadGroupPolicyHistory(groupId);
     const second = coordinator.loadGroupPolicyHistory(groupId);
-    resolvePolicyRequest(bundle);
+    releasePolicyRequest();
     const [firstHistory, secondHistory] = await Promise.all([first, second]);
     expect(firstHistory).toEqual(secondHistory);
     expect(firstHistory?.entries.map((entry) => entry.version)).toEqual([1]);
@@ -319,8 +261,9 @@ test("policy history cold misses single-flight through verified persistence", as
       firstHistory,
     );
     expect(policyRequests).toBe(1);
+    expect(f.fullReads()).toBe(0);
   } finally {
-    resolvePolicyRequest(null);
-    close();
+    releasePolicyRequest();
+    f.close();
   }
 });

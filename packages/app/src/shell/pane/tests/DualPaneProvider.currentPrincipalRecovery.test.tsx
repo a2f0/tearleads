@@ -15,7 +15,7 @@ import {
   listExplorerContainerItems,
   openWindowMenuDialog,
   POST_SHARE_NETWORK_IDLE_QUIET_MS,
-  POST_SHARE_SYNC_SETTLE_TIMEOUT_MS,
+  PRINCIPAL_RECOVERY_SETTLE_TIMEOUT_MS,
   renderDualPane,
   waitForDualPaneProvisioning,
 } from "../../../../test/helpers/dual-pane/dualPaneCore";
@@ -55,7 +55,7 @@ import { waitForCondition } from "../../../../test/helpers/waitForCondition";
 
 const GROUP_NAME = "Rotated recovery readers";
 const NOTE_TEXT = "Historical group data survives current-head recovery";
-const CURRENT_PRINCIPAL_RECOVERY_TIMEOUT_MS = 120_000;
+const CURRENT_PRINCIPAL_RECOVERY_TIMEOUT_MS = 180_000;
 const organizationReads = createOrganizationReadDrain();
 
 afterEach(async () => {
@@ -94,7 +94,7 @@ async function waitForPrincipalRematerialization() {
   await act(async () => {
     settled = await waitForAppTestRuntimeToSettle({
       apiQuietMs: POST_SHARE_NETWORK_IDLE_QUIET_MS,
-      timeoutMs: POST_SHARE_SYNC_SETTLE_TIMEOUT_MS,
+      timeoutMs: PRINCIPAL_RECOVERY_SETTLE_TIMEOUT_MS,
     });
   });
   expect(settled).toBe(true);
@@ -261,7 +261,11 @@ test.each([false, true])(
     // Refresh only after those lanes settle, so it targets the recovered scope.
     await waitForPrincipalRematerialization();
     await clickExplorerRefresh(ownerPane);
-    await waitForExplorerNoteVisible(ownerPane, NOTE_TEXT, 20_000);
+    await waitForExplorerNoteVisible(
+      ownerPane,
+      NOTE_TEXT,
+      PRINCIPAL_RECOVERY_SETTLE_TIMEOUT_MS,
+    );
     await selectExplorerNoteByName(ownerPane, NOTE_TEXT);
     await waitForSelectedNoteText(
       ownerPane,

@@ -97,7 +97,7 @@ test("a lost acknowledgement retains the exact body for a fresh recovery context
         await loadPrincipalMutationJournal(sqlite.execSql, scopeId),
       ).not.toBeNull();
       expect(mutation).toEqual(authored);
-      if (mutation.kind !== undefined)
+      if (mutation.kind !== "compound")
         throw new Error("Expected compound journal");
       mutation.request.groupPolicy.encryptedPayload.ciphertext =
         "transport changed";

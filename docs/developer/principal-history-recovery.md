@@ -46,8 +46,9 @@ create a replacement. Derivation times out after 15 seconds, releases the queue,
 and clears any key bytes returned after that timeout.
 
 Built-in projection reference verification uses the runtime lease to recover
-scoped paged evidence when no valid full bundle is held locally. Existing local
-bundles remain usable offline without a paged cache. Runtime recovery queues are
+scoped paged evidence, including when a complete bundle is held locally. Offline
+recovery requires authenticated private progress and its evidence; an unprotected
+full bundle cannot bypass that requirement. Runtime recovery queues are
 shared per database and organization, avoiding concurrent writes to directory or
 Admins progress. Container and document authorization and mutation planning
 accept the resulting current policy with selected historical citations. The
@@ -56,13 +57,13 @@ dependency. In-memory reuse preserves that organization binding and lifetime,
 rechecks all dependency pins, and refreshes missing evidence when a durable pin
 advances. Conflicting pins still fail. Runtime offline state selects local-only
 recovery. Public projection evidence uses the separate paged path described
-below; explicit full-bundle operations still require further runtime adoption.
+below. Explicit full-bundle utilities are outside built-in runtime recovery.
 
 Org Manager labels and metadata roots also consume verified current policies.
 See [current-policy consumers](current-principal-consumers.md) for exact-head
-local reuse, lifetime and checkpoint rules, request costs, and remaining adoption.
+local reuse, lifetime and checkpoint rules, and request costs.
 [Current-policy mutation primitives](principal-current-mutations.md) cover bounded
-successor verification; orchestration and durable acknowledgement adoption remain.
+successor verification, orchestration and durable acknowledgement adoption.
 
 The optional `retainedReferences` selection follows the crypto verifier's bounded
 retention contract. Supply already authenticated external authority through
@@ -156,9 +157,11 @@ conflicts are checked after the pinned history completes; rejected histories may
 already have written provisional pages, but cannot publish a prefix or advance
 an application checkpoint.
 
-Older progress with obsolete checkpoint/reference bindings may require replay.
-Page and proof counts do not bound entry size or total bytes. Byte/work scheduling
-and broader resource acceptance remain tracked in #2448.
+Unreadable authenticated progress requires replay from signed evidence. Page and
+proof counts do not bound an individual entry's size. Server preparation also
+uses byte/time scheduling targets; see the
+[HTTP acceptance evidence](../principal-history-acceptance.md) for measured
+request, SQL and memory costs and their limits.
 
 `historyVerification: "direct-admins"` checks every accepted historical projection
 for a nonempty set containing only direct admin users. It only accepts groups
@@ -203,14 +206,12 @@ signed directory is also unavailable, including after group deletion. An
 online server head behind that pin remains a rollback incident. Invalid signed
 predecessors remain verification errors, distinct from local races.
 
-When the paged resolver is available, a paged failure does not fetch a full
-history bundle. This changes availability: an authorized full-bundle endpoint
-cannot rescue a paged 403/409, an exhausted directory refresh, or a group that
-fails strict Admins verification. The call remains unavailable or fails
-verification even if that older recovery path could succeed. This preserves
-bounded page reads and the scoped authority checks. A held full bundle is still
-usable through its existing verification path, and hosts without a paged resolver
-retain full-bundle warming. Public projection-history grants separately cover
+Runtime verification requires private paged recovery. A paged 403/409, an
+exhausted directory refresh, missing private custody, or failed strict Admins
+verification cannot select a full-history read or a locally held full bundle.
+The call remains unavailable or fails verification. This preserves bounded
+verification batches and scoped authority checks. Public projection-history
+grants separately cover
 deleted and nonmember group citations through current object access, without
 requiring current policy membership.
 
@@ -289,6 +290,6 @@ checks. When another online source has a different signed head, the SDK can
 verify that requested chain from genesis once; it still checks durable pins and
 object authority. Offline recovery cannot replace a conflicting prefix.
 
-Resource budgets, durable client mutation recovery and the beyond-16,384
-acceptance run remain tracked in
-[#2448](https://github.com/a2f0/tearleads/issues/2448).
+See [HTTP acceptance evidence](../principal-history-acceptance.md) for resource
+budgets and the beyond-16,384 revocation and cold-decryption run, and
+[commit outcomes](principal-policy-outcomes.md) for durable mutation recovery.

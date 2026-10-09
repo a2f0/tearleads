@@ -30,8 +30,9 @@ A null database group ID therefore does not identify the operation domain.
 The schema change regenerates both greenfield baselines and requires fresh
 databases under the repository reset policy; there is no historical upgrade.
 Clients must preserve the authored request while its outcome is unknown.
-The SDK's compound policy journal does this for group policy mutations; these
-receipts and the journal do not complete #2442 or #2448.
+The SDK's principal policy journal does this for all four operation kinds. See
+[HTTP acceptance evidence](../principal-history-acceptance.md) for the complete
+revocation and recovery scenario.
 
 Receipts survive until their group or organization is deleted. Expiring them on
 a time limit would make an old unknown outcome indistinguishable from a failed
@@ -166,10 +167,11 @@ that every healthy compound commit finishes within the default. Hosts with large
 rewraps or slow servers should configure their own budget. A fresh client with a
 longer deadline can retry the exact saved request after timeout. Expiry preserves
 uncertain work and releases the local lane so inspection and actions can proceed.
-All four operation kinds share the same lane. Existing signed compound rows
-remain recoverable under their original scope, without re-signing or hiding
-unknown work. New rows bind an explicit operation kind; standalone organization
-rows have no group target. Recovery dispatches only that authenticated route and
+All four operation kinds share the same lane and require an explicit signed
+operation kind: `compound`, `organization`, `group-create`, or `group-delete`.
+Standalone organization rows have no group target. Missing or unsupported kinds
+are rejected; there is no interpretation of an older journal format. Recovery
+dispatches only that authenticated route and
 checks the matching receipt before removing the journal row. Group creation also
 checks the exact authored genesis against the returned summary; deletion checks
 both organization and deleted group IDs.

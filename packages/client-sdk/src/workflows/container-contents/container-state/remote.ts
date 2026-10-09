@@ -5,12 +5,12 @@ import type {
 } from "@tearleads/validators/response";
 import { isContainerNotFoundFailure } from "../../../data/containers/shared/mutationFailures";
 import type { ProjectionUserKeyResolver } from "../../../data/keyingProjectionVerification";
+import { ProjectionDependencyUnavailableError } from "../../../data/keyingProjectionVerification/dependencyUnavailable";
 import {
   moveRemoteContainer as moveRemoteContainerMutation,
   readContainerMutationMetadataDocumentId,
   referencedPrincipalHeadsFromContainerMutationResponse,
   shareRemoteContainer as shareRemoteContainerMutation,
-  shareRemoteContainerWithGroup as shareRemoteContainerWithGroupMutation,
 } from "../../containers";
 import { createRuntimeCurrentGroupShare } from "../../containers/child/runtimeCurrentGroupShare";
 import { resolveDocumentCreateAuthor } from "../../documents";
@@ -157,9 +157,11 @@ export async function shareRemoteContainerWithGroup(input: {
   }
   const { apiClient, author, execSql, secretKey: targetSecretKey } = writer;
 
-  const shareWithGroup =
-    createRuntimeCurrentGroupShare(input.runtime) ??
-    shareRemoteContainerWithGroupMutation;
+  const shareWithGroup = createRuntimeCurrentGroupShare(input.runtime);
+  if (!shareWithGroup)
+    throw new ProjectionDependencyUnavailableError(
+      "Group sharing requires private paged recovery",
+    );
   const shared = await shareWithGroup({
     reportSecurityIncident: input.runtime.util.reportSecurityIncident,
     accessLevel: input.accessLevel,

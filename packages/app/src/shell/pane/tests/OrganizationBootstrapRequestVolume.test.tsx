@@ -52,8 +52,11 @@ test(
       budget: {
         // Root acknowledgement and verified adoption can each schedule a
         // root-lane pass; signed destination reads remain bounded at four.
-        total: 64,
+        // Private metadata-root authority adds 31 bounded directory/group reads.
+        total: 95,
         byRequest: {
+          "GET /principals/organization/:organizationId/policy": 19,
+          "GET /principals/group/:groupId/policy": 12,
           // Compact projections move authorization history into bounded reads.
           "GET /principals/history": 34,
           "GET /containers/:containerId/documents": 5,
@@ -114,10 +117,11 @@ test(
       },
       mutations: [{ method: "POST", path: /^\/organizations$/u, count: 1 }],
       budget: {
-        total: 14,
+        // Verify the new metadata root through private current policy evidence.
+        total: 18,
         byRequest: {
-          "GET /principals/organization/:organizationId/policy": 1,
-          "GET /principals/group/:groupId/policy": 1,
+          "GET /principals/organization/:organizationId/policy": 3,
+          "GET /principals/group/:groupId/policy": 3,
           // The new organization metadata document needs signed discovery evidence.
           "GET /documents/:documentId/writer-projection": 1,
           "GET /principals/history": 3,

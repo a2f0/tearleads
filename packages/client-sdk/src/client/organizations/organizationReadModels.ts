@@ -4,8 +4,6 @@ import {
   loadLocalOrganizationDirectoryAndGroups,
   loadLocalOrganizationGroupContainers,
   loadLocalOrganizationGroupMembers,
-  loadLocalOrganizationGroupPolicyHistory,
-  loadLocalOrganizationPolicyReference,
   loadLocalOrganizationUserDetail,
   type OrganizationContainerGrants,
   type OrganizationDirectoryAndGroups,
@@ -20,7 +18,6 @@ import {
   organizationAccessScopeKey,
   wasOrganizationPresentationAccessDeniedByServer,
 } from "../../workflows/organizations/organizationPresentationAccessState";
-import { createRuntimePrincipalPolicyWarmer } from "../../workflows/principals/runtimePolicyWarmer";
 import type { InternalRuntime } from "../workflowRuntime";
 import { recoverOrganizationAccess } from "./organizationAccessRestoration";
 import { loadBoundedOrganizationGroupHistory } from "./organizationGroupHistory";
@@ -88,11 +85,6 @@ class OrganizationReadModelCoordinatorImpl
     DomainScope,
     Map<string, Promise<OrganizationDirectoryAndGroups | null | undefined>>
   >();
-  private readonly policyWarmersByScope = new WeakMap<
-    DomainScope,
-    Map<string, Promise<void>>
-  >();
-
   constructor(private readonly runtimeService: InternalRuntime) {}
 
   private reconciliationMap(active: ActiveOrganizationDataRuntime) {
@@ -103,98 +95,6 @@ class OrganizationReadModelCoordinatorImpl
       this.reconciliationsByScope.set(scope, byKey);
     }
     return byKey;
-  }
-
-  private policyWarmerMap(active: ActiveOrganizationDataRuntime) {
-    const scope = active.runtime.state.domainScope;
-    let byKey = this.policyWarmersByScope.get(scope);
-    if (!byKey) {
-      byKey = new Map();
-      this.policyWarmersByScope.set(scope, byKey);
-    }
-    return byKey;
-  }
-
-  private async warmPolicyReference(
-    active: ActiveOrganizationDataRuntime,
-    reference: NonNullable<
-      Awaited<ReturnType<typeof loadLocalOrganizationPolicyReference>>
-    >,
-  ): Promise<void> {
-    if (!active.runtime.state.online) {
-      return;
-    }
-    const byKey = this.policyWarmerMap(active);
-    const key = `${active.organizationId}\0${reference.principalType}\0${reference.principalId}\0${reference.stateHash}`;
-    const existing = byKey.get(key);
-    if (existing) {
-      return existing;
-    }
-    const warming = createRuntimePrincipalPolicyWarmer(active.runtime)({
-      organizationId: active.organizationId,
-      references: [reference],
-    }).finally(() => {
-      if (byKey.get(key) === warming) {
-        byKey.delete(key);
-      }
-    });
-    byKey.set(key, warming);
-    return warming;
-  }
-
-  private async loadPolicyHistoryAfterWarm<History>(input: {
-    readonly active: ActiveOrganizationDataRuntime;
-    readonly loadLocal: () => Promise<History | null>;
-    readonly principalId: string;
-    readonly principalType: "group" | "organization";
-  }): Promise<History | null> {
-    try {
-      const local = await input.loadLocal();
-      if (local) {
-        return local;
-      }
-    } catch (error) {
-      input.active.runtime.util.logError(
-        "Failed to load verified organization policy history",
-        error,
-      );
-    }
-    if (!input.active.runtime.state.online) {
-      return null;
-    }
-
-    let reference: Awaited<
-      ReturnType<typeof loadLocalOrganizationPolicyReference>
-    >;
-    try {
-      reference = await loadLocalOrganizationPolicyReference({
-        currentUserId: input.active.userId,
-        execSql: input.active.runtime.infra.execSql,
-        organizationId: input.active.organizationId,
-        principalId: input.principalId,
-        principalType: input.principalType,
-      });
-    } catch (error) {
-      input.active.runtime.util.logError(
-        "Failed to load organization policy-head projection",
-        error,
-      );
-      return null;
-    }
-    if (!reference) {
-      return null;
-    }
-
-    await this.warmPolicyReference(input.active, reference);
-    try {
-      return await input.loadLocal();
-    } catch (error) {
-      input.active.runtime.util.logError(
-        "Failed to reload verified organization policy history",
-        error,
-      );
-      return null;
-    }
   }
 
   async loadLocal(organizationId?: string) {
@@ -272,7 +172,7 @@ class OrganizationReadModelCoordinatorImpl
       return null;
     }
     const domainScope = active.runtime.state.domainScope;
-    const bounded = await loadBoundedOrganizationGroupHistory({
+    return loadBoundedOrganizationGroupHistory({
       active,
       groupId,
       beforeVersion,
@@ -282,19 +182,6 @@ class OrganizationReadModelCoordinatorImpl
           active,
           domainScope,
         ),
-    });
-    if (bounded !== undefined) return bounded;
-    return this.loadPolicyHistoryAfterWarm({
-      active,
-      loadLocal: () =>
-        loadLocalOrganizationGroupPolicyHistory({
-          currentUserId: active.userId,
-          execSql: active.runtime.infra.execSql,
-          groupId,
-          organizationId: active.organizationId,
-        }),
-      principalId: groupId,
-      principalType: "group",
     });
   }
 

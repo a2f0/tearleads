@@ -9,10 +9,7 @@ import {
   subscribeToContainerContentsStore as subscribeToExplorerStore,
   updateContainerContentsSnapshot as updateExplorerSnapshot,
 } from "@tearleads/client-sdk";
-import {
-  generateKemSeedAndKeyPair,
-  KeyingVerificationError,
-} from "@tearleads/crypto";
+import { generateKemSeedAndKeyPair } from "@tearleads/crypto";
 import { createMockApiClient } from "@tearleads/test-utils";
 import {
   listedContainer,
@@ -240,10 +237,8 @@ test("explorer sync agent batches concurrent remote ingests into one snapshot up
 
     expect(snapshotUpdateCount).toBe(1);
     expect(state.containersById.size).toBe(2);
-    expect(requestedPrincipalPolicies).toEqual([
-      "group:group-a",
-      "group:group-b",
-    ]);
+    // Missing private custody skips prefetch; signed destinations still hydrate.
+    expect(requestedPrincipalPolicies).toEqual([]);
     await expect(loadContainers(runtime.infra.execSql)).resolves.toEqual(
       expect.arrayContaining([
         expect.objectContaining({
@@ -265,31 +260,26 @@ test("explorer sync agent batches concurrent remote ingests into one snapshot up
 
 test("explorer sync agent retries remote ingests after a failed batch", async () => {
   let snapshotUpdateCount = 0;
-  const requestedPrincipalPolicies: string[] = [];
+  let storageUnavailable = true;
+  let commitAttempts = 0;
+  const directory = await createSignedExplorerDirectory([
+    {
+      id: "container-a",
+      organizationId: "org-1",
+      metadataDocumentId: "metadata-document-a",
+    },
+    {
+      id: "container-b",
+      metadataDocumentId: "metadata-document-b",
+      organizationId: "org-1",
+      parentId: "container-a",
+    },
+  ]);
   const runtime = runtimeWithPatch(await createSqlRuntime(), {
     apiClient: createMockApiClient({
-      ...(await createSignedExplorerDirectory([
-        {
-          id: "container-a",
-          organizationId: "org-1",
-          metadataDocumentId: "metadata-document-a",
-        },
-        {
-          id: "container-b",
-          metadataDocumentId: "metadata-document-b",
-          organizationId: "org-1",
-          parentId: "container-a",
-        },
-      ])),
-      getCurrentPrincipalPolicy: async (principalType, principalId) => {
-        requestedPrincipalPolicies.push(`${principalType}:${principalId}`);
-        if (requestedPrincipalPolicies.length === 1) {
-          throw new KeyingVerificationError(
-            "missing_dependency",
-            "principal cache unavailable",
-          );
-        }
-        return null;
+      ...directory,
+      getCurrentPrincipalPolicy: async () => {
+        throw new Error("Unexpected full principal history read");
       },
     }),
     organizationId: "org-1",
@@ -298,7 +288,16 @@ test("explorer sync agent retries remote ingests after a failed batch", async ()
   try {
     await defaultExplorerPersistence.ensureSchema(runtime.infra.execSql);
 
-    const state = createExplorerStoreState(runtime, defaultExplorerPersistence);
+    const persistence: typeof defaultExplorerPersistence = {
+      ...defaultExplorerPersistence,
+      async commitHydratedContainer(...args) {
+        commitAttempts += 1;
+        if (storageUnavailable)
+          throw new Error("hydration storage unavailable");
+        return defaultExplorerPersistence.commitHydratedContainer(...args);
+      },
+    };
+    const state = createExplorerStoreState(runtime, persistence);
     state.documentStoresNeedPriming = false;
     state.snapshot = { ...state.snapshot, ready: true };
     const syncAgent = createExplorerSyncAgent({
@@ -345,10 +344,12 @@ test("explorer sync agent retries remote ingests after a failed batch", async ()
           parentId: null,
         }),
       ),
-    ).rejects.toThrow("principal cache unavailable");
+    ).rejects.toThrow("hydration storage unavailable");
 
     expect(snapshotUpdateCount).toBe(0);
     expect(state.containersById.size).toBe(0);
+    expect(commitAttempts).toBe(1);
+    storageUnavailable = false;
 
     await syncAgent.ingestRemoteContainer(
       listedContainer({
@@ -375,11 +376,6 @@ test("explorer sync agent retries remote ingests after a failed batch", async ()
     expect(Array.from(state.containersById.keys())).toEqual([
       "container-a",
       "container-b",
-    ]);
-    expect(requestedPrincipalPolicies).toEqual([
-      "group:group-a",
-      "group:group-a",
-      "group:group-b",
     ]);
   } finally {
     runtime.close();
