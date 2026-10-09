@@ -75,7 +75,8 @@ FinishReclaim ==
   /\ bytes' = FALSE /\ reclaiming' = FALSE /\ queued' = FALSE
   /\ UNCHANGED <<held, pending, remote, viewRemote, viewCopy>>
 
-(* After reset and final removal the copy's lifecycle can finish. *)
+(* Terminal stuttering after reset and final removal keeps TLC deadlock
+   checking enabled for every nonterminal state. *)
 Reclaimed == /\ Unheld /\ ~bytes /\ ~queued /\ ~reclaiming
              /\ \A s \in Slots : ~remote[s]
              /\ UNCHANGED vars

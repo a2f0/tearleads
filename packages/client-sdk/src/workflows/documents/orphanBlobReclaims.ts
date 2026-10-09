@@ -3,6 +3,7 @@ import type { DocumentsPersistence } from "../../data/persistence/documents/type
 import {
   type ExecSql,
   resolveCanonicalExecSql,
+  runOncePerConnection,
   runSerializedSqlMutation,
 } from "../../data/sqlite/sqlSchema";
 import { runSerializedDocumentBlobMutation } from "./blobMutationLock";
@@ -44,12 +45,14 @@ async function sweepAgedDocumentOrphans(
   persistence: DocumentsPersistence,
   state: OrphanBlobReclaimState,
 ): Promise<boolean> {
-  if (state.swept) return false;
-  while (await persistence.orphanBlobs.sweep(execSql)) {
-    await waitForMaintenanceYield();
-  }
-  state.swept = true;
-  return true;
+  let swept = false;
+  await runOncePerConnection(execSql, state.sweepKey, async () => {
+    swept = true;
+    while (await persistence.orphanBlobs.sweep(execSql)) {
+      await waitForMaintenanceYield();
+    }
+  });
+  return swept;
 }
 
 async function reclaimQueuedBlobs(
@@ -173,12 +176,15 @@ export function reclaimDocumentOrphanBlobs(
       let hasMore: boolean;
       do {
         state.rerun = false;
-        hasMore = await reclaimQueuedBlobs(runtime, persistence, state);
+        hasMore = false;
+        try {
+          hasMore = await reclaimQueuedBlobs(runtime, persistence, state);
+        } catch (error) {
+          const message = errorMessage(error);
+          runtime.util.log(`Documents: orphan maintenance failed: ${message}`);
+        }
         if (hasMore || state.rerun) await waitForMaintenanceYield();
       } while (hasMore || state.rerun);
-    } catch (error) {
-      const message = errorMessage(error);
-      runtime.util.log(`Documents: orphan maintenance failed: ${message}`);
     } finally {
       state.running = undefined;
       state.rerun = false;

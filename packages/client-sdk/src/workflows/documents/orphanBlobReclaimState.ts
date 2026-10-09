@@ -5,7 +5,7 @@ export interface OrphanBlobReclaimState {
   deferredStorageKeys: Map<string, number>;
   rerun: boolean;
   running: Promise<void> | undefined;
-  swept: boolean;
+  sweepKey: string;
 }
 
 const states = new WeakMap<
@@ -28,7 +28,7 @@ export function orphanBlobReclaimState(
       deferredStorageKeys: new Map(),
       rerun: false,
       running: undefined,
-      swept: false,
+      sweepKey: `sweep:document-orphans:${crypto.randomUUID()}`,
     };
     connections.set(execSql, state);
   }

@@ -2,11 +2,11 @@ import { getDocumentAttachments } from "../../../data/documents/documentContent"
 import { detachDocumentAttachment } from "../../../workflows/blobs/detach";
 import {
   type DocumentRecord,
-  reclaimDocumentOrphanBlobs,
   resolveDocumentCreateAuthor,
 } from "../../../workflows/documents";
 import { createRuntimePrincipalPolicyWarmer } from "../../../workflows/principals/runtimePolicyWarmer";
 import { deleteLocalAttachmentRecord } from "./attachmentPersistence";
+import { runDocumentOrphanMaintenance } from "./orphanMaintenance";
 import type {
   DocumentAttachmentBinding,
   DocumentState,
@@ -166,7 +166,7 @@ async function cleanupDetachedAttachmentMarker(
     currentDoc,
   );
   // Deleting the row queued its bytes for the reference-checked reclaim.
-  void reclaimDocumentOrphanBlobs(state.runtime);
+  void runDocumentOrphanMaintenance(state);
   return detachedSyncContextIsCurrent(state, generation, requestRecord);
 }
 

@@ -246,10 +246,6 @@
       "lines": 592,
       "bytes": 19608
     },
-    "packages/client-sdk/src/stores/documents/documentStore/discard.test.ts": {
-      "lines": 549,
-      "bytes": 18896
-    },
     "packages/client-sdk/src/workflows/README.md": {
       "lines": 399,
       "bytes": 30079
