@@ -4,8 +4,10 @@ import { createMaterializedSyncFixture } from "../../../test/helpers/documentFix
 import { createDocumentPurgeProof } from "../../../test/helpers/documentPurge";
 import { purgeRemoteDocument } from "./purge";
 
-for (const inside of [false, true]) {
-  test(`document purge checks its signed authorization path (inside: ${inside})`, async () => {
+for (const scenario of ["outside", "inside", "late-refusal"]) {
+  const inside = scenario !== "outside";
+  const allowed = scenario === "inside";
+  test(`document purge checks its signed authorization path (${scenario})`, async () => {
     const fixture = await createMaterializedSyncFixture();
     const { author, resolveProjectionUserKey, writerProjection } = fixture;
     const containerId =
@@ -14,6 +16,7 @@ for (const inside of [false, true]) {
     const proof = await createDocumentPurgeProof(author, writerProjection);
     const { close, execSql } = await createTestExecSql("purge-subtree-path");
     let submissions = 0;
+    let submissionChecks = 0;
     let commits = 0;
     try {
       const result = purgeRemoteDocument({
@@ -29,6 +32,10 @@ for (const inside of [false, true]) {
           },
         },
         author,
+        beforeSubmit: async () => {
+          submissionChecks += 1;
+          return allowed;
+        },
         documentId: writerProjection.documentId,
         expectedSubtreeRootId: inside ? containerId : crypto.randomUUID(),
         execSql,
@@ -38,13 +45,15 @@ for (const inside of [false, true]) {
         },
         resolveProjectionUserKey,
       });
-      if (inside) expect(await result).not.toBeNull();
+      if (allowed) expect(await result).not.toBeNull();
+      else if (inside) expect(await result).toBeNull();
       else
         await expect(result).rejects.toThrow(
           "outside the requested purge subtree",
         );
-      expect(submissions).toBe(inside ? 1 : 0);
-      expect(commits).toBe(inside ? 1 : 0);
+      expect(submissionChecks).toBe(inside ? 1 : 0);
+      expect(submissions).toBe(allowed ? 1 : 0);
+      expect(commits).toBe(allowed ? 1 : 0);
     } finally {
       close();
     }

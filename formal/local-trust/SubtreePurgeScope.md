@@ -20,6 +20,12 @@ ancestry under the organization lock. Local-only candidates have fixed ancestry
 in this model; local row compare-and-set races remain implementation tests.
 Cryptographic verification is abstracted as an authenticated membership fact;
 this model does not prove signature correctness or multiple concurrent moves.
+The local intent recheck and remote commit are one atomic model step. Therefore,
+`PendingMoveSurvives` covers intents queued before the client's final
+`beforeSubmit` check. A restore queued after that check, while HTTP is in flight,
+can race the already dispatched destructive request; this model does not prove
+preservation in that window. The container ancestor check still runs under the
+server's organization lock at the actual commit.
 
 Four negative controls remove the candidate proof, the exact document request
 path check, the container commit check, or the late placement-intent check.

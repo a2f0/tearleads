@@ -18,6 +18,7 @@ import {
 } from "./requestInternals";
 import { responseBodyFailure } from "./responseBodyFailure";
 import { shouldRetryAfterSessionExpired } from "./sessionRefresh";
+import { SessionRenewalTracker } from "./sessionRenewal";
 import type {
   HttpMethod,
   OperationRequestFn,
@@ -36,8 +37,9 @@ type PaymentRequiredHandler = (organizationId: string | null) => void;
 
 export class ApiRequestRuntime {
   private authToken: string | null = null;
-  private authRevision = 0;
-  private sessionRenewal: { from: string; to: string } | null = null;
+  private readonly sessionRenewals = new SessionRenewalTracker(
+    () => this.authToken,
+  );
   private readonly baseUrl: string;
   private onError: ((message: string) => void) | null = null;
   private onNetworkError: (() => void) | null = null;
@@ -104,41 +106,13 @@ export class ApiRequestRuntime {
 
   setAuthToken(token: string | null): boolean {
     const changed = this.authToken !== token;
-    if (changed) {
-      this.authRevision += 1;
-      this.sessionRenewal = null;
-    }
+    if (changed) this.sessionRenewals.tokenChanged();
     this.authToken = token;
     return changed;
   }
 
   getAuthToken(): string | null {
     return this.authToken;
-  }
-
-  private currentRenewalToken(from: string | null): string | null {
-    return this.sessionRenewal?.from === from &&
-      this.sessionRenewal.to === this.authToken
-      ? this.authToken
-      : null;
-  }
-
-  private async renewSession(): Promise<boolean> {
-    const from = this.authToken;
-    const revision = this.authRevision;
-    const renewed = await (this.onSessionExpired?.() ?? false);
-    const to = this.authToken;
-    // The trusted renewal handler may install exactly one replacement token.
-    // A later identity switch must not be mistaken for the completed renewal.
-    if (
-      renewed &&
-      from &&
-      to &&
-      from !== to &&
-      this.authRevision === revision + 1
-    )
-      this.sessionRenewal = { from, to };
-    return renewed;
   }
 
   getRequestFailure(input: { method: HttpMethod; path: string }) {
@@ -315,13 +289,14 @@ export class ApiRequestRuntime {
       code: errorDescription.code,
       getCurrentAuthToken: () => this.authToken,
       isKnownSessionRenewal: (from, to) =>
-        this.sessionRenewal?.from === from && this.sessionRenewal.to === to,
+        this.sessionRenewals.isKnown(from, to),
+      pendingSessionRenewal: (from) => this.sessionRenewals.pending(from),
       options,
-      refreshSession: () => this.renewSession(),
+      refreshSession: () => this.sessionRenewals.renew(this.onSessionExpired),
       reportError: (message) => this.onError?.(message),
       responseStatus: response.status,
     });
-    const retryAuthToken = this.currentRenewalToken(authToken);
+    const retryAuthToken = this.sessionRenewals.currentToken(authToken);
     // Recheck after the awaited helper and the host's renewal notification.
     if (shouldRetry && retryAuthToken) {
       if (options.retryOnSessionExpired === "renew-only")

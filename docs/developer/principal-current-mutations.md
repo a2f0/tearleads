@@ -73,22 +73,23 @@ history or send a mutation;
 trusted signing identity or authority resolution may perform their own reads.
 
 It restores the authenticated verifier, checks the complete receipt and signed
-successor, then stores a single evidence entry and its index nodes. All supplied
-policies' artifacts, progress and checkpoints are published in one guarded SQLite
-transaction. The transaction rechecks the latest pins and compares the saved
-prefix with the authenticated snapshot used for reconciliation. If a reader has
-already recovered the receipt or a descendant, retention proves the exact receipt
-and durable checkpoint against the newer private history root. It preserves the
-newer prefix and pin while atomically retaining the receipt and retirements.
-Overlapping identical acknowledgements succeed without resubmitting HTTP. Local
-CAS losses retry reconciliation up to eight times, then return an ordinary
-retryable error. Missing or conflicting pins, forks and tampered evidence still
-fail; no exception handler treats verification failures as successful races.
-Optional grant retirements must refer to an included
-policy's signed current or predecessor grants; the exported
-`AcknowledgedPrincipalCurrentRetirement` type describes those inputs. When a batch
-contains groups, it must also contain their directory receipt, whose signed
-descriptor binds each group's exact acknowledged head.
+successor, then stores a single evidence entry and its index nodes. All
+supplied policies' artifacts, progress and checkpoints are published in one
+guarded SQLite transaction. The transaction rechecks the latest pins and
+compares the saved prefix with the authenticated snapshot used for
+reconciliation. If a reader has already recovered the receipt or a descendant,
+retention proves the exact receipt and durable checkpoint against the newer
+private history root. It preserves the newer prefix and pin while atomically
+retaining the receipt and retirements. Overlapping identical acknowledgements
+succeed without resubmitting HTTP. Local CAS losses allow up to eight
+publication attempts (seven retries), then return an ordinary retryable error.
+Missing or conflicting pins, forks and tampered evidence still fail; no
+exception handler treats verification failures as successful races. Optional
+grant retirements must refer to an included policy's signed current or
+predecessor grants; the exported `AcknowledgedPrincipalCurrentRetirement` type
+describes those inputs. When a batch contains groups, it must also contain
+their directory receipt, whose signed descriptor binds each group's exact
+acknowledged head.
 
 Completed exact-head stages retain earlier encrypted envelopes when the reusable
 prefix advances. If only a completed prefix survives for the predecessor, its

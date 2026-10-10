@@ -60,11 +60,14 @@ async function createLinkedFixture() {
   };
 }
 
-for (const inside of [false, true]) {
-  test(`subtree unlink checks the exact signed target path (inside: ${inside})`, async () => {
+for (const scenario of ["outside", "inside", "late-refusal"]) {
+  const inside = scenario !== "outside";
+  const allowed = scenario === "inside";
+  test(`subtree unlink checks the exact signed target path (${scenario})`, async () => {
     const fixture = await createLinkedFixture();
     const { close, execSql } = await createTestExecSql("unlink-subtree-path");
     let submissions = 0;
+    let submissionChecks = 0;
     try {
       const result = relinkRemoteDocument({
         apiClient: createMockApiClient({
@@ -78,6 +81,10 @@ for (const inside of [false, true]) {
           },
         }),
         author: fixture.author,
+        beforeSubmit: async () => {
+          submissionChecks += 1;
+          return allowed;
+        },
         documentId: fixture.writerProjection.documentId,
         expectedSubtreeRootId: inside
           ? fixture.parent.containerId
@@ -91,15 +98,17 @@ for (const inside of [false, true]) {
         targetContainerId: fixture.child.containerId,
         targetSecretKey: fixture.secretKey,
       });
-      if (inside)
+      if (allowed)
         expect((await result)?.linkedContainerIds).toEqual([
           fixture.parent.containerId,
         ]);
+      else if (inside) expect(await result).toBeNull();
       else
         await expect(result).rejects.toThrow(
           "outside the requested purge subtree",
         );
-      expect(submissions).toBe(inside ? 1 : 0);
+      expect(submissionChecks).toBe(inside ? 1 : 0);
+      expect(submissions).toBe(allowed ? 1 : 0);
     } finally {
       close();
     }

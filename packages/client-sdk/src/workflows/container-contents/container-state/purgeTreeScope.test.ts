@@ -26,6 +26,7 @@ for (const scenario of [
   "inside",
   "pending-before",
   "pending-during",
+  "unavailable",
 ] as const)
   test(`subtree purge respects signed ancestry and placement (${scenario})`, async () => {
     const signedInside = scenario !== "outside";
@@ -57,21 +58,23 @@ for (const scenario of [
           targetContainerId: parent.projection.containerId,
         });
       let purging = false;
+      const containerDeletes: string[] = [];
       const state = {
         containersById: new Map(),
         persistence: sqlContainerContentsPersistence,
         runtime: {
           apiClient: {
             getContainerWriterProjection: async () => {
+              if (purging && scenario === "unavailable")
+                throw new Error("Projection transport unavailable");
               if (purging && scenario === "pending-during")
                 await queueRestore();
               return projection;
             },
-            deleteContainerResult: async () => ({
-              ok: false,
-              status: 409,
-              report: () => {},
-            }),
+            deleteContainerResult: async (containerId: string) => {
+              containerDeletes.push(containerId);
+              return { ok: false, status: 409, report: () => {} };
+            },
             getCurrentPrincipalPolicy: async () => null,
             evictContainerWriterProjection: () => undefined,
           },
@@ -146,16 +149,31 @@ for (const scenario of [
         container: { id: trashId, parentId: parent.projection.containerId },
       } as ContainerState);
       if (scenario === "pending-before") await queueRestore();
+      const localOnlyId = crypto.randomUUID();
+      if (scenario === "unavailable")
+        await sqlDocumentsPersistence.saveDocument(execSql, {
+          id: localOnlyId,
+          documentId: null,
+          containerId: trashId,
+          accessEpoch: 1,
+          documentKind: "note",
+          snapshotEndVersion: "",
+          text: "",
+          title: "Still eligible",
+        });
       const controller = new AbortController();
       const planned: string[] = [];
       purging = true;
-      await purgeContainerTree({
+      const result = await purgeContainerTree({
         containersById: state.containersById,
         keepRootContainer: true,
         rootContainerId: trashId,
         documentOperations: {
-          purgeLocal: async () => {
-            throw new Error("unexpected local document");
+          purgeLocal: async (document) => {
+            if (scenario !== "unavailable")
+              throw new Error("unexpected local document");
+            planned.push(document.id);
+            return true;
           },
           purgeRemote: async (document) => {
             if (!document.documentId)
@@ -174,6 +192,20 @@ for (const scenario of [
         runtime: state.runtime as ContainerContentsWorkflowRuntime,
         signal: controller.signal,
       });
-      expect(planned).toEqual(scenario === "inside" ? [documentId] : []);
+      expect(planned).toEqual(
+        scenario === "inside"
+          ? [documentId]
+          : scenario === "unavailable"
+            ? [localOnlyId]
+            : [],
+      );
+      if (scenario === "outside" || scenario === "unavailable")
+        expect(containerDeletes).toEqual([]);
+      if (scenario === "unavailable")
+        expect(result).toMatchObject({
+          aborted: false,
+          completedCount: 1,
+          failedCount: 2,
+        });
     });
   });

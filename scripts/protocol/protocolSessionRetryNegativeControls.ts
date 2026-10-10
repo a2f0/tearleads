@@ -2,6 +2,14 @@ import type { NegativeControl } from "./protocolNegativeControls";
 
 export const SESSION_RETRY_NEGATIVE_CONTROLS: readonly NegativeControl[] = [
   {
+    id: "session-retry-refuses-pending-renewal",
+    module: "formal/local-trust/SessionRetryIdentity.tla",
+    config: "formal/local-trust/SessionRetryIdentity.cfg",
+    constants: { JoinPendingRenewal: "FALSE" },
+    expect: { kind: "invariant", name: "HonestRenewalReplays" },
+    why: "Concurrent requests must join renewal after its token is installed but before its callback completes (#2485 finding 3).",
+  },
+  {
     id: "session-retry-blind-token-change",
     module: "formal/local-trust/SessionRetryIdentity.tla",
     config: "formal/local-trust/SessionRetryIdentity.cfg",

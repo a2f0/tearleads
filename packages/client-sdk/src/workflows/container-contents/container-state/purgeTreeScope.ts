@@ -1,8 +1,10 @@
 import { KeyingVerificationError } from "@tearleads/crypto";
 import type { DocumentSummary } from "../../../data/documents/documentSummary";
+import { errorMessage } from "../../../data/errorMessage";
 import type { ProjectionUserKeyResolver } from "../../../data/keyingProjectionVerification";
 import { verifyContainerWriterProjection } from "../../../data/keyingProjectionVerification/containerProjectionVerification";
 import { runWithSecurityIncidentReporting } from "../../../data/keyingProjectionVerification/error";
+import { rethrowProjectionVerificationCancelled } from "../../../data/keyingProjectionVerification/types";
 import { hasUnsettledDocumentPlacement } from "../../../data/persistence/container-contents/documentPurgePlacement";
 import { sqlDocumentsPersistence } from "../../../data/persistence/documents/documentsPersistence";
 import { createRuntimePrincipalPolicyWarmer } from "../../principals/runtimePolicyWarmer";
@@ -143,16 +145,33 @@ async function documentPlacementIsCurrent(
 export function createSubtreePurgeScope(input: SubtreePurgeScopeInput) {
   return {
     allowsContainer: (containerId: string) =>
-      allowsContainer(input, containerId),
-    async allowsDocument(document: DocumentSummary): Promise<boolean> {
-      if (
-        !document.containerId ||
-        !(await documentPlacementIsCurrent(input, document))
-      )
-        return false;
-      if (!(await allowsContainer(input, document.containerId))) return false;
-      // A restore can be queued while signature and ancestry verification await.
-      return documentPlacementIsCurrent(input, document);
-    },
+      checkAvailableScope(input, () => allowsContainer(input, containerId)),
+    allowsDocument: (document: DocumentSummary) =>
+      checkAvailableScope(input, async () => {
+        if (
+          !document.containerId ||
+          !(await documentPlacementIsCurrent(input, document))
+        )
+          return false;
+        if (!(await allowsContainer(input, document.containerId))) return false;
+        // A restore can be queued while signature and ancestry verification await.
+        return documentPlacementIsCurrent(input, document);
+      }),
   };
+}
+
+async function checkAvailableScope(
+  input: SubtreePurgeScopeInput,
+  check: () => Promise<boolean>,
+): Promise<boolean> {
+  try {
+    return await check();
+  } catch (error) {
+    rethrowProjectionVerificationCancelled(error);
+    if (error instanceof KeyingVerificationError) throw error;
+    input.runtime.util.log(
+      `Container contents: purge scope unavailable: ${errorMessage(error)}`,
+    );
+    return false;
+  }
 }
