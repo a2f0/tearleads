@@ -17,6 +17,7 @@ import {
   relinkRemoteDocument,
   resolveDocumentCreateAuthor,
 } from "../documents";
+import type { SubtreePurgeRoot } from "../documents/subtreePurgeScope";
 import { createRuntimePrincipalPolicyWarmer } from "../principals/runtimePolicyWarmer";
 import { resolveContainerDocumentMoveUnlinkIds } from "./documentMoveUnlinkIds";
 import type { ContainerContentsWorkflowRuntime } from "./runtime";
@@ -201,7 +202,7 @@ function reportDocumentLinkMutationFailure(
 export async function relinkRemoteContainerDocument(input: {
   beforeSubmit?: (() => Promise<boolean>) | undefined;
   documentId: string;
-  expectedSubtreeRootId?: string | undefined;
+  expectedSubtreeRoot?: SubtreePurgeRoot | undefined;
   isCurrent?: (() => boolean) | undefined;
   noteId: string;
   onFailure?: DocumentLinkSetFailureHandler | undefined;
@@ -240,7 +241,7 @@ export async function relinkRemoteContainerDocument(input: {
       apiClient: runtime.apiClient,
       author,
       documentId,
-      expectedSubtreeRootId: input.expectedSubtreeRootId,
+      expectedSubtreeRoot: input.expectedSubtreeRoot,
       execSql,
       onFailure: input.onFailure,
       operation,
@@ -309,7 +310,7 @@ async function linkRemoteContainerDocument(input: {
 export async function unlinkRemoteContainerDocument(input: {
   beforeSubmit?: (() => Promise<boolean>) | undefined;
   documentId: string;
-  expectedSubtreeRootId?: string | undefined;
+  expectedSubtreeRoot?: SubtreePurgeRoot | undefined;
   isCurrent?: (() => boolean) | undefined;
   noteId: string;
   onFailure?: DocumentLinkSetFailureHandler | undefined;

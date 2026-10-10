@@ -40,7 +40,10 @@ import {
 import { ProjectionDependencyUnavailableError } from "../../data/keyingProjectionVerification/dependencyUnavailable";
 import { documentContainerProjections } from "../../data/keyingProjectionVerification/documentContainerProjections";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
-import { assertSubtreePurgePath } from "./subtreePurgeScope";
+import {
+  assertSubtreePurgePath,
+  type SubtreePurgeRoot,
+} from "./subtreePurgeScope";
 
 interface DocumentPurgeApi {
   getDocumentPurgeProof(
@@ -134,7 +137,7 @@ async function resolveDocumentPurgeWriterProjection(input: {
 
 export async function buildDocumentPurgeRequest(input: {
   readonly author: DocumentCreateAuthor;
-  readonly expectedSubtreeRootId?: string | undefined;
+  readonly expectedSubtreeRoot?: SubtreePurgeRoot | undefined;
   readonly eventId?: string | undefined;
   readonly signedAt?: string | undefined;
   readonly writerProjection: DocumentWriterProjectionResponse;
@@ -170,10 +173,7 @@ export async function buildDocumentPurgeRequest(input: {
   if (!authorizingProjection || !containerId || !containerManifestHash) {
     throw new Error("Document purge authorization path is unavailable");
   }
-  assertSubtreePurgePath(
-    authorizingProjection.path,
-    input.expectedSubtreeRootId,
-  );
+  assertSubtreePurgePath(authorizingProjection.path, input.expectedSubtreeRoot);
   const authorizingContainerManifestHashes = authorizingProjection.path.map(
     (bundle) => bundle.manifestHash,
   );
@@ -263,7 +263,7 @@ export async function purgeRemoteDocument(input: {
   readonly apiClient: DocumentPurgeApi;
   readonly author: DocumentCreateAuthor;
   readonly documentId: string;
-  readonly expectedSubtreeRootId?: string | undefined;
+  readonly expectedSubtreeRoot?: SubtreePurgeRoot | undefined;
   readonly execSql: ExecSql;
   readonly onVerifiedPurge: (input: {
     readonly commitPurgeProof: (transactionExecSql: ExecSql) => Promise<void>;
@@ -319,7 +319,7 @@ export async function purgeRemoteDocument(input: {
   });
   const request = await buildDocumentPurgeRequest({
     author: input.author,
-    expectedSubtreeRootId: input.expectedSubtreeRootId,
+    expectedSubtreeRoot: input.expectedSubtreeRoot,
     writerProjection,
   });
   if (input.beforeSubmit && !(await input.beforeSubmit())) return null;

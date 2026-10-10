@@ -27,6 +27,7 @@ import { buildMaterializedDocumentLinkSetMutationPlan } from "./linkSet";
 import { prepareDocumentLinkBlobRewraps } from "./linkSetBlobRewraps";
 import { seedLinkSetWriterProjection } from "./linkSetProjectionSeed";
 import { completeLinkSetMutationRequest } from "./rotationBaseline";
+import type { SubtreePurgeRoot } from "./subtreePurgeScope";
 
 async function submitLinkSetMutation(input: {
   apiClient: DocumentLinkSetMutationApi;
@@ -168,7 +169,7 @@ export async function relinkRemoteDocument(input: {
   author: DocumentCreateAuthor;
   contentKey?: Uint8Array | undefined;
   documentId: string;
-  expectedSubtreeRootId?: string | undefined;
+  expectedSubtreeRoot?: SubtreePurgeRoot | undefined;
   eventId?: string | undefined;
   execSql: ExecSql;
   onFailure?: DocumentLinkSetFailureHandler | undefined;
@@ -280,7 +281,7 @@ function prepareRemoteLinkSetMutation(
       nullOnProjectionVerificationCancellation(() =>
         buildMaterializedDocumentLinkSetMutationPlan({
           author: input.author,
-          expectedSubtreeRootId: input.expectedSubtreeRootId,
+          expectedSubtreeRoot: input.expectedSubtreeRoot,
           prepareBlobRewraps: (targets) =>
             prepareDocumentLinkBlobRewraps({
               ...input,

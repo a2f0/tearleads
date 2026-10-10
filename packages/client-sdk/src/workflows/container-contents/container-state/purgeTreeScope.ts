@@ -89,10 +89,26 @@ async function verifiedRemoteScope(
   );
 }
 
+/**
+ * A local-only unit cites no signed request, so a remote ordinary root must
+ * prove that it still sits under the parent it was selected from. A system
+ * root's signed topology is fixed by its destination role.
+ */
+async function rootPlacementIsCurrent(
+  input: SubtreePurgeScopeInput,
+  verifiedAncestorsById: Map<string, readonly string[]>,
+): Promise<boolean> {
+  const root = input.containersById.get(input.rootContainerId);
+  if (!root?.record.documentId || (root.container.systemSlot ?? null) !== null)
+    return true;
+  return verifiedRemoteScope(input, root, verifiedAncestorsById);
+}
+
 async function allowsContainer(
   input: SubtreePurgeScopeInput,
   containerId: string,
   verifiedAncestorsById: Map<string, readonly string[]>,
+  localOnlyUnit: boolean,
 ): Promise<boolean> {
   const { runtime, persistence, rootContainerId } = input;
   if (input.stillCurrent?.() === false) return false;
@@ -101,6 +117,7 @@ async function allowsContainer(
   if (pendingMoves.has(rootContainerId)) return false;
   const seen = new Set<string>([rootContainerId]);
   let currentId: string | null = containerId;
+  let verifiedRemoteAncestry = false;
   while (currentId !== rootContainerId) {
     if (!currentId || seen.has(currentId) || pendingMoves.has(currentId))
       return false;
@@ -130,10 +147,17 @@ async function allowsContainer(
         ))
       )
         return false;
+      verifiedRemoteAncestry = true;
       break;
     }
     currentId = current.container.parentId;
   }
+  if (
+    localOnlyUnit &&
+    !verifiedRemoteAncestry &&
+    !(await rootPlacementIsCurrent(input, verifiedAncestorsById))
+  )
+    return false;
   return readLocalPurgeScope({
     ...input,
     containerId,
@@ -202,7 +226,12 @@ export function createSubtreePurgeScope(request: SubtreePurgeScopeInput) {
       }),
     allowsContainer: (containerId: string) =>
       checkAvailableScope(input, () =>
-        allowsContainer(input, containerId, verifiedAncestorsById),
+        allowsContainer(
+          input,
+          containerId,
+          verifiedAncestorsById,
+          !input.containersById.get(containerId)?.record.documentId,
+        ),
       ),
     allowsDocument: (document: DocumentSummary) =>
       checkAvailableScope(input, async () => {
@@ -216,6 +245,7 @@ export function createSubtreePurgeScope(request: SubtreePurgeScopeInput) {
             input,
             document.containerId,
             verifiedAncestorsById,
+            !document.documentId,
           ))
         )
           return false;
