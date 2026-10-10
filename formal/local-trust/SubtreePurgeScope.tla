@@ -1,9 +1,10 @@
 -------------------------- MODULE SubtreePurgeScope --------------------------
 EXTENDS Naturals
 
-CONSTANTS CheckCandidatePath, CheckRequestPath, CheckServerPath, CheckPendingMove
+CONSTANTS CheckCandidatePath, CheckRequestPath, CheckServerPath, CheckPendingMove,
+          CheckRootPendingMove
 ASSUME {CheckCandidatePath, CheckRequestPath, CheckServerPath,
-        CheckPendingMove} \subseteq BOOLEAN
+        CheckPendingMove, CheckRootPendingMove} \subseteq BOOLEAN
 
 VARIABLES kind, inside, initiallyInside, listed, moved, pending, phase,
           requestInside, version, requestVersion, deleted, escaped, lostMove
@@ -14,7 +15,7 @@ Init ==
   /\ kind \in {"local", "document", "container"}
   /\ inside \in BOOLEAN /\ initiallyInside = inside
   /\ listed \in BOOLEAN
-  /\ moved = FALSE /\ pending = FALSE /\ phase = "candidate"
+  /\ moved = FALSE /\ pending = "none" /\ phase = "candidate"
   /\ requestInside = FALSE /\ version = 0 /\ requestVersion = 0
   /\ deleted = FALSE /\ escaped = FALSE /\ lostMove = FALSE
 
@@ -35,8 +36,8 @@ Move ==
                   requestVersion, deleted, escaped, lostMove>>
 
 RestoreIntent ==
-  /\ kind # "local" /\ ~pending /\ phase # "done"
-  /\ pending' = TRUE
+  /\ pending = "none" /\ phase # "done"
+  /\ pending' \in {"candidate", "root"}
   /\ UNCHANGED <<kind, inside, initiallyInside, listed, moved, phase,
                   requestInside, version, requestVersion, deleted, escaped, lostMove>>
 
@@ -49,7 +50,8 @@ Prepare ==
                   version, deleted, escaped, lostMove>>
 
 CanCommit ==
-  /\ ~CheckPendingMove \/ ~pending
+  /\ ~CheckPendingMove \/ pending # "candidate"
+  /\ ~CheckRootPendingMove \/ pending # "root"
   /\ CASE kind = "document" -> requestVersion = version
        [] kind = "container" -> ~CheckServerPath \/ inside
        [] OTHER -> TRUE
@@ -58,7 +60,7 @@ Commit ==
   /\ phase = "prepared" /\ phase' = "done"
   /\ deleted' = CanCommit
   /\ escaped' = (CanCommit /\ ~inside)
-  /\ lostMove' = (CanCommit /\ pending)
+  /\ lostMove' = (CanCommit /\ pending # "none")
   /\ UNCHANGED <<kind, inside, initiallyInside, listed, moved, pending,
                   requestInside, version, requestVersion>>
 
@@ -68,13 +70,14 @@ Spec == Init /\ [][Next]_vars /\ WF_vars(CheckCandidate)
         /\ WF_vars(Prepare) /\ WF_vars(Commit)
 TypeOK ==
   /\ kind \in {"local", "document", "container"}
-  /\ {inside, initiallyInside, listed, moved, pending, requestInside,
+  /\ {inside, initiallyInside, listed, moved, requestInside,
        deleted, escaped, lostMove} \subseteq BOOLEAN
+  /\ pending \in {"none", "candidate", "root"}
   /\ phase \in {"candidate", "verified", "prepared", "done"}
   /\ version \in 0..1 /\ requestVersion \in 0..1
 DeletionStaysInScope == ~escaped
 PendingMoveSurvives == ~lostMove
 HonestQuiescentPurgeSucceeds ==
-  (phase = "done" /\ initiallyInside /\ listed /\ ~moved /\ ~pending) => deleted
+  (phase = "done" /\ initiallyInside /\ listed /\ ~moved /\ pending = "none") => deleted
 PurgeTerminates == <>(phase = "done")
 =============================================================================

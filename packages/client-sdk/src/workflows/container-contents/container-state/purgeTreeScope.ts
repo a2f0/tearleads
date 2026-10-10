@@ -59,21 +59,17 @@ async function verifiedRemoteScope(
       const rootIndex = path.findIndex(
         (head) => head.state.containerId === rootContainerId,
       );
-      const pendingMoves = new Set(
-        (
-          await input.persistence.listUnsyncedMoveIntents(runtime.infra.execSql)
-        ).map((intent) => intent.containerId),
-      );
       const latest = await input.persistence.loadContainerMetadataState(
         runtime.infra.execSql,
         targetId,
       );
+      const pendingMoves = await readPendingMoves(input);
       return (
         rootIndex >= 0 &&
         latest?.container.parentId === current.container.parentId &&
         latest.record?.documentId === current.record.documentId &&
         !path
-          .slice(rootIndex + 1)
+          .slice(rootIndex)
           .some((head) => pendingMoves.has(head.state.containerId)) &&
         input.stillCurrent?.() !== false
       );
@@ -87,14 +83,11 @@ async function allowsContainer(
 ): Promise<boolean> {
   const { runtime, persistence, rootContainerId } = input;
   if (input.stillCurrent?.() === false) return false;
-  if (containerId === rootContainerId) return true;
   const execSql = runtime.infra.execSql;
-  const pendingMoves = new Set(
-    (await persistence.listUnsyncedMoveIntents(execSql)).map(
-      (intent) => intent.containerId,
-    ),
-  );
-  const seen = new Set<string>();
+  const pendingMoves = await readPendingMoves(input);
+  if (pendingMoves.has(rootContainerId)) return false;
+  if (containerId === rootContainerId) return input.stillCurrent?.() !== false;
+  const seen = new Set<string>([rootContainerId]);
   let currentId: string | null = containerId;
   while (currentId !== rootContainerId) {
     if (!currentId || seen.has(currentId) || pendingMoves.has(currentId))
@@ -120,7 +113,21 @@ async function allowsContainer(
       });
     currentId = current.container.parentId;
   }
-  return input.stillCurrent?.() !== false;
+  const latestMoves = await readPendingMoves(input);
+  return (
+    ![...seen].some((id) => latestMoves.has(id)) &&
+    input.stillCurrent?.() !== false
+  );
+}
+
+async function readPendingMoves(input: SubtreePurgeScopeInput) {
+  return new Set(
+    (
+      await input.persistence.listUnsyncedMoveIntents(
+        input.runtime.infra.execSql,
+      )
+    ).map((intent) => intent.containerId),
+  );
 }
 
 async function documentPlacementIsCurrent(

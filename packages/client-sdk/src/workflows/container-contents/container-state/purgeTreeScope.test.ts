@@ -26,6 +26,7 @@ for (const scenario of [
   "inside",
   "pending-before",
   "pending-during",
+  "root-pending-during",
   "unavailable",
 ] as const)
   test(`subtree purge respects signed ancestry and placement (${scenario})`, async () => {
@@ -69,6 +70,25 @@ for (const scenario of [
                 throw new Error("Projection transport unavailable");
               if (purging && scenario === "pending-during")
                 await queueRestore();
+              if (purging && scenario === "root-pending-during")
+                await sqlContainerContentsPersistence.saveContainer(
+                  execSql,
+                  {
+                    id: trashId,
+                    parentId: "restored",
+                    organizationId: projection.organizationId,
+                    name: "Restored root",
+                    icon: null,
+                    metadataDocumentId: "root-metadata",
+                  },
+                  null,
+                  {
+                    moveIntent: {
+                      parentContainerId: "restored",
+                      previousParentContainerId: null,
+                    },
+                  },
+                );
               return projection;
             },
             deleteContainerResult: async (containerId: string) => {
@@ -199,7 +219,11 @@ for (const scenario of [
             ? [localOnlyId]
             : [],
       );
-      if (scenario === "outside" || scenario === "unavailable")
+      if (
+        scenario === "outside" ||
+        scenario === "unavailable" ||
+        scenario === "root-pending-during"
+      )
         expect(containerDeletes).toEqual([]);
       if (scenario === "unavailable")
         expect(result).toMatchObject({

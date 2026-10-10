@@ -33,4 +33,12 @@ export const PURGE_SCOPE_NEGATIVE_CONTROLS: readonly NegativeControl[] = [
     expect: { kind: "invariant", name: "PendingMoveSurvives" },
     why: "Subtree purge must preserve selected-root scope and pending placement work (#2485 finding 1).",
   },
+  {
+    id: "subtree-purge-skips-root-restore",
+    module: "formal/local-trust/SubtreePurgeScope.tla",
+    config: "formal/local-trust/SubtreePurgeScope.cfg",
+    constants: { CheckRootPendingMove: "FALSE" },
+    expect: { kind: "invariant", name: "PendingMoveSurvives" },
+    why: "A pending restore of the selected root must preserve every candidate, including local-only content (#2485 finding 1).",
+  },
 ];
