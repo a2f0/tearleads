@@ -888,6 +888,13 @@ publishing either policy; existing pins and prefix conflicts are preserved.
 Its predecessor,
 custody and receipt requirements are documented in [current mutations](principal-current-mutations.md).
 
+`captureAcknowledgedPrincipalPredecessor` captures sealed evidence before sending
+the mutation. Each acknowledgement requires this `AcknowledgedPrincipalPredecessor`
+in `predecessor` (null only for a newly created group). A newer authenticated
+prefix must prove the exact receipt belongs to its history; its progress and
+checkpoint remain monotonic. Concurrent local publication retries retention
+without resubmitting the request.
+
 The public `AcknowledgedPrincipalCurrentInput` and
 `AcknowledgedPrincipalCurrentRetirement` types describe batch inputs and
 signed-grant retirements.

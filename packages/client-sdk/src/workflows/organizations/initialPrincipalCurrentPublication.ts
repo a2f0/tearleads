@@ -16,6 +16,7 @@ import {
   assertPrincipalHistoryVerificationMode,
   principalHistoryVerificationContext,
 } from "../principals/principalHistoryRecoveryVerification";
+import type { AcknowledgedPrincipalPredecessor } from "./acknowledgedPrincipalPredecessor";
 import { groupPolicyMutationHead } from "./groupPolicyMutationHead";
 import { sealPrincipalCurrentPublication } from "./principalCurrentPublicationSeal";
 import { assertPrincipalPolicyReceiptArtifacts } from "./principalPolicyReceiptArtifacts";
@@ -25,11 +26,13 @@ export async function prepareInitialGroupCurrentPublication(
   input: RecoverPrincipalPolicyHistoryOptions,
   request: PutPrincipalPolicyRequest,
   response: PrincipalPolicyMutationResponse,
+  predecessor: AcknowledgedPrincipalPredecessor | null,
 ): Promise<AcknowledgedPrincipalCurrentPublication> {
   const current = () => !input.signal?.aborted && input.stillCurrent();
   assertProjectionVerificationCurrent(current);
   const expectedHead = await groupPolicyMutationHead(request);
   if (
+    predecessor !== null ||
     request.state.principalType !== "group" ||
     request.state.version !== 1 ||
     request.state.prevStateHash !== null ||

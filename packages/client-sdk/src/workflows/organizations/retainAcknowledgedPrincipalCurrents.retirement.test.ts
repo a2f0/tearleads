@@ -7,6 +7,7 @@ import {
 } from "../../../test/helpers/principalPolicyFixtures";
 import { parseOrganizationAuthorityDescriptor } from "../../data/principals/organizationAuthorityDescriptor";
 import { principalGrantRetirements } from "../../data/sqlite/principalGrantRetirementSchema";
+import { captureAcknowledgedPrincipalPredecessor } from "./acknowledgedPrincipalPredecessor";
 import { groupPolicyMutationHead } from "./groupPolicyMutationHead";
 import { buildGroupAccessSetShrinkPolicyRequest } from "./groupPolicyRequests";
 import {
@@ -75,6 +76,10 @@ test("a retirement persists a grant present only in the acknowledged predecessor
       ...f.publication,
       entries: [
         {
+          predecessor: await captureAcknowledgedPrincipalPredecessor({
+            ...group.recovery,
+            expectedHead: principalPolicyHead(group.response),
+          }),
           recovery: {
             ...group.recovery,
             expectedHead: principalPolicyHead(group.response),
@@ -83,6 +88,10 @@ test("a retirement persists a grant present only in the acknowledged predecessor
           response,
         },
         {
+          predecessor: await captureAcknowledgedPrincipalPredecessor({
+            ...directory.recovery,
+            expectedHead: principalPolicyHead(directory.response),
+          }),
           recovery: {
             ...directory.recovery,
             expectedHead: principalPolicyHead(directory.response),

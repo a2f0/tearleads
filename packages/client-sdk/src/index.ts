@@ -436,6 +436,7 @@ export {
 export type {
   AcknowledgedPrincipalCurrentInput,
   AcknowledgedPrincipalCurrentRetirement,
+  AcknowledgedPrincipalPredecessor,
   AuthoredPrincipalMutation,
   OrganizationGroupPolicyHistoryEntry,
   OrganizationNativePurchaseEligibility,
@@ -456,6 +457,7 @@ export {
   buildOrganizationGroupPolicyHistory,
   buildOrganizationProfileDocumentPatch,
   buildRosterProfileDocumentPatch,
+  captureAcknowledgedPrincipalPredecessor,
   checkNativePurchaseEligibility,
   createInitializedRosterProfileDocument,
   createOrganizationGroup,

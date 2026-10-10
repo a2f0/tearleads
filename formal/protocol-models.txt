@@ -41,3 +41,4 @@ formal/local-trust/DocumentMovePlacement.tla|formal/local-trust/DocumentMovePlac
 formal/local-trust/PurgeRecovery.tla|formal/local-trust/PurgeRecovery.cfg
 formal/local-trust/SubtreePurgeScope.tla|formal/local-trust/SubtreePurgeScope.cfg
 formal/local-trust/SessionRetryIdentity.tla|formal/local-trust/SessionRetryIdentity.cfg
+formal/local-trust/PrincipalAcknowledgementRace.tla|formal/local-trust/PrincipalAcknowledgementRace.cfg

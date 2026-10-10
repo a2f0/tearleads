@@ -1,5 +1,6 @@
 import {
   KeyingVerificationError,
+  type PrincipalPolicyCheckpoint,
   type VerifiedPrincipalPolicyCurrent,
   verifyPrincipalPolicyCheckpoint,
 } from "@tearleads/crypto";
@@ -45,6 +46,25 @@ export interface AcknowledgedPrincipalCurrentPublication {
   readonly predecessorStage: PrincipalHistoryStage | null;
   readonly predecessorIndexRootHash: string | null;
   readonly evidence: PrincipalHistoryEvidencePage;
+}
+
+export interface ReconciledPrincipalCurrentPublication
+  extends AcknowledgedPrincipalCurrentPublication {
+  readonly preservePrefix: boolean;
+  readonly observedPrefixProgress: string | null;
+  readonly observedCheckpoint: PrincipalPolicyCheckpoint | null;
+  readonly retainedPrefix: PrincipalHistoryPrefix;
+  readonly checkpointPolicy: VerifiedPrincipalPolicyCurrent;
+}
+
+/** A local writer won the CAS; retry the same authenticated receipt without HTTP. */
+export class PrincipalAcknowledgementChangedError extends Error {
+  constructor() {
+    super(
+      "Authenticated principal progress changed during acknowledgement; retry retention",
+    );
+    this.name = "PrincipalAcknowledgementChangedError";
+  }
 }
 
 export interface AcknowledgedPrincipalCurrentRetirement {
@@ -95,15 +115,20 @@ function assertPublicationScope(
 
 async function validatePublication(
   tx: ClientSQLiteTransactionScope,
-  entry: AcknowledgedPrincipalCurrentPublication,
+  entry: ReconciledPrincipalCurrentPublication,
 ) {
   const checkpoint = await loadStoredPrincipalPolicyCheckpoint(
     tx,
     entry.policy,
   );
+  if (
+    checkpoint?.version !== entry.observedCheckpoint?.version ||
+    checkpoint?.stateHash !== entry.observedCheckpoint?.stateHash
+  )
+    throw new PrincipalAcknowledgementChangedError();
   verifyPrincipalPolicyCheckpoint({
-    chain: entry.policy.retainedHistory,
-    currentState: entry.policy.state,
+    chain: entry.checkpointPolicy.retainedHistory,
+    currentState: entry.checkpointPolicy.state,
     localCheckpoint: checkpoint,
   });
   if (
@@ -119,11 +144,8 @@ async function validatePublication(
     .from(principalHistoryPrefixes)
     .where(eq(principalHistoryPrefixes.scopeId, entry.prefix.scopeId))
     .limit(1);
-  if ((prefix?.progress ?? null) !== entry.previousPrefixProgress)
-    throw new KeyingVerificationError(
-      "stale_predecessor",
-      "Authenticated principal prefix changed before acknowledgement",
-    );
+  if ((prefix?.progress ?? null) !== entry.observedPrefixProgress)
+    throw new PrincipalAcknowledgementChangedError();
 }
 
 async function archiveAcknowledgedStageKeys(
@@ -174,7 +196,7 @@ async function retainPredecessorStage(
 export async function persistAcknowledgedPrincipalCurrents(input: {
   readonly execSql: ExecSql;
   readonly organizationId: string;
-  readonly entries: readonly AcknowledgedPrincipalCurrentPublication[];
+  readonly entries: readonly ReconciledPrincipalCurrentPublication[];
   readonly retirements?:
     | readonly AcknowledgedPrincipalCurrentRetirement[]
     | undefined;
@@ -226,32 +248,40 @@ export async function persistAcknowledgedPrincipalCurrents(input: {
           })
           .run();
         await archiveAcknowledgedStageKeys(tx, entry);
-        await tx
-          .insert(principalHistoryPrefixes)
-          .values(entry.prefix)
-          .onConflictDoUpdate({
-            target: principalHistoryPrefixes.scopeId,
-            set: entry.prefix,
-          })
-          .run();
-        await reclaimCompletedPrincipalHistoryStages(tx, entry.prefix);
-        for (const id of [
-          `stage:${entry.stage.id}`,
-          `prefix:${entry.prefix.scopeId}`,
-        ])
+        if (!entry.preservePrefix)
+          await tx
+            .insert(principalHistoryPrefixes)
+            .values(entry.prefix)
+            .onConflictDoUpdate({
+              target: principalHistoryPrefixes.scopeId,
+              set: entry.prefix,
+            })
+            .run();
+        await retainPrincipalHistoryRoot(tx, {
+          id: `stage:${entry.stage.id}`,
+          scopeId: entry.prefix.scopeId,
+          organizationId,
+          rootHash: entry.evidence.indexRootHash,
+        });
+        if (!entry.preservePrefix)
           await retainPrincipalHistoryRoot(tx, {
-            id,
+            id: `prefix:${entry.prefix.scopeId}`,
             scopeId: entry.prefix.scopeId,
             organizationId,
             rootHash: entry.evidence.indexRootHash,
           });
-        await reclaimPrincipalHistoryNodes(tx, entry.prefix);
-        await upsertPrincipalPolicyCheckpointInTransaction(
-          tx,
-          entry.policy.checkpoint,
-          new Date().toISOString(),
-          organizationId,
-        );
+        await reclaimCompletedPrincipalHistoryStages(tx, entry.retainedPrefix);
+        await reclaimPrincipalHistoryNodes(tx, entry.retainedPrefix);
+        if (
+          !entry.observedCheckpoint ||
+          entry.observedCheckpoint.version < entry.policy.version
+        )
+          await upsertPrincipalPolicyCheckpointInTransaction(
+            tx,
+            entry.policy.checkpoint,
+            new Date().toISOString(),
+            organizationId,
+          );
       }
     },
     stillCurrent,

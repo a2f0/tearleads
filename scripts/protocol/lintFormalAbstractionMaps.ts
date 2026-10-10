@@ -23,6 +23,7 @@ const EXPECTED_TABLES: Readonly<Record<string, number>> = {
   "formal/local-trust/PurgeRecovery.md": 1,
   "formal/local-trust/SubtreePurgeScope.md": 1,
   "formal/local-trust/SessionRetryIdentity.md": 1,
+  "formal/local-trust/PrincipalAcknowledgementRace.md": 1,
   "formal/local-trust/SystemDestination.md": 1,
   "formal/local-trust/RootDocumentPriming.md": 1,
   "formal/local-trust/ContainerAuthoring.md": 1,

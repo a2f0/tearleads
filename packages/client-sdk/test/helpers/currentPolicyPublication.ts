@@ -1,6 +1,7 @@
 import { serializeKeyingCanonicalJson } from "@tearleads/crypto";
 import { advanceKeyingCheckpointsAtomically } from "../../src/data/persistence/keyingCheckpointAdvancePersistence";
 import { parseOrganizationAuthorityDescriptor } from "../../src/data/principals/organizationAuthorityDescriptor";
+import { captureAcknowledgedPrincipalPredecessor } from "../../src/workflows/organizations/acknowledgedPrincipalPredecessor";
 import {
   buildOrganizationGroupDirectoryPolicyRequest,
   replaceOrganizationGroupHead,
@@ -89,11 +90,17 @@ export async function currentPolicyPublicationFixture(
         entries: [
           {
             recovery: groupRecovery,
+            predecessor:
+              await captureAcknowledgedPrincipalPredecessor(groupRecovery),
             request: f.input.request,
             response: f.response,
           },
           {
             recovery: organizationRecovery,
+            predecessor:
+              await captureAcknowledgedPrincipalPredecessor(
+                organizationRecovery,
+              ),
             request: organizationRequest,
             response: organizationResponse,
           },

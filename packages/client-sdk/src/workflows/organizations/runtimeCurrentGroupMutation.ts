@@ -7,6 +7,7 @@ import type { CurrentPolicyReferenceResolver } from "../../data/principals/curre
 import { scopedGroupHistoryProtection } from "../../data/principals/principalHistoryScopeProtection";
 import { principalPolicyReferenceFromBundle } from "../../data/principals/principalPolicyAdminSigners";
 import type { PrincipalPolicyRecoveryRuntime } from "../principals/runtimePolicyRecovery";
+import { captureAcknowledgedPrincipalPredecessor } from "./acknowledgedPrincipalPredecessor";
 import { resolveCurrentGroupMutationReferences } from "./currentGroupMutationReferences";
 import { loadCurrentGroupPolicyMutationContext } from "./currentGroupPolicyMutationContext";
 import { createCurrentPrincipalMutationLease } from "./currentPrincipalMutationLease";
@@ -82,7 +83,7 @@ export function createRuntimeCurrentGroupMutation(runtime: MutationRuntime) {
               readPredecessorReference: context.readPredecessorReference,
               stillCurrent: context.stillCurrent,
             }),
-          retainAcknowledged: createCurrentMutationRetention(
+          retainAcknowledged: await createCurrentMutationRetention(
             runtime,
             input,
             context,
@@ -98,7 +99,7 @@ export function createRuntimeCurrentGroupMutation(runtime: MutationRuntime) {
   };
 }
 
-function createCurrentMutationRetention(
+async function createCurrentMutationRetention(
   runtime: MutationRuntime,
   input: MutationInput,
   context: CurrentMutationContext,
@@ -127,6 +128,15 @@ function createCurrentMutationRetention(
       ? {}
       : { loadExternalAuthority: async () => context.externalAuthority }),
   };
+  const capture = (recovery: AcknowledgedPrincipalCurrentInput["recovery"]) =>
+    captureAcknowledgedPrincipalPredecessor({
+      ...recovery,
+      execSql: runtime.infra.execSql,
+      organizationId: input.organizationId,
+      stillCurrent: context.stillCurrent,
+    });
+  const groupPredecessor = await capture(groupRecovery);
+  const directoryPredecessor = await capture(directoryRecovery);
   return async (receipt: CurrentMutationReceipt): Promise<void> => {
     assertProjectionVerificationCurrent(context.stillCurrent);
     await retainAcknowledgedPrincipalCurrents({
@@ -135,11 +145,13 @@ function createCurrentMutationRetention(
       entries: [
         {
           recovery: groupRecovery,
+          predecessor: groupPredecessor,
           request: receipt.request,
           response: receipt.response.groupPolicy,
         },
         {
           recovery: directoryRecovery,
+          predecessor: directoryPredecessor,
           request: receipt.organizationRequest,
           response: receipt.response.organizationPolicy,
         },

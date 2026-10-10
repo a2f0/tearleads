@@ -64,19 +64,27 @@ that post-commit work. A session change still stops it.
 for advanced hosts. Each `AcknowledgedPrincipalCurrentInput` supplies the exact
 authored request and complete receipt, plus the same recovery scope, local key,
 verification mode and authenticated authority loader used for its predecessor.
-The predecessor must already have both a durable checkpoint and an authenticated
-completed prefix. This function does not fetch policy history or send a mutation;
+Before submission, call `captureAcknowledgedPrincipalPredecessor` with that
+recovery context and keep its sealed result in the required `predecessor` field.
+The predecessor must have a durable checkpoint and an authenticated completed
+prefix at capture time. Built-in mutation leases capture this evidence before
+calling the authoring and dispatch callback. This function does not fetch policy
+history or send a mutation;
 trusted signing identity or authority resolution may perform their own reads.
 
 It restores the authenticated verifier, checks the complete receipt and signed
 successor, then stores a single evidence entry and its index nodes. All supplied
 policies' artifacts, progress and checkpoints are published in one guarded SQLite
 transaction. The transaction rechecks the latest pins and compares the saved
-prefix with the one restored before verification. A changed prefix or a missing,
-newer or conflicting pin requires fresh recovery. Replaying a past receipt cannot
-move current pins backwards. Sealed progress uses fresh encryption randomness,
-so overlapping identical acknowledgements also have one winner; the loser must
-recover the now-current head. Optional grant retirements must refer to an included
+prefix with the authenticated snapshot used for reconciliation. If a reader has
+already recovered the receipt or a descendant, retention proves the exact receipt
+and durable checkpoint against the newer private history root. It preserves the
+newer prefix and pin while atomically retaining the receipt and retirements.
+Overlapping identical acknowledgements succeed without resubmitting HTTP. Local
+CAS losses retry reconciliation up to eight times, then return an ordinary
+retryable error. Missing or conflicting pins, forks and tampered evidence still
+fail; no exception handler treats verification failures as successful races.
+Optional grant retirements must refer to an included
 policy's signed current or predecessor grants; the exported
 `AcknowledgedPrincipalCurrentRetirement` type describes those inputs. When a batch
 contains groups, it must also contain their directory receipt, whose signed

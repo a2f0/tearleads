@@ -9,6 +9,10 @@ export type {
 } from "../../data/principals/principalMutationJournal";
 export { UnreadablePrincipalMutationError } from "../../data/principals/principalMutationJournalRecord";
 export {
+  type AcknowledgedPrincipalPredecessor,
+  captureAcknowledgedPrincipalPredecessor,
+} from "./acknowledgedPrincipalPredecessor";
+export {
   cancelStripeSubscription,
   checkNativePurchaseEligibility,
   claimNativeOrganizationSubscription,

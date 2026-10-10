@@ -268,6 +268,7 @@ const EXPECTED_ROOT_VALUE_EXPORTS = [
   "resolveOpIdAttribution",
   "resolveOrganizationBillingView",
   "retainAcknowledgedPrincipalCurrents",
+  "captureAcknowledgedPrincipalPredecessor",
   "revokeOrganizationContainerGrant",
   "revokeRemoteContainer",
   "rootContainerWriterProjectionFromCreatePlan",
