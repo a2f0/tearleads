@@ -170,6 +170,12 @@ edit's optional attachment rows, outgoing update, matching history tail,
 snapshot frontier, and projections in its complete-record CAS transaction.
 `loadDocumentStoreState(...)` must return the canonical record, history, and
 attachment rows from one database snapshot so startup cannot cross a relink.
+Attachment removal atomically queues the removed storage key. Required
+`orphanBlobs` methods provide the adapter's bounded queue, complete held/pending
+reference lookup, acknowledgement, and abandoned-row sweep. Store maintenance
+uses these methods for every adapter; shared bytes survive until their final
+reference is removed. Explicit `reclaimDocumentOrphanBlobs(runtime, persistence)`
+awaits the complete requested maintenance run.
 `saveHydratedAttachment(...)` must compare `expectedStorageKey` with the durable
 slot and `expectedSnapshotEndVersion` with the canonical row for the attachment's
 local document id inside one immediate transaction. A `null` expected version

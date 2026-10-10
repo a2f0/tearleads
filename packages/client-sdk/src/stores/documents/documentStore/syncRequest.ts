@@ -5,11 +5,9 @@ import {
 import {
   createDocumentWriterPublicKeyResolver,
   type DocumentRecord,
-  defaultDocumentsPersistence,
   deletePersistedDocument,
   type ExecSql,
   type PendingUpdateRecord,
-  reclaimDocumentOrphanBlobs,
   resolveDocumentCreateAuthor,
   syncRemoteDocument,
   validateDocumentSyncUpdateImports,
@@ -18,6 +16,7 @@ import { createRuntimePrincipalPolicyWarmer } from "../../../workflows/principal
 import { requestDocumentStoreSync } from "../registry";
 import { parkForAncestorRepair } from "./ancestorRepairPark";
 import { chainIdentityWrite } from "./identityWriteChain";
+import { runDocumentOrphanMaintenance } from "./orphanMaintenance";
 import { invalidateDocumentStorePullContinuation } from "./pullContinuationInvalidation";
 import {
   type DocumentState,
@@ -84,9 +83,7 @@ export async function deleteUpstreamDeletedDocument(
     if (!deletionStarted || !removedInMutation) {
       return;
     }
-    if (state.persistence === defaultDocumentsPersistence) {
-      void reclaimDocumentOrphanBlobs(state.runtime);
-    }
+    void runDocumentOrphanMaintenance(state);
     state.runtime.util.log(
       `Documents: removed local document ${state.localId} after remote deletion.`,
     );

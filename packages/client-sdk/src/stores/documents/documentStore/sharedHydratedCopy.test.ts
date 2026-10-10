@@ -151,12 +151,21 @@ test("discarding one document keeps a hydrated copy another document holds", asy
     expect(await discardDocumentStoreLocalState(state, "remote-doc-a")).toBe(
       true,
     );
+    await reclaimDocumentOrphanBlobs(state.runtime);
     expect(deleted).toEqual([]);
     expect(
       (
         await sqlDocumentsPersistence.listLocalAttachments(execSql, "doc-b")
       ).map((attachment) => attachment.storageKey),
     ).toEqual([SHARED_STORAGE_KEY]);
+    await sqlDocumentsPersistence.deleteLocalAttachment(
+      execSql,
+      "doc-b",
+      "slot-1",
+      SHARED_STORAGE_KEY,
+    );
+    await reclaimDocumentOrphanBlobs(state.runtime);
+    expect(deleted).toEqual([SHARED_STORAGE_KEY]);
   } finally {
     close();
   }

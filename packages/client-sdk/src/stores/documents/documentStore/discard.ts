@@ -1,8 +1,6 @@
-import {
-  discardPersistedDocumentToShell,
-  reclaimDocumentOrphanBlobs,
-} from "../../../workflows/documents";
+import { discardPersistedDocumentToShell } from "../../../workflows/documents";
 import { chainIdentityWrite } from "./identityWriteChain";
+import { runDocumentOrphanMaintenance } from "./orphanMaintenance";
 import { type DocumentStoreState, resetDocumentStore } from "./state";
 
 /**
@@ -93,7 +91,7 @@ export async function discardDocumentStoreLocalState(
 
     // The conversion queued the bytes its dropped rows pointed to; the
     // reclaim deletes each only once no other row references it.
-    await reclaimDocumentOrphanBlobs(runtime);
+    void runDocumentOrphanMaintenance(state);
     resetDocumentStore(state);
     runtime.util.log(
       `Documents: discarded local edits for document ${state.localId}; re-pulling the server copy`,

@@ -149,10 +149,23 @@ test("aged orphan sweep runs only once per connection", async () => {
   }
 });
 
-test("custom document persistence skips SQL orphan maintenance", async () => {
+test("custom document persistence supplies its own orphan maintenance", async () => {
   let sqlCalls = 0;
+  let listed = 0;
   const state = {
-    persistence: { ...defaultDocumentsPersistence },
+    persistence: {
+      ...defaultDocumentsPersistence,
+      ensureSchema: async () => undefined,
+      orphanBlobs: {
+        acknowledge: async () => undefined,
+        isReferenced: async () => false,
+        list: async () => {
+          listed += 1;
+          return [];
+        },
+        sweep: async () => false,
+      },
+    },
     runtime: {
       infra: {
         dbStatus: "ready",
@@ -166,5 +179,6 @@ test("custom document persistence skips SQL orphan maintenance", async () => {
 
   await runDocumentOrphanMaintenance(state);
 
+  expect(listed).toBeGreaterThan(0);
   expect(sqlCalls).toBe(0);
 });

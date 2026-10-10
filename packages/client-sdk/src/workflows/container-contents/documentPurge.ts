@@ -169,8 +169,8 @@ export async function purgeRemoteContainerDocument(
       );
       return null;
     }
-    if (deleted && persistence === defaultDocumentsPersistence) {
-      void reclaimDocumentOrphanBlobs(runtime);
+    if (deleted) {
+      void reclaimDocumentOrphanBlobs(runtime, persistence);
     }
     runtime.util.log(
       `Container contents: purged note ${noteId} (document ${documentId})`,
@@ -241,8 +241,8 @@ export async function purgeLocalContainerDocument(input: {
       );
       return null;
     }
-    if (deleted && persistence === defaultDocumentsPersistence) {
-      void reclaimDocumentOrphanBlobs(runtime);
+    if (deleted) {
+      void reclaimDocumentOrphanBlobs(runtime, persistence);
     }
     runtime.util.log(`Container contents: purged local-only note ${noteId}`);
     return {
