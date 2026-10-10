@@ -1,7 +1,9 @@
 ---------------------- MODULE PrincipalAcknowledgementRace --------------------
 EXTENDS Naturals
-CONSTANTS CapturePredecessor, RequireReceiptAncestry, PreserveProgress, RetryCAS
-ASSUME {CapturePredecessor, RequireReceiptAncestry, PreserveProgress, RetryCAS} \subseteq BOOLEAN
+CONSTANTS CapturePredecessor, RequireReceiptAncestry, PreserveProgress, RetryCAS,
+          DeferUncoveredPin
+ASSUME {CapturePredecessor, RequireReceiptAncestry, PreserveProgress, RetryCAS,
+        DeferUncoveredPin} \subseteq BOOLEAN
 Principals == {"group", "directory"}
 VARIABLES prefix, pin, maximumPrefix, maximumPin, branch, readerDone,
           phase, observedPrefix, observedPin, incident, published
@@ -22,12 +24,29 @@ Reader ==
   /\ maximumPrefix' = prefix' /\ maximumPin' = pin'
   /\ readerDone' = TRUE
   /\ UNCHANGED <<phase, observedPrefix, observedPin, incident, published>>
+(* Other verified evidence, such as a document purge proof, pins a head
+   without advancing this scope's private prefix. *)
+PinOnlyReader ==
+  /\ ~readerDone /\ phase \in {"prepare", "ready"}
+  /\ \E v \in {1, 2}, b \in {"receipt", "fork"}:
+       /\ pin' = [pin EXCEPT !["directory"] = v]
+       /\ branch' = b
+  /\ maximumPin' = pin'
+  /\ readerDone' = TRUE
+  /\ UNCHANGED <<prefix, maximumPrefix, phase, observedPrefix, observedPin,
+                  incident, published>>
+(* A pin newer than the receipt that no scoped prefix covers. *)
+UncoveredPin == \E p \in Principals: pin[p] > 1 /\ prefix[p] < pin[p]
 Prepare ==
   /\ phase = "prepare"
   /\ LET lostPredecessor == ~CapturePredecessor /\ prefix["directory"] > 0
          conflict == RequireReceiptAncestry /\ branch = "fork"
-     IN /\ phase' = IF lostPredecessor \/ conflict THEN "refused" ELSE "ready"
-        /\ incident' = (lostPredecessor \/ conflict)
+     IN /\ phase' = CASE lostPredecessor \/ conflict -> "refused"
+                       [] UncoveredPin -> "deferred"
+                       [] OTHER -> "ready"
+        \* Without deferral, the stale receipt fails the pin check as a rollback.
+        /\ incident' = (lostPredecessor \/ conflict \/
+                        (UncoveredPin /\ ~DeferUncoveredPin))
   /\ observedPrefix' = prefix /\ observedPin' = pin
   /\ UNCHANGED <<prefix, pin, maximumPrefix, maximumPin, branch, readerDone, published>>
 Commit ==
@@ -41,22 +60,25 @@ Commit ==
 LostCAS ==
   /\ phase = "ready" /\ (observedPrefix # prefix \/ observedPin # pin)
   /\ phase' = IF RetryCAS THEN "prepare" ELSE "refused"
-  /\ incident' = ~RetryCAS
+  \* A lost comparison is an ordinary error; without retry it fails the receipt.
   /\ UNCHANGED <<prefix, pin, maximumPrefix, maximumPin, branch, readerDone,
-                  observedPrefix, observedPin, published>>
-Next == Reader \/ Prepare \/ Commit \/ LostCAS
-        \/ (phase \in {"done", "refused"} /\ UNCHANGED vars)
+                  observedPrefix, observedPin, incident, published>>
+Next == Reader \/ PinOnlyReader \/ Prepare \/ Commit \/ LostCAS
+        \/ (phase \in {"done", "refused", "deferred"} /\ UNCHANGED vars)
 Spec == Init /\ [][Next]_vars /\ WF_vars(Prepare) /\ WF_vars(Commit) /\ WF_vars(LostCAS)
 TypeOK ==
   /\ prefix \in [Principals -> 0..2] /\ pin \in [Principals -> 0..2]
   /\ maximumPrefix \in [Principals -> 0..2] /\ maximumPin \in [Principals -> 0..2]
   /\ observedPrefix \in [Principals -> 0..2] /\ observedPin \in [Principals -> 0..2]
   /\ branch \in {"receipt", "fork"} /\ readerDone \in BOOLEAN
-  /\ phase \in {"prepare", "ready", "done", "refused"}
+  /\ phase \in {"prepare", "ready", "done", "refused", "deferred"}
   /\ incident \in BOOLEAN /\ published \in BOOLEAN
 HonestReaderIsNotIncident == branch = "receipt" => ~incident
 ReceiptIsOnCurrentBranch == published => branch = "receipt"
 ProgressIsMonotonic == \A p \in Principals: prefix[p] >= maximumPrefix[p] /\ pin[p] >= maximumPin[p]
 CompoundPublication == published => \A p \in Principals: prefix[p] >= 1 /\ pin[p] >= 1
-HonestReceiptCompletes == (branch = "receipt") ~> (published \/ branch = "fork")
+(* Retention defers only when no local evidence can prove the receipt. *)
+DeferralNeedsUncoveredPin == phase = "deferred" => UncoveredPin
+HonestReceiptCompletes ==
+  (branch = "receipt") ~> (published \/ branch = "fork" \/ phase = "deferred")
 =============================================================================

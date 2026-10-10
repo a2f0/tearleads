@@ -26,11 +26,19 @@ export const ACKNOWLEDGEMENT_NEGATIVE_CONTROLS: readonly NegativeControl[] = [
     why: "A delayed authenticated receipt must reconcile safely with concurrent readers (#2485 finding 4).",
   },
   {
-    id: "acknowledgement-cas-incident",
+    id: "acknowledgement-cas-retry",
     module: "formal/local-trust/PrincipalAcknowledgementRace.tla",
     config: "formal/local-trust/PrincipalAcknowledgementRace.cfg",
     constants: { RetryCAS: "FALSE" },
-    expect: { kind: "invariant", name: "HonestReaderIsNotIncident" },
+    expect: { kind: "liveness", name: "HonestReceiptCompletes" },
     why: "A delayed authenticated receipt must reconcile safely with concurrent readers (#2485 finding 4).",
+  },
+  {
+    id: "acknowledgement-uncovered-pin",
+    module: "formal/local-trust/PrincipalAcknowledgementRace.tla",
+    config: "formal/local-trust/PrincipalAcknowledgementRace.cfg",
+    constants: { DeferUncoveredPin: "FALSE" },
+    expect: { kind: "invariant", name: "HonestReaderIsNotIncident" },
+    why: "A pin admitted without scoped history must defer the receipt, not report tampering (#2485 finding 4).",
   },
 ];
