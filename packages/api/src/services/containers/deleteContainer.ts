@@ -11,6 +11,7 @@ export function deleteContainer(
   runtime: ApiServiceRuntime,
   input: {
     readonly containerId: string;
+    readonly requiredAncestorId?: string | undefined;
     readonly userId: string;
   },
 ): Promise<ContainerDeleteResponse> {

@@ -47,7 +47,10 @@ interface ContainerDocumentPurgeRuntime
 }
 
 interface PurgeRemoteContainerDocumentInput {
+  beforeSubmit?: (() => Promise<boolean>) | undefined;
   documentId: string;
+  expectedSubtreeRootId?: string | undefined;
+  stillCurrent?: (() => boolean) | undefined;
   documentKind: StoredDocumentKind;
   noteId: string;
   persistence?: DocumentsPersistence | undefined;
@@ -140,8 +143,11 @@ export async function purgeRemoteContainerDocument(
     let deleted = false;
     const response = await purgeRemoteDocument({
       apiClient: runtime.apiClient,
+      beforeSubmit: input.beforeSubmit,
       author,
       documentId,
+      expectedSubtreeRootId: input.expectedSubtreeRootId,
+      stillCurrent: input.stillCurrent,
       execSql: runtime.infra.execSql,
       onVerifiedPurge: async ({ commitPurgeProof }) => {
         deleted = await commitVerifiedDocumentPurge({
@@ -195,6 +201,7 @@ interface ContainerDocumentLocalPurgeRuntime
 
 export async function purgeLocalContainerDocument(input: {
   noteId: string;
+  expectedContainerId?: string | null | undefined;
   persistence?: DocumentsPersistence | undefined;
   runtime: ContainerDocumentLocalPurgeRuntime;
 }): Promise<DocumentPurgeResult> {
@@ -206,7 +213,12 @@ export async function purgeLocalContainerDocument(input: {
       runtime.infra.execSql,
       noteId,
     );
-    if (!expectedRecord || expectedRecord.documentId !== null) {
+    if (
+      !expectedRecord ||
+      expectedRecord.documentId !== null ||
+      (input.expectedContainerId !== undefined &&
+        expectedRecord.containerId !== input.expectedContainerId)
+    ) {
       runtime.util.log(
         `Container contents: local-only purge refused for note ${noteId} because it is absent or remote-backed`,
       );

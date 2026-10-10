@@ -39,3 +39,4 @@ formal/document-sync/AttachmentContentIdentity.tla|formal/document-sync/Attachme
 formal/blob-attachments/BlobSourceAuthority.tla|formal/blob-attachments/BlobSourceAuthority.cfg
 formal/local-trust/DocumentMovePlacement.tla|formal/local-trust/DocumentMovePlacement.cfg
 formal/local-trust/PurgeRecovery.tla|formal/local-trust/PurgeRecovery.cfg
+formal/local-trust/SubtreePurgeScope.tla|formal/local-trust/SubtreePurgeScope.cfg

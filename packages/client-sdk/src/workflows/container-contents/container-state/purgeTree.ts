@@ -14,6 +14,7 @@ import type { ContainerContentsWorkflowRuntime } from "../runtime";
 import type { PurgeProgress } from "./purgeProgress";
 import { collectSubtreeLeafFirst } from "./purgeTreeCollection";
 import { deleteSubtreeContainers } from "./purgeTreeContainerDeletion";
+import { createSubtreePurgeScope } from "./purgeTreeScope";
 
 export { collectSubtreeLeafFirst } from "./purgeTreeCollection";
 
@@ -175,6 +176,9 @@ async function planSubtreeDocuments(input: {
 }
 
 async function unlinkSubtreeDocument(input: {
+  readonly beforeSubmit: () => Promise<boolean>;
+  readonly expectedSubtreeRootId: string;
+  readonly stillCurrent?: (() => boolean) | undefined;
   readonly containerIds: readonly string[];
   readonly document: DocumentSummary;
   readonly prepareDocumentRotationSnapshot: PurgeContainerTreeInput["prepareDocumentRotationSnapshot"];
@@ -198,7 +202,10 @@ async function unlinkSubtreeDocument(input: {
   }
   for (const containerId of input.containerIds) {
     const result = await unlinkRemoteContainerDocument({
+      beforeSubmit: input.beforeSubmit,
       documentId,
+      expectedSubtreeRootId: input.expectedSubtreeRootId,
+      isCurrent: input.stillCurrent,
       noteId: input.document.id,
       resolveProjectionUserKey: input.resolveProjectionUserKey,
       rotationSnapshot,
@@ -223,36 +230,56 @@ interface SubtreeDocumentOperations {
 
 function resolveSubtreeDocumentOperations(
   input: PurgeContainerTreeInput,
+  scope: ReturnType<typeof createSubtreePurgeScope>,
 ): SubtreeDocumentOperations {
-  return (
-    input.documentOperations ?? {
-      purgeLocal: async (document) =>
-        (await purgeLocalContainerDocument({
-          noteId: document.id,
-          runtime: input.runtime,
-        })) !== null,
-      purgeRemote: async (document) =>
-        Boolean(
-          document.documentId &&
-            (await purgeRemoteContainerDocument({
-              documentId: document.documentId,
-              documentKind: document.documentKind ?? DEFAULT_DOCUMENT_KIND,
-              noteId: document.id,
-              resolveProjectionUserKey: input.resolveProjectionUserKey,
-              runtime: input.runtime,
-            })),
-        ),
-      unlink: (document, containerIds) =>
-        unlinkSubtreeDocument({
-          containerIds,
-          document,
-          prepareDocumentRotationSnapshot:
-            input.prepareDocumentRotationSnapshot,
-          resolveProjectionUserKey: input.resolveProjectionUserKey,
-          runtime: input.runtime,
-        }),
-    }
-  );
+  const operations: SubtreeDocumentOperations = input.documentOperations ?? {
+    purgeLocal: async (document) =>
+      (await purgeLocalContainerDocument({
+        noteId: document.id,
+        expectedContainerId: document.containerId,
+        runtime: input.runtime,
+      })) !== null,
+    purgeRemote: async (document) =>
+      Boolean(
+        document.documentId &&
+          (await purgeRemoteContainerDocument({
+            beforeSubmit: () => scope.allowsDocument(document),
+            documentId: document.documentId,
+            expectedSubtreeRootId: input.rootContainerId,
+            stillCurrent: input.stillCurrent,
+            documentKind: document.documentKind ?? DEFAULT_DOCUMENT_KIND,
+            noteId: document.id,
+            resolveProjectionUserKey: input.resolveProjectionUserKey,
+            runtime: input.runtime,
+          })),
+      ),
+    unlink: (document, containerIds) =>
+      unlinkSubtreeDocument({
+        beforeSubmit: () => scope.allowsDocument(document),
+        containerIds,
+        document,
+        expectedSubtreeRootId: input.rootContainerId,
+        stillCurrent: input.stillCurrent,
+        prepareDocumentRotationSnapshot: input.prepareDocumentRotationSnapshot,
+        resolveProjectionUserKey: input.resolveProjectionUserKey,
+        runtime: input.runtime,
+      }),
+  };
+  return {
+    purgeLocal: async (document) =>
+      (await scope.allowsDocument(document)) &&
+      (await operations.purgeLocal(document)),
+    purgeRemote: async (document) =>
+      (await scope.allowsDocument(document)) &&
+      (await operations.purgeRemote(document)),
+    unlink: async (document, containerIds) => {
+      if (!(await scope.allowsDocument(document))) return false;
+      for (const containerId of containerIds) {
+        if (!(await scope.allowsContainer(containerId))) return false;
+      }
+      return operations.unlink(document, containerIds);
+    },
+  };
 }
 
 interface SubtreeTeardownResult {
@@ -389,8 +416,9 @@ export async function purgeContainerTree(
   // first (potentially slow) remote call.
   emitProgress();
 
+  const scope = createSubtreePurgeScope(input);
   const teardown = await teardownSubtreeDocuments({
-    documentOperations: resolveSubtreeDocumentOperations(input),
+    documentOperations: resolveSubtreeDocumentOperations(input, scope),
     plan,
     reportStep,
     signal: input.signal,
@@ -402,6 +430,8 @@ export async function purgeContainerTree(
   let aborted = teardown.aborted;
   if (!teardown.aborted) {
     const deletion = await deleteSubtreeContainers({
+      allowsContainer: scope.allowsContainer,
+      rootContainerId: input.rootContainerId,
       persistence: input.persistence,
       reportStep,
       runtime: input.runtime,

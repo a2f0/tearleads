@@ -34,6 +34,7 @@ import { listGroupMemberUserIds } from "../../services/principals/listGroupMembe
 import type { ApiServiceRuntime } from "../../services/runtime";
 import { jsonRequestValidator } from "../../validators/jsonRequest";
 import { pathParamsValidator } from "../../validators/pathParams";
+import { queryParamsValidator } from "../../validators/queryParams";
 import { respondToStatusError } from "../errorResponse";
 import {
   publishCarriedContainerRekeys,
@@ -223,6 +224,7 @@ export function createContainerMutationsRoute({
     operationRoutePath(deleteContainerOperation),
     requireAuth,
     pathParamsValidator(deleteContainerOperation.params),
+    queryParamsValidator(deleteContainerOperation.query),
     async (c) => {
       const session = c.get("session");
       const { containerId } = c.req.valid("param");
@@ -230,6 +232,7 @@ export function createContainerMutationsRoute({
       try {
         const response = await deleteContainer(runtime, {
           containerId,
+          requiredAncestorId: c.req.valid("query").requiredAncestorId,
           userId: session.userId,
         });
         // The container is gone; interested sockets must resync (and drop it).

@@ -60,6 +60,8 @@ import {
   verifyDocumentLinkSetCurrentPolicies,
 } from "./linkSetAuthority";
 
+import { assertSubtreePurgePath } from "./subtreePurgeScope";
+
 function deriveDocumentLinkSetTargetState(input: {
   operation: DocumentLinkSetMutationOperation;
   targetContainerProjection: ContainerWriterProjectionResponse;
@@ -312,6 +314,7 @@ async function buildDocumentLinkSetMutationPlan({
 export async function buildMaterializedDocumentLinkSetMutationPlan(
   input: {
     author: DocumentCreateAuthor;
+    expectedSubtreeRootId?: string | undefined;
     prepareBlobRewraps: (
       targets: readonly DocumentContentKeyTarget[],
     ) => Promise<BuildDocumentLinkSetMutationPlanInput["blobRewraps"]>;
@@ -339,6 +342,10 @@ export async function buildMaterializedDocumentLinkSetMutationPlan(
     writerProjection: input.writerProjection,
     ...verificationOptions,
   });
+  assertSubtreePurgePath(
+    input.targetContainerProjection.path,
+    input.expectedSubtreeRootId,
+  );
   if (input.resolveProjectionUserKey)
     assertDocumentLinkAuthorAccess({
       ...input,

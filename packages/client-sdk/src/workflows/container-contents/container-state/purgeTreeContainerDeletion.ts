@@ -10,7 +10,9 @@ interface SubtreeContainerDeletionResult {
 }
 
 interface DeleteSubtreeContainersInput {
+  readonly allowsContainer: (containerId: string) => Promise<boolean>;
   readonly persistence: ContainerContentsPersistence;
+  readonly rootContainerId: string;
   readonly reportStep: (ok: boolean) => void;
   readonly runtime: ContainerContentsWorkflowRuntime;
   readonly signal?: AbortSignal | undefined;
@@ -53,7 +55,10 @@ export async function deleteSubtreeContainers(
     }
     const containerId = containerState.container.id;
     const parentId = containerState.container.parentId;
-    if (blockedParentIds.has(containerId)) {
+    if (
+      blockedParentIds.has(containerId) ||
+      !(await input.allowsContainer(containerId))
+    ) {
       if (parentId !== null) {
         blockedParentIds.add(parentId);
       }
@@ -62,6 +67,7 @@ export async function deleteSubtreeContainers(
     }
     const deleted = await deleteContainerState({
       containerState,
+      requiredAncestorId: input.rootContainerId,
       persistence: input.persistence,
       runtime: input.runtime,
       stillCurrent: input.stillCurrent,

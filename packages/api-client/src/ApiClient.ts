@@ -1453,25 +1453,24 @@ export class ApiClient {
     });
   }
 
-  deleteContainer(containerId: string, options: RequestResultOptions = {}) {
-    return this.request(
-      containerDelete.path(containerId),
-      containerDelete.isResponse,
-      containerDelete.method,
-      undefined,
-      options,
-      deleteContainerOperation,
-    ).finally(() => {
-      this.clearWriterProjectionCaches();
-    });
+  async deleteContainer(
+    containerId: string,
+    options: RequestResultOptions & {
+      requiredAncestorId?: string | undefined;
+    } = {},
+  ) {
+    const result = await this.deleteContainerResult(containerId, options);
+    return result.ok ? result.data : null;
   }
 
   deleteContainerResult(
     containerId: string,
-    options: RequestResultOptions = {},
+    options: RequestResultOptions & {
+      requiredAncestorId?: string | undefined;
+    } = {},
   ): Promise<RequestResult<ContainerDeleteResponse>> {
     return this.requestResult(
-      containerDelete.path(containerId),
+      containerDelete.path(containerId, options.requiredAncestorId),
       containerDelete.isResponse,
       containerDelete.method,
       undefined,

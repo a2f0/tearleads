@@ -12,6 +12,7 @@ type DeleteContainerStateResult =
 export async function deleteContainerState(input: {
   containerState: ContainerState;
   persistence: ContainerContentsPersistence;
+  requiredAncestorId?: string | undefined;
   runtime: ContainerWorkflowRuntime;
   stillCurrent?: (() => boolean) | undefined;
 }): Promise<DeleteContainerStateResult> {
@@ -21,6 +22,7 @@ export async function deleteContainerState(input: {
   if (isRemoteContainer) {
     const deletedRemoteContainer = await deleteRemoteContainer({
       containerId: input.containerState.container.id,
+      requiredAncestorId: input.requiredAncestorId,
       organizationId: input.containerState.container.organizationId,
       runtime: input.runtime,
     });

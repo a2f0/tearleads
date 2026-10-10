@@ -251,6 +251,7 @@ export async function moveRemoteContainer(input: {
 export async function deleteRemoteContainer(input: {
   containerId: string;
   organizationId: string;
+  requiredAncestorId?: string | undefined;
   runtime: ContainerWorkflowRuntime;
 }): Promise<{ deletedAt: string } | null> {
   const deleteResult = await input.runtime.apiClient.deleteContainerResult(
@@ -258,6 +259,7 @@ export async function deleteRemoteContainer(input: {
     {
       expectedPaymentRequiredOrganizationId: input.organizationId,
       reportErrors: false,
+      requiredAncestorId: input.requiredAncestorId,
     },
   );
   if (!deleteResult.ok && !isContainerNotFoundFailure(deleteResult)) {

@@ -7462,7 +7462,9 @@ export interface operations {
     };
     "containers.delete": {
         parameters: {
-            query?: never;
+            query?: {
+                requiredAncestorId?: string;
+            };
             header?: never;
             path: {
                 containerId: string;

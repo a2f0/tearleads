@@ -11,6 +11,7 @@ import {
   isDeleteContainerOperationResponse,
   moveContainerOperation,
   operationRequestPath,
+  operationRequestPathWithQuery,
   reciteContainerOperation,
   rekeyContainerOperation,
   revokeContainerOperation,
@@ -87,6 +88,10 @@ export const containerMove = {
 export const containerDelete = {
   isResponse: isDeleteContainerOperationResponse,
   method: deleteContainerOperation.method,
-  path: (containerId: string) =>
-    operationRequestPath(deleteContainerOperation, { containerId }),
+  path: (containerId: string, requiredAncestorId?: string) =>
+    operationRequestPathWithQuery(
+      deleteContainerOperation,
+      { containerId },
+      { requiredAncestorId },
+    ),
 } as const;
