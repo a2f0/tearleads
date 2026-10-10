@@ -10,6 +10,9 @@ type DeleteContainerStateResult =
   | "remote-failed";
 
 export async function deleteContainerState(input: {
+  beforeDeleteInTransaction?: NonNullable<
+    Parameters<ContainerContentsPersistence["deleteContainers"]>[2]
+  >["beforeDeleteInTransaction"];
   containerState: ContainerState;
   persistence: ContainerContentsPersistence;
   requiredAncestorId?: string | undefined;
@@ -43,6 +46,7 @@ export async function deleteContainerState(input: {
       },
     ],
     {
+      beforeDeleteInTransaction: input.beforeDeleteInTransaction,
       expectedContainers: [
         { containerId, expectedContainer: input.containerState.container },
       ],

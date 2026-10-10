@@ -7,7 +7,7 @@ interface LocalPurgeScopeInput {
   containerId: string | null | undefined;
   containersById: ReadonlyMap<string, ContainerState>;
   execSql: ExecSql;
-  localId: string;
+  localId?: string | undefined;
   persistence: ContainerContentsPersistence;
   rootContainerId: string;
   stillCurrent?: (() => boolean) | undefined;
@@ -36,7 +36,10 @@ function guardedContainerIds(input: LocalPurgeScopeInput): ReadonlySet<string> {
 export async function assertLocalPurgeScope(
   input: LocalPurgeScopeInput,
 ): Promise<void> {
-  if (await hasUnsettledDocumentPlacement(input.execSql, input.localId))
+  if (
+    input.localId !== undefined &&
+    (await hasUnsettledDocumentPlacement(input.execSql, input.localId))
+  )
     throw changedScope();
   const guardedIds = guardedContainerIds(input);
   // Include every known signed ancestor as well as the local selection chain.

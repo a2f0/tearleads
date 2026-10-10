@@ -2,9 +2,11 @@
 EXTENDS Naturals
 
 CONSTANTS CheckCandidatePath, CheckRequestPath, CheckServerPath, CheckPendingMove,
-          CheckRootPendingMove, CheckLocalPlacement
+          CheckRootPendingMove, CheckLocalPlacement, CheckLocalContainerPlacement,
+          CaptureLocalScope
 ASSUME {CheckCandidatePath, CheckRequestPath, CheckServerPath,
-        CheckPendingMove, CheckRootPendingMove, CheckLocalPlacement} \subseteq BOOLEAN
+        CheckPendingMove, CheckRootPendingMove, CheckLocalPlacement,
+        CheckLocalContainerPlacement, CaptureLocalScope} \subseteq BOOLEAN
 
 VARIABLES kind, inside, initiallyInside, listed, moved, pending, phase,
           requestInside, version, requestVersion, deleted, escaped, lostMove
@@ -12,7 +14,7 @@ vars == <<kind, inside, initiallyInside, listed, moved, pending, phase,
           requestInside, version, requestVersion, deleted, escaped, lostMove>>
 
 Init ==
-  /\ kind \in {"local", "document", "container"}
+  /\ kind \in {"local", "local-container", "document", "container"}
   /\ inside \in BOOLEAN /\ initiallyInside = inside
   /\ listed \in BOOLEAN
   /\ moved = FALSE /\ pending = "none" /\ phase = "candidate"
@@ -45,18 +47,23 @@ RestoreIntent ==
 Prepare ==
   /\ phase = "verified"
   /\ requestInside' = inside
-  /\ requestVersion' = IF kind = "local" THEN requestVersion ELSE version
+  /\ requestVersion' = IF kind \in {"local", "local-container"}
+                        THEN requestVersion ELSE version
   /\ phase' = IF kind = "document" /\ CheckRequestPath /\ ~inside
               THEN "done" ELSE "prepared"
   /\ UNCHANGED <<kind, inside, initiallyInside, listed, moved, pending,
                   version, deleted, escaped, lostMove>>
+
+LocalPlacementCurrent ==
+  (IF CaptureLocalScope THEN requestVersion ELSE version) = version
 
 CanCommit ==
   /\ ~CheckPendingMove \/ pending # "candidate"
   /\ ~CheckRootPendingMove \/ pending # "root"
   /\ CASE kind = "document" -> requestVersion = version
        [] kind = "container" -> ~CheckServerPath \/ inside
-       [] OTHER -> ~CheckLocalPlacement \/ requestVersion = version
+       [] kind = "local" -> ~CheckLocalPlacement \/ LocalPlacementCurrent
+       [] OTHER -> ~CheckLocalContainerPlacement \/ LocalPlacementCurrent
 
 Commit ==
   /\ phase = "prepared" /\ phase' = "done"
@@ -71,7 +78,7 @@ Next == CheckCandidate \/ Move \/ RestoreIntent \/ Prepare \/ Commit
 Spec == Init /\ [][Next]_vars /\ WF_vars(CheckCandidate)
         /\ WF_vars(Prepare) /\ WF_vars(Commit)
 TypeOK ==
-  /\ kind \in {"local", "document", "container"}
+  /\ kind \in {"local", "local-container", "document", "container"}
   /\ {inside, initiallyInside, listed, moved, requestInside,
        deleted, escaped, lostMove} \subseteq BOOLEAN
   /\ pending \in {"none", "candidate", "root"}

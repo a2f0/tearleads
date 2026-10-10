@@ -13,6 +13,7 @@ import type { ContainerContentsPersistence } from "../containerPersistence";
 import type { ContainerState } from "../remoteHydration";
 import type { ContainerContentsWorkflowRuntime } from "../runtime";
 import { assertLocalPurgeScope } from "./localPurgeScope";
+import { snapshotContainerStates } from "./purgeTreeCollection";
 
 interface SubtreePurgeScopeInput {
   containersById: ReadonlyMap<string, ContainerState>;
@@ -183,9 +184,23 @@ async function documentPlacementIsCurrent(
 }
 
 /** Listing edges only select candidates; each destructive unit proves its scope. */
-export function createSubtreePurgeScope(input: SubtreePurgeScopeInput) {
+export function createSubtreePurgeScope(request: SubtreePurgeScopeInput) {
+  const input = {
+    ...request,
+    containersById: snapshotContainerStates(request.containersById),
+  };
   const verifiedAncestorsById = new Map<string, readonly string[]>();
   return {
+    allowsLocalScopeInTransaction: (execSql: ExecSql, containerId: string) =>
+      checkAvailableScope(input, async () => {
+        await assertLocalPurgeScope({
+          ...input,
+          execSql,
+          containerId,
+          verifiedAncestorsById,
+        });
+        return true;
+      }),
     assertLocalScopeInTransaction: (
       execSql: ExecSql,
       containerId: string | null | undefined,

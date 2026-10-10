@@ -12,7 +12,10 @@ import {
 import type { ContainerState } from "../remoteHydration";
 import type { ContainerContentsWorkflowRuntime } from "../runtime";
 import type { PurgeProgress } from "./purgeProgress";
-import { collectSubtreeLeafFirst } from "./purgeTreeCollection";
+import {
+  collectSubtreeLeafFirst,
+  snapshotContainerStates,
+} from "./purgeTreeCollection";
 import { deleteSubtreeContainers } from "./purgeTreeContainerDeletion";
 import { createSubtreePurgeScope } from "./purgeTreeScope";
 
@@ -361,11 +364,15 @@ async function teardownSubtreeDocuments(input: {
 // counts and whether a cancellation cut it short. Returns null only when the
 // target container is absent from the snapshot.
 export async function purgeContainerTree(
-  input: PurgeContainerTreeInput,
+  request: PurgeContainerTreeInput,
 ): Promise<PurgeContainerTreeResult | null> {
-  if (purgeWasCancelled(input)) {
+  if (purgeWasCancelled(request)) {
     return null;
   }
+  const input = {
+    ...request,
+    containersById: snapshotContainerStates(request.containersById),
+  };
   const subtreeStates = collectSubtreeLeafFirst(
     input.containersById,
     input.rootContainerId,
@@ -437,6 +444,7 @@ export async function purgeContainerTree(
   if (!teardown.aborted) {
     const deletion = await deleteSubtreeContainers({
       allowsContainer: scope.allowsContainer,
+      allowsLocalScopeInTransaction: scope.allowsLocalScopeInTransaction,
       rootContainerId: input.rootContainerId,
       persistence: input.persistence,
       reportStep,

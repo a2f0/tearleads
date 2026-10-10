@@ -16,6 +16,7 @@ for (const race of [
   "root-restore",
   "blocked-restore",
   "ancestor-move",
+  "live-root-move",
 ] as const) {
   test(`local deletion rolls back changed subtree scope (${race})`, async () => {
     await withTestExecSql("purge-scope-transaction", async (execSql) => {
@@ -117,7 +118,7 @@ for (const race of [
                       lockedExecSql,
                       { ...state.container, parentId: "outside" },
                       state.record,
-                      race === "ancestor-move"
+                      race === "ancestor-move" || race === "live-root-move"
                         ? undefined
                         : {
                             moveIntent: {
@@ -127,6 +128,13 @@ for (const race of [
                             },
                           },
                     );
+                    if (race === "live-root-move") {
+                      state.container.parentId = "outside";
+                      containersById.set(id, {
+                        ...state,
+                        container: { ...state.container },
+                      });
+                    }
                     if (race === "blocked-restore")
                       await persistence.recordMoveIntentError(lockedExecSql, {
                         blocked: true,

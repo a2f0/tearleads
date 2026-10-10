@@ -198,6 +198,10 @@ export interface ContainerContentsPersistence
     execSql: ExecSql,
     removals: ReadonlyArray<ContainerRemoval>,
     options?: {
+      /** Must run inside the deletion transaction before any row is removed. */
+      beforeDeleteInTransaction?:
+        | ((transactionExecSql: ExecSql) => Promise<boolean>)
+        | undefined;
       /** Unsigned discovery removes listings but preserves metadata and local intent. */
       discoveryOnly?: boolean;
       /**

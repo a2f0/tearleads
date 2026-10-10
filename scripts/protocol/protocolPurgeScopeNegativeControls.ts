@@ -49,4 +49,20 @@ export const PURGE_SCOPE_NEGATIVE_CONTROLS: readonly NegativeControl[] = [
     expect: { kind: "invariant", name: "DeletionStaysInScope" },
     why: "Local document teardown must compare its placement and ancestor chain inside the deletion transaction (#2485 finding 1).",
   },
+  {
+    id: "subtree-purge-skips-local-container-transaction-scope",
+    module: "formal/local-trust/SubtreePurgeScope.tla",
+    config: "formal/local-trust/SubtreePurgeScope.cfg",
+    constants: { CheckLocalContainerPlacement: "FALSE" },
+    expect: { kind: "invariant", name: "DeletionStaysInScope" },
+    why: "Local folder deletion must check ancestor placement and intent in its own transaction (#2485 finding 1).",
+  },
+  {
+    id: "subtree-purge-mutates-captured-scope",
+    module: "formal/local-trust/SubtreePurgeScope.tla",
+    config: "formal/local-trust/SubtreePurgeScope.cfg",
+    constants: { CaptureLocalScope: "FALSE" },
+    expect: { kind: "invariant", name: "DeletionStaysInScope" },
+    why: "A live store update must not replace the purge's captured placement (#2485 finding 1).",
+  },
 ];
