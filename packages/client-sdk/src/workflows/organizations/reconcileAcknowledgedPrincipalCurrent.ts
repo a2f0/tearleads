@@ -27,7 +27,12 @@ function reconcileReceiptOnly(
   // Other verified evidence, such as a document purge proof, can pin a newer
   // head without advancing this scope's prefix. That is honest progress this
   // receipt cannot prove membership in: retry after recovery, not a rollback.
-  if (checkpoint && checkpoint.version > publication.policy.version)
+  // A genesis receipt has no predecessor, so any existing pin stays a conflict.
+  if (
+    publication.predecessorStage &&
+    checkpoint &&
+    checkpoint.version > publication.policy.version
+  )
     throw new PrincipalHistoryEvidenceUnavailableError(
       new KeyingVerificationError(
         "missing_dependency",

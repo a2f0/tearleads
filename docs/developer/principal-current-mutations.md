@@ -85,7 +85,8 @@ succeed without resubmitting HTTP. Local CAS losses allow up to eight
 publication attempts (seven retries), then return an ordinary retryable error.
 A newer pin admitted by other verified evidence, such as a document purge
 proof, without a newer prefix in this scope is also an ordinary retryable
-error rather than an integrity failure; a later read reconciles the receipt.
+error rather than an integrity failure for a receipt that extends an existing
+head; a later read reconciles it. A genesis receipt still refuses any pin.
 Missing or conflicting pins, forks and tampered evidence still fail; no
 exception handler treats verification failures as successful races. Optional
 grant retirements must refer to an included policy's signed current or
