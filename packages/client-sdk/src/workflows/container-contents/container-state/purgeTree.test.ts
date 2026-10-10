@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { sqlDocumentContainerProjectionPersistence } from "../../../data/persistence/containers/documentContainerProjectionPersistence";
 import { sqlDocumentsPersistence } from "../../../data/persistence/documents/documentsPersistence";
+import { defaultContainerContentsPersistence } from "../containerPersistence";
 import type { ContainerState } from "../remoteHydration";
 import {
   classifySubtreeDocument,
@@ -14,6 +15,7 @@ function containerState(id: string, parentId: string | null): ContainerState {
   // ContainerState is irrelevant to ordering.
   return {
     container: { id, parentId },
+    record: { documentId: null },
   } as unknown as ContainerState;
 }
 
@@ -194,7 +196,12 @@ test("purgeContainerTree unlinks extra internal links before remote purge", asyn
           return true;
         },
       },
-      persistence: {} as never,
+      persistence: {
+        ...defaultContainerContentsPersistence,
+        listUnsyncedMoveIntents: async () => [],
+        loadContainerMetadataState: async (_execSql, id) =>
+          containerState(id, id === "trashed" ? null : "trashed"),
+      },
       prepareDocumentRotationSnapshot: async () => {
         throw new Error("Unexpected rotation snapshot preparation");
       },
@@ -261,7 +268,12 @@ test("purgeContainerTree stops at the next document when its generation expires"
           throw new Error("Unexpected unlink");
         },
       },
-      persistence: {} as never,
+      persistence: {
+        ...defaultContainerContentsPersistence,
+        listUnsyncedMoveIntents: async () => [],
+        loadContainerMetadataState: async (_execSql, id) =>
+          containerState(id, id === "trashed" ? null : "trashed"),
+      },
       prepareDocumentRotationSnapshot: async () => null,
       resolveProjectionUserKey: async () => null,
       rootContainerId: "trashed",
@@ -335,7 +347,12 @@ test("purgeContainerTree reports zero completions after a later unlink fails", a
           return true;
         },
       },
-      persistence: {} as never,
+      persistence: {
+        ...defaultContainerContentsPersistence,
+        listUnsyncedMoveIntents: async () => [],
+        loadContainerMetadataState: async (_execSql, id) =>
+          containerState(id, id === "trashed" ? null : "trashed"),
+      },
       prepareDocumentRotationSnapshot: async () => null,
       resolveProjectionUserKey: async () => null,
       rootContainerId: "trashed",

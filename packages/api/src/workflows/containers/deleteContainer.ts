@@ -200,30 +200,33 @@ async function lockMetadataDeletion(
   await lockAccessManifestHeadsForUpdate("document", [documentId], executor);
 }
 
-async function deleteContainerWithExecutor(input: {
+async function resolveDeleteAccess(input: {
   readonly containerId: string;
   readonly executor: DatabaseTransaction;
   readonly userId: string;
-}): Promise<ContainerDeleteResponse> {
-  const resolveAccess = async () => {
-    const context = createContainerWriterProjectionContext(input.executor);
-    try {
-      return await resolveContainerAccessProjection({
-        containerId: input.containerId,
-        context,
-        executor: input.executor,
-        minimumAccessLevel: "admin",
-        userId: input.userId,
-      });
-    } catch (error) {
-      if (error instanceof ContainerWriterProjectionError) {
-        throw toDeleteContainerError(error);
-      }
-      throw error;
+}) {
+  const context = createContainerWriterProjectionContext(input.executor);
+  try {
+    return await resolveContainerAccessProjection({
+      ...input,
+      context,
+      minimumAccessLevel: "admin",
+    });
+  } catch (error) {
+    if (error instanceof ContainerWriterProjectionError) {
+      throw toDeleteContainerError(error);
     }
-  };
+    throw error;
+  }
+}
 
-  const initialAccess = await resolveAccess();
+async function deleteContainerWithExecutor(input: {
+  readonly containerId: string;
+  readonly requiredAncestorId?: string | undefined;
+  readonly executor: DatabaseTransaction;
+  readonly userId: string;
+}): Promise<ContainerDeleteResponse> {
+  const initialAccess = await resolveDeleteAccess(input);
   const initialTargetManifest = initialAccess.verifiedPath.at(-1);
   if (!initialTargetManifest) {
     throw new DeleteContainerError("Container not found", 404);
@@ -247,7 +250,7 @@ async function deleteContainerWithExecutor(input: {
 
   // Rebuild the writer projection after serializing the organization so a
   // concurrent revocation cannot race the delete authorization.
-  const access = await resolveAccess();
+  const access = await resolveDeleteAccess(input);
   const targetManifest = access.verifiedPath.at(-1);
   if (!targetManifest) {
     throw new DeleteContainerError("Container not found", 404);
@@ -256,6 +259,17 @@ async function deleteContainerWithExecutor(input: {
     throw new DeleteContainerError("Container organization mismatch", 409);
   }
 
+  if (
+    input.requiredAncestorId !== undefined &&
+    !access.verifiedPath.some(
+      (head) => head.state.containerId === input.requiredAncestorId,
+    )
+  ) {
+    throw new DeleteContainerError(
+      "Container moved outside the requested purge subtree",
+      409,
+    );
+  }
   const container = await loadContainerForDelete(input);
   if (container.organizationId !== organizationId) {
     throw new DeleteContainerError("Container organization mismatch", 409);
@@ -314,6 +328,7 @@ export async function deleteContainer(
   db: ApiDatabase,
   input: {
     readonly containerId: string;
+    readonly requiredAncestorId?: string | undefined;
     readonly userId: string;
   },
 ): Promise<ContainerDeleteResponse> {

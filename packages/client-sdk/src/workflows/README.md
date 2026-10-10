@@ -388,11 +388,18 @@ warmer and operation-lifetime guard; the document store supplies both.
 
 `retainAcknowledgedPrincipalCurrents` atomically retains exact policy receipts,
 authenticated resumable progress, checkpoints and signed-grant retirements.
-It requires the previously recovered prefix and durable predecessor pin. An
+It requires the captured predecessor and a consistent durable pin. An
 `initialGroup: true` entry instead verifies a genuine group genesis with version
 one and no predecessor, paired with its exact signed directory successor. Both
 publish atomically, and existing checkpoint or prefix conflicts still fail; see
 [current mutation primitives](../../../../docs/developer/principal-current-mutations.md).
+
+`captureAcknowledgedPrincipalPredecessor` captures sealed evidence before sending
+the mutation. Each acknowledgement requires this `AcknowledgedPrincipalPredecessor`
+in `predecessor` (null only for a newly created group). A newer authenticated
+prefix must prove the exact receipt belongs to its history; its progress and
+checkpoint remain monotonic. Concurrent local publication retries retention
+without resubmitting the request.
 
 The public `AcknowledgedPrincipalCurrentInput` and
 `AcknowledgedPrincipalCurrentRetirement` types describe batch inputs and

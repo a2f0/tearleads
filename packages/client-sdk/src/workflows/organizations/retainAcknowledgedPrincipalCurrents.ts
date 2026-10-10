@@ -1,8 +1,6 @@
 import {
   KeyingVerificationError,
-  restorePrincipalPolicyHistoryVerifier,
   type VerifiedPrincipalPolicyCurrent,
-  verifyPrincipalPolicyCurrent,
 } from "@tearleads/crypto";
 import type { PutPrincipalPolicyRequest } from "@tearleads/validators/request";
 import type { PrincipalPolicyMutationResponse } from "@tearleads/validators/response";
@@ -10,16 +8,11 @@ import { assertProjectionVerificationCurrent } from "../../data/keyingProjection
 import {
   type AcknowledgedPrincipalCurrentPublication,
   type AcknowledgedPrincipalCurrentRetirement,
+  PrincipalAcknowledgementChangedError,
   persistAcknowledgedPrincipalCurrents,
 } from "../../data/persistence/principalCurrentAcknowledgementPersistence";
 import { preparePrincipalHistoryEvidencePage } from "../../data/persistence/principalHistoryEvidencePersistence";
-import { loadPrincipalHistoryPrefix } from "../../data/persistence/principalHistoryPrefixPersistence";
-import {
-  principalHistoryEvidenceScopeId,
-  principalHistoryPrefixProtection,
-} from "../../data/principals/principalHistoryPrefixProtection";
 import { ownPrincipalHistoryProtection } from "../../data/principals/principalHistoryProtection";
-import { parsePrincipalHistoryStageCurrent } from "../../data/principals/principalHistoryStageProtection";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import { collectPrincipalPolicySignerPublicKeys } from "../principals/policyVerification";
 import type { RecoverPrincipalPolicyHistoryOptions } from "../principals/principalHistoryRecoveryTypes";
@@ -28,6 +21,10 @@ import {
   principalHistoryVerificationContext,
 } from "../principals/principalHistoryRecoveryVerification";
 import { assertAcknowledgedDirectoryBindings } from "./acknowledgedDirectoryBindings";
+import {
+  type AcknowledgedPrincipalPredecessor,
+  restoreAcknowledgedPrincipalPredecessor,
+} from "./acknowledgedPrincipalPredecessor";
 import { acknowledgeGroupPolicyState } from "./groupPolicyMutationAcknowledgement";
 import { groupPolicyMutationHead } from "./groupPolicyMutationHead";
 import { prepareInitialGroupCurrentPublication } from "./initialPrincipalCurrentPublication";
@@ -36,10 +33,13 @@ import {
   sealPrincipalCurrentStage,
 } from "./principalCurrentPublicationSeal";
 import { assertPrincipalPolicyReceiptArtifacts } from "./principalPolicyReceiptArtifacts";
+import { reconcileAcknowledgedPrincipalCurrent } from "./reconcileAcknowledgedPrincipalCurrent";
 
 export type { AcknowledgedPrincipalCurrentRetirement } from "../../data/persistence/principalCurrentAcknowledgementPersistence";
 
 export interface AcknowledgedPrincipalCurrentInput {
+  /** Capture before submitting the mutation; null only for a new group. */
+  readonly predecessor: AcknowledgedPrincipalPredecessor | null;
   /** Only a newly authored group at version one; never skips a predecessor. */
   readonly initialGroup?: boolean | undefined;
   /** The same scoped protection and verification mode used to recover the predecessor. */
@@ -51,59 +51,11 @@ export interface AcknowledgedPrincipalCurrentInput {
   readonly response: PrincipalPolicyMutationResponse;
 }
 
-async function restorePredecessor(
-  options: RecoverPrincipalPolicyHistoryOptions,
-) {
-  const scopeId = await principalHistoryEvidenceScopeId({
-    organizationId: options.organizationId,
-    head: options.expectedHead,
-    protection: options.protection,
-  });
-  const saved = await loadPrincipalHistoryPrefix(options.execSql, scopeId);
-  if (!saved || saved.organizationId !== options.organizationId)
-    throw new KeyingVerificationError(
-      "missing_dependency",
-      "Acknowledgement requires its authenticated predecessor prefix",
-    );
-  const restored = await restorePrincipalPolicyHistoryVerifier(
-    {
-      principalId: options.expectedHead.principalId,
-      principalType: options.expectedHead.principalType,
-    },
-    saved.progress,
-    await principalHistoryPrefixProtection(options.protection, saved),
-  );
-  if (!restored.ok) throw restored.error;
-  const history = restored.value.finish(options.expectedHead);
-  if (!history.ok) throw history.error;
-  const artifacts = parsePrincipalHistoryStageCurrent({
-    currentJson: saved.currentJson,
-    afterVersion: saved.version - 1,
-  });
-  if (!artifacts)
-    throw new KeyingVerificationError(
-      "invalid_shape",
-      "Acknowledged predecessor artifacts are malformed",
-    );
-  const previous = await verifyPrincipalPolicyCurrent({
-    current: artifacts,
-    history: history.value,
-  });
-  if (!previous.ok) throw previous.error;
-  return {
-    scopeId,
-    saved,
-    artifacts,
-    verifier: restored.value,
-    previous: previous.value,
-    predecessorIndexRootHash: history.value.indexRootHash,
-  };
-}
-
 async function preparePublication(
   options: RecoverPrincipalPolicyHistoryOptions,
   request: PutPrincipalPolicyRequest,
   response: PrincipalPolicyMutationResponse,
+  predecessor: AcknowledgedPrincipalPredecessor | null,
 ): Promise<AcknowledgedPrincipalCurrentPublication> {
   options = {
     ...options,
@@ -121,7 +73,7 @@ async function preparePublication(
     verifier,
     previous,
     predecessorIndexRootHash,
-  } = await restorePredecessor(options);
+  } = await restoreAcknowledgedPrincipalPredecessor(options, predecessor);
   const expectedHead = await groupPolicyMutationHead(request);
   assertPrincipalPolicyReceiptArtifacts({ expectedHead, request, response });
   const keys = await collectPrincipalPolicySignerPublicKeys({
@@ -208,12 +160,14 @@ export async function retainAcknowledgedPrincipalCurrents(input: {
     request: PutPrincipalPolicyRequest;
     response: PrincipalPolicyMutationResponse;
     options: RecoverPrincipalPolicyHistoryOptions;
+    predecessor: AcknowledgedPrincipalPredecessor | null;
   }[] = [];
   try {
     assertProjectionVerificationCurrent(stillCurrent);
     for (const entry of input.entries)
       entries.push({
         initialGroup: entry.initialGroup === true,
+        predecessor: structuredClone(entry.predecessor),
         request: structuredClone(entry.request),
         response: structuredClone(entry.response),
         options: {
@@ -230,21 +184,48 @@ export async function retainAcknowledgedPrincipalCurrents(input: {
       publications.push(
         await (entry.initialGroup
           ? prepareInitialGroupCurrentPublication
-          : preparePublication)(entry.options, entry.request, entry.response),
+          : preparePublication)(
+          entry.options,
+          entry.request,
+          entry.response,
+          entry.predecessor,
+        ),
       );
     assertAcknowledgedDirectoryBindings(
       organizationId,
       entries.map(({ response }) => response),
     );
-    await persistAcknowledgedPrincipalCurrents({
-      execSql,
-      organizationId,
-      entries: publications,
-      retirements,
-      stillCurrent: () =>
-        stillCurrent() &&
-        entries.every((entry) => !entry.options.signal?.aborted),
-    });
+    for (let attempt = 0; ; attempt += 1) {
+      const reconciled = [];
+      for (const [index, publication] of publications.entries()) {
+        const entry = entries[index];
+        if (!entry) throw new Error("Missing acknowledgement entry");
+        reconciled.push(
+          await reconcileAcknowledgedPrincipalCurrent(
+            entry.options,
+            publication,
+          ),
+        );
+      }
+      try {
+        await persistAcknowledgedPrincipalCurrents({
+          execSql,
+          organizationId,
+          entries: reconciled,
+          retirements,
+          stillCurrent: () =>
+            stillCurrent() &&
+            entries.every((entry) => !entry.options.signal?.aborted),
+        });
+        break;
+      } catch (error) {
+        if (
+          !(error instanceof PrincipalAcknowledgementChangedError) ||
+          attempt >= 7
+        )
+          throw error;
+      }
+    }
     return publications.map(({ policy }) => policy);
   } finally {
     for (const entry of entries) entry.options.protection.localKey.fill(0);

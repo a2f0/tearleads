@@ -1,3 +1,4 @@
+import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import type { ContainerContentsPersistence } from "../containerPersistence";
 import type { ContainerState } from "../remoteHydration";
 import type { ContainerContentsWorkflowRuntime } from "../runtime";
@@ -10,7 +11,13 @@ interface SubtreeContainerDeletionResult {
 }
 
 interface DeleteSubtreeContainersInput {
+  readonly allowsContainer: (containerId: string) => Promise<boolean>;
+  readonly allowsLocalScopeInTransaction: (
+    execSql: ExecSql,
+    containerId: string,
+  ) => Promise<boolean>;
   readonly persistence: ContainerContentsPersistence;
+  readonly rootContainerId: string;
   readonly reportStep: (ok: boolean) => void;
   readonly runtime: ContainerContentsWorkflowRuntime;
   readonly signal?: AbortSignal | undefined;
@@ -53,7 +60,10 @@ export async function deleteSubtreeContainers(
     }
     const containerId = containerState.container.id;
     const parentId = containerState.container.parentId;
-    if (blockedParentIds.has(containerId)) {
+    if (
+      blockedParentIds.has(containerId) ||
+      !(await input.allowsContainer(containerId))
+    ) {
       if (parentId !== null) {
         blockedParentIds.add(parentId);
       }
@@ -61,7 +71,10 @@ export async function deleteSubtreeContainers(
       continue;
     }
     const deleted = await deleteContainerState({
+      beforeDeleteInTransaction: (execSql) =>
+        input.allowsLocalScopeInTransaction(execSql, containerId),
       containerState,
+      requiredAncestorId: input.rootContainerId,
       persistence: input.persistence,
       runtime: input.runtime,
       stillCurrent: input.stillCurrent,

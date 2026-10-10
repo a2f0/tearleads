@@ -228,6 +228,11 @@ export async function deleteStoredContainers(
     const runtime = getClientSQLitePersistenceRuntime(lockedExecSql);
     const remove = async (tx: ClientSQLiteTransactionScope) => {
       if (
+        options?.beforeDeleteInTransaction &&
+        !(await options.beforeDeleteInTransaction(lockedExecSql))
+      )
+        return [];
+      if (
         !(await canApplyContainerRemovals({
           expectedContainers: options?.expectedContainers,
           removals: uniqueRemovals,

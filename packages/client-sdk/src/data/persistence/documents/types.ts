@@ -374,7 +374,8 @@ export interface DocumentsPersistence {
   deleteDocument: (execSql: ExecSql, localId: string) => Promise<void>;
   /**
    * Delete the canonical row and every side row only when its security identity
-   * still matches the captured record. The comparison, deletes, and client
+   * and container placement still match the captured record. The comparison,
+   * deletes, and client
    * projection callback must share one write transaction.
    */
   deleteDocumentIfMatches: (

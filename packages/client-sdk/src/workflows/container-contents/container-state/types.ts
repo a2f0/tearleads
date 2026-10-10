@@ -46,6 +46,7 @@ export type ContainerWorkflowApi = Parameters<
       options?: {
         expectedPaymentRequiredOrganizationId?: string;
         reportErrors?: boolean;
+        requiredAncestorId?: string | undefined;
       },
     ): Promise<
       | { data: ContainerDeleteResponse; ok: true }

@@ -5,7 +5,7 @@ import { principalHistoryPrefixes } from "../../data/sqlite/principalHistoryEvid
 import { principalPolicyCheckpoints } from "../../data/sqlite/principalPolicySchema";
 import { retainAcknowledgedPrincipalCurrents } from "./retainAcknowledgedPrincipalCurrents";
 
-test("overlapping identical acknowledgements preserve the winning publication and require fresh recovery", async () => {
+test("overlapping identical acknowledgements both retain the same publication without regression", async () => {
   const history = await signedAuthorityRecoveryHistory();
   const f = await currentPolicyPublicationFixture(history);
   try {
@@ -35,16 +35,7 @@ test("overlapping identical acknowledgements preserve the winning publication an
     expect(prepared).toBe(2);
     expect(
       results.filter((result) => result.status === "fulfilled"),
-    ).toHaveLength(1);
-    expect(
-      results.find((result) => result.status === "rejected"),
-    ).toMatchObject({
-      reason: {
-        code: "stale_predecessor",
-        message:
-          "Authenticated principal prefix changed before acknowledgement",
-      },
-    });
+    ).toHaveLength(2);
     const prefixes = await f.db.select().from(principalHistoryPrefixes);
     for (const entry of entries) {
       const principalId = entry.request.state.principalId;

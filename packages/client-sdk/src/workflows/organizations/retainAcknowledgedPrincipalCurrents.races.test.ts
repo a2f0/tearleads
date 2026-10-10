@@ -134,7 +134,7 @@ test("a concurrent prefix replacement survives a losing acknowledgement", async 
     );
     await expect(
       retainAcknowledgedPrincipalCurrents({ ...f.publication, entries }),
-    ).rejects.toThrow("prefix changed before acknowledgement");
+    ).rejects.toThrow("invalid principal history progress");
     expect(concurrent).not.toBe("");
     expect(await snapshot(f)).toBe(concurrent);
   } finally {

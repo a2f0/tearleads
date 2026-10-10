@@ -169,6 +169,7 @@ export const deleteContainerOperation = defineJsonOperation({
   method: "DELETE",
   params: ContainerMutationPathParamsSchema,
   path: "/containers/{containerId}",
+  query: z.strictObject({ requiredAncestorId: z.string().min(1).optional() }),
   responses: { 200: ContainerDeleteResponseSchema },
 });
 

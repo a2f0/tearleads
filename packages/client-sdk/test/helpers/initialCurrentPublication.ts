@@ -5,6 +5,7 @@ import {
 import type { PutPrincipalPolicyRequest } from "@tearleads/validators/request";
 import { parseOrganizationAuthorityDescriptor } from "../../src/data/principals/organizationAuthorityDescriptor";
 import { principalPolicyReferenceFromBundle } from "../../src/data/principals/principalPolicyAdminSigners";
+import { captureAcknowledgedPrincipalPredecessor } from "../../src/workflows/organizations/acknowledgedPrincipalPredecessor";
 import {
   buildOrganizationGroupDirectoryPolicyRequest,
   replaceOrganizationGroupHead,
@@ -81,6 +82,7 @@ export async function initialCurrentPublicationFixture(
     const entries: AcknowledgedPrincipalCurrentInput[] = [
       {
         initialGroup: true,
+        predecessor: null,
         recovery: { ...f.groupRecovery, expectedHead: head },
         request,
         response: policyReceiptFromBundle({
@@ -90,6 +92,9 @@ export async function initialCurrentPublicationFixture(
       },
       {
         recovery: f.organizationRecovery,
+        predecessor: await captureAcknowledgedPrincipalPredecessor(
+          f.organizationRecovery,
+        ),
         request: directoryRequest,
         response: policyReceiptFromBundle(
           await policyBundleAfterMutation({

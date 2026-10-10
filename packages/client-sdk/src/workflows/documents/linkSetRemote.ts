@@ -163,10 +163,12 @@ async function completeRemoteDocumentLinkSet(input: {
 }
 
 export async function relinkRemoteDocument(input: {
+  beforeSubmit?: (() => Promise<boolean>) | undefined;
   apiClient: DocumentLinkSetMutationApi;
   author: DocumentCreateAuthor;
   contentKey?: Uint8Array | undefined;
   documentId: string;
+  expectedSubtreeRootId?: string | undefined;
   eventId?: string | undefined;
   execSql: ExecSql;
   onFailure?: DocumentLinkSetFailureHandler | undefined;
@@ -220,6 +222,7 @@ export async function relinkRemoteDocument(input: {
     signedAt,
   });
   const completedPlan = { ...materializedPlan.plan, request };
+  if (input.beforeSubmit && !(await input.beforeSubmit())) return null;
   const response = await submitLinkSetMutation({
     apiClient: input.apiClient,
     documentId: completedPlan.documentId,
@@ -277,6 +280,7 @@ function prepareRemoteLinkSetMutation(
       nullOnProjectionVerificationCancellation(() =>
         buildMaterializedDocumentLinkSetMutationPlan({
           author: input.author,
+          expectedSubtreeRootId: input.expectedSubtreeRootId,
           prepareBlobRewraps: (targets) =>
             prepareDocumentLinkBlobRewraps({
               ...input,

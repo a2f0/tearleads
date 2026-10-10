@@ -16,6 +16,7 @@ import {
 import { principalHistoryStages } from "../../data/sqlite/principalHistoryStageSchema";
 import { restorePrincipalHistoryRecoveryStage } from "../principals/principalHistoryRecoveryStage";
 import { recoverPrincipalPolicyHistory } from "../principals/recoverPrincipalPolicyHistory";
+import { captureAcknowledgedPrincipalPredecessor } from "./acknowledgedPrincipalPredecessor";
 import { buildOrganizationGroupDirectoryPolicyRequest } from "./organizationGroupDirectory";
 import { retainAcknowledgedPrincipalCurrents } from "./retainAcknowledgedPrincipalCurrents";
 
@@ -59,6 +60,10 @@ test("successive acknowledgements reclaim old stages while preserving predecesso
         ...f.publication,
         entries: [
           {
+            predecessor: await captureAcknowledgedPrincipalPredecessor({
+              ...f.organizationRecovery,
+              expectedHead: principalPolicyHead(current),
+            }),
             recovery: {
               ...f.organizationRecovery,
               expectedHead: principalPolicyHead(current),

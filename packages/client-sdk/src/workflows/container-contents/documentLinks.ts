@@ -199,7 +199,9 @@ function reportDocumentLinkMutationFailure(
 }
 
 export async function relinkRemoteContainerDocument(input: {
+  beforeSubmit?: (() => Promise<boolean>) | undefined;
   documentId: string;
+  expectedSubtreeRootId?: string | undefined;
   isCurrent?: (() => boolean) | undefined;
   noteId: string;
   onFailure?: DocumentLinkSetFailureHandler | undefined;
@@ -234,9 +236,11 @@ export async function relinkRemoteContainerDocument(input: {
 
   try {
     const result = await relinkRemoteDocument({
+      beforeSubmit: input.beforeSubmit,
       apiClient: runtime.apiClient,
       author,
       documentId,
+      expectedSubtreeRootId: input.expectedSubtreeRootId,
       execSql,
       onFailure: input.onFailure,
       operation,
@@ -303,7 +307,9 @@ async function linkRemoteContainerDocument(input: {
 }
 
 export async function unlinkRemoteContainerDocument(input: {
+  beforeSubmit?: (() => Promise<boolean>) | undefined;
   documentId: string;
+  expectedSubtreeRootId?: string | undefined;
   isCurrent?: (() => boolean) | undefined;
   noteId: string;
   onFailure?: DocumentLinkSetFailureHandler | undefined;

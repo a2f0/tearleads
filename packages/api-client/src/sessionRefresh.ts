@@ -13,6 +13,7 @@ interface SessionRefreshInput {
   readonly getCurrentAuthToken: () => string | null;
   readonly isKnownSessionRenewal: (from: string, to: string) => boolean;
   readonly options: RequestResultOptions;
+  readonly pendingSessionRenewal: (from: string) => Promise<boolean> | null;
   readonly refreshSession: () => boolean | Promise<boolean>;
   readonly reportError: (message: string) => void;
   readonly responseStatus: number;
@@ -35,15 +36,22 @@ export async function shouldRetryAfterSessionExpired(
   }
 
   const currentAuthToken = input.getCurrentAuthToken();
-  if (currentAuthToken && currentAuthToken !== input.authToken) {
-    if (input.isKnownSessionRenewal(input.authToken, currentAuthToken))
+  let pending: Promise<boolean> | null = null;
+  if (currentAuthToken !== input.authToken) {
+    const renewed =
+      currentAuthToken !== null &&
+      input.isKnownSessionRenewal(input.authToken, currentAuthToken);
+    if (renewed) {
       input.options.onSessionRenewed?.();
-    return true;
+      return true;
+    }
+    pending = input.pendingSessionRenewal(input.authToken);
+    if (!currentAuthToken || !pending) return false;
   }
 
   let refreshed = false;
   try {
-    refreshed = await input.refreshSession();
+    refreshed = await (pending ?? input.refreshSession());
   } catch (error: unknown) {
     if (error instanceof KeyingVerificationError) {
       throw error;
@@ -53,10 +61,11 @@ export async function shouldRetryAfterSessionExpired(
     }
   }
 
+  const refreshedToken = input.getCurrentAuthToken();
   const renewed = Boolean(
     refreshed &&
-      input.getCurrentAuthToken() &&
-      input.getCurrentAuthToken() !== input.authToken,
+      refreshedToken &&
+      input.isKnownSessionRenewal(input.authToken, refreshedToken),
   );
   if (renewed) input.options.onSessionRenewed?.();
   return renewed;

@@ -6,6 +6,7 @@ import { assertProjectionVerificationCurrent } from "../../data/keyingProjection
 import { scopedGroupHistoryProtection } from "../../data/principals/principalHistoryScopeProtection";
 import { principalPolicyReferenceFromBundle } from "../../data/principals/principalPolicyAdminSigners";
 import type { PrincipalPolicyRecoveryRuntime } from "../principals/runtimePolicyRecovery";
+import { captureAcknowledgedPrincipalPredecessor } from "./acknowledgedPrincipalPredecessor";
 import type { loadCurrentOrganizationAuthority } from "./currentOrganizationAuthority";
 import {
   type AcknowledgedPrincipalCurrentInput,
@@ -13,7 +14,7 @@ import {
 } from "./retainAcknowledgedPrincipalCurrents";
 
 /** Couple directory acknowledgements to any newly created group under the same lease. */
-export function createCurrentOrganizationMutationRetention(input: {
+export async function createCurrentOrganizationMutationRetention(input: {
   readonly runtime: PrincipalPolicyRecoveryRuntime;
   readonly authority: Awaited<
     ReturnType<typeof loadCurrentOrganizationAuthority>
@@ -24,6 +25,12 @@ export function createCurrentOrganizationMutationRetention(input: {
   readonly directoryRecovery: AcknowledgedPrincipalCurrentInput["recovery"];
   readonly stillCurrent: () => boolean;
 }) {
+  const predecessor = await captureAcknowledgedPrincipalPredecessor({
+    ...input.directoryRecovery,
+    execSql: input.runtime.infra.execSql,
+    organizationId: input.organizationId,
+    stillCurrent: input.stillCurrent,
+  });
   const retain = async (
     entries: readonly AcknowledgedPrincipalCurrentInput[],
   ) => {
@@ -39,7 +46,10 @@ export function createCurrentOrganizationMutationRetention(input: {
     retainDirectory: (
       request: PutPrincipalPolicyRequest,
       response: PrincipalPolicyMutationResponse,
-    ) => retain([{ request, response, recovery: input.directoryRecovery }]),
+    ) =>
+      retain([
+        { predecessor, request, response, recovery: input.directoryRecovery },
+      ]),
     retainCreatedGroup: (receipt: {
       readonly request: PutPrincipalPolicyRequest;
       readonly response: PrincipalPolicyMutationResponse;
@@ -53,6 +63,7 @@ export function createCurrentOrganizationMutationRetention(input: {
       return retain([
         {
           initialGroup: true,
+          predecessor: null,
           request: receipt.request,
           response: receipt.response,
           recovery: {
@@ -77,6 +88,7 @@ export function createCurrentOrganizationMutationRetention(input: {
           },
         },
         {
+          predecessor,
           request: receipt.organizationRequest,
           response: receipt.organizationResponse,
           recovery: input.directoryRecovery,

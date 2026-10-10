@@ -21,7 +21,7 @@ interface Input {
 type Authority = Awaited<ReturnType<typeof loadCurrentOrganizationAuthority>>;
 
 export type CurrentOrganizationMutationContext = Authority &
-  ReturnType<typeof createCurrentOrganizationMutationRetention>;
+  Awaited<ReturnType<typeof createCurrentOrganizationMutationRetention>>;
 
 /** Keep directory authoring and exact acknowledgement inside one private lease. */
 export function createRuntimeCurrentOrganizationMutation(runtime: Runtime) {
@@ -61,7 +61,7 @@ export function createRuntimeCurrentOrganizationMutation(runtime: Runtime) {
         const result = await work({
           ...authority,
           stillCurrent: current,
-          ...createCurrentOrganizationMutationRetention({
+          ...(await createCurrentOrganizationMutationRetention({
             runtime,
             authority,
             protection,
@@ -69,7 +69,7 @@ export function createRuntimeCurrentOrganizationMutation(runtime: Runtime) {
             organizationId: owned.organizationId,
             directoryRecovery: directoryRecovery(authority.directory.current),
             stillCurrent: current,
-          }),
+          })),
         });
         assertProjectionVerificationCurrent(current);
         return result;

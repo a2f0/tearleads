@@ -40,6 +40,7 @@ import {
 import { ProjectionDependencyUnavailableError } from "../../data/keyingProjectionVerification/dependencyUnavailable";
 import { documentContainerProjections } from "../../data/keyingProjectionVerification/documentContainerProjections";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
+import { assertSubtreePurgePath } from "./subtreePurgeScope";
 
 interface DocumentPurgeApi {
   getDocumentPurgeProof(
@@ -133,6 +134,7 @@ async function resolveDocumentPurgeWriterProjection(input: {
 
 export async function buildDocumentPurgeRequest(input: {
   readonly author: DocumentCreateAuthor;
+  readonly expectedSubtreeRootId?: string | undefined;
   readonly eventId?: string | undefined;
   readonly signedAt?: string | undefined;
   readonly writerProjection: DocumentWriterProjectionResponse;
@@ -168,6 +170,10 @@ export async function buildDocumentPurgeRequest(input: {
   if (!authorizingProjection || !containerId || !containerManifestHash) {
     throw new Error("Document purge authorization path is unavailable");
   }
+  assertSubtreePurgePath(
+    authorizingProjection.path,
+    input.expectedSubtreeRootId,
+  );
   const authorizingContainerManifestHashes = authorizingProjection.path.map(
     (bundle) => bundle.manifestHash,
   );
@@ -253,9 +259,11 @@ export function createVerifiedRemoteDocumentDeletionHandler(input: {
 }
 
 export async function purgeRemoteDocument(input: {
+  readonly beforeSubmit?: (() => Promise<boolean>) | undefined;
   readonly apiClient: DocumentPurgeApi;
   readonly author: DocumentCreateAuthor;
   readonly documentId: string;
+  readonly expectedSubtreeRootId?: string | undefined;
   readonly execSql: ExecSql;
   readonly onVerifiedPurge: (input: {
     readonly commitPurgeProof: (transactionExecSql: ExecSql) => Promise<void>;
@@ -311,8 +319,11 @@ export async function purgeRemoteDocument(input: {
   });
   const request = await buildDocumentPurgeRequest({
     author: input.author,
+    expectedSubtreeRootId: input.expectedSubtreeRootId,
     writerProjection,
   });
+  if (input.beforeSubmit && !(await input.beforeSubmit())) return null;
+  if (input.stillCurrent?.() === false) return null;
   const response = await input.apiClient.purgeDocument(
     input.documentId,
     request,

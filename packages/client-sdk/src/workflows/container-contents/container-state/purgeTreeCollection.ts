@@ -1,5 +1,21 @@
 import type { ContainerState } from "../remoteHydration";
 
+/** Own the placement fields; live store updates cannot revise purge intent. */
+export function snapshotContainerStates(
+  states: ReadonlyMap<string, ContainerState>,
+): ReadonlyMap<string, ContainerState> {
+  return new Map(
+    [...states].map(([id, state]) => [
+      id,
+      {
+        ...state,
+        container: { ...state.container },
+        record: { ...state.record },
+      },
+    ]),
+  );
+}
+
 // Collect the target and descendants leaf-first because container deletion is
 // leaf-only. The enqueued set guards self/cyclic parent chains.
 export function collectSubtreeLeafFirst(

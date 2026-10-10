@@ -43,5 +43,8 @@ test("container mutation client metadata derives from shared operations", () => 
 
   expect(containerDelete.method).toBe("DELETE");
   expect(containerDelete.path("container/1")).toBe("/containers/container%2F1");
+  expect(containerDelete.path("container/1", "root/1")).toBe(
+    "/containers/container%2F1?requiredAncestorId=root%2F1",
+  );
   expect(containerDelete.isResponse).toBeDefined();
 });

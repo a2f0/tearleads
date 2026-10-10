@@ -18,6 +18,7 @@ import {
 } from "./requestInternals";
 import { responseBodyFailure } from "./responseBodyFailure";
 import { shouldRetryAfterSessionExpired } from "./sessionRefresh";
+import { SessionRenewalTracker } from "./sessionRenewal";
 import type {
   HttpMethod,
   OperationRequestFn,
@@ -36,7 +37,9 @@ type PaymentRequiredHandler = (organizationId: string | null) => void;
 
 export class ApiRequestRuntime {
   private authToken: string | null = null;
-  private sessionRenewal: { from: string; to: string } | null = null;
+  private readonly sessionRenewals = new SessionRenewalTracker(
+    () => this.authToken,
+  );
   private readonly baseUrl: string;
   private onError: ((message: string) => void) | null = null;
   private onNetworkError: (() => void) | null = null;
@@ -103,22 +106,13 @@ export class ApiRequestRuntime {
 
   setAuthToken(token: string | null): boolean {
     const changed = this.authToken !== token;
-    if (changed) this.sessionRenewal = null;
+    if (changed) this.sessionRenewals.tokenChanged();
     this.authToken = token;
     return changed;
   }
 
   getAuthToken(): string | null {
     return this.authToken;
-  }
-
-  private async renewSession(): Promise<boolean> {
-    const from = this.authToken;
-    const renewed = await (this.onSessionExpired?.() ?? false);
-    const to = this.authToken;
-    if (renewed && from && to && from !== to)
-      this.sessionRenewal = { from, to };
-    return renewed;
   }
 
   getRequestFailure(input: { method: HttpMethod; path: string }) {
@@ -289,20 +283,22 @@ export class ApiRequestRuntime {
       failureOperation,
       options.expectedPaymentRequiredOrganizationId,
     );
-    if (
-      await shouldRetryAfterSessionExpired({
-        authToken,
-        body,
-        code: errorDescription.code,
-        getCurrentAuthToken: () => this.authToken,
-        isKnownSessionRenewal: (from, to) =>
-          this.sessionRenewal?.from === from && this.sessionRenewal.to === to,
-        options,
-        refreshSession: () => this.renewSession(),
-        reportError: (message) => this.onError?.(message),
-        responseStatus: response.status,
-      })
-    ) {
+    const shouldRetry = await shouldRetryAfterSessionExpired({
+      authToken,
+      body,
+      code: errorDescription.code,
+      getCurrentAuthToken: () => this.authToken,
+      isKnownSessionRenewal: (from, to) =>
+        this.sessionRenewals.isKnown(from, to),
+      pendingSessionRenewal: (from) => this.sessionRenewals.pending(from),
+      options,
+      refreshSession: () => this.sessionRenewals.renew(this.onSessionExpired),
+      reportError: (message) => this.onError?.(message),
+      responseStatus: response.status,
+    });
+    const retryAuthToken = this.sessionRenewals.currentToken(authToken);
+    // Recheck after the awaited helper and the host's renewal notification.
+    if (shouldRetry && retryAuthToken) {
       if (options.retryOnSessionExpired === "renew-only")
         return this.httpFailure({
           errorDescription,
@@ -320,7 +316,7 @@ export class ApiRequestRuntime {
         method,
         body,
         options,
-        this.authToken,
+        retryAuthToken,
       );
       if (!retryResult.ok) {
         return retryResult;
