@@ -1,8 +1,10 @@
 import { createBlobByteSource } from "../../../data/blobContracts";
-import type {
-  AttachmentStagingRows,
-  LocalAttachmentRecord,
-  PendingAttachmentRecord,
+import {
+  type AttachmentStagingRows,
+  type LocalAttachmentRecord,
+  type PendingAttachmentRecord,
+  runSerializedDocumentBlobMutation,
+  runSerializedSqlMutation,
 } from "../../../workflows/documents";
 import type { DocumentAttachmentUpload } from "../types";
 import {
@@ -58,32 +60,43 @@ async function deleteStagedAttachmentBytes(input: {
   }
 }
 
+/**
+ * Roll back staged bytes that no committed row references. Like orphan
+ * reclaim, check every held and pending reference under the key's lock: an
+ * overlapping reset can leave a committed key referenced only by an upload.
+ */
 export async function deleteUnreferencedStagedAttachmentBytes(input: {
   generation: DocumentStoreSyncGeneration;
   pendingAttachments: ReadonlyArray<PendingAttachmentRecord>;
   state: DocumentStoreState;
 }): Promise<void> {
-  let durableStorageKeys: Set<string>;
-  try {
-    const durableAttachments =
-      await input.state.persistence.listLocalAttachments(
-        input.generation.execSql,
-        input.state.localId,
-      );
-    durableStorageKeys = new Set(
-      durableAttachments.map(({ storageKey }) => storageKey),
-    );
-  } catch {
-    // A failed probe cannot prove that the atomic mutation rolled back. Keep
-    // the bytes: orphan maintenance can reclaim them once storage is readable.
-    return;
+  const { execSql } = input.generation;
+  const { state } = input;
+  let failedCleanupCount = 0;
+  for (const { storageKey } of input.pendingAttachments) {
+    try {
+      await runSerializedDocumentBlobMutation(execSql, storageKey, async () => {
+        const referenced = await runSerializedSqlMutation(
+          execSql,
+          (lockedExecSql) =>
+            state.persistence.orphanBlobs.isReferenced(
+              lockedExecSql,
+              storageKey,
+            ),
+        );
+        if (!referenced)
+          await state.runtime.infra.blobStore.deleteBytes(storageKey);
+      });
+    } catch {
+      // A failed probe cannot prove that the atomic mutation rolled back, so
+      // the bytes stay; a failed delete leaves them for a later sweep.
+      failedCleanupCount += 1;
+    }
   }
-  await deleteStagedAttachmentBytes({
-    pendingAttachments: input.pendingAttachments.filter(
-      ({ storageKey }) => !durableStorageKeys.has(storageKey),
-    ),
-    state: input.state,
-  });
+  if (failedCleanupCount > 0)
+    state.runtime.util.log(
+      `Documents: failed to roll back ${failedCleanupCount} staged attachment operation${failedCleanupCount === 1 ? "" : "s"}.`,
+    );
 }
 
 async function writePendingAttachmentBytes(
