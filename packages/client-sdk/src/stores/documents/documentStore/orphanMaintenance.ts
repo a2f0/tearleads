@@ -1,14 +1,9 @@
-import {
-  defaultDocumentsPersistence,
-  reclaimDocumentOrphanBlobs,
-} from "../../../workflows/documents";
+import { reclaimDocumentOrphanBlobs } from "../../../workflows/documents";
 import type { DocumentStoreState } from "./state";
 
-/** Run SQL-only maintenance without making document initialization wait for it. */
+/** Reclaim through the adapter that owns the attachment references. */
 export async function runDocumentOrphanMaintenance(
   state: DocumentStoreState,
 ): Promise<void> {
-  if (state.persistence === defaultDocumentsPersistence) {
-    await reclaimDocumentOrphanBlobs(state.runtime);
-  }
+  await reclaimDocumentOrphanBlobs(state.runtime, state.persistence);
 }

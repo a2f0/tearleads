@@ -26,6 +26,7 @@ import {
 } from "./documentStoreSyncPersistenceState";
 import { commitMemoryDocumentMutation } from "./memoryDocumentMutation";
 import { createMemoryHydratedAttachmentPersistence } from "./memoryHydratedAttachmentPersistence";
+import { withMemoryOrphanBlobReclaims } from "./memoryOrphanBlobReclaims";
 
 export function createDocumentsPersistence(): DocumentsPersistence & {
   getState: () => StoredDocumentsState;
@@ -83,7 +84,7 @@ export function createDocumentsPersistence(): DocumentsPersistence & {
       pendingUpdates = nextUpdates;
     },
   });
-  return {
+  return withMemoryOrphanBlobReclaims({
     ...creationPersistence,
     supportsAtomicRecoveryHistoryPruning: true,
     async commitDocumentMutation(execSql, input, saveClientProjection) {
@@ -423,5 +424,5 @@ export function createDocumentsPersistence(): DocumentsPersistence & {
         (attachment) => attachment.localId !== localId,
       );
     },
-  };
+  });
 }

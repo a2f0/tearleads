@@ -54,6 +54,12 @@ import { listDocumentSummaries } from "./internal/documentSummaryQueries";
 import { ensureDocumentsSchema } from "./internal/ensureDocumentsSchema";
 import { saveHydratedAttachment } from "./internal/hydratedAttachmentPersistence";
 import {
+  acknowledgeDocumentOrphanBlobReclaim,
+  deleteOrphanedDocumentSideRows,
+  isDocumentBlobStorageKeyReferenced,
+  listDocumentOrphanBlobReclaims,
+} from "./internal/orphanSideRows";
+import {
   loadPendingCreateSummary,
   mapPendingCreateLocalIds,
 } from "./internal/pendingCreateAdoption";
@@ -290,6 +296,12 @@ export async function listDocumentsByContainerIdsOrDocumentIds(
 }
 
 export const sqlDocumentsPersistence: DocumentsPersistence = {
+  orphanBlobs: {
+    acknowledge: acknowledgeDocumentOrphanBlobReclaim,
+    isReferenced: isDocumentBlobStorageKeyReferenced,
+    list: listDocumentOrphanBlobReclaims,
+    sweep: deleteOrphanedDocumentSideRows,
+  },
   ...documentRowQueryPersistence,
   ...documentSyncQueuePersistence,
   supportsAtomicRecoveryHistoryPruning: true,

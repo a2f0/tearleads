@@ -1,10 +1,5 @@
 import { errorMessage } from "../../data/errorMessage";
-import {
-  acknowledgeDocumentOrphanBlobReclaim,
-  deleteOrphanedDocumentSideRows,
-  isDocumentBlobStorageKeyReferenced,
-  listDocumentOrphanBlobReclaims,
-} from "../../data/persistence/documents/internal/orphanSideRows";
+import type { DocumentsPersistence } from "../../data/persistence/documents/types";
 import {
   type ExecSql,
   resolveCanonicalExecSql,
@@ -12,21 +7,18 @@ import {
   runSerializedSqlMutation,
 } from "../../data/sqlite/sqlSchema";
 import { runSerializedDocumentBlobMutation } from "./blobMutationLock";
+import {
+  type OrphanBlobReclaimState,
+  orphanBlobReclaimState,
+} from "./orphanBlobReclaimState";
 import { defaultDocumentsPersistence } from "./persistence";
 import type { DocumentsWorkflowRuntimeGroups } from "./runtime";
 
-const reclaimByExecSql = new WeakMap<ExecSql, Promise<void>>();
-const reclaimRerunByExecSql = new WeakSet<ExecSql>();
-const deferredStorageKeysByExecSql = new WeakMap<
-  ExecSql,
-  Map<string, number>
->();
 const ORPHAN_BLOB_RECLAIM_BATCH_SIZE = 16;
 const ORPHAN_BLOB_RECLAIM_TIME_BUDGET_MS = 250;
 const ORPHAN_BLOB_RECLAIM_RETRY_DELAY_MS = 30_000;
 const ORPHAN_BLOB_RECLAIM_LOG_SAMPLE_SIZE = 3;
 const ORPHAN_BLOB_RECLAIM_YIELD_MS = 16;
-const DOCUMENT_ORPHAN_SWEEP_ONCE_KEY = "sweep:document-orphans";
 
 type DocumentOrphanBlobReclaimRuntime = Pick<
   DocumentsWorkflowRuntimeGroups,
@@ -48,41 +40,39 @@ function waitForMaintenanceYield(): Promise<void> {
   });
 }
 
-async function sweepAgedDocumentOrphans(execSql: ExecSql): Promise<boolean> {
+async function sweepAgedDocumentOrphans(
+  execSql: ExecSql,
+  persistence: DocumentsPersistence,
+  state: OrphanBlobReclaimState,
+): Promise<boolean> {
   let swept = false;
-  await runOncePerConnection(
-    execSql,
-    DOCUMENT_ORPHAN_SWEEP_ONCE_KEY,
-    async () => {
-      swept = true;
-      while (await deleteOrphanedDocumentSideRows(execSql)) {
-        await waitForMaintenanceYield();
-      }
-    },
-  );
+  await runOncePerConnection(execSql, state.sweepKey, async () => {
+    swept = true;
+    while (await persistence.orphanBlobs.sweep(execSql)) {
+      await waitForMaintenanceYield();
+    }
+  });
   return swept;
 }
 
 async function reclaimQueuedBlobs(
   runtime: DocumentOrphanBlobReclaimRuntime,
+  persistence: DocumentsPersistence,
+  state: OrphanBlobReclaimState,
 ): Promise<boolean> {
   const execSql = runtime.infra.execSql;
-  await defaultDocumentsPersistence.ensureSchema(execSql);
+  await persistence.ensureSchema(execSql);
   let shouldContinue = false;
 
   const startedAt = Date.now();
-  const canonicalExecSql = resolveCanonicalExecSql(execSql);
-  const deferredStorageKeys =
-    deferredStorageKeysByExecSql.get(canonicalExecSql) ??
-    new Map<string, number>();
-  deferredStorageKeysByExecSql.set(canonicalExecSql, deferredStorageKeys);
+  const { deferredStorageKeys } = state;
   const failedStorageKeys: string[] = [];
   let warmedBlobStore = false;
   let sweptAgedOrphans = false;
 
   reclaimQueue: while (true) {
     clearExpiredDeferredStorageKeys(deferredStorageKeys, Date.now());
-    const queuedStorageKeys = await listDocumentOrphanBlobReclaims(
+    const queuedStorageKeys = await persistence.orphanBlobs.list(
       execSql,
       ORPHAN_BLOB_RECLAIM_BATCH_SIZE + deferredStorageKeys.size,
     );
@@ -92,7 +82,10 @@ async function reclaimQueuedBlobs(
     if (storageKeys.length === 0) {
       // Explicit delete paths get priority. Once their queue is drained, sweep
       // crash residue once per connection and immediately drain what it queues.
-      if (!sweptAgedOrphans && (await sweepAgedDocumentOrphans(execSql))) {
+      if (
+        !sweptAgedOrphans &&
+        (await sweepAgedDocumentOrphans(execSql, persistence, state))
+      ) {
         sweptAgedOrphans = true;
         continue;
       }
@@ -115,12 +108,12 @@ async function reclaimQueuedBlobs(
           execSql,
           async (lockedExecSql) => {
             if (
-              await isDocumentBlobStorageKeyReferenced(
+              await persistence.orphanBlobs.isReferenced(
                 lockedExecSql,
                 storageKey,
               )
             ) {
-              await acknowledgeDocumentOrphanBlobReclaim(
+              await persistence.orphanBlobs.acknowledge(
                 lockedExecSql,
                 storageKey,
               );
@@ -133,7 +126,7 @@ async function reclaimQueuedBlobs(
         try {
           await runtime.infra.blobStore.deleteBytes(storageKey);
           await runSerializedSqlMutation(execSql, (lockedExecSql) =>
-            acknowledgeDocumentOrphanBlobReclaim(lockedExecSql, storageKey),
+            persistence.orphanBlobs.acknowledge(lockedExecSql, storageKey),
           );
         } catch {
           failedStorageKeys.push(storageKey);
@@ -150,9 +143,6 @@ async function reclaimQueuedBlobs(
     }
   }
 
-  if (deferredStorageKeys.size === 0) {
-    deferredStorageKeysByExecSql.delete(canonicalExecSql);
-  }
   if (failedStorageKeys.length > 0) {
     const sample = failedStorageKeys
       .slice(0, ORPHAN_BLOB_RECLAIM_LOG_SAMPLE_SIZE)
@@ -164,38 +154,55 @@ async function reclaimQueuedBlobs(
   return shouldContinue;
 }
 
-/** Sweep orphan rows and reclaim their queued local attachment bytes. */
-export function reclaimDocumentOrphanBlobs(
+function runDocumentOrphanReclaims(
   runtime: DocumentOrphanBlobReclaimRuntime,
+  persistence: DocumentsPersistence = defaultDocumentsPersistence,
 ): Promise<void> {
   if (runtime.infra.dbStatus !== "ready") {
     return Promise.resolve();
   }
-  const execSql = resolveCanonicalExecSql(runtime.infra.execSql);
-  const existing = reclaimByExecSql.get(execSql);
-  if (existing) {
-    reclaimRerunByExecSql.add(execSql);
-    return existing;
+  const state = orphanBlobReclaimState(
+    persistence.orphanBlobs,
+    resolveCanonicalExecSql(runtime.infra.execSql),
+  );
+  if (state.running) {
+    state.rerun = true;
+    return state.running;
   }
 
-  let shouldContinue = false;
-  const reclaim = reclaimQueuedBlobs(runtime)
-    .then((hasMore) => {
-      shouldContinue = hasMore;
-    })
-    .catch((error: unknown) => {
-      const message = errorMessage(error);
-      runtime.util.log(`Documents: orphan maintenance failed: ${message}`);
-    })
-    .finally(() => {
-      reclaimByExecSql.delete(execSql);
-      const wasRerunRequested = reclaimRerunByExecSql.delete(execSql);
-      if (shouldContinue || wasRerunRequested) {
-        setTimeout(() => {
-          void reclaimDocumentOrphanBlobs(runtime);
-        }, ORPHAN_BLOB_RECLAIM_YIELD_MS);
-      }
-    });
-  reclaimByExecSql.set(execSql, reclaim);
+  const reclaim = (async () => {
+    try {
+      let hasMore: boolean;
+      do {
+        state.rerun = false;
+        hasMore = false;
+        try {
+          hasMore = await reclaimQueuedBlobs(runtime, persistence, state);
+        } catch (error) {
+          const message = errorMessage(error);
+          runtime.util.log(`Documents: orphan maintenance failed: ${message}`);
+        }
+        if (hasMore || state.rerun) await waitForMaintenanceYield();
+      } while (hasMore || state.rerun);
+    } finally {
+      state.running = undefined;
+      state.rerun = false;
+    }
+  })();
+  state.running = reclaim;
   return reclaim;
+}
+
+/** Await all requested batches; maintenance failures never fail committed writes. */
+export async function reclaimDocumentOrphanBlobs(
+  runtime: DocumentOrphanBlobReclaimRuntime,
+  persistence: DocumentsPersistence = defaultDocumentsPersistence,
+): Promise<void> {
+  try {
+    await runDocumentOrphanReclaims(runtime, persistence);
+  } catch (error) {
+    runtime.util.log(
+      `Documents: orphan maintenance failed: ${errorMessage(error)}`,
+    );
+  }
 }

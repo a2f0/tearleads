@@ -7,16 +7,13 @@ import {
 } from "../../../data/documents/documentKinds";
 import type { DocumentSummary } from "../../../data/documents/documentSummary";
 import { errorMessage } from "../../../data/errorMessage";
-
 import {
   type DocumentRecord,
-  defaultDocumentsPersistence,
   type ExecSql,
   enqueuePendingDocumentUpdate,
   listPendingDocumentUpdates,
   type PendingUpdateRecord,
   persistDocumentState,
-  reclaimDocumentOrphanBlobs,
   runSerializedSqlMutation,
 } from "../../../workflows/documents";
 import { maybeCompactDocumentHistory } from "./documentHistoryCompaction";
@@ -24,6 +21,7 @@ import {
   importDurableDocumentHistory,
   installDurableDocumentReload,
 } from "./durableDocumentReload";
+import { runDocumentOrphanMaintenance } from "./orphanMaintenance";
 import {
   type DocumentState,
   type DocumentStoreState,
@@ -153,9 +151,7 @@ export async function saveDocumentRecord(
     if (isCurrent()) {
       markDocumentStoreRemoved(state);
     }
-    if (state.persistence === defaultDocumentsPersistence) {
-      void reclaimDocumentOrphanBlobs(state.runtime);
-    }
+    void runDocumentOrphanMaintenance(state);
     return null;
   }
   const { record: nextRecord, updatedAt } = persistedDocumentState;

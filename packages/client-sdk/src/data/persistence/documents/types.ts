@@ -13,6 +13,7 @@ import type {
   PendingUpdateRecord,
 } from "../../sqlite/documentPersistence";
 import type { ExecSql } from "../../sqlite/sqlSchema";
+import type { DocumentOrphanBlobPersistence } from "./orphanBlobPersistence";
 
 export type { PendingUpdateRecord } from "../../sqlite/documentPersistence";
 
@@ -138,6 +139,7 @@ export interface DocumentSummaryList {
 }
 
 export interface DocumentsPersistence {
+  readonly orphanBlobs: DocumentOrphanBlobPersistence;
   /**
    * The adapter guarantees that recovery checkpoint replacement, selection of
    * covered local history, rejection of unproven ordinary pending rows, and

@@ -2,12 +2,10 @@
 
 import { getDocumentAttachments } from "../../../data/documents/documentContent";
 import { hydrateDocumentAttachmentBlobs } from "../../../workflows/blobs";
-import {
-  type DocumentRecord,
-  reclaimDocumentOrphanBlobs,
-} from "../../../workflows/documents";
+import type { DocumentRecord } from "../../../workflows/documents";
 import { createRuntimePrincipalPolicyWarmer } from "../../../workflows/principals/runtimePolicyWarmer";
 import { commitHydratedAttachment } from "./attachmentHydrationCommit";
+import { runDocumentOrphanMaintenance } from "./orphanMaintenance";
 import type { DocumentState, DocumentStoreState } from "./state";
 import {
   type DocumentStoreSyncGeneration,
@@ -74,5 +72,5 @@ export async function hydrateAttachmentBlobs(
         expectedStorageKeys[hydratedBlob.attachment.slotId] ?? null,
     });
   }
-  await reclaimDocumentOrphanBlobs(runtime);
+  void runDocumentOrphanMaintenance(state);
 }

@@ -1,6 +1,5 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
-import { waitFor } from "../../../test/helpers/waitFor";
 import type { BlobBytes, BlobStore } from "../../data/blobContracts";
 import { defaultDocumentProjectorRegistry } from "../../data/documents/documentKinds";
 import { createDomainScope } from "../../data/domainScope";
@@ -221,7 +220,7 @@ test("reclaim and hydration serialize byte deletion before the live row write", 
   }
 });
 
-test("orphan byte reclaim reschedules bounded work until the queue drains", async () => {
+test("orphan byte reclaim awaits every bounded batch until the queue drains", async () => {
   const { close, execSql } = await createTestExecSql(
     "bounded-orphan-blob-reclaim",
   );
@@ -252,13 +251,6 @@ test("orphan byte reclaim reschedules bounded work until the queue drains", asyn
       logs: [],
     });
 
-    await reclaimDocumentOrphanBlobs(runtime);
-    expect(deletedStorageKeys.length).toBeLessThan(storageKeys.length);
-    await waitFor(
-      () => deletedStorageKeys.length >= storageKeys.length,
-      "Timed out waiting for the orphan reclaim queue",
-      2_000,
-    );
     await reclaimDocumentOrphanBlobs(runtime);
 
     expect(deletedStorageKeys).toHaveLength(65);

@@ -1,7 +1,10 @@
 import { expect, test } from "bun:test";
-import { createTestExecSql } from "@tearleads/test-utils";
-import { defaultDocumentProjectorRegistry } from "../../../data/documents/documentKinds";
-import { createDomainScope } from "../../../data/domainScope";
+import {
+  createStoreState,
+  createDiscardTestExecSql as createTestExecSql,
+  type RecordedProjectionDelete,
+  saveSyncedDocumentRecord,
+} from "../../../../test/helpers/documentDiscard";
 import { sqlDocumentMoveIntentPersistence } from "../../../data/persistence/container-contents/documentMoveIntentPersistence";
 import { sqlDocumentContainerProjectionPersistence } from "../../../data/persistence/containers/documentContainerProjectionPersistence";
 import { sqlDocumentsPersistence } from "../../../data/persistence/documents/documentsPersistence";
@@ -11,105 +14,16 @@ import {
   listDocumentPendingUpdates,
   recordDocumentSyncFailure,
 } from "../../../data/sqlite/documentPersistence";
-import type { ExecSql } from "../../../data/sqlite/sqlSchema";
-import type { DocumentsRuntime } from "../types";
+import { reclaimDocumentOrphanBlobs } from "../../../workflows/documents";
 import {
   deletePendingAttachment,
   saveLocalAttachmentRecords,
   savePendingAttachmentUpload,
 } from "./attachmentPersistence";
 import { discardDocumentStoreLocalState } from "./discard";
-import { noopDocumentStorePersistenceEffects } from "./documentStore.testFixtures";
 import { enqueuePendingUpdate } from "./persistence";
-import { createDocumentStoreState, type DocumentStoreState } from "./state";
+import type { DocumentStoreState } from "./state";
 import { captureDocumentStoreSyncGeneration } from "./syncGeneration";
-
-interface RecordedProjectionDelete {
-  documentKind: string;
-  localId: string;
-}
-
-function createRuntime(
-  execSql: ExecSql,
-  deletedBlobStorageKeys: string[] = [],
-  projectionDeletes: RecordedProjectionDelete[] = [],
-): DocumentsRuntime {
-  return {
-    infra: {
-      blobStore: {
-        deleteBytes: async (storageKey: string) => {
-          deletedBlobStorageKeys.push(storageKey);
-        },
-        openByteSource: async () => null,
-      },
-      dbStatus: "ready",
-      documentProjectors: {
-        ...defaultDocumentProjectorRegistry,
-        deleteStoredDocumentClientProjection: async (input: {
-          documentKind: string;
-          localId: string;
-        }) => {
-          projectionDeletes.push({
-            documentKind: input.documentKind,
-            localId: input.localId,
-          });
-        },
-      },
-      execSql,
-    },
-    resolveTrustedUserIdentity: async () => null,
-    state: { domainScope: createDomainScope() },
-    util: { log: () => undefined },
-  } as unknown as DocumentsRuntime;
-}
-
-async function saveSyncedDocumentRecord(
-  execSql: ExecSql,
-  localId: string,
-  documentId: string | null,
-  containerId: string | null,
-): Promise<void> {
-  await sqlDocumentsPersistence.saveDocument(execSql, {
-    id: localId,
-    accessEpoch: 3,
-    accessStateHash: "state-hash",
-    containerId,
-    contentKeyBundle: "content-key-bundle",
-    documentId,
-    documentKind: "note",
-    documentKekTargets: "kek-targets",
-    documentManifestBundle: "manifest-bundle",
-    effectiveAccessLevel: "admin",
-    lastCommitLsn: "42",
-    pendingBaseVersion: "base-version",
-    pullContinuation: {
-      commitLsn: "0/2",
-      commitLsnMode: "tracked",
-      cursor: "page-2",
-    },
-    recoveryGeneration: 1,
-    snapshotEndVersion: "synced-end-version",
-    text: "hello",
-    title: "Stuck note",
-  });
-}
-
-function createStoreState(
-  execSql: ExecSql,
-  localId: string,
-  deletedBlobStorageKeys: string[] = [],
-  projectionDeletes: RecordedProjectionDelete[] = [],
-) {
-  const state = createDocumentStoreState(
-    localId,
-    createRuntime(execSql, deletedBlobStorageKeys, projectionDeletes),
-    sqlDocumentsPersistence,
-    noopDocumentStorePersistenceEffects,
-    null,
-  );
-  state.initialized = true;
-  return state;
-}
 
 test("discard re-seeds the discovered-share shell and clears the queue", async () => {
   const { close, execSql } = await createTestExecSql("discard-remote");
@@ -164,7 +78,7 @@ test("discard re-seeds the discovered-share shell and clears the queue", async (
     expect(state.record).toBeNull();
     expect(state.initialized).toBe(false);
   } finally {
-    close();
+    await close();
   }
 });
 
@@ -198,7 +112,7 @@ test("discard refuses a local-only document whose queue is its only copy", async
     // copy of the edit, and the store keeps persisting it.
     expect(state.initialized).toBe(true);
   } finally {
-    close();
+    await close();
   }
 });
 
@@ -276,12 +190,13 @@ test("discard keeps server links and reclaims staged upload bytes", async () => 
     expect(
       remainingLocalAttachments.map((attachment) => attachment.slotId),
     ).toEqual(["slot-3"]);
+    await reclaimDocumentOrphanBlobs(state.runtime);
     expect([...deletedBlobStorageKeys].sort()).toEqual([
       "detached-storage-key",
       "staged-storage-key",
     ]);
   } finally {
-    close();
+    await close();
   }
 });
 
@@ -321,7 +236,7 @@ test("discard refuses a document with a queued move intent", async () => {
       }),
     ).toHaveLength(1);
   } finally {
-    close();
+    await close();
   }
 });
 
@@ -363,7 +278,7 @@ test("a failing byte store cannot fail the discard once rows committed", async (
       await sqlDocumentsPersistence.listPendingAttachments(execSql, localId),
     ).toEqual([]);
   } finally {
-    close();
+    await close();
   }
 });
 
@@ -385,7 +300,7 @@ test("discard refuses when the persisted identity is not the expected one", asyn
     expect(record?.snapshotEndVersion).toBe("synced-end-version");
     expect(state.initialized).toBe(true);
   } finally {
-    close();
+    await close();
   }
 });
 
@@ -524,7 +439,7 @@ test("stale writers cannot resurrect rows after a discard", async () => {
       await sqlDocumentsPersistence.listPendingAttachments(execSql, localId),
     ).toEqual([]);
   } finally {
-    close();
+    await close();
   }
 });
 
@@ -543,6 +458,6 @@ test("discard refuses a document with no container to anchor the shell", async (
     const record = await sqlDocumentsPersistence.loadDocument(execSql, localId);
     expect(record?.snapshotEndVersion).toBe("synced-end-version");
   } finally {
-    close();
+    await close();
   }
 });
