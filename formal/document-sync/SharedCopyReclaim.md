@@ -35,8 +35,8 @@ identity later. Four negative controls fail
 `sharedAttachmentReset.test.ts` exercises real store initialization, organization
 reset, ordinary editing and slot removal against SQLite and a byte store. It
 keeps the other document's pending source, then reclaims after its final reference
-is removed. The no-reset control keeps the other synced copy. The reset safety
-assertion fails with the former direct-delete follow-up. These are runtime
+is removed. The no-reset smoke check preserves the other synced copy. The reset
+safety assertion fails with the former direct-delete follow-up. These are runtime
 regressions, not an automated implementation-to-model trace projection.
 
 `UnheldCopyReclaimed` checks that a queued copy nobody holds is eventually

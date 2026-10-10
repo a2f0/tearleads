@@ -21,7 +21,6 @@ test("discard finishes while a later reclaim batch waits for byte storage", asyn
   const release = Promise.withResolvers<void>();
   const blobStore = createMemoryBlobStore();
   let deletes = 0;
-  const logs: string[] = [];
   const deleteBytes = blobStore.deleteBytes.bind(blobStore);
   blobStore.deleteBytes = async (key) => {
     deletes += 1;
@@ -54,9 +53,7 @@ test("discard finishes while a later reclaim batch waits for byte storage", asyn
       online: false,
     },
     util: {
-      log: (message) => {
-        logs.push(message);
-      },
+      log: () => undefined,
       reportSecurityIncident: async () => undefined,
     },
   });
@@ -83,6 +80,7 @@ test("discard finishes while a later reclaim batch waits for byte storage", asyn
       noopDocumentStorePersistenceEffects,
       null,
     );
+    state.initialized = true;
     let finished = false;
     discard = discardDocumentStoreLocalState(state, "remote").then((result) => {
       finished = true;
