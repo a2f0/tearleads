@@ -3,20 +3,22 @@ EXTENDS Naturals
 
 CONSTANTS CheckCandidatePath, CheckRequestPath, CheckServerPath, CheckPendingMove,
           CheckRootPendingMove, CheckLocalPlacement, CheckLocalContainerPlacement,
-          CaptureLocalScope
+          CaptureLocalScope, CheckSettledRootPlacement
 ASSUME {CheckCandidatePath, CheckRequestPath, CheckServerPath,
         CheckPendingMove, CheckRootPendingMove, CheckLocalPlacement,
-        CheckLocalContainerPlacement, CaptureLocalScope} \subseteq BOOLEAN
+        CheckLocalContainerPlacement, CaptureLocalScope,
+        CheckSettledRootPlacement} \subseteq BOOLEAN
 
-VARIABLES kind, inside, initiallyInside, listed, moved, pending, phase,
+VARIABLES kind, inside, initiallyInside, listed, moved, rootMoved, pending, phase,
           requestInside, version, requestVersion, deleted, escaped, lostMove
-vars == <<kind, inside, initiallyInside, listed, moved, pending, phase,
+vars == <<kind, inside, initiallyInside, listed, moved, rootMoved, pending, phase,
           requestInside, version, requestVersion, deleted, escaped, lostMove>>
 
 Init ==
   /\ kind \in {"local", "local-container", "document", "container"}
   /\ inside \in BOOLEAN /\ initiallyInside = inside
   /\ listed \in BOOLEAN
+  /\ rootMoved = FALSE
   /\ moved = FALSE /\ pending = "none" /\ phase = "candidate"
   /\ requestInside = FALSE /\ version = 0 /\ requestVersion = 0
   /\ deleted = FALSE /\ escaped = FALSE /\ lostMove = FALSE
@@ -27,7 +29,7 @@ CheckCandidate ==
   /\ requestVersion' = version
   /\ phase' = IF listed /\ (~CheckCandidatePath \/ inside)
               THEN "verified" ELSE "done"
-  /\ UNCHANGED <<kind, inside, initiallyInside, listed, moved, pending,
+  /\ UNCHANGED <<kind, inside, initiallyInside, listed, moved, rootMoved, pending,
                   requestInside, version, deleted, escaped, lostMove>>
 
 (* One remote move, local document move, or local ancestor move can land
@@ -35,13 +37,20 @@ CheckCandidate ==
 Move ==
   /\ ~moved /\ phase # "done"
   /\ inside' = ~inside /\ version' = 1 /\ moved' = TRUE
-  /\ UNCHANGED <<kind, initiallyInside, listed, pending, phase, requestInside,
+  /\ UNCHANGED <<kind, initiallyInside, listed, rootMoved, pending, phase, requestInside,
                   requestVersion, deleted, escaped, lostMove>>
 
 RestoreIntent ==
   /\ pending = "none" /\ phase # "done"
   /\ pending' \in {"candidate", "root"}
-  /\ UNCHANGED <<kind, inside, initiallyInside, listed, moved, phase,
+  /\ UNCHANGED <<kind, inside, initiallyInside, listed, moved, rootMoved, phase,
+                  requestInside, version, requestVersion, deleted, escaped, lostMove>>
+
+(* Another device restores the selected root; hydration has no local intent. *)
+RestoreRoot ==
+  /\ ~rootMoved /\ phase # "done"
+  /\ rootMoved' = TRUE
+  /\ UNCHANGED <<kind, inside, initiallyInside, listed, moved, pending, phase,
                   requestInside, version, requestVersion, deleted, escaped, lostMove>>
 
 Prepare ==
@@ -51,13 +60,14 @@ Prepare ==
                         THEN requestVersion ELSE version
   /\ phase' = IF kind = "document" /\ CheckRequestPath /\ ~inside
               THEN "done" ELSE "prepared"
-  /\ UNCHANGED <<kind, inside, initiallyInside, listed, moved, pending,
+  /\ UNCHANGED <<kind, inside, initiallyInside, listed, moved, rootMoved, pending,
                   version, deleted, escaped, lostMove>>
 
 LocalPlacementCurrent ==
   (IF CaptureLocalScope THEN requestVersion ELSE version) = version
 
 CanCommit ==
+  /\ ~CheckSettledRootPlacement \/ ~rootMoved
   /\ ~CheckPendingMove \/ pending # "candidate"
   /\ ~CheckRootPendingMove \/ pending # "root"
   /\ CASE kind = "document" -> requestVersion = version
@@ -68,18 +78,18 @@ CanCommit ==
 Commit ==
   /\ phase = "prepared" /\ phase' = "done"
   /\ deleted' = CanCommit
-  /\ escaped' = (CanCommit /\ ~inside)
+  /\ escaped' = (CanCommit /\ (~inside \/ rootMoved))
   /\ lostMove' = (CanCommit /\ pending # "none")
-  /\ UNCHANGED <<kind, inside, initiallyInside, listed, moved, pending,
+  /\ UNCHANGED <<kind, inside, initiallyInside, listed, moved, rootMoved, pending,
                   requestInside, version, requestVersion>>
 
-Next == CheckCandidate \/ Move \/ RestoreIntent \/ Prepare \/ Commit
+Next == CheckCandidate \/ Move \/ RestoreIntent \/ RestoreRoot \/ Prepare \/ Commit
         \/ (phase = "done" /\ UNCHANGED vars)
 Spec == Init /\ [][Next]_vars /\ WF_vars(CheckCandidate)
         /\ WF_vars(Prepare) /\ WF_vars(Commit)
 TypeOK ==
   /\ kind \in {"local", "local-container", "document", "container"}
-  /\ {inside, initiallyInside, listed, moved, requestInside,
+  /\ {inside, initiallyInside, listed, moved, rootMoved, requestInside,
        deleted, escaped, lostMove} \subseteq BOOLEAN
   /\ pending \in {"none", "candidate", "root"}
   /\ phase \in {"candidate", "verified", "prepared", "done"}
@@ -87,6 +97,6 @@ TypeOK ==
 DeletionStaysInScope == ~escaped
 PendingMoveSurvives == ~lostMove
 HonestQuiescentPurgeSucceeds ==
-  (phase = "done" /\ initiallyInside /\ listed /\ ~moved /\ pending = "none") => deleted
+  (phase = "done" /\ initiallyInside /\ listed /\ ~moved /\ ~rootMoved /\ pending = "none") => deleted
 PurgeTerminates == <>(phase = "done")
 =============================================================================

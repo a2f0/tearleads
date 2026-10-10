@@ -5,6 +5,7 @@ import {
 } from "../../../../test/helpers/containerFixtures";
 import { createTestTrustedUserIdentityResolver } from "../../../../test/helpers/trustedUserIdentity";
 import { withTestExecSql } from "../../../../test/helpers/withTestExecSql";
+import { createContainerMetadataDocument } from "../../../data/containers/containerMetadataDocument";
 import { sqlContainerContentsPersistence } from "../../../data/persistence/container-contents/containerContentsPersistence";
 import { sqlDocumentMoveIntentPersistence } from "../../../data/persistence/container-contents/documentMoveIntentPersistence";
 import { sqlDocumentContainerProjectionPersistence } from "../../../data/persistence/containers/documentContainerProjectionPersistence";
@@ -27,6 +28,8 @@ for (const scenario of [
   "pending-before",
   "pending-during",
   "root-pending-during",
+  "root-settled-during",
+  "signed-root-parent-mismatch",
   "unavailable",
 ] as const)
   test(`subtree purge respects signed ancestry and placement (${scenario})`, async () => {
@@ -70,7 +73,11 @@ for (const scenario of [
                 throw new Error("Projection transport unavailable");
               if (purging && scenario === "pending-during")
                 await queueRestore();
-              if (purging && scenario === "root-pending-during")
+              if (
+                purging &&
+                (scenario === "root-pending-during" ||
+                  scenario === "root-settled-during")
+              )
                 await sqlContainerContentsPersistence.saveContainer(
                   execSql,
                   {
@@ -82,12 +89,14 @@ for (const scenario of [
                     metadataDocumentId: "root-metadata",
                   },
                   null,
-                  {
-                    moveIntent: {
-                      parentContainerId: "restored",
-                      previousParentContainerId: null,
-                    },
-                  },
+                  scenario === "root-pending-during"
+                    ? {
+                        moveIntent: {
+                          parentContainerId: "restored",
+                          previousParentContainerId: null,
+                        },
+                      }
+                    : undefined,
                 );
               return projection;
             },
@@ -165,9 +174,31 @@ for (const scenario of [
         documentId,
         [projection.containerId],
       );
-      state.containersById.set(trashId, {
-        container: { id: trashId, parentId: parent.projection.containerId },
-      } as ContainerState);
+      const root: ContainerState = {
+        container: {
+          id: trashId,
+          parentId:
+            scenario === "signed-root-parent-mismatch" ? "claimed-trash" : null,
+          organizationId: projection.organizationId,
+          name: "Selected",
+          icon: null,
+          metadataDocumentId: "root-metadata",
+        },
+        record: {
+          id: trashId,
+          documentId: null,
+          accessEpoch: 1,
+          metadataUpdates: "",
+          snapshotEndVersion: "",
+        },
+        doc: await createContainerMetadataDocument(trashId),
+      };
+      await sqlContainerContentsPersistence.saveContainer(
+        execSql,
+        root.container,
+        root.record,
+      );
+      state.containersById.set(trashId, root);
       if (scenario === "pending-before") await queueRestore();
       const localOnlyId = crypto.randomUUID();
       if (scenario === "unavailable")
@@ -222,7 +253,9 @@ for (const scenario of [
       if (
         scenario === "outside" ||
         scenario === "unavailable" ||
-        scenario === "root-pending-during"
+        scenario === "root-pending-during" ||
+        scenario === "root-settled-during" ||
+        scenario === "signed-root-parent-mismatch"
       )
         expect(containerDeletes).toEqual([]);
       if (scenario === "unavailable")

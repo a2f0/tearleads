@@ -14,6 +14,7 @@ import type { ContainerState } from "../remoteHydration";
 import type { ContainerContentsWorkflowRuntime } from "../runtime";
 import { assertLocalPurgeScope } from "./localPurgeScope";
 import { snapshotContainerStates } from "./purgeTreeCollection";
+import { readLocalPurgeScope } from "./readLocalPurgeScope";
 
 interface SubtreePurgeScopeInput {
   containersById: ReadonlyMap<string, ContainerState>;
@@ -70,6 +71,8 @@ async function verifiedRemoteScope(
       const pendingMoves = await readPendingMoves(input);
       const allowed =
         rootIndex >= 0 &&
+        path[rootIndex]?.state.parentContainerId ===
+          input.containersById.get(rootContainerId)?.container.parentId &&
         latest?.container.parentId === current.container.parentId &&
         latest.record?.documentId === current.record.documentId &&
         !path
@@ -96,9 +99,7 @@ async function allowsContainer(
   const execSql = runtime.infra.execSql;
   const pendingMoves = await readPendingMoves(input);
   if (pendingMoves.has(rootContainerId)) return false;
-  if (containerId === rootContainerId) return input.stillCurrent?.() !== false;
   const seen = new Set<string>([rootContainerId]);
-  const localIds: string[] = [];
   let currentId: string | null = containerId;
   while (currentId !== rootContainerId) {
     if (!currentId || seen.has(currentId) || pendingMoves.has(currentId))
@@ -131,28 +132,14 @@ async function allowsContainer(
         return false;
       break;
     }
-    localIds.push(currentId);
     currentId = current.container.parentId;
   }
-  // Signature verification can await network and principal-policy recovery.
-  // Every local edge traversed before that wait must still match afterward.
-  for (const id of localIds) {
-    const expected = input.containersById.get(id);
-    const latest = await persistence.loadContainerMetadataState(execSql, id);
-    if (
-      !expected ||
-      !latest?.record ||
-      latest.container.parentId !== expected.container.parentId ||
-      latest.container.organizationId !== expected.container.organizationId ||
-      latest.record.documentId !== expected.record.documentId
-    )
-      return false;
-  }
-  const latestMoves = await readPendingMoves(input);
-  return (
-    ![...seen].some((id) => latestMoves.has(id)) &&
-    input.stillCurrent?.() !== false
-  );
+  return readLocalPurgeScope({
+    ...input,
+    containerId,
+    execSql,
+    verifiedAncestorsById,
+  });
 }
 
 async function readPendingMoves(input: SubtreePurgeScopeInput) {
@@ -232,8 +219,17 @@ export function createSubtreePurgeScope(request: SubtreePurgeScopeInput) {
           ))
         )
           return false;
-        // A restore can be queued while signature and ancestry verification await.
-        return documentPlacementIsCurrent(input, document);
+        // Freeze local placement checks together after all remote verification.
+        return readLocalPurgeScope(
+          {
+            ...input,
+            containerId: document.containerId,
+            execSql: input.runtime.infra.execSql,
+            localId: document.id,
+            verifiedAncestorsById,
+          },
+          document,
+        );
       }),
   };
 }

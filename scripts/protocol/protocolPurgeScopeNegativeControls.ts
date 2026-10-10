@@ -65,4 +65,12 @@ export const PURGE_SCOPE_NEGATIVE_CONTROLS: readonly NegativeControl[] = [
     expect: { kind: "invariant", name: "DeletionStaysInScope" },
     why: "A live store update must not replace the purge's captured placement (#2485 finding 1).",
   },
+  {
+    id: "subtree-purge-ignores-settled-root-restore",
+    module: "formal/local-trust/SubtreePurgeScope.tla",
+    config: "formal/local-trust/SubtreePurgeScope.cfg",
+    constants: { CheckSettledRootPlacement: "FALSE" },
+    expect: { kind: "invariant", name: "DeletionStaysInScope" },
+    why: "A restore hydrated from another device has no local pending intent but still cancels the captured destructive scope (#2485 finding 1).",
+  },
 ];

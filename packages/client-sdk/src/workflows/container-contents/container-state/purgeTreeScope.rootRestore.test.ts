@@ -82,6 +82,7 @@ for (const restore of ["none", "queued", "blocked", "during-read"] as const) {
           });
       };
       if (restore === "queued" || restore === "blocked") await queueRestore();
+      let queuedDuringRead = false;
       const input = {
         containersById,
         persistence: {
@@ -90,7 +91,10 @@ for (const restore of ["none", "queued", "blocked", "during-read"] as const) {
             ...args: Parameters<typeof persistence.loadContainerMetadataState>
           ) => {
             const state = await persistence.loadContainerMetadataState(...args);
-            if (restore === "during-read") await queueRestore();
+            if (restore === "during-read" && !queuedDuringRead) {
+              queuedDuringRead = true;
+              await queueRestore();
+            }
             return state;
           },
         },
