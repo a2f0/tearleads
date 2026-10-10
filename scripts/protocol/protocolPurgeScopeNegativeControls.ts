@@ -41,4 +41,12 @@ export const PURGE_SCOPE_NEGATIVE_CONTROLS: readonly NegativeControl[] = [
     expect: { kind: "invariant", name: "PendingMoveSurvives" },
     why: "A pending restore of the selected root must preserve every candidate, including local-only content (#2485 finding 1).",
   },
+  {
+    id: "subtree-purge-skips-local-transaction-scope",
+    module: "formal/local-trust/SubtreePurgeScope.tla",
+    config: "formal/local-trust/SubtreePurgeScope.cfg",
+    constants: { CheckLocalPlacement: "FALSE" },
+    expect: { kind: "invariant", name: "DeletionStaysInScope" },
+    why: "Local document teardown must compare its placement and ancestor chain inside the deletion transaction (#2485 finding 1).",
+  },
 ];

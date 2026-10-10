@@ -200,6 +200,9 @@ interface ContainerDocumentLocalPurgeRuntime
   extends Pick<ContainerContentsWorkflowRuntime, "infra" | "util"> {}
 
 export async function purgeLocalContainerDocument(input: {
+  beforeDeleteInTransaction?: Parameters<
+    typeof deletePersistedDocument
+  >[0]["beforeDeleteInTransaction"];
   noteId: string;
   expectedContainerId?: string | null | undefined;
   persistence?: DocumentsPersistence | undefined;
@@ -225,6 +228,7 @@ export async function purgeLocalContainerDocument(input: {
       return null;
     }
     const deleted = await deletePersistedDocument({
+      beforeDeleteInTransaction: input.beforeDeleteInTransaction,
       documentProjectors: runtime.infra.documentProjectors,
       execSql: runtime.infra.execSql,
       expectedRecord,

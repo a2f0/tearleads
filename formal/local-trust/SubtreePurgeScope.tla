@@ -2,9 +2,9 @@
 EXTENDS Naturals
 
 CONSTANTS CheckCandidatePath, CheckRequestPath, CheckServerPath, CheckPendingMove,
-          CheckRootPendingMove
+          CheckRootPendingMove, CheckLocalPlacement
 ASSUME {CheckCandidatePath, CheckRequestPath, CheckServerPath,
-        CheckPendingMove, CheckRootPendingMove} \subseteq BOOLEAN
+        CheckPendingMove, CheckRootPendingMove, CheckLocalPlacement} \subseteq BOOLEAN
 
 VARIABLES kind, inside, initiallyInside, listed, moved, pending, phase,
           requestInside, version, requestVersion, deleted, escaped, lostMove
@@ -22,15 +22,16 @@ Init ==
 (* Unsigned listing membership selects a candidate, never deletion authority. *)
 CheckCandidate ==
   /\ phase = "candidate"
+  /\ requestVersion' = version
   /\ phase' = IF listed /\ (~CheckCandidatePath \/ inside)
               THEN "verified" ELSE "done"
   /\ UNCHANGED <<kind, inside, initiallyInside, listed, moved, pending,
-                  requestInside, version, requestVersion, deleted, escaped, lostMove>>
+                  requestInside, version, deleted, escaped, lostMove>>
 
-(* One honest remote move can land before or after request preparation. Local
-   row CAS races are covered separately; this model keeps local ancestry fixed. *)
+(* One remote move, local document move, or local ancestor move can land
+   before or after request preparation. Local deletion rechecks inside its tx. *)
 Move ==
-  /\ kind # "local" /\ ~moved /\ phase # "done"
+  /\ ~moved /\ phase # "done"
   /\ inside' = ~inside /\ version' = 1 /\ moved' = TRUE
   /\ UNCHANGED <<kind, initiallyInside, listed, pending, phase, requestInside,
                   requestVersion, deleted, escaped, lostMove>>
@@ -43,7 +44,8 @@ RestoreIntent ==
 
 Prepare ==
   /\ phase = "verified"
-  /\ requestInside' = inside /\ requestVersion' = version
+  /\ requestInside' = inside
+  /\ requestVersion' = IF kind = "local" THEN requestVersion ELSE version
   /\ phase' = IF kind = "document" /\ CheckRequestPath /\ ~inside
               THEN "done" ELSE "prepared"
   /\ UNCHANGED <<kind, inside, initiallyInside, listed, moved, pending,
@@ -54,7 +56,7 @@ CanCommit ==
   /\ ~CheckRootPendingMove \/ pending # "root"
   /\ CASE kind = "document" -> requestVersion = version
        [] kind = "container" -> ~CheckServerPath \/ inside
-       [] OTHER -> TRUE
+       [] OTHER -> ~CheckLocalPlacement \/ requestVersion = version
 
 Commit ==
   /\ phase = "prepared" /\ phase' = "done"

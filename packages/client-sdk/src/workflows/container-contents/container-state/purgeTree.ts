@@ -235,6 +235,12 @@ function resolveSubtreeDocumentOperations(
   const operations: SubtreeDocumentOperations = input.documentOperations ?? {
     purgeLocal: async (document) =>
       (await purgeLocalContainerDocument({
+        beforeDeleteInTransaction: (execSql) =>
+          scope.assertLocalScopeInTransaction(
+            execSql,
+            document.containerId,
+            document.id,
+          ),
         noteId: document.id,
         expectedContainerId: document.containerId,
         runtime: input.runtime,

@@ -7,10 +7,12 @@ import { runWithSecurityIncidentReporting } from "../../../data/keyingProjection
 import { rethrowProjectionVerificationCancelled } from "../../../data/keyingProjectionVerification/types";
 import { hasUnsettledDocumentPlacement } from "../../../data/persistence/container-contents/documentPurgePlacement";
 import { sqlDocumentsPersistence } from "../../../data/persistence/documents/documentsPersistence";
+import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import { createRuntimePrincipalPolicyWarmer } from "../../principals/runtimePolicyWarmer";
 import type { ContainerContentsPersistence } from "../containerPersistence";
 import type { ContainerState } from "../remoteHydration";
 import type { ContainerContentsWorkflowRuntime } from "../runtime";
+import { assertLocalPurgeScope } from "./localPurgeScope";
 
 interface SubtreePurgeScopeInput {
   containersById: ReadonlyMap<string, ContainerState>;
@@ -24,6 +26,7 @@ interface SubtreePurgeScopeInput {
 async function verifiedRemoteScope(
   input: SubtreePurgeScopeInput,
   current: Pick<ContainerState, "container" | "record">,
+  verifiedAncestorsById: Map<string, readonly string[]>,
 ): Promise<boolean> {
   const { runtime, rootContainerId } = input;
   const targetId = current.container.id;
@@ -64,15 +67,20 @@ async function verifiedRemoteScope(
         targetId,
       );
       const pendingMoves = await readPendingMoves(input);
-      return (
+      const allowed =
         rootIndex >= 0 &&
         latest?.container.parentId === current.container.parentId &&
         latest.record?.documentId === current.record.documentId &&
         !path
           .slice(rootIndex)
           .some((head) => pendingMoves.has(head.state.containerId)) &&
-        input.stillCurrent?.() !== false
-      );
+        input.stillCurrent?.() !== false;
+      if (allowed)
+        verifiedAncestorsById.set(
+          targetId,
+          path.slice(rootIndex).map((head) => head.state.containerId),
+        );
+      return allowed;
     },
   );
 }
@@ -80,6 +88,7 @@ async function verifiedRemoteScope(
 async function allowsContainer(
   input: SubtreePurgeScopeInput,
   containerId: string,
+  verifiedAncestorsById: Map<string, readonly string[]>,
 ): Promise<boolean> {
   const { runtime, persistence, rootContainerId } = input;
   if (input.stillCurrent?.() === false) return false;
@@ -109,10 +118,14 @@ async function allowsContainer(
       return false;
     if (current.record.documentId) {
       if (
-        !(await verifiedRemoteScope(input, {
-          container: current.container,
-          record: current.record,
-        }))
+        !(await verifiedRemoteScope(
+          input,
+          {
+            container: current.container,
+            record: current.record,
+          },
+          verifiedAncestorsById,
+        ))
       )
         return false;
       break;
@@ -171,9 +184,24 @@ async function documentPlacementIsCurrent(
 
 /** Listing edges only select candidates; each destructive unit proves its scope. */
 export function createSubtreePurgeScope(input: SubtreePurgeScopeInput) {
+  const verifiedAncestorsById = new Map<string, readonly string[]>();
   return {
+    assertLocalScopeInTransaction: (
+      execSql: ExecSql,
+      containerId: string | null | undefined,
+      localId: string,
+    ) =>
+      assertLocalPurgeScope({
+        ...input,
+        execSql,
+        containerId,
+        localId,
+        verifiedAncestorsById,
+      }),
     allowsContainer: (containerId: string) =>
-      checkAvailableScope(input, () => allowsContainer(input, containerId)),
+      checkAvailableScope(input, () =>
+        allowsContainer(input, containerId, verifiedAncestorsById),
+      ),
     allowsDocument: (document: DocumentSummary) =>
       checkAvailableScope(input, async () => {
         if (
@@ -181,7 +209,14 @@ export function createSubtreePurgeScope(input: SubtreePurgeScopeInput) {
           !(await documentPlacementIsCurrent(input, document))
         )
           return false;
-        if (!(await allowsContainer(input, document.containerId))) return false;
+        if (
+          !(await allowsContainer(
+            input,
+            document.containerId,
+            verifiedAncestorsById,
+          ))
+        )
+          return false;
         // A restore can be queued while signature and ancestry verification await.
         return documentPlacementIsCurrent(input, document);
       }),
