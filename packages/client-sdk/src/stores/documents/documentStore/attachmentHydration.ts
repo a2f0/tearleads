@@ -1,4 +1,3 @@
-import { runDocumentOrphanMaintenance } from "./orphanMaintenance";
 /** Hydrate only bytes matching the current document's authenticated attachment intent. */
 
 import { getDocumentAttachments } from "../../../data/documents/documentContent";
@@ -6,6 +5,7 @@ import { hydrateDocumentAttachmentBlobs } from "../../../workflows/blobs";
 import type { DocumentRecord } from "../../../workflows/documents";
 import { createRuntimePrincipalPolicyWarmer } from "../../../workflows/principals/runtimePolicyWarmer";
 import { commitHydratedAttachment } from "./attachmentHydrationCommit";
+import { runDocumentOrphanMaintenance } from "./orphanMaintenance";
 import type { DocumentState, DocumentStoreState } from "./state";
 import {
   type DocumentStoreSyncGeneration,

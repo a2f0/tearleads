@@ -28,8 +28,10 @@ whole stage back; adapters must not emulate rollback with later compensating
 writes.
 
 Attachment removal queues its storage key in the same commit that removes the
-reference. Every adapter supplies `orphanBlobs`: `list` reads bounded queued
-keys, `isReferenced` checks all held copies and pending uploads sharing the byte
+reference. Every adapter supplies a stable `orphanBlobs` object for its lifetime;
+the SDK keys maintenance scheduling and retry deferral by that object. `list`
+reads bounded queued keys, `isReferenced` checks all held copies and pending
+uploads sharing the byte
 store, `acknowledge` removes a processed key, and `sweep` queues abandoned side
 rows in bounded batches. The SDK performs the reference check and byte deletion
 under its per-key mutation lock. Failed byte deletion retains the queue entry.

@@ -1,12 +1,12 @@
 import { createTestExecSql } from "@tearleads/test-utils";
-import { defaultDocumentProjectorRegistry } from "../../../data/documents/documentKinds";
-import { createDomainScope } from "../../../data/domainScope";
-import { sqlDocumentsPersistence } from "../../../data/persistence/documents/documentsPersistence";
-import type { ExecSql } from "../../../data/sqlite/sqlSchema";
-import { reclaimDocumentOrphanBlobs } from "../../../workflows/documents";
-import type { DocumentsRuntime } from "../types";
-import { noopDocumentStorePersistenceEffects } from "./documentStore.testFixtures";
-import { createDocumentStoreState } from "./state";
+import { defaultDocumentProjectorRegistry } from "../../src/data/documents/documentKinds";
+import { createDomainScope } from "../../src/data/domainScope";
+import { sqlDocumentsPersistence } from "../../src/data/persistence/documents/documentsPersistence";
+import type { ExecSql } from "../../src/data/sqlite/sqlSchema";
+import { noopDocumentStorePersistenceEffects } from "../../src/stores/documents/documentStore/documentStore.testFixtures";
+import { createDocumentStoreState } from "../../src/stores/documents/documentStore/state";
+import type { DocumentsRuntime } from "../../src/stores/documents/types";
+import { reclaimDocumentOrphanBlobs } from "../../src/workflows/documents";
 
 const maintenanceRuntimes = new WeakMap<ExecSql, DocumentsRuntime>();
 

@@ -1,4 +1,10 @@
 import { expect, test } from "bun:test";
+import {
+  createStoreState,
+  createDiscardTestExecSql as createTestExecSql,
+  type RecordedProjectionDelete,
+  saveSyncedDocumentRecord,
+} from "../../../../test/helpers/documentDiscard";
 import { sqlDocumentMoveIntentPersistence } from "../../../data/persistence/container-contents/documentMoveIntentPersistence";
 import { sqlDocumentContainerProjectionPersistence } from "../../../data/persistence/containers/documentContainerProjectionPersistence";
 import { sqlDocumentsPersistence } from "../../../data/persistence/documents/documentsPersistence";
@@ -15,12 +21,6 @@ import {
   savePendingAttachmentUpload,
 } from "./attachmentPersistence";
 import { discardDocumentStoreLocalState } from "./discard";
-import {
-  createStoreState,
-  createDiscardTestExecSql as createTestExecSql,
-  type RecordedProjectionDelete,
-  saveSyncedDocumentRecord,
-} from "./discard.testFixtures";
 import { enqueuePendingUpdate } from "./persistence";
 import type { DocumentStoreState } from "./state";
 import { captureDocumentStoreSyncGeneration } from "./syncGeneration";
