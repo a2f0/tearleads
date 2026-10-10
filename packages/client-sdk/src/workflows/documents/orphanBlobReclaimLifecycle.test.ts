@@ -20,7 +20,7 @@ function fixture(execSql: ExecSql) {
       execSql,
     },
     util: {
-      log: () => undefined,
+      log: (_message: string) => {},
       reportSecurityIncident: async () => undefined,
     },
   };
@@ -82,5 +82,26 @@ test("resetting a restored connection repeats its adapter's abandoned-row sweep"
     await reclaimDocumentOrphanBlobs(runtime, persistence);
     expect(await blobStore.readBytes("orphan-2")).toBe(null);
     expect(sweeps).toBe(2);
+  });
+});
+
+test("maintenance initialization errors do not escape into a committed write", async () => {
+  await withTestExecSql("orphan-initialization-error", async (execSql) => {
+    const { runtime, persistence } = fixture(execSql);
+    const logs: string[] = [];
+    runtime.util.log = (message: string) => {
+      logs.push(message);
+    };
+    Object.defineProperty(persistence, "orphanBlobs", {
+      get: () => {
+        throw new Error("adapter unavailable");
+      },
+    });
+    await expect(
+      reclaimDocumentOrphanBlobs(runtime, persistence),
+    ).resolves.toBeUndefined();
+    expect(logs).toEqual([
+      "Documents: orphan maintenance failed: adapter unavailable",
+    ]);
   });
 });

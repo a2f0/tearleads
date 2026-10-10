@@ -33,6 +33,12 @@ test("purge retry refuses a document recreated before the absence transaction", 
   let absenceChecks = 0;
   const logs: string[] = [];
   const persistence = {
+    orphanBlobs: {
+      acknowledge: async () => undefined,
+      isReferenced: async () => false,
+      list: async () => [],
+      sweep: async () => false,
+    },
     deleteDocumentSideRowsIfAbsent: async () => {
       absenceChecks += 1;
       return false;
@@ -146,6 +152,12 @@ test("purge retry deletes an absent custom document projection with its proof", 
     },
   ]);
   const persistence = {
+    orphanBlobs: {
+      acknowledge: async () => undefined,
+      isReferenced: async () => false,
+      list: async () => [],
+      sweep: async () => false,
+    },
     deleteDocumentSideRowsIfAbsent: async (
       _execSql: typeof execSql,
       _localId: string,

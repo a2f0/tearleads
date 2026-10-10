@@ -154,8 +154,7 @@ async function reclaimQueuedBlobs(
   return shouldContinue;
 }
 
-/** Await all requested batches, yielding between them without blocking startup. */
-export function reclaimDocumentOrphanBlobs(
+function runDocumentOrphanReclaims(
   runtime: DocumentOrphanBlobReclaimRuntime,
   persistence: DocumentsPersistence = defaultDocumentsPersistence,
 ): Promise<void> {
@@ -192,4 +191,18 @@ export function reclaimDocumentOrphanBlobs(
   })();
   state.running = reclaim;
   return reclaim;
+}
+
+/** Await all requested batches; maintenance failures never fail committed writes. */
+export async function reclaimDocumentOrphanBlobs(
+  runtime: DocumentOrphanBlobReclaimRuntime,
+  persistence: DocumentsPersistence = defaultDocumentsPersistence,
+): Promise<void> {
+  try {
+    await runDocumentOrphanReclaims(runtime, persistence);
+  } catch (error) {
+    runtime.util.log(
+      `Documents: orphan maintenance failed: ${errorMessage(error)}`,
+    );
+  }
 }

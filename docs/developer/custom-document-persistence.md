@@ -27,18 +27,19 @@ in one transaction. A mismatch changes no row. An insertion failure rolls the
 whole stage back; adapters must not emulate rollback with later compensating
 writes.
 
-Attachment removal queues its storage key in the same commit that removes the
-reference. Every adapter supplies a stable `orphanBlobs` object for its lifetime;
-the SDK keys maintenance scheduling and retry deferral by that object. `list`
-reads bounded queued keys, `isReferenced` checks all held copies and pending
-uploads sharing the byte
-store, `acknowledge` removes a processed key, and `sweep` queues abandoned side
-rows in bounded batches. The SDK performs the reference check and byte deletion
-under its per-key mutation lock. Failed byte deletion retains the queue entry.
-Custom adapters use their own rows for these methods; they must never reclaim
-bytes using only the current document's attachments. Store startup and local
-removal schedule this maintenance without waiting for byte storage. An awaited
-maintenance run includes all requested batches.
+Every reference removal queues its storage key in the same commit: attachment
+removal, document deletion or discard, and replacement during staging or
+hydration. Refused hydration also queues the unreferenced candidate copy.
+Every adapter supplies a stable `orphanBlobs` object for its lifetime; the SDK
+keys maintenance scheduling and retry deferral by that object. `list` reads
+bounded queued keys, `isReferenced` checks all held copies and pending uploads
+sharing the byte store, `acknowledge` removes a processed key, and `sweep`
+queues abandoned side rows in bounded batches. The SDK performs the reference
+check and byte deletion under its per-key mutation lock. Failed byte deletion
+retains the queue entry. Custom adapters use their own rows for these methods;
+they must never reclaim bytes using only the current document's attachments.
+Store startup and local removal schedule this maintenance without waiting for
+byte storage. An awaited maintenance run includes all requested batches.
 
 An atomic raw-history recovery increments the canonical record's
 `recoveryGeneration`. Every enqueue and save compares the generation captured
