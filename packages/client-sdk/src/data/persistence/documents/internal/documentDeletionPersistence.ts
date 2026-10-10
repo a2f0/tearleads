@@ -164,6 +164,13 @@ export async function deleteStoredDocumentIfMatches(
         ) {
           return false;
         }
+        const [placement] = await tx
+          .select({ containerId: documentProjection.containerId })
+          .from(documentProjection)
+          .where(eq(documentProjection.localId, expectedRecord.id))
+          .limit(1);
+        if ((placement?.containerId ?? null) !== expectedRecord.containerId)
+          return false;
         if (
           existingDocument.documentId &&
           (await hasAnotherDocumentAlias({

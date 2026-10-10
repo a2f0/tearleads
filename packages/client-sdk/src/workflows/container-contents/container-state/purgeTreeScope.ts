@@ -88,6 +88,7 @@ async function allowsContainer(
   if (pendingMoves.has(rootContainerId)) return false;
   if (containerId === rootContainerId) return input.stillCurrent?.() !== false;
   const seen = new Set<string>([rootContainerId]);
+  const localIds: string[] = [];
   let currentId: string | null = containerId;
   while (currentId !== rootContainerId) {
     if (!currentId || seen.has(currentId) || pendingMoves.has(currentId))
@@ -106,12 +107,32 @@ async function allowsContainer(
       current.record.documentId !== expected.record.documentId
     )
       return false;
-    if (current.record.documentId)
-      return verifiedRemoteScope(input, {
-        container: current.container,
-        record: current.record,
-      });
+    if (current.record.documentId) {
+      if (
+        !(await verifiedRemoteScope(input, {
+          container: current.container,
+          record: current.record,
+        }))
+      )
+        return false;
+      break;
+    }
+    localIds.push(currentId);
     currentId = current.container.parentId;
+  }
+  // Signature verification can await network and principal-policy recovery.
+  // Every local edge traversed before that wait must still match afterward.
+  for (const id of localIds) {
+    const expected = input.containersById.get(id);
+    const latest = await persistence.loadContainerMetadataState(execSql, id);
+    if (
+      !expected ||
+      !latest?.record ||
+      latest.container.parentId !== expected.container.parentId ||
+      latest.container.organizationId !== expected.container.organizationId ||
+      latest.record.documentId !== expected.record.documentId
+    )
+      return false;
   }
   const latestMoves = await readPendingMoves(input);
   return (

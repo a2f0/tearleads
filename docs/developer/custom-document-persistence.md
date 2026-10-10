@@ -75,6 +75,11 @@ or fire-and-forget `requestRemoteSync()` owner shares the work, and an
 invalidated probe's late response is not persisted. Ordinary store activity can
 subsequently re-arm a cancelled on-demand store.
 
+`deleteDocumentIfMatches(...)` compares the captured security identity and
+container placement inside the same write transaction as teardown and the host
+projection callback. A document moved after the caller's initial scope check
+must survive. The supplied record's `containerId` is part of this comparison.
+
 `deleteDocumentSideRowsIfAbsent(...)` checks that the canonical row is absent,
 rejects another local alias for the expected remote document, deletes its
 orphaned queue/history/attachment/projection rows, and invokes the host

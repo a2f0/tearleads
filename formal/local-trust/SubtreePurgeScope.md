@@ -19,7 +19,8 @@ protect every candidate, including local-only content. A current document
 manifest-path comparison rejects a request
 prepared before the move. Container deletion instead checks its current signed
 ancestry under the organization lock. Local-only candidates have fixed ancestry
-in this model; local row compare-and-set races remain implementation tests.
+in this model; implementation tests cover a document moving before its deletion
+transaction and a local ancestor moving during remote ancestry verification.
 Cryptographic verification is abstracted as an authenticated membership fact;
 this model does not prove signature correctness or multiple concurrent moves.
 The local intent recheck and remote commit are one atomic model step. Therefore,

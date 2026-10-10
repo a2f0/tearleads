@@ -43,7 +43,10 @@ export function createMemoryDocumentDeletionPersistence<StateSnapshot>(input: {
       expectedRecord,
       deleteClientProjection,
     ) {
-      if (!sameDocumentSecurityIdentity(input.getDocument(), expectedRecord)) {
+      if (
+        !sameDocumentSecurityIdentity(input.getDocument(), expectedRecord) ||
+        input.getDocument()?.containerId !== expectedRecord.containerId
+      ) {
         return false;
       }
       const previous = input.snapshot();
