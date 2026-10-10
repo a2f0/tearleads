@@ -59,4 +59,5 @@ under weak fairness of the reclaim steps. The model abstracts the byte
 content, which is identical for every slot because the key names the blob, and
 the reclaim's retry schedule. Slot removal and queueing are atomic, including
 `deleteLocalAttachment` and `deletePendingAttachment`. Failed byte deletion and
-retry scheduling are covered by runtime reclaim tests. No legacy-format transition or migration is modeled.
+retry scheduling are covered by runtime reclaim tests. No legacy-format
+transition or migration is modeled.
