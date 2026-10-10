@@ -35,10 +35,12 @@ export async function shouldRetryAfterSessionExpired(
   }
 
   const currentAuthToken = input.getCurrentAuthToken();
-  if (currentAuthToken && currentAuthToken !== input.authToken) {
-    if (input.isKnownSessionRenewal(input.authToken, currentAuthToken))
-      input.options.onSessionRenewed?.();
-    return true;
+  if (currentAuthToken !== input.authToken) {
+    const renewed =
+      currentAuthToken !== null &&
+      input.isKnownSessionRenewal(input.authToken, currentAuthToken);
+    if (renewed) input.options.onSessionRenewed?.();
+    return renewed;
   }
 
   let refreshed = false;
@@ -53,10 +55,11 @@ export async function shouldRetryAfterSessionExpired(
     }
   }
 
+  const refreshedToken = input.getCurrentAuthToken();
   const renewed = Boolean(
     refreshed &&
-      input.getCurrentAuthToken() &&
-      input.getCurrentAuthToken() !== input.authToken,
+      refreshedToken &&
+      input.isKnownSessionRenewal(input.authToken, refreshedToken),
   );
   if (renewed) input.options.onSessionRenewed?.();
   return renewed;
