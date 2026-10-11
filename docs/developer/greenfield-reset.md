@@ -12,7 +12,7 @@ versions, credentials, build numbers, or Terraform plans from a previous run.
 | Production database | Replace the independent PlanetScale database and its runtime/migration roles. |
 | Staging database | Replace the staging PlanetScale database and its roles, then initialize the current baseline. |
 | Encrypted blobs | Empty and replace only the selected application bucket and its runtime IAM credentials. |
-| Worker state | Redeploy the API Worker; sessions, tickets, and interest live in its key/value Durable Object and are cleared with it. |
+| Worker state | Delete the API Worker (`wrangler delete --env <tier>`) before redeploying it: sessions, tickets, and interest live in its Durable Objects' SQLite storage, which a plain redeploy keeps. Deleting the Worker drops both objects; the redeploy recreates them empty. |
 | Website, web app, demos | Redeploy; retain their domain/account identities. |
 | Desktop/mobile releases | Build and publish selected tiers using the release matrix. |
 | Terraform backend and release buckets | Retain, including historical immutable downloads. |

@@ -1,5 +1,9 @@
 import { expect, test } from "bun:test";
-import { SocketQueue, type SocketQueueHandlers } from "./socketQueue";
+import {
+  SharedQueueBudget,
+  SocketQueue,
+  type SocketQueueHandlers,
+} from "./socketQueue";
 
 function harness(options: { readonly holdOpen?: boolean } = {}) {
   const events: string[] = [];
@@ -110,4 +114,27 @@ test("a failing handler is reported and later events still run", async () => {
     "message:good",
     "close",
   ]);
+});
+
+test("a shared budget closes the socket that would overrun the hub, not the others", async () => {
+  const budget = new SharedQueueBudget(100);
+  const first = harness({ holdOpen: true });
+  const second = harness({ holdOpen: true });
+  const limits = { maxQueuedMessages: 10, maxQueuedBytes: 1_000 };
+  const firstQueue = new SocketQueue(first.handlers, limits, budget);
+  const secondQueue = new SocketQueue(second.handlers, limits, budget);
+  expect(firstQueue.enqueue("x".repeat(60), 60)).toBe(true);
+  expect(secondQueue.enqueue("y".repeat(30), 30)).toBe(true);
+  expect(budget.used).toBe(90);
+  // The next 60 bytes would exceed 100: only the offending socket closes.
+  expect(secondQueue.enqueue("z".repeat(60), 60)).toBe(false);
+  expect(second.events).toEqual(["open", "overflow:Hub is busy"]);
+  expect(first.events).toEqual(["open"]);
+  // Releasing the second socket's reservation happens as its queue drains.
+  first.releaseOpen();
+  second.releaseOpen();
+  await firstQueue.settled();
+  await secondQueue.settled();
+  expect(budget.used).toBe(0);
+  expect(first.events).toEqual(["open", `message:${"x".repeat(60)}`]);
 });

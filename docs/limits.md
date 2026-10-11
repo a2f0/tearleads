@@ -111,6 +111,9 @@ for the exact-length rule.
 | Limit | Value | Where enforced | Past the limit |
 | --- | --- | --- | --- |
 | WebSocket client message | 1,000,000 bytes (`MAX_WS_CLIENT_MESSAGE_BYTES`, `validators/src/realtime/wsClientDeclarations.ts`) | Transport payload bound and a pre-parse length check. | Refusal before JSON parsing. |
+| Pending frames per socket | 32 frames or 4,000,000 bytes (`DEFAULT_SOCKET_QUEUE_LIMITS`, `packages/api/src/worker/socketQueue.ts`) | The realtime hub queues each socket's frames behind its authorization. | The socket closes with 1013 and its queue is discarded. |
+| Pending bytes per hub | 32 MiB across every socket (`HUB_QUEUE_BUDGET_BYTES`, `packages/api/src/worker/realtimeHubObject.ts`) | The hub's shared queue budget, so many flooding sockets cannot exhaust its isolate. | The socket that would overrun the budget closes with 1013; the others continue. |
+| Sockets per session | 8 (`MAX_SOCKETS_PER_SESSION`) | The hub counts open sockets per session at upgrade. | Refusal with 429 until one closes. |
 | Interest container ids per declaration | 10,000 (`MAX_WS_INTEREST_CONTAINER_IDS`) | Validators. | Refusal. Interest is an invalidation subscription, not an authorization grant. |
 
 ## Principals

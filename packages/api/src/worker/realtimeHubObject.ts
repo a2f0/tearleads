@@ -5,7 +5,11 @@ import type { WebSocketTicketIdentity } from "../realtime/wsIdentity";
 import type { RealtimeHubRpc } from "./contracts";
 import { bindWorkerEnvironment, type WorkerBindings } from "./environment";
 import { clientMessageByteLength } from "./socketMessageLimit";
-import { SocketQueue } from "./socketQueue";
+import {
+  DEFAULT_SOCKET_QUEUE_LIMITS,
+  SharedQueueBudget,
+  SocketQueue,
+} from "./socketQueue";
 
 type EventListener = (message: string) => void;
 
@@ -22,6 +26,10 @@ interface LoadedGateway {
 }
 
 const EVENTS_PATH = "/events";
+/** Pending client bytes the whole hub may hold; see SharedQueueBudget. */
+const HUB_QUEUE_BUDGET_BYTES = 32 * 1024 * 1024;
+/** Open sockets one session may hold; a client needs one, a few for tabs. */
+const MAX_SOCKETS_PER_SESSION = 8;
 const CLOSE_MESSAGE_TOO_BIG = 1009;
 const CLOSE_UNSUPPORTED_DATA = 1003;
 const CLOSE_TRY_AGAIN_LATER = 1013;
@@ -41,6 +49,8 @@ export class RealtimeHub
   implements RealtimeHubRpc
 {
   private readonly listeners = new Set<EventListener>();
+  private readonly budget = new SharedQueueBudget(HUB_QUEUE_BUDGET_BYTES);
+  private readonly socketsBySession = new Map<string, number>();
   private gateway: Promise<LoadedGateway> | undefined;
 
   constructor(ctx: DurableObjectState, env: WorkerBindings) {
@@ -74,6 +84,16 @@ export class RealtimeHub
     if (!identity) {
       return new Response("WebSocket ticket required", { status: 401 });
     }
+    const sessionKey = `${identity.userId}:${identity.sessionId}`;
+    if (
+      (this.socketsBySession.get(sessionKey) ?? 0) >= MAX_SOCKETS_PER_SESSION
+    ) {
+      return new Response("Too many sockets for this session", { status: 429 });
+    }
+    this.socketsBySession.set(
+      sessionKey,
+      (this.socketsBySession.get(sessionKey) ?? 0) + 1,
+    );
 
     const pair = new WebSocketPair();
     const server = pair[1];
@@ -92,13 +112,34 @@ export class RealtimeHub
       send: (message) => server.send(message),
       close: (code, reason) => server.close(code, reason),
     };
-    const queue = new SocketQueue({
-      open: () => gateway.websocket.open(socket),
-      message: (data) => gateway.websocket.message(socket, data),
-      close: () => gateway.websocket.close(socket),
-      report: gateway.report,
-      overflow: (reason) => server.close(CLOSE_TRY_AGAIN_LATER, reason),
-    });
+    const sessionKey = `${identity.userId}:${identity.sessionId}`;
+    let counted = true;
+    const release = () => {
+      if (!counted) {
+        return;
+      }
+      counted = false;
+      const remaining = (this.socketsBySession.get(sessionKey) ?? 1) - 1;
+      if (remaining <= 0) {
+        this.socketsBySession.delete(sessionKey);
+      } else {
+        this.socketsBySession.set(sessionKey, remaining);
+      }
+    };
+    const queue = new SocketQueue(
+      {
+        open: () => gateway.websocket.open(socket),
+        message: (data) => gateway.websocket.message(socket, data),
+        close: () => {
+          release();
+          gateway.websocket.close(socket);
+        },
+        report: gateway.report,
+        overflow: (reason) => server.close(CLOSE_TRY_AGAIN_LATER, reason),
+      },
+      DEFAULT_SOCKET_QUEUE_LIMITS,
+      this.budget,
+    );
     server.addEventListener("message", (event) => {
       const { data } = event;
       if (typeof data !== "string") {

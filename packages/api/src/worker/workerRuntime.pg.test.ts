@@ -119,6 +119,56 @@ describe.skipIf(databaseKind !== "postgres")("Worker runtime", () => {
     expect(live.socket.readyState).toBe(WebSocket.CLOSED);
   }, 120_000);
 
+  test("caps open sockets per session at eight", async () => {
+    const base = worker.origin;
+    const user = createTestUser();
+    await expectJson(
+      await postJson(
+        `${base}/auth/register`,
+        await createRegistrationRequestBody(
+          user.signing.signingPublicKey,
+          user.signing.signingPrivateKey,
+          user.kem.publicKey,
+          { includeTrashSystemContainer: true },
+        ),
+      ),
+      200,
+    );
+    const authorized = {
+      authorization: `Bearer ${await loginThroughWorker(base, user)}`,
+    };
+    const ticketUrl = async () => {
+      const ticket = await expectJson(
+        await fetch(`${base}/auth/ws-ticket`, {
+          method: "POST",
+          headers: authorized,
+        }),
+        200,
+      );
+      return `${base}/events?ticket=${stringField(ticket, "ticket")}`;
+    };
+    const open = [];
+    try {
+      for (let index = 0; index < 8; index++) {
+        open.push(await openSocket((await ticketUrl()).replace(/^http/, "ws")));
+      }
+      const ninth = await fetch(await ticketUrl(), {
+        headers: { upgrade: "websocket", connection: "upgrade" },
+      });
+      expect(`${ninth.status} ${await ninth.text()}`).toBe(
+        "429 Too many sockets for this session",
+      );
+    } finally {
+      for (const socket of open) {
+        socket.socket.close(1000, "done");
+      }
+    }
+    // Closing one frees a slot.
+    await Bun.sleep(500);
+    const again = await openSocket((await ticketUrl()).replace(/^http/, "ws"));
+    again.socket.close(1000, "done");
+  }, 120_000);
+
   test("bounds request bodies at ingress before any route runs", async () => {
     const base = worker.origin;
     const megabyte = "x".repeat(1024 * 1024);

@@ -25,10 +25,38 @@ export interface SocketQueueLimits {
   readonly maxQueuedBytes: number;
 }
 
-const DEFAULT_SOCKET_QUEUE_LIMITS: SocketQueueLimits = {
+export const DEFAULT_SOCKET_QUEUE_LIMITS: SocketQueueLimits = {
   maxQueuedMessages: 32,
   maxQueuedBytes: 4 * MAX_WS_CLIENT_MESSAGE_BYTES,
 };
+
+/**
+ * Bytes queued across every socket of one hub. The per-socket bound caps what
+ * one connection can hold; this caps what all of them can hold together, so
+ * many sockets flooding at once cannot exhaust the hub's isolate. A socket
+ * that would push the hub over the budget is closed, not the others.
+ */
+export class SharedQueueBudget {
+  private queuedBytes = 0;
+
+  constructor(readonly maxBytes: number) {}
+
+  reserve(bytes: number): boolean {
+    if (this.queuedBytes + bytes > this.maxBytes) {
+      return false;
+    }
+    this.queuedBytes += bytes;
+    return true;
+  }
+
+  release(bytes: number): void {
+    this.queuedBytes -= bytes;
+  }
+
+  get used(): number {
+    return this.queuedBytes;
+  }
+}
 
 export class SocketQueue {
   private tail: Promise<void>;
@@ -39,6 +67,7 @@ export class SocketQueue {
   constructor(
     private readonly handlers: SocketQueueHandlers,
     private readonly limits: SocketQueueLimits = DEFAULT_SOCKET_QUEUE_LIMITS,
+    private readonly budget?: SharedQueueBudget,
   ) {
     this.tail = handlers.open().catch(handlers.report);
   }
@@ -58,12 +87,18 @@ export class SocketQueue {
       this.close();
       return false;
     }
+    if (this.budget && !this.budget.reserve(byteLength)) {
+      this.handlers.overflow("Hub is busy");
+      this.close();
+      return false;
+    }
     this.queuedMessages += 1;
     this.queuedBytes += byteLength;
     this.tail = this.tail
       .then(() => {
         this.queuedMessages -= 1;
         this.queuedBytes -= byteLength;
+        this.budget?.release(byteLength);
         return this.closed ? undefined : this.handlers.message(data);
       })
       .catch(this.handlers.report);
