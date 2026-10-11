@@ -48,6 +48,8 @@ interface ApiDatabaseEnv {
   readonly POSTGRES_DATABASE?: string | undefined;
   readonly POSTGRES_HOST?: string | undefined;
   readonly POSTGRES_PASSWORD?: string | undefined;
+  readonly POSTGRES_POOL_IDLE_TIMEOUT_MS?: string | undefined;
+  readonly POSTGRES_POOL_MAX?: string | undefined;
   readonly POSTGRES_PORT?: string | undefined;
   readonly POSTGRES_SSL?: string | undefined;
   readonly POSTGRES_SSL_REJECT_UNAUTHORIZED?: string | undefined;
@@ -77,11 +79,36 @@ const userKeys = ["POSTGRES_USER", "PGUSER"] as const;
 const passwordKeys = ["POSTGRES_PASSWORD", "PGPASSWORD"] as const;
 const databaseKeys = ["POSTGRES_DATABASE", "PGDATABASE"] as const;
 const sqlitePathKeys = ["API_SQLITE_PATH", "SQLITE_PATH"] as const;
-const postgresPoolSizing = {
+const defaultPostgresPoolSizing = {
   max: 15,
   idleTimeoutMillis: 30_000,
   connectionTimeoutMillis: 5_000,
 };
+
+function parsePositiveInteger(value: string | undefined): number | undefined {
+  if (!value) {
+    return undefined;
+  }
+  const parsed = Number(value);
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : undefined;
+}
+
+/**
+ * The Bun process keeps a long-lived pool. A Workers isolate is limited to a
+ * handful of simultaneous outbound connections and should not hold them idle
+ * across requests, so the deployment tunes both bounds through the environment.
+ */
+function readPostgresPoolSizing(env: ApiDatabaseEnv) {
+  return {
+    ...defaultPostgresPoolSizing,
+    max:
+      parsePositiveInteger(env.POSTGRES_POOL_MAX) ??
+      defaultPostgresPoolSizing.max,
+    idleTimeoutMillis:
+      parsePositiveInteger(env.POSTGRES_POOL_IDLE_TIMEOUT_MS) ??
+      defaultPostgresPoolSizing.idleTimeoutMillis,
+  };
+}
 
 function getEnvValue(
   env: ApiDatabaseEnv,
@@ -233,11 +260,12 @@ export function createPostgresPoolConfig(
   env: ApiDatabaseEnv = process.env,
 ): PoolConfig {
   const ssl = readPostgresSslConfig(env);
+  const poolSizing = readPostgresPoolSizing(env);
   const databaseUrl = getEnvValue(env, databaseUrlKeys);
   if (databaseUrl) {
     return {
       connectionString: databaseUrl,
-      ...postgresPoolSizing,
+      ...poolSizing,
       ...(ssl ? { ssl } : {}),
     };
   }
@@ -267,7 +295,7 @@ export function createPostgresPoolConfig(
       password,
       port,
       user,
-      ...postgresPoolSizing,
+      ...poolSizing,
       ...(ssl ? { ssl } : {}),
     };
   }
@@ -285,7 +313,7 @@ export function createPostgresPoolConfig(
     ...(user ? { user } : {}),
     ...(password ? { password } : {}),
     ...(database ? { database } : {}),
-    ...postgresPoolSizing,
+    ...poolSizing,
     ...(ssl ? { ssl } : {}),
   };
 }

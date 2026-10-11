@@ -7,7 +7,6 @@ import {
   readFile,
   rm,
   stat,
-  utimes,
   writeFile,
 } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -21,8 +20,6 @@ async function write(path: string, contents: string, executable = false) {
 
 async function deployFixture(tier: "staging" | "production", failure = "") {
   const { PATH } = process.env;
-  const rsync = Bun.which("rsync");
-  if (!rsync) throw new Error("rsync is required for deployment tests");
   const root = await mkdtemp(join(tmpdir(), "tearleads-web-deploy-"));
   const scripts = join(root, "packages/app-web/scripts");
   const log = join(root, "commands.log");
@@ -40,7 +37,6 @@ async function deployFixture(tier: "staging" | "production", failure = "") {
   await write(
     join(root, "terraform/scripts/common.sh"),
     `load_secrets_env() {
-  SSH_TARGET=deploy@fixture
   TF_VAR_domain=example.test
   SENTRY_STAGING_DSN=https://${"a".repeat(32)}@o1.ingest.us.sentry.io/11
   SENTRY_PRODUCTION_DSN=https://${"b".repeat(32)}@o1.ingest.us.sentry.io/22
@@ -49,9 +45,13 @@ async function deployFixture(tier: "staging" | "production", failure = "") {
   SENTRY_ORG=fixture
   export SENTRY_AUTH_TOKEN=private-upload-token
 }
-validate_aws_env() { :; }
+validate_domain_env() { :; }
 validate_stripe_env() { :; }
-purge_cloudflare_cache_for_hosts() { :; }
+export_wrangler_env() { export CLOUDFLARE_API_TOKEN=fixture-token; }
+tier_api_hostname() { case "$1" in staging) echo api-staging.example.test ;; prod) echo api.example.test ;; esac; }
+tier_app_hostname() { case "$1" in staging) echo app-staging.example.test ;; prod) echo app.example.test ;; esac; }
+tier_demo_hostname() { case "$1" in staging) echo demo-staging.example.test ;; prod) echo demo.example.test ;; esac; }
+purge_cloudflare_cache_for_hosts() { printf 'purge|%s\\n' "$*" >> "$WEB_DEPLOY_LOG"; }
 `,
   );
   await write(
@@ -66,25 +66,19 @@ esac
     true,
   );
   await write(
-    join(root, "bin/ssh"),
-    '#!/bin/sh\nprintf "ssh|%s\\n" "$*" >> "$WEB_DEPLOY_LOG"\n',
-    true,
-  );
-  await write(
     join(root, "bin/bun"),
     `#!/bin/bash
 set -eu
 case "$1 $2" in
   'run build')
     test -z "\${SENTRY_AUTH_TOKEN:-}"
+    test "$BUN_PUBLIC_API_BASE_URL" = "https://$WEB_DEPLOY_API_HOSTNAME"
     umask 077
     printf 'build|%s\\n' "$BUN_PUBLIC_APP_VARIANT" >> "$WEB_DEPLOY_LOG"
     rm -rf dist
     mkdir -p dist/pdfjs/current
     printf '%s' "$BUN_PUBLIC_APP_VARIANT" > dist/index.html
     printf 'app code' > "dist/chunk-$BUN_PUBLIC_APP_VARIANT.js"
-    case "$BUN_PUBLIC_APP_VARIANT" in app) destination=app-web ;; demo) destination=app-demo ;; esac
-    touch -r "$WEB_DEPLOY_ROOT/remote/$destination/chunk-$BUN_PUBLIC_APP_VARIANT.js" "dist/chunk-$BUN_PUBLIC_APP_VARIANT.js"
     if [[ "$WEB_DEPLOY_FAILURE" == missing-script ]]; then
       rm "dist/chunk-$BUN_PUBLIC_APP_VARIANT.js"
     elif [[ "$WEB_DEPLOY_FAILURE" == multiple-scripts ]]; then
@@ -95,68 +89,30 @@ case "$1 $2" in
     fi
     printf 'sqlite' > dist/worker.js
     printf 'cache' > dist/sw.js
-    printf 'unchanged vendor' > dist/pdfjs/current/pdf.worker.js
+    printf 'vendor' > dist/pdfjs/current/pdf.worker.js
     ;;
   'run sentry:cli')
     test "$SENTRY_AUTH_TOKEN" = private-upload-token
     printf 'upload|%s\\n' "$*" >> "$WEB_DEPLOY_LOG"
     for path in "$@"; do
-      if [[ -d "$path" ]]; then
-        find "$path" -type f \\( -name '*.js' -o -name '*.map' \\) >> "$WEB_DEPLOY_UPLOADS"
-      elif [[ -f "$path" ]]; then
+      if [[ -f "$path" ]]; then
         printf '%s\\n' "$path" >> "$WEB_DEPLOY_UPLOADS"
       fi
     done
     if [[ "$WEB_DEPLOY_FAILURE" == upload ]]; then exit 7; fi
+    ;;
+  'run deploy:app' | 'run deploy:demo')
+    test "$CLOUDFLARE_API_TOKEN" = fixture-token
+    variant="\${2#deploy:}"
+    printf 'publish|%s|%s\n' "$variant" "$4" >> "$WEB_DEPLOY_LOG"
+    # Wrangler publishes whatever the staged directory holds at that moment.
+    cp -R "dist-$variant" "$WEB_DEPLOY_ROOT/published-$variant"
     ;;
   *) exit 1 ;;
 esac
 `,
     true,
   );
-  await write(
-    join(root, "bin/rsync"),
-    `#!/bin/bash
-set -eu
-printf 'copy|%s\\n' "$*" >> "$WEB_DEPLOY_LOG"
-args=()
-for arg in "$@"; do
-  case "$arg" in
-    --rsync-path=*) ;;
-    deploy@fixture:*) args+=("$WEB_DEPLOY_ROOT/remote/\${arg##*/var/www/}") ;;
-    *) args+=("$arg") ;;
-  esac
-done
-exec "$WEB_DEPLOY_RSYNC" "\${args[@]}"
-`,
-    true,
-  );
-  for (const variant of ["app-web", "app-demo"]) {
-    const destination = join(root, "remote", variant);
-    await write(
-      join(destination, "pdfjs/current/pdf.worker.js"),
-      "unchanged vendor",
-    );
-    await chmod(join(destination, "pdfjs/current/pdf.worker.js"), 0o644);
-    await utimes(join(destination, "pdfjs/current/pdf.worker.js"), 1, 1);
-    await write(
-      join(destination, "pdfjs/old/pdf.worker.js"),
-      "obsolete vendor",
-    );
-    await write(
-      join(destination, "pdfjs/current/leaked.js.map"),
-      "private source",
-    );
-    await write(join(destination, "old.js.map"), "private source");
-    await write(join(destination, "old.js"), "obsolete app");
-    const entry = join(
-      destination,
-      `chunk-${variant === "app-web" ? "app" : "demo"}.js`,
-    );
-    // A same-size, same-time file must still be replaced if its bytes differ.
-    await write(entry, "bad code");
-    await utimes(entry, 1, 1);
-  }
   return {
     root,
     log,
@@ -169,8 +125,11 @@ exec "$WEB_DEPLOY_RSYNC" "\${args[@]}"
           WEB_DEPLOY_ROOT: root,
           WEB_DEPLOY_LOG: log,
           WEB_DEPLOY_UPLOADS: uploads,
-          WEB_DEPLOY_RSYNC: rsync,
           WEB_DEPLOY_FAILURE: failure,
+          WEB_DEPLOY_API_HOSTNAME:
+            tier === "staging"
+              ? "api-staging.example.test"
+              : "api.example.test",
         },
         stdout: "pipe",
         stderr: "pipe",
@@ -180,46 +139,55 @@ exec "$WEB_DEPLOY_RSYNC" "\${args[@]}"
 }
 
 test.each(["staging", "production"] as const)(
-  "%s uploads only the app map pair and publishes current assets without recopying identical bytes",
+  "%s uploads only the app map pair and publishes each variant from its own staged assets",
   async (tier) => {
     const fixture = await deployFixture(tier);
+    const wranglerTier = tier === "staging" ? "staging" : "prod";
     try {
-      const vendor = join(
-        fixture.root,
-        "remote/app-web/pdfjs/current/pdf.worker.js",
-      );
-      const before = await stat(vendor);
       const result = fixture.run();
       expect(result.exitCode, result.stderr.toString()).toBe(0);
       expect(
         (await readFile(fixture.uploads, "utf8")).trim().split("\n").sort(),
       ).toEqual(["dist/chunk-app.js", "dist/chunk-app.js.map"]);
-      expect((await stat(vendor)).ino).toBe(before.ino);
-      expect((await stat(vendor)).mode & 0o777).toBe(before.mode & 0o777);
-      for (const [directory, variant] of [
-        ["app-web", "app"],
-        ["app-demo", "demo"],
-      ] as const) {
-        const destination = join(fixture.root, "remote", directory);
-        expect(await readFile(join(destination, "index.html"), "utf8")).toBe(
+      for (const variant of ["app", "demo"] as const) {
+        const published = join(fixture.root, `published-${variant}`);
+        expect(await readFile(join(published, "index.html"), "utf8")).toBe(
           variant,
         );
         expect(
-          await readFile(join(destination, `chunk-${variant}.js`), "utf8"),
+          await readFile(join(published, `chunk-${variant}.js`), "utf8"),
         ).toBe("app code");
-        for (const removed of [
-          "old.js",
-          "old.js.map",
-          `chunk-${variant}.js.map`,
-          "pdfjs/old",
-          "pdfjs/current/leaked.js.map",
-        ])
-          await expect(stat(join(destination, removed))).rejects.toThrow();
+        expect(await readFile(join(published, ".assetsignore"), "utf8")).toBe(
+          "*.map\n",
+        );
+        const headers = await readFile(join(published, "_headers"), "utf8");
+        expect(headers).toContain("/index.html\n  Cache-Control: no-cache");
+        expect(headers).toContain("/sw.js\n  Cache-Control: no-cache");
+        expect(headers).toContain(
+          "/chunk-*\n  Cache-Control: public, max-age=31536000, immutable",
+        );
+        await expect(
+          stat(
+            join(published, `chunk-${variant === "app" ? "demo" : "app"}.js`),
+          ),
+        ).rejects.toThrow();
       }
       const calls = await readFile(fixture.log, "utf8");
       expect(calls).toContain(`--project web-${tier}`);
       expect(calls).toContain(`--dist ${tier}-app`);
-      expect(calls.indexOf("upload|")).toBeLessThan(calls.indexOf("copy|"));
+      expect(calls).toContain(`publish|app|${wranglerTier}`);
+      expect(calls).toContain(`publish|demo|${wranglerTier}`);
+      expect(calls.indexOf("upload|")).toBeLessThan(calls.indexOf("publish|"));
+      expect(calls.indexOf("build|demo")).toBeLessThan(
+        calls.indexOf("publish|"),
+      );
+      expect(calls.trim().split("\n").at(-1)).toBe(
+        `purge|example.test ${
+          tier === "staging"
+            ? "app-staging.example.test demo-staging.example.test"
+            : "app.example.test demo.example.test"
+        }`,
+      );
     } finally {
       await fixture.cleanup();
     }
@@ -227,14 +195,14 @@ test.each(["staging", "production"] as const)(
 );
 
 test.each(["missing-map", "missing-script", "multiple-scripts", "upload"])(
-  "%s failure stops publication before any app files are copied",
+  "%s failure stops publication before anything is published",
   async (failure) => {
     const fixture = await deployFixture("staging", failure);
     try {
       const result = fixture.run();
       expect(result.exitCode).not.toBe(0);
       const calls = await readFile(fixture.log, "utf8");
-      expect(calls).not.toContain("copy|");
+      expect(calls).not.toContain("publish|");
       expect(calls).not.toContain("build|demo");
     } finally {
       await fixture.cleanup();

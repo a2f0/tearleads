@@ -184,11 +184,9 @@ the admin upgrades or reduces the roster. An oversized Stripe grant is claimed,
 applied without seat reconciliation, and logged for operator repair instead of
 returning an unbounded 503.
 
-- The server value comes from `.secrets/root.env` and is rendered into the API
-  server's systemd `EnvironmentFile` by the ansible playbook
-  ([`api.env.j2`](../../ansible/playbooks/templates/etc/tearleads/api.env.j2)),
-  so it only reaches a deployed server via the **ansible** deploy step (not
-  `--skip-infra`).
+- The server value comes from `.secrets/root.env` and is synced as a Worker
+  secret by `packages/api/scripts/deployApi.sh`, so it reaches a deployed tier
+  on every API deploy.
 - Register the endpoint in the RevenueCat dashboard, or via the v2 API
   (`POST /v2/projects/{project_id}/integrations/webhooks`), with the `Authorization`
   value set to match `REVENUECAT_WEBHOOK_AUTH_HEADER`.
@@ -252,8 +250,8 @@ leaves RevenueCat responsible for mirroring the resulting entitlement lifecycle:
   [`revenueCatConfig.ts`](../../packages/api/src/billing/revenueCatConfig.ts))
   — no separate legacy v1 secret key. Shared provider credentials may live in
   `.secrets/root.env`, while each `STRIPE_WEBHOOK_SECRET` must live in the
-  matching `.secrets/<tier>.env`; Ansible renders the merged values into the
-  API's EnvironmentFile. End-to-end entitlement activation also requires
+  matching `.secrets/<tier>.env`; the API deploy syncs the merged values as
+  Worker secrets. End-to-end entitlement activation also requires
   `REVENUECAT_WEBHOOK_AUTH_HEADER` and a matching RevenueCat webhook.
 - Stripe gives every webhook endpoint its own signing secret. Staging and
   production therefore need separate `STRIPE_WEBHOOK_SECRET` values in their
@@ -327,12 +325,12 @@ creating another charge.
 Both database dialects initialize billing and lifecycle tables from the current
 `0000_greenfield_baseline`.
 
-The API build emits `packages/api/dist/tearleads-stripe-seat-sync`; the deploy
-scripts copy it to `/opt/tearleads/bin/tearleads-stripe-seat-sync`. Ansible
-installs `tearleads-stripe-seat-sync.service` and its one-minute timer. Each run
-processes up to 100 trials plus 100 Stripe targets and journals
-`{stripeSeatSync, trialExpiry}`. Full deployments initialize the API schema and
-run server Ansible to install the timer and render `/etc/tearleads/api.env`.
+The API Worker's per-minute Cron Trigger (`* * * * *` in
+`packages/api/wrangler.jsonc`) runs the same phases through
+`worker/maintenance.ts`; `packages/api/scripts/stripeSeatSync.ts` remains the
+out-of-process entrypoint for local runs. Each run processes up to 100 trials
+plus 100 Stripe targets and logs `{organizationPurge, stripeSeatSync, trialExpiry}`.
+Full deployments initialize the API schema before publishing the Worker.
 
 Operational checks:
 

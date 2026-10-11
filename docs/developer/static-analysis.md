@@ -17,7 +17,7 @@ are covered while deletions and tags are skipped. Hooks act only in a clone
 where `install-hooks.sh` ran, so CI's `Lint` job checks every pull request's
 branch name as well.
 
-Both gates need the mise-pinned Java, TLA+, oasdiff, and Ansible tools listed in
+Both gates need the mise-pinned Java, TLA+, and oasdiff tools listed in
 `AGENTS.md`, plus a fetched `origin/main` (or an explicit `OPENAPI_BASE_REF`).
 The bounded protocol models add minutes to each push; use the timing log to
 inspect the cost of individual checks.
@@ -82,11 +82,10 @@ subdirectory still checks the repository root. The inventory reads only a file
 prefix to identify shebangs and skips missing working files and directories.
 Stage new files before running the command.
 
-Explicit exceptions live in `scripts/checks/shellScripts.ts`: the generated
-Gradle wrapper and the two Ansible Jinja shell templates. The wrapper is
-maintained upstream; the templates require rendering before shell analysis.
-New templates or generated files need an explicit decision rather than a
-directory-wide exclusion.
+Explicit exceptions live in `scripts/checks/shellScripts.ts`: currently only
+the generated Gradle wrapper, which is maintained upstream. New templates or
+generated files need an explicit decision rather than a directory-wide
+exclusion.
 
 ## Scope decision for issue #1441
 

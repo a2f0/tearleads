@@ -45,12 +45,24 @@ async function runStorageScript(
       '#!/bin/sh\nprintf "terraform %s\\n" "$*" >> "$STORAGE_TEST_LOG"\n',
     );
     await executable(
-      resolve(root, "terraform/stacks/staging/server/scripts/destroy.sh"),
+      resolve(root, "terraform/scripts/run-edge-stack.sh"),
       [
         "#!/bin/sh",
-        'printf "server %s\\n" "$*" >> "$STORAGE_TEST_LOG"',
-        '[ "$STORAGE_TEST_FAILURE" != server ] || exit 9',
+        'printf "edge %s\\n" "$*" >> "$STORAGE_TEST_LOG"',
+        '[ "$STORAGE_TEST_FAILURE" != edge ] || exit 9',
       ].join("\n"),
+    );
+    await executable(
+      resolve(root, "terraform/scripts/run-postgres-stack.sh"),
+      '#!/bin/sh\nprintf "postgres %s\\n" "$*" >> "$STORAGE_TEST_LOG"\n',
+    );
+    await executable(
+      resolve(root, "packages/api/scripts/destroyStagingApi.sh"),
+      '#!/bin/sh\nprintf "api %s\\n" "$*" >> "$STORAGE_TEST_LOG"\n',
+    );
+    await executable(
+      resolve(root, "packages/app-web/scripts/destroyStagingAppWeb.sh"),
+      '#!/bin/sh\nprintf "app-web %s\\n" "$*" >> "$STORAGE_TEST_LOG"\n',
     );
     await executable(
       resolve(root, "packages/website/scripts/destroyStagingWebsite.sh"),
@@ -119,33 +131,39 @@ for (const args of [[], ["unknown"]]) {
   });
 }
 
-test("staging teardown removes its server before emptying storage", async () => {
+test("staging teardown detaches hostnames and deletes Workers before emptying storage", async () => {
   const result = await runStorageScript("scripts/destroyStaging.sh", [
     "--auto-approve",
   ]);
   expect(result.exitCode, result.stderr).toBe(0);
   expect(result.calls).toEqual([
-    "server --auto-approve",
+    "edge staging destroy --auto-approve",
+    "api ",
+    "app-web ",
+    "postgres staging destroy --auto-approve",
     "storage staging destroy --auto-approve",
     "website --auto-approve",
   ]);
 });
 
-test("failed server teardown retains staging storage", async () => {
+test("failed edge teardown retains the staging Workers and storage", async () => {
   const result = await runStorageScript(
     "scripts/destroyStaging.sh",
     ["--auto-approve"],
-    "server",
+    "edge",
   );
   expect(result.exitCode).toBe(9);
-  expect(result.calls).toEqual(["server --auto-approve"]);
+  expect(result.calls).toEqual(["edge staging destroy --auto-approve"]);
 });
 
 test("staging teardown without arguments preserves interactive confirmation", async () => {
   const result = await runStorageScript("scripts/destroyStaging.sh", []);
   expect(result.exitCode, result.stderr).toBe(0);
   expect(result.calls).toEqual([
-    "server ",
+    "edge staging destroy",
+    "api ",
+    "app-web ",
+    "postgres staging destroy",
     "storage staging destroy",
     "website",
   ]);

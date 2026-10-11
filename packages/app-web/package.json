@@ -18,7 +18,11 @@
     "build": "export NODE_ENV=production && rm -rf dist && sh ../../scripts/lib/withBuildInfoEnv.sh bun scripts/buildApp.ts && bun scripts/buildStaticAssets.ts && sh scripts/buildWebImages.sh && bun scripts/buildServiceWorker.ts",
     "prestart": "bun run build:client-sdk",
     "start": "sh ../../scripts/lib/withBuildInfoEnv.sh bun src/servers/devServer.ts",
-    "test": "bun test scripts --max-concurrency=1"
+    "test": "bun test scripts --max-concurrency=1",
+    "deploy:app": "wrangler deploy --config wrangler.app.jsonc",
+    "deploy:demo": "wrangler deploy --config wrangler.demo.jsonc",
+    "destroy:app": "wrangler delete --config wrangler.app.jsonc",
+    "destroy:demo": "wrangler delete --config wrangler.demo.jsonc"
   },
   "dependencies": {
     "@stripe/stripe-js": "10.0.0",
@@ -34,6 +38,7 @@
     "@sentry/cli": "3.8.0",
     "@tearleads/loro": "workspace:*",
     "@types/bun": "catalog:",
-    "@types/react-dom": "catalog:react"
+    "@types/react-dom": "catalog:react",
+    "wrangler": "4.123.0"
   }
 }

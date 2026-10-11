@@ -117,10 +117,10 @@ metadata needed by `blob_audit_objects`.
 
 ## Operations
 
-Ansible installs `tearleads-blob-gc.service` and its persistent hourly timer.
-Provisioning fails unless the timer reports both `enabled` and `active`, and
-each API deployment repeats those checks after restarting the maintenance
-units. Each tier loads its secret `BLOB_GC_HEALTHCHECK_URL` from
+The API Worker's hourly Cron Trigger (`0 * * * *` in
+`packages/api/wrangler.jsonc`) runs blob maintenance through
+`worker/maintenance.ts`; the trigger deploys with the Worker, so there is no
+separate timer to verify. Each tier loads its secret `BLOB_GC_HEALTHCHECK_URL` from
 `.secrets/<tier>.healthchecks.env`; the project management API key is not
 deployed. The service sends Healthchecks start and success signals, while timer
 or service failure sends a failure signal through

@@ -94,11 +94,13 @@ async function runWrapper(
   }
 }
 
-const stackArg = "-chdir=<repo>/terraform/stacks/prod/postgres";
-const initCall = `${stackArg}|init|-input=false|-reconfigure|-backend-config=<repo>/terraform/configs/backend.hcl`;
+const stackArg = (tier: string) =>
+  `-chdir=<repo>/terraform/stacks/${tier}/postgres`;
+const initCall = (tier: string) =>
+  `${stackArg(tier)}|init|-input=false|-reconfigure|-backend-config=<repo>/terraform/configs/backend.hcl`;
 
-for (const args of [[], ["destroy"]]) {
-  test(`rejects unsupported action ${args[0] ?? "(missing)"}`, async () => {
+for (const args of [[], ["prod"], ["prod", "destroy"], ["unknown", "apply"]]) {
+  test(`rejects unsupported invocation ${args.join(" ") || "(missing)"}`, async () => {
     const result = await runWrapper(args);
     expect(result.exitCode).toBe(1);
     expect(result.stderr).toContain("Usage:");
@@ -109,7 +111,7 @@ for (const args of [[], ["destroy"]]) {
 for (const action of ["plan", "apply"]) {
   for (const missing of ["tokenId", "token"] as const) {
     test(`${action} rejects missing ${missing} before Terraform`, async () => {
-      const result = await runWrapper([action], { [missing]: "" });
+      const result = await runWrapper(["prod", action], { [missing]: "" });
       expect(result.exitCode).toBe(1);
       expect(result.stderr).toContain(".secrets/planetscale.env");
       expect(result.stderr).not.toContain("fixture-token");
@@ -117,44 +119,61 @@ for (const action of ["plan", "apply"]) {
     });
   }
 
-  test(`${action} disables prompts and preserves argument boundaries`, async () => {
-    const args =
-      action === "plan"
-        ? ["-var-file=inputs with spaces.tfvars", "-out=saved plan.tfplan"]
-        : ["saved plan.tfplan"];
-    const result = await runWrapper([action, ...args]);
-    expect(result.exitCode, result.stderr).toBe(0);
-    expect(result.calls).toEqual([
-      initCall,
-      `${stackArg}|${action}|-input=false|${args.join("|")}`,
-    ]);
-  });
+  for (const tier of ["prod", "staging"]) {
+    test(`${tier} ${action} disables prompts and preserves argument boundaries`, async () => {
+      const args =
+        action === "plan"
+          ? ["-var-file=inputs with spaces.tfvars", "-out=saved plan.tfplan"]
+          : ["saved plan.tfplan"];
+      const result = await runWrapper([tier, action, ...args]);
+      expect(result.exitCode, result.stderr).toBe(0);
+      expect(result.calls).toEqual([
+        initCall(tier),
+        `${stackArg(tier)}|${action}|-input=false|${args.join("|")}`,
+      ]);
+    });
+  }
 }
 
+test("staging destroy disables prompts and requires provider credentials", async () => {
+  const rejected = await runWrapper(["staging", "destroy"], { token: "" });
+  expect(rejected.exitCode).toBe(1);
+  expect(rejected.calls).toEqual([]);
+  const result = await runWrapper(["staging", "destroy", "-auto-approve"]);
+  expect(result.exitCode, result.stderr).toBe(0);
+  expect(result.calls).toEqual([
+    initCall("staging"),
+    `${stackArg("staging")}|destroy|-input=false|-auto-approve`,
+  ]);
+});
+
 test("output keeps stdout parseable without provider credentials", async () => {
-  const result = await runWrapper(["output", "-json", "database"], {
+  const result = await runWrapper(["prod", "output", "-json", "database"], {
     token: "",
     tokenId: "",
   });
   expect(result.exitCode, result.stderr).toBe(0);
   expect(JSON.parse(result.stdout)).toEqual({ name: "tearleads-prod" });
   expect(result.stderr).toContain("initializing backend");
-  expect(result.calls).toEqual([initCall, `${stackArg}|output|-json|database`]);
+  expect(result.calls).toEqual([
+    initCall("prod"),
+    `${stackArg("prod")}|output|-json|database`,
+  ]);
 });
 
 test("init forwards arguments without requiring provider credentials", async () => {
-  const result = await runWrapper(["init", "-upgrade"], {
+  const result = await runWrapper(["prod", "init", "-upgrade"], {
     token: "",
     tokenId: "",
   });
   expect(result.exitCode, result.stderr).toBe(0);
-  expect(result.calls).toEqual([`${initCall}|-upgrade`]);
+  expect(result.calls).toEqual([`${initCall("prod")}|-upgrade`]);
 });
 
 test("failed initialization prevents apply", async () => {
-  const result = await runWrapper(["apply", "saved.tfplan"], {
+  const result = await runWrapper(["prod", "apply", "saved.tfplan"], {
     initStatus: "7",
   });
   expect(result.exitCode).toBe(7);
-  expect(result.calls).toEqual([initCall]);
+  expect(result.calls).toEqual([initCall("prod")]);
 });

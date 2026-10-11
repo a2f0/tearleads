@@ -47,3 +47,7 @@ terraform.rc
 
 # Wrangler local state
 .wrangler/
+
+# Workers Static Assets staging directories for the app and demo bundles
+packages/app-web/dist-app/
+packages/app-web/dist-demo/

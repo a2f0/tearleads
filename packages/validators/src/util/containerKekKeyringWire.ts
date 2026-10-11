@@ -85,7 +85,7 @@ export const MAX_INLINE_CONTAINER_REKEYS = 16;
  * exceeding it: beyond the cap the remainder repairs lazily.
  *
  * A sealed keyring is 64 bytes per retained epoch, so a full batch stays far
- * inside the API's 100 MiB request limit unless its containers average tens of
+ * inside the API's 32 MiB request limit unless its containers average tens of
  * thousands of rotations each, which `MAX_CONTAINER_KEY_EPOCH` already treats
  * as a runaway rather than a use.
  */

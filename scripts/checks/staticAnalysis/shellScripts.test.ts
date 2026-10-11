@@ -52,8 +52,6 @@ test("tracked inventory covers nested scripts and shell shebangs with explicit e
       "missing.sh": "#!/bin/sh\n",
       directory: "replaced\n",
       "packages/app-capacitor/android/gradlew": "#!/bin/sh\nupstream\n",
-      "ansible/playbooks/templates/usr/local/bin/tearleads-api-cli.j2":
-        "#!/bin/sh\n{{ template }}\n",
     }))
       repo.write(path, source);
     repo.git("add", ".");

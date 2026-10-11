@@ -8,14 +8,6 @@ export const excludedScripts = new Map([
     "packages/app-capacitor/android/gradlew",
     "generated Gradle wrapper maintained upstream",
   ],
-  [
-    "ansible/playbooks/templates/usr/local/bin/tearleads-api-cli.j2",
-    "Jinja template; requires Ansible rendering",
-  ],
-  [
-    "ansible/playbooks/templates/usr/local/bin/tearleads-blob-gc-healthcheck.j2",
-    "Jinja template; requires Ansible rendering",
-  ],
 ]);
 
 function prefix(path: string): string | undefined {

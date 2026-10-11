@@ -12,7 +12,9 @@ export type ScheduleTimer = (
 
 function scheduleUnrefTimeout(callback: () => void, delayMs: number) {
   const timer = setTimeout(callback, delayMs);
-  timer.unref();
+  // Bun timers hold the process open until unref'd; Workers timers are plain
+  // handles with no such method.
+  timer.unref?.();
   return () => clearTimeout(timer);
 }
 

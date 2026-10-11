@@ -3,7 +3,7 @@ import { MAX_CONTAINER_PATH_LENGTH } from "./containerLimits";
 export const MAX_DOCUMENT_SYNC_REQUEST_BYTES = 16 * 1024 * 1024;
 
 // A response page must be able to carry the largest accepted atomic rotation
-// baseline (the 100 MiB route ceiling) plus its signed metadata and key-bundle
+// baseline (the 32 MiB route ceiling) plus its signed metadata and key-bundle
 // envelope. Ordinary sync updates remain constrained by the smaller request
 // ceiling above.
 export const MAX_DOCUMENT_SYNC_RESPONSE_PAGE_BYTES = 128 * 1024 * 1024;

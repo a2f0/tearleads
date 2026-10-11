@@ -100,7 +100,7 @@ for the exact-length rule.
 
 | Limit | Value | Where enforced | Past the limit |
 | --- | --- | --- | --- |
-| Request body and multipart part | 100 MiB (`MAX_MULTIPART_BLOB_PART_BYTES`, `MAX_UPLOAD_PART_BYTES`) | API `index.ts` sets it as the server-wide `maxRequestBodySize`; the object store enforces it again. | Refusal. This is the route ceiling every other request-size limit sits under. |
+| Request body and multipart part | 32 MiB (`MAX_MULTIPART_BLOB_PART_BYTES`, `MAX_UPLOAD_PART_BYTES`) | The Worker entry refuses a larger declared length; the Bun development listener sets it as `maxRequestBodySize`; the object store enforces it again. A part is buffered whole, and the Workers isolate has 128 MB. | Refusal. This is the route ceiling every other request-size limit sits under. |
 | Chunk size | 5 MiB, fixed (`BLOB_CHUNK_SIZE_BYTES`, `crypto/src/blobEnvelopeV2.ts`) | Crypto envelope format. | Not a tunable. |
 | Chunks per blob | 10,000 (`MAX_BLOB_CHUNK_COUNT`), so a blob is at most about 48.8 GiB | Crypto envelope parser; SDK `workflows/blobs/multipartUpload.ts` refuses before uploading. | Refusal. |
 | Envelope header | 64 KiB (`MAX_BLOB_ENVELOPE_HEADER_BYTES`, `crypto/src/blobEnvelopeReader.ts`) | Crypto reader, before parsing. | Refusal. |

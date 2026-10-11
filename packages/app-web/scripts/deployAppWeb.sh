@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Deploy the Tearleads app-web and app-demo static bundles to a server environment.
+# Publish the Tearleads app-web and app-demo static bundles as Workers Static
+# Assets for one tier. The tier's edge Terraform stack attaches the hostnames.
 
 set -euo pipefail
 
@@ -10,12 +11,7 @@ fi
 
 TIER="$1"
 case "$TIER" in
-  prod)
-    STACK_RELATIVE_DIR="terraform/stacks/prod/server"
-    ;;
-  staging)
-    STACK_RELATIVE_DIR="terraform/stacks/staging/server"
-    ;;
+  prod | staging) ;;
   *)
     echo "ERROR: unknown app-web deploy tier: $TIER" >&2
     exit 1
@@ -25,7 +21,7 @@ esac
 REPO_ROOT="$(git rev-parse --show-toplevel)"
 APP_WEB_DIR="$REPO_ROOT/packages/app-web"
 
-# shellcheck source=../../../../terraform/scripts/common.sh
+# shellcheck source=../../../terraform/scripts/common.sh
 # shellcheck disable=SC1091
 . "$REPO_ROOT/terraform/scripts/common.sh"
 
@@ -34,37 +30,14 @@ load_secrets_env "$TIER"
 # shellcheck disable=SC1091
 . "$APP_WEB_DIR/scripts/sentryEnv.sh"
 configure_sentry_env "$TIER"
-validate_aws_env
+validate_domain_env
 validate_stripe_env "$TIER"
+export_wrangler_env
 
-if [ -z "${SSH_TARGET:-}" ]; then
-  STACK_DIR="$REPO_ROOT/$STACK_RELATIVE_DIR"
-  BACKEND_CONFIG="$(get_backend_config)"
-  terraform -chdir="$STACK_DIR" init -backend-config="$BACKEND_CONFIG" >&2
-  SSH_TARGET="$(resolve_stack_ssh_target "$STACK_DIR")"
-fi
-export SSH_TARGET
-
-DOMAIN="${TF_VAR_domain:-}"
-
-if [ -z "$DOMAIN" ]; then
-  echo "ERROR: TF_VAR_domain is required to build app-web URLs." >&2
-  exit 1
-fi
-
-case "$TIER" in
-  prod)
-    API_HOSTNAME="api.${DOMAIN}"
-    APP_HOSTNAME="app.${DOMAIN}"
-    DEMO_HOST_PREFIX="demo."
-    ;;
-  staging)
-    API_HOSTNAME="api-staging.${DOMAIN}"
-    APP_HOSTNAME="app-staging.${DOMAIN}"
-    DEMO_HOST_PREFIX="demo-staging."
-    ;;
-esac
-DEMO_HOSTNAME="${DEMO_HOST_PREFIX}${DOMAIN}"
+DOMAIN="${TF_VAR_domain:?}"
+API_HOSTNAME="$(tier_api_hostname "$TIER")"
+APP_HOSTNAME="$(tier_app_hostname "$TIER")"
+DEMO_HOSTNAME="$(tier_demo_hostname "$TIER")"
 
 build_app_web() {
   local variant="$1"
@@ -84,32 +57,52 @@ build_app_web() {
   upload_sentry_source_maps "$APP_WEB_DIR" "$variant"
 }
 
-deploy_app_web_dist() {
-  local label="$1"
-  local remote_path="$2"
+# Stage one build for Wrangler. Builds recreate dist/, so each variant is
+# copied aside before the next build. Source maps stay out of the upload, and
+# the header file reproduces the previous nginx cache policy: the entry
+# document and the runtime workers revalidate on every load, while hashed
+# chunks are immutable.
+stage_assets() {
+  local variant="$1"
+  local assets_dir="$APP_WEB_DIR/dist-$variant"
 
-  echo "Deploying $label static files to $SSH_TARGET:$remote_path ..."
-  ssh "$SSH_TARGET" sudo mkdir -p "$remote_path"
-  # Builds recreate asset timestamps; compare bytes to avoid copying identical
-  # workers, fonts, and PDF assets. Publish only this build, without source maps.
-  # The commands below set public permissions independently of the build umask.
-  rsync -avzc --no-times --no-perms --no-owner --no-group --delete --delete-excluded \
-    --exclude='*.map' --itemize-changes --stats --rsync-path="sudo rsync" \
-    "$APP_WEB_DIR/dist/" "$SSH_TARGET:$remote_path/"
-  ssh "$SSH_TARGET" sudo chown -R www-data:www-data "$remote_path"
-  ssh "$SSH_TARGET" sudo chmod -R u=rwX,go=rX "$remote_path"
+  rm -rf "$assets_dir"
+  cp -R "$APP_WEB_DIR/dist" "$assets_dir"
+  printf '*.map\n' >"$assets_dir/.assetsignore"
+  cat >"$assets_dir/_headers" <<'HEADERS'
+/
+  Cache-Control: no-cache
+/index.html
+  Cache-Control: no-cache
+/worker.js
+  Cache-Control: no-cache
+/sw.js
+  Cache-Control: no-cache
+/sqlite3.wasm
+  Cache-Control: no-cache
+/pdfjs/*
+  Cache-Control: no-cache
+/chunk-*
+  Cache-Control: public, max-age=31536000, immutable
+HEADERS
+}
+
+publish_assets() {
+  local variant="$1"
+  local label="$2"
+
+  echo "Publishing $label to Cloudflare..."
+  (cd "$APP_WEB_DIR" && bun run "deploy:$variant" --env "$TIER")
 }
 
 build_app_web "app" "app-web"
-deploy_app_web_dist "app-web" "/var/www/app-web"
-
-# `bun run build` clears dist/, so the demo build must follow the app bundle's
-# rsync: it leaves dist/ holding the demo bundle, not the app one.
+stage_assets "app"
 build_app_web "demo" "app-demo"
-deploy_app_web_dist "app-demo" "/var/www/app-demo"
+stage_assets "demo"
 
-ssh "$SSH_TARGET" sudo systemctl reload nginx
+publish_assets "app" "app-web"
+publish_assets "demo" "app-demo"
 
-echo "App-web and app-demo deployed."
+echo "App-web and app-demo deployed ($TIER)."
 
 purge_cloudflare_cache_for_hosts "$DOMAIN" "$APP_HOSTNAME" "$DEMO_HOSTNAME"

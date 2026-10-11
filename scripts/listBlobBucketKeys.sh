@@ -5,38 +5,11 @@ usage() {
   cat <<'EOF'
 Usage: scripts/listBlobBucketKeys.sh <staging|prod> [prefix] [--with-size]
 
-Lists object keys in the S3 blob bucket for the selected server.
+Lists object keys in the selected tier's S3 blob bucket with the API CLI,
+using the credentials the tier's storage Terraform stack issued.
 The optional prefix limits the S3 ListObjectsV2 request.
 Pass --with-size to prefix each line with the object size as "<size>\t<key>".
-
-Set BLOB_SSH_TARGET=user@host to override Tailscale SSH resolution.
 EOF
-}
-
-require_command() {
-  local command_name="$1"
-
-  if ! command -v "$command_name" >/dev/null 2>&1; then
-    echo "ERROR: $command_name is required." >&2
-    exit 1
-  fi
-}
-
-shell_quote() {
-  local value=${1//\'/\'\\\'\'}
-  printf "'%s'" "$value"
-}
-
-resolve_blob_ssh_target() {
-  local stack_dir="$1"
-
-  if [[ -n "${BLOB_SSH_TARGET:-}" ]]; then
-    wait_for_ssh_ready "$BLOB_SSH_TARGET" >&2 || return 1
-    echo "$BLOB_SSH_TARGET"
-    return 0
-  fi
-
-  resolve_stack_ssh_target "$stack_dir"
 }
 
 main() {
@@ -58,61 +31,50 @@ main() {
 
   local tier="${positionals[0]:-}"
   local prefix="${positionals[1]:-}"
-
-  if [[ "$tier" != "staging" && "$tier" != "prod" ]]; then
-    usage >&2
-    exit 1
-  fi
-
+  case "$tier" in
+    staging | prod) ;;
+    *)
+      usage >&2
+      return 1
+      ;;
+  esac
   if [[ ${#positionals[@]} -gt 2 ]]; then
     usage >&2
-    exit 1
+    return 1
   fi
 
-  require_command git
-  require_command ssh
-  require_command terraform
-
-  local repo_root stack_dir backend_config ssh_target remote_prefix_arg remote_with_size_arg
+  local repo_root
   repo_root="$(git rev-parse --show-toplevel)"
 
-  # shellcheck source=../terraform/scripts/common.sh
-  # shellcheck disable=SC1091
-  . "$repo_root/terraform/scripts/common.sh"
+  umask 077
+  local storage_json
+  storage_json="$(mktemp "${TMPDIR:-/tmp}/tearleads-${tier}-storage-XXXXXX")"
+  trap 'rm -f "$storage_json"' EXIT
+  "$repo_root/terraform/scripts/run-storage-stack.sh" "$tier" output -json api_storage >"$storage_json"
 
-  load_secrets_env "$tier"
-  validate_aws_env
+  local cli_args=(blob-store:list-keys)
+  if [[ -n "$prefix" ]]; then
+    cli_args+=(--prefix "$prefix")
+  fi
+  if [[ -n "$with_size" ]]; then
+    cli_args+=("$with_size")
+  fi
 
-  stack_dir="$repo_root/terraform/stacks/$tier/server"
-  backend_config="$(get_backend_config)"
-
-  terraform -chdir="$stack_dir" init -input=false -no-color -backend-config="$backend_config" >&2
-  ssh_target="$(resolve_blob_ssh_target "$stack_dir")"
-  remote_prefix_arg="$(shell_quote "$prefix")"
-  remote_with_size_arg="$(shell_quote "$with_size")"
-
-  echo "Listing blob bucket keys for $tier via $ssh_target..." >&2
-
-  # shellcheck disable=SC2029
-  ssh "$ssh_target" "/bin/sh -s -- $remote_prefix_arg $remote_with_size_arg" <<'SH'
-set -eu
-set -a
-. /etc/tearleads/api.env
-set +a
-
-prefix="${1:-}"
-with_size="${2:-}"
-
-set -- blob-store:list-keys
-if [ -n "$prefix" ]; then
-  set -- "$@" --prefix "$prefix"
-fi
-if [ -n "$with_size" ]; then
-  set -- "$@" "$with_size"
-fi
-
-exec /opt/tearleads/bin/tearleads-api-cli "$@"
-SH
+  (
+    cd "$repo_root/packages/api-cli"
+    export BLOB_OBJECT_STORE=s3
+    export BLOB_OBJECT_STORE_S3_BUCKET BLOB_OBJECT_STORE_S3_REGION BLOB_OBJECT_STORE_S3_ENDPOINT
+    export BLOB_OBJECT_STORE_S3_FORCE_PATH_STYLE BLOB_OBJECT_STORE_S3_ACCESS_KEY_ID
+    export BLOB_OBJECT_STORE_S3_SECRET_ACCESS_KEY BLOB_OBJECT_STORE_S3_KEY_PREFIX
+    BLOB_OBJECT_STORE_S3_BUCKET="$(jq -r '.blob_s3_bucket' "$storage_json")"
+    BLOB_OBJECT_STORE_S3_REGION="$(jq -r '.blob_s3_region' "$storage_json")"
+    BLOB_OBJECT_STORE_S3_ENDPOINT="$(jq -r '.blob_s3_endpoint // ""' "$storage_json")"
+    BLOB_OBJECT_STORE_S3_FORCE_PATH_STYLE="$(jq -r '.blob_s3_force_path_style' "$storage_json")"
+    BLOB_OBJECT_STORE_S3_ACCESS_KEY_ID="$(jq -r '.blob_s3_access_key_id' "$storage_json")"
+    BLOB_OBJECT_STORE_S3_SECRET_ACCESS_KEY="$(jq -r '.blob_s3_secret_access_key' "$storage_json")"
+    BLOB_OBJECT_STORE_S3_KEY_PREFIX="$(jq -r '.blob_s3_key_prefix // ""' "$storage_json")"
+    exec bun src/index.ts "${cli_args[@]}"
+  )
 }
 
 main "$@"

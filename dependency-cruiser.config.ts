@@ -100,6 +100,9 @@ const standardRules = [
       // this resolver rule also permits generated declaration references (for
       // example Astro's `.astro/types.d.ts`) before their build has run.
       preCompilationOnly: false,
+      // The Workers runtime provides `cloudflare:workers` to the bundle; it is
+      // declared ambiently in packages/api/src/worker/cloudflare.d.ts.
+      pathNot: "^cloudflare:",
     },
   },
   {

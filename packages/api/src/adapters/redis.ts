@@ -1,4 +1,9 @@
 import {
+  isWorkerEnvironment,
+  KEY_VALUE_SET_PAGE_SIZE,
+  keyValueStoreStub,
+} from "../worker/environment";
+import {
   clearInMemoryRedisData,
   inMemoryRedisDel,
   inMemoryRedisExpire,
@@ -12,6 +17,11 @@ import {
   isInMemoryRedisEnabled,
 } from "./inMemoryRedis";
 import { createRedisClient } from "./redisClient";
+
+// Three backends share this key/value surface: the in-memory fake for tests
+// and development, the SQLite Durable Object on Workers, and Redis for the Bun
+// process. The Durable Object serializes every call, so the atomic operations
+// (GETDEL, SET XX KEEPTTL) keep their Redis semantics there.
 
 type RedisClient = ReturnType<typeof createRedisClient>;
 
@@ -57,6 +67,9 @@ export async function get(key: string): Promise<string | null> {
   if (isInMemoryRedisEnabled()) {
     return inMemoryRedisGet(key);
   }
+  if (isWorkerEnvironment()) {
+    return keyValueStoreStub().get(key);
+  }
 
   const activeClient = await ensureClient();
   return activeClient.get(key);
@@ -69,6 +82,10 @@ export async function set(
 ): Promise<void> {
   if (isInMemoryRedisEnabled()) {
     await inMemoryRedisSet(key, value, ttlSeconds);
+    return;
+  }
+  if (isWorkerEnvironment()) {
+    await keyValueStoreStub().set(key, value, ttlSeconds);
     return;
   }
 
@@ -85,6 +102,10 @@ export async function setKeepTtl(key: string, value: string): Promise<void> {
     await inMemoryRedisSetKeepTtl(key, value);
     return;
   }
+  if (isWorkerEnvironment()) {
+    await keyValueStoreStub().setKeepTtl(key, value);
+    return;
+  }
 
   const activeClient = await ensureClient();
   await activeClient.set(key, value, {
@@ -97,6 +118,9 @@ export async function getdel(key: string): Promise<string | null> {
   if (isInMemoryRedisEnabled()) {
     return inMemoryRedisGetDel(key);
   }
+  if (isWorkerEnvironment()) {
+    return keyValueStoreStub().getdel(key);
+  }
 
   const activeClient = await ensureClient();
   return activeClient.getDel(key);
@@ -105,6 +129,10 @@ export async function getdel(key: string): Promise<string | null> {
 export async function del(key: string): Promise<void> {
   if (isInMemoryRedisEnabled()) {
     await inMemoryRedisDel(key);
+    return;
+  }
+  if (isWorkerEnvironment()) {
+    await keyValueStoreStub().del(key);
     return;
   }
 
@@ -117,6 +145,10 @@ export async function expire(key: string, ttlSeconds: number): Promise<void> {
     await inMemoryRedisExpire(key, ttlSeconds);
     return;
   }
+  if (isWorkerEnvironment()) {
+    await keyValueStoreStub().expire(key, ttlSeconds);
+    return;
+  }
 
   const activeClient = await ensureClient();
   await activeClient.expire(key, ttlSeconds);
@@ -125,6 +157,10 @@ export async function expire(key: string, ttlSeconds: number): Promise<void> {
 export async function sadd(key: string, member: string): Promise<void> {
   if (isInMemoryRedisEnabled()) {
     await inMemoryRedisSadd(key, member);
+    return;
+  }
+  if (isWorkerEnvironment()) {
+    await keyValueStoreStub().sadd(key, member);
     return;
   }
 
@@ -137,9 +173,29 @@ export async function srem(key: string, member: string): Promise<void> {
     await inMemoryRedisSrem(key, member);
     return;
   }
+  if (isWorkerEnvironment()) {
+    await keyValueStoreStub().srem(key, member);
+    return;
+  }
 
   const activeClient = await ensureClient();
   await activeClient.sRem(key, member);
+}
+
+async function* workerSetMembers(
+  key: string,
+): AsyncGenerator<string[], void, unknown> {
+  const store = keyValueStoreStub();
+  for (let offset = 0; ; offset += KEY_VALUE_SET_PAGE_SIZE) {
+    const page = await store.smembers(key, offset);
+    if (page.length === 0) {
+      return;
+    }
+    yield page;
+    if (page.length < KEY_VALUE_SET_PAGE_SIZE) {
+      return;
+    }
+  }
 }
 
 // Stream Redis set members in bounded batches. This keeps session listing scoped
@@ -149,6 +205,10 @@ export async function* sscanMembers(
 ): AsyncGenerator<string[], void, unknown> {
   if (isInMemoryRedisEnabled()) {
     yield* inMemoryRedisSscanMembers(key);
+    return;
+  }
+  if (isWorkerEnvironment()) {
+    yield* workerSetMembers(key);
     return;
   }
 

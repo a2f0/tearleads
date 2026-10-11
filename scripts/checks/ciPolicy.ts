@@ -21,7 +21,7 @@ export function ciScopes(paths: readonly string[]) {
     terraform:
       common ||
       paths.some((path) =>
-        /^(terraform\/|ansible\/|\.tflint\.hcl$|scripts\/|packages\/[^/]+\/scripts\/)/.test(
+        /^(terraform\/|\.tflint\.hcl$|scripts\/|packages\/[^/]+\/scripts\/|packages\/[^/]+\/wrangler[^/]*\.jsonc$)/.test(
           path,
         ),
       ),

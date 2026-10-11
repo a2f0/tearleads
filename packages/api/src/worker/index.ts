@@ -1,0 +1,101 @@
+import { MAX_MULTIPART_BLOB_PART_BYTES } from "@tearleads/validators/util";
+import {
+  bindWorkerEnvironment,
+  realtimeHubStub,
+  type WorkerBindings,
+} from "./environment";
+
+export { KeyValueStore } from "./keyValueStoreObject";
+export { RealtimeHub } from "./realtimeHubObject";
+
+const EVENTS_PATH = "/events";
+
+interface LoadedApp {
+  readonly fetch: (
+    request: Request,
+    bindings: Record<string, unknown>,
+    ctx: ExecutionContext,
+  ) => Response | Promise<Response>;
+}
+
+let app: Promise<LoadedApp> | undefined;
+
+// The Hono app, the database pool, the blob store, and Sentry all read
+// configuration when their modules load, so the app is imported only after the
+// first request has bound the Wrangler environment into `process.env`.
+function loadApp(): Promise<LoadedApp> {
+  app ??= import("../routeApp").then(({ routeApp }) => ({
+    fetch: (request, bindings, ctx) => routeApp.fetch(request, bindings, ctx),
+  }));
+  return app;
+}
+
+/**
+ * nginx rejected oversized bodies before Bun buffered them; the equivalent
+ * here is the declared length, with the zone's own request-size ceiling as
+ * the hard bound behind it. Route-level limits still apply below this one.
+ */
+function declaredBodyTooLarge(request: Request): boolean {
+  const declared = request.headers.get("content-length");
+  if (declared === null) {
+    return false;
+  }
+  const length = Number(declared);
+  return Number.isSafeInteger(length) && length > MAX_MULTIPART_BLOB_PART_BYTES;
+}
+
+function isWebSocketUpgrade(request: Request): boolean {
+  return request.headers.get("upgrade")?.toLowerCase() === "websocket";
+}
+
+async function handleRequest(
+  request: Request,
+  env: WorkerBindings,
+  ctx: ExecutionContext,
+): Promise<Response> {
+  bindWorkerEnvironment(env);
+  if (isWebSocketUpgrade(request)) {
+    if (new URL(request.url).pathname !== EVENTS_PATH) {
+      return new Response("WebSocket endpoint not found", { status: 404 });
+    }
+    return realtimeHubStub().fetch(request);
+  }
+  if (declaredBodyTooLarge(request)) {
+    return Response.json({ error: "Request body too large" }, { status: 413 });
+  }
+  const { fetch } = await loadApp();
+  return fetch(
+    request,
+    {
+      ...env,
+      // Cloudflare sets this from the connecting socket; proxies cannot forge it.
+      directClientIp: request.headers.get("cf-connecting-ip"),
+      // Workers impose no idle timeout on a response, so there is nothing to
+      // extend while a principal-history verification runs.
+      beginPrincipalHistoryVerification: () => {},
+    },
+    ctx,
+  );
+}
+
+async function handleScheduled(
+  controller: ScheduledController,
+  env: WorkerBindings,
+): Promise<void> {
+  bindWorkerEnvironment(env);
+  const { runScheduledMaintenance } = await import("./maintenance");
+  await runScheduledMaintenance(controller.cron);
+}
+
+export default {
+  fetch(request: Request, env: WorkerBindings, ctx: ExecutionContext) {
+    return handleRequest(request, env, ctx);
+  },
+  scheduled(
+    controller: ScheduledController,
+    env: WorkerBindings,
+    ctx: ExecutionContext,
+  ) {
+    ctx.waitUntil(handleScheduled(controller, env));
+  },
+};

@@ -132,7 +132,7 @@ OpenAPI compatibility, protocol-model, and infrastructure checks use mise-pinned
 tooling. After cloning, run:
 
 ```sh
-mise install java github:oasdiff/oasdiff github:tlaplus/tlaplus pipx:ansible-core
+mise install java github:oasdiff/oasdiff github:tlaplus/tlaplus
 ```
 
 When local mise configuration cannot be trusted, the check scripts accept

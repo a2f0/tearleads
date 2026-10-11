@@ -55,17 +55,7 @@ run_terraform_tests() {
   echo "Running terraform tests in ${module_dir#"$TERRAFORM_DIR"/}..."
   terraform -chdir="$terraform_test_dir" init -backend=false -input=false >/dev/null || terraform_test_status=$?
   if [ "$terraform_test_status" -eq 0 ]; then
-    if [[ "$module_dir" == "$TERRAFORM_DIR/stacks/prod/postgres" ]]; then
-      terraform -chdir="$terraform_test_dir" test -json -verbose >"$terraform_test_dir/results.jsonl" || terraform_test_status=$?
-      jq -r --argjson exit_code "$terraform_test_status" \
-        'select(.type != "test_plan" and .type != "test_state" and ($exit_code != 0 or .type != "diagnostic" or .diagnostic.severity != "error")) | .["@message"]' \
-        "$terraform_test_dir/results.jsonl"
-      if [ "$terraform_test_status" -eq 0 ]; then
-        "$SCRIPT_DIR/checkPostgresOutputContract.sh" "$terraform_test_dir/results.jsonl" || terraform_test_status=$?
-      fi
-    else
-      terraform -chdir="$terraform_test_dir" test -no-color || terraform_test_status=$?
-    fi
+    terraform -chdir="$terraform_test_dir" test -no-color || terraform_test_status=$?
   fi
   rm -rf -- "$terraform_test_dir"
   return "$terraform_test_status"
@@ -90,7 +80,8 @@ if check_command terraform; then
     "$TERRAFORM_DIR/modules/cloudflare-website" \
     "$TERRAFORM_DIR/modules/s3-blob-storage" \
     "$TERRAFORM_DIR/modules/s3-downloads" \
-    "$TERRAFORM_DIR/stacks/prod/postgres"; do
+    "$TERRAFORM_DIR/stacks/prod/postgres" \
+    "$TERRAFORM_DIR/stacks/staging/postgres"; do
     if ! run_terraform_tests "$module_dir"; then
       errors=$((errors + 1))
     fi

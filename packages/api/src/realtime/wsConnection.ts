@@ -7,6 +7,15 @@ export interface WsConnection {
   send(message: string): unknown;
 }
 
+/**
+ * A socket the gateway owns: routable like any connection, and closable. Bun's
+ * `ServerWebSocket` and the Durable Object's accepted socket wrapper both
+ * satisfy it, so the gateway's handlers are runtime-neutral.
+ */
+export interface GatewaySocket extends WsConnection {
+  close(code?: number, reason?: string): unknown;
+}
+
 export function sessionKey(userId: string, sessionId: string): string {
   return `${userId}:${sessionId}`;
 }

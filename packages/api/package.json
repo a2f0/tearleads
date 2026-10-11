@@ -5,12 +5,13 @@
   "license": "UNLICENSED",
   "type": "module",
   "scripts": {
-    "build": "bun scripts/buildApiExecutable.ts && bun scripts/buildBlobGcExecutable.ts && bun scripts/buildStripeSeatSyncExecutable.ts",
     "db:generate": "bun run --cwd ../api-shared db:generate",
     "db:generate:sqlite": "bun run --cwd ../api-shared db:generate:sqlite",
     "db:migrate": "bun run --cwd ../api-cli migrate",
+    "deploy": "wrangler deploy",
     "dev": "bun --hot src/index.ts",
     "dev:postgres": "API_DATABASE=postgres bun --hot src/index.ts",
+    "dev:worker": "wrangler dev",
     "start": "bun src/index.ts",
     "test": "bun scripts/testAllDatabases.ts",
     "test:principal-history": "bun scripts/testPrincipalHistory.ts"
@@ -25,6 +26,7 @@
     "@tearleads/validators": "workspace:*",
     "drizzle-orm": "0.45.3",
     "hono": "4.13.13",
+    "loro-crdt": "catalog:",
     "redis": "6.3.0",
     "zod": "catalog:"
   },
@@ -33,6 +35,7 @@
     "@tearleads/bob-and-alice": "workspace:*",
     "@tearleads/client-sdk": "workspace:*",
     "@tearleads/test-utils": "workspace:*",
-    "@types/bun": "catalog:"
+    "@types/bun": "catalog:",
+    "wrangler": "4.123.0"
   }
 }

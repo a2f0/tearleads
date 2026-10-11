@@ -1,6 +1,7 @@
 import { expect, mock, test } from "bun:test";
 import { blobStages, organizationBilling } from "@tearleads/api-shared/schema";
 import { MULTIPART_BLOB_STAGE_ERROR_CODES } from "@tearleads/validators/response";
+import { MAX_MULTIPART_BLOB_PART_BYTES } from "@tearleads/validators/util";
 import { eq } from "drizzle-orm";
 import { createMiddleware } from "hono/factory";
 import {
@@ -329,7 +330,9 @@ test("multipart part routes reject a part declared above the size ceiling", asyn
       method: "PUT",
       headers: {
         "Content-Type": "application/octet-stream",
-        "X-Tearleads-Blob-Part-Byte-Length": (100 * 1024 * 1024 + 1).toString(),
+        "X-Tearleads-Blob-Part-Byte-Length": (
+          MAX_MULTIPART_BLOB_PART_BYTES + 1
+        ).toString(),
         "X-Tearleads-Blob-Part-Sha256": await sha256Hex("part-bytes"),
         "X-Tearleads-Blob-Upload-Id": crypto.randomUUID(),
       },

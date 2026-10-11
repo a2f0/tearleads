@@ -2,7 +2,6 @@ import {
   MAX_WS_CLIENT_MESSAGE_BYTES,
   serializeWsServerMessage,
 } from "@tearleads/validators/realtime";
-import type { ServerWebSocket } from "bun";
 import {
   addListener,
   addSubscriberReconnectListener,
@@ -21,8 +20,12 @@ import {
   principalInterestKey,
 } from "./containerInterestTypes";
 import { parsePublishedRealtimeEvent } from "./publishedRealtimeEvents";
-import { sendSafely, type WsConnection } from "./wsConnection";
-import type { WebSocketTicketIdentity, WsSessionValidator } from "./wsIdentity";
+import {
+  type GatewaySocket,
+  sendSafely,
+  type WsConnection,
+} from "./wsConnection";
+import type { WsSessionValidator } from "./wsIdentity";
 import {
   createOrderedInterestPersister,
   wsInterestStore,
@@ -98,7 +101,7 @@ function messageToString(message: string | Buffer): string {
   return typeof message === "string" ? message : message.toString("utf8");
 }
 
-type OrganizationSocket = ServerWebSocket<WebSocketTicketIdentity>;
+type OrganizationSocket = GatewaySocket;
 
 interface OrganizationAuthorizationState {
   readonly organizationId: string;
@@ -233,7 +236,9 @@ class OrganizationInterestAuthorizer {
         resolve(authorized);
       };
       timer = setTimeout(() => finish(false), this.authorizationTimeoutMs);
-      timer.unref();
+      // Bun timers hold the process open until unref'd; Workers timers are
+      // plain handles with no such method.
+      timer.unref?.();
       void authorization.then(finish);
     });
   }
@@ -307,23 +312,20 @@ function createWebsocketHandler(input: {
 }) {
   return {
     maxPayloadLength: MAX_WS_CLIENT_MESSAGE_BYTES,
-    async open(ws: ServerWebSocket<WebSocketTicketIdentity>) {
+    async open(ws: GatewaySocket) {
       input.router.open(ws);
       input.revalidation.open(ws);
       input.liveness.open(ws);
       await input.containerInterest.open(ws);
     },
-    close(ws: ServerWebSocket<WebSocketTicketIdentity>) {
+    close(ws: GatewaySocket) {
       input.revalidation.close(ws);
       input.liveness.close(ws);
       input.containerInterest.close(ws);
       input.organizationInterest.close(ws);
       input.router.close(ws);
     },
-    async message(
-      ws: ServerWebSocket<WebSocketTicketIdentity>,
-      message: string | Buffer,
-    ) {
+    async message(ws: GatewaySocket, message: string | Buffer) {
       const action = input.router.handleClientMessage(
         ws,
         messageToString(message),

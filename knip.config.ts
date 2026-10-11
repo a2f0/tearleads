@@ -14,7 +14,7 @@ const rootToolingWorkspace = {
   // and neither `.mise.toml` nor CI installs Node). Knip cannot resolve the
   // binary through `bun x`, so the dependency has to be declared used here.
   ignoreDependencies: ["@commitlint/cli", "lint-staged", "markdownlint-cli2"],
-  ignoreBinaries: ["ansible-lint", "du", "shellcheck", "tokei"],
+  ignoreBinaries: ["du", "shellcheck", "tokei"],
 };
 
 const capacitorNativePluginDependencies = [
@@ -33,17 +33,24 @@ const baseConfig = {
     },
     "packages/api": {
       // The package test script launches Bun from `scripts/testAllDatabases.ts`;
-      // Knip's Bun plugin discovers `test/preload.ts` via `bunfig.toml`. Operator scripts
-      // are standalone cron/systemd entrypoints rather than package scripts, so
-      // they must be declared explicitly.
+      // Knip's Bun plugin discovers `test/preload.ts` via `bunfig.toml`. The
+      // Wrangler alias targets (Loro and the driver stubs), the deploy-time
+      // define printer, and the standalone operator scripts are not package
+      // scripts, so they must be declared explicitly; the Worker entry comes
+      // from wrangler.jsonc.
       entry: [
         "src/appTestRuntime.ts",
+        "src/worker/loro/index.ts",
+        "src/worker/stubs/*.ts",
         "src/**/*.test.ts",
         "test/slow/**/*.test.ts",
         "scripts/blobGc.ts",
         "scripts/stripeSeatSync.ts",
+        "scripts/workerDefines.ts",
       ],
       project: ["src/**/*.ts", "scripts/**/*.ts", "test/**/*.ts"],
+      // `cloudflare:workers` is a runtime-provided module, not a package.
+      ignoreDependencies: ["cloudflare"],
     },
     "packages/api-client": {
       entry: ["src/**/*.test.ts"],
@@ -219,10 +226,14 @@ const productionConfig = {
     "packages/api": {
       entry: [
         "src/index.ts!",
+        "src/worker/loro/index.ts!",
+        "src/worker/stubs/*.ts!",
         "scripts/blobGc.ts!",
         "scripts/stripeSeatSync.ts!",
+        "scripts/workerDefines.ts!",
       ],
       project: [...productionProject, "!src/appTestRuntime.ts"],
+      ignoreDependencies: ["cloudflare"],
     },
     "packages/api-client": { project: productionProject },
     "packages/api-cli": {

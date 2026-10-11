@@ -1,17 +1,15 @@
 #!/usr/bin/env bash
 # Keep staging and production infrastructure behavior identical. Environment
-# names and backend keys are the only expected textual differences.
+# names, backend keys, and staging's missing destroy guards are the only
+# expected textual differences.
 
 set -euo pipefail
 
 REPO_ROOT="$(git rev-parse --show-toplevel)"
-STAGING_STACK="$REPO_ROOT/terraform/stacks/staging/server"
-PROD_STACK="$REPO_ROOT/terraform/stacks/prod/server"
+STACKS="$REPO_ROOT/terraform/stacks"
 
 normalize_tier_names() {
   sed \
-    -e 's/STAGING_SSH_TARGET/ENVIRONMENT_SSH_TARGET/g' \
-    -e 's/PRODUCTION_SSH_TARGET/ENVIRONMENT_SSH_TARGET/g' \
     -e 's/Staging/Environment/g' \
     -e 's/Production/Environment/g' \
     -e 's/staging/environment/g' \
@@ -20,345 +18,96 @@ normalize_tier_names() {
     "$1"
 }
 
+# Staging stacks are disposable, so they omit the production destroy guards.
+# Dropping the guard lines leaves uneven blank lines behind; squeeze them.
+normalize_destroy_guards() {
+  grep -v -E '^[[:space:]]*(lifecycle \{|prevent_destroy[[:space:]]*=.*|\})[[:space:]]*$' | cat -s
+}
+
 compare_tier_files() {
   local staging_file="$1"
   local prod_file="$2"
+  local filter="${3:-cat}"
 
   if ! diff -u \
     --label "${staging_file#"$REPO_ROOT"/}" \
     --label "${prod_file#"$REPO_ROOT"/}" \
-    <(normalize_tier_names "$staging_file") \
-    <(normalize_tier_names "$prod_file"); then
+    <(normalize_tier_names "$staging_file" | "$filter") \
+    <(normalize_tier_names "$prod_file" | "$filter"); then
     echo "ERROR: Staging and production infrastructure have drifted." >&2
     return 1
   fi
 }
 
+compare_stack() {
+  local stack="$1"
+  local filter="${2:-cat}"
+  local staging_file
+  for staging_file in "$STACKS/staging/$stack"/*.tf; do
+    compare_tier_files "$staging_file" "$STACKS/prod/$stack/$(basename "$staging_file")" "$filter"
+  done
+  for prod_file in "$STACKS/prod/$stack"/*.tf; do
+    if [[ ! -f "$STACKS/staging/$stack/$(basename "$prod_file")" ]]; then
+      echo "ERROR: ${prod_file#"$REPO_ROOT"/} has no staging counterpart." >&2
+      return 1
+    fi
+  done
+}
+
+# The Terraform interpolations below are literal text to find, not expansions.
+# shellcheck disable=SC2016
+assert_worker_names() {
+  local tier="$1"
+  local edge="$STACKS/$tier/edge/main.tf"
+  local api_config="$REPO_ROOT/packages/api/wrangler.jsonc"
+  local variant
+  grep -Fq 'worker_name           = "tearleads-platform-api-${var.deployment_tier}"' "$edge" ||
+    { echo "ERROR: $tier edge stack must attach the API hostname to the platform API Worker." >&2; return 1; }
+  grep -Fq "\"name\": \"tearleads-platform-api-$tier\"" "$api_config" ||
+    { echo "ERROR: packages/api/wrangler.jsonc must name the $tier Worker tearleads-platform-api-$tier." >&2; return 1; }
+  for variant in app demo; do
+    grep -Fq "worker_name           = \"tearleads-$variant-\${var.deployment_tier}\"" "$edge" ||
+      { echo "ERROR: $tier edge stack must attach the $variant hostname to its asset Worker." >&2; return 1; }
+    grep -Fq "\"name\": \"tearleads-$variant-$tier\"" "$REPO_ROOT/packages/app-web/wrangler.$variant.jsonc" ||
+      { echo "ERROR: packages/app-web/wrangler.$variant.jsonc must name the $tier Worker tearleads-$variant-$tier." >&2; return 1; }
+  done
+}
+
 assert_api_deploy_ordering() {
+  local deploy_file="$REPO_ROOT/packages/api/scripts/deployApi.sh"
+  local migration_line secrets_line publish_line
+
+  migration_line="$(awk 'index($0, "bun src/index.ts migrate") { print NR; exit }' "$deploy_file")"
+  secrets_line="$(awk 'index($0, "wrangler secret bulk") { print NR; exit }' "$deploy_file")"
+  publish_line="$(awk 'index($0, "wrangler deploy --env") { print NR; exit }' "$deploy_file")"
+  if [ -z "$migration_line" ] || [ -z "$secrets_line" ] || [ -z "$publish_line" ] ||
+    [ "$migration_line" -ge "$secrets_line" ] || [ "$secrets_line" -ge "$publish_line" ]; then
+    echo "ERROR: API deploy must migrate, sync secrets, then publish the Worker in that order: $deploy_file" >&2
+    return 1
+  fi
+}
+
+assert_tier_deploy_ordering() {
   local deploy_file="$1"
-  local verify_line
-  local stop_line
-  local install_line
-  local migration_line
-  local start_line
-  local maintenance_verify_line
-
-  verify_line="$(awk 'index($0, "test -x \"$remote_stage_path/tearleads-api\"") { print NR; exit }' "$deploy_file")"
-  stop_line="$(awk 'index($0, "systemctl stop tearleads-api") { print NR; exit }' "$deploy_file")"
-  install_line="$(awk 'index($0, "mv -f") { print NR; exit }' "$deploy_file")"
-  migration_line="$(awk 'index($0, "tearleads-api-cli migrate") { print NR; exit }' "$deploy_file")"
-  start_line="$(awk 'index($0, "systemctl start tearleads-api") { print NR; exit }' "$deploy_file")"
-  maintenance_verify_line="$(awk 'index($0, "Verifying API maintenance timers") { print NR; exit }' "$deploy_file")"
-
-  if [ -z "$verify_line" ] || [ -z "$stop_line" ] || [ -z "$install_line" ] ||
-    [ -z "$migration_line" ] || [ -z "$start_line" ] || [ -z "$maintenance_verify_line" ] ||
-    [ "$verify_line" -ge "$stop_line" ] || [ "$stop_line" -ge "$install_line" ] ||
-    [ "$install_line" -ge "$migration_line" ] || [ "$migration_line" -ge "$start_line" ] ||
-    [ "$start_line" -ge "$maintenance_verify_line" ] ||
-    ! grep -Fq 'systemctl is-enabled --quiet tearleads-blob-gc.timer' "$deploy_file" ||
-    ! grep -Fq 'systemctl is-active --quiet tearleads-blob-gc.timer' "$deploy_file"; then
-    echo "ERROR: API deploy must verify staged binaries, stop writers, install, migrate, restart, and verify blob GC in that order: $deploy_file" >&2
-    return 1
-  fi
-}
-
-assert_blob_gc_failure_alerting() {
-  local maintenance_tasks="$REPO_ROOT/ansible/playbooks/tasks/apiMaintenance.yml"
-  local secrets_loader="$REPO_ROOT/terraform/scripts/secretsEnv.sh"
-  local healthcheck_env="$REPO_ROOT/ansible/playbooks/templates/etc/tearleads/blob-gc-healthcheck.env.j2"
-  local healthcheck_client="$REPO_ROOT/ansible/playbooks/templates/usr/local/bin/tearleads-blob-gc-healthcheck.j2"
-  local service_template="$REPO_ROOT/ansible/playbooks/templates/etc/systemd/system/tearleads-blob-gc.service.j2"
-  local timer_template="$REPO_ROOT/ansible/playbooks/templates/etc/systemd/system/tearleads-blob-gc.timer.j2"
-  local alert_template="$REPO_ROOT/ansible/playbooks/templates/etc/systemd/system/tearleads-maintenance-alert@.service.j2"
-  local failure_target='OnFailure=tearleads-maintenance-alert@%n.service'
-
-  if ! grep -Fq "$failure_target" "$service_template" ||
-    ! grep -Fq "$failure_target" "$timer_template" ||
-    ! grep -Fq 'tearleads-maintenance-alert@.service.j2' "$maintenance_tasks" ||
-    ! grep -Fq 'Inspect blob GC systemd timer after enablement' "$maintenance_tasks" ||
-    ! grep -Fq 'tearleads_blob_gc_timer.status.UnitFileState == "enabled"' "$maintenance_tasks" ||
-    ! grep -Fq 'tearleads_blob_gc_timer.status.ActiveState == "active"' "$maintenance_tasks" ||
-    ! grep -Fq 'blob-gc-healthcheck.env.j2' "$maintenance_tasks" ||
-    ! grep -Fq "is match('^https://hc-ping[.]com/[A-Za-z0-9_-]+$')" "$maintenance_tasks" ||
-    ! grep -Fq 'blob_gc_healthcheck_url_valid | bool' "$maintenance_tasks" ||
-    ! grep -Fq 'BLOB_GC_HEALTHCHECK_URL={{ blob_gc_healthcheck_url | quote }}' "$healthcheck_env" ||
-    ! grep -Fq "\${tier}.healthchecks.env" "$secrets_loader" ||
-    ! grep -Fq 'name: curl' "$maintenance_tasks" ||
-    ! grep -Fq 'tearleads-blob-gc-healthcheck.j2' "$maintenance_tasks" ||
-    ! grep -Fq "printf 'url = \"%s\"\\n' \"\$endpoint\" | /usr/bin/curl" "$healthcheck_client" ||
-    ! grep -Fq -- '--config -' "$healthcheck_client" ||
-    ! grep -Fq 'EnvironmentFile=/etc/tearleads/blob-gc-healthcheck.env' "$service_template" ||
-    ! grep -Fq 'ExecStartPre=-/usr/local/bin/tearleads-blob-gc-healthcheck start' "$service_template" ||
-    ! grep -Fq 'ExecStartPost=-/usr/local/bin/tearleads-blob-gc-healthcheck success' "$service_template" ||
-    ! grep -Fq 'User={{ server_user' "$alert_template" ||
-    ! grep -Fq 'EnvironmentFile=-/etc/tearleads/blob-gc-healthcheck.env' "$alert_template" ||
-    ! grep -Fq 'ExecStart=-/usr/local/bin/tearleads-blob-gc-healthcheck fail' "$alert_template" ||
-    ! grep -Fxq 'CapabilityBoundingSet=' "$alert_template" ||
-    ! grep -Fxq 'AmbientCapabilities=' "$alert_template" ||
-    grep -Fq 'BLOB_GC_HEALTHCHECK_URL' "$service_template" ||
-    grep -Fq 'BLOB_GC_HEALTHCHECK_URL' "$alert_template" ||
-    ! grep -Fq -- '-p daemon.alert' "$alert_template" ||
-    grep -Fq 'ConditionPathExists=' "$service_template"; then
-    echo "ERROR: Blob GC must verify its timer state and report start, success, and failure heartbeats." >&2
-    return 1
-  fi
-}
-
-assert_blob_gc_healthcheck_url_validation() {
-  local pattern='^https://hc-ping[.]com/[A-Za-z0-9_-]+$'
-
-  if [[ ! "https://hc-ping.com/example-check_1" =~ $pattern ]] ||
-    [[ "https://hc-ping.com/example-check_1/" =~ $pattern ]]; then
-    echo "ERROR: Blob GC Healthchecks URLs must accept the canonical form and reject trailing slashes." >&2
-    return 1
-  fi
-}
-
-assert_document_sync_ingress_cors() {
-  local api_template="$REPO_ROOT/ansible/playbooks/templates/etc/nginx/sites-available/api.conf.j2"
-  local render_dir
-  local rendered_api
-  local sync_location
-  local sync_error_location
-  local app_origin_rule="\"https://app.example.test\" \$http_origin;"
-  local desktop_origin_rule="\"http://127.0.0.1:3002\" \$http_origin;"
-  local capacitor_origin_rule="\"https://localhost\" \$http_origin;"
-
-  render_dir="$(mktemp -d)"
-  trap 'rm -rf "$render_dir"' RETURN
-  rendered_api="$render_dir/api.conf"
-  if ! ANSIBLE_LOCALHOST_WARNING=false \
-    ANSIBLE_INVENTORY_UNPARSED_WARNING=false \
-    ansible localhost --connection local \
-      -m ansible.builtin.template \
-      -a "src=$api_template dest=$rendered_api mode=0600" \
-      -e '{"api_hostname":"api.example.test","api_cors_origins":"https://app.example.test,,https://app.example.test, https://localhost,http://127.0.0.1:3002"}' \
-      </dev/null >/dev/null 2>"$render_dir/ansible.stderr"; then
-    sed -n '1,120p' "$render_dir/ansible.stderr" >&2
-    return 1
-  fi
-
-  # `[+]` is a literal plus in both BSD and GNU basic regular expressions;
-  # `\+` is a GNU extension meaning repetition and would miss nginx's `.+`.
-  sync_location="$(sed -n '/location ~ \^\/documents\/\.[+]\/sync\$ {/,/^  }/p' "$rendered_api")"
-  sync_error_location="$(sed -n '/location @document_sync_body_too_large {/,/^  }/p' "$rendered_api")"
-  if [ "$(grep -Fc 'location ~ ^/documents/.+/sync$ {' "$rendered_api")" -ne 1 ] ||
-    grep -Fq 'location ^~ /documents/' "$rendered_api" ||
-    ! grep -Fq 'client_max_body_size 16M;' <<<"$sync_location" ||
-    ! grep -Fq 'error_page 413 = @document_sync_body_too_large;' <<<"$sync_location" ||
-    ! grep -Fq "add_header Access-Control-Allow-Origin \$document_sync_cors_origin always;" <<<"$sync_error_location" ||
-    ! grep -Fq 'add_header Vary Origin always;' <<<"$sync_error_location" ||
-    ! grep -Fq 'return 413' <<<"$sync_error_location" ||
-    [ "$(grep -Fc "$app_origin_rule" "$rendered_api")" -ne 1 ] ||
-    [ "$(grep -Fc "$capacitor_origin_rule" "$rendered_api")" -ne 1 ] ||
-    [ "$(grep -Fc "$desktop_origin_rule" "$rendered_api")" -ne 1 ]; then
-    echo "ERROR: Rendered document sync ingress must use an encoded-separator-safe 16 MiB route limit with JSON errors and the deduplicated API CORS allowlist." >&2
-    return 1
-  fi
-}
-
-# The Stripe key-mode guard must reject a live key on staging (and vice
-# versa), an incomplete set, and must be called by every deploy path that
-# renders or bundles Stripe configuration.
-assert_stripe_env_guard() {
-  local guard="$REPO_ROOT/terraform/scripts/stripeEnv.sh"
-  local file
-
-  run_guard() {
-    # shellcheck disable=SC2016 # the inner script reads its own positionals
-    env -i bash -c '
-      set -euo pipefail
-      # shellcheck disable=SC1090
-      . "$1"
-      shift
-      export STRIPE_WEBHOOK_SECRET=whsec_x
-      export STRIPE_SYNC_SOLO_PRICE_ID=price_a
-      export STRIPE_SYNC_TEAM_5_PRICE_ID=price_b
-      export STRIPE_SYNC_TEAM_10_PRICE_ID=price_c
-      export STRIPE_SECRET_KEY="$2"
-      export BUN_PUBLIC_STRIPE_PUBLISHABLE_KEY="$3"
-      validate_stripe_env "$1"
-    ' bash "$guard" "$@" >/dev/null 2>&1
-  }
-
-  if ! run_guard staging sk_test_x pk_test_x ||
-    ! run_guard staging rk_test_x pk_test_x ||
-    ! run_guard prod sk_live_x pk_live_x ||
-    run_guard staging sk_live_x pk_test_x ||
-    run_guard staging sk_test_x pk_live_x ||
-    run_guard prod sk_test_x pk_live_x ||
-    run_guard prod sk_live_x pk_test_x ||
-    run_guard staging "" pk_test_x ||
-    run_guard staging sk_test_x "" ||
-    run_guard sandbox sk_test_x pk_test_x; then
-    echo "ERROR: validate_stripe_env must accept only a complete, tier-mode-consistent Stripe configuration." >&2
-    return 1
-  fi
-
-  # A deploy run under `bash -x` must not print the secrets it validates, in
-  # either the accepting or the rejecting branch. The environment is set up
-  # before tracing starts so only the guard's own execution is traced.
-  local sentinel="SENTINEL_STRIPE_VALUE_MUST_NOT_LEAK"
-  local server_key
-  local traced_output
-  for server_key in "sk_test_$sentinel" "sk_live_$sentinel"; do
-    # shellcheck disable=SC2016 # the inner script reads its own positionals
-    traced_output="$(
-      env -i bash -c '
-        set -euo pipefail
-        # shellcheck disable=SC1090
-        . "$1"
-        export STRIPE_WEBHOOK_SECRET="whsec_$2"
-        export STRIPE_SYNC_SOLO_PRICE_ID="price_$2"
-        export STRIPE_SYNC_TEAM_5_PRICE_ID="price_$2"
-        export STRIPE_SYNC_TEAM_10_PRICE_ID="price_$2"
-        export STRIPE_SECRET_KEY="$3"
-        export BUN_PUBLIC_STRIPE_PUBLISHABLE_KEY="pk_test_$2"
-        set -x
-        validate_stripe_env staging || true
-        [[ "$-" == *x* ]] || echo "xtrace was not restored"
-      ' bash "$guard" "$sentinel" "$server_key" 2>&1
-    )"
-    if printf '%s' "$traced_output" | grep -Fq "$sentinel" ||
-      printf '%s' "$traced_output" | grep -Fq "xtrace was not restored"; then
-      echo "ERROR: validate_stripe_env must suspend xtrace while it reads Stripe secrets and restore it afterwards." >&2
+  local previous=0
+  local step line
+  for step in prepare-storage.sh prepare-postgres.sh deployApi.sh run-edge-stack.sh verifyApi.sh Website.sh AppWeb.sh; do
+    line="$(awk -v needle="$step" 'index($0, needle) && index($0, "step_timings_run") { print NR; exit }' "$deploy_file")"
+    if [ -z "$line" ] || [ "$line" -le "$previous" ]; then
+      echo "ERROR: Tier deploy must run storage, database, API, edge, verification, website, then app-web: $deploy_file" >&2
       return 1
     fi
-  done
-
-  for file in \
-    "$REPO_ROOT/scripts/deployStaging.sh" \
-    "$REPO_ROOT/scripts/deployProduction.sh" \
-    "$REPO_ROOT/ansible/scripts/run-server.sh" \
-    "$REPO_ROOT/packages/app-web/scripts/deployAppWeb.sh"; do
-    # shellcheck disable=SC2016 # matches the literal "$TIER" call form
-    if ! grep -Eq '^validate_stripe_env (staging|prod|"\$TIER")$' "$file"; then
-      echo "ERROR: ${file#"$REPO_ROOT"/} must call validate_stripe_env after loading tier secrets." >&2
-      return 1
-    fi
+    previous="$line"
   done
 }
 
-assert_server_tier_defaults() {
-  local server_yml="$REPO_ROOT/ansible/playbooks/server.yml"
-  local render_dir
-  local play_vars
-  local tier
-  local prefix
-  local assertion_result
-  local cors
+compare_stack edge
+compare_stack postgres normalize_destroy_guards
+compare_tier_files "$REPO_ROOT/scripts/deployStaging.sh" "$REPO_ROOT/scripts/deployProduction.sh"
+assert_worker_names staging
+assert_worker_names prod
+assert_api_deploy_ordering
+assert_tier_deploy_ordering "$REPO_ROOT/scripts/deployStaging.sh"
+assert_tier_deploy_ordering "$REPO_ROOT/scripts/deployProduction.sh"
 
-  render_dir="$(mktemp -d)"
-  trap 'rm -rf "$render_dir"' RETURN
-  play_vars="$render_dir/vars.yml"
-  sed -n '/^  vars:/,/^  tasks:/p' "$server_yml" | sed '1d;$d' | sed 's/^    //' >"$play_vars"
-
-  for tier in prod staging; do
-    prefix="demo."
-    [ "$tier" = "prod" ] || prefix="demo-staging."
-    cors="https://${prefix}example.test"
-
-    if ! assertion_result="$(ANSIBLE_LOCALHOST_WARNING=false \
-      ANSIBLE_INVENTORY_UNPARSED_WARNING=false \
-      ansible localhost --connection local \
-        -m ansible.builtin.assert \
-        -a '{"that":["expected_cors in api_default_cors_origins", "desktop_origin in api_default_cors_origins.split(\",\")", "(postgres_managed | bool) == (deployment_tier == \"prod\")", "not (postgres_ssl | bool)"], "fail_msg":"Server tier defaults must select the demo host and managed Postgres consistently; managed TLS comes from the persistent output."}' \
-        -e "@$play_vars" \
-        -e "deployment_tier=$tier" \
-        -e domain=example.test \
-        -e "expected_cors=$cors" \
-        -e desktop_origin=http://127.0.0.1:3002 \
-        </dev/null 2>"$render_dir/ansible.stderr")"; then
-      printf '%s\n' "$assertion_result" >&2
-      sed -n '1,120p' "$render_dir/ansible.stderr" >&2
-      return 1
-    fi
-
-  done
-}
-
-assert_demo_static_ingress() {
-  local app_template="$REPO_ROOT/ansible/playbooks/templates/etc/nginx/sites-available/app.conf.j2"
-  local nginx_template="$REPO_ROOT/ansible/playbooks/templates/etc/nginx/nginx.conf.j2"
-  local render_dir
-  local rendered_app
-  local app_server
-  local demo_server
-
-  render_dir="$(mktemp -d)"
-  trap 'rm -rf "$render_dir"' RETURN
-  rendered_app="$render_dir/app.conf"
-  if ! ANSIBLE_LOCALHOST_WARNING=false \
-    ANSIBLE_INVENTORY_UNPARSED_WARNING=false \
-    ansible localhost --connection local \
-      -m ansible.builtin.template \
-      -a "src=$app_template dest=$rendered_app mode=0600" \
-      -e '{"app_hostname":"app.example.test","app_demo_hostname":"demo.example.test"}' \
-      </dev/null >/dev/null 2>"$render_dir/ansible.stderr"; then
-    sed -n '1,120p' "$render_dir/ansible.stderr" >&2
-    return 1
-  fi
-
-  app_server="$(sed -n '/server_name app.example.test;/,/^}/p' "$rendered_app")"
-  demo_server="$(sed -n '/server_name demo.example.test;/,/^}/p' "$rendered_app")"
-  if ! grep -Fq 'root /var/www/app-web;' <<<"$app_server" ||
-    ! grep -Fq 'root /var/www/app-demo;' <<<"$demo_server" ||
-    ! grep -Fq "try_files \$uri \$uri/ /index.html;" <<<"$demo_server" ||
-    ! grep -Fq 'listen 127.0.0.1:80 default_server;' "$nginx_template" ||
-    ! grep -Fq 'return 444;' "$nginx_template"; then
-    echo "ERROR: The demo host must be served the app-demo bundle, and unrouted hosts must hit a refusing default server." >&2
-    return 1
-  fi
-}
-
-list_stack_files() {
-  local stack_dir="$1"
-
-  {
-    find "$stack_dir" -maxdepth 1 -type f -name '*.tf' -exec basename {} \;
-    find "$stack_dir/scripts" -maxdepth 1 -type f -name '*.sh' -exec basename {} \; |
-      sed 's#^#scripts/#'
-  } | sort
-}
-
-if ! diff -u \
-  --label "terraform/stacks/staging/server/files" \
-  --label "terraform/stacks/prod/server/files" \
-  <(list_stack_files "$STAGING_STACK") \
-  <(list_stack_files "$PROD_STACK"); then
-  echo "ERROR: Staging and production stack file lists have drifted." >&2
-  exit 1
-fi
-
-while IFS= read -r relative_path; do
-  compare_tier_files \
-    "$STAGING_STACK/$relative_path" \
-    "$PROD_STACK/$relative_path"
-done < <(list_stack_files "$STAGING_STACK")
-
-compare_tier_files \
-  "$REPO_ROOT/ansible/scripts/run-server-staging.sh" \
-  "$REPO_ROOT/ansible/scripts/run-server-prod.sh"
-
-compare_tier_files \
-  "$REPO_ROOT/scripts/deployStaging.sh" \
-  "$REPO_ROOT/scripts/deployProduction.sh"
-
-compare_tier_files \
-  "$REPO_ROOT/packages/api/scripts/deployStagingApi.sh" \
-  "$REPO_ROOT/packages/api/scripts/deployProductionApi.sh"
-
-assert_api_deploy_ordering \
-  "$REPO_ROOT/packages/api/scripts/deployStagingApi.sh"
-assert_api_deploy_ordering \
-  "$REPO_ROOT/packages/api/scripts/deployProductionApi.sh"
-assert_blob_gc_failure_alerting
-assert_blob_gc_healthcheck_url_validation
-assert_document_sync_ingress_cors
-assert_demo_static_ingress
-assert_server_tier_defaults
-assert_stripe_env_guard
-bash "$REPO_ROOT/scripts/checks/checkPostgresDeployment.sh"
-bash "$REPO_ROOT/scripts/checks/checkStorageDeployment.sh"
-
-echo "Infrastructure tier parity passed."
+echo "Infrastructure parity checks passed."

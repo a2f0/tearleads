@@ -24,8 +24,9 @@ resource "planetscale_postgres_branch_role" "migrations" {
   }
 }
 
-# Consumed by Ansible as a mode-0600 extra-vars file on the deployment machine.
-# This stays in the database state, never in server state or cloud-init.
+# Consumed by packages/api/scripts/deployApi.sh, which runs migrations with
+# the migration login and syncs the runtime login as Worker secrets. This stays
+# in the database state and never in the edge stack.
 output "api_connection" {
   description = "Sensitive Ansible variables for the production API database"
   sensitive   = true

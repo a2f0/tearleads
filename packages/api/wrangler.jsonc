@@ -1,0 +1,83 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "main": "./src/worker/index.ts",
+  "compatibility_date": "2026-08-17",
+  "compatibility_flags": ["nodejs_compat"],
+  "workers_dev": false,
+  "preview_urls": false,
+  "upload_source_maps": true,
+  // The API reaches PlanetScale in us-east-1 with many sequential queries per
+  // request; run it next to the database rather than next to the client.
+  "placement": { "mode": "smart" },
+  // Registration alone issues on the order of a thousand queries in one
+  // transaction. CPU time is a fraction of its wall time, but the default
+  // 30 s ceiling leaves no margin for verification-heavy requests.
+  "limits": { "cpu_ms": 120000 },
+  "observability": { "enabled": true },
+  // Workers forbid compiling WebAssembly at runtime; the Loro alias target
+  // initializes its web build from the module Wrangler compiles. The other
+  // aliases stub the development-only database drivers the shared database
+  // module imports statically; the Worker only ever selects Postgres.
+  "alias": {
+    "loro-crdt": "./src/worker/loro/index.ts",
+    "bun:sqlite": "./src/worker/stubs/bunSqlite.ts",
+    "@electric-sql/pglite": "./src/worker/stubs/pglite.ts",
+    "@libsql/client": "./src/worker/stubs/libsql.ts"
+  },
+  "triggers": {
+    // Billing maintenance every minute and blob garbage collection hourly,
+    // matching the retired systemd timers. `scheduled` branches on the cron.
+    "crons": ["* * * * *", "0 * * * *"]
+  },
+  "migrations": [
+    { "tag": "v1", "new_sqlite_classes": ["KeyValueStore", "RealtimeHub"] }
+  ],
+  "env": {
+    "staging": {
+      "name": "tearleads-platform-api-staging",
+      "vars": {
+        "API_CORS_ORIGINS": "https://app-staging.tearleads.com,https://demo-staging.tearleads.com,https://localhost,http://127.0.0.1:3002",
+        "API_PUBLIC_ORIGIN": "https://api-staging.tearleads.com",
+        "API_SENTRY_ENVIRONMENT": "staging",
+        "BLOB_OBJECT_STORE": "s3",
+        "BLOB_OBJECT_STORE_S3_BUCKET": "tearleads-staging",
+        "BLOB_OBJECT_STORE_S3_FORCE_PATH_STYLE": "false",
+        "BLOB_OBJECT_STORE_S3_REGION": "us-east-1",
+        "POSTGRES_POOL_IDLE_TIMEOUT_MS": "1000",
+        "POSTGRES_POOL_MAX": "4",
+        "POSTGRES_SSL": "true",
+        "POSTGRES_SSL_REJECT_UNAUTHORIZED": "true",
+        "REALTIME_HUB_LOCATION_HINT": "enam"
+      },
+      "durable_objects": {
+        "bindings": [
+          { "name": "KEY_VALUE_STORE", "class_name": "KeyValueStore" },
+          { "name": "REALTIME_HUB", "class_name": "RealtimeHub" }
+        ]
+      }
+    },
+    "prod": {
+      "name": "tearleads-platform-api-prod",
+      "vars": {
+        "API_CORS_ORIGINS": "https://app.tearleads.com,https://demo.tearleads.com,https://localhost,http://127.0.0.1:3002",
+        "API_PUBLIC_ORIGIN": "https://api.tearleads.com",
+        "API_SENTRY_ENVIRONMENT": "production",
+        "BLOB_OBJECT_STORE": "s3",
+        "BLOB_OBJECT_STORE_S3_BUCKET": "tearleads-prod",
+        "BLOB_OBJECT_STORE_S3_FORCE_PATH_STYLE": "false",
+        "BLOB_OBJECT_STORE_S3_REGION": "us-east-1",
+        "POSTGRES_POOL_IDLE_TIMEOUT_MS": "1000",
+        "POSTGRES_POOL_MAX": "4",
+        "POSTGRES_SSL": "true",
+        "POSTGRES_SSL_REJECT_UNAUTHORIZED": "true",
+        "REALTIME_HUB_LOCATION_HINT": "enam"
+      },
+      "durable_objects": {
+        "bindings": [
+          { "name": "KEY_VALUE_STORE", "class_name": "KeyValueStore" },
+          { "name": "REALTIME_HUB", "class_name": "RealtimeHub" }
+        ]
+      }
+    }
+  }
+}
