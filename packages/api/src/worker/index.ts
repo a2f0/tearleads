@@ -130,13 +130,14 @@ async function handleRequest(
 async function handleScheduled(
   controller: ScheduledController,
   env: WorkerBindings,
+  ctx: ExecutionContext,
 ): Promise<void> {
   bindWorkerEnvironment(env);
   const [{ runScheduledMaintenance }, { withRequestDatabase }] =
     await Promise.all([import("./maintenance"), loadApp()]);
   await withRequestDatabase(
     () => runScheduledMaintenance(controller.cron),
-    (closing) => closing,
+    (closing) => ctx.waitUntil(closing),
   );
 }
 
@@ -149,6 +150,6 @@ export default {
     env: WorkerBindings,
     ctx: ExecutionContext,
   ) {
-    ctx.waitUntil(handleScheduled(controller, env));
+    ctx.waitUntil(handleScheduled(controller, env, ctx));
   },
 };

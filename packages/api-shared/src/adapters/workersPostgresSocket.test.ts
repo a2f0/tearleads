@@ -10,6 +10,7 @@ function fakeSocket(
   options: {
     readonly initialData?: string;
     readonly tls?: ReturnType<typeof fakeSocket>;
+    readonly writeError?: Error;
   } = {},
 ) {
   const writes: Buffer[] = [];
@@ -33,6 +34,9 @@ function fakeSocket(
     }),
     writable: new WritableStream<Uint8Array>({
       write(chunk) {
+        if (options.writeError) {
+          throw options.writeError;
+        }
         writes.push(Buffer.from(chunk));
       },
     }),
@@ -199,6 +203,26 @@ test("a TLS failure after the upgrade surfaces as a stream error", async () => {
   tls.fail(new Error("certificate name mismatch"));
   await settled();
   expect(errors).toEqual(["certificate name mismatch"]);
+});
+
+test("a failed write fails the stream even without write callbacks", async () => {
+  const plain = fakeSocket({
+    initialData: "S",
+    writeError: new Error("socket reset"),
+  });
+  const stream = new WorkersPostgresSocket(
+    false,
+    async () => () => plain.socket,
+  );
+  const events: string[] = [];
+  stream.on("error", (error: Error) => events.push(`error:${error.message}`));
+  stream.on("close", () => events.push("close"));
+  await stream.connect(5432, "db.example.test");
+  stream.write("query");
+  await settled();
+  await settled();
+  expect(events).toEqual(["error:socket reset", "close"]);
+  expect(plain.isClosed()).toBe(true);
 });
 
 interface WorkersSocketOptionsSeen {

@@ -202,8 +202,15 @@ export class WorkersPostgresSocket extends EventEmitter {
     }
     writer.write(payload).then(
       () => settle(),
-      (error: unknown) =>
-        settle(error instanceof Error ? error : new Error(String(error))),
+      (reason: unknown) => {
+        // pg's write callbacks are no-ops, so a failed write must also fail
+        // the stream, or the query waiting on its reply would never settle.
+        const error =
+          reason instanceof Error ? reason : new Error(String(reason));
+        settle(error);
+        this.emit("error", error);
+        void this.socket?.close().catch(() => {});
+      },
     );
   }
 
