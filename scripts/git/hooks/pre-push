@@ -66,7 +66,22 @@ fi
 
 step_timings_reset
 
-step_timings_run branch-name bun run lint:branch-name
+# Lint the branch names this push creates or updates on the remote. The
+# checked-out branch can differ (`git push origin HEAD:other`) or be missing (a
+# detached HEAD), and deleting a misnamed branch must stay possible.
+pushed_branches=$(awk -v zero="$zero_sha" '
+  $2 != zero && index($3, "refs/heads/") == 1 { print substr($3, 12) }
+' "$refs_file")
+if [ -n "$pushed_branches" ]; then
+  # Deliberately unquoted: one name per line, and Git ref names cannot contain
+  # whitespace or glob characters. Bun drops one leading `--`, so every name
+  # after it arrives verbatim, even a branch named `--`. `bun run` would drop a
+  # second one and leave the linter checking the checked-out branch instead.
+  # shellcheck disable=SC2086
+  step_timings_run branch-name bun scripts/checks/lintBranchName.ts -- $pushed_branches
+else
+  step_timings_skip branch-name "no branch created or updated"
+fi
 
 run_fast_checks
 

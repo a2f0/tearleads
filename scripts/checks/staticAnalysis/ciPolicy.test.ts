@@ -158,3 +158,40 @@ test("the required gate always evaluates all jobs and platform workflows are cal
     expect(platform.on).toHaveProperty("workflow_call");
   }
 });
+
+test("Lint checks a pull request's branch name without interpolating it", async () => {
+  const root = `${import.meta.dir}/../../..`;
+  const ci = Bun.YAML.parse(
+    await Bun.file(`${root}/.github/workflows/ci.yml`).text(),
+  ) as {
+    jobs: Record<
+      string,
+      {
+        steps?: {
+          name?: string;
+          if?: string;
+          env?: Record<string, string>;
+          run?: string;
+        }[];
+      }
+    >;
+  };
+  const { lint } = ci.jobs;
+  const steps = lint?.steps ?? [];
+  const names = steps.map(({ name }) => name);
+  const check = steps.find(({ name }) => name === "Check branch name");
+  const { BRANCH_NAME: branchName } = check?.env ?? {};
+  expect(check?.if).toBe("github.event_name == 'pull_request'");
+  expect(branchName).toMatch(/^\$\{\{ github\.head_ref \}\}$/);
+  expect(check?.run).toBe(
+    'bun scripts/checks/lintBranchName.ts -- "$BRANCH_NAME"',
+  );
+  const position = names.indexOf("Check branch name");
+  expect(position).toBeGreaterThan(names.indexOf("Install dependencies"));
+  expect(position).toBeLessThan(names.indexOf("Run lint checks"));
+  for (const job of Object.values(ci.jobs)) {
+    for (const { run } of job.steps ?? []) {
+      expect(run ?? "").not.toContain("github.head_ref");
+    }
+  }
+});

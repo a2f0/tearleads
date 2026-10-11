@@ -11,7 +11,9 @@ workspace builds, TypeScript, package tests, the web build, and Postgres
 concurrency and Windows CEF persistence to pass on every PR. It also waits for
 native purchase bridge compiles and Terraform checks whenever their paths change.
 The platform workflows are reusable and retain their standalone manual dispatch
-entry points.
+entry points. `Lint` also rejects a pull request whose head branch fails
+`lint:branch-name`, so a branch pushed from a clone without the pre-push hook
+cannot merge.
 
 The API, app, and client SDK suites each run in a `Test (...)` job of their own,
 and `Build and test` runs the remaining package tests. The gate requires both
