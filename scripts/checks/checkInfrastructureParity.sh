@@ -274,6 +274,23 @@ assert_server_tier_defaults() {
       return 1
     fi
 
+    # Exercise the rendered defaults, including the production-only SDK hosts.
+    if ! assertion_result="$(ANSIBLE_LOCALHOST_WARNING=false \
+      ANSIBLE_INVENTORY_UNPARSED_WARNING=false \
+      ansible localhost --connection local \
+        -m ansible.builtin.assert \
+        -a '{"that":["(drive_origin in api_default_cors_origins.split(\",\")) == (deployment_tier == \"prod\")", "(experiment_origin in api_default_cors_origins.split(\",\")) == (deployment_tier == \"prod\")", "\"*\" not in api_default_cors_origins.split(\",\")"], "fail_msg":"Only production may allow the external Drive and Experiment SDK hosts."}' \
+        -e "@$play_vars" \
+        -e "deployment_tier=$tier" \
+        -e domain=example.test \
+        -e drive_origin=https://drive.a2f0.net \
+        -e experiment_origin=https://experiment.a2f0.net \
+        </dev/null 2>"$render_dir/ansible.stderr")"; then
+      printf '%s\n' "$assertion_result" >&2
+      sed -n '1,120p' "$render_dir/ansible.stderr" >&2
+      return 1
+    fi
+
   done
 }
 

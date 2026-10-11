@@ -63,7 +63,9 @@
     blob_s3_key_prefix: "{{ lookup('env', 'BLOB_OBJECT_STORE_S3_KEY_PREFIX') | default('', true) }}"
     # Native releases fetch the API from Capacitor and Electrobun loopback origins.
     api_web_cors_origins: "{{ [app_hostname, app_demo_hostname] | map('regex_replace', '^(.*)$', 'https://\\1') | list }}"
-    api_default_cors_origins: "{{ (api_web_cors_origins + ['https://localhost', 'http://127.0.0.1:3002']) | join(',') }}"
+    # External SDK hosts use the production API; staging keeps its own allowlist.
+    api_sdk_cors_origins: "{{ ['https://drive.a2f0.net', 'https://experiment.a2f0.net'] if deployment_tier == 'prod' else [] }}"
+    api_default_cors_origins: "{{ (api_web_cors_origins + api_sdk_cors_origins + ['https://localhost', 'http://127.0.0.1:3002']) | join(',') }}"
     # An explicit API_CORS_ORIGINS replaces the computed list outright, the demo
     # origin included; set it only with the full allowlist for the tier.
     api_cors_origins: "{{ lookup('env', 'API_CORS_ORIGINS') | default(api_default_cors_origins, true) }}"
