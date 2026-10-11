@@ -1,4 +1,5 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { randomBytes } from "node:crypto";
 import { createTestUser } from "@tearleads/bob-and-alice";
 import { createRegistrationRequestBody } from "../../test/helpers/api/submitRegistration";
 import { type FakeS3, startFakeS3 } from "../../test/helpers/fakeS3";
@@ -62,7 +63,8 @@ describe.skipIf(databaseKind !== "postgres")("Worker runtime blobs", () => {
     const authorized = {
       authorization: `Bearer ${await loginThroughWorker(base, user)}`,
     };
-    const bytes = crypto.getRandomValues(new Uint8Array(128 * 1024));
+    // Web Crypto caps getRandomValues at 64 KiB per call.
+    const bytes = new Uint8Array(randomBytes(128 * 1024));
     const digest = await crypto.subtle.digest("SHA-256", bytes);
     const sha256 = Array.from(new Uint8Array(digest), (byte) =>
       byte.toString(16).padStart(2, "0"),
