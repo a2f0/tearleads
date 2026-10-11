@@ -59,6 +59,12 @@ the page must be served from a secure context.
 Typecheck with `skipLibCheck: true`: the declarations of drizzle-orm and
 loro-crdt, which the SDK's types reference, do not typecheck without it.
 
+When restoring a session with `tearleads.session.setContext`, restore its
+`userId` together with its token. Automatic renewal replays an expired request
+only when the original user is known and login authenticates that same user.
+A login with a different or previously unknown user may install its new session,
+but cannot authorize replay of the old request.
+
 The [developer guide](https://github.com/a2f0/tearleads/blob/main/docs/developer/client-sdk.md)
 covers constructor options, the host contract, the local keyring, and every
 public entry point.

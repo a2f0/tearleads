@@ -1,4 +1,5 @@
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
+import type { SubtreePurgeRoot } from "../../documents/subtreePurgeScope";
 import type { ContainerContentsPersistence } from "../containerPersistence";
 import type { ContainerState } from "../remoteHydration";
 import type { ContainerContentsWorkflowRuntime } from "../runtime";
@@ -17,12 +18,21 @@ interface DeleteSubtreeContainersInput {
     containerId: string,
   ) => Promise<boolean>;
   readonly persistence: ContainerContentsPersistence;
-  readonly rootContainerId: string;
   readonly reportStep: (ok: boolean) => void;
+  readonly root: SubtreePurgeRoot;
   readonly runtime: ContainerContentsWorkflowRuntime;
   readonly signal?: AbortSignal | undefined;
   readonly stillCurrent?: (() => boolean) | undefined;
   readonly subtreeStates: readonly ContainerState[];
+}
+
+// Descendants stay under the selected root. A root with a captured parent must
+// retain that ancestor; parentless roots have no parent constraint to send.
+function requiredDeletionAncestor(
+  root: SubtreePurgeRoot,
+  containerId: string,
+): string {
+  return containerId === root.id ? (root.parentId ?? root.id) : root.id;
 }
 
 function deletionWasCancelled(input: DeleteSubtreeContainersInput): boolean {
@@ -74,7 +84,7 @@ export async function deleteSubtreeContainers(
       beforeDeleteInTransaction: (execSql) =>
         input.allowsLocalScopeInTransaction(execSql, containerId),
       containerState,
-      requiredAncestorId: input.rootContainerId,
+      requiredAncestorId: requiredDeletionAncestor(input.root, containerId),
       persistence: input.persistence,
       runtime: input.runtime,
       stillCurrent: input.stillCurrent,

@@ -347,9 +347,20 @@ export class Tearleads {
       return Promise.resolve(false);
     }
 
-    this.expiredSessionLoginPromise ??= this.session.login().finally(() => {
-      this.expiredSessionLoginPromise = null;
-    });
+    // The API client replays requests the expired session sent, so a login is
+    // their renewal only when the loaded keys authenticate that known user.
+    const expiredUserId = this.session.userId;
+    this.expiredSessionLoginPromise ??= this.session
+      .login()
+      .then(
+        (renewed) =>
+          renewed &&
+          expiredUserId !== null &&
+          this.session.userId === expiredUserId,
+      )
+      .finally(() => {
+        this.expiredSessionLoginPromise = null;
+      });
     return this.expiredSessionLoginPromise;
   }
 

@@ -184,6 +184,14 @@ testApiClient("deletes containers through the route namespace", async () => {
   expect(await client.deleteContainer("container-1")).toEqual(
     createContainerDeleteResponse(),
   );
+  // A subtree purge binds its delete to the selected ancestor on the server.
+  expect(
+    (
+      await client.deleteContainerResult("container-2", {
+        requiredAncestorId: "root/1",
+      })
+    ).ok,
+  ).toBe(true);
   expect(
     calls.map((call) => ({
       body: call.body,
@@ -194,6 +202,11 @@ testApiClient("deletes containers through the route namespace", async () => {
     {
       body: "",
       input: `${apiBaseUrl}/containers/container-1`,
+      method: "DELETE",
+    },
+    {
+      body: "",
+      input: `${apiBaseUrl}/containers/container-2?requiredAncestorId=root%2F1`,
       method: "DELETE",
     },
   ]);

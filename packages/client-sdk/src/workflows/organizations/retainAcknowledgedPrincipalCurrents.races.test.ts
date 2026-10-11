@@ -3,6 +3,7 @@ import { toFingerprint } from "@tearleads/crypto";
 import { eq } from "drizzle-orm";
 import { currentPolicyPublicationFixture } from "../../../test/helpers/currentPolicyPublication";
 import { signedAuthorityRecoveryHistory } from "../../../test/helpers/principalAuthorityRecovery";
+import { isKeyingVerificationError } from "../../data/keyingProjectionVerification/error";
 import { principalGrantRetirements } from "../../data/sqlite/principalGrantRetirementSchema";
 import {
   principalHistoryEntries,
@@ -16,6 +17,7 @@ import {
 import { principalHistoryStages } from "../../data/sqlite/principalHistoryStageSchema";
 import { principalPolicyCheckpoints } from "../../data/sqlite/principalPolicySchema";
 import { createExecSql } from "../../data/sqlite/sqlSchema";
+import { PrincipalHistoryEvidenceUnavailableError } from "../principals/principalHistoryRecoveryReferences";
 import { retainAcknowledgedPrincipalCurrents } from "./retainAcknowledgedPrincipalCurrents";
 
 let history: Awaited<ReturnType<typeof signedAuthorityRecoveryHistory>>;
@@ -88,11 +90,17 @@ test.each(["missing", "conflicting", "newer"] as const)(
           .where(selected)
           .run();
       const before = await snapshot(f);
-      await expect(
-        retainAcknowledgedPrincipalCurrents(f.publication),
-      ).rejects.toMatchObject({
-        code: kind === "newer" ? "rollback" : "stale_predecessor",
-      });
+      const failure = await retainAcknowledgedPrincipalCurrents(
+        f.publication,
+      ).catch((error: unknown) => error);
+      if (kind === "newer") {
+        // Another verified reader may pin a newer head without advancing this
+        // scope's prefix. Retention defers rather than reporting tampering.
+        expect(failure).toBeInstanceOf(
+          PrincipalHistoryEvidenceUnavailableError,
+        );
+        expect(isKeyingVerificationError(failure)).toBe(false);
+      } else expect(failure).toMatchObject({ code: "stale_predecessor" });
       expect(await snapshot(f)).toBe(before);
     } finally {
       f.close();

@@ -36,6 +36,9 @@ export async function applyStoredAttachmentRemoval(input: {
     eq(documentAttachmentBlobProjection.storageKey, removal.storageKey),
   );
   await tx.delete(documentPendingAttachments).where(pendingMatch).run();
+  // A pending-only slot leaves no detached marker to queue its bytes later.
+  // Reclaim keeps any key that a marker or another row still references.
+  await queueDocumentAttachmentStorageKeys(tx, [removal.storageKey]);
   if (removal.mode === "detach") {
     await tx
       .update(documentAttachmentBlobProjection)
@@ -46,7 +49,6 @@ export async function applyStoredAttachmentRemoval(input: {
       .run();
     return;
   }
-  await queueDocumentAttachmentStorageKeys(tx, [removal.storageKey]);
   await tx.delete(documentAttachmentBlobProjection).where(localMatch).run();
 }
 

@@ -64,6 +64,12 @@ export function withMemoryOrphanBlobReclaims<T extends AttachmentState>(
     deleteLocalAttachment: queueRemovedCopies(
       persistence.deleteLocalAttachment,
     ),
+    deletePendingAttachment: queueRemovedCopies(
+      persistence.deletePendingAttachment,
+    ),
+    deletePendingAttachments: queueRemovedCopies(
+      persistence.deletePendingAttachments,
+    ),
     saveHydratedAttachment: async (execSql, input) => {
       const saved = await queueRemovedCopies(
         persistence.saveHydratedAttachment,

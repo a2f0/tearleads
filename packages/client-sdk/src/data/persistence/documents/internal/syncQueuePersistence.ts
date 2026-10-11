@@ -180,7 +180,7 @@ export const documentSyncQueuePersistence: DocumentSyncQueuePersistence = {
     });
   },
   async deleteLocalAttachment(execSql, localId, slotId, storageKey) {
-    await getClientSQLitePersistenceRuntime(execSql).runMutation(async (db) => {
+    await getClientSQLitePersistenceRuntime(execSql).transaction(async (db) => {
       await db
         .delete(documentAttachmentBlobProjection)
         .where(
@@ -259,7 +259,7 @@ export const documentSyncQueuePersistence: DocumentSyncQueuePersistence = {
     });
   },
   async deletePendingAttachment(execSql, localId, slotId, storageKey) {
-    await getClientSQLitePersistenceRuntime(execSql).runMutation(async (db) => {
+    await getClientSQLitePersistenceRuntime(execSql).transaction(async (db) => {
       await db
         .delete(documentPendingAttachments)
         .where(
@@ -270,14 +270,20 @@ export const documentSyncQueuePersistence: DocumentSyncQueuePersistence = {
           ),
         )
         .run();
+      // A dropped upload may hold the last reference to its staged bytes.
+      await queueDocumentAttachmentStorageKeys(db, [storageKey]);
     });
   },
   async deletePendingAttachments(execSql, localId) {
-    await getClientSQLitePersistenceRuntime(execSql).runMutation(async (db) => {
-      await db
+    await getClientSQLitePersistenceRuntime(execSql).transaction(async (db) => {
+      const deleted = await db
         .delete(documentPendingAttachments)
         .where(eq(documentPendingAttachments.localId, localId))
-        .run();
+        .returning({ storageKey: documentPendingAttachments.storageKey });
+      await queueDocumentAttachmentStorageKeys(
+        db,
+        deleted.map(({ storageKey }) => storageKey),
+      );
     });
   },
 };

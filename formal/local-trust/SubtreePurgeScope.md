@@ -9,17 +9,25 @@ signed into a document purge or unlink, and the path at the server commit.
 | --- | --- |
 | `CheckCandidate` | `createSubtreePurgeScope` verifies candidate ancestry before destructive operations |
 | `LocalPlacementCurrent` | `snapshotContainerStates` owns captured placement fields so live store updates cannot replace them |
-| `Prepare` | `assertSubtreePurgePath` checks the exact path that document purge and unlink requests cite |
-| `RestoreRoot` | `readLocalPurgeScope` compares captured root placement before dispatch, including a settled restore with no local intent |
+| `Prepare` | `assertSubtreePurgePath` checks the exact path that document purge and unlink requests cite, including the selected root's signed parent |
+| `RestoreRoot` | `readLocalPurgeScope` compares captured root placement before dispatch; `assertSubtreePurgePath`, `verifiedRemoteScope` and `rootPlacementIsCurrent` compare the root's signed parent, so a settled restore without a local intent is also refused |
 | `RestoreIntent` | `hasUnsettledDocumentPlacement` and `readPendingMoves` detect candidate and selected-root placement intents, including parked intents |
 | `Commit` | `beforeSubmit` rechecks local scope; `deleteContainerWithExecutor` checks the required ancestor after locking current organization state |
 | `CanCommit` | `assertLocalPurgeScope`, `deleteStoredDocumentIfMatches` and `deleteStoredContainers` preserve local placement inside their deletion transactions |
-| `DeletionStaysInScope` | `requiredAncestorId` binds container deletion to the chosen root; document mutations cite exact manifest paths |
+| `DeletionStaysInScope` | `requiredAncestorId` binds descendant deletion to the chosen root and requires the root's non-null captured parent to remain an ancestor; document mutations cite exact manifest paths |
 
 Bounds are one candidate, four operation kinds, one placement move, and one
 local restore intent at either the candidate or the selected root, and one
-settled root restore. Root
-restores protect every candidate, including local-only content. A document
+settled root restore outside the captured parent's subtree. These root
+restores protect every candidate, including local-only content and documents
+held directly by the root. A remote document purge or unlink compares the root's
+signed parent in its exact request path; a local-only unit whose chain verifies
+no remote container first verifies a remote ordinary root's own projection; the
+root's own DELETE requires its non-null captured parent to remain an ancestor
+at the server commit. This is not an exact-parent constraint: moving an empty
+root deeper beneath that ancestor still permits its DELETE, and a parentless
+root has no server-side parent binding. Those moves are outside this model's
+settled-root restore abstraction. A document
 manifest-path comparison rejects a remote request prepared before the move.
 Container deletion checks its current signed ancestry under the organization
 lock. For local-only candidates, `assertLocalPurgeScope` and the document
