@@ -88,7 +88,7 @@ for the exact-length rule.
 
 | Limit | Value | Where enforced | Past the limit |
 | --- | --- | --- | --- |
-| Sync request body | 16 MiB (`MAX_DOCUMENT_SYNC_REQUEST_BYTES`, `validators/src/util/documentSyncLimits.ts`) | SDK applies the exact serialized-byte ceiling after encryption and trims the batch; API rejects. | Pagination for a batch. A single update that cannot fit abandons with `document_sync_request_too_large`. |
+| Sync request body | 16 MiB (`MAX_DOCUMENT_SYNC_REQUEST_BYTES`, `validators/src/util/documentSyncLimits.ts`) | SDK applies the exact serialized-byte ceiling after encryption and trims the batch; the Worker entry bounds the stream at this ceiling before the route buffers it; API rejects. | Pagination for a batch. A single update that cannot fit abandons with `document_sync_request_too_large`. |
 | Outgoing updates per request | 64 (`MAX_DOCUMENT_SYNC_OUTGOING_UPDATES`) | SDK: `data/sync/documentSyncOutgoingBatch.ts`. | Pagination. |
 | Authorization paths per request | 64 (`MAX_DOCUMENT_SYNC_AUTHORIZATION_PATHS`), each at most 100 deep, so 6,400 path refs (`MAX_DOCUMENT_SYNC_AUTHORIZATION_PATH_REFS`) | Validators; derived from the structural limits so every valid link set stays syncable after later moves deepen its paths. | Refusal. |
 | Content-key targets per document | 64 (`MAX_DOCUMENT_SYNC_CONTENT_KEY_TARGETS`) | API create and link validation; SDK link preflight in `workflows/documents/linkSet.ts`. | Refusal at link time, so no document can be created that does not fit the sync contract. |

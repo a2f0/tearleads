@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+import { MAX_DOCUMENT_SYNC_REQUEST_BYTES } from "@tearleads/validators/util";
 import { RequestBodyTooLargeError } from "../validators/requestBodyTooLarge";
 import {
   boundRequestBody,
@@ -56,6 +57,15 @@ test("a request without a body passes through", () => {
   expect(boundRequestBody(request, 10)).toEqual({ kind: "request", request });
 });
 
+test("document sync keeps its own contract at ingress", () => {
+  const route = 64 * 1024 * 1024;
+  expect(requestBodyCeiling("/documents/doc-1/sync", route)).toBe(
+    MAX_DOCUMENT_SYNC_REQUEST_BYTES,
+  );
+  expect(requestBodyCeiling("/documents/doc-1/sync", 8)).toBe(8);
+  expect(requestBodyCeiling("/documents/doc-1/sync/x", route)).toBe(route);
+});
+
 test("the unauthenticated surface gets the small ceiling, every session route the route ceiling", () => {
   const route = 32;
   for (const path of [
@@ -74,7 +84,6 @@ test("the unauthenticated surface gets the small ceiling, every session route th
     "/blobs/stages/multipart/stage-1/parts/3/bytes",
     "/documents",
     "/documents/doc-1/link",
-    "/documents/doc-1/sync",
     "/containers/with-metadata-document",
     // Rotations carry a keyring entry per member and can exceed 5 MiB.
     "/containers/c-1/revoke",

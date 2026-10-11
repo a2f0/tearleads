@@ -1,3 +1,4 @@
+import { MAX_DOCUMENT_SYNC_REQUEST_BYTES } from "@tearleads/validators/util";
 import { RequestBodyTooLargeError } from "../validators/requestBodyTooLarge";
 
 /**
@@ -13,25 +14,33 @@ export type BoundedRequest =
   | { readonly kind: "too-large" };
 
 /**
- * Ingress ceilings per route. Authenticated routes keep the route ceiling
- * nginx gave them: blob parts, document payloads, and container rotations
- * carry keyrings and baselines that their validators bound. The surface a
- * client reaches without a session (registration and login, the billing
- * webhooks, and the health probe) only ever carries small JSON, so this
- * ceiling keeps an unauthenticated request from making the isolate buffer or
- * parse more than that before the route refuses it.
+ * Ingress ceilings per route, as nginx applied them. Authenticated routes
+ * keep the route ceiling: blob parts, document payloads, and container
+ * rotations carry keyrings and baselines that their validators bound. Document
+ * sync has its own smaller contract, enforced here before the route buffers
+ * anything. The surface a client reaches without a session (registration and
+ * login, the billing webhooks, and the health probe) only ever carries small
+ * JSON, so its ceiling keeps an unauthenticated request from making the
+ * isolate buffer or parse more than that before the route refuses it.
  */
 export const MAX_UNAUTHENTICATED_REQUEST_BYTES = 2 * 1024 * 1024;
 
 const UNAUTHENTICATED_PATHS = [/^\/$/, /^\/auth(\/|$)/, /^\/billing(\/|$)/];
+// Matched on the raw path, as nginx did, so an encoded separator cannot pick
+// a larger ceiling than the route it reaches.
+const DOCUMENT_SYNC_PATH = /^\/documents\/[^/]+\/sync$/;
 
 export function requestBodyCeiling(
   pathname: string,
   routeCeiling: number,
 ): number {
-  return UNAUTHENTICATED_PATHS.some((pattern) => pattern.test(pathname))
-    ? MAX_UNAUTHENTICATED_REQUEST_BYTES
-    : routeCeiling;
+  if (UNAUTHENTICATED_PATHS.some((pattern) => pattern.test(pathname))) {
+    return MAX_UNAUTHENTICATED_REQUEST_BYTES;
+  }
+  if (DOCUMENT_SYNC_PATH.test(pathname)) {
+    return Math.min(MAX_DOCUMENT_SYNC_REQUEST_BYTES, routeCeiling);
+  }
+  return routeCeiling;
 }
 
 function declaredLength(request: Request): number | null {
