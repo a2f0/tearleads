@@ -1,0 +1,5 @@
+# #2373: the multipart part ceiling drops from 100 MiB to 32 MiB because the
+# API now buffers a part inside a 128 MB Workers isolate. This is a greenfield
+# cutover; every client is rebuilt against the new constant.
+# Remove this entry once main contains the new request contract.
+PUT /blobs/stages/multipart/{stageId}/parts/{partNumber}/bytes: refinement 'blobs.multipartPart.declaredByteLengthMax' was reworded; treat semantic changes as breaking.
