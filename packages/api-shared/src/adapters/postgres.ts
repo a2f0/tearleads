@@ -1,3 +1,4 @@
+import { AsyncLocalStorage } from "node:async_hooks";
 import os from "node:os";
 import { fileURLToPath } from "node:url";
 import { PGlite } from "@electric-sql/pglite";
@@ -13,10 +14,12 @@ import { createSqliteApiDatabase } from "./sqliteAdapter";
 import { withDatabaseTransactionCompletion } from "./transactionCompletion";
 import { createTursoApiDatabase } from "./tursoAdapter";
 import type {
+  ApiDatabase,
   ApiDatabaseKind,
   ManagedApiDatabase,
   MigrationOptions,
 } from "./types";
+import { createWorkersPostgresStream } from "./workersPostgresSocket";
 
 const { Pool } = pg;
 
@@ -47,11 +50,13 @@ interface ApiDatabaseEnv {
   readonly PGUSER?: string | undefined;
   readonly POSTGRES_DATABASE?: string | undefined;
   readonly POSTGRES_HOST?: string | undefined;
+  readonly POSTGRES_COALESCE_WRITES?: string | undefined;
   readonly POSTGRES_PASSWORD?: string | undefined;
   readonly POSTGRES_POOL_IDLE_TIMEOUT_MS?: string | undefined;
   readonly POSTGRES_POOL_MAX?: string | undefined;
   readonly POSTGRES_POOL_MAX_USES?: string | undefined;
   readonly POSTGRES_PORT?: string | undefined;
+  readonly POSTGRES_REQUEST_SCOPED?: string | undefined;
   readonly POSTGRES_SSL?: string | undefined;
   readonly POSTGRES_SSL_REJECT_UNAUTHORIZED?: string | undefined;
   readonly POSTGRES_URL?: string | undefined;
@@ -104,8 +109,13 @@ function parsePositiveInteger(value: string | undefined): number | undefined {
  * closes idle clients quickly, and retires each client after one checkout
  * (`maxUses`), which a transaction holds for all of its statements.
  */
-function readPostgresPoolSizing(env: ApiDatabaseEnv) {
-  const maxUses = parsePositiveInteger(env.POSTGRES_POOL_MAX_USES);
+function readPostgresPoolSizing(
+  env: ApiDatabaseEnv,
+  options: { readonly requestScoped?: boolean } = {},
+) {
+  const maxUses = options.requestScoped
+    ? undefined
+    : parsePositiveInteger(env.POSTGRES_POOL_MAX_USES);
   return {
     ...defaultPostgresPoolSizing,
     max:
@@ -264,11 +274,35 @@ function requirePostgresEnv(
   return "";
 }
 
+function isEnabled(value: string | undefined): boolean {
+  return value?.trim().toLowerCase() === "true";
+}
+
+/**
+ * Workers sockets cannot set TCP_NODELAY; see workersPostgresSocket.ts.
+ * Enabled per deployment because the stream type is Workers-only.
+ */
+function readPostgresStreamConfig(
+  env: ApiDatabaseEnv,
+): Pick<PoolConfig, "stream"> {
+  return isEnabled(env.POSTGRES_COALESCE_WRITES)
+    ? {
+        stream: createWorkersPostgresStream as unknown as NonNullable<
+          PoolConfig["stream"]
+        >,
+      }
+    : {};
+}
+
 export function createPostgresPoolConfig(
   env: ApiDatabaseEnv = process.env,
+  options: { readonly requestScoped?: boolean } = {},
 ): PoolConfig {
   const ssl = readPostgresSslConfig(env);
-  const poolSizing = readPostgresPoolSizing(env);
+  const poolSizing = {
+    ...readPostgresPoolSizing(env, options),
+    ...readPostgresStreamConfig(env),
+  };
   const databaseUrl = getEnvValue(env, databaseUrlKeys);
   if (databaseUrl) {
     return {
@@ -336,13 +370,17 @@ function createMemoryApiDatabase(): ManagedApiDatabase {
     close: () => client.close(),
     migrate: (options) =>
       migrate(db, {
-        migrationsFolder: options?.migrationsFolder ?? postgresMigrationsFolder(),
+        migrationsFolder:
+          options?.migrationsFolder ?? postgresMigrationsFolder(),
       }),
   };
 }
 
-function createPostgresApiDatabase(env: ApiDatabaseEnv): ManagedApiDatabase {
-  const pool = new Pool(createPostgresPoolConfig(env));
+function createPostgresApiDatabase(
+  env: ApiDatabaseEnv,
+  options: { readonly requestScoped?: boolean } = {},
+): ManagedApiDatabase {
+  const pool = new Pool(createPostgresPoolConfig(env, options));
   const db = drizzleNodePostgres({
     client: pool,
     schema,
@@ -355,7 +393,8 @@ function createPostgresApiDatabase(env: ApiDatabaseEnv): ManagedApiDatabase {
     close: () => pool.end(),
     migrate: (options) =>
       migrateNodePostgres(db, {
-        migrationsFolder: options?.migrationsFolder ?? postgresMigrationsFolder(),
+        migrationsFolder:
+          options?.migrationsFolder ?? postgresMigrationsFolder(),
       }),
   };
 }
@@ -383,6 +422,60 @@ export function createDefaultManagedApiDatabase(
 const defaultDatabase = createDefaultManagedApiDatabase();
 let defaultDatabaseMigration: Promise<void> | undefined;
 
+/**
+ * On Workers a socket belongs to the request that opened it, so a pooled
+ * connection reused by a later request never answers. With
+ * `POSTGRES_REQUEST_SCOPED=true` each request runs against its own pool,
+ * created by `withRequestScopedApiDatabase` and closed after the request;
+ * `db` resolves to the current request's pool. Work outside a request scope
+ * (the realtime hub's timers) falls back to the process-wide default, whose
+ * clients retire after one checkout.
+ */
+const requestScopedDatabases = new AsyncLocalStorage<ManagedApiDatabase>();
+
+export function isRequestScopedPostgres(
+  env: ApiDatabaseEnv = process.env,
+): boolean {
+  return (
+    isEnabled(env.POSTGRES_REQUEST_SCOPED) &&
+    readApiDatabaseKind(env) === "postgres"
+  );
+}
+
+export async function withRequestScopedApiDatabase<T>(
+  run: () => Promise<T>,
+  settle: (closing: Promise<void>) => void = () => {},
+): Promise<T> {
+  if (!isRequestScopedPostgres()) {
+    return run();
+  }
+  const database = createPostgresApiDatabase(process.env, {
+    requestScoped: true,
+  });
+  try {
+    return await requestScopedDatabases.run(database, run);
+  } finally {
+    settle(
+      database.close().catch((error: unknown) => {
+        console.error("Failed to close the request database:", error);
+      }),
+    );
+  }
+}
+
+/** A stable database handle that forwards each access to `current()`. */
+export function createRequestScopedDatabaseProxy(
+  current: () => ApiDatabase,
+): ApiDatabase {
+  return new Proxy({} as ApiDatabase, {
+    get(_target, property) {
+      const target = current();
+      const value = Reflect.get(target, property, target);
+      return typeof value === "function" ? value.bind(target) : value;
+    },
+  });
+}
+
 export function getDefaultApiDatabaseKind(): ApiDatabaseKind {
   return defaultDatabase.kind;
 }
@@ -394,7 +487,11 @@ export function initializeApiDatabase(
   return defaultDatabaseMigration;
 }
 
-export const db = defaultDatabase.db;
+export const db: ApiDatabase = isRequestScopedPostgres()
+  ? createRequestScopedDatabaseProxy(
+      () => (requestScopedDatabases.getStore() ?? defaultDatabase).db,
+    )
+  : defaultDatabase.db;
 
 export async function closeApiDatabase(): Promise<void> {
   try {

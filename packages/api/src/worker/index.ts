@@ -16,6 +16,10 @@ interface LoadedApp {
     bindings: Record<string, unknown>,
     ctx: ExecutionContext,
   ) => Response | Promise<Response>;
+  readonly withRequestDatabase: <T>(
+    run: () => Promise<T>,
+    settle: (closing: Promise<void>) => void,
+  ) => Promise<T>;
 }
 
 let app: Promise<LoadedApp> | undefined;
@@ -24,8 +28,12 @@ let app: Promise<LoadedApp> | undefined;
 // configuration when their modules load, so the app is imported only after the
 // first request has bound the Wrangler environment into `process.env`.
 function loadApp(): Promise<LoadedApp> {
-  app ??= import("../routeApp").then(({ routeApp }) => ({
+  app ??= Promise.all([
+    import("../routeApp"),
+    import("@tearleads/api-shared/postgres"),
+  ]).then(([{ routeApp }, { withRequestScopedApiDatabase }]) => ({
     fetch: (request, bindings, ctx) => routeApp.fetch(request, bindings, ctx),
+    withRequestDatabase: withRequestScopedApiDatabase,
   }));
   return app;
 }
@@ -63,18 +71,25 @@ async function handleRequest(
   if (declaredBodyTooLarge(request)) {
     return Response.json({ error: "Request body too large" }, { status: 413 });
   }
-  const { fetch } = await loadApp();
-  return fetch(
-    request,
-    {
-      ...env,
-      // Cloudflare sets this from the connecting socket; proxies cannot forge it.
-      directClientIp: request.headers.get("cf-connecting-ip"),
-      // Workers impose no idle timeout on a response, so there is nothing to
-      // extend while a principal-history verification runs.
-      beginPrincipalHistoryVerification: () => {},
-    },
-    ctx,
+  const { fetch, withRequestDatabase } = await loadApp();
+  // The request's database pool closes once the response is produced; the
+  // close itself runs after the response so it never delays the client.
+  return withRequestDatabase(
+    async () =>
+      fetch(
+        request,
+        {
+          ...env,
+          // Cloudflare sets this from the connecting socket; proxies cannot
+          // forge it.
+          directClientIp: request.headers.get("cf-connecting-ip"),
+          // Workers impose no idle timeout on a response, so there is nothing
+          // to extend while a principal-history verification runs.
+          beginPrincipalHistoryVerification: () => {},
+        },
+        ctx,
+      ),
+    (closing) => ctx.waitUntil(closing),
   );
 }
 
@@ -83,8 +98,12 @@ async function handleScheduled(
   env: WorkerBindings,
 ): Promise<void> {
   bindWorkerEnvironment(env);
-  const { runScheduledMaintenance } = await import("./maintenance");
-  await runScheduledMaintenance(controller.cron);
+  const [{ runScheduledMaintenance }, { withRequestDatabase }] =
+    await Promise.all([import("./maintenance"), loadApp()]);
+  await withRequestDatabase(
+    () => runScheduledMaintenance(controller.cron),
+    (closing) => closing,
+  );
 }
 
 export default {
