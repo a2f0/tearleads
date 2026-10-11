@@ -28,6 +28,11 @@ read_connection() {
 
 echo "Dropping the objects owned by the staging migration login..."
 (
+  # The password assignment must not appear in a traced run; the subshell
+  # keeps the change local.
+  if [[ "$-" == *x* ]]; then
+    set +x
+  fi
   export POSTGRES_HOST POSTGRES_PORT POSTGRES_USER POSTGRES_PASSWORD POSTGRES_DATABASE
   POSTGRES_HOST="$(read_connection postgres_host)"
   POSTGRES_PORT="$(read_connection postgres_migration_port)"

@@ -63,6 +63,11 @@ main() {
   fi
 
   (
+    # The credential assignments must not appear in a traced run; the
+    # subshell keeps the change local.
+    if [[ "$-" == *x* ]]; then
+      set +x
+    fi
     cd "$repo_root/packages/api-cli"
     export BLOB_OBJECT_STORE=s3
     export BLOB_OBJECT_STORE_S3_BUCKET BLOB_OBJECT_STORE_S3_REGION BLOB_OBJECT_STORE_S3_ENDPOINT
