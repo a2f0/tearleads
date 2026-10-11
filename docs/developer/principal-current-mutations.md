@@ -86,9 +86,12 @@ publication attempts (seven retries), then return an ordinary retryable error.
 A newer pin admitted by other verified evidence, such as a document purge
 proof, without a newer prefix in this scope is also an ordinary retryable
 error rather than an integrity failure for a receipt that extends an existing
-head; a later read reconciles it. A genesis receipt still refuses any pin.
-Missing or conflicting pins, forks and tampered evidence still fail; no
-exception handler treats verification failures as successful races. Optional
+head. A later scoped read supplies the missing ancestry, after which the host
+can retry retaining the same receipt. A pin alone cannot distinguish an honest
+successor from a fork; both defer until scoped history proves receipt membership.
+A genesis receipt still refuses any pin. Missing pins, equal-version conflicts,
+forks proven by scoped history and tampered evidence still fail; no exception
+handler treats verification failures as successful races. Optional
 grant retirements must refer to an included policy's signed current or
 predecessor grants; the exported `AcknowledgedPrincipalCurrentRetirement` type
 describes those inputs. When a batch contains groups, it must also contain

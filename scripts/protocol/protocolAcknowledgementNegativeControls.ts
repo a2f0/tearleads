@@ -41,4 +41,12 @@ export const ACKNOWLEDGEMENT_NEGATIVE_CONTROLS: readonly NegativeControl[] = [
     expect: { kind: "invariant", name: "HonestReaderIsNotIncident" },
     why: "A pin admitted without scoped history must defer the receipt, not report tampering (#2485 finding 4).",
   },
+  {
+    id: "acknowledgement-deferred-retry",
+    module: "formal/local-trust/PrincipalAcknowledgementRace.tla",
+    config: "formal/local-trust/PrincipalAcknowledgementRace.cfg",
+    constants: { RetryDeferredReceipt: "FALSE" },
+    expect: { kind: "liveness", name: "HonestReceiptCompletes" },
+    why: "An honest deferred receipt must complete once a scoped read covers its pin and the host retries (#2485 finding 4).",
+  },
 ];

@@ -1,9 +1,9 @@
 ---------------------- MODULE PrincipalAcknowledgementRace --------------------
 EXTENDS Naturals
 CONSTANTS CapturePredecessor, RequireReceiptAncestry, PreserveProgress, RetryCAS,
-          DeferUncoveredPin
+          DeferUncoveredPin, RetryDeferredReceipt
 ASSUME {CapturePredecessor, RequireReceiptAncestry, PreserveProgress, RetryCAS,
-        DeferUncoveredPin} \subseteq BOOLEAN
+        DeferUncoveredPin, RetryDeferredReceipt} \subseteq BOOLEAN
 Principals == {"group", "directory"}
 VARIABLES prefix, pin, maximumPrefix, maximumPin, branch, readerDone,
           phase, observedPrefix, observedPin, incident, published
@@ -40,7 +40,7 @@ UncoveredPin == \E p \in Principals: pin[p] > 1 /\ prefix[p] < pin[p]
 Prepare ==
   /\ phase = "prepare"
   /\ LET lostPredecessor == ~CapturePredecessor /\ prefix["directory"] > 0
-         conflict == RequireReceiptAncestry /\ branch = "fork"
+         conflict == RequireReceiptAncestry /\ branch = "fork" /\ ~UncoveredPin
      IN /\ phase' = CASE lostPredecessor \/ conflict -> "refused"
                        [] UncoveredPin -> "deferred"
                        [] OTHER -> "ready"
@@ -63,9 +63,18 @@ LostCAS ==
   \* A lost comparison is an ordinary error; without retry it fails the receipt.
   /\ UNCHANGED <<prefix, pin, maximumPrefix, maximumPin, branch, readerDone,
                   observedPrefix, observedPin, incident, published>>
-Next == Reader \/ PinOnlyReader \/ Prepare \/ Commit \/ LostCAS
+(* A later scoped read covers the pin; the host retries the retained receipt.
+   The branch is now known, so an honest successor publishes and a fork refuses. *)
+RecoverAndRetry ==
+  /\ RetryDeferredReceipt /\ phase = "deferred"
+  /\ prefix' = pin /\ maximumPrefix' = pin
+  /\ phase' = "prepare"
+  /\ UNCHANGED <<pin, maximumPin, branch, readerDone, observedPrefix,
+                  observedPin, incident, published>>
+Next == Reader \/ PinOnlyReader \/ Prepare \/ Commit \/ LostCAS \/ RecoverAndRetry
         \/ (phase \in {"done", "refused", "deferred"} /\ UNCHANGED vars)
 Spec == Init /\ [][Next]_vars /\ WF_vars(Prepare) /\ WF_vars(Commit) /\ WF_vars(LostCAS)
+        /\ WF_vars(RecoverAndRetry)
 TypeOK ==
   /\ prefix \in [Principals -> 0..2] /\ pin \in [Principals -> 0..2]
   /\ maximumPrefix \in [Principals -> 0..2] /\ maximumPin \in [Principals -> 0..2]
@@ -79,6 +88,7 @@ ProgressIsMonotonic == \A p \in Principals: prefix[p] >= maximumPrefix[p] /\ pin
 CompoundPublication == published => \A p \in Principals: prefix[p] >= 1 /\ pin[p] >= 1
 (* Retention defers only when no local evidence can prove the receipt. *)
 DeferralNeedsUncoveredPin == phase = "deferred" => UncoveredPin
+UncoveredPinIsNotIncident == UncoveredPin => ~incident
 HonestReceiptCompletes ==
-  (branch = "receipt") ~> (published \/ branch = "fork" \/ phase = "deferred")
+  (branch = "receipt") ~> (published \/ branch = "fork")
 =============================================================================
