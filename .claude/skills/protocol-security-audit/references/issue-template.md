@@ -2,11 +2,20 @@
 
 Title: `<Scope> audit: <n> sync/security findings (<k> High)`
 
+Draft the consolidated issue after the requested audit coverage and candidate
+verification are complete. Each earlier batch updates its local checkpoint,
+not a new issue. If the user explicitly requests an interim issue, prefix the
+title with `Partial` and identify pending coverage and unverified candidates.
+Only the coordinator may publish an issue or comment, under the authorization
+rules in `SKILL.md`; a slice auditor never publishes.
+
 Write the body in this order:
 
 1. **Scope.** State the two invariants, the parity definition, the exclusions,
    the no-brick rule, and the audited revision. Pin every `file:line`
-   reference to that revision.
+   reference to that revision. Include completed, partial, pending, and
+   blocked slices/models from the checkpoint; do not present partial coverage
+   or unrun checks as a completed clean audit.
 2. **Verification labels.** Define Probed, Verified, and Traced. Say which
    findings, if any, already have a regression test.
 3. **Summary table** with the columns `#`, `Finding`, `Dir`, `Sev`, `Status`,

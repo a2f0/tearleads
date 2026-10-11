@@ -11,8 +11,11 @@ bounds, and their assumptions and mappings to production must also be audited.
 
 ## Audit existing coverage
 
-Read `formal/README.md` and the documentation of every relevant module. Review
-the actual `.tla` and `.cfg` files, registered configurations in
+Use the saved baseline from `formal/README.md` and read the documentation of
+modules assigned to this batch. Inventory all models within the requested
+audit scope in the coverage ledger, including those unrelated to a candidate;
+assign each to one work item and queue any that do not fit the current batch.
+Review the actual `.tla` and `.cfg` files, registered configurations in
 `formal/protocol-models.txt`, negative controls in
 `scripts/protocol/protocolNegativeControls.ts`, and trace projections.
 
@@ -64,11 +67,15 @@ bun run check:protocol-traces             # trace fixture drift, no generation
 bun run check:protocol-projection         # implementation trace projection
 ```
 
-Start these in the background while establishing the baseline, logging each
-command's output and exit code to the scratch directory, so results are ready
-before verification and auditors can read the logs instead of re-running TLC.
-Take per-configuration generated and distinct state counts and depth from the
-`check:protocol-models` log for the report.
+Run these once per clean audited revision while establishing the baseline,
+logging each command's output and exit code to the durable audit directory.
+Record running checks in the checkpoint; resumes inspect their status and
+reuse completed results after the validation in
+[`batching.md`](batching.md). Auditors read relevant summaries instead of
+re-running TLC. Keep passing logs out of conversation context. Extract
+per-configuration generated and distinct state counts and depth from the
+`check:protocol-models` log for the final report. A completed suite does not
+mark unread models as reviewed.
 
 Keep logs, TLC metadata, and captured counterexamples outside the checkout. To
 inspect an existing configuration directly, follow `runTlc` in
