@@ -45,6 +45,7 @@
         "BLOB_OBJECT_STORE_S3_REGION": "us-east-1",
         "POSTGRES_POOL_IDLE_TIMEOUT_MS": "1000",
         "POSTGRES_POOL_MAX": "4",
+        "POSTGRES_POOL_MAX_USES": "1",
         "POSTGRES_SSL": "true",
         "POSTGRES_SSL_REJECT_UNAUTHORIZED": "true",
         "REALTIME_HUB_LOCATION_HINT": "enam"
@@ -68,6 +69,7 @@
         "BLOB_OBJECT_STORE_S3_REGION": "us-east-1",
         "POSTGRES_POOL_IDLE_TIMEOUT_MS": "1000",
         "POSTGRES_POOL_MAX": "4",
+        "POSTGRES_POOL_MAX_USES": "1",
         "POSTGRES_SSL": "true",
         "POSTGRES_SSL_REJECT_UNAUTHORIZED": "true",
         "REALTIME_HUB_LOCATION_HINT": "enam"

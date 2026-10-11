@@ -96,7 +96,8 @@ jq -n \
   --slurpfile storage "$CONNECTION_DIR/storage.json" \
   --arg cursorKey "$DOCUMENT_SYNC_CURSOR_HMAC_KEY" \
   '
-  def optional($name): (env[$name] // "") | select(length > 0) | { ($name): . };
+  def optional($name):
+    if ((env[$name] // "") | length) > 0 then { ($name): env[$name] } else {} end;
   {
     POSTGRES_HOST: $postgres[0].postgres_host,
     POSTGRES_PORT: $postgres[0].postgres_port,
@@ -107,7 +108,9 @@ jq -n \
     BLOB_OBJECT_STORE_S3_ACCESS_KEY_ID: $storage[0].blob_s3_access_key_id,
     BLOB_OBJECT_STORE_S3_SECRET_ACCESS_KEY: $storage[0].blob_s3_secret_access_key
   }
-  + ( ($storage[0].blob_s3_key_prefix // "") | select(length > 0) | { BLOB_OBJECT_STORE_S3_KEY_PREFIX: . } // {} )
+  + (if (($storage[0].blob_s3_key_prefix // "") | length) > 0
+     then { BLOB_OBJECT_STORE_S3_KEY_PREFIX: $storage[0].blob_s3_key_prefix }
+     else {} end)
   + ([
       "API_SENTRY_DSN",
       "REVENUECAT_WEBHOOK_AUTH_HEADER",
@@ -119,10 +122,14 @@ jq -n \
       "STRIPE_SYNC_SOLO_PRICE_ID",
       "STRIPE_SYNC_TEAM_5_PRICE_ID",
       "STRIPE_SYNC_TEAM_10_PRICE_ID"
-    ] | map(optional(.)) | add // {})
-  + ( if (env.REVENUECAT_ALLOW_SANDBOX_EVENTS // "" | ascii_downcase) == "true"
-      then { REVENUECAT_ALLOW_SANDBOX_EVENTS: "true" } else {} end )
+    ] | map(optional(.)) | add)
+  + (if ((env.REVENUECAT_ALLOW_SANDBOX_EVENTS // "") | ascii_downcase) == "true"
+     then { REVENUECAT_ALLOW_SANDBOX_EVENTS: "true" } else {} end)
   ' >"$SECRETS_FILE"
+if ! jq -e 'type == "object" and (to_entries | all(.value | type == "string"))' "$SECRETS_FILE" >/dev/null; then
+  echo "ERROR: The Worker secrets file is not a flat object of strings." >&2
+  exit 1
+fi
 (cd "$API_DIR" && bunx --no-install wrangler secret bulk "$SECRETS_FILE" --env "$TIER")
 
 echo "Publishing $TIER API Worker..."

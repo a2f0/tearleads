@@ -50,6 +50,7 @@ interface ApiDatabaseEnv {
   readonly POSTGRES_PASSWORD?: string | undefined;
   readonly POSTGRES_POOL_IDLE_TIMEOUT_MS?: string | undefined;
   readonly POSTGRES_POOL_MAX?: string | undefined;
+  readonly POSTGRES_POOL_MAX_USES?: string | undefined;
   readonly POSTGRES_PORT?: string | undefined;
   readonly POSTGRES_SSL?: string | undefined;
   readonly POSTGRES_SSL_REJECT_UNAUTHORIZED?: string | undefined;
@@ -65,12 +66,14 @@ interface ApiDatabaseEnv {
   readonly [key: string]: string | undefined;
 }
 
-const postgresMigrationsFolder = fileURLToPath(
-  new URL("../../drizzle", import.meta.url),
-);
-const sqliteMigrationsFolder = fileURLToPath(
-  new URL("../../drizzle-sqlite", import.meta.url),
-);
+// Resolved on demand: the Workers bundle has no file URL for this module, and
+// it never migrates, so resolving at import time would throw there.
+function postgresMigrationsFolder(): string {
+  return fileURLToPath(new URL("../../drizzle", import.meta.url));
+}
+function sqliteMigrationsFolder(): string {
+  return fileURLToPath(new URL("../../drizzle-sqlite", import.meta.url));
+}
 
 const databaseUrlKeys = ["DATABASE_URL", "POSTGRES_URL"] as const;
 const hostKeys = ["POSTGRES_HOST", "PGHOST"] as const;
@@ -95,10 +98,14 @@ function parsePositiveInteger(value: string | undefined): number | undefined {
 
 /**
  * The Bun process keeps a long-lived pool. A Workers isolate is limited to a
- * handful of simultaneous outbound connections and should not hold them idle
- * across requests, so the deployment tunes both bounds through the environment.
+ * handful of simultaneous outbound connections, and a socket opened by one
+ * request cannot be used by another: a pooled connection checked out again in
+ * a later request never resolves. The deployment therefore caps the pool,
+ * closes idle clients quickly, and retires each client after one checkout
+ * (`maxUses`), which a transaction holds for all of its statements.
  */
 function readPostgresPoolSizing(env: ApiDatabaseEnv) {
+  const maxUses = parsePositiveInteger(env.POSTGRES_POOL_MAX_USES);
   return {
     ...defaultPostgresPoolSizing,
     max:
@@ -107,6 +114,7 @@ function readPostgresPoolSizing(env: ApiDatabaseEnv) {
     idleTimeoutMillis:
       parsePositiveInteger(env.POSTGRES_POOL_IDLE_TIMEOUT_MS) ??
       defaultPostgresPoolSizing.idleTimeoutMillis,
+    ...(maxUses === undefined ? {} : { maxUses }),
   };
 }
 
@@ -328,7 +336,7 @@ function createMemoryApiDatabase(): ManagedApiDatabase {
     close: () => client.close(),
     migrate: (options) =>
       migrate(db, {
-        migrationsFolder: options?.migrationsFolder ?? postgresMigrationsFolder,
+        migrationsFolder: options?.migrationsFolder ?? postgresMigrationsFolder(),
       }),
   };
 }
@@ -347,7 +355,7 @@ function createPostgresApiDatabase(env: ApiDatabaseEnv): ManagedApiDatabase {
     close: () => pool.end(),
     migrate: (options) =>
       migrateNodePostgres(db, {
-        migrationsFolder: options?.migrationsFolder ?? postgresMigrationsFolder,
+        migrationsFolder: options?.migrationsFolder ?? postgresMigrationsFolder(),
       }),
   };
 }
@@ -362,11 +370,11 @@ export function createDefaultManagedApiDatabase(
   if (kind === "sqlite") {
     return createSqliteApiDatabase({
       sqlitePath: readSqlitePath(env),
-      migrationsFolder: sqliteMigrationsFolder,
+      migrationsFolder: sqliteMigrationsFolder(),
     });
   }
   if (kind === "turso") {
-    return createTursoApiDatabase(env, sqliteMigrationsFolder);
+    return createTursoApiDatabase(env, sqliteMigrationsFolder());
   }
 
   return createPostgresApiDatabase(env);
