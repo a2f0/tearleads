@@ -58,9 +58,16 @@ cursor HMAC key is generated once per tier into `.secrets/<tier>.worker.env`.
 `scripts/destroyStaging.sh` removes every staging resource; production stacks
 refuse destruction through their wrappers.
 
-The Worker reaches PlanetScale directly over its pooled port. Hyperdrive would
-cut per-query latency further and needs an API token with Hyperdrive Edit,
-which the current deployment token lacks.
+The Worker reaches PlanetScale directly over its pooled port, pinned to AWS
+us-east-1 beside the database. Two Workers-only settings in
+`packages/api/wrangler.jsonc` keep that path fast and safe:
+`POSTGRES_COALESCE_WRITES` gathers each query's protocol messages into one
+write (Workers sockets cannot set TCP_NODELAY, and the delayed ACK otherwise
+costs about 40 ms per statement), and `POSTGRES_REQUEST_SCOPED` gives every
+request its own connection pool, because a socket opened by one request cannot
+serve another. Hyperdrive would remove the per-request connection cost and
+needs an API token with Hyperdrive Edit, which the current deployment token
+lacks.
 
 ## Running Tests
 

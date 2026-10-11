@@ -16,9 +16,7 @@
       "./documentStore",
       "./types"
     ],
-    "packages/crypto/src/keying.ts": [
-      "./keying/index"
-    ],
+    "packages/crypto/src/keying.ts": ["./keying/index"],
     "packages/crypto/src/keying/index.ts": [
       "./accessEvent",
       "./accessManifestSnapshot",
@@ -32,12 +30,8 @@
       "./types",
       "./writeHeader"
     ],
-    "packages/loro/src/index.ts": [
-      "./shared"
-    ],
-    "packages/api-shared/src/schema.ts": [
-      "./schema/index"
-    ]
+    "packages/loro/src/index.ts": ["./shared"],
+    "packages/api-shared/src/schema.ts": ["./schema/index"]
   },
   "fileSizes": {
     "dependency-cruiser.config.ts": {
