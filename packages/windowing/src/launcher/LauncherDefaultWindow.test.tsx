@@ -64,11 +64,14 @@ function WindowProbe() {
 function Harness({
   definition = DEFINITION,
   initialMode = "routed",
+  initiallyEnabled = true,
 }: {
   definition?: LauncherDefinition;
   initialMode?: NavigationMode;
+  initiallyEnabled?: boolean;
 }) {
   const [mode, setMode] = useState(initialMode);
+  const [enabled, setEnabled] = useState(initiallyEnabled);
   return (
     <WindowStateProvider>
       <button
@@ -77,7 +80,14 @@ function Harness({
       >
         Switch mode
       </button>
-      <LauncherNavigationProvider definition={definition} mode={mode}>
+      <button type="button" onClick={() => setEnabled(!enabled)}>
+        Toggle default window
+      </button>
+      <LauncherNavigationProvider
+        defaultWindowEnabled={enabled}
+        definition={definition}
+        mode={mode}
+      >
         <WindowProbe />
       </LauncherNavigationProvider>
     </WindowStateProvider>
@@ -126,6 +136,21 @@ test("initial windowed mount opens the configured app once in StrictMode", () =>
   expect(JSON.parse(view.getByTestId("windows").textContent ?? "")).toEqual([
     { id: "1", appId: "notes", minimized: false },
   ]);
+});
+
+test("disabled defaults wait until enabled and preserve existing windows", () => {
+  const view = render(
+    <Harness initialMode="windowed" initiallyEnabled={false} />,
+  );
+  expect(view.getByTestId("windows").textContent).toBe("[]");
+  fireEvent.click(view.getByRole("button", { name: "Toggle default window" }));
+  const opened = view.getByTestId("windows").textContent;
+  expect(JSON.parse(opened ?? "")).toEqual([
+    { id: "1", appId: "explorer", minimized: false },
+  ]);
+  fireEvent.click(view.getByRole("button", { name: "Toggle default window" }));
+  fireEvent.click(view.getByRole("button", { name: "Toggle default window" }));
+  expect(view.getByTestId("windows").textContent).toBe(opened);
 });
 
 test.each([false, true])(

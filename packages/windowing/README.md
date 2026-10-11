@@ -215,20 +215,21 @@ const LAUNCHER: LauncherDefinition<"notes" | "contacts"> = {
 };
 ```
 
-`LauncherNavigationProvider` takes the definition and mode inside a
+`LauncherNavigationProvider` takes the definition and `NavigationMode` inside a
 `WindowStateProvider`. `useLauncherNavigationActions().openMiniApp({ appId })`
 opens or raises a window in `windowed` mode, or navigates to `/app/<app id>/…`
-with browser history in `routed` mode. Render windows with `MiniAppWindow`;
-its `AppBoundary` wraps each app.
+in `routed` mode. Back/Forward walk browser history. `MiniAppWindow` renders
+each window; `AppBoundary` wraps its app.
 
-Optional `defaultWindowAppId` opens on entering an empty windowed desktop,
-including initial mount. Existing windows (even minimized) are kept. Closing
-the last window leaves the desktop empty until the next mode entry. Omit the
-setting to manage startup yourself; `homeAppId` only sets the routed home.
+`defaultWindowAppId` opts into opening an app on entering an empty windowed
+desktop, including mount. Minimized windows count as open. Closing the last
+window leaves it empty until reentry. The provider's `defaultWindowEnabled`
+defers this while false (e.g. hidden workspaces); enabling it counts as entry.
+`homeAppId` only sets the routed home.
 
-A mini-app uses `useMiniAppRouteSegments(appId)` or `useMiniAppRouteState` for
-its route and Back stack in either shell. Window hooks register sidebar and
-toolbar actions for both shells.
+`useMiniAppRouteSegments(appId)` reads/sets the browser route in the routed
+shell or the window's route and Back stack; `useMiniAppRouteState` parses it.
+Window hooks register sidebar and toolbar actions for both shells.
 
 `useNavigationMode` picks the mode: the user's choice from
 `NavigationModeOverrideProvider` (which persists it under a `storageKey`)

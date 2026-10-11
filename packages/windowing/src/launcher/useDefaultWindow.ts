@@ -5,22 +5,24 @@ import type { NavigationMode } from "./navigationMode";
 /** Opens the host's default once per entry into an empty windowed desktop. */
 export function useDefaultWindow({
   definition,
+  enabled,
   mode,
   openMiniApp,
   windowCount,
 }: {
   definition: LauncherDefinition;
+  enabled: boolean;
   mode: NavigationMode;
   openMiniApp: (request: { appId: string }) => string | null;
   windowCount: number;
 }) {
-  const previousMode = useRef<NavigationMode | null>(null);
+  const wasWindowed = useRef(false);
 
   useEffect(() => {
-    const enteredWindowed =
-      mode === "windowed" && previousMode.current !== "windowed";
+    const windowed = enabled && mode === "windowed";
+    const enteredWindowed = windowed && !wasWindowed.current;
     // Record the entry before opening, including across StrictMode effects.
-    previousMode.current = mode;
+    wasWindowed.current = windowed;
     const { defaultWindowAppId } = definition;
     if (
       enteredWindowed &&
@@ -29,5 +31,5 @@ export function useDefaultWindow({
     ) {
       openMiniApp({ appId: defaultWindowAppId });
     }
-  }, [definition, mode, openMiniApp, windowCount]);
+  }, [definition, enabled, mode, openMiniApp, windowCount]);
 }

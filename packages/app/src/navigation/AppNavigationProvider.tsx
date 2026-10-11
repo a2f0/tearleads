@@ -14,17 +14,23 @@ import { isMiniAppId, type MiniAppId } from "../mini-apps/types";
 // The windowing launcher's navigation, bound to the app's mini-app ids.
 
 interface AppNavigationProviderProps extends PropsWithChildren {
+  defaultWindowEnabled?: boolean | undefined;
   launcher: LauncherDefinition<MiniAppId>;
   mode: NavigationMode;
 }
 
 export function AppNavigationProvider({
   children,
+  defaultWindowEnabled,
   launcher,
   mode,
 }: AppNavigationProviderProps) {
   return (
-    <LauncherNavigationProvider definition={launcher} mode={mode}>
+    <LauncherNavigationProvider
+      defaultWindowEnabled={defaultWindowEnabled}
+      definition={launcher}
+      mode={mode}
+    >
       {children}
     </LauncherNavigationProvider>
   );

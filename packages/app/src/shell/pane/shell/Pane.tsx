@@ -107,6 +107,7 @@ export function Pane({
   desktopLabel,
   navigationMode = "windowed",
   routedVisible = false,
+  windowedVisible = true,
 }: {
   active?: boolean | undefined;
   className: string;
@@ -115,6 +116,7 @@ export function Pane({
   // In routed mode only the single active pane shows the routed shell; the
   // other (always-mounted, runtime-bearing) panes render no surface.
   routedVisible?: boolean | undefined;
+  windowedVisible?: boolean | undefined;
 }) {
   // Swap only the leaf surface by mode; the provider stack above stays mounted
   // so the pane's runtime is never torn down when the layout toggles.
@@ -133,6 +135,7 @@ export function Pane({
     <AppFeatureFlagsProvider>
       <WindowStateProvider>
         <AppNavigationProvider
+          defaultWindowEnabled={windowedVisible}
           mode={navigationMode}
           launcher={MINI_APP_LAUNCHER}
         >

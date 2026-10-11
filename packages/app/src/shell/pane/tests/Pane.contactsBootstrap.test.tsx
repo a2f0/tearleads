@@ -1,12 +1,6 @@
 import { afterEach, expect, spyOn, test } from "bun:test";
 import type { Tearleads } from "@tearleads/client-sdk";
-import {
-  act,
-  fireEvent,
-  render,
-  waitFor,
-  within,
-} from "@testing-library/react";
+import { act, fireEvent, waitFor, within } from "@testing-library/react";
 import invariant from "invariant";
 import { useEffect } from "react";
 import { registerAndWaitForUserId } from "../../../../test/helpers/identityPaneTestUtils";
@@ -21,6 +15,7 @@ import {
   openNotes,
   PANE_LONG_ASYNC_TEST_TIMEOUT_MS,
 } from "../../../../test/helpers/paneTestUtils";
+import { renderEmptyDesktop } from "../../../../test/helpers/renderEmptyDesktop";
 import { CONTACTS_LABELS } from "../../../mini-apps/contacts/labels";
 import { SystemMonitorDeveloperModeProvider } from "../../../mini-apps/system-monitor/systemMonitorDeveloperMode";
 import {
@@ -52,7 +47,7 @@ test(
     const tearleadsRef: { current: Tearleads | null } = { current: null };
     // Mirrors production composition: Layout mounts the developer-mode
     // provider above every Pane.
-    const view = render(
+    const view = renderEmptyDesktop(
       <SystemMonitorDeveloperModeProvider>
         <DualPaneProvider>
           <PaneSideProvider side="left">
@@ -124,7 +119,7 @@ test(
     useTestApiAppHandlers();
     saveSystemMonitorMode(systemMonitorModeStorageKey("left"), "pinned");
     const tearleadsRef: { current: Tearleads | null } = { current: null };
-    const view = render(
+    const view = renderEmptyDesktop(
       <SystemMonitorDeveloperModeProvider>
         <DualPaneProvider>
           <PaneSideProvider side="left">

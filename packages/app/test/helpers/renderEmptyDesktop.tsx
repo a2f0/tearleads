@@ -12,14 +12,14 @@ import type { ReactElement } from "react";
 // the production startup and mode-switch defaults.
 export function renderEmptyDesktop(element: ReactElement): RenderResult {
   const view = render(element);
-  for (const window of view.container.querySelectorAll<HTMLElement>(
+  for (const windowElement of view.container.querySelectorAll<HTMLElement>(
     ".window",
   )) {
-    expect(window.querySelector(".window-titlebar-title")?.textContent).toBe(
-      "Explorer",
-    );
+    expect(
+      windowElement.querySelector(".window-titlebar-title")?.textContent,
+    ).toBe("Explorer");
     fireEvent.click(
-      within(window).getByRole("button", { name: "Close window" }),
+      within(windowElement).getByRole("button", { name: "Close window" }),
     );
   }
   return view;

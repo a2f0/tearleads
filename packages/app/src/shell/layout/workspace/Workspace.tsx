@@ -68,6 +68,7 @@ function PaneSurface({
       desktopLabel={desktopLabel}
       navigationMode={navigationMode}
       routedVisible={isLeft ? active : undefined}
+      windowedVisible={active && (isLeft || split)}
     />
   );
 }

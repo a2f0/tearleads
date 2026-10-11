@@ -1,5 +1,5 @@
 import { afterEach, expect, test } from "bun:test";
-import { fireEvent, render, waitFor, within } from "@testing-library/react";
+import { fireEvent, waitFor, within } from "@testing-library/react";
 import { AppTestRuntimeScopeProbe } from "../../test/helpers/appRuntimeIdle";
 import { openIdentityManagerFromPane } from "../../test/helpers/identityPaneTestUtils";
 import { useTestApiAppHandlers } from "../../test/helpers/mswServer";
@@ -18,6 +18,7 @@ import {
   waitForPaneRuntimeToSettle,
   waitForPersistedPaneLocalIdentity,
 } from "../../test/helpers/paneTestUtils";
+import { renderEmptyDesktop } from "../../test/helpers/renderEmptyDesktop";
 import { DESTROY_KEY_PACKAGE_CONFIRMATION_PHRASE } from "../components/shared/DestroyKeyPackageConfirmationDialog";
 import type { AppHostConfig } from "../host/AppHostConfig";
 import { SystemMonitorDeveloperModeProvider } from "../mini-apps/system-monitor/systemMonitorDeveloperMode";
@@ -44,7 +45,7 @@ function renderAutopilotPane(options: {
   saveSystemMonitorMode(systemMonitorModeStorageKey("left"), "pinned");
   // Mirrors production composition: Layout mounts the developer-mode provider
   // above every Pane.
-  return render(
+  return renderEmptyDesktop(
     <SystemMonitorDeveloperModeProvider>
       <DualPaneProvider>
         <PaneSideProvider side="left">

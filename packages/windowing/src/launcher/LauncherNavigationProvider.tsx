@@ -76,6 +76,8 @@ export interface LauncherNavigationState<AppId extends string = string> {
 }
 
 interface LauncherNavigationProviderProps extends PropsWithChildren {
+  /** Defers the default window while false, for example in a hidden workspace. */
+  defaultWindowEnabled?: boolean | undefined;
   definition: LauncherDefinition;
   mode: NavigationMode;
 }
@@ -121,11 +123,13 @@ function ensureWindowHistoryCursor(): NavigationHistoryCursor {
 }
 
 function LauncherNavigationWindowRuntimeBridge({
+  defaultWindowEnabled,
   definition,
   mode,
   openMiniApp,
   runtimeRef,
 }: {
+  defaultWindowEnabled: boolean;
   definition: LauncherDefinition;
   mode: NavigationMode;
   openMiniApp: LauncherNavigationActions["openMiniApp"];
@@ -154,6 +158,7 @@ function LauncherNavigationWindowRuntimeBridge({
 
   useDefaultWindow({
     definition,
+    enabled: defaultWindowEnabled,
     mode,
     openMiniApp,
     windowCount: windows.length,
@@ -357,6 +362,7 @@ function useLauncherNavigationActionValue(
  */
 export function LauncherNavigationProvider({
   children,
+  defaultWindowEnabled = true,
   definition,
   mode,
 }: LauncherNavigationProviderProps) {
@@ -399,6 +405,7 @@ export function LauncherNavigationProvider({
     <launcherNavigationActionsContext.context.Provider value={actions}>
       <launcherNavigationStateContext.context.Provider value={state}>
         <LauncherNavigationWindowRuntimeBridge
+          defaultWindowEnabled={defaultWindowEnabled}
           definition={definition}
           mode={mode}
           openMiniApp={actions.openMiniApp}

@@ -1,6 +1,12 @@
 import { afterEach, expect, test } from "bun:test";
 import { createSQLiteRuntime } from "@tearleads/client-sdk/sqlite";
-import { cleanup, fireEvent, render, waitFor } from "@testing-library/react";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import {
   createTestAppHostConfig,
   pinWindowedSystemMonitors,
@@ -69,6 +75,28 @@ test("desktop App defaults to the tablet shell and can switch to windows", () =>
   expect(pane?.querySelector(".window-titlebar-title")?.textContent).toBe(
     "Explorer",
   );
+  expect(view.container.querySelectorAll(".pane-hidden .window")).toHaveLength(
+    0,
+  );
+  view.unmount();
+});
+
+test("hidden workspaces defer Explorer until shown", () => {
+  saveAppFeatureFlag(appFeatureFlagStorageKey("workspace-switcher"), "enabled");
+  const view = render(<App hostConfig={createTestAppHostConfig()} />);
+  const hiddenPane = view.container.querySelector<HTMLElement>(".pane-hidden");
+  const visiblePane = view.container.querySelector<HTMLElement>(
+    ".pane:not(.pane-hidden)",
+  );
+  if (!hiddenPane || !visiblePane)
+    throw new Error("Expected two workspace panes.");
+  expect(hiddenPane.querySelectorAll(".window")).toHaveLength(0);
+  expect(visiblePane.querySelectorAll(".window")).toHaveLength(1);
+  fireEvent.click(within(visiblePane).getByRole("button", { name: "2" }));
+  expect(hiddenPane.querySelectorAll(".window")).toHaveLength(1);
+  expect(hiddenPane.querySelector(".window-titlebar-title")?.textContent).toBe(
+    "Explorer",
+  );
   view.unmount();
 });
 
@@ -115,6 +143,10 @@ test("demo App starts split without global header controls", () => {
   expect(frame?.classList.contains("layout--demo-peer-split")).toBe(true);
   expect(view.getByText("Peer 1")).toBeTruthy();
   expect(view.getByText("Peer 2")).toBeTruthy();
+  expect(view.container.querySelectorAll(".pane-left .window")).toHaveLength(1);
+  expect(view.container.querySelectorAll(".pane-right .window")).toHaveLength(
+    1,
+  );
   expect(view.container.querySelector(".tearleads-header")).toBeNull();
   expect(view.queryByRole("button", { name: "Hide Peer" })).toBeNull();
   expect(view.queryByRole("button", { name: "Show Peer" })).toBeNull();
