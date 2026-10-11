@@ -12,7 +12,7 @@
         "@tsconfig/strictest": "2.0.8",
         "@types/bun": "1.4.2",
         "@types/invariant": "catalog:",
-        "agent-tool": "github:a2f0/agent-tool#1ddee340e4d6e9a62fed9e02580610439f9e88b1",
+        "agent-tool": "github:a2f0/agent-tool#ecebb252c5f29ad639f8e38f1ba89ad45c9e30cd",
         "dependency-cruiser": "18.5.0",
         "invariant": "catalog:",
         "knip": "6.40.0",
@@ -1195,7 +1195,7 @@
 
     "agent-base": ["agent-base@7.1.4", "", {}, "sha512-MnA+YT8fwfJPgBx3m60MNqakm30XOkyIoH1y6huTQvC0PwZG7ki8NacLBcrPbNoo8vEZy7Jpuk7+jMO+CUovTQ=="],
 
-    "agent-tool": ["@a2f0/agent-tool@github:a2f0/agent-tool#1ddee34", { "bin": { "agent-tool": "src/index.ts" } }, "a2f0-agent-tool-1ddee34", "sha512-vrtXE0d3Vj+usVZLqE4JutLBkdyvDmFFZe5qximeESCNiGbA5cG0wVl5EqBFOyViXiRJd/O+NO3oRrakS5WyIw=="],
+    "agent-tool": ["@a2f0/agent-tool@github:a2f0/agent-tool#ecebb25", { "bin": { "agent-tool": "src/index.ts" } }, "a2f0-agent-tool-ecebb25", "sha512-v7yeEBaFL9SjfoU/iZ0LhWhh5iAeJ/g2vyeQwr5EGJ/6SgVxHGoW4n0GkZ0laXGe/qXtASHdqVYoI0Y+47PWZQ=="],
 
     "ajv": ["ajv@8.20.0", "", { "dependencies": { "fast-deep-equal": "^3.1.3", "fast-uri": "^3.0.1", "json-schema-traverse": "^1.0.0", "require-from-string": "^2.0.2" } }, "sha512-Thbli+OlOj+iMPYFBVBfJ3OmCAnaSyNn4M1vz9T6Gka5Jt9ba/HIR56joy65tY6kx/FCF5VXNB819Y7/GUrBGA=="],
 

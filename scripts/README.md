@@ -39,6 +39,22 @@ or `bun run test:static-analysis`, to run checks and tooling tests.
 
 ## Verification harness
 
+For agent sessions, wrap verification and other noisy commands with the shared
+output harness:
+
+```sh
+bun run agent:run --label checks -- bun run check:affected
+bun run agent:run --label package -- bun run check:package @tearleads/api
+bun run agent:run --label push -- git push -u origin HEAD
+bun run agent:logs <reported-log-path> --tail-lines 40 --max-bytes 4096
+```
+
+The commit-pinned agent-tool release retains full stdout and stderr in private
+local files, prints a compact receipt on success, and includes a bounded excerpt
+on failure. Its exit status remains the command's exit status. The log reader
+returns bounded, sanitized excerpts; inspect those before requesting more output.
+Keep the existing verification reports below as evidence of completed gates.
+
 `bun run check` and `bun run check:affected` use the same verification runner.
 They retain their existing build, TypeScript, static-check, and full or affected
 Turbo test steps. Builds finish before tests begin; `build:packages` prepares

@@ -14,6 +14,13 @@ Select a reviewer different from the coordinating agent when possible. Honor a
 requested reviewer or effort; otherwise use an available independent reviewer.
 Run `agent-tool doctor` if CLI compatibility is uncertain.
 
+Run noisy validation or repair checks through
+`agent-tool run --label <check> -- <command> [args...]`. Read its bounded failure
+tail and use `agent-tool logs <log>` or a targeted search for more evidence.
+Keep `agent-tool review` direct: it retains reviewer stderr in a private local
+log and displays the complete final review. Never hide, truncate, or substitute
+a command success receipt for findings and the final verdict.
+
 Review committed changes with `agent-tool review claude`, `agent-tool review codex`,
 or `agent-tool review opencode`. Optional effort is `low`, `medium`, `high`,
 `xhigh`, or `max`. For a local or non-GitHub repository, add `--base <commit-or-ref>`.
