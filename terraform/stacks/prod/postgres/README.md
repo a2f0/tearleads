@@ -1,8 +1,8 @@
 # Production PlanetScale Postgres
 
 This stack owns `tearleads/tearleads-prod`, branch `main`, and its API roles.
-Its independent S3 state key is `prod/postgres/terraform.tfstate`. Server
-rebuilds preserve the database; production Ansible reads its connection output.
+Its independent S3 state key is `prod/postgres/terraform.tfstate`. Worker
+redeploys preserve the database; the API deploy reads its connection output.
 
 ## Provisioning
 
@@ -52,7 +52,7 @@ storage. The wrapper disables interactive variable prompts.
 This stack owns the database and its non-expiring `tearleads-runtime` and
 `tearleads-migrations` logins. The database, protection setting, and roles use
 `prevent_destroy`; the main branch also has PlanetScale deletion protection.
-Keep this stack and its S3 state when rebuilding the server. Deletion protection
+Keep this stack and its S3 state when redeploying the Workers. Deletion protection
 is a guard against accidents, not a substitute for retaining state and backups.
 
 `packages/api/scripts/deployApi.sh prod` reads the sensitive `api_connection`
@@ -79,10 +79,11 @@ existing local login to both files. See [PlanetScale roles] and
 
 1. Apply this database stack.
 2. Apply the independent [S3 storage stack](../../../modules/s3-blob-storage/README.md).
-3. Run `scripts/deployProduction.sh` to provision the server, configure Ansible,
-   initialize the current API schema, and deploy the applications.
+3. Run `scripts/deployProduction.sh` to migrate the database, deploy the API
+   Worker with the runtime login as its secrets, publish the app and demo
+   Workers, and attach the hostnames.
 
-Staging uses its local PostgreSQL server and independent S3 storage stack.
+Staging has its own copies of this stack and the S3 storage stack.
 Neither environment has a data conversion or backfill step. The API baseline
 initializes a fresh database; schema resets replace the database and client
 caches together.
