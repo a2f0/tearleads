@@ -26,14 +26,9 @@ export type BoundedRequest =
 export const MAX_UNAUTHENTICATED_REQUEST_BYTES = 2 * 1024 * 1024;
 
 const UNAUTHENTICATED_PATHS = [/^\/$/, /^\/auth(\/|$)/, /^\/billing(\/|$)/];
-// Matched on the raw path, as nginx did, so an encoded separator cannot pick
-// a larger ceiling than the route it reaches.
 const DOCUMENT_SYNC_PATH = /^\/documents\/[^/]+\/sync$/;
 
-export function requestBodyCeiling(
-  pathname: string,
-  routeCeiling: number,
-): number {
+function ceilingForPath(pathname: string, routeCeiling: number): number {
   if (UNAUTHENTICATED_PATHS.some((pattern) => pattern.test(pathname))) {
     return MAX_UNAUTHENTICATED_REQUEST_BYTES;
   }
@@ -41,6 +36,34 @@ export function requestBodyCeiling(
     return Math.min(MAX_DOCUMENT_SYNC_REQUEST_BYTES, routeCeiling);
   }
   return routeCeiling;
+}
+
+// Decoded the way the router does it: escape by escape, keeping any run that
+// does not decode, so one bad escape cannot hide a decodable route name.
+function decodedPath(pathname: string): string {
+  return pathname.replace(/(?:%[0-9A-Fa-f]{2})+/g, (run) => {
+    try {
+      return decodeURIComponent(run);
+    } catch {
+      return run;
+    }
+  });
+}
+
+/**
+ * The router matches the decoded path, so `/%61uth/register` is the
+ * registration route; an encoded separator, on the other hand, could spell a
+ * larger route than the one reached. Both spellings are judged and the
+ * smaller ceiling wins.
+ */
+export function requestBodyCeiling(
+  pathname: string,
+  routeCeiling: number,
+): number {
+  return Math.min(
+    ceilingForPath(pathname, routeCeiling),
+    ceilingForPath(decodedPath(pathname), routeCeiling),
+  );
 }
 
 function declaredLength(request: Request): number | null {

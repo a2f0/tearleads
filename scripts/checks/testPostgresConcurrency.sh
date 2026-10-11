@@ -39,6 +39,7 @@ cd packages/api
 exec bun test \
   src/worker/workerRuntime.pg.test.ts \
   src/worker/workerRuntime.interest.pg.test.ts \
+  src/worker/workerRuntime.blobs.pg.test.ts \
   src/routes/containers/reciteConcurrency.pg.test.ts \
   src/routes/containers/rotationConcurrency.pg.test.ts \
   src/routes/containers/deleteScopeConcurrency.pg.test.ts \

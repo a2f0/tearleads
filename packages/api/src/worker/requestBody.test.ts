@@ -66,6 +66,29 @@ test("document sync keeps its own contract at ingress", () => {
   expect(requestBodyCeiling("/documents/doc-1/sync/x", route)).toBe(route);
 });
 
+test("an encoded spelling never earns more than the route it reaches", () => {
+  const route = 64 * 1024 * 1024;
+  // Percent-encoded letters decode to the guest surface.
+  expect(requestBodyCeiling("/%61uth/register", route)).toBe(
+    MAX_UNAUTHENTICATED_REQUEST_BYTES,
+  );
+  expect(requestBodyCeiling("/auth%2Fregister", route)).toBe(
+    MAX_UNAUTHENTICATED_REQUEST_BYTES,
+  );
+  // An encoded separator cannot lift the sync contract either way.
+  expect(requestBodyCeiling("/documents/doc-1%2Fsync", route)).toBe(
+    MAX_DOCUMENT_SYNC_REQUEST_BYTES,
+  );
+  // A bad escape elsewhere does not hide a decodable route name.
+  expect(requestBodyCeiling("/%61uth/sessions/%ZZ", route)).toBe(
+    MAX_UNAUTHENTICATED_REQUEST_BYTES,
+  );
+  expect(requestBodyCeiling("/%61uth/sessions/%E0%A4%A", route)).toBe(
+    MAX_UNAUTHENTICATED_REQUEST_BYTES,
+  );
+  expect(requestBodyCeiling("/containers/%E0%A4%A", route)).toBe(route);
+});
+
 test("the unauthenticated surface gets the small ceiling, every session route the route ceiling", () => {
   const route = 32;
   for (const path of [
