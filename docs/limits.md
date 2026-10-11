@@ -101,6 +101,7 @@ for the exact-length rule.
 | Limit | Value | Where enforced | Past the limit |
 | --- | --- | --- | --- |
 | Request body on the unauthenticated surface (`/`, `/auth/*`, `/billing/*`) | 2 MiB (`MAX_UNAUTHENTICATED_REQUEST_BYTES`, `packages/api/src/worker/requestBody.ts`) | The Worker entry, before any route runs; every session route keeps the ceiling below, since container rotations and document payloads legitimately carry megabytes of keyrings and baselines. | Refusal. Bounds what a client without a session can make the isolate buffer or parse. |
+| Request bodies buffered per isolate | 64 MiB across concurrent requests (`BODY_ADMISSION_BYTES`, `packages/api/src/worker/requestBody.ts`) | The Worker entry admits each body's declared length, or its route ceiling when undeclared, against the isolate's budget before any route runs. | Refusal with 503 and `Retry-After: 1`; the admitted requests continue. |
 | Request body and multipart part | 32 MiB (`MAX_MULTIPART_BLOB_PART_BYTES`, `MAX_UPLOAD_PART_BYTES`) | The Worker entry refuses a larger declared length; the Bun development listener sets it as `maxRequestBodySize`; the object store enforces it again. A part is buffered whole, and the Workers isolate has 128 MB. | Refusal. This is the route ceiling every other request-size limit sits under. |
 | Chunk size | 5 MiB, fixed (`BLOB_CHUNK_SIZE_BYTES`, `crypto/src/blobEnvelopeV2.ts`) | Crypto envelope format. | Not a tunable. |
 | Chunks per blob | 10,000 (`MAX_BLOB_CHUNK_COUNT`), so a blob is at most about 48.8 GiB | Crypto envelope parser; SDK `workflows/blobs/multipartUpload.ts` refuses before uploading. | Refusal. |
@@ -114,6 +115,7 @@ for the exact-length rule.
 | Pending frames per socket | 32 frames or 4,000,000 bytes (`DEFAULT_SOCKET_QUEUE_LIMITS`, `packages/api/src/worker/socketQueue.ts`) | The realtime hub queues each socket's frames behind its authorization. | The socket closes with 1013 and its queue is discarded. |
 | Pending bytes per hub | 32 MiB across every socket (`HUB_QUEUE_BUDGET_BYTES`, `packages/api/src/worker/realtimeHubObject.ts`) | The hub's shared queue budget, so many flooding sockets cannot exhaust its isolate. | The socket that would overrun the budget closes with 1013; the others continue. |
 | Sockets per session | 8 (`MAX_SOCKETS_PER_SESSION`) | The hub counts open sockets per session at upgrade. | Refusal with 429 until one closes. |
+| Pending interest writes per session | 16 (`MAX_PENDING_INTEREST_WRITES`, `packages/api/src/realtime/wsInterestStore.ts`) | The gateway holds a session's next frame, still counted by its socket's queue, until its queued interest writes settle. | Backpressure; the frame waits rather than growing an unbounded chain. |
 | Interest container ids per declaration | 10,000 (`MAX_WS_INTEREST_CONTAINER_IDS`) | Validators. | Refusal. Interest is an invalidation subscription, not an authorization grant. |
 
 ## Principals

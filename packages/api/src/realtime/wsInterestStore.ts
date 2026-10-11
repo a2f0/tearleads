@@ -102,31 +102,82 @@ export const wsInterestStore = createWsInterestStore({
   sscanMembers,
 });
 
+/** Interest writes one session may have waiting before its socket pauses. */
+export const MAX_PENDING_INTEREST_WRITES = 16;
+
+export interface OrderedInterestPersister {
+  (userId: string, sessionId: string, applied: AppliedInterest): void;
+  /** Writes queued for the session that have not settled. */
+  pending(userId: string, sessionId: string): number;
+  /**
+   * Resolves once the session's queued writes have settled. The gateway
+   * awaits this before handling a declaration whenever the session is at the
+   * bound, so a client that declares faster than the store persists holds its
+   * own frames instead of growing an unbounded chain outside the hub's
+   * memory budget.
+   */
+  drain(userId: string, sessionId: string): Promise<void>;
+}
+
+/** One session's serialized interest writes and how many are still pending. */
+class SessionWrites {
+  private chain: Promise<void> = Promise.resolve();
+  private count = 0;
+
+  get pending(): number {
+    return this.count;
+  }
+
+  get settled(): Promise<void> {
+    return this.chain;
+  }
+
+  enqueue(write: () => Promise<void>): void {
+    this.count += 1;
+    this.chain = this.chain
+      .then(write)
+      .catch((error: unknown) => {
+        console.error("Failed to persist websocket interest:", error);
+        reportBackgroundFailure(error, "websocket.persist");
+      })
+      .finally(() => {
+        this.count -= 1;
+      });
+  }
+}
+
 /**
  * Serializes interest writes per session, so a later declaration never lands
  * before an earlier one; failures are logged and reported, never thrown.
  */
 export function createOrderedInterestPersister(
   interestStore: Pick<ReturnType<typeof createWsInterestStore>, "apply">,
-) {
-  const interestWriteChains = new Map<string, Promise<void>>();
-  return (
+  maxPending = MAX_PENDING_INTEREST_WRITES,
+): OrderedInterestPersister {
+  const sessions = new Map<string, SessionWrites>();
+  const sessionOf = (userId: string, sessionId: string) =>
+    sessions.get(`${userId}:${sessionId}`);
+  const persist = (
     userId: string,
     sessionId: string,
     applied: AppliedInterest,
   ): void => {
     const sessionKey = `${userId}:${sessionId}`;
-    const chain = (interestWriteChains.get(sessionKey) ?? Promise.resolve())
-      .then(() => interestStore.apply(userId, sessionId, applied))
-      .catch((error: unknown) => {
-        console.error("Failed to persist websocket interest:", error);
-        reportBackgroundFailure(error, "websocket.persist");
-      });
-    interestWriteChains.set(sessionKey, chain);
-    void chain.finally(() => {
-      if (interestWriteChains.get(sessionKey) === chain) {
-        interestWriteChains.delete(sessionKey);
+    const writes = sessions.get(sessionKey) ?? new SessionWrites();
+    sessions.set(sessionKey, writes);
+    writes.enqueue(() => interestStore.apply(userId, sessionId, applied));
+    void writes.settled.finally(() => {
+      if (writes.pending === 0 && sessions.get(sessionKey) === writes) {
+        sessions.delete(sessionKey);
       }
     });
   };
+  const pending = (userId: string, sessionId: string) =>
+    sessionOf(userId, sessionId)?.pending ?? 0;
+  const drain = async (userId: string, sessionId: string) => {
+    while (pending(userId, sessionId) >= maxPending) {
+      await sessionOf(userId, sessionId)?.settled;
+    }
+  };
+  return Object.assign(persist, { pending, drain });
 }

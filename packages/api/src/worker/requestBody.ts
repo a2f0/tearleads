@@ -108,3 +108,46 @@ export function boundRequestBody(
   };
   return { kind: "request", request: new Request(request, init) };
 }
+
+/**
+ * Bytes this isolate may hold in request bodies at once. The per-request
+ * ceiling bounds one body; an isolate serving several large uploads at the
+ * same time still has one 128 MB heap, so bodies are admitted against a
+ * shared budget and a request that would overrun it is told to retry.
+ */
+const BODY_ADMISSION_BYTES = 64 * 1024 * 1024;
+
+export interface BodyAdmission {
+  /** Reserve the bytes a request may buffer, or refuse when over budget. */
+  readonly admit: (bytes: number) => boolean;
+  readonly release: (bytes: number) => void;
+  readonly inFlight: () => number;
+}
+
+export function createBodyAdmission(
+  capacity = BODY_ADMISSION_BYTES,
+): BodyAdmission {
+  let held = 0;
+  return {
+    admit: (bytes) => {
+      if (held + bytes > capacity) {
+        return false;
+      }
+      held += bytes;
+      return true;
+    },
+    release: (bytes) => {
+      held -= bytes;
+    },
+    inFlight: () => held,
+  };
+}
+
+/** The most a request can make the route buffer: its declared length, else the ceiling. */
+export function expectedBodyBytes(request: Request, ceiling: number): number {
+  if (request.body === null) {
+    return 0;
+  }
+  const declared = declaredLength(request);
+  return declared === null ? ceiling : Math.min(declared, ceiling);
+}

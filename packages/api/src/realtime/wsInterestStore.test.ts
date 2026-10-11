@@ -1,6 +1,10 @@
 import { beforeEach, expect, test } from "bun:test";
 import { clearInMemoryRedisData } from "../adapters/inMemoryRedis";
-import { createWsInterestStore, wsInterestStore } from "./wsInterestStore";
+import {
+  createOrderedInterestPersister,
+  createWsInterestStore,
+  wsInterestStore,
+} from "./wsInterestStore";
 
 function createRecordingDeps() {
   const sets = new Map<string, Set<string>>();
@@ -104,4 +108,36 @@ test("deduplicates and persists a large interest set", async () => {
   });
   // 250 ids with 50 duplicates -> 200 unique members, chunked under the hood.
   expect((await wsInterestStore.load("u1", "s1")).length).toBe(200);
+});
+
+test("the persister pauses a session whose writes lag behind the bound", async () => {
+  const releases: (() => void)[] = [];
+  const persister = createOrderedInterestPersister(
+    {
+      apply: () =>
+        new Promise<void>((resolve) => {
+          releases.push(resolve);
+        }),
+    },
+    2,
+  );
+  persister("user", "session", { kind: "add", containerIds: ["a"] });
+  persister("user", "session", { kind: "remove", containerIds: ["a"] });
+  expect(persister.pending("user", "session")).toBe(2);
+  // Another session is unaffected.
+  await persister.drain("user", "other");
+  let drained = false;
+  const waiting = persister.drain("user", "session").then(() => {
+    drained = true;
+  });
+  await Bun.sleep(0);
+  expect(drained).toBe(false);
+  releases[0]?.();
+  await Bun.sleep(0);
+  // Still at the bound until the whole queue settles.
+  expect(persister.pending("user", "session")).toBe(1);
+  releases[1]?.();
+  await waiting;
+  expect(drained).toBe(true);
+  expect(persister.pending("user", "session")).toBe(0);
 });

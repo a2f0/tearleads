@@ -4,7 +4,12 @@ import {
   realtimeHubStub,
   type WorkerBindings,
 } from "./environment";
-import { boundRequestBody, requestBodyCeiling } from "./requestBody";
+import {
+  boundRequestBody,
+  createBodyAdmission,
+  expectedBodyBytes,
+  requestBodyCeiling,
+} from "./requestBody";
 
 export { KeyValueStore } from "./keyValueStoreObject";
 export { RealtimeHub } from "./realtimeHubObject";
@@ -28,6 +33,8 @@ interface LoadedApp {
 }
 
 let app: Promise<LoadedApp> | undefined;
+// One budget per isolate, which is the unit that shares a heap.
+const bodyAdmission = createBodyAdmission();
 
 // The Hono app, the database pool, the blob store, and Sentry all read
 // configuration when their modules load, so the app is imported only after the
@@ -94,13 +101,11 @@ async function handleRequest(
   const { corsOrigins, fetch, flushDiagnostics, withRequestDatabase } =
     await loadApp();
   // Route-level limits still apply below this ceiling.
-  const bounded = boundRequestBody(
-    request,
-    requestBodyCeiling(
-      new URL(request.url).pathname,
-      MAX_MULTIPART_BLOB_PART_BYTES,
-    ),
+  const ceiling = requestBodyCeiling(
+    new URL(request.url).pathname,
+    MAX_MULTIPART_BLOB_PART_BYTES,
   );
+  const bounded = boundRequestBody(request, ceiling);
   if (bounded.kind === "too-large") {
     return refuse(
       request,
@@ -108,6 +113,19 @@ async function handleRequest(
       { error: "Request body too large" },
       413,
     );
+  }
+  // Concurrent large bodies share this isolate's heap; past the budget the
+  // client retries rather than the isolate running out of memory.
+  const admitted = expectedBodyBytes(request, ceiling);
+  if (!bodyAdmission.admit(admitted)) {
+    const response = refuse(
+      request,
+      corsOrigins,
+      { error: "Too many uploads in progress" },
+      503,
+    );
+    response.headers.set("retry-after", "1");
+    return response;
   }
   // The request's database pool closes once the response is produced; the
   // close itself runs after the response so it never delays the client.
@@ -128,6 +146,8 @@ async function handleRequest(
       ),
     (closing) => ctx.waitUntil(closing),
   ).finally(() => {
+    // The route has consumed the body once it answers.
+    bodyAdmission.release(admitted);
     // Sentry sends after the response would be canceled with the request.
     ctx.waitUntil(flushDiagnostics());
   });

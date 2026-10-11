@@ -1,7 +1,4 @@
-import {
-  MAX_WS_CLIENT_MESSAGE_BYTES,
-  serializeWsServerMessage,
-} from "@tearleads/validators/realtime";
+import { MAX_WS_CLIENT_MESSAGE_BYTES } from "@tearleads/validators/realtime";
 import {
   addListener,
   addSubscriberReconnectListener,
@@ -19,32 +16,25 @@ import {
   type AuthorizeContainerAccess,
   principalInterestKey,
 } from "./containerInterestTypes";
-import { parsePublishedRealtimeEvent } from "./publishedRealtimeEvents";
 import {
-  type GatewaySocket,
-  sendSafely,
-  type WsConnection,
-} from "./wsConnection";
+  type AuthorizeOrganizationAccess,
+  OrganizationInterestAuthorizer,
+} from "./organizationInterestAuthorization";
+import { parsePublishedRealtimeEvent } from "./publishedRealtimeEvents";
+import type { GatewaySocket, WsConnection } from "./wsConnection";
 import type { WsSessionValidator } from "./wsIdentity";
 import {
   createOrderedInterestPersister,
+  MAX_PENDING_INTEREST_WRITES,
+  type OrderedInterestPersister,
   wsInterestStore,
 } from "./wsInterestStore";
-import {
-  type OrganizationInterestDeclaration,
-  type OrganizationReadModelAudience,
-  readOrganizationReadModelAudienceMessage,
-} from "./wsOrganizationRouting";
 import { WsEventRouter } from "./wsRouting";
 import { WsSessionLiveness } from "./wsSessionLiveness";
 
 type InterestStore = Pick<typeof wsInterestStore, "apply" | "load">;
 type Subscribe = typeof addListener;
 type SubscribeReconnect = typeof addSubscriberReconnectListener;
-type AuthorizeOrganizationAccess = (
-  userId: string,
-  organizationId: string,
-) => Promise<boolean>;
 const CONTAINER_AUTHORIZATION_TIMEOUT_MS = 10_000;
 const ORGANIZATION_AUTHORIZATION_TIMEOUT_MS = 10_000;
 const SESSION_READ_TIMEOUT_MS = 10_000;
@@ -101,212 +91,11 @@ function messageToString(message: string | Buffer): string {
   return typeof message === "string" ? message : message.toString("utf8");
 }
 
-type OrganizationSocket = GatewaySocket;
-
-interface OrganizationAuthorizationState {
-  readonly organizationId: string;
-  authorization: Promise<boolean> | null;
-  authorized: boolean;
-}
-
-type PendingOrganizationAuthorization = [
-  OrganizationSocket,
-  OrganizationAuthorizationState,
-];
-
-class OrganizationInterestAuthorizer {
-  private readonly restorationAuthorizations = new Map<
-    string,
-    Promise<boolean>
-  >();
-  private readonly states = new Map<
-    OrganizationSocket,
-    OrganizationAuthorizationState
-  >();
-
-  constructor(
-    private readonly authorizeOrganizationAccess: AuthorizeOrganizationAccess,
-    private readonly authorizationTimeoutMs: number,
-    private readonly router: WsEventRouter,
-  ) {}
-
-  async apply(
-    ws: OrganizationSocket,
-    declaration: OrganizationInterestDeclaration,
-  ): Promise<void> {
-    this.router.applyAuthorizedOrganizationInterest(ws, null);
-    if (declaration.organizationId === null) {
-      this.states.delete(ws);
-      this.sendAcknowledgement(ws, declaration, true);
-      return;
-    }
-
-    const state: OrganizationAuthorizationState = {
-      authorization: null,
-      authorized: false,
-      organizationId: declaration.organizationId,
-    };
-    this.states.set(ws, state);
-    const authorization = this.authorize(ws.data.userId, state.organizationId);
-    state.authorization = authorization;
-    const authorized = await authorization;
-    if (state.authorization === authorization) {
-      state.authorization = null;
-    }
-    if (this.states.get(ws) !== state) {
-      return;
-    }
-    if (authorized && !this.applyAuthorizedState(ws, state)) {
-      return;
-    }
-    this.sendAcknowledgement(ws, declaration, authorized);
-  }
-
-  close(ws: OrganizationSocket): void {
-    this.states.delete(ws);
-  }
-
-  prepareServerEvent(rawMessage: string): Promise<void> | null {
-    const audience = readOrganizationReadModelAudienceMessage(rawMessage);
-    if (!audience) {
-      return null;
-    }
-    const pendingByUserId = this.collectPending(audience);
-    if (pendingByUserId.size === 0) {
-      return null;
-    }
-    return Promise.all(
-      [...pendingByUserId].map(([userId, pending]) =>
-        this.restorePending(userId, audience.organizationId, pending),
-      ),
-    ).then(() => undefined);
-  }
-
-  private applyAuthorizedState(
-    ws: OrganizationSocket,
-    state: OrganizationAuthorizationState,
-  ): boolean {
-    if (this.states.get(ws) !== state) {
-      return false;
-    }
-    state.authorized = true;
-    this.router.applyAuthorizedOrganizationInterest(ws, state.organizationId);
-    return true;
-  }
-
-  private sendAcknowledgement(
-    ws: OrganizationSocket,
-    declaration: OrganizationInterestDeclaration,
-    authorized: boolean,
-  ): void {
-    sendSafely(
-      ws,
-      serializeWsServerMessage({
-        type: "known_organizations_ack",
-        declarationId: declaration.declarationId,
-        organizationId: declaration.organizationId,
-        authorized,
-      }),
-    );
-  }
-
-  private authorize(userId: string, organizationId: string): Promise<boolean> {
-    const authorization = this.authorizeOrganizationAccess(
-      userId,
-      organizationId,
-    ).catch((error) => {
-      console.error(
-        "Failed to authorize websocket organization interest:",
-        error,
-      );
-      reportBackgroundFailure(error, "websocket.authorize");
-      return false;
-    });
-    return new Promise((resolve) => {
-      let settled = false;
-      let timer: ReturnType<typeof setTimeout> | null = null;
-      const finish = (authorized: boolean) => {
-        if (settled) {
-          return;
-        }
-        settled = true;
-        if (timer) {
-          clearTimeout(timer);
-        }
-        resolve(authorized);
-      };
-      timer = setTimeout(() => finish(false), this.authorizationTimeoutMs);
-      // Bun timers hold the process open until unref'd; Workers timers are
-      // plain handles with no such method.
-      timer.unref?.();
-      void authorization.then(finish);
-    });
-  }
-
-  private collectPending(
-    audience: OrganizationReadModelAudience,
-  ): Map<string, PendingOrganizationAuthorization[]> {
-    const pendingByUserId = new Map<
-      string,
-      PendingOrganizationAuthorization[]
-    >();
-    for (const [ws, state] of this.states) {
-      if (
-        !state.authorized &&
-        state.organizationId === audience.organizationId &&
-        audience.recipientUserIds.has(ws.data.userId)
-      ) {
-        const pending = pendingByUserId.get(ws.data.userId) ?? [];
-        pending.push([ws, state]);
-        pendingByUserId.set(ws.data.userId, pending);
-      }
-    }
-    return pendingByUserId;
-  }
-
-  private restorationAuthorization(
-    userId: string,
-    organizationId: string,
-  ): Promise<boolean> {
-    const key = `${userId}:${organizationId}`;
-    const active = this.restorationAuthorizations.get(key);
-    if (active) {
-      return active;
-    }
-    const next = this.authorize(userId, organizationId).finally(() => {
-      if (this.restorationAuthorizations.get(key) === next) {
-        this.restorationAuthorizations.delete(key);
-      }
-    });
-    this.restorationAuthorizations.set(key, next);
-    return next;
-  }
-
-  private async restorePending(
-    userId: string,
-    organizationId: string,
-    pending: PendingOrganizationAuthorization[],
-  ): Promise<void> {
-    await Promise.all(pending.map(([, state]) => state.authorization ?? false));
-    const current = pending.filter(
-      ([ws, state]) => this.states.get(ws) === state && !state.authorized,
-    );
-    if (
-      current.length === 0 ||
-      !(await this.restorationAuthorization(userId, organizationId))
-    ) {
-      return;
-    }
-    for (const [ws, state] of current) {
-      this.applyAuthorizedState(ws, state);
-    }
-  }
-}
-
 function createWebsocketHandler(input: {
   readonly containerInterest: ContainerInterestAuthorizer;
   readonly liveness: WsSessionLiveness;
   readonly organizationInterest: OrganizationInterestAuthorizer;
+  readonly persistInterest: OrderedInterestPersister;
   readonly revalidation: RevalidationSchedule<WsConnection>;
   readonly router: WsEventRouter;
 }) {
@@ -326,6 +115,14 @@ function createWebsocketHandler(input: {
       input.router.close(ws);
     },
     async message(ws: GatewaySocket, message: string | Buffer) {
+      // A session whose interest writes lag holds its next frame until the
+      // store catches up; the frame stays counted by the socket's queue.
+      if (
+        input.persistInterest.pending(ws.data.userId, ws.data.sessionId) >=
+        MAX_PENDING_INTEREST_WRITES
+      ) {
+        await input.persistInterest.drain(ws.data.userId, ws.data.sessionId);
+      }
       const action = input.router.handleClientMessage(
         ws,
         messageToString(message),
@@ -383,6 +180,35 @@ function revalidateAfterReconnect(
   void liveness.checkAll();
 }
 
+/** The two interest authorizers and the dependencies they share. */
+function createInterestAuthorizers(
+  deps: RealtimeGatewayDeps,
+  shared: {
+    readonly interestStore: InterestStore;
+    readonly persistInterest: OrderedInterestPersister;
+    readonly proofAge: ProofAgePolicy;
+    readonly router: WsEventRouter;
+  },
+) {
+  const authorizeOrganizationAccess =
+    deps.authorizeOrganizationAccess ?? authorizeOrganizationAccessWithWorkflow;
+  const organizationInterest = new OrganizationInterestAuthorizer(
+    authorizeOrganizationAccess,
+    deps.organizationAuthorizationTimeoutMs ??
+      ORGANIZATION_AUTHORIZATION_TIMEOUT_MS,
+    shared.router,
+  );
+  const containerInterest = new ContainerInterestAuthorizer(
+    deps.authorizeContainerAccess ?? authorizeContainerAccessWithWorkflow,
+    deps.containerAuthorizationTimeoutMs ?? CONTAINER_AUTHORIZATION_TIMEOUT_MS,
+    shared.interestStore,
+    shared.persistInterest,
+    shared.router,
+    shared.proofAge,
+  );
+  return { containerInterest, organizationInterest };
+}
+
 /**
  * The realtime sync gateway owns the in-memory socket/interest router, the
  * per-session interest write serialization, and the Redis pub/sub subscription.
@@ -396,26 +222,14 @@ function revalidateAfterReconnect(
 export function createRealtimeGateway(deps: RealtimeGatewayDeps = {}) {
   const router = deps.router ?? new WsEventRouter();
   const interestStore = deps.interestStore ?? wsInterestStore;
+  const persistInterest = createOrderedInterestPersister(interestStore);
   const subscribe = deps.subscribe ?? addListener;
   const subscribeReconnect =
     deps.subscribeReconnect ?? addSubscriberReconnectListener;
-  const authorizeOrganizationAccess =
-    deps.authorizeOrganizationAccess ?? authorizeOrganizationAccessWithWorkflow;
-  const persistInterest = createOrderedInterestPersister(interestStore);
   const proofAge = resolveProofAgePolicy(deps.revalidation);
-  const organizationInterest = new OrganizationInterestAuthorizer(
-    authorizeOrganizationAccess,
-    deps.organizationAuthorizationTimeoutMs ??
-      ORGANIZATION_AUTHORIZATION_TIMEOUT_MS,
-    router,
-  );
-  const containerInterest = new ContainerInterestAuthorizer(
-    deps.authorizeContainerAccess ?? authorizeContainerAccessWithWorkflow,
-    deps.containerAuthorizationTimeoutMs ?? CONTAINER_AUTHORIZATION_TIMEOUT_MS,
-    interestStore,
-    persistInterest,
-    router,
-    proofAge,
+  const { containerInterest, organizationInterest } = createInterestAuthorizers(
+    deps,
+    { interestStore, persistInterest, proofAge, router },
   );
   const { liveness, revalidation } = createRevalidationPasses(
     deps,
@@ -427,6 +241,7 @@ export function createRealtimeGateway(deps: RealtimeGatewayDeps = {}) {
     containerInterest,
     liveness,
     organizationInterest,
+    persistInterest,
     revalidation,
     router,
   });

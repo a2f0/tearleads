@@ -3,6 +3,8 @@ import { MAX_DOCUMENT_SYNC_REQUEST_BYTES } from "@tearleads/validators/util";
 import { RequestBodyTooLargeError } from "../validators/requestBodyTooLarge";
 import {
   boundRequestBody,
+  createBodyAdmission,
+  expectedBodyBytes,
   MAX_UNAUTHENTICATED_REQUEST_BYTES,
   requestBodyCeiling,
 } from "./requestBody";
@@ -117,4 +119,35 @@ test("the unauthenticated surface gets the small ceiling, every session route th
   ]) {
     expect(requestBodyCeiling(path, route)).toBe(route);
   }
+});
+
+test("bodies are admitted against the isolate's shared budget", () => {
+  const admission = createBodyAdmission(100);
+  expect(admission.admit(60)).toBe(true);
+  expect(admission.admit(30)).toBe(true);
+  // A third body would overrun the budget; the others keep theirs.
+  expect(admission.admit(20)).toBe(false);
+  expect(admission.inFlight()).toBe(90);
+  admission.release(60);
+  expect(admission.admit(20)).toBe(true);
+  admission.release(30);
+  admission.release(20);
+  expect(admission.inFlight()).toBe(0);
+});
+
+test("a request's expected bytes are its declared length, else the ceiling", () => {
+  expect(expectedBodyBytes(new Request("https://api.example.test/"), 32)).toBe(
+    0,
+  );
+  expect(
+    expectedBodyBytes(
+      new Request("https://api.example.test/", {
+        method: "PUT",
+        headers: { "content-length": "12" },
+        body: "0123456789ab",
+      }),
+      32,
+    ),
+  ).toBe(12);
+  expect(expectedBodyBytes(chunkedRequest(["12345"]), 32)).toBe(32);
 });
