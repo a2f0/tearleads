@@ -23,6 +23,9 @@ load_secrets_env "$TIER"
 validate_aws_env
 validate_cloudflare_env
 validate_domain_env
+# The stack's tier follows the command, never an inherited variable, so
+# staging state can never manage production hostnames.
+export TF_VAR_deployment_tier="$TIER"
 STACK_DIR="$REPO_ROOT/terraform/stacks/$TIER/edge"
 INIT_ARGS=()
 if [[ "$ACTION" == init ]]; then INIT_ARGS=("$@"); fi

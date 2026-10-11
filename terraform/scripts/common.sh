@@ -56,8 +56,17 @@ validate_aws_env() {
 
   local missing=()
 
+  # A traced run would otherwise print the secret key in the test's expansion.
+  local xtrace_was_enabled=0
+  if [[ "$-" == *x* ]]; then
+    xtrace_was_enabled=1
+    set +x
+  fi
   [[ -z "${AWS_ACCESS_KEY_ID:-}" ]] && missing+=("AWS_ACCESS_KEY_ID")
   [[ -z "${AWS_SECRET_ACCESS_KEY:-}" ]] && missing+=("AWS_SECRET_ACCESS_KEY")
+  if [[ "$xtrace_was_enabled" -eq 1 ]]; then
+    set -x
+  fi
 
   if [[ ${#missing[@]} -gt 0 ]]; then
     echo "ERROR: Missing required environment variables for S3 backend:" >&2

@@ -90,3 +90,41 @@ test("a traced staging drop never prints the migration password", async () => {
   expect(run.stderr).not.toContain(MIGRATION_PASSWORD);
   expect(run.stdout).not.toContain(MIGRATION_PASSWORD);
 });
+
+test("the real credential validators never print a secret under tracing", async () => {
+  const script = resolve(
+    import.meta.dir,
+    "../../../terraform/scripts/common.sh",
+  );
+  const child = Bun.spawn(
+    [
+      "bash",
+      "-c",
+      `source "$1"; set -x; validate_aws_env; validate_cloudflare_env; export_wrangler_env; set +x; echo validated`,
+      "bash",
+      script,
+    ],
+    {
+      env: {
+        PATH: process.env[pathKey] ?? "",
+        AWS_ACCESS_KEY_ID: "aws-key-id-sentinel",
+        AWS_SECRET_ACCESS_KEY: "aws-secret-sentinel",
+        TF_VAR_cloudflare_api_token: "cloudflare-token-sentinel",
+        TF_VAR_cloudflare_account_id: "account",
+      },
+      stdout: "pipe",
+      stderr: "pipe",
+    },
+  );
+  const [exitCode, stdout, stderr] = await Promise.all([
+    child.exited,
+    new Response(child.stdout).text(),
+    new Response(child.stderr).text(),
+  ]);
+  expect(exitCode, stderr).toBe(0);
+  expect(stdout).toContain("validated");
+  expect(stderr).toContain("+ validate_aws_env");
+  for (const secret of ["aws-secret-sentinel", "cloudflare-token-sentinel"]) {
+    expect(stderr).not.toContain(secret);
+  }
+});

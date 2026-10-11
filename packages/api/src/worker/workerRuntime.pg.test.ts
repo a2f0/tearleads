@@ -119,6 +119,56 @@ describe.skipIf(databaseKind !== "postgres")("Worker runtime", () => {
     expect(live.socket.readyState).toBe(WebSocket.CLOSED);
   }, 120_000);
 
+  test("bounds request bodies at ingress before any route runs", async () => {
+    const base = worker.origin;
+    const megabyte = "x".repeat(1024 * 1024);
+    // A chunked body on the guest surface: the limiter fails the read once
+    // the 2 MiB ceiling passes, and the route reports 413.
+    // Bun's RequestInit omits the duplex field a streamed body needs.
+    const chunkedInit: RequestInit & { readonly duplex: "half" } = {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: new ReadableStream<Uint8Array>({
+        start(controller) {
+          const encoder = new TextEncoder();
+          controller.enqueue(encoder.encode('{"padding":"'));
+          for (let index = 0; index < 3; index++) {
+            controller.enqueue(encoder.encode(megabyte));
+          }
+          controller.enqueue(encoder.encode('"}'));
+          controller.close();
+        },
+      }),
+      duplex: "half",
+    };
+    const chunked = await fetch(`${base}/auth/register`, chunkedInit);
+    expect(`${chunked.status} ${await chunked.text()}`).toBe(
+      '413 {"error":"Request body too large"}',
+    );
+    // A declared length above the sync contract is refused outright, before
+    // authentication, so nothing is buffered.
+    const declared = await fetch(
+      `${base}/documents/${crypto.randomUUID()}/sync`,
+      {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "content-length": String(17 * 1024 * 1024),
+          authorization: "Bearer not-a-session",
+        },
+        body: megabyte.repeat(17),
+      },
+    );
+    expect(`${declared.status} ${await declared.text()}`).toBe(
+      '413 {"error":"Request body too large"}',
+    );
+    // Under the ceiling the route itself answers.
+    const underCeiling = await postJson(`${base}/auth/challenge`, {
+      padding: megabyte,
+    });
+    expect(underCeiling.status).toBe(400);
+  }, 60_000);
+
   test("dispatches the billing Cron to the maintenance phases", async () => {
     const response = await fetch(
       `${worker.origin}/__scheduled?cron=${encodeURIComponent("* * * * *")}`,

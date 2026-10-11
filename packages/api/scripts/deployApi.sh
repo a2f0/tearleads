@@ -174,9 +174,12 @@ done <<<"$DEPLOYED_SECRETS"
 
 echo "Publishing $TIER API Worker..."
 DEFINE_ARGS=()
+# Captured first so a failing printer stops the deploy; a process
+# substitution's exit status is never checked.
+DEFINES_OUTPUT="$(cd "$API_DIR" && bun scripts/workerDefines.ts)"
 while IFS= read -r define; do
   [[ -n "$define" ]] && DEFINE_ARGS+=(--define "$define")
-done < <(cd "$API_DIR" && bun scripts/workerDefines.ts)
+done <<<"$DEFINES_OUTPUT"
 # The public origin and browser origins follow TF_VAR_domain, like the
 # Terraform stacks and the app builds, rather than a name in wrangler.jsonc.
 # Native releases fetch the API from Capacitor and Electrobun loopback origins.
