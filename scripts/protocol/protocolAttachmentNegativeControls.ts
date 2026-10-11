@@ -146,6 +146,22 @@ export const ATTACHMENT_NEGATIVE_CONTROLS: readonly NegativeControl[] = [
     why: "Reset pending uploads retain the same storage key and must prevent reclamation after the held row is removed.",
   },
   {
+    id: "cold-removal-keeps-reset-upload",
+    module: "formal/document-sync/SharedCopyReclaim.tla",
+    config: "formal/document-sync/SharedCopyReclaim.cfg",
+    constants: { ResolvePendingRemoval: "FALSE" },
+    expect: { kind: "action", name: "RemovalIsDurable" },
+    why: "A store opened after reset must remove a slot held only as a pending upload, or startup recovery restores it (#2485 finding 2).",
+  },
+  {
+    id: "dropped-upload-leaks-copy",
+    module: "formal/document-sync/SharedCopyReclaim.tla",
+    config: "formal/document-sync/SharedCopyReclaim.cfg",
+    constants: { QueueDroppedPending: "FALSE" },
+    expect: { kind: "invariant", name: "UnheldCopyQueued" },
+    why: "Dropping a pending upload can remove a copy's last reference, so it must queue the copy for reclaim (#2485 finding 2).",
+  },
+  {
     id: "blob-bind-without-source-authority",
     module: "formal/blob-attachments/BlobSourceAuthority.tla",
     config: "formal/blob-attachments/BlobSourceAuthority.cfg",

@@ -260,8 +260,8 @@ function installCommittedAttachmentRemoval(input: {
       attachment.slotId !== slotId || attachment.storageKey !== storageKey,
   );
   // The committed removal queued this key. A reset can leave another document
-  // uploading from the same copy, even though this document is local-only.
-  if (!input.syncedAttachment) void runDocumentOrphanMaintenance(state);
+  // uploading from the same copy, and a pending-only slot leaves no marker.
+  void runDocumentOrphanMaintenance(state);
   if (
     input.syncedAttachment ||
     state.attachmentStorageKeyBySlotId[slotId] !== storageKey
@@ -300,7 +300,11 @@ async function persistRemovedAttachment(
     return;
   }
 
-  const storageKey = state.attachmentStorageKeyBySlotId[slotId];
+  // After a reset, a store opened cold holds the slot only as a pending upload.
+  const storageKey =
+    state.attachmentStorageKeyBySlotId[slotId] ??
+    state.pendingAttachments.find((attachment) => attachment.slotId === slotId)
+      ?.storageKey;
   if (
     !isAttachmentWriteGenerationCurrent(state, writeGeneration) ||
     state.doc !== currentDoc

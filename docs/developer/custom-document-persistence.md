@@ -28,8 +28,10 @@ whole stage back; adapters must not emulate rollback with later compensating
 writes.
 
 Every reference removal queues its storage key in the same commit: attachment
-removal, document deletion or discard, and replacement during staging or
-hydration. Refused hydration also queues the unreferenced candidate copy.
+removal in either mode, a dropped or settled pending upload, document deletion
+or discard, and replacement during staging or hydration. Refused hydration also
+queues the unreferenced candidate copy. Over-queueing is safe because reclaim
+rechecks every reference before deleting bytes.
 Every adapter supplies a stable `orphanBlobs` object for its lifetime; the SDK
 keys maintenance scheduling and retry deferral by that object. `list` reads
 bounded queued keys, `isReferenced` checks all held copies and pending uploads
