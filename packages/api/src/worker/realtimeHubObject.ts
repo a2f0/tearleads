@@ -1,4 +1,5 @@
 import { DurableObject } from "cloudflare:workers";
+import { MAX_WS_CLIENT_MESSAGE_BYTES } from "@tearleads/validators/realtime";
 import type { GatewaySocket } from "../realtime/wsConnection";
 import type { WebSocketTicketIdentity } from "../realtime/wsIdentity";
 import type { RealtimeHubRpc } from "./contracts";
@@ -7,7 +8,8 @@ import {
   setLocalRealtimePublisher,
   type WorkerBindings,
 } from "./environment";
-import { exceedsClientMessageLimit } from "./socketMessageLimit";
+import { clientMessageByteLength } from "./socketMessageLimit";
+import { SocketQueue } from "./socketQueue";
 
 type EventListener = (message: string) => void;
 
@@ -27,13 +29,6 @@ const EVENTS_PATH = "/events";
 const CLOSE_MESSAGE_TOO_BIG = 1009;
 const CLOSE_UNSUPPORTED_DATA = 1003;
 const CLOSE_TRY_AGAIN_LATER = 1013;
-/**
- * Messages a socket may have waiting behind its open or an earlier message.
- * The gateway bounds pending declarations once it sees them; this bounds what
- * a client can queue before it does, so one socket cannot grow the shared
- * hub's memory while an authorization is in flight.
- */
-const MAX_QUEUED_SOCKET_MESSAGES = 32;
 
 /**
  * One Durable Object hosts the realtime gateway exactly as the Bun process
@@ -102,41 +97,28 @@ export class RealtimeHub
       send: (message) => server.send(message),
       close: (code, reason) => server.close(code, reason),
     };
-    // Bun delivers open before the first message; serialize the same order.
-    let queue = gateway.websocket.open(socket).catch(gateway.report);
-    let queued = 0;
-    let closed = false;
-    const close = () => {
-      if (closed) {
-        return;
-      }
-      closed = true;
-      queue = queue.then(() => gateway.websocket.close(socket));
-    };
+    const queue = new SocketQueue({
+      open: () => gateway.websocket.open(socket),
+      message: (data) => gateway.websocket.message(socket, data),
+      close: () => gateway.websocket.close(socket),
+      report: gateway.report,
+      overflow: (reason) => server.close(CLOSE_TRY_AGAIN_LATER, reason),
+    });
     server.addEventListener("message", (event) => {
       const { data } = event;
       if (typeof data !== "string") {
         server.close(CLOSE_UNSUPPORTED_DATA, "Text frames only");
         return;
       }
-      if (exceedsClientMessageLimit(data)) {
+      const byteLength = clientMessageByteLength(data);
+      if (byteLength > MAX_WS_CLIENT_MESSAGE_BYTES) {
         server.close(CLOSE_MESSAGE_TOO_BIG, "Message too large");
         return;
       }
-      if (queued >= MAX_QUEUED_SOCKET_MESSAGES) {
-        server.close(CLOSE_TRY_AGAIN_LATER, "Too many pending messages");
-        return;
-      }
-      queued += 1;
-      queue = queue
-        .then(() => gateway.websocket.message(socket, data))
-        .catch(gateway.report)
-        .finally(() => {
-          queued -= 1;
-        });
+      queue.enqueue(data, byteLength);
     });
-    server.addEventListener("close", close);
-    server.addEventListener("error", close);
+    server.addEventListener("close", () => queue.close());
+    server.addEventListener("error", () => queue.close());
   }
 
   private loadGateway(): Promise<LoadedGateway> {

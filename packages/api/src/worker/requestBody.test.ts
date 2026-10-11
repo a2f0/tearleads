@@ -11,12 +11,13 @@ function chunkedRequest(chunks: readonly string[]): Request {
       controller.close();
     },
   });
-  return new Request("https://api.example.test/upload", {
+  // Bun's RequestInit type omits the standard duplex field a streamed body needs.
+  const init: RequestInit & { readonly duplex: "half" } = {
     method: "PUT",
     body,
-    // @ts-expect-error Bun's RequestInit omits the standard duplex field.
     duplex: "half",
-  });
+  };
+  return new Request("https://api.example.test/upload", init);
 }
 
 test("a declared length above the ceiling is refused without reading", async () => {
