@@ -35,6 +35,7 @@ import {
   type LauncherRoute,
   parseLauncherRoute,
 } from "./routePaths";
+import { useDefaultWindow } from "./useDefaultWindow";
 
 /** Where a new window opens when a request names no position. */
 export const DEFAULT_MINI_APP_POSITION = { x: 200, y: 160 };
@@ -122,10 +123,12 @@ function ensureWindowHistoryCursor(): NavigationHistoryCursor {
 function LauncherNavigationWindowRuntimeBridge({
   definition,
   mode,
+  openMiniApp,
   runtimeRef,
 }: {
   definition: LauncherDefinition;
   mode: NavigationMode;
+  openMiniApp: LauncherNavigationActions["openMiniApp"];
   runtimeRef: MutableRefObject<LauncherNavigationRuntime>;
 }) {
   const { bringToFront, create, restore, updateRoute } = useWindowActions();
@@ -148,6 +151,13 @@ function LauncherNavigationWindowRuntimeBridge({
     updateRoute,
     windows,
   ]);
+
+  useDefaultWindow({
+    definition,
+    mode,
+    openMiniApp,
+    windowCount: windows.length,
+  });
 
   return null;
 }
@@ -391,6 +401,7 @@ export function LauncherNavigationProvider({
         <LauncherNavigationWindowRuntimeBridge
           definition={definition}
           mode={mode}
+          openMiniApp={actions.openMiniApp}
           runtimeRef={runtimeRef}
         />
         {children}

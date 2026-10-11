@@ -189,10 +189,8 @@ and a `close` callback. Tearleads' footer does this in
 
 ## Launching mini-apps
 
-A launcher application is a set of mini-apps, defined once and shown either in
-windows on a desktop or one at a time in the routed shell. A
-`LauncherDefinition` lists the apps by id, the order the launchers show them in,
-and the app the routed shell shows at the root route:
+`LauncherDefinition` lists mini-apps by id, their launcher order, routed home,
+and optional default window:
 
 ```tsx
 import type { LauncherDefinition } from "@tearleads/windowing";
@@ -211,23 +209,26 @@ const LAUNCHER: LauncherDefinition<"notes" | "contacts"> = {
       title: "Notes",
     },
   },
+  defaultWindowAppId: "notes",
   homeAppId: "notes",
   order: ["notes", "contacts"],
 };
 ```
 
-`LauncherNavigationProvider` takes the definition and a `NavigationMode`, and
-goes inside a `WindowStateProvider`. In `windowed` mode
-`useLauncherNavigationActions().openMiniApp({ appId })` opens the app's window,
-or raises the one already open; in `routed` mode it pushes the app's route,
-`/app/<app id>/…`, onto browser history, and Back and Forward walk it. Render
-each window with `MiniAppWindow`, whose `AppBoundary` slot wraps the app (for
-example in an error boundary).
+`LauncherNavigationProvider` takes the definition and mode inside a
+`WindowStateProvider`. `useLauncherNavigationActions().openMiniApp({ appId })`
+opens or raises a window in `windowed` mode, or navigates to `/app/<app id>/…`
+with browser history in `routed` mode. Render windows with `MiniAppWindow`;
+its `AppBoundary` wraps each app.
 
-A mini-app reads and sets its own route with `useMiniAppRouteSegments(appId)`,
-or `useMiniAppRouteState` for a parsed route: the browser route in the routed
-shell, its window's own route and Back stack in a window. It registers its
-sidebar and toolbar actions with the window hooks, and both shells show them.
+Optional `defaultWindowAppId` opens on entering an empty windowed desktop,
+including initial mount. Existing windows (even minimized) are kept. Closing
+the last window leaves the desktop empty until the next mode entry. Omit the
+setting to manage startup yourself; `homeAppId` only sets the routed home.
+
+A mini-app uses `useMiniAppRouteSegments(appId)` or `useMiniAppRouteState` for
+its route and Back stack in either shell. Window hooks register sidebar and
+toolbar actions for both shells.
 
 `useNavigationMode` picks the mode: the user's choice from
 `NavigationModeOverrideProvider` (which persists it under a `storageKey`)

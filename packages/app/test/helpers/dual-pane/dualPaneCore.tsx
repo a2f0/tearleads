@@ -2,7 +2,7 @@ import { expect } from "bun:test";
 import {
   act,
   fireEvent,
-  render,
+  type render,
   waitFor,
   within,
 } from "@testing-library/react";
@@ -30,6 +30,7 @@ import { Pane } from "../../../src/shell/pane/shell/Pane";
 import { AppTestRuntimeScopeProbe } from "../appRuntimeIdle";
 import { truncateText } from "../dualPaneRequestSummary";
 import { createTestHostConfig, flattenPaneStatusText } from "../paneTestUtils";
+import { renderEmptyDesktop } from "../renderEmptyDesktop";
 import { waitForCondition } from "../waitForCondition";
 
 import { restorePaneRecoveryKey } from "./dualPaneRecoveryKeyActions";
@@ -194,7 +195,7 @@ export function renderDualPane({
   saveSystemMonitorMode(systemMonitorModeStorageKey("left"), "pinned");
   saveSystemMonitorMode(systemMonitorModeStorageKey("right"), "pinned");
 
-  return render(
+  return renderEmptyDesktop(
     <SystemMonitorDeveloperModeProvider>
       <DualPaneProvider>
         <PaneSideProvider side="left">
@@ -232,7 +233,7 @@ export function renderSinglePane({
     developerMode ? "enabled" : "disabled",
   );
 
-  return render(
+  return renderEmptyDesktop(
     <SystemMonitorDeveloperModeProvider>
       <DualPaneProvider>
         <PaneSideProvider side="left">

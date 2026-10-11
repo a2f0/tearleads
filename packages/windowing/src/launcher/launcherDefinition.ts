@@ -25,6 +25,12 @@ export interface MiniAppDefinition {
  */
 export interface LauncherDefinition<AppId extends string = string> {
   apps: Readonly<Record<AppId, MiniAppDefinition>>;
+  /**
+   * Opens when entering windowed mode with no windows, including on mount.
+   * Closing the last window leaves the desktop empty until the next entry.
+   * Omit to leave window startup to the host.
+   */
+  defaultWindowAppId?: AppId | undefined;
   /** Shown at the root route. Defaults to the first app in `order`. */
   homeAppId?: AppId | undefined;
   /**

@@ -56,6 +56,7 @@ test("desktop App defaults to the tablet shell and can switch to windows", () =>
   );
 
   expect(view.container.querySelector(".layout--routed")).toBeTruthy();
+  expect(view.container.querySelector(".window")).toBeNull();
   fireEvent.click(
     view.getByRole("button", { name: "Switch to windowed layout" }),
   );
@@ -63,6 +64,11 @@ test("desktop App defaults to the tablet shell and can switch to windows", () =>
   expect(
     view.getByRole("button", { name: "Switch to iPad / mobile layout" }),
   ).toBeTruthy();
+  const pane = view.container.querySelector(".pane-left:not(.pane-hidden)");
+  expect(pane?.querySelectorAll(".window").length).toBe(1);
+  expect(pane?.querySelector(".window-titlebar-title")?.textContent).toBe(
+    "Explorer",
+  );
   view.unmount();
 });
 

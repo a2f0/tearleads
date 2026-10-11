@@ -5,7 +5,6 @@ import {
   cleanup,
   fireEvent,
   type RenderResult,
-  render,
   waitFor,
   within,
 } from "@testing-library/react";
@@ -28,6 +27,7 @@ import {
 } from "./appRuntimeIdle";
 import { listProxiedApiRequests, resetMockServer } from "./mswServer";
 import { createTestHostConfig } from "./paneTestHostConfig";
+import { renderEmptyDesktop } from "./renderEmptyDesktop";
 
 export { createSharedMemoryLocalKeyringFactory } from "./sharedMemoryLocalKeyring";
 export { createTestHostConfig };
@@ -104,7 +104,7 @@ export function renderPane({
   );
   // Mirrors production composition: Layout mounts the developer-mode provider
   // above every Pane.
-  return render(
+  return renderEmptyDesktop(
     <SystemMonitorDeveloperModeProvider>
       <DualPaneProvider>
         <PaneSideProvider side="left">
