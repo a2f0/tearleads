@@ -116,6 +116,84 @@ test("a failing handler is reported and later events still run", async () => {
   ]);
 });
 
+test("a frame stays counted until its handler finishes", async () => {
+  const budget = new SharedQueueBudget(100);
+  const events: string[] = [];
+  let finish = () => {};
+  const queue = new SocketQueue(
+    {
+      open: async () => {},
+      message: () =>
+        new Promise<void>((resolve) => {
+          events.push("handling");
+          finish = resolve;
+        }),
+      close: () => events.push("close"),
+      report: (error) => events.push(`report:${String(error)}`),
+      overflow: (reason) => events.push(`overflow:${reason}`),
+    },
+    { maxQueuedMessages: 1, maxQueuedBytes: 1_000 },
+    budget,
+  );
+  expect(queue.enqueue("a", 40)).toBe(true);
+  await Bun.sleep(0);
+  expect(events).toEqual(["handling"]);
+  // In flight: the socket's slot and the hub's bytes are still held.
+  expect(budget.used).toBe(40);
+  expect(queue.enqueue("b", 1)).toBe(false);
+  expect(events).toEqual(["handling", "overflow:Too many pending messages"]);
+  finish();
+  await queue.settled();
+  expect(budget.used).toBe(0);
+});
+
+test("many sockets with slow handlers never hold more than the hub budget", async () => {
+  const budget = new SharedQueueBudget(250);
+  const limits = { maxQueuedMessages: 10, maxQueuedBytes: 1_000 };
+  const releases: (() => void)[] = [];
+  const closed: number[] = [];
+  let draining = false;
+  const queues = Array.from(
+    { length: 5 },
+    (_, index) =>
+      new SocketQueue(
+        {
+          open: async () => {},
+          message: () =>
+            draining
+              ? Promise.resolve()
+              : new Promise<void>((resolve) => {
+                  releases.push(resolve);
+                }),
+          close: () => {},
+          report: () => {},
+          overflow: () => closed.push(index),
+        },
+        limits,
+        budget,
+      ),
+  );
+  let accepted = 0;
+  for (const queue of queues) {
+    for (let frame = 0; frame < 3; frame++) {
+      if (queue.enqueue("x".repeat(30), 30)) {
+        accepted += 1;
+      }
+    }
+  }
+  // 15 frames of 30 bytes would be 450; the budget admits 8 and closes the
+  // sockets that overran it while the earlier ones keep their frames.
+  expect(accepted).toBe(8);
+  expect(budget.used).toBe(240);
+  expect(closed).toEqual([2, 3, 4]);
+  draining = true;
+  for (const release of releases) {
+    release();
+  }
+  await Promise.all(queues.map((queue) => queue.settled()));
+  expect(budget.used).toBe(0);
+});
+
 test("a shared budget closes the socket that would overrun the hub, not the others", async () => {
   const budget = new SharedQueueBudget(100);
   const first = harness({ holdOpen: true });

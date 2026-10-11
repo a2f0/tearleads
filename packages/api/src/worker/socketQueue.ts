@@ -94,14 +94,16 @@ export class SocketQueue {
     }
     this.queuedMessages += 1;
     this.queuedBytes += byteLength;
+    // A frame stays counted, against the socket and the hub, until its
+    // handler has finished: an in-flight authorization still holds the bytes.
     this.tail = this.tail
-      .then(() => {
+      .then(() => (this.closed ? undefined : this.handlers.message(data)))
+      .catch(this.handlers.report)
+      .finally(() => {
         this.queuedMessages -= 1;
         this.queuedBytes -= byteLength;
         this.budget?.release(byteLength);
-        return this.closed ? undefined : this.handlers.message(data);
-      })
-      .catch(this.handlers.report);
+      });
     return true;
   }
 

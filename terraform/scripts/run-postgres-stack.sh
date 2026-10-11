@@ -23,7 +23,7 @@ STACK_DIR="$REPO_ROOT/terraform/stacks/$TIER/postgres"
 source "$REPO_ROOT/terraform/scripts/common.sh"
 
 # Backend credentials come from root.env; PlanetScale has its own secret file.
-load_secrets_env
+load_secrets_env "$TIER"
 _source_optional_env_file "$REPO_ROOT/.secrets/planetscale.env"
 validate_aws_env
 export TF_VAR_planetscale_service_token_id="${PLANETSCALE_SERVICE_TOKEN_ID:-}"
