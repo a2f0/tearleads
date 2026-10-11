@@ -11,6 +11,11 @@ from wall-clock time or launch the remaining queue just because time remains.
   candidate verification, or outstanding formal-model review. Prioritize
   pending High/parity verification, then unfinished work, then recent
   security changes. Keep all unselected slices in the queue.
+- For a fresh audit without a focus, start with parity-heavy domain slices
+  (`containers`, `documents`, `principals`), then `blobs`, `sync-placement`,
+  `sync-runtime`, `crypto`, and `identity`. Run `api-writes` last so it can
+  use those domain reports. Recent security changes may reorder this queue;
+  an explicit focus takes precedence.
 - At most one discovery auditor, with no child agents. Give it a ceiling of
   25 tool calls, reserving the last five for triage and saving its report.
   This is a prompt-level work limit, not an API token cap. If the available

@@ -5,6 +5,10 @@ description: Audit the client-sdk ↔ API trust boundary in both directions in s
 
 # Protocol Security Audit
 
+This batching policy is specific to Claude usage windows. The Codex copy in
+`.agents/skills/protocol-security-audit` intentionally retains its existing
+execution flow; the two copies share security criteria, not execution budgets.
+
 Audit the Tearleads protocol boundary between `packages/client-sdk` and
 `packages/api`, including `packages/crypto`, `packages/api-client`, and the
 backup paths in `packages/app`, against two invariants:
@@ -27,9 +31,9 @@ GitHub issue. Each batch delivers a coverage checkpoint and verified findings
 so far; a partial batch is not a completed audit. An audit request authorizes
 read-only analysis, existing checks, and scratch probes outside the checkout.
 **Do not implement TLA+ updates as part of the audit.** This includes models,
-configurations, negative controls, trace
-fixtures, registries, and model documentation. Put proposed changes in the
-report; implementation requires a separate follow-up task. Do not create or
+configurations, negative controls, trace fixtures, registries, and model
+documentation. Put proposed changes in the report; implementation requires a
+separate follow-up task. Do not create or
 commit an audit implementation branch, apply production fixes, push, or open
 PRs as part of the audit. The repository is public: confirm before creating
 the issue unless the user already asked for one, and say that it discloses
@@ -51,7 +55,8 @@ exploitable paths.
 Read [`references/batching.md`](references/batching.md) before starting. It
 defines the work limits, durable checkpoint, and resume validation. Keep the
 current model and effort; reduce work per invocation rather than silently
-changing them.
+changing them. The first invocation may only establish the baseline; this is
+an expected setup-only batch, and `resume` continues with the queued audit work.
 
 ## Rules every finding is judged against
 
@@ -136,9 +141,9 @@ root causes per default batch; preserve the rest as pending for resume.
 - Decide honest reachability from the honest client's own flow. A server-side
   guard gap is reachable by honest use only if the SDK never avoids it. For
   example, the SDK delete path does not revoke grants first.
-- Prefer a runtime probe. Write it in the scratchpad, import repository modules
-  by absolute path, and run `bun test <absolute path>` from the owning package
-  directory so workspace imports resolve. Reuse
+- Prefer a runtime probe. Write it in the durable per-work-item audit directory,
+  import repository modules by absolute path, and run `bun test <absolute path>`
+  from the owning package directory so workspace imports resolve. Reuse
   `packages/crypto/src/keying/testFixtures.ts` and
   `packages/client-sdk/test/helpers/`. Never add probe files to the checkout.
   Re-run an auditor's probe yourself and read what it asserts: a probe that
@@ -201,8 +206,8 @@ than repeating the whole model sweep. Follow
    the module, rule or parameter, property, configurations, negative controls,
    and trace coverage that should be fixed or added in a follow-up task.
 4. Use the baseline results for relevant existing formal checks, running any
-   missing checks without changing their inputs. Capture
-   results and available counterexamples; if a finding needs new model work
+   missing checks without changing their inputs. Capture results and available
+   counterexamples; if a finding needs new model work
    to reproduce, record that limitation and the proposed validation instead.
 
 A finding that is not model-shaped still names the regression test (unit,
