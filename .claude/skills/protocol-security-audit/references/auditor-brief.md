@@ -1,17 +1,31 @@
 # Auditor Brief
 
-Send each slice auditor the shared brief with its placeholders filled, then the
-bug-class list, then exactly one slice section.
+Send the selected auditor the shared brief with its placeholders filled, then
+the bug-class list and exactly one section from [slices.md](slices.md).
+Apply the limits in [`batching.md`](batching.md); a large slice may be several
+queued work items.
 
 ## Shared brief
 
 ```text
-You are one of several parallel security auditors on the Tearleads monorepo
+You are the selected slice auditor on the Tearleads monorepo
 (<REPO_ROOT>, revision <SHA>). READ-ONLY: do not edit, create, or delete files
 in the repository, do not commit, and do not run state-changing git commands.
 Write scratch notes and probes only under <SCRATCH_DIR>. You may run existing
-tests. Audit the existing TLA+ models relevant to your slice, including their
-assumptions, properties, configurations, and production mappings. Do not
+tests. Do not spawn agents, invoke another audit skill, publish issues or
+comments, or change external state. Reporting and any authorized publication
+belong to the coordinator.
+
+Your exact work item and remaining coverage: <WORK_ITEM>
+Budget: at most 25 tool calls; reserve the last five for triage and reporting.
+Use targeted searches and reads, not whole-directory dumps. Save candidate
+evidence as you go. At the limit, stop and report unchecked paths, unresolved
+candidates, and the next concrete step. A partial slice is a valid batch
+result; never call it complete or clean. Do not expand scope to fill a quota.
+
+Audit the assigned existing TLA+ models, including their assumptions,
+properties, configurations, and production mappings. Use prior model reviews
+referenced in the work item; queue uncovered models. Do not
 implement model changes, negative controls, trace fixtures, or documentation
 updates; recommend fixes or additions in your report for a separate task.
 
@@ -42,14 +56,15 @@ Security changes since the last audit are the least-reviewed code at this
 revision; scrutinize them first (read their diffs with `git show <sha>`):
 <RECENT_SECURITY_PRS>
 
-Read docs/security-guarantees.md first. Claims there that the code does not
-implement are findings. Also read formal/README.md and the model docs for your
-slice.
+Read the coordinator's compact baseline at <BASELINE_FILE>, then the exact
+sections of docs/security-guarantees.md, formal/README.md, and model docs
+relevant to your work item. The baseline provides source references, not proof
+that the code meets a guarantee. Do not reload the whole issue history or all
+slice/model documents. Claims the code does not implement are findings.
 
 Quality bar: report only issues traced through real code paths with file:line
-evidence, ideally with a probe. Prefer three real bugs over fifteen
-speculative ones. Try to refute each candidate: is there a check elsewhere, is
-the path reachable in production, does a signature already cover the field?
+evidence, ideally with a probe. Try to refute each candidate: is there a check
+elsewhere, is the path reachable in production, does a signature cover the field?
 Confirm option defaults at the production call site, not only in the helper.
 Decide honest reachability from the honest client's own flow (for example,
 whether the SDK revokes grants before a delete). List plausible but untraced
@@ -60,21 +75,28 @@ Probes: import repository modules by absolute path and run
 `API_DATABASE=memory` (PGlite, Postgres semantics); the sqlite backend hides
 uuid lowercasing and text-column normalization. The strongest parity evidence
 is a differential probe run from packages/api that commits through real routes
-and feeds the served projection to the real SDK verifier. The coordinator has
-rebuilt packages/client-sdk/dist at this revision: do not rebuild it or run
-bun install, because a rebuild mid-run breaks other auditors' probes. Existing
-TLC results are in <SCRATCH_DIR>/formal/; do not re-run the whole suite.
+and feeds the served projection to the real SDK verifier. Probe at most two
+distinct root causes, with at most one harness-repair attempt per probe; keep
+additional candidates as traces for later verification. The coordinator has
+checked packages/client-sdk/dist at this revision: do not rebuild it or run
+bun install. Existing TLC results are in <FORMAL_LOG_DIR>; read relevant
+summaries, do not re-run the suite or paste passing logs into the report.
 
-Output, under about 2,000 words. For each finding give: a title; direction (A,
-B, or Parity); severity (High, Medium, Low) and confidence (Probed,
-Confirmed-by-trace, Plausible); file:line evidence; the attacker precondition;
+Write report.md in your scratch directory. Aim for under 1,200 words, linking
+longer evidence files rather than omitting evidence. For each finding give:
+a title; direction (A, B, or Parity); severity (High, Medium, Low) and confidence
+(Probed, Confirmed-by-trace, Plausible); file:line evidence; attacker precondition;
 a concrete step-by-step scenario; the impact; a suggested fix with a no-brick
 check; and whether it is model-shaped (a refusal rule, commit guard, lock,
 ordering, or recovery rule that a TLA+ model could express). For model-shaped
 findings, identify existing coverage, recommended model fixes or additions,
 and validation still needed. Report defects or coverage gaps in the existing
 models even when no production bug is confirmed; distinguish model evidence
-from production evidence. Then give a short "checked and looked sound" list.
+from production evidence. Include the API/client verifier pairs and route
+bindings checked so later slices need not repeat them. End with short lists
+of checked paths, refuted candidates, unchecked paths/models, and next steps.
+Return only the report path, candidate ids/severities, coverage status, and
+next step in at most 200 words. Do not return the full report as well.
 ```
 
 Default `<EXCLUSIONS>`: equivocation and split view; cold-start rollback on a
@@ -83,16 +105,20 @@ witnesses, and semantic currentness (#2186 or its successor); pure availability
 or withholding; DoS and rate limits; residuals documented as accepted in
 `docs/security-guarantees.md`; plus any exclusions the user added.
 
-Fill `<KNOWN_ISSUES>` from the audit issues, their closing comments, and the
-"Not in scope" or follow-up sections of each fix PR; carried-forward items
-live there, not in the issue bodies. Name withdrawn designs explicitly (such as
+Fill `<KNOWN_ISSUES>` with slice-relevant entries from the saved index, using
+the audit issues, their closing comments, and the "Not in scope" or follow-up
+sections of each fix PR; carried-forward items live there, not in issue bodies.
+Name withdrawn designs explicitly (such as
 the #2173/#2174 client currency rule) so auditors do not re-propose them. Fill
-`<RECENT_SECURITY_PRS>` with each security PR since the last audit and one line
-on what it changed.
+`<RECENT_SECURITY_PRS>` with security PRs relevant to this work item since the
+last audit and one line on what each changed. Fill `<WORK_ITEM>` with exact
+paths, relevant models, and saved coverage/next steps on resume. Point
+`<BASELINE_FILE>` at the compact baseline and `<FORMAL_LOG_DIR>` at the shared
+formal logs, not the auditor's private directory.
 
-The brief is long. The coordinator may write it, filled in, to
-`<SCRATCH_DIR>/brief-shared.md` and require each auditor to read that file in
-full before anything else, with the slice section inline in the prompt.
+The coordinator may write the filled brief to `<SCRATCH_DIR>/brief.md` and
+require the auditor to read it first. It contains only this work item's
+context, not the full audit archive or the entire slice catalog.
 
 ## Bug classes to sweep
 
@@ -160,168 +186,3 @@ earlier audit.
 - **Shared local resources.** Local storage keys or caches keyed by an id
   several slots, documents, or identities share, deleted or overwritten
   without a reference check.
-
-## Slices
-
-Client paths are under `packages/client-sdk/src` and API paths are under
-`packages/api/src` unless a full path is shown.
-
-| Slice | Client scope | API scope |
-| --- | --- | --- |
-| `documents` | `data/documents`, `workflows/documents`, `stores/documents`, `packages/loro` | `workflows/documents`, `documents`, `routes/documents`, `services/documents` |
-| `containers` | `data/keyingProjectionVerification`, `data/containers`, `workflows/containers`, `workflows/container-contents/container-state` | `workflows/containers`, `routes/containers`, `services/containers`, `access` |
-| `principals` | `data/principals`, `workflows/principals`, `workflows/organizations`, `client/organizations` | `workflows/principals`, `workflows/organizations`, matching routes and services |
-| `blobs` | `data/blobs`, `data/documents/blob`, `workflows/blobs`, attachment hydration in `stores/documents` | `workflows/blobs`, `routes/blobs`, `services/blobs`, `adapters` |
-| `sync-placement` | `workflows/container-contents` (except `container-state`), `stores/container-contents`, `stores/local-projection` | listing and feed routes, `access/read` |
-| `sync-runtime` | `sync`, `data/sync`, `workflows/sync`, `data/persistence`, outbox and pending-write paths in `stores/documents` | `realtime` |
-| `crypto` | `packages/crypto/src/keying` (except transparency), `packages/crypto/src/signing`, `packages/crypto/src/encapsulation`, `packages/encoding`, `packages/validators` | how both sides call the shared verifiers |
-| `identity` | `data/trustedUserIdentity`, `client/session`, `client/root`, `client/localKeyring`, `workflows/registration`, `packages/api-client`, `packages/app/src/providers/db/*Backup*` | `routes/auth`, `workflows/auth`, `services/auth`, `middleware`, root routes and services |
-| `api-writes` | none | every mutating route, `validators`, `packages/api-shared` schemas |
-
-### `documents`
-
-- Can the server get the client to merge, decrypt, or display an update that
-  was not signed by an authorized writer at the path it was accepted under, or
-  splice updates across documents, epochs, or containers?
-- Can it make the client wrap a content key to an unauthorized recipient, or
-  reuse a key or nonce?
-- Can a coded error, empty listing, or 404 delete local data without a verified
-  purge proof?
-- Does the API validate every signed event and header with the same rules and
-  options as the client verifier? Diff the two.
-- Can a client write through a container it cannot write, link across
-  organizations, or collide with another document's ids?
-- Can a writer cite extra authorizing paths (another organization, unlinked
-  leaves) that the API stores and readers must then resolve?
-- For a document linked into several containers, can a writer holding only one
-  link still heal a stale bundle and write after another link rotates?
-- Can a purge proof without predecessors, or with an ancestor the device has
-  since pinned newer, advance or block the local checkpoint?
-
-### `containers`
-
-- Can a served projection make the client wrap a KEK, or document keys under a
-  KEK, for an unauthorized recipient, or accept a KEK whose epoch id does not
-  commit to its material?
-- Can a crafted or replayed acknowledgement advance a checkpoint to a head the
-  client did not sign?
-- Does the KEK-log rebuild verify every bridge and keyring before using it?
-- Direction B: cross-organization or cyclic moves, non-admin share, revoke, or
-  rekey, and a writer escalating grants or changing referenced heads.
-- Parity: diff API and client container event verification for authority,
-  citations, root paths, epoch transitions, grant roots, key target hashes,
-  keyring lengths, recite limits, and the membership option.
-- Does the API accept wrap labels or recipient ids the client derives itself?
-- Compare every read-time bound (path depth, manifest history, carried caps)
-  with its commit-time guard. Can honest use grow a container past what the
-  API will later verify cold?
-- Can every rotator comply with what the rotation owes, including one that
-  revokes its own access?
-
-### `principals`
-
-- Can recipient resolution for member envelopes or KEKs use unverified rows,
-  stale directories, or identity lookups not bound to signed fingerprints?
-- Is `externalAuthority` bound to the right organization's Admins head, and
-  are directory heads bound to organization and group ids?
-- Does the client check an unwrapped member envelope against the signed
-  principal key before re-wrapping it?
-- Direction B: does the API verify every submitted principal state, including
-  registration invariants, on the exact bytes it will later serve?
-- Can a client delete a group or organization it does not administer, or can
-  the server make a client drop organization state without proof?
-- After a container or group is deleted, can grantee groups still advance,
-  users still be offboarded, and fresh devices still fetch every policy the
-  retained history cites?
-- Does disabling a user remove them from every group, or only Admins and
-  Members?
-
-### `blobs`
-
-- Are blob id, document, epoch, chunk index and count, and sizes bound so that
-  substitution, truncation, and reordering fail?
-- Can a listing bind a foreign blob, roll a slot back, or delete newer local
-  bytes?
-- Direction B: can a client bind a blob it did not stage, complete or abort
-  another user's upload, overwrite a blob id, or trigger GC of a referenced
-  blob?
-- Are stale blob key bundles handled the way documents handle them after a
-  rekey or link change?
-- Does binding an existing blob into one document rewrite or replace the
-  served envelopes of other documents bound to it?
-- Are local byte stores keyed per slot, and does every delete check other
-  references?
-
-The `sync` surface is split in two by default because it is the largest (about
-49k non-test lines in September 2026). Merge them only if a re-count shows the
-combined slice is balanced with the others.
-
-### `sync-placement`
-
-- Which local mutations come from unverified listing rows (parent, slot,
-  organization, `metadataDocumentId`, epochs, flags, cursors, tombstone
-  timestamps, coded errors)? Can they delete, hide, move, or re-target writes?
-  Follow every listing field into local persistence and into later reads that
-  use it as a floor or selector.
-- Do container tombstones cascade to local descendants, and can a fence block
-  an honest later listing?
-- Can adoption bind a pending create, move, or link to a server-chosen object?
-- Direction B: listing children or feeds without an access path.
-- Is there cross-identity or cross-organization contamination in discovery and
-  placement caches?
-
-### `sync-runtime`
-
-- Does outbox replay re-verify current state before signing?
-- Can any path advance or erase a checkpoint from unverified data or on the
-  server's say-so, including remote reset and organization replacement?
-- Direction B: realtime subscription authorization and revocation, ticket and
-  session liveness, and hint scoping.
-- Is there cross-identity or cross-organization contamination in shared
-  executors and caches, and are they cleared on identity switch and reset?
-
-### `crypto`
-
-- Are canonical encodings injective and domain-separated (absent versus null,
-  Unicode, numbers, locale)?
-- Is every decision-relevant field inside the signed bytes of each signed
-  object?
-- Can served data choose a suite or format, and does AEAD associated data bind
-  object id, epoch, and purpose everywhere the documentation claims?
-- Set roots: duplicates, sort order, and count versus root.
-- Authority algebra: access levels, the membership option, lineage, and epoch
-  and version transitions.
-- Parity: verifier options used differently by the API and the client, and
-  verifiers the client uses that the API never calls on submission.
-
-### `identity`
-
-- Can a pin, trust domain, or login bind one identity's keys or artifacts to
-  another user id?
-- Which responses are not bound to their request (acknowledgements, bundles,
-  KEK logs, purge proofs, listings)?
-- Direction B: registration invariants, retry adoption, session and
-  organization scoping, and origin spoofing.
-- Do all security anchors survive backup restore and identity switch
-  (checkpoints, purge checkpoints, pins, incidents)?
-- Are verification failures swallowed into retries or fallbacks, or
-  availability failures recorded as incidents?
-- Organization replacement and purge recovery: what proves the adopted
-  organization and root, and what local state does the reset delete or
-  re-home?
-- Does every signed challenge or login artifact name the API it is for?
-
-### `api-writes`
-
-- Build a compact route table: actor binding, id binding to signed payloads,
-  and check-versus-lock ordering.
-- Replay a signed artifact into another container, organization, document,
-  epoch, or context after it was superseded.
-- Look for TOCTOU between authorization or head checks and the write, and for
-  database constraints that enforce linear history.
-- Look for rows deleted while their heads or links remain current.
-- Look for input that passes API validation but breaks client parsing or
-  verification.
-- For each signed field, record its column type and whether the storing
-  transaction re-reads and re-verifies it; create routes, whose ids come only
-  from the signed body, deserve the closest look.
