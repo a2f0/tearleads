@@ -9,9 +9,9 @@ classify each finding. Run the full audit so build, deploy, and test tools remai
 visible. A development dependency can still process hostile input or run with
 deployment credentials.
 
-For the Ruby graph, run `bundle-audit check --update` from
-`packages/app-capacitor` against its `Gemfile.lock`, and keep those results
-with the review too.
+For the Ruby graph, install the audit tool with `gem install bundler-audit`, then
+run `bundle-audit check --update` from `packages/app-capacitor` against its
+`Gemfile.lock`. Keep those results with the review too.
 
 Prioritize reachable production findings and high/critical findings in every
 environment. Fix or mitigate those before release; any exception needs a named
