@@ -61,8 +61,9 @@ const baseConfig = {
       project: ["src/**/*.ts", "scripts/**/*.ts"],
     },
     "packages/api-shared": {
-      entry: ["src/**/*.test.ts"],
-      project: ["src/**/*.ts"],
+      // The teardown helper is run by terraform/scripts/drop-postgres-owned.sh.
+      entry: ["src/**/*.test.ts", "scripts/dropOwnedObjects.ts"],
+      project: ["src/**/*.ts", "scripts/**/*.ts"],
     },
     "packages/app": {
       // The `screenshots:seed` CLI (test/screenshot-seed/buildScreenshotSeed.ts)
@@ -240,7 +241,10 @@ const productionConfig = {
       entry: ["src/index.ts!"],
       project: productionProject,
     },
-    "packages/api-shared": { project: productionProject },
+    "packages/api-shared": {
+      entry: ["scripts/dropOwnedObjects.ts!"],
+      project: productionProject,
+    },
     "packages/app": { project: productionProject },
     "packages/app-web": {
       entry: [

@@ -26,6 +26,14 @@ interface LoadedGateway {
 const EVENTS_PATH = "/events";
 const CLOSE_MESSAGE_TOO_BIG = 1009;
 const CLOSE_UNSUPPORTED_DATA = 1003;
+const CLOSE_TRY_AGAIN_LATER = 1013;
+/**
+ * Messages a socket may have waiting behind its open or an earlier message.
+ * The gateway bounds pending declarations once it sees them; this bounds what
+ * a client can queue before it does, so one socket cannot grow the shared
+ * hub's memory while an authorization is in flight.
+ */
+const MAX_QUEUED_SOCKET_MESSAGES = 32;
 
 /**
  * One Durable Object hosts the realtime gateway exactly as the Bun process
@@ -96,6 +104,7 @@ export class RealtimeHub
     };
     // Bun delivers open before the first message; serialize the same order.
     let queue = gateway.websocket.open(socket).catch(gateway.report);
+    let queued = 0;
     let closed = false;
     const close = () => {
       if (closed) {
@@ -114,9 +123,17 @@ export class RealtimeHub
         server.close(CLOSE_MESSAGE_TOO_BIG, "Message too large");
         return;
       }
+      if (queued >= MAX_QUEUED_SOCKET_MESSAGES) {
+        server.close(CLOSE_TRY_AGAIN_LATER, "Too many pending messages");
+        return;
+      }
+      queued += 1;
       queue = queue
         .then(() => gateway.websocket.message(socket, data))
-        .catch(gateway.report);
+        .catch(gateway.report)
+        .finally(() => {
+          queued -= 1;
+        });
     });
     server.addEventListener("close", close);
     server.addEventListener("error", close);

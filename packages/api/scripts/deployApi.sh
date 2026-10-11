@@ -138,6 +138,19 @@ if ! jq -e 'type == "object" and (to_entries | all(.value | type == "string"))' 
 fi
 (cd "$API_DIR" && bunx --no-install wrangler secret bulk "$SECRETS_FILE" --env "$TIER")
 
+# A secret this deploy no longer sets must not keep an earlier value alive:
+# an integration disabled in the tier file has to stay disabled.
+echo "Removing $TIER Worker secrets this deploy does not manage..."
+MANAGED_SECRETS="$(jq -r 'keys[]' "$SECRETS_FILE")"
+DEPLOYED_SECRETS="$(cd "$API_DIR" && bunx --no-install wrangler secret list --env "$TIER" --format json | jq -r '.[].name')"
+while IFS= read -r deployed_secret; do
+  [[ -n "$deployed_secret" ]] || continue
+  if ! grep -Fqx "$deployed_secret" <<<"$MANAGED_SECRETS"; then
+    echo "Removing stale secret $deployed_secret"
+    (cd "$API_DIR" && bunx --no-install wrangler secret delete "$deployed_secret" --env "$TIER")
+  fi
+done <<<"$DEPLOYED_SECRETS"
+
 echo "Publishing $TIER API Worker..."
 DEFINE_ARGS=()
 while IFS= read -r define; do

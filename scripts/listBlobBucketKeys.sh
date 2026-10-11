@@ -49,7 +49,9 @@ main() {
   umask 077
   local storage_json
   storage_json="$(mktemp "${TMPDIR:-/tmp}/tearleads-${tier}-storage-XXXXXX")"
-  trap 'rm -f "$storage_json"' EXIT
+  # The trap runs after main returns, so it must capture the path now.
+  # shellcheck disable=SC2064
+  trap "rm -f '$storage_json'" EXIT
   "$repo_root/terraform/scripts/run-storage-stack.sh" "$tier" output -json api_storage >"$storage_json"
 
   local cli_args=(blob-store:list-keys)

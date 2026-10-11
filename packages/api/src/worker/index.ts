@@ -12,6 +12,8 @@ export { RealtimeHub } from "./realtimeHubObject";
 const EVENTS_PATH = "/events";
 
 interface LoadedApp {
+  /** The configured browser origins, for refusals the app never sees. */
+  readonly corsOrigins: "*" | readonly string[];
   readonly fetch: (
     request: Request,
     bindings: Record<string, unknown>,
@@ -31,12 +33,41 @@ let app: Promise<LoadedApp> | undefined;
 function loadApp(): Promise<LoadedApp> {
   app ??= Promise.all([
     import("../routeApp"),
+    import("../corsOrigins"),
     import("@tearleads/api-shared/postgres"),
-  ]).then(([{ routeApp }, { withRequestScopedApiDatabase }]) => ({
-    fetch: (request, bindings, ctx) => routeApp.fetch(request, bindings, ctx),
-    withRequestDatabase: withRequestScopedApiDatabase,
-  }));
+  ]).then(
+    ([
+      { routeApp },
+      { readApiCorsOrigins },
+      { withRequestScopedApiDatabase },
+    ]) => ({
+      corsOrigins: readApiCorsOrigins(),
+      fetch: (request, bindings, ctx) => routeApp.fetch(request, bindings, ctx),
+      withRequestDatabase: withRequestScopedApiDatabase,
+    }),
+  );
   return app;
+}
+
+/**
+ * A refusal issued before the app runs still needs the app's CORS answer,
+ * or a browser reports a network error instead of the status.
+ */
+function refuse(
+  request: Request,
+  corsOrigins: "*" | readonly string[],
+  body: { readonly error: string },
+  status: number,
+): Response {
+  const origin = request.headers.get("origin");
+  const headers = new Headers();
+  if (corsOrigins === "*") {
+    headers.set("access-control-allow-origin", "*");
+  } else if (origin !== null && corsOrigins.includes(origin)) {
+    headers.set("access-control-allow-origin", origin);
+    headers.set("vary", "Origin");
+  }
+  return Response.json(body, { status, headers });
 }
 
 function isWebSocketUpgrade(request: Request): boolean {
@@ -55,15 +86,20 @@ async function handleRequest(
     }
     return realtimeHubStub().fetch(request);
   }
+  const { corsOrigins, fetch, withRequestDatabase } = await loadApp();
   // Route-level limits still apply below this ceiling.
   const bounded = await boundRequestBody(
     request,
     MAX_MULTIPART_BLOB_PART_BYTES,
   );
   if (bounded.kind === "too-large") {
-    return Response.json({ error: "Request body too large" }, { status: 413 });
+    return refuse(
+      request,
+      corsOrigins,
+      { error: "Request body too large" },
+      413,
+    );
   }
-  const { fetch, withRequestDatabase } = await loadApp();
   // The request's database pool closes once the response is produced; the
   // close itself runs after the response so it never delays the client.
   return withRequestDatabase(
