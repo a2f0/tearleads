@@ -56,17 +56,18 @@ Use the mise-pinned Java and TLA+ tools for checks relevant to the audited
 scope, without changing model inputs or registering new cases:
 
 ```sh
-bun run check:protocol-models             # registered model/config pairs
-bun run check:protocol-negative-controls  # existing expected violations
-bun run lint:formal-maps                  # model tokens and production seams
-bun run check:no-brick-projection         # verifier runs vs NoBrickedDevice
-bun run check:protocol-traces             # trace fixture drift, no generation
-bun run check:protocol-projection         # implementation trace projection
+bun run agent:run -- bun run check:protocol-models
+bun run agent:run -- bun run check:protocol-negative-controls
+bun run agent:run -- bun run lint:formal-maps
+bun run agent:run -- bun run check:no-brick-projection
+bun run agent:run -- bun run check:protocol-traces
+bun run agent:run -- bun run check:protocol-projection
 ```
 
 Start these in the background while establishing the baseline, logging each
-command's output and exit code to the scratch directory, so results are ready
-before verification and auditors can read the logs instead of re-running TLC.
+command's receipt and exit code to the scratch directory, so results are ready
+before verification and auditors can inspect the retained raw logs instead of
+re-running TLC. Use `bun run agent:logs <path>` for bounded excerpts.
 Take per-configuration generated and distinct state counts and depth from the
 `check:protocol-models` log for the report.
 

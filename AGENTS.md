@@ -2,6 +2,20 @@
 
 ## Preflight Commands
 
+Wrap noisy setup, checks, builds, and hook-running Git commands with the
+shared output harness:
+
+```sh
+bun run agent:run --label checks -- bun run check:affected
+bun run agent:run --label push -- git push -u origin HEAD
+bun run agent:logs <reported-log-path> --tail-lines 40 --max-bytes 4096
+```
+
+The harness preserves exit status and full local logs, prints compact success
+receipts, and shows bounded failure excerpts. Inspect relevant log sections;
+do not load whole successful logs. Keep review verdicts, verification reports,
+and required evidence visible.
+
 Run the smallest command that matches the handoff risk:
 
 - `bun run check:fast`: formatting, OpenAPI generation and compatibility,
