@@ -121,7 +121,8 @@ The API Worker's hourly Cron Trigger (`0 * * * *` in
 `packages/api/wrangler.jsonc`) runs blob maintenance through
 `worker/maintenance.ts`; the trigger deploys with the Worker, so there is no
 separate timer to verify. Each tier loads its secret `BLOB_GC_HEALTHCHECK_URL` from
-`.secrets/<tier>.healthchecks.env`, the API deploy syncs it as a Worker secret,
+`.secrets/<tier>.healthchecks.env`, the API deploy refuses to run without it
+and syncs it as a Worker secret,
 and `worker/healthchecks.ts` sends the start, success, and failure pings around
 each run; the project management API key is not deployed. A run that throws
 sends the failure signal; a missing success signal also detects a disabled

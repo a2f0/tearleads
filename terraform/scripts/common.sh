@@ -70,8 +70,17 @@ validate_aws_env() {
 validate_cloudflare_env() {
   local missing=()
 
+  # A traced run would otherwise print the token in the test's expansion.
+  local xtrace_was_enabled=0
+  if [[ "$-" == *x* ]]; then
+    xtrace_was_enabled=1
+    set +x
+  fi
   [[ -z "${TF_VAR_cloudflare_api_token:-}" ]] && missing+=("TF_VAR_cloudflare_api_token")
   [[ -z "${TF_VAR_cloudflare_account_id:-}" ]] && missing+=("TF_VAR_cloudflare_account_id")
+  if [[ "$xtrace_was_enabled" -eq 1 ]]; then
+    set -x
+  fi
 
   if [[ ${#missing[@]} -gt 0 ]]; then
     echo "ERROR: Missing required environment variables:" >&2
@@ -82,11 +91,26 @@ validate_cloudflare_env() {
 
 # Export the Cloudflare credentials Wrangler reads, from the Terraform ones.
 export_wrangler_env() {
-  validate_cloudflare_env || return 1
+  local xtrace_was_enabled=0
+  # Neither the validation's expansions nor the token assignment may appear
+  # in a traced run.
+  if [[ "$-" == *x* ]]; then
+    xtrace_was_enabled=1
+    set +x
+  fi
+  if ! validate_cloudflare_env; then
+    if [[ "$xtrace_was_enabled" -eq 1 ]]; then
+      set -x
+    fi
+    return 1
+  fi
   export CLOUDFLARE_API_TOKEN="${TF_VAR_cloudflare_api_token:?}"
   export CLOUDFLARE_ACCOUNT_ID="${TF_VAR_cloudflare_account_id:?}"
   export WRANGLER_SEND_METRICS=false
   export CI=true
+  if [[ "$xtrace_was_enabled" -eq 1 ]]; then
+    set -x
+  fi
 }
 
 # Cloudflare cache invalidation helpers live in a sibling file to keep this one

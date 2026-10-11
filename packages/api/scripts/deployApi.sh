@@ -42,6 +42,22 @@ validate_domain_env
 validate_stripe_env "$TIER"
 export_wrangler_env
 
+# Secrets pass through shell variables from here until the Worker upload, so a
+# traced run (`bash -x`) must not print them; tracing resumes before the
+# deploy itself.
+XTRACE_WAS_ENABLED=0
+if [[ "$-" == *x* ]]; then
+  XTRACE_WAS_ENABLED=1
+  set +x
+fi
+
+# Blob garbage collection pings Healthchecks around every hourly run; a tier
+# without a check would fail silently, as the retired timer refused to.
+if [[ "${BLOB_GC_HEALTHCHECK_URL:-}" != https://* ]]; then
+  echo "ERROR: BLOB_GC_HEALTHCHECK_URL must be an https URL; set it in .secrets/$TIER.healthchecks.env." >&2
+  exit 1
+fi
+
 # The cursor HMAC key is generated once per tier and kept beside the other
 # tier secrets; rotating it re-verifies every object's history once.
 WORKER_ENV_FILE="$REPO_ROOT/.secrets/$TIER.worker.env"
@@ -97,7 +113,7 @@ export API_SENTRY_DSN
 # The sandbox flag is written on every deploy so a tier that stops opting in
 # cannot keep an earlier "true" secret.
 export REVENUECAT_ALLOW_SANDBOX_EVENTS="${REVENUECAT_ALLOW_SANDBOX_EVENTS:-}"
-export BLOB_GC_HEALTHCHECK_URL="${BLOB_GC_HEALTHCHECK_URL:-}"
+export BLOB_GC_HEALTHCHECK_URL
 # Secrets reach jq through its environment, never its argument list, which
 # any process on the host can read.
 export DOCUMENT_SYNC_CURSOR_HMAC_KEY
@@ -114,6 +130,7 @@ jq -n \
     POSTGRES_PASSWORD: $postgres[0].postgres_password,
     POSTGRES_DATABASE: $postgres[0].postgres_db,
     DOCUMENT_SYNC_CURSOR_HMAC_KEY: env.DOCUMENT_SYNC_CURSOR_HMAC_KEY,
+    BLOB_GC_HEALTHCHECK_URL: env.BLOB_GC_HEALTHCHECK_URL,
     BLOB_OBJECT_STORE_S3_ACCESS_KEY_ID: $storage[0].blob_s3_access_key_id,
     BLOB_OBJECT_STORE_S3_SECRET_ACCESS_KEY: $storage[0].blob_s3_secret_access_key
   }
@@ -122,7 +139,6 @@ jq -n \
      else {} end)
   + ([
       "API_SENTRY_DSN",
-      "BLOB_GC_HEALTHCHECK_URL",
       "REVENUECAT_WEBHOOK_AUTH_HEADER",
       "REVENUECAT_V2_SECRET_KEY",
       "REVENUECAT_PROJECT_ID",
@@ -166,6 +182,9 @@ done < <(cd "$API_DIR" && bun scripts/workerDefines.ts)
 # Native releases fetch the API from Capacitor and Electrobun loopback origins.
 API_PUBLIC_ORIGIN="https://$(tier_api_hostname "$TIER")"
 API_CORS_ORIGINS="https://$(tier_app_hostname "$TIER"),https://$(tier_demo_hostname "$TIER"),https://localhost,http://127.0.0.1:3002"
+if [[ "$XTRACE_WAS_ENABLED" -eq 1 ]]; then
+  set -x
+fi
 (cd "$API_DIR" && bunx --no-install wrangler deploy --env "$TIER" "${DEFINE_ARGS[@]}" \
   --var "API_PUBLIC_ORIGIN:$API_PUBLIC_ORIGIN" \
   --var "API_CORS_ORIGINS:$API_CORS_ORIGINS")

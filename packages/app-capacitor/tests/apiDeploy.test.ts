@@ -15,7 +15,10 @@ async function executable(path: string, source: string) {
  * Drives packages/api/scripts/deployApi.sh with stubbed Terraform outputs,
  * Bun, and Wrangler, recording what each step received.
  */
-async function deployFixture(extraEnv: Readonly<Record<string, string>> = {}) {
+async function deployFixture(
+  extraEnv: Readonly<Record<string, string>> = {},
+  options: { readonly trace?: boolean; readonly healthcheckUrl?: string } = {},
+) {
   const root = await mkdtemp(resolve(tmpdir(), "tearleads-api-deploy-"));
   const log = resolve(root, "calls.log");
   const bin = resolve(root, "bin");
@@ -28,16 +31,26 @@ async function deployFixture(extraEnv: Readonly<Record<string, string>> = {}) {
   await executable(
     resolve(root, "terraform/scripts/common.sh"),
     [
+      // The real loader suspends tracing while it reads secret files.
       "load_secrets_env() {",
+      '  local traced=0; if [[ "$-" == *x* ]]; then traced=1; set +x; fi',
       "  TF_VAR_domain=example.test",
       '  DOCUMENT_SYNC_CURSOR_HMAC_KEY="fixture-cursor-key-with-at-least-32-bytes"',
+      `  BLOB_GC_HEALTHCHECK_URL=${options.healthcheckUrl ?? "https://hc.example.test/ping/fixture"}`,
       "  SENTRY_API_STAGING_DSN=https://staging-dsn.example.test/1",
       "  export STRIPE_SECRET_KEY=sk_test_fixture",
+      '  if [[ "$traced" -eq 1 ]]; then set -x; fi',
+      "  return 0",
       "}",
       "validate_aws_env() { :; }",
       "validate_domain_env() { :; }",
       "validate_stripe_env() { :; }",
-      "export_wrangler_env() { export CLOUDFLARE_API_TOKEN=fixture-token; }",
+      "export_wrangler_env() {",
+      '  local traced=0; if [[ "$-" == *x* ]]; then traced=1; set +x; fi',
+      "  export CLOUDFLARE_API_TOKEN=fixture-token",
+      '  if [[ "$traced" -eq 1 ]]; then set -x; fi',
+      "  return 0",
+      "}",
       'tier_api_hostname() { echo "api-$1.example.test"; }',
       'tier_app_hostname() { echo "app-$1.example.test"; }',
       'tier_demo_hostname() { echo "demo-$1.example.test"; }',
@@ -102,7 +115,10 @@ async function deployFixture(extraEnv: Readonly<Record<string, string>> = {}) {
     ].join("\n"),
   );
   const { PATH } = process.env;
-  const child = Bun.spawn([script, "staging"], {
+  const command = options.trace
+    ? ["bash", "-x", script, "staging"]
+    : [script, "staging"];
+  const child = Bun.spawn(command, {
     cwd: root,
     env: {
       PATH: `${bin}:${PATH ?? ""}`,
@@ -151,6 +167,7 @@ test("the Worker receives the runtime login, derived origins, and only managed s
     POSTGRES_PASSWORD: "runtime-password",
     POSTGRES_DATABASE: "fixture-db",
     DOCUMENT_SYNC_CURSOR_HMAC_KEY: "fixture-cursor-key-with-at-least-32-bytes",
+    BLOB_GC_HEALTHCHECK_URL: "https://hc.example.test/ping/fixture",
     BLOB_OBJECT_STORE_S3_ACCESS_KEY_ID: "fixture-key",
     API_SENTRY_DSN: "https://staging-dsn.example.test/1",
     STRIPE_SECRET_KEY: "sk_test_fixture",
@@ -178,4 +195,35 @@ test("the Worker receives the runtime login, derived origins, and only managed s
   expect(
     run.calls.findIndex((call) => call.startsWith("migrate|")),
   ).toBeLessThan(run.calls.findIndex((call) => call.startsWith("deploy|")));
+});
+
+for (const [label, healthcheckUrl] of [
+  ["missing", ""],
+  ["not https", "http://hc.example.test/ping/fixture"],
+]) {
+  test(`a ${label} Healthchecks URL stops the deploy before anything runs`, async () => {
+    const run = await deployFixture({}, { healthcheckUrl });
+    expect(run.exitCode).toBe(1);
+    expect(run.stderr).toContain(
+      "BLOB_GC_HEALTHCHECK_URL must be an https URL",
+    );
+    expect(run.calls).toEqual([]);
+  });
+}
+
+test("a traced run never prints a secret", async () => {
+  const run = await deployFixture({}, { trace: true });
+  expect(run.exitCode, run.stderr).toBe(0);
+  // Tracing is on again for the deploy itself.
+  expect(run.stderr).toContain("wrangler deploy --env staging");
+  for (const secret of [
+    "migration-password",
+    "runtime-password",
+    "fixture-cursor-key",
+    "fixture-secret",
+    "fixture-token",
+    "staging-dsn.example.test",
+  ]) {
+    expect(run.stderr).not.toContain(secret);
+  }
 });
