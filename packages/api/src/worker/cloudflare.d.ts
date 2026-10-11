@@ -98,3 +98,15 @@ interface ResponseInit {
   /** Workers-only: the client half of an accepted WebSocket upgrade. */
   webSocket?: WebSocket | null;
 }
+
+// The XML builder package publishes no `exports` map, so its Node files are
+// importable by path; their types live under dist-types.
+declare module "@aws-sdk/xml-builder/dist-es/XmlNode.js" {
+  export { XmlNode } from "@aws-sdk/xml-builder";
+}
+declare module "@aws-sdk/xml-builder/dist-es/XmlText.js" {
+  export { XmlText } from "@aws-sdk/xml-builder";
+}
+declare module "@aws-sdk/xml-builder/dist-es/xml-parser.js" {
+  export { parseXML } from "@aws-sdk/xml-builder";
+}

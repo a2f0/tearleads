@@ -23,6 +23,7 @@
   // module imports statically; the Worker only ever selects Postgres.
   "alias": {
     "loro-crdt": "./src/worker/loro/index.ts",
+    "@aws-sdk/xml-builder": "./src/worker/stubs/awsXmlBuilder.ts",
     "bun:sqlite": "./src/worker/stubs/bunSqlite.ts",
     "@electric-sql/pglite": "./src/worker/stubs/pglite.ts",
     "@libsql/client": "./src/worker/stubs/libsql.ts"
